@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-009-graph-engine` |
-| Status | Not Started |
+| Status | Verified |
 | Depends on | M-008 |
 | Unlocks | M-010, M-011 |
 | Packages | `@prism/graph-engine` |
@@ -28,9 +28,9 @@ Provide a typed graph store on **ngraph** (nodes/edges/attributes) with query pr
 
 ## Definition of Done
 
-- [ ] Graph engine package with unit tests for path/neighbors
-- [ ] Deterministic serialization for fixture
-- [ ] Verify + PROGRESS + owner approval
+- [x] Graph engine package with unit tests for path/neighbors
+- [x] Deterministic serialization for fixture
+- [x] Verify + PROGRESS + owner approval
 
 ## Verification
 

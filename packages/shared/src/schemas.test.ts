@@ -5,6 +5,7 @@ import {
   FileInventorySchema,
   StackProfileSchema,
   HealthScoreSchema,
+  GraphSnapshotDtoSchema,
   IndexSnapshotSchema,
   IndexSummarySchema,
   PrismErrorSchema,
@@ -40,6 +41,15 @@ describe("DTO schemas round-trip", () => {
     expect(
       parseDto(IndexSummarySchema, JSON.parse(JSON.stringify(parsed))).ok,
     ).toBe(true);
+  });
+
+  it("GraphSnapshotDtoSchema", () => {
+    const raw = {
+      id: "g1",
+      nodes: [{ id: "a", kind: "file", label: "a.ts" }],
+      edges: [{ id: "e1", kind: "imports", from: "a", to: "a" }],
+    };
+    expect(GraphSnapshotDtoSchema.parse(raw).nodes[0]?.id).toBe("a");
   });
 
   it("IndexSnapshotSchema", () => {

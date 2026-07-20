@@ -269,6 +269,47 @@ export const IndexSnapshotSchema = z.object({
 
 export type IndexSnapshot = z.infer<typeof IndexSnapshotSchema>;
 
+/** Open string registry for graph node/edge kinds (domain builders in M-010+). */
+export const GraphNodeDtoSchema = z.object({
+  id: z.string().min(1),
+  kind: z.string().min(1),
+  label: z.string().min(1),
+  attrs: z.record(z.string(), JsonValueSchema).optional(),
+});
+
+export type GraphNodeDto = z.infer<typeof GraphNodeDtoSchema>;
+
+export const GraphEdgeDtoSchema = z.object({
+  id: z.string().min(1),
+  kind: z.string().min(1),
+  from: z.string().min(1),
+  to: z.string().min(1),
+  attrs: z.record(z.string(), JsonValueSchema).optional(),
+});
+
+export type GraphEdgeDto = z.infer<typeof GraphEdgeDtoSchema>;
+
+export const GraphSnapshotDtoSchema = z.object({
+  id: z.string().min(1),
+  nodes: z.array(GraphNodeDtoSchema),
+  edges: z.array(GraphEdgeDtoSchema),
+});
+
+export type GraphSnapshotDto = z.infer<typeof GraphSnapshotDtoSchema>;
+
+export const GraphLayoutPositionSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+});
+
+export type GraphLayoutPosition = z.infer<typeof GraphLayoutPositionSchema>;
+
+export const GraphLayoutSchema = z.object({
+  positions: z.record(z.string(), GraphLayoutPositionSchema),
+});
+
+export type GraphLayout = z.infer<typeof GraphLayoutSchema>;
+
 /** Open registry — well-known ids documented in `stack.ts` / ADR-0007. */
 export const StackSignalSchema = z.object({
   id: z.string().min(1),

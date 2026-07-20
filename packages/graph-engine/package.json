@@ -18,5 +18,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts"
+  },
+  "dependencies": {
+    "@prism/shared": "workspace:*",
+    "ngraph.graph": "^20.1.2",
+    "ngraph.path": "^1.6.1"
   }
 }
