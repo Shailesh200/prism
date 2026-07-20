@@ -1,0 +1,13 @@
+# https://moonrepo.dev/docs/config/toolchain
+$schema: "https://moonrepo.dev/schemas/toolchain.json"
+
+node:
+  version: "26.5.0"
+  packageManager: "bun"
+
+bun:
+  version: "1.3.11"
+
+typescript:
+  version: "5.9.2"
+  syncProjectReferences: true

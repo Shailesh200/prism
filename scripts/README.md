@@ -1,5 +1,8 @@
-# scripts
+# Scripts
 
-Verification and maintenance scripts.
+| Script | Purpose |
+|---|---|
+| `verify-milestone.sh` | Runs `bun run verify:milestone` |
+| `check-plan-progress.mjs` | Validates `plans/PROGRESS.md` Hard Rules |
 
-`verify-milestone` helpers land in M-001. See `plans/VERIFICATION.md`.
+See [`../plans/VERIFICATION.md`](../plans/VERIFICATION.md).

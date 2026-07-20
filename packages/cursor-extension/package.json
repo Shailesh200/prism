@@ -1,0 +1,22 @@
+{
+  "name": "@prism/cursor-extension",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Cursor extension packaging overlay",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
+  }
+}

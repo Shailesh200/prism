@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-001-project-foundation` |
-| Status | Not Started |
+| Status | In Progress |
 | Depends on | Master Plan **Approved** + **M-000 Verified** |
 | Unlocks | M-002 |
 | Packages touched | repo root, `packages/*` skeletons, `scripts/` |
@@ -39,13 +39,13 @@ Establish a production-grade monorepo skeleton: **Bun** workspaces, **moonrepo**
 
 ## Definition of Done
 
-- [ ] `bun install` clean on macOS
-- [ ] moon + verify scripts green
-- [ ] Oxlint + Oxfmt wired
-- [ ] Lefthook installed/documented
-- [ ] Package stubs for all Master Plan packages
-- [ ] Node 26 + Bun toolchain pinned via moon
-- [ ] `plans/PROGRESS.md` updated
+- [x] `bun install` clean on macOS
+- [x] moon + verify scripts green
+- [x] Oxlint + Oxfmt wired
+- [x] Lefthook installed/documented
+- [x] Package stubs for all Master Plan packages
+- [x] Node 26 + Bun toolchain pinned via moon
+- [x] `plans/PROGRESS.md` updated
 - [ ] Owner approval recorded
 
 ## Verification

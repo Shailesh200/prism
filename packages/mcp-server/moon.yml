@@ -1,0 +1,27 @@
+$schema: "https://moonrepo.dev/schemas/project.json"
+language: "typescript"
+layer: "library"
+tasks:
+  build:
+    command: "bun run build"
+    inputs:
+      - "src/**/*"
+      - "tsconfig.json"
+      - "package.json"
+    outputs:
+      - "dist"
+  typecheck:
+    command: "bun run typecheck"
+    inputs:
+      - "src/**/*"
+      - "tsconfig.json"
+  test:
+    command: "bun run test"
+    inputs:
+      - "src/**/*"
+      - "vitest.config.ts"
+  test-integration:
+    command: "bun run test:integration"
+    inputs:
+      - "src/**/*"
+      - "vitest.integration.config.ts"

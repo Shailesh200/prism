@@ -1,0 +1,9 @@
+{
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/node_modules/**",
+    "**/.moon/**",
+    "plans/mockups/**",
+    "bun.lock"
+  ]
+}
