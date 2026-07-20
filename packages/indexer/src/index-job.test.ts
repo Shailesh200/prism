@@ -1,3 +1,5 @@
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -15,9 +17,17 @@ const fixtureRoot = join(
   "m007-mini",
 );
 
+async function tempCachePath(): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), "prism-m007-cache-"));
+  return join(dir, "index.sqlite");
+}
+
 describe("runIndexJob", () => {
   it("produces a stable golden snapshot for the mini fixture", async () => {
-    const result = await runIndexJob(fixtureRoot, { concurrency: 2 });
+    const result = await runIndexJob(fixtureRoot, {
+      concurrency: 2,
+      cacheDbPath: await tempCachePath(),
+    });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
@@ -47,14 +57,16 @@ describe("runIndexJob", () => {
     expect(summary.stats.filesIndexed).toBe(2);
   });
 
-  it("emits inventory → analyze → finalize progress events", async () => {
+  it("emits inventory → cache → analyze → finalize progress events", async () => {
     const events: IndexProgressEvent[] = [];
     const result = await runIndexJob(fixtureRoot, {
       concurrency: 1,
+      cacheDbPath: await tempCachePath(),
       onProgress: (e) => events.push(e),
     });
     expect(result.ok).toBe(true);
     expect(events.some((e) => e.phase === "inventory")).toBe(true);
+    expect(events.some((e) => e.phase === "cache")).toBe(true);
     expect(events.some((e) => e.phase === "analyze")).toBe(true);
     expect(events.some((e) => e.phase === "finalize")).toBe(true);
     expect(events.filter((e) => e.phase === "analyze" && e.path).length).toBe(
@@ -67,6 +79,7 @@ describe("runIndexJob", () => {
     controller.abort();
     const result = await runIndexJob(fixtureRoot, {
       signal: controller.signal,
+      cache: false,
     });
     expect(result.ok).toBe(false);
     if (result.ok) return;

@@ -2,9 +2,9 @@
 
 Workspace walk, ignore rules, content hashing, and repository index jobs.
 
-**Implemented:** M-005 (inventory), M-007 (IndexJob → `IndexSnapshot`)  
-**Next:** M-008 SQLite persistence  
-**Depends on:** `@prism/shared`, `@prism/analyzer`  
+**Implemented:** M-005 (inventory), M-007 (IndexJob), M-008 (SQLite cache)  
+**Next:** M-033 watch / incremental (uses this cache)  
+**Depends on:** `@prism/shared`, `@prism/analyzer`, `better-sqlite3`  
 **Surfaces:** must call via `@prism/core` only (ADR-0004)
 
 ## Index job (M-007)
@@ -19,8 +19,19 @@ const result = await runIndexJob("/absolute/path/to/repo", {
 });
 ```
 
-Pipeline: **inventory → language detect → parse/extract → `IndexSnapshot`**.  
+Pipeline: **inventory → SQLite cache match → analyze changed → `IndexSnapshot` → persist**.  
 Per-file analyze failures are recorded (`status: "failed"`) and do **not** fail the job.
+
+### Cache (M-008 / ADR-0010)
+
+| Item | Value |
+|---|---|
+| Path | `<workspace>/.prism/cache/index.sqlite` |
+| Hit | Unchanged `contentHash` → reuse symbols/imports/exports (no re-parse) |
+| Privacy | Local only; never uploaded |
+| Corrupt DB | Deleted and rebuilt on next open |
+
+Disable with `{ cache: false }` or override path with `{ cacheDbPath }`.
 
 Core façade:
 

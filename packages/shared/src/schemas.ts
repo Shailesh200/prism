@@ -155,6 +155,7 @@ export type FileInventory = z.infer<typeof FileInventorySchema>;
 
 export const IndexProgressPhaseSchema = z.enum([
   "inventory",
+  "cache",
   "analyze",
   "finalize",
 ]);
@@ -248,6 +249,14 @@ export const IndexedFileSchema = z.object({
 
 export type IndexedFile = z.infer<typeof IndexedFileSchema>;
 
+export const IndexCacheStatsSchema = z.object({
+  status: z.enum(["hit", "miss", "partial", "disabled"]),
+  filesReused: z.number().int().nonnegative(),
+  filesAnalyzed: z.number().int().nonnegative(),
+});
+
+export type IndexCacheStats = z.infer<typeof IndexCacheStatsSchema>;
+
 export const IndexSnapshotSchema = z.object({
   repoId: z.string().min(1),
   rootPath: z.string().min(1),
@@ -255,6 +264,7 @@ export const IndexSnapshotSchema = z.object({
   files: z.array(IndexedFileSchema),
   stats: IndexFileStatsSchema,
   warnings: z.array(z.string()).default([]),
+  cache: IndexCacheStatsSchema.optional(),
 });
 
 export type IndexSnapshot = z.infer<typeof IndexSnapshotSchema>;

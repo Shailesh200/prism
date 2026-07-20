@@ -5,7 +5,7 @@ Resolve these with the owner before or during the indicated milestone. Record an
 | ID | Question | Needed by | Default if unanswered |
 |---|---|---|---|
 | Q-001 | License: MIT vs Apache-2.0 vs other? | M-001 | **Resolved: MIT** (`LICENSE`) |
-| Q-002 | Cache location: `.prism/` in workspace vs XDG cache dir? | M-008 | `.prism/cache` in workspace + gitignore |
+| Q-002 | Cache location: `.prism/` in workspace vs XDG cache dir? | M-008 | **Resolved:** `<workspace>/.prism/cache/index.sqlite` ([ADR-0010](./adr/0010-sqlite-cache-location.md)) |
 | Q-003 | Publish scope: GitHub org name / npm scope `@prism` availability? | M-001 / GA | Keep `@prism` locally; rename if taken |
 | Q-004 | Cursor extension: separate VSIX vs single VS Code extension? | M-032 | Single extension + Cursor packaging overlay |
 | Q-005 | First non-TS language after GA path: Python or Go? | M-034 | Python |

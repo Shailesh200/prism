@@ -8,6 +8,7 @@ import {
 import {
   PrismErrorCode,
   type FileInventoryEntry,
+  type IndexCacheStats,
   type IndexProgressEvent,
   type IndexSnapshot,
   type IndexedFile,
@@ -18,6 +19,12 @@ import {
   prismError,
   unsafeRepoId,
 } from "@prism/shared";
+import { openIndexCache, type IndexCacheDb } from "./cache/db.js";
+import {
+  canReuseCachedFile,
+  loadCachedFiles,
+  saveSnapshot,
+} from "./cache/store.js";
 import { inventoryWorkspace } from "./inventory.js";
 
 export const DEFAULT_INDEX_CONCURRENCY = 4;
@@ -30,6 +37,10 @@ export type IndexJobOptions = {
   readonly extraIgnorePatterns?: readonly string[];
   /** Inject analyzer host (tests). Default: TypeScript + noop plugins. */
   readonly analyzer?: AnalyzerHost;
+  /** Persist / reuse SQLite cache (default true). */
+  readonly cache?: boolean;
+  /** Override SQLite path (tests). */
+  readonly cacheDbPath?: string;
 };
 
 function emit(
@@ -193,8 +204,19 @@ async function mapPool<T, R>(
   return ok(results);
 }
 
+function cacheStatus(
+  filesReused: number,
+  filesAnalyzed: number,
+  enabled: boolean,
+): IndexCacheStats["status"] {
+  if (!enabled) return "disabled";
+  if (filesAnalyzed === 0 && filesReused > 0) return "hit";
+  if (filesReused === 0) return "miss";
+  return "partial";
+}
+
 /**
- * Full-repository index: inventory → language detect → parse/extract → snapshot.
+ * Full-repository index: inventory → cache match → analyze → snapshot → persist.
  * Per-file analyze failures are recorded; they do not fail the job.
  */
 export async function runIndexJob(
@@ -203,6 +225,7 @@ export async function runIndexJob(
 ): Promise<Result<IndexSnapshot, PrismError>> {
   const started = Date.now();
   const concurrency = options.concurrency ?? DEFAULT_INDEX_CONCURRENCY;
+  const cacheEnabled = options.cache !== false;
   const analyzer =
     options.analyzer ??
     createAnalyzerHost({
@@ -247,16 +270,66 @@ export async function runIndexJob(
   const gate1 = assertNotCancelled(options.signal);
   if (!gate1.ok) return gate1;
 
+  let cacheDb: IndexCacheDb | null = null;
+  let cachedFiles = new Map<string, IndexedFile>();
+
+  if (cacheEnabled) {
+    emit(options.onProgress, {
+      phase: "cache",
+      message: "Opening local SQLite cache",
+    });
+    const opened = await openIndexCache(
+      rootPath,
+      options.cacheDbPath ? { dbPath: options.cacheDbPath } : {},
+    );
+    if (opened.ok) {
+      cacheDb = opened.value;
+      cachedFiles = loadCachedFiles(cacheDb.db, rootPath);
+      emit(options.onProgress, {
+        phase: "cache",
+        filesTotal: entries.length,
+        filesDone: cachedFiles.size,
+        message: `Cache loaded (${cachedFiles.size} file row(s))`,
+      });
+    } else {
+      warnings.push(`cache unavailable: ${opened.error.message}`);
+    }
+  }
+
+  const reused: IndexedFile[] = [];
+  const toAnalyze: FileInventoryEntry[] = [];
+
+  for (const entry of entries) {
+    const cached = cachedFiles.get(entry.path);
+    if (canReuseCachedFile(entry.contentHash, cached)) {
+      // Refresh hash/status from inventory for skip rows; keep analysis payload.
+      reused.push({
+        ...cached,
+        contentHash: entry.contentHash,
+        status:
+          entry.status === "skipped_binary" ||
+          entry.status === "skipped_oversized"
+            ? entry.status
+            : cached.status,
+      });
+    } else {
+      toAnalyze.push(entry);
+    }
+  }
+
   emit(options.onProgress, {
     phase: "analyze",
     filesTotal: entries.length,
-    filesDone: 0,
-    message: "Analyzing files",
+    filesDone: reused.length,
+    message:
+      toAnalyze.length === 0
+        ? "Cache hit — skipping analyze"
+        : `Analyzing ${toAnalyze.length} file(s)`,
   });
 
-  let done = 0;
+  let done = reused.length;
   const mapped = await mapPool(
-    entries,
+    toAnalyze,
     concurrency,
     options.signal,
     async (entry) => {
@@ -271,9 +344,12 @@ export async function runIndexJob(
       return file;
     },
   );
-  if (!mapped.ok) return mapped;
+  if (!mapped.ok) {
+    cacheDb?.close();
+    return mapped;
+  }
 
-  const files = mapped.value
+  const files = [...reused, ...mapped.value]
     .slice()
     .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 
@@ -284,12 +360,16 @@ export async function runIndexJob(
     warnings.push(`${failed} file(s) failed analysis (recorded in snapshot)`);
   }
 
-  emit(options.onProgress, {
-    phase: "finalize",
-    filesTotal: files.length,
-    filesDone: files.length,
-    message: "Index snapshot ready",
-  });
+  const cacheStats: IndexCacheStats = {
+    status: cacheStatus(reused.length, mapped.value.length, cacheEnabled),
+    filesReused: reused.length,
+    filesAnalyzed: mapped.value.length,
+  };
+  if (cacheStats.status === "hit") {
+    warnings.push(
+      `cache-hit: reused ${cacheStats.filesReused}/${entries.length} file(s)`,
+    );
+  }
 
   const indexedAt = new Date().toISOString();
   const snapshot: IndexSnapshot = {
@@ -304,8 +384,42 @@ export async function runIndexJob(
       durationMs: Date.now() - started,
     },
     warnings,
+    cache: cacheStats,
   };
-  return ok(snapshot);
+
+  if (cacheDb) {
+    try {
+      saveSnapshot(cacheDb.db, snapshot);
+      emit(options.onProgress, {
+        phase: "finalize",
+        filesTotal: files.length,
+        filesDone: files.length,
+        message: "Index snapshot persisted to SQLite",
+      });
+    } catch (cause) {
+      warnings.push(`cache write failed: ${String(cause)}`);
+      emit(options.onProgress, {
+        phase: "finalize",
+        filesTotal: files.length,
+        filesDone: files.length,
+        message: "Index snapshot ready (cache write failed)",
+      });
+    } finally {
+      cacheDb.close();
+    }
+  } else {
+    emit(options.onProgress, {
+      phase: "finalize",
+      filesTotal: files.length,
+      filesDone: files.length,
+      message: "Index snapshot ready",
+    });
+  }
+
+  return ok({
+    ...snapshot,
+    warnings,
+  });
 }
 
 /** Derive the lightweight Core/MCP summary DTO from a full snapshot. */
