@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-011-semantic-kg` |
-| Status | Not Started |
+| Status | Verified |
 | Depends on | M-009 |
 | Unlocks | M-012, M-020, M-023 |
 | Packages | `@prism/graph-engine`, `@prism/analyzer`, `@prism/core` |
@@ -26,9 +26,9 @@ Elevate file-level facts into a **symbol-centric** semantic knowledge graph: sym
 
 ## Definition of Done
 
-- [ ] Fixture: find references returns expected locations
-- [ ] Graph stats exposed (node/edge counts)
-- [ ] Verify + PROGRESS + owner approval
+- [x] Fixture: find references returns expected locations
+- [x] Graph stats exposed (node/edge counts)
+- [x] Verify + PROGRESS + owner approval
 
 ## Verification
 

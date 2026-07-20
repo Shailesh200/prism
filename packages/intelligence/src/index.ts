@@ -27,3 +27,14 @@ export {
   type UnresolvedDependency,
 } from "./dependency/build.js";
 export { findCycles } from "./dependency/cycles.js";
+export {
+  buildKnowledgeGraph,
+  findReferences,
+  findSymbol,
+  type FindReferencesQuery,
+  type FindSymbolQuery,
+  type KnowledgeGraphResult,
+  type KnowledgeGraphStats,
+  type ReferenceHit,
+  type SymbolHit,
+} from "./semantic/build.js";
