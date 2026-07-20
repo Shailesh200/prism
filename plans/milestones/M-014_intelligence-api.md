@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-014-intelligence-api` |
-| Status | Not Started |
+| Status | Verified |
 | Depends on | M-013 |
 | Unlocks | M-015, M-022, M-024, M-025 |
 | Packages | `@prism/intelligence`, `@prism/core` |
@@ -26,10 +26,10 @@ Unify DNA, graphs, and index into a cohesive **Repository Intelligence** façade
 
 ## Definition of Done
 
-- [ ] Single entry: `workspace.intelligence()` returns aggregate
-- [ ] API documented + examples
-- [ ] Integration test on fixture
-- [ ] Verify + PROGRESS + owner approval
+- [x] Single entry: `workspace.intelligence()` returns aggregate
+- [x] API documented + examples — [`plans/guides/INTELLIGENCE_API.md`](../guides/INTELLIGENCE_API.md)
+- [x] Integration test on fixture
+- [x] Verify + PROGRESS + owner approval
 
 ## Verification
 

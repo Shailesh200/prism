@@ -1,15 +1,14 @@
 import {
   assembleDnaReport,
+  assembleIntelligenceReport,
   buildDependencyGraph,
   buildFeatureGraph,
   buildKnowledgeGraph,
   findReferences as queryReferences,
   findSymbol as querySymbols,
   type DependencyGraphOptions,
-  type FeatureInfo,
   type FindReferencesQuery,
   type FindSymbolQuery,
-  type KnowledgeGraphStats,
   type ReferenceHit,
   type SymbolHit,
 } from "@prism/intelligence";
@@ -17,11 +16,14 @@ import {
   PrismErrorCode,
   type BlastRadiusReport,
   type DnaReport,
+  type FeatureInfo,
   type GraphSnapshotDto,
   type HealthScore,
   type IndexProgressEvent,
   type IndexSnapshot,
   type IndexSummary,
+  type IntelligenceReport,
+  type KnowledgeGraphStats,
   type PrismError,
   type RepoId,
   type Result,
@@ -90,6 +92,11 @@ export type PrismWorkspace = {
   getFeatureGraph(): Result<FeatureGraphView, PrismError>;
   /** List inferred features with member files and confidence. */
   listFeatures(): Result<FeatureInfo[], PrismError>;
+  /**
+   * Aggregate Repository Intelligence report (DNA + graphs + consistency).
+   * Requires a prior `index()`. `INDEX_REQUIRED` if none.
+   */
+  intelligence(): Promise<Result<IntelligenceReport, PrismError>>;
   /** Lightweight summary (runs index when needed). */
   analyze(
     options?: IndexWorkspaceOptions,
@@ -294,6 +301,39 @@ export function createWorkspace(options: {
         );
       }
       return ok(buildFeatureGraph(lastSnapshot).features);
+    },
+    async intelligence() {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      if (!options.ports.stack) {
+        return err(
+          prismError(
+            PrismErrorCode.UNSUPPORTED,
+            "Stack detection is not wired",
+          ),
+        );
+      }
+      const profile = await options.ports.stack.detectProfile(rootPath);
+      if (!profile.ok) return profile;
+      const dna = assembleDnaReport({
+        profile: profile.value,
+        filePaths: lastSnapshot.files.map((f) => f.path),
+      });
+      return ok(
+        assembleIntelligenceReport({
+          snapshot: lastSnapshot,
+          dna,
+          capabilities: options.capabilities,
+        }),
+      );
     },
     analyze: runAnalyze,
     reindex: runAnalyze,
