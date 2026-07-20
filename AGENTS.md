@@ -23,6 +23,7 @@ If code and plan disagree, **stop and reconcile the plan** before continuing.
 - Every milestone must pass the complete verification suite.
 - Every merge to main must leave the repository buildable.
 - Every milestone must update the Master Plan progress.
+- After a milestone is committed and merged to `main`, **always share a short snippet** with the owner of what changed (bullets: APIs, packages, ADRs/plan notes). Keep it brief.
 
 ## Architecture rules
 

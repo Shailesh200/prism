@@ -13,5 +13,7 @@ export type {
   IndexerPort,
   LanguagePluginInfo,
   PrismEnginePorts,
+  StackDetectorInfo,
+  StackPort,
 } from "./ports.js";
 export { PRISM_API_LEVEL, PRISM_CORE_VERSION } from "./version.js";

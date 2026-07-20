@@ -269,6 +269,8 @@ Merge to main (LOCAL ONLY)
 ↓
 Mark milestone Verified
 ↓
+Share short “what changed” snippet with owner (APIs / packages / plan notes)
+↓
 Create NEXT milestone branch from updated main
 ↓
 Repeat
@@ -287,6 +289,7 @@ Repeat
 - Every milestone must pass the complete verification suite.
 - Every merge to main must leave the repository buildable.
 - Every milestone must update the Master Plan progress.
+- After merge to main, share a short owner-facing snippet of what changed.
 
 ### 8.3 Branch naming
 
@@ -402,7 +405,10 @@ flowchart TD
   M014 --> M015[M-015 Health Score]
   M010 --> M016[M-016 Navigation]
   M012 --> M016
+  M014 --> M041[M-041 Stack Utilities Foundation]
+  M040 --> M041
   M016 --> M017[M-017 Map Model]
+  M041 --> M017
   M017 --> M018[M-018 Map UI Playground]
   M018 --> M019[M-019 Map Layers]
   M010 --> M020[M-020 Blast Radius]
@@ -461,7 +467,8 @@ flowchart TD
 | M-014 | Repository Intelligence API | Intelligence | M-013 | Yes |
 | M-015 | Repository Health Score v1 | Intelligence | M-014 | Summary |
 | M-016 | Navigation Engine | Navigation | M-010, M-012 | Yes |
-| M-017 | Repository Map Data Model | Map | M-016 | Yes |
+| M-041 | Stack-aware utilities foundation (Lighthouse/CWV substrate) | Intelligence | M-014, M-040 | Yes |
+| M-017 | Repository Map Data Model | Map | M-016, M-041 | Yes |
 | M-018 | Repository Map UI (Playground) | Map | M-017 | Yes |
 | M-019 | Map Layers & Views | Map | M-018 | Summary |
 | M-020 | Change Impact — Blast Radius | Impact | M-010, M-011 | Yes |
@@ -485,7 +492,7 @@ flowchart TD
 | M-038 | Documentation Site | Docs | M-037 | Summary |
 | M-039 | GA Readiness | Release | M-036, M-038 | Yes |
 
-**Critical path (must stay green):** M-001 → M-005 → M-040 → M-014 → M-025 → surfaces (M-026/M-028/M-030) → M-039.
+**Critical path (must stay green):** M-001 → M-005 → M-040 → M-014 → **M-041** → M-017 → M-018 → M-025 → surfaces (M-026/M-028/M-030) → M-039.
 
 ---
 
@@ -502,6 +509,9 @@ flowchart TD
 | Stack Detector SPI | M-040 | Early contracts; domains + developer personas |
 | Project / framework / architecture detection | M-013, M-040 | FE/BE/Mobile/Desktop/Data-ML-AI/Data-eng/DevOps/Embedded/Game/Tooling |
 | Developer persona inference | M-013, M-040 | Heuristic audience signals (FE, BE, mobile, DS, ML, AI, DevOps, QA, …) |
+| Stack-aware utilities (Lighthouse/CWV/SEO + domain packs) | M-041+, backlog | [ADR-0008](./adr/0008-stack-aware-measurement-utilities.md) · [BACKLOG](./BACKLOG_STACK_UTILITIES.md); epic before M-018 |
+| Opt-in local Lighthouse runner | M-041 | Async PORT callout; reports local only |
+| CWV attribution (app→route→chunk→component) | M-041+ | Not LCP-only; honest fallbacks when attribution missing |
 | Feature / component / dependency graphs | M-010–M-012 | |
 | Semantic Knowledge Graph | M-011 | |
 | Repository Health Score | M-015 | |
@@ -743,6 +753,8 @@ After approval: [`START_HERE.md`](./START_HERE.md)
 - [`adr/0001-product-name-prism.md`](./adr/0001-product-name-prism.md)
 - [`adr/0002-toolchain-bun-node-lint.md`](./adr/0002-toolchain-bun-node-lint.md) *(superseded in part by 0003)*
 - [`adr/0003-locked-performance-stack.md`](./adr/0003-locked-performance-stack.md)
+- [`adr/0008-stack-aware-measurement-utilities.md`](./adr/0008-stack-aware-measurement-utilities.md)
+- [`BACKLOG_STACK_UTILITIES.md`](./BACKLOG_STACK_UTILITIES.md) — domain utility backlog (FE/BE/Mobile/…)
 - [`TOOLING_AND_CI.md`](./TOOLING_AND_CI.md)
 - [`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md) — Signal Chart (**locked**)
 - [`mockups/LOCKED.md`](./mockups/LOCKED.md) — brand PNGs (**locked**); UI mockups deferred

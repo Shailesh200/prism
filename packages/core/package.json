@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@prism/analyzer": "workspace:*",
+    "@prism/intelligence": "workspace:*",
     "@prism/shared": "workspace:*"
   }
 }

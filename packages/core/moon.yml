@@ -4,6 +4,7 @@ layer: "library"
 dependsOn:
   - "shared"
   - "analyzer"
+  - "intelligence"
 tasks:
   build:
     command: "bun run build"

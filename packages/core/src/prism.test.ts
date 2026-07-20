@@ -34,6 +34,34 @@ describe("Prism.create", () => {
     expect(client.listLanguagePlugins()).toEqual([]);
     expect(client.capabilities.analysis).toBe(false);
   });
+
+  it("lists loaded stack detectors via Core", () => {
+    const client = Prism.create();
+    expect(client.listStackDetectors().map((d) => d.id)).toEqual([
+      "unknown",
+      "nodejs-manifest",
+    ]);
+  });
+
+  it("returns a stub stack profile for a workspace with package.json", async () => {
+    const client = Prism.create();
+    const profile = await client.getStackProfile(process.cwd());
+    expect(profile.ok).toBe(true);
+    if (!profile.ok) return;
+    expect(profile.value.domains).toContain("tooling");
+    expect(profile.value.signals.some((s) => s.id === "nodejs-manifest")).toBe(
+      true,
+    );
+  });
+
+  it("can disable default stack detectors", async () => {
+    const client = Prism.create({ disableDefaultStack: true });
+    expect(client.listStackDetectors()).toEqual([]);
+    const profile = await client.getStackProfile(process.cwd());
+    expect(profile.ok).toBe(false);
+    if (profile.ok) return;
+    expect(profile.error.code).toBe(PrismErrorCode.UNSUPPORTED);
+  });
 });
 
 describe("lifecycle open → analyze → close", () => {

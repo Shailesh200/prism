@@ -3,14 +3,34 @@ import {
   createNoopPlugin,
   type LanguagePluginInfo as AnalyzerPluginInfo,
 } from "@prism/analyzer";
-import type { AnalyzerPort, LanguagePluginInfo } from "./ports.js";
+import {
+  createNodejsManifestDetector,
+  createStackHost,
+  createUnknownDetector,
+  type StackDetectorInfo as IntelligenceDetectorInfo,
+} from "@prism/intelligence";
+import type {
+  AnalyzerPort,
+  LanguagePluginInfo,
+  StackDetectorInfo,
+  StackPort,
+} from "./ports.js";
 
-function toCoreInfo(info: AnalyzerPluginInfo): LanguagePluginInfo {
+function toCorePluginInfo(info: AnalyzerPluginInfo): LanguagePluginInfo {
   return {
     id: info.id,
     spiVersion: info.spiVersion,
     extensions: info.extensions,
     capabilities: info.capabilities,
+  };
+}
+
+function toCoreDetectorInfo(info: IntelligenceDetectorInfo): StackDetectorInfo {
+  return {
+    id: info.id,
+    spiVersion: info.spiVersion,
+    domains: info.domains,
+    personaHints: info.personaHints,
   };
 }
 
@@ -20,10 +40,26 @@ export function createDefaultAnalyzerPort(): AnalyzerPort {
   return {
     id: host.id,
     listPlugins() {
-      return host.listPlugins().map(toCoreInfo);
+      return host.listPlugins().map(toCorePluginInfo);
     },
     analyzeFile(absolutePath) {
       return host.analyzeFile(absolutePath);
+    },
+  };
+}
+
+/** Default stack host with unknown + nodejs-manifest stubs (M-040). */
+export function createDefaultStackPort(): StackPort {
+  const host = createStackHost({
+    detectors: [createUnknownDetector(), createNodejsManifestDetector()],
+  });
+  return {
+    id: host.id,
+    listDetectors() {
+      return host.listDetectors().map(toCoreDetectorInfo);
+    },
+    detectProfile(rootAbsolutePath) {
+      return host.detectProfile(rootAbsolutePath);
     },
   };
 }

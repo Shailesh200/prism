@@ -3,13 +3,21 @@ import {
   PrismErrorCode,
   type PrismError,
   type Result,
+  type StackProfile,
   err,
   ok,
   prismError,
 } from "@prism/shared";
 import { STUB_CAPABILITIES, type PrismCapabilities } from "./capabilities.js";
-import { createDefaultAnalyzerPort } from "./default-ports.js";
-import type { LanguagePluginInfo, PrismEnginePorts } from "./ports.js";
+import {
+  createDefaultAnalyzerPort,
+  createDefaultStackPort,
+} from "./default-ports.js";
+import type {
+  LanguagePluginInfo,
+  PrismEnginePorts,
+  StackDetectorInfo,
+} from "./ports.js";
 import { createWorkspace, type PrismWorkspace } from "./workspace.js";
 import { PRISM_API_LEVEL, PRISM_CORE_VERSION } from "./version.js";
 
@@ -17,12 +25,14 @@ export type PrismClientOptions = {
   /** Override capability advertisement (tests / progressive enablement). */
   readonly capabilities?: PrismCapabilities;
   /**
-   * Optional engine ports. If `analyzer` is omitted, Core wires a default
-   * analyzer host with the noop plugin (M-004+).
+   * Optional engine ports. If `analyzer` / `stack` are omitted, Core wires
+   * default hosts (noop language plugin + stub stack detectors).
    */
   readonly ports?: PrismEnginePorts;
   /** Skip default analyzer wiring (plugin list stays empty). */
   readonly disableDefaultAnalyzer?: boolean;
+  /** Skip default stack detector wiring. */
+  readonly disableDefaultStack?: boolean;
 };
 
 export type PrismClient = {
@@ -31,6 +41,15 @@ export type PrismClient = {
   readonly capabilities: PrismCapabilities;
   /** Language plugins loaded in the wired analyzer host. */
   listLanguagePlugins(): readonly LanguagePluginInfo[];
+  /** Stack detectors loaded in the wired stack host (M-040). */
+  listStackDetectors(): readonly StackDetectorInfo[];
+  /**
+   * Stub stack profile for an absolute workspace root (rich packs in M-013).
+   * Does not require `openRepository`.
+   */
+  getStackProfile(
+    rootAbsolutePath: string,
+  ): Promise<Result<StackProfile, PrismError>>;
   /**
    * Open a repository workspace at an absolute filesystem path.
    * Analyze is a no-op stub until the indexer is wired.
@@ -39,14 +58,15 @@ export type PrismClient = {
 };
 
 function resolvePorts(options: PrismClientOptions): PrismEnginePorts {
-  if (options.disableDefaultAnalyzer) {
-    return options.ports ?? {};
+  let ports: PrismEnginePorts = options.ports ? { ...options.ports } : {};
+
+  if (!options.disableDefaultAnalyzer && ports.analyzer === undefined) {
+    ports = { ...ports, analyzer: createDefaultAnalyzerPort() };
   }
-  const ports = options.ports ?? {};
-  if (ports.analyzer !== undefined) {
-    return ports;
+  if (!options.disableDefaultStack && ports.stack === undefined) {
+    ports = { ...ports, stack: createDefaultStackPort() };
   }
-  return { ...ports, analyzer: createDefaultAnalyzerPort() };
+  return ports;
 }
 
 function resolveCapabilities(
@@ -62,17 +82,6 @@ function resolveCapabilities(
 
 /**
  * Public entrypoint — MCP, CLI, and IDE extensions must use this façade only.
- *
- * @example
- * ```ts
- * const prism = Prism.create();
- * console.log(prism.listLanguagePlugins());
- * const opened = prism.openRepository("/path/to/repo");
- * if (opened.ok) {
- *   await opened.value.analyze();
- *   opened.value.close();
- * }
- * ```
  */
 export const Prism = {
   create(options: PrismClientOptions = {}): PrismClient {
@@ -85,6 +94,34 @@ export const Prism = {
       capabilities,
       listLanguagePlugins() {
         return ports.analyzer?.listPlugins() ?? [];
+      },
+      listStackDetectors() {
+        return ports.stack?.listDetectors() ?? [];
+      },
+      async getStackProfile(rootAbsolutePath: string) {
+        if (!ports.stack) {
+          return err(
+            prismError(
+              PrismErrorCode.UNSUPPORTED,
+              "Stack detection is not wired",
+            ),
+          );
+        }
+        const trimmed = rootAbsolutePath.trim();
+        if (!trimmed) {
+          return err(
+            prismError(PrismErrorCode.INVALID_PATH, "Repository path is empty"),
+          );
+        }
+        if (!isAbsolute(trimmed)) {
+          return err(
+            prismError(
+              PrismErrorCode.INVALID_PATH,
+              "getStackProfile requires an absolute filesystem path",
+            ),
+          );
+        }
+        return ports.stack.detectProfile(trimmed);
       },
       openRepository(rootAbsolutePath: string) {
         const trimmed = rootAbsolutePath.trim();
