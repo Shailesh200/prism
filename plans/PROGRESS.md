@@ -26,7 +26,7 @@
 | M-015 Health Score | `milestone/M-015-health-score` | Verified | ✅ | ✅ | Approved 2026-07-20; getHealth + ADR-0012 |
 | M-016 Navigation Engine | `milestone/M-016-navigation-engine` | Verified | ✅ | ✅ | Approved 2026-07-20; findRoute / landmarks |
 | M-041 Stack Utilities Epic | `milestone/M-041-stack-utilities` | Verified | ✅ | ✅ | Approved 2026-07-20; Gate A+B (P0–P7 + Mono-v1/v2 + overlays); unblocks M-017/M-018 |
-| M-017 Map Data Model | `milestone/M-017-map-data-model` | Not Started | ☐ | ☐ | Depends on M-016 + M-041 Gate A |
+| M-017 Map Data Model | `milestone/M-017-map-data-model` | Verified | ✅ | ☐ | Approved 2026-07-20; getRepositoryMap |
 | M-018 Map UI Playground | `milestone/M-018-map-ui-playground` | Not Started | ☐ | ☐ | After M-041 Gate A |
 | M-019 Map Layers | `milestone/M-019-map-layers` | Not Started | ☐ | ☐ | |
 | M-020 Blast Radius | `milestone/M-020-blast-radius` | Not Started | ☐ | ☐ | |

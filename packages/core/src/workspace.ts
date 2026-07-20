@@ -8,6 +8,7 @@ import {
   buildUtilityOverlay,
   computeHealthScore,
   createUtilitiesSession,
+  discoverLocalPackages,
   findReferences as queryReferences,
   findSymbol as querySymbols,
   getCwvReport as loadCwvReport,
@@ -28,6 +29,7 @@ import {
   resolveEndpointNodeId,
   type RouteEndpoint,
 } from "@prism/navigation";
+import { buildRepositoryMap, type MapPackageInfo } from "@prism/repository-map";
 import {
   PrismErrorCode,
   type BlastRadiusReport,
@@ -45,10 +47,13 @@ import {
   type IntelligenceReport,
   type KnowledgeGraphStats,
   type Landmark,
+  type MapBookmark,
+  type MapZoomLevel,
   type NavigationRouteResult,
   type PersonaPresets,
   type PrismError,
   type RepoId,
+  type RepositoryMap,
   type Result,
   type StackPackageProfile,
   type StackProfile,
@@ -68,6 +73,12 @@ export type FindRouteQuery = {
   readonly to: RouteEndpoint;
   readonly maxAlternatives?: number;
   readonly maxHops?: number;
+};
+
+export type GetRepositoryMapOptions = {
+  readonly zoom?: MapZoomLevel;
+  readonly layers?: readonly string[];
+  readonly bookmarks?: readonly MapBookmark[];
 };
 
 export type KnowledgeGraphView = {
@@ -223,6 +234,12 @@ export type PrismWorkspace = {
   ): Result<NavigationRouteResult, PrismError>;
   /** Named entrypoints / package roots / feature anchors (M-016). */
   listLandmarks(): Result<Landmark[], PrismError>;
+  /**
+   * Repository Map model at a zoom level (M-017). Requires `index()`.
+   */
+  getRepositoryMap(
+    options?: GetRepositoryMapOptions,
+  ): Result<RepositoryMap, PrismError>;
   blastRadius(input: {
     kind: "file" | "symbol";
     id: string;
@@ -761,6 +778,41 @@ export function createWorkspace(options: {
       }
       const features = buildFeatureGraph(lastSnapshot).features;
       return ok(collectLandmarks(lastSnapshot, features));
+    },
+    getRepositoryMap(mapOptions) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      const dep = buildDependencyGraph(lastSnapshot);
+      const features = buildFeatureGraph(lastSnapshot).features;
+      const landmarks = collectLandmarks(lastSnapshot, features);
+      const packages: MapPackageInfo[] = discoverLocalPackages(
+        lastSnapshot.rootPath,
+        lastSnapshot.files.map((f) => f.path),
+      ).map((p) => ({ name: p.name, rootDir: p.rootDir }));
+      return ok(
+        buildRepositoryMap({
+          snapshot: lastSnapshot,
+          dependencyGraph: dep.graph,
+          features,
+          landmarks,
+          packages,
+          ...(mapOptions?.zoom === undefined ? {} : { zoom: mapOptions.zoom }),
+          ...(mapOptions?.layers === undefined
+            ? {}
+            : { layers: mapOptions.layers }),
+          ...(mapOptions?.bookmarks === undefined
+            ? {}
+            : { bookmarks: mapOptions.bookmarks }),
+        }),
+      );
     },
     async blastRadius() {
       const gate = ensureOpen();

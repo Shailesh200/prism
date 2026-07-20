@@ -1,0 +1,153 @@
+{
+  "rootPath": "/tmp/map-fixture",
+  "generatedAt": "2026-07-20T12:00:00.000Z",
+  "zoom": "feature",
+  "layers": [
+    {
+      "id": "architecture",
+      "label": "Architecture",
+      "description": "Packages, features, and structural clusters",
+      "available": true,
+      "stub": false
+    },
+    {
+      "id": "dependency",
+      "label": "Dependency",
+      "description": "Import / re-export edges at the current zoom",
+      "available": true,
+      "stub": false
+    },
+    {
+      "id": "activity",
+      "label": "Activity",
+      "description": "Git churn / edit heat (stub until M-022)",
+      "available": false,
+      "stub": true
+    },
+    {
+      "id": "ownership",
+      "label": "Ownership",
+      "description": "CODEOWNERS / team regions (stub)",
+      "available": false,
+      "stub": true
+    },
+    {
+      "id": "debt",
+      "label": "Debt",
+      "description": "Diagnostics and debt hotspots (stub)",
+      "available": false,
+      "stub": true
+    },
+    {
+      "id": "risk",
+      "label": "Risk",
+      "description": "Blast-radius / risk heat (stub until M-020)",
+      "available": false,
+      "stub": true
+    },
+    {
+      "id": "performance",
+      "label": "Performance",
+      "description": "CWV / utility overlays (stub wiring to M-041)",
+      "available": false,
+      "stub": true
+    },
+    {
+      "id": "coverage",
+      "label": "Coverage",
+      "description": "Test coverage overlays (stub)",
+      "available": false,
+      "stub": true
+    }
+  ],
+  "activeLayerIds": [
+    "architecture",
+    "dependency"
+  ],
+  "graph": {
+    "id": "map:feature",
+    "nodes": [
+      {
+        "id": "feature:feat:web",
+        "kind": "feature",
+        "label": "Web",
+        "attrs": {
+          "slug": "web",
+          "confidence": 0.9
+        }
+      },
+      {
+        "id": "feature:feat:api",
+        "kind": "feature",
+        "label": "API",
+        "attrs": {
+          "slug": "api",
+          "confidence": 0.8
+        }
+      }
+    ],
+    "edges": []
+  },
+  "clusters": [
+    {
+      "id": "cluster:feature:feat:web",
+      "label": "Web",
+      "zoom": "feature",
+      "memberNodeIds": [
+        "feature:feat:web"
+      ],
+      "childZoom": "file"
+    },
+    {
+      "id": "cluster:feature:feat:api",
+      "label": "API",
+      "zoom": "feature",
+      "memberNodeIds": [
+        "feature:feat:api"
+      ],
+      "childZoom": "file"
+    }
+  ],
+  "landmarks": [
+    {
+      "id": "landmark:entry:apps/web/a.ts",
+      "label": "a.ts",
+      "path": "apps/web/a.ts",
+      "kind": "entrypoint"
+    }
+  ],
+  "bookmarks": [],
+  "searchIndex": [
+    {
+      "id": "search:cluster:cluster:feature:feat:api",
+      "label": "API",
+      "kind": "cluster",
+      "zoom": "feature"
+    },
+    {
+      "id": "search:cluster:cluster:feature:feat:web",
+      "label": "Web",
+      "kind": "cluster",
+      "zoom": "feature"
+    },
+    {
+      "id": "search:landmark:landmark:entry:apps/web/a.ts",
+      "label": "a.ts",
+      "kind": "landmark",
+      "path": "apps/web/a.ts"
+    },
+    {
+      "id": "search:node:feature:feat:api",
+      "label": "API",
+      "kind": "node",
+      "zoom": "feature"
+    },
+    {
+      "id": "search:node:feature:feat:web",
+      "label": "Web",
+      "kind": "node",
+      "zoom": "feature"
+    }
+  ],
+  "clusteringNote": "One node per inferred feature"
+}

@@ -22,6 +22,9 @@
       "path": "../navigation"
     },
     {
+      "path": "../repository-map"
+    },
+    {
       "path": "../shared"
     }
   ]

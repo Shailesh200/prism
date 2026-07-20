@@ -22,6 +22,7 @@
     "@prism/indexer": "workspace:*",
     "@prism/intelligence": "workspace:*",
     "@prism/navigation": "workspace:*",
+    "@prism/repository-map": "workspace:*",
     "@prism/shared": "workspace:*"
   }
 }
