@@ -4,6 +4,8 @@ layer: "library"
 tasks:
   build:
     command: "bun run build"
+    deps:
+      - "^:build"
     inputs:
       - "src/**/*"
       - "tsconfig.json"

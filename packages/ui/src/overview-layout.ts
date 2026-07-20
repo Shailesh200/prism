@@ -1,0 +1,293 @@
+import type { Edge, Node } from "@xyflow/react";
+import type { GraphEdgeDto, GraphNodeDto } from "@prism/shared";
+
+const CARD_W = 200;
+const CARD_H = 108;
+const GAP_X = 20;
+const GAP_Y = 20;
+const CLUSTER_GAP_X = 72;
+const CLUSTER_GAP_Y = 64;
+const CLUSTER_PAD_X = 16;
+const CLUSTER_PAD_TOP = 44;
+const CLUSTER_COLS = 3;
+
+const edgeStyle = {
+  type: "smoothstep" as const,
+  style: {
+    stroke: "rgba(15, 118, 110, 0.45)",
+    strokeWidth: 1.6,
+  },
+};
+
+const edgeDimStyle = {
+  type: "smoothstep" as const,
+  style: {
+    stroke: "rgba(15, 118, 110, 0.16)",
+    strokeWidth: 1.2,
+  },
+};
+
+export type OverviewLayout = {
+  readonly nodes: Node[];
+  readonly edges: Edge[];
+};
+
+type Cluster = {
+  key: string;
+  label: string;
+  members: GraphNodeDto[];
+};
+
+function isHubKind(kind: string): boolean {
+  return kind === "workspace" || kind === "repo";
+}
+
+/** Group key for overview islands (`@prism`, `@fixture`, `App`, …). */
+export function clusterKeyForLabel(label: string): string {
+  const trimmed = label.trim();
+  if (trimmed.startsWith("@")) {
+    const slash = trimmed.indexOf("/");
+    return slash >= 0 ? trimmed.slice(0, slash) : trimmed;
+  }
+  return "App";
+}
+
+export function shortLabelInCluster(label: string, clusterKey: string): string {
+  if (clusterKey !== "App" && label.startsWith(`${clusterKey}/`)) {
+    return label.slice(clusterKey.length + 1);
+  }
+  return label;
+}
+
+function buildClusters(nodes: readonly GraphNodeDto[]): Cluster[] {
+  const buckets = new Map<string, GraphNodeDto[]>();
+  for (const node of nodes) {
+    const key = clusterKeyForLabel(node.label);
+    const list = buckets.get(key) ?? [];
+    list.push(node);
+    buckets.set(key, list);
+  }
+
+  const preferred = ["App", "@prism", "@fixture", "@prism-fixture"];
+  const keys = [...buckets.keys()].sort((a, b) => {
+    const ia = preferred.indexOf(a);
+    const ib = preferred.indexOf(b);
+    if (ia !== ib) {
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    }
+    return a.localeCompare(b);
+  });
+
+  return keys.map((key) => {
+    const members = [...(buckets.get(key) ?? [])].sort((a, b) => {
+      const ca =
+        typeof a.attrs?.confidence === "number" ? a.attrs.confidence : 0;
+      const cb =
+        typeof b.attrs?.confidence === "number" ? b.attrs.confidence : 0;
+      if (ca !== cb) return cb - ca;
+      return a.label.localeCompare(b.label);
+    });
+    return {
+      key,
+      label: key === "App" ? "Application" : key,
+      members,
+    };
+  });
+}
+
+function clusterInnerSize(count: number): {
+  cols: number;
+  w: number;
+  h: number;
+} {
+  const cols = Math.min(CLUSTER_COLS, Math.max(1, count));
+  const rows = Math.ceil(count / cols);
+  return {
+    cols,
+    w: cols * CARD_W + Math.max(0, cols - 1) * GAP_X + CLUSTER_PAD_X * 2,
+    h: CLUSTER_PAD_TOP + rows * CARD_H + Math.max(0, rows - 1) * GAP_Y + 16,
+  };
+}
+
+function selectEdges(
+  graphEdges: readonly GraphEdgeDto[],
+  known: ReadonlySet<string>,
+  selectedId: string | null,
+  hubIds: ReadonlySet<string>,
+): Edge[] {
+  const usable = graphEdges.filter((e) => known.has(e.from) && known.has(e.to));
+
+  // Selection: only neighborhood — turns the map into a readable focus graph.
+  if (selectedId && known.has(selectedId)) {
+    return usable
+      .filter((e) => e.from === selectedId || e.to === selectedId)
+      .map((e) => ({
+        id: e.id,
+        source: e.from,
+        target: e.to,
+        ...edgeStyle,
+      }));
+  }
+
+  // Repo hub: only containment spokes (sparse, intentional).
+  if (hubIds.size > 0) {
+    return usable
+      .filter(
+        (e) =>
+          e.kind === "contains" && (hubIds.has(e.from) || hubIds.has(e.to)),
+      )
+      .map((e) => ({
+        id: e.id,
+        source: e.from,
+        target: e.to,
+        ...edgeDimStyle,
+      }));
+  }
+
+  // Feature/package landing: no spaghetti — relationships appear on select.
+  return [];
+}
+
+/**
+ * Clustered overview for repo / package / feature zoom.
+ * Islands by scope, sparse edges, selection reveals neighborhood links.
+ */
+export function layoutOverviewGraph(
+  graphNodes: readonly GraphNodeDto[],
+  graphEdges: readonly GraphEdgeDto[],
+  selectedId: string | null,
+  metaFor: (
+    kind: string,
+    attrs: Record<string, unknown> | undefined,
+  ) => string | undefined,
+): OverviewLayout {
+  const hubs = graphNodes.filter((n) => isHubKind(n.kind));
+  const rest = graphNodes.filter((n) => !isHubKind(n.kind));
+  const clusters = buildClusters(rest);
+  const positions = new Map<string, { x: number; y: number }>();
+  const nodes: Node[] = [];
+
+  const clusterSizes = clusters.map((c) => ({
+    cluster: c,
+    size: clusterInnerSize(c.members.length),
+  }));
+
+  const totalClustersW = clusterSizes.reduce(
+    (sum, c, i) => sum + c.size.w + (i > 0 ? CLUSTER_GAP_X : 0),
+    0,
+  );
+
+  let originY = 0;
+  if (hubs.length === 1) {
+    positions.set(hubs[0]!.id, {
+      x: Math.max(0, (totalClustersW - CARD_W) / 2),
+      y: 0,
+    });
+    originY = CARD_H + CLUSTER_GAP_Y;
+  } else if (hubs.length > 1) {
+    hubs.forEach((hub, i) => {
+      positions.set(hub.id, { x: i * (CARD_W + GAP_X), y: 0 });
+    });
+    originY = CARD_H + CLUSTER_GAP_Y;
+  }
+
+  let cursorX = 0;
+  for (const { cluster, size } of clusterSizes) {
+    const groupId = `group:${cluster.key}`;
+    nodes.push({
+      id: groupId,
+      type: "prism",
+      position: { x: cursorX, y: originY },
+      style: { width: size.w, height: size.h },
+      draggable: false,
+      selectable: false,
+      data: {
+        label: cluster.label,
+        kind: "group",
+        selected: false,
+        openable: false,
+        meta: `${cluster.members.length} ${cluster.members[0]?.kind === "package" ? "packages" : "features"}`,
+        group: true,
+      },
+    });
+
+    cluster.members.forEach((member, index) => {
+      const col = index % size.cols;
+      const row = Math.floor(index / size.cols);
+      const x = cursorX + CLUSTER_PAD_X + col * (CARD_W + GAP_X);
+      const y = originY + CLUSTER_PAD_TOP + row * (CARD_H + GAP_Y);
+      positions.set(member.id, { x, y });
+    });
+
+    cursorX += size.w + CLUSTER_GAP_X;
+  }
+
+  for (const hub of hubs) {
+    const pos = positions.get(hub.id) ?? { x: 0, y: 0 };
+    const meta = metaFor(
+      hub.kind,
+      hub.attrs as Record<string, unknown> | undefined,
+    );
+    nodes.push({
+      id: hub.id,
+      type: "prism",
+      position: pos,
+      style: { width: CARD_W, height: CARD_H },
+      zIndex: 2,
+      data: {
+        label: hub.label,
+        kind: hub.kind,
+        selected: hub.id === selectedId,
+        openable: true,
+        ...(meta === undefined ? {} : { meta }),
+      },
+    });
+  }
+
+  const neighborIds = new Set<string>();
+  if (selectedId) {
+    neighborIds.add(selectedId);
+    for (const e of graphEdges) {
+      if (e.from === selectedId) neighborIds.add(e.to);
+      if (e.to === selectedId) neighborIds.add(e.from);
+    }
+  }
+
+  for (const cluster of clusters) {
+    for (const member of cluster.members) {
+      const pos = positions.get(member.id) ?? { x: 0, y: 0 };
+      const meta = metaFor(
+        member.kind,
+        member.attrs as Record<string, unknown> | undefined,
+      );
+      const dimmed =
+        selectedId !== null &&
+        neighborIds.size > 0 &&
+        !neighborIds.has(member.id);
+      nodes.push({
+        id: member.id,
+        type: "prism",
+        position: pos,
+        style: { width: CARD_W, height: CARD_H },
+        zIndex: 2,
+        data: {
+          label: shortLabelInCluster(member.label, cluster.key),
+          kind: member.kind,
+          selected: member.id === selectedId,
+          openable: member.kind === "feature" || member.kind === "package",
+          dimmed,
+          fullLabel: member.label,
+          ...(meta === undefined ? {} : { meta }),
+        },
+      });
+    }
+  }
+
+  const known = new Set(graphNodes.map((n) => n.id));
+  const hubIds = new Set(hubs.map((h) => h.id));
+  const edges = selectEdges(graphEdges, known, selectedId, hubIds);
+
+  return { nodes, edges };
+}

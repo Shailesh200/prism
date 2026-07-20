@@ -118,6 +118,10 @@
       height: 72px;
       object-fit: contain;
     }
+    .card-preview.logo img[src$=".svg"] {
+      width: 48px;
+      height: 48px;
+    }
     .card-preview.lockup img {
       width: 100%;
       max-width: 220px;
@@ -237,6 +241,25 @@
           { id: "ink", name: "Ink", src: "logo/exports/prism-mark-ink.png", type: "logo" },
           { id: "light", name: "Light", src: "logo/exports/prism-mark-light.png", type: "logo", dark: true },
           { id: "white", name: "White", src: "logo/exports/prism-mark-white.png", type: "logo", dark: true }
+        ]
+      },
+      {
+        section: "file-icons",
+        title: 'File type icons <span class="status-pill">UI</span>',
+        note: "Individual IDE-style glyphs from @prism/ui (also in packages/ui/src/icons/files/).",
+        items: [
+          { id: "ft-ts", name: "TypeScript", src: "icons/file-types/ts.svg", type: "logo" },
+          { id: "ft-tsx", name: "TSX", src: "icons/file-types/tsx.svg", type: "logo" },
+          { id: "ft-js", name: "JavaScript", src: "icons/file-types/js.svg", type: "logo" },
+          { id: "ft-jsx", name: "JSX", src: "icons/file-types/jsx.svg", type: "logo" },
+          { id: "ft-json", name: "JSON", src: "icons/file-types/json.svg", type: "logo" },
+          { id: "ft-css", name: "CSS", src: "icons/file-types/css.svg", type: "logo" },
+          { id: "ft-md", name: "Markdown", src: "icons/file-types/md.svg", type: "logo" },
+          { id: "ft-test", name: "Test", src: "icons/file-types/test.svg", type: "logo" },
+          { id: "ft-config", name: "Config", src: "icons/file-types/config.svg", type: "logo" },
+          { id: "ft-code", name: "Code", src: "icons/file-types/code.svg", type: "logo" },
+          { id: "ft-other", name: "Other file", src: "icons/file-types/other.svg", type: "logo" },
+          { id: "ft-doc", name: "Document", src: "icons/file-types/doc.svg", type: "logo" }
         ]
       }
     ];

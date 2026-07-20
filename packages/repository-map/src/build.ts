@@ -5,6 +5,7 @@ import type {
   GraphNodeDto,
   GraphSnapshotDto,
   IndexSnapshot,
+  JsonValue,
   Landmark,
   MapBookmark,
   MapCluster,
@@ -36,7 +37,7 @@ function node(
   id: string,
   kind: string,
   label: string,
-  attrs?: Record<string, string | number | boolean>,
+  attrs?: Record<string, JsonValue>,
 ): GraphNodeDto {
   return {
     id,
@@ -161,6 +162,7 @@ function buildFeatureZoom(features: readonly FeatureInfo[]): {
     node(`feature:${f.id}`, "feature", f.name, {
       slug: f.slug,
       confidence: f.confidence,
+      memberFiles: [...f.memberFiles].sort((a, b) => a.localeCompare(b)),
     }),
   );
   const edges: GraphEdgeDto[] = [];
