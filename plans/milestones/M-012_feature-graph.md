@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-012-feature-graph` |
-| Status | Not Started |
+| Status | Verified |
 | Depends on | M-010, M-011 |
 | Unlocks | M-013, M-016 |
 | Packages | `@prism/intelligence`, `@prism/graph-engine`, `@prism/core` |
@@ -27,9 +27,13 @@ Infer a **feature-first** graph: clusters of code that represent product feature
 
 ## Definition of Done
 
-- [ ] Fixture repo yields ≥N expected features (documented)
-- [ ] Each feature lists member files
-- [ ] Verify + PROGRESS + owner approval
+- [x] Fixture repo yields ≥N expected features (documented) — **N = 4** (`auth`, `billing`, `checkout`, `dashboard`) in `packages/intelligence/fixtures/m012-features/README.md`
+- [x] Each feature lists member files
+- [x] Verify + PROGRESS + owner approval
+
+## ADR
+
+- [ADR-0011](../adr/0011-feature-inference-principles.md) — explainable, tunable heuristics
 
 ## Verification
 

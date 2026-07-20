@@ -3,12 +3,14 @@
 export { Prism, type PrismClient, type PrismClientOptions } from "./prism.js";
 export {
   createWorkspace,
+  type FeatureGraphView,
   type KnowledgeGraphView,
   type PrismWorkspace,
   type WorkspaceStatus,
 } from "./workspace.js";
 export type {
   DependencyGraphOptions,
+  FeatureInfo,
   FindReferencesQuery,
   FindSymbolQuery,
   KnowledgeGraphStats,

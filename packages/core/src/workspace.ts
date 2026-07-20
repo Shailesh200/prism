@@ -1,9 +1,11 @@
 import {
   buildDependencyGraph,
+  buildFeatureGraph,
   buildKnowledgeGraph,
   findReferences as queryReferences,
   findSymbol as querySymbols,
   type DependencyGraphOptions,
+  type FeatureInfo,
   type FindReferencesQuery,
   type FindSymbolQuery,
   type KnowledgeGraphStats,
@@ -33,6 +35,11 @@ import type { IndexWorkspaceOptions, PrismEnginePorts } from "./ports.js";
 export type KnowledgeGraphView = {
   readonly graph: GraphSnapshotDto;
   readonly stats: KnowledgeGraphStats;
+};
+
+export type FeatureGraphView = {
+  readonly graph: GraphSnapshotDto;
+  readonly features: FeatureInfo[];
 };
 
 export type WorkspaceStatus = {
@@ -75,6 +82,13 @@ export type PrismWorkspace = {
   findReferences(
     query: FindReferencesQuery,
   ): Result<ReferenceHit[], PrismError>;
+  /**
+   * Inferred feature graph (ADR-0011 heuristics) from the last index.
+   * `INDEX_REQUIRED` if none.
+   */
+  getFeatureGraph(): Result<FeatureGraphView, PrismError>;
+  /** List inferred features with member files and confidence. */
+  listFeatures(): Result<FeatureInfo[], PrismError>;
   /** Lightweight summary (runs index when needed). */
   analyze(
     options?: IndexWorkspaceOptions,
@@ -252,6 +266,33 @@ export function createWorkspace(options: {
         );
       }
       return ok(queryReferences(buildKnowledgeGraph(lastSnapshot), query));
+    },
+    getFeatureGraph() {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      const fg = buildFeatureGraph(lastSnapshot);
+      return ok({ graph: fg.graph, features: fg.features });
+    },
+    listFeatures() {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      return ok(buildFeatureGraph(lastSnapshot).features);
     },
     analyze: runAnalyze,
     reindex: runAnalyze,

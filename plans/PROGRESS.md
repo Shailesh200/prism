@@ -20,7 +20,7 @@
 | M-009 Graph Engine | `milestone/M-009-graph-engine` | Verified | ✅ | ✅ | Approved 2026-07-20; ngraph store + graph DTOs |
 | M-010 Dependency Graph | `milestone/M-010-dependency-graph` | Verified | ✅ | ✅ | Approved 2026-07-20; file/package dep graph + cycles |
 | M-011 Semantic KG | `milestone/M-011-semantic-kg` | Verified | ✅ | ✅ | Approved 2026-07-20; symbol KG + findReferences |
-| M-012 Feature Graph | `milestone/M-012-feature-graph` | Not Started | ☐ | ☐ | |
+| M-012 Feature Graph | `milestone/M-012-feature-graph` | Verified | ✅ | ✅ | Approved 2026-07-20; feature heuristics + ADR-0011 |
 | M-013 Repository DNA | `milestone/M-013-repository-dna` | Not Started | ☐ | ☐ | Multi-domain + developer-persona detector packs |
 | M-014 Intelligence API | `milestone/M-014-intelligence-api` | Not Started | ☐ | ☐ | |
 | M-015 Health Score | `milestone/M-015-health-score` | Not Started | ☐ | ☐ | |
