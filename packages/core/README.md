@@ -62,7 +62,8 @@ Full guide: [`plans/guides/INTELLIGENCE_API.md`](../../plans/guides/INTELLIGENCE
 | `ws.index()` / `ws.getIndex()` | Full index snapshot |
 | `ws.analyze()` / `ws.reindex()` | Index summary |
 | `ws.intelligence()` | Aggregate intelligence report (requires index) |
-| `ws.getHealth()` / `ws.blastRadius(...)` | Later milestones |
+| `ws.getHealth()` | Health score 0–100 + factors (M-015; requires index) |
+| `ws.blastRadius(...)` | Later milestones |
 | `ws.status()` / `ws.close()` | Lifecycle metadata |
 
 ## Rules

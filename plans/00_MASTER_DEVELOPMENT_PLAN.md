@@ -578,9 +578,10 @@ Critical-path milestones have full documents under `plans/milestones/`. Others a
 ### 15.1 Summaries (non-critical-path detail)
 
 #### M-015 — Repository Health Score v1
-- Inputs: graph metrics, debt signals, test presence, churn (if git available)
-- Output: `HealthReport` with score 0–100 + factors
-- DoD: deterministic fixture scores; documented weighting ADR
+- Full doc: [`milestones/M-015_health-score.md`](./milestones/M-015_health-score.md) · weighting: [ADR-0012](./adr/0012-health-score-weighting.md)
+- Inputs: parse health, test presence, coupling (cycles), modularity, diagnostics (local index/graphs; no git churn in v1)
+- Output: `HealthScore` with score 0–100 + grade + factors
+- DoD: deterministic scores; Core `getHealth()`; ADR-0012
 
 #### M-019 — Map Layers & Views
 - Layers: architecture, dependency, activity, ownership, debt, risk, performance, coverage
