@@ -338,6 +338,76 @@ export const DnaReportSchema = z.object({
 
 export type DnaReport = z.infer<typeof DnaReportSchema>;
 
+export const FeatureInfoSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  slug: z.string().min(1),
+  confidence: z.number().min(0).max(1),
+  memberFiles: z.array(z.string()),
+  evidence: z.array(z.string()),
+});
+
+export type FeatureInfo = z.infer<typeof FeatureInfoSchema>;
+
+export const KnowledgeGraphStatsSchema = z.object({
+  nodes: z.number().int().nonnegative(),
+  edges: z.number().int().nonnegative(),
+  nodesByKind: z.record(z.string(), z.number().int().nonnegative()),
+  edgesByKind: z.record(z.string(), z.number().int().nonnegative()),
+});
+
+export type KnowledgeGraphStats = z.infer<typeof KnowledgeGraphStatsSchema>;
+
+export const PrismCapabilitiesDtoSchema = z.object({
+  indexing: z.boolean(),
+  analysis: z.boolean(),
+  graphs: z.boolean(),
+  intelligence: z.boolean(),
+  impact: z.boolean(),
+  map: z.boolean(),
+  navigation: z.boolean(),
+});
+
+export type PrismCapabilitiesDto = z.infer<typeof PrismCapabilitiesDtoSchema>;
+
+export const IntelligenceConsistencyIssueSchema = z.object({
+  code: z.literal("GRAPH_FILE_NOT_INDEXED"),
+  graph: z.enum(["dependency", "knowledge", "feature"]),
+  nodeId: z.string().min(1),
+  path: z.string().min(1),
+});
+
+export type IntelligenceConsistencyIssue = z.infer<
+  typeof IntelligenceConsistencyIssueSchema
+>;
+
+export const IntelligenceConsistencySchema = z.object({
+  ok: z.boolean(),
+  issues: z.array(IntelligenceConsistencyIssueSchema),
+});
+
+export type IntelligenceConsistency = z.infer<
+  typeof IntelligenceConsistencySchema
+>;
+
+/** Aggregate Repository Intelligence report (M-014). */
+export const IntelligenceReportSchema = z.object({
+  repoId: z.string().min(1),
+  rootPath: z.string().min(1),
+  generatedAt: z.string().datetime(),
+  summary: IndexSummarySchema,
+  dna: DnaReportSchema,
+  dependencyGraph: GraphSnapshotDtoSchema,
+  knowledgeGraph: GraphSnapshotDtoSchema,
+  knowledgeStats: KnowledgeGraphStatsSchema,
+  featureGraph: GraphSnapshotDtoSchema,
+  features: z.array(FeatureInfoSchema),
+  consistency: IntelligenceConsistencySchema,
+  capabilities: PrismCapabilitiesDtoSchema,
+});
+
+export type IntelligenceReport = z.infer<typeof IntelligenceReportSchema>;
+
 /** Parse unknown JSON into a DTO; returns Zod issues as message. */
 export function parseDto<T>(
   schema: z.ZodType<T>,

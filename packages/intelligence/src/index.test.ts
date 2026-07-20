@@ -3,6 +3,7 @@ import {
   STACK_DETECTOR_SPI_VERSION,
   StackDetectorRegistry,
   assembleDnaReport,
+  assembleIntelligenceReport,
   buildDependencyGraph,
   buildFeatureGraph,
   buildKnowledgeGraph,
@@ -18,6 +19,7 @@ describe("@prism/intelligence exports", () => {
     expect(typeof createUnknownDetector).toBe("function");
     expect(typeof createDefaultDetectorPacks).toBe("function");
     expect(typeof assembleDnaReport).toBe("function");
+    expect(typeof assembleIntelligenceReport).toBe("function");
     expect(typeof buildDependencyGraph).toBe("function");
     expect(typeof buildKnowledgeGraph).toBe("function");
     expect(typeof buildFeatureGraph).toBe("function");

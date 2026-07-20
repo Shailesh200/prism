@@ -8,6 +8,7 @@ import {
   GraphSnapshotDtoSchema,
   IndexSnapshotSchema,
   IndexSummarySchema,
+  IntelligenceReportSchema,
   PrismErrorSchema,
   parseDto,
 } from "./schemas.js";
@@ -115,6 +116,54 @@ describe("DTO schemas round-trip", () => {
     expect(parsed.frameworks).toContain("react");
     expect(parsed.architectureHints).toContain("monorepo");
     expect(parsed.testRunners).toContain("vitest");
+  });
+
+  it("IntelligenceReportSchema", () => {
+    const raw = {
+      repoId: "repo:x",
+      rootPath: "/tmp/x",
+      generatedAt: "2026-07-20T12:00:00.000Z",
+      summary: {
+        repoId: "repo:x",
+        rootPath: "/tmp/x",
+        indexedAt: "2026-07-20T12:00:00.000Z",
+        stats: {
+          filesTotal: 1,
+          filesIndexed: 1,
+          filesSkipped: 0,
+          durationMs: 1,
+        },
+        warnings: [],
+      },
+      dna: {
+        languages: [],
+        frameworks: [],
+        summary: "Partial DNA: no stack signals detected",
+        architectureHints: [],
+        testRunners: [],
+      },
+      dependencyGraph: { id: "deps", nodes: [], edges: [] },
+      knowledgeGraph: { id: "kg", nodes: [], edges: [] },
+      knowledgeStats: {
+        nodes: 0,
+        edges: 0,
+        nodesByKind: {},
+        edgesByKind: {},
+      },
+      featureGraph: { id: "fg", nodes: [], edges: [] },
+      features: [],
+      consistency: { ok: true, issues: [] },
+      capabilities: {
+        indexing: true,
+        analysis: true,
+        graphs: true,
+        intelligence: true,
+        impact: false,
+        map: false,
+        navigation: false,
+      },
+    };
+    expect(IntelligenceReportSchema.parse(raw).consistency.ok).toBe(true);
   });
 
   it("FileInventorySchema", () => {

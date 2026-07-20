@@ -50,3 +50,11 @@ export {
   type FeatureGraphResult,
   type FeatureInfo,
 } from "./feature/build.js";
+export {
+  assembleIntelligenceReport,
+  type AssembleIntelligenceOptions,
+} from "./intelligence/assemble.js";
+export {
+  checkIntelligenceConsistency,
+  type ConsistencyGraphId,
+} from "./intelligence/consistency.js";

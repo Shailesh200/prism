@@ -22,7 +22,7 @@
 | M-011 Semantic KG | `milestone/M-011-semantic-kg` | Verified | ✅ | ✅ | Approved 2026-07-20; symbol KG + findReferences |
 | M-012 Feature Graph | `milestone/M-012-feature-graph` | Verified | ✅ | ✅ | Approved 2026-07-20; feature heuristics + ADR-0011 |
 | M-013 Repository DNA | `milestone/M-013-repository-dna` | Verified | ✅ | ✅ | Approved 2026-07-20; multi-domain DNA + personas |
-| M-014 Intelligence API | `milestone/M-014-intelligence-api` | Not Started | ☐ | ☐ | |
+| M-014 Intelligence API | `milestone/M-014-intelligence-api` | Verified | ✅ | ✅ | Approved 2026-07-20; intelligence() aggregate; unblocks M-041 |
 | M-015 Health Score | `milestone/M-015-health-score` | Not Started | ☐ | ☐ | |
 | M-016 Navigation Engine | `milestone/M-016-navigation-engine` | Not Started | ☐ | ☐ | |
 | M-041 Stack Utilities Epic | `milestone/M-041-…` (per phase) | Not Started | ☐ | ☐ | All domains + monorepo; Gate A (P0+P1+Mono-v1) before M-018 |

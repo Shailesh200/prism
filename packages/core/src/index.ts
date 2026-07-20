@@ -10,13 +10,17 @@ export {
 } from "./workspace.js";
 export type {
   DependencyGraphOptions,
-  FeatureInfo,
   FindReferencesQuery,
   FindSymbolQuery,
-  KnowledgeGraphStats,
   ReferenceHit,
   SymbolHit,
 } from "@prism/intelligence";
+export type {
+  FeatureInfo,
+  IntelligenceConsistency,
+  IntelligenceReport,
+  KnowledgeGraphStats,
+} from "@prism/shared";
 export { STUB_CAPABILITIES, type PrismCapabilities } from "./capabilities.js";
 export type {
   AnalyzerPort,

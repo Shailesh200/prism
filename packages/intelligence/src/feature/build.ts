@@ -1,5 +1,6 @@
 import { nodesFromIndexSnapshot } from "@prism/graph-engine";
 import {
+  type FeatureInfo,
   type GraphEdgeDto,
   type GraphNodeDto,
   type GraphSnapshotDto,
@@ -14,14 +15,7 @@ import {
 import { inferFeatures, type FeatureDraft } from "./infer.js";
 import { featureNodeId } from "./slug.js";
 
-export type FeatureInfo = {
-  readonly id: string;
-  readonly name: string;
-  readonly slug: string;
-  readonly confidence: number;
-  readonly memberFiles: string[];
-  readonly evidence: string[];
-};
+export type { FeatureInfo };
 
 export type FeatureGraphResult = {
   readonly graph: GraphSnapshotDto;

@@ -6,6 +6,7 @@ import {
   type IndexedFile,
   type IndexedReference,
   type IndexSnapshot,
+  type KnowledgeGraphStats,
   unsafeEdgeId,
   unsafeNodeId,
 } from "@prism/shared";
@@ -14,12 +15,7 @@ import {
   resolveImportTarget,
 } from "../dependency/resolve.js";
 
-export type KnowledgeGraphStats = {
-  readonly nodes: number;
-  readonly edges: number;
-  readonly nodesByKind: Readonly<Record<string, number>>;
-  readonly edgesByKind: Readonly<Record<string, number>>;
-};
+export type { KnowledgeGraphStats };
 
 export type SymbolHit = {
   readonly id: string;
