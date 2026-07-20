@@ -20,3 +20,10 @@ export {
   type StackHost,
   type StackHostOptions,
 } from "./host.js";
+export {
+  buildDependencyGraph,
+  type DependencyGraphOptions,
+  type DependencyGraphResult,
+  type UnresolvedDependency,
+} from "./dependency/build.js";
+export { findCycles } from "./dependency/cycles.js";

@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-010-dependency-graph` |
-| Status | Not Started |
+| Status | Verified |
 | Depends on | M-009 |
 | Unlocks | M-012, M-016, M-020 |
 | Packages | `@prism/graph-engine`, `@prism/intelligence` (builder), `@prism/core` |
@@ -27,9 +27,9 @@ Build a file/module dependency graph from analyzer import/export edges, with pac
 
 ## Definition of Done
 
-- [ ] Cycles detected on intentional fixture
-- [ ] Package aggregation mode works
-- [ ] Verify + PROGRESS + owner approval
+- [x] Cycles detected on intentional fixture
+- [x] Package aggregation mode works
+- [x] Verify + PROGRESS + owner approval
 
 ## Verification
 

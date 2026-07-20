@@ -25,6 +25,7 @@ describe("Prism.create", () => {
       ...STUB_CAPABILITIES,
       analysis: true,
       indexing: true,
+      graphs: true,
     });
   });
 

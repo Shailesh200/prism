@@ -1,7 +1,12 @@
 import {
+  buildDependencyGraph,
+  type DependencyGraphOptions,
+} from "@prism/intelligence";
+import {
   PrismErrorCode,
   type BlastRadiusReport,
   type DnaReport,
+  type GraphSnapshotDto,
   type HealthScore,
   type IndexProgressEvent,
   type IndexSnapshot,
@@ -37,6 +42,15 @@ export type PrismWorkspace = {
   ): Promise<Result<IndexSnapshot, PrismError>>;
   /** Last snapshot from `index()` / `analyze()`; `INDEX_REQUIRED` if none. */
   getIndex(): Result<IndexSnapshot, PrismError>;
+  /**
+   * File (default) or package-aggregated dependency graph from the last index.
+   * `INDEX_REQUIRED` if none.
+   */
+  getDependencyGraph(
+    options?: DependencyGraphOptions,
+  ): Result<GraphSnapshotDto, PrismError>;
+  /** Import/re-export cycles from the last index. `INDEX_REQUIRED` if none. */
+  getCycles(options?: DependencyGraphOptions): Result<string[][], PrismError>;
   /** Lightweight summary (runs index when needed). */
   analyze(
     options?: IndexWorkspaceOptions,
@@ -148,6 +162,32 @@ export function createWorkspace(options: {
         );
       }
       return ok(lastSnapshot);
+    },
+    getDependencyGraph(graphOptions) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      return ok(buildDependencyGraph(lastSnapshot, graphOptions).graph);
+    },
+    getCycles(graphOptions) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      return ok(buildDependencyGraph(lastSnapshot, graphOptions).cycles);
     },
     analyze: runAnalyze,
     reindex: runAnalyze,

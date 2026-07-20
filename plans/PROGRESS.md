@@ -18,7 +18,7 @@
 | M-007 Indexer v1 | `milestone/M-007-repository-indexer` | Verified | ✅ | ✅ | Approved 2026-07-20; IndexSnapshot + IndexJob + Core index/getIndex |
 | M-008 SQLite Cache | `milestone/M-008-sqlite-cache` | Verified | ✅ | ✅ | Approved 2026-07-20; SQLite cache + ADR-0010 |
 | M-009 Graph Engine | `milestone/M-009-graph-engine` | Verified | ✅ | ✅ | Approved 2026-07-20; ngraph store + graph DTOs |
-| M-010 Dependency Graph | `milestone/M-010-dependency-graph` | Not Started | ☐ | ☐ | |
+| M-010 Dependency Graph | `milestone/M-010-dependency-graph` | Verified | ✅ | ✅ | Approved 2026-07-20; file/package dep graph + cycles |
 | M-011 Semantic KG | `milestone/M-011-semantic-kg` | Not Started | ☐ | ☐ | |
 | M-012 Feature Graph | `milestone/M-012-feature-graph` | Not Started | ☐ | ☐ | |
 | M-013 Repository DNA | `milestone/M-013-repository-dna` | Not Started | ☐ | ☐ | Multi-domain + developer-persona detector packs |
