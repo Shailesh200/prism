@@ -12,15 +12,16 @@
 | M-002 Shared Contracts | `milestone/M-002-shared-contracts` | Verified | ✅ | ✅ | Approved 2026-07-20; Result/PrismError/IDs/Zod DTOs |
 | M-003 Core Skeleton | `milestone/M-003-core-skeleton` | Verified | ✅ | ✅ | Approved 2026-07-20; Prism façade + ADR-0004 |
 | M-004 Analyzer SPI | `milestone/M-004-analyzer-spi` | Verified | ✅ | ✅ | Approved 2026-07-20; LanguagePlugin SPI + ADR-0005 |
-| M-005 FS Ignore Hash | `milestone/M-005-fs-ignore-hash` | Not Started | ☐ | ☐ | |
-| M-006 AST Engine TS | `milestone/M-006-ast-engine-ts` | Not Started | ☐ | ☐ | |
+| M-005 FS Ignore Hash | `milestone/M-005-fs-ignore-hash` | Verified | ✅ | ✅ | Approved 2026-07-20; inventory + SHA-256; plan adds M-040 |
+| M-040 Stack Detector SPI | `milestone/M-040-stack-detector-spi` | Not Started | ☐ | ☐ | Domains + developer personas; ADR-0007 |
+| M-006 AST Engine TS | `milestone/M-006-ast-engine-ts` | Not Started | ☐ | ☐ | Depends on M-040 |
 | M-007 Indexer v1 | `milestone/M-007-repository-indexer` | Not Started | ☐ | ☐ | |
 | M-008 SQLite Cache | `milestone/M-008-sqlite-cache` | Not Started | ☐ | ☐ | |
 | M-009 Graph Engine | `milestone/M-009-graph-engine` | Not Started | ☐ | ☐ | |
 | M-010 Dependency Graph | `milestone/M-010-dependency-graph` | Not Started | ☐ | ☐ | |
 | M-011 Semantic KG | `milestone/M-011-semantic-kg` | Not Started | ☐ | ☐ | |
 | M-012 Feature Graph | `milestone/M-012-feature-graph` | Not Started | ☐ | ☐ | |
-| M-013 Repository DNA | `milestone/M-013-repository-dna` | Not Started | ☐ | ☐ | |
+| M-013 Repository DNA | `milestone/M-013-repository-dna` | Not Started | ☐ | ☐ | Multi-domain + developer-persona detector packs |
 | M-014 Intelligence API | `milestone/M-014-intelligence-api` | Not Started | ☐ | ☐ | |
 | M-015 Health Score | `milestone/M-015-health-score` | Not Started | ☐ | ☐ | |
 | M-016 Navigation Engine | `milestone/M-016-navigation-engine` | Not Started | ☐ | ☐ | |

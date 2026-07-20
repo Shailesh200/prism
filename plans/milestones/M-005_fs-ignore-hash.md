@@ -3,9 +3,9 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-005-fs-ignore-hash` |
-| Status | Not Started |
+| Status | Verified |
 | Depends on | M-004 |
-| Unlocks | M-006 |
+| Unlocks | M-040 |
 | Packages | `@prism/indexer` (fs layer), `@prism/shared` |
 
 ## Goal
@@ -27,10 +27,10 @@ Reliable workspace traversal: respect `.gitignore` / Prism ignore rules, skip `n
 
 ## Definition of Done
 
-- [ ] Inventory API returns deterministic ordered file list for fixture
-- [ ] Ignore rules covered by tests
-- [ ] Hash stable across runs
-- [ ] Verify + PROGRESS + owner approval
+- [x] Inventory API returns deterministic ordered file list for fixture
+- [x] Ignore rules covered by tests
+- [x] Hash stable across runs
+- [x] Verify + PROGRESS + owner approval
 
 ## Verification
 

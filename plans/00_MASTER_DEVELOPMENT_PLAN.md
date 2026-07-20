@@ -387,7 +387,8 @@ flowchart TD
   M002 --> M003[M-003 Core Skeleton]
   M003 --> M004[M-004 Analyzer SPI]
   M004 --> M005[M-005 FS Ignore Hash]
-  M005 --> M006[M-006 AST Engine TS]
+  M005 --> M040[M-040 Stack Detector SPI]
+  M040 --> M006[M-006 AST Engine TS]
   M006 --> M007[M-007 Indexer v1]
   M007 --> M008[M-008 SQLite Cache]
   M008 --> M009[M-009 Graph Engine]
@@ -396,6 +397,7 @@ flowchart TD
   M010 --> M012[M-012 Feature Graph]
   M011 --> M012
   M012 --> M013[M-013 Repository DNA]
+  M040 --> M013
   M013 --> M014[M-014 Intelligence API]
   M014 --> M015[M-015 Health Score]
   M010 --> M016[M-016 Navigation]
@@ -447,14 +449,15 @@ flowchart TD
 | M-003 | Core Architecture Skeleton | Foundation | M-002 | Yes |
 | M-004 | Analyzer SPI & Plugin Host | Analysis | M-003 | Yes |
 | M-005 | Filesystem, Ignore & Hashing | Analysis | M-004 | Yes |
-| M-006 | AST Engine (TypeScript/JS) | Analysis | M-005 | Yes |
+| M-040 | Stack Detector SPI (domains + developer personas) | Analysis | M-005 | Yes |
+| M-006 | AST Engine (TypeScript/JS) | Analysis | M-040 | Yes |
 | M-007 | Repository Indexer v1 | Analysis | M-006 | Yes |
 | M-008 | Local Persistence (SQLite) | Analysis | M-007 | Yes |
 | M-009 | Graph Engine Foundations | Graphs | M-008 | Yes |
 | M-010 | Dependency Graph | Graphs | M-009 | Yes |
 | M-011 | Semantic Knowledge Graph | Graphs | M-009 | Yes |
 | M-012 | Feature Graph v1 | Graphs | M-010, M-011 | Yes |
-| M-013 | Repository DNA & Detection | Intelligence | M-012 | Yes |
+| M-013 | Repository DNA & Detection | Intelligence | M-012, M-040 | Yes |
 | M-014 | Repository Intelligence API | Intelligence | M-013 | Yes |
 | M-015 | Repository Health Score v1 | Intelligence | M-014 | Summary |
 | M-016 | Navigation Engine | Navigation | M-010, M-012 | Yes |
@@ -482,7 +485,7 @@ flowchart TD
 | M-038 | Documentation Site | Docs | M-037 | Summary |
 | M-039 | GA Readiness | Release | M-036, M-038 | Yes |
 
-**Critical path (must stay green):** M-001 → M-014 → M-025 → surfaces (M-026/M-028/M-030) → M-039.
+**Critical path (must stay green):** M-001 → M-005 → M-040 → M-014 → M-025 → surfaces (M-026/M-028/M-030) → M-039.
 
 ---
 
@@ -495,8 +498,10 @@ flowchart TD
 | Feature-first navigation | M-012, M-016, M-019 | |
 | Search / bookmarks / landmarks | M-017, M-019, M-031 | |
 | Dependency routes | M-016, M-019 | |
-| Repository DNA | M-013, M-014 | |
-| Project / framework / architecture detection | M-013 | |
+| Repository DNA | M-013, M-014 | Multi-domain + multi-persona profile |
+| Stack Detector SPI | M-040 | Early contracts; domains + developer personas |
+| Project / framework / architecture detection | M-013, M-040 | FE/BE/Mobile/Desktop/Data-ML-AI/Data-eng/DevOps/Embedded/Game/Tooling |
+| Developer persona inference | M-013, M-040 | Heuristic audience signals (FE, BE, mobile, DS, ML, AI, DevOps, QA, …) |
 | Feature / component / dependency graphs | M-010–M-012 | |
 | Semantic Knowledge Graph | M-011 | |
 | Repository Health Score | M-015 | |

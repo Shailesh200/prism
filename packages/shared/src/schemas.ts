@@ -118,6 +118,41 @@ export const DnaReportSchema = z.object({
 
 export type DnaReport = z.infer<typeof DnaReportSchema>;
 
+export const FileInventoryStatusSchema = z.enum([
+  "hashed",
+  "skipped_binary",
+  "skipped_oversized",
+]);
+
+export type FileInventoryStatus = z.infer<typeof FileInventoryStatusSchema>;
+
+export const FileInventoryEntrySchema = z.object({
+  path: RepoRelativePathSchema,
+  sizeBytes: z.number().int().nonnegative(),
+  mtimeMs: z.number().nonnegative(),
+  hashAlgo: z.literal("sha256"),
+  contentHash: z.string().nullable(),
+  status: FileInventoryStatusSchema,
+});
+
+export type FileInventoryEntry = z.infer<typeof FileInventoryEntrySchema>;
+
+export const FileInventorySchema = z.object({
+  rootPath: z.string().min(1),
+  hashAlgo: z.literal("sha256"),
+  generatedAt: z.string().datetime(),
+  files: z.array(FileInventoryEntrySchema),
+  stats: z.object({
+    filesSeen: z.number().int().nonnegative(),
+    filesHashed: z.number().int().nonnegative(),
+    filesSkipped: z.number().int().nonnegative(),
+    filesIgnored: z.number().int().nonnegative(),
+    durationMs: z.number().nonnegative(),
+  }),
+});
+
+export type FileInventory = z.infer<typeof FileInventorySchema>;
+
 /** Parse unknown JSON into a DTO; returns Zod issues as message. */
 export function parseDto<T>(
   schema: z.ZodType<T>,
