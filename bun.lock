@@ -79,6 +79,7 @@
       "name": "@prism/intelligence",
       "version": "0.0.0",
       "dependencies": {
+        "@prism/graph-engine": "workspace:*",
         "@prism/shared": "workspace:*",
       },
     },

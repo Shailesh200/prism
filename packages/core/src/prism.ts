@@ -83,6 +83,8 @@ function resolveCapabilities(
     ...STUB_CAPABILITIES,
     analysis: ports.analyzer !== undefined,
     indexing: ports.indexer !== undefined,
+    // M-010: dependency graph built in-process from the index snapshot
+    graphs: ports.indexer !== undefined,
   };
 }
 

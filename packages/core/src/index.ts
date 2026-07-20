@@ -6,6 +6,7 @@ export {
   type PrismWorkspace,
   type WorkspaceStatus,
 } from "./workspace.js";
+export type { DependencyGraphOptions } from "@prism/intelligence";
 export { STUB_CAPABILITIES, type PrismCapabilities } from "./capabilities.js";
 export type {
   AnalyzerPort,
