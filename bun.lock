@@ -42,6 +42,7 @@
         "@prism/analyzer": "workspace:*",
         "@prism/indexer": "workspace:*",
         "@prism/intelligence": "workspace:*",
+        "@prism/navigation": "workspace:*",
         "@prism/shared": "workspace:*",
       },
     },
@@ -90,6 +91,9 @@
     "packages/navigation": {
       "name": "@prism/navigation",
       "version": "0.0.0",
+      "dependencies": {
+        "@prism/shared": "workspace:*",
+      },
     },
     "packages/repository-map": {
       "name": "@prism/repository-map",

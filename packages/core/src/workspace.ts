@@ -22,6 +22,13 @@ import {
   type UtilitiesSession,
 } from "@prism/intelligence";
 import {
+  findPaths,
+  listLandmarks as collectLandmarks,
+  navigateFeature as routeBetweenFeatures,
+  resolveEndpointNodeId,
+  type RouteEndpoint,
+} from "@prism/navigation";
+import {
   PrismErrorCode,
   type BlastRadiusReport,
   type ConsentRecord,
@@ -37,6 +44,8 @@ import {
   type IngestArtifactMeta,
   type IntelligenceReport,
   type KnowledgeGraphStats,
+  type Landmark,
+  type NavigationRouteResult,
   type PersonaPresets,
   type PrismError,
   type RepoId,
@@ -53,6 +62,13 @@ import {
 } from "@prism/shared";
 import type { PrismCapabilities } from "./capabilities.js";
 import type { IndexWorkspaceOptions, PrismEnginePorts } from "./ports.js";
+
+export type FindRouteQuery = {
+  readonly from: RouteEndpoint;
+  readonly to: RouteEndpoint;
+  readonly maxAlternatives?: number;
+  readonly maxHops?: number;
+};
 
 export type KnowledgeGraphView = {
   readonly graph: GraphSnapshotDto;
@@ -194,6 +210,19 @@ export type PrismWorkspace = {
     purpose: string,
   ): Promise<Result<ConsentRecord | null, PrismError>>;
   getHealth(): Promise<Result<HealthScore, PrismError>>;
+  /**
+   * Shortest / k-simple dependency routes between files or symbols (M-016).
+   * Requires `index()`. Empty routes when no path exists.
+   */
+  findRoute(query: FindRouteQuery): Result<NavigationRouteResult, PrismError>;
+  /** Feature → feature routes via shared file dependencies (M-016). */
+  navigateFeature(
+    fromFeatureId: string,
+    toFeatureId: string,
+    options?: { maxAlternatives?: number; maxHops?: number },
+  ): Result<NavigationRouteResult, PrismError>;
+  /** Named entrypoints / package roots / feature anchors (M-016). */
+  listLandmarks(): Result<Landmark[], PrismError>;
   blastRadius(input: {
     kind: "file" | "symbol";
     id: string;
@@ -668,6 +697,70 @@ export function createWorkspace(options: {
         );
       }
       return ok(computeHealthScore(lastSnapshot));
+    },
+    findRoute(query) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      const fromId = resolveEndpointNodeId(lastSnapshot, query.from);
+      const toId = resolveEndpointNodeId(lastSnapshot, query.to);
+      if (!fromId || !toId) {
+        return ok({ routes: [], empty: true });
+      }
+      const dep = buildDependencyGraph(lastSnapshot);
+      return ok(
+        findPaths(dep.graph, fromId, toId, {
+          ...(query.maxAlternatives === undefined
+            ? {}
+            : { maxAlternatives: query.maxAlternatives }),
+          ...(query.maxHops === undefined ? {} : { maxHops: query.maxHops }),
+          kind: "dependency",
+        }),
+      );
+    },
+    navigateFeature(fromFeatureId, toFeatureId, options) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      const dep = buildDependencyGraph(lastSnapshot);
+      const features = buildFeatureGraph(lastSnapshot).features;
+      return ok(
+        routeBetweenFeatures(
+          dep.graph,
+          features,
+          fromFeatureId,
+          toFeatureId,
+          options,
+        ),
+      );
+    },
+    listLandmarks() {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      const features = buildFeatureGraph(lastSnapshot).features;
+      return ok(collectLandmarks(lastSnapshot, features));
     },
     async blastRadius() {
       const gate = ensureOpen();
