@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+.bun/
+
+# Build / cache
+dist/
+build/
+.turbo/
+.moon/cache/
+*.tsbuildinfo
+.cache/
+
+# Prism local analysis cache (future)
+.prism/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Test / coverage
+coverage/
+playwright-report/
+test-results/
+
+# Logs
+*.log
+npm-debug.log*

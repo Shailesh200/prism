@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prism — Locked Brand Gallery</title>
+  <style>
+    :root {
+      --panel: #fbfcfd;
+      --ink: #0f1c24;
+      --muted: #5a6b76;
+      --line: #c5d0d8;
+      --brand: #0f766e;
+      --tile: #f3f7f9;
+      --dark-tile: #1a2330;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+      color: var(--ink);
+      background: linear-gradient(160deg, #e8eef2 0%, #f3f7f9 55%, #edf3f6 100%);
+      min-height: 100vh;
+    }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.85rem 1.5rem;
+      background: color-mix(in srgb, var(--panel) 92%, transparent);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--line);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+    }
+    .brand-mark {
+      width: 1.75rem;
+      height: 1.75rem;
+      border-radius: 4px;
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+    }
+    .meta { color: var(--muted); font-size: 0.875rem; }
+    .status-pill {
+      display: inline-block;
+      margin-left: 0.4rem;
+      padding: 0.12rem 0.45rem;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 650;
+      background: #d9edec;
+      color: var(--brand);
+      vertical-align: middle;
+    }
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      padding: 1rem 1.5rem 0;
+    }
+    nav a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.875rem;
+      padding: 0.35rem 0.7rem;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel);
+    }
+    nav a:hover { color: var(--brand); border-color: var(--brand); }
+    main { padding: 1rem 1.5rem 3rem; max-width: 1400px; margin: 0 auto; }
+    section { margin-top: 2rem; }
+    h2 { margin: 0 0 0.35rem; font-size: 1.15rem; letter-spacing: -0.02em; }
+    .section-note { margin: 0 0 1rem; color: var(--muted); font-size: 0.9rem; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 1rem;
+    }
+    .card {
+      appearance: none;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      padding: 0;
+      text-align: left;
+      cursor: zoom-in;
+      overflow: hidden;
+      color: inherit;
+      font: inherit;
+      box-shadow: 0 1px 2px rgb(15 28 36 / 4%);
+    }
+    .card:hover {
+      border-color: color-mix(in srgb, var(--brand) 55%, var(--line));
+    }
+    .card-preview {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 140px;
+      background: var(--tile);
+      border-bottom: 1px solid var(--line);
+      padding: 1.25rem;
+    }
+    .card-preview.dark-tile { background: var(--dark-tile); }
+    .card-preview.logo img {
+      width: 72px;
+      height: 72px;
+      object-fit: contain;
+    }
+    .card-preview.lockup img {
+      width: 100%;
+      max-width: 220px;
+      max-height: 72px;
+      object-fit: contain;
+    }
+    .card-body { padding: 0.85rem 1rem 1rem; }
+    .card-body strong { display: block; font-size: 0.95rem; }
+    .card-body span {
+      display: block;
+      margin-top: 0.25rem;
+      color: var(--muted);
+      font-size: 0.78rem;
+      word-break: break-all;
+    }
+    .hint {
+      margin-top: 2rem;
+      padding: 1rem 1.1rem;
+      border: 1px dashed var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .hint code { color: var(--ink); font-size: 0.84em; }
+    dialog {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 0;
+      max-width: min(1100px, 94vw);
+      width: 100%;
+      background: var(--panel);
+      box-shadow: 0 16px 48px rgb(15 28 36 / 18%);
+    }
+    dialog::backdrop { background: rgb(15 28 36 / 45%); }
+    .lb-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--line);
+    }
+    .lb-head button {
+      border: 1px solid var(--line);
+      background: var(--tile);
+      border-radius: 8px;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+    .lb-body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      background: var(--tile);
+      min-height: 280px;
+    }
+    .lb-body.dark { background: var(--dark-tile); }
+    .lb-body img { max-width: 100%; max-height: 70vh; object-fit: contain; }
+    .lb-foot {
+      padding: 0.75rem 1rem 1rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+      border-top: 1px solid var(--line);
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="brand-mark" id="header-mark" aria-hidden="true"></span>
+      <span>Prism · Locked Brand</span>
+    </div>
+    <div class="meta" id="count">Loading…</div>
+  </header>
+
+  <nav id="nav"></nav>
+  <main id="main"></main>
+
+  <dialog id="lightbox">
+    <div class="lb-head">
+      <strong id="lb-title">Preview</strong>
+      <button type="button" id="lb-close">Close</button>
+    </div>
+    <div class="lb-body" id="lb-body"></div>
+    <div class="lb-foot" id="lb-path"></div>
+  </dialog>
+
+  <script>
+    const ASSETS = [
+      {
+        section: "lockups",
+        title: 'Lockups <span class="status-pill">Locked</span>',
+        note: "Transparent PNGs for headers and docs.",
+        items: [
+          { id: "lockup-light", name: "Lockup light", src: "logo/prism-lockup.png", type: "lockup" },
+          { id: "lockup-dark", name: "Lockup dark", src: "logo/prism-lockup-dark.png", type: "lockup", dark: true },
+          { id: "lockup-l512", name: "Light 512", src: "logo/exports/prism-lockup-light-512.png", type: "lockup" },
+          { id: "lockup-l320", name: "Light 320", src: "logo/exports/prism-lockup-light-320.png", type: "lockup" },
+          { id: "lockup-d512", name: "Dark 512", src: "logo/exports/prism-lockup-dark-512.png", type: "lockup", dark: true },
+          { id: "lockup-d320", name: "Dark 320", src: "logo/exports/prism-lockup-dark-320.png", type: "lockup", dark: true }
+        ]
+      },
+      {
+        section: "mark",
+        title: 'Mark <span class="status-pill">Locked</span>',
+        note: "Faceted P — transparent masters and app sizes.",
+        items: [
+          { id: "mark", name: "Master teal", src: "logo/prism-mark.png", type: "logo" },
+          { id: "teal-512", name: "Teal 512", src: "logo/exports/prism-mark-teal-512.png", type: "logo" },
+          { id: "teal-256", name: "Teal 256", src: "logo/exports/prism-mark-teal-256.png", type: "logo" },
+          { id: "teal-128", name: "Teal 128", src: "logo/exports/prism-mark-teal-128.png", type: "logo" },
+          { id: "teal-64", name: "Teal 64", src: "logo/exports/prism-mark-teal-64.png", type: "logo" },
+          { id: "teal-32", name: "Teal 32", src: "logo/exports/prism-mark-teal-32.png", type: "logo" },
+          { id: "teal-16", name: "Teal 16", src: "logo/exports/prism-mark-teal-16.png", type: "logo" },
+          { id: "ink", name: "Ink", src: "logo/exports/prism-mark-ink.png", type: "logo" },
+          { id: "light", name: "Light", src: "logo/exports/prism-mark-light.png", type: "logo", dark: true },
+          { id: "white", name: "White", src: "logo/exports/prism-mark-white.png", type: "logo", dark: true }
+        ]
+      }
+    ];
+
+    const main = document.getElementById("main");
+    const nav = document.getElementById("nav");
+    const count = document.getElementById("count");
+    const dialog = document.getElementById("lightbox");
+    const lbTitle = document.getElementById("lb-title");
+    const lbBody = document.getElementById("lb-body");
+    const lbPath = document.getElementById("lb-path");
+
+    function openLightbox(opts) {
+      lbTitle.textContent = opts.title;
+      lbPath.textContent = opts.path || "";
+      lbBody.className = "lb-body" + (opts.dark ? " dark" : "");
+      lbBody.innerHTML = "";
+      const img = document.createElement("img");
+      img.src = opts.src;
+      img.alt = opts.title;
+      lbBody.appendChild(img);
+      dialog.showModal();
+    }
+
+    function render() {
+      let total = 0;
+      document.getElementById("header-mark").style.backgroundImage =
+        'url("logo/exports/prism-mark-teal-32.png")';
+
+      for (const section of ASSETS) {
+        const a = document.createElement("a");
+        a.href = `#${section.section}`;
+        a.textContent = section.title.replace(/<[^>]+>/g, "").trim();
+        nav.appendChild(a);
+
+        const sec = document.createElement("section");
+        sec.id = section.section;
+        sec.innerHTML = `<h2>${section.title}</h2><p class="section-note">${section.note}</p>`;
+        const grid = document.createElement("div");
+        grid.className = "grid";
+        sec.appendChild(grid);
+        main.appendChild(sec);
+
+        for (const item of section.items) {
+          total += 1;
+          const kind = item.type === "lockup" ? "lockup" : "logo";
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "card";
+          btn.innerHTML = `
+            <div class="card-preview ${kind}${item.dark ? " dark-tile" : ""}">
+              <img src="${item.src}" alt="${item.name}" loading="lazy" />
+            </div>
+            <div class="card-body">
+              <strong>${item.name}</strong>
+              <span>${item.src}</span>
+            </div>`;
+          btn.addEventListener("click", () =>
+            openLightbox({ title: item.name, src: item.src, path: item.src, dark: !!item.dark })
+          );
+          grid.appendChild(btn);
+        }
+      }
+
+      const hint = document.createElement("div");
+      hint.className = "hint";
+      hint.innerHTML = `
+        Brand + design system are <strong>locked</strong> — see <code>LOCKED.md</code> and <code>../DESIGN_SYSTEM.md</code>.
+        UI screen mockups are deferred. Use these PNGs in the app when implementation starts.
+      `;
+      main.appendChild(hint);
+      count.textContent = `${total} locked assets`;
+    }
+
+    document.getElementById("lb-close").addEventListener("click", () => dialog.close());
+    dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); });
+    render();
+  </script>
+</body>
+</html>
