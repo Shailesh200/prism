@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-003-core-skeleton` |
-| Status | Not Started |
+| Status | Verified |
 | Depends on | M-002 |
 | Unlocks | M-004 |
 | Packages | `@prism/core` |
@@ -27,10 +27,10 @@ Establish `@prism/core` as the **only** public SDK façade. Define the client en
 
 ## Definition of Done
 
-- [ ] Public API module documented in `packages/core/README.md`
-- [ ] Consumers can construct a client against a fixture path (no-op analyze)
-- [ ] ADR accepted for façade rule
-- [ ] `bun run verify:milestone` green; PROGRESS updated; owner approved
+- [x] Public API module documented in `packages/core/README.md`
+- [x] Consumers can construct a client against a fixture path (no-op analyze)
+- [x] ADR accepted for façade rule
+- [x] `bun run verify:milestone` green; PROGRESS updated; owner approved
 
 ## Verification
 
@@ -38,5 +38,5 @@ Typecheck · Lint · Unit (construction + lifecycle) · Build · Manual API walk
 
 ## Owner Approval Checklist
 
-- [ ] API names feel right for long-term stability
-- [ ] No surface packages bypass Core in design
+- [x] API names feel right for long-term stability
+- [x] No surface packages bypass Core in design

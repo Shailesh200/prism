@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { PACKAGE_NAME } from "./index.js";
+import {
+  PRISM_API_LEVEL,
+  PRISM_CORE_VERSION,
+  Prism,
+  STUB_CAPABILITIES,
+} from "./index.js";
 
-describe("@prism/core", () => {
-  it("exports package name", () => {
-    expect(PACKAGE_NAME).toBe("@prism/core");
+describe("@prism/core exports", () => {
+  it("re-exports the public façade", () => {
+    expect(typeof Prism.create).toBe("function");
+    expect(PRISM_CORE_VERSION).toBe("0.0.0");
+    expect(PRISM_API_LEVEL).toBe(1);
+    expect(STUB_CAPABILITIES.indexing).toBe(false);
   });
 });
