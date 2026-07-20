@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-000-architecture-docs` |
-| Status | Not Started |
+| Status | Verified |
 | Depends on | Master Plan **Approved** |
 | Unlocks | M-001 |
 | Packages touched | none (docs only under `plans/architecture/`) |
@@ -81,16 +81,16 @@ Also update:
 
 ## Definition of Done
 
-- [ ] `plans/architecture/01_HLD.md` complete and reviewed
-- [ ] `plans/architecture/02_LLD.md` complete and reviewed
-- [ ] `plans/architecture/03_TECH_STACK.md` complete and reviewed
-- [ ] `plans/architecture/04_FOLDER_STRUCTURE.md` complete and reviewed
-- [ ] `plans/architecture/05_DATA_FLOWS.md` complete and reviewed
-- [ ] `plans/architecture/06_PACKAGE_RESPONSIBILITIES.md` complete and reviewed
-- [ ] No contradictions with Master Plan / ADR-0003 / STRUCTURE
-- [ ] `plans/PROGRESS.md` updated
-- [ ] Owner approval: **approved to merge M-000** (docs-only merge to main)
-- [ ] Explicit go-ahead to start **M-001**
+- [x] `plans/architecture/01_HLD.md` complete and reviewed
+- [x] `plans/architecture/02_LLD.md` complete and reviewed
+- [x] `plans/architecture/03_TECH_STACK.md` complete and reviewed
+- [x] `plans/architecture/04_FOLDER_STRUCTURE.md` complete and reviewed
+- [x] `plans/architecture/05_DATA_FLOWS.md` complete and reviewed
+- [x] `plans/architecture/06_PACKAGE_RESPONSIBILITIES.md` complete and reviewed
+- [x] No contradictions with Master Plan / ADR-0003 / STRUCTURE
+- [x] `plans/PROGRESS.md` updated
+- [x] Owner approval: **approved to merge M-000** (docs-only merge to main)
+- [x] Explicit go-ahead to start **M-001**
 
 ## Verification (docs milestone)
 
@@ -98,25 +98,25 @@ M-000 does **not** run `bun run verify:milestone` (no toolchain yet).
 
 Owner review checklist:
 
-- [ ] HLD understandable by a new engineer in one sitting
-- [ ] LLD clear enough to implement M-001–M-003 without guessing package boundaries
-- [ ] Tech stack doc matches locked ADR-0003
-- [ ] Folder structure ready to scaffold in M-001
-- [ ] Data flows cover Core + at least one surface path (MCP or CLI)
+- [x] HLD understandable by a new engineer in one sitting
+- [x] LLD clear enough to implement M-001–M-003 without guessing package boundaries
+- [x] Tech stack doc matches locked ADR-0003
+- [x] Folder structure ready to scaffold in M-001
+- [x] Data flows cover Core + at least one surface path (MCP or CLI)
 
 ## Manual verification
 
-- [ ] Open `plans/architecture/` end-to-end
-- [ ] Spot-check links to ADRs / Master Plan / DESIGN_SYSTEM
+- [x] Open `plans/architecture/` end-to-end
+- [x] Spot-check links to ADRs / Master Plan / DESIGN_SYSTEM
 
 ## Owner approval
 
 | Field | Value |
 |---|---|
-| Approved by | |
-| Date | |
-| Decision | ☐ Approved to merge / ☐ Changes requested |
-| Start M-001 | ☐ Yes after merge |
+| Approved by | Shailesh Jha |
+| Date | 2026-07-20 |
+| Decision | ✅ Approved to merge |
+| Start M-001 | ✅ Yes after merge |
 
 ## Notes
 

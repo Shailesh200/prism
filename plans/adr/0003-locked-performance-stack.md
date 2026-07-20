@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **LOCKED** (owner confirmed 2026-07-20; Master Plan product approval still separate) |
+| Status | **LOCKED** (owner confirmed 2026-07-20; Master Plan **APPROVED** 2026-07-20) |
 | Date | 2026-07-20 |
 | Decision makers | Owner |
 | Related milestones | M-001, M-006, M-009, M-018 |
