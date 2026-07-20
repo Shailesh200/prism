@@ -104,20 +104,6 @@ export const BlastRadiusReportSchema = z.object({
 
 export type BlastRadiusReport = z.infer<typeof BlastRadiusReportSchema>;
 
-export const DnaReportSchema = z.object({
-  languages: z.array(
-    z.object({
-      id: z.string(),
-      share: z.number().min(0).max(1),
-    }),
-  ),
-  frameworks: z.array(z.string()),
-  packageManager: z.string().optional(),
-  summary: z.string().min(1),
-});
-
-export type DnaReport = z.infer<typeof DnaReportSchema>;
-
 export const FileInventoryStatusSchema = z.enum([
   "hashed",
   "skipped_binary",
@@ -331,6 +317,26 @@ export const StackProfileSchema = z.object({
 });
 
 export type StackProfile = z.infer<typeof StackProfileSchema>;
+
+export const DnaReportSchema = z.object({
+  languages: z.array(
+    z.object({
+      id: z.string(),
+      share: z.number().min(0).max(1),
+    }),
+  ),
+  frameworks: z.array(z.string()),
+  packageManager: z.string().optional(),
+  summary: z.string().min(1),
+  /** Stack Detector SPI profile (M-013+). */
+  stack: StackProfileSchema.optional(),
+  /** Architecture style hints (explainable heuristics). */
+  architectureHints: z.array(z.string()).default([]),
+  /** Detected test runners (local markers only). */
+  testRunners: z.array(z.string()).default([]),
+});
+
+export type DnaReport = z.infer<typeof DnaReportSchema>;
 
 /** Parse unknown JSON into a DTO; returns Zod issues as message. */
 export function parseDto<T>(

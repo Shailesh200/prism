@@ -35,7 +35,7 @@ function buildSummary(
   signals: readonly StackSignal[],
 ): string {
   if (signals.length === 0) {
-    return "No stack signals detected (stub detectors; packs land in M-013)";
+    return "Partial DNA: no stack signals detected";
   }
   return `Detected domains: ${domains.join(", ") || "none"} (${signals.length} signal(s))`;
 }

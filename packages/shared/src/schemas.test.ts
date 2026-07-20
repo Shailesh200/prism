@@ -108,8 +108,13 @@ describe("DTO schemas round-trip", () => {
       frameworks: ["react"],
       packageManager: "bun",
       summary: "TS monorepo",
+      architectureHints: ["monorepo"],
+      testRunners: ["vitest"],
     };
-    expect(DnaReportSchema.parse(raw).frameworks).toContain("react");
+    const parsed = DnaReportSchema.parse(raw);
+    expect(parsed.frameworks).toContain("react");
+    expect(parsed.architectureHints).toContain("monorepo");
+    expect(parsed.testRunners).toContain("vitest");
   });
 
   it("FileInventorySchema", () => {
