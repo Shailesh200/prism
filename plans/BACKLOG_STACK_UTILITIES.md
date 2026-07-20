@@ -1,117 +1,133 @@
 # Backlog — Stack-aware repository utilities
 
 > **Status:** Backlog (owner-approved direction 2026-07-20)  
-> **Do not implement from this list until a milestone explicitly pulls items In Scope.**  
+> **Do not implement from this list until a milestone phase explicitly pulls items In Scope.**  
 > **Decisions:** [ADR-0008](./adr/0008-stack-aware-measurement-utilities.md)  
-> **SPI foundation:** M-040 · **DNA packs:** M-013 · **Utilities epic:** M-041+ (before M-018)
+> **SPI foundation:** M-040 · **DNA packs:** M-013 · **Utilities epic:** [M-041](./milestones/M-041_stack-utilities-foundation.md) (all domains + monorepo; Gate A before M-018)
 
 Artifacts stay **local**. Runners / remote APIs are **consent-based**. No Prism Cloud.
+
+**Phase map (M-041):** P0 foundation · P1 FE/web · Mono-v1 · P2 BE · P3 mobile · P4 desktop · P5 ML/data eng · P6 DevOps · P7 embedded/game/QA/SEC · Mono-v2.
 
 ---
 
 ## Cross-cutting (all domains)
 
-| ID | Item | Notes |
-|---|---|---|
-| X-01 | Ingest SPI for measurement reports (JSON schemas in `@prism/shared`) | Lighthouse, coverage, OTEL summaries, etc. |
-| X-02 | Local artifact store under `.prism/ingest/` (gitignored) | Path override allowed |
-| X-03 | Async job UX: start → progress → ready report | Shared pattern for Lighthouse and later runners |
-| X-04 | Persona-default Map / insights presets | From StackProfile |
-| X-05 | MCP tools for stack profile + latest ingest summaries | After Core APIs exist |
-| X-06 | Consent gate component for any network-backed probe | PageSpeed etc. |
+| ID | Item | Notes | Phase |
+|---|---|---|---|
+| X-01 | Ingest SPI for measurement reports (JSON schemas in `@prism/shared`) | Lighthouse, coverage, OTEL summaries, etc. | P0 |
+| X-02 | Local artifact store under `.prism/ingest/` (gitignored) | Path override allowed | P0 |
+| X-03 | Async job UX: start → progress → ready report | Shared pattern for Lighthouse and later runners | P0 |
+| X-04 | Persona-default Map / insights presets | From StackProfile (workspace + package) | P0 / Mono-v1 |
+| X-05 | MCP tools for stack profile + latest ingest summaries | After Core APIs exist | Later |
+| X-06 | Consent gate component for any network-backed probe | PageSpeed etc. | P0 |
+
+---
+
+## Monorepo / multi-domain workspace
+
+| ID | Item | Priority | Phase |
+|---|---|---|---|
+| MR-01 | Per-package stack profile detection (apps/*, packages/*, language roots) | Gate A | Mono-v1 |
+| MR-02 | Workspace rollup: domains[], personas[], packages[] | Gate A | Mono-v1 |
+| MR-03 | Core package selector for utilities / overlays | Gate A | Mono-v1 |
+| MR-04 | Additive multi-domain (no single-winner at workspace) | Gate A | Mono-v1 |
+| MR-05 | Tooling signals (pnpm/turbo/nx/moon workspaces) on rollup | Gate A | Mono-v1 |
+| MR-06 | Cross-package blast defaults / shared-lib impact | Later | Mono-v2 |
+| MR-07 | Domain-colored Map regions for multi-app workspaces | Later | Mono-v2 |
 
 ---
 
 ## Frontend / web
 
-| ID | Item | Priority |
-|---|---|---|
-| FE-01 | Opt-in local Lighthouse runner (dedicated PORT, async, callout) | Epic foundation |
-| FE-02 | CWV report model: LCP, CLS, INP (+ future vitals) | Epic foundation |
-| FE-03 | Rollups: app → route → chunk → **component** (when attributable) | Epic foundation |
-| FE-04 | SEO score / SEO audits overlay | Later |
-| FE-05 | Full LH category scores (Perf, A11y, BP, SEO) on Map/Inspector | Later |
-| FE-06 | Bundle / code-split hotspot layer (build stats ingest) | Later |
-| FE-07 | Framework lenses (Next/Vite/Remix route graphs) | Later |
-| FE-08 | Optional consent-based PageSpeed API | Later (never default) |
+| ID | Item | Priority | Phase |
+|---|---|---|---|
+| FE-01 | Opt-in local Lighthouse runner (dedicated PORT, async, callout) | Gate A | P1 |
+| FE-02 | CWV report model: LCP, CLS, INP (+ future vitals) | Gate A | P1 |
+| FE-03 | Rollups: app → route → chunk → **component** (when attributable) | Gate A | P1 |
+| FE-04 | SEO score / SEO audits overlay | Later | P1+ |
+| FE-05 | Full LH category scores (Perf, A11y, BP, SEO) on Map/Inspector | Later | P1+ |
+| FE-06 | Bundle / code-split hotspot layer (build stats ingest) | Later | P1+ |
+| FE-07 | Framework lenses (Next/Vite/Remix route graphs) | Later | P1+ |
+| FE-08 | Optional consent-based PageSpeed API | Later (never default) | P1+ |
 
 ---
 
 ## Backend / API
 
-| ID | Item | Priority |
-|---|---|---|
-| BE-01 | API / RPC surface inventory (OpenAPI, route tables, gRPC) | Later pack |
-| BE-02 | Handler-level blast-radius defaults | Later |
-| BE-03 | Test-gap on API surface | Later |
-| BE-04 | Config/secret path caution layer | Later |
-| BE-05 | Optional local OTEL/Prometheus export ingest (p95/error overlays) | Later |
+| ID | Item | Priority | Phase |
+|---|---|---|---|
+| BE-01 | API / RPC surface inventory (OpenAPI, route tables, gRPC) | Pack scaffold | P2 |
+| BE-02 | Handler-level blast-radius defaults | Later | P2 |
+| BE-03 | Test-gap on API surface | Later | P2 |
+| BE-04 | Config/secret path caution layer | Later | P2 |
+| BE-05 | Optional local OTEL/Prometheus export ingest (p95/error overlays) | Later | P2 |
 
 ---
 
 ## Mobile (RN / Expo / Flutter / native)
 
-| ID | Item | Priority |
-|---|---|---|
-| MO-01 | Screen / navigation graph layer | Later pack |
-| MO-02 | Native module / bridge risk | Later |
-| MO-03 | Platform split (iOS/Android-only paths) | Later |
-| MO-04 | Asset/binary weight hotspots | Later |
-| MO-05 | Startup import criticality | Later |
-| MO-06 | Deep-link / permission manifest inventory | Later |
-| MO-07 | E2E coverage overlay (Detox/Maestro/…) | Later |
+| ID | Item | Priority | Phase |
+|---|---|---|---|
+| MO-01 | Screen / navigation graph layer | Pack scaffold | P3 |
+| MO-02 | Native module / bridge risk | Later | P3 |
+| MO-03 | Platform split (iOS/Android-only paths) | Later | P3 |
+| MO-04 | Asset/binary weight hotspots | Later | P3 |
+| MO-05 | Startup import criticality | Later | P3 |
+| MO-06 | Deep-link / permission manifest inventory | Later | P3 |
+| MO-07 | E2E coverage overlay (Detox/Maestro/…) | Later | P3 |
 
 ---
 
 ## Desktop (Electron / Tauri / …)
 
-| ID | Item | Priority |
-|---|---|---|
-| DT-01 | Main vs renderer / IPC boundary map | Later pack |
-| DT-02 | Preload / privilege surface | Later |
-| DT-03 | Packaging / updater config inventory | Later |
+| ID | Item | Priority | Phase |
+|---|---|---|---|
+| DT-01 | Main vs renderer / IPC boundary map | Pack scaffold | P4 |
+| DT-02 | Preload / privilege surface | Later | P4 |
+| DT-03 | Packaging / updater config inventory | Later | P4 |
 
 ---
 
 ## Data / ML / AI
 
-| ID | Item | Priority |
-|---|---|---|
-| ML-01 | Notebook ↔ module graph | Later pack |
-| ML-02 | Train vs serve region split | Later |
-| ML-03 | Experiment / artifact directory signals | Later |
-| ML-04 | Prompt / eval / RAG layout regions | Later |
-| ML-05 | Pipeline stage map (ingest → train → deploy) | Later |
+| ID | Item | Priority | Phase |
+|---|---|---|---|
+| ML-01 | Notebook ↔ module graph | Pack scaffold | P5 |
+| ML-02 | Train vs serve region split | Later | P5 |
+| ML-03 | Experiment / artifact directory signals | Later | P5 |
+| ML-04 | Prompt / eval / RAG layout regions | Later | P5 |
+| ML-05 | Pipeline stage map (ingest → train → deploy) | Later | P5 |
 
 ---
 
 ## Data engineering
 
-| ID | Item | Priority |
-|---|---|---|
-| DE-01 | Job/DAG dependency view (Airflow/dbt/Spark defs) | Later pack |
-| DE-02 | dbt-style model lineage | Later |
+| ID | Item | Priority | Phase |
+|---|---|---|---|
+| DE-01 | Job/DAG dependency view (Airflow/dbt/Spark defs) | Pack scaffold | P5 |
+| DE-02 | dbt-style model lineage | Later | P5 |
 
 ---
 
 ## DevOps / platform / SRE
 
-| ID | Item | Priority |
-|---|---|---|
-| DO-01 | IaC resource map (Terraform/K8s/Helm) | Later pack |
-| DO-02 | CI workflow criticality | Later |
-| DO-03 | App↔infra blast touchpoints | Later |
+| ID | Item | Priority | Phase |
+|---|---|---|---|
+| DO-01 | IaC resource map (Terraform/K8s/Helm) | Pack scaffold | P6 |
+| DO-02 | CI workflow criticality | Later | P6 |
+| DO-03 | App↔infra blast touchpoints | Later | P6 |
 
 ---
 
 ## Embedded / game / QA / security
 
-| ID | Item | Priority |
-|---|---|---|
-| EM-01 | Firmware vs host test regions | Later |
-| GM-01 | Engine content vs code regions | Later |
-| QA-01 | Test-only package / e2e gap overlays | Later |
-| SEC-01 | Auth/crypto concentration + policy-as-code presence | Later |
+| ID | Item | Priority | Phase |
+|---|---|---|---|
+| EM-01 | Firmware vs host test regions | Later | P7 |
+| GM-01 | Engine content vs code regions | Later | P7 |
+| QA-01 | Test-only package / e2e gap overlays | Later | P7 |
+| SEC-01 | Auth/crypto concentration + policy-as-code presence | Later | P7 |
 
 ---
 
@@ -130,6 +146,7 @@ Artifacts stay **local**. Runners / remote APIs are **consent-based**. No Prism 
 |---|---|
 | 2026-07-20 | Lighthouse = opt-in local runner + async UX callout (ADR-0008 D1) |
 | 2026-07-20 | CWV attribution may reach component level; not LCP-only (D2) |
-| 2026-07-20 | Utilities epic before M-018 Map UI (D3) |
+| 2026-07-20 | Utilities epic before M-018 Map UI; Map after Gate A (D3 amended) |
 | 2026-07-20 | Local reports only; consent for remote perf; no Prism Cloud (D4) |
 | 2026-07-20 | Domain feature lists are backlog — grow over time |
+| 2026-07-20 | M-041 owns **all** domain packs + multi-domain monorepo (D5 / Q-021) |

@@ -405,7 +405,7 @@ flowchart TD
   M014 --> M015[M-015 Health Score]
   M010 --> M016[M-016 Navigation]
   M012 --> M016
-  M014 --> M041[M-041 Stack Utilities Foundation]
+  M014 --> M041[M-041 Stack Utilities Epic]
   M040 --> M041
   M016 --> M017[M-017 Map Model]
   M041 --> M017
@@ -467,7 +467,7 @@ flowchart TD
 | M-014 | Repository Intelligence API | Intelligence | M-013 | Yes |
 | M-015 | Repository Health Score v1 | Intelligence | M-014 | Summary |
 | M-016 | Navigation Engine | Navigation | M-010, M-012 | Yes |
-| M-041 | Stack-aware utilities foundation (Lighthouse/CWV substrate) | Intelligence | M-014, M-040 | Yes |
+| M-041 | Stack-aware utilities epic (all domains + monorepo; Gate A before Map) | Intelligence | M-014, M-040 | Yes |
 | M-017 | Repository Map Data Model | Map | M-016, M-041 | Yes |
 | M-018 | Repository Map UI (Playground) | Map | M-017 | Yes |
 | M-019 | Map Layers & Views | Map | M-018 | Summary |
@@ -492,7 +492,8 @@ flowchart TD
 | M-038 | Documentation Site | Docs | M-037 | Summary |
 | M-039 | GA Readiness | Release | M-036, M-038 | Yes |
 
-**Critical path (must stay green):** M-001 → M-005 → M-040 → M-014 → **M-041** → M-017 → M-018 → M-025 → surfaces (M-026/M-028/M-030) → M-039.
+**Critical path (must stay green):** M-001 → M-005 → M-040 → M-014 → **M-041 Gate A** (P0 + P1 + Mono-v1) → M-017 → M-018 → M-025 → surfaces (M-026/M-028/M-030) → M-039.  
+**M-041 continued:** phases P2–P7 + Mono-v2 may run after Gate A (Map unblocked); still tracked as M-041 until epic complete.
 
 ---
 
@@ -509,9 +510,11 @@ flowchart TD
 | Stack Detector SPI | M-040 | Early contracts; domains + developer personas |
 | Project / framework / architecture detection | M-013, M-040 | FE/BE/Mobile/Desktop/Data-ML-AI/Data-eng/DevOps/Embedded/Game/Tooling |
 | Developer persona inference | M-013, M-040 | Heuristic audience signals (FE, BE, mobile, DS, ML, AI, DevOps, QA, …) |
-| Stack-aware utilities (Lighthouse/CWV/SEO + domain packs) | M-041+, backlog | [ADR-0008](./adr/0008-stack-aware-measurement-utilities.md) · [BACKLOG](./BACKLOG_STACK_UTILITIES.md); epic before M-018 |
-| Opt-in local Lighthouse runner | M-041 | Async PORT callout; reports local only |
-| CWV attribution (app→route→chunk→component) | M-041+ | Not LCP-only; honest fallbacks when attribution missing |
+| Stack-aware utilities (all domains) | M-041, backlog | [ADR-0008](./adr/0008-stack-aware-measurement-utilities.md) · [BACKLOG](./BACKLOG_STACK_UTILITIES.md); Gate A before M-018 |
+| Opt-in local Lighthouse runner | M-041 P1 | Async PORT callout; reports local only |
+| CWV attribution (app→route→chunk→component) | M-041 P1+ | Not LCP-only; honest fallbacks when attribution missing |
+| Multi-domain monorepo utilities | M-041 Mono-v1/v2 | Per-package profiles + workspace rollup; package-scoped runners |
+| Backend / DevOps / mobile / … packs | M-041 P2–P7 | Scaffold + primary backlog slice per phase |
 | Feature / component / dependency graphs | M-010–M-012 | |
 | Semantic Knowledge Graph | M-011 | |
 | Repository Health Score | M-015 | |
