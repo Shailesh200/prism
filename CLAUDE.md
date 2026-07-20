@@ -19,6 +19,7 @@
 
 - Develop on `main`
 - Stack milestone branches
+- **Create git commits before the owner explicitly approves** (keep work in the working tree until then)
 - Push remotes unless the human owner explicitly requests it
 - Bypass `@prism/core` from MCP/CLI/extensions
 - Add cloud/network dependencies to Core analysis paths
@@ -27,7 +28,7 @@
 ## Preferred workflow
 
 ```text
-Read milestone doc → implement → bun run verify:milestone → fix → request owner review → wait for approval → merge locally to main → mark Verified → next branch from main
+Read milestone doc → implement (no commits) → bun run verify:milestone → fix → request owner review → owner approves → commit on milestone branch → owner approves merge → merge locally to main → mark Verified → next branch from main
 ```
 
 ## Packages (mental model)

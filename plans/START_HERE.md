@@ -42,7 +42,7 @@ git merge --no-ff milestone/M-001-project-foundation
 git checkout -b milestone/M-002-shared-contracts
 ```
 
-**Never** develop on `main`. **Never** stack milestone branches. **Never** push unless the owner explicitly asks.
+**Never** develop on `main`. **Never** stack milestone branches. **Never commit until the owner approves.** **Never** push unless the owner explicitly asks.
 
 ## 4. Definition of Done
 
@@ -64,15 +64,16 @@ git checkout -b milestone/M-002-shared-contracts
 ## 6. Owner approval checklist (every milestone)
 
 - [ ] Scope matches milestone doc (no silent expansions)
-- [ ] Hard Rules followed (branch, no push, no stack)
+- [ ] Hard Rules followed (branch, no commit before approval, no push, no stack)
 - [ ] Verify suite green **or** M-000 docs checklist complete
 - [ ] Main will remain buildable after merge (N/A for docs-only M-000; still merge cleanly)
-- [ ] Explicit “approved to merge” from owner
+- [ ] Explicit owner approval to **commit**, then to **merge**
 - [ ] PROGRESS status → Verified after merge
 
 ## 7. Hard Rules (verbatim)
 
 - Never implement product code before the Master Plan is approved **and M-000 is Verified**.
+- **Never create git commits until the owner explicitly approves** (keep work uncommitted until then).
 - One active milestone at a time.
 - One milestone = one Git branch.
 - Never develop on main.

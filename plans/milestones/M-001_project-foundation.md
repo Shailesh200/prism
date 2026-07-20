@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-001-project-foundation` |
-| Status | In Progress |
+| Status | Verified |
 | Depends on | Master Plan **Approved** + **M-000 Verified** |
 | Unlocks | M-002 |
 | Packages touched | repo root, `packages/*` skeletons, `scripts/` |
@@ -46,7 +46,7 @@ Establish a production-grade monorepo skeleton: **Bun** workspaces, **moonrepo**
 - [x] Package stubs for all Master Plan packages
 - [x] Node 26 + Bun toolchain pinned via moon
 - [x] `plans/PROGRESS.md` updated
-- [ ] Owner approval recorded
+- [x] Owner approval recorded (2026-07-20)
 
 ## Verification
 
@@ -69,6 +69,6 @@ Establish a production-grade monorepo skeleton: **Bun** workspaces, **moonrepo**
 
 ## Owner Approval Checklist
 
-- [ ] Bun + Node 26 + moon + Oxlint/Oxfmt + Lefthook accepted
-- [ ] License choice confirmed
-- [ ] Approve merge to main (local)
+- [x] Bun + Node 26 + moon + Oxlint/Oxfmt + Lefthook accepted
+- [x] License choice confirmed (MIT)
+- [x] Approve merge to main (local) — 2026-07-20

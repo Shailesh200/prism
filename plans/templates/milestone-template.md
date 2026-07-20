@@ -51,5 +51,5 @@ One paragraph.
 ## Owner Approval Checklist
 
 - [ ] Scope correct
-- [ ] Hard Rules followed
-- [ ] Approve merge to main (local)
+- [ ] Hard Rules followed (including: no commits before owner approval)
+- [ ] Approve **commit**, then approve **merge** to main (local)
