@@ -3,10 +3,10 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-016-navigation-engine` |
-| Status | Not Started |
+| Status | Verified |
 | Depends on | M-010, M-012 |
 | Unlocks | M-017, M-025 |
-| Packages | `@prism/navigation`, `@prism/core` |
+| Packages | `@prism/navigation`, `@prism/core`, `@prism/shared` |
 
 ## Goal
 
@@ -26,10 +26,12 @@ Provide path-finding and feature navigation: dependency routes, cross-feature ju
 
 ## Definition of Done
 
-- [ ] Path tests on fixture (known routes)
-- [ ] Empty-route case handled cleanly
-- [ ] Verify + PROGRESS + owner approval
+- [x] Path tests on fixture (known routes)
+- [x] Empty-route case handled cleanly (`routes: []`, `empty: true`)
+- [x] Shared `NavigationRoute` / `Landmark` DTOs
+- [x] `bun run verify:milestone` green
+- [x] Owner approval → commit → merge → then M-017
 
 ## Verification
 
-Typecheck · Lint · Unit · Integration · Build
+`bun run verify:milestone`

@@ -21,6 +21,7 @@
     "@prism/analyzer": "workspace:*",
     "@prism/indexer": "workspace:*",
     "@prism/intelligence": "workspace:*",
+    "@prism/navigation": "workspace:*",
     "@prism/shared": "workspace:*"
   }
 }

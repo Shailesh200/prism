@@ -85,6 +85,36 @@ export const HealthScoreSchema = z.object({
 
 export type HealthScore = z.infer<typeof HealthScoreSchema>;
 
+/** Navigation hop list between graph nodes (M-016). */
+export const NavigationRouteSchema = z.object({
+  from: z.string().min(1),
+  to: z.string().min(1),
+  /** Ordered node ids including endpoints. */
+  hops: z.array(z.string().min(1)),
+  length: z.number().int().nonnegative(),
+  kind: z.enum(["dependency", "feature"]),
+});
+
+export type NavigationRoute = z.infer<typeof NavigationRouteSchema>;
+
+export const NavigationRouteResultSchema = z.object({
+  routes: z.array(NavigationRouteSchema),
+  /** True when no path exists (routes empty by design). */
+  empty: z.boolean(),
+});
+
+export type NavigationRouteResult = z.infer<typeof NavigationRouteResultSchema>;
+
+export const LandmarkSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  path: z.string().min(1),
+  kind: z.enum(["entrypoint", "package-root", "feature", "config"]),
+  note: z.string().optional(),
+});
+
+export type Landmark = z.infer<typeof LandmarkSchema>;
+
 export const BlastRadiusItemSchema = z.object({
   path: RepoRelativePathSchema,
   reason: z.string().min(1),

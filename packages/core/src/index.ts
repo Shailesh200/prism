@@ -4,6 +4,7 @@ export { Prism, type PrismClient, type PrismClientOptions } from "./prism.js";
 export {
   createWorkspace,
   type FeatureGraphView,
+  type FindRouteQuery,
   type GetStackProfileOptions,
   type GetUtilityOverlayOptions,
   type KnowledgeGraphView,
@@ -11,6 +12,7 @@ export {
   type WorkspacePackageInfo,
   type WorkspaceStatus,
 } from "./workspace.js";
+export type { RouteEndpoint } from "@prism/navigation";
 export type {
   DependencyGraphOptions,
   FindReferencesQuery,
@@ -37,6 +39,9 @@ export type {
   StackPackageProfile,
   StackProfile,
   UtilityJob,
+  Landmark,
+  NavigationRoute,
+  NavigationRouteResult,
   UtilityOverlayKind,
   UtilityOverlayKindInfo,
   UtilityOverlayReport,
