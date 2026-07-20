@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-018-map-ui-playground` |
-| Status | Not Started |
+| Status | Verified |
 | Depends on | M-017 |
 | Unlocks | M-019, M-030 |
 | Packages | `@prism/ui`, `apps/playground` |
@@ -27,10 +27,15 @@ Ship an interactive Repository Map in the playground app using React Flow (or ch
 
 ## Definition of Done
 
-- [ ] Playground runs via `bun --filter playground dev`
-- [ ] Map renders fixture with feature-first view
-- [ ] Component lives in `@prism/ui` for reuse
-- [ ] Verify + PROGRESS + owner approval
+- [x] Playground runs via `bun --filter @prism/playground dev`
+- [x] Map renders fixture with feature-first view
+- [x] Component lives in `@prism/ui` for reuse
+- [x] Verify + PROGRESS + owner approval
+
+## Deferred (revisit after features)
+
+- Treemap drill / Highcharts transition animation polish
+- Further File-zoom density UX refinements
 
 ## Verification
 

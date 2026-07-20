@@ -1,0 +1,128 @@
+.prism-boot {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background:
+    radial-gradient(90% 70% at 50% 28%, #f3f7f9 0%, transparent 58%),
+    linear-gradient(165deg, #e8eef2 0%, #f3f7f9 100%);
+  color: #0f1c24;
+  font-family: "Satoshi", "General Sans", "Switzer", "Segoe UI", sans-serif;
+}
+
+.prism-boot__brand {
+  margin: 6px 0 0;
+  font-size: 1.125rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.prism-boot__msg {
+  margin: 10px 0 0;
+  font-size: 0.8125rem;
+  color: #5a6b76;
+}
+
+.prism-boot__detail {
+  margin: 4px 0 0;
+  max-width: 420px;
+  text-align: center;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.7rem;
+  color: #5a6b76;
+  line-height: 1.4;
+}
+
+.playground-shell {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.playground-shell__map {
+  flex: 1;
+  min-height: 0;
+}
+
+.playground-open {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  border-bottom: 1px solid #d5dde3;
+  background: #f7fafb;
+  font-family: "Satoshi", "Segoe UI", sans-serif;
+}
+
+.playground-open--boot {
+  margin-top: 16px;
+  justify-content: center;
+  border: none;
+  background: transparent;
+}
+
+.playground-open__label {
+  font-size: 0.6875rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #5a6b76;
+}
+
+.playground-open__presets {
+  display: flex;
+  gap: 4px;
+}
+
+.playground-open__presets button,
+.playground-open > button[type="submit"] {
+  border: 1px solid #d5dde3;
+  background: #fff;
+  color: #0f1c24;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.playground-open__presets button[data-active="true"] {
+  border-color: #0f766e;
+  background: #0f766e;
+  color: #fff;
+}
+
+.playground-open__presets button:hover,
+.playground-open > button[type="submit"]:hover {
+  border-color: #0f766e;
+}
+
+.playground-open input {
+  flex: 1;
+  min-width: 180px;
+  border: 1px solid #d5dde3;
+  background: #fff;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.7rem;
+  color: #0f1c24;
+}
+
+.playground-open__status {
+  font-size: 0.6875rem;
+  color: #5a6b76;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playground-open__status--err {
+  color: #b42318;
+}

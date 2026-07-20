@@ -73,7 +73,10 @@
         "label": "Web",
         "attrs": {
           "slug": "web",
-          "confidence": 0.9
+          "confidence": 0.9,
+          "memberFiles": [
+            "apps/web/a.ts"
+          ]
         }
       },
       {
@@ -82,7 +85,10 @@
         "label": "API",
         "attrs": {
           "slug": "api",
-          "confidence": 0.8
+          "confidence": 0.8,
+          "memberFiles": [
+            "apps/api/b.ts"
+          ]
         }
       }
     ],

@@ -1,0 +1,76 @@
+/**
+ * Prism Signal Chart tokens — source: plans/mockups/DESIGN.md + plans/DESIGN_SYSTEM.md
+ * Do not invent alternate palettes in surfaces; extend this file.
+ */
+:root,
+.prism-theme {
+  /* Color */
+  --prism-brand: #0f766e;
+  --prism-brand-strong: #115e59;
+  --prism-on-brand: #ffffff;
+  --prism-ink: #0f1c24;
+  --prism-ink-muted: #5a6b76;
+  --prism-line: #c5d0d8;
+  --prism-panel: #fbfcfd;
+  --prism-canvas: #e8eef2;
+  --prism-canvas-alt: #f3f7f9;
+  --prism-tile: #f3f7f9;
+  --prism-route: #0f766e;
+  --prism-edge: color-mix(in srgb, #0f766e 42%, #c5d0d8);
+  --prism-edge-strong: color-mix(in srgb, #0f766e 72%, #5a6b76);
+  --prism-node-fill: #f7fafb;
+  --prism-node-fill-selected: color-mix(in srgb, #0f766e 10%, #ffffff);
+  --prism-risk: #d97706;
+  --prism-risk-extreme: #e11d48;
+  --prism-safe: #059669;
+  --prism-dark-chrome: #1a2330;
+  --prism-dark-ink: #e8eef2;
+
+  /* Treemap density shades (derived from brand / canvas — Signal Chart) */
+  --prism-treemap-0: #f3f7f9;
+  --prism-treemap-1: #e8eef2;
+  --prism-treemap-2: #c5e0dc;
+  --prism-treemap-3: #9fcfc8;
+  --prism-treemap-4: #6bb5ac;
+  --prism-treemap-5: #0f766e;
+  --prism-treemap-6: #115e59;
+  --prism-treemap-file: #f7fafb;
+  --prism-treemap-mist: #d5e3e8;
+
+  /* Aliases (DESIGN_SYSTEM.md names) */
+  --bg-canvas: var(--prism-canvas);
+  --bg-panel: var(--prism-panel);
+  --ink: var(--prism-ink);
+  --ink-muted: var(--prism-ink-muted);
+  --line: var(--prism-line);
+  --brand: var(--prism-brand);
+
+  /* Typography */
+  --prism-font: "Satoshi", "General Sans", "Switzer", "Segoe UI", sans-serif;
+  --prism-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+  --prism-type-brand-size: 1.125rem;
+  --prism-type-brand-weight: 650;
+  --prism-type-brand-tracking: -0.02em;
+  --prism-type-h2-size: 1.15rem;
+  --prism-type-h2-weight: 600;
+  --prism-type-body: 0.9375rem;
+  --prism-type-body-sm: 0.8125rem;
+  --prism-type-label: 0.75rem;
+  --prism-type-label-tracking: 0.04em;
+  --prism-type-mono: 0.75rem;
+  --prism-leading-body: 1.45;
+
+  /* Shape + space */
+  --prism-radius-sm: 6px;
+  --prism-radius-md: 8px;
+  --prism-radius-lg: 12px;
+  --prism-radius-pill: 999px;
+  --prism-space-xs: 4px;
+  --prism-space-sm: 8px;
+  --prism-space-md: 16px;
+  --prism-space-lg: 24px;
+  --prism-space-xl: 32px;
+  --prism-topbar-h: 56px;
+  --prism-inspector-w: 312px;
+  --prism-shadow-inspector: 0 8px 24px rgba(15, 28, 36, 0.06);
+}
