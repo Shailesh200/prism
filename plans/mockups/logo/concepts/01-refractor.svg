@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Prism logo concept: Refractor">
+  <!-- Single beam in → prism hex → three paths out -->
+  <g fill="none" stroke="#0F766E" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Incoming beam -->
+    <path d="M6 32H20" stroke-width="2.5"/>
+    <!-- Hexagon (prism) -->
+    <path d="M26 18L40 18L47 32L40 46L26 46L19 32Z" stroke-width="2.5"/>
+    <!-- Outgoing paths -->
+    <path d="M47 32L58 20" stroke-width="2.5"/>
+    <path d="M47 32L58 32" stroke-width="2.5"/>
+    <path d="M47 32L58 44" stroke-width="2.5"/>
+    <!-- Arrowheads -->
+    <path d="M54.5 17.5L58 20L55.5 23.5" stroke-width="2"/>
+    <path d="M54.5 29L58 32L54.5 35" stroke-width="2"/>
+    <path d="M55.5 40.5L58 44L54.5 46.5" stroke-width="2"/>
+  </g>
+</svg>

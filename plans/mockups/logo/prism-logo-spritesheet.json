@@ -1,0 +1,84 @@
+{
+  "frames": {
+    "icon_main_ref": {
+      "frame": {"x": 96, "y": 145, "w": 256, "h": 256},
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {"x": 0, "y": 0, "w": 256, "h": 256},
+      "sourceSize": {"w": 256, "h": 256}
+    },
+    "icon_scale_large": {
+      "frame": {"x": 470, "y": 190, "w": 128, "h": 128},
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {"x": 0, "y": 0, "w": 128, "h": 128},
+      "sourceSize": {"w": 128, "h": 128}
+    },
+    "icon_scale_medium": {
+      "frame": {"x": 660, "y": 222, "w": 64, "h": 64},
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {"x": 0, "y": 0, "w": 64, "h": 64},
+      "sourceSize": {"w": 64, "h": 64}
+    },
+    "icon_scale_32px": {
+      "frame": {"x": 785, "y": 238, "w": 32, "h": 32},
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {"x": 0, "y": 0, "w": 32, "h": 32},
+      "sourceSize": {"w": 32, "h": 32}
+    },
+    "icon_scale_16px": {
+      "frame": {"x": 860, "y": 246, "w": 16, "h": 16},
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {"x": 0, "y": 0, "w": 16, "h": 16},
+      "sourceSize": {"w": 16, "h": 16}
+    },
+    "lockup_horizontal_primary": {
+      "frame": {"x": 1180, "y": 190, "w": 334, "h": 105},
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {"x": 0, "y": 0, "w": 334, "h": 105},
+      "sourceSize": {"w": 334, "h": 105}
+    },
+    "lockup_stacked_primary": {
+      "frame": {"x": 1625, "y": 145, "w": 195, "h": 190},
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {"x": 0, "y": 0, "w": 195, "h": 190},
+      "sourceSize": {"w": 195, "h": 190}
+    },
+    "lockup_horizontal_dark": {
+      "frame": {"x": 1180, "y": 420, "w": 334, "h": 105},
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {"x": 0, "y": 0, "w": 334, "h": 105},
+      "sourceSize": {"w": 334, "h": 105}
+    },
+    "icon_dark_large": {
+      "frame": {"x": 1555, "y": 420, "w": 110, "h": 110},
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {"x": 0, "y": 0, "w": 110, "h": 110},
+      "sourceSize": {"w": 110, "h": 110}
+    },
+    "icon_dark_medium": {
+      "frame": {"x": 1750, "y": 450, "w": 55, "h": 55},
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {"x": 0, "y": 0, "w": 55, "h": 55},
+      "sourceSize": {"w": 55, "h": 55}
+    }
+  },
+  "meta": {
+    "app": "https://prism.dev/assets",
+    "version": "1.0",
+    "image": "prism-logo-spritesheet.png",
+    "format": "RGBA8888",
+    "size": {"w": 1920, "h": 1080},
+    "scale": "1",
+    "concept": "P-Strict (faceted P)",
+    "status": "candidate — pending lock"
+  }
+}

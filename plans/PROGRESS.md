@@ -7,7 +7,7 @@
 | Milestone | Branch | Status | Owner approved | Merged to main | Notes |
 |---|---|---|---|---|---|
 | Planning baseline (this package) | — | Verified | ✅ | ☐ | Master Plan **APPROVED** 2026-07-20; brand + design system locked |
-| M-000 Architecture Docs | `milestone/M-000-architecture-docs` | Not Started | ☐ | ☐ | HLD/LLD/tech/folder docs **before code** — start next |
+| M-000 Architecture Docs | `milestone/M-000-architecture-docs` | In Progress | ☐ | ☐ | HLD/LLD/tech/folder docs **before code** |
 | M-001 Project Foundation | `milestone/M-001-project-foundation` | Not Started | ☐ | ☐ | First code milestone; depends on M-000 |
 | M-002 Shared Contracts | `milestone/M-002-shared-contracts` | Not Started | ☐ | ☐ | |
 | M-003 Core Skeleton | `milestone/M-003-core-skeleton` | Not Started | ☐ | ☐ | |

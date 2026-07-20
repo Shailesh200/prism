@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-000-architecture-docs` |
-| Status | Not Started |
+| Status | In Progress |
 | Depends on | Master Plan **Approved** |
 | Unlocks | M-001 |
 | Packages touched | none (docs only under `plans/architecture/`) |
