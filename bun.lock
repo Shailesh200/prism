@@ -34,6 +34,9 @@
     "packages/core": {
       "name": "@prism/core",
       "version": "0.0.0",
+      "dependencies": {
+        "@prism/shared": "workspace:*",
+      },
     },
     "packages/cursor-extension": {
       "name": "@prism/cursor-extension",
