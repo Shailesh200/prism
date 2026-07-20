@@ -5,6 +5,7 @@ import {
   FileInventorySchema,
   StackProfileSchema,
   HealthScoreSchema,
+  IndexSnapshotSchema,
   IndexSummarySchema,
   PrismErrorSchema,
   parseDto,
@@ -39,6 +40,35 @@ describe("DTO schemas round-trip", () => {
     expect(
       parseDto(IndexSummarySchema, JSON.parse(JSON.stringify(parsed))).ok,
     ).toBe(true);
+  });
+
+  it("IndexSnapshotSchema", () => {
+    const raw = {
+      repoId: "repo:demo",
+      rootPath: "/tmp/demo",
+      indexedAt: "2026-07-20T12:00:00.000Z",
+      files: [
+        {
+          path: "src/a.ts",
+          pluginId: "typescript",
+          contentHash: "abc",
+          status: "analyzed",
+          symbols: [{ name: "a", kind: "function", start: 0, end: 1 }],
+          imports: [{ source: "./b.js", specifiers: ["b"] }],
+          exports: [{ name: "a", kind: "name" }],
+          references: [{ name: "b", kind: "call", start: 2, end: 3 }],
+          diagnostics: [],
+        },
+      ],
+      stats: {
+        filesTotal: 1,
+        filesIndexed: 1,
+        filesSkipped: 0,
+        durationMs: 5,
+      },
+      warnings: [],
+    };
+    expect(IndexSnapshotSchema.parse(raw).files[0]?.path).toBe("src/a.ts");
   });
 
   it("HealthScoreSchema", () => {

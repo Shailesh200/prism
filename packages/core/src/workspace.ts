@@ -3,6 +3,8 @@ import {
   type BlastRadiusReport,
   type DnaReport,
   type HealthScore,
+  type IndexProgressEvent,
+  type IndexSnapshot,
   type IndexSummary,
   type PrismError,
   type RepoId,
@@ -13,16 +15,15 @@ import {
   unsafeRepoId,
 } from "@prism/shared";
 import type { PrismCapabilities } from "./capabilities.js";
-import type { PrismEnginePorts } from "./ports.js";
-import { PRISM_API_LEVEL, PRISM_CORE_VERSION } from "./version.js";
+import type { IndexWorkspaceOptions, PrismEnginePorts } from "./ports.js";
 
 export type WorkspaceStatus = {
   readonly open: boolean;
   readonly rootPath: string;
   readonly repoId: RepoId;
   readonly lastIndexedAt: string | null;
-  readonly coreVersion: typeof PRISM_CORE_VERSION;
-  readonly apiLevel: typeof PRISM_API_LEVEL;
+  readonly coreVersion: string;
+  readonly apiLevel: number;
   readonly capabilities: PrismCapabilities;
 };
 
@@ -30,9 +31,19 @@ export type PrismWorkspace = {
   readonly rootPath: string;
   readonly repoId: RepoId;
   status(): WorkspaceStatus;
-  /** Stub analyze / reindex — empty structured result until indexer lands. */
-  analyze(): Promise<Result<IndexSummary, PrismError>>;
-  reindex(): Promise<Result<IndexSummary, PrismError>>;
+  /** Full index job → in-memory snapshot (M-007). */
+  index(
+    options?: IndexWorkspaceOptions,
+  ): Promise<Result<IndexSnapshot, PrismError>>;
+  /** Last snapshot from `index()` / `analyze()`; `INDEX_REQUIRED` if none. */
+  getIndex(): Result<IndexSnapshot, PrismError>;
+  /** Lightweight summary (runs index when needed). */
+  analyze(
+    options?: IndexWorkspaceOptions,
+  ): Promise<Result<IndexSummary, PrismError>>;
+  reindex(
+    options?: IndexWorkspaceOptions,
+  ): Promise<Result<IndexSummary, PrismError>>;
   getDna(): Promise<Result<DnaReport, PrismError>>;
   getHealth(): Promise<Result<HealthScore, PrismError>>;
   blastRadius(input: {
@@ -44,24 +55,16 @@ export type PrismWorkspace = {
 };
 
 function notImplemented(op: string): PrismError {
-  return prismError(
-    PrismErrorCode.UNSUPPORTED,
-    `${op} is not implemented yet (Core skeleton M-003)`,
-  );
+  return prismError(PrismErrorCode.UNSUPPORTED, `${op} is not implemented yet`);
 }
 
-function emptyIndexSummary(rootPath: string, repoId: RepoId): IndexSummary {
+function toSummary(snapshot: IndexSnapshot): IndexSummary {
   return {
-    repoId,
-    rootPath,
-    indexedAt: new Date(0).toISOString(),
-    stats: {
-      filesTotal: 0,
-      filesIndexed: 0,
-      filesSkipped: 0,
-      durationMs: 0,
-    },
-    warnings: ["stub: no indexer wired (M-003)"],
+    repoId: snapshot.repoId,
+    rootPath: snapshot.rootPath,
+    indexedAt: snapshot.indexedAt,
+    stats: snapshot.stats,
+    warnings: [...snapshot.warnings],
   };
 }
 
@@ -69,11 +72,14 @@ export function createWorkspace(options: {
   rootPath: string;
   capabilities: PrismCapabilities;
   ports: PrismEnginePorts;
+  coreVersion: string;
+  apiLevel: number;
 }): PrismWorkspace {
   const rootPath = options.rootPath;
   const repoId = unsafeRepoId(`repo:${rootPath}`);
   let open = true;
   let lastIndexedAt: string | null = null;
+  let lastSnapshot: IndexSnapshot | null = null;
 
   const ensureOpen = (): Result<true, PrismError> => {
     if (!open) {
@@ -84,20 +90,35 @@ export function createWorkspace(options: {
     return ok(true);
   };
 
-  const runAnalyze = async (): Promise<Result<IndexSummary, PrismError>> => {
+  const runIndex = async (
+    indexOptions?: IndexWorkspaceOptions,
+  ): Promise<Result<IndexSnapshot, PrismError>> => {
     const gate = ensureOpen();
     if (!gate.ok) return gate;
 
-    if (options.ports.indexer) {
-      const result = await options.ports.indexer.indexWorkspace(rootPath);
-      if (result.ok) lastIndexedAt = result.value.indexedAt;
-      return result;
+    if (!options.ports.indexer) {
+      return err(
+        prismError(PrismErrorCode.UNSUPPORTED, "Indexer is not wired"),
+      );
     }
 
-    // No-op stub: structured empty summary (consumers can open fixture paths today)
-    const summary = emptyIndexSummary(rootPath, repoId);
-    lastIndexedAt = summary.indexedAt;
-    return ok(summary);
+    const result = await options.ports.indexer.indexWorkspace(
+      rootPath,
+      indexOptions,
+    );
+    if (result.ok) {
+      lastSnapshot = result.value;
+      lastIndexedAt = result.value.indexedAt;
+    }
+    return result;
+  };
+
+  const runAnalyze = async (
+    indexOptions?: IndexWorkspaceOptions,
+  ): Promise<Result<IndexSummary, PrismError>> => {
+    const snapshot = await runIndex(indexOptions);
+    if (!snapshot.ok) return snapshot;
+    return ok(toSummary(snapshot.value));
   };
 
   return {
@@ -109,10 +130,24 @@ export function createWorkspace(options: {
         rootPath,
         repoId,
         lastIndexedAt,
-        coreVersion: PRISM_CORE_VERSION,
-        apiLevel: PRISM_API_LEVEL,
+        coreVersion: options.coreVersion,
+        apiLevel: options.apiLevel,
         capabilities: options.capabilities,
       };
+    },
+    index: runIndex,
+    getIndex() {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      return ok(lastSnapshot);
     },
     analyze: runAnalyze,
     reindex: runAnalyze,
@@ -136,3 +171,6 @@ export function createWorkspace(options: {
     },
   };
 }
+
+/** Re-export for tests that assert progress typing. */
+export type { IndexProgressEvent };

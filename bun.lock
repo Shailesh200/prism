@@ -40,6 +40,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@prism/analyzer": "workspace:*",
+        "@prism/indexer": "workspace:*",
         "@prism/intelligence": "workspace:*",
         "@prism/shared": "workspace:*",
       },
@@ -60,6 +61,7 @@
       "name": "@prism/indexer",
       "version": "0.0.0",
       "dependencies": {
+        "@prism/analyzer": "workspace:*",
         "@prism/shared": "workspace:*",
         "ignore": "^7.0.6",
       },

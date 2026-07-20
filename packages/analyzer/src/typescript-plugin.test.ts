@@ -49,10 +49,10 @@ describe("createTypescriptPlugin", () => {
     expect(byName.App?.kind).toBe("default");
     expect(byName.localAlias?.kind).toBe("export");
 
-    expect(imports.map((i) => i.source).toSorted()).toEqual([
-      "./default-mod.js",
-      "./helper.js",
-    ]);
+    expect(imports.map((i) => i.source)).toEqual(
+      expect.arrayContaining(["./default-mod.js", "./helper.js"]),
+    );
+    expect(imports).toHaveLength(2);
     const helperImport = imports.find((i) => i.source === "./helper.js");
     expect(helperImport?.specifiers).toEqual(
       expect.arrayContaining(["helper", "HelperType"]),

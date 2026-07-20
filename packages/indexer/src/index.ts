@@ -1,4 +1,4 @@
-/** @prism/indexer — workspace walk, ignore, hashing (M-005). */
+/** @prism/indexer — inventory (M-005) + index jobs (M-007). */
 
 export {
   BUILTIN_IGNORE_PATTERNS,
@@ -14,3 +14,10 @@ export {
 export { createIgnoreEngine, type IgnoreEngine } from "./ignore-engine.js";
 export { inventoryWorkspace, type InventoryOptions } from "./inventory.js";
 export { resolveWorkspaceRoot } from "./workspace-root.js";
+export {
+  DEFAULT_INDEX_CONCURRENCY,
+  runIndexJob,
+  snapshotToSummary,
+  type IndexJobOptions,
+} from "./index-job.js";
+export { createIndexerEngine, type IndexerEngine } from "./default-port.js";

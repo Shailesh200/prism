@@ -3,6 +3,7 @@ language: "typescript"
 layer: "library"
 dependsOn:
   - "shared"
+  - "analyzer"
 tasks:
   build:
     command: "bun run build"

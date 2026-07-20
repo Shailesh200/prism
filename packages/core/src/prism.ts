@@ -11,6 +11,7 @@ import {
 import { STUB_CAPABILITIES, type PrismCapabilities } from "./capabilities.js";
 import {
   createDefaultAnalyzerPort,
+  createDefaultIndexerPort,
   createDefaultStackPort,
 } from "./default-ports.js";
 import type {
@@ -25,12 +26,14 @@ export type PrismClientOptions = {
   /** Override capability advertisement (tests / progressive enablement). */
   readonly capabilities?: PrismCapabilities;
   /**
-   * Optional engine ports. If `analyzer` / `stack` are omitted, Core wires
-   * default hosts (noop language plugin + stub stack detectors).
+   * Optional engine ports. If analyzer / indexer / stack are omitted, Core
+   * wires defaults (unless the matching disable* flag is set).
    */
   readonly ports?: PrismEnginePorts;
   /** Skip default analyzer wiring (plugin list stays empty). */
   readonly disableDefaultAnalyzer?: boolean;
+  /** Skip default indexer wiring. */
+  readonly disableDefaultIndexer?: boolean;
   /** Skip default stack detector wiring. */
   readonly disableDefaultStack?: boolean;
 };
@@ -52,7 +55,6 @@ export type PrismClient = {
   ): Promise<Result<StackProfile, PrismError>>;
   /**
    * Open a repository workspace at an absolute filesystem path.
-   * Analyze is a no-op stub until the indexer is wired.
    */
   openRepository(rootAbsolutePath: string): Result<PrismWorkspace, PrismError>;
 };
@@ -62,6 +64,9 @@ function resolvePorts(options: PrismClientOptions): PrismEnginePorts {
 
   if (!options.disableDefaultAnalyzer && ports.analyzer === undefined) {
     ports = { ...ports, analyzer: createDefaultAnalyzerPort() };
+  }
+  if (!options.disableDefaultIndexer && ports.indexer === undefined) {
+    ports = { ...ports, indexer: createDefaultIndexerPort() };
   }
   if (!options.disableDefaultStack && ports.stack === undefined) {
     ports = { ...ports, stack: createDefaultStackPort() };
@@ -77,6 +82,7 @@ function resolveCapabilities(
   return {
     ...STUB_CAPABILITIES,
     analysis: ports.analyzer !== undefined,
+    indexing: ports.indexer !== undefined,
   };
 }
 
@@ -143,6 +149,8 @@ export const Prism = {
             rootPath: trimmed,
             capabilities,
             ports,
+            coreVersion: PRISM_CORE_VERSION,
+            apiLevel: PRISM_API_LEVEL,
           }),
         );
       },
