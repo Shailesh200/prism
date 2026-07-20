@@ -15,6 +15,8 @@ import { Prism } from "@prism/core";
 ```ts
 const prism = Prism.create();
 
+console.log(prism.listLanguagePlugins()); // default: noop (M-004)
+
 const opened = prism.openRepository("/absolute/path/to/repo");
 if (!opened.ok) throw opened.error;
 
@@ -26,18 +28,19 @@ console.log(ws.status()); // open, capabilities, version, lastIndexedAt
 ws.close();
 ```
 
-## Public surface (M-003)
+## Public surface
 
 | API | Role |
 |---|---|
 | `Prism.create(options?)` | Construct client; optional `capabilities` / `ports` |
+| `client.listLanguagePlugins()` | Descriptors from the wired analyzer host |
 | `client.openRepository(absPath)` | `Result<PrismWorkspace>` — absolute path required |
 | `ws.analyze()` / `ws.reindex()` | Stub empty `IndexSummary`, or delegate to `IndexerPort` |
 | `ws.getDna()` / `ws.getHealth()` / `ws.blastRadius(...)` | `UNSUPPORTED` until later milestones |
 | `ws.status()` / `ws.close()` | Lifecycle metadata |
 | `PRISM_CORE_VERSION` / `PRISM_API_LEVEL` | Version metadata |
-| `STUB_CAPABILITIES` / `PrismCapabilities` | Feature flags (all false in skeleton) |
-| `AnalyzerPort` / `IndexerPort` / `GraphEnginePort` | Interface-only engine wiring |
+| `PrismCapabilities` | Feature flags (`analysis: true` when analyzer wired) |
+| `AnalyzerPort` / `IndexerPort` / `GraphEnginePort` | Engine wiring |
 
 ## Rules
 
@@ -45,5 +48,5 @@ ws.close();
 - Prefer `Result` + `PrismError` from `@prism/shared` over thrown strings.
 - No network I/O in Core analysis paths.
 
-**Implemented:** M-003  
-**Depends on:** `@prism/shared` (engines composed later)
+**Implemented:** M-003 (façade), M-004 (analyzer wiring)  
+**Depends on:** `@prism/shared`, `@prism/analyzer`

@@ -26,6 +26,9 @@
     "packages/analyzer": {
       "name": "@prism/analyzer",
       "version": "0.0.0",
+      "dependencies": {
+        "@prism/shared": "workspace:*",
+      },
     },
     "packages/cli": {
       "name": "@prism/cli",
@@ -35,6 +38,7 @@
       "name": "@prism/core",
       "version": "0.0.0",
       "dependencies": {
+        "@prism/analyzer": "workspace:*",
         "@prism/shared": "workspace:*",
       },
     },

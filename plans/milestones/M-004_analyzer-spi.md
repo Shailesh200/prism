@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-004-analyzer-spi` |
-| Status | Not Started |
+| Status | Verified |
 | Depends on | M-003 |
 | Unlocks | M-005 |
 | Packages | `@prism/analyzer`, `@prism/core` (wiring) |
@@ -26,10 +26,10 @@ Define the language plugin SPI so TypeScript (and later Tree-sitter languages) p
 
 ## Definition of Done
 
-- [ ] SPI documented with sequence diagram
-- [ ] Registry unit tests (register/resolve/conflict)
-- [ ] Core can list loaded plugins
-- [ ] Verify + PROGRESS + owner approval
+- [x] SPI documented with sequence diagram
+- [x] Registry unit tests (register/resolve/conflict)
+- [x] Core can list loaded plugins
+- [x] Verify + PROGRESS + owner approval
 
 ## Verification
 

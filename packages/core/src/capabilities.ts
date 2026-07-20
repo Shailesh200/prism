@@ -12,7 +12,7 @@ export type PrismCapabilities = {
   readonly navigation: boolean;
 };
 
-/** M-003 skeleton: no real engines yet. */
+/** Baseline flags before engines are wired (Prism.create may enable `analysis`). */
 export const STUB_CAPABILITIES: PrismCapabilities = {
   indexing: false,
   analysis: false,
