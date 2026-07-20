@@ -8,11 +8,31 @@ import { ok } from "@prism/shared";
 import type { IndexSummary } from "@prism/shared";
 
 describe("Prism.create", () => {
-  it("exposes version, apiLevel, and stub capabilities", () => {
+  it("exposes version, apiLevel, and analysis capability with default analyzer", () => {
     const client = Prism.create();
     expect(client.version).toBe(PRISM_CORE_VERSION);
     expect(client.apiLevel).toBe(PRISM_API_LEVEL);
-    expect(client.capabilities).toEqual(STUB_CAPABILITIES);
+    expect(client.capabilities).toEqual({
+      ...STUB_CAPABILITIES,
+      analysis: true,
+    });
+  });
+
+  it("lists loaded language plugins via Core", () => {
+    const client = Prism.create();
+    expect(client.listLanguagePlugins()).toEqual([
+      expect.objectContaining({
+        id: "noop",
+        extensions: [".noop"],
+        spiVersion: 1,
+      }),
+    ]);
+  });
+
+  it("can disable default analyzer", () => {
+    const client = Prism.create({ disableDefaultAnalyzer: true });
+    expect(client.listLanguagePlugins()).toEqual([]);
+    expect(client.capabilities.analysis).toBe(false);
   });
 });
 

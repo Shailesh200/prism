@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { PACKAGE_NAME } from "./index.js";
+import {
+  ANALYZER_SPI_VERSION,
+  PluginRegistry,
+  createAnalyzerHost,
+  createNoopPlugin,
+} from "./index.js";
 
-describe("@prism/analyzer", () => {
-  it("exports package name", () => {
-    expect(PACKAGE_NAME).toBe("@prism/analyzer");
+describe("@prism/analyzer exports", () => {
+  it("exposes SPI version and host factory", () => {
+    expect(ANALYZER_SPI_VERSION).toBe(1);
+    expect(typeof createNoopPlugin).toBe("function");
+    expect(typeof createAnalyzerHost).toBe("function");
+    expect(new PluginRegistry().list()).toEqual([]);
   });
 });

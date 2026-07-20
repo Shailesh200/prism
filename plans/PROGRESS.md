@@ -11,7 +11,7 @@
 | M-001 Project Foundation | `milestone/M-001-project-foundation` | Verified | ✅ | ✅ | Approved 2026-07-20; Bun/moon/Oxlint/Lefthook foundation |
 | M-002 Shared Contracts | `milestone/M-002-shared-contracts` | Verified | ✅ | ✅ | Approved 2026-07-20; Result/PrismError/IDs/Zod DTOs |
 | M-003 Core Skeleton | `milestone/M-003-core-skeleton` | Verified | ✅ | ✅ | Approved 2026-07-20; Prism façade + ADR-0004 |
-| M-004 Analyzer SPI | `milestone/M-004-analyzer-spi` | Not Started | ☐ | ☐ | |
+| M-004 Analyzer SPI | `milestone/M-004-analyzer-spi` | Verified | ✅ | ✅ | Approved 2026-07-20; LanguagePlugin SPI + ADR-0005 |
 | M-005 FS Ignore Hash | `milestone/M-005-fs-ignore-hash` | Not Started | ☐ | ☐ | |
 | M-006 AST Engine TS | `milestone/M-006-ast-engine-ts` | Not Started | ☐ | ☐ | |
 | M-007 Indexer v1 | `milestone/M-007-repository-indexer` | Not Started | ☐ | ☐ | |

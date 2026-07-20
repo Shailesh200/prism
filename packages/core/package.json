@@ -18,6 +18,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
+    "@prism/analyzer": "workspace:*",
     "@prism/shared": "workspace:*"
   }
 }

@@ -6,9 +6,22 @@
 
 import type { IndexSummary, Result, PrismError } from "@prism/shared";
 
+/** Serializable plugin descriptor exposed through Core (mirrors analyzer SPI). */
+export type LanguagePluginInfo = {
+  readonly id: string;
+  readonly spiVersion: number;
+  readonly extensions: readonly string[];
+  readonly capabilities: {
+    readonly detect: boolean;
+    readonly parse: boolean;
+    readonly extractSymbols: boolean;
+    readonly extractImports: boolean;
+  };
+};
+
 export type AnalyzerPort = {
   readonly id: string;
-  /** Parse/extract placeholder — not implemented in M-003. */
+  listPlugins(): readonly LanguagePluginInfo[];
   analyzeFile(absolutePath: string): Promise<Result<unknown, PrismError>>;
 };
 
@@ -23,7 +36,7 @@ export type GraphEnginePort = {
   nodeCount(): number;
 };
 
-/** Optional deps injected into Prism.create (all optional in M-003). */
+/** Optional deps injected into Prism.create. */
 export type PrismEnginePorts = {
   readonly analyzer?: AnalyzerPort;
   readonly indexer?: IndexerPort;
