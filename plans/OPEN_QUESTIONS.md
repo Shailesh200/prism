@@ -22,7 +22,8 @@ Resolve these with the owner before or during the indicated milestone. Record an
 | Q-016 | Stack/persona taxonomy: freeze enum vs open string registry? | M-040 | Open string registry + documented well-known IDs ([ADR-0007](./adr/0007-stack-detector-spi.md)) |
 | Q-017 | Lighthouse / web perf: ingest-only vs local runner vs cloud? | M-041 | **Resolved: Option B** — opt-in local runner + async PORT callout; SEO/CWV expansions on backlog ([ADR-0008](./adr/0008-stack-aware-measurement-utilities.md)) |
 | Q-018 | CWV attribution depth (route vs chunk vs component)? | M-041 | **Resolved: Option C** — rollups + drill to component when attributable; not LCP-only ([ADR-0008](./adr/0008-stack-aware-measurement-utilities.md)) |
-| Q-019 | Stack utilities vs Map UI sequencing? | M-041 / M-018 | **Resolved: Option C** — utilities epic foundation **before** M-018 ([ADR-0008](./adr/0008-stack-aware-measurement-utilities.md)) |
+| Q-019 | Stack utilities vs Map UI sequencing? | M-041 / M-018 | **Resolved: Option C** — M-041 Gate A (P0+P1+Mono-v1) **before** M-018; remaining packs continue in parallel ([ADR-0008](./adr/0008-stack-aware-measurement-utilities.md)) |
 | Q-020 | Privacy for perf utilities / PageSpeed / cloud? | M-041 / M-036 | **Resolved:** reports local only; remote probes consent-only; **no Prism Cloud** ([ADR-0008](./adr/0008-stack-aware-measurement-utilities.md)) |
+| Q-021 | Multi-domain monorepo: single stack winner vs per-package? | M-041 / M-013 | **Resolved:** per-package profiles + workspace rollup; package-scoped utilities; additive domains ([ADR-0008](./adr/0008-stack-aware-measurement-utilities.md) D5) |
 
 Update this file when questions are decided; link ADRs.
