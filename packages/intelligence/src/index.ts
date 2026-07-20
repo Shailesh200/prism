@@ -38,3 +38,9 @@ export {
   type ReferenceHit,
   type SymbolHit,
 } from "./semantic/build.js";
+export {
+  buildFeatureGraph,
+  listFeatures,
+  type FeatureGraphResult,
+  type FeatureInfo,
+} from "./feature/build.js";

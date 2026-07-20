@@ -3,6 +3,7 @@ import {
   STACK_DETECTOR_SPI_VERSION,
   StackDetectorRegistry,
   buildDependencyGraph,
+  buildFeatureGraph,
   buildKnowledgeGraph,
   createStackHost,
   createUnknownDetector,
@@ -15,6 +16,7 @@ describe("@prism/intelligence exports", () => {
     expect(typeof createUnknownDetector).toBe("function");
     expect(typeof buildDependencyGraph).toBe("function");
     expect(typeof buildKnowledgeGraph).toBe("function");
+    expect(typeof buildFeatureGraph).toBe("function");
     expect(new StackDetectorRegistry().list()).toEqual([]);
   });
 });

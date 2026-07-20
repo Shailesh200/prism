@@ -1,0 +1,6 @@
+{
+  "name": "@prism-fixture/m012-features",
+  "private": true,
+  "type": "module",
+  "workspaces": ["packages/*"]
+}
