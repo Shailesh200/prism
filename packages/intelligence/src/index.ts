@@ -20,6 +20,12 @@ export {
   type StackHost,
   type StackHostOptions,
 } from "./host.js";
+export { createDefaultDetectorPacks } from "./stack/packs.js";
+export {
+  assembleDnaReport,
+  enrichStackProfile,
+  type AssembleDnaOptions,
+} from "./stack/dna.js";
 export {
   buildDependencyGraph,
   type DependencyGraphOptions,

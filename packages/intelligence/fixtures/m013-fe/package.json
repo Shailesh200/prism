@@ -1,0 +1,13 @@
+{
+  "name": "@prism-fixture/m013-fe",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "next": "15.0.0",
+    "react": "19.0.0",
+    "react-dom": "19.0.0"
+  },
+  "devDependencies": {
+    "vitest": "3.0.0"
+  }
+}

@@ -6,9 +6,8 @@ import {
 } from "@prism/analyzer";
 import { createIndexerEngine, type IndexerEngine } from "@prism/indexer";
 import {
-  createNodejsManifestDetector,
+  createDefaultDetectorPacks,
   createStackHost,
-  createUnknownDetector,
   type StackDetectorInfo as IntelligenceDetectorInfo,
 } from "@prism/intelligence";
 import type {
@@ -64,10 +63,10 @@ export function createDefaultIndexerPort(): IndexerPort {
   };
 }
 
-/** Default stack host with unknown + nodejs-manifest stubs (M-040). */
+/** Default stack host with M-013 multi-domain detector packs. */
 export function createDefaultStackPort(): StackPort {
   const host = createStackHost({
-    detectors: [createUnknownDetector(), createNodejsManifestDetector()],
+    detectors: createDefaultDetectorPacks(),
   });
   return {
     id: host.id,

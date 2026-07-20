@@ -26,6 +26,7 @@ describe("Prism.create", () => {
       analysis: true,
       indexing: true,
       graphs: true,
+      intelligence: true,
     });
   });
 
@@ -48,13 +49,14 @@ describe("Prism.create", () => {
 
   it("lists loaded stack detectors via Core", () => {
     const client = Prism.create();
-    expect(client.listStackDetectors().map((d) => d.id)).toEqual([
-      "unknown",
-      "nodejs-manifest",
-    ]);
+    const ids = client.listStackDetectors().map((d) => d.id);
+    expect(ids).toContain("unknown");
+    expect(ids).toContain("nodejs-manifest");
+    expect(ids).toContain("frontend-react");
+    expect(ids.length).toBeGreaterThan(10);
   });
 
-  it("returns a stub stack profile for a workspace with package.json", async () => {
+  it("returns a stack profile for a workspace with package.json", async () => {
     const client = Prism.create();
     const profile = await client.getStackProfile(process.cwd());
     expect(profile.ok).toBe(true);
@@ -121,16 +123,17 @@ describe("lifecycle open → index → getIndex → close", () => {
     expect(bad.error.code).toBe(PrismErrorCode.INVALID_PATH);
   });
 
-  it("returns UNSUPPORTED for intelligence stubs while open", async () => {
+  it("returns DNA for an open workspace with stack wired", async () => {
     const client = Prism.create({ disableDefaultIndexer: true });
     const opened = client.openRepository(process.cwd());
     expect(opened.ok).toBe(true);
     if (!opened.ok) return;
 
     const dna = await opened.value.getDna();
-    expect(dna.ok).toBe(false);
-    if (dna.ok) return;
-    expect(dna.error.code).toBe(PrismErrorCode.UNSUPPORTED);
+    expect(dna.ok).toBe(true);
+    if (!dna.ok) return;
+    expect(dna.value.summary.length).toBeGreaterThan(0);
+    expect(dna.value.stack).toBeDefined();
 
     opened.value.close();
   });

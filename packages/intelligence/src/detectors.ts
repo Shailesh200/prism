@@ -27,8 +27,8 @@ export function createUnknownDetector(): StackDetector {
 }
 
 /**
- * Stub: if `package.json` exists, emit a low-confidence tooling signal.
- * Full Node/React/etc. packs land in M-013.
+ * Low-confidence tooling signal when `package.json` exists.
+ * Richer packs live in `stack/packs.ts` (M-013).
  */
 export function createNodejsManifestDetector(): StackDetector {
   return {

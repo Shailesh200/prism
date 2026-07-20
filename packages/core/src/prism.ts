@@ -85,6 +85,8 @@ function resolveCapabilities(
     indexing: ports.indexer !== undefined,
     // M-010: dependency graph built in-process from the index snapshot
     graphs: ports.indexer !== undefined,
+    // M-013: Repository DNA via stack detector packs
+    intelligence: ports.stack !== undefined,
   };
 }
 

@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-013-repository-dna` |
-| Status | Not Started |
+| Status | Verified |
 | Depends on | M-012, M-040 |
 | Unlocks | M-014 |
 | Packages | `@prism/intelligence`, `@prism/core` |
@@ -62,10 +62,10 @@ Derive `DeveloperPersona[]` with confidence from stack signals (see M-040 table)
 
 ## Definition of Done
 
-- [ ] Fixtures for at least: FE, BE, Mobile, Data-ML-AI, and one persona-rich multi-domain monorepo
-- [ ] Unknown stack → partial DNA (no throw)
-- [ ] Multi-domain + multi-persona fixture reports multiple entries
-- [ ] Verify + PROGRESS + owner approval
+- [x] Fixtures for at least: FE, BE, Mobile, Data-ML-AI, and one persona-rich multi-domain monorepo (`packages/intelligence/fixtures/m013-*`)
+- [x] Unknown stack → partial DNA (no throw)
+- [x] Multi-domain + multi-persona fixture reports multiple entries
+- [x] Verify + PROGRESS + owner approval
 
 ## Verification
 

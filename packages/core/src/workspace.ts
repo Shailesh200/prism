@@ -1,4 +1,5 @@
 import {
+  assembleDnaReport,
   buildDependencyGraph,
   buildFeatureGraph,
   buildKnowledgeGraph,
@@ -299,7 +300,23 @@ export function createWorkspace(options: {
     async getDna() {
       const gate = ensureOpen();
       if (!gate.ok) return gate;
-      return err(notImplemented("getDna"));
+      if (!options.ports.stack) {
+        return err(
+          prismError(
+            PrismErrorCode.UNSUPPORTED,
+            "Stack detection is not wired",
+          ),
+        );
+      }
+      const profile = await options.ports.stack.detectProfile(rootPath);
+      if (!profile.ok) return profile;
+      const filePaths = lastSnapshot?.files.map((f) => f.path);
+      return ok(
+        assembleDnaReport({
+          profile: profile.value,
+          ...(filePaths === undefined ? {} : { filePaths }),
+        }),
+      );
     },
     async getHealth() {
       const gate = ensureOpen();

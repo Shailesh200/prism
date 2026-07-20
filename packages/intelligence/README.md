@@ -2,10 +2,11 @@
 
 Stack detection SPI, Repository DNA, health, and insights.
 
-**Implemented:** M-040 (Stack Detector SPI + stubs)  
-**Next:** M-013 rich detector packs (FE/BE/Mobile/Data-ML-AI/personas)  
-**Depends on:** `@prism/shared`  
+**Implemented:** M-040 (Stack Detector SPI) · M-013 (multi-domain detector packs + `assembleDnaReport`)  
+**Depends on:** `@prism/shared`, `@prism/graph-engine`  
 **Surfaces:** via `@prism/core` only (ADR-0004 / ADR-0007)
+
+Default packs: `createDefaultDetectorPacks()` — FE/BE/Mobile/Desktop/Data-ML-AI/Data-eng/DevOps/Embedded/Game/Tooling (local manifests only).
 
 ## StackDetector SPI
 
