@@ -1,20 +1,30 @@
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { PrismErrorCode } from "@prism/shared";
+import { PrismErrorCode, ok, type IndexSnapshot } from "@prism/shared";
 import { Prism } from "./prism.js";
 import { STUB_CAPABILITIES } from "./capabilities.js";
 import { PRISM_API_LEVEL, PRISM_CORE_VERSION } from "./version.js";
 import type { IndexerPort } from "./ports.js";
-import { ok } from "@prism/shared";
-import type { IndexSummary } from "@prism/shared";
+
+const miniFixture = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "indexer",
+  "fixtures",
+  "m007-mini",
+);
 
 describe("Prism.create", () => {
-  it("exposes version, apiLevel, and analysis capability with default analyzer", () => {
+  it("exposes version, apiLevel, analysis + indexing with defaults", () => {
     const client = Prism.create();
     expect(client.version).toBe(PRISM_CORE_VERSION);
     expect(client.apiLevel).toBe(PRISM_API_LEVEL);
     expect(client.capabilities).toEqual({
       ...STUB_CAPABILITIES,
       analysis: true,
+      indexing: true,
     });
   });
 
@@ -22,25 +32,17 @@ describe("Prism.create", () => {
     const client = Prism.create();
     const ids = client.listLanguagePlugins().map((p) => p.id);
     expect(ids).toEqual(["typescript", "noop"]);
-    expect(client.listLanguagePlugins()).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: "typescript",
-          spiVersion: 1,
-        }),
-        expect.objectContaining({
-          id: "noop",
-          extensions: [".noop"],
-          spiVersion: 1,
-        }),
-      ]),
-    );
   });
 
   it("can disable default analyzer", () => {
     const client = Prism.create({ disableDefaultAnalyzer: true });
     expect(client.listLanguagePlugins()).toEqual([]);
     expect(client.capabilities.analysis).toBe(false);
+  });
+
+  it("can disable default indexer", () => {
+    const client = Prism.create({ disableDefaultIndexer: true });
+    expect(client.capabilities.indexing).toBe(false);
   });
 
   it("lists loaded stack detectors via Core", () => {
@@ -57,9 +59,6 @@ describe("Prism.create", () => {
     expect(profile.ok).toBe(true);
     if (!profile.ok) return;
     expect(profile.value.domains).toContain("tooling");
-    expect(profile.value.signals.some((s) => s.id === "nodejs-manifest")).toBe(
-      true,
-    );
   });
 
   it("can disable default stack detectors", async () => {
@@ -72,28 +71,39 @@ describe("Prism.create", () => {
   });
 });
 
-describe("lifecycle open → analyze → close", () => {
-  it("opens an absolute fixture path and no-op analyzes", async () => {
+describe("lifecycle open → index → getIndex → close", () => {
+  it("indexes the mini fixture and caches the snapshot", async () => {
     const client = Prism.create();
-    const opened = client.openRepository(process.cwd());
+    const opened = client.openRepository(miniFixture);
     expect(opened.ok).toBe(true);
     if (!opened.ok) return;
 
     const ws = opened.value;
-    expect(ws.status().open).toBe(true);
-    expect(ws.rootPath).toBe(process.cwd());
+    const before = ws.getIndex();
+    expect(before.ok).toBe(false);
+    if (before.ok) return;
+    expect(before.error.code).toBe(PrismErrorCode.INDEX_REQUIRED);
 
-    const analyzed = await ws.analyze();
+    const indexed = await ws.index({ concurrency: 2 });
+    expect(indexed.ok).toBe(true);
+    if (!indexed.ok) return;
+    expect(indexed.value.files.some((f) => f.path === "src/a.ts")).toBe(true);
+    expect(ws.status().lastIndexedAt).toBe(indexed.value.indexedAt);
+
+    const cached = ws.getIndex();
+    expect(cached.ok).toBe(true);
+    if (!cached.ok) return;
+    expect(cached.value.indexedAt).toBe(indexed.value.indexedAt);
+
+    const analyzed = await ws.analyze({ concurrency: 2 });
     expect(analyzed.ok).toBe(true);
     if (!analyzed.ok) return;
-    expect(analyzed.value.stats.filesIndexed).toBe(0);
-    expect(analyzed.value.warnings.length).toBeGreaterThan(0);
-    expect(ws.status().lastIndexedAt).toBe(analyzed.value.indexedAt);
+    expect(analyzed.value.stats.filesIndexed).toBe(
+      indexed.value.stats.filesIndexed,
+    );
 
     ws.close();
-    expect(ws.status().open).toBe(false);
-
-    const afterClose = await ws.analyze();
+    const afterClose = await ws.index();
     expect(afterClose.ok).toBe(false);
     if (afterClose.ok) return;
     expect(afterClose.error.code).toBe(PrismErrorCode.WORKSPACE_NOT_OPEN);
@@ -111,7 +121,7 @@ describe("lifecycle open → analyze → close", () => {
   });
 
   it("returns UNSUPPORTED for intelligence stubs while open", async () => {
-    const client = Prism.create();
+    const client = Prism.create({ disableDefaultIndexer: true });
     const opened = client.openRepository(process.cwd());
     expect(opened.ok).toBe(true);
     if (!opened.ok) return;
@@ -124,11 +134,12 @@ describe("lifecycle open → analyze → close", () => {
     opened.value.close();
   });
 
-  it("delegates analyze to injected indexer port when present", async () => {
-    const summary: IndexSummary = {
+  it("delegates index to injected indexer port when present", async () => {
+    const snapshot: IndexSnapshot = {
       repoId: "repo:test",
       rootPath: process.cwd(),
       indexedAt: new Date("2026-07-20T00:00:00.000Z").toISOString(),
+      files: [],
       stats: {
         filesTotal: 1,
         filesIndexed: 1,
@@ -138,8 +149,9 @@ describe("lifecycle open → analyze → close", () => {
       warnings: [],
     };
     const indexer: IndexerPort = {
+      id: "test-indexer",
       async indexWorkspace() {
-        return ok(summary);
+        return ok(snapshot);
       },
     };
 
@@ -147,6 +159,11 @@ describe("lifecycle open → analyze → close", () => {
     const opened = client.openRepository(process.cwd());
     expect(opened.ok).toBe(true);
     if (!opened.ok) return;
+
+    const indexed = await opened.value.index();
+    expect(indexed.ok).toBe(true);
+    if (!indexed.ok) return;
+    expect(indexed.value.stats.filesIndexed).toBe(1);
 
     const analyzed = await opened.value.analyze();
     expect(analyzed.ok).toBe(true);

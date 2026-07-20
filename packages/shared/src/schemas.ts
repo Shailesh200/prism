@@ -153,6 +153,112 @@ export const FileInventorySchema = z.object({
 
 export type FileInventory = z.infer<typeof FileInventorySchema>;
 
+export const IndexProgressPhaseSchema = z.enum([
+  "inventory",
+  "analyze",
+  "finalize",
+]);
+
+export type IndexProgressPhase = z.infer<typeof IndexProgressPhaseSchema>;
+
+export const IndexProgressEventSchema = z.object({
+  phase: IndexProgressPhaseSchema,
+  filesTotal: z.number().int().nonnegative().optional(),
+  filesDone: z.number().int().nonnegative().optional(),
+  path: RepoRelativePathSchema.optional(),
+  message: z.string().optional(),
+});
+
+export type IndexProgressEvent = z.infer<typeof IndexProgressEventSchema>;
+
+export const IndexedSymbolSchema = z.object({
+  name: z.string().min(1),
+  kind: z.string().min(1),
+  start: z.number().int().nonnegative(),
+  end: z.number().int().nonnegative(),
+  exported: z.boolean().optional(),
+});
+
+export type IndexedSymbol = z.infer<typeof IndexedSymbolSchema>;
+
+export const IndexedImportSchema = z.object({
+  source: z.string().min(1),
+  specifiers: z.array(z.string()),
+  start: z.number().int().nonnegative().optional(),
+  end: z.number().int().nonnegative().optional(),
+});
+
+export type IndexedImport = z.infer<typeof IndexedImportSchema>;
+
+export const IndexedExportSchema = z.object({
+  name: z.string().min(1),
+  kind: z.string().min(1),
+  start: z.number().int().nonnegative().optional(),
+  end: z.number().int().nonnegative().optional(),
+  source: z.string().min(1).optional(),
+});
+
+export type IndexedExport = z.infer<typeof IndexedExportSchema>;
+
+export const IndexedReferenceSchema = z.object({
+  name: z.string().min(1),
+  kind: z.string().min(1),
+  start: z.number().int().nonnegative(),
+  end: z.number().int().nonnegative(),
+});
+
+export type IndexedReference = z.infer<typeof IndexedReferenceSchema>;
+
+export const ParseDiagnosticDtoSchema = z.object({
+  severity: z.enum(["error", "warning"]),
+  message: z.string().min(1),
+  start: z.number().int().nonnegative().optional(),
+  end: z.number().int().nonnegative().optional(),
+});
+
+export type ParseDiagnosticDto = z.infer<typeof ParseDiagnosticDtoSchema>;
+
+export const IndexedFileStatusSchema = z.enum([
+  "analyzed",
+  "skipped_unsupported",
+  "skipped_binary",
+  "skipped_oversized",
+  "failed",
+]);
+
+export type IndexedFileStatus = z.infer<typeof IndexedFileStatusSchema>;
+
+export const IndexedFileSchema = z.object({
+  path: RepoRelativePathSchema,
+  pluginId: z.string().nullable(),
+  contentHash: z.string().nullable(),
+  status: IndexedFileStatusSchema,
+  symbols: z.array(IndexedSymbolSchema).default([]),
+  imports: z.array(IndexedImportSchema).default([]),
+  exports: z.array(IndexedExportSchema).default([]),
+  references: z.array(IndexedReferenceSchema).default([]),
+  diagnostics: z.array(ParseDiagnosticDtoSchema).default([]),
+  error: z
+    .object({
+      code: z.string().min(1),
+      message: z.string().min(1),
+    })
+    .optional(),
+});
+
+export type IndexedFile = z.infer<typeof IndexedFileSchema>;
+
+export const IndexSnapshotSchema = z.object({
+  repoId: z.string().min(1),
+  rootPath: z.string().min(1),
+  indexedAt: z.string().datetime(),
+  files: z.array(IndexedFileSchema),
+  stats: IndexFileStatsSchema,
+  warnings: z.array(z.string()).default([]),
+});
+
+export type IndexSnapshot = z.infer<typeof IndexSnapshotSchema>;
+
 /** Open registry — well-known ids documented in `stack.ts` / ADR-0007. */
 export const StackSignalSchema = z.object({
   id: z.string().min(1),

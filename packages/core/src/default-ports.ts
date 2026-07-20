@@ -4,6 +4,7 @@ import {
   createTypescriptPlugin,
   type LanguagePluginInfo as AnalyzerPluginInfo,
 } from "@prism/analyzer";
+import { createIndexerEngine, type IndexerEngine } from "@prism/indexer";
 import {
   createNodejsManifestDetector,
   createStackHost,
@@ -12,6 +13,7 @@ import {
 } from "@prism/intelligence";
 import type {
   AnalyzerPort,
+  IndexerPort,
   LanguagePluginInfo,
   StackDetectorInfo,
   StackPort,
@@ -47,6 +49,17 @@ export function createDefaultAnalyzerPort(): AnalyzerPort {
     },
     analyzeFile(absolutePath) {
       return host.analyzeFile(absolutePath);
+    },
+  };
+}
+
+/** Default indexer engine (inventory → analyze → IndexSnapshot). */
+export function createDefaultIndexerPort(): IndexerPort {
+  const engine: IndexerEngine = createIndexerEngine();
+  return {
+    id: engine.id,
+    indexWorkspace(rootAbsolutePath, options) {
+      return engine.indexWorkspace(rootAbsolutePath, options);
     },
   };
 }

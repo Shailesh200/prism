@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-007-repository-indexer` |
-| Status | Not Started |
+| Status | Verified |
 | Depends on | M-006 |
 | Unlocks | M-008 |
 | Packages | `@prism/indexer`, `@prism/core` |
@@ -28,10 +28,10 @@ Orchestrate a full-repository index job: inventory → language detect → parse
 
 ## Definition of Done
 
-- [ ] Indexing fixture repo produces stable snapshot (golden)
-- [ ] Progress events tested
-- [ ] Failed files do not fail entire job
-- [ ] Verify + PROGRESS + owner approval
+- [x] Indexing fixture repo produces stable snapshot (golden)
+- [x] Progress events tested
+- [x] Failed files do not fail entire job
+- [x] Verify + PROGRESS + owner approval
 
 ## Verification
 

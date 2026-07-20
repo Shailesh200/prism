@@ -5,7 +5,8 @@
  */
 
 import type {
-  IndexSummary,
+  IndexProgressEvent,
+  IndexSnapshot,
   PrismError,
   Result,
   StackProfile,
@@ -32,10 +33,18 @@ export type AnalyzerPort = {
   analyzeFile(absolutePath: string): Promise<Result<unknown, PrismError>>;
 };
 
+export type IndexWorkspaceOptions = {
+  readonly concurrency?: number;
+  readonly signal?: AbortSignal;
+  readonly onProgress?: (event: IndexProgressEvent) => void;
+};
+
 export type IndexerPort = {
+  readonly id: string;
   indexWorkspace(
     rootAbsolutePath: string,
-  ): Promise<Result<IndexSummary, PrismError>>;
+    options?: IndexWorkspaceOptions,
+  ): Promise<Result<IndexSnapshot, PrismError>>;
 };
 
 export type GraphEnginePort = {

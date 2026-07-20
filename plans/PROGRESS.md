@@ -15,7 +15,7 @@
 | M-005 FS Ignore Hash | `milestone/M-005-fs-ignore-hash` | Verified | ✅ | ✅ | Approved 2026-07-20; inventory + SHA-256; plan adds M-040 |
 | M-040 Stack Detector SPI | `milestone/M-040-stack-detector-spi` | Verified | ✅ | ✅ | Approved 2026-07-20; SPI + Core APIs; ADR-0008 utilities backlog |
 | M-006 AST Engine TS | `milestone/M-006-ast-engine-ts` | Verified | ✅ | ✅ | Approved 2026-07-20; Oxc TS/JS plugin + ADR-0009 |
-| M-007 Indexer v1 | `milestone/M-007-repository-indexer` | Not Started | ☐ | ☐ | |
+| M-007 Indexer v1 | `milestone/M-007-repository-indexer` | Verified | ✅ | ✅ | Approved 2026-07-20; IndexSnapshot + IndexJob + Core index/getIndex |
 | M-008 SQLite Cache | `milestone/M-008-sqlite-cache` | Not Started | ☐ | ☐ | |
 | M-009 Graph Engine | `milestone/M-009-graph-engine` | Not Started | ☐ | ☐ | |
 | M-010 Dependency Graph | `milestone/M-010-dependency-graph` | Not Started | ☐ | ☐ | |
