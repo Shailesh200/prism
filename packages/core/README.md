@@ -64,6 +64,7 @@ Full guide: [`plans/guides/INTELLIGENCE_API.md`](../../plans/guides/INTELLIGENCE
 | `ws.intelligence()` | Aggregate intelligence report (requires index) |
 | `ws.getHealth()` | Health score 0–100 + factors (M-015; requires index) |
 | `ws.findRoute()` / `navigateFeature()` / `listLandmarks()` | Navigation (M-016; requires index) |
+| `ws.getRepositoryMap(options?)` | Map model zoom/layers/clusters (M-017; requires index) |
 | `ws.blastRadius(...)` | Later milestones |
 | `ws.status()` / `ws.close()` | Lifecycle metadata |
 

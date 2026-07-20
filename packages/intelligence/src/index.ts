@@ -36,6 +36,10 @@ export {
   type DependencyGraphResult,
   type UnresolvedDependency,
 } from "./dependency/build.js";
+export {
+  discoverLocalPackages,
+  type LocalPackage,
+} from "./dependency/packages.js";
 export { findCycles } from "./dependency/cycles.js";
 export {
   buildKnowledgeGraph,

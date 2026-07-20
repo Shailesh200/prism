@@ -3,10 +3,10 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-017-map-data-model` |
-| Status | Not Started |
-| Depends on | M-016 |
+| Status | Verified |
+| Depends on | M-016, M-041 Gate A |
 | Unlocks | M-018 |
-| Packages | `@prism/repository-map`, `@prism/core` |
+| Packages | `@prism/repository-map`, `@prism/core`, `@prism/shared` |
 
 ## Goal
 
@@ -28,10 +28,12 @@ Define the **Map model**: zoom levels, layers, nodes/clusters, bookmarks, landma
 
 ## Definition of Done
 
-- [ ] Map model golden JSON for fixture
-- [ ] Zoom in/out transforms tested
-- [ ] Verify + PROGRESS + owner approval
+- [x] Map model golden JSON for fixture (`map-feature.golden.json`)
+- [x] Zoom in/out transforms tested
+- [x] Core `getRepositoryMap` wired (`INDEX_REQUIRED` without index)
+- [x] `bun run verify:milestone` green
+- [x] Owner approval → commit → merge → then M-018 (Map UI)
 
 ## Verification
 
-Typecheck · Lint · Unit · Integration · Build · Manual JSON inspection
+`bun run verify:milestone`

@@ -115,6 +115,91 @@ export const LandmarkSchema = z.object({
 
 export type Landmark = z.infer<typeof LandmarkSchema>;
 
+/** Map zoom levels (repo → symbol). Design system ZoomRail. */
+export const MapZoomLevelSchema = z.enum([
+  "repo",
+  "package",
+  "feature",
+  "file",
+  "symbol",
+]);
+
+export type MapZoomLevel = z.infer<typeof MapZoomLevelSchema>;
+
+/** Product Map layer ids (M-017); overlays may add more later. */
+export const MapLayerIdSchema = z.enum([
+  "architecture",
+  "dependency",
+  "activity",
+  "ownership",
+  "debt",
+  "risk",
+  "performance",
+  "coverage",
+]);
+
+export type MapLayerId = z.infer<typeof MapLayerIdSchema>;
+
+export const MapLayerDescriptorSchema = z.object({
+  id: MapLayerIdSchema,
+  label: z.string().min(1),
+  description: z.string().min(1),
+  /** True when layer has real data in this model build. */
+  available: z.boolean(),
+  /** Stub until later milestones (e.g. activity → M-022). */
+  stub: z.boolean().default(false),
+});
+
+export type MapLayerDescriptor = z.infer<typeof MapLayerDescriptorSchema>;
+
+export const MapClusterSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  zoom: MapZoomLevelSchema,
+  memberNodeIds: z.array(z.string().min(1)),
+  /** Child zoom level when drilling in. */
+  childZoom: MapZoomLevelSchema.optional(),
+});
+
+export type MapCluster = z.infer<typeof MapClusterSchema>;
+
+export const MapBookmarkSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  path: z.string().min(1).optional(),
+  nodeId: z.string().min(1).optional(),
+  zoom: MapZoomLevelSchema.optional(),
+  createdAt: z.string().datetime(),
+  note: z.string().optional(),
+});
+
+export type MapBookmark = z.infer<typeof MapBookmarkSchema>;
+
+export const MapBookmarkStoreSchema = z.object({
+  version: z.literal(1),
+  bookmarks: z.array(MapBookmarkSchema).default([]),
+});
+
+export type MapBookmarkStore = z.infer<typeof MapBookmarkStoreSchema>;
+
+export const MapSearchHitSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  kind: z.enum([
+    "node",
+    "cluster",
+    "landmark",
+    "bookmark",
+    "feature",
+    "file",
+    "symbol",
+  ]),
+  path: z.string().optional(),
+  zoom: MapZoomLevelSchema.optional(),
+});
+
+export type MapSearchHit = z.infer<typeof MapSearchHitSchema>;
+
 export const BlastRadiusItemSchema = z.object({
   path: RepoRelativePathSchema,
   reason: z.string().min(1),
@@ -325,6 +410,25 @@ export const GraphLayoutSchema = z.object({
 });
 
 export type GraphLayout = z.infer<typeof GraphLayoutSchema>;
+
+/** Full Repository Map model for Playground / IDE (no React). */
+export const RepositoryMapSchema = z.object({
+  rootPath: z.string().min(1),
+  generatedAt: z.string().datetime(),
+  zoom: MapZoomLevelSchema,
+  layers: z.array(MapLayerDescriptorSchema),
+  activeLayerIds: z.array(MapLayerIdSchema),
+  graph: GraphSnapshotDtoSchema,
+  layout: GraphLayoutSchema.optional(),
+  clusters: z.array(MapClusterSchema).default([]),
+  landmarks: z.array(LandmarkSchema).default([]),
+  bookmarks: z.array(MapBookmarkSchema).default([]),
+  searchIndex: z.array(MapSearchHitSchema).default([]),
+  /** Aggregation rule notes for the current zoom. */
+  clusteringNote: z.string().min(1),
+});
+
+export type RepositoryMap = z.infer<typeof RepositoryMapSchema>;
 
 /** Open registry — well-known ids documented in `stack.ts` / ADR-0007. */
 export const StackSignalSchema = z.object({
