@@ -6,6 +6,7 @@ import {
   buildKnowledgeGraph,
   buildPersonaPresets,
   buildUtilityOverlay,
+  computeHealthScore,
   createUtilitiesSession,
   findReferences as queryReferences,
   findSymbol as querySymbols,
@@ -658,7 +659,15 @@ export function createWorkspace(options: {
     async getHealth() {
       const gate = ensureOpen();
       if (!gate.ok) return gate;
-      return err(notImplemented("getHealth"));
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      return ok(computeHealthScore(lastSnapshot));
     },
     async blastRadius() {
       const gate = ensureOpen();

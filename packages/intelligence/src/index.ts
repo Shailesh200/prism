@@ -93,6 +93,11 @@ export {
 } from "./utilities/cwv.js";
 export { getCwvReport } from "./utilities/cwv-from-artifact.js";
 export {
+  HEALTH_FACTOR_WEIGHTS,
+  computeHealthScore,
+  type HealthFactorId,
+} from "./health/score.js";
+export {
   UTILITY_OVERLAY_CATALOG,
   buildUtilityOverlay,
   listUtilityOverlayKinds,
