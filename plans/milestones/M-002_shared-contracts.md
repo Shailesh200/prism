@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-002-shared-contracts` |
-| Status | Not Started |
+| Status | Verified |
 | Depends on | M-001 |
 | Unlocks | M-003 |
 | Packages | `@prism/shared` |
@@ -27,11 +27,11 @@ Define the canonical TypeScript types, Zod schemas, result/error model, and ID c
 
 ## Definition of Done
 
-- [ ] `@prism/shared` builds and is importable
-- [ ] Error codes documented in package README
-- [ ] ≥90% coverage on schema helpers
-- [ ] `bun run verify:milestone` green
-- [ ] PROGRESS updated; owner approved
+- [x] `@prism/shared` builds and is importable
+- [x] Error codes documented in package README
+- [x] ≥90% coverage on schema helpers (100% on contract modules)
+- [x] `bun run verify:milestone` green
+- [x] PROGRESS updated; owner approved (2026-07-20)
 
 ## Verification
 
@@ -39,5 +39,5 @@ Typecheck · Lint · Unit · Build · Manual review of public types · Docs
 
 ## Owner Approval Checklist
 
-- [ ] Error model is clear and stable enough for Core
-- [ ] No leaking Node-specific types into DTOs
+- [x] Error model is clear and stable enough for Core
+- [x] No leaking Node-specific types into DTOs

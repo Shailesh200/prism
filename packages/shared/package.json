@@ -10,13 +10,14 @@
       "import": "./dist/index.js"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --coverage",
     "test:integration": "vitest run --config vitest.integration.config.ts"
+  },
+  "dependencies": {
+    "zod": "^3.25.0"
   }
 }
