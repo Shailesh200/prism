@@ -209,6 +209,8 @@ describe("DTO schemas round-trip", () => {
       personas: [],
       summary: "Node manifest detected",
     };
-    expect(StackProfileSchema.parse(raw).domains).toContain("tooling");
+    const parsed = StackProfileSchema.parse(raw);
+    expect(parsed.domains).toContain("tooling");
+    expect(parsed.packages).toEqual([]);
   });
 });

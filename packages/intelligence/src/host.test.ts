@@ -50,6 +50,7 @@ describe("createStackHost", () => {
     expect(profile.ok).toBe(true);
     if (!profile.ok) return;
     expect(profile.value.signals).toEqual([]);
+    expect(profile.value.packages).toEqual([]);
     expect(profile.value.summary).toMatch(/no stack signals/i);
   });
 });

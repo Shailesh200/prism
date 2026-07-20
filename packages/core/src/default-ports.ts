@@ -76,5 +76,8 @@ export function createDefaultStackPort(): StackPort {
     detectProfile(rootAbsolutePath) {
       return host.detectProfile(rootAbsolutePath);
     },
+    detectWorkspaceProfile(workspaceRootAbsolutePath) {
+      return host.detectWorkspaceProfile(workspaceRootAbsolutePath);
+    },
   };
 }

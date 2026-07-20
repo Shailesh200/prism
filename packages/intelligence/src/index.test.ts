@@ -10,6 +10,7 @@ import {
   createDefaultDetectorPacks,
   createStackHost,
   createUnknownDetector,
+  createUtilitiesSession,
 } from "./index.js";
 
 describe("@prism/intelligence exports", () => {
@@ -20,6 +21,7 @@ describe("@prism/intelligence exports", () => {
     expect(typeof createDefaultDetectorPacks).toBe("function");
     expect(typeof assembleDnaReport).toBe("function");
     expect(typeof assembleIntelligenceReport).toBe("function");
+    expect(typeof createUtilitiesSession).toBe("function");
     expect(typeof buildDependencyGraph).toBe("function");
     expect(typeof buildKnowledgeGraph).toBe("function");
     expect(typeof buildFeatureGraph).toBe("function");

@@ -4,17 +4,27 @@ import {
   buildDependencyGraph,
   buildFeatureGraph,
   buildKnowledgeGraph,
+  buildPersonaPresets,
+  buildUtilityOverlay,
+  createUtilitiesSession,
   findReferences as queryReferences,
   findSymbol as querySymbols,
+  getCwvReport as loadCwvReport,
+  listUtilityOverlayKinds as catalogUtilityOverlayKinds,
+  parseUtilityOverlayKind,
   type DependencyGraphOptions,
   type FindReferencesQuery,
   type FindSymbolQuery,
   type ReferenceHit,
+  type StartUtilityJobInput,
   type SymbolHit,
+  type UtilitiesSession,
 } from "@prism/intelligence";
 import {
   PrismErrorCode,
   type BlastRadiusReport,
+  type ConsentRecord,
+  type CwvReport,
   type DnaReport,
   type FeatureInfo,
   type GraphSnapshotDto,
@@ -22,11 +32,19 @@ import {
   type IndexProgressEvent,
   type IndexSnapshot,
   type IndexSummary,
+  type IngestArtifact,
+  type IngestArtifactMeta,
   type IntelligenceReport,
   type KnowledgeGraphStats,
+  type PersonaPresets,
   type PrismError,
   type RepoId,
   type Result,
+  type StackPackageProfile,
+  type StackProfile,
+  type UtilityJob,
+  type UtilityOverlayKindInfo,
+  type UtilityOverlayReport,
   err,
   ok,
   prismError,
@@ -53,6 +71,24 @@ export type WorkspaceStatus = {
   readonly coreVersion: string;
   readonly apiLevel: number;
   readonly capabilities: PrismCapabilities;
+};
+
+/** Package entry for Mono-v1 selector (MR-03). */
+export type WorkspacePackageInfo = {
+  readonly id: string;
+  readonly name?: string;
+  readonly rootDir: string;
+  readonly domains: readonly string[];
+  readonly personas: readonly string[];
+};
+
+export type GetStackProfileOptions = {
+  /** Explicit package id; overrides session selection when set. */
+  readonly packageId?: string | null;
+};
+
+export type GetUtilityOverlayOptions = {
+  readonly packageId?: string | null;
 };
 
 export type PrismWorkspace = {
@@ -105,6 +141,57 @@ export type PrismWorkspace = {
     options?: IndexWorkspaceOptions,
   ): Promise<Result<IndexSummary, PrismError>>;
   getDna(): Promise<Result<DnaReport, PrismError>>;
+  /**
+   * Persona / domain Map+insights presets from the stack profile (M-041 P0).
+   * Honors selected package when set (Mono-v1).
+   */
+  getPersonaPresets(): Promise<Result<PersonaPresets, PrismError>>;
+  /**
+   * Workspace stack rollup, or a single package profile when `packageId`
+   * / session selection is set (M-041 Mono-v1).
+   */
+  getStackProfile(
+    options?: GetStackProfileOptions,
+  ): Promise<Result<StackProfile, PrismError>>;
+  /** List packages from the workspace rollup (MR-01/02). */
+  listPackages(): Promise<Result<WorkspacePackageInfo[], PrismError>>;
+  /**
+   * Select package scope for utilities / presets (`null` = whole workspace).
+   */
+  selectPackage(
+    packageId: string | null,
+  ): Promise<Result<string | null, PrismError>>;
+  /** Current package selection (`null` = workspace). */
+  getSelectedPackage(): Result<string | null, PrismError>;
+  /** Start an async utility job (echo-ingest in P0; Lighthouse in P1). */
+  startUtilityJob(
+    input: StartUtilityJobInput,
+  ): Promise<Result<UtilityJob, PrismError>>;
+  getUtilityJob(jobId: string): Result<UtilityJob, PrismError>;
+  listUtilityJobs(): Result<UtilityJob[], PrismError>;
+  listIngestArtifacts(filter?: {
+    kind?: string;
+    packageId?: string;
+  }): Promise<Result<IngestArtifactMeta[], PrismError>>;
+  getIngestArtifact(id: string): Promise<Result<IngestArtifact, PrismError>>;
+  /** Load a lighthouse-cwv ingest artifact as a typed CWV report (M-041 P1). */
+  getCwvReport(artifactId: string): Promise<Result<CwvReport, PrismError>>;
+  /** Catalog of Map/MCP utility overlay kinds (M-041 P2–P7 / Mono-v2). */
+  listUtilityOverlayKinds(): Result<UtilityOverlayKindInfo[], PrismError>;
+  /**
+   * Build a domain utility overlay for Map layers (local FS / index heuristics).
+   */
+  getUtilityOverlay(
+    kind: string,
+    options?: GetUtilityOverlayOptions,
+  ): Promise<Result<UtilityOverlayReport, PrismError>>;
+  setConsent(
+    purpose: string,
+    granted: boolean,
+  ): Promise<Result<ConsentRecord, PrismError>>;
+  getConsent(
+    purpose: string,
+  ): Promise<Result<ConsentRecord | null, PrismError>>;
   getHealth(): Promise<Result<HealthScore, PrismError>>;
   blastRadius(input: {
     kind: "file" | "symbol";
@@ -140,6 +227,8 @@ export function createWorkspace(options: {
   let open = true;
   let lastIndexedAt: string | null = null;
   let lastSnapshot: IndexSnapshot | null = null;
+  let utilities: UtilitiesSession | null = null;
+  let selectedPackageId: string | null = null;
 
   const ensureOpen = (): Result<true, PrismError> => {
     if (!open) {
@@ -149,6 +238,60 @@ export function createWorkspace(options: {
     }
     return ok(true);
   };
+
+  const ensureUtilities = (): Result<UtilitiesSession, PrismError> => {
+    const gate = ensureOpen();
+    if (!gate.ok) return gate;
+    if (!utilities) {
+      utilities = createUtilitiesSession({ workspaceRoot: rootPath });
+    }
+    return ok(utilities);
+  };
+
+  const ensureStack = (): Result<
+    NonNullable<PrismEnginePorts["stack"]>,
+    PrismError
+  > => {
+    const gate = ensureOpen();
+    if (!gate.ok) return gate;
+    if (!options.ports.stack) {
+      return err(
+        prismError(PrismErrorCode.UNSUPPORTED, "Stack detection is not wired"),
+      );
+    }
+    return ok(options.ports.stack);
+  };
+
+  const loadWorkspaceRollup = async (): Promise<
+    Result<StackProfile, PrismError>
+  > => {
+    const stack = ensureStack();
+    if (!stack.ok) return stack;
+    const rollup = await stack.value.detectWorkspaceProfile(rootPath);
+    if (!rollup.ok) return rollup;
+    return ok({
+      ...rollup.value,
+      packages: rollup.value.packages ?? [],
+    });
+  };
+
+  const resolvePackageId = (explicit?: string | null): string | null => {
+    if (explicit !== undefined) return explicit;
+    return selectedPackageId;
+  };
+
+  const packageAsStackProfile = (entry: StackPackageProfile): StackProfile => ({
+    ...entry.profile,
+    packages: [],
+  });
+
+  const toPackageInfo = (entry: StackPackageProfile): WorkspacePackageInfo => ({
+    id: entry.id,
+    ...(entry.name === undefined ? {} : { name: entry.name }),
+    rootDir: entry.rootDir,
+    domains: entry.profile.domains,
+    personas: entry.profile.personas,
+  });
 
   const runIndex = async (
     indexOptions?: IndexWorkspaceOptions,
@@ -313,15 +456,7 @@ export function createWorkspace(options: {
           ),
         );
       }
-      if (!options.ports.stack) {
-        return err(
-          prismError(
-            PrismErrorCode.UNSUPPORTED,
-            "Stack detection is not wired",
-          ),
-        );
-      }
-      const profile = await options.ports.stack.detectProfile(rootPath);
+      const profile = await loadWorkspaceRollup();
       if (!profile.ok) return profile;
       const dna = assembleDnaReport({
         profile: profile.value,
@@ -338,17 +473,7 @@ export function createWorkspace(options: {
     analyze: runAnalyze,
     reindex: runAnalyze,
     async getDna() {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-      if (!options.ports.stack) {
-        return err(
-          prismError(
-            PrismErrorCode.UNSUPPORTED,
-            "Stack detection is not wired",
-          ),
-        );
-      }
-      const profile = await options.ports.stack.detectProfile(rootPath);
+      const profile = await loadWorkspaceRollup();
       if (!profile.ok) return profile;
       const filePaths = lastSnapshot?.files.map((f) => f.path);
       return ok(
@@ -357,6 +482,178 @@ export function createWorkspace(options: {
           ...(filePaths === undefined ? {} : { filePaths }),
         }),
       );
+    },
+    async getPersonaPresets() {
+      const profile = await loadWorkspaceRollup();
+      if (!profile.ok) return profile;
+      const packageId = selectedPackageId;
+      if (packageId === null) {
+        return ok(buildPersonaPresets(profile.value));
+      }
+      const entry = (profile.value.packages ?? []).find(
+        (p) => p.id === packageId,
+      );
+      if (!entry) {
+        return err(
+          prismError(
+            PrismErrorCode.VALIDATION,
+            `Unknown package id "${packageId}" — call listPackages() / selectPackage()`,
+          ),
+        );
+      }
+      return ok(buildPersonaPresets(packageAsStackProfile(entry)));
+    },
+    async getStackProfile(profileOptions) {
+      const rollup = await loadWorkspaceRollup();
+      if (!rollup.ok) return rollup;
+      const packageId = resolvePackageId(profileOptions?.packageId);
+      if (packageId === null) return rollup;
+      const entry = (rollup.value.packages ?? []).find(
+        (p) => p.id === packageId,
+      );
+      if (!entry) {
+        return err(
+          prismError(
+            PrismErrorCode.VALIDATION,
+            `Unknown package id "${packageId}"`,
+          ),
+        );
+      }
+      return ok(packageAsStackProfile(entry));
+    },
+    async listPackages() {
+      const rollup = await loadWorkspaceRollup();
+      if (!rollup.ok) return rollup;
+      return ok((rollup.value.packages ?? []).map(toPackageInfo));
+    },
+    async selectPackage(packageId) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      if (packageId === null) {
+        selectedPackageId = null;
+        return ok(null);
+      }
+      const rollup = await loadWorkspaceRollup();
+      if (!rollup.ok) return rollup;
+      const exists = (rollup.value.packages ?? []).some(
+        (p) => p.id === packageId,
+      );
+      if (!exists) {
+        return err(
+          prismError(
+            PrismErrorCode.VALIDATION,
+            `Unknown package id "${packageId}"`,
+          ),
+        );
+      }
+      selectedPackageId = packageId;
+      return ok(packageId);
+    },
+    getSelectedPackage() {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      return ok(selectedPackageId);
+    },
+    async startUtilityJob(input) {
+      const session = ensureUtilities();
+      if (!session.ok) return session;
+      const packageId = input.packageId ?? selectedPackageId ?? undefined;
+      return session.value.jobs.start({
+        ...input,
+        ...(packageId === undefined ? {} : { packageId }),
+      });
+    },
+    getUtilityJob(jobId) {
+      const session = ensureUtilities();
+      if (!session.ok) return session;
+      return session.value.jobs.get(jobId);
+    },
+    listUtilityJobs() {
+      const session = ensureUtilities();
+      if (!session.ok) return session;
+      return session.value.jobs.list();
+    },
+    async listIngestArtifacts(filter) {
+      const session = ensureUtilities();
+      if (!session.ok) return session;
+      return session.value.ingest.list(filter);
+    },
+    async getIngestArtifact(id) {
+      const session = ensureUtilities();
+      if (!session.ok) return session;
+      return session.value.ingest.get(id);
+    },
+    async getCwvReport(artifactId) {
+      const session = ensureUtilities();
+      if (!session.ok) return session;
+      return loadCwvReport(session.value.ingest, artifactId);
+    },
+    listUtilityOverlayKinds() {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      return ok(catalogUtilityOverlayKinds());
+    },
+    async getUtilityOverlay(kind, overlayOptions) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      const parsed = parseUtilityOverlayKind(kind);
+      if (!parsed) {
+        return err(
+          prismError(
+            PrismErrorCode.VALIDATION,
+            `Unknown utility overlay kind "${kind}"`,
+          ),
+        );
+      }
+      const info = catalogUtilityOverlayKinds().find((k) => k.kind === parsed);
+      if (info?.requiresIndex && !lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            `Overlay "${parsed}" requires workspace.index() first`,
+          ),
+        );
+      }
+
+      const rollup = await loadWorkspaceRollup();
+      if (!rollup.ok) return rollup;
+      const packageId = resolvePackageId(overlayOptions?.packageId);
+      let packageRootDir: string | undefined;
+      if (packageId !== null) {
+        const entry = (rollup.value.packages ?? []).find(
+          (p) => p.id === packageId,
+        );
+        if (!entry) {
+          return err(
+            prismError(
+              PrismErrorCode.VALIDATION,
+              `Unknown package id "${packageId}"`,
+            ),
+          );
+        }
+        packageRootDir = entry.rootDir;
+      }
+
+      return ok(
+        buildUtilityOverlay({
+          workspaceRoot: rootPath,
+          kind: parsed,
+          stack: rollup.value,
+          ...(packageId === null ? {} : { packageId }),
+          ...(packageRootDir === undefined ? {} : { packageRootDir }),
+          ...(lastSnapshot === null ? {} : { index: lastSnapshot }),
+        }),
+      );
+    },
+    async setConsent(purpose, granted) {
+      const session = ensureUtilities();
+      if (!session.ok) return session;
+      return session.value.consent.set(purpose, granted);
+    },
+    async getConsent(purpose) {
+      const session = ensureUtilities();
+      if (!session.ok) return session;
+      return session.value.consent.get(purpose);
     },
     async getHealth() {
       const gate = ensureOpen();

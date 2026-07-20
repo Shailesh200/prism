@@ -131,7 +131,7 @@ export const Prism = {
             ),
           );
         }
-        return ports.stack.detectProfile(trimmed);
+        return ports.stack.detectWorkspaceProfile(trimmed);
       },
       openRepository(rootAbsolutePath: string) {
         const trimmed = rootAbsolutePath.trim();

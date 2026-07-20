@@ -149,6 +149,7 @@ export function enrichStackProfile(profile: StackProfile): StackProfile {
   const nextPersonas = uniqueSorted([...personas]);
   return {
     ...profile,
+    packages: profile.packages ?? [],
     personas: nextPersonas,
     summary:
       profile.signals.length === 0
