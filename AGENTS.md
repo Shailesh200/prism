@@ -13,6 +13,7 @@ If code and plan disagree, **stop and reconcile the plan** before continuing.
 ## Hard Rules (mandatory)
 
 - Never implement product code before the Master Plan is approved **and M-000 (architecture docs) is Verified**.
+- **Never create git commits until the owner explicitly approves** (e.g. “approve”, “commit”, “approve M-XXX”). Keep changes uncommitted until then.
 - One active milestone at a time.
 - One milestone = one Git branch.
 - Never develop on main.

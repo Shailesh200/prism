@@ -8,7 +8,7 @@
 |---|---|---|---|---|---|
 | Planning baseline (this package) | — | Verified | ✅ | ☐ | Master Plan **APPROVED** 2026-07-20; brand + design system locked |
 | M-000 Architecture Docs | `milestone/M-000-architecture-docs` | Verified | ✅ | ✅ | Approved 2026-07-20; architecture pack in `plans/architecture/` |
-| M-001 Project Foundation | `milestone/M-001-project-foundation` | Not Started | ☐ | ☐ | First code milestone — start after M-000 merge |
+| M-001 Project Foundation | `milestone/M-001-project-foundation` | Verified | ✅ | ✅ | Approved 2026-07-20; Bun/moon/Oxlint/Lefthook foundation |
 | M-002 Shared Contracts | `milestone/M-002-shared-contracts` | Not Started | ☐ | ☐ | |
 | M-003 Core Skeleton | `milestone/M-003-core-skeleton` | Not Started | ☐ | ☐ | |
 | M-004 Analyzer SPI | `milestone/M-004-analyzer-spi` | Not Started | ☐ | ☐ | |

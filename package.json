@@ -1,0 +1,36 @@
+{
+  "name": "prism",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Prism — local-first Software Intelligence Engine",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "devDependencies": {
+    "@moonrepo/cli": "^1.41.0",
+    "@types/node": "^24.0.0",
+    "lefthook": "^1.12.0",
+    "oxfmt": "^0.14.0",
+    "oxlint": "^1.14.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  },
+  "engines": {
+    "node": "26.5.0"
+  },
+  "scripts": {
+    "build": "moon run :build",
+    "typecheck": "moon run :typecheck",
+    "lint": "oxlint .",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "test": "moon run :test",
+    "test:integration": "moon run :test-integration",
+    "verify": "bun run format:check && bun run lint && bun run typecheck && bun run test && bun run build",
+    "verify:milestone": "bun run verify && bun run test:integration && bun run scripts/check-plan-progress.mjs",
+    "moon": "moon",
+    "prepare": "lefthook install || true"
+  }
+}

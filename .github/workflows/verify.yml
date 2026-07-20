@@ -1,0 +1,20 @@
+name: verify
+
+on:
+  push:
+    branches: [main, "milestone/**"]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+      - run: bun install --frozen-lockfile
+      - run: bun run verify:milestone

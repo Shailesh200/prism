@@ -253,7 +253,7 @@ Full DoD: [`milestones/M-000_architecture-documentation.md`](./milestones/M-000_
 ```text
 Create milestone branch from main
 ↓
-Develop (commits ONLY on milestone branch)
+Develop on milestone branch (working tree only — NO commits yet)
 ↓
 Verify
 ↓
@@ -261,7 +261,9 @@ Fix Issues
 ↓
 Owner Review
 ↓
-Owner Approves
+Owner Approves → then create commit(s) on the milestone branch
+↓
+Owner Approves merge
 ↓
 Merge to main (LOCAL ONLY)
 ↓
@@ -275,6 +277,7 @@ Repeat
 ### 8.2 Hard Rules (verbatim)
 
 - Never implement product code before the Master Plan is approved **and M-000 Architecture Documentation is Verified**.
+- **Never create git commits until the owner explicitly approves** (e.g. “approve”, “commit”, “approve M-XXX”). Keep work uncommitted in the working tree until then.
 - One active milestone at a time.
 - One milestone = one Git branch.
 - Never develop on main.
@@ -299,7 +302,8 @@ Examples:
 
 ### 8.4 Commit expectations
 
-- Conventional commits preferred: `feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:`
+- **No commits before owner approval** of the milestone work (or an explicit “commit” request)
+- After approval: conventional commits preferred (`feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:`)
 - Commits only on the active milestone branch
 - Main advances only via owner-approved merges
 
