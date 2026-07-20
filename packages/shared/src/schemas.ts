@@ -307,13 +307,32 @@ export const StackSignalSchema = z.object({
 
 export type StackSignal = z.infer<typeof StackSignalSchema>;
 
-export const StackProfileSchema = z.object({
+/** Single-root stack profile fields (no package rollup). */
+export const StackProfileCoreSchema = z.object({
   rootPath: z.string().min(1),
   generatedAt: z.string().datetime(),
   signals: z.array(StackSignalSchema),
   domains: z.array(z.string().min(1)),
   personas: z.array(z.string().min(1)),
   summary: z.string().min(1),
+});
+
+export type StackProfileCore = z.infer<typeof StackProfileCoreSchema>;
+
+/** Per-package profile entry inside a workspace rollup (M-041 Mono-v1). */
+export const StackPackageProfileSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).optional(),
+  /** Repo-relative package root (`""` = workspace root package). */
+  rootDir: z.string(),
+  profile: StackProfileCoreSchema,
+});
+
+export type StackPackageProfile = z.infer<typeof StackPackageProfileSchema>;
+
+export const StackProfileSchema = StackProfileCoreSchema.extend({
+  /** Present on workspace rollups; empty for single-root detect. */
+  packages: z.array(StackPackageProfileSchema).default([]),
 });
 
 export type StackProfile = z.infer<typeof StackProfileSchema>;
@@ -408,11 +427,233 @@ export const IntelligenceReportSchema = z.object({
 
 export type IntelligenceReport = z.infer<typeof IntelligenceReportSchema>;
 
+/** Measurement ingest kinds (extensible string registry). */
+export const IngestArtifactKindSchema = z.string().min(1);
+
+export type IngestArtifactKind = z.infer<typeof IngestArtifactKindSchema>;
+
+export const IngestArtifactMetaSchema = z.object({
+  id: z.string().min(1),
+  kind: IngestArtifactKindSchema,
+  storedAt: z.string().datetime(),
+  /** Repo-relative path under `.prism/ingest/` (or override root). */
+  relativePath: z.string().min(1),
+  sourceJobId: z.string().min(1).optional(),
+  packageId: z.string().min(1).optional(),
+  labels: z.array(z.string()).default([]),
+});
+
+export type IngestArtifactMeta = z.infer<typeof IngestArtifactMetaSchema>;
+
+export const IngestArtifactSchema = IngestArtifactMetaSchema.extend({
+  /** Parsed JSON payload (schema varies by kind). */
+  payload: JsonValueSchema,
+});
+
+export type IngestArtifact = z.infer<typeof IngestArtifactSchema>;
+
+export const UtilityJobStatusSchema = z.enum([
+  "queued",
+  "running",
+  "succeeded",
+  "failed",
+  "cancelled",
+]);
+
+export type UtilityJobStatus = z.infer<typeof UtilityJobStatusSchema>;
+
+export const UtilityJobProgressSchema = z.object({
+  phase: z.string().min(1),
+  percent: z.number().min(0).max(100).optional(),
+  message: z.string().optional(),
+});
+
+export type UtilityJobProgress = z.infer<typeof UtilityJobProgressSchema>;
+
+export const UtilityJobKindSchema = z.string().min(1);
+
+export type UtilityJobKind = z.infer<typeof UtilityJobKindSchema>;
+
+export const UtilityJobSchema = z.object({
+  id: z.string().min(1),
+  kind: UtilityJobKindSchema,
+  status: UtilityJobStatusSchema,
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  progress: UtilityJobProgressSchema.optional(),
+  /** Ingest artifact id when succeeded. */
+  resultArtifactId: z.string().min(1).optional(),
+  error: z
+    .object({
+      code: z.string().min(1),
+      message: z.string().min(1),
+    })
+    .optional(),
+  packageId: z.string().min(1).optional(),
+  /** True when the job requested network/consent-gated work. */
+  requiresConsent: z.boolean().default(false),
+  consentGranted: z.boolean().optional(),
+});
+
+export type UtilityJob = z.infer<typeof UtilityJobSchema>;
+
+export const ConsentRecordSchema = z.object({
+  purpose: z.string().min(1),
+  granted: z.boolean(),
+  decidedAt: z.string().datetime(),
+});
+
+export type ConsentRecord = z.infer<typeof ConsentRecordSchema>;
+
+/** Persona-oriented UI/map defaults derived from stack (X-04). */
+export const PersonaPresetsSchema = z.object({
+  personas: z.array(z.string()),
+  domains: z.array(z.string()),
+  /** Suggested Map / insights emphasis ids. */
+  mapPresets: z.array(z.string()),
+  insightsPresets: z.array(z.string()),
+  summary: z.string().min(1),
+});
+
+export type PersonaPresets = z.infer<typeof PersonaPresetsSchema>;
+
+/** Core Web Vital ids (FE-02; extensible). */
+export const CwvMetricIdSchema = z.enum(["LCP", "CLS", "INP", "FCP", "TTFB"]);
+
+export type CwvMetricId = z.infer<typeof CwvMetricIdSchema>;
+
+export const CwvRatingSchema = z.enum([
+  "good",
+  "needs-improvement",
+  "poor",
+  "unknown",
+]);
+
+export type CwvRating = z.infer<typeof CwvRatingSchema>;
+
+export const CwvMetricSchema = z.object({
+  id: CwvMetricIdSchema,
+  value: z.number(),
+  unit: z.string().min(1),
+  /** Omitted in ingest → treated as unknown (always present on parsed DTO). */
+  rating: CwvRatingSchema.optional().transform((r) => r ?? "unknown"),
+});
+
+export type CwvMetric = z.infer<typeof CwvMetricSchema>;
+
+export const CwvAttributionSchema = z.object({
+  app: z.string().optional(),
+  route: z.string().optional(),
+  chunk: z.string().optional(),
+  /** Only when attributable — never invent (ADR-0008 D2). */
+  component: z.string().optional(),
+  metricId: CwvMetricIdSchema.optional(),
+  note: z.string().optional(),
+});
+
+export type CwvAttribution = z.infer<typeof CwvAttributionSchema>;
+
+export const CwvRollupBucketSchema = z.object({
+  key: z.string().min(1),
+  level: z.enum(["app", "route", "chunk", "component"]),
+  metrics: z.array(CwvMetricSchema),
+  sampleCount: z.number().int().nonnegative(),
+});
+
+export type CwvRollupBucket = z.infer<typeof CwvRollupBucketSchema>;
+
+export const CwvReportSchema = z.object({
+  url: z.string().min(1),
+  collectedAt: z.string().datetime(),
+  source: z.enum(["lighthouse", "ingest", "lab-fixture"]),
+  port: z.number().int().positive().optional(),
+  callout: z.string().min(1),
+  metrics: z.array(CwvMetricSchema),
+  /** LH category scores 0–1 when present (FE-05 later; optional now). */
+  categoryScores: z.record(z.string(), z.number().min(0).max(1)).default({}),
+  attributions: z.array(CwvAttributionSchema).default([]),
+  rollups: z.array(CwvRollupBucketSchema).default([]),
+});
+
+export type CwvReport = z.infer<typeof CwvReportSchema>;
+
+/**
+ * Well-known utility overlay kinds for Map / MCP (M-041 Gate A + P2–P7 / Mono-v2).
+ * Open string registry — consumers should tolerate unknown kinds.
+ */
+export const UtilityOverlayKindSchema = z.enum([
+  "api-surface",
+  "mobile-nav",
+  "desktop-boundary",
+  "notebook-modules",
+  "data-pipeline-dag",
+  "iac-resources",
+  "embedded-regions",
+  "game-regions",
+  "qa-test-gaps",
+  "security-surface",
+  "cross-package-impact",
+  "domain-regions",
+]);
+
+export type UtilityOverlayKind = z.infer<typeof UtilityOverlayKindSchema>;
+
+export const UtilityOverlayFindingSchema = z.object({
+  id: z.string().min(1),
+  message: z.string().min(1),
+  path: z.string().optional(),
+  severity: z.enum(["info", "low", "medium", "high"]).default("info"),
+});
+
+export type UtilityOverlayFinding = z.infer<typeof UtilityOverlayFindingSchema>;
+
+/** Map-facing layer descriptor agreed for M-017. */
+export const UtilityMapLayerSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  /** Stable domain color hint (hex or token); Map may theme further. */
+  colorHint: z.string().min(1).optional(),
+  nodeKinds: z.array(z.string().min(1)).default([]),
+});
+
+export type UtilityMapLayer = z.infer<typeof UtilityMapLayerSchema>;
+
+/**
+ * Domain utility overlay report — thin Map/MCP contract (ADR-0008).
+ * `graph` is the drawable structure; `findings` are inspector callouts.
+ */
+export const UtilityOverlayReportSchema = z.object({
+  kind: UtilityOverlayKindSchema,
+  domain: z.string().min(1),
+  rootPath: z.string().min(1),
+  packageId: z.string().min(1).optional(),
+  generatedAt: z.string().datetime(),
+  summary: z.string().min(1),
+  graph: GraphSnapshotDtoSchema,
+  mapLayer: UtilityMapLayerSchema,
+  findings: z.array(UtilityOverlayFindingSchema).default([]),
+});
+
+export type UtilityOverlayReport = z.infer<typeof UtilityOverlayReportSchema>;
+
+export const UtilityOverlayKindInfoSchema = z.object({
+  kind: UtilityOverlayKindSchema,
+  domain: z.string().min(1),
+  label: z.string().min(1),
+  backlogIds: z.array(z.string().min(1)).default([]),
+  /** When true, Core needs a prior `index()` (e.g. cross-package impact). */
+  requiresIndex: z.boolean().default(false),
+});
+
+export type UtilityOverlayKindInfo = z.infer<
+  typeof UtilityOverlayKindInfoSchema
+>;
+
 /** Parse unknown JSON into a DTO; returns Zod issues as message. */
-export function parseDto<T>(
-  schema: z.ZodType<T>,
+export function parseDto<Schema extends z.ZodTypeAny>(
+  schema: Schema,
   data: unknown,
-): { ok: true; value: T } | { ok: false; message: string } {
+): { ok: true; value: z.output<Schema> } | { ok: false; message: string } {
   const parsed = schema.safeParse(data);
   if (parsed.success) return { ok: true, value: parsed.data };
   const message = parsed.error.issues.map((i) => i.message).join("; ");

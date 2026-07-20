@@ -66,6 +66,10 @@ export type StackPort = {
   detectProfile(
     rootAbsolutePath: string,
   ): Promise<Result<StackProfile, PrismError>>;
+  /** Workspace rollup with per-package profiles (M-041 Mono-v1). */
+  detectWorkspaceProfile(
+    workspaceRootAbsolutePath: string,
+  ): Promise<Result<StackProfile, PrismError>>;
 };
 
 /** Optional deps injected into Prism.create. */

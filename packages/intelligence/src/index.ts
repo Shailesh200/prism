@@ -20,6 +20,10 @@ export {
   type StackHost,
   type StackHostOptions,
 } from "./host.js";
+export {
+  discoverPackageRoots,
+  type PackageRoot,
+} from "./stack/package-roots.js";
 export { createDefaultDetectorPacks } from "./stack/packs.js";
 export {
   assembleDnaReport,
@@ -58,3 +62,40 @@ export {
   checkIntelligenceConsistency,
   type ConsistencyGraphId,
 } from "./intelligence/consistency.js";
+export {
+  createUtilitiesSession,
+  type UtilitiesSession,
+  type UtilitiesSessionOptions,
+} from "./utilities/session.js";
+export {
+  createIngestStore,
+  type IngestStore,
+  type WriteIngestInput,
+} from "./utilities/ingest-store.js";
+export { createConsentStore, type ConsentStore } from "./utilities/consent.js";
+export {
+  createUtilityJobService,
+  UTILITY_JOB_ECHO,
+  UTILITY_JOB_LIGHTHOUSE,
+  UTILITY_JOB_REMOTE_PROBE_STUB,
+  type LighthouseJobOptions,
+  type StartUtilityJobInput,
+  type UtilityJobService,
+} from "./utilities/jobs.js";
+export { buildPersonaPresets } from "./utilities/presets.js";
+export {
+  LIGHTHOUSE_CALLOUT,
+  attributionsFromPayload,
+  buildCwvReport,
+  buildCwvRollups,
+  cwvMetricsFromLighthouse,
+  labFixtureLighthouseJson,
+} from "./utilities/cwv.js";
+export { getCwvReport } from "./utilities/cwv-from-artifact.js";
+export {
+  UTILITY_OVERLAY_CATALOG,
+  buildUtilityOverlay,
+  listUtilityOverlayKinds,
+  parseUtilityOverlayKind,
+  type BuildUtilityOverlayInput,
+} from "./utilities/overlays.js";

@@ -1,0 +1,9 @@
+{
+  "name": "@prism-fixture/m013-api",
+  "private": true,
+  "dependencies": {
+    "@nestjs/core": "10.0.0",
+    "@nestjs/common": "10.0.0",
+    "express": "4.19.0"
+  }
+}

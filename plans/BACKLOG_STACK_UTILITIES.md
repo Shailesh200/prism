@@ -15,12 +15,12 @@ Artifacts stay **local**. Runners / remote APIs are **consent-based**. No Prism 
 
 | ID | Item | Notes | Phase |
 |---|---|---|---|
-| X-01 | Ingest SPI for measurement reports (JSON schemas in `@prism/shared`) | Lighthouse, coverage, OTEL summaries, etc. | P0 |
-| X-02 | Local artifact store under `.prism/ingest/` (gitignored) | Path override allowed | P0 |
-| X-03 | Async job UX: start → progress → ready report | Shared pattern for Lighthouse and later runners | P0 |
-| X-04 | Persona-default Map / insights presets | From StackProfile (workspace + package) | P0 / Mono-v1 |
+| X-01 | Ingest SPI for measurement reports (JSON schemas in `@prism/shared`) | **Done** M-041 | P0 |
+| X-02 | Local artifact store under `.prism/ingest/` (gitignored) | **Done** M-041 | P0 |
+| X-03 | Async job UX: start → progress → ready report | **Done** M-041 | P0 |
+| X-04 | Persona-default Map / insights presets | **Done** M-041 | P0 / Mono-v1 |
 | X-05 | MCP tools for stack profile + latest ingest summaries | After Core APIs exist | Later |
-| X-06 | Consent gate component for any network-backed probe | PageSpeed etc. | P0 |
+| X-06 | Consent gate component for any network-backed probe | **Done** M-041 | P0 |
 
 ---
 
@@ -28,13 +28,13 @@ Artifacts stay **local**. Runners / remote APIs are **consent-based**. No Prism 
 
 | ID | Item | Priority | Phase |
 |---|---|---|---|
-| MR-01 | Per-package stack profile detection (apps/*, packages/*, language roots) | Gate A | Mono-v1 |
-| MR-02 | Workspace rollup: domains[], personas[], packages[] | Gate A | Mono-v1 |
-| MR-03 | Core package selector for utilities / overlays | Gate A | Mono-v1 |
-| MR-04 | Additive multi-domain (no single-winner at workspace) | Gate A | Mono-v1 |
-| MR-05 | Tooling signals (pnpm/turbo/nx/moon workspaces) on rollup | Gate A | Mono-v1 |
-| MR-06 | Cross-package blast defaults / shared-lib impact | Later | Mono-v2 |
-| MR-07 | Domain-colored Map regions for multi-app workspaces | Later | Mono-v2 |
+| MR-01 | Per-package stack profile detection (apps/*, packages/*, language roots) | **Done** M-041 | Mono-v1 |
+| MR-02 | Workspace rollup: domains[], personas[], packages[] | **Done** M-041 | Mono-v1 |
+| MR-03 | Core package selector for utilities / overlays | **Done** M-041 | Mono-v1 |
+| MR-04 | Additive multi-domain (no single-winner at workspace) | **Done** M-041 | Mono-v1 |
+| MR-05 | Tooling signals (pnpm/turbo/nx/moon workspaces) on rollup | **Done** M-041 | Mono-v1 |
+| MR-06 | Cross-package blast defaults / shared-lib impact | **Done** M-041 (overlay scaffold) | Mono-v2 |
+| MR-07 | Domain-colored Map regions for multi-app workspaces | **Done** M-041 (overlay DTO) | Mono-v2 |
 
 ---
 
@@ -42,9 +42,9 @@ Artifacts stay **local**. Runners / remote APIs are **consent-based**. No Prism 
 
 | ID | Item | Priority | Phase |
 |---|---|---|---|
-| FE-01 | Opt-in local Lighthouse runner (dedicated PORT, async, callout) | Gate A | P1 |
-| FE-02 | CWV report model: LCP, CLS, INP (+ future vitals) | Gate A | P1 |
-| FE-03 | Rollups: app → route → chunk → **component** (when attributable) | Gate A | P1 |
+| FE-01 | Opt-in local Lighthouse runner (dedicated PORT, async, callout) | **Done** M-041 | P1 |
+| FE-02 | CWV report model: LCP, CLS, INP (+ future vitals) | **Done** M-041 | P1 |
+| FE-03 | Rollups: app → route → chunk → **component** (when attributable) | **Done** M-041 | P1 |
 | FE-04 | SEO score / SEO audits overlay | Later | P1+ |
 | FE-05 | Full LH category scores (Perf, A11y, BP, SEO) on Map/Inspector | Later | P1+ |
 | FE-06 | Bundle / code-split hotspot layer (build stats ingest) | Later | P1+ |
@@ -57,7 +57,7 @@ Artifacts stay **local**. Runners / remote APIs are **consent-based**. No Prism 
 
 | ID | Item | Priority | Phase |
 |---|---|---|---|
-| BE-01 | API / RPC surface inventory (OpenAPI, route tables, gRPC) | Pack scaffold | P2 |
+| BE-01 | API / RPC surface inventory (OpenAPI, route tables, gRPC) | **Done** M-041 (`api-surface`) | P2 |
 | BE-02 | Handler-level blast-radius defaults | Later | P2 |
 | BE-03 | Test-gap on API surface | Later | P2 |
 | BE-04 | Config/secret path caution layer | Later | P2 |
@@ -69,7 +69,7 @@ Artifacts stay **local**. Runners / remote APIs are **consent-based**. No Prism 
 
 | ID | Item | Priority | Phase |
 |---|---|---|---|
-| MO-01 | Screen / navigation graph layer | Pack scaffold | P3 |
+| MO-01 | Screen / navigation graph layer | **Done** M-041 (`mobile-nav`) | P3 |
 | MO-02 | Native module / bridge risk | Later | P3 |
 | MO-03 | Platform split (iOS/Android-only paths) | Later | P3 |
 | MO-04 | Asset/binary weight hotspots | Later | P3 |
@@ -83,7 +83,7 @@ Artifacts stay **local**. Runners / remote APIs are **consent-based**. No Prism 
 
 | ID | Item | Priority | Phase |
 |---|---|---|---|
-| DT-01 | Main vs renderer / IPC boundary map | Pack scaffold | P4 |
+| DT-01 | Main vs renderer / IPC boundary map | **Done** M-041 (`desktop-boundary`) | P4 |
 | DT-02 | Preload / privilege surface | Later | P4 |
 | DT-03 | Packaging / updater config inventory | Later | P4 |
 
@@ -93,7 +93,7 @@ Artifacts stay **local**. Runners / remote APIs are **consent-based**. No Prism 
 
 | ID | Item | Priority | Phase |
 |---|---|---|---|
-| ML-01 | Notebook ↔ module graph | Pack scaffold | P5 |
+| ML-01 | Notebook ↔ module graph | **Done** M-041 (`notebook-modules`) | P5 |
 | ML-02 | Train vs serve region split | Later | P5 |
 | ML-03 | Experiment / artifact directory signals | Later | P5 |
 | ML-04 | Prompt / eval / RAG layout regions | Later | P5 |
@@ -105,7 +105,7 @@ Artifacts stay **local**. Runners / remote APIs are **consent-based**. No Prism 
 
 | ID | Item | Priority | Phase |
 |---|---|---|---|
-| DE-01 | Job/DAG dependency view (Airflow/dbt/Spark defs) | Pack scaffold | P5 |
+| DE-01 | Job/DAG dependency view (Airflow/dbt/Spark defs) | **Done** M-041 (`data-pipeline-dag`) | P5 |
 | DE-02 | dbt-style model lineage | Later | P5 |
 
 ---
@@ -114,7 +114,7 @@ Artifacts stay **local**. Runners / remote APIs are **consent-based**. No Prism 
 
 | ID | Item | Priority | Phase |
 |---|---|---|---|
-| DO-01 | IaC resource map (Terraform/K8s/Helm) | Pack scaffold | P6 |
+| DO-01 | IaC resource map (Terraform/K8s/Helm) | **Done** M-041 (`iac-resources`) | P6 |
 | DO-02 | CI workflow criticality | Later | P6 |
 | DO-03 | App↔infra blast touchpoints | Later | P6 |
 
@@ -124,10 +124,10 @@ Artifacts stay **local**. Runners / remote APIs are **consent-based**. No Prism 
 
 | ID | Item | Priority | Phase |
 |---|---|---|---|
-| EM-01 | Firmware vs host test regions | Later | P7 |
-| GM-01 | Engine content vs code regions | Later | P7 |
-| QA-01 | Test-only package / e2e gap overlays | Later | P7 |
-| SEC-01 | Auth/crypto concentration + policy-as-code presence | Later | P7 |
+| EM-01 | Firmware vs host test regions | **Done** M-041 (`embedded-regions`) | P7 |
+| GM-01 | Engine content vs code regions | **Done** M-041 (`game-regions`) | P7 |
+| QA-01 | Test-only package / e2e gap overlays | **Done** M-041 (`qa-test-gaps`) | P7 |
+| SEC-01 | Auth/crypto concentration + policy-as-code presence | **Done** M-041 (`security-surface`) | P7 |
 
 ---
 
@@ -150,3 +150,4 @@ Artifacts stay **local**. Runners / remote APIs are **consent-based**. No Prism 
 | 2026-07-20 | Local reports only; consent for remote perf; no Prism Cloud (D4) |
 | 2026-07-20 | Domain feature lists are backlog — grow over time |
 | 2026-07-20 | M-041 owns **all** domain packs + multi-domain monorepo (D5 / Q-021) |
+| 2026-07-20 | M-041: all phases on `milestone/M-041-stack-utilities` (no per-phase branch waits) |

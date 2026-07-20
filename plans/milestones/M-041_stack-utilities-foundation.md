@@ -2,97 +2,67 @@
 
 | Field | Value |
 |---|---|
-| Branch | `milestone/M-041-…` (one branch **per phase** — see §Delivery) |
-| Status | Not Started |
+| Branch | `milestone/M-041-stack-utilities` (owner: **all phases on one branch**) |
+| Status | Verified |
 | Depends on | M-014 (Intelligence API), M-040, M-013 (DNA detectors for real signals) |
-| Unlocks | M-017 / M-018 (after **Phase 0 + Phase 1 + Mono-v1**); richer Map layers as later phases land |
-| Packages | `@prism/intelligence`, `@prism/shared`, `@prism/core`, `@prism/cli` (runners), later surface hooks |
+| Unlocks | M-017 / M-018 (Gate A done); richer Map layers via utility overlays |
+| Packages | `@prism/intelligence`, `@prism/shared`, `@prism/core` |
 
 ## Goal
 
 Own **all stack-aware repository utilities** — frontend, backend, mobile, desktop, data/ML/AI, data engineering, DevOps/platform, embedded, game, QA/security — plus **first-class multi-domain monorepos**, per [ADR-0008](../adr/0008-stack-aware-measurement-utilities.md).
 
 Feature inventory: [`BACKLOG_STACK_UTILITIES.md`](../BACKLOG_STACK_UTILITIES.md).  
-This epic **plans and ships** those capabilities in phases (not a single endless PR).
+Map overlay contract: [`guides/UTILITY_OVERLAYS.md`](../guides/UTILITY_OVERLAYS.md).
 
-## Multi-domain monorepo (required)
+## Delivery model (this epic)
 
-Many Prism users will open a **workspace with several domains at once** (e.g. Next.js app + Nest API + Terraform + notebooks).
+Owner override 2026-07-20: **single branch** `milestone/M-041-stack-utilities` for P0 → Mono-v2 (no per-phase branches / mid-epic approve waits). Merge to `main` still requires explicit owner approve.
 
-| Requirement | Detail |
-|---|---|
-| **Per-package profiles** | Detect stack/persona per package/app root (`package.json`, `go.mod`, `pyproject.toml`, `apps/*`, `packages/*`, …) |
-| **Workspace rollup** | Aggregate `StackProfile`: `domains[]`, `personas[]`, `packages[]` with per-package signals |
-| **Scoped utilities** | Runners/overlays target a **selected package** (or “all apps”); never assume single-app repo |
-| **Map / MCP context** | Default view = workspace summary; drill into package; filters by domain/persona |
-| **Conflicting stacks** | Additive signals; no single-winner domain at workspace level |
-| **Tooling domain** | Monorepo tools (moon/turbo/nx/pnpm workspaces) always contribute `tooling` signals |
+## Epic phases
 
-**Mono-v1** (unblocks Map): workspace rollup + per-package profile list + select-package in Core API.  
-**Mono-v2+**: cross-package blast defaults, shared-lib impact, domain-colored Map regions.
-
-## Epic phases (all in M-041 scope)
-
-| Phase | Name | Focus | Unblocks Map? |
-|---|---|---|---|
-| **P0** | Foundation | Ingest store, async job model, consent stub, Core job APIs | Needed |
-| **P1** | Frontend / web | Opt-in Lighthouse, CWV (LCP/CLS/INP…), attribution app→route→chunk→component; SEO backlog items as they land | Needed |
-| **Mono-v1** | Monorepo multi-domain | Per-package + workspace `StackProfile`; package selector | Needed |
-| **P2** | Backend / API | Surface inventory, handler lenses, test-gap, config caution (see backlog BE-*) | Later in epic |
-| **P3** | Mobile | Nav/screen graph, native bridge risk, assets, permissions (MO-*) | Later |
-| **P4** | Desktop | Main/renderer, IPC/preload (DT-*) | Later |
-| **P5** | Data / ML / AI + data eng | Notebooks, train/serve, pipelines, DAG/lineage (ML-*, DE-*) | Later |
-| **P6** | DevOps / platform | IaC map, CI criticality, app↔infra touchpoints (DO-*) | Later |
-| **P7** | Embedded / game / QA / security | EM/GM/QA/SEC backlog | Later |
-| **Mono-v2** | Monorepo advanced | Cross-package impact, shared libs, domain regions on Map | Later |
-
-Cross-cutting backlog **X-*** items land in P0 and are reused by every phase.
-
-## Delivery model (Hard Rules compatible)
-
-- **One phase = one git branch** from latest `main`, e.g. `milestone/M-041-p0-foundation`, `milestone/M-041-p2-backend`.
-- Owner **approve → commit → merge** per phase (same as any milestone).
-- PROGRESS row stays **M-041** until the epic is complete; Notes column tracks active phase.
-- **Map UI (M-017/M-018) may start after P0 + P1 + Mono-v1** are Verified — do not wait for P2–P7.
-- New backlog rows can be added anytime; they attach to the matching phase.
-
-## In Scope (epic-wide)
-
-- All domain packs listed above and in the backlog doc  
-- Multi-domain monorepo model (Mono-v1 required early; Mono-v2 later)  
-- Local artifacts only; opt-in runners; consent for any remote probe  
-- Core APIs consumed by Map/MCP/CLI (surfaces remain thin)
-
-## Out of Scope
-
-- Prism Cloud / silent network from Core  
-- Full Map UI implementation (M-018) — Map **consumes** utilities overlays  
-- Fake component-level (or domain) metrics when evidence is missing  
-- Replacing language parsers (M-006 / M-034) — utilities use DNA + inventory + lab ingest
+| Phase | Focus | Status |
+|---|---|---|
+| **P0** | Ingest, jobs, consent, persona presets | Done |
+| **P1** | Lighthouse / CWV / attribution | Done |
+| **Mono-v1** | Per-package + workspace rollup + selector | Done |
+| **P2** | BE-01 API surface overlay | Done |
+| **P3** | MO-01 mobile nav overlay | Done |
+| **P4** | DT-01 desktop boundary overlay | Done |
+| **P5** | ML-01 + DE-01 notebook / DAG overlays | Done |
+| **P6** | DO-01 IaC overlay | Done |
+| **P7** | EM/GM/QA/SEC overlays | Done |
+| **Mono-v2** | MR-06 cross-package impact + MR-07 domain regions | Done |
 
 ## Definition of Done (epic)
 
-### Gate A — Unblock Map (must finish first)
+### Gate A — Unblock Map
 
-- [ ] P0 foundation verified  
-- [ ] P1 web utilities (Lighthouse opt-in + CWV model) verified  
-- [ ] Mono-v1 (per-package + workspace rollup + package selector) verified  
-- [ ] Overlay DTOs agreed for M-017  
+- [x] P0 foundation verified
+- [x] P1 web utilities verified
+- [x] Mono-v1 verified
+- [x] Overlay DTOs agreed for M-017 — [`guides/UTILITY_OVERLAYS.md`](../guides/UTILITY_OVERLAYS.md)
 
 ### Gate B — Epic complete
 
-- [ ] Phases P2–P7 each verified at least at **scaffold + primary backlog slice** (not every Later row)  
-- [ ] Mono-v2 or explicitly Deferred with owner note  
-- [ ] Backlog promotion rules followed  
-- [ ] PROGRESS → Verified; owner approved  
+- [x] Phases P2–P7 scaffold + primary backlog slice (`getUtilityOverlay` kinds)
+- [x] Mono-v2 (MR-06 requires `index()`; MR-07 `domain-regions`)
+- [x] Backlog rows marked Done for primary slices
+- [x] `bun run verify:milestone` green
+- [x] Owner approve → commit → merge to `main`
 
-## Verification (each phase)
+### Core APIs shipped
 
-`bun run verify:milestone` · phase fixture(s) · privacy check (no surprise network) · short **what changed** snippet after merge
+- Utilities: jobs, ingest, consent, CWV, persona presets  
+- Mono: `listPackages` / `selectPackage` / `getStackProfile`  
+- Overlays: `listUtilityOverlayKinds` / `getUtilityOverlay(kind)`
+
+## Verification
+
+`bun run verify:milestone` · fixtures `m013-*`, `m041-overlays` · no surprise network
 
 ## See also
 
 - [BACKLOG_STACK_UTILITIES.md](../BACKLOG_STACK_UTILITIES.md)  
 - [ADR-0008](../adr/0008-stack-aware-measurement-utilities.md)  
-- [M-040 Stack Detector SPI](./M-040_stack-detector-spi.md)  
-- [M-013 Repository DNA](./M-013_repository-dna.md)  
+- [UTILITY_OVERLAYS.md](../guides/UTILITY_OVERLAYS.md)  
