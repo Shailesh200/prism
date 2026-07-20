@@ -3,6 +3,7 @@
     "**/dist/**",
     "**/node_modules/**",
     "**/.moon/**",
+    "**/fixtures/**",
     "plans/mockups/**",
     "bun.lock"
   ]

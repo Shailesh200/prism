@@ -18,6 +18,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
-    "@prism/shared": "workspace:*"
+    "@prism/shared": "workspace:*",
+    "oxc-parser": "^0.140.0"
   }
 }

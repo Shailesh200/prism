@@ -8,10 +8,28 @@ import {
   prismError,
 } from "@prism/shared";
 import { PluginRegistry } from "./registry.js";
-import type { LanguagePlugin, LanguagePluginInfo } from "./types.js";
+import type {
+  ExtractedExport,
+  ExtractedImport,
+  ExtractedReference,
+  ExtractedSymbol,
+  LanguagePlugin,
+  LanguagePluginInfo,
+  ParseDiagnostic,
+} from "./types.js";
 
 export type AnalyzerHostOptions = {
   readonly plugins?: readonly LanguagePlugin[];
+};
+
+export type FileAnalysis = {
+  readonly pluginId: string;
+  readonly path: string;
+  readonly symbols: readonly ExtractedSymbol[];
+  readonly imports: readonly ExtractedImport[];
+  readonly exports: readonly ExtractedExport[];
+  readonly references: readonly ExtractedReference[];
+  readonly diagnostics: readonly ParseDiagnostic[];
 };
 
 /**
@@ -22,17 +40,7 @@ export type AnalyzerHost = {
   readonly id: "prism-analyzer";
   readonly registry: PluginRegistry;
   listPlugins(): readonly LanguagePluginInfo[];
-  analyzeFile(absolutePath: string): Promise<
-    Result<
-      {
-        pluginId: string;
-        path: string;
-        symbols: readonly unknown[];
-        imports: readonly unknown[];
-      },
-      PrismError
-    >
-  >;
+  analyzeFile(absolutePath: string): Promise<Result<FileAnalysis, PrismError>>;
 };
 
 export function createAnalyzerHost(
@@ -95,12 +103,19 @@ export function createAnalyzerHost(
       if (!symbols.ok) return symbols;
       const imports = plugin.extractImports(parsed.value);
       if (!imports.ok) return imports;
+      const exports = plugin.extractExports(parsed.value);
+      if (!exports.ok) return exports;
+      const references = plugin.extractReferences(parsed.value);
+      if (!references.ok) return references;
 
       return ok({
         pluginId: plugin.id,
         path: absolutePath,
         symbols: symbols.value.symbols,
         imports: imports.value.imports,
+        exports: exports.value.exports,
+        references: references.value.references,
+        diagnostics: parsed.value.diagnostics ?? [],
       });
     },
   };

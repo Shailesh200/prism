@@ -21,6 +21,8 @@ export type LanguagePluginInfo = {
     readonly parse: boolean;
     readonly extractSymbols: boolean;
     readonly extractImports: boolean;
+    readonly extractExports: boolean;
+    readonly extractReferences: boolean;
   };
 };
 
