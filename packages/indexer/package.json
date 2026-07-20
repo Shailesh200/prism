@@ -18,5 +18,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts"
+  },
+  "dependencies": {
+    "@prism/shared": "workspace:*",
+    "ignore": "^7.0.6"
   }
 }

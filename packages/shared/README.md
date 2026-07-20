@@ -12,7 +12,7 @@ Canonical TypeScript contracts for Prism: `Result`, `PrismError`, branded IDs, r
 | Errors | `PrismError`, `PrismErrorCode`, `prismError` |
 | IDs | `RepoId`, `FileId`, `SymbolId`, `NodeId`, `EdgeId`, `FeatureId` + `as*` parsers |
 | Paths | `normalizeRepoPath`, `joinRepoPath`, `RepoRelativePath` |
-| DTOs | `IndexSummary`, `HealthScore`, `BlastRadiusReport`, `DnaReport` + Zod schemas |
+| DTOs | `IndexSummary`, `HealthScore`, `BlastRadiusReport`, `DnaReport`, `FileInventory` + Zod schemas |
 
 ## Error codes (`PrismErrorCode`)
 

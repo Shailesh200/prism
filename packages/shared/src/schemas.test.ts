@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   BlastRadiusReportSchema,
   DnaReportSchema,
+  FileInventorySchema,
   HealthScoreSchema,
   IndexSummarySchema,
   PrismErrorSchema,
@@ -68,5 +69,31 @@ describe("DTO schemas round-trip", () => {
       summary: "TS monorepo",
     };
     expect(DnaReportSchema.parse(raw).frameworks).toContain("react");
+  });
+
+  it("FileInventorySchema", () => {
+    const raw = {
+      rootPath: "/tmp/demo",
+      hashAlgo: "sha256",
+      generatedAt: "2026-07-20T12:00:00.000Z",
+      files: [
+        {
+          path: "src/a.ts",
+          sizeBytes: 12,
+          mtimeMs: 1,
+          hashAlgo: "sha256",
+          contentHash: "abc",
+          status: "hashed",
+        },
+      ],
+      stats: {
+        filesSeen: 1,
+        filesHashed: 1,
+        filesSkipped: 0,
+        filesIgnored: 0,
+        durationMs: 5,
+      },
+    };
+    expect(FileInventorySchema.parse(raw).files[0]?.path).toBe("src/a.ts");
   });
 });

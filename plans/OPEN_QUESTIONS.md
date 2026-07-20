@@ -9,7 +9,7 @@ Resolve these with the owner before or during the indicated milestone. Record an
 | Q-003 | Publish scope: GitHub org name / npm scope `@prism` availability? | M-001 / GA | Keep `@prism` locally; rename if taken |
 | Q-004 | Cursor extension: separate VSIX vs single VS Code extension? | M-032 | Single extension + Cursor packaging overlay |
 | Q-005 | First non-TS language after GA path: Python or Go? | M-034 | Python |
-| Q-006 | Hash algorithm: BLAKE3 (native) vs SHA-256 (pure)? | M-005 | SHA-256 first; BLAKE3 later if perf requires |
+| Q-006 | Hash algorithm: BLAKE3 (native) vs SHA-256 (pure)? | M-005 | **Resolved: SHA-256** ([ADR-0006](./adr/0006-content-hash-sha256.md)) |
 | Q-007 | Map library: React Flow vs custom Canvas? | M-018 | React Flow |
 | Q-008 | Docs framework: VitePress vs Astro? | M-038 | VitePress |
 | Q-009 | Will Prism ever offer optional cloud sync? | Post-GA | Not in GA; keep architecture local-first |
@@ -19,5 +19,6 @@ Resolve these with the owner before or during the indicated milestone. Record an
 | Q-013 | Lint/format | M-001 | **Resolved: Oxlint + Oxfmt** (ADR-0003) |
 | Q-014 | moon `pre-push` full verify vs CI-only? | M-001 | Prefer pre-commit lint/format; full verify in CI + local before review |
 | Q-015 | Add optional deep-TS mode (ts-morph) if Oxc refs weak? | M-011+ | Defer until measured gaps |
+| Q-016 | Stack/persona taxonomy: freeze enum vs open string registry? | M-040 | Open string registry + documented well-known IDs ([ADR-0007](./adr/0007-stack-detector-spi.md)) |
 
 Update this file when questions are decided; link ADRs.
