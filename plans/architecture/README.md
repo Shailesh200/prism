@@ -1,7 +1,7 @@
 # Prism — Architecture Documentation (M-000)
 
-> Status: **Draft complete — awaiting owner review** on `milestone/M-000-architecture-docs`  
-> Depends on: Master Plan **APPROVED**  
+> Status: **Verified** (owner approved 2026-07-20)  
+> Branch: `milestone/M-000-architecture-docs` (merged to main)  
 > Unlocks: M-001
 
 | # | Document | Purpose |
