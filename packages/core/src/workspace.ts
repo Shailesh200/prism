@@ -1,6 +1,14 @@
 import {
   buildDependencyGraph,
+  buildKnowledgeGraph,
+  findReferences as queryReferences,
+  findSymbol as querySymbols,
   type DependencyGraphOptions,
+  type FindReferencesQuery,
+  type FindSymbolQuery,
+  type KnowledgeGraphStats,
+  type ReferenceHit,
+  type SymbolHit,
 } from "@prism/intelligence";
 import {
   PrismErrorCode,
@@ -21,6 +29,11 @@ import {
 } from "@prism/shared";
 import type { PrismCapabilities } from "./capabilities.js";
 import type { IndexWorkspaceOptions, PrismEnginePorts } from "./ports.js";
+
+export type KnowledgeGraphView = {
+  readonly graph: GraphSnapshotDto;
+  readonly stats: KnowledgeGraphStats;
+};
 
 export type WorkspaceStatus = {
   readonly open: boolean;
@@ -51,6 +64,17 @@ export type PrismWorkspace = {
   ): Result<GraphSnapshotDto, PrismError>;
   /** Import/re-export cycles from the last index. `INDEX_REQUIRED` if none. */
   getCycles(options?: DependencyGraphOptions): Result<string[][], PrismError>;
+  /**
+   * Symbol-centric knowledge graph + stats from the last index.
+   * `INDEX_REQUIRED` if none.
+   */
+  getKnowledgeGraph(): Result<KnowledgeGraphView, PrismError>;
+  /** Find indexed symbols by name (optional path/kind filters). */
+  findSymbol(query: FindSymbolQuery): Result<SymbolHit[], PrismError>;
+  /** Find resolved references to a symbol. */
+  findReferences(
+    query: FindReferencesQuery,
+  ): Result<ReferenceHit[], PrismError>;
   /** Lightweight summary (runs index when needed). */
   analyze(
     options?: IndexWorkspaceOptions,
@@ -188,6 +212,46 @@ export function createWorkspace(options: {
         );
       }
       return ok(buildDependencyGraph(lastSnapshot, graphOptions).cycles);
+    },
+    getKnowledgeGraph() {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      const kg = buildKnowledgeGraph(lastSnapshot);
+      return ok({ graph: kg.graph, stats: kg.stats });
+    },
+    findSymbol(query) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      return ok(querySymbols(buildKnowledgeGraph(lastSnapshot), query));
+    },
+    findReferences(query) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      return ok(queryReferences(buildKnowledgeGraph(lastSnapshot), query));
     },
     analyze: runAnalyze,
     reindex: runAnalyze,

@@ -3,10 +3,18 @@
 export { Prism, type PrismClient, type PrismClientOptions } from "./prism.js";
 export {
   createWorkspace,
+  type KnowledgeGraphView,
   type PrismWorkspace,
   type WorkspaceStatus,
 } from "./workspace.js";
-export type { DependencyGraphOptions } from "@prism/intelligence";
+export type {
+  DependencyGraphOptions,
+  FindReferencesQuery,
+  FindSymbolQuery,
+  KnowledgeGraphStats,
+  ReferenceHit,
+  SymbolHit,
+} from "@prism/intelligence";
 export { STUB_CAPABILITIES, type PrismCapabilities } from "./capabilities.js";
 export type {
   AnalyzerPort,

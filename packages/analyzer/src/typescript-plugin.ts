@@ -78,6 +78,8 @@ type PosNode = {
   readonly left?: PosNode;
   readonly right?: PosNode;
   readonly superClass?: PosNode | null;
+  readonly implements?: readonly PosNode[];
+  readonly extends?: readonly PosNode[] | PosNode | null;
   readonly source?: PosNode | null;
 };
 
@@ -313,18 +315,48 @@ function extractExportsFromModule(module: unknown): ExtractedExport[] {
   return out;
 }
 
+function pushNamedRef(
+  out: ExtractedReference[],
+  name: string | undefined,
+  kind: string,
+  node: PosNode | null | undefined,
+): void {
+  if (!name) return;
+  const { start, end } = range(node);
+  out.push({ name, kind, start, end });
+}
+
+function heritageIdentifier(node: PosNode | null | undefined): PosNode | null {
+  if (!node) return null;
+  if (node.type === "Identifier") return node;
+  if (node.expression?.type === "Identifier") return node.expression;
+  return null;
+}
+
 function walkReferences(node: unknown, out: ExtractedReference[]): void {
   if (!node || typeof node !== "object") return;
   const n = node as PosNode;
 
   if (n.type === "CallExpression" && n.callee?.type === "Identifier") {
-    const { start, end } = range(n.callee);
-    out.push({
-      name: n.callee.name ?? "",
-      kind: "call",
-      start,
-      end,
-    });
+    pushNamedRef(out, n.callee.name, "call", n.callee);
+  }
+
+  if (n.type === "ClassDeclaration" || n.type === "ClassExpression") {
+    const superId = heritageIdentifier(n.superClass);
+    pushNamedRef(out, superId?.name, "extends", superId);
+    for (const impl of n.implements ?? []) {
+      const id = heritageIdentifier(impl);
+      pushNamedRef(out, id?.name, "implements", id);
+    }
+  }
+
+  if (n.type === "TSInterfaceDeclaration") {
+    const ext = n.extends;
+    const list = Array.isArray(ext) ? ext : ext ? [ext] : [];
+    for (const item of list) {
+      const id = heritageIdentifier(item);
+      pushNamedRef(out, id?.name, "extends", id);
+    }
   }
 
   for (const value of Object.values(n)) {

@@ -79,6 +79,34 @@ describe("createTypescriptPlugin", () => {
     );
   });
 
+  it("extracts extends and implements heritage as references", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "prism-heritage-"));
+    const path = join(dir, "heritage.ts");
+    await writeFile(
+      path,
+      [
+        "export class Base {}",
+        "export interface IFace {}",
+        "export class Child extends Base implements IFace {}",
+      ].join("\n"),
+      "utf8",
+    );
+    const host = createAnalyzerHost({ plugins: [createTypescriptPlugin()] });
+    const result = await host.analyzeFile(path);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(
+      result.value.references.some(
+        (r) => r.name === "Base" && r.kind === "extends",
+      ),
+    ).toBe(true);
+    expect(
+      result.value.references.some(
+        (r) => r.name === "IFace" && r.kind === "implements",
+      ),
+    ).toBe(true);
+  });
+
   it("parses TSX fixtures", async () => {
     const path = join(fixturesDir, "sample.tsx");
     const host = createAnalyzerHost({ plugins: [createTypescriptPlugin()] });
