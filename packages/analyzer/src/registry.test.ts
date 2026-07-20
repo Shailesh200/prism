@@ -17,6 +17,8 @@ function stubPlugin(
       parse: true,
       extractSymbols: true,
       extractImports: true,
+      extractExports: true,
+      extractReferences: true,
     },
     detect: () => true,
     async parse() {
@@ -24,6 +26,8 @@ function stubPlugin(
     },
     extractSymbols: () => ok({ symbols: [] }),
     extractImports: () => ok({ imports: [] }),
+    extractExports: () => ok({ exports: [] }),
+    extractReferences: () => ok({ references: [] }),
     ...overrides,
   };
 }

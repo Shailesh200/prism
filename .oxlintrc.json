@@ -9,6 +9,6 @@
     "**/node_modules/**",
     "**/.moon/**",
     "plans/**",
-    "fixtures/**"
+    "**/fixtures/**"
   ]
 }

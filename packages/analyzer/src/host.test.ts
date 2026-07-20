@@ -5,11 +5,14 @@ import { describe, expect, it } from "vitest";
 import { PrismErrorCode } from "@prism/shared";
 import { createAnalyzerHost } from "./host.js";
 import { createNoopPlugin } from "./noop-plugin.js";
+import { createTypescriptPlugin } from "./typescript-plugin.js";
 
 describe("createAnalyzerHost", () => {
   it("lists registered plugins", () => {
-    const host = createAnalyzerHost({ plugins: [createNoopPlugin()] });
-    expect(host.listPlugins().map((p) => p.id)).toEqual(["noop"]);
+    const host = createAnalyzerHost({
+      plugins: [createTypescriptPlugin(), createNoopPlugin()],
+    });
+    expect(host.listPlugins().map((p) => p.id)).toEqual(["typescript", "noop"]);
   });
 
   it("analyzes a .noop fixture via parse + extract", async () => {
@@ -24,6 +27,22 @@ describe("createAnalyzerHost", () => {
     expect(result.value.pluginId).toBe("noop");
     expect(result.value.symbols).toEqual([]);
     expect(result.value.imports).toEqual([]);
+    expect(result.value.exports).toEqual([]);
+  });
+
+  it("selects typescript plugin by .ts extension", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "prism-analyzer-"));
+    const path = join(dir, "hello.ts");
+    await writeFile(path, "export const x = 1;\n", "utf8");
+
+    const host = createAnalyzerHost({
+      plugins: [createTypescriptPlugin(), createNoopPlugin()],
+    });
+    const result = await host.analyzeFile(path);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.pluginId).toBe("typescript");
+    expect(result.value.symbols.some((s) => s.name === "x")).toBe(true);
   });
 
   it("returns UNSUPPORTED when no plugin matches", async () => {

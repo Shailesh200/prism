@@ -20,13 +20,21 @@ describe("Prism.create", () => {
 
   it("lists loaded language plugins via Core", () => {
     const client = Prism.create();
-    expect(client.listLanguagePlugins()).toEqual([
-      expect.objectContaining({
-        id: "noop",
-        extensions: [".noop"],
-        spiVersion: 1,
-      }),
-    ]);
+    const ids = client.listLanguagePlugins().map((p) => p.id);
+    expect(ids).toEqual(["typescript", "noop"]);
+    expect(client.listLanguagePlugins()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "typescript",
+          spiVersion: 1,
+        }),
+        expect.objectContaining({
+          id: "noop",
+          extensions: [".noop"],
+          spiVersion: 1,
+        }),
+      ]),
+    );
   });
 
   it("can disable default analyzer", () => {

@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-006-ast-engine-ts` |
-| Status | Not Started |
-| Depends on | M-005 |
+| Status | Verified |
+| Depends on | M-040 (plan); M-005 historically |
 | Unlocks | M-007, M-034 |
 | Packages | `@prism/analyzer` |
 
@@ -30,11 +30,11 @@ Ship the first real language plugin using the **Oxc parser** for TS/JS/TSX/JSX: 
 
 ## Definition of Done
 
-- [ ] Plugin registered and selected by extension
-- [ ] Golden tests for symbols + imports
-- [ ] Throughput note vs fixture baseline documented
-- [ ] Diagnostics via shared result types
-- [ ] Verify + PROGRESS + owner approval
+- [x] Plugin registered and selected by extension
+- [x] Golden tests for symbols + imports
+- [x] Throughput note vs fixture baseline documented
+- [x] Diagnostics via shared result types
+- [x] Verify + PROGRESS + owner approval
 
 ## Verification
 

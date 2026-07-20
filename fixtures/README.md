@@ -2,4 +2,4 @@
 
 Sample repositories used by analyzer/indexer/graph golden tests.
 
-Populated starting M-006.
+Repo-level fixtures may grow later. Analyzer golden fixtures live under `packages/analyzer/fixtures/` (M-006).

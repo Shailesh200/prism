@@ -1,6 +1,7 @@
 import {
   createAnalyzerHost,
   createNoopPlugin,
+  createTypescriptPlugin,
   type LanguagePluginInfo as AnalyzerPluginInfo,
 } from "@prism/analyzer";
 import {
@@ -34,9 +35,11 @@ function toCoreDetectorInfo(info: IntelligenceDetectorInfo): StackDetectorInfo {
   };
 }
 
-/** Default analyzer host with the noop test plugin registered. */
+/** Default analyzer host: Oxc TypeScript/JS plugin + noop scaffold. */
 export function createDefaultAnalyzerPort(): AnalyzerPort {
-  const host = createAnalyzerHost({ plugins: [createNoopPlugin()] });
+  const host = createAnalyzerHost({
+    plugins: [createTypescriptPlugin(), createNoopPlugin()],
+  });
   return {
     id: host.id,
     listPlugins() {

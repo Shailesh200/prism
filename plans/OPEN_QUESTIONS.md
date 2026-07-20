@@ -18,7 +18,7 @@ Resolve these with the owner before or during the indicated milestone. Record an
 | Q-012 | Branding: keep product name **Prism** publicly (vs RepoPulse)? | Plan approval | **Prism** |
 | Q-013 | Lint/format | M-001 | **Resolved: Oxlint + Oxfmt** (ADR-0003) |
 | Q-014 | moon `pre-push` full verify vs CI-only? | M-001 | Prefer pre-commit lint/format; full verify in CI + local before review |
-| Q-015 | Add optional deep-TS mode (ts-morph) if Oxc refs weak? | M-011+ | Defer until measured gaps |
+| Q-015 | Add optional deep-TS mode (ts-morph) if Oxc refs weak? | M-011+ | **Deferred** — Oxc v1 default; deep TS optional ([ADR-0009](./adr/0009-oxc-parser-v1-deep-ts-optional.md)) |
 | Q-016 | Stack/persona taxonomy: freeze enum vs open string registry? | M-040 | Open string registry + documented well-known IDs ([ADR-0007](./adr/0007-stack-detector-spi.md)) |
 | Q-017 | Lighthouse / web perf: ingest-only vs local runner vs cloud? | M-041 | **Resolved: Option B** — opt-in local runner + async PORT callout; SEO/CWV expansions on backlog ([ADR-0008](./adr/0008-stack-aware-measurement-utilities.md)) |
 | Q-018 | CWV attribution depth (route vs chunk vs component)? | M-041 | **Resolved: Option C** — rollups + drill to component when attributable; not LCP-only ([ADR-0008](./adr/0008-stack-aware-measurement-utilities.md)) |

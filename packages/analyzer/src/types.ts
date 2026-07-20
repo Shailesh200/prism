@@ -6,11 +6,21 @@ export type LanguagePluginCapabilities = {
   readonly parse: boolean;
   readonly extractSymbols: boolean;
   readonly extractImports: boolean;
+  readonly extractExports: boolean;
+  readonly extractReferences: boolean;
 };
 
 export type ParseInput = {
   readonly path: string;
   readonly content: string;
+};
+
+/** File-level diagnostic from a parser (no throw). */
+export type ParseDiagnostic = {
+  readonly severity: "error" | "warning";
+  readonly message: string;
+  readonly start?: number;
+  readonly end?: number;
 };
 
 /**
@@ -21,6 +31,7 @@ export type ParseResult = {
   readonly pluginId: string;
   readonly path: string;
   readonly ast: unknown;
+  readonly diagnostics?: readonly ParseDiagnostic[];
 };
 
 export type ExtractedSymbol = {
@@ -28,11 +39,32 @@ export type ExtractedSymbol = {
   readonly kind: string;
   readonly start: number;
   readonly end: number;
+  /** True when the symbol is part of an export declaration. */
+  readonly exported?: boolean;
 };
 
 export type ExtractedImport = {
   readonly source: string;
   readonly specifiers: readonly string[];
+  readonly start?: number;
+  readonly end?: number;
+};
+
+export type ExtractedExport = {
+  readonly name: string;
+  readonly kind: string;
+  readonly start?: number;
+  readonly end?: number;
+  /** Present for re-exports (`export … from`). */
+  readonly source?: string;
+};
+
+/** Lightweight reference hint for later graphs (not type-accurate). */
+export type ExtractedReference = {
+  readonly name: string;
+  readonly kind: string;
+  readonly start: number;
+  readonly end: number;
 };
 
 export type SymbolExtraction = {
@@ -43,9 +75,17 @@ export type ImportExtraction = {
   readonly imports: readonly ExtractedImport[];
 };
 
+export type ExportExtraction = {
+  readonly exports: readonly ExtractedExport[];
+};
+
+export type ReferenceExtraction = {
+  readonly references: readonly ExtractedReference[];
+};
+
 /**
  * Language plugin SPI — Core never sees parser internals.
- * Real TypeScript plugin lands in M-006 (Oxc).
+ * TypeScript/JS plugin uses Oxc (M-006); deep TS optional later.
  */
 export type LanguagePlugin = {
   readonly id: string;
@@ -61,6 +101,12 @@ export type LanguagePlugin = {
   extractImports(
     parseResult: ParseResult,
   ): Result<ImportExtraction, PrismError>;
+  extractExports(
+    parseResult: ParseResult,
+  ): Result<ExportExtraction, PrismError>;
+  extractReferences(
+    parseResult: ParseResult,
+  ): Result<ReferenceExtraction, PrismError>;
 };
 
 /** JSON-serializable plugin descriptor for Core / MCP. */

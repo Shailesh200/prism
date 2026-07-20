@@ -11,7 +11,9 @@ import type {
   LanguagePlugin,
   ParseInput,
   ParseResult,
+  ExportExtraction,
   ImportExtraction,
+  ReferenceExtraction,
   SymbolExtraction,
 } from "./types.js";
 
@@ -41,6 +43,8 @@ export function createNoopPlugin(): LanguagePlugin {
       parse: true,
       extractSymbols: true,
       extractImports: true,
+      extractExports: true,
+      extractReferences: true,
     },
     detect(input) {
       return input.path.toLowerCase().endsWith(".noop");
@@ -59,6 +63,7 @@ export function createNoopPlugin(): LanguagePlugin {
         pluginId: NOOP_ID,
         path: input.path,
         ast: { kind: "noop", contentLength: input.content.length },
+        diagnostics: [],
       });
     },
     extractSymbols(parseResult) {
@@ -71,6 +76,18 @@ export function createNoopPlugin(): LanguagePlugin {
       const gate = ensureOwnParse(parseResult);
       if (!gate.ok) return gate;
       const empty: ImportExtraction = { imports: [] };
+      return ok(empty);
+    },
+    extractExports(parseResult) {
+      const gate = ensureOwnParse(parseResult);
+      if (!gate.ok) return gate;
+      const empty: ExportExtraction = { exports: [] };
+      return ok(empty);
+    },
+    extractReferences(parseResult) {
+      const gate = ensureOwnParse(parseResult);
+      if (!gate.ok) return gate;
+      const empty: ReferenceExtraction = { references: [] };
       return ok(empty);
     },
   };
