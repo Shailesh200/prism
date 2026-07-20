@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-008-sqlite-cache` |
-| Status | Not Started |
+| Status | Verified |
 | Depends on | M-007 |
 | Unlocks | M-009, M-033 |
 | Packages | `@prism/indexer` (or `@prism/core` storage module) |
@@ -27,10 +27,10 @@ Persist index metadata and invalidation hashes in a **local SQLite** database un
 
 ## Definition of Done
 
-- [ ] Second index of unchanged fixture is cache-hit (asserted in test)
-- [ ] Migration from v1→v2 smoke test
-- [ ] Cache path documented
-- [ ] Verify + PROGRESS + owner approval
+- [x] Second index of unchanged fixture is cache-hit (asserted in test)
+- [x] Migration from v1→v2 smoke test
+- [x] Cache path documented
+- [x] Verify + PROGRESS + owner approval
 
 ## Verification
 

@@ -1,4 +1,4 @@
-/** @prism/indexer — inventory (M-005) + index jobs (M-007). */
+/** @prism/indexer — inventory (M-005), index jobs (M-007), SQLite cache (M-008). */
 
 export {
   BUILTIN_IGNORE_PATTERNS,
@@ -21,3 +21,14 @@ export {
   type IndexJobOptions,
 } from "./index-job.js";
 export { createIndexerEngine, type IndexerEngine } from "./default-port.js";
+export {
+  openIndexCache,
+  wipePrismCache,
+  type IndexCacheDb,
+} from "./cache/db.js";
+export { indexSqlitePath, prismCacheDir } from "./cache/paths.js";
+export {
+  SCHEMA_VERSION,
+  migrate,
+  readSchemaVersion,
+} from "./cache/migrations.js";
