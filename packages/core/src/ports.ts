@@ -4,7 +4,12 @@
  * Surfaces must never import those packages; only Core wires them.
  */
 
-import type { IndexSummary, Result, PrismError } from "@prism/shared";
+import type {
+  IndexSummary,
+  PrismError,
+  Result,
+  StackProfile,
+} from "@prism/shared";
 
 /** Serializable plugin descriptor exposed through Core (mirrors analyzer SPI). */
 export type LanguagePluginInfo = {
@@ -36,9 +41,26 @@ export type GraphEnginePort = {
   nodeCount(): number;
 };
 
+/** Serializable stack detector descriptor (mirrors intelligence SPI). */
+export type StackDetectorInfo = {
+  readonly id: string;
+  readonly spiVersion: number;
+  readonly domains: readonly string[];
+  readonly personaHints: readonly string[];
+};
+
+export type StackPort = {
+  readonly id: string;
+  listDetectors(): readonly StackDetectorInfo[];
+  detectProfile(
+    rootAbsolutePath: string,
+  ): Promise<Result<StackProfile, PrismError>>;
+};
+
 /** Optional deps injected into Prism.create. */
 export type PrismEnginePorts = {
   readonly analyzer?: AnalyzerPort;
   readonly indexer?: IndexerPort;
   readonly graphEngine?: GraphEnginePort;
+  readonly stack?: StackPort;
 };

@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { PACKAGE_NAME } from "./index.js";
+import {
+  STACK_DETECTOR_SPI_VERSION,
+  StackDetectorRegistry,
+  createStackHost,
+  createUnknownDetector,
+} from "./index.js";
 
-describe("@prism/intelligence", () => {
-  it("exports package name", () => {
-    expect(PACKAGE_NAME).toBe("@prism/intelligence");
+describe("@prism/intelligence exports", () => {
+  it("exposes stack SPI factories", () => {
+    expect(STACK_DETECTOR_SPI_VERSION).toBe(1);
+    expect(typeof createStackHost).toBe("function");
+    expect(typeof createUnknownDetector).toBe("function");
+    expect(new StackDetectorRegistry().list()).toEqual([]);
   });
 });

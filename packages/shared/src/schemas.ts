@@ -153,6 +153,28 @@ export const FileInventorySchema = z.object({
 
 export type FileInventory = z.infer<typeof FileInventorySchema>;
 
+/** Open registry — well-known ids documented in `stack.ts` / ADR-0007. */
+export const StackSignalSchema = z.object({
+  id: z.string().min(1),
+  domain: z.string().min(1),
+  confidence: z.number().min(0).max(1),
+  personas: z.array(z.string().min(1)).default([]),
+  evidence: z.array(z.string().min(1)).default([]),
+});
+
+export type StackSignal = z.infer<typeof StackSignalSchema>;
+
+export const StackProfileSchema = z.object({
+  rootPath: z.string().min(1),
+  generatedAt: z.string().datetime(),
+  signals: z.array(StackSignalSchema),
+  domains: z.array(z.string().min(1)),
+  personas: z.array(z.string().min(1)),
+  summary: z.string().min(1),
+});
+
+export type StackProfile = z.infer<typeof StackProfileSchema>;
+
 /** Parse unknown JSON into a DTO; returns Zod issues as message. */
 export function parseDto<T>(
   schema: z.ZodType<T>,

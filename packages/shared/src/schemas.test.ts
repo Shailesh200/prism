@@ -3,6 +3,7 @@ import {
   BlastRadiusReportSchema,
   DnaReportSchema,
   FileInventorySchema,
+  StackProfileSchema,
   HealthScoreSchema,
   IndexSummarySchema,
   PrismErrorSchema,
@@ -95,5 +96,25 @@ describe("DTO schemas round-trip", () => {
       },
     };
     expect(FileInventorySchema.parse(raw).files[0]?.path).toBe("src/a.ts");
+  });
+
+  it("StackProfileSchema", () => {
+    const raw = {
+      rootPath: "/tmp/demo",
+      generatedAt: "2026-07-20T12:00:00.000Z",
+      signals: [
+        {
+          id: "nodejs-manifest",
+          domain: "tooling",
+          confidence: 0.5,
+          personas: [],
+          evidence: ["package.json"],
+        },
+      ],
+      domains: ["tooling"],
+      personas: [],
+      summary: "Node manifest detected",
+    };
+    expect(StackProfileSchema.parse(raw).domains).toContain("tooling");
   });
 });

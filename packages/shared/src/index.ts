@@ -59,6 +59,8 @@ export {
   JsonValueSchema,
   PrismErrorSchema,
   RepoRelativePathSchema,
+  StackProfileSchema,
+  StackSignalSchema,
   parseDto,
   type BlastRadiusReport,
   type DnaReport,
@@ -69,4 +71,15 @@ export {
   type IndexSummary,
   type JsonValue,
   type PrismErrorDto,
+  type StackProfile,
+  type StackSignal,
 } from "./schemas.js";
+
+export {
+  DeveloperPersona,
+  StackDomain,
+  type DeveloperPersonaId,
+  type StackDomainId,
+  type WellKnownDeveloperPersona,
+  type WellKnownStackDomain,
+} from "./stack.js";

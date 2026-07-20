@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-040-stack-detector-spi` |
-| Status | Not Started |
+| Status | Verified |
 | Depends on | M-005 |
 | Unlocks | M-006 (soft — AST may proceed in parallel after SPI lands), M-013 |
 | Packages | `@prism/intelligence` (SPI host), `@prism/shared` (DTOs), `@prism/core` (list/get stub) |
@@ -76,12 +76,12 @@ Personas are **signals with confidence**, never a single forced label. Unknown �
 
 ## Definition of Done
 
-- [ ] SPI + DTOs documented; sequence diagram in package README
-- [ ] Registry unit tests (register / list / version reject)
-- [ ] Core can list loaded stack detectors
-- [ ] Domain + persona enums documented (extensible string unions / registries)
-- [ ] ADR accepted
-- [ ] Verify + PROGRESS + owner approval
+- [x] SPI + DTOs documented; sequence diagram in package README
+- [x] Registry unit tests (register / list / version reject)
+- [x] Core can list loaded stack detectors
+- [x] Domain + persona enums documented (extensible string unions / registries)
+- [x] ADR accepted
+- [x] Verify + PROGRESS + owner approval
 
 ## Verification
 
@@ -89,7 +89,7 @@ Typecheck · Lint · Unit · Build · Manual SPI doc review
 
 ## Owner Approval Checklist
 
-- [ ] Domains cover FE / BE / Mobile / Desktop / Data-ML-AI / Data eng / DevOps / Embedded / Game / Tooling
-- [ ] Personas cover major developer types without forcing a single label
-- [ ] Multi-stack / multi-persona repos are first-class
-- [ ] No surface bypasses Core for stack/persona info
+- [x] Domains cover FE / BE / Mobile / Desktop / Data-ML-AI / Data eng / DevOps / Embedded / Game / Tooling
+- [x] Personas cover major developer types without forcing a single label
+- [x] Multi-stack / multi-persona repos are first-class
+- [x] No surface bypasses Core for stack/persona info

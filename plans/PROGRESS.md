@@ -13,7 +13,7 @@
 | M-003 Core Skeleton | `milestone/M-003-core-skeleton` | Verified | ✅ | ✅ | Approved 2026-07-20; Prism façade + ADR-0004 |
 | M-004 Analyzer SPI | `milestone/M-004-analyzer-spi` | Verified | ✅ | ✅ | Approved 2026-07-20; LanguagePlugin SPI + ADR-0005 |
 | M-005 FS Ignore Hash | `milestone/M-005-fs-ignore-hash` | Verified | ✅ | ✅ | Approved 2026-07-20; inventory + SHA-256; plan adds M-040 |
-| M-040 Stack Detector SPI | `milestone/M-040-stack-detector-spi` | Not Started | ☐ | ☐ | Domains + developer personas; ADR-0007 |
+| M-040 Stack Detector SPI | `milestone/M-040-stack-detector-spi` | Verified | ✅ | ✅ | Approved 2026-07-20; SPI + Core APIs; ADR-0008 utilities backlog |
 | M-006 AST Engine TS | `milestone/M-006-ast-engine-ts` | Not Started | ☐ | ☐ | Depends on M-040 |
 | M-007 Indexer v1 | `milestone/M-007-repository-indexer` | Not Started | ☐ | ☐ | |
 | M-008 SQLite Cache | `milestone/M-008-sqlite-cache` | Not Started | ☐ | ☐ | |
@@ -25,8 +25,9 @@
 | M-014 Intelligence API | `milestone/M-014-intelligence-api` | Not Started | ☐ | ☐ | |
 | M-015 Health Score | `milestone/M-015-health-score` | Not Started | ☐ | ☐ | |
 | M-016 Navigation Engine | `milestone/M-016-navigation-engine` | Not Started | ☐ | ☐ | |
-| M-017 Map Data Model | `milestone/M-017-map-data-model` | Not Started | ☐ | ☐ | |
-| M-018 Map UI Playground | `milestone/M-018-map-ui-playground` | Not Started | ☐ | ☐ | |
+| M-041 Stack Utilities Foundation | `milestone/M-041-stack-utilities-foundation` | Not Started | ☐ | ☐ | Before M-018; ADR-0008; backlog domain packs |
+| M-017 Map Data Model | `milestone/M-017-map-data-model` | Not Started | ☐ | ☐ | Depends on M-041 |
+| M-018 Map UI Playground | `milestone/M-018-map-ui-playground` | Not Started | ☐ | ☐ | After utilities foundation |
 | M-019 Map Layers | `milestone/M-019-map-layers` | Not Started | ☐ | ☐ | |
 | M-020 Blast Radius | `milestone/M-020-blast-radius` | Not Started | ☐ | ☐ | |
 | M-021 Safe Delete / Rename | `milestone/M-021-safe-delete-rename` | Not Started | ☐ | ☐ | |

@@ -28,7 +28,7 @@
 ## Preferred workflow
 
 ```text
-Read milestone doc → implement (no commits) → bun run verify:milestone → fix → request owner review → owner approves → commit on milestone branch → owner approves merge → merge locally to main → mark Verified → next branch from main
+Read milestone doc → implement (no commits) → bun run verify:milestone → fix → request owner review → owner approves → commit on milestone branch → owner approves merge → merge locally to main → mark Verified → share short “what changed” snippet with owner → next branch from main
 ```
 
 ## Packages (mental model)

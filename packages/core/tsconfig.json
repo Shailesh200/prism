@@ -13,6 +13,9 @@
       "path": "../analyzer"
     },
     {
+      "path": "../intelligence"
+    },
+    {
       "path": "../shared"
     }
   ]

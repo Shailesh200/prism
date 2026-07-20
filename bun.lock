@@ -39,6 +39,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@prism/analyzer": "workspace:*",
+        "@prism/intelligence": "workspace:*",
         "@prism/shared": "workspace:*",
       },
     },
@@ -65,6 +66,9 @@
     "packages/intelligence": {
       "name": "@prism/intelligence",
       "version": "0.0.0",
+      "dependencies": {
+        "@prism/shared": "workspace:*",
+      },
     },
     "packages/mcp-server": {
       "name": "@prism/mcp-server",
