@@ -25,7 +25,7 @@
 | M-014 Intelligence API | `milestone/M-014-intelligence-api` | Verified | ✅ | ✅ | Approved 2026-07-20; intelligence() aggregate; unblocks M-041 |
 | M-015 Health Score | `milestone/M-015-health-score` | Not Started | ☐ | ☐ | |
 | M-016 Navigation Engine | `milestone/M-016-navigation-engine` | Not Started | ☐ | ☐ | |
-| M-041 Stack Utilities Epic | `milestone/M-041-stack-utilities` | Verified | ✅ | ☐ | Approved 2026-07-20; Gate A+B (P0–P7 + Mono-v1/v2 + overlays); unblocks M-017/M-018 |
+| M-041 Stack Utilities Epic | `milestone/M-041-stack-utilities` | Verified | ✅ | ✅ | Approved 2026-07-20; Gate A+B (P0–P7 + Mono-v1/v2 + overlays); unblocks M-017/M-018 |
 | M-017 Map Data Model | `milestone/M-017-map-data-model` | Not Started | ☐ | ☐ | Depends on M-041 Gate A |
 | M-018 Map UI Playground | `milestone/M-018-map-ui-playground` | Not Started | ☐ | ☐ | After M-041 Gate A |
 | M-019 Map Layers | `milestone/M-019-map-layers` | Not Started | ☐ | ☐ | |
