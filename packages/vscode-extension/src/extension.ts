@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { dirname } from "node:path";
 import { createLogger } from "./logger.js";
 import { PrismSession } from "./session.js";
-import { MapPanel } from "./webview/map-panel.js";
+import { PrismPanel } from "./webview/prism-panel.js";
 
 export const PACKAGE_NAME = "@prism/vscode-extension" as const;
 
@@ -91,14 +91,18 @@ async function bootWorkspace(opts?: { announce?: boolean }): Promise<void> {
   const s = await ensureSession();
   if (!s) return;
 
-  statusBar!.tooltip = `Prism — ${folder.name} (click for map)`;
+  statusBar!.tooltip = `Prism — ${folder.name} (click to open)`;
   if (opts?.announce) {
     const pick = await vscode.window.showInformationMessage(
       `Prism indexed ${folder.name}`,
-      "Open Repository Map",
+      "Open Prism",
+      "Open Map",
     );
-    if (pick === "Open Repository Map" && extensionUri) {
-      MapPanel.show(vscode, extensionUri, s, logger!);
+    if (!extensionUri) return;
+    if (pick === "Open Prism") {
+      PrismPanel.show(vscode, extensionUri, s, logger!, "overview");
+    } else if (pick === "Open Map") {
+      PrismPanel.show(vscode, extensionUri, s, logger!, "map");
     }
   }
 }
@@ -217,17 +221,51 @@ export function activate(context: vscode.ExtensionContext): void {
     100,
   );
   statusBar.text = "$(symbol-namespace) Prism";
-  statusBar.tooltip = "Prism — Open Repository Map";
-  statusBar.command = "prism.openRepositoryMap";
+  statusBar.tooltip = "Prism — Open dashboard";
+  statusBar.command = "prism.open";
   statusBar.show();
+
+  const openPrism = vscode.commands.registerCommand("prism.open", async () => {
+    const s = await ensureSession();
+    if (!s || !extensionUri) return;
+    PrismPanel.show(vscode, extensionUri, s, logger!, "overview");
+    logger!.info("Opened Prism dashboard");
+  });
 
   const openMap = vscode.commands.registerCommand(
     "prism.openRepositoryMap",
     async () => {
       const s = await ensureSession();
       if (!s || !extensionUri) return;
-      MapPanel.show(vscode, extensionUri, s, logger!);
-      logger!.info("Opened Repository Map webview");
+      PrismPanel.show(vscode, extensionUri, s, logger!, "map");
+      logger!.info("Opened Repository Map");
+    },
+  );
+
+  const showHealth = vscode.commands.registerCommand(
+    "prism.showHealth",
+    async () => {
+      const s = await ensureSession();
+      if (!s || !extensionUri) return;
+      const dash = await s.getDashboard();
+      if (!dash.ok) {
+        void vscode.window.showErrorMessage(
+          `Prism: health unavailable — ${dash.error.message}`,
+        );
+        return;
+      }
+      const h = dash.value.health;
+      if (!h) {
+        void vscode.window.showWarningMessage("Prism: no health score yet");
+        return;
+      }
+      const pick = await vscode.window.showInformationMessage(
+        `Prism health ${Math.round(h.score)}/100 (grade ${h.grade})`,
+        "Open Overview",
+      );
+      if (pick === "Open Overview") {
+        PrismPanel.show(vscode, extensionUri, s, logger!, "overview");
+      }
     },
   );
 
@@ -253,15 +291,24 @@ export function activate(context: vscode.ExtensionContext): void {
     statusBar!.text = "$(symbol-namespace) Prism";
     logger!.info("Reindex complete");
     void vscode.window.showInformationMessage("Prism: reindex complete");
-    if (MapPanel.current) await MapPanel.current.pushMap();
+    if (PrismPanel.current) {
+      PrismPanel.current.postNavigateRefresh();
+    }
   });
 
-  context.subscriptions.push(openMap, reindex, statusBar, {
-    dispose: () => {
-      session?.close();
-      logger?.dispose();
+  context.subscriptions.push(
+    openPrism,
+    openMap,
+    showHealth,
+    reindex,
+    statusBar,
+    {
+      dispose: () => {
+        session?.close();
+        logger?.dispose();
+      },
     },
-  });
+  );
 
   logger.info(`${PACKAGE_NAME} activated`);
   logger.show();
@@ -272,5 +319,5 @@ export function activate(context: vscode.ExtensionContext): void {
 export function deactivate(): void {
   session?.close();
   session = undefined;
-  MapPanel.current?.dispose();
+  PrismPanel.current?.dispose();
 }

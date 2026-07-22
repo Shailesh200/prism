@@ -28,6 +28,13 @@ describe("@prism/vscode-extension", () => {
     if (!map.ok) return;
     expect(map.value.map.graph.nodes.length).toBeGreaterThan(0);
 
+    const dash = await session.getDashboard();
+    expect(dash.ok).toBe(true);
+    if (dash.ok) {
+      expect(dash.value.repoLabel.length).toBeGreaterThan(0);
+      expect(dash.value.map.graph.nodes.length).toBeGreaterThan(0);
+    }
+
     const reindexed = await session.reindex();
     expect(reindexed.ok).toBe(true);
 

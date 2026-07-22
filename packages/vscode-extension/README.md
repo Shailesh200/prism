@@ -1,13 +1,16 @@
 # @prism/vscode-extension
 
-VS Code extension shell (M-030). Loads `@prism/core` in the extension host and
-renders `@prism/ui` `RepositoryMapView` in a webview.
+VS Code / Cursor extension (M-030 shell + M-031 full dashboard). Loads
+`@prism/core` in the extension host and renders the Prism app (Overview, Map,
+DNA, Domains, Blast, Trends, Settings) in a webview.
 
 ## Commands
 
 | Command | ID |
 |---|---|
+| Prism: Open Prism | `prism.open` |
 | Prism: Open Repository Map | `prism.openRepositoryMap` |
+| Prism: Show Health | `prism.showHealth` |
 | Prism: Reindex | `prism.reindex` |
 
 ## Develop
@@ -19,30 +22,14 @@ bun run --filter @prism/ui build
 bun run --filter @prism/vscode-extension build
 ```
 
-Then open this repo in VS Code / Cursor and run **Run Extension** (F5) using
-the root [`.vscode/launch.json`](../../.vscode/launch.json) configuration
-**Run Prism Extension**.
+Then **Run Prism Extension** (F5) via [`.vscode/launch.json`](../../.vscode/launch.json).
 
-The build stages `better-sqlite3` under `dist/node_modules` with an **Electron**
-prebuild (detected from Cursor/VS Code on macOS, or `PRISM_ELECTRON_VERSION`).
-That keeps the monorepo’s Node copy intact for indexer tests.
-
-### “Cannot find module better-sqlite3” / ABI errors
-
-Re-run the extension build, then F5 again:
-
-```bash
-bun run --filter @prism/vscode-extension build
-```
-
-If the host Electron version differs, set it explicitly:
-
-```bash
-PRISM_ELECTRON_VERSION=40.10.3 bun run --filter @prism/vscode-extension build
-```
+The build stages `better-sqlite3` under `dist/node_modules` with an Electron
+prebuild (`PRISM_ELECTRON_VERSION` override supported).
 
 ## Architecture
 
 - Extension host → `@prism/core` only (`PrismSession`)
-- Webview → `@prism/ui` + postMessage DTOs (`RepositoryMap`)
+- Webview → playground-parity screens + `@prism/ui` map; data via postMessage RPC
+- Open file paths in the editor from Map / host `openFile` messages
 - No network; local git via Core when available
