@@ -39,7 +39,7 @@ if (!ext.success) {
 }
 
 const web = await Bun.build({
-  entrypoints: [join(root, "src/webview/map-app.tsx")],
+  entrypoints: [join(root, "src/webview/app.tsx")],
   outdir: webOut,
   target: "browser",
   format: "esm",
@@ -63,7 +63,14 @@ cpSync(
 
 writeFileSync(
   join(dist, "webview.css"),
-  readFileSync(join(root, "src/webview/webview.css"), "utf8"),
+  [
+    readFileSync(join(root, "src/webview/webview.css"), "utf8"),
+    readFileSync(join(root, "src/webview/ui/overview.css"), "utf8"),
+    readFileSync(join(root, "src/webview/ui/appnav.css"), "utf8"),
+    existsSync(join(root, "src/webview/ui/boot.css"))
+      ? readFileSync(join(root, "src/webview/ui/boot.css"), "utf8")
+      : "",
+  ].join("\n"),
 );
 
 stageNativeModules();

@@ -1,10 +1,16 @@
 import type {
+  BackendReport,
+  DnaReport,
+  GitActivity,
   GitRecentFile,
+  GraphSnapshotDto,
+  HealthScore,
   MapLayerId,
   MapZoomLevel,
   RepositoryMap,
   Result,
   PrismError,
+  UtilityOverlayReport,
 } from "@prism/shared";
 import {
   Prism,
@@ -15,16 +21,16 @@ import {
   type PrismClient,
   type PrismWorkspace,
 } from "@prism/core";
-
-export type MapPayload = {
-  map: RepositoryMap;
-  recentChanges: GitRecentFile[];
-  branch?: string;
-};
+import type {
+  DashboardPayload,
+  ImpactBundle,
+  ImpactTarget,
+  MapPayload,
+  SymbolSearchHit,
+} from "./protocol.js";
 
 /**
- * Core lifecycle for one workspace folder (M-030). No VS Code imports —
- * unit-testable.
+ * Core lifecycle for one workspace folder. No VS Code imports — unit-testable.
  */
 export class PrismSession {
   private client: PrismClient | null = null;
@@ -68,10 +74,7 @@ export class PrismSession {
     return ok(undefined);
   }
 
-  getMap(
-    zoom: MapZoomLevel = "package",
-    layers?: readonly MapLayerId[],
-  ): Result<MapPayload, PrismError> {
+  private requireWs(): Result<PrismWorkspace, PrismError> {
     if (!this.workspace) {
       return err(
         prismError(
@@ -80,13 +83,22 @@ export class PrismSession {
         ),
       );
     }
-    const map = this.workspace.getRepositoryMap({
+    return ok(this.workspace);
+  }
+
+  getMap(
+    zoom: MapZoomLevel = "package",
+    layers?: readonly MapLayerId[],
+  ): Result<MapPayload, PrismError> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    const map = ws.value.getRepositoryMap({
       zoom,
       ...(layers ? { layers: [...layers] } : {}),
     });
     if (!map.ok) return map;
 
-    const git = this.workspace.getGitActivity();
+    const git = ws.value.getGitActivity();
     const recentChanges =
       git.ok && git.value.available ? git.value.recentFiles : [];
     const branch =
@@ -99,6 +111,154 @@ export class PrismSession {
     });
   }
 
+  async getDashboard(
+    zoom: MapZoomLevel = "package",
+  ): Promise<Result<DashboardPayload, PrismError>> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    const root = this.rootPath!;
+    const repoLabel = root.split("/").filter(Boolean).pop() ?? root;
+
+    const map = ws.value.getRepositoryMap({ zoom });
+    if (!map.ok) return map;
+
+    const git = ws.value.getGitActivity();
+    const gitActivity: GitActivity | null = git.ok ? git.value : null;
+    const branch =
+      gitActivity?.available && gitActivity.summary?.branch
+        ? gitActivity.summary.branch
+        : undefined;
+
+    const [healthRes, dnaRes] = await Promise.all([
+      ws.value.getHealth(),
+      ws.value.getDna(),
+    ]);
+
+    return ok({
+      root,
+      repoLabel,
+      map: map.value,
+      gitActivity,
+      health: healthRes.ok ? healthRes.value : null,
+      dna: dnaRes.ok ? dnaRes.value : null,
+      ...(branch !== undefined ? { branch } : {}),
+    });
+  }
+
+  async getOverlay(
+    kind: string,
+  ): Promise<Result<UtilityOverlayReport | null, PrismError>> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    const result = await ws.value.getUtilityOverlay(kind);
+    if (!result.ok) return ok(null);
+    return ok(result.value);
+  }
+
+  async getBackendReport(): Promise<Result<BackendReport | null, PrismError>> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    const result = await ws.value.getBackendReport();
+    if (!result.ok) return ok(null);
+    return ok(result.value);
+  }
+
+  getDependencyGraph(): Result<GraphSnapshotDto | null, PrismError> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    const result = ws.value.getDependencyGraph();
+    if (!result.ok) return ok(null);
+    return ok(result.value);
+  }
+
+  async getImpact(
+    target: ImpactTarget,
+  ): Promise<
+    Result<
+      { ok: true; value: ImpactBundle } | { ok: false; error: string },
+      PrismError
+    >
+  > {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    const input = {
+      kind: target.kind,
+      id: target.id,
+      ...(target.path !== undefined ? { path: target.path } : {}),
+    };
+    const renameInput = {
+      ...input,
+      ...(target.newName !== undefined ? { newName: target.newName } : {}),
+    };
+    const [blast, safeDelete, rename, testImpact] = await Promise.all([
+      ws.value.blastRadius(input),
+      ws.value.safeDelete(input),
+      ws.value.renameImpact(renameInput),
+      ws.value.testImpact(input),
+    ]);
+    if (!blast.ok) {
+      return ok({ ok: false, error: blast.error.message });
+    }
+    if (!safeDelete.ok) {
+      return ok({ ok: false, error: safeDelete.error.message });
+    }
+    if (!rename.ok) {
+      return ok({ ok: false, error: rename.error.message });
+    }
+    if (!testImpact.ok) {
+      return ok({ ok: false, error: testImpact.error.message });
+    }
+    return ok({
+      ok: true,
+      value: {
+        blast: blast.value,
+        safeDelete: safeDelete.value,
+        rename: rename.value,
+        testImpact: testImpact.value,
+      },
+    });
+  }
+
+  findSymbols(query: string): Result<SymbolSearchHit[], PrismError> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    const q = query.trim();
+    if (q.length < 1) return ok([]);
+    // Prefer prefix/exact via Core findSymbol; also try lowercase variants.
+    const primary = ws.value.findSymbol({ name: q });
+    if (!primary.ok) return ok([]);
+    const hits: SymbolSearchHit[] = primary.value.slice(0, 30).map((h) => ({
+      id: h.id,
+      name: h.name,
+      kind: h.kind,
+      path: h.path,
+      exported: h.exported,
+    }));
+    if (hits.length > 0) return ok(hits);
+    // Fallback: scan file labels in the knowledge graph for path-ish queries.
+    const kg = ws.value.getKnowledgeGraph();
+    if (!kg.ok) return ok([]);
+    const needle = q.toLowerCase();
+    const fromGraph: SymbolSearchHit[] = kg.value.graph.nodes
+      .filter(
+        (n) =>
+          n.kind === "symbol" &&
+          (n.label.toLowerCase().includes(needle) ||
+            String(n.attrs?.["path"] ?? "")
+              .toLowerCase()
+              .includes(needle)),
+      )
+      .slice(0, 30)
+      .map((n) => ({
+        id: n.id,
+        name: n.label,
+        kind: String(n.attrs?.["kind"] ?? "symbol"),
+        path: String(n.attrs?.["path"] ?? ""),
+        exported: Boolean(n.attrs?.["exported"]),
+      }));
+    return ok(fromGraph);
+  }
+
   close(): void {
     if (this.workspace) {
       this.workspace.close();
@@ -108,3 +268,6 @@ export class PrismSession {
     this.rootPath = null;
   }
 }
+
+// Re-export types used by tests
+export type { DnaReport, HealthScore, RepositoryMap, GitRecentFile };

@@ -72,6 +72,8 @@ export type RepositoryMapViewProps = {
   readonly onLayersChange?: (layers: readonly MapLayerId[]) => void;
   readonly onAddBookmark?: (label: string, nodeId: string) => void;
   readonly onSelectNode?: (nodeId: string | null) => void;
+  /** Open a repo-relative file path in the host editor (IDE). */
+  readonly onOpenPath?: (path: string) => void;
 };
 
 const nodeTypes = { prism: MapNode };
@@ -1159,7 +1161,20 @@ export function RepositoryMapView(props: RepositoryMapViewProps): ReactElement {
               <button
                 type="button"
                 className="prism-map__btn prism-map__btn--primary"
-                onClick={() => onToggle(selected.id)}
+                onClick={() => {
+                  const path =
+                    selected.kind === "file" || isPathKind(selected.kind)
+                      ? selected.id.startsWith("file:")
+                        ? selected.id.slice("file:".length)
+                        : ((selected.attrs?.path as string | undefined) ??
+                          selected.label)
+                      : null;
+                  if (path && props.onOpenPath) {
+                    props.onOpenPath(path);
+                    return;
+                  }
+                  onToggle(selected.id);
+                }}
               >
                 Open
               </button>

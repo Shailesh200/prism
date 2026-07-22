@@ -16,8 +16,18 @@
   "contributes": {
     "commands": [
       {
+        "command": "prism.open",
+        "title": "Prism: Open Prism",
+        "category": "Prism"
+      },
+      {
         "command": "prism.openRepositoryMap",
         "title": "Prism: Open Repository Map",
+        "category": "Prism"
+      },
+      {
+        "command": "prism.showHealth",
+        "title": "Prism: Show Health",
         "category": "Prism"
       },
       {
@@ -39,8 +49,10 @@
     "@prism/shared": "workspace:*",
     "@prism/ui": "workspace:*",
     "better-sqlite3": "^12.11.1",
+    "lucide-react": "^1.25.0",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "react-icons": "^5.7.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
