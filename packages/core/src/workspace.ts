@@ -7,6 +7,7 @@ import {
   buildPersonaPresets,
   buildUtilityOverlay,
   buildBackendReport,
+  computeEngineeringHealth,
   computeHealthScore,
   createUtilitiesSession,
   discoverLocalPackages,
@@ -46,6 +47,7 @@ import {
   type ConsentRecord,
   type CwvReport,
   type DnaReport,
+  type EngineeringHealthReport,
   type FeatureInfo,
   type GitActivity,
   type GitCommitRef,
@@ -244,6 +246,12 @@ export type PrismWorkspace = {
     purpose: string,
   ): Promise<Result<ConsentRecord | null, PrismError>>;
   getHealth(): Promise<Result<HealthScore, PrismError>>;
+  /**
+   * Engineering-health metrics (entropy, drift, debt, churn, conflict,
+   * knowledge decay + hotspots). Complementary to `getHealth` (ADR-0017).
+   * Requires prior `index()`. Git metrics fail soft when history is missing.
+   */
+  getEngineeringHealth(): Promise<Result<EngineeringHealthReport, PrismError>>;
   /**
    * Shortest / k-simple dependency routes between files or symbols (M-016).
    * Requires `index()`. Empty routes when no path exists.
@@ -845,6 +853,33 @@ export function createWorkspace(options: {
         );
       }
       return ok(computeHealthScore(lastSnapshot));
+    },
+    async getEngineeringHealth() {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      if (!gitCache || gitCache.at !== lastIndexedAt) {
+        const keepPaths = new Set(lastSnapshot.files.map((f) => f.path));
+        gitCache = {
+          at: lastIndexedAt,
+          value: readGitSignals(lastSnapshot.rootPath, { keepPaths }),
+        };
+      }
+      const git = gitCache.value;
+      const gitFiles = git ? [...git.signals.values()] : undefined;
+      return ok(
+        computeEngineeringHealth({
+          snapshot: lastSnapshot,
+          ...(gitFiles && gitFiles.length > 0 ? { gitFiles } : {}),
+        }),
+      );
     },
     findRoute(query) {
       const gate = ensureOpen();
