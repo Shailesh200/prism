@@ -31,7 +31,7 @@
 | M-019 Map Layers | `milestone/M-019-map-layers` | Verified | ✅ | ✅ | Approved + merged 2026-07-22: layer UX shipped in M-042; closed out + removed dead map prototypes (ZoomRail, OverviewTreemap, DensityMap/Highcharts) |
 | M-042 UI System v2 | `milestone/M-042-ui-system-v2` | Verified | ✅ | ✅ | Approved + merged 2026-07-22: ADR-0013 (unified scalable map + local Git signals) + ADR-0014 (UXPilot **dark** relock — dark tokens, left KPI sidebar, edge graph, blast rings on select, rebuilt inspector, new Overview/dashboard landing, Inter/JetBrains Mono) + Material Icon Theme file/folder icons |
 | M-020 Blast Radius | `milestone/M-020-blast-radius` | Verified | ✅ | ✅ | Approved 2026-07-22; `@prism/impact` `computeBlastRadius` (reverse-dep traversal, depth/truncation, risk score) + Core `blastRadius()` + `impact` capability |
-| M-021 Safe Delete / Rename | `milestone/M-021-safe-delete-rename` | Not Started | ☐ | ☐ | |
+| M-021 Safe Delete / Rename | `milestone/M-021-safe-delete-rename` | In Progress | ☐ | ☐ | Started 2026-07-22: `safeDelete`/`renameImpact`/`testImpact`/`breakingChangeHints` on the blast-radius affected-set primitive |
 | M-022 Eng Health | `milestone/M-022-engineering-health` | Not Started | ☐ | ☐ | |
 | M-023 Code Explorer | `milestone/M-023-code-explorer` | Not Started | ☐ | ☐ | |
 | M-024 Insights | `milestone/M-024-engineering-insights` | Not Started | ☐ | ☐ | |

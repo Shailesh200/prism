@@ -22,7 +22,13 @@ import {
   type SymbolHit,
   type UtilitiesSession,
 } from "@prism/intelligence";
-import { computeBlastRadius } from "@prism/impact";
+import {
+  computeBlastRadius,
+  computeBreakingChangeHints,
+  computeRenameImpact,
+  computeSafeDelete,
+  computeTestImpact,
+} from "@prism/impact";
 import {
   findPaths,
   listLandmarks as collectLandmarks,
@@ -34,6 +40,7 @@ import { buildRepositoryMap, type MapPackageInfo } from "@prism/repository-map";
 import {
   PrismErrorCode,
   type BlastRadiusReport,
+  type BreakingChangeHint,
   type ConsentRecord,
   type CwvReport,
   type DnaReport,
@@ -55,9 +62,12 @@ import {
   type NavigationRouteResult,
   type PersonaPresets,
   type PrismError,
+  type RenameImpactReport,
   type RepoId,
   type RepositoryMap,
   type Result,
+  type SafeDeleteReport,
+  type TestImpactReport,
   type StackPackageProfile,
   type StackProfile,
   type UtilityJob,
@@ -255,6 +265,42 @@ export type PrismWorkspace = {
     id: string;
     path?: string;
   }): Promise<Result<BlastRadiusReport, PrismError>>;
+  /**
+   * Whether a file/symbol can be deleted safely (M-021). Requires `index()`.
+   * `blockers` list transitive dependents; `orphans` list files left dead.
+   */
+  safeDelete(input: {
+    kind: "file" | "symbol";
+    id: string;
+    path?: string;
+  }): Promise<Result<SafeDeleteReport, PrismError>>;
+  /**
+   * Edit sites + breaking-change hints for renaming a file/symbol (M-021).
+   * Requires `index()`. Report only — never writes.
+   */
+  renameImpact(input: {
+    kind: "file" | "symbol";
+    id: string;
+    path?: string;
+    newName?: string;
+  }): Promise<Result<RenameImpactReport, PrismError>>;
+  /**
+   * Test files transitively reachable from a change (M-021). Requires `index()`.
+   */
+  testImpact(input: {
+    kind: "file" | "symbol";
+    id: string;
+    path?: string;
+  }): Promise<Result<TestImpactReport, PrismError>>;
+  /**
+   * Heuristic breaking-change hints for a change target (M-021).
+   * Requires `index()`.
+   */
+  breakingChangeHints(input: {
+    kind: "file" | "symbol";
+    id: string;
+    path?: string;
+  }): Promise<Result<BreakingChangeHint[], PrismError>>;
   close(): void;
 };
 
@@ -265,6 +311,25 @@ function toSummary(snapshot: IndexSnapshot): IndexSummary {
     indexedAt: snapshot.indexedAt,
     stats: snapshot.stats,
     warnings: [...snapshot.warnings],
+  };
+}
+
+/**
+ * Assemble the `@prism/impact` context from an index snapshot. Symbol-level
+ * queries also need the knowledge graph (symbols + references).
+ */
+function impactContextFor(snapshot: IndexSnapshot, withSymbols: boolean) {
+  const analyzedPaths = snapshot.files
+    .filter((f) => f.status === "analyzed")
+    .map((f) => f.path);
+  const dependencyGraph = buildDependencyGraph(snapshot).graph;
+  if (!withSymbols) return { dependencyGraph, analyzedPaths };
+  const kg = buildKnowledgeGraph(snapshot);
+  return {
+    dependencyGraph,
+    analyzedPaths,
+    symbols: kg.symbols,
+    references: kg.references,
   };
 }
 
@@ -291,6 +356,24 @@ export function createWorkspace(options: {
       );
     }
     return ok(true);
+  };
+
+  /** Open gate + an available index snapshot (for impact/change-safety APIs). */
+  const ensureImpact = (): Result<IndexSnapshot, PrismError> => {
+    if (!open) {
+      return err(
+        prismError(PrismErrorCode.WORKSPACE_NOT_OPEN, "Workspace is closed"),
+      );
+    }
+    if (!lastSnapshot) {
+      return err(
+        prismError(
+          PrismErrorCode.INDEX_REQUIRED,
+          "No index snapshot yet — call workspace.index() first",
+        ),
+      );
+    }
+    return ok(lastSnapshot);
   };
 
   const ensureUtilities = (): Result<UtilitiesSession, PrismError> => {
@@ -908,30 +991,44 @@ export function createWorkspace(options: {
       });
     },
     async blastRadius(input) {
-      const gate = ensureOpen();
+      const gate = ensureImpact();
       if (!gate.ok) return gate;
-      if (!lastSnapshot) {
-        return err(
-          prismError(
-            PrismErrorCode.INDEX_REQUIRED,
-            "No index snapshot yet — call workspace.index() first",
-          ),
-        );
-      }
-      const analyzedPaths = lastSnapshot.files
-        .filter((f) => f.status === "analyzed")
-        .map((f) => f.path);
-      const dependencyGraph = buildDependencyGraph(lastSnapshot).graph;
-      if (input.kind === "symbol") {
-        const kg = buildKnowledgeGraph(lastSnapshot);
-        return computeBlastRadius(input, {
-          dependencyGraph,
-          analyzedPaths,
-          symbols: kg.symbols,
-          references: kg.references,
-        });
-      }
-      return computeBlastRadius(input, { dependencyGraph, analyzedPaths });
+      return computeBlastRadius(
+        input,
+        impactContextFor(gate.value, input.kind === "symbol"),
+      );
+    },
+    async safeDelete(input) {
+      const gate = ensureImpact();
+      if (!gate.ok) return gate;
+      return computeSafeDelete(
+        input,
+        impactContextFor(gate.value, input.kind === "symbol"),
+      );
+    },
+    async renameImpact(input) {
+      const gate = ensureImpact();
+      if (!gate.ok) return gate;
+      return computeRenameImpact(
+        input,
+        impactContextFor(gate.value, input.kind === "symbol"),
+      );
+    },
+    async testImpact(input) {
+      const gate = ensureImpact();
+      if (!gate.ok) return gate;
+      return computeTestImpact(
+        input,
+        impactContextFor(gate.value, input.kind === "symbol"),
+      );
+    },
+    async breakingChangeHints(input) {
+      const gate = ensureImpact();
+      if (!gate.ok) return gate;
+      return computeBreakingChangeHints(
+        input,
+        impactContextFor(gate.value, input.kind === "symbol"),
+      );
     },
     close() {
       open = false;
