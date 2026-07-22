@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Prism - Mobile Architecture</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "line": "#2A334A",
+                      "secondary": "#c4c0ff",
+                      "risk": "#F59E0B",
+                      "on-tertiary-fixed": "#341100",
+                      "surface": "#0e1514",
+                      "on-error-container": "#ffdad6",
+                      "surface-container-high": "#242b2b",
+                      "safe": "#10B981",
+                      "on-error": "#690005",
+                      "on-secondary": "#2000a4",
+                      "error": "#ffb4ab",
+                      "on-brand": "#0A0E1A",
+                      "ink-muted": "#94A3B8",
+                      "tertiary-fixed": "#ffdbcb",
+                      "elev": "#1E2433",
+                      "surface-dim": "#0e1514",
+                      "primary-fixed": "#65f8f7",
+                      "tertiary": "#ffba98",
+                      "secondary-fixed-dim": "#c4c0ff",
+                      "on-primary-fixed": "#002020",
+                      "surface-container-low": "#161d1d",
+                      "outline": "#859493",
+                      "tile": "#1E2433",
+                      "on-tertiary": "#552000",
+                      "primary-fixed-dim": "#3fdbdb",
+                      "surface-bright": "#343a3a",
+                      "surface-container-lowest": "#090f0f",
+                      "tertiary-fixed-dim": "#ffb691",
+                      "canvas": "#0A0E1A",
+                      "inverse-surface": "#dde4e3",
+                      "outline-variant": "#3c4949",
+                      "on-secondary-container": "#b4b0ff",
+                      "on-secondary-fixed-variant": "#3622ca",
+                      "on-primary-fixed-variant": "#004f4f",
+                      "secondary-fixed": "#e3dfff",
+                      "panel": "#131926",
+                      "on-secondary-fixed": "#100069",
+                      "risk-extreme": "#F43F5E",
+                      "surface-container": "#1a2121",
+                      "primary-container": "#00c2c2",
+                      "on-surface": "#dde4e3",
+                      "secondary-container": "#3826cd",
+                      "brand-strong": "#00DCD4",
+                      "error-container": "#93000a",
+                      "ink": "#FFFFFF",
+                      "on-primary-container": "#004a4a",
+                      "tertiary-container": "#fd9359",
+                      "inverse-primary": "#006a6a",
+                      "surface-tint": "#3fdbdb",
+                      "surface-variant": "#2f3636",
+                      "on-primary": "#003737",
+                      "on-background": "#dde4e3",
+                      "on-tertiary-container": "#712d00",
+                      "on-surface-variant": "#bbc9c9",
+                      "background": "#0e1514",
+                      "primary": "#44dede",
+                      "surface-container-highest": "#2f3636",
+                      "panel-2": "#0F1420",
+                      "inverse-on-surface": "#2b3231",
+                      "on-tertiary-fixed-variant": "#783100"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "topbar-h": "48px",
+                      "xl": "32px",
+                      "inspector-w": "288px",
+                      "sm": "8px",
+                      "sidebar-w": "224px",
+                      "lg": "24px",
+                      "xs": "4px",
+                      "md": "16px"
+              },
+              "fontFamily": {
+                      "body-sm": ["Inter"],
+                      "body-md": ["Inter"],
+                      "h1": ["Inter"],
+                      "brand": ["Inter"],
+                      "mono": ["JetBrains Mono"],
+                      "h2": ["Inter"],
+                      "label": ["Inter"]
+              },
+              "fontSize": {
+                      "body-sm": ["0.8125rem", {"lineHeight": "1.4", "fontWeight": "400"}],
+                      "body-md": ["0.9375rem", {"lineHeight": "1.45", "fontWeight": "400"}],
+                      "h1": ["1.5rem", {"letterSpacing": "-0.02em", "fontWeight": "650"}],
+                      "brand": ["1.125rem", {"letterSpacing": "-0.02em", "fontWeight": "650"}],
+                      "mono": ["0.75rem", {"fontWeight": "400"}],
+                      "h2": ["1.15rem", {"letterSpacing": "-0.02em", "fontWeight": "600"}],
+                      "label": ["0.75rem", {"letterSpacing": "0.04em", "fontWeight": "600"}]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+        body { background-color: #0A0E1A; color: #FFFFFF; font-family: 'Inter', sans-serif; }
+        .grid-bg {
+            background-size: 24px 24px;
+            background-image: linear-gradient(to right, rgba(42, 51, 74, 0.3) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(42, 51, 74, 0.3) 1px, transparent 1px);
+        }
+    </style>
+</head>
+<body class="bg-canvas text-ink antialiased h-screen overflow-hidden flex">
+<!-- SideNavBar -->
+<nav class="fixed left-0 top-0 h-full w-sidebar-w bg-panel border-r border-line flex flex-col py-md px-sm z-20">
+<div class="mb-xl px-sm flex items-center gap-2">
+<span class="material-symbols-outlined text-brand-strong" data-icon="hub">hub</span>
+<span class="font-brand text-brand text-brand-strong">Prism</span>
+<span class="text-ink-muted text-[10px] uppercase tracking-wider ml-2">Local Intelligence</span>
+</div>
+<div class="flex-1 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-xl text-ink-muted hover:text-ink hover:bg-tile transition-colors font-body-sm text-body-sm" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="dashboard">dashboard</span>
+                Overview
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-xl text-ink-muted hover:text-ink hover:bg-tile transition-colors font-body-sm text-body-sm" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="map">map</span>
+                Repository Map
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-xl text-brand-strong font-bold bg-tile font-body-sm text-body-sm" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="smartphone">smartphone</span>
+                Mobile
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-xl text-ink-muted hover:text-ink hover:bg-tile transition-colors font-body-sm text-body-sm" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="settings_input_antenna">settings_input_antenna</span>
+                Blast Radius
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-xl text-ink-muted hover:text-ink hover:bg-tile transition-colors font-body-sm text-body-sm" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="insights">insights</span>
+                Trends
+            </a>
+</div>
+<div class="mt-auto">
+<a class="flex items-center gap-3 px-3 py-2 rounded-xl text-ink-muted hover:text-ink hover:bg-tile transition-colors font-body-sm text-body-sm" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="settings">settings</span>
+                Settings
+            </a>
+<button class="mt-4 w-full bg-tile text-ink font-body-sm text-body-sm py-2 rounded-lg border border-line hover:border-outline transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[16px]" data-icon="terminal">terminal</span>
+                Workspace
+            </button>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 ml-[224px] flex flex-col h-full relative">
+<!-- TopAppBar -->
+<header class="h-topbar-h bg-canvas border-b border-line flex justify-between items-center px-lg shrink-0 z-10 sticky top-0">
+<div class="flex flex-col">
+<h1 class="font-h2 text-h2 text-ink font-bold leading-tight">Mobile</h1>
+<span class="font-mono text-mono text-ink-muted leading-tight">acme-web · main · Last sync 4m ago</span>
+</div>
+<div class="flex items-center gap-4 text-ink-muted">
+<button class="hover:text-ink hover:bg-tile p-1 rounded transition-colors"><span class="material-symbols-outlined text-[20px]" data-icon="terminal">terminal</span></button>
+<button class="hover:text-ink hover:bg-tile p-1 rounded transition-colors"><span class="material-symbols-outlined text-[20px]" data-icon="database">database</span></button>
+<button class="hover:text-ink hover:bg-tile p-1 rounded transition-colors"><span class="material-symbols-outlined text-[20px]" data-icon="sync">sync</span></button>
+</div>
+</header>
+<!-- Canvas -->
+<main class="flex-1 overflow-y-auto p-lg grid-bg relative">
+<div class="max-w-7xl mx-auto space-y-md">
+<!-- Summary Row -->
+<div class="grid grid-cols-4 gap-md">
+<div class="bg-panel border border-line p-md rounded-lg flex flex-col">
+<span class="font-label text-label text-ink-muted uppercase">Screens</span>
+<span class="font-mono text-[24px] text-ink mt-2">24</span>
+</div>
+<div class="bg-panel border border-line p-md rounded-lg flex flex-col">
+<span class="font-label text-label text-ink-muted uppercase">Navigators</span>
+<span class="font-mono text-[24px] text-ink mt-2">3</span>
+</div>
+<div class="bg-panel border border-line p-md rounded-lg flex flex-col">
+<span class="font-label text-label text-ink-muted uppercase">Platforms</span>
+<div class="flex gap-2 mt-2">
+<span class="font-mono text-mono text-ink bg-tile px-2 py-1 rounded">iOS</span>
+<span class="font-mono text-mono text-ink bg-tile px-2 py-1 rounded">Android</span>
+</div>
+</div>
+<div class="bg-panel border border-line p-md rounded-lg flex flex-col">
+<span class="font-label text-label text-ink-muted uppercase">Deep Links</span>
+<span class="font-mono text-[24px] text-ink mt-2">12</span>
+</div>
+</div>
+<!-- Split Layout: Nav Map & Inspector -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-md h-[500px]">
+<!-- Navigation Topology -->
+<div class="lg:col-span-2 bg-panel border border-line rounded-lg flex flex-col relative overflow-hidden">
+<div class="p-sm border-b border-line flex items-center justify-between bg-panel-2">
+<span class="font-label text-label text-ink uppercase flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]" data-icon="account_tree">account_tree</span>
+                                Navigation Topology
+                            </span>
+<div class="flex gap-2">
+<button class="text-ink-muted hover:text-ink"><span class="material-symbols-outlined text-[16px]" data-icon="zoom_in">zoom_in</span></button>
+<button class="text-ink-muted hover:text-ink"><span class="material-symbols-outlined text-[16px]" data-icon="zoom_out">zoom_out</span></button>
+</div>
+</div>
+<div class="flex-1 relative bg-canvas">
+<!-- Abstract Cartographic Nodes -->
+<div class="absolute top-1/4 left-1/4 w-32 h-12 bg-tile border border-brand-strong rounded flex items-center justify-center z-10 shadow-[0_0_15px_rgba(0,220,212,0.2)]">
+<span class="font-mono text-mono text-brand-strong">Auth</span>
+</div>
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-12 bg-panel border border-line rounded flex items-center justify-center z-10">
+<span class="font-mono text-mono text-ink">Home</span>
+</div>
+<div class="absolute top-3/4 left-1/4 w-32 h-12 bg-panel border border-line rounded flex items-center justify-center z-10">
+<span class="font-mono text-mono text-ink">Profile</span>
+</div>
+<div class="absolute top-1/2 right-1/4 w-32 h-12 bg-panel border border-line rounded flex items-center justify-center z-10">
+<span class="font-mono text-mono text-ink">Search</span>
+</div>
+<div class="absolute top-3/4 right-1/4 w-32 h-12 bg-panel border border-line rounded flex items-center justify-center z-10">
+<span class="font-mono text-mono text-ink">Settings</span>
+</div>
+<!-- SVG Lines -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+<path class="opacity-80" d="M 25% 25% Q 50% 25% 50% 50%" fill="none" stroke="#00DCD4" stroke-dasharray="4 4" stroke-width="2"></path>
+<path d="M 50% 50% Q 75% 50% 75% 50%" fill="none" stroke="#2A334A" stroke-width="2"></path>
+<path d="M 50% 50% Q 25% 75% 25% 75%" fill="none" stroke="#2A334A" stroke-width="2"></path>
+<path d="M 50% 50% Q 75% 75% 75% 75%" fill="none" stroke="#2A334A" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<!-- Insights Sidebar -->
+<div class="flex flex-col gap-md">
+<!-- Depth -->
+<div class="bg-panel border border-line rounded-lg p-md flex-1">
+<span class="font-label text-label text-ink-muted uppercase mb-4 block">Navigation Depth</span>
+<div class="space-y-4">
+<div>
+<span class="font-body-sm text-body-sm text-ink-muted block mb-1">Max Depth: 4 Levels</span>
+<div class="font-mono text-mono text-ink bg-tile p-2 rounded border border-line whitespace-nowrap overflow-x-auto">
+                                        Home &gt; Search &gt; Result &gt; Detail
+                                    </div>
+</div>
+<div>
+<span class="font-body-sm text-body-sm text-ink-muted block mb-1">Critical Path</span>
+<div class="font-mono text-mono text-ink bg-tile p-2 rounded border border-line whitespace-nowrap overflow-x-auto">
+                                        Auth &gt; Home &gt; Profile
+                                    </div>
+</div>
+</div>
+</div>
+<!-- Alerts -->
+<div class="bg-panel border border-line border-l-2 border-l-risk rounded-lg p-md">
+<div class="flex items-center gap-2 mb-3">
+<span class="material-symbols-outlined text-risk text-[18px]" data-icon="warning">warning</span>
+<span class="font-label text-label text-ink uppercase">2 Unreachable Screens</span>
+</div>
+<ul class="space-y-2">
+<li class="font-mono text-mono text-ink-muted bg-panel-2 px-2 py-1 rounded border border-line">src/screens/LegacyAuth.tsx</li>
+<li class="font-mono text-mono text-ink-muted bg-panel-2 px-2 py-1 rounded border border-line">src/screens/PromoDec2023.tsx</li>
+</ul>
+</div>
+</div>
+</div>
+<!-- Screen Manifest Table -->
+<div class="bg-panel border border-line rounded-lg overflow-hidden">
+<div class="p-sm border-b border-line bg-panel-2">
+<span class="font-label text-label text-ink uppercase">Screen Manifest</span>
+</div>
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-line bg-tile/50">
+<th class="p-sm font-label text-label text-ink-muted font-normal w-1/4">Screen</th>
+<th class="p-sm font-label text-label text-ink-muted font-normal w-2/5">File</th>
+<th class="p-sm font-label text-label text-ink-muted font-normal w-1/4">Route</th>
+<th class="p-sm font-label text-label text-ink-muted font-normal text-center">Tests</th>
+</tr>
+</thead>
+<tbody class="font-mono text-mono divide-y divide-line">
+<tr class="hover:bg-tile transition-colors">
+<td class="p-sm text-ink flex items-center gap-2"><span class="material-symbols-outlined text-[14px] text-ink-muted" data-icon="description">description</span>Home</td>
+<td class="p-sm text-ink-muted">src/screens/Home.tsx</td>
+<td class="p-sm text-brand-strong">/home</td>
+<td class="p-sm text-center text-safe"><span class="material-symbols-outlined text-[16px]" data-icon="check_circle">check_circle</span></td>
+</tr>
+<tr class="hover:bg-tile transition-colors">
+<td class="p-sm text-ink flex items-center gap-2"><span class="material-symbols-outlined text-[14px] text-ink-muted" data-icon="description">description</span>Auth</td>
+<td class="p-sm text-ink-muted">src/screens/Auth.tsx</td>
+<td class="p-sm text-brand-strong">/auth</td>
+<td class="p-sm text-center text-safe"><span class="material-symbols-outlined text-[16px]" data-icon="check_circle">check_circle</span></td>
+</tr>
+<tr class="hover:bg-tile transition-colors">
+<td class="p-sm text-ink flex items-center gap-2"><span class="material-symbols-outlined text-[14px] text-ink-muted" data-icon="description">description</span>Search</td>
+<td class="p-sm text-ink-muted">src/screens/Search.tsx</td>
+<td class="p-sm text-brand-strong">/search</td>
+<td class="p-sm text-center text-risk-extreme"><span class="material-symbols-outlined text-[16px]" data-icon="remove">remove</span></td>
+</tr>
+<tr class="hover:bg-tile transition-colors">
+<td class="p-sm text-ink flex items-center gap-2"><span class="material-symbols-outlined text-[14px] text-ink-muted" data-icon="description">description</span>Profile</td>
+<td class="p-sm text-ink-muted">src/screens/Profile.tsx</td>
+<td class="p-sm text-brand-strong">/profile</td>
+<td class="p-sm text-center text-safe"><span class="material-symbols-outlined text-[16px]" data-icon="check_circle">check_circle</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="text-center pt-md pb-xl">
+<span class="font-mono text-[10px] text-ink-muted">Inferred from navigation config, screen/route components</span>
+</div>
+</div>
+</main>
+</div>
+</body></html>

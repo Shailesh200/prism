@@ -1,5 +1,8 @@
+import { mkdtempSync, utimesSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { parseGitLog } from "./git-signals.js";
+import { parseGitLog, readSyncStatus } from "./git-signals.js";
 
 const REC = "\u001e";
 const SEP = "\u001f";
@@ -107,5 +110,62 @@ describe("parseGitLog", () => {
     const { signals, summary } = parseGitLog("", { now: NOW });
     expect(signals.size).toBe(0);
     expect(summary.totalCommits).toBe(0);
+  });
+});
+
+describe("readSyncStatus", () => {
+  /** Build a fake `run` that answers by the git subcommand. */
+  function fakeRun(
+    responses: Record<string, string | null>,
+  ): (args: string[]) => string | null {
+    return (args) => {
+      if (args[0] === "rev-parse" && args.includes("@{u}")) {
+        return responses.upstream ?? null;
+      }
+      if (args[0] === "rev-parse") return responses.gitDir ?? null;
+      if (args[0] === "rev-list" && args.includes("--count")) {
+        return responses.counts ?? null;
+      }
+      if (args[0] === "rev-list") return responses.unpushed ?? null;
+      return null;
+    };
+  }
+
+  it("parses ahead/behind and the unpushed SHA set from upstream", () => {
+    const { sync, unpushedShas } = readSyncStatus(
+      "/repo",
+      fakeRun({
+        gitDir: "/repo/.git",
+        upstream: "origin/main\n",
+        counts: "2\t3\n", // 2 behind, 3 ahead
+        unpushed: "aaa\nbbb\nccc\n",
+      }),
+    );
+    expect(sync?.upstream).toBe("origin/main");
+    expect(sync?.behind).toBe(2);
+    expect(sync?.ahead).toBe(3);
+    expect([...(unpushedShas ?? [])]).toEqual(["aaa", "bbb", "ccc"]);
+  });
+
+  it("returns no sync (and no unpushed set) when there is no upstream", () => {
+    const { sync, unpushedShas } = readSyncStatus(
+      "/repo",
+      fakeRun({ gitDir: "/repo/.git", upstream: null }),
+    );
+    expect(sync).toBeUndefined();
+    expect(unpushedShas).toBeUndefined();
+  });
+
+  it("reports lastFetch from FETCH_HEAD mtime", () => {
+    const dir = mkdtempSync(join(tmpdir(), "prism-git-"));
+    writeFileSync(join(dir, "FETCH_HEAD"), "");
+    const when = new Date("2026-01-10T08:00:00Z");
+    utimesSync(join(dir, "FETCH_HEAD"), when, when);
+
+    const { sync } = readSyncStatus(
+      "/ignored",
+      fakeRun({ gitDir: dir, upstream: "origin/main\n", counts: "0\t0\n" }),
+    );
+    expect(sync?.lastFetch).toBe(when.toISOString());
   });
 });

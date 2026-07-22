@@ -8,8 +8,8 @@ import {
   type UIEvent,
 } from "react";
 import type { GraphNodeDto } from "@prism/shared";
-import { FileTypeIcon } from "./FileTypeIcon.js";
-import { resolveFileType } from "./file-type.js";
+import { ChevronRight } from "lucide-react";
+import { MaterialFileIcon } from "./MaterialFileIcon.js";
 import {
   buildFileTreeIndex,
   defaultExpandedIds,
@@ -31,64 +31,17 @@ export type FileExplorerProps = {
   readonly revealNodeId?: string | null;
 };
 
-function FolderIcon(props: { open: boolean }): ReactElement {
-  return (
-    <svg
-      className="prism-explorer__folder-icon"
-      width="16"
-      height="16"
-      viewBox="0 0 16 16"
-      fill="none"
-      aria-hidden
-    >
-      {props.open ? (
-        <path
-          d="M2 4.5h4l1 1.2H14v6.3H2V4.5Z"
-          stroke="currentColor"
-          strokeWidth="1.3"
-          strokeLinejoin="round"
-        />
-      ) : (
-        <path
-          d="M2 5h4.2l1 1.1H14v5.9H2V5Z"
-          stroke="currentColor"
-          strokeWidth="1.3"
-          strokeLinejoin="round"
-        />
-      )}
-    </svg>
-  );
-}
-
-function SymbolIcon(): ReactElement {
-  return (
-    <svg
-      className="prism-explorer__symbol-icon"
-      width="16"
-      height="16"
-      viewBox="0 0 16 16"
-      fill="none"
-      aria-hidden
-    >
-      <circle cx="8" cy="8" r="5.2" stroke="currentColor" strokeWidth="1.3" />
-      <path
-        d="M8 5.2v5.6M5.4 8h5.2"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 function Chevron(props: { open: boolean }): ReactElement {
   return (
-    <span
+    <ChevronRight
       className="prism-explorer__chevron"
-      data-open={props.open ? "true" : "false"}
-    >
-      ▸
-    </span>
+      size={16}
+      aria-hidden
+      style={{
+        transform: props.open ? "rotate(90deg)" : undefined,
+        transition: "transform 120ms ease",
+      }}
+    />
   );
 }
 
@@ -263,7 +216,6 @@ function ExplorerRow(props: {
   const { entry, depth, expanded, hasChildren } = props.row;
   const selected =
     entry.nodeId !== undefined && entry.nodeId === props.selectedId;
-  const fileType = entry.kind === "file" ? resolveFileType(entry.name) : null;
 
   return (
     <div
@@ -302,12 +254,17 @@ function ExplorerRow(props: {
         }}
       >
         {entry.kind === "folder" ? (
-          <FolderIcon open={expanded} />
+          <MaterialFileIcon
+            name={entry.name}
+            folder
+            open={expanded}
+            size={16}
+          />
         ) : entry.kind === "symbol" ? (
-          <SymbolIcon />
-        ) : fileType ? (
-          <FileTypeIcon tone={fileType.tone} badge={fileType.badge} size={16} />
-        ) : null}
+          <MaterialFileIcon name={`${entry.name}.ts`} size={16} />
+        ) : (
+          <MaterialFileIcon name={entry.path || entry.name} size={16} />
+        )}
         <span className="prism-explorer__name">{rowLabel(entry)}</span>
       </button>
     </div>

@@ -12,11 +12,10 @@
     "./map.css": "./dist/map.css",
     "./tokens.css": "./dist/tokens.css"
   },
-  "files": ["dist", "assets", "src/icons"],
+  "files": ["dist", "assets"],
   "scripts": {
-    "build": "tsc -p tsconfig.json && bun run build:css && bun run build:icons",
+    "build": "tsc -p tsconfig.json && bun run build:css",
     "build:css": "bun -e \"await Bun.write('dist/tokens.css', await Bun.file('src/tokens.css').text()); await Bun.write('dist/map.css', await Bun.file('src/map.css').text())\"",
-    "build:icons": "mkdir -p dist/icons/files && cp src/icons/file-type-sprite.svg dist/icons/ && cp -R src/icons/files/. dist/icons/files/",
     "gen:icons": "node scripts/gen-material-icons.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",

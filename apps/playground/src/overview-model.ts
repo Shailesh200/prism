@@ -95,7 +95,7 @@ export const ACTIVITY_RANGES: readonly ActivityRangePreset[] = [
 ];
 
 /** Default preset when the dashboard first renders. */
-export const DEFAULT_ACTIVITY_RANGE: ActivityRangeId = "3m";
+export const DEFAULT_ACTIVITY_RANGE: ActivityRangeId = "1w";
 
 /** Floor an epoch-ms to UTC midnight. */
 export function floorToUtcDay(ms: number): number {

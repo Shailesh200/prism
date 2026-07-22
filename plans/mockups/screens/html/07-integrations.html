@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Prism - Integrations</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;650&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-surface": "#dde4e3",
+                    "primary-fixed-dim": "#3fdbdb",
+                    "ink": "#FFFFFF",
+                    "tertiary-container": "#fd9359",
+                    "on-brand": "#0A0E1A",
+                    "on-tertiary-fixed": "#341100",
+                    "on-secondary": "#2000a4",
+                    "on-primary": "#003737",
+                    "surface-container": "#1a2121",
+                    "secondary-fixed-dim": "#c4c0ff",
+                    "secondary-fixed": "#e3dfff",
+                    "on-secondary-fixed": "#100069",
+                    "elev": "#1E2433",
+                    "ink-muted": "#94A3B8",
+                    "on-error": "#690005",
+                    "inverse-on-surface": "#2b3231",
+                    "canvas": "#0A0E1A",
+                    "surface-bright": "#343a3a",
+                    "surface": "#0e1514",
+                    "on-tertiary": "#552000",
+                    "tertiary-fixed": "#ffdbcb",
+                    "error": "#ffb4ab",
+                    "tertiary": "#ffba98",
+                    "on-background": "#dde4e3",
+                    "on-tertiary-container": "#712d00",
+                    "panel": "#131926",
+                    "primary-fixed": "#65f8f7",
+                    "primary": "#44dede",
+                    "tile": "#1E2433",
+                    "safe": "#10B981",
+                    "on-secondary-fixed-variant": "#3622ca",
+                    "risk": "#F59E0B",
+                    "background": "#0e1514",
+                    "inverse-primary": "#006a6a",
+                    "on-primary-container": "#004a4a",
+                    "surface-variant": "#2f3636",
+                    "surface-container-highest": "#2f3636",
+                    "secondary": "#c4c0ff",
+                    "tertiary-fixed-dim": "#ffb691",
+                    "on-secondary-container": "#b4b0ff",
+                    "on-error-container": "#ffdad6",
+                    "surface-tint": "#3fdbdb",
+                    "brand-strong": "#00DCD4",
+                    "secondary-container": "#3826cd",
+                    "error-container": "#93000a",
+                    "panel-2": "#0F1420",
+                    "outline-variant": "#3c4949",
+                    "surface-container-lowest": "#090f0f",
+                    "on-primary-fixed-variant": "#004f4f",
+                    "on-tertiary-fixed-variant": "#783100",
+                    "on-surface-variant": "#bbc9c9",
+                    "outline": "#859493",
+                    "inverse-surface": "#dde4e3",
+                    "surface-container-high": "#242b2b",
+                    "risk-extreme": "#F43F5E",
+                    "line": "#2A334A",
+                    "surface-container-low": "#161d1d",
+                    "on-primary-fixed": "#002020",
+                    "surface-dim": "#0e1514",
+                    "primary-container": "#00c2c2"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "xs": "4px",
+                    "xl": "32px",
+                    "md": "16px",
+                    "topbar-h": "48px",
+                    "inspector-w": "288px",
+                    "sidebar-w": "224px",
+                    "sm": "8px",
+                    "lg": "24px"
+            },
+            "fontFamily": {
+                    "h1": ["Inter"],
+                    "h2": ["Inter"],
+                    "brand": ["Inter"],
+                    "mono": ["JetBrains Mono"],
+                    "label": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "body-md": ["Inter"]
+            },
+            "fontSize": {
+                    "h1": ["1.5rem", { "letterSpacing": "-0.02em", "fontWeight": "650" }],
+                    "h2": ["1.15rem", { "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                    "brand": ["1.125rem", { "letterSpacing": "-0.02em", "fontWeight": "650" }],
+                    "mono": ["0.75rem", { "fontWeight": "400" }],
+                    "label": ["0.75rem", { "letterSpacing": "0.04em", "fontWeight": "600" }],
+                    "body-sm": ["0.8125rem", { "lineHeight": "1.4", "fontWeight": "400" }],
+                    "body-md": ["0.9375rem", { "lineHeight": "1.45", "fontWeight": "400" }]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .icon-fill { font-variation-settings: 'FILL' 1; }
+    </style>
+</head>
+<body class="bg-canvas text-on-surface font-body-md h-screen overflow-hidden flex selection:bg-primary/30 selection:text-primary">
+<!-- SideNavBar -->
+<nav class="bg-panel dark:bg-panel fixed left-0 top-0 h-full w-sidebar-w border-r border-line flex flex-col w-sidebar-w h-full py-lg z-20">
+<div class="px-lg mb-xl flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary dark:text-primary font-brand text-brand">category</span>
+<div class="flex flex-col">
+<span class="text-brand font-brand text-primary dark:text-primary">Prism</span>
+<span class="font-mono text-mono text-ink-muted">v1.0.4-stable</span>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto flex flex-col gap-xs">
+<a class="flex items-center gap-md px-md py-sm text-ink-muted hover:bg-tile hover:text-ink transition-colors duration-200" href="#">
+<span class="material-symbols-outlined font-label text-label">dashboard</span>
+<span class="font-label text-label">Overview</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-ink-muted hover:bg-tile hover:text-ink transition-colors duration-200" href="#">
+<span class="material-symbols-outlined font-label text-label">map</span>
+<span class="font-label text-label">Repository Map</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-ink-muted hover:bg-tile hover:text-ink transition-colors duration-200" href="#">
+<span class="material-symbols-outlined font-label text-label">strikethrough_s</span>
+<span class="font-label text-label">Codebase DNA</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-ink-muted hover:bg-tile hover:text-ink transition-colors duration-200" href="#">
+<span class="material-symbols-outlined font-label text-label">hub</span>
+<span class="font-label text-label">Blast Radius</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-ink-muted hover:bg-tile hover:text-ink transition-colors duration-200" href="#">
+<span class="material-symbols-outlined font-label text-label">trending_up</span>
+<span class="font-label text-label">Trends</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm bg-tile text-primary border-l-4 border-primary" href="#">
+<span class="material-symbols-outlined font-label text-label">settings</span>
+<span class="font-label text-label">Settings</span>
+</a>
+</div>
+<div class="mt-auto px-md py-lg border-t border-line flex flex-col gap-sm">
+<button class="w-full flex items-center justify-center gap-sm px-md py-sm rounded border border-line text-ink font-label text-label hover:bg-tile transition-colors duration-200">
+<span class="material-symbols-outlined font-label text-label">swap_horiz</span>
+                Switch Workspace
+            </button>
+<a class="flex items-center gap-md px-sm py-sm text-ink-muted hover:bg-tile hover:text-ink transition-colors duration-200 mt-sm" href="#">
+<span class="material-symbols-outlined font-label text-label">person</span>
+<span class="font-label text-label">Account</span>
+</a>
+</div>
+</nav>
+<!-- Main Workspace -->
+<div class="flex-1 flex flex-col ml-sidebar-w h-full relative z-10">
+<!-- TopAppBar -->
+<header class="bg-canvas dark:bg-canvas docked full-width top-0 h-topbar-h border-b border-line flex justify-between items-center px-lg shrink-0">
+<div class="flex items-center gap-md hidden">
+<span class="hidden">Prism</span>
+</div>
+<nav class="flex items-center gap-lg h-full">
+<a class="h-full flex items-center text-ink-muted font-h2 hover:text-primary transition-colors" href="#">Overview</a>
+</nav>
+<div class="flex items-center gap-md">
+<div class="flex items-center gap-sm text-ink-muted border-r border-line pr-md mr-sm">
+<button class="p-sm rounded hover:text-primary transition-colors scale-95 active:opacity-80 transition-all flex items-center justify-center">
+<span class="material-symbols-outlined font-h2 text-h2">notifications</span>
+</button>
+<button class="p-sm rounded hover:text-primary transition-colors scale-95 active:opacity-80 transition-all flex items-center justify-center">
+<span class="material-symbols-outlined font-h2 text-h2">search</span>
+</button>
+<button class="p-sm rounded hover:text-primary transition-colors scale-95 active:opacity-80 transition-all flex items-center justify-center">
+<span class="material-symbols-outlined font-h2 text-h2">help</span>
+</button>
+</div>
+<span class="font-mono text-mono text-ink-muted px-sm py-xs bg-panel border border-line rounded">Branch: main</span>
+<button class="px-md py-sm bg-primary text-on-brand rounded font-label text-label hover:opacity-90 transition-opacity">Sync Repository</button>
+<div class="w-8 h-8 rounded-full bg-tile border border-line overflow-hidden ml-sm flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-ink-muted icon-fill" style="font-variation-settings: 'FILL' 1;">person</span>
+</div>
+</div>
+</header>
+<!-- Page Content Canvas -->
+<main class="flex-1 overflow-y-auto p-xl relative">
+<div class="max-w-6xl mx-auto flex flex-col gap-xl">
+<!-- Page Header -->
+<div class="flex flex-col gap-xs">
+<h1 class="font-h1 text-h1 text-ink">Integrations</h1>
+<p class="font-body-md text-body-md text-ink-muted">Connect Prism to your tools</p>
+</div>
+<!-- Banner -->
+<div class="bg-surface-container border border-primary/30 rounded-xl p-md flex gap-md items-start shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]">
+<span class="material-symbols-outlined text-primary shrink-0 mt-xs">lock</span>
+<div>
+<p class="font-body-sm text-body-sm text-ink leading-relaxed">
+<span class="font-label text-label text-primary uppercase tracking-wider mr-sm">Local-first</span> 
+                            Prism never sends code or data over the network unless you explicitly enable an integration.
+                        </p>
+</div>
+</div>
+<!-- Integration Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md">
+<!-- Card 1: MCP Server -->
+<div class="bg-panel border border-line rounded-xl p-lg flex flex-col gap-lg hover:border-primary/50 transition-colors group relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+<div class="flex justify-between items-start">
+<div class="w-10 h-10 rounded-lg bg-surface flex items-center justify-center border border-line">
+<span class="material-symbols-outlined text-ink">api</span>
+</div>
+<span class="px-sm py-xs rounded font-label text-label bg-tile text-primary border border-primary/20">Connected</span>
+</div>
+<div class="flex flex-col gap-xs">
+<h3 class="font-h2 text-h2 text-ink">MCP Server</h3>
+<p class="font-body-sm text-body-sm text-ink-muted line-clamp-2">Expose repo context to LLMs via Model Context Protocol</p>
+</div>
+<div class="mt-auto pt-md flex items-center justify-between border-t border-line">
+<span class="font-mono text-mono text-ink-muted">port: 8080</span>
+<button class="px-md py-sm bg-surface text-ink border border-line rounded font-label text-label hover:border-primary hover:text-primary transition-colors focus:outline-none focus:ring-1 focus:ring-primary focus:ring-offset-1 focus:ring-offset-panel">Configure</button>
+</div>
+</div>
+<!-- Card 2: CLI -->
+<div class="bg-panel border border-line rounded-xl p-lg flex flex-col gap-lg hover:border-primary/50 transition-colors group relative overflow-hidden">
+<div class="flex justify-between items-start">
+<div class="w-10 h-10 rounded-lg bg-surface flex items-center justify-center border border-line">
+<span class="material-symbols-outlined text-ink">terminal</span>
+</div>
+<span class="px-sm py-xs rounded font-label text-label bg-surface border border-line text-ink-muted">Available</span>
+</div>
+<div class="flex flex-col gap-xs">
+<h3 class="font-h2 text-h2 text-ink">CLI</h3>
+<p class="font-body-sm text-body-sm text-ink-muted line-clamp-2">Command-line interface for local-first analysis</p>
+</div>
+<div class="mt-auto pt-md flex items-center justify-end border-t border-line">
+<button class="px-md py-sm bg-primary/10 text-primary border border-primary/30 rounded font-label text-label hover:bg-primary/20 transition-colors focus:outline-none focus:ring-1 focus:ring-primary focus:ring-offset-1 focus:ring-offset-panel">Connect</button>
+</div>
+</div>
+<!-- Card 3: VS Code Extension -->
+<div class="bg-panel border border-line rounded-xl p-lg flex flex-col gap-lg hover:border-primary/50 transition-colors group relative overflow-hidden">
+<div class="flex justify-between items-start">
+<div class="w-10 h-10 rounded-lg bg-surface flex items-center justify-center border border-line">
+<span class="material-symbols-outlined text-ink">code_blocks</span>
+</div>
+<span class="px-sm py-xs rounded font-label text-label bg-surface border border-line text-ink-muted">Available</span>
+</div>
+<div class="flex flex-col gap-xs">
+<h3 class="font-h2 text-h2 text-ink">VS Code Extension</h3>
+<p class="font-body-sm text-body-sm text-ink-muted line-clamp-2">Inline cartography and blast radius warnings directly in your editor.</p>
+</div>
+<div class="mt-auto pt-md flex items-center justify-end border-t border-line">
+<button class="px-md py-sm bg-primary/10 text-primary border border-primary/30 rounded font-label text-label hover:bg-primary/20 transition-colors focus:outline-none focus:ring-1 focus:ring-primary focus:ring-offset-1 focus:ring-offset-panel">Connect</button>
+</div>
+</div>
+<!-- Card 4: Cursor Extension -->
+<div class="bg-panel border border-line rounded-xl p-lg flex flex-col gap-lg hover:border-line group relative overflow-hidden opacity-75">
+<div class="flex justify-between items-start">
+<div class="w-10 h-10 rounded-lg bg-surface flex items-center justify-center border border-line opacity-50">
+<span class="material-symbols-outlined text-ink">edit_note</span>
+</div>
+<span class="px-sm py-xs rounded font-label text-label bg-transparent border border-dashed border-line text-ink-muted/50">Coming soon</span>
+</div>
+<div class="flex flex-col gap-xs">
+<h3 class="font-h2 text-h2 text-ink">Cursor Extension</h3>
+<p class="font-body-sm text-body-sm text-ink-muted line-clamp-2">Deep integration with Cursor's AI coding environment.</p>
+</div>
+<div class="mt-auto pt-md flex items-center justify-end border-t border-line">
+<button class="px-md py-sm bg-transparent text-ink-muted/30 border border-line/30 rounded font-label text-label cursor-not-allowed" disabled="">Soon</button>
+</div>
+</div>
+<!-- Card 5: Lighthouse/CWV ingest -->
+<div class="bg-panel border border-line rounded-xl p-lg flex flex-col gap-lg hover:border-primary/50 transition-colors group relative overflow-hidden">
+<div class="flex justify-between items-start">
+<div class="w-10 h-10 rounded-lg bg-surface flex items-center justify-center border border-line">
+<span class="material-symbols-outlined text-ink">speed</span>
+</div>
+<span class="px-sm py-xs rounded font-label text-label bg-surface border border-line text-ink-muted">Available</span>
+</div>
+<div class="flex flex-col gap-xs">
+<h3 class="font-h2 text-h2 text-ink">Lighthouse/CWV ingest</h3>
+<p class="font-body-sm text-body-sm text-ink-muted line-clamp-2">Map performance metrics back to specific architectural components.</p>
+</div>
+<div class="mt-auto pt-md flex items-center justify-end border-t border-line">
+<button class="px-md py-sm bg-primary/10 text-primary border border-primary/30 rounded font-label text-label hover:bg-primary/20 transition-colors focus:outline-none focus:ring-1 focus:ring-primary focus:ring-offset-1 focus:ring-offset-panel">Connect</button>
+</div>
+</div>
+<!-- Card 6: GitHub/GitLab metadata -->
+<div class="bg-panel border border-line rounded-xl p-lg flex flex-col gap-lg hover:border-primary/50 transition-colors group relative overflow-hidden">
+<div class="flex justify-between items-start">
+<div class="w-10 h-10 rounded-lg bg-surface flex items-center justify-center border border-line">
+<span class="material-symbols-outlined text-ink">account_tree</span>
+</div>
+<span class="px-sm py-xs rounded font-label text-label bg-surface border border-line text-ink-muted">Available</span>
+</div>
+<div class="flex flex-col gap-xs">
+<h3 class="font-h2 text-h2 text-ink">GitHub/GitLab metadata</h3>
+<p class="font-body-sm text-body-sm text-ink-muted line-clamp-2">Overlay PR velocity, issue density, and ownership data onto the map.</p>
+</div>
+<div class="mt-auto pt-md flex items-center justify-between border-t border-line">
+<span class="font-label text-label text-risk/80 flex items-center gap-xs">
+<span class="w-1.5 h-1.5 rounded-full bg-risk/80"></span>
+                                opt-in, never automatic
+                            </span>
+<button class="px-md py-sm bg-primary/10 text-primary border border-primary/30 rounded font-label text-label hover:bg-primary/20 transition-colors focus:outline-none focus:ring-1 focus:ring-primary focus:ring-offset-1 focus:ring-offset-panel">Connect</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

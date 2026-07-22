@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Codebase DNA - Prism</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-dim": "#0e1514",
+                      "panel": "#131926",
+                      "surface-container-lowest": "#090f0f",
+                      "tertiary-fixed": "#ffdbcb",
+                      "on-surface-variant": "#bbc9c9",
+                      "on-secondary-fixed": "#100069",
+                      "secondary-container": "#3826cd",
+                      "line": "#2A334A",
+                      "inverse-primary": "#006a6a",
+                      "surface-container": "#1a2121",
+                      "primary-fixed-dim": "#3fdbdb",
+                      "outline-variant": "#3c4949",
+                      "on-secondary": "#2000a4",
+                      "on-primary-fixed-variant": "#004f4f",
+                      "secondary": "#c4c0ff",
+                      "inverse-surface": "#dde4e3",
+                      "primary-fixed": "#65f8f7",
+                      "brand-strong": "#00DCD4",
+                      "secondary-fixed-dim": "#c4c0ff",
+                      "secondary-fixed": "#e3dfff",
+                      "ink": "#FFFFFF",
+                      "tertiary-container": "#fd9359",
+                      "panel-2": "#0F1420",
+                      "on-tertiary-container": "#712d00",
+                      "primary": "#44dede",
+                      "on-primary": "#003737",
+                      "outline": "#859493",
+                      "elev": "#1E2433",
+                      "tile": "#1E2433",
+                      "on-error-container": "#ffdad6",
+                      "on-secondary-container": "#b4b0ff",
+                      "error": "#ffb4ab",
+                      "canvas": "#0A0E1A",
+                      "risk": "#F59E0B",
+                      "primary-container": "#00c2c2",
+                      "on-surface": "#dde4e3",
+                      "surface-container-highest": "#2f3636",
+                      "surface-container-low": "#161d1d",
+                      "on-tertiary-fixed-variant": "#783100",
+                      "background": "#0e1514",
+                      "on-error": "#690005",
+                      "error-container": "#93000a",
+                      "on-tertiary": "#552000",
+                      "surface-container-high": "#242b2b",
+                      "on-background": "#dde4e3",
+                      "inverse-on-surface": "#2b3231",
+                      "on-primary-container": "#004a4a",
+                      "risk-extreme": "#F43F5E",
+                      "on-brand": "#0A0E1A",
+                      "surface-tint": "#3fdbdb",
+                      "safe": "#10B981",
+                      "surface-variant": "#2f3636",
+                      "on-primary-fixed": "#002020",
+                      "tertiary": "#ffba98",
+                      "ink-muted": "#94A3B8",
+                      "tertiary-fixed-dim": "#ffb691",
+                      "surface": "#0e1514",
+                      "on-secondary-fixed-variant": "#3622ca",
+                      "surface-bright": "#343a3a",
+                      "on-tertiary-fixed": "#341100"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "sm": "8px",
+                      "inspector-w": "288px",
+                      "sidebar-w": "224px",
+                      "lg": "24px",
+                      "md": "16px",
+                      "xl": "32px",
+                      "topbar-h": "48px",
+                      "xs": "4px"
+              },
+              "fontFamily": {
+                      "h2": ["Inter"],
+                      "h1": ["Inter"],
+                      "body-md": ["Inter"],
+                      "brand": ["Inter"],
+                      "label": ["Inter"],
+                      "body-sm": ["Inter"],
+                      "mono": ["JetBrains Mono"]
+              },
+              "fontSize": {
+                      "h2": ["1.15rem", {"letterSpacing": "-0.02em", "fontWeight": "600"}],
+                      "h1": ["1.5rem", {"letterSpacing": "-0.02em", "fontWeight": "650"}],
+                      "body-md": ["0.9375rem", {"lineHeight": "1.45", "fontWeight": "400"}],
+                      "brand": ["1.125rem", {"letterSpacing": "-0.02em", "fontWeight": "650"}],
+                      "label": ["0.75rem", {"letterSpacing": "0.04em", "fontWeight": "600"}],
+                      "body-sm": ["0.8125rem", {"lineHeight": "1.4", "fontWeight": "400"}],
+                      "mono": ["0.75rem", {"fontWeight": "400"}]
+              }
+            }
+          }
+        }
+      </script>
+<style>
+        body { background-color: theme('colors.canvas'); color: theme('colors.ink'); }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+      </style>
+</head>
+<body class="antialiased overflow-hidden selection:bg-brand-strong selection:text-on-brand h-screen w-screen flex">
+<!-- SideNavBar -->
+<nav class="fixed left-0 top-0 h-full w-sidebar-w bg-panel dark:bg-panel border-r border-line dark:border-line flex flex-col z-20">
+<!-- Header -->
+<div class="p-md border-b border-line">
+<div class="flex items-center gap-sm mb-xs">
+<span class="material-symbols-outlined text-brand-strong text-[20px]" style="font-variation-settings: 'FILL' 1;">hexagon</span>
+<span class="font-brand text-brand text-brand-strong dark:text-brand-strong">Prism</span>
+</div>
+<div class="font-body-sm text-body-sm text-ink-muted truncate">main / engineering-repo</div>
+<button class="mt-md w-full bg-primary-container text-on-primary-container font-label text-label py-sm rounded flex items-center justify-center gap-xs hover:bg-primary transition-colors">
+<span class="material-symbols-outlined text-[16px]">add</span>
+                New Analysis
+            </button>
+</div>
+<!-- Navigation Tabs -->
+<div class="flex-1 py-md overflow-y-auto scrollbar-hide flex flex-col gap-xs">
+<a class="flex items-center gap-sm px-md py-sm font-body-sm text-body-sm text-ink-muted hover:text-ink hover:bg-tile transition-colors duration-150 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined text-[18px]">dashboard</span>
+                Overview
+            </a>
+<a class="flex items-center gap-sm px-md py-sm font-body-sm text-body-sm text-ink-muted hover:text-ink hover:bg-tile transition-colors duration-150 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined text-[18px]">map</span>
+                Repository Map
+            </a>
+<!-- Active Tab -->
+<a class="flex items-center gap-sm px-md py-sm font-body-sm text-body-sm bg-tile text-brand-strong font-bold border-l-2 border-brand-strong transition-colors duration-150 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">dns</span>
+                Codebase DNA
+            </a>
+<a class="flex items-center gap-sm px-md py-sm font-body-sm text-body-sm text-ink-muted hover:text-ink hover:bg-tile transition-colors duration-150 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined text-[18px]">radio</span>
+                Blast Radius
+            </a>
+<a class="flex items-center gap-sm px-md py-sm font-body-sm text-body-sm text-ink-muted hover:text-ink hover:bg-tile transition-colors duration-150 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined text-[18px]">trending_up</span>
+                Trends
+            </a>
+<a class="flex items-center gap-sm px-md py-sm font-body-sm text-body-sm text-ink-muted hover:text-ink hover:bg-tile transition-colors duration-150 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined text-[18px]">settings</span>
+                Settings
+            </a>
+</div>
+<!-- Footer -->
+<div class="p-sm border-t border-line">
+<a class="flex items-center gap-sm px-md py-sm font-body-sm text-body-sm text-ink-muted hover:text-ink hover:bg-tile transition-colors duration-150 rounded" href="#">
+<span class="material-symbols-outlined text-[18px]">account_circle</span>
+                User Profile
+            </a>
+</div>
+</nav>
+<!-- Main Content Area (including TopAppBar) -->
+<div class="flex-1 flex flex-col ml-sidebar-w bg-canvas relative">
+<!-- TopAppBar -->
+<header class="fixed top-0 right-0 h-topbar-h left-sidebar-w bg-canvas dark:bg-canvas border-b border-line dark:border-line flex items-center justify-between px-lg z-10 transition-all duration-200">
+<div class="flex items-center gap-sm">
+<h1 class="font-h2 text-h2 text-on-surface">Codebase DNA</h1>
+<span class="text-line mx-xs">|</span>
+<span class="font-mono text-mono text-ink-muted">acme-web · main · Last sync 4m ago</span>
+</div>
+<div class="flex items-center gap-md">
+<div class="relative hidden lg:block">
+<span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-ink-muted text-[16px]">search</span>
+<input class="bg-panel-2 border border-line rounded px-sm py-[4px] pl-[28px] font-mono text-mono text-ink focus:outline-none focus:border-brand-strong w-64 transition-colors placeholder:text-ink-muted" placeholder="Search codebase..." type="text"/>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">help_outline</span>
+</button>
+</div>
+</header>
+<!-- Scrollable Canvas -->
+<main class="flex-1 overflow-y-auto pt-topbar-h p-lg scrollbar-hide">
+<div class="max-w-[1200px] mx-auto space-y-xl pb-xl">
+<!-- 1. HERO ROW: 4 stat tiles -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-md">
+<!-- Primary Language -->
+<div class="bg-panel border border-line rounded-lg p-md flex flex-col gap-sm relative overflow-hidden group">
+<div class="absolute inset-0 bg-gradient-to-br from-brand-strong/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="font-label text-label text-ink-muted uppercase tracking-wider">Primary Language</div>
+<div class="flex items-baseline gap-sm">
+<span class="font-mono text-[24px] font-bold text-ink">TypeScript</span>
+</div>
+<div class="font-body-sm text-body-sm text-ink-muted flex items-center gap-xs">
+<span class="w-2 h-2 rounded-full bg-brand-strong"></span>
+                            82% of files
+                        </div>
+</div>
+<!-- Primary Stack Domain -->
+<div class="bg-panel border border-line rounded-lg p-md flex flex-col gap-sm relative overflow-hidden group">
+<div class="absolute inset-0 bg-gradient-to-br from-brand-strong/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="font-label text-label text-ink-muted uppercase tracking-wider">Primary Stack Domain</div>
+<div class="flex items-baseline gap-sm">
+<span class="font-h1 text-h1 text-brand-strong">Frontend</span>
+</div>
+<div class="font-body-sm text-body-sm text-ink-muted flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px] text-safe">check_circle</span>
+                            94% confidence
+                        </div>
+</div>
+<!-- Frameworks Count -->
+<div class="bg-panel border border-line rounded-lg p-md flex flex-col gap-sm relative overflow-hidden group">
+<div class="absolute inset-0 bg-gradient-to-br from-brand-strong/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="font-label text-label text-ink-muted uppercase tracking-wider">Frameworks &amp; Libs</div>
+<div class="flex items-baseline gap-sm">
+<span class="font-mono text-[24px] font-bold text-ink">14</span>
+<span class="font-mono text-mono text-ink-muted">detected</span>
+</div>
+<div class="font-body-sm text-body-sm text-ink-muted flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">arrow_upward</span>
+                            +2 since last sync
+                        </div>
+</div>
+<!-- Test Runner -->
+<div class="bg-panel border border-line rounded-lg p-md flex flex-col gap-sm relative overflow-hidden group">
+<div class="absolute inset-0 bg-gradient-to-br from-brand-strong/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="font-label text-label text-ink-muted uppercase tracking-wider">Primary Test Runner</div>
+<div class="flex items-baseline gap-sm">
+<span class="font-mono text-[24px] font-bold text-ink">Vitest</span>
+</div>
+<div class="font-body-sm text-body-sm text-ink-muted flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">experiment</span>
+                            342 test suites
+                        </div>
+</div>
+</section>
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-xl">
+<!-- Left Column (Wider) -->
+<div class="xl:col-span-2 space-y-xl">
+<!-- 2. LANGUAGE COMPOSITION -->
+<section class="bg-panel border border-line rounded-lg p-lg">
+<h2 class="font-h2 text-h2 text-ink mb-md">Language Composition</h2>
+<!-- Stacked Bar -->
+<div class="h-8 w-full rounded flex overflow-hidden mb-md border border-line bg-panel-2">
+<div class="bg-brand-strong h-full transition-all duration-500 ease-out" style="width: 72%;" title="TypeScript: 72%"></div>
+<div class="bg-secondary-container h-full transition-all duration-500 ease-out" style="width: 18%;" title="JavaScript: 18%"></div>
+<div class="bg-risk h-full transition-all duration-500 ease-out" style="width: 10%;" title="CSS: 10%"></div>
+</div>
+<!-- Legend -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-sm font-mono text-mono text-ink-muted">
+<div class="flex items-center justify-between p-xs rounded hover:bg-tile transition-colors">
+<div class="flex items-center gap-xs">
+<span class="w-2 h-2 rounded-full bg-brand-strong"></span>
+<span class="text-ink">TypeScript</span>
+</div>
+<div class="flex gap-md">
+<span>72%</span>
+<span class="text-line">|</span>
+<span>412 files</span>
+</div>
+</div>
+<div class="flex items-center justify-between p-xs rounded hover:bg-tile transition-colors">
+<div class="flex items-center gap-xs">
+<span class="w-2 h-2 rounded-full bg-secondary-container"></span>
+<span class="text-ink">JavaScript</span>
+</div>
+<div class="flex gap-md">
+<span>18%</span>
+<span class="text-line">|</span>
+<span>102 files</span>
+</div>
+</div>
+<div class="flex items-center justify-between p-xs rounded hover:bg-tile transition-colors">
+<div class="flex items-center gap-xs">
+<span class="w-2 h-2 rounded-full bg-risk"></span>
+<span class="text-ink">CSS</span>
+</div>
+<div class="flex gap-md">
+<span>10%</span>
+<span class="text-line">|</span>
+<span>54 files</span>
+</div>
+</div>
+</div>
+</section>
+<!-- 4. FRAMEWORKS & LIBRARIES -->
+<section>
+<div class="flex items-center justify-between mb-md">
+<h2 class="font-h2 text-h2 text-ink">Frameworks &amp; Libraries</h2>
+<a class="font-body-sm text-body-sm text-brand-strong hover:underline" href="#">View all</a>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+<!-- Card 1: React -->
+<div class="bg-panel border border-line rounded-lg p-md hover:border-brand-strong/50 transition-colors">
+<div class="flex justify-between items-start mb-sm">
+<div class="flex items-center gap-sm">
+<div class="w-8 h-8 rounded bg-tile flex items-center justify-center">
+<span class="material-symbols-outlined text-brand-strong text-[18px]">javascript</span>
+</div>
+<div>
+<div class="font-brand text-brand text-ink">React</div>
+<div class="font-label text-label text-ink-muted">UI Library</div>
+</div>
+</div>
+<span class="font-mono text-mono px-xs py-[2px] rounded bg-tile border border-line text-ink-muted">v18.2</span>
+</div>
+<div class="font-mono text-mono text-ink-muted mt-md pt-sm border-t border-line flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">find_in_page</span>
+                                        Evidence: <span class="text-ink">package.json</span>
+</div>
+</div>
+<!-- Card 2: Tailwind CSS -->
+<div class="bg-panel border border-line rounded-lg p-md hover:border-brand-strong/50 transition-colors">
+<div class="flex justify-between items-start mb-sm">
+<div class="flex items-center gap-sm">
+<div class="w-8 h-8 rounded bg-tile flex items-center justify-center">
+<span class="material-symbols-outlined text-brand-strong text-[18px]">palette</span>
+</div>
+<div>
+<div class="font-brand text-brand text-ink">Tailwind CSS</div>
+<div class="font-label text-label text-ink-muted">Styling</div>
+</div>
+</div>
+<span class="font-mono text-mono px-xs py-[2px] rounded bg-tile border border-line text-ink-muted">v3.4</span>
+</div>
+<div class="font-mono text-mono text-ink-muted mt-md pt-sm border-t border-line flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">find_in_page</span>
+                                        Evidence: <span class="text-ink">imports</span>
+</div>
+</div>
+<!-- Card 3: Next.js -->
+<div class="bg-panel border border-line rounded-lg p-md hover:border-brand-strong/50 transition-colors">
+<div class="flex justify-between items-start mb-sm">
+<div class="flex items-center gap-sm">
+<div class="w-8 h-8 rounded bg-tile flex items-center justify-center">
+<span class="material-symbols-outlined text-brand-strong text-[18px]">layers</span>
+</div>
+<div>
+<div class="font-brand text-brand text-ink">Next.js</div>
+<div class="font-label text-label text-ink-muted">Framework</div>
+</div>
+</div>
+<span class="font-mono text-mono px-xs py-[2px] rounded bg-tile border border-line text-ink-muted">v14.1</span>
+</div>
+<div class="font-mono text-mono text-ink-muted mt-md pt-sm border-t border-line flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">find_in_page</span>
+                                        Evidence: <span class="text-ink">package.json</span>
+</div>
+</div>
+<!-- Card 4: Framer Motion -->
+<div class="bg-panel border border-line rounded-lg p-md hover:border-brand-strong/50 transition-colors">
+<div class="flex justify-between items-start mb-sm">
+<div class="flex items-center gap-sm">
+<div class="w-8 h-8 rounded bg-tile flex items-center justify-center">
+<span class="material-symbols-outlined text-brand-strong text-[18px]">animation</span>
+</div>
+<div>
+<div class="font-brand text-brand text-ink">Framer Motion</div>
+<div class="font-label text-label text-ink-muted">Animation</div>
+</div>
+</div>
+<span class="font-mono text-mono px-xs py-[2px] rounded bg-tile border border-line text-ink-muted">v11.0</span>
+</div>
+<div class="font-mono text-mono text-ink-muted mt-md pt-sm border-t border-line flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">find_in_page</span>
+                                        Evidence: <span class="text-ink">imports</span>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Right Column (Narrower) -->
+<div class="space-y-xl">
+<!-- 3. STACK DOMAINS -->
+<section class="bg-panel border border-line rounded-lg p-lg">
+<h2 class="font-h2 text-h2 text-ink mb-md">Stack Domains</h2>
+<div class="flex flex-col gap-sm">
+<!-- Active Domain -->
+<div class="border border-brand-strong/30 bg-brand-strong/5 rounded p-sm relative group cursor-pointer hover:bg-brand-strong/10 transition-colors">
+<div class="flex items-center justify-between mb-xs">
+<div class="flex items-center gap-sm">
+<span class="w-2 h-2 rounded-full bg-brand-strong shadow-[0_0_8px_rgba(0,220,212,0.6)]"></span>
+<span class="font-body-md font-semibold text-brand-strong">Frontend</span>
+</div>
+<span class="material-symbols-outlined text-[16px] text-brand-strong opacity-0 group-hover:opacity-100 transition-opacity -translate-x-2 group-hover:translate-x-0">arrow_forward</span>
+</div>
+<div class="font-mono text-mono text-ink-muted pl-[24px]">Evidence: react, next, tailwind</div>
+</div>
+<!-- Inactive Domains -->
+<div class="border border-line rounded p-sm flex items-center justify-between text-ink-muted opacity-60">
+<span class="font-body-sm text-body-sm">Backend</span>
+<span class="material-symbols-outlined text-[16px]">close</span>
+</div>
+<div class="border border-line rounded p-sm flex items-center justify-between text-ink-muted opacity-60">
+<span class="font-body-sm text-body-sm">DevOps / Platform</span>
+<span class="material-symbols-outlined text-[16px]">close</span>
+</div>
+<div class="border border-line rounded p-sm flex items-center justify-between text-ink-muted opacity-60">
+<span class="font-body-sm text-body-sm">Mobile</span>
+<span class="material-symbols-outlined text-[16px]">close</span>
+</div>
+<div class="border border-line rounded p-sm flex items-center justify-between text-ink-muted opacity-60">
+<span class="font-body-sm text-body-sm">Data / ML</span>
+<span class="material-symbols-outlined text-[16px]">close</span>
+</div>
+</div>
+</section>
+<!-- 5. PERSONAS -->
+<section class="bg-panel border border-line rounded-lg p-lg">
+<h2 class="font-h2 text-h2 text-ink mb-md">Inferred Personas</h2>
+<div class="flex flex-col gap-sm">
+<!-- Persona 1 -->
+<div class="bg-tile rounded p-sm border border-line flex gap-sm items-start">
+<span class="material-symbols-outlined text-brand-strong mt-[2px]">design_services</span>
+<div>
+<div class="font-body-sm text-body-sm text-ink font-semibold">The UI Specialist</div>
+<div class="font-label text-label text-ink-muted mt-xs">Focus: React / Tailwind</div>
+</div>
+</div>
+<!-- Persona 2 -->
+<div class="bg-tile rounded p-sm border border-line flex gap-sm items-start">
+<span class="material-symbols-outlined text-brand-strong mt-[2px]">speed</span>
+<div>
+<div class="font-body-sm text-body-sm text-ink font-semibold">The Performance Optimizer</div>
+<div class="font-label text-label text-ink-muted mt-xs">Focus: Core Web Vitals</div>
+</div>
+</div>
+</div>
+</section>
+<!-- 6. ARCHITECTURE HINTS -->
+<section class="bg-panel border border-line rounded-lg p-lg">
+<h2 class="font-h2 text-h2 text-ink mb-md">Architecture Hints</h2>
+<div class="flex flex-wrap gap-sm">
+<div class="bg-brand-strong/10 border border-brand-strong/30 rounded px-sm py-xs flex flex-col gap-xs">
+<div class="font-body-sm text-body-sm text-brand-strong flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">account_tree</span>
+                                         Feature-Sliced Design
+                                     </div>
+<div class="font-mono text-mono text-ink-muted pl-[22px]">Ev: src/features</div>
+</div>
+<div class="bg-tile border border-line rounded px-sm py-xs flex flex-col gap-xs opacity-60 grayscale">
+<div class="font-body-sm text-body-sm text-ink flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">layers</span>
+                                         Layered Architecture
+                                     </div>
+</div>
+</div>
+</section>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

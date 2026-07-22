@@ -513,6 +513,229 @@ function scanDataPipeline(
   });
 }
 
+type CiDispatchInput = {
+  name: string;
+  type: string;
+  required: boolean;
+  description?: string;
+  default?: string;
+};
+
+type CiWorkflow = {
+  path: string;
+  name: string;
+  events: string[];
+  jobs: string[];
+  /** Manual/API dispatchers present on `on:` (e.g. workflow_dispatch). */
+  dispatchers: string[];
+  /** `workflow_dispatch.inputs` — drives the Trigger form UI. */
+  inputs: CiDispatchInput[];
+  /** `repository_dispatch.types` when declared. */
+  dispatchTypes: string[];
+};
+
+/** Capture immediate child keys of a `parent:` block (standard indented YAML). */
+function childKeys(lines: readonly string[], startIndex: number): string[] {
+  const keys: string[] = [];
+  let childIndent = -1;
+  for (let i = startIndex + 1; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    const trimmed = line.trim();
+    if (trimmed === "" || trimmed.startsWith("#")) continue;
+    const keyMatch = /^([ \t]*)([A-Za-z_][\w-]*):/.exec(line);
+    if (keyMatch === null) {
+      // A non-key line at column 0 ends the block; deeper lines are children.
+      if (/^\S/.test(line)) break;
+      continue;
+    }
+    const indent = keyMatch[1]!.length;
+    if (indent === 0) break;
+    if (childIndent === -1) childIndent = indent;
+    if (indent === childIndent) keys.push(keyMatch[2]!);
+  }
+  return keys;
+}
+
+/** Line index of an immediate child key under a parent block, or -1. */
+function findChildKey(
+  lines: readonly string[],
+  parentIndex: number,
+  key: string,
+): number {
+  let childIndent = -1;
+  for (let i = parentIndex + 1; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    const trimmed = line.trim();
+    if (trimmed === "" || trimmed.startsWith("#")) continue;
+    const keyMatch = /^([ \t]*)([A-Za-z_][\w-]*):/.exec(line);
+    if (keyMatch === null) {
+      if (/^\S/.test(line)) break;
+      continue;
+    }
+    const indent = keyMatch[1]!.length;
+    if (indent === 0) break;
+    if (childIndent === -1) childIndent = indent;
+    if (indent < childIndent) break;
+    if (indent === childIndent && keyMatch[2] === key) return i;
+  }
+  return -1;
+}
+
+function scalarAfter(line: string, key: string): string | undefined {
+  const re = new RegExp(`^\\s*${key}:\\s*(.+?)\\s*$`);
+  const m = re.exec(line);
+  if (m === null) return undefined;
+  return m[1]!.replace(/^['"]|['"]$/g, "").trim();
+}
+
+/** Parse `workflow_dispatch.inputs` children into a typed list. */
+function parseDispatchInputs(
+  lines: readonly string[],
+  inputsIndex: number,
+): CiDispatchInput[] {
+  const names = childKeys(lines, inputsIndex);
+  return names.map((name) => {
+    const idx = findChildKey(lines, inputsIndex, name);
+    let type = "string";
+    let required = false;
+    let description: string | undefined;
+    let def: string | undefined;
+    if (idx !== -1) {
+      // Scan immediate field lines under this input.
+      let fieldIndent = -1;
+      for (let i = idx + 1; i < lines.length; i++) {
+        const line = lines[i] ?? "";
+        const trimmed = line.trim();
+        if (trimmed === "" || trimmed.startsWith("#")) continue;
+        const keyMatch = /^([ \t]*)([A-Za-z_][\w-]*):/.exec(line);
+        if (keyMatch === null) {
+          if (/^\S/.test(line)) break;
+          continue;
+        }
+        const indent = keyMatch[1]!.length;
+        if (fieldIndent === -1) fieldIndent = indent;
+        if (indent < fieldIndent) break;
+        if (indent !== fieldIndent) continue;
+        const field = keyMatch[2]!;
+        if (field === "type") type = scalarAfter(line, "type") ?? type;
+        else if (field === "required") required = /:\s*true\b/i.test(line);
+        else if (field === "description")
+          description = scalarAfter(line, "description");
+        else if (field === "default") def = scalarAfter(line, "default");
+      }
+    }
+    return {
+      name,
+      type,
+      required,
+      ...(description === undefined ? {} : { description }),
+      ...(def === undefined ? {} : { default: def }),
+    };
+  });
+}
+
+/**
+ * Best-effort GitHub Actions workflow reader. Local-only, no network. Extracts
+ * the display name, trigger events, job ids, and manual dispatchers
+ * (`workflow_dispatch` / `repository_dispatch` + inputs) from
+ * `.github/workflows/*.yml`. Never fabricates run status — that needs the
+ * GitHub API behind Integrations (ADR-0016).
+ */
+function scanCiWorkflows(root: string): CiWorkflow[] {
+  const dir = ".github/workflows";
+  let entries;
+  try {
+    entries = readdirSync(join(root, dir), { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const out: CiWorkflow[] = [];
+  for (const entry of entries) {
+    if (!entry.isFile() || !/\.ya?ml$/i.test(entry.name)) continue;
+    const rel = `${dir}/${entry.name}`;
+    const text = readText(root, rel);
+    const lines = text.split(/\r?\n/);
+
+    const nameMatch = /^name:[ \t]*(.+?)[ \t]*$/m.exec(text);
+    const name =
+      nameMatch?.[1]?.replace(/^['"]|['"]$/g, "").trim() ||
+      entry.name.replace(/\.ya?ml$/i, "");
+
+    let events: string[] = [];
+    const onIndex = lines.findIndex((l) => l.startsWith("on:"));
+    if (onIndex !== -1) {
+      const inline = lines[onIndex]!.slice(3).trim();
+      events =
+        inline !== ""
+          ? inline
+              .replace(/^\[|\]$/g, "")
+              .split(",")
+              .map((s) => s.replace(/['"]/g, "").trim())
+              .filter(Boolean)
+          : childKeys(lines, onIndex);
+    }
+
+    const jobsIndex = lines.findIndex((l) => l.startsWith("jobs:"));
+    const jobs = jobsIndex === -1 ? [] : childKeys(lines, jobsIndex);
+
+    const dispatchers = events.filter(
+      (e) => e === "workflow_dispatch" || e === "repository_dispatch",
+    );
+    let inputs: CiDispatchInput[] = [];
+    let dispatchTypes: string[] = [];
+    if (onIndex !== -1 && dispatchers.includes("workflow_dispatch")) {
+      const wdIdx = findChildKey(lines, onIndex, "workflow_dispatch");
+      if (wdIdx !== -1) {
+        const inputsIdx = findChildKey(lines, wdIdx, "inputs");
+        if (inputsIdx !== -1) inputs = parseDispatchInputs(lines, inputsIdx);
+      }
+    }
+    if (onIndex !== -1 && dispatchers.includes("repository_dispatch")) {
+      const rdIdx = findChildKey(lines, onIndex, "repository_dispatch");
+      if (rdIdx !== -1) {
+        const typesIdx = findChildKey(lines, rdIdx, "types");
+        if (typesIdx !== -1) {
+          const inline = lines[typesIdx]!.replace(/^[^:]+:\s*/, "").trim();
+          if (inline.startsWith("[")) {
+            dispatchTypes = inline
+              .replace(/^\[|\]$/g, "")
+              .split(",")
+              .map((s) => s.replace(/['"]/g, "").trim())
+              .filter(Boolean);
+          } else {
+            // Block list: `- deploy`
+            for (let i = typesIdx + 1; i < lines.length; i++) {
+              const m = /^[ \t]*-\s*['"]?([^'"#\n]+?)['"]?\s*(?:#.*)?$/.exec(
+                lines[i] ?? "",
+              );
+              if (m === null) {
+                if (
+                  /^\S/.test(lines[i] ?? "") ||
+                  /^[ \t]*[A-Za-z_]/.test(lines[i] ?? "")
+                )
+                  break;
+                continue;
+              }
+              dispatchTypes.push(m[1]!.trim());
+            }
+          }
+        }
+      }
+    }
+
+    out.push({
+      path: rel,
+      name,
+      events,
+      jobs,
+      dispatchers,
+      inputs,
+      dispatchTypes,
+    });
+  }
+  return out;
+}
+
 function scanIac(
   root: string,
   files: readonly string[],
@@ -541,9 +764,40 @@ function scanIac(
       nodes.push(node(`iac:container:${path}`, "container", path, { path }));
     }
   }
+
+  // CI/CD pipelines — GitHub Actions today (repo-level only). Runners like Argo
+  // and Jenkins arrive via the Integrations tab (see ADR-0016).
+  if (packageId === undefined) {
+    for (const wf of scanCiWorkflows(root)) {
+      nodes.push(
+        node(`iac:ci:${wf.path}`, "ci", wf.name, {
+          path: wf.path,
+          provider: "github-actions",
+          ...(wf.events.length > 0 ? { events: wf.events.join(", ") } : {}),
+          ...(wf.jobs.length > 0
+            ? { jobs: wf.jobs.join(", "), jobCount: wf.jobs.length }
+            : {}),
+          ...(wf.dispatchers.length > 0
+            ? {
+                dispatchers: wf.dispatchers.join(", "),
+                canTrigger: true,
+              }
+            : { canTrigger: false }),
+          ...(wf.inputs.length > 0
+            ? { inputs: JSON.stringify(wf.inputs) }
+            : {}),
+          ...(wf.dispatchTypes.length > 0
+            ? { dispatchTypes: wf.dispatchTypes.join(", ") }
+            : {}),
+        }),
+      );
+    }
+  }
+
   if (nodes.length >= 2) {
     edges.push(edge("iac:e0", "related", nodes[0]!.id, nodes[1]!.id));
   }
+  const ciCount = nodes.filter((n) => n.kind === "ci").length;
   return report({
     kind: "iac-resources",
     domain: StackDomain.DEVOPS_PLATFORM,
@@ -552,14 +806,16 @@ function scanIac(
     summary:
       nodes.length === 0
         ? "No IaC markers found"
-        : `IaC map: ${nodes.length} resource/config node(s)`,
+        : `IaC map: ${nodes.length} resource/config node(s)${
+            ciCount > 0 ? `, ${ciCount} pipeline(s)` : ""
+          }`,
     nodes,
     edges,
     mapLayer: {
       id: "layer:iac-resources",
       label: "Infrastructure as code",
       colorHint: "#64748B",
-      nodeKinds: ["terraform", "helm", "kubernetes", "container"],
+      nodeKinds: ["terraform", "helm", "kubernetes", "container", "ci"],
     },
   });
 }

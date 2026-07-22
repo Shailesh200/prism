@@ -1,9 +1,13 @@
-# File type icons
+# File / folder icons
 
-Generated IDE-style glyphs for map file cards.
+Runtime glyphs use **Material Icon Theme**
+([vscode-material-icon-theme](https://github.com/material-extensions/vscode-material-icon-theme))
+via inlined SVG (`MaterialFileIcon` + `material-icons.generated.ts`).
 
-- **Runtime:** inline SVG in `FileTypeIcon.tsx` (works in playground + future IDE webviews)
-- **Sprite:** `file-type-sprite.svg`
-- **Individuals:** `files/*.svg` (also copied to `plans/mockups/icons/file-types/` for the brand gallery)
+Regenerate after bumping the theme:
 
-No third-party icon pack or owner-supplied spritesheet required.
+```bash
+bun --filter @prism/ui run gen:icons
+```
+
+Offline, no CDN — SVGs are bundled at build time.

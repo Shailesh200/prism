@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Web · Frontend - Prism</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "canvas": "#0A0E1A",
+                        "secondary-container": "#3826cd",
+                        "ink-muted": "#94A3B8",
+                        "outline-variant": "#3c4949",
+                        "inverse-surface": "#dde4e3",
+                        "background": "#0e1514",
+                        "on-surface": "#dde4e3",
+                        "primary-container": "#00c2c2",
+                        "tertiary-container": "#fd9359",
+                        "on-tertiary-container": "#712d00",
+                        "on-secondary-fixed-variant": "#3622ca",
+                        "secondary-fixed-dim": "#c4c0ff",
+                        "panel": "#131926",
+                        "tertiary-fixed": "#ffdbcb",
+                        "primary": "#44dede",
+                        "inverse-primary": "#006a6a",
+                        "on-secondary-container": "#b4b0ff",
+                        "ink": "#FFFFFF",
+                        "outline": "#859493",
+                        "surface-container": "#1a2121",
+                        "on-brand": "#0A0E1A",
+                        "surface-bright": "#343a3a",
+                        "on-primary-container": "#004a4a",
+                        "surface": "#0e1514",
+                        "on-primary-fixed-variant": "#004f4f",
+                        "on-background": "#dde4e3",
+                        "brand-strong": "#00DCD4",
+                        "on-secondary-fixed": "#100069",
+                        "surface-container-lowest": "#090f0f",
+                        "surface-variant": "#2f3636",
+                        "surface-container-low": "#161d1d",
+                        "primary-fixed": "#65f8f7",
+                        "surface-tint": "#3fdbdb",
+                        "safe": "#10B981",
+                        "secondary": "#c4c0ff",
+                        "risk-extreme": "#F43F5E",
+                        "primary-fixed-dim": "#3fdbdb",
+                        "on-primary-fixed": "#002020",
+                        "elev": "#1E2433",
+                        "on-tertiary": "#552000",
+                        "error-container": "#93000a",
+                        "secondary-fixed": "#e3dfff",
+                        "on-tertiary-fixed": "#341100",
+                        "surface-container-high": "#242b2b",
+                        "risk": "#F59E0B",
+                        "on-error-container": "#ffdad6",
+                        "tile": "#1E2433",
+                        "on-tertiary-fixed-variant": "#783100",
+                        "tertiary": "#ffba98",
+                        "surface-container-highest": "#2f3636",
+                        "line": "#2A334A",
+                        "on-secondary": "#2000a4",
+                        "panel-2": "#0F1420",
+                        "error": "#ffb4ab",
+                        "on-surface-variant": "#bbc9c9",
+                        "tertiary-fixed-dim": "#ffb691",
+                        "on-primary": "#003737",
+                        "inverse-on-surface": "#2b3231",
+                        "surface-dim": "#0e1514",
+                        "on-error": "#690005"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "xl": "32px",
+                        "inspector-w": "288px",
+                        "topbar-h": "48px",
+                        "sidebar-w": "224px",
+                        "xs": "4px",
+                        "lg": "24px",
+                        "sm": "8px",
+                        "md": "16px"
+                    },
+                    "fontFamily": {
+                        "h2": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label": ["Inter"],
+                        "h1": ["Inter"],
+                        "mono": ["JetBrains Mono"],
+                        "brand": ["Inter"]
+                    },
+                    "fontSize": {
+                        "h2": ["1.15rem", { "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "body-sm": ["0.8125rem", { "lineHeight": "1.4", "fontWeight": "400" }],
+                        "body-md": ["0.9375rem", { "lineHeight": "1.45", "fontWeight": "400" }],
+                        "label": ["0.75rem", { "letterSpacing": "0.04em", "fontWeight": "600" }],
+                        "h1": ["1.5rem", { "letterSpacing": "-0.02em", "fontWeight": "650" }],
+                        "mono": ["0.75rem", { "fontWeight": "400" }],
+                        "brand": ["1.125rem", { "letterSpacing": "-0.02em", "fontWeight": "650" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-canvas text-ink font-body-md h-screen w-screen overflow-hidden flex selection:bg-primary-container selection:text-on-brand">
+<!-- SideNavBar Component -->
+<nav class="fixed left-0 top-0 h-full w-sidebar-w bg-panel dark:bg-panel border-r border-line flex flex-col py-lg z-50">
+<div class="px-md mb-xl flex flex-col gap-xs">
+<div class="flex items-center gap-sm">
+<div class="w-6 h-6 rounded bg-gradient-to-br from-primary to-secondary-container flex items-center justify-center shadow-[0_0_8px_rgba(68,222,222,0.3)]">
+<span class="material-symbols-outlined text-[14px] text-canvas">dashboard</span>
+</div>
+<span class="font-brand text-brand text-primary dark:text-primary">Prism</span>
+</div>
+<span class="font-label text-label text-ink-muted px-8">v1.0.4-stable</span>
+</div>
+<div class="flex-1 overflow-y-auto px-xs flex flex-col gap-xs">
+<a class="flex items-center gap-md px-md py-sm text-ink-muted hover:bg-tile hover:text-ink transition-colors duration-200 rounded" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span class="font-label text-label">Overview</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-ink-muted hover:bg-tile hover:text-ink transition-colors duration-200 rounded" href="#">
+<span class="material-symbols-outlined text-[20px]">map</span>
+<span class="font-label text-label">Repository Map</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm bg-tile text-primary border-l-4 border-primary rounded-r" href="#">
+<span class="material-symbols-outlined text-[20px]">dns</span>
+<span class="font-label text-label">Codebase DNA</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-ink-muted hover:bg-tile hover:text-ink transition-colors duration-200 rounded" href="#">
+<span class="material-symbols-outlined text-[20px]">hub</span>
+<span class="font-label text-label">Blast Radius</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-ink-muted hover:bg-tile hover:text-ink transition-colors duration-200 rounded" href="#">
+<span class="material-symbols-outlined text-[20px]">trending_up</span>
+<span class="font-label text-label">Trends</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-ink-muted hover:bg-tile hover:text-ink transition-colors duration-200 rounded" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span class="font-label text-label">Settings</span>
+</a>
+</div>
+<div class="px-md mt-auto pt-4 border-t border-line flex flex-col gap-sm">
+<button class="w-full flex items-center justify-center gap-sm px-3 py-2 bg-transparent border border-line text-ink-muted hover:bg-tile hover:text-ink font-label text-label transition-colors rounded">
+<span class="material-symbols-outlined text-[16px]">swap_horiz</span>
+                Switch Workspace
+            </button>
+<a class="flex items-center gap-md px-md py-sm text-ink-muted hover:bg-tile hover:text-ink transition-colors duration-200 rounded" href="#">
+<span class="material-symbols-outlined text-[20px]">person</span>
+<span class="font-label text-label">Account</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col ml-sidebar-w h-full overflow-hidden">
+<!-- TopAppBar Component -->
+<header class="flex justify-between items-center px-lg h-topbar-h bg-canvas dark:bg-canvas border-b border-line z-40 shrink-0">
+<div class="flex items-baseline gap-md">
+<h1 class="font-h2 text-h2 text-primary dark:text-primary">Web · Frontend</h1>
+<span class="font-mono text-mono text-ink-muted">acme-web · main</span>
+</div>
+<div class="flex items-center gap-md">
+<button class="scale-95 active:opacity-80 transition-all bg-primary-container text-on-brand font-label text-label px-4 py-1.5 rounded flex items-center gap-2 hover:bg-brand-strong">
+<span class="material-symbols-outlined text-[16px]">play_arrow</span>
+                    Run local lab
+                </button>
+<div class="h-4 w-px bg-line mx-2"></div>
+<div class="flex items-center gap-2">
+<button class="text-ink-muted hover:text-primary transition-colors p-1 rounded hover:bg-tile"><span class="material-symbols-outlined text-[20px]">notifications</span></button>
+<button class="text-ink-muted hover:text-primary transition-colors p-1 rounded hover:bg-tile"><span class="material-symbols-outlined text-[20px]">search</span></button>
+<button class="text-ink-muted hover:text-primary transition-colors p-1 rounded hover:bg-tile"><span class="material-symbols-outlined text-[20px]">help</span></button>
+</div>
+</div>
+</header>
+<!-- Canvas -->
+<main class="flex-1 overflow-y-auto p-lg pb-xl bg-canvas custom-scrollbar relative">
+<div class="max-w-7xl mx-auto flex flex-col gap-lg">
+<!-- 1. CWV Scorecard -->
+<section>
+<h2 class="font-label text-label text-ink-muted uppercase tracking-wider mb-sm">Core Web Vitals</h2>
+<div class="grid grid-cols-5 gap-sm">
+<!-- LCP -->
+<div class="bg-panel border border-line rounded-lg p-md flex flex-col gap-sm hover:border-outline-variant transition-colors group relative overflow-hidden">
+<div class="flex justify-between items-start">
+<span class="font-label text-label text-ink-muted uppercase">LCP</span>
+<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-safe/10 text-safe uppercase tracking-wider">Good</span>
+</div>
+<div class="font-mono text-[24px] text-ink leading-none mt-xs">1.2s</div>
+<div class="w-full h-1 bg-surface-variant rounded-full mt-auto flex overflow-hidden">
+<div class="h-full bg-safe w-[85%]"></div>
+<div class="h-full bg-risk w-[10%]"></div>
+<div class="h-full bg-risk-extreme w-[5%]"></div>
+</div>
+<div class="font-mono text-mono text-ink-muted/50 mt-1">Source: ingest</div>
+</div>
+<!-- INP -->
+<div class="bg-panel border border-line rounded-lg p-md flex flex-col gap-sm hover:border-outline-variant transition-colors">
+<div class="flex justify-between items-start">
+<span class="font-label text-label text-ink-muted uppercase">INP</span>
+<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-safe/10 text-safe uppercase tracking-wider">Good</span>
+</div>
+<div class="font-mono text-[24px] text-ink leading-none mt-xs">80ms</div>
+<div class="w-full h-1 bg-surface-variant rounded-full mt-auto flex overflow-hidden">
+<div class="h-full bg-safe w-[90%]"></div>
+<div class="h-full bg-risk w-[8%]"></div>
+<div class="h-full bg-risk-extreme w-[2%]"></div>
+</div>
+<div class="font-mono text-mono text-ink-muted/50 mt-1">Source: ingest</div>
+</div>
+<!-- CLS -->
+<div class="bg-panel border border-line rounded-lg p-md flex flex-col gap-sm hover:border-outline-variant transition-colors relative">
+<div class="absolute inset-0 bg-risk/5 pointer-events-none"></div>
+<div class="flex justify-between items-start">
+<span class="font-label text-label text-ink-muted uppercase">CLS</span>
+<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-risk/10 text-risk uppercase tracking-wider">Needs Imp.</span>
+</div>
+<div class="font-mono text-[24px] text-risk leading-none mt-xs">0.12</div>
+<div class="w-full h-1 bg-surface-variant rounded-full mt-auto flex overflow-hidden">
+<div class="h-full bg-safe w-[60%]"></div>
+<div class="h-full bg-risk w-[30%]"></div>
+<div class="h-full bg-risk-extreme w-[10%]"></div>
+</div>
+<div class="font-mono text-mono text-ink-muted/50 mt-1">Source: ingest</div>
+</div>
+<!-- FCP -->
+<div class="bg-panel border border-line rounded-lg p-md flex flex-col gap-sm hover:border-outline-variant transition-colors">
+<div class="flex justify-between items-start">
+<span class="font-label text-label text-ink-muted uppercase">FCP</span>
+<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-safe/10 text-safe uppercase tracking-wider">Good</span>
+</div>
+<div class="font-mono text-[24px] text-ink leading-none mt-xs">0.8s</div>
+<div class="w-full h-1 bg-surface-variant rounded-full mt-auto flex overflow-hidden">
+<div class="h-full bg-safe w-[95%]"></div>
+<div class="h-full bg-risk w-[4%]"></div>
+<div class="h-full bg-risk-extreme w-[1%]"></div>
+</div>
+<div class="font-mono text-mono text-ink-muted/50 mt-1">Source: ingest</div>
+</div>
+<!-- TTFB -->
+<div class="bg-panel border border-line rounded-lg p-md flex flex-col gap-sm hover:border-outline-variant transition-colors">
+<div class="flex justify-between items-start">
+<span class="font-label text-label text-ink-muted uppercase">TTFB</span>
+<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-safe/10 text-safe uppercase tracking-wider">Good</span>
+</div>
+<div class="font-mono text-[24px] text-ink leading-none mt-xs">350ms</div>
+<div class="w-full h-1 bg-surface-variant rounded-full mt-auto flex overflow-hidden">
+<div class="h-full bg-safe w-[80%]"></div>
+<div class="h-full bg-risk w-[15%]"></div>
+<div class="h-full bg-risk-extreme w-[5%]"></div>
+</div>
+<div class="font-mono text-mono text-ink-muted/50 mt-1">Source: ingest</div>
+</div>
+</div>
+</section>
+<div class="grid grid-cols-3 gap-lg">
+<!-- 2. Opportunities & Diagnostics (Left Col) -->
+<section class="col-span-1 flex flex-col gap-sm">
+<h2 class="font-label text-label text-ink-muted uppercase tracking-wider">Opportunities</h2>
+<div class="bg-panel border border-line rounded-lg flex flex-col overflow-hidden">
+<div class="p-md border-b border-line hover:bg-tile transition-colors group cursor-pointer flex gap-md">
+<div class="mt-0.5"><span class="material-symbols-outlined text-[18px] text-risk">warning</span></div>
+<div class="flex-1 flex flex-col gap-1">
+<div class="flex justify-between items-baseline">
+<span class="font-body-sm font-semibold text-ink">Reduce unused CSS</span>
+<span class="font-mono text-mono text-risk">0.8s</span>
+</div>
+<div class="font-mono text-[10px] text-ink-muted leading-relaxed">
+                                        /styles/global-compiled.css<br/>
+                                        /components/hero.module.css
+                                    </div>
+</div>
+</div>
+<div class="p-md border-b border-line hover:bg-tile transition-colors group cursor-pointer flex gap-md">
+<div class="mt-0.5"><span class="material-symbols-outlined text-[18px] text-risk">image</span></div>
+<div class="flex-1 flex flex-col gap-1">
+<div class="flex justify-between items-baseline">
+<span class="font-body-sm font-semibold text-ink">Optimize images</span>
+<span class="font-mono text-mono text-risk">0.4s</span>
+</div>
+<div class="font-mono text-[10px] text-ink-muted leading-relaxed">
+                                        /public/assets/hero-bg-v2.png<br/>
+                                        /public/assets/partners.png
+                                    </div>
+</div>
+</div>
+<div class="p-md hover:bg-tile transition-colors group cursor-pointer flex gap-md">
+<div class="mt-0.5"><span class="material-symbols-outlined text-[18px] text-ink-muted">javascript</span></div>
+<div class="flex-1 flex flex-col gap-1">
+<div class="flex justify-between items-baseline">
+<span class="font-body-sm font-semibold text-ink">Minify JavaScript</span>
+<span class="font-mono text-mono text-ink-muted">0.1s</span>
+</div>
+<div class="font-mono text-[10px] text-ink-muted leading-relaxed">
+                                        /chunks/framework.js
+                                    </div>
+</div>
+</div>
+</div>
+</section>
+<!-- 3. Attributions Table & 4. Surface Map (Right Col) -->
+<div class="col-span-2 flex flex-col gap-lg">
+<!-- Surface Map -->
+<section class="flex flex-col gap-sm">
+<div class="flex justify-between items-baseline">
+<h2 class="font-label text-label text-ink-muted uppercase tracking-wider">Frontend Surface Map</h2>
+<a class="font-label text-label text-primary hover:text-brand-strong transition-colors flex items-center gap-1 group" href="#">
+                                    View in Repository Map <span class="material-symbols-outlined text-[14px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
+</a>
+</div>
+<div class="bg-panel border border-line rounded-lg p-xs h-32 flex gap-xs">
+<!-- Treemap visualization mock -->
+<div class="flex-1 flex flex-col gap-xs">
+<div class="flex-1 bg-surface-variant/50 hover:bg-surface-variant border border-line rounded flex items-end p-2 relative overflow-hidden group cursor-pointer transition-colors">
+<div class="absolute inset-0 bg-safe/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<span class="font-mono text-mono text-ink relative z-10">/dashboard</span>
+</div>
+<div class="h-10 bg-surface-variant/50 hover:bg-surface-variant border border-line rounded flex items-end p-2 relative overflow-hidden group cursor-pointer transition-colors">
+<div class="absolute inset-0 bg-safe/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<span class="font-mono text-mono text-ink relative z-10">/settings</span>
+</div>
+</div>
+<div class="w-1/3 flex flex-col gap-xs">
+<div class="h-20 bg-risk/20 border border-risk/30 rounded flex items-end p-2 relative overflow-hidden group cursor-pointer transition-colors">
+<div class="absolute inset-0 bg-risk/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<span class="font-mono text-mono text-risk relative z-10">/checkout</span>
+</div>
+<div class="flex-1 bg-surface-variant/50 hover:bg-surface-variant border border-line rounded flex items-end p-2 relative overflow-hidden group cursor-pointer transition-colors">
+<span class="font-mono text-mono text-ink relative z-10">/auth</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Attributions -->
+<section class="flex flex-col gap-sm flex-1">
+<h2 class="font-label text-label text-ink-muted uppercase tracking-wider">Attributions</h2>
+<div class="bg-panel border border-line rounded-lg overflow-hidden flex-1 flex flex-col">
+<div class="grid grid-cols-12 px-md py-sm border-b border-line bg-surface/50">
+<div class="col-span-2 font-label text-label text-ink-muted">Metric</div>
+<div class="col-span-8 font-label text-label text-ink-muted">Component / Path</div>
+<div class="col-span-2 font-label text-label text-ink-muted text-right">Impact</div>
+</div>
+<div class="flex flex-col divide-y divide-line/50 overflow-y-auto">
+<div class="grid grid-cols-12 px-md py-2.5 items-center hover:bg-tile transition-colors">
+<div class="col-span-2 font-mono text-mono text-risk">CLS</div>
+<div class="col-span-8 font-mono text-mono text-ink truncate pr-4">src/components/Checkout/OrderSummary.tsx</div>
+<div class="col-span-2 font-mono text-mono text-ink text-right">0.08</div>
+</div>
+<div class="grid grid-cols-12 px-md py-2.5 items-center hover:bg-tile transition-colors">
+<div class="col-span-2 font-mono text-mono text-risk">CLS</div>
+<div class="col-span-8 font-mono text-mono text-ink truncate pr-4">src/components/Ads/BannerSlot.tsx</div>
+<div class="col-span-2 font-mono text-mono text-ink text-right">0.04</div>
+</div>
+<div class="grid grid-cols-12 px-md py-2.5 items-center hover:bg-tile transition-colors">
+<div class="col-span-2 font-mono text-mono text-ink">LCP</div>
+<div class="col-span-8 font-mono text-mono text-ink truncate pr-4">public/assets/hero-main.webp</div>
+<div class="col-span-2 font-mono text-mono text-ink text-right">850ms</div>
+</div>
+<div class="grid grid-cols-12 px-md py-2.5 items-center hover:bg-tile transition-colors">
+<div class="col-span-2 font-mono text-mono text-ink">INP</div>
+<div class="col-span-8 font-mono text-mono text-ink truncate pr-4">src/utils/heavyComputation.ts</div>
+<div class="col-span-2 font-mono text-mono text-ink text-right">45ms</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+<div class="text-center mt-lg border-t border-line pt-md">
+<p class="font-mono text-[10px] text-ink-muted">Inferred from local Lighthouse run or imported CWV report.</p>
+</div>
+</div>
+</main>
+</div>
+<style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #2A334A; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #3c4949; }
+    </style>
+</body></html>

@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Prism - Backend · Services &amp; APIs</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed-variant": "#3622ca",
+                        "on-secondary": "#2000a4",
+                        "on-brand": "#0A0E1A",
+                        "inverse-surface": "#dde4e3",
+                        "background": "#0e1514",
+                        "on-surface": "#dde4e3",
+                        "tertiary-fixed-dim": "#ffb691",
+                        "surface-container-low": "#161d1d",
+                        "primary-fixed": "#65f8f7",
+                        "surface": "#0e1514",
+                        "error": "#ffb4ab",
+                        "secondary": "#c4c0ff",
+                        "outline-variant": "#3c4949",
+                        "on-primary": "#003737",
+                        "surface-container-lowest": "#090f0f",
+                        "on-primary-fixed-variant": "#004f4f",
+                        "outline": "#859493",
+                        "on-primary-container": "#004a4a",
+                        "tertiary-container": "#fd9359",
+                        "on-tertiary-fixed-variant": "#783100",
+                        "ink-muted": "#94A3B8",
+                        "tile": "#1E2433",
+                        "surface-bright": "#343a3a",
+                        "on-surface-variant": "#bbc9c9",
+                        "on-tertiary": "#552000",
+                        "elev": "#1E2433",
+                        "primary-fixed-dim": "#3fdbdb",
+                        "safe": "#10B981",
+                        "surface-container-highest": "#2f3636",
+                        "surface-container-high": "#242b2b",
+                        "on-tertiary-fixed": "#341100",
+                        "inverse-on-surface": "#2b3231",
+                        "secondary-container": "#3826cd",
+                        "brand-strong": "#00DCD4",
+                        "secondary-fixed-dim": "#c4c0ff",
+                        "surface-container": "#1a2121",
+                        "secondary-fixed": "#e3dfff",
+                        "on-background": "#dde4e3",
+                        "risk": "#F59E0B",
+                        "on-error": "#690005",
+                        "on-primary-fixed": "#002020",
+                        "error-container": "#93000a",
+                        "on-tertiary-container": "#712d00",
+                        "primary": "#44dede",
+                        "on-secondary-fixed": "#100069",
+                        "risk-extreme": "#F43F5E",
+                        "surface-tint": "#3fdbdb",
+                        "tertiary-fixed": "#ffdbcb",
+                        "panel-2": "#0F1420",
+                        "on-secondary-container": "#b4b0ff",
+                        "surface-variant": "#2f3636",
+                        "ink": "#FFFFFF",
+                        "canvas": "#0A0E1A",
+                        "panel": "#131926",
+                        "inverse-primary": "#006a6a",
+                        "line": "#2A334A",
+                        "on-error-container": "#ffdad6",
+                        "primary-container": "#00c2c2",
+                        "tertiary": "#ffba98",
+                        "surface-dim": "#0e1514"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "sm": "8px",
+                        "topbar-h": "48px",
+                        "lg": "24px",
+                        "md": "16px",
+                        "sidebar-w": "224px",
+                        "xs": "4px",
+                        "xl": "32px",
+                        "inspector-w": "288px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "label": ["Inter"],
+                        "h2": ["Inter"],
+                        "mono": ["JetBrains Mono"],
+                        "body-sm": ["Inter"],
+                        "h1": ["Inter"],
+                        "brand": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["0.9375rem", { "lineHeight": "1.45", "fontWeight": "400" }],
+                        "label": ["0.75rem", { "letterSpacing": "0.04em", "fontWeight": "600" }],
+                        "h2": ["1.15rem", { "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "mono": ["0.75rem", { "fontWeight": "400" }],
+                        "body-sm": ["0.8125rem", { "lineHeight": "1.4", "fontWeight": "400" }],
+                        "h1": ["1.5rem", { "letterSpacing": "-0.02em", "fontWeight": "650" }],
+                        "brand": ["1.125rem", { "letterSpacing": "-0.02em", "fontWeight": "650" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #0A0E1A; color: #FFFFFF; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .icon-fill { font-variation-settings: 'FILL' 1; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #2A334A; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #3c4949; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden antialiased text-ink bg-canvas">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full w-sidebar-w bg-panel border-r border-line flex flex-col py-md px-sm z-20">
+<div class="px-sm mb-xl">
+<h1 class="font-brand text-brand text-brand-strong flex items-center gap-2">
+<span class="material-symbols-outlined icon-fill">view_in_ar</span> Prism
+            </h1>
+<p class="font-body-sm text-body-sm text-ink-muted mt-1 truncate">main / engineering-repo</p>
+</div>
+<button class="mx-sm mb-lg bg-brand-strong text-on-brand font-label text-label py-2 rounded flex items-center justify-center gap-2 hover:bg-primary-fixed transition-colors">
+<span class="material-symbols-outlined text-[16px]">add</span> New Analysis
+        </button>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded text-ink-muted hover:text-ink hover:bg-tile transition-colors duration-150 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span class="font-body-sm text-body-sm">Overview</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded bg-tile text-brand-strong font-bold border-l-2 border-brand-strong cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined text-[20px]">map</span>
+<span class="font-body-sm text-body-sm">Repository Map</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded text-ink-muted hover:text-ink hover:bg-tile transition-colors duration-150 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined text-[20px]">dns</span>
+<span class="font-body-sm text-body-sm">Codebase DNA</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded text-ink-muted hover:text-ink hover:bg-tile transition-colors duration-150 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined text-[20px]">radio</span>
+<span class="font-body-sm text-body-sm">Blast Radius</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded text-ink-muted hover:text-ink hover:bg-tile transition-colors duration-150 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined text-[20px]">trending_up</span>
+<span class="font-body-sm text-body-sm">Trends</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded text-ink-muted hover:text-ink hover:bg-tile transition-colors duration-150 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span class="font-body-sm text-body-sm">Settings</span>
+</a>
+</nav>
+<div class="mt-auto pt-4 border-t border-line">
+<a class="flex items-center gap-3 px-3 py-2 rounded text-ink-muted hover:text-ink hover:bg-tile transition-colors duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">account_circle</span>
+<span class="font-body-sm text-body-sm">User Profile</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<div class="flex-1 ml-sidebar-w flex flex-col h-full relative">
+<!-- TopAppBar -->
+<header class="fixed top-0 right-0 h-topbar-h left-sidebar-w bg-canvas border-b border-line flex items-center justify-between px-lg z-10 transition-all duration-200">
+<div class="flex items-center gap-4">
+<h2 class="font-h2 text-h2 text-on-surface">Backend · Services &amp; APIs</h2>
+<span class="px-2 py-0.5 rounded bg-panel-2 border border-line font-mono text-mono text-ink-muted">acme-web · main</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-ink-muted text-[16px]">search</span>
+<input class="bg-panel-2 border border-line rounded pl-8 pr-3 py-1 text-body-sm font-body-sm text-ink focus:outline-none focus:border-brand-strong w-64 placeholder-ink-muted" placeholder="Search resources..." type="text"/>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">help_outline</span>
+</button>
+</div>
+</header>
+<!-- Canvas Content -->
+<main class="flex-1 overflow-y-auto mt-topbar-h p-lg pb-24">
+<!-- Hero Stats Row -->
+<div class="grid grid-cols-4 gap-4 mb-lg">
+<div class="bg-panel border border-line rounded-xl p-md flex flex-col justify-between h-24">
+<span class="font-label text-label text-ink-muted uppercase">Endpoints</span>
+<span class="font-mono text-[24px] font-bold text-ink">42</span>
+</div>
+<div class="bg-panel border border-line rounded-xl p-md flex flex-col justify-between h-24">
+<span class="font-label text-label text-ink-muted uppercase">Services/Modules</span>
+<span class="font-mono text-[24px] font-bold text-ink">12</span>
+</div>
+<div class="bg-panel border border-line rounded-xl p-md flex flex-col justify-between h-24">
+<span class="font-label text-label text-ink-muted uppercase">Public vs Internal</span>
+<div class="flex items-end gap-2">
+<span class="font-mono text-[24px] font-bold text-ink">18</span>
+<span class="font-mono text-[16px] text-ink-muted mb-1">/ 24</span>
+</div>
+</div>
+<div class="bg-panel border border-line rounded-xl p-md flex flex-col justify-between h-24 relative overflow-hidden">
+<div class="absolute inset-0 bg-risk-extreme/5"></div>
+<div class="relative z-10 flex flex-col justify-between h-full">
+<span class="font-label text-label text-ink-muted uppercase flex items-center gap-2">
+                            Untested Endpoints
+                            <span class="material-symbols-outlined text-[14px] text-risk-extreme">warning</span>
+</span>
+<span class="font-mono text-[24px] font-bold text-risk-extreme">8</span>
+</div>
+</div>
+</div>
+<!-- Bento Layout -->
+<div class="grid grid-cols-12 gap-lg mb-lg">
+<!-- API Surface Table (Spans 8 cols) -->
+<div class="col-span-12 xl:col-span-8 bg-panel border border-line rounded-xl flex flex-col overflow-hidden h-[600px]">
+<div class="p-4 border-b border-line flex items-center justify-between bg-panel-2">
+<h3 class="font-label text-label text-ink uppercase">API Surface</h3>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-ink-muted text-[14px]">filter_list</span>
+<input class="bg-background border border-line rounded pl-7 pr-2 py-1 text-mono font-mono text-ink text-[11px] focus:outline-none focus:border-brand-strong w-48 placeholder-ink-muted" placeholder="Filter routes..." type="text"/>
+</div>
+</div>
+<div class="flex-1 overflow-auto bg-canvas">
+<table class="w-full text-left border-collapse">
+<thead class="sticky top-0 bg-panel-2 border-b border-line z-10">
+<tr>
+<th class="py-2 px-4 font-label text-label text-ink-muted font-normal w-16">Method</th>
+<th class="py-2 px-4 font-label text-label text-ink-muted font-normal">Route</th>
+<th class="py-2 px-4 font-label text-label text-ink-muted font-normal">Handler File</th>
+<th class="py-2 px-4 font-label text-label text-ink-muted font-normal w-12 text-center">Auth</th>
+<th class="py-2 px-4 font-label text-label text-ink-muted font-normal w-16 text-center">Tests</th>
+<th class="py-2 px-4 font-label text-label text-ink-muted font-normal w-24">Last Changed</th>
+</tr>
+</thead>
+<tbody class="font-mono text-mono text-ink-muted divide-y divide-line">
+<tr class="hover:bg-tile/50 transition-colors group">
+<td class="py-2.5 px-4"><span class="px-1.5 py-0.5 rounded bg-safe/10 text-safe border border-safe/20 text-[10px]">GET</span></td>
+<td class="py-2.5 px-4 text-ink">/api/v1/users</td>
+<td class="py-2.5 px-4 truncate max-w-[150px]" title="src/controllers/userController.ts">src/controllers/userController.ts</td>
+<td class="py-2.5 px-4 text-center"><span class="material-symbols-outlined text-[16px] text-ink-muted">lock</span></td>
+<td class="py-2.5 px-4 text-center"><span class="material-symbols-outlined text-[16px] text-safe">check_circle</span></td>
+<td class="py-2.5 px-4">2d ago</td>
+</tr>
+<tr class="hover:bg-tile/50 transition-colors group">
+<td class="py-2.5 px-4"><span class="px-1.5 py-0.5 rounded bg-risk/10 text-risk border border-risk/20 text-[10px]">POST</span></td>
+<td class="py-2.5 px-4 text-ink">/api/v1/users</td>
+<td class="py-2.5 px-4 truncate max-w-[150px]" title="src/controllers/userController.ts">src/controllers/userController.ts</td>
+<td class="py-2.5 px-4 text-center"><span class="material-symbols-outlined text-[16px] text-ink-muted">lock</span></td>
+<td class="py-2.5 px-4 text-center"><span class="material-symbols-outlined text-[16px] text-safe">check_circle</span></td>
+<td class="py-2.5 px-4">5d ago</td>
+</tr>
+<tr class="hover:bg-tile/50 transition-colors group bg-risk-extreme/5">
+<td class="py-2.5 px-4"><span class="px-1.5 py-0.5 rounded bg-risk/10 text-risk border border-risk/20 text-[10px]">POST</span></td>
+<td class="py-2.5 px-4 text-ink">/api/v1/webhooks/stripe</td>
+<td class="py-2.5 px-4 truncate max-w-[150px]" title="src/api/webhooks/stripeHandler.ts">src/api/webhooks/stripeHandler.ts</td>
+<td class="py-2.5 px-4 text-center"><span class="material-symbols-outlined text-[16px] text-ink-muted">lock_open</span></td>
+<td class="py-2.5 px-4 text-center"><span class="material-symbols-outlined text-[16px] text-risk-extreme">cancel</span></td>
+<td class="py-2.5 px-4">12d ago</td>
+</tr>
+<tr class="hover:bg-tile/50 transition-colors group">
+<td class="py-2.5 px-4"><span class="px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 text-[10px]">PUT</span></td>
+<td class="py-2.5 px-4 text-ink">/api/v1/orders/:id</td>
+<td class="py-2.5 px-4 truncate max-w-[150px]" title="src/controllers/orderController.ts">src/controllers/orderController.ts</td>
+<td class="py-2.5 px-4 text-center"><span class="material-symbols-outlined text-[16px] text-ink-muted">lock</span></td>
+<td class="py-2.5 px-4 text-center"><span class="material-symbols-outlined text-[16px] text-safe">check_circle</span></td>
+<td class="py-2.5 px-4">1m ago</td>
+</tr>
+<tr class="hover:bg-tile/50 transition-colors group bg-risk-extreme/5">
+<td class="py-2.5 px-4"><span class="px-1.5 py-0.5 rounded bg-risk-extreme/10 text-risk-extreme border border-risk-extreme/20 text-[10px]">DEL</span></td>
+<td class="py-2.5 px-4 text-ink">/api/v1/orders/:id</td>
+<td class="py-2.5 px-4 truncate max-w-[150px]" title="src/controllers/orderController.ts">src/controllers/orderController.ts</td>
+<td class="py-2.5 px-4 text-center"><span class="material-symbols-outlined text-[16px] text-ink-muted">lock</span></td>
+<td class="py-2.5 px-4 text-center"><span class="material-symbols-outlined text-[16px] text-risk-extreme">cancel</span></td>
+<td class="py-2.5 px-4">2m ago</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Right Column (Spans 4 cols) -->
+<div class="col-span-12 xl:col-span-4 flex flex-col gap-lg h-[600px]">
+<!-- Service Dependencies (Node Map) -->
+<div class="bg-panel border border-line rounded-xl flex flex-col h-1/2 overflow-hidden">
+<div class="p-4 border-b border-line bg-panel-2">
+<h3 class="font-label text-label text-ink uppercase">Service Dependencies</h3>
+</div>
+<div class="flex-1 relative bg-canvas flex items-center justify-center p-4">
+<!-- Placeholder for a mini node diagram -->
+<div class="relative w-full h-full border border-line/50 rounded-lg bg-panel-2/30">
+<!-- Nodes -->
+<div class="absolute top-4 left-1/2 -translate-x-1/2 bg-tile border border-brand-strong rounded px-3 py-1 font-mono text-[10px] text-ink shadow-[0_0_8px_rgba(0,220,212,0.2)] z-10">API Gateway</div>
+<div class="absolute top-20 left-4 bg-tile border border-line rounded px-3 py-1 font-mono text-[10px] text-ink-muted z-10">Auth Service</div>
+<div class="absolute top-20 right-4 bg-tile border border-line rounded px-3 py-1 font-mono text-[10px] text-ink-muted z-10">User Service</div>
+<div class="absolute bottom-8 left-1/2 -translate-x-1/2 bg-tile border border-line rounded px-3 py-1 font-mono text-[10px] text-ink-muted z-10">DB Cluster</div>
+<!-- SVG Lines -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none" preserveaspectratio="none">
+<path d="M 120 30 L 60 80" fill="none" opacity="0.8" stroke="#00DCD4" stroke-dasharray="2 2" stroke-width="1.5"></path>
+<path d="M 120 30 L 180 80" fill="none" stroke="#2A334A" stroke-width="1.5"></path>
+<path d="M 60 100 L 120 160" fill="none" stroke="#2A334A" stroke-width="1.5"></path>
+<path d="M 180 100 L 120 160" fill="none" stroke="#2A334A" stroke-width="1.5"></path>
+</svg>
+</div>
+</div>
+</div>
+<!-- Callouts / Insights -->
+<div class="flex flex-col gap-4 h-1/2">
+<div class="bg-panel border border-line rounded-xl p-4 flex-1 overflow-hidden flex flex-col">
+<h3 class="font-label text-label text-ink uppercase mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-primary">hub</span>
+                                High Centrality Endpoints
+                            </h3>
+<div class="space-y-2 overflow-y-auto flex-1 pr-1">
+<div class="p-2 bg-panel-2 rounded border border-line flex justify-between items-center">
+<span class="font-mono text-mono text-ink truncate">/api/v1/auth/verify</span>
+<span class="font-mono text-[10px] text-ink-muted bg-tile px-1.5 rounded">14 deps</span>
+</div>
+<div class="p-2 bg-panel-2 rounded border border-line flex justify-between items-center">
+<span class="font-mono text-mono text-ink truncate">/api/v1/users/me</span>
+<span class="font-mono text-[10px] text-ink-muted bg-tile px-1.5 rounded">9 deps</span>
+</div>
+</div>
+</div>
+<div class="bg-panel border border-risk-extreme/30 rounded-xl p-4 flex-1 overflow-hidden flex flex-col relative">
+<div class="absolute top-0 right-0 w-16 h-16 bg-risk-extreme/5 rounded-bl-full pointer-events-none"></div>
+<h3 class="font-label text-label text-risk-extreme uppercase mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">bug_report</span>
+                                Test Gaps
+                            </h3>
+<div class="space-y-2 overflow-y-auto flex-1 pr-1">
+<div class="p-2 bg-background rounded border border-risk-extreme/20 flex flex-col gap-1">
+<span class="font-mono text-mono text-ink truncate">/api/v1/webhooks/stripe</span>
+<span class="font-body-sm text-[11px] text-ink-muted">Critical payment route lacking e2e coverage.</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Note -->
+<div class="text-center mt-xl">
+<p class="font-mono text-[10px] text-ink-muted/50 uppercase tracking-widest">Inferred from route/controller files, framework manifests</p>
+</div>
+</main>
+</div>
+</body></html>
