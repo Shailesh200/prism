@@ -14,6 +14,20 @@
         "${workspaceFolder}/packages/vscode-extension/dist/**/*.js"
       ],
       "preLaunchTask": "prism: build vscode-extension"
+    },
+    {
+      "name": "Run Prism Cursor Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "runtimeExecutable": "${execPath}",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/packages/cursor-extension",
+        "--folder-uri=file://${workspaceFolder}"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/packages/cursor-extension/dist/**/*.js"
+      ],
+      "preLaunchTask": "prism: build cursor-extension"
     }
   ]
 }

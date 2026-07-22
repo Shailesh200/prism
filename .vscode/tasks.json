@@ -13,6 +13,16 @@
         "isDefault": true
       },
       "problemMatcher": []
+    },
+    {
+      "label": "prism: build cursor-extension",
+      "type": "shell",
+      "command": "bun run --filter @prism/cursor-extension build",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "build",
+      "problemMatcher": []
     }
   ]
 }

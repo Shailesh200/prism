@@ -1,6 +1,8 @@
 import * as vscode from "vscode";
 import { dirname } from "node:path";
+import { BrowserBridge } from "./browser-bridge.js";
 import { createLogger } from "./logger.js";
+import { openPlaygroundInBrowser } from "./open-playground.js";
 import { PrismSession } from "./session.js";
 import { PrismPanel } from "./webview/prism-panel.js";
 
@@ -296,14 +298,30 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   });
 
+  const openInBrowser = vscode.commands.registerCommand(
+    "prism.openInBrowser",
+    async () => {
+      if (!extensionUri) return;
+      const s = await ensureSession();
+      if (!s) return;
+      logger!.info("Opening Prism in browser (extension Core bridge)");
+      await openPlaygroundInBrowser(vscode, {
+        session: s,
+        extensionRoot: extensionUri.fsPath,
+      });
+    },
+  );
+
   context.subscriptions.push(
     openPrism,
     openMap,
     showHealth,
     reindex,
+    openInBrowser,
     statusBar,
     {
       dispose: () => {
+        BrowserBridge.dispose();
         session?.close();
         logger?.dispose();
       },
@@ -317,6 +335,7 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate(): void {
+  BrowserBridge.dispose();
   session?.close();
   session = undefined;
   PrismPanel.current?.dispose();

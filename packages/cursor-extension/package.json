@@ -1,22 +1,73 @@
 {
   "name": "@prism/cursor-extension",
-  "version": "0.0.0",
+  "displayName": "Prism for Cursor",
+  "description": "Local-first Software Intelligence for Cursor — Repository Map, Overview, Blast Radius, and Health. Same Core as the VS Code package; designed to coexist with Prism MCP.",
+  "version": "0.1.0",
   "private": true,
+  "publisher": "prism",
   "type": "module",
-  "description": "Cursor extension packaging overlay",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "keywords": [
+    "cursor",
+    "prism",
+    "repository-map",
+    "local-first"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.cjs",
+  "contributes": {
+    "commands": [
+      {
+        "command": "prism.open",
+        "title": "Prism: Open Prism",
+        "category": "Prism"
+      },
+      {
+        "command": "prism.openRepositoryMap",
+        "title": "Prism: Open Repository Map",
+        "category": "Prism"
+      },
+      {
+        "command": "prism.showHealth",
+        "title": "Prism: Show Health",
+        "category": "Prism"
+      },
+      {
+        "command": "prism.reindex",
+        "title": "Prism: Reindex",
+        "category": "Prism"
+      },
+      {
+        "command": "prism.openInBrowser",
+        "title": "Prism: Open in Browser",
+        "category": "Prism"
+      }
+    ]
   },
   "files": [
-    "dist"
+    "dist",
+    "media",
+    "README.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "bun run scripts/build.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.90.0"
+  },
+  "dependencies": {
+    "@prism/vscode-extension": "workspace:*"
   }
 }

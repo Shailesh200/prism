@@ -1,11 +1,14 @@
-import type { MapLayerId, MapZoomLevel } from "@prism/shared";
 import type * as vscode from "vscode";
+import { openPlaygroundInBrowser } from "../open-playground.js";
+import {
+  dispatchHostRequest,
+  type HostDispatchState,
+} from "../host-dispatch.js";
 import type { PrismLogger } from "../logger.js";
 import type { PrismSession } from "../session.js";
 import type {
   AppView,
   HostRequest,
-  HostResponse,
   HostToWebview,
   WebviewToHost,
 } from "../protocol.js";
@@ -24,8 +27,10 @@ export class PrismPanel {
   public static current: PrismPanel | undefined;
 
   private readonly panel: vscode.WebviewPanel;
-  private zoom: MapZoomLevel = "package";
-  private layers: MapLayerId[] = ["architecture", "dependency"];
+  private readonly dispatchState: HostDispatchState = {
+    zoom: "package",
+    layers: ["architecture", "dependency"],
+  };
   private disposables: vscode.Disposable[] = [];
 
   private constructor(
@@ -99,15 +104,23 @@ export class PrismPanel {
       return;
     }
     if (msg.type === "zoom") {
-      this.zoom = msg.zoom;
+      this.dispatchState.zoom = msg.zoom;
       return;
     }
     if (msg.type === "layers") {
-      this.layers = msg.layers;
+      this.dispatchState.layers = msg.layers;
       return;
     }
     if (msg.type === "openFile") {
       await this.openInEditor(msg.path);
+      return;
+    }
+    if (msg.type === "openInBrowser") {
+      this.log.info("Webview requested openInBrowser");
+      await openPlaygroundInBrowser(this.vscodeApi, {
+        session: this.session,
+        extensionRoot: this.extensionUri.fsPath,
+      });
       return;
     }
     if (msg.type === "request") {
@@ -117,79 +130,16 @@ export class PrismPanel {
 
   private async handleRequest(req: HostRequest): Promise<void> {
     try {
-      const res = await this.dispatch(req);
+      const res = await dispatchHostRequest(
+        this.session,
+        req,
+        this.dispatchState,
+      );
       this.post(res);
     } catch (err: unknown) {
       const error = err instanceof Error ? err.message : String(err);
       this.log.error(`request ${req.method}: ${error}`);
       this.post({ id: req.id, ok: false, error });
-    }
-  }
-
-  private async dispatch(req: HostRequest): Promise<HostResponse> {
-    switch (req.method) {
-      case "dashboard": {
-        const result = await this.session.getDashboard(this.zoom);
-        if (!result.ok)
-          return { id: req.id, ok: false, error: result.error.message };
-        return {
-          id: req.id,
-          ok: true,
-          method: "dashboard",
-          data: result.value,
-        };
-      }
-      case "map": {
-        this.zoom = req.zoom;
-        if (req.layers) this.layers = req.layers;
-        const result = this.session.getMap(req.zoom, req.layers);
-        if (!result.ok)
-          return { id: req.id, ok: false, error: result.error.message };
-        return { id: req.id, ok: true, method: "map", data: result.value };
-      }
-      case "reindex": {
-        const result = await this.session.reindex();
-        if (!result.ok)
-          return { id: req.id, ok: false, error: result.error.message };
-        return { id: req.id, ok: true, method: "reindex", data: null };
-      }
-      case "overlay": {
-        const result = await this.session.getOverlay(req.kind);
-        if (!result.ok)
-          return { id: req.id, ok: false, error: result.error.message };
-        return { id: req.id, ok: true, method: "overlay", data: result.value };
-      }
-      case "backend": {
-        const result = await this.session.getBackendReport();
-        if (!result.ok)
-          return { id: req.id, ok: false, error: result.error.message };
-        return { id: req.id, ok: true, method: "backend", data: result.value };
-      }
-      case "graph": {
-        const result = this.session.getDependencyGraph();
-        if (!result.ok)
-          return { id: req.id, ok: false, error: result.error.message };
-        return { id: req.id, ok: true, method: "graph", data: result.value };
-      }
-      case "impact": {
-        const result = await this.session.getImpact(req.target);
-        if (!result.ok)
-          return { id: req.id, ok: false, error: result.error.message };
-        return { id: req.id, ok: true, method: "impact", data: result.value };
-      }
-      case "symbols": {
-        const result = this.session.findSymbols(req.query);
-        if (!result.ok)
-          return { id: req.id, ok: false, error: result.error.message };
-        return { id: req.id, ok: true, method: "symbols", data: result.value };
-      }
-      default: {
-        return {
-          id: (req as HostRequest).id,
-          ok: false,
-          error: "Unknown method",
-        };
-      }
     }
   }
 

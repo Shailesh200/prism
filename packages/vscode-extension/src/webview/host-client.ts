@@ -21,7 +21,20 @@ declare function acquireVsCodeApi(): {
   postMessage(message: WebviewToHost): void;
 };
 
-const vscode = acquireVsCodeApi();
+type VsCodeApi = { postMessage(message: WebviewToHost): void };
+
+const isBrowser =
+  typeof document !== "undefined" &&
+  document.body?.getAttribute("data-prism-mode") === "browser";
+
+let vscodeApi: VsCodeApi | null = null;
+if (!isBrowser) {
+  try {
+    vscodeApi = acquireVsCodeApi();
+  } catch {
+    vscodeApi = null;
+  }
+}
 
 type Pending = {
   resolve: (value: HostResponse) => void;
@@ -41,12 +54,21 @@ function request(
 ): Promise<HostResponse> {
   const id = nextId();
   const full = { ...body, id } as HostRequest;
-  return new Promise<HostResponse>((resolve, reject) => {
-    pending.set(id, {
-      resolve,
-      reject,
+
+  if (isBrowser || !vscodeApi) {
+    return fetch("/api/host", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(full),
+    }).then(async (res) => {
+      const json = (await res.json()) as HostResponse;
+      return json;
     });
-    vscode.postMessage({ type: "request", request: full });
+  }
+
+  return new Promise<HostResponse>((resolve, reject) => {
+    pending.set(id, { resolve, reject });
+    vscodeApi!.postMessage({ type: "request", request: full });
   });
 }
 
@@ -150,11 +172,20 @@ export type {
 };
 
 export function openFile(path: string): void {
-  vscode.postMessage({ type: "openFile", path });
+  if (isBrowser || !vscodeApi) {
+    // Browser has no editor — path stays visible in the UI.
+    console.info("[prism] openFile (browser):", path);
+    return;
+  }
+  vscodeApi.postMessage({ type: "openFile", path });
 }
 
 export function postToHost(message: WebviewToHost): void {
-  vscode.postMessage(message);
+  if (isBrowser || !vscodeApi) {
+    if (message.type === "openInBrowser") return;
+    return;
+  }
+  vscodeApi.postMessage(message);
 }
 
-export { vscode as vsCodeApi };
+export { vscodeApi as vsCodeApi, isBrowser };

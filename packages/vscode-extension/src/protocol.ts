@@ -110,5 +110,6 @@ export type WebviewToHost =
   | { type: "ready"; view?: AppView }
   | { type: "request"; request: HostRequest }
   | { type: "openFile"; path: string }
+  | { type: "openInBrowser" }
   | { type: "zoom"; zoom: MapZoomLevel }
   | { type: "layers"; layers: MapLayerId[] };
