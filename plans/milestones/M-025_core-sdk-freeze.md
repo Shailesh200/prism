@@ -3,38 +3,45 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-025-core-sdk-freeze` |
-| Status | Not Started |
-| Depends on | M-014, M-015, M-016, M-020 |
+| Status | In Progress |
+| Depends on | M-014, M-015, M-016, M-020 (+ later Verified APIs included in inventory) |
 | Unlocks | M-026, M-028, M-030, M-036 |
 | Packages | `@prism/core`, `@prism/shared`, docs |
+| ADR | ADR-0019 |
 
 ## Goal
 
-Freeze a **v0 public SDK** surface for surfaces to build against: documented methods, stability tags, semver policy, and compatibility tests.
+Freeze a **v0.1.0 public SDK** surface for MCP / CLI / VS Code / Cursor to build
+against: documented methods, stability tags, semver policy, capability flags,
+and contract tests that lock accidental renames/removals.
 
 ## In Scope
 
-- Audit all `workspace.*` methods; mark `stable` vs `experimental`
-- Generate API reference (typedoc or markdown)
-- Contract tests that surfaces will rely on
-- ADR: versioning & deprecation policy
-- Changelog section for v0.1.0
+- Audit all `Prism` / `PrismWorkspace` methods; mark `stable` vs `experimental`
+- API reference markdown (`plans/guides/CORE_SDK.md`)
+- Contract / export-lock tests in `@prism/core`
+- ADR-0019: versioning & deprecation policy
+- Changelog for v0.1.0; bump `PRISM_CORE_VERSION` / package to `0.1.0`
+- Fix capability flags (`map`, `navigation`) to match shipped engines
+- Re-export primary return DTOs from `@prism/core` so surfaces need not dual-import
 
 ## Out of Scope
 
-- Implementing missing experimental features
+- Implementing M-024 Insights or new product APIs
 - Breaking refactors without ADR
+- Publishing to npm registry
 
 ## Definition of Done
 
-- [ ] API reference published in repo docs folder
-- [ ] Contract test suite green
-- [ ] Stability table complete
+- [x] API reference published (`plans/guides/CORE_SDK.md`)
+- [x] Contract test suite green
+- [x] Stability table complete
+- [x] ADR-0019 Accepted; CHANGELOG + version `0.1.0`
 - [ ] Verify + PROGRESS + owner approval
 
 ## Verification
 
-Typecheck · Lint · Unit · Integration (contracts) · Build · Docs link check
+`bun run verify:milestone`
 
 ## Owner Approval Checklist
 
