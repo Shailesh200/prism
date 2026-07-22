@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+        window.FontAwesomeConfig = {
+          autoReplaceSvg: 'nest'
+        };
+      </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.plot.ly/plotly-3.1.1.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        ink: '#0A0E1A',
+                        surface: '#131926',
+                        card: '#1A2030',
+                        line: '#2A334A',
+                        muted: '#94A3B8',
+                        teal: '#00C2C2',
+                        violet: '#6C63FF',
+                        amber: '#F59E0B',
+                        rose: '#F43F5E',
+                        emerald: '#10B981',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #0A0E1A; color: #fff; }
+
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #2A334A; border-radius: 4px; }
+
+        .card { background: #1A2030; border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; }
+
+        .metric-bar { height: 6px; border-radius: 99px; background: #2A334A; overflow: hidden; }
+        .metric-fill { height: 100%; border-radius: 99px; }
+
+        .health-ring {
+            position: relative;
+            width: 120px; height: 120px;
+        }
+
+        .stat-card { background: #1A2030; border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 16px; }
+
+        .nav-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 12px; border-radius: 8px;
+            font-size: 13px; color: #94A3B8;
+            cursor: pointer; transition: all 0.15s;
+        }
+        .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
+        .nav-item.active { background: rgba(0,194,194,0.1); color: #00C2C2; }
+        .nav-item .icon { width: 16px; text-align: center; }
+
+        .badge {
+            font-size: 10px; font-weight: 600; padding: 2px 8px;
+            border-radius: 99px; border: 1px solid;
+        }
+        .badge-teal { background: rgba(0,194,194,0.1); border-color: rgba(0,194,194,0.3); color: #00C2C2; }
+        .badge-amber { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.3); color: #F59E0B; }
+        .badge-rose { background: rgba(244,63,94,0.1); border-color: rgba(244,63,94,0.3); color: #F43F5E; }
+        .badge-emerald { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.3); color: #10B981; }
+        .badge-violet { background: rgba(108,99,255,0.1); border-color: rgba(108,99,255,0.3); color: #6C63FF; }
+
+        .dna-bar {
+            display: flex; align-items: center; gap: 10px;
+        }
+        .dna-segment {
+            height: 8px; border-radius: 99px; flex: 1;
+        }
+
+        .change-indicator-up { color: #10B981; }
+        .change-indicator-down { color: #F43F5E; }
+
+        .table-row:hover { background: rgba(255,255,255,0.03); }
+
+        /* mini sparkline chart container */
+        .spark { height: 40px; }
+
+        @keyframes pulse-dot { 0%,100%{opacity:1}50%{opacity:0.3} }
+        .pulse { animation: pulse-dot 2s infinite; }
+    </style>
+</head>
+<body>
+
+<div class="flex min-h-screen">
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="w-56 shrink-0 flex flex-col border-r border-white/[0.07]" style="background:#0D1220;">
+        <!-- Logo -->
+        <div class="flex items-center gap-2.5 px-4 py-4 border-b border-white/[0.06]">
+            <svg width="22" height="22" viewBox="0 0 40 40" fill="none">
+                <path d="M20 2L36 20L20 38L4 20L20 2Z" fill="#00C2C2"/>
+                <path d="M20 10L28 20L20 30L12 20L20 10Z" fill="#FFFFFF"/>
+            </svg>
+            <span class="text-sm font-semibold">Prism</span>
+        </div>
+
+        <!-- Repo selector -->
+        <div class="px-3 py-3 border-b border-white/[0.06]">
+            <div class="flex items-center justify-between bg-card rounded-lg px-3 py-2 cursor-pointer hover:border-white/15 border border-white/[0.06] transition-colors">
+                <div>
+                    <div class="text-[11px] text-muted">acme-corp /</div>
+                    <div class="text-xs font-medium text-white">platform-core</div>
+                </div>
+                <i class="fa-solid fa-chevron-down text-muted text-[10px]"></i>
+            </div>
+        </div>
+
+        <!-- Nav -->
+        <nav class="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+            <div class="text-[10px] text-muted uppercase tracking-wider font-semibold px-3 pb-2">Workspace</div>
+            <div class="nav-item active">
+                <i class="icon fa-solid fa-grid-2"></i>
+                <span>Overview</span>
+            </div>
+            <div class="nav-item">
+                <i class="icon fa-solid fa-map"></i>
+                <span>Repository Map</span>
+            </div>
+            <div class="nav-item">
+                <i class="icon fa-solid fa-dna"></i>
+                <span>Codebase DNA</span>
+            </div>
+            <div class="nav-item">
+                <i class="icon fa-solid fa-radiation"></i>
+                <span>Blast Radius</span>
+                <span class="ml-auto badge badge-amber">3</span>
+            </div>
+            <div class="nav-item">
+                <i class="icon fa-solid fa-code-pull-request"></i>
+                <span>Pull Requests</span>
+            </div>
+            <div class="nav-item">
+                <i class="icon fa-solid fa-chart-line"></i>
+                <span>Trends</span>
+            </div>
+
+            <div class="text-[10px] text-muted uppercase tracking-wider font-semibold px-3 pt-4 pb-2">Settings</div>
+            <div class="nav-item">
+                <i class="icon fa-solid fa-plug"></i>
+                <span>Integrations</span>
+            </div>
+            <div class="nav-item">
+                <i class="icon fa-solid fa-gear"></i>
+                <span>Settings</span>
+            </div>
+        </nav>
+
+        <!-- User -->
+        <div class="px-3 py-3 border-t border-white/[0.06]">
+            <div class="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-white/5 cursor-pointer transition-colors">
+                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" class="w-7 h-7 rounded-full object-cover border border-white/10" />
+                <div class="flex-1 min-w-0">
+                    <div class="text-xs font-medium text-white truncate">Alex Kim</div>
+                    <div class="text-[10px] text-muted truncate">alex@acme.com</div>
+                </div>
+                <i class="fa-solid fa-ellipsis text-muted text-xs"></i>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main content -->
+    <div class="flex-1 flex flex-col overflow-hidden" style="background:#0A0E1A;">
+
+        <!-- Top bar -->
+        <header id="header" class="flex items-center justify-between px-6 h-14 border-b border-white/[0.07] shrink-0" style="background:#0D1220;">
+            <div>
+                <div class="text-base font-semibold text-white">Overview</div>
+                <div class="text-xs text-muted">platform-core · main · Last sync 2 min ago</div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="flex items-center gap-1.5 text-xs text-muted bg-card border border-white/10 px-3 h-8 rounded-lg">
+                    <i class="fa-regular fa-calendar text-[11px]"></i>
+                    <span>Last 30 days</span>
+                    <i class="fa-solid fa-chevron-down text-[10px] ml-1"></i>
+                </div>
+                <button class="flex items-center gap-1.5 text-xs text-muted border border-white/10 px-3 h-8 rounded-lg hover:text-white hover:border-white/20 transition-colors bg-card">
+                    <i class="fa-solid fa-arrow-rotate-right text-[11px]"></i>
+                    <span>Sync</span>
+                </button>
+                <button class="flex items-center gap-1.5 text-xs bg-teal text-ink font-semibold px-4 h-8 rounded-lg hover:bg-[#00dcd4] transition-colors">
+                    <i class="fa-solid fa-share-nodes text-[11px]"></i>
+                    <span>Share Report</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Scrollable content area -->
+        <div class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+
+            <!-- KPI Row -->
+            <div id="kpi-row" class="grid grid-cols-4 gap-4">
+                <!-- Health Score -->
+                <div class="stat-card flex items-center gap-4">
+                    <div class="relative w-14 h-14 shrink-0">
+                        <svg viewBox="0 0 56 56" class="w-full h-full -rotate-90">
+                            <circle cx="28" cy="28" r="22" fill="none" stroke="#2A334A" stroke-width="5"/>
+                            <circle cx="28" cy="28" r="22" fill="none" stroke="#10B981" stroke-width="5"
+                                stroke-dasharray="138.2" stroke-dashoffset="24.9" stroke-linecap="round"/>
+                        </svg>
+                        <div class="absolute inset-0 flex items-center justify-center text-sm font-bold text-emerald" style="transform:rotate(0deg);">82</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-muted mb-0.5">Health Score</div>
+                        <div class="text-xl font-bold text-white">82<span class="text-xs text-muted font-normal">/100</span></div>
+                        <div class="text-[10px] text-emerald mt-0.5"><i class="fa-solid fa-arrow-up"></i> +3 this week</div>
+                    </div>
+                </div>
+
+                <!-- Coupling Density -->
+                <div class="stat-card">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="text-xs text-muted">Coupling Density</div>
+                        <span class="badge badge-amber">Medium</span>
+                    </div>
+                    <div class="text-xl font-bold text-white mb-1">0.62</div>
+                    <div class="metric-bar">
+                        <div class="metric-fill bg-amber" style="width:62%"></div>
+                    </div>
+                    <div class="text-[10px] text-muted mt-1.5">Target: &lt; 0.50</div>
+                </div>
+
+                <!-- Test Coverage -->
+                <div class="stat-card">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="text-xs text-muted">Test Coverage</div>
+                        <span class="badge badge-teal">Improving</span>
+                    </div>
+                    <div class="text-xl font-bold text-white mb-1">71%</div>
+                    <div class="metric-bar">
+                        <div class="metric-fill" style="width:71%;background:linear-gradient(90deg,#6C63FF,#00C2C2);"></div>
+                    </div>
+                    <div class="text-[10px] text-muted mt-1.5"><i class="fa-solid fa-arrow-up text-emerald"></i> +4% vs last month</div>
+                </div>
+
+                <!-- Active Blast Risks -->
+                <div class="stat-card">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="text-xs text-muted">Blast Risks (open PRs)</div>
+                        <span class="badge badge-rose">3 Active</span>
+                    </div>
+                    <div class="text-xl font-bold text-rose mb-2">3</div>
+                    <div class="space-y-1.5">
+                        <div class="flex items-center justify-between text-[11px]">
+                            <span class="font-mono text-muted truncate">auth/session.ts</span>
+                            <span class="text-amber shrink-0 ml-2">High</span>
+                        </div>
+                        <div class="flex items-center justify-between text-[11px]">
+                            <span class="font-mono text-muted truncate">pipeline/transform.ts</span>
+                            <span class="text-rose shrink-0 ml-2">Critical</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Middle Row: DNA + Activity Chart -->
+            <div id="middle-row" class="grid grid-cols-3 gap-4">
+
+                <!-- Codebase DNA Panel -->
+                <div class="card p-5 col-span-1">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-dna text-teal text-sm"></i>
+                            <span class="text-sm font-semibold">Codebase DNA</span>
+                        </div>
+                        <span class="text-[10px] text-muted">platform-core</span>
+                    </div>
+
+                    <!-- DNA double-helix visual: colored stacked bars per dimension -->
+                    <div class="space-y-3 mb-4">
+                        <div>
+                            <div class="flex justify-between text-xs mb-1.5">
+                                <span class="text-muted">Modularity</span>
+                                <span class="text-white font-mono font-medium">78</span>
+                            </div>
+                            <div class="dna-bar">
+                                <div class="dna-segment" style="background:linear-gradient(90deg,#00C2C2,#0090A0);flex:0.78;"></div>
+                                <div class="dna-segment" style="background:#2A334A;flex:0.22;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1.5">
+                                <span class="text-muted">Coupling</span>
+                                <span class="text-amber font-mono font-medium">38</span>
+                            </div>
+                            <div class="dna-bar">
+                                <div class="dna-segment" style="background:linear-gradient(90deg,#F59E0B,#D97706);flex:0.38;"></div>
+                                <div class="dna-segment" style="background:#2A334A;flex:0.62;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1.5">
+                                <span class="text-muted">Test Coverage</span>
+                                <span class="text-violet font-mono font-medium">71</span>
+                            </div>
+                            <div class="dna-bar">
+                                <div class="dna-segment" style="background:linear-gradient(90deg,#6C63FF,#5953D4);flex:0.71;"></div>
+                                <div class="dna-segment" style="background:#2A334A;flex:0.29;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1.5">
+                                <span class="text-muted">Ownership Clarity</span>
+                                <span class="text-emerald font-mono font-medium">89</span>
+                            </div>
+                            <div class="dna-bar">
+                                <div class="dna-segment" style="background:linear-gradient(90deg,#10B981,#059669);flex:0.89;"></div>
+                                <div class="dna-segment" style="background:#2A334A;flex:0.11;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1.5">
+                                <span class="text-muted">Churn Rate</span>
+                                <span class="text-rose font-mono font-medium">44</span>
+                            </div>
+                            <div class="dna-bar">
+                                <div class="dna-segment" style="background:linear-gradient(90deg,#F43F5E,#E11D48);flex:0.44;"></div>
+                                <div class="dna-segment" style="background:#2A334A;flex:0.56;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1.5">
+                                <span class="text-muted">Doc Coverage</span>
+                                <span class="text-muted font-mono font-medium">52</span>
+                            </div>
+                            <div class="dna-bar">
+                                <div class="dna-segment" style="background:linear-gradient(90deg,#94A3B8,#64748B);flex:0.52;"></div>
+                                <div class="dna-segment" style="background:#2A334A;flex:0.48;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-white/[0.06] pt-3 text-center">
+                        <div class="text-[10px] text-muted mb-0.5">Overall DNA Score</div>
+                        <div class="text-2xl font-bold" style="background:linear-gradient(90deg,#00C2C2,#6C63FF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">62 / 100</div>
+                    </div>
+                </div>
+
+                <!-- Health Trend Chart -->
+                <div class="card p-5 col-span-2">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-chart-line text-teal text-sm"></i>
+                            <span class="text-sm font-semibold">Health Trend</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-xs text-muted">
+                            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-teal inline-block"></span>Health</span>
+                            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-violet inline-block"></span>Coverage</span>
+                            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber inline-block"></span>Coupling</span>
+                        </div>
+                    </div>
+                    <div id="health-chart" style="height:220px;"></div>
+                </div>
+            </div>
+
+            <!-- Bottom Row: Feature Region Health + Blast Radius + Recent Activity -->
+            <div id="bottom-row" class="grid grid-cols-3 gap-4">
+
+                <!-- Feature Region Health Table -->
+                <div class="card p-5 col-span-1">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-layer-group text-violet text-sm"></i>
+                            <span class="text-sm font-semibold">Region Health</span>
+                        </div>
+                    </div>
+                    <div class="space-y-0">
+                        <!-- Header -->
+                        <div class="grid grid-cols-3 text-[10px] text-muted font-semibold uppercase tracking-wide pb-2 border-b border-white/[0.06]">
+                            <span>Region</span>
+                            <span class="text-right">Score</span>
+                            <span class="text-right">Trend</span>
+                        </div>
+                        <!-- Rows -->
+                        <div class="table-row grid grid-cols-3 items-center py-2.5 border-b border-white/[0.04] rounded-md px-1 -mx-1">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-teal shrink-0"></span>
+                                <span class="text-xs text-white">Auth</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-xs font-mono font-medium text-emerald">74</span>
+                            </div>
+                            <div class="text-right text-xs change-indicator-up"><i class="fa-solid fa-arrow-up text-[10px]"></i> +2</div>
+                        </div>
+                        <div class="table-row grid grid-cols-3 items-center py-2.5 border-b border-white/[0.04] rounded-md px-1 -mx-1">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-violet shrink-0"></span>
+                                <span class="text-xs text-white">Billing</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-xs font-mono font-medium text-emerald">88</span>
+                            </div>
+                            <div class="text-right text-xs change-indicator-up"><i class="fa-solid fa-arrow-up text-[10px]"></i> +1</div>
+                        </div>
+                        <div class="table-row grid grid-cols-3 items-center py-2.5 border-b border-white/[0.04] rounded-md px-1 -mx-1">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-amber shrink-0"></span>
+                                <span class="text-xs text-white">Notifications</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-xs font-mono font-medium text-amber">61</span>
+                            </div>
+                            <div class="text-right text-xs change-indicator-down"><i class="fa-solid fa-arrow-down text-[10px]"></i> −3</div>
+                        </div>
+                        <div class="table-row grid grid-cols-3 items-center py-2.5 border-b border-white/[0.04] rounded-md px-1 -mx-1">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-rose shrink-0"></span>
+                                <span class="text-xs text-white">Data Pipeline</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-xs font-mono font-medium text-rose">52</span>
+                            </div>
+                            <div class="text-right text-xs change-indicator-down"><i class="fa-solid fa-arrow-down text-[10px]"></i> −7</div>
+                        </div>
+                        <div class="table-row grid grid-cols-3 items-center py-2.5 border-b border-white/[0.04] rounded-md px-1 -mx-1">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-emerald shrink-0"></span>
+                                <span class="text-xs text-white">API Gateway</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-xs font-mono font-medium text-emerald">91</span>
+                            </div>
+                            <div class="text-right text-xs change-indicator-up"><i class="fa-solid fa-arrow-up text-[10px]"></i> +5</div>
+                        </div>
+                        <div class="table-row grid grid-cols-3 items-center py-2.5 rounded-md px-1 -mx-1">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full shrink-0" style="background:#A78BFA;"></span>
+                                <span class="text-xs text-white">Analytics</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-xs font-mono font-medium text-white">79</span>
+                            </div>
+                            <div class="text-right text-xs text-muted">— 0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Blast Radius Chart -->
+                <div class="card p-5 col-span-1">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-radiation text-amber text-sm"></i>
+                            <span class="text-sm font-semibold">Blast Radius Risk</span>
+                        </div>
+                        <span class="badge badge-rose">3 open</span>
+                    </div>
+                    <div id="blast-chart" style="height:180px;"></div>
+                    <!-- Risk list -->
+                    <div class="mt-3 space-y-2">
+                        <div class="flex items-center justify-between py-1.5 px-2 rounded-lg bg-rose/5 border border-rose/15">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-circle-exclamation text-rose text-xs"></i>
+                                <span class="text-xs font-mono text-white">pipeline/transform.ts</span>
+                            </div>
+                            <span class="badge badge-rose">Critical · 22 modules</span>
+                        </div>
+                        <div class="flex items-center justify-between py-1.5 px-2 rounded-lg bg-amber/5 border border-amber/15">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-triangle-exclamation text-amber text-xs"></i>
+                                <span class="text-xs font-mono text-white">auth/session.ts</span>
+                            </div>
+                            <span class="badge badge-amber">High · 14 modules</span>
+                        </div>
+                        <div class="flex items-center justify-between py-1.5 px-2 rounded-lg bg-violet/5 border border-violet/15">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-circle-info text-violet text-xs"></i>
+                                <span class="text-xs font-mono text-white">billing/invoice.ts</span>
+                            </div>
+                            <span class="badge badge-violet">Med · 8 modules</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="card p-5 col-span-1">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-clock-rotate-left text-muted text-sm"></i>
+                            <span class="text-sm font-semibold">Recent Activity</span>
+                        </div>
+                        <div class="flex items-center gap-1 text-[10px] text-muted">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald pulse inline-block"></span>
+                            Live
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div class="flex gap-3">
+                            <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-4.jpg" class="w-7 h-7 rounded-full object-cover border border-white/10 shrink-0 mt-0.5" />
+                            <div class="flex-1 min-w-0">
+                                <div class="text-xs text-white font-medium">auth/session.ts modified</div>
+                                <div class="text-[11px] text-muted">+48 −12 · Alex K. · <span class="text-amber">Blast risk detected</span></div>
+                                <div class="text-[10px] text-muted/60 mt-0.5">3h ago</div>
+                            </div>
+                        </div>
+                        <div class="flex gap-3">
+                            <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-6.jpg" class="w-7 h-7 rounded-full object-cover border border-white/10 shrink-0 mt-0.5" />
+                            <div class="flex-1 min-w-0">
+                                <div class="text-xs text-white font-medium">billing/invoice.ts modified</div>
+                                <div class="text-[11px] text-muted">+22 −8 · Jamie L. · <span class="text-emerald">Coverage improved</span></div>
+                                <div class="text-[10px] text-muted/60 mt-0.5">5h ago</div>
+                            </div>
+                        </div>
+                        <div class="flex gap-3">
+                            <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" class="w-7 h-7 rounded-full object-cover border border-white/10 shrink-0 mt-0.5" />
+                            <div class="flex-1 min-w-0">
+                                <div class="text-xs text-white font-medium">pipeline/transform.ts modified</div>
+                                <div class="text-[11px] text-muted">+91 −34 · Sam R. · <span class="text-rose">High churn detected</span></div>
+                                <div class="text-[10px] text-muted/60 mt-0.5">8h ago</div>
+                            </div>
+                        </div>
+                        <div class="flex gap-3">
+                            <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-9.jpg" class="w-7 h-7 rounded-full object-cover border border-white/10 shrink-0 mt-0.5" />
+                            <div class="flex-1 min-w-0">
+                                <div class="text-xs text-white font-medium">gateway/router.ts refactored</div>
+                                <div class="text-[11px] text-muted">+104 −67 · Priya N. · <span class="text-teal">Health improved +5</span></div>
+                                <div class="text-[10px] text-muted/60 mt-0.5">12h ago</div>
+                            </div>
+                        </div>
+                        <div class="flex gap-3">
+                            <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-3.jpg" class="w-7 h-7 rounded-full object-cover border border-white/10 shrink-0 mt-0.5" />
+                            <div class="flex-1 min-w-0">
+                                <div class="text-xs text-white font-medium">notif/dispatcher.ts created</div>
+                                <div class="text-[11px] text-muted">+212 · Marcus W. · <span class="text-muted">New module</span></div>
+                                <div class="text-[10px] text-muted/60 mt-0.5">1d ago</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- end scroll -->
+    </div><!-- end main -->
+</div>
+
+<script>
+window.addEventListener('load', function () {
+    const plotBg = '#1A2030';
+    const gridColor = 'rgba(255,255,255,0.05)';
+    const textColor = '#94A3B8';
+
+    // --- Health Trend Chart ---
+    try {
+        const months = ['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
+        Plotly.newPlot('health-chart', [
+            {
+                type: 'scatter', mode: 'lines', name: 'Health',
+                x: months, y: [71, 74, 70, 76, 79, 82],
+                line: { color: '#00C2C2', width: 2.5, shape: 'spline' },
+                fill: 'tozeroy',
+                fillcolor: 'rgba(0,194,194,0.06)',
+            },
+            {
+                type: 'scatter', mode: 'lines', name: 'Coverage',
+                x: months, y: [60, 63, 64, 67, 69, 71],
+                line: { color: '#6C63FF', width: 2, shape: 'spline', dash: 'dot' },
+            },
+            {
+                type: 'scatter', mode: 'lines', name: 'Coupling',
+                x: months, y: [71, 68, 65, 64, 63, 62],
+                line: { color: '#F59E0B', width: 2, shape: 'spline', dash: 'dash' },
+            }
+        ], {
+            margin: { t: 10, r: 10, b: 30, l: 35 },
+            paper_bgcolor: plotBg,
+            plot_bgcolor: plotBg,
+            xaxis: {
+                tickfont: { color: textColor, size: 10 },
+                gridcolor: gridColor, showgrid: true,
+                zeroline: false,
+            },
+            yaxis: {
+                tickfont: { color: textColor, size: 10 },
+                gridcolor: gridColor, showgrid: true,
+                zeroline: false, range: [50, 100],
+            },
+            legend: { font: { color: textColor, size: 10 }, orientation: 'h', x: 0, y: -0.12 },
+            showlegend: true,
+        }, { responsive: true, displayModeBar: false, displaylogo: false });
+    } catch(e) {
+        document.getElementById('health-chart').innerHTML = '<p class="text-muted text-xs p-4">Chart unavailable</p>';
+    }
+
+    // --- Blast Radius Bar Chart ---
+    try {
+        Plotly.newPlot('blast-chart', [{
+            type: 'bar',
+            x: ['pipeline/transform', 'auth/session', 'billing/invoice'],
+            y: [22, 14, 8],
+            marker: {
+                color: ['#F43F5E', '#F59E0B', '#6C63FF'],
+            },
+            text: ['22', '14', '8'],
+            textposition: 'outside',
+            textfont: { color: '#94A3B8', size: 10 },
+        }], {
+            margin: { t: 10, r: 10, b: 50, l: 30 },
+            paper_bgcolor: plotBg,
+            plot_bgcolor: plotBg,
+            xaxis: {
+                tickfont: { color: textColor, size: 9 },
+                gridcolor: gridColor, showgrid: false,
+                zeroline: false,
+            },
+            yaxis: {
+                title: { text: 'Modules affected', font: { color: textColor, size: 9 } },
+                tickfont: { color: textColor, size: 9 },
+                gridcolor: gridColor, showgrid: true,
+                zeroline: false,
+            },
+            showlegend: false,
+        }, { responsive: true, displayModeBar: false, displaylogo: false });
+    } catch(e) {
+        document.getElementById('blast-chart').innerHTML = '<p class="text-muted text-xs p-4">Chart unavailable</p>';
+    }
+});
+</script>
+</body>
+</html>

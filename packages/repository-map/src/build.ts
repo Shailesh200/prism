@@ -1,6 +1,10 @@
 import { layoutGraph } from "@prism/graph-engine";
 import type {
   FeatureInfo,
+  GitCommitRef,
+  GitContributor,
+  GitFileSignal,
+  GitRepoSummary,
   GraphEdgeDto,
   GraphNodeDto,
   GraphSnapshotDto,
@@ -9,10 +13,15 @@ import type {
   Landmark,
   MapBookmark,
   MapCluster,
+  MapLayerDescriptor,
   MapSearchHit,
   MapZoomLevel,
   RepositoryMap,
 } from "@prism/shared";
+import {
+  annotateGraphWithLayerSignals,
+  computeLayerSignals,
+} from "./layer-signals.js";
 import { listMapLayerDescriptors, resolveActiveLayers } from "./layers.js";
 import { clusteringNoteFor } from "./zoom.js";
 
@@ -31,6 +40,10 @@ export type BuildRepositoryMapInput = {
   readonly zoom?: MapZoomLevel;
   readonly layers?: readonly string[];
   readonly generatedAt?: string;
+  /** Per-file local git history (ADR-0013). Absent on non-git roots. */
+  readonly gitSignals?: ReadonlyMap<string, GitFileSignal>;
+  /** Repo-level git summary. */
+  readonly gitSummary?: GitRepoSummary;
 };
 
 function node(
@@ -256,6 +269,170 @@ function buildSymbolZoom(snapshot: IndexSnapshot): {
   };
 }
 
+/**
+ * Attach `attrs.weight` (relative size for treemap area) and, where known, a
+ * `scopePrefix` drill pointer. Weight = analyzed-file count under a node's
+ * scope; symbols/files fall back to a small intrinsic size.
+ */
+function annotateWeights(
+  graph: GraphSnapshotDto,
+  snapshot: IndexSnapshot,
+): GraphSnapshotDto {
+  const analyzed = snapshot.files.filter((f) => f.status === "analyzed");
+  const symbolsByPath = new Map(
+    analyzed.map((f) => [f.path, f.symbols.length]),
+  );
+  const paths = analyzed.map((f) => f.path);
+  const countUnder = (prefix: string): number => {
+    const p = prefix.replace(/\/$/, "");
+    if (p === "" || p === ".") return paths.length;
+    return paths.filter((fp) => fp === p || fp.startsWith(`${p}/`)).length;
+  };
+
+  const nodes = graph.nodes.map((n) => {
+    const path =
+      typeof n.attrs?.path === "string"
+        ? n.attrs.path
+        : n.kind === "file"
+          ? n.label
+          : null;
+    let weight = 1;
+    let scopePrefix: string | null = null;
+    if (n.kind === "symbol") {
+      weight = 1;
+    } else if (path) {
+      weight = (symbolsByPath.get(path) ?? 0) + 1;
+      scopePrefix = path;
+    } else if (n.kind === "workspace") {
+      weight = Math.max(1, paths.length);
+    } else if (n.kind === "package") {
+      const rootDir =
+        typeof n.attrs?.rootDir === "string" ? n.attrs.rootDir : "";
+      weight = Math.max(1, countUnder(rootDir));
+      scopePrefix = rootDir;
+    } else if (Array.isArray(n.attrs?.memberFiles)) {
+      weight = Math.max(1, n.attrs.memberFiles.length);
+    }
+    return {
+      ...n,
+      attrs: {
+        ...n.attrs,
+        weight,
+        ...(scopePrefix === null ? {} : { scopePrefix }),
+      },
+    };
+  });
+  return { ...graph, nodes };
+}
+
+function gitAttrForFile(sig: GitFileSignal): JsonValue {
+  return {
+    lastCommit: sig.lastCommit,
+    commits: sig.commits,
+    additions: sig.additions,
+    deletions: sig.deletions,
+    contributors: sig.contributors.slice(0, 5),
+    recent: sig.recent.slice(0, 5),
+    weeks: sig.weeks,
+  } as unknown as JsonValue;
+}
+
+function rollupGit(sigs: readonly GitFileSignal[]): JsonValue | null {
+  if (sigs.length === 0) return null;
+  let commits = 0;
+  let additions = 0;
+  let deletions = 0;
+  let last: GitCommitRef | null = null;
+  const byAuthor = new Map<string, GitContributor>();
+  const recentAll: GitCommitRef[] = [];
+  let weeks: number[] = [];
+  for (const s of sigs) {
+    commits += s.commits;
+    additions += s.additions;
+    deletions += s.deletions;
+    if (!last || s.lastCommit.date > last.date) last = s.lastCommit;
+    for (const c of s.contributors) {
+      const prev = byAuthor.get(c.author);
+      byAuthor.set(c.author, {
+        author: c.author,
+        commits: (prev?.commits ?? 0) + c.commits,
+        additions: (prev?.additions ?? 0) + c.additions,
+        deletions: (prev?.deletions ?? 0) + c.deletions,
+      });
+    }
+    recentAll.push(...s.recent);
+    if (s.weeks.length > weeks.length) {
+      weeks = s.weeks.map(() => 0);
+    }
+  }
+  for (const s of sigs) {
+    const offset = weeks.length - s.weeks.length;
+    s.weeks.forEach((v, i) => {
+      weeks[offset + i] = (weeks[offset + i] ?? 0) + v;
+    });
+  }
+  const contributors = [...byAuthor.values()]
+    .sort((a, b) => b.commits - a.commits || a.author.localeCompare(b.author))
+    .slice(0, 5);
+  const seen = new Set<string>();
+  const recent = recentAll
+    .filter((c) => (seen.has(c.sha) ? false : (seen.add(c.sha), true)))
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+    .slice(0, 5);
+  return {
+    lastCommit: last,
+    commits,
+    additions,
+    deletions,
+    contributors,
+    recent,
+    weeks,
+  } as unknown as JsonValue;
+}
+
+/** Attach `attrs.git` per node from local git signals (file / rollup). */
+function annotateGitAttrs(
+  graph: GraphSnapshotDto,
+  gitSignals: ReadonlyMap<string, GitFileSignal>,
+): GraphSnapshotDto {
+  const under = (prefix: string): GitFileSignal[] => {
+    const p = prefix.replace(/\/$/, "");
+    const out: GitFileSignal[] = [];
+    for (const [path, sig] of gitSignals) {
+      if (p === "" || p === "." || path === p || path.startsWith(`${p}/`)) {
+        out.push(sig);
+      }
+    }
+    return out;
+  };
+
+  const nodes = graph.nodes.map((n) => {
+    const path =
+      typeof n.attrs?.path === "string"
+        ? n.attrs.path
+        : n.kind === "file"
+          ? n.label
+          : null;
+    let git: JsonValue | null = null;
+    if (path && gitSignals.has(path)) {
+      git = gitAttrForFile(gitSignals.get(path)!);
+    } else if (Array.isArray(n.attrs?.memberFiles)) {
+      const sigs = n.attrs.memberFiles
+        .filter((m): m is string => typeof m === "string")
+        .map((m) => gitSignals.get(m))
+        .filter((s): s is GitFileSignal => s !== undefined);
+      git = rollupGit(sigs);
+    } else if (typeof n.attrs?.scopePrefix === "string") {
+      git = rollupGit(under(n.attrs.scopePrefix));
+    } else if (n.kind === "workspace") {
+      git = rollupGit([...gitSignals.values()]);
+    }
+    if (git === null) return n;
+    return { ...n, attrs: { ...n.attrs, git } };
+  });
+  return { ...graph, nodes };
+}
+
 function buildSearchIndex(
   graph: GraphSnapshotDto,
   clusters: readonly MapCluster[],
@@ -309,7 +486,20 @@ export function buildRepositoryMap(
 ): RepositoryMap {
   const zoom = input.zoom ?? "feature";
   const activeLayerIds = resolveActiveLayers(input.layers);
-  const layers = listMapLayerDescriptors();
+  const hasGit = Boolean(input.gitSignals && input.gitSignals.size > 0);
+  const layers = listMapLayerDescriptors().map(
+    (l): MapLayerDescriptor =>
+      hasGit && (l.id === "activity" || l.id === "ownership")
+        ? {
+            ...l,
+            stub: false,
+            description:
+              l.id === "activity"
+                ? "Recent commit heat (local git history)"
+                : "Top author bands (local git blame)",
+          }
+        : l,
+  );
   const bookmarks = [...(input.bookmarks ?? [])].sort((a, b) =>
     a.id.localeCompare(b.id),
   );
@@ -336,9 +526,20 @@ export function buildRepositoryMap(
     }
   }
 
-  const layoutResult = layoutGraph(built.graph);
+  const weighted = annotateWeights(built.graph, input.snapshot);
+  const withGit =
+    input.gitSignals && input.gitSignals.size > 0
+      ? annotateGitAttrs(weighted, input.gitSignals)
+      : weighted;
+  const signals = computeLayerSignals(
+    input.snapshot,
+    input.dependencyGraph,
+    input.gitSignals,
+  );
+  const graph = annotateGraphWithLayerSignals(withGit, signals);
+  const layoutResult = layoutGraph(graph);
   const searchIndex = buildSearchIndex(
-    built.graph,
+    graph,
     built.clusters,
     input.landmarks,
     bookmarks,
@@ -351,12 +552,13 @@ export function buildRepositoryMap(
     zoom,
     layers,
     activeLayerIds,
-    graph: built.graph,
+    graph,
     ...(layoutResult.ok ? { layout: layoutResult.value } : {}),
     clusters: built.clusters,
     landmarks: [...input.landmarks].sort((a, b) => a.id.localeCompare(b.id)),
     bookmarks,
     searchIndex,
     clusteringNote: clusteringNoteFor(zoom),
+    ...(input.gitSummary === undefined ? {} : { git: input.gitSummary }),
   };
 }

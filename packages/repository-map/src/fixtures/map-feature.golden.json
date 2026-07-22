@@ -20,43 +20,43 @@
     {
       "id": "activity",
       "label": "Activity",
-      "description": "Git churn / edit heat (stub until M-022)",
-      "available": false,
+      "description": "Edit / touch-surface heat (local stub until M-022)",
+      "available": true,
       "stub": true
     },
     {
       "id": "ownership",
       "label": "Ownership",
-      "description": "CODEOWNERS / team regions (stub)",
-      "available": false,
+      "description": "Folder / package ownership bands (local stub)",
+      "available": true,
       "stub": true
     },
     {
       "id": "debt",
       "label": "Debt",
-      "description": "Diagnostics and debt hotspots (stub)",
-      "available": false,
-      "stub": true
+      "description": "Parse diagnostics and failed files",
+      "available": true,
+      "stub": false
     },
     {
       "id": "risk",
       "label": "Risk",
-      "description": "Blast-radius / risk heat (stub until M-020)",
-      "available": false,
+      "description": "Dependency fan-in heat (blast-radius later in M-020)",
+      "available": true,
       "stub": true
     },
     {
       "id": "performance",
       "label": "Performance",
-      "description": "CWV / utility overlays (stub wiring to M-041)",
-      "available": false,
+      "description": "Frontend surface heat (CWV overlays later)",
+      "available": true,
       "stub": true
     },
     {
       "id": "coverage",
       "label": "Coverage",
-      "description": "Test coverage overlays (stub)",
-      "available": false,
+      "description": "Coverage gap heat (nearby test presence)",
+      "available": true,
       "stub": true
     }
   ],
@@ -76,7 +76,16 @@
           "confidence": 0.9,
           "memberFiles": [
             "apps/web/a.ts"
-          ]
+          ],
+          "weight": 1,
+          "layerSignals": {
+            "activity": 0.41265,
+            "ownership": 0.6043,
+            "debt": 0,
+            "risk": 0,
+            "performance": 0.09960000000000001,
+            "coverage": 0.8376000000000001
+          }
         }
       },
       {
@@ -88,7 +97,16 @@
           "confidence": 0.8,
           "memberFiles": [
             "apps/api/b.ts"
-          ]
+          ],
+          "weight": 1,
+          "layerSignals": {
+            "activity": 0.1683,
+            "ownership": 0.45940000000000003,
+            "debt": 0,
+            "risk": 1,
+            "performance": 0.028999999999999998,
+            "coverage": 0.7564000000000001
+          }
         }
       }
     ],

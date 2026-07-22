@@ -1,0 +1,226 @@
+/* =========================================================
+   App navigation — shared by dashboard (full) and map (rail).
+   Rail collapses to an icon strip and cascades open on hover.
+   ========================================================= */
+
+.appnav {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  background: #0d1220;
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  color: #94a3b8;
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  white-space: nowrap;
+}
+
+.appnav--full {
+  width: 100%;
+}
+
+/* Rail: overlay the content, collapsed to icons, expand on hover/focus. */
+.appnav--rail {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 60;
+  width: 56px;
+  overflow: hidden;
+  transition:
+    width 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.appnav--rail:hover,
+.appnav--rail:focus-within {
+  width: 224px;
+  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.6);
+}
+
+/* Text/labels: always shown when full; fade in on hover when rail. */
+.appnav__reveal {
+  transition: opacity 0.15s ease;
+}
+
+.appnav--rail .appnav__reveal {
+  opacity: 0;
+}
+
+.appnav--rail:hover .appnav__reveal,
+.appnav--rail:focus-within .appnav__reveal {
+  opacity: 1;
+}
+
+/* Rail hides blocks that make no sense collapsed until expanded. */
+.appnav--rail .appnav__repo,
+.appnav--rail .appnav__group {
+  pointer-events: none;
+}
+
+.appnav__logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.appnav__repo {
+  padding: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.appnav__repo-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #1a2030;
+}
+
+.appnav__repo-scope {
+  font-size: 0.6875rem;
+  color: #94a3b8;
+}
+
+.appnav__repo-name {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #fff;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.appnav__nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.appnav__group {
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: #94a3b8;
+  padding: 0 12px 6px;
+  margin: 0;
+  height: 0.75rem;
+}
+
+.appnav__group:not(:first-of-type) {
+  padding-top: 16px;
+  height: auto;
+}
+
+.appnav__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 11px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #94a3b8;
+  font: inherit;
+  font-size: 0.8125rem;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.appnav__item > svg {
+  flex-shrink: 0;
+}
+
+.appnav__item:not(.appnav__item--soon):hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+.appnav__item[data-active="true"] {
+  background: rgba(0, 194, 194, 0.1);
+  color: #00c2c2;
+}
+
+.appnav__item--soon {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.appnav__item .appnav__reveal:nth-of-type(1) {
+  flex: 1;
+}
+
+.appnav__soon {
+  font-size: 0.5625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 99px;
+  background: rgba(148, 163, 184, 0.12);
+  color: #94a3b8;
+}
+
+.appnav__user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.appnav__user-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #00c2c2, #6c63ff);
+}
+
+.appnav__user-text {
+  min-width: 0;
+}
+
+.appnav__user-name {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.appnav__user-sub {
+  font-size: 0.625rem;
+  color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Respect users who ask for less motion: expand/reveal still happen, instantly. */
+@media (prefers-reduced-motion: reduce) {
+  .appnav--rail,
+  .appnav__reveal,
+  .appnav__item {
+    transition: none;
+  }
+}

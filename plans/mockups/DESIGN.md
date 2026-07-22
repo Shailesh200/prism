@@ -2,6 +2,7 @@
 version: alpha
 name: Prism
 description: Local-first software intelligence — cartographic engineering maps for code. Calm, precise, instrument-grade. Not an AI chatbot product.
+note: "PRODUCT UI RELOCKED to UXPilot dark (ADR-0014). Live tokens are packages/ui/src/tokens.css (dark navy, cyan #00C2C2, violet #6C63FF, Inter + JetBrains Mono). The light Signal Chart tokens below are retained as history / future light-theme flip."
 colors:
   primary: "#0F766E"
   primary-strong: "#115E59"

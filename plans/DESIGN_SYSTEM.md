@@ -1,8 +1,8 @@
 # Prism — Product Theme, Vibe & Design System
 
-> Status: **LOCKED** (brand assets + Signal Chart direction)  
+> Status: **LOCKED** (brand assets); **product UI relocked to UXPilot dark** — see [ADR-0014](./adr/0014-uxpilot-dark-product-ui.md).  
 > Brand files: [`mockups/LOCKED.md`](./mockups/LOCKED.md) · Gallery: [`mockups/gallery.html`](./mockups/gallery.html)  
-> UI screen mockups deferred — implement Map UI from this system in M-018+.
+> **Product UI (M-042+): dark theme** — navy canvas, cyan `#00C2C2`, violet `#6C63FF`, Inter + JetBrains Mono. Live tokens: `packages/ui/src/tokens.css`. The light Signal Chart notes below are retained as history and as the future light-theme token flip.
 
 ---
 

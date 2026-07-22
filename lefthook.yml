@@ -3,7 +3,9 @@ pre-commit:
   commands:
     oxfmt:
       glob: "*.{js,jsx,ts,tsx,mjs,cjs,json}"
+      exclude: '\.generated\.(ts|tsx|js|jsx|mjs|cjs)$'
       run: bunx oxfmt {staged_files}
     oxlint:
       glob: "*.{js,jsx,ts,tsx,mjs,cjs}"
+      exclude: '\.generated\.(ts|tsx|js|jsx|mjs|cjs)$'
       run: bunx oxlint {staged_files}

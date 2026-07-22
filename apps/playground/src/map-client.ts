@@ -1,5 +1,15 @@
-import type { MapZoomLevel, RepositoryMap } from "@prism/shared";
-import { RepositoryMapSchema } from "@prism/shared";
+import type {
+  GitActivity,
+  HealthScore,
+  MapLayerId,
+  MapZoomLevel,
+  RepositoryMap,
+} from "@prism/shared";
+import {
+  GitActivitySchema,
+  HealthScoreSchema,
+  RepositoryMapSchema,
+} from "@prism/shared";
 
 type FixtureMaps = Partial<Record<MapZoomLevel, RepositoryMap>>;
 
@@ -17,10 +27,12 @@ export type PlaygroundPresets = {
 async function fromApi(
   zoom: MapZoomLevel,
   root: string | null,
+  layers?: readonly MapLayerId[] | null,
 ): Promise<RepositoryMap | null> {
   try {
     const params = new URLSearchParams({ zoom });
     if (root) params.set("root", root);
+    if (layers && layers.length > 0) params.set("layers", layers.join(","));
     const res = await fetch(`/api/map?${params}`);
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as {
@@ -66,12 +78,45 @@ export async function fetchPresets(): Promise<PlaygroundPresets | null> {
   }
 }
 
+/** Local git activity for the dashboard (recent files/commits + last synced). */
+export async function fetchGitActivity(
+  root: string | null,
+): Promise<GitActivity | null> {
+  try {
+    const params = new URLSearchParams();
+    if (root) params.set("root", root);
+    const res = await fetch(`/api/git?${params}`);
+    if (!res.ok) return null;
+    const parsed = GitActivitySchema.safeParse(await res.json());
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Repository health score + factors (Core `getHealth`). */
+export async function fetchHealth(
+  root: string | null,
+): Promise<HealthScore | null> {
+  try {
+    const params = new URLSearchParams();
+    if (root) params.set("root", root);
+    const res = await fetch(`/api/health?${params}`);
+    if (!res.ok) return null;
+    const parsed = HealthScoreSchema.safeParse(await res.json());
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Load map from Vite Core middleware (dev) or static fixture bundle (build). */
 export async function fetchRepositoryMap(
   zoom: MapZoomLevel,
   root: string | null = null,
+  layers?: readonly MapLayerId[] | null,
 ): Promise<RepositoryMap> {
-  const live = await fromApi(zoom, root);
+  const live = await fromApi(zoom, root, layers);
   if (live) return live;
   if (!root) {
     const staticMap = await fromStatic(zoom);

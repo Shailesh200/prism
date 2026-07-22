@@ -9,23 +9,41 @@ const CLUSTER_GAP_X = 72;
 const CLUSTER_GAP_Y = 64;
 const CLUSTER_PAD_X = 16;
 const CLUSTER_PAD_TOP = 44;
-const CLUSTER_COLS = 3;
+/** Cap columns so a single big cluster wraps into a near-square block. */
+const CLUSTER_COLS_MAX = 6;
+/** Wrap clusters onto a new row past this width (keeps overviews compact). */
+const MAX_ROW_W = 1680;
 
 const edgeStyle = {
-  type: "smoothstep" as const,
+  type: "default" as const,
+  className: "prism-edge prism-edge--focus",
   style: {
-    stroke: "rgba(15, 118, 110, 0.45)",
-    strokeWidth: 1.6,
+    stroke: "url(#prism-edge-gradient)",
+    strokeWidth: 1.9,
   },
 };
 
 const edgeDimStyle = {
-  type: "smoothstep" as const,
+  type: "default" as const,
+  className: "prism-edge prism-edge--spoke",
   style: {
-    stroke: "rgba(15, 118, 110, 0.16)",
-    strokeWidth: 1.2,
+    stroke: "color-mix(in srgb, var(--prism-brand) 24%, transparent)",
+    strokeWidth: 1.3,
   },
 };
+
+/** Faint always-on "arterial" routes — curated, never a hairball. */
+const edgeAmbientStyle = {
+  type: "default" as const,
+  className: "prism-edge prism-edge--ambient",
+  style: {
+    stroke: "color-mix(in srgb, var(--prism-brand) 22%, transparent)",
+    strokeWidth: 1.1,
+  },
+};
+
+/** Cap on ambient routes shown when nothing is selected. */
+const AMBIENT_CAP = 8;
 
 export type OverviewLayout = {
   readonly nodes: Node[];
@@ -102,7 +120,10 @@ function clusterInnerSize(count: number): {
   w: number;
   h: number;
 } {
-  const cols = Math.min(CLUSTER_COLS, Math.max(1, count));
+  const cols = Math.min(
+    CLUSTER_COLS_MAX,
+    Math.max(1, Math.round(Math.sqrt(count))),
+  );
   const rows = Math.ceil(count / cols);
   return {
     cols,
@@ -146,8 +167,24 @@ function selectEdges(
       }));
   }
 
-  // Feature/package landing: no spaghetti — relationships appear on select.
-  return [];
+  // Feature/package landing: curated arterial routes between the most
+  // connected nodes — enough to feel alive, capped so it never tangles.
+  const deg = new Map<string, number>();
+  for (const e of usable) {
+    deg.set(e.from, (deg.get(e.from) ?? 0) + 1);
+    deg.set(e.to, (deg.get(e.to) ?? 0) + 1);
+  }
+  const score = (e: GraphEdgeDto) =>
+    (deg.get(e.from) ?? 0) + (deg.get(e.to) ?? 0);
+  return [...usable]
+    .sort((a, b) => score(b) - score(a) || a.id.localeCompare(b.id))
+    .slice(0, AMBIENT_CAP)
+    .map((e) => ({
+      id: e.id,
+      source: e.from,
+      target: e.to,
+      ...edgeAmbientStyle,
+    }));
 }
 
 /**
@@ -194,12 +231,19 @@ export function layoutOverviewGraph(
   }
 
   let cursorX = 0;
+  let rowY = originY;
+  let rowMaxH = 0;
   for (const { cluster, size } of clusterSizes) {
+    if (cursorX > 0 && cursorX + size.w > MAX_ROW_W) {
+      cursorX = 0;
+      rowY += rowMaxH + CLUSTER_GAP_Y;
+      rowMaxH = 0;
+    }
     const groupId = `group:${cluster.key}`;
     nodes.push({
       id: groupId,
       type: "prism",
-      position: { x: cursorX, y: originY },
+      position: { x: cursorX, y: rowY },
       style: { width: size.w, height: size.h },
       draggable: false,
       selectable: false,
@@ -217,10 +261,11 @@ export function layoutOverviewGraph(
       const col = index % size.cols;
       const row = Math.floor(index / size.cols);
       const x = cursorX + CLUSTER_PAD_X + col * (CARD_W + GAP_X);
-      const y = originY + CLUSTER_PAD_TOP + row * (CARD_H + GAP_Y);
+      const y = rowY + CLUSTER_PAD_TOP + row * (CARD_H + GAP_Y);
       positions.set(member.id, { x, y });
     });
 
+    rowMaxH = Math.max(rowMaxH, size.h);
     cursorX += size.w + CLUSTER_GAP_X;
   }
 
@@ -241,9 +286,18 @@ export function layoutOverviewGraph(
         kind: hub.kind,
         selected: hub.id === selectedId,
         openable: true,
+        enterDelay: 0.02,
         ...(meta === undefined ? {} : { meta }),
       },
     });
+  }
+
+  let enterOrder = 0;
+
+  const degree = new Map<string, number>();
+  for (const e of graphEdges) {
+    degree.set(e.from, (degree.get(e.from) ?? 0) + 1);
+    degree.set(e.to, (degree.get(e.to) ?? 0) + 1);
   }
 
   const neighborIds = new Set<string>();
@@ -266,6 +320,13 @@ export function layoutOverviewGraph(
         selectedId !== null &&
         neighborIds.size > 0 &&
         !neighborIds.has(member.id);
+      const confidence =
+        typeof member.attrs?.confidence === "number"
+          ? member.attrs.confidence
+          : undefined;
+      const enterDelay = Math.min(enterOrder * 0.028, 0.5);
+      enterOrder += 1;
+      const links = degree.get(member.id) ?? 0;
       nodes.push({
         id: member.id,
         type: "prism",
@@ -279,6 +340,9 @@ export function layoutOverviewGraph(
           openable: member.kind === "feature" || member.kind === "package",
           dimmed,
           fullLabel: member.label,
+          enterDelay,
+          links,
+          ...(confidence === undefined ? {} : { confidence }),
           ...(meta === undefined ? {} : { meta }),
         },
       });

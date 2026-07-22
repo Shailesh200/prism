@@ -37,6 +37,8 @@ import {
   type CwvReport,
   type DnaReport,
   type FeatureInfo,
+  type GitActivity,
+  type GitCommitRef,
   type GraphSnapshotDto,
   type HealthScore,
   type IndexProgressEvent,
@@ -66,6 +68,7 @@ import {
   unsafeRepoId,
 } from "@prism/shared";
 import type { PrismCapabilities } from "./capabilities.js";
+import { readGitSignals, type GitSignals } from "./git/git-signals.js";
 import type { IndexWorkspaceOptions, PrismEnginePorts } from "./ports.js";
 
 export type FindRouteQuery = {
@@ -240,6 +243,12 @@ export type PrismWorkspace = {
   getRepositoryMap(
     options?: GetRepositoryMapOptions,
   ): Result<RepositoryMap, PrismError>;
+  /**
+   * Repo-wide local git activity (recent files/commits + summary) for
+   * dashboards (M-042). Requires `index()`. `available: false` on non-git roots;
+   * never touches the network.
+   */
+  getGitActivity(): Result<GitActivity, PrismError>;
   blastRadius(input: {
     kind: "file" | "symbol";
     id: string;
@@ -276,6 +285,7 @@ export function createWorkspace(options: {
   let lastSnapshot: IndexSnapshot | null = null;
   let utilities: UtilitiesSession | null = null;
   let selectedPackageId: string | null = null;
+  let gitCache: { at: string | null; value: GitSignals | null } | null = null;
 
   const ensureOpen = (): Result<true, PrismError> => {
     if (!open) {
@@ -797,6 +807,18 @@ export function createWorkspace(options: {
         lastSnapshot.rootPath,
         lastSnapshot.files.map((f) => f.path),
       ).map((p) => ({ name: p.name, rootDir: p.rootDir }));
+      if (!gitCache || gitCache.at !== lastIndexedAt) {
+        const keepPaths = new Set(
+          lastSnapshot.files
+            .filter((f) => f.status === "analyzed")
+            .map((f) => f.path),
+        );
+        gitCache = {
+          at: lastIndexedAt,
+          value: readGitSignals(lastSnapshot.rootPath, { keepPaths }),
+        };
+      }
+      const git = gitCache.value;
       return ok(
         buildRepositoryMap({
           snapshot: lastSnapshot,
@@ -804,6 +826,9 @@ export function createWorkspace(options: {
           features,
           landmarks,
           packages,
+          ...(git === null
+            ? {}
+            : { gitSignals: git.signals, gitSummary: git.summary }),
           ...(mapOptions?.zoom === undefined ? {} : { zoom: mapOptions.zoom }),
           ...(mapOptions?.layers === undefined
             ? {}
@@ -813,6 +838,77 @@ export function createWorkspace(options: {
             : { bookmarks: mapOptions.bookmarks }),
         }),
       );
+    },
+    getGitActivity() {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      if (!gitCache || gitCache.at !== lastIndexedAt) {
+        const keepPaths = new Set(
+          lastSnapshot.files
+            .filter((f) => f.status === "analyzed")
+            .map((f) => f.path),
+        );
+        gitCache = {
+          at: lastIndexedAt,
+          value: readGitSignals(lastSnapshot.rootPath, { keepPaths }),
+        };
+      }
+      const git = gitCache.value;
+      const generatedAt = new Date().toISOString();
+      if (git === null) {
+        return ok({
+          root: lastSnapshot.rootPath,
+          generatedAt,
+          available: false,
+          recentFiles: [],
+          recentCommits: [],
+          weeks: [],
+          days: [],
+        });
+      }
+      const byDateDesc = (a: string, b: string): number =>
+        a < b ? 1 : a > b ? -1 : 0;
+      const recentFiles = [...git.signals.values()]
+        .sort((a, b) => byDateDesc(a.lastCommit.date, b.lastCommit.date))
+        .slice(0, 20)
+        .map((s) => ({
+          path: s.path,
+          lastCommit: s.lastCommit,
+          commits: s.commits,
+          additions: s.lastAdditions,
+          deletions: s.lastDeletions,
+        }));
+      const bySha = new Map<string, GitCommitRef>();
+      let weeks: number[] = [];
+      for (const s of git.signals.values()) {
+        bySha.set(s.lastCommit.sha, s.lastCommit);
+        for (const c of s.recent) bySha.set(c.sha, c);
+        if (weeks.length === 0) weeks = s.weeks.map(() => 0);
+        for (let i = 0; i < s.weeks.length && i < weeks.length; i += 1) {
+          weeks[i] = (weeks[i] ?? 0) + (s.weeks[i] ?? 0);
+        }
+      }
+      const recentCommits = [...bySha.values()]
+        .sort((a, b) => byDateDesc(a.date, b.date))
+        .slice(0, 15);
+      return ok({
+        root: lastSnapshot.rootPath,
+        generatedAt,
+        available: true,
+        summary: git.summary,
+        recentFiles,
+        recentCommits,
+        weeks,
+        days: git.days,
+      });
     },
     async blastRadius() {
       const gate = ensureOpen();

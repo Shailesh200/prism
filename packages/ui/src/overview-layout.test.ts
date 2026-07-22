@@ -65,7 +65,9 @@ describe("overview-layout", () => {
     expect(landing.nodes.some((n) => n.id === "group:@prism")).toBe(true);
     expect(landing.nodes.some((n) => n.id === "group:@fixture")).toBe(true);
     expect(landing.nodes.some((n) => n.id === "group:App")).toBe(true);
-    expect(landing.edges).toHaveLength(0);
+    // Ambient "arterial" routes: curated + capped, never every edge dumped.
+    expect(landing.edges.length).toBeLessThanOrEqual(8);
+    expect(landing.edges.length).toBeLessThanOrEqual(edges.length);
 
     const focused = layoutOverviewGraph(
       features,

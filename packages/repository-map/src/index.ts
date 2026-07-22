@@ -11,7 +11,14 @@ export {
   defaultActiveLayerIds,
   listMapLayerDescriptors,
   resolveActiveLayers,
+  heatLayerIds,
 } from "./layers.js";
+export {
+  computeLayerSignals,
+  annotateGraphWithLayerSignals,
+  heatForActiveLayers,
+  type LayerSignalScores,
+} from "./layer-signals.js";
 export {
   emptyBookmarkStore,
   parseBookmarkStore,

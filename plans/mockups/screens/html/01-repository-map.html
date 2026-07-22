@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+        window.FontAwesomeConfig = {
+          autoReplaceSvg: 'nest'
+        };
+      </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repository Map</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        ink: '#0A0E1A',
+                        surface: '#131926',
+                        card: '#1E2433',
+                        line: '#2A334A',
+                        muted: '#94A3B8',
+                        teal: '#00C2C2',
+                        violet: '#6C63FF',
+                        amber: '#F59E0B',
+                        rose: '#F43F5E',
+                        emerald: '#10B981',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #0A0E1A; color: #fff; overflow: hidden; }
+
+        /* Graph canvas dots pattern */
+        #graph-canvas {
+            background-color: #0A0E1A;
+            background-image: radial-gradient(circle, rgba(42,51,74,0.7) 1px, transparent 1px);
+            background-size: 28px 28px;
+        }
+
+        /* Region blobs */
+        .region-blob {
+            position: absolute;
+            border-radius: 24px;
+            border: 1.5px solid;
+            pointer-events: none;
+        }
+
+        /* Node base */
+        .graph-node {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            font-family: 'Inter', sans-serif;
+            font-size: 10px;
+            font-weight: 600;
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+        .graph-node:hover { transform: scale(1.18); z-index: 50; }
+        .graph-node.active { border-color: #00C2C2; box-shadow: 0 0 0 4px rgba(0,194,194,0.2), 0 0 20px rgba(0,194,194,0.4); z-index: 50; }
+
+        /* SVG edges */
+        .edge { stroke-opacity: 0.35; }
+        .edge.highlighted { stroke-opacity: 0.9; stroke-width: 2; }
+        .edge.blast { stroke: #F59E0B; stroke-opacity: 0.7; stroke-width: 2; stroke-dasharray: 4 3; }
+
+        /* Inspector panel */
+        #inspector { transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); }
+
+        /* Sidebar */
+        #sidebar { border-right: 1px solid rgba(255,255,255,0.07); }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #2A334A; border-radius: 4px; }
+
+        /* Pill badges */
+        .region-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 10px;
+            border-radius: 99px;
+            font-size: 11px;
+            font-weight: 600;
+            border: 1px solid;
+        }
+
+        /* Metric bar */
+        .metric-bar {
+            height: 5px;
+            border-radius: 99px;
+            background: #1E2433;
+            overflow: hidden;
+        }
+        .metric-fill { height: 100%; border-radius: 99px; }
+
+        /* Tag chip */
+        .tag-chip {
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.06);
+            color: #94A3B8;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .toolbar-btn {
+            width: 32px; height: 32px;
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            color: #94A3B8;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+        }
+        .toolbar-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .toolbar-btn.active { background: rgba(0,194,194,0.15); color: #00C2C2; }
+
+        /* Blast pulse rings */
+        @keyframes blast-ring {
+            0%   { transform: scale(0.8); opacity: 0.6; }
+            100% { transform: scale(2.2); opacity: 0; }
+        }
+        .blast-ring {
+            position: absolute;
+            border-radius: 50%;
+            border: 1.5px solid #F59E0B;
+            animation: blast-ring 2s ease-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes pulse-dot {
+            0%,100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+    </style>
+</head>
+<body class="flex flex-col" style="height:100vh;">
+
+    <!-- Top Navbar -->
+    <header id="header" class="flex items-center justify-between px-4 h-12 shrink-0 bg-surface border-b border-white/[0.07] z-30" style="background:#131926;">
+        <div class="flex items-center space-x-4">
+            <!-- Logo -->
+            <a href="#" class="flex items-center space-x-2">
+                <svg width="22" height="22" viewBox="0 0 40 40" fill="none">
+                    <path d="M20 2L36 20L20 38L4 20L20 2Z" fill="#00C2C2"/>
+                    <path d="M20 10L28 20L20 30L12 20L20 10Z" fill="#FFFFFF"/>
+                </svg>
+                <span class="text-sm font-semibold tracking-tight">Prism</span>
+            </a>
+            <!-- Breadcrumb -->
+            <div class="flex items-center space-x-1 text-xs text-muted">
+                <span>acme-corp</span>
+                <i class="fa-solid fa-chevron-right text-[9px] opacity-40"></i>
+                <span class="text-white font-medium">platform-core</span>
+                <span class="ml-2 px-2 py-0.5 rounded bg-teal/10 text-teal border border-teal/20 text-[10px] font-mono">main</span>
+            </div>
+        </div>
+
+        <!-- Center: Search -->
+        <div class="flex-1 max-w-xs mx-8">
+            <div class="flex items-center bg-ink rounded-md px-3 h-7 border border-white/10 text-xs text-muted gap-2">
+                <i class="fa-solid fa-magnifying-glass text-[11px]"></i>
+                <input type="text" placeholder="Search nodes, files, owners…" class="bg-transparent outline-none w-full text-xs placeholder-muted" />
+                <span class="text-[10px] opacity-40">⌘K</span>
+            </div>
+        </div>
+
+        <!-- Right controls -->
+        <div class="flex items-center space-x-3">
+            <div class="flex items-center space-x-1 text-xs text-muted">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald inline-block" style="animation: pulse-dot 2s infinite;"></span>
+                <span>Synced 2m ago</span>
+            </div>
+            <button class="flex items-center space-x-1.5 text-xs px-3 h-7 rounded-md border border-white/10 text-muted hover:text-white hover:border-white/20 transition-colors">
+                <i class="fa-solid fa-share-nodes text-[11px]"></i><span>Share</span>
+            </button>
+            <button class="flex items-center space-x-1.5 text-xs px-3 h-7 rounded-md bg-teal text-ink font-semibold hover:bg-[#00dcd4] transition-colors">
+                <i class="fa-solid fa-bolt text-[11px]"></i><span>Blast Radius</span>
+            </button>
+            <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" class="w-7 h-7 rounded-full object-cover border border-white/10" alt="User" />
+        </div>
+    </header>
+
+    <!-- Body: sidebar + canvas + inspector -->
+    <div class="flex flex-1 overflow-hidden">
+
+        <!-- Left Sidebar -->
+        <aside id="sidebar" class="w-56 shrink-0 flex flex-col bg-surface overflow-y-auto" style="background:#0f1420;">
+            <!-- Repo Stats -->
+            <div class="px-4 pt-4 pb-3 border-b border-white/[0.06]">
+                <div class="text-[11px] text-muted uppercase tracking-wider font-semibold mb-3">Repository</div>
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-muted">Nodes</span>
+                        <span class="font-mono font-medium text-white">1,842</span>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span class="text-muted">Edges</span>
+                        <span class="font-mono font-medium text-white">4,613</span>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span class="text-muted">Regions</span>
+                        <span class="font-mono font-medium text-white">6</span>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span class="text-muted">Health</span>
+                        <span class="font-mono font-medium text-emerald">82 / 100</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature Regions -->
+            <div class="px-4 pt-4 pb-2 border-b border-white/[0.06]">
+                <div class="text-[11px] text-muted uppercase tracking-wider font-semibold mb-3">Feature Regions</div>
+                <div class="space-y-1">
+                    <div class="flex items-center justify-between px-2 py-1.5 rounded-md bg-teal/10 border border-teal/20 cursor-pointer">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-teal shrink-0"></span>
+                            <span class="text-xs font-medium text-white">Auth</span>
+                        </div>
+                        <span class="text-[10px] font-mono text-muted">214</span>
+                    </div>
+                    <div class="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-white/5 cursor-pointer">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-violet shrink-0"></span>
+                            <span class="text-xs text-muted">Billing</span>
+                        </div>
+                        <span class="text-[10px] font-mono text-muted">187</span>
+                    </div>
+                    <div class="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-white/5 cursor-pointer">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-amber shrink-0"></span>
+                            <span class="text-xs text-muted">Notifications</span>
+                        </div>
+                        <span class="text-[10px] font-mono text-muted">98</span>
+                    </div>
+                    <div class="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-white/5 cursor-pointer">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-rose shrink-0"></span>
+                            <span class="text-xs text-muted">Data Pipeline</span>
+                        </div>
+                        <span class="text-[10px] font-mono text-muted">321</span>
+                    </div>
+                    <div class="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-white/5 cursor-pointer">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-emerald shrink-0"></span>
+                            <span class="text-xs text-muted">API Gateway</span>
+                        </div>
+                        <span class="text-[10px] font-mono text-muted">156</span>
+                    </div>
+                    <div class="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-white/5 cursor-pointer">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full" style="background:#A78BFA;" shrink-0></span>
+                            <span class="text-xs text-muted">Analytics</span>
+                        </div>
+                        <span class="text-[10px] font-mono text-muted">143</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Layers -->
+            <div class="px-4 pt-4 pb-2 border-b border-white/[0.06]">
+                <div class="text-[11px] text-muted uppercase tracking-wider font-semibold mb-3">Layers</div>
+                <div class="space-y-1.5">
+                    <label class="flex items-center gap-2 text-xs text-muted cursor-pointer">
+                        <input type="checkbox" checked class="accent-teal w-3 h-3" /> Services
+                    </label>
+                    <label class="flex items-center gap-2 text-xs text-muted cursor-pointer">
+                        <input type="checkbox" checked class="accent-teal w-3 h-3" /> Modules
+                    </label>
+                    <label class="flex items-center gap-2 text-xs text-muted cursor-pointer">
+                        <input type="checkbox" class="accent-teal w-3 h-3" /> Files
+                    </label>
+                    <label class="flex items-center gap-2 text-xs text-muted cursor-pointer">
+                        <input type="checkbox" checked class="accent-teal w-3 h-3" /> Dependencies
+                    </label>
+                    <label class="flex items-center gap-2 text-xs text-muted cursor-pointer">
+                        <input type="checkbox" class="accent-teal w-3 h-3" /> Test coverage
+                    </label>
+                </div>
+            </div>
+
+            <!-- Recent activity -->
+            <div class="px-4 pt-4 pb-4">
+                <div class="text-[11px] text-muted uppercase tracking-wider font-semibold mb-3">Recent Changes</div>
+                <div class="space-y-2">
+                    <div class="flex items-start gap-2">
+                        <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-4.jpg" class="w-5 h-5 rounded-full object-cover mt-0.5 shrink-0" />
+                        <div class="text-[10px] leading-relaxed">
+                            <span class="text-white font-medium">auth/session.ts</span>
+                            <span class="text-muted block">3h ago · +48 −12</span>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-6.jpg" class="w-5 h-5 rounded-full object-cover mt-0.5 shrink-0" />
+                        <div class="text-[10px] leading-relaxed">
+                            <span class="text-white font-medium">billing/invoice.ts</span>
+                            <span class="text-muted block">5h ago · +22 −8</span>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" class="w-5 h-5 rounded-full object-cover mt-0.5 shrink-0" />
+                        <div class="text-[10px] leading-relaxed">
+                            <span class="text-white font-medium">pipeline/transform.ts</span>
+                            <span class="text-muted block">8h ago · +91 −34</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Canvas -->
+        <main id="graph-canvas" class="flex-1 relative overflow-hidden">
+
+            <!-- Floating Toolbar (top-left) -->
+            <div class="absolute top-4 left-4 z-20 flex flex-col gap-1 bg-card border border-white/10 rounded-lg p-1.5 shadow-xl" style="background:#1E2433;">
+                <div class="toolbar-btn active" title="Select"><i class="fa-solid fa-arrow-pointer text-xs"></i></div>
+                <div class="toolbar-btn" title="Pan"><i class="fa-solid fa-hand text-xs"></i></div>
+                <div class="toolbar-btn" title="Box select"><i class="fa-regular fa-square-dashed text-xs"></i></div>
+                <div class="h-px bg-white/10 my-0.5"></div>
+                <div class="toolbar-btn" title="Zoom in"><i class="fa-solid fa-plus text-xs"></i></div>
+                <div class="toolbar-btn" title="Zoom out"><i class="fa-solid fa-minus text-xs"></i></div>
+                <div class="toolbar-btn" title="Fit view"><i class="fa-solid fa-expand text-xs"></i></div>
+                <div class="h-px bg-white/10 my-0.5"></div>
+                <div class="toolbar-btn" title="Screenshot"><i class="fa-solid fa-camera text-xs"></i></div>
+            </div>
+
+            <!-- Zoom indicator -->
+            <div class="absolute bottom-4 left-4 z-20 text-[10px] font-mono text-muted bg-card border border-white/10 px-2 py-1 rounded-md" style="background:#1E2433;">
+                87%
+            </div>
+
+            <!-- Legend -->
+            <div class="absolute bottom-4 left-16 z-20 flex items-center gap-4 text-[10px] text-muted bg-card border border-white/10 px-3 py-1.5 rounded-md" style="background:#1E2433;">
+                <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-teal"></span>Auth</div>
+                <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-violet"></span>Billing</div>
+                <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber"></span>Notifications</div>
+                <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-rose"></span>Data Pipeline</div>
+                <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald"></span>API Gateway</div>
+            </div>
+
+            <!-- SVG Edges layer -->
+            <svg id="edges-svg" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index:5;">
+                <!-- Auth → API Gateway -->
+                <line class="edge" x1="320" y1="240" x2="620" y2="310" stroke="#00C2C2" stroke-width="1.5"/>
+                <!-- Auth → Billing -->
+                <line class="edge" x1="320" y1="240" x2="480" y2="180" stroke="#00C2C2" stroke-width="1.5"/>
+                <!-- Auth → Notifications -->
+                <line class="edge" x1="320" y1="240" x2="390" y2="370" stroke="#00C2C2" stroke-width="1.5"/>
+                <!-- Session → Token -->
+                <line class="edge highlighted" x1="290" y1="210" x2="240" y2="160" stroke="#00C2C2" stroke-width="2"/>
+                <!-- Billing → Data Pipeline -->
+                <line class="edge" x1="480" y1="180" x2="740" y2="200" stroke="#6C63FF" stroke-width="1.5"/>
+                <!-- Billing → Notifications -->
+                <line class="edge" x1="480" y1="180" x2="390" y2="370" stroke="#6C63FF" stroke-width="1.5"/>
+                <!-- API Gateway → Data Pipeline -->
+                <line class="edge" x1="620" y1="310" x2="740" y2="200" stroke="#10B981" stroke-width="1.5"/>
+                <!-- Blast: session → billing, notifications -->
+                <line class="edge blast" x1="290" y1="210" x2="480" y2="180"/>
+                <line class="edge blast" x1="290" y1="210" x2="390" y2="370"/>
+                <!-- secondary edges -->
+                <line class="edge" x1="240" y1="160" x2="190" y2="120" stroke="#00C2C2" stroke-width="1"/>
+                <line class="edge" x1="240" y1="160" x2="170" y2="200" stroke="#00C2C2" stroke-width="1"/>
+                <line class="edge" x1="480" y1="180" x2="530" y2="130" stroke="#6C63FF" stroke-width="1"/>
+                <line class="edge" x1="740" y1="200" x2="800" y2="150" stroke="#F43F5E" stroke-width="1"/>
+                <line class="edge" x1="740" y1="200" x2="810" y2="240" stroke="#F43F5E" stroke-width="1"/>
+                <line class="edge" x1="390" y1="370" x2="370" y2="430" stroke="#F59E0B" stroke-width="1"/>
+                <line class="edge" x1="390" y1="370" x2="430" y2="430" stroke="#F59E0B" stroke-width="1"/>
+                <line class="edge" x1="620" y1="310" x2="660" y2="380" stroke="#10B981" stroke-width="1"/>
+                <line class="edge" x1="620" y1="310" x2="580" y2="380" stroke="#10B981" stroke-width="1"/>
+            </svg>
+
+            <!-- Nodes layer (z-index 10) -->
+
+            <!-- REGION: Auth (teal) -->
+            <div class="region-blob" style="left:120px;top:80px;width:260px;height:220px;border-color:rgba(0,194,194,0.25);background:rgba(0,194,194,0.04);z-index:2;"></div>
+
+            <!-- Auth nodes -->
+            <!-- Selected: session.ts -->
+            <div class="graph-node active" style="width:52px;height:52px;background:#0A2F2F;left:265px;top:188px;z-index:10;" title="auth/session.ts">
+                <div class="text-center leading-tight">
+                    <div style="color:#00C2C2;font-size:9px;">session</div>
+                    <div style="color:#94A3B8;font-size:8px;">.ts</div>
+                </div>
+            </div>
+            <!-- Blast pulse rings on selected node -->
+            <div class="blast-ring" style="width:52px;height:52px;left:265px;top:188px;animation-delay:0s;z-index:9;"></div>
+            <div class="blast-ring" style="width:52px;height:52px;left:265px;top:188px;animation-delay:0.7s;z-index:9;"></div>
+
+            <div class="graph-node" style="width:42px;height:42px;background:#0D2020;left:218px;top:140px;" title="auth/token.ts">
+                <span style="color:#00C2C2;font-size:9px;">token</span>
+            </div>
+            <div class="graph-node" style="width:36px;height:36px;background:#0D2020;left:168px;top:102px;" title="auth/jwt.ts">
+                <span style="color:#00C2C C;font-size:8px;">jwt</span>
+            </div>
+            <div class="graph-node" style="width:32px;height:32px;background:#0D2020;left:148px;top:185px;" title="auth/middleware.ts">
+                <span style="color:#00C2C2;font-size:8px;">mw</span>
+            </div>
+            <div class="graph-node" style="width:36px;height:36px;background:#0D2020;left:295px;top:120px;" title="auth/user.ts">
+                <span style="color:#00C2C2;font-size:9px;">user</span>
+            </div>
+
+            <!-- REGION: Billing (violet) -->
+            <div class="region-blob" style="left:400px;top:100px;width:200px;height:160px;border-color:rgba(108,99,255,0.25);background:rgba(108,99,255,0.04);z-index:2;"></div>
+
+            <div class="graph-node" style="width:46px;height:46px;background:#18172E;left:456px;top:158px;" title="billing/invoice.ts">
+                <div class="text-center leading-tight">
+                    <div style="color:#6C63FF;font-size:9px;">invoice</div>
+                    <div style="color:#94A3B8;font-size:8px;">.ts</div>
+                </div>
+            </div>
+            <div class="graph-node" style="width:34px;height:34px;background:#18172E;left:500px;top:118px;" title="billing/plans.ts">
+                <span style="color:#6C63FF;font-size:8px;">plans</span>
+            </div>
+            <div class="graph-node" style="width:30px;height:30px;background:#18172E;left:430px;top:112px;" title="billing/webhook.ts">
+                <span style="color:#6C63FF;font-size:7px;">hook</span>
+            </div>
+
+            <!-- REGION: Notifications (amber) -->
+            <div class="region-blob" style="left:300px;top:320px;width:190px;height:160px;border-color:rgba(245,158,11,0.25);background:rgba(245,158,11,0.04);z-index:2;"></div>
+
+            <div class="graph-node" style="width:44px;height:44px;background:#1F1A0D;left:368px;top:348px;" title="notif/dispatcher.ts">
+                <div class="text-center leading-tight">
+                    <div style="color:#F59E0B;font-size:8px;">dispatch</div>
+                    <div style="color:#94A3B8;font-size:7px;">.ts</div>
+                </div>
+            </div>
+            <div class="graph-node" style="width:32px;height:32px;background:#1F1A0D;left:322px;top:370px;" title="notif/email.ts">
+                <span style="color:#F59E0B;font-size:8px;">email</span>
+            </div>
+            <div class="graph-node" style="width:28px;height:28px;background:#1F1A0D;left:358px;top:430px;" title="notif/sms.ts">
+                <span style="color:#F59E0B;font-size:8px;">sms</span>
+            </div>
+            <div class="graph-node" style="width:28px;height:28px;background:#1F1A0D;left:402px;top:430px;" title="notif/push.ts">
+                <span style="color:#F59E0B;font-size:8px;">push</span>
+            </div>
+
+            <!-- REGION: Data Pipeline (rose) -->
+            <div class="region-blob" style="left:660px;top:130px;width:220px;height:180px;border-color:rgba(244,63,94,0.25);background:rgba(244,63,94,0.04);z-index:2;"></div>
+
+            <div class="graph-node" style="width:48px;height:48px;background:#2A0F15;left:716px;top:176px;" title="pipeline/transform.ts">
+                <div class="text-center leading-tight">
+                    <div style="color:#F43F5E;font-size:8px;">transform</div>
+                    <div style="color:#94A3B8;font-size:7px;">.ts</div>
+                </div>
+            </div>
+            <div class="graph-node" style="width:34px;height:34px;background:#2A0F15;left:778px;top:148px;" title="pipeline/ingest.ts">
+                <span style="color:#F43F5E;font-size:8px;">ingest</span>
+            </div>
+            <div class="graph-node" style="width:34px;height:34px;background:#2A0F15;left:786px;top:232px;" title="pipeline/emit.ts">
+                <span style="color:#F43F5E;font-size:8px;">emit</span>
+            </div>
+
+            <!-- REGION: API Gateway (emerald) -->
+            <div class="region-blob" style="left:540px;top:268px;width:200px;height:180px;border-color:rgba(16,185,129,0.25);background:rgba(16,185,129,0.04);z-index:2;"></div>
+
+            <div class="graph-node" style="width:46px;height:46px;background:#0D2018;left:596px;top:288px;" title="gateway/router.ts">
+                <div class="text-center leading-tight">
+                    <div style="color:#10B981;font-size:8px;">router</div>
+                    <div style="color:#94A3B8;font-size:7px;">.ts</div>
+                </div>
+            </div>
+            <div class="graph-node" style="width:32px;height:32px;background:#0D2018;left:648px;top:376px;" title="gateway/auth-guard.ts">
+                <span style="color:#10B981;font-size:7px;">guard</span>
+            </div>
+            <div class="graph-node" style="width:30px;height:30px;background:#0D2018;left:572px;top:378px;" title="gateway/rate-limit.ts">
+                <span style="color:#10B981;font-size:7px;">rate</span>
+            </div>
+
+        </main>
+
+        <!-- Right Inspector Panel -->
+        <aside id="inspector" class="w-72 shrink-0 flex flex-col border-l border-white/[0.07] overflow-y-auto" style="background:#0f1420;">
+
+            <!-- Inspector Header -->
+            <div class="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+                <div class="text-xs font-semibold text-white">Inspector</div>
+                <div class="flex items-center gap-2">
+                    <div class="toolbar-btn"><i class="fa-solid fa-ellipsis-h text-xs"></i></div>
+                    <div class="toolbar-btn"><i class="fa-solid fa-xmark text-xs"></i></div>
+                </div>
+            </div>
+
+            <!-- Node Identity -->
+            <div class="px-4 pt-4 pb-3 border-b border-white/[0.06]">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-10 h-10 rounded-lg bg-teal/10 border border-teal/20 flex items-center justify-center text-teal">
+                        <i class="fa-solid fa-file-code text-sm"></i>
+                    </div>
+                    <div>
+                        <div class="text-sm font-semibold text-white">session.ts</div>
+                        <div class="text-[10px] text-muted font-mono">auth/session.ts</div>
+                    </div>
+                </div>
+                <div class="flex gap-1.5 flex-wrap">
+                    <span class="region-pill" style="background:rgba(0,194,194,0.1);border-color:rgba(0,194,194,0.3);color:#00C2C2;">
+                        <span class="w-1.5 h-1.5 rounded-full bg-teal"></span>Auth
+                    </span>
+                    <span class="tag-chip">TypeScript</span>
+                    <span class="tag-chip">Service</span>
+                </div>
+            </div>
+
+            <!-- Metrics -->
+            <div class="px-4 pt-4 pb-3 border-b border-white/[0.06] space-y-3">
+                <div class="text-[11px] text-muted uppercase tracking-wider font-semibold">Metrics</div>
+
+                <div class="space-y-2.5">
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-muted">Health Score</span>
+                            <span class="text-emerald font-medium font-mono">74</span>
+                        </div>
+                        <div class="metric-bar">
+                            <div class="metric-fill bg-emerald" style="width:74%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-muted">Coupling</span>
+                            <span class="text-amber font-medium font-mono">High</span>
+                        </div>
+                        <div class="metric-bar">
+                            <div class="metric-fill bg-amber" style="width:81%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-muted">Test Coverage</span>
+                            <span class="text-white font-medium font-mono">62%</span>
+                        </div>
+                        <div class="metric-bar">
+                            <div class="metric-fill bg-violet" style="width:62%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-muted">Churn (30d)</span>
+                            <span class="text-rose font-medium font-mono">11 commits</span>
+                        </div>
+                        <div class="metric-bar">
+                            <div class="metric-fill bg-rose" style="width:55%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Blast Radius Summary -->
+            <div class="px-4 pt-4 pb-3 border-b border-white/[0.06]">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="text-[11px] text-muted uppercase tracking-wider font-semibold">Blast Radius</div>
+                    <span class="text-[10px] text-amber bg-amber/10 border border-amber/20 px-2 py-0.5 rounded-full font-semibold">High</span>
+                </div>
+                <div class="bg-amber/5 border border-amber/15 rounded-lg p-3 text-xs space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-muted">Affected modules</span>
+                        <span class="text-white font-mono font-medium">14</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-muted">Affected tests</span>
+                        <span class="text-white font-mono font-medium">37</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-muted">Affected teams</span>
+                        <span class="text-white font-mono font-medium">3</span>
+                    </div>
+                </div>
+                <button class="mt-2 w-full text-xs py-2 rounded-md border border-amber/20 text-amber hover:bg-amber/10 transition-colors font-medium">
+                    View Full Blast Radius →
+                </button>
+            </div>
+
+            <!-- Dependencies -->
+            <div class="px-4 pt-4 pb-3 border-b border-white/[0.06]">
+                <div class="text-[11px] text-muted uppercase tracking-wider font-semibold mb-3">Dependencies</div>
+                <div class="space-y-1.5">
+                    <div class="flex items-center justify-between text-xs py-1 px-2 rounded-md hover:bg-white/5 cursor-pointer">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-arrow-right text-teal text-[10px]"></i>
+                            <span class="font-mono text-muted">auth/token.ts</span>
+                        </div>
+                        <span class="text-[10px] text-muted">import</span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs py-1 px-2 rounded-md hover:bg-white/5 cursor-pointer">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-arrow-right text-teal text-[10px]"></i>
+                            <span class="font-mono text-muted">billing/invoice.ts</span>
+                        </div>
+                        <span class="text-[10px] text-muted">import</span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs py-1 px-2 rounded-md hover:bg-white/5 cursor-pointer">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-arrow-left text-violet text-[10px]"></i>
+                            <span class="font-mono text-muted">gateway/router.ts</span>
+                        </div>
+                        <span class="text-[10px] text-muted">used by</span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs py-1 px-2 rounded-md hover:bg-white/5 cursor-pointer">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-arrow-left text-violet text-[10px]"></i>
+                            <span class="font-mono text-muted">notif/dispatcher.ts</span>
+                        </div>
+                        <span class="text-[10px] text-muted">used by</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ownership -->
+            <div class="px-4 pt-4 pb-4">
+                <div class="text-[11px] text-muted uppercase tracking-wider font-semibold mb-3">Ownership</div>
+                <div class="flex items-center gap-2 mb-3">
+                    <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" class="w-7 h-7 rounded-full object-cover border border-white/10" />
+                    <div>
+                        <div class="text-xs font-medium text-white">Alex Kim</div>
+                        <div class="text-[10px] text-muted">Primary Owner · Auth Squad</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-7.jpg" class="w-7 h-7 rounded-full object-cover border border-white/10" />
+                    <div>
+                        <div class="text-xs font-medium text-white">Jamie Lee</div>
+                        <div class="text-[10px] text-muted">Contributor · 8 commits</div>
+                    </div>
+                </div>
+                <div class="mt-3 flex gap-2">
+                    <button class="flex-1 text-xs py-1.5 rounded-md border border-white/10 text-muted hover:text-white hover:border-white/20 transition-colors">
+                        <i class="fa-solid fa-code-branch mr-1"></i>View PR
+                    </button>
+                    <button class="flex-1 text-xs py-1.5 rounded-md border border-teal/20 text-teal hover:bg-teal/10 transition-colors">
+                        <i class="fa-solid fa-pin mr-1"></i>Pin
+                    </button>
+                </div>
+            </div>
+
+        </aside>
+    </div>
+</body>
+</html>

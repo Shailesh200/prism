@@ -1,8 +1,9 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { motion, useReducedMotion } from "motion/react";
 import type { ReactElement } from "react";
-import { FileTypeIcon } from "./FileTypeIcon.js";
 import { resolveFileType } from "./file-type.js";
 import { isPathKind, splitRepoPath } from "./map-path.js";
+import { MaterialFileIcon } from "./MaterialFileIcon.js";
 
 export type PrismMapNodeData = {
   label: string;
@@ -21,7 +22,40 @@ export type PrismMapNodeData = {
   fullLabel?: string;
   /** Cluster / island chrome (not a selectable graph node). */
   group?: boolean;
+  /** Active heat layer id for tinting (M-019). */
+  heatLayer?: string;
+  /** Discrete heat band 0–3. */
+  heatBand?: string;
+  /** Feature detection confidence 0–1 (drives the card meter). */
+  confidence?: number;
+  /** Staggered entrance delay in seconds. */
+  enterDelay?: number;
+  /** Number of graph relationships (drives the links chip). */
+  links?: number;
 };
+
+function ConfidenceMeter(props: { value: number }): ReactElement {
+  const pct = Math.max(0, Math.min(100, Math.round(props.value * 100)));
+  const band =
+    props.value >= 0.7 ? "high" : props.value >= 0.45 ? "mid" : "low";
+  return (
+    <span
+      className="prism-meter"
+      role="img"
+      aria-label={`confidence ${pct}%`}
+      title={`${pct}% confidence`}
+    >
+      <span className="prism-meter__track">
+        <span
+          className="prism-meter__fill"
+          data-band={band}
+          style={{ width: `${pct}%` }}
+        />
+      </span>
+      <span className="prism-meter__val">{pct}%</span>
+    </span>
+  );
+}
 
 function truncateEnd(value: string, max: number): string {
   if (value.length <= max) return value;
@@ -103,6 +137,7 @@ function RegionIcon(props: { kind: string }): ReactElement {
 
 export function MapNode(props: NodeProps): ReactElement {
   const data = props.data as PrismMapNodeData;
+  const reduce = useReducedMotion();
   const pathLike = isPathKind(data.kind);
   const parts = pathLike ? splitRepoPath(data.label) : null;
   const fileType = parts ? resolveFileType(parts.name) : null;
@@ -131,6 +166,8 @@ export function MapNode(props: NodeProps): ReactElement {
       data-openable={data.openable ? "true" : "false"}
       data-expanded={data.expanded ? "true" : "false"}
       data-dimmed={data.dimmed ? "true" : "false"}
+      data-heat-layer={data.heatLayer ?? ""}
+      data-heat-band={data.heatBand ?? ""}
       title={title}
       onDoubleClick={(event) => {
         event.stopPropagation();
@@ -145,9 +182,11 @@ export function MapNode(props: NodeProps): ReactElement {
         className="prism-node__h"
       />
 
+      <span className="prism-node__blast" aria-hidden />
+
       {parts && fileType ? (
         <article className="prism-card prism-card--file">
-          <FileTypeIcon tone={fileType.tone} badge={fileType.badge} size={24} />
+          <MaterialFileIcon name={parts.name} size={26} />
           <div className="prism-card__body">
             <div className="prism-card__title">{parts.name}</div>
             <div className="prism-card__sub">
@@ -161,15 +200,57 @@ export function MapNode(props: NodeProps): ReactElement {
           </div>
         </article>
       ) : (
-        <article className="prism-card prism-card--region">
+        <motion.article
+          className="prism-card prism-card--region"
+          initial={reduce ? false : { opacity: 0, y: 10, scale: 0.965 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{
+            duration: 0.44,
+            ease: [0.16, 1, 0.3, 1],
+            delay: data.enterDelay ?? 0,
+          }}
+        >
+          <span className="prism-card__aura" aria-hidden />
+          <span className="prism-card__accent" aria-hidden />
           <header className="prism-card__head">
-            <RegionIcon kind={data.kind} />
+            <span className="prism-card__glyph">
+              {isFolder ? (
+                <MaterialFileIcon
+                  name={data.fullLabel ?? data.label}
+                  folder
+                  open={data.expanded ?? false}
+                  size={22}
+                />
+              ) : (
+                <RegionIcon kind={data.kind} />
+              )}
+            </span>
             <span className="prism-card__kicker">
               {isFolder ? "folder" : data.kind}
             </span>
+            {data.links && data.links > 0 ? (
+              <span
+                className="prism-card__chip"
+                title={`${data.links} ${data.links === 1 ? "link" : "links"}`}
+              >
+                <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden>
+                  <path
+                    d="M4.6 7.4 7.4 4.6M5 2.6l.7-.7a2.1 2.1 0 0 1 3 3l-.7.7M7 9.4l-.7.7a2.1 2.1 0 0 1-3-3l.7-.7"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                    fill="none"
+                  />
+                </svg>
+                {data.links}
+              </span>
+            ) : null}
           </header>
           <div className="prism-card__title">{data.label}</div>
-          <div className="prism-card__sub">
+          <footer className="prism-card__foot">
+            {typeof data.confidence === "number" ? (
+              <ConfidenceMeter value={data.confidence} />
+            ) : null}
             <span className="prism-card__meta">
               {data.meta ??
                 (data.openable
@@ -178,8 +259,22 @@ export function MapNode(props: NodeProps): ReactElement {
                     : "Double-click to expand"
                   : "Region")}
             </span>
-          </div>
-        </article>
+          </footer>
+          {data.openable ? (
+            <span className="prism-card__open" aria-hidden>
+              <svg width="13" height="13" viewBox="0 0 14 14">
+                <path
+                  d="M4.5 9.5 9.5 4.5M9.5 4.5H5.3M9.5 4.5v4.2"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+              </svg>
+            </span>
+          ) : null}
+        </motion.article>
       )}
     </div>
   );
