@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-023-code-explorer` |
-| Status | In Progress |
+| Status | Verified |
 | Depends on | M-011 (semantic KG), M-042 (git signals), M-012 (features) |
 | Unlocks | M-027 MCP explorer tools, VS Code / playground explorer UI |
 | Packages | `@prism/intelligence`, `@prism/shared`, `@prism/core` |
@@ -50,7 +50,7 @@ fail-soft git.
 - [x] Core `exploreCode()` wired; git soft-degrades
 - [x] ADR-0018 Accepted; PROGRESS updated
 - [x] `bun run verify:milestone` green
-- [ ] Owner approval → commit → merge → Verified
+- [x] Owner approval → commit → merge → Verified
 
 ## Verification
 
