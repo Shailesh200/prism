@@ -1139,6 +1139,116 @@ export type EngineeringHealthReport = z.infer<
   typeof EngineeringHealthReportSchema
 >;
 
+/** Code Explorer selection target (M-023 / ADR-0018). */
+export const CodeExplorerTargetSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("file"),
+    path: z.string().min(1),
+  }),
+  z.object({
+    kind: z.literal("symbol"),
+    name: z.string().min(1),
+    path: z.string().min(1).optional(),
+    start: z.number().int().nonnegative().optional(),
+  }),
+]);
+
+export type CodeExplorerTarget = z.infer<typeof CodeExplorerTargetSchema>;
+
+/** Usage / reference hit promoted to a Zod DTO for explorer reports. */
+export const CodeExplorerUsageSchema = z.object({
+  name: z.string().min(1),
+  kind: z.string().min(1),
+  path: z.string().min(1),
+  start: z.number().int().nonnegative(),
+  end: z.number().int().nonnegative(),
+  targetSymbolId: z.string().min(1).nullable(),
+});
+
+export type CodeExplorerUsage = z.infer<typeof CodeExplorerUsageSchema>;
+
+export const CodeExplorerOwnerSchema = z.object({
+  author: z.string().min(1),
+  email: z.string().optional(),
+  commits: z.number().int().nonnegative(),
+  share: z.number().min(0).max(1),
+  additions: z.number().int().nonnegative().default(0),
+  deletions: z.number().int().nonnegative().default(0),
+});
+
+export type CodeExplorerOwner = z.infer<typeof CodeExplorerOwnerSchema>;
+
+export const CodeExplorerOwnershipSchema = z.object({
+  gitAvailable: z.boolean(),
+  primary: CodeExplorerOwnerSchema.optional(),
+  contributors: z.array(CodeExplorerOwnerSchema).default([]),
+  note: z.string().min(1).optional(),
+});
+
+export type CodeExplorerOwnership = z.infer<typeof CodeExplorerOwnershipSchema>;
+
+export const CodeExplorerRelatedItemSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  path: z.string().min(1).optional(),
+  reason: z.string().min(1),
+  confidence: z.number().min(0).max(1).optional(),
+});
+
+export type CodeExplorerRelatedItem = z.infer<
+  typeof CodeExplorerRelatedItemSchema
+>;
+
+export const CodeExplorerRelatedSchema = z.object({
+  features: z.array(CodeExplorerRelatedItemSchema).default([]),
+  tests: z.array(CodeExplorerRelatedItemSchema).default([]),
+  apis: z.array(CodeExplorerRelatedItemSchema).default([]),
+  components: z.array(CodeExplorerRelatedItemSchema).default([]),
+});
+
+export type CodeExplorerRelated = z.infer<typeof CodeExplorerRelatedSchema>;
+
+export const CodeExplorerSimilarItemSchema = z.object({
+  path: z.string().min(1),
+  name: z.string().min(1),
+  kind: z.string().min(1),
+  score: z.number().min(0).max(1),
+  reason: z.string().min(1),
+  symbolId: z.string().min(1).optional(),
+});
+
+export type CodeExplorerSimilarItem = z.infer<
+  typeof CodeExplorerSimilarItemSchema
+>;
+
+export const CodeExplorerTimelineSchema = z.object({
+  gitAvailable: z.boolean(),
+  commits: z.array(GitCommitRefSchema).default([]),
+  weeks: z.array(z.number().int().nonnegative()).default([]),
+  note: z.string().min(1).optional(),
+});
+
+export type CodeExplorerTimeline = z.infer<typeof CodeExplorerTimelineSchema>;
+
+/**
+ * Selection-scoped Code Explorer report (M-023 / ADR-0018).
+ */
+export const CodeExplorerReportSchema = z.object({
+  rootPath: z.string().min(1),
+  generatedAt: z.string().datetime(),
+  summary: z.string().min(1),
+  target: CodeExplorerTargetSchema,
+  /** Resolved file path for the selection (always set when target is valid). */
+  path: z.string().min(1),
+  usages: z.array(CodeExplorerUsageSchema).default([]),
+  ownership: CodeExplorerOwnershipSchema,
+  related: CodeExplorerRelatedSchema,
+  similar: z.array(CodeExplorerSimilarItemSchema).default([]),
+  timeline: CodeExplorerTimelineSchema,
+});
+
+export type CodeExplorerReport = z.infer<typeof CodeExplorerReportSchema>;
+
 /** Parse unknown JSON into a DTO; returns Zod issues as message. */
 export function parseDto<Schema extends z.ZodTypeAny>(
   schema: Schema,

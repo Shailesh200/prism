@@ -35,7 +35,7 @@
 | M-043 UI Fine-Tuning | `milestone/M-043-ui-finetune` | Verified | ✅ | ✅ | Approved + merged 2026-07-22: playground DNA/domains/blast/trends/integrations/settings/audit; KPI tooltips; git Recent Activity; Stitch mocks + ADR-0015/0016; M-044 plan stub |
 | M-044 Backend Intelligence | `milestone/M-044-backend-intelligence` | Verified | ✅ | ✅ | Approved + merged 2026-07-22: BackendReport + getBackendReport(); Express/Nest/Fastify extractors; playground Backend UI + MCP prism_backend_report; ADR-0015 Accepted |
 | M-022 Eng Health | `milestone/M-022-engineering-health` | Verified | ✅ | ✅ | Approved + merged 2026-07-22: EngineeringHealthReport + getEngineeringHealth(); entropy/drift/debt/churn/conflict/decay + hotspots; ADR-0017 Accepted |
-| M-023 Code Explorer | `milestone/M-023-code-explorer` | Not Started | ☐ | ☐ | |
+| M-023 Code Explorer | `milestone/M-023-code-explorer` | In Progress | ☐ | ☐ | Started 2026-07-22 (ADR-0018 Accepted): CodeExplorerReport + exploreCode(); usages/ownership/related/similar/timeline; verify:milestone green — awaiting owner review |
 | M-024 Insights | `milestone/M-024-engineering-insights` | Not Started | ☐ | ☐ | |
 | M-025 Core SDK Freeze v0 | `milestone/M-025-core-sdk-freeze` | Not Started | ☐ | ☐ | |
 | M-026 MCP Server | `milestone/M-026-mcp-server` | Not Started | ☐ | ☐ | |

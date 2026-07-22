@@ -7,6 +7,7 @@ import {
   buildPersonaPresets,
   buildUtilityOverlay,
   buildBackendReport,
+  buildCodeExplorerReport,
   computeEngineeringHealth,
   computeHealthScore,
   createUtilitiesSession,
@@ -41,9 +42,12 @@ import {
 import { buildRepositoryMap, type MapPackageInfo } from "@prism/repository-map";
 import {
   PrismErrorCode,
+  CodeExplorerTargetSchema,
   type BlastRadiusReport,
   type BreakingChangeHint,
   type BackendReport,
+  type CodeExplorerReport,
+  type CodeExplorerTarget,
   type ConsentRecord,
   type CwvReport,
   type DnaReport,
@@ -252,6 +256,13 @@ export type PrismWorkspace = {
    * Requires prior `index()`. Git metrics fail soft when history is missing.
    */
   getEngineeringHealth(): Promise<Result<EngineeringHealthReport, PrismError>>;
+  /**
+   * Selection-scoped Code Explorer report (usages, ownership, related *,
+   * similar, timeline). Requires prior `index()`. Git sections fail soft.
+   */
+  exploreCode(
+    target: CodeExplorerTarget,
+  ): Promise<Result<CodeExplorerReport, PrismError>>;
   /**
    * Shortest / k-simple dependency routes between files or symbols (M-016).
    * Requires `index()`. Empty routes when no path exists.
@@ -880,6 +891,56 @@ export function createWorkspace(options: {
           ...(gitFiles && gitFiles.length > 0 ? { gitFiles } : {}),
         }),
       );
+    },
+    async exploreCode(target) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      const parsed = CodeExplorerTargetSchema.safeParse(target);
+      if (!parsed.success) {
+        return err(
+          prismError(
+            PrismErrorCode.VALIDATION,
+            parsed.error.issues.map((i) => i.message).join("; ") ||
+              "Invalid exploreCode target",
+          ),
+        );
+      }
+      if (!gitCache || gitCache.at !== lastIndexedAt) {
+        const keepPaths = new Set(lastSnapshot.files.map((f) => f.path));
+        gitCache = {
+          at: lastIndexedAt,
+          value: readGitSignals(lastSnapshot.rootPath, { keepPaths }),
+        };
+      }
+      const git = gitCache.value;
+      const gitFiles = git ? [...git.signals.values()] : undefined;
+      const backend = buildBackendReport({
+        workspaceRoot: rootPath,
+        index: lastSnapshot,
+      });
+      const report = buildCodeExplorerReport({
+        snapshot: lastSnapshot,
+        target: parsed.data,
+        endpoints: backend.endpoints,
+        ...(gitFiles && gitFiles.length > 0 ? { gitFiles } : {}),
+      });
+      if (!report) {
+        return err(
+          prismError(
+            PrismErrorCode.VALIDATION,
+            "Unknown exploreCode target — file or symbol not found in index",
+          ),
+        );
+      }
+      return ok(report);
     },
     findRoute(query) {
       const gate = ensureOpen();
