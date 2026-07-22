@@ -44,17 +44,6 @@
   --prism-dark-chrome: #1e2433;
   --prism-dark-ink: #e8eef2;
 
-  /* Treemap density ramp (ink → teal) */
-  --prism-treemap-0: #131926;
-  --prism-treemap-1: #16202e;
-  --prism-treemap-2: #123a3d;
-  --prism-treemap-3: #0e5257;
-  --prism-treemap-4: #0a8a8a;
-  --prism-treemap-5: #00c2c2;
-  --prism-treemap-6: #00dcd4;
-  --prism-treemap-file: #1e2433;
-  --prism-treemap-mist: #1a2233;
-
   /* Aliases */
   --bg-canvas: var(--prism-canvas);
   --bg-panel: var(--prism-panel);
