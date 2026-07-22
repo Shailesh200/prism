@@ -108,3 +108,9 @@ export {
   parseUtilityOverlayKind,
   type BuildUtilityOverlayInput,
 } from "./utilities/overlays.js";
+export {
+  buildBackendReport,
+  extractExpressLike,
+  extractNest,
+  type BuildBackendReportInput,
+} from "./backend/report.js";

@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-044-backend-intelligence` |
-| Status | Planned |
+| Status | In Progress |
 | Depends on | M-043, M-041 (utility overlays), M-020 (impact) |
 | Unlocks | Route-level MCP tools, backend health scoring |
 | Packages | `@prism/intelligence`, `@prism/shared`, `@prism/core`, `apps/playground` |

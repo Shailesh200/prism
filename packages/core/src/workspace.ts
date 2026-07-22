@@ -6,6 +6,7 @@ import {
   buildKnowledgeGraph,
   buildPersonaPresets,
   buildUtilityOverlay,
+  buildBackendReport,
   computeHealthScore,
   createUtilitiesSession,
   discoverLocalPackages,
@@ -41,6 +42,7 @@ import {
   PrismErrorCode,
   type BlastRadiusReport,
   type BreakingChangeHint,
+  type BackendReport,
   type ConsentRecord,
   type CwvReport,
   type DnaReport,
@@ -227,6 +229,13 @@ export type PrismWorkspace = {
     kind: string,
     options?: GetUtilityOverlayOptions,
   ): Promise<Result<UtilityOverlayReport, PrismError>>;
+  /**
+   * Route-granular backend intelligence (M-044 / ADR-0015). Local static
+   * heuristics (Express / Nest / Fastify + data/env/background facets).
+   */
+  getBackendReport(
+    options?: GetUtilityOverlayOptions,
+  ): Promise<Result<BackendReport, PrismError>>;
   setConsent(
     purpose: string,
     granted: boolean,
@@ -776,6 +785,38 @@ export function createWorkspace(options: {
           workspaceRoot: rootPath,
           kind: parsed,
           stack: rollup.value,
+          ...(packageId === null ? {} : { packageId }),
+          ...(packageRootDir === undefined ? {} : { packageRootDir }),
+          ...(lastSnapshot === null ? {} : { index: lastSnapshot }),
+        }),
+      );
+    },
+    async getBackendReport(overlayOptions) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+
+      const rollup = await loadWorkspaceRollup();
+      if (!rollup.ok) return rollup;
+      const packageId = resolvePackageId(overlayOptions?.packageId);
+      let packageRootDir: string | undefined;
+      if (packageId !== null) {
+        const entry = (rollup.value.packages ?? []).find(
+          (p) => p.id === packageId,
+        );
+        if (!entry) {
+          return err(
+            prismError(
+              PrismErrorCode.VALIDATION,
+              `Unknown package id "${packageId}"`,
+            ),
+          );
+        }
+        packageRootDir = entry.rootDir;
+      }
+
+      return ok(
+        buildBackendReport({
+          workspaceRoot: rootPath,
           ...(packageId === null ? {} : { packageId }),
           ...(packageRootDir === undefined ? {} : { packageRootDir }),
           ...(lastSnapshot === null ? {} : { index: lastSnapshot }),

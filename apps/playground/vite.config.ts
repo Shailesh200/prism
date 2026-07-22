@@ -4,6 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 import type {
+  BackendReport,
   BlastRadiusReport,
   DnaReport,
   GitActivity,
@@ -50,6 +51,12 @@ type Workspace = {
     options?: { packageId?: string },
   ) => Promise<
     | { ok: true; value: UtilityOverlayReport }
+    | { ok: false; error: { message: string } }
+  >;
+  getBackendReport: (options?: {
+    packageId?: string;
+  }) => Promise<
+    | { ok: true; value: BackendReport }
     | { ok: false; error: { message: string } }
   >;
   getDependencyGraph: () =>
@@ -238,6 +245,15 @@ async function loadOverlay(
   return result.value;
 }
 
+async function loadBackendReport(root: string): Promise<BackendReport> {
+  const ws = await getIndexedWorkspace(root);
+  const result = await ws.getBackendReport();
+  if (!result.ok) {
+    throw new Error(`getBackendReport failed: ${result.error.message}`);
+  }
+  return result.value;
+}
+
 async function loadGraph(root: string): Promise<GraphSnapshotDto> {
   const ws = await getIndexedWorkspace(root);
   const result = ws.getDependencyGraph();
@@ -390,6 +406,15 @@ function prismMapApi(): Plugin {
               const kind = parsed.searchParams.get("kind") ?? "api-surface";
               const overlay = await loadOverlay(root, kind);
               sendJson(res, 200, overlay);
+              return;
+            }
+
+            if (parsed.pathname === "/api/backend") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const report = await loadBackendReport(root);
+              sendJson(res, 200, report);
               return;
             }
 

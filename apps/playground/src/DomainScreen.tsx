@@ -1,4 +1,5 @@
 import type {
+  BackendReport,
   DnaReport,
   GitActivity,
   GraphSnapshotDto,
@@ -87,8 +88,9 @@ const DOMAINS: Record<string, DomainDef> = {
     kind: "api-surface",
     surfaceLabel: "API Surface",
     description:
-      "Scans your services for route handlers, controllers, routers and API contracts (OpenAPI / gRPC) to map the backend surface.",
-    sources: "route / controller / handler files, OpenAPI & proto specs",
+      "Extracts Express / Nest / Fastify routes (METHOD /path), auth exposure, test linkage, data layer, env vars, and background work via Core getBackendReport — plus the api-surface overlay for Map.",
+    sources:
+      "route handlers, controllers, models/migrations, env usage, queues",
   },
   devops_platform: {
     id: "devops_platform",
@@ -256,6 +258,8 @@ export type DomainScreenProps = {
   security?: UtilityOverlayReport | null;
   qa?: UtilityOverlayReport | null;
   depGraph?: GraphSnapshotDto | null;
+  /** Route-granular backend report from Core `getBackendReport` (M-044). */
+  backendReport?: BackendReport | null;
   gitActivity?: GitActivity | null;
   /** Stack DNA — Mobile / Desktop Wave 1 stack snapshot. */
   dna?: DnaReport | null;
@@ -360,24 +364,32 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
     [nodes],
   );
 
-  /** Wave 1 — endpoint test coverage (handler stem ↔ test file heuristic). */
+  /** Route-level coverage from Core BackendReport (replaces filename heuristic). */
   const coverage = useMemo(() => {
     if (!enriched) return null;
-    const testStems = (props.qa?.graph.nodes ?? [])
-      .map((n) => fileStem(nodePath(n.attrs)))
-      .filter(Boolean);
-    const stemSet = new Set(testStems);
-    const untested = handlers.filter((n) => {
-      const s = fileStem(nodePath(n.attrs));
-      if (s === "") return true;
-      return !(stemSet.has(s) || testStems.some((t) => t.includes(s)));
-    });
+    const endpoints = props.backendReport?.endpoints ?? [];
+    const untested = endpoints.filter((e) => !e.tested);
     return {
-      total: handlers.length,
-      tested: handlers.length - untested.length,
+      total: endpoints.length,
+      tested: endpoints.length - untested.length,
       untested,
     };
-  }, [enriched, handlers, props.qa]);
+  }, [enriched, props.backendReport]);
+
+  const routeRows = useMemo(() => {
+    if (!enriched || !props.backendReport) return [];
+    const q = filter.trim().toLowerCase();
+    const rows = props.backendReport.endpoints;
+    if (!q) return rows;
+    return rows.filter(
+      (e) =>
+        e.path.toLowerCase().includes(q) ||
+        e.method.toLowerCase().includes(q) ||
+        e.handlerFile.toLowerCase().includes(q) ||
+        e.framework.toLowerCase().includes(q) ||
+        e.auth.toLowerCase().includes(q),
+    );
+  }, [enriched, props.backendReport, filter]);
 
   /** Wave 1 — most-depended-on handlers (in-degree from dependency graph). */
   const mostDepended = useMemo(() => {
@@ -610,14 +622,23 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
             ]
           : enriched
             ? [
-                { label: "Detected Nodes", value: nodes.length },
-                { label: "Handlers", value: handlers.length },
+                {
+                  label: "Endpoints",
+                  value: props.backendReport?.endpoints.length ?? 0,
+                },
                 {
                   label: "Untested",
                   value: coverage?.untested.length ?? 0,
                   warn: (coverage?.untested.length ?? 0) > 0,
                 },
-                { label: "Security Files", value: securityNodes.length },
+                {
+                  label: "Frameworks",
+                  value: props.backendReport?.frameworksDetected.length ?? 0,
+                },
+                {
+                  label: "Data Layer",
+                  value: props.backendReport?.dataLayer.length ?? 0,
+                },
               ]
             : [
                 { label: "Detected Nodes", value: nodes.length },
@@ -848,9 +869,15 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                       className="dm-filter"
                       value={filter}
                       onChange={(e) => setFilter(e.target.value)}
-                      placeholder="Filter…"
+                      placeholder={
+                        enriched ? "Filter routes or files…" : "Filter…"
+                      }
                       spellCheck={false}
-                      aria-label="Filter detected nodes"
+                      aria-label={
+                        enriched
+                          ? "Filter routes and detected nodes"
+                          : "Filter detected nodes"
+                      }
                     />
                   </div>
                   {surfaceRows.length > 0 ? (
@@ -1803,6 +1830,79 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                     <article className="ov-card">
                       <div className="ov-card__head">
                         <span className="ov-card__title">
+                          <Server
+                            size={14}
+                            className="ov-card__icon"
+                            aria-hidden
+                          />
+                          Routes
+                        </span>
+                        <span className="ov-card__meta">
+                          {props.backendReport?.endpoints.length ?? 0} endpoints
+                        </span>
+                      </div>
+                      {props.backendReport && routeRows.length > 0 ? (
+                        <div className="dm-surface dm-surface--routes">
+                          <div className="dm-surface__head">
+                            <span>Method</span>
+                            <span>Route</span>
+                            <span>Auth</span>
+                            <span>Test</span>
+                          </div>
+                          <div className="dm-surface__body">
+                            {routeRows.map((e) => (
+                              <div key={e.id} className="dm-surface__row">
+                                <span className="dm-kind dm-route__method">
+                                  {e.method}
+                                </span>
+                                <div className="dm-rank__main">
+                                  <span className="dm-surface__name ov-mono ov-ellipsis">
+                                    {e.path}
+                                  </span>
+                                  <span
+                                    className="dm-surface__path ov-mono ov-ellipsis"
+                                    title={e.handlerFile}
+                                  >
+                                    {e.handlerFile}
+                                  </span>
+                                </div>
+                                <span
+                                  className={`dm-tag${
+                                    e.auth === "public" ? " dm-tag--warn" : ""
+                                  }`}
+                                >
+                                  {e.auth}
+                                </span>
+                                <span
+                                  className={`dm-surface__test${
+                                    e.tested
+                                      ? " dm-surface__test--ok"
+                                      : " dm-surface__test--miss"
+                                  }`}
+                                >
+                                  {e.tested ? "yes" : "no"}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="ov-empty">
+                          {props.backendReport
+                            ? filter.trim()
+                              ? "No routes match the filter."
+                              : "No Express / Nest / Fastify routes extracted."
+                            : "Backend report unavailable — re-run analysis."}
+                        </p>
+                      )}
+                      {props.backendReport?.summary ? (
+                        <p className="dm-note">{props.backendReport.summary}</p>
+                      ) : null}
+                    </article>
+
+                    <article className="ov-card">
+                      <div className="ov-card__head">
+                        <span className="ov-card__title">
                           <FlaskConical
                             size={14}
                             className="ov-card__icon"
@@ -1819,40 +1919,165 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                       {coverage && coverage.total > 0 ? (
                         coverage.untested.length > 0 ? (
                           <div className="dm-findings">
-                            {coverage.untested.map((n) => (
+                            {coverage.untested.map((e) => (
                               <div
-                                key={n.id}
+                                key={e.id}
                                 className="dm-finding"
                                 data-sev="medium"
                               >
                                 <div className="dm-finding__row">
                                   <FileWarning size={13} aria-hidden />
                                   <span className="dm-finding__msg ov-ellipsis">
-                                    {n.label}
+                                    {e.method} {e.path}
                                   </span>
                                   <span className="dm-tag dm-tag--warn">
                                     no test
                                   </span>
                                 </div>
                                 <span className="dm-finding__path ov-mono ov-ellipsis">
-                                  {nodePath(n.attrs)}
+                                  {e.handlerFile}
                                 </span>
                               </div>
                             ))}
                           </div>
                         ) : (
                           <p className="ov-empty">
-                            Every handler has a matching test file.
+                            Every extracted route has linked test coverage.
                           </p>
                         )
                       ) : (
-                        <p className="ov-empty">No handlers to assess.</p>
+                        <p className="ov-empty">No endpoints to assess.</p>
                       )}
                       <p className="dm-note">
-                        Heuristic: matches handler file names against detected
-                        test files (qa-test-gaps).
+                        From Core getBackendReport — stem match plus import
+                        edges when an index is available.
                       </p>
                     </article>
+
+                    <article className="ov-card">
+                      <div className="ov-card__head">
+                        <span className="ov-card__title">
+                          <Database
+                            size={14}
+                            className="ov-card__icon"
+                            aria-hidden
+                          />
+                          Data Layer
+                        </span>
+                        <span className="ov-card__meta">
+                          {props.backendReport?.dataLayer.length ?? 0}
+                        </span>
+                      </div>
+                      {(props.backendReport?.dataLayer.length ?? 0) > 0 ? (
+                        <div className="dm-rank">
+                          {props
+                            .backendReport!.dataLayer.slice(0, 12)
+                            .map((d) => (
+                              <div key={d.id} className="dm-rank__row">
+                                <div className="dm-rank__main">
+                                  <span className="dm-rank__name ov-ellipsis">
+                                    {d.kind}
+                                  </span>
+                                  <span className="dm-rank__path ov-mono ov-ellipsis">
+                                    {d.path}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      ) : (
+                        <p className="ov-empty">
+                          No models, migrations, or DB clients detected.
+                        </p>
+                      )}
+                    </article>
+
+                    <article className="ov-card">
+                      <div className="ov-card__head">
+                        <span className="ov-card__title">
+                          <Plug
+                            size={14}
+                            className="ov-card__icon"
+                            aria-hidden
+                          />
+                          Env & Integrations
+                        </span>
+                      </div>
+                      {(props.backendReport?.envVars.length ?? 0) > 0 ||
+                      (props.backendReport?.integrations.length ?? 0) > 0 ? (
+                        <div className="dm-rank">
+                          {(props.backendReport?.envVars ?? [])
+                            .slice(0, 8)
+                            .map((v) => (
+                              <div
+                                key={`${v.name}:${v.path}`}
+                                className="dm-rank__row"
+                              >
+                                <div className="dm-rank__main">
+                                  <span className="dm-rank__name ov-mono ov-ellipsis">
+                                    {v.name}
+                                  </span>
+                                  <span className="dm-rank__path ov-mono ov-ellipsis">
+                                    {v.path}
+                                  </span>
+                                </div>
+                                <span className="dm-tag">env</span>
+                              </div>
+                            ))}
+                          {(props.backendReport?.integrations ?? [])
+                            .slice(0, 8)
+                            .map((i) => (
+                              <div key={i.id} className="dm-rank__row">
+                                <div className="dm-rank__main">
+                                  <span className="dm-rank__name ov-ellipsis">
+                                    {i.name}
+                                  </span>
+                                  <span className="dm-rank__path ov-mono ov-ellipsis">
+                                    {i.path ?? "—"}
+                                  </span>
+                                </div>
+                                <span className="dm-tag">sdk</span>
+                              </div>
+                            ))}
+                        </div>
+                      ) : (
+                        <p className="ov-empty">
+                          No env vars or third-party SDKs detected.
+                        </p>
+                      )}
+                    </article>
+
+                    {(props.backendReport?.background.length ?? 0) > 0 ? (
+                      <article className="ov-card">
+                        <div className="ov-card__head">
+                          <span className="ov-card__title">
+                            <Workflow
+                              size={14}
+                              className="ov-card__icon"
+                              aria-hidden
+                            />
+                            Background Work
+                          </span>
+                          <span className="ov-card__meta">
+                            {props.backendReport!.background.length}
+                          </span>
+                        </div>
+                        <div className="dm-rank">
+                          {props.backendReport!.background.map((b) => (
+                            <div key={b.id} className="dm-rank__row">
+                              <div className="dm-rank__main">
+                                <span className="dm-rank__name ov-ellipsis">
+                                  {b.kind}
+                                </span>
+                                <span className="dm-rank__path ov-mono ov-ellipsis">
+                                  {b.path}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </article>
+                    ) : null}
 
                     <article className="ov-card">
                       <div className="ov-card__head">

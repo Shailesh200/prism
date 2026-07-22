@@ -972,6 +972,102 @@ export type UtilityOverlayKindInfo = z.infer<
   typeof UtilityOverlayKindInfoSchema
 >;
 
+/** Auth / exposure inference for a backend route (M-044 / ADR-0015). */
+export const BackendAuthExposureSchema = z.enum([
+  "public",
+  "authenticated",
+  "unknown",
+]);
+
+export type BackendAuthExposure = z.infer<typeof BackendAuthExposureSchema>;
+
+export const BackendFrameworkSchema = z.enum([
+  "express",
+  "nest",
+  "fastify",
+  "unknown",
+]);
+
+export type BackendFramework = z.infer<typeof BackendFrameworkSchema>;
+
+/** Single HTTP endpoint extracted from source (route-granular). */
+export const BackendEndpointSchema = z.object({
+  id: z.string().min(1),
+  method: z.string().min(1),
+  path: z.string().min(1),
+  handlerFile: z.string().min(1),
+  framework: BackendFrameworkSchema,
+  auth: BackendAuthExposureSchema,
+  tested: z.boolean(),
+  testFiles: z.array(z.string().min(1)).default([]),
+  /** True when this handler file reaches a detected data-layer symbol/path. */
+  dataLayer: z.boolean().default(false),
+  confidence: z.number().min(0).max(1),
+  evidence: z.array(z.string().min(1)).default([]),
+  /** Optional link into the api-surface overlay graph. */
+  overlayNodeId: z.string().min(1).optional(),
+});
+
+export type BackendEndpoint = z.infer<typeof BackendEndpointSchema>;
+
+export const BackendDataLayerItemSchema = z.object({
+  id: z.string().min(1),
+  kind: z.enum(["model", "migration", "sql", "client"]),
+  path: z.string().min(1),
+  confidence: z.number().min(0).max(1),
+  evidence: z.array(z.string().min(1)).default([]),
+});
+
+export type BackendDataLayerItem = z.infer<typeof BackendDataLayerItemSchema>;
+
+export const BackendEnvVarSchema = z.object({
+  name: z.string().min(1),
+  path: z.string().min(1),
+  confidence: z.number().min(0).max(1),
+  evidence: z.array(z.string().min(1)).default([]),
+});
+
+export type BackendEnvVar = z.infer<typeof BackendEnvVarSchema>;
+
+export const BackendIntegrationSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  path: z.string().min(1).optional(),
+  confidence: z.number().min(0).max(1),
+  evidence: z.array(z.string().min(1)).default([]),
+});
+
+export type BackendIntegration = z.infer<typeof BackendIntegrationSchema>;
+
+export const BackendBackgroundJobSchema = z.object({
+  id: z.string().min(1),
+  kind: z.enum(["queue", "worker", "cron"]),
+  path: z.string().min(1),
+  confidence: z.number().min(0).max(1),
+  evidence: z.array(z.string().min(1)).default([]),
+});
+
+export type BackendBackgroundJob = z.infer<typeof BackendBackgroundJobSchema>;
+
+/**
+ * Typed backend domain report (M-044 / ADR-0015 Option C).
+ * Complements the generic `api-surface` overlay used by Map.
+ */
+export const BackendReportSchema = z.object({
+  rootPath: z.string().min(1),
+  packageId: z.string().min(1).optional(),
+  generatedAt: z.string().datetime(),
+  summary: z.string().min(1),
+  frameworksDetected: z.array(BackendFrameworkSchema).default([]),
+  endpoints: z.array(BackendEndpointSchema).default([]),
+  dataLayer: z.array(BackendDataLayerItemSchema).default([]),
+  envVars: z.array(BackendEnvVarSchema).default([]),
+  integrations: z.array(BackendIntegrationSchema).default([]),
+  background: z.array(BackendBackgroundJobSchema).default([]),
+});
+
+export type BackendReport = z.infer<typeof BackendReportSchema>;
+
 /** Parse unknown JSON into a DTO; returns Zod issues as message. */
 export function parseDto<Schema extends z.ZodTypeAny>(
   schema: Schema,
