@@ -37,7 +37,7 @@
 | M-022 Eng Health | `milestone/M-022-engineering-health` | Verified | ✅ | ✅ | Approved + merged 2026-07-22: EngineeringHealthReport + getEngineeringHealth(); entropy/drift/debt/churn/conflict/decay + hotspots; ADR-0017 Accepted |
 | M-023 Code Explorer | `milestone/M-023-code-explorer` | Verified | ✅ | ✅ | Approved + merged 2026-07-22: CodeExplorerReport + exploreCode(); usages/ownership/related/similar/timeline; ADR-0018 Accepted |
 | M-024 Insights | `milestone/M-024-engineering-insights` | Not Started | ☐ | ☐ | |
-| M-025 Core SDK Freeze v0 | `milestone/M-025-core-sdk-freeze` | In Progress | ☐ | ☐ | Started 2026-07-23 (ADR-0019 Accepted): v0.1.0 freeze, CORE_SDK guide, contract tests, map/navigation caps; verify:milestone green — awaiting owner review |
+| M-025 Core SDK Freeze v0 | `milestone/M-025-core-sdk-freeze` | Verified | ✅ | ✅ | Approved + merged 2026-07-23: v0.1.0 freeze, ADR-0019, CORE_SDK guide, contract tests, map/navigation caps |
 | M-026 MCP Server | `milestone/M-026-mcp-server` | Not Started | ☐ | ☐ | |
 | M-027 MCP Tools Pack | `milestone/M-027-mcp-tools-pack` | Not Started | ☐ | ☐ | |
 | M-028 CLI Foundation | `milestone/M-028-cli-foundation` | Not Started | ☐ | ☐ | |

@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-025-core-sdk-freeze` |
-| Status | In Progress |
+| Status | Verified |
 | Depends on | M-014, M-015, M-016, M-020 (+ later Verified APIs included in inventory) |
 | Unlocks | M-026, M-028, M-030, M-036 |
 | Packages | `@prism/core`, `@prism/shared`, docs |
