@@ -316,6 +316,8 @@ export const BlastRadiusReportSchema = z.object({
   risk: z.number().min(0).max(100),
   affectedFiles: z.array(BlastRadiusItemSchema),
   testsLikelyAffected: z.array(RepoRelativePathSchema),
+  /** True when traversal stopped at the depth limit (results are partial). */
+  truncated: z.boolean().optional(),
 });
 
 export type BlastRadiusReport = z.infer<typeof BlastRadiusReportSchema>;

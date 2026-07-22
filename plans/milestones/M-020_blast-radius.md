@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-020-blast-radius` |
-| Status | Not Started |
+| Status | In Progress |
 | Depends on | M-010, M-011 |
 | Unlocks | M-021, M-025 |
 | Packages | `@prism/impact`, `@prism/core` |
@@ -26,10 +26,42 @@ Compute **blast radius** for a change target (file/symbol): transitive dependent
 - ML regression models
 - Safe delete completeness (M-021)
 
+## Design notes
+
+### Traversal
+
+Blast radius is **reverse reachability** over the file dependency graph
+(`buildDependencyGraph`). Starting from the change origin, every file that
+transitively imports it is "affected", tagged with a `depth` (import distance)
+and a `reason` (`imports <file>` / `re-exports <file>`).
+
+- **File target** — seed = the file itself; its importers cascade.
+- **Symbol target** — resolved via the knowledge graph (`buildKnowledgeGraph`).
+  Seeds = the files that *reference* the symbol (`references <name>`, depth 1);
+  their dependents then cascade.
+- **Depth limit + truncation** — traversal stops at `maxDepth` (default 6). When
+  unexplored dependents remain at the limit the report sets `truncated: true`.
+
+### Risk score (0–100, deterministic)
+
+```
+risk = round(clamp(
+    55 * reachRatio                       // share of the repo impacted
+  + min(30, directDependents * 5)         // immediate fan-in
+  + (anyTestAffected ? 0 : 15)            // untested-change penalty
+, 0, 100))
+```
+
+where `reachRatio = affectedFiles / max(1, analyzedFiles - 1)` and
+`directDependents` is the count of depth-1 affected files. `testsLikelyAffected`
+is the subset of affected files matching test conventions
+(`*.test.*`, `*.spec.*`, `__tests__/`).
+
 ## Definition of Done
 
-- [ ] Blast radius for known symbol matches golden set
-- [ ] Risk score documented
+- [x] Blast radius for known symbol matches golden set (`packages/core/src/fixtures/blast-radius-*.golden.json`)
+- [x] Risk score documented (see Design notes)
+- [x] `@prism/impact` engine + unit tests; Core `blastRadius()` wired; `impact` capability flipped on
 - [ ] Verify + PROGRESS + owner approval
 
 ## Verification

@@ -28,6 +28,7 @@ export {
   UTILITY_JOB_REMOTE_PROBE_STUB,
 } from "@prism/intelligence";
 export type {
+  BlastRadiusReport,
   ConsentRecord,
   CwvReport,
   FeatureInfo,

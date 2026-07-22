@@ -27,6 +27,7 @@ describe("Prism.create", () => {
       indexing: true,
       graphs: true,
       intelligence: true,
+      impact: true,
     });
   });
 

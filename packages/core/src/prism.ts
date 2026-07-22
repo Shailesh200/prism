@@ -87,6 +87,8 @@ function resolveCapabilities(
     graphs: ports.indexer !== undefined,
     // M-013: Repository DNA via stack detector packs
     intelligence: ports.stack !== undefined,
+    // M-020: blast radius derives from the index snapshot dependency graph
+    impact: ports.indexer !== undefined,
   };
 }
 

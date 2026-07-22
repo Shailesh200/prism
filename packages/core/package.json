@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@prism/analyzer": "workspace:*",
+    "@prism/impact": "workspace:*",
     "@prism/indexer": "workspace:*",
     "@prism/intelligence": "workspace:*",
     "@prism/navigation": "workspace:*",

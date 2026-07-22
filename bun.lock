@@ -58,6 +58,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@prism/analyzer": "workspace:*",
+        "@prism/impact": "workspace:*",
         "@prism/indexer": "workspace:*",
         "@prism/intelligence": "workspace:*",
         "@prism/navigation": "workspace:*",
@@ -81,6 +82,9 @@
     "packages/impact": {
       "name": "@prism/impact",
       "version": "0.0.0",
+      "dependencies": {
+        "@prism/shared": "workspace:*",
+      },
     },
     "packages/indexer": {
       "name": "@prism/indexer",
