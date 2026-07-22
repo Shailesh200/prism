@@ -1,0 +1,12 @@
+{
+  "name": "m044-backend-fixture",
+  "private": true,
+  "dependencies": {
+    "express": "^4.0.0",
+    "fastify": "^4.0.0",
+    "@nestjs/common": "^10.0.0",
+    "@prisma/client": "^5.0.0",
+    "stripe": "^14.0.0",
+    "cron": "^3.0.0"
+  }
+}

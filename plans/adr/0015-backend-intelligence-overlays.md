@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Proposed |
+| Status | Accepted |
 | Date | 2026-07-22 |
 | Decision makers | Owner, Architect |
 | Related milestones | M-044 |

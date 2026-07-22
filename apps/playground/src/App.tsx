@@ -9,6 +9,7 @@ import type {
   MapZoomLevel,
   RepositoryMap,
   UtilityOverlayReport,
+  BackendReport,
 } from "@prism/shared";
 import {
   useCallback,
@@ -19,6 +20,7 @@ import {
   type ReactElement,
 } from "react";
 import {
+  fetchBackendReport,
   fetchDependencyGraph,
   fetchDna,
   fetchGitActivity,
@@ -44,6 +46,7 @@ type DomainRun = {
   security: UtilityOverlayReport | null;
   qa: UtilityOverlayReport | null;
   depGraph: GraphSnapshotDto | null;
+  backendReport: BackendReport | null;
 };
 
 function domainRunKey(root: string, domainId: string): string {
@@ -107,6 +110,9 @@ export function App(): ReactElement {
     useState<UtilityOverlayReport | null>(null);
   const [qaOverlay, setQaOverlay] = useState<UtilityOverlayReport | null>(null);
   const [depGraph, setDepGraph] = useState<GraphSnapshotDto | null>(null);
+  const [backendReport, setBackendReport] = useState<BackendReport | null>(
+    null,
+  );
   const domainRuns = useRef<Map<string, DomainRun>>(new Map());
 
   const refreshGit = useCallback((target: string | null) => {
@@ -183,11 +189,13 @@ export function App(): ReactElement {
         enrichBackend || enrichMobile || enrichDesktop
           ? fetchDependencyGraph(root)
           : Promise.resolve(null),
-      ]).then(([main, security, qa, graph]) => {
+        enrichBackend ? fetchBackendReport(root) : Promise.resolve(null),
+      ]).then(([main, security, qa, graph, backend]) => {
         setOverlay(main);
         setSecurityOverlay(security);
         setQaOverlay(qa);
         setDepGraph(graph);
+        setBackendReport(backend);
         setOverlayStatus(main ? "ready" : "error");
         if (main) {
           const run: DomainRun = {
@@ -195,6 +203,7 @@ export function App(): ReactElement {
             security,
             qa,
             depGraph: graph,
+            backendReport: backend,
           };
           domainRuns.current.set(domainRunKey(root, activeDomain), run);
           saveDomainRun(root, activeDomain, run);
@@ -211,17 +220,19 @@ export function App(): ReactElement {
         ? (domainRuns.current.get(domainRunKey(root, domainId)) ??
           loadDomainRun(root, domainId))
         : null;
-      if (cached) {
+      if (cached && (domainId !== "backend" || "backendReport" in cached)) {
         setOverlay(cached.overlay);
         setSecurityOverlay(cached.security);
         setQaOverlay(cached.qa);
         setDepGraph(cached.depGraph);
+        setBackendReport(cached.backendReport ?? null);
         setOverlayStatus("ready");
       } else {
         setOverlay(null);
         setSecurityOverlay(null);
         setQaOverlay(null);
         setDepGraph(null);
+        setBackendReport(null);
         setOverlayStatus("idle");
       }
       setView("domain");
@@ -244,6 +255,7 @@ export function App(): ReactElement {
     setSecurityOverlay(null);
     setQaOverlay(null);
     setDepGraph(null);
+    setBackendReport(null);
     setOverlayStatus("idle");
   };
 
@@ -371,6 +383,7 @@ export function App(): ReactElement {
             security={securityOverlay}
             qa={qaOverlay}
             depGraph={depGraph}
+            backendReport={backendReport}
             gitActivity={gitActivity}
             dna={dna}
             onRun={runOverlay}

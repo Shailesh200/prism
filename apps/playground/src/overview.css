@@ -1949,6 +1949,18 @@
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.6fr) 72px 52px;
 }
 
+.dm-surface--routes .dm-surface__head,
+.dm-surface--routes .dm-surface__row {
+  grid-template-columns: 72px minmax(0, 1.6fr) 88px 48px;
+}
+
+.dm-route__method {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  justify-self: start;
+}
+
 .dm-surface__router {
   font-size: 0.7rem;
   color: var(--prism-brand, #00c2c2);

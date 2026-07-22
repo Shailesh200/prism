@@ -11,6 +11,7 @@ import type {
   SafeDeleteReport,
   TestImpactReport,
   UtilityOverlayReport,
+  BackendReport,
 } from "@prism/shared";
 import {
   BlastRadiusReportSchema,
@@ -23,6 +24,7 @@ import {
   SafeDeleteReportSchema,
   TestImpactReportSchema,
   UtilityOverlayReportSchema,
+  BackendReportSchema,
 } from "@prism/shared";
 import { withAudit, recordAudit, type AuditDiagnostic } from "./audit-log.js";
 
@@ -284,6 +286,46 @@ export async function fetchOverlay(
           `domain=${data.domain}`,
           `findings=${findings}`,
           `graphNodes=${nodes}`,
+          data.summary,
+        ].join("\n"),
+      };
+    },
+  );
+}
+
+/** Route-granular backend report (Core `getBackendReport`, M-044). */
+export async function fetchBackendReport(
+  root: string | null,
+): Promise<BackendReport | null> {
+  const target = root ?? ".";
+  return withAudit(
+    {
+      category: "analysis",
+      operation: "Computed backend report",
+      target,
+      command: `GET /api/backend?root=${encodeURIComponent(target)}`,
+    },
+    async () => {
+      try {
+        const params = new URLSearchParams();
+        if (root) params.set("root", root);
+        const res = await fetch(`/api/backend?${params}`);
+        if (!res.ok) return null;
+        const parsed = BackendReportSchema.safeParse(await res.json());
+        return parsed.success ? parsed.data : null;
+      } catch {
+        return null;
+      }
+    },
+    (data) => {
+      if (!data) {
+        return { status: "error", output: "Backend report unavailable." };
+      }
+      return {
+        status: "success",
+        output: [
+          `endpoints=${data.endpoints.length}`,
+          `frameworks=${data.frameworksDetected.join(",") || "none"}`,
           data.summary,
         ].join("\n"),
       };
