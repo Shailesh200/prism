@@ -84,6 +84,8 @@ export function App(): ReactElement {
   ]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  /** Bumped on Start Indexing so a same-path reindex still refetches. */
+  const [indexNonce, setIndexNonce] = useState(0);
   const [view, setView] = useState<
     | "map"
     | "overview"
@@ -164,7 +166,7 @@ export function App(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [zoom, root, layers.join(",")]);
+  }, [zoom, root, layers.join(","), indexNonce]);
 
   useEffect(() => {
     if (!root) return;
@@ -248,6 +250,8 @@ export function App(): ReactElement {
     setZoom("package");
     setBookmarks([]);
     setMap(null);
+    setLoading(true);
+    setIndexNonce((n) => n + 1);
     setGitActivity(null);
     setHealth(null);
     setDna(null);
@@ -257,6 +261,7 @@ export function App(): ReactElement {
     setDepGraph(null);
     setBackendReport(null);
     setOverlayStatus("idle");
+    refreshGit(trimmed);
   };
 
   const onSubmitPath = (event: FormEvent) => {

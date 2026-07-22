@@ -4,5 +4,6 @@ export default defineConfig({
   test: {
     name: "@prism/vscode-extension",
     include: ["src/**/*.test.ts"],
+    exclude: ["dist/**", "node_modules/**"],
   },
 });

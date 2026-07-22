@@ -1,0 +1,18 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "prism: build vscode-extension",
+      "type": "shell",
+      "command": "bun run --filter @prism/ui build && bun run --filter @prism/core build && bun run --filter @prism/vscode-extension build",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

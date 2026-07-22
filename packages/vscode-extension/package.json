@@ -1,22 +1,51 @@
 {
   "name": "@prism/vscode-extension",
-  "version": "0.0.0",
+  "displayName": "Prism",
+  "description": "Local-first Software Intelligence — Repository Map for VS Code",
+  "version": "0.1.0",
   "private": true,
+  "publisher": "prism",
   "type": "module",
-  "description": "VS Code extension shell",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.90.0"
   },
-  "files": [
-    "dist"
-  ],
+  "categories": ["Other", "Visualization"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./dist/extension.cjs",
+  "contributes": {
+    "commands": [
+      {
+        "command": "prism.openRepositoryMap",
+        "title": "Prism: Open Repository Map",
+        "category": "Prism"
+      },
+      {
+        "command": "prism.reindex",
+        "title": "Prism: Reindex",
+        "category": "Prism"
+      }
+    ]
+  },
+  "files": ["dist", "media", "README.md"],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "bun run scripts/build.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts"
+  },
+  "dependencies": {
+    "@prism/core": "workspace:*",
+    "@prism/shared": "workspace:*",
+    "@prism/ui": "workspace:*",
+    "better-sqlite3": "^12.11.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@types/vscode": "^1.90.0"
   }
 }
