@@ -28,8 +28,6 @@
     "@radix-ui/react-tooltip": "^1.2.13",
     "@xyflow/react": "^12.11.2",
     "cmdk": "^1.1.1",
-    "highcharts": "11.4.8",
-    "highcharts-react-official": "^3.2.3",
     "lucide-react": "^1.25.0",
     "motion": "^12.42.2",
     "react": "^19.2.7",

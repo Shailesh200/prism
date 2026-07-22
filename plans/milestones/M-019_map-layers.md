@@ -35,6 +35,26 @@ Make Repository Map **layers** first-class in the playground: toggleable views w
 - [x] `bun run verify:milestone` green
 - [ ] Owner approval → commit → merge → then next milestone from `main`
 
+## Reconciliation / close-out (2026-07-22)
+
+The layer UX (heat layers, `MapLayersPanel`, legend, `layer-signals`, heat
+bands) was implemented and shipped as part of **M-042 (UI System v2)** and is
+already on `main`. This branch closes M-019 out and, since the layer work
+landed elsewhere, its remaining scope is housekeeping:
+
+- Removed unused map prototypes that never wired into a surface:
+  - `ZoomRail` (superseded by the M-042 zoom controls)
+  - `OverviewTreemap` + `overview-treemap`
+  - `DensityMap` + `density-layout` and the entire Highcharts stack it was the
+    sole consumer of (`highcharts-setup`, `highcharts-treemap-data`,
+    `treemap-palette`, `highcharts-modules.d.ts`, the `.prism-density` CSS, the
+    `--prism-treemap-*` tokens, and the `highcharts` / `highcharts-react-official`
+    dependencies).
+- Pruned the corresponding `@prism/ui` barrel exports and tests.
+
+No behavioural change to shipped surfaces; the map file-view uses the card-tree
+layout (M-042), not the Highcharts density view.
+
 ## Verification
 
 `bun run verify:milestone` · Manual playground: toggle layers on fixture, confirm legend + styling

@@ -67,23 +67,5 @@ export {
   clusterKeyForLabel,
   shortLabelInCluster,
 } from "./overview-layout.js";
-export { DensityMap, type DensityMapProps } from "./DensityMap.js";
-export {
-  OverviewTreemap,
-  type OverviewTreemapProps,
-} from "./OverviewTreemap.js";
-export {
-  squarifyTreemap,
-  type TreemapCell,
-  type TreemapItem,
-} from "./overview-treemap.js";
-export {
-  layoutDensity,
-  layoutTreemap,
-  layoutIcicle,
-  type DensityMode,
-  type DensityRect,
-} from "./density-layout.js";
-export { treeEntriesToTreemapPoints } from "./highcharts-treemap-data.js";
 
 export const PACKAGE_NAME = "@prism/ui" as const;
