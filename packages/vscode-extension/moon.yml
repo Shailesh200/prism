@@ -1,22 +1,36 @@
 $schema: "https://moonrepo.dev/schemas/project.json"
 language: "typescript"
 layer: "library"
+dependsOn:
+  - core
+  - shared
+  - ui
 tasks:
   build:
     command: "bun run build"
+    deps:
+      - "core:build"
+      - "ui:build"
     inputs:
       - "src/**/*"
+      - "scripts/**/*"
       - "tsconfig.json"
       - "package.json"
     outputs:
       - "dist"
+      - "media"
   typecheck:
     command: "bun run typecheck"
+    deps:
+      - "core:build"
+      - "ui:build"
     inputs:
       - "src/**/*"
       - "tsconfig.json"
   test:
     command: "bun run test"
+    deps:
+      - "core:build"
     inputs:
       - "src/**/*"
       - "vitest.config.ts"

@@ -1,2 +1,3 @@
-/** @prism/vscode-extension — stub (M-001). No product logic yet. */
+/** @prism/vscode-extension — public package name for workspace tests. */
 export const PACKAGE_NAME = "@prism/vscode-extension" as const;
+export { PrismSession, type MapPayload } from "./session.js";
