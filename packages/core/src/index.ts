@@ -29,6 +29,12 @@ export {
 } from "@prism/intelligence";
 export type {
   BlastRadiusReport,
+  BreakingChangeHint,
+  ChangeOrigin,
+  ImpactEditSite,
+  RenameImpactReport,
+  SafeDeleteReport,
+  TestImpactReport,
   ConsentRecord,
   CwvReport,
   FeatureInfo,

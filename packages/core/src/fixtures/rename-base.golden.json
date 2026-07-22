@@ -1,0 +1,21 @@
+{
+  "origin": { "kind": "symbol", "id": "Base", "path": "helper.ts" },
+  "newName": "Root",
+  "editSites": [
+    { "path": "helper.ts", "count": 1 },
+    { "path": "main.ts", "count": 1 }
+  ],
+  "affectedFiles": ["helper.ts", "main.ts"],
+  "breakingChanges": [
+    {
+      "kind": "exported-symbol",
+      "severity": "warning",
+      "message": "\"Base\" is exported; changing or removing it may break importers."
+    },
+    {
+      "kind": "subclassed",
+      "severity": "danger",
+      "message": "\"Base\" is extended or implemented elsewhere; changes may break subtypes."
+    }
+  ]
+}

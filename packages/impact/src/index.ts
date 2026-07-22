@@ -1,4 +1,4 @@
-/** @prism/impact — blast radius / change impact engine (M-020). */
+/** @prism/impact — blast radius / change impact engine (M-020, M-021). */
 export const PACKAGE_NAME = "@prism/impact" as const;
 
 export {
@@ -6,6 +6,15 @@ export {
   DEFAULT_BLAST_MAX_DEPTH,
   type BlastRadiusOptions,
   type BlastRadiusOrigin,
+  type ImpactContext,
   type ImpactReference,
   type ImpactSymbol,
 } from "./blast-radius.js";
+
+export {
+  computeBreakingChangeHints,
+  computeRenameImpact,
+  computeSafeDelete,
+  computeTestImpact,
+  type RenameTarget,
+} from "./change-impact.js";

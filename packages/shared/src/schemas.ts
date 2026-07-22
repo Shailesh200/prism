@@ -322,6 +322,64 @@ export const BlastRadiusReportSchema = z.object({
 
 export type BlastRadiusReport = z.infer<typeof BlastRadiusReportSchema>;
 
+/** A change target: a file or a symbol (M-020/M-021). */
+export const ChangeOriginSchema = z.object({
+  kind: z.enum(["file", "symbol"]),
+  id: z.string().min(1),
+  path: RepoRelativePathSchema.optional(),
+});
+
+export type ChangeOrigin = z.infer<typeof ChangeOriginSchema>;
+
+/** Heuristic hint that a change may break consumers (M-021). */
+export const BreakingChangeHintSchema = z.object({
+  kind: z.string().min(1),
+  severity: z.enum(["info", "warning", "danger"]),
+  message: z.string().min(1),
+});
+
+export type BreakingChangeHint = z.infer<typeof BreakingChangeHintSchema>;
+
+/** A file that must be edited for a rename, with its reference count. */
+export const ImpactEditSiteSchema = z.object({
+  path: RepoRelativePathSchema,
+  count: z.number().int().positive(),
+});
+
+export type ImpactEditSite = z.infer<typeof ImpactEditSiteSchema>;
+
+export const SafeDeleteReportSchema = z.object({
+  origin: ChangeOriginSchema,
+  /** True when nothing depends on the target. */
+  safe: z.boolean(),
+  /** Files that (transitively) depend on the target and block deletion. */
+  blockers: z.array(BlastRadiusItemSchema),
+  /** Files that become unreachable once the target is removed. */
+  orphans: z.array(RepoRelativePathSchema),
+  testsLikelyAffected: z.array(RepoRelativePathSchema),
+});
+
+export type SafeDeleteReport = z.infer<typeof SafeDeleteReportSchema>;
+
+export const RenameImpactReportSchema = z.object({
+  origin: ChangeOriginSchema,
+  newName: z.string().min(1).optional(),
+  /** Declaration + referencing files that must be edited. */
+  editSites: z.array(ImpactEditSiteSchema),
+  affectedFiles: z.array(RepoRelativePathSchema),
+  breakingChanges: z.array(BreakingChangeHintSchema),
+});
+
+export type RenameImpactReport = z.infer<typeof RenameImpactReportSchema>;
+
+export const TestImpactReportSchema = z.object({
+  origin: ChangeOriginSchema,
+  /** Test files transitively reachable from the change. */
+  tests: z.array(BlastRadiusItemSchema),
+});
+
+export type TestImpactReport = z.infer<typeof TestImpactReportSchema>;
+
 export const FileInventoryStatusSchema = z.enum([
   "hashed",
   "skipped_binary",
