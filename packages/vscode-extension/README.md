@@ -12,6 +12,15 @@ DNA, Domains, Blast, Trends, Settings) in a webview.
 | Prism: Open Repository Map | `prism.openRepositoryMap` |
 | Prism: Show Health | `prism.showHealth` |
 | Prism: Reindex | `prism.reindex` |
+| Prism: Open in Browser | `prism.openInBrowser` |
+
+`Open in Browser` starts a loopback HTTP bridge
+(`http://127.0.0.1:17321`) over the **same** `@prism/core` session the
+extension already indexed — no second Vite playground process. Works in F5
+and installed builds.
+
+The IDE webview itself is not a public URL; the bridge reuses the same UI
+bundle and Core RPC.
 
 ## Develop
 

@@ -44,7 +44,7 @@
 | M-029 CLI Commands | `milestone/M-029-cli-commands` | Not Started | ☐ | ☐ | |
 | M-030 VS Code Shell | `milestone/M-030-vscode-shell` | Verified | ✅ | ✅ | Approved + merged 2026-07-23: Extension Host shell, PrismSession, Map webview (`RepositoryMapView`), Reindex/Open Map, Electron better-sqlite3 staging |
 | M-031 VS Code Features | `milestone/M-031-vscode-features` | Verified | ✅ | ✅ | Approved + merged 2026-07-23: full playground UI in extension webview (Overview/Map/DNA/Domains/Blast/Trends/Settings) via Core postMessage; Open Prism / Show Health commands |
-| M-032 Cursor Extension | `milestone/M-032-cursor-extension` | Not Started | ☐ | ☐ | |
+| M-032 Cursor Extension | `milestone/M-032-cursor-extension` | Verified | ✅ | ✅ | Approved + merged 2026-07-23: Cursor packaging overlay (ADR-0020); Open in browser via loopback Core bridge |
 | M-033 Incremental Watch | `milestone/M-033-incremental-watch` | Not Started | ☐ | ☐ | |
 | M-034 Tree-sitter | `milestone/M-034-tree-sitter` | Not Started | ☐ | ☐ | |
 | M-035 Perf Hardening | `milestone/M-035-perf-hardening` | Not Started | ☐ | ☐ | |

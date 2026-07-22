@@ -2,6 +2,7 @@ import {
   Boxes,
   Compass,
   Dna,
+  ExternalLink,
   GitBranch,
   LayoutGrid,
   Map as MapIcon,
@@ -11,6 +12,7 @@ import {
   Zap,
 } from "lucide-react";
 import type { ReactElement } from "react";
+import { isBrowser, postToHost } from "../host-client.js";
 import { Avatar } from "./Avatar.js";
 import "./appnav.css";
 
@@ -61,6 +63,17 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
         <img src={brandSrc} alt="" width={22} height={22} />
         <span className="appnav__reveal">Prism</span>
       </div>
+      {!isBrowser ? (
+        <button
+          type="button"
+          className="appnav__item appnav__item--external appnav__item--below-logo"
+          title="Open the same Prism session in your system browser"
+          onClick={() => postToHost({ type: "openInBrowser" })}
+        >
+          <ExternalLink size={16} aria-hidden />
+          <span className="appnav__reveal">Open in browser</span>
+        </button>
+      ) : null}
 
       <div className="appnav__repo appnav__reveal">
         <div className="appnav__repo-box">

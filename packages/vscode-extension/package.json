@@ -34,6 +34,11 @@
         "command": "prism.reindex",
         "title": "Prism: Reindex",
         "category": "Prism"
+      },
+      {
+        "command": "prism.openInBrowser",
+        "title": "Prism: Open in Browser",
+        "category": "Prism"
       }
     ]
   },

@@ -1,15 +1,26 @@
 $schema: "https://moonrepo.dev/schemas/project.json"
 language: "typescript"
 layer: "library"
+dependsOn:
+  - vscode-extension
+toolchain:
+  typescript:
+    # Overlay only stages vscode-extension artifacts; that package is noEmit
+    # and not composite — do not inject TS project references.
+    syncProjectReferences: false
 tasks:
   build:
     command: "bun run build"
+    deps:
+      - "vscode-extension:build"
     inputs:
       - "src/**/*"
-      - "tsconfig.json"
+      - "scripts/**/*"
       - "package.json"
+      - "tsconfig.json"
     outputs:
       - "dist"
+      - "media"
   typecheck:
     command: "bun run typecheck"
     inputs:
@@ -20,6 +31,7 @@ tasks:
     inputs:
       - "src/**/*"
       - "vitest.config.ts"
+      - "package.json"
   test-integration:
     command: "bun run test:integration"
     inputs:
