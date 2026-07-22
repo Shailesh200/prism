@@ -34,6 +34,7 @@ export type {
   IngestArtifact,
   IngestArtifactMeta,
   IntelligenceConsistency,
+  GitActivity,
   IntelligenceReport,
   KnowledgeGraphStats,
   PersonaPresets,

@@ -3,8 +3,14 @@ import { access, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
-import type { MapZoomLevel, RepositoryMap } from "@prism/shared";
-import { MapZoomLevelSchema } from "@prism/shared";
+import type {
+  GitActivity,
+  HealthScore,
+  MapLayerId,
+  MapZoomLevel,
+  RepositoryMap,
+} from "@prism/shared";
+import { MapLayerIdSchema, MapZoomLevelSchema } from "@prism/shared";
 
 const appRoot = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(appRoot, "../..");
@@ -19,9 +25,16 @@ const ZOOM_LEVELS = MapZoomLevelSchema.options;
 type Workspace = {
   getRepositoryMap: (options?: {
     zoom?: MapZoomLevel;
+    layers?: readonly string[];
   }) =>
     | { ok: true; value: RepositoryMap }
     | { ok: false; error: { message: string } };
+  getGitActivity: () =>
+    | { ok: true; value: GitActivity }
+    | { ok: false; error: { message: string } };
+  getHealth: () => Promise<
+    { ok: true; value: HealthScore } | { ok: false; error: { message: string } }
+  >;
 };
 
 const workspaceCache = new Map<string, Promise<Workspace>>();
@@ -79,14 +92,47 @@ async function getIndexedWorkspace(root: string): Promise<Workspace> {
   return pending;
 }
 
+function parseLayers(raw: string | null): MapLayerId[] | undefined {
+  if (!raw || raw.trim().length === 0) return undefined;
+  const out: MapLayerId[] = [];
+  for (const part of raw.split(",")) {
+    const id = part.trim();
+    const parsed = MapLayerIdSchema.safeParse(id);
+    if (parsed.success && !out.includes(parsed.data)) out.push(parsed.data);
+  }
+  return out.length > 0 ? out : undefined;
+}
+
 async function loadMap(
   zoom: MapZoomLevel,
   root: string,
+  layers?: readonly MapLayerId[],
 ): Promise<RepositoryMap> {
   const ws = await getIndexedWorkspace(root);
-  const result = ws.getRepositoryMap({ zoom });
+  const result = ws.getRepositoryMap({
+    zoom,
+    ...(layers === undefined ? {} : { layers }),
+  });
   if (!result.ok) {
     throw new Error(`getRepositoryMap failed: ${result.error.message}`);
+  }
+  return result.value;
+}
+
+async function loadGitActivity(root: string): Promise<GitActivity> {
+  const ws = await getIndexedWorkspace(root);
+  const result = ws.getGitActivity();
+  if (!result.ok) {
+    throw new Error(`getGitActivity failed: ${result.error.message}`);
+  }
+  return result.value;
+}
+
+async function loadHealth(root: string): Promise<HealthScore> {
+  const ws = await getIndexedWorkspace(root);
+  const result = await ws.getHealth();
+  if (!result.ok) {
+    throw new Error(`getHealth failed: ${result.error.message}`);
   }
   return result.value;
 }
@@ -143,8 +189,27 @@ function prismMapApi(): Plugin {
               const root = resolveRequestedRoot(
                 parsed.searchParams.get("root"),
               );
-              const map = await loadMap(zoom, root);
+              const layers = parseLayers(parsed.searchParams.get("layers"));
+              const map = await loadMap(zoom, root, layers);
               sendJson(res, 200, map);
+              return;
+            }
+
+            if (parsed.pathname === "/api/git") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const activity = await loadGitActivity(root);
+              sendJson(res, 200, activity);
+              return;
+            }
+
+            if (parsed.pathname === "/api/health") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const health = await loadHealth(root);
+              sendJson(res, 200, health);
               return;
             }
 

@@ -6,10 +6,10 @@
   justify-content: center;
   gap: 6px;
   background:
-    radial-gradient(90% 70% at 50% 28%, #f3f7f9 0%, transparent 58%),
-    linear-gradient(165deg, #e8eef2 0%, #f3f7f9 100%);
-  color: #0f1c24;
-  font-family: "Satoshi", "General Sans", "Switzer", "Segoe UI", sans-serif;
+    radial-gradient(90% 70% at 50% 28%, #131926 0%, transparent 58%),
+    linear-gradient(165deg, #0a0e1a 0%, #0f1420 100%);
+  color: #ffffff;
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
 }
 
 .prism-boot__brand {
@@ -22,16 +22,16 @@
 .prism-boot__msg {
   margin: 10px 0 0;
   font-size: 0.8125rem;
-  color: #5a6b76;
+  color: #94a3b8;
 }
 
 .prism-boot__detail {
   margin: 4px 0 0;
   max-width: 420px;
   text-align: center;
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 0.7rem;
-  color: #5a6b76;
+  color: #94a3b8;
   line-height: 1.4;
 }
 
@@ -40,6 +40,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  background: #0a0e1a;
 }
 
 .playground-shell__map {
@@ -47,15 +48,29 @@
   min-height: 0;
 }
 
+/* Map view: hover-expanding nav rail overlays the map's left gutter. */
+.playground-map-wrap {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  background: #0a0e1a;
+}
+
+.playground-map-inner {
+  position: absolute;
+  inset: 0 0 0 56px;
+}
+
+/* Top control strip: nav (Map/Overview) + open-repo form */
 .playground-open {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
   padding: 8px 12px;
-  border-bottom: 1px solid #d5dde3;
-  background: #f7fafb;
-  font-family: "Satoshi", "Segoe UI", sans-serif;
+  border-bottom: 1px solid #2a334a;
+  background: #0f1420;
+  font-family: "Inter", "Segoe UI", sans-serif;
 }
 
 .playground-open--boot {
@@ -70,7 +85,7 @@
   font-weight: 650;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #5a6b76;
+  color: #94a3b8;
 }
 
 .playground-open__presets {
@@ -80,9 +95,9 @@
 
 .playground-open__presets button,
 .playground-open > button[type="submit"] {
-  border: 1px solid #d5dde3;
-  background: #fff;
-  color: #0f1c24;
+  border: 1px solid #2a334a;
+  background: #131926;
+  color: #ffffff;
   font: inherit;
   font-size: 0.75rem;
   font-weight: 600;
@@ -92,31 +107,31 @@
 }
 
 .playground-open__presets button[data-active="true"] {
-  border-color: #0f766e;
-  background: #0f766e;
-  color: #fff;
+  border-color: #00c2c2;
+  background: #00c2c2;
+  color: #0a0e1a;
 }
 
 .playground-open__presets button:hover,
 .playground-open > button[type="submit"]:hover {
-  border-color: #0f766e;
+  border-color: #00c2c2;
 }
 
 .playground-open input {
   flex: 1;
   min-width: 180px;
-  border: 1px solid #d5dde3;
-  background: #fff;
+  border: 1px solid #2a334a;
+  background: #131926;
   border-radius: 6px;
   padding: 6px 10px;
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 0.7rem;
-  color: #0f1c24;
+  color: #ffffff;
 }
 
 .playground-open__status {
   font-size: 0.6875rem;
-  color: #5a6b76;
+  color: #94a3b8;
   max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -124,5 +139,5 @@
 }
 
 .playground-open__status--err {
-  color: #b42318;
+  color: #f43f5e;
 }

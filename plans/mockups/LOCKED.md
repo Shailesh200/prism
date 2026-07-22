@@ -1,7 +1,7 @@
 # Prism — Locked Brand & Design System
 
-> Status: **LOCKED** (2026-07-20)  
-> UI screen mockups: **deferred** — not required for implementation start. Build product UI from the design system + brand assets.
+> Status: **LOCKED** (2026-07-20). Brand mark/lockups unchanged.  
+> **Product UI theme relocked 2026-07-22 to UXPilot dark** — see [ADR-0014](../adr/0014-uxpilot-dark-product-ui.md). App surfaces use the dark tokens in `packages/ui/src/tokens.css` (navy, cyan `#00C2C2`, violet `#6C63FF`, Inter + JetBrains Mono). Screens: [`screens/SPECS.md`](./screens/SPECS.md) + [`screens/html/`](./screens/html/).
 
 ## What is locked
 

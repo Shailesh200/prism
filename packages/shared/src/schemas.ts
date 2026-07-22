@@ -200,6 +200,107 @@ export const MapSearchHitSchema = z.object({
 
 export type MapSearchHit = z.infer<typeof MapSearchHitSchema>;
 
+/** A single commit reference (local git, no network). */
+export const GitCommitRefSchema = z.object({
+  sha: z.string().min(1),
+  author: z.string().min(1),
+  email: z.string().optional(),
+  /** ISO-8601 commit date. */
+  date: z.string().min(1),
+  message: z.string().default(""),
+});
+
+export type GitCommitRef = z.infer<typeof GitCommitRefSchema>;
+
+/** Per-author contribution rollup for a file. */
+export const GitContributorSchema = z.object({
+  author: z.string().min(1),
+  commits: z.number().int().nonnegative(),
+  additions: z.number().int().nonnegative().default(0),
+  deletions: z.number().int().nonnegative().default(0),
+});
+
+export type GitContributor = z.infer<typeof GitContributorSchema>;
+
+/** Local git history rolled up per file (M-042 / ADR-0013). */
+export const GitFileSignalSchema = z.object({
+  path: z.string().min(1),
+  lastCommit: GitCommitRefSchema,
+  commits: z.number().int().nonnegative(),
+  additions: z.number().int().nonnegative().default(0),
+  deletions: z.number().int().nonnegative().default(0),
+  /** Line churn of the file's most-recent commit (for activity feeds). */
+  lastAdditions: z.number().int().nonnegative().default(0),
+  lastDeletions: z.number().int().nonnegative().default(0),
+  contributors: z.array(GitContributorSchema).default([]),
+  /** Most recent commits touching this file (bounded). */
+  recent: z.array(GitCommitRefSchema).default([]),
+  /** Commits per week over a recent window (oldest → newest), for sparklines. */
+  weeks: z.array(z.number().int().nonnegative()).default([]),
+  /** 0–1 recency (1 = just changed) relative to the repo window. */
+  recency: z.number().min(0).max(1).default(0),
+});
+
+export type GitFileSignal = z.infer<typeof GitFileSignalSchema>;
+
+/** Repo-level git summary attached to the map root. */
+export const GitRepoSummarySchema = z.object({
+  headSha: z.string().optional(),
+  /** Current branch (`git rev-parse --abbrev-ref HEAD`), when resolvable. */
+  branch: z.string().optional(),
+  totalCommits: z.number().int().nonnegative().default(0),
+  windowCommits: z.number().int().nonnegative().default(0),
+  firstDate: z.string().optional(),
+  lastDate: z.string().optional(),
+});
+
+export type GitRepoSummary = z.infer<typeof GitRepoSummarySchema>;
+
+/** A recently-changed file (most-recent commit that touched it). */
+export const GitRecentFileSchema = z.object({
+  path: z.string().min(1),
+  lastCommit: GitCommitRefSchema,
+  commits: z.number().int().nonnegative().default(0),
+  /** Line churn of the most-recent commit that touched this file. */
+  additions: z.number().int().nonnegative().default(0),
+  deletions: z.number().int().nonnegative().default(0),
+});
+
+export type GitRecentFile = z.infer<typeof GitRecentFileSchema>;
+
+/** Distinct commits on a single calendar day (`YYYY-MM-DD`, local). */
+export const GitDayBucketSchema = z.object({
+  /** `YYYY-MM-DD` (commit-author local date). */
+  date: z.string().min(1),
+  commits: z.number().int().nonnegative(),
+});
+
+export type GitDayBucket = z.infer<typeof GitDayBucketSchema>;
+
+/**
+ * Repo-wide local git activity for dashboards (M-042). `available` is false
+ * when the root is not a git work tree; the reader never touches the network.
+ */
+export const GitActivitySchema = z.object({
+  root: z.string().min(1),
+  generatedAt: z.string().datetime(),
+  available: z.boolean(),
+  summary: GitRepoSummarySchema.optional(),
+  /** Files ordered by most-recent change (newest first). */
+  recentFiles: z.array(GitRecentFileSchema).default([]),
+  /** Latest distinct commits repo-wide (newest first). */
+  recentCommits: z.array(GitCommitRefSchema).default([]),
+  /** Repo-wide commits per week over the recent window (oldest → newest). */
+  weeks: z.array(z.number().int().nonnegative()).default([]),
+  /**
+   * Distinct commits per calendar day across the full scanned window (ascending
+   * by date). Powers dashboard range filters (4w/12w/26w/52w + custom range).
+   */
+  days: z.array(GitDayBucketSchema).default([]),
+});
+
+export type GitActivity = z.infer<typeof GitActivitySchema>;
+
 export const BlastRadiusItemSchema = z.object({
   path: RepoRelativePathSchema,
   reason: z.string().min(1),
@@ -426,6 +527,8 @@ export const RepositoryMapSchema = z.object({
   searchIndex: z.array(MapSearchHitSchema).default([]),
   /** Aggregation rule notes for the current zoom. */
   clusteringNote: z.string().min(1),
+  /** Repo-level local git summary (absent on non-git roots). */
+  git: GitRepoSummarySchema.optional(),
 });
 
 export type RepositoryMap = z.infer<typeof RepositoryMapSchema>;

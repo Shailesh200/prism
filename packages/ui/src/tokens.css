@@ -1,43 +1,61 @@
 /**
- * Prism Signal Chart tokens — source: plans/mockups/DESIGN.md + plans/DESIGN_SYSTEM.md
- * Do not invent alternate palettes in surfaces; extend this file.
+ * Prism UI tokens — UXPilot dark product system.
+ * Source of truth: plans/mockups/screens/html/*.html + plans/mockups/DESIGN.md.
+ * ADR-0014 relocked the product UI from light Signal Chart to this dark theme.
+ * Surfaces must consume these tokens; do not invent alternate palettes.
  */
 :root,
 .prism-theme {
-  /* Color */
-  --prism-brand: #0f766e;
-  --prism-brand-strong: #115e59;
-  --prism-on-brand: #ffffff;
-  --prism-ink: #0f1c24;
-  --prism-ink-muted: #5a6b76;
-  --prism-line: #c5d0d8;
-  --prism-panel: #fbfcfd;
-  --prism-canvas: #e8eef2;
-  --prism-canvas-alt: #f3f7f9;
-  --prism-tile: #f3f7f9;
-  --prism-route: #0f766e;
-  --prism-edge: color-mix(in srgb, #0f766e 42%, #c5d0d8);
-  --prism-edge-strong: color-mix(in srgb, #0f766e 72%, #5a6b76);
-  --prism-node-fill: #f7fafb;
-  --prism-node-fill-selected: color-mix(in srgb, #0f766e 10%, #ffffff);
-  --prism-risk: #d97706;
-  --prism-risk-extreme: #e11d48;
-  --prism-safe: #059669;
-  --prism-dark-chrome: #1a2330;
+  /* Brand + accents (UXPilot) */
+  --prism-brand: #00c2c2;
+  --prism-brand-strong: #00dcd4;
+  --prism-on-brand: #0a0e1a;
+  --prism-violet: #6c63ff;
+
+  /* Text */
+  --prism-ink: #ffffff;
+  --prism-ink-muted: #94a3b8;
+
+  /* Structure */
+  --prism-line: #2a334a;
+  --prism-panel: #131926;
+  --prism-panel-2: #0f1420;
+  --prism-canvas: #0a0e1a;
+  --prism-canvas-alt: #0f1420;
+  --prism-tile: #1e2433;
+  --prism-elev: #1e2433;
+
+  /* Map graph */
+  --prism-route: #00c2c2;
+  --prism-edge: color-mix(in srgb, #00c2c2 45%, #2a334a);
+  --prism-edge-strong: color-mix(in srgb, #00c2c2 78%, #94a3b8);
+  --prism-node-fill: #1e2433;
+  --prism-node-fill-selected: color-mix(in srgb, #00c2c2 16%, #131926);
+
+  /* Signal colors */
+  --prism-risk: #f59e0b;
+  --prism-risk-extreme: #f43f5e;
+  --prism-safe: #10b981;
+  --prism-amber: #f59e0b;
+  --prism-rose: #f43f5e;
+  --prism-emerald: #10b981;
+
+  /* Tooltip / instrument chrome */
+  --prism-dark-chrome: #1e2433;
   --prism-dark-ink: #e8eef2;
 
-  /* Treemap density shades (derived from brand / canvas — Signal Chart) */
-  --prism-treemap-0: #f3f7f9;
-  --prism-treemap-1: #e8eef2;
-  --prism-treemap-2: #c5e0dc;
-  --prism-treemap-3: #9fcfc8;
-  --prism-treemap-4: #6bb5ac;
-  --prism-treemap-5: #0f766e;
-  --prism-treemap-6: #115e59;
-  --prism-treemap-file: #f7fafb;
-  --prism-treemap-mist: #d5e3e8;
+  /* Treemap density ramp (ink → teal) */
+  --prism-treemap-0: #131926;
+  --prism-treemap-1: #16202e;
+  --prism-treemap-2: #123a3d;
+  --prism-treemap-3: #0e5257;
+  --prism-treemap-4: #0a8a8a;
+  --prism-treemap-5: #00c2c2;
+  --prism-treemap-6: #00dcd4;
+  --prism-treemap-file: #1e2433;
+  --prism-treemap-mist: #1a2233;
 
-  /* Aliases (DESIGN_SYSTEM.md names) */
+  /* Aliases */
   --bg-canvas: var(--prism-canvas);
   --bg-panel: var(--prism-panel);
   --ink: var(--prism-ink);
@@ -45,9 +63,9 @@
   --line: var(--prism-line);
   --brand: var(--prism-brand);
 
-  /* Typography */
-  --prism-font: "Satoshi", "General Sans", "Switzer", "Segoe UI", sans-serif;
-  --prism-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+  /* Typography (UXPilot: Inter + JetBrains Mono) */
+  --prism-font: "Inter", "Segoe UI", system-ui, sans-serif;
+  --prism-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
   --prism-type-brand-size: 1.125rem;
   --prism-type-brand-weight: 650;
   --prism-type-brand-tracking: -0.02em;
@@ -70,7 +88,47 @@
   --prism-space-md: 16px;
   --prism-space-lg: 24px;
   --prism-space-xl: 32px;
-  --prism-topbar-h: 56px;
-  --prism-inspector-w: 312px;
-  --prism-shadow-inspector: 0 8px 24px rgba(15, 28, 36, 0.06);
+  --prism-topbar-h: 48px;
+  --prism-sidebar-w: 224px;
+  --prism-inspector-w: 288px;
+  --prism-shadow-inspector: 0 8px 24px rgba(0, 0, 0, 0.45);
+
+  /* Elevation ladder (dark) */
+  --prism-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 1px rgba(0, 0, 0, 0.3);
+  --prism-shadow-2: 0 4px 12px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.35);
+  --prism-shadow-3: 0 14px 34px rgba(0, 0, 0, 0.55), 0 4px 10px rgba(0, 0, 0, 0.4);
+  --prism-shadow-float: 0 22px 52px rgba(0, 0, 0, 0.6), 0 6px 16px rgba(0, 0, 0, 0.45);
+
+  /* Selection focus ring (teal) */
+  --prism-ring: 0 0 0 3px color-mix(in srgb, var(--prism-brand) 26%, transparent);
+  --prism-ring-strong: 0 0 0 2px color-mix(in srgb, var(--prism-brand) 60%, transparent);
+
+  /* Signal glass — thin instrument surfaces floating over the map */
+  --prism-glass: color-mix(in srgb, var(--prism-tile) 86%, transparent);
+  --prism-glass-line: color-mix(in srgb, var(--prism-line) 90%, transparent);
+  --prism-glass-blur: 14px;
+
+  /* Motion */
+  --prism-dur-1: 120ms;
+  --prism-dur-2: 200ms;
+  --prism-dur-3: 320ms;
+  --prism-dur-4: 480ms;
+  --prism-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --prism-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --prism-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* Map atmosphere — dot grid over deep navy */
+  --prism-grid-line: rgba(42, 51, 74, 0.7);
+  --prism-grid-fine: rgba(42, 51, 74, 0.4);
+  --prism-vignette: rgba(0, 0, 0, 0.4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root,
+  .prism-theme {
+    --prism-dur-1: 0ms;
+    --prism-dur-2: 0ms;
+    --prism-dur-3: 0ms;
+    --prism-dur-4: 0ms;
+  }
 }

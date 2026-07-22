@@ -1,5 +1,10 @@
 import type { MapLayerDescriptor, MapLayerId } from "@prism/shared";
 
+/**
+ * Product Map layers (M-017 / M-019).
+ * `available` = has local styling signals in this build.
+ * `stub` = heuristic / placeholder until a later milestone owns the real metric.
+ */
 const LAYERS: readonly MapLayerDescriptor[] = [
   {
     id: "architecture",
@@ -18,43 +23,43 @@ const LAYERS: readonly MapLayerDescriptor[] = [
   {
     id: "activity",
     label: "Activity",
-    description: "Git churn / edit heat (stub until M-022)",
-    available: false,
+    description: "Edit / touch-surface heat (local stub until M-022)",
+    available: true,
     stub: true,
   },
   {
     id: "ownership",
     label: "Ownership",
-    description: "CODEOWNERS / team regions (stub)",
-    available: false,
+    description: "Folder / package ownership bands (local stub)",
+    available: true,
     stub: true,
   },
   {
     id: "debt",
     label: "Debt",
-    description: "Diagnostics and debt hotspots (stub)",
-    available: false,
-    stub: true,
+    description: "Parse diagnostics and failed files",
+    available: true,
+    stub: false,
   },
   {
     id: "risk",
     label: "Risk",
-    description: "Blast-radius / risk heat (stub until M-020)",
-    available: false,
+    description: "Dependency fan-in heat (blast-radius later in M-020)",
+    available: true,
     stub: true,
   },
   {
     id: "performance",
     label: "Performance",
-    description: "CWV / utility overlays (stub wiring to M-041)",
-    available: false,
+    description: "Frontend surface heat (CWV overlays later)",
+    available: true,
     stub: true,
   },
   {
     id: "coverage",
     label: "Coverage",
-    description: "Test coverage overlays (stub)",
-    available: false,
+    description: "Coverage gap heat (nearby test presence)",
+    available: true,
     stub: true,
   },
 ];
@@ -79,4 +84,9 @@ export function resolveActiveLayers(
     }
   }
   return out.length > 0 ? out : defaultActiveLayerIds();
+}
+
+/** Layers that contribute heat / tint styling (not structure/edges alone). */
+export function heatLayerIds(active: readonly MapLayerId[]): MapLayerId[] {
+  return active.filter((id) => id !== "architecture" && id !== "dependency");
 }

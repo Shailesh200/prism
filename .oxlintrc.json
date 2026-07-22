@@ -9,6 +9,7 @@
     "**/node_modules/**",
     "**/.moon/**",
     "plans/**",
-    "**/fixtures/**"
+    "**/fixtures/**",
+    "**/*.generated.ts"
   ]
 }

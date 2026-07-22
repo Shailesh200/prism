@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+        window.FontAwesomeConfig = {
+          autoReplaceSvg: 'nest'
+        };
+      </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prism — Understand Any Codebase at a Glance</title>
+    <meta name="description" content="Prism maps your entire repository into a living, interactive graph so you can understand dependencies, blast radius, and codebase DNA in seconds.">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        // Brand / surface tokens
+                        brand: {
+                            ink: '#0A0E1A',      // base page bg (deep navy)
+                            surface: '#131926',  // elevated surface
+                            card: '#1E2433',     // card fill
+                            line: '#2A334A',     // hairline borders
+                            muted: '#94A3B8',    // secondary text
+                            accent: '#6C63FF',   // indigo accent (active states)
+                            teal: '#00C2C2'      // primary brand accent
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    backgroundImage: {
+                        'grid-pattern': `radial-gradient(circle at 1px 1px, rgba(42,51,74,0.6) 1px, transparent 0)`,
+                    },
+                    backgroundSize: {
+                        'grid-pattern': '40px 40px',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style type="text/css">
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0A0E1A;
+            color: #FFFFFF;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Navigation Hover Effect */
+        .nav-link-hover {
+            position: relative;
+            transition: color 0.3s ease;
+        }
+        .nav-link-hover::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 1px;
+            bottom: -2px;
+            left: 0;
+            background-color: currentColor;
+            transition: width 0.3s ease;
+        }
+        .nav-link-hover:hover::after {
+            width: 100%;
+        }
+
+        /* Status Dot Pulse */
+        .status-dot::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            height: 100%;
+            background-color: inherit;
+            border-radius: 50%;
+            z-index: -1;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; }
+            100% { transform: translate(-50%, -50%) scale(2.5); opacity: 0; }
+        }
+
+        /* Hero Gradient Text */
+        .gradient-text {
+            background: linear-gradient(90deg, #00C2C2, #6C63FF);
+            -webkit-background-clip: text;
+            -webkit-fill-color: transparent;
+        }
+
+        /* Interactive Demo Hover */
+        .interactive-demo:hover .demo-card {
+            transform: scale(1.02);
+        }
+        .demo-card {
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* Feature Card Hover */
+        .feature-card {
+            transition: all 0.3s ease;
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        .feature-card:hover .feature-image {
+            filter: none;
+            transform: scale(1.05);
+        }
+        .feature-image {
+            transition: all 0.5s ease;
+            filter: saturate(0.8);
+        }
+
+        /* Ticker Animation */
+        .ticker-text {
+            animation: ticker 10s steps(10) infinite;
+        }
+        @keyframes ticker {
+            0% { opacity: 1; }
+            90% { opacity: 1; }
+            95% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        /* How it Works Row Hover */
+        .step-row:hover .step-detail {
+            opacity: 1;
+            visibility: visible;
+        }
+        .step-detail {
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        /* Testimonial Avatar Hover */
+        .testimonial-avatar {
+            transition: all 0.3s ease;
+            filter: grayscale(100%);
+        }
+        .testimonial-item:hover .testimonial-avatar {
+            filter: grayscale(0%);
+            transform: scale(1.1);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0A0E1A;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2A334A;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3A435A;
+        }
+    </style>
+</head>
+<body class="bg-brand-ink text-white">
+
+    <!-- Header / Navigation -->
+    <header class="fixed top-0 left-0 right-0 z-50 px-6 py-4 flex items-center justify-between bg-brand-surface/80 backdrop-blur-md border-b border-white/10">
+        <div class="flex items-center space-x-8">
+            <a href="#" class="flex items-center space-x-2">
+                <svg width="28" height="28" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M20 2L36 20L20 38L4 20L20 2Z" fill="#00C2C2"/>
+                    <path d="M20 10L28 20L20 30L12 20L20 10Z" fill="#FFFFFF"/>
+                </svg>
+                <span class="text-xl font-semibold tracking-tight">Prism</span>
+            </a>
+            <nav class="hidden md:flex items-center space-x-6 text-sm font-medium text-gray-300">
+                <a href="#" class="nav-link-hover">Features</a>
+                <a href="#" class="nav-link-hover">Docs</a>
+                <a href="#" class="nav-link-hover">Pricing</a>
+                <a href="#" class="nav-link-hover">Changelog</a>
+                <a href="#" class="nav-link-hover text-white flex items-center space-x-2">
+                    <span class="relative w-2 h-2 bg-brand-accent rounded-full status-dot"></span>
+                    <span>Status</span>
+                </a>
+            </nav>
+        </div>
+        <div class="flex items-center space-x-4">
+            <a href="#" class="hidden md:block text-sm font-medium text-gray-300 nav-link-hover">Sign In</a>
+            <a href="#" class="bg-brand-teal hover:bg-[#00dcd4] text-brand-ink font-semibold text-sm px-5 py-2.5 rounded-lg transition-colors">Get Early Access</a>
+        </div>
+    </header>
+
+    <main>
+        <!-- Hero Section -->
+        <section class="relative pt-32 pb-20 lg:pt-44 lg:pb-32 px-6 overflow-hidden bg-grid-pattern bg-grid-pattern">
+            <div class="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
+                <div class="space-y-8">
+                    <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full border border-white/10 bg-white/5 text-xs font-medium uppercase tracking-wider text-gray-300">
+                        <span class="relative w-1.5 h-1.5 bg-brand-accent rounded-full status-dot"></span>
+                        Now in Open Beta
+                    </div>
+                    <h1 class="text-5xl lg:text-7xl font-bold leading-[1.1] tracking-tight">
+                        Understand any <br><span class="gradient-text">codebase at a glance</span>
+                    </h1>
+                    <p class="text-lg text-brand-muted max-w-xl leading-relaxed">
+                        Prism maps your entire repository into a living, interactive graph. Surface dependencies, measure blast radius, and read your codebase DNA before you touch a single file.
+                    </p>
+                    <div class="flex flex-wrap gap-4">
+                        <a href="#" class="bg-brand-teal hover:bg-[#00dcd4] text-brand-ink font-semibold px-8 py-3.5 rounded-lg transition-all shadow-[0_0_20px_rgba(0,194,194,0.3)]">Get Early Access</a>
+                        <a href="#" class="border border-white/15 hover:border-white/30 text-white font-medium px-8 py-3.5 rounded-lg transition-colors">View Demo</a>
+                    </div>
+                </div>
+
+                <!-- Interactive Demo Mockup -->
+                <div class="interactive-demo relative">
+                    <div class="demo-card bg-brand-card border border-white/10 rounded-xl p-2 shadow-2xl">
+                        <div class="rounded-lg overflow-hidden bg-brand-ink aspect-video relative group">
+                            <!-- Abstract Graph Visualization (CSS) -->
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <svg class="w-full h-full opacity-80" viewBox="0 0 800 450">
+                                    <defs>
+                                        <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" stop-color="#00C2C2" />
+                                            <stop offset="100%" stop-color="#6C63FF" />
+                                        </linearGradient>
+                                    </defs>
+                                    <!-- Connections -->
+                                    <g stroke="rgba(255,255,255,0.1)" stroke-width="1">
+                                        <line x1="400" y1="225" x2="250" y2="120" />
+                                        <line x1="400" y1="225" x2="550" y2="120" />
+                                        <line x1="400" y1="225" x2="250" y2="330" />
+                                        <line x1="400" y1="225" x2="550" y2="330" />
+                                        <line x1="250" y1="120" x2="150" y2="180" />
+                                        <line x1="550" y1="120" x2="650" y2="180" />
+                                    </g>
+                                    <!-- Nodes -->
+                                    <circle cx="400" cy="225" r="18" fill="#00C2C2" class="transition-all duration-300 group-hover:r-24" />
+                                    <circle cx="250" cy="120" r="12" fill="#6C63FF" />
+                                    <circle cx="550" cy="120" r="12" fill="#6C63FF" />
+                                    <circle cx="250" cy="330" r="12" fill="#6C63FF" />
+                                    <circle cx="550" cy="330" r="12" fill="#6C63FF" />
+                                    <circle cx="150" cy="180" r="8" fill="rgba(255,255,255,0.3)" />
+                                    <circle cx="650" cy="180" r="8" fill="rgba(255,255,255,0.3)" />
+                                </svg>
+                            </div>
+                            <div class="absolute bottom-4 left-4 right-4 flex justify-between items-end">
+                                <div class="bg-brand-surface/90 backdrop-blur p-3 rounded border border-white/10 text-xs font-mono space-y-1">
+                                    <div class="text-brand-muted">repo</div>
+                                    <div class="text-white">prism/platform-core</div>
+                                </div>
+                                <div class="bg-brand-surface/90 backdrop-blur p-3 rounded border border-white/10 text-xs font-mono space-y-1 text-right">
+                                    <div class="text-brand-muted">nodes</div>
+                                    <div class="text-white">1,842</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Grid -->
+        <section class="py-24 px-6 bg-brand-surface border-y border-white/5">
+            <div class="max-w-7xl mx-auto">
+                <div class="text-center max-w-2xl mx-auto mb-16">
+                    <h2 class="text-3xl lg:text-4xl font-bold mb-4">See the whole picture</h2>
+                    <p class="text-brand-muted">Three ways Prism turns opaque repositories into something you can actually navigate.</p>
+                </div>
+
+                <div class="grid md:grid-cols-3 gap-8">
+                    <!-- Feature 1 -->
+                    <div class="feature-card border border-white/10 rounded-xl overflow-hidden bg-brand-card">
+                        <div class="aspect-video overflow-hidden">
+                            <img class="feature-image w-full h-full object-cover" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/gen_e5f65dfd21_d6f9b1c37775e71d.png" alt="abstract topological network map of software modules, glowing teal and indigo nodes connected by thi" />
+                        </div>
+                        <div class="p-6 space-y-3">
+                            <h3 class="text-xl font-semibold">Repository Map</h3>
+                            <p class="text-sm text-brand-muted leading-relaxed">A living dependency graph generated from your code. Drill from service to module to function in a single click.</p>
+                        </div>
+                    </div>
+
+                    <!-- Feature 2 -->
+                    <div class="feature-card border border-white/10 rounded-xl overflow-hidden bg-brand-card">
+                        <div class="aspect-video overflow-hidden">
+                            <img class="feature-image w-full h-full object-cover" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/gen_e9d823caa9_3bf9acfd269a094c.png" alt="heat-map visualization of code impact radius, concentric glowing rings radiating from a central poin" />
+                        </div>
+                        <div class="p-6 space-y-3">
+                            <h3 class="text-xl font-semibold">Blast Radius</h3>
+                            <p class="text-sm text-brand-muted leading-relaxed">Before you merge, see exactly which services, tests, and teams a change will ripple through.</p>
+                        </div>
+                    </div>
+
+                    <!-- Feature 3 -->
+                    <div class="feature-card border border-white/10 rounded-xl overflow-hidden bg-brand-card">
+                        <div class="aspect-video overflow-hidden">
+                            <img class="feature-image w-full h-full object-cover" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/gen_2edde70af8_2e8062fdcc3b5a5d.png" alt="double helix strand reimagined as glowing code structure, teal and white luminous filaments on dark " />
+                        </div>
+                        <div class="p-6 space-y-3">
+                            <h3 class="text-xl font-semibold">Codebase DNA</h3>
+                            <p class="text-sm text-brand-muted leading-relaxed">Quantify tech debt, coupling, and ownership patterns as a measurable fingerprint of your platform.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Activity Ticker -->
+                <div class="mt-16 flex flex-col md:flex-row justify-between items-center border-t border-white/10 pt-8 text-xs font-mono text-brand-muted">
+                    <div class="flex items-center space-x-4 mb-4 md:mb-0">
+                        <span class="relative w-2 h-2 bg-brand-accent rounded-full status-dot"></span>
+                        <span>Live activity across 4,200+ repos</span>
+                    </div>
+                    <div class="ticker-text text-white">Prism</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- How it Works (Steps) -->
+        <section class="py-24 px-6 bg-brand-ink">
+            <div class="max-w-7xl mx-auto">
+                <h2 class="text-3xl lg:text-4xl font-bold mb-12">How it works</h2>
+                <div class="divide-y divide-white/10 border-y border-white/10">
+                    <!-- Step 1 -->
+                    <div class="step-row group relative">
+                        <div class="grid md:grid-cols-4 gap-8 py-10 items-center">
+                            <div class="text-5xl font-bold text-white/20 group-hover:text-brand-teal transition-colors">01</div>
+                            <div class="md:col-span-2">
+                                <h3 class="text-2xl font-semibold mb-2">Connect your repo</h3>
+                                <p class="text-brand-muted">One OAuth tap to GitHub or GitLab. Prism reads your history, branches, and open PRs — never pushes changes back.</p>
+                            </div>
+                            <div class="hidden lg:flex items-center space-x-2 text-sm text-brand-muted">
+                                <i class="fa-solid fa-arrow-right text-brand-teal"></i>
+                                <span>Read-only access</span>
+                            </div>
+                        </div>
+                        <div class="step-detail absolute left-0 right-0 top-0 bottom-0 bg-brand-surface/95 backdrop-blur z-10 flex items-center px-12">
+                            <div class="max-w-xl space-y-4">
+                                <h4 class="text-lg font-semibold text-brand-teal">What happens under the hood</h4>
+                                <p class="text-sm text-gray-300">We parse your AST, resolve cross-file references, and build a directed acyclic graph of your dependency topology. No source code leaves your VPC.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 2 -->
+                    <div class="step-row group relative">
+                        <div class="grid md:grid-cols-4 gap-8 py-10 items-center">
+                            <div class="text-5xl font-bold text-white/20 group-hover:text-brand-teal transition-colors">02</div>
+                            <div class="md:col-span-2">
+                                <h3 class="text-2xl font-semibold mb-2">Prism analyzes and maps</h3>
+                                <p class="text-brand-muted">Within minutes your repository becomes an interactive map with every module, owner, and risk score surfaced.</p>
+                            </div>
+                            <div class="hidden lg:flex items-center space-x-2 text-sm text-brand-muted">
+                                <i class="fa-solid fa-arrow-right text-brand-teal"></i>
+                                <span>First map in under 2 min</span>
+                            </div>
+                        </div>
+                        <div class="step-detail absolute left-0 right-0 top-0 bottom-0 bg-brand-surface/95 backdrop-blur z-10 flex items-center px-12">
+                            <div class="max-w-xl space-y-4">
+                                <h4 class="text-lg font-semibold text-brand-teal">Signals we compute</h4>
+                                <p class="text-sm text-gray-300">Coupling density, change frequency, test coverage drift, and ownership entropy — aggregated into a single health score per module.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 3 -->
+                    <div class="step-row group relative">
+                        <div class="grid md:grid-cols-4 gap-8 py-10 items-center">
+                            <div class="text-5xl font-bold text-white/20 group-hover:text-brand-teal transition-colors">03</div>
+                            <div class="md:col-span-2">
+                                <h3 class="text-2xl font-semibold mb-2">Explore, share, and act</h3>
+                                <p class="text-brand-muted">Pin findings, drop them into Slack threads, and attach blast-radius reports directly to pull requests.</p>
+                            </div>
+                            <div class="hidden lg:flex items-center space-x-2 text-sm text-brand-muted">
+                                <i class="fa-solid fa-arrow-right text-brand-teal"></i>
+                                <span>Native Slack & GitHub integrations</span>
+                            </div>
+                        </div>
+                        <div class="step-detail absolute left-0 right-0 top-0 bottom-0 bg-brand-surface/95 backdrop-blur z-10 flex items-center px-12">
+                            <div class="max-w-xl space-y-4">
+                                <h4 class="text-lg font-semibold text-brand-teal">Built for team workflows</h4>
+                                <p class="text-sm text-gray-300">Shared bookmarks, comment threads on nodes, and one-click PR annotations keep context attached to the work.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Testimonials / Social Proof -->
+        <section class="py-24 px-6 bg-brand-surface border-t border-white/5">
+            <div class="max-w-7xl mx-auto">
+                <h2 class="text-3xl lg:text-4xl font-bold mb-12">Trusted by engineering teams</h2>
+                <div class="grid md:grid-cols-3 gap-6">
+                    <div class="testimonial-item bg-brand-card border border-white/10 rounded-xl p-6 space-y-4">
+                        <p class="text-sm text-gray-300 leading-relaxed">"Prism cut our onboarding time in half. New hires finally understand the platform without reading 40k lines."</p>
+                        <div class="flex items-center space-x-3">
+                            <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg" class="testimonial-avatar w-10 h-10 rounded-full object-cover" alt="Sarah Chen" />
+                            <div>
+                                <div class="text-sm font-semibold text-white">Sarah Chen</div>
+                                <div class="text-xs text-brand-muted">VP Engineering</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="testimonial-item bg-brand-card border border-white/10 rounded-xl p-6 space-y-4">
+                        <p class="text-sm text-gray-300 leading-relaxed">"We caught a cascade failure before deploy just by looking at the blast radius. Worth it for one save alone."</p>
+                        <div class="flex items-center space-x-3">
+                            <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-3.jpg" class="testimonial-avatar w-10 h-10 rounded-full object-cover" alt="Marcus Webb" />
+                            <div>
+                                <div class="text-sm font-semibold text-white">Marcus Webb</div>
+                                <div class="text-xs text-brand-muted">Staff Engineer</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="testimonial-item bg-brand-card border border-white/10 rounded-xl p-6 space-y-4">
+                        <p class="text-sm text-gray-300 leading-relaxed">"The codebase DNA view gave us the language to finally prioritize tech debt with leadership."</p>
+                        <div class="flex items-center space-x-3">
+                            <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg" class="testimonial-avatar w-10 h-10 rounded-full object-cover" alt="Priya Nair" />
+                            <div>
+                                <div class="text-sm font-semibold text-white">Priya Nair</div>
+                                <div class="text-xs text-brand-muted">Engineering Manager</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CTA Banner -->
+        <section class="py-24 px-6 bg-[linear-gradient(135deg,#1E1A3A_0%,#0A0E1A_100%)] border-t border-white/5">
+            <div class="max-w-3xl mx-auto text-center space-y-8">
+                <h2 class="text-3xl lg:text-5xl font-bold tracking-tight">Ready to see your codebase differently?</h2>
+                <p class="text-brand-muted text-lg">Join 2,000+ engineers already using Prism. Free during beta.</p>
+                <a href="#" class="inline-block border border-white/20 hover:bg-white hover:text-brand-ink font-semibold px-10 py-4 rounded-lg transition-all">Get Early Access</a>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-brand-ink border-t border-white/5 py-16 px-6">
+        <div class="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-12 mb-12">
+            <div class="col-span-2 md:col-span-1 space-y-4">
+                <div class="flex items-center space-x-2">
+                    <svg width="24" height="24" viewBox="0 0 40 40" fill="none">
+                        <path d="M20 2L36 20L20 38L4 20L20 2Z" fill="#00C2C2"/>
+                        <path d="M20 10L28 20L20 30L12 20L20 10Z" fill="#FFFFFF"/>
+                    </svg>
+                    <span class="text-lg font-semibold">Prism</span>
+                </div>
+                <p class="text-sm text-brand-muted">Making complex codebases readable, one map at a time.</p>
+            </div>
+            <div class="space-y-4">
+                <h4 class="text-xs font-semibold uppercase tracking-wider text-white/40">Product</h4>
+                <ul class="space-y-2 text-sm text-brand-muted">
+                    <li><a href="#" class="hover:text-white transition-colors">Features</a></li>
+                    <li><a href="#" class="hover:text-white transition-colors">Integrations</a></li>
+                    <li><a href="#" class="hover:text-white transition-colors">Pricing</a></li>
+                    <li><a href="#" class="hover:text-white transition-colors">Changelog</a></li>
+                </ul>
+            </div>
+            <div class="space-y-4">
+                <h4 class="text-xs font-semibold uppercase tracking-wider text-white/40">Company</h4>
+                <ul class="space-y-2 text-sm text-brand-muted">
+                    <li><a href="#" class="hover:text-white transition-colors">About</a></li>
+                    <li><a href="#" class="hover:text-white transition-colors">Blog</a></li>
+                    <li><a href="#" class="hover:text-white transition-colors">Careers</a></li>
+                    <li><a href="#" class="hover:text-white transition-colors">Contact</a></li>
+                </ul>
+            </div>
+            <div class="space-y-4">
+                <h4 class="text-xs font-semibold uppercase tracking-wider text-white/40">Legal</h4>
+                <ul class="space-y-2 text-sm text-brand-muted">
+                    <li><a href="#" class="hover:text-white transition-colors">Privacy Policy</a></li>
+                    <li><a href="#" class="hover:text-white transition-colors">Terms of Service</a></li>
+                    <li><a href="#" class="hover:text-white transition-colors">Cookie Policy</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="max-w-7xl mx-auto pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center text-xs text-brand-muted">
+            <p>&copy; 2026 Prism Technologies, Inc. All rights reserved.</p>
+            <div class="flex space-x-6 mt-4 md:mt-0">
+                <a href="#" class="hover:text-white transition-colors">Twitter</a>
+                <a href="#" class="hover:text-white transition-colors">GitHub</a>
+                <a href="#" class="hover:text-white transition-colors">LinkedIn</a>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

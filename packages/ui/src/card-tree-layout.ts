@@ -12,6 +12,14 @@ const GAP_X = 48;
 const GAP_Y = 64;
 /** Extra air between any two cards after layout (collision pass). */
 const MIN_GAP = 24;
+/** Max columns a single level wraps into (keeps dense folders near-square). */
+const MAX_CHILD_COLS = 6;
+
+/** Column count for a level of `n` children — near-square, capped. */
+export function childGridCols(n: number): number {
+  if (n <= 1) return 1;
+  return Math.min(MAX_CHILD_COLS, Math.ceil(Math.sqrt(n)));
+}
 
 const edgeStyle = {
   type: "smoothstep" as const,
@@ -41,24 +49,66 @@ function cardSize(kind: TreeEntryKind): { w: number; h: number } {
   return CARD_SIZE[kind];
 }
 
-function childrenTotalWidth(
-  children: readonly TreeEntry[],
-  expanded: ReadonlySet<string>,
-): number {
-  if (children.length === 0) return 0;
-  return children.reduce(
-    (sum, child, index) =>
-      sum + subtreeWidth(child, expanded) + (index > 0 ? GAP_X : 0),
-    0,
-  );
+type Box = { w: number; h: number };
+
+/** Column/row track sizes for an expanded level laid out as a grid. */
+type GridTracks = {
+  cols: number;
+  rows: number;
+  colW: number[];
+  rowH: number[];
+  blockW: number;
+  blockH: number;
+};
+
+function gridTracks(childBoxes: readonly Box[]): GridTracks {
+  const cols = childGridCols(childBoxes.length);
+  const rows = Math.max(1, Math.ceil(childBoxes.length / cols));
+  const colW = Array.from({ length: cols }, () => 0);
+  const rowH = Array.from({ length: rows }, () => 0);
+  childBoxes.forEach((b, i) => {
+    const c = i % cols;
+    const r = Math.floor(i / cols);
+    colW[c] = Math.max(colW[c] ?? 0, b.w);
+    rowH[r] = Math.max(rowH[r] ?? 0, b.h);
+  });
+  const blockW =
+    colW.reduce((s, w) => s + w, 0) + Math.max(0, cols - 1) * GAP_X;
+  const blockH =
+    rowH.reduce((s, h) => s + h, 0) + Math.max(0, rows - 1) * GAP_Y;
+  return { cols, rows, colW, rowH, blockW, blockH };
 }
 
-function subtreeWidth(entry: TreeEntry, expanded: ReadonlySet<string>): number {
-  const self = cardSize(entry.kind).w;
+/**
+ * Bounding box for a subtree. Expanded children wrap into a near-square grid
+ * (instead of one runaway row), so a folder with many files stays readable.
+ * Results are memoized per entry id to keep measure+place linear.
+ */
+function measureSubtree(
+  entry: TreeEntry,
+  expanded: ReadonlySet<string>,
+  memo: Map<string, Box>,
+): Box {
+  const cached = memo.get(entry.id);
+  if (cached) return cached;
+
+  const self = cardSize(entry.kind);
   if (!expanded.has(entry.id) || entry.children.length === 0) {
-    return self;
+    const box = { w: self.w, h: self.h };
+    memo.set(entry.id, box);
+    return box;
   }
-  return Math.max(self, childrenTotalWidth(entry.children, expanded));
+
+  const childBoxes = entry.children.map((c) =>
+    measureSubtree(c, expanded, memo),
+  );
+  const grid = gridTracks(childBoxes);
+  const box = {
+    w: Math.max(self.w, grid.blockW),
+    h: self.h + GAP_Y + grid.blockH,
+  };
+  memo.set(entry.id, box);
+  return box;
 }
 
 function collectDescendantIds(entry: TreeEntry, into: Set<string>): void {
@@ -179,16 +229,20 @@ export function layoutCardTree(
 ): CardTreeLayout {
   const laid: LaidNode[] = [];
   const edges: Edge[] = [];
+  const boxes = new Map<string, Box>();
+  const boxOf = (entry: TreeEntry): Box =>
+    measureSubtree(entry, expanded, boxes);
 
   const place = (
     entry: TreeEntry,
-    slotLeft: number,
+    boxLeft: number,
     y: number,
     parentId: string | null,
   ) => {
     const size = cardSize(entry.kind);
-    const treeW = subtreeWidth(entry, expanded);
-    const x = slotLeft + Math.max(0, (treeW - size.w) / 2);
+    const box = boxOf(entry);
+    // Center this card horizontally over its (possibly wider) subtree box.
+    const x = boxLeft + Math.max(0, (box.w - size.w) / 2);
     const hasChildren = entry.children.length > 0;
     const isExpanded = expanded.has(entry.id);
 
@@ -216,38 +270,53 @@ export function layoutCardTree(
 
     if (!hasChildren || !isExpanded) return;
 
-    const childTotal = childrenTotalWidth(entry.children, expanded);
-    let cursor = slotLeft + Math.max(0, (treeW - childTotal) / 2);
-    const childY = y + size.h + GAP_Y;
+    // Lay children out as a near-square grid centered under the parent, so a
+    // level with many files/folders wraps instead of forming a long strip.
+    const childBoxes = entry.children.map(boxOf);
+    const grid = gridTracks(childBoxes);
+    const blockLeft = boxLeft + Math.max(0, (box.w - grid.blockW) / 2);
+    const childTop = y + size.h + GAP_Y;
 
-    for (const child of entry.children) {
-      const cw = subtreeWidth(child, expanded);
-      place(child, cursor, childY, entry.id);
-      cursor += cw + GAP_X;
+    const colLeft: number[] = [];
+    let cx = blockLeft;
+    for (let c = 0; c < grid.cols; c += 1) {
+      colLeft.push(cx);
+      cx += (grid.colW[c] ?? 0) + GAP_X;
     }
+    const rowTop: number[] = [];
+    let ry = childTop;
+    for (let r = 0; r < grid.rows; r += 1) {
+      rowTop.push(ry);
+      ry += (grid.rowH[r] ?? 0) + GAP_Y;
+    }
+
+    entry.children.forEach((child, i) => {
+      const c = i % grid.cols;
+      const r = Math.floor(i / grid.cols);
+      const cb = childBoxes[i] ?? { w: 0, h: 0 };
+      // Center each child's own subtree box within its (wider) column cell.
+      const cellLeft =
+        (colLeft[c] ?? blockLeft) + ((grid.colW[c] ?? 0) - cb.w) / 2;
+      place(child, cellLeft, rowTop[r] ?? childTop, entry.id);
+    });
   };
 
   // Pack top-level roots into wrapped rows so many folders don't become
-  // one unreadably wide strip (same failure mode as overview zoom).
+  // one unreadably wide strip. Heights come from measured subtree boxes.
   const MAX_ROW_W = 5 * CARD_SIZE.file.w + 4 * GAP_X;
   let rowX = 0;
   let rowY = 0;
   let rowMaxH = 0;
   for (const root of roots) {
-    const w = subtreeWidth(root, expanded);
-    const size = cardSize(root.kind);
-    const treeH =
-      expanded.has(root.id) && root.children.length > 0
-        ? size.h + GAP_Y + CARD_SIZE.folder.h // lower bound; collision pass fixes
-        : size.h;
-    if (rowX > 0 && rowX + w > MAX_ROW_W) {
+    const box = boxOf(root);
+    if (rowX > 0 && rowX + box.w > MAX_ROW_W) {
       rowX = 0;
       rowY += rowMaxH + GAP_Y * 2;
       rowMaxH = 0;
     }
     place(root, rowX, rowY, null);
-    rowX += w + GAP_X * 2;
-    rowMaxH = Math.max(rowMaxH, treeH);
+    rowX += box.w + GAP_X * 2;
+    rowMaxH = Math.max(rowMaxH, box.h);
   }
 
   resolveCardOverlaps(laid);

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildFileTreeIndex } from "./file-tree.js";
 import {
   cardsOverlap,
+  childGridCols,
   collapseExpanded,
   layoutCardTree,
   toggleExpanded,
@@ -129,6 +130,40 @@ describe("card-tree-layout", () => {
     const boxes = boxesFromLayout(roots, expanded);
     expect(boxes.length).toBeGreaterThan(6);
     expect(cardsOverlap(boxes)).toBe(false);
+  });
+
+  it("wraps a dense single level into a grid (not one wide row)", () => {
+    // 18 files directly under src/ — the runaway-strip failure mode.
+    const dense = Array.from({ length: 18 }, (_, i) => {
+      const path = `src/mod${String(i).padStart(2, "0")}.ts`;
+      return { id: `file:${path}`, kind: "file", label: path, attrs: { path } };
+    });
+    const roots = buildFileTreeIndex(dense).root.children;
+    const laid = layoutCardTree(roots, new Set(["folder:src"]), null);
+    const boxes = laid.nodes.map((n) => ({
+      x: n.position.x,
+      y: n.position.y,
+      w: typeof n.style?.width === "number" ? n.style.width : 260,
+      h: typeof n.style?.height === "number" ? n.style.height : 78,
+      id: n.id,
+    }));
+    const fileBoxes = boxes.filter((b) => b.id.startsWith("file:"));
+    expect(fileBoxes).toHaveLength(18);
+    expect(cardsOverlap(boxes)).toBe(false);
+    // The files must occupy multiple rows (distinct y values), not one strip.
+    const distinctRows = new Set(fileBoxes.map((b) => Math.round(b.y)));
+    expect(distinctRows.size).toBeGreaterThan(1);
+    // …and stay in a bounded number of columns per row.
+    const topRowY = Math.min(...fileBoxes.map((b) => Math.round(b.y)));
+    const topRow = fileBoxes.filter((b) => Math.round(b.y) === topRowY);
+    expect(topRow.length).toBeLessThanOrEqual(childGridCols(18));
+  });
+
+  it("childGridCols is near-square and capped", () => {
+    expect(childGridCols(1)).toBe(1);
+    expect(childGridCols(4)).toBe(2);
+    expect(childGridCols(18)).toBe(5);
+    expect(childGridCols(100)).toBe(6);
   });
 
   it("toggles expand and collapses descendants", () => {

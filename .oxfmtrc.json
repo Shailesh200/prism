@@ -4,6 +4,7 @@
     "**/node_modules/**",
     "**/.moon/**",
     "**/fixtures/**",
+    "**/*.generated.ts",
     "plans/mockups/**",
     "bun.lock"
   ]

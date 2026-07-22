@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { PACKAGE_NAME, UI_ZOOM_LEVELS } from "./index.js";
+import { FEATURE_LENS_ZOOM, PACKAGE_NAME, UI_ZOOM_LEVELS } from "./index.js";
 
 describe("@prism/ui", () => {
-  it("exports package name and zoom rail", () => {
+  it("exports package name and structural zoom rail (Feature is a lens)", () => {
     expect(PACKAGE_NAME).toBe("@prism/ui");
-    expect(UI_ZOOM_LEVELS).toContain("feature");
+    expect(UI_ZOOM_LEVELS).toEqual(["repo", "package", "file", "symbol"]);
+    // Feature is a lens/overlay, not a rail altitude (ADR-0013).
+    expect(UI_ZOOM_LEVELS).not.toContain("feature");
+    expect(FEATURE_LENS_ZOOM).toBe("feature");
   });
 });
