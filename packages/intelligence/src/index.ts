@@ -102,6 +102,10 @@ export {
   type HealthFactorId,
 } from "./health/score.js";
 export {
+  computeEngineeringHealth,
+  type ComputeEngineeringHealthInput,
+} from "./health/engineering.js";
+export {
   UTILITY_OVERLAY_CATALOG,
   buildUtilityOverlay,
   listUtilityOverlayKinds,

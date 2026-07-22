@@ -37,6 +37,7 @@ export type {
   TestImpactReport,
   ConsentRecord,
   CwvReport,
+  EngineeringHealthReport,
   FeatureInfo,
   IngestArtifact,
   IngestArtifactMeta,

@@ -1068,6 +1068,77 @@ export const BackendReportSchema = z.object({
 
 export type BackendReport = z.infer<typeof BackendReportSchema>;
 
+/** Stable engineering-health metric ids (M-022 / ADR-0017). */
+export const EngineeringHealthMetricIdSchema = z.enum([
+  "entropy",
+  "architecture_drift",
+  "technical_debt",
+  "code_churn",
+  "conflict_risk",
+  "knowledge_decay",
+]);
+
+export type EngineeringHealthMetricId = z.infer<
+  typeof EngineeringHealthMetricIdSchema
+>;
+
+/**
+ * Single engineering-health metric. Score is 0–100 where **higher = healthier**
+ * (aligned with HealthScore factors).
+ */
+export const EngineeringHealthMetricSchema = z.object({
+  id: EngineeringHealthMetricIdSchema,
+  label: z.string().min(1),
+  score: z.number().min(0).max(100),
+  severity: z.enum(["info", "low", "medium", "high"]).default("info"),
+  evidence: z.array(z.string().min(1)).default([]),
+  note: z.string().min(1).optional(),
+  /** False when the metric needs git and none was available. */
+  gitDependent: z.boolean().default(false),
+});
+
+export type EngineeringHealthMetric = z.infer<
+  typeof EngineeringHealthMetricSchema
+>;
+
+export const EngineeringHotspotKindSchema = z.enum([
+  "churn",
+  "debt",
+  "coupling",
+  "ownership",
+  "stale",
+]);
+
+export type EngineeringHotspotKind = z.infer<
+  typeof EngineeringHotspotKindSchema
+>;
+
+export const EngineeringHotspotSchema = z.object({
+  path: z.string().min(1),
+  score: z.number().min(0).max(100),
+  kinds: z.array(EngineeringHotspotKindSchema).min(1),
+  evidence: z.array(z.string().min(1)).default([]),
+});
+
+export type EngineeringHotspot = z.infer<typeof EngineeringHotspotSchema>;
+
+/**
+ * Typed engineering-health report (M-022 / ADR-0017). Complementary to
+ * `HealthScore` — does not reweight ADR-0012 factors.
+ */
+export const EngineeringHealthReportSchema = z.object({
+  rootPath: z.string().min(1),
+  generatedAt: z.string().datetime(),
+  summary: z.string().min(1),
+  gitAvailable: z.boolean(),
+  metrics: z.array(EngineeringHealthMetricSchema).default([]),
+  hotspots: z.array(EngineeringHotspotSchema).default([]),
+});
+
+export type EngineeringHealthReport = z.infer<
+  typeof EngineeringHealthReportSchema
+>;
+
 /** Parse unknown JSON into a DTO; returns Zod issues as message. */
 export function parseDto<Schema extends z.ZodTypeAny>(
   schema: Schema,
