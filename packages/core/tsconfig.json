@@ -13,6 +13,9 @@
       "path": "../analyzer"
     },
     {
+      "path": "../impact"
+    },
+    {
       "path": "../indexer"
     },
     {

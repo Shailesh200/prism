@@ -22,6 +22,7 @@ import {
   type SymbolHit,
   type UtilitiesSession,
 } from "@prism/intelligence";
+import { computeBlastRadius } from "@prism/impact";
 import {
   findPaths,
   listLandmarks as collectLandmarks,
@@ -256,10 +257,6 @@ export type PrismWorkspace = {
   }): Promise<Result<BlastRadiusReport, PrismError>>;
   close(): void;
 };
-
-function notImplemented(op: string): PrismError {
-  return prismError(PrismErrorCode.UNSUPPORTED, `${op} is not implemented yet`);
-}
 
 function toSummary(snapshot: IndexSnapshot): IndexSummary {
   return {
@@ -910,10 +907,31 @@ export function createWorkspace(options: {
         days: git.days,
       });
     },
-    async blastRadius() {
+    async blastRadius(input) {
       const gate = ensureOpen();
       if (!gate.ok) return gate;
-      return err(notImplemented("blastRadius"));
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      const analyzedPaths = lastSnapshot.files
+        .filter((f) => f.status === "analyzed")
+        .map((f) => f.path);
+      const dependencyGraph = buildDependencyGraph(lastSnapshot).graph;
+      if (input.kind === "symbol") {
+        const kg = buildKnowledgeGraph(lastSnapshot);
+        return computeBlastRadius(input, {
+          dependencyGraph,
+          analyzedPaths,
+          symbols: kg.symbols,
+          references: kg.references,
+        });
+      }
+      return computeBlastRadius(input, { dependencyGraph, analyzedPaths });
     },
     close() {
       open = false;

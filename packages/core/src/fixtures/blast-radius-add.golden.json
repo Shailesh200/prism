@@ -1,0 +1,9 @@
+{
+  "origin": { "kind": "symbol", "id": "add", "path": "helper.ts" },
+  "risk": 60,
+  "affectedFiles": [
+    { "path": "main.ts", "reason": "references add", "depth": 1 },
+    { "path": "main.test.ts", "reason": "imports main.ts", "depth": 2 }
+  ],
+  "testsLikelyAffected": ["main.test.ts"]
+}
