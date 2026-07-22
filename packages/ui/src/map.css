@@ -1850,15 +1850,9 @@ button.prism-crumbs__seg:hover {
 }
 
 .prism-explorer__chevron {
-  display: inline-block;
-  font-size: 10px;
+  display: inline-flex;
   line-height: 1;
-  transform: rotate(0deg);
-  transition: transform 120ms ease;
-}
-
-.prism-explorer__chevron[data-open="true"] {
-  transform: rotate(90deg);
+  color: var(--prism-ink-muted);
 }
 
 .prism-explorer__twist-spacer {
@@ -1882,9 +1876,18 @@ button.prism-crumbs__seg:hover {
 }
 
 .prism-explorer__folder-icon,
+.prism-explorer__file-icon,
 .prism-explorer__symbol-icon {
   flex-shrink: 0;
+}
+
+.prism-explorer__folder-icon {
   color: var(--prism-brand);
+}
+
+.prism-explorer__file-icon,
+.prism-explorer__symbol-icon {
+  color: var(--prism-ink-muted);
 }
 
 .prism-explorer__name {

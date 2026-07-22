@@ -208,6 +208,11 @@ export const GitCommitRefSchema = z.object({
   /** ISO-8601 commit date. */
   date: z.string().min(1),
   message: z.string().default(""),
+  /**
+   * True when the commit exists on the tracked upstream, false when it is local
+   * only (unpushed). `undefined` when no upstream is configured (unknown).
+   */
+  pushed: z.boolean().optional(),
 });
 
 export type GitCommitRef = z.infer<typeof GitCommitRefSchema>;
@@ -243,6 +248,23 @@ export const GitFileSignalSchema = z.object({
 
 export type GitFileSignal = z.infer<typeof GitFileSignalSchema>;
 
+/**
+ * Local vs remote sync state for the current branch. Derived entirely from
+ * local git plumbing (`@{u}`, `FETCH_HEAD` mtime) — never touches the network.
+ */
+export const GitSyncStatusSchema = z.object({
+  /** Tracked upstream ref (e.g. `origin/main`), when configured. */
+  upstream: z.string().optional(),
+  /** Local commits not yet on upstream. */
+  ahead: z.number().int().nonnegative().default(0),
+  /** Upstream commits not yet local. */
+  behind: z.number().int().nonnegative().default(0),
+  /** ISO time of the last `git fetch` (FETCH_HEAD mtime), when known. */
+  lastFetch: z.string().optional(),
+});
+
+export type GitSyncStatus = z.infer<typeof GitSyncStatusSchema>;
+
 /** Repo-level git summary attached to the map root. */
 export const GitRepoSummarySchema = z.object({
   headSha: z.string().optional(),
@@ -252,6 +274,8 @@ export const GitRepoSummarySchema = z.object({
   windowCommits: z.number().int().nonnegative().default(0),
   firstDate: z.string().optional(),
   lastDate: z.string().optional(),
+  /** Local/remote sync state for the current branch. */
+  sync: GitSyncStatusSchema.optional(),
 });
 
 export type GitRepoSummary = z.infer<typeof GitRepoSummarySchema>;
@@ -306,6 +330,8 @@ export const BlastRadiusItemSchema = z.object({
   reason: z.string().min(1),
   depth: z.number().int().nonnegative(),
 });
+
+export type BlastRadiusItem = z.infer<typeof BlastRadiusItemSchema>;
 
 export const BlastRadiusReportSchema = z.object({
   origin: z.object({

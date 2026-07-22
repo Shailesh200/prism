@@ -1,4 +1,6 @@
 import {
+  Boxes,
+  Compass,
   Dna,
   GitBranch,
   LayoutGrid,
@@ -12,7 +14,17 @@ import type { ReactElement } from "react";
 import { Avatar } from "./Avatar.js";
 import "./appnav.css";
 
-export type AppView = "overview" | "map";
+export type AppView =
+  | "overview"
+  | "map"
+  | "dna"
+  | "profile"
+  | "domains"
+  | "domain"
+  | "blast"
+  | "trends"
+  | "integrations"
+  | "settings";
 
 export type AppSidebarUser = {
   readonly author: string;
@@ -74,33 +86,75 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
           <MapIcon size={16} aria-hidden />
           <span className="appnav__reveal">Repository Map</span>
         </button>
-        <div className="appnav__item appnav__item--soon" aria-disabled="true">
+        <button
+          type="button"
+          className="appnav__item"
+          data-active={props.active === "profile" ? "true" : "false"}
+          onClick={() => props.onNavigate("profile")}
+        >
+          <Boxes size={16} aria-hidden />
+          <span className="appnav__reveal">Codebase Profile</span>
+        </button>
+        <button
+          type="button"
+          className="appnav__item"
+          data-active={
+            props.active === "domains" || props.active === "domain"
+              ? "true"
+              : "false"
+          }
+          onClick={() => props.onNavigate("domains")}
+        >
+          <Compass size={16} aria-hidden />
+          <span className="appnav__reveal">Domains</span>
+        </button>
+        <button
+          type="button"
+          className="appnav__item"
+          data-active={props.active === "dna" ? "true" : "false"}
+          onClick={() => props.onNavigate("dna")}
+        >
           <Dna size={16} aria-hidden />
-          <span className="appnav__reveal">Codebase DNA</span>
-          <span className="appnav__soon appnav__reveal">Soon</span>
-        </div>
-        <div className="appnav__item appnav__item--soon" aria-disabled="true">
+          <span className="appnav__reveal">DNA Analysis</span>
+        </button>
+        <button
+          type="button"
+          className="appnav__item"
+          data-active={props.active === "blast" ? "true" : "false"}
+          onClick={() => props.onNavigate("blast")}
+        >
           <Zap size={16} aria-hidden />
           <span className="appnav__reveal">Blast Radius</span>
-          <span className="appnav__soon appnav__reveal">Soon</span>
-        </div>
-        <div className="appnav__item appnav__item--soon" aria-disabled="true">
+        </button>
+        <button
+          type="button"
+          className="appnav__item"
+          data-active={props.active === "trends" ? "true" : "false"}
+          onClick={() => props.onNavigate("trends")}
+        >
           <TrendingUp size={16} aria-hidden />
           <span className="appnav__reveal">Trends</span>
-          <span className="appnav__soon appnav__reveal">Soon</span>
-        </div>
+        </button>
 
         <p className="appnav__group appnav__reveal">Settings</p>
-        <div className="appnav__item appnav__item--soon" aria-disabled="true">
+        <button
+          type="button"
+          className="appnav__item"
+          data-active={props.active === "integrations" ? "true" : "false"}
+          onClick={() => props.onNavigate("integrations")}
+        >
           <Plug size={16} aria-hidden />
           <span className="appnav__reveal">Integrations</span>
-          <span className="appnav__soon appnav__reveal">Soon</span>
-        </div>
-        <div className="appnav__item appnav__item--soon" aria-disabled="true">
+        </button>
+        <button
+          type="button"
+          className="appnav__item"
+          data-active={props.active === "settings" ? "true" : "false"}
+          onClick={() => props.onNavigate("settings")}
+        >
           <Settings size={16} aria-hidden />
           <span className="appnav__reveal">Settings</span>
-          <span className="appnav__soon appnav__reveal">Soon</span>
-        </div>
+        </button>
       </nav>
 
       <div className="appnav__user">

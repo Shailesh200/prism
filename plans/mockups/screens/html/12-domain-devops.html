@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DevOps · Platform - Prism</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "ink": "#FFFFFF",
+                        "primary-fixed-dim": "#3fdbdb",
+                        "primary-container": "#00c2c2",
+                        "on-error": "#690005",
+                        "outline-variant": "#3c4949",
+                        "outline": "#859493",
+                        "on-primary": "#003737",
+                        "on-secondary": "#2000a4",
+                        "error-container": "#93000a",
+                        "on-tertiary-fixed-variant": "#783100",
+                        "on-background": "#dde4e3",
+                        "surface-container-lowest": "#090f0f",
+                        "on-secondary-container": "#b4b0ff",
+                        "surface-container-low": "#161d1d",
+                        "canvas": "#0A0E1A",
+                        "tile": "#1E2433",
+                        "ink-muted": "#94A3B8",
+                        "on-tertiary": "#552000",
+                        "secondary-fixed-dim": "#c4c0ff",
+                        "secondary-fixed": "#e3dfff",
+                        "error": "#ffb4ab",
+                        "tertiary-fixed": "#ffdbcb",
+                        "tertiary-container": "#fd9359",
+                        "panel-2": "#0F1420",
+                        "on-surface": "#dde4e3",
+                        "surface-container-highest": "#2f3636",
+                        "on-tertiary-fixed": "#341100",
+                        "surface-bright": "#343a3a",
+                        "elev": "#1E2433",
+                        "on-secondary-fixed": "#100069",
+                        "on-primary-container": "#004a4a",
+                        "surface-container-high": "#242b2b",
+                        "inverse-on-surface": "#2b3231",
+                        "inverse-surface": "#dde4e3",
+                        "surface-container": "#1a2121",
+                        "background": "#0e1514",
+                        "secondary": "#c4c0ff",
+                        "surface-tint": "#3fdbdb",
+                        "risk-extreme": "#F43F5E",
+                        "primary-fixed": "#65f8f7",
+                        "tertiary-fixed-dim": "#ffb691",
+                        "on-secondary-fixed-variant": "#3622ca",
+                        "on-brand": "#0A0E1A",
+                        "primary": "#44dede",
+                        "panel": "#131926",
+                        "on-tertiary-container": "#712d00",
+                        "tertiary": "#ffba98",
+                        "inverse-primary": "#006a6a",
+                        "on-error-container": "#ffdad6",
+                        "line": "#2A334A",
+                        "surface-dim": "#0e1514",
+                        "safe": "#10B981",
+                        "on-primary-fixed-variant": "#004f4f",
+                        "brand-strong": "#00DCD4",
+                        "surface-variant": "#2f3636",
+                        "surface": "#0e1514",
+                        "on-surface-variant": "#bbc9c9",
+                        "risk": "#F59E0B",
+                        "secondary-container": "#3826cd",
+                        "on-primary-fixed": "#002020"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem",
+                        "12": "12px"
+                    },
+                    "spacing": {
+                        "xl": "32px",
+                        "lg": "24px",
+                        "topbar-h": "48px",
+                        "sidebar-w": "224px",
+                        "md": "16px",
+                        "inspector-w": "288px",
+                        "xs": "4px",
+                        "sm": "8px"
+                    },
+                    "fontFamily": {
+                        "body-sm": ["Inter", "sans-serif"],
+                        "h2": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"],
+                        "h1": ["Inter", "sans-serif"],
+                        "brand": ["Inter", "sans-serif"],
+                        "body-md": ["Inter", "sans-serif"],
+                        "mono": ["JetBrains Mono", "monospace"]
+                    },
+                    "fontSize": {
+                        "body-sm": ["0.8125rem", { "lineHeight": "1.4", "fontWeight": "400" }],
+                        "h2": ["1.15rem", { "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "label": ["0.75rem", { "letterSpacing": "0.04em", "fontWeight": "600" }],
+                        "h1": ["1.5rem", { "letterSpacing": "-0.02em", "fontWeight": "650" }],
+                        "brand": ["1.125rem", { "letterSpacing": "-0.02em", "fontWeight": "650" }],
+                        "body-md": ["0.9375rem", { "lineHeight": "1.45", "fontWeight": "400" }],
+                        "mono": ["0.75rem", { "fontWeight": "400" }]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .node-link { stroke: #2A334A; stroke-width: 1.5; fill: none; }
+        .node-circle { fill: #1E2433; stroke: #44dede; stroke-width: 1.5; }
+        .node-text { fill: #94A3B8; font-family: 'Inter', sans-serif; font-size: 10px; }
+    </style>
+</head>
+<body class="bg-canvas text-ink min-h-screen font-body-md overflow-hidden flex selection:bg-primary-container selection:text-on-primary">
+<!-- SideNavBar -->
+<nav class="hidden md:flex flex-col justify-between py-md fixed left-0 top-0 h-screen w-sidebar-w border-r border-line bg-panel z-50 transition-all duration-300">
+<div>
+<!-- Header Brand -->
+<div class="px-md mb-xl flex items-center gap-sm">
+<div class="w-8 h-8 rounded-lg bg-primary-container flex items-center justify-center text-on-brand shadow-sm">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">dataset</span>
+</div>
+<div>
+<h1 class="font-brand text-brand text-ink m-0 leading-tight tracking-tight">Prism</h1>
+<p class="font-body-sm text-body-sm text-ink-muted m-0 leading-none">Local-first Intelligence</p>
+</div>
+</div>
+<!-- Navigation Links -->
+<ul class="flex flex-col gap-xs px-sm list-none p-0 m-0">
+<li>
+<a class="flex items-center gap-sm px-sm py-sm rounded-md font-body-sm text-body-sm text-ink-muted hover:bg-tile transition-colors cursor-pointer active:opacity-80 group" href="#">
+<span class="material-symbols-outlined text-[18px] group-hover:text-ink transition-colors">dashboard</span>
+<span>Overview</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-sm px-sm py-sm rounded-md font-body-sm text-body-sm text-ink-muted hover:bg-tile transition-colors cursor-pointer active:opacity-80 group" href="#">
+<span class="material-symbols-outlined text-[18px] group-hover:text-ink transition-colors">map</span>
+<span>Repository Map</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-sm px-sm py-sm rounded-md font-body-sm text-body-sm text-ink-muted hover:bg-tile transition-colors cursor-pointer active:opacity-80 group" href="#">
+<span class="material-symbols-outlined text-[18px] group-hover:text-ink transition-colors">strikethrough_s</span>
+<span>Codebase DNA</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-sm px-sm py-sm rounded-md font-body-sm text-body-sm text-ink-muted hover:bg-tile transition-colors cursor-pointer active:opacity-80 group" href="#">
+<span class="material-symbols-outlined text-[18px] group-hover:text-ink transition-colors">graph_2</span>
+<span>Blast Radius</span>
+</a>
+</li>
+<!-- Custom DevOps Tab Added based on prompt -->
+<li>
+<a class="flex items-center gap-sm px-sm py-sm rounded-md font-body-sm text-body-sm bg-tile text-primary font-bold border-r-2 border-primary transition-colors cursor-pointer active:opacity-80" href="#">
+<span class="material-symbols-outlined text-[18px]">terminal</span>
+<span>DevOps · Platform</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-sm px-sm py-sm rounded-md font-body-sm text-body-sm text-ink-muted hover:bg-tile transition-colors cursor-pointer active:opacity-80 group" href="#">
+<span class="material-symbols-outlined text-[18px] group-hover:text-ink transition-colors">trending_up</span>
+<span>Trends</span>
+</a>
+</li>
+</ul>
+</div>
+<!-- Footer Actions -->
+<div class="px-sm">
+<a class="flex items-center gap-sm px-sm py-sm rounded-md font-body-sm text-body-sm text-ink-muted hover:bg-tile transition-colors cursor-pointer active:opacity-80 group" href="#">
+<span class="material-symbols-outlined text-[18px] group-hover:text-ink transition-colors">settings</span>
+<span>Settings</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col md:ml-sidebar-w min-h-screen">
+<!-- TopAppBar -->
+<header class="h-topbar-h border-b border-line bg-canvas flex items-center justify-between px-lg shrink-0 z-40 relative">
+<div class="flex items-center gap-md">
+<div class="flex flex-col">
+<h2 class="font-h2 text-h2 text-ink m-0 leading-tight">DevOps · Platform</h2>
+<div class="flex items-center gap-xs font-mono text-mono text-ink-muted">
+<span class="material-symbols-outlined text-[14px]">folder</span>
+<span>acme-web</span>
+<span class="text-line">•</span>
+<span class="material-symbols-outlined text-[14px]">commit</span>
+<span>main</span>
+<span class="text-line">•</span>
+<span class="material-symbols-outlined text-[14px]">sync</span>
+<span>Last sync 4m ago</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-sm">
+<button class="bg-primary-container text-on-brand font-label text-label px-md py-sm rounded-md flex items-center gap-xs hover:bg-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-canvas shadow-sm">
+<span class="material-symbols-outlined text-[16px]">sync</span>
+                    Re-sync Manifests
+                </button>
+</div>
+</header>
+<!-- Scrollable Canvas -->
+<main class="flex-1 overflow-y-auto p-lg relative scrollbar-hide">
+<!-- Background Glows for technical feel -->
+<div class="absolute top-0 right-0 w-[500px] h-[500px] bg-primary-fixed-dim/5 rounded-full blur-[120px] pointer-events-none"></div>
+<div class="absolute bottom-0 left-0 w-[400px] h-[400px] bg-secondary-container/10 rounded-full blur-[100px] pointer-events-none"></div>
+<div class="max-w-7xl mx-auto flex flex-col gap-lg relative z-10">
+<!-- 1. Summary Row (4 Stat Cards) -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-md">
+<!-- IAC Resources -->
+<div class="bg-panel border border-line rounded-12 p-md flex flex-col relative overflow-hidden group hover:border-primary/30 transition-colors">
+<div class="absolute top-0 right-0 p-sm opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-[48px] text-primary">cloud</span>
+</div>
+<h3 class="font-label text-label text-ink-muted uppercase mb-xs tracking-wider">IAC RESOURCES</h3>
+<div class="font-mono text-3xl text-ink font-medium tracking-tight mb-sm">142</div>
+<div class="font-body-sm text-body-sm text-ink-muted flex items-center gap-xs mt-auto">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+                            across 4 environments
+                        </div>
+</div>
+<!-- CI/CD Pipelines -->
+<div class="bg-panel border border-line rounded-12 p-md flex flex-col relative overflow-hidden group hover:border-primary/30 transition-colors">
+<div class="absolute top-0 right-0 p-sm opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-[48px] text-primary">route</span>
+</div>
+<h3 class="font-label text-label text-ink-muted uppercase mb-xs tracking-wider">CI/CD PIPELINES</h3>
+<div class="font-mono text-3xl text-ink font-medium tracking-tight mb-sm">3</div>
+<div class="font-body-sm text-body-sm text-ink-muted flex items-center gap-xs mt-auto">
+<span class="w-1.5 h-1.5 rounded-full bg-safe"></span>
+                            active in main
+                        </div>
+</div>
+<!-- Environments -->
+<div class="bg-panel border border-line rounded-12 p-md flex flex-col relative overflow-hidden group hover:border-primary/30 transition-colors">
+<div class="absolute top-0 right-0 p-sm opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-[48px] text-primary">dns</span>
+</div>
+<h3 class="font-label text-label text-ink-muted uppercase mb-xs tracking-wider">ENVIRONMENTS</h3>
+<div class="font-mono text-3xl text-ink font-medium tracking-tight mb-sm">4</div>
+<div class="font-body-sm text-body-sm text-ink-muted flex items-center gap-xs mt-auto truncate" title="prod, staging, dev, qa">
+                            prod, staging, dev, qa
+                        </div>
+</div>
+<!-- Container Images -->
+<div class="bg-panel border border-line rounded-12 p-md flex flex-col relative overflow-hidden group hover:border-primary/30 transition-colors">
+<div class="absolute top-0 right-0 p-sm opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-[48px] text-primary">inventory_2</span>
+</div>
+<h3 class="font-label text-label text-ink-muted uppercase mb-xs tracking-wider">CONTAINER IMAGES</h3>
+<div class="font-mono text-3xl text-ink font-medium tracking-tight mb-sm">28</div>
+<div class="font-body-sm text-body-sm text-risk flex items-center gap-xs mt-auto">
+<span class="w-1.5 h-1.5 rounded-full bg-risk"></span>
+                            8 unused
+                        </div>
+</div>
+</div>
+<!-- Bento Grid Layout for Complex Data -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-md">
+<!-- 2. IaC Resources Table (Spans 2 columns) -->
+<div class="lg:col-span-2 bg-panel border border-line rounded-12 flex flex-col overflow-hidden h-[400px]">
+<div class="px-md py-sm border-b border-line bg-panel-2 flex justify-between items-center shrink-0">
+<h3 class="font-label text-label text-ink uppercase tracking-wider flex items-center gap-sm">
+<span class="material-symbols-outlined text-[16px] text-primary">deployed_code</span>
+                                Provisioned Infrastructure
+                            </h3>
+<button class="text-ink-muted hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+</button>
+</div>
+<div class="overflow-auto scrollbar-hide flex-1">
+<table class="w-full text-left border-collapse">
+<thead class="sticky top-0 bg-panel-2 z-10 border-b border-line font-label text-label text-ink-muted">
+<tr>
+<th class="px-md py-sm font-medium">Type</th>
+<th class="px-md py-sm font-medium">Name</th>
+<th class="px-md py-sm font-medium">File</th>
+<th class="px-md py-sm font-medium">Provider</th>
+<th class="px-md py-sm font-medium text-right">Referenced By</th>
+</tr>
+</thead>
+<tbody class="font-body-sm text-body-sm divide-y divide-line">
+<tr class="hover:bg-tile transition-colors group">
+<td class="px-md py-sm">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-tile text-primary border border-line group-hover:border-primary/30">S3</span>
+</td>
+<td class="px-md py-sm font-mono text-mono text-ink">media-assets-bucket</td>
+<td class="px-md py-sm font-mono text-mono text-ink-muted">/terraform/s3.tf</td>
+<td class="px-md py-sm text-ink-muted flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">cloud</span> AWS
+                                        </td>
+<td class="px-md py-sm text-right font-mono text-mono text-ink-muted">12 deps</td>
+</tr>
+<tr class="hover:bg-tile transition-colors group">
+<td class="px-md py-sm">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-tile text-secondary border border-line group-hover:border-secondary/30">EC2</span>
+</td>
+<td class="px-md py-sm font-mono text-mono text-ink">worker-node-pool</td>
+<td class="px-md py-sm font-mono text-mono text-ink-muted">/terraform/compute.tf</td>
+<td class="px-md py-sm text-ink-muted flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">cloud</span> AWS
+                                        </td>
+<td class="px-md py-sm text-right font-mono text-mono text-ink-muted">4 deps</td>
+</tr>
+<tr class="hover:bg-tile transition-colors group">
+<td class="px-md py-sm">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-tile text-tertiary-container border border-line group-hover:border-tertiary-container/30">DB</span>
+</td>
+<td class="px-md py-sm font-mono text-mono text-ink">main-postgres-cluster</td>
+<td class="px-md py-sm font-mono text-mono text-ink-muted">/terraform/rds.tf</td>
+<td class="px-md py-sm text-ink-muted flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">database</span> AWS
+                                        </td>
+<td class="px-md py-sm text-right font-mono text-mono text-ink-muted">28 deps</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- 4. Dependency DAG (1 column) -->
+<div class="bg-panel border border-line rounded-12 flex flex-col h-[400px]">
+<div class="px-md py-sm border-b border-line bg-panel-2 shrink-0">
+<h3 class="font-label text-label text-ink uppercase tracking-wider flex items-center gap-sm">
+<span class="material-symbols-outlined text-[16px] text-primary">account_tree</span>
+                                Topology
+                            </h3>
+</div>
+<div class="flex-1 relative bg-canvas/50 overflow-hidden flex items-center justify-center p-md">
+<!-- SVG for Node-Link Graph -->
+<svg height="100%" preserveaspectratio="xMidYMid meet" viewbox="0 0 200 200" width="100%">
+<defs>
+<marker id="arrowhead" markerheight="4" markerwidth="6" orient="auto" refx="5" refy="2">
+<polygon fill="#2A334A" points="0 0, 6 2, 0 4"></polygon>
+</marker>
+</defs>
+<!-- Links -->
+<path class="node-link" d="M 40 100 Q 80 60 100 80" marker-end="url(#arrowhead)"></path>
+<path class="node-link" d="M 100 80 Q 140 80 160 60" marker-end="url(#arrowhead)"></path>
+<path class="node-link" d="M 100 80 Q 140 120 160 140" marker-end="url(#arrowhead)"></path>
+<!-- Nodes -->
+<!-- API Gateway -->
+<circle class="node-circle" cx="40" cy="100" r="12"></circle>
+<text class="node-text font-mono" text-anchor="middle" x="40" y="125">API Gateway</text>
+<text fill="#44dede" font-family="Material Symbols Outlined" font-size="12" text-anchor="middle" x="40" y="104">api</text>
+<!-- Auth Lambda -->
+<circle class="node-circle" cx="100" cy="80" r="14" style="stroke: #c4c0ff;"></circle>
+<text class="node-text font-mono" text-anchor="middle" x="100" y="105">Auth Lambda</text>
+<text fill="#c4c0ff" font-family="Material Symbols Outlined" font-size="14" text-anchor="middle" x="100" y="84">code</text>
+<!-- RDS -->
+<circle class="node-circle" cx="160" cy="140" r="16" style="stroke: #fd9359;"></circle>
+<text class="node-text font-mono" text-anchor="middle" x="160" y="170">RDS</text>
+<text fill="#fd9359" font-family="Material Symbols Outlined" font-size="16" text-anchor="middle" x="160" y="145">database</text>
+<!-- S3 -->
+<circle class="node-circle" cx="160" cy="60" r="12"></circle>
+<text class="node-text font-mono" text-anchor="middle" x="160" y="40">S3</text>
+<text fill="#44dede" font-family="Material Symbols Outlined" font-size="12" text-anchor="middle" x="160" y="64">cloud</text>
+</svg>
+</div>
+</div>
+</div>
+<!-- 3. Pipeline View -->
+<div class="bg-panel border border-line rounded-12 flex flex-col p-md">
+<h3 class="font-label text-label text-ink uppercase tracking-wider mb-md flex items-center gap-sm">
+<span class="material-symbols-outlined text-[16px] text-primary">route</span>
+                        Active Pipeline Status
+                    </h3>
+<div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-md p-md bg-panel-2 border border-line rounded-lg">
+<!-- Build Stage -->
+<div class="flex-1 flex flex-col gap-sm">
+<div class="flex items-center gap-sm font-label text-label text-ink">
+<span class="material-symbols-outlined text-[16px] text-safe">check_circle</span>
+                                BUILD
+                            </div>
+<div class="flex flex-wrap gap-xs">
+<span class="px-2 py-1 bg-tile border border-line rounded text-xs font-mono text-ink-muted">Compile</span>
+<span class="px-2 py-1 bg-tile border border-line rounded text-xs font-mono text-ink-muted">Lint</span>
+</div>
+</div>
+<!-- Connector -->
+<div class="hidden md:flex items-center justify-center w-8 text-line">
+<span class="material-symbols-outlined">arrow_right_alt</span>
+</div>
+<!-- Test Stage -->
+<div class="flex-1 flex flex-col gap-sm">
+<div class="flex items-center gap-sm font-label text-label text-ink">
+<span class="material-symbols-outlined text-[16px] text-primary animate-pulse">progress_activity</span>
+                                TEST
+                            </div>
+<div class="flex flex-wrap gap-xs">
+<span class="px-2 py-1 bg-tile border border-line rounded text-xs font-mono text-ink-muted">Unit</span>
+<span class="px-2 py-1 bg-risk/10 border border-risk/50 rounded text-xs font-mono text-risk flex items-center gap-1" title="Long Duration">
+<span class="material-symbols-outlined text-[12px]">timer</span> E2E
+                                </span>
+</div>
+</div>
+<!-- Connector -->
+<div class="hidden md:flex items-center justify-center w-8 text-line">
+<span class="material-symbols-outlined">arrow_right_alt</span>
+</div>
+<!-- Deploy Stage -->
+<div class="flex-1 flex flex-col gap-sm">
+<div class="flex items-center gap-sm font-label text-label text-ink-muted">
+<span class="material-symbols-outlined text-[16px]">schedule</span>
+                                DEPLOY
+                            </div>
+<div class="flex flex-wrap gap-xs opacity-50">
+<span class="px-2 py-1 bg-tile border border-line rounded text-xs font-mono text-ink-muted">Staging</span>
+<span class="px-2 py-1 bg-tile border border-line rounded text-xs font-mono text-ink-muted">Prod</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Note -->
+<div class="text-center font-mono text-[10px] text-ink-muted/50 mt-sm">
+                    Inferred from IaC manifests, CI/CD config, Dockerfiles.
+                </div>
+</div>
+</main>
+</div>
+</body></html>

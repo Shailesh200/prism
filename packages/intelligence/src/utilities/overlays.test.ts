@@ -75,11 +75,22 @@ describe("utility overlays (M-041 P2–P7 / Mono-v2)", () => {
     expect(
       expectNodes("data-pipeline-dag").graph.nodes.length,
     ).toBeGreaterThanOrEqual(1);
-    expect(
-      expectNodes("iac-resources").graph.nodes.some(
-        (n) => n.kind === "terraform",
-      ),
-    ).toBe(true);
+    const iac = expectNodes("iac-resources");
+    expect(iac.graph.nodes.some((n) => n.kind === "terraform")).toBe(true);
+    const ci = iac.graph.nodes.find((n) => n.kind === "ci");
+    expect(ci).toBeDefined();
+    expect(ci?.attrs?.provider).toBe("github-actions");
+    expect(String(ci?.attrs?.dispatchers ?? "")).toContain("workflow_dispatch");
+    expect(ci?.attrs?.canTrigger).toBe(true);
+    const inputs = JSON.parse(String(ci?.attrs?.inputs ?? "[]")) as {
+      name: string;
+      type: string;
+      required: boolean;
+    }[];
+    expect(inputs.map((i) => i.name)).toEqual(
+      expect.arrayContaining(["environment", "dry_run"]),
+    );
+    expect(String(ci?.attrs?.dispatchTypes ?? "")).toContain("deploy");
     expect(
       expectNodes("embedded-regions").graph.nodes.some(
         (n) => n.kind === "firmware",

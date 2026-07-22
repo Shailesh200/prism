@@ -1,0 +1,25 @@
+name: Dispatch Demo
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        type: choice
+        default: staging
+        options:
+          - staging
+          - prod
+      dry_run:
+        description: Skip apply
+        required: false
+        type: boolean
+        default: true
+  repository_dispatch:
+    types: [deploy, rollback]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok

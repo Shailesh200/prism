@@ -1,10 +1,13 @@
 import { execFileSync } from "node:child_process";
+import { statSync } from "node:fs";
+import { isAbsolute, join } from "node:path";
 import type {
   GitCommitRef,
   GitContributor,
   GitDayBucket,
   GitFileSignal,
   GitRepoSummary,
+  GitSyncStatus,
 } from "@prism/shared";
 
 /** Number of trailing weeks summarized for churn sparklines. */
@@ -23,6 +26,8 @@ export type GitSignals = {
   readonly summary: GitRepoSummary;
   /** Distinct commits per calendar day, ascending by date (repo-wide). */
   readonly days: GitDayBucket[];
+  /** SHAs present locally but not on the tracked upstream (unpushed). */
+  readonly unpushedShas?: ReadonlySet<string>;
 };
 
 export type ParseGitLogOptions = {
@@ -254,12 +259,79 @@ export function readGitSignals(
   });
 
   const branch = run(["rev-parse", "--abbrev-ref", "HEAD"])?.trim();
-  if (branch && branch !== "HEAD") {
-    return {
-      signals: parsed.signals,
-      days: parsed.days,
-      summary: { ...parsed.summary, branch },
-    };
+  const { sync, unpushedShas } = readSyncStatus(rootPath, run);
+
+  const summary: GitRepoSummary = {
+    ...parsed.summary,
+    ...(branch && branch !== "HEAD" ? { branch } : {}),
+    ...(sync ? { sync } : {}),
+  };
+
+  return {
+    signals: parsed.signals,
+    days: parsed.days,
+    summary,
+    ...(unpushedShas ? { unpushedShas } : {}),
+  };
+}
+
+/**
+ * Derive local/remote sync state without touching the network: upstream ref,
+ * ahead/behind counts (`@{u}`), the set of unpushed SHAs, and the last fetch
+ * time (FETCH_HEAD mtime). All plumbing is local; missing pieces fail soft.
+ */
+export function readSyncStatus(
+  rootPath: string,
+  run: (args: string[]) => string | null,
+): { sync?: GitSyncStatus; unpushedShas?: ReadonlySet<string> } {
+  let lastFetch: string | undefined;
+  const gitDir = run(["rev-parse", "--git-dir"])?.trim();
+  if (gitDir) {
+    const dir = isAbsolute(gitDir) ? gitDir : join(rootPath, gitDir);
+    try {
+      lastFetch = new Date(
+        statSync(join(dir, "FETCH_HEAD")).mtimeMs,
+      ).toISOString();
+    } catch {
+      // Never fetched (no FETCH_HEAD) — leave undefined.
+    }
   }
-  return parsed;
+
+  const upstream = run([
+    "rev-parse",
+    "--abbrev-ref",
+    "--symbolic-full-name",
+    "@{u}",
+  ])?.trim();
+
+  if (!upstream) {
+    return lastFetch ? { sync: { ahead: 0, behind: 0, lastFetch } } : {};
+  }
+
+  let ahead = 0;
+  let behind = 0;
+  const counts = run([
+    "rev-list",
+    "--left-right",
+    "--count",
+    `${upstream}...HEAD`,
+  ])?.trim();
+  if (counts) {
+    const [b, a] = counts.split(/\s+/);
+    behind = Number.parseInt(b ?? "0", 10) || 0;
+    ahead = Number.parseInt(a ?? "0", 10) || 0;
+  }
+
+  const list = run(["rev-list", `${upstream}..HEAD`]);
+  const unpushedShas = new Set(
+    (list ?? "")
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
+
+  return {
+    sync: { upstream, ahead, behind, ...(lastFetch ? { lastFetch } : {}) },
+    unpushedShas,
+  };
 }

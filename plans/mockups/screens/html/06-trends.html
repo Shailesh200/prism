@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Prism - Trends</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;650&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-lowest": "#090f0f",
+                    "on-primary-fixed-variant": "#004f4f",
+                    "on-tertiary-container": "#712d00",
+                    "on-tertiary": "#552000",
+                    "inverse-primary": "#006a6a",
+                    "secondary-fixed": "#e3dfff",
+                    "tertiary": "#ffba98",
+                    "inverse-surface": "#dde4e3",
+                    "on-secondary-fixed-variant": "#3622ca",
+                    "outline": "#859493",
+                    "background": "#0e1514",
+                    "on-surface-variant": "#bbc9c9",
+                    "on-tertiary-fixed": "#341100",
+                    "error": "#ffb4ab",
+                    "surface-container-highest": "#2f3636",
+                    "primary": "#44dede",
+                    "tertiary-fixed": "#ffdbcb",
+                    "on-primary": "#003737",
+                    "on-primary-fixed": "#002020",
+                    "line": "#2A334A",
+                    "on-secondary-container": "#b4b0ff",
+                    "secondary-container": "#3826cd",
+                    "primary-container": "#00c2c2",
+                    "primary-fixed-dim": "#3fdbdb",
+                    "on-background": "#dde4e3",
+                    "elev": "#1E2433",
+                    "surface-container": "#1a2121",
+                    "on-brand": "#0A0E1A",
+                    "tile": "#1E2433",
+                    "on-secondary": "#2000a4",
+                    "on-secondary-fixed": "#100069",
+                    "inverse-on-surface": "#2b3231",
+                    "surface-container-low": "#161d1d",
+                    "panel-2": "#0F1420",
+                    "brand-strong": "#00DCD4",
+                    "canvas": "#0A0E1A",
+                    "surface-variant": "#2f3636",
+                    "primary-fixed": "#65f8f7",
+                    "tertiary-fixed-dim": "#ffb691",
+                    "risk-extreme": "#F43F5E",
+                    "on-tertiary-fixed-variant": "#783100",
+                    "surface-bright": "#343a3a",
+                    "on-primary-container": "#004a4a",
+                    "safe": "#10B981",
+                    "tertiary-container": "#fd9359",
+                    "ink": "#FFFFFF",
+                    "secondary": "#c4c0ff",
+                    "on-error": "#690005",
+                    "surface-container-high": "#242b2b",
+                    "on-error-container": "#ffdad6",
+                    "ink-muted": "#94A3B8",
+                    "error-container": "#93000a",
+                    "secondary-fixed-dim": "#c4c0ff",
+                    "outline-variant": "#3c4949",
+                    "on-surface": "#dde4e3",
+                    "surface": "#0e1514",
+                    "risk": "#F59E0B",
+                    "panel": "#131926",
+                    "surface-dim": "#0e1514",
+                    "surface-tint": "#3fdbdb"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "xs": "4px",
+                    "topbar-h": "48px",
+                    "sm": "8px",
+                    "md": "16px",
+                    "sidebar-w": "224px",
+                    "lg": "24px",
+                    "xl": "32px",
+                    "inspector-w": "288px"
+            },
+            "fontFamily": {
+                    "label": [
+                            "Inter"
+                    ],
+                    "h1": [
+                            "Inter"
+                    ],
+                    "body-sm": [
+                            "Inter"
+                    ],
+                    "mono": [
+                            "JetBrains Mono"
+                    ],
+                    "brand": [
+                            "Inter"
+                    ],
+                    "body-md": [
+                            "Inter"
+                    ],
+                    "h2": [
+                            "Inter"
+                    ]
+            },
+            "fontSize": {
+                    "label": [
+                            "0.75rem",
+                            {
+                                    "letterSpacing": "0.04em",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "h1": [
+                            "1.5rem",
+                            {
+                                    "letterSpacing": "-0.02em",
+                                    "fontWeight": "650"
+                            }
+                    ],
+                    "body-sm": [
+                            "0.8125rem",
+                            {
+                                    "lineHeight": "1.4",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "mono": [
+                            "0.75rem",
+                            {
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "brand": [
+                            "1.125rem",
+                            {
+                                    "letterSpacing": "-0.02em",
+                                    "fontWeight": "650"
+                            }
+                    ],
+                    "body-md": [
+                            "0.9375rem",
+                            {
+                                    "lineHeight": "1.45",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "h2": [
+                            "1.15rem",
+                            {
+                                    "letterSpacing": "-0.02em",
+                                    "fontWeight": "600"
+                            }
+                    ]
+            }
+    },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .grid-bg {
+            background-size: 40px 40px;
+            background-image: linear-gradient(to right, rgba(42, 51, 74, 0.1) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(42, 51, 74, 0.1) 1px, transparent 1px);
+        }
+
+        /* Basic Chart Styles for visual representation */
+        .chart-line { stroke: #00DCD4; stroke-width: 2; fill: none; }
+        .chart-area { fill: url(#teal-gradient); opacity: 0.2; }
+        .chart-grid { stroke: #2A334A; stroke-width: 1; stroke-dasharray: 4 4; }
+        .chart-axis { stroke: #2A334A; stroke-width: 1; }
+        .chart-text { fill: #94A3B8; font-size: 10px; font-family: 'Inter'; }
+        
+        /* Tooltip styling */
+        .tooltip-line { stroke: #FFFFFF; stroke-width: 1; stroke-dasharray: 2 2; }
+        .tooltip-dot { fill: #00DCD4; stroke: #0A0E1A; stroke-width: 2; }
+    </style>
+</head>
+<body class="bg-canvas text-ink font-body-md h-screen overflow-hidden flex">
+<!-- SideNavBar -->
+<nav class="fixed left-0 top-0 h-full w-sidebar-w bg-panel border-r border-line flex flex-col py-md px-sm z-50">
+<!-- Header -->
+<div class="px-md mb-xl">
+<div class="flex items-center gap-sm">
+<div class="w-8 h-8 rounded bg-brand-strong flex items-center justify-center text-on-brand font-brand font-bold">
+                    P
+                </div>
+<div class="flex flex-col">
+<span class="font-brand text-brand-strong">Prism</span>
+<span class="font-label text-label text-ink-muted">main / engineering-repo</span>
+</div>
+</div>
+<button class="mt-md w-full bg-primary-container text-on-primary-container py-sm rounded-DEFAULT font-label text-label hover:bg-primary-fixed transition-colors">
+                New Analysis
+            </button>
+</div>
+<!-- Navigation -->
+<div class="flex-1 flex flex-col gap-xs">
+<a class="flex items-center gap-sm px-md py-sm rounded-DEFAULT text-ink-muted hover:text-ink hover:bg-tile transition-colors duration-150 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span class="font-body-sm text-body-sm">Overview</span>
+</a>
+<a class="flex items-center gap-sm px-md py-sm rounded-DEFAULT text-ink-muted hover:text-ink hover:bg-tile transition-colors duration-150 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined text-[20px]">map</span>
+<span class="font-body-sm text-body-sm">Repository Map</span>
+</a>
+<a class="flex items-center gap-sm px-md py-sm rounded-DEFAULT text-ink-muted hover:text-ink hover:bg-tile transition-colors duration-150 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined text-[20px]">strikethrough_s</span>
+<span class="font-body-sm text-body-sm">Codebase DNA</span>
+</a>
+<a class="flex items-center gap-sm px-md py-sm rounded-DEFAULT text-ink-muted hover:text-ink hover:bg-tile transition-colors duration-150 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined text-[20px]">graph_2</span>
+<span class="font-body-sm text-body-sm">Blast Radius</span>
+</a>
+<a class="flex items-center gap-sm px-md py-sm rounded-DEFAULT bg-tile text-brand-strong font-bold border-l-2 border-brand-strong cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined text-[20px]">trending_up</span>
+<span class="font-body-sm text-body-sm">Trends</span>
+</a>
+<a class="flex items-center gap-sm px-md py-sm rounded-DEFAULT text-ink-muted hover:text-ink hover:bg-tile transition-colors duration-150 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span class="font-body-sm text-body-sm">Settings</span>
+</a>
+</div>
+<!-- Footer -->
+<div class="mt-auto pt-md border-t border-line">
+<a class="flex items-center gap-sm px-md py-sm rounded-DEFAULT text-ink-muted hover:text-ink hover:bg-tile transition-colors duration-150 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined text-[20px]">account_circle</span>
+<span class="font-body-sm text-body-sm">User Profile</span>
+</a>
+</div>
+</nav>
+<!-- TopAppBar -->
+<header class="fixed top-0 right-0 h-topbar-h left-sidebar-w bg-canvas border-b border-line flex items-center justify-between px-lg z-40 transition-all duration-200">
+<div class="flex items-center gap-sm">
+<h1 class="font-h2 text-h2 text-on-surface">Trends</h1>
+<span class="text-line">|</span>
+<span class="font-body-sm text-body-sm text-ink-muted">acme-web · main · Last sync 4m ago</span>
+</div>
+<div class="flex items-center gap-md">
+<!-- Segmented Control -->
+<div class="flex bg-panel border border-line rounded-DEFAULT p-[2px]">
+<button class="px-3 py-1 font-label text-label text-ink-muted hover:text-ink rounded-sm">1W</button>
+<button class="px-3 py-1 font-label text-label text-ink-muted hover:text-ink rounded-sm">1M</button>
+<button class="px-3 py-1 font-label text-label bg-tile text-brand-strong rounded-sm shadow-sm">3M</button>
+<button class="px-3 py-1 font-label text-label text-ink-muted hover:text-ink rounded-sm">6M</button>
+<button class="px-3 py-1 font-label text-label text-ink-muted hover:text-ink rounded-sm">1Y</button>
+<button class="px-3 py-1 font-label text-label text-ink-muted hover:text-ink rounded-sm">Custom</button>
+</div>
+<div class="flex items-center gap-sm">
+<button class="text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center w-8 h-8 rounded-full hover:bg-tile">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center w-8 h-8 rounded-full hover:bg-tile">
+<span class="material-symbols-outlined text-[20px]">help_outline</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Canvas -->
+<main class="ml-sidebar-w mt-topbar-h flex-1 overflow-y-auto grid-bg p-lg flex flex-col gap-lg">
+<!-- KPI Delta Row -->
+<section class="grid grid-cols-4 gap-md">
+<!-- Health Score -->
+<div class="bg-panel border border-line rounded-DEFAULT p-md flex flex-col gap-xs">
+<span class="font-label text-label text-ink-muted">Health Score</span>
+<div class="flex items-end justify-between">
+<span class="font-h1 text-h1 text-ink">84</span>
+<div class="flex items-center text-safe bg-safe/10 px-2 py-1 rounded-sm">
+<span class="material-symbols-outlined text-[14px]">arrow_upward</span>
+<span class="font-mono text-mono ml-1">2%</span>
+</div>
+</div>
+</div>
+<!-- Coupling Density -->
+<div class="bg-panel border border-line rounded-DEFAULT p-md flex flex-col gap-xs">
+<span class="font-label text-label text-ink-muted">Coupling Density</span>
+<div class="flex items-end justify-between">
+<span class="font-h1 text-h1 text-ink">0.12</span>
+<div class="flex items-center text-safe bg-safe/10 px-2 py-1 rounded-sm">
+<span class="material-symbols-outlined text-[14px]">arrow_downward</span>
+<span class="font-mono text-mono ml-1">4%</span>
+</div>
+</div>
+</div>
+<!-- Test Presence -->
+<div class="bg-panel border border-line rounded-DEFAULT p-md flex flex-col gap-xs">
+<span class="font-label text-label text-ink-muted">Test Presence</span>
+<div class="flex items-end justify-between">
+<span class="font-h1 text-h1 text-ink">78%</span>
+<div class="flex items-center text-safe bg-safe/10 px-2 py-1 rounded-sm">
+<span class="material-symbols-outlined text-[14px]">arrow_upward</span>
+<span class="font-mono text-mono ml-1">1%</span>
+</div>
+</div>
+</div>
+<!-- Commits -->
+<div class="bg-panel border border-line rounded-DEFAULT p-md flex flex-col gap-xs">
+<span class="font-label text-label text-ink-muted">Commits</span>
+<div class="flex items-end justify-between">
+<span class="font-h1 text-h1 text-ink">1,240</span>
+<div class="flex items-center text-safe bg-safe/10 px-2 py-1 rounded-sm">
+<span class="material-symbols-outlined text-[14px]">arrow_upward</span>
+<span class="font-mono text-mono ml-1">12%</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Charts Grid -->
+<div class="grid grid-cols-3 gap-lg h-[400px]">
+<!-- Health Over Time -->
+<section class="col-span-2 bg-panel border border-line rounded-DEFAULT p-md flex flex-col">
+<div class="flex justify-between items-center mb-md">
+<h2 class="font-label text-label text-ink">Health Over Time</h2>
+<div class="flex gap-sm">
+<div class="flex items-center gap-xs">
+<div class="w-2 h-2 rounded-full bg-brand-strong"></div>
+<span class="font-label text-label text-ink-muted">Overall Health</span>
+</div>
+<div class="flex items-center gap-xs">
+<div class="w-2 h-2 rounded-full bg-secondary"></div>
+<span class="font-label text-label text-ink-muted">Complexity</span>
+</div>
+</div>
+</div>
+<div class="flex-1 relative border border-line border-t-0 border-r-0">
+<!-- SVG Chart Placeholder -->
+<svg height="100%" preserveaspectratio="none" viewbox="0 0 600 300" width="100%">
+<defs>
+<lineargradient id="teal-gradient" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#00DCD4" stop-opacity="0.5"></stop>
+<stop offset="100%" stop-color="#00DCD4" stop-opacity="0"></stop>
+</lineargradient>
+</defs>
+<!-- Grid -->
+<line class="chart-grid" x1="0" x2="600" y1="75" y2="75"></line>
+<line class="chart-grid" x1="0" x2="600" y1="150" y2="150"></line>
+<line class="chart-grid" x1="0" x2="600" y1="225" y2="225"></line>
+<!-- Area & Line -->
+<path class="chart-area" d="M0,250 L50,220 L100,230 L150,180 L200,190 L250,150 L300,160 L350,120 L400,140 L450,90 L500,100 L550,60 L600,70 L600,300 L0,300 Z"></path>
+<path class="chart-line" d="M0,250 L50,220 L100,230 L150,180 L200,190 L250,150 L300,160 L350,120 L400,140 L450,90 L500,100 L550,60 L600,70"></path>
+<!-- Secondary Line -->
+<path d="M0,200 L100,210 L200,180 L300,190 L400,150 L500,160 L600,130" fill="none" opacity="0.6" stroke="#c4c0ff" stroke-dasharray="4 4" stroke-width="1.5"></path>
+<!-- Tooltip State (Oct 24) -->
+<g transform="translate(450, 0)">
+<line class="tooltip-line" x1="0" x2="0" y1="0" y2="300"></line>
+<circle class="tooltip-dot" cx="0" cy="90" r="4"></circle>
+<!-- Tooltip Box -->
+<g transform="translate(-40, 20)">
+<rect fill="#1E2433" height="40" rx="4" stroke="#2A334A" width="80"></rect>
+<text fill="#FFFFFF" font-family="Inter" font-size="10" font-weight="600" text-anchor="middle" x="40" y="15">Oct 24</text>
+<text fill="#00DCD4" font-family="JetBrains Mono" font-size="10" text-anchor="middle" x="40" y="30">86</text>
+</g>
+</g>
+<!-- X Axis Labels -->
+<text class="chart-text" x="50" y="295">Aug</text>
+<text class="chart-text" x="250" y="295">Sep</text>
+<text class="chart-text" x="450" y="295">Oct</text>
+</svg>
+</div>
+</section>
+<!-- Commit Activity -->
+<section class="col-span-1 bg-panel border border-line rounded-DEFAULT p-md flex flex-col">
+<h2 class="font-label text-label text-ink mb-md">Commit Activity</h2>
+<div class="flex-1 relative border border-line border-t-0 border-r-0">
+<svg height="100%" preserveaspectratio="none" viewbox="0 0 300 300" width="100%">
+<!-- Grid -->
+<line class="chart-grid" x1="0" x2="300" y1="100" y2="100"></line>
+<line class="chart-grid" x1="0" x2="300" y1="200" y2="200"></line>
+<!-- Bar Chart representation -->
+<rect fill="#3826cd" height="50" opacity="0.8" width="15" x="20" y="250"></rect>
+<rect fill="#3826cd" height="100" opacity="0.8" width="15" x="45" y="200"></rect>
+<rect fill="#3826cd" height="150" opacity="0.8" width="15" x="70" y="150"></rect>
+<rect fill="#3826cd" height="80" opacity="0.8" width="15" x="95" y="220"></rect>
+<rect fill="#3826cd" height="120" opacity="0.8" width="15" x="120" y="180"></rect>
+<rect fill="#3826cd" height="200" opacity="0.8" width="15" x="145" y="100"></rect>
+<rect fill="#3826cd" height="170" opacity="0.8" width="15" x="170" y="130"></rect>
+<rect fill="#3826cd" height="220" opacity="0.8" width="15" x="195" y="80"></rect>
+<rect fill="#3826cd" height="140" opacity="0.8" width="15" x="220" y="160"></rect>
+<rect fill="#3826cd" height="190" opacity="0.8" width="15" x="245" y="110"></rect>
+<rect fill="#3826cd" height="240" opacity="0.8" width="15" x="270" y="60"></rect>
+</svg>
+</div>
+</section>
+</div>
+<!-- Bottom Row -->
+<div class="grid grid-cols-2 gap-lg flex-1">
+<!-- Churn Hotspots -->
+<section class="bg-panel border border-line rounded-DEFAULT p-md flex flex-col">
+<h2 class="font-label text-label text-ink mb-md">Churn Hotspots</h2>
+<div class="flex-1 overflow-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-line text-ink-muted font-label text-label">
+<th class="pb-sm font-normal">File</th>
+<th class="pb-sm font-normal text-right">Commits</th>
+<th class="pb-sm font-normal text-center">+Adds/-Dels</th>
+<th class="pb-sm font-normal text-center">Last Author</th>
+</tr>
+</thead>
+<tbody class="font-body-sm text-body-sm text-ink divide-y divide-line">
+<tr class="hover:bg-tile transition-colors">
+<td class="py-sm font-mono text-mono text-brand-strong">src/core/router.ts</td>
+<td class="py-sm text-right font-mono text-mono">142</td>
+<td class="py-sm">
+<div class="flex items-center justify-center gap-xs">
+<div class="w-8 h-2 bg-safe rounded-sm opacity-80"></div>
+<div class="w-12 h-2 bg-risk-extreme rounded-sm opacity-80"></div>
+</div>
+</td>
+<td class="py-sm flex justify-center">
+<img class="w-6 h-6 rounded-full object-cover border border-line" data-alt="Small circular avatar of a software developer, professional portrait style, dark background, professional lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB76l70gFXyZyPgKHkIGtV7d_zL8S9eD4XbSjkjZ95eigo75F-_7fAhXU4iSucYPwMj3bMvflL87KyDg7aKW1atJLd74rCxRigyX_hWd_GXDKKlnRy6PBtGZY-G23YN8vT46lw20FkixM1ljqYR2S-zSlnH6fhc4pC1HiAmma3GFQpW7RxxOylkseJmRuAqc6s1gvApbR-nre_m4Pixo4a8vGfjAyIuyA9OHCM-y4AYUKWdir86gNk"/>
+</td>
+</tr>
+<tr class="hover:bg-tile transition-colors">
+<td class="py-sm font-mono text-mono text-brand-strong">api/handlers/auth.go</td>
+<td class="py-sm text-right font-mono text-mono">98</td>
+<td class="py-sm">
+<div class="flex items-center justify-center gap-xs">
+<div class="w-12 h-2 bg-safe rounded-sm opacity-80"></div>
+<div class="w-4 h-2 bg-risk-extreme rounded-sm opacity-80"></div>
+</div>
+</td>
+<td class="py-sm flex justify-center">
+<img class="w-6 h-6 rounded-full object-cover border border-line" data-alt="Small circular avatar of a software developer, professional portrait style, dark background, professional lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAveCcqC3tE1Ia_w81uQfRaMQ2_N8cZ9-WnLByXEAWkHEgThYrXsrt_oFGj84DSZcSDCK56Rxp_qouUTmL1bCcpns1graq75a9tjENp6-ImvBPMtYEnJzGYScHDubjdmfSzN3S3Ajz2YWgNg962jd8rBF5bUNon78bLWdzBhiUxpvkBeo9j4gM2FTgrUf1rgv60c1BQmW0tGPsmFjpDeviO0br5ylRPrVmkw1Oq0lzFy6S5Z2BlXhw"/>
+</td>
+</tr>
+<tr class="hover:bg-tile transition-colors">
+<td class="py-sm font-mono text-mono text-brand-strong">components/DataGrid.tsx</td>
+<td class="py-sm text-right font-mono text-mono">87</td>
+<td class="py-sm">
+<div class="flex items-center justify-center gap-xs">
+<div class="w-6 h-2 bg-safe rounded-sm opacity-80"></div>
+<div class="w-6 h-2 bg-risk-extreme rounded-sm opacity-80"></div>
+</div>
+</td>
+<td class="py-sm flex justify-center">
+<img class="w-6 h-6 rounded-full object-cover border border-line" data-alt="Small circular avatar of a software developer, professional portrait style, dark background, professional lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCFhPhJRWjQSjDKU6GQ4MPm5h7Nax4f-A6Xs3GUhO7J13XBKpl3q-jAKTMoEXGHzR4ZFTtp5VnkXxZ_KlUfT8P1iArbj9WYTduEfU8Gf1fH5yFl6AuT5FsOzAlqI3aK30wxvW-joA1iRuK-WpQBrVmRGDRsXkBwZ6AITDLxZ9w1CYV71izfTJH2oQfB1g7QnwsukxOeanpP698e1yDqWjbeB98JDavRtRr6dEvKh6j8ih4-FGJkV7U"/>
+</td>
+</tr>
+<tr class="hover:bg-tile transition-colors">
+<td class="py-sm font-mono text-mono text-brand-strong">utils/parser.js</td>
+<td class="py-sm text-right font-mono text-mono">64</td>
+<td class="py-sm">
+<div class="flex items-center justify-center gap-xs">
+<div class="w-4 h-2 bg-safe rounded-sm opacity-80"></div>
+<div class="w-16 h-2 bg-risk-extreme rounded-sm opacity-80"></div>
+</div>
+</td>
+<td class="py-sm flex justify-center">
+<img class="w-6 h-6 rounded-full object-cover border border-line" data-alt="Small circular avatar of a software developer, professional portrait style, dark background, professional lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAJ3CKK4jjPnGDg2vlHEOF4TTHvzsvOYbOrdseKi5UP75enQbAvz3tf_nbkfwMU1aGD5SBYOU9UNALue2exvPfAHBbCGyuyl9EgoOFHX3pOmCdd5Xy9EQy9eWBNdeP-2FrCQ5K0M0DusX2UtQ8CLmUJafSU_XCypeCdUtDVMcPfzwiksfeIv-sDLo2SzbOeZmz8no4Q4fO4Fd2bvs8uaQWdLsoi6Hf7GIYb83QV7PQESl7ln1J3NSc"/>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Movers -->
+<section class="grid grid-rows-2 gap-md">
+<!-- Improving -->
+<div class="bg-panel border border-line rounded-DEFAULT p-md flex flex-col">
+<h2 class="font-label text-label text-ink mb-sm">Improving Regions</h2>
+<ul class="flex flex-col gap-sm">
+<li class="flex items-center justify-between p-sm bg-panel-2 border border-line rounded-DEFAULT">
+<span class="font-mono text-mono text-ink">services/payment</span>
+<span class="bg-safe/10 text-safe font-mono text-mono px-2 py-1 rounded-sm">+14%</span>
+</li>
+<li class="flex items-center justify-between p-sm bg-panel-2 border border-line rounded-DEFAULT">
+<span class="font-mono text-mono text-ink">ui/shared</span>
+<span class="bg-safe/10 text-safe font-mono text-mono px-2 py-1 rounded-sm">+8%</span>
+</li>
+</ul>
+</div>
+<!-- Regressing -->
+<div class="bg-panel border border-line rounded-DEFAULT p-md flex flex-col">
+<h2 class="font-label text-label text-ink mb-sm">Regressing Regions</h2>
+<ul class="flex flex-col gap-sm">
+<li class="flex items-center justify-between p-sm bg-panel-2 border border-line rounded-DEFAULT">
+<span class="font-mono text-mono text-ink">legacy/auth</span>
+<span class="bg-risk-extreme/10 text-risk-extreme font-mono text-mono px-2 py-1 rounded-sm">-22%</span>
+</li>
+<li class="flex items-center justify-between p-sm bg-panel-2 border border-line rounded-DEFAULT">
+<span class="font-mono text-mono text-ink">db/migrations</span>
+<span class="bg-risk-extreme/10 text-risk-extreme font-mono text-mono px-2 py-1 rounded-sm">-15%</span>
+</li>
+</ul>
+</div>
+</section>
+</div>
+<!-- Footer Note -->
+<div class="text-center mt-auto pt-md">
+<span class="font-mono text-mono text-ink-muted opacity-60">Historical metrics are computed from local git history.</span>
+</div>
+</main>
+</body></html>

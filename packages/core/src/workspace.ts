@@ -976,9 +976,11 @@ export function createWorkspace(options: {
           weeks[i] = (weeks[i] ?? 0) + (s.weeks[i] ?? 0);
         }
       }
+      const unpushed = git.unpushedShas;
       const recentCommits = [...bySha.values()]
         .sort((a, b) => byDateDesc(a.date, b.date))
-        .slice(0, 15);
+        .slice(0, 15)
+        .map((c) => (unpushed ? { ...c, pushed: !unpushed.has(c.sha) } : c));
       return ok({
         root: lastSnapshot.rootPath,
         generatedAt,

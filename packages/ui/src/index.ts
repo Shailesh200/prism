@@ -24,7 +24,6 @@ export {
 } from "./map-model.js";
 export { isPathKind, splitRepoPath } from "./map-path.js";
 export { resolveFileType, type FileTypeInfo } from "./file-type.js";
-export { FileTypeIcon } from "./FileTypeIcon.js";
 export {
   MaterialFileIcon,
   type MaterialFileIconProps,

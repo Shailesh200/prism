@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Prism - Desktop</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;650&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "ink": "#FFFFFF",
+                        "secondary": "#c4c0ff",
+                        "surface-container-high": "#242b2b",
+                        "risk": "#F59E0B",
+                        "on-tertiary-fixed": "#341100",
+                        "inverse-on-surface": "#2b3231",
+                        "tile": "#1E2433",
+                        "panel-2": "#0F1420",
+                        "on-tertiary-container": "#712d00",
+                        "on-background": "#dde4e3",
+                        "background": "#0e1514",
+                        "primary-fixed": "#65f8f7",
+                        "outline": "#859493",
+                        "on-secondary-fixed": "#100069",
+                        "on-primary-fixed-variant": "#004f4f",
+                        "error": "#ffb4ab",
+                        "tertiary-fixed-dim": "#ffb691",
+                        "brand-strong": "#00DCD4",
+                        "inverse-surface": "#dde4e3",
+                        "line": "#2A334A",
+                        "primary-fixed-dim": "#3fdbdb",
+                        "on-error-container": "#ffdad6",
+                        "ink-muted": "#94A3B8",
+                        "on-primary-fixed": "#002020",
+                        "tertiary": "#ffba98",
+                        "secondary-fixed": "#e3dfff",
+                        "on-primary-container": "#004a4a",
+                        "surface-dim": "#0e1514",
+                        "on-secondary-fixed-variant": "#3622ca",
+                        "on-brand": "#0A0E1A",
+                        "canvas": "#0A0E1A",
+                        "surface-container-low": "#161d1d",
+                        "elev": "#1E2433",
+                        "surface-bright": "#343a3a",
+                        "primary": "#44dede",
+                        "surface-variant": "#2f3636",
+                        "on-secondary": "#2000a4",
+                        "surface": "#0e1514",
+                        "surface-container-lowest": "#090f0f",
+                        "inverse-primary": "#006a6a",
+                        "safe": "#10B981",
+                        "tertiary-container": "#fd9359",
+                        "surface-tint": "#3fdbdb",
+                        "panel": "#131926",
+                        "on-surface": "#dde4e3",
+                        "surface-container": "#1a2121",
+                        "risk-extreme": "#F43F5E",
+                        "tertiary-fixed": "#ffdbcb",
+                        "on-tertiary": "#552000",
+                        "on-error": "#690005",
+                        "secondary-container": "#3826cd",
+                        "on-secondary-container": "#b4b0ff",
+                        "primary-container": "#00c2c2",
+                        "on-surface-variant": "#bbc9c9",
+                        "on-primary": "#003737",
+                        "outline-variant": "#3c4949",
+                        "secondary-fixed-dim": "#c4c0ff",
+                        "error-container": "#93000a",
+                        "surface-container-highest": "#2f3636",
+                        "on-tertiary-fixed-variant": "#783100"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "xs": "4px",
+                        "sidebar-w": "224px",
+                        "inspector-w": "288px",
+                        "sm": "8px",
+                        "xl": "32px",
+                        "lg": "24px",
+                        "topbar-h": "48px",
+                        "md": "16px"
+                    },
+                    "fontFamily": {
+                        "h1": ["Inter"],
+                        "brand": ["Inter"],
+                        "label": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "body-md": ["Inter"],
+                        "mono": ["JetBrains Mono"],
+                        "h2": ["Inter"]
+                    },
+                    "fontSize": {
+                        "h1": ["1.5rem", { "letterSpacing": "-0.02em", "fontWeight": "650" }],
+                        "brand": ["1.125rem", { "letterSpacing": "-0.02em", "fontWeight": "650" }],
+                        "label": ["0.75rem", { "letterSpacing": "0.04em", "fontWeight": "600" }],
+                        "body-sm": ["0.8125rem", { "lineHeight": "1.4", "fontWeight": "400" }],
+                        "body-md": ["0.9375rem", { "lineHeight": "1.45", "fontWeight": "400" }],
+                        "mono": ["0.75rem", { "fontWeight": "400" }],
+                        "h2": ["1.15rem", { "letterSpacing": "-0.02em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: theme('colors.canvas'); color: theme('colors.ink'); font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-canvas text-ink antialiased overflow-hidden selection:bg-brand-strong selection:text-on-brand h-screen w-screen flex">
+<nav class="fixed left-0 top-0 h-full w-sidebar-w bg-panel border-r border-line flex flex-col py-lg z-50">
+<div class="px-lg mb-xl flex items-center gap-sm">
+<div class="w-6 h-6 rounded bg-brand-strong flex items-center justify-center text-on-brand font-bold text-xs">P</div>
+<div>
+<div class="font-brand text-brand text-brand-strong">Prism</div>
+<div class="font-label text-label text-ink-muted uppercase">Local-first Intel</div>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto px-sm space-y-xs">
+<a class="flex items-center gap-md px-md py-sm text-ink-muted hover:bg-tile hover:text-ink transition-colors rounded-lg" href="#"><span class="material-symbols-outlined text-[20px]">dashboard</span><span class="font-body-sm text-body-sm">Overview</span></a>
+<a class="flex items-center gap-md px-md py-sm text-ink-muted hover:bg-tile hover:text-ink transition-colors rounded-lg" href="#"><span class="material-symbols-outlined text-[20px]">map</span><span class="font-body-sm text-body-sm">Repository Map</span></a>
+<a class="flex items-center gap-md px-md py-sm bg-tile text-ink rounded-lg" href="#"><span class="material-symbols-outlined text-[20px]">desktop_windows</span><span class="font-body-sm text-body-sm">Desktop</span></a>
+</div>
+</nav>
+<div class="flex-1 ml-sidebar-w flex flex-col h-full relative">
+<header class="fixed top-0 right-0 h-topbar-h w-[calc(100%-theme(spacing.sidebar-w))] bg-canvas border-b border-line flex justify-between items-center px-lg z-40">
+<div class="flex items-center gap-md">
+<h1 class="font-h2 text-h2 text-brand-strong">Desktop</h1>
+<span class="text-line">|</span>
+<span class="font-mono text-mono text-ink-muted">acme-web · main · Last sync 4m ago</span>
+</div>
+</header>
+<main class="flex-1 mt-topbar-h overflow-y-auto p-lg space-y-xl">
+<section class="grid grid-cols-4 gap-md">
+<div class="bg-panel border border-line p-md rounded-lg flex flex-col gap-sm"><span class="font-label text-label text-ink-muted uppercase">PROCESSES</span><span class="font-h1 text-h1 text-ink mt-auto">Main + 4 Renderer</span></div>
+<div class="bg-panel border border-line p-md rounded-lg flex flex-col gap-sm"><span class="font-label text-label text-ink-muted uppercase">IPC CHANNELS</span><span class="font-h1 text-h1 text-ink mt-auto">28 active</span></div>
+<div class="bg-panel border border-line p-md rounded-lg flex flex-col gap-sm"><span class="font-label text-label text-ink-muted uppercase">WINDOWS</span><span class="font-h1 text-h1 text-ink mt-auto">2 primary</span></div>
+<div class="bg-panel border border-line p-md rounded-lg flex flex-col gap-sm"><span class="font-label text-label text-ink-muted uppercase">NATIVE MODULES</span><span class="font-h1 text-h1 text-ink mt-auto">12 bridge</span></div>
+</section>
+<div class="grid grid-cols-3 gap-md">
+<section class="col-span-2 bg-panel border border-line rounded-lg flex flex-col">
+<div class="p-sm border-b border-line"><span class="font-label text-label text-ink-muted uppercase ml-sm">Boundary Architecture</span></div>
+<div class="flex-1 p-lg relative flex items-center justify-center gap-xl bg-canvas m-xs rounded border border-line/50 min-h-[300px]">
+<div class="z-10 bg-tile border border-brand-strong/50 rounded-lg p-md w-48 flex flex-col items-center">
+<span class="material-symbols-outlined text-brand-strong mb-xs">memory</span>
+<span class="font-label text-label text-ink">Main Process</span>
+<span class="font-mono text-mono text-ink-muted text-[10px] mt-xs">Node.js Env</span>
+</div>
+<div class="z-10 flex flex-col gap-sm">
+<div class="bg-panel-2 border border-line rounded p-sm w-40 flex items-center gap-sm"><span class="material-symbols-outlined text-ink-muted text-sm">web_asset</span><span class="font-label text-label text-ink-muted">Renderer 1 (UI)</span></div>
+<div class="bg-panel-2 border border-line rounded p-sm w-40 flex items-center gap-sm"><span class="material-symbols-outlined text-ink-muted text-sm">web_asset</span><span class="font-label text-label text-ink-muted">Renderer 2 (Worker)</span></div>
+</div>
+</div>
+</section>
+<section class="col-span-1 flex flex-col gap-md">
+<div class="bg-panel border border-risk/30 rounded-lg p-md"><div class="flex items-center gap-sm text-risk"><span class="material-symbols-outlined text-[18px]">warning</span><span class="font-label text-label uppercase">Unvalidated IPC</span></div><p class="font-body-sm text-body-sm text-ink-muted mt-sm">5 channels lacking schema validation</p></div>
+<div class="bg-panel border border-risk-extreme/30 rounded-lg p-md"><div class="flex items-center gap-sm text-risk-extreme"><span class="material-symbols-outlined text-[18px]">leak_add</span><span class="font-label text-label uppercase">Cross-boundary Leaks</span></div><p class="font-body-sm text-body-sm text-ink-muted mt-sm">Large object in update-state channel</p></div>
+</section>
+</div>
+<section class="bg-panel border border-line rounded-lg overflow-hidden">
+<div class="p-sm border-b border-line"><span class="font-label text-label text-ink-muted uppercase ml-sm">IPC Surface Topology</span></div>
+<table class="w-full text-left"><thead><tr class="border-b border-line bg-panel-2"><th class="py-sm px-md font-label text-label text-ink-muted">Channel</th><th class="py-sm px-md font-label text-label text-ink-muted">Dir</th><th class="py-sm px-md font-label text-label text-ink-muted">Sender</th><th class="py-sm px-md font-label text-label text-ink-muted">Receiver</th></tr></thead>
+<tbody>
+<tr class="border-b border-line"><td class="py-sm px-md font-mono text-mono">'get-config'</td><td class="py-sm px-md font-mono text-[10px]">M→R</td><td class="py-sm px-md font-mono text-mono text-ink-muted">src/main/config.ts</td><td class="py-sm px-md font-mono text-mono text-ink-muted">src/renderer/hooks/useConfig.ts</td></tr>
+</tbody></table>
+</section>
+<footer class="pt-sm pb-xl flex items-center justify-center gap-xs opacity-60"><span class="font-mono text-[10px] text-ink-muted">Inferred from main/renderer entry files, IPC channel definitions</span></footer>
+</main>
+</div>
+</body></html>

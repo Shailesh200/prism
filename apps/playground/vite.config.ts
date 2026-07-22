@@ -4,11 +4,18 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 import type {
+  BlastRadiusReport,
+  DnaReport,
   GitActivity,
+  GraphSnapshotDto,
   HealthScore,
   MapLayerId,
   MapZoomLevel,
+  RenameImpactReport,
   RepositoryMap,
+  SafeDeleteReport,
+  TestImpactReport,
+  UtilityOverlayReport,
 } from "@prism/shared";
 import { MapLayerIdSchema, MapZoomLevelSchema } from "@prism/shared";
 
@@ -35,6 +42,78 @@ type Workspace = {
   getHealth: () => Promise<
     { ok: true; value: HealthScore } | { ok: false; error: { message: string } }
   >;
+  getDna: () => Promise<
+    { ok: true; value: DnaReport } | { ok: false; error: { message: string } }
+  >;
+  getUtilityOverlay: (
+    kind: string,
+    options?: { packageId?: string },
+  ) => Promise<
+    | { ok: true; value: UtilityOverlayReport }
+    | { ok: false; error: { message: string } }
+  >;
+  getDependencyGraph: () =>
+    | { ok: true; value: GraphSnapshotDto }
+    | { ok: false; error: { message: string } };
+  blastRadius: (input: {
+    kind: "file" | "symbol";
+    id: string;
+    path?: string;
+  }) => Promise<
+    | { ok: true; value: BlastRadiusReport }
+    | { ok: false; error: { message: string } }
+  >;
+  safeDelete: (input: {
+    kind: "file" | "symbol";
+    id: string;
+    path?: string;
+  }) => Promise<
+    | { ok: true; value: SafeDeleteReport }
+    | { ok: false; error: { message: string } }
+  >;
+  renameImpact: (input: {
+    kind: "file" | "symbol";
+    id: string;
+    path?: string;
+    newName?: string;
+  }) => Promise<
+    | { ok: true; value: RenameImpactReport }
+    | { ok: false; error: { message: string } }
+  >;
+  testImpact: (input: {
+    kind: "file" | "symbol";
+    id: string;
+    path?: string;
+  }) => Promise<
+    | { ok: true; value: TestImpactReport }
+    | { ok: false; error: { message: string } }
+  >;
+  findSymbol: (query: { name: string; path?: string; kind?: string }) =>
+    | {
+        ok: true;
+        value: Array<{
+          id: string;
+          name: string;
+          kind: string;
+          path: string;
+          exported: boolean;
+        }>;
+      }
+    | { ok: false; error: { message: string } };
+  getKnowledgeGraph: () =>
+    | {
+        ok: true;
+        value: {
+          symbols: Array<{
+            id: string;
+            name: string;
+            kind: string;
+            path: string;
+            exported: boolean;
+          }>;
+        };
+      }
+    | { ok: false; error: { message: string } };
 };
 
 const workspaceCache = new Map<string, Promise<Workspace>>();
@@ -46,16 +125,17 @@ type Preset = {
 };
 
 function presets(): Preset[] {
-  return [
-    { id: "fixture", label: "Demo fixture", root: fixtureRoot },
-    { id: "prism", label: "Prism (this repo)", root: repoRoot },
-  ];
+  return [];
 }
 
+/**
+ * Auto-detect the workspace to index. Prefer an explicit env override, else the
+ * repository the playground is running inside (this repo).
+ */
 function defaultRoot(): string {
   const fromEnv = process.env.PRISM_PLAYGROUND_ROOT?.trim();
   if (fromEnv) return resolve(fromEnv);
-  return fixtureRoot;
+  return repoRoot;
 }
 
 async function assertReadableDir(root: string): Promise<void> {
@@ -137,6 +217,87 @@ async function loadHealth(root: string): Promise<HealthScore> {
   return result.value;
 }
 
+async function loadDna(root: string): Promise<DnaReport> {
+  const ws = await getIndexedWorkspace(root);
+  const result = await ws.getDna();
+  if (!result.ok) {
+    throw new Error(`getDna failed: ${result.error.message}`);
+  }
+  return result.value;
+}
+
+async function loadOverlay(
+  root: string,
+  kind: string,
+): Promise<UtilityOverlayReport> {
+  const ws = await getIndexedWorkspace(root);
+  const result = await ws.getUtilityOverlay(kind);
+  if (!result.ok) {
+    throw new Error(`getUtilityOverlay failed: ${result.error.message}`);
+  }
+  return result.value;
+}
+
+async function loadGraph(root: string): Promise<GraphSnapshotDto> {
+  const ws = await getIndexedWorkspace(root);
+  const result = ws.getDependencyGraph();
+  if (!result.ok) {
+    throw new Error(`getDependencyGraph failed: ${result.error.message}`);
+  }
+  return result.value;
+}
+
+type ImpactOrigin = {
+  kind: "file" | "symbol";
+  id: string;
+  path?: string;
+  newName?: string;
+};
+
+async function loadImpactBundle(
+  root: string,
+  origin: ImpactOrigin,
+): Promise<{
+  blast: BlastRadiusReport;
+  safeDelete: SafeDeleteReport;
+  rename: RenameImpactReport;
+  testImpact: TestImpactReport;
+}> {
+  const ws = await getIndexedWorkspace(root);
+  const base = {
+    kind: origin.kind,
+    id: origin.id,
+    ...(origin.path === undefined ? {} : { path: origin.path }),
+  };
+  const [blast, safeDelete, rename, testImpact] = await Promise.all([
+    ws.blastRadius(base),
+    ws.safeDelete(base),
+    ws.renameImpact({
+      ...base,
+      ...(origin.newName === undefined || origin.newName.trim() === ""
+        ? {}
+        : { newName: origin.newName.trim() }),
+    }),
+    ws.testImpact(base),
+  ]);
+  if (!blast.ok) throw new Error(`blastRadius failed: ${blast.error.message}`);
+  if (!safeDelete.ok) {
+    throw new Error(`safeDelete failed: ${safeDelete.error.message}`);
+  }
+  if (!rename.ok) {
+    throw new Error(`renameImpact failed: ${rename.error.message}`);
+  }
+  if (!testImpact.ok) {
+    throw new Error(`testImpact failed: ${testImpact.error.message}`);
+  }
+  return {
+    blast: blast.value,
+    safeDelete: safeDelete.value,
+    rename: rename.value,
+    testImpact: testImpact.value,
+  };
+}
+
 function parseZoom(raw: string | null): MapZoomLevel {
   const parsed = MapZoomLevelSchema.safeParse(raw ?? "feature");
   return parsed.success ? parsed.data : "feature";
@@ -210,6 +371,95 @@ function prismMapApi(): Plugin {
               );
               const health = await loadHealth(root);
               sendJson(res, 200, health);
+              return;
+            }
+
+            if (parsed.pathname === "/api/dna") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const dna = await loadDna(root);
+              sendJson(res, 200, dna);
+              return;
+            }
+
+            if (parsed.pathname === "/api/overlay") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const kind = parsed.searchParams.get("kind") ?? "api-surface";
+              const overlay = await loadOverlay(root, kind);
+              sendJson(res, 200, overlay);
+              return;
+            }
+
+            if (parsed.pathname === "/api/graph") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const graph = await loadGraph(root);
+              sendJson(res, 200, graph);
+              return;
+            }
+
+            if (parsed.pathname === "/api/impact") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const kindRaw = parsed.searchParams.get("kind") ?? "file";
+              const kind = kindRaw === "symbol" ? "symbol" : "file";
+              const id = parsed.searchParams.get("id")?.trim() ?? "";
+              if (id === "") {
+                sendJson(res, 400, { error: "id is required" });
+                return;
+              }
+              const path = parsed.searchParams.get("path")?.trim();
+              const newName = parsed.searchParams.get("newName")?.trim();
+              const bundle = await loadImpactBundle(root, {
+                kind,
+                id,
+                ...(path ? { path } : {}),
+                ...(newName ? { newName } : {}),
+              });
+              sendJson(res, 200, bundle);
+              return;
+            }
+
+            if (parsed.pathname === "/api/symbols") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const q = (
+                parsed.searchParams.get("q")?.trim() ?? ""
+              ).toLowerCase();
+              if (q.length < 1) {
+                sendJson(res, 200, { hits: [] });
+                return;
+              }
+              const ws = await getIndexedWorkspace(root);
+              const kg = ws.getKnowledgeGraph();
+              if (!kg.ok) {
+                throw new Error(
+                  `getKnowledgeGraph failed: ${kg.error.message}`,
+                );
+              }
+              const hits = kg.value.symbols
+                .filter((s) => s.name.toLowerCase().includes(q))
+                .sort((a, b) => {
+                  const aExact = a.name.toLowerCase() === q ? 0 : 1;
+                  const bExact = b.name.toLowerCase() === q ? 0 : 1;
+                  if (aExact !== bExact) return aExact - bExact;
+                  return a.name.localeCompare(b.name);
+                })
+                .slice(0, 30)
+                .map((h) => ({
+                  id: h.id,
+                  name: h.name,
+                  kind: h.kind,
+                  path: h.path,
+                  exported: h.exported,
+                }));
+              sendJson(res, 200, { hits });
               return;
             }
 
