@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-021-safe-delete-rename` |
-| Status | In Progress |
+| Status | Verified |
 | Depends on | M-020 |
 | Unlocks | M-025, M-029 |
 | Packages | `@prism/impact`, `@prism/core` |
@@ -56,7 +56,7 @@ for symbol resolution, reference sites, and heritage edges.
 - [x] `safeDelete` / `renameImpact` / `testImpact` / `breakingChangeHints` in `@prism/impact` + Core
 - [x] Golden reports on `m011-refs` fixture match (`packages/core/src/fixtures/*.golden.json`)
 - [x] Heuristics documented (this doc)
-- [ ] Verify + PROGRESS + owner approval
+- [x] Verify + PROGRESS + owner approval (approved & merged 2026-07-22)
 
 ## Verification
 
