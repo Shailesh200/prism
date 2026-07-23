@@ -2,11 +2,37 @@ import { createRoot } from "react-dom/client";
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactElement,
 } from "react";
 import { RepositoryMapView } from "@prism/ui";
+import {
+  AppShellClientProvider,
+  AppSidebar,
+  BlastRadiusScreen,
+  DnaScreen,
+  DomainScreen,
+  DomainsScreen,
+  IntegrationsScreen,
+  OverviewScreen,
+  PrismErrorBoundary,
+  SettingsScreen,
+  TestingSecurityScreen,
+  TrendsScreen,
+  applyAppearance,
+  autoReindexIntervalMs,
+  clearAuditLog,
+  clearIntegrationsState,
+  loadSettings,
+  recordAudit,
+  saveSettings,
+  SETTINGS_STORAGE_KEY,
+  type AppShellClient,
+  type DomainOverlayStatus,
+  type SettingsSection,
+} from "@prism/app-shell";
 import type {
   BackendReport,
   GraphSnapshotDto,
@@ -21,25 +47,32 @@ import {
   fetchBackendReport,
   fetchDashboard,
   fetchDependencyGraph,
+  fetchHealthHistory,
+  fetchHealthHistoryBackfillStatus,
+  fetchImpactBundle,
+  applyRename,
   fetchOverlay,
+  fetchRegionMovers,
   fetchReindex,
   fetchRepositoryMap,
+  fetchSecurityReport,
+  fetchSymbolHits,
+  fetchTestingReport,
+  fetchEngineeringHealth,
+  fetchCodeExplorer,
+  fetchPrismGitignoreStatus,
+  gitFetch,
   handleHostMessage,
+  ingestCoverage,
   openFile,
   postToHost,
+  runLighthouseLab,
+  runTests,
+  listTests,
+  stageDevopsRemote,
+  startHealthHistoryBackfill,
   type DashboardPayload,
 } from "./host-client.js";
-import { OverviewScreen } from "./ui/OverviewScreen.js";
-import { DnaScreen } from "./ui/DnaScreen.js";
-import { DomainsScreen } from "./ui/DomainsScreen.js";
-import { DomainScreen, type DomainOverlayStatus } from "./ui/DomainScreen.js";
-import { BlastRadiusScreen } from "./ui/BlastRadiusScreen.js";
-import { TrendsScreen } from "./ui/TrendsScreen.js";
-import { IntegrationsScreen } from "./ui/IntegrationsScreen.js";
-import { SettingsScreen } from "./ui/SettingsScreen.js";
-import { AppSidebar } from "./ui/AppSidebar.js";
-import "./ui/overview.css";
-import "./ui/appnav.css";
 
 type DomainRun = {
   overlay: UtilityOverlayReport;
@@ -66,6 +99,9 @@ function Status({
 function App(): ReactElement {
   const brand = document.body.getAttribute("data-brand") ?? undefined;
   const [view, setView] = useState<AppView>("overview");
+  const [settingsSection, setSettingsSection] =
+    useState<SettingsSection>("general");
+  const [auditCategory, setAuditCategory] = useState<string | undefined>();
   const [boot, setBoot] = useState<{
     message: string;
     kind: "info" | "error" | "loading";
@@ -91,6 +127,77 @@ function App(): ReactElement {
     null,
   );
   const domainRuns = useRef<Map<string, DomainRun>>(new Map());
+  const [displayName, setDisplayName] = useState(
+    () => loadSettings().displayName,
+  );
+  const [networkIntegrationsAllowed, setNetworkIntegrationsAllowed] = useState(
+    () => loadSettings().allowNetworkIntegrations,
+  );
+
+  useEffect(() => {
+    const s = loadSettings();
+    applyAppearance({
+      theme: s.theme,
+      density: s.density,
+      monoFont: s.monoFont,
+      sansFont: s.sansFont,
+    });
+    if (s.autoReindex) {
+      postToHost({
+        type: "setAutoReindex",
+        enabled: true,
+        intervalMs: autoReindexIntervalMs(s.autoReindexInterval),
+      });
+    }
+  }, []);
+
+  const onDisplayNameChange = useCallback((name: string) => {
+    setDisplayName(name);
+    saveSettings({ displayName: name });
+  }, []);
+
+  const onNetworkIntegrationsChange = useCallback((enabled: boolean) => {
+    setNetworkIntegrationsAllowed(enabled);
+    saveSettings({ allowNetworkIntegrations: enabled });
+  }, []);
+
+  const client = useMemo<AppShellClient>(
+    () => ({
+      fetchDashboard,
+      fetchRepositoryMap,
+      fetchReindex,
+      fetchOverlay,
+      fetchBackendReport,
+      fetchTestingReport,
+      fetchSecurityReport,
+      ingestCoverage,
+      runTests,
+      listTests,
+      fetchDependencyGraph: () => fetchDependencyGraph(),
+      fetchImpactBundle: (target) => fetchImpactBundle(target),
+      applyRename,
+      fetchSymbolHits: (query) => fetchSymbolHits(query),
+      fetchHealthHistory,
+      fetchRegionMovers,
+      startHealthHistoryBackfill,
+      fetchHealthHistoryBackfillStatus,
+      fetchEngineeringHealth,
+      fetchCodeExplorer,
+      fetchPrismGitignoreStatus,
+      gitFetch,
+      runLighthouseLab,
+      stageDevopsRemote,
+      openFile,
+      postToHost,
+    }),
+    [],
+  );
+
+  const openAuditLogs = useCallback((category?: string) => {
+    setAuditCategory(category);
+    setSettingsSection("audit");
+    setView("settings");
+  }, []);
 
   const loadDashboard = useCallback(async () => {
     setBoot({ message: "Indexing repository…", kind: "loading" });
@@ -117,6 +224,9 @@ function App(): ReactElement {
         setView(msg.view);
         if (msg.domainId) setActiveDomain(msg.domainId);
       }
+      if ("type" in msg && msg.type === "audit") {
+        recordAudit(msg.entry);
+      }
     };
     window.addEventListener("message", onMessage);
     postToHost({ type: "ready", view: "overview" });
@@ -139,8 +249,12 @@ function App(): ReactElement {
     };
   }, [view, zoom, layers, dashboard?.root]);
 
-  const refreshGit = useCallback(() => {
-    void loadDashboard();
+  const refreshGit = useCallback(async () => {
+    await loadDashboard();
+  }, [loadDashboard]);
+
+  const syncGit = useCallback(async () => {
+    await loadDashboard();
   }, [loadDashboard]);
 
   const runOverlay = useCallback(
@@ -206,14 +320,19 @@ function App(): ReactElement {
 
   const onNavigate = useCallback((next: AppView) => {
     setView(next);
+    if (next !== "settings") setSettingsSection("general");
   }, []);
 
   if (!dashboard || boot.kind === "loading" || boot.kind === "error") {
-    return <Status message={boot.message || "Loading…"} kind={boot.kind} />;
+    return (
+      <AppShellClientProvider client={client}>
+        <Status message={boot.message || "Loading…"} kind={boot.kind} />
+      </AppShellClientProvider>
+    );
   }
 
   const {
-    repoLabel,
+    repoLabel: pathRepoLabel,
     root,
     gitActivity,
     health,
@@ -221,14 +340,16 @@ function App(): ReactElement {
     branch,
     map: dashMap,
   } = dashboard;
+  const repoLabel = displayName.trim() || pathRepoLabel;
   const activeMap = map ?? dashMap;
   const user = gitActivity?.recentCommits[0] ?? null;
   const gitStatus: "loading" | "ready" | "error" = gitActivity
     ? "ready"
     : "error";
 
+  let body: ReactElement;
   if (view === "overview") {
-    return (
+    body = (
       <OverviewScreen
         map={activeMap}
         repoLabel={repoLabel}
@@ -236,21 +357,25 @@ function App(): ReactElement {
         gitStatus={gitStatus}
         health={health}
         dna={dna}
+        testingScore={dashboard?.testingScore ?? null}
+        securityScore={dashboard?.securityScore ?? null}
         onOpenMap={() => setView("map")}
         onOpenDna={() => setView("dna")}
         onOpenProfile={() => setView("profile")}
         onOpenDomains={() => setView("domains")}
+        onOpenTesting={() => setView("testing")}
         onOpenBlast={() => setView("blast")}
         onOpenTrends={() => setView("trends")}
         onOpenIntegrations={() => setView("integrations")}
         onOpenSettings={() => setView("settings")}
-        onRefresh={refreshGit}
+        onRefresh={() => {
+          void refreshGit();
+        }}
+        onSyncGit={syncGit}
       />
     );
-  }
-
-  if (view === "dna" || view === "profile") {
-    return (
+  } else if (view === "dna" || view === "profile") {
+    body = (
       <DnaScreen
         repoLabel={repoLabel}
         branch={branch}
@@ -261,12 +386,11 @@ function App(): ReactElement {
         mode={view === "profile" ? "profile" : "analysis"}
         onNavigate={onNavigate}
         onOpenDomain={openDomain}
+        onOpenAuditLogs={openAuditLogs}
       />
     );
-  }
-
-  if (view === "domains") {
-    return (
+  } else if (view === "domains") {
+    body = (
       <DomainsScreen
         repoLabel={repoLabel}
         branch={branch}
@@ -276,10 +400,17 @@ function App(): ReactElement {
         onOpenDomain={openDomain}
       />
     );
-  }
-
-  if (view === "domain") {
-    return (
+  } else if (view === "testing") {
+    body = (
+      <TestingSecurityScreen
+        repoLabel={repoLabel}
+        branch={branch}
+        user={user}
+        onNavigate={onNavigate}
+      />
+    );
+  } else if (view === "domain") {
+    body = (
       <DomainScreen
         domainId={activeDomain}
         repoLabel={repoLabel}
@@ -297,10 +428,8 @@ function App(): ReactElement {
         onNavigate={onNavigate}
       />
     );
-  }
-
-  if (view === "blast") {
-    return (
+  } else if (view === "blast") {
+    body = (
       <BlastRadiusScreen
         root={root}
         repoLabel={repoLabel}
@@ -309,10 +438,8 @@ function App(): ReactElement {
         onNavigate={onNavigate}
       />
     );
-  }
-
-  if (view === "trends") {
-    return (
+  } else if (view === "trends") {
+    body = (
       <TrendsScreen
         map={activeMap}
         repoLabel={repoLabel}
@@ -322,33 +449,39 @@ function App(): ReactElement {
         gitStatus={gitStatus}
         health={health}
         onNavigate={onNavigate}
+        fetchHealthHistory={fetchHealthHistory}
+        fetchRegionMovers={fetchRegionMovers}
+        startHealthHistoryBackfill={startHealthHistoryBackfill}
+        fetchHealthHistoryBackfillStatus={fetchHealthHistoryBackfillStatus}
       />
     );
-  }
-
-  if (view === "integrations") {
-    return (
+  } else if (view === "integrations") {
+    body = (
       <IntegrationsScreen
         repoLabel={repoLabel}
         branch={branch}
         user={user}
+        networkIntegrationsAllowed={networkIntegrationsAllowed}
         onNavigate={onNavigate}
       />
     );
-  }
-
-  if (view === "settings") {
-    return (
+  } else if (view === "settings") {
+    body = (
       <SettingsScreen
         root={root}
-        repoLabel={repoLabel}
+        displayName={displayName}
+        onDisplayNameChange={onDisplayNameChange}
+        repoLabel={pathRepoLabel}
         branch={branch}
         user={user}
         map={activeMap}
         autoDetected={false}
+        surface="extension"
         zoom={zoom}
         layers={layers}
         indexing={indexing}
+        initialSection={settingsSection}
+        {...(auditCategory ? { initialAuditCategory: auditCategory } : {})}
         onZoomChange={setZoom}
         onLayersChange={(next) => setLayers([...next])}
         onApplyWorkspace={() => undefined}
@@ -358,62 +491,106 @@ function App(): ReactElement {
             .then(() => loadDashboard())
             .finally(() => setIndexing(false));
         }}
-        onClearDomainCache={() => {
+        allowNetworkIntegrations={networkIntegrationsAllowed}
+        onNetworkIntegrationsChange={onNetworkIntegrationsChange}
+        onAutoReindexChange={(enabled, intervalMs) => {
+          postToHost({
+            type: "setAutoReindex",
+            enabled,
+            ...(intervalMs !== undefined ? { intervalMs } : {}),
+          });
+        }}
+        onLocalOnlyAnalysisChange={(enabled) => {
+          postToHost({ type: "setLocalOnly", enabled });
+        }}
+        onClearData={() => {
           domainRuns.current.clear();
+          clearAuditLog();
+          clearIntegrationsState();
+          try {
+            const keys: string[] = [];
+            for (let i = 0; i < localStorage.length; i++) {
+              const k = localStorage.key(i);
+              if (k?.startsWith("prism.domain-run.")) keys.push(k);
+            }
+            for (const k of keys) localStorage.removeItem(k);
+            localStorage.removeItem(SETTINGS_STORAGE_KEY);
+          } catch {
+            /* ignore */
+          }
+          setDisplayName("");
+          setNetworkIntegrationsAllowed(false);
+          const fresh = loadSettings();
+          applyAppearance({
+            theme: fresh.theme,
+            density: fresh.density,
+            monoFont: fresh.monoFont,
+            sansFont: fresh.sansFont,
+          });
+          postToHost({ type: "clearData" });
         }}
         onNavigate={onNavigate}
       />
     );
-  }
-
-  // Map view
-  return (
-    <div className="playground-shell playground-shell--ext">
-      <div className="playground-shell__map">
-        <div className="playground-map-wrap">
-          <div className="playground-map-inner">
-            <RepositoryMapView
-              map={activeMap}
-              bookmarks={bookmarks}
-              {...(brand ? { brandMarkSrc: brand } : {})}
-              showBrand={false}
-              branch={branch}
-              recentChanges={
-                gitActivity?.available ? gitActivity.recentFiles : []
-              }
-              onZoomChange={(z) => {
-                setZoom(z);
-                postToHost({ type: "zoom", zoom: z });
-              }}
-              onLayersChange={(next) => {
-                setLayers([...next]);
-                postToHost({ type: "layers", layers: [...next] });
-              }}
-              onAddBookmark={(label, nodeId) => {
-                setBookmarks((prev) => [
-                  ...prev,
-                  {
-                    id: `bookmark:${nodeId}:${Date.now()}`,
-                    label,
-                    nodeId,
-                    zoom,
-                    createdAt: new Date().toISOString(),
-                  },
-                ]);
-              }}
-              onOpenPath={(path) => openFile(path)}
+  } else {
+    body = (
+      <div className="playground-shell playground-shell--ext">
+        <div className="playground-shell__map">
+          <div className="playground-map-wrap">
+            <div className="playground-map-inner">
+              <RepositoryMapView
+                map={activeMap}
+                bookmarks={bookmarks}
+                {...(brand ? { brandMarkSrc: brand } : {})}
+                showBrand={false}
+                branch={branch}
+                recentChanges={
+                  gitActivity?.available ? gitActivity.recentFiles : []
+                }
+                onZoomChange={(z) => {
+                  setZoom(z);
+                  postToHost({ type: "zoom", zoom: z });
+                }}
+                onLayersChange={(next) => {
+                  setLayers([...next]);
+                  postToHost({ type: "layers", layers: [...next] });
+                }}
+                onAddBookmark={(label, nodeId) => {
+                  setBookmarks((prev) => [
+                    ...prev,
+                    {
+                      id: `bookmark:${nodeId}:${Date.now()}`,
+                      label,
+                      nodeId,
+                      zoom,
+                      createdAt: new Date().toISOString(),
+                    },
+                  ]);
+                }}
+                onOpenPath={(path) => openFile(path)}
+              />
+            </div>
+            <AppSidebar
+              variant="rail"
+              active="map"
+              repoLabel={repoLabel}
+              user={user}
+              onNavigate={onNavigate}
             />
           </div>
-          <AppSidebar
-            variant="rail"
-            active="map"
-            repoLabel={repoLabel}
-            user={user}
-            onNavigate={onNavigate}
-          />
         </div>
       </div>
-    </div>
+    );
+  }
+
+  return (
+    <PrismErrorBoundary label="Prism">
+      <AppShellClientProvider client={client}>
+        <PrismErrorBoundary label={view} resetKey={view}>
+          {body}
+        </PrismErrorBoundary>
+      </AppShellClientProvider>
+    </PrismErrorBoundary>
   );
 }
 

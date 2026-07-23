@@ -1,22 +1,47 @@
 import react from "@vitejs/plugin-react";
-import { access, mkdir, writeFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { constants } from "node:fs";
+import {
+  access,
+  mkdir,
+  readFile,
+  rename,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import type { IncomingMessage } from "node:http";
 import { defineConfig, type Plugin } from "vite";
+import {
+  rewritePathReferences,
+  type ApplyRenameInput,
+  type ApplyRenameResult,
+} from "../../packages/app-shell/src/apply-rename.ts";
 import type {
   BackendReport,
   BlastRadiusReport,
+  CodeExplorerReport,
+  CodeExplorerTarget,
   DnaReport,
+  EngineeringHealthReport,
   GitActivity,
   GraphSnapshotDto,
+  HealthHistoryBackfillStatus,
+  HealthHistoryReport,
   HealthScore,
   MapLayerId,
   MapZoomLevel,
+  RegionMoversReport,
   RenameImpactReport,
   RepositoryMap,
   SafeDeleteReport,
+  SecurityReport,
   TestImpactReport,
+  TestingReport,
   UtilityOverlayReport,
+  CwvReport,
+  UtilityJob,
 } from "@prism/shared";
 import { MapLayerIdSchema, MapZoomLevelSchema } from "@prism/shared";
 
@@ -27,6 +52,7 @@ const fixtureRoot = resolve(
   "../../packages/intelligence/fixtures/m012-features",
 );
 const uiSrc = resolve(appRoot, "../../packages/ui/src");
+const appShellSrc = resolve(appRoot, "../../packages/app-shell/src");
 
 const ZOOM_LEVELS = MapZoomLevelSchema.options;
 
@@ -57,6 +83,18 @@ type Workspace = {
     packageId?: string;
   }) => Promise<
     | { ok: true; value: BackendReport }
+    | { ok: false; error: { message: string } }
+  >;
+  getTestingReport: () => Promise<
+    | { ok: true; value: TestingReport }
+    | { ok: false; error: { message: string } }
+  >;
+  getSecurityReport: () => Promise<
+    | { ok: true; value: SecurityReport }
+    | { ok: false; error: { message: string } }
+  >;
+  ingestCoverageFromWorkspace: () => Promise<
+    | { ok: true; value: TestingReport }
     | { ok: false; error: { message: string } }
   >;
   getDependencyGraph: () =>
@@ -121,6 +159,52 @@ type Workspace = {
         };
       }
     | { ok: false; error: { message: string } };
+  getHealthHistory: (options?: {
+    since?: string;
+    limit?: number;
+  }) => Promise<
+    | { ok: true; value: HealthHistoryReport }
+    | { ok: false; error: { message: string } }
+  >;
+  getRegionMovers: () => Promise<
+    | { ok: true; value: RegionMoversReport }
+    | { ok: false; error: { message: string } }
+  >;
+  startHealthHistoryBackfill: (options?: {
+    maxCommits?: number;
+  }) => Promise<
+    { ok: true; value: void } | { ok: false; error: { message: string } }
+  >;
+  getHealthHistoryBackfillStatus: () =>
+    | { ok: true; value: HealthHistoryBackfillStatus }
+    | { ok: false; error: { message: string } };
+  getEngineeringHealth: () => Promise<
+    | { ok: true; value: EngineeringHealthReport }
+    | { ok: false; error: { message: string } }
+  >;
+  exploreCode: (
+    target: CodeExplorerTarget,
+  ) => Promise<
+    | { ok: true; value: CodeExplorerReport }
+    | { ok: false; error: { message: string } }
+  >;
+  startUtilityJob: (input: {
+    kind: string;
+    consentGranted?: boolean;
+    lighthouse?: {
+      mode?: "lab-fixture" | "ingest" | "run";
+      url?: string;
+      port?: number;
+      reportPath?: string;
+    };
+  }) => Promise<
+    { ok: true; value: UtilityJob } | { ok: false; error: { message: string } }
+  >;
+  getCwvReport: (
+    artifactId: string,
+  ) => Promise<
+    { ok: true; value: CwvReport } | { ok: false; error: { message: string } }
+  >;
 };
 
 const workspaceCache = new Map<string, Promise<Workspace>>();
@@ -233,6 +317,47 @@ async function loadDna(root: string): Promise<DnaReport> {
   return result.value;
 }
 
+async function loadHealthHistory(root: string): Promise<HealthHistoryReport> {
+  const ws = await getIndexedWorkspace(root);
+  const result = await ws.getHealthHistory();
+  if (!result.ok) {
+    throw new Error(`getHealthHistory failed: ${result.error.message}`);
+  }
+  return result.value;
+}
+
+async function loadRegionMovers(root: string): Promise<RegionMoversReport> {
+  const ws = await getIndexedWorkspace(root);
+  const result = await ws.getRegionMovers();
+  if (!result.ok) {
+    throw new Error(`getRegionMovers failed: ${result.error.message}`);
+  }
+  return result.value;
+}
+
+async function startHealthHistoryBackfill(root: string): Promise<void> {
+  const ws = await getIndexedWorkspace(root);
+  const result = await ws.startHealthHistoryBackfill();
+  if (!result.ok) {
+    throw new Error(
+      `startHealthHistoryBackfill failed: ${result.error.message}`,
+    );
+  }
+}
+
+async function loadHealthHistoryBackfillStatus(
+  root: string,
+): Promise<HealthHistoryBackfillStatus> {
+  const ws = await getIndexedWorkspace(root);
+  const result = ws.getHealthHistoryBackfillStatus();
+  if (!result.ok) {
+    throw new Error(
+      `getHealthHistoryBackfillStatus failed: ${result.error.message}`,
+    );
+  }
+  return result.value;
+}
+
 async function loadOverlay(
   root: string,
   kind: string,
@@ -252,6 +377,139 @@ async function loadBackendReport(root: string): Promise<BackendReport> {
     throw new Error(`getBackendReport failed: ${result.error.message}`);
   }
   return result.value;
+}
+
+async function loadTestingReport(root: string): Promise<TestingReport> {
+  const ws = await getIndexedWorkspace(root);
+  const result = await ws.getTestingReport();
+  if (!result.ok) {
+    throw new Error(`getTestingReport failed: ${result.error.message}`);
+  }
+  return result.value;
+}
+
+async function runWorkspaceTestsApi(
+  root: string,
+  options: {
+    coverage?: boolean;
+    path?: string;
+    testNamePattern?: string;
+  } = {},
+): Promise<TestingReport> {
+  const { runLocalWorkspaceTests } = await import("@prism/core");
+  const base = await loadTestingReport(root);
+  const runners = base.runners ?? [];
+  const ran = await runLocalWorkspaceTests(root, runners, options);
+  let report = base;
+  if (options.coverage === true) {
+    try {
+      report = await loadIngestCoverage(root);
+    } catch {
+      /* keep base */
+    }
+  }
+  return {
+    ...report,
+    results: ran.ran ? ran.results : [],
+    lastRunAt: new Date().toISOString(),
+    summary: ran.ran
+      ? report.summary
+      : `${report.summary} · No test runner binary found.`,
+  };
+}
+
+async function listWorkspaceTestsApi(root: string): Promise<{
+  files: { path: string; tests: { name: string; fullName?: string }[] }[];
+}> {
+  const { listLocalWorkspaceTests } = await import("@prism/core");
+  const base = await loadTestingReport(root);
+  return listLocalWorkspaceTests(root, base.runners ?? []);
+}
+
+async function loadSecurityReport(root: string): Promise<SecurityReport> {
+  const ws = await getIndexedWorkspace(root);
+  const result = await ws.getSecurityReport();
+  if (!result.ok) {
+    throw new Error(`getSecurityReport failed: ${result.error.message}`);
+  }
+  return result.value;
+}
+
+async function loadEngineeringHealth(
+  root: string,
+): Promise<EngineeringHealthReport> {
+  const ws = await getIndexedWorkspace(root);
+  const result = await ws.getEngineeringHealth();
+  if (!result.ok) {
+    throw new Error(`getEngineeringHealth failed: ${result.error.message}`);
+  }
+  return result.value;
+}
+
+async function loadCodeExplorer(
+  root: string,
+  target: CodeExplorerTarget,
+): Promise<CodeExplorerReport | null> {
+  const ws = await getIndexedWorkspace(root);
+  const result = await ws.exploreCode(target);
+  if (!result.ok) return null;
+  return result.value;
+}
+
+async function loadIngestCoverage(root: string): Promise<TestingReport> {
+  const ws = await getIndexedWorkspace(root);
+  const result = await ws.ingestCoverageFromWorkspace();
+  if (!result.ok) {
+    throw new Error(
+      `ingestCoverageFromWorkspace failed: ${result.error.message}`,
+    );
+  }
+  return result.value;
+}
+
+async function loadLighthouseLab(
+  root: string,
+  options?: {
+    mode?: "lab-fixture" | "ingest" | "run";
+    url?: string;
+    port?: number;
+  },
+): Promise<CwvReport> {
+  const ws = await getIndexedWorkspace(root);
+  const mode = options?.mode ?? "lab-fixture";
+  const job = await ws.startUtilityJob({
+    kind: "lighthouse",
+    consentGranted: true,
+    lighthouse: {
+      mode,
+      ...(options?.url ? { url: options.url } : {}),
+      ...(options?.port !== undefined ? { port: options.port } : {}),
+    },
+  });
+  if (!job.ok) {
+    throw new Error(`startUtilityJob failed: ${job.error.message}`);
+  }
+  if (job.value.status === "failed") {
+    throw new Error(
+      job.value.error?.message ?? "Lighthouse job failed (no artifact)",
+    );
+  }
+  const artifactId = job.value.resultArtifactId;
+  if (!artifactId) {
+    throw new Error(
+      job.value.error?.message ?? "Lighthouse job produced no artifact",
+    );
+  }
+  const cwv = await ws.getCwvReport(artifactId);
+  if (!cwv.ok) {
+    throw new Error(`getCwvReport failed: ${cwv.error.message}`);
+  }
+  if (mode === "run" && cwv.value.source === "lab-fixture") {
+    throw new Error(
+      "Real Lighthouse run unavailable — fixture scores are never shown for mode=run.",
+    );
+  }
+  return cwv.value;
 }
 
 async function loadGraph(root: string): Promise<GraphSnapshotDto> {
@@ -338,6 +596,100 @@ function sendJson(
   res.end(JSON.stringify(body));
 }
 
+function readJsonBody(req: IncomingMessage): Promise<unknown> {
+  return new Promise((resolveBody, reject) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => {
+      chunks.push(chunk);
+    });
+    req.on("end", () => {
+      try {
+        const raw = Buffer.concat(chunks).toString("utf8");
+        resolveBody(raw ? JSON.parse(raw) : {});
+      } catch (error) {
+        reject(error);
+      }
+    });
+    req.on("error", reject);
+  });
+}
+
+async function pathExists(abs: string): Promise<boolean> {
+  try {
+    await stat(abs);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function applyRenameOnDisk(
+  root: string,
+  input: ApplyRenameInput,
+): Promise<ApplyRenameResult> {
+  const fromPath = input.fromPath.replace(/\\/g, "/").replace(/^\/+/, "");
+  const toPath = input.toPath.replace(/\\/g, "/").replace(/^\/+/, "");
+  if (!fromPath || !toPath) {
+    return { ok: false, error: "fromPath and toPath are required" };
+  }
+  if (fromPath === toPath) {
+    return { ok: false, error: "Destination path matches the origin" };
+  }
+
+  try {
+    await access(root, constants.W_OK);
+  } catch {
+    return {
+      ok: false,
+      error: `Workspace root is not writable: ${root}`,
+    };
+  }
+
+  const fromAbs = join(root, fromPath);
+  const toAbs = join(root, toPath);
+
+  if (!(await pathExists(fromAbs))) {
+    return { ok: false, error: `Source file not found: ${fromPath}` };
+  }
+  if (await pathExists(toAbs)) {
+    return { ok: false, error: `Destination already exists: ${toPath}` };
+  }
+
+  const editedFiles: string[] = [];
+  for (const site of input.editSites) {
+    const sitePath = site.path.replace(/\\/g, "/").replace(/^\/+/, "");
+    if (!sitePath || sitePath === fromPath) continue;
+    const siteAbs = join(root, sitePath);
+    let text: string;
+    try {
+      text = await readFile(siteAbs, "utf8");
+    } catch {
+      continue;
+    }
+    const { next, replacements } = rewritePathReferences(
+      text,
+      fromPath,
+      toPath,
+    );
+    if (replacements === 0 || next === text) continue;
+    await writeFile(siteAbs, next, "utf8");
+    editedFiles.push(sitePath);
+  }
+
+  await mkdir(dirname(toAbs), { recursive: true });
+  try {
+    await rename(fromAbs, toAbs);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      ok: false,
+      error: `Rename failed after editing ${editedFiles.length} file(s): ${message}`,
+    };
+  }
+
+  return { ok: true, fromPath, toPath, editedFiles };
+}
+
 function prismMapApi(): Plugin {
   return {
     name: "prism-map-api",
@@ -381,6 +733,34 @@ function prismMapApi(): Plugin {
               return;
             }
 
+            if (parsed.pathname === "/api/git-fetch" && req.method === "POST") {
+              const body = (await readJsonBody(req)) as { root?: string };
+              const root = resolveRequestedRoot(
+                typeof body.root === "string" ? body.root : null,
+              );
+              try {
+                execFileSync("git", ["fetch", "--prune"], {
+                  cwd: root,
+                  encoding: "utf8",
+                  stdio: ["ignore", "pipe", "pipe"],
+                });
+                sendJson(res, 200, { ok: true });
+              } catch (error) {
+                const stderr =
+                  error &&
+                  typeof error === "object" &&
+                  "stderr" in error &&
+                  typeof (error as { stderr?: unknown }).stderr === "string"
+                    ? (error as { stderr: string }).stderr.trim()
+                    : "";
+                const message =
+                  stderr ||
+                  (error instanceof Error ? error.message : String(error));
+                sendJson(res, 200, { ok: false, error: message });
+              }
+              return;
+            }
+
             if (parsed.pathname === "/api/health") {
               const root = resolveRequestedRoot(
                 parsed.searchParams.get("root"),
@@ -399,6 +779,38 @@ function prismMapApi(): Plugin {
               return;
             }
 
+            if (parsed.pathname === "/api/health-history") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const history = await loadHealthHistory(root);
+              sendJson(res, 200, history);
+              return;
+            }
+
+            if (parsed.pathname === "/api/region-movers") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const movers = await loadRegionMovers(root);
+              sendJson(res, 200, movers);
+              return;
+            }
+
+            if (parsed.pathname === "/api/health-history/backfill") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              if (req.method === "POST") {
+                await startHealthHistoryBackfill(root);
+                sendJson(res, 200, { ok: true });
+                return;
+              }
+              const status = await loadHealthHistoryBackfillStatus(root);
+              sendJson(res, 200, status);
+              return;
+            }
+
             if (parsed.pathname === "/api/overlay") {
               const root = resolveRequestedRoot(
                 parsed.searchParams.get("root"),
@@ -409,11 +821,160 @@ function prismMapApi(): Plugin {
               return;
             }
 
+            if (
+              parsed.pathname === "/api/stage-devops-remote" &&
+              req.method === "POST"
+            ) {
+              const body = (await readJsonBody(req)) as {
+                root?: string;
+                owner?: string;
+                repo?: string;
+                token?: string;
+              };
+              const root = resolveRequestedRoot(body.root ?? null);
+              const owner =
+                typeof body.owner === "string" ? body.owner.trim() : "";
+              const repo =
+                typeof body.repo === "string" ? body.repo.trim() : "";
+              const token =
+                typeof body.token === "string" && body.token.trim() !== ""
+                  ? body.token.trim()
+                  : undefined;
+              if (!owner || !repo) {
+                sendJson(res, 400, { error: "owner and repo are required" });
+                return;
+              }
+              const { stageDevopsRemote } = await import("@prism/core");
+              const result = await stageDevopsRemote({
+                workspaceRoot: root,
+                owner,
+                repo,
+                ...(token ? { token } : {}),
+              });
+              if (!result.ok) {
+                sendJson(res, 400, { error: result.error });
+                return;
+              }
+              sendJson(res, 200, result.value);
+              return;
+            }
+
             if (parsed.pathname === "/api/backend") {
               const root = resolveRequestedRoot(
                 parsed.searchParams.get("root"),
               );
               const report = await loadBackendReport(root);
+              sendJson(res, 200, report);
+              return;
+            }
+
+            if (parsed.pathname === "/api/testing") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const report = await loadTestingReport(root);
+              sendJson(res, 200, report);
+              return;
+            }
+
+            if (parsed.pathname === "/api/run-tests" && req.method === "POST") {
+              const body = (await readJsonBody(req)) as {
+                root?: string;
+                coverage?: boolean;
+                path?: string;
+                testNamePattern?: string;
+              };
+              const root = resolveRequestedRoot(
+                typeof body.root === "string" ? body.root : null,
+              );
+              const report = await runWorkspaceTestsApi(root, {
+                ...(body.coverage === true ? { coverage: true } : {}),
+                ...(typeof body.path === "string" ? { path: body.path } : {}),
+                ...(typeof body.testNamePattern === "string"
+                  ? { testNamePattern: body.testNamePattern }
+                  : {}),
+              });
+              sendJson(res, 200, report);
+              return;
+            }
+
+            if (parsed.pathname === "/api/list-tests") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const listed = await listWorkspaceTestsApi(root);
+              sendJson(res, 200, listed);
+              return;
+            }
+
+            if (parsed.pathname === "/api/security") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const report = await loadSecurityReport(root);
+              sendJson(res, 200, report);
+              return;
+            }
+
+            if (parsed.pathname === "/api/engineering-health") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const report = await loadEngineeringHealth(root);
+              sendJson(res, 200, report);
+              return;
+            }
+
+            if (parsed.pathname === "/api/code-explorer") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const kindRaw = parsed.searchParams.get("kind") ?? "symbol";
+              const kind = kindRaw === "file" ? "file" : "symbol";
+              const target: CodeExplorerTarget =
+                kind === "file"
+                  ? {
+                      kind: "file",
+                      path: parsed.searchParams.get("path") ?? "",
+                    }
+                  : {
+                      kind: "symbol",
+                      name: parsed.searchParams.get("name") ?? "",
+                      ...(parsed.searchParams.get("path")
+                        ? { path: parsed.searchParams.get("path")! }
+                        : {}),
+                    };
+              const report = await loadCodeExplorer(root, target);
+              sendJson(res, 200, report);
+              return;
+            }
+
+            if (parsed.pathname === "/api/ingest-coverage") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const report = await loadIngestCoverage(root);
+              sendJson(res, 200, report);
+              return;
+            }
+
+            if (parsed.pathname === "/api/lighthouse") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const modeRaw = parsed.searchParams.get("mode");
+              const mode =
+                modeRaw === "run" || modeRaw === "ingest"
+                  ? modeRaw
+                  : "lab-fixture";
+              const url = parsed.searchParams.get("url") ?? undefined;
+              const portRaw = parsed.searchParams.get("port");
+              const port = portRaw ? Number(portRaw) : undefined;
+              const report = await loadLighthouseLab(root, {
+                mode,
+                ...(url ? { url } : {}),
+                ...(port !== undefined && !Number.isNaN(port) ? { port } : {}),
+              });
               sendJson(res, 200, report);
               return;
             }
@@ -488,6 +1049,24 @@ function prismMapApi(): Plugin {
               return;
             }
 
+            if (
+              parsed.pathname === "/api/apply-rename" &&
+              req.method === "POST"
+            ) {
+              const body = (await readJsonBody(req)) as {
+                root?: string;
+                input?: ApplyRenameInput;
+              };
+              const root = resolveRequestedRoot(body.root ?? null);
+              if (!body.input || typeof body.input !== "object") {
+                sendJson(res, 400, { ok: false, error: "input is required" });
+                return;
+              }
+              const result = await applyRenameOnDisk(root, body.input);
+              sendJson(res, 200, result);
+              return;
+            }
+
             next();
           } catch (error) {
             sendJson(res, 500, {
@@ -528,7 +1107,10 @@ export default defineConfig({
     alias: {
       "@prism/ui/tokens.css": join(uiSrc, "tokens.css"),
       "@prism/ui/map.css": join(uiSrc, "map.css"),
+      "@prism/ui/primitives.css": join(uiSrc, "primitives.css"),
       "@prism/ui": join(uiSrc, "index.ts"),
+      "@prism/app-shell/styles.css": join(appShellSrc, "styles.css"),
+      "@prism/app-shell": join(appShellSrc, "index.ts"),
     },
   },
 });

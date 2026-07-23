@@ -31,6 +31,8 @@ describe("extractNest", () => {
       "POST /health/ready",
     ]);
     expect(routes.find((r) => r.method === "POST")?.auth).toBe("authenticated");
+    expect(routes.find((r) => r.method === "GET")?.handlerName).toBe("ok");
+    expect(routes.find((r) => r.method === "POST")?.handlerName).toBe("ready");
   });
 });
 
@@ -44,6 +46,7 @@ describe("extractExpressLike", () => {
     const routes = extractExpressLike("express/app.ts", text, "express");
     expect(routes).toHaveLength(2);
     expect(routes[0]?.path).toBe("/api/ping");
+    expect(routes[0]?.handlerName).toBe("handler");
     expect(routes.find((r) => r.path === "/api/orders")?.auth).toBe(
       "authenticated",
     );
@@ -75,5 +78,8 @@ describe("buildBackendReport", () => {
     expect(report.dataLayer.length).toBeGreaterThan(0);
     expect(report.background.some((b) => b.kind === "cron")).toBe(true);
     expect(report.integrations.some((i) => i.name === "Stripe")).toBe(true);
+    expect(report.endpoints.some((e) => e.handlerName !== undefined)).toBe(
+      true,
+    );
   });
 });

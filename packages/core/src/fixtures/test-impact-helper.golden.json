@@ -1,6 +1,11 @@
 {
   "origin": { "kind": "file", "id": "helper.ts", "path": "helper.ts" },
   "tests": [
-    { "path": "main.test.ts", "reason": "imports main.ts", "depth": 2 }
+    {
+      "path": "main.test.ts",
+      "reason": "imports main.ts",
+      "depth": 2,
+      "category": "test"
+    }
   ]
 }

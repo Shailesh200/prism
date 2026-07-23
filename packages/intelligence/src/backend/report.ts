@@ -24,6 +24,7 @@ type RawRoute = {
   method: string;
   path: string;
   handlerFile: string;
+  handlerName?: string;
   framework: BackendFramework;
   auth: BackendAuthExposure;
   confidence: number;
@@ -105,6 +106,7 @@ export function buildBackendReport(
       method: r.method,
       path: r.path,
       handlerFile: r.handlerFile,
+      ...(r.handlerName !== undefined ? { handlerName: r.handlerName } : {}),
       framework: r.framework,
       auth: r.auth,
       tested: tests.length > 0,
@@ -169,10 +171,17 @@ export function extractNest(path: string, text: string): RawRoute[] {
     const suffix = normalizePath(m[2] ?? "");
     const full = joinPaths(prefix, suffix) || "/";
     const window = text.slice(Math.max(0, m.index - 120), m.index + 200);
+    const after = text.slice(
+      m.index + m[0].length,
+      m.index + m[0].length + 160,
+    );
+    const nameMatch =
+      /^\s*(?:@\w+(?:\([^)]*\))?\s*)*(?:async\s+)?(\w+)\s*\(/.exec(after);
     out.push({
       method,
       path: full,
       handlerFile: path,
+      ...(nameMatch?.[1] !== undefined ? { handlerName: nameMatch[1] } : {}),
       framework: "nest",
       auth: inferAuth(window, text),
       confidence: 0.85,
@@ -229,10 +238,24 @@ export function extractExpressLike(
     const method = m[1]!.toUpperCase();
     const routePath = normalizePath(m[3] ?? "/") || "/";
     const window = text.slice(Math.max(0, m.index), m.index + 280);
+    const after = text.slice(
+      m.index + m[0].length,
+      m.index + m[0].length + 120,
+    );
+    const handlerMatch =
+      /^\s*,\s*(?:async\s+)?(?:function\s+)?([A-Za-z_$][\w$]*)/.exec(after);
+    const handlerName =
+      handlerMatch?.[1] &&
+      !["async", "function", "req", "request", "res", "reply"].includes(
+        handlerMatch[1],
+      )
+        ? handlerMatch[1]
+        : undefined;
     out.push({
       method,
       path: routePath,
       handlerFile: path,
+      ...(handlerName !== undefined ? { handlerName } : {}),
       framework,
       auth: inferAuth(window, text),
       confidence: framework === "fastify" ? 0.8 : 0.82,
@@ -254,10 +277,19 @@ export function extractExpressLike(
         methodMatch?.[2] ??
         "GET"
       ).toUpperCase();
+      const handlerMatch =
+        /handler\s*:\s*(?:async\s+)?(?:function\s+)?([A-Za-z_$][\w$]*)/.exec(
+          body,
+        );
+      const handlerName =
+        handlerMatch?.[1] && handlerMatch[1] !== "async"
+          ? handlerMatch[1]
+          : undefined;
       out.push({
         method,
         path: normalizePath(urlMatch[1]!) || "/",
         handlerFile: path,
+        ...(handlerName !== undefined ? { handlerName } : {}),
         framework: "fastify",
         auth: inferAuth(body, text),
         confidence: 0.78,

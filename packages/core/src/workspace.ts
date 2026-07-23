@@ -8,15 +8,21 @@ import {
   buildUtilityOverlay,
   buildBackendReport,
   buildCodeExplorerReport,
+  buildHealthHistorySnapshot,
+  buildTestingReport,
+  buildSecurityReport,
   computeEngineeringHealth,
   computeHealthScore,
+  computeRegionMovers,
   createUtilitiesSession,
   discoverLocalPackages,
   findReferences as queryReferences,
   findSymbol as querySymbols,
   getCwvReport as loadCwvReport,
+  ingestCoverageFromWorkspace,
   listUtilityOverlayKinds as catalogUtilityOverlayKinds,
   parseUtilityOverlayKind,
+  pickRegionMoverWindow,
   type DependencyGraphOptions,
   type FindReferencesQuery,
   type FindSymbolQuery,
@@ -25,6 +31,12 @@ import {
   type SymbolHit,
   type UtilitiesSession,
 } from "@prism/intelligence";
+import {
+  appendHealthHistory,
+  hasHealthHistorySha,
+  listHealthHistory,
+  openIndexCache,
+} from "@prism/indexer";
 import {
   computeBlastRadius,
   computeBreakingChangeHints,
@@ -56,6 +68,8 @@ import {
   type GitActivity,
   type GitCommitRef,
   type GraphSnapshotDto,
+  type HealthHistoryBackfillStatus,
+  type HealthHistoryReport,
   type HealthScore,
   type IndexProgressEvent,
   type IndexSnapshot,
@@ -70,12 +84,15 @@ import {
   type NavigationRouteResult,
   type PersonaPresets,
   type PrismError,
+  type RegionMoversReport,
   type RenameImpactReport,
   type RepoId,
   type RepositoryMap,
   type Result,
   type SafeDeleteReport,
+  type SecurityReport,
   type TestImpactReport,
+  type TestingReport,
   type StackPackageProfile,
   type StackProfile,
   type UtilityJob,
@@ -88,6 +105,11 @@ import {
 } from "@prism/shared";
 import type { PrismCapabilities } from "./capabilities.js";
 import { readGitSignals, type GitSignals } from "./git/git-signals.js";
+import {
+  HEALTH_HISTORY_BACKFILL_DEFAULT_COMMITS,
+  readHeadCommitSha,
+  sampleGitCommits,
+} from "./git/history-sample.js";
 import type { IndexWorkspaceOptions, PrismEnginePorts } from "./ports.js";
 
 export type FindRouteQuery = {
@@ -242,6 +264,20 @@ export type PrismWorkspace = {
   getBackendReport(
     options?: GetUtilityOverlayOptions,
   ): Promise<Result<BackendReport, PrismError>>;
+  /**
+   * Testing structure + optional on-disk coverage (M-046 / ADR-0022).
+   * Does not require a prior index (walks the workspace tree).
+   */
+  getTestingReport(): Promise<Result<TestingReport, PrismError>>;
+  /**
+   * Left-shift tooling + fundamental security checklist (M-046 / ADR-0022).
+   */
+  getSecurityReport(): Promise<Result<SecurityReport, PrismError>>;
+  /**
+   * Re-read coverage artifacts after an external test run and return an
+   * updated TestingReport (M-046 / ADR-0022).
+   */
+  ingestCoverageFromWorkspace(): Promise<Result<TestingReport, PrismError>>;
   setConsent(
     purpose: string,
     granted: boolean,
@@ -250,6 +286,32 @@ export type PrismWorkspace = {
     purpose: string,
   ): Promise<Result<ConsentRecord | null, PrismError>>;
   getHealth(): Promise<Result<HealthScore, PrismError>>;
+  /**
+   * Persisted health-over-time points from index snapshots + optional git
+   * backfill (M-046 / ADR-0023). Requires prior `index()` for forward points;
+   * empty report when the cache has none.
+   */
+  getHealthHistory(options?: {
+    since?: string;
+    limit?: number;
+  }): Promise<Result<HealthHistoryReport, PrismError>>;
+  /**
+   * Improving / regressing regions between the latest two (or first/last)
+   * region snapshots in history.
+   */
+  getRegionMovers(): Promise<Result<RegionMoversReport, PrismError>>;
+  /**
+   * Start a background backfill that stamps current-index health at sampled
+   * historical commit dates (v1 approximation — see ADR-0023).
+   */
+  startHealthHistoryBackfill(options?: {
+    maxCommits?: number;
+  }): Promise<Result<HealthHistoryBackfillStatus, PrismError>>;
+  /** Current health-history backfill job status. */
+  getHealthHistoryBackfillStatus(): Result<
+    HealthHistoryBackfillStatus,
+    PrismError
+  >;
   /**
    * Engineering-health metrics (entropy, drift, debt, churn, conflict,
    * knowledge decay + hotspots). Complementary to `getHealth` (ADR-0017).
@@ -376,6 +438,12 @@ export function createWorkspace(options: {
   let utilities: UtilitiesSession | null = null;
   let selectedPackageId: string | null = null;
   let gitCache: { at: string | null; value: GitSignals | null } | null = null;
+  let backfillStatus: HealthHistoryBackfillStatus = {
+    status: "idle",
+    progress: 0,
+    message: "Not started",
+  };
+  let backfillRunning = false;
 
   const ensureOpen = (): Result<true, PrismError> => {
     if (!open) {
@@ -477,6 +545,22 @@ export function createWorkspace(options: {
     if (result.ok) {
       lastSnapshot = result.value;
       lastIndexedAt = result.value.indexedAt;
+      // Forward snapshot for Trends (ADR-0023) — fail soft on cache errors.
+      try {
+        const cache = await openIndexCache(rootPath);
+        if (cache.ok) {
+          const headSha = readHeadCommitSha(rootPath);
+          const payload = buildHealthHistorySnapshot({
+            snapshot: result.value,
+            at: result.value.indexedAt,
+            ...(headSha ? { commitSha: headSha } : {}),
+          });
+          appendHealthHistory(cache.value.db, rootPath, payload);
+          cache.value.close();
+        }
+      } catch {
+        /* history persistence is best-effort */
+      }
     }
     return result;
   };
@@ -842,6 +926,45 @@ export function createWorkspace(options: {
         }),
       );
     },
+    async getTestingReport() {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      const files = lastSnapshot?.files.map((f) => f.path);
+      return ok(
+        buildTestingReport({
+          workspaceRoot: rootPath,
+          ...(files === undefined ? {} : { files }),
+        }),
+      );
+    },
+    async getSecurityReport() {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      const files = lastSnapshot?.files.map((f) => f.path);
+      let hasBackendDomain = false;
+      const profile = await loadWorkspaceRollup();
+      if (profile.ok) {
+        hasBackendDomain = profile.value.domains?.includes("backend") === true;
+      }
+      return ok(
+        buildSecurityReport({
+          workspaceRoot: rootPath,
+          ...(files === undefined ? {} : { files }),
+          hasBackendDomain,
+        }),
+      );
+    },
+    async ingestCoverageFromWorkspace() {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      const files = lastSnapshot?.files.map((f) => f.path);
+      return ok(
+        ingestCoverageFromWorkspace(
+          rootPath,
+          files === undefined ? undefined : files,
+        ),
+      );
+    },
     async setConsent(purpose, granted) {
       const session = ensureUtilities();
       if (!session.ok) return session;
@@ -863,7 +986,156 @@ export function createWorkspace(options: {
           ),
         );
       }
-      return ok(computeHealthScore(lastSnapshot));
+      const testing = buildTestingReport({
+        workspaceRoot: rootPath,
+        files: lastSnapshot.files.map((f) => f.path),
+      });
+      return ok(computeHealthScore(lastSnapshot, { testingReport: testing }));
+    },
+    async getHealthHistory(historyOptions) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      const cache = await openIndexCache(rootPath);
+      if (!cache.ok) return cache;
+      try {
+        const rows = listHealthHistory(cache.value.db, rootPath, {
+          ...(historyOptions?.since === undefined
+            ? {}
+            : { since: historyOptions.since }),
+          ...(historyOptions?.limit === undefined
+            ? {}
+            : { limit: historyOptions.limit }),
+        });
+        return ok({
+          points: rows.map((r) => r.health),
+        } satisfies HealthHistoryReport);
+      } finally {
+        cache.value.close();
+      }
+    },
+    async getRegionMovers() {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      const cache = await openIndexCache(rootPath);
+      if (!cache.ok) return cache;
+      try {
+        const rows = listHealthHistory(cache.value.db, rootPath);
+        const regionPoints = rows.map((r) => r.regions);
+        const window = pickRegionMoverWindow(regionPoints);
+        if (!window) {
+          return ok({
+            improving: [],
+            regressing: [],
+          } satisfies RegionMoversReport);
+        }
+        return ok(computeRegionMovers(window.from, window.to));
+      } finally {
+        cache.value.close();
+      }
+    },
+    async startHealthHistoryBackfill(backfillOptions) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      if (backfillRunning || backfillStatus.status === "running") {
+        return ok(backfillStatus);
+      }
+
+      const snapshot = lastSnapshot;
+      const maxCommits =
+        backfillOptions?.maxCommits ?? HEALTH_HISTORY_BACKFILL_DEFAULT_COMMITS;
+
+      backfillRunning = true;
+      backfillStatus = {
+        status: "running",
+        progress: 0,
+        message: "History sync in progress",
+      };
+
+      void (async () => {
+        try {
+          const commits = sampleGitCommits(rootPath, { maxCommits });
+          if (commits.length === 0) {
+            backfillStatus = {
+              status: "done",
+              progress: 1,
+              message: "No git history to backfill",
+            };
+            return;
+          }
+
+          const cache = await openIndexCache(rootPath);
+          if (!cache.ok) {
+            backfillStatus = {
+              status: "error",
+              progress: 0,
+              message: cache.error.message,
+            };
+            return;
+          }
+
+          try {
+            let written = 0;
+            for (let i = 0; i < commits.length; i++) {
+              const commit = commits[i]!;
+              if (hasHealthHistorySha(cache.value.db, rootPath, commit.sha)) {
+                backfillStatus = {
+                  status: "running",
+                  progress: (i + 1) / commits.length,
+                  message: `Skipping existing ${commit.sha.slice(0, 7)}`,
+                };
+                continue;
+              }
+              // v1: stamp current-index health at historical commit metadata.
+              const payload = buildHealthHistorySnapshot({
+                snapshot,
+                at: commit.at,
+                commitSha: commit.sha,
+              });
+              if (appendHealthHistory(cache.value.db, rootPath, payload)) {
+                written += 1;
+              }
+              backfillStatus = {
+                status: "running",
+                progress: (i + 1) / commits.length,
+                message: `Synced ${i + 1}/${commits.length} commits`,
+              };
+            }
+            backfillStatus = {
+              status: "done",
+              progress: 1,
+              message:
+                written > 0
+                  ? `Backfilled ${written} approximate history points`
+                  : "History already up to date",
+            };
+          } finally {
+            cache.value.close();
+          }
+        } catch (cause) {
+          backfillStatus = {
+            status: "error",
+            progress: backfillStatus.progress,
+            message: cause instanceof Error ? cause.message : String(cause),
+          };
+        } finally {
+          backfillRunning = false;
+        }
+      })();
+
+      return ok(backfillStatus);
+    },
+    getHealthHistoryBackfillStatus() {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      return ok(backfillStatus);
     },
     async getEngineeringHealth() {
       const gate = ensureOpen();
@@ -1087,6 +1359,7 @@ export function createWorkspace(options: {
           available: false,
           recentFiles: [],
           recentCommits: [],
+          authors: [],
           weeks: [],
           days: [],
         });
@@ -1116,7 +1389,7 @@ export function createWorkspace(options: {
       const unpushed = git.unpushedShas;
       const recentCommits = [...bySha.values()]
         .sort((a, b) => byDateDesc(a.date, b.date))
-        .slice(0, 15)
+        .slice(0, 40)
         .map((c) => (unpushed ? { ...c, pushed: !unpushed.has(c.sha) } : c));
       return ok({
         root: lastSnapshot.rootPath,
@@ -1125,6 +1398,7 @@ export function createWorkspace(options: {
         summary: git.summary,
         recentFiles,
         recentCommits,
+        authors: git.authors,
         weeks,
         days: git.days,
       });

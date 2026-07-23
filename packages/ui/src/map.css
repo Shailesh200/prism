@@ -2567,3 +2567,38 @@ button.prism-crumbs__seg:hover {
   flex-direction: column;
   gap: 10px;
 }
+
+/* —— Light theme: ensure map canvas / React Flow use tokens —— */
+.prism-theme[data-theme="light"] .react-flow,
+.prism-theme[data-theme="light"] .prism-map,
+:root[data-theme="light"] .react-flow,
+:root[data-theme="light"] .prism-map {
+  background-color: var(--prism-canvas);
+  color: var(--prism-ink);
+}
+
+.prism-theme[data-theme="light"] .prism-map__stage .react-flow,
+:root[data-theme="light"] .prism-map__stage .react-flow {
+  background-color: var(--prism-canvas);
+}
+
+.prism-theme[data-theme="light"] .prism-map__nav,
+.prism-theme[data-theme="light"] .prism-map__tooltip,
+:root[data-theme="light"] .prism-map__nav,
+:root[data-theme="light"] .prism-map__tooltip {
+  background: var(--prism-dark-chrome);
+  color: var(--prism-dark-ink);
+  border-color: var(--prism-line);
+}
+
+@media (prefers-color-scheme: light) {
+  .prism-theme[data-theme="system"] .react-flow,
+  .prism-theme[data-theme="system"] .prism-map {
+    background-color: var(--prism-canvas);
+    color: var(--prism-ink);
+  }
+
+  .prism-theme[data-theme="system"] .prism-map__stage .react-flow {
+    background-color: var(--prism-canvas);
+  }
+}

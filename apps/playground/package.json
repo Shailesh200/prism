@@ -15,6 +15,7 @@
     "@fontsource/ibm-plex-mono": "^5.3.0",
     "@fontsource/inter": "^5.3.0",
     "@fontsource/jetbrains-mono": "^5.3.0",
+    "@prism/app-shell": "workspace:*",
     "@prism/core": "workspace:*",
     "@prism/shared": "workspace:*",
     "@prism/ui": "workspace:*",

@@ -1,0 +1,301 @@
+/* Settings + Sidebar + Audit screen tweaks (M-046 follow-up). */
+
+/* Appearance font menus need to escape the card; overview.css clips .set-card. */
+.set-card {
+  overflow: visible;
+}
+
+.set-scroll {
+  overflow-x: visible;
+}
+
+/* ---- Settings DS Select (Max file size / Default zoom) ---- */
+.set-control-stack > .prism-select,
+.set-row__control > .prism-select {
+  width: min(100%, 220px);
+  min-width: 160px;
+  /* Prefer panel-2 so the control reads as a field, not a native OS widget. */
+  background-color: var(--prism-panel-2, #0f1420);
+  background-image: linear-gradient(
+      45deg,
+      transparent 50%,
+      var(--prism-ink-muted, #94a3b8) 50%
+    ),
+    linear-gradient(
+      135deg,
+      var(--prism-ink-muted, #94a3b8) 50%,
+      transparent 50%
+    );
+  background-position:
+    calc(100% - 16px) calc(50% - 3px),
+    calc(100% - 11px) calc(50% - 3px);
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+}
+
+/* ---- Inline field (debounce Select next to the Auto Re-Index toggle) ---- */
+.set-inline-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.set-inline-field__label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+/* ---- Code-font dropdown (each option renders in its own family) ---- */
+.set-fontsel {
+  position: relative;
+  display: inline-block;
+  min-width: 200px;
+  z-index: 1;
+}
+
+.set-fontsel:focus-within,
+.set-fontsel:has(.set-fontsel__menu) {
+  z-index: 50;
+}
+
+.set-fontsel__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--prism-line, #2a334a);
+  background: var(--prism-panel-2, #0f1420);
+  color: var(--prism-ink, #e2e8f0);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.set-fontsel__trigger:hover,
+.set-fontsel__trigger[aria-expanded="true"] {
+  border-color: color-mix(
+    in srgb,
+    var(--prism-brand, #00c2c2) 45%,
+    var(--prism-line, #2a334a)
+  );
+}
+
+.set-fontsel__trigger:focus-visible {
+  outline: 2px solid var(--prism-brand, #00c2c2);
+  outline-offset: 2px;
+  box-shadow: var(--prism-ring);
+}
+
+.set-fontsel__menu {
+  position: absolute;
+  z-index: 80;
+  bottom: calc(100% + 4px);
+  top: auto;
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border-radius: 8px;
+  border: 1px solid var(--prism-line, #2a334a);
+  background: var(--prism-elev, #121826);
+  box-shadow: var(--prism-shadow-3, 0 18px 44px rgba(0, 0, 0, 0.55));
+}
+
+.set-fontsel__opt {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--prism-ink, #e2e8f0);
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.set-fontsel__opt:hover {
+  background: color-mix(in srgb, var(--prism-ink) 6%, transparent);
+}
+
+.set-fontsel__opt[data-active="true"] {
+  background: color-mix(in srgb, var(--prism-brand, #00c2c2) 12%, transparent);
+  color: var(--prism-brand, #00c2c2);
+}
+
+.set-fontsel__opt:focus-visible {
+  outline: 2px solid var(--prism-brand, #00c2c2);
+  outline-offset: -2px;
+}
+
+/* ---- Warning / confirmation modal ---- */
+.set-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(4, 8, 16, 0.62);
+  backdrop-filter: blur(2px);
+}
+
+.set-modal {
+  width: min(460px, 100%);
+  border-radius: 14px;
+  border: 1px solid #2a334a;
+  background: #121826;
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+.set-modal[data-tone="danger"] {
+  border-color: color-mix(in srgb, #ef4444 45%, #2a334a);
+}
+
+.set-modal[data-tone="warning"] {
+  border-color: color-mix(in srgb, #f59e0b 45%, #2a334a);
+}
+
+.set-modal__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 16px 8px;
+}
+
+.set-modal__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.set-modal__icon[data-tone="danger"] {
+  color: #fecaca;
+  background: color-mix(in srgb, #ef4444 18%, #0f1420);
+}
+
+.set-modal__icon[data-tone="warning"] {
+  color: #fde68a;
+  background: color-mix(in srgb, #f59e0b 18%, #0f1420);
+}
+
+.set-modal__title {
+  flex: 1;
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.set-modal__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.set-modal__close:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+.set-modal__body {
+  padding: 4px 16px 16px 56px;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: #cbd5e1;
+}
+
+.set-modal__body code {
+  font-family: var(--prism-mono, "JetBrains Mono", ui-monospace, monospace);
+  font-size: 0.75rem;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.set-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* ---- Audit category colors (distinct hue per AuditCategory) ---- */
+.al-cat[data-category="index"] {
+  color: #7dd3fc;
+  border-color: color-mix(in srgb, #38bdf8 40%, #2a334a);
+  background: color-mix(in srgb, #38bdf8 12%, #0f1420);
+}
+
+.al-cat[data-category="analysis"] {
+  color: #c4b5fd;
+  border-color: color-mix(in srgb, #8b5cf6 40%, #2a334a);
+  background: color-mix(in srgb, #8b5cf6 12%, #0f1420);
+}
+
+.al-cat[data-category="dna"] {
+  color: #67e8f9;
+  border-color: color-mix(in srgb, #22d3ee 42%, #2a334a);
+  background: color-mix(in srgb, #22d3ee 12%, #0f1420);
+}
+
+.al-cat[data-category="git"] {
+  color: #fdba74;
+  border-color: color-mix(in srgb, #f97316 42%, #2a334a);
+  background: color-mix(in srgb, #f97316 12%, #0f1420);
+}
+
+.al-cat[data-category="test"] {
+  color: #c4b5fd;
+  border-color: color-mix(in srgb, #a78bfa 42%, #2a334a);
+  background: color-mix(in srgb, #a78bfa 12%, #0f1420);
+}
+
+.al-cat[data-category="cache"] {
+  color: #5eead4;
+  border-color: color-mix(in srgb, #14b8a6 42%, #2a334a);
+  background: color-mix(in srgb, #14b8a6 12%, #0f1420);
+}
+
+.al-cat[data-category="impact"] {
+  color: #fca5a5;
+  border-color: color-mix(in srgb, #ef4444 42%, #2a334a);
+  background: color-mix(in srgb, #ef4444 12%, #0f1420);
+}
+
+.al-cat[data-category="integration"] {
+  color: #86efac;
+  border-color: color-mix(in srgb, #22c55e 40%, #2a334a);
+  background: color-mix(in srgb, #22c55e 12%, #0f1420);
+}
+
+.al-row__date {
+  color: #cbd5e1;
+  font-weight: 600;
+}

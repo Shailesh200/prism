@@ -1,0 +1,372 @@
+/**
+ * Prism UI form / chrome primitives.
+ * Consumes tokens from tokens.css — do not invent alternate palettes.
+ */
+
+/* —— Shared field chrome —— */
+.prism-input,
+.prism-textarea,
+.prism-select {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: var(--prism-space-sm) var(--prism-space-md);
+  border: 1px solid var(--prism-line);
+  border-radius: var(--prism-radius-md);
+  background: var(--prism-panel);
+  color: var(--prism-ink);
+  font-family: var(--prism-font);
+  font-size: var(--prism-type-body-sm);
+  line-height: var(--prism-leading-body);
+  outline: none;
+  transition:
+    border-color var(--prism-dur-1) var(--prism-ease),
+    box-shadow var(--prism-dur-1) var(--prism-ease);
+}
+
+.prism-input::placeholder,
+.prism-textarea::placeholder {
+  color: var(--prism-ink-muted);
+}
+
+.prism-input:hover:not(:disabled),
+.prism-textarea:hover:not(:disabled),
+.prism-select:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--prism-brand) 40%, var(--prism-line));
+}
+
+.prism-input:focus,
+.prism-textarea:focus,
+.prism-select:focus,
+.prism-input:focus-visible,
+.prism-textarea:focus-visible,
+.prism-select:focus-visible {
+  outline: none;
+  outline-color: var(--prism-brand);
+  border-color: var(--prism-brand);
+  box-shadow: var(--prism-ring);
+}
+
+.prism-input:disabled,
+.prism-textarea:disabled,
+.prism-select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.prism-textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.prism-select {
+  appearance: none;
+  background-image: linear-gradient(
+      45deg,
+      transparent 50%,
+      var(--prism-ink-muted) 50%
+    ),
+    linear-gradient(135deg, var(--prism-ink-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) calc(50% - 3px),
+    calc(100% - 11px) calc(50% - 3px);
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+  padding-right: calc(var(--prism-space-md) + 16px);
+  cursor: pointer;
+}
+
+.prism-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--prism-space-xs);
+}
+
+.prism-field__label {
+  font-family: var(--prism-font);
+  font-size: var(--prism-type-label);
+  font-weight: 500;
+  letter-spacing: var(--prism-type-label-tracking);
+  color: var(--prism-ink-muted);
+  text-transform: uppercase;
+}
+
+/* —— Search —— */
+.prism-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--prism-space-sm);
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 var(--prism-space-md);
+  border: 1px solid var(--prism-line);
+  border-radius: var(--prism-radius-md);
+  background: var(--prism-panel);
+  color: var(--prism-ink-muted);
+  transition:
+    border-color var(--prism-dur-1) var(--prism-ease),
+    box-shadow var(--prism-dur-1) var(--prism-ease),
+    color var(--prism-dur-1) var(--prism-ease);
+}
+
+.prism-search:focus-within {
+  outline: none;
+  border-color: var(--prism-brand);
+  color: var(--prism-brand);
+  box-shadow: var(--prism-ring);
+}
+
+.prism-search__input:focus,
+.prism-search__input:focus-visible {
+  outline: none;
+}
+
+.prism-search__icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.prism-search__input {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: var(--prism-space-sm) 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--prism-ink);
+  font-family: var(--prism-font);
+  font-size: var(--prism-type-body-sm);
+  line-height: var(--prism-leading-body);
+}
+
+.prism-search__input::placeholder {
+  color: var(--prism-ink-muted);
+}
+
+.prism-search__input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* —— Toggle group (segmented control) —— */
+.prism-toggle-group {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--prism-line);
+  border-radius: var(--prism-radius-md);
+  background: var(--prism-panel);
+}
+
+.prism-toggle-group__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: var(--prism-space-xs) var(--prism-space-sm);
+  border: 0;
+  border-radius: calc(var(--prism-radius-md) - 2px);
+  background: transparent;
+  color: var(--prism-ink-muted);
+  font-family: var(--prism-font);
+  font-size: var(--prism-type-body-sm);
+  font-weight: 500;
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    background var(--prism-dur-1) var(--prism-ease),
+    color var(--prism-dur-1) var(--prism-ease);
+}
+
+.prism-toggle-group__btn:hover:not(:disabled):not([data-active="true"]) {
+  color: var(--prism-ink);
+  background: color-mix(in srgb, var(--prism-ink) 6%, transparent);
+}
+
+.prism-toggle-group__btn[data-active="true"] {
+  color: var(--prism-ink);
+  background: color-mix(in srgb, var(--prism-brand) 18%, var(--prism-panel));
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--prism-brand) 35%, transparent);
+}
+
+.prism-toggle-group__btn:focus-visible {
+  outline: none;
+  border-color: var(--prism-brand);
+  box-shadow: var(--prism-ring);
+}
+
+.prism-toggle-group__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* —— Tabs —— */
+.prism-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: var(--prism-space-xs);
+  border-bottom: 1px solid var(--prism-line);
+}
+
+.prism-tabs__btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: var(--prism-space-sm) var(--prism-space-md);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--prism-ink-muted);
+  font-family: var(--prism-font);
+  font-size: var(--prism-type-body-sm);
+  font-weight: 500;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: color var(--prism-dur-1) var(--prism-ease);
+}
+
+.prism-tabs__btn::after {
+  content: "";
+  position: absolute;
+  left: var(--prism-space-sm);
+  right: var(--prism-space-sm);
+  bottom: -1px;
+  height: 2px;
+  border-radius: 1px;
+  background: transparent;
+  transition: background var(--prism-dur-1) var(--prism-ease);
+}
+
+.prism-tabs__btn:hover:not(:disabled):not([data-active="true"]) {
+  color: var(--prism-ink);
+}
+
+.prism-tabs__btn[data-active="true"] {
+  color: var(--prism-brand);
+}
+
+.prism-tabs__btn[data-active="true"]::after {
+  background: var(--prism-brand);
+}
+
+.prism-tabs__btn:focus-visible {
+  outline: none;
+  border-color: var(--prism-brand);
+  box-shadow: var(--prism-ring);
+  border-radius: var(--prism-radius-sm);
+}
+
+.prism-tabs__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* —— Card-title icon (tone-colored) —— */
+.prism-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+/* —— Tooltip (InfoTip affordance) —— */
+.prism-tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.prism-tooltip__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: var(--prism-radius-pill);
+  color: var(--prism-ink-muted);
+  background: transparent;
+  cursor: help;
+  transition:
+    color var(--prism-dur-1) var(--prism-ease),
+    background var(--prism-dur-1) var(--prism-ease);
+}
+
+.prism-tooltip__trigger:hover,
+.prism-tooltip__trigger:focus-visible {
+  color: var(--prism-brand);
+  background: color-mix(in srgb, var(--prism-brand) 16%, transparent);
+  outline: none;
+}
+
+/* Rendered into a document.body portal with position:fixed; top/left are
+   computed in Tooltip.tsx to stay within the viewport (flip + clamp). */
+.prism-tooltip__pop {
+  position: fixed;
+  z-index: 9999;
+  width: 240px;
+  max-width: calc(100vw - 16px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--prism-space-xs);
+  padding: var(--prism-space-sm) var(--prism-space-md);
+  border-radius: var(--prism-radius-md);
+  border: 1px solid var(--prism-line);
+  background: var(--prism-elev);
+  box-shadow: var(--prism-shadow-3);
+  color: var(--prism-ink);
+  font-family: var(--prism-font);
+  font-size: var(--prism-type-body-sm);
+  opacity: 0;
+  transform: translateY(-2px);
+  pointer-events: none;
+  transition:
+    opacity var(--prism-dur-2) var(--prism-ease),
+    transform var(--prism-dur-2) var(--prism-ease);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.prism-tooltip__pop[data-open="true"] {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.prism-tooltip__title {
+  font-size: var(--prism-type-label);
+  font-weight: 600;
+  color: var(--prism-ink);
+}
+
+.prism-tooltip__body {
+  font-size: var(--prism-type-label);
+  line-height: var(--prism-leading-body);
+  color: var(--prism-ink-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prism-input,
+  .prism-textarea,
+  .prism-select,
+  .prism-search,
+  .prism-toggle-group__btn,
+  .prism-tabs__btn,
+  .prism-tooltip__trigger,
+  .prism-tooltip__pop {
+    transition: none;
+  }
+}

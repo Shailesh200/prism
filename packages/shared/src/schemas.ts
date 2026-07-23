@@ -70,20 +70,99 @@ export const IndexSummarySchema = z.object({
 
 export type IndexSummary = z.infer<typeof IndexSummarySchema>;
 
+/** Explainable input row for a health factor (M-046). */
+export const HealthFactorBreakdownItemSchema = z.object({
+  label: z.string().min(1),
+  value: z.union([z.string(), z.number()]),
+});
+
+export type HealthFactorBreakdownItem = z.infer<
+  typeof HealthFactorBreakdownItemSchema
+>;
+
+export const HealthFactorSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  score: z.number().min(0).max(100),
+  note: z.string().optional(),
+  /** Optional explainable inputs (counts, ratios, etc.). */
+  breakdown: z.array(HealthFactorBreakdownItemSchema).optional(),
+});
+
+export type HealthFactor = z.infer<typeof HealthFactorSchema>;
+
 export const HealthScoreSchema = z.object({
   score: z.number().min(0).max(100),
   grade: z.enum(["A", "B", "C", "D", "F"]),
-  factors: z.array(
+  factors: z.array(HealthFactorSchema),
+});
+
+export type HealthScore = z.infer<typeof HealthScoreSchema>;
+
+/** Single point on the health-over-time chart (M-046 / ADR-0023). */
+export const HealthHistoryPointSchema = z.object({
+  at: z.string().min(1),
+  commitSha: z.string().min(1).optional(),
+  score: z.number().min(0).max(100),
+  factors: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        score: z.number().min(0).max(100),
+      }),
+    )
+    .optional(),
+});
+
+export type HealthHistoryPoint = z.infer<typeof HealthHistoryPointSchema>;
+
+/** Region scores captured alongside a health history point. */
+export const RegionHealthPointSchema = z.object({
+  at: z.string().min(1),
+  commitSha: z.string().min(1).optional(),
+  regions: z.array(
     z.object({
       id: z.string().min(1),
       label: z.string().min(1),
       score: z.number().min(0).max(100),
-      note: z.string().optional(),
+      files: z.number().int().nonnegative(),
     }),
   ),
 });
 
-export type HealthScore = z.infer<typeof HealthScoreSchema>;
+export type RegionHealthPoint = z.infer<typeof RegionHealthPointSchema>;
+
+export const HealthHistoryReportSchema = z.object({
+  points: z.array(HealthHistoryPointSchema),
+});
+
+export type HealthHistoryReport = z.infer<typeof HealthHistoryReportSchema>;
+
+const RegionMoverEntrySchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  fromScore: z.number().min(0).max(100),
+  toScore: z.number().min(0).max(100),
+  delta: z.number(),
+});
+
+export const RegionMoversReportSchema = z.object({
+  improving: z.array(RegionMoverEntrySchema),
+  regressing: z.array(RegionMoverEntrySchema),
+});
+
+export type RegionMoversReport = z.infer<typeof RegionMoversReportSchema>;
+
+/** Async git-history backfill job status for Trends (ADR-0023). */
+export const HealthHistoryBackfillStatusSchema = z.object({
+  status: z.enum(["idle", "running", "done", "error"]),
+  progress: z.number().min(0).max(1),
+  message: z.string(),
+});
+
+export type HealthHistoryBackfillStatus = z.infer<
+  typeof HealthHistoryBackfillStatusSchema
+>;
 
 /** Navigation hop list between graph nodes (M-016). */
 export const NavigationRouteSchema = z.object({
@@ -213,6 +292,10 @@ export const GitCommitRefSchema = z.object({
    * only (unpushed). `undefined` when no upstream is configured (unknown).
    */
   pushed: z.boolean().optional(),
+  /** Line insertions for this commit (`git log --numstat`), when known. */
+  additions: z.number().int().nonnegative().optional(),
+  /** Line deletions for this commit (`git log --numstat`), when known. */
+  deletions: z.number().int().nonnegative().optional(),
 });
 
 export type GitCommitRef = z.infer<typeof GitCommitRefSchema>;
@@ -301,6 +384,17 @@ export const GitDayBucketSchema = z.object({
 
 export type GitDayBucket = z.infer<typeof GitDayBucketSchema>;
 
+/** Repo-wide author rollup for Trends (M-046). */
+export const GitAuthorRollupSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().optional(),
+  commits: z.number().int().nonnegative(),
+  additions: z.number().int().nonnegative().optional(),
+  deletions: z.number().int().nonnegative().optional(),
+});
+
+export type GitAuthorRollup = z.infer<typeof GitAuthorRollupSchema>;
+
 /**
  * Repo-wide local git activity for dashboards (M-042). `available` is false
  * when the root is not a git work tree; the reader never touches the network.
@@ -314,6 +408,8 @@ export const GitActivitySchema = z.object({
   recentFiles: z.array(GitRecentFileSchema).default([]),
   /** Latest distinct commits repo-wide (newest first). */
   recentCommits: z.array(GitCommitRefSchema).default([]),
+  /** Full scanned-window author census (commits desc). */
+  authors: z.array(GitAuthorRollupSchema).default([]),
   /** Repo-wide commits per week over the recent window (oldest → newest). */
   weeks: z.array(z.number().int().nonnegative()).default([]),
   /**
@@ -325,13 +421,36 @@ export const GitActivitySchema = z.object({
 
 export type GitActivity = z.infer<typeof GitActivitySchema>;
 
+/** Coarse classification of how an affected file is impacted (M-046 tweak). */
+export const BlastImpactCategorySchema = z.enum([
+  "import",
+  "reexport",
+  "test",
+  "config",
+  "runtime",
+  "type",
+]);
+
+export type BlastImpactCategory = z.infer<typeof BlastImpactCategorySchema>;
+
 export const BlastRadiusItemSchema = z.object({
   path: RepoRelativePathSchema,
   reason: z.string().min(1),
   depth: z.number().int().nonnegative(),
+  /** How this file is affected (import edge, re-export, test, etc.). */
+  category: BlastImpactCategorySchema.optional(),
 });
 
 export type BlastRadiusItem = z.infer<typeof BlastRadiusItemSchema>;
+
+/** Heuristic hint that a change may break consumers (M-021). */
+export const BreakingChangeHintSchema = z.object({
+  kind: z.string().min(1),
+  severity: z.enum(["info", "warning", "danger"]),
+  message: z.string().min(1),
+});
+
+export type BreakingChangeHint = z.infer<typeof BreakingChangeHintSchema>;
 
 export const BlastRadiusReportSchema = z.object({
   origin: z.object({
@@ -342,6 +461,8 @@ export const BlastRadiusReportSchema = z.object({
   risk: z.number().min(0).max(100),
   affectedFiles: z.array(BlastRadiusItemSchema),
   testsLikelyAffected: z.array(RepoRelativePathSchema),
+  /** Heuristic hints that the change may break consumers (M-046 tweak). */
+  breakingChanges: z.array(BreakingChangeHintSchema).default([]),
   /** True when traversal stopped at the depth limit (results are partial). */
   truncated: z.boolean().optional(),
 });
@@ -356,15 +477,6 @@ export const ChangeOriginSchema = z.object({
 });
 
 export type ChangeOrigin = z.infer<typeof ChangeOriginSchema>;
-
-/** Heuristic hint that a change may break consumers (M-021). */
-export const BreakingChangeHintSchema = z.object({
-  kind: z.string().min(1),
-  severity: z.enum(["info", "warning", "danger"]),
-  message: z.string().min(1),
-});
-
-export type BreakingChangeHint = z.infer<typeof BreakingChangeHintSchema>;
 
 /** A file that must be edited for a rename, with its reference count. */
 export const ImpactEditSiteSchema = z.object({
@@ -660,6 +772,14 @@ export const StackProfileSchema = StackProfileCoreSchema.extend({
 
 export type StackProfile = z.infer<typeof StackProfileSchema>;
 
+/** Confidence-ranked domain entry (M-046). */
+export const RankedDomainSchema = z.object({
+  id: z.string().min(1),
+  confidence: z.number().min(0).max(1),
+});
+
+export type RankedDomain = z.infer<typeof RankedDomainSchema>;
+
 export const DnaReportSchema = z.object({
   languages: z.array(
     z.object({
@@ -676,6 +796,10 @@ export const DnaReportSchema = z.object({
   architectureHints: z.array(z.string()).default([]),
   /** Detected test runners (local markers only). */
   testRunners: z.array(z.string()).default([]),
+  /** Domains ranked by aggregated signal confidence (desc). */
+  rankedDomains: z.array(RankedDomainSchema).default([]),
+  /** Top ranked domain id, when any domains are present. */
+  primaryDomain: z.string().min(1).optional(),
 });
 
 export type DnaReport = z.infer<typeof DnaReportSchema>;
@@ -996,6 +1120,8 @@ export const BackendEndpointSchema = z.object({
   method: z.string().min(1),
   path: z.string().min(1),
   handlerFile: z.string().min(1),
+  /** Function / method name when extractable from the handler AST. */
+  handlerName: z.string().min(1).optional(),
   framework: BackendFrameworkSchema,
   auth: BackendAuthExposureSchema,
   tested: z.boolean(),
@@ -1067,6 +1193,109 @@ export const BackendReportSchema = z.object({
 });
 
 export type BackendReport = z.infer<typeof BackendReportSchema>;
+
+/** Suite kind for TestingReport (M-046 / ADR-0022). */
+export const TestingSuiteKindSchema = z.enum([
+  "unit",
+  "integration",
+  "e2e",
+  "other",
+]);
+
+export type TestingSuiteKind = z.infer<typeof TestingSuiteKindSchema>;
+
+export const TestingSuiteSchema = z.object({
+  kind: TestingSuiteKindSchema,
+  path: z.string().min(1),
+  fileCount: z.number().int().nonnegative(),
+});
+
+export type TestingSuite = z.infer<typeof TestingSuiteSchema>;
+
+export const TestingCoverageSchema = z.object({
+  present: z.boolean(),
+  linePct: z.number().min(0).max(100).optional(),
+  source: z.string().min(1),
+});
+
+export type TestingCoverage = z.infer<typeof TestingCoverageSchema>;
+
+/** Outcome of a single test after a `Run tests` invocation (M-046 tweak). */
+export const TestingTestStatusSchema = z.enum([
+  "passing",
+  "failing",
+  "skipped",
+  "unknown",
+]);
+
+export type TestingTestStatus = z.infer<typeof TestingTestStatusSchema>;
+
+export const TestingTestResultSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  file: z.string().min(1),
+  suite: z.string().min(1).optional(),
+  status: TestingTestStatusSchema,
+  durationMs: z.number().nonnegative().optional(),
+});
+
+export type TestingTestResult = z.infer<typeof TestingTestResultSchema>;
+
+/** Local testing structure + optional on-disk coverage (M-046 / ADR-0022). */
+export const TestingReportSchema = z.object({
+  score: z.number().min(0).max(100),
+  runners: z.array(z.string().min(1)).default([]),
+  suites: z.array(TestingSuiteSchema).default([]),
+  coverage: TestingCoverageSchema.optional(),
+  /** Per-test outcomes, populated after a `Run tests` invocation. */
+  results: z.array(TestingTestResultSchema).default([]),
+  /** ISO timestamp of the last local test run that produced `results`. */
+  lastRunAt: z.string().min(1).optional(),
+  summary: z.string().min(1),
+});
+
+export type TestingReport = z.infer<typeof TestingReportSchema>;
+
+export const SecurityToolSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  present: z.boolean(),
+  path: z.string().min(1).optional(),
+});
+
+export type SecurityTool = z.infer<typeof SecurityToolSchema>;
+
+export const SecurityCheckStatusSchema = z.enum([
+  "pass",
+  "fail",
+  "warn",
+  "skip",
+]);
+
+export type SecurityCheckStatus = z.infer<typeof SecurityCheckStatusSchema>;
+
+export const SecurityCheckSchema = z.object({
+  id: z.string().min(1),
+  domain: z.string().min(1).optional(),
+  status: SecurityCheckStatusSchema,
+  title: z.string().min(1),
+  detail: z.string().min(1).optional(),
+});
+
+export type SecurityCheck = z.infer<typeof SecurityCheckSchema>;
+
+/**
+ * Left-shift tooling + fundamental checklist (M-046 / ADR-0022).
+ * Not a full SAST product — local detection only.
+ */
+export const SecurityReportSchema = z.object({
+  score: z.number().min(0).max(100),
+  tools: z.array(SecurityToolSchema).default([]),
+  checks: z.array(SecurityCheckSchema).default([]),
+  summary: z.string().min(1),
+});
+
+export type SecurityReport = z.infer<typeof SecurityReportSchema>;
 
 /** Stable engineering-health metric ids (M-022 / ADR-0017). */
 export const EngineeringHealthMetricIdSchema = z.enum([

@@ -1,15 +1,24 @@
 import type {
   BackendReport,
+  CodeExplorerReport,
+  CodeExplorerTarget,
+  CwvReport,
   DnaReport,
+  EngineeringHealthReport,
   GitActivity,
   GitRecentFile,
   GraphSnapshotDto,
+  HealthHistoryBackfillStatus,
+  HealthHistoryReport,
   HealthScore,
   MapLayerId,
   MapZoomLevel,
+  RegionMoversReport,
   RepositoryMap,
   Result,
   PrismError,
+  SecurityReport,
+  TestingReport,
   UtilityOverlayReport,
 } from "@prism/shared";
 import {
@@ -129,9 +138,11 @@ export class PrismSession {
         ? gitActivity.summary.branch
         : undefined;
 
-    const [healthRes, dnaRes] = await Promise.all([
+    const [healthRes, dnaRes, testingRes, securityRes] = await Promise.all([
       ws.value.getHealth(),
       ws.value.getDna(),
+      ws.value.getTestingReport(),
+      ws.value.getSecurityReport(),
     ]);
 
     return ok({
@@ -142,6 +153,8 @@ export class PrismSession {
       health: healthRes.ok ? healthRes.value : null,
       dna: dnaRes.ok ? dnaRes.value : null,
       ...(branch !== undefined ? { branch } : {}),
+      testingScore: testingRes.ok ? testingRes.value.score : null,
+      securityScore: securityRes.ok ? securityRes.value.score : null,
     });
   }
 
@@ -159,6 +172,34 @@ export class PrismSession {
     const ws = this.requireWs();
     if (!ws.ok) return ws;
     const result = await ws.value.getBackendReport();
+    if (!result.ok) return ok(null);
+    return ok(result.value);
+  }
+
+  async getTestingReport(): Promise<Result<TestingReport | null, PrismError>> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    const result = await ws.value.getTestingReport();
+    if (!result.ok) return ok(null);
+    return ok(result.value);
+  }
+
+  async getSecurityReport(): Promise<
+    Result<SecurityReport | null, PrismError>
+  > {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    const result = await ws.value.getSecurityReport();
+    if (!result.ok) return ok(null);
+    return ok(result.value);
+  }
+
+  async ingestCoverageFromWorkspace(): Promise<
+    Result<TestingReport | null, PrismError>
+  > {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    const result = await ws.value.ingestCoverageFromWorkspace();
     if (!result.ok) return ok(null);
     return ok(result.value);
   }
@@ -217,6 +258,105 @@ export class PrismSession {
         testImpact: testImpact.value,
       },
     });
+  }
+
+  async getHealthHistory(): Promise<Result<HealthHistoryReport, PrismError>> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    return ws.value.getHealthHistory();
+  }
+
+  async getRegionMovers(): Promise<Result<RegionMoversReport, PrismError>> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    return ws.value.getRegionMovers();
+  }
+
+  async startHealthHistoryBackfill(): Promise<
+    Result<HealthHistoryBackfillStatus, PrismError>
+  > {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    return ws.value.startHealthHistoryBackfill();
+  }
+
+  getHealthHistoryBackfillStatus(): Result<
+    HealthHistoryBackfillStatus,
+    PrismError
+  > {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    return ws.value.getHealthHistoryBackfillStatus();
+  }
+
+  async getEngineeringHealth(): Promise<
+    Result<EngineeringHealthReport | null, PrismError>
+  > {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    const result = await ws.value.getEngineeringHealth();
+    if (!result.ok) return ok(null);
+    return ok(result.value);
+  }
+
+  async exploreCode(
+    target: CodeExplorerTarget,
+  ): Promise<Result<CodeExplorerReport | null, PrismError>> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    const result = await ws.value.exploreCode(target);
+    if (!result.ok) return ok(null);
+    return ok(result.value);
+  }
+
+  async runLighthouseLab(options?: {
+    mode?: "lab-fixture" | "run" | "ingest";
+    url?: string;
+    port?: number;
+  }): Promise<Result<CwvReport | null, PrismError>> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    const mode = options?.mode ?? "lab-fixture";
+    const job = await ws.value.startUtilityJob({
+      kind: "lighthouse",
+      consentGranted: true,
+      lighthouse: {
+        mode,
+        ...(options?.url ? { url: options.url } : {}),
+        ...(options?.port !== undefined ? { port: options.port } : {}),
+      },
+    });
+    if (!job.ok) return job;
+    if (job.value.status === "failed") {
+      return err(
+        prismError(
+          PrismErrorCode.UNKNOWN,
+          job.value.error?.message ??
+            "Lighthouse lab failed (no artifact produced).",
+        ),
+      );
+    }
+    const artifactId = job.value.resultArtifactId;
+    if (!artifactId) {
+      return err(
+        prismError(
+          PrismErrorCode.UNKNOWN,
+          "Lighthouse lab produced no CWV artifact.",
+        ),
+      );
+    }
+    const cwv = await ws.value.getCwvReport(artifactId);
+    if (!cwv.ok) return cwv;
+    // mode=run must never surface lab-fixture scores.
+    if (mode === "run" && cwv.value.source === "lab-fixture") {
+      return err(
+        prismError(
+          PrismErrorCode.UNKNOWN,
+          "Real Lighthouse run unavailable — fixture scores are never shown for mode=run.",
+        ),
+      );
+    }
+    return ok(cwv.value);
   }
 
   findSymbols(query: string): Result<SymbolSearchHit[], PrismError> {

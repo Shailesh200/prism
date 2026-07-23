@@ -54,8 +54,10 @@ if (!web.success) {
 }
 
 const uiDist = join(root, "../ui/dist");
+const appShellDist = join(root, "../app-shell/dist");
 cpSync(join(uiDist, "tokens.css"), join(dist, "tokens.css"));
 cpSync(join(uiDist, "map.css"), join(dist, "map.css"));
+cpSync(join(uiDist, "primitives.css"), join(dist, "primitives.css"));
 cpSync(
   join(root, "../ui/assets/prism-mark-teal-32.png"),
   join(media, "prism-mark.png"),
@@ -65,11 +67,8 @@ writeFileSync(
   join(dist, "webview.css"),
   [
     readFileSync(join(root, "src/webview/webview.css"), "utf8"),
-    readFileSync(join(root, "src/webview/ui/overview.css"), "utf8"),
-    readFileSync(join(root, "src/webview/ui/appnav.css"), "utf8"),
-    existsSync(join(root, "src/webview/ui/boot.css"))
-      ? readFileSync(join(root, "src/webview/ui/boot.css"), "utf8")
-      : "",
+    readFileSync(join(uiDist, "primitives.css"), "utf8"),
+    readFileSync(join(appShellDist, "styles.css"), "utf8"),
   ].join("\n"),
 );
 

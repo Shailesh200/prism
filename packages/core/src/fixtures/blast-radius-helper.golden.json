@@ -2,8 +2,19 @@
   "origin": { "kind": "file", "id": "helper.ts", "path": "helper.ts" },
   "risk": 60,
   "affectedFiles": [
-    { "path": "main.ts", "reason": "imports helper.ts", "depth": 1 },
-    { "path": "main.test.ts", "reason": "imports main.ts", "depth": 2 }
+    {
+      "path": "main.ts",
+      "reason": "imports helper.ts",
+      "depth": 1,
+      "category": "import"
+    },
+    {
+      "path": "main.test.ts",
+      "reason": "imports main.ts",
+      "depth": 2,
+      "category": "test"
+    }
   ],
-  "testsLikelyAffected": ["main.test.ts"]
+  "testsLikelyAffected": ["main.test.ts"],
+  "breakingChanges": []
 }

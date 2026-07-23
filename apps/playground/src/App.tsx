@@ -1,4 +1,31 @@
 import { RepositoryMapView } from "@prism/ui";
+import {
+  AppShellClientProvider,
+  AppSidebar,
+  BlastRadiusScreen,
+  DnaScreen,
+  DomainScreen,
+  DomainsScreen,
+  IntegrationsScreen,
+  OverviewScreen,
+  PrismErrorBoundary,
+  SettingsScreen,
+  TestingSecurityScreen,
+  TrendsScreen,
+  applyAppearance,
+  clearAuditLog,
+  clearIntegrationsState,
+  loadSettings,
+  saveSettings,
+  withAudit,
+  SETTINGS_STORAGE_KEY,
+  type AppShellClient,
+  type DomainOverlayStatus,
+  type ImpactTarget,
+  type MapPayload,
+  type PrismGitignoreStatus,
+  type SettingsSection,
+} from "@prism/app-shell";
 import type {
   DnaReport,
   GitActivity,
@@ -14,31 +41,40 @@ import type {
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type FormEvent,
   type ReactElement,
 } from "react";
 import {
+  applyRename,
   fetchBackendReport,
+  fetchCodeExplorer,
   fetchDependencyGraph,
   fetchDna,
+  fetchEngineeringHealth,
   fetchGitActivity,
   fetchHealth,
+  fetchHealthHistory,
+  fetchHealthHistoryBackfillStatus,
+  fetchImpactBundle,
   fetchOverlay,
   fetchPresets,
+  fetchRegionMovers,
   fetchRepositoryMap,
+  fetchSecurityReport,
+  fetchSymbolHits,
+  fetchTestingReport,
+  gitFetch,
+  ingestCoverage,
+  listTests,
+  runLighthouseLab,
+  runTests,
+  stageDevopsRemote,
+  startHealthHistoryBackfill,
   type PlaygroundPreset,
 } from "./map-client.js";
-import { OverviewScreen } from "./OverviewScreen.js";
-import { AppSidebar } from "./AppSidebar.js";
-import { DnaScreen } from "./DnaScreen.js";
-import { DomainsScreen } from "./DomainsScreen.js";
-import { DomainScreen, type DomainOverlayStatus } from "./DomainScreen.js";
-import { BlastRadiusScreen } from "./BlastRadiusScreen.js";
-import { TrendsScreen } from "./TrendsScreen.js";
-import { IntegrationsScreen } from "./IntegrationsScreen.js";
-import { SettingsScreen } from "./SettingsScreen.js";
 
 /** A cached domain analysis run so re-opening a domain doesn't re-analyze. */
 type DomainRun = {
@@ -93,11 +129,15 @@ export function App(): ReactElement {
     | "profile"
     | "domains"
     | "domain"
+    | "testing"
     | "blast"
     | "trends"
     | "integrations"
     | "settings"
   >("overview");
+  const [settingsSection, setSettingsSection] =
+    useState<SettingsSection>("general");
+  const [auditCategory, setAuditCategory] = useState<string | undefined>();
   const [gitActivity, setGitActivity] = useState<GitActivity | null>(null);
   const [health, setHealth] = useState<HealthScore | null>(null);
   const [dna, setDna] = useState<DnaReport | null>(null);
@@ -116,20 +156,145 @@ export function App(): ReactElement {
     null,
   );
   const domainRuns = useRef<Map<string, DomainRun>>(new Map());
+  const [displayName, setDisplayName] = useState(
+    () => loadSettings().displayName,
+  );
+  const [networkIntegrationsAllowed, setNetworkIntegrationsAllowed] = useState(
+    () => loadSettings().allowNetworkIntegrations,
+  );
 
-  const refreshGit = useCallback((target: string | null) => {
+  useEffect(() => {
+    const s = loadSettings();
+    applyAppearance({
+      theme: s.theme,
+      density: s.density,
+      monoFont: s.monoFont,
+      sansFont: s.sansFont,
+    });
+  }, []);
+
+  const onDisplayNameChange = useCallback((name: string) => {
+    setDisplayName(name);
+    saveSettings({ displayName: name });
+  }, []);
+
+  const onNetworkIntegrationsChange = useCallback((enabled: boolean) => {
+    setNetworkIntegrationsAllowed(enabled);
+    saveSettings({ allowNetworkIntegrations: enabled });
+  }, []);
+
+  const client = useMemo<AppShellClient>(() => {
+    const target = root;
+    return {
+      fetchDashboard: async () => {
+        throw new Error("fetchDashboard is not used by playground App");
+      },
+      fetchRepositoryMap: async (z, layerList) => {
+        const next = await fetchRepositoryMap(z, target, layerList);
+        const payload: MapPayload = {
+          map: next,
+          recentChanges: [],
+        };
+        return payload;
+      },
+      fetchReindex: async () => {
+        await fetchRepositoryMap(zoom, target, layers);
+      },
+      fetchOverlay: (kind) => fetchOverlay(kind, target),
+      fetchBackendReport: () => fetchBackendReport(target),
+      fetchTestingReport: () => fetchTestingReport(target),
+      fetchSecurityReport: () => fetchSecurityReport(target),
+      ingestCoverage: () => ingestCoverage(target),
+      runTests: (options) => runTests(target, options),
+      listTests: () => listTests(target),
+      fetchDependencyGraph: () => fetchDependencyGraph(target),
+      fetchImpactBundle: (impactTarget: ImpactTarget) =>
+        fetchImpactBundle(impactTarget, target),
+      applyRename: (input) => applyRename(input, target),
+      fetchSymbolHits: (query) => fetchSymbolHits(query, target),
+      fetchGitActivity: () => fetchGitActivity(target),
+      gitFetch: () => gitFetch(target),
+      fetchHealthHistory: () => fetchHealthHistory(target),
+      fetchRegionMovers: () => fetchRegionMovers(target),
+      startHealthHistoryBackfill: () => startHealthHistoryBackfill(target),
+      fetchHealthHistoryBackfillStatus: () =>
+        fetchHealthHistoryBackfillStatus(target),
+      fetchEngineeringHealth: () => fetchEngineeringHealth(target),
+      fetchCodeExplorer: (exploreTarget) =>
+        fetchCodeExplorer(target, exploreTarget),
+      runLighthouseLab: (options) => runLighthouseLab(target, options),
+      stageDevopsRemote: (input) => stageDevopsRemote(target, input),
+      fetchPrismGitignoreStatus: async (): Promise<PrismGitignoreStatus> => {
+        // Degrades gracefully: the dev server may not expose /api/gitignore.
+        try {
+          const params = new URLSearchParams(target ? { root: target } : {});
+          const res = await fetch(`/api/gitignore?${params}`);
+          if (!res.ok) return { ignored: null };
+          return (await res.json()) as PrismGitignoreStatus;
+        } catch {
+          return { ignored: null };
+        }
+      },
+    };
+  }, [root, zoom, layers]);
+
+  const navigate = useCallback(
+    (
+      v:
+        | "map"
+        | "overview"
+        | "dna"
+        | "profile"
+        | "domains"
+        | "domain"
+        | "testing"
+        | "blast"
+        | "trends"
+        | "integrations"
+        | "settings",
+    ) => {
+      setView(v);
+      if (v !== "settings") setSettingsSection("general");
+    },
+    [],
+  );
+
+  const openAuditLogs = useCallback((category?: string) => {
+    setAuditCategory(category);
+    setSettingsSection("audit");
+    setView("settings");
+  }, []);
+
+  const refreshGit = useCallback(async (target: string | null) => {
     if (!target) return;
     setGitStatus("loading");
-    void fetchGitActivity(target).then((data) => {
-      setGitActivity(data);
-      setGitStatus(data ? "ready" : "error");
-    });
-    void fetchHealth(target).then((data) => {
-      setHealth(data);
-    });
-    void fetchDna(target).then((data) => {
-      setDna(data);
-    });
+    const [data] = await Promise.all([
+      withAudit(
+        {
+          category: "git",
+          operation: "Git activity scan",
+          target,
+          command: `git log / git status (${target})`,
+        },
+        () => fetchGitActivity(target),
+        (activity) => ({
+          status: activity?.available ? "success" : "warning",
+          output: activity?.available
+            ? `branch=${activity.summary?.branch ?? "?"} recentFiles=${
+                activity.recentFiles.length
+              } commits=${activity.recentCommits.length}`
+            : "No local git history detected for this workspace.",
+        }),
+      ),
+      fetchHealth(target).then((h) => {
+        setHealth(h);
+      }),
+      fetchDna(target).then((d) => {
+        setDna(d);
+      }),
+    ]);
+    setGitActivity(data);
+    setGitStatus(data ? "ready" : "error");
   }, []);
 
   useEffect(() => {
@@ -270,12 +435,28 @@ export function App(): ReactElement {
   };
 
   const rootLabel =
+    displayName.trim() ||
+    presets.find((p) => p.root === root)?.label ||
+    root?.split("/").filter(Boolean).pop() ||
+    "Repository";
+
+  const pathDerivedLabel =
     presets.find((p) => p.root === root)?.label ??
     root?.split("/").filter(Boolean).pop() ??
     "Repository";
 
+  const shell = (children: ReactElement): ReactElement => (
+    <PrismErrorBoundary label="Prism">
+      <AppShellClientProvider client={client}>
+        <PrismErrorBoundary label={view} resetKey={view}>
+          {children}
+        </PrismErrorBoundary>
+      </AppShellClientProvider>
+    </PrismErrorBoundary>
+  );
+
   if (error && !map) {
-    return (
+    return shell(
       <div className="prism-boot prism-theme">
         <img src="/brand/prism-mark.png" alt="" width={28} height={28} />
         <p className="prism-boot__brand">Prism</p>
@@ -294,12 +475,12 @@ export function App(): ReactElement {
           />
           <button type="submit">Start Indexing</button>
         </form>
-      </div>
+      </div>,
     );
   }
 
   if (!map || !root) {
-    return (
+    return shell(
       <div className="prism-boot prism-theme">
         <img src="/brand/prism-mark.png" alt="" width={28} height={28} />
         <p className="prism-boot__brand">Prism</p>
@@ -307,11 +488,11 @@ export function App(): ReactElement {
           {loading ? "Indexing repository…" : "Charting repository…"}
         </p>
         {root ? <p className="prism-boot__detail">{rootLabel}</p> : null}
-      </div>
+      </div>,
     );
   }
 
-  return (
+  return shell(
     <div className="playground-shell">
       <form className="playground-open" onSubmit={onSubmitPath}>
         <label className="playground-open__label" htmlFor="playground-root">
@@ -350,11 +531,18 @@ export function App(): ReactElement {
             onOpenDna={() => setView("dna")}
             onOpenProfile={() => setView("profile")}
             onOpenDomains={() => setView("domains")}
+            onOpenTesting={() => setView("testing")}
             onOpenBlast={() => setView("blast")}
             onOpenTrends={() => setView("trends")}
             onOpenIntegrations={() => setView("integrations")}
-            onOpenSettings={() => setView("settings")}
-            onRefresh={() => refreshGit(root)}
+            onOpenSettings={() => {
+              setSettingsSection("general");
+              setView("settings");
+            }}
+            onRefresh={() => {
+              void refreshGit(root);
+            }}
+            onSyncGit={() => refreshGit(root)}
           />
         ) : view === "dna" || view === "profile" ? (
           <DnaScreen
@@ -365,8 +553,9 @@ export function App(): ReactElement {
             health={health}
             map={map}
             mode={view === "profile" ? "profile" : "analysis"}
-            onNavigate={(v) => setView(v)}
+            onNavigate={navigate}
             onOpenDomain={openDomain}
+            onOpenAuditLogs={openAuditLogs}
           />
         ) : view === "domains" ? (
           <DomainsScreen
@@ -374,8 +563,15 @@ export function App(): ReactElement {
             branch={gitActivity?.summary?.branch}
             user={gitActivity?.recentCommits[0] ?? null}
             dna={dna}
-            onNavigate={(v) => setView(v)}
+            onNavigate={navigate}
             onOpenDomain={openDomain}
+          />
+        ) : view === "testing" ? (
+          <TestingSecurityScreen
+            repoLabel={rootLabel}
+            branch={gitActivity?.summary?.branch}
+            user={gitActivity?.recentCommits[0] ?? null}
+            onNavigate={navigate}
           />
         ) : view === "domain" ? (
           <DomainScreen
@@ -392,7 +588,7 @@ export function App(): ReactElement {
             gitActivity={gitActivity}
             dna={dna}
             onRun={runOverlay}
-            onNavigate={(v) => setView(v)}
+            onNavigate={navigate}
           />
         ) : view === "blast" ? (
           <BlastRadiusScreen
@@ -400,7 +596,7 @@ export function App(): ReactElement {
             repoLabel={rootLabel}
             branch={gitActivity?.summary?.branch}
             user={gitActivity?.recentCommits[0] ?? null}
-            onNavigate={(v) => setView(v)}
+            onNavigate={navigate}
           />
         ) : view === "trends" ? (
           <TrendsScreen
@@ -411,26 +607,38 @@ export function App(): ReactElement {
             gitActivity={gitActivity}
             gitStatus={gitStatus}
             health={health}
-            onNavigate={(v) => setView(v)}
+            onNavigate={navigate}
+            fetchHealthHistory={() => fetchHealthHistory(root)}
+            fetchRegionMovers={() => fetchRegionMovers(root)}
+            startHealthHistoryBackfill={() => startHealthHistoryBackfill(root)}
+            fetchHealthHistoryBackfillStatus={() =>
+              fetchHealthHistoryBackfillStatus(root)
+            }
           />
         ) : view === "integrations" ? (
           <IntegrationsScreen
             repoLabel={rootLabel}
             branch={gitActivity?.summary?.branch}
             user={gitActivity?.recentCommits[0] ?? null}
-            onNavigate={(v) => setView(v)}
+            networkIntegrationsAllowed={networkIntegrationsAllowed}
+            onNavigate={navigate}
           />
         ) : view === "settings" ? (
           <SettingsScreen
             root={root}
-            repoLabel={rootLabel}
+            displayName={displayName}
+            onDisplayNameChange={onDisplayNameChange}
+            repoLabel={pathDerivedLabel}
             branch={gitActivity?.summary?.branch}
             user={gitActivity?.recentCommits[0] ?? null}
             map={map}
             autoDetected={defaultRoot !== null && root === defaultRoot}
+            surface="playground"
             zoom={zoom}
             layers={layers}
             indexing={loading}
+            initialSection={settingsSection}
+            {...(auditCategory ? { initialAuditCategory: auditCategory } : {})}
             onZoomChange={setZoom}
             onLayersChange={(next) => setLayers([...next])}
             onApplyWorkspace={openRoot}
@@ -441,21 +649,34 @@ export function App(): ReactElement {
                 .finally(() => setLoading(false));
               refreshGit(root);
             }}
-            onClearDomainCache={() => {
+            allowNetworkIntegrations={networkIntegrationsAllowed}
+            onNetworkIntegrationsChange={onNetworkIntegrationsChange}
+            onClearData={() => {
               domainRuns.current.clear();
+              clearAuditLog();
+              clearIntegrationsState();
               try {
-                const prefix = `prism.domain-run.${root}.`;
                 const keys: string[] = [];
                 for (let i = 0; i < localStorage.length; i++) {
                   const k = localStorage.key(i);
-                  if (k?.startsWith(prefix)) keys.push(k);
+                  if (k?.startsWith("prism.domain-run.")) keys.push(k);
                 }
                 for (const k of keys) localStorage.removeItem(k);
+                localStorage.removeItem(SETTINGS_STORAGE_KEY);
               } catch {
                 /* ignore */
               }
+              setDisplayName("");
+              setNetworkIntegrationsAllowed(false);
+              const fresh = loadSettings();
+              applyAppearance({
+                theme: fresh.theme,
+                density: fresh.density,
+                monoFont: fresh.monoFont,
+                sansFont: fresh.sansFont,
+              });
             }}
-            onNavigate={(v) => setView(v)}
+            onNavigate={navigate}
           />
         ) : (
           <div className="playground-map-wrap">
@@ -486,11 +707,11 @@ export function App(): ReactElement {
               active="map"
               repoLabel={rootLabel}
               user={gitActivity?.recentCommits[0] ?? null}
-              onNavigate={(v) => setView(v)}
+              onNavigate={navigate}
             />
           </div>
         )}
       </div>
-    </div>
+    </div>,
   );
 }

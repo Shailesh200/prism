@@ -1,0 +1,214 @@
+/* Integrations screen tweaks (M-046 follow-up). */
+
+/* —— Field label + inline InfoTip —— */
+.int-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.int-field__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.int-field__label label {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: default;
+}
+
+/* —— Secret input with show/hide (eye) toggle —— */
+.int-secret {
+  position: relative;
+  display: block;
+}
+
+.int-secret__field {
+  padding-right: 40px;
+}
+
+.int-secret__eye {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.int-secret__eye:hover {
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.int-secret__eye:focus-visible {
+  outline: none;
+  color: var(--prism-brand, #00c2c2);
+  box-shadow: var(--prism-ring, 0 0 0 3px rgba(0, 194, 194, 0.35));
+}
+
+/* —— Green "Test connection" text-variant action —— */
+.int-btn--test {
+  color: var(--prism-emerald, #10b981);
+  border-color: color-mix(
+    in srgb,
+    var(--prism-emerald, #10b981) 40%,
+    #2a334a
+  );
+  background: color-mix(in srgb, var(--prism-emerald, #10b981) 12%, #0f1420);
+}
+
+.int-btn--test:hover:not(:disabled) {
+  color: #fff;
+  background: color-mix(in srgb, var(--prism-emerald, #10b981) 26%, #0f1420);
+  border-color: var(--prism-emerald, #10b981);
+}
+
+/* —— Docs hyperlink with trailing icon —— */
+.int-docs-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+/* —— Lighthouse Frontend toggle switch —— */
+.int-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.int-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.int-switch__track {
+  position: relative;
+  flex-shrink: 0;
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: #2a334a;
+  transition: background 0.15s ease;
+}
+
+.int-switch__track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease;
+}
+
+.int-switch input:checked + .int-switch__track {
+  background: color-mix(in srgb, var(--prism-brand, #00c2c2) 70%, #0f1420);
+}
+
+.int-switch input:checked + .int-switch__track::after {
+  transform: translateX(16px);
+  background: #fff;
+}
+
+.int-switch input:focus-visible + .int-switch__track {
+  box-shadow: var(--prism-ring, 0 0 0 3px rgba(0, 194, 194, 0.35));
+}
+
+.int-switch__label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+/* —— Disconnect confirmation modal —— */
+.int-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: color-mix(in srgb, #0b0f1a 72%, transparent);
+}
+
+.int-modal {
+  width: min(420px, 100%);
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid #2a334a;
+  background: #131926;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+}
+
+.int-modal__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.int-modal__icon {
+  display: inline-flex;
+  color: var(--prism-rose, #f43f5e);
+}
+
+.int-modal__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.int-modal__body {
+  margin: 0 0 18px;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: #cbd5e1;
+}
+
+.int-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .int-secret__eye,
+  .int-switch__track,
+  .int-switch__track::after {
+    transition: none;
+  }
+}

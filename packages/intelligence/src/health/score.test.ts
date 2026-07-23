@@ -107,4 +107,80 @@ describe("computeHealthScore (M-015)", () => {
       first.factors.find((f) => f.id === "test_presence")?.score,
     ).toBeLessThan(50);
   });
+
+  it("includes explainable breakdown on factors", () => {
+    const snapshot: IndexSnapshot = {
+      ...emptySnapshot("/tmp/breakdown"),
+      files: [
+        file("src/a.ts"),
+        file("src/a.test.ts"),
+        file("src/skip.ts", { status: "failed" }),
+      ],
+      stats: {
+        filesTotal: 3,
+        filesIndexed: 2,
+        filesSkipped: 1,
+        durationMs: 1,
+      },
+    };
+    const health = computeHealthScore(snapshot);
+    expect(HealthScoreSchema.safeParse(health).success).toBe(true);
+
+    for (const f of health.factors) {
+      expect(f.breakdown?.length).toBeGreaterThan(0);
+    }
+
+    const testPresence = health.factors.find((f) => f.id === "test_presence");
+    expect(testPresence?.breakdown).toEqual(
+      expect.arrayContaining([
+        { label: "Test files", value: 1 },
+        { label: "Source files", value: 2 },
+      ]),
+    );
+
+    const parseHealth = health.factors.find((f) => f.id === "parse_health");
+    expect(parseHealth?.breakdown).toEqual(
+      expect.arrayContaining([
+        { label: "Analyzed (ok)", value: 2 },
+        { label: "Failed / skipped", value: 1 },
+      ]),
+    );
+
+    const coupling = health.factors.find((f) => f.id === "coupling");
+    expect(coupling?.breakdown?.some((b) => b.label === "Graph nodes")).toBe(
+      true,
+    );
+    expect(coupling?.breakdown?.some((b) => b.label === "Graph edges")).toBe(
+      true,
+    );
+  });
+
+  it("prefers TestingReport score for test_presence when provided", () => {
+    const snapshot: IndexSnapshot = {
+      ...emptySnapshot("/tmp/testing-report"),
+      files: [file("src/a.ts")],
+      stats: {
+        filesTotal: 1,
+        filesIndexed: 1,
+        filesSkipped: 0,
+        durationMs: 1,
+      },
+    };
+    const fallback = computeHealthScore(snapshot);
+    const withReport = computeHealthScore(snapshot, {
+      testingReport: {
+        score: 88,
+        runners: ["vitest"],
+        suites: [{ kind: "unit", path: "src", fileCount: 4 }],
+        results: [],
+        summary: "Vitest unit suites",
+      },
+    });
+    expect(
+      withReport.factors.find((f) => f.id === "test_presence")?.score,
+    ).toBe(88);
+    expect(
+      fallback.factors.find((f) => f.id === "test_presence")?.score,
+    ).not.toBe(88);
+  });
 });

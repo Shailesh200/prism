@@ -115,6 +115,40 @@ describe("M-041 P0 utilities foundation", () => {
     expect(cwv.value.rollups.some((r) => r.level === "route")).toBe(true);
   });
 
+  it("lighthouse mode=run fails without Chrome and never writes fixture scores", async () => {
+    const root = await mkdtemp(join(tmpdir(), "prism-m046-lh-run-"));
+    const session = createUtilitiesSession({ workspaceRoot: root });
+    const prev = process.env.PRISM_TEST_NO_CHROME;
+    process.env.PRISM_TEST_NO_CHROME = "1";
+    try {
+      const started = await session.jobs.start({
+        kind: UTILITY_JOB_LIGHTHOUSE,
+        consentGranted: true,
+        lighthouse: { port: 4173, mode: "run" },
+      });
+      expect(started.ok).toBe(true);
+      if (!started.ok) return;
+      expect(started.value.status).toBe("failed");
+      expect(started.value.error?.code).toBe("CHROME_NOT_FOUND");
+      expect(started.value.error?.message ?? "").toMatch(/Chrome/i);
+      expect(started.value.error?.message ?? "").toMatch(/never shown/i);
+      expect(started.value.resultArtifactId).toBeUndefined();
+    } finally {
+      if (prev === undefined) delete process.env.PRISM_TEST_NO_CHROME;
+      else process.env.PRISM_TEST_NO_CHROME = prev;
+    }
+  });
+
+  it("probeLabUrl reports unreachable ports clearly", async () => {
+    const { probeLabUrl } = await import("./lighthouse-runner.js");
+    const result = await probeLabUrl("http://127.0.0.1:59999/");
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.message).toMatch(
+      /listening|Timed out|unreachable|ECONNREFUSED/i,
+    );
+  });
+
   it("does not invent component rollups when attribution lacks component", () => {
     const raw = labFixtureLighthouseJson({ url: "http://127.0.0.1:4173/" });
     const metrics = cwvMetricsFromLighthouse(raw);

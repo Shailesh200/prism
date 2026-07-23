@@ -9,7 +9,8 @@ import "@fontsource/jetbrains-mono/400.css";
 import "@fontsource/jetbrains-mono/500.css";
 import "@prism/ui/tokens.css";
 import "@prism/ui/map.css";
-import "./boot.css";
+import "@prism/ui/primitives.css";
+import "@prism/app-shell/styles.css";
 
 const root = document.getElementById("root");
 if (!root) {

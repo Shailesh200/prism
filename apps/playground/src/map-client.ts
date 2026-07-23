@@ -1,32 +1,54 @@
 import type {
   BlastRadiusReport,
+  CodeExplorerReport,
+  CodeExplorerTarget,
   DnaReport,
+  EngineeringHealthReport,
   GitActivity,
   GraphSnapshotDto,
+  HealthHistoryBackfillStatus,
+  HealthHistoryReport,
   HealthScore,
   MapLayerId,
   MapZoomLevel,
+  RegionMoversReport,
   RenameImpactReport,
   RepositoryMap,
   SafeDeleteReport,
   TestImpactReport,
   UtilityOverlayReport,
   BackendReport,
+  SecurityReport,
+  TestingReport,
+  CwvReport,
 } from "@prism/shared";
 import {
   BlastRadiusReportSchema,
+  CodeExplorerReportSchema,
+  CwvReportSchema,
   DnaReportSchema,
+  EngineeringHealthReportSchema,
   GitActivitySchema,
   GraphSnapshotDtoSchema,
+  HealthHistoryBackfillStatusSchema,
+  HealthHistoryReportSchema,
   HealthScoreSchema,
+  RegionMoversReportSchema,
   RenameImpactReportSchema,
   RepositoryMapSchema,
   SafeDeleteReportSchema,
   TestImpactReportSchema,
   UtilityOverlayReportSchema,
   BackendReportSchema,
+  SecurityReportSchema,
+  TestingReportSchema,
 } from "@prism/shared";
-import { withAudit, recordAudit, type AuditDiagnostic } from "./audit-log.js";
+import { withAudit, recordAudit, type AuditDiagnostic } from "@prism/app-shell";
+import type {
+  ApplyRenameInput,
+  ApplyRenameResult,
+  TestListResult,
+} from "@prism/app-shell";
 
 type FixtureMaps = Partial<Record<MapZoomLevel, RepositoryMap>>;
 
@@ -92,6 +114,34 @@ export async function fetchPresets(): Promise<PlaygroundPresets | null> {
     return (await res.json()) as PlaygroundPresets;
   } catch {
     return null;
+  }
+}
+
+/** Opt-in Remote Git: `git fetch --prune` (never push). */
+export async function gitFetch(
+  root: string | null,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const target = root ?? ".";
+  try {
+    const res = await fetch("/api/git-fetch", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ root: target }),
+    });
+    if (!res.ok) {
+      return { ok: false, error: `HTTP ${res.status}` };
+    }
+    const data = (await res.json()) as {
+      ok?: boolean;
+      error?: string;
+    };
+    if (data.ok === true) return { ok: true };
+    return { ok: false, error: data.error ?? "git fetch failed" };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
 }
 
@@ -247,6 +297,156 @@ export async function fetchDna(root: string | null): Promise<DnaReport | null> {
   );
 }
 
+export async function fetchHealthHistory(
+  root: string | null,
+): Promise<HealthHistoryReport> {
+  const params = new URLSearchParams();
+  if (root) params.set("root", root);
+  const res = await fetch(`/api/health-history?${params}`);
+  if (!res.ok) throw new Error(`health-history failed: ${res.status}`);
+  const parsed = HealthHistoryReportSchema.safeParse(await res.json());
+  if (!parsed.success) throw new Error("Invalid health history payload");
+  return parsed.data;
+}
+
+export async function fetchRegionMovers(
+  root: string | null,
+): Promise<RegionMoversReport> {
+  const params = new URLSearchParams();
+  if (root) params.set("root", root);
+  const res = await fetch(`/api/region-movers?${params}`);
+  if (!res.ok) throw new Error(`region-movers failed: ${res.status}`);
+  const parsed = RegionMoversReportSchema.safeParse(await res.json());
+  if (!parsed.success) throw new Error("Invalid region movers payload");
+  return parsed.data;
+}
+
+export async function startHealthHistoryBackfill(
+  root: string | null,
+): Promise<void> {
+  const params = new URLSearchParams();
+  if (root) params.set("root", root);
+  const res = await fetch(`/api/health-history/backfill?${params}`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error(`health-history backfill failed: ${res.status}`);
+}
+
+export async function fetchHealthHistoryBackfillStatus(
+  root: string | null,
+): Promise<HealthHistoryBackfillStatus> {
+  const params = new URLSearchParams();
+  if (root) params.set("root", root);
+  const res = await fetch(`/api/health-history/backfill?${params}`);
+  if (!res.ok) {
+    throw new Error(`health-history backfill status failed: ${res.status}`);
+  }
+  const parsed = HealthHistoryBackfillStatusSchema.safeParse(await res.json());
+  if (!parsed.success) throw new Error("Invalid backfill status payload");
+  return parsed.data;
+}
+
+/** Opt-in local Lighthouse / CWV lab (Core startUtilityJob + getCwvReport). */
+export async function runLighthouseLab(
+  root: string | null,
+  options?: {
+    mode?: "lab-fixture" | "run" | "ingest";
+    url?: string;
+    port?: number;
+  },
+): Promise<CwvReport | null> {
+  const target = root ?? ".";
+  return withAudit(
+    {
+      category: "integration",
+      operation: "Lighthouse CWV lab",
+      target,
+      command: `GET /api/lighthouse?root=${encodeURIComponent(target)}`,
+    },
+    async () => {
+      const params = new URLSearchParams();
+      if (root) params.set("root", root);
+      params.set("mode", options?.mode ?? "lab-fixture");
+      if (options?.url) params.set("url", options.url);
+      if (options?.port !== undefined) {
+        params.set("port", String(options.port));
+      }
+      const res = await fetch(`/api/lighthouse?${params}`);
+      if (!res.ok) {
+        let detail = `Lighthouse lab failed (${res.status})`;
+        try {
+          const body = (await res.json()) as { error?: string };
+          if (body.error) detail = body.error;
+        } catch {
+          /* ignore */
+        }
+        throw new Error(detail);
+      }
+      const parsed = CwvReportSchema.safeParse(await res.json());
+      if (!parsed.success) {
+        throw new Error("Invalid CWV report payload from Lighthouse lab");
+      }
+      return parsed.data;
+    },
+    (data) => {
+      if (!data) {
+        return { status: "error", output: "Lighthouse lab failed." };
+      }
+      return {
+        status: "success",
+        output: [
+          `source=${data.source}`,
+          `url=${data.url}`,
+          `metrics=${data.metrics.length}`,
+        ].join("\n"),
+      };
+    },
+  );
+}
+
+/** Stage foreign-repo DevOps files under `.prism/remote-ci/<owner>/<repo>/`. */
+export async function stageDevopsRemote(
+  root: string | null,
+  input: { owner: string; repo: string; token?: string },
+): Promise<import("@prism/app-shell").StageDevopsRemoteResult> {
+  const target = root ?? ".";
+  return withAudit(
+    {
+      category: "integration",
+      operation: "Stage remote DevOps CI",
+      target,
+      command: `POST /api/stage-devops-remote ${input.owner}/${input.repo}`,
+    },
+    async () => {
+      const res = await fetch("/api/stage-devops-remote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          root: target,
+          owner: input.owner,
+          repo: input.repo,
+          ...(input.token ? { token: input.token } : {}),
+        }),
+      });
+      const json: unknown = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const err =
+          json &&
+          typeof json === "object" &&
+          typeof (json as { error?: unknown }).error === "string"
+            ? (json as { error: string }).error
+            : `stage-devops-remote failed: ${res.status}`;
+        throw new Error(err);
+      }
+      return json as import("@prism/app-shell").StageDevopsRemoteResult;
+    },
+    (data) => ({
+      status: "success",
+      output: `staged=${data.paths.length} workflows=${data.workflows.length}`,
+    }),
+  );
+}
+
 /** Domain utility overlay (Core `getUtilityOverlay`); opt-in, runs on demand. */
 export async function fetchOverlay(
   kind: string,
@@ -331,6 +531,270 @@ export async function fetchBackendReport(
       };
     },
   );
+}
+
+/** Testing structure + coverage (Core `getTestingReport`, M-046). */
+export async function fetchTestingReport(
+  root: string | null,
+): Promise<TestingReport | null> {
+  const target = root ?? ".";
+  return withAudit(
+    {
+      category: "analysis",
+      operation: "Computed testing report",
+      target,
+      command: `GET /api/testing?root=${encodeURIComponent(target)}`,
+    },
+    async () => {
+      try {
+        const params = new URLSearchParams();
+        if (root) params.set("root", root);
+        const res = await fetch(`/api/testing?${params}`);
+        if (!res.ok) return null;
+        const parsed = TestingReportSchema.safeParse(await res.json());
+        return parsed.success ? parsed.data : null;
+      } catch {
+        return null;
+      }
+    },
+    (data) => {
+      if (!data) {
+        return { status: "error", output: "Testing report unavailable." };
+      }
+      return {
+        status: "success",
+        output: `score=${data.score} runners=${data.runners.join(",") || "none"}`,
+      };
+    },
+  );
+}
+
+/** Security tooling + checklist (Core `getSecurityReport`, M-046). */
+export async function fetchSecurityReport(
+  root: string | null,
+): Promise<SecurityReport | null> {
+  const target = root ?? ".";
+  return withAudit(
+    {
+      category: "analysis",
+      operation: "Computed security report",
+      target,
+      command: `GET /api/security?root=${encodeURIComponent(target)}`,
+    },
+    async () => {
+      try {
+        const params = new URLSearchParams();
+        if (root) params.set("root", root);
+        const res = await fetch(`/api/security?${params}`);
+        if (!res.ok) return null;
+        const parsed = SecurityReportSchema.safeParse(await res.json());
+        return parsed.success ? parsed.data : null;
+      } catch {
+        return null;
+      }
+    },
+    (data) => {
+      if (!data) {
+        return { status: "error", output: "Security report unavailable." };
+      }
+      return {
+        status: "success",
+        output: `score=${data.score} tools=${data.tools.filter((t) => t.present).length}`,
+      };
+    },
+  );
+}
+
+/** Engineering health (Core `getEngineeringHealth`, M-022 / M-046). */
+export async function fetchEngineeringHealth(
+  root: string | null,
+): Promise<EngineeringHealthReport | null> {
+  const target = root ?? ".";
+  return withAudit(
+    {
+      category: "analysis",
+      operation: "Computed engineering health",
+      target,
+      command: `GET /api/engineering-health?root=${encodeURIComponent(target)}`,
+    },
+    async () => {
+      try {
+        const params = new URLSearchParams();
+        if (root) params.set("root", root);
+        const res = await fetch(`/api/engineering-health?${params}`);
+        if (!res.ok) return null;
+        const parsed = EngineeringHealthReportSchema.safeParse(
+          await res.json(),
+        );
+        return parsed.success ? parsed.data : null;
+      } catch {
+        return null;
+      }
+    },
+    (data) => {
+      if (!data) {
+        return { status: "error", output: "Engineering health unavailable." };
+      }
+      return {
+        status: "success",
+        output: `metrics=${data.metrics.length} git=${data.gitAvailable}`,
+      };
+    },
+  );
+}
+
+/** Code explorer (Core `exploreCode`, M-023 / M-046). */
+export async function fetchCodeExplorer(
+  root: string | null,
+  target: CodeExplorerTarget,
+): Promise<CodeExplorerReport | null> {
+  const workspace = root ?? ".";
+  const label =
+    target.kind === "file"
+      ? target.path
+      : `${target.name}${target.path ? `@${target.path}` : ""}`;
+  return withAudit(
+    {
+      category: "analysis",
+      operation: "Explored code selection",
+      target: workspace,
+      command: `GET /api/code-explorer?kind=${target.kind}&q=${encodeURIComponent(label)}`,
+    },
+    async () => {
+      try {
+        const params = new URLSearchParams();
+        if (root) params.set("root", root);
+        params.set("kind", target.kind);
+        if (target.kind === "file") {
+          params.set("path", target.path);
+        } else {
+          params.set("name", target.name);
+          if (target.path) params.set("path", target.path);
+        }
+        const res = await fetch(`/api/code-explorer?${params}`);
+        if (!res.ok) return null;
+        const json: unknown = await res.json();
+        if (json === null) return null;
+        const parsed = CodeExplorerReportSchema.safeParse(json);
+        return parsed.success ? parsed.data : null;
+      } catch {
+        return null;
+      }
+    },
+    (data) => {
+      if (!data) {
+        return { status: "error", output: "Code explorer unavailable." };
+      }
+      return {
+        status: "success",
+        output: `usages=${data.usages.length} path=${data.path}`,
+      };
+    },
+  );
+}
+
+/** Re-read coverage artifacts (Core `ingestCoverageFromWorkspace`). */
+export async function ingestCoverage(
+  root: string | null,
+): Promise<TestingReport | null> {
+  const target = root ?? ".";
+  return withAudit(
+    {
+      category: "analysis",
+      operation: "Ingested coverage artifacts",
+      target,
+      command: `GET /api/ingest-coverage?root=${encodeURIComponent(target)}`,
+    },
+    async () => {
+      try {
+        const params = new URLSearchParams();
+        if (root) params.set("root", root);
+        const res = await fetch(`/api/ingest-coverage?${params}`);
+        if (!res.ok) return null;
+        const parsed = TestingReportSchema.safeParse(await res.json());
+        return parsed.success ? parsed.data : null;
+      } catch {
+        return null;
+      }
+    },
+    (data) => {
+      if (!data) {
+        return { status: "error", output: "Coverage ingest unavailable." };
+      }
+      return {
+        status: "success",
+        output: data.coverage?.present
+          ? `coverage=${data.coverage.linePct ?? "present"}`
+          : "no coverage artifact",
+      };
+    },
+  );
+}
+
+/**
+ * Run workspace tests via the playground Vite API (same runners as extension).
+ */
+export async function runTests(
+  root: string | null,
+  options?: {
+    coverage?: boolean;
+    path?: string;
+    testNamePattern?: string;
+  },
+): Promise<TestingReport | null> {
+  const target = root ?? ".";
+  return withAudit(
+    {
+      category: "test",
+      operation: "Run workspace tests",
+      target,
+      command: `POST /api/run-tests root=${encodeURIComponent(target)}`,
+    },
+    async () => {
+      const res = await fetch("/api/run-tests", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          root: target,
+          ...(options?.coverage === true ? { coverage: true } : {}),
+          ...(options?.path ? { path: options.path } : {}),
+          ...(options?.testNamePattern
+            ? { testNamePattern: options.testNamePattern }
+            : {}),
+        }),
+      });
+      if (!res.ok) {
+        throw new Error(`Run tests failed (${res.status})`);
+      }
+      const parsed = TestingReportSchema.safeParse(await res.json());
+      if (!parsed.success) {
+        throw new Error("Invalid TestingReport from /api/run-tests");
+      }
+      return parsed.data;
+    },
+    (data) => ({
+      status: "success",
+      output: `results=${data?.results?.length ?? 0}`,
+    }),
+  );
+}
+
+/**
+ * Discover tests via vitest/jest list through the playground Vite API.
+ */
+export async function listTests(
+  root: string | null,
+): Promise<TestListResult | null> {
+  try {
+    const params = new URLSearchParams();
+    if (root) params.set("root", root);
+    const res = await fetch(`/api/list-tests?${params}`);
+    if (!res.ok) return { files: [] };
+    const data = (await res.json()) as TestListResult;
+    return data?.files ? data : { files: [] };
+  } catch {
+    return { files: [] };
+  }
 }
 
 /** File dependency graph (Core `getDependencyGraph`) for centrality summaries. */
@@ -483,6 +947,47 @@ export type SymbolSearchHit = {
   path: string;
   exported: boolean;
 };
+
+/** Apply a file rename via the playground Vite middleware (Node fs). */
+export async function applyRename(
+  input: ApplyRenameInput,
+  root: string | null,
+): Promise<ApplyRenameResult> {
+  try {
+    const res = await fetch("/api/apply-rename", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...(root ? { root } : {}),
+        input,
+      }),
+    });
+    const json = (await res.json()) as ApplyRenameResult | { error?: string };
+    if (!res.ok) {
+      return {
+        ok: false,
+        error:
+          "error" in json && typeof json.error === "string"
+            ? json.error
+            : `HTTP ${res.status}`,
+      };
+    }
+    if (
+      json &&
+      typeof json === "object" &&
+      "ok" in json &&
+      typeof json.ok === "boolean"
+    ) {
+      return json as ApplyRenameResult;
+    }
+    return { ok: false, error: "Invalid apply-rename response" };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
 
 /** Symbol name search (Core `findSymbol`) for blast target picker. */
 export async function fetchSymbolHits(

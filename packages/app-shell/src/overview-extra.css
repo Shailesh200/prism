@@ -1,0 +1,79 @@
+/* Keep the top action row above content so split-button menus aren't clipped. */
+.ov-top {
+  overflow: visible;
+  z-index: 20;
+}
+
+.ov-top__actions {
+  overflow: visible;
+  position: relative;
+  z-index: 21;
+}
+
+.ov-stat__dual-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ov-stat__title-icons {
+  display: none; /* icons moved next to Test / Security labels */
+}
+
+/* Grafana-like packing: cards size to content and pack into columns. */
+.card-masonry,
+.dna-hints-row,
+.dna-profile-grid {
+  align-items: start;
+}
+
+.card-masonry > *,
+.dna-hints-row > *,
+.dna-profile-grid > * {
+  align-self: start;
+  height: auto;
+}
+
+/* --- Sync button layout (M-046 UI tweak #4) ---
+   Keep the Sync button vertically aligned with its sibling action buttons.
+   The helper text is taken out of flow (absolutely positioned) so it never
+   adds height to the action row or pushes the button upward. */
+.ov-top__sync {
+  position: relative;
+  flex-direction: row;
+  justify-content: flex-end;
+}
+
+.ov-top__sync-hint {
+  position: absolute;
+  top: calc(100% + 3px);
+  right: 2px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* --- Colored KPI title icons (M-046 UI tweaks #1–#3) ---
+   Inline beaker + shield icons sit next to the "Testing & Security" title. */
+.ov-stat__title-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Nudge CardIcon glyphs to sit flush on the text baseline row. */
+.ov-stat__k .prism-card-icon {
+  margin-top: -1px;
+}
+
+/* --- Commit Activity card width (M-046 UI tweak #7) ---
+   The DNA + Commit Activity row is a 2-up grid; guarantee both columns share
+   the width evenly and the activity card fills its column without stretching
+   awkwardly past it. */
+.ov-grid--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ov-grid--2 > .ov-card {
+  width: 100%;
+  min-width: 0;
+}

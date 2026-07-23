@@ -232,6 +232,31 @@ function report(input: {
   };
 }
 
+function fileBasename(path: string): string {
+  return path.split("/").pop() ?? path;
+}
+
+function fileStemLabel(path: string): string {
+  return fileBasename(path).replace(/\.[^.]+$/, "");
+}
+
+/** Prefer exported symbol / Nest handler name over raw filename. */
+function apiSurfaceLabel(path: string, text: string): string {
+  const exportClass = /\bexport\s+(?:default\s+)?class\s+(\w+)/.exec(text);
+  if (exportClass?.[1]) return exportClass[1];
+  const exportFn =
+    /\bexport\s+(?:default\s+)?(?:async\s+)?function\s+(\w+)/.exec(text);
+  if (exportFn?.[1]) return exportFn[1];
+  const exportConst = /\bexport\s+(?:const|let)\s+(\w+)\s*=/.exec(text);
+  if (exportConst?.[1]) return exportConst[1];
+  const nestMethod =
+    /@(?:Get|Post|Put|Patch|Delete|Options|Head|All)\b[\s\S]{0,120}?(?:async\s+)?(\w+)\s*\(/.exec(
+      text,
+    );
+  if (nestMethod?.[1] && nestMethod[1] !== "async") return nestMethod[1];
+  return fileStemLabel(path);
+}
+
 function scanApiSurface(
   root: string,
   files: readonly string[],
@@ -242,7 +267,7 @@ function scanApiSurface(
   const findings: UtilityOverlayFinding[] = [];
 
   for (const path of files) {
-    const base = path.split("/").pop() ?? path;
+    const base = fileBasename(path);
     if (
       /(^|\/)openapi\.(ya?ml|json)$/i.test(path) ||
       /(^|\/)swagger\.(ya?ml|json)$/i.test(path)
@@ -263,7 +288,12 @@ function scanApiSurface(
       /(route|controller|handler|router)\.(ts|js|go|py)$/i.test(base) ||
       /\/routes?\//i.test(path)
     ) {
-      nodes.push(node(`api:handler:${path}`, "handler", base, { path }));
+      const text = readText(root, path);
+      nodes.push(
+        node(`api:handler:${path}`, "handler", apiSurfaceLabel(path, text), {
+          path,
+        }),
+      );
     }
     if (/\.(ts|js|go)$/i.test(path)) {
       const text = readText(root, path);
@@ -275,7 +305,9 @@ function scanApiSurface(
       ) {
         const id = `api:route-file:${path}`;
         if (!nodes.some((n) => n.id === id)) {
-          nodes.push(node(id, "route-table", base, { path }));
+          nodes.push(
+            node(id, "route-table", apiSurfaceLabel(path, text), { path }),
+          );
         }
       }
     }
@@ -306,6 +338,46 @@ function scanApiSurface(
   });
 }
 
+function parentDir(path: string): string {
+  const i = path.lastIndexOf("/");
+  return i <= 0 ? "" : path.slice(0, i);
+}
+
+function resolveRelPath(fromDir: string, specifier: string): string {
+  const parts = fromDir === "" ? [] : fromDir.split("/").filter(Boolean);
+  for (const seg of specifier.split("/")) {
+    if (seg === "." || seg === "") continue;
+    if (seg === "..") parts.pop();
+    else parts.push(seg);
+  }
+  return parts.join("/");
+}
+
+function resolveMobileImport(
+  fromPath: string,
+  specifier: string,
+  byStem: Map<string, string>,
+  byPath: Map<string, string>,
+): string | undefined {
+  if (!specifier.startsWith(".")) return byStem.get(specifier);
+  const joined = resolveRelPath(parentDir(fromPath), specifier);
+  const candidates = [
+    joined,
+    `${joined}.tsx`,
+    `${joined}.ts`,
+    `${joined}.jsx`,
+    `${joined}.js`,
+    `${joined}/index.tsx`,
+    `${joined}/index.ts`,
+  ];
+  for (const c of candidates) {
+    const id = byPath.get(c);
+    if (id) return id;
+  }
+  const stem = fileStemLabel(joined);
+  return byStem.get(stem) ?? byStem.get(specifier.replace(/^\.\.?\//, ""));
+}
+
 function scanMobileNav(
   root: string,
   files: readonly string[],
@@ -313,26 +385,196 @@ function scanMobileNav(
 ): UtilityOverlayReport {
   const nodes: GraphNodeDto[] = [];
   const edges: GraphEdgeDto[] = [];
+  const seen = new Set<string>();
+  const byPath = new Map<string, string>();
+  const byStem = new Map<string, string>();
+
+  const addNode = (
+    id: string,
+    kind: string,
+    label: string,
+    attrs: Record<string, string | number | boolean>,
+  ): void => {
+    if (seen.has(id)) return;
+    seen.add(id);
+    nodes.push(node(id, kind, label, attrs));
+    const path = String(attrs.path ?? "");
+    if (path) {
+      byPath.set(path, id);
+      byStem.set(fileStemLabel(path), id);
+      byStem.set(label, id);
+    }
+  };
+
   for (const path of files) {
-    if (
-      /(^|\/)app\/_layout\.(tsx?|jsx?)$/.test(path) ||
-      /(^|\/)app\/\(.*\)\/.*\.(tsx?|jsx?)$/.test(path) ||
-      /(^|\/)app\/[^/]+\.(tsx?|jsx?)$/.test(path)
+    const label = fileStemLabel(path);
+    const isAppLayout = /(^|\/)app\/.*_layout\.(tsx?|jsx?)$/.test(path);
+    const isExpoScreen =
+      /(^|\/)app\/(?:\(.*\)\/)?[^/]+\.(tsx?|jsx?)$/.test(path) ||
+      /(^|\/)app\/\(.*\)\/.*\.(tsx?|jsx?)$/.test(path);
+    if (isAppLayout) {
+      addNode(`nav:graph:${path}`, "navigator", label, {
+        path,
+        router: "expo",
+      });
+    } else if (
+      isExpoScreen &&
+      !/\+api\./.test(path) &&
+      !path.endsWith(".d.ts")
     ) {
-      nodes.push(
-        node(`nav:screen:${path}`, "screen", path, { path, router: "expo" }),
-      );
+      addNode(`nav:screen:${path}`, "screen", label, {
+        path,
+        router: "expo",
+      });
     }
     if (/navigation\.(tsx?|jsx?)$/i.test(path) || /Navigator\./i.test(path)) {
-      nodes.push(node(`nav:graph:${path}`, "navigator", path, { path }));
+      addNode(`nav:graph:${path}`, "navigator", label, { path });
     }
     if (/(Screen|screens\/).*\.(tsx?|jsx?)$/i.test(path)) {
-      nodes.push(node(`nav:screen:${path}`, "screen", path, { path }));
+      addNode(`nav:screen:${path}`, "screen", label, { path });
+    }
+    if (
+      /(^|\/)hooks?\/use\w+\.(tsx?|jsx?)$/i.test(path) ||
+      /(^|\/)use[A-Z]\w+\.(tsx?|jsx?)$/.test(path)
+    ) {
+      addNode(`nav:hook:${path}`, "hook", label, { path });
+    }
+    if (
+      /(^|\/)(services?|api|modules?)\/.*\.(tsx?|jsx?|ts|js)$/i.test(path) ||
+      /\.(service|module)\.(tsx?|jsx?|ts|js)$/i.test(path)
+    ) {
+      const kind = /module/i.test(path) ? "module" : "service";
+      addNode(`nav:${kind}:${path}`, kind, label, { path });
     }
   }
-  for (let i = 1; i < nodes.length; i++) {
-    edges.push(edge(`nav:e${i}`, "navigates", nodes[i - 1]!.id, nodes[i]!.id));
+
+  let edgeIdx = 0;
+  const edgeKeys = new Set<string>();
+  const addNavEdge = (from: string, to: string): void => {
+    if (from === to) return;
+    const key = `${from}->${to}`;
+    if (edgeKeys.has(key)) return;
+    edgeKeys.add(key);
+    edges.push(edge(`nav:e${edgeIdx++}`, "navigates", from, to));
+  };
+
+  for (const path of files) {
+    if (!/\.(tsx?|jsx?)$/i.test(path)) continue;
+    const text = readText(root, path);
+    if (!text) continue;
+    const fromId = byPath.get(path);
+
+    // React Navigation: Stack.Screen name="X" component={Foo}
+    const screenTagRe =
+      /(?:Stack|Tab|Drawer|NativeStack|MaterialTopTab)\.Screen\s[^>]*?component\s*=\s*\{\s*(\w+)\s*\}/g;
+    let m: RegExpExecArray | null;
+    while ((m = screenTagRe.exec(text)) !== null) {
+      const toId = byStem.get(m[1]!);
+      if (fromId && toId) addNavEdge(fromId, toId);
+    }
+
+    // createXNavigator route tables: Foo: FooScreen / Foo: { screen: FooScreen }
+    if (
+      /create(?:Native)?(?:Stack|BottomTab|Drawer|MaterialTopTab)Navigator/i.test(
+        text,
+      )
+    ) {
+      const routeRe = /(\w+)\s*:\s*(?:\{\s*screen\s*:\s*)?(\w+Screen|\w+)\b/g;
+      while ((m = routeRe.exec(text)) !== null) {
+        const toId = byStem.get(m[2]!) ?? byStem.get(m[1]!);
+        if (fromId && toId) addNavEdge(fromId, toId);
+      }
+    }
+
+    // import FooScreen from './Foo' / import { Home } from ...
+    const importRe =
+      /import\s+(?:(\w+)|\{\s*([^}]+)\s*\})\s+from\s+['"]([^'"]+)['"]/g;
+    while ((m = importRe.exec(text)) !== null) {
+      const names = [
+        m[1],
+        ...(m[2] ?? "")
+          .split(",")
+          .map((s) =>
+            s
+              .trim()
+              .split(/\s+as\s+/)
+              .pop()
+              ?.trim(),
+          )
+          .filter(Boolean),
+      ].filter((n): n is string => Boolean(n));
+      for (const name of names) {
+        if (!name.endsWith("Screen") && !byStem.has(name)) continue;
+        const toId =
+          resolveMobileImport(path, m[3]!, byStem, byPath) ?? byStem.get(name);
+        if (
+          fromId &&
+          toId &&
+          nodes.find((n) => n.id === toId)?.kind === "screen"
+        ) {
+          addNavEdge(fromId, toId);
+        }
+      }
+    }
+
+    // Expo Router: Link href="/x" / router.push('/x')
+    const linkRe =
+      /(?:href|router\.(?:push|replace|navigate))\s*[=(]\s*['"`]\/?([^'"`]+)['"`]/g;
+    while ((m = linkRe.exec(text)) !== null) {
+      const route = m[1]!.replace(/^\//, "");
+      const candidates = [
+        `app/${route}.tsx`,
+        `app/${route}.ts`,
+        `app/${route}/index.tsx`,
+        `app/(tabs)/${route}.tsx`,
+      ];
+      // Also match any screen whose path ends with the route segment.
+      for (const [p, id] of byPath) {
+        if (
+          candidates.includes(p) ||
+          p.endsWith(`/${route}.tsx`) ||
+          p.endsWith(`/${route}.ts`) ||
+          p.endsWith(`/${route}/index.tsx`)
+        ) {
+          if (fromId) addNavEdge(fromId, id);
+        }
+      }
+    }
   }
+
+  // Fallback: screens that share a navigator parent folder get navigates edges
+  // (not a global sequential discovery-order chain).
+  if (edges.length === 0) {
+    const screens = nodes.filter((n) => n.kind === "screen");
+    const byParent = new Map<string, string[]>();
+    for (const s of screens) {
+      const p = String(s.attrs?.path ?? "");
+      const parent = parentDir(p) || ".";
+      const list = byParent.get(parent) ?? [];
+      list.push(s.id);
+      byParent.set(parent, list);
+    }
+    for (const ids of byParent.values()) {
+      for (let i = 1; i < ids.length; i++) {
+        addNavEdge(ids[i - 1]!, ids[i]!);
+      }
+    }
+    // Link navigators to screens under the same directory tree.
+    for (const nav of nodes.filter((n) => n.kind === "navigator")) {
+      const navPath = String(nav.attrs?.path ?? "");
+      const navDir = parentDir(navPath);
+      for (const s of screens) {
+        const sp = String(s.attrs?.path ?? "");
+        if (
+          navDir &&
+          (sp.startsWith(`${navDir}/`) || parentDir(sp) === navDir)
+        ) {
+          addNavEdge(nav.id, s.id);
+        }
+      }
+    }
+  }
+
   return report({
     kind: "mobile-nav",
     domain: StackDomain.MOBILE,
@@ -341,16 +583,73 @@ function scanMobileNav(
     summary:
       nodes.length === 0
         ? "No mobile navigation screens detected"
-        : `Mobile nav: ${nodes.length} screen/navigator node(s)`,
+        : `Mobile nav: ${nodes.length} screen/navigator node(s)` +
+          (edges.length > 0 ? ` · ${edges.length} navigates` : ""),
     nodes,
     edges,
     mapLayer: {
       id: "layer:mobile-nav",
       label: "Mobile navigation",
       colorHint: "#EC4899",
-      nodeKinds: ["screen", "navigator"],
+      nodeKinds: ["screen", "navigator", "hook", "service", "module"],
     },
   });
+}
+
+export type DesktopIpcChannel = {
+  name: string;
+  source:
+    | "ipcMain.handle"
+    | "ipcMain.on"
+    | "ipcRenderer.invoke"
+    | "ipcRenderer.send"
+    | "contextBridge";
+  path: string;
+  risk: "low" | "medium";
+};
+
+/** Parse Electron IPC channel names from source text. */
+export function extractDesktopIpcChannels(
+  path: string,
+  text: string,
+): DesktopIpcChannel[] {
+  const out: DesktopIpcChannel[] = [];
+  const push = (
+    name: string,
+    source: DesktopIpcChannel["source"],
+    risk: DesktopIpcChannel["risk"],
+  ): void => {
+    if (!name.trim()) return;
+    if (
+      out.some((c) => c.name === name && c.source === source && c.path === path)
+    )
+      return;
+    out.push({ name, source, path, risk });
+  };
+
+  let m: RegExpExecArray | null;
+  const handleRe = /ipcMain\.(handle|handleOnce)\s*\(\s*['"`]([^'"`]+)['"`]/g;
+  while ((m = handleRe.exec(text)) !== null) {
+    push(m[2]!, "ipcMain.handle", "low");
+  }
+  const onRe = /ipcMain\.(on|once)\s*\(\s*['"`]([^'"`]+)['"`]/g;
+  while ((m = onRe.exec(text)) !== null) {
+    push(m[2]!, "ipcMain.on", "low");
+  }
+  const invokeRe = /ipcRenderer\.invoke\s*\(\s*['"`]([^'"`]+)['"`]/g;
+  while ((m = invokeRe.exec(text)) !== null) {
+    push(m[1]!, "ipcRenderer.invoke", "low");
+  }
+  const sendRe = /ipcRenderer\.(send|sendSync)\s*\(\s*['"`]([^'"`]+)['"`]/g;
+  while ((m = sendRe.exec(text)) !== null) {
+    push(m[2]!, "ipcRenderer.send", "low");
+  }
+  const exposeRe =
+    /contextBridge\.exposeInMainWorld\s*\(\s*['"`]([^'"`]+)['"`]/g;
+  while ((m = exposeRe.exec(text)) !== null) {
+    push(m[1]!, "contextBridge", "medium");
+  }
+  return out;
 }
 
 function scanDesktopBoundary(
@@ -360,45 +659,110 @@ function scanDesktopBoundary(
 ): UtilityOverlayReport {
   const nodes: GraphNodeDto[] = [];
   const edges: GraphEdgeDto[] = [];
-  let mainId: string | undefined;
-  let preloadId: string | undefined;
-  let rendererId: string | undefined;
+  const findings: UtilityOverlayFinding[] = [];
+  const mainIds: string[] = [];
+  const preloadIds: string[] = [];
+  const rendererIds: string[] = [];
+  const ipcIds: string[] = [];
+  const allChannels: DesktopIpcChannel[] = [];
+
   for (const path of files) {
     if (/(^|\/)(electron\.)?main\.(ts|js|mjs|cjs)$/i.test(path)) {
-      mainId = `dt:main:${path}`;
-      nodes.push(node(mainId, "main", path, { path }));
+      const id = `dt:main:${path}`;
+      nodes.push(node(id, "main", `${fileBasename(path)} · main`, { path }));
+      mainIds.push(id);
     }
     if (/preload\.(ts|js|mjs|cjs)$/i.test(path)) {
-      preloadId = `dt:preload:${path}`;
-      nodes.push(node(preloadId, "preload", path, { path }));
+      const id = `dt:preload:${path}`;
+      nodes.push(
+        node(id, "preload", `${fileBasename(path)} · preload`, { path }),
+      );
+      preloadIds.push(id);
     }
     if (
       /renderer\.(ts|js|tsx|jsx)$/i.test(path) ||
       /(^|\/)src\/renderer\//i.test(path)
     ) {
-      rendererId = `dt:renderer:${path}`;
-      nodes.push(node(rendererId, "renderer", path, { path }));
+      const id = `dt:renderer:${path}`;
+      if (!nodes.some((n) => n.id === id)) {
+        nodes.push(
+          node(id, "renderer", `${fileBasename(path)} · renderer`, { path }),
+        );
+        rendererIds.push(id);
+      }
     }
     if (/tauri\.conf\.json$/i.test(path) || /Cargo\.toml$/i.test(path)) {
-      nodes.push(node(`dt:tauri:${path}`, "tauri-config", path, { path }));
+      nodes.push(
+        node(
+          `dt:tauri:${path}`,
+          "tauri-config",
+          `${fileBasename(path)} · tauri`,
+          {
+            path,
+          },
+        ),
+      );
     }
-    const text =
-      path.endsWith(".ts") || path.endsWith(".js") ? readText(root, path) : "";
-    if (/ipcMain|contextBridge|invoke\(/i.test(text)) {
+    const text = /\.(tsx?|jsx?|mjs|cjs)$/i.test(path)
+      ? readText(root, path)
+      : "";
+    const channels = text ? extractDesktopIpcChannels(path, text) : [];
+    if (
+      channels.length > 0 ||
+      /ipcMain|contextBridge|ipcRenderer|invoke\(/i.test(text)
+    ) {
       const id = `dt:ipc:${path}`;
       if (!nodes.some((n) => n.id === id)) {
-        nodes.push(node(id, "ipc", path, { path }));
+        const channelNames = [...new Set(channels.map((c) => c.name))];
+        nodes.push(
+          node(id, "ipc", `${fileBasename(path)} · ipc`, {
+            path,
+            ...(channelNames.length > 0
+              ? { channels: channelNames.join(",") }
+              : {}),
+          }),
+        );
+        ipcIds.push(id);
+      }
+      for (const ch of channels) {
+        allChannels.push(ch);
+        findings.push({
+          id: `finding:ipc:${ch.source}:${ch.name}:${path}`,
+          message: `IPC ${ch.source}: "${ch.name}"${
+            ch.risk === "medium" ? " (preload exposure)" : ""
+          }`,
+          path,
+          severity: ch.risk === "medium" ? "medium" : "info",
+        });
       }
     }
   }
-  if (mainId && preloadId) {
-    edges.push(edge("dt:e-main-preload", "ipc", mainId, preloadId));
+
+  let eIdx = 0;
+  for (const mainId of mainIds) {
+    for (const preloadId of preloadIds) {
+      edges.push(edge(`dt:e${eIdx++}`, "ipc", mainId, preloadId));
+    }
+    for (const rendererId of rendererIds) {
+      if (preloadIds.length === 0) {
+        edges.push(edge(`dt:e${eIdx++}`, "loads", mainId, rendererId));
+      }
+    }
+    for (const ipcId of ipcIds) {
+      if (ipcId !== mainId) {
+        edges.push(edge(`dt:e${eIdx++}`, "ipc", mainId, ipcId));
+      }
+    }
   }
-  if (preloadId && rendererId) {
-    edges.push(edge("dt:e-preload-renderer", "exposes", preloadId, rendererId));
-  } else if (mainId && rendererId) {
-    edges.push(edge("dt:e-main-renderer", "loads", mainId, rendererId));
+  for (const preloadId of preloadIds) {
+    for (const rendererId of rendererIds) {
+      edges.push(edge(`dt:e${eIdx++}`, "exposes", preloadId, rendererId));
+    }
   }
+
+  const channelSummary =
+    allChannels.length > 0 ? ` · ${allChannels.length} IPC channel(s)` : "";
+
   return report({
     kind: "desktop-boundary",
     domain: StackDomain.DESKTOP,
@@ -407,7 +771,7 @@ function scanDesktopBoundary(
     summary:
       nodes.length === 0
         ? "No desktop main/renderer/IPC markers found"
-        : `Desktop boundary: ${nodes.length} process/surface node(s)`,
+        : `Desktop boundary: ${nodes.length} process/surface node(s)${channelSummary}`,
     nodes,
     edges,
     mapLayer: {
@@ -416,6 +780,7 @@ function scanDesktopBoundary(
       colorHint: "#8B5CF6",
       nodeKinds: ["main", "preload", "renderer", "ipc", "tauri-config"],
     },
+    findings,
   });
 }
 
@@ -532,7 +897,51 @@ type CiWorkflow = {
   inputs: CiDispatchInput[];
   /** `repository_dispatch.types` when declared. */
   dispatchTypes: string[];
+  /** Top-level `concurrency:` present (overlap guard). */
+  hasConcurrency: boolean;
+  /** Top-level `permissions:` present (token scope). */
+  hasPermissions: boolean;
 };
+
+/** Best-effort `owner/repo` from package.json repository or `.git/config`. */
+function detectRepoSlug(root: string): string | undefined {
+  try {
+    const raw = readText(root, "package.json");
+    if (raw) {
+      const pkg = JSON.parse(raw) as {
+        name?: unknown;
+        repository?: unknown;
+      };
+      const repoField = pkg.repository;
+      const url =
+        typeof repoField === "string"
+          ? repoField
+          : repoField &&
+              typeof repoField === "object" &&
+              typeof (repoField as { url?: unknown }).url === "string"
+            ? (repoField as { url: string }).url
+            : undefined;
+      if (url) {
+        const m =
+          /github\.com[/:]([^/\s]+\/[^/\s]+?)(?:\.git)?(?:[/?#]|$)/i.exec(url);
+        if (m?.[1]) return m[1].replace(/\.git$/i, "");
+      }
+      if (typeof pkg.name === "string" && pkg.name.trim() !== "") {
+        return pkg.name.replace(/^@/, "");
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  try {
+    const cfg = readFileSync(join(root, ".git", "config"), "utf8");
+    const m = /url\s*=\s*.*github\.com[/:]([^/\s]+\/[^/\s]+)/i.exec(cfg);
+    if (m?.[1]) return m[1].replace(/\.git$/i, "");
+  } catch {
+    /* ignore */
+  }
+  return undefined;
+}
 
 /** Capture immediate child keys of a `parent:` block (standard indented YAML). */
 function childKeys(lines: readonly string[], startIndex: number): string[] {
@@ -723,6 +1132,9 @@ function scanCiWorkflows(root: string): CiWorkflow[] {
       }
     }
 
+    const hasConcurrency = /^concurrency\s*:/m.test(text);
+    const hasPermissions = /^permissions\s*:/m.test(text);
+
     out.push({
       path: rel,
       name,
@@ -731,6 +1143,8 @@ function scanCiWorkflows(root: string): CiWorkflow[] {
       dispatchers,
       inputs,
       dispatchTypes,
+      hasConcurrency,
+      hasPermissions,
     });
   }
   return out;
@@ -743,6 +1157,8 @@ function scanIac(
 ): UtilityOverlayReport {
   const nodes: GraphNodeDto[] = [];
   const edges: GraphEdgeDto[] = [];
+  const findings: UtilityOverlayFinding[] = [];
+  const dockerfiles: string[] = [];
   for (const path of files) {
     if (path.endsWith(".tf") || path.endsWith(".tf.json")) {
       nodes.push(node(`iac:tf:${path}`, "terraform", path, { path }));
@@ -762,8 +1178,11 @@ function scanIac(
     }
     if (/Dockerfile$/i.test(path) || /compose\.ya?ml$/i.test(path)) {
       nodes.push(node(`iac:container:${path}`, "container", path, { path }));
+      if (/Dockerfile$/i.test(path)) dockerfiles.push(path);
     }
   }
+
+  const repoSlug = detectRepoSlug(root);
 
   // CI/CD pipelines — GitHub Actions today (repo-level only). Runners like Argo
   // and Jenkins arrive via the Integrations tab (see ADR-0016).
@@ -773,6 +1192,8 @@ function scanIac(
         node(`iac:ci:${wf.path}`, "ci", wf.name, {
           path: wf.path,
           provider: "github-actions",
+          source: "github",
+          ...(repoSlug !== undefined ? { repo: repoSlug } : {}),
           ...(wf.events.length > 0 ? { events: wf.events.join(", ") } : {}),
           ...(wf.jobs.length > 0
             ? { jobs: wf.jobs.join(", "), jobCount: wf.jobs.length }
@@ -789,8 +1210,39 @@ function scanIac(
           ...(wf.dispatchTypes.length > 0
             ? { dispatchTypes: wf.dispatchTypes.join(", ") }
             : {}),
+          hasConcurrency: wf.hasConcurrency,
+          hasPermissions: wf.hasPermissions,
         }),
       );
+      if (!wf.hasConcurrency && findings.length < 3) {
+        findings.push({
+          id: `ci:concurrency:${wf.path}`,
+          message: `Workflow "${wf.name}" has no concurrency group — parallel runs may overlap`,
+          path: wf.path,
+          severity: "low",
+        });
+      }
+      if (!wf.hasPermissions && findings.length < 3) {
+        findings.push({
+          id: `ci:permissions:${wf.path}`,
+          message: `Workflow "${wf.name}" lacks top-level permissions — GITHUB_TOKEN may be overly broad`,
+          path: wf.path,
+          severity: "medium",
+        });
+      }
+    }
+  }
+
+  for (const path of dockerfiles) {
+    if (findings.length >= 3) break;
+    const text = readText(root, path);
+    if (text && !/HEALTHCHECK\b/i.test(text)) {
+      findings.push({
+        id: `container:healthcheck:${path}`,
+        message: "Dockerfile has no HEALTHCHECK instruction",
+        path,
+        severity: "low",
+      });
     }
   }
 
@@ -817,6 +1269,7 @@ function scanIac(
       colorHint: "#64748B",
       nodeKinds: ["terraform", "helm", "kubernetes", "container", "ci"],
     },
+    findings,
   });
 }
 

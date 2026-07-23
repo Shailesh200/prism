@@ -28,7 +28,10 @@ export { createDefaultDetectorPacks } from "./stack/packs.js";
 export {
   assembleDnaReport,
   enrichStackProfile,
+  primaryDomain,
+  rankDomainsByConfidence,
   type AssembleDnaOptions,
+  type RankedDomainEntry,
 } from "./stack/dna.js";
 export {
   buildDependencyGraph,
@@ -86,6 +89,21 @@ export {
   type StartUtilityJobInput,
   type UtilityJobService,
 } from "./utilities/jobs.js";
+export {
+  ensureLighthouseCli,
+  resolveSystemChrome,
+  runLighthouseCli,
+  resolveReachableLabUrl,
+  probeLabUrl,
+} from "./utilities/lighthouse-runner.js";
+export {
+  COMMON_LAB_PORTS,
+  PRISM_LAB_PORT,
+  detectLabKind,
+  discoverLabUrl,
+  resolveLabAppRoot,
+  startLabPreviewServer,
+} from "./utilities/lab-server.js";
 export { buildPersonaPresets } from "./utilities/presets.js";
 export {
   LIGHTHOUSE_CALLOUT,
@@ -99,18 +117,37 @@ export { getCwvReport } from "./utilities/cwv-from-artifact.js";
 export {
   HEALTH_FACTOR_WEIGHTS,
   computeHealthScore,
+  type ComputeHealthScoreOptions,
   type HealthFactorId,
 } from "./health/score.js";
+export {
+  buildTestingReport,
+  ingestCoverageFromWorkspace,
+  type BuildTestingReportInput,
+} from "./testing/report.js";
+export {
+  buildSecurityReport,
+  type BuildSecurityReportInput,
+} from "./security/report.js";
 export {
   computeEngineeringHealth,
   type ComputeEngineeringHealthInput,
 } from "./health/engineering.js";
+export { computeRegionScores } from "./health/regions.js";
+export {
+  computeRegionMovers,
+  pickRegionMoverWindow,
+  type RegionMoverWindow,
+} from "./health/movers.js";
+export { buildHealthHistorySnapshot } from "./health/history.js";
 export {
   UTILITY_OVERLAY_CATALOG,
   buildUtilityOverlay,
+  extractDesktopIpcChannels,
   listUtilityOverlayKinds,
   parseUtilityOverlayKind,
   type BuildUtilityOverlayInput,
+  type DesktopIpcChannel,
 } from "./utilities/overlays.js";
 export {
   buildBackendReport,

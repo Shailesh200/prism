@@ -1,1 +1,6 @@
-console.log("renderer");
+declare const prismDesktop: {
+  getVersion: () => Promise<string>;
+  log: (msg: string) => void;
+};
+
+void prismDesktop.getVersion();

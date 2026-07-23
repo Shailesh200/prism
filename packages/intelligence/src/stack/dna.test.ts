@@ -3,9 +3,18 @@ import { fileURLToPath } from "node:url";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
-import { DeveloperPersona, DnaReportSchema, StackDomain } from "@prism/shared";
+import {
+  DeveloperPersona,
+  DnaReportSchema,
+  StackDomain,
+  type StackProfile,
+} from "@prism/shared";
 import { createStackHost } from "../host.js";
-import { assembleDnaReport } from "./dna.js";
+import {
+  assembleDnaReport,
+  primaryDomain,
+  rankDomainsByConfidence,
+} from "./dna.js";
 import { createDefaultDetectorPacks } from "./packs.js";
 
 const fixtures = join(
@@ -39,6 +48,8 @@ describe("M-013 detector packs + DNA", () => {
       expect.arrayContaining(["frontend-next", "frontend-react"]),
     );
     expect(dna.testRunners).toContain("vitest");
+    expect(dna.primaryDomain).toBe(StackDomain.FRONTEND);
+    expect(dna.rankedDomains[0]?.id).toBe(StackDomain.FRONTEND);
   });
 
   it("BE fixture → backend (Go)", async () => {
@@ -97,6 +108,13 @@ describe("M-013 detector packs + DNA", () => {
     );
     expect((dna.stack?.personas ?? []).length).toBeGreaterThan(1);
     expect(dna.languages.some((l) => l.id === "typescript")).toBe(true);
+    // Confidence ranking: FE/BE signals outweigh sparse devops markers.
+    expect(dna.primaryDomain).not.toBe(StackDomain.DEVOPS_PLATFORM);
+    expect([StackDomain.FRONTEND, StackDomain.BACKEND]).toContain(
+      dna.primaryDomain,
+    );
+    expect(dna.rankedDomains.length).toBeGreaterThan(0);
+    expect(dna.rankedDomains[0]?.id).toBe(dna.primaryDomain);
   });
 
   it("unknown empty dir → partial DNA, no throw", async () => {
@@ -109,6 +127,72 @@ describe("M-013 detector packs + DNA", () => {
     const dna = assembleDnaReport({ profile: profile.value });
     expect(dna.summary).toMatch(/Partial DNA/i);
     expect(dna.frameworks).toEqual([]);
+    expect(dna.rankedDomains).toEqual([]);
+    expect(dna.primaryDomain).toBeUndefined();
     expect(DnaReportSchema.safeParse(dna).success).toBe(true);
+  });
+});
+
+describe("rankDomainsByConfidence (M-046)", () => {
+  it("ranks frontend above devops when FE signals are stronger", () => {
+    const profile: StackProfile = {
+      rootPath: "/tmp/synthetic",
+      generatedAt: "2026-07-23T00:00:00.000Z",
+      domains: [
+        StackDomain.DEVOPS_PLATFORM,
+        StackDomain.FRONTEND,
+        StackDomain.TOOLING,
+      ],
+      personas: [],
+      summary: "synthetic",
+      packages: [],
+      signals: [
+        {
+          id: "devops-docker",
+          domain: StackDomain.DEVOPS_PLATFORM,
+          confidence: 0.7,
+          personas: [],
+          evidence: ["Dockerfile"],
+        },
+        {
+          id: "frontend-react",
+          domain: StackDomain.FRONTEND,
+          confidence: 0.9,
+          personas: [],
+          evidence: ["package.json"],
+        },
+        {
+          id: "frontend-next",
+          domain: StackDomain.FRONTEND,
+          confidence: 0.85,
+          personas: [],
+          evidence: ["package.json"],
+        },
+        {
+          id: "pm-npm",
+          domain: StackDomain.TOOLING,
+          confidence: 0.4,
+          personas: [],
+          evidence: ["package-lock.json"],
+        },
+      ],
+    };
+
+    const ranked = rankDomainsByConfidence(profile);
+    expect(ranked.map((r) => r.id)).toEqual([
+      StackDomain.FRONTEND,
+      StackDomain.DEVOPS_PLATFORM,
+      StackDomain.TOOLING,
+    ]);
+    expect(ranked[0]?.signalCount).toBe(2);
+    expect(ranked[0]?.confidence).toBeGreaterThan(ranked[1]?.confidence ?? 0);
+    expect(primaryDomain(profile)).toBe(StackDomain.FRONTEND);
+
+    const dna = assembleDnaReport({ profile });
+    expect(dna.primaryDomain).toBe(StackDomain.FRONTEND);
+    expect(dna.rankedDomains[0]).toEqual({
+      id: StackDomain.FRONTEND,
+      confidence: ranked[0]?.confidence,
+    });
   });
 });
