@@ -1,0 +1,623 @@
+/* Testing & Security screen tweaks (M-046 follow-up). */
+
+/* —— Status banner —— */
+.ts-banner {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--prism-line, rgba(255, 255, 255, 0.08));
+  background: var(--prism-panel, #131a2b);
+  color: var(--prism-ink-muted, #cbd5e1);
+  font-size: 0.8125rem;
+}
+
+/* —— Accordion sections —— */
+.ts-acc {
+  padding-top: 12px;
+}
+
+.ts-acc__trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 4px 0 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ts-acc__trigger:hover .ts-head__title {
+  color: var(--prism-ink, #fff);
+}
+
+.ts-acc__chevron {
+  display: inline-flex;
+  color: var(--prism-ink-muted, #64748b);
+  flex-shrink: 0;
+}
+
+.ts-acc__trigger .ts-head__title {
+  flex: 1;
+  min-width: 0;
+}
+
+.ts-acc__body {
+  padding-top: 2px;
+}
+
+/* —— Card head (title + score) —— */
+.ts-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.ts-head__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.ts-score {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--prism-ink, #fff);
+  margin-left: auto;
+}
+
+.ts-score__unit {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #64748b;
+  margin-left: 2px;
+}
+
+.ts-summary {
+  margin: 0 0 16px;
+  font-size: 0.8125rem;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+/* —— Section labels with colored CardIcon + InfoTip —— */
+.ts-section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 18px 0 10px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.ts-section-label--flush {
+  margin: 0;
+}
+
+.ts-empty,
+.ts-hint {
+  margin: 0 0 12px;
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+.ts-hint {
+  font-style: italic;
+}
+
+/* —— Runner chips —— */
+.ts-runners {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ts-runner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #131a2b;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.ts-runner__logo {
+  width: 16px;
+  height: 16px;
+  color: var(--prism-brand, #00c2c2);
+  flex-shrink: 0;
+}
+
+/* —— Suite tree —— */
+.ts-tree-refresh {
+  font-size: 0.75rem !important;
+  padding-block: 5px !important;
+}
+
+.ts-tree {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  background: #10162480;
+  max-height: min(420px, 50vh);
+  overflow: auto;
+}
+
+.ts-tree__folder,
+.ts-tree__file,
+.ts-tree__test {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ts-tree__files {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 14px;
+}
+
+.ts-tree__tests {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 28px;
+}
+
+.ts-tree__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+}
+
+.ts-tree__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #cbd5e1;
+  font: inherit;
+  font-size: 0.8125rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ts-tree__toggle:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+}
+
+.ts-tree__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ts-tree__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #64748b;
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+.ts-tree__test-name {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ts-tree__run {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: #131a2b;
+  color: #e2e8f0;
+  font: inherit;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ts-tree__run:hover:not(:disabled) {
+  border-color: color-mix(
+    in srgb,
+    var(--prism-brand, #00c2c2) 45%,
+    transparent
+  );
+  color: #fff;
+}
+
+.ts-tree__run:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* —— Tests / checks table header (title + filter) —— */
+.ts-tests-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 18px 0 10px;
+}
+
+.ts-tests-head__right {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ts-lastrun {
+  font-size: 0.6875rem;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.ts-filter {
+  width: min(240px, 48vw);
+}
+
+.ts-filter .prism-search__input {
+  font-size: 0.75rem;
+  padding-block: 5px;
+}
+
+/* —— Tables —— */
+.ts-table-wrap {
+  border: 1px solid var(--prism-line, rgba(255, 255, 255, 0.07));
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.ts-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.ts-table thead th {
+  text-align: left;
+  padding: 9px 12px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--prism-ink-muted, #64748b);
+  background: var(--prism-panel-2, #10162480);
+  border-bottom: 1px solid var(--prism-line, rgba(255, 255, 255, 0.07));
+}
+
+.ts-table tbody td {
+  padding: 9px 12px;
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--prism-line, #2a334a) 55%, transparent);
+  color: var(--prism-ink, #cbd5e1);
+  vertical-align: top;
+}
+
+.ts-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.ts-table tbody tr:hover td {
+  background: color-mix(in srgb, var(--prism-brand, #00c2c2) 6%, transparent);
+}
+
+.ts-table__status {
+  width: 96px;
+  white-space: nowrap;
+}
+
+.ts-table__num {
+  width: 84px;
+  text-align: right;
+  color: var(--prism-ink-muted, #94a3b8);
+  font-variant-numeric: tabular-nums;
+}
+
+.ts-table__empty {
+  color: var(--prism-ink-muted, #64748b);
+  font-style: italic;
+  text-align: center;
+}
+
+/* Align Detail columns across domain check tables. */
+.ts-table--checks {
+  table-layout: fixed;
+}
+
+.ts-col-status {
+  width: 96px;
+}
+
+.ts-col-check {
+  width: 32%;
+}
+
+.ts-col-detail {
+  width: auto;
+}
+
+.ts-table__detail,
+.ts-cell-detail {
+  width: auto;
+}
+
+.ts-cell-name {
+  display: block;
+  color: var(--prism-ink, #e2e8f0);
+  font-weight: 500;
+}
+
+.ts-cell-suite {
+  display: inline-block;
+  margin-top: 3px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--prism-ink-muted, #94a3b8) 12%, transparent);
+  color: var(--prism-ink-muted, #94a3b8);
+  font-size: 0.6875rem;
+}
+
+.ts-cell-mono {
+  font-family: var(--prism-mono, ui-monospace, "SF Mono", Menlo, monospace);
+  font-size: 0.75rem;
+  color: var(--prism-ink-muted, #94a3b8);
+  word-break: break-all;
+}
+
+.ts-cell-detail {
+  color: var(--prism-ink-muted, #94a3b8);
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+/* —— Per-test status pills —— */
+.ts-tstat {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.ts-tstat--passing {
+  color: var(--prism-emerald, #10b981);
+  background: color-mix(in srgb, var(--prism-emerald, #10b981) 16%, transparent);
+}
+
+.ts-tstat--failing {
+  color: var(--prism-rose, #f43f5e);
+  background: color-mix(in srgb, var(--prism-rose, #f43f5e) 16%, transparent);
+}
+
+.ts-tstat--skipped,
+.ts-tstat--unknown {
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.ts-tstat--none {
+  color: #64748b;
+  background: transparent;
+  font-weight: 600;
+}
+
+/* —— Security check status icons —— */
+.ts-check-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+}
+
+.ts-check-icon--pass {
+  color: var(--prism-emerald, #10b981);
+  background: color-mix(in srgb, var(--prism-emerald, #10b981) 16%, transparent);
+}
+
+.ts-check-icon--warn {
+  color: var(--prism-amber, #f59e0b);
+  background: color-mix(in srgb, var(--prism-amber, #f59e0b) 16%, transparent);
+}
+
+.ts-check-icon--fail {
+  color: var(--prism-rose, #f43f5e);
+  background: color-mix(in srgb, var(--prism-rose, #f43f5e) 16%, transparent);
+}
+
+.ts-check-icon--skip {
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* —— Tool present flag —— */
+.ts-present {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.ts-present--yes {
+  color: var(--prism-emerald, #10b981);
+  background: color-mix(in srgb, var(--prism-emerald, #10b981) 16%, transparent);
+}
+
+.ts-present--no {
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* —— Domain-segmented checks —— */
+.ts-domain {
+  margin-bottom: 16px;
+}
+
+.ts-domain:last-child {
+  margin-bottom: 0;
+}
+
+.ts-domain__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 8px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.ts-domain__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #94a3b8;
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+/* —— Coverage line —— */
+.ts-cov {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 0 0;
+  font-size: 0.8125rem;
+  color: #cbd5e1;
+}
+
+/* —— Split "Run tests" button —— */
+.ts-split {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  z-index: 5;
+}
+
+.ts-split__main {
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  border-right-color: rgba(255, 255, 255, 0.12);
+}
+
+.ts-split__caret {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  padding: 0 8px !important;
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+  margin-left: -1px;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.ts-split__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 80;
+  min-width: 220px;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid var(--prism-line, rgba(255, 255, 255, 0.14));
+  background: var(--prism-elev, #131926);
+  box-shadow: var(--prism-shadow-3, 0 18px 40px rgba(0, 0, 0, 0.45));
+}
+
+.ts-split__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--prism-ink, #e2e8f0);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ts-split__item:hover {
+  background: color-mix(in srgb, var(--prism-brand, #00c2c2) 10%, transparent);
+  color: var(--prism-ink, #fff);
+}
+
+.ts-spin {
+  animation: ts-spin 0.8s linear infinite;
+}
+
+@keyframes ts-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ts-spin {
+    animation: none;
+  }
+}

@@ -61,7 +61,7 @@ describe("SQLite index cache", () => {
     const recovered = await openIndexCache(root);
     expect(recovered.ok).toBe(true);
     if (!recovered.ok) return;
-    expect(recovered.value.schemaVersion).toBe(2);
+    expect(recovered.value.schemaVersion).toBe(3);
     recovered.value.close();
   });
 });

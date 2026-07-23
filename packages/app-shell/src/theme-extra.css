@@ -1,0 +1,670 @@
+/**
+ * Shell-wide appearance overrides (M-046).
+ * Prefer token-driven surfaces over rewriting overview.css hardcodes.
+ * Loaded after overview.css / appnav.css so these win on equal specificity.
+ */
+
+/* ── Focus: brand teal only (defeat VS Code orange focusBorder) ─────────── */
+.ov,
+.prism-theme,
+.playground-shell,
+html.prism-theme,
+body.prism-theme {
+  --vscode-focusBorder: var(--prism-brand) !important;
+  --vscode-contrastActiveBorder: var(--prism-brand) !important;
+}
+
+.ov :focus,
+.ov :focus-visible,
+.prism-theme :focus,
+.prism-theme :focus-visible,
+.ov button:focus,
+.ov button:focus-visible,
+.ov a:focus,
+.ov a:focus-visible,
+.prism-theme button:focus,
+.prism-theme button:focus-visible,
+.prism-theme a:focus,
+.prism-theme a:focus-visible {
+  outline-color: var(--prism-brand) !important;
+}
+
+.ov-btn:focus-visible,
+.ov-btn--ghost:focus-visible,
+.ov-btn--primary:focus-visible,
+.set-nav__item:focus-visible,
+.appnav__item:focus-visible,
+.set-fontsel__trigger:focus-visible {
+  outline: 2px solid var(--prism-brand) !important;
+  outline-offset: 2px;
+  box-shadow: var(--prism-ring) !important;
+  border-color: var(--prism-brand);
+}
+
+/* Kill amber/orange outlines that may leak from risk tokens or host chrome */
+.ov :focus-visible,
+.prism-theme :focus-visible {
+  outline-color: var(--prism-brand) !important;
+}
+
+/* ── Fonts (honor appearance settings) ──────────────────────────────────── */
+.ov,
+.appnav,
+.prism-theme {
+  font-family: var(--prism-font);
+}
+
+.ov-mono,
+.ov .ov-mono {
+  font-family: var(--prism-mono);
+}
+
+/* ── Density: wire spacing tokens into shell layout ─────────────────────── */
+.ov-card,
+.ov-stat {
+  padding: var(--prism-space-md);
+  gap: var(--prism-space-sm);
+}
+
+.ov-scroll {
+  gap: var(--prism-space-md);
+  padding: var(--prism-space-md);
+}
+
+.ov-top {
+  padding-block: var(--prism-space-sm);
+  padding-inline: var(--prism-space-md);
+  height: auto;
+  min-height: var(--prism-topbar-h);
+}
+
+.ov-kpis,
+.ov-grid {
+  gap: var(--prism-space-md);
+}
+
+.ov-card__head {
+  margin-bottom: var(--prism-space-md);
+}
+
+.ov-stat__head,
+.ov-stat__v {
+  margin-bottom: var(--prism-space-sm);
+}
+
+.set-row {
+  gap: var(--prism-space-md);
+  padding: var(--prism-space-md);
+}
+
+.set-layout {
+  gap: var(--prism-space-md);
+}
+
+.appnav__logo,
+.ov-side__logo {
+  padding: var(--prism-space-md);
+}
+
+.appnav__repo,
+.ov-side__repo {
+  padding: var(--prism-space-sm) var(--prism-space-md);
+}
+
+.appnav__nav,
+.ov-side__nav {
+  padding: var(--prism-space-md) var(--prism-space-sm);
+}
+
+.appnav__item,
+.ov-side__item {
+  padding: var(--prism-space-sm) calc(var(--prism-space-sm) + 3px);
+}
+
+/* ── Light theme: flip hardcoded dark shell surfaces to tokens ──────────── */
+[data-theme="light"] .ov,
+.prism-theme[data-theme="light"] .ov,
+html[data-theme="light"] .ov,
+.ov[data-theme="light"],
+html[data-theme="light"] body .ov {
+  background: var(--prism-canvas);
+  color: var(--prism-ink);
+}
+
+[data-theme="light"] .ov-main,
+[data-theme="light"] .ov-scroll,
+html[data-theme="light"] .ov-main,
+html[data-theme="light"] .ov-scroll,
+.prism-theme[data-theme="light"] .ov-main,
+.prism-theme[data-theme="light"] .ov-scroll {
+  background: var(--prism-canvas);
+  color: var(--prism-ink);
+}
+
+[data-theme="light"] .ov-top,
+html[data-theme="light"] .ov-top,
+.prism-theme[data-theme="light"] .ov-top {
+  background: var(--prism-panel-2);
+  border-bottom-color: var(--prism-line);
+  color: var(--prism-ink);
+}
+
+[data-theme="light"] .ov-top__sub,
+[data-theme="light"] .ov-top__sync-hint,
+html[data-theme="light"] .ov-top__sub,
+html[data-theme="light"] .ov-top__sync-hint {
+  color: var(--prism-ink-muted);
+}
+
+[data-theme="light"] .ov-card,
+[data-theme="light"] .ov-stat,
+html[data-theme="light"] .ov-card,
+html[data-theme="light"] .ov-stat,
+.prism-theme[data-theme="light"] .ov-card,
+.prism-theme[data-theme="light"] .ov-stat {
+  background: var(--prism-panel);
+  border-color: var(--prism-line);
+  color: var(--prism-ink);
+}
+
+[data-theme="light"] .ov-stat--clickable:hover,
+[data-theme="light"] .ov-stat--clickable:focus-visible,
+html[data-theme="light"] .ov-stat--clickable:hover,
+html[data-theme="light"] .ov-stat--clickable:focus-visible {
+  background: color-mix(in srgb, var(--prism-brand) 8%, var(--prism-panel));
+  border-color: color-mix(in srgb, var(--prism-brand) 45%, transparent);
+}
+
+[data-theme="light"] .ov-stat__k,
+[data-theme="light"] .ov-stat__icon,
+[data-theme="light"] .ov-stat__unit,
+[data-theme="light"] .ov-stat__note,
+[data-theme="light"] .ov-card__meta,
+html[data-theme="light"] .ov-stat__k,
+html[data-theme="light"] .ov-stat__icon,
+html[data-theme="light"] .ov-stat__unit,
+html[data-theme="light"] .ov-stat__note,
+html[data-theme="light"] .ov-card__meta {
+  color: var(--prism-ink-muted);
+}
+
+[data-theme="light"] .ov-stat__v,
+[data-theme="light"] .ov-card__title,
+[data-theme="light"] .ov-top__title,
+[data-theme="light"] .set-card__title,
+[data-theme="light"] .set-row__label,
+html[data-theme="light"] .ov-stat__v,
+html[data-theme="light"] .ov-card__title,
+html[data-theme="light"] .ov-top__title,
+html[data-theme="light"] .set-card__title,
+html[data-theme="light"] .set-row__label {
+  color: var(--prism-ink);
+}
+
+[data-theme="light"] .ov-btn--ghost,
+html[data-theme="light"] .ov-btn--ghost {
+  background: var(--prism-tile);
+  border-color: var(--prism-line);
+  color: var(--prism-ink-muted);
+}
+
+[data-theme="light"] .ov-btn--ghost:not(.ov-btn--soon):hover,
+html[data-theme="light"] .ov-btn--ghost:not(.ov-btn--soon):hover {
+  color: var(--prism-ink);
+  border-color: color-mix(in srgb, var(--prism-ink) 25%, var(--prism-line));
+}
+
+[data-theme="light"] .ov-btn--primary,
+html[data-theme="light"] .ov-btn--primary {
+  background: var(--prism-brand);
+  color: var(--prism-on-brand);
+}
+
+[data-theme="light"] .ov-side,
+[data-theme="light"] .appnav,
+html[data-theme="light"] .ov-side,
+html[data-theme="light"] .appnav,
+.prism-theme[data-theme="light"] .appnav {
+  background: var(--prism-panel-2);
+  border-right-color: var(--prism-line);
+  color: var(--prism-ink-muted);
+}
+
+[data-theme="light"] .appnav__logo,
+[data-theme="light"] .ov-side__logo,
+html[data-theme="light"] .appnav__logo,
+html[data-theme="light"] .ov-side__logo {
+  color: var(--prism-ink);
+  border-bottom-color: var(--prism-line);
+}
+
+[data-theme="light"] .appnav__repo,
+[data-theme="light"] .ov-side__repo,
+html[data-theme="light"] .appnav__repo,
+html[data-theme="light"] .ov-side__repo {
+  border-bottom-color: var(--prism-line);
+}
+
+[data-theme="light"] .appnav__repo-box,
+[data-theme="light"] .ov-side__repo-box,
+html[data-theme="light"] .appnav__repo-box,
+html[data-theme="light"] .ov-side__repo-box {
+  background: var(--prism-panel);
+  border-color: var(--prism-line);
+  color: var(--prism-ink-muted);
+}
+
+[data-theme="light"] .appnav__repo-name,
+[data-theme="light"] .ov-side__repo-name,
+html[data-theme="light"] .appnav__repo-name,
+html[data-theme="light"] .ov-side__repo-name {
+  color: var(--prism-ink);
+}
+
+[data-theme="light"] .appnav__item:not(.appnav__item--soon):hover,
+html[data-theme="light"] .appnav__item:not(.appnav__item--soon):hover {
+  background: color-mix(in srgb, var(--prism-ink) 5%, transparent);
+  color: var(--prism-ink);
+}
+
+[data-theme="light"] .appnav__item[data-active="true"],
+html[data-theme="light"] .appnav__item[data-active="true"] {
+  background: color-mix(in srgb, var(--prism-brand) 12%, transparent);
+  color: var(--prism-brand);
+}
+
+[data-theme="light"] .set-nav__item,
+html[data-theme="light"] .set-nav__item {
+  color: var(--prism-ink-muted);
+}
+
+[data-theme="light"] .set-nav__item:hover,
+html[data-theme="light"] .set-nav__item:hover {
+  color: var(--prism-ink);
+  background: var(--prism-tile);
+}
+
+[data-theme="light"] .set-nav__item[data-active="true"],
+html[data-theme="light"] .set-nav__item[data-active="true"] {
+  color: var(--prism-brand);
+  background: color-mix(in srgb, var(--prism-brand) 12%, transparent);
+}
+
+[data-theme="light"] .set-card,
+html[data-theme="light"] .set-card {
+  background: var(--prism-panel);
+  border-color: var(--prism-line);
+}
+
+[data-theme="light"] .set-card__title,
+html[data-theme="light"] .set-card__title {
+  border-bottom-color: var(--prism-line);
+}
+
+[data-theme="light"] .set-row,
+html[data-theme="light"] .set-row {
+  border-bottom-color: var(--prism-line);
+}
+
+[data-theme="light"] .set-row__help,
+html[data-theme="light"] .set-row__help {
+  color: var(--prism-ink-muted);
+}
+
+[data-theme="light"] .ov-meter,
+html[data-theme="light"] .ov-meter {
+  background: var(--prism-line);
+}
+
+[data-theme="light"] table,
+[data-theme="light"] .ov table,
+[data-theme="light"] input:not([type="checkbox"]):not([type="radio"]),
+[data-theme="light"] select,
+[data-theme="light"] textarea,
+html[data-theme="light"] input:not([type="checkbox"]):not([type="radio"]),
+html[data-theme="light"] select,
+html[data-theme="light"] textarea {
+  border-color: var(--prism-line);
+}
+
+[data-theme="light"] .playground-shell,
+[data-theme="light"] .playground-map-wrap,
+html[data-theme="light"] .playground-shell,
+html[data-theme="light"] .playground-map-wrap,
+html[data-theme="light"] body {
+  background: var(--prism-canvas);
+  color: var(--prism-ink);
+}
+
+[data-theme="light"] .set-fontsel__trigger,
+html[data-theme="light"] .set-fontsel__trigger {
+  background: var(--prism-panel-2);
+  border-color: var(--prism-line);
+  color: var(--prism-ink);
+}
+
+[data-theme="light"] .set-fontsel__menu,
+html[data-theme="light"] .set-fontsel__menu {
+  background: var(--prism-elev);
+  border-color: var(--prism-line);
+  box-shadow: var(--prism-shadow-3);
+}
+
+[data-theme="light"] .set-fontsel__opt,
+html[data-theme="light"] .set-fontsel__opt {
+  color: var(--prism-ink);
+}
+
+[data-theme="light"] .set-fontsel__opt:hover,
+html[data-theme="light"] .set-fontsel__opt:hover {
+  background: color-mix(in srgb, var(--prism-ink) 5%, transparent);
+}
+
+[data-theme="light"] .set-modal,
+html[data-theme="light"] .set-modal {
+  background: var(--prism-panel);
+  border-color: var(--prism-line);
+  box-shadow: var(--prism-shadow-float);
+}
+
+[data-theme="light"] .set-modal__title,
+html[data-theme="light"] .set-modal__title {
+  color: var(--prism-ink);
+}
+
+[data-theme="light"] .set-modal__body,
+html[data-theme="light"] .set-modal__body {
+  color: var(--prism-ink-muted);
+}
+
+[data-theme="light"] .set-modal__actions,
+html[data-theme="light"] .set-modal__actions {
+  border-top-color: var(--prism-line);
+  background: var(--prism-panel-2);
+}
+
+[data-theme="light"] .set-modal-overlay,
+html[data-theme="light"] .set-modal-overlay {
+  background: color-mix(in srgb, var(--prism-ink) 35%, transparent);
+}
+
+[data-theme="light"] .set-inline-field__label,
+html[data-theme="light"] .set-inline-field__label {
+  color: var(--prism-ink-muted);
+}
+
+/* System → light: same surface remaps when OS prefers light */
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] .ov,
+  .prism-theme[data-theme="system"] .ov,
+  html[data-theme="system"] .ov,
+  html[data-theme="system"] body .ov {
+    background: var(--prism-canvas);
+    color: var(--prism-ink);
+  }
+
+  [data-theme="system"] .ov-main,
+  [data-theme="system"] .ov-scroll,
+  [data-theme="system"] .ov-top,
+  html[data-theme="system"] .ov-main,
+  html[data-theme="system"] .ov-scroll,
+  html[data-theme="system"] .ov-top {
+    background: var(--prism-canvas);
+    color: var(--prism-ink);
+  }
+
+  [data-theme="system"] .ov-top {
+    background: var(--prism-panel-2);
+    border-bottom-color: var(--prism-line);
+  }
+
+  [data-theme="system"] .ov-card,
+  [data-theme="system"] .ov-stat,
+  html[data-theme="system"] .ov-card,
+  html[data-theme="system"] .ov-stat {
+    background: var(--prism-panel);
+    border-color: var(--prism-line);
+    color: var(--prism-ink);
+  }
+
+  [data-theme="system"] .ov-stat__k,
+  [data-theme="system"] .ov-stat__icon,
+  [data-theme="system"] .ov-stat__unit,
+  [data-theme="system"] .ov-stat__note,
+  [data-theme="system"] .ov-top__sub,
+  [data-theme="system"] .set-row__help,
+  html[data-theme="system"] .ov-stat__k,
+  html[data-theme="system"] .ov-stat__note,
+  html[data-theme="system"] .ov-top__sub {
+    color: var(--prism-ink-muted);
+  }
+
+  [data-theme="system"] .ov-stat__v,
+  [data-theme="system"] .ov-card__title,
+  [data-theme="system"] .ov-top__title,
+  [data-theme="system"] .set-row__label,
+  html[data-theme="system"] .ov-stat__v,
+  html[data-theme="system"] .set-row__label {
+    color: var(--prism-ink);
+  }
+
+  [data-theme="system"] .ov-btn--ghost,
+  html[data-theme="system"] .ov-btn--ghost {
+    background: var(--prism-tile);
+    border-color: var(--prism-line);
+    color: var(--prism-ink-muted);
+  }
+
+  [data-theme="system"] .ov-side,
+  [data-theme="system"] .appnav,
+  html[data-theme="system"] .ov-side,
+  html[data-theme="system"] .appnav {
+    background: var(--prism-panel-2);
+    border-right-color: var(--prism-line);
+    color: var(--prism-ink-muted);
+  }
+
+  [data-theme="system"] .appnav__logo,
+  [data-theme="system"] .appnav__repo-name,
+  html[data-theme="system"] .appnav__logo {
+    color: var(--prism-ink);
+  }
+
+  [data-theme="system"] .appnav__repo-box,
+  html[data-theme="system"] .appnav__repo-box {
+    background: var(--prism-panel);
+    border-color: var(--prism-line);
+  }
+
+  [data-theme="system"] .appnav__item:not(.appnav__item--soon):hover {
+    background: color-mix(in srgb, var(--prism-ink) 5%, transparent);
+    color: var(--prism-ink);
+  }
+
+  [data-theme="system"] .set-nav__item:hover {
+    color: var(--prism-ink);
+    background: var(--prism-tile);
+  }
+
+  [data-theme="system"] .set-card,
+  html[data-theme="system"] .set-card {
+    background: var(--prism-panel);
+    border-color: var(--prism-line);
+  }
+
+  [data-theme="system"] .playground-shell,
+  [data-theme="system"] .playground-map-wrap,
+  html[data-theme="system"] body {
+    background: var(--prism-canvas);
+    color: var(--prism-ink);
+  }
+
+  [data-theme="system"] .set-fontsel__trigger,
+  [data-theme="system"] .set-fontsel__menu {
+    background: var(--prism-panel-2);
+    border-color: var(--prism-line);
+    color: var(--prism-ink);
+  }
+
+  [data-theme="system"] .set-fontsel__menu {
+    background: var(--prism-elev);
+    box-shadow: var(--prism-shadow-3);
+  }
+}
+
+/* Contain horizontal overflow at the shell root. */
+.ov {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+.ov-main,
+.ov-scroll {
+  overflow-x: hidden;
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Light theme — Design.md contrast for dense lists / tables / signals */
+[data-theme="light"] .dm-rank__row,
+[data-theme="light"] .dna-signal,
+html[data-theme="light"] .dm-rank__row,
+html[data-theme="light"] .dna-signal {
+  background: var(--prism-surface-container, #edeeef);
+  border-color: var(--prism-line);
+}
+
+[data-theme="light"] .dm-rank__name,
+[data-theme="light"] .dna-signal__label,
+html[data-theme="light"] .dm-rank__name,
+html[data-theme="light"] .dna-signal__label {
+  color: var(--prism-ink);
+}
+
+[data-theme="light"] .dm-rank__path,
+[data-theme="light"] .dna-signal__ev,
+[data-theme="light"] .dm-rank__val,
+html[data-theme="light"] .dm-rank__path,
+html[data-theme="light"] .dna-signal__ev {
+  color: var(--prism-ink-muted);
+}
+
+[data-theme="light"] .ov-table__head,
+html[data-theme="light"] .ov-table__head {
+  background: var(--prism-panel-2);
+  color: var(--prism-ink-muted);
+}
+
+[data-theme="light"] .ov-table__row,
+[data-theme="light"] .ov-table__region,
+[data-theme="light"] .ov-table__num,
+html[data-theme="light"] .ov-table__row,
+html[data-theme="light"] .ov-table__region,
+html[data-theme="light"] .ov-table__num {
+  color: var(--prism-ink);
+}
+
+[data-theme="light"] .ov-btn--secondary,
+html[data-theme="light"] .ov-btn--secondary {
+  background: transparent;
+  color: var(--prism-ink);
+  border-color: var(--prism-line);
+}
+
+[data-theme="light"] .ov-btn--secondary:hover:not(:disabled),
+html[data-theme="light"] .ov-btn--secondary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--prism-brand) 8%, transparent);
+  border-color: color-mix(in srgb, var(--prism-brand) 45%, transparent);
+  color: var(--prism-ink);
+}
+
+[data-theme="light"] .ov-btn--primary,
+[data-theme="light"] .ov-btn--primary:hover,
+[data-theme="light"] .ov-btn--primary:disabled,
+html[data-theme="light"] .ov-btn--primary,
+html[data-theme="light"] .ov-btn--primary:hover,
+html[data-theme="light"] .ov-btn--primary:disabled {
+  color: #ffffff;
+}
+
+[data-theme="light"] .dm-pipe-table thead th,
+html[data-theme="light"] .dm-pipe-table thead th {
+  background: var(--prism-panel-2);
+  color: var(--prism-ink-muted);
+}
+
+[data-theme="light"] .dm-pipe-table tbody td,
+[data-theme="light"] .dm-pipe-table__name,
+html[data-theme="light"] .dm-pipe-table tbody td,
+html[data-theme="light"] .dm-pipe-table__name {
+  color: var(--prism-ink);
+}
+
+[data-theme="light"] .ts-banner,
+[data-theme="light"] .ts-split__menu,
+html[data-theme="light"] .ts-banner,
+html[data-theme="light"] .ts-split__menu {
+  background: var(--prism-panel);
+  border-color: var(--prism-line);
+  color: var(--prism-ink);
+  box-shadow: var(--prism-shadow-2);
+}
+
+[data-theme="light"] .ts-table thead th,
+html[data-theme="light"] .ts-table thead th {
+  color: var(--prism-ink-muted);
+  background: var(--prism-panel-2);
+}
+
+[data-theme="light"] .ts-table tbody td,
+[data-theme="light"] .ts-cell-name,
+[data-theme="light"] .ts-score,
+[data-theme="light"] .ts-head__title,
+[data-theme="light"] .ts-domain__title,
+[data-theme="light"] .ts-split__item,
+html[data-theme="light"] .ts-table tbody td,
+html[data-theme="light"] .ts-cell-name,
+html[data-theme="light"] .ts-score,
+html[data-theme="light"] .ts-head__title,
+html[data-theme="light"] .ts-domain__title,
+html[data-theme="light"] .ts-split__item {
+  color: var(--prism-ink);
+}
+
+[data-theme="light"] .ts-cell-suite,
+[data-theme="light"] .ts-cell-mono,
+[data-theme="light"] .ts-cell-detail,
+[data-theme="light"] .ts-table__num,
+[data-theme="light"] .ts-table__empty,
+[data-theme="light"] .ts-acc__chevron,
+[data-theme="light"] .ts-score__unit,
+[data-theme="light"] .ts-summary,
+html[data-theme="light"] .ts-cell-suite,
+html[data-theme="light"] .ts-cell-mono,
+html[data-theme="light"] .ts-cell-detail,
+html[data-theme="light"] .ts-table__num,
+html[data-theme="light"] .ts-table__empty,
+html[data-theme="light"] .ts-acc__chevron,
+html[data-theme="light"] .ts-score__unit,
+html[data-theme="light"] .ts-summary {
+  color: var(--prism-ink-muted);
+}
+
+[data-theme="light"] .ts-acc__trigger:hover .ts-head__title,
+html[data-theme="light"] .ts-acc__trigger:hover .ts-head__title {
+  color: var(--prism-brand);
+}
+
+[data-theme="light"] .ts-split__main,
+[data-theme="light"] .ts-split__caret,
+html[data-theme="light"] .ts-split__main,
+html[data-theme="light"] .ts-split__caret {
+  border-color: color-mix(in srgb, #ffffff 25%, transparent);
+}
+
+.ts-runbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}

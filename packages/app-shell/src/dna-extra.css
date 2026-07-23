@@ -1,0 +1,290 @@
+/* DNA screen tweaks (M-046 follow-up).
+   All DNA-screen-only overrides live here so overview.css stays shared. */
+
+/* ── Codebase Profile: dynamic (content-driven) card heights ─────────
+   Cards must size to their own content instead of stretching to the
+   tallest sibling in the row (Grafana-like reflow). `.card-masonry`
+   already flows by column height; the two-up hints row is a grid, so
+   pin its items to the top. */
+.dna-hints-row {
+  align-items: start;
+}
+
+.dna-hints-row > .ov-card {
+  align-self: start;
+}
+
+/* ── Codebase Profile: hero tiles ────────────────────────────────── */
+
+/* "Open domain" affordance on the clickable Primary Domain tile. */
+.ov-stat__go {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--prism-ink-muted, #94a3b8);
+  transition:
+    color var(--prism-dur-1, 120ms) ease,
+    transform var(--prism-dur-1, 120ms) ease;
+}
+
+.ov-stat--clickable:hover .ov-stat__go,
+.ov-stat--clickable:focus-visible .ov-stat__go {
+  color: var(--prism-brand, #00c2c2);
+  transform: translateX(2px);
+}
+
+/* Primary Domain: detected tech-stack logos as the headline value. */
+.dna-primary__stack-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.dna-primary__stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dna-primary__icon {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--cat, #8aa0aa) 45%, transparent);
+  background: color-mix(in srgb, var(--cat, #8aa0aa) 14%, transparent);
+  color: var(--cat, #8aa0aa);
+  cursor: pointer;
+  padding: 0;
+}
+
+.dna-primary__icon:hover,
+.dna-primary__icon--active {
+  border-color: var(--cat, #8aa0aa);
+  background: color-mix(in srgb, var(--cat, #8aa0aa) 28%, transparent);
+}
+
+.dna-primary__go {
+  flex-shrink: 0;
+}
+
+.dna-primary__active-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 1.25rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--prism-ink, #e2e8f0);
+}
+
+.dna-primary__active-hint {
+  font-weight: 500;
+  color: var(--prism-ink-muted, #64748b);
+  font-size: 0.75rem;
+}
+
+.dna-primary__active-logo {
+  display: inline-flex;
+}
+
+.dna-primary__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+/* Generic tag pill reused across DNA cards. */
+.dna-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: var(--prism-radius-pill, 999px);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--prism-text-dim, #8aa0aa);
+  border: 1px solid var(--prism-border, #1f2b33);
+  background: color-mix(
+    in srgb,
+    var(--prism-surface, #0c161c) 60%,
+    transparent
+  );
+}
+
+.dna-tag--brand {
+  color: var(--prism-brand-strong, #00dcd4);
+  border-color: color-mix(
+    in srgb,
+    var(--prism-brand, #00c2c2) 34%,
+    transparent
+  );
+  background: color-mix(in srgb, var(--prism-brand, #00c2c2) 12%, transparent);
+}
+
+/* Frameworks & Libs hero: framework names + icons in the helper text. */
+.dna-fw-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.dna-fw-note__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+.dna-fw-note__item svg {
+  color: var(--prism-brand-strong, #00dcd4);
+  flex: none;
+}
+
+.dna-fw-note__more {
+  color: var(--prism-text-faint, #5f7480);
+  font-family: var(--prism-mono, ui-monospace, monospace);
+}
+
+.dna-fw-note--lg {
+  gap: 8px 12px;
+  font-size: 0.8125rem;
+}
+
+.dna-fw-note__item--lg {
+  gap: 6px;
+  font-size: 0.8125rem;
+}
+
+.dna-fw-note__item--lg svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ── Codebase Profile: Frameworks & Libraries card ───────────────── */
+
+/* Tint the framework glyph with its detected category colour. */
+.dna-fw__glyph {
+  color: var(--cat, var(--prism-brand-strong, #00dcd4));
+}
+
+/* Category tag (Frontend / Backend / Bundler …) replacing the old
+   "stack detector" caption. */
+.dna-fw__tag {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 2px;
+  padding: 1px 7px;
+  border-radius: var(--prism-radius-pill, 999px);
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--cat, #8aa0aa) 80%, #ffffff);
+  border: 1px solid color-mix(in srgb, var(--cat, #8aa0aa) 34%, transparent);
+  background: color-mix(in srgb, var(--cat, #8aa0aa) 13%, transparent);
+}
+
+/* ── Codebase Profile: Stack Domains rows ────────────────────────── */
+
+/* Trailing group: confidence + open-domain arrow (replaces the
+   full-width "View domain" button). */
+.dna-domain__end {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dna-domain__open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--prism-line, #2a334a);
+  border-radius: var(--prism-radius-sm, 6px);
+  background: transparent;
+  color: var(--prism-ink-muted, #94a3b8);
+  cursor: pointer;
+  transition:
+    color var(--prism-dur-1, 120ms) ease,
+    border-color var(--prism-dur-1, 120ms) ease,
+    transform var(--prism-dur-1, 120ms) ease;
+}
+
+.dna-domain__open:hover,
+.dna-domain__open:focus-visible {
+  color: var(--prism-brand, #00c2c2);
+  border-color: color-mix(
+    in srgb,
+    var(--prism-brand, #00c2c2) 55%,
+    transparent
+  );
+  transform: translateX(1px);
+  outline: none;
+}
+
+/* ── DNA Analysis: KPI tiles in a single auto-fit row ────────────── */
+/* Up to five stat tiles sit on one row, wrapping only when width
+   shrinks (instead of the fixed 4-column grid). */
+.ov-kpis.dna-analysis-kpis {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+/* ── DNA Analysis: metric-card action row alignment ──────────────── */
+/* "Show Breakdown" and "Check logs" must share one baseline/row: drop
+   the logs button's standalone top margin and match its sizing. */
+.dna-metric__actions {
+  align-items: center;
+}
+
+.dna-metric__actions .dna-metric__logs,
+.dna-metric__actions .dna-metric__breakdown {
+  margin-top: 0;
+  padding: 5px 10px;
+  font-size: 0.6875rem;
+  line-height: 1.2;
+}
+
+/* Diagnostics factor: clearer empty state when no analyzer diagnostics
+   were captured for the indexed files. */
+.dna-metric__empty {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: var(--prism-radius-sm, 8px);
+  border: 1px dashed var(--prism-line, #2a334a);
+  background: color-mix(
+    in srgb,
+    var(--prism-surface, #0c161c) 55%,
+    transparent
+  );
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--prism-text-dim, #8aa0aa);
+}
+
+.dna-metric__empty svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--prism-emerald, #10b981);
+}
+
+/* Breakdown modal: footer holding the "Open audit logs" deep-link. */
+.dna-modal__foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--prism-border, #1f2b33);
+}

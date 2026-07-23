@@ -41,6 +41,8 @@ export type {
   FeatureInfo,
   GitActivity,
   GraphSnapshotDto,
+  HealthHistoryBackfillStatus,
+  HealthHistoryReport,
   HealthScore,
   ImpactEditSite,
   IndexSnapshot,
@@ -56,6 +58,7 @@ export type {
   NavigationRouteResult,
   PersonaPresets,
   PrismError,
+  RegionMoversReport,
   RenameImpactReport,
   RepositoryMap,
   Result,
@@ -63,6 +66,8 @@ export type {
   StackPackageProfile,
   StackProfile,
   TestImpactReport,
+  TestingReport,
+  SecurityReport,
   UtilityJob,
   UtilityOverlayKind,
   UtilityOverlayKindInfo,
@@ -80,3 +85,16 @@ export type {
   StackPort,
 } from "./ports.js";
 export { PRISM_API_LEVEL, PRISM_CORE_VERSION } from "./version.js";
+export {
+  stageDevopsRemote,
+  type StageDevopsRemoteInput,
+  type StageDevopsRemoteResult,
+  type StagedWorkflowSummary,
+} from "./stage-devops-remote.js";
+export {
+  listLocalWorkspaceTests,
+  runLocalWorkspaceTests,
+  type LocalRunTestsOptions,
+  type LocalRunTestsResult,
+  type LocalTestListResult,
+} from "./testing/local-runners.js";

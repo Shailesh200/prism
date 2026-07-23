@@ -2,10 +2,16 @@ import {
   type HealthScore,
   type IndexSnapshot,
   type IndexedFile,
+  type TestingReport,
 } from "@prism/shared";
 import { buildDependencyGraph } from "../dependency/build.js";
 import { discoverLocalPackages } from "../dependency/packages.js";
 import { buildFeatureGraph } from "../feature/build.js";
+
+export type ComputeHealthScoreOptions = {
+  /** Prefer TestingReport score for the test_presence factor (M-046 / ADR-0022). */
+  testingReport?: TestingReport;
+};
 
 /** ADR-0012 factor weights (must sum to 1). */
 export const HEALTH_FACTOR_WEIGHTS = {
@@ -19,6 +25,7 @@ export const HEALTH_FACTOR_WEIGHTS = {
 export type HealthFactorId = keyof typeof HEALTH_FACTOR_WEIGHTS;
 
 type Factor = HealthScore["factors"][number];
+type Breakdown = NonNullable<Factor["breakdown"]>;
 
 function clampScore(value: number): number {
   if (Number.isNaN(value)) return 0;
@@ -50,40 +57,87 @@ function factor(
   label: string,
   score: number,
   note: string,
+  breakdown?: Breakdown,
 ): Factor {
   return {
     id,
     label,
     score: clampScore(score),
     note,
+    ...(breakdown && breakdown.length > 0 ? { breakdown } : {}),
   };
 }
 
 function scoreParseHealth(files: readonly IndexedFile[]): Factor {
   if (files.length === 0) {
-    return factor("parse_health", "Parse health", 0, "No indexed files");
+    return factor("parse_health", "Parse health", 0, "No indexed files", [
+      { label: "Indexed files", value: 0 },
+      { label: "Analyzed", value: 0 },
+      { label: "Failed / skipped", value: 0 },
+    ]);
   }
   const analyzed = files.filter((f) => f.status === "analyzed").length;
+  const failed = files.length - analyzed;
   const ratio = analyzed / files.length;
   return factor(
     "parse_health",
     "Parse health",
     ratio * 100,
     `${analyzed}/${files.length} files analyzed`,
+    [
+      { label: "Indexed files", value: files.length },
+      { label: "Analyzed (ok)", value: analyzed },
+      { label: "Failed / skipped", value: failed },
+      { label: "Parse ratio", value: Number(ratio.toFixed(3)) },
+    ],
   );
 }
 
-function scoreTestPresence(files: readonly IndexedFile[]): Factor {
+function scoreTestPresence(
+  files: readonly IndexedFile[],
+  testingReport?: TestingReport,
+): Factor {
+  if (testingReport) {
+    const suiteCount = testingReport.suites.reduce(
+      (n, s) => n + s.fileCount,
+      0,
+    );
+    return factor(
+      "test_presence",
+      "Test presence",
+      testingReport.score,
+      testingReport.summary,
+      [
+        { label: "Testing score", value: testingReport.score },
+        { label: "Runners", value: testingReport.runners.join(", ") || "none" },
+        { label: "Suite files", value: suiteCount },
+        {
+          label: "Coverage",
+          value: testingReport.coverage?.present
+            ? (testingReport.coverage.linePct ?? "present")
+            : "absent",
+        },
+      ],
+    );
+  }
+
   const sources = files.filter(
     (f) => isSourcePath(f.path) && !isTestPath(f.path),
   );
   const tests = files.filter((f) => isTestPath(f.path));
+  const ratio = sources.length === 0 ? null : tests.length / sources.length;
+
   if (sources.length === 0 && tests.length === 0) {
     return factor(
       "test_presence",
       "Test presence",
       50,
       "No source/test files to evaluate",
+      [
+        { label: "Test files", value: 0 },
+        { label: "Source files", value: 0 },
+        { label: "Tests per source", value: "n/a" },
+      ],
     );
   }
   if (sources.length === 0) {
@@ -92,25 +146,50 @@ function scoreTestPresence(files: readonly IndexedFile[]): Factor {
       "Test presence",
       80,
       `${tests.length} test file(s); no non-test sources`,
+      [
+        { label: "Test files", value: tests.length },
+        { label: "Source files", value: 0 },
+        { label: "Tests per source", value: "n/a" },
+      ],
     );
   }
-  const ratio = tests.length / sources.length;
   // 0.5 tests/source → ~100; saturates at 1.0
-  const score = Math.min(100, (ratio / 0.5) * 100);
+  const score = Math.min(100, ((ratio ?? 0) / 0.5) * 100);
   return factor(
     "test_presence",
     "Test presence",
     score,
     `${tests.length} test file(s) / ${sources.length} source file(s)`,
+    [
+      { label: "Test files", value: tests.length },
+      { label: "Source files", value: sources.length },
+      {
+        label: "Tests per source",
+        value: Number((ratio ?? 0).toFixed(3)),
+      },
+    ],
   );
 }
 
-function scoreCoupling(cycleCount: number, fileCount: number): Factor {
+function scoreCoupling(
+  cycleCount: number,
+  fileCount: number,
+  nodeCount: number,
+  edgeCount: number,
+): Factor {
   if (fileCount === 0) {
-    return factor("coupling", "Coupling", 50, "No files to evaluate cycles");
+    return factor("coupling", "Coupling", 50, "No files to evaluate cycles", [
+      { label: "Graph nodes", value: nodeCount },
+      { label: "Graph edges", value: edgeCount },
+      { label: "Cycles", value: 0 },
+    ]);
   }
   if (cycleCount === 0) {
-    return factor("coupling", "Coupling", 100, "No import/re-export cycles");
+    return factor("coupling", "Coupling", 100, "No import/re-export cycles", [
+      { label: "Graph nodes", value: nodeCount },
+      { label: "Graph edges", value: edgeCount },
+      { label: "Cycles", value: 0 },
+    ]);
   }
   // Each cycle costs ~20 points, floor at 0
   const score = Math.max(0, 100 - cycleCount * 20);
@@ -119,6 +198,11 @@ function scoreCoupling(cycleCount: number, fileCount: number): Factor {
     "Coupling",
     score,
     `${cycleCount} cycle(s) detected`,
+    [
+      { label: "Graph nodes", value: nodeCount },
+      { label: "Graph edges", value: edgeCount },
+      { label: "Cycles", value: cycleCount },
+    ],
   );
 }
 
@@ -128,7 +212,11 @@ function scoreModularity(
   fileCount: number,
 ): Factor {
   if (fileCount === 0) {
-    return factor("modularity", "Modularity", 50, "No files to evaluate");
+    return factor("modularity", "Modularity", 50, "No files to evaluate", [
+      { label: "Local packages", value: 0 },
+      { label: "Features", value: 0 },
+      { label: "Indexed files", value: 0 },
+    ]);
   }
   const structure = packageCount + featureCount;
   if (structure === 0) {
@@ -137,6 +225,11 @@ function scoreModularity(
       "Modularity",
       40,
       "No local packages or inferred features",
+      [
+        { label: "Local packages", value: packageCount },
+        { label: "Features", value: featureCount },
+        { label: "Indexed files", value: fileCount },
+      ],
     );
   }
   // Reward some structure without requiring large monorepos
@@ -146,21 +239,40 @@ function scoreModularity(
     "Modularity",
     score,
     `${packageCount} package(s), ${featureCount} feature(s)`,
+    [
+      { label: "Local packages", value: packageCount },
+      { label: "Features", value: featureCount },
+      { label: "Indexed files", value: fileCount },
+    ],
   );
 }
 
 function scoreDiagnostics(files: readonly IndexedFile[]): Factor {
   if (files.length === 0) {
-    return factor("diagnostics", "Diagnostics", 50, "No files to evaluate");
+    return factor("diagnostics", "Diagnostics", 50, "No files to evaluate", [
+      { label: "Diagnostics", value: 0 },
+      { label: "Indexed files", value: 0 },
+      { label: "Density", value: "n/a" },
+    ]);
   }
   let diagnosticCount = 0;
   for (const file of files) {
     diagnosticCount += file.diagnostics?.length ?? 0;
   }
-  if (diagnosticCount === 0) {
-    return factor("diagnostics", "Diagnostics", 100, "No analyzer diagnostics");
-  }
   const density = diagnosticCount / files.length;
+  if (diagnosticCount === 0) {
+    return factor(
+      "diagnostics",
+      "Diagnostics",
+      100,
+      "No analyzer diagnostics",
+      [
+        { label: "Diagnostics", value: 0 },
+        { label: "Indexed files", value: files.length },
+        { label: "Density", value: 0 },
+      ],
+    );
+  }
   // 0 dens → 100; 1+ dens → ~0
   const score = Math.max(0, 100 - density * 100);
   return factor(
@@ -168,13 +280,23 @@ function scoreDiagnostics(files: readonly IndexedFile[]): Factor {
     "Diagnostics",
     score,
     `${diagnosticCount} diagnostic(s) across ${files.length} file(s)`,
+    [
+      { label: "Diagnostics", value: diagnosticCount },
+      { label: "Indexed files", value: files.length },
+      { label: "Density", value: Number(density.toFixed(3)) },
+    ],
   );
 }
 
 /**
  * Deterministic repository health score from an index snapshot (ADR-0012).
+ * When `options.testingReport` is provided, Test Presence uses that score
+ * (M-046 / ADR-0022).
  */
-export function computeHealthScore(snapshot: IndexSnapshot): HealthScore {
+export function computeHealthScore(
+  snapshot: IndexSnapshot,
+  options?: ComputeHealthScoreOptions,
+): HealthScore {
   const files = snapshot.files;
   const dep = buildDependencyGraph(snapshot);
   const packages = discoverLocalPackages(
@@ -185,8 +307,13 @@ export function computeHealthScore(snapshot: IndexSnapshot): HealthScore {
 
   const factors: Factor[] = [
     scoreParseHealth(files),
-    scoreTestPresence(files),
-    scoreCoupling(dep.cycles.length, files.length),
+    scoreTestPresence(files, options?.testingReport),
+    scoreCoupling(
+      dep.cycles.length,
+      files.length,
+      dep.graph.nodes.length,
+      dep.graph.edges.length,
+    ),
     scoreModularity(packages.length, features.length, files.length),
     scoreDiagnostics(files),
   ];

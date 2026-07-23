@@ -1,0 +1,39 @@
+/* Error boundary fallback (root + per-tab). */
+.prism-error-boundary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 240px;
+  padding: 24px;
+  background: var(--prism-canvas, #0a0e1a);
+  color: var(--prism-ink, #e2e8f0);
+}
+
+.prism-error-boundary__card {
+  max-width: 480px;
+  width: 100%;
+  padding: 20px 22px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--prism-rose, #f43f5e) 40%, transparent);
+  background: var(--prism-panel, #131926);
+  box-shadow: var(--prism-shadow-2, 0 8px 24px rgba(0, 0, 0, 0.35));
+}
+
+.prism-error-boundary__title {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.prism-error-boundary__msg {
+  margin: 0 0 16px;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--prism-ink-muted, #94a3b8);
+  word-break: break-word;
+}
+
+.prism-error-boundary__actions {
+  display: flex;
+  gap: 8px;
+}

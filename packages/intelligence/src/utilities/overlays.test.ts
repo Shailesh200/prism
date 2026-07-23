@@ -7,7 +7,11 @@ import {
 } from "@prism/shared";
 import { createStackHost } from "../host.js";
 import { createDefaultDetectorPacks } from "../stack/packs.js";
-import { buildUtilityOverlay, listUtilityOverlayKinds } from "./overlays.js";
+import {
+  buildUtilityOverlay,
+  extractDesktopIpcChannels,
+  listUtilityOverlayKinds,
+} from "./overlays.js";
 
 const fixture = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -56,17 +60,30 @@ describe("utility overlays (M-041 P2–P7 / Mono-v2)", () => {
       return report;
     };
 
+    const api = expectNodes("api-surface");
+    expect(api.graph.nodes.some((n) => n.kind === "openapi")).toBe(true);
+    const health = api.graph.nodes.find((n) =>
+      String(n.attrs?.path ?? "").includes("health.controller"),
+    );
+    expect(health?.label).toBe("HealthController");
+
+    const mobile = expectNodes("mobile-nav");
+    expect(mobile.graph.nodes.some((n) => n.kind === "screen")).toBe(true);
+    expect(mobile.graph.edges.some((e) => e.kind === "navigates")).toBe(true);
+    expect(mobile.graph.nodes.some((n) => n.kind === "navigator")).toBe(true);
+
+    const desktop = expectNodes("desktop-boundary");
+    expect(desktop.graph.nodes.some((n) => n.kind === "main")).toBe(true);
+    expect(desktop.graph.edges.length).toBeGreaterThan(0);
     expect(
-      expectNodes("api-surface").graph.nodes.some((n) => n.kind === "openapi"),
+      desktop.findings.some((f) => f.message.includes("app:get-version")),
     ).toBe(true);
     expect(
-      expectNodes("mobile-nav").graph.nodes.some((n) => n.kind === "screen"),
+      desktop.findings.some((f) => f.message.includes("contextBridge")),
     ).toBe(true);
-    expect(
-      expectNodes("desktop-boundary").graph.nodes.some(
-        (n) => n.kind === "main",
-      ),
-    ).toBe(true);
+    const mainNode = desktop.graph.nodes.find((n) => n.kind === "main");
+    expect(mainNode?.label).toMatch(/^main\.ts · main$/);
+
     expect(
       expectNodes("notebook-modules").graph.nodes.some(
         (n) => n.kind === "notebook",
@@ -107,5 +124,22 @@ describe("utility overlays (M-041 P2–P7 / Mono-v2)", () => {
 
     const regions = expectNodes("domain-regions", 1);
     expect(regions.mapLayer.id).toBe("layer:domain-regions");
+  });
+
+  it("extractDesktopIpcChannels parses handle/invoke/expose", () => {
+    const channels = extractDesktopIpcChannels(
+      "preload.ts",
+      `
+        ipcMain.handle("a:one", () => {});
+        ipcRenderer.invoke("a:two");
+        contextBridge.exposeInMainWorld("api", {});
+      `,
+    );
+    expect(channels.map((c) => c.name).sort()).toEqual([
+      "a:one",
+      "a:two",
+      "api",
+    ]);
+    expect(channels.find((c) => c.name === "api")?.risk).toBe("medium");
   });
 });

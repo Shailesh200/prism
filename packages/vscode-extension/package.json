@@ -50,6 +50,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
+    "@prism/app-shell": "workspace:*",
     "@prism/core": "workspace:*",
     "@prism/shared": "workspace:*",
     "@prism/ui": "workspace:*",

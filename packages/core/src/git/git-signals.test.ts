@@ -50,6 +50,16 @@ describe("parseGitLog", () => {
     expect(a!.recency).toBeGreaterThan(0.9);
   });
 
+  it("attaches per-commit additions/deletions from numstat", () => {
+    const { signals } = parseGitLog(LOG, { now: NOW });
+    const a = signals.get("src/a.ts")!;
+    // sha1 touched a.ts (+10/-2) and b.ts (+5/-0) → commit total 15/2
+    expect(a.lastCommit.additions).toBe(15);
+    expect(a.lastCommit.deletions).toBe(2);
+    expect(a.recent[1]!.additions).toBe(3);
+    expect(a.recent[1]!.deletions).toBe(1);
+  });
+
   it("treats binary '-' numstat as zero and still counts the commit", () => {
     const { signals } = parseGitLog(LOG, { now: NOW });
     const png = signals.get("assets/logo.png");
@@ -76,6 +86,24 @@ describe("parseGitLog", () => {
     expect(summary.headSha).toBe("sha1");
     expect(summary.lastDate).toBe("2026-01-14T10:00:00Z");
     expect(summary.firstDate).toBe("2025-06-01T10:00:00Z");
+  });
+
+  it("builds a repo-wide author census (commits + churn)", () => {
+    const { authors } = parseGitLog(LOG, { now: NOW });
+    expect(authors.map((a) => a.name)).toEqual(["Alice", "Bob"]);
+    expect(authors[0]).toMatchObject({
+      name: "Alice",
+      email: "alice@example.com",
+      commits: 2,
+      additions: 15,
+      deletions: 2,
+    });
+    expect(authors[1]).toMatchObject({
+      name: "Bob",
+      commits: 1,
+      additions: 3,
+      deletions: 1,
+    });
   });
 
   it("builds a repo-wide daily commit histogram (ascending, unfiltered)", () => {

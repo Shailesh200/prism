@@ -30,6 +30,9 @@
     },
     {
       "path": "../../packages/ui"
+    },
+    {
+      "path": "../../packages/app-shell"
     }
   ]
 }

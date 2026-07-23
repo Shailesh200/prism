@@ -38,6 +38,27 @@ const PM_SIGNAL_TO_NAME: Record<string, string> = {
 
 const TEST_SIGNAL_IDS = new Set(["test-vitest", "test-jest", "test-pytest"]);
 
+/** Map common signal-id prefixes → stack domain when `signal.domain` is missing/mismatched. */
+const SIGNAL_PREFIX_TO_DOMAIN: Record<string, string> = {
+  frontend: StackDomain.FRONTEND,
+  backend: StackDomain.BACKEND,
+  mobile: StackDomain.MOBILE,
+  desktop: StackDomain.DESKTOP,
+  devops: StackDomain.DEVOPS_PLATFORM,
+  embedded: StackDomain.EMBEDDED_SYSTEMS,
+  game: StackDomain.GAME,
+  data: StackDomain.DATA_ML_AI,
+  mono: StackDomain.TOOLING,
+  pm: StackDomain.TOOLING,
+  test: StackDomain.TOOLING,
+};
+
+export type RankedDomainEntry = {
+  readonly id: string;
+  readonly confidence: number;
+  readonly signalCount: number;
+};
+
 function uniqueSorted(values: readonly string[]): string[] {
   return [...new Set(values)].sort((a, b) => a.localeCompare(b));
 }
@@ -128,6 +149,58 @@ function architectureHints(profile: StackProfile): string[] {
   return uniqueSorted(hints);
 }
 
+function domainFromSignalId(signalId: string): string | undefined {
+  const prefix = signalId.split("-")[0];
+  if (!prefix) return undefined;
+  return SIGNAL_PREFIX_TO_DOMAIN[prefix];
+}
+
+function signalMatchesDomain(signal: StackSignal, domainId: string): boolean {
+  if (signal.domain === domainId) return true;
+  return domainFromSignalId(signal.id) === domainId;
+}
+
+/**
+ * Rank profile domains by aggregated signal confidence.
+ * Score = probabilistic OR of matching signal confidences
+ * (`1 − ∏(1 − c)`), capped at 1; ties broken by signal count then id.
+ */
+export function rankDomainsByConfidence(
+  profile: StackProfile,
+): RankedDomainEntry[] {
+  const ranked: RankedDomainEntry[] = [];
+  for (const domainId of profile.domains) {
+    const matching = profile.signals.filter((s) =>
+      signalMatchesDomain(s, domainId),
+    );
+    const signalCount = matching.length;
+    let combined = 0;
+    let max = 0;
+    for (const s of matching) {
+      max = Math.max(max, s.confidence);
+      combined = 1 - (1 - combined) * (1 - s.confidence);
+    }
+    // Prefer combined OR; fall back to max×count when no signals matched.
+    const confidence =
+      signalCount === 0
+        ? 0
+        : Math.min(1, combined > 0 ? combined : max * signalCount);
+    ranked.push({ id: domainId, confidence, signalCount });
+  }
+  ranked.sort(
+    (a, b) =>
+      b.confidence - a.confidence ||
+      b.signalCount - a.signalCount ||
+      a.id.localeCompare(b.id),
+  );
+  return ranked;
+}
+
+/** Top domain by {@link rankDomainsByConfidence}, or undefined when none. */
+export function primaryDomain(profile: StackProfile): string | undefined {
+  return rankDomainsByConfidence(profile)[0]?.id;
+}
+
 /**
  * Enrich a stack profile with derived personas (e.g. fullstack when FE+BE).
  */
@@ -172,6 +245,12 @@ export function assembleDnaReport(options: AssembleDnaOptions): DnaReport {
   const runners = testRunners(profile.signals);
   const hints = architectureHints(profile);
   const languages = languageShares(options.filePaths);
+  const ranked = rankDomainsByConfidence(profile);
+  const rankedDomains = ranked.map(({ id, confidence }) => ({
+    id,
+    confidence,
+  }));
+  const primary = ranked[0]?.id;
 
   let summary: string;
   if (profile.signals.length === 0) {
@@ -200,5 +279,7 @@ export function assembleDnaReport(options: AssembleDnaOptions): DnaReport {
     stack: profile,
     architectureHints: hints,
     testRunners: runners,
+    rankedDomains,
+    ...(primary === undefined ? {} : { primaryDomain: primary }),
   };
 }

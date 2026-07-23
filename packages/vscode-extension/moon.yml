@@ -5,12 +5,14 @@ dependsOn:
   - core
   - shared
   - ui
+  - app-shell
 tasks:
   build:
     command: "bun run build"
     deps:
       - "core:build"
       - "ui:build"
+      - "app-shell:build"
     inputs:
       - "src/**/*"
       - "scripts/**/*"
@@ -24,6 +26,7 @@ tasks:
     deps:
       - "core:build"
       - "ui:build"
+      - "app-shell:build"
     inputs:
       - "src/**/*"
       - "tsconfig.json"
@@ -31,6 +34,7 @@ tasks:
     command: "bun run test"
     deps:
       - "core:build"
+      - "app-shell:build"
     inputs:
       - "src/**/*"
       - "vitest.config.ts"

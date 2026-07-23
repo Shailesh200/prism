@@ -27,4 +27,21 @@ describe("UXPilot dark tokens (ADR-0014)", () => {
     expect(tokens).toContain("--prism-risk: #f59e0b");
     expect(tokens).toContain("--prism-safe: #10b981");
   });
+
+  it("defines density overrides", () => {
+    expect(tokens).toContain('data-density="comfortable"');
+    expect(tokens).toContain('data-density="compact"');
+    expect(tokens).toContain('data-prism-density="comfortable"');
+    expect(tokens).toContain("--prism-space-xs: 6px");
+    expect(tokens).toContain("--prism-space-xs: 2px");
+  });
+
+  it("defines light theme overrides and system prefers-color-scheme", () => {
+    expect(tokens).toContain('data-theme="light"');
+    expect(tokens).toContain("--prism-ink: #191c1d");
+    expect(tokens).toContain("--prism-on-brand: #ffffff");
+    expect(tokens).toContain("--prism-panel: #ffffff");
+    expect(tokens).toContain("@media (prefers-color-scheme: light)");
+    expect(tokens).toContain('data-theme="system"');
+  });
 });

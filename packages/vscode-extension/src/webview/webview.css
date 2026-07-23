@@ -9,6 +9,26 @@ body,
   background: var(--prism-bg, #0b1215);
   color: var(--prism-ink, #e6f0f2);
   font-family: Inter, system-ui, sans-serif;
+  /* Defeat VS Code webview orange focusBorder — Prism uses brand teal. */
+  --vscode-focusBorder: var(--prism-brand, #00c2c2) !important;
+  --vscode-contrastActiveBorder: var(--prism-brand, #00c2c2) !important;
+}
+
+.ov,
+.prism-theme,
+.playground-shell {
+  --vscode-focusBorder: var(--prism-brand, #00c2c2) !important;
+  --vscode-contrastActiveBorder: var(--prism-brand, #00c2c2) !important;
+}
+
+.ov :focus-visible,
+.prism-theme :focus-visible,
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline-color: var(--prism-brand, #00c2c2) !important;
 }
 
 #root {

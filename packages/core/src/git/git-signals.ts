@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { statSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import type {
+  GitAuthorRollup,
   GitCommitRef,
   GitContributor,
   GitDayBucket,
@@ -26,6 +27,8 @@ export type GitSignals = {
   readonly summary: GitRepoSummary;
   /** Distinct commits per calendar day, ascending by date (repo-wide). */
   readonly days: GitDayBucket[];
+  /** Repo-wide author census across the scanned window (commits desc). */
+  readonly authors: GitAuthorRollup[];
   /** SHAs present locally but not on the tracked upstream (unpushed). */
   readonly unpushedShas?: ReadonlySet<string>;
 };
@@ -66,12 +69,36 @@ export function parseGitLog(
   const files = new Map<string, MutFile>();
   const shas = new Set<string>();
   const dayCounts = new Map<string, number>();
+  type MutAuthor = {
+    name: string;
+    email?: string;
+    commits: number;
+    additions: number;
+    deletions: number;
+  };
+  const repoAuthors = new Map<string, MutAuthor>();
+  /** Per-commit line churn across all numstat rows (before keepPaths filter). */
+  const commitChurn = new Map<
+    string,
+    { additions: number; deletions: number }
+  >();
   let firstDate: string | undefined;
   let lastDate: string | undefined;
   let headSha: string | undefined;
 
   let current: GitCommitRef | null = null;
+  let currentAuthorKey: string | null = null;
   let currentAgeDays = 0;
+
+  const enrichCommit = (c: GitCommitRef): GitCommitRef => {
+    const churn = commitChurn.get(c.sha);
+    if (!churn) return c;
+    return {
+      ...c,
+      additions: churn.additions,
+      deletions: churn.deletions,
+    };
+  };
 
   const lines = stdout.split("\n");
   for (const raw of lines) {
@@ -89,12 +116,25 @@ export function parseGitLog(
         message,
         ...(email ? { email } : {}),
       };
+      currentAuthorKey = (email || author).toLowerCase();
       headSha ??= sha;
       if (!shas.has(sha)) {
         shas.add(sha);
         // Distinct commits per calendar day (repo-wide, unfiltered by path).
         const dayKey = date.slice(0, 10);
         if (dayKey) dayCounts.set(dayKey, (dayCounts.get(dayKey) ?? 0) + 1);
+        const prevAuthor = repoAuthors.get(currentAuthorKey);
+        if (prevAuthor) {
+          prevAuthor.commits += 1;
+        } else {
+          repoAuthors.set(currentAuthorKey, {
+            name: author,
+            ...(email ? { email } : {}),
+            commits: 1,
+            additions: 0,
+            deletions: 0,
+          });
+        }
       }
       if (!lastDate || date > lastDate) lastDate = date;
       if (!firstDate || date < firstDate) firstDate = date;
@@ -110,6 +150,23 @@ export function parseGitLog(
     if (parts.length < 3) continue;
     const added = parts[0] === "-" ? 0 : Number.parseInt(parts[0] ?? "0", 10);
     const deleted = parts[1] === "-" ? 0 : Number.parseInt(parts[1] ?? "0", 10);
+    const addN = Number.isNaN(added) ? 0 : added;
+    const delN = Number.isNaN(deleted) ? 0 : deleted;
+    const prevChurn = commitChurn.get(current.sha) ?? {
+      additions: 0,
+      deletions: 0,
+    };
+    commitChurn.set(current.sha, {
+      additions: prevChurn.additions + addN,
+      deletions: prevChurn.deletions + delN,
+    });
+    if (currentAuthorKey) {
+      const authorRow = repoAuthors.get(currentAuthorKey);
+      if (authorRow) {
+        authorRow.additions += addN;
+        authorRow.deletions += delN;
+      }
+    }
     let path = parts.slice(2).join("\t");
     // Rename form "old => new" / "dir/{a => b}/x": keep the new path.
     if (path.includes("=>")) {
@@ -141,19 +198,19 @@ export function parseGitLog(
     // log is newest-first, so the first commit seen is the latest.
     if (f.lastCommit === null) {
       f.lastCommit = current;
-      f.lastAdditions = Number.isNaN(added) ? 0 : added;
-      f.lastDeletions = Number.isNaN(deleted) ? 0 : deleted;
+      f.lastAdditions = addN;
+      f.lastDeletions = delN;
     }
     f.commits += 1;
-    f.additions += Number.isNaN(added) ? 0 : added;
-    f.deletions += Number.isNaN(deleted) ? 0 : deleted;
+    f.additions += addN;
+    f.deletions += delN;
     if (f.recent.length < 5) f.recent.push(current);
     const prev = f.authors.get(current.author);
     f.authors.set(current.author, {
       author: current.author,
       commits: (prev?.commits ?? 0) + 1,
-      additions: (prev?.additions ?? 0) + (Number.isNaN(added) ? 0 : added),
-      deletions: (prev?.deletions ?? 0) + (Number.isNaN(deleted) ? 0 : deleted),
+      additions: (prev?.additions ?? 0) + addN,
+      deletions: (prev?.deletions ?? 0) + delN,
     });
     const bucket = Math.floor(currentAgeDays / 7);
     if (bucket >= 0 && bucket < weeksLen) {
@@ -176,14 +233,14 @@ export function parseGitLog(
     );
     signals.set(path, {
       path,
-      lastCommit: f.lastCommit,
+      lastCommit: enrichCommit(f.lastCommit),
       commits: f.commits,
       additions: f.additions,
       deletions: f.deletions,
       lastAdditions: f.lastAdditions,
       lastDeletions: f.lastDeletions,
       contributors,
-      recent: f.recent,
+      recent: f.recent.map(enrichCommit),
       weeks: f.weeks,
       recency,
     });
@@ -193,9 +250,20 @@ export function parseGitLog(
     .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
     .map(([date, commits]) => ({ date, commits }));
 
+  const authors: GitAuthorRollup[] = [...repoAuthors.values()]
+    .map((a) => ({
+      name: a.name,
+      ...(a.email ? { email: a.email } : {}),
+      commits: a.commits,
+      additions: a.additions,
+      deletions: a.deletions,
+    }))
+    .sort((a, b) => b.commits - a.commits || a.name.localeCompare(b.name));
+
   return {
     signals,
     days,
+    authors,
     summary: {
       ...(headSha === undefined ? {} : { headSha }),
       totalCommits: shas.size,
@@ -270,6 +338,7 @@ export function readGitSignals(
   return {
     signals: parsed.signals,
     days: parsed.days,
+    authors: parsed.authors,
     summary,
     ...(unpushedShas ? { unpushedShas } : {}),
   };

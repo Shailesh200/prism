@@ -1,6 +1,11 @@
 $schema: "https://moonrepo.dev/schemas/project.json"
 language: "typescript"
 layer: "application"
+dependsOn:
+  - core
+  - shared
+  - ui
+  - app-shell
 tasks:
   build:
     command: "bun run build"

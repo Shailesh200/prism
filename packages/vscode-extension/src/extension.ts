@@ -14,6 +14,7 @@ let session: PrismSession | undefined;
 let logger: ReturnType<typeof createLogger> | undefined;
 let statusBar: vscode.StatusBarItem | undefined;
 let extensionUri: vscode.Uri | undefined;
+let extensionContext: vscode.ExtensionContext | undefined;
 /** Serializes index work so overlapping folder opens don't race. */
 let bootChain: Promise<void> = Promise.resolve();
 let lastBootedRoot: string | null = null;
@@ -100,11 +101,25 @@ async function bootWorkspace(opts?: { announce?: boolean }): Promise<void> {
       "Open Prism",
       "Open Map",
     );
-    if (!extensionUri) return;
+    if (!extensionUri || !extensionContext) return;
     if (pick === "Open Prism") {
-      PrismPanel.show(vscode, extensionUri, s, logger!, "overview");
+      PrismPanel.show(
+        vscode,
+        extensionUri,
+        s,
+        logger!,
+        extensionContext,
+        "overview",
+      );
     } else if (pick === "Open Map") {
-      PrismPanel.show(vscode, extensionUri, s, logger!, "map");
+      PrismPanel.show(
+        vscode,
+        extensionUri,
+        s,
+        logger!,
+        extensionContext,
+        "map",
+      );
     }
   }
 }
@@ -217,6 +232,7 @@ export function activate(context: vscode.ExtensionContext): void {
   logger = createLogger(vscode.window);
   session = new PrismSession();
   extensionUri = context.extensionUri;
+  extensionContext = context;
 
   statusBar = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Left,
@@ -229,8 +245,15 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const openPrism = vscode.commands.registerCommand("prism.open", async () => {
     const s = await ensureSession();
-    if (!s || !extensionUri) return;
-    PrismPanel.show(vscode, extensionUri, s, logger!, "overview");
+    if (!s || !extensionUri || !extensionContext) return;
+    PrismPanel.show(
+      vscode,
+      extensionUri,
+      s,
+      logger!,
+      extensionContext,
+      "overview",
+    );
     logger!.info("Opened Prism dashboard");
   });
 
@@ -238,8 +261,15 @@ export function activate(context: vscode.ExtensionContext): void {
     "prism.openRepositoryMap",
     async () => {
       const s = await ensureSession();
-      if (!s || !extensionUri) return;
-      PrismPanel.show(vscode, extensionUri, s, logger!, "map");
+      if (!s || !extensionUri || !extensionContext) return;
+      PrismPanel.show(
+        vscode,
+        extensionUri,
+        s,
+        logger!,
+        extensionContext,
+        "map",
+      );
       logger!.info("Opened Repository Map");
     },
   );
@@ -266,7 +296,15 @@ export function activate(context: vscode.ExtensionContext): void {
         "Open Overview",
       );
       if (pick === "Open Overview") {
-        PrismPanel.show(vscode, extensionUri, s, logger!, "overview");
+        if (!extensionContext) return;
+        PrismPanel.show(
+          vscode,
+          extensionUri,
+          s,
+          logger!,
+          extensionContext,
+          "overview",
+        );
       }
     },
   );

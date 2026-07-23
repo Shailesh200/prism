@@ -1,7 +1,7 @@
 import type Database from "better-sqlite3";
 
 /** Current schema version after all migrations. */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 type Migration = {
   readonly version: number;
@@ -54,6 +54,32 @@ const migrations: readonly Migration[] = [
       );
       db.prepare(
         `INSERT INTO schema_meta (key, value) VALUES ('version', '2')
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      ).run();
+    },
+  },
+  {
+    version: 3,
+    up(db) {
+      // Health / region history for Trends (M-046 / ADR-0023).
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS health_history (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          repo_root TEXT NOT NULL,
+          at TEXT NOT NULL,
+          commit_sha TEXT,
+          payload_json TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS health_history_root_at_idx
+          ON health_history (repo_root, at);
+
+        CREATE UNIQUE INDEX IF NOT EXISTS health_history_root_sha_idx
+          ON health_history (repo_root, commit_sha)
+          WHERE commit_sha IS NOT NULL;
+      `);
+      db.prepare(
+        `INSERT INTO schema_meta (key, value) VALUES ('version', '3')
          ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
       ).run();
     },

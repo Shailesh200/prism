@@ -4,12 +4,16 @@ import {
   DnaReportSchema,
   FileInventorySchema,
   StackProfileSchema,
+  HealthHistoryReportSchema,
   HealthScoreSchema,
   GraphSnapshotDtoSchema,
   IndexSnapshotSchema,
   IndexSummarySchema,
   IntelligenceReportSchema,
   PrismErrorSchema,
+  RegionMoversReportSchema,
+  TestingReportSchema,
+  SecurityReportSchema,
   parseDto,
 } from "./schemas.js";
 import { PrismErrorCode } from "./errors.js";
@@ -86,9 +90,59 @@ describe("DTO schemas round-trip", () => {
     const raw = {
       score: 82,
       grade: "B",
-      factors: [{ id: "coupling", label: "Coupling", score: 70, note: "ok" }],
+      factors: [
+        {
+          id: "coupling",
+          label: "Coupling",
+          score: 70,
+          note: "ok",
+          breakdown: [
+            { label: "Graph nodes", value: 4 },
+            { label: "Cycles", value: 1 },
+          ],
+        },
+      ],
     };
-    expect(HealthScoreSchema.parse(raw).grade).toBe("B");
+    const parsed = HealthScoreSchema.parse(raw);
+    expect(parsed.grade).toBe("B");
+    expect(parsed.factors[0]?.breakdown?.[0]?.label).toBe("Graph nodes");
+  });
+
+  it("HealthHistoryReportSchema + RegionMoversReportSchema", () => {
+    const history = HealthHistoryReportSchema.parse({
+      points: [
+        {
+          at: "2026-01-01T00:00:00.000Z",
+          commitSha: "abc123",
+          score: 70,
+          factors: [{ id: "coupling", score: 65 }],
+        },
+      ],
+    });
+    expect(history.points[0]?.commitSha).toBe("abc123");
+
+    const movers = RegionMoversReportSchema.parse({
+      improving: [
+        {
+          id: "feat:a",
+          label: "A",
+          fromScore: 40,
+          toScore: 70,
+          delta: 30,
+        },
+      ],
+      regressing: [
+        {
+          id: "feat:b",
+          label: "B",
+          fromScore: 80,
+          toScore: 50,
+          delta: -30,
+        },
+      ],
+    });
+    expect(movers.improving[0]?.delta).toBe(30);
+    expect(movers.regressing[0]?.delta).toBe(-30);
   });
 
   it("BlastRadiusReportSchema", () => {
@@ -111,11 +165,18 @@ describe("DTO schemas round-trip", () => {
       summary: "TS monorepo",
       architectureHints: ["monorepo"],
       testRunners: ["vitest"],
+      rankedDomains: [
+        { id: "frontend", confidence: 0.95 },
+        { id: "backend", confidence: 0.8 },
+      ],
+      primaryDomain: "frontend",
     };
     const parsed = DnaReportSchema.parse(raw);
     expect(parsed.frameworks).toContain("react");
     expect(parsed.architectureHints).toContain("monorepo");
     expect(parsed.testRunners).toContain("vitest");
+    expect(parsed.primaryDomain).toBe("frontend");
+    expect(parsed.rankedDomains[0]?.id).toBe("frontend");
   });
 
   it("IntelligenceReportSchema", () => {
@@ -212,5 +273,54 @@ describe("DTO schemas round-trip", () => {
     const parsed = StackProfileSchema.parse(raw);
     expect(parsed.domains).toContain("tooling");
     expect(parsed.packages).toEqual([]);
+  });
+
+  it("TestingReportSchema", () => {
+    const raw = {
+      score: 72,
+      runners: ["vitest"],
+      suites: [
+        { kind: "unit", path: "src", fileCount: 12 },
+        { kind: "e2e", path: "e2e", fileCount: 3 },
+      ],
+      coverage: { present: true, linePct: 81.5, source: "coverage/lcov.info" },
+      summary: "Vitest with unit + e2e suites; coverage present",
+    };
+    const parsed = TestingReportSchema.parse(raw);
+    expect(parsed.runners).toContain("vitest");
+    expect(parsed.suites).toHaveLength(2);
+    expect(parsed.coverage?.linePct).toBe(81.5);
+  });
+
+  it("SecurityReportSchema", () => {
+    const raw = {
+      score: 64,
+      tools: [
+        {
+          id: "dependabot",
+          name: "Dependabot",
+          present: true,
+          path: ".github/dependabot.yml",
+        },
+        { id: "snyk", name: "Snyk", present: false },
+      ],
+      checks: [
+        {
+          id: "no_env_committed",
+          status: "pass",
+          title: "No committed .env secrets file",
+        },
+        {
+          id: "lockfile_present",
+          status: "pass",
+          title: "Dependency lockfile present",
+          detail: "bun.lock",
+        },
+      ],
+      summary: "Dependabot present; 2/2 checks passed",
+    };
+    const parsed = SecurityReportSchema.parse(raw);
+    expect(parsed.tools.filter((t) => t.present)).toHaveLength(1);
+    expect(parsed.checks[0]?.status).toBe("pass");
   });
 });

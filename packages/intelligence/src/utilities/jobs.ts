@@ -20,6 +20,17 @@ import {
   labFixtureLighthouseJson,
 } from "./cwv.js";
 import type { IngestStore } from "./ingest-store.js";
+import {
+  ensureLighthouseCli,
+  resolveSystemChrome,
+  runLighthouseCli,
+} from "./lighthouse-runner.js";
+import {
+  PRISM_LAB_PORT,
+  discoverLabUrl,
+  startLabPreviewServer,
+  type LabServerHandle,
+} from "./lab-server.js";
 
 export type LighthouseJobOptions = {
   readonly url?: string;
@@ -29,7 +40,7 @@ export type LighthouseJobOptions = {
   /**
    * `lab-fixture` — deterministic local report (default, CI-safe).
    * `ingest` — require `reportPath`.
-   * `run` — reserved; falls back to lab-fixture with callout (Chrome not bundled).
+   * `run` — system Chrome + Lighthouse CLI under `.prism/tools` (never fixtures).
    */
   readonly mode?: "lab-fixture" | "ingest" | "run";
 };
@@ -160,12 +171,15 @@ export function createUtilityJobService(options: {
           );
 
           const lh = input.lighthouse ?? {};
-          const port = lh.port ?? 4173;
-          const url = lh.url ?? `http://127.0.0.1:${port}/`;
+          const preferredPort = lh.port;
           const mode = lh.mode ?? (lh.reportPath ? "ingest" : "lab-fixture");
 
           let source: "lighthouse" | "ingest" | "lab-fixture" = "lab-fixture";
           let raw: unknown;
+          let url =
+            lh.url ?? `http://127.0.0.1:${preferredPort ?? PRISM_LAB_PORT}/`;
+          let port = preferredPort ?? PRISM_LAB_PORT;
+          let labHandle: LabServerHandle | null = null;
 
           if (mode === "ingest") {
             if (!lh.reportPath) {
@@ -190,18 +204,127 @@ export function createUtilityJobService(options: {
                 ),
               );
             }
+          } else if (mode === "run") {
+            emit(
+              {
+                phase: "detect-chrome",
+                percent: 30,
+                message: "Looking for system Chrome/Chromium/Edge",
+              },
+              "running",
+            );
+            const chrome = await resolveSystemChrome();
+            if (!chrome.ok) {
+              return ok(fail("CHROME_NOT_FOUND", chrome.message));
+            }
+
+            emit(
+              {
+                phase: "ensure-cli",
+                percent: 45,
+                message:
+                  "Ensuring Lighthouse CLI under .prism/tools/lighthouse",
+              },
+              "running",
+            );
+            const cli = await ensureLighthouseCli(options.workspaceRoot);
+            if (!cli.ok) {
+              return ok(fail("LIGHTHOUSE_INSTALL_FAILED", cli.message));
+            }
+
+            emit(
+              {
+                phase: "lighthouse-run",
+                percent: 52,
+                message:
+                  "Looking for a local frontend (ports 3000, 5173, 4173, …)",
+              },
+              "running",
+            );
+            let reachable = await discoverLabUrl({
+              ...(lh.url ? { url: lh.url } : {}),
+              ...(preferredPort !== undefined ? { port: preferredPort } : {}),
+            });
+
+            if (!reachable.ok) {
+              emit(
+                {
+                  phase: "lab-preview",
+                  percent: 55,
+                  message: `No app listening — building + starting production preview on :${preferredPort ?? PRISM_LAB_PORT}`,
+                },
+                "running",
+              );
+              const started = await startLabPreviewServer({
+                workspaceRoot: options.workspaceRoot,
+                port: preferredPort ?? PRISM_LAB_PORT,
+                onProgress: (message) =>
+                  emit(
+                    { phase: "lab-preview", percent: 57, message },
+                    "running",
+                  ),
+              });
+              if (!started.ok) {
+                return ok(
+                  fail(
+                    "LAB_URL_UNREACHABLE",
+                    `${reachable.message} · Auto-start failed: ${started.message}`,
+                  ),
+                );
+              }
+              labHandle = started.handle;
+              reachable = {
+                ok: true,
+                url: started.handle.url,
+                port: started.handle.port,
+              };
+            }
+
+            url = reachable.url;
+            port = reachable.port;
+
+            emit(
+              {
+                phase: "lighthouse-run",
+                percent: 60,
+                message: `Running Lighthouse against ${url} (Chrome: ${chrome.source})`,
+              },
+              "running",
+            );
+            try {
+              const ran = await runLighthouseCli({
+                workspaceRoot: options.workspaceRoot,
+                url,
+                chromePath: chrome.path,
+                bin: cli.bin,
+              });
+              if (!ran.ok) {
+                return ok(fail("LIGHTHOUSE_RUN_FAILED", ran.message));
+              }
+              raw = ran.lhr;
+              source = "lighthouse";
+            } finally {
+              if (labHandle) {
+                emit(
+                  {
+                    phase: "lab-preview",
+                    percent: 75,
+                    message: "Stopping Prism lab preview server",
+                  },
+                  "running",
+                );
+                await labHandle.stop();
+                labHandle = null;
+              }
+            }
           } else {
-            // `run` is not bundled with Chrome in P1 — use lab fixture + honest callout.
             raw = labFixtureLighthouseJson({ url });
-            source = mode === "run" ? "lab-fixture" : "lab-fixture";
+            source = "lab-fixture";
             emit(
               {
                 phase: "lab-fixture",
                 percent: 50,
-                message:
-                  mode === "run"
-                    ? "Lighthouse CLI/Chrome not bundled; wrote lab-fixture CWV report (local-only)."
-                    : "Writing lab-fixture CWV report (CI-safe).",
+                message: "Writing lab-fixture CWV report (CI-safe).",
               },
               "running",
             );

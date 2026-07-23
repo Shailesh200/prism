@@ -61,13 +61,42 @@ describe("computeBlastRadius — file target", () => {
       path: "util.ts",
     });
     expect(report.affectedFiles).toEqual([
-      { path: "app.ts", reason: "imports util.ts", depth: 1 },
-      { path: "service.ts", reason: "imports util.ts", depth: 1 },
-      { path: "util.test.ts", reason: "imports util.ts", depth: 1 },
-      { path: "app.test.ts", reason: "imports app.ts", depth: 2 },
+      {
+        path: "app.ts",
+        reason: "imports util.ts",
+        depth: 1,
+        category: "import",
+      },
+      {
+        path: "service.ts",
+        reason: "imports util.ts",
+        depth: 1,
+        category: "import",
+      },
+      {
+        path: "util.test.ts",
+        reason: "imports util.ts",
+        depth: 1,
+        category: "test",
+      },
+      {
+        path: "app.test.ts",
+        reason: "imports app.ts",
+        depth: 2,
+        category: "test",
+      },
     ]);
     expect(report.testsLikelyAffected).toEqual(["app.test.ts", "util.test.ts"]);
     expect(report.truncated).toBeUndefined();
+    // 3 direct dependents (>= WIDELY_USED_THRESHOLD); tests present, not config.
+    expect(report.breakingChanges).toEqual([
+      {
+        kind: "widely-used",
+        severity: "warning",
+        message:
+          "3 files depend directly on this; breaking its contract impacts many callers.",
+      },
+    ]);
   });
 
   it("accepts a `file:` prefixed id", () => {
@@ -111,6 +140,61 @@ describe("computeBlastRadius — file target", () => {
     if (res.ok) return;
     expect(res.error.code).toBe("PRISM_NOT_FOUND");
   });
+
+  it("boosts risk for foundational config files even with no dependents", () => {
+    const analyzed = ["package.json", "src/app.ts"];
+    const res = computeBlastRadius(
+      { kind: "file", id: "package.json" },
+      { dependencyGraph: graphOf([]), analyzedPaths: analyzed },
+    );
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    // Untested leaf (15) + config boost/floor → High band (>= 60).
+    expect(res.value.affectedFiles).toEqual([]);
+    expect(res.value.risk).toBeGreaterThanOrEqual(60);
+    // Config origin emits a danger config-change hint (no affected files → no untested).
+    expect(res.value.breakingChanges).toEqual([
+      {
+        kind: "config-change",
+        severity: "danger",
+        message:
+          "Editing a build/config file (package.json) can affect the whole workspace build.",
+      },
+    ]);
+  });
+
+  it("classifies affected files by category (reexport, type, config, test)", () => {
+    // barrel re-exports util; app + a .d.ts + a config depend on the barrel.
+    const analyzed = [
+      "util.ts",
+      "barrel.ts",
+      "app.ts",
+      "types.d.ts",
+      "vite.config.ts",
+      "barrel.test.ts",
+    ];
+    const graph = graphOf([
+      edge("barrel.ts", "util.ts", "re-export"),
+      edge("app.ts", "util.ts"),
+      edge("types.d.ts", "util.ts"),
+      edge("vite.config.ts", "util.ts"),
+      edge("barrel.test.ts", "util.ts"),
+    ]);
+    const res = computeBlastRadius(
+      { kind: "file", id: "util.ts" },
+      { dependencyGraph: graph, analyzedPaths: analyzed },
+    );
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const byPath = new Map(
+      res.value.affectedFiles.map((f) => [f.path, f.category]),
+    );
+    expect(byPath.get("barrel.ts")).toBe("reexport");
+    expect(byPath.get("app.ts")).toBe("import");
+    expect(byPath.get("types.d.ts")).toBe("type");
+    expect(byPath.get("vite.config.ts")).toBe("config");
+    expect(byPath.get("barrel.test.ts")).toBe("test");
+  });
 });
 
 describe("computeBlastRadius — depth limit + truncation", () => {
@@ -135,6 +219,19 @@ describe("computeBlastRadius — depth limit + truncation", () => {
       "c.ts",
     ]);
     expect(res.value.truncated).toBe(true);
+    // Untested (warning) + partial (info), sorted by severity then message.
+    expect(res.value.breakingChanges).toEqual([
+      {
+        kind: "untested",
+        severity: "warning",
+        message: "No tests appear to cover the affected files.",
+      },
+      {
+        kind: "partial",
+        severity: "info",
+        message: "Impact traversal hit the depth limit; results are partial.",
+      },
+    ]);
   });
 
   it("is not truncated when the limit covers the whole chain", () => {
@@ -172,8 +269,18 @@ describe("computeBlastRadius — symbol target", () => {
       path: "helper.ts",
     });
     expect(res.value.affectedFiles).toEqual([
-      { path: "cli.ts", reason: "references add", depth: 1 },
-      { path: "main.ts", reason: "references add", depth: 1 },
+      {
+        path: "cli.ts",
+        reason: "references add",
+        depth: 1,
+        category: "import",
+      },
+      {
+        path: "main.ts",
+        reason: "references add",
+        depth: 1,
+        category: "import",
+      },
     ]);
   });
 

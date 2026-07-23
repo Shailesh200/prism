@@ -11,6 +11,7 @@ import {
   affectedItems,
   buildReverseAdjacency,
   computeAffected,
+  isRepoCriticalPath,
   isTestPath,
   referencesToSymbol,
   resolveOrigin,
@@ -48,6 +49,15 @@ function computeOrphans(originPath: string, context: ImpactContext): string[] {
   return [...removed].sort((a, b) => a.localeCompare(b));
 }
 
+function foundationalConfigHint(originPath: string): BreakingChangeHint | null {
+  if (!isRepoCriticalPath(originPath)) return null;
+  return {
+    kind: "foundational-config",
+    severity: "danger",
+    message: `${originPath} is a foundational config/build file; changes can break the repository even without direct import edges.`,
+  };
+}
+
 function breakingHintsFor(
   originKind: "file" | "symbol",
   originPath: string,
@@ -55,6 +65,9 @@ function breakingHintsFor(
   context: ImpactContext,
 ): BreakingChangeHint[] {
   const hints: BreakingChangeHint[] = [];
+
+  const configHint = foundationalConfigHint(originPath);
+  if (configHint) hints.push(configHint);
 
   if (originKind === "symbol" && symbol) {
     if (symbol.exported) {
@@ -120,9 +133,24 @@ export function computeSafeDelete(
   const orphans =
     origin.kind === "file" ? computeOrphans(originPath, context) : [];
 
+  // Repo-critical config/build files are never safe to delete, even with zero
+  // import dependents: removing them can break builds/CI. Surface a synthetic
+  // depth-0 blocker so the UI can explain WHY.
+  const critical = origin.kind === "file" && isRepoCriticalPath(originPath);
+  if (critical && !blockers.some((b) => b.path === originPath)) {
+    blockers.push({
+      path: originPath,
+      reason:
+        "repo-critical config/build file — removing it can break builds/CI",
+      depth: 0,
+      category: "config",
+    });
+    blockers.sort((a, b) => a.depth - b.depth || a.path.localeCompare(b.path));
+  }
+
   return ok({
     origin: { kind: origin.kind, id: origin.id, path: originPath },
-    safe: blockers.length === 0,
+    safe: blockers.length === 0 && !critical,
     blockers,
     orphans,
     testsLikelyAffected,
@@ -155,12 +183,32 @@ export function computeRenameImpact(
     .map(([path, count]) => ({ path, count }))
     .sort((a, b) => a.path.localeCompare(b.path));
 
+  const breakingChanges = breakingHintsFor(
+    target.kind,
+    originPath,
+    symbol,
+    context,
+  );
+  // Renaming an exported symbol used across many files breaks every importer.
+  if (target.kind === "symbol" && symbol?.exported) {
+    const files = new Set(
+      referencesToSymbol(context, symbol).map((r) => r.path),
+    ).size;
+    if (files >= WIDELY_USED_THRESHOLD) {
+      breakingChanges.push({
+        kind: "rename-breaking",
+        severity: "warning",
+        message: `Renaming an exported symbol used in ${files} files is a breaking change for importers.`,
+      });
+    }
+  }
+
   return ok({
     origin: { kind: target.kind, id: target.id, path: originPath },
     ...(target.newName === undefined ? {} : { newName: target.newName }),
     editSites,
     affectedFiles: editSites.map((s) => s.path),
-    breakingChanges: breakingHintsFor(target.kind, originPath, symbol, context),
+    breakingChanges,
   });
 }
 

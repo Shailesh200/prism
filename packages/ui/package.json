@@ -10,12 +10,13 @@
       "import": "./dist/index.js"
     },
     "./map.css": "./dist/map.css",
-    "./tokens.css": "./dist/tokens.css"
+    "./tokens.css": "./dist/tokens.css",
+    "./primitives.css": "./dist/primitives.css"
   },
   "files": ["dist", "assets"],
   "scripts": {
     "build": "tsc -p tsconfig.json && bun run build:css",
-    "build:css": "bun -e \"await Bun.write('dist/tokens.css', await Bun.file('src/tokens.css').text()); await Bun.write('dist/map.css', await Bun.file('src/map.css').text())\"",
+    "build:css": "bun -e \"await Bun.write('dist/tokens.css', await Bun.file('src/tokens.css').text()); await Bun.write('dist/map.css', await Bun.file('src/map.css').text()); await Bun.write('dist/primitives.css', await Bun.file('src/primitives.css').text())\"",
     "gen:icons": "node scripts/gen-material-icons.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",

@@ -121,11 +121,6 @@ function buildPackageZoom(
     };
   }
 
-  const nodes = packages.map((pkg) =>
-    node(packageId(pkg), "package", pkg.name, {
-      rootDir: pkg.rootDir || ".",
-    }),
-  );
   const byRoot = [...packages].sort(
     (a, b) => b.rootDir.length - a.rootDir.length,
   );
@@ -140,6 +135,22 @@ function buildPackageZoom(
     const root = byRoot.find((p) => p.rootDir === "");
     return root ? packageId(root) : null;
   };
+
+  const fileCountByPkg = new Map<string, number>();
+  for (const n of dependencyGraph.nodes) {
+    if (n.kind !== "file") continue;
+    const pkg = pkgOf(n.id);
+    if (!pkg) continue;
+    fileCountByPkg.set(pkg, (fileCountByPkg.get(pkg) ?? 0) + 1);
+  }
+
+  const nodes = packages.map((pkg) => {
+    const id = packageId(pkg);
+    return node(id, "package", pkg.name, {
+      rootDir: pkg.rootDir || ".",
+      fileCount: fileCountByPkg.get(id) ?? 0,
+    });
+  });
 
   const edgeSet = new Set<string>();
   const edges: GraphEdgeDto[] = [];

@@ -3,15 +3,49 @@ import {
   err,
   ok,
   prismError,
+  type BlastRadiusItem,
   type GraphSnapshotDto,
   type PrismError,
   type Result,
 } from "@prism/shared";
 
+/** Coarse classification of how an affected file is impacted (M-046 tweak). */
+export type BlastImpactCategory = NonNullable<BlastRadiusItem["category"]>;
+
 export const FILE_PREFIX = "file:";
 export const DEFAULT_BLAST_MAX_DEPTH = 6;
 /** References/imports at or above this count flag a `widely-used` change. */
-export const WIDELY_USED_THRESHOLD = 5;
+export const WIDELY_USED_THRESHOLD = 3;
+/** Extra risk points for foundational config/build files (clamped with a High floor). */
+export const CONFIG_FILE_RISK_BOOST = 25;
+/** Minimum risk for repo-critical config paths (High band starts at 60). */
+export const CONFIG_FILE_RISK_FLOOR = 60;
+
+/**
+ * Repo-critical config / build / CI paths that matter even without import edges
+ * (`package.json`, bundler/tsconfig, Cargo/go/pyproject, Dockerfile, workflows).
+ */
+export function isRepoCriticalPath(path: string): boolean {
+  const normalized = path.replace(/\\/g, "/");
+  const base = normalized.split("/").pop() ?? normalized;
+  if (base === "package.json") return true;
+  if (base === "Cargo.toml" || base === "go.mod" || base === "pyproject.toml") {
+    return true;
+  }
+  if (base === "Dockerfile" || /^Dockerfile\./i.test(base)) return true;
+  if (/^vite\.config\./i.test(base)) return true;
+  if (/^webpack\.config\./i.test(base)) return true;
+  if (/^next\.config\./i.test(base)) return true;
+  if (/^tsconfig.*\.json$/i.test(base)) return true;
+  if (
+    normalized === ".github/workflows" ||
+    normalized.startsWith(".github/workflows/") ||
+    normalized.includes("/.github/workflows/")
+  ) {
+    return true;
+  }
+  return false;
+}
 
 /** Change target: a file path or a symbol (resolved via the knowledge graph). */
 export type BlastRadiusOrigin = {
@@ -58,6 +92,32 @@ export function stripFilePrefix(idOrPath: string): string {
 
 export function isTestPath(path: string): boolean {
   return /(^|\/)__tests__\//.test(path) || /\.(test|spec)\.[a-z]+$/i.test(path);
+}
+
+/** A TypeScript declaration file (`*.d.ts`) — contributes types, not runtime. */
+export function isTypeDeclarationPath(path: string): boolean {
+  return /\.d\.ts$/i.test(path);
+}
+
+/** Whether a reverse-edge kind represents a re-export (`export`/`reexport`). */
+export function isReexportEdge(edgeKind: string | undefined): boolean {
+  return edgeKind !== undefined && /reexport|export/i.test(edgeKind);
+}
+
+/**
+ * Coarse classification of how an affected file is impacted, from its path and
+ * the reverse-edge kind that reached it. Priority: test → config → reexport →
+ * type → import (the catch-all).
+ */
+export function classifyCategory(
+  path: string,
+  edgeKind: string | undefined,
+): BlastImpactCategory {
+  if (isTestPath(path)) return "test";
+  if (isRepoCriticalPath(path)) return "config";
+  if (isReexportEdge(edgeKind)) return "reexport";
+  if (isTypeDeclarationPath(path)) return "type";
+  return "import";
 }
 
 export type ReverseEdge = { readonly fromPath: string; readonly kind: string };
@@ -142,7 +202,12 @@ export function resolveOrigin(
   });
 }
 
-export type Affected = { readonly depth: number; readonly reason: string };
+export type Affected = {
+  readonly depth: number;
+  readonly reason: string;
+  /** Reverse-edge kind that reached this file (undefined for symbol seeds). */
+  readonly edgeKind?: string;
+};
 
 export type AffectedSet = {
   readonly originPath: string;
@@ -184,10 +249,19 @@ export function computeAffected(
   const queue: Array<{ path: string; depth: number }> = [];
   let truncated = false;
 
-  const enqueue = (path: string, depth: number, reason: string) => {
+  const enqueue = (
+    path: string,
+    depth: number,
+    reason: string,
+    edgeKind?: string,
+  ) => {
     if (seen.has(path)) return;
     seen.add(path);
-    affected.set(path, { depth, reason });
+    affected.set(path, {
+      depth,
+      reason,
+      ...(edgeKind === undefined ? {} : { edgeKind }),
+    });
     queue.push({ path, depth });
   };
 
@@ -216,6 +290,7 @@ export function computeAffected(
         neighbor.fromPath,
         current.depth + 1,
         `${neighbor.kind}s ${current.path}`,
+        neighbor.kind,
       );
     }
   }
@@ -223,11 +298,19 @@ export function computeAffected(
   return ok({ originPath, symbol, affected, truncated });
 }
 
-/** Sorted affected files as report items (depth asc, then path). */
-export function affectedItems(
-  affected: Map<string, Affected>,
-): Array<{ path: string; reason: string; depth: number }> {
+/** Sorted affected files as report items (depth asc, then path), classified. */
+export function affectedItems(affected: Map<string, Affected>): Array<{
+  path: string;
+  reason: string;
+  depth: number;
+  category: BlastImpactCategory;
+}> {
   return [...affected.entries()]
-    .map(([path, info]) => ({ path, reason: info.reason, depth: info.depth }))
+    .map(([path, info]) => ({
+      path,
+      reason: info.reason,
+      depth: info.depth,
+      category: classifyCategory(path, info.edgeKind),
+    }))
     .sort((a, b) => a.depth - b.depth || a.path.localeCompare(b.path));
 }

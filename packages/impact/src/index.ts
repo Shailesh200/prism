@@ -4,6 +4,7 @@ export const PACKAGE_NAME = "@prism/impact" as const;
 export {
   computeBlastRadius,
   DEFAULT_BLAST_MAX_DEPTH,
+  isRepoCriticalPath,
   type BlastRadiusOptions,
   type BlastRadiusOrigin,
   type ImpactContext,

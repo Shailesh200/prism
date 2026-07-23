@@ -75,6 +75,8 @@ Default `Prism.create()` enables all of the above when default ports are wired.
 | `intelligence` | Aggregate report; requires index |
 | `getDna` | DNA without requiring prior index |
 | `getHealth` | M-015 |
+| `getHealthHistory` / `getRegionMovers` | M-046 Trends history (ADR-0023) |
+| `startHealthHistoryBackfill` / `getHealthHistoryBackfillStatus` | M-046 git backfill job |
 | `findRoute` / `navigateFeature` / `listLandmarks` | M-016 |
 | `getRepositoryMap` | M-017 |
 | `getGitActivity` | Local git; fail-soft `available: false` |
@@ -88,6 +90,7 @@ Default `Prism.create()` enables all of the above when default ports are wired.
 | `getEngineeringHealth` | M-022 report; complementary to `getHealth` |
 | `exploreCode` | M-023 selection report |
 | `getBackendReport` | M-044 route intelligence |
+| `getTestingReport` / `getSecurityReport` / `ingestCoverageFromWorkspace` | M-046 Testing & Security |
 | `getPersonaPresets` / `getStackProfile` / `listPackages` / `selectPackage` / `getSelectedPackage` | Mono / personas |
 | `startUtilityJob` / `getUtilityJob` / `listUtilityJobs` | Opt-in utilities |
 | `listIngestArtifacts` / `getIngestArtifact` / `getCwvReport` | CWV / ingest |
