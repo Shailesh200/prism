@@ -83,6 +83,9 @@ jobs:
           bunx ovsx publish "${{ steps.pkg.outputs.vsix }}" -p "$OVSX_TOKEN"
 
       - name: Commit version bump
+        env:
+          # Bot-only version bump; skip local-dev hooks (oxfmt errors with zero targets).
+          LEFTHOOK: "0"
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
