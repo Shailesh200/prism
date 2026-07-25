@@ -100,8 +100,10 @@ if (bumpKind) {
 }
 
 if (!skipBuild) {
-  console.log("package-vsix: building dependencies + extension…");
-  run("bun", ["run", "--filter", "@prism/vscode-extension", "build"], repoRoot);
+  // moon runs core/ui/app-shell builds first — Bun filter alone cannot resolve
+  // @prism/core until those packages emit dist/ (exports point at dist only).
+  console.log("package-vsix: building dependencies + extension (moon)…");
+  run("bun", ["run", "moon", "run", "vscode-extension:build"], repoRoot);
 }
 
 const distExt = join(root, "dist", "extension.cjs");
