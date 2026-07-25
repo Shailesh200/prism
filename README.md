@@ -1,5 +1,13 @@
 # Prism
 
+[![VS Marketplace version](https://vsmarketplacebadges.dev/version/prismhq.repo-prism.svg)](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism)
+[![VS Marketplace installs](https://vsmarketplacebadges.dev/installs/prismhq.repo-prism.svg)](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism)
+[![VS Marketplace downloads](https://vsmarketplacebadges.dev/downloads/prismhq.repo-prism.svg)](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism)
+[![Open VSX version](https://img.shields.io/open-vsx/v/prismhq/repo-prism)](https://open-vsx.org/extension/prismhq/repo-prism)
+[![Open VSX downloads](https://img.shields.io/open-vsx/dt/prismhq/repo-prism)](https://open-vsx.org/extension/prismhq/repo-prism)
+[![verify](https://img.shields.io/github/actions/workflow/status/Shailesh200/prism/verify.yml?branch=main&label=verify)](https://github.com/Shailesh200/prism/actions/workflows/verify.yml)
+[![License: MIT](https://img.shields.io/github/license/Shailesh200/prism)](./LICENSE)
+
 **Local-first Software Intelligence Engine** for humans and AI agents.
 
 > Google Maps + Engineering Intelligence + MCP Tools for Software
@@ -12,12 +20,22 @@ Published as **`prismhq.repo-prism`** (display name **RepoPrism**).
 
 | Client | Install |
 |---|---|
-| **VS Code** | [Marketplace — RepoPrism](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism) · or Extensions → search `RepoPrism` / `@id:prismhq.repo-prism` |
-| **Cursor** | [Open VSX — RepoPrism](https://open-vsx.org/extension/prismhq/repo-prism) · or Extensions → search `RepoPrism` (Open VSX). If search lags: Command Palette → **Extensions: Install from VSIX…** |
+| **VS Code** | [Marketplace — RepoPrism](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism) · Extensions → search `RepoPrism` / `@id:prismhq.repo-prism` |
+| **Cursor** | [Open VSX — RepoPrism](https://open-vsx.org/extension/prismhq/repo-prism) · Extensions → search `RepoPrism`. If search lags: Command Palette → **Extensions: Install from VSIX…** |
 
 **After install:** open a folder → Command Palette → **Prism: Open Prism**.
 
-Publisher hub: [prismhq on Marketplace](https://marketplace.visualstudio.com/manage/publishers/prismhq) · packaging notes: [`packages/vscode-extension/PUBLISH.md`](./packages/vscode-extension/PUBLISH.md)
+### Important links
+
+| Link | What |
+|---|---|
+| [VS Marketplace listing](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism) | Installs / downloads / version for VS Code |
+| [Open VSX listing](https://open-vsx.org/extension/prismhq/repo-prism) | Cursor-friendly registry listing |
+| [Publisher hub](https://marketplace.visualstudio.com/manage/publishers/prismhq/extensions/repo-prism/hub) | Versions, stats, publish history |
+| [GitHub repo](https://github.com/Shailesh200/prism) | Source |
+| [Issues](https://github.com/Shailesh200/prism/issues) | Bugs & feature requests |
+| [Publish / CI notes](./packages/vscode-extension/PUBLISH.md) | VSIX packaging, Marketplace + Open VSX, Actions secrets |
+| [publish-extension workflow](https://github.com/Shailesh200/prism/actions/workflows/publish-extension.yml) | Auto-publish on `main` |
 
 ## Status
 
