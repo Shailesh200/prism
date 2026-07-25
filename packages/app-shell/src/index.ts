@@ -5,10 +5,12 @@ export const PACKAGE_NAME = "@prism/app-shell" as const;
 export type {
   AppShellClient,
   LighthouseLabOptions,
+  LighthouseLabProgressEvent,
   StageDevopsRemoteResult,
 } from "./client.js";
 export { AppShellClientProvider, useAppShellClient } from "./client-context.js";
 export { isBrowserShell } from "./is-browser.js";
+export { shellNavVariant, shellRootClass } from "./shell-layout.js";
 export type {
   ApplyRenameEditSite,
   ApplyRenameInput,
@@ -109,6 +111,7 @@ export {
   heuristicFrontendRoutes,
   formatCwvValue,
   ratingLabel,
+  lighthouseProgressFromJobEvent,
 } from "./cwv-parse.js";
 export { TestingSecurityScreen } from "./TestingSecurityScreen.js";
 export type { TestingSecurityScreenProps } from "./TestingSecurityScreen.js";

@@ -19,6 +19,7 @@ import {
   findReferences as queryReferences,
   findSymbol as querySymbols,
   getCwvReport as loadCwvReport,
+  discoverFrontendAppRoutes,
   ingestCoverageFromWorkspace,
   listUtilityOverlayKinds as catalogUtilityOverlayKinds,
   parseUtilityOverlayKind,
@@ -248,6 +249,11 @@ export type PrismWorkspace = {
   getIngestArtifact(id: string): Promise<Result<IngestArtifact, PrismError>>;
   /** Load a lighthouse-cwv ingest artifact as a typed CWV report (M-041 P1). */
   getCwvReport(artifactId: string): Promise<Result<CwvReport, PrismError>>;
+  /**
+   * Discover frontend URL paths for lab Routes UI (Next pages + React Router /
+   * SEO path literals under the workspace).
+   */
+  discoverFrontendRoutes(): Result<string[], PrismError>;
   /** Catalog of Map/MCP utility overlay kinds (M-041 P2–P7 / Mono-v2). */
   listUtilityOverlayKinds(): Result<UtilityOverlayKindInfo[], PrismError>;
   /**
@@ -836,6 +842,11 @@ export function createWorkspace(options: {
       const session = ensureUtilities();
       if (!session.ok) return session;
       return loadCwvReport(session.value.ingest, artifactId);
+    },
+    discoverFrontendRoutes() {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      return ok(discoverFrontendAppRoutes(rootPath));
     },
     listUtilityOverlayKinds() {
       const gate = ensureOpen();

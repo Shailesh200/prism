@@ -309,10 +309,21 @@ export class PrismSession {
     return ok(result.value);
   }
 
+  discoverFrontendRoutes(): Result<string[], PrismError> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    return ws.value.discoverFrontendRoutes();
+  }
+
   async runLighthouseLab(options?: {
     mode?: "lab-fixture" | "run" | "ingest";
     url?: string;
     port?: number;
+    routes?: readonly string[];
+    onProgress?: (event: {
+      message: string;
+      detail?: import("@prism/shared").JsonValue;
+    }) => void;
   }): Promise<Result<CwvReport | null, PrismError>> {
     const ws = this.requireWs();
     if (!ws.ok) return ws;
@@ -324,7 +335,22 @@ export class PrismSession {
         mode,
         ...(options?.url ? { url: options.url } : {}),
         ...(options?.port !== undefined ? { port: options.port } : {}),
+        ...(options?.routes && options.routes.length > 0
+          ? { routes: [...options.routes] }
+          : {}),
       },
+      ...(options?.onProgress
+        ? {
+            onProgress: (p) => {
+              const line = (p.message ?? p.phase).trim();
+              if (!line && p.detail === undefined) return;
+              options.onProgress!({
+                message: line || p.phase,
+                ...(p.detail !== undefined ? { detail: p.detail } : {}),
+              });
+            },
+          }
+        : {}),
     });
     if (!job.ok) return job;
     if (job.value.status === "failed") {

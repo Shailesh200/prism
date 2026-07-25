@@ -512,17 +512,33 @@ html[data-theme="light"] .set-inline-field__label {
   }
 }
 
-/* Contain horizontal overflow at the shell root. */
+/* Shell fills the host; let flex/grid children shrink instead of clipping. */
 .ov {
-  overflow-x: hidden;
-  max-width: 100%;
-}
-
-.ov-main,
-.ov-scroll {
-  overflow-x: hidden;
+  width: 100%;
   max-width: 100%;
   min-width: 0;
+  overflow-x: clip;
+}
+
+.playground-shell,
+.playground-shell__map {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.ov-main {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+/* Keep horizontal overflow inside nested panes (tables/logs), not the chrome. */
+.ov-scroll {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
+  padding-inline: 24px;
 }
 
 /* Light theme — Design.md contrast for dense lists / tables / signals */
@@ -587,10 +603,17 @@ html[data-theme="light"] .ov-btn--primary:disabled {
   color: #ffffff;
 }
 
+[data-theme="light"] .dm-pipe-table-wrap,
+html[data-theme="light"] .dm-pipe-table-wrap {
+  background: var(--prism-panel);
+  border-color: var(--prism-line);
+}
+
 [data-theme="light"] .dm-pipe-table thead th,
 html[data-theme="light"] .dm-pipe-table thead th {
   background: var(--prism-panel-2);
   color: var(--prism-ink-muted);
+  border-bottom-color: var(--prism-line);
 }
 
 [data-theme="light"] .dm-pipe-table tbody td,
@@ -598,6 +621,19 @@ html[data-theme="light"] .dm-pipe-table thead th {
 html[data-theme="light"] .dm-pipe-table tbody td,
 html[data-theme="light"] .dm-pipe-table__name {
   color: var(--prism-ink);
+  border-bottom-color: color-mix(in srgb, var(--prism-line) 70%, transparent);
+}
+
+[data-theme="light"] .dm-pipe-table__link,
+html[data-theme="light"] .dm-pipe-table__link {
+  color: var(--prism-brand);
+}
+
+[data-theme="light"] .dm-pipe-table__branch,
+html[data-theme="light"] .dm-pipe-table__branch {
+  color: var(--prism-ink);
+  background: color-mix(in srgb, var(--prism-ink-muted) 12%, transparent);
+  border-color: color-mix(in srgb, var(--prism-line) 80%, transparent);
 }
 
 [data-theme="light"] .ts-banner,

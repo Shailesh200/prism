@@ -49,6 +49,7 @@ import {
   type ReactElement,
 } from "react";
 import { AppSidebar, type AppSidebarUser, type AppView } from "./AppSidebar.js";
+import { shellNavVariant, shellRootClass } from "./shell-layout.js";
 import { useAppShellClient } from "./client-context.js";
 import type { RunTestsOptions, TestListResult } from "./types.js";
 
@@ -441,9 +442,9 @@ export function TestingSecurityScreen(
   };
 
   return (
-    <div className="ov">
+    <div className={shellRootClass()}>
       <AppSidebar
-        variant="full"
+        variant={shellNavVariant()}
         active="testing"
         repoLabel={props.repoLabel}
         user={props.user ?? null}
@@ -487,78 +488,79 @@ export function TestingSecurityScreen(
 
           {/* ——— Testing ——— */}
           <section className="ov-card ts-acc" aria-label="Testing report">
-            <button
-              type="button"
-              className="ts-acc__trigger"
-              aria-expanded={testingOpen}
-              onClick={() => setTestingOpen((v) => !v)}
-            >
-              <span className="ts-acc__chevron" aria-hidden>
-                {testingOpen ? (
-                  <ChevronDown size={16} />
-                ) : (
-                  <ChevronRight size={16} />
-                )}
-              </span>
-              <h2 className="ts-head__title">
-                <CardIcon icon={FlaskConical} tone="emerald" size={18} />
-                Testing
-                <InfoTip label="Testing report">
-                  Detects runners (vitest/jest/pytest/playwright/cypress), suite
-                  kinds from path patterns, on-disk coverage artifacts, and —
-                  after a run — per-test pass/fail results.
-                </InfoTip>
-              </h2>
-              <span className="ts-score">
-                {testing ? `${Math.round(testing.score)}` : "—"}
-                <span className="ts-score__unit">/100</span>
-              </span>
-            </button>
+            <div className="ts-acc__header">
+              <button
+                type="button"
+                className="ts-acc__trigger"
+                aria-expanded={testingOpen}
+                onClick={() => setTestingOpen((v) => !v)}
+              >
+                <span className="ts-acc__chevron" aria-hidden>
+                  {testingOpen ? (
+                    <ChevronDown size={16} />
+                  ) : (
+                    <ChevronRight size={16} />
+                  )}
+                </span>
+                <h2 className="ts-head__title">
+                  <CardIcon icon={FlaskConical} tone="emerald" size={18} />
+                  Testing
+                  <InfoTip label="Testing report">
+                    Detects runners (vitest/jest/pytest/playwright/cypress),
+                    suite kinds from path patterns, on-disk coverage artifacts,
+                    and — after a run — per-test pass/fail results.
+                  </InfoTip>
+                </h2>
+              </button>
+              <div className="ts-acc__actions">
+                <span className="ts-score">
+                  {testing ? `${Math.round(testing.score)}` : "—"}
+                  <span className="ts-score__unit">/100</span>
+                </span>
+                <div className="ts-split" ref={runGroupRef}>
+                  <button
+                    type="button"
+                    className="ov-btn ov-btn--primary ts-split__main"
+                    disabled={running}
+                    onClick={() => void onRunTests()}
+                  >
+                    {running ? (
+                      <Loader2 size={13} aria-hidden className="ts-spin" />
+                    ) : (
+                      <Play size={13} aria-hidden />
+                    )}
+                    {running ? "Running…" : "Run tests"}
+                  </button>
+                  <button
+                    type="button"
+                    className="ov-btn ov-btn--primary ts-split__caret"
+                    aria-label="Test run options"
+                    aria-haspopup="menu"
+                    aria-expanded={runMenuOpen}
+                    disabled={running}
+                    onClick={() => setRunMenuOpen((v) => !v)}
+                  >
+                    <ChevronDown size={13} aria-hidden />
+                  </button>
+                  {runMenuOpen ? (
+                    <div className="ts-split__menu" role="menu">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="ts-split__item"
+                        onClick={() => void onRunTests({ coverage: true })}
+                      >
+                        <ShieldCheck size={13} aria-hidden />
+                        Run with coverage
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
 
             {testingOpen ? (
               <div className="ts-acc__body">
-                <div className="ts-runbar">
-                  <div className="ts-split" ref={runGroupRef}>
-                    <button
-                      type="button"
-                      className="ov-btn ov-btn--primary ts-split__main"
-                      disabled={running}
-                      onClick={() => void onRunTests()}
-                    >
-                      {running ? (
-                        <Loader2 size={13} aria-hidden className="ts-spin" />
-                      ) : (
-                        <Play size={13} aria-hidden />
-                      )}
-                      {running ? "Running…" : "Run tests"}
-                    </button>
-                    <button
-                      type="button"
-                      className="ov-btn ov-btn--primary ts-split__caret"
-                      aria-label="Test run options"
-                      aria-haspopup="menu"
-                      aria-expanded={runMenuOpen}
-                      disabled={running}
-                      onClick={() => setRunMenuOpen((v) => !v)}
-                    >
-                      <ChevronDown size={13} aria-hidden />
-                    </button>
-                    {runMenuOpen ? (
-                      <div className="ts-split__menu" role="menu">
-                        <button
-                          type="button"
-                          role="menuitem"
-                          className="ts-split__item"
-                          onClick={() => void onRunTests({ coverage: true })}
-                        >
-                          <ShieldCheck size={13} aria-hidden />
-                          Run with coverage
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-
                 <p className="ts-summary">
                   {testing?.summary ?? "Not analyzed yet."}
                 </p>

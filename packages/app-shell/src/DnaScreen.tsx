@@ -81,6 +81,7 @@ import {
   SiYarn,
 } from "react-icons/si";
 import { AppSidebar, type AppSidebarUser, type AppView } from "./AppSidebar.js";
+import { shellNavVariant, shellRootClass } from "./shell-layout.js";
 import { useAppShellClient } from "./client-context.js";
 import { DOMAIN_CATALOG } from "./domain-catalog.js";
 import {
@@ -635,9 +636,9 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
     : undefined;
 
   return (
-    <div className="ov">
+    <div className={shellRootClass()}>
       <AppSidebar
-        variant="full"
+        variant={shellNavVariant()}
         active={activeNav}
         repoLabel={props.repoLabel}
         user={props.user ?? null}

@@ -69,6 +69,7 @@ import {
   gitFetch,
   ingestCoverage,
   listTests,
+  discoverFrontendRoutes,
   runLighthouseLab,
   runTests,
   stageDevopsRemote,
@@ -223,6 +224,7 @@ export function App(): ReactElement {
       fetchCodeExplorer: (exploreTarget) =>
         fetchCodeExplorer(target, exploreTarget),
       runLighthouseLab: (options) => runLighthouseLab(target, options),
+      discoverFrontendRoutes: () => discoverFrontendRoutes(target),
       stageDevopsRemote: (input) => stageDevopsRemote(target, input),
       fetchPrismGitignoreStatus: async (): Promise<PrismGitignoreStatus> => {
         // Degrades gracefully: the dev server may not expose /api/gitignore.

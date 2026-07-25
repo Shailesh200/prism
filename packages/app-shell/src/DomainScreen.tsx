@@ -25,11 +25,13 @@ import {
   Cloud,
   Database,
   ExternalLink,
+  ChevronDown,
   FileClock,
   FileWarning,
   FlaskConical,
   Flame,
   Layers,
+  ListChecks,
   Monitor,
   Network,
   Play,
@@ -50,6 +52,8 @@ import {
 import type { ComponentType, ReactElement } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppSidebar, type AppSidebarUser, type AppView } from "./AppSidebar.js";
+import { Avatar } from "./Avatar.js";
+import { shellNavVariant, shellRootClass } from "./shell-layout.js";
 import { useAppShellClient } from "./client-context.js";
 import {
   LIGHTHOUSE_CATEGORIES,
@@ -402,6 +406,34 @@ function PipelineStatusTag(props: {
   );
 }
 
+/** Actor cell — GitHub avatar image (initials fallback). */
+function PipelineActor(props: {
+  login: string | null;
+  avatarUrl: string | null;
+}): ReactElement {
+  const [imgOk, setImgOk] = useState(true);
+  if (!props.login) {
+    return <span className="dm-pipe-actor dm-pipe-actor--empty">—</span>;
+  }
+  const showImg = Boolean(props.avatarUrl) && imgOk;
+  return (
+    <span className="dm-pipe-actor" title={`@${props.login}`}>
+      {showImg ? (
+        <img
+          className="dm-pipe-actor__img"
+          src={props.avatarUrl ?? undefined}
+          alt=""
+          width={24}
+          height={24}
+          onError={() => setImgOk(false)}
+        />
+      ) : (
+        <Avatar name={props.login} size={24} />
+      )}
+    </span>
+  );
+}
+
 /** Full-width Active Pipelines table. */
 function PipelineRunsTable(props: {
   runs: readonly GithubWorkflowRun[];
@@ -415,30 +447,61 @@ function PipelineRunsTable(props: {
             <th scope="col">Run</th>
             <th scope="col">Branch</th>
             <th scope="col">Event</th>
-            <th scope="col">Actor</th>
+            <th scope="col" className="dm-pipe-table__actor-h">
+              Actor
+            </th>
           </tr>
         </thead>
         <tbody>
-          {props.runs.map((run) => (
-            <tr key={run.id}>
-              <td>
-                <PipelineStatusTag
-                  status={run.status}
-                  conclusion={run.conclusion}
-                />
-              </td>
-              <td>
-                <span className="dm-pipe-table__name ov-ellipsis">
-                  {run.displayTitle || run.name}
-                </span>
-              </td>
-              <td className="ov-mono">{run.headBranch || "—"}</td>
-              <td className="ov-mono">{run.event}</td>
-              <td className="ov-mono">
-                {run.actorLogin ? `@${run.actorLogin}` : "—"}
-              </td>
-            </tr>
-          ))}
+          {props.runs.map((run) => {
+            const title = run.displayTitle || run.name;
+            return (
+              <tr key={run.id}>
+                <td>
+                  <PipelineStatusTag
+                    status={run.status}
+                    conclusion={run.conclusion}
+                  />
+                </td>
+                <td>
+                  {run.htmlUrl ? (
+                    <a
+                      className="dm-pipe-table__link"
+                      href={run.htmlUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={`Open run on GitHub · ${title}`}
+                    >
+                      <span className="dm-pipe-table__name ov-ellipsis">
+                        {title}
+                      </span>
+                      <ExternalLink size={12} aria-hidden />
+                    </a>
+                  ) : (
+                    <span className="dm-pipe-table__name ov-ellipsis">
+                      {title}
+                    </span>
+                  )}
+                </td>
+                <td>
+                  <span className="dm-pipe-table__branch ov-mono">
+                    {run.headBranch || "—"}
+                  </span>
+                </td>
+                <td>
+                  <span className="dm-pipe-table__event ov-mono">
+                    {run.event || "—"}
+                  </span>
+                </td>
+                <td className="dm-pipe-table__actor">
+                  <PipelineActor
+                    login={run.actorLogin}
+                    avatarUrl={run.actorAvatarUrl}
+                  />
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -561,12 +624,28 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
   const [labBusy, setLabBusy] = useState(false);
   const [labError, setLabError] = useState<string | null>(null);
   const [labFellBack, setLabFellBack] = useState(false);
+  /** Per-route Lighthouse console lines during progressive multi-route labs. */
+  const [routeLabLogs, setRouteLabLogs] = useState<Record<string, string[]>>(
+    {},
+  );
+  /** Route currently under Lighthouse during a progressive multi-route lab. */
+  const [labMeasuringRoute, setLabMeasuringRoute] = useState<string | null>(
+    null,
+  );
+  const labMeasuringRef = useRef<string | null>(null);
+  const [labMenuOpen, setLabMenuOpen] = useState(false);
+  const [labSelectMode, setLabSelectMode] = useState(false);
+  const [selectedLabRoutes, setSelectedLabRoutes] = useState<string[]>([]);
+  const labMenuRef = useRef<HTMLDivElement | null>(null);
+  const [insightFilter, setInsightFilter] = useState<string | null>(null);
   const [pagespeedUrl, setPagespeedUrl] = useState("https://example.com");
   const [pagespeedBusy, setPagespeedBusy] = useState(false);
   const [pagespeedError, setPagespeedError] = useState<string | null>(null);
   const [cwvRestored, setCwvRestored] = useState(false);
   const [cwvSource, setCwvSource] = useState<CwvSource>("local");
   const [cwvSettingsOpen, setCwvSettingsOpen] = useState(false);
+  const [discoveredRoutes, setDiscoveredRoutes] = useState<string[]>([]);
+  const cwvSettingsRef = useRef<HTMLDivElement | null>(null);
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const cwvStoreKey = domainStoreKey(props.repoLabel, "frontend", "cwv");
 
@@ -671,7 +750,10 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
     if (snap) {
       setCwvLocal(snap.local);
       setCwvPagespeed(snap.pagespeed);
-      setCwvTbtMs(snap.tbtMs);
+      setCwvTbtMs(
+        snap.tbtMs ??
+          (typeof snap.local?.tbtMs === "number" ? snap.local.tbtMs : null),
+      );
       setLabFellBack(snap.fellBack);
       setLastRunAt((prev) => prev ?? snap.at);
     }
@@ -1385,8 +1467,34 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
         (p.profile.signals ?? []).flatMap((s) => s.evidence ?? []),
       ),
     ];
-    return heuristicFrontendRoutes(signals, evidencePaths);
-  }, [props.dna]);
+    const heuristic = heuristicFrontendRoutes(signals, evidencePaths);
+    const merged = new Set<string>([...heuristic, ...discoveredRoutes]);
+    if (merged.size === 0) merged.add("/");
+    return [...merged].sort((a, b) => {
+      if (a === "/") return -1;
+      if (b === "/") return 1;
+      return a.localeCompare(b);
+    });
+  }, [props.dna, discoveredRoutes]);
+
+  useEffect(() => {
+    if (!isFrontend) return;
+    let cancelled = false;
+    const discover = client.discoverFrontendRoutes;
+    if (!discover) return;
+    void discover()
+      .then((routes) => {
+        if (!cancelled && Array.isArray(routes) && routes.length > 0) {
+          setDiscoveredRoutes(routes);
+        }
+      })
+      .catch(() => {
+        /* keep heuristic fallback */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [client, isFrontend, props.repoLabel]);
 
   // Report actually driving the frontend tiles (respects the CWV source pref).
   const cwvPrimaryReport =
@@ -1403,10 +1511,20 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
     })).filter((c) => c.score !== null);
   }, [cwvPrimaryReport]);
 
-  /** Route breakdown: heuristic routes + any per-route rollups, with a rating. */
+  /** Route breakdown: measured lab URL + DNA heuristic routes. */
   const routeBreakdown = useMemo(() => {
     const report = cwvPrimaryReport;
     const reportUrl = (report?.url ?? "").toLowerCase();
+    const measuredRoute = (() => {
+      if (!report?.url) return null;
+      try {
+        const u = new URL(report.url);
+        const path = u.pathname || "/";
+        return path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
+      } catch {
+        return "/";
+      }
+    })();
     const worstRating = (
       metrics: readonly CwvMetric[],
     ): CwvMetric["rating"] => {
@@ -1417,6 +1535,7 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
       return "unknown";
     };
     const routeMatches = (route: string): boolean => {
+      if (measuredRoute && route === measuredRoute) return true;
       if (!reportUrl) return false;
       if (route === "/") {
         return (
@@ -1427,24 +1546,55 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
       }
       return reportUrl.includes(route.toLowerCase());
     };
-    return frontendRoutes.map((route) => {
-      const rollup = report?.rollups?.find(
-        (r) => r.level === "route" && r.key === route,
-      );
-      const matched = routeMatches(route);
-      const metrics =
-        rollup?.metrics ?? (matched ? (report?.metrics ?? []) : []);
-      const rating = metrics.length > 0 ? worstRating(metrics) : "unknown";
-      return {
-        route,
-        linked: Boolean(rollup) || matched,
-        sampleCount: rollup?.sampleCount ?? (matched ? 1 : 0),
-        metricCount: metrics.length,
-        metrics,
-        rating,
-      };
-    });
+    const routes = new Set<string>(frontendRoutes);
+    if (measuredRoute) routes.add(measuredRoute);
+    for (const r of report?.rollups ?? []) {
+      if (r.level === "route") routes.add(r.key);
+    }
+    return [...routes]
+      .sort((a, b) => {
+        if (a === "/") return -1;
+        if (b === "/") return 1;
+        return a.localeCompare(b);
+      })
+      .map((route) => {
+        const rollup = report?.rollups?.find(
+          (r) => r.level === "route" && r.key === route,
+        );
+        const matched = routeMatches(route);
+        const metrics =
+          rollup?.metrics ?? (matched ? (report?.metrics ?? []) : []);
+        const rating = metrics.length > 0 ? worstRating(metrics) : "unknown";
+        const notes = (report?.attributions ?? [])
+          .filter((a) => a.route === route && a.note)
+          .map((a) => a.note!)
+          .slice(0, 4);
+        return {
+          route,
+          measured: Boolean(matched || rollup),
+          linked: Boolean(rollup) || matched,
+          sampleCount: rollup?.sampleCount ?? (matched ? 1 : 0),
+          metricCount: metrics.length,
+          metrics,
+          rating,
+          notes,
+        };
+      });
   }, [frontendRoutes, cwvPrimaryReport]);
+
+  /** Pain / improve / good insights from the lab report. */
+  const insightGroups = useMemo(() => {
+    const all = cwvPrimaryReport?.insights ?? [];
+    const filtered =
+      insightFilter === null
+        ? all
+        : all.filter((i) => i.metricId === insightFilter);
+    return {
+      pain: filtered.filter((i) => i.severity === "pain"),
+      improve: filtered.filter((i) => i.severity === "improve"),
+      good: filtered.filter((i) => i.severity === "good"),
+    };
+  }, [cwvPrimaryReport, insightFilter]);
 
   /** Component breakdown from rollups + attributions (never fabricated). */
   const componentBreakdown = useMemo(() => {
@@ -1486,18 +1636,82 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
     return [...rows.values()].slice(0, 10);
   }, [cwvPrimaryReport]);
 
+  useEffect(() => {
+    if (!cwvSettingsOpen) return;
+    const onPointerDown = (event: MouseEvent): void => {
+      const root = cwvSettingsRef.current;
+      if (!root) return;
+      if (event.target instanceof Node && !root.contains(event.target)) {
+        setCwvSettingsOpen(false);
+      }
+    };
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") setCwvSettingsOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [cwvSettingsOpen]);
+
+  useEffect(() => {
+    if (!labMenuOpen) return;
+    const onPointerDown = (event: MouseEvent): void => {
+      const root = labMenuRef.current;
+      if (!root) return;
+      if (event.target instanceof Node && !root.contains(event.target)) {
+        setLabMenuOpen(false);
+      }
+    };
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") setLabMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [labMenuOpen]);
+
   /** Real Lighthouse unavailable — never invent sample numbers. */
   const applyNoLabAvailable = (reason: string): void => {
     setCwvLocal(null);
     setCwvTbtMs(null);
+    setLabMeasuringRoute(null);
+    labMeasuringRef.current = null;
     setLabFellBack(true);
     setLabError(reason);
   };
 
-  const runLocalLab = async (): Promise<void> => {
+  const appendRouteLabLog = (route: string, message: string): void => {
+    const line = message.trim();
+    if (!line) return;
+    setRouteLabLogs((prev) => {
+      const cur = prev[route] ?? [];
+      const next = [...cur, line];
+      return {
+        ...prev,
+        [route]: next.length > 120 ? next.slice(-120) : next,
+      };
+    });
+  };
+
+  const runLocalLab = async (routes?: readonly string[]): Promise<void> => {
     setLabBusy(true);
     setLabError(null);
     setLabFellBack(false);
+    setRouteLabLogs({});
+    setLabMeasuringRoute(null);
+    labMeasuringRef.current = null;
+    setLabMenuOpen(false);
+    setLabSelectMode(false);
+    // Clear prior tiles / breakdown so re-run doesn't show stale numbers.
+    setCwvLocal(null);
+    setCwvTbtMs(null);
+    setInsightFilter(null);
     try {
       if (!isLighthouseEnabledInFrontend()) {
         applyNoLabAvailable(
@@ -1519,7 +1733,29 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
       }
       let report: CwvReport | null = null;
       try {
-        report = await client.runLighthouseLab({ mode: "run" });
+        report = await client.runLighthouseLab({
+          mode: "run",
+          ...(routes && routes.length > 0 ? { routes: [...routes] } : {}),
+          onProgress: (event) => {
+            if (event.measuringRoute !== undefined) {
+              labMeasuringRef.current = event.measuringRoute;
+              setLabMeasuringRoute(event.measuringRoute);
+            }
+            if (event.message.trim() && labMeasuringRef.current) {
+              appendRouteLabLog(labMeasuringRef.current, event.message);
+            }
+            if (event.report) {
+              setCwvLocal(event.report);
+              setCwvTbtMs(
+                typeof event.report.tbtMs === "number"
+                  ? event.report.tbtMs
+                  : null,
+              );
+              setLabFellBack(false);
+              setLabError(null);
+            }
+          },
+        });
       } catch (err: unknown) {
         applyNoLabAvailable(
           err instanceof Error
@@ -1535,12 +1771,14 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
         return;
       }
       setCwvLocal(report);
-      setCwvTbtMs(null);
+      setCwvTbtMs(typeof report.tbtMs === "number" ? report.tbtMs : null);
       setLabFellBack(false);
       setLastRunAt(Date.now());
     } catch (err: unknown) {
       applyNoLabAvailable(err instanceof Error ? err.message : String(err));
     } finally {
+      setLabMeasuringRoute(null);
+      labMeasuringRef.current = null;
       setLabBusy(false);
     }
   };
@@ -1610,6 +1848,8 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
         id: path,
         path,
         at: Date.now(),
+        returnView: "domain",
+        domainId: props.domainId,
       });
     }
     props.onNavigate("blast");
@@ -1797,9 +2037,9 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
   };
 
   return (
-    <div className="ov">
+    <div className={shellRootClass()}>
       <AppSidebar
-        variant="full"
+        variant={shellNavVariant()}
         active="domains"
         repoLabel={props.repoLabel}
         user={props.user ?? null}
@@ -1822,20 +2062,60 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
               Back to Domains
             </button>
             {isFrontend ? (
-              <button
-                type="button"
-                className="ov-btn ov-btn--primary"
-                disabled={labBusy}
-                onClick={() => void runLocalLab()}
-                title={def.labNote}
-              >
-                <FlaskConical size={13} aria-hidden />
-                {labBusy
-                  ? "Running…"
-                  : cwvLocal
-                    ? "Re-run lab"
-                    : "Run local lab"}
-              </button>
+              <div className="dm-lab-menu" ref={labMenuRef}>
+                <button
+                  type="button"
+                  className="ov-btn ov-btn--primary"
+                  disabled={labBusy}
+                  aria-expanded={labMenuOpen}
+                  aria-haspopup="menu"
+                  title={def.labNote}
+                  onClick={() => setLabMenuOpen((v) => !v)}
+                >
+                  <FlaskConical size={13} aria-hidden />
+                  {labBusy
+                    ? "Running…"
+                    : cwvLocal
+                      ? "Run analysis"
+                      : "Run analysis"}
+                  <ChevronDown size={13} aria-hidden />
+                </button>
+                {labMenuOpen && !labBusy ? (
+                  <div className="dm-lab-menu__pop" role="menu">
+                    <button
+                      type="button"
+                      className="dm-lab-menu__item"
+                      role="menuitem"
+                      onClick={() => void runLocalLab(frontendRoutes)}
+                    >
+                      <ListChecks size={14} aria-hidden />
+                      Run analysis for all routes
+                      <span className="dm-lab-menu__meta">
+                        {frontendRoutes.length} listed
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="dm-lab-menu__item"
+                      role="menuitem"
+                      onClick={() => {
+                        setLabMenuOpen(false);
+                        setLabSelectMode(true);
+                        setSelectedLabRoutes((prev) =>
+                          prev.length > 0
+                            ? prev
+                            : frontendRoutes.includes("/")
+                              ? ["/"]
+                              : frontendRoutes.slice(0, 1),
+                        );
+                      }}
+                    >
+                      <FlaskConical size={14} aria-hidden />
+                      Run analysis for selected routes…
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             ) : status === "ready" && overlay && canRun ? (
               <button
                 type="button"
@@ -1852,23 +2132,18 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
         <div className="ov-scroll">
           {isFrontend ? (
             <>
-              {lastRunAt !== null ? (
+              {lastRunAt !== null || labBusy ? (
                 <div className="dm-runbar">
                   <span className="dm-runbar__dot" aria-hidden />
-                  Last run {relativeTime(lastRunAt)}
-                  {cwvLocal
-                    ? ` · ${cwvLocal.source === "lab-fixture" ? "lab fixture" : cwvLocal.source}`
-                    : ""}
-                  {(cwvLocal || cwvPagespeed) && !labBusy ? (
+                  {labBusy
+                    ? "Lab running… previous results cleared"
+                    : `Last run ${relativeTime(lastRunAt!)}${
+                        cwvLocal
+                          ? ` · ${cwvLocal.source === "lab-fixture" ? "lab fixture" : cwvLocal.source}`
+                          : ""
+                      }`}
+                  {!labBusy && (cwvLocal || cwvPagespeed) ? (
                     <span className="dm-runbar__tools">
-                      <button
-                        type="button"
-                        className="dm-linkbtn"
-                        onClick={() => void runLocalLab()}
-                      >
-                        <FlaskConical size={12} aria-hidden />
-                        Re-run lab
-                      </button>
                       <button
                         type="button"
                         className="dm-linkbtn"
@@ -1904,7 +2179,7 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                       from a local lab run, imported JSON, or opt-in PageSpeed.
                     </InfoTip>
                   </h2>
-                  <div className="cwv__settings">
+                  <div className="cwv__settings" ref={cwvSettingsRef}>
                     <button
                       type="button"
                       className="dm-iconbtn"
@@ -1916,7 +2191,11 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                       <Settings size={15} aria-hidden />
                     </button>
                     {cwvSettingsOpen ? (
-                      <div className="dm-popover" role="menu">
+                      <div
+                        className="dm-popover"
+                        role="dialog"
+                        aria-label="CWV source"
+                      >
                         <div className="dm-popover__h">CWV source</div>
                         <Select
                           aria-label="CWV data source"
@@ -1957,27 +2236,72 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                       cwvSource === "pagespeed"
                         ? (remote ?? local)
                         : (local ?? remote);
+                    const tbtFallback =
+                      m.id === "INP" &&
+                      !primary &&
+                      cwvTbtMs !== null &&
+                      cwvSource !== "pagespeed";
+                    const displayRating = tbtFallback
+                      ? scoreRating(
+                          cwvTbtMs! <= 200 ? 1 : cwvTbtMs! <= 600 ? 0.6 : 0.3,
+                        )
+                      : primary?.rating;
+                    const displayValue = tbtFallback
+                      ? cwvTbtMs! >= 1000
+                        ? `${(cwvTbtMs! / 1000).toFixed(2)}s`
+                        : `${Math.round(cwvTbtMs!)}ms`
+                      : primary
+                        ? formatCwvValue(primary)
+                        : "—";
                     return (
-                      <article key={m.id} className="cwv-tile" title={m.name}>
+                      <article
+                        key={m.id}
+                        className={`cwv-tile${insightFilter === m.id ? " cwv-tile--active" : ""}`}
+                        title={m.name}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() =>
+                          setInsightFilter((cur) =>
+                            cur === m.id ? null : m.id,
+                          )
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setInsightFilter((cur) =>
+                              cur === m.id ? null : m.id,
+                            );
+                          }
+                        }}
+                      >
                         <div className="cwv-tile__head">
                           <span className="cwv-tile__k">
                             {m.id}
                             <InfoTip label={m.name}>
                               {m.desc} Good {m.goodLabel}; poor {m.poorLabel}.
+                              {m.id === "INP"
+                                ? " Lab runs often omit INP (needs real interactions); TBT is shown as a lab proxy when available."
+                                : ""}
                             </InfoTip>
                           </span>
                           <span
-                            className={`cwv-tile__badge ${ratingClass(primary?.rating)}`}
+                            className={`cwv-tile__badge ${ratingClass(displayRating)}`}
                           >
-                            {ratingLabel(primary?.rating)}
+                            {tbtFallback
+                              ? "Lab proxy"
+                              : ratingLabel(displayRating)}
                           </span>
                         </div>
                         <div
-                          className={`cwv-tile__v ${ratingClass(primary?.rating)}`}
+                          className={`cwv-tile__v ${ratingClass(displayRating)}`}
                         >
-                          {primary ? formatCwvValue(primary) : "—"}
+                          {displayValue}
                         </div>
-                        {local && remote ? (
+                        {tbtFallback ? (
+                          <div className="cwv-tile__hint">
+                            TBT (lab proxy · not field INP)
+                          </div>
+                        ) : local && remote ? (
                           <div className="cwv-tile__hint">
                             Local {formatCwvValue(local)} · PageSpeed{" "}
                             {formatCwvValue(remote)}
@@ -1995,7 +2319,7 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                       </article>
                     );
                   })}
-                  {cwvTbtMs !== null ? (
+                  {cwvTbtMs !== null && metricFor(cwvPrimaryReport, "INP") ? (
                     <article className="cwv-tile" title="Total Blocking Time">
                       <div className="cwv-tile__head">
                         <span className="cwv-tile__k">
@@ -2021,6 +2345,81 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                     </article>
                   ) : null}
                 </div>
+
+                <p className="cwv-trust">
+                  Lab scores from local Chrome / Lighthouse — each run takes the
+                  median of 3 mobile-simulated passes (more stable LCP).
+                  Reliable for load triage (LCP, CLS, FCP, TTFB, categories).
+                  Field INP / CrUX needs PageSpeed or real-user data; lab INP is
+                  often empty and TBT is used as a proxy.
+                </p>
+
+                {(insightGroups.pain.length > 0 ||
+                  insightGroups.improve.length > 0 ||
+                  insightGroups.good.length > 0) && (
+                  <div className="cwv-insights">
+                    <div className="cwv-insights__h">
+                      Metric breakdown
+                      {insightFilter ? (
+                        <button
+                          type="button"
+                          className="dm-linkbtn"
+                          onClick={() => setInsightFilter(null)}
+                        >
+                          Clear {insightFilter} filter
+                        </button>
+                      ) : (
+                        <span className="cwv-insights__hint">
+                          Click a CWV tile to filter
+                        </span>
+                      )}
+                    </div>
+                    <div className="cwv-insights__grid">
+                      {(
+                        [
+                          ["pain", "Pain areas", insightGroups.pain],
+                          ["improve", "Needs work", insightGroups.improve],
+                          ["good", "Good", insightGroups.good],
+                        ] as const
+                      ).map(([key, label, items]) => (
+                        <div
+                          key={key}
+                          className={`cwv-insights__col cwv-insights__col--${key}`}
+                        >
+                          <div className="cwv-insights__col-h">
+                            <span>{label}</span>
+                            <span className="cwv-insights__count">
+                              {items.length}
+                            </span>
+                          </div>
+                          {items.length === 0 ? (
+                            <p className="dm-note">None in this band.</p>
+                          ) : (
+                            <ul className="cwv-insights__list">
+                              {items.slice(0, 8).map((i) => (
+                                <li key={i.id} className="cwv-insights__item">
+                                  {i.metricId ? (
+                                    <span className="cwv-insights__metric">
+                                      {i.metricId}
+                                    </span>
+                                  ) : null}
+                                  <span className="cwv-insights__item-title">
+                                    {i.title}
+                                  </span>
+                                  {i.detail ? (
+                                    <span className="cwv-insights__item-detail">
+                                      {i.detail}
+                                    </span>
+                                  ) : null}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {frontendCategories.length > 0 ? (
                   <div className="dm-cats">
@@ -2069,7 +2468,10 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
               />
 
               <div className="card-masonry">
-                {!cwvLocal && !cwvPagespeed ? (
+                {!cwvLocal &&
+                !cwvPagespeed &&
+                !labBusy &&
+                lastRunAt === null ? (
                   <article className="ov-card">
                     <div className="ov-card__head">
                       <span className="ov-card__title">
@@ -2092,10 +2494,10 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                         type="button"
                         className="ov-btn ov-btn--primary"
                         disabled={labBusy}
-                        onClick={() => void runLocalLab()}
+                        onClick={() => void runLocalLab(frontendRoutes)}
                       >
                         <FlaskConical size={14} aria-hidden />
-                        {labBusy ? "Running…" : "Run local lab"}
+                        Run analysis for all routes
                       </button>
                       <button
                         type="button"
@@ -2106,7 +2508,7 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                         Import CWV report
                       </button>
                     </div>
-                    <p className="dm-note">
+                    <p className="dm-note dm-note--wrap">
                       In Chrome DevTools → Lighthouse → export JSON report, or
                       PageSpeed Insights → Download JSON, then import here.
                     </p>
@@ -2179,91 +2581,307 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                     )}
                   </article>
                 ) : null}
+              </div>
 
-                <article className="ov-card">
-                  <div className="ov-card__head">
-                    <span className="ov-card__title">
-                      <CardIcon icon={Layers} tone="brand" size={14} />
-                      Routes &amp; components
-                      <InfoTip label="Routes & components">
-                        Routes inferred from DNA evidence (app/ / pages/) or
-                        rollups on the lab report. Metric ratings attach when a
-                        per-route rollup exists or the report URL matches a
-                        route.
-                      </InfoTip>
-                    </span>
-                    <span className="ov-card__meta">
-                      {routeBreakdown.length} route
-                      {routeBreakdown.length === 1 ? "" : "s"}
-                    </span>
+              <div className="dm-routes">
+                <div className="dm-routes__head">
+                  <span className="dm-routes__title">
+                    <CardIcon icon={Layers} tone="brand" size={14} />
+                    Routes &amp; components
+                    <InfoTip label="Routes & components">
+                      Routes are discovered from the workspace (React Router,
+                      SEO catalogs, Next pages). Use Run analysis to measure all
+                      routes or a selected subset. Soft 404 / not-found pages
+                      are skipped. Each route card shows its own lab console
+                      while measuring.
+                    </InfoTip>
+                  </span>
+                  <span className="dm-routes__meta">
+                    {routeBreakdown.filter((r) => r.measured).length} measured ·{" "}
+                    {routeBreakdown.length} listed
+                  </span>
+                </div>
+                {labSelectMode ? (
+                  <div
+                    className="dm-route-select"
+                    role="group"
+                    aria-label="Select routes"
+                  >
+                    <div className="dm-route-select__head">
+                      <span>
+                        Select routes to measure ({selectedLabRoutes.length}{" "}
+                        selected)
+                      </span>
+                      <div className="dm-route-select__actions">
+                        <button
+                          type="button"
+                          className="dm-linkbtn"
+                          onClick={() =>
+                            setSelectedLabRoutes([...frontendRoutes])
+                          }
+                        >
+                          Select all
+                        </button>
+                        <button
+                          type="button"
+                          className="dm-linkbtn"
+                          onClick={() => setSelectedLabRoutes([])}
+                        >
+                          Clear
+                        </button>
+                        <button
+                          type="button"
+                          className="dm-linkbtn"
+                          onClick={() => setLabSelectMode(false)}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          className="ov-btn ov-btn--primary"
+                          disabled={labBusy || selectedLabRoutes.length === 0}
+                          onClick={() => void runLocalLab(selectedLabRoutes)}
+                        >
+                          <Play size={13} aria-hidden />
+                          Run selected
+                        </button>
+                      </div>
+                    </div>
+                    <div className="dm-route-select__list">
+                      {frontendRoutes.map((route) => {
+                        const checked = selectedLabRoutes.includes(route);
+                        return (
+                          <label
+                            key={`sel:${route}`}
+                            className="dm-route-select__row"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => {
+                                setSelectedLabRoutes((prev) =>
+                                  checked
+                                    ? prev.filter((r) => r !== route)
+                                    : [...prev, route],
+                                );
+                              }}
+                            />
+                            <span className="ov-mono">{route}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
                   </div>
-                  {routeBreakdown.length > 0 ? (
-                    <div className="dm-rank">
-                      {routeBreakdown.map((r) => (
-                        <div key={r.route} className="dm-rank__row">
-                          <div className="dm-rank__main">
-                            <span className="dm-rank__name ov-ellipsis ov-mono">
+                ) : null}
+                {routeBreakdown.length > 0 ? (
+                  <div className="dm-routes__grid">
+                    {routeBreakdown.map((r) => {
+                      const isMeasuring =
+                        labBusy && labMeasuringRoute === r.route;
+                      const isQueued =
+                        labBusy &&
+                        !r.measured &&
+                        !isMeasuring &&
+                        cwvLocal !== null;
+                      const logs = routeLabLogs[r.route] ?? [];
+                      return (
+                        <article
+                          key={r.route}
+                          className={`dm-route-card${r.measured ? " dm-route-card--measured" : ""}${isMeasuring ? " dm-route-card--measuring" : ""}`}
+                        >
+                          <div className="dm-route-card__head">
+                            <span className="dm-route-card__path ov-mono">
                               {r.route}
+                              {isMeasuring ? (
+                                <span className="dm-rank__tag dm-rank__tag--live">
+                                  {" "}
+                                  measuring…
+                                </span>
+                              ) : r.measured ? (
+                                <span className="dm-rank__tag"> measured</span>
+                              ) : isQueued ? (
+                                <span className="dm-rank__tag dm-rank__tag--muted">
+                                  {" "}
+                                  queued
+                                </span>
+                              ) : (
+                                <span className="dm-rank__tag dm-rank__tag--muted">
+                                  {" "}
+                                  not measured
+                                </span>
+                              )}
                             </span>
-                            <span className="dm-rank__path ov-ellipsis">
-                              {r.metrics.length > 0
-                                ? r.metrics
-                                    .slice(0, 4)
-                                    .map((m) => `${m.id} ${formatCwvValue(m)}`)
-                                    .join(" · ")
-                                : r.linked
-                                  ? "Sampled — no per-metric rollup"
-                                  : "No CWV sample yet"}
+                            <span
+                              className={`dm-rank__pill ${isMeasuring ? "dm-rating--live" : ratingClass(r.rating)}`}
+                            >
+                              {isMeasuring
+                                ? "Running"
+                                : r.measured
+                                  ? ratingLabel(r.rating)
+                                  : "—"}
                             </span>
                           </div>
-                          <span
-                            className={`dm-rank__pill ${ratingClass(r.rating)}`}
-                          >
-                            {r.linked ? ratingLabel(r.rating) : "—"}
+                          {isMeasuring && r.metrics.length === 0 ? (
+                            <p className="dm-route__empty dm-route__empty--live">
+                              Lighthouse is scoring this route…
+                            </p>
+                          ) : r.metrics.length > 0 ? (
+                            <div className="dm-route__cwv">
+                              {CWV_METRICS.map((meta) => {
+                                const m = r.metrics.find(
+                                  (x) => x.id === meta.id,
+                                );
+                                if (!m) return null;
+                                return (
+                                  <article
+                                    key={`${r.route}:${meta.id}`}
+                                    className="cwv-tile cwv-tile--compact"
+                                    title={meta.name}
+                                  >
+                                    <div className="cwv-tile__head">
+                                      <span className="cwv-tile__k">
+                                        {meta.id}
+                                      </span>
+                                      <span
+                                        className={`cwv-tile__badge ${ratingClass(m.rating)}`}
+                                      >
+                                        {ratingLabel(m.rating)}
+                                      </span>
+                                    </div>
+                                    <div
+                                      className={`cwv-tile__v ${ratingClass(m.rating)}`}
+                                    >
+                                      {formatCwvValue(m)}
+                                    </div>
+                                    <div className="cwv-tile__hint">
+                                      Good {meta.goodLabel} · Poor{" "}
+                                      {meta.poorLabel}
+                                    </div>
+                                    <div className="cwv-tile__band" aria-hidden>
+                                      <span className="cwv-tile__seg cwv-tile__seg--good" />
+                                      <span className="cwv-tile__seg cwv-tile__seg--warn" />
+                                      <span className="cwv-tile__seg cwv-tile__seg--poor" />
+                                    </div>
+                                  </article>
+                                );
+                              })}
+                              {/* Any non-CWV metrics (e.g. TBT) still surface as tiles */}
+                              {r.metrics
+                                .filter(
+                                  (m) =>
+                                    !CWV_METRICS.some(
+                                      (meta) => meta.id === m.id,
+                                    ),
+                                )
+                                .map((m) => (
+                                  <article
+                                    key={`${r.route}:${m.id}`}
+                                    className="cwv-tile cwv-tile--compact"
+                                    title={m.id}
+                                  >
+                                    <div className="cwv-tile__head">
+                                      <span className="cwv-tile__k">
+                                        {m.id}
+                                      </span>
+                                      <span
+                                        className={`cwv-tile__badge ${ratingClass(m.rating)}`}
+                                      >
+                                        {ratingLabel(m.rating)}
+                                      </span>
+                                    </div>
+                                    <div
+                                      className={`cwv-tile__v ${ratingClass(m.rating)}`}
+                                    >
+                                      {formatCwvValue(m)}
+                                    </div>
+                                    <div className="cwv-tile__band" aria-hidden>
+                                      <span className="cwv-tile__seg cwv-tile__seg--good" />
+                                      <span className="cwv-tile__seg cwv-tile__seg--warn" />
+                                      <span className="cwv-tile__seg cwv-tile__seg--poor" />
+                                    </div>
+                                  </article>
+                                ))}
+                            </div>
+                          ) : (
+                            <p className="dm-route__empty">
+                              {r.measured
+                                ? "Sampled — no per-metric rollup"
+                                : isQueued
+                                  ? "Waiting in queue — will measure after the current route finishes."
+                                  : "Not measured in this lab run. Use Run analysis → selected routes to include it, or all routes."}
+                            </p>
+                          )}
+                          {r.notes.length > 0 ? (
+                            <ul className="dm-route__notes">
+                              {r.notes.map((note) => (
+                                <li key={note} title={note}>
+                                  {note}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
+                          {logs.length > 0 || isMeasuring ? (
+                            <details
+                              className="dm-route__console"
+                              open={isMeasuring}
+                            >
+                              <summary>
+                                Lab console
+                                {isMeasuring
+                                  ? " · running"
+                                  : ` · ${logs.length} lines`}
+                              </summary>
+                              <pre className="dm-route__console-log">
+                                {logs.length > 0
+                                  ? logs.join("\n")
+                                  : "Waiting for Lighthouse output…"}
+                              </pre>
+                            </details>
+                          ) : null}
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="ov-empty">
+                    No routes discovered yet — open the workspace and ensure the
+                    frontend app is indexed.
+                  </p>
+                )}
+                {componentBreakdown.length > 0 ? (
+                  <>
+                    <div className="dm-subhead">Components</div>
+                    <div className="dm-rank">
+                      {componentBreakdown.map((c) => (
+                        <div key={`c:${c.key}`} className="dm-rank__row">
+                          <div className="dm-rank__main">
+                            <span className="dm-rank__name ov-ellipsis">
+                              {c.key}
+                            </span>
+                            <span className="dm-rank__path">
+                              {c.metrics.length > 0
+                                ? c.metrics
+                                    .slice(0, 3)
+                                    .map((m) => `${m.id} ${formatCwvValue(m)}`)
+                                    .join(" · ")
+                                : "Component"}
+                            </span>
+                          </div>
+                          <span className="dm-rank__val ov-mono">
+                            {c.sampleCount > 0 ? `${c.sampleCount}×` : "attr"}
                           </span>
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <p className="ov-empty">
-                      No routes inferred — run analysis on the DNA/stack first.
-                    </p>
-                  )}
-                  {componentBreakdown.length > 0 ? (
-                    <>
-                      <div className="dm-subhead">Components</div>
-                      <div className="dm-rank">
-                        {componentBreakdown.map((c) => (
-                          <div key={`c:${c.key}`} className="dm-rank__row">
-                            <div className="dm-rank__main">
-                              <span className="dm-rank__name ov-ellipsis">
-                                {c.key}
-                              </span>
-                              <span className="dm-rank__path">
-                                {c.metrics.length > 0
-                                  ? c.metrics
-                                      .slice(0, 3)
-                                      .map(
-                                        (m) => `${m.id} ${formatCwvValue(m)}`,
-                                      )
-                                      .join(" · ")
-                                  : "Component"}
-                              </span>
-                            </div>
-                            <span className="dm-rank__val ov-mono">
-                              {c.sampleCount > 0 ? `${c.sampleCount}×` : "attr"}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  ) : (
-                    <p className="dm-note">
-                      Component-level attribution appears when the report
-                      includes component rollups or attributions.
-                    </p>
-                  )}
-                </article>
+                  </>
+                ) : (
+                  <p className="dm-note">
+                    Component-level attribution appears when the report includes
+                    component rollups or attributions (e.g. fixture /
+                    PageSpeed). Lab runs show element selectors on each route
+                    card and under Metric breakdown.
+                  </p>
+                )}
               </div>
 
               <p className="dm-foot">

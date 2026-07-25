@@ -128,7 +128,9 @@ export type HostRequest =
       mode?: "lab-fixture" | "run" | "ingest";
       url?: string;
       port?: number;
+      routes?: string[];
     }
+  | { id: string; method: "frontendRoutes" }
   | { id: string; method: "applyRename"; input: ApplyRenameInput }
   | {
       id: string;
@@ -207,6 +209,12 @@ export type HostResponse =
   | {
       id: string;
       ok: true;
+      method: "frontendRoutes";
+      data: string[];
+    }
+  | {
+      id: string;
+      ok: true;
       method: "prismGitignore";
       data: PrismGitignoreStatus;
     }
@@ -239,7 +247,13 @@ export type HostToWebview =
   | HostResponse
   | { type: "status"; message: string; kind: "info" | "error" | "loading" }
   | { type: "navigate"; view: AppView; domainId?: string }
-  | { type: "audit"; entry: HostAuditEntry };
+  | { type: "audit"; entry: HostAuditEntry }
+  | {
+      type: "lighthouseLabProgress";
+      id: string;
+      message: string;
+      detail?: import("@prism/shared").JsonValue;
+    };
 
 export type WebviewToHost =
   | { type: "ready"; view?: AppView }

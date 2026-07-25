@@ -43,7 +43,13 @@ import {
   SecurityReportSchema,
   TestingReportSchema,
 } from "@prism/shared";
-import { withAudit, recordAudit, type AuditDiagnostic } from "@prism/app-shell";
+import {
+  withAudit,
+  recordAudit,
+  lighthouseProgressFromJobEvent,
+  type AuditDiagnostic,
+  type LighthouseLabProgressEvent,
+} from "@prism/app-shell";
 import type {
   ApplyRenameInput,
   ApplyRenameResult,
@@ -346,6 +352,19 @@ export async function fetchHealthHistoryBackfillStatus(
   return parsed.data;
 }
 
+/** Discover frontend URL paths for Routes & components. */
+export async function discoverFrontendRoutes(
+  root: string | null,
+): Promise<string[]> {
+  const params = new URLSearchParams();
+  if (root) params.set("root", root);
+  const res = await fetch(`/api/frontend-routes?${params}`);
+  if (!res.ok) throw new Error(`frontend-routes failed: ${res.status}`);
+  const body = (await res.json()) as { routes?: string[]; error?: string };
+  if (body.error) throw new Error(body.error);
+  return Array.isArray(body.routes) ? body.routes : ["/"];
+}
+
 /** Opt-in local Lighthouse / CWV lab (Core startUtilityJob + getCwvReport). */
 export async function runLighthouseLab(
   root: string | null,
@@ -353,6 +372,8 @@ export async function runLighthouseLab(
     mode?: "lab-fixture" | "run" | "ingest";
     url?: string;
     port?: number;
+    routes?: readonly string[];
+    onProgress?: (event: LighthouseLabProgressEvent) => void;
   },
 ): Promise<CwvReport | null> {
   const target = root ?? ".";
@@ -371,6 +392,12 @@ export async function runLighthouseLab(
       if (options?.port !== undefined) {
         params.set("port", String(options.port));
       }
+      if (options?.routes && options.routes.length > 0) {
+        params.set("routes", options.routes.join(","));
+      }
+      if (options?.mode === "run" || options?.onProgress) {
+        params.set("stream", "1");
+      }
       const res = await fetch(`/api/lighthouse?${params}`);
       if (!res.ok) {
         let detail = `Lighthouse lab failed (${res.status})`;
@@ -381,6 +408,55 @@ export async function runLighthouseLab(
           /* ignore */
         }
         throw new Error(detail);
+      }
+      const contentType = res.headers.get("content-type") ?? "";
+      if (contentType.includes("ndjson") && res.body) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let report: CwvReport | null = null;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            let evt: {
+              type?: string;
+              message?: string;
+              detail?: import("@prism/shared").JsonValue;
+              report?: CwvReport;
+              error?: string;
+            };
+            try {
+              evt = JSON.parse(trimmed) as typeof evt;
+            } catch {
+              continue;
+            }
+            if (evt.type === "progress" && (evt.message || evt.detail)) {
+              options?.onProgress?.(
+                lighthouseProgressFromJobEvent({
+                  message: evt.message ?? "",
+                  ...(evt.detail !== undefined ? { detail: evt.detail } : {}),
+                }),
+              );
+            } else if (evt.type === "report" && evt.report) {
+              report = evt.report;
+            } else if (evt.type === "error") {
+              throw new Error(evt.error ?? "Lighthouse lab failed");
+            }
+          }
+        }
+        if (!report)
+          throw new Error("Lighthouse stream ended without a report");
+        const parsed = CwvReportSchema.safeParse(report);
+        if (!parsed.success) {
+          throw new Error("Invalid CWV report payload from Lighthouse lab");
+        }
+        return parsed.data;
       }
       const parsed = CwvReportSchema.safeParse(await res.json());
       if (!parsed.success) {

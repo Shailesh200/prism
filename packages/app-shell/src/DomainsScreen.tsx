@@ -2,6 +2,7 @@ import type { DnaReport } from "@prism/shared";
 import { ArrowLeft, ArrowRight, Compass } from "lucide-react";
 import type { ReactElement } from "react";
 import { AppSidebar, type AppSidebarUser, type AppView } from "./AppSidebar.js";
+import { shellNavVariant, shellRootClass } from "./shell-layout.js";
 import { DOMAIN_CATALOG } from "./domain-catalog.js";
 
 export type DomainsScreenProps = {
@@ -53,9 +54,9 @@ export function DomainsScreen(props: DomainsScreenProps): ReactElement {
       .join(" · ");
 
   return (
-    <div className="ov">
+    <div className={shellRootClass()}>
       <AppSidebar
-        variant="full"
+        variant={shellNavVariant()}
         active="domains"
         repoLabel={props.repoLabel}
         user={props.user ?? null}

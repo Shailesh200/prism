@@ -91,6 +91,9 @@ export {
 } from "./utilities/jobs.js";
 export {
   ensureLighthouseCli,
+  isNonAppLabServer,
+  lighthouseLooksLikeNotFound,
+  looksLikeNotFoundHtml,
   resolveSystemChrome,
   runLighthouseCli,
   resolveReachableLabUrl,
@@ -102,16 +105,30 @@ export {
   detectLabKind,
   discoverLabUrl,
   resolveLabAppRoot,
+  resolveLabPreviewStart,
   startLabPreviewServer,
 } from "./utilities/lab-server.js";
+export {
+  discoverFrontendAppRoutes,
+  extractFrontendRoutesFromSource,
+  normalizeFrontendRoute,
+  routeFromPageFilePath,
+} from "./utilities/frontend-routes.js";
 export { buildPersonaPresets } from "./utilities/presets.js";
 export {
   LIGHTHOUSE_CALLOUT,
+  attributionsFromLighthouseAudits,
   attributionsFromPayload,
   buildCwvReport,
   buildCwvRollups,
   cwvMetricsFromLighthouse,
+  insightsFromLighthouse,
   labFixtureLighthouseJson,
+  labUrlForRoute,
+  medianMergeLighthouseReports,
+  mergeRouteCwvReports,
+  routeKeyFromUrl,
+  tbtMsFromLighthouse,
 } from "./utilities/cwv.js";
 export { getCwvReport } from "./utilities/cwv-from-artifact.js";
 export {

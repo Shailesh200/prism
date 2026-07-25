@@ -3,15 +3,23 @@ body,
 #root {
   margin: 0;
   width: 100%;
+  max-width: 100%;
   height: 100%;
-  min-height: 100vh;
-  overflow: hidden;
+  min-width: 0;
+  overflow-x: clip;
+  overflow-y: hidden;
   background: var(--prism-bg, #0b1215);
   color: var(--prism-ink, #e6f0f2);
   font-family: Inter, system-ui, sans-serif;
   /* Defeat VS Code webview orange focusBorder — Prism uses brand teal. */
   --vscode-focusBorder: var(--prism-brand, #00c2c2) !important;
   --vscode-contrastActiveBorder: var(--prism-brand, #00c2c2) !important;
+  box-sizing: border-box;
+}
+
+#root > * {
+  max-width: 100%;
+  min-width: 0;
 }
 
 .ov,
@@ -97,6 +105,8 @@ textarea:focus-visible {
 
 .playground-shell {
   height: 100%;
+  width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -106,6 +116,8 @@ textarea:focus-visible {
 .playground-shell__map {
   flex: 1;
   min-height: 0;
+  min-width: 0;
+  width: 100%;
 }
 
 /* Map view: hover-expanding nav rail overlays the map's left gutter. */
@@ -204,11 +216,31 @@ textarea:focus-visible {
 
 .playground-shell--ext {
   height: 100%;
-  min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: clip;
 }
 .playground-shell--ext .playground-shell__map,
 .playground-shell--ext .playground-map-wrap,
 .playground-shell--ext .playground-map-inner {
   height: 100%;
+  width: 100%;
+  max-width: 100%;
   min-height: 0;
+  min-width: 0;
+}
+
+/* Extension surface: keep shell content inside the webview box. */
+.ov.ov--rail,
+.ov {
+  max-width: 100%;
+  overflow-x: clip;
+}
+.ov-top,
+.ov-scroll {
+  padding-inline: 20px;
+  box-sizing: border-box;
+  max-width: 100%;
 }

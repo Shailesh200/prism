@@ -28,6 +28,8 @@ export type GithubWorkflowRun = {
   readonly event: string;
   readonly headBranch: string;
   readonly actorLogin: string | null;
+  /** GitHub avatar URL when present on the run actor. */
+  readonly actorAvatarUrl: string | null;
   readonly displayTitle: string;
 };
 
@@ -193,19 +195,25 @@ export async function fetchGithubWorkflowRuns(
       if (!row || typeof row !== "object") continue;
       const r = row as Record<string, unknown>;
       if (typeof r.id !== "number") continue;
-      const actor =
+      const actorObj =
         r.actor && typeof r.actor === "object"
-          ? (r.actor as { login?: unknown }).login
-          : undefined;
-      const triggering =
+          ? (r.actor as { login?: unknown; avatar_url?: unknown })
+          : null;
+      const triggeringObj =
         r.triggering_actor && typeof r.triggering_actor === "object"
-          ? (r.triggering_actor as { login?: unknown }).login
-          : undefined;
+          ? (r.triggering_actor as { login?: unknown; avatar_url?: unknown })
+          : null;
       const login =
-        typeof actor === "string"
-          ? actor
-          : typeof triggering === "string"
-            ? triggering
+        typeof actorObj?.login === "string"
+          ? actorObj.login
+          : typeof triggeringObj?.login === "string"
+            ? triggeringObj.login
+            : null;
+      const avatarUrl =
+        typeof actorObj?.avatar_url === "string"
+          ? actorObj.avatar_url
+          : typeof triggeringObj?.avatar_url === "string"
+            ? triggeringObj.avatar_url
             : null;
       runs.push({
         id: r.id,
@@ -224,6 +232,7 @@ export async function fetchGithubWorkflowRuns(
         event: typeof r.event === "string" ? r.event : "",
         headBranch: typeof r.head_branch === "string" ? r.head_branch : "",
         actorLogin: login,
+        actorAvatarUrl: avatarUrl,
         displayTitle:
           typeof r.display_title === "string"
             ? r.display_title

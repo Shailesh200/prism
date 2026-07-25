@@ -7,7 +7,12 @@ import type {
   TestingReport,
   UtilityOverlayReport,
 } from "@prism/shared";
-import { recordAudit, withAudit } from "@prism/app-shell";
+import {
+  lighthouseProgressFromJobEvent,
+  recordAudit,
+  withAudit,
+} from "@prism/app-shell";
+import type { LighthouseLabProgressEvent } from "@prism/app-shell";
 import type {
   DashboardPayload,
   HostRequest,
@@ -43,6 +48,10 @@ if (!isBrowser) {
 type Pending = {
   resolve: (value: HostResponse) => void;
   reject: (err: Error) => void;
+  onProgress?: (event: {
+    message: string;
+    detail?: import("@prism/shared").JsonValue;
+  }) => void;
 };
 
 const pending = new Map<string, Pending>();
@@ -56,6 +65,12 @@ function nextId(): string {
 /** Host RPC helper — body is a HostRequest without `id` (union members vary). */
 function request(
   body: { method: HostRequest["method"] } & Record<string, unknown>,
+  options?: {
+    onProgress?: (event: {
+      message: string;
+      detail?: import("@prism/shared").JsonValue;
+    }) => void;
+  },
 ): Promise<HostResponse> {
   const id = nextId();
   const full = { ...body, id } as HostRequest;
@@ -72,13 +87,25 @@ function request(
   }
 
   return new Promise<HostResponse>((resolve, reject) => {
-    pending.set(id, { resolve, reject });
+    pending.set(id, {
+      resolve,
+      reject,
+      ...(options?.onProgress ? { onProgress: options.onProgress } : {}),
+    });
     vscodeApi!.postMessage({ type: "request", request: full });
   });
 }
 
 export function handleHostMessage(msg: HostToWebview): void {
   if (!msg || typeof msg !== "object") return;
+  if ("type" in msg && msg.type === "lighthouseLabProgress") {
+    const wait = pending.get(msg.id);
+    wait?.onProgress?.({
+      message: msg.message,
+      ...(msg.detail !== undefined ? { detail: msg.detail } : {}),
+    });
+    return;
+  }
   if (!("id" in msg) || typeof (msg as HostResponse).id !== "string") return;
   const res = msg as HostResponse;
   const wait = pending.get(res.id);
@@ -600,6 +627,8 @@ export async function runLighthouseLab(options?: {
   mode?: "lab-fixture" | "run" | "ingest";
   url?: string;
   port?: number;
+  routes?: readonly string[];
+  onProgress?: (event: LighthouseLabProgressEvent) => void;
 }): Promise<import("@prism/shared").CwvReport | null> {
   return withAudit(
     {
@@ -609,12 +638,24 @@ export async function runLighthouseLab(options?: {
       command: `host:lighthouseLab mode=${options?.mode ?? "lab-fixture"}`,
     },
     async () => {
-      const res = await request({
-        method: "lighthouseLab",
-        ...(options?.mode ? { mode: options.mode } : {}),
-        ...(options?.url ? { url: options.url } : {}),
-        ...(options?.port !== undefined ? { port: options.port } : {}),
-      });
+      const res = await request(
+        {
+          method: "lighthouseLab",
+          ...(options?.mode ? { mode: options.mode } : {}),
+          ...(options?.url ? { url: options.url } : {}),
+          ...(options?.port !== undefined ? { port: options.port } : {}),
+          ...(options?.routes && options.routes.length > 0
+            ? { routes: [...options.routes] }
+            : {}),
+        },
+        options?.onProgress
+          ? {
+              onProgress: (raw) => {
+                options.onProgress!(lighthouseProgressFromJobEvent(raw));
+              },
+            }
+          : undefined,
+      );
       if (!res.ok) throw new Error(res.error);
       if (res.method !== "lighthouseLab")
         throw new Error("Unexpected response");
@@ -630,6 +671,13 @@ export async function runLighthouseLab(options?: {
       };
     },
   );
+}
+
+export async function discoverFrontendRoutes(): Promise<string[]> {
+  const res = await request({ method: "frontendRoutes" });
+  if (!res.ok) throw new Error(res.error);
+  if (res.method !== "frontendRoutes") throw new Error("Unexpected response");
+  return res.data;
 }
 
 export async function stageDevopsRemote(input: {

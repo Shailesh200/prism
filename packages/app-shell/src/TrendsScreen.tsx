@@ -19,6 +19,7 @@ import {
   type ReactElement,
 } from "react";
 import { AppSidebar, type AppSidebarUser, type AppView } from "./AppSidebar.js";
+import { shellNavVariant, shellRootClass } from "./shell-layout.js";
 import { Avatar } from "./Avatar.js";
 import {
   ACTIVITY_RANGES,
@@ -586,9 +587,9 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
     (historyPoints.length === 0 || backfill?.status === "running");
 
   return (
-    <div className="ov">
+    <div className={shellRootClass()}>
       <AppSidebar
-        variant="full"
+        variant={shellNavVariant()}
         active="trends"
         repoLabel={props.repoLabel}
         user={props.user ?? null}

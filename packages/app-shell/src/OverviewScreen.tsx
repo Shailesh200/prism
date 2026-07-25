@@ -33,6 +33,7 @@ import {
   type ReactNode,
 } from "react";
 import { AppSidebar } from "./AppSidebar.js";
+import { shellNavVariant, shellRootClass } from "./shell-layout.js";
 import { Avatar } from "./Avatar.js";
 import { useAppShellClient } from "./client-context.js";
 import { DOMAIN_CATALOG } from "./domain-catalog.js";
@@ -355,9 +356,9 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
   };
 
   return (
-    <div className="ov">
+    <div className={shellRootClass()}>
       <AppSidebar
-        variant="full"
+        variant={shellNavVariant()}
         active="overview"
         repoLabel={props.repoLabel}
         user={gitUser ?? null}

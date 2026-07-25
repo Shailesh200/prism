@@ -1,14 +1,19 @@
 /**
  * Client-side Lighthouse / PageSpeed JSON → CWV metrics (no Node deps).
- * Mirrors `@prism/intelligence` `cwvMetricsFromLighthouse` for webview import.
+ * Mirrors `@prism/intelligence` CWV helpers for webview import.
  */
 
 import type {
+  CwvInsight,
+  CwvInsightSeverity,
   CwvMetric,
   CwvMetricId,
   CwvRating,
   CwvReport,
+  JsonValue,
 } from "@prism/shared";
+import { CwvRouteLabProgressDetailSchema } from "@prism/shared";
+import type { LighthouseLabProgressEvent } from "./client.js";
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -56,12 +61,210 @@ function metric(
   };
 }
 
+function stripHtmlText(value: string): string {
+  return value
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isTruncatedLabel(value: string): boolean {
+  return /[…\u2026]$|\.\.\.$/.test(value.trim());
+}
+
+/** Prefer full Lighthouse node text — `nodeLabel` is often ellipsis-truncated. */
+function nodeLabel(node: Record<string, unknown> | null): string | null {
+  if (!node) return null;
+  const candidates: string[] = [];
+  if (typeof node.nodeLabel === "string" && node.nodeLabel.trim()) {
+    candidates.push(node.nodeLabel.trim());
+  }
+  if (typeof node.snippet === "string" && node.snippet.trim()) {
+    const plain = stripHtmlText(node.snippet);
+    if (plain) candidates.push(plain);
+  }
+  if (typeof node.selector === "string" && node.selector.trim()) {
+    candidates.push(node.selector.trim());
+  }
+  if (candidates.length === 0) return null;
+  const full = [...candidates]
+    .filter((c) => !isTruncatedLabel(c))
+    .sort((a, b) => b.length - a.length)[0];
+  const best =
+    full ?? [...candidates].sort((a, b) => b.length - a.length)[0] ?? null;
+  return best ? best.slice(0, 2000) : null;
+}
+
+function collectNodes(value: unknown, out: string[], depth = 0): void {
+  if (depth > 6 || out.length >= 4) return;
+  if (Array.isArray(value)) {
+    for (const item of value) collectNodes(item, out, depth + 1);
+    return;
+  }
+  const rec = asRecord(value);
+  if (!rec) return;
+  if (rec.type === "node" || rec.node) {
+    const n = rec.type === "node" ? rec : asRecord(rec.node);
+    const label = nodeLabel(n);
+    if (label && !out.includes(label)) out.push(label);
+  }
+  for (const child of Object.values(rec)) {
+    if (typeof child === "object" && child !== null) {
+      collectNodes(child, out, depth + 1);
+    }
+  }
+}
+
+function severityFromScore(score: number | null): CwvInsightSeverity {
+  if (score === null) return "info";
+  if (score >= 0.9) return "good";
+  if (score >= 0.5) return "improve";
+  return "pain";
+}
+
+function metricIdForAudit(auditId: string): CwvMetricId | undefined {
+  if (/largest-contentful-paint|lcp/i.test(auditId)) return "LCP";
+  if (/layout-shift|cls/i.test(auditId)) return "CLS";
+  if (/interaction-to-next-paint|inp|total-blocking-time/i.test(auditId)) {
+    return "INP";
+  }
+  if (/first-contentful-paint|fcp/i.test(auditId)) return "FCP";
+  if (/server-response-time|ttfb/i.test(auditId)) return "TTFB";
+  if (
+    /render-blocking|unused-javascript|unused-css|bootup-time|mainthread/i.test(
+      auditId,
+    )
+  ) {
+    return "LCP";
+  }
+  return undefined;
+}
+
+function insightsFromAudits(
+  audits: Record<string, unknown>,
+  metrics: readonly CwvMetric[],
+): CwvInsight[] {
+  const out: CwvInsight[] = [];
+  const seen = new Set<string>();
+  const push = (insight: CwvInsight): void => {
+    if (seen.has(insight.id)) return;
+    seen.add(insight.id);
+    out.push(insight);
+  };
+
+  for (const m of metrics) {
+    if (m.rating === "poor") {
+      push({
+        id: `metric-${m.id}-poor`,
+        metricId: m.id,
+        severity: "pain",
+        title: `${m.id} is poor`,
+        detail: `Lab value exceeds the “poor” threshold for ${m.id}.`,
+      });
+    } else if (m.rating === "needs-improvement") {
+      push({
+        id: `metric-${m.id}-improve`,
+        metricId: m.id,
+        severity: "improve",
+        title: `${m.id} needs work`,
+        detail: `Lab value is in the “needs improvement” band for ${m.id}.`,
+      });
+    } else if (m.rating === "good") {
+      push({
+        id: `metric-${m.id}-good`,
+        metricId: m.id,
+        severity: "good",
+        title: `${m.id} is good`,
+        detail: `Lab value meets the “good” threshold for ${m.id}.`,
+      });
+    }
+  }
+
+  const lcpEl = asRecord(audits["largest-contentful-paint-element"]);
+  if (lcpEl) {
+    const labels: string[] = [];
+    collectNodes(lcpEl.details, labels);
+    push({
+      id: "audit-largest-contentful-paint-element",
+      metricId: "LCP",
+      severity: severityFromScore(
+        typeof lcpEl.score === "number" ? lcpEl.score : null,
+      ),
+      title:
+        typeof lcpEl.title === "string"
+          ? lcpEl.title
+          : "Largest Contentful Paint element",
+      detail:
+        labels.length > 0 ? `LCP element: ${labels.join(" · ")}` : undefined,
+      auditId: "largest-contentful-paint-element",
+    });
+  }
+
+  for (const [auditId, raw] of Object.entries(audits)) {
+    const audit = asRecord(raw);
+    if (!audit) continue;
+    const details = asRecord(audit.details);
+    if (details?.type !== "opportunity") continue;
+    if (typeof audit.score !== "number" || audit.score >= 1) continue;
+    const savingsMs =
+      typeof details.overallSavingsMs === "number"
+        ? details.overallSavingsMs
+        : null;
+    const title =
+      typeof audit.title === "string"
+        ? audit.title
+        : auditId.replace(/-/g, " ");
+    push({
+      id: `opp-${auditId}`,
+      metricId: metricIdForAudit(auditId),
+      severity: audit.score < 0.5 ? "pain" : "improve",
+      title,
+      detail:
+        savingsMs !== null && savingsMs > 0
+          ? savingsMs >= 1000
+            ? `~${(savingsMs / 1000).toFixed(1)}s potential savings`
+            : `~${Math.round(savingsMs)}ms potential savings`
+          : undefined,
+      auditId,
+    });
+  }
+
+  const order: Record<CwvInsightSeverity, number> = {
+    pain: 0,
+    improve: 1,
+    good: 2,
+    info: 3,
+  };
+  return out
+    .sort((a, b) => {
+      const d = order[a.severity] - order[b.severity];
+      return d !== 0 ? d : a.title.localeCompare(b.title);
+    })
+    .slice(0, 40);
+}
+
+function routeKeyFromUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    const path = u.pathname || "/";
+    return path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
+  } catch {
+    return "/";
+  }
+}
+
 /** Extract CWV (+ optional TBT) from a Lighthouse LHR or PageSpeed Insights JSON. */
 export function metricsFromLighthouseJson(lhr: unknown): {
   metrics: CwvMetric[];
   tbtMs: number | null;
   categoryScores: Record<string, number>;
   url: string;
+  insights: CwvInsight[];
 } {
   // PageSpeed wraps LHR under lighthouseResult
   const root =
@@ -124,34 +327,48 @@ export function metricsFromLighthouseJson(lhr: unknown): {
     (typeof asRecord(lhr)?.id === "string" && (asRecord(lhr)!.id as string)) ||
     "imported";
 
-  return { metrics, tbtMs, categoryScores, url };
+  const insights = audits ? insightsFromAudits(audits, metrics) : [];
+
+  return { metrics, tbtMs, categoryScores, url, insights };
 }
 
 export function cwvReportFromLighthouseJson(
   lhr: unknown,
   source: CwvReport["source"] = "ingest",
 ): CwvReport {
-  const { metrics, categoryScores, url } = metricsFromLighthouseJson(lhr);
+  const { metrics, categoryScores, url, tbtMs, insights } =
+    metricsFromLighthouseJson(lhr);
+  const route = routeKeyFromUrl(url);
+  const finalMetrics =
+    metrics.length > 0
+      ? metrics
+      : [
+          {
+            id: "LCP" as const,
+            value: 0,
+            unit: "ms",
+            rating: "unknown" as const,
+          },
+        ];
   return {
     url,
     collectedAt: new Date().toISOString(),
     source,
     callout:
       "Imported Lighthouse / PageSpeed JSON — Core Web Vitals from the report audits.",
-    metrics:
-      metrics.length > 0
-        ? metrics
-        : [
-            {
-              id: "LCP",
-              value: 0,
-              unit: "ms",
-              rating: "unknown" as const,
-            },
-          ],
+    metrics: finalMetrics,
     categoryScores,
     attributions: [],
-    rollups: [],
+    rollups: [
+      {
+        key: route,
+        level: "route",
+        metrics: finalMetrics,
+        sampleCount: 1,
+      },
+    ],
+    ...(tbtMs === null ? {} : { tbtMs }),
+    insights,
   };
 }
 
@@ -246,3 +463,20 @@ export const LIGHTHOUSE_CATEGORIES: {
     desc: "Basic search-engine optimization checks (meta, crawlability, mobile).",
   },
 ];
+
+/** Normalize host/job progress into the AppShell lab progress event shape. */
+export function lighthouseProgressFromJobEvent(event: {
+  readonly message: string;
+  readonly detail?: JsonValue;
+}): LighthouseLabProgressEvent {
+  const parsed = CwvRouteLabProgressDetailSchema.safeParse(event.detail);
+  if (!parsed.success) {
+    return { message: event.message };
+  }
+  return {
+    message: event.message,
+    measuringRoute: parsed.data.measuringRoute,
+    measuredRoutes: parsed.data.measuredRoutes,
+    ...(parsed.data.report ? { report: parsed.data.report } : {}),
+  };
+}

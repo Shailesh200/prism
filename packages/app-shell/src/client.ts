@@ -27,11 +27,24 @@ import type {
   TestListResult,
 } from "./types.js";
 
+export type LighthouseLabProgressEvent = {
+  readonly message: string;
+  /** Partial merged CWV report after primary / each route finishes. */
+  readonly report?: CwvReport;
+  /** Route currently under Lighthouse, or null between routes. */
+  readonly measuringRoute?: string | null;
+  readonly measuredRoutes?: readonly string[];
+};
+
 export type LighthouseLabOptions = {
   readonly mode?: "lab-fixture" | "run" | "ingest";
   readonly url?: string;
   readonly port?: number;
   readonly reportPath?: string;
+  /** When set, only these routes are measured (first = primary). */
+  readonly routes?: readonly string[];
+  /** Live build / CLI log lines + progressive CWV while the lab job runs. */
+  readonly onProgress?: (event: LighthouseLabProgressEvent) => void;
 };
 
 /**
@@ -94,6 +107,11 @@ export type AppShellClient = {
    * mode=`run` uses system Chrome + CLI under `.prism/tools/lighthouse`.
    */
   runLighthouseLab?(options?: LighthouseLabOptions): Promise<CwvReport | null>;
+  /**
+   * Discover frontend URL paths (Next pages + React Router / SEO) for the
+   * Routes & components lab section.
+   */
+  discoverFrontendRoutes?(): Promise<string[]>;
   /**
    * Whether the workspace's `.prism` folder is gitignored. Optional so hosts
    * that cannot determine it simply omit the method (sidebar chip stays hidden).
