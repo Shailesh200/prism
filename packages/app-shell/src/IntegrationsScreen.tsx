@@ -18,6 +18,7 @@ import {
 import { useId, useState, type ReactElement, type ReactNode } from "react";
 import { CardIcon, InfoTip, Input, type CardIconTone } from "@prism/ui";
 import { AppSidebar, type AppSidebarUser, type AppView } from "./AppSidebar.js";
+import { shellNavVariant, shellRootClass } from "./shell-layout.js";
 import { fetchGithubWorkflows, fetchPagespeedMetrics } from "./github-ci.js";
 import { isBrowserShell } from "./is-browser.js";
 import {
@@ -365,9 +366,9 @@ export function IntegrationsScreen(
   };
 
   return (
-    <div className="ov">
+    <div className={shellRootClass()}>
       <AppSidebar
-        variant="full"
+        variant={shellNavVariant()}
         active="integrations"
         repoLabel={props.repoLabel}
         user={props.user ?? null}

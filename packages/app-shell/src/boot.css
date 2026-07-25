@@ -37,6 +37,8 @@
 
 .playground-shell {
   height: 100%;
+  width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -46,6 +48,8 @@
 .playground-shell__map {
   flex: 1;
   min-height: 0;
+  min-width: 0;
+  width: 100%;
 }
 
 /* Map view: hover-expanding nav rail overlays the map's left gutter. */

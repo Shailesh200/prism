@@ -183,6 +183,8 @@ function run(
     cwd?: string;
     env?: NodeJS.ProcessEnv;
     timeoutMs?: number;
+    onStdout?: (chunk: string) => void;
+    onStderr?: (chunk: string) => void;
   } = {},
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
@@ -200,10 +202,14 @@ function run(
           }, options.timeoutMs)
         : null;
     child.stdout?.on("data", (chunk: Buffer | string) => {
-      stdout += String(chunk);
+      const text = String(chunk);
+      stdout += text;
+      options.onStdout?.(text);
     });
     child.stderr?.on("data", (chunk: Buffer | string) => {
-      stderr += String(chunk);
+      const text = String(chunk);
+      stderr += text;
+      options.onStderr?.(text);
     });
     child.on("error", (err) => {
       if (timer) clearTimeout(timer);
@@ -318,9 +324,99 @@ export async function ensureLighthouseCli(
   return { ok: true, bin };
 }
 
+/** True when a listener is a known non-app service (e.g. macOS AirPlay on :5000). */
+export function isNonAppLabServer(serverHeader: string): boolean {
+  return /AirTunes|AirPlay|ControlCenter|ControlCe/i.test(serverHeader);
+}
+
+/**
+ * Soft-404 / empty-route heuristics for SPAs that return HTTP 200 with a
+ * “Page not found” document (common with client routers).
+ */
+export function looksLikeNotFoundHtml(html: string): boolean {
+  const sample = html.slice(0, 24_000);
+  if (
+    /<title[^>]*>[^<]*(404|not\s*found|page not found)[^<]*<\/title>/i.test(
+      sample,
+    )
+  ) {
+    return true;
+  }
+  if (
+    /page not found|this page could not be found|404 not found|we can'?t find (that|this) page/i.test(
+      sample,
+    )
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * After Lighthouse, detect soft-404 pages (SPA 200 + Not Found content).
+ */
+export function lighthouseLooksLikeNotFound(lhr: unknown): boolean {
+  const root =
+    lhr && typeof lhr === "object" && !Array.isArray(lhr)
+      ? (lhr as Record<string, unknown>)
+      : null;
+  const audits =
+    root?.audits &&
+    typeof root.audits === "object" &&
+    !Array.isArray(root.audits)
+      ? (root.audits as Record<string, unknown>)
+      : null;
+  if (!audits) return false;
+
+  const title = audits["document-title"];
+  const titleRec =
+    title && typeof title === "object" && !Array.isArray(title)
+      ? (title as Record<string, unknown>)
+      : null;
+  const titleText = String(
+    titleRec?.displayValue ?? titleRec?.description ?? "",
+  );
+  if (/404|not\s*found|page not found/i.test(titleText)) return true;
+
+  const scanLabels = (auditId: string): boolean => {
+    const audit = audits[auditId];
+    const labels: string[] = [];
+    const collect = (value: unknown, depth = 0): void => {
+      if (depth > 6 || labels.length >= 6) return;
+      if (Array.isArray(value)) {
+        for (const item of value) collect(item, depth + 1);
+        return;
+      }
+      if (!value || typeof value !== "object") return;
+      const rec = value as Record<string, unknown>;
+      for (const key of ["nodeLabel", "snippet", "selector"] as const) {
+        const v = rec[key];
+        if (typeof v === "string" && v.trim()) labels.push(v.trim());
+      }
+      for (const child of Object.values(rec)) {
+        if (typeof child === "object" && child !== null)
+          collect(child, depth + 1);
+      }
+    };
+    if (audit && typeof audit === "object") {
+      collect((audit as Record<string, unknown>).details);
+    }
+    return labels.some((l) => /page not found|404 not found|\b404\b/i.test(l));
+  };
+
+  return (
+    scanLabels("largest-contentful-paint-element") ||
+    scanLabels("layout-shift-elements") ||
+    scanLabels("layout-shifts")
+  );
+}
+
 /**
  * HTTP(S) probe so we fail fast with a clear message instead of Chrome's
- * interstitial (unreachable ports / chrome-error:// pages).
+ * interstitial (unreachable ports / chrome-error:// pages / AirPlay on :5000).
+ *
+ * Only treats 2xx/3xx responses from real web servers as reachable. A bare TCP
+ * accept (e.g. macOS AirTunes 403) must not count as a frontend.
  */
 export async function probeLabUrl(
   url: string,
@@ -348,10 +444,62 @@ export async function probeLabUrl(
         method: "GET",
         timeout: 2500,
         rejectUnauthorized: false,
+        headers: { Accept: "text/html,application/xhtml+xml,*/*;q=0.8" },
       },
       (res) => {
-        res.resume();
-        resolve({ ok: true, status: res.statusCode ?? 0 });
+        const status = res.statusCode ?? 0;
+        const server = String(res.headers.server ?? "");
+        const contentType = String(res.headers["content-type"] ?? "");
+        const chunks: Buffer[] = [];
+        let total = 0;
+        res.on("data", (chunk: Buffer) => {
+          if (total >= 24_000) return;
+          const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          const room = 24_000 - total;
+          chunks.push(room < buf.length ? buf.subarray(0, room) : buf);
+          total += Math.min(room, buf.length);
+        });
+        res.on("end", () => {
+          if (isNonAppLabServer(server)) {
+            resolve({
+              ok: false,
+              message: `${url} is not a frontend (Server: ${server || "unknown"}). macOS AirPlay often occupies :5000 — start your app on another port or let Prism start a production preview.`,
+            });
+            return;
+          }
+
+          if (status < 200 || status >= 400) {
+            resolve({
+              ok: false,
+              message: `${url} returned HTTP ${status}${server ? ` (Server: ${server})` : ""}. Start the app (or retry for a production preview) — Chrome’s interstitial usually means this URL is not serving your HTML.`,
+            });
+            return;
+          }
+
+          if (
+            contentType &&
+            /application\/json|application\/octet-stream|text\/event-stream/i.test(
+              contentType,
+            )
+          ) {
+            resolve({
+              ok: false,
+              message: `${url} returned ${contentType}, not an HTML document. Point Lighthouse at the frontend origin (e.g. http://localhost:3000).`,
+            });
+            return;
+          }
+
+          const body = Buffer.concat(chunks).toString("utf8");
+          if (body && looksLikeNotFoundHtml(body)) {
+            resolve({
+              ok: false,
+              message: `${url} looks like a not-found page — skipped for lab measurement.`,
+            });
+            return;
+          }
+
+          resolve({ ok: true, status });
+        });
       },
     );
     req.on("timeout", () => {
@@ -388,18 +536,23 @@ export async function resolveReachableLabUrl(options: {
 /**
  * Spawn Lighthouse CLI against `url`, write raw LHR JSON under `.prism/ingest`,
  * and return the parsed report.
+ *
+ * Uses the given URL only (no re-discovery across common ports) so a bad
+ * listener like macOS AirPlay on :5000 cannot replace a chosen lab target.
  */
 export async function runLighthouseCli(options: {
   readonly workspaceRoot: string;
   readonly url: string;
   readonly chromePath: string;
   readonly bin: string;
+  readonly onLog?: (line: string) => void;
 }): Promise<RunLighthouseCliResult> {
-  const reachable = await resolveReachableLabUrl({ url: options.url });
-  if (!reachable.ok) {
-    return { ok: false, message: reachable.message };
+  const log = options.onLog ?? (() => undefined);
+  const url = options.url.trim();
+  const probe = await probeLabUrl(url);
+  if (!probe.ok) {
+    return { ok: false, message: probe.message };
   }
-  const url = reachable.url;
 
   const ingestDir = join(options.workspaceRoot, ".prism", "ingest");
   await mkdir(ingestDir, { recursive: true });
@@ -423,9 +576,17 @@ export async function runLighthouseCli(options: {
     `--output-path=${reportPath}`,
     `--chrome-path=${options.chromePath}`,
     `--chrome-flags=${chromeFlags}`,
-    "--quiet",
     "--only-categories=performance,accessibility,best-practices,seo",
+    // Pin mobile + simulated throttling so every pass uses the same model
+    // (reduces “laptop vs phone” confusion; multi-pass median handles noise).
+    "--form-factor=mobile",
+    "--screenEmulation.mobile=true",
+    "--throttling-method=simulate",
   ];
+
+  log(`Lighthouse CLI → ${url}`);
+  log(`Chrome: ${options.chromePath}`);
+  log(`Report: ${reportPath}`);
 
   // Prefer invoking the JS entry with node/bun so shebang/.cmd quirks don't fail.
   const node = (await findOnPath("node")) ?? "node";
@@ -437,9 +598,27 @@ export async function runLighthouseCli(options: {
     "cli",
     "index.js",
   );
+
+  const forwardLogs = {
+    onStdout: (chunk: string) => {
+      for (const line of chunk.split(/\r?\n/)) {
+        const t = line.trim();
+        if (t) log(t);
+      }
+    },
+    onStderr: (chunk: string) => {
+      for (const line of chunk.split(/\r?\n/)) {
+        const t = line.trim();
+        if (t) log(t);
+      }
+    },
+  };
+
   let result: { code: number; stdout: string; stderr: string };
   if (await pathExists(cliJs)) {
-    result = await run(bunBin ?? node, [cliJs, ...args], {
+    const runner = bunBin ?? node;
+    log(`$ ${runner} ${cliJs} ${args.join(" ")}`);
+    result = await run(runner, [cliJs, ...args], {
       cwd: options.workspaceRoot,
       timeoutMs: 4 * 60 * 1000,
       env: {
@@ -447,8 +626,10 @@ export async function runLighthouseCli(options: {
         CHROME_PATH: options.chromePath,
         PUPPETEER_SKIP_DOWNLOAD: "1",
       },
+      ...forwardLogs,
     });
   } else {
+    log(`$ ${options.bin} ${args.join(" ")}`);
     result = await run(options.bin, args, {
       cwd: options.workspaceRoot,
       timeoutMs: 4 * 60 * 1000,
@@ -457,6 +638,7 @@ export async function runLighthouseCli(options: {
         CHROME_PATH: options.chromePath,
         PUPPETEER_SKIP_DOWNLOAD: "1",
       },
+      ...forwardLogs,
     });
   }
 
@@ -476,6 +658,7 @@ export async function runLighthouseCli(options: {
   try {
     const text = await readFile(reportPath, "utf8");
     const lhr = JSON.parse(text) as unknown;
+    log(`Lighthouse finished → ${reportPath}`);
     return { ok: true, lhr, reportPath };
   } catch (cause) {
     return {

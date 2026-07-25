@@ -35,5 +35,6 @@ export async function getCwvReport(
     categoryScores: parsed.value.categoryScores ?? {},
     attributions: parsed.value.attributions ?? [],
     rollups: parsed.value.rollups ?? [],
+    insights: parsed.value.insights ?? [],
   });
 }

@@ -336,7 +336,26 @@ export class PrismPanel {
         this.session,
         req,
         this.dispatchState,
-        { vscodeApi: this.vscodeApi },
+        {
+          vscodeApi: this.vscodeApi,
+          ...(req.method === "lighthouseLab"
+            ? {
+                onProgress: (event: {
+                  message: string;
+                  detail?: import("@prism/shared").JsonValue;
+                }) => {
+                  this.post({
+                    type: "lighthouseLabProgress",
+                    id: req.id,
+                    message: event.message,
+                    ...(event.detail !== undefined
+                      ? { detail: event.detail }
+                      : {}),
+                  });
+                },
+              }
+            : {}),
+        },
       );
       this.post(res);
       this.maybePostGitAudit(req, res, Date.now() - started);

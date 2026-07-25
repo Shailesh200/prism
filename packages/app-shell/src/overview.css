@@ -5,25 +5,46 @@
 
 .ov {
   height: 100%;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   display: grid;
   grid-template-columns: 224px minmax(0, 1fr);
   min-height: 0;
   background: #0a0e1a;
   color: #fff;
   font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  container-type: inline-size;
+  container-name: prism-ov;
+  overflow-x: clip;
+  box-sizing: border-box;
 }
 
 /* Map-style hover rail: icon strip overlays content, expands on hover/focus. */
 .ov--rail {
   position: relative;
   display: block;
+  /* Gutter for the collapsed rail — never use margin-left on .ov-main
+     (width:100% + margin overflows and body overflow:hidden crops the right). */
+  padding-left: 56px;
+  overflow-x: clip;
+  box-sizing: border-box;
 }
 
 .ov--rail > .ov-main {
   grid-column: auto;
-  margin-left: 56px;
+  margin-left: 0;
+  width: 100%;
+  max-width: 100%;
   height: 100%;
   min-height: 0;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.ov--rail > .appnav--rail {
+  /* Sit in the padding gutter; expand overlays content on hover. */
+  left: 0;
 }
 
 .ov * {
@@ -240,11 +261,17 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   padding: 0 24px;
-  height: 56px;
+  padding-inline: max(16px, 24px);
+  height: auto;
+  min-height: 56px;
   flex-shrink: 0;
+  flex-wrap: wrap;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   background: #0d1220;
+  box-sizing: border-box;
+  max-width: 100%;
 }
 
 .ov-top__title {
@@ -261,7 +288,11 @@
 .ov-top__actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 10px;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .ov-top__sync {
@@ -343,17 +374,23 @@
 .ov-scroll {
   flex: 1;
   min-height: 0;
+  min-width: 0;
   overflow-y: auto;
+  /* Clip horizontal bleed; tables/logs scroll inside their own panes. */
+  overflow-x: clip;
   padding: 24px;
+  padding-inline: 24px;
   display: flex;
   flex-direction: column;
   gap: 20px;
+  box-sizing: border-box;
+  max-width: 100%;
 }
 
 /* ---- KPI row ---- */
 .ov-kpis {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -2319,7 +2356,7 @@
 
 .dm-surface--routes .dm-surface__head,
 .dm-surface--routes .dm-surface__row {
-  grid-template-columns: 72px minmax(0, 1.6fr) 88px 48px;
+  grid-template-columns: 72px minmax(0, 1.6fr) minmax(104px, 0.7fr) 56px;
 }
 
 .dm-route__method {
@@ -2339,6 +2376,11 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+  justify-self: end;
+  text-align: right;
+  width: 100%;
+  box-sizing: border-box;
+  padding-right: 2px;
 }
 
 .dm-surface__test--ok {
@@ -2504,6 +2546,14 @@
   margin: 10px 0 0;
   font-size: 0.6875rem;
   color: var(--prism-text-faint, #5f7480);
+}
+
+.dm-note--wrap,
+.dm-note {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
 }
 
 .dm-rank {
@@ -2719,13 +2769,19 @@
   background: var(--prism-tile, #1e2433);
   color: var(--prism-ink, #fff);
   font-size: 0.75rem;
-  opacity: 0.65;
+}
+
+.dm-pipe__ctrl:disabled {
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
 .dm-pipe__run {
   align-self: flex-start;
-  opacity: 0.65;
+}
+
+.dm-pipe__run:disabled {
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
@@ -2838,11 +2894,43 @@
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 @media (max-width: 1100px) {
   .cwv__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .cwv__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Prefer container width (IDE webview) over viewport media queries. */
+@container prism-ov (max-width: 1100px) {
+  .cwv__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container prism-ov (max-width: 720px) {
+  .cwv__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card-masonry {
+    column-count: 1;
+  }
+}
+
+@container prism-ov (max-width: 900px) {
+  .cwv-insights__grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -2854,6 +2942,9 @@
   border-radius: var(--prism-radius-md, 8px);
   border: 1px solid var(--prism-line, #2a334a);
   background: var(--prism-panel, #131926);
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .cwv-tile__head {

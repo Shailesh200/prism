@@ -14,6 +14,7 @@ import {
 } from "@prism/ui";
 import {
   AlertTriangle,
+  ArrowLeft,
   CheckCircle2,
   Code2,
   FileCode2,
@@ -28,6 +29,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { AppSidebar, type AppSidebarUser, type AppView } from "./AppSidebar.js";
+import { shellNavVariant, shellRootClass } from "./shell-layout.js";
 import { useAppShellClient } from "./client-context.js";
 import { recordAudit } from "./audit-log.js";
 import { resolveRenameToPath } from "./apply-rename.js";
@@ -36,6 +38,54 @@ import type { ImpactBundle, ImpactTarget, SymbolSearchHit } from "./types.js";
 const GAUGE_C = 2 * Math.PI * 45;
 const PAGE_SIZE = 25;
 const RENAME_DEBOUNCE_MS = 300;
+const PENDING_BLAST_KEY = "prism:blast:pending-target";
+
+type PendingBlastTarget = {
+  readonly kind?: string;
+  readonly id?: string;
+  readonly path?: string;
+  readonly returnView?: AppView;
+  readonly domainId?: string;
+};
+
+/** Domain screen stashes JSON; older callers may stash a bare path string. */
+function readPendingBlastTarget(): {
+  path: string;
+  returnView: AppView | null;
+} | null {
+  if (typeof window === "undefined") return null;
+  let raw: string | null = null;
+  try {
+    raw = window.localStorage.getItem(PENDING_BLAST_KEY);
+    if (raw) window.localStorage.removeItem(PENDING_BLAST_KEY);
+  } catch {
+    return null;
+  }
+  if (!raw?.trim()) return null;
+  try {
+    const parsed = JSON.parse(raw) as PendingBlastTarget;
+    if (parsed && typeof parsed === "object") {
+      const path =
+        (typeof parsed.path === "string" && parsed.path.trim()) ||
+        (typeof parsed.id === "string" && parsed.id.trim()) ||
+        "";
+      if (!path || path.startsWith("{")) return null;
+      const returnView =
+        parsed.returnView === "domain" ||
+        parsed.returnView === "domains" ||
+        parsed.returnView === "overview" ||
+        parsed.returnView === "map"
+          ? parsed.returnView
+          : null;
+      return { path, returnView };
+    }
+  } catch {
+    /* plain path string */
+  }
+  const path = raw.trim();
+  if (!path || path.startsWith("{")) return null;
+  return { path, returnView: null };
+}
 
 export type BlastRadiusScreenProps = {
   root: string | null;
@@ -202,6 +252,7 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
 
   const [fileNodes, setFileNodes] = useState<GraphNodeDto[]>([]);
   const [symbolHits, setSymbolHits] = useState<SymbolSearchHit[]>([]);
+  const [returnView, setReturnView] = useState<AppView | null>(null);
   const newNameRef = useRef(newName);
   newNameRef.current = newName;
   const lastRenameFetchedRef = useRef<string | null>(null);
@@ -237,23 +288,17 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
     setQuery(initial);
   }, [props.initialFile]);
 
-  // Cross-screen focus: the Domain screen's "blast radius" row action stashes a
-  // target under localStorage (onNavigate can't carry a payload) then routes here.
+  // Cross-screen focus: Domain (and others) stash a target under localStorage
+  // (onNavigate can't carry a payload) then route here.
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    let pending: string | null = null;
-    try {
-      pending = window.localStorage.getItem("prism:blast:pending-target");
-      if (pending) window.localStorage.removeItem("prism:blast:pending-target");
-    } catch {
-      pending = null;
-    }
-    const file = pending?.trim();
-    if (!file) return;
+    const pending = readPendingBlastTarget();
+    if (!pending) return;
     setMode("file");
-    setTarget({ kind: "file", id: file, path: file });
+    setTarget({ kind: "file", id: pending.path, path: pending.path });
     setSymbolLabel(null);
-    setQuery(file);
+    setQuery(pending.path);
+    setNewName(pending.path.split("/").pop() ?? pending.path);
+    if (pending.returnView) setReturnView(pending.returnView);
   }, []);
 
   useEffect(() => {
@@ -547,9 +592,9 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
   const showFileLanding = mode === "file" && !target;
 
   return (
-    <div className="ov">
+    <div className={shellRootClass()}>
       <AppSidebar
-        variant="full"
+        variant={shellNavVariant()}
         active="blast"
         repoLabel={props.repoLabel}
         user={props.user ?? null}
@@ -562,6 +607,22 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
             <div className="ov-top__title">Blast Radius</div>
             <div className="ov-top__sub">{subtitle}</div>
           </div>
+          {returnView ? (
+            <div className="ov-top__actions">
+              <button
+                type="button"
+                className="ov-btn ov-btn--ghost"
+                onClick={() => props.onNavigate(returnView)}
+              >
+                <ArrowLeft size={13} aria-hidden />
+                {returnView === "domain"
+                  ? "Back to Domain"
+                  : returnView === "domains"
+                    ? "Back to Domains"
+                    : "Back"}
+              </button>
+            </div>
+          ) : null}
         </header>
 
         <div className="ov-scroll">

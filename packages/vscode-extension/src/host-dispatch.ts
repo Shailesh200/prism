@@ -72,6 +72,11 @@ export type HostDispatchState = {
 export type HostDispatchOptions = {
   /** VS Code API — required for workspace file writes (applyRename). */
   readonly vscodeApi?: typeof vscode;
+  /** Forward utility-job progress (Lighthouse lab console + progressive CWV). */
+  readonly onProgress?: (event: {
+    message: string;
+    detail?: import("@prism/shared").JsonValue;
+  }) => void;
 };
 
 /**
@@ -288,6 +293,8 @@ export async function dispatchHostRequest(
         ...(req.mode ? { mode: req.mode } : {}),
         ...(req.url ? { url: req.url } : {}),
         ...(req.port !== undefined ? { port: req.port } : {}),
+        ...(req.routes && req.routes.length > 0 ? { routes: req.routes } : {}),
+        ...(options.onProgress ? { onProgress: options.onProgress } : {}),
       });
       if (!result.ok)
         return { id: req.id, ok: false, error: result.error.message };
@@ -295,6 +302,17 @@ export async function dispatchHostRequest(
         id: req.id,
         ok: true,
         method: "lighthouseLab",
+        data: result.value,
+      };
+    }
+    case "frontendRoutes": {
+      const result = session.discoverFrontendRoutes();
+      if (!result.ok)
+        return { id: req.id, ok: false, error: result.error.message };
+      return {
+        id: req.id,
+        ok: true,
+        method: "frontendRoutes",
         data: result.value,
       };
     }

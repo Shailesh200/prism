@@ -3,6 +3,7 @@ import { isAbsolute, join } from "node:path";
 import {
   CwvReportSchema,
   PrismErrorCode,
+  type CwvReport,
   type JsonValue,
   type PrismError,
   type Result,
@@ -18,12 +19,17 @@ import {
   LIGHTHOUSE_CALLOUT,
   buildCwvReport,
   labFixtureLighthouseJson,
+  labUrlForRoute,
+  medianMergeLighthouseReports,
+  mergeRouteCwvReports,
 } from "./cwv.js";
 import type { IngestStore } from "./ingest-store.js";
 import {
   ensureLighthouseCli,
+  probeLabUrl,
   resolveSystemChrome,
   runLighthouseCli,
+  lighthouseLooksLikeNotFound,
 } from "./lighthouse-runner.js";
 import {
   PRISM_LAB_PORT,
@@ -31,6 +37,7 @@ import {
   startLabPreviewServer,
   type LabServerHandle,
 } from "./lab-server.js";
+import { discoverFrontendAppRoutes } from "./frontend-routes.js";
 
 export type LighthouseJobOptions = {
   readonly url?: string;
@@ -43,6 +50,12 @@ export type LighthouseJobOptions = {
    * `run` — system Chrome + Lighthouse CLI under `.prism/tools` (never fixtures).
    */
   readonly mode?: "lab-fixture" | "ingest" | "run";
+  /**
+   * Optional explicit routes to measure (e.g. `["/", "/login"]`).
+   * When set, only these paths are measured (first = primary / 3-pass).
+   * When omitted, discovered routes are measured (capped).
+   */
+  readonly routes?: readonly string[];
 };
 
 export type StartUtilityJobInput = {
@@ -81,6 +94,32 @@ function requiresConsent(kind: string): boolean {
   return (
     kind === UTILITY_JOB_REMOTE_PROBE_STUB || kind === UTILITY_JOB_LIGHTHOUSE
   );
+}
+
+function primaryPathForLog(labUrl: string): string {
+  try {
+    let path = new URL(labUrl).pathname || "/";
+    if (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
+    return path || "/";
+  } catch {
+    return "/";
+  }
+}
+
+/** Progressive CWV detail for UI (primary first, then each route). */
+function cwvRouteProgressDetail(options: {
+  readonly measuringRoute: string | null;
+  readonly measuredRoutes: readonly string[];
+  readonly report?: CwvReport;
+}): JsonValue {
+  return {
+    kind: "cwv-route-progress",
+    measuringRoute: options.measuringRoute,
+    measuredRoutes: [...options.measuredRoutes],
+    ...(options.report
+      ? { report: options.report as unknown as JsonValue }
+      : {}),
+  };
 }
 
 export function createUtilityJobService(options: {
@@ -268,7 +307,7 @@ export function createUtilityJobService(options: {
                 return ok(
                   fail(
                     "LAB_URL_UNREACHABLE",
-                    `${reachable.message} · Auto-start failed: ${started.message}`,
+                    `Could not start a production preview: ${started.message}`,
                   ),
                 );
               }
@@ -283,32 +322,242 @@ export function createUtilityJobService(options: {
             url = reachable.url;
             port = reachable.port;
 
+            const PRIMARY_PASSES = 3;
+            /** One pass per extra route — keeps multi-route labs tractable. */
+            const EXTRA_PASSES = 1;
+            /** Cap auto-discovered extras; explicit `routes` are not capped. */
+            const MAX_EXTRA_ROUTES = 50;
+
+            const normalizeRoutePath = (r: string): string => {
+              let path = r.startsWith("/") ? r : `/${r}`;
+              if (path.length > 1 && path.endsWith("/")) {
+                path = path.slice(0, -1);
+              }
+              return path || "/";
+            };
+
+            const requestedRoutes = [
+              ...new Set(
+                (lh.routes ?? [])
+                  .map(normalizeRoutePath)
+                  .filter((r) => !r.includes(":")),
+              ),
+            ];
+
             emit(
               {
                 phase: "lighthouse-run",
-                percent: 60,
-                message: `Running Lighthouse against ${url} (Chrome: ${chrome.source})`,
+                percent: 58,
+                message: `Running Lighthouse against ${url} (${PRIMARY_PASSES} passes · median · Chrome: ${chrome.source})`,
               },
               "running",
             );
-            try {
-              const ran = await runLighthouseCli({
-                workspaceRoot: options.workspaceRoot,
-                url,
-                chromePath: chrome.path,
-                bin: cli.bin,
-              });
-              if (!ran.ok) {
-                return ok(fail("LIGHTHOUSE_RUN_FAILED", ran.message));
+
+            const runPasses = async (
+              targetUrl: string,
+              passCount: number,
+              label: string,
+              percentBase: number,
+            ): Promise<
+              { ok: true; lhr: unknown } | { ok: false; message: string }
+            > => {
+              const passes: unknown[] = [];
+              for (let i = 1; i <= passCount; i++) {
+                emit(
+                  {
+                    phase: "lighthouse-run",
+                    percent: Math.min(92, percentBase + i),
+                    message:
+                      passCount > 1
+                        ? `${label} · pass ${i}/${passCount}…`
+                        : `${label}…`,
+                  },
+                  "running",
+                );
+                const ran = await runLighthouseCli({
+                  workspaceRoot: options.workspaceRoot,
+                  url: targetUrl,
+                  chromePath: chrome.path,
+                  bin: cli.bin,
+                  onLog: (line) =>
+                    emit(
+                      {
+                        phase: "lighthouse-run",
+                        percent: Math.min(92, percentBase + i),
+                        message: line,
+                      },
+                      "running",
+                    ),
+                });
+                if (!ran.ok) return { ok: false, message: ran.message };
+                passes.push(ran.lhr);
               }
-              raw = ran.lhr;
+              return {
+                ok: true,
+                lhr:
+                  passes.length === 1
+                    ? passes[0]!
+                    : medianMergeLighthouseReports(passes),
+              };
+            };
+
+            let primaryReport: CwvReport | null = null;
+            const extraRouteReports: Array<{
+              route: string;
+              report: CwvReport;
+            }> = [];
+            let measuredRoutes: string[] = [];
+
+            const snapshotReport = (): CwvReport | undefined => {
+              if (!primaryReport) return undefined;
+              return extraRouteReports.length > 0
+                ? mergeRouteCwvReports(primaryReport, extraRouteReports)
+                : primaryReport;
+            };
+
+            const emitRouteProgress = (
+              message: string,
+              percent: number,
+              measuringRoute: string | null,
+            ): void => {
+              const report = snapshotReport();
+              emit(
+                {
+                  phase: "lighthouse-run",
+                  percent,
+                  message,
+                  detail: cwvRouteProgressDetail({
+                    measuringRoute,
+                    measuredRoutes,
+                    ...(report ? { report } : {}),
+                  }),
+                },
+                "running",
+              );
+            };
+
+            try {
+              let primaryPath = requestedRoutes[0] ?? primaryPathForLog(url);
+              let extras: string[];
+              if (requestedRoutes.length > 0) {
+                url = labUrlForRoute(url, primaryPath);
+                extras = requestedRoutes.slice(1);
+              } else {
+                primaryPath = primaryPathForLog(url);
+                extras = discoverFrontendAppRoutes(options.workspaceRoot)
+                  .map(normalizeRoutePath)
+                  .filter((r) => !r.includes(":") && r !== primaryPath)
+                  .slice(0, MAX_EXTRA_ROUTES);
+              }
+
+              emitRouteProgress(`Measuring ${primaryPath}…`, 58, primaryPath);
+
+              const primary = await runPasses(
+                url,
+                PRIMARY_PASSES,
+                `Measuring ${primaryPath}`,
+                58,
+              );
+              if (!primary.ok) {
+                return ok(fail("LIGHTHOUSE_RUN_FAILED", primary.message));
+              }
+              if (lighthouseLooksLikeNotFound(primary.lhr)) {
+                return ok(
+                  fail(
+                    "LIGHTHOUSE_NOT_FOUND",
+                    `${primaryPath} looks like a not-found page — pick a real route to measure.`,
+                  ),
+                );
+              }
+              raw = primary.lhr;
               source = "lighthouse";
+              primaryReport = buildCwvReport({
+                url,
+                source,
+                lighthouseOrPayload: raw,
+                port,
+              });
+              measuredRoutes = [primaryPath];
+
+              emitRouteProgress(
+                extras.length > 0
+                  ? `Primary route done — measuring ${extras.length} more route(s) one by one…`
+                  : "Primary route done — no additional routes to measure.",
+                70,
+                null,
+              );
+
+              for (let i = 0; i < extras.length; i++) {
+                const route = extras[i]!;
+                const routeUrl = labUrlForRoute(url, route);
+                const pct =
+                  70 + Math.round(((i + 1) / Math.max(1, extras.length)) * 20);
+
+                emitRouteProgress(
+                  `Measuring ${route} (${i + 1}/${extras.length})…`,
+                  pct - 1,
+                  route,
+                );
+
+                const probe = await probeLabUrl(routeUrl);
+                if (!probe.ok) {
+                  emitRouteProgress(
+                    `Skip ${route} — ${probe.message}`,
+                    pct,
+                    null,
+                  );
+                  continue;
+                }
+                const ran = await runPasses(
+                  routeUrl,
+                  EXTRA_PASSES,
+                  `Measuring ${route} (${i + 1}/${extras.length})`,
+                  pct - 1,
+                );
+                if (!ran.ok) {
+                  emitRouteProgress(
+                    `Skip ${route} — ${ran.message}`,
+                    pct,
+                    null,
+                  );
+                  continue;
+                }
+                if (lighthouseLooksLikeNotFound(ran.lhr)) {
+                  emitRouteProgress(
+                    `Skip ${route} — looks like a not-found page`,
+                    pct,
+                    null,
+                  );
+                  continue;
+                }
+                extraRouteReports.push({
+                  route,
+                  report: buildCwvReport({
+                    url: routeUrl,
+                    source: "lighthouse",
+                    lighthouseOrPayload: ran.lhr,
+                    port,
+                  }),
+                });
+                measuredRoutes = [...measuredRoutes, route];
+                emitRouteProgress(
+                  `Measured ${route} (${measuredRoutes.length} route(s) so far)`,
+                  pct,
+                  null,
+                );
+              }
+
+              emitRouteProgress(
+                `Lab measured ${measuredRoutes.length} route(s)`,
+                92,
+                null,
+              );
             } finally {
               if (labHandle) {
                 emit(
                   {
                     phase: "lab-preview",
-                    percent: 75,
+                    percent: 94,
                     message: "Stopping Prism lab preview server",
                   },
                   "running",
@@ -317,6 +566,71 @@ export function createUtilityJobService(options: {
                 labHandle = null;
               }
             }
+
+            if (!primaryReport) {
+              return ok(
+                fail(
+                  "LIGHTHOUSE_RUN_FAILED",
+                  "Lighthouse finished without a primary CWV report.",
+                ),
+              );
+            }
+
+            const report =
+              extraRouteReports.length > 0
+                ? mergeRouteCwvReports(primaryReport, extraRouteReports)
+                : primaryReport;
+            const parsed = parseDto(CwvReportSchema, report);
+            if (!parsed.ok) {
+              return ok(fail("CWV_VALIDATION", parsed.message));
+            }
+
+            emit(
+              {
+                phase: "writing",
+                percent: 96,
+                message: "Persisting CWV ingest artifact",
+                detail: cwvRouteProgressDetail({
+                  measuringRoute: null,
+                  measuredRoutes,
+                  report: parsed.value,
+                }),
+              },
+              "running",
+            );
+
+            const written = await options.ingest.write({
+              kind: "lighthouse-cwv",
+              payload: parsed.value as unknown as JsonValue,
+              sourceJobId: job.id,
+              ...(input.packageId === undefined
+                ? {}
+                : { packageId: input.packageId }),
+              labels: [...(input.labels ?? []), "m041-p1", "cwv"],
+            });
+            if (!written.ok) {
+              return ok(fail(written.error.code, written.error.message));
+            }
+
+            job = {
+              ...job,
+              status: "succeeded",
+              updatedAt: now(),
+              resultArtifactId: written.value.id,
+              progress: {
+                phase: "ready",
+                percent: 100,
+                message: `CWV report ready · ${measuredRoutes.length} route(s)`,
+                detail: cwvRouteProgressDetail({
+                  measuringRoute: null,
+                  measuredRoutes,
+                  report: parsed.value,
+                }),
+              },
+            };
+            put(job);
+            input.onProgress?.(job.progress!);
+            return ok(job);
           } else {
             raw = labFixtureLighthouseJson({ url });
             source = "lab-fixture";

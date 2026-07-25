@@ -913,6 +913,11 @@ export const UtilityJobProgressSchema = z.object({
   phase: z.string().min(1),
   percent: z.number().min(0).max(100).optional(),
   message: z.string().optional(),
+  /**
+   * Optional structured payload (e.g. progressive CWV during multi-route lab).
+   * Shape is job-specific; consumers narrow via `detail.kind`.
+   */
+  detail: JsonValueSchema.optional(),
 });
 
 export type UtilityJobProgress = z.infer<typeof UtilityJobProgressSchema>;
@@ -1000,6 +1005,27 @@ export const CwvAttributionSchema = z.object({
 
 export type CwvAttribution = z.infer<typeof CwvAttributionSchema>;
 
+export const CwvInsightSeveritySchema = z.enum([
+  "pain",
+  "improve",
+  "good",
+  "info",
+]);
+
+export type CwvInsightSeverity = z.infer<typeof CwvInsightSeveritySchema>;
+
+/** Actionable lab finding from a Lighthouse audit (element / opportunity). */
+export const CwvInsightSchema = z.object({
+  id: z.string().min(1),
+  metricId: CwvMetricIdSchema.optional(),
+  severity: CwvInsightSeveritySchema,
+  title: z.string().min(1),
+  detail: z.string().optional(),
+  auditId: z.string().optional(),
+});
+
+export type CwvInsight = z.infer<typeof CwvInsightSchema>;
+
 export const CwvRollupBucketSchema = z.object({
   key: z.string().min(1),
   level: z.enum(["app", "route", "chunk", "component"]),
@@ -1020,9 +1046,30 @@ export const CwvReportSchema = z.object({
   categoryScores: z.record(z.string(), z.number().min(0).max(1)).default({}),
   attributions: z.array(CwvAttributionSchema).default([]),
   rollups: z.array(CwvRollupBucketSchema).default([]),
+  /** Total Blocking Time (ms) — lab proxy for responsiveness when INP is absent. */
+  tbtMs: z.number().nonnegative().optional(),
+  /** Element / opportunity insights derived from LHR audits (never fabricated). */
+  insights: z.array(CwvInsightSchema).default([]),
 });
 
 export type CwvReport = z.infer<typeof CwvReportSchema>;
+
+/**
+ * Progressive multi-route lab progress (`UtilityJobProgress.detail` when
+ * `kind === "cwv-route-progress"`). Emitted after the primary route finishes
+ * and after each subsequent route measurement.
+ */
+export const CwvRouteLabProgressDetailSchema = z.object({
+  kind: z.literal("cwv-route-progress"),
+  measuringRoute: z.string().nullable(),
+  measuredRoutes: z.array(z.string().min(1)),
+  /** Present once at least the primary route has finished measuring. */
+  report: CwvReportSchema.optional(),
+});
+
+export type CwvRouteLabProgressDetail = z.infer<
+  typeof CwvRouteLabProgressDetailSchema
+>;
 
 /**
  * Well-known utility overlay kinds for Map / MCP (M-041 Gate A + P2–P7 / Mono-v2).

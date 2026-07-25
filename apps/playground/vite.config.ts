@@ -473,6 +473,11 @@ async function loadLighthouseLab(
     mode?: "lab-fixture" | "ingest" | "run";
     url?: string;
     port?: number;
+    routes?: readonly string[];
+    onProgress?: (event: {
+      message: string;
+      detail?: import("@prism/shared").JsonValue;
+    }) => void;
   },
 ): Promise<CwvReport> {
   const ws = await getIndexedWorkspace(root);
@@ -484,7 +489,22 @@ async function loadLighthouseLab(
       mode,
       ...(options?.url ? { url: options.url } : {}),
       ...(options?.port !== undefined ? { port: options.port } : {}),
+      ...(options?.routes && options.routes.length > 0
+        ? { routes: [...options.routes] }
+        : {}),
     },
+    ...(options?.onProgress
+      ? {
+          onProgress: (p) => {
+            const line = (p.message ?? p.phase).trim();
+            if (!line && p.detail === undefined) return;
+            options.onProgress!({
+              message: line || p.phase,
+              ...(p.detail !== undefined ? { detail: p.detail } : {}),
+            });
+          },
+        }
+      : {}),
   });
   if (!job.ok) {
     throw new Error(`startUtilityJob failed: ${job.error.message}`);
@@ -958,6 +978,28 @@ function prismMapApi(): Plugin {
               return;
             }
 
+            if (parsed.pathname === "/api/frontend-routes") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const { createWorkspace } = await import("@prism/core");
+              const ws = createWorkspace(root);
+              const opened = await ws.open();
+              if (!opened.ok) {
+                sendJson(res, 500, { error: opened.error.message });
+                return;
+              }
+              const routes = ws.discoverFrontendRoutes();
+              sendJson(
+                res,
+                routes.ok ? 200 : 500,
+                routes.ok
+                  ? { routes: routes.value }
+                  : { error: routes.error.message },
+              );
+              return;
+            }
+
             if (parsed.pathname === "/api/lighthouse") {
               const root = resolveRequestedRoot(
                 parsed.searchParams.get("root"),
@@ -970,10 +1012,57 @@ function prismMapApi(): Plugin {
               const url = parsed.searchParams.get("url") ?? undefined;
               const portRaw = parsed.searchParams.get("port");
               const port = portRaw ? Number(portRaw) : undefined;
+              const routesRaw = parsed.searchParams.get("routes");
+              const routes = routesRaw
+                ? routesRaw
+                    .split(",")
+                    .map((r) => r.trim())
+                    .filter(Boolean)
+                : undefined;
+              const stream =
+                parsed.searchParams.get("stream") === "1" || mode === "run";
+              if (stream) {
+                res.statusCode = 200;
+                res.setHeader(
+                  "Content-Type",
+                  "application/x-ndjson; charset=utf-8",
+                );
+                res.setHeader("Cache-Control", "no-cache");
+                const writeLine = (obj: unknown): void => {
+                  res.write(`${JSON.stringify(obj)}\n`);
+                };
+                try {
+                  const report = await loadLighthouseLab(root, {
+                    mode,
+                    ...(url ? { url } : {}),
+                    ...(port !== undefined && !Number.isNaN(port)
+                      ? { port }
+                      : {}),
+                    ...(routes && routes.length > 0 ? { routes } : {}),
+                    onProgress: (event) =>
+                      writeLine({
+                        type: "progress",
+                        message: event.message,
+                        ...(event.detail !== undefined
+                          ? { detail: event.detail }
+                          : {}),
+                      }),
+                  });
+                  writeLine({ type: "report", report });
+                } catch (err: unknown) {
+                  writeLine({
+                    type: "error",
+                    error: err instanceof Error ? err.message : String(err),
+                  });
+                }
+                res.end();
+                return;
+              }
               const report = await loadLighthouseLab(root, {
                 mode,
                 ...(url ? { url } : {}),
                 ...(port !== undefined && !Number.isNaN(port) ? { port } : {}),
+                ...(routes && routes.length > 0 ? { routes } : {}),
               });
               sendJson(res, 200, report);
               return;

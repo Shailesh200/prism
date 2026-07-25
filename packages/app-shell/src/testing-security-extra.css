@@ -16,13 +16,23 @@
   padding-top: 12px;
 }
 
+.ts-acc__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 4px 0 10px;
+  min-width: 0;
+}
+
 .ts-acc__trigger {
   display: flex;
   align-items: center;
   gap: 10px;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   margin: 0;
-  padding: 4px 0 10px;
+  padding: 0;
   border: 0;
   background: transparent;
   color: inherit;
@@ -44,6 +54,14 @@
 .ts-acc__trigger .ts-head__title {
   flex: 1;
   min-width: 0;
+}
+
+.ts-acc__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+  margin-left: auto;
 }
 
 .ts-acc__body {
@@ -74,6 +92,10 @@
   line-height: 1;
   color: var(--prism-ink, #fff);
   margin-left: auto;
+}
+
+.ts-acc__actions .ts-score {
+  margin-left: 0;
 }
 
 .ts-score__unit {

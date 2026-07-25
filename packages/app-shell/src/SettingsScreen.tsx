@@ -21,6 +21,7 @@ import {
   type ReactNode,
 } from "react";
 import { AppSidebar, type AppSidebarUser, type AppView } from "./AppSidebar.js";
+import { shellNavVariant, shellRootClass } from "./shell-layout.js";
 import { AuditLogsPanel } from "./AuditLogsPanel.js";
 import { isBrowserShell } from "./is-browser.js";
 import {
@@ -320,12 +321,12 @@ export function SettingsScreen(props: SettingsScreenProps): ReactElement {
 
   return (
     <div
-      className="ov ov--rail"
+      className={shellRootClass()}
       data-density={density}
       data-prism-density={density}
     >
       <AppSidebar
-        variant="rail"
+        variant={shellNavVariant()}
         active="settings"
         repoLabel={sidebarLabel}
         user={props.user ?? null}

@@ -8,9 +8,11 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { probeLabUrl } from "./lighthouse-runner.js";
 
-/** Ports commonly used by Next / Vite / CRA / Nuxt / static servers. */
+/** Ports commonly used by Next / Vite / CRA / Nuxt / static servers.
+ * Note: :5000 is omitted — on macOS it is usually AirPlay Receiver (AirTunes),
+ * which accepts TCP but is not a frontend (see probeLabUrl). */
 export const COMMON_LAB_PORTS: readonly number[] = [
-  3000, 3001, 5173, 4173, 8080, 4200, 4321, 5000, 8000,
+  3000, 3001, 5173, 4173, 8080, 4200, 4321, 8000,
 ];
 
 /** Default port when Prism starts its own production preview. */
@@ -57,9 +59,11 @@ export function resolveLabAppRoot(workspaceRoot: string): string {
     "apps/web",
     "apps/frontend",
     "apps/app",
+    "apps/playground",
     "web",
     "frontend",
     "app",
+    "playground",
   ];
   for (const rel of candidates) {
     const dir = rel ? join(workspaceRoot, rel) : workspaceRoot;
@@ -100,7 +104,10 @@ export function detectLabKind(root: string): LabKind {
   return "generic";
 }
 
-function detectRunner(root: string): {
+function detectRunner(
+  root: string,
+  workspaceRoot?: string,
+): {
   run: (
     script: string,
     extraArgs?: readonly string[],
@@ -110,12 +117,19 @@ function detectRunner(root: string): {
     args: readonly string[],
   ) => { cmd: string; args: string[] };
 } {
-  const isBun =
-    existsSync(join(root, "bun.lock")) || existsSync(join(root, "bun.lockb"));
-  const isPnpm = existsSync(join(root, "pnpm-lock.yaml"));
-  const isYarn =
-    existsSync(join(root, "yarn.lock")) ||
-    existsSync(join(root, ".yarnrc.yml"));
+  const lockRoots = workspaceRoot ? [root, workspaceRoot] : [root];
+  const isBun = lockRoots.some(
+    (dir) =>
+      existsSync(join(dir, "bun.lock")) || existsSync(join(dir, "bun.lockb")),
+  );
+  const isPnpm = lockRoots.some((dir) =>
+    existsSync(join(dir, "pnpm-lock.yaml")),
+  );
+  const isYarn = lockRoots.some(
+    (dir) =>
+      existsSync(join(dir, "yarn.lock")) ||
+      existsSync(join(dir, ".yarnrc.yml")),
+  );
 
   if (isBun) {
     return {
@@ -150,10 +164,89 @@ function detectRunner(root: string): {
   return {
     run: (script, extra = []) => ({
       cmd: "npm",
-      args: ["run", script, "--", ...extra],
+      args:
+        extra.length > 0 ? ["run", script, "--", ...extra] : ["run", script],
     }),
     exec: (bin, args) => ({ cmd: "npx", args: ["--yes", bin, ...args] }),
   };
+}
+
+/**
+ * Resolve how to start a production preview after build.
+ *
+ * Next.js: never append `-H/-p` via `pnpm/npm run start -- …` — compound
+ * scripts like `ensure-db && next start` treat `-H` as a project directory.
+ * Use the start script + PORT/HOSTNAME env instead.
+ *
+ * Vite / Nuxt: must pass `--host 127.0.0.1 --port …` (they do not honor PORT
+ * the way Next does). On macOS, default `localhost` can bind only to `::1`,
+ * so probes to `127.0.0.1` stay ECONNREFUSED until we SIGTERM the process
+ * (exit 143). Prefer package `preview` + extras when the script is simple;
+ * fall back to `exec` for compound scripts.
+ */
+export function resolveLabPreviewStart(
+  kind: LabKind,
+  scripts: { readonly start?: string; readonly preview?: string },
+  port: number,
+  runner: {
+    run: (
+      script: string,
+      extraArgs?: readonly string[],
+    ) => { cmd: string; args: string[] };
+    exec: (
+      bin: string,
+      args: readonly string[],
+    ) => { cmd: string; args: string[] };
+  },
+): { cmd: string; args: string[] } | { error: string } {
+  const compound = (script: string | undefined): boolean =>
+    Boolean(script && /&&|\|\||;|\n/.test(script));
+
+  if (kind === "next") {
+    if (scripts.start) return runner.run("start");
+    return runner.exec("next", [
+      "start",
+      "--hostname",
+      "127.0.0.1",
+      "--port",
+      String(port),
+    ]);
+  }
+  if (kind === "vite") {
+    const extras = [
+      "--host",
+      "127.0.0.1",
+      "--port",
+      String(port),
+      "--strictPort",
+    ] as const;
+    if (scripts.preview && !compound(scripts.preview)) {
+      return runner.run("preview", extras);
+    }
+    return runner.exec("vite", ["preview", ...extras]);
+  }
+  if (kind === "nuxt") {
+    const extras = ["--host", "127.0.0.1", "--port", String(port)] as const;
+    if (scripts.preview && !compound(scripts.preview)) {
+      return runner.run("preview", extras);
+    }
+    return runner.exec("nuxt", ["preview", ...extras]);
+  }
+  if (scripts.preview) return runner.run("preview");
+  if (scripts.start) return runner.run("start");
+  return {
+    error: "Build succeeded but no start/preview script found.",
+  };
+}
+
+function emitLogLines(
+  chunk: string,
+  onProgress: (message: string) => void,
+): void {
+  for (const line of chunk.split(/\r?\n/)) {
+    const t = line.trim();
+    if (t) onProgress(t);
+  }
 }
 
 function runOnce(
@@ -161,8 +254,11 @@ function runOnce(
   args: readonly string[],
   cwd: string,
   timeoutMs: number,
+  onProgress?: (message: string) => void,
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
+    const progress = onProgress ?? (() => undefined);
+    progress(`$ ${cmd} ${args.join(" ")}`);
     const child = spawn(cmd, [...args], {
       cwd,
       env: { ...process.env, CI: "1", FORCE_COLOR: "0" },
@@ -174,10 +270,14 @@ function runOnce(
       child.kill("SIGTERM");
     }, timeoutMs);
     child.stdout?.on("data", (c: Buffer | string) => {
-      stdout += String(c);
+      const text = String(c);
+      stdout += text;
+      emitLogLines(text, progress);
     });
     child.stderr?.on("data", (c: Buffer | string) => {
-      stderr += String(c);
+      const text = String(c);
+      stderr += text;
+      emitLogLines(text, progress);
     });
     child.on("error", (err) => {
       clearTimeout(timer);
@@ -281,7 +381,7 @@ export async function startLabPreviewServer(options: {
   const port = options.port ?? PRISM_LAB_PORT;
   const appRoot = resolveLabAppRoot(options.workspaceRoot);
   const kind = detectLabKind(appRoot);
-  const runner = detectRunner(appRoot);
+  const runner = detectRunner(appRoot, options.workspaceRoot);
   const url = `http://127.0.0.1:${port}/`;
   const progress = options.onProgress ?? (() => undefined);
 
@@ -331,6 +431,7 @@ export async function startLabPreviewServer(options: {
     buildCmd.args,
     appRoot,
     10 * 60 * 1000,
+    progress,
   );
   if (built.code !== 0) {
     const detail = (built.stderr || built.stdout).trim().slice(0, 400);
@@ -342,49 +443,15 @@ export async function startLabPreviewServer(options: {
 
   progress(`Starting production preview on ${url}…`);
 
-  let start: { cmd: string; args: string[] };
-  if (kind === "next") {
-    start = scripts.start
-      ? runner.run("start", ["-H", "127.0.0.1", "-p", String(port)])
-      : runner.exec("next", ["start", "-H", "127.0.0.1", "-p", String(port)]);
-  } else if (kind === "vite") {
-    start = scripts.preview
-      ? runner.run("preview", [
-          "--host",
-          "127.0.0.1",
-          "--port",
-          String(port),
-          "--strictPort",
-        ])
-      : runner.exec("vite", [
-          "preview",
-          "--host",
-          "127.0.0.1",
-          "--port",
-          String(port),
-          "--strictPort",
-        ]);
-  } else if (kind === "nuxt") {
-    start = scripts.preview
-      ? runner.run("preview", ["--host", "127.0.0.1", "--port", String(port)])
-      : runner.exec("nuxt", [
-          "preview",
-          "--host",
-          "127.0.0.1",
-          "--port",
-          String(port),
-        ]);
-  } else if (scripts.preview) {
-    start = runner.run("preview");
-  } else if (scripts.start) {
-    start = runner.run("start");
-  } else {
+  const start = resolveLabPreviewStart(kind, scripts, port, runner);
+  if ("error" in start) {
     return {
       ok: false,
-      message: `Build succeeded but no start/preview script found under ${appRoot}.`,
+      message: `${start.error} under ${appRoot}.`,
     };
   }
 
+  progress(`$ ${start.cmd} ${start.args.join(" ")}`);
   const child = spawn(start.cmd, start.args, {
     cwd: appRoot,
     env: {
@@ -400,8 +467,13 @@ export async function startLabPreviewServer(options: {
   });
 
   let stderr = "";
+  child.stdout?.on("data", (c: Buffer | string) => {
+    emitLogLines(String(c), progress);
+  });
   child.stderr?.on("data", (c: Buffer | string) => {
-    stderr += String(c);
+    const text = String(c);
+    stderr += text;
+    emitLogLines(text, progress);
   });
 
   const ready = await waitForUrl(url, 90_000);
@@ -413,6 +485,7 @@ export async function startLabPreviewServer(options: {
     };
   }
 
+  progress(`Production preview ready at ${url}`);
   return {
     ok: true,
     handle: {
