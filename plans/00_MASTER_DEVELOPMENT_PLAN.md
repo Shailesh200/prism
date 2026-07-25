@@ -484,6 +484,7 @@ flowchart TD
 | M-030 | VS Code Extension Shell | Surfaces | M-018, M-025 | Yes |
 | M-031 | VS Code Map + Explorer | Surfaces | M-030 | Summary |
 | M-032 | Cursor Extension | Surfaces | M-030 | Summary |
+| M-047 | Extension Marketplace | Surfaces | M-031, M-032 | Yes |
 | M-033 | Incremental Indexing & Watch | Scale | M-008 | Summary |
 | M-034 | Multi-language (Tree-sitter) | Scale | M-006 | Summary |
 | M-035 | Performance Hardening | Hardening | M-033 | Summary |
@@ -536,8 +537,8 @@ flowchart TD
 | Smart Navigation | M-016 | |
 | Engineering Insights | M-024 | |
 | MCP tools | M-026, M-027 | Full tool list in §14 |
-| VS Code Extension | M-030, M-031 | |
-| Cursor Extension | M-032 | |
+| VS Code Extension | M-030, M-031, M-047 | |
+| Cursor Extension | M-032, M-047 | Marketplace / Open VSX |
 | CLI | M-028, M-029 | |
 | Playground | M-018, M-019 | |
 | Docs | M-038 | |
@@ -620,6 +621,11 @@ Critical-path milestones have full documents under `plans/milestones/`. Others a
 #### M-032 — Cursor Extension
 - Package/brand for Cursor; verify MCP + extension coexistence
 - DoD: install + activate in Cursor; Core path identical
+
+#### M-047 — Extension Marketplace
+- Staged VSIX packaging for Marketplace / Open VSX ([ADR-0025](./adr/0025-marketplace-packaging.md))
+- Full doc: [`milestones/M-047_extension-marketplace.md`](./milestones/M-047_extension-marketplace.md)
+- DoD: packageable VSIX + PUBLISH.md; owner publishes with publisher PAT
 
 #### M-033 — Incremental Indexing & Watch
 - fs.watch / chokidar; invalidation units; partial rebuild

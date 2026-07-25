@@ -6,6 +6,19 @@
 
 Prism is **not** an AI coding assistant. It is the intelligence layer that powers IDE extensions, CLI workflows, and MCP-compatible agents.
 
+## Install the IDE extension (RepoPrism)
+
+Published as **`prismhq.repo-prism`** (display name **RepoPrism**).
+
+| Client | Install |
+|---|---|
+| **VS Code** | [Marketplace — RepoPrism](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism) · or Extensions → search `RepoPrism` / `@id:prismhq.repo-prism` |
+| **Cursor** | [Open VSX — RepoPrism](https://open-vsx.org/extension/prismhq/repo-prism) · or Extensions → search `RepoPrism` (Open VSX). If search lags: Command Palette → **Extensions: Install from VSIX…** |
+
+**After install:** open a folder → Command Palette → **Prism: Open Prism**.
+
+Publisher hub: [prismhq on Marketplace](https://marketplace.visualstudio.com/manage/publishers/prismhq) · packaging notes: [`packages/vscode-extension/PUBLISH.md`](./packages/vscode-extension/PUBLISH.md)
+
 ## Status
 
 | Item | State |
@@ -56,7 +69,7 @@ Git hooks: **Lefthook** (`lefthook.yml`) — oxfmt + oxlint on pre-commit.
 ## Deliverables (target)
 
 1. **Core** — indexing, AST, graphs, intelligence, impact, health  
-2. **VS Code / Cursor** extensions  
+2. **VS Code / Cursor** extensions — **RepoPrism** ([Marketplace](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism) · [Open VSX](https://open-vsx.org/extension/prismhq/repo-prism))  
 3. **MCP Server**  
 4. **CLI**  
 

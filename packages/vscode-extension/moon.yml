@@ -43,3 +43,15 @@ tasks:
     inputs:
       - "src/**/*"
       - "vitest.integration.config.ts"
+  package-vsix:
+    command: "bun run package:vsix"
+    deps:
+      - "~:build"
+    inputs:
+      - "src/**/*"
+      - "scripts/**/*"
+      - "package.json"
+      - "README.md"
+      - ".vscodeignore"
+    outputs:
+      - "*.vsix"

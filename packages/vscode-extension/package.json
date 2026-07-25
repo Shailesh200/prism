@@ -1,16 +1,37 @@
 {
   "name": "@prism/vscode-extension",
-  "displayName": "Prism",
-  "description": "Local-first Software Intelligence — Repository Map for VS Code",
+  "displayName": "RepoPrism",
+  "description": "Local-first Software Intelligence — Repository Map, Overview, Blast Radius, Health, and Domains for VS Code and Cursor",
   "version": "0.1.0",
   "private": true,
-  "publisher": "prism",
+  "publisher": "prismhq",
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "engines": {
     "vscode": "^1.90.0"
   },
   "categories": ["Other", "Visualization"],
+  "keywords": [
+    "prism",
+    "repository-map",
+    "local-first",
+    "blast-radius",
+    "code-intelligence",
+    "software-intelligence"
+  ],
+  "icon": "media/prism-mark.png",
+  "galleryBanner": {
+    "color": "#0B1220",
+    "theme": "dark"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Shailesh200/prism"
+  },
+  "bugs": {
+    "url": "https://github.com/Shailesh200/prism/issues"
+  },
+  "homepage": "https://github.com/Shailesh200/prism",
   "activationEvents": ["onStartupFinished"],
   "main": "./dist/extension.cjs",
   "contributes": {
@@ -42,12 +63,15 @@
       }
     ]
   },
-  "files": ["dist", "media", "README.md"],
+  "files": ["dist", "media", "README.md", "LICENSE", "PUBLISH.md"],
   "scripts": {
     "build": "bun run scripts/build.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "test:integration": "vitest run --config vitest.integration.config.ts"
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "package:vsix": "bun run scripts/package-vsix.ts",
+    "publish:vsix": "bun run scripts/package-vsix.ts --publish",
+    "publish:ovsx": "bunx ovsx publish"
   },
   "dependencies": {
     "@prism/app-shell": "workspace:*",
@@ -64,6 +88,8 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@types/vscode": "^1.90.0"
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.7.1",
+    "ovsx": "^0.10.6"
   }
 }

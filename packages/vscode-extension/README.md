@@ -4,6 +4,8 @@ VS Code / Cursor extension (M-030 shell + M-031 full dashboard). Loads
 `@prism/core` in the extension host and renders the Prism app (Overview, Map,
 DNA, Domains, Blast, Trends, Settings) in a webview.
 
+**Marketplace id:** `prismhq.repo-prism` (packaged as unscoped name `repo-prism` — see [PUBLISH.md](./PUBLISH.md)).
+
 ## Commands
 
 | Command | ID |
@@ -36,9 +38,17 @@ Then **Run Prism Extension** (F5) via [`.vscode/launch.json`](../../.vscode/laun
 The build stages `better-sqlite3` under `dist/node_modules` with an Electron
 prebuild (`PRISM_ELECTRON_VERSION` override supported).
 
+## Package / publish
+
+```bash
+bun run --filter @prism/vscode-extension package:vsix
+```
+
+Sideload and Marketplace / Open VSX steps: [PUBLISH.md](./PUBLISH.md).
+
 ## Architecture
 
 - Extension host → `@prism/core` only (`PrismSession`)
 - Webview → playground-parity screens + `@prism/ui` map; data via postMessage RPC
 - Open file paths in the editor from Map / host `openFile` messages
-- No network; local git via Core when available
+- No network by default; opt-in integrations and local git via Core when available

@@ -1,0 +1,13 @@
+.vsix-stage/**
+*.vsix
+src/**
+scripts/**
+**/*.test.ts
+**/*.map
+vitest*.ts
+tsconfig.json
+moon.yml
+node_modules/**
+!dist/node_modules/**
+.gitignore
+PUBLISH.md

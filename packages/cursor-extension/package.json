@@ -4,9 +4,9 @@
   "description": "Local-first Software Intelligence for Cursor — Repository Map, Overview, Blast Radius, and Health. Same Core as the VS Code package; designed to coexist with Prism MCP.",
   "version": "0.1.0",
   "private": true,
-  "publisher": "prism",
+  "publisher": "prismhq",
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "engines": {
     "vscode": "^1.90.0"
   },

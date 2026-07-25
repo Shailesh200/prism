@@ -9,6 +9,8 @@ build/
 .moon/cache/
 *.tsbuildinfo
 .cache/
+*.vsix
+packages/vscode-extension/.vsix-stage/
 
 # Prism local analysis cache (future)
 .prism/
