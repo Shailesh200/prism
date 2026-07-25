@@ -1,7 +1,7 @@
 name: publish-extension
 
-# Republish RepoPrism (VS Marketplace + Open VSX) when package code lands on main.
-# Requires repo secrets: VSCE_PAT, OVSX_TOKEN
+# Order: sync+bump → commit bump → build/package → publish
+# Requires secrets: VSCE_PAT, OVSX_TOKEN
 # Docs: packages/vscode-extension/PUBLISH.md
 
 on:
@@ -57,18 +57,35 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - name: Bump, build, and package VSIX
+      - name: Sync registries, bump version, commit
+        id: bump
+        env:
+          LEFTHOOK: "0"
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          set -euo pipefail
+          BUMP="${{ github.event.inputs.bump || 'patch' }}"
+          bun run packages/vscode-extension/scripts/bump-extension-version.ts "$BUMP"
+          VERSION=$(node -p "require('./packages/vscode-extension/package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/vscode-extension/package.json
+          git commit -m "chore(extension): bump RepoPrism to ${VERSION} [skip ci]"
+          git push origin HEAD:main
+
+      - name: Build and package VSIX
         id: pkg
         env:
           PRISM_ELECTRON_VERSION: "40.10.3"
         run: |
-          BUMP="${{ github.event.inputs.bump || 'patch' }}"
+          set -euo pipefail
+          VERSION="${{ steps.bump.outputs.version }}"
           cd packages/vscode-extension
-          bun run scripts/package-vsix.ts --bump "$BUMP"
-          VERSION=$(node -p "require('./package.json').version")
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "vsix=packages/vscode-extension/repo-prism-$VERSION.vsix" >> "$GITHUB_OUTPUT"
-          test -f "repo-prism-$VERSION.vsix"
+          bun run scripts/package-vsix.ts
+          test -f "repo-prism-${VERSION}.vsix"
+          echo "vsix=packages/vscode-extension/repo-prism-${VERSION}.vsix" >> "$GITHUB_OUTPUT"
 
       - name: Publish to Visual Studio Marketplace
         env:
@@ -82,25 +99,10 @@ jobs:
         run: |
           bunx ovsx publish "${{ steps.pkg.outputs.vsix }}" -p "$OVSX_TOKEN"
 
-      - name: Commit version bump
-        env:
-          # Bot-only version bump; skip local-dev hooks (oxfmt errors with zero targets).
-          LEFTHOOK: "0"
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add packages/vscode-extension/package.json
-          if git diff --staged --quiet; then
-            echo "No version bump to commit"
-            exit 0
-          fi
-          git commit -m "chore(extension): bump RepoPrism to ${{ steps.pkg.outputs.version }} [skip ci]"
-          git push origin HEAD:main
-
       - name: Summary
         run: |
           {
-            echo "## RepoPrism ${{ steps.pkg.outputs.version }} published"
+            echo "## RepoPrism ${{ steps.bump.outputs.version }} published"
             echo ""
             echo "- VS Marketplace: https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism"
             echo "- Open VSX: https://open-vsx.org/extension/prismhq/repo-prism"

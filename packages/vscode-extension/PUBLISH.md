@@ -79,10 +79,10 @@ Workflow: [`.github/workflows/publish-extension.yml`](../../.github/workflows/pu
 
 On every push to `main` that touches `packages/**` (or manual **Run workflow**):
 
-1. Patch-bumps `packages/vscode-extension` version
-2. Builds + packages the VSIX
-3. Publishes to **VS Marketplace** and **Open VSX**
-4. Commits the version bump with `[skip ci]` (avoids a publish loop)
+1. Syncs version to max(local, Marketplace, Open VSX), then patch-bumps
+2. Commits the bump with `[skip ci]` (avoids a publish loop)
+3. Builds + packages the VSIX
+4. Publishes to **VS Marketplace** and **Open VSX**
 
 ### Required GitHub secrets
 
