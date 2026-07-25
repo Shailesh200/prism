@@ -3,6 +3,7 @@ language: "typescript"
 layer: "library"
 dependsOn:
   - "shared"
+  - "graph-engine"
 tasks:
   build:
     command: "bun run build"

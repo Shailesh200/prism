@@ -6,6 +6,9 @@ dependsOn:
   - "analyzer"
   - "indexer"
   - "intelligence"
+  - "impact"
+  - "navigation"
+  - "repository-map"
 tasks:
   build:
     command: "bun run build"
