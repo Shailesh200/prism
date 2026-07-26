@@ -1,6 +1,6 @@
 import { mkdir, rm, unlink } from "node:fs/promises";
 import { dirname } from "node:path";
-import Database from "better-sqlite3";
+import type BetterSqlite3 from "better-sqlite3";
 import {
   PrismErrorCode,
   type PrismError,
@@ -12,8 +12,18 @@ import {
 import { migrate, readSchemaVersion, SCHEMA_VERSION } from "./migrations.js";
 import { indexSqlitePath, prismCacheDir } from "./paths.js";
 
+type SqliteDatabase = BetterSqlite3.Database;
+type SqliteConstructor = typeof import("better-sqlite3");
+
+/** Lazy-load native binding so extension activate can register commands first. */
+function loadSqlite(): SqliteConstructor {
+  // CJS require kept inside the function so the extension host does not
+  // dlopen better-sqlite3 until an index cache is actually opened.
+  return require("better-sqlite3") as SqliteConstructor;
+}
+
 export type IndexCacheDb = {
-  readonly db: Database.Database;
+  readonly db: SqliteDatabase;
   readonly path: string;
   readonly schemaVersion: number;
   close(): void;
@@ -23,7 +33,7 @@ function ioError(message: string, details?: unknown): PrismError {
   return prismError(PrismErrorCode.IO_ERROR, message, details);
 }
 
-function isHealthy(db: Database.Database): boolean {
+function isHealthy(db: SqliteDatabase): boolean {
   try {
     const row = db.prepare("PRAGMA integrity_check").get() as
       | { integrity_check: string }
@@ -65,6 +75,7 @@ export async function openIndexCache(
 
   const tryOpen = (rebuild: boolean): Result<IndexCacheDb, PrismError> => {
     try {
+      const Database = loadSqlite();
       const db = new Database(dbPath);
       db.pragma("journal_mode = WAL");
       if (!isHealthy(db)) {

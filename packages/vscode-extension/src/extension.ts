@@ -229,8 +229,8 @@ function watchForFolder(context: vscode.ExtensionContext): void {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
+  // Register commands first so palette entries work even if Core/sqlite fails later.
   logger = createLogger(vscode.window);
-  session = new PrismSession();
   extensionUri = context.extensionUri;
   extensionContext = context;
 
@@ -244,22 +244,7 @@ export function activate(context: vscode.ExtensionContext): void {
   statusBar.show();
 
   const openPrism = vscode.commands.registerCommand("prism.open", async () => {
-    const s = await ensureSession();
-    if (!s || !extensionUri || !extensionContext) return;
-    PrismPanel.show(
-      vscode,
-      extensionUri,
-      s,
-      logger!,
-      extensionContext,
-      "overview",
-    );
-    logger!.info("Opened Prism dashboard");
-  });
-
-  const openMap = vscode.commands.registerCommand(
-    "prism.openRepositoryMap",
-    async () => {
+    try {
       const s = await ensureSession();
       if (!s || !extensionUri || !extensionContext) return;
       PrismPanel.show(
@@ -268,85 +253,132 @@ export function activate(context: vscode.ExtensionContext): void {
         s,
         logger!,
         extensionContext,
-        "map",
+        "overview",
       );
-      logger!.info("Opened Repository Map");
-    },
-  );
+      logger!.info("Opened Prism dashboard");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger?.error(msg);
+      logger?.show();
+      void vscode.window.showErrorMessage(`Prism: failed to open — ${msg}`);
+    }
+  });
 
-  const showHealth = vscode.commands.registerCommand(
-    "prism.showHealth",
+  const openMap = vscode.commands.registerCommand(
+    "prism.openRepositoryMap",
     async () => {
-      const s = await ensureSession();
-      if (!s || !extensionUri) return;
-      const dash = await s.getDashboard();
-      if (!dash.ok) {
-        void vscode.window.showErrorMessage(
-          `Prism: health unavailable — ${dash.error.message}`,
-        );
-        return;
-      }
-      const h = dash.value.health;
-      if (!h) {
-        void vscode.window.showWarningMessage("Prism: no health score yet");
-        return;
-      }
-      const pick = await vscode.window.showInformationMessage(
-        `Prism health ${Math.round(h.score)}/100 (grade ${h.grade})`,
-        "Open Overview",
-      );
-      if (pick === "Open Overview") {
-        if (!extensionContext) return;
+      try {
+        const s = await ensureSession();
+        if (!s || !extensionUri || !extensionContext) return;
         PrismPanel.show(
           vscode,
           extensionUri,
           s,
           logger!,
           extensionContext,
-          "overview",
+          "map",
         );
+        logger!.info("Opened Repository Map");
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        logger?.error(msg);
+        logger?.show();
+        void vscode.window.showErrorMessage(`Prism: failed to open map — ${msg}`);
+      }
+    },
+  );
+
+  const showHealth = vscode.commands.registerCommand(
+    "prism.showHealth",
+    async () => {
+      try {
+        const s = await ensureSession();
+        if (!s || !extensionUri) return;
+        const dash = await s.getDashboard();
+        if (!dash.ok) {
+          void vscode.window.showErrorMessage(
+            `Prism: health unavailable — ${dash.error.message}`,
+          );
+          return;
+        }
+        const h = dash.value.health;
+        if (!h) {
+          void vscode.window.showWarningMessage("Prism: no health score yet");
+          return;
+        }
+        const pick = await vscode.window.showInformationMessage(
+          `Prism health ${Math.round(h.score)}/100 (grade ${h.grade})`,
+          "Open Overview",
+        );
+        if (pick === "Open Overview") {
+          if (!extensionContext) return;
+          PrismPanel.show(
+            vscode,
+            extensionUri,
+            s,
+            logger!,
+            extensionContext,
+            "overview",
+          );
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        void vscode.window.showErrorMessage(`Prism: health failed — ${msg}`);
       }
     },
   );
 
   const reindex = vscode.commands.registerCommand("prism.reindex", async () => {
-    if (session?.isOpen) {
-      lastBootedRoot = null;
-    }
-    const s = await ensureSession();
-    if (!s) return;
-    statusBar!.text = "$(sync~spin) Prism: reindexing…";
-    logger!.info("Reindex started");
-    const result = await s.reindex();
-    if (!result.ok) {
+    try {
+      if (session?.isOpen) {
+        lastBootedRoot = null;
+      }
+      const s = await ensureSession();
+      if (!s) return;
+      statusBar!.text = "$(sync~spin) Prism: reindexing…";
+      logger!.info("Reindex started");
+      const result = await s.reindex();
+      if (!result.ok) {
+        statusBar!.text = "$(error) Prism";
+        logger!.error(result.error.message);
+        logger!.show();
+        void vscode.window.showErrorMessage(
+          `Prism: reindex failed — ${result.error.message}`,
+        );
+        return;
+      }
+      lastBootedRoot = s.root;
+      statusBar!.text = "$(symbol-namespace) Prism";
+      logger!.info("Reindex complete");
+      void vscode.window.showInformationMessage("Prism: reindex complete");
+      if (PrismPanel.current) {
+        PrismPanel.current.postNavigateRefresh();
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
       statusBar!.text = "$(error) Prism";
-      logger!.error(result.error.message);
-      logger!.show();
-      void vscode.window.showErrorMessage(
-        `Prism: reindex failed — ${result.error.message}`,
-      );
-      return;
-    }
-    lastBootedRoot = s.root;
-    statusBar!.text = "$(symbol-namespace) Prism";
-    logger!.info("Reindex complete");
-    void vscode.window.showInformationMessage("Prism: reindex complete");
-    if (PrismPanel.current) {
-      PrismPanel.current.postNavigateRefresh();
+      void vscode.window.showErrorMessage(`Prism: reindex failed — ${msg}`);
     }
   });
 
   const openInBrowser = vscode.commands.registerCommand(
     "prism.openInBrowser",
     async () => {
-      if (!extensionUri) return;
-      const s = await ensureSession();
-      if (!s) return;
-      logger!.info("Opening Prism in browser (extension Core bridge)");
-      await openPlaygroundInBrowser(vscode, {
-        session: s,
-        extensionRoot: extensionUri.fsPath,
-      });
+      try {
+        if (!extensionUri) return;
+        const s = await ensureSession();
+        if (!s) return;
+        logger!.info("Opening Prism in browser (extension Core bridge)");
+        await openPlaygroundInBrowser(vscode, {
+          session: s,
+          extensionRoot: extensionUri.fsPath,
+        });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        void vscode.window.showErrorMessage(
+          `Prism: open in browser failed — ${msg}`,
+        );
+      }
     },
   );
 
@@ -366,10 +398,21 @@ export function activate(context: vscode.ExtensionContext): void {
     },
   );
 
-  logger.info(`${PACKAGE_NAME} activated`);
-  logger.show();
-  watchForFolder(context);
-  queueBoot({ announce: true });
+  try {
+    session = new PrismSession();
+    logger.info(`${PACKAGE_NAME} activated`);
+    logger.show();
+    watchForFolder(context);
+    queueBoot({ announce: true });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    statusBar.text = "$(error) Prism";
+    logger.error(`Activation boot failed: ${msg}`);
+    logger.show();
+    void vscode.window.showErrorMessage(
+      `Prism activated with limited functionality — ${msg}`,
+    );
+  }
 }
 
 export function deactivate(): void {

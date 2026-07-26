@@ -134,10 +134,11 @@ export async function resolveSystemChrome(): Promise<ResolveChromeResult> {
   try {
     const { createRequire } = await import("node:module");
     type ChromeLauncher = { getChromePath?: () => string };
+    // Prefer workspace / .prism tool installs — do not use import.meta.url
+    // (bundlers rewrite it to an absolute build-machine path).
     const candidates = [
       join(process.cwd(), "package.json"),
       join(process.cwd(), ".prism", "tools", "lighthouse", "package.json"),
-      import.meta.url,
     ];
     let chromePath: string | undefined;
     for (const from of candidates) {

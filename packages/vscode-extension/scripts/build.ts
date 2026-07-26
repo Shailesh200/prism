@@ -73,6 +73,8 @@ writeFileSync(
 );
 
 stageNativeModules();
+stageOxcParser();
+rewriteBundledAbsolutePaths(join(dist, "extension.cjs"));
 
 const webFiles = readdirSync(webOut);
 console.log(
@@ -181,4 +183,144 @@ function stageNativeModules(): void {
   console.log(
     `vscode-extension: native module ready (Electron ${electronVersion})`,
   );
+}
+
+/** vsce --target / PRISM_NATIVE_* → @oxc-parser/binding-* package name. */
+function oxcBindingPackageName(platform: string, arch: string): string {
+  if (platform === "darwin" && arch === "arm64") {
+    return "@oxc-parser/binding-darwin-arm64";
+  }
+  if (platform === "darwin" && arch === "x64") {
+    return "@oxc-parser/binding-darwin-x64";
+  }
+  if (platform === "linux" && arch === "x64") {
+    return "@oxc-parser/binding-linux-x64-gnu";
+  }
+  if (platform === "linux" && arch === "arm64") {
+    return "@oxc-parser/binding-linux-arm64-gnu";
+  }
+  if (platform === "win32" && arch === "x64") {
+    return "@oxc-parser/binding-win32-x64-msvc";
+  }
+  if (platform === "win32" && arch === "arm64") {
+    return "@oxc-parser/binding-win32-arm64-msvc";
+  }
+  throw new Error(
+    `Unsupported oxc binding platform ${platform}/${arch} for extension packaging`,
+  );
+}
+
+function tryPackageRoot(name: string, fromPkgJson: string): string | null {
+  try {
+    return packageRootFrom(name, fromPkgJson);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch a platform-specific optional dependency when cross-compiling the VSIX
+ * (e.g. Linux CI packaging darwin-arm64).
+ */
+function fetchNpmPackage(name: string, version: string, destDir: string): void {
+  const tmp = join(dist, ".npm-pack-tmp");
+  rmSync(tmp, { recursive: true, force: true });
+  mkdirSync(tmp, { recursive: true });
+  const spec = `${name}@${version}`;
+  console.log(`vscode-extension: fetching ${spec} for VSIX…`);
+  const pack = spawnSync("npm", ["pack", spec, "--pack-destination", tmp], {
+    encoding: "utf8",
+    env: { ...process.env },
+  });
+  if (pack.status !== 0) {
+    console.error(pack.stdout);
+    console.error(pack.stderr);
+    throw new Error(`npm pack failed for ${spec}`);
+  }
+  const tgz = readdirSync(tmp).find((f) => f.endsWith(".tgz"));
+  if (!tgz) throw new Error(`npm pack produced no tarball for ${spec}`);
+  const extract = spawnSync("tar", ["-xzf", join(tmp, tgz), "-C", tmp], {
+    encoding: "utf8",
+  });
+  if (extract.status !== 0) {
+    throw new Error(`Failed to extract ${tgz}`);
+  }
+  const packed = join(tmp, "package");
+  if (!existsSync(packed)) {
+    throw new Error(`npm pack extract missing package/ for ${spec}`);
+  }
+  mkdirSync(dirname(destDir), { recursive: true });
+  rmSync(destDir, { recursive: true, force: true });
+  cpSync(packed, destDir, { recursive: true });
+  rmSync(tmp, { recursive: true, force: true });
+}
+
+/**
+ * Ship oxc-parser + its NAPI binding inside the VSIX.
+ * Bun inlines oxc's JS with absolute createRequire paths; those are rewritten
+ * to __dirname-relative paths so the Extension Host does not depend on the
+ * build machine's monorepo layout.
+ */
+function stageOxcParser(): void {
+  const nm = join(dist, "node_modules");
+  mkdirSync(nm, { recursive: true });
+
+  const analyzerPkg = join(root, "../analyzer/package.json");
+  const oxcSrc = packageRootFrom("oxc-parser", analyzerPkg);
+  const oxcPkg = JSON.parse(readFileSync(join(oxcSrc, "package.json"), "utf8")) as {
+    version: string;
+  };
+
+  cpSync(oxcSrc, join(nm, "oxc-parser"), { recursive: true });
+
+  const platform = process.env.PRISM_NATIVE_PLATFORM?.trim() || process.platform;
+  const arch = process.env.PRISM_NATIVE_ARCH?.trim() || process.arch;
+  const bindingName = oxcBindingPackageName(platform, arch);
+  const bindingDest = join(nm, ...bindingName.split("/"));
+  const bindingSrc = tryPackageRoot(bindingName, join(oxcSrc, "package.json"));
+  if (bindingSrc) {
+    mkdirSync(dirname(bindingDest), { recursive: true });
+    cpSync(bindingSrc, bindingDest, { recursive: true });
+  } else {
+    fetchNpmPackage(bindingName, oxcPkg.version, bindingDest);
+  }
+
+  const nodeFile = readdirSync(bindingDest).find((f) => f.endsWith(".node"));
+  if (!nodeFile) {
+    throw new Error(`oxc binding package ${bindingName} has no .node binary`);
+  }
+  console.log(
+    `vscode-extension: staged oxc-parser@${oxcPkg.version} + ${bindingName} (${nodeFile})`,
+  );
+}
+
+/**
+ * Rewrite Bun-inlined absolute file URLs so native requires resolve inside the
+ * packaged extension (dist/node_modules/…), not the CI/dev machine path.
+ */
+function rewriteBundledAbsolutePaths(bundlePath: string): void {
+  let code = readFileSync(bundlePath, "utf8");
+  const before = code;
+
+  // file:///…/node_modules/oxc-parser/<rel> → runtime path under __dirname
+  code = code.replace(
+    /"file:\/\/\/[^"]+\/node_modules\/oxc-parser\/([^"]+)"/g,
+    (_m, rel: string) =>
+      `require("node:url").pathToFileURL(require("node:path").join(__dirname, "node_modules/oxc-parser/${rel}")).href`,
+  );
+
+  // Drop any leftover absolute lighthouse import.meta.url candidate strings
+  code = code.replace(
+    /,\s*"file:\/\/\/[^"]+\/lighthouse-runner\.js"/g,
+    "",
+  );
+
+  if (code === before) {
+    console.warn(
+      "vscode-extension: no absolute oxc/lighthouse paths rewritten (bundle shape may have changed)",
+    );
+  } else {
+    writeFileSync(bundlePath, code);
+    console.log("vscode-extension: rewrote absolute native module paths in extension.cjs");
+  }
 }

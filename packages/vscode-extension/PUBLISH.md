@@ -42,6 +42,8 @@ Produces `packages/vscode-extension/repo-prism-<version>@darwin-arm64.vsix`.
 
 **Important:** the VSIX must match your OS. A Linux CI “universal” package ships a Linux `better-sqlite3` binary and will fail to activate on macOS (`command 'prism.open' not found`). CI publishes separate targets (`darwin-arm64`, `darwin-x64`, `linux-x64`, `linux-arm64`, `win32-x64`).
 
+The TypeScript parser (`oxc-parser`) is also native: packaging stages the matching `@oxc-parser/binding-*` into the VSIX and rewrites Bun’s absolute `createRequire` paths so activation does not depend on the build machine’s monorepo layout.
+
 ## Sideload smoke test (required before publish)
 
 ```bash
