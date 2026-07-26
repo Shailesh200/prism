@@ -40,9 +40,15 @@ prebuild (`PRISM_ELECTRON_VERSION` override supported).
 
 ## Package / publish
 
+Platform-specific VSIX (ships the correct `better-sqlite3` native binary):
+
 ```bash
 bun run --filter @prism/vscode-extension package:vsix
+# or explicitly:
+cd packages/vscode-extension && bun run scripts/package-vsix.ts --target darwin-arm64
 ```
+
+Targets: `darwin-arm64`, `darwin-x64`, `linux-x64`, `linux-arm64`, `win32-x64`.
 
 Sideload and Marketplace / Open VSX steps: [PUBLISH.md](./PUBLISH.md).
 

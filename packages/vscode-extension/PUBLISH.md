@@ -34,10 +34,13 @@ From repo root:
 
 ```bash
 bun install
-bun run --filter @prism/vscode-extension package:vsix
+# Apple Silicon Mac / Cursor:
+cd packages/vscode-extension && bun run scripts/package-vsix.ts --target darwin-arm64
 ```
 
-Produces `packages/vscode-extension/repo-prism-0.1.0.vsix`.
+Produces `packages/vscode-extension/repo-prism-<version>@darwin-arm64.vsix`.
+
+**Important:** the VSIX must match your OS. A Linux CI “universal” package ships a Linux `better-sqlite3` binary and will fail to activate on macOS (`command 'prism.open' not found`). CI publishes separate targets (`darwin-arm64`, `darwin-x64`, `linux-x64`, `linux-arm64`, `win32-x64`).
 
 ## Sideload smoke test (required before publish)
 

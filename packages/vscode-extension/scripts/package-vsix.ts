@@ -3,6 +3,9 @@
  *
  * Workspace package stays `@prism/vscode-extension` (Bun workspaces).
  * Marketplace id is `publisher.repo-prism` with unscoped name `repo-prism`.
+ *
+ * Platform-specific VSIX (required for better-sqlite3):
+ *   bun run scripts/package-vsix.ts --target darwin-arm64
  */
 import {
   cpSync,
@@ -24,6 +27,16 @@ const outDir = root;
 const MARKETPLACE_NAME = "repo-prism";
 const REPO_URL = "https://github.com/Shailesh200/prism";
 
+/** vsce --target → prebuild-install platform/arch */
+const TARGET_NATIVE: Record<string, { platform: string; arch: string }> = {
+  "darwin-arm64": { platform: "darwin", arch: "arm64" },
+  "darwin-x64": { platform: "darwin", arch: "x64" },
+  "linux-x64": { platform: "linux", arch: "x64" },
+  "linux-arm64": { platform: "linux", arch: "arm64" },
+  "win32-x64": { platform: "win32", arch: "x64" },
+  "win32-arm64": { platform: "win32", arch: "arm64" },
+};
+
 type WorkspacePkg = {
   name?: string;
   displayName?: string;
@@ -40,11 +53,16 @@ type WorkspacePkg = {
   [key: string]: unknown;
 };
 
-function run(cmd: string, args: string[], cwd: string): void {
+function run(
+  cmd: string,
+  args: string[],
+  cwd: string,
+  env?: NodeJS.ProcessEnv,
+): void {
   const result = spawnSync(cmd, args, {
     cwd,
     encoding: "utf8",
-    env: process.env,
+    env: env ?? process.env,
     stdio: "inherit",
   });
   if (result.status !== 0) {
@@ -76,13 +94,23 @@ function bumpSemver(
   return `${major}.${minor}.${patch}`;
 }
 
+function argValue(flag: string): string | null {
+  const idx = process.argv.indexOf(flag);
+  if (idx < 0) return null;
+  return process.argv[idx + 1] ?? null;
+}
+
 const skipBuild = process.argv.includes("--skip-build");
 const doPublish = process.argv.includes("--publish");
-const bumpIdx = process.argv.indexOf("--bump");
-const bumpKind =
-  bumpIdx >= 0
-    ? ((process.argv[bumpIdx + 1] ?? "patch") as "patch" | "minor" | "major")
-    : null;
+const bumpKind = argValue("--bump") as "patch" | "minor" | "major" | null;
+const target = argValue("--target");
+
+if (target && !TARGET_NATIVE[target]) {
+  console.error(
+    `package-vsix: unknown --target ${target}. Expected one of: ${Object.keys(TARGET_NATIVE).join(", ")}`,
+  );
+  process.exit(1);
+}
 
 const pkgPath = join(root, "package.json");
 let workspacePkg = JSON.parse(readFileSync(pkgPath, "utf8")) as WorkspacePkg;
@@ -99,11 +127,33 @@ if (bumpKind) {
   console.log(`package-vsix: bumped version ${prev} → ${next}`);
 }
 
+const native = target ? TARGET_NATIVE[target]! : null;
+const buildEnv: NodeJS.ProcessEnv = {
+  ...process.env,
+  ...(native
+    ? {
+        PRISM_NATIVE_PLATFORM: native.platform,
+        PRISM_NATIVE_ARCH: native.arch,
+      }
+    : {}),
+};
+
 if (!skipBuild) {
-  // moon runs core/ui/app-shell builds first — Bun filter alone cannot resolve
-  // @prism/core until those packages emit dist/ (exports point at dist only).
-  console.log("package-vsix: building dependencies + extension (moon)…");
-  run("bun", ["run", "moon", "run", "vscode-extension:build"], repoRoot);
+  console.log(
+    "package-vsix: building dependencies + extension (moon)" +
+      (target ? ` for ${target}` : "") +
+      "…",
+  );
+  run(
+    "bun",
+    ["run", "moon", "run", "vscode-extension:build"],
+    repoRoot,
+    buildEnv,
+  );
+} else if (native) {
+  // Rebuild only native staging when dist already exists.
+  console.log(`package-vsix: re-staging native modules for ${target}…`);
+  run("bun", ["run", "scripts/build.ts"], root, buildEnv);
 }
 
 const distExt = join(root, "dist", "extension.cjs");
@@ -170,26 +220,39 @@ writeFileSync(
 );
 
 console.log(
-  `package-vsix: staging ${publisher}.${MARKETPLACE_NAME}@${version}…`,
+  `package-vsix: staging ${publisher}.${MARKETPLACE_NAME}@${version}` +
+    (target ? ` (${target})` : "") +
+    "…",
 );
 
-const vsixPath = join(outDir, `${MARKETPLACE_NAME}-${version}.vsix`);
+const vsixName = target
+  ? `${MARKETPLACE_NAME}-${version}@${target}.vsix`
+  : `${MARKETPLACE_NAME}-${version}.vsix`;
+const vsixPath = join(outDir, vsixName);
 const vscePat = process.env.VSCE_PAT?.trim();
 const vsceArgs = doPublish
   ? [
       "@vscode/vsce",
       "publish",
       "--no-dependencies",
+      ...(target ? ["--target", target] : []),
       ...(vscePat ? ["-p", vscePat] : []),
     ]
-  : ["@vscode/vsce", "package", "--no-dependencies", "--out", vsixPath];
+  : [
+      "@vscode/vsce",
+      "package",
+      "--no-dependencies",
+      ...(target ? ["--target", target] : []),
+      "--out",
+      vsixPath,
+    ];
 
 run("bunx", vsceArgs, stage);
 
 if (process.env.GITHUB_OUTPUT) {
   writeFileSync(
     process.env.GITHUB_OUTPUT,
-    `version=${version}\nvsix=${vsixPath}\n`,
+    `version=${version}\nvsix=${vsixPath}\ntarget=${target ?? ""}\n`,
     { flag: "a" },
   );
 }
@@ -197,7 +260,7 @@ if (process.env.GITHUB_OUTPUT) {
 if (!doPublish) {
   console.log(`package-vsix: wrote ${vsixPath}`);
   console.log(
-    `package-vsix: sideload with: code --install-extension ${vsixPath}`,
+    `package-vsix: sideload with: cursor --install-extension ${vsixPath}`,
   );
 }
 

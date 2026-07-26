@@ -120,6 +120,9 @@ function packageRootFrom(name: string, fromPkgJson: string): string {
  * Stage better-sqlite3 under dist/node_modules and install an Electron
  * prebuild so Cursor/VS Code Extension Host can load it — without rewriting
  * the monorepo's Node ABI copy used by indexer tests.
+ *
+ * Set PRISM_NATIVE_PLATFORM / PRISM_NATIVE_ARCH (e.g. darwin/arm64) when
+ * packaging platform-specific VSIX from CI so the .node matches the target OS.
  */
 function stageNativeModules(): void {
   const nm = join(dist, "node_modules");
@@ -146,18 +149,28 @@ function stageNativeModules(): void {
   const sqliteDest = join(nm, "better-sqlite3");
   rmSync(join(sqliteDest, "build"), { recursive: true, force: true });
 
+  const platform = process.env.PRISM_NATIVE_PLATFORM?.trim();
+  const arch = process.env.PRISM_NATIVE_ARCH?.trim();
+  const prebuildArgs = [
+    "prebuild-install",
+    "--runtime",
+    "electron",
+    "--target",
+    electronVersion,
+  ];
+  if (platform) prebuildArgs.push("--platform", platform);
+  if (arch) prebuildArgs.push("--arch", arch);
+
   console.log(
-    `vscode-extension: installing better-sqlite3 Electron ${electronVersion} prebuild…`,
+    `vscode-extension: installing better-sqlite3 Electron ${electronVersion}` +
+      (platform ? ` (${platform}/${arch ?? process.arch})` : "") +
+      " prebuild…",
   );
-  const result = spawnSync(
-    "bunx",
-    ["prebuild-install", "--runtime", "electron", "--target", electronVersion],
-    {
-      cwd: sqliteDest,
-      encoding: "utf8",
-      env: { ...process.env },
-    },
-  );
+  const result = spawnSync("bunx", prebuildArgs, {
+    cwd: sqliteDest,
+    encoding: "utf8",
+    env: { ...process.env },
+  });
   if (result.status !== 0) {
     console.error(result.stdout);
     console.error(result.stderr);
