@@ -59,7 +59,7 @@ cpSync(join(uiDist, "tokens.css"), join(dist, "tokens.css"));
 cpSync(join(uiDist, "map.css"), join(dist, "map.css"));
 cpSync(join(uiDist, "primitives.css"), join(dist, "primitives.css"));
 cpSync(
-  join(root, "../ui/assets/prism-mark-teal-128.png"),
+  join(root, "../ui/assets/prism-mark-teal-256.png"),
   join(media, "prism-mark.png"),
 );
 
