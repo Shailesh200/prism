@@ -96,31 +96,32 @@ async function bootWorkspace(opts?: { announce?: boolean }): Promise<void> {
 
   statusBar!.tooltip = `Prism — ${folder.name} (click to open)`;
   if (opts?.announce) {
-    const pick = await vscode.window.showInformationMessage(
-      `Prism indexed ${folder.name}`,
-      "Open Prism",
-      "Open Map",
-    );
     if (!extensionUri || !extensionContext) return;
-    if (pick === "Open Prism") {
-      PrismPanel.show(
-        vscode,
-        extensionUri,
-        s,
-        logger!,
-        extensionContext,
-        "overview",
-      );
-    } else if (pick === "Open Map") {
-      PrismPanel.show(
-        vscode,
-        extensionUri,
-        s,
-        logger!,
-        extensionContext,
-        "map",
-      );
-    }
+    // Open the dashboard automatically after a successful first index so
+    // install → activate → index does not require an extra click.
+    PrismPanel.show(
+      vscode,
+      extensionUri,
+      s,
+      logger!,
+      extensionContext,
+      "overview",
+    );
+    logger!.info(`Opened Prism dashboard for ${folder.name}`);
+    void vscode.window
+      .showInformationMessage(`Prism indexed ${folder.name}`, "Open Map")
+      .then((pick) => {
+        if (pick === "Open Map" && extensionUri && extensionContext) {
+          PrismPanel.show(
+            vscode,
+            extensionUri,
+            s,
+            logger!,
+            extensionContext,
+            "map",
+          );
+        }
+      });
   }
 }
 
