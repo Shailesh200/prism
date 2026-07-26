@@ -267,13 +267,16 @@ function stageOxcParser(): void {
 
   const analyzerPkg = join(root, "../analyzer/package.json");
   const oxcSrc = packageRootFrom("oxc-parser", analyzerPkg);
-  const oxcPkg = JSON.parse(readFileSync(join(oxcSrc, "package.json"), "utf8")) as {
+  const oxcPkg = JSON.parse(
+    readFileSync(join(oxcSrc, "package.json"), "utf8"),
+  ) as {
     version: string;
   };
 
   cpSync(oxcSrc, join(nm, "oxc-parser"), { recursive: true });
 
-  const platform = process.env.PRISM_NATIVE_PLATFORM?.trim() || process.platform;
+  const platform =
+    process.env.PRISM_NATIVE_PLATFORM?.trim() || process.platform;
   const arch = process.env.PRISM_NATIVE_ARCH?.trim() || process.arch;
   const bindingName = oxcBindingPackageName(platform, arch);
   const bindingDest = join(nm, ...bindingName.split("/"));
@@ -310,10 +313,7 @@ function rewriteBundledAbsolutePaths(bundlePath: string): void {
   );
 
   // Drop any leftover absolute lighthouse import.meta.url candidate strings
-  code = code.replace(
-    /,\s*"file:\/\/\/[^"]+\/lighthouse-runner\.js"/g,
-    "",
-  );
+  code = code.replace(/,\s*"file:\/\/\/[^"]+\/lighthouse-runner\.js"/g, "");
 
   if (code === before) {
     console.warn(
@@ -321,6 +321,8 @@ function rewriteBundledAbsolutePaths(bundlePath: string): void {
     );
   } else {
     writeFileSync(bundlePath, code);
-    console.log("vscode-extension: rewrote absolute native module paths in extension.cjs");
+    console.log(
+      "vscode-extension: rewrote absolute native module paths in extension.cjs",
+    );
   }
 }

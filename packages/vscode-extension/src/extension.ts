@@ -283,7 +283,9 @@ export function activate(context: vscode.ExtensionContext): void {
         const msg = err instanceof Error ? err.message : String(err);
         logger?.error(msg);
         logger?.show();
-        void vscode.window.showErrorMessage(`Prism: failed to open map — ${msg}`);
+        void vscode.window.showErrorMessage(
+          `Prism: failed to open map — ${msg}`,
+        );
       }
     },
   );
