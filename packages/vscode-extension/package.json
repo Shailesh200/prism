@@ -2,7 +2,7 @@
   "name": "@prism/vscode-extension",
   "displayName": "RepoPrism",
   "description": "Local-first Software Intelligence — Repository Map, Overview, Blast Radius, Health, and Domains for VS Code and Cursor",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "publisher": "prismhq",
   "type": "module",
