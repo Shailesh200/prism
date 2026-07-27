@@ -485,7 +485,7 @@ flowchart TD
 | M-031 | VS Code Map + Explorer | Surfaces | M-030 | Summary |
 | M-032 | Cursor Extension | Surfaces | M-030 | Summary |
 | M-047 | Extension Marketplace | Surfaces | M-031, M-032 | Yes |
-| M-048 | Extension Polish + Blast Depth | Surfaces | M-047 | Yes |
+| M-048 | Extension Polish (+ blast depth deferred) | Surfaces | M-047 | Yes |
 | M-033 | Incremental Indexing & Watch | Scale | M-008 | Summary |
 | M-034 | Multi-language (Tree-sitter) | Scale | M-006 | Summary |
 | M-035 | Performance Hardening | Hardening | M-033 | Summary |

@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Branch | `milestone/M-048-extension-polish` |
-| Status | In Progress |
+| Status | Verified |
 | Depends on | M-047 |
 | Unlocks | Editor-native Prism loop before MCP (M-026); reliable Blast Radius hero |
 | Packages | `@prism/vscode-extension`, `@prism/app-shell`, `@prism/ui`, `@prism/core`, `@prism/indexer`, `@prism/intelligence`, `@prism/impact`, `@prism/repository-map`, `@prism/shared` |
@@ -123,7 +123,7 @@ Full mechanics, DTO shapes, UX copy tables, verification matrix: see [M-049 desi
 - [ ] Phase 8.1 complete at minimum — **deferred** (plan absorbed; implement on a follow-up branch; ADR-0027 still Proposed)
 - [ ] ADR-0027 Accepted (or alternate documented) — with Phase 8
 - [x] `bun run verify:milestone` green for shipped scope (Phases 0–7 + tour)
-- [ ] Owner approval → commit → merge → Verified
+- [x] Owner approval → commit → merge → Verified
 - [x] M-033 marked Deferred/superseded in PROGRESS
 - [x] M-049 marked Absorbed into M-048 in PROGRESS (Phase 8 design archive; implementation deferred)
 
