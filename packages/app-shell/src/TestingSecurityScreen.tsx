@@ -1,4 +1,5 @@
 import type {
+  DnaReport,
   SecurityCheck,
   SecurityCheckStatus,
   SecurityReport,
@@ -51,12 +52,14 @@ import {
 import { AppSidebar, type AppSidebarUser, type AppView } from "./AppSidebar.js";
 import { shellNavVariant, shellRootClass } from "./shell-layout.js";
 import { useAppShellClient } from "./client-context.js";
+import { securityStackLabel } from "./security-stack-label.js";
 import type { RunTestsOptions, TestListResult } from "./types.js";
 
 export type TestingSecurityScreenProps = {
   readonly repoLabel: string;
   readonly branch?: string | undefined;
   readonly user?: AppSidebarUser | null;
+  readonly dna?: DnaReport | null;
   readonly onNavigate: (view: AppView) => void;
 };
 
@@ -221,10 +224,14 @@ export function TestingSecurityScreen(
   const [securityOpen, setSecurityOpen] = useState(true);
   const [openFolders, setOpenFolders] = useState<Set<string>>(() => new Set());
   const [openFiles, setOpenFiles] = useState<Set<string>>(() => new Set());
+  const [openSuiteGroups, setOpenSuiteGroups] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [testFilter, setTestFilter] = useState("");
   const [checkFilter, setCheckFilter] = useState("");
   const runGroupRef = useRef<HTMLDivElement>(null);
   const subtitle = [props.repoLabel, props.branch].filter(Boolean).join(" · ");
+  const frameworks = props.dna?.frameworks ?? [];
 
   const loadTestList = useCallback(async () => {
     if (!client.listTests) {
@@ -338,13 +345,7 @@ export function TestingSecurityScreen(
   const runners = testing?.runners ?? [];
   const suiteTree = useMemo(() => buildSuiteTree(testList), [testList]);
 
-  useEffect(() => {
-    if (suiteTree.length === 0) return;
-    setOpenFolders((prev) => {
-      if (prev.size > 0) return prev;
-      return new Set(suiteTree.slice(0, 8).map((f) => f.path));
-    });
-  }, [suiteTree]);
+  // Suite tree stays collapsed by default (accordion on demand).
 
   // Rows for the tests table: real results when present, else discovered suites.
   const hasResults = (testing?.results.length ?? 0) > 0;
@@ -387,10 +388,8 @@ export function TestingSecurityScreen(
     );
   }, [testRows, testFilter]);
 
-  // Group security checks by domain (checks without a domain land in "General").
-  const checkGroups = useMemo<
-    { domain: string; checks: SecurityCheck[] }[]
-  >(() => {
+  // Flat security checks with DNA-derived stack labels (single table).
+  const flatChecks = useMemo<{ check: SecurityCheck; stack: string }[]>(() => {
     const q = checkFilter.trim().toLowerCase();
     const all = security?.checks ?? [];
     const filtered = q
@@ -398,30 +397,32 @@ export function TestingSecurityScreen(
           (c) =>
             c.title.toLowerCase().includes(q) ||
             (c.detail?.toLowerCase().includes(q) ?? false) ||
-            (c.domain?.toLowerCase().includes(q) ?? false),
+            (c.domain?.toLowerCase().includes(q) ?? false) ||
+            securityStackLabel(c.domain, frameworks).toLowerCase().includes(q),
         )
       : all;
-    const order: string[] = [];
-    const byDomain = new Map<string, SecurityCheck[]>();
-    for (const c of filtered) {
-      const domain = c.domain ?? "General";
-      if (!byDomain.has(domain)) {
-        byDomain.set(domain, []);
-        order.push(domain);
-      }
-      byDomain.get(domain)!.push(c);
-    }
-    // Keep "General" last for readability.
-    order.sort((a, b) => {
-      if (a === "General") return 1;
-      if (b === "General") return -1;
-      return 0;
-    });
-    return order.map((domain) => ({
-      domain,
-      checks: byDomain.get(domain)!,
+    return filtered.map((c) => ({
+      check: c,
+      stack: securityStackLabel(c.domain, frameworks),
     }));
-  }, [security, checkFilter]);
+  }, [security, checkFilter, frameworks]);
+
+  /** Pre-run suite rows grouped by kind for accordion display. */
+  const suiteGroups = useMemo(() => {
+    if (hasResults)
+      return [] as { kind: string; rows: typeof filteredTestRows }[];
+    const order: string[] = [];
+    const byKind = new Map<string, typeof filteredTestRows>();
+    for (const row of filteredTestRows) {
+      const kind = row.suite ?? "other";
+      if (!byKind.has(kind)) {
+        byKind.set(kind, []);
+        order.push(kind);
+      }
+      byKind.get(kind)!.push(row);
+    }
+    return order.map((kind) => ({ kind, rows: byKind.get(kind)! }));
+  }, [filteredTestRows, hasResults]);
 
   const toggleFolder = (path: string): void => {
     setOpenFolders((prev) => {
@@ -437,6 +438,15 @@ export function TestingSecurityScreen(
       const next = new Set(prev);
       if (next.has(path)) next.delete(path);
       else next.add(path);
+      return next;
+    });
+  };
+
+  const toggleSuiteGroup = (kind: string): void => {
+    setOpenSuiteGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(kind)) next.delete(kind);
+      else next.add(kind);
       return next;
     });
   };
@@ -784,47 +794,103 @@ export function TestingSecurityScreen(
                   <p className="ts-hint">Run tests to see pass/fail.</p>
                 ) : null}
 
-                <div className="ts-table-wrap">
-                  <table className="ts-table">
-                    <thead>
-                      <tr>
-                        <th className="ts-table__status">Status</th>
-                        <th>Name</th>
-                        <th>File</th>
-                        <th className="ts-table__num">Duration</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredTestRows.length === 0 ? (
+                {hasResults ? (
+                  <div className="ts-table-wrap ts-table-wrap--scroll">
+                    <table className="ts-table">
+                      <thead>
                         <tr>
-                          <td colSpan={4} className="ts-table__empty">
+                          <th className="ts-table__status">Status</th>
+                          <th>Name</th>
+                          <th>File</th>
+                          <th className="ts-table__num">Duration</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredTestRows.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="ts-table__empty">
+                              {testRows.length === 0
+                                ? "No suites found."
+                                : "No rows match the filter."}
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredTestRows.map((r) => (
+                            <tr key={r.key}>
+                              <td className="ts-table__status">
+                                <TestStatusPill status={r.status} />
+                              </td>
+                              <td>
+                                <span className="ts-cell-name">{r.name}</span>
+                                {r.suite ? (
+                                  <span className="ts-cell-suite">
+                                    {r.suite}
+                                  </span>
+                                ) : null}
+                              </td>
+                              <td className="ts-cell-mono">{r.file}</td>
+                              <td className="ts-table__num">
+                                {formatDuration(r.durationMs)}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : suiteGroups.length === 0 ? (
+                  <div className="ts-table-wrap ts-table-wrap--scroll">
+                    <table className="ts-table">
+                      <tbody>
+                        <tr>
+                          <td className="ts-table__empty">
                             {testRows.length === 0
                               ? "No suites found."
                               : "No rows match the filter."}
                           </td>
                         </tr>
-                      ) : (
-                        filteredTestRows.map((r) => (
-                          <tr key={r.key}>
-                            <td className="ts-table__status">
-                              <TestStatusPill status={r.status} />
-                            </td>
-                            <td>
-                              <span className="ts-cell-name">{r.name}</span>
-                              {r.suite ? (
-                                <span className="ts-cell-suite">{r.suite}</span>
-                              ) : null}
-                            </td>
-                            <td className="ts-cell-mono">{r.file}</td>
-                            <td className="ts-table__num">
-                              {formatDuration(r.durationMs)}
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="ts-suite-acc ts-table-wrap--scroll">
+                    {suiteGroups.map((group) => {
+                      const open = openSuiteGroups.has(group.kind);
+                      return (
+                        <div key={group.kind} className="ts-suite-acc__group">
+                          <button
+                            type="button"
+                            className="ts-suite-acc__trigger"
+                            aria-expanded={open}
+                            onClick={() => toggleSuiteGroup(group.kind)}
+                          >
+                            {open ? (
+                              <ChevronDown size={14} aria-hidden />
+                            ) : (
+                              <ChevronRight size={14} aria-hidden />
+                            )}
+                            <span className="ts-suite-acc__kind">
+                              {group.kind}
+                            </span>
+                            <span className="ts-suite-acc__count">
+                              {group.rows.length}
+                            </span>
+                          </button>
+                          {open ? (
+                            <ul className="ts-suite-acc__list">
+                              {group.rows.map((r) => (
+                                <li key={r.key} className="ts-suite-acc__row">
+                                  <span className="ts-cell-name">{r.name}</span>
+                                  <span className="ts-cell-mono">{r.file}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 <p className="ts-cov">
                   <CardIcon icon={ShieldCheck} tone="emerald" size={13} />
@@ -925,9 +991,10 @@ export function TestingSecurityScreen(
                     <CardIcon icon={ShieldCheck} tone="rose" size={14} />
                     Checks
                     <InfoTip label="Security checks">
-                      Fundamentals grouped by domain — no committed{" "}
-                      <code>.env</code>, lockfile presence, auth middleware
-                      signal, scanner / Dependabot configuration, and more.
+                      Fundamentals in one table with a Stack column derived from
+                      detected frameworks (e.g. Next/React Frontend, Next
+                      server). Covers secrets, lockfiles, auth signals,
+                      scanners, and more.
                     </InfoTip>
                   </h3>
                   <SearchableInput
@@ -939,57 +1006,49 @@ export function TestingSecurityScreen(
                   />
                 </div>
 
-                {checkGroups.length === 0 ? (
+                {flatChecks.length === 0 ? (
                   <p className="ts-empty">
                     {(security?.checks ?? []).length === 0
                       ? "No checks available."
                       : "No checks match the filter."}
                   </p>
                 ) : (
-                  checkGroups.map((group) => (
-                    <div className="ts-domain" key={group.domain}>
-                      <h4 className="ts-domain__title">
-                        <CardIcon icon={Shield} tone="ink" size={13} />
-                        {group.domain}
-                        <span className="ts-domain__count">
-                          {group.checks.length}
-                        </span>
-                      </h4>
-                      <div className="ts-table-wrap">
-                        <table className="ts-table ts-table--checks">
-                          <colgroup>
-                            <col className="ts-col-status" />
-                            <col className="ts-col-check" />
-                            <col className="ts-col-detail" />
-                          </colgroup>
-                          <thead>
-                            <tr>
-                              <th className="ts-table__status">Status</th>
-                              <th>Check</th>
-                              <th className="ts-table__detail">Detail</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {group.checks.map((c) => (
-                              <tr key={c.id} data-status={c.status}>
-                                <td className="ts-table__status">
-                                  <CheckStatusIcon status={c.status} />
-                                </td>
-                                <td>
-                                  <span className="ts-cell-name">
-                                    {c.title}
-                                  </span>
-                                </td>
-                                <td className="ts-cell-detail">
-                                  {c.detail ?? "—"}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  ))
+                  <div className="ts-table-wrap ts-table-wrap--scroll">
+                    <table className="ts-table ts-table--checks">
+                      <colgroup>
+                        <col className="ts-col-status" />
+                        <col className="ts-col-stack" />
+                        <col className="ts-col-check" />
+                        <col className="ts-col-detail" />
+                      </colgroup>
+                      <thead>
+                        <tr>
+                          <th className="ts-table__status">Status</th>
+                          <th>Stack</th>
+                          <th>Check</th>
+                          <th className="ts-table__detail">Detail</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {flatChecks.map(({ check: c, stack }) => (
+                          <tr key={c.id} data-status={c.status}>
+                            <td className="ts-table__status">
+                              <CheckStatusIcon status={c.status} />
+                            </td>
+                            <td>
+                              <span className="ts-stack-pill">{stack}</span>
+                            </td>
+                            <td>
+                              <span className="ts-cell-name">{c.title}</span>
+                            </td>
+                            <td className="ts-cell-detail">
+                              {c.detail ?? "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
             ) : null}

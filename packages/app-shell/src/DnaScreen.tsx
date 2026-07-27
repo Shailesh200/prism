@@ -9,32 +9,24 @@ import { CardIcon, type CardIconTone, InfoTip, Input } from "@prism/ui";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
-  AppWindow,
   ArrowLeft,
   ArrowRight,
   Boxes,
-  Cloud,
   Code,
-  Cpu,
-  Network,
-  Database,
   FlaskConical,
   GitBranch,
   Layers,
   Lightbulb,
-  Monitor,
+  Network,
   Package,
   ScrollText,
   Search,
-  Server,
   ShieldCheck,
-  Smartphone,
   Sparkles,
   Target,
   TrendingDown,
   TrendingUp,
   Users,
-  Wrench,
   X,
 } from "lucide-react";
 import type {
@@ -44,42 +36,6 @@ import type {
   ReactElement,
 } from "react";
 import { useEffect, useId, useState } from "react";
-import {
-  SiAngular,
-  SiAstro,
-  SiBun,
-  SiDjango,
-  SiDocker,
-  SiElectron,
-  SiExpo,
-  SiExpress,
-  SiFastapi,
-  SiFastify,
-  SiFlask,
-  SiFlutter,
-  SiJest,
-  SiJupyter,
-  SiKubernetes,
-  SiNestjs,
-  SiNextdotjs,
-  SiNodedotjs,
-  SiNpm,
-  SiNx,
-  SiNuxt,
-  SiPnpm,
-  SiPytorch,
-  SiReact,
-  SiRemix,
-  SiSpring,
-  SiSvelte,
-  SiTensorflow,
-  SiTerraform,
-  SiTurborepo,
-  SiVite,
-  SiVitest,
-  SiVuedotjs,
-  SiYarn,
-} from "react-icons/si";
 import { AppSidebar, type AppSidebarUser, type AppView } from "./AppSidebar.js";
 import { shellNavVariant, shellRootClass } from "./shell-layout.js";
 import { useAppShellClient } from "./client-context.js";
@@ -89,6 +45,7 @@ import {
   couplingDensity,
   domainDisplayName,
 } from "./overview-model.js";
+import { describeSignal, signalDetectionTip } from "./stack-signal-meta.js";
 
 const COUPLING_TONE_COLOR: Record<string, string> = {
   emerald: "#10B981",
@@ -195,151 +152,14 @@ function titleCase(id: string): string {
     .join(" ");
 }
 
-type SignalIcon = ComponentType<{
-  size?: number | string;
-  "aria-hidden"?: boolean;
-}>;
-
-/** Signal id prefix → category label + icon + accent (ordered; first wins). */
-const SIGNAL_CATEGORIES: {
-  prefix: string;
-  category: string;
-  icon: SignalIcon;
-  color: string;
-}[] = [
-  {
-    prefix: "pm-",
-    category: "Package Manager",
-    icon: Package,
-    color: "#00C2C2",
-  },
-  { prefix: "mono-", category: "Monorepo", icon: Boxes, color: "#3B82F6" },
-  {
-    prefix: "frontend-",
-    category: "Frontend",
-    icon: Monitor,
-    color: "#6C63FF",
-  },
-  { prefix: "backend-", category: "Backend", icon: Server, color: "#10B981" },
-  { prefix: "mobile-", category: "Mobile", icon: Smartphone, color: "#F59E0B" },
-  {
-    prefix: "desktop-",
-    category: "Desktop",
-    icon: AppWindow,
-    color: "#38BDF8",
-  },
-  { prefix: "devops-", category: "DevOps", icon: Cloud, color: "#FB923C" },
-  { prefix: "ci-", category: "CI / CD", icon: Cloud, color: "#FB923C" },
-  { prefix: "data-", category: "Data / ML", icon: Database, color: "#A855F7" },
-  {
-    prefix: "test-",
-    category: "Testing",
-    icon: FlaskConical,
-    color: "#F43F5E",
-  },
-  { prefix: "lang-", category: "Language", icon: Cpu, color: "#94A3B8" },
-  { prefix: "runtime-", category: "Runtime", icon: Cpu, color: "#84CC16" },
-  { prefix: "nodejs", category: "Runtime", icon: Cpu, color: "#84CC16" },
-  { prefix: "node-", category: "Runtime", icon: Cpu, color: "#84CC16" },
-];
-
-/** Real brand logos (Simple Icons) per signal id; falls back to category icon. */
-const BRAND_ICONS: Record<string, SignalIcon> = {
-  "frontend-next": SiNextdotjs,
-  "frontend-react": SiReact,
-  "frontend-vue": SiVuedotjs,
-  "frontend-svelte": SiSvelte,
-  "frontend-angular": SiAngular,
-  "frontend-nuxt": SiNuxt,
-  "frontend-vite": SiVite,
-  "frontend-astro": SiAstro,
-  "frontend-remix": SiRemix,
-  "backend-nest": SiNestjs,
-  "backend-express": SiExpress,
-  "backend-fastify": SiFastify,
-  "backend-python-django": SiDjango,
-  "backend-python-fastapi": SiFastapi,
-  "backend-python-flask": SiFlask,
-  "backend-java-spring": SiSpring,
-  "mobile-expo": SiExpo,
-  "mobile-react-native": SiReact,
-  "mobile-flutter": SiFlutter,
-  "desktop-electron": SiElectron,
-  "pm-bun": SiBun,
-  "pm-pnpm": SiPnpm,
-  "pm-npm": SiNpm,
-  "pm-yarn": SiYarn,
-  "test-vitest": SiVitest,
-  "test-jest": SiJest,
-  "data-jupyter": SiJupyter,
-  "data-pytorch": SiPytorch,
-  "data-tensorflow": SiTensorflow,
-  "mono-turbo": SiTurborepo,
-  "mono-nx": SiNx,
-  "devops-docker": SiDocker,
-  "devops-k8s": SiKubernetes,
-  "devops-terraform": SiTerraform,
-  "nodejs-manifest": SiNodedotjs,
-};
-
-/** Friendly tech names for signal ids that don't title-case nicely. */
-const SIGNAL_LABELS: Record<string, string> = {
-  "pm-npm": "npm",
-  "pm-pnpm": "pnpm",
-  "frontend-next": "Next.js",
-  "frontend-nuxt": "Nuxt",
-  "frontend-vite": "Vite",
-  "frontend-astro": "Astro",
-  "frontend-remix": "Remix",
-  "backend-nest": "NestJS",
-  "backend-express": "Express",
-  "backend-fastify": "Fastify",
-  "backend-python-django": "Django",
-  "backend-python-fastapi": "FastAPI",
-  "backend-python-flask": "Flask",
-  "backend-java-spring": "Spring",
-  "backend-dotnet": ".NET",
-  "backend-rails": "Rails",
-  "mobile-react-native": "React Native",
-  "mobile-flutter": "Flutter",
-  "desktop-electron": "Electron",
-  "desktop-tauri": "Tauri",
-  "data-jupyter": "Jupyter",
-  "data-pytorch": "PyTorch",
-  "data-tensorflow": "TensorFlow",
-  "data-langchain": "LangChain",
-  "data-eng-dbt": "dbt",
-  "data-eng-airflow": "Airflow",
-  "devops-docker": "Docker",
-  "devops-k8s": "Kubernetes",
-  "devops-terraform": "Terraform",
-  "devops-pulumi": "Pulumi",
-  "mono-turbo": "Turborepo",
-  "mono-nx": "Nx",
-  "mono-moon": "Moon",
-  "nodejs-manifest": "Node.js",
-};
-
-/** Split a signal id into a heading (tech), a category tag, an icon, accent. */
-function describeSignal(
-  id: string,
-  domain: string,
-): { label: string; category: string; icon: SignalIcon; color: string } {
-  const match = SIGNAL_CATEGORIES.find((c) => id.startsWith(c.prefix));
-  const rest = match ? id.slice(match.prefix.length) : id;
-  const label =
-    SIGNAL_LABELS[id] ?? (rest === "" ? titleCase(id) : titleCase(rest));
-  return {
-    label,
-    category: match?.category ?? titleCase(domain),
-    icon: BRAND_ICONS[id] ?? match?.icon ?? Wrench,
-    color: match?.color ?? "#8AA0AA",
-  };
-}
-
 /** Primary Domain tech row: icon + name chips (same pattern as Frameworks & Libs). */
 function PrimaryTechStack(props: {
-  signals: readonly { id: string; domain: string }[];
+  signals: readonly {
+    id: string;
+    domain: string;
+    confidence: number;
+    evidence?: readonly string[];
+  }[];
 }): ReactElement {
   const shown = props.signals.slice(0, 5);
   return (
@@ -356,7 +176,7 @@ function PrimaryTechStack(props: {
               key={s.id}
               role="listitem"
               className="dna-fw-note__item dna-fw-note__item--lg"
-              title={m.label}
+              title={signalDetectionTip(s)}
             >
               <TechIcon size={16} aria-hidden />
               {m.label}
@@ -461,7 +281,9 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
     };
   }, [client, props.mode, health?.score]);
 
-  const languages = dna?.languages ?? [];
+  const languages = (dna?.languages ?? []).filter(
+    (l) => Math.round(l.share * 100) > 0,
+  );
   const frameworks = dna?.frameworks ?? [];
   const testRunners = dna?.testRunners ?? [];
   const hints = dna?.architectureHints ?? [];
@@ -487,6 +309,9 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
   const sortedSignals = [...signalById.values()].sort(
     (a, b) => b.confidence - a.confidence,
   );
+
+  const frameworkTip = (id: string): string =>
+    signalDetectionTip(signalById.get(id));
 
   const primaryLang = languages[0];
   const primaryDomainId = dna?.primaryDomain ?? domains[0];
@@ -796,13 +621,6 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                                 : "—"}
                             </div>
                           )}
-                          {primaryDomainId ? (
-                            <div className="dna-primary__tags">
-                              <span className="dna-tag dna-tag--brand">
-                                {domainDisplayName(primaryDomainId)}
-                              </span>
-                            </div>
-                          ) : null}
                           <div className="ov-stat__note">
                             {primaryDomainId
                               ? `${Math.round(rankedConfidence(primaryDomainId) * 100)}% confidence`
@@ -837,7 +655,7 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                                 key={fw}
                                 role="listitem"
                                 className="dna-fw-note__item dna-fw-note__item--lg"
-                                title={m.label}
+                                title={frameworkTip(fw)}
                               >
                                 <FwIcon size={16} aria-hidden />
                                 {m.label}
@@ -1282,8 +1100,9 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                           {frameworks.map((fw) => {
                             const m = describeSignal(fw, "");
                             const FwIcon = m.icon;
+                            const tip = frameworkTip(fw);
                             return (
-                              <div key={fw} className="dna-fw">
+                              <div key={fw} className="dna-fw" title={tip}>
                                 <span
                                   className="dna-fw__glyph"
                                   style={{ "--cat": m.color } as CSSProperties}
@@ -1291,7 +1110,10 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                                   <FwIcon size={16} aria-hidden />
                                 </span>
                                 <div className="dna-fw__body">
-                                  <div className="dna-fw__name">{m.label}</div>
+                                  <div className="dna-fw__name">
+                                    {m.label}
+                                    <InfoTip label={m.label}>{tip}</InfoTip>
+                                  </div>
                                   <span
                                     className="dna-fw__tag"
                                     style={
@@ -1429,11 +1251,12 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                                     return (
                                       <span
                                         key={s.id}
-                                        className="dna-domain__tech-icon"
-                                        title={meta.label}
+                                        className="dna-domain__tech-chip"
+                                        title={signalDetectionTip(s)}
                                         aria-label={meta.label}
                                       >
                                         <TechIcon size={14} aria-hidden />
+                                        {meta.label}
                                       </span>
                                     );
                                   })}

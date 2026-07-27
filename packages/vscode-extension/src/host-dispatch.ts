@@ -1,5 +1,5 @@
 import { execFile, execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { PrismGitignoreStatus } from "@prism/app-shell";
 import { stageDevopsRemote } from "@prism/core";
@@ -22,6 +22,15 @@ import type { PrismSession } from "./session.js";
 
 type TestListFile = TestListResult["files"][number];
 type TestListItem = TestListFile["tests"][number];
+
+const PRISM_GITIGNORE_PATTERNS = new Set([
+  ".prism",
+  ".prism/",
+  "/.prism",
+  "/.prism/",
+  ".prism/**",
+  "**/.prism",
+]);
 
 /**
  * Local-only check for whether the workspace's `.prism` folder is gitignored.
@@ -46,22 +55,49 @@ export function checkPrismGitignore(root: string | null): PrismGitignoreStatus {
   try {
     const gitignore = join(root, ".gitignore");
     if (!existsSync(gitignore)) return { ignored: false };
-    const patterns = new Set([
-      ".prism",
-      ".prism/",
-      "/.prism",
-      "/.prism/",
-      ".prism/**",
-      "**/.prism",
-    ]);
     const ignored = readFileSync(gitignore, "utf8")
       .split(/\r?\n/)
       .map((line) => line.trim())
-      .some((line) => patterns.has(line));
+      .some((line) => PRISM_GITIGNORE_PATTERNS.has(line));
     return { ignored, detail: ".gitignore" };
   } catch {
     return { ignored: null };
   }
+}
+
+/** Append `.prism/` to the workspace root `.gitignore` when missing. */
+export function addPrismToGitignore(root: string | null): PrismGitignoreStatus {
+  if (!root) return { ignored: null, detail: "no workspace" };
+  const status = checkPrismGitignore(root);
+  if (status.ignored === true) return status;
+
+  const gitignorePath = join(root, ".gitignore");
+  let existing = "";
+  try {
+    if (existsSync(gitignorePath)) {
+      existing = readFileSync(gitignorePath, "utf8");
+      const already = existing
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .some((line) => PRISM_GITIGNORE_PATTERNS.has(line));
+      if (already) {
+        return { ignored: true, detail: ".gitignore" };
+      }
+    }
+  } catch {
+    return { ignored: false, detail: "could not read .gitignore" };
+  }
+
+  const needsNewline = existing.length > 0 && !existing.endsWith("\n");
+  const block = `${needsNewline ? "\n" : ""}${
+    existing.length > 0 ? "\n" : ""
+  }# Prism local cache\n.prism/\n`;
+  try {
+    writeFileSync(gitignorePath, `${existing}${block}`, "utf8");
+  } catch {
+    return { ignored: false, detail: "could not write .gitignore" };
+  }
+  return checkPrismGitignore(root);
 }
 
 export type HostDispatchState = {
@@ -258,6 +294,14 @@ export async function dispatchHostRequest(
         data: checkPrismGitignore(session.root),
       };
     }
+    case "addPrismGitignore": {
+      return {
+        id: req.id,
+        ok: true,
+        method: "addPrismGitignore",
+        data: addPrismToGitignore(session.root),
+      };
+    }
     case "gitFetch": {
       const root = session.root;
       if (!root) {
@@ -325,6 +369,83 @@ export async function dispatchHostRequest(
         ? await applyWorkspaceRename(options.vscodeApi, root, req.input)
         : await applyRenameOnDisk(root, req.input);
       return { id: req.id, ok: true, method: "applyRename", data };
+    }
+    case "reviewChanges": {
+      const result = await session.reviewChanges(req.paths, req.base);
+      if (!result.ok)
+        return { id: req.id, ok: false, error: result.error.message };
+      return {
+        id: req.id,
+        ok: true,
+        method: "reviewChanges",
+        data: result.value,
+      };
+    }
+    case "explainArea": {
+      const result = await session.explainArea(req.path);
+      if (!result.ok)
+        return { id: req.id, ok: false, error: result.error.message };
+      return {
+        id: req.id,
+        ok: true,
+        method: "explainArea",
+        data: result.value,
+      };
+    }
+    case "listBookmarks": {
+      const result = await session.listBookmarks();
+      if (!result.ok)
+        return { id: req.id, ok: false, error: result.error.message };
+      return {
+        id: req.id,
+        ok: true,
+        method: "listBookmarks",
+        data: result.value,
+      };
+    }
+    case "saveBookmark": {
+      const result = await session.saveBookmark(req.input);
+      if (!result.ok)
+        return { id: req.id, ok: false, error: result.error.message };
+      return {
+        id: req.id,
+        ok: true,
+        method: "saveBookmark",
+        data: result.value,
+      };
+    }
+    case "removeBookmark": {
+      const result = await session.removeBookmark(req.bookmarkId);
+      if (!result.ok)
+        return { id: req.id, ok: false, error: result.error.message };
+      return {
+        id: req.id,
+        ok: true,
+        method: "removeBookmark",
+        data: result.value,
+      };
+    }
+    case "listPackages": {
+      const result = await session.listPackages();
+      if (!result.ok)
+        return { id: req.id, ok: false, error: result.error.message };
+      return {
+        id: req.id,
+        ok: true,
+        method: "listPackages",
+        data: result.value,
+      };
+    }
+    case "selectPackage": {
+      const result = await session.selectPackage(req.packageId);
+      if (!result.ok)
+        return { id: req.id, ok: false, error: result.error.message };
+      return {
+        id: req.id,
+        ok: true,
+        method: "selectPackage",
+        data: result.value,
+      };
     }
     case "stageDevopsRemote": {
       const root = session.root;

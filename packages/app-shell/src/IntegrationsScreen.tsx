@@ -185,14 +185,15 @@ const INTEGRATIONS: readonly Integration[] = [
   },
   {
     id: "forge",
-    name: "GitHub / GitLab metadata",
-    blurb: "Overlay PR velocity, issue density, and ownership onto the map.",
+    name: "GitHub App integration",
+    blurb:
+      "Install a GitHub App for PR velocity, issue density, and ownership overlays.",
     status: "coming_soon",
     icon: GitBranch,
     tone: "ink",
-    note: "Opt-in",
+    note: "Coming soon",
     details:
-      "Broader forge overlays beyond Actions workflows. Prefer the GitHub Actions connector for live CI today.",
+      "GitHub App–based forge overlays (PRs, issues, ownership) beyond today’s Actions workflow listing. Prefer the GitHub Actions connector for live CI today.",
   },
   {
     id: "argo",

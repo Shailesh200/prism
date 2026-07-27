@@ -18,7 +18,7 @@
   "files": ["dist"],
   "scripts": {
     "build": "tsc -p tsconfig.json && bun run build:css",
-    "build:css": "bun -e \"const parts=['overview.css','appnav.css','boot.css','overview-extra.css','dna-extra.css','trends-extra.css','domain-extra.css','testing-security-extra.css','blast-extra.css','integrations-extra.css','settings-extra.css','theme-extra.css','error-boundary.css']; const css=(await Promise.all(parts.map(async (f)=>Bun.file('src/'+f).text()))).join('\\n'); await Bun.write('dist/styles.css', css)\"",
+    "build:css": "bun -e \"const parts=['overview.css','appnav.css','boot.css','overview-extra.css','dna-extra.css','trends-extra.css','domain-extra.css','testing-security-extra.css','blast-extra.css','integrations-extra.css','settings-extra.css','theme-extra.css','error-boundary.css','review-extra.css','tour-extra.css']; const css=(await Promise.all(parts.map(async (f)=>Bun.file('src/'+f).text()))).join('\\n'); await Bun.write('dist/styles.css', css)\"",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts"

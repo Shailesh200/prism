@@ -3,6 +3,7 @@ import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import type * as vscode from "vscode";
 import { openPlaygroundInBrowser } from "../open-playground.js";
+import { checkHealthRegression } from "../health-alerts.js";
 import {
   dispatchHostRequest,
   type HostDispatchState,
@@ -17,6 +18,14 @@ import type {
   HostToWebview,
   WebviewToHost,
 } from "../protocol.js";
+
+/** Deep-link payload forwarded alongside a `navigate` message (M-048 Phase 2/3). */
+type NavigateExtras = {
+  readonly focusPath?: string;
+  readonly focusNodeId?: string;
+  readonly targetPath?: string;
+  readonly targetPaths?: string[];
+};
 
 const AUTO_REINDEX_STATE_KEY = "prism.autoReindex";
 const AUTO_REINDEX_INTERVAL_STATE_KEY = "prism.autoReindexIntervalMs";
@@ -44,6 +53,10 @@ export class PrismPanel {
   private disposables: vscode.Disposable[] = [];
   private watcher: vscode.FileSystemWatcher | undefined;
   private reindexTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Queued until the webview posts `ready` (first paint race). */
+  private pendingNavigate: ({ view: AppView } & NavigateExtras) | undefined;
+  private pendingShowTour = false;
+  private webviewReady = false;
   private reindexInFlight = false;
   private reindexDebounceMs = AUTO_REINDEX_DEBOUNCE_MS;
 
@@ -80,13 +93,15 @@ export class PrismPanel {
     log: PrismLogger,
     context: vscode.ExtensionContext,
     initialView: AppView = "overview",
+    navigate?: NavigateExtras,
   ): PrismPanel {
     const column = vscodeApi.ViewColumn.Active;
+    const extras = navigate ?? {};
 
     if (PrismPanel.current) {
       PrismPanel.current.panel.reveal(column, false);
-      if (initialView !== "overview") {
-        PrismPanel.current.post({ type: "navigate", view: initialView });
+      if (initialView !== "overview" || navigate) {
+        PrismPanel.current.navigateTo(initialView, extras);
       }
       return PrismPanel.current;
     }
@@ -113,18 +128,37 @@ export class PrismPanel {
       vscodeApi,
       context,
     );
-    if (initialView !== "overview") {
-      // Webview loads async; navigate after ready also handles default.
-      queueMicrotask(() => {
-        PrismPanel.current?.post({ type: "navigate", view: initialView });
-      });
+    if (initialView !== "overview" || navigate) {
+      // Webview boots async — queue until `ready` so deep links are not lost.
+      PrismPanel.current.pendingNavigate = { view: initialView, ...extras };
     }
     return PrismPanel.current;
+  }
+
+  /** Ask an already-open panel to jump to a view / deep-link target. */
+  navigateTo(view: AppView, navigate?: NavigateExtras): void {
+    const payload = { view, ...navigate };
+    if (!this.webviewReady) {
+      this.pendingNavigate = payload;
+      return;
+    }
+    this.post({ type: "navigate", ...payload });
   }
 
   private async onMessage(msg: WebviewToHost): Promise<void> {
     if (msg.type === "ready") {
       this.log.info("Prism webview ready");
+      this.webviewReady = true;
+      this.postCodeLensEnabled();
+      if (this.pendingNavigate) {
+        const pending = this.pendingNavigate;
+        this.pendingNavigate = undefined;
+        this.post({ type: "navigate", ...pending });
+      }
+      if (this.pendingShowTour) {
+        this.pendingShowTour = false;
+        this.post({ type: "showTour" });
+      }
       return;
     }
     if (msg.type === "zoom") {
@@ -153,6 +187,17 @@ export class PrismPanel {
     }
     if (msg.type === "setAutoReindex") {
       this.setAutoReindex(msg.enabled, msg.intervalMs);
+      return;
+    }
+    if (msg.type === "setCodeLens") {
+      await this.vscodeApi.workspace
+        .getConfiguration("prism")
+        .update(
+          "codeLens.enabled",
+          msg.enabled,
+          this.vscodeApi.ConfigurationTarget.Global,
+        );
+      this.postCodeLensEnabled();
       return;
     }
     if (msg.type === "setLocalOnly") {
@@ -239,7 +284,8 @@ export class PrismPanel {
     }
     this.disposeWatcher();
     if (!enabled) {
-      this.log.info("Auto Re-Index off");
+      this.session.stopWatch();
+      this.log.info("Auto Re-Index / watch off");
       return;
     }
     const root = this.session.root;
@@ -247,48 +293,48 @@ export class PrismPanel {
       this.log.info("Auto Re-Index requested but no workspace root");
       return;
     }
+    const started = this.session.startWatch({
+      debounceMs: this.reindexDebounceMs,
+      onChange: (freshness) => {
+        if (freshness.status === "fresh") {
+          // Soft refresh only — never bounce the user back to Overview.
+          this.postDataRefresh();
+          void checkHealthRegression(
+            this.vscodeApi,
+            this.session,
+            this.context,
+          );
+        }
+        // Do not post status kind:"loading" — that blanked the whole webview
+        // behind an "Indexing…" screen (CodeLens / Review / Explain looked
+        // like a full reindex every time).
+      },
+    });
+    if (!started.ok) {
+      this.log.warn(`startWatch failed: ${started.error.message}`);
+    }
     const pattern = new this.vscodeApi.RelativePattern(root, "**/*");
     const watcher = this.vscodeApi.workspace.createFileSystemWatcher(pattern);
-    const schedule = (): void => this.scheduleDebouncedReindex();
-    watcher.onDidCreate(schedule);
-    watcher.onDidChange(schedule);
-    watcher.onDidDelete(schedule);
+    const toRel = (uri: vscode.Uri): string => {
+      const rel = this.vscodeApi.workspace.asRelativePath(uri, false);
+      return rel.replace(/\\/g, "/");
+    };
+    watcher.onDidCreate((uri) => {
+      this.session.notifyWatchPaths({ changedPaths: [toRel(uri)] });
+    });
+    watcher.onDidChange((uri) => {
+      this.session.notifyWatchPaths({ changedPaths: [toRel(uri)] });
+    });
+    watcher.onDidDelete((uri) => {
+      this.session.notifyWatchPaths({ deletedPaths: [toRel(uri)] });
+    });
     this.watcher = watcher;
     this.disposables.push(watcher);
     this.log.info(
-      `Auto Re-Index on — watching workspace (debounce ${Math.round(
+      `Watch on — Core dirty-set reindex (debounce ${Math.round(
         this.reindexDebounceMs / 1000,
       )}s)`,
     );
-  }
-
-  private scheduleDebouncedReindex(): void {
-    if (this.reindexTimer) clearTimeout(this.reindexTimer);
-    this.reindexTimer = setTimeout(() => {
-      this.reindexTimer = undefined;
-      void this.runAutoReindex();
-    }, this.reindexDebounceMs);
-  }
-
-  private async runAutoReindex(): Promise<void> {
-    if (this.reindexInFlight) return;
-    this.reindexInFlight = true;
-    try {
-      this.log.info("Auto Re-Index: reindexing…");
-      const result = await this.session.reindex();
-      if (!result.ok) {
-        this.log.error(`Auto Re-Index failed: ${result.error.message}`);
-        this.post({
-          type: "status",
-          message: `Auto re-index failed: ${result.error.message}`,
-          kind: "error",
-        });
-        return;
-      }
-      this.postNavigateRefresh();
-    } finally {
-      this.reindexInFlight = false;
-    }
   }
 
   private disposeWatcher(): void {
@@ -296,6 +342,7 @@ export class PrismPanel {
       clearTimeout(this.reindexTimer);
       this.reindexTimer = undefined;
     }
+    this.session.stopWatch();
     if (this.watcher) {
       const w = this.watcher;
       this.watcher = undefined;
@@ -472,14 +519,31 @@ export class PrismPanel {
     void this.panel.webview.postMessage(message);
   }
 
-  /** Ask the webview to reload dashboard data after reindex. */
+  /** Sync current `prism.codeLens.enabled` into the webview Settings toggle. */
+  postCodeLensEnabled(): void {
+    const enabled = this.vscodeApi.workspace
+      .getConfiguration("prism")
+      .get<boolean>("codeLens.enabled", false);
+    this.post({ type: "codeLensEnabled", enabled });
+  }
+
+  /** Ask the webview to reload dashboard data after reindex — keep current view. */
   postNavigateRefresh(): void {
-    this.post({ type: "navigate", view: "overview" });
-    this.post({
-      type: "status",
-      message: "Reindexed — refresh the view if needed",
-      kind: "info",
-    });
+    this.postDataRefresh();
+  }
+
+  /** Soft data refresh (watch / reindex / clear) without changing the active screen. */
+  postDataRefresh(): void {
+    this.post({ type: "dataRefresh" });
+  }
+
+  /** Ask the webview to show the in-app product tour (Settings / command). */
+  postShowTour(): void {
+    if (!this.webviewReady) {
+      this.pendingShowTour = true;
+      return;
+    }
+    this.post({ type: "showTour" });
   }
 
   private html(webview: vscode.Webview): string {

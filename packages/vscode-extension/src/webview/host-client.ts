@@ -1,12 +1,16 @@
 import type {
   BackendReport,
+  ChangeReviewReport,
+  ExplainAreaSummary,
   GraphSnapshotDto,
+  MapBookmark,
   MapLayerId,
   MapZoomLevel,
   SecurityReport,
   TestingReport,
   UtilityOverlayReport,
 } from "@prism/shared";
+import type { SaveBookmarkInput, WorkspacePackageInfo } from "@prism/core";
 import {
   lighthouseProgressFromJobEvent,
   recordAudit,
@@ -673,6 +677,102 @@ export async function runLighthouseLab(options?: {
   );
 }
 
+export async function reviewChanges(
+  paths: readonly string[],
+  base?: string,
+): Promise<ChangeReviewReport> {
+  return withAudit(
+    {
+      category: "impact",
+      operation: "Computed change review",
+      target: `${paths.length} path(s)`,
+      command: `host:reviewChanges paths=${paths.length}`,
+    },
+    async () => {
+      const res = await request({
+        method: "reviewChanges",
+        paths: [...paths],
+        ...(base ? { base } : {}),
+      });
+      if (!res.ok) throw new Error(res.error);
+      if (res.method !== "reviewChanges")
+        throw new Error("Unexpected response");
+      return res.data;
+    },
+    (data) => ({
+      status: "success",
+      output: `overallRisk=${data.overallRisk} affectedFiles=${data.totalAffectedFiles} tests=${data.totalTestsAffected}`,
+    }),
+  );
+}
+
+export async function explainArea(
+  path: string,
+): Promise<ExplainAreaSummary | null> {
+  return withAudit(
+    {
+      category: "analysis",
+      operation: "Explained area",
+      target: path,
+      command: `host:explainArea ${path}`,
+    },
+    async () => {
+      const res = await request({ method: "explainArea", path });
+      if (!res.ok) throw new Error(res.error);
+      if (res.method !== "explainArea") throw new Error("Unexpected response");
+      return res.data;
+    },
+    (data) => {
+      if (!data) return { status: "error", output: "explainArea unavailable." };
+      return {
+        status: "success",
+        output: `domains=${data.domains.join(",") || "none"} in=${data.dependencyDegree.in} out=${data.dependencyDegree.out}`,
+      };
+    },
+  );
+}
+
+export async function fetchBookmarks(): Promise<MapBookmark[]> {
+  const res = await request({ method: "listBookmarks" });
+  if (!res.ok) return [];
+  if (res.method !== "listBookmarks") return [];
+  return res.data;
+}
+
+export async function saveBookmark(
+  input: SaveBookmarkInput,
+): Promise<MapBookmark[]> {
+  const res = await request({ method: "saveBookmark", input });
+  if (!res.ok) return [];
+  if (res.method !== "saveBookmark") return [];
+  return res.data;
+}
+
+export async function removeBookmark(
+  bookmarkId: string,
+): Promise<MapBookmark[]> {
+  const res = await request({ method: "removeBookmark", bookmarkId });
+  if (!res.ok) return [];
+  if (res.method !== "removeBookmark") return [];
+  return res.data;
+}
+
+export async function fetchPackages(): Promise<WorkspacePackageInfo[]> {
+  const res = await request({ method: "listPackages" });
+  if (!res.ok) return [];
+  if (res.method !== "listPackages") return [];
+  return res.data;
+}
+
+export async function selectPackage(
+  packageId: string | null,
+): Promise<string | null> {
+  const res = await request({ method: "selectPackage", packageId });
+  if (!res.ok) return null;
+  if (res.method !== "selectPackage") return null;
+  return res.data;
+}
+
 export async function discoverFrontendRoutes(): Promise<string[]> {
   const res = await request({ method: "frontendRoutes" });
   if (!res.ok) throw new Error(res.error);
@@ -726,6 +826,15 @@ export async function fetchPrismGitignoreStatus(): Promise<
   const res = await request({ method: "prismGitignore" });
   if (!res.ok) return { ignored: null };
   if (res.method !== "prismGitignore") return { ignored: null };
+  return res.data;
+}
+
+export async function addPrismGitignore(): Promise<
+  import("@prism/app-shell").PrismGitignoreStatus
+> {
+  const res = await request({ method: "addPrismGitignore" });
+  if (!res.ok) return { ignored: null, detail: res.error };
+  if (res.method !== "addPrismGitignore") return { ignored: null };
   return res.data;
 }
 

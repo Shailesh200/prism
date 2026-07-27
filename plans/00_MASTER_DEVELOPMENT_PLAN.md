@@ -485,6 +485,7 @@ flowchart TD
 | M-031 | VS Code Map + Explorer | Surfaces | M-030 | Summary |
 | M-032 | Cursor Extension | Surfaces | M-030 | Summary |
 | M-047 | Extension Marketplace | Surfaces | M-031, M-032 | Yes |
+| M-048 | Extension Polish + Blast Depth | Surfaces | M-047 | Yes |
 | M-033 | Incremental Indexing & Watch | Scale | M-008 | Summary |
 | M-034 | Multi-language (Tree-sitter) | Scale | M-006 | Summary |
 | M-035 | Performance Hardening | Hardening | M-033 | Summary |
@@ -627,9 +628,20 @@ Critical-path milestones have full documents under `plans/milestones/`. Others a
 - Full doc: [`milestones/M-047_extension-marketplace.md`](./milestones/M-047_extension-marketplace.md)
 - DoD: packageable VSIX + PUBLISH.md; owner publishes with publisher PAT
 
+#### M-048 — Extension Product Epic
+- Polish + incremental watch (ADR-0026; supersedes M-033) + editor surfaces,
+  trust/onboarding, change review, explain cards, bookmarks, package/multi-root,
+  health alerts + **Blast Radius Depth** (Phase 8; absorbs M-049; ADR-0027)
+- Full doc: [`milestones/M-048_extension-polish.md`](./milestones/M-048_extension-polish.md)
+- DoD: Necessary + High-leverage extension loop before MCP; Phase 8.1 Vitest/Jest
+  soft lanes + honest safe-delete; `verify:milestone` green
+
+#### M-049 — Blast Radius Depth
+- **Absorbed into M-048 Phase 8** — design archive: [`milestones/M-049_blast-radius-depth.md`](./milestones/M-049_blast-radius-depth.md)
+
 #### M-033 — Incremental Indexing & Watch
-- fs.watch / chokidar; invalidation units; partial rebuild
-- DoD: edit file → index updates < budget (defined in milestone)
+- **Deferred / superseded by M-048 Phase 1** (ADR-0026)
+- fs.watch / dirty-set / partial rebuild now owned by M-048
 
 #### M-034 — Multi-language via Tree-sitter
 - Python + Go *or* one additional language (ADR)

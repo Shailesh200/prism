@@ -3,9 +3,11 @@ import {
   AppShellClientProvider,
   AppSidebar,
   BlastRadiusScreen,
+  ChangeReviewScreen,
   DnaScreen,
   DomainScreen,
   DomainsScreen,
+  ExplainAreaScreen,
   IntegrationsScreen,
   OverviewScreen,
   PrismErrorBoundary,
@@ -135,6 +137,8 @@ export function App(): ReactElement {
     | "trends"
     | "integrations"
     | "settings"
+    | "review"
+    | "explain"
   >("overview");
   const [settingsSection, setSettingsSection] =
     useState<SettingsSection>("general");
@@ -253,7 +257,9 @@ export function App(): ReactElement {
         | "blast"
         | "trends"
         | "integrations"
-        | "settings",
+        | "settings"
+        | "review"
+        | "explain",
     ) => {
       setView(v);
       if (v !== "settings") setSettingsSection("general");
@@ -573,6 +579,7 @@ export function App(): ReactElement {
             repoLabel={rootLabel}
             branch={gitActivity?.summary?.branch}
             user={gitActivity?.recentCommits[0] ?? null}
+            dna={dna}
             onNavigate={navigate}
           />
         ) : view === "domain" ? (
@@ -595,6 +602,20 @@ export function App(): ReactElement {
         ) : view === "blast" ? (
           <BlastRadiusScreen
             root={root}
+            repoLabel={rootLabel}
+            branch={gitActivity?.summary?.branch}
+            user={gitActivity?.recentCommits[0] ?? null}
+            onNavigate={navigate}
+          />
+        ) : view === "review" ? (
+          <ChangeReviewScreen
+            repoLabel={rootLabel}
+            branch={gitActivity?.summary?.branch}
+            user={gitActivity?.recentCommits[0] ?? null}
+            onNavigate={navigate}
+          />
+        ) : view === "explain" ? (
+          <ExplainAreaScreen
             repoLabel={rootLabel}
             branch={gitActivity?.summary?.branch}
             user={gitActivity?.recentCommits[0] ?? null}

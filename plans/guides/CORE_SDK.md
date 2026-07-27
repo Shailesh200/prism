@@ -91,11 +91,16 @@ Default `Prism.create()` enables all of the above when default ports are wired.
 | `exploreCode` | M-023 selection report |
 | `getBackendReport` | M-044 route intelligence |
 | `getTestingReport` / `getSecurityReport` / `ingestCoverageFromWorkspace` | M-046 Testing & Security |
+| `discoverFrontendRoutes` | Frontend route discovery (Next app/pages + Router) |
 | `getPersonaPresets` / `getStackProfile` / `listPackages` / `selectPackage` / `getSelectedPackage` | Mono / personas |
 | `startUtilityJob` / `getUtilityJob` / `listUtilityJobs` | Opt-in utilities |
 | `listIngestArtifacts` / `getIngestArtifact` / `getCwvReport` | CWV / ingest |
 | `listUtilityOverlayKinds` / `getUtilityOverlay` | Map domain overlays |
 | `setConsent` / `getConsent` | Privacy consent |
+| `startWatch` / `stopWatch` / `notifyWatchPaths` / `getIndexFreshness` | M-048 Phase 1 incremental watch (ADR-0026) |
+| `reviewChanges` | M-048 Phase 4 — multi-path aggregate (`blastRadius` + `testImpact` + `breakingChangeHints`) |
+| `explainArea` | M-048 Phase 5 — deterministic path summary (domain overlap + dep degree + git ownership) |
+| `listBookmarks` / `saveBookmark` / `removeBookmark` | M-048 Phase 6 — bookmarks persisted at `.prism/bookmarks.json` |
 
 ### Internal (do not use from surfaces)
 

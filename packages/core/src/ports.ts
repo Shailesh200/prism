@@ -37,6 +37,9 @@ export type IndexWorkspaceOptions = {
   readonly concurrency?: number;
   readonly signal?: AbortSignal;
   readonly onProgress?: (event: IndexProgressEvent) => void;
+  /** Dirty-set paths (ADR-0026); skips full inventory when cache is warm. */
+  readonly changedPaths?: readonly string[];
+  readonly deletedPaths?: readonly string[];
 };
 
 export type IndexerPort = {

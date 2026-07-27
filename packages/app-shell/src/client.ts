@@ -17,14 +17,19 @@ import type {
 import type {
   ApplyRenameInput,
   ApplyRenameResult,
+  ChangeReviewReport,
   DashboardPayload,
+  ExplainAreaSummary,
   ImpactBundle,
   ImpactTarget,
+  MapBookmark,
   MapPayload,
   PrismGitignoreStatus,
   RunTestsOptions,
+  SaveBookmarkInput,
   SymbolSearchHit,
   TestListResult,
+  WorkspacePackageInfo,
 } from "./types.js";
 
 export type LighthouseLabProgressEvent = {
@@ -118,6 +123,11 @@ export type AppShellClient = {
    */
   fetchPrismGitignoreStatus?(): Promise<PrismGitignoreStatus>;
   /**
+   * Append `.prism/` to the workspace root `.gitignore` and return the new
+   * status. Optional for hosts that cannot write files.
+   */
+  addPrismGitignore?(): Promise<PrismGitignoreStatus>;
+  /**
    * Stage DevOps signals from a foreign GitHub repo into
    * `.prism/remote-ci/<owner>/<repo>/` (workflows + deploy/k8s markers).
    * Network-gated by the caller (Allow network integrations + GitHub enabled).
@@ -129,6 +139,26 @@ export type AppShellClient = {
   }): Promise<StageDevopsRemoteResult>;
   openFile?(path: string): void;
   postToHost?(message: unknown): void;
+  /**
+   * Multi-path aggregate review for SCM / editor "Review Changes" (M-048
+   * Phase 4). Optional so read-only surfaces degrade to a not-supported note.
+   */
+  fetchChangeReview?(
+    paths: readonly string[],
+    base?: string,
+  ): Promise<ChangeReviewReport>;
+  /**
+   * Deterministic module/folder summary (M-048 Phase 5): domain overlap +
+   * dependency degree + local git ownership.
+   */
+  fetchExplainArea?(path: string): Promise<ExplainAreaSummary | null>;
+  /** Bookmarks persisted at `.prism/bookmarks.json` (M-048 Phase 6). */
+  fetchBookmarks?(): Promise<MapBookmark[]>;
+  saveBookmark?(input: SaveBookmarkInput): Promise<MapBookmark[]>;
+  removeBookmark?(id: string): Promise<MapBookmark[]>;
+  /** Mono-v1 package picker (M-048 Phase 6). */
+  fetchPackages?(): Promise<WorkspacePackageInfo[]>;
+  selectPackage?(packageId: string | null): Promise<string | null>;
 };
 
 export type StageDevopsRemoteResult = {

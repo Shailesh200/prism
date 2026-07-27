@@ -1,11 +1,14 @@
 import type {
   BackendReport,
   BlastRadiusReport,
+  ChangeReviewReport,
   DnaReport,
+  ExplainAreaSummary,
   GitActivity,
   GitRecentFile,
   GraphSnapshotDto,
   HealthScore,
+  MapBookmark,
   MapLayerId,
   MapZoomLevel,
   RenameImpactReport,
@@ -87,6 +90,26 @@ export type {
   ApplyRenameResult,
 } from "./apply-rename.js";
 
+/** Package entry for the Mono-v1 package picker (M-048 Phase 6). */
+export type WorkspacePackageInfo = {
+  readonly id: string;
+  readonly name?: string;
+  readonly rootDir: string;
+  readonly domains: readonly string[];
+  readonly personas: readonly string[];
+};
+
+/** Upsert input for bookmark persistence (M-048 Phase 6). */
+export type SaveBookmarkInput = {
+  readonly id?: string;
+  readonly label: string;
+  readonly path?: string;
+  readonly nodeId?: string;
+  readonly zoom?: MapZoomLevel;
+  readonly note?: string;
+  readonly createdAt?: string;
+};
+
 /**
  * Whether the workspace's `.prism` folder is covered by `.gitignore`.
  * `ignored` is `null` when the host could not determine the status.
@@ -99,7 +122,10 @@ export type PrismGitignoreStatus = {
 
 export type {
   BackendReport,
+  ChangeReviewReport,
+  ExplainAreaSummary,
   GraphSnapshotDto,
+  MapBookmark,
   MapLayerId,
   MapZoomLevel,
   RepositoryMap,

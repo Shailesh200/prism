@@ -424,18 +424,42 @@ function annotateGitAttrs(
         : n.kind === "file"
           ? n.label
           : null;
+    const rootDir =
+      typeof n.attrs?.rootDir === "string" ? n.attrs.rootDir : null;
+    const scopePrefix =
+      typeof n.attrs?.scopePrefix === "string" ? n.attrs.scopePrefix : null;
+
     let git: JsonValue | null = null;
     if (path && gitSignals.has(path)) {
       git = gitAttrForFile(gitSignals.get(path)!);
-    } else if (Array.isArray(n.attrs?.memberFiles)) {
+    } else if (
+      Array.isArray(n.attrs?.memberFiles) &&
+      n.attrs.memberFiles.length > 0
+    ) {
       const sigs = n.attrs.memberFiles
         .filter((m): m is string => typeof m === "string")
         .map((m) => gitSignals.get(m))
         .filter((s): s is GitFileSignal => s !== undefined);
       git = rollupGit(sigs);
-    } else if (typeof n.attrs?.scopePrefix === "string") {
-      git = rollupGit(under(n.attrs.scopePrefix));
-    } else if (n.kind === "workspace") {
+    }
+
+    // Folders / packages / features: roll up every file under the path prefix
+    // when a direct file signal or memberFiles rollup was empty.
+    if (git === null) {
+      const prefix =
+        scopePrefix ||
+        rootDir ||
+        (path &&
+        (n.kind === "folder" ||
+          n.kind === "package" ||
+          n.kind === "feature" ||
+          n.kind === "workspace")
+          ? path
+          : null);
+      if (prefix) git = rollupGit(under(prefix));
+    }
+
+    if (git === null && n.kind === "workspace") {
       git = rollupGit([...gitSignals.values()]);
     }
     if (git === null) return n;

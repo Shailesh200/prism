@@ -12,12 +12,15 @@ import {
   AppShellClientProvider,
   AppSidebar,
   BlastRadiusScreen,
+  ChangeReviewScreen,
   DnaScreen,
   DomainScreen,
   DomainsScreen,
+  ExplainAreaScreen,
   IntegrationsScreen,
   OverviewScreen,
   PrismErrorBoundary,
+  PrismTour,
   SettingsScreen,
   TestingSecurityScreen,
   TrendsScreen,
@@ -25,6 +28,8 @@ import {
   autoReindexIntervalMs,
   clearAuditLog,
   clearIntegrationsState,
+  clearTourCompleted,
+  isTourCompleted,
   loadSettings,
   recordAudit,
   saveSettings,
@@ -45,12 +50,15 @@ import type {
 import type { AppView, HostToWebview } from "../protocol.js";
 import {
   fetchBackendReport,
+  fetchBookmarks,
   fetchDashboard,
   fetchDependencyGraph,
   fetchHealthHistory,
   fetchHealthHistoryBackfillStatus,
   fetchImpactBundle,
+  fetchPackages,
   applyRename,
+  explainArea,
   fetchOverlay,
   fetchRegionMovers,
   fetchReindex,
@@ -61,15 +69,20 @@ import {
   fetchEngineeringHealth,
   fetchCodeExplorer,
   fetchPrismGitignoreStatus,
+  addPrismGitignore,
   gitFetch,
   handleHostMessage,
   ingestCoverage,
   openFile,
   postToHost,
   discoverFrontendRoutes,
+  removeBookmark,
+  reviewChanges,
   runLighthouseLab,
   runTests,
   listTests,
+  saveBookmark,
+  selectPackage,
   stageDevopsRemote,
   startHealthHistoryBackfill,
   type DashboardPayload,
@@ -134,6 +147,15 @@ function App(): ReactElement {
   const [networkIntegrationsAllowed, setNetworkIntegrationsAllowed] = useState(
     () => loadSettings().allowNetworkIntegrations,
   );
+  // Deep-link targets from host `navigate` messages (M-048 Phase 2/3/4/5).
+  const [focusPath, setFocusPath] = useState<string | null>(null);
+  const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
+  const [targetPath, setTargetPath] = useState<string | null>(null);
+  const [targetPaths, setTargetPaths] = useState<string[] | null>(null);
+  const [codeLensEnabled, setCodeLensEnabled] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
+  const dashboardRef = useRef<DashboardPayload | null>(null);
+  dashboardRef.current = dashboard;
 
   useEffect(() => {
     const s = loadSettings();
@@ -185,10 +207,18 @@ function App(): ReactElement {
       fetchEngineeringHealth,
       fetchCodeExplorer,
       fetchPrismGitignoreStatus,
+      addPrismGitignore,
       gitFetch,
       runLighthouseLab,
       discoverFrontendRoutes,
       stageDevopsRemote,
+      fetchChangeReview: (paths, base) => reviewChanges(paths, base),
+      fetchExplainArea: (path) => explainArea(path),
+      fetchBookmarks,
+      saveBookmark,
+      removeBookmark,
+      fetchPackages,
+      selectPackage,
       openFile,
       postToHost,
     }),
@@ -201,8 +231,10 @@ function App(): ReactElement {
     setView("settings");
   }, []);
 
-  const loadDashboard = useCallback(async () => {
-    setBoot({ message: "Indexing repository…", kind: "loading" });
+  const loadDashboard = useCallback(async (opts?: { quiet?: boolean }) => {
+    if (!opts?.quiet) {
+      setBoot({ message: "Loading workspace…", kind: "loading" });
+    }
     try {
       const data = await fetchDashboard();
       setDashboard(data);
@@ -220,19 +252,48 @@ function App(): ReactElement {
       if (!msg || typeof msg !== "object") return;
       handleHostMessage(msg);
       if ("type" in msg && msg.type === "status") {
-        setBoot({ message: msg.message, kind: msg.kind });
+        // Only use host status for the initial boot screen. Once we have a
+        // dashboard, ignore loading/info flashes from watch/reindex so CodeLens
+        // / Review / Explain are not replaced by an "Indexing…" blank.
+        setBoot((prev) => {
+          if (prev.kind === "loading" && !dashboardRef.current) {
+            return { message: msg.message, kind: msg.kind };
+          }
+          if (msg.kind === "error") {
+            return { message: msg.message, kind: "error" };
+          }
+          return prev;
+        });
       }
       if ("type" in msg && msg.type === "navigate") {
         setView(msg.view);
         if (msg.domainId) setActiveDomain(msg.domainId);
+        setFocusPath(msg.focusPath ?? null);
+        setFocusNodeId(msg.focusNodeId ?? null);
+        setTargetPath(msg.targetPath ?? null);
+        setTargetPaths(msg.targetPaths ?? null);
+      }
+      if ("type" in msg && msg.type === "dataRefresh") {
+        void loadDashboard({ quiet: true });
       }
       if ("type" in msg && msg.type === "audit") {
         recordAudit(msg.entry);
+      }
+      if ("type" in msg && msg.type === "codeLensEnabled") {
+        setCodeLensEnabled(msg.enabled);
+      }
+      if ("type" in msg && msg.type === "showTour") {
+        setTourOpen(true);
       }
     };
     window.addEventListener("message", onMessage);
     postToHost({ type: "ready", view: "overview" });
     void loadDashboard();
+    void fetchBookmarks()
+      .then(setBookmarks)
+      .catch(() => {
+        /* bookmarks are optional — keep empty on failure */
+      });
     return () => window.removeEventListener("message", onMessage);
   }, [loadDashboard]);
 
@@ -325,6 +386,13 @@ function App(): ReactElement {
     if (next !== "settings") setSettingsSection("general");
   }, []);
 
+  // First successful load → in-app tour (unless already completed / skipped).
+  useEffect(() => {
+    if (!dashboard) return;
+    if (isTourCompleted()) return;
+    setTourOpen(true);
+  }, [dashboard?.root]);
+
   if (!dashboard || boot.kind === "loading" || boot.kind === "error") {
     return (
       <AppShellClientProvider client={client}>
@@ -408,6 +476,7 @@ function App(): ReactElement {
         repoLabel={repoLabel}
         branch={branch}
         user={user}
+        dna={dna}
         onNavigate={onNavigate}
       />
     );
@@ -437,6 +506,28 @@ function App(): ReactElement {
         repoLabel={repoLabel}
         branch={branch}
         user={user}
+        initialFile={targetPath}
+        onNavigate={onNavigate}
+      />
+    );
+  } else if (view === "review") {
+    body = (
+      <ChangeReviewScreen
+        repoLabel={repoLabel}
+        branch={branch}
+        user={user}
+        initialPaths={targetPaths}
+        onNavigate={onNavigate}
+        onOpenFile={openFile}
+      />
+    );
+  } else if (view === "explain") {
+    body = (
+      <ExplainAreaScreen
+        repoLabel={repoLabel}
+        branch={branch}
+        user={user}
+        initialPath={targetPath}
         onNavigate={onNavigate}
       />
     );
@@ -505,10 +596,20 @@ function App(): ReactElement {
         onLocalOnlyAnalysisChange={(enabled) => {
           postToHost({ type: "setLocalOnly", enabled });
         }}
+        codeLensEnabled={codeLensEnabled}
+        onCodeLensChange={(enabled) => {
+          setCodeLensEnabled(enabled);
+          postToHost({ type: "setCodeLens", enabled });
+        }}
+        onOpenWalkthrough={() => {
+          setTourOpen(true);
+        }}
         onClearData={() => {
           domainRuns.current.clear();
           clearAuditLog();
           clearIntegrationsState();
+          clearTourCompleted();
+          setTourOpen(true);
           try {
             const keys: string[] = [];
             for (let i = 0; i < localStorage.length; i++) {
@@ -543,6 +644,8 @@ function App(): ReactElement {
               <RepositoryMapView
                 map={activeMap}
                 bookmarks={bookmarks}
+                focusPath={focusPath}
+                focusNodeId={focusNodeId}
                 {...(brand ? { brandMarkSrc: brand } : {})}
                 showBrand={false}
                 branch={branch}
@@ -558,16 +661,21 @@ function App(): ReactElement {
                   postToHost({ type: "layers", layers: [...next] });
                 }}
                 onAddBookmark={(label, nodeId) => {
-                  setBookmarks((prev) => [
-                    ...prev,
-                    {
-                      id: `bookmark:${nodeId}:${Date.now()}`,
-                      label,
-                      nodeId,
-                      zoom,
-                      createdAt: new Date().toISOString(),
-                    },
-                  ]);
+                  void saveBookmark({ label, nodeId, zoom })
+                    .then(setBookmarks)
+                    .catch(() => {
+                      // Fall back to a local-only bookmark if persistence fails.
+                      setBookmarks((prev) => [
+                        ...prev,
+                        {
+                          id: `bookmark:${nodeId}:${Date.now()}`,
+                          label,
+                          nodeId,
+                          zoom,
+                          createdAt: new Date().toISOString(),
+                        },
+                      ]);
+                    });
                 }}
                 onOpenPath={(path) => openFile(path)}
               />
@@ -591,6 +699,16 @@ function App(): ReactElement {
         <PrismErrorBoundary label={view} resetKey={view}>
           {body}
         </PrismErrorBoundary>
+        <PrismTour
+          open={tourOpen}
+          onClose={() => setTourOpen(false)}
+          onNavigate={(next) => {
+            if (next === "settings") {
+              setSettingsSection("indexing");
+            }
+            onNavigate(next);
+          }}
+        />
       </AppShellClientProvider>
     </PrismErrorBoundary>
   );

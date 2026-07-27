@@ -19,12 +19,19 @@ export type TooltipProps = {
   readonly children: ReactNode;
   /** Horizontal alignment of the popover relative to the trigger. */
   readonly align?: TooltipAlign;
+  /**
+   * Optional interactive footer (e.g. action button). When set, the popover
+   * stays open while the pointer is over the popover so the action is clickable.
+   */
+  readonly actions?: ReactNode;
 };
 
 /** Margin kept between the popover and the viewport edges. */
 const VIEWPORT_MARGIN = 8;
 /** Gap between the trigger and the popover. */
 const GAP = 8;
+/** Grace period before closing when leaving trigger toward the popover. */
+const CLOSE_DELAY_MS = 180;
 
 type Position = { readonly top: number; readonly left: number };
 
@@ -37,12 +44,39 @@ type Position = { readonly top: number; readonly left: number };
  * runs off-screen near a window edge.
  */
 export function Tooltip(props: TooltipProps): ReactElement {
-  const { label, children, align = "center" } = props;
+  const { label, children, align = "center", actions } = props;
   const id = useId();
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<Position | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLSpanElement>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const interactive = actions != null;
+
+  const clearCloseTimer = useCallback((): void => {
+    if (closeTimer.current !== null) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  }, []);
+
+  const scheduleClose = useCallback((): void => {
+    clearCloseTimer();
+    if (!interactive) {
+      setOpen(false);
+      return;
+    }
+    closeTimer.current = setTimeout(() => setOpen(false), CLOSE_DELAY_MS);
+  }, [clearCloseTimer, interactive]);
+
+  const openNow = useCallback((): void => {
+    clearCloseTimer();
+    setOpen(true);
+  }, [clearCloseTimer]);
+
+  useEffect(() => {
+    return () => clearCloseTimer();
+  }, [clearCloseTimer]);
 
   const compute = useCallback(() => {
     const trigger = triggerRef.current;
@@ -82,7 +116,7 @@ export function Tooltip(props: TooltipProps): ReactElement {
       return;
     }
     compute();
-  }, [open, compute]);
+  }, [open, compute, actions]);
 
   useEffect(() => {
     if (!open) return;
@@ -108,10 +142,16 @@ export function Tooltip(props: TooltipProps): ReactElement {
             role="tooltip"
             className="prism-tooltip__pop"
             data-open={pos ? "true" : "false"}
+            data-interactive={interactive ? "true" : undefined}
             style={style}
+            onMouseEnter={interactive ? openNow : undefined}
+            onMouseLeave={interactive ? scheduleClose : undefined}
           >
             <span className="prism-tooltip__title">{label}</span>
             <span className="prism-tooltip__body">{children}</span>
+            {actions ? (
+              <span className="prism-tooltip__actions">{actions}</span>
+            ) : null}
           </span>,
           document.body,
         )
@@ -126,11 +166,14 @@ export function Tooltip(props: TooltipProps): ReactElement {
         aria-label={`How ${label} is calculated`}
         aria-expanded={open}
         aria-describedby={open ? id : undefined}
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
-        onClick={() => setOpen((v) => !v)}
+        onMouseEnter={openNow}
+        onMouseLeave={scheduleClose}
+        onFocus={openNow}
+        onBlur={scheduleClose}
+        onClick={() => {
+          clearCloseTimer();
+          setOpen((v) => !v);
+        }}
       >
         <Info size={12} aria-hidden />
       </button>

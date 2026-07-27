@@ -52,19 +52,28 @@ import {
   resolveEndpointNodeId,
   type RouteEndpoint,
 } from "@prism/navigation";
-import { buildRepositoryMap, type MapPackageInfo } from "@prism/repository-map";
+import {
+  buildRepositoryMap,
+  emptyBookmarkStore,
+  parseBookmarkStore,
+  sortBookmarks,
+  type MapPackageInfo,
+} from "@prism/repository-map";
 import {
   PrismErrorCode,
   CodeExplorerTargetSchema,
   type BlastRadiusReport,
   type BreakingChangeHint,
   type BackendReport,
+  type ChangeReviewItem,
+  type ChangeReviewReport,
   type CodeExplorerReport,
   type CodeExplorerTarget,
   type ConsentRecord,
   type CwvReport,
   type DnaReport,
   type EngineeringHealthReport,
+  type ExplainAreaSummary,
   type FeatureInfo,
   type GitActivity,
   type GitCommitRef,
@@ -81,6 +90,7 @@ import {
   type KnowledgeGraphStats,
   type Landmark,
   type MapBookmark,
+  type MapBookmarkStore,
   type MapZoomLevel,
   type NavigationRouteResult,
   type PersonaPresets,
@@ -104,6 +114,8 @@ import {
   prismError,
   unsafeRepoId,
 } from "@prism/shared";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { PrismCapabilities } from "./capabilities.js";
 import { readGitSignals, type GitSignals } from "./git/git-signals.js";
 import {
@@ -112,6 +124,27 @@ import {
   sampleGitCommits,
 } from "./git/history-sample.js";
 import type { IndexWorkspaceOptions, PrismEnginePorts } from "./ports.js";
+
+/**
+ * Coarse path → domain keyword heuristics for `explainArea` (M-048 Phase 5).
+ * Intersected with the repo's detected {@link DnaReport.rankedDomains} so a
+ * generic-looking path never surfaces a domain the repo doesn't have.
+ */
+const DOMAIN_PATH_HINTS: Readonly<Record<string, RegExp>> = {
+  frontend: /\b(components?|pages?|views?|ui|frontend|hooks?)\b/i,
+  backend: /\b(api|server|controllers?|routes?|services?|backend|handlers?)\b/i,
+  mobile: /\b(screens?|navigators?|mobile)\b/i,
+  desktop: /\b(main|preload|renderer|desktop)\b/i,
+  devops_platform: /(\.github\/workflows|docker|k8s|terraform|infra|devops)/i,
+  data_ml_ai: /\b(pipelines?|models?|notebooks?|\bml\b|\bdata\b)\b/i,
+};
+
+function matchDomainsForPath(
+  path: string,
+  candidateDomains: readonly string[],
+): string[] {
+  return candidateDomains.filter((d) => DOMAIN_PATH_HINTS[d]?.test(path));
+}
 
 export type FindRouteQuery = {
   readonly from: RouteEndpoint;
@@ -146,6 +179,25 @@ export type WorkspaceStatus = {
   readonly capabilities: PrismCapabilities;
 };
 
+/** Index freshness for watch / status bar (M-048 / ADR-0026). */
+export type IndexFreshness = {
+  readonly watching: boolean;
+  readonly status: "fresh" | "stale" | "indexing";
+  readonly lastIndexedAt: string | null;
+  readonly pendingDirtyCount: number;
+  readonly dirtyPaths: readonly string[];
+};
+
+export type StartWatchOptions = {
+  readonly debounceMs?: number;
+  readonly onChange?: (freshness: IndexFreshness) => void;
+};
+
+export type NotifyWatchPathsInput = {
+  readonly changedPaths?: readonly string[];
+  readonly deletedPaths?: readonly string[];
+};
+
 /** Package entry for Mono-v1 selector (MR-03). */
 export type WorkspacePackageInfo = {
   readonly id: string;
@@ -162,6 +214,24 @@ export type GetStackProfileOptions = {
 
 export type GetUtilityOverlayOptions = {
   readonly packageId?: string | null;
+};
+
+/** Multi-path change review input (M-048 Phase 4). */
+export type ReviewChangesInput = {
+  readonly paths: readonly string[];
+  /** Diff base label to stamp on the report (display only). */
+  readonly base?: string;
+};
+
+/** Upsert input for `saveBookmark` — `id` omitted creates a new bookmark. */
+export type SaveBookmarkInput = {
+  readonly id?: string;
+  readonly label: string;
+  readonly path?: string;
+  readonly nodeId?: string;
+  readonly zoom?: MapZoomLevel;
+  readonly note?: string;
+  readonly createdAt?: string;
 };
 
 export type PrismWorkspace = {
@@ -213,6 +283,15 @@ export type PrismWorkspace = {
   reindex(
     options?: IndexWorkspaceOptions,
   ): Promise<Result<IndexSummary, PrismError>>;
+  /**
+   * Start watch mode (M-048 / ADR-0026). Surfaces may also push FS events via
+   * {@link notifyWatchPaths}. Debounced dirty set triggers a warm/dirty reindex.
+   */
+  startWatch(options?: StartWatchOptions): Result<void, PrismError>;
+  stopWatch(): Result<void, PrismError>;
+  /** Forward host FS events into the dirty set while watching. */
+  notifyWatchPaths(input: NotifyWatchPathsInput): Result<void, PrismError>;
+  getIndexFreshness(): Result<IndexFreshness, PrismError>;
   getDna(): Promise<Result<DnaReport, PrismError>>;
   /**
    * Persona / domain Map+insights presets from the stack profile (M-041 P0).
@@ -397,6 +476,28 @@ export type PrismWorkspace = {
     id: string;
     path?: string;
   }): Promise<Result<BreakingChangeHint[], PrismError>>;
+  /**
+   * Multi-path aggregate review (M-048 Phase 4): `blastRadius` + `testImpact`
+   * + `breakingChangeHints` per path, rolled up into one report for SCM /
+   * editor "Review Changes". Requires `index()`.
+   */
+  reviewChanges(
+    input: ReviewChangesInput,
+  ): Promise<Result<ChangeReviewReport, PrismError>>;
+  /**
+   * Deterministic module/folder summary (M-048 Phase 5): domain overlap from
+   * DNA signals, dependency in/out degree, and local git ownership. Requires
+   * `index()`.
+   */
+  explainArea(path: string): Promise<Result<ExplainAreaSummary, PrismError>>;
+  /** Bookmarks persisted at `.prism/bookmarks.json` (M-048 Phase 6). */
+  listBookmarks(): Promise<Result<MapBookmark[], PrismError>>;
+  /** Upsert a bookmark (by `id` when set) and return the updated list. */
+  saveBookmark(
+    input: SaveBookmarkInput,
+  ): Promise<Result<MapBookmark[], PrismError>>;
+  /** Remove a bookmark by id and return the updated list. */
+  removeBookmark(id: string): Promise<Result<MapBookmark[], PrismError>>;
   close(): void;
 };
 
@@ -450,6 +551,89 @@ export function createWorkspace(options: {
     message: "Not started",
   };
   let backfillRunning = false;
+
+  // —— Incremental watch (M-048 / ADR-0026) ——
+  let watching = false;
+  let watchStatus: IndexFreshness["status"] = "fresh";
+  let pendingChanged = new Set<string>();
+  let pendingDeleted = new Set<string>();
+  let watchTimer: ReturnType<typeof setTimeout> | null = null;
+  let watchDebounceMs = 1500;
+  let watchOnChange: ((freshness: IndexFreshness) => void) | null = null;
+  let watchRunning = false;
+
+  const freshnessSnapshot = (): IndexFreshness => ({
+    watching,
+    status: watchStatus,
+    lastIndexedAt,
+    pendingDirtyCount: pendingChanged.size + pendingDeleted.size,
+    dirtyPaths: [...pendingChanged, ...pendingDeleted].sort(),
+  });
+
+  const emitFreshness = (): void => {
+    watchOnChange?.(freshnessSnapshot());
+  };
+
+  const flushWatch = async (): Promise<void> => {
+    if (!open || !watching || watchRunning) return;
+    const changed = [...pendingChanged];
+    const deleted = [...pendingDeleted];
+    pendingChanged.clear();
+    pendingDeleted.clear();
+    if (changed.length === 0 && deleted.length === 0) {
+      watchStatus = lastIndexedAt ? "fresh" : "stale";
+      emitFreshness();
+      return;
+    }
+    watchRunning = true;
+    watchStatus = "indexing";
+    emitFreshness();
+    try {
+      await runIndex({
+        changedPaths: changed,
+        deletedPaths: deleted,
+      });
+      watchStatus =
+        pendingChanged.size + pendingDeleted.size > 0 ? "stale" : "fresh";
+    } finally {
+      watchRunning = false;
+      emitFreshness();
+      if (pendingChanged.size + pendingDeleted.size > 0 && watching) {
+        scheduleWatchFlush();
+      }
+    }
+  };
+
+  const scheduleWatchFlush = (): void => {
+    if (watchTimer) clearTimeout(watchTimer);
+    watchTimer = setTimeout(() => {
+      watchTimer = null;
+      void flushWatch();
+    }, watchDebounceMs);
+  };
+
+  const bookmarksFilePath = (): string =>
+    join(rootPath, ".prism", "bookmarks.json");
+
+  const readBookmarkStore = async (): Promise<MapBookmarkStore> => {
+    try {
+      const raw = await readFile(bookmarksFilePath(), "utf8");
+      const parsed = parseBookmarkStore(JSON.parse(raw));
+      if (parsed.ok) return parsed.value;
+    } catch {
+      /* missing / unreadable / invalid file → empty store */
+    }
+    return emptyBookmarkStore();
+  };
+
+  const writeBookmarkStore = async (store: MapBookmarkStore): Promise<void> => {
+    await mkdir(join(rootPath, ".prism"), { recursive: true });
+    await writeFile(
+      bookmarksFilePath(),
+      `${JSON.stringify(store, null, 2)}\n`,
+      "utf8",
+    );
+  };
 
   const ensureOpen = (): Result<true, PrismError> => {
     if (!open) {
@@ -551,6 +735,7 @@ export function createWorkspace(options: {
     if (result.ok) {
       lastSnapshot = result.value;
       lastIndexedAt = result.value.indexedAt;
+      if (!watching) watchStatus = "fresh";
       // Forward snapshot for Trends (ADR-0023) — fail soft on cache errors.
       try {
         const cache = await openIndexCache(rootPath);
@@ -727,6 +912,68 @@ export function createWorkspace(options: {
     },
     analyze: runAnalyze,
     reindex: runAnalyze,
+    startWatch(watchOptions) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      watching = true;
+      watchDebounceMs = watchOptions?.debounceMs ?? 1500;
+      watchOnChange = watchOptions?.onChange ?? null;
+      watchStatus =
+        pendingChanged.size + pendingDeleted.size > 0
+          ? "stale"
+          : lastIndexedAt
+            ? "fresh"
+            : "stale";
+      emitFreshness();
+      return ok(undefined);
+    },
+    stopWatch() {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      watching = false;
+      if (watchTimer) {
+        clearTimeout(watchTimer);
+        watchTimer = null;
+      }
+      watchOnChange = null;
+      emitFreshness();
+      return ok(undefined);
+    },
+    notifyWatchPaths(input) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      if (!watching) {
+        return err(
+          prismError(
+            PrismErrorCode.UNSUPPORTED,
+            "Watch is not started — call startWatch() first",
+          ),
+        );
+      }
+      for (const p of input.changedPaths ?? []) {
+        const norm = p.replace(/\\/g, "/").replace(/^\.\//, "");
+        if (norm) {
+          pendingDeleted.delete(norm);
+          pendingChanged.add(norm);
+        }
+      }
+      for (const p of input.deletedPaths ?? []) {
+        const norm = p.replace(/\\/g, "/").replace(/^\.\//, "");
+        if (norm) {
+          pendingChanged.delete(norm);
+          pendingDeleted.add(norm);
+        }
+      }
+      watchStatus = "stale";
+      emitFreshness();
+      scheduleWatchFlush();
+      return ok(undefined);
+    },
+    getIndexFreshness() {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      return ok(freshnessSnapshot());
+    },
     async getDna() {
       const profile = await loadWorkspaceRollup();
       if (!profile.ok) return profile;
@@ -1454,7 +1701,153 @@ export function createWorkspace(options: {
         impactContextFor(gate.value, input.kind === "symbol"),
       );
     },
+    async reviewChanges(input) {
+      const gate = ensureImpact();
+      if (!gate.ok) return gate;
+      const context = impactContextFor(gate.value, false);
+      const paths = [
+        ...new Set(
+          input.paths.map((p) => p.replace(/\\/g, "/").replace(/^\.\//, "")),
+        ),
+      ];
+      const items: ChangeReviewItem[] = [];
+      for (const path of paths) {
+        const origin = { kind: "file" as const, id: path, path };
+        const blast = computeBlastRadius(origin, context);
+        if (!blast.ok) return blast;
+        const testImpact = computeTestImpact(origin, context);
+        if (!testImpact.ok) return testImpact;
+        const hints = computeBreakingChangeHints(origin, context);
+        if (!hints.ok) return hints;
+        items.push({
+          path: blast.value.origin.path ?? path,
+          risk: blast.value.risk,
+          affectedFilesCount: blast.value.affectedFiles.length,
+          testsLikelyAffected: testImpact.value.tests.map((t) => t.path),
+          breakingChanges: hints.value,
+        });
+      }
+      const overallRisk = items.reduce((max, i) => Math.max(max, i.risk), 0);
+      const totalAffectedFiles = items.reduce(
+        (sum, i) => sum + i.affectedFilesCount,
+        0,
+      );
+      const totalTestsAffected = new Set(
+        items.flatMap((i) => i.testsLikelyAffected),
+      ).size;
+      const totalBreakingChanges = items.reduce(
+        (sum, i) => sum + i.breakingChanges.length,
+        0,
+      );
+      return ok({
+        generatedAt: new Date().toISOString(),
+        ...(input.base === undefined ? {} : { base: input.base }),
+        items,
+        overallRisk,
+        totalAffectedFiles,
+        totalTestsAffected,
+        totalBreakingChanges,
+      } satisfies ChangeReviewReport);
+    },
+    async explainArea(path) {
+      const gate = ensureImpact();
+      if (!gate.ok) return gate;
+      const snapshot = gate.value;
+      const norm = path.replace(/\\/g, "/").replace(/^\.\//, "");
+
+      const dep = buildDependencyGraph(snapshot).graph;
+      const nodeId = `file:${norm}`;
+      const inDeg = dep.edges.filter((e) => e.to === nodeId).length;
+      const outDeg = dep.edges.filter((e) => e.from === nodeId).length;
+
+      const rollup = await loadWorkspaceRollup();
+      const dna = rollup.ok
+        ? assembleDnaReport({
+            profile: rollup.value,
+            filePaths: snapshot.files.map((f) => f.path),
+          })
+        : null;
+      const domains = matchDomainsForPath(
+        norm,
+        dna?.rankedDomains.map((d) => d.id) ?? [],
+      );
+
+      if (!gitCache || gitCache.at !== lastIndexedAt) {
+        const keepPaths = new Set(snapshot.files.map((f) => f.path));
+        gitCache = {
+          at: lastIndexedAt,
+          value: readGitSignals(snapshot.rootPath, { keepPaths }),
+        };
+      }
+      const fileSignal = gitCache.value?.signals.get(norm);
+      const owners = fileSignal
+        ? fileSignal.contributors.slice(0, 3).map((c) => c.author)
+        : [];
+
+      const summary = [
+        domains.length > 0
+          ? `Likely ${domains.join("/")} area`
+          : "Domain not confidently classified",
+        `${inDeg} incoming and ${outDeg} outgoing dependency edge(s)`,
+        owners.length > 0
+          ? `top contributor(s): ${owners.join(", ")}`
+          : "no local git ownership signal",
+      ].join(" · ");
+
+      return ok({
+        path: norm,
+        domains,
+        dependencyDegree: { in: inDeg, out: outDeg },
+        owners,
+        summary,
+      } satisfies ExplainAreaSummary);
+    },
+    async listBookmarks() {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      const store = await readBookmarkStore();
+      return ok(sortBookmarks(store.bookmarks));
+    },
+    async saveBookmark(input) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      const store = await readBookmarkStore();
+      const id =
+        input.id ??
+        `bookmark:${input.nodeId ?? input.path ?? "note"}:${Date.now()}`;
+      const next: MapBookmark = {
+        id,
+        label: input.label,
+        createdAt: input.createdAt ?? new Date().toISOString(),
+        ...(input.path === undefined ? {} : { path: input.path }),
+        ...(input.nodeId === undefined ? {} : { nodeId: input.nodeId }),
+        ...(input.zoom === undefined ? {} : { zoom: input.zoom }),
+        ...(input.note === undefined ? {} : { note: input.note }),
+      };
+      const bookmarks = sortBookmarks([
+        ...store.bookmarks.filter((b) => b.id !== id),
+        next,
+      ]);
+      await writeBookmarkStore({ version: 1, bookmarks });
+      return ok(bookmarks);
+    },
+    async removeBookmark(id) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      const store = await readBookmarkStore();
+      const bookmarks = sortBookmarks(
+        store.bookmarks.filter((b) => b.id !== id),
+      );
+      await writeBookmarkStore({ version: 1, bookmarks });
+      return ok(bookmarks);
+    },
     close() {
+      watching = false;
+      if (watchTimer) {
+        clearTimeout(watchTimer);
+        watchTimer = null;
+      }
+      watchOnChange = null;
       open = false;
     },
   };

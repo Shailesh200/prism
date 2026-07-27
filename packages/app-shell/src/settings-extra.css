@@ -156,7 +156,7 @@
   width: min(460px, 100%);
   border-radius: 14px;
   border: 1px solid #2a334a;
-  background: #121826;
+  background: var(--prism-elev, #121826);
   box-shadow: 0 28px 70px rgba(0, 0, 0, 0.6);
   overflow: hidden;
 }

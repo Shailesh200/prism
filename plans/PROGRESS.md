@@ -47,7 +47,9 @@
 | M-031 VS Code Features | `milestone/M-031-vscode-features` | Verified | ✅ | ✅ | Approved + merged 2026-07-23: full playground UI in extension webview (Overview/Map/DNA/Domains/Blast/Trends/Settings) via Core postMessage; Open Prism / Show Health commands |
 | M-032 Cursor Extension | `milestone/M-032-cursor-extension` | Verified | ✅ | ✅ | Approved + merged 2026-07-23: Cursor packaging overlay (ADR-0020); Open in browser via loopback Core bridge |
 | M-047 Extension Marketplace | `milestone/M-047-extension-marketplace` | Verified | ✅ | ✅ | Approved + merged 2026-07-26: staged VSIX (ADR-0025), `prismhq.repo-prism` on Marketplace + Open VSX, publish CI, README install links |
-| M-033 Incremental Watch | `milestone/M-033-incremental-watch` | Not Started | ☐ | ☐ | |
+| M-048 Extension Polish | `milestone/M-048-extension-polish` | In Progress | ☐ | ☐ | Ship Phases 0–7 + tour; Phase 8 blast depth deferred (ADR-0027 Proposed) |
+| M-049 Blast Radius Depth | — | Absorbed | ☐ | ☐ | Absorbed into M-048 Phase 8; design archive in `M-049_blast-radius-depth.md` |
+| M-033 Incremental Watch | `milestone/M-033-incremental-watch` | Deferred | ☐ | ☐ | Superseded by M-048 Phase 1 (ADR-0026) |
 | M-034 Tree-sitter | `milestone/M-034-tree-sitter` | Not Started | ☐ | ☐ | |
 | M-035 Perf Hardening | `milestone/M-035-perf-hardening` | Not Started | ☐ | ☐ | |
 | M-036 Security Privacy | `milestone/M-036-security-privacy` | Not Started | ☐ | ☐ | |

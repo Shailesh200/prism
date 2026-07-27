@@ -8,8 +8,9 @@ import { join, relative } from "node:path";
 import { resolveLabAppRoot } from "./lab-server.js";
 
 const MAX_ROUTES = 100;
-const MAX_FILES = 80;
+const MAX_FILES = 200;
 const MAX_FILE_BYTES = 400_000;
+const MAX_WALK_DEPTH = 12;
 
 /** Normalize a path to `/foo` form (no trailing slash except `/`). */
 export function normalizeFrontendRoute(path: string): string {
@@ -48,12 +49,20 @@ export function extractFrontendRoutesFromSource(source: string): string[] {
   return [...routes];
 }
 
+/** Strip Next route-group `(…)`, intercepting `(.)…`, and parallel `@…` segments. */
+function stripNextSpecialSegments(seg: string): string {
+  return seg
+    .replace(/\/@[A-Za-z0-9_-]+/g, "")
+    .replace(/\/\(\.{1,4}\)[^/]+/g, "")
+    .replace(/\/\([^)]+\)/g, "");
+}
+
 /** Next.js / pages file path → URL route. */
 export function routeFromPageFilePath(filePath: string): string | null {
   const norm = filePath.replace(/\\/g, "/");
   const app = /(?:^|\/)app(?:(\/.*?))?\/page\.(tsx?|jsx?)$/i.exec(norm);
   if (app) {
-    const seg = (app[1] ?? "").replace(/\/\([^)]+\)/g, "");
+    const seg = stripNextSpecialSegments(app[1] ?? "");
     return normalizeFrontendRoute(seg === "" ? "/" : seg);
   }
   const pages = /(?:^|\/)pages(\/.*?)\.(tsx?|jsx?)$/i.exec(norm);
@@ -66,7 +75,7 @@ export function routeFromPageFilePath(filePath: string): string | null {
   return null;
 }
 
-function shouldScanFile(name: string): boolean {
+function shouldScanRouterFile(name: string): boolean {
   const n = name.toLowerCase();
   if (!/\.(tsx?|jsx?)$/.test(n)) return false;
   return (
@@ -79,15 +88,72 @@ function shouldScanFile(name: string): boolean {
     n === "seo.ts" ||
     n === "seo.tsx" ||
     n.endsWith("router.tsx") ||
-    n.endsWith("routes.tsx") ||
-    n === "page.tsx" ||
-    n === "page.jsx" ||
-    n === "page.ts" ||
-    n === "page.js"
+    n.endsWith("routes.tsx")
   );
 }
 
-function walkFiles(dir: string, out: string[], depth: number): void {
+function isPageFile(name: string): boolean {
+  const n = name.toLowerCase();
+  return (
+    n === "page.tsx" || n === "page.jsx" || n === "page.ts" || n === "page.js"
+  );
+}
+
+const SKIP_DIRS = new Set([
+  "node_modules",
+  "dist",
+  "build",
+  ".git",
+  ".prism",
+  "coverage",
+  ".next",
+  ".turbo",
+  "out",
+]);
+
+function pushUnique(out: string[], full: string): void {
+  if (out.length >= MAX_FILES) return;
+  if (out.includes(full)) return;
+  out.push(full);
+}
+
+/** Walk a Next `app/` or `pages/` tree for page files. */
+function walkRouteTree(dir: string, out: string[], depth: number): void {
+  if (out.length >= MAX_FILES || depth > MAX_WALK_DEPTH) return;
+  if (!existsSync(dir)) return;
+  let entries: string[];
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return;
+  }
+  for (const name of entries) {
+    if (out.length >= MAX_FILES) return;
+    if (SKIP_DIRS.has(name)) continue;
+    const full = join(dir, name);
+    let st;
+    try {
+      st = statSync(full);
+    } catch {
+      continue;
+    }
+    if (st.isDirectory()) {
+      walkRouteTree(full, out, depth + 1);
+      continue;
+    }
+    if (!st.isFile() || st.size > MAX_FILE_BYTES) continue;
+    if (isPageFile(name) || /\.(tsx?|jsx?)$/i.test(name)) {
+      // Include all TS/JS under pages/ (index, about, api stubs) and page.* under app/.
+      const rel = full.replace(/\\/g, "/");
+      if (isPageFile(name) || /\/pages\/.+\.(tsx?|jsx?)$/i.test(rel)) {
+        pushUnique(out, full);
+      }
+    }
+  }
+}
+
+/** General walk for React Router / SEO source files (after preferential route trees). */
+function walkRouterSources(dir: string, out: string[], depth: number): void {
   if (out.length >= MAX_FILES || depth > 8) return;
   if (!existsSync(dir)) return;
   let entries: string[];
@@ -98,16 +164,9 @@ function walkFiles(dir: string, out: string[], depth: number): void {
   }
   for (const name of entries) {
     if (out.length >= MAX_FILES) return;
-    if (
-      name === "node_modules" ||
-      name === "dist" ||
-      name === "build" ||
-      name === ".git" ||
-      name === ".prism" ||
-      name === "coverage"
-    ) {
-      continue;
-    }
+    if (SKIP_DIRS.has(name)) continue;
+    // Preferential pass already covered these trees.
+    if (name === "app" || name === "pages") continue;
     const full = join(dir, name);
     let st;
     try {
@@ -116,18 +175,28 @@ function walkFiles(dir: string, out: string[], depth: number): void {
       continue;
     }
     if (st.isDirectory()) {
-      walkFiles(full, out, depth + 1);
+      walkRouterSources(full, out, depth + 1);
       continue;
     }
     if (!st.isFile() || st.size > MAX_FILE_BYTES) continue;
-    const rel = full.replace(/\\/g, "/");
-    if (
-      shouldScanFile(name) ||
-      /\/(app|pages)\/.*page\.(tsx?|jsx?)$/i.test(rel)
-    ) {
-      out.push(full);
+    if (shouldScanRouterFile(name)) pushUnique(out, full);
+  }
+}
+
+/** Locate Next/app + pages roots under a package (root, src/, …). */
+function routeDirsForRoot(pkgRoot: string): string[] {
+  const dirs: string[] = [];
+  for (const rel of ["app", "pages", "src/app", "src/pages"]) {
+    const full = join(pkgRoot, rel);
+    if (existsSync(full)) {
+      try {
+        if (statSync(full).isDirectory()) dirs.push(full);
+      } catch {
+        /* skip */
+      }
     }
   }
+  return dirs;
 }
 
 function candidateRoots(workspaceRoot: string): string[] {
@@ -161,8 +230,18 @@ function candidateRoots(workspaceRoot: string): string[] {
 export function discoverFrontendAppRoutes(workspaceRoot: string): string[] {
   const routes = new Set<string>(["/"]);
   const files: string[] = [];
-  for (const root of candidateRoots(workspaceRoot)) {
-    walkFiles(root, files, 0);
+  const roots = candidateRoots(workspaceRoot);
+
+  // Preferential: walk known Next route trees first so page.tsx files are not
+  // crowded out by unrelated sources in large monorepos.
+  for (const root of roots) {
+    for (const routeDir of routeDirsForRoot(root)) {
+      walkRouteTree(routeDir, files, 0);
+    }
+  }
+
+  for (const root of roots) {
+    walkRouterSources(root, files, 0);
   }
 
   for (const file of files) {

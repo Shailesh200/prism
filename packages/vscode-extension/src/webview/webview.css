@@ -6,7 +6,7 @@ body,
   max-width: 100%;
   height: 100%;
   min-width: 0;
-  overflow-x: clip;
+  overflow-x: hidden;
   overflow-y: hidden;
   background: var(--prism-bg, #0b1215);
   color: var(--prism-ink, #e6f0f2);
@@ -220,14 +220,23 @@ textarea:focus-visible {
   max-width: 100%;
   min-width: 0;
   min-height: 0;
-  overflow-x: clip;
+  overflow: hidden;
 }
 .playground-shell--ext .playground-shell__map,
-.playground-shell--ext .playground-map-wrap,
-.playground-shell--ext .playground-map-inner {
+.playground-shell--ext .playground-map-wrap {
   height: 100%;
   width: 100%;
   max-width: 100%;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* Map is inset for the hover rail (left: 56px). Do NOT set width:100% —
+   that + left inset overflows the webview and crops the inspector. */
+.playground-shell--ext .playground-map-inner {
+  height: 100%;
+  width: auto;
+  max-width: none;
   min-height: 0;
   min-width: 0;
 }
@@ -236,7 +245,8 @@ textarea:focus-visible {
 .ov.ov--rail,
 .ov {
   max-width: 100%;
-  overflow-x: clip;
+  overflow-x: hidden;
+  min-width: 0;
 }
 .ov-top,
 .ov-scroll {

@@ -74,6 +74,13 @@ export type RepositoryMapViewProps = {
   readonly onSelectNode?: (nodeId: string | null) => void;
   /** Open a repo-relative file path in the host editor (IDE). */
   readonly onOpenPath?: (path: string) => void;
+  /**
+   * Deep-link focus (M-048 Phase 3 "Reveal on map"): selects this node id when
+   * it changes. Takes priority over {@link focusPath}.
+   */
+  readonly focusNodeId?: string | null;
+  /** Deep-link focus by repo-relative path — resolved to a graph node id. */
+  readonly focusPath?: string | null;
 };
 
 const nodeTypes = { prism: MapNode };
@@ -177,6 +184,200 @@ function initials(name: string): string {
   const a = parts[0]?.[0] ?? "?";
   const b = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? "") : "";
   return (a + b).toUpperCase();
+}
+
+type OwnerInfo = {
+  readonly author: string;
+  readonly commits: number;
+  readonly share: number;
+  readonly note: string;
+  /** Top contributors to show in the inspector (already capped). */
+  readonly top: readonly GitContributorLike[];
+  /** Contributors beyond {@link top} (for "+N more"). */
+  readonly moreCount: number;
+};
+
+type GitContributorLike = {
+  readonly author: string;
+  readonly commits: number;
+};
+
+/** Hard cap so a busy monorepo folder never floods the inspector. */
+const OWNER_LIST_CAP = 5;
+
+/** Read `attrs.git.contributors` (attached by repository-map when git is indexed). */
+function contributorsFromAttrs(
+  attrs: Record<string, unknown> | undefined,
+): GitContributorLike[] {
+  const git = attrs?.git;
+  if (!git || typeof git !== "object" || Array.isArray(git)) return [];
+  const raw = (git as { contributors?: unknown }).contributors;
+  if (!Array.isArray(raw)) return [];
+  const out: GitContributorLike[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== "object" || Array.isArray(row)) continue;
+    const author = (row as { author?: unknown }).author;
+    const commits = (row as { commits?: unknown }).commits;
+    if (typeof author !== "string" || !author.trim()) continue;
+    out.push({
+      author: author.trim(),
+      commits: typeof commits === "number" && commits >= 0 ? commits : 0,
+    });
+  }
+  return out;
+}
+
+function mergeContributors(
+  into: Map<string, number>,
+  rows: readonly GitContributorLike[],
+): void {
+  for (const c of rows) {
+    into.set(c.author, (into.get(c.author) ?? 0) + c.commits);
+  }
+}
+
+/** Roll up contributors from file nodes under a folder/package path prefix. */
+function contributorsUnderPrefix(
+  map: RepositoryMap,
+  prefix: string,
+): GitContributorLike[] {
+  const p = prefix.replace(/\/$/, "");
+  if (!p) return [];
+  const byAuthor = new Map<string, number>();
+  for (const n of map.graph.nodes) {
+    if (n.kind !== "file") continue;
+    const fp =
+      typeof n.attrs?.path === "string"
+        ? n.attrs.path
+        : n.id.startsWith("file:")
+          ? n.id.slice("file:".length)
+          : n.label;
+    if (fp !== p && !fp.startsWith(`${p}/`)) continue;
+    mergeContributors(
+      byAuthor,
+      contributorsFromAttrs(n.attrs as Record<string, unknown> | undefined),
+    );
+  }
+  return [...byAuthor.entries()]
+    .map(([author, commits]) => ({ author, commits }))
+    .sort((a, b) => b.commits - a.commits || a.author.localeCompare(b.author));
+}
+
+function ownershipFromContributors(
+  contributors: readonly GitContributorLike[],
+  areaLabel: "file" | "area",
+): OwnerInfo | null {
+  if (contributors.length === 0) return null;
+  const total = contributors.reduce((n, c) => n + c.commits, 0) || 1;
+  const sorted = [...contributors].sort(
+    (a, b) => b.commits - a.commits || a.author.localeCompare(b.author),
+  );
+  const top = sorted.slice(0, OWNER_LIST_CAP);
+  const primary = top[0]!;
+  const share = primary.commits / total;
+  const moreCount = Math.max(0, sorted.length - top.length);
+  const others = sorted.length - 1;
+  return {
+    author: primary.author,
+    commits: primary.commits,
+    share,
+    top,
+    moreCount,
+    note:
+      areaLabel === "area"
+        ? others > 0
+          ? `Top author across this folder · ${others} other contributor${others === 1 ? "" : "s"}`
+          : `${primary.commits} commit${primary.commits === 1 ? "" : "s"} in this folder`
+        : others > 0
+          ? `${Math.round(share * 100)}% of commits · ${others} other contributor${others === 1 ? "" : "s"}`
+          : `${primary.commits} commit${primary.commits === 1 ? "" : "s"} in scanned window`,
+  };
+}
+
+/**
+ * Primary owner for the inspector: prefer node `attrs.git`, then a graph node
+ * with the same path, then folder-prefix rollup, then Recent Changes.
+ */
+function resolveOwnership(
+  map: RepositoryMap,
+  selected: GraphNodeDto,
+  recentChanges: readonly GitRecentFile[] | undefined,
+): OwnerInfo | null {
+  let contributors = contributorsFromAttrs(
+    selected.attrs as Record<string, unknown> | undefined,
+  );
+
+  const path =
+    typeof selected.attrs?.path === "string"
+      ? selected.attrs.path
+      : typeof selected.attrs?.rootDir === "string"
+        ? selected.attrs.rootDir
+        : typeof selected.attrs?.scopePrefix === "string"
+          ? selected.attrs.scopePrefix
+          : selected.kind === "file"
+            ? selected.label
+            : null;
+
+  const isArea =
+    selected.kind === "folder" ||
+    selected.kind === "package" ||
+    selected.kind === "feature" ||
+    selected.kind === "workspace" ||
+    selected.kind === "repo";
+
+  if (contributors.length === 0 && path) {
+    const match = map.graph.nodes.find(
+      (n) =>
+        n.id === selected.id ||
+        n.id === `file:${path}` ||
+        n.id === `folder:${path}` ||
+        (typeof n.attrs?.path === "string" && n.attrs.path === path),
+    );
+    if (match) {
+      contributors = contributorsFromAttrs(
+        match.attrs as Record<string, unknown> | undefined,
+      );
+    }
+  }
+
+  if (contributors.length === 0 && path && isArea) {
+    contributors = contributorsUnderPrefix(map, path);
+  }
+
+  if (contributors.length === 0 && path && recentChanges) {
+    if (isArea) {
+      const byAuthor = new Map<string, number>();
+      const p = path.replace(/\/$/, "");
+      for (const f of recentChanges) {
+        if (f.path !== p && !f.path.startsWith(`${p}/`)) continue;
+        const author = f.lastCommit.author?.trim();
+        if (!author) continue;
+        byAuthor.set(
+          author,
+          (byAuthor.get(author) ?? 0) + Math.max(1, f.commits),
+        );
+      }
+      contributors = [...byAuthor.entries()]
+        .map(([author, commits]) => ({ author, commits }))
+        .sort(
+          (a, b) => b.commits - a.commits || a.author.localeCompare(b.author),
+        );
+    } else {
+      const recent = recentChanges.find((f) => f.path === path);
+      if (recent?.lastCommit.author) {
+        return {
+          author: recent.lastCommit.author,
+          commits: recent.commits,
+          share: 1,
+          top: [{ author: recent.lastCommit.author, commits: recent.commits }],
+          moreCount: 0,
+          note: "Last author on this file (recent activity)",
+        };
+      }
+    }
+  }
+
+  return ownershipFromContributors(contributors, isArea ? "area" : "file");
 }
 
 function Lenses(props: {
@@ -428,11 +629,24 @@ function resolveCardNode(
       : undefined);
   if (!entry) return undefined;
 
+  const path = entry.path;
+  const fromPath = path
+    ? map.graph.nodes.find(
+        (n) =>
+          n.id === `file:${path}` ||
+          (typeof n.attrs?.path === "string" && n.attrs.path === path),
+      )
+    : undefined;
+  const git = fromPath?.attrs?.git;
+
   return {
     id: entry.nodeId ?? entry.id,
     kind: entry.kind,
     label: entry.kind === "symbol" ? entry.name : entry.path || entry.name,
-    attrs: { path: entry.path },
+    attrs: {
+      path: entry.path,
+      ...(git !== undefined ? { git } : {}),
+    },
   };
 }
 
@@ -452,6 +666,20 @@ export function RepositoryMapView(props: RepositoryMapViewProps): ReactElement {
   useEffect(() => {
     setActiveLayerIds([...props.map.activeLayerIds]);
   }, [props.map.activeLayerIds.join(",")]);
+
+  useEffect(() => {
+    if (props.focusNodeId) {
+      setSelectedId(props.focusNodeId);
+      return;
+    }
+    if (!props.focusPath) return;
+    const target = props.map.graph.nodes.find(
+      (n) =>
+        n.id === `file:${props.focusPath}` ||
+        (typeof n.attrs?.path === "string" && n.attrs.path === props.focusPath),
+    );
+    if (target) setSelectedId(target.id);
+  }, [props.focusNodeId, props.focusPath, props.map.graph.nodes]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -498,6 +726,11 @@ export function RepositoryMapView(props: RepositoryMapViewProps): ReactElement {
       neighborNodes,
     };
   }, [selectedId, selected, props.map.graph]);
+
+  const ownership = useMemo(() => {
+    if (!selected) return null;
+    return resolveOwnership(props.map, selected, props.recentChanges);
+  }, [selected, props.map, props.recentChanges]);
 
   const regions = useMemo(() => regionsFromMap(props.map), [props.map]);
 
@@ -1121,17 +1354,58 @@ export function RepositoryMapView(props: RepositoryMapViewProps): ReactElement {
 
             <div className="prism-map__sheet-divider" />
             <p className="prism-map__sheet-kicker">Ownership</p>
-            <div className="prism-owner">
-              <span className="prism-owner__avatar">
-                {initials(selected.label)}
-              </span>
-              <div>
-                <div className="prism-owner__name">Unassigned</div>
-                <div className="prism-owner__role">
-                  Owner appears once Git blame is indexed
+            {ownership ? (
+              <div className="prism-owner-block">
+                <div className="prism-owner">
+                  <span className="prism-owner__avatar">
+                    {initials(ownership.author)}
+                  </span>
+                  <div>
+                    <div className="prism-owner__name">{ownership.author}</div>
+                    <div className="prism-owner__role">{ownership.note}</div>
+                  </div>
+                </div>
+                {ownership.top.length > 1 || ownership.moreCount > 0 ? (
+                  <ul className="prism-owner-list">
+                    {ownership.top.map((c) => (
+                      <li key={c.author} className="prism-owner-list__row">
+                        <span className="prism-owner-list__avatar" aria-hidden>
+                          {initials(c.author)}
+                        </span>
+                        <span
+                          className="prism-owner-list__name"
+                          title={c.author}
+                        >
+                          {c.author}
+                        </span>
+                        <span className="prism-owner-list__meta">
+                          {c.commits}
+                        </span>
+                      </li>
+                    ))}
+                    {ownership.moreCount > 0 ? (
+                      <li className="prism-owner-list__more">
+                        +{ownership.moreCount} more
+                      </li>
+                    ) : null}
+                  </ul>
+                ) : null}
+              </div>
+            ) : (
+              <div className="prism-owner">
+                <span className="prism-owner__avatar">
+                  {initials(selected.label)}
+                </span>
+                <div>
+                  <div className="prism-owner__name">Unassigned</div>
+                  <div className="prism-owner__role">
+                    {props.map.git
+                      ? "No commit authors in the scanned window for this area"
+                      : "Owner appears once local Git history is indexed"}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {bookmarks.length > 0 ? (
               <>

@@ -4,6 +4,7 @@ import type { ReactElement } from "react";
 import { AppSidebar, type AppSidebarUser, type AppView } from "./AppSidebar.js";
 import { shellNavVariant, shellRootClass } from "./shell-layout.js";
 import { DOMAIN_CATALOG } from "./domain-catalog.js";
+import { describeSignal, signalDetectionTip } from "./stack-signal-meta.js";
 
 export type DomainsScreenProps = {
   readonly repoLabel: string;
@@ -13,14 +14,6 @@ export type DomainsScreenProps = {
   readonly onNavigate: (view: AppView) => void;
   readonly onOpenDomain: (domainId: string) => void;
 };
-
-function titleCase(id: string): string {
-  return id
-    .split(/[\s_-]+/)
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
 
 /**
  * Domains explorer — lists stack domains detected in the repo (same set as
@@ -46,12 +39,8 @@ export function DomainsScreen(props: DomainsScreenProps): ReactElement {
       .filter((s) => s.domain === id)
       .reduce((m, s) => Math.max(m, s.confidence), 0);
 
-  const evidence = (id: string): string =>
-    signals
-      .filter((s) => s.domain === id)
-      .map((s) => s.id)
-      .slice(0, 4)
-      .join(" · ");
+  const techSignals = (id: string) =>
+    signals.filter((s) => s.domain === id).slice(0, 4);
 
   return (
     <div className={shellRootClass()}>
@@ -102,7 +91,7 @@ export function DomainsScreen(props: DomainsScreenProps): ReactElement {
               const detected = domains.includes(d.id);
               const Icon = d.icon;
               const conf = confidence(d.id);
-              const ev = evidence(d.id);
+              const tech = techSignals(d.id);
               return (
                 <article
                   key={d.id}
@@ -131,10 +120,27 @@ export function DomainsScreen(props: DomainsScreenProps): ReactElement {
                         <span className="ov-mono">
                           {Math.round(conf * 100)}% confidence
                         </span>
-                        {ev ? (
-                          <span className="dm-explore__ev ov-mono ov-ellipsis">
-                            {ev.split(" · ").map(titleCase).join(" · ")}
-                          </span>
+                        {tech.length > 0 ? (
+                          <div className="dm-explore__stack" role="list">
+                            {tech.map((s) => {
+                              const meta = describeSignal(s.id, s.domain);
+                              const TechIcon = meta.icon;
+                              return (
+                                <span
+                                  key={s.id}
+                                  role="listitem"
+                                  className="dm-explore__stack-chip"
+                                  title={signalDetectionTip(s)}
+                                  aria-label={`${meta.category} ${meta.label}`}
+                                >
+                                  <TechIcon size={12} aria-hidden />
+                                  <span className="dm-explore__stack-label">
+                                    {meta.category} {meta.label}
+                                  </span>
+                                </span>
+                              );
+                            })}
+                          </div>
                         ) : null}
                       </div>
                       <button

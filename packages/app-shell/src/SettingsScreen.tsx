@@ -91,6 +91,14 @@ export type SettingsScreenProps = {
   onNetworkIntegrationsChange?: (enabled: boolean) => void;
   /** Notify host that local-only analysis was toggled (host may halt indexing). */
   onLocalOnlyAnalysisChange?: (enabled: boolean) => void;
+  /**
+   * Extension-only: file-level CodeLens (Blast / Ownership / Map). When
+   * provided, Settings → General shows the toggle.
+   */
+  codeLensEnabled?: boolean;
+  onCodeLensChange?: (enabled: boolean) => void;
+  /** Extension-only: open the in-app Getting Started tour. */
+  onOpenWalkthrough?: () => void;
   onNavigate: (view: AppView) => void;
 };
 
@@ -353,6 +361,9 @@ export function SettingsScreen(props: SettingsScreenProps): ReactElement {
                     key={s.id}
                     type="button"
                     className="set-nav__item"
+                    data-prism-tour={
+                      s.id === "indexing" ? "indexing" : undefined
+                    }
                     data-active={section === s.id ? "true" : "false"}
                     onClick={() => setSection(s.id)}
                   >
@@ -433,6 +444,32 @@ export function SettingsScreen(props: SettingsScreenProps): ReactElement {
                       aria-label="Display name"
                     />
                   </SettingsRow>
+                  {props.onCodeLensChange ? (
+                    <SettingsRow
+                      label="CodeLens"
+                      help="Show Blast Radius, Ownership, and Reveal on Map actions above the first line of each file in the editor."
+                    >
+                      <Toggle
+                        checked={Boolean(props.codeLensEnabled)}
+                        label={props.codeLensEnabled ? "On" : "Off"}
+                        onChange={props.onCodeLensChange}
+                      />
+                    </SettingsRow>
+                  ) : null}
+                  {props.onOpenWalkthrough ? (
+                    <SettingsRow
+                      label="Getting Started"
+                      help="Replay the in-app Prism tour (Next / Previous / Skip)."
+                    >
+                      <button
+                        type="button"
+                        className="ov-btn ov-btn--ghost"
+                        onClick={props.onOpenWalkthrough}
+                      >
+                        Open tour
+                      </button>
+                    </SettingsRow>
+                  ) : null}
                   {props.onClearData ? (
                     <SettingsRow label="Clear Data" help={CLEAR_DATA_WARNING}>
                       <button
@@ -478,6 +515,7 @@ export function SettingsScreen(props: SettingsScreenProps): ReactElement {
                     <SettingsRow
                       label="Auto Re-Index"
                       help="Watch the workspace and re-index after file changes (debounced)."
+                      tourId="auto-reindex"
                     >
                       <div className="set-control-stack">
                         <Toggle
@@ -911,9 +949,14 @@ function SettingsRow(props: {
   label: string;
   help: string;
   children: ReactNode;
+  /** Stable hook for the in-app Getting Started tour spotlight. */
+  tourId?: string;
 }): ReactElement {
   return (
-    <div className="set-row">
+    <div
+      className="set-row"
+      {...(props.tourId ? { "data-prism-tour": props.tourId } : {})}
+    >
       <div className="set-row__copy">
         <div className="set-row__label">{props.label}</div>
         <div className="set-row__help">{props.help}</div>

@@ -1,0 +1,296 @@
+/* In-app product tour (M-048) — Whatfix-style spotlight + coach mark. */
+
+.prism-tour {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  pointer-events: none;
+  box-sizing: border-box;
+  /* Must stay visible: ring stroke + outer dim shadow paint outside the hole.
+     overflow:hidden here clipped the top of near-edge spotlights (Welcome). */
+  overflow: visible;
+}
+
+/* Invisible dismiss catcher — visual dim comes from the ring's outer shadow. */
+.prism-tour__mask {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  pointer-events: auto;
+  background: transparent;
+}
+
+/* When no target yet (or mid-nav), fall back to a full dim scrim. */
+.prism-tour[data-anchored="false"] .prism-tour__mask {
+  background: color-mix(in srgb, #020617 68%, transparent);
+}
+
+.prism-tour__ring {
+  position: fixed;
+  z-index: 1;
+  pointer-events: none;
+  box-sizing: border-box;
+  border: 2px solid var(--prism-brand, #00c2c2);
+  border-radius: 10px;
+  background: transparent;
+  /* Outer shadow dims everything outside the cutout (avoids clip-path bugs).
+     Stroke stays on-screen because PrismTour clamps the hole inset from edges. */
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--prism-brand, #00c2c2) 35%, transparent),
+    0 0 22px color-mix(in srgb, var(--prism-brand, #00c2c2) 30%, transparent),
+    0 0 0 9999px color-mix(in srgb, #020617 68%, transparent);
+  transition:
+    top 160ms ease,
+    left 160ms ease,
+    width 160ms ease,
+    height 160ms ease,
+    border-radius 160ms ease;
+}
+
+.prism-tour__card {
+  position: fixed;
+  z-index: 2;
+  pointer-events: auto;
+  width: min(100% - 24px, 360px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px 20px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--prism-line, #2a334a);
+  background:
+    radial-gradient(
+      120% 80% at 0% 0%,
+      color-mix(in srgb, var(--prism-brand, #00c2c2) 14%, transparent) 0%,
+      transparent 55%
+    ),
+    var(--prism-panel, #0f1420);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  color: var(--prism-ink, #e6f0f2);
+  font-family: var(--prism-font, "Inter", "Segoe UI", system-ui, sans-serif);
+  transition:
+    top 160ms ease,
+    left 160ms ease,
+    opacity 120ms ease;
+}
+
+/* Mid-nav: keep dim mask, hide coach + ring until the next target is measured. */
+.prism-tour[data-card-visible="false"] .prism-tour__card {
+  opacity: 0;
+  pointer-events: none;
+  /* Still laid out so measure() can read offsetWidth/Height. */
+  visibility: hidden;
+}
+
+/* Coach-mark caret pointing at the spotlight hole. */
+.prism-tour__caret {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--prism-panel, #0f1420);
+  border: 1px solid var(--prism-line, #2a334a);
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+
+.prism-tour__caret[data-placement="right"] {
+  left: -7px;
+  top: 28px;
+  border-right: 0;
+  border-top: 0;
+}
+
+.prism-tour__caret[data-placement="left"] {
+  right: -7px;
+  top: 28px;
+  border-left: 0;
+  border-bottom: 0;
+}
+
+.prism-tour__caret[data-placement="below"] {
+  top: -7px;
+  left: 28px;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.prism-tour__caret[data-placement="above"] {
+  bottom: -7px;
+  left: 28px;
+  border-left: 0;
+  border-top: 0;
+}
+
+.prism-tour__caret[data-placement="center"] {
+  display: none;
+}
+
+.prism-tour__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.prism-tour__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.6875rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--prism-brand, #00c2c2);
+}
+
+.prism-tour__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--prism-ink-muted, #94a3b8);
+  cursor: pointer;
+}
+
+.prism-tour__close:hover {
+  background: color-mix(in srgb, var(--prism-ink, #fff) 8%, transparent);
+  color: var(--prism-ink, #e6f0f2);
+}
+
+.prism-tour__progress {
+  margin: 4px 0 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+.prism-tour__title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+}
+
+.prism-tour__body {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+.prism-tour__dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+  max-width: 100%;
+}
+
+.prism-tour__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--prism-ink-muted, #94a3b8) 35%, transparent);
+}
+
+.prism-tour__dot[data-active="true"] {
+  background: var(--prism-brand, #00c2c2);
+  width: 16px;
+  border-radius: 999px;
+}
+
+.prism-tour__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--prism-line, #2a334a);
+}
+
+.prism-tour__skip {
+  border: 0;
+  background: transparent;
+  color: var(--prism-ink-muted, #94a3b8);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 6px 4px;
+}
+
+.prism-tour__skip:hover {
+  color: var(--prism-ink, #e6f0f2);
+}
+
+.prism-tour__nav {
+  display: flex;
+  gap: 8px;
+}
+
+.prism-tour__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.prism-tour__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.prism-tour__btn--ghost {
+  border: 1px solid var(--prism-line, #2a334a);
+  background: transparent;
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+.prism-tour__btn--ghost:hover:not(:disabled) {
+  border-color: var(--prism-brand, #00c2c2);
+  color: var(--prism-brand, #00c2c2);
+}
+
+.prism-tour__btn--primary {
+  border: 1px solid var(--prism-brand, #00c2c2);
+  background: var(--prism-brand, #00c2c2);
+  color: var(--prism-on-brand, #0a0e1a);
+}
+
+.prism-tour__btn--primary:hover {
+  background: var(--prism-brand-strong, #00a8a8);
+  border-color: var(--prism-brand-strong, #00a8a8);
+}
+
+.prism-tour__btn--primary:focus-visible,
+.prism-tour__btn--ghost:focus-visible,
+.prism-tour__close:focus-visible,
+.prism-tour__skip:focus-visible {
+  outline: 2px solid var(--prism-brand, #00c2c2);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prism-tour__ring,
+  .prism-tour__card {
+    transition: none;
+  }
+}
