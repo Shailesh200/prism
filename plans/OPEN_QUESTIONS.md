@@ -25,5 +25,7 @@ Resolve these with the owner before or during the indicated milestone. Record an
 | Q-019 | Stack utilities vs Map UI sequencing? | M-041 / M-018 | **Resolved: Option C** — M-041 Gate A (P0+P1+Mono-v1) **before** M-018; remaining packs continue in parallel ([ADR-0008](./adr/0008-stack-aware-measurement-utilities.md)) |
 | Q-020 | Privacy for perf utilities / PageSpeed / cloud? | M-041 / M-036 | **Resolved:** reports local only; remote probes consent-only; **no Prism Cloud** ([ADR-0008](./adr/0008-stack-aware-measurement-utilities.md)) |
 | Q-021 | Multi-domain monorepo: single stack winner vs per-package? | M-041 / M-013 | **Resolved:** per-package profiles + workspace rollup; package-scoped utilities; additive domains ([ADR-0008](./adr/0008-stack-aware-measurement-utilities.md) D5) |
+| Q-022 | Soft blast signals: do medium-confidence config/CI hits **block** Safe Delete, or only warn? | M-048 Phase 8 | Default proposed: **medium+ blocks**; low = warn only ([ADR-0027](./adr/0027-blast-radius-multi-lane-signals.md), [M-048](./milestones/M-048_extension-polish.md) Phase 8 / [M-049 archive](./milestones/M-049_blast-radius-depth.md)) |
+| Q-023 | Blast vs Change Review risk band thresholds (60/20 vs 70/35) — unify to which? | M-048 Phase 8 | Default proposed: **unify to Blast 60/20** (High ≥60, Mid ≥20) everywhere |
 
 Update this file when questions are decided; link ADRs.

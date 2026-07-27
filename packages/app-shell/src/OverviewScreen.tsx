@@ -163,7 +163,10 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
   }, [client, map.rootPath, map.generatedAt]);
 
   const profileLangs = useMemo(
-    () => [...(dna?.languages ?? [])].sort((a, b) => b.share - a.share),
+    () =>
+      [...(dna?.languages ?? [])]
+        .filter((l) => Math.round(l.share * 100) > 0)
+        .sort((a, b) => b.share - a.share),
     [dna],
   );
   const profileDomains = dna?.stack?.domains ?? [];
@@ -367,6 +370,7 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
           else if (view === "dna") props.onOpenDna();
           else if (view === "profile") props.onOpenProfile?.();
           else if (view === "domains") props.onOpenDomains?.();
+          else if (view === "testing") props.onOpenTesting?.();
           else if (view === "blast") props.onOpenBlast?.();
           else if (view === "trends") props.onOpenTrends?.();
           else if (view === "integrations") props.onOpenIntegrations?.();

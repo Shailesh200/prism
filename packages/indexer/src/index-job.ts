@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import {
   createAnalyzerHost,
   createNoopPlugin,
@@ -25,7 +25,8 @@ import {
   loadCachedFiles,
   saveSnapshot,
 } from "./cache/store.js";
-import { inventoryWorkspace } from "./inventory.js";
+import { inventorySinglePath, inventoryWorkspace } from "./inventory.js";
+import { resolveWorkspaceRoot } from "./workspace-root.js";
 
 export const DEFAULT_INDEX_CONCURRENCY = 4;
 
@@ -41,6 +42,14 @@ export type IndexJobOptions = {
   readonly cache?: boolean;
   /** Override SQLite path (tests). */
   readonly cacheDbPath?: string;
+  /**
+   * Dirty-set reindex (M-048 / ADR-0026): rehash only these repo-relative paths
+   * and merge with cached rows. When set (or deletedPaths set), skips full walk
+   * if a prior cache exists; otherwise falls back to full inventory.
+   */
+  readonly changedPaths?: readonly string[];
+  /** Repo-relative paths removed from the workspace. */
+  readonly deletedPaths?: readonly string[];
 };
 
 function emit(
@@ -240,60 +249,156 @@ export async function runIndexJob(
     message: "Scanning workspace",
   });
 
-  const inventory = await inventoryWorkspace(inputPath, {
-    ...(typeof options.maxFileBytes === "number"
-      ? { maxFileBytes: options.maxFileBytes }
-      : {}),
-    ...(options.extraIgnorePatterns
-      ? { extraIgnorePatterns: options.extraIgnorePatterns }
-      : {}),
-  });
-  if (!inventory.ok) return inventory;
+  const dirtyRequested =
+    (options.changedPaths !== undefined && options.changedPaths.length > 0) ||
+    (options.deletedPaths !== undefined && options.deletedPaths.length > 0);
 
-  const rootPath = inventory.value.rootPath;
-  const entries = inventory.value.files;
+  let rootPath: string;
+  let entries: FileInventoryEntry[];
   const warnings: string[] = [];
 
-  if (inventory.value.stats.filesIgnored > 0) {
-    warnings.push(
-      `ignored ${inventory.value.stats.filesIgnored} path(s) via ignore rules`,
-    );
-  }
-
-  emit(options.onProgress, {
-    phase: "inventory",
-    filesTotal: entries.length,
-    filesDone: entries.length,
-    message: `Inventory complete (${entries.length} files)`,
-  });
-
-  const gate1 = assertNotCancelled(options.signal);
-  if (!gate1.ok) return gate1;
-
+  // Open cache early when dirty-set is requested so we can merge prior rows.
   let cacheDb: IndexCacheDb | null = null;
   let cachedFiles = new Map<string, IndexedFile>();
 
   if (cacheEnabled) {
-    emit(options.onProgress, {
-      phase: "cache",
-      message: "Opening local SQLite cache",
-    });
+    const rootResult = await resolveWorkspaceRoot(inputPath);
+    if (!rootResult.ok) return rootResult;
     const opened = await openIndexCache(
-      rootPath,
+      resolve(rootResult.value),
       options.cacheDbPath ? { dbPath: options.cacheDbPath } : {},
     );
     if (opened.ok) {
       cacheDb = opened.value;
-      cachedFiles = loadCachedFiles(cacheDb.db, rootPath);
-      emit(options.onProgress, {
-        phase: "cache",
-        filesTotal: entries.length,
-        filesDone: cachedFiles.size,
-        message: `Cache loaded (${cachedFiles.size} file row(s))`,
-      });
+      cachedFiles = loadCachedFiles(cacheDb.db, resolve(rootResult.value));
     } else {
       warnings.push(`cache unavailable: ${opened.error.message}`);
     }
+  }
+
+  if (dirtyRequested && cachedFiles.size > 0) {
+    const rootResult = await resolveWorkspaceRoot(inputPath);
+    if (!rootResult.ok) {
+      cacheDb?.close();
+      return rootResult;
+    }
+    rootPath = resolve(rootResult.value);
+    const deleted = new Set(
+      (options.deletedPaths ?? []).map((p) => p.replace(/\\/g, "/")),
+    );
+    const changed = [
+      ...new Set(
+        (options.changedPaths ?? []).map((p) => p.replace(/\\/g, "/")),
+      ),
+    ].filter((p) => !deleted.has(p));
+
+    const byPath = new Map<string, FileInventoryEntry>();
+    for (const [path, cached] of cachedFiles) {
+      if (deleted.has(path)) continue;
+      byPath.set(path, {
+        path,
+        sizeBytes: 0,
+        mtimeMs: 0,
+        hashAlgo: "sha256",
+        contentHash: cached.contentHash,
+        status:
+          cached.status === "skipped_binary" ||
+          cached.status === "skipped_oversized"
+            ? cached.status
+            : "hashed",
+      });
+    }
+
+    for (const path of changed) {
+      const one = await inventorySinglePath(rootPath, path, {
+        ...(typeof options.maxFileBytes === "number"
+          ? { maxFileBytes: options.maxFileBytes }
+          : {}),
+        ...(options.extraIgnorePatterns
+          ? { extraIgnorePatterns: options.extraIgnorePatterns }
+          : {}),
+      });
+      if (!one.ok) {
+        cacheDb?.close();
+        return one;
+      }
+      if (one.value) byPath.set(path, one.value);
+      else byPath.delete(path);
+    }
+
+    entries = [...byPath.values()].sort((a, b) =>
+      a.path < b.path ? -1 : a.path > b.path ? 1 : 0,
+    );
+    emit(options.onProgress, {
+      phase: "inventory",
+      filesTotal: entries.length,
+      filesDone: entries.length,
+      message: `Dirty inventory (${changed.length} changed, ${deleted.size} deleted → ${entries.length} files)`,
+    });
+  } else {
+    const inventory = await inventoryWorkspace(inputPath, {
+      ...(typeof options.maxFileBytes === "number"
+        ? { maxFileBytes: options.maxFileBytes }
+        : {}),
+      ...(options.extraIgnorePatterns
+        ? { extraIgnorePatterns: options.extraIgnorePatterns }
+        : {}),
+    });
+    if (!inventory.ok) {
+      cacheDb?.close();
+      return inventory;
+    }
+
+    rootPath = inventory.value.rootPath;
+    entries = inventory.value.files;
+
+    if (inventory.value.stats.filesIgnored > 0) {
+      warnings.push(
+        `ignored ${inventory.value.stats.filesIgnored} path(s) via ignore rules`,
+      );
+    }
+
+    emit(options.onProgress, {
+      phase: "inventory",
+      filesTotal: entries.length,
+      filesDone: entries.length,
+      message: `Inventory complete (${entries.length} files)`,
+    });
+
+    // If we opened cache before full walk under a different resolve, reload for root.
+    if (cacheEnabled && !cacheDb) {
+      emit(options.onProgress, {
+        phase: "cache",
+        message: "Opening local SQLite cache",
+      });
+      const opened = await openIndexCache(
+        rootPath,
+        options.cacheDbPath ? { dbPath: options.cacheDbPath } : {},
+      );
+      if (opened.ok) {
+        cacheDb = opened.value;
+        cachedFiles = loadCachedFiles(cacheDb.db, rootPath);
+      } else {
+        warnings.push(`cache unavailable: ${opened.error.message}`);
+      }
+    } else if (cacheDb && cachedFiles.size === 0) {
+      cachedFiles = loadCachedFiles(cacheDb.db, rootPath);
+    }
+  }
+
+  const gate1 = assertNotCancelled(options.signal);
+  if (!gate1.ok) {
+    cacheDb?.close();
+    return gate1;
+  }
+
+  if (cacheEnabled && cacheDb) {
+    emit(options.onProgress, {
+      phase: "cache",
+      filesTotal: entries.length,
+      filesDone: cachedFiles.size,
+      message: `Cache loaded (${cachedFiles.size} file row(s))`,
+    });
   }
 
   const reused: IndexedFile[] = [];

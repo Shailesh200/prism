@@ -10,11 +10,12 @@
   --sidebar-w: var(--prism-sidebar-w);
   position: relative;
   display: grid;
-  grid-template-columns: var(--sidebar-w) minmax(0, 1fr) var(--sheet-w);
+  /* Inspector overlays the stage — never steals a third grid column. */
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
   grid-template-rows: var(--prism-topbar-h) minmax(0, 1fr);
   grid-template-areas:
-    "top top top"
-    "sidebar stage sheet";
+    "top top"
+    "sidebar stage";
   height: 100%;
   min-height: 520px;
   background: var(--prism-canvas);
@@ -23,6 +24,7 @@
   font-size: var(--prism-type-body);
   line-height: var(--prism-leading-body);
   -webkit-font-smoothing: antialiased;
+  overflow: hidden;
 }
 
 .prism-map *,
@@ -1007,17 +1009,34 @@ button.prism-crumbs__seg:hover {
   }
 }
 
-/* —— Inspector sheet —— */
+/* —— Inspector sheet (overlays stage; does not shrink the map) —— */
 .prism-map__sheet {
-  grid-area: sheet;
+  /* Pin to the stage cell so we never create an implicit third column. */
+  grid-area: stage;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(var(--sheet-w), 100%);
+  max-width: 100%;
+  z-index: 8;
   display: flex;
   flex-direction: column;
   gap: 12px;
   padding: 22px 18px;
   background: var(--prism-panel);
   border-left: 1px solid var(--prism-line);
-  overflow: auto;
+  box-shadow: -12px 0 32px rgba(0, 0, 0, 0.35);
+  overflow-x: hidden;
+  overflow-y: auto;
   min-width: 0;
+  box-sizing: border-box;
+}
+
+.prism-map__sheet[data-empty="true"] {
+  /* Keep lenses reachable without covering most of the stage. */
+  width: min(240px, 36vw);
+  opacity: 0.97;
 }
 
 .prism-map__sheet-kicker {
@@ -2438,26 +2457,33 @@ button.prism-crumbs__seg:hover {
   border-radius: var(--prism-radius-md);
   background: color-mix(in srgb, var(--prism-amber) 6%, transparent);
   border: 1px solid color-mix(in srgb, var(--prism-amber) 18%, transparent);
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .prism-blast__row {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
   font-size: var(--prism-type-body-sm);
 }
 
 .prism-blast__k {
   color: var(--prism-ink-muted);
+  min-width: 0;
 }
 
 .prism-blast__v {
   font-family: var(--prism-mono);
   font-weight: 500;
   color: var(--prism-ink);
+  flex-shrink: 0;
 }
 
 .prism-badge {
+  flex-shrink: 0;
   font-size: 0.625rem;
   font-weight: 600;
   padding: 2px 8px;
@@ -2528,9 +2554,10 @@ button.prism-crumbs__seg:hover {
 /* —— Inspector: ownership —— */
 .prism-owner {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   margin-bottom: 10px;
+  min-width: 0;
 }
 
 .prism-owner__avatar {
@@ -2551,6 +2578,10 @@ button.prism-crumbs__seg:hover {
   font-weight: 700;
 }
 
+.prism-owner > div {
+  min-width: 0;
+}
+
 .prism-owner__name {
   font-size: var(--prism-type-body-sm);
   font-weight: 500;
@@ -2559,6 +2590,74 @@ button.prism-crumbs__seg:hover {
 
 .prism-owner__role {
   font-size: 0.625rem;
+  color: var(--prism-ink-muted);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.prism-owner-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.prism-owner-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 148px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-width: 0;
+}
+
+.prism-owner-list__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 4px 6px;
+  border-radius: var(--prism-radius-sm);
+}
+
+.prism-owner-list__avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.5rem;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--prism-ink-muted) 18%, transparent);
+  color: var(--prism-ink-muted);
+}
+
+.prism-owner-list__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.75rem;
+  color: var(--prism-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prism-owner-list__meta {
+  flex-shrink: 0;
+  font-family: var(--prism-mono);
+  font-size: 0.625rem;
+  color: var(--prism-ink-muted);
+}
+
+.prism-owner-list__more {
+  padding: 4px 6px;
+  font-size: 0.6875rem;
   color: var(--prism-ink-muted);
 }
 

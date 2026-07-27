@@ -1,16 +1,19 @@
 import type {
   BackendReport,
+  ChangeReviewReport,
   CodeExplorerReport,
   CodeExplorerTarget,
   CwvReport,
   DnaReport,
   EngineeringHealthReport,
+  ExplainAreaSummary,
   GitActivity,
   GitRecentFile,
   GraphSnapshotDto,
   HealthHistoryBackfillStatus,
   HealthHistoryReport,
   HealthScore,
+  MapBookmark,
   MapLayerId,
   MapZoomLevel,
   RegionMoversReport,
@@ -29,6 +32,8 @@ import {
   prismError,
   type PrismClient,
   type PrismWorkspace,
+  type SaveBookmarkInput,
+  type WorkspacePackageInfo,
 } from "@prism/core";
 import type {
   DashboardPayload,
@@ -81,6 +86,63 @@ export class PrismSession {
     const result = await this.workspace.reindex();
     if (!result.ok) return result;
     return ok(undefined);
+  }
+
+  startWatch(options?: {
+    debounceMs?: number;
+    onChange?: (freshness: import("@prism/core").IndexFreshness) => void;
+  }): Result<void, PrismError> {
+    if (!this.workspace) {
+      return err(
+        prismError(
+          PrismErrorCode.WORKSPACE_NOT_OPEN,
+          "No Prism workspace open",
+        ),
+      );
+    }
+    return this.workspace.startWatch(options);
+  }
+
+  stopWatch(): Result<void, PrismError> {
+    if (!this.workspace) {
+      return err(
+        prismError(
+          PrismErrorCode.WORKSPACE_NOT_OPEN,
+          "No Prism workspace open",
+        ),
+      );
+    }
+    return this.workspace.stopWatch();
+  }
+
+  notifyWatchPaths(input: {
+    changedPaths?: readonly string[];
+    deletedPaths?: readonly string[];
+  }): Result<void, PrismError> {
+    if (!this.workspace) {
+      return err(
+        prismError(
+          PrismErrorCode.WORKSPACE_NOT_OPEN,
+          "No Prism workspace open",
+        ),
+      );
+    }
+    return this.workspace.notifyWatchPaths(input);
+  }
+
+  getIndexFreshness(): Result<
+    import("@prism/core").IndexFreshness,
+    PrismError
+  > {
+    if (!this.workspace) {
+      return err(
+        prismError(
+          PrismErrorCode.WORKSPACE_NOT_OPEN,
+          "No Prism workspace open",
+        ),
+      );
+    }
+    return this.workspace.getIndexFreshness();
   }
 
   private requireWs(): Result<PrismWorkspace, PrismError> {
@@ -313,6 +375,59 @@ export class PrismSession {
     const ws = this.requireWs();
     if (!ws.ok) return ws;
     return ws.value.discoverFrontendRoutes();
+  }
+
+  async reviewChanges(
+    paths: readonly string[],
+    base?: string,
+  ): Promise<Result<ChangeReviewReport, PrismError>> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    return ws.value.reviewChanges({ paths, ...(base ? { base } : {}) });
+  }
+
+  async explainArea(
+    path: string,
+  ): Promise<Result<ExplainAreaSummary | null, PrismError>> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    const result = await ws.value.explainArea(path);
+    if (!result.ok) return ok(null);
+    return ok(result.value);
+  }
+
+  async listBookmarks(): Promise<Result<MapBookmark[], PrismError>> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    return ws.value.listBookmarks();
+  }
+
+  async saveBookmark(
+    input: SaveBookmarkInput,
+  ): Promise<Result<MapBookmark[], PrismError>> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    return ws.value.saveBookmark(input);
+  }
+
+  async removeBookmark(id: string): Promise<Result<MapBookmark[], PrismError>> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    return ws.value.removeBookmark(id);
+  }
+
+  async listPackages(): Promise<Result<WorkspacePackageInfo[], PrismError>> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    return ws.value.listPackages();
+  }
+
+  async selectPackage(
+    packageId: string | null,
+  ): Promise<Result<string | null, PrismError>> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    return ws.value.selectPackage(packageId);
   }
 
   async runLighthouseLab(options?: {

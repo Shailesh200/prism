@@ -384,10 +384,12 @@ export function heuristicFrontendRoutes(
     }
   }
   for (const path of fileHints ?? []) {
-    const app = /(?:^|\/)app(\/.*?)\/page\.(tsx?|jsx?)$/i.exec(path);
+    const app = /(?:^|\/)app(?:(\/.*?))?\/page\.(tsx?|jsx?)$/i.exec(path);
     if (app) {
-      const seg = app[1]!.replace(/\/\([^)]+\)/g, "");
-      routes.add(seg === "" ? "/" : seg);
+      const seg = (app[1] ?? "")
+        .replace(/\/\([^)]+\)/g, "")
+        .replace(/\/@[A-Za-z0-9_-]+/g, "");
+      routes.add(seg === "" ? "/" : seg.startsWith("/") ? seg : `/${seg}`);
       continue;
     }
     const pages = /(?:^|\/)pages(\/.*?)\.(tsx?|jsx?)$/i.exec(path);

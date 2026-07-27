@@ -1,16 +1,19 @@
 import type {
   BackendReport,
   BlastRadiusReport,
+  ChangeReviewReport,
   CodeExplorerReport,
   CodeExplorerTarget,
   DnaReport,
   EngineeringHealthReport,
+  ExplainAreaSummary,
   GitActivity,
   GitRecentFile,
   GraphSnapshotDto,
   HealthHistoryBackfillStatus,
   HealthHistoryReport,
   HealthScore,
+  MapBookmark,
   MapLayerId,
   MapZoomLevel,
   RegionMoversReport,
@@ -23,6 +26,7 @@ import type {
   UtilityOverlayReport,
   CwvReport,
 } from "@prism/shared";
+import type { SaveBookmarkInput, WorkspacePackageInfo } from "@prism/core";
 import type {
   ApplyRenameInput,
   ApplyRenameResult,
@@ -53,7 +57,9 @@ export type AppView =
   | "blast"
   | "trends"
   | "integrations"
-  | "settings";
+  | "settings"
+  | "review"
+  | "explain";
 
 export type DashboardPayload = {
   root: string;
@@ -121,6 +127,7 @@ export type HostRequest =
   | { id: string; method: "engineeringHealth" }
   | { id: string; method: "codeExplorer"; target: CodeExplorerTarget }
   | { id: string; method: "prismGitignore" }
+  | { id: string; method: "addPrismGitignore" }
   | { id: string; method: "gitFetch" }
   | {
       id: string;
@@ -138,7 +145,14 @@ export type HostRequest =
       owner: string;
       repo: string;
       token?: string;
-    };
+    }
+  | { id: string; method: "reviewChanges"; paths: string[]; base?: string }
+  | { id: string; method: "explainArea"; path: string }
+  | { id: string; method: "listBookmarks" }
+  | { id: string; method: "saveBookmark"; input: SaveBookmarkInput }
+  | { id: string; method: "removeBookmark"; bookmarkId: string }
+  | { id: string; method: "listPackages" }
+  | { id: string; method: "selectPackage"; packageId: string | null };
 
 export type HostResponse =
   | { id: string; ok: true; method: "dashboard"; data: DashboardPayload }
@@ -221,6 +235,12 @@ export type HostResponse =
   | {
       id: string;
       ok: true;
+      method: "addPrismGitignore";
+      data: PrismGitignoreStatus;
+    }
+  | {
+      id: string;
+      ok: true;
       method: "gitFetch";
       data: { ok: true } | { ok: false; error: string };
     }
@@ -241,13 +261,56 @@ export type HostResponse =
         overlay: UtilityOverlayReport | null;
       };
     }
+  | {
+      id: string;
+      ok: true;
+      method: "reviewChanges";
+      data: ChangeReviewReport;
+    }
+  | {
+      id: string;
+      ok: true;
+      method: "explainArea";
+      data: ExplainAreaSummary | null;
+    }
+  | { id: string; ok: true; method: "listBookmarks"; data: MapBookmark[] }
+  | { id: string; ok: true; method: "saveBookmark"; data: MapBookmark[] }
+  | { id: string; ok: true; method: "removeBookmark"; data: MapBookmark[] }
+  | {
+      id: string;
+      ok: true;
+      method: "listPackages";
+      data: WorkspacePackageInfo[];
+    }
+  | {
+      id: string;
+      ok: true;
+      method: "selectPackage";
+      data: string | null;
+    }
   | { id: string; ok: false; error: string };
 
 export type HostToWebview =
   | HostResponse
   | { type: "status"; message: string; kind: "info" | "error" | "loading" }
-  | { type: "navigate"; view: AppView; domainId?: string }
+  | {
+      type: "navigate";
+      view: AppView;
+      domainId?: string;
+      /** Reveal-on-map deep link (M-048 Phase 3): repo-relative path to focus. */
+      focusPath?: string;
+      /** Reveal-on-map deep link by graph node id (takes priority over path). */
+      focusNodeId?: string;
+      /** Pre-selected target for the Blast / Change Review / Explain screens. */
+      targetPath?: string;
+      targetPaths?: string[];
+    }
   | { type: "audit"; entry: HostAuditEntry }
+  | { type: "codeLensEnabled"; enabled: boolean }
+  /** Soft refresh after watch/reindex — keep the current view. */
+  | { type: "dataRefresh" }
+  /** Force-show the in-app product tour (Settings / command). */
+  | { type: "showTour" }
   | {
       type: "lighthouseLabProgress";
       id: string;
@@ -264,5 +327,6 @@ export type WebviewToHost =
   | { type: "zoom"; zoom: MapZoomLevel }
   | { type: "layers"; layers: MapLayerId[] }
   | { type: "setAutoReindex"; enabled: boolean; intervalMs?: number }
+  | { type: "setCodeLens"; enabled: boolean }
   | { type: "setLocalOnly"; enabled: boolean }
   | { type: "clearData" };

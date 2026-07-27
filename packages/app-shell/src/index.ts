@@ -15,16 +15,21 @@ export type {
   ApplyRenameEditSite,
   ApplyRenameInput,
   ApplyRenameResult,
+  ChangeReviewReport,
   DashboardPayload,
+  ExplainAreaSummary,
   ImpactBundle,
   ImpactTarget,
+  MapBookmark,
   MapPayload,
   PrismGitignoreStatus,
   RunTestsOptions,
+  SaveBookmarkInput,
   SymbolSearchHit,
   TestListFile,
   TestListItem,
   TestListResult,
+  WorkspacePackageInfo,
 } from "./types.js";
 export { resolveRenameToPath, rewritePathReferences } from "./apply-rename.js";
 
@@ -42,12 +47,25 @@ export { TrendsScreen } from "./TrendsScreen.js";
 export type { TrendsScreenProps } from "./TrendsScreen.js";
 export { BlastRadiusScreen } from "./BlastRadiusScreen.js";
 export type { BlastRadiusScreenProps } from "./BlastRadiusScreen.js";
+export { ChangeReviewScreen } from "./ChangeReviewScreen.js";
+export type { ChangeReviewScreenProps } from "./ChangeReviewScreen.js";
+export { ExplainAreaScreen } from "./ExplainAreaScreen.js";
+export type { ExplainAreaScreenProps } from "./ExplainAreaScreen.js";
 export { SettingsScreen } from "./SettingsScreen.js";
 export type {
   SettingsScreenProps,
   SettingsSection,
   SettingsSurface,
 } from "./SettingsScreen.js";
+export {
+  PrismTour,
+  clearTourCompleted,
+  isTourCompleted,
+  markTourCompleted,
+  TOUR_STORAGE_KEY,
+  type PrismTourProps,
+  type TourStep,
+} from "./PrismTour.js";
 export {
   SETTINGS_STORAGE_KEY,
   DEFAULT_SETTINGS,

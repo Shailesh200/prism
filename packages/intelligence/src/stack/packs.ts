@@ -696,15 +696,14 @@ function nicheDetectors(): StackDetector[] {
       domains: [StackDomain.GAME],
       personaHints: [DeveloperPersona.GAME_DEVELOPER],
       async match(ctx) {
-        const evidence = await existingEvidence(ctx.rootPath, [
-          "ProjectSettings/ProjectVersion.txt",
-          "Assets",
-        ]);
-        if (evidence.length < 1) return null;
+        // Require the Unity project version file — a bare `Assets/` folder is
+        // common in web apps and must not false-positive as Unity.
+        const versionFile = "ProjectSettings/ProjectVersion.txt";
+        if (!(await pathExists(join(ctx.rootPath, versionFile)))) return null;
         if (!(await pathExists(join(ctx.rootPath, "Assets")))) return null;
         return {
-          confidence: 0.75,
-          evidence: evidence.length > 0 ? evidence : ["Assets"],
+          confidence: 0.9,
+          evidence: [versionFile, "Assets"],
         };
       },
     }),

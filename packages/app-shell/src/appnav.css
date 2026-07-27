@@ -8,10 +8,10 @@
   flex-direction: column;
   min-height: 0;
   height: 100%;
-  background: #0d1220;
-  border-right: 1px solid rgba(255, 255, 255, 0.07);
-  color: #94a3b8;
-  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  background: var(--prism-panel-2, #0d1220);
+  border-right: 1px solid var(--prism-line, rgba(255, 255, 255, 0.07));
+  color: var(--prism-ink-muted, #94a3b8);
+  font-family: var(--prism-font, "Inter", "Segoe UI", system-ui, sans-serif);
   white-space: nowrap;
 }
 
@@ -39,6 +39,19 @@
   box-shadow: 0 22px 52px rgba(0, 0, 0, 0.6);
 }
 
+/* Force-expand rail while the Getting Started tour is open so brand + labels
+   are fully visible and spotlight geometry matches what the user sees.
+   In-pane steps (Change Review / Explain) omit data-prism-tour-active so the
+   rail stays collapsed and the main-pane spotlight stays clean. */
+html[data-prism-tour-active] .appnav--rail {
+  width: 224px;
+  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.6);
+  /* Sit under the tour overlay (z-index 80) but above page content. */
+  z-index: 60;
+  /* Snap open — measuring mid-transition misaligns the spotlight. */
+  transition: none;
+}
+
 /* Text/labels: always shown when full; fade in on hover when rail. */
 .appnav__reveal {
   transition: opacity 0.15s ease;
@@ -49,7 +62,8 @@
 }
 
 .appnav--rail:hover .appnav__reveal,
-.appnav--rail:focus-within .appnav__reveal {
+.appnav--rail:focus-within .appnav__reveal,
+html[data-prism-tour-active] .appnav--rail .appnav__reveal {
   opacity: 1;
 }
 
@@ -69,6 +83,21 @@
   font-weight: 600;
   color: #fff;
   flex-shrink: 0;
+  /* Keep brand row a clean spotlight target (icon + wordmark). */
+  border-radius: 0;
+  min-height: 54px;
+  box-sizing: border-box;
+}
+
+/* Nudge brand row down while touring so the spotlight ring clears y=0. */
+html[data-prism-tour-active] .appnav__logo {
+  margin-top: 4px;
+  border-radius: 10px;
+}
+
+.appnav__logo img {
+  flex-shrink: 0;
+  display: block;
 }
 
 .appnav__repo {
@@ -84,22 +113,33 @@
   gap: 8px;
   padding: 8px 12px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: #1a2030;
+  border: 1px solid var(--prism-line, rgba(255, 255, 255, 0.06));
+  background: var(--prism-panel, #1a2030);
 }
 
 .appnav__repo-scope {
   font-size: 0.6875rem;
-  color: #94a3b8;
+  color: var(--prism-ink-muted, #94a3b8);
 }
 
 .appnav__repo-name {
   font-size: 0.75rem;
   font-weight: 500;
-  color: #fff;
+  color: var(--prism-ink, #fff);
   max-width: 150px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.appnav__pkg-select {
+  width: 100%;
+  margin-top: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--prism-line, rgba(255, 255, 255, 0.08));
+  background: var(--prism-panel, #1a2030);
+  color: var(--prism-ink, #cbd5e1);
+  font-size: 0.6875rem;
 }
 
 .appnav__nav {

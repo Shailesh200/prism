@@ -21,6 +21,49 @@ export type InventoryOptions = {
   readonly extraIgnorePatterns?: readonly string[];
 };
 
+/**
+ * Classify / hash a single repo-relative path under a workspace root.
+ * Returns null when the path is ignored or does not exist.
+ */
+export async function inventorySinglePath(
+  workspaceRoot: string,
+  repoPath: string,
+  options: InventoryOptions = {},
+): Promise<Result<FileInventoryEntry | null, PrismError>> {
+  const maxFileBytes = options.maxFileBytes ?? DEFAULT_MAX_FILE_BYTES;
+  const engine = await createIgnoreEngine(
+    workspaceRoot,
+    options.extraIgnorePatterns
+      ? { extraPatterns: options.extraIgnorePatterns }
+      : {},
+  );
+  const normalized = normalizeRepoPath(repoPath.replace(/\\/g, "/"));
+  if (!normalized.ok) return ok(null);
+  const rel = normalized.value;
+  if (engine.ignores(rel)) return ok(null);
+  const abs = join(workspaceRoot, rel);
+  try {
+    const st = await stat(abs);
+    if (!st.isFile()) return ok(null);
+  } catch {
+    return ok(null);
+  }
+  try {
+    const entry = await classifyFile(
+      { absolutePath: abs, repoPath: rel },
+      maxFileBytes,
+    );
+    return ok(entry);
+  } catch (cause) {
+    return err(
+      prismError(PrismErrorCode.IO_ERROR, `Failed to read file: ${rel}`, {
+        path: rel,
+        cause: String(cause),
+      }),
+    );
+  }
+}
+
 type WalkItem = {
   readonly absolutePath: string;
   readonly repoPath: string;

@@ -84,8 +84,111 @@
         "command": "prism.openInBrowser",
         "title": "Open in Browser",
         "category": "Prism"
+      },
+      {
+        "command": "prism.blastRadius",
+        "title": "Blast Radius",
+        "category": "Prism"
+      },
+      {
+        "command": "prism.safeDelete",
+        "title": "Safe Delete Check",
+        "category": "Prism"
+      },
+      {
+        "command": "prism.exploreOwnership",
+        "title": "Explore Ownership",
+        "category": "Prism"
+      },
+      {
+        "command": "prism.revealOnMap",
+        "title": "Reveal on Map",
+        "category": "Prism"
+      },
+      {
+        "command": "prism.explainArea",
+        "title": "Explain This Area",
+        "category": "Prism"
+      },
+      {
+        "command": "prism.reviewChanges",
+        "title": "Review Changes",
+        "category": "Prism"
+      },
+      {
+        "command": "prism.openWalkthrough",
+        "title": "Getting Started Tour",
+        "category": "Prism"
       }
-    ]
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "prism.blastRadius",
+          "group": "prism@1"
+        },
+        {
+          "command": "prism.safeDelete",
+          "group": "prism@2"
+        },
+        {
+          "command": "prism.exploreOwnership",
+          "group": "prism@3"
+        },
+        {
+          "command": "prism.explainArea",
+          "group": "prism@4"
+        },
+        {
+          "command": "prism.revealOnMap",
+          "group": "prism@5"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "prism.blastRadius",
+          "group": "prism@1"
+        },
+        {
+          "command": "prism.safeDelete",
+          "group": "prism@2"
+        },
+        {
+          "command": "prism.exploreOwnership",
+          "group": "prism@3"
+        },
+        {
+          "command": "prism.explainArea",
+          "group": "prism@4"
+        },
+        {
+          "command": "prism.revealOnMap",
+          "group": "prism@5"
+        }
+      ],
+      "scm/resourceState/context": [
+        {
+          "command": "prism.reviewChanges",
+          "group": "prism@1"
+        },
+        {
+          "command": "prism.blastRadius",
+          "group": "prism@2"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Prism",
+      "properties": {
+        "prism.codeLens.enabled": {
+          "type": "boolean",
+          "default": false,
+          "title": "Enable CodeLens",
+          "description": "Show file-level Prism CodeLenses (Blast Radius, Ownership, Map) above the first line of each file. Also available in Prism → Settings → General.",
+          "order": 1
+        }
+      }
+    }
   },
   "files": [
     "dist",

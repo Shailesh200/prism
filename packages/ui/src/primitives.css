@@ -358,6 +358,43 @@
   color: var(--prism-ink-muted);
 }
 
+.prism-tooltip__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--prism-line, #2a334a);
+}
+
+.prism-tooltip__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, #00c2c2 45%, #2a334a);
+  background: color-mix(in srgb, #00c2c2 14%, transparent);
+  color: var(--prism-ink, #e2e8f0);
+  font: inherit;
+  font-size: 0.6875rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.prism-tooltip__action:hover:not(:disabled) {
+  background: color-mix(in srgb, #00c2c2 22%, transparent);
+}
+
+.prism-tooltip__action:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.prism-tooltip__pop[data-interactive="true"] {
+  pointer-events: auto;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .prism-input,
   .prism-textarea,

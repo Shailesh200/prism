@@ -518,6 +518,51 @@ export const TestImpactReportSchema = z.object({
 
 export type TestImpactReport = z.infer<typeof TestImpactReportSchema>;
 
+/** Per-path aggregate row inside a {@link ChangeReviewReport} (M-048 Phase 4). */
+export const ChangeReviewItemSchema = z.object({
+  path: RepoRelativePathSchema,
+  risk: z.number().min(0).max(100),
+  affectedFilesCount: z.number().int().nonnegative(),
+  testsLikelyAffected: z.array(RepoRelativePathSchema),
+  breakingChanges: z.array(BreakingChangeHintSchema),
+});
+
+export type ChangeReviewItem = z.infer<typeof ChangeReviewItemSchema>;
+
+/**
+ * Multi-path change-review aggregate (SCM / editor "Review Changes",
+ * M-048 Phase 4). Wraps `blastRadius` + `testImpact` + `breakingChangeHints`
+ * per path; `overallRisk` is the max per-path risk.
+ */
+export const ChangeReviewReportSchema = z.object({
+  generatedAt: z.string().datetime(),
+  /** Diff base label when known (e.g. `origin/main`, `HEAD~1`). */
+  base: z.string().optional(),
+  items: z.array(ChangeReviewItemSchema),
+  overallRisk: z.number().min(0).max(100),
+  totalAffectedFiles: z.number().int().nonnegative(),
+  totalTestsAffected: z.number().int().nonnegative(),
+  totalBreakingChanges: z.number().int().nonnegative(),
+});
+
+export type ChangeReviewReport = z.infer<typeof ChangeReviewReportSchema>;
+
+/** Deterministic module/folder summary card (M-048 Phase 5). */
+export const ExplainAreaSummarySchema = z.object({
+  path: RepoRelativePathSchema,
+  /** Detected stack domain ids whose signals overlap this path. */
+  domains: z.array(z.string()).default([]),
+  dependencyDegree: z.object({
+    in: z.number().int().nonnegative(),
+    out: z.number().int().nonnegative(),
+  }),
+  /** Top git contributors for this path/folder (local history only). */
+  owners: z.array(z.string()).default([]),
+  summary: z.string().min(1),
+});
+
+export type ExplainAreaSummary = z.infer<typeof ExplainAreaSummarySchema>;
+
 export const FileInventoryStatusSchema = z.enum([
   "hashed",
   "skipped_binary",

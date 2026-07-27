@@ -12,7 +12,11 @@ export {
   looksBinary,
 } from "./hash.js";
 export { createIgnoreEngine, type IgnoreEngine } from "./ignore-engine.js";
-export { inventoryWorkspace, type InventoryOptions } from "./inventory.js";
+export {
+  inventoryWorkspace,
+  inventorySinglePath,
+  type InventoryOptions,
+} from "./inventory.js";
 export { resolveWorkspaceRoot } from "./workspace-root.js";
 export {
   DEFAULT_INDEX_CONCURRENCY,

@@ -19,7 +19,7 @@ import type { AppShellClient } from "./client.js";
 import { useAppShellClient } from "./client-context.js";
 import { isBrowserShell } from "./is-browser.js";
 import { Avatar } from "./Avatar.js";
-import type { PrismGitignoreStatus } from "./types.js";
+import type { PrismGitignoreStatus, WorkspacePackageInfo } from "./types.js";
 
 export type AppView =
   | "overview"
@@ -32,7 +32,9 @@ export type AppView =
   | "blast"
   | "trends"
   | "integrations"
-  | "settings";
+  | "settings"
+  | "review"
+  | "explain";
 
 export type AppSidebarUser = {
   readonly author: string;
@@ -56,10 +58,12 @@ export type AppSidebarProps = {
  */
 let gitignoreStatusPromise: Promise<PrismGitignoreStatus> | null = null;
 
-function usePrismGitignoreStatus(
-  client: AppShellClient,
-): PrismGitignoreStatus | null {
+function usePrismGitignoreStatus(client: AppShellClient): {
+  status: PrismGitignoreStatus | null;
+  addToGitignore: (() => Promise<void>) | null;
+} {
   const [status, setStatus] = useState<PrismGitignoreStatus | null>(null);
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     if (!client.fetchPrismGitignoreStatus) return;
@@ -77,7 +81,59 @@ function usePrismGitignoreStatus(
     };
   }, [client]);
 
-  return status;
+  const addToGitignore =
+    client.addPrismGitignore && !adding
+      ? async (): Promise<void> => {
+          if (!client.addPrismGitignore) return;
+          setAdding(true);
+          try {
+            const next = await client.addPrismGitignore();
+            gitignoreStatusPromise = Promise.resolve(next);
+            setStatus(next);
+          } finally {
+            setAdding(false);
+          }
+        }
+      : null;
+
+  return { status, addToGitignore };
+}
+
+/**
+ * Mono-v1 package picker (M-048 Phase 6): lists workspace packages once per
+ * host and forwards the selection to Core via `selectPackage`. Hidden when
+ * the host doesn't support it or the workspace has 0-1 packages.
+ */
+function usePackagePicker(client: AppShellClient): {
+  packages: WorkspacePackageInfo[];
+  selectedId: string | null;
+  select: (id: string | null) => void;
+} {
+  const [packages, setPackages] = useState<WorkspacePackageInfo[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!client.fetchPackages) return;
+    let cancelled = false;
+    void client
+      .fetchPackages()
+      .then((list) => {
+        if (!cancelled) setPackages(list);
+      })
+      .catch(() => {
+        /* package listing is optional */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [client]);
+
+  const select = (id: string | null): void => {
+    setSelectedId(id);
+    void client.selectPackage?.(id);
+  };
+
+  return { packages, selectedId, select };
 }
 
 /**
@@ -87,18 +143,32 @@ function usePrismGitignoreStatus(
  */
 export function AppSidebar(props: AppSidebarProps): ReactElement {
   const client = useAppShellClient();
-  const gitignoreStatus = usePrismGitignoreStatus(client);
+  const { status: gitignoreStatus, addToGitignore } =
+    usePrismGitignoreStatus(client);
+  const {
+    packages,
+    selectedId: selectedPackageId,
+    select: selectPackageId,
+  } = usePackagePicker(client);
+  const [gitignoreBusy, setGitignoreBusy] = useState(false);
   const showGitignoreWarning = gitignoreStatus?.ignored === false;
   const brandSrc =
     props.brandMarkSrc ??
     document.body.getAttribute("data-brand") ??
     "/brand/prism-mark.png";
+
+  const onAddGitignore = (): void => {
+    if (!addToGitignore || gitignoreBusy) return;
+    setGitignoreBusy(true);
+    void addToGitignore().finally(() => setGitignoreBusy(false));
+  };
+
   return (
     <aside
       className={`appnav appnav--${props.variant}`}
       aria-label="Primary navigation"
     >
-      <div className="appnav__logo">
+      <div className="appnav__logo" data-prism-tour="welcome">
         <img src={brandSrc} alt="" width={22} height={22} />
         <span className="appnav__reveal">Prism</span>
       </div>
@@ -122,6 +192,21 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
           </div>
           <GitBranch size={13} aria-hidden />
         </div>
+        {packages.length > 1 ? (
+          <select
+            className="appnav__pkg-select"
+            aria-label="Package"
+            value={selectedPackageId ?? ""}
+            onChange={(e) => selectPackageId(e.target.value || null)}
+          >
+            <option value="">All packages ({packages.length})</option>
+            {packages.map((pkg) => (
+              <option key={pkg.id} value={pkg.id}>
+                {pkg.name ?? pkg.id}
+              </option>
+            ))}
+          </select>
+        ) : null}
       </div>
 
       <nav className="appnav__nav">
@@ -129,6 +214,7 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
         <button
           type="button"
           className="appnav__item"
+          data-prism-tour="overview"
           data-active={props.active === "overview" ? "true" : "false"}
           onClick={() => props.onNavigate("overview")}
         >
@@ -138,6 +224,7 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
         <button
           type="button"
           className="appnav__item"
+          data-prism-tour="map"
           data-active={props.active === "map" ? "true" : "false"}
           onClick={() => props.onNavigate("map")}
         >
@@ -147,6 +234,7 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
         <button
           type="button"
           className="appnav__item"
+          data-prism-tour="profile"
           data-active={props.active === "profile" ? "true" : "false"}
           onClick={() => props.onNavigate("profile")}
         >
@@ -156,6 +244,7 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
         <button
           type="button"
           className="appnav__item"
+          data-prism-tour="domains"
           data-active={
             props.active === "domains" || props.active === "domain"
               ? "true"
@@ -169,6 +258,7 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
         <button
           type="button"
           className="appnav__item"
+          data-prism-tour="testing"
           data-active={props.active === "testing" ? "true" : "false"}
           onClick={() => props.onNavigate("testing")}
         >
@@ -178,6 +268,7 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
         <button
           type="button"
           className="appnav__item"
+          data-prism-tour="dna"
           data-active={props.active === "dna" ? "true" : "false"}
           onClick={() => props.onNavigate("dna")}
         >
@@ -187,6 +278,7 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
         <button
           type="button"
           className="appnav__item"
+          data-prism-tour="impact"
           data-active={props.active === "blast" ? "true" : "false"}
           onClick={() => props.onNavigate("blast")}
         >
@@ -196,6 +288,7 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
         <button
           type="button"
           className="appnav__item"
+          data-prism-tour="trends"
           data-active={props.active === "trends" ? "true" : "false"}
           onClick={() => props.onNavigate("trends")}
         >
@@ -207,6 +300,7 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
         <button
           type="button"
           className="appnav__item"
+          data-prism-tour="integrations"
           data-active={props.active === "integrations" ? "true" : "false"}
           onClick={() => props.onNavigate("integrations")}
         >
@@ -216,6 +310,7 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
         <button
           type="button"
           className="appnav__item"
+          data-prism-tour="settings"
           data-active={props.active === "settings" ? "true" : "false"}
           onClick={() => props.onNavigate("settings")}
         >
@@ -232,7 +327,26 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
               .prism not gitignored
             </span>
             <span className="appnav__warn-tip appnav__reveal">
-              <Tooltip label=".prism is tracked by git" align="start">
+              <Tooltip
+                label=".prism is tracked by git"
+                align="start"
+                actions={
+                  addToGitignore ? (
+                    <button
+                      type="button"
+                      className="prism-tooltip__action"
+                      disabled={gitignoreBusy}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onAddGitignore();
+                      }}
+                    >
+                      {gitignoreBusy ? "Adding…" : "Add to .gitignore"}
+                    </button>
+                  ) : null
+                }
+              >
                 Prism writes its local cache to <code>.prism/</code>. Add{" "}
                 <code>.prism/</code> to your <code>.gitignore</code> so the
                 cache isn&apos;t committed.

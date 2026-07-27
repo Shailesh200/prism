@@ -704,3 +704,251 @@ html[data-theme="light"] .ts-split__caret {
   gap: 10px;
   margin-bottom: 12px;
 }
+
+
+/* =========================================================
+   Light theme — catch remaining navy hardcodes (Design.md)
+   Prefer tokens already set on [data-theme=light] / .prism-theme
+   ========================================================= */
+[data-theme="light"] .appnav__pkg-select,
+html[data-theme="light"] .appnav__pkg-select,
+.prism-theme[data-theme="light"] .appnav__pkg-select {
+  background: var(--prism-panel);
+  border-color: var(--prism-line);
+  color: var(--prism-ink);
+}
+
+[data-theme="light"] .ov-seg,
+html[data-theme="light"] .ov-seg {
+  background: var(--prism-panel-2);
+  border-color: var(--prism-line);
+}
+
+[data-theme="light"] .ov-seg__btn,
+html[data-theme="light"] .ov-seg__btn {
+  color: var(--prism-ink-muted);
+}
+
+[data-theme="light"] .ov-seg__btn:hover,
+html[data-theme="light"] .ov-seg__btn:hover {
+  color: var(--prism-ink);
+}
+
+[data-theme="light"] .ov-seg__btn[data-active="true"],
+html[data-theme="light"] .ov-seg__btn[data-active="true"] {
+  background: var(--prism-brand);
+  color: var(--prism-on-brand);
+}
+
+[data-theme="light"] .ov-daterange__field input,
+html[data-theme="light"] .ov-daterange__field input {
+  background: var(--prism-panel);
+  border-color: var(--prism-line);
+  color: var(--prism-ink);
+  color-scheme: light;
+}
+
+[data-theme="light"] .dm-route-card,
+[data-theme="light"] .dm-route-select,
+[data-theme="light"] .cwv-insights__col,
+[data-theme="light"] .lab-console,
+[data-theme="light"] .dm-lab-menu__pop,
+html[data-theme="light"] .dm-route-card,
+html[data-theme="light"] .dm-route-select,
+html[data-theme="light"] .cwv-insights__col,
+html[data-theme="light"] .lab-console,
+html[data-theme="light"] .dm-lab-menu__pop {
+  background: var(--prism-panel);
+  border-color: var(--prism-line);
+  color: var(--prism-ink);
+  box-shadow: none;
+}
+
+[data-theme="light"] .dm-route-card__path,
+[data-theme="light"] .cwv-insights__col-h,
+[data-theme="light"] .cwv-insights__item-title,
+[data-theme="light"] .dm-lab-menu__item,
+[data-theme="light"] .dm-route__chip-v,
+[data-theme="light"] .dm-route-select__head,
+html[data-theme="light"] .dm-route-card__path,
+html[data-theme="light"] .cwv-insights__col-h,
+html[data-theme="light"] .cwv-insights__item-title,
+html[data-theme="light"] .dm-lab-menu__item,
+html[data-theme="light"] .dm-route__chip-v,
+html[data-theme="light"] .dm-route-select__head {
+  color: var(--prism-ink);
+}
+
+[data-theme="light"] .dm-route__empty,
+[data-theme="light"] .dm-route__notes,
+[data-theme="light"] .dm-routes__meta,
+[data-theme="light"] .cwv-insights__hint,
+[data-theme="light"] .cwv-insights__item-detail,
+[data-theme="light"] .cwv-insights__metric,
+[data-theme="light"] .cwv-insights__count,
+[data-theme="light"] .dm-route__chip-k,
+[data-theme="light"] .dm-lab-menu__meta,
+[data-theme="light"] .lab-console__h,
+[data-theme="light"] .dm-route__console > summary,
+html[data-theme="light"] .dm-route__empty,
+html[data-theme="light"] .dm-route__notes,
+html[data-theme="light"] .cwv-insights__hint,
+html[data-theme="light"] .cwv-insights__item-detail,
+html[data-theme="light"] .cwv-insights__metric,
+html[data-theme="light"] .cwv-insights__count,
+html[data-theme="light"] .dm-route__chip-k,
+html[data-theme="light"] .dm-lab-menu__meta,
+html[data-theme="light"] .lab-console__h,
+html[data-theme="light"] .dm-route__console > summary {
+  color: var(--prism-ink-muted);
+}
+
+[data-theme="light"] .cwv-insights__item,
+[data-theme="light"] .dm-route__console,
+[data-theme="light"] .dm-route__chip,
+html[data-theme="light"] .cwv-insights__item,
+html[data-theme="light"] .dm-route__console,
+html[data-theme="light"] .dm-route__chip {
+  background: var(--prism-tile);
+  border-color: var(--prism-line);
+}
+
+[data-theme="light"] .cwv-insights__col--pain,
+html[data-theme="light"] .cwv-insights__col--pain {
+  background: color-mix(in srgb, #f43f5e 8%, var(--prism-panel));
+  border-color: color-mix(in srgb, #f43f5e 35%, var(--prism-line));
+}
+
+[data-theme="light"] .cwv-insights__col--improve,
+html[data-theme="light"] .cwv-insights__col--improve {
+  background: color-mix(in srgb, #f59e0b 8%, var(--prism-panel));
+  border-color: color-mix(in srgb, #f59e0b 35%, var(--prism-line));
+}
+
+[data-theme="light"] .cwv-insights__col--good,
+html[data-theme="light"] .cwv-insights__col--good {
+  background: color-mix(in srgb, #10b981 8%, var(--prism-panel));
+  border-color: color-mix(in srgb, #10b981 35%, var(--prism-line));
+}
+
+[data-theme="light"] .ts-panel,
+[data-theme="light"] .ts-acc,
+[data-theme="light"] .ts-table,
+[data-theme="light"] .ts-suite,
+html[data-theme="light"] .ts-panel,
+html[data-theme="light"] .ts-acc,
+html[data-theme="light"] .ts-table,
+html[data-theme="light"] .ts-suite {
+  background: var(--prism-panel);
+  border-color: var(--prism-line);
+  color: var(--prism-ink);
+}
+
+[data-theme="light"] .set-toggle__track,
+html[data-theme="light"] .set-toggle__track {
+  background: var(--prism-tile);
+}
+
+[data-theme="light"] .integ-card,
+[data-theme="light"] .blast-card,
+[data-theme="light"] .review-card,
+html[data-theme="light"] .integ-card,
+html[data-theme="light"] .blast-card,
+html[data-theme="light"] .review-card {
+  background: var(--prism-panel);
+  border-color: var(--prism-line);
+  color: var(--prism-ink);
+}
+
+[data-theme="light"] .prism-tour__card,
+html[data-theme="light"] .prism-tour__card {
+  background: var(--prism-panel);
+  border-color: var(--prism-line);
+  color: var(--prism-ink);
+}
+
+[data-theme="light"] .prism-tour__caret,
+html[data-theme="light"] .prism-tour__caret {
+  background: var(--prism-panel);
+  border-color: var(--prism-line);
+}
+
+[data-theme="light"] .prism-tour[data-anchored="false"] .prism-tour__mask,
+html[data-theme="light"] .prism-tour[data-anchored="false"] .prism-tour__mask {
+  background: color-mix(in srgb, #0f172a 45%, transparent);
+}
+
+[data-theme="light"] .prism-tour__ring,
+html[data-theme="light"] .prism-tour__ring {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--prism-brand, #00c2c2) 35%, transparent),
+    0 0 22px color-mix(in srgb, var(--prism-brand, #00c2c2) 24%, transparent),
+    0 0 0 9999px color-mix(in srgb, #0f172a 45%, transparent);
+}
+
+[data-theme="light"] .prism-tour__body,
+[data-theme="light"] .prism-tour__progress,
+[data-theme="light"] .prism-tour__skip,
+html[data-theme="light"] .prism-tour__body,
+html[data-theme="light"] .prism-tour__progress,
+html[data-theme="light"] .prism-tour__skip {
+  color: var(--prism-ink-muted);
+}
+
+[data-theme="light"] .prism-tour__btn--ghost,
+html[data-theme="light"] .prism-tour__btn--ghost {
+  border-color: var(--prism-line);
+  color: var(--prism-ink-muted);
+}
+
+[data-theme="light"] .dm-pipe-table,
+[data-theme="light"] .dm-pipe-table th,
+[data-theme="light"] .dm-pipe-table td,
+html[data-theme="light"] .dm-pipe-table,
+html[data-theme="light"] .dm-pipe-table th,
+html[data-theme="light"] .dm-pipe-table td {
+  background: var(--prism-panel);
+  border-color: var(--prism-line);
+  color: var(--prism-ink);
+}
+
+[data-theme="light"] .dm-pipe-table th,
+html[data-theme="light"] .dm-pipe-table th {
+  background: var(--prism-panel-2);
+  color: var(--prism-ink-muted);
+}
+
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] .appnav__pkg-select,
+  [data-theme="system"] .ov-seg,
+  [data-theme="system"] .dm-route-card,
+  [data-theme="system"] .dm-route-select,
+  [data-theme="system"] .cwv-insights__col,
+  [data-theme="system"] .lab-console,
+  [data-theme="system"] .dm-lab-menu__pop {
+    background: var(--prism-panel);
+    border-color: var(--prism-line);
+    color: var(--prism-ink);
+  }
+
+  [data-theme="system"] .ov-seg {
+    background: var(--prism-panel-2);
+  }
+
+  [data-theme="system"] .ov-seg__btn[data-active="true"] {
+    background: var(--prism-brand);
+    color: var(--prism-on-brand);
+  }
+
+  [data-theme="system"] .dm-route-card__path,
+  [data-theme="system"] .cwv-insights__item-title,
+  [data-theme="system"] .dm-lab-menu__item {
+    color: var(--prism-ink);
+  }
+
+  [data-theme="system"] .dm-route__empty,
+  [data-theme="system"] .dm-route__notes,
+  [data-theme="system"] .cwv-insights__item-detail {
+    color: var(--prism-ink-muted);
+  }
+}
