@@ -143,7 +143,7 @@ const DOMAINS: Record<string, DomainDef> = {
     kind: "api-surface",
     surfaceLabel: "API Surface",
     description:
-      "Extracts Express / Nest / Fastify routes (METHOD /path), auth exposure, test linkage, data layer, env vars, and background work via Core getBackendReport — plus the api-surface overlay for Map.",
+      "Extracts Express / Nest / Fastify routes (METHOD /path), auth exposure, test linkage, data layer, env vars, and background work via Core backend report — plus the api-surface overlay for Map.",
     sources:
       "route handlers, controllers, models/migrations, env usage, queues",
   },
@@ -3393,7 +3393,7 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                           Most Depended-on Screens
                           <InfoTip label="Most Depended-on Screens">
                             Screens with highest inbound dependency edges from
-                            the file graph (getDependencyGraph).
+                            the file graph.
                           </InfoTip>
                         </span>
                       </div>
@@ -3422,8 +3422,7 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                         </p>
                       )}
                       <p className="dm-note">
-                        In-degree from the file dependency graph
-                        (getDependencyGraph).
+                        In-degree from the file dependency graph.
                       </p>
                     </article>
 
@@ -3473,7 +3472,8 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                         </p>
                       )}
                       <p className="dm-note">
-                        Platforms (iOS/Android) and Deep Links remain deferred.
+                        Platform (iOS/Android) and Deep Link details are not
+                        available yet.
                       </p>
                     </article>
                   </>
@@ -3741,8 +3741,7 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                         </p>
                       )}
                       <p className="dm-note">
-                        In-degree from the file dependency graph
-                        (getDependencyGraph).
+                        In-degree from the file dependency graph.
                       </p>
                     </article>
                   </>
@@ -4487,8 +4486,8 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                           />
                           Argo CD / Workflows
                           <InfoTip label="Argo">
-                            Scaffold only — live Argo sync/drift arrives in a
-                            later connector milestone.
+                            Placeholder for now — live Argo sync and drift will
+                            appear when the connector ships.
                           </InfoTip>
                         </span>
                         <span className="ov-card__meta">Coming soon</span>
@@ -4517,8 +4516,8 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                           />
                           Jenkins
                           <InfoTip label="Jenkins">
-                            Scaffold only — job listing and last-build status
-                            need the Jenkins connector.
+                            Placeholder for now — job listing and last-build
+                            status need the Jenkins connector.
                           </InfoTip>
                         </span>
                         <span className="ov-card__meta">Coming soon</span>
@@ -4551,9 +4550,9 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                           />
                           Routes
                           <InfoTip label="Routes">
-                            HTTP endpoints from Core getBackendReport (Express /
-                            Nest / Fastify). Handler prefers function name when
-                            extractable.
+                            HTTP endpoints from Core&apos;s backend report
+                            (Express / Nest / Fastify). Handler prefers function
+                            name when extractable.
                           </InfoTip>
                         </span>
                         <SearchableInput
@@ -4647,8 +4646,9 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                           />
                           Endpoint Test Coverage
                           <InfoTip label="Endpoint Test Coverage">
-                            Untested routes from getBackendReport — stem match
-                            plus import edges when an index is available.
+                            Untested routes from Core&apos;s backend report —
+                            stem match plus import edges when an index is
+                            available.
                           </InfoTip>
                         </span>
                         <SearchableInput
@@ -4703,8 +4703,8 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                       )}
                       {coverage ? (
                         <p className="dm-note">
-                          {coverage.tested}/{coverage.total} covered · from Core
-                          getBackendReport.
+                          {coverage.tested}/{coverage.total} covered · from
+                          Core&apos;s backend report.
                         </p>
                       ) : null}
                     </article>
@@ -5021,8 +5021,7 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                         </p>
                       )}
                       <p className="dm-note">
-                        In-degree from the file dependency graph
-                        (getDependencyGraph).
+                        In-degree from the file dependency graph.
                       </p>
                     </article>
                   </>

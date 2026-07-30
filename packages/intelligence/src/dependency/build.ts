@@ -12,6 +12,7 @@ import {
   discoverLocalPackages,
   packageForFile,
   packageNodeId,
+  resolveLocalPackageSpecifier,
   type LocalPackage,
 } from "./packages.js";
 import {
@@ -19,11 +20,15 @@ import {
   isBarePackageSpecifier,
   isRelativeSpecifier,
   resolveImportTarget,
+  resolveRelativePath,
 } from "./resolve.js";
+import { loadTsconfigPathAliases, resolveAliasSpecifier } from "./aliases.js";
 
 export type DependencyGraphOptions = {
   /** Aggregate to local package nodes (reads package.json under rootPath). */
   readonly packageAggregation?: boolean;
+  /** Enable best-effort tsconfig paths / package imports aliases (default true). */
+  readonly resolveAliases?: boolean;
 };
 
 export type UnresolvedDependency = {
@@ -44,6 +49,8 @@ type FileEdge = {
   toPath: string;
   kind: "import" | "re-export";
   source: string;
+  /** Named import/export bindings when known (for evidence). */
+  specifiers?: readonly string[];
 };
 
 function fileNodeId(path: string): string {
@@ -54,13 +61,41 @@ function edgeId(kind: string, from: string, to: string): string {
   return unsafeEdgeId(`${kind}:${from}->${to}`);
 }
 
+function resolveNonRelativeTarget(
+  fromFile: string,
+  source: string,
+  indexedPaths: ReadonlySet<string>,
+  packages: readonly LocalPackage[],
+  aliases: ReturnType<typeof loadTsconfigPathAliases>,
+  resolveAliases: boolean,
+): string | null {
+  if (resolveAliases && aliases.rules.length > 0) {
+    const aliasHit = resolveAliasSpecifier(
+      fromFile,
+      source,
+      indexedPaths,
+      aliases,
+    );
+    if (aliasHit) return aliasHit;
+  }
+  return resolveLocalPackageSpecifier(source, packages, indexedPaths);
+}
+
 function collectFileEdges(
   snapshot: IndexSnapshot,
   indexedPaths: ReadonlySet<string>,
+  packages: readonly LocalPackage[],
+  resolveAliases = true,
 ): { edges: FileEdge[]; unresolved: UnresolvedDependency[] } {
   const edges: FileEdge[] = [];
   const unresolved: UnresolvedDependency[] = [];
   const seen = new Set<string>();
+  const aliases = resolveAliases
+    ? loadTsconfigPathAliases(
+        snapshot.rootPath,
+        snapshot.files.map((f) => f.path),
+      )
+    : { rules: [] };
 
   const pushEdge = (e: FileEdge) => {
     const key = `${e.kind}\0${e.fromPath}\0${e.toPath}`;
@@ -74,6 +109,26 @@ function collectFileEdges(
 
     for (const imp of file.imports) {
       if (!isRelativeSpecifier(imp.source)) {
+        const hit = resolveNonRelativeTarget(
+          file.path,
+          imp.source,
+          indexedPaths,
+          packages,
+          aliases,
+          resolveAliases,
+        );
+        if (hit) {
+          pushEdge({
+            fromPath: file.path,
+            toPath: hit,
+            kind: "import",
+            source: imp.source,
+            ...(imp.specifiers.length > 0
+              ? { specifiers: imp.specifiers }
+              : {}),
+          });
+          continue;
+        }
         if (isBarePackageSpecifier(imp.source)) {
           unresolved.push({
             from: file.path,
@@ -93,6 +148,25 @@ function collectFileEdges(
       }
       const target = resolveImportTarget(file.path, imp.source, indexedPaths);
       if (!target) {
+        // Relative import of a package root directory (../admin-config)
+        const asDir = resolveRelativePathToPackageEntry(
+          file.path,
+          imp.source,
+          packages,
+          indexedPaths,
+        );
+        if (asDir) {
+          pushEdge({
+            fromPath: file.path,
+            toPath: asDir,
+            kind: "import",
+            source: imp.source,
+            ...(imp.specifiers.length > 0
+              ? { specifiers: imp.specifiers }
+              : {}),
+          });
+          continue;
+        }
         unresolved.push({
           from: file.path,
           source: imp.source,
@@ -106,12 +180,30 @@ function collectFileEdges(
         toPath: target,
         kind: "import",
         source: imp.source,
+        ...(imp.specifiers.length > 0 ? { specifiers: imp.specifiers } : {}),
       });
     }
 
     for (const exp of file.exports) {
       if (exp.source === undefined) continue;
       if (!isRelativeSpecifier(exp.source)) {
+        const hit = resolveNonRelativeTarget(
+          file.path,
+          exp.source,
+          indexedPaths,
+          packages,
+          aliases,
+          resolveAliases,
+        );
+        if (hit) {
+          pushEdge({
+            fromPath: file.path,
+            toPath: hit,
+            kind: "re-export",
+            source: exp.source,
+          });
+          continue;
+        }
         unresolved.push({
           from: file.path,
           source: exp.source,
@@ -124,6 +216,21 @@ function collectFileEdges(
       }
       const target = resolveImportTarget(file.path, exp.source, indexedPaths);
       if (!target) {
+        const asDir = resolveRelativePathToPackageEntry(
+          file.path,
+          exp.source,
+          packages,
+          indexedPaths,
+        );
+        if (asDir) {
+          pushEdge({
+            fromPath: file.path,
+            toPath: asDir,
+            kind: "re-export",
+            source: exp.source,
+          });
+          continue;
+        }
         unresolved.push({
           from: file.path,
           source: exp.source,
@@ -155,6 +262,30 @@ function collectFileEdges(
   };
 }
 
+/**
+ * When `./pkg` / `../pkg` lands on a local package root (not an indexed file),
+ * map to that package's entry file.
+ */
+function resolveRelativePathToPackageEntry(
+  fromFile: string,
+  specifier: string,
+  packages: readonly LocalPackage[],
+  indexedPaths: ReadonlySet<string>,
+): string | null {
+  const dir = resolveRelativePath(fromFile, specifier);
+  if (!dir) return null;
+  for (const pkg of packages) {
+    if (
+      pkg.rootDir === dir &&
+      pkg.entryPath &&
+      indexedPaths.has(pkg.entryPath)
+    ) {
+      return pkg.entryPath;
+    }
+  }
+  return null;
+}
+
 function buildFileGraph(
   snapshot: IndexSnapshot,
   fileEdges: FileEdge[],
@@ -165,7 +296,12 @@ function buildFileGraph(
     kind: e.kind,
     from: fileNodeId(e.fromPath),
     to: fileNodeId(e.toPath),
-    attrs: { source: e.source },
+    attrs: {
+      source: e.source,
+      ...(e.specifiers && e.specifiers.length > 0
+        ? { specifiers: [...e.specifiers] }
+        : {}),
+    },
   }));
   return {
     id: `deps:${snapshot.repoId}`,
@@ -236,12 +372,22 @@ function buildPackageGraph(
     });
   }
 
-  // Bare imports → external package nodes (no registry fetch)
+  // Bare imports → external package nodes (no registry fetch).
+  // Local packages with unresolved entries still link as local.
   for (const u of unresolved) {
     if (u.reason !== "bare_specifier") continue;
     const fromPkg = packageForFile(u.from, packages);
     if (!fromPkg) continue;
     const name = barePackageName(u.source);
+    const local = packages.find((p) => p.name === name);
+    if (local) {
+      ensurePkg(name, { rootDir: local.rootDir, local: true });
+      addEdge("import", packageNodeId(fromPkg.name), packageNodeId(name), {
+        source: u.source,
+        unresolvedEntry: true,
+      });
+      continue;
+    }
     ensurePkg(name, { local: false });
     addEdge("import", packageNodeId(fromPkg.name), packageNodeId(name), {
       source: u.source,
@@ -261,7 +407,8 @@ function buildPackageGraph(
 
 /**
  * Build a dependency graph from an index snapshot.
- * Relative imports/re-exports only for file edges; bare specs for package mode.
+ * Relative + local package-name / entry imports for file edges; bare external
+ * specs remain unresolved (package aggregation mode only).
  */
 export function buildDependencyGraph(
   snapshot: IndexSnapshot,
@@ -270,17 +417,20 @@ export function buildDependencyGraph(
   const indexedPaths = new Set(
     snapshot.files.filter((f) => f.status === "analyzed").map((f) => f.path),
   );
+  const packages = discoverLocalPackages(
+    snapshot.rootPath,
+    snapshot.files.map((f) => f.path),
+    indexedPaths,
+  );
   const { edges: fileEdges, unresolved } = collectFileEdges(
     snapshot,
     indexedPaths,
+    packages,
+    options.resolveAliases !== false,
   );
 
   let graph: GraphSnapshotDto;
   if (options.packageAggregation) {
-    const packages = discoverLocalPackages(
-      snapshot.rootPath,
-      snapshot.files.map((f) => f.path),
-    );
     graph = buildPackageGraph(snapshot, fileEdges, packages, unresolved);
   } else {
     graph = buildFileGraph(snapshot, fileEdges);

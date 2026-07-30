@@ -1,0 +1,12 @@
+trigger:
+  paths:
+    include:
+      - src/*
+      - packages/foo/**
+pr:
+  paths:
+    exclude:
+      - docs/**
+steps:
+  - script: npm test
+    workingDirectory: apps/web

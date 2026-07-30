@@ -137,4 +137,79 @@ describe("buildDependencyGraph", () => {
     ]);
     expect(result.cycles).toEqual([["pkg:@fix/alpha", "pkg:@fix/beta"]]);
   });
+
+  it("resolves bare package imports to the package entry index file", () => {
+    const root = mkdtempSync(join(tmpdir(), "prism-m049-pkg-entry-"));
+    mkdirSync(join(root, "packages/foo/src"), { recursive: true });
+    mkdirSync(join(root, "apps/web/src"), { recursive: true });
+    writeFileSync(
+      join(root, "packages/foo/package.json"),
+      JSON.stringify({
+        name: "@fixture/foo",
+        main: "./src/index.ts",
+        exports: { ".": "./src/index.ts" },
+      }),
+    );
+    writeFileSync(
+      join(root, "apps/web/package.json"),
+      JSON.stringify({ name: "@fixture/web" }),
+    );
+    writeFileSync(
+      join(root, "packages/foo/src/bar.ts"),
+      "export function bar() { return 1; }",
+    );
+    writeFileSync(
+      join(root, "packages/foo/src/index.ts"),
+      'export { bar } from "./bar.js";',
+    );
+    writeFileSync(
+      join(root, "apps/web/src/app.ts"),
+      'import { bar } from "@fixture/foo";\nexport const x = bar();',
+    );
+
+    const snap = snapshot(root, [
+      analyzed(
+        "packages/foo/src/index.ts",
+        [],
+        [{ name: "bar", source: "./bar.js" }],
+      ),
+      analyzed("packages/foo/src/bar.ts"),
+      analyzed("apps/web/src/app.ts", [
+        { source: "@fixture/foo", specifiers: ["bar"] },
+      ]),
+      {
+        path: "packages/foo/package.json",
+        pluginId: null,
+        contentHash: "p",
+        status: "skipped_unsupported",
+        symbols: [],
+        imports: [],
+        exports: [],
+        references: [],
+        diagnostics: [],
+      },
+      {
+        path: "apps/web/package.json",
+        pluginId: null,
+        contentHash: "p",
+        status: "skipped_unsupported",
+        symbols: [],
+        imports: [],
+        exports: [],
+        references: [],
+        diagnostics: [],
+      },
+    ]);
+
+    const result = buildDependencyGraph(snap);
+    expect(
+      result.graph.edges.map((e) => `${e.from}->${e.to}:${e.kind}`).sort(),
+    ).toEqual([
+      "file:apps/web/src/app.ts->file:packages/foo/src/index.ts:import",
+      "file:packages/foo/src/index.ts->file:packages/foo/src/bar.ts:re-export",
+    ]);
+    expect(
+      result.unresolved.filter((u) => u.source === "@fixture/foo"),
+    ).toEqual([]);
+  });
 });

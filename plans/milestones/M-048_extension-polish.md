@@ -7,8 +7,9 @@
 | Depends on | M-047 |
 | Unlocks | Editor-native Prism loop before MCP (M-026); reliable Blast Radius hero |
 | Packages | `@prism/vscode-extension`, `@prism/app-shell`, `@prism/ui`, `@prism/core`, `@prism/indexer`, `@prism/intelligence`, `@prism/impact`, `@prism/repository-map`, `@prism/shared` |
-| Supersedes | **M-033 Incremental Watch** (Phase 1); **M-049 Blast Radius Depth** (absorbed as Phase 8) |
-| Related ADR | [ADR-0026](../adr/0026-incremental-watch-invalidation.md); [ADR-0027](../adr/0027-blast-radius-multi-lane-signals.md) (Proposed → accept with Phase 8) |
+| Supersedes | **M-033 Incremental Watch** (Phase 1) |
+| Related ADR | [ADR-0026](../adr/0026-incremental-watch-invalidation.md); [ADR-0027](../adr/0027-blast-radius-multi-lane-signals.md) (Accepted on M-049) |
+| Phase 8 note | Blast Radius Depth was planned as Phase 8 here; **implementation moved to** [`M-049`](./M-049_blast-radius-depth.md) / `milestone/M-049-blast-radius-depth` after this epic Verified |
 
 ## Goal
 
@@ -56,13 +57,15 @@ so the hero impact surface is trustworthy.
 ### Phase 7 — Health alerts (done)
 - Local toast on score drop / regressing movers (debounced)
 
-### Phase 8 — Blast Radius Depth (absorbed from M-049; **in progress / not done**)
+### Phase 8 — Blast Radius Depth (**deferred → M-049**)
+
+> **Status:** Design lived here as Phase 8; **product implementation** is on [`M-049`](./M-049_blast-radius-depth.md) (`milestone/M-049-blast-radius-depth`). This epic (Phases 0–7) remains Verified.
 
 > **User problem:** `vitest.config.ts` shows Low Impact (15), 0 dependents, Safe to Delete — import-only graph + narrow critical-path list. Hero feature needs multi-lane detail.
 
 **Principles:** hard import/re-export stay authoritative; soft signals (config/CI/env/scripts) carry confidence + evidence; never imply “safe” from an empty import graph alone when tooling-critical or soft blockers exist; surfaces stay behind `@prism/core`.
 
-**Related:** ADR-0027 · OPEN_QUESTIONS Q-022 / Q-023 · former draft [`M-049_blast-radius-depth.md`](./M-049_blast-radius-depth.md) (redirect stub; full design kept below as Phase 8 detail).
+**Related:** ADR-0027 · OPEN_QUESTIONS Q-022 / Q-023 · [`M-049_blast-radius-depth.md`](./M-049_blast-radius-depth.md) (active implementation + design archive).
 
 #### Phase 8.0 — Contracts & ADR
 - Accept ADR-0027 direction
@@ -120,12 +123,11 @@ Full mechanics, DTO shapes, UX copy tables, verification matrix: see [M-049 desi
 
 - [x] Phases 0–7 implemented
 - [x] Spotlight Getting Started tour (owner-verified)
-- [ ] Phase 8.1 complete at minimum — **deferred** (plan absorbed; implement on a follow-up branch; ADR-0027 still Proposed)
-- [ ] ADR-0027 Accepted (or alternate documented) — with Phase 8
+- [x] Phase 8 product work deferred to **M-049** (this epic Verified without Phase 8.1)
 - [x] `bun run verify:milestone` green for shipped scope (Phases 0–7 + tour)
 - [x] Owner approval → commit → merge → Verified
 - [x] M-033 marked Deferred/superseded in PROGRESS
-- [x] M-049 marked Absorbed into M-048 in PROGRESS (Phase 8 design archive; implementation deferred)
+- [x] M-049 revived In Progress for blast depth implementation (was Absorbed design-only)
 
 ## Verification
 

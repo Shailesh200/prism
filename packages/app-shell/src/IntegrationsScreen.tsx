@@ -102,7 +102,7 @@ const INTEGRATIONS: readonly Integration[] = [
     icon: Plug,
     tone: "violet",
     details:
-      "Scaffold lives in @prism/mcp-server. Full MCP tool surface ships in M-026/M-027. Until then there is no local port to configure from this playground.",
+      "MCP packaging exists, but a local port to configure from this playground is not available yet — use Core analysis here in the meantime.",
   },
   {
     id: "cli",
@@ -112,7 +112,7 @@ const INTEGRATIONS: readonly Integration[] = [
     icon: Terminal,
     tone: "ink",
     details:
-      "Package @prism/cli is scaffolded. Commands land in M-028/M-029. Use Core / this playground for analysis until the CLI is Verified.",
+      "The Prism CLI is in progress. Use Core / this playground for analysis until CLI commands ship.",
   },
   {
     id: "vscode",
@@ -122,7 +122,7 @@ const INTEGRATIONS: readonly Integration[] = [
     icon: Code2,
     tone: "brand",
     details:
-      "Shipped in M-030 / M-031. Install the Prism VS Code extension to open the same app-shell surfaces inside the editor.",
+      "Install the Prism VS Code extension to open the same surfaces inside the editor.",
   },
   {
     id: "cursor",
@@ -132,7 +132,7 @@ const INTEGRATIONS: readonly Integration[] = [
     icon: Sparkles,
     tone: "violet",
     details:
-      "Shipped in M-032 as a packaging overlay on the VS Code extension. Open Prism from the Cursor sidebar.",
+      "Packaging overlay on the VS Code extension. Open Prism from the Cursor sidebar.",
   },
   {
     id: "git",
@@ -198,22 +198,22 @@ const INTEGRATIONS: readonly Integration[] = [
   {
     id: "argo",
     name: "Argo CD / Workflows",
-    blurb: "GitOps delivery pipelines (scaffold).",
+    blurb: "GitOps delivery pipelines — not available yet.",
     status: "coming_soon",
     icon: Workflow,
     tone: "rose",
     details:
-      "Scaffold only in M-046. Live Argo connectors are deferred past Phase 3 scaffolds.",
+      "Argo connection UI is a placeholder for now. Live sync and drift will land in a future release.",
   },
   {
     id: "jenkins",
     name: "Jenkins",
-    blurb: "Classic CI servers (scaffold).",
+    blurb: "Classic CI servers — not available yet.",
     status: "coming_soon",
     icon: Server,
     tone: "ink",
     details:
-      "Scaffold only in M-046. Live Jenkins connectors are deferred past Phase 3 scaffolds.",
+      "Jenkins connection UI is a placeholder for now. Live job listing will land in a future release.",
   },
 ];
 

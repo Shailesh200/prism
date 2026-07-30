@@ -433,15 +433,55 @@ export const BlastImpactCategorySchema = z.enum([
 
 export type BlastImpactCategory = z.infer<typeof BlastImpactCategorySchema>;
 
+/**
+ * Impact analysis lane (M-049 / ADR-0027). Hard lanes = import graph;
+ * soft lanes = config/CI/env/script signals with confidence + evidence.
+ */
+export const ImpactLaneSchema = z.enum([
+  "import",
+  "reexport",
+  "config",
+  "package",
+  "test",
+  "env",
+  "ci",
+  "alias",
+  "type",
+  "script",
+  "workspace",
+]);
+
+export type ImpactLane = z.infer<typeof ImpactLaneSchema>;
+
+export const ImpactConfidenceSchema = z.enum(["high", "medium", "low"]);
+
+export type ImpactConfidence = z.infer<typeof ImpactConfidenceSchema>;
+
 export const BlastRadiusItemSchema = z.object({
   path: RepoRelativePathSchema,
   reason: z.string().min(1),
   depth: z.number().int().nonnegative(),
   /** How this file is affected (import edge, re-export, test, etc.). */
   category: BlastImpactCategorySchema.optional(),
+  /** Analysis lane (defaults to category-derived / import when omitted). */
+  lane: ImpactLaneSchema.optional(),
+  /** Soft-signal confidence; hard import edges default to high when omitted. */
+  confidence: ImpactConfidenceSchema.optional(),
+  /** Human-readable evidence strings (e.g. glob match sources). */
+  evidence: z.array(z.string().min(1)).optional(),
 });
 
 export type BlastRadiusItem = z.infer<typeof BlastRadiusItemSchema>;
+
+/** Per-lane summary row on a blast report (M-049). */
+export const BlastLaneSummarySchema = z.object({
+  id: ImpactLaneSchema,
+  label: z.string().min(1),
+  count: z.number().int().nonnegative(),
+  maxConfidence: ImpactConfidenceSchema.optional(),
+});
+
+export type BlastLaneSummary = z.infer<typeof BlastLaneSummarySchema>;
 
 /** Heuristic hint that a change may break consumers (M-021). */
 export const BreakingChangeHintSchema = z.object({
@@ -451,6 +491,49 @@ export const BreakingChangeHintSchema = z.object({
 });
 
 export type BreakingChangeHint = z.infer<typeof BreakingChangeHintSchema>;
+
+/** Coarse origin file role for blast headlines (M-049). */
+export const FileRoleSchema = z.enum([
+  "entry",
+  "config",
+  "test",
+  "route",
+  "schema",
+  "generated",
+  "barrel",
+  "fixture",
+  "source",
+]);
+
+export type FileRoleDto = z.infer<typeof FileRoleSchema>;
+
+/** Forward dependency row — what the origin imports / loads (M-049). */
+export const ForwardDependencyItemSchema = z.object({
+  path: RepoRelativePathSchema,
+  reason: z.string().min(1),
+  kind: z.enum(["import", "reexport", "soft"]).default("import"),
+  confidence: ImpactConfidenceSchema.optional(),
+  evidence: z.array(z.string().min(1)).optional(),
+});
+
+export type ForwardDependencyItem = z.infer<typeof ForwardDependencyItemSchema>;
+
+/** Checklist section composed from blast/test soft+hard signals (M-049). */
+export const ScenarioChecklistSectionSchema = z.object({
+  id: z.enum(["tests", "configs_ci", "packages"]),
+  label: z.string().min(1),
+  items: z.array(
+    z.object({
+      path: RepoRelativePathSchema,
+      reason: z.string().min(1),
+      confidence: ImpactConfidenceSchema.optional(),
+    }),
+  ),
+});
+
+export type ScenarioChecklistSection = z.infer<
+  typeof ScenarioChecklistSectionSchema
+>;
 
 export const BlastRadiusReportSchema = z.object({
   origin: z.object({
@@ -465,6 +548,25 @@ export const BlastRadiusReportSchema = z.object({
   breakingChanges: z.array(BreakingChangeHintSchema).default([]),
   /** True when traversal stopped at the depth limit (results are partial). */
   truncated: z.boolean().optional(),
+  /** Per-lane counts (hard ∪ soft); empty/omitted for hard-only legacy reports. */
+  lanes: z.array(BlastLaneSummarySchema).optional(),
+  /** Soft-analysis coverage note (truncation, unsupported dialect, etc.). */
+  coverageNote: z.string().min(1).optional(),
+  /** Count of hard (import/re-export) affected paths. */
+  hardAffectedCount: z.number().int().nonnegative().optional(),
+  /** Count of soft-only affected paths (not already in hard set). */
+  softAffectedCount: z.number().int().nonnegative().optional(),
+  /** Coarse role of the origin path (entry/config/test/…). */
+  originRole: FileRoleSchema.optional(),
+  /**
+   * Analysis intent: edit emphasizes findings/risk; delete emphasizes blockers.
+   * Surfaces may pass this; default behaves like edit.
+   */
+  intent: z.enum(["edit", "delete"]).optional(),
+  /** Files this origin depends on (hard out-edges + soft loaded-by). */
+  forwardDependencies: z.array(ForwardDependencyItemSchema).optional(),
+  /** Lite scenario pack: tests to run / configs·CI touching this. */
+  scenarioChecklist: z.array(ScenarioChecklistSectionSchema).optional(),
 });
 
 export type BlastRadiusReport = z.infer<typeof BlastRadiusReportSchema>;
@@ -492,9 +594,16 @@ export const SafeDeleteReportSchema = z.object({
   safe: z.boolean(),
   /** Files that (transitively) depend on the target and block deletion. */
   blockers: z.array(BlastRadiusItemSchema),
+  /**
+   * Soft-lane blockers (config/CI/script) that block delete under Q-022
+   * (medium+ confidence). May overlap `blockers` when also listed there.
+   */
+  softBlockers: z.array(BlastRadiusItemSchema).optional(),
   /** Files that become unreachable once the target is removed. */
   orphans: z.array(RepoRelativePathSchema),
   testsLikelyAffected: z.array(RepoRelativePathSchema),
+  /** True when origin is tooling-critical (never safe from empty import graph). */
+  toolingCritical: z.boolean().optional(),
 });
 
 export type SafeDeleteReport = z.infer<typeof SafeDeleteReportSchema>;
@@ -523,6 +632,10 @@ export const ChangeReviewItemSchema = z.object({
   path: RepoRelativePathSchema,
   risk: z.number().min(0).max(100),
   affectedFilesCount: z.number().int().nonnegative(),
+  /** Hard (import) affected count when soft lanes are present (M-049). */
+  hardAffectedCount: z.number().int().nonnegative().optional(),
+  /** Soft-only affected count (M-049). */
+  softAffectedCount: z.number().int().nonnegative().optional(),
   testsLikelyAffected: z.array(RepoRelativePathSchema),
   breakingChanges: z.array(BreakingChangeHintSchema),
 });
@@ -559,6 +672,8 @@ export const ExplainAreaSummarySchema = z.object({
   /** Top git contributors for this path/folder (local history only). */
   owners: z.array(z.string()).default([]),
   summary: z.string().min(1),
+  /** Coarse file role when path is a file (M-049). */
+  fileRole: FileRoleSchema.optional(),
 });
 
 export type ExplainAreaSummary = z.infer<typeof ExplainAreaSummarySchema>;

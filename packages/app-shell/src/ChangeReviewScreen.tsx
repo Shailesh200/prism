@@ -27,8 +27,9 @@ export type ChangeReviewScreenProps = {
 type Status = "idle" | "loading" | "ready" | "error";
 
 function riskTier(risk: number): "low" | "medium" | "high" {
-  if (risk >= 70) return "high";
-  if (risk >= 35) return "medium";
+  // Q-023: unify with Blast bands (High ≥60, Mid ≥20)
+  if (risk >= 60) return "high";
+  if (risk >= 20) return "medium";
   return "low";
 }
 
@@ -254,7 +255,12 @@ export function ChangeReviewScreen(
                               {riskLabel(item.risk)}
                             </span>
                           </td>
-                          <td>{item.affectedFilesCount}</td>
+                          <td>
+                            {item.hardAffectedCount !== undefined ||
+                            item.softAffectedCount !== undefined
+                              ? `${item.hardAffectedCount ?? 0} hard · ${item.softAffectedCount ?? 0} soft`
+                              : item.affectedFilesCount}
+                          </td>
                           <td>{item.testsLikelyAffected.length}</td>
                           <td>{item.breakingChanges.length}</td>
                         </tr>

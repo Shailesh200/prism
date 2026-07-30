@@ -112,7 +112,7 @@ const FACTOR_META: Record<string, FactorMeta> = {
     improve: [
       "Break circular imports by extracting shared types/interfaces.",
       "Apply dependency inversion at module boundaries.",
-      "Inspect cycles via the dependency graph / getCycles().",
+      "Inspect cycles via the dependency graph.",
     ],
   },
   modularity: {
@@ -413,7 +413,7 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
             value: `${dnaScore}`,
             note: `Grade ${health.grade}`,
             brand: true,
-            tip: "Weighted composite of the five health factors (ADR-0012). Same value as Overview Health Score.",
+            tip: "Weighted composite of the five health factors. Same value as Overview Health Score.",
             icon: Sparkles,
             tone: "brand" as CardIconTone,
           },
@@ -722,8 +722,7 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                       </h3>
                       <p className="dna-section-sub">
                         The five factors behind the Overview&apos;s Codebase DNA
-                        score (ADR-0012 weighting), plus graph-derived coupling
-                        density.
+                        score, plus graph-derived coupling density.
                       </p>
                     </div>
                     <div className="dna-metrics__overall">
@@ -1525,8 +1524,7 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
             </div>
             <p className="dna-modal__note">
               Look up a symbol name or file path — usages, ownership, and
-              related items from Core{" "}
-              <span className="ov-mono">exploreCode</span>.
+              related items from Core code explore.
             </p>
             <form
               className="dna-explorer__form"
@@ -1692,7 +1690,7 @@ function EngHealthCard(props: {
           Engineering Health
           <InfoTip label="Engineering Health">
             Complementary to DNA Score — entropy, architecture drift, and
-            technical debt from Core getEngineeringHealth (M-022).
+            technical debt from Prism&apos;s engineering-health analysis.
           </InfoTip>
         </span>
         {props.onExplore ? (

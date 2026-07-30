@@ -283,6 +283,55 @@ function extractImportsFromModule(module: unknown): ExtractedImport[] {
   });
 }
 
+/** Static-string `import("…")` from the Oxc program AST (hard graph enrichment). */
+function extractDynamicImportsFromProgram(program: unknown): ExtractedImport[] {
+  const out: ExtractedImport[] = [];
+  const walk = (node: unknown): void => {
+    if (!node || typeof node !== "object") return;
+    const n = node as {
+      type?: string;
+      start?: number;
+      end?: number;
+      source?: { type?: string; value?: unknown };
+    };
+    if (n.type === "ImportExpression") {
+      const src = n.source;
+      const lit =
+        src && src.type === "Literal" && typeof src.value === "string"
+          ? src.value
+          : null;
+      if (lit && lit.length > 0) {
+        const row: ExtractedImport = {
+          source: lit,
+          specifiers: [],
+        };
+        if (typeof n.start === "number") {
+          out.push({
+            ...row,
+            start: n.start,
+            ...(typeof n.end === "number" ? { end: n.end } : {}),
+          });
+        } else {
+          out.push(row);
+        }
+      }
+    }
+    for (const value of Object.values(n)) {
+      if (Array.isArray(value)) {
+        for (const item of value) walk(item);
+      } else if (
+        value &&
+        typeof value === "object" &&
+        "type" in (value as object)
+      ) {
+        walk(value);
+      }
+    }
+  };
+  walk(program);
+  return out;
+}
+
 function extractExportsFromModule(module: unknown): ExtractedExport[] {
   const staticExports =
     (module as { staticExports?: readonly StaticExport[] } | null)
@@ -461,7 +510,17 @@ export function createTypescriptPlugin(): LanguagePlugin {
     extractImports(parseResult) {
       const gate = ensureOwnParse(parseResult);
       if (!gate.ok) return gate;
-      const imports = extractImportsFromModule(gate.value.module);
+      const staticOnes = extractImportsFromModule(gate.value.module);
+      const dynamicOnes = extractDynamicImportsFromProgram(gate.value.program);
+      // Dedupe by source+start
+      const seen = new Set<string>();
+      const imports: ExtractedImport[] = [];
+      for (const imp of [...staticOnes, ...dynamicOnes]) {
+        const key = `${imp.source}\0${imp.start ?? ""}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        imports.push(imp);
+      }
       const extraction: ImportExtraction = { imports };
       return ok(extraction);
     },

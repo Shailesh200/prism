@@ -674,7 +674,7 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
                 <span>Commits</span>
                 <InfoTip label="Commits">
                   Distinct commits in the selected window from local git day
-                  buckets (getGitActivity).
+                  buckets.
                 </InfoTip>
               </div>
               <div className="tr-kpi__row">
@@ -691,8 +691,8 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
                 <h2 className="ov-card__title">
                   Health over time
                   <InfoTip label="Health over time">
-                    Historical health scores from Core snapshots and optional
-                    git commit backfill (ADR-0023).
+                    Historical health scores from Prism snapshots and optional
+                    git commit backfill.
                   </InfoTip>
                 </h2>
                 <div className="tr-legend">
@@ -804,8 +804,8 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
                 <h2 className="ov-card__title">
                   Authors
                   <InfoTip label="Authors">
-                    Full author census from local git history
-                    (getGitActivity.authors), ranked by commits.
+                    Full author census from local git history, ranked by
+                    commits.
                   </InfoTip>
                 </h2>
               </div>
@@ -882,7 +882,7 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
                 <h2 className="ov-card__title">
                   Churn hotspots
                   <InfoTip label="Churn hotspots">
-                    Top files by commit count from getGitActivity.recentFiles.
+                    Top files by commit count from recent git activity.
                     +Adds/−Dels bars show line churn of the most recent commit
                     that touched each file (not cumulative window churn).
                   </InfoTip>

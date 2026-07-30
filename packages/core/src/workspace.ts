@@ -11,6 +11,7 @@ import {
   buildHealthHistorySnapshot,
   buildTestingReport,
   buildSecurityReport,
+  buildSoftImpactIndex,
   computeEngineeringHealth,
   computeHealthScore,
   computeRegionMovers,
@@ -62,6 +63,8 @@ import {
 import {
   PrismErrorCode,
   CodeExplorerTargetSchema,
+  classifyFileRole,
+  fileRoleLabel,
   type BlastRadiusReport,
   type BreakingChangeHint,
   type BackendReport,
@@ -439,6 +442,8 @@ export type PrismWorkspace = {
     kind: "file" | "symbol";
     id: string;
     path?: string;
+    /** Edit vs delete emphasis (default edit). */
+    intent?: "edit" | "delete";
   }): Promise<Result<BlastRadiusReport, PrismError>>;
   /**
    * Whether a file/symbol can be deleted safely (M-021). Requires `index()`.
@@ -513,18 +518,46 @@ function toSummary(snapshot: IndexSnapshot): IndexSummary {
 
 /**
  * Assemble the `@prism/impact` context from an index snapshot. Symbol-level
- * queries also need the knowledge graph (symbols + references).
+ * queries also need the knowledge graph (symbols + references). Soft index is
+ * cached per snapshot identity and invalidated when the index refreshes.
  */
-function impactContextFor(snapshot: IndexSnapshot, withSymbols: boolean) {
+function impactContextFor(
+  snapshot: IndexSnapshot,
+  withSymbols: boolean,
+  softCache: {
+    key: string | null;
+    value: ReturnType<typeof buildSoftImpactIndex> | null;
+  },
+  intent?: "edit" | "delete",
+) {
   const analyzedPaths = snapshot.files
     .filter((f) => f.status === "analyzed")
     .map((f) => f.path);
+  const inventoryPaths = snapshot.files.map((f) => f.path);
   const dependencyGraph = buildDependencyGraph(snapshot).graph;
-  if (!withSymbols) return { dependencyGraph, analyzedPaths };
-  const kg = buildKnowledgeGraph(snapshot);
-  return {
+  const softKey = `${snapshot.rootPath}\0${snapshot.indexedAt}\0${inventoryPaths.length}`;
+  if (softCache.key !== softKey || !softCache.value) {
+    softCache.key = softKey;
+    softCache.value = buildSoftImpactIndex({
+      workspaceRoot: snapshot.rootPath,
+      filePaths: inventoryPaths,
+    });
+  }
+  const soft = softCache.value;
+  const softEdges = soft.edges;
+  const base = {
     dependencyGraph,
     analyzedPaths,
+    inventoryPaths,
+    softEdges,
+    ...(soft.truncated ? { softTruncated: true as const } : {}),
+    ...(soft.coverageNote ? { coverageNote: soft.coverageNote } : {}),
+    ...(intent ? { intent } : {}),
+  };
+  if (!withSymbols) return base;
+  const kg = buildKnowledgeGraph(snapshot);
+  return {
+    ...base,
     symbols: kg.symbols,
     references: kg.references,
   };
@@ -545,6 +578,10 @@ export function createWorkspace(options: {
   let utilities: UtilitiesSession | null = null;
   let selectedPackageId: string | null = null;
   let gitCache: { at: string | null; value: GitSignals | null } | null = null;
+  const softImpactCache: {
+    key: string | null;
+    value: ReturnType<typeof buildSoftImpactIndex> | null;
+  } = { key: null, value: null };
   let backfillStatus: HealthHistoryBackfillStatus = {
     status: "idle",
     progress: 0,
@@ -735,6 +772,8 @@ export function createWorkspace(options: {
     if (result.ok) {
       lastSnapshot = result.value;
       lastIndexedAt = result.value.indexedAt;
+      softImpactCache.key = null;
+      softImpactCache.value = null;
       if (!watching) watchStatus = "fresh";
       // Forward snapshot for Trends (ADR-0023) — fail soft on cache errors.
       try {
@@ -1666,7 +1705,12 @@ export function createWorkspace(options: {
       if (!gate.ok) return gate;
       return computeBlastRadius(
         input,
-        impactContextFor(gate.value, input.kind === "symbol"),
+        impactContextFor(
+          gate.value,
+          input.kind === "symbol",
+          softImpactCache,
+          input.intent,
+        ),
       );
     },
     async safeDelete(input) {
@@ -1674,7 +1718,7 @@ export function createWorkspace(options: {
       if (!gate.ok) return gate;
       return computeSafeDelete(
         input,
-        impactContextFor(gate.value, input.kind === "symbol"),
+        impactContextFor(gate.value, input.kind === "symbol", softImpactCache),
       );
     },
     async renameImpact(input) {
@@ -1682,7 +1726,7 @@ export function createWorkspace(options: {
       if (!gate.ok) return gate;
       return computeRenameImpact(
         input,
-        impactContextFor(gate.value, input.kind === "symbol"),
+        impactContextFor(gate.value, input.kind === "symbol", softImpactCache),
       );
     },
     async testImpact(input) {
@@ -1690,7 +1734,7 @@ export function createWorkspace(options: {
       if (!gate.ok) return gate;
       return computeTestImpact(
         input,
-        impactContextFor(gate.value, input.kind === "symbol"),
+        impactContextFor(gate.value, input.kind === "symbol", softImpactCache),
       );
     },
     async breakingChangeHints(input) {
@@ -1698,13 +1742,13 @@ export function createWorkspace(options: {
       if (!gate.ok) return gate;
       return computeBreakingChangeHints(
         input,
-        impactContextFor(gate.value, input.kind === "symbol"),
+        impactContextFor(gate.value, input.kind === "symbol", softImpactCache),
       );
     },
     async reviewChanges(input) {
       const gate = ensureImpact();
       if (!gate.ok) return gate;
-      const context = impactContextFor(gate.value, false);
+      const context = impactContextFor(gate.value, false, softImpactCache);
       const paths = [
         ...new Set(
           input.paths.map((p) => p.replace(/\\/g, "/").replace(/^\.\//, "")),
@@ -1723,6 +1767,12 @@ export function createWorkspace(options: {
           path: blast.value.origin.path ?? path,
           risk: blast.value.risk,
           affectedFilesCount: blast.value.affectedFiles.length,
+          ...(blast.value.hardAffectedCount !== undefined
+            ? { hardAffectedCount: blast.value.hardAffectedCount }
+            : {}),
+          ...(blast.value.softAffectedCount !== undefined
+            ? { softAffectedCount: blast.value.softAffectedCount }
+            : {}),
           testsLikelyAffected: testImpact.value.tests.map((t) => t.path),
           breakingChanges: hints.value,
         });
@@ -1784,10 +1834,13 @@ export function createWorkspace(options: {
         ? fileSignal.contributors.slice(0, 3).map((c) => c.author)
         : [];
 
+      const role = classifyFileRole(norm);
+
       const summary = [
         domains.length > 0
           ? `Likely ${domains.join("/")} area`
           : "Domain not confidently classified",
+        `file role: ${fileRoleLabel(role)}`,
         `${inDeg} incoming and ${outDeg} outgoing dependency edge(s)`,
         owners.length > 0
           ? `top contributor(s): ${owners.join(", ")}`
@@ -1800,6 +1853,7 @@ export function createWorkspace(options: {
         dependencyDegree: { in: inDeg, out: outDeg },
         owners,
         summary,
+        fileRole: role,
       } satisfies ExplainAreaSummary);
     },
     async listBookmarks() {

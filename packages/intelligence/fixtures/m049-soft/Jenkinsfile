@@ -1,0 +1,11 @@
+pipeline {
+  agent any
+  stages {
+    stage("Build") {
+      steps {
+        sh "node scripts/build.js"
+        sh "npm test --prefix packages/foo"
+      }
+    }
+  }
+}

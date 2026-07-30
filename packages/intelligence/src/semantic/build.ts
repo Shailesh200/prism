@@ -14,6 +14,36 @@ import {
   isRelativeSpecifier,
   resolveImportTarget,
 } from "../dependency/resolve.js";
+import {
+  discoverLocalPackages,
+  resolveLocalPackageSpecifier,
+  type LocalPackage,
+} from "../dependency/packages.js";
+import {
+  loadTsconfigPathAliases,
+  resolveAliasSpecifier,
+  type PathAliasMap,
+} from "../dependency/aliases.js";
+
+function resolveModuleTarget(
+  fromFile: string,
+  source: string,
+  indexedPaths: ReadonlySet<string>,
+  packages: readonly LocalPackage[],
+  aliases: PathAliasMap,
+): string | null {
+  if (isRelativeSpecifier(source)) {
+    return resolveImportTarget(fromFile, source, indexedPaths);
+  }
+  const aliasHit = resolveAliasSpecifier(
+    fromFile,
+    source,
+    indexedPaths,
+    aliases,
+  );
+  if (aliasHit) return aliasHit;
+  return resolveLocalPackageSpecifier(source, packages, indexedPaths);
+}
 
 export type { KnowledgeGraphStats };
 
@@ -161,14 +191,21 @@ function resolveReferenceTarget(
   filesByPath: Map<string, IndexedFile>,
   byPath: Map<string, SymbolRec[]>,
   byPathName: Map<string, SymbolRec[]>,
+  packages: readonly LocalPackage[],
+  aliases: PathAliasMap,
 ): SymbolRec | null {
   const locals = byPath.get(file.path) ?? [];
 
   // Import binding wins for call/heritage when the name is imported
   for (const imp of file.imports) {
     if (!imp.specifiers.includes(ref.name)) continue;
-    if (!isRelativeSpecifier(imp.source)) continue;
-    const targetPath = resolveImportTarget(file.path, imp.source, indexedPaths);
+    const targetPath = resolveModuleTarget(
+      file.path,
+      imp.source,
+      indexedPaths,
+      packages,
+      aliases,
+    );
     if (!targetPath) continue;
     const targetFile = filesByPath.get(targetPath);
     if (!targetFile) continue;
@@ -215,6 +252,15 @@ export function buildKnowledgeGraph(
   const indexedPaths = new Set(analyzed.map((f) => f.path));
   const filesByPath = new Map(analyzed.map((f) => [f.path, f]));
   const { symbols, byPath, byPathName } = buildSymbolIndex(snapshot.files);
+  const packages = discoverLocalPackages(
+    snapshot.rootPath,
+    snapshot.files.map((f) => f.path),
+    indexedPaths,
+  );
+  const aliases = loadTsconfigPathAliases(
+    snapshot.rootPath,
+    snapshot.files.map((f) => f.path),
+  );
 
   const fileNodes = nodesFromIndexSnapshot(snapshot);
   const symbolNodes: GraphNodeDto[] = symbols.map((s) => ({
@@ -251,6 +297,8 @@ export function buildKnowledgeGraph(
         filesByPath,
         byPath,
         byPathName,
+        packages,
+        aliases,
       );
       references.push({
         name: ref.name,
@@ -293,11 +341,12 @@ export function buildKnowledgeGraph(
 
     if (isTestPath(file.path)) {
       for (const imp of file.imports) {
-        if (!isRelativeSpecifier(imp.source)) continue;
-        const targetPath = resolveImportTarget(
+        const targetPath = resolveModuleTarget(
           file.path,
           imp.source,
           indexedPaths,
+          packages,
+          aliases,
         );
         if (!targetPath || targetPath === file.path) continue;
         addEdge(edges, "tests", fileNodeId(file.path), fileNodeId(targetPath), {

@@ -48,6 +48,8 @@ export type ImpactTarget = {
   id: string;
   path?: string;
   newName?: string;
+  /** Edit vs delete emphasis for blast scoring/copy (M-049). */
+  intent?: "edit" | "delete";
 };
 
 export type SymbolSearchHit = {

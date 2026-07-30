@@ -288,6 +288,7 @@ export class PrismSession {
       kind: target.kind,
       id: target.id,
       ...(target.path !== undefined ? { path: target.path } : {}),
+      ...(target.intent !== undefined ? { intent: target.intent } : {}),
     };
     const renameInput = {
       ...input,

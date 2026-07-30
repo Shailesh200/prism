@@ -47,8 +47,27 @@ export {
 } from "./paths.js";
 
 export {
+  classifyToolingRoot,
+  isRepoCriticalPath,
+  type ToolingCriticality,
+} from "./tooling-criticality.js";
+
+export {
+  classifyFileRole,
+  fileRoleLabel,
+  fileRoleRiskFloor,
+  type FileRole,
+} from "./file-role.js";
+
+export {
   BlastRadiusItemSchema,
   BlastImpactCategorySchema,
+  ImpactLaneSchema,
+  ImpactConfidenceSchema,
+  BlastLaneSummarySchema,
+  FileRoleSchema,
+  ForwardDependencyItemSchema,
+  ScenarioChecklistSectionSchema,
   BlastRadiusReportSchema,
   BreakingChangeHintSchema,
   ChangeOriginSchema,
@@ -181,6 +200,11 @@ export {
   parseDto,
   type BlastRadiusItem,
   type BlastImpactCategory,
+  type ImpactLane,
+  type ImpactConfidence,
+  type BlastLaneSummary,
+  type ForwardDependencyItem,
+  type ScenarioChecklistSection,
   type BlastRadiusReport,
   type BreakingChangeHint,
   type ChangeOrigin,

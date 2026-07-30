@@ -721,7 +721,7 @@ export function SettingsScreen(props: SettingsScreenProps): ReactElement {
                   </SettingsRow>
                   <SettingsRow
                     label="Allow network integrations"
-                    help="Master gate for opt-in forge / lab connectors (ADR-0024)."
+                    help="Master gate for opt-in forge / lab connectors."
                   >
                     <Toggle
                       checked={networkEnabled}

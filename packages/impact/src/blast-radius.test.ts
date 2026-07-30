@@ -149,10 +149,9 @@ describe("computeBlastRadius — file target", () => {
     );
     expect(res.ok).toBe(true);
     if (!res.ok) return;
-    // Untested leaf (15) + config boost/floor → High band (>= 60).
+    // Critical tooling floor → High band (>= 70).
     expect(res.value.affectedFiles).toEqual([]);
-    expect(res.value.risk).toBeGreaterThanOrEqual(60);
-    // Config origin emits a danger config-change hint (no affected files → no untested).
+    expect(res.value.risk).toBeGreaterThanOrEqual(70);
     expect(res.value.breakingChanges).toEqual([
       {
         kind: "config-change",
@@ -161,6 +160,50 @@ describe("computeBlastRadius — file target", () => {
           "Editing a build/config file (package.json) can affect the whole workspace build.",
       },
     ]);
+  });
+
+  it("scores vitest.config soft matches at Mid/High and never as isolated leaf", () => {
+    const analyzed = [
+      "vitest.config.ts",
+      "src/a.test.ts",
+      "src/b.test.ts",
+      "src/util.ts",
+    ];
+    const softEdges = [
+      {
+        from: "vitest.config.ts",
+        to: "src/a.test.ts",
+        lane: "test" as const,
+        reason: "matched by vitest config include/testMatch",
+        confidence: "medium" as const,
+        evidence: ["vitest.config.ts#include", "glob: src/**/*.test.ts"],
+      },
+      {
+        from: "vitest.config.ts",
+        to: "src/b.test.ts",
+        lane: "test" as const,
+        reason: "matched by vitest config include/testMatch",
+        confidence: "medium" as const,
+        evidence: ["vitest.config.ts#include", "glob: src/**/*.test.ts"],
+      },
+    ];
+    const res = computeBlastRadius(
+      { kind: "file", id: "vitest.config.ts" },
+      {
+        dependencyGraph: graphOf([]),
+        analyzedPaths: analyzed,
+        softEdges,
+      },
+    );
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.value.risk).toBeGreaterThanOrEqual(45);
+    expect(res.value.softAffectedCount).toBe(2);
+    expect(res.value.testsLikelyAffected).toEqual([
+      "src/a.test.ts",
+      "src/b.test.ts",
+    ]);
+    expect(res.value.affectedFiles.some((f) => f.lane === "test")).toBe(true);
   });
 
   it("classifies affected files by category (reexport, type, config, test)", () => {
@@ -300,5 +343,63 @@ describe("computeBlastRadius — symbol target", () => {
     expect(res.ok).toBe(false);
     if (res.ok) return;
     expect(res.error.code).toBe("PRISM_NOT_FOUND");
+  });
+});
+
+describe("computeBlastRadius — M-049 depth fields", () => {
+  it("sets originRole, forwardDependencies, and scenario checklist", () => {
+    const res = computeBlastRadius(
+      { kind: "file", id: "util.ts" },
+      { dependencyGraph: GRAPH, analyzedPaths: ANALYZED },
+    );
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.value.originRole).toBe("source");
+    expect(res.value.intent).toBe("edit");
+    expect(res.value.forwardDependencies ?? []).toEqual([]);
+    expect(res.value.scenarioChecklist?.some((s) => s.id === "tests")).toBe(
+      true,
+    );
+  });
+
+  it("lists hard out-edges as forwardDependencies", () => {
+    const res = computeBlastRadius(
+      { kind: "file", id: "app.ts" },
+      { dependencyGraph: GRAPH, analyzedPaths: ANALYZED },
+    );
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.value.forwardDependencies?.map((d) => d.path)).toEqual([
+      "util.ts",
+    ]);
+    expect(res.value.forwardDependencies?.[0]?.kind).toBe("import");
+  });
+
+  it("applies entry role floor and delete intent bump", () => {
+    const analyzed = ["main.ts"];
+    const edit = computeBlastRadius(
+      { kind: "file", id: "main.ts" },
+      { dependencyGraph: graphOf([]), analyzedPaths: analyzed },
+    );
+    expect(edit.ok && edit.value.originRole).toBe("entry");
+    expect(edit.ok && edit.value.risk).toBeGreaterThanOrEqual(35);
+
+    const del = computeBlastRadius(
+      { kind: "file", id: "util.ts" },
+      {
+        dependencyGraph: GRAPH,
+        analyzedPaths: ANALYZED,
+        intent: "delete",
+      },
+    );
+    const editUtil = computeBlastRadius(
+      { kind: "file", id: "util.ts" },
+      { dependencyGraph: GRAPH, analyzedPaths: ANALYZED, intent: "edit" },
+    );
+    expect(del.ok).toBe(true);
+    expect(editUtil.ok).toBe(true);
+    if (!del.ok || !editUtil.ok) return;
+    expect(del.value.intent).toBe("delete");
+    expect(del.value.risk).toBe(Math.min(100, editUtil.value.risk + 5));
   });
 });

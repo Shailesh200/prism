@@ -1,0 +1,1 @@
+{"name":"foo","sourceRoot":"packages/foo/src","targets":{"build":{"inputs":["packages/foo/src/**/*.ts"],"outputs":["dist/foo"],"options":{"main":"packages/foo/src/bar.ts"}}}}
