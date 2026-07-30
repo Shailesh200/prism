@@ -48,7 +48,7 @@
 | M-032 Cursor Extension | `milestone/M-032-cursor-extension` | Verified | ✅ | ✅ | Approved + merged 2026-07-23: Cursor packaging overlay (ADR-0020); Open in browser via loopback Core bridge |
 | M-047 Extension Marketplace | `milestone/M-047-extension-marketplace` | Verified | ✅ | ✅ | Approved + merged 2026-07-26: staged VSIX (ADR-0025), `prismhq.repo-prism` on Marketplace + Open VSX, publish CI, README install links |
 | M-048 Extension Polish | `milestone/M-048-extension-polish` | Verified | ✅ | ✅ | Merged 2026-07-28: watch + editor hooks + review/explain + tour + polish; Phase 8 blast depth deferred to M-049 |
-| M-049 Blast Radius Depth | `milestone/M-049-blast-radius-depth` | In Progress | ☐ | ☐ | Revived for product implementation of design archive (ADR-0027 Option B); was Absorbed into M-048 Phase 8 plan |
+| M-049 Blast Radius Depth | `milestone/M-049-blast-radius-depth` | Verified | ✅ | ✅ | Merged 2026-07-30: multi-lane soft+hard blast, barrel resolution, findings UI, roles, edit/delete, soft cache |
 | M-033 Incremental Watch | `milestone/M-033-incremental-watch` | Deferred | ☐ | ☐ | Superseded by M-048 Phase 1 (ADR-0026) |
 | M-034 Tree-sitter | `milestone/M-034-tree-sitter` | Not Started | ☐ | ☐ | |
 | M-035 Perf Hardening | `milestone/M-035-perf-hardening` | Not Started | ☐ | ☐ | |

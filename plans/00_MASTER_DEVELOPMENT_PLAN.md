@@ -636,8 +636,8 @@ Critical-path milestones have full documents under `plans/milestones/`. Others a
 - DoD: Necessary + High-leverage extension loop before MCP (Phases 0–7 Verified)
 
 #### M-049 — Blast Radius Depth
-- **In Progress** on `milestone/M-049-blast-radius-depth` — ADR-0027 Option B
-- Soft multi-lane blast (Vitest/Jest hero, tsconfig/pkg/aliases, CI/CR parity)
+- **Verified** 2026-07-30 — ADR-0027 Option B
+- Soft multi-lane blast, barrel package resolution, findings UI, roles, edit/delete, soft cache
 - Full doc: [`milestones/M-049_blast-radius-depth.md`](./milestones/M-049_blast-radius-depth.md)
 
 #### M-033 — Incremental Indexing & Watch

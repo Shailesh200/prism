@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Progress** |
+| Status | **Verified** |
 | Branch | `milestone/M-049-blast-radius-depth` |
 | Related ADR | [ADR-0027](../adr/0027-blast-radius-multi-lane-signals.md) (**Accepted** — Option B) |
 | Prior note | Design was absorbed into M-048 Phase 8; **implementation** revived here after M-048 Verified |
@@ -337,8 +337,8 @@ Exact lists live in one shared module used by impact **and** app-shell (stop dup
 - [x] Additive DTOs + CORE_SDK notes
 - [x] Phase 8.2–8.3 depth polish on branch: Prettier/Mocha/Cypress/Nx project.json/Jenkinsfile/Azure path filters; lockfile advisory; file-role classifier; edit/delete intent; soft-index cache; forward-deps + scenario checklist; dynamic `import()` enrichment
 - [x] `bun run verify:milestone` green (run before owner review)
-- [ ] Owner approval → commit → merge → Verified
-- [ ] PROGRESS + Master Plan updated (In Progress; Verified after merge)
+- [x] Owner approval → commit → merge → Verified
+- [x] PROGRESS + Master Plan updated (In Progress; Verified after merge)
 
 ### Remaining out of scope (do not expand here)
 
