@@ -3836,6 +3836,98 @@
   background: color-mix(in srgb, #f59e0b 12%, transparent);
 }
 
+.br-findings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--prism-line, #2a334a);
+  background: color-mix(in srgb, var(--prism-tile, #1e2433) 55%, transparent);
+}
+
+.br-findings__summary {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--prism-ink, #e2e8f0);
+  letter-spacing: 0.01em;
+}
+
+.br-findings__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.br-findings__chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--prism-line, #2a334a);
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  color: var(--prism-ink-muted, #94a3b8);
+  background: color-mix(in srgb, var(--prism-panel, #131926) 80%, transparent);
+}
+
+.br-findings__chip[data-tone="neutral"] {
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+.br-findings__chip[data-tone="soft"] {
+  color: var(--prism-amber, #f59e0b);
+  border-color: color-mix(in srgb, #f59e0b 40%, transparent);
+}
+
+.br-findings__chip[data-tone="strong"] {
+  color: var(--prism-rose, #f43f5e);
+  border-color: color-mix(in srgb, #f43f5e 35%, transparent);
+}
+
+.br-findings__note {
+  margin: 0;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+.br-forward__body,
+.br-scenario__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 0 8px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.br-scenario__section + .br-scenario__section {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--prism-line, #2a334a);
+}
+
+.br-scenario__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.br-scenario__list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+  font-size: 0.75rem;
+}
+
 .br-section-h {
   margin: 8px 0 4px;
   font-size: 0.6875rem;

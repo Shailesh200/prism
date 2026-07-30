@@ -485,7 +485,7 @@ flowchart TD
 | M-031 | VS Code Map + Explorer | Surfaces | M-030 | Summary |
 | M-032 | Cursor Extension | Surfaces | M-030 | Summary |
 | M-047 | Extension Marketplace | Surfaces | M-031, M-032 | Yes |
-| M-048 | Extension Polish (+ blast depth deferred) | Surfaces | M-047 | Yes |
+| M-048 | Extension Polish (blast depth → M-049) | Surfaces | M-047 | Yes |
 | M-033 | Incremental Indexing & Watch | Scale | M-008 | Summary |
 | M-034 | Multi-language (Tree-sitter) | Scale | M-006 | Summary |
 | M-035 | Performance Hardening | Hardening | M-033 | Summary |
@@ -631,13 +631,14 @@ Critical-path milestones have full documents under `plans/milestones/`. Others a
 #### M-048 — Extension Product Epic
 - Polish + incremental watch (ADR-0026; supersedes M-033) + editor surfaces,
   trust/onboarding, change review, explain cards, bookmarks, package/multi-root,
-  health alerts + **Blast Radius Depth** (Phase 8; absorbs M-049; ADR-0027)
+  health alerts; Phase 8 blast depth **deferred to M-049**
 - Full doc: [`milestones/M-048_extension-polish.md`](./milestones/M-048_extension-polish.md)
-- DoD: Necessary + High-leverage extension loop before MCP; Phase 8.1 Vitest/Jest
-  soft lanes + honest safe-delete; `verify:milestone` green
+- DoD: Necessary + High-leverage extension loop before MCP (Phases 0–7 Verified)
 
 #### M-049 — Blast Radius Depth
-- **Absorbed into M-048 Phase 8** — design archive: [`milestones/M-049_blast-radius-depth.md`](./milestones/M-049_blast-radius-depth.md)
+- **In Progress** on `milestone/M-049-blast-radius-depth` — ADR-0027 Option B
+- Soft multi-lane blast (Vitest/Jest hero, tsconfig/pkg/aliases, CI/CR parity)
+- Full doc: [`milestones/M-049_blast-radius-depth.md`](./milestones/M-049_blast-radius-depth.md)
 
 #### M-033 — Incremental Indexing & Watch
 - **Deferred / superseded by M-048 Phase 1** (ADR-0026)

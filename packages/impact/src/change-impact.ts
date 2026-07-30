@@ -1,4 +1,5 @@
 import {
+  classifyToolingRoot,
   ok,
   type BreakingChangeHint,
   type PrismError,
@@ -13,6 +14,7 @@ import {
   computeAffected,
   isRepoCriticalPath,
   isTestPath,
+  mergeSoftAffected,
   referencesToSymbol,
   resolveOrigin,
   WIDELY_USED_THRESHOLD,
@@ -50,10 +52,22 @@ function computeOrphans(originPath: string, context: ImpactContext): string[] {
 }
 
 function foundationalConfigHint(originPath: string): BreakingChangeHint | null {
-  if (!isRepoCriticalPath(originPath)) return null;
+  const c = classifyToolingRoot(originPath);
+  if (c === "none") return null;
+  if (
+    /vitest\.config\.|jest\.config\.|playwright\.config\.|\.mocharc/i.test(
+      originPath,
+    )
+  ) {
+    return {
+      kind: "test-runner-config",
+      severity: "danger",
+      message: `${originPath} is a test-runner config; changes can break or reshape the test surface.`,
+    };
+  }
   return {
     kind: "foundational-config",
-    severity: "danger",
+    severity: c === "critical" ? "danger" : "warning",
     message: `${originPath} is a foundational config/build file; changes can break the repository even without direct import edges.`,
   };
 }
@@ -115,7 +129,8 @@ function breakingHintsFor(
 
 /**
  * Whether the target can be deleted safely. `blockers` are the files that
- * (transitively) depend on it; `orphans` are files that would be left dead.
+ * (transitively) depend on it; soft blockers (Q-022: medium+) also block.
+ * Tooling-critical origins are never safe from an empty import graph alone.
  */
 export function computeSafeDelete(
   origin: BlastRadiusOrigin,
@@ -123,37 +138,68 @@ export function computeSafeDelete(
 ): Result<SafeDeleteReport, PrismError> {
   const result = computeAffected(origin, context);
   if (!result.ok) return result;
-  const { originPath, affected } = result.value;
+  const { originPath, affected: hardMap } = result.value;
 
-  const blockers = affectedItems(affected);
-  const testsLikelyAffected = blockers
-    .map((b) => b.path)
-    .filter((p) => isTestPath(p))
-    .sort((a, b) => a.localeCompare(b));
-  const orphans =
-    origin.kind === "file" ? computeOrphans(originPath, context) : [];
+  const { softOnly } = mergeSoftAffected(
+    originPath,
+    hardMap,
+    context.softEdges,
+  );
 
-  // Repo-critical config/build files are never safe to delete, even with zero
-  // import dependents: removing them can break builds/CI. Surface a synthetic
-  // depth-0 blocker so the UI can explain WHY.
-  const critical = origin.kind === "file" && isRepoCriticalPath(originPath);
-  if (critical && !blockers.some((b) => b.path === originPath)) {
+  const hardBlockers = affectedItems(hardMap);
+  const softItems = affectedItems(softOnly);
+  // Q-022: medium+ soft blocks delete; low = warn only (not in softBlockers)
+  const softBlockers = softItems.filter(
+    (i) => (i.confidence ?? "medium") !== "low",
+  );
+
+  const blockers = [...hardBlockers];
+  const criticality =
+    origin.kind === "file" ? classifyToolingRoot(originPath) : "none";
+  const toolingCritical = criticality !== "none";
+
+  // Repo-critical / tooling-critical: synthetic depth-0 blocker
+  if (toolingCritical && !blockers.some((b) => b.path === originPath)) {
     blockers.push({
       path: originPath,
       reason:
-        "repo-critical config/build file — removing it can break builds/CI",
+        "tooling-critical config/build file — removing it can break builds, tests, or CI",
       depth: 0,
       category: "config",
     });
     blockers.sort((a, b) => a.depth - b.depth || a.path.localeCompare(b.path));
   }
 
+  // Soft blockers that aren't already listed
+  for (const s of softBlockers) {
+    if (!blockers.some((b) => b.path === s.path)) {
+      blockers.push(s);
+    }
+  }
+  blockers.sort((a, b) => a.depth - b.depth || a.path.localeCompare(b.path));
+
+  const testsLikelyAffected = [
+    ...new Set(
+      [...hardBlockers, ...softItems]
+        .map((b) => b.path)
+        .filter((p) => isTestPath(p)),
+    ),
+  ].sort((a, b) => a.localeCompare(b));
+
+  const orphans =
+    origin.kind === "file" ? computeOrphans(originPath, context) : [];
+
+  const safe =
+    hardBlockers.length === 0 && !toolingCritical && softBlockers.length === 0;
+
   return ok({
     origin: { kind: origin.kind, id: origin.id, path: originPath },
-    safe: blockers.length === 0 && !critical,
+    safe,
     blockers,
+    ...(softBlockers.length > 0 ? { softBlockers } : {}),
     orphans,
     testsLikelyAffected,
+    ...(toolingCritical ? { toolingCritical: true } : {}),
   });
 }
 
@@ -212,17 +258,23 @@ export function computeRenameImpact(
   });
 }
 
-/** Test files transitively reachable from the change. */
+/** Test files transitively reachable from the change (hard ∪ soft). */
 export function computeTestImpact(
   origin: BlastRadiusOrigin,
   context: ImpactContext,
 ): Result<TestImpactReport, PrismError> {
   const result = computeAffected(origin, context);
   if (!result.ok) return result;
-  const { originPath, affected } = result.value;
+  const { originPath, affected: hardMap } = result.value;
+  const { softOnly } = mergeSoftAffected(
+    originPath,
+    hardMap,
+    context.softEdges,
+  );
+  const merged = new Map([...hardMap, ...softOnly]);
   return ok({
     origin: { kind: origin.kind, id: origin.id, path: originPath },
-    tests: affectedItems(affected).filter((i) => isTestPath(i.path)),
+    tests: affectedItems(merged).filter((i) => isTestPath(i.path)),
   });
 }
 
@@ -243,3 +295,5 @@ export function computeBreakingChangeHints(
     ),
   );
 }
+
+export { isRepoCriticalPath };

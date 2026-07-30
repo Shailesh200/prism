@@ -1,0 +1,15 @@
+name: ci
+on:
+  push:
+    paths:
+      - 'src/**'
+      - 'packages/foo/**'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/foo
+    steps:
+      - run: npm test
+      - run: node ./scripts/build.js

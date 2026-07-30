@@ -1,5 +1,9 @@
 {
-  "origin": { "kind": "file", "id": "helper.ts", "path": "helper.ts" },
+  "origin": {
+    "kind": "file",
+    "id": "helper.ts",
+    "path": "helper.ts"
+  },
   "risk": 60,
   "affectedFiles": [
     {
@@ -15,6 +19,22 @@
       "category": "test"
     }
   ],
-  "testsLikelyAffected": ["main.test.ts"],
-  "breakingChanges": []
+  "testsLikelyAffected": [
+    "main.test.ts"
+  ],
+  "breakingChanges": [],
+  "originRole": "source",
+  "intent": "edit",
+  "scenarioChecklist": [
+    {
+      "id": "tests",
+      "label": "Tests to run",
+      "items": [
+        {
+          "path": "main.test.ts",
+          "reason": "imports main.ts"
+        }
+      ]
+    }
+  ]
 }

@@ -120,6 +120,21 @@ describe("createTypescriptPlugin", () => {
     expect(result.value.imports[0]?.source).toBe("react");
   });
 
+  it("extracts static-string dynamic import()", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "prism-dynimp-"));
+    const path = join(dir, "loader.ts");
+    await writeFile(
+      path,
+      'export async function load() {\n  return import("./mod.ts");\n}\n',
+      "utf8",
+    );
+    const host = createAnalyzerHost({ plugins: [createTypescriptPlugin()] });
+    const result = await host.analyzeFile(path);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.imports.map((i) => i.source)).toContain("./mod.ts");
+  });
+
   it("returns file-level diagnostics without failing analyze", async () => {
     const dir = await mkdtemp(join(tmpdir(), "prism-broken-"));
     const path = join(dir, "broken.ts");

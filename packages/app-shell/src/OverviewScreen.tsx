@@ -439,8 +439,8 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
                   <TipGuard>
                     <InfoTip label="Health Score">
                       Weighted 0–100 composite of health factors (parse health,
-                      test presence, coupling, modularity, diagnostics) per
-                      ADR-0012. The grade is a band over the score.
+                      test presence, coupling, modularity, diagnostics). The
+                      grade is a band over the score.
                     </InfoTip>
                   </TipGuard>
                 </div>
@@ -512,10 +512,9 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
                   Testing &amp; Security
                   <TipGuard>
                     <InfoTip label="Testing & Security">
-                      Dual scores from Core <code>getTestingReport</code> and{" "}
-                      <code>getSecurityReport</code>. Testing covers suite
-                      diversity and coverage; Security covers left-shift tools
-                      and fundamental checks.
+                      Dual scores from Core testing and security reports.
+                      Testing covers suite diversity and coverage; Security
+                      covers left-shift tools and fundamental checks.
                     </InfoTip>
                   </TipGuard>
                 </span>
@@ -719,7 +718,8 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
                 </p>
               )}
               <p className="ov-card__foot-note">
-                Historical health trends — coming soon
+                Historical health trends are not available yet — open Trends for
+                snapshot history when ready.
               </p>
             </article>
           </section>

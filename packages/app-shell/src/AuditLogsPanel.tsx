@@ -305,8 +305,8 @@ export function AuditLogsPanel(props: AuditLogsPanelProps): ReactElement {
 
       <p className="al-foot">
         <Lock size={14} aria-hidden />
-        Logs are stored locally in this browser session and never uploaded. Core
-        will persist a durable audit trail in a later milestone.
+        Logs are stored locally in this browser session and never uploaded. A
+        durable audit trail will land in a future release.
       </p>
     </div>
   );

@@ -1,0 +1,8 @@
+{
+  "tasks": {
+    "build": {
+      "inputs": ["src/**/*.ts", "package.json"],
+      "outputs": ["dist/**"]
+    }
+  }
+}

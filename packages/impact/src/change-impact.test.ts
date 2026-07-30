@@ -88,11 +88,12 @@ describe("computeSafeDelete", () => {
       {
         path: "package.json",
         reason:
-          "repo-critical config/build file — removing it can break builds/CI",
+          "tooling-critical config/build file — removing it can break builds, tests, or CI",
         depth: 0,
         category: "config",
       },
     ]);
+    expect(res.value.toolingCritical).toBe(true);
   });
 
   it("keeps both real and config blockers when a critical file has dependents", () => {
@@ -111,7 +112,7 @@ describe("computeSafeDelete", () => {
       {
         path: "tsconfig.json",
         reason:
-          "repo-critical config/build file — removing it can break builds/CI",
+          "tooling-critical config/build file — removing it can break builds, tests, or CI",
         depth: 0,
         category: "config",
       },
@@ -122,6 +123,33 @@ describe("computeSafeDelete", () => {
         category: "import",
       },
     ]);
+  });
+
+  it("is unsafe for tooling-critical vitest.config with soft blockers", () => {
+    const res = computeSafeDelete(
+      { kind: "file", id: "vitest.config.ts" },
+      {
+        dependencyGraph: graphOf([]),
+        analyzedPaths: ["vitest.config.ts", "src/a.test.ts"],
+        softEdges: [
+          {
+            from: "vitest.config.ts",
+            to: "src/a.test.ts",
+            lane: "test",
+            reason: "matched by vitest config",
+            confidence: "medium",
+            evidence: ["include"],
+          },
+        ],
+      },
+    );
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.value.safe).toBe(false);
+    expect(res.value.toolingCritical).toBe(true);
+    expect(
+      res.value.softBlockers?.some((b) => b.path === "src/a.test.ts"),
+    ).toBe(true);
   });
 
   it("errors for an unknown target", () => {

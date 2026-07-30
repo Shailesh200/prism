@@ -40,10 +40,26 @@ export {
   type UnresolvedDependency,
 } from "./dependency/build.js";
 export {
+  buildSoftImpactIndex,
+  matchGlob,
+  softEdgesFromOrigin,
+  softEdgesToOrigin,
+  SOFT_MATCH_CAP,
+  type BuildSoftImpactIndexInput,
+  type SoftImpactEdge,
+  type SoftImpactIndex,
+} from "./dependency/soft-impact.js";
+export {
   discoverLocalPackages,
+  resolveLocalPackageSpecifier,
   type LocalPackage,
 } from "./dependency/packages.js";
 export { findCycles } from "./dependency/cycles.js";
+export {
+  loadTsconfigPathAliases,
+  resolveAliasSpecifier,
+  type PathAliasMap,
+} from "./dependency/aliases.js";
 export {
   buildKnowledgeGraph,
   findReferences,

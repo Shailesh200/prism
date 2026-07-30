@@ -104,6 +104,7 @@ type Workspace = {
     kind: "file" | "symbol";
     id: string;
     path?: string;
+    intent?: "edit" | "delete";
   }) => Promise<
     | { ok: true; value: BlastRadiusReport }
     | { ok: false; error: { message: string } }
@@ -546,6 +547,7 @@ type ImpactOrigin = {
   id: string;
   path?: string;
   newName?: string;
+  intent?: "edit" | "delete";
 };
 
 async function loadImpactBundle(
@@ -562,6 +564,7 @@ async function loadImpactBundle(
     kind: origin.kind,
     id: origin.id,
     ...(origin.path === undefined ? {} : { path: origin.path }),
+    ...(origin.intent === undefined ? {} : { intent: origin.intent }),
   };
   const [blast, safeDelete, rename, testImpact] = await Promise.all([
     ws.blastRadius(base),
@@ -1090,11 +1093,17 @@ function prismMapApi(): Plugin {
               }
               const path = parsed.searchParams.get("path")?.trim();
               const newName = parsed.searchParams.get("newName")?.trim();
+              const intentRaw = parsed.searchParams.get("intent")?.trim();
+              const intent =
+                intentRaw === "delete" || intentRaw === "edit"
+                  ? intentRaw
+                  : undefined;
               const bundle = await loadImpactBundle(root, {
                 kind,
                 id,
                 ...(path ? { path } : {}),
                 ...(newName ? { newName } : {}),
+                ...(intent ? { intent } : {}),
               });
               sendJson(res, 200, bundle);
               return;

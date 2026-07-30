@@ -1,8 +1,11 @@
 import type {
   BlastRadiusItem,
   BlastRadiusReport,
+  FileRole,
   GraphNodeDto,
+  ImpactLane,
 } from "@prism/shared";
+import { classifyToolingRoot, fileRoleLabel } from "@prism/shared";
 import {
   CardIcon,
   FileExplorer,
@@ -13,9 +16,7 @@ import {
   ToggleGroup,
 } from "@prism/ui";
 import {
-  AlertTriangle,
   ArrowLeft,
-  CheckCircle2,
   Code2,
   FileCode2,
   FileWarning,
@@ -98,7 +99,13 @@ export type BlastRadiusScreenProps = {
 };
 
 type Mode = "file" | "symbol";
+type ImpactIntent = "edit" | "delete";
 type Status = "idle" | "loading" | "ready" | "error";
+
+function roleHeadlineHint(role: FileRole | undefined): string | null {
+  if (!role || role === "source") return null;
+  return fileRoleLabel(role);
+}
 
 /** Non-optional form of the shared affected-file category union (M-046). */
 type Category = NonNullable<BlastRadiusItem["category"]>;
@@ -121,32 +128,37 @@ const CATEGORY_LABEL: Record<Category, string> = {
   type: "Type",
 };
 
+const LANE_ORDER: readonly ImpactLane[] = [
+  "import",
+  "reexport",
+  "config",
+  "package",
+  "script",
+  "workspace",
+  "test",
+  "ci",
+  "env",
+  "alias",
+  "type",
+];
+
+const LANE_LABEL: Record<ImpactLane, string> = {
+  import: "Import dependents",
+  reexport: "Re-exports / barrels",
+  config: "Config & tooling",
+  package: "Package / workspace",
+  script: "Package scripts",
+  workspace: "Workspace deps",
+  test: "Tests to run",
+  ci: "CI / Docker / tasks",
+  env: "Env",
+  alias: "Path aliases",
+  type: "Type-only references",
+};
+
 function filePathFromNodeId(id: string, label: string): string {
   if (id.startsWith("file:")) return id.slice("file:".length);
   return label || id;
-}
-
-/** Mirrors `@prism/impact` `isRepoCriticalPath` for UI metrics (no package dep). */
-function isRepoCriticalPath(path: string): boolean {
-  const normalized = path.replace(/\\/g, "/");
-  const base = normalized.split("/").pop() ?? normalized;
-  if (base === "package.json") return true;
-  if (base === "Cargo.toml" || base === "go.mod" || base === "pyproject.toml") {
-    return true;
-  }
-  if (base === "Dockerfile" || /^Dockerfile\./i.test(base)) return true;
-  if (/^vite\.config\./i.test(base)) return true;
-  if (/^webpack\.config\./i.test(base)) return true;
-  if (/^next\.config\./i.test(base)) return true;
-  if (/^tsconfig.*\.json$/i.test(base)) return true;
-  if (
-    normalized === ".github/workflows" ||
-    normalized.startsWith(".github/workflows/") ||
-    normalized.includes("/.github/workflows/")
-  ) {
-    return true;
-  }
-  return false;
 }
 
 function riskBand(risk: number): {
@@ -175,21 +187,131 @@ function riskBand(risk: number): {
 }
 
 function riskRationale(blast: BlastRadiusReport): string {
+  const hard =
+    blast.hardAffectedCount ??
+    blast.affectedFiles.filter((f) => !f.confidence || f.confidence === "high")
+      .length;
+  const soft = blast.softAffectedCount ?? 0;
   const direct = blast.affectedFiles.filter((f) => f.depth === 1).length;
   const tests = blast.testsLikelyAffected.length;
   const parts = [
-    `${blast.affectedFiles.length} downstream file(s)`,
-    `${direct} direct dependent(s)`,
-    tests > 0
-      ? `${tests} test(s) in radius`
-      : "no tests in radius (untested +15)",
+    soft > 0
+      ? `${hard} hard · ${soft} soft impact(s)`
+      : `${blast.affectedFiles.length} downstream file(s)`,
+    `${direct} direct hit(s)`,
+    tests > 0 ? `${tests} test(s) in radius` : "no tests in radius",
   ];
-  if (blast.truncated) parts.push("truncated at depth limit");
+  if (blast.truncated) parts.push("truncated");
   const originPath = blast.origin.path ?? blast.origin.id;
-  if (isRepoCriticalPath(originPath)) {
-    parts.push("foundational config file");
+  const tooling = classifyToolingRoot(originPath);
+  if (tooling !== "none") {
+    parts.push(
+      tooling === "critical" ? "tooling/config root" : "elevated tooling role",
+    );
   }
+  if (blast.coverageNote) parts.push(blast.coverageNote);
   return parts.join(" · ");
+}
+
+type DeleteFindingTone = "neutral" | "soft" | "strong";
+
+type DeleteFinding = {
+  readonly label: string;
+  readonly tone: DeleteFindingTone;
+};
+
+/** Findings-first delete summary — evidence for the user, not a go/no-go verdict. */
+function buildDeleteFindings(input: {
+  hardDeps: number;
+  softDeps: number;
+  softBlockers: readonly BlastRadiusItem[];
+  toolingCritical: boolean;
+  originTooling: ReturnType<typeof classifyToolingRoot>;
+}): { summary: string; findings: DeleteFinding[] } {
+  const findings: DeleteFinding[] = [];
+
+  if (input.hardDeps === 0) {
+    findings.push({ label: "No import dependents found", tone: "neutral" });
+  } else {
+    findings.push({
+      label: `${input.hardDeps} import dependent${input.hardDeps === 1 ? "" : "s"}`,
+      tone: "strong",
+    });
+  }
+
+  if (input.softDeps > 0) {
+    findings.push({
+      label: `${input.softDeps} file${input.softDeps === 1 ? "" : "s"} load this via config / tests`,
+      tone: "soft",
+    });
+  }
+
+  if (input.toolingCritical || input.originTooling === "critical") {
+    findings.push({ label: "Marked as tooling/config root", tone: "strong" });
+  } else if (input.originTooling === "elevated") {
+    findings.push({ label: "Elevated tooling role", tone: "soft" });
+  }
+
+  const lowConfReview = input.softBlockers.some(
+    (b) =>
+      b.confidence === "low" &&
+      (b.lane === "ci" || b.lane === "script" || b.category === "config"),
+  );
+  if (lowConfReview) {
+    findings.push({
+      label: "Low-confidence CI mentions (review)",
+      tone: "soft",
+    });
+  }
+
+  const strong =
+    input.hardDeps > 0 ||
+    input.toolingCritical ||
+    input.originTooling === "critical";
+  const summary = strong
+    ? "Strong dependents found"
+    : input.softDeps > 0 || input.originTooling === "elevated"
+      ? "Soft impacts to review"
+      : "No strong blockers found";
+
+  return { summary, findings };
+}
+
+function laneForItem(item: BlastRadiusItem): ImpactLane {
+  if (item.lane) return item.lane;
+  switch (item.category) {
+    case "reexport":
+      return "reexport";
+    case "test":
+      return "test";
+    case "config":
+      return "config";
+    case "type":
+      return "type";
+    default:
+      return "import";
+  }
+}
+
+function groupByLane(
+  items: readonly BlastRadiusItem[],
+): Array<{ lane: ImpactLane; label: string; rows: BlastRadiusItem[] }> {
+  const map = new Map<ImpactLane, BlastRadiusItem[]>();
+  for (const item of items) {
+    const lane = laneForItem(item);
+    const list = map.get(lane) ?? [];
+    list.push(item);
+    map.set(lane, list);
+  }
+  return LANE_ORDER.filter((lane) => (map.get(lane)?.length ?? 0) > 0).map(
+    (lane) => ({
+      lane,
+      label: LANE_LABEL[lane],
+      rows: (map.get(lane) ?? []).sort(
+        (a, b) => a.depth - b.depth || a.path.localeCompare(b.path),
+      ),
+    }),
+  );
 }
 
 function groupByDepth(
@@ -234,6 +356,7 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
   const subtitle = [props.repoLabel, props.branch].filter(Boolean).join(" · ");
 
   const [mode, setMode] = useState<Mode>("file");
+  const [impactIntent, setImpactIntent] = useState<ImpactIntent>("edit");
   const [query, setQuery] = useState("");
   const [target, setTarget] = useState<ImpactTarget | null>(null);
   const [symbolLabel, setSymbolLabel] = useState<string | null>(null);
@@ -337,6 +460,7 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
     void client
       .fetchImpactBundle({
         ...target,
+        intent: impactIntent,
         ...(nameAtSelect ? { newName: nameAtSelect } : {}),
       })
       .then((res) => {
@@ -353,7 +477,7 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [target, props.root, client]);
+  }, [target, props.root, client, impactIntent]);
 
   // Debounced rename-only refresh — updates rename panel without layout remount.
   useEffect(() => {
@@ -366,6 +490,7 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
       void client
         .fetchImpactBundle({
           ...target,
+          intent: impactIntent,
           ...(trimmed ? { newName: trimmed } : {}),
         })
         .then((res) => {
@@ -383,7 +508,7 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
       cancelled = true;
       window.clearTimeout(handle);
     };
-  }, [newName, target, props.root, client, status]);
+  }, [newName, target, props.root, client, status, impactIntent]);
 
   const selectFilePath = (path: string) => {
     setMode("file");
@@ -438,6 +563,7 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
     try {
       const res = await client.fetchImpactBundle({
         ...target,
+        intent: impactIntent,
         newName: trimmed,
       });
       if (!res.ok) {
@@ -523,9 +649,14 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
   const blast = bundle?.blast ?? null;
   const safeDelete = bundle?.safeDelete ?? null;
   const band = blast ? riskBand(blast.risk) : null;
-  const directDeps = blast
-    ? blast.affectedFiles.filter((f) => f.depth === 1).length
-    : 0;
+  const softDeps = blast?.softAffectedCount ?? 0;
+  const hardDeps =
+    blast?.hardAffectedCount ??
+    (blast ? Math.max(0, blast.affectedFiles.length - softDeps) : 0);
+  const originTooling = blast
+    ? classifyToolingRoot(blast.origin.path ?? blast.origin.id)
+    : "none";
+  const toolingHero = !!blast && originTooling !== "none" && hardDeps === 0;
 
   const depthGroups = useMemo(() => {
     if (!blast) return [];
@@ -561,24 +692,41 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
   }, [catSummary, flatAffected.length]);
 
   const visibleAffected = filteredAffected.slice(0, visibleCount);
-  const visibleGrouped = useMemo(
-    () => groupByDepth(visibleAffected),
-    [visibleAffected],
-  );
   const remaining = Math.max(0, filteredAffected.length - visibleCount);
+
+  const laneGroups = useMemo(() => {
+    if (!blast) return [];
+    return groupByLane(filteredAffected);
+  }, [blast, filteredAffected]);
+
+  const visibleLaneGroups = useMemo(() => {
+    const visible = new Set(visibleAffected.map((r) => `${r.path}:${r.depth}`));
+    return laneGroups
+      .map((g) => ({
+        ...g,
+        rows: g.rows.filter((r) => visible.has(`${r.path}:${r.depth}`)),
+      }))
+      .filter((g) => g.rows.length > 0);
+  }, [laneGroups, visibleAffected]);
 
   const gaugeOffset = blast
     ? GAUGE_C * (1 - Math.max(0, Math.min(100, blast.risk)) / 100)
     : GAUGE_C;
 
-  // Safe-delete config awareness: a repo-critical config/build file comes back
-  // unsafe with a `config` blocker even when nothing imports it (M-046 #2).
   const configBlockers =
     safeDelete?.blockers.filter((b) => b.category === "config") ?? [];
-  const hasConfigBlocker =
-    !!safeDelete && !safeDelete.safe && configBlockers.length > 0;
-  const hasDependentBlockers =
-    !!safeDelete && safeDelete.blockers.some((b) => b.category !== "config");
+  const hasConfigNotes =
+    !!safeDelete &&
+    (configBlockers.length > 0 || safeDelete.toolingCritical === true);
+  const deleteFindings = safeDelete
+    ? buildDeleteFindings({
+        hardDeps,
+        softDeps,
+        softBlockers: safeDelete.softBlockers ?? [],
+        toolingCritical: safeDelete.toolingCritical === true,
+        originTooling,
+      })
+    : null;
 
   const chipLabel =
     target === null
@@ -670,6 +818,17 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
                 value={mode}
                 onChange={(id) => changeMode(id as Mode)}
               />
+              {target ? (
+                <ToggleGroup
+                  aria-label="Change intent"
+                  options={[
+                    { id: "edit", label: "Edit" },
+                    { id: "delete", label: "Delete" },
+                  ]}
+                  value={impactIntent}
+                  onChange={(id) => setImpactIntent(id as ImpactIntent)}
+                />
+              ) : null}
             </div>
           </div>
 
@@ -787,15 +946,32 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
                 </div>
                 <div className="br-risk__body">
                   <div className="br-risk__head">
-                    <h3 className="br-risk__title">{band.label}</h3>
+                    <h3 className="br-risk__title">
+                      {toolingHero
+                        ? originTooling === "critical"
+                          ? impactIntent === "delete"
+                            ? "High tooling risk if removed — few import edges"
+                            : "High tooling impact — few import edges"
+                          : impactIntent === "delete"
+                            ? "Elevated tooling risk if removed"
+                            : "Elevated tooling impact — few import edges"
+                        : impactIntent === "delete" && band.tone !== "low"
+                          ? `${band.short} delete impact`
+                          : band.label}
+                    </h3>
+                    {blast.originRole && blast.originRole !== "source" ? (
+                      <span className="ov-badge" title="File role">
+                        {roleHeadlineHint(blast.originRole)}
+                      </span>
+                    ) : null}
                     {blast.truncated ? (
                       <span className="ov-badge">Truncated</span>
                     ) : null}
                     <InfoTip label="Risk score bands">
-                      Risk 0–100 = 55 × (affected ÷ analyzed−1) + min(30,
-                      direct×5) + 15 when no tests sit in the radius; config
-                      files get a High-floor boost. Bands: Low &lt; 20, Moderate
-                      20–60, High 60+.
+                      Risk combines hard import reach and soft tooling signals
+                      (configs, CI, scripts). Tooling-critical roots floor at
+                      High (~70); elevated at Mid (~45). Bands: Low &lt; 20,
+                      Moderate 20–60, High 60+.
                     </InfoTip>
                   </div>
                   <p className="br-risk__copy">{riskRationale(blast)}</p>
@@ -827,14 +1003,12 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
                       <div className="br-mstrip__k">Risk · {band.short}</div>
                     </div>
                     <div className="br-mstrip__item">
-                      <div className="br-mstrip__v">
-                        {blast.affectedFiles.length}
-                      </div>
-                      <div className="br-mstrip__k">Affected files</div>
+                      <div className="br-mstrip__v">{hardDeps}</div>
+                      <div className="br-mstrip__k">Hard dependents</div>
                     </div>
                     <div className="br-mstrip__item">
-                      <div className="br-mstrip__v">{directDeps}</div>
-                      <div className="br-mstrip__k">Direct (d1)</div>
+                      <div className="br-mstrip__v">{softDeps}</div>
+                      <div className="br-mstrip__k">Soft impacts</div>
                     </div>
                     <div className="br-mstrip__item">
                       <div className="br-mstrip__v">
@@ -899,31 +1073,28 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
                     </div>
                   </div>
                 ) : null}
-                {depthGroups.length === 0 ? (
+                {depthGroups.length === 0 && softDeps === 0 ? (
                   <p className="ov-empty">
-                    No downstream dependents — isolated change surface.
+                    {originTooling !== "none"
+                      ? "No import dependents found — check Safe Delete for tooling and config notes."
+                      : "No downstream dependents — isolated change surface."}
                   </p>
                 ) : filteredAffected.length === 0 ? (
                   <p className="ov-empty">No files in the selected category.</p>
                 ) : (
                   <>
                     <div className="br-down__body">
-                      {visibleGrouped.map((g) => (
-                        <div key={g.depth} className="br-depth">
+                      {visibleLaneGroups.map((g) => (
+                        <div key={g.lane} className="br-depth">
                           <div className="br-depth__head">
-                            <span className="br-depth__badge">{g.depth}</span>
-                            <span className="br-depth__label">
-                              Depth {g.depth}
-                              {g.depth === 1
-                                ? " (Direct)"
-                                : g.depth === 2
-                                  ? " (Indirect)"
-                                  : ""}
+                            <span className="br-depth__badge">
+                              {g.rows.length}
                             </span>
+                            <span className="br-depth__label">{g.label}</span>
                           </div>
                           {g.rows.map((row) => (
                             <div
-                              key={`${row.path}:${row.depth}`}
+                              key={`${row.path}:${row.depth}:${row.lane ?? ""}`}
                               className="br-down__row"
                             >
                               <FileCode2 size={14} aria-hidden />
@@ -933,6 +1104,15 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
                               >
                                 {row.path}
                               </span>
+                              {row.confidence && row.confidence !== "high" ? (
+                                <span
+                                  className="br-cat br-cat--sm"
+                                  data-cat="config"
+                                  title="Confidence"
+                                >
+                                  {row.confidence}
+                                </span>
+                              ) : null}
                               {row.category && CATEGORY_LABEL[row.category] ? (
                                 <span
                                   className="br-cat br-cat--sm"
@@ -941,7 +1121,14 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
                                   {CATEGORY_LABEL[row.category]}
                                 </span>
                               ) : null}
-                              <span className="br-reason" title={row.reason}>
+                              <span
+                                className="br-reason"
+                                title={
+                                  row.evidence?.length
+                                    ? `${row.reason}\n${row.evidence.join("\n")}`
+                                    : row.reason
+                                }
+                              >
                                 {row.reason}
                               </span>
                             </div>
@@ -952,16 +1139,83 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
                     {remaining > 0 ? (
                       <button
                         type="button"
-                        className="br-more"
+                        className="ov-btn ov-btn--ghost br-more"
                         onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
                       >
-                        Load {Math.min(PAGE_SIZE, remaining)} more file
-                        {Math.min(PAGE_SIZE, remaining) === 1 ? "" : "s"}…
+                        Show more ({remaining} remaining)
                       </button>
                     ) : null}
                   </>
                 )}
               </article>
+
+              {(blast.forwardDependencies?.length ?? 0) > 0 ? (
+                <article className="ov-card br-forward">
+                  <div className="ov-card__head">
+                    <span className="ov-card__title">
+                      <CardIcon icon={ArrowLeft} tone="violet" size={14} />
+                      This file depends on…
+                    </span>
+                    <span className="ov-card__meta">
+                      {blast.forwardDependencies!.length}
+                    </span>
+                  </div>
+                  <div className="br-forward__body">
+                    {blast.forwardDependencies!.slice(0, 40).map((dep) => (
+                      <div key={dep.path} className="br-down__row">
+                        <FileCode2 size={14} aria-hidden />
+                        <span
+                          className="ov-mono ov-ellipsis br-down__path"
+                          title={dep.path}
+                        >
+                          {dep.path}
+                        </span>
+                        <span className="br-cat br-cat--sm" data-cat="import">
+                          {dep.kind}
+                        </span>
+                        <span className="br-reason" title={dep.reason}>
+                          {dep.reason}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              ) : null}
+
+              {(blast.scenarioChecklist?.length ?? 0) > 0 ? (
+                <article className="ov-card br-scenario">
+                  <div className="ov-card__head">
+                    <span className="ov-card__title">
+                      <CardIcon icon={FlaskConical} tone="violet" size={14} />
+                      Checklist
+                    </span>
+                    <InfoTip label="Scenario checklist">
+                      Composed from blast and test-impact signals — tests to
+                      run, configs and CI that touch this path, and package
+                      links. Not a test runner.
+                    </InfoTip>
+                  </div>
+                  <div className="br-scenario__body">
+                    {blast.scenarioChecklist!.map((section) => (
+                      <div key={section.id} className="br-scenario__section">
+                        <h4 className="br-section-h">{section.label}</h4>
+                        <ul className="br-scenario__list">
+                          {section.items.slice(0, 20).map((item) => (
+                            <li key={`${section.id}:${item.path}`}>
+                              <span className="ov-mono" title={item.path}>
+                                {item.path}
+                              </span>
+                              <span className="br-reason" title={item.reason}>
+                                {item.reason}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              ) : null}
 
               <div className="br-safety-grid">
                 <article className="ov-card br-safety">
@@ -1026,7 +1280,7 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
                     <p className="dm-note">
                       {target?.kind === "file"
                         ? "Preview lists the new path and import rewrites, then confirm to apply in the workspace."
-                        : "Symbol rename is preview-only this round — impact and breaking hints only."}
+                        : "Symbol rename is preview-only for now — impact and breaking hints only."}
                     </p>
 
                     <h4 className="br-section-h">
@@ -1061,37 +1315,44 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
                   <div className="ov-card__head">
                     <span className="ov-card__title">
                       <CardIcon icon={Trash2} tone="amber" size={14} />
-                      Safe Delete
+                      {impactIntent === "delete"
+                        ? "Delete findings"
+                        : "Delete impact"}
                     </span>
                   </div>
                   <div className="br-safety__body">
-                    <div
-                      className={`br-verdict${
-                        safeDelete.safe
-                          ? " br-verdict--safe"
-                          : " br-verdict--warn"
-                      }`}
-                    >
-                      {safeDelete.safe ? (
-                        <CheckCircle2 size={16} aria-hidden />
-                      ) : (
-                        <AlertTriangle size={16} aria-hidden />
-                      )}
-                      <span>
-                        {safeDelete.safe
-                          ? "Safe to delete — no dependents"
-                          : hasConfigBlocker && !hasDependentBlockers
-                            ? "Not safe — repo-critical config/build file"
-                            : "Not safe — dependents block deletion"}
-                      </span>
-                    </div>
+                    {deleteFindings ? (
+                      <div
+                        className="br-findings"
+                        aria-label="Delete impact findings"
+                      >
+                        <div className="br-findings__summary">
+                          {deleteFindings.summary}
+                        </div>
+                        <ul className="br-findings__chips">
+                          {deleteFindings.findings.map((f) => (
+                            <li
+                              key={f.label}
+                              className="br-findings__chip"
+                              data-tone={f.tone}
+                            >
+                              {f.label}
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="br-findings__note">
+                          Prism reports what it found — you decide whether to
+                          delete.
+                        </p>
+                      </div>
+                    ) : null}
 
-                    {hasConfigBlocker ? (
+                    {hasConfigNotes ? (
                       <div className="br-config-blocker">
                         <FileWarning size={16} aria-hidden />
                         <div>
                           <div className="br-config-blocker__t">
-                            Why it&apos;s unsafe
+                            Config / tooling notes
                           </div>
                           <ul className="br-config-blocker__list">
                             {configBlockers.map((b) => (
@@ -1104,19 +1365,18 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
                             ))}
                           </ul>
                           <div className="br-config-blocker__item">
-                            Deleting this file can break builds, tooling, or CI
-                            even though nothing imports it.
+                            Removing this file can affect builds, tooling, or CI
+                            even when nothing imports it.
                           </div>
                         </div>
                       </div>
                     ) : null}
 
                     <h4 className="br-section-h br-section-h--tip">
-                      <span>Blockers ({safeDelete.blockers.length})</span>
-                      <InfoTip label="Blockers">
-                        Files that depend on this target (or repo-critical
-                        config files) and prevent safe deletion because they
-                        would break if it were removed.
+                      <span>Dependents ({safeDelete.blockers.length})</span>
+                      <InfoTip label="Dependents">
+                        Files that reference this target via imports, config,
+                        CI, or scripts — review these before deleting.
                       </InfoTip>
                     </h4>
                     {safeDelete.blockers.length > 0 ? (
@@ -1150,7 +1410,7 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
                         ))}
                       </div>
                     ) : (
-                      <p className="ov-empty">No blockers.</p>
+                      <p className="ov-empty">No dependents listed.</p>
                     )}
 
                     <h4 className="br-section-h br-section-h--tip">
@@ -1213,14 +1473,14 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
                   type="button"
                   className="ov-btn ov-btn--ghost br-run"
                   disabled
-                  title="Test runner wiring comes later"
+                  title="Running tests from here is not available yet"
                 >
                   <Play size={13} aria-hidden />
                   Run these tests
                 </button>
                 <p className="dm-note">
-                  From Core <span className="ov-mono">testImpact</span> (M-021)
-                  — paths + reason + depth. Run action deferred.
+                  Test impact from Core — paths, reason, and depth. Running
+                  tests from here is not available yet.
                 </p>
               </article>
             </div>
@@ -1300,7 +1560,7 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
 
                 {target?.kind === "symbol" ? (
                   <p className="br-modal__note">
-                    Symbol rename apply is not available this round. Review edit
+                    Applying symbol renames is not available yet. Review edit
                     sites and breaking-change hints below — apply remains
                     disabled.
                   </p>
@@ -1386,9 +1646,9 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
                       type="button"
                       className="ov-btn"
                       disabled
-                      title="Symbol rename apply is not available this round"
+                      title="Applying symbol renames is not available yet"
                     >
-                      Preview only this round
+                      Preview only
                     </button>
                   )}
                 </div>

@@ -1,14 +1,15 @@
-# M-049 — Blast Radius Depth (ABSORBED)
+# M-049 — Blast Radius Depth
 
 | Field | Value |
 |---|---|
-| Status | **Absorbed into [M-048](./M-048_extension-polish.md) Phase 8** |
-| Branch | *do not create* — work on `milestone/M-048-extension-polish` |
-| Related ADR | [ADR-0027](../adr/0027-blast-radius-multi-lane-signals.md) |
+| Status | **In Progress** |
+| Branch | `milestone/M-049-blast-radius-depth` |
+| Related ADR | [ADR-0027](../adr/0027-blast-radius-multi-lane-signals.md) (**Accepted** — Option B) |
+| Prior note | Design was absorbed into M-048 Phase 8; **implementation** revived here after M-048 Verified |
 
-> **Owner decision (2026-07-28):** Merge this plan into the existing M-048 epic as **Phase 8**. Do not open a separate M-049 branch. Implementation, DoD, and PROGRESS tracking live on M-048.
+> **Owner decision (2026-07-28 revive):** Implement the Phase 8 / M-049 design archive as product code on this branch (not on `main`). M-048 stays Verified for Phases 0–7; blast depth ships under M-049.
 
-The sections below are the **design archive** (mechanics, lanes, APIs, UX, scoring, verification). Prefer the Phase 8 summary in M-048 for status; use this file for full detail.
+The sections below are the **design archive** (mechanics, lanes, APIs, UX, scoring, verification) — source of truth for implementation.
 
 ---
 
@@ -27,9 +28,9 @@ Make **Blast Radius** a trustworthy hero feature: for *every* meaningful change 
 ```text
 Index (AST imports/re-exports)
   → buildDependencyGraph (relative resolve only)
-  → computeAffected (reverse BFS on hard edges)
-  → risk score + optional isRepoCriticalPath boost
-  → BlastRadiusReport / SafeDeleteReport / TestImpactReport
+    → computeAffected (reverse BFS on hard edges)
+    → risk score + optional isRepoCriticalPath boost
+    → BlastRadiusReport / SafeDeleteReport / TestImpactReport
 ```
 
 | Layer | Behavior relevant to configs |
@@ -49,7 +50,7 @@ Index (AST imports/re-exports)
 3. Formula yields **risk ≈ 15** → “Low Impact”.
 4. UI rationale emphasizes “0 downstream / 0 direct dependents” — **import lane is the whole story**.
 
-M-046 already shipped bands + a critical-path heuristic for *some* configs; Phase 8 generalizes that into **explicit soft-signal lanes** with evidence, not only a basename floor.
+M-046 already shipped bands + a critical-path heuristic for *some* configs; Phase 8 / M-049 generalizes that into **explicit soft-signal lanes** with evidence, not only a basename floor.
 
 ---
 
@@ -60,7 +61,7 @@ M-046 already shipped bands + a critical-path heuristic for *some* configs; Phas
 3. **Evidence over magic** — Every soft hit cites path, reason, category, and confidence.
 4. **Surfaces stay behind `@prism/core`** — engines live in `@prism/impact` + `@prism/intelligence`; UI/MCP/CLI only consume DTOs.
 5. **Deterministic & local-first** — no network; best-effort parsing; truncation markers when incomplete.
-6. **Phased delivery** — ship high-value config/test lanes first; deepen alias/CI later (M-048 Phase 8.1 → 8.3).
+6. **Phased delivery** — ship high-value config/test lanes first; deepen alias/CI later (8.1 → 8.3 on this branch).
 
 ---
 
@@ -314,26 +315,38 @@ Exact lists live in one shared module used by impact **and** app-shell (stop dup
 
 - hard blockers exist, or
 - `C != none` for file origins, or
-- soft blockers with `confidence !== "low"` (policy flag; low-confidence soft alone → warning, not hard block — **open question Q-022**).
+- soft blockers with `confidence !== "low"` (policy flag; low-confidence soft alone → warning, not hard block — **Q-022** default).
 
 ---
 
-## 8. Milestone breakdown → M-048 Phase 8
+## 8. Milestone phases (on this branch)
 
-| Former M-049 phase | Now |
+| Phase | Scope |
 |---|---|
-| Phase 0 Contracts & ADR | **M-048 Phase 8.0** |
-| Phase 1 Vitest/Jest hero | **M-048 Phase 8.1** (minimum exit for DoD) |
-| Phase 2 tsconfig/pkg/aliases | **M-048 Phase 8.2** |
-| Phase 3 CI/Docker/CR parity | **M-048 Phase 8.3** |
-
-If Phase 8.1 alone should ship first, owner may still split a slim follow-up milestone later; prefer finishing 8.1–8.3 on the M-048 branch unless schedule forces a cut.
+| **8.0** | Contracts & ADR-0027 Accepted |
+| **8.1** | Vitest/Jest hero (MUST) |
+| **8.2** | tsconfig / package.json / aliases |
+| **8.3** | CI / Docker / turbo + Change Review 60/20 |
 
 ---
 
 ## 9. Definition of Done
 
-Tracked on **[M-048](./M-048_extension-polish.md)** — Phase 8 checklist + epic DoD.
+- [x] Phase 8.1 exit criteria met (Vitest/Jest Mid/High, lanes populated, not Safe to Delete)
+- [x] ADR-0027 Accepted (Option B)
+- [x] Additive DTOs + CORE_SDK notes
+- [x] Phase 8.2–8.3 depth polish on branch: Prettier/Mocha/Cypress/Nx project.json/Jenkinsfile/Azure path filters; lockfile advisory; file-role classifier; edit/delete intent; soft-index cache; forward-deps + scenario checklist; dynamic `import()` enrichment
+- [x] `bun run verify:milestone` green (run before owner review)
+- [ ] Owner approval → commit → merge → Verified
+- [ ] PROGRESS + Master Plan updated (In Progress; Verified after merge)
+
+### Remaining out of scope (do not expand here)
+
+- Cloud analysis / LLM-as-analyzer
+- Cross-repo published npm consumers
+- Full TypeScript program / perfect Vite·ESLint plugin graphs
+- Lockfile-line blast expansion (advisory only, by design)
+- Perfect every stack dialect
 
 ---
 
@@ -359,13 +372,13 @@ Tracked on **[M-048](./M-048_extension-polish.md)** — Phase 8 checklist + epic
 | Risk / question | Mitigation / default |
 |---|---|
 | Glob false positives inflate risk | Cap soft matches; α&lt;1; confidence medium; truncation note |
-| Config dialect sprawl | Phase 8.1: Vitest+Jest only; parser SPI-shaped helpers |
+| Config dialect sprawl | Phase 8.1: Vitest+Jest first; parser SPI-shaped helpers |
 | SDK freeze (M-025) / additive DTOs | Optional fields only; document in CORE_SDK |
 | Duplicate criticality lists (impact vs UI) | Single shared export via Core DTO metadata or shared helper in `@prism/shared` |
 | Soft blockers vs Safe Delete strictness | **Q-022** — default: medium+ soft blocks delete; low = warn |
 | Alias resolution complexity | Best-effort paths only; no full TS program |
 | Analyzer type-only gaps | Attribute when known; don’t block Phase 8.1 |
-| Change Review band mismatch | Unify in Phase 8.3 (or 8.1 if cheap) |
+| Change Review band mismatch | Unify in Phase 8.3 (or 8.1 if cheap) — **Q-023**: Blast 60/20 |
 
 See also [OPEN_QUESTIONS.md](../OPEN_QUESTIONS.md) **Q-022**, **Q-023**.
 
@@ -374,10 +387,11 @@ See also [OPEN_QUESTIONS.md](../OPEN_QUESTIONS.md) **Q-022**, **Q-023**.
 ## 12. Sequencing
 
 ```text
-Continue on milestone/M-048-extension-polish
-  → Accept ADR-0027 (with Phase 8)
-  → Phase 8.1 (hero) → verify → review
-  → Phase 8.2–8.3 on same branch unless owner splits
+milestone/M-049-blast-radius-depth (from latest main)
+  → Accept ADR-0027 Option B
+  → Phase 8.0–8.1 (hero) → verify
+  → Phase 8.2–8.3 on same branch unless cut
+  → owner review (no commit until approved)
 ```
 
 ---
@@ -386,6 +400,6 @@ Continue on milestone/M-048-extension-polish
 
 - M-020 / M-021 milestone docs (hard reverse-dep primitives)
 - M-046 Blast bands + initial config heuristic
-- M-048 Phase 4 `reviewChanges` + **Phase 8** (this work)
+- M-048 Phases 0–7 Verified; Phase 8 deferred here
 - ADR-0004 Core-only surfaces · ADR-0019 SDK versioning · ADR-0021 app-shell · ADR-0022 testing reports · ADR-0026 watch invalidation · ADR-0027 multi-lane signals
 - Code: `packages/impact/src/{blast-radius,change-impact,internal}.ts`, `packages/intelligence/src/dependency/*`, `packages/app-shell/src/BlastRadiusScreen.tsx`

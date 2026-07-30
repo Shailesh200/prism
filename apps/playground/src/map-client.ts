@@ -921,6 +921,7 @@ export type ImpactTarget = {
   id: string;
   path?: string;
   newName?: string;
+  intent?: "edit" | "delete";
 };
 
 /** Combined M-020/M-021 impact reports for a change target. */
@@ -946,6 +947,7 @@ export async function fetchImpactBundle(
         if (root) params.set("root", root);
         if (target.path) params.set("path", target.path);
         if (target.newName) params.set("newName", target.newName);
+        if (target.intent) params.set("intent", target.intent);
         const res = await fetch(`/api/impact?${params}`);
         if (!res.ok) {
           const body = (await res.json().catch(() => null)) as {

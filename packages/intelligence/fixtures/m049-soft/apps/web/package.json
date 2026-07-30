@@ -1,0 +1,5 @@
+{
+  "name": "@m049/web",
+  "private": true,
+  "dependencies": { "@m049/foo": "workspace:*" }
+}

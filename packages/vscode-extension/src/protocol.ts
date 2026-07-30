@@ -91,6 +91,7 @@ export type ImpactTarget = {
   id: string;
   path?: string;
   newName?: string;
+  intent?: "edit" | "delete";
 };
 
 export type SymbolSearchHit = {
