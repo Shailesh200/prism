@@ -75,11 +75,19 @@ const FACTOR_COLORS: Record<string, string> = {
 
 const RECENT_PAGE_SIZE = 10;
 
+/** Whether git data is still loading, present, absent, or failed to read. */
+export type GitStatus = "loading" | "ready" | "unavailable" | "error";
+
 export type OverviewScreenProps = {
   readonly map: RepositoryMap;
   readonly repoLabel: string;
   readonly gitActivity: GitActivity | null;
-  readonly gitStatus?: "loading" | "ready" | "error";
+  /**
+   * `unavailable` means Prism looked and there is no git data; `error` means
+   * reading it failed. Collapsing the two reported a failure the user could
+   * act on when nothing had gone wrong (ADR-0029).
+   */
+  readonly gitStatus?: GitStatus;
   readonly health: HealthScore | null;
   readonly dna?: DnaReport | null;
   /** Optional preloaded scores from dashboard payload. */
@@ -207,7 +215,10 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
     return m;
   }, [health]);
 
-  const overall = health?.score ?? 0;
+  // Null until health is computed. Rendering it as 0 told the user their
+  // repository scored 0/100 when Prism had not scored it at all (ADR-0029).
+  const overall = health?.score ?? null;
+  const overallLabel = overall === null ? "—" : String(overall);
   const testFactor = factorById.get("test_presence")?.score;
   const testScore =
     testingReport?.score ??
@@ -274,8 +285,9 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
   const gitStatus = props.gitStatus ?? "loading";
   const gitEmptyMessage = (loadingText: string, notGitText: string): string => {
     if (gitStatus === "error") {
-      return "Couldn't reach local git — check the playground logs.";
+      return "Couldn't read local git — check the logs.";
     }
+    if (gitStatus === "unavailable") return notGitText;
     if (gitActivity && !gitActivity.available) return notGitText;
     return loadingText;
   };
@@ -308,7 +320,7 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
     })();
   };
 
-  const healthTone = overall >= 70 ? "emerald" : "amber";
+  const healthTone = overall !== null && overall >= 70 ? "emerald" : "amber";
 
   const handleDownloadReport = (): void => {
     if (typeof document === "undefined") return;
@@ -319,7 +331,7 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
       lastSyncIso: lastIndexedIso,
       health: health
         ? {
-            score: overall,
+            score: health.score,
             grade: health.grade,
             factors: health.factors.map((f) => ({
               label: f.label,
@@ -445,7 +457,7 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
                   </TipGuard>
                 </div>
                 <div className="ov-stat__v">
-                  {overall}
+                  {overallLabel}
                   <span className="ov-stat__unit">/100</span>
                 </div>
                 {health ? (
@@ -630,7 +642,7 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
                   <div className="ov-dna__overall">
                     <span>Overall DNA Score</span>
                     <strong>
-                      {overall} / 100
+                      {overallLabel} / 100
                       {health?.grade ? (
                         <span className="ov-dna__grade">
                           Grade {health.grade}
@@ -1113,13 +1125,19 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
 }
 
 /** Circular health gauge (SVG donut). */
-function HealthRing(props: { score: number }): ReactElement {
+/**
+ * `score` is null while health is unknown. It previously defaulted to 0, which
+ * rendered a full red ring reading 0/100 — a failing grade for a repository
+ * Prism had simply not scored yet (ADR-0029).
+ */
+function HealthRing(props: { score: number | null }): ReactElement {
   const r = 22;
   const c = 2 * Math.PI * r;
-  const offset = c * (1 - props.score / 100);
-  const color = scoreColor(props.score);
+  const known = props.score !== null;
+  const offset = known ? c * (1 - props.score! / 100) : c;
+  const color = known ? scoreColor(props.score!) : "#5A6B76";
   return (
-    <div className="ov-ring">
+    <div className="ov-ring" data-no-data={!known}>
       <svg viewBox="0 0 56 56" className="ov-ring__svg" aria-hidden>
         <circle
           cx="28"
@@ -1128,22 +1146,25 @@ function HealthRing(props: { score: number }): ReactElement {
           fill="none"
           stroke="#2A334A"
           strokeWidth="5"
+          {...(known ? {} : { strokeDasharray: "3 4" })}
         />
-        <circle
-          cx="28"
-          cy="28"
-          r={r}
-          fill="none"
-          stroke={color}
-          strokeWidth="5"
-          strokeLinecap="round"
-          strokeDasharray={c}
-          strokeDashoffset={offset}
-          transform="rotate(-90 28 28)"
-        />
+        {known ? (
+          <circle
+            cx="28"
+            cy="28"
+            r={r}
+            fill="none"
+            stroke={color}
+            strokeWidth="5"
+            strokeLinecap="round"
+            strokeDasharray={c}
+            strokeDashoffset={offset}
+            transform="rotate(-90 28 28)"
+          />
+        ) : null}
       </svg>
       <span className="ov-ring__label" style={{ color }}>
-        {props.score}
+        {known ? props.score : "—"}
       </span>
     </div>
   );

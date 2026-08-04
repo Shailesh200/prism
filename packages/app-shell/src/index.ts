@@ -45,7 +45,7 @@ export { resolveRenameToPath, rewritePathReferences } from "./apply-rename.js";
 export { PrismErrorBoundary } from "./ErrorBoundary.js";
 export type { PrismErrorBoundaryProps } from "./ErrorBoundary.js";
 export { OverviewScreen } from "./OverviewScreen.js";
-export type { OverviewScreenProps } from "./OverviewScreen.js";
+export type { GitStatus, OverviewScreenProps } from "./OverviewScreen.js";
 export { DnaScreen } from "./DnaScreen.js";
 export type { DnaScreenProps } from "./DnaScreen.js";
 export { DomainsScreen } from "./DomainsScreen.js";

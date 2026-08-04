@@ -119,6 +119,7 @@ import {
   err,
   ok,
   prismError,
+  riskToBand,
   unsafeRepoId,
 } from "@prism/shared";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -193,6 +194,11 @@ export type IndexFreshness = {
   readonly lastIndexedAt: string | null;
   readonly pendingDirtyCount: number;
   readonly dirtyPaths: readonly string[];
+  /**
+   * Message from the most recent failed reindex, cleared on the next success.
+   * Present means the index is knowingly behind disk (M-051 Phase 1).
+   */
+  readonly lastError?: string;
 };
 
 export type StartWatchOptions = {
@@ -613,6 +619,18 @@ export function createWorkspace(options: {
   let watchDebounceMs = 1500;
   let watchOnChange: ((freshness: IndexFreshness) => void) | null = null;
   let watchRunning = false;
+  let watchLastError: string | null = null;
+  let watchFailureCount = 0;
+
+  const WATCH_RETRY_BASE_MS = 2000;
+  const WATCH_RETRY_MAX_MS = 60_000;
+
+  // Exponential backoff so a persistently failing reindex does not spin.
+  const watchRetryDelayMs = (): number =>
+    Math.min(
+      WATCH_RETRY_BASE_MS * 2 ** Math.min(watchFailureCount, 5),
+      WATCH_RETRY_MAX_MS,
+    );
 
   const freshnessSnapshot = (): IndexFreshness => ({
     watching,
@@ -620,6 +638,7 @@ export function createWorkspace(options: {
     lastIndexedAt,
     pendingDirtyCount: pendingChanged.size + pendingDeleted.size,
     dirtyPaths: [...pendingChanged, ...pendingDeleted].sort(),
+    ...(watchLastError ? { lastError: watchLastError } : {}),
   });
 
   const emitFreshness = (): void => {
@@ -630,61 +649,131 @@ export function createWorkspace(options: {
     if (!open || !watching || watchRunning) return;
     const changed = [...pendingChanged];
     const deleted = [...pendingDeleted];
-    pendingChanged.clear();
-    pendingDeleted.clear();
     if (changed.length === 0 && deleted.length === 0) {
       watchStatus = lastIndexedAt ? "fresh" : "stale";
       emitFreshness();
       return;
     }
+    // Dirty paths are cleared only once the reindex confirms it consumed them.
+    // Clearing up front loses them permanently when indexing fails, leaving the
+    // index stale while reporting fresh — a wrong answer given confidently.
     watchRunning = true;
     watchStatus = "indexing";
+    watchLastError = null;
     emitFreshness();
+    let succeeded = false;
     try {
-      await runIndex({
+      const result = await runIndex({
         changedPaths: changed,
         deletedPaths: deleted,
       });
-      watchStatus =
-        pendingChanged.size + pendingDeleted.size > 0 ? "stale" : "fresh";
+      succeeded = result.ok;
+      if (!result.ok) watchLastError = result.error.message;
+    } catch (error) {
+      watchLastError =
+        error instanceof Error ? error.message : "Reindex threw unexpectedly";
     } finally {
+      if (succeeded) {
+        // Only the paths handed to this run are cleared; anything that arrived
+        // while it was in flight stays dirty and triggers another pass.
+        for (const path of changed) pendingChanged.delete(path);
+        for (const path of deleted) pendingDeleted.delete(path);
+        watchFailureCount = 0;
+      } else {
+        watchFailureCount += 1;
+      }
       watchRunning = false;
+      const stillDirty = pendingChanged.size + pendingDeleted.size > 0;
+      watchStatus = stillDirty || !succeeded ? "stale" : "fresh";
       emitFreshness();
-      if (pendingChanged.size + pendingDeleted.size > 0 && watching) {
-        scheduleWatchFlush();
+      if (stillDirty && watching) {
+        scheduleWatchFlush(succeeded ? undefined : watchRetryDelayMs());
       }
     }
   };
 
-  const scheduleWatchFlush = (): void => {
+  const scheduleWatchFlush = (delayMs?: number): void => {
     if (watchTimer) clearTimeout(watchTimer);
     watchTimer = setTimeout(() => {
       watchTimer = null;
       void flushWatch();
-    }, watchDebounceMs);
+    }, delayMs ?? watchDebounceMs);
   };
 
   const bookmarksFilePath = (): string =>
     join(rootPath, ".prism", "bookmarks.json");
 
-  const readBookmarkStore = async (): Promise<MapBookmarkStore> => {
+  /**
+   * A missing bookmarks file is normal and yields an empty store. A file that
+   * exists but cannot be read or parsed is an error: treating corruption as
+   * "no bookmarks" meant the next save overwrote the file and destroyed them
+   * (M-051 Phase 1).
+   */
+  const readBookmarkStore = async (): Promise<
+    Result<MapBookmarkStore, PrismError>
+  > => {
+    let raw: string;
     try {
-      const raw = await readFile(bookmarksFilePath(), "utf8");
-      const parsed = parseBookmarkStore(JSON.parse(raw));
-      if (parsed.ok) return parsed.value;
-    } catch {
-      /* missing / unreadable / invalid file → empty store */
+      raw = await readFile(bookmarksFilePath(), "utf8");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
+        return ok(emptyBookmarkStore());
+      }
+      return err(
+        prismError(
+          PrismErrorCode.IO_ERROR,
+          `Could not read ${bookmarksFilePath()}: ${
+            error instanceof Error ? error.message : "unknown error"
+          }`,
+        ),
+      );
     }
-    return emptyBookmarkStore();
+
+    let json: unknown;
+    try {
+      json = JSON.parse(raw);
+    } catch {
+      return err(
+        prismError(
+          PrismErrorCode.VALIDATION,
+          `${bookmarksFilePath()} is not valid JSON. Fix or delete the file to continue.`,
+        ),
+      );
+    }
+
+    const parsed = parseBookmarkStore(json);
+    if (!parsed.ok) {
+      return err(
+        prismError(
+          PrismErrorCode.VALIDATION,
+          `${bookmarksFilePath()} is not a valid bookmark store. Fix or delete the file to continue.`,
+        ),
+      );
+    }
+    return ok(parsed.value);
   };
 
-  const writeBookmarkStore = async (store: MapBookmarkStore): Promise<void> => {
-    await mkdir(join(rootPath, ".prism"), { recursive: true });
-    await writeFile(
-      bookmarksFilePath(),
-      `${JSON.stringify(store, null, 2)}\n`,
-      "utf8",
-    );
+  const writeBookmarkStore = async (
+    store: MapBookmarkStore,
+  ): Promise<Result<void, PrismError>> => {
+    try {
+      await mkdir(join(rootPath, ".prism"), { recursive: true });
+      await writeFile(
+        bookmarksFilePath(),
+        `${JSON.stringify(store, null, 2)}\n`,
+        "utf8",
+      );
+      return ok(undefined);
+    } catch (error) {
+      return err(
+        prismError(
+          PrismErrorCode.IO_ERROR,
+          `Could not write ${bookmarksFilePath()}: ${
+            error instanceof Error ? error.message : "unknown error"
+          }`,
+        ),
+      );
+    }
   };
 
   const ensureOpen = (): Result<true, PrismError> => {
@@ -972,6 +1061,8 @@ export function createWorkspace(options: {
       watching = true;
       watchDebounceMs = watchOptions?.debounceMs ?? 1500;
       watchOnChange = watchOptions?.onChange ?? null;
+      watchLastError = null;
+      watchFailureCount = 0;
       watchStatus =
         pendingChanged.size + pendingDeleted.size > 0
           ? "stale"
@@ -1423,10 +1514,13 @@ export function createWorkspace(options: {
                 continue;
               }
               // v1: stamp current-index health at historical commit metadata.
+              // Marked estimated so the chart never presents it as a real
+              // measurement taken at that commit (ADR-0029).
               const payload = buildHealthHistorySnapshot({
                 snapshot,
                 at: commit.at,
                 commitSha: commit.sha,
+                backfilled: true,
               });
               if (appendHealthHistory(cache.value.db, rootPath, payload)) {
                 written += 1;
@@ -1826,6 +1920,7 @@ export function createWorkspace(options: {
         ...(input.base === undefined ? {} : { base: input.base }),
         items,
         overallRisk,
+        band: riskToBand(overallRisk),
         totalAffectedFiles,
         totalTestsAffected,
         totalBreakingChanges,
@@ -1892,12 +1987,14 @@ export function createWorkspace(options: {
       const gate = ensureOpen();
       if (!gate.ok) return gate;
       const store = await readBookmarkStore();
-      return ok(sortBookmarks(store.bookmarks));
+      if (!store.ok) return store;
+      return ok(sortBookmarks(store.value.bookmarks));
     },
     async saveBookmark(input) {
       const gate = ensureOpen();
       if (!gate.ok) return gate;
       const store = await readBookmarkStore();
+      if (!store.ok) return store;
       const id =
         input.id ??
         `bookmark:${input.nodeId ?? input.path ?? "note"}:${Date.now()}`;
@@ -1911,20 +2008,23 @@ export function createWorkspace(options: {
         ...(input.note === undefined ? {} : { note: input.note }),
       };
       const bookmarks = sortBookmarks([
-        ...store.bookmarks.filter((b) => b.id !== id),
+        ...store.value.bookmarks.filter((b) => b.id !== id),
         next,
       ]);
-      await writeBookmarkStore({ version: 1, bookmarks });
+      const written = await writeBookmarkStore({ version: 1, bookmarks });
+      if (!written.ok) return written;
       return ok(bookmarks);
     },
     async removeBookmark(id) {
       const gate = ensureOpen();
       if (!gate.ok) return gate;
       const store = await readBookmarkStore();
+      if (!store.ok) return store;
       const bookmarks = sortBookmarks(
-        store.bookmarks.filter((b) => b.id !== id),
+        store.value.bookmarks.filter((b) => b.id !== id),
       );
-      await writeBookmarkStore({ version: 1, bookmarks });
+      const written = await writeBookmarkStore({ version: 1, bookmarks });
+      if (!written.ok) return written;
       return ok(bookmarks);
     },
     close() {

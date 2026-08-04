@@ -10,6 +10,7 @@ import type {
   GitFileSignal,
   IndexSnapshot,
 } from "@prism/shared";
+import { isTestPath } from "@prism/shared";
 import { buildDependencyGraph } from "../dependency/build.js";
 import { buildFeatureGraph } from "../feature/build.js";
 import {
@@ -27,13 +28,6 @@ export type BuildCodeExplorerInput = {
   endpoints?: readonly BackendEndpoint[];
   now?: Date;
 };
-
-function isTestPath(path: string): boolean {
-  return (
-    /(^|\/)(__tests__|tests?|e2e|spec)\//i.test(path) ||
-    /\.(test|spec)\.(tsx?|jsx?|mjs|cjs)$/i.test(path)
-  );
-}
 
 function pathFromFileNodeId(id: string): string | null {
   return id.startsWith("file:") ? id.slice("file:".length) : null;

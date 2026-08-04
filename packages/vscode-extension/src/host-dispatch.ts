@@ -488,6 +488,7 @@ export async function dispatchHostRequest(
         owner: req.owner,
         repo: req.repo,
         ...(req.token ? { token: req.token } : {}),
+        consentGranted: req.consentGranted === true,
       });
       if (!result.ok) {
         return { id: req.id, ok: false, error: result.error };

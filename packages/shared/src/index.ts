@@ -18,6 +18,35 @@ export {
   type PrismErrorCode as PrismErrorCodeType,
 } from "./errors.js";
 
+export { isTestPath, isTypeDeclarationPath } from "./test-paths.js";
+
+export {
+  RISK_BANDS,
+  RISK_BAND_IDS,
+  RISK_BAND_MIN,
+  RiskBandSchema,
+  riskBandDescriptor,
+  riskToBand,
+  type RiskBand,
+  type RiskBandDescriptor,
+} from "./risk-bands.js";
+
+export {
+  DEFAULT_PROVENANCE,
+  ProvenancedValueSchema,
+  SIGNAL_PROVENANCE,
+  SignalProvenanceSchema,
+  combineProvenance,
+  estimated,
+  hasValue,
+  heuristic,
+  measured,
+  unavailable,
+  valueOr,
+  type ProvenancedValue,
+  type SignalProvenance,
+} from "./provenance.js";
+
 export {
   asEdgeId,
   asFeatureId,

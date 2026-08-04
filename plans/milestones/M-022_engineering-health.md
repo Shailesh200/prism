@@ -55,7 +55,7 @@ fail-soft when git history is missing.
 - [x] Core `getEngineeringHealth()` wired; soft-degrades without git
 - [x] ADR-0017 Accepted; PROGRESS updated
 - [x] `bun run verify:milestone` green
-- [ ] Owner approval → commit → merge → Verified
+- [x] Owner approval → commit → merge → Verified
 
 ## Verification
 

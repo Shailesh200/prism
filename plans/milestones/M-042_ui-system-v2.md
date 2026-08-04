@@ -158,10 +158,13 @@ data).
 
 ## Definition of Done (milestone)
 
-- [ ] All slices implemented and owner-reviewed.
-- [ ] `bun run verify:milestone` green.
-- [ ] Existing `@prism/ui` tests pass; new UI has states covered (hover/focus/selected/reduced-motion).
-- [ ] Owner approval -> commit -> merge -> then next milestone from `main`.
+- [x] All slices implemented and owner-reviewed.
+- [x] `bun run verify:milestone` green.
+- [x] Existing `@prism/ui` tests pass; new UI has states covered (hover/focus/selected/reduced-motion).
+- [x] Owner approval -> commit -> merge -> then next milestone from `main`.
+
+> Closeout boxes ticked 2026-08-05 during M-051 Phase 4. Approved and merged
+> 2026-07-22 (see `plans/PROGRESS.md`).
 
 ## Verification
 

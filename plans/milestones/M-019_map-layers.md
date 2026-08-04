@@ -33,7 +33,7 @@ Make Repository Map **layers** first-class in the playground: toggleable views w
 - [x] Toggle + legend in map UI (`@prism/ui`)
 - [x] Active layers affect map fetch / view (Core map options)
 - [x] `bun run verify:milestone` green
-- [ ] Owner approval → commit → merge → then next milestone from `main`
+- [x] Owner approval → commit → merge → then next milestone from `main`
 
 ## Reconciliation / close-out (2026-07-22)
 

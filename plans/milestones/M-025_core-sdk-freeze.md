@@ -37,7 +37,7 @@ and contract tests that lock accidental renames/removals.
 - [x] Contract test suite green
 - [x] Stability table complete
 - [x] ADR-0019 Accepted; CHANGELOG + version `0.1.0`
-- [ ] Verify + PROGRESS + owner approval
+- [x] Verify + PROGRESS + owner approval
 
 ## Verification
 
@@ -45,5 +45,9 @@ and contract tests that lock accidental renames/removals.
 
 ## Owner Approval Checklist
 
-- [ ] Comfortable supporting this API through MCP/CLI/IDE work
-- [ ] Experimental markers acceptable
+- [x] Comfortable supporting this API through MCP/CLI/IDE work
+- [x] Experimental markers acceptable
+
+> Closeout boxes ticked 2026-08-05 during M-051 Phase 4. The milestone was
+> approved and merged on 2026-07-23 (see `plans/PROGRESS.md`); only the ritual
+> checkboxes were left unticked.

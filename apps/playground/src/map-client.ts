@@ -602,7 +602,12 @@ export async function runBundleAnalyze(
 /** Stage foreign-repo DevOps files under `.prism/remote-ci/<owner>/<repo>/`. */
 export async function stageDevopsRemote(
   root: string | null,
-  input: { owner: string; repo: string; token?: string },
+  input: {
+    owner: string;
+    repo: string;
+    token?: string;
+    consentGranted: boolean;
+  },
 ): Promise<import("@prism/app-shell").StageDevopsRemoteResult> {
   const target = root ?? ".";
   return withAudit(
@@ -621,6 +626,7 @@ export async function stageDevopsRemote(
           owner: input.owner,
           repo: input.repo,
           ...(input.token ? { token: input.token } : {}),
+          consentGranted: input.consentGranted,
         }),
       });
       const json: unknown = await res.json().catch(() => ({}));

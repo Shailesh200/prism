@@ -2,12 +2,14 @@
 
 > **Status:** APPROVED  
 > **Version:** 0.1.0  
-> **Last updated:** 2026-07-20  
+> **Last updated:** 2026-08-05  
 > **Approved:** 2026-07-20 (owner)  
 > **Supersedes working name:** RepoPulse  
 > **Single source of truth** for product architecture, milestones, and engineering workflow.
 
-**Master Plan approved.** Next: **M-000** architecture docs, then **M-001** implementation.
+**Master Plan approved.** Core, the map, impact analysis and the VS Code /
+Cursor extensions have shipped; MCP and CLI are the remaining surfaces. Current
+milestone status lives in [`PROGRESS.md`](./PROGRESS.md).
 
 ---
 
@@ -118,7 +120,9 @@ Tooling/CI detail: [`TOOLING_AND_CI.md`](./TOOLING_AND_CI.md)
 - Contributors use **Bun** for install and scripts; **moon** for task orchestration (`moon run …`).
 - moon pins **Node 26** + Bun versions for reproducible local/CI toolchains.
 - **VS Code / Cursor extension host runs Node** — Core must stay Node-compatible (hence better-sqlite3, not Bun-only sqlite).
-- Pin: `engines.node = ">=26"`, `.nvmrc`, and moon `toolchain` config in M-001.
+- Pin: root `engines.node = ">=26.5.0 <27"` (a range — consumers need
+  compatibility, not an exact build), with the exact version in `.nvmrc` and
+  `.moon/toolchain.yml`. CI reads `.nvmrc` so the three cannot drift (M-051).
 
 ### 4.3 Parser strategy (speed vs semantics)
 
@@ -345,25 +349,30 @@ Every milestone document must define:
 | Manual verification | Always (short checklist) |
 | Documentation updated | Always (milestone + PROGRESS.md) |
 
-### 9.3 Recommended scripts (introduced in M-001)
+### 9.3 Root scripts (as shipped in M-001)
 
 ```json
 {
   "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev --parallel",
-    "typecheck": "turbo run typecheck",
-    "lint": "biome check .",
-    "lint:fix": "biome check --write .",
-    "test": "turbo run test",
-    "test:integration": "turbo run test:integration",
-    "verify": "bun run typecheck && bun run lint && bun run test && bun run build",
-    "verify:milestone": "bun run verify && bun run test:integration && bun run scripts/check-plan-progress.mjs"
+    "build": "moon run :build",
+    "typecheck": "moon run :typecheck",
+    "lint": "oxlint .",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "test": "moon run :test",
+    "test:integration": "moon run :test-integration",
+    "verify": "bun run format:check && bun run lint && bun run typecheck && bun run test && bun run build",
+    "verify:milestone": "bun run verify && bun run test:integration && bun run scripts/check-plan-progress.mjs",
+    "playground": "bun --filter @prism/playground dev"
   }
 }
 ```
 
-Exact script files land in **M-001**; this section is the contract.
+This block mirrors the real root `package.json`. The original plan proposed
+Turborepo + Biome; M-001 chose moonrepo and Oxlint/Oxfmt instead
+([ADR-0002](./adr/0002-toolchain-bun-node-lint.md),
+[ADR-0003](./adr/0003-locked-performance-stack.md)), and this section was left
+stale until M-051. Keep it in sync when the root scripts change.
 
 ---
 

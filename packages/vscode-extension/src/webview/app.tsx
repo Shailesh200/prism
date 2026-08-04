@@ -36,6 +36,7 @@ import {
   SETTINGS_STORAGE_KEY,
   type AppShellClient,
   type DomainOverlayStatus,
+  type GitStatus,
   type SettingsSection,
 } from "@prism/app-shell";
 import type {
@@ -71,6 +72,7 @@ import {
   fetchPrismGitignoreStatus,
   addPrismGitignore,
   gitFetch,
+  abortPendingHostRequests,
   handleHostMessage,
   ingestCoverage,
   openFile,
@@ -101,13 +103,26 @@ type DomainRun = {
 function Status({
   message,
   kind,
+  onRetry,
 }: {
   message: string;
   kind: "info" | "error" | "loading";
+  onRetry?: () => void;
 }): ReactElement {
   return (
     <div className="prism-webview-status" data-kind={kind}>
-      {message}
+      <div className="prism-webview-status__body">
+        <p className="prism-webview-status__message">{message}</p>
+        {kind === "error" && onRetry ? (
+          <button
+            type="button"
+            className="prism-webview-status__retry"
+            onClick={onRetry}
+          >
+            Try again
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -290,7 +305,13 @@ function App(): ReactElement {
         setTourOpen(true);
       }
     };
+    // A panel reload tears down this webview while requests are still in
+    // flight. Failing them explicitly stops their promises leaking and lets
+    // callers show an error instead of an indefinite spinner (M-051 Phase 1).
+    const onUnload = () => abortPendingHostRequests();
+
     window.addEventListener("message", onMessage);
+    window.addEventListener("pagehide", onUnload);
     postToHost({ type: "ready", view: "overview" });
     void loadDashboard();
     void fetchBookmarks()
@@ -298,7 +319,11 @@ function App(): ReactElement {
       .catch(() => {
         /* bookmarks are optional — keep empty on failure */
       });
-    return () => window.removeEventListener("message", onMessage);
+    return () => {
+      window.removeEventListener("message", onMessage);
+      window.removeEventListener("pagehide", onUnload);
+      abortPendingHostRequests();
+    };
   }, [loadDashboard]);
 
   useEffect(() => {
@@ -400,7 +425,11 @@ function App(): ReactElement {
   if (!dashboard || boot.kind === "loading" || boot.kind === "error") {
     return (
       <AppShellClientProvider client={client}>
-        <Status message={boot.message || "Loading…"} kind={boot.kind} />
+        <Status
+          message={boot.message || "Loading…"}
+          kind={boot.kind}
+          onRetry={() => void loadDashboard()}
+        />
       </AppShellClientProvider>
     );
   }
@@ -417,9 +446,10 @@ function App(): ReactElement {
   const repoLabel = displayName.trim() || pathRepoLabel;
   const activeMap = map ?? dashMap;
   const user = gitActivity?.recentCommits[0] ?? null;
-  const gitStatus: "loading" | "ready" | "error" = gitActivity
-    ? "ready"
-    : "error";
+  // A null gitActivity means the host found no git data, not that reading it
+  // failed. Reporting "error" told users something was broken when the
+  // repository simply is not a git work tree (ADR-0029).
+  const gitStatus: GitStatus = gitActivity ? "ready" : "unavailable";
 
   let body: ReactElement;
   if (view === "overview") {

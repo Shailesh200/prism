@@ -160,12 +160,15 @@ export type AppShellClient = {
   /**
    * Stage DevOps signals from a foreign GitHub repo into
    * `.prism/remote-ci/<owner>/<repo>/` (workflows + deploy/k8s markers).
-   * Network-gated by the caller (Allow network integrations + GitHub enabled).
+   * Network-gated by the caller (Allow network integrations + GitHub enabled),
+   * and re-checked in Core: `consentGranted` travels with the request so the
+   * gate cannot be lost between surface and network call (ADR-0024).
    */
   stageDevopsRemote?(input: {
     owner: string;
     repo: string;
     token?: string;
+    consentGranted: boolean;
   }): Promise<StageDevopsRemoteResult>;
   openFile?(path: string): void;
   postToHost?(message: unknown): void;

@@ -49,14 +49,32 @@ if (!isBrowser) {
   }
 }
 
+type ProgressEvent = {
+  message: string;
+  detail?: import("@prism/shared").JsonValue;
+};
+
 type Pending = {
   resolve: (value: HostResponse) => void;
   reject: (err: Error) => void;
-  onProgress?: (event: {
-    message: string;
-    detail?: import("@prism/shared").JsonValue;
-  }) => void;
+  onProgress?: (event: ProgressEvent) => void;
+  timer: ReturnType<typeof setTimeout>;
+  timeoutMs: number;
+  method: string;
 };
+
+/**
+ * Every request carries a deadline. Without one, a host that dies or drops a
+ * message leaves the panel spinning forever with no way back (M-051 Phase 1).
+ */
+const DEFAULT_TIMEOUT_MS = 60_000;
+
+/**
+ * Operations that stream progress — Lighthouse, bundle analyze, test runs —
+ * legitimately take minutes. Their deadline is refreshed by each progress
+ * event, so this is the ceiling for silence, not for total duration.
+ */
+const PROGRESS_TIMEOUT_MS = 5 * 60_000;
 
 const pending = new Map<string, Pending>();
 let seq = 0;
@@ -66,28 +84,125 @@ function nextId(): string {
   return `req-${seq}`;
 }
 
+export class HostRequestError extends Error {
+  readonly method: string;
+  readonly reason: "timeout" | "disposed" | "transport";
+
+  constructor(
+    message: string,
+    method: string,
+    reason: "timeout" | "disposed" | "transport",
+  ) {
+    super(message);
+    this.name = "HostRequestError";
+    this.method = method;
+    this.reason = reason;
+  }
+}
+
+function settle(id: string): Pending | undefined {
+  const wait = pending.get(id);
+  if (!wait) return undefined;
+  clearTimeout(wait.timer);
+  pending.delete(id);
+  return wait;
+}
+
+function startDeadline(
+  id: string,
+  timeoutMs: number,
+  method: string,
+): ReturnType<typeof setTimeout> {
+  return setTimeout(() => {
+    const expired = settle(id);
+    expired?.reject(
+      new HostRequestError(
+        `The extension host did not respond to "${method}" within ${Math.round(
+          timeoutMs / 1000,
+        )}s.`,
+        method,
+        "timeout",
+      ),
+    );
+  }, timeoutMs);
+}
+
+function refreshDeadline(id: string): void {
+  const wait = pending.get(id);
+  if (!wait) return;
+  clearTimeout(wait.timer);
+  wait.timer = startDeadline(id, wait.timeoutMs, wait.method);
+}
+
+/**
+ * Fail every in-flight request. Called when the panel is disposed or reloaded
+ * so pending promises reject loudly instead of leaking.
+ */
+export function abortPendingHostRequests(
+  reason = "The Prism panel was reloaded before the request finished.",
+): void {
+  const inFlight = [...pending.entries()];
+  pending.clear();
+  for (const [, wait] of inFlight) {
+    clearTimeout(wait.timer);
+    wait.reject(new HostRequestError(reason, wait.method, "disposed"));
+  }
+}
+
 /** Host RPC helper — body is a HostRequest without `id` (union members vary). */
 function request(
   body: { method: HostRequest["method"] } & Record<string, unknown>,
   options?: {
-    onProgress?: (event: {
-      message: string;
-      detail?: import("@prism/shared").JsonValue;
-    }) => void;
+    onProgress?: (event: ProgressEvent) => void;
+    timeoutMs?: number;
   },
 ): Promise<HostResponse> {
   const id = nextId();
   const full = { ...body, id } as HostRequest;
+  const method = String(body.method);
+  const timeoutMs =
+    options?.timeoutMs ??
+    (options?.onProgress ? PROGRESS_TIMEOUT_MS : DEFAULT_TIMEOUT_MS);
 
   if (isBrowser || !vscodeApi) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     return fetch("/api/host", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(full),
-    }).then(async (res) => {
-      const json = (await res.json()) as HostResponse;
-      return json;
-    });
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          throw new HostRequestError(
+            `Host request "${method}" failed with HTTP ${res.status}.`,
+            method,
+            "transport",
+          );
+        }
+        return (await res.json()) as HostResponse;
+      })
+      .catch((error: unknown) => {
+        if (error instanceof HostRequestError) throw error;
+        if (error instanceof DOMException && error.name === "AbortError") {
+          throw new HostRequestError(
+            `The Prism host did not respond to "${method}" within ${Math.round(
+              timeoutMs / 1000,
+            )}s.`,
+            method,
+            "timeout",
+          );
+        }
+        throw new HostRequestError(
+          error instanceof Error
+            ? error.message
+            : `Host request "${method}" failed.`,
+          method,
+          "transport",
+        );
+      })
+      .finally(() => clearTimeout(timer));
   }
 
   return new Promise<HostResponse>((resolve, reject) => {
@@ -95,34 +210,52 @@ function request(
       resolve,
       reject,
       ...(options?.onProgress ? { onProgress: options.onProgress } : {}),
+      timer: startDeadline(id, timeoutMs, method),
+      timeoutMs,
+      method,
     });
     vscodeApi!.postMessage({ type: "request", request: full });
   });
 }
 
+function forwardProgress(id: string, event: ProgressEvent): void {
+  const wait = pending.get(id);
+  if (!wait) return;
+  // Progress proves the host is alive, so the silence deadline restarts.
+  refreshDeadline(id);
+  wait.onProgress?.(event);
+}
+
 export function handleHostMessage(msg: HostToWebview): void {
   if (!msg || typeof msg !== "object") return;
   if ("type" in msg && msg.type === "lighthouseLabProgress") {
-    const wait = pending.get(msg.id);
-    wait?.onProgress?.({
+    forwardProgress(msg.id, {
       message: msg.message,
       ...(msg.detail !== undefined ? { detail: msg.detail } : {}),
     });
     return;
   }
   if ("type" in msg && msg.type === "bundleAnalyzeProgress") {
-    const wait = pending.get(msg.id);
-    wait?.onProgress?.({
+    forwardProgress(msg.id, {
       message: msg.message,
       ...(msg.detail !== undefined ? { detail: msg.detail } : {}),
     });
     return;
   }
-  if (!("id" in msg) || typeof (msg as HostResponse).id !== "string") return;
+  if (!("id" in msg) || typeof (msg as HostResponse).id !== "string") {
+    console.warn("[prism] Discarded host message without a request id.", msg);
+    return;
+  }
   const res = msg as HostResponse;
-  const wait = pending.get(res.id);
-  if (!wait) return;
-  pending.delete(res.id);
+  const wait = settle(res.id);
+  if (!wait) {
+    // A response for an unknown id means the request already timed out or the
+    // panel reloaded. Silently dropping it hid both cases.
+    console.warn(
+      `[prism] Received a host response for unknown request "${res.id}" — it may have already timed out.`,
+    );
+    return;
+  }
   wait.resolve(res);
 }
 
@@ -855,6 +988,7 @@ export async function stageDevopsRemote(input: {
   owner: string;
   repo: string;
   token?: string;
+  consentGranted: boolean;
 }): Promise<import("@prism/app-shell").StageDevopsRemoteResult> {
   return withAudit(
     {
@@ -869,6 +1003,7 @@ export async function stageDevopsRemote(input: {
         owner: input.owner,
         repo: input.repo,
         ...(input.token ? { token: input.token } : {}),
+        consentGranted: input.consentGranted,
       });
       if (!res.ok) throw new Error(res.error);
       if (res.method !== "stageDevopsRemote") {

@@ -66,6 +66,44 @@ textarea:focus-visible {
 .prism-webview-status[data-kind="loading"] {
   color: var(--prism-brand, #00c2c2);
 }
+
+.prism-webview-status__body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: 460px;
+}
+
+.prism-webview-status__message {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.prism-webview-status__retry {
+  border: 1px solid #2a334a;
+  background: #131926;
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+
+.prism-webview-status__retry:hover {
+  border-color: var(--prism-brand, #00c2c2);
+  background: #18202f;
+}
+
+.prism-webview-status__retry:focus-visible {
+  outline: 2px solid var(--prism-brand, #00c2c2);
+  outline-offset: 2px;
+}
 .prism-boot {
   height: 100%;
   display: flex;

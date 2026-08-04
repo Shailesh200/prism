@@ -194,21 +194,22 @@ Both are M-048 Phase 6 APIs with no external consumers; treat as a fix, note in 
 
 ## 7. Definition of Done
 
-- [ ] M-050 Verified and merged; this branch cut from updated `main`
-- [ ] Only one milestone `In Progress`
-- [ ] ADR-0029 Accepted with implementation notes
-- [ ] Phase 0 — publish cannot fire without an explicit human action
-- [ ] Phase 1 — watch failure retains dirty paths; regression test proves it
-- [ ] Phase 1 — incremental indexing, bookmarks, and navigation entry points have tests
-- [ ] Phase 1 — no webview request can outlive its deadline; killing the host surfaces an error, not a spinner
-- [ ] Phase 2 — no DTO emits a numeric value with `"unavailable"` provenance (contract test)
-- [ ] Phase 2 — a git-less fixture repository renders no-data states, not colour
-- [ ] Phase 3 — exactly one `riskToBand`; no threshold literals remain in `@prism/app-shell`
-- [ ] Phase 3 — one `isTestPath`
-- [ ] Phase 4 — `check-plan-progress` fails on Verified-with-open-DoD
-- [ ] Phase 4 — PRD, CORE_SDK, Master Plan and OPEN_QUESTIONS reconciled
-- [ ] `bun run verify:milestone` green **with `--force`** (cache bypassed — the last run served 18/20 tasks from cache)
-- [ ] Manual smoke checklist below
+- [x] M-050 Verified and merged; this branch cut from updated `main`
+- [x] Only one milestone `In Progress`
+- [x] ADR-0029 Accepted with implementation notes
+- [x] Phase 0 — publish cannot fire without an explicit human action
+- [x] Phase 1 — watch failure retains dirty paths; regression test proves it
+- [x] Phase 1 — incremental indexing, bookmarks, and navigation entry points have tests
+- [x] Phase 1 — no webview request can outlive its deadline; killing the host surfaces an error, not a spinner
+- [x] Phase 2 — no DTO emits a numeric value with `"unavailable"` provenance (contract test)
+- [x] Phase 2 — a git-less fixture repository renders no-data states, not colour
+- [x] Phase 3 — exactly one `riskToBand`; no threshold literals remain in `@prism/app-shell`
+- [x] Phase 3 — one `isTestPath`
+- [x] Phase 4 — `check-plan-progress` fails on Verified-with-open-DoD
+- [x] Phase 4 — PRD, CORE_SDK, Master Plan and OPEN_QUESTIONS reconciled
+- [x] Phase 4 — `stageDevopsRemote` refuses before any request without `consentGranted`
+- [x] `bun run verify:milestone` green **with `--force`** (cache bypassed — the last run served 18/20 tasks from cache)
+- [ ] Manual smoke checklist below — **owner action**, cannot be run unattended
 - [ ] Owner approval → commit → merge → Verified → snippet shared
 
 ## 8. Verification plan

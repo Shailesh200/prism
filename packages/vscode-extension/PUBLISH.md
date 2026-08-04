@@ -82,12 +82,42 @@ bunx ovsx publish repo-prism-0.1.0.vsix -p "$OVSX_TOKEN"
 
 Workflow: [`.github/workflows/publish-extension.yml`](../../.github/workflows/publish-extension.yml)
 
-On every push to `main` that touches `packages/**` (or manual **Run workflow**):
+**Publishing fires only on a `repo-prism-v*` tag.** Merging to `main` never releases.
 
-1. Syncs version to max(local, Marketplace, Open VSX), then patch-bumps
-2. Commits the bump with `[skip ci]` (avoids a publish loop)
-3. Builds + packages the VSIX
-4. Publishes to **VS Marketplace** and **Open VSX**
+### Release ritual
+
+```bash
+# 1. Bump the version (from repo root)
+bun run packages/vscode-extension/scripts/bump-extension-version.ts patch
+
+# 2. Commit the bump
+git add packages/vscode-extension/package.json
+git commit -m "chore(extension): bump RepoPrism to X.Y.Z"
+
+# 3. Tag it — the tag version MUST match package.json
+git tag repo-prism-vX.Y.Z
+
+# 4. Push the tag. This is the release.
+git push origin repo-prism-vX.Y.Z
+```
+
+CI then verifies the tag matches `package.json`, builds all five platform VSIXs, and publishes to
+**VS Marketplace** and **Open VSX**. A mismatch between the tag and `package.json` fails the run
+before anything is published.
+
+Pushing the commit without the tag is safe and publishes nothing.
+
+### Why a tag
+
+A release is a decision, not a side effect of merging. The previous trigger — any push to `main`
+touching `packages/**` — meant that merging a Core-only milestone shipped a public release with no
+human involved, and CI pushed its own bump commit back to `main`. A tag records the decision in
+history, which a path filter cannot do (see [M-051](../../plans/milestones/M-051_hardening.md) Phase 0).
+
+### Recovery
+
+If a publish fails partway, re-run it against the existing tag: Actions → **publish-extension** →
+**Run workflow** → enter the tag name. This re-publishes without creating a new version.
 
 ### Required GitHub secrets
 
@@ -100,16 +130,12 @@ Repo → **Settings → Secrets and variables → Actions**:
 
 Until both secrets exist, the workflow fails fast at “Check publish secrets”.
 
-### Manual run
-
-Actions → **publish-extension** → **Run workflow** → choose patch/minor/major.
-
 ## Owner publish gate
 
 1. Azure DevOps PAT with **Marketplace → Manage**
 2. `bunx @vscode/vsce login prismhq`
 3. Sideload-smoke the VSIX (checklist above)
-4. `bun run publish:vsix`
+4. Either publish locally with `bun run publish:vsix`, or push a `repo-prism-v*` tag and let CI do it
 5. Optional Open VSX with `OVSX_TOKEN`
 6. For CI: add `VSCE_PAT` + `OVSX_TOKEN` repo secrets (above)
 

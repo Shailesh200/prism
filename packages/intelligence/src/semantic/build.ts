@@ -1,5 +1,6 @@
 import { nodesFromIndexSnapshot } from "@prism/graph-engine";
 import {
+  isTestPath,
   type GraphEdgeDto,
   type GraphNodeDto,
   type GraphSnapshotDto,
@@ -105,10 +106,6 @@ function edgeId(kind: string, from: string, to: string): string {
 function graphKindForSymbol(kind: string): string {
   if (kind === "type" || kind === "interface" || kind === "enum") return "type";
   return "symbol";
-}
-
-function isTestPath(path: string): boolean {
-  return /\.(test|spec)\.(tsx?|jsx?|mts|cts)$/i.test(path);
 }
 
 function countBy(items: readonly { kind: string }[]): Record<string, number> {

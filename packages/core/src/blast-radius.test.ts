@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BlastRadiusReportSchema, PrismErrorCode } from "@prism/shared";
@@ -17,6 +17,18 @@ const refsFixture = join(
 
 function readGolden(name: string): unknown {
   return JSON.parse(readFileSync(join(here, "fixtures", name), "utf8"));
+}
+
+/** Regenerate with UPDATE_GOLDEN=1, then review the diff. */
+function expectMatchesGolden(name: string, actual: unknown): void {
+  if (process.env.UPDATE_GOLDEN === "1") {
+    writeFileSync(
+      join(here, "fixtures", name),
+      `${JSON.stringify(actual, null, 2)}\n`,
+      "utf8",
+    );
+  }
+  expect(actual).toEqual(readGolden(name));
 }
 
 describe("workspace blast radius (M-020)", () => {
@@ -50,7 +62,7 @@ describe("workspace blast radius (M-020)", () => {
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     expect(BlastRadiusReportSchema.safeParse(res.value).success).toBe(true);
-    expect(res.value).toEqual(readGolden("blast-radius-helper.golden.json"));
+    expectMatchesGolden("blast-radius-helper.golden.json", res.value);
   });
 
   it("matches the golden report for a symbol change", async () => {
@@ -70,7 +82,7 @@ describe("workspace blast radius (M-020)", () => {
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     expect(BlastRadiusReportSchema.safeParse(res.value).success).toBe(true);
-    expect(res.value).toEqual(readGolden("blast-radius-add.golden.json"));
+    expectMatchesGolden("blast-radius-add.golden.json", res.value);
   });
 
   it("errors for an unknown file target", async () => {

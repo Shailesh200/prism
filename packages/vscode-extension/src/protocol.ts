@@ -162,6 +162,8 @@ export type HostRequest =
       owner: string;
       repo: string;
       token?: string;
+      /** Settings → Allow network integrations, carried per request (ADR-0024). */
+      consentGranted: boolean;
     }
   | { id: string; method: "reviewChanges"; paths: string[]; base?: string }
   | { id: string; method: "explainArea"; path: string }

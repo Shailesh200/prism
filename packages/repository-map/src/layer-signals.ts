@@ -1,28 +1,52 @@
-import type {
-  GitFileSignal,
-  GraphNodeDto,
-  GraphSnapshotDto,
-  IndexSnapshot,
-  JsonValue,
-  MapLayerId,
+import {
+  combineProvenance,
+  hasValue,
+  heuristic,
+  isTestPath,
+  measured,
+  unavailable,
+  type GitFileSignal,
+  type GraphNodeDto,
+  type GraphSnapshotDto,
+  type IndexSnapshot,
+  type JsonValue,
+  type MapLayerId,
+  type ProvenancedValue,
 } from "@prism/shared";
 
+/**
+ * Map layer heat, each signal carrying where it came from (ADR-0029).
+ *
+ * Before M-051 every field was a plain number, and three of them were derived
+ * from a hash of the file path — stable across runs, which reads as measurement
+ * rather than noise. Signals with no real source are now `unavailable` with a
+ * null value; there is no field left to put a fabricated number in.
+ */
 export type LayerSignalScores = {
-  readonly activity: number;
-  readonly ownership: number;
-  readonly debt: number;
-  readonly risk: number;
-  readonly performance: number;
-  readonly coverage: number;
+  readonly activity: ProvenancedValue;
+  readonly ownership: ProvenancedValue;
+  readonly debt: ProvenancedValue;
+  readonly risk: ProvenancedValue;
+  readonly performance: ProvenancedValue;
+  readonly coverage: ProvenancedValue;
 };
 
+export const LAYER_SIGNAL_KEYS = [
+  "activity",
+  "ownership",
+  "debt",
+  "risk",
+  "performance",
+  "coverage",
+] as const satisfies readonly (keyof LayerSignalScores)[];
+
 const EMPTY: LayerSignalScores = {
-  activity: 0,
-  ownership: 0,
-  debt: 0,
-  risk: 0,
-  performance: 0,
-  coverage: 0,
+  activity: unavailable(),
+  ownership: unavailable(),
+  debt: unavailable(),
+  risk: unavailable(),
+  performance: unavailable(),
+  coverage: unavailable(),
 };
 
 function clamp01(n: number): number {
@@ -31,39 +55,24 @@ function clamp01(n: number): number {
   return n;
 }
 
+/**
+ * Repo-relative path for a graph node. The `file:` id prefix is preferred over
+ * the label because labels are frequently basenames — reading `a.ts` as a path
+ * missed the indexed file and silently dropped its measured signals.
+ */
 function pathOf(node: GraphNodeDto): string | null {
   if (typeof node.attrs?.path === "string") return node.attrs.path;
-  if (node.kind === "file") return node.label;
   if (node.id.startsWith("file:")) return node.id.slice("file:".length);
+  if (node.kind === "file") return node.label;
   return null;
 }
 
-function stableUnit(seed: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < seed.length; i++) {
-    h ^= seed.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return ((h >>> 0) % 1000) / 1000;
-}
-
-function looksFrontend(path: string): boolean {
-  return /(^|\/)(apps\/|web\/|frontend\/|pages\/|app\/|components\/)/i.test(
-    path,
-  );
-}
-
-function isTestPath(path: string): boolean {
-  return (
-    /\.(test|spec)\./i.test(path) ||
-    /(^|\/)__tests__\//i.test(path) ||
-    /(^|\/)tests?\//i.test(path)
-  );
-}
-
 /**
- * Local heuristics for Map layer heat (0–1). Honest stubs until M-020/M-022/etc.
- * Uses index + dependency graph only — no network.
+ * Layer heat from the index, dependency graph and local git. No network.
+ *
+ * `performance` is always unavailable: nothing in the repository measures
+ * runtime performance per file. Real performance data arrives through the CWV
+ * and bundle-weight ingest paths, which are separate reports.
  */
 export function computeLayerSignals(
   snapshot: IndexSnapshot,
@@ -92,44 +101,44 @@ export function computeLayerSignals(
     const file = byPath.get(path);
     const diag = file?.diagnostics.length ?? 0;
     const failed = file?.status === "failed" ? 1 : 0;
-    const imports = file?.imports.length ?? 0;
+    const git = gitSignals?.get(path);
 
-    const debt = clamp01(failed * 0.55 + Math.min(1, diag / 4) * 0.45);
-    const risk = clamp01((fanIn.get(node.id) ?? 0) / maxFanIn);
-    // Higher = coverage gap (needs tests). Covered / test files stay cool.
+    // Diagnostics and parse status are real measurements of this file.
+    const debt = file
+      ? measured(clamp01(failed * 0.55 + Math.min(1, diag / 4) * 0.45))
+      : unavailable();
+
+    // Fan-in is real; treating it as "risk" is an inference rule.
+    const risk = heuristic(clamp01((fanIn.get(node.id) ?? 0) / maxFanIn));
+
+    // Coverage gap: whether a matching test file exists is observable. How
+    // thoroughly that test covers the file is not, so this is an inference.
     const base = path.replace(/\.[^.]+$/, "");
     const covered =
       isTestPath(path) ||
       [...testPaths].some(
         (t) => t.startsWith(`${base}.`) || t.startsWith(`${base}/`),
       );
-    const coverage = covered
-      ? stableUnit(path) * 0.2
-      : 0.55 + stableUnit(path) * 0.4;
+    const coverage = heuristic(covered ? 0 : 1);
 
-    const git = gitSignals?.get(path);
-    // Activity: real commit recency when git is present; else local stub.
-    const activity = git
-      ? clamp01(git.recency)
-      : clamp01(
-          Math.min(1, imports / 12) * 0.55 + stableUnit(`act:${path}`) * 0.45,
-        );
-    // Ownership: distinct band per top git author; else folder-bucket stub.
-    const owner =
+    // Commit recency is measured. Without git there is no activity signal —
+    // import count was previously used as a proxy, which measured shape rather
+    // than activity.
+    const activity = git ? measured(clamp01(git.recency)) : unavailable();
+
+    // Ownership concentration: the share of commits held by the top author is
+    // a real measurement. Without git there is nothing to measure.
+    const ownership =
       git && git.contributors.length > 0
-        ? `git:${git.contributors[0]!.author}`
-        : `own:${path.split("/").slice(0, 2).join("/") || path}`;
-    const ownership = 0.15 + stableUnit(owner) * 0.7;
-    const performance = looksFrontend(path)
-      ? 0.45 + stableUnit(`perf:${path}`) * 0.4
-      : stableUnit(`perf:${path}`) * 0.2;
+        ? measured(ownershipConcentration(git))
+        : unavailable();
 
     scores.set(node.id, {
       activity,
       ownership,
       debt,
       risk,
-      performance,
+      performance: unavailable(),
       coverage,
     });
   }
@@ -137,25 +146,43 @@ export function computeLayerSignals(
   return scores;
 }
 
+/**
+ * Share of commits attributable to the leading contributor (0–1). High means
+ * concentrated knowledge — a bus-factor signal rather than an identity hash.
+ */
+function ownershipConcentration(git: GitFileSignal): number {
+  const total = git.contributors.reduce((sum, c) => sum + c.commits, 0);
+  if (total <= 0) return 0;
+  const top = Math.max(...git.contributors.map((c) => c.commits));
+  return clamp01(top / total);
+}
+
+/**
+ * Average a signal across members, ignoring members that have no data. A
+ * rollup over nothing is unavailable rather than zero.
+ */
+function avgSignal(
+  items: readonly LayerSignalScores[],
+  key: keyof LayerSignalScores,
+): ProvenancedValue {
+  const present = items.map((s) => s[key]).filter(hasValue);
+  if (present.length === 0) return unavailable();
+  const total = present.reduce((sum, s) => sum + s.value, 0);
+  return {
+    value: total / present.length,
+    provenance: combineProvenance(present.map((s) => s.provenance)),
+  };
+}
+
 function avgScores(items: readonly LayerSignalScores[]): LayerSignalScores {
   if (items.length === 0) return EMPTY;
-  const sum = { ...EMPTY };
-  for (const s of items) {
-    sum.activity += s.activity;
-    sum.ownership += s.ownership;
-    sum.debt += s.debt;
-    sum.risk += s.risk;
-    sum.performance += s.performance;
-    sum.coverage += s.coverage;
-  }
-  const n = items.length;
   return {
-    activity: sum.activity / n,
-    ownership: sum.ownership / n,
-    debt: sum.debt / n,
-    risk: sum.risk / n,
-    performance: sum.performance / n,
-    coverage: sum.coverage / n,
+    activity: avgSignal(items, "activity"),
+    ownership: avgSignal(items, "ownership"),
+    debt: avgSignal(items, "debt"),
+    risk: avgSignal(items, "risk"),
+    performance: avgSignal(items, "performance"),
+    coverage: avgSignal(items, "coverage"),
   };
 }
 
@@ -207,20 +234,23 @@ export function annotateGraphWithLayerSignals(
 
   const nodes = graph.nodes.map((n) => {
     const score = scoreForNode(n, signals, byPathSignal);
-    const layerSignals: Record<string, JsonValue> = {
-      activity: score.activity,
-      ownership: score.ownership,
-      debt: score.debt,
-      risk: score.risk,
-      performance: score.performance,
-      coverage: score.coverage,
-    };
+    // Values stay on `layerSignals` so existing consumers keep reading numbers;
+    // `layerProvenance` tells a consumer which of them are real. A signal with
+    // no data is absent here rather than zero (ADR-0029).
+    const layerSignals: Record<string, JsonValue> = {};
+    const layerProvenance: Record<string, JsonValue> = {};
+    for (const key of LAYER_SIGNAL_KEYS) {
+      const signal = score[key];
+      layerProvenance[key] = signal.provenance;
+      if (hasValue(signal)) layerSignals[key] = signal.value;
+    }
 
     return {
       ...n,
       attrs: {
         ...n.attrs,
         layerSignals,
+        layerProvenance,
       },
     };
   });
@@ -228,16 +258,28 @@ export function annotateGraphWithLayerSignals(
   return { ...graph, nodes };
 }
 
+/**
+ * Mean heat across the active layers, or `null` when none of them have data.
+ * Returning zero would render "no information" identically to "measured zero".
+ */
 export function heatForActiveLayers(
   signals: LayerSignalScores,
   active: readonly MapLayerId[],
-): number {
+): number | null {
   const heats: number[] = [];
   for (const id of active) {
     if (id === "architecture" || id === "dependency") continue;
-    const v = signals[id as keyof LayerSignalScores];
-    if (typeof v === "number") heats.push(v);
+    const signal = signals[id as keyof LayerSignalScores];
+    if (signal && hasValue(signal)) heats.push(signal.value);
   }
-  if (heats.length === 0) return 0;
+  if (heats.length === 0) return null;
   return heats.reduce((a, b) => a + b, 0) / heats.length;
+}
+
+/** True when no active layer has data for this node. */
+export function isHeatUnavailable(
+  signals: LayerSignalScores,
+  active: readonly MapLayerId[],
+): boolean {
+  return heatForActiveLayers(signals, active) === null;
 }

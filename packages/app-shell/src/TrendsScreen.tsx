@@ -7,7 +7,9 @@ import type {
   HealthScore,
   RegionMoversReport,
   RepositoryMap,
+  SignalProvenance,
 } from "@prism/shared";
+import { DEFAULT_PROVENANCE } from "@prism/shared";
 import { InfoTip } from "@prism/ui";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
@@ -30,6 +32,7 @@ import {
   presetBounds,
   type ActivityRangeId,
 } from "./overview-model.js";
+import type { GitStatus } from "./OverviewScreen.js";
 
 export type TrendsScreenProps = {
   map: RepositoryMap | null;
@@ -37,7 +40,7 @@ export type TrendsScreenProps = {
   branch?: string | undefined;
   user?: AppSidebarUser | null;
   gitActivity: GitActivity | null;
-  gitStatus?: "loading" | "ready" | "error";
+  gitStatus?: GitStatus;
   /** Live health score from Core (preferred for Current Health Score KPI). */
   health?: HealthScore | null;
   /** Optional preloaded health history; otherwise fetched via client props. */
@@ -131,6 +134,12 @@ function SeriesAreaChart(props: {
   valueSuffix?: string;
   emptyMessage: string;
   gradientId: string;
+  /**
+   * Per-point origin, parallel to `values`. Estimated points are drawn hollow
+   * and labelled in the tooltip so a backfilled score is never mistaken for one
+   * measured at that commit (ADR-0029).
+   */
+  pointProvenance?: readonly SignalProvenance[];
 }): ReactElement {
   const w = 600;
   const h = 200;
@@ -165,6 +174,9 @@ function SeriesAreaChart(props: {
 
   const idx = Math.max(0, Math.min(hover ?? lastIndex, n - 1));
   const hp = points[idx];
+  const hoveredEstimated = props.pointProvenance?.[idx] === "estimated";
+  const estimatedCount =
+    props.pointProvenance?.filter((p) => p === "estimated").length ?? 0;
   // Center the guide/point/tip when there is only one point (no line to trace).
   const leftPct = n === 1 ? 50 : hp ? (hp.x / w) * 100 : 0;
   const visible = hover !== null && hp !== undefined;
@@ -239,6 +251,7 @@ function SeriesAreaChart(props: {
             <span
               className="ov-chart__point"
               data-visible={visible ? "true" : "false"}
+              data-estimated={hoveredEstimated ? "true" : "false"}
               style={{ left: `${leftPct}%`, top: `${hp.y}px` }}
               aria-hidden
             />
@@ -253,6 +266,11 @@ function SeriesAreaChart(props: {
                 {props.valueSuffix ?? ""}
               </strong>
               <span className="ov-chart__tip-date">{tipDate}</span>
+              {hoveredEstimated ? (
+                <span className="ov-chart__tip-note">
+                  Estimated — scored from the current tree
+                </span>
+              ) : null}
             </div>
           </>
         ) : null}
@@ -262,6 +280,12 @@ function SeriesAreaChart(props: {
           <span className="ov-dot" style={{ background: "#00C2C2" }} />{" "}
           {props.unitLabel}
         </span>
+        {estimatedCount > 0 ? (
+          <span className="ov-chart__estimated">
+            <span className="ov-dot ov-dot--hollow" />{" "}
+            {`${estimatedCount} estimated`}
+          </span>
+        ) : null}
         <span className="ov-chart__total">{props.totalLabel}</span>
       </div>
     </div>
@@ -449,6 +473,7 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
 
   const gitUnavailable =
     gitStatus === "error" ||
+    gitStatus === "unavailable" ||
     (props.gitActivity !== null && !props.gitActivity.available);
 
   const rangedHealth = useMemo(
@@ -463,6 +488,11 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
 
   const healthValues = rangedHealth.map((p) => Math.round(p.score));
   const healthStarts = rangedHealth.map((p) => Date.parse(p.at));
+  // History cached before ADR-0029 has no provenance; read it as heuristic
+  // rather than claiming it was measured.
+  const healthProvenance: SignalProvenance[] = rangedHealth.map(
+    (p) => p.provenance ?? DEFAULT_PROVENANCE,
+  );
 
   const currentHealthScore = useMemo(() => {
     if (typeof props.health?.score === "number") {
@@ -741,6 +771,7 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
                   valueSuffix="/100"
                   emptyMessage="No health points in this range."
                   gradientId="tr-health-spark"
+                  pointProvenance={healthProvenance}
                 />
               )}
             </section>

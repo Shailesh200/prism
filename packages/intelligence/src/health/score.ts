@@ -1,4 +1,5 @@
 import {
+  isTestPath,
   type HealthScore,
   type IndexSnapshot,
   type IndexedFile,
@@ -38,14 +39,6 @@ function gradeFromScore(score: number): HealthScore["grade"] {
   if (score >= 70) return "C";
   if (score >= 60) return "D";
   return "F";
-}
-
-function isTestPath(path: string): boolean {
-  return (
-    /(^|\/)(__tests__|tests?|e2e|spec)\//i.test(path) ||
-    /\.(test|spec)\.(ts|tsx|js|jsx|mjs|cjs)$/i.test(path) ||
-    /\.test\.ts$/i.test(path)
-  );
 }
 
 function isSourcePath(path: string): boolean {
