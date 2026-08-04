@@ -46,8 +46,12 @@ const dashboardResponse = (id: string): HostToWebview =>
   }) as unknown as HostToWebview;
 
 describe("host RPC deadlines (M-051 Phase 1)", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
+  let client: HostClientModule;
+
+  beforeEach(async () => {
+    // Loaded before the clock is mocked: module evaluation does real async
+    // work, and doing it under fake timers made these tests flaky.
+    client = await loadHostClient();
   });
 
   afterEach(() => {
@@ -57,7 +61,6 @@ describe("host RPC deadlines (M-051 Phase 1)", () => {
   });
 
   it("resolves when the host answers", async () => {
-    const client = await loadHostClient();
     const inFlight = client.fetchDashboard();
     client.handleHostMessage(dashboardResponse(lastRequestId()));
 
@@ -67,7 +70,7 @@ describe("host RPC deadlines (M-051 Phase 1)", () => {
   // Before this change `reject` was stored in the pending map and never called,
   // so a host that never answered left the panel spinning indefinitely.
   it("rejects a request whose response never arrives", async () => {
-    const client = await loadHostClient();
+    vi.useFakeTimers();
     const inFlight = client.fetchDashboard();
     const assertion = expect(inFlight).rejects.toThrow(/did not respond/i);
 
@@ -76,7 +79,7 @@ describe("host RPC deadlines (M-051 Phase 1)", () => {
   });
 
   it("names the method and the reason on timeout", async () => {
-    const client = await loadHostClient();
+    vi.useFakeTimers();
     const inFlight = client.fetchDashboard().catch((error: unknown) => error);
 
     await vi.advanceTimersByTimeAsync(60_000);
@@ -89,7 +92,7 @@ describe("host RPC deadlines (M-051 Phase 1)", () => {
   });
 
   it("does not reject a request that answers before the deadline", async () => {
-    const client = await loadHostClient();
+    vi.useFakeTimers();
     const inFlight = client.fetchDashboard();
     const id = lastRequestId();
 
@@ -101,7 +104,6 @@ describe("host RPC deadlines (M-051 Phase 1)", () => {
   });
 
   it("fails in-flight requests when the panel is disposed", async () => {
-    const client = await loadHostClient();
     const inFlight = client.fetchDashboard().catch((error: unknown) => error);
 
     client.abortPendingHostRequests();
@@ -113,7 +115,6 @@ describe("host RPC deadlines (M-051 Phase 1)", () => {
   });
 
   it("ignores a response for an unknown id instead of throwing", async () => {
-    const client = await loadHostClient();
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     expect(() =>
@@ -130,7 +131,6 @@ describe("host RPC deadlines (M-051 Phase 1)", () => {
   });
 
   it("ignores a message with no request id", async () => {
-    const client = await loadHostClient();
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     expect(() =>
@@ -142,7 +142,6 @@ describe("host RPC deadlines (M-051 Phase 1)", () => {
   });
 
   it("survives a null message", async () => {
-    const client = await loadHostClient();
     expect(() =>
       client.handleHostMessage(null as unknown as HostToWebview),
     ).not.toThrow();

@@ -1168,6 +1168,41 @@ button.prism-crumbs__seg:hover {
   border: 1px solid var(--prism-line);
 }
 
+/* No data (ADR-0029): the layer exists but this repository has nothing to
+   show for it. Disabled, muted, and labelled — never offered as if it worked. */
+.prism-layers__nodata {
+  font-size: 0.625rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--prism-ink-muted);
+  padding: 1px 5px;
+  border-radius: var(--prism-radius-pill);
+  background: transparent;
+  border: 1px dashed var(--prism-line);
+}
+
+.prism-layers__toggle[data-no-data="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.prism-layers__toggle[data-no-data="true"] .prism-layers__swatch {
+  filter: grayscale(1);
+}
+
+.prism-layers__legend-item[data-no-data="true"] {
+  color: var(--prism-ink-muted);
+  font-style: italic;
+}
+
+.prism-layers__note {
+  margin: 6px 0 0;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: var(--prism-ink-muted);
+}
+
 .prism-layers__legend {
   display: flex;
   flex-wrap: wrap;

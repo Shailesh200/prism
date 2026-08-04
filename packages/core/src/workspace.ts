@@ -119,6 +119,7 @@ import {
   err,
   ok,
   prismError,
+  riskToBand,
   unsafeRepoId,
 } from "@prism/shared";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -1513,10 +1514,13 @@ export function createWorkspace(options: {
                 continue;
               }
               // v1: stamp current-index health at historical commit metadata.
+              // Marked estimated so the chart never presents it as a real
+              // measurement taken at that commit (ADR-0029).
               const payload = buildHealthHistorySnapshot({
                 snapshot,
                 at: commit.at,
                 commitSha: commit.sha,
+                backfilled: true,
               });
               if (appendHealthHistory(cache.value.db, rootPath, payload)) {
                 written += 1;
@@ -1916,6 +1920,7 @@ export function createWorkspace(options: {
         ...(input.base === undefined ? {} : { base: input.base }),
         items,
         overallRisk,
+        band: riskToBand(overallRisk),
         totalAffectedFiles,
         totalTestsAffected,
         totalBreakingChanges,

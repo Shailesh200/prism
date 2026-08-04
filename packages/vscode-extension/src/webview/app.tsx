@@ -36,6 +36,7 @@ import {
   SETTINGS_STORAGE_KEY,
   type AppShellClient,
   type DomainOverlayStatus,
+  type GitStatus,
   type SettingsSection,
 } from "@prism/app-shell";
 import type {
@@ -445,9 +446,10 @@ function App(): ReactElement {
   const repoLabel = displayName.trim() || pathRepoLabel;
   const activeMap = map ?? dashMap;
   const user = gitActivity?.recentCommits[0] ?? null;
-  const gitStatus: "loading" | "ready" | "error" = gitActivity
-    ? "ready"
-    : "error";
+  // A null gitActivity means the host found no git data, not that reading it
+  // failed. Reporting "error" told users something was broken when the
+  // repository simply is not a git work tree (ADR-0029).
+  const gitStatus: GitStatus = gitActivity ? "ready" : "unavailable";
 
   let body: ReactElement;
   if (view === "overview") {

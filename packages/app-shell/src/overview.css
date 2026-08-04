@@ -799,6 +799,36 @@
   color: #94a3b8;
 }
 
+/* Estimated points (ADR-0029): a backfilled score is real arithmetic on the
+   current tree stamped with a past commit's date. Drawn hollow so it reads
+   differently from a score measured at that commit. */
+.ov-chart__point[data-estimated="true"] {
+  background: transparent;
+  border: 2px dashed #00c2c2;
+  box-shadow: none;
+}
+
+.ov-chart__tip-note {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.5938rem;
+  font-style: italic;
+  color: #94a3b8;
+}
+
+.ov-chart__estimated {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-style: italic;
+}
+
+.ov-dot--hollow {
+  background: transparent;
+  border: 1px dashed #94a3b8;
+  box-sizing: border-box;
+}
+
 .ov-chart__legend {
   display: flex;
   align-items: center;

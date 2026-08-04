@@ -131,6 +131,24 @@ export function hasNoHeatData(
   return dominantHeat(signals, active) === null;
 }
 
+/**
+ * Heat layers that no node in the graph has data for. Offering a toggle that
+ * can only ever paint nothing is worse than disabling it with a reason.
+ */
+export function layersWithoutData(
+  nodes: readonly { readonly attrs?: Record<string, unknown> | undefined }[],
+): HeatLayerId[] {
+  const withData = new Set<HeatLayerId>();
+  for (const node of nodes) {
+    const signals = parseLayerSignals(node.attrs);
+    if (!signals) continue;
+    for (const id of HEAT_LAYER_IDS) {
+      if (typeof signals.values[id] === "number") withData.add(id);
+    }
+  }
+  return HEAT_LAYER_IDS.filter((id) => !withData.has(id));
+}
+
 export function heatBand(value: number): "0" | "1" | "2" | "3" {
   if (value < 0.25) return "0";
   if (value < 0.5) return "1";

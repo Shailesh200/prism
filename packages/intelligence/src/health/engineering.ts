@@ -36,10 +36,22 @@ function clamp(n: number): number {
   return Math.max(0, Math.min(100, n));
 }
 
-function severityFromScore(score: number): EngineeringHealthMetric["severity"] {
-  if (score >= 80) return "info";
-  if (score >= 60) return "low";
-  if (score >= 40) return "medium";
+/**
+ * Severity from an engineering *health* score, where 100 is healthy and 0 is
+ * not — the opposite direction to a risk score, where 100 is dangerous.
+ *
+ * The two scales previously shared the bare name `score` and similar
+ * thresholds, so the same number read as "safe" on one screen and "critical" on
+ * another. Risk banding lives in `@prism/shared`'s `riskToBand`; these
+ * thresholds deliberately do not match it, because they measure the opposite
+ * quantity (M-051 Phase 3).
+ */
+function severityFromHealthScore(
+  healthScore: number,
+): EngineeringHealthMetric["severity"] {
+  if (healthScore >= 80) return "info";
+  if (healthScore >= 60) return "low";
+  if (healthScore >= 40) return "medium";
   return "high";
 }
 
@@ -56,7 +68,7 @@ function metric(
     id,
     label,
     score: s,
-    severity: severityFromScore(s),
+    severity: severityFromHealthScore(s),
     evidence,
     note,
     gitDependent,

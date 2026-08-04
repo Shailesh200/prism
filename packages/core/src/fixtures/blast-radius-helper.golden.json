@@ -5,6 +5,7 @@
     "path": "helper.ts"
   },
   "risk": 60,
+  "band": "high",
   "affectedFiles": [
     {
       "path": "main.ts",

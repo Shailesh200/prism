@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { PrismErrorCode } from "./errors.js";
+import { SignalProvenanceSchema } from "./provenance.js";
+import { RiskBandSchema } from "./risk-bands.js";
 
 /** JSON-serializable primitive / structure convention for MCP & CLI. */
 export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
@@ -112,6 +114,13 @@ export const HealthHistoryPointSchema = z.object({
       }),
     )
     .optional(),
+  /**
+   * Backfilled points stamp a historical commit onto the *current* index's
+   * health, so the timestamp is real but the score was not computed at that
+   * commit. They are `"estimated"`; points sampled live are `"measured"`
+   * (ADR-0029). Absent reads as `"heuristic"` for older cached history.
+   */
+  provenance: SignalProvenanceSchema.optional(),
 });
 
 export type HealthHistoryPoint = z.infer<typeof HealthHistoryPointSchema>;
@@ -120,6 +129,8 @@ export type HealthHistoryPoint = z.infer<typeof HealthHistoryPointSchema>;
 export const RegionHealthPointSchema = z.object({
   at: z.string().min(1),
   commitSha: z.string().min(1).optional(),
+  /** Inherited from the health history point this was captured alongside. */
+  provenance: SignalProvenanceSchema.optional(),
   regions: z.array(
     z.object({
       id: z.string().min(1),
@@ -542,6 +553,11 @@ export const BlastRadiusReportSchema = z.object({
     path: RepoRelativePathSchema.optional(),
   }),
   risk: z.number().min(0).max(100),
+  /**
+   * Band for `risk`, so every surface describes the same score the same way
+   * instead of re-deriving thresholds locally (Q-023).
+   */
+  band: RiskBandSchema.optional(),
   affectedFiles: z.array(BlastRadiusItemSchema),
   testsLikelyAffected: z.array(RepoRelativePathSchema),
   /** Heuristic hints that the change may break consumers (M-046 tweak). */
@@ -653,6 +669,8 @@ export const ChangeReviewReportSchema = z.object({
   base: z.string().optional(),
   items: z.array(ChangeReviewItemSchema),
   overallRisk: z.number().min(0).max(100),
+  /** Band for `overallRisk` (Q-023). */
+  band: RiskBandSchema.optional(),
   totalAffectedFiles: z.number().int().nonnegative(),
   totalTestsAffected: z.number().int().nonnegative(),
   totalBreakingChanges: z.number().int().nonnegative(),

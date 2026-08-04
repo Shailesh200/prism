@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  HEAT_LAYER_IDS,
   dominantHeat,
   hasNoHeatData,
   heatBand,
+  layersWithoutData,
   parseLayerSignals,
   signalProvenance,
   signalValue,
@@ -154,5 +156,60 @@ describe("toggleLayer", () => {
       "architecture",
       "debt",
     ]);
+  });
+});
+
+describe("layersWithoutData", () => {
+  it("reports layers no node has data for", () => {
+    const nodes = [
+      {
+        attrs: {
+          layerSignals: { debt: 0.5 },
+          layerProvenance: {
+            debt: "measured",
+            risk: "unavailable",
+            activity: "unavailable",
+            ownership: "unavailable",
+            performance: "unavailable",
+            coverage: "unavailable",
+          },
+        },
+      },
+    ];
+
+    expect(layersWithoutData(nodes)).toEqual([
+      "activity",
+      "ownership",
+      "risk",
+      "performance",
+      "coverage",
+    ]);
+  });
+
+  it("counts a layer as present when any single node has it", () => {
+    const nodes = [
+      {
+        attrs: {
+          layerSignals: {},
+          layerProvenance: { debt: "unavailable" },
+        },
+      },
+      {
+        attrs: {
+          layerSignals: { debt: 0.2 },
+          layerProvenance: { debt: "measured" },
+        },
+      },
+    ];
+
+    expect(layersWithoutData(nodes)).not.toContain("debt");
+  });
+
+  it("reports every layer for an empty graph", () => {
+    expect(layersWithoutData([])).toEqual([...HEAT_LAYER_IDS]);
+  });
+
+  it("ignores nodes with no layer signals at all", () => {
+    expect(layersWithoutData([{ attrs: {} }])).toEqual([...HEAT_LAYER_IDS]);
   });
 });

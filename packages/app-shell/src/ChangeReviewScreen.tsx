@@ -1,4 +1,9 @@
-import type { ChangeReviewItem, ChangeReviewReport } from "@prism/shared";
+import type {
+  ChangeReviewItem,
+  ChangeReviewReport,
+  RiskBand,
+} from "@prism/shared";
+import { riskBandDescriptor, riskToBand } from "@prism/shared";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -26,16 +31,23 @@ export type ChangeReviewScreenProps = {
 
 type Status = "idle" | "loading" | "ready" | "error";
 
+/**
+ * This screen's CSS predates the shared vocabulary and uses "medium" where the
+ * shared band is "mid". Mapping here keeps one definition of the thresholds
+ * without a stylesheet rename (Q-023).
+ */
+const TIER_BY_BAND: Record<RiskBand, "low" | "medium" | "high"> = {
+  low: "low",
+  mid: "medium",
+  high: "high",
+};
+
 function riskTier(risk: number): "low" | "medium" | "high" {
-  // Q-023: unify with Blast bands (High ≥60, Mid ≥20)
-  if (risk >= 60) return "high";
-  if (risk >= 20) return "medium";
-  return "low";
+  return TIER_BY_BAND[riskToBand(risk)];
 }
 
 function riskLabel(risk: number): string {
-  const tier = riskTier(risk);
-  return tier === "high" ? "High" : tier === "medium" ? "Medium" : "Low";
+  return riskBandDescriptor(risk).short;
 }
 
 function pathsKey(paths: readonly string[] | null | undefined): string {

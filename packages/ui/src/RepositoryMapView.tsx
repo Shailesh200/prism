@@ -30,6 +30,7 @@ import { MapLayersPanel } from "./MapLayersPanel.js";
 import {
   dominantHeat,
   heatBand,
+  layersWithoutData,
   parseLayerSignals,
   signalValue,
 } from "./map-layers.js";
@@ -740,6 +741,16 @@ export function RepositoryMapView(props: RepositoryMapViewProps): ReactElement {
 
   const regions = useMemo(() => regionsFromMap(props.map), [props.map]);
 
+  const noDataLayerIds = useMemo(
+    () =>
+      layersWithoutData(
+        props.map.graph.nodes as ReadonlyArray<{
+          attrs?: Record<string, unknown> | undefined;
+        }>,
+      ),
+    [props.map.graph.nodes],
+  );
+
   const regionCount = useMemo(
     () =>
       props.map.graph.nodes.filter(
@@ -1056,6 +1067,7 @@ export function RepositoryMapView(props: RepositoryMapViewProps): ReactElement {
             layers={props.map.layers}
             activeLayerIds={activeLayerIds}
             onChange={onLayersChange}
+            noDataLayerIds={noDataLayerIds}
           />
         </div>
 

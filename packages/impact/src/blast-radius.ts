@@ -3,6 +3,7 @@ import {
   classifyToolingRoot,
   fileRoleRiskFloor,
   ok,
+  riskToBand,
   type BlastRadiusReport,
   type BreakingChangeHint,
   type ForwardDependencyItem,
@@ -317,6 +318,7 @@ export function computeBlastRadius(
   const report: BlastRadiusReport = {
     origin: { kind: origin.kind, id: origin.id, path: originPath },
     risk,
+    band: riskToBand(risk),
     affectedFiles,
     testsLikelyAffected,
     breakingChanges: blastBreakingChanges({

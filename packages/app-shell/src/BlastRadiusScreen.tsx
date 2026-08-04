@@ -4,8 +4,13 @@ import type {
   FileRole,
   GraphNodeDto,
   ImpactLane,
+  RiskBand,
 } from "@prism/shared";
-import { classifyToolingRoot, fileRoleLabel } from "@prism/shared";
+import {
+  classifyToolingRoot,
+  fileRoleLabel,
+  riskBandDescriptor,
+} from "@prism/shared";
 import {
   CardIcon,
   FileExplorer,
@@ -161,29 +166,26 @@ function filePathFromNodeId(id: string, label: string): string {
   return label || id;
 }
 
+/** Colour per band. Thresholds live in `@prism/shared` (Q-023). */
+const RISK_BAND_COLOR: Record<RiskBand, string> = {
+  high: "#F43F5E",
+  mid: "#F59E0B",
+  low: "#10B981",
+};
+
 function riskBand(risk: number): {
   label: string;
   short: string;
   color: string;
-  tone: "low" | "mid" | "high";
+  tone: RiskBand;
 } {
-  if (risk >= 60) {
-    return {
-      label: "High Impact Potential",
-      short: "High",
-      color: "#F43F5E",
-      tone: "high",
-    };
-  }
-  if (risk >= 20) {
-    return {
-      label: "Moderate Impact",
-      short: "Moderate",
-      color: "#F59E0B",
-      tone: "mid",
-    };
-  }
-  return { label: "Low Impact", short: "Low", color: "#10B981", tone: "low" };
+  const band = riskBandDescriptor(risk);
+  return {
+    label: band.label,
+    short: band.short,
+    color: RISK_BAND_COLOR[band.id],
+    tone: band.tone,
+  };
 }
 
 function riskRationale(blast: BlastRadiusReport): string {
