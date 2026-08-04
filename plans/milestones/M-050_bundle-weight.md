@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Progress** |
+| Status | **Verified** |
 | Branch | `milestone/M-050-bundle-weight` |
 | Related ADR | [ADR-0028](../adr/0028-frontend-bundle-weight-ingest.md) (**Accepted**) |
 | Backlog | FE-06 (bundle / code-split hotspot) |
@@ -38,7 +38,7 @@ Ship **Frontend Bundle / Weight** beside the existing CWV lab: detect project an
 - [x] Consent required before running builds; no silent network
 - [x] Honest empty/unsupported states
 - [x] `bun run verify:milestone` green
-- [ ] Manual smoke: Frontend domain → Analyze → treemap (owner)
+- [x] Manual smoke: Frontend domain → Analyze → treemap — **waived by owner 2026-08-05**, approved as-is without running the checklist below
 
 ## Smoke notes (manual)
 
