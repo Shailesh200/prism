@@ -258,8 +258,7 @@ function summarizeBuildLog(stderr: string, stdout: string): string {
     .filter(Boolean);
   const preferred = lines.filter(
     (l) =>
-      /error|failed|ERR!|ENOENT|ELIFECYCLE/i.test(l) &&
-      !/use of eval/i.test(l),
+      /error|failed|ERR!|ENOENT|ELIFECYCLE/i.test(l) && !/use of eval/i.test(l),
   );
   const pick = (preferred.length > 0 ? preferred : lines)
     .slice(-6)
@@ -367,7 +366,10 @@ async function runPrismManagedAnalyze(options: {
   // After a successful build: use on-disk production assets (dist / .next) when
   // no analyzer JSON was emitted (common for Vite without visualizer).
   if (result.code === 0) {
-    const fromDisk = parseBuiltOutputAssets(options.packageAbs, options.bundler);
+    const fromDisk = parseBuiltOutputAssets(
+      options.packageAbs,
+      options.bundler,
+    );
     if (fromDisk && fromDisk.chunks.length > 0) {
       return {
         ...result,

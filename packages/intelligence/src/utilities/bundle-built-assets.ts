@@ -42,10 +42,7 @@ function inferLoadType(name: string, rel: string): BundleLoadType {
   return "unknown";
 }
 
-function candidateRoots(
-  packageAbs: string,
-  bundler: BundleBundler,
-): string[] {
+function candidateRoots(packageAbs: string, bundler: BundleBundler): string[] {
   const roots: string[] = [];
   if (bundler === "next" || bundler === "unknown") {
     roots.push(

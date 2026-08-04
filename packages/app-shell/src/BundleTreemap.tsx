@@ -189,16 +189,19 @@ export function BundleTreemap(props: BundleTreemapProps): React.ReactElement {
     return visibleItems.find((i) => i.id === hoverId) ?? null;
   }, [hoverId, visibleItems]);
 
-  const toLocal = useCallback((clientX: number, clientY: number) => {
-    const el = wrapRef.current;
-    if (!el) return { x: 0, y: 0 };
-    const svg = el.querySelector("svg");
-    if (!svg) return { x: 0, y: 0 };
-    const r = svg.getBoundingClientRect();
-    const x = ((clientX - r.left) / Math.max(r.width, 1)) * size.w;
-    const y = ((clientY - r.top) / Math.max(r.height, 1)) * size.h;
-    return { x, y };
-  }, [size.h, size.w]);
+  const toLocal = useCallback(
+    (clientX: number, clientY: number) => {
+      const el = wrapRef.current;
+      if (!el) return { x: 0, y: 0 };
+      const svg = el.querySelector("svg");
+      if (!svg) return { x: 0, y: 0 };
+      const r = svg.getBoundingClientRect();
+      const x = ((clientX - r.left) / Math.max(r.width, 1)) * size.w;
+      const y = ((clientY - r.top) / Math.max(r.height, 1)) * size.h;
+      return { x, y };
+    },
+    [size.h, size.w],
+  );
 
   const onPointerDown = (e: React.PointerEvent): void => {
     if (e.button !== 0) return;
@@ -253,9 +256,7 @@ export function BundleTreemap(props: BundleTreemapProps): React.ReactElement {
       }
       return;
     }
-    const hits = rects
-      .filter((r) => intersects(box, r))
-      .map((r) => r.item.id);
+    const hits = rects.filter((r) => intersects(box, r)).map((r) => r.item.id);
     if (hits.length > 0) setZoomIds(hits);
   };
 
