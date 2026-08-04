@@ -58,13 +58,21 @@ try {
   // not a git repo — skip branch check
 }
 
+// A milestone whose implementation is finished but whose owner sign-off is
+// still outstanding sits in "In Review". Its branch is still the active one,
+// so the branch check has to recognise it (M-051).
+const inReview = rows.filter((r) => /in review/i.test(r.status));
+
 if (currentBranch.startsWith("milestone/")) {
-  if (inProgress.length === 0) {
+  const active =
+    inProgress.find((r) => r.branch.replace(/`/g, "") === currentBranch) ??
+    inReview.find((r) => r.branch.replace(/`/g, "") === currentBranch) ??
+    inProgress[0];
+  if (!active) {
     fail(
-      `on branch ${currentBranch} but no milestone is In Progress in PROGRESS.md`,
+      `on branch ${currentBranch} but no milestone is In Progress or In Review in PROGRESS.md`,
     );
   }
-  const active = inProgress[0];
   const expected = active.branch.replace(/`/g, "");
   if (
     expected &&
@@ -73,7 +81,7 @@ if (currentBranch.startsWith("milestone/")) {
     expected !== currentBranch
   ) {
     fail(
-      `branch is ${currentBranch} but In Progress milestone "${active.milestone}" lists ${expected}`,
+      `branch is ${currentBranch} but active milestone "${active.milestone}" lists ${expected}`,
     );
   }
 }
