@@ -73,6 +73,8 @@ import {
   listTests,
   discoverFrontendRoutes,
   runLighthouseLab,
+  runBundleAnalyze,
+  detectBundleAnalyzeCapability,
   runTests,
   stageDevopsRemote,
   startHealthHistoryBackfill,
@@ -228,6 +230,9 @@ export function App(): ReactElement {
       fetchCodeExplorer: (exploreTarget) =>
         fetchCodeExplorer(target, exploreTarget),
       runLighthouseLab: (options) => runLighthouseLab(target, options),
+      runBundleAnalyze: (options) => runBundleAnalyze(target, options),
+      detectBundleAnalyzeCapability: (options) =>
+        detectBundleAnalyzeCapability(target, options),
       discoverFrontendRoutes: () => discoverFrontendRoutes(target),
       stageDevopsRemote: (input) => stageDevopsRemote(target, input),
       fetchPrismGitignoreStatus: async (): Promise<PrismGitignoreStatus> => {

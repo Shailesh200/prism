@@ -95,6 +95,7 @@ Default `Prism.create()` enables all of the above when default ports are wired.
 | `getPersonaPresets` / `getStackProfile` / `listPackages` / `selectPackage` / `getSelectedPackage` | Mono / personas |
 | `startUtilityJob` / `getUtilityJob` / `listUtilityJobs` | Opt-in utilities |
 | `listIngestArtifacts` / `getIngestArtifact` / `getCwvReport` | CWV / ingest |
+| `detectBundleAnalyzeCapability` / `getBundleWeightReport` | Bundle Weight (M-050); Analyze via `startUtilityJob({ kind: "bundle-stats" })` |
 | `listUtilityOverlayKinds` / `getUtilityOverlay` | Map domain overlays |
 | `setConsent` / `getConsent` | Privacy consent |
 | `startWatch` / `stopWatch` / `notifyWatchPaths` / `getIndexFreshness` | M-048 Phase 1 incremental watch (ADR-0026) |

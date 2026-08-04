@@ -1,5 +1,7 @@
 import type {
   BackendReport,
+  BundleAnalyzeCapability,
+  BundleWeightReport,
   ChangeReviewReport,
   CodeExplorerReport,
   CodeExplorerTarget,
@@ -499,6 +501,73 @@ export class PrismSession {
       );
     }
     return ok(cwv.value);
+  }
+
+  async detectBundleAnalyzeCapability(options?: {
+    packageId?: string;
+  }): Promise<Result<BundleAnalyzeCapability, PrismError>> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    return ws.value.detectBundleAnalyzeCapability(options);
+  }
+
+  async runBundleAnalyze(options?: {
+    mode?: "run" | "ingest" | "discover";
+    packageId?: string;
+    packagePath?: string;
+    scriptName?: string;
+    reportPath?: string;
+    onProgress?: (event: {
+      message: string;
+      detail?: import("@prism/shared").JsonValue;
+    }) => void;
+  }): Promise<Result<BundleWeightReport | null, PrismError>> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    const mode = options?.mode ?? "run";
+    const job = await ws.value.startUtilityJob({
+      kind: "bundle-stats",
+      consentGranted: true,
+      ...(options?.packageId ? { packageId: options.packageId } : {}),
+      bundleAnalyze: {
+        mode,
+        ...(options?.packagePath ? { packagePath: options.packagePath } : {}),
+        ...(options?.scriptName ? { scriptName: options.scriptName } : {}),
+        ...(options?.reportPath ? { reportPath: options.reportPath } : {}),
+      },
+      ...(options?.onProgress
+        ? {
+            onProgress: (p) => {
+              const line = (p.message ?? p.phase).trim();
+              if (!line && p.detail === undefined) return;
+              options.onProgress!({
+                message: line || p.phase,
+                ...(p.detail !== undefined ? { detail: p.detail } : {}),
+              });
+            },
+          }
+        : {}),
+    });
+    if (!job.ok) return job;
+    if (job.value.status === "failed") {
+      return err(
+        prismError(
+          PrismErrorCode.UNKNOWN,
+          job.value.error?.message ??
+            "Bundle analyze failed (no artifact produced).",
+        ),
+      );
+    }
+    const artifactId = job.value.resultArtifactId;
+    if (!artifactId) {
+      return err(
+        prismError(
+          PrismErrorCode.UNKNOWN,
+          "Bundle analyze produced no artifact.",
+        ),
+      );
+    }
+    return ws.value.getBundleWeightReport(artifactId);
   }
 
   findSymbols(query: string): Result<SymbolSearchHit[], PrismError> {

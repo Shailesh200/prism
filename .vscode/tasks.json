@@ -4,9 +4,12 @@
     {
       "label": "prism: build vscode-extension",
       "type": "shell",
-      "command": "bun run --filter @prism/ui build && bun run --filter @prism/app-shell build && bun run --filter @prism/core build && bun run --filter @prism/vscode-extension build",
+      "command": "bun run --filter @prism/intelligence build && bun run --filter @prism/ui build && bun run --filter @prism/app-shell build && bun run --filter @prism/core build && bun run --filter @prism/vscode-extension build",
       "options": {
-        "cwd": "${workspaceFolder}"
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PATH": "${env:HOME}/.bun/bin:/opt/homebrew/bin:/usr/local/bin:${env:PATH}"
+        }
       },
       "group": {
         "kind": "build",
@@ -19,7 +22,10 @@
       "type": "shell",
       "command": "bun run --filter @prism/cursor-extension build",
       "options": {
-        "cwd": "${workspaceFolder}"
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PATH": "${env:HOME}/.bun/bin:/opt/homebrew/bin:/usr/local/bin:${env:PATH}"
+        }
       },
       "group": "build",
       "problemMatcher": []

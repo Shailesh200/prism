@@ -385,14 +385,17 @@ export class PrismPanel {
         this.dispatchState,
         {
           vscodeApi: this.vscodeApi,
-          ...(req.method === "lighthouseLab"
+          ...(req.method === "lighthouseLab" || req.method === "bundleAnalyze"
             ? {
                 onProgress: (event: {
                   message: string;
                   detail?: import("@prism/shared").JsonValue;
                 }) => {
                   this.post({
-                    type: "lighthouseLabProgress",
+                    type:
+                      req.method === "bundleAnalyze"
+                        ? "bundleAnalyzeProgress"
+                        : "lighthouseLabProgress",
                     id: req.id,
                     message: event.message,
                     ...(event.detail !== undefined

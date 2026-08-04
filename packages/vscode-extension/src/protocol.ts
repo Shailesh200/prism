@@ -1,9 +1,12 @@
 import type {
   BackendReport,
   BlastRadiusReport,
+  BundleAnalyzeCapability,
+  BundleWeightReport,
   ChangeReviewReport,
   CodeExplorerReport,
   CodeExplorerTarget,
+  CwvReport,
   DnaReport,
   EngineeringHealthReport,
   ExplainAreaSummary,
@@ -24,7 +27,6 @@ import type {
   TestImpactReport,
   TestingReport,
   UtilityOverlayReport,
-  CwvReport,
 } from "@prism/shared";
 import type { SaveBookmarkInput, WorkspacePackageInfo } from "@prism/core";
 import type {
@@ -138,6 +140,20 @@ export type HostRequest =
       port?: number;
       routes?: string[];
     }
+  | {
+      id: string;
+      method: "bundleAnalyze";
+      mode?: "run" | "ingest" | "discover";
+      packageId?: string;
+      packagePath?: string;
+      scriptName?: string;
+      reportPath?: string;
+    }
+  | {
+      id: string;
+      method: "detectBundleAnalyze";
+      packageId?: string;
+    }
   | { id: string; method: "frontendRoutes" }
   | { id: string; method: "applyRename"; input: ApplyRenameInput }
   | {
@@ -220,6 +236,18 @@ export type HostResponse =
       ok: true;
       method: "lighthouseLab";
       data: CwvReport | null;
+    }
+  | {
+      id: string;
+      ok: true;
+      method: "bundleAnalyze";
+      data: BundleWeightReport | null;
+    }
+  | {
+      id: string;
+      ok: true;
+      method: "detectBundleAnalyze";
+      data: BundleAnalyzeCapability;
     }
   | {
       id: string;
@@ -314,6 +342,12 @@ export type HostToWebview =
   | { type: "showTour" }
   | {
       type: "lighthouseLabProgress";
+      id: string;
+      message: string;
+      detail?: import("@prism/shared").JsonValue;
+    }
+  | {
+      type: "bundleAnalyzeProgress";
       id: string;
       message: string;
       detail?: import("@prism/shared").JsonValue;

@@ -3,11 +3,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  UTILITY_JOB_BUNDLE_STATS,
   UTILITY_JOB_ECHO,
   UTILITY_JOB_LIGHTHOUSE,
   UTILITY_JOB_REMOTE_PROBE_STUB,
 } from "@prism/intelligence";
-import { CwvReportSchema, PrismErrorCode } from "@prism/shared";
+import {
+  BundleWeightReportSchema,
+  CwvReportSchema,
+  PrismErrorCode,
+} from "@prism/shared";
+import { writeFile } from "node:fs/promises";
 import { Prism } from "./prism.js";
 
 describe("workspace utilities APIs (M-041 P0)", () => {
@@ -85,5 +91,73 @@ describe("workspace utilities APIs (M-041 P0)", () => {
     expect(CwvReportSchema.safeParse(cwv.value).success).toBe(true);
     expect(cwv.value.callout).toMatch(/dedicated local PORT/i);
     expect(cwv.value.metrics.some((m) => m.id === "LCP")).toBe(true);
+  });
+
+  it("detects + ingests bundle-stats via Core", async () => {
+    const root = await mkdtemp(join(tmpdir(), "prism-core-bundle-"));
+    await writeFile(
+      join(root, "package.json"),
+      JSON.stringify({
+        name: "web-app",
+        scripts: { analyze: "echo analyze", build: "echo build" },
+        dependencies: { next: "14.0.0" },
+      }),
+      "utf8",
+    );
+    await writeFile(
+      join(root, "next.config.mjs"),
+      "export default {};\n",
+      "utf8",
+    );
+    const statsPath = join(root, "stats.json");
+    await writeFile(
+      statsPath,
+      JSON.stringify({
+        mode: "production",
+        chunks: [
+          {
+            id: 0,
+            names: ["main"],
+            size: 50_000,
+            gzipSize: 15_000,
+            initial: true,
+            modules: [{ id: 1, name: "./src/a.ts", size: 50_000 }],
+          },
+        ],
+      }),
+      "utf8",
+    );
+
+    const client = Prism.create();
+    const opened = client.openRepository(root);
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) return;
+    const ws = opened.value;
+
+    const cap = ws.detectBundleAnalyzeCapability();
+    expect(cap.ok).toBe(true);
+    if (!cap.ok) return;
+    expect(cap.value.supported).toBe(true);
+    expect(cap.value.preferredStrategy).toBe("project-script");
+
+    const blocked = await ws.startUtilityJob({
+      kind: UTILITY_JOB_BUNDLE_STATS,
+    });
+    expect(blocked.ok).toBe(false);
+
+    const job = await ws.startUtilityJob({
+      kind: UTILITY_JOB_BUNDLE_STATS,
+      consentGranted: true,
+      bundleAnalyze: { mode: "ingest", reportPath: statsPath },
+    });
+    expect(job.ok).toBe(true);
+    if (!job.ok) return;
+    expect(job.value.status).toBe("succeeded");
+
+    const report = await ws.getBundleWeightReport(job.value.resultArtifactId!);
+    expect(report.ok).toBe(true);
+    if (!report.ok) return;
+    expect(BundleWeightReportSchema.safeParse(report.value).success).toBe(true);
+    expect(report.value.overview.totalRaw).toBe(50_000);
   });
 });

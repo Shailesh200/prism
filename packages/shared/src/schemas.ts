@@ -1231,6 +1231,177 @@ export type CwvRouteLabProgressDetail = z.infer<
   typeof CwvRouteLabProgressDetailSchema
 >;
 
+/** Frontend Bundle Weight (M-050 / FE-06) — real bundler stats only. */
+export const BundleBytesSchema = z.object({
+  raw: z.number().nonnegative(),
+  gzip: z.number().nonnegative().optional(),
+  brotli: z.number().nonnegative().optional(),
+});
+
+export type BundleBytes = z.infer<typeof BundleBytesSchema>;
+
+export const BundleLoadTypeSchema = z.enum(["initial", "async", "unknown"]);
+
+export type BundleLoadType = z.infer<typeof BundleLoadTypeSchema>;
+
+export const BundleBundlerSchema = z.enum([
+  "webpack",
+  "rollup",
+  "vite",
+  "esbuild",
+  "next",
+  "unknown",
+]);
+
+export type BundleBundler = z.infer<typeof BundleBundlerSchema>;
+
+export const BundleModuleSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  path: z.string().optional(),
+  /** Best-effort package name from node_modules path. */
+  packageName: z.string().optional(),
+  bytes: BundleBytesSchema,
+  percentOfChunk: z.number().min(0).max(100).optional(),
+});
+
+export type BundleModule = z.infer<typeof BundleModuleSchema>;
+
+export const BundleChunkSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  bytes: BundleBytesSchema,
+  percentOfTotal: z.number().min(0).max(100),
+  loadType: BundleLoadTypeSchema.default("unknown"),
+  moduleCount: z.number().int().nonnegative().default(0),
+  /** Top modules by size (capped); may be empty when stats lack module detail. */
+  modules: z.array(BundleModuleSchema).default([]),
+});
+
+export type BundleChunk = z.infer<typeof BundleChunkSchema>;
+
+export const BundlePackageRollupSchema = z.object({
+  name: z.string().min(1),
+  bytes: BundleBytesSchema,
+  percentOfTotal: z.number().min(0).max(100),
+  moduleCount: z.number().int().nonnegative(),
+});
+
+export type BundlePackageRollup = z.infer<typeof BundlePackageRollupSchema>;
+
+export const BundleHighlightSeveritySchema = z.enum(["heavy", "warn", "info"]);
+
+export type BundleHighlightSeverity = z.infer<
+  typeof BundleHighlightSeveritySchema
+>;
+
+export const BundleHighlightSchema = z.object({
+  id: z.string().min(1),
+  severity: BundleHighlightSeveritySchema,
+  title: z.string().min(1),
+  detail: z.string().optional(),
+  chunkId: z.string().optional(),
+  moduleId: z.string().optional(),
+});
+
+export type BundleHighlight = z.infer<typeof BundleHighlightSchema>;
+
+export const BundleBuildLabelSchema = z.object({
+  packageName: z.string().optional(),
+  packageId: z.string().optional(),
+  bundler: BundleBundlerSchema.default("unknown"),
+  mode: z.enum(["production", "development", "unknown"]).default("unknown"),
+  timestamp: z.string().datetime(),
+  scriptName: z.string().optional(),
+});
+
+export type BundleBuildLabel = z.infer<typeof BundleBuildLabelSchema>;
+
+export const BundleWeightOverviewSchema = z.object({
+  totalRaw: z.number().nonnegative(),
+  totalGzip: z.number().nonnegative().optional(),
+  totalBrotli: z.number().nonnegative().optional(),
+  chunkCount: z.number().int().nonnegative(),
+  initialRaw: z.number().nonnegative().default(0),
+  asyncRaw: z.number().nonnegative().default(0),
+  largestChunkName: z.string().optional(),
+  largestChunkRaw: z.number().nonnegative().optional(),
+});
+
+export type BundleWeightOverview = z.infer<typeof BundleWeightOverviewSchema>;
+
+export const BundleWeightThresholdsSchema = z.object({
+  heavyChunkBytes: z.number().nonnegative(),
+  heavyModuleBytes: z.number().nonnegative(),
+});
+
+export type BundleWeightThresholds = z.infer<
+  typeof BundleWeightThresholdsSchema
+>;
+
+export const BundleWeightReportSchema = z.object({
+  collectedAt: z.string().datetime(),
+  source: z.enum(["analyze-script", "prism-managed", "ingest", "discovered"]),
+  callout: z.string().min(1),
+  build: BundleBuildLabelSchema,
+  overview: BundleWeightOverviewSchema,
+  chunks: z.array(BundleChunkSchema).default([]),
+  packageRollups: z.array(BundlePackageRollupSchema).default([]),
+  highlights: z.array(BundleHighlightSchema).default([]),
+  thresholds: BundleWeightThresholdsSchema,
+  /** When stats could not be produced — never fabricate sizes instead. */
+  unsupportedReason: z.string().optional(),
+});
+
+export type BundleWeightReport = z.infer<typeof BundleWeightReportSchema>;
+
+export const BundleAnalyzeStrategySchema = z.enum([
+  "project-script",
+  "prism-managed",
+  "none",
+]);
+
+export type BundleAnalyzeStrategy = z.infer<typeof BundleAnalyzeStrategySchema>;
+
+export const BundleAnalyzeScriptInfoSchema = z.object({
+  packageId: z.string().optional(),
+  packagePath: z.string().min(1),
+  packageName: z.string().optional(),
+  scriptName: z.string().min(1),
+  command: z.string().min(1),
+});
+
+export type BundleAnalyzeScriptInfo = z.infer<
+  typeof BundleAnalyzeScriptInfoSchema
+>;
+
+export const BundleAnalyzePackageInfoSchema = z.object({
+  packageId: z.string().min(1),
+  packagePath: z.string().min(1),
+  packageName: z.string().min(1),
+  hasAnalyzeScript: z.boolean(),
+  bundler: BundleBundlerSchema.default("unknown"),
+  analyzers: z.array(z.string()).default([]),
+});
+
+export type BundleAnalyzePackageInfo = z.infer<
+  typeof BundleAnalyzePackageInfoSchema
+>;
+
+/** Detected capacity to run / parse frontend bundle analyze (M-050). */
+export const BundleAnalyzeCapabilitySchema = z.object({
+  supported: z.boolean(),
+  reason: z.string().optional(),
+  preferredStrategy: BundleAnalyzeStrategySchema,
+  scripts: z.array(BundleAnalyzeScriptInfoSchema).default([]),
+  bundlers: z.array(BundleBundlerSchema).default([]),
+  packages: z.array(BundleAnalyzePackageInfoSchema).default([]),
+});
+
+export type BundleAnalyzeCapability = z.infer<
+  typeof BundleAnalyzeCapabilitySchema
+>;
+
 /**
  * Well-known utility overlay kinds for Map / MCP (M-041 Gate A + P2–P7 / Mono-v2).
  * Open string registry — consumers should tolerate unknown kinds.

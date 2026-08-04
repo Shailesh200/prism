@@ -18,12 +18,16 @@ import type {
   TestImpactReport,
   UtilityOverlayReport,
   BackendReport,
+  BundleAnalyzeCapability,
+  BundleWeightReport,
   SecurityReport,
   TestingReport,
   CwvReport,
 } from "@prism/shared";
 import {
   BlastRadiusReportSchema,
+  BundleAnalyzeCapabilitySchema,
+  BundleWeightReportSchema,
   CodeExplorerReportSchema,
   CwvReportSchema,
   DnaReportSchema,
@@ -475,6 +479,121 @@ export async function runLighthouseLab(
           `url=${data.url}`,
           `metrics=${data.metrics.length}`,
         ].join("\n"),
+      };
+    },
+  );
+}
+
+export async function detectBundleAnalyzeCapability(
+  root: string | null,
+  options?: { packageId?: string },
+): Promise<BundleAnalyzeCapability> {
+  const params = new URLSearchParams();
+  if (root) params.set("root", root);
+  if (options?.packageId) params.set("packageId", options.packageId);
+  const res = await fetch(`/api/detect-bundle-analyze?${params}`);
+  if (!res.ok) throw new Error(`detect-bundle-analyze failed: ${res.status}`);
+  const parsed = BundleAnalyzeCapabilitySchema.safeParse(await res.json());
+  if (!parsed.success) {
+    throw new Error("Invalid BundleAnalyzeCapability payload");
+  }
+  return parsed.data;
+}
+
+export async function runBundleAnalyze(
+  root: string | null,
+  options?: {
+    mode?: "run" | "ingest" | "discover";
+    packageId?: string;
+    packagePath?: string;
+    scriptName?: string;
+    reportPath?: string;
+    onProgress?: (event: { message: string }) => void;
+  },
+): Promise<BundleWeightReport | null> {
+  const target = root ?? ".";
+  return withAudit(
+    {
+      category: "integration",
+      operation: "Bundle Weight analyze",
+      target,
+      command: `GET /api/bundle-analyze?root=${encodeURIComponent(target)}`,
+    },
+    async () => {
+      const params = new URLSearchParams();
+      if (root) params.set("root", root);
+      params.set("mode", options?.mode ?? "run");
+      if (options?.packageId) params.set("packageId", options.packageId);
+      if (options?.packagePath) params.set("packagePath", options.packagePath);
+      if (options?.scriptName) params.set("scriptName", options.scriptName);
+      if (options?.reportPath) params.set("reportPath", options.reportPath);
+      params.set("stream", "1");
+      const res = await fetch(`/api/bundle-analyze?${params}`);
+      if (!res.ok) {
+        let detail = `Bundle analyze failed (${res.status})`;
+        try {
+          const body = (await res.json()) as { error?: string };
+          if (body.error) detail = body.error;
+        } catch {
+          /* ignore */
+        }
+        throw new Error(detail);
+      }
+      const contentType = res.headers.get("content-type") ?? "";
+      if (contentType.includes("ndjson") && res.body) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let report: BundleWeightReport | null = null;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            let evt: {
+              type?: string;
+              message?: string;
+              report?: BundleWeightReport;
+              error?: string;
+            };
+            try {
+              evt = JSON.parse(trimmed) as typeof evt;
+            } catch {
+              continue;
+            }
+            if (evt.type === "progress" && evt.message) {
+              options?.onProgress?.({ message: evt.message });
+            } else if (evt.type === "report" && evt.report) {
+              report = evt.report;
+            } else if (evt.type === "error") {
+              throw new Error(evt.error ?? "Bundle analyze failed");
+            }
+          }
+        }
+        if (!report) throw new Error("Bundle stream ended without a report");
+        const parsed = BundleWeightReportSchema.safeParse(report);
+        if (!parsed.success) {
+          throw new Error("Invalid BundleWeightReport payload");
+        }
+        return parsed.data;
+      }
+      const parsed = BundleWeightReportSchema.safeParse(await res.json());
+      if (!parsed.success) {
+        throw new Error("Invalid BundleWeightReport payload");
+      }
+      return parsed.data;
+    },
+    (data) => {
+      if (!data) {
+        return { status: "error", output: "Bundle analyze failed." };
+      }
+      return {
+        status: "success",
+        output: `chunks=${data.overview.chunkCount} total=${data.overview.totalRaw}`,
       };
     },
   );

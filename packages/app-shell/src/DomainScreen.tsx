@@ -22,7 +22,9 @@ import {
   AlertTriangle,
   AppWindow,
   ArrowLeft,
+  Boxes,
   Cloud,
+  ChevronRight,
   Database,
   ExternalLink,
   ChevronDown,
@@ -32,8 +34,10 @@ import {
   Flame,
   Layers,
   ListChecks,
+  Loader2,
   Monitor,
   Network,
+  Package,
   Play,
   Plug,
   Plus,
@@ -49,12 +53,16 @@ import {
   Workflow,
   X,
 } from "lucide-react";
-import type { ComponentType, ReactElement } from "react";
+import type { ComponentType, ReactElement, RefObject } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppSidebar, type AppSidebarUser, type AppView } from "./AppSidebar.js";
 import { Avatar } from "./Avatar.js";
 import { shellNavVariant, shellRootClass } from "./shell-layout.js";
 import { useAppShellClient } from "./client-context.js";
+import {
+  BundleWeightPanel,
+  type BundleWeightPanelHandle,
+} from "./BundleWeightPanel.js";
 import {
   LIGHTHOUSE_CATEGORIES,
   cwvReportFromLighthouseJson,
@@ -195,10 +203,10 @@ const DOMAINS: Record<string, DomainDef> = {
     kind: null,
     surfaceLabel: "Performance Surface",
     description:
-      "Runs a local Lighthouse lab to capture Core Web Vitals and attribute them to frontend regions.",
-    sources: "local Lighthouse run or an imported CWV report",
+      "Runs a local Lighthouse lab to capture Core Web Vitals and a consent-gated Bundle Weight analyze for chunk/module sizes.",
+    sources: "local Lighthouse run, imported CWV report, or local bundle stats",
     labNote:
-      "Runs a real local Lighthouse lab via Core. Requires Chrome/Chromium and a locally served app — never shows sample numbers.",
+      "Runs a real local Lighthouse lab via Core. Requires Chrome/Chromium and a locally served app — never shows sample numbers. Bundle Weight runs separately with Analyze in the Bundle / Weight section.",
   },
 };
 
@@ -633,10 +641,19 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
     null,
   );
   const labMeasuringRef = useRef<string | null>(null);
-  const [labMenuOpen, setLabMenuOpen] = useState(false);
+  /** Which section route-Analyze menu is open (`cwv` | `lh`). */
+  const [labMenuOpen, setLabMenuOpen] = useState<"cwv" | "lh" | null>(null);
+  const [topAnalyzeMenuOpen, setTopAnalyzeMenuOpen] = useState(false);
   const [labSelectMode, setLabSelectMode] = useState(false);
   const [selectedLabRoutes, setSelectedLabRoutes] = useState<string[]>([]);
-  const labMenuRef = useRef<HTMLDivElement | null>(null);
+  const cwvLabMenuRef = useRef<HTMLDivElement | null>(null);
+  const lhLabMenuRef = useRef<HTMLDivElement | null>(null);
+  const topAnalyzeMenuRef = useRef<HTMLDivElement | null>(null);
+  const bundlePanelRef = useRef<BundleWeightPanelHandle | null>(null);
+  const [bundleBusy, setBundleBusy] = useState(false);
+  const [cwvAccOpen, setCwvAccOpen] = useState(true);
+  const [lhAccOpen, setLhAccOpen] = useState(true);
+  const [bundleAccOpen, setBundleAccOpen] = useState(true);
   const [insightFilter, setInsightFilter] = useState<string | null>(null);
   const [pagespeedUrl, setPagespeedUrl] = useState("https://example.com");
   const [pagespeedBusy, setPagespeedBusy] = useState(false);
@@ -1657,16 +1674,24 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
   }, [cwvSettingsOpen]);
 
   useEffect(() => {
-    if (!labMenuOpen) return;
+    if (!labMenuOpen && !topAnalyzeMenuOpen) return;
     const onPointerDown = (event: MouseEvent): void => {
-      const root = labMenuRef.current;
-      if (!root) return;
-      if (event.target instanceof Node && !root.contains(event.target)) {
-        setLabMenuOpen(false);
-      }
+      const roots = [
+        cwvLabMenuRef.current,
+        lhLabMenuRef.current,
+        topAnalyzeMenuRef.current,
+      ];
+      const t = event.target;
+      if (!(t instanceof Node)) return;
+      if (roots.some((r) => r?.contains(t))) return;
+      setLabMenuOpen(null);
+      setTopAnalyzeMenuOpen(false);
     };
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") setLabMenuOpen(false);
+      if (event.key === "Escape") {
+        setLabMenuOpen(null);
+        setTopAnalyzeMenuOpen(false);
+      }
     };
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("keydown", onKey);
@@ -1674,7 +1699,7 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [labMenuOpen]);
+  }, [labMenuOpen, topAnalyzeMenuOpen]);
 
   /** Real Lighthouse unavailable — never invent sample numbers. */
   const applyNoLabAvailable = (reason: string): void => {
@@ -1706,7 +1731,8 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
     setRouteLabLogs({});
     setLabMeasuringRoute(null);
     labMeasuringRef.current = null;
-    setLabMenuOpen(false);
+    setLabMenuOpen(null);
+    setTopAnalyzeMenuOpen(false);
     setLabSelectMode(false);
     // Clear prior tiles / breakdown so re-run doesn't show stale numbers.
     setCwvLocal(null);
@@ -1782,6 +1808,99 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
       setLabBusy(false);
     }
   };
+
+  const openLabRouteSelect = (source: "cwv" | "lh"): void => {
+    setLabMenuOpen(null);
+    setTopAnalyzeMenuOpen(false);
+    setLabSelectMode(true);
+    // Route picker lives under Core Web Vitals; open that accordion, and keep
+    // Lighthouse open when the pick was started from there.
+    setCwvAccOpen(true);
+    if (source === "lh") setLhAccOpen(true);
+    setSelectedLabRoutes((prev) =>
+      prev.length > 0
+        ? prev
+        : frontendRoutes.includes("/")
+          ? ["/"]
+          : frontendRoutes.slice(0, 1),
+    );
+  };
+
+  const runBundleAnalyzeFromPanel = async (): Promise<void> => {
+    setTopAnalyzeMenuOpen(false);
+    setLabMenuOpen(null);
+    setBundleAccOpen(true);
+    setBundleBusy(true);
+    try {
+      await bundlePanelRef.current?.runAnalyze();
+    } finally {
+      setBundleBusy(false);
+    }
+  };
+
+  /** Sequential: local lab (all routes) then Bundle Analyze. */
+  const runAnalyseEverything = async (): Promise<void> => {
+    setTopAnalyzeMenuOpen(false);
+    setCwvAccOpen(true);
+    setLhAccOpen(true);
+    setBundleAccOpen(true);
+    await runLocalLab(frontendRoutes);
+    await runBundleAnalyzeFromPanel();
+  };
+
+  const frontendBusy = labBusy || bundleBusy;
+
+  const renderRouteAnalyzeMenu = (
+    section: "cwv" | "lh",
+    menuRef: RefObject<HTMLDivElement | null>,
+  ): ReactElement => (
+    <div className="dm-lab-menu" ref={menuRef}>
+      <button
+        type="button"
+        className="ov-btn ov-btn--primary"
+        disabled={frontendBusy}
+        aria-expanded={labMenuOpen === section}
+        aria-haspopup="menu"
+        onClick={() => {
+          setTopAnalyzeMenuOpen(false);
+          setLabMenuOpen((v) => (v === section ? null : section));
+        }}
+      >
+        {labBusy ? (
+          <Loader2 size={13} aria-hidden className="bw-spin" />
+        ) : (
+          <FlaskConical size={13} aria-hidden />
+        )}
+        {labBusy ? "Analyzing…" : "Analyze"}
+        <ChevronDown size={13} aria-hidden />
+      </button>
+      {labMenuOpen === section && !frontendBusy ? (
+        <div className="dm-lab-menu__pop" role="menu">
+          <button
+            type="button"
+            className="dm-lab-menu__item"
+            role="menuitem"
+            onClick={() => void runLocalLab(frontendRoutes)}
+          >
+            <ListChecks size={14} aria-hidden />
+            Analyse all routes
+            <span className="dm-lab-menu__meta">
+              {frontendRoutes.length} listed
+            </span>
+          </button>
+          <button
+            type="button"
+            className="dm-lab-menu__item"
+            role="menuitem"
+            onClick={() => openLabRouteSelect(section)}
+          >
+            <FlaskConical size={14} aria-hidden />
+            Analyse selected routes…
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
 
   const onImportCwv = (file: File | undefined): void => {
     if (!file) return;
@@ -2062,36 +2181,53 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
               Back to Domains
             </button>
             {isFrontend ? (
-              <div className="dm-lab-menu" ref={labMenuRef}>
+              <div className="dm-lab-menu" ref={topAnalyzeMenuRef}>
                 <button
                   type="button"
                   className="ov-btn ov-btn--primary"
-                  disabled={labBusy}
-                  aria-expanded={labMenuOpen}
+                  disabled={frontendBusy}
+                  aria-expanded={topAnalyzeMenuOpen}
                   aria-haspopup="menu"
                   title={def.labNote}
-                  onClick={() => setLabMenuOpen((v) => !v)}
+                  onClick={() => {
+                    setLabMenuOpen(null);
+                    setTopAnalyzeMenuOpen((v) => !v);
+                  }}
                 >
-                  <FlaskConical size={13} aria-hidden />
-                  {labBusy
-                    ? "Running…"
-                    : cwvLocal
-                      ? "Run analysis"
-                      : "Run analysis"}
+                  {frontendBusy ? (
+                    <Loader2 size={13} aria-hidden className="bw-spin" />
+                  ) : (
+                    <FlaskConical size={13} aria-hidden />
+                  )}
+                  {frontendBusy ? "Analyzing…" : "Analyze"}
                   <ChevronDown size={13} aria-hidden />
                 </button>
-                {labMenuOpen && !labBusy ? (
+                {topAnalyzeMenuOpen && !frontendBusy ? (
                   <div className="dm-lab-menu__pop" role="menu">
                     <button
                       type="button"
                       className="dm-lab-menu__item"
                       role="menuitem"
-                      onClick={() => void runLocalLab(frontendRoutes)}
+                      onClick={() => void runAnalyseEverything()}
                     >
                       <ListChecks size={14} aria-hidden />
-                      Run analysis for all routes
+                      Analyse Everything
+                      <span className="dm-lab-menu__meta">lab + bundle</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="dm-lab-menu__item"
+                      role="menuitem"
+                      onClick={() => {
+                        setTopAnalyzeMenuOpen(false);
+                        setCwvAccOpen(true);
+                        void runLocalLab(frontendRoutes);
+                      }}
+                    >
+                      <Activity size={14} aria-hidden />
+                      Analyse CWV
                       <span className="dm-lab-menu__meta">
-                        {frontendRoutes.length} listed
+                        {frontendRoutes.length} routes
                       </span>
                     </button>
                     <button
@@ -2099,19 +2235,25 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                       className="dm-lab-menu__item"
                       role="menuitem"
                       onClick={() => {
-                        setLabMenuOpen(false);
-                        setLabSelectMode(true);
-                        setSelectedLabRoutes((prev) =>
-                          prev.length > 0
-                            ? prev
-                            : frontendRoutes.includes("/")
-                              ? ["/"]
-                              : frontendRoutes.slice(0, 1),
-                        );
+                        setTopAnalyzeMenuOpen(false);
+                        setLhAccOpen(true);
+                        void runLocalLab(frontendRoutes);
                       }}
                     >
-                      <FlaskConical size={14} aria-hidden />
-                      Run analysis for selected routes…
+                      <Monitor size={14} aria-hidden />
+                      Analyse Lighthouse
+                      <span className="dm-lab-menu__meta">
+                        {frontendRoutes.length} routes
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="dm-lab-menu__item"
+                      role="menuitem"
+                      onClick={() => void runBundleAnalyzeFromPanel()}
+                    >
+                      <Boxes size={14} aria-hidden />
+                      Analyse Bundle
                     </button>
                   </div>
                 ) : null}
@@ -2169,65 +2311,86 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                 </div>
               ) : null}
 
-              <section className="cwv">
-                <div className="cwv__bar">
-                  <h2 className="cwv__h">
-                    Core Web Vitals
-                    <InfoTip label="Core Web Vitals">
-                      Lab or imported Lighthouse metrics (LCP, INP, CLS, FCP,
-                      TTFB). Prism never fabricates field data — numbers come
-                      from a local lab run, imported JSON, or opt-in PageSpeed.
-                    </InfoTip>
-                  </h2>
-                  <div className="cwv__settings" ref={cwvSettingsRef}>
-                    <button
-                      type="button"
-                      className="dm-iconbtn"
-                      aria-label="CWV source settings"
-                      aria-expanded={cwvSettingsOpen}
-                      title="CWV source settings"
-                      onClick={() => setCwvSettingsOpen((v) => !v)}
-                    >
-                      <Settings size={15} aria-hidden />
-                    </button>
-                    {cwvSettingsOpen ? (
-                      <div
-                        className="dm-popover"
-                        role="dialog"
-                        aria-label="CWV source"
+              <section className="ov-card ts-acc" aria-label="Core Web Vitals">
+                <div className="ts-acc__header">
+                  <button
+                    type="button"
+                    className="ts-acc__trigger"
+                    aria-expanded={cwvAccOpen}
+                    onClick={() => setCwvAccOpen((v) => !v)}
+                  >
+                    <span className="ts-acc__chevron" aria-hidden>
+                      {cwvAccOpen ? (
+                        <ChevronDown size={16} />
+                      ) : (
+                        <ChevronRight size={16} />
+                      )}
+                    </span>
+                    <h2 className="ts-head__title">
+                      <CardIcon icon={Activity} tone="brand" size={18} />
+                      Core Web Vitals
+                      <InfoTip label="Core Web Vitals">
+                        Lab or imported Lighthouse metrics (LCP, INP, CLS, FCP,
+                        TTFB). Prism never fabricates field data — numbers come
+                        from a local lab run, imported JSON, or opt-in PageSpeed.
+                      </InfoTip>
+                    </h2>
+                  </button>
+                  <div className="ts-acc__actions">
+                    <div className="cwv__settings" ref={cwvSettingsRef}>
+                      <button
+                        type="button"
+                        className="dm-iconbtn"
+                        aria-label="CWV source settings"
+                        aria-expanded={cwvSettingsOpen}
+                        title="CWV source settings"
+                        onClick={() => setCwvSettingsOpen((v) => !v)}
                       >
-                        <div className="dm-popover__h">CWV source</div>
-                        <Select
-                          aria-label="CWV data source"
-                          value={cwvSource}
-                          onChange={(v) => setCwvSource(v as CwvSource)}
-                          options={[
-                            { value: "local", label: "Local lab / import" },
-                            {
-                              value: "pagespeed",
-                              label: "PageSpeed Insights",
-                            },
-                          ]}
-                        />
-                        <p className="dm-popover__note">
-                          {pagespeedEnabled
-                            ? "PageSpeed runs a network fetch only when selected."
-                            : "PageSpeed needs an API key in Integrations + network enabled in Settings."}
-                        </p>
-                        {!pagespeedEnabled ? (
-                          <button
-                            type="button"
-                            className="ov-btn ov-btn--ghost dm-popover__link"
-                            onClick={() => props.onNavigate("integrations")}
-                          >
-                            <ExternalLink size={13} aria-hidden />
-                            Open Integrations
-                          </button>
-                        ) : null}
-                      </div>
-                    ) : null}
+                        <Settings size={15} aria-hidden />
+                      </button>
+                      {cwvSettingsOpen ? (
+                        <div
+                          className="dm-popover"
+                          role="dialog"
+                          aria-label="CWV source"
+                        >
+                          <div className="dm-popover__h">CWV source</div>
+                          <Select
+                            aria-label="CWV data source"
+                            value={cwvSource}
+                            onChange={(v) => setCwvSource(v as CwvSource)}
+                            options={[
+                              { value: "local", label: "Local lab / import" },
+                              {
+                                value: "pagespeed",
+                                label: "PageSpeed Insights",
+                              },
+                            ]}
+                          />
+                          <p className="dm-popover__note">
+                            {pagespeedEnabled
+                              ? "PageSpeed runs a network fetch only when selected."
+                              : "PageSpeed needs an API key in Integrations + network enabled in Settings."}
+                          </p>
+                          {!pagespeedEnabled ? (
+                            <button
+                              type="button"
+                              className="ov-btn ov-btn--ghost dm-popover__link"
+                              onClick={() => props.onNavigate("integrations")}
+                            >
+                              <ExternalLink size={13} aria-hidden />
+                              Open Integrations
+                            </button>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                    {renderRouteAnalyzeMenu("cwv", cwvLabMenuRef)}
                   </div>
                 </div>
+
+                {cwvAccOpen ? (
+                  <div className="ts-acc__body">
                 <div className="cwv__grid">
                   {CWV_METRICS.map((m) => {
                     const local = metricFor(cwvLocal, m.id);
@@ -2420,42 +2583,6 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                     </div>
                   </div>
                 )}
-
-                {frontendCategories.length > 0 ? (
-                  <div className="dm-cats">
-                    <div className="dm-cats__h">
-                      Lighthouse categories
-                      <InfoTip label="Lighthouse categories">
-                        Category scores (0–100) from the Lighthouse report —
-                        performance, accessibility, best practices, and SEO.
-                      </InfoTip>
-                    </div>
-                    <div className="dm-cats__grid">
-                      {frontendCategories.map((c) => {
-                        const rating = scoreRating(c.score);
-                        return (
-                          <article key={c.id} className="dm-cat">
-                            <div className="dm-cat__k">
-                              {c.label}
-                              <InfoTip label={c.label}>{c.desc}</InfoTip>
-                            </div>
-                            <div className={`dm-cat__v ${ratingClass(rating)}`}>
-                              {Math.round((c.score ?? 0) * 100)}
-                            </div>
-                            <div className="dm-cat__bar" aria-hidden>
-                              <span
-                                className={`dm-cat__fill ${ratingClass(rating)}`}
-                                style={{ width: `${(c.score ?? 0) * 100}%` }}
-                              />
-                            </div>
-                          </article>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : null}
-              </section>
-
               <input
                 ref={importInputRef}
                 type="file"
@@ -2490,15 +2617,6 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                       {def.description}
                     </p>
                     <div className="cwv-optin__actions">
-                      <button
-                        type="button"
-                        className="ov-btn ov-btn--primary"
-                        disabled={labBusy}
-                        onClick={() => void runLocalLab(frontendRoutes)}
-                      >
-                        <FlaskConical size={14} aria-hidden />
-                        Run analysis for all routes
-                      </button>
                       <button
                         type="button"
                         className="ov-btn ov-btn--ghost"
@@ -2590,10 +2708,10 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                     Routes &amp; components
                     <InfoTip label="Routes & components">
                       Routes are discovered from the workspace (React Router,
-                      SEO catalogs, Next pages). Use Run analysis to measure all
-                      routes or a selected subset. Soft 404 / not-found pages
-                      are skipped. Each route card shows its own lab console
-                      while measuring.
+                      SEO catalogs, Next pages). Use Analyze on Core Web Vitals
+                      or Lighthouse to measure all routes or a selected subset.
+                      Soft 404 / not-found pages are skipped. Each route card
+                      shows its own lab console while measuring.
                     </InfoTip>
                   </span>
                   <span className="dm-routes__meta">
@@ -2808,7 +2926,7 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                                 ? "Sampled — no per-metric rollup"
                                 : isQueued
                                   ? "Waiting in queue — will measure after the current route finishes."
-                                  : "Not measured in this lab run. Use Run analysis → selected routes to include it, or all routes."}
+                                  : "Not measured in this lab run. Use Analyze → selected routes to include it, or all routes."}
                             </p>
                           )}
                           {r.notes.length > 0 ? (
@@ -2889,6 +3007,134 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                 fabricates them. Numbers appear here after a local Lighthouse
                 run or an imported CWV report.
               </p>
+
+                  </div>
+                ) : null}
+              </section>
+
+              <section className="ov-card ts-acc" aria-label="Lighthouse">
+                <div className="ts-acc__header">
+                  <button
+                    type="button"
+                    className="ts-acc__trigger"
+                    aria-expanded={lhAccOpen}
+                    onClick={() => setLhAccOpen((v) => !v)}
+                  >
+                    <span className="ts-acc__chevron" aria-hidden>
+                      {lhAccOpen ? (
+                        <ChevronDown size={16} />
+                      ) : (
+                        <ChevronRight size={16} />
+                      )}
+                    </span>
+                    <h2 className="ts-head__title">
+                      <CardIcon icon={Monitor} tone="violet" size={18} />
+                      Lighthouse
+                      <InfoTip label="Lighthouse">
+                        Category scores (0–100) from the Lighthouse report —
+                        performance, accessibility, best practices, and SEO.
+                        Uses the same local lab as Core Web Vitals.
+                      </InfoTip>
+                    </h2>
+                  </button>
+                  <div className="ts-acc__actions">
+                    {renderRouteAnalyzeMenu("lh", lhLabMenuRef)}
+                  </div>
+                </div>
+
+                {lhAccOpen ? (
+                  <div className="ts-acc__body">
+                    {frontendCategories.length > 0 ? (
+                      <div className="dm-cats" style={{ marginTop: 0 }}>
+                        <div className="dm-cats__grid">
+                          {frontendCategories.map((c) => {
+                            const rating = scoreRating(c.score);
+                            return (
+                              <article key={c.id} className="dm-cat">
+                                <div className="dm-cat__k">
+                                  {c.label}
+                                  <InfoTip label={c.label}>{c.desc}</InfoTip>
+                                </div>
+                                <div
+                                  className={`dm-cat__v ${ratingClass(rating)}`}
+                                >
+                                  {Math.round((c.score ?? 0) * 100)}
+                                </div>
+                                <div className="dm-cat__bar" aria-hidden>
+                                  <span
+                                    className={`dm-cat__fill ${ratingClass(rating)}`}
+                                    style={{
+                                      width: `${(c.score ?? 0) * 100}%`,
+                                    }}
+                                  />
+                                </div>
+                              </article>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="ts-empty">
+                        No Lighthouse category scores yet. Use Analyze to run a
+                        local lab (same run also fills Core Web Vitals).
+                      </p>
+                    )}
+                  </div>
+                ) : null}
+              </section>
+
+              <section className="ov-card ts-acc" aria-label="Bundle Weight">
+                <div className="ts-acc__header">
+                  <button
+                    type="button"
+                    className="ts-acc__trigger"
+                    aria-expanded={bundleAccOpen}
+                    onClick={() => setBundleAccOpen((v) => !v)}
+                  >
+                    <span className="ts-acc__chevron" aria-hidden>
+                      {bundleAccOpen ? (
+                        <ChevronDown size={16} />
+                      ) : (
+                        <ChevronRight size={16} />
+                      )}
+                    </span>
+                    <h2 className="ts-head__title">
+                      <CardIcon icon={Boxes} tone="amber" size={18} />
+                      Bundle / Weight
+                      <InfoTip label="Bundle Weight">
+                        Real bundler stats from a local Analyze run (project
+                        analyze script when present, else Prism-managed for Next
+                        / Vite / Webpack). Prism never invents production sizes
+                        from the import graph.
+                      </InfoTip>
+                    </h2>
+                  </button>
+                  <div className="ts-acc__actions">
+                    <button
+                      type="button"
+                      className="ov-btn ov-btn--primary"
+                      disabled={frontendBusy}
+                      title="Run Bundle Analyze for the selected package"
+                      onClick={() => void runBundleAnalyzeFromPanel()}
+                    >
+                      {bundleBusy ? (
+                        <Loader2 size={13} aria-hidden className="bw-spin" />
+                      ) : (
+                        <Package size={13} aria-hidden />
+                      )}
+                      {bundleBusy ? "Analyzing…" : "Analyze"}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="ts-acc__body" hidden={!bundleAccOpen}>
+                  <BundleWeightPanel
+                    ref={bundlePanelRef}
+                    repoLabel={props.repoLabel}
+                    embedded
+                  />
+                </div>
+              </section>
             </>
           ) : status === "loading" ? (
             <>
