@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 import {
+  BundleWeightReportSchema,
   CwvReportSchema,
   PrismErrorCode,
   type CwvReport,
@@ -38,6 +39,16 @@ import {
   type LabServerHandle,
 } from "./lab-server.js";
 import { discoverFrontendAppRoutes } from "./frontend-routes.js";
+import {
+  bundleAnalyzeProgressDetail,
+  runBundleAnalyze,
+} from "./bundle-analyze-runner.js";
+import {
+  BUNDLE_WEIGHT_CALLOUT,
+  buildBundleWeightReport,
+  emptyUnsupportedBundleReport,
+} from "./bundle-weight.js";
+import { INGEST_KIND_BUNDLE_STATS } from "./bundle-weight-from-artifact.js";
 
 export type LighthouseJobOptions = {
   readonly url?: string;
@@ -58,6 +69,22 @@ export type LighthouseJobOptions = {
   readonly routes?: readonly string[];
 };
 
+export type BundleAnalyzeJobOptions = {
+  /**
+   * `run` — spawn project analyze script or Prism-managed (default).
+   * `ingest` — parse `reportPath` only (no spawn).
+   * `discover` — scan for fresh local analyzer JSON (assist after a prior run).
+   */
+  readonly mode?: "run" | "ingest" | "discover";
+  /** Absolute or workspace-relative path to existing stats JSON (`mode=ingest`). */
+  readonly reportPath?: string;
+  readonly packagePath?: string;
+  readonly scriptName?: string;
+  readonly timeoutMs?: number;
+  readonly heavyChunkBytes?: number;
+  readonly heavyModuleBytes?: number;
+};
+
 export type StartUtilityJobInput = {
   readonly kind: string;
   readonly packageId?: string;
@@ -65,6 +92,7 @@ export type StartUtilityJobInput = {
   readonly labels?: readonly string[];
   readonly onProgress?: (progress: UtilityJobProgress) => void;
   readonly lighthouse?: LighthouseJobOptions;
+  readonly bundleAnalyze?: BundleAnalyzeJobOptions;
 };
 
 /** Well-known P0 job: local echo ingest (no network). */
@@ -75,6 +103,9 @@ export const UTILITY_JOB_REMOTE_PROBE_STUB = "remote-probe-stub" as const;
 
 /** Well-known P1 job: opt-in Lighthouse / CWV (FE-01). */
 export const UTILITY_JOB_LIGHTHOUSE = "lighthouse" as const;
+
+/** Well-known M-050 job: consent-gated frontend bundle analyze. */
+export const UTILITY_JOB_BUNDLE_STATS = "bundle-stats" as const;
 
 export type UtilityJobService = {
   start(input: StartUtilityJobInput): Promise<Result<UtilityJob, PrismError>>;
@@ -92,7 +123,9 @@ function now(): string {
 
 function requiresConsent(kind: string): boolean {
   return (
-    kind === UTILITY_JOB_REMOTE_PROBE_STUB || kind === UTILITY_JOB_LIGHTHOUSE
+    kind === UTILITY_JOB_REMOTE_PROBE_STUB ||
+    kind === UTILITY_JOB_LIGHTHOUSE ||
+    kind === UTILITY_JOB_BUNDLE_STATS
   );
 }
 
@@ -686,6 +719,181 @@ export function createUtilityJobService(options: {
               phase: "ready",
               percent: 100,
               message: "CWV report ready",
+            },
+          };
+          put(job);
+          input.onProgress?.(job.progress!);
+          return ok(job);
+        }
+
+        if (kind === UTILITY_JOB_BUNDLE_STATS) {
+          emit(
+            {
+              phase: "callout",
+              percent: 15,
+              message: BUNDLE_WEIGHT_CALLOUT,
+              detail: bundleAnalyzeProgressDetail({
+                phase: "callout",
+                message: BUNDLE_WEIGHT_CALLOUT,
+              }),
+            },
+            "running",
+          );
+
+          const ba = input.bundleAnalyze ?? {};
+          const mode = ba.mode ?? (ba.reportPath ? "ingest" : "run");
+
+          emit(
+            {
+              phase: "analyzing",
+              percent: 35,
+              message:
+                mode === "ingest"
+                  ? "Parsing bundle stats…"
+                  : mode === "discover"
+                    ? "Discovering local analyze output…"
+                    : "Running local bundle analyze…",
+              detail: bundleAnalyzeProgressDetail({
+                phase: "analyzing",
+                ...(ba.packagePath === undefined
+                  ? {}
+                  : { packagePath: ba.packagePath }),
+              }),
+            },
+            "running",
+          );
+
+          const run = await runBundleAnalyze({
+            workspaceRoot: options.workspaceRoot,
+            ...(input.packageId === undefined
+              ? {}
+              : { packageId: input.packageId }),
+            ...(ba.packagePath === undefined
+              ? {}
+              : { packagePath: ba.packagePath }),
+            ...(ba.scriptName === undefined
+              ? {}
+              : { scriptName: ba.scriptName }),
+            mode,
+            ...(ba.reportPath === undefined
+              ? {}
+              : { reportPath: ba.reportPath }),
+            ...(ba.timeoutMs === undefined ? {} : { timeoutMs: ba.timeoutMs }),
+            onProgress: (message) => {
+              emit(
+                {
+                  phase: "analyzing",
+                  percent: 55,
+                  message: message.slice(0, 500),
+                  detail: bundleAnalyzeProgressDetail({
+                    phase: "analyzing",
+                    ...(ba.packagePath === undefined
+                      ? {}
+                      : { packagePath: ba.packagePath }),
+                    message: message.slice(0, 500),
+                  }),
+                },
+                "running",
+              );
+            },
+          });
+
+          const thresholds = {
+            ...(ba.heavyChunkBytes === undefined
+              ? {}
+              : { heavyChunkBytes: ba.heavyChunkBytes }),
+            ...(ba.heavyModuleBytes === undefined
+              ? {}
+              : { heavyModuleBytes: ba.heavyModuleBytes }),
+          };
+
+          let report;
+          if (run.parsed) {
+            report = buildBundleWeightReport({
+              parsed: run.parsed,
+              source: run.source,
+              build: {
+                bundler:
+                  run.bundler === "unknown" ? run.parsed.bundler : run.bundler,
+                mode: run.parsed.mode,
+                timestamp: new Date().toISOString(),
+                ...(run.packageName === undefined
+                  ? {}
+                  : { packageName: run.packageName }),
+                ...(input.packageId === undefined
+                  ? {}
+                  : { packageId: input.packageId }),
+                ...(run.scriptName === undefined
+                  ? {}
+                  : { scriptName: run.scriptName }),
+              },
+              thresholds,
+            });
+          } else {
+            // Persist an honest empty report so the UI can show unsupported state.
+            report = emptyUnsupportedBundleReport(
+              run.errorMessage ??
+                "Bundle analyze did not produce parsable stats.",
+              {
+                bundler: run.bundler,
+                ...(run.packageName === undefined
+                  ? {}
+                  : { packageName: run.packageName }),
+                ...(input.packageId === undefined
+                  ? {}
+                  : { packageId: input.packageId }),
+              },
+            );
+            // For mode=run, treat hard failures as job failure (no silent success).
+            if (mode === "run" && !run.parsed) {
+              return ok(
+                fail(
+                  "BUNDLE_ANALYZE_FAILED",
+                  run.errorMessage ??
+                    "Bundle analyze failed — no parsable stats produced.",
+                ),
+              );
+            }
+          }
+
+          const parsed = parseDto(BundleWeightReportSchema, report);
+          if (!parsed.ok) {
+            return ok(fail("BUNDLE_VALIDATION", parsed.message));
+          }
+
+          emit(
+            {
+              phase: "writing",
+              percent: 85,
+              message: "Persisting bundle-stats ingest artifact",
+            },
+            "running",
+          );
+
+          const written = await options.ingest.write({
+            kind: INGEST_KIND_BUNDLE_STATS,
+            payload: parsed.value as unknown as JsonValue,
+            sourceJobId: job.id,
+            ...(input.packageId === undefined
+              ? {}
+              : { packageId: input.packageId }),
+            labels: [...(input.labels ?? []), "m050", "bundle-weight"],
+          });
+          if (!written.ok) {
+            return ok(fail(written.error.code, written.error.message));
+          }
+
+          job = {
+            ...job,
+            status: "succeeded",
+            updatedAt: now(),
+            resultArtifactId: written.value.id,
+            progress: {
+              phase: "ready",
+              percent: 100,
+              message: run.parsed
+                ? `Bundle report ready · ${parsed.value.overview.chunkCount} chunk(s)`
+                : "Bundle report empty (unsupported / no stats)",
             },
           };
           put(job);

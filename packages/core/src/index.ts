@@ -28,6 +28,7 @@ export type {
   SymbolHit,
 } from "@prism/intelligence";
 export {
+  UTILITY_JOB_BUNDLE_STATS,
   UTILITY_JOB_ECHO,
   UTILITY_JOB_LIGHTHOUSE,
   UTILITY_JOB_REMOTE_PROBE_STUB,
@@ -36,6 +37,8 @@ export type {
   BackendReport,
   BlastRadiusReport,
   BreakingChangeHint,
+  BundleAnalyzeCapability,
+  BundleWeightReport,
   ChangeOrigin,
   ChangeReviewItem,
   ChangeReviewReport,

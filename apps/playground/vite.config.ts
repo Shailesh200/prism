@@ -533,6 +533,64 @@ async function loadLighthouseLab(
   return cwv.value;
 }
 
+async function loadBundleAnalyze(
+  root: string,
+  options?: {
+    mode?: "run" | "ingest" | "discover";
+    packageId?: string;
+    packagePath?: string;
+    scriptName?: string;
+    reportPath?: string;
+    onProgress?: (event: {
+      message: string;
+      detail?: import("@prism/shared").JsonValue;
+    }) => void;
+  },
+): Promise<import("@prism/shared").BundleWeightReport> {
+  const ws = await getIndexedWorkspace(root);
+  const mode = options?.mode ?? "run";
+  const job = await ws.startUtilityJob({
+    kind: "bundle-stats",
+    consentGranted: true,
+    ...(options?.packageId ? { packageId: options.packageId } : {}),
+    bundleAnalyze: {
+      mode,
+      ...(options?.packagePath ? { packagePath: options.packagePath } : {}),
+      ...(options?.scriptName ? { scriptName: options.scriptName } : {}),
+      ...(options?.reportPath ? { reportPath: options.reportPath } : {}),
+    },
+    ...(options?.onProgress
+      ? {
+          onProgress: (p) => {
+            const line = (p.message ?? p.phase).trim();
+            if (!line && p.detail === undefined) return;
+            options.onProgress!({
+              message: line || p.phase,
+              ...(p.detail !== undefined ? { detail: p.detail } : {}),
+            });
+          },
+        }
+      : {}),
+  });
+  if (!job.ok) {
+    throw new Error(`startUtilityJob failed: ${job.error.message}`);
+  }
+  if (job.value.status === "failed") {
+    throw new Error(
+      job.value.error?.message ?? "Bundle analyze failed (no artifact)",
+    );
+  }
+  const artifactId = job.value.resultArtifactId;
+  if (!artifactId) {
+    throw new Error("Bundle analyze produced no artifact");
+  }
+  const report = await ws.getBundleWeightReport(artifactId);
+  if (!report.ok) {
+    throw new Error(`getBundleWeightReport failed: ${report.error.message}`);
+  }
+  return report.value;
+}
+
 async function loadGraph(root: string): Promise<GraphSnapshotDto> {
   const ws = await getIndexedWorkspace(root);
   const result = ws.getDependencyGraph();
@@ -1068,6 +1126,89 @@ function prismMapApi(): Plugin {
                 ...(routes && routes.length > 0 ? { routes } : {}),
               });
               sendJson(res, 200, report);
+              return;
+            }
+
+            if (parsed.pathname === "/api/bundle-analyze") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const modeRaw = parsed.searchParams.get("mode");
+              const mode =
+                modeRaw === "ingest" || modeRaw === "discover"
+                  ? modeRaw
+                  : "run";
+              const packageId =
+                parsed.searchParams.get("packageId") ?? undefined;
+              const packagePath =
+                parsed.searchParams.get("packagePath") ?? undefined;
+              const scriptName =
+                parsed.searchParams.get("scriptName") ?? undefined;
+              const reportPath =
+                parsed.searchParams.get("reportPath") ?? undefined;
+              const stream = parsed.searchParams.get("stream") === "1";
+              if (stream) {
+                res.statusCode = 200;
+                res.setHeader(
+                  "Content-Type",
+                  "application/x-ndjson; charset=utf-8",
+                );
+                res.setHeader("Cache-Control", "no-cache");
+                const writeLine = (obj: unknown): void => {
+                  res.write(`${JSON.stringify(obj)}\n`);
+                };
+                try {
+                  const report = await loadBundleAnalyze(root, {
+                    mode,
+                    ...(packageId ? { packageId } : {}),
+                    ...(packagePath ? { packagePath } : {}),
+                    ...(scriptName ? { scriptName } : {}),
+                    ...(reportPath ? { reportPath } : {}),
+                    onProgress: (event) =>
+                      writeLine({
+                        type: "progress",
+                        message: event.message,
+                        ...(event.detail !== undefined
+                          ? { detail: event.detail }
+                          : {}),
+                      }),
+                  });
+                  writeLine({ type: "report", report });
+                } catch (err: unknown) {
+                  writeLine({
+                    type: "error",
+                    error: err instanceof Error ? err.message : String(err),
+                  });
+                }
+                res.end();
+                return;
+              }
+              const report = await loadBundleAnalyze(root, {
+                mode,
+                ...(packageId ? { packageId } : {}),
+                ...(packagePath ? { packagePath } : {}),
+                ...(scriptName ? { scriptName } : {}),
+                ...(reportPath ? { reportPath } : {}),
+              });
+              sendJson(res, 200, report);
+              return;
+            }
+
+            if (parsed.pathname === "/api/detect-bundle-analyze") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const packageId =
+                parsed.searchParams.get("packageId") ?? undefined;
+              const ws = await getIndexedWorkspace(root);
+              const cap = ws.detectBundleAnalyzeCapability(
+                packageId ? { packageId } : undefined,
+              );
+              if (!cap.ok) {
+                sendJson(res, 500, { error: cap.error.message });
+                return;
+              }
+              sendJson(res, 200, cap.value);
               return;
             }
 

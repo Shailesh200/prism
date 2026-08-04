@@ -98,13 +98,41 @@ export {
 export { createConsentStore, type ConsentStore } from "./utilities/consent.js";
 export {
   createUtilityJobService,
+  UTILITY_JOB_BUNDLE_STATS,
   UTILITY_JOB_ECHO,
   UTILITY_JOB_LIGHTHOUSE,
   UTILITY_JOB_REMOTE_PROBE_STUB,
+  type BundleAnalyzeJobOptions,
   type LighthouseJobOptions,
   type StartUtilityJobInput,
   type UtilityJobService,
 } from "./utilities/jobs.js";
+export {
+  detectBundleAnalyzeCapability,
+  discoverFreshBundleStatsFiles,
+} from "./utilities/bundle-detect.js";
+export {
+  parseBundleStatsJson,
+  parseEsbuildMetafile,
+  parseNextAnalyze,
+  parseRollupVisualizer,
+  parseWebpackStats,
+} from "./utilities/bundle-parsers.js";
+export {
+  BUNDLE_WEIGHT_CALLOUT,
+  DEFAULT_BUNDLE_THRESHOLDS,
+  buildBundleWeightReport,
+  emptyUnsupportedBundleReport,
+  formatBytes,
+} from "./utilities/bundle-weight.js";
+export {
+  getBundleWeightReport,
+  INGEST_KIND_BUNDLE_STATS,
+} from "./utilities/bundle-weight-from-artifact.js";
+export {
+  DEFAULT_BUNDLE_ANALYZE_TIMEOUT_MS,
+  runBundleAnalyze,
+} from "./utilities/bundle-analyze-runner.js";
 export {
   ensureLighthouseCli,
   isNonAppLabServer,

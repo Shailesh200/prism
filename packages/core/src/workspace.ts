@@ -20,6 +20,8 @@ import {
   findReferences as queryReferences,
   findSymbol as querySymbols,
   getCwvReport as loadCwvReport,
+  getBundleWeightReport as loadBundleWeightReport,
+  detectBundleAnalyzeCapability as detectBundleAnalyzeCapabilityImpl,
   discoverFrontendAppRoutes,
   ingestCoverageFromWorkspace,
   listUtilityOverlayKinds as catalogUtilityOverlayKinds,
@@ -68,6 +70,8 @@ import {
   type BlastRadiusReport,
   type BreakingChangeHint,
   type BackendReport,
+  type BundleAnalyzeCapability,
+  type BundleWeightReport,
   type ChangeReviewItem,
   type ChangeReviewReport,
   type CodeExplorerReport,
@@ -331,6 +335,17 @@ export type PrismWorkspace = {
   getIngestArtifact(id: string): Promise<Result<IngestArtifact, PrismError>>;
   /** Load a lighthouse-cwv ingest artifact as a typed CWV report (M-041 P1). */
   getCwvReport(artifactId: string): Promise<Result<CwvReport, PrismError>>;
+  /**
+   * Detect analyze scripts / Next·Vite·Webpack stacks for Bundle Weight (M-050).
+   * Pure FS — no builds, no network.
+   */
+  detectBundleAnalyzeCapability(options?: {
+    packageId?: string;
+  }): Result<BundleAnalyzeCapability, PrismError>;
+  /** Load a bundle-stats ingest artifact as BundleWeightReport (M-050). */
+  getBundleWeightReport(
+    artifactId: string,
+  ): Promise<Result<BundleWeightReport, PrismError>>;
   /**
    * Discover frontend URL paths for lab Routes UI (Next pages + React Router /
    * SEO path literals under the workspace).
@@ -1128,6 +1143,23 @@ export function createWorkspace(options: {
       const session = ensureUtilities();
       if (!session.ok) return session;
       return loadCwvReport(session.value.ingest, artifactId);
+    },
+    detectBundleAnalyzeCapability(options) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      return ok(
+        detectBundleAnalyzeCapabilityImpl(
+          rootPath,
+          options?.packageId === undefined
+            ? undefined
+            : { packageId: options.packageId },
+        ),
+      );
+    },
+    async getBundleWeightReport(artifactId) {
+      const session = ensureUtilities();
+      if (!session.ok) return session;
+      return loadBundleWeightReport(session.value.ingest, artifactId);
     },
     discoverFrontendRoutes() {
       const gate = ensureOpen();

@@ -26,7 +26,7 @@ export const DOMAIN_CATALOG: readonly DomainCatalogEntry[] = [
     label: "Web · Frontend",
     shortLabel: "Frontend",
     description:
-      "Core Web Vitals and frontend performance surface (local lab / CWV report).",
+      "Core Web Vitals lab and Bundle / Weight (local analyze · real bundler stats).",
     icon: Monitor,
   },
   {

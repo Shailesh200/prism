@@ -4,10 +4,19 @@ export const PACKAGE_NAME = "@prism/app-shell" as const;
 
 export type {
   AppShellClient,
+  BundleAnalyzeOptions,
+  BundleAnalyzeProgressEvent,
   LighthouseLabOptions,
   LighthouseLabProgressEvent,
   StageDevopsRemoteResult,
 } from "./client.js";
+export { BundleWeightPanel } from "./BundleWeightPanel.js";
+export type {
+  BundleWeightPanelHandle,
+  BundleWeightPanelProps,
+} from "./BundleWeightPanel.js";
+export { BundleTreemap } from "./BundleTreemap.js";
+export type { BundleTreemapProps, TreemapDatum } from "./BundleTreemap.js";
 export { AppShellClientProvider, useAppShellClient } from "./client-context.js";
 export { isBrowserShell } from "./is-browser.js";
 export { shellNavVariant, shellRootClass } from "./shell-layout.js";

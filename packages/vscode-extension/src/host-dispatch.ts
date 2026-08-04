@@ -349,6 +349,37 @@ export async function dispatchHostRequest(
         data: result.value,
       };
     }
+    case "detectBundleAnalyze": {
+      const result = await session.detectBundleAnalyzeCapability(
+        req.packageId ? { packageId: req.packageId } : undefined,
+      );
+      if (!result.ok)
+        return { id: req.id, ok: false, error: result.error.message };
+      return {
+        id: req.id,
+        ok: true,
+        method: "detectBundleAnalyze",
+        data: result.value,
+      };
+    }
+    case "bundleAnalyze": {
+      const result = await session.runBundleAnalyze({
+        ...(req.mode ? { mode: req.mode } : {}),
+        ...(req.packageId ? { packageId: req.packageId } : {}),
+        ...(req.packagePath ? { packagePath: req.packagePath } : {}),
+        ...(req.scriptName ? { scriptName: req.scriptName } : {}),
+        ...(req.reportPath ? { reportPath: req.reportPath } : {}),
+        ...(options.onProgress ? { onProgress: options.onProgress } : {}),
+      });
+      if (!result.ok)
+        return { id: req.id, ok: false, error: result.error.message };
+      return {
+        id: req.id,
+        ok: true,
+        method: "bundleAnalyze",
+        data: result.value,
+      };
+    }
     case "frontendRoutes": {
       const result = session.discoverFrontendRoutes();
       if (!result.ok)

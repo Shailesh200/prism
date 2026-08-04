@@ -110,6 +110,14 @@ export function handleHostMessage(msg: HostToWebview): void {
     });
     return;
   }
+  if ("type" in msg && msg.type === "bundleAnalyzeProgress") {
+    const wait = pending.get(msg.id);
+    wait?.onProgress?.({
+      message: msg.message,
+      ...(msg.detail !== undefined ? { detail: msg.detail } : {}),
+    });
+    return;
+  }
   if (!("id" in msg) || typeof (msg as HostResponse).id !== "string") return;
   const res = msg as HostResponse;
   const wait = pending.get(res.id);
@@ -672,6 +680,69 @@ export async function runLighthouseLab(options?: {
       return {
         status: "success",
         output: `source=${data.source} metrics=${data.metrics.length}`,
+      };
+    },
+  );
+}
+
+export async function detectBundleAnalyzeCapability(options?: {
+  packageId?: string;
+}): Promise<import("@prism/shared").BundleAnalyzeCapability> {
+  const res = await request({
+    method: "detectBundleAnalyze",
+    ...(options?.packageId ? { packageId: options.packageId } : {}),
+  });
+  if (!res.ok) throw new Error(res.error);
+  if (res.method !== "detectBundleAnalyze")
+    throw new Error("Unexpected response");
+  return res.data;
+}
+
+export async function runBundleAnalyze(options?: {
+  mode?: "run" | "ingest" | "discover";
+  packageId?: string;
+  packagePath?: string;
+  scriptName?: string;
+  reportPath?: string;
+  onProgress?: (event: { message: string }) => void;
+}): Promise<import("@prism/shared").BundleWeightReport | null> {
+  return withAudit(
+    {
+      category: "integration",
+      operation: "Bundle Weight analyze",
+      target: TARGET,
+      command: `host:bundleAnalyze mode=${options?.mode ?? "run"}`,
+    },
+    async () => {
+      const res = await request(
+        {
+          method: "bundleAnalyze",
+          ...(options?.mode ? { mode: options.mode } : {}),
+          ...(options?.packageId ? { packageId: options.packageId } : {}),
+          ...(options?.packagePath ? { packagePath: options.packagePath } : {}),
+          ...(options?.scriptName ? { scriptName: options.scriptName } : {}),
+          ...(options?.reportPath ? { reportPath: options.reportPath } : {}),
+        },
+        options?.onProgress
+          ? {
+              onProgress: (raw) => {
+                options.onProgress!({ message: raw.message });
+              },
+            }
+          : undefined,
+      );
+      if (!res.ok) throw new Error(res.error);
+      if (res.method !== "bundleAnalyze")
+        throw new Error("Unexpected response");
+      return res.data;
+    },
+    (data) => {
+      if (!data) {
+        return { status: "error", output: "Bundle analyze failed." };
+      }
+      return {
+        status: "success",
+        output: `chunks=${data.overview.chunkCount} total=${data.overview.totalRaw}`,
       };
     },
   );

@@ -22,7 +22,9 @@ import {
   AlertTriangle,
   AppWindow,
   ArrowLeft,
+  Boxes,
   Cloud,
+  ChevronRight,
   Database,
   ExternalLink,
   ChevronDown,
@@ -32,8 +34,10 @@ import {
   Flame,
   Layers,
   ListChecks,
+  Loader2,
   Monitor,
   Network,
+  Package,
   Play,
   Plug,
   Plus,
@@ -49,12 +53,16 @@ import {
   Workflow,
   X,
 } from "lucide-react";
-import type { ComponentType, ReactElement } from "react";
+import type { ComponentType, ReactElement, RefObject } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppSidebar, type AppSidebarUser, type AppView } from "./AppSidebar.js";
 import { Avatar } from "./Avatar.js";
 import { shellNavVariant, shellRootClass } from "./shell-layout.js";
 import { useAppShellClient } from "./client-context.js";
+import {
+  BundleWeightPanel,
+  type BundleWeightPanelHandle,
+} from "./BundleWeightPanel.js";
 import {
   LIGHTHOUSE_CATEGORIES,
   cwvReportFromLighthouseJson,
@@ -195,10 +203,10 @@ const DOMAINS: Record<string, DomainDef> = {
     kind: null,
     surfaceLabel: "Performance Surface",
     description:
-      "Runs a local Lighthouse lab to capture Core Web Vitals and attribute them to frontend regions.",
-    sources: "local Lighthouse run or an imported CWV report",
+      "Runs a local Lighthouse lab to capture Core Web Vitals and a consent-gated Bundle Weight analyze for chunk/module sizes.",
+    sources: "local Lighthouse run, imported CWV report, or local bundle stats",
     labNote:
-      "Runs a real local Lighthouse lab via Core. Requires Chrome/Chromium and a locally served app — never shows sample numbers.",
+      "Runs a real local Lighthouse lab via Core. Requires Chrome/Chromium and a locally served app — never shows sample numbers. Bundle Weight runs separately with Analyze in the Bundle / Weight section.",
   },
 };
 
@@ -633,10 +641,19 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
     null,
   );
   const labMeasuringRef = useRef<string | null>(null);
-  const [labMenuOpen, setLabMenuOpen] = useState(false);
+  /** Which section route-Analyze menu is open (`cwv` | `lh`). */
+  const [labMenuOpen, setLabMenuOpen] = useState<"cwv" | "lh" | null>(null);
+  const [topAnalyzeMenuOpen, setTopAnalyzeMenuOpen] = useState(false);
   const [labSelectMode, setLabSelectMode] = useState(false);
   const [selectedLabRoutes, setSelectedLabRoutes] = useState<string[]>([]);
-  const labMenuRef = useRef<HTMLDivElement | null>(null);
+  const cwvLabMenuRef = useRef<HTMLDivElement | null>(null);
+  const lhLabMenuRef = useRef<HTMLDivElement | null>(null);
+  const topAnalyzeMenuRef = useRef<HTMLDivElement | null>(null);
+  const bundlePanelRef = useRef<BundleWeightPanelHandle | null>(null);
+  const [bundleBusy, setBundleBusy] = useState(false);
+  const [cwvAccOpen, setCwvAccOpen] = useState(true);
+  const [lhAccOpen, setLhAccOpen] = useState(true);
+  const [bundleAccOpen, setBundleAccOpen] = useState(true);
   const [insightFilter, setInsightFilter] = useState<string | null>(null);
   const [pagespeedUrl, setPagespeedUrl] = useState("https://example.com");
   const [pagespeedBusy, setPagespeedBusy] = useState(false);
@@ -1657,16 +1674,24 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
   }, [cwvSettingsOpen]);
 
   useEffect(() => {
-    if (!labMenuOpen) return;
+    if (!labMenuOpen && !topAnalyzeMenuOpen) return;
     const onPointerDown = (event: MouseEvent): void => {
-      const root = labMenuRef.current;
-      if (!root) return;
-      if (event.target instanceof Node && !root.contains(event.target)) {
-        setLabMenuOpen(false);
-      }
+      const roots = [
+        cwvLabMenuRef.current,
+        lhLabMenuRef.current,
+        topAnalyzeMenuRef.current,
+      ];
+      const t = event.target;
+      if (!(t instanceof Node)) return;
+      if (roots.some((r) => r?.contains(t))) return;
+      setLabMenuOpen(null);
+      setTopAnalyzeMenuOpen(false);
     };
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") setLabMenuOpen(false);
+      if (event.key === "Escape") {
+        setLabMenuOpen(null);
+        setTopAnalyzeMenuOpen(false);
+      }
     };
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("keydown", onKey);
@@ -1674,7 +1699,7 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [labMenuOpen]);
+  }, [labMenuOpen, topAnalyzeMenuOpen]);
 
   /** Real Lighthouse unavailable — never invent sample numbers. */
   const applyNoLabAvailable = (reason: string): void => {
@@ -1706,7 +1731,8 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
     setRouteLabLogs({});
     setLabMeasuringRoute(null);
     labMeasuringRef.current = null;
-    setLabMenuOpen(false);
+    setLabMenuOpen(null);
+    setTopAnalyzeMenuOpen(false);
     setLabSelectMode(false);
     // Clear prior tiles / breakdown so re-run doesn't show stale numbers.
     setCwvLocal(null);
@@ -1782,6 +1808,99 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
       setLabBusy(false);
     }
   };
+
+  const openLabRouteSelect = (source: "cwv" | "lh"): void => {
+    setLabMenuOpen(null);
+    setTopAnalyzeMenuOpen(false);
+    setLabSelectMode(true);
+    // Route picker lives under Core Web Vitals; open that accordion, and keep
+    // Lighthouse open when the pick was started from there.
+    setCwvAccOpen(true);
+    if (source === "lh") setLhAccOpen(true);
+    setSelectedLabRoutes((prev) =>
+      prev.length > 0
+        ? prev
+        : frontendRoutes.includes("/")
+          ? ["/"]
+          : frontendRoutes.slice(0, 1),
+    );
+  };
+
+  const runBundleAnalyzeFromPanel = async (): Promise<void> => {
+    setTopAnalyzeMenuOpen(false);
+    setLabMenuOpen(null);
+    setBundleAccOpen(true);
+    setBundleBusy(true);
+    try {
+      await bundlePanelRef.current?.runAnalyze();
+    } finally {
+      setBundleBusy(false);
+    }
+  };
+
+  /** Sequential: local lab (all routes) then Bundle Analyze. */
+  const runAnalyseEverything = async (): Promise<void> => {
+    setTopAnalyzeMenuOpen(false);
+    setCwvAccOpen(true);
+    setLhAccOpen(true);
+    setBundleAccOpen(true);
+    await runLocalLab(frontendRoutes);
+    await runBundleAnalyzeFromPanel();
+  };
+
+  const frontendBusy = labBusy || bundleBusy;
+
+  const renderRouteAnalyzeMenu = (
+    section: "cwv" | "lh",
+    menuRef: RefObject<HTMLDivElement | null>,
+  ): ReactElement => (
+    <div className="dm-lab-menu" ref={menuRef}>
+      <button
+        type="button"
+        className="ov-btn ov-btn--primary"
+        disabled={frontendBusy}
+        aria-expanded={labMenuOpen === section}
+        aria-haspopup="menu"
+        onClick={() => {
+          setTopAnalyzeMenuOpen(false);
+          setLabMenuOpen((v) => (v === section ? null : section));
+        }}
+      >
+        {labBusy ? (
+          <Loader2 size={13} aria-hidden className="bw-spin" />
+        ) : (
+          <FlaskConical size={13} aria-hidden />
+        )}
+        {labBusy ? "Analyzing…" : "Analyze"}
+        <ChevronDown size={13} aria-hidden />
+      </button>
+      {labMenuOpen === section && !frontendBusy ? (
+        <div className="dm-lab-menu__pop" role="menu">
+          <button
+            type="button"
+            className="dm-lab-menu__item"
+            role="menuitem"
+            onClick={() => void runLocalLab(frontendRoutes)}
+          >
+            <ListChecks size={14} aria-hidden />
+            Analyse all routes
+            <span className="dm-lab-menu__meta">
+              {frontendRoutes.length} listed
+            </span>
+          </button>
+          <button
+            type="button"
+            className="dm-lab-menu__item"
+            role="menuitem"
+            onClick={() => openLabRouteSelect(section)}
+          >
+            <FlaskConical size={14} aria-hidden />
+            Analyse selected routes…
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
 
   const onImportCwv = (file: File | undefined): void => {
     if (!file) return;
@@ -2062,36 +2181,53 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
               Back to Domains
             </button>
             {isFrontend ? (
-              <div className="dm-lab-menu" ref={labMenuRef}>
+              <div className="dm-lab-menu" ref={topAnalyzeMenuRef}>
                 <button
                   type="button"
                   className="ov-btn ov-btn--primary"
-                  disabled={labBusy}
-                  aria-expanded={labMenuOpen}
+                  disabled={frontendBusy}
+                  aria-expanded={topAnalyzeMenuOpen}
                   aria-haspopup="menu"
                   title={def.labNote}
-                  onClick={() => setLabMenuOpen((v) => !v)}
+                  onClick={() => {
+                    setLabMenuOpen(null);
+                    setTopAnalyzeMenuOpen((v) => !v);
+                  }}
                 >
-                  <FlaskConical size={13} aria-hidden />
-                  {labBusy
-                    ? "Running…"
-                    : cwvLocal
-                      ? "Run analysis"
-                      : "Run analysis"}
+                  {frontendBusy ? (
+                    <Loader2 size={13} aria-hidden className="bw-spin" />
+                  ) : (
+                    <FlaskConical size={13} aria-hidden />
+                  )}
+                  {frontendBusy ? "Analyzing…" : "Analyze"}
                   <ChevronDown size={13} aria-hidden />
                 </button>
-                {labMenuOpen && !labBusy ? (
+                {topAnalyzeMenuOpen && !frontendBusy ? (
                   <div className="dm-lab-menu__pop" role="menu">
                     <button
                       type="button"
                       className="dm-lab-menu__item"
                       role="menuitem"
-                      onClick={() => void runLocalLab(frontendRoutes)}
+                      onClick={() => void runAnalyseEverything()}
                     >
                       <ListChecks size={14} aria-hidden />
-                      Run analysis for all routes
+                      Analyse Everything
+                      <span className="dm-lab-menu__meta">lab + bundle</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="dm-lab-menu__item"
+                      role="menuitem"
+                      onClick={() => {
+                        setTopAnalyzeMenuOpen(false);
+                        setCwvAccOpen(true);
+                        void runLocalLab(frontendRoutes);
+                      }}
+                    >
+                      <Activity size={14} aria-hidden />
+                      Analyse CWV
                       <span className="dm-lab-menu__meta">
-                        {frontendRoutes.length} listed
+                        {frontendRoutes.length} routes
                       </span>
                     </button>
                     <button
@@ -2099,19 +2235,25 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                       className="dm-lab-menu__item"
                       role="menuitem"
                       onClick={() => {
-                        setLabMenuOpen(false);
-                        setLabSelectMode(true);
-                        setSelectedLabRoutes((prev) =>
-                          prev.length > 0
-                            ? prev
-                            : frontendRoutes.includes("/")
-                              ? ["/"]
-                              : frontendRoutes.slice(0, 1),
-                        );
+                        setTopAnalyzeMenuOpen(false);
+                        setLhAccOpen(true);
+                        void runLocalLab(frontendRoutes);
                       }}
                     >
-                      <FlaskConical size={14} aria-hidden />
-                      Run analysis for selected routes…
+                      <Monitor size={14} aria-hidden />
+                      Analyse Lighthouse
+                      <span className="dm-lab-menu__meta">
+                        {frontendRoutes.length} routes
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="dm-lab-menu__item"
+                      role="menuitem"
+                      onClick={() => void runBundleAnalyzeFromPanel()}
+                    >
+                      <Boxes size={14} aria-hidden />
+                      Analyse Bundle
                     </button>
                   </div>
                 ) : null}
@@ -2169,726 +2311,876 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                 </div>
               ) : null}
 
-              <section className="cwv">
-                <div className="cwv__bar">
-                  <h2 className="cwv__h">
-                    Core Web Vitals
-                    <InfoTip label="Core Web Vitals">
-                      Lab or imported Lighthouse metrics (LCP, INP, CLS, FCP,
-                      TTFB). Prism never fabricates field data — numbers come
-                      from a local lab run, imported JSON, or opt-in PageSpeed.
-                    </InfoTip>
-                  </h2>
-                  <div className="cwv__settings" ref={cwvSettingsRef}>
-                    <button
-                      type="button"
-                      className="dm-iconbtn"
-                      aria-label="CWV source settings"
-                      aria-expanded={cwvSettingsOpen}
-                      title="CWV source settings"
-                      onClick={() => setCwvSettingsOpen((v) => !v)}
-                    >
-                      <Settings size={15} aria-hidden />
-                    </button>
-                    {cwvSettingsOpen ? (
-                      <div
-                        className="dm-popover"
-                        role="dialog"
-                        aria-label="CWV source"
-                      >
-                        <div className="dm-popover__h">CWV source</div>
-                        <Select
-                          aria-label="CWV data source"
-                          value={cwvSource}
-                          onChange={(v) => setCwvSource(v as CwvSource)}
-                          options={[
-                            { value: "local", label: "Local lab / import" },
-                            {
-                              value: "pagespeed",
-                              label: "PageSpeed Insights",
-                            },
-                          ]}
-                        />
-                        <p className="dm-popover__note">
-                          {pagespeedEnabled
-                            ? "PageSpeed runs a network fetch only when selected."
-                            : "PageSpeed needs an API key in Integrations + network enabled in Settings."}
-                        </p>
-                        {!pagespeedEnabled ? (
-                          <button
-                            type="button"
-                            className="ov-btn ov-btn--ghost dm-popover__link"
-                            onClick={() => props.onNavigate("integrations")}
-                          >
-                            <ExternalLink size={13} aria-hidden />
-                            Open Integrations
-                          </button>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="cwv__grid">
-                  {CWV_METRICS.map((m) => {
-                    const local = metricFor(cwvLocal, m.id);
-                    const remote = metricFor(cwvPagespeed, m.id);
-                    const primary =
-                      cwvSource === "pagespeed"
-                        ? (remote ?? local)
-                        : (local ?? remote);
-                    const tbtFallback =
-                      m.id === "INP" &&
-                      !primary &&
-                      cwvTbtMs !== null &&
-                      cwvSource !== "pagespeed";
-                    const displayRating = tbtFallback
-                      ? scoreRating(
-                          cwvTbtMs! <= 200 ? 1 : cwvTbtMs! <= 600 ? 0.6 : 0.3,
-                        )
-                      : primary?.rating;
-                    const displayValue = tbtFallback
-                      ? cwvTbtMs! >= 1000
-                        ? `${(cwvTbtMs! / 1000).toFixed(2)}s`
-                        : `${Math.round(cwvTbtMs!)}ms`
-                      : primary
-                        ? formatCwvValue(primary)
-                        : "—";
-                    return (
-                      <article
-                        key={m.id}
-                        className={`cwv-tile${insightFilter === m.id ? " cwv-tile--active" : ""}`}
-                        title={m.name}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() =>
-                          setInsightFilter((cur) =>
-                            cur === m.id ? null : m.id,
-                          )
-                        }
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            setInsightFilter((cur) =>
-                              cur === m.id ? null : m.id,
-                            );
-                          }
-                        }}
-                      >
-                        <div className="cwv-tile__head">
-                          <span className="cwv-tile__k">
-                            {m.id}
-                            <InfoTip label={m.name}>
-                              {m.desc} Good {m.goodLabel}; poor {m.poorLabel}.
-                              {m.id === "INP"
-                                ? " Lab runs often omit INP (needs real interactions); TBT is shown as a lab proxy when available."
-                                : ""}
-                            </InfoTip>
-                          </span>
-                          <span
-                            className={`cwv-tile__badge ${ratingClass(displayRating)}`}
-                          >
-                            {tbtFallback
-                              ? "Lab proxy"
-                              : ratingLabel(displayRating)}
-                          </span>
-                        </div>
-                        <div
-                          className={`cwv-tile__v ${ratingClass(displayRating)}`}
-                        >
-                          {displayValue}
-                        </div>
-                        {tbtFallback ? (
-                          <div className="cwv-tile__hint">
-                            TBT (lab proxy · not field INP)
-                          </div>
-                        ) : local && remote ? (
-                          <div className="cwv-tile__hint">
-                            Local {formatCwvValue(local)} · PageSpeed{" "}
-                            {formatCwvValue(remote)}
-                          </div>
-                        ) : (
-                          <div className="cwv-tile__hint">
-                            Good {m.goodLabel} · Poor {m.poorLabel}
-                          </div>
-                        )}
-                        <div className="cwv-tile__band" aria-hidden>
-                          <span className="cwv-tile__seg cwv-tile__seg--good" />
-                          <span className="cwv-tile__seg cwv-tile__seg--warn" />
-                          <span className="cwv-tile__seg cwv-tile__seg--poor" />
-                        </div>
-                      </article>
-                    );
-                  })}
-                  {cwvTbtMs !== null && metricFor(cwvPrimaryReport, "INP") ? (
-                    <article className="cwv-tile" title="Total Blocking Time">
-                      <div className="cwv-tile__head">
-                        <span className="cwv-tile__k">
-                          TBT
-                          <InfoTip label="Total Blocking Time">
-                            {TBT_DESC}
-                          </InfoTip>
-                        </span>
-                        <span
-                          className={`cwv-tile__badge ${ratingClass(scoreRating(cwvTbtMs <= 200 ? 1 : cwvTbtMs <= 600 ? 0.6 : 0.3))}`}
-                        >
-                          Lab
-                        </span>
-                      </div>
-                      <div className="cwv-tile__v">
-                        {cwvTbtMs >= 1000
-                          ? `${(cwvTbtMs / 1000).toFixed(2)}s`
-                          : `${Math.round(cwvTbtMs)}ms`}
-                      </div>
-                      <div className="cwv-tile__hint">
-                        From Lighthouse audit
-                      </div>
-                    </article>
-                  ) : null}
-                </div>
-
-                <p className="cwv-trust">
-                  Lab scores from local Chrome / Lighthouse — each run takes the
-                  median of 3 mobile-simulated passes (more stable LCP).
-                  Reliable for load triage (LCP, CLS, FCP, TTFB, categories).
-                  Field INP / CrUX needs PageSpeed or real-user data; lab INP is
-                  often empty and TBT is used as a proxy.
-                </p>
-
-                {(insightGroups.pain.length > 0 ||
-                  insightGroups.improve.length > 0 ||
-                  insightGroups.good.length > 0) && (
-                  <div className="cwv-insights">
-                    <div className="cwv-insights__h">
-                      Metric breakdown
-                      {insightFilter ? (
-                        <button
-                          type="button"
-                          className="dm-linkbtn"
-                          onClick={() => setInsightFilter(null)}
-                        >
-                          Clear {insightFilter} filter
-                        </button>
+              <section className="ov-card ts-acc" aria-label="Core Web Vitals">
+                <div className="ts-acc__header">
+                  <button
+                    type="button"
+                    className="ts-acc__trigger"
+                    aria-expanded={cwvAccOpen}
+                    onClick={() => setCwvAccOpen((v) => !v)}
+                  >
+                    <span className="ts-acc__chevron" aria-hidden>
+                      {cwvAccOpen ? (
+                        <ChevronDown size={16} />
                       ) : (
-                        <span className="cwv-insights__hint">
-                          Click a CWV tile to filter
-                        </span>
+                        <ChevronRight size={16} />
                       )}
-                    </div>
-                    <div className="cwv-insights__grid">
-                      {(
-                        [
-                          ["pain", "Pain areas", insightGroups.pain],
-                          ["improve", "Needs work", insightGroups.improve],
-                          ["good", "Good", insightGroups.good],
-                        ] as const
-                      ).map(([key, label, items]) => (
-                        <div
-                          key={key}
-                          className={`cwv-insights__col cwv-insights__col--${key}`}
-                        >
-                          <div className="cwv-insights__col-h">
-                            <span>{label}</span>
-                            <span className="cwv-insights__count">
-                              {items.length}
-                            </span>
-                          </div>
-                          {items.length === 0 ? (
-                            <p className="dm-note">None in this band.</p>
-                          ) : (
-                            <ul className="cwv-insights__list">
-                              {items.slice(0, 8).map((i) => (
-                                <li key={i.id} className="cwv-insights__item">
-                                  {i.metricId ? (
-                                    <span className="cwv-insights__metric">
-                                      {i.metricId}
-                                    </span>
-                                  ) : null}
-                                  <span className="cwv-insights__item-title">
-                                    {i.title}
-                                  </span>
-                                  {i.detail ? (
-                                    <span className="cwv-insights__item-detail">
-                                      {i.detail}
-                                    </span>
-                                  ) : null}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {frontendCategories.length > 0 ? (
-                  <div className="dm-cats">
-                    <div className="dm-cats__h">
-                      Lighthouse categories
-                      <InfoTip label="Lighthouse categories">
-                        Category scores (0–100) from the Lighthouse report —
-                        performance, accessibility, best practices, and SEO.
+                    </span>
+                    <h2 className="ts-head__title">
+                      <CardIcon icon={Activity} tone="brand" size={18} />
+                      Core Web Vitals
+                      <InfoTip label="Core Web Vitals">
+                        Lab or imported Lighthouse metrics (LCP, INP, CLS, FCP,
+                        TTFB). Prism never fabricates field data — numbers come
+                        from a local lab run, imported JSON, or opt-in
+                        PageSpeed.
                       </InfoTip>
+                    </h2>
+                  </button>
+                  <div className="ts-acc__actions">
+                    <div className="cwv__settings" ref={cwvSettingsRef}>
+                      <button
+                        type="button"
+                        className="dm-iconbtn"
+                        aria-label="CWV source settings"
+                        aria-expanded={cwvSettingsOpen}
+                        title="CWV source settings"
+                        onClick={() => setCwvSettingsOpen((v) => !v)}
+                      >
+                        <Settings size={15} aria-hidden />
+                      </button>
+                      {cwvSettingsOpen ? (
+                        <div
+                          className="dm-popover"
+                          role="dialog"
+                          aria-label="CWV source"
+                        >
+                          <div className="dm-popover__h">CWV source</div>
+                          <Select
+                            aria-label="CWV data source"
+                            value={cwvSource}
+                            onChange={(v) => setCwvSource(v as CwvSource)}
+                            options={[
+                              { value: "local", label: "Local lab / import" },
+                              {
+                                value: "pagespeed",
+                                label: "PageSpeed Insights",
+                              },
+                            ]}
+                          />
+                          <p className="dm-popover__note">
+                            {pagespeedEnabled
+                              ? "PageSpeed runs a network fetch only when selected."
+                              : "PageSpeed needs an API key in Integrations + network enabled in Settings."}
+                          </p>
+                          {!pagespeedEnabled ? (
+                            <button
+                              type="button"
+                              className="ov-btn ov-btn--ghost dm-popover__link"
+                              onClick={() => props.onNavigate("integrations")}
+                            >
+                              <ExternalLink size={13} aria-hidden />
+                              Open Integrations
+                            </button>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
-                    <div className="dm-cats__grid">
-                      {frontendCategories.map((c) => {
-                        const rating = scoreRating(c.score);
+                    {renderRouteAnalyzeMenu("cwv", cwvLabMenuRef)}
+                  </div>
+                </div>
+
+                {cwvAccOpen ? (
+                  <div className="ts-acc__body">
+                    <div className="cwv__grid">
+                      {CWV_METRICS.map((m) => {
+                        const local = metricFor(cwvLocal, m.id);
+                        const remote = metricFor(cwvPagespeed, m.id);
+                        const primary =
+                          cwvSource === "pagespeed"
+                            ? (remote ?? local)
+                            : (local ?? remote);
+                        const tbtFallback =
+                          m.id === "INP" &&
+                          !primary &&
+                          cwvTbtMs !== null &&
+                          cwvSource !== "pagespeed";
+                        const displayRating = tbtFallback
+                          ? scoreRating(
+                              cwvTbtMs! <= 200
+                                ? 1
+                                : cwvTbtMs! <= 600
+                                  ? 0.6
+                                  : 0.3,
+                            )
+                          : primary?.rating;
+                        const displayValue = tbtFallback
+                          ? cwvTbtMs! >= 1000
+                            ? `${(cwvTbtMs! / 1000).toFixed(2)}s`
+                            : `${Math.round(cwvTbtMs!)}ms`
+                          : primary
+                            ? formatCwvValue(primary)
+                            : "—";
                         return (
-                          <article key={c.id} className="dm-cat">
-                            <div className="dm-cat__k">
-                              {c.label}
-                              <InfoTip label={c.label}>{c.desc}</InfoTip>
-                            </div>
-                            <div className={`dm-cat__v ${ratingClass(rating)}`}>
-                              {Math.round((c.score ?? 0) * 100)}
-                            </div>
-                            <div className="dm-cat__bar" aria-hidden>
+                          <article
+                            key={m.id}
+                            className={`cwv-tile${insightFilter === m.id ? " cwv-tile--active" : ""}`}
+                            title={m.name}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() =>
+                              setInsightFilter((cur) =>
+                                cur === m.id ? null : m.id,
+                              )
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                setInsightFilter((cur) =>
+                                  cur === m.id ? null : m.id,
+                                );
+                              }
+                            }}
+                          >
+                            <div className="cwv-tile__head">
+                              <span className="cwv-tile__k">
+                                {m.id}
+                                <InfoTip label={m.name}>
+                                  {m.desc} Good {m.goodLabel}; poor{" "}
+                                  {m.poorLabel}.
+                                  {m.id === "INP"
+                                    ? " Lab runs often omit INP (needs real interactions); TBT is shown as a lab proxy when available."
+                                    : ""}
+                                </InfoTip>
+                              </span>
                               <span
-                                className={`dm-cat__fill ${ratingClass(rating)}`}
-                                style={{ width: `${(c.score ?? 0) * 100}%` }}
-                              />
+                                className={`cwv-tile__badge ${ratingClass(displayRating)}`}
+                              >
+                                {tbtFallback
+                                  ? "Lab proxy"
+                                  : ratingLabel(displayRating)}
+                              </span>
+                            </div>
+                            <div
+                              className={`cwv-tile__v ${ratingClass(displayRating)}`}
+                            >
+                              {displayValue}
+                            </div>
+                            {tbtFallback ? (
+                              <div className="cwv-tile__hint">
+                                TBT (lab proxy · not field INP)
+                              </div>
+                            ) : local && remote ? (
+                              <div className="cwv-tile__hint">
+                                Local {formatCwvValue(local)} · PageSpeed{" "}
+                                {formatCwvValue(remote)}
+                              </div>
+                            ) : (
+                              <div className="cwv-tile__hint">
+                                Good {m.goodLabel} · Poor {m.poorLabel}
+                              </div>
+                            )}
+                            <div className="cwv-tile__band" aria-hidden>
+                              <span className="cwv-tile__seg cwv-tile__seg--good" />
+                              <span className="cwv-tile__seg cwv-tile__seg--warn" />
+                              <span className="cwv-tile__seg cwv-tile__seg--poor" />
                             </div>
                           </article>
                         );
                       })}
+                      {cwvTbtMs !== null &&
+                      metricFor(cwvPrimaryReport, "INP") ? (
+                        <article
+                          className="cwv-tile"
+                          title="Total Blocking Time"
+                        >
+                          <div className="cwv-tile__head">
+                            <span className="cwv-tile__k">
+                              TBT
+                              <InfoTip label="Total Blocking Time">
+                                {TBT_DESC}
+                              </InfoTip>
+                            </span>
+                            <span
+                              className={`cwv-tile__badge ${ratingClass(scoreRating(cwvTbtMs <= 200 ? 1 : cwvTbtMs <= 600 ? 0.6 : 0.3))}`}
+                            >
+                              Lab
+                            </span>
+                          </div>
+                          <div className="cwv-tile__v">
+                            {cwvTbtMs >= 1000
+                              ? `${(cwvTbtMs / 1000).toFixed(2)}s`
+                              : `${Math.round(cwvTbtMs)}ms`}
+                          </div>
+                          <div className="cwv-tile__hint">
+                            From Lighthouse audit
+                          </div>
+                        </article>
+                      ) : null}
                     </div>
+
+                    <p className="cwv-trust">
+                      Lab scores from local Chrome / Lighthouse — each run takes
+                      the median of 3 mobile-simulated passes (more stable LCP).
+                      Reliable for load triage (LCP, CLS, FCP, TTFB,
+                      categories). Field INP / CrUX needs PageSpeed or real-user
+                      data; lab INP is often empty and TBT is used as a proxy.
+                    </p>
+
+                    {(insightGroups.pain.length > 0 ||
+                      insightGroups.improve.length > 0 ||
+                      insightGroups.good.length > 0) && (
+                      <div className="cwv-insights">
+                        <div className="cwv-insights__h">
+                          Metric breakdown
+                          {insightFilter ? (
+                            <button
+                              type="button"
+                              className="dm-linkbtn"
+                              onClick={() => setInsightFilter(null)}
+                            >
+                              Clear {insightFilter} filter
+                            </button>
+                          ) : (
+                            <span className="cwv-insights__hint">
+                              Click a CWV tile to filter
+                            </span>
+                          )}
+                        </div>
+                        <div className="cwv-insights__grid">
+                          {(
+                            [
+                              ["pain", "Pain areas", insightGroups.pain],
+                              ["improve", "Needs work", insightGroups.improve],
+                              ["good", "Good", insightGroups.good],
+                            ] as const
+                          ).map(([key, label, items]) => (
+                            <div
+                              key={key}
+                              className={`cwv-insights__col cwv-insights__col--${key}`}
+                            >
+                              <div className="cwv-insights__col-h">
+                                <span>{label}</span>
+                                <span className="cwv-insights__count">
+                                  {items.length}
+                                </span>
+                              </div>
+                              {items.length === 0 ? (
+                                <p className="dm-note">None in this band.</p>
+                              ) : (
+                                <ul className="cwv-insights__list">
+                                  {items.slice(0, 8).map((i) => (
+                                    <li
+                                      key={i.id}
+                                      className="cwv-insights__item"
+                                    >
+                                      {i.metricId ? (
+                                        <span className="cwv-insights__metric">
+                                          {i.metricId}
+                                        </span>
+                                      ) : null}
+                                      <span className="cwv-insights__item-title">
+                                        {i.title}
+                                      </span>
+                                      {i.detail ? (
+                                        <span className="cwv-insights__item-detail">
+                                          {i.detail}
+                                        </span>
+                                      ) : null}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <input
+                      ref={importInputRef}
+                      type="file"
+                      accept="application/json,.json"
+                      hidden
+                      onChange={(e) => {
+                        onImportCwv(e.target.files?.[0]);
+                        e.target.value = "";
+                      }}
+                    />
+
+                    <div className="card-masonry">
+                      {!cwvLocal &&
+                      !cwvPagespeed &&
+                      !labBusy &&
+                      lastRunAt === null ? (
+                        <article className="ov-card">
+                          <div className="ov-card__head">
+                            <span className="ov-card__title">
+                              <CardIcon
+                                icon={FlaskConical}
+                                tone="brand"
+                                size={14}
+                              />
+                              Local lab &amp; import
+                              <InfoTip label="Local lab & import">
+                                Runs a real local Lighthouse lab (requires
+                                Chrome/Chromium and a locally served app).
+                                Sample data is never shown — if the lab can’t
+                                run, you’ll get steps to enable it, or you can
+                                import a Lighthouse / PageSpeed JSON report /
+                                use PageSpeed Insights.
+                              </InfoTip>
+                            </span>
+                          </div>
+                          <p className="dm-idle__desc" style={{ marginTop: 0 }}>
+                            {def.description}
+                          </p>
+                          <div className="cwv-optin__actions">
+                            <button
+                              type="button"
+                              className="ov-btn ov-btn--ghost"
+                              onClick={() => importInputRef.current?.click()}
+                            >
+                              <Upload size={14} aria-hidden />
+                              Import CWV report
+                            </button>
+                          </div>
+                          <p className="dm-note dm-note--wrap">
+                            In Chrome DevTools → Lighthouse → export JSON
+                            report, or PageSpeed Insights → Download JSON, then
+                            import here.
+                          </p>
+                          {labError ? (
+                            <p className="dm-idle__err">{labError}</p>
+                          ) : null}
+                        </article>
+                      ) : null}
+
+                      {cwvSource === "pagespeed" ? (
+                        <article className="ov-card">
+                          <div className="ov-card__head">
+                            <span className="ov-card__title">
+                              <CardIcon
+                                icon={Monitor}
+                                tone="violet"
+                                size={14}
+                              />
+                              PageSpeed Insights
+                              <InfoTip label="PageSpeed Insights">
+                                Opt-in network fetch when Integrations ·
+                                PageSpeed has an API key and Settings allows
+                                network integrations.
+                              </InfoTip>
+                            </span>
+                            <span className="ov-card__meta">
+                              {pagespeedEnabled ? "Connected" : "Off"}
+                            </span>
+                          </div>
+                          {pagespeedEnabled ? (
+                            <>
+                              <label className="dm-pipe__field">
+                                <span className="dm-pipe__field-k">URL</span>
+                                <Input
+                                  type="url"
+                                  value={pagespeedUrl}
+                                  onChange={(e) =>
+                                    setPagespeedUrl(e.target.value)
+                                  }
+                                  placeholder="https://…"
+                                  aria-label="PageSpeed URL"
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                className="ov-btn ov-btn--primary"
+                                disabled={pagespeedBusy}
+                                onClick={() => void fetchPagespeed()}
+                              >
+                                {pagespeedBusy
+                                  ? "Fetching…"
+                                  : "Fetch PageSpeed"}
+                              </button>
+                              {pagespeedError ? (
+                                <p className="dm-idle__err">{pagespeedError}</p>
+                              ) : null}
+                              {cwvLocal && cwvPagespeed ? (
+                                <p className="dm-note">
+                                  Tiles above show local vs PageSpeed side by
+                                  side when both are present.
+                                </p>
+                              ) : null}
+                            </>
+                          ) : (
+                            <>
+                              <p className="ov-empty">
+                                Enable PageSpeed under Integrations and Allow
+                                network integrations in Settings.
+                              </p>
+                              <button
+                                type="button"
+                                className="ov-btn ov-btn--ghost"
+                                onClick={() => props.onNavigate("integrations")}
+                              >
+                                <ExternalLink size={13} aria-hidden />
+                                Open Integrations
+                              </button>
+                            </>
+                          )}
+                        </article>
+                      ) : null}
+                    </div>
+
+                    <div className="dm-routes">
+                      <div className="dm-routes__head">
+                        <span className="dm-routes__title">
+                          <CardIcon icon={Layers} tone="brand" size={14} />
+                          Routes &amp; components
+                          <InfoTip label="Routes & components">
+                            Routes are discovered from the workspace (React
+                            Router, SEO catalogs, Next pages). Use Analyze on
+                            Core Web Vitals or Lighthouse to measure all routes
+                            or a selected subset. Soft 404 / not-found pages are
+                            skipped. Each route card shows its own lab console
+                            while measuring.
+                          </InfoTip>
+                        </span>
+                        <span className="dm-routes__meta">
+                          {routeBreakdown.filter((r) => r.measured).length}{" "}
+                          measured · {routeBreakdown.length} listed
+                        </span>
+                      </div>
+                      {labSelectMode ? (
+                        <div
+                          className="dm-route-select"
+                          role="group"
+                          aria-label="Select routes"
+                        >
+                          <div className="dm-route-select__head">
+                            <span>
+                              Select routes to measure (
+                              {selectedLabRoutes.length} selected)
+                            </span>
+                            <div className="dm-route-select__actions">
+                              <button
+                                type="button"
+                                className="dm-linkbtn"
+                                onClick={() =>
+                                  setSelectedLabRoutes([...frontendRoutes])
+                                }
+                              >
+                                Select all
+                              </button>
+                              <button
+                                type="button"
+                                className="dm-linkbtn"
+                                onClick={() => setSelectedLabRoutes([])}
+                              >
+                                Clear
+                              </button>
+                              <button
+                                type="button"
+                                className="dm-linkbtn"
+                                onClick={() => setLabSelectMode(false)}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                className="ov-btn ov-btn--primary"
+                                disabled={
+                                  labBusy || selectedLabRoutes.length === 0
+                                }
+                                onClick={() =>
+                                  void runLocalLab(selectedLabRoutes)
+                                }
+                              >
+                                <Play size={13} aria-hidden />
+                                Run selected
+                              </button>
+                            </div>
+                          </div>
+                          <div className="dm-route-select__list">
+                            {frontendRoutes.map((route) => {
+                              const checked = selectedLabRoutes.includes(route);
+                              return (
+                                <label
+                                  key={`sel:${route}`}
+                                  className="dm-route-select__row"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => {
+                                      setSelectedLabRoutes((prev) =>
+                                        checked
+                                          ? prev.filter((r) => r !== route)
+                                          : [...prev, route],
+                                      );
+                                    }}
+                                  />
+                                  <span className="ov-mono">{route}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : null}
+                      {routeBreakdown.length > 0 ? (
+                        <div className="dm-routes__grid">
+                          {routeBreakdown.map((r) => {
+                            const isMeasuring =
+                              labBusy && labMeasuringRoute === r.route;
+                            const isQueued =
+                              labBusy &&
+                              !r.measured &&
+                              !isMeasuring &&
+                              cwvLocal !== null;
+                            const logs = routeLabLogs[r.route] ?? [];
+                            return (
+                              <article
+                                key={r.route}
+                                className={`dm-route-card${r.measured ? " dm-route-card--measured" : ""}${isMeasuring ? " dm-route-card--measuring" : ""}`}
+                              >
+                                <div className="dm-route-card__head">
+                                  <span className="dm-route-card__path ov-mono">
+                                    {r.route}
+                                    {isMeasuring ? (
+                                      <span className="dm-rank__tag dm-rank__tag--live">
+                                        {" "}
+                                        measuring…
+                                      </span>
+                                    ) : r.measured ? (
+                                      <span className="dm-rank__tag">
+                                        {" "}
+                                        measured
+                                      </span>
+                                    ) : isQueued ? (
+                                      <span className="dm-rank__tag dm-rank__tag--muted">
+                                        {" "}
+                                        queued
+                                      </span>
+                                    ) : (
+                                      <span className="dm-rank__tag dm-rank__tag--muted">
+                                        {" "}
+                                        not measured
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span
+                                    className={`dm-rank__pill ${isMeasuring ? "dm-rating--live" : ratingClass(r.rating)}`}
+                                  >
+                                    {isMeasuring
+                                      ? "Running"
+                                      : r.measured
+                                        ? ratingLabel(r.rating)
+                                        : "—"}
+                                  </span>
+                                </div>
+                                {isMeasuring && r.metrics.length === 0 ? (
+                                  <p className="dm-route__empty dm-route__empty--live">
+                                    Lighthouse is scoring this route…
+                                  </p>
+                                ) : r.metrics.length > 0 ? (
+                                  <div className="dm-route__cwv">
+                                    {CWV_METRICS.map((meta) => {
+                                      const m = r.metrics.find(
+                                        (x) => x.id === meta.id,
+                                      );
+                                      if (!m) return null;
+                                      return (
+                                        <article
+                                          key={`${r.route}:${meta.id}`}
+                                          className="cwv-tile cwv-tile--compact"
+                                          title={meta.name}
+                                        >
+                                          <div className="cwv-tile__head">
+                                            <span className="cwv-tile__k">
+                                              {meta.id}
+                                            </span>
+                                            <span
+                                              className={`cwv-tile__badge ${ratingClass(m.rating)}`}
+                                            >
+                                              {ratingLabel(m.rating)}
+                                            </span>
+                                          </div>
+                                          <div
+                                            className={`cwv-tile__v ${ratingClass(m.rating)}`}
+                                          >
+                                            {formatCwvValue(m)}
+                                          </div>
+                                          <div className="cwv-tile__hint">
+                                            Good {meta.goodLabel} · Poor{" "}
+                                            {meta.poorLabel}
+                                          </div>
+                                          <div
+                                            className="cwv-tile__band"
+                                            aria-hidden
+                                          >
+                                            <span className="cwv-tile__seg cwv-tile__seg--good" />
+                                            <span className="cwv-tile__seg cwv-tile__seg--warn" />
+                                            <span className="cwv-tile__seg cwv-tile__seg--poor" />
+                                          </div>
+                                        </article>
+                                      );
+                                    })}
+                                    {/* Any non-CWV metrics (e.g. TBT) still surface as tiles */}
+                                    {r.metrics
+                                      .filter(
+                                        (m) =>
+                                          !CWV_METRICS.some(
+                                            (meta) => meta.id === m.id,
+                                          ),
+                                      )
+                                      .map((m) => (
+                                        <article
+                                          key={`${r.route}:${m.id}`}
+                                          className="cwv-tile cwv-tile--compact"
+                                          title={m.id}
+                                        >
+                                          <div className="cwv-tile__head">
+                                            <span className="cwv-tile__k">
+                                              {m.id}
+                                            </span>
+                                            <span
+                                              className={`cwv-tile__badge ${ratingClass(m.rating)}`}
+                                            >
+                                              {ratingLabel(m.rating)}
+                                            </span>
+                                          </div>
+                                          <div
+                                            className={`cwv-tile__v ${ratingClass(m.rating)}`}
+                                          >
+                                            {formatCwvValue(m)}
+                                          </div>
+                                          <div
+                                            className="cwv-tile__band"
+                                            aria-hidden
+                                          >
+                                            <span className="cwv-tile__seg cwv-tile__seg--good" />
+                                            <span className="cwv-tile__seg cwv-tile__seg--warn" />
+                                            <span className="cwv-tile__seg cwv-tile__seg--poor" />
+                                          </div>
+                                        </article>
+                                      ))}
+                                  </div>
+                                ) : (
+                                  <p className="dm-route__empty">
+                                    {r.measured
+                                      ? "Sampled — no per-metric rollup"
+                                      : isQueued
+                                        ? "Waiting in queue — will measure after the current route finishes."
+                                        : "Not measured in this lab run. Use Analyze → selected routes to include it, or all routes."}
+                                  </p>
+                                )}
+                                {r.notes.length > 0 ? (
+                                  <ul className="dm-route__notes">
+                                    {r.notes.map((note) => (
+                                      <li key={note} title={note}>
+                                        {note}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : null}
+                                {logs.length > 0 || isMeasuring ? (
+                                  <details
+                                    className="dm-route__console"
+                                    open={isMeasuring}
+                                  >
+                                    <summary>
+                                      Lab console
+                                      {isMeasuring
+                                        ? " · running"
+                                        : ` · ${logs.length} lines`}
+                                    </summary>
+                                    <pre className="dm-route__console-log">
+                                      {logs.length > 0
+                                        ? logs.join("\n")
+                                        : "Waiting for Lighthouse output…"}
+                                    </pre>
+                                  </details>
+                                ) : null}
+                              </article>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="ov-empty">
+                          No routes discovered yet — open the workspace and
+                          ensure the frontend app is indexed.
+                        </p>
+                      )}
+                      {componentBreakdown.length > 0 ? (
+                        <>
+                          <div className="dm-subhead">Components</div>
+                          <div className="dm-rank">
+                            {componentBreakdown.map((c) => (
+                              <div key={`c:${c.key}`} className="dm-rank__row">
+                                <div className="dm-rank__main">
+                                  <span className="dm-rank__name ov-ellipsis">
+                                    {c.key}
+                                  </span>
+                                  <span className="dm-rank__path">
+                                    {c.metrics.length > 0
+                                      ? c.metrics
+                                          .slice(0, 3)
+                                          .map(
+                                            (m) =>
+                                              `${m.id} ${formatCwvValue(m)}`,
+                                          )
+                                          .join(" · ")
+                                      : "Component"}
+                                  </span>
+                                </div>
+                                <span className="dm-rank__val ov-mono">
+                                  {c.sampleCount > 0
+                                    ? `${c.sampleCount}×`
+                                    : "attr"}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      ) : (
+                        <p className="dm-note">
+                          Component-level attribution appears when the report
+                          includes component rollups or attributions (e.g.
+                          fixture / PageSpeed). Lab runs show element selectors
+                          on each route card and under Metric breakdown.
+                        </p>
+                      )}
+                    </div>
+
+                    <p className="dm-foot">
+                      Core Web Vitals are field/lab measurements — Prism never
+                      fabricates them. Numbers appear here after a local
+                      Lighthouse run or an imported CWV report.
+                    </p>
                   </div>
                 ) : null}
               </section>
 
-              <input
-                ref={importInputRef}
-                type="file"
-                accept="application/json,.json"
-                hidden
-                onChange={(e) => {
-                  onImportCwv(e.target.files?.[0]);
-                  e.target.value = "";
-                }}
-              />
-
-              <div className="card-masonry">
-                {!cwvLocal &&
-                !cwvPagespeed &&
-                !labBusy &&
-                lastRunAt === null ? (
-                  <article className="ov-card">
-                    <div className="ov-card__head">
-                      <span className="ov-card__title">
-                        <CardIcon icon={FlaskConical} tone="brand" size={14} />
-                        Local lab &amp; import
-                        <InfoTip label="Local lab & import">
-                          Runs a real local Lighthouse lab (requires
-                          Chrome/Chromium and a locally served app). Sample data
-                          is never shown — if the lab can’t run, you’ll get
-                          steps to enable it, or you can import a Lighthouse /
-                          PageSpeed JSON report / use PageSpeed Insights.
-                        </InfoTip>
-                      </span>
-                    </div>
-                    <p className="dm-idle__desc" style={{ marginTop: 0 }}>
-                      {def.description}
-                    </p>
-                    <div className="cwv-optin__actions">
-                      <button
-                        type="button"
-                        className="ov-btn ov-btn--primary"
-                        disabled={labBusy}
-                        onClick={() => void runLocalLab(frontendRoutes)}
-                      >
-                        <FlaskConical size={14} aria-hidden />
-                        Run analysis for all routes
-                      </button>
-                      <button
-                        type="button"
-                        className="ov-btn ov-btn--ghost"
-                        onClick={() => importInputRef.current?.click()}
-                      >
-                        <Upload size={14} aria-hidden />
-                        Import CWV report
-                      </button>
-                    </div>
-                    <p className="dm-note dm-note--wrap">
-                      In Chrome DevTools → Lighthouse → export JSON report, or
-                      PageSpeed Insights → Download JSON, then import here.
-                    </p>
-                    {labError ? (
-                      <p className="dm-idle__err">{labError}</p>
-                    ) : null}
-                  </article>
-                ) : null}
-
-                {cwvSource === "pagespeed" ? (
-                  <article className="ov-card">
-                    <div className="ov-card__head">
-                      <span className="ov-card__title">
-                        <CardIcon icon={Monitor} tone="violet" size={14} />
-                        PageSpeed Insights
-                        <InfoTip label="PageSpeed Insights">
-                          Opt-in network fetch when Integrations · PageSpeed has
-                          an API key and Settings allows network integrations.
-                        </InfoTip>
-                      </span>
-                      <span className="ov-card__meta">
-                        {pagespeedEnabled ? "Connected" : "Off"}
-                      </span>
-                    </div>
-                    {pagespeedEnabled ? (
-                      <>
-                        <label className="dm-pipe__field">
-                          <span className="dm-pipe__field-k">URL</span>
-                          <Input
-                            type="url"
-                            value={pagespeedUrl}
-                            onChange={(e) => setPagespeedUrl(e.target.value)}
-                            placeholder="https://…"
-                            aria-label="PageSpeed URL"
-                          />
-                        </label>
-                        <button
-                          type="button"
-                          className="ov-btn ov-btn--primary"
-                          disabled={pagespeedBusy}
-                          onClick={() => void fetchPagespeed()}
-                        >
-                          {pagespeedBusy ? "Fetching…" : "Fetch PageSpeed"}
-                        </button>
-                        {pagespeedError ? (
-                          <p className="dm-idle__err">{pagespeedError}</p>
-                        ) : null}
-                        {cwvLocal && cwvPagespeed ? (
-                          <p className="dm-note">
-                            Tiles above show local vs PageSpeed side by side
-                            when both are present.
-                          </p>
-                        ) : null}
-                      </>
-                    ) : (
-                      <>
-                        <p className="ov-empty">
-                          Enable PageSpeed under Integrations and Allow network
-                          integrations in Settings.
-                        </p>
-                        <button
-                          type="button"
-                          className="ov-btn ov-btn--ghost"
-                          onClick={() => props.onNavigate("integrations")}
-                        >
-                          <ExternalLink size={13} aria-hidden />
-                          Open Integrations
-                        </button>
-                      </>
-                    )}
-                  </article>
-                ) : null}
-              </div>
-
-              <div className="dm-routes">
-                <div className="dm-routes__head">
-                  <span className="dm-routes__title">
-                    <CardIcon icon={Layers} tone="brand" size={14} />
-                    Routes &amp; components
-                    <InfoTip label="Routes & components">
-                      Routes are discovered from the workspace (React Router,
-                      SEO catalogs, Next pages). Use Run analysis to measure all
-                      routes or a selected subset. Soft 404 / not-found pages
-                      are skipped. Each route card shows its own lab console
-                      while measuring.
-                    </InfoTip>
-                  </span>
-                  <span className="dm-routes__meta">
-                    {routeBreakdown.filter((r) => r.measured).length} measured ·{" "}
-                    {routeBreakdown.length} listed
-                  </span>
-                </div>
-                {labSelectMode ? (
-                  <div
-                    className="dm-route-select"
-                    role="group"
-                    aria-label="Select routes"
+              <section className="ov-card ts-acc" aria-label="Lighthouse">
+                <div className="ts-acc__header">
+                  <button
+                    type="button"
+                    className="ts-acc__trigger"
+                    aria-expanded={lhAccOpen}
+                    onClick={() => setLhAccOpen((v) => !v)}
                   >
-                    <div className="dm-route-select__head">
-                      <span>
-                        Select routes to measure ({selectedLabRoutes.length}{" "}
-                        selected)
-                      </span>
-                      <div className="dm-route-select__actions">
-                        <button
-                          type="button"
-                          className="dm-linkbtn"
-                          onClick={() =>
-                            setSelectedLabRoutes([...frontendRoutes])
-                          }
-                        >
-                          Select all
-                        </button>
-                        <button
-                          type="button"
-                          className="dm-linkbtn"
-                          onClick={() => setSelectedLabRoutes([])}
-                        >
-                          Clear
-                        </button>
-                        <button
-                          type="button"
-                          className="dm-linkbtn"
-                          onClick={() => setLabSelectMode(false)}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          className="ov-btn ov-btn--primary"
-                          disabled={labBusy || selectedLabRoutes.length === 0}
-                          onClick={() => void runLocalLab(selectedLabRoutes)}
-                        >
-                          <Play size={13} aria-hidden />
-                          Run selected
-                        </button>
+                    <span className="ts-acc__chevron" aria-hidden>
+                      {lhAccOpen ? (
+                        <ChevronDown size={16} />
+                      ) : (
+                        <ChevronRight size={16} />
+                      )}
+                    </span>
+                    <h2 className="ts-head__title">
+                      <CardIcon icon={Monitor} tone="violet" size={18} />
+                      Lighthouse
+                      <InfoTip label="Lighthouse">
+                        Category scores (0–100) from the Lighthouse report —
+                        performance, accessibility, best practices, and SEO.
+                        Uses the same local lab as Core Web Vitals.
+                      </InfoTip>
+                    </h2>
+                  </button>
+                  <div className="ts-acc__actions">
+                    {renderRouteAnalyzeMenu("lh", lhLabMenuRef)}
+                  </div>
+                </div>
+
+                {lhAccOpen ? (
+                  <div className="ts-acc__body">
+                    {frontendCategories.length > 0 ? (
+                      <div className="dm-cats" style={{ marginTop: 0 }}>
+                        <div className="dm-cats__grid">
+                          {frontendCategories.map((c) => {
+                            const rating = scoreRating(c.score);
+                            return (
+                              <article key={c.id} className="dm-cat">
+                                <div className="dm-cat__k">
+                                  {c.label}
+                                  <InfoTip label={c.label}>{c.desc}</InfoTip>
+                                </div>
+                                <div
+                                  className={`dm-cat__v ${ratingClass(rating)}`}
+                                >
+                                  {Math.round((c.score ?? 0) * 100)}
+                                </div>
+                                <div className="dm-cat__bar" aria-hidden>
+                                  <span
+                                    className={`dm-cat__fill ${ratingClass(rating)}`}
+                                    style={{
+                                      width: `${(c.score ?? 0) * 100}%`,
+                                    }}
+                                  />
+                                </div>
+                              </article>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                    <div className="dm-route-select__list">
-                      {frontendRoutes.map((route) => {
-                        const checked = selectedLabRoutes.includes(route);
-                        return (
-                          <label
-                            key={`sel:${route}`}
-                            className="dm-route-select__row"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => {
-                                setSelectedLabRoutes((prev) =>
-                                  checked
-                                    ? prev.filter((r) => r !== route)
-                                    : [...prev, route],
-                                );
-                              }}
-                            />
-                            <span className="ov-mono">{route}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
+                    ) : (
+                      <p className="ts-empty">
+                        No Lighthouse category scores yet. Use Analyze to run a
+                        local lab (same run also fills Core Web Vitals).
+                      </p>
+                    )}
                   </div>
                 ) : null}
-                {routeBreakdown.length > 0 ? (
-                  <div className="dm-routes__grid">
-                    {routeBreakdown.map((r) => {
-                      const isMeasuring =
-                        labBusy && labMeasuringRoute === r.route;
-                      const isQueued =
-                        labBusy &&
-                        !r.measured &&
-                        !isMeasuring &&
-                        cwvLocal !== null;
-                      const logs = routeLabLogs[r.route] ?? [];
-                      return (
-                        <article
-                          key={r.route}
-                          className={`dm-route-card${r.measured ? " dm-route-card--measured" : ""}${isMeasuring ? " dm-route-card--measuring" : ""}`}
-                        >
-                          <div className="dm-route-card__head">
-                            <span className="dm-route-card__path ov-mono">
-                              {r.route}
-                              {isMeasuring ? (
-                                <span className="dm-rank__tag dm-rank__tag--live">
-                                  {" "}
-                                  measuring…
-                                </span>
-                              ) : r.measured ? (
-                                <span className="dm-rank__tag"> measured</span>
-                              ) : isQueued ? (
-                                <span className="dm-rank__tag dm-rank__tag--muted">
-                                  {" "}
-                                  queued
-                                </span>
-                              ) : (
-                                <span className="dm-rank__tag dm-rank__tag--muted">
-                                  {" "}
-                                  not measured
-                                </span>
-                              )}
-                            </span>
-                            <span
-                              className={`dm-rank__pill ${isMeasuring ? "dm-rating--live" : ratingClass(r.rating)}`}
-                            >
-                              {isMeasuring
-                                ? "Running"
-                                : r.measured
-                                  ? ratingLabel(r.rating)
-                                  : "—"}
-                            </span>
-                          </div>
-                          {isMeasuring && r.metrics.length === 0 ? (
-                            <p className="dm-route__empty dm-route__empty--live">
-                              Lighthouse is scoring this route…
-                            </p>
-                          ) : r.metrics.length > 0 ? (
-                            <div className="dm-route__cwv">
-                              {CWV_METRICS.map((meta) => {
-                                const m = r.metrics.find(
-                                  (x) => x.id === meta.id,
-                                );
-                                if (!m) return null;
-                                return (
-                                  <article
-                                    key={`${r.route}:${meta.id}`}
-                                    className="cwv-tile cwv-tile--compact"
-                                    title={meta.name}
-                                  >
-                                    <div className="cwv-tile__head">
-                                      <span className="cwv-tile__k">
-                                        {meta.id}
-                                      </span>
-                                      <span
-                                        className={`cwv-tile__badge ${ratingClass(m.rating)}`}
-                                      >
-                                        {ratingLabel(m.rating)}
-                                      </span>
-                                    </div>
-                                    <div
-                                      className={`cwv-tile__v ${ratingClass(m.rating)}`}
-                                    >
-                                      {formatCwvValue(m)}
-                                    </div>
-                                    <div className="cwv-tile__hint">
-                                      Good {meta.goodLabel} · Poor{" "}
-                                      {meta.poorLabel}
-                                    </div>
-                                    <div className="cwv-tile__band" aria-hidden>
-                                      <span className="cwv-tile__seg cwv-tile__seg--good" />
-                                      <span className="cwv-tile__seg cwv-tile__seg--warn" />
-                                      <span className="cwv-tile__seg cwv-tile__seg--poor" />
-                                    </div>
-                                  </article>
-                                );
-                              })}
-                              {/* Any non-CWV metrics (e.g. TBT) still surface as tiles */}
-                              {r.metrics
-                                .filter(
-                                  (m) =>
-                                    !CWV_METRICS.some(
-                                      (meta) => meta.id === m.id,
-                                    ),
-                                )
-                                .map((m) => (
-                                  <article
-                                    key={`${r.route}:${m.id}`}
-                                    className="cwv-tile cwv-tile--compact"
-                                    title={m.id}
-                                  >
-                                    <div className="cwv-tile__head">
-                                      <span className="cwv-tile__k">
-                                        {m.id}
-                                      </span>
-                                      <span
-                                        className={`cwv-tile__badge ${ratingClass(m.rating)}`}
-                                      >
-                                        {ratingLabel(m.rating)}
-                                      </span>
-                                    </div>
-                                    <div
-                                      className={`cwv-tile__v ${ratingClass(m.rating)}`}
-                                    >
-                                      {formatCwvValue(m)}
-                                    </div>
-                                    <div className="cwv-tile__band" aria-hidden>
-                                      <span className="cwv-tile__seg cwv-tile__seg--good" />
-                                      <span className="cwv-tile__seg cwv-tile__seg--warn" />
-                                      <span className="cwv-tile__seg cwv-tile__seg--poor" />
-                                    </div>
-                                  </article>
-                                ))}
-                            </div>
-                          ) : (
-                            <p className="dm-route__empty">
-                              {r.measured
-                                ? "Sampled — no per-metric rollup"
-                                : isQueued
-                                  ? "Waiting in queue — will measure after the current route finishes."
-                                  : "Not measured in this lab run. Use Run analysis → selected routes to include it, or all routes."}
-                            </p>
-                          )}
-                          {r.notes.length > 0 ? (
-                            <ul className="dm-route__notes">
-                              {r.notes.map((note) => (
-                                <li key={note} title={note}>
-                                  {note}
-                                </li>
-                              ))}
-                            </ul>
-                          ) : null}
-                          {logs.length > 0 || isMeasuring ? (
-                            <details
-                              className="dm-route__console"
-                              open={isMeasuring}
-                            >
-                              <summary>
-                                Lab console
-                                {isMeasuring
-                                  ? " · running"
-                                  : ` · ${logs.length} lines`}
-                              </summary>
-                              <pre className="dm-route__console-log">
-                                {logs.length > 0
-                                  ? logs.join("\n")
-                                  : "Waiting for Lighthouse output…"}
-                              </pre>
-                            </details>
-                          ) : null}
-                        </article>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="ov-empty">
-                    No routes discovered yet — open the workspace and ensure the
-                    frontend app is indexed.
-                  </p>
-                )}
-                {componentBreakdown.length > 0 ? (
-                  <>
-                    <div className="dm-subhead">Components</div>
-                    <div className="dm-rank">
-                      {componentBreakdown.map((c) => (
-                        <div key={`c:${c.key}`} className="dm-rank__row">
-                          <div className="dm-rank__main">
-                            <span className="dm-rank__name ov-ellipsis">
-                              {c.key}
-                            </span>
-                            <span className="dm-rank__path">
-                              {c.metrics.length > 0
-                                ? c.metrics
-                                    .slice(0, 3)
-                                    .map((m) => `${m.id} ${formatCwvValue(m)}`)
-                                    .join(" · ")
-                                : "Component"}
-                            </span>
-                          </div>
-                          <span className="dm-rank__val ov-mono">
-                            {c.sampleCount > 0 ? `${c.sampleCount}×` : "attr"}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  <p className="dm-note">
-                    Component-level attribution appears when the report includes
-                    component rollups or attributions (e.g. fixture /
-                    PageSpeed). Lab runs show element selectors on each route
-                    card and under Metric breakdown.
-                  </p>
-                )}
-              </div>
+              </section>
 
-              <p className="dm-foot">
-                Core Web Vitals are field/lab measurements — Prism never
-                fabricates them. Numbers appear here after a local Lighthouse
-                run or an imported CWV report.
-              </p>
+              <section className="ov-card ts-acc" aria-label="Bundle Weight">
+                <div className="ts-acc__header">
+                  <button
+                    type="button"
+                    className="ts-acc__trigger"
+                    aria-expanded={bundleAccOpen}
+                    onClick={() => setBundleAccOpen((v) => !v)}
+                  >
+                    <span className="ts-acc__chevron" aria-hidden>
+                      {bundleAccOpen ? (
+                        <ChevronDown size={16} />
+                      ) : (
+                        <ChevronRight size={16} />
+                      )}
+                    </span>
+                    <h2 className="ts-head__title">
+                      <CardIcon icon={Boxes} tone="amber" size={18} />
+                      Bundle / Weight
+                      <InfoTip label="Bundle Weight">
+                        Real bundler stats from a local Analyze run (project
+                        analyze script when present, else Prism-managed for Next
+                        / Vite / Webpack). Prism never invents production sizes
+                        from the import graph.
+                      </InfoTip>
+                    </h2>
+                  </button>
+                  <div className="ts-acc__actions">
+                    <button
+                      type="button"
+                      className="ov-btn ov-btn--primary"
+                      disabled={frontendBusy}
+                      title="Run Bundle Analyze for the selected package"
+                      onClick={() => void runBundleAnalyzeFromPanel()}
+                    >
+                      {bundleBusy ? (
+                        <Loader2 size={13} aria-hidden className="bw-spin" />
+                      ) : (
+                        <Package size={13} aria-hidden />
+                      )}
+                      {bundleBusy ? "Analyzing…" : "Analyze"}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="ts-acc__body" hidden={!bundleAccOpen}>
+                  <BundleWeightPanel
+                    ref={bundlePanelRef}
+                    repoLabel={props.repoLabel}
+                    embedded
+                  />
+                </div>
+              </section>
             </>
           ) : status === "loading" ? (
             <>

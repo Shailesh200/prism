@@ -47,7 +47,7 @@ Artifacts stay **local**. Runners / remote APIs are **consent-based**. No Prism 
 | FE-03 | Rollups: app → route → chunk → **component** (when attributable) | **Done** M-041 | P1 |
 | FE-04 | SEO score / SEO audits overlay | Later | P1+ |
 | FE-05 | Full LH category scores (Perf, A11y, BP, SEO) on Map/Inspector | Later | P1+ |
-| FE-06 | Bundle / code-split hotspot layer (build stats ingest) | Later | P1+ |
+| FE-06 | Bundle / code-split hotspot layer (build stats ingest) | **In Progress** M-050 (Domain Bundle/Weight + ingest; Map layer later) | P1+ |
 | FE-07 | Framework lenses (Next/Vite/Remix route graphs) | Later | P1+ |
 | FE-08 | Optional consent-based PageSpeed API | Later (never default) | P1+ |
 

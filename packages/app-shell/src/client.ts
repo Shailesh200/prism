@@ -1,5 +1,7 @@
 import type {
   BackendReport,
+  BundleAnalyzeCapability,
+  BundleWeightReport,
   CodeExplorerReport,
   CodeExplorerTarget,
   CwvReport,
@@ -50,6 +52,21 @@ export type LighthouseLabOptions = {
   readonly routes?: readonly string[];
   /** Live build / CLI log lines + progressive CWV while the lab job runs. */
   readonly onProgress?: (event: LighthouseLabProgressEvent) => void;
+};
+
+export type BundleAnalyzeProgressEvent = {
+  readonly message: string;
+  readonly phase?: string;
+};
+
+export type BundleAnalyzeOptions = {
+  readonly mode?: "run" | "ingest" | "discover";
+  readonly packageId?: string;
+  readonly packagePath?: string;
+  readonly scriptName?: string;
+  readonly reportPath?: string;
+  readonly consentGranted?: boolean;
+  readonly onProgress?: (event: BundleAnalyzeProgressEvent) => void;
 };
 
 /**
@@ -112,6 +129,19 @@ export type AppShellClient = {
    * mode=`run` uses system Chrome + CLI under `.prism/tools/lighthouse`.
    */
   runLighthouseLab?(options?: LighthouseLabOptions): Promise<CwvReport | null>;
+  /**
+   * Detect analyze scripts / Next·Vite·Webpack for Bundle Weight (M-050).
+   */
+  detectBundleAnalyzeCapability?(options?: {
+    packageId?: string;
+  }): Promise<BundleAnalyzeCapability>;
+  /**
+   * Consent-gated local bundle analyze via Core `startUtilityJob` +
+   * `getBundleWeightReport`.
+   */
+  runBundleAnalyze?(
+    options?: BundleAnalyzeOptions,
+  ): Promise<BundleWeightReport | null>;
   /**
    * Discover frontend URL paths (Next pages + React Router / SEO) for the
    * Routes & components lab section.
