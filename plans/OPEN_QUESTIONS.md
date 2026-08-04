@@ -26,6 +26,6 @@ Resolve these with the owner before or during the indicated milestone. Record an
 | Q-020 | Privacy for perf utilities / PageSpeed / cloud? | M-041 / M-036 | **Resolved:** reports local only; remote probes consent-only; **no Prism Cloud** ([ADR-0008](./adr/0008-stack-aware-measurement-utilities.md)) |
 | Q-021 | Multi-domain monorepo: single stack winner vs per-package? | M-041 / M-013 | **Resolved:** per-package profiles + workspace rollup; package-scoped utilities; additive domains ([ADR-0008](./adr/0008-stack-aware-measurement-utilities.md) D5) |
 | Q-022 | Soft blast signals: do medium-confidence config/CI hits **block** Safe Delete, or only warn? | M-049 | **Decided (ADR-0027):** medium+ blocks; low = warn only |
-| Q-023 | Blast vs Change Review risk band thresholds (60/20 vs 70/35) — unify to which? | M-049 | **Decided (ADR-0027):** unify to Blast **60/20** (High ≥60, Mid ≥20) everywhere |
+| Q-023 | Blast vs Change Review risk band thresholds (60/20 vs 70/35) — unify to which? | M-049 | **Decided (ADR-0027):** unify to Blast **60/20** (High ≥60, Mid ≥20) everywhere. **Enforced in code M-051:** single `riskToBand` / `riskBandDescriptor` in `@prism/shared`; the duplicated per-screen thresholds are gone |
 
 Update this file when questions are decided; link ADRs.

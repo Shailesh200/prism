@@ -103,6 +103,21 @@ Default `Prism.create()` enables all of the above when default ports are wired.
 | `explainArea` | M-048 Phase 5 — deterministic path summary (domain overlap + dep degree + git ownership); **M-049** optional `fileRole` |
 | `listBookmarks` / `saveBookmark` / `removeBookmark` | M-048 Phase 6 — bookmarks persisted at `.prism/bookmarks.json` |
 
+### Top-level functions (not on `PrismWorkspace`) — experimental
+
+These take an explicit workspace root instead of a session. They exist because
+they act on the filesystem or the network rather than on an index snapshot.
+
+| Function | Notes |
+|---|---|
+| `stageDevopsRemote(input)` | Fetches DevOps files from GitHub into `.prism/remote-ci/<owner>/<repo>/` and optionally builds an IaC overlay. **Network-gated: `input.consentGranted` must be `true`** or the call is refused before any request is made (ADR-0024, M-051). Returns `{ ok, value } \| { ok: false, error: string }` — a plain shape, not `Result<T, PrismError>`. |
+| `listLocalWorkspaceTests(root, runners)` | Discovers test files via `vitest list --json` or `jest --listTests`. Returns `LocalTestListResult`; empty (never throws) when no runner is available. |
+| `runLocalWorkspaceTests(root, runners, options?)` | Runs tests, preferring package.json `scripts.test`, then vitest/jest. `options` carries `coverage`, `path`, `testNamePattern`. Returns `LocalRunTestsResult` with `ran: false` when nothing could run. |
+
+`runners` comes from the detected stack (`getStackProfile`). These three
+functions spawn subprocesses or reach the network, so they are deliberately not
+part of the workspace façade — a caller has to opt into them by name.
+
 ### Internal (do not use from surfaces)
 
 | Symbol | Notes |

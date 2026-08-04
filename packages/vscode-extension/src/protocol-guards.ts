@@ -89,6 +89,17 @@ export function parseHostRequest(raw: unknown): ProtocolParse<HostRequest> {
   if (!METHODS.has(raw.method)) {
     return { ok: false, reason: `unknown request method "${raw.method}"` };
   }
+  // Network-gated methods must state consent explicitly rather than inherit a
+  // default from an absent field (ADR-0024).
+  if (
+    raw.method === "stageDevopsRemote" &&
+    typeof raw.consentGranted !== "boolean"
+  ) {
+    return {
+      ok: false,
+      reason: "stageDevopsRemote.consentGranted must be a boolean",
+    };
+  }
   return { ok: true, value: raw as unknown as HostRequest };
 }
 

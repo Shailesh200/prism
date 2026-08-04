@@ -61,6 +61,41 @@ We need a deliberate policy: how soft signals coexist with hard graph edges, how
 - Negative: Soft false positives; need caps/truncation; more contract surface on frozen SDK (additive only).
 - Follow-ups: MCP/CLI tool field docs (M-027/M-029); optional deeper type-only attrs.
 
+## Amendment 2026-08-05 (M-051) — risk floors are band minimums, not rival thresholds
+
+An audit initially read the tooling floors as contradicting the Q-023 bands.
+They do not, and this amendment records why so the same misreading does not
+recur.
+
+The bands answer *"what colour is this number?"*; the floors answer *"how low
+may this number honestly go for this kind of file?"*. A floor never
+reclassifies a band — it moves the score up to a minimum, and the single
+`riskToBand` helper then bands it like any other score.
+
+| Floor | Value | Lands in band | Reasoning |
+|---|---|---|---|
+| Tooling criticality `critical` | 70 | High (≥60) | A file the test runner or CI depends on is High even with zero importers — that is the failure M-049 existed to fix |
+| Tooling criticality `elevated` | 45 | Mid (≥20) | Real but weaker coupling; High would over-warn |
+| File role `config` | 40 | Mid | Mild fallback; tooling criticality usually floors configs higher first |
+| File role `entry` | 35 | Mid | Deleting an entry point breaks a build the graph cannot see |
+| File role `route` / `schema` | 30 | Mid | Externally reachable surface |
+| File role `barrel` | 25 | Mid | Re-export hubs under-count in reverse reachability |
+| File role `source` and all others | 0 | — | No floor; the graph speaks for itself |
+
+Every floor sits comfortably inside a band rather than straddling a boundary,
+so a floor can never produce a score whose band disagrees with its intent.
+Role floors apply **only** when tooling criticality is `none`, so the two
+systems never stack.
+
+The genuine defects the audit found were elsewhere and are fixed in M-051:
+duplicated band thresholds in `@prism/app-shell` (now one `riskToBand` in
+`@prism/shared`), and an engineering-health severity scale that ran the
+opposite direction on the same 0–100 axis (now renamed
+`severityFromHealthScore`).
+
+Source of truth: `CONFIG_FILE_RISK_FLOOR` in `packages/impact/src/internal.ts`
+and `fileRoleRiskFloor` in `packages/shared/src/file-role.ts`.
+
 ## Compliance
 
 - [x] Updates Master Plan / PROGRESS (M-049 In Progress for implementation)

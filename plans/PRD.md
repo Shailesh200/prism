@@ -6,7 +6,7 @@
 | Document type | End-to-end Product Requirements |
 | Status | Living — aligned to Master Plan **APPROVED** 2026-07-20 |
 | Version | 1.0.0 |
-| Last updated | 2026-07-22 |
+| Last updated | 2026-08-05 (M-051 reconciliation) |
 | Canonical plan | [`00_MASTER_DEVELOPMENT_PLAN.md`](./00_MASTER_DEVELOPMENT_PLAN.md) |
 | Progress | [`PROGRESS.md`](./PROGRESS.md) |
 | Architecture | [`architecture/`](./architecture/) |
@@ -115,16 +115,17 @@ Prism is a **local-first Software Intelligence Engine** that makes any repositor
 └─────────────────────────────────────────────────────────────┘
 ```
 
-| Surface | Role | Status (as of 2026-07-22) |
+| Surface | Role | Status (as of 2026-08-05) |
 |---|---|---|
-| **@prism/core** | Public SDK façade | **Shipped** (skeleton → intelligence → map APIs) |
-| **Playground** | Interactive Map demo (Vite) | **Shipped** (M-018); premium UI in progress (M-042) |
-| **@prism/ui** | Shared React Map / panels | **Shipped** v1; **v2 in progress** (M-042) |
-| **MCP Server** | Tools for agents | Planned (M-026 / M-027) |
+| **@prism/core** | Public SDK façade | **Shipped**; API frozen at v0.1.0 (M-025, ADR-0019) |
+| **Playground** | Interactive Map demo (Vite) | **Shipped** (M-018) |
+| **@prism/ui** | Shared React Map / panels | **Shipped** v2 (M-042) |
+| **@prism/app-shell** | Screens shared by playground + extension | **Shipped** (M-046, ADR-0021) |
+| **VS Code Extension** | Human IDE Map + explorer | **Shipped** and published as `prismhq.repo-prism` (M-030 / M-031 / M-047 / M-048) |
+| **Cursor Extension** | Thin packaging / branding | **Shipped** (M-032, ADR-0020) |
+| **MCP Server** | Tools for agents | Planned (M-026 / M-027) — the main remaining surface |
 | **CLI** | `prism` for scripts / CI | Planned (M-028 / M-029) |
-| **VS Code Extension** | Human IDE Map + explorer | Planned (M-030 / M-031) |
-| **Cursor Extension** | Thin packaging / branding | Planned (M-032) |
-| **Docs site** | Install + guides | Planned (M-038) |
+| **Docs site** | Install + guides | Planned (M-038); VitePress (Q-008) |
 
 **Hard rule:** surfaces never reimplement analysis. They consume Core DTOs only.
 
@@ -159,14 +160,15 @@ Legend: **Done** = Verified on `main` · **Active** = current milestone · **Nex
 | Stack-aware utilities epic | M-041 | Gate A+B (P0–P7 + Mono + overlays) |
 | Map data model | M-017 | `getRepositoryMap` zoom/layers/clusters |
 
-### 6.2 Repository Map (hero) — Done + Active
+### 6.2 Repository Map (hero) — Done
 
 | Capability | Milestone(s) | Requirements summary |
 |---|---|---|
 | Map UI playground | M-018 **Done** | Playground + `@prism/ui`: pan/zoom, search, feature overview, file density treemap, local-repo presets |
-| Map layers & views | M-019 **Deferred** | ≥5 layers (architecture, dependency, activity, ownership, debt, risk, performance, coverage); toggle + legend — *parked; layer work carried into M-042* |
-| UI System v2 (Signal Chart) | M-042 **Active** | Premium map chrome: ZoomRail, atmosphere, motion, file/symbol polish, command palette slices |
-| IDE Map packaging | M-030 / M-031 **Later** | VS Code webview Map + explorer |
+| Map layers & views | M-019 **Done** (closed out) | ≥5 layers (architecture, dependency, activity, ownership, debt, risk, performance, coverage); toggle + legend — *shipped inside M-042* |
+| UI System v2 (Signal Chart) | M-042 **Done** | Dark relock (ADR-0014): KPI sidebar, edge graph, blast rings, rebuilt inspector, Overview landing |
+| IDE Map packaging | M-030 / M-031 **Done** | VS Code webview Map + explorer |
+| Honest layer signals | M-051 **Done** | Layers that cannot be measured render as "No data" rather than colour derived from a hash (ADR-0029) |
 
 #### Map product requirements (human)
 
@@ -193,40 +195,48 @@ Level 2  Views → one layer concern at a time
 Level 3  Power → routes, bookmarks, landmarks, command palette
 ```
 
-### 6.3 Change impact — Next / Later
+### 6.3 Change impact — Done
 
 | Capability | Milestone(s) | Requirements summary |
 |---|---|---|
-| Blast radius | M-020 | Transitive dependents, depth limits, risk heuristic, Core `blastRadius` |
-| Safe delete / rename / test impact | M-021 | `safeDelete`, `renameImpact`, `testImpact`, `breakingChangeHints` |
+| Blast radius | M-020 **Done** | Transitive dependents, depth limits, risk heuristic, Core `blastRadius` |
+| Safe delete / rename / test impact | M-021 **Done** | `safeDelete`, `renameImpact`, `testImpact`, `breakingChangeHints` |
+| Multi-lane blast (hard + soft) | M-049 **Done** | Config/CI/script edges with confidence + evidence; tooling floors; ADR-0027 |
+| Change review | M-048 **Done** | Multi-path aggregate review for SCM / editor |
 
-### 6.4 Health, explorer, insights — Later
-
-| Capability | Milestone(s) | Requirements summary |
-|---|---|---|
-| Engineering health metrics | M-022 | Entropy, drift, debt, churn, hotspots, knowledge decay, conflict risk |
-| Code Explorer queries | M-023 | Usages, ownership, related *, similar impl, git timeline |
-| Engineering insights | M-024 | Ranked lists with evidence (hotspots, coupling, review risk) |
-
-### 6.5 Core freeze & surfaces — Later
+### 6.4 Health, explorer, insights — Done (one deferred)
 
 | Capability | Milestone(s) | Requirements summary |
 |---|---|---|
-| Core SDK freeze v0 | M-025 | Stabilize public `@prism/core` for surfaces |
-| MCP foundation | M-026 | Stdio MCP server; thin Core adapters |
-| MCP tools pack | M-027 | Full tool surface (see §7) |
-| CLI foundation | M-028 | `prism` binary + Commander |
-| CLI commands | M-029 | `analyze|map|health|dna|blast-radius|safe-delete|insights` |
-| VS Code shell | M-030 | Extension host, webview shell, Core wiring |
-| VS Code Map + Explorer | M-031 | Full human Map experience in IDE |
-| Cursor extension | M-032 | Packaging/brand; coexist with MCP |
+| Engineering health metrics | M-022 **Done** | Entropy, drift, debt, churn, hotspots, knowledge decay, conflict risk |
+| Code Explorer queries | M-023 **Done** | Usages, ownership, related *, similar impl, git timeline |
+| Engineering insights | M-024 **Deferred** | Superseded by M-046; ranked lists folded into the intelligence accuracy epic |
+| Testing & security reports | M-046 **Done** | Coverage ingest, security checklist, health history backfill; ADR-0022/0023 |
+| Backend route intelligence | M-044 **Done** | Express/Nest/Fastify extraction; ADR-0015 |
+| Frontend bundle weight | M-050 **Done** | Consent-gated local analyze + stats ingest + treemap; ADR-0028 |
+
+### 6.5 Core freeze & surfaces — Partly done
+
+| Capability | Milestone(s) | Requirements summary |
+|---|---|---|
+| Core SDK freeze v0 | M-025 **Done** | Public `@prism/core` frozen at v0.1.0; ADR-0019 |
+| VS Code shell | M-030 **Done** | Extension host, webview shell, Core wiring |
+| VS Code Map + Explorer | M-031 **Done** | Full human Map experience in IDE |
+| Cursor extension | M-032 **Done** | Packaging/brand; coexist with MCP; ADR-0020 |
+| Marketplace publishing | M-047 **Done** | `prismhq.repo-prism` on Marketplace + Open VSX; ADR-0025 |
+| MCP foundation | M-026 **Next** | Stdio MCP server; thin Core adapters |
+| MCP tools pack | M-027 **Next** | Full tool surface (see §7) |
+| CLI foundation | M-028 **Next** | `prism` binary + Commander |
+| CLI commands | M-029 **Next** | `analyze\|map\|health\|dna\|blast-radius\|safe-delete\|insights` |
 
 ### 6.6 Scale, quality, GA — Later
 
 | Capability | Milestone(s) | Requirements summary |
 |---|---|---|
-| Incremental index & watch | M-033 | fs watch; partial rebuild budgets |
-| Multi-language (Tree-sitter) | M-034 | Additional language(s) beyond TS/JS |
+| Incremental index & watch | M-033 **Deferred** | Superseded by M-048 Phase 1; ADR-0026 |
+| Multi-language (Tree-sitter) | M-034 **Deferred** | Off the GA path; revisit post-GA (Q-005 open) |
+| Hardening & signal integrity | M-051 **Active** | Release safety, watch/RPC correctness, provenance, one risk-band helper; ADR-0029 |
+| Surface consolidation | M-052 **Next** | Lift analysis out of the UI into Core; unify the two clients — prerequisite for MCP/CLI |
 | Performance hardening | M-035 | Large-repo budgets; profiling |
 | Security & privacy | M-036 | Secret redaction; sensitive path ignore; no-network default |
 | E2E suite | M-037 | Playwright + MCP/CLI integration |
@@ -277,26 +287,36 @@ Blast radius  chargeCustomer  risk 72
 
 ## 8. Design system (locked)
 
+Relocked **dark** by [ADR-0014](./adr/0014-uxpilot-dark-product-ui.md) in M-042.
+The values below mirror `packages/ui/src/tokens.css`, which is the source of
+truth — if they disagree, the stylesheet wins and this table is stale.
+
 | Token | Hex | Use |
 |---|---|---|
-| Brand / primary | `#0F766E` | Mark, CTA, selected regions |
-| Brand strong | `#115E59` | Hover / emphasis |
-| On brand | `#FFFFFF` | Text on teal |
-| Ink | `#0F1C24` | Primary text |
-| Ink muted | `#5A6B76` | Captions |
-| Line | `#C5D0D8` | Borders |
-| Panel | `#FBFCFD` | Chrome |
-| Canvas | `#E8EEF2` → `#F3F7F9` | Map atmosphere |
-| Risk | `#D97706` | Impact / risk only |
-| Safe | `#059669` | Healthy signals (sparingly) |
+| `--prism-brand` | `#00C2C2` | Mark, CTA, selected regions, route edges |
+| `--prism-brand-strong` | `#00DCD4` | Hover / emphasis |
+| `--prism-on-brand` | `#FFFFFF` | Text on brand |
+| `--prism-ink` | `#FFFFFF` | Primary text |
+| `--prism-ink-muted` | `#94A3B8` | Captions, faint text |
+| `--prism-text` | `#E6F0F2` | Body text on dark surfaces |
+| `--prism-line` / `--prism-border` | `#2A334A` | Borders |
+| `--prism-canvas` | `#0A0E1A` | Map / app background |
+| `--prism-canvas-alt` / `--prism-panel-2` | `#0F1420` | Recessed background |
+| `--prism-panel` / `--prism-surface` | `#131926` | Chrome, cards |
+| `--prism-tile` / `--prism-elev` | `#1E2433` | Raised surfaces, node fill |
+| `--prism-risk` / `--prism-amber` | `#F59E0B` | Impact / risk only |
+| `--prism-risk-extreme` / `--prism-rose` | `#F43F5E` | Extreme risk |
+| `--prism-safe` / `--prism-emerald` | `#10B981` | Healthy signals (sparingly) |
+| `--prism-violet` | `#6C63FF` | Reserved secondary accent |
 
 | Rule | Detail |
 |---|---|
-| Accent | One family: **teal** — no purple/violet candy |
-| Type | Satoshi (UI) · IBM Plex Mono (paths/code) |
-| Shell | Top bar · one canvas · Inspector |
+| Accent | One family: **teal/cyan** — no candy palette |
+| Type | **Inter** (UI) · **JetBrains Mono** (paths/code) — replaced Satoshi / IBM Plex Mono in ADR-0014 |
+| Shell | Left KPI sidebar · one canvas · Inspector |
 | Logo | Locked faceted geometric “P” |
-| Theme | Light-first; dark later as token flip (M-042 prepares tokens) |
+| Theme | **Dark-first** (ADR-0014). Light is not shipped |
+| No-data | Signals that cannot be measured render neutral with an explicit “No data”, never a colour (ADR-0029) |
 
 ---
 
@@ -310,7 +330,7 @@ Blast radius  chargeCustomer  risk 72
 | JS/TS parse (v1) | Oxc |
 | Graphs | ngraph |
 | Cache | better-sqlite3 (Node-portable for extensions) |
-| Map UI | React + Vite + React Flow (+ Highcharts for density) |
+| Map UI | React + Vite + React Flow (Highcharts density prototype removed in M-019 close-out) |
 | Verify gate | `bun run verify:milestone` before owner review |
 | Integration rule | Surfaces → `@prism/core` only |
 
@@ -358,39 +378,47 @@ Explicitly **out of scope** for GA:
 
 ---
 
-## 12. Roadmap snapshot (2026-07-22)
+## 12. Roadmap snapshot (2026-08-05)
+
+`PROGRESS.md` is authoritative; this is the shape of the remaining work.
 
 ### Shipped (Verified on `main`)
 
-M-000 → M-018 inclusive, plus M-040 / M-041 (Stack Detector + utilities epic).
+Everything through **M-050**, other than the deferrals below. That includes the
+whole analysis core, the map, impact analysis, engineering health, the Code
+Explorer, the Core SDK freeze, and the published VS Code / Cursor extensions.
 
 ### Active
 
 | Milestone | Focus |
 |---|---|
-| **M-042 UI System v2** | Premium Signal Chart: ZoomRail, Feature canvas, File/Symbol polish, command palette |
+| **M-051 Hardening & Signal Integrity** | Release safety, watch + RPC correctness, signal provenance (ADR-0029), one risk-band helper, plan reconciliation |
 
 ### Deferred / parked
 
 | Milestone | Note |
 |---|---|
-| **M-019 Map Layers** | Parked for M-042; layer UI carried forward on M-042 branch |
+| **M-024 Insights** | Superseded by M-046 |
+| **M-033 Incremental Watch** | Superseded by M-048 Phase 1 (ADR-0026) |
+| **M-034 Tree-sitter** | Off the GA path; delivers nothing to TS/JS users today. Revisit post-GA; Q-005 stays open |
 | Treemap animation polish | Owner: revisit after feature milestones |
 
-### Immediate next (after M-042)
+### Remaining path to GA
 
-Typical critical-path continuation:
+1. **M-051** hardening (active)
+2. **M-052** surface consolidation — lift analysis out of the UI into Core, so
+   MCP and CLI inherit it instead of reimplementing it
+3. **M-026 / M-027** MCP server and tools pack
+4. **M-028 / M-029** CLI foundation and commands
+5. **M-035** performance · **M-036** security & privacy · **M-037** E2E suite
+6. **M-038** docs site
+7. **M-039** GA readiness → 1.0.0
 
-1. Finish / merge **M-042**  
-2. Resume **M-019** layer completeness if still needed, or proceed to **M-020 Blast Radius**  
-3. **M-025** Core freeze when impact + map surfaces are ready  
-4. Surfaces: **M-026 MCP** · **M-028 CLI** · **M-030 VS Code**  
-
-Critical path (Master Plan):
+Critical path:
 
 ```text
-M-001 → M-005 → M-040 → M-014 → M-041 Gate A → M-017 → M-018
-  → (M-042 polish) → M-025 → M-026 / M-028 / M-030 → M-039 GA
+M-051 → M-052 → (M-026 → M-027) → (M-028 → M-029)
+  → M-035 → M-036 → M-037 → M-038 → M-039 GA
 ```
 
 ---
@@ -497,8 +525,17 @@ Open questions: [`OPEN_QUESTIONS.md`](./OPEN_QUESTIONS.md)
 | M-030 | VS Code Shell | Surfaces |
 | M-031 | VS Code Map + Explorer | Surfaces |
 | M-032 | Cursor Extension | Surfaces |
-| M-033 | Incremental Watch | Scale |
-| M-034 | Tree-sitter | Scale |
+| M-043 | UI Fine-Tuning | Map / UI |
+| M-044 | Backend Intelligence | Intelligence |
+| M-046 | Intelligence Accuracy | Intelligence |
+| M-047 | Extension Marketplace | Surfaces |
+| M-048 | Extension Polish | Surfaces |
+| M-049 | Blast Radius Depth | Impact |
+| M-050 | Frontend Bundle Weight | Intelligence |
+| M-033 | Incremental Watch | Scale (deferred) |
+| M-034 | Tree-sitter | Scale (deferred) |
+| M-051 | Hardening & Signal Integrity | Hardening |
+| M-052 | Surface Consolidation | Hardening |
 | M-035 | Perf Hardening | Hardening |
 | M-036 | Security Privacy | Hardening |
 | M-037 | E2E Suite | Quality |

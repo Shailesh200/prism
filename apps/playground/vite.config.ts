@@ -931,6 +931,7 @@ function prismMapApi(): Plugin {
                 owner,
                 repo,
                 ...(token ? { token } : {}),
+                consentGranted: body.consentGranted === true,
               });
               if (!result.ok) {
                 sendJson(res, 400, { error: result.error });

@@ -181,7 +181,7 @@ saved under `plans/mockups/screens/html/`:
 - [x] `STITCH_SCREEN_PROMPTS.md` + dark `DESIGN.md` brief authored; mockups indexed
 - [x] `bun run verify:milestone` green
 - [x] Owner review + approval → commit on `milestone/M-043-ui-finetune`
-- [ ] Owner approves merge → merge to main → PROGRESS Verified
+- [x] Owner approves merge → merge to main → PROGRESS Verified
 
 ## Verification
 

@@ -887,6 +887,8 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
           owner: entry.owner,
           repo: entry.repo,
           ...(token ? { token } : {}),
+          // Only reachable past the networkAllowed + githubEnabled guard above.
+          consentGranted: true,
         });
         overlay = staged.overlay;
       }

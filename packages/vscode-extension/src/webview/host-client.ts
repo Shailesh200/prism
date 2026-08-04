@@ -988,6 +988,7 @@ export async function stageDevopsRemote(input: {
   owner: string;
   repo: string;
   token?: string;
+  consentGranted: boolean;
 }): Promise<import("@prism/app-shell").StageDevopsRemoteResult> {
   return withAudit(
     {
@@ -1002,6 +1003,7 @@ export async function stageDevopsRemote(input: {
         owner: input.owner,
         repo: input.repo,
         ...(input.token ? { token: input.token } : {}),
+        consentGranted: input.consentGranted,
       });
       if (!res.ok) throw new Error(res.error);
       if (res.method !== "stageDevopsRemote") {
