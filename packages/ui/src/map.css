@@ -2448,6 +2448,21 @@ button.prism-crumbs__seg:hover {
   color: var(--prism-rose);
 }
 
+/* No data (ADR-0029): neutral tone, dashed empty track. A metric Prism cannot
+   measure must not read as a measured zero on the same colour scale. */
+.prism-metric__v[data-no-data="true"] {
+  color: var(--prism-text-dim, #94a3b8);
+  font-style: italic;
+  letter-spacing: 0.01em;
+}
+
+.prism-metric__bar[data-no-data="true"] {
+  background: transparent;
+  border: 1px dashed
+    color-mix(in srgb, var(--prism-text-dim, #94a3b8) 32%, transparent);
+  box-sizing: border-box;
+}
+
 /* —— Inspector: blast radius summary —— */
 .prism-blast {
   display: flex;

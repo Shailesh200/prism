@@ -79,12 +79,17 @@
           ],
           "weight": 1,
           "layerSignals": {
-            "activity": 0.41265,
-            "ownership": 0.6043,
             "debt": 0,
             "risk": 0,
-            "performance": 0.09960000000000001,
-            "coverage": 0.8376000000000001
+            "coverage": 1
+          },
+          "layerProvenance": {
+            "activity": "unavailable",
+            "ownership": "unavailable",
+            "debt": "measured",
+            "risk": "heuristic",
+            "performance": "unavailable",
+            "coverage": "heuristic"
           }
         }
       },
@@ -100,12 +105,17 @@
           ],
           "weight": 1,
           "layerSignals": {
-            "activity": 0.1683,
-            "ownership": 0.45940000000000003,
             "debt": 0,
             "risk": 1,
-            "performance": 0.028999999999999998,
-            "coverage": 0.7564000000000001
+            "coverage": 1
+          },
+          "layerProvenance": {
+            "activity": "unavailable",
+            "ownership": "unavailable",
+            "debt": "measured",
+            "risk": "heuristic",
+            "performance": "unavailable",
+            "coverage": "heuristic"
           }
         }
       }

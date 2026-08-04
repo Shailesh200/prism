@@ -18,6 +18,24 @@ export {
   type PrismErrorCode as PrismErrorCodeType,
 } from "./errors.js";
 
+export { isTestPath, isTypeDeclarationPath } from "./test-paths.js";
+
+export {
+  DEFAULT_PROVENANCE,
+  ProvenancedValueSchema,
+  SIGNAL_PROVENANCE,
+  SignalProvenanceSchema,
+  combineProvenance,
+  estimated,
+  hasValue,
+  heuristic,
+  measured,
+  unavailable,
+  valueOr,
+  type ProvenancedValue,
+  type SignalProvenance,
+} from "./provenance.js";
+
 export {
   asEdgeId,
   asFeatureId,

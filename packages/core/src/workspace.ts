@@ -702,24 +702,77 @@ export function createWorkspace(options: {
   const bookmarksFilePath = (): string =>
     join(rootPath, ".prism", "bookmarks.json");
 
-  const readBookmarkStore = async (): Promise<MapBookmarkStore> => {
+  /**
+   * A missing bookmarks file is normal and yields an empty store. A file that
+   * exists but cannot be read or parsed is an error: treating corruption as
+   * "no bookmarks" meant the next save overwrote the file and destroyed them
+   * (M-051 Phase 1).
+   */
+  const readBookmarkStore = async (): Promise<
+    Result<MapBookmarkStore, PrismError>
+  > => {
+    let raw: string;
     try {
-      const raw = await readFile(bookmarksFilePath(), "utf8");
-      const parsed = parseBookmarkStore(JSON.parse(raw));
-      if (parsed.ok) return parsed.value;
-    } catch {
-      /* missing / unreadable / invalid file → empty store */
+      raw = await readFile(bookmarksFilePath(), "utf8");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
+        return ok(emptyBookmarkStore());
+      }
+      return err(
+        prismError(
+          PrismErrorCode.IO_ERROR,
+          `Could not read ${bookmarksFilePath()}: ${
+            error instanceof Error ? error.message : "unknown error"
+          }`,
+        ),
+      );
     }
-    return emptyBookmarkStore();
+
+    let json: unknown;
+    try {
+      json = JSON.parse(raw);
+    } catch {
+      return err(
+        prismError(
+          PrismErrorCode.VALIDATION,
+          `${bookmarksFilePath()} is not valid JSON. Fix or delete the file to continue.`,
+        ),
+      );
+    }
+
+    const parsed = parseBookmarkStore(json);
+    if (!parsed.ok) {
+      return err(
+        prismError(
+          PrismErrorCode.VALIDATION,
+          `${bookmarksFilePath()} is not a valid bookmark store. Fix or delete the file to continue.`,
+        ),
+      );
+    }
+    return ok(parsed.value);
   };
 
-  const writeBookmarkStore = async (store: MapBookmarkStore): Promise<void> => {
-    await mkdir(join(rootPath, ".prism"), { recursive: true });
-    await writeFile(
-      bookmarksFilePath(),
-      `${JSON.stringify(store, null, 2)}\n`,
-      "utf8",
-    );
+  const writeBookmarkStore = async (
+    store: MapBookmarkStore,
+  ): Promise<Result<void, PrismError>> => {
+    try {
+      await mkdir(join(rootPath, ".prism"), { recursive: true });
+      await writeFile(
+        bookmarksFilePath(),
+        `${JSON.stringify(store, null, 2)}\n`,
+        "utf8",
+      );
+      return ok(undefined);
+    } catch (error) {
+      return err(
+        prismError(
+          PrismErrorCode.IO_ERROR,
+          `Could not write ${bookmarksFilePath()}: ${
+            error instanceof Error ? error.message : "unknown error"
+          }`,
+        ),
+      );
+    }
   };
 
   const ensureOpen = (): Result<true, PrismError> => {
@@ -1929,12 +1982,14 @@ export function createWorkspace(options: {
       const gate = ensureOpen();
       if (!gate.ok) return gate;
       const store = await readBookmarkStore();
-      return ok(sortBookmarks(store.bookmarks));
+      if (!store.ok) return store;
+      return ok(sortBookmarks(store.value.bookmarks));
     },
     async saveBookmark(input) {
       const gate = ensureOpen();
       if (!gate.ok) return gate;
       const store = await readBookmarkStore();
+      if (!store.ok) return store;
       const id =
         input.id ??
         `bookmark:${input.nodeId ?? input.path ?? "note"}:${Date.now()}`;
@@ -1948,20 +2003,23 @@ export function createWorkspace(options: {
         ...(input.note === undefined ? {} : { note: input.note }),
       };
       const bookmarks = sortBookmarks([
-        ...store.bookmarks.filter((b) => b.id !== id),
+        ...store.value.bookmarks.filter((b) => b.id !== id),
         next,
       ]);
-      await writeBookmarkStore({ version: 1, bookmarks });
+      const written = await writeBookmarkStore({ version: 1, bookmarks });
+      if (!written.ok) return written;
       return ok(bookmarks);
     },
     async removeBookmark(id) {
       const gate = ensureOpen();
       if (!gate.ok) return gate;
       const store = await readBookmarkStore();
+      if (!store.ok) return store;
       const bookmarks = sortBookmarks(
-        store.bookmarks.filter((b) => b.id !== id),
+        store.value.bookmarks.filter((b) => b.id !== id),
       );
-      await writeBookmarkStore({ version: 1, bookmarks });
+      const written = await writeBookmarkStore({ version: 1, bookmarks });
+      if (!written.ok) return written;
       return ok(bookmarks);
     },
     close() {

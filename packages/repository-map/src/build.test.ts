@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -112,6 +112,16 @@ describe("buildRepositoryMap (M-017)", () => {
 
     expect(RepositoryMapSchema.safeParse(map).success).toBe(true);
     const goldenPath = join(here, "fixtures", "map-feature.golden.json");
+    // Regenerate with UPDATE_GOLDEN=1 after an intentional shape change, then
+    // review the diff — the point of the fixture is that changes are visible.
+    if (process.env.UPDATE_GOLDEN === "1") {
+      const { layout: _drop, ...withoutLayout } = map;
+      writeFileSync(
+        goldenPath,
+        `${JSON.stringify(withoutLayout, null, 2)}\n`,
+        "utf8",
+      );
+    }
     const golden = JSON.parse(readFileSync(goldenPath, "utf8")) as unknown;
     // layout positions may vary by layout impl — compare without layout
     const { layout: _l, ...stable } = map;

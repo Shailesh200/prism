@@ -97,14 +97,9 @@ export function stripFilePrefix(idOrPath: string): string {
     : idOrPath;
 }
 
-export function isTestPath(path: string): boolean {
-  return /(^|\/)__tests__\//.test(path) || /\.(test|spec)\.[a-z]+$/i.test(path);
-}
+import { isTestPath, isTypeDeclarationPath } from "@prism/shared";
 
-/** A TypeScript declaration file (`*.d.ts`) — contributes types, not runtime. */
-export function isTypeDeclarationPath(path: string): boolean {
-  return /\.d\.ts$/i.test(path);
-}
+export { isTestPath, isTypeDeclarationPath };
 
 /** Whether a reverse-edge kind represents a re-export (`export`/`reexport`). */
 export function isReexportEdge(edgeKind: string | undefined): boolean {

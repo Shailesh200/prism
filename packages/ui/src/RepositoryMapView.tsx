@@ -27,7 +27,12 @@ import type {
 } from "@prism/shared";
 import { layoutCardTree, toggleExpanded } from "./card-tree-layout.js";
 import { MapLayersPanel } from "./MapLayersPanel.js";
-import { dominantHeat, heatBand, parseLayerSignals } from "./map-layers.js";
+import {
+  dominantHeat,
+  heatBand,
+  parseLayerSignals,
+  signalValue,
+} from "./map-layers.js";
 import {
   cardEntriesAt,
   drillScopeFromMapNode,
@@ -154,7 +159,8 @@ type MetricRow = {
   readonly key: string;
   readonly label: string;
   readonly value: string;
-  readonly fill: number;
+  /** `null` when the repository has no data for this metric (ADR-0029). */
+  readonly fill: number | null;
   readonly tone: MetricTone;
 };
 
@@ -767,18 +773,22 @@ export function RepositoryMapView(props: RepositoryMapViewProps): ReactElement {
       tone: links >= 8 ? "amber" : links >= 3 ? "violet" : "emerald",
     });
     if (signals) {
+      // A layer with no data reads as "No data" rather than 0%, which would be
+      // indistinguishable from a measured zero (ADR-0029).
+      const coverage = signalValue(signals, "coverage");
       rows.push({
         key: "coverage",
         label: "Test coverage",
-        value: `${pct(signals.coverage)}%`,
-        fill: pct(signals.coverage),
+        value: coverage === null ? "No data" : `${pct(coverage)}%`,
+        fill: coverage === null ? null : pct(coverage),
         tone: "violet",
       });
+      const activity = signalValue(signals, "activity");
       rows.push({
         key: "churn",
         label: "Churn (activity)",
-        value: `${pct(signals.activity)}%`,
-        fill: pct(signals.activity),
+        value: activity === null ? "No data" : `${pct(activity)}%`,
+        fill: activity === null ? null : pct(activity),
         tone: "rose",
       });
     }
@@ -1252,19 +1262,28 @@ export function RepositoryMapView(props: RepositoryMapViewProps): ReactElement {
                 <p className="prism-map__sheet-kicker">Metrics</p>
                 <div className="prism-metrics">
                   {metrics.map((m) => (
-                    <div key={m.key}>
+                    <div key={m.key} data-no-data={m.fill === null}>
                       <div className="prism-metric__row">
                         <span className="prism-metric__k">{m.label}</span>
-                        <span className="prism-metric__v" data-tone={m.tone}>
+                        <span
+                          className="prism-metric__v"
+                          data-tone={m.tone}
+                          data-no-data={m.fill === null}
+                        >
                           {m.value}
                         </span>
                       </div>
-                      <div className="prism-metric__bar">
-                        <span
-                          className="prism-metric__fill"
-                          data-tone={m.tone}
-                          style={{ width: `${m.fill}%` }}
-                        />
+                      <div
+                        className="prism-metric__bar"
+                        data-no-data={m.fill === null}
+                      >
+                        {m.fill === null ? null : (
+                          <span
+                            className="prism-metric__fill"
+                            data-tone={m.tone}
+                            style={{ width: `${m.fill}%` }}
+                          />
+                        )}
                       </div>
                     </div>
                   ))}
