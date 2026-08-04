@@ -2,36 +2,106 @@
 
 | Field | Value |
 |---|---|
-| Branch | `milestone/M-026-mcp-server` |
-| Status | Not Started |
-| Depends on | M-025 |
+| Status | **Not Started** |
+| Branch | `milestone/M-026-mcp-server` (from latest `main`) |
+| Depends on | M-025, M-051, M-052 |
 | Unlocks | M-027 |
 | Packages | `@prism/mcp-server` |
+| Related ADR | [ADR-0004](../adr/0004-core-only-integration-surface.md); new ADR-0030 (transport + lifecycle) |
 
-## Goal
+> **Rewritten 2026-08-05.** The original 37-line version predates the Core SDK freeze, the app-shell
+> consolidation and the extension surfaces. Its assumption that health might be "delayed" and tools
+> might be "stubs" no longer applies — Core exposes roughly fifty workspace methods today.
 
-Ship a working MCP server process that initializes against a workspace path and exposes a minimal tool set plus resources/handshake compatibility with Cursor and other MCP clients.
+## 1. Goal
 
-## In Scope
+Ship an MCP server process that a coding agent can actually connect to: stdio transport, workspace
+resolution, lifecycle handling, error mapping, and a small set of **real** tools proving the whole
+path works end to end. Breadth of tools is M-027; this milestone is about the spine being correct.
 
-- MCP SDK server bootstrap (stdio)
-- Tools (minimal): `repository_dna`, `repository_health` (or stubs if health delayed—prefer real Core calls)
-- Workspace path configuration via env/args
-- README: connect from Cursor / Claude Code
-- Contract tests with MCP mock client
+## 2. Current state
 
-## Out of Scope
+`@prism/mcp-server` is effectively empty. `package.json` depends only on `@prism/shared` — **not on
+`@prism/core`**, and not on any MCP SDK. `src/` contains `index.ts` (8 lines), a stub test, and
+`backend-report-tool.ts` left behind by M-044. There is no server, no transport, no registration.
 
-- Full tool pack (M-027)
-- HTTP transport (optional later ADR)
+## 3. Design decisions (→ ADR-0030)
 
-## Definition of Done
+| Decision | Choice | Rationale |
+|---|---|---|
+| Transport | **stdio only** | What Cursor and Claude Code use. HTTP is a later ADR if a remote case appears; shipping both now doubles the surface for no user |
+| Workspace resolution | CLI arg → `PRISM_WORKSPACE` env → cwd | Explicit beats implicit; agents launch us with a cwd we did not choose |
+| Workspace lifetime | One workspace per process, opened lazily on first tool call, reused after | Indexing is expensive; an agent calling six tools should index once |
+| Indexing policy | Index on first use; reuse the cache. Never index during `initialize` | A slow handshake looks like a broken server |
+| Error mapping | `PrismError` → MCP error with a stable `code` | Agents branch on codes; prose is for humans |
+| Consent | Any consent-gated Core path is **refused** with an explanatory error | An agent cannot give informed consent on the user's behalf ([ADR-0024](../adr/0024-opt-in-network-integrations.md)) |
+| Result shape | JSON-serializable DTOs from `@prism/shared`, unmodified | The MCP contract *is* the Core contract; no reshaping in the adapter |
 
-- [ ] Server starts and lists tools
-- [ ] At least 2 tools return real Core data on fixture
-- [ ] Client setup docs written
-- [ ] Verify + PROGRESS + owner approval
+The consent decision is the one worth arguing about, and it is deliberate: Prism's promise is that
+nothing reaches the network or spawns a build without the user asking. An agent asking on the
+user's behalf is not the user asking.
 
-## Verification
+## 4. In scope
 
-Typecheck · Lint · Unit · Integration (MCP client mock) · Build · Manual Cursor connect checklist
+| Task | Detail |
+|---|---|
+| 1 | Add `@modelcontextprotocol/sdk` and `@prism/core` as dependencies; wire `bin` entry `prism-mcp` |
+| 2 | Server bootstrap over stdio with correct `initialize` / capabilities handshake |
+| 3 | Workspace resolution + lazy open; clear error when the path is not a readable directory |
+| 4 | Tool registration framework: one place to declare name, description, Zod input schema, Core call |
+| 5 | Four real tools: `repository_dna`, `repository_health`, `repository_map`, `blast_radius` |
+| 6 | Adopt the existing `backend-report-tool.ts` into the framework or delete it — no orphans |
+| 7 | `PrismError` → MCP error mapping with stable codes |
+| 8 | Graceful shutdown: close the workspace, release the SQLite handle, flush nothing silently |
+| 9 | `README.md` with copy-pasteable config for Cursor and Claude Code |
+| 10 | Contract tests driving a real in-process MCP client against a fixture repository |
+
+## 5. Out of scope
+
+- The remaining eleven tools (M-027)
+- HTTP/SSE transport
+- Multi-workspace or workspace switching mid-session
+- MCP resources and prompts — tools first, and only add the others if a real client needs them
+- Publishing to npm (M-039)
+
+## 6. Definition of Done
+
+- [ ] Only one milestone `In Progress`
+- [ ] ADR-0030 Accepted (transport, lifecycle, consent refusal)
+- [ ] Server starts over stdio and completes `initialize` in under 200 ms with no indexing
+- [ ] `tools/list` returns the four tools with valid JSON Schema
+- [ ] All four tools return real Core data against the fixture repository
+- [ ] `@prism/mcp-server` depends on `@prism/core` and calls **only** Core — no engine imports
+- [ ] A consent-gated path returns a clear refusal, not a hang and not a silent execution
+- [ ] Killing the parent process leaves no orphan and no locked SQLite file
+- [ ] README config verified by actually connecting from Cursor
+- [ ] `bun run verify:milestone --force` green
+- [ ] Owner approval → commit → merge → Verified → snippet shared
+
+## 7. Verification plan
+
+| Kind | Check |
+|---|---|
+| Unit | Workspace resolution precedence: arg > env > cwd |
+| Unit | `PrismError` → MCP error code mapping, one case per `PrismErrorCode` |
+| Contract | In-process MCP client: `initialize` → `tools/list` → `tools/call` for each tool |
+| Contract | Every tool's declared input schema accepts its valid fixture input and rejects a malformed one |
+| Contract | No import from `@prism/analyzer`, `@prism/indexer`, `@prism/graph-engine`, `@prism/intelligence` |
+| Integration | Two sequential tool calls index once, not twice |
+| Integration | Non-existent workspace path yields a clean error, not a crash |
+| Manual | Connect from Cursor using the README config; call each tool |
+
+## 8. Risks
+
+| Risk | Mitigation |
+|---|---|
+| MCP SDK version churn | Pin exactly; the handshake is the only coupling and the contract tests catch breakage |
+| First tool call is slow because it indexes | Expected and documented; the alternative — indexing during handshake — looks broken instead |
+| Agents call tools in a loop and thrash the index | Reuse the open workspace; M-035 owns any further budget work |
+| stdio protocol corrupted by stray stdout | Every log goes to stderr; a test asserts stdout carries only protocol frames |
+
+## 9. References
+
+- Master Plan §MCP tool table · [ADR-0004](../adr/0004-core-only-integration-surface.md) ·
+  [ADR-0019](../adr/0019-core-sdk-versioning.md) · [ADR-0024](../adr/0024-opt-in-network-integrations.md)
+- Follow-on: [M-027](./M-027_mcp-tools-pack.md)

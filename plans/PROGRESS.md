@@ -39,10 +39,10 @@
 | M-023 Code Explorer | `milestone/M-023-code-explorer` | Verified | ✅ | ✅ | Approved + merged 2026-07-22: CodeExplorerReport + exploreCode(); usages/ownership/related/similar/timeline; ADR-0018 Accepted |
 | M-024 Insights | `milestone/M-024-engineering-insights` | Deferred | ☐ | ☐ | Superseded by M-046 (Most Connected / insights folded into intelligence accuracy epic) |
 | M-025 Core SDK Freeze v0 | `milestone/M-025-core-sdk-freeze` | Verified | ✅ | ✅ | Approved + merged 2026-07-23: v0.1.0 freeze, ADR-0019, CORE_SDK guide, contract tests, map/navigation caps |
-| M-026 MCP Server | `milestone/M-026-mcp-server` | Not Started | ☐ | ☐ | |
-| M-027 MCP Tools Pack | `milestone/M-027-mcp-tools-pack` | Not Started | ☐ | ☐ | |
-| M-028 CLI Foundation | `milestone/M-028-cli-foundation` | Not Started | ☐ | ☐ | |
-| M-029 CLI Commands | `milestone/M-029-cli-commands` | Not Started | ☐ | ☐ | |
+| M-026 MCP Server | `milestone/M-026-mcp-server` | Not Started | ☐ | ☐ | Spec rewritten 2026-08-05 (original predated Core SDK freeze) |
+| M-027 MCP Tools Pack | `milestone/M-027-mcp-tools-pack` | Not Started | ☐ | ☐ | Spec authored 2026-08-05; `architecture_rules` dropped (no Core capability exists) |
+| M-028 CLI Foundation | `milestone/M-028-cli-foundation` | Not Started | ☐ | ☐ | Spec rewritten 2026-08-05 |
+| M-029 CLI Commands | `milestone/M-029-cli-commands` | Not Started | ☐ | ☐ | Spec authored 2026-08-05 |
 | M-030 VS Code Shell | `milestone/M-030-vscode-shell` | Verified | ✅ | ✅ | Approved + merged 2026-07-23: Extension Host shell, PrismSession, Map webview (`RepositoryMapView`), Reindex/Open Map, Electron better-sqlite3 staging |
 | M-031 VS Code Features | `milestone/M-031-vscode-features` | Verified | ✅ | ✅ | Approved + merged 2026-07-23: full playground UI in extension webview (Overview/Map/DNA/Domains/Blast/Trends/Settings) via Core postMessage; Open Prism / Show Health commands |
 | M-032 Cursor Extension | `milestone/M-032-cursor-extension` | Verified | ✅ | ✅ | Approved + merged 2026-07-23: Cursor packaging overlay (ADR-0020); Open in browser via loopback Core bridge |
@@ -50,13 +50,15 @@
 | M-048 Extension Polish | `milestone/M-048-extension-polish` | Verified | ✅ | ✅ | Merged 2026-07-28: watch + editor hooks + review/explain + tour + polish; Phase 8 blast depth deferred to M-049 |
 | M-049 Blast Radius Depth | `milestone/M-049-blast-radius-depth` | Verified | ✅ | ✅ | Merged 2026-07-30: multi-lane soft+hard blast, barrel resolution, findings UI, roles, edit/delete, soft cache |
 | M-050 Frontend Bundle Weight | `milestone/M-050-bundle-weight` | Verified | ✅ | ✅ | Merged 2026-08-05: FE-06 detect analyze scripts, consent-gated local Analyze, bundle-stats ingest, Frontend Domain Bundle/Weight treemap (ADR-0028); owner waived manual smoke |
+| M-051 Hardening & Signal Integrity | `milestone/M-051-hardening` | Not Started | ☐ | ☐ | Audit 2026-08-05; ADR-0029 signal provenance; release safety, watch/RPC correctness, risk bands, plan reconciliation |
+| M-052 Surface Consolidation | `milestone/M-052-surface-consolidation` | Not Started | ☐ | ☐ | Lift analysis out of app-shell/host-dispatch into Core; unify the two clients. Screen splitting deliberately deferred (owner decision 2026-08-05) |
 | M-033 Incremental Watch | `milestone/M-033-incremental-watch` | Deferred | ☐ | ☐ | Superseded by M-048 Phase 1 (ADR-0026) |
-| M-034 Tree-sitter | `milestone/M-034-tree-sitter` | Not Started | ☐ | ☐ | |
-| M-035 Perf Hardening | `milestone/M-035-perf-hardening` | Not Started | ☐ | ☐ | |
-| M-036 Security Privacy | `milestone/M-036-security-privacy` | Not Started | ☐ | ☐ | |
-| M-037 E2E Suite | `milestone/M-037-e2e-suite` | Not Started | ☐ | ☐ | |
-| M-038 Docs Site | `milestone/M-038-docs-site` | Not Started | ☐ | ☐ | |
-| M-039 GA Readiness | `milestone/M-039-ga-readiness` | Not Started | ☐ | ☐ | |
+| M-034 Tree-sitter | `milestone/M-034-tree-sitter` | Deferred | ☐ | ☐ | Deferred by owner 2026-08-05: blocks nothing, not on the GA path, and delivers nothing to TS/JS users. Revisit with the post-GA idea backlog; Q-005 remains open |
+| M-035 Perf Hardening | `milestone/M-035-perf-hardening` | Not Started | ☐ | ☐ | Spec authored 2026-08-05; measurement before optimisation |
+| M-036 Security Privacy | `milestone/M-036-security-privacy` | Not Started | ☐ | ☐ | Spec authored 2026-08-05 from security audit; consent gate is currently bypassed by every caller (F1) |
+| M-037 E2E Suite | `milestone/M-037-e2e-suite` | Not Started | ☐ | ☐ | Spec authored 2026-08-05 from test audit; 4 integration tests repo-wide, 15 packages with empty configs |
+| M-038 Docs Site | `milestone/M-038-docs-site` | Not Started | ☐ | ☐ | Spec authored 2026-08-05; VitePress (Q-008) + plain Markdown `/docs`, one source |
+| M-039 GA Readiness | `milestone/M-039-ga-readiness` | Not Started | ☐ | ☐ | Spec rewritten 2026-08-05; prepares 1.0.0 and the tag, owner pushes to release |
 
 ## Legend
 

@@ -477,22 +477,25 @@ flowchart TD
 | M-023 | Code Explorer Queries | Explorer | M-011 | Summary |
 | M-024 | Engineering Insights | Insights | M-014, M-022 | Summary |
 | M-025 | Core Public SDK Stabilization | Core | M-014–M-016, M-020 | Yes |
-| M-026 | MCP Server Foundation | Surfaces | M-025 | Yes |
-| M-027 | MCP Intelligence Tools Pack | Surfaces | M-026 | Summary |
-| M-028 | CLI Foundation | Surfaces | M-025 | Yes |
-| M-029 | CLI Analysis Commands | Surfaces | M-028 | Summary |
+| M-026 | MCP Server Foundation | Surfaces | M-025, M-051, M-052 | Yes |
+| M-027 | MCP Intelligence Tools Pack | Surfaces | M-026 | Yes |
+| M-028 | CLI Foundation | Surfaces | M-025, M-051, M-052 | Yes |
+| M-029 | CLI Analysis Commands | Surfaces | M-028 | Yes |
 | M-030 | VS Code Extension Shell | Surfaces | M-018, M-025 | Yes |
 | M-031 | VS Code Map + Explorer | Surfaces | M-030 | Summary |
 | M-032 | Cursor Extension | Surfaces | M-030 | Summary |
 | M-047 | Extension Marketplace | Surfaces | M-031, M-032 | Yes |
 | M-048 | Extension Polish (blast depth → M-049) | Surfaces | M-047 | Yes |
-| M-033 | Incremental Indexing & Watch | Scale | M-008 | Summary |
-| M-034 | Multi-language (Tree-sitter) | Scale | M-006 | Summary |
-| M-035 | Performance Hardening | Hardening | M-033 | Summary |
-| M-036 | Security & Privacy Hardening | Hardening | M-025 | Summary |
-| M-037 | End-to-End Test Suite | Quality | M-027, M-029, M-031 | Summary |
-| M-038 | Documentation Site | Docs | M-037 | Summary |
-| M-039 | GA Readiness | Release | M-036, M-038 | Yes |
+| M-050 | Frontend Bundle Weight | Intelligence | M-046 | Yes |
+| M-051 | Hardening & Signal Integrity | Hardening | M-050 | Yes |
+| M-052 | Surface Consolidation | Core | M-051 | Yes |
+| M-033 | Incremental Indexing & Watch | Scale | M-008 | **Deferred** — superseded by M-048 Phase 1 |
+| M-034 | Multi-language (Tree-sitter) | Scale | M-006 | **Deferred** 2026-08-05 — post-GA |
+| M-035 | Performance Hardening | Hardening | M-051, M-052 | Yes |
+| M-036 | Security & Privacy Hardening | Hardening | M-051, M-052 | Yes |
+| M-037 | End-to-End Test Suite | Quality | M-027, M-029, M-052 | Yes |
+| M-038 | Documentation Site | Docs | M-037 | Yes |
+| M-039 | GA Readiness | Release | M-036, M-037, M-038 | Yes |
 
 **Critical path (must stay green):** M-001 → M-005 → M-040 → M-014 → **M-041 Gate A** (P0 + P1 + Mono-v1) → M-017 → M-018 → M-025 → surfaces (M-026/M-028/M-030) → M-039.  
 **M-041 continued:** phases P2–P7 + Mono-v2 may run after Gate A (Map unblocked); still tracked as M-041 until epic complete.
