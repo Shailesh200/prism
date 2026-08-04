@@ -193,6 +193,11 @@ export type IndexFreshness = {
   readonly lastIndexedAt: string | null;
   readonly pendingDirtyCount: number;
   readonly dirtyPaths: readonly string[];
+  /**
+   * Message from the most recent failed reindex, cleared on the next success.
+   * Present means the index is knowingly behind disk (M-051 Phase 1).
+   */
+  readonly lastError?: string;
 };
 
 export type StartWatchOptions = {
@@ -613,6 +618,18 @@ export function createWorkspace(options: {
   let watchDebounceMs = 1500;
   let watchOnChange: ((freshness: IndexFreshness) => void) | null = null;
   let watchRunning = false;
+  let watchLastError: string | null = null;
+  let watchFailureCount = 0;
+
+  const WATCH_RETRY_BASE_MS = 2000;
+  const WATCH_RETRY_MAX_MS = 60_000;
+
+  // Exponential backoff so a persistently failing reindex does not spin.
+  const watchRetryDelayMs = (): number =>
+    Math.min(
+      WATCH_RETRY_BASE_MS * 2 ** Math.min(watchFailureCount, 5),
+      WATCH_RETRY_MAX_MS,
+    );
 
   const freshnessSnapshot = (): IndexFreshness => ({
     watching,
@@ -620,6 +637,7 @@ export function createWorkspace(options: {
     lastIndexedAt,
     pendingDirtyCount: pendingChanged.size + pendingDeleted.size,
     dirtyPaths: [...pendingChanged, ...pendingDeleted].sort(),
+    ...(watchLastError ? { lastError: watchLastError } : {}),
   });
 
   const emitFreshness = (): void => {
@@ -630,38 +648,55 @@ export function createWorkspace(options: {
     if (!open || !watching || watchRunning) return;
     const changed = [...pendingChanged];
     const deleted = [...pendingDeleted];
-    pendingChanged.clear();
-    pendingDeleted.clear();
     if (changed.length === 0 && deleted.length === 0) {
       watchStatus = lastIndexedAt ? "fresh" : "stale";
       emitFreshness();
       return;
     }
+    // Dirty paths are cleared only once the reindex confirms it consumed them.
+    // Clearing up front loses them permanently when indexing fails, leaving the
+    // index stale while reporting fresh — a wrong answer given confidently.
     watchRunning = true;
     watchStatus = "indexing";
+    watchLastError = null;
     emitFreshness();
+    let succeeded = false;
     try {
-      await runIndex({
+      const result = await runIndex({
         changedPaths: changed,
         deletedPaths: deleted,
       });
-      watchStatus =
-        pendingChanged.size + pendingDeleted.size > 0 ? "stale" : "fresh";
+      succeeded = result.ok;
+      if (!result.ok) watchLastError = result.error.message;
+    } catch (error) {
+      watchLastError =
+        error instanceof Error ? error.message : "Reindex threw unexpectedly";
     } finally {
+      if (succeeded) {
+        // Only the paths handed to this run are cleared; anything that arrived
+        // while it was in flight stays dirty and triggers another pass.
+        for (const path of changed) pendingChanged.delete(path);
+        for (const path of deleted) pendingDeleted.delete(path);
+        watchFailureCount = 0;
+      } else {
+        watchFailureCount += 1;
+      }
       watchRunning = false;
+      const stillDirty = pendingChanged.size + pendingDeleted.size > 0;
+      watchStatus = stillDirty || !succeeded ? "stale" : "fresh";
       emitFreshness();
-      if (pendingChanged.size + pendingDeleted.size > 0 && watching) {
-        scheduleWatchFlush();
+      if (stillDirty && watching) {
+        scheduleWatchFlush(succeeded ? undefined : watchRetryDelayMs());
       }
     }
   };
 
-  const scheduleWatchFlush = (): void => {
+  const scheduleWatchFlush = (delayMs?: number): void => {
     if (watchTimer) clearTimeout(watchTimer);
     watchTimer = setTimeout(() => {
       watchTimer = null;
       void flushWatch();
-    }, watchDebounceMs);
+    }, delayMs ?? watchDebounceMs);
   };
 
   const bookmarksFilePath = (): string =>
@@ -972,6 +1007,8 @@ export function createWorkspace(options: {
       watching = true;
       watchDebounceMs = watchOptions?.debounceMs ?? 1500;
       watchOnChange = watchOptions?.onChange ?? null;
+      watchLastError = null;
+      watchFailureCount = 0;
       watchStatus =
         pendingChanged.size + pendingDeleted.size > 0
           ? "stale"

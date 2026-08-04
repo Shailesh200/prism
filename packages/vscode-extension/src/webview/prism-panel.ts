@@ -18,6 +18,7 @@ import type {
   HostToWebview,
   WebviewToHost,
 } from "../protocol.js";
+import { parseWebviewToHost } from "../protocol-guards.js";
 
 /** Deep-link payload forwarded alongside a `navigate` message (M-048 Phase 2/3). */
 type NavigateExtras = {
@@ -73,7 +74,14 @@ export class PrismPanel {
 
     this.disposables.push(
       this.panel.webview.onDidReceiveMessage((raw: unknown) => {
-        void this.onMessage(raw as WebviewToHost);
+        const parsed = parseWebviewToHost(raw);
+        if (!parsed.ok) {
+          this.log.warn(
+            `Discarded malformed webview message: ${parsed.reason}`,
+          );
+          return;
+        }
+        void this.onMessage(parsed.value);
       }),
       this.panel.onDidDispose(() => this.dispose()),
     );

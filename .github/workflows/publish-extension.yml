@@ -1,47 +1,39 @@
 name: publish-extension
 
-# Order: sync+bump → commit → package+publish per platform (native better-sqlite3)
+# Publishing is an explicit act: it fires only when a `repo-prism-v*` tag is pushed.
+# Cut a release with: bump version -> commit -> tag repo-prism-vX.Y.Z -> push tag.
 # Requires secrets: VSCE_PAT, OVSX_TOKEN
 # Docs: packages/vscode-extension/PUBLISH.md
 
 on:
   push:
-    branches: [main]
-    paths:
-      - "packages/**"
-      - "bun.lock"
-      - ".github/workflows/publish-extension.yml"
+    tags:
+      - "repo-prism-v*"
   workflow_dispatch:
     inputs:
-      bump:
-        description: "Semver bump before publish"
+      tag:
+        description: "Existing repo-prism-v* tag to re-publish (recovery only)"
         required: true
-        default: patch
-        type: choice
-        options: [patch, minor, major]
+        type: string
 
 concurrency:
   group: publish-extension
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  bump:
-    if: ${{ !contains(github.event.head_commit.message || '', '[skip ci]') }}
+  prepare:
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.bump.outputs.version }}
+      version: ${{ steps.resolve.outputs.version }}
+      ref: ${{ steps.resolve.outputs.ref }}
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.event.inputs.tag || github.ref }}
           fetch-depth: 0
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: "1.3.11"
 
       - name: Check publish secrets
         env:
@@ -53,28 +45,28 @@ jobs:
           if [ -z "$OVSX_TOKEN" ]; then echo "::error::Missing secret OVSX_TOKEN"; missing=1; fi
           exit "$missing"
 
-      - run: bun install --frozen-lockfile
-
-      - name: Sync registries, bump version, commit
-        id: bump
-        env:
-          LEFTHOOK: "0"
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      # The tag is the release decision; package.json is the artifact's identity.
+      # If they disagree, the release is ambiguous and must not proceed.
+      - name: Resolve and verify version
+        id: resolve
         run: |
           set -euo pipefail
-          BUMP="${{ github.event.inputs.bump || 'patch' }}"
-          bun run packages/vscode-extension/scripts/bump-extension-version.ts "$BUMP"
-          VERSION=$(node -p "require('./packages/vscode-extension/package.json').version")
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          REF="${{ github.event.inputs.tag || github.ref_name }}"
+          TAG_VERSION="${REF#repo-prism-v}"
+          PKG_VERSION=$(node -p "require('./packages/vscode-extension/package.json').version")
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add packages/vscode-extension/package.json
-          git commit -m "chore(extension): bump RepoPrism to ${VERSION} [skip ci]"
-          git push origin HEAD:main
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Tag version ${TAG_VERSION} does not match package.json version ${PKG_VERSION}."
+            echo "::error::Bump the version and commit it before tagging."
+            exit 1
+          fi
+
+          echo "version=${PKG_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
+          echo "Publishing RepoPrism ${PKG_VERSION} from ${REF}"
 
   publish:
-    needs: bump
+    needs: prepare
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -98,7 +90,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ needs.prepare.outputs.ref }}
           fetch-depth: 0
 
       - uses: oven-sh/setup-bun@v2
@@ -119,7 +111,7 @@ jobs:
           PRISM_NATIVE_ARCH: ${{ matrix.arch }}
         run: |
           set -euo pipefail
-          VERSION="${{ needs.bump.outputs.version }}"
+          VERSION="${{ needs.prepare.outputs.version }}"
           cd packages/vscode-extension
           bun run scripts/package-vsix.ts --target "${{ matrix.target }}"
           VSIX="repo-prism-${VERSION}@${{ matrix.target }}.vsix"
@@ -143,8 +135,9 @@ jobs:
       - name: Summary
         run: |
           {
-            echo "## RepoPrism ${{ needs.bump.outputs.version }} (${{ matrix.target }})"
+            echo "## RepoPrism ${{ needs.prepare.outputs.version }} (${{ matrix.target }})"
             echo ""
+            echo "- Released from tag: ${{ needs.prepare.outputs.ref }}"
             echo "- VS Marketplace: https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism"
             echo "- Open VSX: https://open-vsx.org/extension/prismhq/repo-prism"
           } >> "$GITHUB_STEP_SUMMARY"
