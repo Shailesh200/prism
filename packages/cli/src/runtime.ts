@@ -22,6 +22,7 @@ import {
   type OutputOptions,
   type Writer,
 } from "./output.js";
+import { terminalWidth } from "./table.js";
 import { resolveWorkspace, type ResolvedWorkspace } from "./workspace.js";
 
 export type GlobalOptions = {
@@ -34,11 +35,30 @@ export type GlobalOptions = {
   readonly yes: boolean;
 };
 
+/**
+ * What the user typed after the command name.
+ *
+ * Commander has already validated arity and unknown flags by the time a
+ * command sees this, so the accessors are deliberately thin — a command that
+ * needs to *interpret* a value does it in the command, where the error message
+ * can say what was wrong with it.
+ */
+export type CommandArgs = {
+  readonly positionals: readonly string[];
+  /** A `--flag <value>` option, or `undefined` when unset. */
+  option(name: string): string | undefined;
+  /** A boolean `--flag`. */
+  flag(name: string): boolean;
+};
+
 export type CommandContext = {
   readonly options: GlobalOptions;
   readonly output: OutputOptions;
   readonly workspace: ResolvedWorkspace;
   readonly writer: Writer;
+  readonly args: CommandArgs;
+  /** Where the user is standing. Relative path arguments resolve from here. */
+  readonly cwd: string;
   /** Progress and status. Suppressed under `--json` and `--quiet`. */
   progress(message: string): void;
   /** Open and index the workspace. Cached across calls within one command. */
@@ -52,7 +72,7 @@ export type CommandContext = {
  */
 export type CommandOutcome = {
   readonly data: unknown;
-  human(color: boolean): string;
+  human(output: OutputOptions): string;
   readonly findings?: boolean;
 };
 
@@ -65,7 +85,15 @@ export type RunOptions = {
   readonly env: NodeJS.ProcessEnv;
   readonly writer: Writer;
   readonly isTty: boolean;
+  /** Terminal width when known. Tables fall back to 80 columns without it. */
+  readonly columns?: number;
   readonly openWorkspace?: (root: string) => Result<PrismWorkspace, PrismError>;
+};
+
+const NO_ARGS: CommandArgs = {
+  positionals: [],
+  option: () => undefined,
+  flag: () => false,
 };
 
 /**
@@ -78,11 +106,13 @@ export async function runCommand(
   handler: CommandHandler,
   globals: GlobalOptions,
   run: RunOptions,
+  args: CommandArgs = NO_ARGS,
 ): Promise<ExitCode> {
   const output: OutputOptions = {
     json: globals.json,
     color: globals.color,
     quiet: globals.quiet,
+    width: terminalWidth(run.env, run.columns),
   };
 
   const workspace = resolveWorkspace({
@@ -97,6 +127,8 @@ export async function runCommand(
     output,
     workspace,
     writer: run.writer,
+    args,
+    cwd: run.cwd,
     progress(message) {
       // Progress in JSON mode would be noise at best; in a pipeline it is the
       // thing that breaks the consumer.
@@ -137,7 +169,7 @@ export async function runCommand(
     if (output.json) {
       run.writer.out(renderJson({ ok: true, data: result.value.data }));
     } else {
-      run.writer.out(result.value.human(output.color));
+      run.writer.out(result.value.human(output));
     }
 
     return result.value.findings ? ExitCode.FINDINGS : ExitCode.OK;

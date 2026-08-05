@@ -15,6 +15,8 @@ export type OutputOptions = {
   readonly json: boolean;
   readonly color: boolean;
   readonly quiet: boolean;
+  /** Columns available for tables. Resolved once, in the runtime. */
+  readonly width: number;
 };
 
 /**
@@ -100,18 +102,49 @@ export function renderJson(envelope: JsonEnvelope): string {
   return JSON.stringify(envelope, null, 2);
 }
 
-/** `key: value` lines, aligned. The workhorse of the human renderer. */
+/**
+ * `key: value` lines, aligned. The workhorse of the human renderer.
+ *
+ * Long values wrap under a hanging indent so they stay in their column rather
+ * than running back to the left margin. A value with no spaces — a path, a
+ * URL — is left intact even when it overflows, because breaking one makes it
+ * uncopyable, which is worse than a wrapped line.
+ */
 export function renderFields(
   fields: readonly (readonly [string, string])[],
   color: boolean,
+  width = Number.POSITIVE_INFINITY,
 ): string {
-  const width = Math.max(0, ...fields.map(([label]) => label.length));
+  const labelWidth = Math.max(0, ...fields.map(([label]) => label.length));
+  const gutter = " ".repeat(labelWidth + 2);
+
   return fields
-    .map(
-      ([label, value]) =>
-        `${paint(`${label.padEnd(width)}`, "dim", color)}  ${value}`,
-    )
+    .flatMap(([label, value]) => {
+      const [first = "", ...rest] = wrapValue(value, width - labelWidth - 2);
+      return [
+        `${paint(label.padEnd(labelWidth), "dim", color)}  ${first}`,
+        ...rest.map((line) => `${gutter}${line}`),
+      ];
+    })
     .join("\n");
+}
+
+function wrapValue(value: string, limit: number): string[] {
+  if (!Number.isFinite(limit) || value.length <= limit) return [value];
+
+  const lines: string[] = [];
+  let current = "";
+  for (const word of value.split(" ")) {
+    if (current === "") current = word;
+    else if (current.length + 1 + word.length <= limit) {
+      current = `${current} ${word}`;
+    } else {
+      lines.push(current);
+      current = word;
+    }
+  }
+  lines.push(current);
+  return lines;
 }
 
 export function renderHeading(text: string, color: boolean): string {

@@ -131,6 +131,7 @@ import {
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { PrismCapabilities } from "./capabilities.js";
+import { readChangedPaths, type ChangedPaths } from "./git/changed-paths.js";
 import { readGitSignals, type GitSignals } from "./git/git-signals.js";
 import {
   HEALTH_HISTORY_BACKFILL_DEFAULT_COMMITS,
@@ -517,6 +518,17 @@ export type PrismWorkspace = {
    * never touches the network.
    */
   getGitActivity(): Result<GitActivity, PrismError>;
+  /**
+   * Files changed in the working tree, or against `base` when given (M-029).
+   * The input side of {@link reviewChanges} for surfaces without an SCM view.
+   *
+   * Fails with `UNSUPPORTED` rather than returning an empty list when git is
+   * unavailable: "I cannot tell what changed" and "nothing changed" must not
+   * look the same to a caller about to act on the answer.
+   */
+  getChangedPaths(options?: {
+    base?: string;
+  }): Result<ChangedPaths, PrismError>;
   blastRadius(input: {
     kind: "file" | "symbol";
     id: string;
@@ -1893,6 +1905,20 @@ export function createWorkspace(options: {
             : { bookmarks: mapOptions.bookmarks }),
         }),
       );
+    },
+    getChangedPaths(changedOptions) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      const changed = readChangedPaths(rootPath, changedOptions ?? {});
+      if (changed === null) {
+        return err(
+          prismError(
+            PrismErrorCode.UNSUPPORTED,
+            "Cannot list changed files: not a git work tree, or git is unavailable",
+          ),
+        );
+      }
+      return ok(changed);
     },
     getGitActivity() {
       const gate = ensureOpen();

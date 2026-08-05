@@ -3,6 +3,7 @@ import { rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
+import { COMMANDS } from "./commands.js";
 
 /**
  * These spawn the real binary through the documented entry point, because the
@@ -27,11 +28,12 @@ type Run = { stdout: string; stderr: string; code: number };
 function runCli(
   args: readonly string[],
   env: NodeJS.ProcessEnv = {},
+  cwd: string = packageDir,
 ): Promise<Run> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [binary, ...args], {
       env: { ...process.env, ...env },
-      cwd: packageDir,
+      cwd,
     });
 
     let stdout = "";
@@ -95,7 +97,7 @@ describe("prism binary (M-028)", () => {
     // Git-root discovery is helpful until it surprises someone; doctor is
     // where that surprise gets explained.
     const result = await runCli(["doctor", "--workspace", fixture]);
-    expect(result.stdout).toMatch(/via --workspace/);
+    expect(result.stdout).toMatch(/Chosen via\s+--workspace/);
   }, 60_000);
 
   it("emits nothing but JSON on stdout", async () => {
@@ -144,7 +146,7 @@ describe("prism binary (M-028)", () => {
   it("reads PRISM_WORKSPACE when no flag is given", async () => {
     const result = await runCli(["doctor"], { PRISM_WORKSPACE: fixture });
     expect(result.code).toBe(0);
-    expect(result.stdout).toContain("via PRISM_WORKSPACE");
+    expect(result.stdout).toMatch(/Chosen via\s+PRISM_WORKSPACE/);
   }, 60_000);
 
   it("reports a missing workspace as a usage error, in the envelope", async () => {
@@ -177,4 +179,247 @@ describe("prism binary (M-028)", () => {
     expect(result.stdout).toContain("Exit codes:");
     expect(result.stdout).toContain("Examples:");
   });
+
+  it("accepts a global flag after the subcommand, which is how people type", async () => {
+    const result = await runCli(["dna", "--workspace", fixture, "--json"]);
+    expect(result.code).toBe(0);
+    expect(() => JSON.parse(result.stdout)).not.toThrow();
+  }, 60_000);
+});
+
+/**
+ * Minimal arguments for the commands that need one. Everything not listed here
+ * runs with no arguments at all.
+ */
+const TARGET = "src/features/dashboard/Dashboard.ts";
+const OTHER = "src/features/dashboard/widgets.ts";
+
+const ARGUMENTS: Record<string, readonly string[]> = {
+  explain: ["src/features/dashboard"],
+  explore: [TARGET],
+  blast: [TARGET],
+  "safe-delete": [TARGET],
+  rename: [TARGET, "Home.ts"],
+  "test-impact": [TARGET],
+  symbol: ["renderDashboard"],
+  refs: ["widgetCount"],
+  route: [TARGET, OTHER],
+  // Named explicitly: the fixture is not a git repository, and `review` with
+  // no paths asks git what changed.
+  review: [TARGET],
+  // Reads an ingested build artifact rather than the source tree, so there is
+  // nothing to point it at in a fixture that has never been built.
+  bundle: [],
+};
+
+/** Commands that cannot succeed on a fixture without extra setup. */
+const EXPECT_FAILURE = new Set(["bundle"]);
+
+describe("every command (M-029)", () => {
+  afterAll(async () => {
+    await rm(join(fixture, ".prism"), { recursive: true, force: true });
+  });
+
+  it.each(COMMANDS.map((command) => command.name))(
+    "%s produces a valid JSON envelope and nothing else on stdout",
+    async (name) => {
+      const result = await runCli([
+        name,
+        ...(ARGUMENTS[name] ?? []),
+        "--workspace",
+        fixture,
+        "--json",
+      ]);
+
+      const parsed = JSON.parse(result.stdout) as { ok: boolean };
+      expect(typeof parsed.ok).toBe("boolean");
+
+      if (EXPECT_FAILURE.has(name)) {
+        expect(parsed.ok).toBe(false);
+      } else {
+        expect({ name, ok: parsed.ok, code: result.code }).toEqual({
+          name,
+          ok: true,
+          // 0 or 1 — a command that finds something still ran successfully.
+          code: result.code === 1 ? 1 : 0,
+        });
+      }
+    },
+    120_000,
+  );
+
+  it.each(COMMANDS.map((command) => command.name))(
+    "%s renders human output that fits 80 columns",
+    async (name) => {
+      if (EXPECT_FAILURE.has(name)) return;
+
+      const result = await runCli(
+        [name, ...(ARGUMENTS[name] ?? []), "--workspace", fixture, "--quiet"],
+        { COLUMNS: "80" },
+      );
+
+      const tooWide = result.stdout
+        .split("\n")
+        // Measure by code point: an em dash is one column and three bytes.
+        .filter((line) => [...line].length > 80)
+        // Overflow is only a layout defect when there was somewhere to break.
+        // A line that runs long because one unbreakable token — an absolute
+        // path, a URL — straddles the margin had no better option, and
+        // splitting one to fit makes it uncopyable.
+        .filter((line) => /\s/.test([...line].slice(80).join("")));
+
+      expect({ name, tooWide }).toEqual({ name, tooWide: [] });
+    },
+    120_000,
+  );
+});
+
+describe("--fail-on (M-029)", () => {
+  afterAll(async () => {
+    await rm(join(fixture, ".prism"), { recursive: true, force: true });
+  });
+
+  it("exits 1 at or above the band and 0 below it", async () => {
+    // `low` is the floor of the scale, so every score is at or above it. This
+    // is the cheapest way to prove the flag is wired to the shared bands
+    // without depending on a fixture keeping a particular score forever.
+    const trips = await runCli([
+      "blast",
+      TARGET,
+      "--workspace",
+      fixture,
+      "--fail-on",
+      "low",
+      "--quiet",
+    ]);
+    expect(trips.code).toBe(1);
+
+    const clean = await runCli([
+      "blast",
+      TARGET,
+      "--workspace",
+      fixture,
+      "--quiet",
+    ]);
+    expect(clean.code).toBe(0);
+  }, 120_000);
+
+  it("rejects a band it does not know, as a usage error", async () => {
+    const result = await runCli([
+      "blast",
+      TARGET,
+      "--workspace",
+      fixture,
+      "--fail-on",
+      "catastrophic",
+      "--quiet",
+    ]);
+    expect(result.code).toBe(2);
+    expect(result.stderr).toContain("low, mid, high");
+  }, 120_000);
+
+  it("scopes the working-tree diff to the workspace, not the enclosing repo", async () => {
+    // The fixture lives inside this repository, which usually has uncommitted
+    // changes. Git answers for the whole repository wherever it is invoked, so
+    // an unscoped `review` would report files that are not in the workspace —
+    // and then fail trying to look them up in an index that has never seen
+    // them. Nothing changes *inside* the fixture, so this is empty.
+    const result = await runCli(["review", "--workspace", fixture, "--json"]);
+    expect(result.code).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      ok: true,
+      data: { items: [] },
+    });
+  }, 120_000);
+
+  it("still exits 1 in JSON mode, where the payload looks like success", async () => {
+    const result = await runCli([
+      "cycles",
+      "--workspace",
+      fixture,
+      "--fail-on",
+      "0",
+      "--json",
+    ]);
+    expect(result.code).toBe(1);
+    expect(JSON.parse(result.stdout)).toMatchObject({ ok: true });
+  }, 120_000);
+});
+
+describe("path arguments (M-029)", () => {
+  it("refuses a path outside the workspace rather than analysing it", async () => {
+    // Clamping instead would report "nothing depends on this" about a file
+    // Prism never looked at.
+    const result = await runCli([
+      "blast",
+      "../../../etc/passwd",
+      "--workspace",
+      fixture,
+      "--json",
+    ]);
+    expect(result.code).toBe(2);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      ok: false,
+      error: { code: "PRISM_INVALID_PATH" },
+    });
+  }, 120_000);
+
+  it("resolves a relative path against the named workspace, not the cwd", async () => {
+    // These tests run from `packages/cli` while pointing at a fixture
+    // elsewhere. `src/features/dashboard` exists in the fixture and not here,
+    // so this passing is the whole point: a path typed alongside
+    // `--workspace` means a path *in* that workspace.
+    const result = await runCli([
+      "explain",
+      "src/features/dashboard",
+      "--workspace",
+      fixture,
+      "--json",
+    ]);
+    expect(result.code).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({ ok: true });
+  }, 120_000);
+
+  it("emits the Core DTO verbatim, so the CLI and the editor agree", async () => {
+    // The DoD asks that `prism blast` agree with the extension's Blast Radius
+    // screen. Both read the same Core method, so the only way they can
+    // disagree is if the CLI reshapes the payload on its way to stdout.
+    // Comparing against Core in-process is a stronger check than comparing two
+    // surfaces to each other, and it fails loudly if `--json` ever grows an
+    // opinion.
+    const { Prism } = await import("@prism/core");
+    const opened = Prism.create().openRepository(fixture);
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) return;
+    const workspace = opened.value;
+    const indexed = await workspace.index();
+    expect(indexed.ok).toBe(true);
+    const direct = await workspace.blastRadius({ kind: "file", id: TARGET });
+    workspace.close();
+    expect(direct.ok ? null : direct.error).toBeNull();
+    if (!direct.ok) return;
+
+    const result = await runCli([
+      "blast",
+      TARGET,
+      "--workspace",
+      fixture,
+      "--json",
+    ]);
+    expect(result.code).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({ ok: true, data: direct.value });
+  }, 180_000);
+
+  it("resolves against the cwd when standing inside the workspace", async () => {
+    const result = await runCli(
+      ["explain", "dashboard", "--json"],
+      { PRISM_WORKSPACE: fixture },
+      join(fixture, "src", "features"),
+    );
+    expect(result.code).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      ok: true,
+      data: { path: "src/features/dashboard" },
+    });
+  }, 120_000);
 });

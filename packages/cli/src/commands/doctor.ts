@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { PRISM_API_LEVEL, PRISM_CORE_VERSION } from "@prism/core";
 import { ok } from "@prism/shared";
 import { paint, renderFields, renderHeading, type Style } from "../output.js";
+import { wrap } from "../table.js";
 import type { CommandHandler } from "../runtime.js";
 
 type Check = {
@@ -109,7 +110,7 @@ export const doctorCommand: CommandHandler = async (context) => {
       checks,
     },
     findings: failed,
-    human(color) {
+    human({ color, width }) {
       const lines = [
         renderHeading("Prism doctor", color),
         "",
@@ -117,16 +118,11 @@ export const doctorCommand: CommandHandler = async (context) => {
           [
             ["Core", `${PRISM_CORE_VERSION} (API level ${PRISM_API_LEVEL})`],
             ["Node", process.version],
-            [
-              "Workspace",
-              `${context.workspace.path}  ${paint(
-                `via ${context.workspace.source}`,
-                "dim",
-                color,
-              )}`,
-            ],
+            ["Workspace", context.workspace.path],
+            ["Chosen via", context.workspace.source],
           ],
           color,
+          width,
         ),
         "",
       ];
@@ -137,7 +133,13 @@ export const doctorCommand: CommandHandler = async (context) => {
           STATUS_STYLE[check.status],
           color,
         );
-        lines.push(`${mark} ${check.label.padEnd(12)} ${check.detail}`);
+        const label = check.label.padEnd(12);
+        const indent = " ".repeat(5 + label.length);
+        const [first = "", ...rest] = wrap(check.detail, width - indent.length);
+        lines.push(
+          `${mark} ${label} ${first}`,
+          ...rest.map((line) => `${indent}${line}`),
+        );
       }
 
       return lines.join("\n");

@@ -9,6 +9,7 @@
 import { ok } from "@prism/shared";
 import { paint, renderFields, renderHeading } from "../output.js";
 import type { CommandHandler } from "../runtime.js";
+import { plural, wrap } from "../table.js";
 
 export const indexCommand: CommandHandler = async (context) => {
   const started = Date.now();
@@ -25,7 +26,7 @@ export const indexCommand: CommandHandler = async (context) => {
     data: { rootPath, indexedAt, stats, warnings, elapsedMs },
     // Warnings are information, not a finding the user asked to be told about.
     findings: false,
-    human(color) {
+    human({ color, width }) {
       const lines = [
         renderHeading("Index", color),
         "",
@@ -39,14 +40,15 @@ export const indexCommand: CommandHandler = async (context) => {
             ),
           ],
           color,
+          width,
         ),
       ];
 
       if (warnings.length > 0) {
         lines.push(
           "",
-          paint(`${warnings.length} warning(s)`, "yellow", color),
-          ...warnings.map((warning) => `  ${warning}`),
+          paint(plural(warnings.length, "warning"), "yellow", color),
+          ...warnings.flatMap((warning) => wrap(warning, width, "  ")),
         );
       }
 

@@ -2,6 +2,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { COMMANDS } from "./commands.js";
 
 const srcDir = dirname(fileURLToPath(import.meta.url));
 const packageDir = join(srcDir, "..");
@@ -103,6 +104,78 @@ describe("stdout discipline (M-028)", () => {
       const lines = await codeLines(file);
       if (lines.some((line) => /process\.exit\(/.test(line))) {
         offenders.push(file);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe("command pack coherence (M-029)", () => {
+  it("documents every command in the README, and no others", async () => {
+    // The README is the CLI's contract with a user who has not run `--help`.
+    // Without this test it drifts on the first command that ships in a hurry.
+    const readme = await readFile(join(packageDir, "README.md"), "utf8");
+    const documented = new Set(
+      [...readme.matchAll(/^\| `prism ([a-z-]+)/gm)].map((match) => match[1]),
+    );
+
+    const implemented = COMMANDS.map((command) => command.name);
+    expect([...documented].sort()).toEqual([...implemented].sort());
+  });
+
+  it("names commands consistently, so they are guessable", () => {
+    for (const command of COMMANDS) {
+      expect(command.name).toMatch(/^[a-z][a-z-]*$/);
+    }
+  });
+
+  it("gives every command a distinct name", () => {
+    const names = COMMANDS.map((command) => command.name);
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it("summarises every command in a sentence a user can act on", () => {
+    for (const command of COMMANDS) {
+      // Long enough to say something the name does not. `prism --help` is the
+      // only documentation many users will read.
+      expect(`${command.name}: ${command.summary.split(/\s+/).length}`).toBe(
+        `${command.name}: ${Math.max(4, command.summary.split(/\s+/).length)}`,
+      );
+      expect(command.summary).not.toBe(command.name);
+    }
+  });
+
+  it("gives every command at least one example", () => {
+    for (const command of COMMANDS) {
+      expect(command.examples?.length ?? 0).toBeGreaterThan(0);
+    }
+  });
+
+  it("spells the shared options identically wherever they appear", () => {
+    // Two commands describing `--limit` differently is how a CLI starts
+    // feeling like several CLIs wearing one name.
+    const byFlag = new Map<string, Set<string>>();
+    for (const command of COMMANDS) {
+      for (const option of command.options ?? []) {
+        const seen = byFlag.get(option.flags) ?? new Set();
+        seen.add(option.description);
+        byFlag.set(option.flags, seen);
+      }
+    }
+    for (const [flags, descriptions] of byFlag) {
+      expect(`${flags}: ${descriptions.size}`).toBe(`${flags}: 1`);
+    }
+  });
+
+  it("never hard-codes a risk threshold, leaving riskToBand as the only source", async () => {
+    // M-051 Phase 3 unified the bands. A literal 60 or 20 in a comparison here
+    // would quietly re-fork them.
+    const offenders: string[] = [];
+    for (const file of await sourceFiles()) {
+      if (file.endsWith(".test.ts")) continue;
+      if (file.endsWith("thresholds.ts")) continue; // asks the shared helper
+      for (const line of await codeLines(file)) {
+        if (/[<>]=?\s*(60|20)\b/.test(line)) offenders.push(`${file}: ${line}`);
       }
     }
     expect(offenders).toEqual([]);

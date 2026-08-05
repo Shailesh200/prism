@@ -1,6 +1,7 @@
 /** @prism/core — public SDK façade (only supported integration surface). */
 
 export { Prism, type PrismClient, type PrismClientOptions } from "./prism.js";
+export type { ChangedPaths } from "./git/changed-paths.js";
 export {
   createWorkspace,
   type FeatureGraphView,
