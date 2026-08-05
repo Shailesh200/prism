@@ -1,4 +1,5 @@
 import { mkdir, rm, unlink } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { dirname } from "node:path";
 import type BetterSqlite3 from "better-sqlite3";
 import {
@@ -17,9 +18,13 @@ type SqliteConstructor = typeof import("better-sqlite3");
 
 /** Lazy-load native binding so extension activate can register commands first. */
 function loadSqlite(): SqliteConstructor {
-  // CJS require kept inside the function so the extension host does not
-  // dlopen better-sqlite3 until an index cache is actually opened.
-  return require("better-sqlite3") as SqliteConstructor;
+  // Kept inside the function so the extension host does not dlopen
+  // better-sqlite3 until an index cache is actually opened. `require` exists in
+  // the CJS extension bundle; ESM consumers (CLI, MCP server, vitest) need
+  // createRequire, which is why the plain call is not enough on its own.
+  const load =
+    typeof require === "function" ? require : createRequire(import.meta.url);
+  return load("better-sqlite3") as SqliteConstructor;
 }
 
 export type IndexCacheDb = {

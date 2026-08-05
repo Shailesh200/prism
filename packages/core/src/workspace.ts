@@ -100,6 +100,7 @@ import {
   type MapBookmarkStore,
   type MapZoomLevel,
   type NavigationRouteResult,
+  type OverviewModel,
   type PersonaPresets,
   type PrismError,
   type RegionMoversReport,
@@ -116,8 +117,13 @@ import {
   type UtilityJob,
   type UtilityOverlayKindInfo,
   type UtilityOverlayReport,
+  bucketActivity,
+  couplingFor,
+  deriveMostConnected,
+  deriveRegions,
   err,
   ok,
+  presetBounds,
   prismError,
   riskToBand,
   unsafeRepoId,
@@ -144,6 +150,20 @@ export type RunWorkspaceTestsOptions = LocalRunTestsOptions;
 
 /** Result of {@link PrismWorkspace.listWorkspaceTests} (M-052). */
 export type WorkspaceTestList = LocalTestListResult;
+
+/** Options for {@link PrismWorkspace.getOverviewModel} (M-052). */
+export type GetOverviewModelOptions = {
+  /**
+   * Commit-activity window in days, inclusive of today. Defaults to 7, the
+   * dashboard's default range.
+   */
+  readonly activityDays?: number;
+  /** How many nodes to rank in `mostConnected`. Defaults to 5. */
+  readonly connectedLimit?: number;
+};
+
+const OVERVIEW_DEFAULT_ACTIVITY_DAYS = 7;
+const OVERVIEW_DEFAULT_CONNECTED_LIMIT = 5;
 
 /**
  * Coarse path → domain keyword heuristics for `explainArea` (M-048 Phase 5).
@@ -415,6 +435,16 @@ export type PrismWorkspace = {
    * (M-052). Empty when no runner binary is available.
    */
   listWorkspaceTests(): Promise<Result<WorkspaceTestList, PrismError>>;
+  /**
+   * The Overview dashboard's derived facts: coupling, regions, the most
+   * connected nodes, and commit activity over a window (M-052).
+   *
+   * Requires a prior `index()`. `activity` is `null` when git is
+   * unavailable — which is not the same as a window with no commits.
+   */
+  getOverviewModel(
+    options?: GetOverviewModelOptions,
+  ): Promise<Result<OverviewModel, PrismError>>;
   setConsent(
     purpose: string,
     granted: boolean,
@@ -1457,6 +1487,46 @@ export function createWorkspace(options: {
       return ok(
         await listLocalWorkspaceTests(rootPath, baseResult.value.runners ?? []),
       );
+    },
+    async getOverviewModel(options = {}) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+
+      const mapResult = await this.getRepositoryMap();
+      if (!mapResult.ok) return mapResult;
+      const graph = mapResult.value.graph;
+
+      const activityDays = Math.max(
+        1,
+        Math.round(options.activityDays ?? OVERVIEW_DEFAULT_ACTIVITY_DAYS),
+      );
+      const connectedLimit = Math.max(
+        0,
+        Math.round(options.connectedLimit ?? OVERVIEW_DEFAULT_CONNECTED_LIMIT),
+      );
+
+      const regions = deriveRegions(graph);
+      const mostConnected = deriveMostConnected(graph, connectedLimit);
+
+      const gitResult = await this.getGitActivity();
+      let activity: OverviewModel["activity"] = null;
+      if (gitResult.ok && gitResult.value.available) {
+        const { startMs, endMs } = presetBounds(activityDays);
+        activity = bucketActivity(gitResult.value.days ?? [], startMs, endMs);
+      }
+
+      return ok({
+        totals: {
+          nodes: graph.nodes.length,
+          edges: graph.edges.length,
+          files: graph.nodes.filter((n) => n.kind === "file").length,
+          regions: regions.length,
+        },
+        coupling: couplingFor(graph),
+        regions,
+        mostConnected,
+        activity,
+      });
     },
     async setConsent(purpose, granted) {
       const session = ensureUtilities();

@@ -46,6 +46,7 @@ const WORKSPACE_METHODS = [
   "getIndexFreshness",
   "getIngestArtifact",
   "getKnowledgeGraph",
+  "getOverviewModel",
   "getPersonaPresets",
   "getRegionMovers",
   "getRepositoryMap",
