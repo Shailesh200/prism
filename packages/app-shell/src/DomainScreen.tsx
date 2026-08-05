@@ -94,7 +94,7 @@ import {
   upsertRemoteRepo,
   type RemoteDevopsRepo,
 } from "./integrations-store.js";
-import { loadSettings } from "./settings-store.js";
+import { useConsentGranted } from "./consent-state.js";
 
 type CiDispatchInput = {
   name: string;
@@ -711,11 +711,16 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
   } | null>(null);
   const [githubRefreshKey, setGithubRefreshKey] = useState(0);
 
-  const networkAllowed = loadSettings().allowNetworkIntegrations;
+  // Core's record, not the browser's — a grant that only a webview knows about
+  // binds nobody else (M-036 F2). The connector toggles below remain a
+  // separate, narrower question: "is this integration configured at all".
+  const githubAllowed = useConsentGranted("network.github");
+  const pagespeedAllowed = useConsentGranted("network.pagespeed");
+  const packageInstallAllowed = useConsentGranted("network.package-install");
   const integrations = loadIntegrationsState();
   const githubConn = integrations.github;
   const pagespeedConn = integrations.pagespeed;
-  const githubEnabled = githubConn?.enabled === true && networkAllowed;
+  const githubEnabled = githubConn?.enabled === true && githubAllowed;
   const githubToken = (githubConn?.config?.token ?? "").trim();
   const primaryOwner = (githubConn?.config?.owner ?? "").trim();
   const primaryRepo = (githubConn?.config?.repo ?? "").trim();
@@ -724,7 +729,7 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
     githubEnabled && (primaryRepoPrivate !== true || githubToken !== "");
   const pagespeedEnabled =
     pagespeedConn?.enabled === true &&
-    networkAllowed &&
+    pagespeedAllowed &&
     Boolean((pagespeedConn.config?.apiKey ?? "").trim());
 
   // A fresh overlay run from the host → persist it and mark "just now".
@@ -852,7 +857,7 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
   const refreshExtraRepo = async (entry: RemoteDevopsRepo): Promise<void> => {
     const key = `${entry.owner}/${entry.repo}`;
     const token = (entry.token ?? githubToken).trim();
-    if (!networkAllowed || !githubEnabled) {
+    if (!githubEnabled) {
       setExtraCi((prev) => ({
         ...prev,
         [key]: {
@@ -887,8 +892,6 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
           owner: entry.owner,
           repo: entry.repo,
           ...(token ? { token } : {}),
-          // Only reachable past the networkAllowed + githubEnabled guard above.
-          consentGranted: true,
         });
         overlay = staged.overlay;
       }
@@ -1747,9 +1750,9 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
         );
         return;
       }
-      if (!networkAllowed) {
+      if (!packageInstallAllowed) {
         applyNoLabAvailable(
-          "Allow network integrations in Settings to install the Lighthouse CLI under .prism/tools (system Chrome is used; fixture scores are never shown).",
+          "Allow “Install measurement tools” in Settings → Privacy. Prism installs the Lighthouse CLI from the npm registry into .prism/tools; system Chrome is used and fixture scores are never shown.",
         );
         return;
       }
@@ -2086,7 +2089,7 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
       setAddError("Enter a GitHub URL or owner/repo.");
       return;
     }
-    if (!networkAllowed || !githubEnabled) {
+    if (!githubEnabled) {
       setAddError(
         "Enable Integrations · GitHub and Settings → Allow network integrations first.",
       );

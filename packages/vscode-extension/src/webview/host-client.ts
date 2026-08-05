@@ -1,6 +1,8 @@
 import type {
   BackendReport,
   ChangeReviewReport,
+  ConsentPurposeId,
+  ConsentState,
   ExplainAreaSummary,
   GraphSnapshotDto,
   MapBookmark,
@@ -984,11 +986,27 @@ export async function discoverFrontendRoutes(): Promise<string[]> {
   return res.data;
 }
 
+export async function listConsent(): Promise<ConsentState[]> {
+  const res = await request({ method: "listConsent" });
+  if (!res.ok) throw new Error(res.error);
+  if (res.method !== "listConsent") throw new Error("Unexpected response");
+  return res.data;
+}
+
+export async function setConsent(
+  purpose: ConsentPurposeId,
+  granted: boolean,
+): Promise<ConsentState[]> {
+  const res = await request({ method: "setConsent", purpose, granted });
+  if (!res.ok) throw new Error(res.error);
+  if (res.method !== "setConsent") throw new Error("Unexpected response");
+  return res.data;
+}
+
 export async function stageDevopsRemote(input: {
   owner: string;
   repo: string;
   token?: string;
-  consentGranted: boolean;
 }): Promise<import("@prism/app-shell").StageDevopsRemoteResult> {
   return withAudit(
     {
@@ -1003,7 +1021,6 @@ export async function stageDevopsRemote(input: {
         owner: input.owner,
         repo: input.repo,
         ...(input.token ? { token: input.token } : {}),
-        consentGranted: input.consentGranted,
       });
       if (!res.ok) throw new Error(res.error);
       if (res.method !== "stageDevopsRemote") {

@@ -3,6 +3,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { PrismGitignoreStatus } from "@prism/app-shell";
 import { stageDevopsRemote } from "@prism/core";
+import { consentRequiredMessage } from "@prism/shared";
 import type { MapLayerId, MapZoomLevel } from "@prism/shared";
 import type * as vscode from "vscode";
 import { applyRenameOnDisk, applyWorkspaceRename } from "./apply-rename.js";
@@ -304,6 +305,21 @@ export async function dispatchHostRequest(
           data: { ok: false, error: "No workspace open" },
         };
       }
+      // Gated on the network purpose, not the git-integration toggle it used
+      // to sit behind: `git fetch` contacts a remote with the user's
+      // credentials, which is unambiguously network access (M-036 F6).
+      const consent = await session.getConsent("network.git-remote");
+      if (!consent.ok || consent.value?.granted !== true) {
+        return {
+          id: req.id,
+          ok: true,
+          method: "gitFetch",
+          data: {
+            ok: false,
+            error: consentRequiredMessage("network.git-remote"),
+          },
+        };
+      }
       const result = await runCommand("git", ["fetch", "--prune"], root);
       if (result.code !== 0) {
         const detail =
@@ -480,7 +496,6 @@ export async function dispatchHostRequest(
         owner: req.owner,
         repo: req.repo,
         ...(req.token ? { token: req.token } : {}),
-        consentGranted: req.consentGranted === true,
       });
       if (!result.ok) {
         return { id: req.id, ok: false, error: result.error };
@@ -490,6 +505,30 @@ export async function dispatchHostRequest(
         ok: true,
         method: "stageDevopsRemote",
         data: result.value,
+      };
+    }
+    case "listConsent": {
+      const result = await session.listConsent();
+      if (!result.ok)
+        return { id: req.id, ok: false, error: result.error.message };
+      return {
+        id: req.id,
+        ok: true,
+        method: "listConsent",
+        data: [...result.value],
+      };
+    }
+    case "setConsent": {
+      const set = await session.setConsent(req.purpose, req.granted);
+      if (!set.ok) return { id: req.id, ok: false, error: set.error.message };
+      const result = await session.listConsent();
+      if (!result.ok)
+        return { id: req.id, ok: false, error: result.error.message };
+      return {
+        id: req.id,
+        ok: true,
+        method: "setConsent",
+        data: [...result.value],
       };
     }
     default: {

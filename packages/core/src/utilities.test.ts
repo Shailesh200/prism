@@ -56,13 +56,18 @@ describe("workspace utilities APIs (M-041 P0)", () => {
     if (blocked.ok) return;
     expect(blocked.error.code).toBe(PrismErrorCode.UNSUPPORTED);
 
-    const withFlag = await ws.startUtilityJob({
+    // The grant is recorded by the user, through Core, ahead of the call —
+    // the caller no longer gets to assert it as part of starting the job.
+    const granted = await ws.setConsent("network.pagespeed", true);
+    expect(granted.ok).toBe(true);
+
+    const allowed = await ws.startUtilityJob({
       kind: UTILITY_JOB_REMOTE_PROBE_STUB,
-      consentGranted: true,
     });
-    expect(withFlag.ok).toBe(true);
-    if (!withFlag.ok) return;
-    expect(withFlag.value.status).toBe("succeeded");
+    expect(allowed.ok).toBe(true);
+    if (!allowed.ok) return;
+    expect(allowed.value.status).toBe("succeeded");
+    expect(allowed.value.consentPurpose).toBe("network.pagespeed");
   });
 
   it("runs opt-in lighthouse lab-fixture and returns CWV via Core", async () => {
@@ -76,9 +81,9 @@ describe("workspace utilities APIs (M-041 P0)", () => {
     const blocked = await ws.startUtilityJob({ kind: UTILITY_JOB_LIGHTHOUSE });
     expect(blocked.ok).toBe(false);
 
+    await ws.setConsent("network.package-install", true);
     const job = await ws.startUtilityJob({
       kind: UTILITY_JOB_LIGHTHOUSE,
-      consentGranted: true,
       lighthouse: { mode: "lab-fixture", port: 4173 },
     });
     expect(job.ok).toBe(true);
@@ -145,9 +150,9 @@ describe("workspace utilities APIs (M-041 P0)", () => {
     });
     expect(blocked.ok).toBe(false);
 
+    await ws.setConsent("run.local-build", true);
     const job = await ws.startUtilityJob({
       kind: UTILITY_JOB_BUNDLE_STATS,
-      consentGranted: true,
       bundleAnalyze: { mode: "ingest", reportPath: statsPath },
     });
     expect(job.ok).toBe(true);

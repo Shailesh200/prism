@@ -57,7 +57,7 @@
 | M-033 Incremental Watch | `milestone/M-033-incremental-watch` | Deferred | ☐ | ☐ | Superseded by M-048 Phase 1 (ADR-0026) |
 | M-034 Tree-sitter | `milestone/M-034-tree-sitter` | Deferred | ☐ | ☐ | Deferred by owner 2026-08-05: blocks nothing, not on the GA path, and delivers nothing to TS/JS users. Revisit with the post-GA idea backlog; Q-005 remains open |
 | M-035 Perf Hardening | `milestone/M-035-perf-hardening` | Not Started | ☐ | ☐ | Spec authored 2026-08-05; measurement before optimisation |
-| M-036 Security Privacy | `milestone/M-036-security-privacy` | Not Started | ☐ | ☐ | Spec authored 2026-08-05 from security audit; consent gate is currently bypassed by every caller (F1) |
+| M-036 Security Privacy | `milestone/M-036-security-privacy` | In Review | ☐ | ☐ | 2026-08-05. Consent moved into Core: six named purposes in `.prism/consent.json`, `consentGranted` deleted from every API so no caller can vouch for the user. Closed F1–F6, F8; F7 accepted and documented. Gravatar now local-by-default. No-network integration suite traps `fetch`+sockets across 20 analysis entry points and proves the traps fire. `SECURITY.md`/`PRIVACY.md`/`CONTRIBUTING.md`/threat model added. **Awaiting owner: fresh workspace, confirm every gated action prompts + approval** |
 | M-037 E2E Suite | `milestone/M-037-e2e-suite` | Not Started | ☐ | ☐ | Spec authored 2026-08-05 from test audit; 4 integration tests repo-wide, 15 packages with empty configs |
 | M-038 Docs Site | `milestone/M-038-docs-site` | Not Started | ☐ | ☐ | Spec authored 2026-08-05; VitePress (Q-008) + plain Markdown `/docs`, one source |
 | M-039 GA Readiness | `milestone/M-039-ga-readiness` | Not Started | ☐ | ☐ | Spec rewritten 2026-08-05; prepares 1.0.0 and the tag, owner pushes to release |

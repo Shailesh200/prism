@@ -2,6 +2,8 @@ import type {
   BlastRadiusReport,
   CodeExplorerReport,
   CodeExplorerTarget,
+  ConsentPurposeId,
+  ConsentState,
   DnaReport,
   EngineeringHealthReport,
   GitActivity,
@@ -599,6 +601,32 @@ export async function runBundleAnalyze(
   );
 }
 
+/** Every consent purpose with the decision so far, read from Core. */
+export async function fetchConsent(
+  root: string | null,
+): Promise<readonly ConsentState[]> {
+  const res = await fetch(
+    `/api/consent?root=${encodeURIComponent(root ?? ".")}`,
+  );
+  if (!res.ok) throw new Error(`consent failed: ${res.status}`);
+  return (await res.json()) as readonly ConsentState[];
+}
+
+/** Record one decision and return the refreshed set. */
+export async function setConsent(
+  root: string | null,
+  purpose: ConsentPurposeId,
+  granted: boolean,
+): Promise<readonly ConsentState[]> {
+  const res = await fetch("/api/consent", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ root: root ?? ".", purpose, granted }),
+  });
+  if (!res.ok) throw new Error(`consent failed: ${res.status}`);
+  return (await res.json()) as readonly ConsentState[];
+}
+
 /** Stage foreign-repo DevOps files under `.prism/remote-ci/<owner>/<repo>/`. */
 export async function stageDevopsRemote(
   root: string | null,
@@ -606,7 +634,6 @@ export async function stageDevopsRemote(
     owner: string;
     repo: string;
     token?: string;
-    consentGranted: boolean;
   },
 ): Promise<import("@prism/app-shell").StageDevopsRemoteResult> {
   const target = root ?? ".";
@@ -626,7 +653,6 @@ export async function stageDevopsRemote(
           owner: input.owner,
           repo: input.repo,
           ...(input.token ? { token: input.token } : {}),
-          consentGranted: input.consentGranted,
         }),
       });
       const json: unknown = await res.json().catch(() => ({}));

@@ -76,6 +76,8 @@ import {
   runBundleAnalyze,
   detectBundleAnalyzeCapability,
   runTests,
+  fetchConsent,
+  setConsent,
   stageDevopsRemote,
   startHealthHistoryBackfill,
   type PlaygroundPreset,
@@ -235,6 +237,8 @@ export function App(): ReactElement {
         detectBundleAnalyzeCapability(target, options),
       discoverFrontendRoutes: () => discoverFrontendRoutes(target),
       stageDevopsRemote: (input) => stageDevopsRemote(target, input),
+      listConsent: () => fetchConsent(target),
+      setConsent: (purpose, granted) => setConsent(target, purpose, granted),
       fetchPrismGitignoreStatus: async (): Promise<PrismGitignoreStatus> => {
         // Degrades gracefully: the dev server may not expose /api/gitignore.
         try {

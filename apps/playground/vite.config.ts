@@ -23,6 +23,8 @@ import type {
   BlastRadiusReport,
   CodeExplorerReport,
   CodeExplorerTarget,
+  ConsentPurposeId,
+  ConsentState,
   DnaReport,
   EngineeringHealthReport,
   GitActivity,
@@ -43,7 +45,11 @@ import type {
   CwvReport,
   UtilityJob,
 } from "@prism/shared";
-import { MapLayerIdSchema, MapZoomLevelSchema } from "@prism/shared";
+import {
+  MapLayerIdSchema,
+  MapZoomLevelSchema,
+  consentRequiredMessage,
+} from "@prism/shared";
 
 const appRoot = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(appRoot, "../..");
@@ -191,7 +197,6 @@ type Workspace = {
   >;
   startUtilityJob: (input: {
     kind: string;
-    consentGranted?: boolean;
     lighthouse?: {
       mode?: "lab-fixture" | "ingest" | "run";
       url?: string;
@@ -298,6 +303,25 @@ async function loadGitActivity(root: string): Promise<GitActivity> {
     throw new Error(`getGitActivity failed: ${result.error.message}`);
   }
   return result.value;
+}
+
+async function loadConsent(root: string): Promise<readonly ConsentState[]> {
+  const ws = await getIndexedWorkspace(root);
+  const result = await ws.listConsent();
+  if (!result.ok)
+    throw new Error(`listConsent failed: ${result.error.message}`);
+  return result.value;
+}
+
+/** The refusal message, or `null` when the purpose has been granted. */
+async function requireConsent(
+  root: string,
+  purpose: ConsentPurposeId,
+): Promise<string | null> {
+  const ws = await getIndexedWorkspace(root);
+  const record = await ws.getConsent(purpose);
+  if (record.ok && record.value?.granted === true) return null;
+  return consentRequiredMessage(purpose);
 }
 
 async function loadHealth(root: string): Promise<HealthScore> {
@@ -474,7 +498,6 @@ async function loadLighthouseLab(
   const mode = options?.mode ?? "lab-fixture";
   const job = await ws.startUtilityJob({
     kind: "lighthouse",
-    consentGranted: true,
     lighthouse: {
       mode,
       ...(options?.url ? { url: options.url } : {}),
@@ -540,7 +563,6 @@ async function loadBundleAnalyze(
   const mode = options?.mode ?? "run";
   const job = await ws.startUtilityJob({
     kind: "bundle-stats",
-    consentGranted: true,
     ...(options?.packageId ? { packageId: options.packageId } : {}),
     bundleAnalyze: {
       mode,
@@ -803,11 +825,48 @@ function prismMapApi(): Plugin {
               return;
             }
 
+            if (parsed.pathname === "/api/consent") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              sendJson(res, 200, await loadConsent(root));
+              return;
+            }
+
+            if (parsed.pathname === "/api/consent" && req.method === "POST") {
+              const body = (await readJsonBody(req)) as {
+                root?: string;
+                purpose?: string;
+                granted?: boolean;
+              };
+              const root = resolveRequestedRoot(
+                typeof body.root === "string" ? body.root : null,
+              );
+              const ws = await getIndexedWorkspace(root);
+              const set = await ws.setConsent(
+                String(body.purpose ?? ""),
+                body.granted === true,
+              );
+              if (!set.ok) {
+                sendJson(res, 400, { error: set.error.message });
+                return;
+              }
+              sendJson(res, 200, await loadConsent(root));
+              return;
+            }
+
             if (parsed.pathname === "/api/git-fetch" && req.method === "POST") {
               const body = (await readJsonBody(req)) as { root?: string };
               const root = resolveRequestedRoot(
                 typeof body.root === "string" ? body.root : null,
               );
+              // `git fetch` is network access, and it used to sit behind the
+              // git-integration toggle rather than a network one (M-036 F6).
+              const gate = await requireConsent(root, "network.git-remote");
+              if (gate) {
+                sendJson(res, 200, { ok: false, error: gate });
+                return;
+              }
               try {
                 execFileSync("git", ["fetch", "--prune"], {
                   cwd: root,
@@ -920,7 +979,6 @@ function prismMapApi(): Plugin {
                 owner,
                 repo,
                 ...(token ? { token } : {}),
-                consentGranted: body.consentGranted === true,
               });
               if (!result.ok) {
                 sendJson(res, 400, { error: result.error });

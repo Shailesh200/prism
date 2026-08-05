@@ -1,8 +1,11 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import {
+  CONSENT_PURPOSE_IDS,
   ConsentRecordSchema,
   PrismErrorCode,
+  consentRequiredMessage,
+  isConsentPurposeId,
   type ConsentRecord,
   type PrismError,
   type Result,
@@ -69,9 +72,15 @@ export function createConsentStore(options: {
     },
     async set(purpose, granted) {
       const trimmed = purpose.trim();
-      if (!trimmed) {
+      if (!isConsentPurposeId(trimmed)) {
         return err(
-          prismError(PrismErrorCode.VALIDATION, "Consent purpose is empty"),
+          prismError(
+            PrismErrorCode.VALIDATION,
+            trimmed
+              ? `Unknown consent purpose "${trimmed}". Known purposes: ${CONSENT_PURPOSE_IDS.join(", ")}`
+              : "Consent purpose is empty",
+            { purpose: trimmed },
+          ),
         );
       }
       const file = await readConsentFile(filePath);
@@ -93,14 +102,28 @@ export function createConsentStore(options: {
       return ok(record);
     },
     async requireGranted(purpose) {
+      // An unknown purpose can never have been granted, and treating it as
+      // "not yet decided" would let a typo become an unprompted allow the
+      // moment someone wrote a matching record by hand.
+      if (!isConsentPurposeId(purpose)) {
+        return err(
+          prismError(
+            PrismErrorCode.VALIDATION,
+            `Unknown consent purpose "${purpose}". Known purposes: ${CONSENT_PURPOSE_IDS.join(", ")}`,
+            { purpose },
+          ),
+        );
+      }
       const got = await this.get(purpose);
       if (!got.ok) return got;
       if (!got.value || !got.value.granted) {
         return err(
           prismError(
             PrismErrorCode.UNSUPPORTED,
-            `Consent required for purpose "${purpose}" — call setConsent(purpose, true) first`,
-            { purpose },
+            consentRequiredMessage(purpose),
+            {
+              purpose,
+            },
           ),
         );
       }

@@ -61,6 +61,7 @@ const WORKSPACE_METHODS = [
   "ingestCoverageFromWorkspace",
   "intelligence",
   "listBookmarks",
+  "listConsent",
   "listFeatures",
   "listIngestArtifacts",
   "listLandmarks",

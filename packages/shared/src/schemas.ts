@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ConsentPurposeIdSchema } from "./consent-purposes.js";
 import { PrismErrorCode } from "./errors.js";
 import { SignalProvenanceSchema } from "./provenance.js";
 import { RiskBandSchema } from "./risk-bands.js";
@@ -1196,7 +1197,12 @@ export const UtilityJobSchema = z.object({
   packageId: z.string().min(1).optional(),
   /** True when the job requested network/consent-gated work. */
   requiresConsent: z.boolean().default(false),
-  consentGranted: z.boolean().optional(),
+  /**
+   * Which grant let this job run (M-036). Replaces the old `consentGranted`
+   * boolean, which the *caller* supplied and every host set to `true` — a
+   * field that recorded an assertion rather than a decision.
+   */
+  consentPurpose: ConsentPurposeIdSchema.optional(),
 });
 
 export type UtilityJob = z.infer<typeof UtilityJobSchema>;

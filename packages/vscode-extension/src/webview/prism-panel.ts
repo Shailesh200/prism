@@ -589,12 +589,18 @@ export class PrismPanel {
     const n = nonce();
     const csp = [
       `default-src 'none'`,
-      `img-src ${webview.cspSource} https: data:`,
+      // Narrowed to the hosts the webview can actually reach (M-036 Phase
+      // 2.5). `https:` here previously allowed an image or font request to
+      // anywhere, which is exactly the shape of the Gravatar leak this
+      // milestone closed. Fonts and styles ship with the extension.
+      `img-src ${webview.cspSource} data: https://www.gravatar.com`,
       `style-src ${webview.cspSource} 'unsafe-inline'`,
       `script-src ${webview.cspSource} 'nonce-${n}'`,
-      `font-src ${webview.cspSource} data: https:`,
-      // Opt-in network integrations (GitHub Actions, PageSpeed) from the webview.
-      `connect-src ${webview.cspSource} https://api.github.com https://www.googleapis.com https://pagespeedonline.googleapis.com https://*.googleapis.com`,
+      `font-src ${webview.cspSource} data:`,
+      // Opt-in network integrations (GitHub Actions, PageSpeed) from the
+      // webview. A host listed here is reachable, not permitted: consent is
+      // enforced in Core, and the CSP only bounds the blast radius of a bug.
+      `connect-src ${webview.cspSource} https://api.github.com https://www.googleapis.com`,
     ].join("; ");
 
     return `<!DOCTYPE html>

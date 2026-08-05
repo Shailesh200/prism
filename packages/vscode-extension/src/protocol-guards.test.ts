@@ -11,49 +11,28 @@ describe("parseHostRequest", () => {
     expect(parsed.ok).toBe(true);
   });
 
-  // Fields the guard requires beyond `id` + `method`. Keep this map small:
-  // anything listed here is a field the host refuses to default for the caller.
-  const REQUIRED_FIELDS: Partial<Record<string, Record<string, unknown>>> = {
-    stageDevopsRemote: { consentGranted: true },
-  };
-
   it("accepts every declared method", () => {
     for (const method of HOST_REQUEST_METHODS) {
-      const parsed = parseHostRequest({
-        id: "req-1",
-        method,
-        ...REQUIRED_FIELDS[method],
-      });
+      const parsed = parseHostRequest({ id: "req-1", method });
       expect(parsed.ok, `method ${method} should parse`).toBe(true);
     }
   });
 
-  it("rejects stageDevopsRemote without an explicit consent flag", () => {
-    // ADR-0024: a missing flag must not be read as "allowed" (M-051 Phase 4).
-    const missing = parseHostRequest({
+  it("carries no consent flag for stageDevopsRemote", () => {
+    // The guard used to require `consentGranted: boolean` here, because the
+    // webview was expected to vouch for the user. Core now reads
+    // `.prism/consent.json` itself (M-036), so a flag on the wire would be a
+    // second, weaker answer to a question already settled — and one an
+    // attacker-controlled message could set.
+    const parsed = parseHostRequest({
       id: "req-1",
       method: "stageDevopsRemote",
+      owner: "octocat",
+      repo: "hello-world",
     });
-    expect(missing.ok).toBe(false);
-    if (missing.ok) return;
-    expect(missing.reason).toContain("consentGranted");
-
-    expect(
-      parseHostRequest({
-        id: "req-1",
-        method: "stageDevopsRemote",
-        consentGranted: "true",
-      }).ok,
-    ).toBe(false);
-
-    expect(
-      parseHostRequest({
-        id: "req-1",
-        method: "stageDevopsRemote",
-        consentGranted: false,
-      }).ok,
-      "an explicit refusal is still a well-formed request",
-    ).toBe(true);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value).not.toHaveProperty("consentGranted");
   });
 
   it.each([
