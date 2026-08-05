@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Prism CLI over Core",
+  "description": "Prism CLI over Core: local-first repository intelligence",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -18,5 +18,13 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts"
+  },
+  "dependencies": {
+    "@prism/core": "workspace:*",
+    "@prism/shared": "workspace:*",
+    "commander": "^15.0.0"
+  },
+  "bin": {
+    "prism": "./dist/cli.js"
   }
 }
