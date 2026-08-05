@@ -16,6 +16,7 @@
     "oxfmt": "^0.14.0",
     "oxlint": "^1.14.0",
     "typescript": "^5.9.0",
+    "vitepress": "^1.6.4",
     "vitest": "^3.2.0"
   },
   "engines": {
@@ -30,9 +31,14 @@
     "test": "moon run :test",
     "test:integration": "moon run :test-integration",
     "verify": "bun run format:check && bun run lint && bun run typecheck && bun run test && bun run build",
-    "verify:milestone": "bun run verify && bun run test:integration && bun run scripts/check-plan-progress.mjs",
+    "verify:milestone": "bun run verify && bun run test:integration && bun run docs:check && bun run docs:build && bun run scripts/check-plan-progress.mjs",
     "playground": "bun --filter @prism/playground dev",
     "moon": "moon",
-    "prepare": "lefthook install || true"
+    "prepare": "lefthook install || true",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
+    "docs:reference": "bun run scripts/generate-docs-reference.mjs",
+    "docs:check": "bun run scripts/generate-docs-reference.mjs --check && bun run scripts/check-docs.mjs"
   }
 }

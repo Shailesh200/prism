@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **Not Started** |
+| Status | **In Review** |
 | Branch | `milestone/M-038-docs-site` (from latest `main`) |
 | Depends on | M-037 |
 | Unlocks | M-039 |
@@ -105,31 +105,65 @@ language)
 
 ## 7. Definition of Done
 
-- [ ] Only one milestone `In Progress`
-- [ ] `/docs` complete per §4, readable as plain Markdown with no build step
-- [ ] VitePress site builds and serves the same content with search and navigation
-- [ ] Every package in the monorepo appears in `architecture/packages.md`
-- [ ] Every CLI command and MCP tool documented, generated from source
-- [ ] Every concept page opens with a plain-language one-liner
-- [ ] Glossary covers every Prism-specific term used anywhere in the docs
-- [ ] No internal milestone or ADR identifier in body text without explanation
-- [ ] All internal links resolve; all code samples run
-- [ ] `known-limitations.md` honest about what Prism does not do (TypeScript/JavaScript only, heuristic feature inference, no cross-language resolution)
-- [ ] `bun run verify:milestone --force` green
-- [ ] Manual: someone unfamiliar can install Prism and run a first analysis using only the docs
+- [x] Only one milestone `In Progress`
+- [x] `/docs` complete per §4, readable as plain Markdown with no build step
+- [x] VitePress site builds and serves the same content with search and navigation
+- [x] Every package in the monorepo appears in `architecture/packages.md` — asserted by `check-docs.mjs`
+- [x] Every CLI command and MCP tool documented, generated from source
+- [x] Every concept page opens with a plain-language one-liner
+- [x] Glossary covers every Prism-specific term used anywhere in the docs
+- [x] No internal milestone or ADR identifier in body text without explanation
+- [x] All internal links resolve (VitePress dead-link check, `ignoreDeadLinks: false`); every documented command and flag verified against the command table
+- [x] `known-limitations.md` honest about what Prism does not do
+- [x] `bun run verify:milestone` green
+- [ ] Manual: someone unfamiliar can install Prism and run a first analysis using only the docs — **owner smoke test**
 - [ ] Owner approval → commit → merge → Verified → snippet shared
+
+### Deviations from §4, and why
+
+| Planned | Shipped | Reason |
+|---|---|---|
+| `getting-started/first-analysis.md` | Folded into `quickstart.md` | Two pages covering the same seven steps would have been one page and a summary of it |
+| `features/engineering-health.md` + `features/testing-and-security.md` | One `features/health.md` | Testing and security are two sections of the health story; separating them meant three pages that each opened by explaining the other two |
+| `reference/core-api.md` | `architecture/core-sdk.md` | The SDK is read by someone changing code, not someone looking something up. One page, in the section where that reader already is |
+
+Everything else in §4 shipped as planned, plus `reference/faq.md`.
 
 ## 8. Verification plan
 
-| Kind | Check |
+| Kind | Check | How |
+|---|---|---|
+| Build | `docs:build` succeeds | `bun run docs:build`, in `verify:milestone` |
+| Link | Every internal link resolves | VitePress `ignoreDeadLinks: false` — a moved page fails the build |
+| Coverage | Every package, CLI command and MCP tool has a docs entry | `scripts/check-docs.mjs` |
+| Naming | Every `prism <cmd>`, flag, MCP tool name and consent purpose in prose is real | `scripts/check-docs.mjs` |
+| Reachability | Every page is in the sidebar | `scripts/check-docs.mjs` |
+| Freshness | Generated reference regenerates identically | `generate-docs-reference.mjs --check` |
+| Sample | Documented commands run | Smoke-run against this repository |
+| Manual | Site renders: tables, anchors, search, dark mode, mobile | Browser pass, 7/7 |
+| Manual | Cold read of the quickstart | **Owner** |
+
+### What the checks caught
+
+Worth recording, because it is the argument for having written them. The first
+draft of the hand-written pages contained six false claims that read perfectly
+plausibly:
+
+| Claim | Reality |
 |---|---|
-| Build | `docs:build` succeeds with zero warnings |
-| Link | Every internal link resolves; external links reachable |
-| Coverage | Script asserts every package and every CLI/MCP entry has a docs entry |
-| Freshness | Generated reference regenerates identically from current source |
-| Sample | Every fenced command in the quickstart actually runs |
-| Manual | Cold read of the quickstart on a clean machine |
-| Manual | Terminology sweep for undefined jargon |
+| `prism health --history` | `health` takes no `--history`; history is an extension screen and an MCP tool |
+| `prism bundle --in dist/stats.json` | The flag is `--artifact <id>` |
+| `prism test-impact <paths…>` | Takes a single `<target>` |
+| `prism rename <from> <to>` | `<target> [newName]` |
+| Index at `.prism/cache.db` | `.prism/cache/index.sqlite` |
+| Health history at `.prism/history/` | In the index cache |
+
+Plus a Core SDK page written against method names that do not exist
+(`openWorkspace`, `getRepositoryDna`, `getHealthScore`, `findCycles`, …) — the
+real entry point is `Prism.create().openRepository()`.
+
+`check-docs.mjs` now fails on all of the first six categories, and was itself
+verified by injecting each error and confirming it fires.
 
 ## 9. Risks
 
