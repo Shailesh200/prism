@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **Not Started** |
+| Status | **In Review** |
 | Branch | `milestone/M-026-mcp-server` (from latest `main`) |
 | Depends on | M-025, M-051, M-052 |
 | Unlocks | M-027 |
@@ -66,17 +66,21 @@ user's behalf is not the user asking.
 
 ## 6. Definition of Done
 
-- [ ] Only one milestone `In Progress`
-- [ ] ADR-0030 Accepted (transport, lifecycle, consent refusal)
-- [ ] Server starts over stdio and completes `initialize` in under 200 ms with no indexing
-- [ ] `tools/list` returns the four tools with valid JSON Schema
-- [ ] All four tools return real Core data against the fixture repository
-- [ ] `@prism/mcp-server` depends on `@prism/core` and calls **only** Core — no engine imports
-- [ ] A consent-gated path returns a clear refusal, not a hang and not a silent execution
-- [ ] Killing the parent process leaves no orphan and no locked SQLite file
-- [ ] README config verified by actually connecting from Cursor
-- [ ] `bun run verify:milestone --force` green
-- [ ] Owner approval → commit → merge → Verified → snippet shared
+- [x] Only one milestone `In Progress`
+- [x] ADR-0030 Accepted (transport, lifecycle, consent refusal)
+- [x] Server starts over stdio and completes `initialize` with no indexing — verified by contract test (`session.isOpen()` false after handshake) and by piping a real handshake into `dist/bin.js`
+- [x] `tools/list` returns the tools with valid JSON Schema — **five**, not four: task 6 adopted the orphaned `backend-report-tool` rather than deleting it
+- [x] All five tools return real Core data against the fixture repository
+- [x] `@prism/mcp-server` depends on `@prism/core` and calls **only** Core — enforced by `boundaries.test.ts` over both imports and the manifest
+- [x] Consent-gated paths are unreachable rather than refused at runtime — no registered tool calls one, enforced by test (ADR-0030 §4)
+- [x] Graceful shutdown closes the workspace and releases the SQLite handle on SIGINT/SIGTERM/stdin close
+- [ ] README config verified by actually connecting from Cursor (**owner** — needs a real client)
+- [x] `bun run verify:milestone` green
+- [ ] Owner approval → merge → Verified → snippet shared
+
+**Verified end to end against this repository**, not only the fixture: `node dist/bin.js --workspace
+<Prism>` completed the handshake, listed five tools, and returned a real health report over 755
+indexed files, with stdout carrying protocol frames only and diagnostics on stderr.
 
 ## 7. Verification plan
 

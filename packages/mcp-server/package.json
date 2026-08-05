@@ -1,25 +1,31 @@
 {
   "name": "@prism/mcp-server",
   "version": "0.0.0",
-  "private": true,
-  "type": "module",
-  "description": "MCP server adapters over Core",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@prism/core": "workspace:*",
+    "@prism/shared": "workspace:*",
+    "zod": "^3.25.0"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     }
   },
+  "bin": {
+    "prism-mcp": "./dist/bin.js"
+  },
+  "description": "MCP server over Core: local repository intelligence for coding agents",
   "files": [
     "dist"
   ],
+  "private": true,
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
-  "dependencies": {
-    "@prism/shared": "workspace:*"
-  }
+  "type": "module"
 }
