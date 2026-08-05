@@ -2,6 +2,14 @@
 export const PACKAGE_NAME = "@prism/cli" as const;
 
 export { CLI_NAME, main, run } from "./program.js";
+export { COMMANDS, COMMANDS_BY_NAME } from "./commands.js";
+export {
+  COMMAND_GROUPS,
+  type ArgumentSpec,
+  type CommandGroup,
+  type CommandSpec,
+  type OptionSpec,
+} from "./registry.js";
 export { ExitCode, exitCodeForError } from "./exit.js";
 export {
   bufferWriter,

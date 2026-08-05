@@ -12,6 +12,10 @@ build/
 *.vsix
 packages/vscode-extension/.vsix-stage/
 
+# Docs site output
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+
 # Prism local analysis cache (future)
 .prism/
 
