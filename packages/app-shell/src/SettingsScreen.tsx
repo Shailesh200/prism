@@ -1,4 +1,9 @@
-import type { MapLayerId, MapZoomLevel, RepositoryMap } from "@prism/shared";
+import type {
+  ConsentState,
+  MapLayerId,
+  MapZoomLevel,
+  RepositoryMap,
+} from "@prism/shared";
 import { Input, Select, Textarea, ToggleGroup } from "@prism/ui";
 import {
   AlertTriangle,
@@ -21,6 +26,8 @@ import {
   type ReactNode,
 } from "react";
 import { AppSidebar, type AppSidebarUser, type AppView } from "./AppSidebar.js";
+import { useAppShellClient } from "./client-context.js";
+import { setConsent, useConsentState } from "./consent-state.js";
 import { shellNavVariant, shellRootClass } from "./shell-layout.js";
 import { AuditLogsPanel } from "./AuditLogsPanel.js";
 import { isBrowserShell } from "./is-browser.js";
@@ -177,9 +184,9 @@ export function SettingsScreen(props: SettingsScreenProps): ReactElement {
   const maxFileSize = stored.maxFileSize;
   const telemetry = stored.telemetry;
   const localOnly = stored.localOnlyAnalysis;
-  const networkEnabled =
-    props.allowNetworkIntegrations ?? stored.allowNetworkIntegrations;
   const noLimit = maxFileSize === "none";
+  const client = useAppShellClient();
+  const consentStates = useConsentState();
 
   // Hide the repo-root input outside the playground: the extension / system
   // browser bridge always indexes the extension's own workspace.
@@ -272,23 +279,27 @@ export function SettingsScreen(props: SettingsScreenProps): ReactElement {
     patchSettings({ sansFont: value });
   };
 
-  const commitNetwork = (enabled: boolean) => {
-    patchSettings({ allowNetworkIntegrations: enabled });
-    props.onNetworkIntegrationsChange?.(enabled);
-  };
-
-  const setNetwork = (enabled: boolean) => {
-    // Warn on BOTH enabling and disabling network integrations.
+  /**
+   * One prompt per purpose, quoting the purpose's own words (M-036 Phase 1.6).
+   * The old single "allow network integrations" switch described nothing
+   * concrete, so agreeing to it was not agreeing to anything in particular.
+   */
+  const askConsent = (state: ConsentState, enabled: boolean) => {
     setModal({
       title: enabled
-        ? "Allow network integrations?"
-        : "Turn off network integrations?",
+        ? `Allow: ${state.purpose.title}?`
+        : `Turn off: ${state.purpose.title}?`,
       body: enabled
-        ? "Network integrations let opt-in forge / lab connectors reach external services. Core analysis always stays local; only the connectors you explicitly enable will make network calls."
-        : "Turning this off is the master kill switch. Any integrations you already connected will stop syncing until you allow network integrations again.",
+        ? `${state.purpose.detail} Nothing else changes — each purpose is decided on its own.`
+        : `${state.purpose.title} will stop immediately. Anything already fetched stays on disk until you re-index.`,
       confirmLabel: enabled ? "Allow" : "Turn off",
       tone: "warning",
-      onConfirm: () => commitNetwork(enabled),
+      onConfirm: () => {
+        void setConsent(client, state.purpose.id, enabled);
+        if (state.purpose.group === "network") {
+          props.onNetworkIntegrationsChange?.(enabled);
+        }
+      },
     });
   };
 
@@ -719,16 +730,26 @@ export function SettingsScreen(props: SettingsScreenProps): ReactElement {
                       ) : null}
                     </div>
                   </SettingsRow>
-                  <SettingsRow
-                    label="Allow network integrations"
-                    help="Master gate for opt-in forge / lab connectors."
-                  >
-                    <Toggle
-                      checked={networkEnabled}
-                      label={networkEnabled ? "On" : "Off"}
-                      onChange={setNetwork}
-                    />
-                  </SettingsRow>
+                  {consentStates.map((state) => (
+                    <SettingsRow
+                      key={state.purpose.id}
+                      label={state.purpose.title}
+                      help={state.purpose.detail}
+                    >
+                      <div className="set-control-stack">
+                        <Toggle
+                          checked={state.granted}
+                          label={state.granted ? "Allowed" : "Not allowed"}
+                          onChange={(on) => askConsent(state, on)}
+                        />
+                        <span className="set-consent-reaches">
+                          {state.purpose.group === "network"
+                            ? `Reaches ${state.purpose.reaches}`
+                            : `Runs on ${state.purpose.reaches}`}
+                        </span>
+                      </div>
+                    </SettingsRow>
+                  ))}
                   <SettingsRow
                     label="Telemetry"
                     help="Opt-in anonymous local counters. No network upload in v1."

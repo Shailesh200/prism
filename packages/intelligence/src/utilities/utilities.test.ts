@@ -61,10 +61,10 @@ describe("M-041 P0 utilities foundation", () => {
     if (blocked.ok) return;
     expect(blocked.error.code).toBe(PrismErrorCode.UNSUPPORTED);
 
-    const granted = await session.consent.set(
-      UTILITY_JOB_REMOTE_PROBE_STUB,
-      true,
-    );
+    // Consent is recorded against the purpose, not the job kind (M-036): the
+    // question a user answers is "may Prism contact PageSpeed", not "may Prism
+    // run a remote-probe-stub".
+    const granted = await session.consent.set("network.pagespeed", true);
     expect(granted.ok).toBe(true);
     const started = await session.jobs.start({
       kind: UTILITY_JOB_REMOTE_PROBE_STUB,
@@ -94,9 +94,9 @@ describe("M-041 P0 utilities foundation", () => {
     const root = await mkdtemp(join(tmpdir(), "prism-m041-lh-"));
     const session = createUtilitiesSession({ workspaceRoot: root });
     const messages: string[] = [];
+    await session.consent.set("network.package-install", true);
     const started = await session.jobs.start({
       kind: UTILITY_JOB_LIGHTHOUSE,
-      consentGranted: true,
       lighthouse: { port: 4173, mode: "lab-fixture" },
       onProgress: (p) => messages.push(p.message ?? p.phase),
     });
@@ -124,9 +124,9 @@ describe("M-041 P0 utilities foundation", () => {
     const prev = process.env.PRISM_TEST_NO_CHROME;
     process.env.PRISM_TEST_NO_CHROME = "1";
     try {
+      await session.consent.set("network.package-install", true);
       const started = await session.jobs.start({
         kind: UTILITY_JOB_LIGHTHOUSE,
-        consentGranted: true,
         lighthouse: { port: 4173, mode: "run" },
       });
       expect(started.ok).toBe(true);

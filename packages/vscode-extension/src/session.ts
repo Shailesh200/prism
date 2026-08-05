@@ -1,5 +1,8 @@
 import type {
   BackendReport,
+  ConsentPurposeId,
+  ConsentRecord,
+  ConsentState,
   BundleAnalyzeCapability,
   BundleWeightReport,
   ChangeReviewReport,
@@ -232,6 +235,34 @@ export class PrismSession {
     const result = await ws.value.getUtilityOverlay(kind);
     if (!result.ok) return ok(null);
     return ok(result.value);
+  }
+
+  /**
+   * Consent lives in Core, not in the extension (M-036). The webview reads and
+   * writes it through here so the editor, the CLI and an MCP client all answer
+   * to the same `.prism/consent.json`.
+   */
+  async listConsent(): Promise<Result<ConsentState[], PrismError>> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    return ws.value.listConsent();
+  }
+
+  async getConsent(
+    purpose: ConsentPurposeId,
+  ): Promise<Result<ConsentRecord | null, PrismError>> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    return ws.value.getConsent(purpose);
+  }
+
+  async setConsent(
+    purpose: ConsentPurposeId,
+    granted: boolean,
+  ): Promise<Result<ConsentRecord, PrismError>> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    return ws.value.setConsent(purpose, granted);
   }
 
   async getBackendReport(): Promise<Result<BackendReport | null, PrismError>> {
@@ -468,7 +499,6 @@ export class PrismSession {
     const mode = options?.mode ?? "lab-fixture";
     const job = await ws.value.startUtilityJob({
       kind: "lighthouse",
-      consentGranted: true,
       lighthouse: {
         mode,
         ...(options?.url ? { url: options.url } : {}),
@@ -547,7 +577,6 @@ export class PrismSession {
     const mode = options?.mode ?? "run";
     const job = await ws.value.startUtilityJob({
       kind: "bundle-stats",
-      consentGranted: true,
       ...(options?.packageId ? { packageId: options.packageId } : {}),
       bundleAnalyze: {
         mode,

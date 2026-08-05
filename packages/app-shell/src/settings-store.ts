@@ -28,7 +28,14 @@ export type PrismSettingsV1 = {
   readonly telemetry: boolean;
   /** Core analysis stays on-device. Disabling requires an explicit warning. */
   readonly localOnlyAnalysis: boolean;
+  /**
+   * Legacy master network switch, superseded by Core's consent purposes
+   * (M-036). Kept only so the one-time migration in `consent-state.ts` can
+   * read the user's prior intent; nothing consults it to decide anything.
+   */
   readonly allowNetworkIntegrations: boolean;
+  /** ISO timestamp of that migration, or empty if it has not run. */
+  readonly consentMigratedAt: string;
 };
 
 export const SETTINGS_STORAGE_KEY = "prism.settings.v1";
@@ -82,6 +89,7 @@ export const DEFAULT_SETTINGS: PrismSettingsV1 = {
   telemetry: false,
   localOnlyAnalysis: true,
   allowNetworkIntegrations: false,
+  consentMigratedAt: "",
 };
 
 export const MAX_FILE_SIZE_OPTIONS: readonly {
@@ -251,6 +259,10 @@ export function loadSettings(): PrismSettingsV1 {
         typeof parsed.allowNetworkIntegrations === "boolean"
           ? parsed.allowNetworkIntegrations
           : DEFAULT_SETTINGS.allowNetworkIntegrations,
+      consentMigratedAt:
+        typeof parsed.consentMigratedAt === "string"
+          ? parsed.consentMigratedAt
+          : DEFAULT_SETTINGS.consentMigratedAt,
     };
   } catch {
     return { ...DEFAULT_SETTINGS };

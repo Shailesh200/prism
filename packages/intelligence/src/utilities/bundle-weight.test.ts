@@ -219,9 +219,9 @@ describe("bundle-stats ingest + job (mode=ingest)", () => {
       workspaceRoot: root,
     });
 
+    await consent.set("run.local-build", true);
     const job = await jobs.start({
       kind: UTILITY_JOB_BUNDLE_STATS,
-      consentGranted: true,
       bundleAnalyze: { mode: "ingest", reportPath: statsPath },
     });
     expect(job.ok).toBe(true);

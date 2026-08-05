@@ -18,6 +18,14 @@ export type {
 export { BundleTreemap } from "./BundleTreemap.js";
 export type { BundleTreemapProps, TreemapDatum } from "./BundleTreemap.js";
 export { AppShellClientProvider, useAppShellClient } from "./client-context.js";
+export {
+  consentSnapshot,
+  isConsentGranted,
+  refreshConsent,
+  setConsent,
+  useConsentGranted,
+  useConsentState,
+} from "./consent-state.js";
 export { isBrowserShell } from "./is-browser.js";
 export { shellNavVariant, shellRootClass } from "./shell-layout.js";
 export type {

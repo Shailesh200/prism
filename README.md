@@ -52,6 +52,10 @@ Published as **`prismhq.repo-prism`** (display name **RepoPrism**).
 | [`plans/PROGRESS.md`](./plans/PROGRESS.md) | Milestone status board |
 | [`plans/START_HERE.md`](./plans/START_HERE.md) | Workflow after approval |
 | [`AGENTS.md`](./AGENTS.md) | Rules for coding agents |
+| [`CONTRIBUTING.md`](./CONTRIBUTING.md) | Setup, milestone workflow, verification |
+| [`SECURITY.md`](./SECURITY.md) | Reporting a vulnerability; what is in and out of scope |
+| [`PRIVACY.md`](./PRIVACY.md) | What leaves your machine, and the test that proves it |
+| [`plans/architecture/07_THREAT_MODEL.md`](./plans/architecture/07_THREAT_MODEL.md) | Trust boundaries and what Prism executes |
 
 ## Requirements
 

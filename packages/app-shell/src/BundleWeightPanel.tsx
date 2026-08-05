@@ -298,7 +298,6 @@ export const BundleWeightPanel = forwardRef<
       const result = await client.runBundleAnalyze({
         mode: "run",
         ...(packageId ? { packageId } : {}),
-        consentGranted: true,
         onProgress: (event) => {
           if (event.message.trim()) setProgress(event.message.trim());
         },

@@ -4,6 +4,8 @@ import type {
   BundleWeightReport,
   CodeExplorerReport,
   CodeExplorerTarget,
+  ConsentPurposeId,
+  ConsentState,
   CwvReport,
   EngineeringHealthReport,
   GraphSnapshotDto,
@@ -65,7 +67,6 @@ export type BundleAnalyzeOptions = {
   readonly packagePath?: string;
   readonly scriptName?: string;
   readonly reportPath?: string;
-  readonly consentGranted?: boolean;
   readonly onProgress?: (event: BundleAnalyzeProgressEvent) => void;
 };
 
@@ -160,16 +161,27 @@ export type AppShellClient = {
   /**
    * Stage DevOps signals from a foreign GitHub repo into
    * `.prism/remote-ci/<owner>/<repo>/` (workflows + deploy/k8s markers).
-   * Network-gated by the caller (Allow network integrations + GitHub enabled),
-   * and re-checked in Core: `consentGranted` travels with the request so the
-   * gate cannot be lost between surface and network call (ADR-0024).
+   * Gated in Core on `network.github`, which reads `.prism/consent.json`
+   * (ADR-0024, M-036). Surfaces no longer pass a consent flag: a refusal comes
+   * back as an error the UI prompts on, so a host that forgets to check its
+   * own toggle cannot make the request anyway.
    */
   stageDevopsRemote?(input: {
     owner: string;
     repo: string;
     token?: string;
-    consentGranted: boolean;
   }): Promise<StageDevopsRemoteResult>;
+  /**
+   * Every consent purpose with the decision so far, straight from Core
+   * (M-036). Optional only so a host that cannot reach Core degrades to "no
+   * grants" — which is the safe answer, not a hidden allow.
+   */
+  listConsent?(): Promise<readonly ConsentState[]>;
+  /** Record the user's answer for one purpose; returns the fresh state. */
+  setConsent?(
+    purpose: ConsentPurposeId,
+    granted: boolean,
+  ): Promise<readonly ConsentState[]>;
   openFile?(path: string): void;
   postToHost?(message: unknown): void;
   /**

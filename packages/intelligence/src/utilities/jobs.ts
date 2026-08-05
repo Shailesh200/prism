@@ -4,6 +4,7 @@ import {
   BundleWeightReportSchema,
   CwvReportSchema,
   PrismErrorCode,
+  type ConsentPurposeId,
   type CwvReport,
   type JsonValue,
   type PrismError,
@@ -88,7 +89,6 @@ export type BundleAnalyzeJobOptions = {
 export type StartUtilityJobInput = {
   readonly kind: string;
   readonly packageId?: string;
-  readonly consentGranted?: boolean;
   readonly labels?: readonly string[];
   readonly onProgress?: (progress: UtilityJobProgress) => void;
   readonly lighthouse?: LighthouseJobOptions;
@@ -121,12 +121,34 @@ function now(): string {
   return new Date().toISOString();
 }
 
-function requiresConsent(kind: string): boolean {
-  return (
-    kind === UTILITY_JOB_REMOTE_PROBE_STUB ||
-    kind === UTILITY_JOB_LIGHTHOUSE ||
-    kind === UTILITY_JOB_BUNDLE_STATS
-  );
+/**
+ * Which consent purpose a job kind needs, or `null` for the local ones
+ * (M-036 Phase 1.5).
+ *
+ * Consent used to be recorded against the job kind itself, which meant the
+ * question a user answered was "may Prism run a bundle-stats job" — a name
+ * from our own vocabulary that says nothing about what happens. Purposes are
+ * phrased in terms of the consequence instead.
+ */
+function consentPurposeFor(kind: string): ConsentPurposeId | null {
+  switch (kind) {
+    case UTILITY_JOB_REMOTE_PROBE_STUB: {
+      return "network.pagespeed";
+    }
+    case UTILITY_JOB_LIGHTHOUSE: {
+      // Running Lighthouse drives a local browser; the part that leaves the
+      // machine is fetching Lighthouse itself, which 1.6 insists is its own
+      // question. The install gate is checked again at the install site.
+      return "network.package-install";
+    }
+    case UTILITY_JOB_BUNDLE_STATS: {
+      // Executes the opened repository's own build script (F7).
+      return "run.local-build";
+    }
+    default: {
+      return null;
+    }
+  }
 }
 
 function primaryPathForLog(labUrl: string): string {
@@ -174,15 +196,15 @@ export function createUtilityJobService(options: {
         return err(prismError(PrismErrorCode.VALIDATION, "Job kind is empty"));
       }
 
-      const needsConsent = requiresConsent(kind);
-      if (needsConsent) {
-        if (input.consentGranted === true) {
-          const recorded = await options.consent.set(kind, true);
-          if (!recorded.ok) return recorded;
-        } else {
-          const gate = await options.consent.requireGranted(kind);
-          if (!gate.ok) return gate;
-        }
+      // The caller does not get a say. Before M-036 this branch accepted
+      // `consentGranted: true` from the host, and all three hosts passed it
+      // unconditionally — so the gate wrote a consent record instead of
+      // checking for one, and users ended up with a `.prism/consent.json` they
+      // never knowingly agreed to.
+      const purpose = consentPurposeFor(kind);
+      if (purpose) {
+        const gate = await options.consent.requireGranted(purpose);
+        if (!gate.ok) return gate;
       }
 
       const createdAt = now();
@@ -192,10 +214,10 @@ export function createUtilityJobService(options: {
         status: "queued",
         createdAt,
         updatedAt: createdAt,
-        requiresConsent: needsConsent,
-        ...(input.consentGranted === undefined
-          ? {}
-          : { consentGranted: input.consentGranted }),
+        requiresConsent: purpose !== null,
+        // Recorded, not asserted: the job reports which grant let it run so a
+        // reader of the job list can trace it back to a decision.
+        ...(purpose === null ? {} : { consentPurpose: purpose }),
         ...(input.packageId === undefined
           ? {}
           : { packageId: input.packageId }),

@@ -63,6 +63,7 @@ import {
   type MapPackageInfo,
 } from "@prism/repository-map";
 import {
+  CONSENT_PURPOSES,
   PrismErrorCode,
   CodeExplorerTargetSchema,
   classifyFileRole,
@@ -77,6 +78,7 @@ import {
   type CodeExplorerReport,
   type CodeExplorerTarget,
   type ConsentRecord,
+  type ConsentState,
   type CwvReport,
   type DnaReport,
   type EngineeringHealthReport,
@@ -446,6 +448,11 @@ export type PrismWorkspace = {
   getOverviewModel(
     options?: GetOverviewModelOptions,
   ): Promise<Result<OverviewModel, PrismError>>;
+  /**
+   * Record the user's answer for one purpose (M-036). `purpose` must be a
+   * known `ConsentPurposeId`; anything else is a validation error rather than
+   * a silently stored record.
+   */
   setConsent(
     purpose: string,
     granted: boolean,
@@ -453,6 +460,13 @@ export type PrismWorkspace = {
   getConsent(
     purpose: string,
   ): Promise<Result<ConsentRecord | null, PrismError>>;
+  /**
+   * Every purpose with the decision so far, so a surface can render the
+   * settings screen without hard-coding the catalogue (M-036 Phase 1.1). This
+   * is the single authority: the UI's old `localStorage` toggle is migrated
+   * into `.prism/consent.json` and then ignored.
+   */
+  listConsent(): Promise<Result<ConsentState[], PrismError>>;
   getHealth(): Promise<Result<HealthScore, PrismError>>;
   /**
    * Persisted health-over-time points from index snapshots + optional git
@@ -1549,6 +1563,26 @@ export function createWorkspace(options: {
       const session = ensureUtilities();
       if (!session.ok) return session;
       return session.value.consent.get(purpose);
+    },
+    async listConsent() {
+      const session = ensureUtilities();
+      if (!session.ok) return session;
+      const stored = await session.value.consent.list();
+      if (!stored.ok) return stored;
+      const byPurpose = new Map(stored.value.map((r) => [r.purpose, r]));
+      // Driven by the catalogue, not by the file: a purpose nobody has
+      // answered yet must still appear, as undecided, or the settings screen
+      // would silently omit whatever we added most recently.
+      return ok(
+        CONSENT_PURPOSES.map((purpose) => {
+          const record = byPurpose.get(purpose.id);
+          return {
+            purpose,
+            granted: record?.granted ?? false,
+            decidedAt: record?.decidedAt ?? null,
+          };
+        }),
+      );
     },
     async getHealth() {
       const gate = ensureOpen();

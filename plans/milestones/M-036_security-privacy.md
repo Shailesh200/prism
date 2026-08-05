@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **Not Started** |
+| Status | **In Review** |
 | Branch | `milestone/M-036-security-privacy` (from latest `main`) |
 | Depends on | M-051, M-052 |
 | Unlocks | M-039 |
@@ -144,18 +144,50 @@ No `SECURITY.md`, no `CONTRIBUTING.md`, no threat model. Privacy claims are scat
 
 ## 5. Definition of Done
 
-- [ ] Only one milestone `In Progress`
-- [ ] One consent authority; no caller can assert consent on the user's behalf
-- [ ] Every finding F1–F8 closed or explicitly accepted with a reason in this document
-- [ ] Gravatar off by default; avatars render locally with no request
-- [ ] No-network test suite passes and is part of `verify:milestone`
-- [ ] Every consent purpose has user-facing text stating what will happen
-- [ ] `SECURITY.md`, `CONTRIBUTING.md`, `PRIVACY.md`, threat model all present
-- [ ] ADR-0024 updated to match the implementation
-- [ ] Q-009 and Q-010 marked resolved in `OPEN_QUESTIONS.md`
-- [ ] `bun run verify:milestone --force` green
+- [x] Only one milestone `In Progress`
+- [x] One consent authority; no caller can assert consent on the user's behalf
+- [x] Every finding F1–F8 closed or explicitly accepted with a reason in this document
+- [x] Gravatar off by default; avatars render locally with no request
+- [x] No-network test suite passes and is part of `verify:milestone`
+- [x] Every consent purpose has user-facing text stating what will happen
+- [x] `SECURITY.md`, `CONTRIBUTING.md`, `PRIVACY.md`, threat model all present
+- [x] ADR-0024 updated to match the implementation
+- [x] Q-009 and Q-010 marked resolved in `OPEN_QUESTIONS.md`
+- [x] `bun run verify:milestone --force` green
 - [ ] Manual: fresh workspace, no `.prism/consent.json` — every gated action prompts, none proceeds silently
 - [ ] Owner approval → commit → merge → Verified → snippet shared
+
+## 9. Findings disposition (2026-08-05)
+
+| Finding | Disposition |
+|---|---|
+| F1 consent gate bypassed | **Closed.** `StartUtilityJobInput.consentGranted` deleted. The job service reads `.prism/consent.json` and nothing else; the three hosts that passed `true` no longer have a field to pass |
+| F2 two consent systems | **Closed.** `.prism/consent.json` is the only authority. `allowNetworkIntegrations` survives solely as migration input and is never consulted for a decision |
+| F3 Gravatar ungated | **Closed.** Avatars draw locally; `network.gravatar` is opt-in and off. The legacy toggle deliberately does **not** migrate into it — that switch never mentioned Gravatar, so honouring it would be inventing agreement |
+| F4 `stageDevopsRemote` ungated | **Closed.** Core reads the record itself; the `consentGranted` parameter is gone from the function, the webview protocol, and its runtime guard |
+| F5 Lighthouse install | **Closed.** `network.package-install` is its own purpose, checked in `ensureLighthouseCli`. An already-installed binary needs no gate: using it sends nothing |
+| F6 `git fetch` wrong flag | **Closed.** `network.git-remote` in both the extension host and the playground API |
+| F7 repository code execution | **Accepted and documented**, as §4 anticipated. Gated behind `run.local-build`, whose text says the script is the repository's code running with your permissions; stated plainly in the threat model §4. Sandboxing remains out of scope |
+| F8 no security docs | **Closed.** `SECURITY.md`, `CONTRIBUTING.md`, `PRIVACY.md`, `plans/architecture/07_THREAT_MODEL.md` |
+
+### Notes
+
+Six purposes shipped, not the seven listed in 1.5: `run.local-tests` was
+dropped. Running the repository's *tests* is what a developer does constantly
+and what the Testing screen exists for; gating it would produce a prompt
+everybody clicks through, which is worse than no prompt because it teaches
+people that Prism's prompts are noise. `run.local-build` is kept because bundle
+analysis is occasional and its script is far more likely to be unfamiliar.
+
+The no-network harness traps `fetch` and `net.Socket.prototype.connect` rather
+than the `node:http` module functions — ES module namespaces are frozen, and the
+socket is the chokepoint every one of them ends at anyway. It also asserts the
+traps fire, because a harness that silently failed to install would produce the
+most dangerous kind of green.
+
+CSP narrowing (2.5) removed the blanket `https:` from `img-src` and `font-src`.
+That wildcard is what made the Gravatar leak invisible: nothing had to be
+allowed, because everything already was.
 
 ## 6. Verification plan
 

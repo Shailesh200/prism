@@ -6,6 +6,8 @@ import type {
   ChangeReviewReport,
   CodeExplorerReport,
   CodeExplorerTarget,
+  ConsentPurposeId,
+  ConsentState,
   CwvReport,
   DnaReport,
   EngineeringHealthReport,
@@ -162,8 +164,13 @@ export type HostRequest =
       owner: string;
       repo: string;
       token?: string;
-      /** Settings → Allow network integrations, carried per request (ADR-0024). */
-      consentGranted: boolean;
+    }
+  | { id: string; method: "listConsent" }
+  | {
+      id: string;
+      method: "setConsent";
+      purpose: ConsentPurposeId;
+      granted: boolean;
     }
   | { id: string; method: "reviewChanges"; paths: string[]; base?: string }
   | { id: string; method: "explainArea"; path: string }
@@ -291,6 +298,12 @@ export type HostResponse =
         workflows: Array<{ id?: number; name: string; path: string }>;
         overlay: UtilityOverlayReport | null;
       };
+    }
+  | {
+      id: string;
+      ok: true;
+      method: "listConsent" | "setConsent";
+      data: ConsentState[];
     }
   | {
       id: string;

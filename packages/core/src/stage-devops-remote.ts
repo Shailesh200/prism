@@ -6,7 +6,7 @@
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { buildUtilityOverlay } from "@prism/intelligence";
+import { buildUtilityOverlay, createConsentStore } from "@prism/intelligence";
 import type { StackProfile, UtilityOverlayReport } from "@prism/shared";
 
 export type StageDevopsRemoteInput = {
@@ -14,14 +14,6 @@ export type StageDevopsRemoteInput = {
   readonly owner: string;
   readonly repo: string;
   readonly token?: string;
-  /**
-   * Required. This function reaches api.github.com, which every other
-   * network path in Core gates behind explicit consent (ADR-0024). It
-   * previously relied on each surface remembering to check its own toggle,
-   * so a direct SDK caller made the request with no gate at all
-   * (M-051 Phase 4).
-   */
-  readonly consentGranted: boolean;
 };
 
 export type StagedWorkflowSummary = {
@@ -116,14 +108,14 @@ export async function stageDevopsRemote(
 ): Promise<
   { ok: true; value: StageDevopsRemoteResult } | { ok: false; error: string }
 > {
-  // Checked before anything else so no request is issued on a refused call.
-  if (input.consentGranted !== true) {
-    return {
-      ok: false,
-      error:
-        "Network consent required: staging remote DevOps signals contacts api.github.com. Pass consentGranted: true after the user allows network integrations.",
-    };
-  }
+  // Read from the workspace's own consent record before anything else, so no
+  // request is issued on a refused call and no caller can vouch for the user.
+  // The parameter this replaced was a boolean the caller supplied, which the
+  // playground API and the extension host both hardcoded to true (M-036 F4).
+  const gate = await createConsentStore({
+    workspaceRoot: input.workspaceRoot,
+  }).requireGranted("network.github");
+  if (!gate.ok) return { ok: false, error: gate.error.message };
 
   const owner = input.owner.trim();
   const repo = input.repo.trim();

@@ -43,6 +43,11 @@ export function avatarGradient(key: string): string {
 /**
  * Gravatar URL for a git author email (`d=404` so a missing avatar 404s and the
  * caller can fall back). Returns `null` when there is no email.
+ *
+ * Contacting Gravatar reveals a hash of a committer's email — that is, *who
+ * works on this repository* — to a third party. It is therefore behind
+ * `network.gravatar`, off by default (M-036 F3). Callers must check consent;
+ * this function only builds the URL.
  */
 export function gravatarUrl(
   email: string | undefined,

@@ -21,6 +21,19 @@ export {
 export { isTestPath, isTypeDeclarationPath } from "./test-paths.js";
 
 export {
+  CONSENT_PURPOSES,
+  CONSENT_PURPOSE_IDS,
+  ConsentPurposeIdSchema,
+  consentPurpose,
+  consentRequiredMessage,
+  isConsentPurposeId,
+  type ConsentPurpose,
+  type ConsentPurposeGroup,
+  type ConsentPurposeId,
+  type ConsentState,
+} from "./consent-purposes.js";
+
+export {
   RISK_BANDS,
   RISK_BAND_IDS,
   RISK_BAND_MIN,

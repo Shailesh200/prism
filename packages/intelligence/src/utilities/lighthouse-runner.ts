@@ -17,6 +17,7 @@ import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { homedir } from "node:os";
 import { delimiter, join } from "node:path";
+import { createConsentStore } from "./consent.js";
 
 export type ResolveChromeResult =
   | { readonly ok: true; readonly path: string; readonly source: string }
@@ -270,6 +271,11 @@ function toolsRoot(workspaceRoot: string): string {
 
 /**
  * Ensure Lighthouse CLI is installed under `.prism/tools/lighthouse` (once).
+ *
+ * The install pulls a package tree from the npm registry, so it is gated on
+ * `network.package-install` separately from consenting to *run* Lighthouse
+ * (M-036 F5). An already-installed binary needs no gate: nothing leaves the
+ * machine to use it.
  */
 export async function ensureLighthouseCli(
   workspaceRoot: string,
@@ -280,6 +286,13 @@ export async function ensureLighthouseCli(
   const bin = lighthouseBin(prefix);
   if (await pathExists(bin)) {
     return { ok: true, bin };
+  }
+
+  const gate = await createConsentStore({ workspaceRoot }).requireGranted(
+    "network.package-install",
+  );
+  if (!gate.ok) {
+    return { ok: false, message: gate.error.message };
   }
 
   const pkgPath = join(prefix, "package.json");
