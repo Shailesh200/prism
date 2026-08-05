@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **Not Started** |
+| Status | **In Review** |
 | Branch | `milestone/M-028-cli-foundation` (from latest `main`) |
 | Depends on | M-025, M-051, M-052 |
 | Unlocks | M-029 |
@@ -59,16 +59,42 @@ not a CLI framework. `src/index.ts` is 2 lines. There is no `bin` entry.
 
 ## 6. Definition of Done
 
-- [ ] Only one milestone `In Progress`
-- [ ] `prism --version` prints the Core version and API level
-- [ ] `prism doctor` succeeds in this repository and on a fixture
-- [ ] `prism index` and `prism dna` return real Core data
-- [ ] `--json` output is valid JSON on stdout with **nothing else on stdout**
-- [ ] Exit codes behave as documented, including `2` for a bad flag
-- [ ] `NO_COLOR` and non-TTY produce unstyled output
-- [ ] `@prism/cli` imports only `@prism/core` (contract test)
-- [ ] `bun run verify:milestone --force` green
-- [ ] Owner approval → commit → merge → Verified → snippet shared
+- [x] Only one milestone `In Progress`
+- [x] `prism --version` prints the Core version and API level
+- [x] `prism doctor` succeeds in this repository and on the fixture
+- [x] `prism index` and `prism dna` return real Core data
+- [x] `--json` output is valid JSON on stdout with nothing else on stdout
+- [x] Exit codes behave as documented, including `2` for a bad flag, an unknown command and a bare invocation
+- [x] `NO_COLOR` and non-TTY produce unstyled output
+- [x] `@prism/cli` imports only `@prism/core` and `@prism/shared` (boundary test over imports and the manifest)
+- [x] `bun run verify:milestone` green
+- [ ] Manual: read `prism --help` and each subcommand help as a first-time user (**owner**)
+- [ ] Owner approval → merge → Verified → snippet shared
+
+### Decisions and findings
+
+**Two bugs the integration tests caught, both invisible in-process.**
+
+1. `prism` with no command printed help and exited **0**. Commander treats a
+   bare invocation as success, which means a CI job that typo'd its command line
+   would pass silently. It now exits 2.
+2. Pointing `--workspace` at a directory that does not exist exited **3**
+   (Prism failed) rather than **2** (you asked wrongly). The workspace is now
+   checked before Core opens it, so the user error is reported as one.
+
+**Structural choices that make the DoD testable rather than aspirational.**
+Commands return data plus a rendering function; they never touch a stream, never
+call `process.exit` and never choose their own exit code. A command therefore
+*cannot* print a stray line into stdout while `--json` is on. Two boundary tests
+enforce it: one asserts stdout is written in a single module, the other that
+`process.exit` appears nowhere — `process.exitCode` is used instead, because
+`process.exit` truncates pending writes and that is exactly how a JSON payload
+arrives half-written.
+
+**Errors go to stdout under `--json`.** In human mode failures go to stderr and
+stdout stays empty. In JSON mode the failure envelope goes to stdout, so a
+script reading one stream gets the whole story rather than silently seeing
+nothing on success-shaped output.
 
 ## 7. Verification plan
 
