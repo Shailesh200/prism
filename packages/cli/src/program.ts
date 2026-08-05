@@ -106,7 +106,7 @@ function buildProgram(): Command {
  */
 export async function run(
   argv: readonly string[],
-  run: RunOptions,
+  options: RunOptions,
 ): Promise<ExitCode> {
   const program = buildProgram();
 
@@ -114,14 +114,14 @@ export async function run(
   // `prism` with no command is a usage error, and a CI job that typo'd its
   // command line deserves to fail rather than pass silently.
   if (argv.length === 0) {
-    run.writer.err(program.helpInformation());
+    options.writer.err(program.helpInformation());
     return ExitCode.USAGE;
   }
 
   program.exitOverride();
   program.configureOutput({
-    writeOut: (text) => run.writer.out(text.replace(/\n$/, "")),
-    writeErr: (text) => run.writer.err(text.replace(/\n$/, "")),
+    writeOut: (text) => options.writer.out(text.replace(/\n$/, "")),
+    writeErr: (text) => options.writer.err(text.replace(/\n$/, "")),
   });
 
   let parsed: Command;
@@ -142,13 +142,13 @@ export async function run(
 
   const commandName = parsed.args[0];
   if (commandName === undefined) {
-    run.writer.err(program.helpInformation());
+    options.writer.err(program.helpInformation());
     return ExitCode.USAGE;
   }
 
   const command = COMMANDS[commandName];
   if (command === undefined) {
-    run.writer.err(`error: unknown command '${commandName}'`);
+    options.writer.err(`error: unknown command '${commandName}'`);
     return ExitCode.USAGE;
   }
 
@@ -159,15 +159,15 @@ export async function run(
     color: shouldUseColor({
       // Commander maps `--no-color` to `color: false`.
       noColorFlag: raw.color === false,
-      env: run.env,
-      isTty: run.isTty,
+      env: options.env,
+      isTty: options.isTty,
     }),
     quiet: raw.quiet === true,
     verbose: raw.verbose === true,
     yes: raw.yes === true,
   };
 
-  return runCommand(command.handler, globals, run);
+  return runCommand(command.handler, globals, options);
 }
 
 /** Entry point for the binary. */

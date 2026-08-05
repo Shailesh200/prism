@@ -59,24 +59,24 @@ describe("package boundaries (ADR-0004)", () => {
   });
 });
 
-describe("stdout discipline (M-028)", () => {
-  /**
-   * Comments discuss these rules at length, so a raw text search would flag
-   * the explanation as the violation. Only code lines count.
-   */
-  async function codeLines(file: string): Promise<string[]> {
-    const text = await readFile(file, "utf8");
-    return text
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(
-        (line) =>
-          !line.startsWith("//") &&
-          !line.startsWith("*") &&
-          !line.startsWith("/*"),
-      );
-  }
+/**
+ * Comments discuss these rules at length, so a raw text search would flag the
+ * explanation as the violation. Only code lines count.
+ */
+async function codeLines(file: string): Promise<string[]> {
+  const text = await readFile(file, "utf8");
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(
+      (line) =>
+        !line.startsWith("//") &&
+        !line.startsWith("*") &&
+        !line.startsWith("/*"),
+    );
+}
 
+describe("stdout discipline (M-028)", () => {
   it("writes to stdout in exactly one place", async () => {
     // stdout carries data. If a command ever writes to it directly, `--json`
     // stops being parseable and the failure shows up in someone's pipeline
