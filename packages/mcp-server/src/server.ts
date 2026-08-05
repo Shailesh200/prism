@@ -59,7 +59,7 @@ export function createPrismMcpServer(
     ...(options.openWorkspace ? { openWorkspace: options.openWorkspace } : {}),
   });
 
-  registerTools(server, session, TOOLS);
+  registerTools(server, session, TOOLS, options.workspaceRoot);
 
   return { server, session };
 }

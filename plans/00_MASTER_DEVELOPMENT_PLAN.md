@@ -573,13 +573,21 @@ Exposed in M-026 (foundation) and M-027 (full pack):
 | `blast_radius` | M-027 |
 | `safe_delete` | M-027 |
 | `rename_impact` | M-027 |
-| `architecture_rules` | M-027 |
 | `dependency_route` | M-027 |
-| `similar_component` | M-027 |
-| `engineering_entropy` | M-027 |
-| `technical_debt` | M-027 |
-| `hotspots` | M-027 |
-| `knowledge_decay` | M-027 |
+| `similar_component` | Shipped as part of `explore_code` (M-027) |
+| `engineering_entropy` | Shipped as part of `engineering_health` (M-027) |
+| `technical_debt` | Shipped as part of `engineering_health` (M-027) |
+| `hotspots` | Shipped as part of `engineering_health` (M-027) |
+| `knowledge_decay` | Shipped as part of `engineering_health` (M-027) |
+
+> **Corrected 2026-08-05 (M-027).** `architecture_rules` was removed from this table: no rules
+> engine, rule format or Core method ever existed, so the row promised a capability the product
+> does not have. Building one is a product milestone, not an adapter task.
+>
+> The four entropy/debt/hotspot/decay rows were four views of one computation. They ship as a
+> single `engineering_health` tool rather than four near-identical tools an agent would have to
+> choose between while paying for the same analysis each time. The shipped tool list — twenty-eight
+> tools — is in [`packages/mcp-server/README.md`](../packages/mcp-server/README.md).
 
 All tools are thin wrappers over `@prism/core` methods with JSON-serializable results.
 

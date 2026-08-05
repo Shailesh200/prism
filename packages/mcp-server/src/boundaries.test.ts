@@ -2,7 +2,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { TOOLS } from "./tools.js";
+import { TOOLS, TOOL_NAMES } from "./tools.js";
 
 /**
  * Two rules that break a stdio MCP server quietly rather than loudly, so each
@@ -12,11 +12,19 @@ import { TOOLS } from "./tools.js";
 const srcDir = dirname(fileURLToPath(import.meta.url));
 const packageDir = join(srcDir, "..");
 
-async function sourceFiles(): Promise<string[]> {
-  const entries = await readdir(srcDir, { withFileTypes: true });
-  return entries
-    .filter((e) => e.isFile() && e.name.endsWith(".ts"))
-    .map((e) => join(srcDir, e.name));
+/** Recursive: the tool modules live in `src/tools/`, not beside this file. */
+async function sourceFiles(dir: string = srcDir): Promise<string[]> {
+  const entries = await readdir(dir, { withFileTypes: true });
+  const files: string[] = [];
+  for (const entry of entries) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await sourceFiles(full)));
+    } else if (entry.isFile() && entry.name.endsWith(".ts")) {
+      files.push(full);
+    }
+  }
+  return files;
 }
 
 describe("package boundaries (ADR-0004)", () => {
@@ -105,5 +113,44 @@ describe("consent (ADR-0024)", () => {
 
   it("declares every tool read-only", () => {
     expect(TOOLS.every((tool) => tool.readOnly !== false)).toBe(true);
+  });
+});
+
+describe("pack coherence (M-027)", () => {
+  it("has no duplicate tool names", () => {
+    expect(new Set(TOOL_NAMES).size).toBe(TOOL_NAMES.length);
+  });
+
+  it("names every tool in unprefixed snake_case", () => {
+    for (const name of TOOL_NAMES) {
+      expect(name, name).toMatch(/^[a-z][a-z0-9]*(_[a-z0-9]+)*$/);
+      expect(name.startsWith("prism_"), name).toBe(false);
+    }
+  });
+
+  it("gives every tool a description an agent can choose from", () => {
+    // Short descriptions are how a tool pack becomes unusable: the model
+    // cannot tell two tools apart and picks by name similarity.
+    for (const tool of TOOLS) {
+      expect(tool.description.length, tool.name).toBeGreaterThan(80);
+      expect(tool.title.length, tool.name).toBeGreaterThan(0);
+    }
+  });
+
+  it("documents every tool in the README", async () => {
+    const readme = await readFile(join(packageDir, "README.md"), "utf8");
+    const undocumented = TOOL_NAMES.filter(
+      (name) => !readme.includes(`\`${name}\``),
+    );
+    expect(undocumented).toEqual([]);
+  });
+
+  it("claims no tool the README documents but the server lacks", async () => {
+    const readme = await readFile(join(packageDir, "README.md"), "utf8");
+    const claimed = [...readme.matchAll(/^\| `([a-z][a-z0-9_]*)` \|/gm)].map(
+      (match) => match[1] as string,
+    );
+    expect(claimed.length).toBeGreaterThan(0);
+    expect(claimed.filter((name) => !TOOL_NAMES.includes(name))).toEqual([]);
   });
 });

@@ -259,13 +259,15 @@ Surfaces expose the **same nouns**. MCP tools (M-027) are thin wrappers over Cor
 | `blast_radius` | `prism blast-radius` | Change impact |
 | `safe_delete` | `prism safe-delete` | Delete safety report |
 | `rename_impact` | — | Rename fan-out |
-| `architecture_rules` | — | Detected / declared rules |
 | `dependency_route` | — | Route between nodes |
-| `similar_component` | — | Structural similarity |
-| `engineering_entropy` | `prism insights …` | Entropy metric |
-| `technical_debt` | — | Debt hotspots |
-| `hotspots` | `prism insights hotspots` | Edit / risk hotspots |
-| `knowledge_decay` | — | Ownership / freshness decay |
+| `explore_code` | — | One file/symbol in full, incl. structural similarity |
+| `engineering_health` | `prism insights …` | Entropy, debt, hotspots and knowledge decay in one report |
+
+> **Corrected 2026-08-05 (M-027).** `architecture_rules` was dropped from this table — no such
+> capability exists in the product or the codebase. `similar_component` ships inside `explore_code`,
+> and `engineering_entropy` / `technical_debt` / `hotspots` / `knowledge_decay` ship as the single
+> `engineering_health` report, because they were four views of one computation. See
+> [`packages/mcp-server/README.md`](../packages/mcp-server/README.md) for the shipped tool list.
 
 Example human CLI output (target):
 
