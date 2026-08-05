@@ -1,7 +1,6 @@
 {
-  "name": "@prism/core",
-  "version": "0.1.0",
-  "private": true,
+  "name": "@repo-prism/core",
+  "version": "1.0.1",
   "type": "module",
   "description": "Public Core SDK façade — only supported integration surface",
   "exports": {
@@ -10,7 +9,9 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -18,12 +19,27 @@
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
-    "@prism/analyzer": "workspace:*",
-    "@prism/impact": "workspace:*",
-    "@prism/indexer": "workspace:*",
-    "@prism/intelligence": "workspace:*",
-    "@prism/navigation": "workspace:*",
-    "@prism/repository-map": "workspace:*",
-    "@prism/shared": "workspace:*"
+    "@repo-prism/analyzer": "workspace:*",
+    "@repo-prism/impact": "workspace:*",
+    "@repo-prism/indexer": "workspace:*",
+    "@repo-prism/intelligence": "workspace:*",
+    "@repo-prism/navigation": "workspace:*",
+    "@repo-prism/repository-map": "workspace:*",
+    "@repo-prism/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@repo-prism/test-support": "workspace:*"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Shailesh200/prism.git"
+  },
+  "homepage": "https://github.com/Shailesh200/prism#readme",
+  "bugs": {
+    "url": "https://github.com/Shailesh200/prism/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

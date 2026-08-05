@@ -1,4 +1,4 @@
-# `@prism/shared`
+# `@repo-prism/shared`
 
 Canonical TypeScript contracts for Prism: `Result`, `PrismError`, branded IDs, repo-relative paths, and Zod DTOs for MCP/CLI.
 

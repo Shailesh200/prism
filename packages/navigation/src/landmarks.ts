@@ -1,4 +1,4 @@
-import type { FeatureInfo, IndexSnapshot, Landmark } from "@prism/shared";
+import type { FeatureInfo, IndexSnapshot, Landmark } from "@repo-prism/shared";
 
 const ENTRY_RE =
   /(^|\/)(main|index|app|page|server|cli)\.(ts|tsx|js|jsx|mjs|cjs)$/i;

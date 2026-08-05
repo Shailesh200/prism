@@ -2,7 +2,7 @@
 
 Marketplace extension id: **`prismhq.repo-prism`** (publisher `prismhq` / display name **RepoPrism**, extension name `repo-prism`).
 
-The Bun workspace package remains `@prism/vscode-extension`. Packaging stages a
+The Bun workspace package remains `@repo-prism/vscode-extension`. Packaging stages a
 clean folder via `scripts/package-vsix.ts` (see [ADR-0025](../../plans/adr/0025-marketplace-packaging.md)).
 
 ## Prerequisites (one-time)

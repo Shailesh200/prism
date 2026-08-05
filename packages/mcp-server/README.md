@@ -1,16 +1,135 @@
-# @prism/mcp-server
+# @repo-prism/mcp-server
 
-Prism's MCP server. It gives a coding agent structural answers about the local
-repository — what it is, how healthy it is, how it is laid out, and what breaks
-if a given file changes.
+[![npm](https://img.shields.io/npm/v/@repo-prism/mcp-server.svg)](https://www.npmjs.com/package/@repo-prism/mcp-server)
+[![license](https://img.shields.io/npm/l/@repo-prism/mcp-server.svg)](https://github.com/Shailesh200/prism/blob/main/LICENSE)
 
-Everything is computed locally from the Prism index. The server makes no network
-calls, writes nothing to your repository, and exposes no tool that could.
+**`prism-mcp`** — give any MCP-capable agent structural answers about the repo
+you have open. Same engine as the CLI and IDE extension. Local-only. 28 tools.
+
+> Requires **Node.js 26**.
+
+**You never type tool names.** After setup, ask in plain language (“is this repo
+healthy?”, “what breaks if I change auth?”). The server instructs the agent
+which tools to call.
+
+---
+
+## Setup — step by step
+
+**No `--workspace` path.** The server uses the client’s working directory, then
+walks up to the nearest **git root** (same as the CLI).
+
+### Claude Code
+
+1. Open a terminal in your project: `cd /path/to/your/project`
+2. Run:
+   ```bash
+   claude mcp add prism -- npx -y @repo-prism/mcp-server
+   ```
+3. Restart Claude Code if it was already open.
+4. Ask: “What is this repository?” or “How healthy is this codebase?”
+5. Confirm the agent calls Prism tools on its own (you should not need to name them).
+
+### Cursor
+
+1. Open your project folder in Cursor.
+2. Create `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (global):
+   ```json
+   {
+     "mcpServers": {
+       "prism": {
+         "command": "npx",
+         "args": ["-y", "@repo-prism/mcp-server"]
+       }
+     }
+   }
+   ```
+3. Save the file.
+4. **Settings → MCP** → enable **prism**.
+5. Wait until ~**28 tools** appear.
+6. In Agent chat, ask in plain language — no tool names.
+
+### Claude Desktop
+
+1. Edit `claude_desktop_config.json`
+   (macOS: `~/Library/Application Support/Claude/` · Windows: `%APPDATA%\Claude\`).
+2. Add:
+   ```json
+   {
+     "mcpServers": {
+       "prism": {
+         "command": "npx",
+         "args": ["-y", "@repo-prism/mcp-server"]
+       }
+     }
+   }
+   ```
+3. Quit and reopen Claude Desktop.
+4. Start from / with your project so the server cwd is that project
+   (or set `env.PRISM_WORKSPACE` once if the client always starts from a fixed dir).
+5. Ask in plain language.
+
+### Codex CLI
+
+1. Edit `~/.codex/config.toml`.
+2. Add:
+   ```toml
+   [mcp_servers.prism]
+   command = "npx"
+   args = ["-y", "@repo-prism/mcp-server"]
+   ```
+3. Run Codex from inside your project.
+4. Ask in plain language.
+
+### Optional overrides
+
+Only if auto-detection is wrong:
+
+```bash
+npx -y @repo-prism/mcp-server --workspace /path/to/repo
+# or
+PRISM_WORKSPACE=/path/to/repo npx -y @repo-prism/mcp-server
+```
+
+**Do not** leave a terminal on `ready on stdio` — that means the server is
+waiting for an MCP **client**. Configure the client; it starts the process.
+
+### Workspace resolution
+
+1. `--workspace <path>` (or `-w`, or first positional)
+2. `PRISM_WORKSPACE`
+3. Nearest ancestor of cwd with `.git`
+4. Process cwd
+
+---
+
+## How to talk to the agent
+
+| You say | Agent should call |
+|---|---|
+| “What is this repo?” / “Orient me” | `repository_dna`, landmarks / overview |
+| “Is this codebase healthy?” | `repository_health` |
+| “What breaks if I edit `src/…`?” | `blast_radius`, `test_impact` |
+| “Can I delete this?” | `safe_delete` |
+| “Review my changes” | `review_changes` |
+
+Optional MCP **prompts** (picker / slash in some clients): `orient`,
+`before_edit`, `review_diff`.
+
+---
+
+## Install globally (optional)
+
+```bash
+npm install -g @repo-prism/mcp-server
+# then use "command": "prism-mcp" instead of npx in configs
+```
+
+---
 
 ## Tools
 
-All tools are read-only and closed-world, and say so in their annotations, so an
-agent can call them without asking the user first.
+All tools are read-only. No tool grants consent or reaches the network.
 
 ### Orientation — what is this, and how is it laid out?
 
@@ -60,112 +179,19 @@ agent can call them without asking the user first.
 | `testing_report` | Test structure, and coverage when artifacts are on disk | — |
 | `security_report` | Left-shift security posture against local configuration | — |
 
-### Not included
+Full reference: [MCP tools](https://github.com/Shailesh200/prism/blob/main/docs/reference/mcp-tools.md).
 
-`architecture_rules` appears in Prism's older planning documents. No rules engine
-exists, so the tool is not here rather than being faked; building one is a
-product decision, not an adapter task.
+---
 
-`domain_report` waits on `getDomainReport`, which moved to M-053.
+## Related
 
-### Output bounds
-
-Every tool taking `limit` returns an envelope rather than a bare array:
-
-```json
-{ "items": [], "totalCount": 412, "truncated": true, "limit": 50 }
-```
-
-The default limit is 50 and the maximum is 500. `totalCount` and `truncated`
-are always present, because a silently truncated list is worse than a long one —
-an agent concludes the missing items do not exist.
-
-### Path arguments
-
-Paths are workspace-relative. Absolute paths are accepted when they land inside
-the workspace, since an agent reading a stack trace legitimately holds one.
-Anything that escapes the workspace root is rejected with `PRISM_INVALID_PATH`.
-
-## Setup
-
-Build once from the repository root:
-
-```bash
-bun install
-bun run build
-```
-
-The server is launched as `node <repo>/packages/mcp-server/dist/bin.js`.
-
-### Cursor
-
-`~/.cursor/mcp.json`, or `.cursor/mcp.json` inside a project:
-
-```json
-{
-  "mcpServers": {
-    "prism": {
-      "command": "node",
-      "args": ["/absolute/path/to/Prism/packages/mcp-server/dist/bin.js"],
-      "env": {
-        "PRISM_WORKSPACE": "/absolute/path/to/the/repository/to/analyse"
-      }
-    }
-  }
-}
-```
-
-### Claude Code
-
-```bash
-claude mcp add prism -- node /absolute/path/to/Prism/packages/mcp-server/dist/bin.js
-```
-
-Claude Code launches the server in your project directory, so `PRISM_WORKSPACE`
-is optional there — the working directory is used.
-
-## Which repository does it analyse?
-
-Most explicit wins:
-
-1. `--workspace <path>` (or `-w`, or the first positional argument)
-2. `PRISM_WORKSPACE`
-3. The working directory the server was launched in
-
-Relative paths resolve against the working directory.
-
-## Behaviour worth knowing
-
-**The first tool call is slower than the rest.** The workspace is opened and
-indexed on first use, not during the handshake — a handshake that indexed would
-make every client think the server had hung. Later calls reuse the open
-workspace, so an agent calling six tools indexes once.
-
-**Failures come back in-band.** A tool that fails returns `isError: true` with a
-message beginning with the Prism error code (`PRISM_INVALID_PATH: …`), so a
-model can read the failure and react rather than the request simply vanishing.
-
-**Nothing consent-gated is exposed.** Prism's network integrations and its
-build- and test-spawning paths require explicit user consent, and an agent
-asking on the user's behalf is not the user asking. Those Core methods are
-deliberately unreachable from MCP ([ADR-0024](../../plans/adr/0024-opt-in-network-integrations.md));
-a test enforces it.
-
-**stdout is protocol-only.** Diagnostics go to stderr, where MCP clients surface
-them as server logs. A test asserts that nothing in this package writes to
-stdout.
-
-## Troubleshooting
-
-| Symptom | Cause |
+| | |
 |---|---|
-| `PRISM_INVALID_PATH: Workspace path is not readable` | `PRISM_WORKSPACE` points somewhere that does not exist, or the launcher's working directory is not the repository |
-| First call takes several seconds | Expected: that call is building the index. Subsequent calls are fast |
-| Client reports a JSON parse error | Something wrote to stdout. Nothing in this package does; check for a patched dependency |
+| **CLI** | [`@repo-prism/cli`](https://www.npmjs.com/package/@repo-prism/cli) — `npm i -g @repo-prism/cli` then `prism health` |
+| **IDE** | [RepoPrism](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism) |
+| **Docs** | [MCP guide (step by step)](https://github.com/Shailesh200/prism/blob/main/docs/using/mcp.md) |
+| **Source** | [github.com/Shailesh200/prism](https://github.com/Shailesh200/prism) |
 
-## References
+## License
 
-- [ADR-0004](../../plans/adr/0004-core-only-integration-surface.md) — surfaces consume Core only
-- [ADR-0024](../../plans/adr/0024-opt-in-network-integrations.md) — opt-in network integrations
-- [ADR-0030](../../plans/adr/0030-mcp-transport-and-lifecycle.md) — transport, lifecycle, consent refusal
-- [M-026](../../plans/milestones/M-026_mcp-server.md) — this milestone
+[MIT](https://github.com/Shailesh200/prism/blob/main/LICENSE)

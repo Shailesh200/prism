@@ -15,7 +15,7 @@ import {
   err,
   ok,
   prismError,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 /**
  * Normalise a path argument to a workspace-relative path.

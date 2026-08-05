@@ -13,16 +13,16 @@
 ```text
 apps / mcp / cli / vscode / cursor
         ↓  (only)
-   @prism/core
+   @repo-prism/core
         ↓
    engine packages (indexer, analyzer, graphs, …)
         ↓
-   @prism/shared
+   @repo-prism/shared
 ```
 
 - Surfaces **must not** import engine packages directly.
-- Engines **must not** import surfaces or `@prism/ui`.
-- `@prism/shared` has **no** package dependencies.
+- Engines **must not** import surfaces or `@repo-prism/ui`.
+- `@repo-prism/shared` has **no** package dependencies.
 
 ---
 
@@ -146,7 +146,7 @@ Conceptual groups (names illustrative):
 | Impact | `blastRadius`, `safeDeleteReport` |
 | Navigation | `route`, `related` |
 
-All return JSON-serializable DTOs from `@prism/shared` (or Result wrappers).
+All return JSON-serializable DTOs from `@repo-prism/shared` (or Result wrappers).
 
 ---
 
@@ -156,7 +156,7 @@ All return JSON-serializable DTOs from `@prism/shared` (or Result wrappers).
 |---|---|
 | MCP | Tool schema → `core.*` → JSON content |
 | CLI | argv → `core.*` → human + `--json` |
-| VS Code / Cursor | Commands/webview → `core.*` + `@prism/ui` |
+| VS Code / Cursor | Commands/webview → `core.*` + `@repo-prism/ui` |
 | Playground | Vite app → `core.*` + Map |
 
 Lifecycle: create Core client bound to workspace root; dispose on close.

@@ -6,7 +6,7 @@
 | Branch | `milestone/M-027-mcp-tools-pack` (from latest `main`) |
 | Depends on | M-026 |
 | Unlocks | M-037 |
-| Packages | `@prism/mcp-server` |
+| Packages | `@repo-prism/mcp-server` |
 
 ## 1. Goal
 

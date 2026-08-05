@@ -9,7 +9,7 @@ import {
   err,
   ok,
   prismError,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { migrate, readSchemaVersion, SCHEMA_VERSION } from "./migrations.js";
 import { indexSqlitePath, prismCacheDir } from "./paths.js";
 

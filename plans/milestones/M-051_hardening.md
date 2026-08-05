@@ -106,7 +106,7 @@ stale while reporting fresh, a corrupt store reads as empty, a dead host reads a
 | 1.1 | `flushWatch`: do not clear `pendingChanged` / `pendingDeleted` until `runIndex` reports `ok`; on failure restore the paths, keep status `stale`, and schedule a retry |
 | 1.2 | Check the `runIndex` `Result`; add `lastError?` to `IndexFreshness` so the surface can show degraded state |
 | 1.3 | Tests: watch happy path, watch failure path (index fails → paths retained → status stale), debounce coalescing, `getIndexFreshness` shape |
-| 1.4 | Tests for incremental indexing — `changedPaths` / `deletedPaths` currently have **no** coverage in `@prism/indexer` |
+| 1.4 | Tests for incremental indexing — `changedPaths` / `deletedPaths` currently have **no** coverage in `@repo-prism/indexer` |
 | 1.5 | `saveBookmark` / `removeBookmark` return `Result` instead of throwing; corrupt `bookmarks.json` surfaces an error rather than reading as empty |
 | 1.6 | Tests for `parseBookmarkStore`, `sortBookmarks`, bookmark CRUD, including the corruption path |
 | 1.7 | Cache: count rows skipped for corruption and surface the count; do not silently degrade the index |
@@ -114,30 +114,30 @@ stale while reporting fresh, a corrupt store reads as empty, a dead host reads a
 | 1.9 | Tests for `navigateFeature` and `resolveEndpointNodeId` (exported since M-016 with zero coverage) |
 | 1.10 | Webview RPC: give every request a deadline and reject on expiry — today `reject` is stored in the pending map and **never called**, so a host failure hangs the panel with no timeout and no recovery ([`host-client.ts:93-126`](../../packages/vscode-extension/src/webview/host-client.ts)) |
 | 1.11 | Clear the pending map on panel dispose/reload so in-flight requests fail loudly instead of leaking; stop silently dropping responses whose id is unknown |
-| 1.12 | Validate messages crossing the webview boundary against the `@prism/shared` schemas in both directions, instead of casting (`prism-panel.ts:75-76`, `host-client.ts:87-89`) |
+| 1.12 | Validate messages crossing the webview boundary against the `@repo-prism/shared` schemas in both directions, instead of casting (`prism-panel.ts:75-76`, `host-client.ts:87-89`) |
 | 1.13 | Surface RPC failure in the UI as an error state with a retry, not an indefinite spinner — long operations (Analyze, Lighthouse, reindex) are where this bites hardest |
 
 ### Phase 2 — Signal provenance (ADR-0029)
 
 | Task | Detail |
 |---|---|
-| 2.1 | `@prism/shared`: add `SignalProvenance` and the invariant that `"unavailable"` implies no numeric value |
-| 2.2 | `@prism/repository-map`: remove `stableUnit` fabrication. `performance` → `unavailable` (no source exists today); `ownership` → `measured` from git or `unavailable`; `coverage` → `measured` when a test mapping exists, `unavailable` otherwise |
-| 2.3 | `@prism/intelligence`: health-history backfill points marked `"estimated"`; region movers inherit it |
-| 2.4 | `@prism/core`: propagate provenance through map, health, history and overview DTOs |
-| 2.5 | `@prism/ui`: map layer toggles disabled with a reason when every node is `unavailable`; legend gains an explicit no-data entry |
-| 2.6 | `@prism/app-shell`: Overview ring renders `—` not `0/100` when health is absent; trends render estimated points visibly distinct from measured ones |
-| 2.7 | `@prism/vscode-extension`: `gitStatus` distinguishes `loading` / `unavailable` / `error` instead of treating null as failure |
+| 2.1 | `@repo-prism/shared`: add `SignalProvenance` and the invariant that `"unavailable"` implies no numeric value |
+| 2.2 | `@repo-prism/repository-map`: remove `stableUnit` fabrication. `performance` → `unavailable` (no source exists today); `ownership` → `measured` from git or `unavailable`; `coverage` → `measured` when a test mapping exists, `unavailable` otherwise |
+| 2.3 | `@repo-prism/intelligence`: health-history backfill points marked `"estimated"`; region movers inherit it |
+| 2.4 | `@repo-prism/core`: propagate provenance through map, health, history and overview DTOs |
+| 2.5 | `@repo-prism/ui`: map layer toggles disabled with a reason when every node is `unavailable`; legend gains an explicit no-data entry |
+| 2.6 | `@repo-prism/app-shell`: Overview ring renders `—` not `0/100` when health is absent; trends render estimated points visibly distinct from measured ones |
+| 2.7 | `@repo-prism/vscode-extension`: `gitStatus` distinguishes `loading` / `unavailable` / `error` instead of treating null as failure |
 | 2.8 | Tests: a git-less fixture yields `unavailable`, never a number; a contract test asserts no DTO carries a value with `"unavailable"` |
 
 ### Phase 3 — Risk band unification (Q-023 enforcement)
 
 | Task | Detail |
 |---|---|
-| 3.1 | `@prism/shared`: `RISK_BANDS` + `riskToBand(score)` — High ≥ 60, Mid ≥ 20, else Low |
-| 3.2 | `@prism/impact`: consume the helper; expose `band` on `BlastRadiusReport` and `ChangeReviewReport` (additive) |
-| 3.3 | `@prism/app-shell`: delete the duplicated thresholds in `BlastRadiusScreen.tsx:164-178` and `ChangeReviewScreen.tsx:29-33`; read `band` from the DTO |
-| 3.4 | `@prism/intelligence`: rename the engineering-health `80/60/40` severity so it can never be read as risk — it measures *weakness*, not risk, and currently inverts the meaning of the same number |
+| 3.1 | `@repo-prism/shared`: `RISK_BANDS` + `riskToBand(score)` — High ≥ 60, Mid ≥ 20, else Low |
+| 3.2 | `@repo-prism/impact`: consume the helper; expose `band` on `BlastRadiusReport` and `ChangeReviewReport` (additive) |
+| 3.3 | `@repo-prism/app-shell`: delete the duplicated thresholds in `BlastRadiusScreen.tsx:164-178` and `ChangeReviewScreen.tsx:29-33`; read `band` from the DTO |
+| 3.4 | `@repo-prism/intelligence`: rename the engineering-health `80/60/40` severity so it can never be read as risk — it measures *weakness*, not risk, and currently inverts the meaning of the same number |
 | 3.5 | Document the tooling floors (70 critical / 45 elevated / 25–40 by file role) in an ADR-0027 amendment as **intentional band minimums**, since they are band-consistent and were misread as drift |
 | 3.6 | Tests: band boundaries at 19/20/59/60; one golden per surface proving both screens agree |
 | 3.7 | Consolidate the five divergent `isTestPath` implementations into one shared helper |
@@ -181,11 +181,11 @@ All additive, per ADR-0019.
 
 | Package | Change |
 |---|---|
-| `@prism/shared` | `SignalProvenance`; `RISK_BANDS` + `riskToBand`; shared `isTestPath`; `IndexFreshness.lastError?` |
-| `@prism/repository-map` | `LayerSignalScores` values become nullable with per-signal provenance |
-| `@prism/intelligence` | `HealthHistoryPoint.provenance`; engineering severity renamed |
-| `@prism/impact` | `band` on blast and change-review reports |
-| `@prism/core` | Propagation only; `saveBookmark`/`removeBookmark` return `Result`; `stageDevopsRemote` consent-gated |
+| `@repo-prism/shared` | `SignalProvenance`; `RISK_BANDS` + `riskToBand`; shared `isTestPath`; `IndexFreshness.lastError?` |
+| `@repo-prism/repository-map` | `LayerSignalScores` values become nullable with per-signal provenance |
+| `@repo-prism/intelligence` | `HealthHistoryPoint.provenance`; engineering severity renamed |
+| `@repo-prism/impact` | `band` on blast and change-review reports |
+| `@repo-prism/core` | Propagation only; `saveBookmark`/`removeBookmark` return `Result`; `stageDevopsRemote` consent-gated |
 
 **Breaking-ish:** `saveBookmark` / `removeBookmark` currently throw and will return `Result`.
 Both are M-048 Phase 6 APIs with no external consumers; treat as a fix, note in `CORE_SDK.md`.
@@ -203,7 +203,7 @@ Both are M-048 Phase 6 APIs with no external consumers; treat as a fix, note in 
 - [x] Phase 1 — no webview request can outlive its deadline; killing the host surfaces an error, not a spinner
 - [x] Phase 2 — no DTO emits a numeric value with `"unavailable"` provenance (contract test)
 - [x] Phase 2 — a git-less fixture repository renders no-data states, not colour
-- [x] Phase 3 — exactly one `riskToBand`; no threshold literals remain in `@prism/app-shell`
+- [x] Phase 3 — exactly one `riskToBand`; no threshold literals remain in `@repo-prism/app-shell`
 - [x] Phase 3 — one `isTestPath`
 - [x] Phase 4 — `check-plan-progress` fails on Verified-with-open-DoD
 - [x] Phase 4 — PRD, CORE_SDK, Master Plan and OPEN_QUESTIONS reconciled

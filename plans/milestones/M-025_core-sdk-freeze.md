@@ -6,7 +6,7 @@
 | Status | Verified |
 | Depends on | M-014, M-015, M-016, M-020 (+ later Verified APIs included in inventory) |
 | Unlocks | M-026, M-028, M-030, M-036 |
-| Packages | `@prism/core`, `@prism/shared`, docs |
+| Packages | `@repo-prism/core`, `@repo-prism/shared`, docs |
 | ADR | ADR-0019 |
 
 ## Goal
@@ -19,11 +19,11 @@ and contract tests that lock accidental renames/removals.
 
 - Audit all `Prism` / `PrismWorkspace` methods; mark `stable` vs `experimental`
 - API reference markdown (`plans/guides/CORE_SDK.md`)
-- Contract / export-lock tests in `@prism/core`
+- Contract / export-lock tests in `@repo-prism/core`
 - ADR-0019: versioning & deprecation policy
 - Changelog for v0.1.0; bump `PRISM_CORE_VERSION` / package to `0.1.0`
 - Fix capability flags (`map`, `navigation`) to match shipped engines
-- Re-export primary return DTOs from `@prism/core` so surfaces need not dual-import
+- Re-export primary return DTOs from `@repo-prism/core` so surfaces need not dual-import
 
 ## Out of Scope
 

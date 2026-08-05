@@ -6,7 +6,7 @@
 | Branch | `milestone/M-029-cli-commands` (from latest `main`) |
 | Depends on | M-028 |
 | Unlocks | M-037 |
-| Packages | `@prism/cli` |
+| Packages | `@repo-prism/cli` |
 
 ## 1. Goal
 
@@ -87,10 +87,10 @@ The commands are the easy part. These are the requirements that make the CLI use
 - [x] Every command above implemented against real Core methods
 - [x] `--json` valid on every command, stdout carrying nothing else
 - [x] `--fail-on` implemented on all score/risk commands, exiting `1` at or above the band
-- [x] Band colouring uses the shared `riskToBand`; no threshold literals in `@prism/cli`
+- [x] Band colouring uses the shared `riskToBand`; no threshold literals in `@repo-prism/cli`
 - [x] `--limit` on every list command
 - [x] Human output readable at 80 columns
-- [x] `@prism/cli` imports only `@prism/core` (contract test)
+- [x] `@repo-prism/cli` imports only `@repo-prism/core` (contract test)
 - [x] `README.md` documents every command with an example and its exit codes
 - [x] `bun run verify:milestone --force` green
 - [ ] Owner approval → commit → merge → Verified → snippet shared

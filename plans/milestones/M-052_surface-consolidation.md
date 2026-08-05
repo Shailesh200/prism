@@ -6,12 +6,12 @@
 | Branch | `milestone/M-052-surface-consolidation` (from latest `main`) |
 | Depends on | M-051 |
 | Unlocks | M-026, M-027, M-028, M-029, M-037 |
-| Packages | `@prism/core`, `@prism/intelligence`, `@prism/app-shell`, `@prism/vscode-extension`, `apps/playground` |
+| Packages | `@repo-prism/core`, `@repo-prism/intelligence`, `@repo-prism/app-shell`, `@repo-prism/vscode-extension`, `apps/playground` |
 | Amends | [ADR-0004](../adr/0004-core-only-integration-surface.md), [ADR-0021](../adr/0021-app-shell-consolidation.md) |
 
 ## 1. Goal
 
-Make ADR-0004 true again. The rule is that every surface consumes `@prism/core` and nothing
+Make ADR-0004 true again. The rule is that every surface consumes `@repo-prism/core` and nothing
 reimplements analysis — but analysis has been leaking into the presentation layer milestone by
 milestone. Today a meaningful amount of Prism's intelligence exists only inside React components
 and the extension host, which means **MCP and CLI cannot reach it**.
@@ -67,7 +67,7 @@ milestone with the weakest evidence behind it.
 
 | Task | Status |
 |---|---|
-| 2.2 `overview-model.ts` → `getOverviewModel()` | Done — derivations now in `@prism/shared`, consumed by both Core and the screen |
+| 2.2 `overview-model.ts` → `getOverviewModel()` | Done — derivations now in `@repo-prism/shared`, consumed by both Core and the screen |
 | 2.4 test-output parsing → Core | Done — `runWorkspaceTests` / `listWorkspaceTests`; deleted ~450 duplicated lines from `host-dispatch.ts` and surfaced two real bugs (below) |
 | 2.6 `stack-signal-meta.ts`, `security-stack-label.ts` | Classified **presentational** — both map ids to labels/tones and compute nothing |
 | 2.7 Docs | `CORE_SDK.md` updated for every new method |
@@ -81,8 +81,8 @@ Deferred to **M-053** with the reasons intact:
 | 2.5 `github-ci.ts` through Core | Blocked behind 2.3 — it is reached from `DomainScreen` |
 | Phases 3–5 | Screen structure, client unification and the a11y pass. Phase 3 was already deferred by owner decision on the same reasoning; phases 4–5 join it |
 
-**Finding: `@prism/shared`, not `@prism/core`.** §6 said the Overview DTOs and derivations would land
-in Core. They landed in `@prism/shared` instead, because `@prism/app-shell` runs in a webview and
+**Finding: `@repo-prism/shared`, not `@repo-prism/core`.** §6 said the Overview DTOs and derivations would land
+in Core. They landed in `@repo-prism/shared` instead, because `@repo-prism/app-shell` runs in a webview and
 cannot import Core's native dependencies. Putting the code in Core would have left the screen with
 its own copy — two implementations agreeing by luck, which is the failure this milestone exists to
 remove. Core re-exposes it via `getOverviewModel()`, so ADR-0004 holds: surfaces still consume Core.
@@ -106,8 +106,8 @@ Nothing moves in this phase. The point is to make the move provable.
 
 | Task | Detail |
 |---|---|
-| 1.1 | Enumerate every piece of analysis logic in `@prism/app-shell`, `@prism/vscode-extension` and `apps/playground`. Produce `plans/notes/M-052-inventory.md`: symbol, current file, what it computes, whether Core already has an equivalent |
-| 1.2 | Classify each entry: **move to Core** / **move to `@prism/intelligence`** / **legitimately presentational, stays** |
+| 1.1 | Enumerate every piece of analysis logic in `@repo-prism/app-shell`, `@repo-prism/vscode-extension` and `apps/playground`. Produce `plans/notes/M-052-inventory.md`: symbol, current file, what it computes, whether Core already has an equivalent |
+| 1.2 | Classify each entry: **move to Core** / **move to `@repo-prism/intelligence`** / **legitimately presentational, stays** |
 | 1.3 | Write characterisation tests against the current implementations, capturing today's output for representative inputs — including the wrong-looking outputs, which get preserved verbatim and fixed separately if at all |
 | 1.4 | Record any behaviour that differs between the playground and extension paths today. Divergence found here is a *finding*, not something to silently resolve during the move |
 
@@ -115,10 +115,10 @@ Nothing moves in this phase. The point is to make the move provable.
 
 | Task | Detail |
 |---|---|
-| 2.1 | `cwv-parse.ts` → `@prism/intelligence`; expose via Core. The CWV artifact→report path already partly exists (`cwv-from-artifact.ts`); converge on one |
+| 2.1 | `cwv-parse.ts` → `@repo-prism/intelligence`; expose via Core. The CWV artifact→report path already partly exists (`cwv-from-artifact.ts`); converge on one |
 | 2.2 | `overview-model.ts` → Core as `getOverviewModel()`. This is the Overview screen's entire aggregation and is currently unreachable from any non-UI surface |
 | 2.3 | `DomainScreen` per-domain aggregation → Core as `getDomainReport(domain)`, returning a discriminated union over the six domains |
-| 2.4 | `host-dispatch.ts` test-output parsing → `@prism/intelligence`, joining the existing `testing/` module |
+| 2.4 | `host-dispatch.ts` test-output parsing → `@repo-prism/intelligence`, joining the existing `testing/` module |
 | 2.5 | `github-ci.ts` → route through Core with the consent gate applied in M-051 Phase 4.5 |
 | 2.6 | `stack-signal-meta.ts`, `security-stack-label.ts` — decide per Phase 1 classification; label mapping may legitimately stay presentational |
 | 2.7 | Every new Core method gets unit tests plus an entry in `plans/guides/CORE_SDK.md` |
@@ -134,7 +134,7 @@ Nothing moves in this phase. The point is to make the move provable.
 | Task | Detail |
 |---|---|
 | 3.1 | After Phase 2, `DomainScreen.tsx` should shrink substantially on its own — the aggregation it loses is the bulk of its non-JSX weight. Record the before/after line count; do not chase a target |
-| 3.2 | Extract only the domain primitives that are already duplicated three or more times verbatim (section shell, empty state, metric tile) into `@prism/ui`. Pure de-duplication, no redesign |
+| 3.2 | Extract only the domain primitives that are already duplicated three or more times verbatim (section shell, empty state, metric tile) into `@repo-prism/ui`. Pure de-duplication, no redesign |
 | 3.3 | Leave `DnaScreen.tsx`, `BlastRadiusScreen.tsx` and `OverviewScreen.tsx` structurally alone |
 | 3.4 | Zero visual change, enforced by before/after screenshots of all six domain screens |
 | 3.5 | Record the deferred split as a follow-up item so the decision is visible rather than forgotten |
@@ -147,7 +147,7 @@ same client against the same Core surface — one over HTTP, one over `postMessa
 
 | Task | Detail |
 |---|---|
-| 4.1 | Define one `PrismClient` interface in `@prism/app-shell` covering every method both clients serve |
+| 4.1 | Define one `PrismClient` interface in `@repo-prism/app-shell` covering every method both clients serve |
 | 4.2 | Two thin transports behind it: `HttpTransport` (playground) and `PostMessageTransport` (webview). All method bodies live once |
 | 4.3 | Retain the M-051 Phase 1 RPC deadline, rejection and schema-validation work — this phase must not regress it |
 | 4.4 | Delete the duplicated method bodies. Success is measured by lines removed, not added |
@@ -179,10 +179,10 @@ Additive only, per ADR-0019.
 
 | Package | Change |
 |---|---|
-| `@prism/core` | `getOverviewModel()`, `getDomainReport(domain)`; CWV convergence; `github-ci` behind consent |
-| `@prism/intelligence` | Absorbs CWV parsing and test-output parsing |
-| `@prism/shared` | New DTOs: `OverviewModel`, `DomainReport` (discriminated union) |
-| `@prism/app-shell` | New `PrismClient` interface + two transports; screens split into modules |
+| `@repo-prism/core` | `getOverviewModel()`, `getDomainReport(domain)`; CWV convergence; `github-ci` behind consent |
+| `@repo-prism/intelligence` | Absorbs CWV parsing and test-output parsing |
+| `@repo-prism/shared` | New DTOs: `OverviewModel`, `DomainReport` (discriminated union) |
+| `@repo-prism/app-shell` | New `PrismClient` interface + two transports; screens split into modules |
 
 ## 7. Definition of Done
 
@@ -201,7 +201,7 @@ intent stays visible.
 - [ ] Owner approval → merge → Verified → snippet shared
 - ~~Inventory published at `plans/notes/M-052-inventory.md`~~ → M-053
 - ~~`getDomainReport` reachable from Core~~ → M-053
-- ~~Screen line counts recorded; de-duplication into `@prism/ui`~~ → M-053
+- ~~Screen line counts recorded; de-duplication into `@repo-prism/ui`~~ → M-053
 - ~~One `PrismClient` interface; two transports~~ → M-053
 
 ## 8. Verification plan

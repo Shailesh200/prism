@@ -9,7 +9,7 @@ From a clone of the repository:
 
 ```bash
 bun install
-bun run --filter '@prism/playground' dev
+bun run --filter '@repo-prism/playground' dev
 ```
 
 Then open the URL it prints. Point it at a repository with the root input, or
@@ -21,7 +21,7 @@ start it with `PRISM_WORKSPACE` set.
 into your editor.
 
 **Developing Prism.** The playground and the extension share the same screen
-components — the `@prism/app-shell` package — so a change to a screen shows up in
+components — the `@repo-prism/app-shell` package — so a change to a screen shows up in
 both. The playground has a browser dev-tools loop, which the extension's webview
 does not, so screen work happens here first.
 

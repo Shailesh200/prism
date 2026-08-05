@@ -56,7 +56,7 @@ No. Add it to `.gitignore`. It is a derived cache and it is machine-specific.
 ## Do the CLI and the extension ever disagree?
 
 They cannot. Both call the same engine, and shared values — risk bands, in
-particular — come from one function in `@prism/shared` that both use. A test
+particular — come from one function in `@repo-prism/shared` that both use. A test
 asserts the UI agrees with it.
 
 ## What is a "band" and why not just show the number?
@@ -84,9 +84,12 @@ agreed; low confidence means it is a guess. See
 
 Yes, and it is one of the better places for it:
 
+The packages are not published yet, so the job builds the CLI first
+(`bun install && bun run build`) and then runs it by path:
+
 ```bash
-npx @prism/cli review --base origin/main --fail-on high
-npx @prism/cli cycles --fail-on any
+npx -y @repo-prism/cli review --base origin/main --fail-on high
+npx -y @repo-prism/cli cycles --fail-on any
 ```
 
 Exit `1` means the gate fired. Exit `3` means Prism failed. They are deliberately

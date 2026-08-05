@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { IndexSnapshot } from "@prism/shared";
+import type { IndexSnapshot } from "@repo-prism/shared";
 import { discoverLocalPackages } from "../dependency/packages.js";
 import { featureSlug, NOISE_SEGMENTS } from "./slug.js";
 

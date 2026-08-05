@@ -6,7 +6,7 @@
  * forces every pipeline to parse output to tell them apart.
  */
 
-import { PrismErrorCode, type PrismError } from "@prism/shared";
+import { PrismErrorCode, type PrismError } from "@repo-prism/shared";
 
 export const ExitCode = {
   /** Ran, and found nothing the user asked to be warned about. */

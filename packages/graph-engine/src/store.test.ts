@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PrismErrorCode, type GraphSnapshotDto } from "@prism/shared";
+import { PrismErrorCode, type GraphSnapshotDto } from "@repo-prism/shared";
 import { createGraphStore, graphStoreFromJSON } from "./store.js";
 import { layoutGraph } from "./layout.js";
 

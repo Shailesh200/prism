@@ -4,7 +4,7 @@ import {
   type DnaReport,
   type StackProfile,
   type StackSignal,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 const EXT_TO_LANG: Record<string, string> = {
   ".ts": "typescript",

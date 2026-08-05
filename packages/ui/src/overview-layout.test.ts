@@ -7,10 +7,10 @@ import {
 
 describe("overview-layout", () => {
   it("clusters by package scope", () => {
-    expect(clusterKeyForLabel("@prism/core")).toBe("@prism");
+    expect(clusterKeyForLabel("@repo-prism/core")).toBe("@prism");
     expect(clusterKeyForLabel("@fixture/auth")).toBe("@fixture");
     expect(clusterKeyForLabel("Dashboard")).toBe("App");
-    expect(shortLabelInCluster("@prism/core", "@prism")).toBe("core");
+    expect(shortLabelInCluster("@repo-prism/core", "@prism")).toBe("core");
   });
 
   it("lays out islands without dumping every related edge", () => {
@@ -18,13 +18,13 @@ describe("overview-layout", () => {
       {
         id: "feature:a",
         kind: "feature",
-        label: "@prism/analyzer",
+        label: "@repo-prism/analyzer",
         attrs: { confidence: 0.9 },
       },
       {
         id: "feature:b",
         kind: "feature",
-        label: "@prism/core",
+        label: "@repo-prism/core",
         attrs: { confidence: 0.8 },
       },
       {

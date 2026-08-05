@@ -4,11 +4,11 @@
  * Twenty commands print lists of things. Without one renderer they would drift
  * into twenty layouts, and the risk colouring would drift into a fourth set of
  * thresholds — which is the exact problem M-051 Phase 3 solved by putting
- * `riskToBand` in `@prism/shared`. This module is the only place in the CLI
+ * `riskToBand` in `@repo-prism/shared`. This module is the only place in the CLI
  * that turns a score into a word or a colour, and it asks Core's helper.
  */
 
-import { riskBandDescriptor, type RiskBand } from "@prism/shared";
+import { riskBandDescriptor, type RiskBand } from "@repo-prism/shared";
 import { paint, stripAnsi, type Style } from "./output.js";
 
 /** Fallback width when stdout is not a terminal — the classic terminal. */

@@ -4,7 +4,7 @@
     {
       "label": "prism: build vscode-extension",
       "type": "shell",
-      "command": "bun run --filter @prism/intelligence build && bun run --filter @prism/ui build && bun run --filter @prism/app-shell build && bun run --filter @prism/core build && bun run --filter @prism/vscode-extension build",
+      "command": "bun run --filter @repo-prism/intelligence build && bun run --filter @repo-prism/ui build && bun run --filter @repo-prism/app-shell build && bun run --filter @repo-prism/core build && bun run --filter @repo-prism/vscode-extension build",
       "options": {
         "cwd": "${workspaceFolder}",
         "env": {
@@ -20,7 +20,7 @@
     {
       "label": "prism: build cursor-extension",
       "type": "shell",
-      "command": "bun run --filter @prism/cursor-extension build",
+      "command": "bun run --filter @repo-prism/cursor-extension build",
       "options": {
         "cwd": "${workspaceFolder}",
         "env": {

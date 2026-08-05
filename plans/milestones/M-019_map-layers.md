@@ -6,16 +6,16 @@
 | Status | In Progress |
 | Depends on | M-018 |
 | Unlocks | M-031 (map layers in IDE) |
-| Packages | `@prism/repository-map`, `@prism/ui`, `apps/playground`, `@prism/core` (consume only) |
+| Packages | `@repo-prism/repository-map`, `@repo-prism/ui`, `apps/playground`, `@repo-prism/core` (consume only) |
 
 ## Goal
 
-Make Repository Map **layers** first-class in the playground: toggleable views with a legend and layer-specific styling, consuming `@prism/core` map data (no reimplementation of analysis in the UI).
+Make Repository Map **layers** first-class in the playground: toggleable views with a legend and layer-specific styling, consuming `@repo-prism/core` map data (no reimplementation of analysis in the UI).
 
 ## In Scope
 
 - Layer set: architecture, dependency, activity, ownership, debt, risk, performance, coverage
-- UI: layer toggles + legend + layer-specific node/edge styling in `@prism/ui`
+- UI: layer toggles + legend + layer-specific node/edge styling in `@repo-prism/ui`
 - Playground: wire active layers through `getRepositoryMap` / map client
 - At least **5** layers render with visible styling on the fixture repo
 - Honest stubs for layers that await later milestones (activity→M-022, risk heat→M-020, etc.) — still toggleable with local heuristic styling where data exists
@@ -30,7 +30,7 @@ Make Repository Map **layers** first-class in the playground: toggleable views w
 ## Definition of Done
 
 - [x] ≥5 layers render on playground fixture with distinct styling
-- [x] Toggle + legend in map UI (`@prism/ui`)
+- [x] Toggle + legend in map UI (`@repo-prism/ui`)
 - [x] Active layers affect map fetch / view (Core map options)
 - [x] `bun run verify:milestone` green
 - [x] Owner approval → commit → merge → then next milestone from `main`
@@ -50,7 +50,7 @@ landed elsewhere, its remaining scope is housekeeping:
     `treemap-palette`, `highcharts-modules.d.ts`, the `.prism-density` CSS, the
     `--prism-treemap-*` tokens, and the `highcharts` / `highcharts-react-official`
     dependencies).
-- Pruned the corresponding `@prism/ui` barrel exports and tests.
+- Pruned the corresponding `@repo-prism/ui` barrel exports and tests.
 
 No behavioural change to shipped surfaces; the map file-view uses the card-tree
 layout (M-042), not the Highcharts density view.

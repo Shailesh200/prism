@@ -13,7 +13,7 @@ import {
   err,
   ok,
   prismError,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { z } from "zod";
 import { boundList, limitInput } from "../limits.js";
 import { toWorkspaceRelative } from "../paths.js";

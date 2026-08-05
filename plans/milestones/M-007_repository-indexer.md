@@ -6,7 +6,7 @@
 | Status | Verified |
 | Depends on | M-006 |
 | Unlocks | M-008 |
-| Packages | `@prism/indexer`, `@prism/core` |
+| Packages | `@repo-prism/indexer`, `@repo-prism/core` |
 
 ## Goal
 
@@ -16,7 +16,7 @@ Orchestrate a full-repository index job: inventory → language detect → parse
 
 - `IndexJob` with progress events
 - Parallelism controls (concurrency limit)
-- `IndexSnapshot` schema in `@prism/shared`
+- `IndexSnapshot` schema in `@repo-prism/shared`
 - Core method: `workspace.index()` / `getIndex()`
 - Cancellation token support
 

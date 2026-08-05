@@ -6,7 +6,7 @@
 | Status | Verified |
 | Depends on | M-030 (shell), M-031 (full UI) |
 | Unlocks | M-037 |
-| Packages | `@prism/cursor-extension`, `@prism/vscode-extension`, `@prism/core` |
+| Packages | `@repo-prism/cursor-extension`, `@repo-prism/vscode-extension`, `@repo-prism/core` |
 
 ## Goal
 
@@ -17,7 +17,7 @@ analysis). Document coexistence with MCP clients.
 ## In Scope
 
 - Resolve [Q-004](../OPEN_QUESTIONS.md) via ADR: single extension product + Cursor overlay
-- `@prism/cursor-extension` builds by staging `@prism/vscode-extension` `dist`/`media`
+- `@repo-prism/cursor-extension` builds by staging `@repo-prism/vscode-extension` `dist`/`media`
 - Cursor-oriented manifest (display name, description, categories)
 - Launch config **Run Prism Cursor Extension** (F5 in Cursor)
 - README: install / activate / MCP coexistence notes

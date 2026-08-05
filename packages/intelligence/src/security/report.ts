@@ -4,7 +4,7 @@ import type {
   SecurityCheck,
   SecurityReport,
   SecurityTool,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 export type BuildSecurityReportInput = {
   workspaceRoot: string;

@@ -47,7 +47,7 @@ async function loadCore() {
     return await import(pathToFileURL(entry).href);
   } catch (cause) {
     throw new Error(
-      `bench: cannot load @prism/core from ${entry}. Run \`bun run build\` first.`,
+      `bench: cannot load @repo-prism/core from ${entry}. Run \`bun run build\` first.`,
       { cause },
     );
   }

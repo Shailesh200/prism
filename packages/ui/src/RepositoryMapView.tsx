@@ -24,7 +24,7 @@ import type {
   MapLayerId,
   MapZoomLevel,
   RepositoryMap,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { layoutCardTree, toggleExpanded } from "./card-tree-layout.js";
 import { MapLayersPanel } from "./MapLayersPanel.js";
 import {
@@ -34,6 +34,7 @@ import {
   parseLayerSignals,
   signalValue,
 } from "./map-layers.js";
+import { mapEmptyState } from "./map-empty.js";
 import {
   cardEntriesAt,
   drillScopeFromMapNode,
@@ -741,6 +742,8 @@ export function RepositoryMapView(props: RepositoryMapViewProps): ReactElement {
 
   const regions = useMemo(() => regionsFromMap(props.map), [props.map]);
 
+  const emptyState = useMemo(() => mapEmptyState(props.map), [props.map]);
+
   const noDataLayerIds = useMemo(
     () =>
       layersWithoutData(
@@ -1180,6 +1183,22 @@ export function RepositoryMapView(props: RepositoryMapViewProps): ReactElement {
             onToggle={onToggle}
           />
         </ReactFlowProvider>
+
+        {emptyState ? (
+          <div className="prism-map__empty" role="status">
+            <p className="prism-map__empty-title">{emptyState.title}</p>
+            <p className="prism-map__empty-detail">{emptyState.detail}</p>
+            {emptyState.suggestZoom && props.onZoomChange ? (
+              <button
+                type="button"
+                className="prism-map__empty-action"
+                onClick={() => props.onZoomChange?.(emptyState.suggestZoom!)}
+              >
+                {emptyState.suggestLabel}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="prism-map__legend" aria-hidden>
           {isFileZoom(props.map.zoom)

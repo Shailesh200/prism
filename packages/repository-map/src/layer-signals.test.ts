@@ -4,7 +4,7 @@ import type {
   GraphSnapshotDto,
   IndexSnapshot,
   IndexedFile,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import {
   annotateGraphWithLayerSignals,
   computeLayerSignals,

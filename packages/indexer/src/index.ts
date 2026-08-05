@@ -1,4 +1,4 @@
-/** @prism/indexer — inventory (M-005), index jobs (M-007), SQLite cache (M-008). */
+/** @repo-prism/indexer — inventory (M-005), index jobs (M-007), SQLite cache (M-008). */
 
 export {
   BUILTIN_IGNORE_PATTERNS,

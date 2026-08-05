@@ -52,8 +52,8 @@ detection.
 
 ## Where they live
 
-Both interfaces are in the engine: language plugins in `@prism/analyzer`, stack
-detectors in `@prism/intelligence`. Neither is part of the public Core API — they
+Both interfaces are in the engine: language plugins in `@repo-prism/analyzer`, stack
+detectors in `@repo-prism/intelligence`. Neither is part of the public Core API — they
 are how Prism is extended internally, not a plugin system for end users.
 
 If you want to add one, [CONTRIBUTING](https://github.com/Shailesh200/prism/blob/main/CONTRIBUTING.md)

@@ -1,4 +1,4 @@
-/** @prism/ui — shared Map / explorer React components (M-018). */
+/** @repo-prism/ui — shared Map / explorer React components (M-018). */
 
 export {
   RepositoryMapView,
@@ -15,6 +15,7 @@ export {
   toggleLayer,
   LAYER_TINT,
 } from "./map-layers.js";
+export { mapEmptyState, type MapEmptyState } from "./map-empty.js";
 export {
   UI_ZOOM_LEVELS,
   FEATURE_LENS_ZOOM,
@@ -88,4 +89,4 @@ export {
 } from "./Tooltip.js";
 export { CardIcon, type CardIconProps, type CardIconTone } from "./CardIcon.js";
 
-export const PACKAGE_NAME = "@prism/ui" as const;
+export const PACKAGE_NAME = "@repo-prism/ui" as const;

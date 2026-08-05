@@ -4,18 +4,22 @@
  * Indexing during `initialize` would make every handshake look slow — and a
  * slow handshake reads as a broken server — so the cost is paid on the first
  * tool call instead, and only once. An agent that calls six tools indexes once.
+ *
+ * Progress is optional: when provided, Core's index `onProgress` is forwarded
+ * so MCP clients can show "indexing…" instead of looking hung.
  */
 
 import { stat } from "node:fs/promises";
-import { Prism, type PrismWorkspace } from "@prism/core";
+import { Prism, type PrismWorkspace } from "@repo-prism/core";
 import {
   PrismErrorCode,
+  type IndexProgressEvent,
   type PrismError,
   type Result,
   err,
   ok,
   prismError,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 export type WorkspaceSession = {
   /** The opened, indexed workspace. Indexes on the first call only. */
@@ -29,6 +33,8 @@ export type SessionOptions = {
   readonly root: string;
   /** Injectable for tests; defaults to the real Core client. */
   readonly openWorkspace?: (root: string) => Result<PrismWorkspace, PrismError>;
+  /** Forwarded during the first index so clients can show progress. */
+  readonly onIndexProgress?: (event: IndexProgressEvent) => void;
 };
 
 function defaultOpen(root: string): Result<PrismWorkspace, PrismError> {
@@ -56,7 +62,14 @@ export function createWorkspaceSession(
     const opened = open(options.root);
     if (!opened.ok) return opened;
 
-    const indexed = await opened.value.index();
+    options.onIndexProgress?.({
+      phase: "inventory",
+      message: "Indexing workspace…",
+    });
+
+    const indexed = await opened.value.index({
+      onProgress: (event) => options.onIndexProgress?.(event),
+    });
     if (!indexed.ok) {
       opened.value.close();
       return err(indexed.error);

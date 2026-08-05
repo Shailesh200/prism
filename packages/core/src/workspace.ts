@@ -34,34 +34,34 @@ import {
   type StartUtilityJobInput,
   type SymbolHit,
   type UtilitiesSession,
-} from "@prism/intelligence";
+} from "@repo-prism/intelligence";
 import {
   appendHealthHistory,
   hasHealthHistorySha,
   listHealthHistory,
   openIndexCache,
-} from "@prism/indexer";
+} from "@repo-prism/indexer";
 import {
   computeBlastRadius,
   computeBreakingChangeHints,
   computeRenameImpact,
   computeSafeDelete,
   computeTestImpact,
-} from "@prism/impact";
+} from "@repo-prism/impact";
 import {
   findPaths,
   listLandmarks as collectLandmarks,
   navigateFeature as routeBetweenFeatures,
   resolveEndpointNodeId,
   type RouteEndpoint,
-} from "@prism/navigation";
+} from "@repo-prism/navigation";
 import {
   buildRepositoryMap,
   emptyBookmarkStore,
   parseBookmarkStore,
   sortBookmarks,
   type MapPackageInfo,
-} from "@prism/repository-map";
+} from "@repo-prism/repository-map";
 import {
   CONSENT_PURPOSES,
   PrismErrorCode,
@@ -129,11 +129,16 @@ import {
   prismError,
   riskToBand,
   unsafeRepoId,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { PrismCapabilities } from "./capabilities.js";
 import { readChangedPaths, type ChangedPaths } from "./git/changed-paths.js";
+import {
+  addPrismToGitignore,
+  checkPrismGitignore,
+  type PrismGitignoreStatus,
+} from "./git/prism-gitignore.js";
 import { readGitSignals, type GitSignals } from "./git/git-signals.js";
 import {
   HEALTH_HISTORY_BACKFILL_DEFAULT_COMMITS,
@@ -543,6 +548,13 @@ export type PrismWorkspace = {
   getChangedPaths(options?: {
     base?: string;
   }): Result<ChangedPaths, PrismError>;
+  /**
+   * Whether `.prism` is excluded from git. Surfaces show a warning when it is
+   * not, since the cache and consent record would otherwise be committed.
+   */
+  getPrismGitignoreStatus(): Promise<PrismGitignoreStatus>;
+  /** Add `.prism/` to the workspace `.gitignore`. A write, so never implicit. */
+  addPrismToGitignore(): Promise<PrismGitignoreStatus>;
   blastRadius(input: {
     kind: "file" | "symbol";
     id: string;
@@ -622,7 +634,7 @@ function toSummary(snapshot: IndexSnapshot): IndexSummary {
 }
 
 /**
- * Assemble the `@prism/impact` context from an index snapshot. Symbol-level
+ * Assemble the `@repo-prism/impact` context from an index snapshot. Symbol-level
  * queries also need the knowledge graph (symbols + references). Soft index is
  * cached per snapshot identity and invalidated when the index refreshes.
  */
@@ -953,6 +965,16 @@ export function createWorkspace(options: {
       );
     }
 
+    // A full run reads everything on disk, so it satisfies whatever the watcher
+    // had queued. Captured before the run and cleared after, so that paths which
+    // change *during* it stay dirty and get their own pass — the same reasoning
+    // flushWatch uses for its own bookkeeping.
+    const isFullRun =
+      !indexOptions?.changedPaths?.length &&
+      !indexOptions?.deletedPaths?.length;
+    const satisfiedChanged = isFullRun ? [...pendingChanged] : [];
+    const satisfiedDeleted = isFullRun ? [...pendingDeleted] : [];
+
     const result = await options.ports.indexer.indexWorkspace(
       rootPath,
       indexOptions,
@@ -962,7 +984,23 @@ export function createWorkspace(options: {
       lastIndexedAt = result.value.indexedAt;
       softImpactCache.key = null;
       softImpactCache.value = null;
-      if (!watching) watchStatus = "fresh";
+
+      if (isFullRun) {
+        for (const path of satisfiedChanged) pendingChanged.delete(path);
+        for (const path of satisfiedDeleted) pendingDeleted.delete(path);
+      }
+
+      // While watching, flushWatch normally owns this. But a host that calls
+      // reindex() directly — a refresh button, say — has just made the index
+      // current, and reporting it as stale until the next debounce both lies to
+      // the status bar and schedules work that is already done.
+      if (
+        !watching ||
+        (isFullRun && pendingChanged.size + pendingDeleted.size === 0)
+      ) {
+        watchStatus = "fresh";
+        watchLastError = null;
+      }
       // Forward snapshot for Trends (ADR-0023) — fail soft on cache errors.
       try {
         const cache = await openIndexCache(rootPath);
@@ -1960,6 +1998,12 @@ export function createWorkspace(options: {
         );
       }
       return ok(changed);
+    },
+    getPrismGitignoreStatus() {
+      return checkPrismGitignore(rootPath);
+    },
+    addPrismToGitignore() {
+      return addPrismToGitignore(rootPath);
     },
     getGitActivity() {
       const gate = ensureOpen();

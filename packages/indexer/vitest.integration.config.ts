@@ -2,8 +2,7 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    name: "@prism/indexer-integration",
+    name: "@repo-prism/indexer-integration",
     include: ["src/**/*.integration.test.ts"],
-    passWithNoTests: true,
   },
 });

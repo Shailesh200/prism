@@ -1,0 +1,21 @@
+{
+  "name": "@repo-prism/test-support",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Fixture repositories for tests. Never shipped, never imported by product code.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  }
+}

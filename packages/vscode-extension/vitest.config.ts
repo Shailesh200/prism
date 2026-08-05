@@ -2,7 +2,7 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    name: "@prism/vscode-extension",
+    name: "@repo-prism/vscode-extension",
     include: ["src/**/*.test.ts"],
     exclude: ["dist/**", "node_modules/**"],
     // Indexing a fixture through the oxc parser exceeds the 5s default under

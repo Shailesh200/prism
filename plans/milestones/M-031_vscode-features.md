@@ -6,13 +6,13 @@
 | Status | Verified |
 | Depends on | M-030 |
 | Unlocks | M-032, M-037 |
-| Packages | `@prism/vscode-extension`, `@prism/core`, `@prism/ui`, `@prism/shared` |
+| Packages | `@repo-prism/vscode-extension`, `@repo-prism/core`, `@repo-prism/ui`, `@repo-prism/shared` |
 
 ## Goal
 
 Ship the full Prism dashboard in the VS Code / Cursor Extension Host webview —
 Overview, Map, DNA/Profile, Domains, Blast Radius, Trends, Integrations, and
-Settings — backed only by `@prism/core` (no playground HTTP).
+Settings — backed only by `@repo-prism/core` (no playground HTTP).
 
 ## In Scope
 
@@ -26,7 +26,7 @@ Settings — backed only by `@prism/core` (no playground HTTP).
 ## Out of Scope
 
 - Cursor-specific packaging / Marketplace (M-032)
-- Extracting shared `@prism/app-shell` package (follow-up; screens copied/adapted)
+- Extracting shared `@repo-prism/app-shell` package (follow-up; screens copied/adapted)
 - Engineering health / `exploreCode` dedicated screens (Core exists; UI later)
 - Playground HTTP middleware changes
 

@@ -33,7 +33,7 @@ async function loadBuilt(pkg) {
     return await import(pathToFileURL(entry).href);
   } catch (cause) {
     throw new Error(
-      `check-docs: cannot load @prism/${pkg} from ${entry}. Run \`bun run build\` first.`,
+      `check-docs: cannot load @repo-prism/${pkg} from ${entry}. Run \`bun run build\` first.`,
       { cause },
     );
   }

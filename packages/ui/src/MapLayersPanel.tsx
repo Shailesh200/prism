@@ -1,4 +1,4 @@
-import type { MapLayerDescriptor, MapLayerId } from "@prism/shared";
+import type { MapLayerDescriptor, MapLayerId } from "@repo-prism/shared";
 import type { ReactElement } from "react";
 import { LAYER_TINT, NO_DATA_LEGEND, layerLegendItems } from "./map-layers.js";
 

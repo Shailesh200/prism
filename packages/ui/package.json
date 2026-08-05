@@ -1,5 +1,5 @@
 {
-  "name": "@prism/ui",
+  "name": "@repo-prism/ui",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,18 +13,20 @@
     "./tokens.css": "./dist/tokens.css",
     "./primitives.css": "./dist/primitives.css"
   },
-  "files": ["dist", "assets"],
+  "files": [
+    "dist",
+    "assets"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json && bun run build:css",
     "build:css": "bun -e \"await Bun.write('dist/tokens.css', await Bun.file('src/tokens.css').text()); await Bun.write('dist/map.css', await Bun.file('src/map.css').text()); await Bun.write('dist/primitives.css', await Bun.file('src/primitives.css').text())\"",
     "gen:icons": "node scripts/gen-material-icons.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
-    "test:integration": "vitest run --config vitest.integration.config.ts"
+    "test": "vitest run"
   },
   "dependencies": {
     "@fontsource/ibm-plex-mono": "^5.3.0",
-    "@prism/shared": "workspace:*",
+    "@repo-prism/shared": "workspace:*",
     "@radix-ui/react-tooltip": "^1.2.13",
     "@xyflow/react": "^12.11.2",
     "cmdk": "^1.1.1",

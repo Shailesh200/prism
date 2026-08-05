@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { FileInventorySchema } from "@prism/shared";
+import { FileInventorySchema } from "@repo-prism/shared";
 import { hashBufferSha256 } from "./hash.js";
 import { inventoryWorkspace } from "./inventory.js";
 import { createM005Fixture } from "./test-fixture.js";

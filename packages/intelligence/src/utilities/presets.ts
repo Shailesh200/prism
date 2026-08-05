@@ -3,7 +3,7 @@ import {
   StackDomain,
   type PersonaPresets,
   type StackProfile,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 /**
  * Derive Map / insights preset ids from a stack profile (X-04).

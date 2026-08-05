@@ -5,7 +5,7 @@
 | Milestone | [M-052](../milestones/M-052_surface-consolidation.md) |
 | Date | 2026-08-05 |
 | Scope | `packages/app-shell/src/**`, `packages/vscode-extension/src/**`, `apps/playground/**`, `packages/ui/src/**` |
-| Rule under test | [ADR-0004](../adr/0004-core-only-integration-surface.md) — surfaces consume `@prism/core` and never reimplement analysis |
+| Rule under test | [ADR-0004](../adr/0004-core-only-integration-surface.md) — surfaces consume `@repo-prism/core` and never reimplement analysis |
 
 ## What counts as analysis here
 
@@ -46,7 +46,7 @@ than silently resolved, per M-052 §3 principle 1.
 | **Run workspace tests** | Calls Core `runLocalWorkspaceTests` (`vite.config.ts:392–428`) | Reimplements the runner and all three parsers locally (`host-dispatch.ts:554–998`) | Same intent, two implementations, ~450 duplicated lines. Core's copy is the one under test |
 | **Lighthouse / CWV ingest** | Never parses an LHR in the surface — Core job then `getCwvReport` | Parses imported and PageSpeed JSON in the browser via `cwv-parse.ts` (`DomainScreen.tsx:1907–1952`) | The webview can produce a CWV report Core has never seen |
 | **Frontend route discovery** | Core `discoverFrontendRoutes()` only | Merges Core routes with a client-side `heuristicFrontendRoutes` derived from DNA evidence paths (`DomainScreen.tsx:1480–1516`) | The client heuristic is a strict subset of the intelligence implementation, so the extension can show routes the playground does not, and vice versa |
-| **Rename rewrites** | `applyRenameOnDisk` in `vite.config.ts:707–772` | `apply-rename.ts:38–180` | Both call the *same* `rewritePathReferences` — but it lives in `@prism/app-shell`, so no non-UI surface can rename safely |
+| **Rename rewrites** | `applyRenameOnDisk` in `vite.config.ts:707–772` | `apply-rename.ts:38–180` | Both call the *same* `rewritePathReferences` — but it lives in `@repo-prism/app-shell`, so no non-UI surface can rename safely |
 
 `cwv-parse.ts` carries a header comment admitting it mirrors the intelligence
 CWV helpers "for webview import". The duplication was deliberate and is now
@@ -54,7 +54,7 @@ paid down.
 
 ---
 
-## 2. Move to `@prism/core`
+## 2. Move to `@repo-prism/core`
 
 | Symbol | Location | Lines | Computes | Core equivalent today |
 |---|---|---:|---|---|
@@ -74,7 +74,7 @@ paid down.
 | `inboundDepCounts` | `DomainScreen.tsx:567–584` | 18 | In-degree map over the dependency graph | None exported |
 | `checkHealthRegression` | `vscode-extension/src/health-alerts.ts:13–70` | 58 | Flags a ≥5-point health drop | None — this is policy, not display |
 
-## 3. Move to `@prism/intelligence`
+## 3. Move to `@repo-prism/intelligence`
 
 | Symbol | Location | Lines | Computes | Intelligence equivalent today |
 |---|---|---:|---|---|
@@ -99,12 +99,12 @@ Recorded so the boundary is explicit rather than assumed.
 |---|---|---|
 | Label and icon maps | `stack-signal-meta.ts`, `security-stack-label.ts`, runner logos | Pure display vocabulary; no repository fact is derived |
 | Layout geometry | `BundleTreemap.layoutSquarify`, `overview-layout.ts`, `card-tree-layout.ts`, `file-scope.ts`, `file-tree.ts` | Pixels, not facts. Moving these to Core would make Core depend on a viewport |
-| Heat and band display rules | `map-layers.ts` `dominantHeat`, `heatBand`, `layersWithoutData`, `parseLayerSignals` | Decodes a Core DTO and picks a CSS band. The values themselves come from `@prism/repository-map` |
+| Heat and band display rules | `map-layers.ts` `dominantHeat`, `heatBand`, `layersWithoutData`, `parseLayerSignals` | Decodes a Core DTO and picks a CSS band. The values themselves come from `@repo-prism/repository-map` |
 | Network adapters | `github-ci.ts` fetch functions, `fetchPagespeedMetrics` | I/O against third-party APIs, consent-gated. The *parsing* of what they return should not live here, but the fetch may |
 | Display ranking | `mostDepended`, `churn`, stack filters in `DomainScreen`; `TrendsScreen` window filters; `buildSuiteTree` | Sorting and slicing Core data for a viewport |
 | Gravatar | `md5.ts`, `avatar-util.ts` | Not repository analysis |
 | Query parsing | `parseLayers`, `parseZoom` in `vite.config.ts` | HTTP plumbing |
-| Risk banding | `ChangeReviewScreen`, `BlastRadiusScreen` | Already reads `riskToBand` from `@prism/shared` (M-051), and `risk-band-agreement.test.ts` keeps it that way |
+| Risk banding | `ChangeReviewScreen`, `BlastRadiusScreen` | Already reads `riskToBand` from `@repo-prism/shared` (M-051), and `risk-band-agreement.test.ts` keeps it that way |
 
 ---
 

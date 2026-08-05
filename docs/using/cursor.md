@@ -1,60 +1,81 @@
 # Using Prism in Cursor
 
-**Two ways, and they are worth using together: the visual extension, and the MCP
-server that gives Cursor's agent access to the same analysis.**
+**Two pieces:** the visual **RepoPrism** extension, and the **MCP server** so
+Cursor’s agent uses the same analysis. Do both for the full experience.
 
-## The extension
+---
 
-Install **RepoPrism** from
-[Open VSX](https://open-vsx.org/extension/prismhq/repo-prism), or search
-`RepoPrism` in Extensions. If the search index lags a release, download the
-`.vsix` and use Command Palette → **Extensions: Install from VSIX…**.
+## Part 1 — Extension (map & dashboards)
 
-Then: Command Palette → **Prism: Open Prism**.
+1. Open Cursor.
+2. Open **Extensions** and install **RepoPrism**
+   ([Open VSX](https://open-vsx.org/extension/prismhq/repo-prism), or search
+   `RepoPrism`). If search lags: download the `.vsix` → Command Palette →
+   **Extensions: Install from VSIX…**.
+3. **File → Open Folder…** and choose your project (not a single file).
+4. Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`) → **Prism: Open Prism**.
+5. Wait until the status bar shows Prism is ready (indexing may take a moment
+   on first open).
+6. Use the UI: Overview, Map, Blast Radius, Health, etc.
 
-Everything in [Using the VS Code extension](./vscode-extension.md) applies —
-Cursor runs the same extension.
+Same UI as VS Code — see [Using the VS Code extension](./vscode-extension.md).
 
-## The MCP server
+---
 
-This is the part specific to Cursor, and the more interesting half.
+## Part 2 — MCP (agent tools)
 
-```bash
-npm install -g @prism/mcp-server
-```
+1. Keep the **same project folder** open in Cursor.
+2. Create `.cursor/mcp.json` at the project root:
+   ```json
+   {
+     "mcpServers": {
+       "prism": {
+         "command": "npx",
+         "args": ["-y", "@repo-prism/mcp-server"]
+       }
+     }
+   }
+   ```
+   (Or put the same block in `~/.cursor/mcp.json` to use Prism in every project.)
+3. Save the file.
+4. Open **Cursor Settings → MCP**.
+5. Enable **prism**. Wait until ~**28 tools** appear.
+6. If nothing appears: reload the window or restart Cursor, then check MCP again.
 
-`.cursor/mcp.json`:
+**No `--workspace` path.** Cursor starts the server from the open project;
+Prism walks up to the git root.
 
-```json
-{
-  "mcpServers": {
-    "prism": {
-      "command": "prism-mcp",
-      "args": ["--workspace", "/absolute/path/to/your/repo"]
-    }
-  }
-}
-```
+---
 
-Restart Cursor. The Prism tools appear in the MCP panel.
+## Part 3 — Talk to the agent (plain language)
 
-## Using both
+You do **not** type tool names. Ask what you want:
 
-The combination is the point. You read the map; the agent reads the graph.
+1. “What is this repository?”
+2. “How healthy is this codebase?”
+3. “I’m about to change `src/auth/session.ts` — what depends on it and which
+   tests cover it?”
+4. “Can I safely delete `src/legacy/adapter.ts`?”
 
-A pattern that works: before asking Cursor to make a change, ask it to check the
-blast radius first.
+The MCP server instructs the agent to call the right Prism tools automatically.
 
-> Use Prism to check what depends on `src/auth/session.ts` and which tests cover
-> it. Then change the session timeout to 30 minutes.
+Optional: clients that show MCP prompts can use `orient`, `before_edit`, or
+`review_diff` as shortcuts.
 
-The agent gets the real dependent list rather than inferring one from the files
-it happens to have open, and you get a change that accounts for callers neither
-of you would have remembered.
+---
 
-See [Using Prism with an AI agent](./mcp.md) for how the server behaves and why
-every tool is read-only.
+## Using extension + agent together
+
+1. Open the map in the extension when you want a visual overview.
+2. In chat, ask structural questions or request changes; the agent should call
+   Prism before risky edits.
+3. If the agent guesses instead of calling tools, say once: “Use Prism for
+   that” — after setup it should not need tool names.
+
+Full MCP detail: [Using Prism with an AI agent](./mcp.md).
+
+---
 
 ## Related
 
-[MCP](./mcp.md) · [VS Code extension](./vscode-extension.md) · [MCP tool reference](../reference/mcp-tools.md)
+[MCP](./mcp.md) · [Install](../getting-started/install.md) · [VS Code extension](./vscode-extension.md) · [MCP tool reference](../reference/mcp-tools.md)

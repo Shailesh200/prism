@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BundleWeightReportSchema, parseDto } from "@prism/shared";
+import { BundleWeightReportSchema, parseDto } from "@repo-prism/shared";
 import { detectBundleAnalyzeCapability } from "./bundle-detect.js";
 import {
   parseBundleStatsJson,

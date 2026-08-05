@@ -3,7 +3,11 @@ import { fileURLToPath } from "node:url";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
-import { DeveloperPersona, DnaReportSchema, StackDomain } from "@prism/shared";
+import {
+  DeveloperPersona,
+  DnaReportSchema,
+  StackDomain,
+} from "@repo-prism/shared";
 import { Prism } from "./prism.js";
 
 const fixtures = join(

@@ -9,7 +9,7 @@
  * command gets `--limit`, `--json` and its help text by declaring them.
  */
 
-import { PRISM_API_LEVEL, PRISM_CORE_VERSION } from "@prism/core";
+import { PRISM_API_LEVEL, PRISM_CORE_VERSION } from "@repo-prism/core";
 import { Command, CommanderError } from "commander";
 import { COMMANDS, COMMANDS_BY_NAME } from "./commands.js";
 import { ExitCode } from "./exit.js";
@@ -136,19 +136,27 @@ export async function run(
 ): Promise<ExitCode> {
   const program = buildProgram();
 
-  // Commander prints help and reports success for a bare invocation. Running
-  // `prism` with no command is a usage error, and a CI job that typo'd its
-  // command line deserves to fail rather than pass silently.
+  // Commander prints help and reports success for a bare invocation. We keep
+  // that behaviour: `prism` with no args is how people discover commands, so
+  // exit 0. Unknown commands and bad flags still exit 2 (usage error).
   if (argv.length === 0) {
     options.writer.err(program.helpInformation());
-    return ExitCode.USAGE;
+    return ExitCode.OK;
   }
 
-  program.exitOverride();
-  program.configureOutput({
-    writeOut: (text) => options.writer.out(text.replace(/\n$/, "")),
-    writeErr: (text) => options.writer.err(text.replace(/\n$/, "")),
-  });
+  // Applied to subcommands as well as the root. Commander copies these
+  // settings when a subcommand is *created*, and ours are created before this
+  // runs — so without the loop, `prism route /` would print straight to the
+  // real stderr and exit 1, which the exit-code contract reserves for "the
+  // analysis found something". A missing argument is a usage error, not a
+  // finding, and a CI job cannot be asked to tell those apart.
+  for (const command of [program, ...program.commands]) {
+    command.exitOverride();
+    command.configureOutput({
+      writeOut: (text) => options.writer.out(text.replace(/\n$/, "")),
+      writeErr: (text) => options.writer.err(text.replace(/\n$/, "")),
+    });
+  }
 
   let parsed: Command;
   try {
@@ -169,13 +177,15 @@ export async function run(
   const commandName = parsed.args[0];
   if (commandName === undefined) {
     options.writer.err(program.helpInformation());
-    return ExitCode.USAGE;
+    return ExitCode.OK;
   }
 
   const spec = COMMANDS_BY_NAME.get(commandName);
   const sub = parsed.commands.find((child) => child.name() === commandName);
   if (spec === undefined || sub === undefined) {
-    options.writer.err(`error: unknown command '${commandName}'`);
+    const suggestion = suggestCommand(commandName);
+    const hint = suggestion ? `\n(Did you mean ${suggestion}?)` : "";
+    options.writer.err(`error: unknown command '${commandName}'${hint}`);
     return ExitCode.USAGE;
   }
 
@@ -221,6 +231,44 @@ export async function run(
   };
 
   return runCommand(spec.handler, globals, options, args);
+}
+
+/**
+ * Nearest command name by simple edit distance (Commander may already suggest
+ * before we get here; this covers the fallback unknown-command path).
+ */
+function suggestCommand(input: string): string | undefined {
+  const needle = input.toLowerCase();
+  let best: { name: string; distance: number } | undefined;
+  for (const command of COMMANDS) {
+    const distance = editDistance(needle, command.name);
+    if (distance > 3) continue;
+    if (best === undefined || distance < best.distance) {
+      best = { name: command.name, distance };
+    }
+  }
+  return best?.name;
+}
+
+function editDistance(a: string, b: string): number {
+  const rows = a.length + 1;
+  const cols = b.length + 1;
+  const grid: number[][] = Array.from({ length: rows }, () =>
+    Array.from({ length: cols }, () => 0),
+  );
+  for (let i = 0; i < rows; i++) grid[i]![0] = i;
+  for (let j = 0; j < cols; j++) grid[0]![j] = j;
+  for (let i = 1; i < rows; i++) {
+    for (let j = 1; j < cols; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      grid[i]![j] = Math.min(
+        grid[i - 1]![j]! + 1,
+        grid[i]![j - 1]! + 1,
+        grid[i - 1]![j - 1]! + cost,
+      );
+    }
+  }
+  return grid[a.length]![b.length]!;
 }
 
 /** Entry point for the binary. */

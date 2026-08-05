@@ -6,7 +6,7 @@
 | Status | Verified |
 | Depends on | M-018, M-025 |
 | Unlocks | M-031, M-032 |
-| Packages | `@prism/vscode-extension`, `@prism/ui`, `@prism/core` |
+| Packages | `@repo-prism/vscode-extension`, `@repo-prism/ui`, `@repo-prism/core` |
 
 ## Goal
 
@@ -17,7 +17,7 @@ status bar item, and hosts a webview shell ready for the Map.
 
 - Extension manifest, activation events
 - Core lifecycle tied to workspace folders
-- Webview host loading `@prism/ui` map (even if limited data)
+- Webview host loading `@repo-prism/ui` map (even if limited data)
 - Commands: `Prism: Open Repository Map`, `Prism: Reindex`
 - Logging channel + status bar
 

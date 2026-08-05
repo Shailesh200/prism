@@ -91,7 +91,7 @@ runbook / SLO links.
 
 ### Topology (explicit deferral)
 
-Do **not** ship a Topology graph UI on DevOps until `@prism/intelligence`
+Do **not** ship a Topology graph UI on DevOps until `@repo-prism/intelligence`
 `iac-resources` (or a successor) produces meaningful `graph.edges` from local
 IaC. A UI over the placeholder edge would fabricate structure. Track as a
 small Core + DevOps UI follow-up after that capability lands.

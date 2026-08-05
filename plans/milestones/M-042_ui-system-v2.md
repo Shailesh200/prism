@@ -6,7 +6,7 @@
 | Status | In Progress |
 | Depends on | M-018, M-019 |
 | Unlocks | M-030/M-031 (IDE webview), M-038 (docs) |
-| Packages | `@prism/ui`, `apps/playground` (consume only) |
+| Packages | `@repo-prism/ui`, `apps/playground` (consume only) |
 
 ## Goal
 
@@ -16,7 +16,7 @@ Delivered as review-gated slices. Each slice is implemented, shown to the owner,
 
 ## Scope expansion (2026-07-22, ADR-0013)
 
-Owner-directed rethink after large-codebase testing. This milestone now also reworks the map model and adds real Git history (see [ADR-0013](../adr/0013-unified-map-and-git-signals.md)). It therefore crosses package boundaries beyond `@prism/ui`:
+Owner-directed rethink after large-codebase testing. This milestone now also reworks the map model and adds real Git history (see [ADR-0013](../adr/0013-unified-map-and-git-signals.md)). It therefore crosses package boundaries beyond `@repo-prism/ui`:
 
 - Unified semantic-zoom map: `repo -> package -> file -> symbol` as one continuous drill-down (click to descend, breadcrumb to ascend); the rail reflects position.
 - Feature demoted from an altitude to a lens/overlay.
@@ -24,7 +24,7 @@ Owner-directed rethink after large-codebase testing. This milestone now also rew
 - Local, no-network Git signals in Core (`git log --numstat`): per-file last commit, contributors, churn, recency; fails soft on non-git roots.
 - Real `activity` (recency) and `ownership` (top author) layers; a GitLens-style inspector History panel.
 
-Packages touched: `@prism/shared` (git DTO types), `@prism/core` (git reader IO), `@prism/repository-map` (weight + git wiring, real layer signals), `@prism/ui` + `apps/playground` (unified map, drill-down, lens, History).
+Packages touched: `@repo-prism/shared` (git DTO types), `@repo-prism/core` (git reader IO), `@repo-prism/repository-map` (weight + git wiring, real layer signals), `@repo-prism/ui` + `apps/playground` (unified map, drill-down, lens, History).
 
 ## Scope expansion (2026-07-22, ADR-0014) — UXPilot dark relock
 
@@ -57,7 +57,7 @@ Owner feedback after first dark pass:
   DNA, an SVG **Architecture** mini-graph preview, **Recent Activity** feed, and
   Blast Radius Risk + Region Health.
 - New public Core API **`PrismWorkspace.getGitActivity()`** → `GitActivity`
-  DTO (`@prism/shared`): repo-wide `recentFiles`, `recentCommits`, and the git
+  DTO (`@repo-prism/shared`): repo-wide `recentFiles`, `recentCommits`, and the git
   `summary`; `available:false` on non-git roots, no network. Surfaced by the
   playground dev server at **`GET /api/git`** and consumed by the dashboard and
   the map's left "Recent Changes" section.
@@ -152,7 +152,7 @@ data).
 ## Out of Scope
 
 - File/Symbol/density and command palette (later slices).
-- Any change to `@prism/core`, analysis, or map DTOs.
+- Any change to `@repo-prism/core`, analysis, or map DTOs.
 - Dark theme (planned, not built).
 - Brand mark / logo changes (locked).
 
@@ -160,7 +160,7 @@ data).
 
 - [x] All slices implemented and owner-reviewed.
 - [x] `bun run verify:milestone` green.
-- [x] Existing `@prism/ui` tests pass; new UI has states covered (hover/focus/selected/reduced-motion).
+- [x] Existing `@repo-prism/ui` tests pass; new UI has states covered (hover/focus/selected/reduced-motion).
 - [x] Owner approval -> commit -> merge -> then next milestone from `main`.
 
 > Closeout boxes ticked 2026-08-05 during M-051 Phase 4. Approved and merged

@@ -22,8 +22,3 @@ tasks:
     inputs:
       - "src/**/*"
       - "vitest.config.ts"
-  test-integration:
-    command: "bun run test:integration"
-    inputs:
-      - "src/**/*"
-      - "vitest.integration.config.ts"

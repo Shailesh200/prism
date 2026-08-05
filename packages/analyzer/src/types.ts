@@ -1,4 +1,4 @@
-import type { PrismError, Result } from "@prism/shared";
+import type { PrismError, Result } from "@repo-prism/shared";
 
 /** Declared capabilities for negotiation with the host. */
 export type LanguagePluginCapabilities = {

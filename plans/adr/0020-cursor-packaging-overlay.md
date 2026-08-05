@@ -11,8 +11,8 @@
 Prism needs a Cursor IDE surface. Options:
 
 1. **Fork** a separate Cursor extension with its own host code
-2. **Single product** — ship `@prism/vscode-extension` as the implementation, with
-   `@prism/cursor-extension` as a thin packaging/brand overlay
+2. **Single product** — ship `@repo-prism/vscode-extension` as the implementation, with
+   `@repo-prism/cursor-extension` as a thin packaging/brand overlay
 3. **One VSIX only** — no Cursor-specific package
 
 Cursor is VS Code API-compatible. Duplicating host/webview code would diverge
@@ -20,12 +20,12 @@ from Core-only surface rules and double maintenance.
 
 ## Decision
 
-**Option 2:** One implementation (`@prism/vscode-extension`); `@prism/cursor-extension`
+**Option 2:** One implementation (`@repo-prism/vscode-extension`); `@repo-prism/cursor-extension`
 is a packaging overlay that:
 
 - Stages the same `dist` / `media` build artifacts
 - Uses Cursor-oriented `displayName` / description / categories
-- Keeps activation and Core session identical (`@prism/core` only)
+- Keeps activation and Core session identical (`@repo-prism/core` only)
 
 MCP (when shipped) and the extension both call Core; they coexist as separate
 surfaces, not competing analysis engines.

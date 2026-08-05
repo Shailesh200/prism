@@ -30,13 +30,13 @@ async function sourceFiles(dir: string = srcDir): Promise<string[]> {
 describe("package boundaries (ADR-0004)", () => {
   /** Engines the server must reach only through Core. */
   const ENGINES = [
-    "@prism/analyzer",
-    "@prism/indexer",
-    "@prism/graph-engine",
-    "@prism/intelligence",
-    "@prism/impact",
-    "@prism/navigation",
-    "@prism/repository-map",
+    "@repo-prism/analyzer",
+    "@repo-prism/indexer",
+    "@repo-prism/graph-engine",
+    "@repo-prism/intelligence",
+    "@repo-prism/impact",
+    "@repo-prism/navigation",
+    "@repo-prism/repository-map",
   ];
 
   it("imports no engine package, in source or in tests", async () => {

@@ -8,16 +8,18 @@
  */
 
 import {
+  MAP_ZOOM_LEVELS,
   PrismErrorCode,
   RISK_BAND_IDS,
   err,
   ok,
   prismError,
   riskToBand,
+  type MapZoomLevel,
   type PrismError,
   type Result,
   type RiskBand,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 /** Bands ordered by severity, so "at or above" is an index comparison. */
 const SEVERITY: readonly RiskBand[] = ["low", "mid", "high"];
@@ -74,6 +76,30 @@ export function parseFailOnCount(
     );
   }
   return ok(parsed);
+}
+
+/**
+ * `--zoom`, validated here rather than passed through.
+ *
+ * Core throws on an unknown zoom, which reaches the user as PRISM_UNKNOWN — an
+ * internal-fault code for what is plainly a typo. Naming the valid levels costs
+ * one comparison and turns a dead end into an answer.
+ */
+export function parseZoom(
+  value: string | undefined,
+): Result<MapZoomLevel | undefined, PrismError> {
+  if (value === undefined) return ok(undefined);
+  const normalized = value.trim().toLowerCase();
+  const level = MAP_ZOOM_LEVELS.find((id) => id === normalized);
+  if (!level) {
+    return err(
+      prismError(
+        PrismErrorCode.VALIDATION,
+        `--zoom expects one of ${MAP_ZOOM_LEVELS.join(", ")}, got '${value}'`,
+      ),
+    );
+  }
+  return ok(level);
 }
 
 export const DEFAULT_LIMIT = 50;

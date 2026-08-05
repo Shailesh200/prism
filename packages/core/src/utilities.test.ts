@@ -7,12 +7,12 @@ import {
   UTILITY_JOB_ECHO,
   UTILITY_JOB_LIGHTHOUSE,
   UTILITY_JOB_REMOTE_PROBE_STUB,
-} from "@prism/intelligence";
+} from "@repo-prism/intelligence";
 import {
   BundleWeightReportSchema,
   CwvReportSchema,
   PrismErrorCode,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { writeFile } from "node:fs/promises";
 import { Prism } from "./prism.js";
 

@@ -1,5 +1,5 @@
-/** @prism/mcp-server — MCP server over `@prism/core` (M-026). */
-export const PACKAGE_NAME = "@prism/mcp-server" as const;
+/** @repo-prism/mcp-server — MCP server over `@repo-prism/core` (M-026). */
+export const PACKAGE_NAME = "@repo-prism/mcp-server" as const;
 
 export {
   createPrismMcpServer,
@@ -10,6 +10,13 @@ export {
   type PrismMcpServer,
 } from "./server.js";
 export { TOOLS, TOOL_NAMES } from "./tools.js";
+export {
+  SERVER_INSTRUCTIONS,
+  PROMPT_NAMES,
+  type PromptName,
+} from "./instructions.js";
+export { registerPrompts } from "./prompts.js";
+export { createIndexProgressReporter } from "./index-progress.js";
 export {
   defineTool,
   registerTools,

@@ -6,7 +6,7 @@
 | Status | Verified |
 | Depends on | M-010, M-011 |
 | Unlocks | M-021, M-025 |
-| Packages | `@prism/impact`, `@prism/core` |
+| Packages | `@repo-prism/impact`, `@repo-prism/core` |
 
 ## Goal
 
@@ -61,7 +61,7 @@ is the subset of affected files matching test conventions
 
 - [x] Blast radius for known symbol matches golden set (`packages/core/src/fixtures/blast-radius-*.golden.json`)
 - [x] Risk score documented (see Design notes)
-- [x] `@prism/impact` engine + unit tests; Core `blastRadius()` wired; `impact` capability flipped on
+- [x] `@repo-prism/impact` engine + unit tests; Core `blastRadius()` wired; `impact` capability flipped on
 - [x] Verify + PROGRESS + owner approval (approved & merged 2026-07-22)
 
 ## Verification

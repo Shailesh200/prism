@@ -5,7 +5,7 @@ import {
   err,
   ok,
   prismError,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import {
   STACK_DETECTOR_SPI_VERSION_MAX,
   STACK_DETECTOR_SPI_VERSION_MIN,

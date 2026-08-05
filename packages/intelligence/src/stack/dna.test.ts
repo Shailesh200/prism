@@ -8,7 +8,7 @@ import {
   DnaReportSchema,
   StackDomain,
   type StackProfile,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { createStackHost } from "../host.js";
 import {
   assembleDnaReport,

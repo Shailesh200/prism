@@ -6,7 +6,7 @@
 | Status | Verified |
 | Depends on | M-030, M-031, M-032 |
 | Unlocks | Installable Prism from Marketplace / Open VSX |
-| Packages | `@prism/vscode-extension` |
+| Packages | `@repo-prism/vscode-extension` |
 
 ## Goal
 
@@ -39,4 +39,4 @@ sideload + publish, and publish when the owner has a publisher + PAT.
 
 ## Verification
 
-`bun run verify:milestone` · `bun run --filter @prism/vscode-extension package:vsix` · Manual sideload checklist in `PUBLISH.md`
+`bun run verify:milestone` · `bun run --filter @repo-prism/vscode-extension package:vsix` · Manual sideload checklist in `PUBLISH.md`

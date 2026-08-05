@@ -4,7 +4,7 @@ import {
   type IndexSnapshot,
   type IndexedFile,
   type TestingReport,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { buildDependencyGraph } from "../dependency/build.js";
 import { discoverLocalPackages } from "../dependency/packages.js";
 import { buildFeatureGraph } from "../feature/build.js";

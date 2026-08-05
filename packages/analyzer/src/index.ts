@@ -1,4 +1,4 @@
-/** @prism/analyzer — language plugin SPI + host (M-004 / M-006). */
+/** @repo-prism/analyzer — language plugin SPI + host (M-004 / M-006). */
 
 export {
   ANALYZER_SPI_VERSION,

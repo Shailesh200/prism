@@ -2,7 +2,7 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    name: "@prism/core",
+    name: "@repo-prism/core",
     include: ["src/**/*.test.ts"],
     // Core's tests index real fixtures through the oxc parser, which takes a
     // few seconds per file. At the 5s default they passed alone and timed out

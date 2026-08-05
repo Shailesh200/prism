@@ -16,7 +16,7 @@ import type {
   SafeDeleteReport,
   TestImpactReport,
   UtilityOverlayReport,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 export type DashboardPayload = {
   root: string;

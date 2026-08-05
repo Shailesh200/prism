@@ -1,5 +1,5 @@
-/** @prism/cli — the `prism` command line over Core (M-028). */
-export const PACKAGE_NAME = "@prism/cli" as const;
+/** @repo-prism/cli — the `prism` command line over Core (M-028). */
+export const PACKAGE_NAME = "@repo-prism/cli" as const;
 
 export { CLI_NAME, main, run } from "./program.js";
 export { COMMANDS, COMMANDS_BY_NAME } from "./commands.js";

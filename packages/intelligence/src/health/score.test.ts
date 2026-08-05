@@ -4,7 +4,7 @@ import {
   unsafeRepoId,
   type IndexSnapshot,
   type IndexedFile,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { computeHealthScore } from "./score.js";
 
 function emptySnapshot(rootPath: string): IndexSnapshot {

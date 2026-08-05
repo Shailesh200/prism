@@ -6,6 +6,7 @@
  * cannot describe a command that does not exist.
  */
 
+import { MAP_ZOOM_LEVELS } from "@repo-prism/shared";
 import {
   blastCommand,
   renameCommand,
@@ -86,7 +87,10 @@ export const COMMANDS: readonly CommandSpec[] = [
     summary: "Repository map: clusters, landmarks and layers",
     handler: mapCommand,
     options: [
-      { flags: "--zoom <level>", description: "Zoom level to render" },
+      {
+        flags: "--zoom <level>",
+        description: `Zoom level to render: ${MAP_ZOOM_LEVELS.join(", ")}`,
+      },
       LIMIT_OPTION,
     ],
     examples: ["prism map --zoom package"],

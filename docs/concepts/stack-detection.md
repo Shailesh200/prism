@@ -62,7 +62,7 @@ so is Prism.
 
 ## Extending it
 
-Detectors are registered in `@prism/intelligence`, so adding one does not mean
+Detectors are registered in `@repo-prism/intelligence`, so adding one does not mean
 touching the analysis pipeline — a detector declares what evidence it looks for
 and how strongly each piece counts, and the rest is shared. See
 [extension points](../architecture/extension-points.md).

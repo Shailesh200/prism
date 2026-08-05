@@ -16,7 +16,7 @@ import {
   prismError,
   type PrismError,
   type Result,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 export type ImpactTarget = {
   readonly kind: "file" | "symbol";

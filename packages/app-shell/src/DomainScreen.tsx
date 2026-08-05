@@ -7,7 +7,7 @@ import type {
   GraphSnapshotDto,
   UtilityOverlayFinding,
   UtilityOverlayReport,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import {
   CardIcon,
   Input,
@@ -15,7 +15,7 @@ import {
   SearchableInput,
   Select,
   ToggleGroup,
-} from "@prism/ui";
+} from "@repo-prism/ui";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,

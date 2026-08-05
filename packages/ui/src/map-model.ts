@@ -1,4 +1,8 @@
-import type { MapSearchHit, MapZoomLevel, RepositoryMap } from "@prism/shared";
+import type {
+  MapSearchHit,
+  MapZoomLevel,
+  RepositoryMap,
+} from "@repo-prism/shared";
 
 /**
  * Structural altitudes on the zoom rail (ADR-0013). Feature is intentionally

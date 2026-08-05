@@ -17,7 +17,7 @@ The mockups are a dark theme: deep navy canvas, cyan `#00C2C2` primary, violet `
 
 ## Decision
 
-1. **Relock the product UI to the UXPilot dark system.** Dark navy surfaces, cyan `#00C2C2` brand, violet `#6C63FF` accent, Inter + JetBrains Mono become the product default for app surfaces (`@prism/ui`, playground; later VS Code/Cursor webviews).
+1. **Relock the product UI to the UXPilot dark system.** Dark navy surfaces, cyan `#00C2C2` brand, violet `#6C63FF` accent, Inter + JetBrains Mono become the product default for app surfaces (`@repo-prism/ui`, playground; later VS Code/Cursor webviews).
 2. **Token swap, not fork.** `packages/ui/src/tokens.css` keeps its `--prism-*` token names but takes dark values, so the entire existing map/inspector/treemap/command-palette reskins from one file. Surfaces still consume tokens only.
 3. **Map shell = top bar + left KPI sidebar + graph canvas + right inspector.** Owner overrides from earlier simplification: keep the left sidebar (repo stats, feature regions, layers, recent) and the dependency edge graph. Blast rings render only on the selected node.
 4. **Overview is a secondary screen**, not the Map home. It is derived locally from the RepositoryMap graph (no Plotly, no network) to stay offline/local-first.

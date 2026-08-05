@@ -4,7 +4,7 @@ import type {
   IndexSummary,
   IntelligenceReport,
   PrismCapabilitiesDto,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { buildDependencyGraph } from "../dependency/build.js";
 import { buildFeatureGraph } from "../feature/build.js";
 import { buildKnowledgeGraph } from "../semantic/build.js";

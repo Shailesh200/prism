@@ -27,7 +27,7 @@ If code and plan disagree, **stop and reconcile the plan** before continuing.
 
 ## Architecture rules
 
-- All user-facing surfaces (MCP, CLI, VS Code, Cursor, Playground) consume **`@prism/core` only**.
+- All user-facing surfaces (MCP, CLI, VS Code, Cursor, Playground) consume **`@repo-prism/core` only**.
 - Do not reimplement analysis inside extensions or MCP tools.
 - Prefer smaller milestones; do not expand scope without owner approval.
 - New architectural choices require an ADR in `plans/adr/`.

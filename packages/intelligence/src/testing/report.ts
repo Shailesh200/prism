@@ -5,7 +5,7 @@ import type {
   TestingReport,
   TestingSuite,
   TestingSuiteKind,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 export type BuildTestingReportInput = {
   workspaceRoot: string;

@@ -9,7 +9,7 @@
  *    never styled, `NO_COLOR` is honoured, and no command decides for itself.
  */
 
-import type { PrismError } from "@prism/shared";
+import type { PrismError } from "@repo-prism/shared";
 
 export type OutputOptions = {
   readonly json: boolean;

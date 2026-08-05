@@ -4,8 +4,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   HealthHistoryReportSchema,
   RegionMoversReportSchema,
-} from "@prism/shared";
-import { wipePrismCache } from "@prism/indexer";
+} from "@repo-prism/shared";
+import { wipePrismCache } from "@repo-prism/indexer";
 import { Prism } from "./prism.js";
 
 const fixture = join(

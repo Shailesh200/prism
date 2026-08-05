@@ -5,6 +5,16 @@ codes and clean JSON. That combination is what makes it useful in a script.**
 
 For every command, see the generated [CLI reference](../reference/cli-commands.md).
 
+## First run — step by step
+
+1. Install Node.js 26+.
+2. `cd` into your project (no `--workspace` needed).
+3. `npx -y @repo-prism/cli doctor` — confirm workspace (`git root` is normal).
+4. `npx -y @repo-prism/cli dna` then `health` (auto-indexes on first need).
+5. Optional: `npm install -g @repo-prism/cli` so you can type `prism …`.
+
+More detail: [Install → Command line](../getting-started/install.md#1-command-line-prism).
+
 ## Global options
 
 These work before or after the subcommand.
@@ -15,9 +25,12 @@ These work before or after the subcommand.
 | `--json` | Emit JSON on stdout instead of a human table |
 | `--no-color` | Disable ANSI colour (`NO_COLOR` is honoured too) |
 | `-q, --quiet` | Suppress progress output on stderr |
-| `--verbose` | Include extra detail |
+| `--verbose` | Workspace chosen + index timing on stderr |
 | `-y, --yes` | Consent to an operation that would otherwise be refused |
 | `-V, --version` | Print the engine version and API level |
+
+Running `prism` with no subcommand prints help and exits **0**. A typo like
+`prism blsat` exits **2** and suggests `blast`.
 
 ## Which repository does it analyse?
 
@@ -101,11 +114,23 @@ of it.
 
 ## A CI example
 
+There is no `npx` form yet — the packages are not published — so the job builds
+the CLI before using it:
+
 ```yaml
-- run: npx @prism/cli index
-- run: npx @prism/cli review --base origin/main --fail-on high
-- run: npx @prism/cli cycles --fail-on any
+- uses: actions/checkout@v4
+- uses: oven-sh/setup-bun@v2
+- uses: actions/setup-node@v4
+  with:
+    node-version-file: .nvmrc
+- run: bun install && bun run build
+- run: npx -y @repo-prism/cli index
+- run: npx -y @repo-prism/cli review --base origin/main --fail-on high
+- run: npx -y @repo-prism/cli cycles --fail-on any
 ```
+
+Checkout needs full history (`fetch-depth: 0`) if you compare against a base
+branch, since `review --base` asks git what changed.
 
 ## Things worth knowing
 

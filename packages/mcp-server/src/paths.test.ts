@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { PrismErrorCode, type PrismError, type Result } from "@prism/shared";
+import {
+  PrismErrorCode,
+  type PrismError,
+  type Result,
+} from "@repo-prism/shared";
 import { allWorkspaceRelative, toWorkspaceRelative } from "./paths.js";
 
 const root = "/repos/app";

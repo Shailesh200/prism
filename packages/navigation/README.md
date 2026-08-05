@@ -1,9 +1,9 @@
-# @prism/navigation
+# @repo-prism/navigation
 
 Dependency and feature navigation routes + landmark resolution.
 
 **Implemented:** M-016  
-**Depends on:** `@prism/shared`
+**Depends on:** `@repo-prism/shared`
 
 ## APIs
 
@@ -14,4 +14,4 @@ Dependency and feature navigation routes + landmark resolution.
 | `navigateFeature(depGraph, features, fromId, toId)` | Feature → feature via file deps |
 | `listLandmarks(snapshot, features?)` | Entrypoints, package roots, feature anchors |
 
-Surfaces must call these only through `@prism/core`.
+Surfaces must call these only through `@repo-prism/core`.

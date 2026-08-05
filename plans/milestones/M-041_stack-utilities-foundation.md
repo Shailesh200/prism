@@ -6,7 +6,7 @@
 | Status | Verified |
 | Depends on | M-014 (Intelligence API), M-040, M-013 (DNA detectors for real signals) |
 | Unlocks | M-017 / M-018 (Gate A done); richer Map layers via utility overlays |
-| Packages | `@prism/intelligence`, `@prism/shared`, `@prism/core` |
+| Packages | `@repo-prism/intelligence`, `@repo-prism/shared`, `@repo-prism/core` |
 
 ## Goal
 

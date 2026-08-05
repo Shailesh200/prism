@@ -6,7 +6,7 @@
 | Status | Verified |
 | Depends on | M-008 |
 | Unlocks | M-010, M-011 |
-| Packages | `@prism/graph-engine` |
+| Packages | `@repo-prism/graph-engine` |
 
 ## Goal
 
@@ -14,7 +14,7 @@ Provide a typed graph store on **ngraph** (nodes/edges/attributes) with query pr
 
 ## In Scope
 
-- Graph data model in `@prism/shared`
+- Graph data model in `@repo-prism/shared`
 - ngraph-backed store + thin typed façade
 - CRUD + bulk load from index snapshot
 - Queries: neighbors, subgraph, shortest path, degree

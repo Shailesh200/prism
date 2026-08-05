@@ -1,15 +1,15 @@
-# @prism/graph-engine
+# @repo-prism/graph-engine
 
 Typed in-memory graph store on **ngraph** with query primitives for dependency / semantic / feature graphs.
 
 **Implemented:** M-009  
-**Depends on:** `@prism/shared`, `ngraph.graph`, `ngraph.path`  
-**Surfaces:** call via `@prism/core` once wired (ADR-0004)
+**Depends on:** `@repo-prism/shared`, `ngraph.graph`, `ngraph.path`  
+**Surfaces:** call via `@repo-prism/core` once wired (ADR-0004)
 
 ## Usage
 
 ```ts
-import { createGraphStore, layoutGraph } from "@prism/graph-engine";
+import { createGraphStore, layoutGraph } from "@repo-prism/graph-engine";
 
 const store = createGraphStore({ id: "demo" });
 store.bulkLoad({

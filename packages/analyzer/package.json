@@ -1,7 +1,6 @@
 {
-  "name": "@prism/analyzer",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@repo-prism/analyzer",
+  "version": "1.0.0",
   "type": "module",
   "description": "Language plugin SPI and analyzer host",
   "exports": {
@@ -10,7 +9,9 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -18,7 +19,19 @@
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
-    "@prism/shared": "workspace:*",
+    "@repo-prism/shared": "workspace:*",
     "oxc-parser": "^0.140.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Shailesh200/prism.git"
+  },
+  "homepage": "https://github.com/Shailesh200/prism#readme",
+  "bugs": {
+    "url": "https://github.com/Shailesh200/prism/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

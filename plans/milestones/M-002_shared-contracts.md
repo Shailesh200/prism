@@ -6,7 +6,7 @@
 | Status | Verified |
 | Depends on | M-001 |
 | Unlocks | M-003 |
-| Packages | `@prism/shared` |
+| Packages | `@repo-prism/shared` |
 
 ## Goal
 
@@ -27,7 +27,7 @@ Define the canonical TypeScript types, Zod schemas, result/error model, and ID c
 
 ## Definition of Done
 
-- [x] `@prism/shared` builds and is importable
+- [x] `@repo-prism/shared` builds and is importable
 - [x] Error codes documented in package README
 - [x] ≥90% coverage on schema helpers (100% on contract modules)
 - [x] `bun run verify:milestone` green

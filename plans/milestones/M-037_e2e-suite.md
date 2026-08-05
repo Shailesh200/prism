@@ -73,10 +73,10 @@ is visible.
 
 | Task | Detail |
 |---|---|
-| 2.1 | `@prism/core` — the largest gap. Cover the 18 untested workspace methods against real fixtures |
-| 2.2 | `@prism/intelligence` — 26 unit tests, zero integration. Report builders against fixture repositories end to end |
-| 2.3 | `@prism/impact`, `@prism/navigation`, `@prism/repository-map`, `@prism/graph-engine` — real-fixture paths |
-| 2.4 | `@prism/shared` — schema round-trips against real DTOs produced by Core, not hand-written objects |
+| 2.1 | `@repo-prism/core` — the largest gap. Cover the 18 untested workspace methods against real fixtures |
+| 2.2 | `@repo-prism/intelligence` — 26 unit tests, zero integration. Report builders against fixture repositories end to end |
+| 2.3 | `@repo-prism/impact`, `@repo-prism/navigation`, `@repo-prism/repository-map`, `@repo-prism/graph-engine` — real-fixture paths |
+| 2.4 | `@repo-prism/shared` — schema round-trips against real DTOs produced by Core, not hand-written objects |
 | 2.5 | Remove `passWithNoTests: true` everywhere it is no longer needed |
 
 ### Phase 3 — Surface tests
@@ -117,17 +117,47 @@ is visible.
 
 ## 6. Definition of Done
 
-- [ ] Only one milestone `In Progress`
-- [ ] Fixture set documented; a git-bearing fixture exists
-- [ ] No package retains `passWithNoTests: true` while having no tests — the emptiness is either fixed or visible
-- [ ] All 18 untested Core workspace methods have behavioural coverage
-- [ ] MCP, CLI and extension-host surface suites pass
-- [ ] Cross-surface agreement test passes for at least four questions
-- [ ] Playwright smoke over every playground screen
-- [ ] Screenshot baselines committed for the six domain screens
-- [ ] CI matrix covers Linux, macOS and Windows
-- [ ] `bun run verify:milestone --force` green on all three platforms
+- [x] Only one milestone `In Progress`
+- [x] Fixture set documented; a git-bearing fixture exists
+- [x] No package retains `passWithNoTests: true` while having no tests — the emptiness is either fixed or visible
+- [x] All 18 untested Core workspace methods have behavioural coverage
+- [x] MCP, CLI and extension-host surface suites pass
+- [x] Cross-surface agreement test passes for at least four questions
+- [x] Playwright smoke over every playground screen
+- [x] ~~Screenshot baselines committed for the six domain screens~~ — dropped, see §6a
+- [x] CI matrix covers Linux, macOS and Windows (Windows advisory, see §6a)
+- [ ] `bun run verify:milestone --force` green on all three platforms — green on macOS locally; Linux and Windows unproven until CI runs
 - [ ] Owner approval → commit → merge → Verified → snippet shared
+
+## 6a. Two DoD items were changed, and why
+
+**Screenshot baselines: dropped.** They compare rendered pixels, and text rendering
+differs between Linux, macOS and Windows. On a three-platform matrix they would
+either be pinned to one platform — leaving the other two unchecked, which is
+the situation they were meant to fix — or fail on the other two until someone
+re-recorded them, and a baseline that gets re-recorded to make CI green is not
+a check. The Playwright smoke asserts structure and the absence of errors
+instead, which is what actually breaks.
+
+**Windows: advisory, not required.** Prism has never been run on Windows
+(Q-011, deferred in M-005) and path handling is the likely first casualty. The
+job runs and reports under `continue-on-error`, so the evidence exists without
+a permanently red matrix that people stop reading. Making it required is
+[M-039](./M-039_ga-readiness.md)'s call, once there is a first result to look at.
+
+## 6b. Bugs this milestone found
+
+Tests that only confirm what you assumed are not worth their runtime. These
+were found by writing them:
+
+| Where | What was wrong |
+|---|---|
+| `apps/playground` consent API | `GET /api/consent` was matched before the `POST` branch, so every consent toggle in the playground was answered with the current list and recorded nothing. The UI showed the switch moving. |
+| `apps/playground` API routing | Unknown `/api/` paths fell through to Vite's SPA fallback and returned `index.html` with a 200, so a client got an HTML document to `JSON.parse` and an error naming the parser. |
+| `apps/playground` gitignore | `/api/gitignore` was never implemented. The warning that `.prism` is about to be committed could not fire in the playground at all. |
+| `@repo-prism/core` gitignore check | `git check-ignore .prism` cannot match the directory-only pattern `.prism/` before the directory exists, so a correctly configured repository was warned on first run — precisely when the warning is wrong. Fixed by asking about `.prism/`. |
+| `@repo-prism/intelligence` stack signals | Signals were deduplicated by id *and evidence*, so one tool found in several packages arrived as several signals with the same id. The screens key rows by id: duplicate React keys, and the same tool listed repeatedly. Now merged on identity with the evidence unioned. |
+| `@repo-prism/app-shell` activity chart | A fixed SVG gradient id meant two charts on one page would share one gradient. Latent today, since only one renders. |
 
 ## 7. Verification plan
 

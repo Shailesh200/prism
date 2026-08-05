@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
-import { PrismErrorCode } from "@prism/shared";
+import { PrismErrorCode } from "@repo-prism/shared";
 import { createM005Fixture } from "./test-fixture.js";
 import { resolveWorkspaceRoot } from "./workspace-root.js";
 

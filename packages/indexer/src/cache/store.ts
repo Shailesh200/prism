@@ -4,7 +4,7 @@ import {
   IndexSnapshotSchema,
   type IndexedFile,
   type IndexSnapshot,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 type FileRow = {
   path: string;

@@ -28,7 +28,7 @@ import type {
   SecurityReport,
   TestingReport,
   UtilityOverlayReport,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import {
   Prism,
   PrismErrorCode,
@@ -36,12 +36,13 @@ import {
   ok,
   prismError,
   type PrismClient,
+  type PrismGitignoreStatus,
   type PrismWorkspace,
   type RunWorkspaceTestsOptions,
   type SaveBookmarkInput,
   type WorkspacePackageInfo,
   type WorkspaceTestList,
-} from "@prism/core";
+} from "@repo-prism/core";
 import type {
   DashboardPayload,
   ImpactBundle,
@@ -97,7 +98,7 @@ export class PrismSession {
 
   startWatch(options?: {
     debounceMs?: number;
-    onChange?: (freshness: import("@prism/core").IndexFreshness) => void;
+    onChange?: (freshness: import("@repo-prism/core").IndexFreshness) => void;
   }): Result<void, PrismError> {
     if (!this.workspace) {
       return err(
@@ -138,7 +139,7 @@ export class PrismSession {
   }
 
   getIndexFreshness(): Result<
-    import("@prism/core").IndexFreshness,
+    import("@repo-prism/core").IndexFreshness,
     PrismError
   > {
     if (!this.workspace) {
@@ -246,6 +247,20 @@ export class PrismSession {
     const ws = this.requireWs();
     if (!ws.ok) return ws;
     return ws.value.listConsent();
+  }
+
+  async getPrismGitignoreStatus(): Promise<PrismGitignoreStatus> {
+    const ws = this.requireWs();
+    // A closed session still has a truthful answer here: not "not ignored",
+    // which would show the user a warning about a workspace that is not open.
+    if (!ws.ok) return { ignored: null, detail: "no workspace" };
+    return ws.value.getPrismGitignoreStatus();
+  }
+
+  async addPrismToGitignore(): Promise<PrismGitignoreStatus> {
+    const ws = this.requireWs();
+    if (!ws.ok) return { ignored: null, detail: "no workspace" };
+    return ws.value.addPrismToGitignore();
   }
 
   async getConsent(
@@ -491,7 +506,7 @@ export class PrismSession {
     routes?: readonly string[];
     onProgress?: (event: {
       message: string;
-      detail?: import("@prism/shared").JsonValue;
+      detail?: import("@repo-prism/shared").JsonValue;
     }) => void;
   }): Promise<Result<CwvReport | null, PrismError>> {
     const ws = this.requireWs();
@@ -569,7 +584,7 @@ export class PrismSession {
     reportPath?: string;
     onProgress?: (event: {
       message: string;
-      detail?: import("@prism/shared").JsonValue;
+      detail?: import("@repo-prism/shared").JsonValue;
     }) => void;
   }): Promise<Result<BundleWeightReport | null, PrismError>> {
     const ws = this.requireWs();

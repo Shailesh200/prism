@@ -6,7 +6,7 @@
 | Status | Verified |
 | Depends on | M-014 |
 | Unlocks | M-022, M-025 |
-| Packages | `@prism/intelligence`, `@prism/core`, `@prism/shared` |
+| Packages | `@repo-prism/intelligence`, `@repo-prism/core`, `@repo-prism/shared` |
 
 ## Goal
 
@@ -14,7 +14,7 @@ Compute a deterministic **repository health score** (0–100 + letter grade + ex
 
 ## In Scope
 
-- `HealthScore` DTO (already in `@prism/shared`) filled by a pure scorer
+- `HealthScore` DTO (already in `@repo-prism/shared`) filled by a pure scorer
 - Factors from index/graph signals: parse health, test presence, coupling (cycles), modularity, diagnostics
 - Weighting documented in [ADR-0012](../adr/0012-health-score-weighting.md)
 - Core: `workspace.getHealth()` (requires prior `index()`)

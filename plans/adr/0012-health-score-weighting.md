@@ -61,5 +61,5 @@ Overall score is rounded to the nearest integer after weighting.
 ## Compliance
 
 - [x] Milestone M-015 documents DoD against this ADR
-- [x] `@prism/core` README notes `getHealth()`
+- [x] `@repo-prism/core` README notes `getHealth()`
 - [ ] — no Master Plan roadmap change beyond existing M-015 row

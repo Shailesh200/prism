@@ -3,7 +3,7 @@ import type {
   MapLayerId,
   MapSearchHit,
   MapZoomLevel,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { Command } from "cmdk";
 import {
   Boxes,

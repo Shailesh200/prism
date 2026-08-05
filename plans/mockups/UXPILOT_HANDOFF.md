@@ -58,7 +58,7 @@ plans/mockups/
 - Prefer **1440×900** (or 2× retina) PNGs, one file per screen.  
 - Filenames: `Letter-kebab-name.png` matching the prompt screens (A–J).  
 - Do **not** commit huge Figma binaries; put a **link** in `figma.md`.  
-- Do **not** treat UXPilot HTML as `@prism/ui` source — rewrite into existing tokens/components.
+- Do **not** treat UXPilot HTML as `@repo-prism/ui` source — rewrite into existing tokens/components.
 
 ---
 
@@ -85,7 +85,7 @@ Brand SoT: still LOCKED (Signal Chart) — mockups must not override tokens in D
 
 | ID | File | Job | Implement in | Priority |
 |---|---|---|---|---|
-| A | A-repository-map.png | Orient & go | @prism/ui Map + playground | P0 |
+| A | A-repository-map.png | Orient & go | @repo-prism/ui Map + playground | P0 |
 | B | B-file-density.png | File mass | DensityMap / File zoom | P0 |
 | … | … | … | … | … |
 
@@ -108,8 +108,8 @@ List any UXPilot choices that fight DESIGN.md (purple, KPI strips, etc.) and the
 ## Agent prompt (paste into Cursor)
 
 Implement UI for screen A from plans/mockups/screens/A-repository-map.png
-and SPECS.md. Use @prism/ui tokens.css / map.css. Do not invent new brand colors.
-Consume @prism/core only. Stay on the active milestone branch.
+and SPECS.md. Use @repo-prism/ui tokens.css / map.css. Do not invent new brand colors.
+Consume @repo-prism/core only. Stay on the active milestone branch.
 ```
 
 ---
@@ -157,6 +157,6 @@ Better: attach the PNG in chat **and** keep it on disk under `screens/` so later
 ## 7. What not to do
 
 - Don’t dump unsorted exports into `packages/ui/`  
-- Don’t let generated HTML replace `@prism/ui` architecture  
+- Don’t let generated HTML replace `@repo-prism/ui` architecture  
 - Don’t unlock brand colors because UXPilot drifted purple/dark  
 - Don’t ask agents to implement the entire product from one mega-PNG — **one screen (or shell + one canvas) per milestone slice**

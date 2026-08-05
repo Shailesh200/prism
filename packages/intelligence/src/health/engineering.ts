@@ -7,7 +7,7 @@ import type {
   GitFileSignal,
   IndexSnapshot,
   IndexedFile,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { buildDependencyGraph } from "../dependency/build.js";
 import {
   discoverLocalPackages,
@@ -42,7 +42,7 @@ function clamp(n: number): number {
  *
  * The two scales previously shared the bare name `score` and similar
  * thresholds, so the same number read as "safe" on one screen and "critical" on
- * another. Risk banding lives in `@prism/shared`'s `riskToBand`; these
+ * another. Risk banding lives in `@repo-prism/shared`'s `riskToBand`; these
  * thresholds deliberately do not match it, because they measure the opposite
  * quantity (M-051 Phase 3).
  */

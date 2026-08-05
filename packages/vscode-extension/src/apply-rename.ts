@@ -5,7 +5,7 @@ import {
   rewritePathReferences,
   type ApplyRenameInput,
   type ApplyRenameResult,
-} from "@prism/app-shell/apply-rename";
+} from "@repo-prism/app-shell/apply-rename";
 
 function normalize(path: string): string {
   return path.replace(/\\/g, "/").replace(/^\/+/, "");

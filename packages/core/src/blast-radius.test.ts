@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { BlastRadiusReportSchema, PrismErrorCode } from "@prism/shared";
+import { BlastRadiusReportSchema, PrismErrorCode } from "@repo-prism/shared";
 import { describe, expect, it } from "vitest";
 import { Prism } from "./prism.js";
 

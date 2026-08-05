@@ -1,4 +1,4 @@
-import type { IndexSnapshot, PrismError, Result } from "@prism/shared";
+import type { IndexSnapshot, PrismError, Result } from "@repo-prism/shared";
 import { runIndexJob, type IndexJobOptions } from "./index-job.js";
 
 /** Shape mirrored by Core `IndexerPort` (Core must not import this package type). */

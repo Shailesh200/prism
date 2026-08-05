@@ -6,9 +6,9 @@ import {
   createAnalyzerHost,
   type LanguagePlugin,
   type ParseResult,
-} from "@prism/analyzer";
-import { ANALYZER_SPI_VERSION } from "@prism/analyzer";
-import { err, ok, prismError, PrismErrorCode } from "@prism/shared";
+} from "@repo-prism/analyzer";
+import { ANALYZER_SPI_VERSION } from "@repo-prism/analyzer";
+import { err, ok, prismError, PrismErrorCode } from "@repo-prism/shared";
 import { runIndexJob } from "./index-job.js";
 
 function failingPlugin(): LanguagePlugin {

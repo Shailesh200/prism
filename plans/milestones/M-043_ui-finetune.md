@@ -6,7 +6,7 @@
 | Status | Verified |
 | Depends on | M-042, M-020, M-021 |
 | Unlocks | Domain UI, DNA screen, Impact/Insights UI |
-| Packages | `apps/playground`, `@prism/ui`, `@prism/core` (git signals) |
+| Packages | `apps/playground`, `@repo-prism/ui`, `@repo-prism/core` (git signals) |
 
 ## Goal
 

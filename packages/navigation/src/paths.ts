@@ -2,7 +2,7 @@ import type {
   GraphSnapshotDto,
   NavigationRoute,
   NavigationRouteResult,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 export type FindPathsOptions = {
   /** Number of simple paths to return (default 1 = shortest only). */

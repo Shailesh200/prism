@@ -9,7 +9,7 @@ import {
   StackDomain,
   UtilityJobSchema,
   type StackProfile,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import {
   buildCwvReport,
   buildCwvRollups,

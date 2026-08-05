@@ -4,7 +4,7 @@ import type {
   IndexSnapshot,
   RegionHealthPoint,
   SignalProvenance,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { computeHealthScore } from "./score.js";
 import { computeRegionScores } from "./regions.js";
 

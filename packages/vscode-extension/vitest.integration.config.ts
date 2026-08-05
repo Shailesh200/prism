@@ -2,8 +2,7 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    name: "@prism/vscode-extension-integration",
+    name: "@repo-prism/vscode-extension-integration",
     include: ["src/**/*.integration.test.ts"],
-    passWithNoTests: true,
   },
 });

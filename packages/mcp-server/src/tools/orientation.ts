@@ -3,6 +3,7 @@
  * reaches for before it knows anything (M-026, extended in M-027).
  */
 
+import { MAP_ZOOM_LEVELS } from "@repo-prism/shared";
 import { z } from "zod";
 import { boundList, limitInput } from "../limits.js";
 import { toWorkspaceRelative } from "../paths.js";
@@ -37,7 +38,7 @@ export const repositoryMap = defineTool({
     "Return the repository's structural map at a zoom level: nodes, edges and regions. Use to orient yourself or to find where a concern lives. 'repo' and 'package' are small; 'file' and 'symbol' can be very large on a big repository, so prefer the coarsest zoom that answers your question.",
   inputSchema: {
     zoom: z
-      .enum(["repo", "package", "feature", "file", "symbol"])
+      .enum(MAP_ZOOM_LEVELS)
       .optional()
       .describe("Detail level. Defaults to the Core default zoom."),
     layers: z

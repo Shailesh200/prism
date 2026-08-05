@@ -10,7 +10,7 @@ import type {
   PrismError,
   Result,
   StackProfile,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 /** Serializable plugin descriptor exposed through Core (mirrors analyzer SPI). */
 export type LanguagePluginInfo = {

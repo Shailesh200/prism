@@ -4,8 +4,8 @@ import type {
   EngineeringHealthReport,
   HealthScore,
   RepositoryMap,
-} from "@prism/shared";
-import { CardIcon, type CardIconTone, InfoTip, Input } from "@prism/ui";
+} from "@repo-prism/shared";
+import { CardIcon, type CardIconTone, InfoTip, Input } from "@repo-prism/ui";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,

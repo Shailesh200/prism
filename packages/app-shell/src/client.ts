@@ -17,7 +17,7 @@ import type {
   SecurityReport,
   TestingReport,
   UtilityOverlayReport,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import type {
   ApplyRenameInput,
   ApplyRenameResult,
@@ -111,7 +111,7 @@ export type AppShellClient = {
   applyRename?(input: ApplyRenameInput): Promise<ApplyRenameResult>;
   fetchSymbolHits(query: string): Promise<SymbolSearchHit[]>;
   /** Playground may load git separately from the dashboard aggregate. */
-  fetchGitActivity?(): Promise<import("@prism/shared").GitActivity | null>;
+  fetchGitActivity?(): Promise<import("@repo-prism/shared").GitActivity | null>;
   /**
    * Opt-in Remote Git: run `git fetch --prune` (never push). Used when Remote
    * Git is enabled and the user Syncs Overview.

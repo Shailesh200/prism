@@ -4,7 +4,7 @@ import {
   type MapLayerDescriptor,
   type MapLayerId,
   type SignalProvenance,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 /**
  * Layer heat as the map renders it. A layer is absent from `values` when the

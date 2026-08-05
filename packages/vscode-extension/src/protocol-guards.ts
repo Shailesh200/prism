@@ -8,7 +8,7 @@
  *
  * These guards validate the *envelope*: the discriminant and the fields the
  * host dispatches on. Deep payloads are not re-validated here because they
- * originate from Core, which already validates them against `@prism/shared`
+ * originate from Core, which already validates them against `@repo-prism/shared`
  * schemas; duplicating those checks would drift.
  */
 

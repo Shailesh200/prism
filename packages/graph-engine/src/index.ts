@@ -1,6 +1,6 @@
-/** @prism/graph-engine — ngraph store + query primitives (M-009). */
+/** @repo-prism/graph-engine — ngraph store + query primitives (M-009). */
 
-export const PACKAGE_NAME = "@prism/graph-engine" as const;
+export const PACKAGE_NAME = "@repo-prism/graph-engine" as const;
 
 export {
   createGraphStore,

@@ -5,7 +5,7 @@ import {
   type GitFileSignal,
   type IndexSnapshot,
   type IndexedFile,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { computeEngineeringHealth } from "./engineering.js";
 
 function emptySnapshot(rootPath: string): IndexSnapshot {

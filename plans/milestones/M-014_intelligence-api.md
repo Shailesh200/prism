@@ -6,11 +6,11 @@
 | Status | Verified |
 | Depends on | M-013 |
 | Unlocks | M-015, M-022, M-024, M-025 |
-| Packages | `@prism/intelligence`, `@prism/core` |
+| Packages | `@repo-prism/intelligence`, `@repo-prism/core` |
 
 ## Goal
 
-Unify DNA, graphs, and index into a cohesive **Repository Intelligence** façade on `@prism/core` with stable method names used by all surfaces.
+Unify DNA, graphs, and index into a cohesive **Repository Intelligence** façade on `@repo-prism/core` with stable method names used by all surfaces.
 
 ## In Scope
 

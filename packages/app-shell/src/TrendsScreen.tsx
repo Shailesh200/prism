@@ -8,9 +8,9 @@ import type {
   RegionMoversReport,
   RepositoryMap,
   SignalProvenance,
-} from "@prism/shared";
-import { DEFAULT_PROVENANCE } from "@prism/shared";
-import { InfoTip } from "@prism/ui";
+} from "@repo-prism/shared";
+import { DEFAULT_PROVENANCE } from "@repo-prism/shared";
+import { InfoTip } from "@repo-prism/ui";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   useEffect,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { BackendReportSchema } from "@prism/shared";
+import { BackendReportSchema } from "@repo-prism/shared";
 import {
   buildBackendReport,
   extractExpressLike,

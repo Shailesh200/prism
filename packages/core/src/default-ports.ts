@@ -3,13 +3,13 @@ import {
   createNoopPlugin,
   createTypescriptPlugin,
   type LanguagePluginInfo as AnalyzerPluginInfo,
-} from "@prism/analyzer";
-import { createIndexerEngine, type IndexerEngine } from "@prism/indexer";
+} from "@repo-prism/analyzer";
+import { createIndexerEngine, type IndexerEngine } from "@repo-prism/indexer";
 import {
   createDefaultDetectorPacks,
   createStackHost,
   type StackDetectorInfo as IntelligenceDetectorInfo,
-} from "@prism/intelligence";
+} from "@repo-prism/intelligence";
 import type {
   AnalyzerPort,
   IndexerPort,

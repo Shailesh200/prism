@@ -4,7 +4,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { ImpactConfidence, ImpactLane } from "@prism/shared";
+import type { ImpactConfidence, ImpactLane } from "@repo-prism/shared";
 
 /** Cap soft matches per config to avoid huge-glob blowups. */
 export const SOFT_MATCH_CAP = 500;

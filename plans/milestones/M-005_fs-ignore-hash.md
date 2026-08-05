@@ -6,7 +6,7 @@
 | Status | Verified |
 | Depends on | M-004 |
 | Unlocks | M-040 |
-| Packages | `@prism/indexer` (fs layer), `@prism/shared` |
+| Packages | `@repo-prism/indexer` (fs layer), `@repo-prism/shared` |
 
 ## Goal
 

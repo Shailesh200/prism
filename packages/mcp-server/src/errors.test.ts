@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
-import { PrismErrorCode, prismError } from "@prism/shared";
+import { PrismErrorCode, prismError } from "@repo-prism/shared";
 import { toMcpError, toMcpErrorFromThrown } from "./errors.js";
 
 describe("PrismError → MCP error (M-026)", () => {

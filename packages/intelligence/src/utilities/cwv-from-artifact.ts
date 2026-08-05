@@ -8,7 +8,7 @@ import {
   ok,
   parseDto,
   prismError,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import type { IngestStore } from "./ingest-store.js";
 
 /** Load a persisted lighthouse-cwv ingest artifact as CwvReport. */

@@ -6,7 +6,7 @@
 | Status | Verified |
 | Depends on | M-009 |
 | Unlocks | M-012, M-020, M-023 |
-| Packages | `@prism/graph-engine`, `@prism/analyzer`, `@prism/core` |
+| Packages | `@repo-prism/graph-engine`, `@repo-prism/analyzer`, `@repo-prism/core` |
 
 ## Goal
 

@@ -87,7 +87,7 @@ describe("MCP server contract (M-026)", () => {
   afterAll(async () => {
     instance?.session.close();
     await client?.close();
-    // Removed by path rather than via @prism/indexer: this package must not
+    // Removed by path rather than via @repo-prism/indexer: this package must not
     // depend on an engine, not even in tests (ADR-0004).
     await rm(join(fixture, ".prism"), { recursive: true, force: true });
   });
@@ -96,6 +96,31 @@ describe("MCP server contract (M-026)", () => {
     // A handshake that indexes looks like a hung server to the client.
     expect(instance.session.isOpen()).toBe(false);
     expect(client.getServerVersion()?.name).toBe("prism");
+  });
+
+  it("advertises instructions that teach agents to call tools without being asked", async () => {
+    const instructions = client.getInstructions();
+    expect(instructions).toBeTypeOf("string");
+    expect(instructions).toMatch(/users never name tools/i);
+    expect(instructions).toContain("blast_radius");
+    expect(instructions).not.toMatch(/prism_blast_radius/);
+  });
+
+  it("lists workflow prompts for clients that expose a picker", async () => {
+    const { prompts } = await client.listPrompts();
+    expect(prompts.map((prompt) => prompt.name).sort()).toEqual(
+      ["before_edit", "orient", "review_diff"].sort(),
+    );
+  });
+
+  it("expands the orient prompt into a user message that names starter tools", async () => {
+    const result = await client.getPrompt({ name: "orient" });
+    const text = result.messages[0]?.content;
+    expect(text).toMatchObject({ type: "text" });
+    if (text && text.type === "text") {
+      expect(text.text).toContain("repository_dna");
+      expect(text.text).toContain("repository_health");
+    }
   });
 
   it("advertises exactly the documented pack, with usable JSON Schema", async () => {

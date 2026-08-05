@@ -5,13 +5,13 @@
  * the CLI, so every one of them is bounded and every one says what it cut.
  */
 
-import { ok, PrismErrorCode, err, prismError } from "@prism/shared";
+import { ok, PrismErrorCode, err, prismError } from "@repo-prism/shared";
 import { paint, renderFields, renderHeading } from "../output.js";
 import type { CommandHandler } from "../runtime.js";
 import { plural, renderTable, wrap } from "../table.js";
 
 /**
- * Graph node ids are namespaced (`file:src/x.ts`, `pkg:@prism/core`). The
+ * Graph node ids are namespaced (`file:src/x.ts`, `pkg:@repo-prism/core`). The
  * prefix disambiguates inside the graph and is noise in a terminal, where
  * every row of a given table is the same kind of thing anyway.
  */

@@ -18,6 +18,7 @@ const PRISM_CLIENT_KEYS = [
  * new methods must be added here + CORE_SDK.md stability table.
  */
 const WORKSPACE_METHODS = [
+  "addPrismToGitignore",
   "analyze",
   "blastRadius",
   "breakingChangeHints",
@@ -49,6 +50,7 @@ const WORKSPACE_METHODS = [
   "getKnowledgeGraph",
   "getOverviewModel",
   "getPersonaPresets",
+  "getPrismGitignoreStatus",
   "getRegionMovers",
   "getRepositoryMap",
   "getSecurityReport",
@@ -100,7 +102,7 @@ const REQUIRED_EXPORTS = [
 
 describe("Core API surface contract (M-025)", () => {
   it("advertises freeze version and api level", () => {
-    expect(Core.PRISM_CORE_VERSION).toBe("0.1.0");
+    expect(Core.PRISM_CORE_VERSION).toBe("1.0.1");
     expect(Core.PRISM_API_LEVEL).toBe(1);
   });
 
@@ -113,7 +115,7 @@ describe("Core API surface contract (M-025)", () => {
   it("locks PrismClient keys", () => {
     const client = Prism.create();
     expect(Object.keys(client).sort()).toEqual([...PRISM_CLIENT_KEYS]);
-    expect(client.version).toBe("0.1.0");
+    expect(client.version).toBe(Core.PRISM_CORE_VERSION);
     expect(client.apiLevel).toBe(1);
   });
 

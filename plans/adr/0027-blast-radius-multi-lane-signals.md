@@ -15,7 +15,7 @@ Blast Radius today is **reverse reachability over the file dependency graph** (r
 
 That fails for roots that matter operationally but have **few or no importers** — notably test-runner configs (`vitest.config.ts`), lint configs, env files, and CI path filters. Users see **Low Impact (15)** and **Safe to Delete** with **0 dependents**, which undermines Blast Radius as a hero feature.
 
-We need a deliberate policy: how soft signals coexist with hard graph edges, how they affect scoring and safe-delete, and how DTOs/UI expose confidence and evidence — without bypassing `@prism/core` or inventing analysis in extensions.
+We need a deliberate policy: how soft signals coexist with hard graph edges, how they affect scoring and safe-delete, and how DTOs/UI expose confidence and evidence — without bypassing `@repo-prism/core` or inventing analysis in extensions.
 
 ## Decision
 
@@ -29,7 +29,7 @@ We need a deliberate policy: how soft signals coexist with hard graph edges, how
 
 3. **Tooling-critical origins** (expanded catalog including Vitest/Jest/ESLint/env/CI) get elevated risk floors and are **never** “safe to delete” solely because the import graph is empty.
 
-4. **Surfaces consume only Core**; soft-index construction lives in `@prism/intelligence` + `@prism/impact`.
+4. **Surfaces consume only Core**; soft-index construction lives in `@repo-prism/intelligence` + `@repo-prism/impact`.
 
 5. Ship in **phases** (Vitest/Jest first) per M-049 Phase 8.1→8.3; alias resolution and CI deepen in later phases on the same branch.
 
@@ -88,8 +88,8 @@ Role floors apply **only** when tooling criticality is `none`, so the two
 systems never stack.
 
 The genuine defects the audit found were elsewhere and are fixed in M-051:
-duplicated band thresholds in `@prism/app-shell` (now one `riskToBand` in
-`@prism/shared`), and an engineering-health severity scale that ran the
+duplicated band thresholds in `@repo-prism/app-shell` (now one `riskToBand` in
+`@repo-prism/shared`), and an engineering-health severity scale that ran the
 opposite direction on the same 0–100 axis (now renamed
 `severityFromHealthScore`).
 

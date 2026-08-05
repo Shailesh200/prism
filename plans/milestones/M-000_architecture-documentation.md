@@ -45,7 +45,7 @@ Create `plans/architecture/` with:
 4. **`04_FOLDER_STRUCTURE.md` — Repository & package layout**
    - Canonical tree (apps / packages / plans / scripts / fixtures)
    - Ownership per directory
-   - Naming (`@prism/*`, milestone branches)
+   - Naming (`@repo-prism/*`, milestone branches)
    - Where brand assets live (`plans/mockups/logo/`)
    - Align with [`../STRUCTURE.md`](../STRUCTURE.md); this doc is the detailed SoT for implementers
 
@@ -55,7 +55,7 @@ Create `plans/architecture/` with:
    - What never leaves the machine by default
 
 6. **`06_PACKAGE_RESPONSIBILITIES.md` — Package RACI-style map**
-   - For each `@prism/*`: owns / depends on / must not contain
+   - For each `@repo-prism/*`: owns / depends on / must not contain
    - Reinforces “surfaces call Core only”
 
 Also update:

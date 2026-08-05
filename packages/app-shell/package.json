@@ -1,5 +1,5 @@
 {
-  "name": "@prism/app-shell",
+  "name": "@repo-prism/app-shell",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -15,25 +15,30 @@
     },
     "./styles.css": "./dist/styles.css"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json && bun run build:css",
     "build:css": "bun -e \"const parts=['overview.css','appnav.css','boot.css','overview-extra.css','dna-extra.css','trends-extra.css','domain-extra.css','testing-security-extra.css','blast-extra.css','integrations-extra.css','settings-extra.css','theme-extra.css','error-boundary.css','review-extra.css','tour-extra.css']; const css=(await Promise.all(parts.map(async (f)=>Bun.file('src/'+f).text()))).join('\\n'); await Bun.write('dist/styles.css', css)\"",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
-    "test:integration": "vitest run --config vitest.integration.config.ts"
+    "test": "vitest run"
   },
   "dependencies": {
-    "@prism/shared": "workspace:*",
-    "@prism/ui": "workspace:*",
+    "@repo-prism/shared": "workspace:*",
+    "@repo-prism/ui": "workspace:*",
     "lucide-react": "^1.25.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-icons": "^5.7.0"
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.3",
     "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3"
+    "@types/react-dom": "^19.2.3",
+    "jsdom": "^30.0.1"
   },
   "peerDependencies": {
     "react": "^19.0.0",

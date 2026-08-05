@@ -8,7 +8,7 @@ import {
   type FeatureInfo,
   type GraphSnapshotDto,
   type IndexSnapshot,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { buildRepositoryMap } from "./build.js";
 import { zoomIn, zoomOut } from "./zoom.js";
 

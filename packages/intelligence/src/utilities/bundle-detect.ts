@@ -9,7 +9,7 @@ import type {
   BundleAnalyzePackageInfo,
   BundleAnalyzeScriptInfo,
   BundleBundler,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { discoverPackageRoots } from "../stack/package-roots.js";
 
 const ANALYZE_SCRIPT_NAMES = [

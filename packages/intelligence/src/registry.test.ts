@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PrismErrorCode, StackDomain, ok } from "@prism/shared";
+import { PrismErrorCode, StackDomain, ok } from "@repo-prism/shared";
 import { StackDetectorRegistry } from "./registry.js";
 import { createUnknownDetector } from "./detectors.js";
 import { STACK_DETECTOR_SPI_VERSION } from "./spi-version.js";

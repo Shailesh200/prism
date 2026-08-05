@@ -6,7 +6,7 @@
 | Status | Verified |
 | Depends on | M-020 |
 | Unlocks | M-025, M-029 |
-| Packages | `@prism/impact`, `@prism/core` |
+| Packages | `@repo-prism/impact`, `@repo-prism/core` |
 
 ## Goal
 
@@ -53,7 +53,7 @@ for symbol resolution, reference sites, and heritage edges.
 
 ## Definition of Done
 
-- [x] `safeDelete` / `renameImpact` / `testImpact` / `breakingChangeHints` in `@prism/impact` + Core
+- [x] `safeDelete` / `renameImpact` / `testImpact` / `breakingChangeHints` in `@repo-prism/impact` + Core
 - [x] Golden reports on `m011-refs` fixture match (`packages/core/src/fixtures/*.golden.json`)
 - [x] Heuristics documented (this doc)
 - [x] Verify + PROGRESS + owner approval (approved & merged 2026-07-22)

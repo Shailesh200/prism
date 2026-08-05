@@ -10,7 +10,7 @@ The records themselves live in
 ## The ones that shape everything
 
 **Core is the only supported integration surface** (ADR-0004). Extensions, the
-CLI, the MCP server and the playground consume `@prism/core` and nothing deeper.
+CLI, the MCP server and the playground consume `@repo-prism/core` and nothing deeper.
 This is why the surfaces cannot disagree, and it has already paid for itself:
 test-runner logic that had been duplicated between the extension and the
 playground drifted apart and turned out to hold two different bugs.

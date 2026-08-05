@@ -17,7 +17,7 @@ type MapNode = MapGraph["nodes"][number];
 
 /**
  * Characterisation tests for the Overview derivations moved out of
- * `@prism/app-shell` in M-052. The expectations describe today's behaviour,
+ * `@repo-prism/app-shell` in M-052. The expectations describe today's behaviour,
  * including the parts that look odd, so the move can be proven rather than
  * asserted.
  */

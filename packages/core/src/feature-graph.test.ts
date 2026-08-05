@@ -1,7 +1,7 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { PrismErrorCode } from "@prism/shared";
+import { PrismErrorCode } from "@repo-prism/shared";
 import { Prism } from "./prism.js";
 
 const featuresFixture = join(

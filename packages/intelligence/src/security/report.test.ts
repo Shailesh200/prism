@@ -2,7 +2,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { SecurityReportSchema, type SecurityCheck } from "@prism/shared";
+import { SecurityReportSchema, type SecurityCheck } from "@repo-prism/shared";
 import { buildSecurityReport } from "./report.js";
 
 const temps: string[] = [];

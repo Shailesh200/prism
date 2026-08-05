@@ -8,14 +8,14 @@
 
 ## Context
 
-`@prism/vscode-extension` is a Bun workspace package (`name` scoped,
+`@repo-prism/vscode-extension` is a Bun workspace package (`name` scoped,
 `private: true`). The Visual Studio Marketplace requires an unscoped extension
 `name`, a non-private manifest, MIT (or other OSI) license, icon, and
 repository metadata. Publishing the workspace `package.json` as-is fails `vsce`.
 
 ## Decision
 
-1. Keep workspace identity as `@prism/vscode-extension` for Bun / moon / F5.
+1. Keep workspace identity as `@repo-prism/vscode-extension` for Bun / moon / F5.
 2. Stage a clean directory (`.vsix-stage/`) with Marketplace fields:
    - `name`: `repo-prism`
    - `publisher`: from workspace manifest (default `prismhq`)

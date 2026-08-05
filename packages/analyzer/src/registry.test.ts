@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { PrismErrorCode } from "@prism/shared";
+import { PrismErrorCode } from "@repo-prism/shared";
 import { PluginRegistry } from "./registry.js";
 import { createNoopPlugin } from "./noop-plugin.js";
 import { ANALYZER_SPI_VERSION } from "./spi-version.js";
 import type { LanguagePlugin } from "./types.js";
-import { ok } from "@prism/shared";
+import { ok } from "@repo-prism/shared";
 
 function stubPlugin(
   overrides: Partial<LanguagePlugin> &

@@ -12,7 +12,7 @@ import {
   type JsonValue,
   type MapLayerId,
   type ProvenancedValue,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 /**
  * Map layer heat, each signal carrying where it came from (ADR-0029).

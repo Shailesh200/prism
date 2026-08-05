@@ -29,8 +29,8 @@ import type {
   TestImpactReport,
   TestingReport,
   UtilityOverlayReport,
-} from "@prism/shared";
-import type { SaveBookmarkInput, WorkspacePackageInfo } from "@prism/core";
+} from "@repo-prism/shared";
+import type { SaveBookmarkInput, WorkspacePackageInfo } from "@repo-prism/core";
 import type {
   ApplyRenameInput,
   ApplyRenameResult,
@@ -38,7 +38,7 @@ import type {
   PrismGitignoreStatus,
   RunTestsOptions,
   TestListResult,
-} from "@prism/app-shell";
+} from "@repo-prism/app-shell";
 
 /** Audit entry payload emitted by the host for the webview to record. */
 export type HostAuditEntry = Omit<AuditEntry, "id" | "at"> & { at?: string };
@@ -348,6 +348,8 @@ export type HostToWebview =
       /** Pre-selected target for the Blast / Change Review / Explain screens. */
       targetPath?: string;
       targetPaths?: string[];
+      /** Pre-selected blast intent (Safe Delete Check → delete). */
+      intent?: "edit" | "delete";
     }
   | { type: "audit"; entry: HostAuditEntry }
   | { type: "codeLensEnabled"; enabled: boolean }
@@ -359,13 +361,13 @@ export type HostToWebview =
       type: "lighthouseLabProgress";
       id: string;
       message: string;
-      detail?: import("@prism/shared").JsonValue;
+      detail?: import("@repo-prism/shared").JsonValue;
     }
   | {
       type: "bundleAnalyzeProgress";
       id: string;
       message: string;
-      detail?: import("@prism/shared").JsonValue;
+      detail?: import("@repo-prism/shared").JsonValue;
     };
 
 export type WebviewToHost =

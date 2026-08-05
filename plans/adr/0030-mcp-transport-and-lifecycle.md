@@ -10,7 +10,7 @@
 
 ## Context
 
-`@prism/mcp-server` is Prism's first non-human surface. Everything shipped so far has been read by
+`@repo-prism/mcp-server` is Prism's first non-human surface. Everything shipped so far has been read by
 a person who can see a spinner, judge a stale number and decide whether to trust it. An agent has
 none of that. It sees a tool list, a schema and a blob of JSON, and it acts.
 
@@ -87,7 +87,7 @@ and react to them. Protocol-level problems stay protocol-level.
 
 ### 6. DTOs pass through unmodified
 
-Tools return `@prism/shared` DTOs exactly as Core produces them. No reshaping, no flattening, no
+Tools return `@repo-prism/shared` DTOs exactly as Core produces them. No reshaping, no flattening, no
 "friendlier" adapter shape.
 
 The MCP contract *is* the Core contract. A tool that reshapes is a second contract to keep in sync,

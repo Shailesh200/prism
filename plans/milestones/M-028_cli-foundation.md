@@ -6,7 +6,7 @@
 | Branch | `milestone/M-028-cli-foundation` (from latest `main`) |
 | Depends on | M-025, M-051, M-052 |
 | Unlocks | M-029 |
-| Packages | `@prism/cli` |
+| Packages | `@repo-prism/cli` |
 
 > **Rewritten 2026-08-05.** The original 36-line version predates the Core SDK freeze.
 
@@ -18,7 +18,7 @@ Breadth is M-029.
 
 ## 2. Current state
 
-`@prism/cli` is an empty stub. `package.json` declares **no dependencies at all** — not `@prism/core`,
+`@repo-prism/cli` is an empty stub. `package.json` declares **no dependencies at all** — not `@repo-prism/core`,
 not a CLI framework. `src/index.ts` is 2 lines. There is no `bin` entry.
 
 ## 3. Design decisions
@@ -28,7 +28,7 @@ not a CLI framework. `src/index.ts` is 2 lines. There is no `bin` entry.
 | Framework | **Commander** | Named in the original milestone; mature, small, good help output |
 | Workspace resolution | `--workspace` → `PRISM_WORKSPACE` → nearest ancestor containing `.git` → cwd | Git-root discovery is what users expect from a repo tool |
 | Output | Human by default, `--json` for machines | A CLI that only prints JSON is a bad CLI; one that cannot is unscriptable |
-| JSON shape | The `@prism/shared` DTO verbatim, wrapped in `{ ok, data }` or `{ ok, error }` | Same contract as Core and MCP; three surfaces, one shape |
+| JSON shape | The `@repo-prism/shared` DTO verbatim, wrapped in `{ ok, data }` or `{ ok, error }` | Same contract as Core and MCP; three surfaces, one shape |
 | Colour | Auto-detect TTY; `--no-color`; honour `NO_COLOR` | Piped output must be clean |
 | Exit codes | `0` ok · `1` analysis found a problem the user asked about · `2` usage error · `3` internal error | Distinguishing "worked, found issues" from "failed" is what makes it usable in CI |
 | Consent | Consent-gated paths refuse unless `--yes` is passed explicitly | Unlike an agent, a human at a terminal *can* consent — but never by default |
@@ -38,7 +38,7 @@ not a CLI framework. `src/index.ts` is 2 lines. There is no `bin` entry.
 
 | Task | Detail |
 |---|---|
-| 1 | Add `@prism/core` and `commander`; `bin: { prism: "./dist/cli.js" }`; shebang; executable bit |
+| 1 | Add `@repo-prism/core` and `commander`; `bin: { prism: "./dist/cli.js" }`; shebang; executable bit |
 | 2 | Global options: `--workspace`, `--json`, `--no-color`, `--quiet`, `--verbose`, `--yes`, `--version`, `--help` |
 | 3 | Workspace resolution with the precedence above, including git-root discovery |
 | 4 | Output layer: `renderHuman(dto)` / `renderJson(dto)` split so no command formats inline |
@@ -66,7 +66,7 @@ not a CLI framework. `src/index.ts` is 2 lines. There is no `bin` entry.
 - [x] `--json` output is valid JSON on stdout with nothing else on stdout
 - [x] Exit codes behave as documented, including `2` for a bad flag, an unknown command and a bare invocation
 - [x] `NO_COLOR` and non-TTY produce unstyled output
-- [x] `@prism/cli` imports only `@prism/core` and `@prism/shared` (boundary test over imports and the manifest)
+- [x] `@repo-prism/cli` imports only `@repo-prism/core` and `@repo-prism/shared` (boundary test over imports and the manifest)
 - [x] `bun run verify:milestone` green
 - [ ] Manual: read `prism --help` and each subcommand help as a first-time user (**owner**)
 - [ ] Owner approval → merge → Verified → snippet shared
@@ -106,7 +106,7 @@ nothing on success-shaped output.
 | Integration | Spawn `prism dna --json`; `JSON.parse(stdout)` succeeds |
 | Integration | Spawn with an invalid flag; assert exit 2 and usage on stderr |
 | Integration | Spawn with `NO_COLOR=1`; assert no ANSI escapes |
-| Contract | No import outside `@prism/core` and its types |
+| Contract | No import outside `@repo-prism/core` and its types |
 | Manual | Read `prism --help` and every subcommand help as a first-time user |
 
 ## 8. Risks

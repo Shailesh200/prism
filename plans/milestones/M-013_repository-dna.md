@@ -6,7 +6,7 @@
 | Status | Verified |
 | Depends on | M-012, M-040 |
 | Unlocks | M-014 |
-| Packages | `@prism/intelligence`, `@prism/core` |
+| Packages | `@repo-prism/intelligence`, `@repo-prism/core` |
 
 ## Goal
 

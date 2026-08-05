@@ -6,7 +6,7 @@
 | Branch | `milestone/M-053-presentation-consolidation` (from latest `main`) |
 | Depends on | M-052 |
 | Unlocks | — |
-| Packages | `@prism/core`, `@prism/intelligence`, `@prism/app-shell`, `@prism/ui`, `@prism/vscode-extension`, `apps/playground` |
+| Packages | `@repo-prism/core`, `@repo-prism/intelligence`, `@repo-prism/app-shell`, `@repo-prism/ui`, `@repo-prism/vscode-extension`, `apps/playground` |
 | Amends | [ADR-0004](../adr/0004-core-only-integration-surface.md), [ADR-0021](../adr/0021-app-shell-consolidation.md) |
 
 ## 1. Goal
@@ -30,8 +30,8 @@ the milestone would have shipped with the weakest evidence behind it.
 
 | Task | Detail |
 |---|---|
-| 1.1 | Publish `plans/notes/M-053-inventory.md`: every analysis symbol still in `@prism/app-shell`, `@prism/vscode-extension` and `apps/playground` — symbol, file, what it computes, whether Core already has an equivalent |
-| 1.2 | Classify each: **move to Core** / **move to `@prism/intelligence`** / **legitimately presentational** |
+| 1.1 | Publish `plans/notes/M-053-inventory.md`: every analysis symbol still in `@repo-prism/app-shell`, `@repo-prism/vscode-extension` and `apps/playground` — symbol, file, what it computes, whether Core already has an equivalent |
+| 1.2 | Classify each: **move to Core** / **move to `@repo-prism/intelligence`** / **legitimately presentational** |
 | 1.3 | Characterisation tests against the current implementations before anything moves, capturing today's output verbatim — including output that looks wrong |
 | 1.4 | Record where the playground and extension already disagree. Divergence is a finding, not something to quietly fix mid-move |
 
@@ -45,14 +45,14 @@ parsing, aggregation and thresholds for all of them.
 | 2.1 | Per-domain aggregation → Core as `getDomainReport(domain)`, returning a discriminated union over the six domains |
 | 2.2 | One domain at a time, each its own commit with its own characterisation test, so the diff stays reviewable |
 | 2.3 | `github-ci.ts` routed through Core with the M-051 consent gate applied — reachable only from `DomainScreen`, hence blocked behind 2.1 |
-| 2.4 | CWV parse convergence: `cwv-parse.ts` → `@prism/intelligence`, converging with `cwv-from-artifact.ts` onto one path |
+| 2.4 | CWV parse convergence: `cwv-parse.ts` → `@repo-prism/intelligence`, converging with `cwv-from-artifact.ts` onto one path |
 
 ### Phase 3 — Screen structure
 
 | Task | Detail |
 |---|---|
 | 3.1 | Record `DomainScreen.tsx` line count before and after Phase 2. Do not chase a target — the aggregation leaving is the point, the line count is the symptom |
-| 3.2 | Extract only primitives duplicated three or more times verbatim (section shell, empty state, metric tile) into `@prism/ui`. De-duplication, not redesign |
+| 3.2 | Extract only primitives duplicated three or more times verbatim (section shell, empty state, metric tile) into `@repo-prism/ui`. De-duplication, not redesign |
 | 3.3 | Leave `DnaScreen.tsx`, `BlastRadiusScreen.tsx` and `OverviewScreen.tsx` structurally alone |
 | 3.4 | Zero visual change, enforced by before/after screenshots of all six domain screens |
 
@@ -64,7 +64,7 @@ two implementations of the same client against the same Core surface — one ove
 
 | Task | Detail |
 |---|---|
-| 4.1 | One `PrismClient` interface in `@prism/app-shell` covering every method both clients serve |
+| 4.1 | One `PrismClient` interface in `@repo-prism/app-shell` covering every method both clients serve |
 | 4.2 | Two thin transports behind it: `HttpTransport` and `PostMessageTransport`. Method bodies live once |
 | 4.3 | Retain M-051's RPC deadline, rejection and schema validation. This phase must not regress it |
 | 4.4 | Delete the duplicated bodies. Success is lines removed, not added |
@@ -93,17 +93,17 @@ Additive only, per [ADR-0019](../adr/0019-core-sdk-versioning.md).
 
 | Package | Change |
 |---|---|
-| `@prism/core` | `getDomainReport(domain)`; CWV convergence; `github-ci` behind consent |
-| `@prism/intelligence` | Absorbs CWV parsing |
-| `@prism/shared` | `DomainReport` discriminated union |
-| `@prism/app-shell` | `PrismClient` interface + two transports |
+| `@repo-prism/core` | `getDomainReport(domain)`; CWV convergence; `github-ci` behind consent |
+| `@repo-prism/intelligence` | Absorbs CWV parsing |
+| `@repo-prism/shared` | `DomainReport` discriminated union |
+| `@repo-prism/app-shell` | `PrismClient` interface + two transports |
 
 ## 6. Definition of Done
 
 - [ ] M-052 Verified and merged; this branch cut from updated `main`
 - [ ] Only one milestone `In Progress`
 - [ ] Inventory published with every entry classified
-- [ ] No analysis logic left in `@prism/app-shell` outside the presentational list
+- [ ] No analysis logic left in `@repo-prism/app-shell` outside the presentational list
 - [ ] `getDomainReport` reachable from Core, all six domains, with tests
 - [ ] One `PrismClient` interface; two transports; no duplicated method bodies
 - [ ] M-051's RPC deadline/rejection/validation behaviour intact (regression test)

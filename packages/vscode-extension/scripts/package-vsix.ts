@@ -1,7 +1,7 @@
 /**
  * Stage a Marketplace-ready folder and run @vscode/vsce package.
  *
- * Workspace package stays `@prism/vscode-extension` (Bun workspaces).
+ * Workspace package stays `@repo-prism/vscode-extension` (Bun workspaces).
  * Marketplace id is `publisher.repo-prism` with unscoped name `repo-prism`.
  *
  * Platform-specific VSIX (required for better-sqlite3):

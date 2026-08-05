@@ -7,7 +7,7 @@ import {
   type Result,
   type SafeDeleteReport,
   type TestImpactReport,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import {
   affectedItems,
   buildReverseAdjacency,

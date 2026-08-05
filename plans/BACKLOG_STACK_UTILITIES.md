@@ -15,7 +15,7 @@ Artifacts stay **local**. Runners / remote APIs are **consent-based**. No Prism 
 
 | ID | Item | Notes | Phase |
 |---|---|---|---|
-| X-01 | Ingest SPI for measurement reports (JSON schemas in `@prism/shared`) | **Done** M-041 | P0 |
+| X-01 | Ingest SPI for measurement reports (JSON schemas in `@repo-prism/shared`) | **Done** M-041 | P0 |
 | X-02 | Local artifact store under `.prism/ingest/` (gitignored) | **Done** M-041 | P0 |
 | X-03 | Async job UX: start → progress → ready report | **Done** M-041 | P0 |
 | X-04 | Persona-default Map / insights presets | **Done** M-041 | P0 / Mono-v1 |

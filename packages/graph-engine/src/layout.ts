@@ -4,7 +4,7 @@ import {
   type PrismError,
   type Result,
   ok,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 export type LayoutOptions = {
   /** Horizontal gap between nodes in the same rank. */

@@ -3,7 +3,7 @@ import {
   unsafeNodeId,
   type GraphEdgeDto,
   type GraphSnapshotDto,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { describe, expect, it } from "vitest";
 import {
   computeBreakingChangeHints,

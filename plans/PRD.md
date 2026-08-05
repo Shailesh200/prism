@@ -63,7 +63,7 @@ Prism is a **local-first Software Intelligence Engine** that makes any repositor
 | Framework-agnostic | Detect frameworks; never hard-require one |
 | Zero required cloud | Cloud features (if any) are optional and post-GA |
 | Zero vendor lock-in | Open contracts, portable cache, exportable graphs |
-| One shared Core | MCP / CLI / VS Code / Cursor / Playground call `@prism/core` only |
+| One shared Core | MCP / CLI / VS Code / Cursor / Playground call `@repo-prism/core` only |
 | Extensible plugins | Languages & detectors are SPI plugins |
 | Production quality | Strict TS, tests, verify gates, ADRs |
 | Cross-platform | macOS, Linux, Windows |
@@ -101,7 +101,7 @@ Prism is a **local-first Software Intelligence Engine** that makes any repositor
 ┌─────────────────────────────────────────────────────────────┐
 │  Surfaces: VS Code │ Cursor │ MCP │ CLI │ Playground        │
 └───────────────────────────┬─────────────────────────────────┘
-                            │ @prism/core (public SDK only)
+                            │ @repo-prism/core (public SDK only)
 ┌───────────────────────────▼─────────────────────────────────┐
 │  Intelligence │ Impact │ Navigation │ Repository Map         │
 └───────────────────────────┬─────────────────────────────────┘
@@ -117,10 +117,10 @@ Prism is a **local-first Software Intelligence Engine** that makes any repositor
 
 | Surface | Role | Status (as of 2026-08-05) |
 |---|---|---|
-| **@prism/core** | Public SDK façade | **Shipped**; API frozen at v0.1.0 (M-025, ADR-0019) |
+| **@repo-prism/core** | Public SDK façade | **Shipped**; API frozen at v0.1.0 (M-025, ADR-0019) |
 | **Playground** | Interactive Map demo (Vite) | **Shipped** (M-018) |
-| **@prism/ui** | Shared React Map / panels | **Shipped** v2 (M-042) |
-| **@prism/app-shell** | Screens shared by playground + extension | **Shipped** (M-046, ADR-0021) |
+| **@repo-prism/ui** | Shared React Map / panels | **Shipped** v2 (M-042) |
+| **@repo-prism/app-shell** | Screens shared by playground + extension | **Shipped** (M-046, ADR-0021) |
 | **VS Code Extension** | Human IDE Map + explorer | **Shipped** and published as `prismhq.repo-prism` (M-030 / M-031 / M-047 / M-048) |
 | **Cursor Extension** | Thin packaging / branding | **Shipped** (M-032, ADR-0020) |
 | **MCP Server** | Tools for agents | Planned (M-026 / M-027) — the main remaining surface |
@@ -164,7 +164,7 @@ Legend: **Done** = Verified on `main` · **Active** = current milestone · **Nex
 
 | Capability | Milestone(s) | Requirements summary |
 |---|---|---|
-| Map UI playground | M-018 **Done** | Playground + `@prism/ui`: pan/zoom, search, feature overview, file density treemap, local-repo presets |
+| Map UI playground | M-018 **Done** | Playground + `@repo-prism/ui`: pan/zoom, search, feature overview, file density treemap, local-repo presets |
 | Map layers & views | M-019 **Done** (closed out) | ≥5 layers (architecture, dependency, activity, ownership, debt, risk, performance, coverage); toggle + legend — *shipped inside M-042* |
 | UI System v2 (Signal Chart) | M-042 **Done** | Dark relock (ADR-0014): KPI sidebar, edge graph, blast rings, rebuilt inspector, Overview landing |
 | IDE Map packaging | M-030 / M-031 **Done** | VS Code webview Map + explorer |
@@ -219,7 +219,7 @@ Level 3  Power → routes, bookmarks, landmarks, command palette
 
 | Capability | Milestone(s) | Requirements summary |
 |---|---|---|
-| Core SDK freeze v0 | M-025 **Done** | Public `@prism/core` frozen at v0.1.0; ADR-0019 |
+| Core SDK freeze v0 | M-025 **Done** | Public `@repo-prism/core` frozen at v0.1.0; ADR-0019 |
 | VS Code shell | M-030 **Done** | Extension host, webview shell, Core wiring |
 | VS Code Map + Explorer | M-031 **Done** | Full human Map experience in IDE |
 | Cursor extension | M-032 **Done** | Packaging/brand; coexist with MCP; ADR-0020 |
@@ -247,7 +247,7 @@ Level 3  Power → routes, bookmarks, landmarks, command palette
 
 ## 7. Agent & CLI contracts (target)
 
-Surfaces expose the **same nouns**. MCP tools (M-027) are thin wrappers over Core with JSON-serializable DTOs from `@prism/shared`.
+Surfaces expose the **same nouns**. MCP tools (M-027) are thin wrappers over Core with JSON-serializable DTOs from `@repo-prism/shared`.
 
 | MCP tool | CLI analogue | Purpose |
 |---|---|---|
@@ -334,7 +334,7 @@ truth — if they disagree, the stylesheet wins and this table is stale.
 | Cache | better-sqlite3 (Node-portable for extensions) |
 | Map UI | React + Vite + React Flow (Highcharts density prototype removed in M-019 close-out) |
 | Verify gate | `bun run verify:milestone` before owner review |
-| Integration rule | Surfaces → `@prism/core` only |
+| Integration rule | Surfaces → `@repo-prism/core` only |
 
 ---
 

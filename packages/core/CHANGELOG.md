@@ -1,4 +1,4 @@
-# @prism/core changelog
+# @repo-prism/core changelog
 
 ## 0.1.0 — 2026-07-23 (M-025 v0 freeze)
 
@@ -9,7 +9,7 @@
 - `PRISM_CORE_VERSION` → `0.1.0`; `PRISM_API_LEVEL` remains `1`
 - Capability flags: `map` and `navigation` enabled when default indexer is wired
 - Contract tests lock `PrismClient` / `PrismWorkspace` method names and exports
-- Primary DTOs re-exported from `@prism/core` (still defined in `@prism/shared`)
+- Primary DTOs re-exported from `@repo-prism/core` (still defined in `@repo-prism/shared`)
 
 ### Experimental (included in freeze inventory; may still evolve)
 

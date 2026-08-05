@@ -1,16 +1,16 @@
-# @prism/indexer
+# @repo-prism/indexer
 
 Workspace walk, ignore rules, content hashing, and repository index jobs.
 
 **Implemented:** M-005 (inventory), M-007 (IndexJob), M-008 (SQLite cache)  
 **Next:** M-033 watch / incremental (uses this cache)  
-**Depends on:** `@prism/shared`, `@prism/analyzer`, `better-sqlite3`  
-**Surfaces:** must call via `@prism/core` only (ADR-0004)
+**Depends on:** `@repo-prism/shared`, `@repo-prism/analyzer`, `better-sqlite3`  
+**Surfaces:** must call via `@repo-prism/core` only (ADR-0004)
 
 ## Index job (M-007)
 
 ```ts
-import { runIndexJob } from "@prism/indexer";
+import { runIndexJob } from "@repo-prism/indexer";
 
 const result = await runIndexJob("/absolute/path/to/repo", {
   concurrency: 4,
@@ -44,7 +44,7 @@ const snap = ws.getIndex();
 ## Inventory API
 
 ```ts
-import { inventoryWorkspace } from "@prism/indexer";
+import { inventoryWorkspace } from "@repo-prism/indexer";
 
 const result = await inventoryWorkspace("/absolute/path/to/repo");
 ```

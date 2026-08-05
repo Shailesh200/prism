@@ -6,7 +6,7 @@
  * will not know what it broke.
  */
 
-import { type PrismError, type Result, ok } from "@prism/shared";
+import { type PrismError, type Result, ok } from "@repo-prism/shared";
 import { z } from "zod";
 import { allWorkspaceRelative, toWorkspaceRelative } from "../paths.js";
 import { defineTool, type ToolContext } from "../tool-registry.js";

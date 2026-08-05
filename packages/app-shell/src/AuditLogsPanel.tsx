@@ -1,4 +1,4 @@
-import { SearchableInput, Select } from "@prism/ui";
+import { SearchableInput, Select } from "@repo-prism/ui";
 import {
   AlertTriangle,
   CheckCircle2,

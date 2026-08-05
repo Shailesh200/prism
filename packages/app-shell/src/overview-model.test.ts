@@ -1,4 +1,4 @@
-import type { RepositoryMap } from "@prism/shared";
+import type { RepositoryMap } from "@repo-prism/shared";
 import { describe, expect, it } from "vitest";
 import {
   activityGeometry,

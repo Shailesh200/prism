@@ -8,7 +8,7 @@ import type {
   BundlePackageRollup,
   BundleWeightReport,
   BundleWeightThresholds,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import type { ParsedBundleStats } from "./bundle-parsers.js";
 
 export const BUNDLE_WEIGHT_CALLOUT =

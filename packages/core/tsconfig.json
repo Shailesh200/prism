@@ -29,6 +29,9 @@
     },
     {
       "path": "../shared"
+    },
+    {
+      "path": "../test-support"
     }
   ]
 }

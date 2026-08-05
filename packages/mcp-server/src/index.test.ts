@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { PACKAGE_NAME } from "./index.js";
 
-describe("@prism/mcp-server", () => {
+describe("@repo-prism/mcp-server", () => {
   it("exports package name", () => {
-    expect(PACKAGE_NAME).toBe("@prism/mcp-server");
+    expect(PACKAGE_NAME).toBe("@repo-prism/mcp-server");
   });
 });

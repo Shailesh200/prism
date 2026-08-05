@@ -16,8 +16,8 @@ coverage, or left-shift tooling. M-024 Engineering Insights overlapped with
 ranked-signal / Most Connected work and is absorbed into M-046 rather than
 shipped as a separate insights engine.
 
-Surfaces must not invent scores; analysis belongs in `@prism/intelligence` and
-is exposed via `@prism/core` DTOs in `@prism/shared`.
+Surfaces must not invent scores; analysis belongs in `@repo-prism/intelligence` and
+is exposed via `@repo-prism/core` DTOs in `@repo-prism/shared`.
 
 ## Decision
 
@@ -34,7 +34,7 @@ Add typed Core APIs:
 
 Product surface:
 
-- New **Testing & Security** tab in `@prism/app-shell`, placed **below Domains**
+- New **Testing & Security** tab in `@repo-prism/app-shell`, placed **below Domains**
   in the left nav.
 - Overview replaces the single Test Presence card with a **dual-stat** card
   (Test score + Security score).

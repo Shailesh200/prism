@@ -1,4 +1,4 @@
-import { nodesFromIndexSnapshot } from "@prism/graph-engine";
+import { nodesFromIndexSnapshot } from "@repo-prism/graph-engine";
 import {
   type GraphEdgeDto,
   type GraphNodeDto,
@@ -6,7 +6,7 @@ import {
   type IndexSnapshot,
   unsafeEdgeId,
   unsafeNodeId,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { findCycles } from "./cycles.js";
 import {
   discoverLocalPackages,

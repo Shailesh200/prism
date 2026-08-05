@@ -1,5 +1,5 @@
 {
-  "name": "@prism/docs",
+  "name": "@repo-prism/docs",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,7 +7,6 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
-    "test:integration": "vitest run --config vitest.integration.config.ts"
+    "test": "vitest run"
   }
 }

@@ -6,7 +6,7 @@
 | Status | Verified |
 | Depends on | M-003 |
 | Unlocks | M-005 |
-| Packages | `@prism/analyzer`, `@prism/core` (wiring) |
+| Packages | `@repo-prism/analyzer`, `@repo-prism/core` (wiring) |
 
 ## Goal
 

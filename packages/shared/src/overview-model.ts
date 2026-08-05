@@ -1,12 +1,12 @@
 /**
  * Overview dashboard derivations (M-052).
  *
- * These used to live in `@prism/app-shell/overview-model.ts`, which meant the
+ * These used to live in `@repo-prism/app-shell/overview-model.ts`, which meant the
  * headline numbers on Prism's landing screen — coupling, regions, the most
  * connected files, commit activity — existed only inside a React component and
  * were unreachable from MCP, the CLI, or any script.
  *
- * They live in `@prism/shared` rather than `@prism/core` because the webview
+ * They live in `@repo-prism/shared` rather than `@repo-prism/core` because the webview
  * cannot import Core (Node-only, better-sqlite3), and one implementation both
  * sides import beats two that agree by luck. Same reasoning as `risk-bands.ts`.
  *

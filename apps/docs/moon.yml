@@ -13,5 +13,3 @@ tasks:
     command: "bun run typecheck"
   test:
     command: "bun run test"
-  test-integration:
-    command: "bun run test:integration"

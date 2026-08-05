@@ -5,6 +5,9 @@
 Every command below runs against a real repository. Use one of your own — Prism
 is more interesting when you can check whether it is right.
 
+**Needs:** Node.js 26+, and either a global `prism` (`npm i -g @repo-prism/cli`)
+or prefix every command with `npx -y @repo-prism/cli`.
+
 ## 1. Look before you index
 
 ```bash
@@ -13,21 +16,23 @@ prism doctor
 ```
 
 This tells you which directory Prism will treat as the workspace and how it
-decided. If that is not the repository you meant, pass `--workspace` explicitly
-or set `PRISM_WORKSPACE`.
+decided (`git root` is normal). If that is not the repository you meant, pass
+`--workspace` or set `PRISM_WORKSPACE`.
 
-## 2. Build the index
+A **warn** on Index cache on first run is expected — the next command that needs
+an index will build one.
+
+## 2. Build the index (optional)
 
 ```bash
 prism index
 ```
 
-Prism parses every source file and stores the result in `.prism/cache/index.sqlite`. It
-reports how many files it read and any it skipped, with the reason. Later
-commands reuse this index; they will build it themselves if it is missing.
+You can skip this step: `dna`, `health`, `blast`, and the other analysis commands
+call `index` themselves on first use. Running it now just makes the first
+analysis feel snappy.
 
-A few thousand files takes seconds. Watch the warnings — a large number of
-skipped files usually means a misconfigured exclude, not a broken repository.
+Prism stores the result in `.prism/cache/`. Later commands reuse it.
 
 ## 3. Ask what this project is
 
@@ -39,34 +44,24 @@ prism dna
 frameworks and tools it detected, the domains it spans (frontend, backend, data,
 infrastructure), and how confident it is about each.
 
-Confidence matters. Prism shows it because a detector that found a
-`next.config.js` and a hundred matching imports is on much firmer ground than
-one that found a single dependency in `package.json`.
-
 ## 4. Ask where the risk is
 
 ```bash
 prism health
+# optional: see which workspace was chosen and how long indexing took
+prism health --verbose
 ```
 
-A 0–100 score with the factors that produced it. The factors are the useful
-part; the single number is a headline.
-
-Higher is better. If a factor scores badly, that is where to look.
+A 0–100 score with the factors that produced it. Higher is better.
 
 ## 5. Ask what a change would break
-
-Pick a file you were thinking of editing:
 
 ```bash
 prism blast src/some/file.ts
 ```
 
-**Blast radius** is what else is affected if you change this file: what depends
-on it directly, what depends on those, and how the risk is distributed. It is
-the question you would otherwise answer with a nervous grep.
-
-Add `--delete` to ask the harsher version — what breaks if this file goes away.
+Add `--delete` to ask what breaks if the file goes away. Add `--fail-on high`
+in CI to exit `1` when risk is high.
 
 ## 6. Ask what belongs together
 
@@ -74,34 +69,26 @@ Add `--delete` to ask the harsher version — what breaks if this file goes away
 prism explain src/some/directory
 ```
 
-Prism describes an area in prose: what it appears to do, what it depends on,
-what depends on it, and who has been working in it.
-
 ## 7. Make it useful in CI
-
-Every command that produces a risk or a score accepts `--fail-on`, and exits `1`
-when the threshold is met:
 
 ```bash
 prism blast src/critical/thing.ts --fail-on high
-echo $?
-```
-
-And every command speaks JSON, with nothing else on standard output:
-
-```bash
 prism health --json | jq '.data.score'
 ```
 
-That combination — a real exit code and clean JSON — is the whole point of the
-CLI. See [Using the CLI](../using/cli.md) for exit codes and global options.
+See [Using the CLI](../using/cli.md) for exit codes and global options.
+
+## 8. (Optional) Give an agent the same data
+
+Follow the numbered steps in [Using MCP](../using/mcp.md). After that, ask the
+agent in plain language — you never type tool names.
 
 ## What next
 
 | You want | Go to |
 |---|---|
+| Install every surface step by step | [Install](./install.md) |
 | The same thing, visually | [VS Code extension](../using/vscode-extension.md) |
+| Cursor extension + agent | [Cursor](../using/cursor.md) |
 | Every command | [CLI reference](../reference/cli-commands.md) |
-| To understand what the numbers mean | [Concepts](../concepts/repository-index.md) |
-| To give an agent this data | [MCP](../using/mcp.md) |
 | Something looks wrong | [Troubleshooting](../reference/troubleshooting.md) |

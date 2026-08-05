@@ -6,7 +6,7 @@
 | Status | Verified |
 | Depends on | M-016, M-041 Gate A |
 | Unlocks | M-018 |
-| Packages | `@prism/repository-map`, `@prism/core`, `@prism/shared` |
+| Packages | `@repo-prism/repository-map`, `@repo-prism/core`, `@repo-prism/shared` |
 
 ## Goal
 

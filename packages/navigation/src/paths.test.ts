@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   NavigationRouteResultSchema,
   type GraphSnapshotDto,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { findPaths, shortestPath } from "./paths.js";
 
 function graph(

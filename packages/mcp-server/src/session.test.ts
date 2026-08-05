@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import type { PrismWorkspace } from "@prism/core";
+import type { PrismWorkspace } from "@repo-prism/core";
 import {
   PrismErrorCode,
   type PrismError,
@@ -10,7 +10,7 @@ import {
   err,
   ok,
   prismError,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { createWorkspaceSession } from "./session.js";
 
 /** Minimal stand-in — the session only ever calls `index` and `close`. */
@@ -42,6 +42,33 @@ describe("workspace session (M-026)", () => {
     await session.ready();
 
     expect(index).toHaveBeenCalledTimes(1);
+  });
+
+  it("forwards index progress to the optional sink", async () => {
+    const root = await tempDir();
+    const onIndexProgress = vi.fn();
+    const index = vi.fn(
+      async (opts?: { onProgress?: (e: unknown) => void }) => {
+        opts?.onProgress?.({ phase: "analyze", filesDone: 1, filesTotal: 2 });
+        return ok({ files: [] });
+      },
+    );
+    const { workspace } = fakeWorkspace(index);
+    const session = createWorkspaceSession({
+      root,
+      openWorkspace: () => ok(workspace),
+      onIndexProgress,
+    });
+
+    await session.ready();
+
+    expect(onIndexProgress).toHaveBeenCalled();
+    expect(onIndexProgress.mock.calls[0]?.[0]).toMatchObject({
+      phase: "inventory",
+    });
+    expect(onIndexProgress).toHaveBeenCalledWith(
+      expect.objectContaining({ phase: "analyze", filesDone: 1 }),
+    );
   });
 
   it("indexes once when the first calls arrive concurrently", async () => {

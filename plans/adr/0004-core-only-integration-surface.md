@@ -14,13 +14,13 @@ Prism exposes intelligence through MCP, CLI, VS Code, Cursor, and Playground. Wi
 
 ## Decision
 
-**All user-facing surfaces consume `@prism/core` only.** Engine packages (`analyzer`, `indexer`, `graph-engine`, domain engines) are internal implementation details wired by Core via typed ports. Surfaces must not import those packages for product behavior.
+**All user-facing surfaces consume `@repo-prism/core` only.** Engine packages (`analyzer`, `indexer`, `graph-engine`, domain engines) are internal implementation details wired by Core via typed ports. Surfaces must not import those packages for product behavior.
 
 ## Options Considered
 
 ### Option A — Core-only façade (chosen)
 
-- Pros: One API to evolve; shared DTOs via `@prism/shared`; easier privacy/local-first guarantees; MCP tools stay thin JSON adapters.
+- Pros: One API to evolve; shared DTOs via `@repo-prism/shared`; easier privacy/local-first guarantees; MCP tools stay thin JSON adapters.
 - Cons: Core must grow carefully; temporary stubs until engines land.
 
 ### Option B — Surfaces call engines directly

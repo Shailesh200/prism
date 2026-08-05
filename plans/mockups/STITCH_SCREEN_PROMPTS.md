@@ -3,7 +3,7 @@
 Prompts for generating Prism screens with **[Google Stitch](https://stitch.withgoogle.com)**.
 One screen per prompt. When Stitch is happy, export the screen (Figma or code),
 save the HTML under `plans/mockups/screens/html/` with the noted filename, and
-hand it back — we build the React screen against `@prism/core`.
+hand it back — we build the React screen against `@repo-prism/core`.
 
 ## How to use with Stitch
 

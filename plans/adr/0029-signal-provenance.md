@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| Status | **Proposed** |
-| Date | 2026-08-05 |
+| Status | **Accepted** |
+| Date | 2026-08-05 (accepted at GA readiness, M-039, once M-051 had implemented it) |
 | Decision makers | Owner, Architect |
 | Related milestones | **M-051** (implementation), M-017, M-019, M-042, M-046 |
 | Supersedes | — (constrains ADR-0013 layer signals and ADR-0023 trends history) |
@@ -38,7 +38,7 @@ numbers as equally trustworthy.
 
 **Option B — Provenance is part of the contract.**
 
-1. **Every quantitative signal that crosses `@prism/core` carries provenance.** A new shared type:
+1. **Every quantitative signal that crosses `@repo-prism/core` carries provenance.** A new shared type:
 
    ```ts
    type SignalProvenance =

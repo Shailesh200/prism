@@ -15,7 +15,7 @@ All flows stay on the **local machine** unless the user later opts into optional
 sequenceDiagram
   actor U as User / Agent
   participant S as Surface<br/>IDE / CLI / MCP
-  participant C as @prism/core
+  participant C as @repo-prism/core
   participant I as Indexer
   participant A as Analyzer
   participant DB as SQLite
@@ -126,7 +126,7 @@ MCP must not parse the repo itself — only Core.
 ```mermaid
 sequenceDiagram
   actor U as User
-  participant CLI as @prism/cli
+  participant CLI as @repo-prism/cli
   participant C as Core
 
   U->>CLI: prism blast-radius path

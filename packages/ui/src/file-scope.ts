@@ -1,4 +1,4 @@
-import type { GraphNodeDto } from "@prism/shared";
+import type { GraphNodeDto } from "@repo-prism/shared";
 import { buildFileTreeIndex, type TreeEntry } from "./file-tree.js";
 
 export type DrillScope = {

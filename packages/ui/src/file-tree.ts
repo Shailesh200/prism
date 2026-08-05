@@ -1,4 +1,4 @@
-import type { GraphNodeDto } from "@prism/shared";
+import type { GraphNodeDto } from "@repo-prism/shared";
 
 export type TreeEntryKind = "folder" | "file" | "symbol";
 

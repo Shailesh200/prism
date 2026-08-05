@@ -2,8 +2,8 @@ import type {
   ChangeReviewItem,
   ChangeReviewReport,
   RiskBand,
-} from "@prism/shared";
-import { riskBandDescriptor, riskToBand } from "@prism/shared";
+} from "@repo-prism/shared";
+import { riskBandDescriptor, riskToBand } from "@repo-prism/shared";
 import {
   AlertTriangle,
   CheckCircle2,

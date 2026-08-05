@@ -23,16 +23,19 @@
   ],
   "references": [
     {
+      "path": "../../packages/app-shell"
+    },
+    {
       "path": "../../packages/core"
     },
     {
       "path": "../../packages/shared"
     },
     {
-      "path": "../../packages/ui"
+      "path": "../../packages/test-support"
     },
     {
-      "path": "../../packages/app-shell"
+      "path": "../../packages/ui"
     }
   ]
 }

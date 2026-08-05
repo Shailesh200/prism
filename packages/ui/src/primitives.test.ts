@@ -17,7 +17,7 @@ function isComponent(value: unknown): boolean {
 
 describe("design-system primitives exports", () => {
   it("keeps PACKAGE_NAME and exports primitive components", () => {
-    expect(PACKAGE_NAME).toBe("@prism/ui");
+    expect(PACKAGE_NAME).toBe("@repo-prism/ui");
     expect(Input).toBeTruthy();
     expect(Textarea).toBeTruthy();
     expect(isComponent(Input)).toBe(true);

@@ -102,9 +102,10 @@ envelope, so a script reading one stream never misses a failure:
 
 ## An MCP tool says an index is required
 
-The repository has not been indexed and the build failed — usually a workspace
-path problem. `--workspace` in your MCP config must be an absolute path. Run
-`prism doctor` in the same directory to see what the engine resolves.
+The repository has not been indexed and the build failed — usually the MCP
+server started with the wrong cwd (or no git root). Confirm the client launched
+it from the open project, or set `PRISM_WORKSPACE` / `--workspace` once. Run
+`prism doctor` in that same directory to see what the engine resolves.
 
 ## An MCP result is missing items
 

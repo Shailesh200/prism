@@ -15,7 +15,7 @@ import {
   ok,
   parseDto,
   prismError,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import type { ConsentStore } from "./consent.js";
 import {
   LIGHTHOUSE_CALLOUT,

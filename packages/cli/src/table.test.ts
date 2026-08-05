@@ -1,4 +1,4 @@
-import { RISK_BAND_MIN, riskToBand } from "@prism/shared";
+import { RISK_BAND_MIN, riskToBand } from "@repo-prism/shared";
 import { describe, expect, it } from "vitest";
 import { stripAnsi } from "./output.js";
 import {
@@ -126,7 +126,7 @@ describe("renderTable", () => {
 });
 
 describe("band colouring agrees with the shared thresholds", () => {
-  // M-051 Phase 3 put `riskToBand` in @prism/shared so that surfaces stop
+  // M-051 Phase 3 put `riskToBand` in @repo-prism/shared so that surfaces stop
   // inventing thresholds. These assertions are the CLI's half of that promise.
   it.each([0, 19, 20, 59, 60, 100])("matches riskToBand at %i", (score) => {
     const expected = { low: "green", mid: "yellow", high: "red" }[

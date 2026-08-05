@@ -7,7 +7,7 @@ import {
   type IndexSnapshot,
   type PrismError,
   type Result,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { Prism } from "./prism.js";
 import type { IndexerPort } from "./ports.js";
 import type { IndexFreshness, PrismWorkspace } from "./workspace.js";

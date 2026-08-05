@@ -1,7 +1,7 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { PrismErrorCode, ok, type IndexSnapshot } from "@prism/shared";
+import { PrismErrorCode, ok, type IndexSnapshot } from "@repo-prism/shared";
 import { Prism } from "./prism.js";
 import { STUB_CAPABILITIES } from "./capabilities.js";
 import { PRISM_API_LEVEL, PRISM_CORE_VERSION } from "./version.js";

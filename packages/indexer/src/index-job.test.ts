@@ -7,7 +7,7 @@ import {
   IndexSnapshotSchema,
   PrismErrorCode,
   type IndexProgressEvent,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { runIndexJob, snapshotToSummary } from "./index-job.js";
 
 const fixtureRoot = join(

@@ -15,7 +15,7 @@ import {
   rankDomainsByConfidence,
 } from "./index.js";
 
-describe("@prism/intelligence exports", () => {
+describe("@repo-prism/intelligence exports", () => {
   it("exposes stack SPI factories", () => {
     expect(STACK_DETECTOR_SPI_VERSION).toBe(1);
     expect(typeof createStackHost).toBe("function");

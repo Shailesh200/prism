@@ -1,64 +1,30 @@
-# @prism/core
+# @repo-prism/core
 
-**Public SDK façade (v0.1.0).** MCP, CLI, VS Code, Cursor, and Playground must
-integrate **only** through this package. Engine packages are internal.
+[![npm](https://img.shields.io/npm/v/@repo-prism/core.svg)](https://www.npmjs.com/package/@repo-prism/core)
 
-- [ADR-0004](../../plans/adr/0004-core-only-integration-surface.md) — Core-only
-- [ADR-0019](../../plans/adr/0019-core-sdk-versioning.md) — versioning / freeze
-- [Core SDK reference](../../plans/guides/CORE_SDK.md) — stability table
-- [CHANGELOG](./CHANGELOG.md)
+Public SDK for Prism’s local-first analysis engine. Surfaces (CLI, MCP, IDE)
+should call **Core only** — they must not re-implement analysis.
 
-## Install (workspace)
-
-```ts
-import { Prism, ok, type HealthScore } from "@prism/core";
+```bash
+npm install @repo-prism/core
 ```
 
-## Lifecycle
-
 ```ts
-const prism = Prism.create();
-// prism.version === "0.1.0"; prism.apiLevel === 1
+import { Prism } from "@repo-prism/core";
 
-const opened = prism.openRepository("/absolute/path/to/repo");
-if (!opened.ok) throw opened.error;
-
-const ws = opened.value;
-const indexed = await ws.index();
-if (!indexed.ok) throw indexed.error;
-
-const health = await ws.getHealth();
-if (health.ok) console.log(health.value.score, health.value.grade);
-
-const map = ws.getRepositoryMap({ zoom: "package" });
-if (map.ok) console.log(map.value.nodes.length);
-
-ws.close();
+const client = Prism.create();
+const workspace = await client.openRepository("/absolute/path/to/repo");
+const health = workspace.getHealth();
 ```
 
-## Stable highlights
+Most users should use a surface instead of Core directly:
 
-| API | Role |
+| Surface | Package / link |
 |---|---|
-| `Prism.create()` | Client + default ports / capabilities |
-| `openRepository` | Workspace handle |
-| `index` / `analyze` / `reindex` | Index lifecycle |
-| `intelligence` / `getDna` / `getHealth` | Intelligence + health |
-| `getDependencyGraph` / KG / features | Graphs |
-| `findRoute` / `listLandmarks` | Navigation |
-| `getRepositoryMap` / `getGitActivity` | Map + local git |
-| `blastRadius` / `safeDelete` / … | Impact |
+| CLI | [`@repo-prism/cli`](https://www.npmjs.com/package/@repo-prism/cli) |
+| MCP (agents) | [`@repo-prism/mcp-server`](https://www.npmjs.com/package/@repo-prism/mcp-server) |
+| VS Code / Cursor | [RepoPrism](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism) |
 
-**Experimental** (may change before 1.0): `getEngineeringHealth`, `exploreCode`,
-`getBackendReport`, utility overlays / jobs, mono package selection — see
-[CORE_SDK.md](../../plans/guides/CORE_SDK.md).
+Docs: [Core SDK](https://github.com/Shailesh200/prism/blob/main/docs/architecture/core-sdk.md) · [Source](https://github.com/Shailesh200/prism)
 
-## Rules
-
-- Surfaces **never** import engine packages directly.
-- Prefer `Result` + `PrismError` (re-exported from Core) over thrown strings.
-- No network I/O in Core analysis paths.
-- Breaking **stable** APIs after this freeze: ADR + `PRISM_API_LEVEL` bump.
-
-**Depends on:** `@prism/shared`, analyzer, indexer, intelligence, navigation,
-repository-map, impact
+License: [MIT](https://github.com/Shailesh200/prism/blob/main/LICENSE)

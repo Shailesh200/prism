@@ -1,13 +1,13 @@
-# @prism/repository-map
+# @repo-prism/repository-map
 
 Repository Map **data model**: zoom levels, layers, clusters, bookmarks schema, search index.
 
 **Implemented:** M-017  
-**Depends on:** `@prism/shared`, `@prism/graph-engine`
+**Depends on:** `@repo-prism/shared`, `@repo-prism/graph-engine`
 
 ## Core entry
 
-Surfaces call `workspace.getRepositoryMap(options)` on `@prism/core` only.
+Surfaces call `workspace.getRepositoryMap(options)` on `@repo-prism/core` only.
 
 ## Zoom
 

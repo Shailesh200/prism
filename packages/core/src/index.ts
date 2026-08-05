@@ -1,7 +1,8 @@
-/** @prism/core — public SDK façade (only supported integration surface). */
+/** @repo-prism/core — public SDK façade (only supported integration surface). */
 
 export { Prism, type PrismClient, type PrismClientOptions } from "./prism.js";
 export type { ChangedPaths } from "./git/changed-paths.js";
+export type { PrismGitignoreStatus } from "./git/prism-gitignore.js";
 export {
   createWorkspace,
   type FeatureGraphView,
@@ -21,7 +22,7 @@ export {
   type WorkspaceStatus,
   type WorkspaceTestList,
 } from "./workspace.js";
-export type { RouteEndpoint } from "@prism/navigation";
+export type { RouteEndpoint } from "@repo-prism/navigation";
 export type {
   DependencyGraphOptions,
   FindReferencesQuery,
@@ -29,13 +30,13 @@ export type {
   ReferenceHit,
   StartUtilityJobInput,
   SymbolHit,
-} from "@prism/intelligence";
+} from "@repo-prism/intelligence";
 export {
   UTILITY_JOB_BUNDLE_STATS,
   UTILITY_JOB_ECHO,
   UTILITY_JOB_LIGHTHOUSE,
   UTILITY_JOB_REMOTE_PROBE_STUB,
-} from "@prism/intelligence";
+} from "@repo-prism/intelligence";
 export type {
   BackendReport,
   BlastRadiusReport,
@@ -87,8 +88,8 @@ export type {
   UtilityOverlayKind,
   UtilityOverlayKindInfo,
   UtilityOverlayReport,
-} from "@prism/shared";
-export { PrismErrorCode, err, ok, prismError } from "@prism/shared";
+} from "@repo-prism/shared";
+export { PrismErrorCode, err, ok, prismError } from "@repo-prism/shared";
 export { STUB_CAPABILITIES, type PrismCapabilities } from "./capabilities.js";
 export type {
   AnalyzerPort,

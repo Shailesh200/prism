@@ -16,7 +16,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useId, useState, type ReactElement, type ReactNode } from "react";
-import { CardIcon, InfoTip, Input, type CardIconTone } from "@prism/ui";
+import { CardIcon, InfoTip, Input, type CardIconTone } from "@repo-prism/ui";
 import { AppSidebar, type AppSidebarUser, type AppView } from "./AppSidebar.js";
 import { shellNavVariant, shellRootClass } from "./shell-layout.js";
 import { fetchGithubWorkflows, fetchPagespeedMetrics } from "./github-ci.js";

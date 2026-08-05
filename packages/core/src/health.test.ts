@@ -1,7 +1,7 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { HealthScoreSchema } from "@prism/shared";
+import { HealthScoreSchema } from "@repo-prism/shared";
 import { Prism } from "./prism.js";
 
 const fixture = join(

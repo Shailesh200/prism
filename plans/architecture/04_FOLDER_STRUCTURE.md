@@ -89,8 +89,8 @@ Prism/
 
 ## 3. Package naming
 
-- npm name: `@prism/<folder-name>`
-- Import rule: surfaces → `@prism/core` (+ `@prism/shared` types, `@prism/ui` for IDE/playground)
+- npm name: `@repo-prism/<folder-name>`
+- Import rule: surfaces → `@repo-prism/core` (+ `@repo-prism/shared` types, `@repo-prism/ui` for IDE/playground)
 
 ---
 

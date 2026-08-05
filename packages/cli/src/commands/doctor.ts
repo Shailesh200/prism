@@ -8,8 +8,8 @@
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { PRISM_API_LEVEL, PRISM_CORE_VERSION } from "@prism/core";
-import { ok } from "@prism/shared";
+import { PRISM_API_LEVEL, PRISM_CORE_VERSION } from "@repo-prism/core";
+import { ok } from "@repo-prism/shared";
 import { paint, renderFields, renderHeading, type Style } from "../output.js";
 import { wrap } from "../table.js";
 import type { CommandHandler } from "../runtime.js";
@@ -63,8 +63,12 @@ export const doctorCommand: CommandHandler = async (context) => {
   const hasCache = existsSync(cacheDir);
   checks.push({
     label: "Index cache",
-    status: "ok",
-    detail: hasCache ? cacheDir : "none yet — run `prism index`",
+    // Not a failure — every command builds the index it needs. It is still
+    // worth flagging, because it is why the next command will be the slow one.
+    status: hasCache ? "ok" : "warn",
+    detail: hasCache
+      ? cacheDir
+      : "none yet — the next command that needs it will build one, or run `prism index` now",
   });
 
   // Only touch the index when the workspace is real; opening a missing path

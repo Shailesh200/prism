@@ -22,6 +22,12 @@ tasks:
       - "vitest.config.ts"
   test-integration:
     command: "bun run test:integration"
+    # The cross-surface suite spawns the real `prism` binary, so the CLI has to
+    # be built before this runs — otherwise the test fails with a missing file
+    # and reads as a broken surface rather than a missing build step.
+    deps:
+      - "cli:build"
+      - "test-support:build"
     inputs:
       - "src/**/*"
       - "vitest.integration.config.ts"

@@ -1,7 +1,7 @@
 # Core SDK reference (v0.1.0)
 
 Public integration surface for Prism. Surfaces (MCP, CLI, VS Code, Cursor,
-Playground) must call **`@prism/core` only** ([ADR-0004](../adr/0004-core-only-integration-surface.md)).
+Playground) must call **`@repo-prism/core` only** ([ADR-0004](../adr/0004-core-only-integration-surface.md)).
 
 Versioning / stability policy: [ADR-0019](../adr/0019-core-sdk-versioning.md).
 
@@ -11,7 +11,7 @@ Versioning / stability policy: [ADR-0019](../adr/0019-core-sdk-versioning.md).
 | `PRISM_API_LEVEL` | `1` |
 
 ```ts
-import { Prism, type PrismWorkspace } from "@prism/core";
+import { Prism, type PrismWorkspace } from "@repo-prism/core";
 
 const client = Prism.create();
 const opened = client.openRepository("/abs/path/to/repo");
@@ -79,7 +79,7 @@ Default `Prism.create()` enables all of the above when default ports are wired.
 | `startHealthHistoryBackfill` / `getHealthHistoryBackfillStatus` | M-046 git backfill job |
 | `findRoute` / `navigateFeature` / `listLandmarks` | M-016 |
 | `getRepositoryMap` | M-017 |
-| `getOverviewModel` | **M-052**; the Overview dashboard's aggregation — totals, coupling density + band, up to 8 regions, most-connected nodes, bucketed commit activity. Region `score` is `null` where there is no evidence, never `0` (ADR-0029). Derivations live in `@prism/shared/overview-model` so the webview and Core compute identical numbers |
+| `getOverviewModel` | **M-052**; the Overview dashboard's aggregation — totals, coupling density + band, up to 8 regions, most-connected nodes, bucketed commit activity. Region `score` is `null` where there is no evidence, never `0` (ADR-0029). Derivations live in `@repo-prism/shared/overview-model` so the webview and Core compute identical numbers |
 | `getGitActivity` | Local git; fail-soft `available: false` |
 | `blastRadius` | M-020; **M-049** additive soft lanes (`lane`, `confidence`, `evidence`, `lanes[]`, `hardAffectedCount` / `softAffectedCount`, `coverageNote`); optional `intent: "edit" \| "delete"`; report may include `originRole`, `forwardDependencies`, `scenarioChecklist` |
 | `safeDelete` / `renameImpact` / `testImpact` / `breakingChangeHints` | M-021; **M-049** `softBlockers` / `toolingCritical` on safe-delete |
@@ -130,8 +130,8 @@ part of the workspace façade — a caller has to opt into them by name.
 
 ## Result convention
 
-All fallible APIs return `Result<T, PrismError>` from `@prism/shared` (also
-re-exported by `@prism/core`). Prefer checking `.ok` over try/catch.
+All fallible APIs return `Result<T, PrismError>` from `@repo-prism/shared` (also
+re-exported by `@repo-prism/core`). Prefer checking `.ok` over try/catch.
 
 Common codes: `PRISM_WORKSPACE_NOT_OPEN`, `PRISM_INDEX_REQUIRED`,
 `PRISM_VALIDATION`, `PRISM_UNSUPPORTED`.

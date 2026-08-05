@@ -10,6 +10,9 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { createIndexProgressReporter } from "./index-progress.js";
+import { SERVER_INSTRUCTIONS } from "./instructions.js";
+import { registerPrompts } from "./prompts.js";
 import {
   createWorkspaceSession,
   type SessionOptions,
@@ -48,18 +51,30 @@ export function createPrismMcpServer(
   const server = new McpServer(
     { name: SERVER_NAME, version: options.version ?? "0.1.0" },
     {
-      capabilities: { tools: {} },
-      instructions:
-        "Prism answers structural questions about the local repository: what it is, how healthy it is, how it is laid out, and what breaks if you change a given file. All analysis is local. Call prism_blast_radius before editing unfamiliar code.",
+      capabilities: { tools: {}, prompts: {}, logging: {} },
+      instructions: SERVER_INSTRUCTIONS,
     },
   );
 
+  const reportProgress = createIndexProgressReporter((line) => {
+    // Prefer MCP logging so agent UIs surface it; also write stderr for
+    // clients that only show process logs. Never stdout — that is the protocol.
+    void server.sendLoggingMessage({
+      level: "info",
+      logger: "prism.index",
+      data: line,
+    });
+    process.stderr.write(`prism-mcp: ${line}\n`);
+  });
+
   const session = createWorkspaceSession({
     root: options.workspaceRoot,
+    onIndexProgress: reportProgress,
     ...(options.openWorkspace ? { openWorkspace: options.openWorkspace } : {}),
   });
 
   registerTools(server, session, TOOLS, options.workspaceRoot);
+  registerPrompts(server);
 
   return { server, session };
 }

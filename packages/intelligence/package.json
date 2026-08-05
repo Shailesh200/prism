@@ -1,7 +1,6 @@
 {
-  "name": "@prism/intelligence",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@repo-prism/intelligence",
+  "version": "1.0.0",
   "type": "module",
   "description": "Stack detection SPI, DNA, health, insights",
   "exports": {
@@ -10,15 +9,28 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
-    "test:integration": "vitest run --config vitest.integration.config.ts"
+    "test": "vitest run"
   },
   "dependencies": {
-    "@prism/graph-engine": "workspace:*",
-    "@prism/shared": "workspace:*"
+    "@repo-prism/graph-engine": "workspace:*",
+    "@repo-prism/shared": "workspace:*"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Shailesh200/prism.git"
+  },
+  "homepage": "https://github.com/Shailesh200/prism#readme",
+  "bugs": {
+    "url": "https://github.com/Shailesh200/prism/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

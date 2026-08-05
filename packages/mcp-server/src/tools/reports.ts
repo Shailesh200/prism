@@ -8,7 +8,7 @@
  * choosing between near-identical descriptions.
  */
 
-import { PrismErrorCode, err, prismError } from "@prism/shared";
+import { PrismErrorCode, err, prismError } from "@repo-prism/shared";
 import { z } from "zod";
 import { toWorkspaceRelative } from "../paths.js";
 import { defineTool } from "../tool-registry.js";

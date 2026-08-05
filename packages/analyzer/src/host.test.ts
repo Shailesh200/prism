@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { PrismErrorCode } from "@prism/shared";
+import { PrismErrorCode } from "@repo-prism/shared";
 import { createAnalyzerHost } from "./host.js";
 import { createNoopPlugin } from "./noop-plugin.js";
 import { createTypescriptPlugin } from "./typescript-plugin.js";

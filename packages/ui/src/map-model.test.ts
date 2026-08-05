@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { filterSearchHits, UI_ZOOM_LEVELS } from "./map-model.js";
 
-describe("@prism/ui map helpers", () => {
+describe("@repo-prism/ui map helpers", () => {
   it("filters search hits and requires a query", () => {
     const all = [
       { id: "1", label: "Checkout", kind: "feature" as const },

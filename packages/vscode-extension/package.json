@@ -1,8 +1,8 @@
 {
-  "name": "@prism/vscode-extension",
+  "name": "@repo-prism/vscode-extension",
   "displayName": "RepoPrism",
   "description": "RepoPrism (repo prism) — local-first Software Intelligence: Repository Map, Overview, Blast Radius, Health, and Domains for VS Code and Cursor",
-  "version": "0.1.11",
+  "version": "1.0.0",
   "private": true,
   "publisher": "prismhq",
   "type": "module",
@@ -188,7 +188,52 @@
           "order": 1
         }
       }
-    }
+    },
+    "walkthroughs": [
+      {
+        "id": "prism.gettingStarted",
+        "title": "Getting Started with Prism",
+        "description": "Open Prism on your repository and take the in-app tour.",
+        "steps": [
+          {
+            "id": "prism.openFolder",
+            "title": "Open a project folder",
+            "description": "Prism analyses the folder you open in the editor — not a pasted path.\n\n[Open Folder](command:vscode.openFolder)",
+            "media": {
+              "image": "media/prism-mark.png",
+              "altText": "Prism"
+            }
+          },
+          {
+            "id": "prism.openPanel",
+            "title": "Open Prism",
+            "description": "Open the Prism panel for the map, health, and blast radius.\n\n[Open Prism](command:prism.open)",
+            "media": {
+              "image": "media/prism-mark.png",
+              "altText": "Prism"
+            }
+          },
+          {
+            "id": "prism.takeTour",
+            "title": "Take the Getting Started tour",
+            "description": "Walk through the product inside Prism.\n\n[Start tour](command:prism.openWalkthrough)",
+            "media": {
+              "image": "media/prism-mark.png",
+              "altText": "Prism"
+            }
+          },
+          {
+            "id": "prism.editorActions",
+            "title": "Use editor actions",
+            "description": "Right-click a file for **Blast Radius**, **Safe Delete Check**, or **Reveal on Map**. Or enable CodeLens in Settings.",
+            "media": {
+              "image": "media/prism-mark.png",
+              "altText": "Prism"
+            }
+          }
+        ]
+      }
+    ]
   },
   "files": [
     "dist",
@@ -207,10 +252,10 @@
     "publish:ovsx": "bunx ovsx publish"
   },
   "dependencies": {
-    "@prism/app-shell": "workspace:*",
-    "@prism/core": "workspace:*",
-    "@prism/shared": "workspace:*",
-    "@prism/ui": "workspace:*",
+    "@repo-prism/app-shell": "workspace:*",
+    "@repo-prism/core": "workspace:*",
+    "@repo-prism/shared": "workspace:*",
+    "@repo-prism/ui": "workspace:*",
     "better-sqlite3": "^12.11.1",
     "lucide-react": "^1.25.0",
     "react": "^19.2.7",
@@ -223,6 +268,7 @@
     "@types/react-dom": "^19.2.3",
     "@types/vscode": "^1.90.0",
     "@vscode/vsce": "^3.7.1",
-    "ovsx": "^0.10.6"
+    "ovsx": "^0.10.6",
+    "@repo-prism/test-support": "workspace:*"
   }
 }

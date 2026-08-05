@@ -11,6 +11,6 @@
 | 03 | [`03_TECH_STACK.md`](./03_TECH_STACK.md) | Locked stack — choices & constraints |
 | 04 | [`04_FOLDER_STRUCTURE.md`](./04_FOLDER_STRUCTURE.md) | Canonical repo / package layout |
 | 05 | [`05_DATA_FLOWS.md`](./05_DATA_FLOWS.md) | Index, query, surface call sequences |
-| 06 | [`06_PACKAGE_RESPONSIBILITIES.md`](./06_PACKAGE_RESPONSIBILITIES.md) | What each `@prism/*` owns |
+| 06 | [`06_PACKAGE_RESPONSIBILITIES.md`](./06_PACKAGE_RESPONSIBILITIES.md) | What each `@repo-prism/*` owns |
 
 **Related:** Master Plan · ADR-0003 · DESIGN_SYSTEM · mockups/LOCKED.md

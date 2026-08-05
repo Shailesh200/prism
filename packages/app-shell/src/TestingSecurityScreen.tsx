@@ -6,8 +6,8 @@ import type {
   TestingReport,
   TestingTestResult,
   TestingTestStatus,
-} from "@prism/shared";
-import { CardIcon, InfoTip, SearchableInput } from "@prism/ui";
+} from "@repo-prism/shared";
+import { CardIcon, InfoTip, SearchableInput } from "@repo-prism/ui";
 import {
   ArrowLeft,
   Check,

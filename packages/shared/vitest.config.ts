@@ -2,7 +2,7 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    name: "@prism/shared",
+    name: "@repo-prism/shared",
     include: ["src/**/*.test.ts"],
     coverage: {
       provider: "v8",

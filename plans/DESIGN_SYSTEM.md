@@ -108,7 +108,7 @@ Expressive but engineered (avoid Inter / Roboto / Arial as brand faces).
 4. **Layers over widgets** — health/risk appear as map overlays, not KPI strips in the hero  
 5. **Motion with purpose** — camera ease on focus, path draw for routes, layer crossfade (2–3 motions)
 
-### Core components (to build in `@prism/ui`)
+### Core components (to build in `@repo-prism/ui`)
 
 | Component | Purpose |
 |---|---|
@@ -174,7 +174,7 @@ No confetti, no ambient particle networks.
 |---|---|
 | M-001 | Tokens stub / CSS variables file (optional) |
 | M-017 | Map visual model aligns with layers |
-| M-018 | **Signal Chart v1** in playground (`@prism/ui`) |
+| M-018 | **Signal Chart v1** in playground (`@repo-prism/ui`) |
 | M-019 | Layer legends + overlay styling |
 | M-030/031 | IDE webview adaptation |
 | M-038 | Docs site uses same tokens |

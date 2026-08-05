@@ -1,7 +1,6 @@
 {
-  "name": "@prism/graph-engine",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@repo-prism/graph-engine",
+  "version": "1.0.0",
   "type": "module",
   "description": "Typed graph store and query primitives",
   "exports": {
@@ -16,12 +15,23 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
-    "test:integration": "vitest run --config vitest.integration.config.ts"
+    "test": "vitest run"
   },
   "dependencies": {
-    "@prism/shared": "workspace:*",
+    "@repo-prism/shared": "workspace:*",
     "ngraph.graph": "^20.1.2",
     "ngraph.path": "^1.6.1"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Shailesh200/prism.git"
+  },
+  "homepage": "https://github.com/Shailesh200/prism#readme",
+  "bugs": {
+    "url": "https://github.com/Shailesh200/prism/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

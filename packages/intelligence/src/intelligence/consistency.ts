@@ -3,7 +3,7 @@ import type {
   GraphSnapshotDto,
   IntelligenceConsistency,
   IntelligenceConsistencyIssue,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 export type ConsistencyGraphId = "dependency" | "knowledge" | "feature";
 

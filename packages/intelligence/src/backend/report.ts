@@ -10,7 +10,7 @@ import type {
   BackendIntegration,
   BackendReport,
   IndexSnapshot,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 export type BuildBackendReportInput = {
   workspaceRoot: string;

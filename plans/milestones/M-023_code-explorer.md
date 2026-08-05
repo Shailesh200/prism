@@ -6,12 +6,12 @@
 | Status | Verified |
 | Depends on | M-011 (semantic KG), M-042 (git signals), M-012 (features) |
 | Unlocks | M-027 MCP explorer tools, VS Code / playground explorer UI |
-| Packages | `@prism/intelligence`, `@prism/shared`, `@prism/core` |
+| Packages | `@repo-prism/intelligence`, `@repo-prism/shared`, `@repo-prism/core` |
 | ADR | ADR-0018 |
 
 ## Goal
 
-Stable **selection-scoped** Code Explorer query API in `@prism/core`: usages,
+Stable **selection-scoped** Code Explorer query API in `@repo-prism/core`: usages,
 ownership, related features / tests / APIs / components, structural similar
 implementations (v1), and file git timeline — all local, with evidence notes and
 fail-soft git.
@@ -27,8 +27,8 @@ fail-soft git.
 
 ## In Scope
 
-- **`CodeExplorerReport` DTO** in `@prism/shared` (Zod-stable)
-- **`buildCodeExplorerReport()`** in `@prism/intelligence` (pure)
+- **`CodeExplorerReport` DTO** in `@repo-prism/shared` (Zod-stable)
+- **`buildCodeExplorerReport()`** in `@repo-prism/intelligence` (pure)
 - **Core `exploreCode(target)`** — requires `index()`; injects git + optional
   backend endpoints
 - Target: `{ kind: "file", path }` or `{ kind: "symbol", name, path?, start? }`

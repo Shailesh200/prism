@@ -4,7 +4,7 @@ import {
   createNoopPlugin,
   createTypescriptPlugin,
   type AnalyzerHost,
-} from "@prism/analyzer";
+} from "@repo-prism/analyzer";
 import {
   PrismErrorCode,
   type FileInventoryEntry,
@@ -18,7 +18,7 @@ import {
   ok,
   prismError,
   unsafeRepoId,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { openIndexCache, type IndexCacheDb } from "./cache/db.js";
 import {
   canReuseCachedFile,

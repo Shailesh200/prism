@@ -8,7 +8,7 @@ import {
   ok,
   parseDto,
   prismError,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import type { IngestStore } from "./ingest-store.js";
 
 export const INGEST_KIND_BUNDLE_STATS = "bundle-stats" as const;

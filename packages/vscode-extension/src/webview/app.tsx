@@ -7,7 +7,7 @@ import {
   useState,
   type ReactElement,
 } from "react";
-import { RepositoryMapView } from "@prism/ui";
+import { RepositoryMapView } from "@repo-prism/ui";
 import {
   AppShellClientProvider,
   AppSidebar,
@@ -38,7 +38,7 @@ import {
   type DomainOverlayStatus,
   type GitStatus,
   type SettingsSection,
-} from "@prism/app-shell";
+} from "@repo-prism/app-shell";
 import type {
   BackendReport,
   GraphSnapshotDto,
@@ -47,7 +47,7 @@ import type {
   MapZoomLevel,
   RepositoryMap,
   UtilityOverlayReport,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import type { AppView, HostToWebview } from "../protocol.js";
 import {
   fetchBackendReport,
@@ -171,6 +171,9 @@ function App(): ReactElement {
   const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
   const [targetPath, setTargetPath] = useState<string | null>(null);
   const [targetPaths, setTargetPaths] = useState<string[] | null>(null);
+  const [blastIntent, setBlastIntent] = useState<"edit" | "delete" | null>(
+    null,
+  );
   const [codeLensEnabled, setCodeLensEnabled] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const dashboardRef = useRef<DashboardPayload | null>(null);
@@ -295,6 +298,7 @@ function App(): ReactElement {
         setFocusNodeId(msg.focusNodeId ?? null);
         setTargetPath(msg.targetPath ?? null);
         setTargetPaths(msg.targetPaths ?? null);
+        setBlastIntent(msg.intent ?? null);
       }
       if ("type" in msg && msg.type === "dataRefresh") {
         void loadDashboard({ quiet: true });
@@ -545,6 +549,7 @@ function App(): ReactElement {
         branch={branch}
         user={user}
         initialFile={targetPath}
+        initialIntent={blastIntent}
         onNavigate={onNavigate}
       />
     );

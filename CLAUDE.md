@@ -21,7 +21,7 @@
 - Stack milestone branches
 - **Create git commits before the owner explicitly approves** (keep work in the working tree until then)
 - Push remotes unless the human owner explicitly requests it
-- Bypass `@prism/core` from MCP/CLI/extensions
+- Bypass `@repo-prism/core` from MCP/CLI/extensions
 - Add cloud/network dependencies to Core analysis paths
 - Expand milestone scope silently
 
@@ -43,7 +43,7 @@ Read milestone doc → implement (no commits) → bun run verify:milestone → f
 
 ## MCP
 
-When editing `@prism/mcp-server`, every tool must call Core and return JSON-serializable DTOs from `@prism/shared`.
+When editing `@repo-prism/mcp-server`, every tool must call Core and return JSON-serializable DTOs from `@repo-prism/shared`.
 
 ## Verification
 

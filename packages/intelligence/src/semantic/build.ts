@@ -1,4 +1,4 @@
-import { nodesFromIndexSnapshot } from "@prism/graph-engine";
+import { nodesFromIndexSnapshot } from "@repo-prism/graph-engine";
 import {
   isTestPath,
   type GraphEdgeDto,
@@ -10,7 +10,7 @@ import {
   type KnowledgeGraphStats,
   unsafeEdgeId,
   unsafeNodeId,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import {
   isRelativeSpecifier,
   resolveImportTarget,

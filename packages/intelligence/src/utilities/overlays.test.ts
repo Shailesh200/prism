@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   UtilityOverlayReportSchema,
   type UtilityOverlayKind,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { createStackHost } from "../host.js";
 import { createDefaultDetectorPacks } from "../stack/packs.js";
 import {

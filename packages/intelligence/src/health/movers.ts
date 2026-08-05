@@ -1,4 +1,4 @@
-import type { RegionHealthPoint, RegionMoversReport } from "@prism/shared";
+import type { RegionHealthPoint, RegionMoversReport } from "@repo-prism/shared";
 
 export type RegionMoverWindow = {
   readonly from: RegionHealthPoint;

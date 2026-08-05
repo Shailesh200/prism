@@ -4,7 +4,7 @@ import type {
   Result,
   StackDomainId,
   StackSignal,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 export type StackDetectContext = {
   readonly rootPath: string;

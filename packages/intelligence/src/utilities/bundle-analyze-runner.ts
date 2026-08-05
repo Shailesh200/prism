@@ -7,7 +7,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { delimiter, join } from "node:path";
-import type { BundleAnalyzeCapability, JsonValue } from "@prism/shared";
+import type { BundleAnalyzeCapability, JsonValue } from "@repo-prism/shared";
 import {
   detectBundleAnalyzeCapability,
   discoverFreshBundleStatsFiles,

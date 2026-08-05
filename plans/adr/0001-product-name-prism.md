@@ -14,7 +14,7 @@ The original planning brief used the working name **RepoPulse**. The owner selec
 
 ## Decision
 
-The product, repository, and package scope use **Prism** (`@prism/*`). “RepoPulse” is retained only as a historical working-name reference in planning docs.
+The product, repository, and package scope use **Prism** (`@repo-prism/*`). “RepoPulse” is retained only as a historical working-name reference in planning docs.
 
 ## Options Considered
 
@@ -30,7 +30,7 @@ The product, repository, and package scope use **Prism** (`@prism/*`). “RepoPu
 
 ## Consequences
 
-- All packages named `@prism/<name>`
+- All packages named `@repo-prism/<name>`
 - CLI binary name: `prism`
 - Docs and extensions branded Prism
 - If npm scope is unavailable, ADR will supersede with a scoped rename before publish

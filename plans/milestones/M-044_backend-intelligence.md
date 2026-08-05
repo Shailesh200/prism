@@ -6,14 +6,14 @@
 | Status | Verified |
 | Depends on | M-043, M-041 (utility overlays), M-020 (impact) |
 | Unlocks | Route-level MCP tools, backend health scoring |
-| Packages | `@prism/intelligence`, `@prism/shared`, `@prism/core`, `apps/playground` |
+| Packages | `@repo-prism/intelligence`, `@repo-prism/shared`, `@repo-prism/core`, `apps/playground` |
 | ADR | ADR-0015 |
 
 ## Goal
 
 Move the Backend domain view from **file-granular** (what M-043 ships by reusing
 existing signals) to **route-granular** intelligence, with all analysis in Core
-(`@prism/intelligence`) exposed via typed `@prism/shared` DTOs. No network; all
+(`@repo-prism/intelligence`) exposed via typed `@repo-prism/shared` DTOs. No network; all
 heuristics are static/AST/regex over the existing index, with `evidence` +
 `confidence` on every inference (ADR-0004, ADR-0011, ADR-0015).
 
@@ -47,8 +47,8 @@ with first-class Core analysis and adds the facets Core cannot infer today.
 - **Env & integrations facet**: required env vars (`process.env.*` / `os.environ`)
   and third-party SDK/outbound-call detection.
 - **Background work facet**: queues / workers / cron.
-- **Contract/DTO**: `BackendReport` in `@prism/shared` + `getBackendReport()` in
-  `@prism/core` (hybrid Option C — overlay stays for the Map; typed report for
+- **Contract/DTO**: `BackendReport` in `@repo-prism/shared` + `getBackendReport()` in
+  `@repo-prism/core` (hybrid Option C — overlay stays for the Map; typed report for
   the domain screen + MCP).
 - **MCP**: one tool returning `BackendReport` JSON (Core-only).
 - **UI**: swap the playground's client-side joins for `getBackendReport()`; add a

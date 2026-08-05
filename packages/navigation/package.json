@@ -1,7 +1,6 @@
 {
-  "name": "@prism/navigation",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@repo-prism/navigation",
+  "version": "1.0.0",
   "type": "module",
   "description": "Feature and symbol navigation routes",
   "exports": {
@@ -10,14 +9,27 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
-    "test:integration": "vitest run --config vitest.integration.config.ts"
+    "test": "vitest run"
   },
   "dependencies": {
-    "@prism/shared": "workspace:*"
+    "@repo-prism/shared": "workspace:*"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Shailesh200/prism.git"
+  },
+  "homepage": "https://github.com/Shailesh200/prism#readme",
+  "bugs": {
+    "url": "https://github.com/Shailesh200/prism/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

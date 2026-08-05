@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { PACKAGE_NAME } from "./index.js";
 
-describe("@prism/cli", () => {
+describe("@repo-prism/cli", () => {
   it("exports package name", () => {
-    expect(PACKAGE_NAME).toBe("@prism/cli");
+    expect(PACKAGE_NAME).toBe("@repo-prism/cli");
   });
 });

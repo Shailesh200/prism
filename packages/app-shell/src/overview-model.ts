@@ -2,7 +2,7 @@
  * Overview dashboard presentation.
  *
  * The derivations behind these numbers (coupling, regions, ranking, activity
- * bucketing) live in `@prism/shared/overview-model` so Core, MCP and the CLI
+ * bucketing) live in `@repo-prism/shared/overview-model` so Core, MCP and the CLI
  * read the same values the dashboard shows. What stays here is presentation:
  * the palette, the SVG geometry and the Markdown report.
  */
@@ -14,7 +14,7 @@ import {
   couplingBand,
   deriveMostConnected as deriveMostConnectedCore,
   deriveRegions as deriveRegionsCore,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 export {
   bucketActivity,
@@ -23,7 +23,7 @@ export {
   parseDayMs,
   presetBounds,
   type OverviewActivity as ActivityBuckets,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 type MapGraph = RepositoryMap["graph"];
 

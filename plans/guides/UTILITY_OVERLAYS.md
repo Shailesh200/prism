@@ -1,6 +1,6 @@
 # Utility overlays — Map / MCP contract (M-041 → M-017)
 
-Agreed DTO for Map layers and MCP tools. Surfaces must consume **`@prism/core` only**.
+Agreed DTO for Map layers and MCP tools. Surfaces must consume **`@repo-prism/core` only**.
 
 ## Core APIs
 
@@ -22,7 +22,7 @@ Honors Mono-v1 `selectPackage()` when `packageId` is omitted.
 | `findings` | Inspector callouts (`severity`, optional `path`) |
 | `packageId` | Set when scoped to a package |
 
-Schemas: `@prism/shared` — `UtilityOverlayReportSchema`, `UtilityOverlayKindSchema`.
+Schemas: `@repo-prism/shared` — `UtilityOverlayReportSchema`, `UtilityOverlayKindSchema`.
 
 ## Kind → backlog
 

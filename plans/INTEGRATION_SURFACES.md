@@ -1,12 +1,12 @@
 # Prism — CLI & MCP Integration (how it looks)
 
-Surfaces are thin adapters over `@prism/core`. Same answers in Map UI, CLI, and MCP.
+Surfaces are thin adapters over `@repo-prism/core`. Same answers in Map UI, CLI, and MCP.
 
 ---
 
 ## CLI
 
-Binary: `prism` (via `@prism/cli`)
+Binary: `prism` (via `@repo-prism/cli`)
 
 ### Everyday commands
 
@@ -65,7 +65,7 @@ prism blast-radius "$CHANGED_FILE" --json > impact.json
 
 ## MCP server
 
-Package: `@prism/mcp-server`  
+Package: `@repo-prism/mcp-server`  
 Transport: stdio (default)
 
 ### Cursor / Claude Code config (sketch)

@@ -7,7 +7,7 @@ import {
   err,
   ok,
   prismError,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { ANALYZER_SPI_VERSION } from "./spi-version.js";
 import type {
   ExtractedExport,

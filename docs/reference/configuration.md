@@ -48,21 +48,22 @@ directory. `prism doctor` prints which rule won.
 
 ## MCP server
 
-Configured by your MCP client, not by Prism:
+Configured by your MCP client, not by Prism. Happy path — no path flags:
 
 ```json
 {
   "mcpServers": {
     "prism": {
-      "command": "prism-mcp",
-      "args": ["--workspace", "/absolute/path/to/your/repo"]
+      "command": "npx",
+      "args": ["-y", "@repo-prism/mcp-server"]
     }
   }
 }
 ```
 
-Without `--workspace` the server reads `PRISM_WORKSPACE`, then falls back to the
-directory it was started in. An absolute path avoids both questions.
+Resolution matches the CLI: `--workspace` → `PRISM_WORKSPACE` → nearest git
+root from the process cwd → cwd. Only set `--workspace` / `PRISM_WORKSPACE` when
+the client starts the server from the wrong directory.
 
 ## Extension settings
 

@@ -59,7 +59,7 @@ M-046 already shipped bands + a critical-path heuristic for *some* configs; Phas
 1. **Hard edges vs soft signals** — Import/re-export reachability stays authoritative for delete/rename blockers. Soft signals (config consumers, CI, env) are first-class but labeled with **confidence** and **evidence**.
 2. **Never imply “safe” from an empty import graph alone** when soft lanes are present or the root is tooling-critical.
 3. **Evidence over magic** — Every soft hit cites path, reason, category, and confidence.
-4. **Surfaces stay behind `@prism/core`** — engines live in `@prism/impact` + `@prism/intelligence`; UI/MCP/CLI only consume DTOs.
+4. **Surfaces stay behind `@repo-prism/core`** — engines live in `@repo-prism/impact` + `@repo-prism/intelligence`; UI/MCP/CLI only consume DTOs.
 5. **Deterministic & local-first** — no network; best-effort parsing; truncation markers when incomplete.
 6. **Phased delivery** — ship high-value config/test lanes first; deepen alias/CI later (8.1 → 8.3 on this branch).
 
@@ -158,7 +158,7 @@ Hard import items can omit confidence (default `high`) for backward compatibilit
 
 ## 5. Core / shared / engine API changes
 
-### 5.1 `@prism/shared` (contracts)
+### 5.1 `@repo-prism/shared` (contracts)
 
 - Extend `BlastRadiusItem` (or add parallel `signals[]` on the report) with optional `lane`, `confidence`, `evidence`.
 - Extend `BlastImpactCategory` / add `ImpactLane` enum as needed (`env`, `ci`, `script`, `workspace` — avoid overloading unused `runtime` without definition).
@@ -171,14 +171,14 @@ Hard import items can omit confidence (default `high`) for backward compatibilit
 - `ChangeReviewReport`: per-path lane summaries (optional Phase 8.3).
 - Preserve Zod parse compatibility: new fields **optional** with defaults where possible (ADR-0019 / frozen SDK — treat as additive minor; bump guide notes).
 
-### 5.2 `@prism/intelligence`
+### 5.2 `@repo-prism/intelligence`
 
 - Config parsers (Vitest/Jest/tsconfig/ESLint subset) → `ConfigImpactIndex` or soft edge list.
 - Path-alias resolution plugged into `resolveImportTarget` / `buildDependencyGraph`.
 - Optional: CI/Dockerfile/turbo extractors (Phase 8.3).
 - Reuse Testing report runner catalog for “which configs matter”.
 
-### 5.3 `@prism/impact`
+### 5.3 `@repo-prism/impact`
 
 - `computeAffected` accepts optional `softEdges` / `ImpactContext.softGraph`.
 - Merge hard + soft in blast/test/safe-delete with explicit policies.
@@ -186,7 +186,7 @@ Hard import items can omit confidence (default `high`) for backward compatibilit
 - Rescore risk (section 7).
 - Keep golden fixtures for hard-only behavior; add new goldens for soft lanes.
 
-### 5.4 `@prism/core`
+### 5.4 `@repo-prism/core`
 
 - `blastRadius` / `safeDelete` / `testImpact` / `renameImpact` / `reviewChanges` continue to be the **only** surface APIs.
 - Optional input flags later: `{ maxDepth?, includeSoft?: boolean }` (default soft **on** once shipped).
@@ -203,7 +203,7 @@ Hard import items can omit confidence (default `high`) for backward compatibilit
 
 ## 6. UX — multi-lane Blast Radius UI
 
-**Owner:** `@prism/app-shell` `BlastRadiusScreen` (ADR-0021). Map selection rings stay selection affordance only.
+**Owner:** `@repo-prism/app-shell` `BlastRadiusScreen` (ADR-0021). Map selection rings stay selection affordance only.
 
 ### 6.1 Hero summary (always)
 
@@ -374,7 +374,7 @@ Exact lists live in one shared module used by impact **and** app-shell (stop dup
 | Glob false positives inflate risk | Cap soft matches; α&lt;1; confidence medium; truncation note |
 | Config dialect sprawl | Phase 8.1: Vitest+Jest first; parser SPI-shaped helpers |
 | SDK freeze (M-025) / additive DTOs | Optional fields only; document in CORE_SDK |
-| Duplicate criticality lists (impact vs UI) | Single shared export via Core DTO metadata or shared helper in `@prism/shared` |
+| Duplicate criticality lists (impact vs UI) | Single shared export via Core DTO metadata or shared helper in `@repo-prism/shared` |
 | Soft blockers vs Safe Delete strictness | **Q-022** — default: medium+ soft blocks delete; low = warn |
 | Alias resolution complexity | Best-effort paths only; no full TS program |
 | Analyzer type-only gaps | Attribute when known; don’t block Phase 8.1 |

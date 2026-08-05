@@ -26,6 +26,7 @@ type NavigateExtras = {
   readonly focusNodeId?: string;
   readonly targetPath?: string;
   readonly targetPaths?: string[];
+  readonly intent?: "edit" | "delete";
 };
 
 const AUTO_REINDEX_STATE_KEY = "prism.autoReindex";
@@ -397,7 +398,7 @@ export class PrismPanel {
             ? {
                 onProgress: (event: {
                   message: string;
-                  detail?: import("@prism/shared").JsonValue;
+                  detail?: import("@repo-prism/shared").JsonValue;
                 }) => {
                   this.post({
                     type:

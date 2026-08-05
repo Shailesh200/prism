@@ -6,7 +6,7 @@
 | Status | Not Started |
 | Depends on | M-YYY |
 | Unlocks | M-ZZZ |
-| Packages | `@prism/...` |
+| Packages | `@repo-prism/...` |
 
 ## Goal
 

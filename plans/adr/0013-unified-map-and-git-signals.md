@@ -34,9 +34,9 @@ Separately, the map has no real engineering history: the `activity` and `ownersh
 - Pros: Scales to large repos; removes redundancy; matches how spatial maps work; reuses the existing Highcharts treemap.
 - Cons: Larger UI rework; introduces a drill/breadcrumb navigation model.
 
-### Git placement — Option A: new `@prism/git` package vs Option B: Core internal module (chosen)
+### Git placement — Option A: new `@repo-prism/git` package vs Option B: Core internal module (chosen)
 
-- Chosen: keep the reader as a Core internal module (`packages/core/src/git/`) so IO stays in Core and `@prism/repository-map` remains a pure builder that receives git data as input. Avoids new-package wiring and honors ADR-0004 (surfaces consume Core only).
+- Chosen: keep the reader as a Core internal module (`packages/core/src/git/`) so IO stays in Core and `@repo-prism/repository-map` remains a pure builder that receives git data as input. Avoids new-package wiring and honors ADR-0004 (surfaces consume Core only).
 
 ## Consequences
 

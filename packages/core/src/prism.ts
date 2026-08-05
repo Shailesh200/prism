@@ -7,7 +7,7 @@ import {
   err,
   ok,
   prismError,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { STUB_CAPABILITIES, type PrismCapabilities } from "./capabilities.js";
 import {
   createDefaultAnalyzerPort,

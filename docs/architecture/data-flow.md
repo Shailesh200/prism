@@ -23,7 +23,7 @@ dependency · knowledge · feature graphs
     │  derive
     ▼
 DNA · health · blast radius · map · reports
-    │  DTO from @prism/shared
+    │  DTO from @repo-prism/shared
     ▼
 CLI table · MCP tool result · a screen
 ```
@@ -85,7 +85,7 @@ unavailable.
 
 ## Crossing the boundary
 
-Everything leaving Core is a DTO from `@prism/shared` with a matching Zod
+Everything leaving Core is a DTO from `@repo-prism/shared` with a matching Zod
 schema. Surfaces render DTOs; they never compute.
 
 The same DTO becomes a CLI table, an MCP tool result, and a React screen. That

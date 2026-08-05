@@ -6,7 +6,7 @@
 | Branch | `milestone/M-026-mcp-server` (from latest `main`) |
 | Depends on | M-025, M-051, M-052 |
 | Unlocks | M-027 |
-| Packages | `@prism/mcp-server` |
+| Packages | `@repo-prism/mcp-server` |
 | Related ADR | [ADR-0004](../adr/0004-core-only-integration-surface.md); new ADR-0030 (transport + lifecycle) |
 
 > **Rewritten 2026-08-05.** The original 37-line version predates the Core SDK freeze, the app-shell
@@ -21,8 +21,8 @@ path works end to end. Breadth of tools is M-027; this milestone is about the sp
 
 ## 2. Current state
 
-`@prism/mcp-server` is effectively empty. `package.json` depends only on `@prism/shared` — **not on
-`@prism/core`**, and not on any MCP SDK. `src/` contains `index.ts` (8 lines), a stub test, and
+`@repo-prism/mcp-server` is effectively empty. `package.json` depends only on `@repo-prism/shared` — **not on
+`@repo-prism/core`**, and not on any MCP SDK. `src/` contains `index.ts` (8 lines), a stub test, and
 `backend-report-tool.ts` left behind by M-044. There is no server, no transport, no registration.
 
 ## 3. Design decisions (→ ADR-0030)
@@ -35,7 +35,7 @@ path works end to end. Breadth of tools is M-027; this milestone is about the sp
 | Indexing policy | Index on first use; reuse the cache. Never index during `initialize` | A slow handshake looks like a broken server |
 | Error mapping | `PrismError` → MCP error with a stable `code` | Agents branch on codes; prose is for humans |
 | Consent | Any consent-gated Core path is **refused** with an explanatory error | An agent cannot give informed consent on the user's behalf ([ADR-0024](../adr/0024-opt-in-network-integrations.md)) |
-| Result shape | JSON-serializable DTOs from `@prism/shared`, unmodified | The MCP contract *is* the Core contract; no reshaping in the adapter |
+| Result shape | JSON-serializable DTOs from `@repo-prism/shared`, unmodified | The MCP contract *is* the Core contract; no reshaping in the adapter |
 
 The consent decision is the one worth arguing about, and it is deliberate: Prism's promise is that
 nothing reaches the network or spawns a build without the user asking. An agent asking on the
@@ -45,7 +45,7 @@ user's behalf is not the user asking.
 
 | Task | Detail |
 |---|---|
-| 1 | Add `@modelcontextprotocol/sdk` and `@prism/core` as dependencies; wire `bin` entry `prism-mcp` |
+| 1 | Add `@modelcontextprotocol/sdk` and `@repo-prism/core` as dependencies; wire `bin` entry `prism-mcp` |
 | 2 | Server bootstrap over stdio with correct `initialize` / capabilities handshake |
 | 3 | Workspace resolution + lazy open; clear error when the path is not a readable directory |
 | 4 | Tool registration framework: one place to declare name, description, Zod input schema, Core call |
@@ -71,7 +71,7 @@ user's behalf is not the user asking.
 - [x] Server starts over stdio and completes `initialize` with no indexing — verified by contract test (`session.isOpen()` false after handshake) and by piping a real handshake into `dist/bin.js`
 - [x] `tools/list` returns the tools with valid JSON Schema — **five**, not four: task 6 adopted the orphaned `backend-report-tool` rather than deleting it
 - [x] All five tools return real Core data against the fixture repository
-- [x] `@prism/mcp-server` depends on `@prism/core` and calls **only** Core — enforced by `boundaries.test.ts` over both imports and the manifest
+- [x] `@repo-prism/mcp-server` depends on `@repo-prism/core` and calls **only** Core — enforced by `boundaries.test.ts` over both imports and the manifest
 - [x] Consent-gated paths are unreachable rather than refused at runtime — no registered tool calls one, enforced by test (ADR-0030 §4)
 - [x] Graceful shutdown closes the workspace and releases the SQLite handle on SIGINT/SIGTERM/stdin close
 - [ ] README config verified by actually connecting from Cursor (**owner** — needs a real client)
@@ -90,7 +90,7 @@ indexed files, with stdout carrying protocol frames only and diagnostics on stde
 | Unit | `PrismError` → MCP error code mapping, one case per `PrismErrorCode` |
 | Contract | In-process MCP client: `initialize` → `tools/list` → `tools/call` for each tool |
 | Contract | Every tool's declared input schema accepts its valid fixture input and rejects a malformed one |
-| Contract | No import from `@prism/analyzer`, `@prism/indexer`, `@prism/graph-engine`, `@prism/intelligence` |
+| Contract | No import from `@repo-prism/analyzer`, `@repo-prism/indexer`, `@repo-prism/graph-engine`, `@repo-prism/intelligence` |
 | Integration | Two sequential tool calls index once, not twice |
 | Integration | Non-existent workspace path yields a clean error, not a crash |
 | Manual | Connect from Cursor using the README config; call each tool |

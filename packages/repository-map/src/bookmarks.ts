@@ -3,7 +3,7 @@ import {
   parseDto,
   type MapBookmark,
   type MapBookmarkStore,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 /** Default empty local bookmark store (`.prism/bookmarks.json`). */
 export function emptyBookmarkStore(): MapBookmarkStore {

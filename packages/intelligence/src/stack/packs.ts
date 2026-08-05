@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { DeveloperPersona, StackDomain } from "@prism/shared";
+import { DeveloperPersona, StackDomain } from "@repo-prism/shared";
 import { createUnknownDetector } from "../detectors.js";
 import type { StackDetector } from "../types.js";
 import {

@@ -6,7 +6,7 @@
 | Status | Verified |
 | Depends on | M-040 (plan); M-005 historically |
 | Unlocks | M-007, M-034 |
-| Packages | `@prism/analyzer` |
+| Packages | `@repo-prism/analyzer` |
 
 ## Goal
 

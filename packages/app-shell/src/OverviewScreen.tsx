@@ -5,8 +5,8 @@ import type {
   RepositoryMap,
   SecurityReport,
   TestingReport,
-} from "@prism/shared";
-import { CardIcon, relativeTime } from "@prism/ui";
+} from "@repo-prism/shared";
+import { CardIcon, relativeTime } from "@repo-prism/ui";
 import {
   Activity,
   ArrowRight,
@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import {
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -37,7 +38,7 @@ import { shellNavVariant, shellRootClass } from "./shell-layout.js";
 import { Avatar } from "./Avatar.js";
 import { useAppShellClient } from "./client-context.js";
 import { DOMAIN_CATALOG } from "./domain-catalog.js";
-import { InfoTip } from "@prism/ui";
+import { InfoTip } from "@repo-prism/ui";
 import { isGitIntegrationEnabled } from "./integrations-store.js";
 import { recordAudit } from "./audit-log.js";
 import {
@@ -1190,6 +1191,7 @@ function ActivityChart(props: {
   const w = 600;
   const h = 180;
   const pad = 8;
+  const sparkId = useId();
   const { line, area } = activityGeometry(props.values, w, h, pad);
   const unit = props.granularity === "day" ? "day" : "week";
 
@@ -1242,12 +1244,15 @@ function ActivityChart(props: {
           aria-hidden
         >
           <defs>
-            <linearGradient id="ov-spark" x1="0" y1="0" x2="0" y2="1">
+            {/* Instance-scoped: two charts on one page with the same gradient
+                id is a duplicate DOM id, and the second chart then paints with
+                the first one's fill. */}
+            <linearGradient id={sparkId} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="rgba(0,194,194,0.35)" />
               <stop offset="100%" stopColor="rgba(0,194,194,0)" />
             </linearGradient>
           </defs>
-          <polygon points={area} fill="url(#ov-spark)" />
+          <polygon points={area} fill={`url(#${sparkId})`} />
           <polyline
             points={line}
             fill="none"

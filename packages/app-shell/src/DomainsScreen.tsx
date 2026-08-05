@@ -1,4 +1,4 @@
-import type { DnaReport } from "@prism/shared";
+import type { DnaReport } from "@repo-prism/shared";
 import { ArrowLeft, ArrowRight, Compass } from "lucide-react";
 import type { ReactElement } from "react";
 import { AppSidebar, type AppSidebarUser, type AppView } from "./AppSidebar.js";

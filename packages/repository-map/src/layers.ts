@@ -1,4 +1,4 @@
-import type { MapLayerDescriptor, MapLayerId } from "@prism/shared";
+import type { MapLayerDescriptor, MapLayerId } from "@repo-prism/shared";
 
 /**
  * Product Map layers (M-017 / M-019).

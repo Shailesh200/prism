@@ -2247,6 +2247,68 @@ button.prism-crumbs__seg:hover {
   color: var(--prism-ink-muted);
 }
 
+/* —— Empty stage ——
+   Centred over the canvas rather than replacing it, so the zoom rail, layers
+   and crumbs stay usable: the way out of an empty zoom is another zoom. */
+.prism-map__empty {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  /* `left: 50%` leaves only half the stage as available width, so a plain
+     max-width would shrink the copy to a column on a narrow panel. Measuring
+     against the stage keeps the text at a readable width until there genuinely
+     is not room. */
+  width: min(380px, calc(100% - 48px));
+  padding: 20px 24px;
+  text-align: center;
+  border: 1px solid var(--prism-line);
+  border-radius: var(--prism-radius-md);
+  background: color-mix(in srgb, var(--prism-panel) 94%, transparent);
+  pointer-events: auto;
+}
+
+.prism-map__empty-title {
+  margin: 0;
+  font-size: var(--prism-type-body);
+  font-weight: 600;
+  color: var(--prism-ink);
+}
+
+.prism-map__empty-detail {
+  margin: 8px 0 0;
+  font-size: var(--prism-type-body-sm);
+  line-height: 1.5;
+  color: var(--prism-ink-muted);
+}
+
+.prism-map__empty-action {
+  margin-top: 16px;
+  padding: 6px 14px;
+  border: 1px solid var(--prism-line);
+  border-radius: var(--prism-radius-pill);
+  background: transparent;
+  font: inherit;
+  font-size: var(--prism-type-body-sm);
+  font-weight: 600;
+  color: var(--prism-ink);
+  cursor: pointer;
+  transition:
+    border-color var(--prism-dur-1) var(--prism-ease),
+    color var(--prism-dur-1) var(--prism-ease);
+}
+
+.prism-map__empty-action:hover {
+  border-color: var(--prism-brand);
+  color: var(--prism-brand);
+}
+
+.prism-map__empty-action:focus-visible {
+  outline: 2px solid var(--prism-brand);
+  outline-offset: 2px;
+}
+
 /* —— Blast rings on selected node —— */
 .prism-node[data-selected="true"] .prism-card--region,
 .prism-node[data-selected="true"] .prism-card--file {

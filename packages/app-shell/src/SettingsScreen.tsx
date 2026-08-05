@@ -3,8 +3,8 @@ import type {
   MapLayerId,
   MapZoomLevel,
   RepositoryMap,
-} from "@prism/shared";
-import { Input, Select, Textarea, ToggleGroup } from "@prism/ui";
+} from "@repo-prism/shared";
+import { Input, Select, Textarea, ToggleGroup } from "@repo-prism/ui";
 import {
   AlertTriangle,
   Eye,

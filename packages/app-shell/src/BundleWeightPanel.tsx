@@ -6,8 +6,8 @@ import type {
   BundleAnalyzeCapability,
   BundleChunk,
   BundleWeightReport,
-} from "@prism/shared";
-import { InfoTip, Select } from "@prism/ui";
+} from "@repo-prism/shared";
+import { InfoTip, Select } from "@repo-prism/ui";
 import {
   AlertTriangle,
   Boxes,

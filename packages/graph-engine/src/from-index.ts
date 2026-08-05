@@ -2,7 +2,7 @@ import {
   type GraphNodeDto,
   type IndexSnapshot,
   unsafeNodeId,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 /**
  * Thin M-009 helper: map analyzed index files to file nodes only.

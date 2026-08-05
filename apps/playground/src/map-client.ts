@@ -25,7 +25,7 @@ import type {
   SecurityReport,
   TestingReport,
   CwvReport,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import {
   BlastRadiusReportSchema,
   BundleAnalyzeCapabilitySchema,
@@ -48,19 +48,19 @@ import {
   BackendReportSchema,
   SecurityReportSchema,
   TestingReportSchema,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import {
   withAudit,
   recordAudit,
   lighthouseProgressFromJobEvent,
   type AuditDiagnostic,
   type LighthouseLabProgressEvent,
-} from "@prism/app-shell";
+} from "@repo-prism/app-shell";
 import type {
   ApplyRenameInput,
   ApplyRenameResult,
   TestListResult,
-} from "@prism/app-shell";
+} from "@repo-prism/app-shell";
 
 type FixtureMaps = Partial<Record<MapZoomLevel, RepositoryMap>>;
 
@@ -433,7 +433,7 @@ export async function runLighthouseLab(
             let evt: {
               type?: string;
               message?: string;
-              detail?: import("@prism/shared").JsonValue;
+              detail?: import("@repo-prism/shared").JsonValue;
               report?: CwvReport;
               error?: string;
             };
@@ -635,7 +635,7 @@ export async function stageDevopsRemote(
     repo: string;
     token?: string;
   },
-): Promise<import("@prism/app-shell").StageDevopsRemoteResult> {
+): Promise<import("@repo-prism/app-shell").StageDevopsRemoteResult> {
   const target = root ?? ".";
   return withAudit(
     {
@@ -665,7 +665,7 @@ export async function stageDevopsRemote(
             : `stage-devops-remote failed: ${res.status}`;
         throw new Error(err);
       }
-      return json as import("@prism/app-shell").StageDevopsRemoteResult;
+      return json as import("@repo-prism/app-shell").StageDevopsRemoteResult;
     },
     (data) => ({
       status: "success",
@@ -1265,7 +1265,7 @@ export async function fetchRepositoryMap(
       throw new Error(
         root
           ? `Could not index repository at "${root}". Check the path and playground logs.`
-          : `No repository map for zoom "${zoom}". Start with bun --filter @prism/playground dev`,
+          : `No repository map for zoom "${zoom}". Start with bun --filter @repo-prism/playground dev`,
       );
     },
     (map) => ({

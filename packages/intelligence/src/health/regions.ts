@@ -1,4 +1,4 @@
-import type { IndexSnapshot, RegionHealthPoint } from "@prism/shared";
+import type { IndexSnapshot, RegionHealthPoint } from "@repo-prism/shared";
 import { buildDependencyGraph } from "../dependency/build.js";
 import { buildFeatureGraph } from "../feature/build.js";
 

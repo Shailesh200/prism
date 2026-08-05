@@ -10,13 +10,13 @@
 
 ## Context
 
-Surfaces (MCP, CLI, VS Code, Cursor) will bind tightly to `@prism/core`. After
+Surfaces (MCP, CLI, VS Code, Cursor) will bind tightly to `@repo-prism/core`. After
 M-025, accidental signature removals or silent capability lies are expensive.
 Master Plan: public API breaks after M-025 require ADR + major version policy.
 
 ## Decision
 
-### Package version (`@prism/core` / `PRISM_CORE_VERSION`)
+### Package version (`@repo-prism/core` / `PRISM_CORE_VERSION`)
 
 | Range | Meaning |
 |---|---|
@@ -55,9 +55,9 @@ M-025 ships with `PRISM_API_LEVEL = 1` and `PRISM_CORE_VERSION = "0.1.0"`.
 
 ### Types policy
 
-- **Calls** always through `@prism/core`.
-- **Return / argument DTOs** are defined in `@prism/shared` and **re-exported** from `@prism/core` for convenience.
-- Surfaces must not import `@prism/analyzer`, `@prism/indexer`, `@prism/intelligence`, etc.
+- **Calls** always through `@repo-prism/core`.
+- **Return / argument DTOs** are defined in `@repo-prism/shared` and **re-exported** from `@repo-prism/core` for convenience.
+- Surfaces must not import `@repo-prism/analyzer`, `@repo-prism/indexer`, `@repo-prism/intelligence`, etc.
 
 ## Consequences
 

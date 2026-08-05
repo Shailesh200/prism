@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { computeRegionMovers, pickRegionMoverWindow } from "./movers.js";
-import type { RegionHealthPoint } from "@prism/shared";
+import type { RegionHealthPoint } from "@repo-prism/shared";
 
 function point(
   at: string,

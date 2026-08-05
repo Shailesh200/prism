@@ -10,7 +10,7 @@ import {
   ok,
   prismError,
   PrismErrorCode,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { StackDetectorRegistry } from "./registry.js";
 import { discoverPackageRoots } from "./stack/package-roots.js";
 import type { StackDetector, StackDetectorInfo } from "./types.js";
@@ -67,23 +67,42 @@ function toCore(profile: StackProfile): StackProfileCore {
 }
 
 function signalKey(signal: StackSignal): string {
-  return `${signal.id}\0${signal.domain}\0${signal.evidence.join("\0")}`;
+  return `${signal.id}\0${signal.domain}`;
 }
 
+/**
+ * One entry per distinct signal, carrying every place it was found.
+ *
+ * Identity is the id and domain, not the evidence. Including evidence in the
+ * key meant a tool configured in three packages arrived as three signals with
+ * the same id — the screens key their rows by `signal.id`, so React saw
+ * duplicate keys and the user saw the same tool listed repeatedly. Unioning
+ * the evidence instead is also the more useful answer: "Moon, found in these
+ * four places" rather than "Moon" four times.
+ */
 function mergeSignals(
   groups: readonly (readonly StackSignal[])[],
 ): StackSignal[] {
-  const seen = new Set<string>();
-  const out: StackSignal[] = [];
+  const byKey = new Map<string, StackSignal>();
   for (const group of groups) {
     for (const signal of group) {
       const key = signalKey(signal);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push(signal);
+      const existing = byKey.get(key);
+      if (!existing) {
+        byKey.set(key, signal);
+        continue;
+      }
+      byKey.set(key, {
+        ...existing,
+        evidence: uniqueSorted([...existing.evidence, ...signal.evidence]),
+        personas: uniqueSorted([...existing.personas, ...signal.personas]),
+        // Keep the strongest reading. A signal found weakly in one package and
+        // firmly in another is firmly present in the workspace.
+        confidence: Math.max(existing.confidence, signal.confidence),
+      });
     }
   }
-  return out;
+  return [...byKey.values()];
 }
 
 export function createStackHost(options: StackHostOptions = {}): StackHost {
@@ -107,12 +126,16 @@ export function createStackHost(options: StackHostOptions = {}): StackHost {
       );
     }
 
-    const signals: StackSignal[] = [];
+    // Merged here too, not only in the workspace rollup: two detectors can
+    // legitimately recognise the same tool from different evidence, and
+    // without this a single-package repository gets the duplicate rows as well.
+    const groups: StackSignal[][] = [];
     for (const detector of registry.detectors()) {
       const result = await detector.detect({ rootPath: root });
       if (!result.ok) return result;
-      signals.push(...result.value);
+      groups.push([...result.value]);
     }
+    const signals = mergeSignals(groups);
 
     const domains = uniqueSorted(signals.map((s) => s.domain));
     const personas = uniqueSorted(signals.flatMap((s) => s.personas));

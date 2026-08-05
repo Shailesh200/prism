@@ -7,7 +7,7 @@ import {
   err,
   ok,
   prismError,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 const ROOT_MARKERS = [".git", "package.json", ".prismignore"] as const;
 

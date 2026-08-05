@@ -1,12 +1,12 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { riskBandDescriptor, riskToBand } from "@prism/shared";
+import { riskBandDescriptor, riskToBand } from "@repo-prism/shared";
 
 /**
  * Q-023: Blast Radius and Change Review each carried their own copy of the
  * band thresholds and disagreed about the same score. M-051 Phase 3 deleted
- * both copies in favour of `riskToBand` in `@prism/shared`. These tests guard
+ * both copies in favour of `riskToBand` in `@repo-prism/shared`. These tests guard
  * the deletion — a re-introduced literal is exactly how the drift started.
  */
 
@@ -39,7 +39,7 @@ describe("risk band agreement across screens", () => {
 
       expect(
         offenders,
-        `${file} must band via @prism/shared, not local thresholds:\n${offenders
+        `${file} must band via @repo-prism/shared, not local thresholds:\n${offenders
           .map(({ line, no }) => `  L${no}: ${line}`)
           .join("\n")}`,
       ).toEqual([]);

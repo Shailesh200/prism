@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **Not Started** |
+| Status | **In Review** |
 | Branch | `milestone/M-039-ga-readiness` (from latest `main`) |
 | Depends on | M-036, M-037, M-038 |
 | Unlocks | GA release |
@@ -60,7 +60,7 @@ M-051 Phase 0, which made publishing tag-triggered precisely so that releasing i
 | 3.2 | `CHANGELOG.md` covering the whole arc, written for users rather than as a commit log |
 | 3.3 | Release notes for the marketplace listing |
 | 3.4 | Publish workflow dry-run: build all five platform VSIXs, verify the tag/version guard from M-051 Phase 0, stop before publishing |
-| 3.5 | npm packaging for `@prism/core`, `@prism/cli` and `@prism/mcp-server` prepared but unpublished — resolve Q-003 (`@prism` scope availability) first |
+| 3.5 | npm packaging for `@repo-prism/core`, `@repo-prism/cli` and `@repo-prism/mcp-server` prepared but unpublished — resolve Q-003 (`@prism` scope availability) first |
 | 3.6 | `LICENSE` present and license headers consistent (MIT, Q-001) |
 | 3.7 | Tag `repo-prism-v1.0.0` created locally, **not pushed** |
 
@@ -78,18 +78,35 @@ M-051 Phase 0, which made publishing tag-triggered precisely so that releasing i
 
 ## 4. GA checklist
 
-- [ ] Core SDK stable at v1; breaking-change policy documented
-- [ ] MCP tools usable from Cursor in a real agent session
-- [ ] CLI usable in a CI script, with `--fail-on` exit codes
-- [ ] VS Code and Cursor extensions install from a local VSIX
-- [ ] Map demoable on an unfamiliar repository
-- [ ] Privacy verified: no network in Core analysis, proven by test
-- [ ] No telemetry (Q-010), no cloud (Q-009)
-- [ ] LICENSE, SECURITY.md, CONTRIBUTING.md, PRIVACY.md present
-- [ ] Docs site builds and is complete
-- [ ] Known limitations published
-- [ ] Performance budgets attested
-- [ ] CHANGELOG and release notes final
+- [x] Core SDK stable at v1; breaking-change policy documented — `PRISM_CORE_VERSION` is now 1.0.0 and pinned to `package.json` by a test, after `prism doctor` was found reporting 0.1.0
+- [x] MCP tools usable from Cursor in a real agent session — all 28 tools probed over stdio against an unfamiliar repository; every one returned data, stdout stayed pure JSON-RPC
+- [x] CLI usable in a CI script, with `--fail-on` exit codes — and usage errors now exit 2 rather than 1, which previously collided with "the analysis found something"
+- [x] VS Code and Cursor extensions install from a local VSIX — `repo-prism-1.0.0.vsix`, 107 files, 5.13 MB
+- [x] Map demoable on an unfamiliar repository — and no longer blank when a zoom has nothing to draw
+- [x] Privacy verified: no network in Core analysis, proven by test
+- [x] No telemetry (Q-010), no cloud (Q-009)
+- [x] LICENSE, SECURITY.md, CONTRIBUTING.md, PRIVACY.md present
+- [x] Docs site builds and is complete
+- [x] Known limitations published
+- [x] Performance budgets attested
+- [x] CHANGELOG and release notes final
+
+## 4a. What the audit actually found
+
+The point of Phase 2 was to use Prism the way a stranger would. Cloning an
+unfamiliar repository and running every surface against it found four defects
+that no unit test had reason to catch, because each one only appears when the
+repository is not this one:
+
+| Found | Why it mattered |
+|---|---|
+| `prism doctor` reported Core `0.1.0` | A hand-maintained constant beside `package.json`. The first thing a user runs, reporting the wrong version of a tool whose entire claim is accuracy. Now asserted equal to the manifest |
+| The map drew a blank canvas | On a small, flat repository the default feature zoom infers nothing. Nodes 0, no message. Indistinguishable from a crash. Now every zoom explains its own emptiness and offers the zoom that has content |
+| `--zoom repository` returned `PRISM_UNKNOWN` | The value was cast through to Core, which threw. An internal-fault code for a typo, with no hint at the five valid values. Now a validation error that names them |
+| Usage errors exited 1 | Commander's own errors bypassed the exit-code contract, so `prism route x` (missing an argument) was indistinguishable in CI from `prism blast x --fail-on high` finding real risk |
+
+The zoom list also existed in three places; it is now defined once in
+`@repo-prism/shared` and consumed by Core, the CLI and the MCP tool schema.
 
 ## 5. Out of scope
 

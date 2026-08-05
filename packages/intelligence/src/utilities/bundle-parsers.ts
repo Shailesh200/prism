@@ -8,7 +8,7 @@ import type {
   BundleChunk,
   BundleLoadType,
   BundleModule,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 export type ParsedBundleStats = {
   readonly bundler: BundleBundler;

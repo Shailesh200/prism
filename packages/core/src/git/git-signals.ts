@@ -9,7 +9,7 @@ import type {
   GitFileSignal,
   GitRepoSummary,
   GitSyncStatus,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 /** Number of trailing weeks summarized for churn sparklines. */
 export const GIT_WEEKS = 12;

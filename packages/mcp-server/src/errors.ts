@@ -7,7 +7,7 @@
  */
 
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
-import { PrismErrorCode, type PrismError } from "@prism/shared";
+import { PrismErrorCode, type PrismError } from "@repo-prism/shared";
 
 /**
  * Which JSON-RPC code an agent should see for each Prism failure.

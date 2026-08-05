@@ -11,14 +11,14 @@ import type {
   SecurityReport,
   TestingReport,
   UtilityOverlayReport,
-} from "@prism/shared";
-import type { SaveBookmarkInput, WorkspacePackageInfo } from "@prism/core";
+} from "@repo-prism/shared";
+import type { SaveBookmarkInput, WorkspacePackageInfo } from "@repo-prism/core";
 import {
   lighthouseProgressFromJobEvent,
   recordAudit,
   withAudit,
-} from "@prism/app-shell";
-import type { LighthouseLabProgressEvent } from "@prism/app-shell";
+} from "@repo-prism/app-shell";
+import type { LighthouseLabProgressEvent } from "@repo-prism/app-shell";
 import type {
   DashboardPayload,
   HostRequest,
@@ -53,7 +53,7 @@ if (!isBrowser) {
 
 type ProgressEvent = {
   message: string;
-  detail?: import("@prism/shared").JsonValue;
+  detail?: import("@repo-prism/shared").JsonValue;
 };
 
 type Pending = {
@@ -641,8 +641,8 @@ export async function fetchImpactBundle(
 }
 
 export async function applyRename(
-  input: import("@prism/app-shell").ApplyRenameInput,
-): Promise<import("@prism/app-shell").ApplyRenameResult> {
+  input: import("@repo-prism/app-shell").ApplyRenameInput,
+): Promise<import("@repo-prism/app-shell").ApplyRenameResult> {
   const res = await request({ method: "applyRename", input });
   if (!res.ok) return { ok: false, error: res.error };
   if (res.method !== "applyRename") {
@@ -676,7 +676,7 @@ export async function fetchSymbolHits(
 }
 
 export async function fetchHealthHistory(): Promise<
-  import("@prism/shared").HealthHistoryReport
+  import("@repo-prism/shared").HealthHistoryReport
 > {
   const res = await request({ method: "healthHistory" });
   if (!res.ok) throw new Error(res.error);
@@ -685,7 +685,7 @@ export async function fetchHealthHistory(): Promise<
 }
 
 export async function fetchRegionMovers(): Promise<
-  import("@prism/shared").RegionMoversReport
+  import("@repo-prism/shared").RegionMoversReport
 > {
   const res = await request({ method: "regionMovers" });
   if (!res.ok) throw new Error(res.error);
@@ -699,7 +699,7 @@ export async function startHealthHistoryBackfill(): Promise<void> {
 }
 
 export async function fetchHealthHistoryBackfillStatus(): Promise<
-  import("@prism/shared").HealthHistoryBackfillStatus
+  import("@repo-prism/shared").HealthHistoryBackfillStatus
 > {
   const res = await request({ method: "healthHistoryBackfillStatus" });
   if (!res.ok) throw new Error(res.error);
@@ -710,7 +710,7 @@ export async function fetchHealthHistoryBackfillStatus(): Promise<
 }
 
 export async function fetchEngineeringHealth(): Promise<
-  import("@prism/shared").EngineeringHealthReport | null
+  import("@repo-prism/shared").EngineeringHealthReport | null
 > {
   return withAudit(
     {
@@ -739,8 +739,8 @@ export async function fetchEngineeringHealth(): Promise<
 }
 
 export async function fetchCodeExplorer(
-  target: import("@prism/shared").CodeExplorerTarget,
-): Promise<import("@prism/shared").CodeExplorerReport | null> {
+  target: import("@repo-prism/shared").CodeExplorerTarget,
+): Promise<import("@repo-prism/shared").CodeExplorerReport | null> {
   const label =
     target.kind === "file"
       ? target.path
@@ -776,7 +776,7 @@ export async function runLighthouseLab(options?: {
   port?: number;
   routes?: readonly string[];
   onProgress?: (event: LighthouseLabProgressEvent) => void;
-}): Promise<import("@prism/shared").CwvReport | null> {
+}): Promise<import("@repo-prism/shared").CwvReport | null> {
   return withAudit(
     {
       category: "integration",
@@ -822,7 +822,7 @@ export async function runLighthouseLab(options?: {
 
 export async function detectBundleAnalyzeCapability(options?: {
   packageId?: string;
-}): Promise<import("@prism/shared").BundleAnalyzeCapability> {
+}): Promise<import("@repo-prism/shared").BundleAnalyzeCapability> {
   const res = await request({
     method: "detectBundleAnalyze",
     ...(options?.packageId ? { packageId: options.packageId } : {}),
@@ -840,7 +840,7 @@ export async function runBundleAnalyze(options?: {
   scriptName?: string;
   reportPath?: string;
   onProgress?: (event: { message: string }) => void;
-}): Promise<import("@prism/shared").BundleWeightReport | null> {
+}): Promise<import("@repo-prism/shared").BundleWeightReport | null> {
   return withAudit(
     {
       category: "integration",
@@ -1007,7 +1007,7 @@ export async function stageDevopsRemote(input: {
   owner: string;
   repo: string;
   token?: string;
-}): Promise<import("@prism/app-shell").StageDevopsRemoteResult> {
+}): Promise<import("@repo-prism/app-shell").StageDevopsRemoteResult> {
   return withAudit(
     {
       category: "integration",
@@ -1044,7 +1044,7 @@ export type {
 };
 
 export async function fetchPrismGitignoreStatus(): Promise<
-  import("@prism/app-shell").PrismGitignoreStatus
+  import("@repo-prism/app-shell").PrismGitignoreStatus
 > {
   const res = await request({ method: "prismGitignore" });
   if (!res.ok) return { ignored: null };
@@ -1053,7 +1053,7 @@ export async function fetchPrismGitignoreStatus(): Promise<
 }
 
 export async function addPrismGitignore(): Promise<
-  import("@prism/app-shell").PrismGitignoreStatus
+  import("@repo-prism/app-shell").PrismGitignoreStatus
 > {
   const res = await request({ method: "addPrismGitignore" });
   if (!res.ok) return { ignored: null, detail: res.error };

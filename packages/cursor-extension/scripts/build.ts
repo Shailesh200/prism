@@ -33,8 +33,12 @@ function run(cmd: string, args: string[], cwd: string): void {
   }
 }
 
-console.log("cursor-extension: building @prism/vscode-extension…");
-run("bun", ["run", "--filter", "@prism/vscode-extension", "build"], repoRoot);
+console.log("cursor-extension: building @repo-prism/vscode-extension…");
+run(
+  "bun",
+  ["run", "--filter", "@repo-prism/vscode-extension", "build"],
+  repoRoot,
+);
 
 const srcDist = join(vscodeExt, "dist");
 const srcMedia = join(vscodeExt, "media");
@@ -59,9 +63,9 @@ writeFileSync(
   join(dist, "CURSOR_OVERLAY.json"),
   JSON.stringify(
     {
-      overlay: "@prism/cursor-extension",
-      implements: "@prism/vscode-extension",
-      core: "@prism/core",
+      overlay: "@repo-prism/cursor-extension",
+      implements: "@repo-prism/vscode-extension",
+      core: "@repo-prism/core",
       adr: "0020",
     },
     null,
@@ -76,5 +80,5 @@ const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
   displayName?: string;
 };
 console.log(
-  `cursor-extension: staged overlay "${pkg.displayName ?? "@prism/cursor-extension"}" from vscode-extension dist`,
+  `cursor-extension: staged overlay "${pkg.displayName ?? "@repo-prism/cursor-extension"}" from vscode-extension dist`,
 );

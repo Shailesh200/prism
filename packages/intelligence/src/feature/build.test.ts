@@ -1,7 +1,7 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import type { IndexSnapshot } from "@prism/shared";
+import type { IndexSnapshot } from "@repo-prism/shared";
 import { buildFeatureGraph } from "./build.js";
 import { parseReadmeFeatureNames } from "./infer.js";
 import { featureSlug } from "./slug.js";

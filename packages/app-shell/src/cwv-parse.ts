@@ -1,6 +1,6 @@
 /**
  * Client-side Lighthouse / PageSpeed JSON → CWV metrics (no Node deps).
- * Mirrors `@prism/intelligence` CWV helpers for webview import.
+ * Mirrors `@repo-prism/intelligence` CWV helpers for webview import.
  */
 
 import type {
@@ -11,8 +11,8 @@ import type {
   CwvRating,
   CwvReport,
   JsonValue,
-} from "@prism/shared";
-import { CwvRouteLabProgressDetailSchema } from "@prism/shared";
+} from "@repo-prism/shared";
+import { CwvRouteLabProgressDetailSchema } from "@repo-prism/shared";
 import type { LighthouseLabProgressEvent } from "./client.js";
 
 function asRecord(value: unknown): Record<string, unknown> | null {

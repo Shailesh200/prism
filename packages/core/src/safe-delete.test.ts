@@ -6,7 +6,7 @@ import {
   RenameImpactReportSchema,
   SafeDeleteReportSchema,
   TestImpactReportSchema,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { describe, expect, it } from "vitest";
 import { Prism, type PrismWorkspace } from "./index.js";
 

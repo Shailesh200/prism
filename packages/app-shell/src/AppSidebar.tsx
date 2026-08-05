@@ -1,4 +1,4 @@
-import { Tooltip } from "@prism/ui";
+import { Tooltip } from "@repo-prism/ui";
 import {
   AlertTriangle,
   Boxes,

@@ -2,8 +2,7 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    name: "@prism/mcp-server-integration",
+    name: "@repo-prism/mcp-server-integration",
     include: ["src/**/*.integration.test.ts"],
-    passWithNoTests: true,
   },
 });

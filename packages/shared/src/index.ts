@@ -1,4 +1,4 @@
-/** @prism/shared — contracts, errors, IDs, paths, Zod DTOs */
+/** @repo-prism/shared — contracts, errors, IDs, paths, Zod DTOs */
 
 export {
   err,
@@ -172,6 +172,7 @@ export {
   MapBookmarkStoreSchema,
   MapClusterSchema,
   MapLayerDescriptorSchema,
+  MAP_ZOOM_LEVELS,
   MapLayerIdSchema,
   MapSearchHitSchema,
   MapZoomLevelSchema,

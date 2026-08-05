@@ -1,7 +1,7 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { StackDomain, StackProfileSchema } from "@prism/shared";
+import { StackDomain, StackProfileSchema } from "@repo-prism/shared";
 import { createStackHost } from "../host.js";
 import { createDefaultDetectorPacks } from "./packs.js";
 

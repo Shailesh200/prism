@@ -6,7 +6,7 @@
 | Status | Verified |
 | Depends on | M-005 |
 | Unlocks | M-006 (soft — AST may proceed in parallel after SPI lands), M-013 |
-| Packages | `@prism/intelligence` (SPI host), `@prism/shared` (DTOs), `@prism/core` (list/get stub) |
+| Packages | `@repo-prism/intelligence` (SPI host), `@repo-prism/shared` (DTOs), `@repo-prism/core` (list/get stub) |
 
 ## Goal
 

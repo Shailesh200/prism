@@ -1,4 +1,4 @@
-/** @prism/navigation — dependency / feature routes + landmarks (M-016). */
+/** @repo-prism/navigation — dependency / feature routes + landmarks (M-016). */
 
 export {
   fileNodeId,
@@ -10,4 +10,4 @@ export { listLandmarks } from "./landmarks.js";
 export { navigateFeature } from "./features.js";
 export { resolveEndpointNodeId, type RouteEndpoint } from "./resolve.js";
 
-export const PACKAGE_NAME = "@prism/navigation" as const;
+export const PACKAGE_NAME = "@repo-prism/navigation" as const;

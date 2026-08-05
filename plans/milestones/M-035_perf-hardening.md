@@ -6,7 +6,7 @@
 | Branch | `milestone/M-035-perf-hardening` (from latest `main`) |
 | Depends on | M-051, M-052 |
 | Unlocks | M-039 |
-| Packages | `@prism/indexer`, `@prism/graph-engine`, `@prism/analyzer`, `@prism/repository-map`, `@prism/core` |
+| Packages | `@repo-prism/indexer`, `@repo-prism/graph-engine`, `@repo-prism/analyzer`, `@repo-prism/repository-map`, `@repo-prism/core` |
 
 ## 1. Goal
 
@@ -25,7 +25,7 @@ which is the point of measuring first.
 
 | # | Cost centre | Verdict |
 |---|---|---|
-| 1 | Dependency graph rebuilt per call rather than memoised | **Confirmed, fixed.** Worse than described: the engineering report alone built it three times. Memoised per snapshot object in `@prism/intelligence`, so every caller benefits. 236 ms → 0 at 10k |
+| 1 | Dependency graph rebuilt per call rather than memoised | **Confirmed, fixed.** Worse than described: the engineering report alone built it three times. Memoised per snapshot object in `@repo-prism/intelligence`, so every caller benefits. 236 ms → 0 at 10k |
 | 2 | Git signals collected synchronously, blocking the caller | **Refuted as a top cost.** Git did not appear in any profile above the noise floor; the map's cost was two quadratic scans, not git. Not worth the concurrency risk on this evidence |
 | 3 | File inventory hashes sequentially | **Refuted as a top cost.** Hashing is ~0.5 s of a 90 s cold index at 50k. Cold index is dominated by parsing, which is already concurrent |
 | 4 | Full cache rewrite on every index rather than a delta write | **Confirmed, fixed.** The single largest item in an incremental reindex — ~1 s at 10k. Now writes only rows whose identity columns differ |

@@ -12,6 +12,7 @@
     "@moonrepo/cli": "^1.41.0",
     "@types/node": "^24.0.0",
     "@vitest/coverage-v8": "^3.2.0",
+    "jsdom": "^30.0.1",
     "lefthook": "^1.12.0",
     "oxfmt": "^0.14.0",
     "oxlint": "^1.14.0",
@@ -31,16 +32,19 @@
     "test": "moon run :test",
     "test:integration": "moon run :test-integration",
     "verify": "bun run format:check && bun run lint && bun run typecheck && bun run test && bun run build",
-    "verify:milestone": "bun run verify && bun run test:integration && bun run docs:check && bun run docs:build && bun run scripts/check-plan-progress.mjs",
+    "verify:milestone": "bun run verify && bun run scripts/check-test-layers.mjs && bun run test:integration && bun run docs:check && bun run docs:build && bun run scripts/check-plan-progress.mjs",
     "bench": "node scripts/bench/run.mjs",
     "bench:check": "node scripts/bench/check.mjs",
-    "playground": "bun --filter @prism/playground dev",
+    "playground": "bun --filter @repo-prism/playground dev",
     "moon": "moon",
     "prepare": "lefthook install || true",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
     "docs:reference": "bun run scripts/generate-docs-reference.mjs",
-    "docs:check": "bun run scripts/generate-docs-reference.mjs --check && bun run scripts/check-docs.mjs"
+    "docs:check": "bun run scripts/generate-docs-reference.mjs --check && bun run scripts/check-docs.mjs",
+    "test:e2e": "bun run --cwd apps/playground test:e2e",
+    "publish:npm": "node scripts/publish-npm.mjs",
+    "publish:npm:dry": "node scripts/publish-npm.mjs --dry-run"
   }
 }

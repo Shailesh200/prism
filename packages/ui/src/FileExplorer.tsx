@@ -7,7 +7,7 @@ import {
   type ReactElement,
   type UIEvent,
 } from "react";
-import type { GraphNodeDto } from "@prism/shared";
+import type { GraphNodeDto } from "@repo-prism/shared";
 import { ChevronRight } from "lucide-react";
 import { MaterialFileIcon } from "./MaterialFileIcon.js";
 import {

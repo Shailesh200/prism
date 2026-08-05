@@ -1,4 +1,4 @@
-import { nodesFromIndexSnapshot } from "@prism/graph-engine";
+import { nodesFromIndexSnapshot } from "@repo-prism/graph-engine";
 import {
   type FeatureInfo,
   type GraphEdgeDto,
@@ -7,7 +7,7 @@ import {
   type IndexSnapshot,
   unsafeEdgeId,
   unsafeNodeId,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import {
   isRelativeSpecifier,
   resolveImportTarget,

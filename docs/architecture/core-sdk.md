@@ -1,10 +1,10 @@
 # The Core SDK
 
-**`@prism/core` is the public API. Open a repository, ask it questions. Every
+**`@repo-prism/core` is the public API. Open a repository, ask it questions. Every
 other surface is a presentation layer over this.**
 
 ```ts
-import { Prism } from "@prism/core";
+import { Prism } from "@repo-prism/core";
 
 const opened = Prism.create().openRepository("/absolute/path/to/repo");
 if (!opened.ok) throw new Error(opened.error.message);
@@ -40,7 +40,7 @@ cannot be skipped by accident.
 message, and optional detail. Branch on the code; display the message.
 
 ```ts
-import { PrismErrorCode } from "@prism/core";
+import { PrismErrorCode } from "@repo-prism/core";
 
 if (!blast.ok && blast.error.code === PrismErrorCode.NotFound) {
   // the path is not in the index
@@ -102,16 +102,16 @@ change this" is one question whether the thing is a file or a symbol:
 
 ## Types
 
-Every DTO is exported from `@prism/shared` with a matching Zod schema. Import
+Every DTO is exported from `@repo-prism/shared` with a matching Zod schema. Import
 the type for compile-time use, and the schema when validating something that
 crossed a process boundary:
 
 ```ts
-import { BlastRadiusReportSchema, type BlastRadiusReport } from "@prism/shared";
+import { BlastRadiusReportSchema, type BlastRadiusReport } from "@repo-prism/shared";
 ```
 
 Core re-exports the DTO types it returns, so a consumer usually needs only
-`@prism/core`.
+`@repo-prism/core`.
 
 ## Consent
 

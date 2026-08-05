@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PrismErrorCode, prismError } from "@prism/shared";
+import { PrismErrorCode, prismError } from "@repo-prism/shared";
 import { ExitCode, exitCodeForError } from "./exit.js";
 import {
   paint,

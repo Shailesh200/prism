@@ -5,12 +5,12 @@ import type {
   GraphNodeDto,
   ImpactLane,
   RiskBand,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import {
   classifyToolingRoot,
   fileRoleLabel,
   riskBandDescriptor,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import {
   CardIcon,
   FileExplorer,
@@ -19,7 +19,7 @@ import {
   SearchableInput,
   Select,
   ToggleGroup,
-} from "@prism/ui";
+} from "@repo-prism/ui";
 import {
   ArrowLeft,
   Code2,
@@ -100,6 +100,8 @@ export type BlastRadiusScreenProps = {
   user?: AppSidebarUser | null;
   /** Optional pre-selected file path (repo-relative). */
   initialFile?: string | null;
+  /** Optional pre-selected edit vs delete intent (Safe Delete Check). */
+  initialIntent?: "edit" | "delete" | null;
   onNavigate: (view: AppView) => void;
 };
 
@@ -166,7 +168,7 @@ function filePathFromNodeId(id: string, label: string): string {
   return label || id;
 }
 
-/** Colour per band. Thresholds live in `@prism/shared` (Q-023). */
+/** Colour per band. Thresholds live in `@repo-prism/shared` (Q-023). */
 const RISK_BAND_COLOR: Record<RiskBand, string> = {
   high: "#F43F5E",
   mid: "#F59E0B",
@@ -358,7 +360,9 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
   const subtitle = [props.repoLabel, props.branch].filter(Boolean).join(" · ");
 
   const [mode, setMode] = useState<Mode>("file");
-  const [impactIntent, setImpactIntent] = useState<ImpactIntent>("edit");
+  const [impactIntent, setImpactIntent] = useState<ImpactIntent>(
+    props.initialIntent === "delete" ? "delete" : "edit",
+  );
   const [query, setQuery] = useState("");
   const [target, setTarget] = useState<ImpactTarget | null>(null);
   const [symbolLabel, setSymbolLabel] = useState<string | null>(null);
@@ -412,6 +416,12 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
     setSymbolLabel(null);
     setQuery(initial);
   }, [props.initialFile]);
+
+  useEffect(() => {
+    if (props.initialIntent === "delete" || props.initialIntent === "edit") {
+      setImpactIntent(props.initialIntent);
+    }
+  }, [props.initialIntent]);
 
   // Cross-screen focus: Domain (and others) stash a target under localStorage
   // (onNavigate can't carry a payload) then route here.

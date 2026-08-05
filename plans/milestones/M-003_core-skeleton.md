@@ -6,11 +6,11 @@
 | Status | Verified |
 | Depends on | M-002 |
 | Unlocks | M-004 |
-| Packages | `@prism/core` |
+| Packages | `@repo-prism/core` |
 
 ## Goal
 
-Establish `@prism/core` as the **only** public SDK façade. Define the client entrypoint shape (`Prism.create`, `openRepository`, lifecycle) with stubbed methods that throw `NotImplemented` or return empty structured results.
+Establish `@repo-prism/core` as the **only** public SDK façade. Define the client entrypoint shape (`Prism.create`, `openRepository`, lifecycle) with stubbed methods that throw `NotImplemented` or return empty structured results.
 
 ## In Scope
 

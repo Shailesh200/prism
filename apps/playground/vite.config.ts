@@ -44,12 +44,12 @@ import type {
   UtilityOverlayReport,
   CwvReport,
   UtilityJob,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import {
   MapLayerIdSchema,
   MapZoomLevelSchema,
   consentRequiredMessage,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 const appRoot = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(appRoot, "../..");
@@ -249,7 +249,7 @@ async function getIndexedWorkspace(root: string): Promise<Workspace> {
   if (!pending) {
     pending = (async () => {
       await assertReadableDir(key);
-      const { Prism } = await import("@prism/core");
+      const { Prism } = await import("@repo-prism/core");
       const client = Prism.create();
       const opened = client.openRepository(key);
       if (!opened.ok) {
@@ -490,7 +490,7 @@ async function loadLighthouseLab(
     routes?: readonly string[];
     onProgress?: (event: {
       message: string;
-      detail?: import("@prism/shared").JsonValue;
+      detail?: import("@repo-prism/shared").JsonValue;
     }) => void;
   },
 ): Promise<CwvReport> {
@@ -555,10 +555,10 @@ async function loadBundleAnalyze(
     reportPath?: string;
     onProgress?: (event: {
       message: string;
-      detail?: import("@prism/shared").JsonValue;
+      detail?: import("@repo-prism/shared").JsonValue;
     }) => void;
   },
-): Promise<import("@prism/shared").BundleWeightReport> {
+): Promise<import("@repo-prism/shared").BundleWeightReport> {
   const ws = await getIndexedWorkspace(root);
   const mode = options?.mode ?? "run";
   const job = await ws.startUtilityJob({
@@ -688,6 +688,9 @@ function sendJson(
   res.end(JSON.stringify(body));
 }
 
+/** A fault in what the caller sent, as opposed to a fault in handling it. */
+class BadRequest extends Error {}
+
 function readJsonBody(req: IncomingMessage): Promise<unknown> {
   return new Promise((resolveBody, reject) => {
     const chunks: Buffer[] = [];
@@ -698,8 +701,11 @@ function readJsonBody(req: IncomingMessage): Promise<unknown> {
       try {
         const raw = Buffer.concat(chunks).toString("utf8");
         resolveBody(raw ? JSON.parse(raw) : {});
-      } catch (error) {
-        reject(error);
+      } catch {
+        // A body the client sent wrong is a 400, not the 500 that a bare
+        // SyntaxError would surface as. `BadRequest` carries that distinction
+        // to the handler.
+        reject(new BadRequest("request body is not valid JSON"));
       }
     });
     req.on("error", reject);
@@ -816,6 +822,31 @@ function prismMapApi(): Plugin {
               return;
             }
 
+            // The shell asks for this on every load to decide whether to warn
+            // that `.prism` is about to be committed. The playground never
+            // implemented it, so the warning could not fire here at all — the
+            // request fell through to Vite's SPA fallback and the client, on
+            // failing to parse HTML as JSON, quietly reported "unknown".
+            if (parsed.pathname === "/api/gitignore") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const ws = await getIndexedWorkspace(root);
+              sendJson(res, 200, await ws.getPrismGitignoreStatus());
+              return;
+            }
+
+            if (
+              parsed.pathname === "/api/add-gitignore" &&
+              req.method === "POST"
+            ) {
+              const body = (await readJsonBody(req)) as { root?: string };
+              const root = resolveRequestedRoot(body.root ?? null);
+              const ws = await getIndexedWorkspace(root);
+              sendJson(res, 200, await ws.addPrismToGitignore());
+              return;
+            }
+
             if (parsed.pathname === "/api/git") {
               const root = resolveRequestedRoot(
                 parsed.searchParams.get("root"),
@@ -825,7 +856,11 @@ function prismMapApi(): Plugin {
               return;
             }
 
-            if (parsed.pathname === "/api/consent") {
+            // Method-qualified, and the POST case first. Without it the read
+            // branch below matched POSTs too, answered with the *current*
+            // list, and never recorded anything — so every consent toggle in
+            // the playground appeared to work and did nothing.
+            if (parsed.pathname === "/api/consent" && req.method !== "POST") {
               const root = resolveRequestedRoot(
                 parsed.searchParams.get("root"),
               );
@@ -973,7 +1008,7 @@ function prismMapApi(): Plugin {
                 sendJson(res, 400, { error: "owner and repo are required" });
                 return;
               }
-              const { stageDevopsRemote } = await import("@prism/core");
+              const { stageDevopsRemote } = await import("@repo-prism/core");
               const result = await stageDevopsRemote({
                 workspaceRoot: root,
                 owner,
@@ -1091,7 +1126,7 @@ function prismMapApi(): Plugin {
               const root = resolveRequestedRoot(
                 parsed.searchParams.get("root"),
               );
-              const { createWorkspace } = await import("@prism/core");
+              const { createWorkspace } = await import("@repo-prism/core");
               const ws = createWorkspace(root);
               const opened = await ws.open();
               if (!opened.ok) {
@@ -1354,9 +1389,16 @@ function prismMapApi(): Plugin {
               return;
             }
 
-            next();
+            // Everything under /api/ is this plugin's. Falling through to
+            // `next()` handed the request to Vite's SPA fallback, which served
+            // index.html with a 200 — so a client calling a mistyped or
+            // removed route got an HTML document to JSON.parse, and the error
+            // it reported named the parser rather than the missing route.
+            sendJson(res, 404, {
+              error: `No such API route: ${req.method ?? "GET"} ${parsed.pathname}`,
+            });
           } catch (error) {
-            sendJson(res, 500, {
+            sendJson(res, error instanceof BadRequest ? 400 : 500, {
               error: error instanceof Error ? error.message : String(error),
             });
           }
@@ -1392,12 +1434,12 @@ export default defineConfig({
   resolve: {
     dedupe: ["react", "react-dom"],
     alias: {
-      "@prism/ui/tokens.css": join(uiSrc, "tokens.css"),
-      "@prism/ui/map.css": join(uiSrc, "map.css"),
-      "@prism/ui/primitives.css": join(uiSrc, "primitives.css"),
-      "@prism/ui": join(uiSrc, "index.ts"),
-      "@prism/app-shell/styles.css": join(appShellSrc, "styles.css"),
-      "@prism/app-shell": join(appShellSrc, "index.ts"),
+      "@repo-prism/ui/tokens.css": join(uiSrc, "tokens.css"),
+      "@repo-prism/ui/map.css": join(uiSrc, "map.css"),
+      "@repo-prism/ui/primitives.css": join(uiSrc, "primitives.css"),
+      "@repo-prism/ui": join(uiSrc, "index.ts"),
+      "@repo-prism/app-shell/styles.css": join(appShellSrc, "styles.css"),
+      "@repo-prism/app-shell": join(appShellSrc, "index.ts"),
     },
   },
 });

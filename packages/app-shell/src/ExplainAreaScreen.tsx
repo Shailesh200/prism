@@ -1,4 +1,4 @@
-import type { ExplainAreaSummary } from "@prism/shared";
+import type { ExplainAreaSummary } from "@repo-prism/shared";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,

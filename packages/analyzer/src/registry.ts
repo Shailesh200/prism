@@ -5,7 +5,7 @@ import {
   err,
   ok,
   prismError,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import {
   ANALYZER_SPI_VERSION_MAX,
   ANALYZER_SPI_VERSION_MIN,

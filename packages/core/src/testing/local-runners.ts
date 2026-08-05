@@ -9,7 +9,7 @@
 import { execFile } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { TestingTestResult, TestingTestStatus } from "@prism/shared";
+import type { TestingTestResult, TestingTestStatus } from "@repo-prism/shared";
 
 export type LocalRunTestsOptions = {
   readonly coverage?: boolean;

@@ -1,4 +1,4 @@
-/** @prism/intelligence — stack detector SPI (M-040); DNA packs in M-013. */
+/** @repo-prism/intelligence — stack detector SPI (M-040); DNA packs in M-013. */
 
 export {
   STACK_DETECTOR_SPI_VERSION,

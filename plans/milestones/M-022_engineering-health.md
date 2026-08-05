@@ -6,7 +6,7 @@
 | Status | Verified |
 | Depends on | M-014, M-015 (health score), M-042 (local git signals) |
 | Unlocks | M-024 Insights, M-027 MCP (`engineering_entropy`, `knowledge_decay`, …) |
-| Packages | `@prism/intelligence`, `@prism/shared`, `@prism/core` |
+| Packages | `@repo-prism/intelligence`, `@repo-prism/shared`, `@repo-prism/core` |
 | ADR | ADR-0017 |
 
 ## Goal
@@ -27,13 +27,13 @@ fail-soft when git history is missing.
 
 ## In Scope
 
-- **`EngineeringHealthReport` DTO** in `@prism/shared` with:
+- **`EngineeringHealthReport` DTO** in `@repo-prism/shared` with:
   - Named metrics: `entropy`, `architecture_drift`, `technical_debt`,
     `code_churn`, `conflict_risk`, `knowledge_decay` (each: id, label, score
     0–100 higher=healthier, optional severity, evidence[], note)
   - Ranked **hotspots** (path + kinds + score + evidence)
   - `gitAvailable` + `summary`
-- **`computeEngineeringHealth()`** in `@prism/intelligence` (pure; takes
+- **`computeEngineeringHealth()`** in `@repo-prism/intelligence` (pure; takes
   `IndexSnapshot` + optional git file signals)
 - **Core `getEngineeringHealth()`** — requires prior `index()`; injects git via
   existing cache (fail soft)

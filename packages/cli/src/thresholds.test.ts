@@ -1,4 +1,4 @@
-import { RISK_BAND_MIN } from "@prism/shared";
+import { RISK_BAND_MIN } from "@repo-prism/shared";
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_LIMIT,

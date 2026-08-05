@@ -14,7 +14,7 @@ import {
   type PrismError,
   type Result,
   type ToolingCriticality,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 export type { BlastImpactCategory, ToolingCriticality };
 export { classifyToolingRoot, isRepoCriticalPath };
@@ -97,7 +97,7 @@ export function stripFilePrefix(idOrPath: string): string {
     : idOrPath;
 }
 
-import { isTestPath, isTypeDeclarationPath } from "@prism/shared";
+import { isTestPath, isTypeDeclarationPath } from "@repo-prism/shared";
 
 export { isTestPath, isTypeDeclarationPath };
 

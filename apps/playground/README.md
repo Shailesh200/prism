@@ -1,11 +1,11 @@
-# @prism/playground
+# @repo-prism/playground
 
-Interactive Repository Map playground (M-018). Consumes `@prism/core` via a Vite middleware; shared UI lives in `@prism/ui`.
+Interactive Repository Map playground (M-018). Consumes `@repo-prism/core` via a Vite middleware; shared UI lives in `@repo-prism/ui`.
 
 ## Run
 
 ```bash
-bun --filter @prism/playground dev
+bun --filter @repo-prism/playground dev
 # or: bun run playground
 ```
 

@@ -7,7 +7,7 @@ via inlined SVG (`MaterialFileIcon` + `material-icons.generated.ts`).
 Regenerate after bumping the theme:
 
 ```bash
-bun --filter @prism/ui run gen:icons
+bun --filter @repo-prism/ui run gen:icons
 ```
 
 Offline, no CDN — SVGs are bundled at build time.

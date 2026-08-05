@@ -1,12 +1,6 @@
-import type { MapZoomLevel } from "@prism/shared";
+import { MAP_ZOOM_LEVELS, type MapZoomLevel } from "@repo-prism/shared";
 
-export const MAP_ZOOM_LEVELS: readonly MapZoomLevel[] = [
-  "repo",
-  "package",
-  "feature",
-  "file",
-  "symbol",
-] as const;
+export { MAP_ZOOM_LEVELS };
 
 export function zoomIndex(level: MapZoomLevel): number {
   return MAP_ZOOM_LEVELS.indexOf(level);

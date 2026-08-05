@@ -6,11 +6,11 @@ import { CORE_PACKAGE, IMPLEMENTS_PACKAGE, PACKAGE_NAME } from "./index.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-describe("@prism/cursor-extension", () => {
+describe("@repo-prism/cursor-extension", () => {
   it("exports package identity", () => {
-    expect(PACKAGE_NAME).toBe("@prism/cursor-extension");
-    expect(IMPLEMENTS_PACKAGE).toBe("@prism/vscode-extension");
-    expect(CORE_PACKAGE).toBe("@prism/core");
+    expect(PACKAGE_NAME).toBe("@repo-prism/cursor-extension");
+    expect(IMPLEMENTS_PACKAGE).toBe("@repo-prism/vscode-extension");
+    expect(CORE_PACKAGE).toBe("@repo-prism/core");
   });
 
   it("manifest is a Cursor-branded VS Code extension overlay", () => {
@@ -35,7 +35,7 @@ describe("@prism/cursor-extension", () => {
     const extension = join(root, "dist", "extension.cjs");
     if (!existsSync(extension)) {
       // Build may not have run in unit isolation; skip soft.
-      expect(PACKAGE_NAME).toBe("@prism/cursor-extension");
+      expect(PACKAGE_NAME).toBe("@repo-prism/cursor-extension");
       return;
     }
     expect(existsSync(marker)).toBe(true);

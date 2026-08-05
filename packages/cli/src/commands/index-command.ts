@@ -6,7 +6,7 @@
  * parseable file behind.
  */
 
-import { ok } from "@prism/shared";
+import { ok } from "@repo-prism/shared";
 import { paint, renderFields, renderHeading } from "../output.js";
 import type { CommandHandler } from "../runtime.js";
 import { plural, wrap } from "../table.js";

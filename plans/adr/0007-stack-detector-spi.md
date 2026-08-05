@@ -14,7 +14,7 @@ Prism must tailor intelligence for many kinds of software **and** many kinds of 
 
 ## Decision
 
-1. **Plugin SPI** (`StackDetector`) in `@prism/intelligence`, consumed only via `@prism/core`.
+1. **Plugin SPI** (`StackDetector`) in `@repo-prism/intelligence`, consumed only via `@repo-prism/core`.
 2. Detectors emit additive **`StackSignal`s** with:
    - **`StackDomain`** — technology surface (`frontend`, `backend`, `mobile`, `desktop`, `data_ml_ai`, `data_engineering`, `devops_platform`, `embedded_systems`, `game`, `tooling`, `unknown`)
    - optional **`DeveloperPersona`** hints — audience shapes (`frontend_engineer`, `backend_engineer`, `fullstack_engineer`, `mobile_engineer`, `desktop_engineer`, `data_scientist`, `ml_engineer`, `ai_engineer`, `data_engineer`, `devops_sre`, `platform_engineer`, `embedded_engineer`, `game_developer`, `security_engineer`, `qa_engineer`, …)

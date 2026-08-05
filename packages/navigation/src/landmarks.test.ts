@@ -4,7 +4,7 @@ import {
   unsafeRepoId,
   type FeatureInfo,
   type IndexSnapshot,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { listLandmarks } from "./landmarks.js";
 
 describe("listLandmarks", () => {

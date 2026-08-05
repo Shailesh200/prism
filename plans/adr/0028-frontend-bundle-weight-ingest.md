@@ -41,7 +41,7 @@ Frontend Bundle / Weight (backlog FE-06) needs real production-ish asset sizes f
 ## Consequences
 
 - Positive: one-click Analyze beside CWV; real chunk/module treemap
-- Positive: parsers stay in `@prism/intelligence`; hosts stay thin
+- Positive: parsers stay in `@repo-prism/intelligence`; hosts stay thin
 - Negative: Prism-managed path is best-effort for Next/Vite/Webpack only
 - Follow-up: Map hotspot layer / more bundlers later (FE-06 expansion)
 

@@ -37,7 +37,7 @@ Repository map: clusters, landmarks and layers
 
 | Option | Meaning |
 |---|---|
-| `--zoom <level>` | Zoom level to render |
+| `--zoom <level>` | Zoom level to render: repo, package, feature, file, symbol |
 | `--limit <n>` | Maximum rows to print (default 50) |
 
 ```bash

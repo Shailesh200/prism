@@ -18,7 +18,7 @@ Establish a production-grade monorepo skeleton: **Bun** workspaces, **moonrepo**
 - Oxlint + Oxfmt config; Lefthook (`lefthook.yml`)
 - `.gitignore`, `.nvmrc` / moon toolchain (**Node 26.x**), `LICENSE` (default MIT if approved)
 - `scripts/verify-milestone` + `scripts/check-plan-progress.mjs`
-- Package stubs `@prism/<name>` with README only (no product logic)
+- Package stubs `@repo-prism/<name>` with README only (no product logic)
 - `apps/playground` and `apps/docs` placeholders (hello build via Vite where needed)
 - `bun run verify:milestone` green
 - Document ADRs 0001–0003

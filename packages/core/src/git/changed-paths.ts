@@ -4,7 +4,7 @@
  * Editors know this already — VS Code hands the extension its SCM selection —
  * but a terminal does not, and a CLI that made the user paste a file list would
  * be answering a different question from the one they asked. The plumbing lives
- * here beside the other git readers rather than in `@prism/cli`, so every
+ * here beside the other git readers rather than in `@repo-prism/cli`, so every
  * surface computes "changed" the same way.
  *
  * Local git only. No network, no fetch, no remote resolution.
@@ -79,8 +79,23 @@ export function readChangedPaths(
 
   return {
     base: options.base ?? "working tree",
-    paths: scopeToWorkspace(normalize(raw), toplevel, rootPath),
+    paths: scopeToWorkspace(normalize(raw), toplevel, rootPath).filter(
+      (path) => !isPrismOwned(path),
+    ),
   };
+}
+
+/**
+ * Prism's own working directory, which it writes to on every index.
+ *
+ * A repository that has not added `.prism/` to its `.gitignore` — which is most
+ * of them on first run — otherwise sees its cache, consent file and bookmarks
+ * listed as changes the moment Prism starts. `prism review` with no arguments
+ * would then review Prism's own SQLite file, and the change-review screen would
+ * open on three files the user did not touch.
+ */
+function isPrismOwned(path: string): boolean {
+  return path === ".prism" || path.startsWith(".prism/");
 }
 
 /**

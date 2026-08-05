@@ -13,7 +13,7 @@ import {
   type UtilityOverlayKind,
   type UtilityOverlayKindInfo,
   type UtilityOverlayReport,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { discoverLocalPackages } from "../dependency/packages.js";
 
 const SKIP_DIRS = new Set([

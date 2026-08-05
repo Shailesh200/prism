@@ -6,9 +6,9 @@ import {
   nodesFromIndexSnapshot,
 } from "./index.js";
 
-describe("@prism/graph-engine exports", () => {
+describe("@repo-prism/graph-engine exports", () => {
   it("exposes store factories", () => {
-    expect(PACKAGE_NAME).toBe("@prism/graph-engine");
+    expect(PACKAGE_NAME).toBe("@repo-prism/graph-engine");
     expect(typeof createGraphStore).toBe("function");
     expect(typeof layoutGraph).toBe("function");
     expect(typeof nodesFromIndexSnapshot).toBe("function");

@@ -31,7 +31,7 @@ flowchart LR
   end
 
   subgraph Prism["Prism on developer machine"]
-    CORE["@prism/core"]
+    CORE["@repo-prism/core"]
     ENG[Indexer · Analyzer · Graphs · Intelligence · Impact · Map]
     DB[(SQLite cache<br/>.prism/)]
     FS[(Workspace files)]
@@ -54,7 +54,7 @@ flowchart LR
 | Local-first | Analysis runs on the developer machine |
 | Offline-first | Core workflows need no network |
 | Privacy-first | Source does not leave the machine by default |
-| One Core | MCP / CLI / IDE all call `@prism/core` only |
+| One Core | MCP / CLI / IDE all call `@repo-prism/core` only |
 | AI-agnostic | No LLM vendor coupling in Core |
 
 ---
@@ -78,7 +78,7 @@ Surfaces are **thin adapters**: I/O, presentation, lifecycle. They must not reim
 
 ```mermaid
 flowchart TB
-  CORE["@prism/core"]
+  CORE["@repo-prism/core"]
 
   CORE --> IDX[Indexer]
   CORE --> AN[Analyzer SPI]

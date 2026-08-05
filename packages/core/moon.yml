@@ -9,6 +9,7 @@ dependsOn:
   - "impact"
   - "navigation"
   - "repository-map"
+  - "test-support"
 tasks:
   build:
     command: "bun run build"

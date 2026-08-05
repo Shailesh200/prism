@@ -1,11 +1,28 @@
-import { describe, expect, it } from "vitest";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
 import {
+  findGitRoot,
   resolveWorkspacePath,
   workspaceArgFrom,
 } from "./workspace-resolution.js";
 
 describe("workspace resolution (M-026)", () => {
   const cwd = "/tmp/launch-dir";
+  const temps: string[] = [];
+
+  afterEach(() => {
+    for (const dir of temps.splice(0)) {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  function tempDir(): string {
+    const dir = mkdtempSync(join(tmpdir(), "prism-mcp-ws-"));
+    temps.push(dir);
+    return dir;
+  }
 
   it("prefers the argument over the environment and cwd", () => {
     const resolved = resolveWorkspacePath({
@@ -24,15 +41,28 @@ describe("workspace resolution (M-026)", () => {
     expect(resolved).toEqual({ path: "/repos/beta", source: "environment" });
   });
 
-  it("falls back to cwd when nothing else is given", () => {
-    expect(resolveWorkspacePath({ cwd })).toEqual({
-      path: cwd,
+  it("uses the nearest git root when launched inside a repository", () => {
+    const root = tempDir();
+    writeFileSync(join(root, ".git"), "gitdir: /somewhere");
+    const nested = join(root, "packages", "app");
+    mkdirSync(nested, { recursive: true });
+
+    expect(findGitRoot(nested)).toBe(root);
+    expect(resolveWorkspacePath({ cwd: nested })).toEqual({
+      path: root,
+      source: "git root",
+    });
+  });
+
+  it("falls back to cwd when there is no git root", () => {
+    const plain = tempDir();
+    expect(resolveWorkspacePath({ cwd: plain })).toEqual({
+      path: plain,
       source: "cwd",
     });
   });
 
   it("treats blank and whitespace-only values as absent", () => {
-    // An agent that sets PRISM_WORKSPACE="" means "unset", not "the root".
     expect(
       resolveWorkspacePath({ argument: "  ", environment: "", cwd }),
     ).toEqual({ path: cwd, source: "cwd" });
@@ -57,8 +87,6 @@ describe("workspace resolution (M-026)", () => {
     });
 
     it("ignores unknown flags rather than refusing to start", () => {
-      // Refusing to start over an unrecognised flag is worse for the user than
-      // starting: the server is launched by an agent, not typed by a human.
       expect(workspaceArgFrom(["--verbose", "--workspace", "/e"])).toBe("/e");
       expect(workspaceArgFrom(["--verbose"])).toBeUndefined();
     });

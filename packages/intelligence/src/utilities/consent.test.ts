@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { CONSENT_PURPOSES } from "@prism/shared";
+import { CONSENT_PURPOSES } from "@repo-prism/shared";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createConsentStore } from "./consent.js";
 

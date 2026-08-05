@@ -6,7 +6,7 @@
 | Status | Verified |
 | Depends on | M-010, M-012 |
 | Unlocks | M-017, M-025 |
-| Packages | `@prism/navigation`, `@prism/core`, `@prism/shared` |
+| Packages | `@repo-prism/navigation`, `@repo-prism/core`, `@repo-prism/shared` |
 
 ## Goal
 

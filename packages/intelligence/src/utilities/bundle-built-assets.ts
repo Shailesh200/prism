@@ -6,7 +6,11 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join, relative } from "node:path";
 import { gzipSync } from "node:zlib";
-import type { BundleBundler, BundleChunk, BundleLoadType } from "@prism/shared";
+import type {
+  BundleBundler,
+  BundleChunk,
+  BundleLoadType,
+} from "@repo-prism/shared";
 import type { ParsedBundleStats } from "./bundle-parsers.js";
 
 const ASSET_EXT = /\.(js|mjs|cjs|css)$/i;

@@ -14,7 +14,7 @@ import {
   prismError,
   unsafeEdgeId,
   unsafeNodeId,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 type NodeData = {
   kind: string;

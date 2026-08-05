@@ -10,7 +10,7 @@ import {
   err,
   ok,
   prismError,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { DEFAULT_MAX_FILE_BYTES } from "./constants.js";
 import { HASH_ALGO, hashBufferSha256, looksBinary } from "./hash.js";
 import { createIgnoreEngine } from "./ignore-engine.js";

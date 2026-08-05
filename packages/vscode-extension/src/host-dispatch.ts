@@ -1,91 +1,11 @@
-import { execFile, execFileSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import type { PrismGitignoreStatus } from "@prism/app-shell";
-import { stageDevopsRemote } from "@prism/core";
-import { consentRequiredMessage } from "@prism/shared";
-import type { MapLayerId, MapZoomLevel } from "@prism/shared";
+import { execFile } from "node:child_process";
+import { stageDevopsRemote } from "@repo-prism/core";
+import { consentRequiredMessage } from "@repo-prism/shared";
+import type { MapLayerId, MapZoomLevel } from "@repo-prism/shared";
 import type * as vscode from "vscode";
 import { applyRenameOnDisk, applyWorkspaceRename } from "./apply-rename.js";
 import type { HostRequest, HostResponse } from "./protocol.js";
 import type { PrismSession } from "./session.js";
-
-const PRISM_GITIGNORE_PATTERNS = new Set([
-  ".prism",
-  ".prism/",
-  "/.prism",
-  "/.prism/",
-  ".prism/**",
-  "**/.prism",
-]);
-
-/**
- * Local-only check for whether the workspace's `.prism` folder is gitignored.
- * Prefers `git check-ignore` (respects nested + global ignores); falls back to
- * reading the root `.gitignore`. Returns `ignored: null` when undeterminable.
- */
-export function checkPrismGitignore(root: string | null): PrismGitignoreStatus {
-  if (!root) return { ignored: null };
-  try {
-    execFileSync("git", ["check-ignore", "-q", "--", ".prism"], {
-      cwd: root,
-      stdio: "ignore",
-    });
-    return { ignored: true, detail: "git check-ignore" };
-  } catch (error) {
-    const status = (error as { status?: number }).status;
-    if (status === 1) {
-      return { ignored: false, detail: "git check-ignore" };
-    }
-    // git missing / not a repo → fall back to reading .gitignore.
-  }
-  try {
-    const gitignore = join(root, ".gitignore");
-    if (!existsSync(gitignore)) return { ignored: false };
-    const ignored = readFileSync(gitignore, "utf8")
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .some((line) => PRISM_GITIGNORE_PATTERNS.has(line));
-    return { ignored, detail: ".gitignore" };
-  } catch {
-    return { ignored: null };
-  }
-}
-
-/** Append `.prism/` to the workspace root `.gitignore` when missing. */
-export function addPrismToGitignore(root: string | null): PrismGitignoreStatus {
-  if (!root) return { ignored: null, detail: "no workspace" };
-  const status = checkPrismGitignore(root);
-  if (status.ignored === true) return status;
-
-  const gitignorePath = join(root, ".gitignore");
-  let existing = "";
-  try {
-    if (existsSync(gitignorePath)) {
-      existing = readFileSync(gitignorePath, "utf8");
-      const already = existing
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .some((line) => PRISM_GITIGNORE_PATTERNS.has(line));
-      if (already) {
-        return { ignored: true, detail: ".gitignore" };
-      }
-    }
-  } catch {
-    return { ignored: false, detail: "could not read .gitignore" };
-  }
-
-  const needsNewline = existing.length > 0 && !existing.endsWith("\n");
-  const block = `${needsNewline ? "\n" : ""}${
-    existing.length > 0 ? "\n" : ""
-  }# Prism local cache\n.prism/\n`;
-  try {
-    writeFileSync(gitignorePath, `${existing}${block}`, "utf8");
-  } catch {
-    return { ignored: false, detail: "could not write .gitignore" };
-  }
-  return checkPrismGitignore(root);
-}
 
 export type HostDispatchState = {
   zoom: MapZoomLevel;
@@ -98,7 +18,7 @@ export type HostDispatchOptions = {
   /** Forward utility-job progress (Lighthouse lab console + progressive CWV). */
   readonly onProgress?: (event: {
     message: string;
-    detail?: import("@prism/shared").JsonValue;
+    detail?: import("@repo-prism/shared").JsonValue;
   }) => void;
 };
 
@@ -284,7 +204,7 @@ export async function dispatchHostRequest(
         id: req.id,
         ok: true,
         method: "prismGitignore",
-        data: checkPrismGitignore(session.root),
+        data: await session.getPrismGitignoreStatus(),
       };
     }
     case "addPrismGitignore": {
@@ -292,7 +212,7 @@ export async function dispatchHostRequest(
         id: req.id,
         ok: true,
         method: "addPrismGitignore",
-        data: addPrismToGitignore(session.root),
+        data: await session.addPrismToGitignore(),
       };
     }
     case "gitFetch": {

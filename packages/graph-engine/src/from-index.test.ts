@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { IndexSnapshot } from "@prism/shared";
+import type { IndexSnapshot } from "@repo-prism/shared";
 import { nodesFromIndexSnapshot } from "./from-index.js";
 
 describe("nodesFromIndexSnapshot", () => {

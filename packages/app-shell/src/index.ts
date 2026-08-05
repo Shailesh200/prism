@@ -1,6 +1,6 @@
-/** @prism/app-shell — shared Prism product screens (M-046 / ADR-0021). */
+/** @repo-prism/app-shell — shared Prism product screens (M-046 / ADR-0021). */
 
-export const PACKAGE_NAME = "@prism/app-shell" as const;
+export const PACKAGE_NAME = "@repo-prism/app-shell" as const;
 
 export type {
   AppShellClient,

@@ -9,7 +9,7 @@
  * opposite of what it says.
  */
 
-import { ok, PrismErrorCode, err, prismError } from "@prism/shared";
+import { ok, PrismErrorCode, err, prismError } from "@repo-prism/shared";
 import { paint, renderFields, renderHeading, type Style } from "../output.js";
 import type { CommandHandler } from "../runtime.js";
 import { plural, qualityCell, renderTable, scoreCell, wrap } from "../table.js";

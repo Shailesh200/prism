@@ -6,7 +6,7 @@ import {
   err,
   ok,
   prismError,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { PluginRegistry } from "./registry.js";
 import type {
   ExtractedExport,

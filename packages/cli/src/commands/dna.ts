@@ -6,7 +6,7 @@
  * different answer.
  */
 
-import { ok } from "@prism/shared";
+import { ok } from "@repo-prism/shared";
 import { paint, renderFields, renderHeading } from "../output.js";
 import { qualityCell } from "../table.js";
 import type { CommandHandler } from "../runtime.js";

@@ -13,21 +13,21 @@
 Dashboard screens (Overview, DNA, Domains, Trends, Blast, Settings,
 Integrations, sidebar, audit) are duplicated between
 `apps/playground/src` and `packages/vscode-extension/src/webview/ui`. M-031
-shipped by adapting copies; a shared `@prism/app-shell` was deferred. M-046
+shipped by adapting copies; a shared `@repo-prism/app-shell` was deferred. M-046
 touches most of those screens for accuracy and depth — editing twice would
 diverge and double maintenance.
 
-Surfaces must still call **`@prism/core` only** for analysis (ADR-0004). The
+Surfaces must still call **`@repo-prism/core` only** for analysis (ADR-0004). The
 shell is presentation + host client injection, not a second intelligence layer.
 
 ## Decision
 
-Introduce **`@prism/app-shell`** as the single source of Prism dashboard screens
+Introduce **`@repo-prism/app-shell`** as the single source of Prism dashboard screens
 and chrome. Playground and VS Code webview (and thus the Cursor packaging
 overlay) import from that package and inject an `AppShellClient` (unified
 host/map client) that talks to Core.
 
-`@prism/ui` owns design-system primitives and tokens; app-shell composes them
+`@repo-prism/ui` owns design-system primitives and tokens; app-shell composes them
 into product screens. Duplicated screen trees are deleted after cutover.
 
 ## Options Considered

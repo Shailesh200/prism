@@ -1,9 +1,9 @@
-# @prism/analyzer
+# @repo-prism/analyzer
 
 Language plugin SPI and analyzer host. **Surfaces must not import this package** — Core wires it (ADR-0004).
 
 **Implemented:** M-004 (SPI + registry + noop), M-006 (Oxc TypeScript/JS plugin)  
-**Depends on:** `@prism/shared`, `oxc-parser`  
+**Depends on:** `@repo-prism/shared`, `oxc-parser`  
 **Throughput:** see [THROUGHPUT.md](./THROUGHPUT.md) · deep TS: [ADR-0009](../../plans/adr/0009-oxc-parser-v1-deep-ts-optional.md)
 
 ## LanguagePlugin SPI
@@ -51,7 +51,7 @@ import {
   createAnalyzerHost,
   createTypescriptPlugin,
   createNoopPlugin,
-} from "@prism/analyzer";
+} from "@repo-prism/analyzer";
 
 const host = createAnalyzerHost({
   plugins: [createTypescriptPlugin(), createNoopPlugin()],

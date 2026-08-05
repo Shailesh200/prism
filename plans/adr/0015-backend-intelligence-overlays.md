@@ -27,15 +27,15 @@ security files, heuristic test coverage), but a backend engineer really wants
 - Spec drift (routes in code vs. an OpenAPI/proto contract).
 
 These are genuine **analysis** additions and, per ADR-0004, must live in Core
-(`@prism/intelligence`) and be exposed via `@prism/core` DTOs — never computed in
+(`@repo-prism/intelligence`) and be exposed via `@repo-prism/core` DTOs — never computed in
 a surface (the playground's current cross-referencing is a stopgap for reused
 signals only). This ADR proposes the Core heuristics and their contract.
 
 ## Decision
 
 Extend the `api-surface` overlay builder (and add sibling extractors) in
-`@prism/intelligence` to emit **route-level** nodes plus new backend facets,
-surfaced through a typed `BackendReport` DTO in `@prism/shared` and a
+`@repo-prism/intelligence` to emit **route-level** nodes plus new backend facets,
+surfaced through a typed `BackendReport` DTO in `@repo-prism/shared` and a
 `getBackendReport()` (or extended `getUtilityOverlay("api-surface")`) Core API.
 All extraction stays local, static, and heuristic (regex/AST over already-indexed
 files) with explicit `evidence` and `confidence`, honoring the no-network rule.

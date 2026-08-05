@@ -2,7 +2,7 @@ import type {
   FeatureInfo,
   GraphSnapshotDto,
   NavigationRouteResult,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { fileNodeId, findPaths, shortestPath } from "./paths.js";
 
 /**

@@ -1,5 +1,5 @@
 import type { Edge, Node } from "@xyflow/react";
-import type { GraphEdgeDto, GraphNodeDto } from "@prism/shared";
+import type { GraphEdgeDto, GraphNodeDto } from "@repo-prism/shared";
 
 const CARD_W = 200;
 const CARD_H = 108;

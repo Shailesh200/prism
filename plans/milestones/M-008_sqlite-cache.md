@@ -6,7 +6,7 @@
 | Status | Verified |
 | Depends on | M-007 |
 | Unlocks | M-009, M-033 |
-| Packages | `@prism/indexer` (or `@prism/core` storage module) |
+| Packages | `@repo-prism/indexer` (or `@repo-prism/core` storage module) |
 
 ## Goal
 

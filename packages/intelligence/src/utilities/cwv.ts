@@ -8,7 +8,7 @@ import {
   type CwvReport,
   type CwvRollupBucket,
   type JsonValue,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 export const LIGHTHOUSE_CALLOUT =
   "Opt-in local Lighthouse: serve the app on a dedicated local PORT; the diagnosis runs asynchronously; the report is shown when ready (ADR-0008).";

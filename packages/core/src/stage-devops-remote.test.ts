@@ -1,7 +1,7 @@
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createConsentStore } from "@prism/intelligence";
+import { createConsentStore } from "@repo-prism/intelligence";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { stageDevopsRemote } from "./stage-devops-remote.js";
 

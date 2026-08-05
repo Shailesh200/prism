@@ -1,5 +1,5 @@
-/** @prism/impact — blast radius / change impact engine (M-020, M-021). */
-export const PACKAGE_NAME = "@prism/impact" as const;
+/** @repo-prism/impact — blast radius / change impact engine (M-020, M-021). */
+export const PACKAGE_NAME = "@repo-prism/impact" as const;
 
 export {
   computeBlastRadius,

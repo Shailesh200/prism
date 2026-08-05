@@ -6,7 +6,7 @@
  * be readable before it is complete.
  */
 
-import { ok } from "@prism/shared";
+import { ok } from "@repo-prism/shared";
 import { paint, renderFields, renderHeading } from "../output.js";
 import type { CommandHandler } from "../runtime.js";
 import {
@@ -22,6 +22,7 @@ import {
   meetsThreshold,
   parseFailOn,
   parseLimit,
+  parseZoom,
   truncationNote,
 } from "../thresholds.js";
 
@@ -91,9 +92,11 @@ export const mapCommand: CommandHandler = async (context) => {
   const opened = await context.open();
   if (!opened.ok) return opened;
 
-  const zoom = context.args.option("zoom");
+  const zoom = parseZoom(context.args.option("zoom"));
+  if (!zoom.ok) return zoom;
+
   const map = opened.value.getRepositoryMap(
-    zoom ? { zoom: zoom as never } : {},
+    zoom.value ? { zoom: zoom.value } : {},
   );
   if (!map.ok) return map;
 

@@ -6,7 +6,7 @@
 | Status | Verified |
 | Depends on | M-047 |
 | Unlocks | Editor-native Prism loop before MCP (M-026); reliable Blast Radius hero |
-| Packages | `@prism/vscode-extension`, `@prism/app-shell`, `@prism/ui`, `@prism/core`, `@prism/indexer`, `@prism/intelligence`, `@prism/impact`, `@prism/repository-map`, `@prism/shared` |
+| Packages | `@repo-prism/vscode-extension`, `@repo-prism/app-shell`, `@repo-prism/ui`, `@repo-prism/core`, `@repo-prism/indexer`, `@repo-prism/intelligence`, `@repo-prism/impact`, `@repo-prism/repository-map`, `@repo-prism/shared` |
 | Supersedes | **M-033 Incremental Watch** (Phase 1) |
 | Related ADR | [ADR-0026](../adr/0026-incremental-watch-invalidation.md); [ADR-0027](../adr/0027-blast-radius-multi-lane-signals.md) (Accepted on M-049) |
 | Phase 8 note | Blast Radius Depth was planned as Phase 8 here; **implementation moved to** [`M-049`](./M-049_blast-radius-depth.md) / `milestone/M-049-blast-radius-depth` after this epic Verified |
@@ -63,7 +63,7 @@ so the hero impact surface is trustworthy.
 
 > **User problem:** `vitest.config.ts` shows Low Impact (15), 0 dependents, Safe to Delete — import-only graph + narrow critical-path list. Hero feature needs multi-lane detail.
 
-**Principles:** hard import/re-export stay authoritative; soft signals (config/CI/env/scripts) carry confidence + evidence; never imply “safe” from an empty import graph alone when tooling-critical or soft blockers exist; surfaces stay behind `@prism/core`.
+**Principles:** hard import/re-export stay authoritative; soft signals (config/CI/env/scripts) carry confidence + evidence; never imply “safe” from an empty import graph alone when tooling-critical or soft blockers exist; surfaces stay behind `@repo-prism/core`.
 
 **Related:** ADR-0027 · OPEN_QUESTIONS Q-022 / Q-023 · [`M-049_blast-radius-depth.md`](./M-049_blast-radius-depth.md) (active implementation + design archive).
 

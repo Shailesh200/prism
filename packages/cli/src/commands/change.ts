@@ -5,7 +5,7 @@
  * a pipeline. Everything here reports; nothing here writes to the repository.
  */
 
-import { ok, riskBandDescriptor } from "@prism/shared";
+import { ok, riskBandDescriptor } from "@repo-prism/shared";
 import { paint, renderFields, renderHeading } from "../output.js";
 import type { CommandHandler, CommandContext } from "../runtime.js";
 import { bandStyle, plural, renderTable, scoreCell, wrap } from "../table.js";

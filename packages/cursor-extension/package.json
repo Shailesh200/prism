@@ -1,8 +1,8 @@
 {
-  "name": "@prism/cursor-extension",
+  "name": "@repo-prism/cursor-extension",
   "displayName": "Prism for Cursor",
   "description": "Local-first Software Intelligence for Cursor — Repository Map, Overview, Blast Radius, and Health. Same Core as the VS Code package; designed to coexist with Prism MCP.",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "publisher": "prismhq",
   "type": "module",
@@ -50,6 +50,154 @@
         "command": "prism.openInBrowser",
         "title": "Prism: Open in Browser",
         "category": "Prism"
+      },
+      {
+        "command": "prism.blastRadius",
+        "title": "Prism: Blast Radius",
+        "category": "Prism"
+      },
+      {
+        "command": "prism.safeDelete",
+        "title": "Prism: Safe Delete Check",
+        "category": "Prism"
+      },
+      {
+        "command": "prism.exploreOwnership",
+        "title": "Prism: Explore Ownership",
+        "category": "Prism"
+      },
+      {
+        "command": "prism.revealOnMap",
+        "title": "Prism: Reveal on Map",
+        "category": "Prism"
+      },
+      {
+        "command": "prism.explainArea",
+        "title": "Prism: Explain This Area",
+        "category": "Prism"
+      },
+      {
+        "command": "prism.reviewChanges",
+        "title": "Prism: Review Changes",
+        "category": "Prism"
+      },
+      {
+        "command": "prism.openWalkthrough",
+        "title": "Prism: Getting Started Tour",
+        "category": "Prism"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "prism.blastRadius",
+          "group": "prism@1"
+        },
+        {
+          "command": "prism.safeDelete",
+          "group": "prism@2"
+        },
+        {
+          "command": "prism.exploreOwnership",
+          "group": "prism@3"
+        },
+        {
+          "command": "prism.explainArea",
+          "group": "prism@4"
+        },
+        {
+          "command": "prism.revealOnMap",
+          "group": "prism@5"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "prism.blastRadius",
+          "group": "prism@1"
+        },
+        {
+          "command": "prism.safeDelete",
+          "group": "prism@2"
+        },
+        {
+          "command": "prism.exploreOwnership",
+          "group": "prism@3"
+        },
+        {
+          "command": "prism.explainArea",
+          "group": "prism@4"
+        },
+        {
+          "command": "prism.revealOnMap",
+          "group": "prism@5"
+        }
+      ],
+      "scm/resourceState/context": [
+        {
+          "command": "prism.reviewChanges",
+          "group": "prism@1"
+        },
+        {
+          "command": "prism.blastRadius",
+          "group": "prism@2"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Prism",
+      "properties": {
+        "prism.codeLens.enabled": {
+          "type": "boolean",
+          "default": false,
+          "title": "Enable CodeLens",
+          "description": "Show file-level Prism CodeLenses (Blast Radius, Ownership, Map) above the first line of each file. Also available in Prism → Settings → General.",
+          "order": 1
+        }
+      }
+    },
+    "walkthroughs": [
+      {
+        "id": "prism.gettingStarted",
+        "title": "Getting Started with Prism",
+        "description": "Open Prism on your repository and take the in-app tour.",
+        "steps": [
+          {
+            "id": "prism.openFolder",
+            "title": "Open a project folder",
+            "description": "Prism analyses the folder you open in the editor — not a pasted path.\n\n[Open Folder](command:vscode.openFolder)",
+            "media": {
+              "image": "media/prism-mark.png",
+              "altText": "Prism"
+            }
+          },
+          {
+            "id": "prism.openPanel",
+            "title": "Open Prism",
+            "description": "Open the Prism panel for the map, health, and blast radius.\n\n[Open Prism](command:prism.open)",
+            "media": {
+              "image": "media/prism-mark.png",
+              "altText": "Prism"
+            }
+          },
+          {
+            "id": "prism.takeTour",
+            "title": "Take the Getting Started tour",
+            "description": "Walk through the product inside Prism.\n\n[Start tour](command:prism.openWalkthrough)",
+            "media": {
+              "image": "media/prism-mark.png",
+              "altText": "Prism"
+            }
+          },
+          {
+            "id": "prism.editorActions",
+            "title": "Use editor actions",
+            "description": "Right-click a file for **Blast Radius**, **Safe Delete Check**, or **Reveal on Map**. Or enable CodeLens in Settings.",
+            "media": {
+              "image": "media/prism-mark.png",
+              "altText": "Prism"
+            }
+          }
+        ]
       }
     ]
   },
@@ -61,13 +209,12 @@
   "scripts": {
     "build": "bun run scripts/build.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
-    "test:integration": "vitest run --config vitest.integration.config.ts"
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/vscode": "^1.90.0"
   },
   "dependencies": {
-    "@prism/vscode-extension": "workspace:*"
+    "@repo-prism/vscode-extension": "workspace:*"
   }
 }

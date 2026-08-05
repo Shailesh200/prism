@@ -9,7 +9,7 @@ import type { AppView } from "./protocol.js";
 import { PrismSession } from "./session.js";
 import { PrismPanel } from "./webview/prism-panel.js";
 
-export const PACKAGE_NAME = "@prism/vscode-extension" as const;
+export const PACKAGE_NAME = "@repo-prism/vscode-extension" as const;
 
 const AUTO_OPEN_STATE_KEY = "prism.autoOpenFolderAttempts";
 
@@ -210,8 +210,8 @@ async function bootWorkspace(): Promise<void> {
   if (!s) return;
 
   updateStatusBar();
-  // Index quietly in the background. Do not auto-open the Prism panel or
-  // toast — the user opens Prism explicitly (status bar / command / CodeLens).
+  // Index quietly in the background. Do not auto-open the Prism panel —
+  // the Getting Started walkthrough and status bar point people there.
   logger!.info(`Indexed ${folder.name} (panel stays closed until opened)`);
 }
 
@@ -359,7 +359,7 @@ function registerCodeLens(context: vscode.ExtensionContext): void {
 
 /**
  * Open Prism and ask the webview to show the in-app product tour.
- * (No VS Code Getting Started pane — tour lives inside the Prism UI.)
+ * `contributes.walkthroughs` delegates here; the Spotlight UI is PrismTour.
  */
 function openPrismWalkthrough(): void {
   void vscode.commands.executeCommand("prism.open").then(() => {
@@ -618,7 +618,7 @@ export function activate(context: vscode.ExtensionContext): void {
         );
         return;
       }
-      await openPanel("blast", { targetPath: path });
+      await openPanel("blast", { targetPath: path, intent: "delete" });
     },
   );
 

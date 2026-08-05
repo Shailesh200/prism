@@ -1,10 +1,10 @@
-# @prism/intelligence
+# @repo-prism/intelligence
 
 Stack detection SPI, Repository DNA, health, and insights.
 
 **Implemented:** M-040 (Stack Detector SPI) · M-013 (multi-domain detector packs + `assembleDnaReport`)  
-**Depends on:** `@prism/shared`, `@prism/graph-engine`  
-**Surfaces:** via `@prism/core` only (ADR-0004 / ADR-0007)
+**Depends on:** `@repo-prism/shared`, `@repo-prism/graph-engine`  
+**Surfaces:** via `@repo-prism/core` only (ADR-0004 / ADR-0007)
 
 Default packs: `createDefaultDetectorPacks()` — FE/BE/Mobile/Desktop/Data-ML-AI/Data-eng/DevOps/Embedded/Game/Tooling (local manifests only).
 
@@ -18,7 +18,7 @@ Default packs: `createDefaultDetectorPacks()` — FE/BE/Mobile/Desktop/Data-ML-A
 | `personaHints` | Personas it may suggest |
 | `detect(ctx)` | → additive `StackSignal[]` |
 
-Well-known domain / persona ids: `StackDomain` / `DeveloperPersona` in `@prism/shared` (open string registry).
+Well-known domain / persona ids: `StackDomain` / `DeveloperPersona` in `@repo-prism/shared` (open string registry).
 
 ## Sequence
 

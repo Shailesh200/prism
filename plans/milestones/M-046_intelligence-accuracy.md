@@ -6,13 +6,13 @@
 | Status | In Progress |
 | Depends on | M-032 (Cursor overlay), M-025 (Core SDK freeze), M-044 (Backend report) |
 | Unlocks | Accurate Overview/DNA/Trends; Testing & Security surface; domain depth; opt-in integrations |
-| Packages | `@prism/app-shell` (new), `@prism/ui`, `@prism/core`, `@prism/intelligence`, `@prism/impact`, `@prism/shared`, `vscode-extension`, `playground` |
+| Packages | `@repo-prism/app-shell` (new), `@repo-prism/ui`, `@repo-prism/core`, `@repo-prism/intelligence`, `@repo-prism/impact`, `@repo-prism/shared`, `vscode-extension`, `playground` |
 | ADRs | ADR-0021, ADR-0022, ADR-0023, ADR-0024 |
 
 ## Goal
 
 Close intelligence-accuracy gaps and deepen product surfaces in one epic:
-consolidate duplicated playground / IDE webview UI into **`@prism/app-shell`**,
+consolidate duplicated playground / IDE webview UI into **`@repo-prism/app-shell`**,
 add real design-system primitives, then ship accuracy and depth across Overview,
 DNA, Trends, Testing & Security, Blast, Settings, Integrations, and domain
 screens — in **three internal phases** on a single branch.
@@ -21,9 +21,9 @@ screens — in **three internal phases** on a single branch.
 
 ### Phase 1 — UI primitives, app-shell, Overview / DNA / Trends
 
-- Design-system primitives in `@prism/ui` (Input, SearchableInput, Select,
+- Design-system primitives in `@repo-prism/ui` (Input, SearchableInput, Select,
   Textarea, ToggleGroup, Tabs, Tooltip) + light theme + density tokens
-- Extract shared screens into `@prism/app-shell`; playground + VS Code / Cursor
+- Extract shared screens into `@repo-prism/app-shell`; playground + VS Code / Cursor
   consume it (delete duplicates)
 - Core helpers: confidence-ranked domains / primary domain, health-factor
   breakdown, trends history store + git commit backfill, audit event stream
@@ -74,8 +74,8 @@ screens — in **three internal phases** on a single branch.
 
 ### Phase 1
 
-- [x] `@prism/ui` primitives + light/density tokens; Map light theme no regression
-- [x] `@prism/app-shell` owns screens; playground + extension import it
+- [x] `@repo-prism/ui` primitives + light/density tokens; Map light theme no regression
+- [x] `@repo-prism/app-shell` owns screens; playground + extension import it
 - [x] Ranked domains, health breakdown, history store + backfill, audit stream
 - [x] Overview / DNA / Trends accuracy items from epic §1d–1f
 - [x] `bun run verify:milestone` green at phase boundary

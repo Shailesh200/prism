@@ -7,7 +7,7 @@ import {
   createTypescriptPlugin,
 } from "./index.js";
 
-describe("@prism/analyzer exports", () => {
+describe("@repo-prism/analyzer exports", () => {
   it("exposes SPI version and host factory", () => {
     expect(ANALYZER_SPI_VERSION).toBe(1);
     expect(typeof createNoopPlugin).toBe("function");

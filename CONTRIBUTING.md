@@ -48,10 +48,10 @@ obviously wrong error message — open a pull request directly and say so.
 
 | Rule | Reason |
 |---|---|
-| Every surface (CLI, MCP, VS Code, Cursor, playground) consumes **`@prism/core` only** | [ADR-0004](./plans/adr/0004-core-only-integration-surface.md). A surface that reaches an engine package directly will drift from the others |
+| Every surface (CLI, MCP, VS Code, Cursor, playground) consumes **`@repo-prism/core` only** | [ADR-0004](./plans/adr/0004-core-only-integration-surface.md). A surface that reaches an engine package directly will drift from the others |
 | Never reimplement analysis inside a surface | Same reason. If a surface needs something Core does not expose, add it to Core |
 | Core analysis makes **no network calls** | See below. This is enforced by test |
-| DTOs live in `@prism/shared` and are Zod-validated | Every surface serialises them |
+| DTOs live in `@repo-prism/shared` and are Zod-validated | Every surface serialises them |
 
 ### The no-network rule for Core
 

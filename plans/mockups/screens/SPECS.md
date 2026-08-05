@@ -10,7 +10,7 @@
 | Product SoT | [`../../PRD.md`](../../PRD.md) · [`../../UX_SIMPLICITY.md`](../../UX_SIMPLICITY.md) |
 
 > **Product UI = UXPilot dark.** These HTML files are the visual reference for the
-> dark theme now live in `@prism/ui` (navy, cyan `#00C2C2`, violet `#6C63FF`,
+> dark theme now live in `@repo-prism/ui` (navy, cyan `#00C2C2`, violet `#6C63FF`,
 > Inter + JetBrains Mono). Build against the `--prism-*` tokens in `tokens.css`;
 > do not paste raw Tailwind HTML into components. Landing (`03-landing.html`)
 > remains deferred to the marketing/docs site.
@@ -39,7 +39,7 @@
 
 | ID | Archive | Job | Implement where | Priority | Milestone |
 |---|---|---|---|---|---|
-| A | `html/01-repository-map.html` | Orient & go | `@prism/ui` + playground | P0 | M-042 |
+| A | `html/01-repository-map.html` | Orient & go | `@repo-prism/ui` + playground | P0 | M-042 |
 | B | `html/02-dashboard.html` | Pain / health overview | Separate Overview / inspector panels | P1 | M-042 / M-015+ |
 | C | `html/03-landing.html` | Marketing site | Future `apps/docs` or Vercel site | P3 | M-038+ |
 
@@ -137,12 +137,12 @@ Defer until M-038 / marketing site. Do not block M-042.
 ```text
 Read plans/mockups/screens/SPECS.md section A and
 plans/mockups/screens/html/01-repository-map.html (reference only).
-Rematerialize into @prism/ui Signal Chart (tokens.css / map.css).
+Rematerialize into @repo-prism/ui Signal Chart (tokens.css / map.css).
 Keep: left KPI sidebar, center canvas with dependency edges,
       right inspector, search, feature regions, Open/See impact.
 Blast rings: only when a node is selected (clear on deselect).
 Drop: dark theme, cyan/violet accents (use #0F766E), SaaS Share chrome.
-Active milestone branch only; @prism/core for data.
+Active milestone branch only; @repo-prism/core for data.
 ```
 
 ### Overview / DNA (later slice)
@@ -150,7 +150,7 @@ Active milestone branch only; @prism/core for data.
 ```text
 Read SPECS.md section B. Add Health/DNA summaries into Views / Overview —
 not replacing the Map as home.
-Use getHealth / intelligence DTOs from @prism/core.
+Use getHealth / intelligence DTOs from @repo-prism/core.
 ```
 
 ---

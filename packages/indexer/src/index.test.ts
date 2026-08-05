@@ -8,7 +8,7 @@ import {
   snapshotToSummary,
 } from "./index.js";
 
-describe("@prism/indexer exports", () => {
+describe("@repo-prism/indexer exports", () => {
   it("exposes inventory + index job APIs", () => {
     expect(HASH_ALGO).toBe("sha256");
     expect(BUILTIN_IGNORE_PATTERNS).toContain("node_modules/");

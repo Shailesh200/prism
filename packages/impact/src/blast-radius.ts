@@ -10,7 +10,7 @@ import {
   type PrismError,
   type Result,
   type ScenarioChecklistSection,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import {
   FILE_PREFIX,
   affectedItems,

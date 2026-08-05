@@ -32,85 +32,85 @@ Anything not listed is **forbidden** without an ADR.
 
 ## 2. Per-package RACI-style map
 
-### `@prism/shared`
+### `@repo-prism/shared`
 
 | Owns | Must not contain |
 |---|---|
 | DTOs, Zod schemas, IDs, Result/AppError, constants | Parsing, graphs, FS I/O, React |
 
-### `@prism/analyzer`
+### `@repo-prism/analyzer`
 
 | Owns | Must not contain |
 |---|---|
 | Language SPI, Oxc (v1) plugin, extract symbols/imports/exports | Index orchestration, SQLite, MCP |
 
-### `@prism/indexer`
+### `@repo-prism/indexer`
 
 | Owns | Must not contain |
 |---|---|
 | Walk, ignore, hashing, index jobs, coordinating persist | UI, blast-radius product logic |
 
-### `@prism/graph-engine`
+### `@repo-prism/graph-engine`
 
 | Owns | Must not contain |
 |---|---|
 | ngraph store, typed edges, query primitives | Language parsing, IDE chrome |
 
-### `@prism/intelligence`
+### `@repo-prism/intelligence`
 
 | Owns | Must not contain |
 |---|---|
 | DNA, detection, health, insights, entropy | Map rendering, MCP protocol |
 
-### `@prism/impact`
+### `@repo-prism/impact`
 
 | Owns | Must not contain |
 |---|---|
 | Blast radius, safe delete/rename/test impact reports | Extension commands, CLI argv parsing |
 
-### `@prism/navigation`
+### `@repo-prism/navigation`
 
 | Owns | Must not contain |
 |---|---|
 | Routes / path finding across features & symbols | React Flow, SQLite schema |
 
-### `@prism/repository-map`
+### `@repo-prism/repository-map`
 
 | Owns | Must not contain |
 |---|---|
 | Map model, layers, zoom levels, landmarks, bookmarks | Direct Oxc calls, MCP SDK |
 
-### `@prism/core`
+### `@repo-prism/core`
 
 | Owns | Must not contain |
 |---|---|
 | Stable public SDK composing engines; workspace lifecycle | Duplicate algorithms already in engines; UI components |
 
-### `@prism/ui`
+### `@repo-prism/ui`
 
 | Owns | Must not contain |
 |---|---|
 | React Map, inspector shells, Signal Chart components | Calling `analyzer` / `indexer` directly |
 
-### `@prism/mcp-server`
+### `@repo-prism/mcp-server`
 
 | Owns | Must not contain |
 |---|---|
 | MCP transport, tool registration, JSON responses via Core | Second copy of impact/graph logic |
 
-### `@prism/cli`
+### `@repo-prism/cli`
 
 | Owns | Must not contain |
 |---|---|
 | Commander commands, stdout/JSON formatting via Core | Hidden analysis bypassing Core |
 
-### `@prism/vscode-extension`
+### `@repo-prism/vscode-extension`
 
 | Owns | Must not contain |
 |---|---|
 | Activation, commands, webview host, wiring Core + UI | Reimplementing index/graphs |
 
-### `@prism/cursor-extension`
+### `@repo-prism/cursor-extension`
 
 | Owns | Must not contain |
 |---|---|

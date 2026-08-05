@@ -14,7 +14,7 @@ M-006 ships the first real `LanguagePlugin` for TS/JS. ADR-0003 already chose **
 
 ## Decision
 
-1. **Default path:** `@prism/analyzer` TypeScript plugin uses **`oxc-parser`** (`parseSync`) for `.ts`/`.tsx`/`.js`/`.jsx` (and module variants).
+1. **Default path:** `@repo-prism/analyzer` TypeScript plugin uses **`oxc-parser`** (`parseSync`) for `.ts`/`.tsx`/`.js`/`.jsx` (and module variants).
 2. **v1 extractions surface:** symbols, static imports/exports, call-site reference **hints**, file-level diagnostics — not type-accurate refs.
 3. **Deep TS** (`ts-morph` / `tsc` program) remains **optional** and off by default (Q-015). Introduce only if measured gaps on M-011+ demand it; document via a follow-up ADR amendment.
 4. **SWC:** only if Oxc API blocks a required extraction (document why in that PR).

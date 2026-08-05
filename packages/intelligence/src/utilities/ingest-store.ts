@@ -13,7 +13,7 @@ import {
   ok,
   parseDto,
   prismError,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 export type WriteIngestInput = {
   readonly kind: string;

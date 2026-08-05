@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { IndexedFile, IndexSnapshot } from "@prism/shared";
+import type { IndexedFile, IndexSnapshot } from "@repo-prism/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { openIndexCache } from "./db.js";
 import { loadCachedFiles, loadCachedSnapshot, saveSnapshot } from "./store.js";

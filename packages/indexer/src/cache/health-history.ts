@@ -4,7 +4,7 @@ import {
   RegionHealthPointSchema,
   type HealthHistoryPoint,
   type RegionHealthPoint,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 
 /** Persisted payload for one history row (health + regions). */
 export type HealthHistoryPayload = {

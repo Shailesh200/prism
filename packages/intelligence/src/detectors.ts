@@ -1,6 +1,6 @@
 import { access } from "node:fs/promises";
 import { join } from "node:path";
-import { StackDomain, type StackSignal, ok } from "@prism/shared";
+import { StackDomain, type StackSignal, ok } from "@repo-prism/shared";
 import { STACK_DETECTOR_SPI_VERSION } from "./spi-version.js";
 import type { StackDetector } from "./types.js";
 

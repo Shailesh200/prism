@@ -5,8 +5,8 @@ Stable Core façade for repository understanding (M-014). Surfaces (MCP, CLI, ID
 ## Entry point
 
 ```ts
-import { Prism } from "@prism/core";
-import { IntelligenceReportSchema } from "@prism/shared";
+import { Prism } from "@repo-prism/core";
+import { IntelligenceReportSchema } from "@repo-prism/shared";
 
 const prism = Prism.create();
 const opened = prism.openRepository("/absolute/path/to/repo");

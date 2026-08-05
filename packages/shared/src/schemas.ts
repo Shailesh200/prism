@@ -207,13 +207,15 @@ export const LandmarkSchema = z.object({
 export type Landmark = z.infer<typeof LandmarkSchema>;
 
 /** Map zoom levels (repo → symbol). Design system ZoomRail. */
-export const MapZoomLevelSchema = z.enum([
+export const MAP_ZOOM_LEVELS = [
   "repo",
   "package",
   "feature",
   "file",
   "symbol",
-]);
+] as const;
+
+export const MapZoomLevelSchema = z.enum(MAP_ZOOM_LEVELS);
 
 export type MapZoomLevel = z.infer<typeof MapZoomLevelSchema>;
 

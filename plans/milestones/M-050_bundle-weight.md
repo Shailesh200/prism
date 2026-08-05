@@ -34,7 +34,7 @@ Ship **Frontend Bundle / Weight** beside the existing CWV lab: detect project an
 
 - [x] Milestone In Progress; only one In Progress
 - [x] ADR-0028 Accepted with implementation notes
-- [x] Surfaces only via `@prism/core`
+- [x] Surfaces only via `@repo-prism/core`
 - [x] Consent required before running builds; no silent network
 - [x] Honest empty/unsupported states
 - [x] `bun run verify:milestone` green

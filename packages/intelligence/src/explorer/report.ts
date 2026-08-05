@@ -9,8 +9,8 @@ import type {
   FeatureInfo,
   GitFileSignal,
   IndexSnapshot,
-} from "@prism/shared";
-import { isTestPath } from "@prism/shared";
+} from "@repo-prism/shared";
+import { isTestPath } from "@repo-prism/shared";
 import { buildDependencyGraph } from "../dependency/build.js";
 import { buildFeatureGraph } from "../feature/build.js";
 import {

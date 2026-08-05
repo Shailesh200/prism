@@ -12,9 +12,9 @@ const fixture = join(
   "m012-features",
 );
 
-describe("@prism/vscode-extension", () => {
+describe("@repo-prism/vscode-extension", () => {
   it("exports package name", () => {
-    expect(PACKAGE_NAME).toBe("@prism/vscode-extension");
+    expect(PACKAGE_NAME).toBe("@repo-prism/vscode-extension");
   });
 
   it("indexes a fixture and returns a repository map", async () => {

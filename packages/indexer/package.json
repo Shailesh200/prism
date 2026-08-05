@@ -1,7 +1,6 @@
 {
-  "name": "@prism/indexer",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@repo-prism/indexer",
+  "version": "1.0.0",
   "type": "module",
   "description": "Repository walk, hash, and index orchestration",
   "exports": {
@@ -20,12 +19,24 @@
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
-    "@prism/analyzer": "workspace:*",
-    "@prism/shared": "workspace:*",
+    "@repo-prism/analyzer": "workspace:*",
+    "@repo-prism/shared": "workspace:*",
     "better-sqlite3": "^12.11.1",
     "ignore": "^7.0.6"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Shailesh200/prism.git"
+  },
+  "homepage": "https://github.com/Shailesh200/prism#readme",
+  "bugs": {
+    "url": "https://github.com/Shailesh200/prism/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

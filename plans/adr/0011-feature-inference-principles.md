@@ -24,7 +24,7 @@ Prism’s Map and navigation need a **feature-first** view of the repository. Pe
    - `src/<name>/` directory boundaries (≥2 files, non-noise) (~0.55)
    - README `## Features` / `## Capabilities` bullets (~0.60; attach files when a matching folder exists)
 5. **Graph:** feature nodes + `contains` → member files; `related` when a member file imports a file owned by another feature (best-effort relative resolve).
-6. **Surfaces:** only `@prism/core` exposes `getFeatureGraph()` / `listFeatures()`; builder lives in `@prism/intelligence`.
+6. **Surfaces:** only `@repo-prism/core` exposes `getFeatureGraph()` / `listFeatures()`; builder lives in `@repo-prism/intelligence`.
 
 ## Options Considered
 

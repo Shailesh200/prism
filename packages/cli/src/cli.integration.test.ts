@@ -80,10 +80,16 @@ describe("prism binary (M-028)", () => {
     expect(result.stdout).toBe("");
   });
 
-  it("exits 2 and prints help when given no command", async () => {
+  it("exits 0 and prints help when given no command", async () => {
     const result = await runCli([]);
-    expect(result.code).toBe(2);
+    expect(result.code).toBe(0);
     expect(result.stderr).toContain("Usage:");
+  });
+
+  it("suggests a nearby command name for typos", async () => {
+    const result = await runCli(["blsat"]);
+    expect(result.code).toBe(2);
+    expect(result.stderr).toMatch(/Did you mean blast/i);
   });
 
   it("runs doctor against the fixture", async () => {
@@ -184,6 +190,52 @@ describe("prism binary (M-028)", () => {
     const result = await runCli(["dna", "--workspace", fixture, "--json"]);
     expect(result.code).toBe(0);
     expect(() => JSON.parse(result.stdout)).not.toThrow();
+  }, 60_000);
+
+  /**
+   * Exit 1 means "the analysis found what you asked about" — a real answer. A
+   * mistyped command line is not an answer, and a CI job that cannot tell the
+   * two apart will either ignore findings or fail on typos. Commander wants to
+   * exit 1 for both, so these cases are pinned.
+   */
+  describe("usage errors are exit 2, never exit 1", () => {
+    const cases: ReadonlyArray<readonly [string, readonly string[]]> = [
+      ["missing a required argument", ["explore"]],
+      ["missing the second required argument", ["route", "a.ts"]],
+      ["given an argument the command does not take", ["deps", "a.ts"]],
+      ["an unknown command", ["nope"]],
+      ["an unknown flag", ["dna", "--nope"]],
+      ["a bad --zoom value", ["map", "--zoom", "repository"]],
+      ["a bad --fail-on value", ["health", "--fail-on", "catastrophic"]],
+      ["a bad --limit value", ["cycles", "--limit", "0"]],
+    ];
+
+    for (const [name, argv] of cases) {
+      it(name, async () => {
+        const result = await runCli([...argv, "--workspace", fixture]);
+        expect(result.code, `${argv.join(" ")}\n${result.stderr}`).toBe(2);
+        expect(result.stdout).toBe("");
+      }, 60_000);
+    }
+  });
+
+  it("still exits 0 for help on a subcommand", async () => {
+    const result = await runCli(["map", "--help"]);
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain("--zoom");
+  });
+
+  it("names the valid values when a choice flag is wrong", async () => {
+    // A rejection that does not say what would have worked leaves the user
+    // guessing at a closed set the CLI already knows.
+    const result = await runCli([
+      "map",
+      "--zoom",
+      "repository",
+      "--workspace",
+      fixture,
+    ]);
+    expect(result.stderr).toContain("repo, package, feature, file, symbol");
   }, 60_000);
 });
 
@@ -387,7 +439,7 @@ describe("path arguments (M-029)", () => {
     // Comparing against Core in-process is a stronger check than comparing two
     // surfaces to each other, and it fails loudly if `--json` ever grows an
     // opinion.
-    const { Prism } = await import("@prism/core");
+    const { Prism } = await import("@repo-prism/core");
     const opened = Prism.create().openRepository(fixture);
     expect(opened.ok).toBe(true);
     if (!opened.ok) return;

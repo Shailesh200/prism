@@ -1,15 +1,18 @@
 /**
  * Where the server looks for the repository it should analyse (M-026).
  *
- * Agents launch us with a working directory we did not choose, so the explicit
- * sources win: an argument beats the environment, and the environment beats
- * whatever cwd we happen to have inherited.
+ * Agents launch us with a working directory we did not choose. Explicit wins:
+ * argument → `PRISM_WORKSPACE` → nearest git root from cwd → cwd.
+ *
+ * Git-root discovery matches the CLI so users never have to paste an absolute
+ * path: open a project in Cursor / Claude and the server analyses that repo.
  */
 
-import { isAbsolute, resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 
 /** Precedence order, most explicit first. */
-export type WorkspaceSource = "argument" | "environment" | "cwd";
+export type WorkspaceSource = "argument" | "environment" | "git root" | "cwd";
 
 export type ResolvedWorkspace = {
   /** Absolute path, resolved against `cwd` when the input was relative. */
@@ -32,11 +35,21 @@ function trimmed(value: string | undefined): string | undefined {
 }
 
 /**
- * Resolve the workspace root: argument → `PRISM_WORKSPACE` → cwd.
- *
- * Relative inputs resolve against `cwd` rather than being rejected — an agent
- * passing `.` means the directory it launched us in, and refusing that would be
- * pedantry rather than safety.
+ * Walk up from `start` looking for `.git`. Matches the CLI: worktrees and
+ * submodules use a file rather than a directory, so existence is enough.
+ */
+export function findGitRoot(start: string): string | undefined {
+  let current = resolve(start);
+  for (;;) {
+    if (existsSync(join(current, ".git"))) return current;
+    const parent = dirname(current);
+    if (parent === current) return undefined;
+    current = parent;
+  }
+}
+
+/**
+ * Resolve the workspace root: argument → `PRISM_WORKSPACE` → git root → cwd.
  */
 export function resolveWorkspacePath(
   input: ResolveWorkspaceInput,
@@ -51,6 +64,11 @@ export function resolveWorkspacePath(
     return { path: absolute(environment, input.cwd), source: "environment" };
   }
 
+  const gitRoot = findGitRoot(input.cwd);
+  if (gitRoot !== undefined) {
+    return { path: gitRoot, source: "git root" };
+  }
+
   return { path: absolute(input.cwd, input.cwd), source: "cwd" };
 }
 
@@ -60,9 +78,8 @@ function absolute(path: string, cwd: string): string {
 
 /**
  * Read `--workspace <path>` / `--workspace=<path>`, falling back to the first
- * positional argument. Anything else is ignored rather than rejected: the
- * process is long-lived and refusing to start over an unknown flag is worse for
- * the user than starting.
+ * positional argument. Unknown flags are ignored: refusing to start over an
+ * agent typo is worse than starting.
  */
 export function workspaceArgFrom(argv: readonly string[]): string | undefined {
   for (let i = 0; i < argv.length; i++) {

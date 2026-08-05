@@ -1,4 +1,4 @@
-/** @prism/repository-map — Map data model (M-017). */
+/** @repo-prism/repository-map — Map data model (M-017). */
 
 export {
   MAP_ZOOM_LEVELS,
@@ -30,4 +30,4 @@ export {
   type MapPackageInfo,
 } from "./build.js";
 
-export const PACKAGE_NAME = "@prism/repository-map" as const;
+export const PACKAGE_NAME = "@repo-prism/repository-map" as const;

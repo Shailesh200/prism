@@ -1,4 +1,4 @@
-import { RepositoryMapView } from "@prism/ui";
+import { RepositoryMapView } from "@repo-prism/ui";
 import {
   AppShellClientProvider,
   AppSidebar,
@@ -27,7 +27,7 @@ import {
   type MapPayload,
   type PrismGitignoreStatus,
   type SettingsSection,
-} from "@prism/app-shell";
+} from "@repo-prism/app-shell";
 import type {
   DnaReport,
   GitActivity,
@@ -39,7 +39,7 @@ import type {
   RepositoryMap,
   UtilityOverlayReport,
   BackendReport,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import {
   useCallback,
   useEffect,
@@ -240,10 +240,25 @@ export function App(): ReactElement {
       listConsent: () => fetchConsent(target),
       setConsent: (purpose, granted) => setConsent(target, purpose, granted),
       fetchPrismGitignoreStatus: async (): Promise<PrismGitignoreStatus> => {
-        // Degrades gracefully: the dev server may not expose /api/gitignore.
+        // `ignored: null` on failure, never `false`: the sidebar warns on
+        // `false`, and warning about a check that did not run would be worse
+        // than staying quiet.
         try {
           const params = new URLSearchParams(target ? { root: target } : {});
           const res = await fetch(`/api/gitignore?${params}`);
+          if (!res.ok) return { ignored: null };
+          return (await res.json()) as PrismGitignoreStatus;
+        } catch {
+          return { ignored: null };
+        }
+      },
+      addPrismGitignore: async (): Promise<PrismGitignoreStatus> => {
+        try {
+          const res = await fetch("/api/add-gitignore", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ root: target }),
+          });
           if (!res.ok) return { ignored: null };
           return (await res.json()) as PrismGitignoreStatus;
         } catch {

@@ -8,7 +8,7 @@ first if you have not.
 
 ## Contracts
 
-### `@prism/shared`
+### `@repo-prism/shared`
 
 Types, DTOs, Zod schemas, error codes, and the small pure functions every layer
 must agree on — `riskToBand` above all, which is why the CLI and the editor
@@ -24,14 +24,14 @@ shared value available to both sides.
 
 Nothing outside this section may be imported by a surface.
 
-### `@prism/analyzer`
+### `@repo-prism/analyzer`
 
 The language plugin interface and the host that runs plugins. Parses source into
 symbols, imports and diagnostics — Oxc for TypeScript and JavaScript.
 
 **Must never** reach outside the workspace, or execute the code it parses.
 
-### `@prism/indexer`
+### `@repo-prism/indexer`
 
 Walks the repository, hashes file contents, and persists the result to SQLite in
 `.prism/cache/`. Owns incremental invalidation and watch mode, plus the health
@@ -39,7 +39,7 @@ history table.
 
 **Must never** re-parse what has not changed. The hash is the whole point.
 
-### `@prism/graph-engine`
+### `@repo-prism/graph-engine`
 
 A typed graph store and the query primitives over it: traversal, reachability,
 cycle detection, aggregation to a coarser level.
@@ -47,7 +47,7 @@ cycle detection, aggregation to a coarser level.
 Deliberately ignorant of what the nodes mean, so that the dependency graph, the
 knowledge graph and the feature graph share one implementation.
 
-### `@prism/intelligence`
+### `@repo-prism/intelligence`
 
 The largest internal package, and the one that turns structure into judgement:
 stack detection, repository DNA, health scoring, engineering, testing and
@@ -56,24 +56,24 @@ store, and the utility job runner.
 
 **Must never** make a network call without a consent purpose gating it.
 
-### `@prism/impact`
+### `@repo-prism/impact`
 
 Blast radius, safe delete, rename impact and test impact — the multi-lane
 signals described in the decision record on blast radius.
 
-### `@prism/navigation`
+### `@repo-prism/navigation`
 
 Feature and symbol navigation: find a symbol, find its references, find a route
 between two things.
 
-### `@prism/repository-map`
+### `@repo-prism/repository-map`
 
 The map model — clusters, landmarks, layers, and the aggregation between zoom
 levels.
 
 ## The public API
 
-### `@prism/core`
+### `@repo-prism/core`
 
 The only supported integration surface. `PrismWorkspace` is the whole thing:
 open a repository, ask questions, get `Result<T, PrismError>` back.
@@ -85,7 +85,7 @@ returns an engine-internal type. See [the Core SDK](./core-sdk.md).
 
 ## Presentation
 
-### `@prism/app-shell`
+### `@repo-prism/app-shell`
 
 Every product screen — Overview, Map, Domains, Impact, Trends, Integrations,
 Settings — as React components, plus the `AppShellClient` interface a host
@@ -96,16 +96,16 @@ lands in both at once.
 
 **Must never** import Node APIs. It runs in a browser.
 
-### `@prism/ui`
+### `@repo-prism/ui`
 
 Lower-level shared React components: the map canvas, the explorer, and the
 primitives the screens are built from.
 
 ## Surfaces
 
-Each of these consumes `@prism/core` and computes nothing itself.
+Each of these consumes `@repo-prism/core` and computes nothing itself.
 
-### `@prism/cli`
+### `@repo-prism/cli`
 
 The `prism` binary. A declarative command table that the program builds itself
 from, so a new command cannot forget `--limit` or spell `--fail-on` differently.
@@ -114,39 +114,53 @@ from, so a new command cannot forget `--limit` or spell `--fail-on` differently.
 call `process.exit` outside its single top-level handler. Both are pinned by a
 boundary test.
 
-### `@prism/mcp-server`
+### `@repo-prism/mcp-server`
 
 The `prism-mcp` binary. Read-only tools over stdio for AI agents.
 
 **Must never** expose a consent-gated capability. An agent cannot consent on the
 user's behalf, so those capabilities are absent rather than guarded.
 
-### `@prism/vscode-extension`
+### `@repo-prism/vscode-extension`
 
 The **RepoPrism** extension. Hosts the app-shell in a webview, bridges it to
 Core over RPC, and owns the extension-side concerns: indexing lifecycle, file
 watching, and the content security policy.
 
-### `@prism/cursor-extension`
+### `@repo-prism/cursor-extension`
 
 A packaging overlay on the VS Code extension rather than a second
 implementation. Same build output, different marketplace identity.
 
-### `@prism/playground` (in `apps/`)
+### `@repo-prism/playground` (in `apps/`)
 
 A browser host for the same screens, served by Vite against a local repository.
 The dev-tools loop the extension webview does not have, which is why screen work
 usually happens here first.
 
-### `@prism/docs` (in `apps/`)
+### `@repo-prism/docs` (in `apps/`)
 
 A stub package. The documentation you are reading lives in `/docs` at the
 repository root and is built by VitePress from there.
 
+## Development only
+
+### `@repo-prism/test-support`
+
+Fixture builders for the test suite: real git repositories, created in a temp
+directory and thrown away afterwards. It exists so that a testbed shape is
+defined once rather than rebuilt inline in each test file, where copies drift
+apart.
+
+Never published, and never imported by anything that ships — a `devDependency`
+in every package that uses it. See
+[fixtures](https://github.com/Shailesh200/prism/blob/main/fixtures/README.md)
+for which fixture to reach for.
+
 ## The rule, restated
 
 ```
-surface  →  @prism/core  →  engine internals  →  @prism/shared
+surface  →  @repo-prism/core  →  engine internals  →  @repo-prism/shared
 ```
 
 Arrows point at what may be imported. There is no arrow from a surface to an

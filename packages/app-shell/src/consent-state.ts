@@ -2,7 +2,7 @@ import {
   CONSENT_PURPOSES,
   type ConsentPurposeId,
   type ConsentState,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { useSyncExternalStore } from "react";
 import type { AppShellClient } from "./client.js";
 import { loadSettings, saveSettings } from "./settings-store.js";

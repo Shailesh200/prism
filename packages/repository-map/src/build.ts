@@ -1,4 +1,4 @@
-import { layoutGraph } from "@prism/graph-engine";
+import { layoutGraph } from "@repo-prism/graph-engine";
 import type {
   FeatureInfo,
   GitCommitRef,
@@ -17,7 +17,7 @@ import type {
   MapSearchHit,
   MapZoomLevel,
   RepositoryMap,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import {
   annotateGraphWithLayerSignals,
   computeLayerSignals,

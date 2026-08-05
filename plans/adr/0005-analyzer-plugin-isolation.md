@@ -14,8 +14,8 @@ Prism must support TypeScript/JS first (Oxc), then additional languages (Tree-si
 
 ## Decision
 
-1. **SPI lives in `@prism/analyzer`** as `LanguagePlugin` + `PluginRegistry` + `AnalyzerHost`.
-2. **Core wires the host** via `AnalyzerPort`; surfaces never import `@prism/analyzer`.
+1. **SPI lives in `@repo-prism/analyzer`** as `LanguagePlugin` + `PluginRegistry` + `AnalyzerHost`.
+2. **Core wires the host** via `AnalyzerPort`; surfaces never import `@repo-prism/analyzer`.
 3. **Plugins declare `spiVersion`**; the host accepts only versions in a published min/max range (currently `1`–`1`).
 4. **Extension ownership is exclusive** — registering a second plugin for the same extension fails with validation conflict.
 5. **`ParseResult.ast` is opaque** — only the producing plugin’s extractors may interpret it.

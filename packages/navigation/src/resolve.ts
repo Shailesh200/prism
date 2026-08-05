@@ -1,4 +1,4 @@
-import type { IndexSnapshot } from "@prism/shared";
+import type { IndexSnapshot } from "@repo-prism/shared";
 import { fileNodeId } from "./paths.js";
 
 export type RouteEndpoint =

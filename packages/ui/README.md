@@ -1,4 +1,4 @@
-# @prism/ui
+# @repo-prism/ui
 
 Shared React UI for the Repository Map (playground + future IDE webviews).
 
@@ -9,8 +9,8 @@ Shared React UI for the Repository Map (playground + future IDE webviews).
 ## Usage
 
 ```tsx
-import { RepositoryMapView } from "@prism/ui";
-import "@prism/ui/map.css";
+import { RepositoryMapView } from "@repo-prism/ui";
+import "@repo-prism/ui/map.css";
 
 <RepositoryMapView
   map={repositoryMap}
@@ -19,4 +19,4 @@ import "@prism/ui/map.css";
 />
 ```
 
-Load **Satoshi** (Fontshare) + **IBM Plex Mono** in the host document. Surfaces load map data from `@prism/core` only.
+Load **Satoshi** (Fontshare) + **IBM Plex Mono** in the host document. Surfaces load map data from `@repo-prism/core` only.

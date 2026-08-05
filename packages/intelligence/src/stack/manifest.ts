@@ -7,7 +7,7 @@ import {
   ok,
   type Result,
   type PrismError,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { STACK_DETECTOR_SPI_VERSION } from "../spi-version.js";
 import type { StackDetectContext, StackDetector } from "../types.js";
 

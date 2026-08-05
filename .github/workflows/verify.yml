@@ -7,9 +7,26 @@ on:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    # Prism reads the filesystem and shells out to git, and both differ enough
+    # between platforms to have caused real bugs — macOS resolving /var through
+    # a symlink to /private/var broke workspace-relative path comparison, and
+    # only a macOS run would have caught it.
+    runs-on: ${{ matrix.os }}
+    # Windows is advisory. Prism has never been run there (Q-011, deferred in
+    # M-005) and path handling is the likely first casualty, so a required
+    # Windows job would mean a permanently red matrix that people stop reading.
+    # Reporting it without blocking gives the evidence needed to fix it.
+    continue-on-error: ${{ matrix.os == 'windows-latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Several tests read real git history (authors, recent files, changed
+          # paths). A shallow clone leaves them asserting on a single commit.
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.3.11"

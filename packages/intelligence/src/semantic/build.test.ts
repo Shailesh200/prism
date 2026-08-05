@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { IndexSnapshot } from "@prism/shared";
+import type { IndexSnapshot } from "@repo-prism/shared";
 import { describe, expect, it } from "vitest";
 import { buildKnowledgeGraph, findReferences, findSymbol } from "./build.js";
 

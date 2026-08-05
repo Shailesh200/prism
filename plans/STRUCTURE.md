@@ -54,7 +54,7 @@ Prism/
 
 ```text
 packages/<name>/
-├── package.json                 # name: @prism/<name>
+├── package.json                 # name: @repo-prism/<name>
 ├── tsconfig.json
 ├── README.md                    # responsibility + public API
 ├── src/

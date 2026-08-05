@@ -9,8 +9,8 @@
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { PrismWorkspace } from "@prism/core";
-import type { PrismError, Result } from "@prism/shared";
+import type { PrismWorkspace } from "@repo-prism/core";
+import type { PrismError, Result } from "@repo-prism/shared";
 import type { ZodRawShape, z } from "zod";
 import { toMcpError, toMcpErrorFromThrown } from "./errors.js";
 import type { WorkspaceSession } from "./session.js";
@@ -27,7 +27,7 @@ export type ToolContext = {
 
 /**
  * A tool is a description plus a Core call. The `call` returns Core's `Result`
- * untouched — DTOs reach the agent exactly as `@prism/shared` defines them,
+ * untouched — DTOs reach the agent exactly as `@repo-prism/shared` defines them,
  * because the MCP contract *is* the Core contract (ADR-0004). List tools wrap
  * theirs in the `BoundedList` envelope from `limits.ts`; the items inside stay
  * unmodified.

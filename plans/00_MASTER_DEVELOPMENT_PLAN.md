@@ -103,7 +103,7 @@ Local analysis for scripting and CI (`prism analyze`, `prism health`, `prism bla
 | Graphs | **ngraph** | Leaner perf/memory at repo scale |
 | Local cache | **better-sqlite3** | Fast sync SQLite; Node-compatible for extensions |
 | MCP | Official MCP SDK | Standard agent protocol |
-| CLI | Commander + `@prism/core` | Thin adapter |
+| CLI | Commander + `@repo-prism/core` | Thin adapter |
 | UI (Map / Playground) | React + **Vite** + Tailwind + **React Flow** + Zustand | Fast Map v1; cluster for scale |
 | Extensions | VS Code Extension API | Cursor-compatible; shared package preferred |
 | Test | **Vitest** + Playwright (later) | Fast unit/integration + E2E |
@@ -194,7 +194,7 @@ Prism/
 └── bunfig.toml                  # optional
 ```
 
-Package naming: `@prism/<name>`.
+Package naming: `@repo-prism/<name>`.
 
 ### 5.1 Pre-implementation architecture docs (M-000)
 
@@ -207,7 +207,7 @@ Before any monorepo / product code (M-001+), produce owner-reviewed docs under `
 | `03_TECH_STACK.md` | Locked stack (Bun, Node 26, Oxc, ngraph, …) — why each choice, constraints |
 | `04_FOLDER_STRUCTURE.md` | Canonical repo/package layout (expands [`STRUCTURE.md`](./STRUCTURE.md)) |
 | `05_DATA_FLOWS.md` | Index → cache → graphs → Core API → MCP/CLI/IDE sequences |
-| `06_PACKAGE_RESPONSIBILITIES.md` | What each `@prism/*` owns / does not own |
+| `06_PACKAGE_RESPONSIBILITIES.md` | What each `@repo-prism/*` owns / does not own |
 
 Full DoD: [`milestones/M-000_architecture-documentation.md`](./milestones/M-000_architecture-documentation.md).
 
@@ -217,22 +217,22 @@ Full DoD: [`milestones/M-000_architecture-documentation.md`](./milestones/M-000_
 
 | Package | Responsibility | May depend on |
 |---|---|---|
-| `@prism/shared` | DTOs, errors, Zod contracts, IDs | (none) |
-| `@prism/analyzer` | Language SPI, parsers, symbol extractors | shared |
-| `@prism/indexer` | Repo walk, ignore, hashing, index jobs | shared, analyzer |
-| `@prism/graph-engine` | Graph CRUD, queries, centrality helpers | shared |
-| `@prism/intelligence` | DNA, health, insights, entropy | shared, graph-engine, indexer |
-| `@prism/impact` | Blast radius, safe delete, impacts | shared, graph-engine, analyzer |
-| `@prism/navigation` | Paths, feature routes | shared, graph-engine |
-| `@prism/repository-map` | Map layers, zoom model, landmarks | shared, graph-engine, navigation |
-| `@prism/core` | Stable public API composing the above | all engine packages |
-| `@prism/ui` | React Map & explorer widgets | shared, repository-map (types) |
-| `@prism/mcp-server` | MCP tools → core | core, shared |
-| `@prism/cli` | CLI → core | core, shared |
-| `@prism/vscode-extension` | IDE → core + ui | core, ui, shared |
-| `@prism/cursor-extension` | Cursor packaging | vscode-extension (or core+ui) |
+| `@repo-prism/shared` | DTOs, errors, Zod contracts, IDs | (none) |
+| `@repo-prism/analyzer` | Language SPI, parsers, symbol extractors | shared |
+| `@repo-prism/indexer` | Repo walk, ignore, hashing, index jobs | shared, analyzer |
+| `@repo-prism/graph-engine` | Graph CRUD, queries, centrality helpers | shared |
+| `@repo-prism/intelligence` | DNA, health, insights, entropy | shared, graph-engine, indexer |
+| `@repo-prism/impact` | Blast radius, safe delete, impacts | shared, graph-engine, analyzer |
+| `@repo-prism/navigation` | Paths, feature routes | shared, graph-engine |
+| `@repo-prism/repository-map` | Map layers, zoom model, landmarks | shared, graph-engine, navigation |
+| `@repo-prism/core` | Stable public API composing the above | all engine packages |
+| `@repo-prism/ui` | React Map & explorer widgets | shared, repository-map (types) |
+| `@repo-prism/mcp-server` | MCP tools → core | core, shared |
+| `@repo-prism/cli` | CLI → core | core, shared |
+| `@repo-prism/vscode-extension` | IDE → core + ui | core, ui, shared |
+| `@repo-prism/cursor-extension` | Cursor packaging | vscode-extension (or core+ui) |
 
-**Hard dependency rule:** Interface packages must not reimplement analysis. They call `@prism/core` only.
+**Hard dependency rule:** Interface packages must not reimplement analysis. They call `@repo-prism/core` only.
 
 ---
 
@@ -363,7 +363,7 @@ Every milestone document must define:
     "test:integration": "moon run :test-integration",
     "verify": "bun run format:check && bun run lint && bun run typecheck && bun run test && bun run build",
     "verify:milestone": "bun run verify && bun run test:integration && bun run scripts/check-plan-progress.mjs",
-    "playground": "bun --filter @prism/playground dev"
+    "playground": "bun --filter @repo-prism/playground dev"
   }
 }
 ```
@@ -589,7 +589,7 @@ Exposed in M-026 (foundation) and M-027 (full pack):
 > choose between while paying for the same analysis each time. The shipped tool list — twenty-eight
 > tools — is in [`packages/mcp-server/README.md`](../packages/mcp-server/README.md).
 
-All tools are thin wrappers over `@prism/core` methods with JSON-serializable results.
+All tools are thin wrappers over `@repo-prism/core` methods with JSON-serializable results.
 
 ---
 
@@ -620,7 +620,7 @@ Critical-path milestones have full documents under `plans/milestones/`. Others a
 
 #### M-023 — Code Explorer Queries
 - Find usages, ownership, related components/APIs/features/tests, similar impl, git timeline
-- DoD: query API stable in `@prism/core`
+- DoD: query API stable in `@repo-prism/core`
 
 #### M-024 — Engineering Insights
 - Aggregations: most edited, most coupled, high risk, dependency health, review hotspots
@@ -742,7 +742,7 @@ Only **one** milestone may be `In Progress` at a time.
 ┌─────────────────────────────────────────────────────────────┐
 │  Surfaces: VS Code │ Cursor │ MCP │ CLI │ Playground        │
 └───────────────────────────┬─────────────────────────────────┘
-                            │ @prism/core (public SDK)
+                            │ @repo-prism/core (public SDK)
 ┌───────────────────────────▼─────────────────────────────────┐
 │  Intelligence │ Impact │ Navigation │ Repository Map         │
 └───────────────────────────┬─────────────────────────────────┘

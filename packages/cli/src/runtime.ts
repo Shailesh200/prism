@@ -8,13 +8,13 @@
  */
 
 import { stat } from "node:fs/promises";
-import { Prism, type PrismWorkspace } from "@prism/core";
+import { Prism, type PrismWorkspace } from "@repo-prism/core";
 import {
   PrismErrorCode,
   type PrismError,
   type Result,
   prismError,
-} from "@prism/shared";
+} from "@repo-prism/shared";
 import { ExitCode, exitCodeForError } from "./exit.js";
 import {
   renderError,
@@ -148,15 +148,25 @@ export async function runCommand(
       const result = open(workspace.path);
       if (!result.ok) return result;
       context.progress(`Indexing ${workspace.path} …`);
+      const startedAt = Date.now();
       const indexed = await result.value.index();
       if (!indexed.ok) {
         result.value.close();
         return { ok: false, error: indexed.error };
       }
+      detail(`Indexed in ${Date.now() - startedAt} ms`);
       opened = result.value;
       return { ok: true, value: opened };
     },
   };
+
+  /** `--verbose` detail. Same suppression rules as progress. */
+  function detail(message: string): void {
+    if (!globals.verbose) return;
+    context.progress(message);
+  }
+
+  detail(`Workspace ${workspace.path} (from ${workspace.source})`);
 
   try {
     const result = await handler(context);

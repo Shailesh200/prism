@@ -6,8 +6,11 @@
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { buildUtilityOverlay, createConsentStore } from "@prism/intelligence";
-import type { StackProfile, UtilityOverlayReport } from "@prism/shared";
+import {
+  buildUtilityOverlay,
+  createConsentStore,
+} from "@repo-prism/intelligence";
+import type { StackProfile, UtilityOverlayReport } from "@repo-prism/shared";
 
 export type StageDevopsRemoteInput = {
   readonly workspaceRoot: string;
