@@ -79,6 +79,7 @@ Default `Prism.create()` enables all of the above when default ports are wired.
 | `startHealthHistoryBackfill` / `getHealthHistoryBackfillStatus` | M-046 git backfill job |
 | `findRoute` / `navigateFeature` / `listLandmarks` | M-016 |
 | `getRepositoryMap` | M-017 |
+| `getOverviewModel` | **M-052**; the Overview dashboard's aggregation — totals, coupling density + band, up to 8 regions, most-connected nodes, bucketed commit activity. Region `score` is `null` where there is no evidence, never `0` (ADR-0029). Derivations live in `@prism/shared/overview-model` so the webview and Core compute identical numbers |
 | `getGitActivity` | Local git; fail-soft `available: false` |
 | `blastRadius` | M-020; **M-049** additive soft lanes (`lane`, `confidence`, `evidence`, `lanes[]`, `hardAffectedCount` / `softAffectedCount`, `coverageNote`); optional `intent: "edit" \| "delete"`; report may include `originRole`, `forwardDependencies`, `scenarioChecklist` |
 | `safeDelete` / `renameImpact` / `testImpact` / `breakingChangeHints` | M-021; **M-049** `softBlockers` / `toolingCritical` on safe-delete |

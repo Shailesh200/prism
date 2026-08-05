@@ -1,4 +1,31 @@
-import type { GitDayBucket, RepositoryMap } from "@prism/shared";
+/**
+ * Overview dashboard presentation.
+ *
+ * The derivations behind these numbers (coupling, regions, ranking, activity
+ * bucketing) live in `@prism/shared/overview-model` so Core, MCP and the CLI
+ * read the same values the dashboard shows. What stays here is presentation:
+ * the palette, the SVG geometry and the Markdown report.
+ */
+
+import {
+  type OverviewConnectedNode,
+  type OverviewRegion,
+  type RepositoryMap,
+  couplingBand,
+  deriveMostConnected as deriveMostConnectedCore,
+  deriveRegions as deriveRegionsCore,
+} from "@prism/shared";
+
+export {
+  bucketActivity,
+  couplingDensity,
+  floorToUtcDay,
+  parseDayMs,
+  presetBounds,
+  type OverviewActivity as ActivityBuckets,
+} from "@prism/shared";
+
+type MapGraph = RepositoryMap["graph"];
 
 /** Feature-region dot palette (matches the dashboard accents). */
 export const REGION_COLORS = [
@@ -10,22 +37,18 @@ export const REGION_COLORS = [
   "#A78BFA",
 ] as const;
 
-export type RegionStat = {
-  readonly id: string;
-  readonly label: string;
-  readonly color: string;
-  readonly files: number;
-  readonly degree: number;
-  /** Coupling-aware health; `null` when the region has no files and no edges. */
-  readonly score: number | null;
-};
+/** A Core region plus the palette colour its dot is drawn in. */
+export type RegionStat = OverviewRegion & { readonly color: string };
 
-export type ConnectedNode = {
-  readonly id: string;
-  readonly label: string;
-  readonly color: string;
-  readonly degree: number;
-};
+/** A Core ranked node plus the palette colour its dot is drawn in. */
+export type ConnectedNode = OverviewConnectedNode & { readonly color: string };
+
+function withColor<T>(items: readonly T[]): (T & { color: string })[] {
+  return items.map((item, i) => ({
+    ...item,
+    color: REGION_COLORS[i % REGION_COLORS.length] as string,
+  }));
+}
 
 /** Human label for a stack domain id (e.g. devops_platform → "Devops"). */
 export function domainDisplayName(id: string): string {
@@ -48,120 +71,32 @@ export function scoreColor(score: number): string {
   return "#F43F5E";
 }
 
-/** Coupling density → badge label + tone (target < 0.50). */
+const COUPLING_BADGES = {
+  low: { label: "Low", tone: "emerald" },
+  medium: { label: "Medium", tone: "amber" },
+  high: { label: "High", tone: "rose" },
+} as const satisfies Record<string, { label: string; tone: CouplingTone }>;
+
+/** Coupling density → badge label + tone, using Core's bands (target < 0.50). */
 export function couplingBadge(density: number): {
   label: string;
   tone: CouplingTone;
 } {
-  if (density < 0.5) return { label: "Low", tone: "emerald" };
-  if (density < 1) return { label: "Medium", tone: "amber" };
-  return { label: "High", tone: "rose" };
+  return COUPLING_BADGES[couplingBand(density)];
 }
 
-/** Edge count / node count (0 when there are no nodes). */
-export function couplingDensity(graph: RepositoryMap["graph"]): number {
-  return graph.nodes.length > 0 ? graph.edges.length / graph.nodes.length : 0;
+/** Core regions, painted with the dashboard palette. */
+export function deriveRegions(graph: MapGraph): RegionStat[] {
+  return withColor(deriveRegionsCore(graph));
 }
 
-/** Count files for a region node (memberFiles, fileCount/files attrs, or path prefix). */
-function regionFileCount(
-  n: RepositoryMap["graph"]["nodes"][number],
-  graph: RepositoryMap["graph"],
-): number {
-  const attrs = (n.attrs ?? {}) as Record<string, unknown>;
-  if (Array.isArray(attrs.memberFiles)) return attrs.memberFiles.length;
-  if (typeof attrs.fileCount === "number" && Number.isFinite(attrs.fileCount)) {
-    return Math.max(0, Math.round(attrs.fileCount));
-  }
-  if (typeof attrs.files === "number" && Number.isFinite(attrs.files)) {
-    return Math.max(0, Math.round(attrs.files));
-  }
-  const rootDir = typeof attrs.rootDir === "string" ? attrs.rootDir : undefined;
-  if (rootDir === undefined) return 0;
-  const prefix =
-    rootDir === "" || rootDir === "." ? "" : rootDir.replace(/\/$/, "");
-  let count = 0;
-  for (const child of graph.nodes) {
-    if (child.kind !== "file") continue;
-    const path = child.id.replace(/^file:/, "");
-    if (prefix === "") {
-      count += 1;
-      continue;
-    }
-    if (path === prefix || path.startsWith(`${prefix}/`)) count += 1;
-  }
-  return count;
-}
-
-/** Derive up to 8 feature/package/folder regions with degree + health index. */
-export function deriveRegions(graph: RepositoryMap["graph"]): RegionStat[] {
-  const groups = graph.nodes.filter(
-    (n) => n.kind === "feature" || n.kind === "package" || n.kind === "folder",
-  );
-  const degreeById = new Map<string, number>();
-  for (const e of graph.edges) {
-    degreeById.set(e.from, (degreeById.get(e.from) ?? 0) + 1);
-    degreeById.set(e.to, (degreeById.get(e.to) ?? 0) + 1);
-  }
-  const degrees = groups.map((n) => degreeById.get(n.id) ?? 0);
-  const allDegreesZero = degrees.every((d) => d === 0);
-  const maxDegree = Math.max(1, ...degreeById.values(), ...degrees);
-  return groups.slice(0, 8).map((n, i) => {
-    const degree = degreeById.get(n.id) ?? 0;
-    const files = regionFileCount(n, graph);
-    let score: number | null;
-    if (degree === 0 && files === 0) {
-      score = null;
-    } else if (allDegreesZero) {
-      // No edges at this zoom — mid score when the region has files.
-      score = files > 0 ? 70 : null;
-    } else {
-      score = clampPct(100 - (degree / maxDegree) * 55);
-    }
-    return {
-      id: n.id,
-      label: n.label,
-      color: REGION_COLORS[i % REGION_COLORS.length] as string,
-      files,
-      degree,
-      score,
-    };
-  });
-}
-
-const CONNECTED_KINDS = new Set(["file", "feature", "package", "folder"]);
-
-/**
- * Rank file/feature/package nodes by dependency degree across all graph edges.
- * Prefer this over region-only ranking (package-zoom edges are often sparse).
- */
+/** Core's degree ranking, painted with the dashboard palette. */
 export function deriveMostConnected(
-  graph: RepositoryMap["graph"],
+  graph: MapGraph,
   limit = 5,
 ): ConnectedNode[] {
-  const degreeById = new Map<string, number>();
-  for (const e of graph.edges) {
-    degreeById.set(e.from, (degreeById.get(e.from) ?? 0) + 1);
-    degreeById.set(e.to, (degreeById.get(e.to) ?? 0) + 1);
-  }
-  return graph.nodes
-    .filter(
-      (n) => CONNECTED_KINDS.has(n.kind) && (degreeById.get(n.id) ?? 0) > 0,
-    )
-    .map((n) => ({
-      id: n.id,
-      label: n.label,
-      degree: degreeById.get(n.id) ?? 0,
-    }))
-    .sort((a, b) => b.degree - a.degree || a.label.localeCompare(b.label))
-    .slice(0, limit)
-    .map((n, i) => ({
-      ...n,
-      color: REGION_COLORS[i % REGION_COLORS.length] as string,
-    }));
+  return withColor(deriveMostConnectedCore(graph, limit));
 }
-
-const DAY_MS = 86_400_000;
 
 export type ActivityRangeId = "1w" | "1m" | "3m" | "6m" | "1y" | "custom";
 
@@ -183,67 +118,6 @@ export const ACTIVITY_RANGES: readonly ActivityRangePreset[] = [
 
 /** Default preset when the dashboard first renders. */
 export const DEFAULT_ACTIVITY_RANGE: ActivityRangeId = "1w";
-
-/** Floor an epoch-ms to UTC midnight. */
-export function floorToUtcDay(ms: number): number {
-  return Math.floor(ms / DAY_MS) * DAY_MS;
-}
-
-/** Parse a `YYYY-MM-DD` day key to UTC-midnight epoch-ms (NaN when invalid). */
-export function parseDayMs(date: string): number {
-  return Date.parse(`${date.slice(0, 10)}T00:00:00Z`);
-}
-
-/** Inclusive [start, end] UTC-day bounds for an N-day preset ending "now". */
-export function presetBounds(
-  days: number,
-  nowMs: number = Date.now(),
-): { startMs: number; endMs: number } {
-  const endMs = floorToUtcDay(nowMs);
-  const startMs = endMs - (days - 1) * DAY_MS;
-  return { startMs, endMs };
-}
-
-export type ActivityBuckets = {
-  readonly buckets: number[];
-  /** UTC-midnight epoch-ms at the start of each bucket (for tooltips/labels). */
-  readonly starts: number[];
-  readonly total: number;
-  readonly granularity: "day" | "week";
-};
-
-/**
- * Bucket a daily commit histogram into the inclusive [startMs, endMs] window.
- * Short windows (≤ 8 weeks) stay daily for detail; longer ones roll up weekly
- * so the sparkline never gets noisy. Returns zero-filled buckets + the total.
- */
-export function bucketActivity(
-  days: readonly GitDayBucket[],
-  startMs: number,
-  endMs: number,
-): ActivityBuckets {
-  const start = floorToUtcDay(startMs);
-  const end = floorToUtcDay(endMs);
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
-    return { buckets: [], starts: [], total: 0, granularity: "day" };
-  }
-  const spanDays = Math.round((end - start) / DAY_MS) + 1;
-  const granularity: "day" | "week" = spanDays <= 56 ? "day" : "week";
-  const unitDays = granularity === "day" ? 1 : 7;
-  const unitMs = unitDays * DAY_MS;
-  const count = Math.max(1, Math.ceil(spanDays / unitDays));
-  const buckets = Array.from({ length: count }, () => 0);
-  const starts = Array.from({ length: count }, (_, i) => start + i * unitMs);
-  let total = 0;
-  for (const day of days) {
-    const ms = parseDayMs(day.date);
-    if (Number.isNaN(ms) || ms < start || ms > end) continue;
-    const idx = Math.min(count - 1, Math.floor((ms - start) / unitMs));
-    buckets[idx] = (buckets[idx] ?? 0) + day.commits;
-    total += day.commits;
-  }
-  return { buckets, starts, total, granularity };
-}
 
 export type ActivityGeometry = {
   readonly line: string;

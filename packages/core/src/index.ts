@@ -13,10 +13,12 @@ export {
   type NotifyWatchPathsInput,
   type PrismWorkspace,
   type ReviewChangesInput,
+  type RunWorkspaceTestsOptions,
   type SaveBookmarkInput,
   type StartWatchOptions,
   type WorkspacePackageInfo,
   type WorkspaceStatus,
+  type WorkspaceTestList,
 } from "./workspace.js";
 export type { RouteEndpoint } from "@prism/navigation";
 export type {

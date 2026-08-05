@@ -100,6 +100,7 @@ import {
   type MapBookmarkStore,
   type MapZoomLevel,
   type NavigationRouteResult,
+  type OverviewModel,
   type PersonaPresets,
   type PrismError,
   type RegionMoversReport,
@@ -116,8 +117,13 @@ import {
   type UtilityJob,
   type UtilityOverlayKindInfo,
   type UtilityOverlayReport,
+  bucketActivity,
+  couplingFor,
+  deriveMostConnected,
+  deriveRegions,
   err,
   ok,
+  presetBounds,
   prismError,
   riskToBand,
   unsafeRepoId,
@@ -132,6 +138,32 @@ import {
   sampleGitCommits,
 } from "./git/history-sample.js";
 import type { IndexWorkspaceOptions, PrismEnginePorts } from "./ports.js";
+import {
+  listLocalWorkspaceTests,
+  runLocalWorkspaceTests,
+  type LocalRunTestsOptions,
+  type LocalTestListResult,
+} from "./testing/local-runners.js";
+
+/** Options for {@link PrismWorkspace.runWorkspaceTests} (M-052). */
+export type RunWorkspaceTestsOptions = LocalRunTestsOptions;
+
+/** Result of {@link PrismWorkspace.listWorkspaceTests} (M-052). */
+export type WorkspaceTestList = LocalTestListResult;
+
+/** Options for {@link PrismWorkspace.getOverviewModel} (M-052). */
+export type GetOverviewModelOptions = {
+  /**
+   * Commit-activity window in days, inclusive of today. Defaults to 7, the
+   * dashboard's default range.
+   */
+  readonly activityDays?: number;
+  /** How many nodes to rank in `mostConnected`. Defaults to 5. */
+  readonly connectedLimit?: number;
+};
+
+const OVERVIEW_DEFAULT_ACTIVITY_DAYS = 7;
+const OVERVIEW_DEFAULT_CONNECTED_LIMIT = 5;
 
 /**
  * Coarse path → domain keyword heuristics for `explainArea` (M-048 Phase 5).
@@ -387,6 +419,32 @@ export type PrismWorkspace = {
    * updated TestingReport (M-046 / ADR-0022).
    */
   ingestCoverageFromWorkspace(): Promise<Result<TestingReport, PrismError>>;
+  /**
+   * Run the workspace's own test suite and fold the results into a
+   * TestingReport (M-052). Prefers package.json `scripts.test`, then
+   * vitest/jest. Optional `coverage` re-ingests coverage artifacts afterwards.
+   *
+   * Spawns subprocesses. Previously each surface assembled this itself, which
+   * is why the playground and the extension disagreed about `lastRunAt`.
+   */
+  runWorkspaceTests(
+    options?: RunWorkspaceTestsOptions,
+  ): Promise<Result<TestingReport, PrismError>>;
+  /**
+   * Discover test files and cases without running them, for a suite tree
+   * (M-052). Empty when no runner binary is available.
+   */
+  listWorkspaceTests(): Promise<Result<WorkspaceTestList, PrismError>>;
+  /**
+   * The Overview dashboard's derived facts: coupling, regions, the most
+   * connected nodes, and commit activity over a window (M-052).
+   *
+   * Requires a prior `index()`. `activity` is `null` when git is
+   * unavailable — which is not the same as a window with no commits.
+   */
+  getOverviewModel(
+    options?: GetOverviewModelOptions,
+  ): Promise<Result<OverviewModel, PrismError>>;
   setConsent(
     purpose: string,
     granted: boolean,
@@ -1384,6 +1442,91 @@ export function createWorkspace(options: {
           files === undefined ? undefined : files,
         ),
       );
+    },
+    async runWorkspaceTests(options = {}) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+
+      const baseResult = await this.getTestingReport();
+      if (!baseResult.ok) return baseResult;
+      const base = baseResult.value;
+
+      const run = await runLocalWorkspaceTests(
+        rootPath,
+        base.runners ?? [],
+        options,
+      );
+
+      if (!run.ran) {
+        // No runner binary. Say so, and leave `lastRunAt` alone — it means
+        // "tests last ran at", and nothing ran.
+        return ok({
+          ...base,
+          results: [],
+          summary: `${base.summary} · No test runner binary found.`,
+        });
+      }
+
+      let report = base;
+      if (options.coverage === true) {
+        const ingested = await this.ingestCoverageFromWorkspace();
+        if (ingested.ok) report = ingested.value;
+      }
+
+      return ok({
+        ...report,
+        results: run.results,
+        lastRunAt: new Date().toISOString(),
+      });
+    },
+    async listWorkspaceTests() {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      const baseResult = await this.getTestingReport();
+      if (!baseResult.ok) return baseResult;
+      return ok(
+        await listLocalWorkspaceTests(rootPath, baseResult.value.runners ?? []),
+      );
+    },
+    async getOverviewModel(options = {}) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+
+      const mapResult = await this.getRepositoryMap();
+      if (!mapResult.ok) return mapResult;
+      const graph = mapResult.value.graph;
+
+      const activityDays = Math.max(
+        1,
+        Math.round(options.activityDays ?? OVERVIEW_DEFAULT_ACTIVITY_DAYS),
+      );
+      const connectedLimit = Math.max(
+        0,
+        Math.round(options.connectedLimit ?? OVERVIEW_DEFAULT_CONNECTED_LIMIT),
+      );
+
+      const regions = deriveRegions(graph);
+      const mostConnected = deriveMostConnected(graph, connectedLimit);
+
+      const gitResult = await this.getGitActivity();
+      let activity: OverviewModel["activity"] = null;
+      if (gitResult.ok && gitResult.value.available) {
+        const { startMs, endMs } = presetBounds(activityDays);
+        activity = bucketActivity(gitResult.value.days ?? [], startMs, endMs);
+      }
+
+      return ok({
+        totals: {
+          nodes: graph.nodes.length,
+          edges: graph.edges.length,
+          files: graph.nodes.filter((n) => n.kind === "file").length,
+          regions: regions.length,
+        },
+        coupling: couplingFor(graph),
+        regions,
+        mostConnected,
+        activity,
+      });
     },
     async setConsent(purpose, granted) {
       const session = ensureUtilities();

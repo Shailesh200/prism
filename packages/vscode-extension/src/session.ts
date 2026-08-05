@@ -34,8 +34,10 @@ import {
   prismError,
   type PrismClient,
   type PrismWorkspace,
+  type RunWorkspaceTestsOptions,
   type SaveBookmarkInput,
   type WorkspacePackageInfo,
+  type WorkspaceTestList,
 } from "@prism/core";
 import type {
   DashboardPayload,
@@ -265,6 +267,24 @@ export class PrismSession {
     if (!ws.ok) return ws;
     const result = await ws.value.ingestCoverageFromWorkspace();
     if (!result.ok) return ok(null);
+    return ok(result.value);
+  }
+
+  async runWorkspaceTests(
+    options: RunWorkspaceTestsOptions = {},
+  ): Promise<Result<TestingReport | null, PrismError>> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    const result = await ws.value.runWorkspaceTests(options);
+    if (!result.ok) return ok(null);
+    return ok(result.value);
+  }
+
+  async listWorkspaceTests(): Promise<Result<WorkspaceTestList, PrismError>> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    const result = await ws.value.listWorkspaceTests();
+    if (!result.ok) return ok({ files: [] });
     return ok(result.value);
   }
 

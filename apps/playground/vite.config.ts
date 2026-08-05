@@ -397,34 +397,23 @@ async function runWorkspaceTestsApi(
     testNamePattern?: string;
   } = {},
 ): Promise<TestingReport> {
-  const { runLocalWorkspaceTests } = await import("@prism/core");
-  const base = await loadTestingReport(root);
-  const runners = base.runners ?? [];
-  const ran = await runLocalWorkspaceTests(root, runners, options);
-  let report = base;
-  if (options.coverage === true) {
-    try {
-      report = await loadIngestCoverage(root);
-    } catch {
-      /* keep base */
-    }
+  const ws = await getIndexedWorkspace(root);
+  const result = await ws.runWorkspaceTests(options);
+  if (!result.ok) {
+    throw new Error(`runWorkspaceTests failed: ${result.error.message}`);
   }
-  return {
-    ...report,
-    results: ran.ran ? ran.results : [],
-    lastRunAt: new Date().toISOString(),
-    summary: ran.ran
-      ? report.summary
-      : `${report.summary} · No test runner binary found.`,
-  };
+  return result.value;
 }
 
 async function listWorkspaceTestsApi(root: string): Promise<{
   files: { path: string; tests: { name: string; fullName?: string }[] }[];
 }> {
-  const { listLocalWorkspaceTests } = await import("@prism/core");
-  const base = await loadTestingReport(root);
-  return listLocalWorkspaceTests(root, base.runners ?? []);
+  const ws = await getIndexedWorkspace(root);
+  const result = await ws.listWorkspaceTests();
+  if (!result.ok) {
+    throw new Error(`listWorkspaceTests failed: ${result.error.message}`);
+  }
+  return result.value;
 }
 
 async function loadSecurityReport(root: string): Promise<SecurityReport> {

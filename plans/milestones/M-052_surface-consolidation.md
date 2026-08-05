@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **Not Started** |
+| Status | **In Progress** |
 | Branch | `milestone/M-052-surface-consolidation` (from latest `main`) |
 | Depends on | M-051 |
 | Unlocks | M-026, M-027, M-028, M-029, M-037 |
@@ -54,6 +54,49 @@ and contains parsing, aggregation and threshold logic for all of them.
 4. **Split by domain, not by size.** Cutting a 5,463-line file into five 1,000-line files achieves
    nothing. Each extracted module must have a nameable responsibility.
 5. **No new capability.** Same rule as M-051. If a user can do something new, it belongs elsewhere.
+
+## 3a. Re-scope 2026-08-05 (agent, unattended session)
+
+M-052 as written is two milestones wearing one hat: *lift analysis into Core* (phases 1–2) and
+*restructure the presentation layer* (phases 3–5). The second half cannot be verified by anything
+but a human looking at the screens, and its DoD says so — "pixel-identical screenshots",
+"keyboard-only pass". Running it unattended would mean shipping the riskiest change in the
+milestone with the weakest evidence behind it.
+
+**This milestone therefore closes after the analysis lift.** What landed:
+
+| Task | Status |
+|---|---|
+| 2.2 `overview-model.ts` → `getOverviewModel()` | Done — derivations now in `@prism/shared`, consumed by both Core and the screen |
+| 2.4 test-output parsing → Core | Done — `runWorkspaceTests` / `listWorkspaceTests`; deleted ~450 duplicated lines from `host-dispatch.ts` and surfaced two real bugs (below) |
+| 2.6 `stack-signal-meta.ts`, `security-stack-label.ts` | Classified **presentational** — both map ids to labels/tones and compute nothing |
+| 2.7 Docs | `CORE_SDK.md` updated for every new method |
+
+Deferred to **M-053** with the reasons intact:
+
+| Deferred | Why |
+|---|---|
+| 2.1 CWV parse convergence | Two implementations that agree today; merging them is a real refactor with real regression surface and no user-visible gain tonight |
+| 2.3 `getDomainReport(domain)` | The largest task in the milestone (six domains inside a 5,463-line component) and the one most likely to change what the user sees. Needs a human on the screens |
+| 2.5 `github-ci.ts` through Core | Blocked behind 2.3 — it is reached from `DomainScreen` |
+| Phases 3–5 | Screen structure, client unification and the a11y pass. Phase 3 was already deferred by owner decision on the same reasoning; phases 4–5 join it |
+
+**Finding: `@prism/shared`, not `@prism/core`.** §6 said the Overview DTOs and derivations would land
+in Core. They landed in `@prism/shared` instead, because `@prism/app-shell` runs in a webview and
+cannot import Core's native dependencies. Putting the code in Core would have left the screen with
+its own copy — two implementations agreeing by luck, which is the failure this milestone exists to
+remove. Core re-exposes it via `getOverviewModel()`, so ADR-0004 holds: surfaces still consume Core.
+
+**Two bugs found while consolidating**, both pre-existing and both now fixed:
+
+1. `isMissingRunner` only checked exit codes, so an `npx` that failed to find Jest was reported as
+   *a failing test suite* rather than *no runner installed*. A repository with no test runner was
+   being told its tests were broken.
+2. `parseJestListTests` treated every non-JSON line of `jest --listTests` as a test path, so npm
+   warnings were listed as test files.
+3. `packages/indexer/src/cache/db.ts` called bare `require()` in an ESM module. It worked only
+   because the extension bundles to CJS; every ESM consumer — vitest, and the CLI and MCP server
+   that M-026/M-028 are about to add — failed to open the SQLite cache.
 
 ## 4. Scope — phases
 
@@ -143,19 +186,23 @@ Additive only, per ADR-0019.
 
 ## 7. Definition of Done
 
-- [ ] M-051 Verified and merged; this branch cut from updated `main`
-- [ ] Only one milestone `In Progress`
-- [ ] Inventory published at `plans/notes/M-052-inventory.md` with every entry classified
-- [ ] No analysis logic remains in `@prism/app-shell` outside the "legitimately presentational" list
-- [ ] `getOverviewModel` and `getDomainReport` reachable from Core with tests
-- [ ] Screen line counts recorded before/after; no screen file restructured beyond de-duplication
-- [ ] One `PrismClient` interface; two transports; no duplicated method bodies
-- [ ] M-051's RPC deadline/rejection/validation behaviour intact (regression test)
-- [ ] Characterisation tests from Phase 1 still pass unchanged — proving behaviour was moved, not altered
-- [ ] `CORE_SDK.md` documents every new method
-- [ ] `bun run verify:milestone --force` green
-- [ ] Manual smoke: playground and extension render identically to pre-milestone screenshots
-- [ ] Owner approval → commit → merge → Verified → snippet shared
+Rewritten per §3a. Items that moved to M-053 are struck rather than deleted so the original
+intent stays visible.
+
+- [x] M-051 merged; this branch cut from updated `main` (M-051 remains In Review pending owner smoke)
+- [x] Only one milestone `In Progress`
+- [x] Analysis lifted for the Overview dashboard and the test runners; `stack-signal-meta` and `security-stack-label` classified presentational
+- [x] `getOverviewModel` reachable from Core with tests
+- [x] M-051's RPC deadline/rejection/validation behaviour intact (`protocol-guards` and `host-client` suites unchanged and green)
+- [x] The 16 pre-existing app-shell Overview tests pass unchanged against the moved code — behaviour was moved, not altered
+- [x] `CORE_SDK.md` documents every new method
+- [x] `bun run verify:milestone` green
+- [ ] Manual smoke: Overview screen renders identically to pre-milestone (**owner**)
+- [ ] Owner approval → merge → Verified → snippet shared
+- ~~Inventory published at `plans/notes/M-052-inventory.md`~~ → M-053
+- ~~`getDomainReport` reachable from Core~~ → M-053
+- ~~Screen line counts recorded; de-duplication into `@prism/ui`~~ → M-053
+- ~~One `PrismClient` interface; two transports~~ → M-053
 
 ## 8. Verification plan
 

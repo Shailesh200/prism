@@ -1,7 +1,9 @@
 /**
  * Local workspace test list/run helpers (M-046).
- * Used by the IDE host and playground API — prefer package.json test, then
- * vitest/jest. Exit 127 is treated like a missing runner.
+ * Reached through `PrismWorkspace.runWorkspaceTests` /
+ * `listWorkspaceTests` — prefer package.json test, then vitest/jest. A
+ * missing runner is detected by exit code *and* by npx's stderr, which does
+ * not use a distinct code (M-052).
  */
 
 import { execFile } from "node:child_process";
@@ -92,8 +94,18 @@ function hasPackageTestScript(root: string): boolean {
   }
 }
 
-function isMissingRunner(code: number): boolean {
-  return code === -1 || code === 127;
+/**
+ * npx does not use a distinct exit code when the package it was asked to run
+ * is not installed — with `--no-install` it exits 1 and explains itself on
+ * stderr. Treating that as "the runner ran and the tests failed" is how a
+ * repository with no test runner ended up showing a failing test (M-052).
+ */
+const MISSING_RUNNER_STDERR =
+  /(npx canceled due to missing packages|could not determine executable to run|command not found|is not recognized as an internal or external command)/i;
+
+function isMissingRunner(result: CommandResult): boolean {
+  if (result.code === -1 || result.code === 127) return true;
+  return MISSING_RUNNER_STDERR.test(result.stderr);
 }
 
 function relPath(absOrRel: string, root: string): string {
@@ -275,7 +287,7 @@ export async function runLocalWorkspaceTests(
     if (!args.includes("--")) args.push("--");
     args.push(...extra);
     const result = await runCommand(pm.cmd, args, root);
-    if (isMissingRunner(result.code)) return null;
+    if (isMissingRunner(result)) return null;
     return result;
   };
 
@@ -299,7 +311,7 @@ export async function runLocalWorkspaceTests(
           ];
     const args = appendFilterArgs(baseArgs, kind, options);
     const result = await runCommand("npx", args, root);
-    if (isMissingRunner(result.code)) return null;
+    if (isMissingRunner(result)) return null;
     return result;
   };
 
@@ -392,13 +404,29 @@ function parseVitestListJson(raw: string, root: string): LocalTestListResult {
   return { files };
 }
 
-function parseJestListTests(raw: string, root: string): LocalTestListResult {
+/**
+ * A jest `--listTests` line that is actually a test file: a path ending in a
+ * source extension. Accepting every non-JSON line instead put npm warnings and
+ * "npx canceled due to missing packages" into the suite tree as test files
+ * (M-052).
+ */
+const TEST_FILE_LINE = /^[^\s].*\.[cm]?[jt]sx?$/;
+
+export function parseJestListTests(
+  raw: string,
+  root: string,
+): LocalTestListResult {
   const files: LocalTestListResult["files"][number][] = [];
+  const seen = new Set<string>();
   for (const line of raw.split(/\r?\n/)) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("{") || trimmed.startsWith("["))
       continue;
-    files.push({ path: relPath(trimmed, root), tests: [] });
+    if (!TEST_FILE_LINE.test(trimmed)) continue;
+    const path = relPath(trimmed, root);
+    if (seen.has(path)) continue;
+    seen.add(path);
+    files.push({ path, tests: [] });
   }
   files.sort((a, b) => a.path.localeCompare(b.path));
   return { files };
@@ -419,7 +447,7 @@ export async function listLocalWorkspaceTests(
       ["--no-install", "vitest", "list", "--json"],
       root,
     );
-    if (isMissingRunner(result.code)) return null;
+    if (isMissingRunner(result)) return null;
     const parsed = parseVitestListJson(
       `${result.stdout}\n${result.stderr}`,
       root,
@@ -433,7 +461,7 @@ export async function listLocalWorkspaceTests(
       ["--no-install", "jest", "--listTests"],
       root,
     );
-    if (isMissingRunner(result.code)) return null;
+    if (isMissingRunner(result)) return null;
     const parsed = parseJestListTests(result.stdout || result.stderr, root);
     return parsed.files.length > 0 ? parsed : null;
   };

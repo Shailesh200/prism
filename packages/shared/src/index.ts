@@ -89,6 +89,18 @@ export {
 } from "./file-role.js";
 
 export {
+  bucketActivity,
+  couplingBand,
+  couplingDensity,
+  couplingFor,
+  deriveMostConnected,
+  deriveRegions,
+  floorToUtcDay,
+  parseDayMs,
+  presetBounds,
+} from "./overview-model.js";
+
+export {
   BlastRadiusItemSchema,
   BlastImpactCategorySchema,
   ImpactLaneSchema,
@@ -127,6 +139,13 @@ export {
   GitRecentFileSchema,
   GitRepoSummarySchema,
   GitSyncStatusSchema,
+  OverviewActivitySchema,
+  OverviewConnectedNodeSchema,
+  OverviewCouplingBandSchema,
+  OverviewCouplingSchema,
+  OverviewModelSchema,
+  OverviewRegionSchema,
+  OverviewTotalsSchema,
   HealthFactorBreakdownItemSchema,
   HealthFactorSchema,
   HealthHistoryBackfillStatusSchema,
@@ -301,6 +320,13 @@ export {
   type GitRecentFile,
   type GitRepoSummary,
   type GitSyncStatus,
+  type OverviewActivity,
+  type OverviewConnectedNode,
+  type OverviewCoupling,
+  type OverviewCouplingBand,
+  type OverviewModel,
+  type OverviewRegion,
+  type OverviewTotals,
   type GraphEdgeDto,
   type GraphLayout,
   type GraphLayoutPosition,

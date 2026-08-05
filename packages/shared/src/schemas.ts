@@ -432,6 +432,80 @@ export const GitActivitySchema = z.object({
 
 export type GitActivity = z.infer<typeof GitActivitySchema>;
 
+/* -------------------------------------------------------------------------
+ * Overview dashboard model (M-052)
+ *
+ * These derivations lived in the app-shell React layer, which put Prism's
+ * headline numbers out of reach of MCP, the CLI and any script. Colours and
+ * chart geometry stayed behind in the surface — only the facts moved.
+ * ---------------------------------------------------------------------- */
+
+/** Coupling density band. Target is `low` (density below 0.5). */
+export const OverviewCouplingBandSchema = z.enum(["low", "medium", "high"]);
+
+export type OverviewCouplingBand = z.infer<typeof OverviewCouplingBandSchema>;
+
+export const OverviewCouplingSchema = z.object({
+  /** Edges ÷ nodes; 0 for an empty graph. */
+  density: z.number().nonnegative(),
+  band: OverviewCouplingBandSchema,
+});
+
+export type OverviewCoupling = z.infer<typeof OverviewCouplingSchema>;
+
+export const OverviewRegionSchema = z.object({
+  id: z.string().min(1),
+  label: z.string(),
+  files: z.number().int().nonnegative(),
+  degree: z.number().int().nonnegative(),
+  /**
+   * Coupling-aware health, 0–100. `null` when the region has neither files
+   * nor edges — no evidence, so no score (ADR-0029).
+   */
+  score: z.number().min(0).max(100).nullable(),
+});
+
+export type OverviewRegion = z.infer<typeof OverviewRegionSchema>;
+
+export const OverviewConnectedNodeSchema = z.object({
+  id: z.string().min(1),
+  label: z.string(),
+  degree: z.number().int().nonnegative(),
+});
+
+export type OverviewConnectedNode = z.infer<typeof OverviewConnectedNodeSchema>;
+
+export const OverviewActivitySchema = z.object({
+  /** Commit counts per bucket, zero-filled across the whole window. */
+  buckets: z.array(z.number().int().nonnegative()),
+  /** UTC-midnight epoch-ms at the start of each bucket. */
+  starts: z.array(z.number()),
+  total: z.number().int().nonnegative(),
+  granularity: z.enum(["day", "week"]),
+});
+
+export type OverviewActivity = z.infer<typeof OverviewActivitySchema>;
+
+export const OverviewTotalsSchema = z.object({
+  nodes: z.number().int().nonnegative(),
+  edges: z.number().int().nonnegative(),
+  files: z.number().int().nonnegative(),
+  regions: z.number().int().nonnegative(),
+});
+
+export type OverviewTotals = z.infer<typeof OverviewTotalsSchema>;
+
+export const OverviewModelSchema = z.object({
+  totals: OverviewTotalsSchema,
+  coupling: OverviewCouplingSchema,
+  regions: z.array(OverviewRegionSchema),
+  mostConnected: z.array(OverviewConnectedNodeSchema),
+  /** `null` when git is unavailable — distinct from a window with no commits. */
+  activity: OverviewActivitySchema.nullable(),
+});
+
+export type OverviewModel = z.infer<typeof OverviewModelSchema>;
+
 /** Coarse classification of how an affected file is impacted (M-046 tweak). */
 export const BlastImpactCategorySchema = z.enum([
   "import",
