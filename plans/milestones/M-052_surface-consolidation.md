@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **Not Started** |
+| Status | **In Progress** |
 | Branch | `milestone/M-052-surface-consolidation` (from latest `main`) |
 | Depends on | M-051 |
 | Unlocks | M-026, M-027, M-028, M-029, M-037 |

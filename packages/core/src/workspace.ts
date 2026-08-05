@@ -132,6 +132,18 @@ import {
   sampleGitCommits,
 } from "./git/history-sample.js";
 import type { IndexWorkspaceOptions, PrismEnginePorts } from "./ports.js";
+import {
+  listLocalWorkspaceTests,
+  runLocalWorkspaceTests,
+  type LocalRunTestsOptions,
+  type LocalTestListResult,
+} from "./testing/local-runners.js";
+
+/** Options for {@link PrismWorkspace.runWorkspaceTests} (M-052). */
+export type RunWorkspaceTestsOptions = LocalRunTestsOptions;
+
+/** Result of {@link PrismWorkspace.listWorkspaceTests} (M-052). */
+export type WorkspaceTestList = LocalTestListResult;
 
 /**
  * Coarse path → domain keyword heuristics for `explainArea` (M-048 Phase 5).
@@ -387,6 +399,22 @@ export type PrismWorkspace = {
    * updated TestingReport (M-046 / ADR-0022).
    */
   ingestCoverageFromWorkspace(): Promise<Result<TestingReport, PrismError>>;
+  /**
+   * Run the workspace's own test suite and fold the results into a
+   * TestingReport (M-052). Prefers package.json `scripts.test`, then
+   * vitest/jest. Optional `coverage` re-ingests coverage artifacts afterwards.
+   *
+   * Spawns subprocesses. Previously each surface assembled this itself, which
+   * is why the playground and the extension disagreed about `lastRunAt`.
+   */
+  runWorkspaceTests(
+    options?: RunWorkspaceTestsOptions,
+  ): Promise<Result<TestingReport, PrismError>>;
+  /**
+   * Discover test files and cases without running them, for a suite tree
+   * (M-052). Empty when no runner binary is available.
+   */
+  listWorkspaceTests(): Promise<Result<WorkspaceTestList, PrismError>>;
   setConsent(
     purpose: string,
     granted: boolean,
@@ -1383,6 +1411,51 @@ export function createWorkspace(options: {
           rootPath,
           files === undefined ? undefined : files,
         ),
+      );
+    },
+    async runWorkspaceTests(options = {}) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+
+      const baseResult = await this.getTestingReport();
+      if (!baseResult.ok) return baseResult;
+      const base = baseResult.value;
+
+      const run = await runLocalWorkspaceTests(
+        rootPath,
+        base.runners ?? [],
+        options,
+      );
+
+      if (!run.ran) {
+        // No runner binary. Say so, and leave `lastRunAt` alone — it means
+        // "tests last ran at", and nothing ran.
+        return ok({
+          ...base,
+          results: [],
+          summary: `${base.summary} · No test runner binary found.`,
+        });
+      }
+
+      let report = base;
+      if (options.coverage === true) {
+        const ingested = await this.ingestCoverageFromWorkspace();
+        if (ingested.ok) report = ingested.value;
+      }
+
+      return ok({
+        ...report,
+        results: run.results,
+        lastRunAt: new Date().toISOString(),
+      });
+    },
+    async listWorkspaceTests() {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      const baseResult = await this.getTestingReport();
+      if (!baseResult.ok) return baseResult;
+      return ok(
+        await listLocalWorkspaceTests(rootPath, baseResult.value.runners ?? []),
       );
     },
     async setConsent(purpose, granted) {
