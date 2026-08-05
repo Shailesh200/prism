@@ -16,9 +16,21 @@ import { toMcpError, toMcpErrorFromThrown } from "./errors.js";
 import type { WorkspaceSession } from "./session.js";
 
 /**
+ * What a tool gets to work with. The root is here because path arguments have
+ * to be validated against it before they reach Core (`paths.ts`), and a tool
+ * that had to ask for it separately would eventually forget to.
+ */
+export type ToolContext = {
+  readonly workspace: PrismWorkspace;
+  readonly workspaceRoot: string;
+};
+
+/**
  * A tool is a description plus a Core call. The `call` returns Core's `Result`
  * untouched — DTOs reach the agent exactly as `@prism/shared` defines them,
- * because the MCP contract *is* the Core contract (ADR-0004).
+ * because the MCP contract *is* the Core contract (ADR-0004). List tools wrap
+ * theirs in the `BoundedList` envelope from `limits.ts`; the items inside stay
+ * unmodified.
  */
 export type ToolDefinition<Shape extends ZodRawShape = ZodRawShape> = {
   readonly name: string;
@@ -28,7 +40,7 @@ export type ToolDefinition<Shape extends ZodRawShape = ZodRawShape> = {
   /** Hint for agents: no Prism tool ever writes to the repository. */
   readonly readOnly?: boolean;
   call(
-    workspace: PrismWorkspace,
+    context: ToolContext,
     args: z.objectOutputType<Shape, z.ZodTypeAny>,
   ): Promise<Result<unknown, PrismError>>;
 };
@@ -48,6 +60,7 @@ export function registerTools(
   server: McpServer,
   session: WorkspaceSession,
   tools: readonly ToolDefinition<never>[],
+  workspaceRoot: string,
 ): void {
   for (const tool of tools as readonly ToolDefinition[]) {
     server.registerTool(
@@ -69,7 +82,7 @@ export function registerTools(
         let result: Result<unknown, PrismError>;
         try {
           result = await tool.call(
-            ready.value,
+            { workspace: ready.value, workspaceRoot },
             args as Parameters<typeof tool.call>[1],
           );
         } catch (cause) {

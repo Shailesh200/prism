@@ -40,7 +40,7 @@
 | M-024 Insights | `milestone/M-024-engineering-insights` | Deferred | ☐ | ☐ | Superseded by M-046 (Most Connected / insights folded into intelligence accuracy epic) |
 | M-025 Core SDK Freeze v0 | `milestone/M-025-core-sdk-freeze` | Verified | ✅ | ✅ | Approved + merged 2026-07-23: v0.1.0 freeze, ADR-0019, CORE_SDK guide, contract tests, map/navigation caps |
 | M-026 MCP Server | `milestone/M-026-mcp-server` | Not Started | ☐ | ☐ | Spec rewritten 2026-08-05 (original predated Core SDK freeze) |
-| M-027 MCP Tools Pack | `milestone/M-027-mcp-tools-pack` | Not Started | ☐ | ☐ | Spec authored 2026-08-05; `architecture_rules` dropped (no Core capability exists) |
+| M-027 MCP Tools Pack | `milestone/M-027-mcp-tools-pack` | In Review | ☐ | ☐ | 2026-08-05. 28 tools across orientation/graphs/impact/reports; `limit` envelope with `totalCount`+`truncated`; workspace-relative path guard; tools renamed to unprefixed snake_case. `architecture_rules` removed from Master Plan + PRD (never existed). **Awaiting owner: real agent session in Cursor + approval** |
 | M-028 CLI Foundation | `milestone/M-028-cli-foundation` | Not Started | ☐ | ☐ | Spec rewritten 2026-08-05 |
 | M-029 CLI Commands | `milestone/M-029-cli-commands` | Not Started | ☐ | ☐ | Spec authored 2026-08-05 |
 | M-030 VS Code Shell | `milestone/M-030-vscode-shell` | Verified | ✅ | ✅ | Approved + merged 2026-07-23: Extension Host shell, PrismSession, Map webview (`RepositoryMapView`), Reindex/Open Map, Electron better-sqlite3 staging |

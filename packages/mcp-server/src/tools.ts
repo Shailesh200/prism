@@ -1,130 +1,31 @@
 /**
- * The tools an agent can call (M-026).
+ * The tool pack (M-026 spine, filled out in M-027).
  *
- * Four here, deliberately: DNA, health, map and blast radius cover "what is
- * this repository", "how healthy is it", "how is it laid out" and "what breaks
- * if I touch this" — the four questions an agent actually has before editing
- * code. The remaining breadth is M-027.
+ * Names are `snake_case` and unprefixed: MCP clients already namespace tools by
+ * server, so `prism_repository_dna` reads as "prism prism repository dna" in
+ * the places an agent actually sees it. M-026 shipped the prefixed spelling and
+ * M-027 corrects it before anyone depends on it.
  *
- * Descriptions are written for a model choosing between tools, not for a
- * changelog. Each says what it answers and what it costs.
+ * Two capabilities from the Master Plan's table are deliberately absent:
+ *
+ * - `architecture_rules` — no rules engine exists. Building one is a product
+ *   milestone, not an adapter task, so the tool is dropped rather than faked.
+ * - `domain_report` — `getDomainReport` moved to M-053 with the rest of the
+ *   presentation lift, so there is nothing to adapt yet.
  */
 
-import { z } from "zod";
-import { defineTool, type ToolDefinition } from "./tool-registry.js";
+import type { ToolDefinition } from "./tool-registry.js";
+import { GRAPH_TOOLS } from "./tools/graphs.js";
+import { IMPACT_TOOLS } from "./tools/impact.js";
+import { ORIENTATION_TOOLS } from "./tools/orientation.js";
+import { REPORT_TOOLS } from "./tools/reports.js";
 
-const packageId = z
-  .string()
-  .min(1)
-  .optional()
-  .describe(
-    "Optional package id to scope the answer within a monorepo. Omit for the whole workspace.",
-  );
-
-const repositoryDna = defineTool({
-  name: "prism_repository_dna",
-  title: "Repository DNA",
-  description:
-    "Identify what a repository *is*: detected languages, frameworks, architecture style, domains and the evidence behind each. Start here when you know nothing about a codebase. Reads the local index; no network.",
-  inputSchema: {},
-  async call(workspace) {
-    return workspace.getDna();
-  },
-});
-
-const repositoryHealth = defineTool({
-  name: "prism_repository_health",
-  title: "Repository health",
-  description:
-    "Score repository health (0-100) with the per-factor breakdown behind the score. Use to judge whether a codebase is in good shape, or to find which factor is dragging it down. Reads the local index; no network.",
-  inputSchema: {},
-  async call(workspace) {
-    return workspace.getHealth();
-  },
-});
-
-const repositoryMap = defineTool({
-  name: "prism_repository_map",
-  title: "Repository map",
-  description:
-    "Return the repository's structural map at a zoom level: nodes, edges and regions. Use to orient yourself in an unfamiliar codebase or to find where a concern lives. 'repo' and 'package' zooms are small; 'file' and 'symbol' can be large on big repositories.",
-  inputSchema: {
-    zoom: z
-      .enum(["repo", "package", "feature", "file", "symbol"])
-      .optional()
-      .describe("Detail level. Defaults to the Core default zoom."),
-    layers: z
-      .array(z.string().min(1))
-      .optional()
-      .describe("Optional overlay layer ids to include."),
-  },
-  async call(workspace, args) {
-    return workspace.getRepositoryMap({
-      ...(args.zoom ? { zoom: args.zoom } : {}),
-      ...(args.layers ? { layers: args.layers } : {}),
-    });
-  },
-});
-
-const blastRadius = defineTool({
-  name: "prism_blast_radius",
-  title: "Blast radius",
-  description:
-    "Given a file or symbol, return what depends on it and how risky changing it is — direct and transitive dependents, confidence lanes and evidence. Call this *before* editing or deleting anything you did not write. Reads the local index; no network.",
-  inputSchema: {
-    kind: z
-      .enum(["file", "symbol"])
-      .describe("Whether `id` names a file or a symbol."),
-    id: z
-      .string()
-      .min(1)
-      .describe(
-        "Workspace-relative file path, or symbol id as returned by the map or search tools.",
-      ),
-    path: z
-      .string()
-      .min(1)
-      .optional()
-      .describe("File path containing the symbol, when `kind` is 'symbol'."),
-    intent: z
-      .enum(["edit", "delete"])
-      .optional()
-      .describe(
-        "Emphasis. 'delete' weighs orphaned code more heavily. Defaults to 'edit'.",
-      ),
-  },
-  async call(workspace, args) {
-    return workspace.blastRadius({
-      kind: args.kind,
-      id: args.id,
-      ...(args.path ? { path: args.path } : {}),
-      ...(args.intent ? { intent: args.intent } : {}),
-    });
-  },
-});
-
-/**
- * Adopted from the orphan M-044 left behind. It was already a Core-backed
- * contract; it only ever lacked a server to register it against.
- */
-const backendReport = defineTool({
-  name: "prism_backend_report",
-  title: "Backend report",
-  description:
-    "Route-granular backend intelligence: HTTP endpoints, auth posture, data layer, environment variables and background jobs. Use when the question is about the server side specifically. Reads the local index; no network.",
-  inputSchema: { packageId },
-  async call(workspace, args) {
-    return workspace.getBackendReport(
-      args.packageId ? { packageId: args.packageId } : undefined,
-    );
-  },
-});
-
-/** Every tool the M-026 server exposes. */
 export const TOOLS: readonly ToolDefinition<never>[] = [
-  repositoryDna,
-  repositoryHealth,
-  repositoryMap,
-  blastRadius,
-  backendReport,
+  ...ORIENTATION_TOOLS,
+  ...GRAPH_TOOLS,
+  ...IMPACT_TOOLS,
+  ...REPORT_TOOLS,
 ] as unknown as readonly ToolDefinition<never>[];
+
+/** Names only, for documentation and contract tests. */
+export const TOOL_NAMES: readonly string[] = TOOLS.map((tool) => tool.name);

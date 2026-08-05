@@ -9,12 +9,22 @@ export {
   type CreateServerOptions,
   type PrismMcpServer,
 } from "./server.js";
-export { TOOLS } from "./tools.js";
+export { TOOLS, TOOL_NAMES } from "./tools.js";
 export {
   defineTool,
   registerTools,
+  type ToolContext,
   type ToolDefinition,
 } from "./tool-registry.js";
+export {
+  boundList,
+  clampLimit,
+  limitInput,
+  DEFAULT_LIMIT,
+  MAX_LIMIT,
+  type BoundedList,
+} from "./limits.js";
+export { allWorkspaceRelative, toWorkspaceRelative } from "./paths.js";
 export {
   createWorkspaceSession,
   type SessionOptions,

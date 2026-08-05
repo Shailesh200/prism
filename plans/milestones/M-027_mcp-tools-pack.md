@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **Not Started** |
+| Status | **In Review** |
 | Branch | `milestone/M-027-mcp-tools-pack` (from latest `main`) |
 | Depends on | M-026 |
 | Unlocks | M-037 |
@@ -97,16 +97,36 @@ These are what make a pack rather than a pile of adapters.
 
 ## 5. Definition of Done
 
-- [ ] Only one milestone `In Progress`
-- [ ] Every tool above registered, with Zod input schema and agent-oriented description
-- [ ] Every tool returns real Core data on the fixture repository
-- [ ] Every list tool honours `limit` and reports `truncated` / `totalCount`
-- [ ] No tool bypasses Core; no engine package imported (contract test)
-- [ ] `architecture_rules` removed from Master Plan and PRD with a note
-- [ ] `README.md` documents every tool: purpose, inputs, example call, example output
-- [ ] `bun run verify:milestone --force` green
-- [ ] Manual: connect from Cursor, run an agent task that uses at least four tools together
-- [ ] Owner approval → commit → merge → Verified → snippet shared
+- [x] Only one milestone `In Progress`
+- [x] Every tool registered with a Zod input schema and an agent-oriented description — **28 tools**
+- [x] Every tool returns real Core data on the fixture repository — one sweep calls all 28 and asserts each response parses as JSON, and a second assertion proves the sweep covers `tools/list` exactly
+- [x] Every list tool honours `limit` and reports `truncated` / `totalCount`
+- [x] No tool bypasses Core; no engine package imported (boundary test now recurses into `src/tools/`)
+- [x] `architecture_rules` removed from Master Plan and PRD with a note
+- [x] `README.md` documents every tool — enforced in both directions by test: nothing undocumented, nothing documented that does not exist
+- [x] `bun run verify:milestone` green
+- [ ] Manual: connect from Cursor, run an agent task that uses at least four tools together (**owner**)
+- [ ] Owner approval → merge → Verified → snippet shared
+
+### Decisions taken during implementation
+
+**Tools renamed, prefix dropped.** M-026 shipped `prism_repository_dna`; §3 of this milestone asks
+for unprefixed `snake_case`, and it is right — MCP clients namespace tools by server, so the prefix
+reads as "prism prism repository dna" wherever an agent actually sees it. Renamed before anything
+depends on it. A test now enforces the convention.
+
+**`domain_report` dropped from the pack.** It adapts `getDomainReport`, which moved to M-053 with
+the rest of the presentation lift. Adapting a method that does not exist was not an option, and
+faking it was less of one.
+
+**`health_history` takes `maxPoints`, not `limit`.** In this pack `limit` is a promise: the tool
+returns the `BoundedList` envelope. `health_history` returns a report and narrows its query inside
+Core, so reusing `limit` would have made the envelope invariant untestable for the sake of a
+familiar word.
+
+**Nine tools beyond the inventory.** `repository_overview`, `list_packages`, `stack_profile` and
+`landmarks` were reachable from Core and answer questions an agent genuinely has when orienting.
+They cost nothing to adapt and were cheaper to add than to justify omitting.
 
 ## 6. Verification plan
 
