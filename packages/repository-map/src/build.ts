@@ -178,6 +178,18 @@ function buildPackageZoom(
   };
 }
 
+/**
+ * The first two path segments, which is what "features live near each other"
+ * means here. Written without `split` because it runs once per member file
+ * across the whole repository.
+ */
+function directoryPrefix(path: string): string {
+  const first = path.indexOf("/");
+  if (first === -1) return path;
+  const second = path.indexOf("/", first + 1);
+  return second === -1 ? path : path.slice(0, second);
+}
+
 function buildFeatureZoom(features: readonly FeatureInfo[]): {
   graph: GraphSnapshotDto;
   clusters: MapCluster[];
@@ -190,19 +202,41 @@ function buildFeatureZoom(features: readonly FeatureInfo[]): {
     }),
   );
   const edges: GraphEdgeDto[] = [];
-  // Link features that share a directory prefix
+
+  // Link features that share a directory prefix.
+  //
+  // The obvious phrasing — for each pair of features, for each pair of their
+  // member files, compare prefixes — is O(features² × members²) and splits two
+  // paths on every comparison. On a 10,000 file repository that was 28 of the
+  // 32 seconds a map build took (M-035). Deriving each feature's prefix set
+  // once makes the pair test a set lookup, and the answer is identical: two
+  // features share a prefix exactly when their prefix sets intersect.
+  const prefixes = features.map((f) => {
+    const set = new Set<string>();
+    for (const file of f.memberFiles) set.add(directoryPrefix(file));
+    return set;
+  });
+
   for (let i = 0; i < features.length; i++) {
     for (let j = i + 1; j < features.length; j++) {
       const a = features[i]!;
       const b = features[j]!;
-      const shared = a.memberFiles.some((fa) =>
-        b.memberFiles.some(
-          (fb) =>
-            fa.split("/").slice(0, 2).join("/") ===
-            fb.split("/").slice(0, 2).join("/"),
-        ),
-      );
+      // Probe the smaller set against the larger; the result does not depend
+      // on which way round, but the cost does.
+      const [small, large] =
+        prefixes[i]!.size <= prefixes[j]!.size
+          ? [prefixes[i]!, prefixes[j]!]
+          : [prefixes[j]!, prefixes[i]!];
+
+      let shared = false;
+      for (const prefix of small) {
+        if (large.has(prefix)) {
+          shared = true;
+          break;
+        }
+      }
       if (!shared) continue;
+
       edges.push(
         edge(
           `map:feat:${a.id}:${b.id}`,

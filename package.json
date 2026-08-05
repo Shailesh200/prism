@@ -32,6 +32,8 @@
     "test:integration": "moon run :test-integration",
     "verify": "bun run format:check && bun run lint && bun run typecheck && bun run test && bun run build",
     "verify:milestone": "bun run verify && bun run test:integration && bun run docs:check && bun run docs:build && bun run scripts/check-plan-progress.mjs",
+    "bench": "node scripts/bench/run.mjs",
+    "bench:check": "node scripts/bench/check.mjs",
     "playground": "bun --filter @prism/playground dev",
     "moon": "moon",
     "prepare": "lefthook install || true",

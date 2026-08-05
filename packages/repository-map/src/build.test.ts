@@ -159,7 +159,77 @@ describe("buildRepositoryMap (M-017)", () => {
       true,
     );
   });
+
+  // The prefix-set rewrite in M-035 turned this from O(features² × members²)
+  // into a set intersection. It is only a legitimate optimisation if it links
+  // exactly the same features, so this pins the answer against the definition
+  // it replaced rather than against whatever the new code happens to produce.
+  it("links exactly the features that share a two-segment prefix", () => {
+    const many: FeatureInfo[] = [
+      { ...feature("a", ["apps/web/one.ts", "apps/web/two.ts"]) },
+      { ...feature("b", ["apps/web/three.ts"]) },
+      { ...feature("c", ["apps/api/four.ts"]) },
+      { ...feature("d", ["apps/api/five.ts", "libs/shared/six.ts"]) },
+      { ...feature("e", ["libs/shared/seven.ts"]) },
+      { ...feature("f", ["standalone.ts"]) },
+    ];
+
+    const map = buildRepositoryMap({
+      snapshot: snapshot([]),
+      dependencyGraph: { id: "deps", nodes: [], edges: [] },
+      features: many,
+      landmarks: [],
+      packages: [],
+      zoom: "feature",
+      generatedAt: "2026-07-20T12:00:00.000Z",
+    });
+
+    const related = map.graph.edges
+      .filter((e) => e.kind === "related")
+      .map((e) => e.id)
+      .sort();
+
+    expect(related).toEqual(referenceRelatedEdges(many));
+    // a↔b share apps/web, c↔d share apps/api, d↔e share libs/shared. f shares
+    // nothing, and a single-segment path must not match a two-segment one.
+    expect(related).toEqual([
+      "map:feat:feat:a:feat:b",
+      "map:feat:feat:c:feat:d",
+      "map:feat:feat:d:feat:e",
+    ]);
+  });
 });
+
+function feature(id: string, memberFiles: string[]): FeatureInfo {
+  return {
+    id: `feat:${id}`,
+    name: id.toUpperCase(),
+    slug: id,
+    confidence: 0.5,
+    memberFiles,
+    evidence: [],
+  };
+}
+
+/** The pre-optimisation definition, kept verbatim as the thing to agree with. */
+function referenceRelatedEdges(features: readonly FeatureInfo[]): string[] {
+  const ids: string[] = [];
+  for (let i = 0; i < features.length; i++) {
+    for (let j = i + 1; j < features.length; j++) {
+      const a = features[i]!;
+      const b = features[j]!;
+      const shared = a.memberFiles.some((fa) =>
+        b.memberFiles.some(
+          (fb) =>
+            fa.split("/").slice(0, 2).join("/") ===
+            fb.split("/").slice(0, 2).join("/"),
+        ),
+      );
+      if (shared) ids.push(`map:feat:${a.id}:${b.id}`);
+    }
+  }
+  return ids.sort();
+}
 
 type RepositoryMapSchemaLike = {
   layout?: unknown;

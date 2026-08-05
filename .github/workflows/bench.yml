@@ -1,0 +1,58 @@
+name: bench
+
+# Separate from `verify` on purpose. Benchmarking takes minutes, and a
+# verification suite people learn to skip because it is slow verifies nothing
+# (M-035). This job can fail on its own without blocking correctness feedback.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      # Only the packages whose cost the budgets actually describe. A docs PR
+      # should not wait on a benchmark.
+      - "packages/indexer/**"
+      - "packages/analyzer/**"
+      - "packages/intelligence/**"
+      - "packages/graph-engine/**"
+      - "packages/repository-map/**"
+      - "packages/impact/**"
+      - "packages/core/**"
+      - "scripts/bench/**"
+      - ".github/workflows/bench.yml"
+  workflow_dispatch:
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    # Generous: a cold GitHub runner is a good deal slower than a laptop, and a
+    # job killed at the default timeout reports as a failure that says nothing.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+
+      # Small scale on every run: about ten seconds of measurement, and enough
+      # to catch an algorithmic regression, which shows up as a shape change at
+      # any size. Medium runs only on main, where the extra two minutes buy a
+      # trend line rather than a gate.
+      - name: Check budgets (small)
+        run: bun run bench:check -- --scale small
+
+      - name: Check budgets (medium)
+        if: github.ref == 'refs/heads/main'
+        run: bun run bench:check -- --scale medium --reps 2
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-results
+          path: .bench/results/
+          if-no-files-found: ignore

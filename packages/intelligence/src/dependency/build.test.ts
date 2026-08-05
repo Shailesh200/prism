@@ -213,3 +213,60 @@ describe("buildDependencyGraph", () => {
     ).toEqual([]);
   });
 });
+
+// The graph is memoised per snapshot object (M-035). The failure mode that
+// matters is not a slow cache, it is a stale one: a reindex whose result is
+// answered from the previous snapshot's graph.
+describe("buildDependencyGraph — memoisation", () => {
+  const root = mkdtempSync(join(tmpdir(), "prism-memo-"));
+
+  it("returns the same object for the same snapshot", () => {
+    const snap = snapshot(root, [
+      analyzed("a.ts", [{ source: "./b.ts" }]),
+      analyzed("b.ts"),
+    ]);
+
+    expect(buildDependencyGraph(snap)).toBe(buildDependencyGraph(snap));
+  });
+
+  it("rebuilds for a new snapshot even when it looks identical", () => {
+    const files = [analyzed("a.ts", [{ source: "./b.ts" }]), analyzed("b.ts")];
+    // Same timestamp, same contents, different object — which is exactly what a
+    // reindex inside one millisecond produces.
+    const first = buildDependencyGraph(snapshot(root, files));
+    const second = buildDependencyGraph(snapshot(root, files));
+
+    expect(second).not.toBe(first);
+    expect(second.graph.edges).toEqual(first.graph.edges);
+  });
+
+  it("sees a changed snapshot rather than the cached answer", () => {
+    const before = buildDependencyGraph(
+      snapshot(root, [
+        analyzed("a.ts", [{ source: "./b.ts" }]),
+        analyzed("b.ts"),
+      ]),
+    );
+    const after = buildDependencyGraph(
+      snapshot(root, [analyzed("a.ts"), analyzed("b.ts")]),
+    );
+
+    expect(before.graph.edges).toHaveLength(1);
+    expect(after.graph.edges).toHaveLength(0);
+  });
+
+  it("keeps graphs for different options apart", () => {
+    const snap = snapshot(root, [
+      analyzed("a.ts", [{ source: "./b.ts" }]),
+      analyzed("b.ts"),
+    ]);
+
+    const files = buildDependencyGraph(snap, { packageAggregation: false });
+    const packages = buildDependencyGraph(snap, { packageAggregation: true });
+
+    expect(packages).not.toBe(files);
+    expect(buildDependencyGraph(snap, { packageAggregation: true })).toBe(
+      packages,
+    );
+  });
+});
