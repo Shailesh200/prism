@@ -22,13 +22,56 @@ cd packages/cli && bun link
 
 ## Commands
 
+### Understand a repository
+
 | Command | Purpose |
 |---|---|
-| `prism doctor` | Check the environment, the resolved workspace and the index |
-| `prism index` | Build or refresh the repository index |
 | `prism dna` | Identify languages, frameworks, domains and stack |
+| `prism health` | Overall health score and the factors behind it |
+| `prism map` | Repository map: clusters, landmarks and layers |
+| `prism explain <path>` | What a file or folder is for, and who owns it |
+| `prism explore <target>` | Usages, ownership and similar code for a file or symbol |
+| `prism stack` | Detected stack signals, domains and personas |
+| `prism features` | Inferred features and their confidence |
+| `prism landmarks` | Entrypoints, package roots and feature anchors |
+| `prism packages` | Packages in the workspace |
 
-More commands land in M-029.
+### Assess a change
+
+| Command | Purpose |
+|---|---|
+| `prism blast <target>` | What breaks if this file or symbol changes |
+| `prism review [paths...]` | Risk of the current changes, or of the paths you name |
+| `prism safe-delete <target>` | Whether a file or symbol can be removed |
+| `prism rename <target> [newName]` | Every edit site a rename would touch |
+| `prism test-impact <target>` | Tests that a change can reach |
+
+### Inspect structure
+
+| Command | Purpose |
+|---|---|
+| `prism deps` | Dependency graph size and its most connected nodes |
+| `prism cycles` | Import and re-export cycles |
+| `prism symbol <name>` | Find where a symbol is declared |
+| `prism refs <name>` | Find who references a symbol |
+| `prism route <from> <to>` | How one file reaches another through dependencies |
+
+### Reports
+
+| Command | Purpose |
+|---|---|
+| `prism engineering` | Entropy, drift, debt, churn and hotspots |
+| `prism testing` | Test structure and on-disk coverage |
+| `prism security` | Left-shift tooling and configuration checklist |
+| `prism backend` | Routes, data layer, env vars and background jobs |
+| `prism bundle` | Bundle weight from an ingested stats artifact |
+
+### Diagnostics
+
+| Command | Purpose |
+|---|---|
+| `prism doctor` | Check the environment, workspace and index |
+| `prism index` | Build or refresh the repository index |
 
 ## Global options
 
@@ -42,6 +85,32 @@ More commands land in M-029.
 | `-y, --yes` | Consent to operations that would otherwise be refused |
 | `-V, --version` | Print the Core version and API level |
 
+These work before or after the subcommand, so both of these are fine:
+
+```bash
+prism --json blast src/index.ts
+prism blast src/index.ts --json
+```
+
+## Failing a build
+
+This is the reason to run Prism from a terminal rather than an editor.
+
+```bash
+prism blast src/core/index.ts --fail-on high   # exit 1 when the band is High
+prism review --base origin/main --fail-on high # exit 1 on a risky diff
+prism cycles --fail-on any                     # exit 1 if any cycle exists
+prism engineering --fail-on high               # exit 1 when a metric is bad
+```
+
+`--fail-on` takes a **band** — `low`, `mid` or `high` — on commands that produce
+a risk or quality score, and fires at or above it. The bands come from
+`riskToBand` in `@prism/shared`, the same helper the editor UI uses, so the
+terminal and the Blast Radius screen cannot disagree about what "High" means.
+
+On commands that count findings rather than scoring them (`cycles`,
+`test-impact`) it takes `any` or a number instead.
+
 ## Which repository does it analyse?
 
 Most explicit first:
@@ -54,6 +123,10 @@ Most explicit first:
 Git-root discovery is what makes `prism health` work from three directories
 deep. When it surprises you, `prism doctor` prints which workspace was chosen
 and which of these rules chose it.
+
+Path arguments resolve from **your** directory, not the repository root, so
+`prism blast ./output.ts` works while standing in `packages/cli/src`. Paths
+outside the workspace are refused rather than clamped.
 
 ## Exit codes
 
@@ -92,7 +165,25 @@ stdout stays empty.
 Colour is never emitted when stdout is not a terminal, so piped output needs no
 `--no-color`.
 
+`--json` returns the Core DTO verbatim and is never truncated. `--limit` only
+bounds the human table, because a script that asked for JSON asked for all of
+it.
+
+## Notes
+
+- **The first command in a repository is slow.** It builds the index. Later
+  commands reuse the cache in `.prism/`.
+- **`prism review` with no arguments reviews the working tree**, including
+  untracked files — a new file nothing imports yet is exactly the change a
+  review should notice. Pass `--base origin/main` in CI.
+- **`prism rename` and `prism safe-delete` never write anything.** They report
+  what a change would touch.
+- **`prism security` is a configuration checklist, not a vulnerability scanner.**
+  It tells you whether the left-shift tooling exists, not whether you are safe.
+- **Features are inferred**, not declared. Low confidence means the grouping is
+  a guess.
+
 ## References
 
 - [ADR-0004](../../plans/adr/0004-core-only-integration-surface.md) — surfaces consume Core only
-- [M-028](../../plans/milestones/M-028_cli-foundation.md) — this milestone
+- [M-028](../../plans/milestones/M-028_cli-foundation.md) · [M-029](../../plans/milestones/M-029_cli-commands.md)

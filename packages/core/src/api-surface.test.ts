@@ -31,6 +31,7 @@ const WORKSPACE_METHODS = [
   "findSymbol",
   "getBackendReport",
   "getBundleWeightReport",
+  "getChangedPaths",
   "getConsent",
   "getCwvReport",
   "getCycles",

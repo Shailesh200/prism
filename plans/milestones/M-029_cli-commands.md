@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **Not Started** |
+| Status | **In Review** |
 | Branch | `milestone/M-029-cli-commands` (from latest `main`) |
 | Depends on | M-028 |
 | Unlocks | M-037 |
@@ -83,17 +83,35 @@ The commands are the easy part. These are the requirements that make the CLI use
 
 ## 5. Definition of Done
 
-- [ ] Only one milestone `In Progress`
-- [ ] Every command above implemented against real Core methods
-- [ ] `--json` valid on every command, stdout carrying nothing else
-- [ ] `--fail-on` implemented on all score/risk commands, exiting `1` at or above the band
-- [ ] Band colouring uses the shared `riskToBand`; no threshold literals in `@prism/cli`
-- [ ] `--limit` on every list command
-- [ ] Human output readable at 80 columns
-- [ ] `@prism/cli` imports only `@prism/core` (contract test)
-- [ ] `README.md` documents every command with an example and its exit codes
-- [ ] `bun run verify:milestone --force` green
+- [x] Only one milestone `In Progress`
+- [x] Every command above implemented against real Core methods
+- [x] `--json` valid on every command, stdout carrying nothing else
+- [x] `--fail-on` implemented on all score/risk commands, exiting `1` at or above the band
+- [x] Band colouring uses the shared `riskToBand`; no threshold literals in `@prism/cli`
+- [x] `--limit` on every list command
+- [x] Human output readable at 80 columns
+- [x] `@prism/cli` imports only `@prism/core` (contract test)
+- [x] `README.md` documents every command with an example and its exit codes
+- [x] `bun run verify:milestone --force` green
 - [ ] Owner approval → commit → merge → Verified → snippet shared
+
+### Notes (2026-08-05)
+
+26 commands ship, six more than the table above: `doctor` and `index` carried over
+from M-028, plus `landmarks`, `packages`, `refs` and `symbol` split apart. A
+command table in `registry.ts` declares name, args, options and handler once;
+`program.ts` builds Commander from it and `boundaries.test.ts` fails if the
+README and the table disagree, so the docs cannot drift.
+
+`prism review` needed a Core addition: `getChangedPaths` reads the working-tree
+diff. It scopes to the workspace rather than the enclosing repository, which
+matters because every fixture here lives inside this repo — unscoped, `review`
+reported Prism's own uncommitted files and then failed looking them up in an
+index that had never seen them.
+
+Deferred: shell completions (§3 called them optional, "if cheap"). They are not
+cheap done properly — three shells, each needing the command table exported in a
+different format — and nothing depends on them.
 
 ## 6. Verification plan
 

@@ -8,6 +8,7 @@
 
 import { ok } from "@prism/shared";
 import { paint, renderFields, renderHeading } from "../output.js";
+import { qualityCell } from "../table.js";
 import type { CommandHandler } from "../runtime.js";
 
 export const dnaCommand: CommandHandler = async (context) => {
@@ -21,7 +22,7 @@ export const dnaCommand: CommandHandler = async (context) => {
 
   return ok({
     data: dna,
-    human(color) {
+    human({ color }) {
       const languages = dna.languages
         .map((lang) => `${lang.id} ${Math.round(lang.share * 100)}%`)
         .join(", ");
@@ -65,11 +66,13 @@ export const dnaCommand: CommandHandler = async (context) => {
       if (dna.rankedDomains.length > 0) {
         lines.push("", renderHeading("Domains", color));
         for (const domain of dna.rankedDomains) {
-          const confidence = Math.round(domain.confidence * 100);
+          // Banded through the shared helper rather than a local threshold, so
+          // "confident" means the same here as it does in the UI.
+          const cell = qualityCell(domain.confidence * 100);
           lines.push(
             `  ${domain.id.padEnd(20)} ${paint(
-              `${confidence}%`,
-              confidence >= 60 ? "green" : "yellow",
+              `${cell.text}%`,
+              cell.style ?? "dim",
               color,
             )}`,
           );
