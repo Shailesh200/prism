@@ -234,6 +234,95 @@ describe("annotateGraphWithLayerSignals", () => {
   });
 });
 
+// M-035 replaced two per-node scans with precomputed lookups. The risk in that
+// kind of change is that the fast answer quietly differs from the slow one, so
+// these pin both against the definitions they replaced, on paths chosen to be
+// awkward: shared prefixes, dots inside directory names, nested test files.
+describe("precomputed lookups agree with the scans they replaced", () => {
+  const paths = [
+    "src/cart.ts",
+    "src/cart.test.ts",
+    "src/cartesian.ts",
+    "src/cart/index.ts",
+    "src/cart/index.test.ts",
+    "src/checkout.ts",
+    "src/check.out/thing.ts",
+    "src/deep/a/b/c.ts",
+    "src/deep/a/b/c.spec.ts",
+    "lib/only.ts",
+    "no-extension",
+  ];
+  const wide = snap(paths.map((p) => file(p)));
+  const wideGraph: GraphSnapshotDto = {
+    id: "dep",
+    nodes: paths.map((p) => fileNode(p)),
+    edges: [],
+  };
+  const signals = computeLayerSignals(wide, wideGraph);
+
+  it("marks exactly the files the original coverage scan would mark", () => {
+    const testPaths = paths.filter(
+      (p) => p.includes(".test.") || p.includes(".spec."),
+    );
+
+    for (const path of paths) {
+      const base = path.replace(/\.[^.]+$/, "");
+      const expected =
+        path.includes(".test.") ||
+        path.includes(".spec.") ||
+        testPaths.some(
+          (t) => t.startsWith(`${base}.`) || t.startsWith(`${base}/`),
+        );
+
+      // coverage is the *gap*: 0 when covered, 1 when not.
+      expect(signals.get(`file:${path}`)!.coverage.value).toBe(
+        expected ? 0 : 1,
+      );
+    }
+  });
+
+  it("rolls up the same files the original directory scan would", () => {
+    const dirs = ["src", "src/cart", "src/deep/a", "lib", "src/cart/"];
+    const byPath = new Map(
+      [...signals.entries()].map(([id, s]) => [id.slice("file:".length), s]),
+    );
+
+    for (const dir of dirs) {
+      const prefix = dir.replace(/\/$/, "");
+      const expected = [...byPath.entries()]
+        .filter(([p]) => p === prefix || p.startsWith(`${prefix}/`))
+        .map(([, s]) => s);
+
+      const annotated = annotateGraphWithLayerSignals(
+        {
+          ...wideGraph,
+          nodes: [
+            ...wideGraph.nodes,
+            {
+              id: `dir:${dir}`,
+              kind: "package",
+              label: dir,
+              attrs: { rootDir: dir },
+            },
+          ],
+        },
+        signals,
+      );
+
+      const rolled = annotated.nodes.find((n) => n.id === `dir:${dir}`)?.attrs;
+      const values = rolled?.layerSignals as Record<string, number>;
+
+      const meanCoverage =
+        expected.length === 0
+          ? undefined
+          : expected.reduce((sum, s) => sum + (s.coverage.value ?? 0), 0) /
+            expected.length;
+
+      expect(values.coverage).toBe(meanCoverage);
+    }
+  });
+});
+
 describe("heatForActiveLayers", () => {
   const signals = computeLayerSignals(snapshot, dep);
   const a = signals.get("file:src/a.ts")!;

@@ -92,22 +92,52 @@ export function loadCachedSnapshot(
   return parsed.success ? parsed.data : null;
 }
 
+type IdentityRow = {
+  path: string;
+  content_hash: string | null;
+  plugin_id: string | null;
+  status: string;
+};
+
+/**
+ * Writes the snapshot back, touching only the rows that actually differ.
+ *
+ * The obvious implementation — delete every row for the root, insert the
+ * snapshot — costs the same whether one file changed or all of them did, and
+ * that cost is not small: re-serialising 10k payloads measured about a second,
+ * which was the largest single item in an incremental reindex (M-035).
+ *
+ * A row is left alone when its identity columns are unchanged. That is sound
+ * for the same reason the reuse path is sound: a file's payload is derived from
+ * its content, so equal hashes (plus the same plugin and status, in case a file
+ * changed category without changing bytes) mean the stored payload is the one
+ * we were about to write. `canReuseCachedFile` already relies on this, and a
+ * schema version bump invalidates the whole cache when the derivation changes.
+ */
 export function saveSnapshot(
   db: Database.Database,
   snapshot: IndexSnapshot,
 ): void {
   const tx = db.transaction(() => {
-    db.prepare(`DELETE FROM indexed_files WHERE root_path = ?`).run(
-      snapshot.rootPath,
-    );
-    db.prepare(`DELETE FROM index_meta WHERE root_path = ?`).run(
-      snapshot.rootPath,
-    );
+    const existing = new Map<string, IdentityRow>();
+    const rows = db
+      .prepare(
+        `SELECT path, content_hash, plugin_id, status
+         FROM indexed_files WHERE root_path = ?`,
+      )
+      .all(snapshot.rootPath) as IdentityRow[];
+    for (const row of rows) existing.set(row.path, row);
 
     db.prepare(
       `INSERT INTO index_meta
         (root_path, repo_id, indexed_at, stats_json, warnings_json, source)
-       VALUES (?, ?, ?, ?, ?, 'local')`,
+       VALUES (?, ?, ?, ?, ?, 'local')
+       ON CONFLICT(root_path) DO UPDATE SET
+         repo_id = excluded.repo_id,
+         indexed_at = excluded.indexed_at,
+         stats_json = excluded.stats_json,
+         warnings_json = excluded.warnings_json,
+         source = excluded.source`,
     ).run(
       snapshot.rootPath,
       snapshot.repoId,
@@ -116,13 +146,31 @@ export function saveSnapshot(
       JSON.stringify(snapshot.warnings),
     );
 
-    const insert = db.prepare(
+    const upsert = db.prepare(
       `INSERT INTO indexed_files
         (root_path, path, content_hash, plugin_id, status, payload_json)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(root_path, path) DO UPDATE SET
+         content_hash = excluded.content_hash,
+         plugin_id = excluded.plugin_id,
+         status = excluded.status,
+         payload_json = excluded.payload_json`,
     );
 
+    const live = new Set<string>();
     for (const file of snapshot.files) {
+      live.add(file.path);
+
+      const prior = existing.get(file.path);
+      if (
+        prior &&
+        prior.content_hash === file.contentHash &&
+        prior.plugin_id === file.pluginId &&
+        prior.status === file.status
+      ) {
+        continue;
+      }
+
       const payload = {
         symbols: file.symbols,
         imports: file.imports,
@@ -131,7 +179,7 @@ export function saveSnapshot(
         diagnostics: file.diagnostics,
         ...(file.error === undefined ? {} : { error: file.error }),
       };
-      insert.run(
+      upsert.run(
         snapshot.rootPath,
         file.path,
         file.contentHash,
@@ -139,6 +187,13 @@ export function saveSnapshot(
         file.status,
         JSON.stringify(payload),
       );
+    }
+
+    const remove = db.prepare(
+      `DELETE FROM indexed_files WHERE root_path = ? AND path = ?`,
+    );
+    for (const path of existing.keys()) {
+      if (!live.has(path)) remove.run(snapshot.rootPath, path);
     }
   });
   tx();

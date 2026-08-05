@@ -38,12 +38,27 @@ function ioError(message: string, details?: unknown): PrismError {
   return prismError(PrismErrorCode.IO_ERROR, message, details);
 }
 
+/**
+ * Corruption check run on every open, so that a damaged cache is rebuilt rather
+ * than surfaced as a stream of confusing query failures (ADR-0010).
+ *
+ * `quick_check` rather than `integrity_check`: the latter also verifies that
+ * every index agrees with its table, which means a full scan. On a 75 MB cache
+ * that measured 723 ms *per open*, and Core opens the cache more than once per
+ * index — so it was costing more than a quarter of an incremental reindex to
+ * re-verify a database written by the previous line of code (M-035).
+ *
+ * `quick_check` still detects the damage that actually happens here: truncated
+ * writes, a half-flushed WAL, a file that is not a database. The failure it
+ * gives up on — a corrupt index over intact rows — is both rarer and cheaper,
+ * because the cache is derived data that is rebuilt rather than recovered.
+ */
 function isHealthy(db: SqliteDatabase): boolean {
   try {
-    const row = db.prepare("PRAGMA integrity_check").get() as
-      | { integrity_check: string }
+    const row = db.prepare("PRAGMA quick_check").get() as
+      | { quick_check: string }
       | undefined;
-    return row?.integrity_check === "ok";
+    return row?.quick_check === "ok";
   } catch {
     return false;
   }
@@ -85,7 +100,7 @@ export async function openIndexCache(
       db.pragma("journal_mode = WAL");
       if (!isHealthy(db)) {
         db.close();
-        return err(ioError("SQLite integrity_check failed", { path: dbPath }));
+        return err(ioError("SQLite quick_check failed", { path: dbPath }));
       }
       const schemaVersion = migrate(db);
       if (schemaVersion !== SCHEMA_VERSION && !rebuild) {

@@ -1,0 +1,71 @@
+{
+  "$comment": [
+    "Performance budgets (M-035). Milliseconds, compared against the median of",
+    "a `bun run bench` run at the same scale.",
+    "",
+    "These are ceilings, not targets. Each is roughly 2x the measured baseline",
+    "on the reference machine (see plans/architecture/08_PERFORMANCE.md), which",
+    "is wide enough that a slower laptop or a busy CI runner does not fail, and",
+    "tight enough that an algorithmic regression does. A budget failure means",
+    "'something changed shape, go look', not 'this machine is slow'.",
+    "",
+    "Raise a budget only with a note in the performance doc saying why the work",
+    "got more expensive. Silently widening the ceiling turns this file into",
+    "decoration.",
+    "",
+    "dependency_graph and cycles are the exception: they read a graph indexing",
+    "already built, so they measure a memo hit rather than a build. Their",
+    "ceilings are deliberately far below the build cost, so that a broken memo",
+    "shows up here rather than as a diffuse slowdown everywhere else."
+  ],
+  "reference": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "node": "26.5.0",
+    "note": "Apple Silicon laptop, 2026-08-05. Absolute numbers are machine-dependent; the shape of the scaling is not."
+  },
+  "scales": {
+    "small": {
+      "peakRssBytes": 838860800,
+      "operations": {
+        "index_cold": 3500,
+        "index_warm": 700,
+        "index_incremental": 500,
+        "dependency_graph": 60,
+        "cycles": 60,
+        "repository_map": 1100,
+        "blast_radius": 150,
+        "dna": 250,
+        "health": 200
+      }
+    },
+    "medium": {
+      "peakRssBytes": 2415919104,
+      "operations": {
+        "index_cold": 36000,
+        "index_warm": 7000,
+        "index_incremental": 4000,
+        "dependency_graph": 100,
+        "cycles": 100,
+        "repository_map": 2500,
+        "blast_radius": 1200,
+        "dna": 800,
+        "health": 1400
+      }
+    },
+    "large": {
+      "peakRssBytes": 4294967296,
+      "operations": {
+        "index_cold": 190000,
+        "index_warm": 55000,
+        "index_incremental": 35000,
+        "dependency_graph": 300,
+        "cycles": 300,
+        "repository_map": 14000,
+        "blast_radius": 16000,
+        "dna": 2500,
+        "health": 16000
+      }
+    }
+  }
+}

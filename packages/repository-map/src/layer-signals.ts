@@ -49,6 +49,32 @@ const EMPTY: LayerSignalScores = {
   coverage: unavailable(),
 };
 
+/**
+ * The set of extension-stripped paths that some test file sits next to or
+ * under — `src/cart` when `src/cart.test.ts` or `src/cart/index.test.ts` exists.
+ *
+ * The coverage question is "does any test path start with `${base}.` or
+ * `${base}/`", which used to be answered by scanning every test path for every
+ * node. Answering it forwards instead — from each test path, which bases could
+ * possibly match it — turns 50k × T string comparisons into one Set lookup per
+ * node, and was worth 61 of the 71 seconds a 50k-file map took (M-035).
+ *
+ * A test path contributes exactly the prefixes that end immediately before a
+ * `.` or `/`, which is what makes this equivalent rather than approximate.
+ */
+function testedBaseIndex(snapshot: IndexSnapshot): ReadonlySet<string> {
+  const bases = new Set<string>();
+  for (const file of snapshot.files) {
+    if (!isTestPath(file.path)) continue;
+    const path = file.path;
+    for (let i = 0; i < path.length; i++) {
+      const char = path[i];
+      if (char === "." || char === "/") bases.add(path.slice(0, i));
+    }
+  }
+  return bases;
+}
+
 function clamp01(n: number): number {
   if (n <= 0) return 0;
   if (n >= 1) return 1;
@@ -80,9 +106,7 @@ export function computeLayerSignals(
   gitSignals?: ReadonlyMap<string, GitFileSignal>,
 ): ReadonlyMap<string, LayerSignalScores> {
   const byPath = new Map(snapshot.files.map((f) => [f.path, f]));
-  const testPaths = new Set(
-    snapshot.files.filter((f) => isTestPath(f.path)).map((f) => f.path),
-  );
+  const testedBases = testedBaseIndex(snapshot);
 
   const fanIn = new Map<string, number>();
   for (const edge of dependencyGraph.edges) {
@@ -114,11 +138,7 @@ export function computeLayerSignals(
     // Coverage gap: whether a matching test file exists is observable. How
     // thoroughly that test covers the file is not, so this is an inference.
     const base = path.replace(/\.[^.]+$/, "");
-    const covered =
-      isTestPath(path) ||
-      [...testPaths].some(
-        (t) => t.startsWith(`${base}.`) || t.startsWith(`${base}/`),
-      );
+    const covered = isTestPath(path) || testedBases.has(base);
     const coverage = heuristic(covered ? 0 : 1);
 
     // Commit recency is measured. Without git there is no activity signal —
@@ -186,10 +206,41 @@ function avgScores(items: readonly LayerSignalScores[]): LayerSignalScores {
   };
 }
 
+/**
+ * Signals keyed by path, sorted by path, so a directory rollup can take a slice
+ * instead of a scan. Every path under `prefix` sorts contiguously, so a binary
+ * search for the first one bounds the work by the size of that directory rather
+ * than the size of the repository.
+ */
+type SortedSignals = readonly (readonly [string, LayerSignalScores])[];
+
+function signalsUnder(
+  sorted: SortedSignals,
+  prefix: string,
+): LayerSignalScores[] {
+  let lo = 0;
+  let hi = sorted.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (sorted[mid]![0] < prefix) lo = mid + 1;
+    else hi = mid;
+  }
+
+  const under = `${prefix}/`;
+  const rolled: LayerSignalScores[] = [];
+  for (let i = lo; i < sorted.length; i++) {
+    const [path, score] = sorted[i]!;
+    if (!path.startsWith(prefix)) break;
+    if (path === prefix || path.startsWith(under)) rolled.push(score);
+  }
+  return rolled;
+}
+
 function scoreForNode(
   node: GraphNodeDto,
   signals: ReadonlyMap<string, LayerSignalScores>,
   byPathSignal: ReadonlyMap<string, LayerSignalScores>,
+  sortedByPath: SortedSignals,
 ): LayerSignalScores {
   const direct = signals.get(node.id);
   if (direct) return direct;
@@ -211,10 +262,7 @@ function scoreForNode(
 
   if (typeof node.attrs?.rootDir === "string") {
     const prefix = node.attrs.rootDir.replace(/\/$/, "");
-    const rolled = [...byPathSignal.entries()]
-      .filter(([p]) => p === prefix || p.startsWith(`${prefix}/`))
-      .map(([, s]) => s);
-    return avgScores(rolled);
+    return avgScores(signalsUnder(sortedByPath, prefix));
   }
 
   return EMPTY;
@@ -232,8 +280,12 @@ export function annotateGraphWithLayerSignals(
     }
   }
 
+  const sortedByPath: SortedSignals = [...byPathSignal.entries()].sort(
+    (a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0),
+  );
+
   const nodes = graph.nodes.map((n) => {
-    const score = scoreForNode(n, signals, byPathSignal);
+    const score = scoreForNode(n, signals, byPathSignal, sortedByPath);
     // Values stay on `layerSignals` so existing consumers keep reading numbers;
     // `layerProvenance` tells a consumer which of them are real. A signal with
     // no data is absent here rather than zero (ADR-0029).

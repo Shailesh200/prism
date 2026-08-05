@@ -38,10 +38,15 @@ export type UnresolvedDependency = {
   readonly reason: string;
 };
 
+/**
+ * Readonly throughout, and deliberately so: `buildDependencyGraph` hands the
+ * same object to every caller that asks for it, so a mutable array here would
+ * let one report quietly rewrite another's input.
+ */
 export type DependencyGraphResult = {
   readonly graph: GraphSnapshotDto;
-  readonly cycles: string[][];
-  readonly unresolved: UnresolvedDependency[];
+  readonly cycles: readonly (readonly string[])[];
+  readonly unresolved: readonly UnresolvedDependency[];
 };
 
 type FileEdge = {
@@ -406,6 +411,32 @@ function buildPackageGraph(
 }
 
 /**
+ * Dependency graphs, memoised per index snapshot.
+ *
+ * Almost every report starts by building this graph, and several build it more
+ * than once: the engineering report alone called it three times, and a single
+ * screen in the extension can ask for it half a dozen times over. Each call
+ * re-resolved every import in the repository — about 240 ms on a 10k-file
+ * workspace, 2 s on a 50k one (M-035).
+ *
+ * Keyed on the snapshot *object* rather than on `indexedAt`: the timestamp has
+ * millisecond resolution, so two reindexes inside the same millisecond would
+ * share a key and one of them would read a stale graph. Snapshots are replaced
+ * wholesale and never mutated, so object identity answers exactly the question
+ * the cache needs to ask, and a WeakMap lets an abandoned snapshot take its
+ * graphs with it.
+ *
+ * The returned value is shared between callers. That is safe because
+ * `DependencyGraphResult` is readonly throughout, so a caller that wants to
+ * change the graph has to build a new one — which is what the layer-signal
+ * annotation and the map builder already do.
+ */
+const graphCache = new WeakMap<
+  IndexSnapshot,
+  Map<string, DependencyGraphResult>
+>();
+
+/**
  * Build a dependency graph from an index snapshot.
  * Relative + local package-name / entry imports for file edges; bare external
  * specs remain unresolved (package aggregation mode only).
@@ -413,6 +444,26 @@ function buildPackageGraph(
 export function buildDependencyGraph(
   snapshot: IndexSnapshot,
   options: DependencyGraphOptions = {},
+): DependencyGraphResult {
+  const key = `${options.packageAggregation ?? false}\0${options.resolveAliases ?? true}`;
+
+  let perOptions = graphCache.get(snapshot);
+  if (!perOptions) {
+    perOptions = new Map();
+    graphCache.set(snapshot, perOptions);
+  }
+
+  const hit = perOptions.get(key);
+  if (hit) return hit;
+
+  const built = computeDependencyGraph(snapshot, options);
+  perOptions.set(key, built);
+  return built;
+}
+
+function computeDependencyGraph(
+  snapshot: IndexSnapshot,
+  options: DependencyGraphOptions,
 ): DependencyGraphResult {
   const indexedPaths = new Set(
     snapshot.files.filter((f) => f.status === "analyzed").map((f) => f.path),

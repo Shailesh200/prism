@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -63,5 +63,38 @@ describe("SQLite index cache", () => {
     if (!recovered.ok) return;
     expect(recovered.value.schemaVersion).toBe(3);
     recovered.value.close();
+  });
+
+  it("rebuilds after damage inside an otherwise-valid database file", async () => {
+    const cacheDir = await mkdtemp(join(tmpdir(), "prism-cache-torn-"));
+    const cacheDbPath = join(cacheDir, "index.sqlite");
+
+    const first = await runIndexJob(fixtureRoot, {
+      concurrency: 2,
+      cacheDbPath,
+    });
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    expect(first.value.cache?.status).toBe("miss");
+
+    // Keep the SQLite header intact and overwrite content pages, the shape a
+    // truncated write leaves behind. The header check cannot see this; the
+    // per-open corruption check has to.
+    const bytes = await readFile(cacheDbPath);
+    const pageSize = bytes.readUInt16BE(16) || 4096;
+    expect(bytes.byteLength).toBeGreaterThan(pageSize * 2);
+    bytes.fill(0xab, pageSize, bytes.byteLength);
+    await writeFile(cacheDbPath, bytes);
+
+    const after = await runIndexJob(fixtureRoot, {
+      concurrency: 2,
+      cacheDbPath,
+    });
+    expect(after.ok).toBe(true);
+    if (!after.ok) return;
+    expect(after.value.cache?.status).toBe("miss");
+    expect(after.value.files.map((f) => f.path)).toEqual(
+      first.value.files.map((f) => f.path),
+    );
   });
 });

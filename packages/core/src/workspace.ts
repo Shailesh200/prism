@@ -1043,7 +1043,14 @@ export function createWorkspace(options: {
           ),
         );
       }
-      return ok(buildDependencyGraph(lastSnapshot, graphOptions).cycles);
+      // Copied out rather than handed over: the graph behind this is now shared
+      // between callers (M-035), and `getCycles` is a frozen public signature
+      // that promises a plain mutable array (ADR-0019).
+      return ok(
+        buildDependencyGraph(lastSnapshot, graphOptions).cycles.map((c) => [
+          ...c,
+        ]),
+      );
     },
     getKnowledgeGraph() {
       const gate = ensureOpen();
