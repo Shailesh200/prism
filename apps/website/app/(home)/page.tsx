@@ -46,7 +46,7 @@ export default function HomePage() {
               Read the docs
             </Link>
           </div>
-          <div className="max-w-md">
+          <div className="max-w-xl">
             <CopyInstall />
           </div>
         </div>
