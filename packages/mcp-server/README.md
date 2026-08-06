@@ -6,6 +6,8 @@
 **`prism-mcp`** — give any MCP-capable agent structural answers about the repo
 you have open. Same engine as the CLI and IDE extension. Local-only. 28 tools.
 
+**Website:** [https://www.prismhq.in](https://www.prismhq.in) · **Docs:** [https://www.prismhq.in/docs/mcp/install](https://www.prismhq.in/docs/mcp/install)
+
 > Requires **Node.js 26**.
 
 **You never type tool names.** After setup, ask in plain language (“is this repo
@@ -179,7 +181,7 @@ All tools are read-only. No tool grants consent or reaches the network.
 | `testing_report` | Test structure, and coverage when artifacts are on disk | — |
 | `security_report` | Left-shift security posture against local configuration | — |
 
-Full reference: [MCP tools](https://github.com/Shailesh200/prism/blob/main/docs/reference/mcp-tools.md).
+Full reference: [MCP tools](https://www.prismhq.in/docs/reference/mcp-tools).
 
 ---
 
@@ -189,7 +191,8 @@ Full reference: [MCP tools](https://github.com/Shailesh200/prism/blob/main/docs/
 |---|---|
 | **CLI** | [`@repo-prism/cli`](https://www.npmjs.com/package/@repo-prism/cli) — `npm i -g @repo-prism/cli` then `prism health` |
 | **IDE** | [Prism](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism) |
-| **Docs** | [MCP guide (step by step)](https://github.com/Shailesh200/prism/blob/main/docs/mcp/install.md) |
+| **Docs** | [MCP guide](https://www.prismhq.in/docs/mcp/install) |
+| **Website** | [prismhq.in](https://www.prismhq.in) |
 | **Source** | [github.com/Shailesh200/prism](https://github.com/Shailesh200/prism) |
 
 ## License

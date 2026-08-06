@@ -37,7 +37,7 @@ Vercel → Project → Settings → Environment Variables. Add for Production
 
 | Name | Required? | Purpose |
 |---|---|---|
-| `NEXT_PUBLIC_SITE_URL` | Yes (for correct sitemap / OG / RSS) | e.g. `https://your-domain.com` |
+| `NEXT_PUBLIC_SITE_URL` | Yes (for correct sitemap / OG / RSS) | `https://www.prismhq.in` |
 | `GITHUB_TOKEN` | Optional but recommended | Fine-grained PAT with public-repo read — higher GitHub API rate limits for `/admin` |
 
 No product telemetry keys. No Core secrets. Marketplace / Open VSX / npm

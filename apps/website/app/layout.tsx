@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   description:
     "Local-first software intelligence — no AI required. Maps, graphs, impact and health on your machine.",
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.prismhq.in",
   ),
 };
 

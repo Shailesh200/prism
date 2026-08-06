@@ -3,6 +3,8 @@
 Public Prism site: marketing pages, Fumadocs docs (lanes + guides), and a
 protected `/admin` dashboard.
 
+**Live:** [https://www.prismhq.in](https://www.prismhq.in)
+
 ```bash
 bun run dev      # from this package, or `bun run docs:dev` from repo root
 bun run build

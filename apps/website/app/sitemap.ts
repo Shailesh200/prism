@@ -2,7 +2,7 @@ import { source } from "@/lib/source";
 import type { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const site = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.prismhq.in";
   const staticRoutes = [
     "",
     "/docs",

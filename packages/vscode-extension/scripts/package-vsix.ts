@@ -26,6 +26,7 @@ const outDir = root;
 
 const MARKETPLACE_NAME = "repo-prism";
 const REPO_URL = "https://github.com/Shailesh200/prism";
+const SITE_URL = "https://www.prismhq.in";
 
 /** vsce --target → prebuild-install platform/arch */
 const TARGET_NATIVE: Record<string, { platform: string; arch: string }> = {
@@ -203,7 +204,7 @@ const marketplacePkg = {
   bugs: {
     url: `${REPO_URL}/issues`,
   },
-  homepage: REPO_URL,
+  homepage: SITE_URL,
   activationEvents: workspacePkg.activationEvents ?? ["onStartupFinished"],
   main: "./dist/extension.cjs",
   contributes: workspacePkg.contributes,

@@ -1,5 +1,6 @@
 # Prism
 
+[![Website](https://img.shields.io/badge/website-prismhq.in-00c2c2)](https://www.prismhq.in)
 [![npm @repo-prism/cli](https://img.shields.io/npm/v/@repo-prism/cli.svg?label=@repo-prism/cli)](https://www.npmjs.com/package/@repo-prism/cli)
 [![npm @repo-prism/mcp-server](https://img.shields.io/npm/v/@repo-prism/mcp-server.svg?label=@repo-prism/mcp-server)](https://www.npmjs.com/package/@repo-prism/mcp-server)
 [![VS Marketplace](https://vsmarketplacebadges.dev/version/prismhq.repo-prism.svg)](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism)
@@ -7,6 +8,8 @@
 [![License: MIT](https://img.shields.io/github/license/Shailesh200/prism)](./LICENSE)
 
 **Local-first Software Intelligence Engine** for humans and AI agents.
+
+**Website:** [https://www.prismhq.in](https://www.prismhq.in) · **Docs:** [https://www.prismhq.in/docs](https://www.prismhq.in/docs) · **Get started:** [https://www.prismhq.in/docs/start/get-started](https://www.prismhq.in/docs/start/get-started)
 
 Maps, graphs, blast radius, health — on your machine. No account. Nothing uploaded for core analysis.
 
@@ -83,7 +86,7 @@ All surfaces call the same Core SDK. None re-implements analysis.
    prism health --verbose   # shows workspace + index timing
    ```
 
-Package: [npmjs.com/package/@repo-prism/cli](https://www.npmjs.com/package/@repo-prism/cli) · Guide: [`docs/cli/usage.md`](./docs/cli/usage.md)
+Package: [npmjs.com/package/@repo-prism/cli](https://www.npmjs.com/package/@repo-prism/cli) · Guide: [CLI docs](https://www.prismhq.in/docs/cli/usage)
 
 ### B. MCP — `@repo-prism/mcp-server`
 
@@ -117,7 +120,7 @@ like `repository_health`.** The server tells the agent which tools to call.
 #### Claude Desktop / Codex
 
 Same `npx` / `@repo-prism/mcp-server` config — no `--workspace`. Full numbered
-steps for every client: [`docs/mcp/install.md`](./docs/mcp/install.md).
+steps for every client: [MCP install](https://www.prismhq.in/docs/mcp/install).
 
 Only add `--workspace` / `PRISM_WORKSPACE` if auto-detection picks the wrong folder.
 
@@ -132,7 +135,7 @@ Package: [npmjs.com/package/@repo-prism/mcp-server](https://www.npmjs.com/packag
 3. Command Palette → **Prism: Open Prism**.
 4. Wait for indexing; use the UI.
 5. (Cursor) Also complete [B. MCP](#b-mcp--repo-prismmcp-server) so the agent
-   shares the same analysis — [`docs/ide/install.md`](./docs/ide/install.md).
+   shares the same analysis — [IDE install](https://www.prismhq.in/docs/ide/install).
 
 ---
 
@@ -228,30 +231,32 @@ the server’s instructions tell the agent when to call which tool.
 | **Impact** | `blast_radius`, `safe_delete`, `rename_impact`, `test_impact`, `breaking_change_hints`, `review_changes`, `explore_code` |
 | **Reports** | `engineering_health`, `health_history`, `backend_report`, `testing_report`, `security_report` |
 
-Setup steps: [`docs/mcp/install.md`](./docs/mcp/install.md) · Full tool list: [`docs/reference/mcp-tools.md`](./docs/reference/mcp-tools.md).
+Setup steps: [MCP install](https://www.prismhq.in/docs/mcp/install) · Full tool list: [MCP tools](https://www.prismhq.in/docs/reference/mcp-tools).
 
 ---
 
 ## Docs
 
+**Site:** [https://www.prismhq.in/docs](https://www.prismhq.in/docs)
+
 | Topic | Link |
 |---|---|
-| What Prism is | [`docs/start/what-is-prism.md`](./docs/start/what-is-prism.md) |
-| Install | [`docs/start/install.md`](./docs/start/install.md) |
-| Quickstart | [`docs/start/quickstart.md`](./docs/start/quickstart.md) |
-| Capabilities overview | [`docs/reference/capabilities.md`](./docs/reference/capabilities.md) |
-| Task guides | [`docs/guides/`](./docs/guides/) |
-| Using the CLI | [`docs/cli/usage.md`](./docs/cli/usage.md) |
-| Using MCP | [`docs/mcp/usage.md`](./docs/mcp/usage.md) |
-| IDE (VS Code / Cursor) | [`docs/ide/usage.md`](./docs/ide/usage.md) |
-| CLI command reference | [`docs/reference/cli-commands.md`](./docs/reference/cli-commands.md) |
-| MCP tool reference | [`docs/reference/mcp-tools.md`](./docs/reference/mcp-tools.md) |
-| Known limitations | [`docs/reference/known-limitations.md`](./docs/reference/known-limitations.md) |
-| FAQ | [`docs/reference/faq.md`](./docs/reference/faq.md) |
-| Architecture | [`docs/architecture/overview.md`](./docs/architecture/overview.md) |
+| Get started wizard | [docs/start/get-started](https://www.prismhq.in/docs/start/get-started) |
+| What Prism is | [docs/start/what-is-prism](https://www.prismhq.in/docs/start/what-is-prism) |
+| Install | [docs/start/install](https://www.prismhq.in/docs/start/install) |
+| Quickstart | [docs/start/quickstart](https://www.prismhq.in/docs/start/quickstart) |
+| Capabilities | [docs/reference/capabilities](https://www.prismhq.in/docs/reference/capabilities) |
+| Task guides | [docs/guides](https://www.prismhq.in/docs/guides/understand-a-repo) |
+| CLI | [docs/cli/usage](https://www.prismhq.in/docs/cli/usage) |
+| MCP | [docs/mcp/usage](https://www.prismhq.in/docs/mcp/usage) |
+| IDE | [docs/ide/usage](https://www.prismhq.in/docs/ide/usage) |
+| CLI reference | [docs/reference/cli-commands](https://www.prismhq.in/docs/reference/cli-commands) |
+| MCP tools | [docs/reference/mcp-tools](https://www.prismhq.in/docs/reference/mcp-tools) |
+| Known limitations | [docs/reference/known-limitations](https://www.prismhq.in/docs/reference/known-limitations) |
+| FAQ | [docs/reference/faq](https://www.prismhq.in/docs/reference/faq) |
 | Changelog | [`CHANGELOG.md`](./CHANGELOG.md) |
 
-Local docs site (from a clone): `bun run docs:dev`
+Markdown sources also live in [`docs/`](./docs/) in this repo. Local preview: `bun run docs:dev`
 
 ---
 

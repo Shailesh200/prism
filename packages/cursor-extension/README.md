@@ -1,10 +1,15 @@
 # @repo-prism/cursor-extension
 
-Cursor packaging overlay for Prism (M-032, [ADR-0020](../../plans/adr/0020-cursor-packaging-overlay.md)).
+Cursor packaging overlay for Prism ([ADR-0020](../../plans/adr/0020-cursor-packaging-overlay.md)).
+
+**Website:** [https://www.prismhq.in](https://www.prismhq.in) · **Docs:** [https://www.prismhq.in/docs/ide/install](https://www.prismhq.in/docs/ide/install)
 
 This package does **not** reimplement analysis. It stages the same
 `@repo-prism/vscode-extension` build (`dist` + `media`) with Cursor-oriented
 manifest branding. The extension host still calls **`@repo-prism/core` only**.
+
+Published installs use the VS Code / Open VSX listing **Prism**
+(`prismhq.repo-prism`).
 
 ## Develop / try in Cursor
 
@@ -44,16 +49,9 @@ opens the in-app tour.
 
 ## MCP coexistence
 
-When `@repo-prism/mcp-server` is available (M-026+):
+When `@repo-prism/mcp-server` is available:
 
 - **Extension** — human UI (Map, Overview, Blast, …) in the IDE
-- **MCP** — agent tools against the same Core APIs
+- **MCP** — agent tools against the same Core APIs — [setup](https://www.prismhq.in/docs/mcp/install)
 
-Both are local-first surfaces over Core. Enabling MCP does not replace the
-extension; they share repository intelligence without competing indexes in the
-product architecture (each process owns its own Core session).
-
-## Packaging note
-
-Marketplace / Open VSX publish is out of scope for M-032. Local F5 /
-`extensionDevelopmentPath` is the supported install path.
+Both are local-first surfaces over Core.

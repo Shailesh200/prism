@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 export async function GET() {
-  const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const site = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.prismhq.in";
   const changelog = await readFile(
     path.join(process.cwd(), "../../CHANGELOG.md"),
     "utf8",

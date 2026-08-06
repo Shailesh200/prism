@@ -2,6 +2,8 @@
 
 Marketplace extension id: **`prismhq.repo-prism`** (publisher `prismhq` / display name **Prism**, extension name `repo-prism`).
 
+**Website:** [https://www.prismhq.in](https://www.prismhq.in) · **Docs:** [https://www.prismhq.in/docs/ide/install](https://www.prismhq.in/docs/ide/install)
+
 The Bun workspace package remains `@repo-prism/vscode-extension`. Packaging stages a
 clean folder via `scripts/package-vsix.ts` (see [ADR-0025](../../plans/adr/0025-marketplace-packaging.md)).
 

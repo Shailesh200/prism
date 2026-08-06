@@ -5,6 +5,8 @@
 Public SDK for Prism’s local-first analysis engine. Surfaces (CLI, MCP, IDE)
 should call **Core only** — they must not re-implement analysis.
 
+**Website:** [https://www.prismhq.in](https://www.prismhq.in) · **Docs:** [https://www.prismhq.in/docs](https://www.prismhq.in/docs)
+
 ```bash
 npm install @repo-prism/core
 ```
@@ -25,6 +27,6 @@ Most users should use a surface instead of Core directly:
 | MCP (agents) | [`@repo-prism/mcp-server`](https://www.npmjs.com/package/@repo-prism/mcp-server) |
 | VS Code / Cursor | [Prism](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism) |
 
-Docs: [Core SDK](https://github.com/Shailesh200/prism/blob/main/docs/architecture/core-sdk.md) · [Source](https://github.com/Shailesh200/prism)
+Architecture notes: [Core SDK (source)](https://github.com/Shailesh200/prism/blob/main/docs/architecture/core-sdk.md) · [Website](https://www.prismhq.in) · [Source](https://github.com/Shailesh200/prism)
 
 License: [MIT](https://github.com/Shailesh200/prism/blob/main/LICENSE)
