@@ -1,6 +1,6 @@
 # Publish Prism to the Marketplace
 
-Marketplace extension id: **`prismhq.repo-prism`** (publisher `prismhq` / display name **RepoPrism**, extension name `repo-prism`).
+Marketplace extension id: **`prismhq.repo-prism`** (publisher `prismhq` / display name **Prism**, extension name `repo-prism`).
 
 The Bun workspace package remains `@repo-prism/vscode-extension`. Packaging stages a
 clean folder via `scripts/package-vsix.ts` (see [ADR-0025](../../plans/adr/0025-marketplace-packaging.md)).
@@ -92,7 +92,7 @@ bun run packages/vscode-extension/scripts/bump-extension-version.ts patch
 
 # 2. Commit the bump
 git add packages/vscode-extension/package.json
-git commit -m "chore(extension): bump RepoPrism to X.Y.Z"
+git commit -m "chore(extension): bump Prism to X.Y.Z"
 
 # 3. Tag it — the tag version MUST match package.json
 git tag repo-prism-vX.Y.Z
@@ -142,5 +142,5 @@ Until both secrets exist, the workflow fails fast at “Check publish secrets”
 ## Verify
 
 - [Marketplace manage](https://marketplace.visualstudio.com/manage/publishers/prismhq) shows the listing
-- Fresh VS Code: Extensions → search **RepoPrism** → Install
+- Fresh VS Code: Extensions → search **Prism** → Install
 - Cursor: install from Open VSX or VSIX

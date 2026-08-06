@@ -1,15 +1,15 @@
 ---
 title: Install the IDE extension
-description: "Install RepoPrism in VS Code or Cursor and open your project folder."
+description: "Install Prism in VS Code or Cursor and open your project folder."
 ---
 
-Install **RepoPrism** (`prismhq.repo-prism`), open a project folder, then Command
-Palette → **Prism: Open Prism**.
+Install **Prism** (extension id `prismhq.repo-prism`), open a project folder,
+then Command Palette → **Prism: Open Prism**.
 
 ## VS Code
 
 1. Extensions (`Cmd+Shift+X` / `Ctrl+Shift+X`).
-2. Search **RepoPrism**, or install from the
+2. Search **Prism**, or install from the
    [Marketplace](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism).
 3. **File → Open Folder…** (not a single file).
 4. Command Palette → **Prism: Open Prism**.
@@ -17,7 +17,7 @@ Palette → **Prism: Open Prism**.
 
 ## Cursor
 
-1. Install **RepoPrism** from
+1. Install **Prism** from
    [Open VSX](https://open-vsx.org/extension/prismhq/repo-prism), or search
    Extensions. If search lags: **Extensions: Install from VSIX…**.
 2. Open your project folder.

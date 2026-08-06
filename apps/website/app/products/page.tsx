@@ -18,7 +18,7 @@ const PRODUCTS = [
   },
   {
     title: "VS Code & Cursor",
-    install: "Install “Repo Prism” from the marketplace",
+    install: "Install “Prism” from the marketplace",
     href: "/docs/ide/install",
     body: "Map, blast, health, and domains inside the editor.",
   },

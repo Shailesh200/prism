@@ -23,7 +23,7 @@ Most users should use a surface instead of Core directly:
 |---|---|
 | CLI | [`@repo-prism/cli`](https://www.npmjs.com/package/@repo-prism/cli) |
 | MCP (agents) | [`@repo-prism/mcp-server`](https://www.npmjs.com/package/@repo-prism/mcp-server) |
-| VS Code / Cursor | [RepoPrism](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism) |
+| VS Code / Cursor | [Prism](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism) |
 
 Docs: [Core SDK](https://github.com/Shailesh200/prism/blob/main/docs/architecture/core-sdk.md) · [Source](https://github.com/Shailesh200/prism)
 

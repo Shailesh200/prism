@@ -15,7 +15,7 @@ Resolve these with the owner before or during the indicated milestone. Record an
 | Q-009 | Will Prism ever offer optional cloud sync? | Post-GA | **Resolved: no cloud sync** (owner, 2026-08-05); architecture stays local-first |
 | Q-010 | Telemetry: entirely absent vs opt-in anonymous? | M-036 | **Resolved: entirely absent** (owner, 2026-08-05); M-036 Phase 3 proves it by test |
 | Q-011 | Support Windows symlink / case-insensitive paths explicitly in M-005? | M-005 | **Deferred past GA (M-039):** Windows now runs in CI as an advisory job (M-037 Phase 5), so the evidence accumulates without blocking. GA ships macOS and Linux as supported; Windows is untested and documented as such |
-| Q-012 | Branding: keep product name **Prism** publicly (vs RepoPulse)? | Plan approval | **Resolved: Prism.** The marketplace listing is *RepoPrism* because *Prism* was taken there ([ADR-0025](./adr/0025-marketplace-packaging.md)) |
+| Q-012 | Branding: keep product name **Prism** publicly (vs RepoPulse)? | Plan approval | **Resolved: Prism.** Marketplace / Open VSX id remains `prismhq.repo-prism` (name was taken); **displayName** is **Prism** ([ADR-0025](./adr/0025-marketplace-packaging.md)) |
 | Q-013 | Lint/format | M-001 | **Resolved: Oxlint + Oxfmt** (ADR-0003) |
 | Q-014 | moon `pre-push` full verify vs CI-only? | M-001 | **Resolved as built:** pre-commit runs lint and format; `verify:milestone` runs in CI and locally before review. Benchmarks and the browser suite are separate jobs, so a slow check never makes the fast one skippable |
 | Q-015 | Add optional deep-TS mode (ts-morph) if Oxc refs weak? | M-011+ | **Deferred** — Oxc v1 default; deep TS optional ([ADR-0009](./adr/0009-oxc-parser-v1-deep-ts-optional.md)) |

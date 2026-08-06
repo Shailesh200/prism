@@ -20,7 +20,7 @@ Prism is **not** an AI coding assistant. It is the intelligence layer behind an 
 2. [Install — step by step](#install--step-by-step)
    - [A. CLI](#a-cli--repo-prismcli)
    - [B. MCP (agents)](#b-mcp--repo-prismmcp-server)
-   - [C. IDE extension](#c-ide-extension-repoprism)
+   - [C. IDE extension](#c-ide-extension-prism)
 3. [CLI — commands](#cli--commands)
 4. [MCP — tools & how agents use them](#mcp--tools--how-agents-use-them)
 5. [Docs](#docs)
@@ -52,7 +52,7 @@ npx -y @repo-prism/cli health
 |---|---|
 | Terminal / CI | [A. CLI](#a-cli--repo-prismcli) |
 | Cursor / Claude / Codex agents | [B. MCP](#b-mcp--repo-prismmcp-server) |
-| Visual map & dashboards | [C. IDE extension](#c-ide-extension-repoprism) |
+| Visual map & dashboards | [C. IDE extension](#c-ide-extension-prism) |
 | Embed in code | [`@repo-prism/core`](https://www.npmjs.com/package/@repo-prism/core) |
 
 All surfaces call the same Core SDK. None re-implements analysis.
@@ -123,10 +123,10 @@ Only add `--workspace` / `PRISM_WORKSPACE` if auto-detection picks the wrong fol
 
 Package: [npmjs.com/package/@repo-prism/mcp-server](https://www.npmjs.com/package/@repo-prism/mcp-server)
 
-### C. IDE extension (RepoPrism)
+### C. IDE extension (Prism)
 
-1. Install **RepoPrism**:
-   - **VS Code** — [Marketplace](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism) or search `RepoPrism`
+1. Install **Prism** (Marketplace / Open VSX id `prismhq.repo-prism`):
+   - **VS Code** — [Marketplace](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism) or search `Prism`
    - **Cursor** — [Open VSX](https://open-vsx.org/extension/prismhq/repo-prism) or Install from VSIX
 2. **Open Folder** on your project.
 3. Command Palette → **Prism: Open Prism**.

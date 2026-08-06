@@ -63,7 +63,7 @@ jobs:
 
           echo "version=${PKG_VERSION}" >> "$GITHUB_OUTPUT"
           echo "ref=${REF}" >> "$GITHUB_OUTPUT"
-          echo "Publishing RepoPrism ${PKG_VERSION} from ${REF}"
+          echo "Publishing Prism ${PKG_VERSION} from ${REF}"
 
   publish:
     needs: prepare
@@ -135,7 +135,7 @@ jobs:
       - name: Summary
         run: |
           {
-            echo "## RepoPrism ${{ needs.prepare.outputs.version }} (${{ matrix.target }})"
+            echo "## Prism ${{ needs.prepare.outputs.version }} (${{ matrix.target }})"
             echo ""
             echo "- Released from tag: ${{ needs.prepare.outputs.ref }}"
             echo "- VS Marketplace: https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism"

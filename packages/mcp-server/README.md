@@ -188,7 +188,7 @@ Full reference: [MCP tools](https://github.com/Shailesh200/prism/blob/main/docs/
 | | |
 |---|---|
 | **CLI** | [`@repo-prism/cli`](https://www.npmjs.com/package/@repo-prism/cli) — `npm i -g @repo-prism/cli` then `prism health` |
-| **IDE** | [RepoPrism](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism) |
+| **IDE** | [Prism](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism) |
 | **Docs** | [MCP guide (step by step)](https://github.com/Shailesh200/prism/blob/main/docs/mcp/install.md) |
 | **Source** | [github.com/Shailesh200/prism](https://github.com/Shailesh200/prism) |
 

@@ -127,7 +127,7 @@ user's behalf, so those capabilities are absent rather than guarded.
 
 ### `@repo-prism/vscode-extension`
 
-The **RepoPrism** extension. Hosts the app-shell in a webview, bridges it to
+The **Prism** IDE extension. Hosts the app-shell in a webview, bridges it to
 Core over RPC, and owns the extension-side concerns: indexing lifecycle, file
 watching, and the content security policy.
 

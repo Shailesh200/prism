@@ -21,7 +21,7 @@ can install more than one.
 | Surface | Guide |
 |---|---|
 | **Command line** (`prism`) | [CLI install](/docs/cli/install) |
-| **VS Code / Cursor** (RepoPrism) | [IDE install](/docs/ide/install) |
+| **VS Code / Cursor** (Prism) | [IDE install](/docs/ide/install) |
 | **AI agents** (MCP) | [MCP install](/docs/mcp/install) |
 
 After install, run [Quickstart](/docs/start/quickstart) or jump to a

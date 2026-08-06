@@ -122,7 +122,7 @@ Use **1** vs **2** carefully in CI: a typo must not look like a real finding.
 | | |
 |---|---|
 | **MCP** | [`@repo-prism/mcp-server`](https://www.npmjs.com/package/@repo-prism/mcp-server) — one-command agent setup |
-| **IDE** | [RepoPrism](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism) |
+| **IDE** | [Prism](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism) |
 | **Docs** | [CLI guide](https://github.com/Shailesh200/prism/blob/main/docs/cli/usage.md) |
 | **Source** | [github.com/Shailesh200/prism](https://github.com/Shailesh200/prism) |
 
