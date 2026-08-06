@@ -3,6 +3,9 @@ title: Install
 description: "Choose a surface — CLI, IDE extension, or AI agent MCP — then follow that lane."
 ---
 
+Prefer the guided path? Use the
+[**Get started** wizard](/docs/start/get-started).
+
 Pick the surface you want. They share one engine and agree with each other. You
 can install more than one.
 

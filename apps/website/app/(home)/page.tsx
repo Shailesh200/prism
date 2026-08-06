@@ -34,16 +34,16 @@ export default function HomePage() {
           </div>
           <div className="flex flex-wrap gap-3">
             <Link
-              href="/docs"
+              href="/docs/start/get-started"
               className="rounded-md bg-fd-primary px-4 py-2.5 text-sm font-medium text-fd-primary-foreground"
             >
-              Read the docs
+              Get started
             </Link>
             <Link
-              href="/products"
+              href="/docs"
               className="rounded-md border border-fd-border px-4 py-2.5 text-sm text-fd-foreground"
             >
-              Install a surface
+              Read the docs
             </Link>
           </div>
           <div className="max-w-md">
