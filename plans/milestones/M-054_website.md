@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Review** |
+| Status | **Verified** |
 | Branch | `milestone/M-054-website` (from latest `main`) |
 | Depends on | M-038 (docs content), M-039 (GA product) |
 | Unlocks | Public product home, Vercel custom domain |
