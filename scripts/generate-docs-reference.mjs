@@ -59,15 +59,18 @@ async function cliCommandsPage() {
   const { COMMANDS, COMMAND_GROUPS } = await loadBuilt("cli");
 
   const lines = [
-    BANNER,
+    "---",
+    "title: CLI commands",
+    'description: "Every Prism CLI subcommand, generated from the command table the binary is built from."',
+    "---",
     "",
-    "# CLI commands",
+    BANNER,
     "",
     "Every `prism` command, generated from the command table the binary is built",
     "from. If a command appears here, it exists; if its options are listed here,",
     "they are the options it accepts.",
     "",
-    "See [Using the CLI](../using/cli.md) for global options, exit codes, and how",
+    "See [Using the CLI](../cli/usage.md) for global options, exit codes, and how",
     "`--fail-on` behaves in CI.",
     "",
   ];
@@ -121,9 +124,12 @@ async function mcpToolsPage() {
   const { TOOLS } = await loadBuilt("mcp-server");
 
   const lines = [
-    BANNER,
+    "---",
+    "title: MCP tools",
+    'description: "Every tool the Prism MCP server exposes, generated from the tool registry."',
+    "---",
     "",
-    "# MCP tools",
+    BANNER,
     "",
     "Every tool the Prism MCP server exposes, generated from the tool registry",
     "the server is built from.",
@@ -162,9 +168,52 @@ async function mcpToolsPage() {
   return `${lines.join("\n").trimEnd()}\n`;
 }
 
+async function capabilitiesPage() {
+  const { COMMANDS } = await loadBuilt("cli");
+  const { TOOLS } = await loadBuilt("mcp-server");
+
+  const lines = [
+    "---",
+    "title: Capabilities",
+    'description: "One row per Prism capability — CLI command, MCP tool, and what question it answers."',
+    "---",
+    "",
+    BANNER,
+    "",
+    "Lookup table generated from the CLI command table and MCP tool registry.",
+    "Prefer the [guides](../guides/understand-a-repo.mdx) when you have a job to do;",
+    "use this page when you need the exhaustive index.",
+    "",
+    "## CLI",
+    "",
+    "| Command | What it answers |",
+    "|---|---|",
+  ];
+
+  for (const command of COMMANDS.toSorted((a, b) =>
+    a.name.localeCompare(b.name),
+  )) {
+    lines.push(
+      `| \`prism ${cell(command.name)}\` | ${cell(firstSentence(command.description ?? command.name))} |`,
+    );
+  }
+
+  lines.push("", "## MCP tools", "", "| Tool | What it answers |", "|---|---|");
+
+  for (const tool of TOOLS.toSorted((a, b) => a.name.localeCompare(b.name))) {
+    lines.push(
+      `| \`${cell(tool.name)}\` | ${cell(firstSentence(tool.description))} |`,
+    );
+  }
+
+  lines.push("");
+  return `${lines.join("\n").trimEnd()}\n`;
+}
+
 const PAGES = [
   ["cli-commands.md", cliCommandsPage],
   ["mcp-tools.md", mcpToolsPage],
+  ["capabilities.md", capabilitiesPage],
 ];
 
 const check = process.argv.includes("--check");

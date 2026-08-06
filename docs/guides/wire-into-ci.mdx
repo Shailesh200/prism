@@ -1,0 +1,71 @@
+---
+title: Wire into CI
+description: "Fail builds on high blast radius, risky reviews, or dependency cycles."
+---
+
+> Use exit codes and `--fail-on` so structural risk fails the job, not the log.
+
+<Tabs groupId="surface" items={['CLI', 'VS Code', 'AI agent']} persist>
+  <Tab value="CLI">
+
+```bash
+prism index
+prism review --base origin/main --fail-on high
+prism cycles --fail-on any
+prism blast src/critical/thing.ts --fail-on high
+```
+
+Example GitHub Actions steps (full history for `--base`):
+
+```yaml
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0
+- uses: actions/setup-node@v4
+  with:
+    node-version: "26"
+- run: npx -y @repo-prism/cli review --base origin/main --fail-on high
+- run: npx -y @repo-prism/cli cycles --fail-on any
+```
+
+  </Tab>
+  <Tab value="VS Code">
+
+CI is a CLI concern. Use the extension locally to interpret the same bands, then
+copy the commands above into the pipeline. Bands match the UI via one shared
+helper.
+
+  </Tab>
+  <Tab value="AI agent">
+
+Agents do not replace CI gates. Use MCP locally to explain a failing
+`prism review` or `blast_radius` result; keep `--fail-on` in the pipeline itself.
+
+  </Tab>
+</Tabs>
+
+## What you get back
+
+| Exit | Meaning |
+|---|---|
+| `0` | Ran successfully |
+| `1` | Ran successfully and found what you gated on |
+| `2` | Usage error |
+| `3` | Prism itself failed |
+
+`--fail-on` takes a [band](/docs/concepts/risk-bands) (`low` / `mid` / `high`)
+and fires **at or above** it. For counts (cycles), use `any` or a number.
+
+stdout is data (and `--json` errors); progress goes to stderr.
+
+## When this is wrong
+
+- Shallow clones (`--depth 1`) starve git-derived signals.
+- Do not parse human tables in scripts — use `--json`.
+- A gate that passes High while failing Moderate is almost never what you want;
+  at-or-above semantics prevent that.
+
+## Related
+
+[CLI usage](/docs/cli/usage) · [Review a PR](/docs/guides/review-a-pr) ·
+[Configuration](/docs/reference/configuration)

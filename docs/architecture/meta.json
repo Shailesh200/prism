@@ -1,0 +1,11 @@
+{
+  "title": "Architecture",
+  "pages": [
+    "overview",
+    "packages",
+    "data-flow",
+    "core-sdk",
+    "extension-points",
+    "decisions"
+  ]
+}

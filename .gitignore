@@ -42,3 +42,8 @@ test-results/
 *.log
 npm-debug.log*
 .bench/
+
+# website
+apps/website/.next/
+apps/website/.source/
+apps/website/next-env.d.ts

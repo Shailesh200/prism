@@ -1,0 +1,17 @@
+{
+  "title": "Docs",
+  "pages": [
+    "index",
+    "---Start---",
+    "...start",
+    "---Guides---",
+    "...guides",
+    "---Concepts---",
+    "...concepts",
+    "---Reference---",
+    "...reference",
+    "...cli",
+    "...ide",
+    "...mcp"
+  ]
+}

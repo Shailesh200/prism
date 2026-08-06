@@ -1,0 +1,60 @@
+---
+title: Understand a repo
+description: "Orient to an unfamiliar repository with DNA, health, landmarks, and map."
+---
+
+> Learn what a repository is built from, how healthy it looks, and where to start reading.
+
+<Tabs groupId="surface" items={['CLI', 'VS Code', 'AI agent']} persist>
+  <Tab value="CLI">
+
+```bash
+cd your-repo
+prism doctor
+prism dna
+prism health
+prism landmarks
+prism map --zoom package
+```
+
+  </Tab>
+  <Tab value="VS Code">
+
+Command Palette → **Prism: Open Prism**. Wait for indexing. Read Overview (DNA +
+health), then Map at package or feature zoom. Use landmarks / most-connected
+files as entry points.
+
+  </Tab>
+  <Tab value="AI agent">
+
+Ask the agent: "Orient me to this repository — what is it built with, how
+healthy is it, and where should I start reading?"
+
+Optional prompt: `orient` (calls `repository_dna`, `repository_health`,
+landmarks / overview).
+
+  </Tab>
+</Tabs>
+
+## What you get back
+
+- **DNA / stack** — frameworks, domains (frontend, backend, data,
+  infrastructure), confidence and evidence per signal.
+- **Health** — 0–100 score plus factors (parse health, tests, coupling,
+  modularity, diagnostics). Higher is better.
+- **Landmarks** — entrypoints and anchors a human would open first.
+- **Map** — spatial layout at repo → package → feature → file → symbol.
+
+## When this is wrong
+
+- Doctor chose the wrong workspace → pass `--workspace` or set
+  `PRISM_WORKSPACE`.
+- Low-confidence stack signals (`dependency only`) are leftovers, not active
+  tooling — check the evidence.
+- Empty map / odd file counts → excludes or generated output; see
+  [troubleshooting](/docs/reference/troubleshooting).
+
+## Related
+
+[Quickstart](/docs/start/quickstart) · [DNA and stack](/docs/concepts/dna-and-stack) ·
+[Repository index](/docs/concepts/repository-index)

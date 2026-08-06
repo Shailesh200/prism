@@ -1,4 +1,8 @@
-# How Prism is built
+---
+title: How Prism is built
+description: "One engine, several surfaces — every surface asks Core."
+---
+
 
 **One engine, several surfaces. Every surface asks the engine; none of them
 computes anything.**

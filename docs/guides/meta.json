@@ -1,0 +1,12 @@
+{
+  "title": "Guides",
+  "pages": [
+    "understand-a-repo",
+    "before-you-edit",
+    "review-a-pr",
+    "delete-safely",
+    "track-health",
+    "investigate-domain",
+    "wire-into-ci"
+  ]
+}

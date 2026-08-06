@@ -1,0 +1,135 @@
+@import "tailwindcss";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+@import "@repo-prism/ui/tokens.css";
+
+@source "../app";
+@source "../components";
+@source "../lib";
+@source "../content";
+
+/* Default = dark product theme. next-themes toggles html.dark / html.light. */
+:root,
+html.dark {
+  color-scheme: dark;
+
+  --prism-ink: #ffffff;
+  --prism-ink-muted: #94a3b8;
+  --prism-line: #2a334a;
+  --prism-panel: #131926;
+  --prism-canvas: #0a0e1a;
+  --prism-brand: #00c2c2;
+  --prism-accent: #6c63ff;
+  --prism-on-brand: #041016;
+
+  --color-fd-background: var(--prism-canvas);
+  --color-fd-foreground: #e8eef2;
+  --color-fd-muted: color-mix(in oklab, #e8eef2 12%, transparent);
+  --color-fd-muted-foreground: var(--prism-ink-muted);
+  --color-fd-popover: var(--prism-panel);
+  --color-fd-popover-foreground: #e8eef2;
+  --color-fd-card: var(--prism-panel);
+  --color-fd-card-foreground: #e8eef2;
+  --color-fd-border: var(--prism-line);
+  --color-fd-primary: var(--prism-brand);
+  --color-fd-primary-foreground: var(--prism-on-brand);
+  --color-fd-secondary: color-mix(in oklab, var(--prism-accent) 18%, transparent);
+  --color-fd-secondary-foreground: #e8eef2;
+  --color-fd-accent: color-mix(in oklab, var(--prism-brand) 16%, transparent);
+  --color-fd-accent-foreground: #e8eef2;
+  --color-fd-ring: var(--prism-brand);
+}
+
+html.light,
+html[data-theme="light"] {
+  color-scheme: light;
+
+  --prism-ink: #191c1d;
+  --prism-ink-muted: #5a6b76;
+  --prism-line: #c5d0d8;
+  --prism-panel: #ffffff;
+  --prism-canvas: #e8eef2;
+  --prism-brand: #005c55;
+  --prism-accent: #4f46e5;
+  --prism-on-brand: #ffffff;
+
+  --color-fd-background: var(--prism-canvas);
+  --color-fd-foreground: var(--prism-ink);
+  --color-fd-muted: color-mix(in oklab, var(--prism-ink) 8%, transparent);
+  --color-fd-muted-foreground: var(--prism-ink-muted);
+  --color-fd-popover: var(--prism-panel);
+  --color-fd-popover-foreground: var(--prism-ink);
+  --color-fd-card: var(--prism-panel);
+  --color-fd-card-foreground: var(--prism-ink);
+  --color-fd-border: var(--prism-line);
+  --color-fd-primary: var(--prism-brand);
+  --color-fd-primary-foreground: var(--prism-on-brand);
+  --color-fd-secondary: color-mix(in oklab, var(--prism-accent) 12%, transparent);
+  --color-fd-secondary-foreground: var(--prism-ink);
+  --color-fd-accent: color-mix(in oklab, var(--prism-brand) 12%, transparent);
+  --color-fd-accent-foreground: var(--prism-ink);
+  --color-fd-ring: var(--prism-brand);
+}
+
+body {
+  background:
+    radial-gradient(
+      1200px 600px at 10% -10%,
+      color-mix(in oklab, var(--prism-brand) 14%, transparent),
+      transparent 55%
+    ),
+    radial-gradient(
+      900px 500px at 90% 0%,
+      color-mix(in oklab, var(--prism-accent) 12%, transparent),
+      transparent 50%
+    ),
+    var(--prism-canvas);
+  color: var(--color-fd-foreground);
+}
+
+/* Code blocks: force readable contrast in both themes.
+   Shiki dual themes hide/show via .dark / .light; without that, fall back. */
+pre,
+code {
+  color: inherit;
+}
+
+html.dark .shiki,
+html.dark .shiki span {
+  color: var(--shiki-dark, #e8eef2) !important;
+  background-color: transparent !important;
+}
+
+html.dark pre.shiki,
+html.dark figure pre,
+html.dark .fd-scroll-container pre,
+html.dark [data-full] pre {
+  background-color: #0f1420 !important;
+  border-color: var(--prism-line);
+  color: #e8eef2 !important;
+}
+
+html.light .shiki,
+html.light .shiki span {
+  color: var(--shiki-light, #191c1d) !important;
+  background-color: transparent !important;
+}
+
+html.light pre.shiki,
+html.light figure pre,
+html.light .fd-scroll-container pre,
+html.light [data-full] pre {
+  background-color: #f4f7f9 !important;
+  border-color: var(--prism-line);
+  color: #191c1d !important;
+}
+
+/* Inline code */
+:not(pre) > code {
+  color: var(--color-fd-foreground);
+  background-color: color-mix(in oklab, var(--prism-brand) 12%, var(--prism-panel));
+}
+
+.prism-prose a {
+  color: var(--prism-brand);
+}

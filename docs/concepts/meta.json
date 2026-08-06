@@ -1,0 +1,11 @@
+{
+  "title": "Concepts",
+  "pages": [
+    "repository-index",
+    "graphs",
+    "risk-bands",
+    "signal-provenance",
+    "dna-and-stack",
+    "consent-and-privacy"
+  ]
+}

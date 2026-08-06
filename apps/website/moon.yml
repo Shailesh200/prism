@@ -1,0 +1,38 @@
+$schema: "https://moonrepo.dev/schemas/project.json"
+language: "typescript"
+layer: "application"
+dependsOn:
+  - ui
+tasks:
+  build:
+    command: "bun run build"
+    deps:
+      - "^:build"
+    inputs:
+      - "app/**/*"
+      - "lib/**/*"
+      - "components/**/*"
+      - "content/**/*"
+      - "public/**/*"
+      - "source.config.ts"
+      - "next.config.mjs"
+      - "tsconfig.json"
+      - "package.json"
+      - "postcss.config.mjs"
+    outputs:
+      - ".next"
+  typecheck:
+    command: "bun run typecheck"
+    deps:
+      - "^:build"
+    inputs:
+      - "app/**/*"
+      - "lib/**/*"
+      - "components/**/*"
+      - "tsconfig.json"
+  test:
+    command: "bun run test"
+    inputs:
+      - "lib/**/*"
+      - "vitest.config.ts"
+      - "app/robots.ts"

@@ -7,10 +7,10 @@ import {
 
 describe("overview-layout", () => {
   it("clusters by package scope", () => {
-    expect(clusterKeyForLabel("@repo-prism/core")).toBe("@prism");
+    expect(clusterKeyForLabel("@repo-prism/core")).toBe("@repo-prism");
     expect(clusterKeyForLabel("@fixture/auth")).toBe("@fixture");
     expect(clusterKeyForLabel("Dashboard")).toBe("App");
-    expect(shortLabelInCluster("@repo-prism/core", "@prism")).toBe("core");
+    expect(shortLabelInCluster("@repo-prism/core", "@repo-prism")).toBe("core");
   });
 
   it("lays out islands without dumping every related edge", () => {
@@ -62,7 +62,7 @@ describe("overview-layout", () => {
     ];
 
     const landing = layoutOverviewGraph(features, edges, null, () => undefined);
-    expect(landing.nodes.some((n) => n.id === "group:@prism")).toBe(true);
+    expect(landing.nodes.some((n) => n.id === "group:@repo-prism")).toBe(true);
     expect(landing.nodes.some((n) => n.id === "group:@fixture")).toBe(true);
     expect(landing.nodes.some((n) => n.id === "group:App")).toBe(true);
     // Ambient "arterial" routes: curated + capped, never every edge dumped.

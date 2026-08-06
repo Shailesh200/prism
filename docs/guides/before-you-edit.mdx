@@ -1,0 +1,56 @@
+---
+title: Before you edit
+description: "Check blast radius and test impact before changing unfamiliar code."
+---
+
+> Know what depends on a file — and which tests cover it — before you touch it.
+
+<Tabs groupId="surface" items={['CLI', 'VS Code', 'AI agent']} persist>
+  <Tab value="CLI">
+
+```bash
+prism blast src/auth/session.ts
+prism test-impact src/auth/session.ts
+prism blast src/auth/session.ts --fail-on high
+```
+
+  </Tab>
+  <Tab value="VS Code">
+
+Right-click a file → **Blast Radius**, or open Impact and enter a path. Check
+direct/transitive dependents, risk band, and affected tests. Optional CodeLens
+shows blast above the first line when enabled.
+
+  </Tab>
+  <Tab value="AI agent">
+
+Ask the agent: "I'm about to edit `src/auth/session.ts` — what depends on it,
+what's the risk band, and which tests cover it?"
+
+Optional prompt: `before_edit` (calls `blast_radius` and `test_impact`).
+
+  </Tab>
+</Tabs>
+
+## What you get back
+
+- **Direct and transitive dependents** — files that would notice a change.
+- **Affected tests and features** — what to run and what user-facing area moves.
+- **Risk band** — Low / Moderate / High from a 0–100 score. Higher means more
+  risk. See [risk bands](/docs/concepts/risk-bands).
+
+Static analysis is a floor, not a complete call graph: dynamic imports and
+runtime DI are invisible.
+
+## When this is wrong
+
+- Path outside the workspace is refused (not clamped).
+- Underestimate when coupling is string-keyed or reflective — treat the band as
+  a lower bound.
+- Blast radius does not know if your edit is *breaking*; identical radius for
+  adding an optional param vs deleting an export.
+
+## Related
+
+[Delete safely](/docs/guides/delete-safely) · [Review a PR](/docs/guides/review-a-pr) ·
+[Graphs](/docs/concepts/graphs)

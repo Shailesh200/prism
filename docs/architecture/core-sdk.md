@@ -1,4 +1,8 @@
-# The Core SDK
+---
+title: The Core SDK
+description: "The public API — open a repository, ask it questions."
+---
+
 
 **`@repo-prism/core` is the public API. Open a repository, ask it questions. Every
 other surface is a presentation layer over this.**

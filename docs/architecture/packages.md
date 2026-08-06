@@ -1,4 +1,8 @@
-# The packages
+---
+title: The packages
+description: "Every package in the monorepo: role, allowed dependents, and hard rules."
+---
+
 
 **Every package in the monorepo: what it does, what may depend on it, and what
 it must never do.**
@@ -138,10 +142,11 @@ A browser host for the same screens, served by Vite against a local repository.
 The dev-tools loop the extension webview does not have, which is why screen work
 usually happens here first.
 
-### `@repo-prism/docs` (in `apps/`)
+### `@repo-prism/website` (in `apps/`)
 
-A stub package. The documentation you are reading lives in `/docs` at the
-repository root and is built by VitePress from there.
+Next.js + Fumadocs app that serves the public marketing site and documentation
+(and admin architecture docs). Replaces the VitePress docs app. Markdown source
+stays in `/docs` at the repository root.
 
 ## Development only
 
