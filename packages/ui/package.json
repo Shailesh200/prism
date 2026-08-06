@@ -9,12 +9,13 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./map.css": "./dist/map.css",
-    "./tokens.css": "./dist/tokens.css",
-    "./primitives.css": "./dist/primitives.css"
+    "./map.css": "./src/map.css",
+    "./tokens.css": "./src/tokens.css",
+    "./primitives.css": "./src/primitives.css"
   },
   "files": [
     "dist",
+    "src/*.css",
     "assets"
   ],
   "scripts": {
