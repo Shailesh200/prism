@@ -1,0 +1,57 @@
+---
+title: Review a PR
+description: "Roll up change risk for a working tree or branch before you merge."
+---
+
+> Aggregate blast radius, safe-delete hints, and test impact across a diff.
+
+<Tabs groupId="surface" items={['CLI', 'VS Code', 'AI agent']} persist>
+  <Tab value="CLI">
+
+```bash
+prism review
+prism review --base origin/main
+prism review --base origin/main --fail-on high
+```
+
+With no arguments, `review` covers the working tree (including untracked files).
+In CI, always pass `--base`.
+
+  </Tab>
+  <Tab value="VS Code">
+
+SCM / source control right-click → **Review Changes**, or open the Change Review
+screen. Same roll-up as the CLI against your pending edits.
+
+  </Tab>
+  <Tab value="AI agent">
+
+Ask the agent: "Review my current changes before I merge — what's the aggregate
+risk?"
+
+Optional prompt: `review_diff` (calls `review_changes`).
+
+  </Tab>
+</Tabs>
+
+## What you get back
+
+A single review of every changed path: risk bands, high-impact files, and
+signals worth a second look before merge. Combined with
+`prism cycles --fail-on any` it is the usual PR gate.
+
+Checkout needs full history (`fetch-depth: 0`) when comparing against a base
+branch.
+
+## When this is wrong
+
+- Shallow clones hide git-derived signals — see
+  [known limitations](/docs/reference/known-limitations).
+- Exit code `1` means the gate fired (finding at or above `--fail-on`), not that
+  Prism crashed. Exit `3` is a tool failure.
+- Review is structural risk, not correctness or security CVEs.
+
+## Related
+
+[Wire into CI](/docs/guides/wire-into-ci) · [Before you edit](/docs/guides/before-you-edit) ·
+[CLI usage](/docs/cli/usage)

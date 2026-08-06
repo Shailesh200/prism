@@ -1,12 +1,15 @@
-# Configuration
+---
+title: Configuration
+description: "Ignore rules, environment variables, CLI, MCP, and extension settings."
+---
 
-**There is very little to configure, which is deliberate. Everything below has a
-default that works.**
+There is very little to configure, which is deliberate. Everything below has a
+default that works.
 
 ## Ignore rules
 
-The one setting worth attention, because it is behind most surprises about
-speed and file counts.
+The one setting worth attention — it is behind most surprises about speed and
+file counts.
 
 Prism combines three sources:
 
@@ -25,8 +28,7 @@ fixtures/large/**
 
 Defaults already cover `node_modules`, `dist`, `build`, `.next`, `out`,
 `coverage`, `.git`, `.turbo`, `.cache`, minified JavaScript and source maps, plus
-a few ecosystem-specific additions once Prism detects the ecosystem —
-`__pycache__` and `.venv` for Python, `target` for Rust, `vendor` for Go.
+ecosystem-specific additions once Prism detects the ecosystem.
 
 ## Environment variables
 
@@ -39,8 +41,8 @@ a few ecosystem-specific additions once Prism detects the ecosystem —
 ## CLI
 
 Everything is a flag; there is no configuration file. See
-[using the CLI](../using/cli.md) for the global options and
-[the command reference](./cli-commands.md) for per-command options.
+[using the CLI](/docs/cli/usage) for global options and
+[the command reference](/docs/reference/cli-commands) for per-command options.
 
 Workspace resolution, most explicit first: `--workspace`, then
 `PRISM_WORKSPACE`, then the nearest ancestor with a `.git`, then the current
@@ -61,58 +63,26 @@ Configured by your MCP client, not by Prism. Happy path — no path flags:
 }
 ```
 
-Resolution matches the CLI: `--workspace` → `PRISM_WORKSPACE` → nearest git
-root from the process cwd → cwd. Only set `--workspace` / `PRISM_WORKSPACE` when
-the client starts the server from the wrong directory.
+Resolution matches the CLI. Only set `--workspace` / `PRISM_WORKSPACE` when the
+client starts the server from the wrong directory. See [MCP install](/docs/mcp/install).
 
 ## Extension settings
 
-One setting lives in VS Code's own settings, because it affects the editor
-rather than the analysis:
+See [IDE settings](/docs/ide/settings). One VS Code setting lives in the editor:
 
 | Setting | Default | Effect |
 |---|---|---|
-| `prism.codeLens.enabled` | `false` | Show Blast Radius, Ownership and Map lenses above the first line of each file |
+| `prism.codeLens.enabled` | `false` | Blast Radius, Ownership and Map lenses above the first line |
 
-Everything else is in Prism's own Settings screen.
-
-### Indexing
-
-| Setting | Default | Notes |
-|---|---|---|
-| **Exclude globs** | The defaults above | Newline-separated, gitignore syntax |
-| **Max file size** | 1 MB | Files above this are skipped. Options run from 256 KB to no limit |
-| **Auto re-index** | On | Reindex as files change |
-| **Auto re-index interval** | 15 minutes | The debounce window, from 5 minutes to 6 hours |
-
-Raising the size limit to "none" on a repository with generated bundles is the
-fastest way to make indexing slow.
-
-### Appearance
-
-Theme (light, dark, or follow the system), density (comfortable or compact), and
-the sans and monospace font families. Presentation only; nothing here changes an
-analysis.
-
-### Privacy
-
-Every optional network capability, individually. Off by default, and each one
-names what it does and where it goes. See
-[consent and privacy](../concepts/consent-and-privacy.md).
-
-Two settings on this screen are not toggles so much as statements: local-only
-analysis, and telemetry, which is off and has nowhere to send anything.
+Consent and privacy toggles are documented under
+[consent and privacy](/docs/concepts/consent-and-privacy).
 
 ## What is stored, and where
 
-Settings that belong to a repository — your consent decisions, bookmarks — live
-in `.prism/` alongside the index. Presentation settings belong to the client and
-live in its own storage.
-
-Consent lives with the repository rather than with the editor on purpose: the
-answer to "may Prism call GitHub about this code" is a property of the code, not
-of the machine you happen to be sitting at.
+Settings that belong to a repository — consent, bookmarks — live in `.prism/`
+alongside the index. Presentation settings belong to the client.
 
 ## Related
 
-[Troubleshooting](./troubleshooting.md) · [Using the CLI](../using/cli.md) · [Consent and privacy](../concepts/consent-and-privacy.md)
+[Troubleshooting](/docs/reference/troubleshooting) · [CLI usage](/docs/cli/usage) ·
+[Consent and privacy](/docs/concepts/consent-and-privacy)

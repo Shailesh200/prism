@@ -1,4 +1,8 @@
-# Extension points
+---
+title: Extension points
+description: "Language plugins and stack detectors without touching the pipeline."
+---
+
 
 **Two places Prism is designed to be extended without touching the analysis
 pipeline: language plugins and stack detectors.**
@@ -44,7 +48,7 @@ adding a detector does not mean another pass over the repository.
 **Detectors return confidence, not a boolean.** A detector that found a config
 file and a hundred matching imports is on much firmer ground than one that found
 a single dependency, and collapsing both to "yes" throws away the part a reader
-needs. See [stack detection](../concepts/stack-detection.md).
+needs. See [DNA and stack](../concepts/dna-and-stack.md).
 
 Detection is descriptive. A framework Prism fails to detect does not degrade the
 rest of the analysis, because the graphs are built from imports rather than from
@@ -62,4 +66,4 @@ specification of the shape.
 
 ## Related
 
-[Packages](./packages.md) · [Stack detection](../concepts/stack-detection.md) · [Data flow](./data-flow.md)
+[Packages](./packages.md) · [DNA and stack](../concepts/dna-and-stack.md) · [Data flow](./data-flow.md)

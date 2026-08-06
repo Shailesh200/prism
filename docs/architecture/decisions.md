@@ -1,4 +1,8 @@
-# The decisions behind Prism
+---
+title: Architecture decisions
+description: "ADRs behind Prism, in plain language."
+---
+
 
 **Prism records every significant architectural choice as a short document — an
 Architectural Decision Record, or ADR — saying what was decided and why. This
@@ -48,7 +52,7 @@ conservative beats a precise one that occasionally misses.
 
 **Health is weighted across five factors** (ADR-0012). The weights are written
 down so you can disagree with them precisely. See
-[the health score](../concepts/health-score.md).
+[Track health](../guides/track-health.mdx).
 
 **Features are inferred, and confidence is shown** (ADR-0011). Repositories do
 not declare their features, so Prism guesses and says how sure it is.
@@ -69,7 +73,7 @@ points are marked estimated so a reconstructed trend never looks measured.
 ## Surfaces
 
 **MCP speaks over stdio, indexes lazily, and refuses consent-gated work**
-(ADR-0030). See [using MCP](../using/mcp.md).
+(ADR-0030). See [using MCP](../mcp/usage.md).
 
 **The product screens are one shared package** (ADR-0021). The extension and the
 playground render the same components.

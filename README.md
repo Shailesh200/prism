@@ -83,7 +83,7 @@ All surfaces call the same Core SDK. None re-implements analysis.
    prism health --verbose   # shows workspace + index timing
    ```
 
-Package: [npmjs.com/package/@repo-prism/cli](https://www.npmjs.com/package/@repo-prism/cli) · Guide: [`docs/using/cli.md`](./docs/using/cli.md)
+Package: [npmjs.com/package/@repo-prism/cli](https://www.npmjs.com/package/@repo-prism/cli) · Guide: [`docs/cli/usage.md`](./docs/cli/usage.md)
 
 ### B. MCP — `@repo-prism/mcp-server`
 
@@ -117,7 +117,7 @@ like `repository_health`.** The server tells the agent which tools to call.
 #### Claude Desktop / Codex
 
 Same `npx` / `@repo-prism/mcp-server` config — no `--workspace`. Full numbered
-steps for every client: [`docs/using/mcp.md`](./docs/using/mcp.md).
+steps for every client: [`docs/mcp/install.md`](./docs/mcp/install.md).
 
 Only add `--workspace` / `PRISM_WORKSPACE` if auto-detection picks the wrong folder.
 
@@ -132,7 +132,7 @@ Package: [npmjs.com/package/@repo-prism/mcp-server](https://www.npmjs.com/packag
 3. Command Palette → **Prism: Open Prism**.
 4. Wait for indexing; use the UI.
 5. (Cursor) Also complete [B. MCP](#b-mcp--repo-prismmcp-server) so the agent
-   shares the same analysis — [`docs/using/cursor.md`](./docs/using/cursor.md).
+   shares the same analysis — [`docs/ide/install.md`](./docs/ide/install.md).
 
 ---
 
@@ -228,7 +228,7 @@ the server’s instructions tell the agent when to call which tool.
 | **Impact** | `blast_radius`, `safe_delete`, `rename_impact`, `test_impact`, `breaking_change_hints`, `review_changes`, `explore_code` |
 | **Reports** | `engineering_health`, `health_history`, `backend_report`, `testing_report`, `security_report` |
 
-Setup steps: [`docs/using/mcp.md`](./docs/using/mcp.md) · Full tool list: [`docs/reference/mcp-tools.md`](./docs/reference/mcp-tools.md).
+Setup steps: [`docs/mcp/install.md`](./docs/mcp/install.md) · Full tool list: [`docs/reference/mcp-tools.md`](./docs/reference/mcp-tools.md).
 
 ---
 
@@ -236,13 +236,14 @@ Setup steps: [`docs/using/mcp.md`](./docs/using/mcp.md) · Full tool list: [`doc
 
 | Topic | Link |
 |---|---|
-| What Prism is | [`docs/getting-started/what-is-prism.md`](./docs/getting-started/what-is-prism.md) |
-| Install | [`docs/getting-started/install.md`](./docs/getting-started/install.md) |
-| Quickstart | [`docs/getting-started/quickstart.md`](./docs/getting-started/quickstart.md) |
-| Using the CLI | [`docs/using/cli.md`](./docs/using/cli.md) |
-| Using MCP | [`docs/using/mcp.md`](./docs/using/mcp.md) |
-| Cursor | [`docs/using/cursor.md`](./docs/using/cursor.md) |
-| VS Code | [`docs/using/vscode-extension.md`](./docs/using/vscode-extension.md) |
+| What Prism is | [`docs/start/what-is-prism.md`](./docs/start/what-is-prism.md) |
+| Install | [`docs/start/install.md`](./docs/start/install.md) |
+| Quickstart | [`docs/start/quickstart.md`](./docs/start/quickstart.md) |
+| Capabilities overview | [`docs/reference/capabilities.md`](./docs/reference/capabilities.md) |
+| Task guides | [`docs/guides/`](./docs/guides/) |
+| Using the CLI | [`docs/cli/usage.md`](./docs/cli/usage.md) |
+| Using MCP | [`docs/mcp/usage.md`](./docs/mcp/usage.md) |
+| IDE (VS Code / Cursor) | [`docs/ide/usage.md`](./docs/ide/usage.md) |
 | CLI command reference | [`docs/reference/cli-commands.md`](./docs/reference/cli-commands.md) |
 | MCP tool reference | [`docs/reference/mcp-tools.md`](./docs/reference/mcp-tools.md) |
 | Known limitations | [`docs/reference/known-limitations.md`](./docs/reference/known-limitations.md) |

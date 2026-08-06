@@ -17,7 +17,6 @@
     "oxfmt": "^0.14.0",
     "oxlint": "^1.14.0",
     "typescript": "^5.9.0",
-    "vitepress": "^1.6.4",
     "vitest": "^3.2.0"
   },
   "engines": {
@@ -38,9 +37,9 @@
     "playground": "bun --filter @repo-prism/playground dev",
     "moon": "moon",
     "prepare": "lefthook install || true",
-    "docs:dev": "vitepress dev docs",
-    "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs",
+    "docs:dev": "bun --filter @repo-prism/website dev",
+    "docs:build": "bun --filter @repo-prism/website build",
+    "docs:preview": "bun --filter @repo-prism/website start",
     "docs:reference": "bun run scripts/generate-docs-reference.mjs",
     "docs:check": "bun run scripts/generate-docs-reference.mjs --check && bun run scripts/check-docs.mjs",
     "test:e2e": "bun run --cwd apps/playground test:e2e",

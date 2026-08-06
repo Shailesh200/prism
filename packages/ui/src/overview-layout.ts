@@ -86,7 +86,13 @@ function buildClusters(nodes: readonly GraphNodeDto[]): Cluster[] {
     buckets.set(key, list);
   }
 
-  const preferred = ["App", "@prism", "@fixture", "@prism-fixture"];
+  const preferred = [
+    "App",
+    "@repo-prism",
+    "@prism",
+    "@fixture",
+    "@prism-fixture",
+  ];
   const keys = [...buckets.keys()].sort((a, b) => {
     const ia = preferred.indexOf(a);
     const ib = preferred.indexOf(b);

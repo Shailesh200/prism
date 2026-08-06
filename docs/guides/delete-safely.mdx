@@ -1,0 +1,56 @@
+---
+title: Delete safely
+description: "Find blockers and orphans before removing a file or symbol."
+---
+
+> Ask what would break — and what would be left dead — if a target went away.
+
+<Tabs groupId="surface" items={['CLI', 'VS Code', 'AI agent']} persist>
+  <Tab value="CLI">
+
+```bash
+prism safe-delete src/legacy/adapter.ts
+prism blast src/legacy/adapter.ts --delete
+```
+
+`safe-delete` never deletes anything. It only reports.
+
+  </Tab>
+  <Tab value="VS Code">
+
+Right-click → **Safe Delete Check** (opens Impact in delete mode). Read blockers
+and orphans before you remove the file.
+
+  </Tab>
+  <Tab value="AI agent">
+
+Ask the agent: "Can I safely delete `src/legacy/adapter.ts`? What are the
+blockers and orphans?"
+
+The agent should call `safe_delete` (and often `blast_radius` with delete
+intent).
+
+  </Tab>
+</Tabs>
+
+## What you get back
+
+| Result | Meaning |
+|---|---|
+| **Blockers** | Things that would fail to resolve if the target disappeared |
+| **Orphans** | Files left unreachable because only this target reached them |
+| **Delete-oriented blast** | Same graph as edit blast, weighted toward breakage |
+
+Orphans are the useful half — deleting one module often leaves three dead.
+
+## When this is wrong
+
+- Missing edges (dynamic imports, DI) mean false "safe" answers — still review.
+- Renames are a different question: use `prism rename` / `rename_impact`.
+- Public package exports may break consumers outside this repo; breaking-change
+  hints flag that case, they do not prove safety.
+
+## Related
+
+[Before you edit](/docs/guides/before-you-edit) · [Capabilities](/docs/reference/capabilities) ·
+[Graphs](/docs/concepts/graphs)

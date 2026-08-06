@@ -1,0 +1,13 @@
+{
+  "title": "Reference",
+  "pages": [
+    "capabilities",
+    "cli-commands",
+    "mcp-tools",
+    "configuration",
+    "troubleshooting",
+    "known-limitations",
+    "faq",
+    "glossary"
+  ]
+}

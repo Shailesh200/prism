@@ -1,0 +1,62 @@
+---
+title: Investigate a domain
+description: "Dig into frontend, backend, testing, or security posture for this repo."
+---
+
+> Use DNA to see which domains exist, then open the matching reports and screens.
+
+<Tabs groupId="surface" items={['CLI', 'VS Code', 'AI agent']} persist>
+  <Tab value="CLI">
+
+```bash
+prism dna
+prism packages
+prism backend
+prism testing
+prism security
+prism features
+prism explain src/api
+```
+
+  </Tab>
+  <Tab value="VS Code">
+
+Overview shows domain mix. Domain screens appear only when DNA detects them (a
+pure frontend repo will not lead with a database tab). Map feature zoom and
+Explain This Area help locate a concern.
+
+  </Tab>
+  <Tab value="AI agent">
+
+Ask the agent: "Summarise the backend surface" / "What's our testing posture?" /
+"Where does checkout live?"
+
+Tools: `backend_report`, `testing_report`, `security_report`, `list_features`,
+`explain_area`.
+
+  </Tab>
+</Tabs>
+
+## What you get back
+
+| Domain / report | What it answers |
+|---|---|
+| **Backend** | Routes, auth posture, data layer, env, jobs (static heuristics) |
+| **Testing** | Suites, structure, coverage when artifacts exist on disk |
+| **Security** | Left-shift tooling checklist — not a CVE scanner |
+| **Features** | Inferred file groups with confidence |
+
+Frontend extras (bundle weight, Core Web Vitals) need artifacts or explicit
+consent — not part of default local analysis.
+
+## When this is wrong
+
+- Low-confidence features are suggestions — verify member files.
+- Empty security list means Prism found no tooling, not that none exists.
+- Cross-language symbol resolution is out of scope; see
+  [known limitations](/docs/reference/known-limitations).
+
+## Related
+
+[DNA and stack](/docs/concepts/dna-and-stack) · [Graphs](/docs/concepts/graphs) ·
+[Capabilities](/docs/reference/capabilities)

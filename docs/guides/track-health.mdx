@@ -1,0 +1,59 @@
+---
+title: Track health
+description: "Read the health score, factors, engineering signals, and trends."
+---
+
+> See where maintenance cost concentrates — and whether it is getting worse.
+
+<Tabs groupId="surface" items={['CLI', 'VS Code', 'AI agent']} persist>
+  <Tab value="CLI">
+
+```bash
+prism health
+prism health --verbose
+prism health --json | jq '.data.score'
+prism engineering
+prism engineering --fail-on high
+```
+
+  </Tab>
+  <Tab value="VS Code">
+
+Open Prism → Overview for the score and factors. Trends plots health over time.
+Engineering / Testing / Security panels deepen the factors when DNA detects
+those domains.
+
+  </Tab>
+  <Tab value="AI agent">
+
+Ask the agent: "How healthy is this codebase, and where are the engineering
+hotspots?"
+
+Tools: `repository_health`, `engineering_health`, `health_history`.
+
+  </Tab>
+</Tabs>
+
+## What you get back
+
+**Health score** (0–100, higher better) from five factors: parse health, test
+presence, coupling, modularity, diagnostics. The factors matter more than the
+letter grade.
+
+**Engineering report** — entropy, drift, debt, churn, hotspots (high churn ×
+high complexity).
+
+**Trends** — snapshots keyed by commit; early points may be git-backfilled and
+marked estimated. See [signal provenance](/docs/concepts/signal-provenance).
+
+## When this is wrong
+
+- Not a code-quality or correctness score — structural heuristics only.
+- Not comparable across repositories; compare a repo to its own past.
+- Unavailable coverage/churn is absence, not zero — do not treat missing as
+  green.
+
+## Related
+
+[Understand a repo](/docs/guides/understand-a-repo) · [Risk bands](/docs/concepts/risk-bands) ·
+[Wire into CI](/docs/guides/wire-into-ci)

@@ -1,4 +1,8 @@
-# From a file on disk to a number on screen
+---
+title: Data flow
+description: "From a file on disk to a number on screen."
+---
+
 
 **One path, followed once. Every report in Prism is a different projection of
 the same journey, which is why they agree with each other.**
@@ -69,9 +73,9 @@ Three graphs, all over the same store:
 
 | Graph | Edges are |
 |---|---|
-| [Dependency](../concepts/dependency-graph.md) | imports and re-exports |
-| [Knowledge](../concepts/knowledge-graph.md) | semantic relationships between symbols |
-| [Feature](../concepts/feature-graph.md) | inferred membership of a capability |
+| [Dependency](../concepts/graphs.md) | imports and re-exports |
+| [Knowledge](../concepts/graphs.md) | semantic relationships between symbols |
+| [Feature](../concepts/graphs.md) | inferred membership of a capability |
 
 ## Deriving
 

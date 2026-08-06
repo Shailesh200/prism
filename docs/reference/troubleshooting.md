@@ -1,4 +1,7 @@
-# Troubleshooting
+---
+title: Troubleshooting
+description: "Doctor first — then wrong workspace, slow indexing, unavailable signals, MCP issues."
+---
 
 ## Start here
 
@@ -53,7 +56,7 @@ parses.
 
 That is the intended behaviour, not a failure. Prism marks what it does not know
 rather than showing a zero — see
-[signal provenance](../concepts/signal-provenance.md).
+[signal provenance](/docs/concepts/signal-provenance).
 
 Common causes:
 
@@ -82,14 +85,14 @@ low percentage means it is a guess.
 
 `prism features` shows the confidence, and `prism explain <path>` shows why a
 file was placed where it was. Unusual layouts genuinely produce worse groupings.
-See [feature graph](../concepts/feature-graph.md).
+See [graphs](/docs/concepts/graphs).
 
 ## A CLI command exits 1 and I expected 0
 
 `1` means it worked and found what you asked about — a `--fail-on` threshold was
 met. That is the gate firing, not a failure.
 
-`3` is the failure. See [exit codes](../using/cli.md#exit-codes).
+`3` is the failure. See [exit codes](/docs/cli/usage#exit-codes).
 
 ## JSON output has an error in it
 
@@ -110,7 +113,7 @@ it from the open project, or set `PRISM_WORKSPACE` / `--workspace` once. Run
 ## An MCP result is missing items
 
 Every list is bounded. The response carries `totalCount` and `truncated`; raise
-`limit` if you need more. See [using MCP](../using/mcp.md).
+`limit` if you need more. See [using MCP](/docs/mcp/usage).
 
 ## A path was refused
 
@@ -133,4 +136,5 @@ you expected. `doctor` output contains no source code.
 
 ## Related
 
-[CLI](../using/cli.md) · [Signal provenance](../concepts/signal-provenance.md) · [FAQ](./faq.md)
+[CLI usage](/docs/cli/usage) · [Signal provenance](/docs/concepts/signal-provenance) ·
+[FAQ](/docs/reference/faq)
