@@ -2,6 +2,9 @@ import { HomeLayout } from "fumadocs-ui/layouts/home";
 import { baseOptions } from "@/lib/layout.shared";
 import Link from "next/link";
 import type { Metadata } from "next";
+import { PageEnter } from "@/components/motion/PageEnter";
+import { Reveal } from "@/components/motion/Reveal";
+import { SectionIntro } from "@/components/motion/SectionIntro";
 
 export const metadata: Metadata = {
   title: "Products",
@@ -45,33 +48,45 @@ const PRODUCTS = [
 export default function ProductsPage() {
   return (
     <HomeLayout {...baseOptions()}>
-      <main className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 py-16">
-        <header className="space-y-3">
-          <h1 className="text-4xl font-semibold tracking-tight">Products</h1>
-          <p className="max-w-2xl text-fd-muted-foreground">
-            Pick a surface. They share one engine and agree with each other.
-          </p>
-        </header>
-        <div className="grid gap-4">
-          {PRODUCTS.map((p) => (
-            <div
-              key={p.title}
-              className="rounded-xl border border-fd-border p-6"
-            >
-              <div className="flex flex-wrap items-baseline justify-between gap-3">
-                <h2 className="text-xl font-medium">{p.title}</h2>
-                <Link href={p.href} className="text-sm text-fd-primary">
-                  Docs →
-                </Link>
-              </div>
-              <p className="mt-2 text-sm text-fd-muted-foreground">{p.body}</p>
-              <code className="mt-4 block font-mono text-sm text-fd-primary">
-                {p.install}
-              </code>
-            </div>
-          ))}
-        </div>
-      </main>
+      <PageEnter>
+        <main className="mx-auto flex w-full max-w-5xl flex-col gap-12 px-6 py-16">
+          <SectionIntro
+            index="Nº PRODUCTS"
+            title="Products"
+            description="Pick a surface. They share one engine and agree with each other."
+          />
+          <ul className="divide-y divide-fd-border border-y border-fd-border">
+            {PRODUCTS.map((p, i) => (
+              <Reveal key={p.title} delay={i * 0.05} y={14}>
+                <li className="flex flex-col gap-3 py-6 sm:flex-row sm:items-start sm:justify-between sm:gap-10">
+                  <div className="space-y-2">
+                    <div className="flex items-baseline gap-4">
+                      <span className="font-mono text-xs text-fd-primary">
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                      <h2 className="font-display text-xl font-medium text-fd-foreground">
+                        {p.title}
+                      </h2>
+                    </div>
+                    <p className="max-w-md pl-8 text-sm text-fd-muted-foreground">
+                      {p.body}
+                    </p>
+                    <code className="mt-1 block pl-8 font-mono text-sm text-fd-primary">
+                      {p.install}
+                    </code>
+                  </div>
+                  <Link
+                    href={p.href}
+                    className="shrink-0 pl-8 text-sm text-fd-primary sm:pl-0 sm:pt-1"
+                  >
+                    Docs →
+                  </Link>
+                </li>
+              </Reveal>
+            ))}
+          </ul>
+        </main>
+      </PageEnter>
     </HomeLayout>
   );
 }

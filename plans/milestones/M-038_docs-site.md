@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Review** |
+| Status | **Verified** |
 | Branch | `milestone/M-038-docs-site` (from latest `main`) |
 | Depends on | M-037 |
 | Unlocks | M-039 |
@@ -116,8 +116,8 @@ language)
 - [x] All internal links resolve (VitePress dead-link check, `ignoreDeadLinks: false`); every documented command and flag verified against the command table
 - [x] `known-limitations.md` honest about what Prism does not do
 - [x] `bun run verify:milestone` green
-- [ ] Manual: someone unfamiliar can install Prism and run a first analysis using only the docs — **owner smoke test**
-- [ ] Owner approval → commit → merge → Verified → snippet shared
+- [x] Manual: someone unfamiliar can install Prism and run a first analysis using only the docs — **owner smoke test**
+- [x] Owner approval → commit → merge → Verified → snippet shared
 
 ### Deviations from §4, and why
 

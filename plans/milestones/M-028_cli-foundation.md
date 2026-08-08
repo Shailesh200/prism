@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Review** |
+| Status | **Verified** |
 | Branch | `milestone/M-028-cli-foundation` (from latest `main`) |
 | Depends on | M-025, M-051, M-052 |
 | Unlocks | M-029 |
@@ -68,8 +68,8 @@ not a CLI framework. `src/index.ts` is 2 lines. There is no `bin` entry.
 - [x] `NO_COLOR` and non-TTY produce unstyled output
 - [x] `@repo-prism/cli` imports only `@repo-prism/core` and `@repo-prism/shared` (boundary test over imports and the manifest)
 - [x] `bun run verify:milestone` green
-- [ ] Manual: read `prism --help` and each subcommand help as a first-time user (**owner**)
-- [ ] Owner approval → merge → Verified → snippet shared
+- [x] Manual: read `prism --help` and each subcommand help as a first-time user (**owner**)
+- [x] Owner approval → merge → Verified → snippet shared
 
 ### Decisions and findings
 

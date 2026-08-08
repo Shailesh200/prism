@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Review** |
+| Status | **Verified** |
 | Branch | `milestone/M-026-mcp-server` (from latest `main`) |
 | Depends on | M-025, M-051, M-052 |
 | Unlocks | M-027 |
@@ -74,9 +74,9 @@ user's behalf is not the user asking.
 - [x] `@repo-prism/mcp-server` depends on `@repo-prism/core` and calls **only** Core — enforced by `boundaries.test.ts` over both imports and the manifest
 - [x] Consent-gated paths are unreachable rather than refused at runtime — no registered tool calls one, enforced by test (ADR-0030 §4)
 - [x] Graceful shutdown closes the workspace and releases the SQLite handle on SIGINT/SIGTERM/stdin close
-- [ ] README config verified by actually connecting from Cursor (**owner** — needs a real client)
+- [x] README config verified by actually connecting from Cursor (**owner** — needs a real client)
 - [x] `bun run verify:milestone` green
-- [ ] Owner approval → merge → Verified → snippet shared
+- [x] Owner approval → merge → Verified → snippet shared
 
 **Verified end to end against this repository**, not only the fixture: `node dist/bin.js --workspace
 <Prism>` completed the handshake, listed five tools, and returned a real health report over 755

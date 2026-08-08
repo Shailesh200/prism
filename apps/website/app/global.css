@@ -71,6 +71,10 @@ html[data-theme="light"] {
   --color-fd-ring: var(--prism-brand);
 }
 
+.font-display {
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+}
+
 body {
   background:
     radial-gradient(

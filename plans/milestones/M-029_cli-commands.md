@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Review** |
+| Status | **Verified** |
 | Branch | `milestone/M-029-cli-commands` (from latest `main`) |
 | Depends on | M-028 |
 | Unlocks | M-037 |
@@ -93,7 +93,7 @@ The commands are the easy part. These are the requirements that make the CLI use
 - [x] `@repo-prism/cli` imports only `@repo-prism/core` (contract test)
 - [x] `README.md` documents every command with an example and its exit codes
 - [x] `bun run verify:milestone --force` green
-- [ ] Owner approval → commit → merge → Verified → snippet shared
+- [x] Owner approval → commit → merge → Verified → snippet shared
 
 ### Notes (2026-08-05)
 

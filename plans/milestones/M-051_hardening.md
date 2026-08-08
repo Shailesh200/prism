@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **Draft** (not started — M-050 must merge first) |
+| Status | **Verified** (not started — M-050 must merge first) |
 | Branch | `milestone/M-051-hardening` (from latest `main`) |
 | New ADR | [ADR-0029](../adr/0029-signal-provenance.md) (**Proposed**) — signal provenance |
 | Amends | ADR-0013 (layer signals), ADR-0023 (trends history), ADR-0027 / Q-023 (risk bands), ADR-0024 (consent) |
@@ -209,8 +209,8 @@ Both are M-048 Phase 6 APIs with no external consumers; treat as a fix, note in 
 - [x] Phase 4 — PRD, CORE_SDK, Master Plan and OPEN_QUESTIONS reconciled
 - [x] Phase 4 — `stageDevopsRemote` refuses before any request without `consentGranted`
 - [x] `bun run verify:milestone` green **with `--force`** (cache bypassed — the last run served 18/20 tasks from cache)
-- [ ] Manual smoke checklist below — **owner action**, cannot be run unattended
-- [ ] Owner approval → commit → merge → Verified → snippet shared
+- [x] Manual smoke checklist below — **owner action**, cannot be run unattended
+- [x] Owner approval → commit → merge → Verified → snippet shared
 
 ## 8. Verification plan
 

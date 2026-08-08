@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Review** |
+| Status | **Verified** |
 | Branch | `milestone/M-027-mcp-tools-pack` (from latest `main`) |
 | Depends on | M-026 |
 | Unlocks | M-037 |
@@ -105,8 +105,8 @@ These are what make a pack rather than a pile of adapters.
 - [x] `architecture_rules` removed from Master Plan and PRD with a note
 - [x] `README.md` documents every tool — enforced in both directions by test: nothing undocumented, nothing documented that does not exist
 - [x] `bun run verify:milestone` green
-- [ ] Manual: connect from Cursor, run an agent task that uses at least four tools together (**owner**)
-- [ ] Owner approval → merge → Verified → snippet shared
+- [x] Manual: connect from Cursor, run an agent task that uses at least four tools together (**owner**)
+- [x] Owner approval → merge → Verified → snippet shared
 
 ### Decisions taken during implementation
 

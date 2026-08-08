@@ -1,5 +1,5 @@
 import { RootProvider } from "fumadocs-ui/provider/next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Syne } from "next/font/google";
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import { ThemeSync } from "@/components/theme-sync";
@@ -8,6 +8,11 @@ import "./global.css";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
+});
+
+const syne = Syne({
+  subsets: ["latin"],
+  variable: "--font-display",
 });
 
 const jetbrains = JetBrains_Mono({
@@ -31,7 +36,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="en"
-      className={`dark ${inter.variable} ${jetbrains.variable}`}
+      className={`dark ${inter.variable} ${syne.variable} ${jetbrains.variable}`}
       suppressHydrationWarning
     >
       <body className="flex min-h-screen flex-col font-sans antialiased">
