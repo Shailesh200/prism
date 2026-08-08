@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Review** |
+| Status | **Verified** |
 | Branch | `milestone/M-036-security-privacy` (from latest `main`) |
 | Depends on | M-051, M-052 |
 | Unlocks | M-039 |
@@ -154,8 +154,8 @@ No `SECURITY.md`, no `CONTRIBUTING.md`, no threat model. Privacy claims are scat
 - [x] ADR-0024 updated to match the implementation
 - [x] Q-009 and Q-010 marked resolved in `OPEN_QUESTIONS.md`
 - [x] `bun run verify:milestone --force` green
-- [ ] Manual: fresh workspace, no `.prism/consent.json` — every gated action prompts, none proceeds silently
-- [ ] Owner approval → commit → merge → Verified → snippet shared
+- [x] Manual: fresh workspace, no `.prism/consent.json` — every gated action prompts, none proceeds silently
+- [x] Owner approval → commit → merge → Verified → snippet shared
 
 ## 9. Findings disposition (2026-08-05)
 

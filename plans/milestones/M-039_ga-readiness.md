@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Review** |
+| Status | **Verified** |
 | Branch | `milestone/M-039-ga-readiness` (from latest `main`) |
 | Depends on | M-036, M-037, M-038 |
 | Unlocks | GA release |
@@ -118,14 +118,14 @@ The zoom list also existed in three places; it is now defined once in
 
 ## 6. Definition of Done
 
-- [ ] Only one milestone `In Progress`
-- [ ] Phases 1–4 complete
-- [ ] GA checklist fully ticked with evidence
-- [ ] `1.0.0` across all published artifacts
-- [ ] Tag created locally and **not** pushed
-- [ ] Release runbook written: what the owner runs, what happens, how to roll back
-- [ ] `bun run verify:milestone --force` green on three platforms
-- [ ] Owner approval → commit → merge → Verified → snippet shared
+- [x] Only one milestone `In Progress`
+- [x] Phases 1–4 complete
+- [x] GA checklist fully ticked with evidence
+- [x] `1.0.0` across all published artifacts
+- [x] Tag created locally and **not** pushed
+- [x] Release runbook written: what the owner runs, what happens, how to roll back
+- [x] `bun run verify:milestone --force` green on three platforms
+- [x] Owner approval → commit → merge → Verified → snippet shared
 
 ## 7. Verification plan
 

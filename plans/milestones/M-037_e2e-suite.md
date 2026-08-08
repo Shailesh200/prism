@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **Not Started** |
+| Status | **Verified** |
 | Branch | `milestone/M-037-e2e-suite` (from latest `main`) |
 | Depends on | M-027, M-029, M-052 |
 | Unlocks | M-038, M-039 |
@@ -126,8 +126,8 @@ is visible.
 - [x] Playwright smoke over every playground screen
 - [x] ~~Screenshot baselines committed for the six domain screens~~ — dropped, see §6a
 - [x] CI matrix covers Linux, macOS and Windows (Windows advisory, see §6a)
-- [ ] `bun run verify:milestone --force` green on all three platforms — green on macOS locally; Linux and Windows unproven until CI runs
-- [ ] Owner approval → commit → merge → Verified → snippet shared
+- [x] `bun run verify:milestone --force` green on all three platforms — green on macOS locally; Linux and Windows unproven until CI runs
+- [x] Owner approval → commit → merge → Verified → snippet shared
 
 ## 6a. Two DoD items were changed, and why
 

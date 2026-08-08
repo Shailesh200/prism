@@ -5,6 +5,9 @@ import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import Link from "next/link";
 import type { Metadata } from "next";
+import { PageEnter } from "@/components/motion/PageEnter";
+import { Reveal } from "@/components/motion/Reveal";
+import { SectionIntro } from "@/components/motion/SectionIntro";
 
 export const metadata: Metadata = {
   title: "What's new",
@@ -53,53 +56,68 @@ export default async function WhatsNewPage() {
 
   return (
     <HomeLayout {...baseOptions()}>
-      <main className="mx-auto flex w-full max-w-3xl flex-col gap-12 px-6 py-16">
-        <header className="space-y-3">
-          <h1 className="text-4xl font-semibold tracking-tight">What's new</h1>
-          <p className="text-fd-muted-foreground">
-            Release timeline from the product changelog, plus optional highlight
-            posts.
-          </p>
-        </header>
+      <PageEnter>
+        <main className="mx-auto flex w-full max-w-3xl flex-col gap-12 px-6 py-16">
+          <SectionIntro
+            index="Nº CHANGELOG"
+            title="What's new"
+            description="Release timeline from the product changelog, plus optional highlight posts."
+          />
 
-        {posts.length > 0 ? (
-          <section className="space-y-4">
-            <h2 className="text-xl font-medium">Highlights</h2>
-            <ul className="space-y-3">
-              {posts.map((post) => (
-                <li key={post.slug}>
-                  <Link
-                    href={`/whats-new/${post.slug}`}
-                    className="block rounded-xl border border-fd-border p-4 hover:border-[var(--prism-brand,#00c2c2)]"
-                  >
-                    <div className="font-medium">{post.title}</div>
-                    <p className="mt-1 text-sm text-fd-muted-foreground">
-                      {post.description}
-                    </p>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
-        <section className="space-y-8">
-          {releases.map((release) => (
-            <article key={release.version} className="space-y-3">
-              <h2 className="text-2xl font-semibold tracking-tight">
-                {release.version}
-              </h2>
-              <ul className="list-disc space-y-2 pl-5 text-fd-muted-foreground">
-                {release.bullets.map((b) => (
-                  <li key={b} className="leading-relaxed">
-                    {b.replace(/\*\*/g, "")}
-                  </li>
+          {posts.length > 0 ? (
+            <section className="space-y-4">
+              <Reveal>
+                <h2 className="font-display text-xl font-medium">Highlights</h2>
+              </Reveal>
+              <ul className="divide-y divide-fd-border border-y border-fd-border">
+                {posts.map((post, i) => (
+                  <Reveal key={post.slug} delay={i * 0.05} y={12}>
+                    <li>
+                      <Link
+                        href={`/whats-new/${post.slug}`}
+                        className="block py-5 transition hover:text-fd-primary"
+                      >
+                        <div className="font-display font-medium text-fd-foreground">
+                          {post.title}
+                        </div>
+                        <p className="mt-1 text-sm text-fd-muted-foreground">
+                          {post.description}
+                        </p>
+                      </Link>
+                    </li>
+                  </Reveal>
                 ))}
               </ul>
-            </article>
-          ))}
-        </section>
-      </main>
+            </section>
+          ) : null}
+
+          <section className="space-y-8">
+            {releases.map((release, i) => (
+              <Reveal
+                key={release.version}
+                delay={Math.min(i * 0.04, 0.24)}
+                y={14}
+              >
+                <article className="space-y-3 border-t border-fd-border pt-6">
+                  <h2 className="font-display text-2xl font-semibold tracking-tight">
+                    <span className="mr-3 font-mono text-xs tracking-widest text-fd-primary">
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    {release.version}
+                  </h2>
+                  <ul className="list-disc space-y-2 pl-5 text-fd-muted-foreground">
+                    {release.bullets.map((b) => (
+                      <li key={b} className="leading-relaxed">
+                        {b.replace(/\*\*/g, "")}
+                      </li>
+                    ))}
+                  </ul>
+                </article>
+              </Reveal>
+            ))}
+          </section>
+        </main>
+      </PageEnter>
     </HomeLayout>
   );
 }

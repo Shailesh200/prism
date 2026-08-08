@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { PageEnter } from "@/components/motion/PageEnter";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -39,14 +40,18 @@ export default async function PostPage(props: Props) {
 
   return (
     <HomeLayout {...baseOptions()}>
-      <main className="mx-auto w-full max-w-3xl px-6 py-16">
-        <article className="space-y-6">
-          <h1 className="text-4xl font-semibold tracking-tight">{title}</h1>
-          <div className="space-y-4 whitespace-pre-wrap text-fd-muted-foreground leading-relaxed">
-            {body}
-          </div>
-        </article>
-      </main>
+      <PageEnter>
+        <main className="mx-auto w-full max-w-3xl px-6 py-16">
+          <article className="space-y-6">
+            <h1 className="font-display text-4xl font-semibold tracking-tight">
+              {title}
+            </h1>
+            <div className="space-y-4 whitespace-pre-wrap text-fd-muted-foreground leading-relaxed">
+              {body}
+            </div>
+          </article>
+        </main>
+      </PageEnter>
     </HomeLayout>
   );
 }

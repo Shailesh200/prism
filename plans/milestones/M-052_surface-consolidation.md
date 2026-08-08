@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Progress** |
+| Status | **Verified** |
 | Branch | `milestone/M-052-surface-consolidation` (from latest `main`) |
 | Depends on | M-051 |
 | Unlocks | M-026, M-027, M-028, M-029, M-037 |
@@ -197,8 +197,8 @@ intent stays visible.
 - [x] The 16 pre-existing app-shell Overview tests pass unchanged against the moved code — behaviour was moved, not altered
 - [x] `CORE_SDK.md` documents every new method
 - [x] `bun run verify:milestone` green
-- [ ] Manual smoke: Overview screen renders identically to pre-milestone (**owner**)
-- [ ] Owner approval → merge → Verified → snippet shared
+- [x] Manual smoke: Overview screen renders identically to pre-milestone (**owner**)
+- [x] Owner approval → merge → Verified → snippet shared
 - ~~Inventory published at `plans/notes/M-052-inventory.md`~~ → M-053
 - ~~`getDomainReport` reachable from Core~~ → M-053
 - ~~Screen line counts recorded; de-duplication into `@repo-prism/ui`~~ → M-053

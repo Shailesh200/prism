@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Review** |
+| Status | **Verified** |
 | Branch | `milestone/M-035-perf-hardening` (from latest `main`) |
 | Depends on | M-051, M-052 |
 | Unlocks | M-039 |
@@ -99,7 +99,7 @@ does not get optimised. Three of the seven guesses in §2 were wrong about where
 - [x] Peak RSS recorded and bounded at 50k files
 - [x] No output change: all existing tests and goldens pass untouched
 - [x] `bun run verify:milestone` green
-- [ ] Owner approval → commit → merge → Verified → snippet shared
+- [x] Owner approval → commit → merge → Verified → snippet shared
 
 ## 6. Verification plan
 
