@@ -9,6 +9,13 @@ the `prism` CLI, the `prism-mcp` server, and the Core SDK they all call. They
 move as one because they are one build; a mismatch between them has never been
 a supported configuration.
 
+## 1.1.0 — Completion program (M-053–M-063)
+
+- **Proof:** agent-orientation benchmark harness (`bun run bench:orientation`) and published methodology at `/benchmarks`.
+- **Distribution:** one-click MCP install (Cursor deeplink + copyable JSON) on website and README; MCP Registry manifest prepared in-repo.
+- **Marketing:** side-by-side demo script, URL alignment to `https://www.prismhq.in`, completion-program changelog entry.
+- **Surfaces shipped in program:** presentation consolidation, public website, agent surface v2, CI/GitHub Action, SARIF, domain reports, deep TypeScript, backend intelligence, npm publish pipeline, extension marketplace.
+
 ## 1.0.5
 
 - **MCP:** first-index progress via MCP logging + stderr (`Indexing… phase (n/total)`).

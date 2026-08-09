@@ -1,5 +1,12 @@
 /* Blast Radius screen tweaks (M-046 follow-up). */
 
+/* M-062: path open buttons in affected / forward / test rows */
+.br-down__row .cr-path-btn.br-down__path,
+.dm-rank__row .cr-path-btn.dm-rank__name {
+  min-width: 0;
+  text-align: left;
+}
+
 /* ── Target section: search + toggle relocated here (tweak #1) ─────── */
 
 .br-target {

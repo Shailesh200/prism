@@ -48,9 +48,12 @@ export function Tooltip(props: TooltipProps): ReactElement {
   const id = useId();
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<Position | null>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLSpanElement>(null);
   const popRef = useRef<HTMLSpanElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Mouse clicks fire focus before click; without this flag onFocus would open
+  // the popover and the following click would immediately toggle it closed.
+  const pointerFocus = useRef(false);
   const interactive = actions != null;
 
   const clearCloseTimer = useCallback((): void => {
@@ -159,24 +162,47 @@ export function Tooltip(props: TooltipProps): ReactElement {
 
   return (
     <span className="prism-tooltip">
-      <button
+      {/* span + role=button: InfoTips live inside accordion triggers and KPI
+          cards, where a native <button> would be invalid nested interactive
+          content. stopPropagation keeps the tip from toggling its parent. */}
+      <span
         ref={triggerRef}
-        type="button"
+        role="button"
+        tabIndex={0}
         className="prism-tooltip__trigger"
         aria-label={`How ${label} is calculated`}
         aria-expanded={open}
         aria-describedby={open ? id : undefined}
         onMouseEnter={openNow}
         onMouseLeave={scheduleClose}
-        onFocus={openNow}
-        onBlur={scheduleClose}
-        onClick={() => {
+        onMouseDown={() => {
+          pointerFocus.current = true;
+        }}
+        onFocus={() => {
+          if (pointerFocus.current) return;
+          openNow();
+        }}
+        onBlur={() => {
+          pointerFocus.current = false;
+          scheduleClose();
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          pointerFocus.current = false;
           clearCloseTimer();
           setOpen((v) => !v);
         }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            e.stopPropagation();
+            clearCloseTimer();
+            setOpen((v) => !v);
+          }
+        }}
       >
         <Info size={12} aria-hidden />
-      </button>
+      </span>
       {popover}
     </span>
   );

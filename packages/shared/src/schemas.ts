@@ -98,6 +98,12 @@ export const HealthScoreSchema = z.object({
   score: z.number().min(0).max(100),
   grade: z.enum(["A", "B", "C", "D", "F"]),
   factors: z.array(HealthFactorSchema),
+  /**
+   * Share of inventory files that enter the dependency graph (analyzed
+   * TS/JS). Less than 100 on polyglot repos — graph metrics only cover this
+   * slice (M-056 / P-A6).
+   */
+  graphCoveragePct: z.number().min(0).max(100).optional(),
 });
 
 export type HealthScore = z.infer<typeof HealthScoreSchema>;
@@ -367,8 +373,15 @@ export const GitRepoSummarySchema = z.object({
   headSha: z.string().optional(),
   /** Current branch (`git rev-parse --abbrev-ref HEAD`), when resolvable. */
   branch: z.string().optional(),
+  /** Real commit count (`git rev-list --count HEAD`), when known. */
   totalCommits: z.number().int().nonnegative().default(0),
+  /** Commits actually scanned for signals (capped, default 2000). */
   windowCommits: z.number().int().nonnegative().default(0),
+  /**
+   * True when `totalCommits > windowCommits` — the activity/ownership layers
+   * only saw the latest scanned window (M-056 / P-A2).
+   */
+  historyTruncated: z.boolean().optional(),
   firstDate: z.string().optional(),
   lastDate: z.string().optional(),
   /** Local/remote sync state for the current branch. */
@@ -473,6 +486,8 @@ export type OverviewRegion = z.infer<typeof OverviewRegionSchema>;
 export const OverviewConnectedNodeSchema = z.object({
   id: z.string().min(1),
   label: z.string(),
+  /** Map node kind (file, feature, package, folder, …). */
+  kind: z.string().min(1),
   degree: z.number().int().nonnegative(),
 });
 
@@ -499,9 +514,18 @@ export const OverviewTotalsSchema = z.object({
 export type OverviewTotals = z.infer<typeof OverviewTotalsSchema>;
 
 export const OverviewModelSchema = z.object({
+  /** Map zoom used to build coupling, regions and mostConnected. */
+  zoom: MapZoomLevelSchema,
   totals: OverviewTotalsSchema,
   coupling: OverviewCouplingSchema,
   regions: z.array(OverviewRegionSchema),
+  /**
+   * True when more region nodes exist than `regions` shows (cap 8)
+   * (M-056 / P-A5).
+   */
+  truncated: z.boolean().optional(),
+  /** Total region-kind nodes before the display cap. */
+  totalCount: z.number().int().nonnegative().optional(),
   mostConnected: z.array(OverviewConnectedNodeSchema),
   /** `null` when git is unavailable — distinct from a window with no commits. */
   activity: OverviewActivitySchema.nullable(),
@@ -658,8 +682,26 @@ export const BlastRadiusReportSchema = z.object({
   intent: z.enum(["edit", "delete"]).optional(),
   /** Files this origin depends on (hard out-edges + soft loaded-by). */
   forwardDependencies: z.array(ForwardDependencyItemSchema).optional(),
+  /**
+   * True when more forward dependencies exist than `forwardDependencies`
+   * includes (cap 80) (M-056 / P-A5). Distinct from top-level `truncated`
+   * (traversal depth / soft-match truncation).
+   */
+  forwardDependenciesTruncated: z.boolean().optional(),
+  /** Total forward dependencies before the display cap. */
+  forwardDependenciesTotalCount: z.number().int().nonnegative().optional(),
+  /**
+   * Static list of dependency classes blast radius cannot see (DI containers,
+   * string registries, event buses, …) (M-056 / P-A7).
+   */
+  coverageLimitations: z.array(z.string().min(1)).optional(),
   /** Lite scenario pack: tests to run / configs·CI touching this. */
   scenarioChecklist: z.array(ScenarioChecklistSectionSchema).optional(),
+  /**
+   * Present when a symbol origin was ambiguous (homonym) and impact seeded
+   * nothing — pass `path` (or a full symbol id) to disambiguate (M-059 / P-A3).
+   */
+  resolutionNote: z.string().min(1).optional(),
 });
 
 export type BlastRadiusReport = z.infer<typeof BlastRadiusReportSchema>;
@@ -842,6 +884,12 @@ export const IndexedImportSchema = z.object({
   specifiers: z.array(z.string()),
   start: z.number().int().nonnegative().optional(),
   end: z.number().int().nonnegative().optional(),
+  /**
+   * True when this import was extracted as a CommonJS `require()` /
+   * `createRequire()(…)` call (M-059 / P-E4). Dependency edges use kind
+   * `require` when set.
+   */
+  kind: z.enum(["import", "require"]).optional(),
 });
 
 export type IndexedImport = z.infer<typeof IndexedImportSchema>;
@@ -861,6 +909,11 @@ export const IndexedReferenceSchema = z.object({
   kind: z.string().min(1),
   start: z.number().int().nonnegative(),
   end: z.number().int().nonnegative(),
+  /**
+   * How the reference was observed. `member` = `obj.prop()` /
+   * `obj?.prop()` callee (M-059 / P-A4); resolution is low-confidence.
+   */
+  via: z.enum(["member"]).optional(),
 });
 
 export type IndexedReference = z.infer<typeof IndexedReferenceSchema>;
@@ -952,6 +1005,26 @@ export const GraphSnapshotDtoSchema = z.object({
 
 export type GraphSnapshotDto = z.infer<typeof GraphSnapshotDtoSchema>;
 
+/** Count + short sample of imports that did not resolve into the graph. */
+export const UnresolvedImportsSummarySchema = z.object({
+  count: z.number().int().nonnegative(),
+  sample: z.array(z.string().min(1)),
+});
+
+export type UnresolvedImportsSummary = z.infer<
+  typeof UnresolvedImportsSummarySchema
+>;
+
+/**
+ * Dependency graph DTO: graph snapshot plus unresolved-import honesty
+ * (M-056 / P-A1). Additive over {@link GraphSnapshotDtoSchema}.
+ */
+export const DependencyGraphDtoSchema = GraphSnapshotDtoSchema.extend({
+  unresolvedImports: UnresolvedImportsSummarySchema.optional(),
+});
+
+export type DependencyGraphDto = z.infer<typeof DependencyGraphDtoSchema>;
+
 export const GraphLayoutPositionSchema = z.object({
   x: z.number(),
   y: z.number(),
@@ -982,6 +1055,13 @@ export const RepositoryMapSchema = z.object({
   clusteringNote: z.string().min(1),
   /** Repo-level local git summary (absent on non-git roots). */
   git: GitRepoSummarySchema.optional(),
+  /**
+   * True when symbol zoom omitted symbols past the per-file cap (8)
+   * (M-056 / P-A5). Absent / false at other zooms.
+   */
+  truncated: z.boolean().optional(),
+  /** Total symbol count before the per-file display cap (symbol zoom). */
+  totalCount: z.number().int().nonnegative().optional(),
 });
 
 export type RepositoryMap = z.infer<typeof RepositoryMapSchema>;
@@ -1066,6 +1146,11 @@ export const FeatureInfoSchema = z.object({
   confidence: z.number().min(0).max(1),
   memberFiles: z.array(z.string()),
   evidence: z.array(z.string()),
+  /**
+   * How the feature was discovered (ADR-0029 / M-061).
+   * Community-detection fallbacks use `"inferred"` with confidence ≤ 0.5.
+   */
+  provenance: SignalProvenanceSchema.optional(),
 });
 
 export type FeatureInfo = z.infer<typeof FeatureInfoSchema>;
@@ -1298,8 +1383,15 @@ export type CwvRollupBucket = z.infer<typeof CwvRollupBucketSchema>;
 export const CwvReportSchema = z.object({
   url: z.string().min(1),
   collectedAt: z.string().datetime(),
-  source: z.enum(["lighthouse", "ingest", "lab-fixture"]),
+  /**
+   * `pagespeed` — PageSpeed Insights response: metrics are CrUX **field**
+   * (p75), while categoryScores/insights come from the embedded Lighthouse
+   * **lab** run. UI-local only; never written to the ingest store.
+   */
+  source: z.enum(["lighthouse", "ingest", "lab-fixture", "pagespeed"]),
   port: z.number().int().positive().optional(),
+  /** Lab form factor the run measured (mobile simulated throttling by default). */
+  formFactor: z.enum(["mobile", "desktop"]).optional(),
   callout: z.string().min(1),
   metrics: z.array(CwvMetricSchema),
   /** LH category scores 0–1 when present (FE-05 later; optional now). */
@@ -1310,6 +1402,12 @@ export const CwvReportSchema = z.object({
   tbtMs: z.number().nonnegative().optional(),
   /** Element / opportunity insights derived from LHR audits (never fabricated). */
   insights: z.array(CwvInsightSchema).default([]),
+  /**
+   * Reliability warnings — e.g. a metric value beyond physical plausibility
+   * (LCP > 60s) means the measurement environment broke, not the page. The UI
+   * must surface these instead of rendering the numbers as clean results.
+   */
+  warnings: z.array(z.string()).default([]),
 });
 
 export type CwvReport = z.infer<typeof CwvReportSchema>;
@@ -1502,6 +1600,137 @@ export type BundleAnalyzeCapability = z.infer<
   typeof BundleAnalyzeCapabilitySchema
 >;
 
+/** Which CWV source DomainScreen / getDomainReport prefers (M-053). */
+export const CwvPreferredSourceSchema = z.enum(["local", "pagespeed"]);
+
+export type CwvPreferredSource = z.infer<typeof CwvPreferredSourceSchema>;
+
+/**
+ * Domain ids for {@link DomainReportSchema} (M-053). Frontend is first;
+ * other domains gain full report shapes as Phase 2 lands them.
+ */
+export const DomainReportDomainSchema = z.enum([
+  "frontend",
+  "backend",
+  "devops_platform",
+  "mobile",
+  "desktop",
+  "data_ml_ai",
+]);
+
+export type DomainReportDomain = z.infer<typeof DomainReportDomainSchema>;
+
+export const FrontendRouteBreakdownRowSchema = z.object({
+  route: z.string().min(1),
+  measured: z.boolean(),
+  linked: z.boolean(),
+  sampleCount: z.number().int().nonnegative(),
+  metricCount: z.number().int().nonnegative(),
+  metrics: z.array(CwvMetricSchema),
+  rating: CwvRatingSchema,
+  notes: z.array(z.string()),
+});
+
+export type FrontendRouteBreakdownRow = z.infer<
+  typeof FrontendRouteBreakdownRowSchema
+>;
+
+export const FrontendComponentBreakdownRowSchema = z.object({
+  key: z.string().min(1),
+  sampleCount: z.number().int().nonnegative(),
+  rating: CwvRatingSchema,
+  metrics: z.array(CwvMetricSchema),
+});
+
+export type FrontendComponentBreakdownRow = z.infer<
+  typeof FrontendComponentBreakdownRowSchema
+>;
+
+export const FrontendDomainCwvBundleSchema = z.object({
+  preferredSource: CwvPreferredSourceSchema,
+  local: CwvReportSchema.nullable(),
+  pagespeed: CwvReportSchema.nullable(),
+  primary: CwvReportSchema.nullable(),
+});
+
+export type FrontendDomainCwvBundle = z.infer<
+  typeof FrontendDomainCwvBundleSchema
+>;
+
+/**
+ * Frontend domain aggregation (M-053 T-08). Surfaces render this instead of
+ * re-deriving route/component breakdowns inside DomainScreen.
+ */
+export const FrontendDomainReportSchema = z.object({
+  domain: z.literal("frontend"),
+  rootPath: z.string().min(1),
+  packageId: z.string().min(1).optional(),
+  generatedAt: z.string().datetime(),
+  summary: z.string().min(1),
+  routes: z.array(z.string().min(1)),
+  cwv: FrontendDomainCwvBundleSchema,
+  routeBreakdown: z.array(FrontendRouteBreakdownRowSchema),
+  componentBreakdown: z.array(FrontendComponentBreakdownRowSchema),
+  /** Lighthouse category scores 0–1 from the primary CWV report (may be empty). */
+  categoryScores: z.record(z.string(), z.number().min(0).max(1)),
+  bundleCapability: BundleAnalyzeCapabilitySchema.optional(),
+});
+
+export type FrontendDomainReport = z.infer<typeof FrontendDomainReportSchema>;
+
+/**
+ * Shared ranking / link rows used across domain reports (M-053 T-10).
+ * `DomainReportSchema` is declared after {@link BackendReportSchema}.
+ */
+
+export const DomainKindCountSchema = z.object({
+  kind: z.string().min(1),
+  count: z.number().int().nonnegative(),
+});
+
+export type DomainKindCount = z.infer<typeof DomainKindCountSchema>;
+
+export const DomainRankedNodeSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  path: z.string(),
+  kind: z.string().min(1),
+  deps: z.number().int().nonnegative(),
+});
+
+export type DomainRankedNode = z.infer<typeof DomainRankedNodeSchema>;
+
+export const DomainChurnRowSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  path: z.string(),
+  kind: z.string().min(1),
+  commits: z.number().int().nonnegative(),
+  additions: z.number().int().nonnegative().default(0),
+  deletions: z.number().int().nonnegative().default(0),
+});
+
+export type DomainChurnRow = z.infer<typeof DomainChurnRowSchema>;
+
+export const DomainStackSnapshotSchema = z.object({
+  frameworks: z.array(z.string()),
+  signals: z.array(StackSignalSchema),
+  detected: z.boolean(),
+});
+
+export type DomainStackSnapshot = z.infer<typeof DomainStackSnapshotSchema>;
+
+export const DomainOverlayLinkSchema = z.object({
+  id: z.string().min(1),
+  kind: z.string().optional(),
+  fromLabel: z.string(),
+  toLabel: z.string(),
+  fromKind: z.string(),
+  toKind: z.string(),
+});
+
+export type DomainOverlayLink = z.infer<typeof DomainOverlayLinkSchema>;
+
 /**
  * Well-known utility overlay kinds for Map / MCP (M-041 Gate A + P2–P7 / Mono-v2).
  * Open string registry — consumers should tolerate unknown kinds.
@@ -1587,6 +1816,9 @@ export const BackendFrameworkSchema = z.enum([
   "express",
   "nest",
   "fastify",
+  "trpc",
+  "graphql",
+  "grpc",
   "unknown",
 ]);
 
@@ -1672,6 +1904,180 @@ export const BackendReportSchema = z.object({
 
 export type BackendReport = z.infer<typeof BackendReportSchema>;
 
+export const BackendCoverageSchema = z.object({
+  total: z.number().int().nonnegative(),
+  tested: z.number().int().nonnegative(),
+  untested: z.array(BackendEndpointSchema),
+});
+
+export type BackendCoverage = z.infer<typeof BackendCoverageSchema>;
+
+export const BackendDataLayerCountsSchema = z.object({
+  model: z.number().int().nonnegative(),
+  migration: z.number().int().nonnegative(),
+  sql: z.number().int().nonnegative(),
+  client: z.number().int().nonnegative(),
+});
+
+export type BackendDataLayerCounts = z.infer<
+  typeof BackendDataLayerCountsSchema
+>;
+
+/**
+ * Backend domain aggregation (M-053 T-10). Wraps {@link BackendReport} plus
+ * inbound / churn rankings DomainScreen used to compute locally.
+ */
+export const BackendDomainReportSchema = z.object({
+  domain: z.literal("backend"),
+  rootPath: z.string().min(1),
+  packageId: z.string().min(1).optional(),
+  generatedAt: z.string().datetime(),
+  summary: z.string().min(1),
+  backend: BackendReportSchema,
+  coverage: BackendCoverageSchema,
+  mostDepended: z.array(DomainRankedNodeSchema),
+  churn: z.array(DomainChurnRowSchema),
+  kindCounts: z.array(DomainKindCountSchema),
+  dataLayerByKind: BackendDataLayerCountsSchema,
+});
+
+export type BackendDomainReport = z.infer<typeof BackendDomainReportSchema>;
+
+export const DevopsTilesSchema = z.object({
+  iacResources: z.number().int().nonnegative(),
+  pipelines: z.number().int().nonnegative(),
+  containers: z.number().int().nonnegative(),
+  kubernetes: z.number().int().nonnegative(),
+});
+
+export type DevopsTiles = z.infer<typeof DevopsTilesSchema>;
+
+/**
+ * DevOps domain aggregation (M-053 T-10). Local overlay + CI heuristic
+ * findings only — GitHub Actions network I/O stays in DomainScreen (T-11).
+ */
+export const DevopsDomainReportSchema = z.object({
+  domain: z.literal("devops_platform"),
+  rootPath: z.string().min(1),
+  packageId: z.string().min(1).optional(),
+  generatedAt: z.string().datetime(),
+  summary: z.string().min(1),
+  overlaySummary: z.string(),
+  kindCounts: z.array(DomainKindCountSchema),
+  tiles: DevopsTilesSchema,
+  findings: z.array(UtilityOverlayFindingSchema),
+});
+
+export type DevopsDomainReport = z.infer<typeof DevopsDomainReportSchema>;
+
+export const MobileScreenCoverageSchema = z.object({
+  total: z.number().int().nonnegative(),
+  tested: z.number().int().nonnegative(),
+  untestedIds: z.array(z.string().min(1)),
+});
+
+export type MobileScreenCoverage = z.infer<typeof MobileScreenCoverageSchema>;
+
+export const MobileTilesSchema = z.object({
+  screens: z.number().int().nonnegative(),
+  navigators: z.number().int().nonnegative(),
+  expoRouter: z.number().int().nonnegative(),
+  untested: z.number().int().nonnegative(),
+});
+
+export type MobileTiles = z.infer<typeof MobileTilesSchema>;
+
+/**
+ * Mobile domain aggregation (M-053 T-10).
+ */
+export const MobileDomainReportSchema = z.object({
+  domain: z.literal("mobile"),
+  rootPath: z.string().min(1),
+  packageId: z.string().min(1).optional(),
+  generatedAt: z.string().datetime(),
+  summary: z.string().min(1),
+  tiles: MobileTilesSchema,
+  screenCoverage: MobileScreenCoverageSchema,
+  screenMostDepended: z.array(DomainRankedNodeSchema),
+  screenChurn: z.array(DomainChurnRowSchema),
+  stack: DomainStackSnapshotSchema.nullable(),
+  navLinks: z.array(DomainOverlayLinkSchema),
+  kindCounts: z.array(DomainKindCountSchema),
+});
+
+export type MobileDomainReport = z.infer<typeof MobileDomainReportSchema>;
+
+export const DesktopIpcChannelSchema = z.object({
+  name: z.string().min(1),
+  source: z.string().min(1),
+  path: z.string(),
+  risk: z.enum(["low", "medium"]),
+});
+
+export type DesktopIpcChannel = z.infer<typeof DesktopIpcChannelSchema>;
+
+export const DesktopTilesSchema = z.object({
+  main: z.number().int().nonnegative(),
+  renderer: z.number().int().nonnegative(),
+  ipc: z.number().int().nonnegative(),
+  preload: z.number().int().nonnegative(),
+  tauriConfig: z.number().int().nonnegative(),
+});
+
+export type DesktopTiles = z.infer<typeof DesktopTilesSchema>;
+
+/**
+ * Desktop domain aggregation (M-053 T-10).
+ */
+export const DesktopDomainReportSchema = z.object({
+  domain: z.literal("desktop"),
+  rootPath: z.string().min(1),
+  packageId: z.string().min(1).optional(),
+  generatedAt: z.string().datetime(),
+  summary: z.string().min(1),
+  tiles: DesktopTilesSchema,
+  mostDepended: z.array(DomainRankedNodeSchema),
+  churn: z.array(DomainChurnRowSchema),
+  stack: DomainStackSnapshotSchema.nullable(),
+  boundaryLinks: z.array(DomainOverlayLinkSchema),
+  ipcChannels: z.array(DesktopIpcChannelSchema),
+  kindCounts: z.array(DomainKindCountSchema),
+});
+
+export type DesktopDomainReport = z.infer<typeof DesktopDomainReportSchema>;
+
+/**
+ * Data / ML domain aggregation (M-053 T-10). Overlay kind counts + DNA stack.
+ */
+export const DataMlAiDomainReportSchema = z.object({
+  domain: z.literal("data_ml_ai"),
+  rootPath: z.string().min(1),
+  packageId: z.string().min(1).optional(),
+  generatedAt: z.string().datetime(),
+  summary: z.string().min(1),
+  overlaySummary: z.string(),
+  nodeCount: z.number().int().nonnegative(),
+  kindCounts: z.array(DomainKindCountSchema),
+  findings: z.array(UtilityOverlayFindingSchema),
+  stack: DomainStackSnapshotSchema.nullable(),
+});
+
+export type DataMlAiDomainReport = z.infer<typeof DataMlAiDomainReportSchema>;
+
+/**
+ * Discriminated union of domain reports (M-053 Phase 2).
+ */
+export const DomainReportSchema = z.discriminatedUnion("domain", [
+  FrontendDomainReportSchema,
+  BackendDomainReportSchema,
+  DevopsDomainReportSchema,
+  MobileDomainReportSchema,
+  DesktopDomainReportSchema,
+  DataMlAiDomainReportSchema,
+]);
+
+export type DomainReport = z.infer<typeof DomainReportSchema>;
+
 /** Suite kind for TestingReport (M-046 / ADR-0022). */
 export const TestingSuiteKindSchema = z.enum([
   "unit",
@@ -1692,7 +2098,16 @@ export type TestingSuite = z.infer<typeof TestingSuiteSchema>;
 
 export const TestingCoverageSchema = z.object({
   present: z.boolean(),
+  /**
+   * Covered percent 0–100. What is counted depends on `metric`: LCOV reports
+   * lines, Istanbul `coverage-final.json` reports statements.
+   */
   linePct: z.number().min(0).max(100).optional(),
+  /**
+   * What `linePct` counts. Absent reads as `"lines"` (the original LCOV-only
+   * behaviour).
+   */
+  metric: z.enum(["lines", "statements"]).optional(),
   source: z.string().min(1),
 });
 

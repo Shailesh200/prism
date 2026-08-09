@@ -38,7 +38,13 @@ describe("createTypescriptPlugin", () => {
     const byName = Object.fromEntries(symbols.map((s) => [s.name, s]));
     expect(byName.answer?.kind).toBe("variable");
     expect(byName.answer?.exported).toBe(true);
-    expect(byName.greet?.kind).toBe("function");
+    // sample.ts has both `function greet` and `Greeter.greet` method
+    expect(
+      symbols.some((s) => s.name === "greet" && s.kind === "function"),
+    ).toBe(true);
+    expect(symbols.some((s) => s.name === "greet" && s.kind === "method")).toBe(
+      true,
+    );
     expect(byName.Greeter?.kind).toBe("class");
     expect(byName.Person?.kind).toBe("interface");
     expect(byName.Id?.kind).toBe("type");
@@ -133,6 +139,68 @@ describe("createTypescriptPlugin", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.imports.map((i) => i.source)).toContain("./mod.ts");
+  });
+
+  it("extracts MemberExpression / optional call refs with via:member (P-A4)", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "prism-member-"));
+    const path = join(dir, "svc.ts");
+    await writeFile(
+      path,
+      [
+        "export class Greeter {",
+        "  greet() { return 1; }",
+        "  run() { return 2; }",
+        "}",
+        "export function callAll(g: Greeter) {",
+        "  g.greet();",
+        "  g?.greet();",
+        "  return g.run();",
+        "}",
+      ].join("\n"),
+      "utf8",
+    );
+    const host = createAnalyzerHost({ plugins: [createTypescriptPlugin()] });
+    const result = await host.analyzeFile(path);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(
+      result.value.symbols.some(
+        (s) => s.name === "greet" && s.kind === "method",
+      ),
+    ).toBe(true);
+    const memberCalls = result.value.references.filter(
+      (r) => r.kind === "call" && r.via === "member",
+    );
+    expect(memberCalls.map((r) => r.name).sort()).toEqual([
+      "greet",
+      "greet",
+      "run",
+    ]);
+  });
+
+  it("extracts static require() and createRequire()(…) (P-E4)", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "prism-cjs-"));
+    const path = join(dir, "main.js");
+    await writeFile(
+      path,
+      [
+        'const { createRequire } = require("module");',
+        'const util = require("./util.js");',
+        'const again = createRequire(__filename)("./util.js");',
+        "module.exports = { util, again };",
+      ].join("\n"),
+      "utf8",
+    );
+    const host = createAnalyzerHost({ plugins: [createTypescriptPlugin()] });
+    const result = await host.analyzeFile(path);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const requires = result.value.imports.filter((i) => i.kind === "require");
+    expect(requires.map((i) => i.source).sort()).toEqual([
+      "./util.js",
+      "./util.js",
+      "module",
+    ]);
   });
 
   it("returns file-level diagnostics without failing analyze", async () => {

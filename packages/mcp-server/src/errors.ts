@@ -36,7 +36,12 @@ const JSON_RPC_CODE: Record<PrismErrorCode, ErrorCode> = {
 /** Map a Core failure onto the MCP wire, keeping the Prism code readable. */
 export function toMcpError(error: PrismError): McpError {
   const code = JSON_RPC_CODE[error.code] ?? ErrorCode.InternalError;
-  return new McpError(code, `${error.code}: ${error.message}`, error.details);
+  // Agents treat INDEX_REQUIRED as a retryable race during first open (M-058 / P-C7).
+  const message =
+    error.code === PrismErrorCode.INDEX_REQUIRED
+      ? `${error.code}: Index not ready yet — retry in a few seconds`
+      : `${error.code}: ${error.message}`;
+  return new McpError(code, message, error.details);
 }
 
 /**

@@ -44,10 +44,21 @@ describe("PrismError → MCP error (M-026)", () => {
     // MCP's error space is narrower than Prism's, so the specific code has to
     // survive somewhere an agent can still branch on it.
     const mapped = toMcpError(
+      prismError(PrismErrorCode.VALIDATION, "bad input"),
+    );
+    expect(mapped.message).toContain("PRISM_VALIDATION");
+    expect(mapped.message).toContain("bad input");
+  });
+
+  it("rewrites INDEX_REQUIRED into an actionable retry hint (M-058 / P-C7)", () => {
+    const mapped = toMcpError(
       prismError(PrismErrorCode.INDEX_REQUIRED, "index first"),
     );
     expect(mapped.message).toContain("PRISM_INDEX_REQUIRED");
-    expect(mapped.message).toContain("index first");
+    expect(mapped.message).toContain(
+      "Index not ready yet — retry in a few seconds",
+    );
+    expect(mapped.message).not.toContain("index first");
   });
 
   it("carries details through for diagnosis", () => {

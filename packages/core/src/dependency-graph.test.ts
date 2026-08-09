@@ -4,14 +4,16 @@ import { describe, expect, it } from "vitest";
 import { PrismErrorCode } from "@repo-prism/shared";
 import { Prism } from "./prism.js";
 
-const cyclesFixture = join(
+const fixturesRoot = join(
   dirname(fileURLToPath(import.meta.url)),
   "..",
   "..",
   "intelligence",
   "fixtures",
-  "m010-cycles",
 );
+
+const cyclesFixture = join(fixturesRoot, "m010-cycles");
+const unresolvedFixture = join(fixturesRoot, "m056-unresolved");
 
 describe("workspace dependency graph (M-010)", () => {
   it("requires an index before graph APIs", () => {
@@ -68,5 +70,38 @@ describe("workspace dependency graph (M-010)", () => {
       ok: true,
       value: [],
     });
+  });
+
+  it("surfaces unresolvedImports count and sample (M-056 / P-A1)", async () => {
+    const client = Prism.create();
+    const opened = client.openRepository(unresolvedFixture);
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) return;
+    const ws = opened.value;
+    const indexed = await ws.index();
+    expect(indexed.ok).toBe(true);
+    if (!indexed.ok) return;
+
+    const graph = ws.getDependencyGraph();
+    expect(graph.ok).toBe(true);
+    if (!graph.ok) return;
+    expect(graph.value.unresolvedImports?.count).toBeGreaterThan(0);
+    expect(graph.value.unresolvedImports?.sample.length).toBeGreaterThan(0);
+    expect(graph.value.unresolvedImports?.sample[0]).toContain(
+      "no-such-module",
+    );
+
+    const health = await ws.getHealth();
+    expect(health.ok).toBe(true);
+    if (!health.ok) return;
+    const parse = health.value.factors.find((f) => f.id === "parse_health");
+    expect(
+      parse?.breakdown?.some(
+        (b) =>
+          b.label === "Unresolved imports" &&
+          typeof b.value === "number" &&
+          b.value > 0,
+      ),
+    ).toBe(true);
   });
 });

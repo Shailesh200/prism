@@ -54,16 +54,22 @@ type PosNode = {
   readonly specifiers?: readonly PosNode[];
   readonly exported?: PosNode;
   readonly local?: PosNode;
-  readonly body?: PosNode | readonly PosNode[];
+  readonly body?:
+    | PosNode
+    | readonly PosNode[]
+    | { readonly body?: readonly PosNode[] };
   readonly callee?: PosNode;
+  readonly key?: PosNode;
+  readonly static?: boolean;
+  readonly kind?: string; // MethodDefinition kind: "method" | "constructor" | …
   readonly object?: PosNode;
   readonly property?: PosNode;
   readonly expression?: PosNode;
   readonly argument?: PosNode;
   readonly arguments?: readonly PosNode[];
   readonly init?: PosNode | null;
-  readonly key?: PosNode;
-  readonly value?: PosNode;
+  /** Object property value, or string/number literal value. */
+  readonly value?: PosNode | string | number | boolean | null;
   readonly elements?: readonly (PosNode | null)[];
   readonly properties?: readonly PosNode[];
   readonly params?: readonly PosNode[];
@@ -81,6 +87,8 @@ type PosNode = {
   readonly implements?: readonly PosNode[];
   readonly extends?: readonly PosNode[] | PosNode | null;
   readonly source?: PosNode | null;
+  readonly computed?: boolean;
+  readonly optional?: boolean;
 };
 
 function extensionOf(path: string): string {
@@ -150,6 +158,38 @@ function pushSymbol(
   out.push({ name, kind, start, end, exported });
 }
 
+function classBodyMembers(decl: PosNode): readonly PosNode[] {
+  const body = decl.body;
+  if (!body || typeof body !== "object") return [];
+  if (Array.isArray(body)) return body;
+  if ("body" in body && Array.isArray(body.body)) return body.body;
+  return [];
+}
+
+function collectClassMethods(
+  decl: PosNode,
+  exported: boolean,
+  out: ExtractedSymbol[],
+): void {
+  for (const member of classBodyMembers(decl)) {
+    if (
+      member.type !== "MethodDefinition" &&
+      member.type !== "TSMethodDefinition" &&
+      member.type !== "PropertyDefinition"
+    ) {
+      continue;
+    }
+    // Skip constructors and computed keys
+    if (member.kind === "constructor") continue;
+    if (member.computed === true) continue;
+    const key = member.key;
+    if (key?.type === "Identifier" && key.name) {
+      const kind = member.type === "PropertyDefinition" ? "property" : "method";
+      pushSymbol(out, key.name, kind, member, exported);
+    }
+  }
+}
+
 function collectFromDeclaration(
   decl: PosNode | null | undefined,
   exported: boolean,
@@ -162,6 +202,7 @@ function collectFromDeclaration(
       break;
     case "ClassDeclaration":
       pushSymbol(out, decl.id?.name, "class", decl, exported);
+      collectClassMethods(decl, exported, out);
       break;
     case "TSInterfaceDeclaration":
       pushSymbol(out, decl.id?.name, "interface", decl, exported);
@@ -283,36 +324,87 @@ function extractImportsFromModule(module: unknown): ExtractedImport[] {
   });
 }
 
+function stringLiteralArg(args: readonly PosNode[] | undefined): string | null {
+  const first = args?.[0];
+  if (!first) return null;
+  // Oxc may surface literals as Literal or as { type:"Literal", value }
+  if (first.type === "Literal" && typeof first.value === "string") {
+    return first.value.length > 0 ? first.value : null;
+  }
+  if (first.type === "StringLiteral" && typeof first.value === "string") {
+    return first.value.length > 0 ? first.value : null;
+  }
+  return null;
+}
+
+function pushImportRow(
+  out: ExtractedImport[],
+  source: string,
+  node: PosNode,
+  kind?: "import" | "require",
+): void {
+  const row: ExtractedImport = {
+    source,
+    specifiers: [],
+    ...(kind ? { kind } : {}),
+  };
+  if (typeof node.start === "number") {
+    out.push({
+      ...row,
+      start: node.start,
+      ...(typeof node.end === "number" ? { end: node.end } : {}),
+    });
+  } else {
+    out.push(row);
+  }
+}
+
 /** Static-string `import("…")` from the Oxc program AST (hard graph enrichment). */
 function extractDynamicImportsFromProgram(program: unknown): ExtractedImport[] {
   const out: ExtractedImport[] = [];
   const walk = (node: unknown): void => {
     if (!node || typeof node !== "object") return;
-    const n = node as {
-      type?: string;
-      start?: number;
-      end?: number;
-      source?: { type?: string; value?: unknown };
-    };
-    if (n.type === "ImportExpression") {
-      const src = n.source;
-      const lit =
-        src && src.type === "Literal" && typeof src.value === "string"
-          ? src.value
-          : null;
-      if (lit && lit.length > 0) {
-        const row: ExtractedImport = {
-          source: lit,
-          specifiers: [],
-        };
-        if (typeof n.start === "number") {
-          out.push({
-            ...row,
-            start: n.start,
-            ...(typeof n.end === "number" ? { end: n.end } : {}),
-          });
-        } else {
-          out.push(row);
+    const n = node as PosNode;
+    if (n.type === "ImportExpression" && n.source) {
+      const fromSrc = stringLiteralArg([n.source]);
+      if (fromSrc) pushImportRow(out, fromSrc, n);
+    }
+    for (const value of Object.values(n)) {
+      if (Array.isArray(value)) {
+        for (const item of value) walk(item);
+      } else if (
+        value &&
+        typeof value === "object" &&
+        "type" in (value as object)
+      ) {
+        walk(value);
+      }
+    }
+  };
+  walk(program);
+  return out;
+}
+
+/**
+ * Static `require("…")` and `createRequire(…)("…")` (M-059 / P-E4).
+ * Variable-bound require (after createRequire assignment) is out of scope.
+ */
+function extractRequireCallsFromProgram(program: unknown): ExtractedImport[] {
+  const out: ExtractedImport[] = [];
+  const walk = (node: unknown): void => {
+    if (!node || typeof node !== "object") return;
+    const n = node as PosNode;
+    if (n.type === "CallExpression" && n.callee) {
+      const lit = stringLiteralArg(n.arguments);
+      if (lit) {
+        if (n.callee.type === "Identifier" && n.callee.name === "require") {
+          pushImportRow(out, lit, n, "require");
+        } else if (
+          n.callee.type === "CallExpression" &&
+          n.callee.callee?.type === "Identifier" &&
+          n.callee.callee.name === "createRequire"
+        ) {
+          pushImportRow(out, lit, n, "require");
         }
       }
     }
@@ -369,10 +461,11 @@ function pushNamedRef(
   name: string | undefined,
   kind: string,
   node: PosNode | null | undefined,
+  via?: "member",
 ): void {
   if (!name) return;
   const { start, end } = range(node);
-  out.push({ name, kind, start, end });
+  out.push({ name, kind, start, end, ...(via ? { via } : {}) });
 }
 
 function heritageIdentifier(node: PosNode | null | undefined): PosNode | null {
@@ -382,12 +475,39 @@ function heritageIdentifier(node: PosNode | null | undefined): PosNode | null {
   return null;
 }
 
+/** Property name of a non-computed MemberExpression / OptionalMemberExpression. */
+function memberPropertyName(callee: PosNode): PosNode | null {
+  if (
+    callee.type !== "MemberExpression" &&
+    callee.type !== "OptionalMemberExpression" &&
+    callee.type !== "ChainExpression"
+  ) {
+    return null;
+  }
+  // Optional chaining may wrap: ChainExpression → MemberExpression
+  if (callee.type === "ChainExpression") {
+    return callee.expression ? memberPropertyName(callee.expression) : null;
+  }
+  // Skip computed: obj[expr]()
+  if ((callee as { computed?: boolean }).computed === true) return null;
+  const prop = callee.property;
+  if (prop?.type === "Identifier" && prop.name) return prop;
+  return null;
+}
+
 function walkReferences(node: unknown, out: ExtractedReference[]): void {
   if (!node || typeof node !== "object") return;
   const n = node as PosNode;
 
-  if (n.type === "CallExpression" && n.callee?.type === "Identifier") {
-    pushNamedRef(out, n.callee.name, "call", n.callee);
+  if (n.type === "CallExpression" && n.callee) {
+    if (n.callee.type === "Identifier") {
+      pushNamedRef(out, n.callee.name, "call", n.callee);
+    } else {
+      const prop = memberPropertyName(n.callee);
+      if (prop) {
+        pushNamedRef(out, prop.name, "call", prop, "member");
+      }
+    }
   }
 
   if (n.type === "ClassDeclaration" || n.type === "ClassExpression") {
@@ -512,11 +632,12 @@ export function createTypescriptPlugin(): LanguagePlugin {
       if (!gate.ok) return gate;
       const staticOnes = extractImportsFromModule(gate.value.module);
       const dynamicOnes = extractDynamicImportsFromProgram(gate.value.program);
-      // Dedupe by source+start
+      const requireOnes = extractRequireCallsFromProgram(gate.value.program);
+      // Dedupe by kind+source+start
       const seen = new Set<string>();
       const imports: ExtractedImport[] = [];
-      for (const imp of [...staticOnes, ...dynamicOnes]) {
-        const key = `${imp.source}\0${imp.start ?? ""}`;
+      for (const imp of [...staticOnes, ...dynamicOnes, ...requireOnes]) {
+        const key = `${imp.kind ?? "import"}\0${imp.source}\0${imp.start ?? ""}`;
         if (seen.has(key)) continue;
         seen.add(key);
         imports.push(imp);

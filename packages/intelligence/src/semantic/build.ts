@@ -65,12 +65,26 @@ export type ReferenceHit = {
   readonly start: number;
   readonly end: number;
   readonly targetSymbolId: string | null;
+  /** Present for member-call hints (`obj.prop()`) — low-confidence (M-059). */
+  readonly via?: "member";
+  readonly confidence?: "high" | "medium" | "low";
 };
 
 export type FindSymbolQuery = {
   readonly name: string;
   readonly path?: string;
   readonly kind?: string;
+};
+
+/** Substring or regex symbol search (M-058 / P-C10). Hard-capped at 50 hits. */
+export type SearchSymbolsQuery = {
+  readonly pattern: string;
+  /** When true, `pattern` is a JavaScript RegExp source. Default: substring. */
+  readonly regex?: boolean;
+  readonly path?: string;
+  readonly kind?: string;
+  /** Max hits (default 50, hard max 50). */
+  readonly limit?: number;
 };
 
 export type FindReferencesQuery = {
@@ -81,6 +95,20 @@ export type FindReferencesQuery = {
   /** Defining symbol start offset; further disambiguation. */
   readonly start?: number;
 };
+
+/**
+ * Result of {@link findReferences}. When multiple same-named symbols match and
+ * `path`/`start` were omitted, `ambiguous` is true and `candidates` lists them
+ * instead of unioning their references (M-059 / P-A3).
+ */
+export type FindReferencesResult = {
+  readonly references: readonly ReferenceHit[];
+  readonly ambiguous?: boolean;
+  readonly candidates?: readonly SymbolHit[];
+};
+
+/** Hard ceiling for {@link searchSymbols} — agents must not dump whole indexes. */
+export const SEARCH_SYMBOLS_MAX = 50;
 
 export type KnowledgeGraphResult = {
   readonly graph: GraphSnapshotDto;
@@ -165,19 +193,60 @@ function buildSymbolIndex(files: readonly IndexedFile[]): {
   return { symbols, byPath, byPathName };
 }
 
+/**
+ * Resolve an exported name in `file`, chasing re-export / `export *` edges
+ * cycle-safely to the defining module (M-059 / P-E5).
+ *
+ * Re-export stub symbols (analyzer kind `"export"` on `export { x } from`) are
+ * skipped in favour of the defining module.
+ */
 function resolveLocalExport(
   file: IndexedFile,
   name: string,
   byPathName: Map<string, SymbolRec[]>,
+  filesByPath: Map<string, IndexedFile>,
+  indexedPaths: ReadonlySet<string>,
+  packages: readonly LocalPackage[],
+  aliases: PathAliasMap,
+  seen: Set<string> = new Set(),
 ): SymbolRec | null {
-  const candidates = byPathName.get(`${file.path}\0${name}`) ?? [];
-  const exported = candidates.find((c) => c.exported);
-  if (exported) return exported;
-  if (candidates[0]) return candidates[0]!;
-  // Export table may list a name without a matching symbol row
-  if (file.exports.some((e) => e.name === name || e.name === "*")) {
-    return candidates[0] ?? null;
+  if (seen.has(file.path)) return null;
+  seen.add(file.path);
+
+  // Named re-export / export * — chase before accepting local stub symbols.
+  for (const exp of file.exports) {
+    if (exp.source === undefined) continue;
+    if (exp.name !== name && exp.name !== "*") continue;
+    const targetPath = resolveModuleTarget(
+      file.path,
+      exp.source,
+      indexedPaths,
+      packages,
+      aliases,
+    );
+    if (!targetPath) continue;
+    const targetFile = filesByPath.get(targetPath);
+    if (!targetFile) continue;
+    const hit = resolveLocalExport(
+      targetFile,
+      name,
+      byPathName,
+      filesByPath,
+      indexedPaths,
+      packages,
+      aliases,
+      seen,
+    );
+    if (hit) return hit;
   }
+
+  const candidates = byPathName.get(`${file.path}\0${name}`) ?? [];
+  // Prefer real definitions over re-export stub rows (kind "export").
+  const real =
+    candidates.find((c) => c.exported && c.kind !== "export") ??
+    candidates.find((c) => c.kind !== "export");
+  if (real) return real;
+  if (candidates[0]) return candidates[0]!;
   return null;
 }
 
@@ -206,7 +275,15 @@ function resolveReferenceTarget(
     if (!targetPath) continue;
     const targetFile = filesByPath.get(targetPath);
     if (!targetFile) continue;
-    const hit = resolveLocalExport(targetFile, ref.name, byPathName);
+    const hit = resolveLocalExport(
+      targetFile,
+      ref.name,
+      byPathName,
+      filesByPath,
+      indexedPaths,
+      packages,
+      aliases,
+    );
     if (hit) return hit;
   }
 
@@ -217,6 +294,7 @@ function resolveReferenceTarget(
   if (localDef) return localDef;
 
   // Same-file name (heritage inside class body still matches sibling types)
+  // Member-call hints also land here at low confidence (method / namespace).
   return locals.find((s) => s.name === ref.name) ?? null;
 }
 
@@ -297,6 +375,7 @@ export function buildKnowledgeGraph(
         packages,
         aliases,
       );
+      const memberVia = ref.via === "member";
       references.push({
         name: ref.name,
         kind: ref.kind,
@@ -304,6 +383,9 @@ export function buildKnowledgeGraph(
         start: ref.start,
         end: ref.end,
         targetSymbolId: target?.id ?? null,
+        ...(memberVia
+          ? { via: "member" as const, confidence: "low" as const }
+          : {}),
       });
 
       if (!target) continue;
@@ -332,6 +414,7 @@ export function buildKnowledgeGraph(
           start: ref.start,
           end: ref.end,
           name: ref.name,
+          ...(memberVia ? { via: "member", confidence: "low" } : {}),
         });
       }
     }
@@ -404,25 +487,81 @@ export function findSymbol(
     .sort((a, b) => a.id.localeCompare(b.id));
 }
 
+/**
+ * Substring or regex search over indexed symbol names (M-058 / P-C10).
+ * Throws `SyntaxError` when `regex` is set and `pattern` is not a valid RegExp.
+ */
+export function searchSymbols(
+  result: KnowledgeGraphResult,
+  query: SearchSymbolsQuery,
+): SymbolHit[] {
+  const limit = Math.min(
+    Math.max(query.limit ?? SEARCH_SYMBOLS_MAX, 1),
+    SEARCH_SYMBOLS_MAX,
+  );
+  const matcher = query.regex
+    ? (() => {
+        const re = new RegExp(query.pattern);
+        return (name: string): boolean => re.test(name);
+      })()
+    : (() => {
+        const needle = query.pattern.toLowerCase();
+        return (name: string): boolean => name.toLowerCase().includes(needle);
+      })();
+
+  return result.symbols
+    .filter((s) => {
+      if (!matcher(s.name)) return false;
+      if (query.path !== undefined && s.path !== query.path) return false;
+      if (query.kind !== undefined && s.kind !== query.kind) return false;
+      return true;
+    })
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .slice(0, limit);
+}
+
 export function findReferences(
   result: KnowledgeGraphResult,
   query: FindReferencesQuery,
-): ReferenceHit[] {
-  const targets = new Set(
-    result.symbols
-      .filter((s) => {
-        if (s.name !== query.name) return false;
-        if (query.path !== undefined && s.path !== query.path) return false;
-        if (query.start !== undefined && s.start !== query.start) return false;
-        return true;
-      })
-      .map((s) => s.id),
-  );
-  if (targets.size === 0) return [];
+): FindReferencesResult {
+  const matches = result.symbols
+    .filter((s) => {
+      if (s.name !== query.name) return false;
+      if (query.path !== undefined && s.path !== query.path) return false;
+      if (query.start !== undefined && s.start !== query.start) return false;
+      return true;
+    })
+    .sort((a, b) => a.id.localeCompare(b.id));
 
-  return result.references
+  // Homonym union guard (M-059 / P-A3): without path/start, refuse to merge
+  // references across same-named symbols in different files / offsets.
+  if (
+    matches.length > 1 &&
+    query.path === undefined &&
+    query.start === undefined
+  ) {
+    return {
+      references: [],
+      ambiguous: true,
+      candidates: matches.map((s) => ({
+        id: s.id,
+        name: s.name,
+        kind: s.kind,
+        path: s.path,
+        start: s.start,
+        end: s.end,
+        exported: s.exported,
+      })),
+    };
+  }
+
+  const targets = new Set(matches.map((s) => s.id));
+  if (targets.size === 0) return { references: [] };
+
+  const references = result.references
     .filter((r) => r.targetSymbolId !== null && targets.has(r.targetSymbolId))
     .sort((a, b) =>
       `${a.path}\0${a.start}`.localeCompare(`${b.path}\0${b.start}`),
     );
+  return { references };
 }

@@ -7,12 +7,29 @@
  */
 
 import { existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { PRISM_API_LEVEL, PRISM_CORE_VERSION } from "@repo-prism/core";
 import { ok } from "@repo-prism/shared";
 import { paint, renderFields, renderHeading, type Style } from "../output.js";
 import { wrap } from "../table.js";
 import type { CommandHandler } from "../runtime.js";
+
+/** Detect a shallow clone (M-057 P-B11). Exported for unit tests. */
+export function isShallowGitRepository(rootPath: string): boolean | null {
+  try {
+    const out = execFileSync(
+      "git",
+      ["-C", rootPath, "rev-parse", "--is-shallow-repository"],
+      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+    ).trim();
+    if (out === "true") return true;
+    if (out === "false") return false;
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 type Check = {
   readonly label: string;
@@ -58,6 +75,25 @@ export const doctorCommand: CommandHandler = async (context) => {
       ? "repository found"
       : "no .git — history-derived signals will be unavailable",
   });
+
+  // CI mode (M-057 P-B11): shallow clones truncate history-derived signals.
+  if (context.args.flag("ci") && isGitRepo) {
+    const shallow = isShallowGitRepository(context.workspace.path);
+    if (shallow === true) {
+      checks.push({
+        label: "Shallow clone",
+        status: "warn",
+        detail:
+          "git rev-parse --is-shallow-repository=true — history-derived signals (ownership, churn, health history) will be incomplete. Fetch with --unshallow or fetch-depth: 0 in CI.",
+      });
+    } else if (shallow === false) {
+      checks.push({
+        label: "Shallow clone",
+        status: "ok",
+        detail: "full history available",
+      });
+    }
+  }
 
   const cacheDir = join(context.workspace.path, ".prism", "cache");
   const hasCache = existsSync(cacheDir);

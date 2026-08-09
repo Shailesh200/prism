@@ -17,21 +17,15 @@ export type DomainsScreenProps = {
 
 /**
  * Domains explorer — lists stack domains detected in the repo (same set as
- * Codebase Profile). Opening a detected domain launches its dedicated screen.
+ * DNA Analysis profile). Opening a detected domain launches its dedicated screen.
  */
 export function DomainsScreen(props: DomainsScreenProps): ReactElement {
-  const domains = (() => {
-    const base = [...(props.dna?.stack?.domains ?? [])];
-    // Always offer DevOps from local CI overlays — Remote Git toggle is fetch-only.
-    if (!base.includes("devops_platform")) {
-      base.push("devops_platform");
-    }
-    return base;
-  })();
+  const dnaLoading = props.dna === null;
+  const stackDomains = props.dna?.stack?.domains ?? [];
   const signals = props.dna?.stack?.signals ?? [];
   const subtitle = [props.repoLabel, props.branch].filter(Boolean).join(" · ");
   const detectedCount = DOMAIN_CATALOG.filter((d) =>
-    domains.includes(d.id),
+    stackDomains.includes(d.id),
   ).length;
 
   const confidence = (id: string): number =>
@@ -71,24 +65,30 @@ export function DomainsScreen(props: DomainsScreenProps): ReactElement {
         </header>
 
         <div className="ov-scroll">
-          <div className="dm-explore__intro">
-            <Compass size={18} aria-hidden />
-            <div>
-              <p className="dm-explore__lead">
-                {detectedCount > 0
-                  ? `${detectedCount} domain${detectedCount === 1 ? "" : "s"} detected in this workspace`
-                  : "No stack domains detected yet"}
-              </p>
-              <p className="dm-explore__sub">
-                Same domains as Codebase Profile. Open a detected domain to run
-                its opt-in analysis.
-              </p>
+          {dnaLoading ? (
+            <p className="ov-empty">Detecting domains…</p>
+          ) : (
+            <div className="dm-explore__intro">
+              <Compass size={18} aria-hidden />
+              <div>
+                <p className="dm-explore__lead">
+                  {detectedCount > 0
+                    ? `${detectedCount} domain${detectedCount === 1 ? "" : "s"} detected in this workspace`
+                    : "No stack domains detected yet"}
+                </p>
+                <p className="dm-explore__sub">
+                  Same domains as DNA Analysis profile. Open a detected domain
+                  to run its opt-in analysis.
+                </p>
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="dm-explore__grid">
             {DOMAIN_CATALOG.map((d) => {
-              const detected = domains.includes(d.id);
+              const stackDetected = stackDomains.includes(d.id);
+              const devOpsAlways = d.id === "devops_platform" && !stackDetected;
+              const available = stackDetected || devOpsAlways;
               const Icon = d.icon;
               const conf = confidence(d.id);
               const tech = techSignals(d.id);
@@ -96,7 +96,7 @@ export function DomainsScreen(props: DomainsScreenProps): ReactElement {
                 <article
                   key={d.id}
                   className="ov-card dm-explore__card"
-                  data-on={detected ? "true" : "false"}
+                  data-on={available ? "true" : "false"}
                 >
                   <div className="dm-explore__head">
                     <span className="dm-explore__icon" aria-hidden>
@@ -104,8 +104,12 @@ export function DomainsScreen(props: DomainsScreenProps): ReactElement {
                     </span>
                     <div className="dm-explore__titles">
                       <span className="dm-explore__name">{d.label}</span>
-                      {detected ? (
+                      {stackDetected ? (
                         <span className="dm-explore__badge">Detected</span>
+                      ) : devOpsAlways ? (
+                        <span className="dm-explore__badge">
+                          Always available
+                        </span>
                       ) : (
                         <span className="dm-explore__badge dm-explore__badge--off">
                           Not detected
@@ -114,7 +118,7 @@ export function DomainsScreen(props: DomainsScreenProps): ReactElement {
                     </div>
                   </div>
                   <p className="dm-explore__desc">{d.description}</p>
-                  {detected ? (
+                  {available ? (
                     <>
                       <div className="dm-explore__meta">
                         <span className="ov-mono">

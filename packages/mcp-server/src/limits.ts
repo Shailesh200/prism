@@ -65,3 +65,69 @@ export function boundList<T>(
     limit,
   };
 }
+
+export type DegreeNode = {
+  readonly id: string;
+  readonly kind: string;
+  readonly label: string;
+  readonly degree: number;
+};
+
+type GraphLike = {
+  readonly nodes: readonly {
+    readonly id: string;
+    readonly kind: string;
+    readonly label: string;
+  }[];
+  readonly edges: readonly {
+    readonly id: string;
+    readonly kind: string;
+    readonly from: string;
+    readonly to: string;
+  }[];
+};
+
+/** Rank nodes by undirected degree; used by graph `summaryOnly` mode (M-058). */
+export function topDegreeNodes(
+  graph: GraphLike,
+  requested: number | undefined,
+): BoundedList<DegreeNode> {
+  const degree = new Map<string, number>();
+  for (const node of graph.nodes) degree.set(node.id, 0);
+  for (const edge of graph.edges) {
+    degree.set(edge.from, (degree.get(edge.from) ?? 0) + 1);
+    degree.set(edge.to, (degree.get(edge.to) ?? 0) + 1);
+  }
+  const ranked = [...graph.nodes]
+    .map((node) => ({
+      id: node.id,
+      kind: node.kind,
+      label: node.label,
+      degree: degree.get(node.id) ?? 0,
+    }))
+    .sort((a, b) => b.degree - a.degree || a.id.localeCompare(b.id));
+  return boundList(ranked, requested);
+}
+
+/**
+ * Bound a graph to `limit` nodes (by input order) and keep only edges between
+ * retained nodes. Envelope fields describe the node truncation (M-058 / P-C2).
+ */
+export function boundGraph<
+  TNode extends { readonly id: string },
+  TEdge extends {
+    readonly from: string;
+    readonly to: string;
+  },
+>(
+  nodes: readonly TNode[],
+  edges: readonly TEdge[],
+  requested: number | undefined,
+): BoundedList<TNode> & { readonly edges: readonly TEdge[] } {
+  const limited = boundList(nodes, requested);
+  const keep = new Set(limited.items.map((node) => node.id));
+  return {
+    ...limited,
+    edges: edges.filter((edge) => keep.has(edge.from) && keep.has(edge.to)),
+  };
+}

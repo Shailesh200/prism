@@ -1,0 +1,230 @@
+name: Prism Review
+description: >
+  Run prism review on a pull request — JSON artifact, optional SARIF for code
+  scanning, and a sticky PR comment with risk band, per-file blast, and tests
+  to run.
+author: Prism
+branding:
+  icon: git-pull-request
+  color: blue
+
+inputs:
+  fail-on:
+    description: Exit 1 when overall risk is at or above this band (low, mid, high)
+    required: false
+    default: high
+  base:
+    description: >
+      Git revision to diff against. Defaults to the pull request base SHA when
+      available, otherwise origin/main.
+    required: false
+    default: ""
+  version:
+    description: npm version (or dist-tag) of @repo-prism/cli to install
+    required: false
+    default: latest
+  prism-command:
+    description: >
+      Override the prism binary invocation (for dogfooding a workspace build).
+      Example: node packages/cli/dist/cli.js
+    required: false
+    default: ""
+  comment:
+    description: Post or update a sticky PR comment from the review JSON
+    required: false
+    default: "true"
+  upload-sarif:
+    description: Also emit SARIF and upload with github/codeql-action/upload-sarif
+    required: false
+    default: "false"
+  working-directory:
+    description: Repository subdirectory to analyse
+    required: false
+    default: "."
+  node-version:
+    description: Node.js version for setup-node (Prism requires >=22)
+    required: false
+    default: "22"
+
+outputs:
+  review-path:
+    description: Path to the written review JSON
+    value: ${{ steps.review.outputs.review-path }}
+  sarif-path:
+    description: Path to the written SARIF file (when upload-sarif is true)
+    value: ${{ steps.sarif.outputs.sarif-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Require full git history
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        if [ "$(git rev-parse --is-shallow-repository 2>/dev/null || echo true)" = "true" ]; then
+          echo "::error::Prism review needs a full clone. Set fetch-depth: 0 on actions/checkout."
+          exit 1
+        fi
+
+    - name: Setup Node.js
+      if: ${{ inputs.prism-command == '' }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm
+
+    - name: Cache npm
+      if: ${{ inputs.prism-command == '' }}
+      uses: actions/cache@v4
+      with:
+        path: ~/.npm
+        key: prism-npm-${{ runner.os }}-${{ inputs.version }}-${{ hashFiles('**/package-lock.json', '**/npm-shrinkwrap.json') }}
+        restore-keys: |
+          prism-npm-${{ runner.os }}-${{ inputs.version }}-
+          prism-npm-${{ runner.os }}-
+
+    - name: Cache Prism index
+      uses: actions/cache@v4
+      with:
+        path: ${{ inputs.working-directory }}/.prism
+        key: prism-index-${{ runner.os }}-${{ hashFiles('**/package.json', '**/bun.lock', '**/package-lock.json') }}
+        restore-keys: |
+          prism-index-${{ runner.os }}-
+
+    - name: Install Prism CLI
+      if: ${{ inputs.prism-command == '' }}
+      shell: bash
+      run: npm install -g "@repo-prism/cli@${{ inputs.version }}"
+
+    - name: Resolve base revision
+      id: base
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.base }}" ]; then
+          echo "ref=${{ inputs.base }}" >> "$GITHUB_OUTPUT"
+        elif [ -n "${{ github.event.pull_request.base.sha }}" ]; then
+          echo "ref=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+        else
+          echo "ref=origin/main" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Run prism review
+      id: review
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        PRISM_BIN: ${{ inputs.prism-command }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        BASE_REF: ${{ steps.base.outputs.ref }}
+      run: |
+        set -euo pipefail
+        mkdir -p "${RUNNER_TEMP}/prism"
+        REVIEW_PATH="${RUNNER_TEMP}/prism/review.json"
+        run_prism() {
+          if [ -n "${PRISM_BIN}" ]; then
+            # Caller-supplied invocation, e.g. `node packages/cli/dist/cli.js`.
+            # shellcheck disable=SC2086
+            ${PRISM_BIN} "$@"
+          else
+            prism "$@"
+          fi
+        }
+        # Capture JSON even when --fail-on trips (exit 1); fail the step after upload/comment.
+        set +e
+        run_prism review --base "${BASE_REF}" --fail-on "${FAIL_ON}" --json > "${REVIEW_PATH}"
+        CODE=$?
+        set -e
+        echo "review-path=${REVIEW_PATH}" >> "$GITHUB_OUTPUT"
+        echo "exit-code=${CODE}" >> "$GITHUB_OUTPUT"
+        if [ "${CODE}" -ne 0 ] && [ "${CODE}" -ne 1 ]; then
+          echo "::error::prism review failed with exit ${CODE}"
+          cat "${REVIEW_PATH}" || true
+          exit "${CODE}"
+        fi
+
+    - name: Upload review JSON
+      uses: actions/upload-artifact@v4
+      with:
+        name: prism-review
+        path: ${{ steps.review.outputs.review-path }}
+        if-no-files-found: error
+
+    - name: Render sticky comment
+      if: ${{ inputs.comment == 'true' && github.event_name == 'pull_request' }}
+      shell: bash
+      env:
+        REVIEW_PATH: ${{ steps.review.outputs.review-path }}
+      run: |
+        node "${{ github.action_path }}/render-comment.mjs" "${REVIEW_PATH}" > "${RUNNER_TEMP}/prism/comment.md"
+
+    - name: Post sticky PR comment
+      if: ${{ inputs.comment == 'true' && github.event_name == 'pull_request' }}
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const marker = '<!-- prism-review-sticky -->';
+          const body = fs.readFileSync(`${process.env.RUNNER_TEMP}/prism/comment.md`, 'utf8');
+          const { owner, repo } = context.repo;
+          const issue_number = context.issue.number;
+          const { data: comments } = await github.rest.issues.listComments({
+            owner,
+            repo,
+            issue_number,
+            per_page: 100,
+          });
+          const existing = comments.find((c) => c.body && c.body.includes(marker));
+          if (existing) {
+            await github.rest.issues.updateComment({
+              owner,
+              repo,
+              comment_id: existing.id,
+              body,
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body,
+            });
+          }
+
+    - name: Emit SARIF
+      id: sarif
+      if: ${{ inputs.upload-sarif == 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        PRISM_BIN: ${{ inputs.prism-command }}
+        BASE_REF: ${{ steps.base.outputs.ref }}
+      run: |
+        set -euo pipefail
+        run_prism() {
+          if [ -n "${PRISM_BIN}" ]; then
+            # shellcheck disable=SC2086
+            ${PRISM_BIN} "$@"
+          else
+            prism "$@"
+          fi
+        }
+        SARIF_PATH="${RUNNER_TEMP}/prism/review.sarif"
+        run_prism review --base "${BASE_REF}" --format sarif > "${SARIF_PATH}" || true
+        echo "sarif-path=${SARIF_PATH}" >> "$GITHUB_OUTPUT"
+
+    - name: Upload SARIF
+      if: ${{ inputs.upload-sarif == 'true' }}
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ steps.sarif.outputs.sarif-path }}
+        category: prism-review
+
+    - name: Apply --fail-on exit code
+      shell: bash
+      env:
+        CODE: ${{ steps.review.outputs.exit-code }}
+      run: |
+        if [ "${CODE}" = "1" ]; then
+          echo "::error::prism review found risk at or above the configured --fail-on band"
+          exit 1
+        fi

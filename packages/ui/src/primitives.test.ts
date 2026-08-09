@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  EmptyState,
   InfoTip,
   Input,
   PACKAGE_NAME,
@@ -28,5 +29,6 @@ describe("design-system primitives exports", () => {
     expect(typeof Tabs).toBe("function");
     expect(typeof Tooltip).toBe("function");
     expect(InfoTip).toBe(Tooltip);
+    expect(typeof EmptyState).toBe("function");
   });
 });

@@ -9,5 +9,9 @@
     "types": ["react", "react-dom"]
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
-  "references": [{ "path": "../shared" }, { "path": "../ui" }]
+  "references": [
+    { "path": "../shared" },
+    { "path": "../ui" },
+    { "path": "../intelligence" }
+  ]
 }

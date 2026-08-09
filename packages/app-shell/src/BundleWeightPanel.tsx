@@ -7,7 +7,7 @@ import type {
   BundleChunk,
   BundleWeightReport,
 } from "@repo-prism/shared";
-import { InfoTip, Select } from "@repo-prism/ui";
+import { formatPrismDate, InfoTip, Select } from "@repo-prism/ui";
 import {
   AlertTriangle,
   Boxes,
@@ -39,26 +39,13 @@ function fileNameOnly(path: string): string {
 }
 
 function formatWhen(iso: string): string {
-  const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return iso;
-  try {
-    return new Date(t).toLocaleString(undefined, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-  } catch {
-    return iso;
-  }
+  return formatPrismDate(iso, "datetime") || iso;
 }
 
 function relativeTime(isoOrMs: string | number): string {
-  const t = typeof isoOrMs === "number" ? isoOrMs : Date.parse(isoOrMs);
-  if (!Number.isFinite(t)) return "—";
-  const sec = Math.max(0, Math.round((Date.now() - t) / 1000));
-  if (sec < 60) return `${sec}s ago`;
-  if (sec < 3600) return `${Math.round(sec / 60)}m ago`;
-  if (sec < 86400) return `${Math.round(sec / 3600)}h ago`;
-  return `${Math.round(sec / 86400)}d ago`;
+  const iso =
+    typeof isoOrMs === "number" ? new Date(isoOrMs).toISOString() : isoOrMs;
+  return formatPrismDate(iso, "relative") || "—";
 }
 
 function readStore<T>(key: string): T | null {

@@ -32,6 +32,22 @@ const SEVERITY_RANK: Record<BreakingChangeHint["severity"], number> = {
   info: 2,
 };
 
+/** Cap on forward-dependency rows returned on a blast report (M-056 / P-A5). */
+export const FORWARD_DEPENDENCIES_LIMIT = 80;
+
+/**
+ * Dependency classes blast radius cannot observe (M-056 / P-A7).
+ * Static — always attached so agents and humans know the blind spots.
+ */
+export const BLAST_COVERAGE_LIMITATIONS: readonly string[] = [
+  "Dependency-injection container bindings",
+  "String-keyed registries and service locators",
+  "Event bus / pub-sub subscribers",
+  "Template and i18n string references",
+  "Runtime-loaded configuration paths",
+  "Generated-code consumers outside the index",
+];
+
 /**
  * Deterministic breaking-change hints for a blast-radius result, derived from
  * the origin path, immediate fan-in, test coverage, and truncation. Sorted by
@@ -118,7 +134,11 @@ function blastBreakingChanges(args: {
 function collectForwardDependencies(
   originPath: string,
   context: ImpactContext,
-): ForwardDependencyItem[] {
+): {
+  items: ForwardDependencyItem[];
+  truncated: boolean;
+  totalCount: number;
+} {
   const items: ForwardDependencyItem[] = [];
   const seen = new Set<string>();
   const prefix = `${FILE_PREFIX}${originPath}`;
@@ -157,7 +177,14 @@ function collectForwardDependencies(
     }
   }
 
-  return items.sort((a, b) => a.path.localeCompare(b.path)).slice(0, 80);
+  const sorted = items.sort((a, b) => a.path.localeCompare(b.path));
+  const totalCount = sorted.length;
+  const sliced = sorted.slice(0, FORWARD_DEPENDENCIES_LIMIT);
+  return {
+    items: sliced,
+    truncated: totalCount > sliced.length,
+    totalCount,
+  };
 }
 
 function buildScenarioChecklist(args: {
@@ -253,7 +280,12 @@ export function computeBlastRadius(
 ): Result<BlastRadiusReport, PrismError> {
   const result = computeAffected(origin, options);
   if (!result.ok) return result;
-  const { originPath, affected: hardMap, truncated } = result.value;
+  const {
+    originPath,
+    affected: hardMap,
+    truncated,
+    resolutionNote,
+  } = result.value;
 
   const { softOnly, softDepth1 } = mergeSoftAffected(
     originPath,
@@ -303,7 +335,7 @@ export function computeBlastRadius(
   const exposeLaneMeta =
     softCount > 0 || softTruncated || criticality !== "none";
 
-  const forwardDependencies = collectForwardDependencies(originPath, options);
+  const forward = collectForwardDependencies(originPath, options);
   const scenarioChecklist = buildScenarioChecklist({
     testsLikelyAffected,
     affectedFiles: affectedFiles.map((f) => ({
@@ -332,7 +364,14 @@ export function computeBlastRadius(
     }),
     originRole,
     intent,
-    ...(forwardDependencies.length > 0 ? { forwardDependencies } : {}),
+    coverageLimitations: [...BLAST_COVERAGE_LIMITATIONS],
+    ...(forward.items.length > 0 ? { forwardDependencies: forward.items } : {}),
+    ...(forward.totalCount > 0
+      ? {
+          forwardDependenciesTotalCount: forward.totalCount,
+          ...(forward.truncated ? { forwardDependenciesTruncated: true } : {}),
+        }
+      : {}),
     ...(scenarioChecklist.length > 0 ? { scenarioChecklist } : {}),
     ...(reportTruncated ? { truncated: true } : {}),
     ...(exposeLaneMeta
@@ -347,6 +386,7 @@ export function computeBlastRadius(
       : softTruncated
         ? { coverageNote: "Soft impact matches were truncated." }
         : {}),
+    ...(resolutionNote ? { resolutionNote } : {}),
   };
   return ok(report);
 }

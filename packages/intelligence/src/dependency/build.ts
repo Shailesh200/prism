@@ -1,5 +1,6 @@
 import { nodesFromIndexSnapshot } from "@repo-prism/graph-engine";
 import {
+  isTypeDeclarationPath,
   type GraphEdgeDto,
   type GraphNodeDto,
   type GraphSnapshotDto,
@@ -34,7 +35,7 @@ export type DependencyGraphOptions = {
 export type UnresolvedDependency = {
   readonly from: string;
   readonly source: string;
-  readonly kind: "import" | "re-export";
+  readonly kind: "import" | "re-export" | "require";
   readonly reason: string;
 };
 
@@ -52,10 +53,12 @@ export type DependencyGraphResult = {
 type FileEdge = {
   fromPath: string;
   toPath: string;
-  kind: "import" | "re-export";
+  kind: "import" | "re-export" | "require";
   source: string;
   /** Named import/export bindings when known (for evidence). */
   specifiers?: readonly string[];
+  /** True for edges originating in `.d.ts` (M-059 / P-E7). */
+  typeOnly?: boolean;
 };
 
 function fileNodeId(path: string): string {
@@ -100,7 +103,7 @@ function collectFileEdges(
         snapshot.rootPath,
         snapshot.files.map((f) => f.path),
       )
-    : { rules: [] };
+    : { rules: [], configs: [] };
 
   const pushEdge = (e: FileEdge) => {
     const key = `${e.kind}\0${e.fromPath}\0${e.toPath}`;
@@ -111,8 +114,10 @@ function collectFileEdges(
 
   for (const file of snapshot.files) {
     if (file.status !== "analyzed") continue;
+    const fromDts = isTypeDeclarationPath(file.path);
 
     for (const imp of file.imports) {
+      const edgeKind = imp.kind === "require" ? "require" : "import";
       if (!isRelativeSpecifier(imp.source)) {
         const hit = resolveNonRelativeTarget(
           file.path,
@@ -126,11 +131,12 @@ function collectFileEdges(
           pushEdge({
             fromPath: file.path,
             toPath: hit,
-            kind: "import",
+            kind: edgeKind,
             source: imp.source,
             ...(imp.specifiers.length > 0
               ? { specifiers: imp.specifiers }
               : {}),
+            ...(fromDts ? { typeOnly: true } : {}),
           });
           continue;
         }
@@ -138,14 +144,14 @@ function collectFileEdges(
           unresolved.push({
             from: file.path,
             source: imp.source,
-            kind: "import",
+            kind: edgeKind,
             reason: "bare_specifier",
           });
         } else {
           unresolved.push({
             from: file.path,
             source: imp.source,
-            kind: "import",
+            kind: edgeKind,
             reason: "unsupported_specifier",
           });
         }
@@ -164,18 +170,19 @@ function collectFileEdges(
           pushEdge({
             fromPath: file.path,
             toPath: asDir,
-            kind: "import",
+            kind: edgeKind,
             source: imp.source,
             ...(imp.specifiers.length > 0
               ? { specifiers: imp.specifiers }
               : {}),
+            ...(fromDts ? { typeOnly: true } : {}),
           });
           continue;
         }
         unresolved.push({
           from: file.path,
           source: imp.source,
-          kind: "import",
+          kind: edgeKind,
           reason: "unresolved_relative",
         });
         continue;
@@ -183,9 +190,10 @@ function collectFileEdges(
       pushEdge({
         fromPath: file.path,
         toPath: target,
-        kind: "import",
+        kind: edgeKind,
         source: imp.source,
         ...(imp.specifiers.length > 0 ? { specifiers: imp.specifiers } : {}),
+        ...(fromDts ? { typeOnly: true } : {}),
       });
     }
 
@@ -206,6 +214,7 @@ function collectFileEdges(
             toPath: hit,
             kind: "re-export",
             source: exp.source,
+            ...(fromDts ? { typeOnly: true } : {}),
           });
           continue;
         }
@@ -233,6 +242,7 @@ function collectFileEdges(
             toPath: asDir,
             kind: "re-export",
             source: exp.source,
+            ...(fromDts ? { typeOnly: true } : {}),
           });
           continue;
         }
@@ -249,6 +259,7 @@ function collectFileEdges(
         toPath: target,
         kind: "re-export",
         source: exp.source,
+        ...(fromDts ? { typeOnly: true } : {}),
       });
     }
   }
@@ -306,6 +317,7 @@ function buildFileGraph(
       ...(e.specifiers && e.specifiers.length > 0
         ? { specifiers: [...e.specifiers] }
         : {}),
+      ...(e.typeOnly ? { typeOnly: true } : {}),
     },
   }));
   return {

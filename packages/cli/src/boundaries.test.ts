@@ -52,6 +52,13 @@ describe("package boundaries (ADR-0004)", () => {
     // (M-036 Phase 1.7).
     const GATED = [
       "stageDevopsRemote",
+      "fetchGithubWorkflows",
+      "fetchGithubWorkflowRuns",
+      "fetchGithubRepo",
+      "fetchGithubAuthenticatedLogin",
+      "testGithubRepoConnection",
+      "dispatchGithubWorkflow",
+      "fetchPagespeedMetrics",
       "startUtilityJob",
       "runWorkspaceTests",
       "setConsent",

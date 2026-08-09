@@ -4,8 +4,10 @@ import {
   activityGeometry,
   bucketActivity,
   clampPct,
+  connectedNodeLabel,
   couplingBadge,
   couplingDensity,
+  couplingDensityPct,
   deriveMostConnected,
   deriveRegions,
   domainDisplayName,
@@ -96,7 +98,7 @@ describe("deriveRegions", () => {
       { from: "f1", to: "p1" },
       { from: "p1", to: "f1" },
     ];
-    const regions = deriveRegions(graph(nodes, edges));
+    const { regions } = deriveRegions(graph(nodes, edges));
     expect(regions.map((r) => r.id)).toEqual(["f1", "p1"]);
     const auth = regions[0]!;
     expect(auth.files).toBe(2);
@@ -108,7 +110,7 @@ describe("deriveRegions", () => {
   });
 
   it("uses fileCount / path-prefix fallbacks and omits empty zero-degree scores", () => {
-    const regions = deriveRegions(
+    const { regions } = deriveRegions(
       graph(
         [
           {
@@ -129,7 +131,7 @@ describe("deriveRegions", () => {
   });
 
   it("counts child file nodes by rootDir prefix when memberFiles is missing", () => {
-    const regions = deriveRegions(
+    const { regions } = deriveRegions(
       graph(
         [
           {
@@ -154,6 +156,15 @@ describe("domainDisplayName", () => {
   it("shortens devops_platform and title-cases other ids", () => {
     expect(domainDisplayName("devops_platform")).toBe("Devops");
     expect(domainDisplayName("frontend")).toBe("Frontend");
+  });
+});
+
+describe("connectedNodeLabel", () => {
+  it("appends non-file kinds and leaves file labels unchanged", () => {
+    expect(connectedNodeLabel({ label: "a.ts", kind: "file" })).toBe("a.ts");
+    expect(connectedNodeLabel({ label: "Auth", kind: "feature" })).toBe(
+      "Auth (Feature)",
+    );
   });
 });
 
@@ -199,6 +210,31 @@ describe("activityGeometry", () => {
     const single = activityGeometry([5]);
     expect(single.total).toBe(5);
     expect(single.line.includes("NaN")).toBe(false);
+  });
+
+  it("honours an explicit domain so a flat 50/100 renders at mid-height", () => {
+    const g = activityGeometry([50, 50], 600, 200, 10, { min: 0, max: 100 });
+    // y = 200 - 10 - (50/100) * 180 = 100 — not the top of the chart.
+    expect(g.points.map(([, y]) => y)).toEqual([100, 100]);
+    expect(g.line).toBe("10,100 590,100");
+  });
+
+  it("defaults to the series max for unbounded counts", () => {
+    const g = activityGeometry([50, 100], 600, 200, 10);
+    expect(g.points.map(([, y]) => y)).toEqual([100, 10]);
+  });
+
+  it("clamps out-of-domain values to the chart edges", () => {
+    const g = activityGeometry([-5, 150], 600, 200, 10, { min: 0, max: 100 });
+    expect(g.points.map(([, y]) => y)).toEqual([190, 10]);
+  });
+});
+
+describe("couplingDensityPct", () => {
+  it("is the shared meter scale — density 1.0 fills the meter", () => {
+    expect(couplingDensityPct(0.5)).toBe(50);
+    expect(couplingDensityPct(1)).toBe(100);
+    expect(couplingDensityPct(1.5)).toBe(100);
   });
 });
 

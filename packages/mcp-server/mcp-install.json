@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "prism": {
+      "command": "npx",
+      "args": ["-y", "@repo-prism/mcp-server"]
+    }
+  }
+}

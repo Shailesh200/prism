@@ -8,8 +8,9 @@
  * choosing between near-identical descriptions.
  */
 
-import { PrismErrorCode, err, prismError } from "@repo-prism/shared";
+import { PrismErrorCode, err, ok, prismError } from "@repo-prism/shared";
 import { z } from "zod";
+import { boundList, limitInput } from "../limits.js";
 import { toWorkspaceRelative } from "../paths.js";
 import { defineTool } from "../tool-registry.js";
 
@@ -60,7 +61,7 @@ export const exploreCode = defineTool({
   name: "explore_code",
   title: "Explore code",
   description:
-    "Everything about one file or symbol in a single call: usages, ownership, related and similar code, and a change timeline. Use when asked to understand a specific thing rather than the repository as a whole.",
+    "Everything about one file or symbol in a single call: usages, ownership, related and similar code, and a change timeline. Usages are bounded (default 50) via a nested envelope so large files do not drown the response. Use when asked to understand a specific thing rather than the repository as a whole.",
   inputSchema: {
     kind: z.enum(["file", "symbol"]).describe("What the target is."),
     path: z
@@ -79,6 +80,7 @@ export const exploreCode = defineTool({
       .nonnegative()
       .optional()
       .describe("Declaration start offset, to disambiguate a symbol."),
+    limit: limitInput,
   },
   async call({ workspace, workspaceRoot }, args) {
     const path = args.path
@@ -86,31 +88,36 @@ export const exploreCode = defineTool({
       : undefined;
     if (path && !path.ok) return path;
 
-    if (args.kind === "file") {
-      if (!path?.ok) {
-        return err(
-          prismError(
-            PrismErrorCode.VALIDATION,
-            "A 'file' target requires `path`",
-          ),
-        );
-      }
-      return workspace.exploreCode({ kind: "file", path: path.value });
-    }
+    const report =
+      args.kind === "file"
+        ? !path?.ok
+          ? err(
+              prismError(
+                PrismErrorCode.VALIDATION,
+                "A 'file' target requires `path`",
+              ),
+            )
+          : await workspace.exploreCode({ kind: "file", path: path.value })
+        : !args.name
+          ? err(
+              prismError(
+                PrismErrorCode.VALIDATION,
+                "A 'symbol' target requires `name`",
+              ),
+            )
+          : await workspace.exploreCode({
+              kind: "symbol",
+              name: args.name,
+              ...(path?.ok ? { path: path.value } : {}),
+              ...(args.start === undefined ? {} : { start: args.start }),
+            });
 
-    if (!args.name) {
-      return err(
-        prismError(
-          PrismErrorCode.VALIDATION,
-          "A 'symbol' target requires `name`",
-        ),
-      );
-    }
-    return workspace.exploreCode({
-      kind: "symbol",
-      name: args.name,
-      ...(path?.ok ? { path: path.value } : {}),
-      ...(args.start === undefined ? {} : { start: args.start }),
+    if (!report.ok) return report;
+    const usages = boundList(report.value.usages, args.limit);
+    return ok({
+      ...report.value,
+      usages: usages.items,
+      usagesEnvelope: usages,
     });
   },
 });

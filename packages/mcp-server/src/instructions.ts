@@ -15,16 +15,17 @@ When to call (map user intent → tool):
 - Health, quality, “how bad is this?”, tech debt headline → repository_health (deep dive → engineering_health; trends → health_history)
 - Layout, architecture, map, packages, features → repository_map, list_packages, list_features, stack_profile
 - “What is this file/folder for?”, ownership → explain_area or explore_code
-- Find a symbol / who calls it / how A reaches B → find_symbol, find_references, dependency_route
-- Cycles, coupling, import graph → dependency_cycles, dependency_graph
+- Find a symbol / who calls it / how A reaches B → find_symbol or search_symbols, find_references, dependency_route
+- Cycles, coupling, import graph → dependency_cycles, dependency_graph (prefer summaryOnly / limit)
 - BEFORE editing unfamiliar or risky code → blast_radius on that file/symbol (required habit)
 - BEFORE deleting → safe_delete; BEFORE renaming → rename_impact; which tests to run → test_impact
-- Reviewing a diff / PR / “what did I break?” → review_changes
+- Reviewing a diff / PR / “what did I break?” → review_changes (omit paths to auto-discover; or changed_paths first)
 - Backend / testing / security posture → backend_report, testing_report, security_report
+- Session readiness / “is indexing done?” → workspace_status; what is unavailable vs unsupported → capabilities
 
 Rules:
 - Tools are read-only. Call them freely; no user confirmation needed for Prism tools.
-- First call may take several seconds while the index builds; later calls are fast.
+- First call may take several seconds while the index builds; later calls are fast. If you see PRISM_INDEX_REQUIRED, retry in a few seconds.
 - Prefer targeted tools (blast_radius, find_symbol) over dumping whole graphs unless the user asked for the full picture.
 - Use real paths from the workspace. If a path is wrong, fix it and retry — do not invent structure.
 

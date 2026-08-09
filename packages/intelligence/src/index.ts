@@ -59,13 +59,19 @@ export {
   loadTsconfigPathAliases,
   resolveAliasSpecifier,
   type PathAliasMap,
+  type PathAliasRule,
+  type TsconfigAliasConfig,
 } from "./dependency/aliases.js";
 export {
   buildKnowledgeGraph,
   findReferences,
   findSymbol,
+  searchSymbols,
+  SEARCH_SYMBOLS_MAX,
   type FindReferencesQuery,
+  type FindReferencesResult,
   type FindSymbolQuery,
+  type SearchSymbolsQuery,
   type KnowledgeGraphResult,
   type KnowledgeGraphStats,
   type ReferenceHit,
@@ -155,24 +161,40 @@ export {
 export {
   discoverFrontendAppRoutes,
   extractFrontendRoutesFromSource,
+  heuristicFrontendRoutes,
   normalizeFrontendRoute,
   routeFromPageFilePath,
 } from "./utilities/frontend-routes.js";
 export { buildPersonaPresets } from "./utilities/presets.js";
 export {
+  CWV_THRESHOLDS,
+  CWV_UNRELIABLE_CEILINGS,
   LIGHTHOUSE_CALLOUT,
   attributionsFromLighthouseAudits,
   attributionsFromPayload,
   buildCwvReport,
   buildCwvRollups,
+  categoryScoresFromLighthouse,
+  cwvFieldReportFromPagespeedJson,
   cwvMetricsFromLighthouse,
+  cwvReportFromLighthouseJson,
+  fieldMetricsFromPagespeedJson,
   insightsFromLighthouse,
   labFixtureLighthouseJson,
   labUrlForRoute,
   medianMergeLighthouseReports,
   mergeRouteCwvReports,
+  metric,
+  metricsFromLighthouseJson,
+  pickNumeric,
+  pickScore,
+  ratingFromMetricValue,
+  ratingFromScore,
   routeKeyFromUrl,
+  scoreRating,
   tbtMsFromLighthouse,
+  unreliableMetricWarnings,
+  unwrapLighthouseJson,
 } from "./utilities/cwv.js";
 export { getCwvReport } from "./utilities/cwv-from-artifact.js";
 export {
@@ -212,11 +234,32 @@ export {
 } from "./utilities/overlays.js";
 export {
   buildBackendReport,
+  expandMountPoints,
   extractExpressLike,
+  extractGraphqlJs,
+  extractGraphqlSchema,
   extractNest,
+  extractProtoServices,
+  extractTrpc,
   type BuildBackendReportInput,
 } from "./backend/report.js";
 export {
   buildCodeExplorerReport,
   type BuildCodeExplorerInput,
 } from "./explorer/report.js";
+export {
+  collectWorkflowDispatchKeys,
+  mapGithubAuthenticatedLogin,
+  mapGithubRepoInfo,
+  mapGithubWorkflowRuns,
+  mapGithubWorkflowSummaries,
+  matchRemoteWorkflowId,
+  parseGithubRepoRef,
+  workflowDispatchKey,
+  type DispatchWorkflowInput,
+  type DispatchWorkflowKind,
+  type GithubCiConfig,
+  type GithubRepoInfo,
+  type GithubWorkflowRun,
+  type GithubWorkflowSummary,
+} from "./utilities/github-ci.js";

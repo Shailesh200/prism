@@ -19,6 +19,7 @@ import {
 export {
   bucketActivity,
   couplingDensity,
+  couplingDensityPct,
   floorToUtcDay,
   parseDayMs,
   presetBounds,
@@ -85,9 +86,18 @@ export function couplingBadge(density: number): {
   return COUPLING_BADGES[couplingBand(density)];
 }
 
-/** Core regions, painted with the dashboard palette. */
-export function deriveRegions(graph: MapGraph): RegionStat[] {
-  return withColor(deriveRegionsCore(graph));
+/** Core regions, painted with the dashboard palette (+ truncation meta). */
+export function deriveRegions(graph: MapGraph): {
+  regions: RegionStat[];
+  truncated: boolean;
+  totalCount: number;
+} {
+  const result = deriveRegionsCore(graph);
+  return {
+    regions: withColor(result.regions),
+    truncated: result.truncated,
+    totalCount: result.totalCount,
+  };
 }
 
 /** Core's degree ranking, painted with the dashboard palette. */
@@ -96,6 +106,17 @@ export function deriveMostConnected(
   limit = 5,
 ): ConnectedNode[] {
   return withColor(deriveMostConnectedCore(graph, limit));
+}
+
+/** Label for a ranked node; non-file kinds include their map kind. */
+export function connectedNodeLabel(
+  node: Pick<OverviewConnectedNode, "label" | "kind">,
+): string {
+  if (node.kind === "file") return node.label;
+  const kind = node.kind
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return `${node.label} (${kind})`;
 }
 
 export type ActivityRangeId = "1w" | "1m" | "3m" | "6m" | "1y" | "custom";
@@ -123,11 +144,25 @@ export type ActivityGeometry = {
   readonly line: string;
   readonly area: string;
   readonly total: number;
+  /** `[x, y]` per value — hover markers must use these, never re-derived math. */
+  readonly points: readonly (readonly [number, number])[];
+};
+
+/**
+ * Explicit y-axis domain for {@link activityGeometry}. Defaults to
+ * `0..max(1, series max)` — right for counts, wrong for bounded scores (a
+ * flat 50/100 would render at the top like 100/100), so score series pass
+ * `{ min: 0, max: 100 }`.
+ */
+export type ActivityDomain = {
+  readonly min?: number | undefined;
+  readonly max?: number | undefined;
 };
 
 export type ReportFactor = { readonly label: string; readonly score: number };
 export type ReportConnected = {
   readonly label: string;
+  readonly kind: string;
   readonly degree: number;
 };
 export type ReportCommit = {
@@ -168,7 +203,7 @@ export function buildReportMarkdown(input: OverviewReportInput): string {
   lines.push(`- **Branch:** ${input.branch}`);
   lines.push(`- **Generated:** ${input.generatedAtIso}`);
   if (input.lastSyncIso) {
-    lines.push(`- **Last sync:** ${input.lastSyncIso}`);
+    lines.push(`- **Last indexed:** ${input.lastSyncIso}`);
   }
   lines.push("");
 
@@ -213,10 +248,10 @@ export function buildReportMarkdown(input: OverviewReportInput): string {
   );
   lines.push("");
 
-  lines.push("## Most connected files");
+  lines.push("## Most connected");
   if (input.mostConnected.length > 0) {
     for (const n of input.mostConnected) {
-      lines.push(`- ${n.label} — ${n.degree} links`);
+      lines.push(`- ${connectedNodeLabel(n)} — ${n.degree} links`);
     }
   } else {
     lines.push("- No dependency edges in the current map.");
@@ -257,17 +292,21 @@ export function activityGeometry(
   w = 600,
   h = 180,
   pad = 8,
+  domain?: ActivityDomain,
 ): ActivityGeometry {
-  const max = Math.max(1, ...weeks);
+  const min = domain?.min ?? 0;
+  const max = domain?.max ?? Math.max(1, ...weeks);
+  const span = Math.max(1, max - min);
   const stepX = weeks.length > 1 ? (w - pad * 2) / (weeks.length - 1) : 0;
   const points = weeks.map((v, i) => {
     const x = pad + i * stepX;
-    const y = h - pad - (v / max) * (h - pad * 2);
+    const frac = Math.max(0, Math.min(1, (v - min) / span));
+    const y = h - pad - frac * (h - pad * 2);
     return [x, y] as const;
   });
   const line = points.map(([x, y]) => `${x},${y}`).join(" ");
   const lastX = pad + (weeks.length - 1) * stepX;
   const area = `${pad},${h - pad} ${line} ${lastX},${h - pad}`;
   const total = weeks.reduce((a, b) => a + b, 0);
-  return { line, area, total };
+  return { line, area, total, points };
 }

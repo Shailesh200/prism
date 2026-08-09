@@ -6,7 +6,9 @@ import {
 } from "@repo-prism/shared";
 import { describe, expect, it } from "vitest";
 import {
+  BLAST_COVERAGE_LIMITATIONS,
   computeBlastRadius,
+  FORWARD_DEPENDENCIES_LIMIT,
   type ImpactReference,
   type ImpactSymbol,
 } from "./blast-radius.js";
@@ -238,6 +240,28 @@ describe("computeBlastRadius — file target", () => {
     expect(byPath.get("vite.config.ts")).toBe("config");
     expect(byPath.get("barrel.test.ts")).toBe("test");
   });
+
+  it("honours typeOnly edge attrs for .d.ts importers (P-E7)", () => {
+    const analyzed = ["runtime.ts", "ambient.d.ts"];
+    const graph = graphOf([
+      {
+        id: "import:file:ambient.d.ts->file:runtime.ts",
+        kind: "import",
+        from: "file:ambient.d.ts",
+        to: "file:runtime.ts",
+        attrs: { source: "./runtime.ts", typeOnly: true },
+      },
+    ]);
+    const res = computeBlastRadius(
+      { kind: "file", id: "runtime.ts" },
+      { dependencyGraph: graph, analyzedPaths: analyzed },
+    );
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const hit = res.value.affectedFiles.find((f) => f.path === "ambient.d.ts");
+    expect(hit?.category).toBe("type");
+    expect(hit?.lane).toBe("type");
+  });
 });
 
 describe("computeBlastRadius — depth limit + truncation", () => {
@@ -344,6 +368,56 @@ describe("computeBlastRadius — symbol target", () => {
     if (res.ok) return;
     expect(res.error.code).toBe("PRISM_NOT_FOUND");
   });
+
+  it("refuses homonym name seeds and sets resolutionNote (P-A3)", () => {
+    const homonymSymbols: ImpactSymbol[] = [
+      { id: "symbol:a.ts:shared:0", name: "shared", path: "a.ts" },
+      { id: "symbol:b.ts:shared:0", name: "shared", path: "b.ts" },
+    ];
+    const homonymRefs: ImpactReference[] = [
+      {
+        name: "shared",
+        path: "use-a.ts",
+        targetSymbolId: "symbol:a.ts:shared:0",
+      },
+      {
+        name: "shared",
+        path: "use-b.ts",
+        targetSymbolId: "symbol:b.ts:shared:0",
+      },
+      // Unresolved same-name ref must NOT seed via name fallback
+      { name: "shared", path: "noise.ts", targetSymbolId: null },
+    ];
+    const res = computeBlastRadius(
+      { kind: "symbol", id: "shared" },
+      {
+        dependencyGraph: graphOf([]),
+        analyzedPaths: ["a.ts", "b.ts", "use-a.ts", "use-b.ts", "noise.ts"],
+        symbols: homonymSymbols,
+        references: homonymRefs,
+      },
+    );
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.value.affectedFiles).toEqual([]);
+    expect(res.value.resolutionNote).toMatch(/Ambiguous symbol name 'shared'/);
+
+    const resolved = computeBlastRadius(
+      { kind: "symbol", id: "symbol:a.ts:shared:0" },
+      {
+        dependencyGraph: graphOf([]),
+        analyzedPaths: ["a.ts", "b.ts", "use-a.ts", "use-b.ts", "noise.ts"],
+        symbols: homonymSymbols,
+        references: homonymRefs,
+      },
+    );
+    expect(resolved.ok).toBe(true);
+    if (!resolved.ok) return;
+    expect(resolved.value.affectedFiles.map((f) => f.path)).toEqual([
+      "use-a.ts",
+    ]);
+    expect(resolved.value.resolutionNote).toBeUndefined();
+  });
 });
 
 describe("computeBlastRadius — M-049 depth fields", () => {
@@ -373,6 +447,35 @@ describe("computeBlastRadius — M-049 depth fields", () => {
       "util.ts",
     ]);
     expect(res.value.forwardDependencies?.[0]?.kind).toBe("import");
+    expect(res.value.coverageLimitations).toEqual([
+      ...BLAST_COVERAGE_LIMITATIONS,
+    ]);
+  });
+
+  it("caps forwardDependencies and reports truncation (M-056 / P-A5)", () => {
+    const many = Array.from(
+      { length: FORWARD_DEPENDENCIES_LIMIT + 5 },
+      (_, i) => edge("hub.ts", `dep-${String(i).padStart(3, "0")}.ts`),
+    );
+    const res = computeBlastRadius(
+      { kind: "file", id: "hub.ts" },
+      {
+        dependencyGraph: graphOf(many),
+        analyzedPaths: [
+          "hub.ts",
+          ...many.map((_, i) => `dep-${String(i).padStart(3, "0")}.ts`),
+        ],
+      },
+    );
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.value.forwardDependencies).toHaveLength(
+      FORWARD_DEPENDENCIES_LIMIT,
+    );
+    expect(res.value.forwardDependenciesTruncated).toBe(true);
+    expect(res.value.forwardDependenciesTotalCount).toBe(
+      FORWARD_DEPENDENCIES_LIMIT + 5,
+    );
   });
 
   it("applies entry role floor and delete intent bump", () => {

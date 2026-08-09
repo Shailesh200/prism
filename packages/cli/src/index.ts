@@ -30,6 +30,14 @@ export {
   type RunOptions,
 } from "./runtime.js";
 export {
+  cyclesToSarif,
+  parseFormat,
+  reviewToSarif,
+  SARIF_SCHEMA_URI,
+  SARIF_VERSION,
+  type SarifLog,
+} from "./sarif.js";
+export {
   findGitRoot,
   resolveWorkspace,
   type ResolvedWorkspace,

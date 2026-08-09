@@ -1,0 +1,896 @@
+{
+  "recordedAt": "2026-08-08T19:09:33.785Z",
+  "methodology": {
+    "tokenEstimate": "estimatedTokens = bytesRead / 4",
+    "withoutPrism": "Simulated naive agent: list dirs, read manifests, scan/grep files",
+    "withPrism": "Core SDK calls matching MCP tools (repository_dna, repository_overview, blast_radius)"
+  },
+  "machine": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "node": "v24.3.0"
+  },
+  "fixtures": [
+    {
+      "id": "m012-features",
+      "root": "packages/intelligence/fixtures/m012-features",
+      "editTarget": "packages/auth/src/index.ts",
+      "scenarios": [
+        {
+          "scenario": "orient",
+          "label": "What is this repository?",
+          "withoutPrism": {
+            "toolCalls": 14,
+            "bytesRead": 2153,
+            "estimatedTokens": 538,
+            "elapsedMs": 3,
+            "steps": [
+              {
+                "step": "read package.json",
+                "bytesRead": 116
+              },
+              {
+                "step": "read README",
+                "bytesRead": 587
+              },
+              {
+                "step": "list root",
+                "bytesRead": 160
+              },
+              {
+                "step": "list packages/",
+                "bytesRead": 48
+              },
+              {
+                "step": "list src/",
+                "bytesRead": 48
+              },
+              {
+                "step": "list apps/",
+                "bytesRead": 0
+              },
+              {
+                "step": "read README.md",
+                "bytesRead": 587
+              },
+              {
+                "step": "read package.json",
+                "bytesRead": 116
+              },
+              {
+                "step": "read packages/auth/package.json",
+                "bytesRead": 69
+              },
+              {
+                "step": "read packages/billing/package.json",
+                "bytesRead": 72
+              },
+              {
+                "step": "read packages/auth/src/index.ts",
+                "bytesRead": 76
+              },
+              {
+                "step": "read packages/billing/src/index.ts",
+                "bytesRead": 68
+              },
+              {
+                "step": "read src/features/dashboard/Dashboard.ts",
+                "bytesRead": 152
+              },
+              {
+                "step": "read src/features/dashboard/widgets.ts",
+                "bytesRead": 54
+              }
+            ]
+          },
+          "withPrism": {
+            "toolCalls": 3,
+            "bytesRead": 6306,
+            "estimatedTokens": 1577,
+            "elapsedMs": 1006,
+            "steps": [
+              {
+                "step": "index (once)",
+                "bytesRead": 4200
+              },
+              {
+                "step": "repository_dna",
+                "bytesRead": 1383
+              },
+              {
+                "step": "repository_overview",
+                "bytesRead": 723
+              }
+            ]
+          },
+          "savings": {
+            "toolCallsPct": 79,
+            "bytesPct": -193,
+            "tokensPct": -193,
+            "timePct": -33433
+          }
+        },
+        {
+          "scenario": "safe_edit",
+          "label": "Is this edit safe?",
+          "withoutPrism": {
+            "toolCalls": 12,
+            "bytesRead": 1623,
+            "estimatedTokens": 406,
+            "elapsedMs": 2,
+            "steps": [
+              {
+                "step": "read edit target",
+                "bytesRead": 76
+              },
+              {
+                "step": "glob source files",
+                "bytesRead": 160
+              },
+              {
+                "step": "scan README.md",
+                "bytesRead": 512
+              },
+              {
+                "step": "scan package.json",
+                "bytesRead": 116
+              },
+              {
+                "step": "scan packages/auth/package.json",
+                "bytesRead": 69
+              },
+              {
+                "step": "scan packages/billing/package.json",
+                "bytesRead": 72
+              },
+              {
+                "step": "scan packages/billing/src/index.ts",
+                "bytesRead": 68
+              },
+              {
+                "step": "scan import hit src/features/dashboard/Dashboard.ts",
+                "bytesRead": 152
+              },
+              {
+                "step": "scan src/features/dashboard/widgets.ts",
+                "bytesRead": 54
+              },
+              {
+                "step": "scan import hit src/routes/checkout/page.ts",
+                "bytesRead": 130
+              },
+              {
+                "step": "scan src/routes/checkout/cart.ts",
+                "bytesRead": 98
+              },
+              {
+                "step": "read package.json",
+                "bytesRead": 116
+              }
+            ]
+          },
+          "withPrism": {
+            "toolCalls": 2,
+            "bytesRead": 5056,
+            "estimatedTokens": 1264,
+            "elapsedMs": 6,
+            "steps": [
+              {
+                "step": "index (once)",
+                "bytesRead": 4199
+              },
+              {
+                "step": "blast_radius",
+                "bytesRead": 857
+              }
+            ]
+          },
+          "savings": {
+            "toolCallsPct": 83,
+            "bytesPct": -212,
+            "tokensPct": -211,
+            "timePct": -200
+          }
+        }
+      ]
+    },
+    {
+      "id": "m013-mono",
+      "root": "packages/intelligence/fixtures/m013-mono",
+      "editTarget": "apps/api/main.ts",
+      "scenarios": [
+        {
+          "scenario": "orient",
+          "label": "What is this repository?",
+          "withoutPrism": {
+            "toolCalls": 12,
+            "bytesRead": 1427,
+            "estimatedTokens": 357,
+            "elapsedMs": 1,
+            "steps": [
+              {
+                "step": "read package.json",
+                "bytesRead": 343
+              },
+              {
+                "step": "read README",
+                "bytesRead": 0
+              },
+              {
+                "step": "list root",
+                "bytesRead": 160
+              },
+              {
+                "step": "list packages/",
+                "bytesRead": 0
+              },
+              {
+                "step": "list src/",
+                "bytesRead": 0
+              },
+              {
+                "step": "list apps/",
+                "bytesRead": 48
+              },
+              {
+                "step": "read turbo.json",
+                "bytesRead": 85
+              },
+              {
+                "step": "read package.json",
+                "bytesRead": 343
+              },
+              {
+                "step": "read apps/web/package.json",
+                "bytesRead": 155
+              },
+              {
+                "step": "read apps/web/page.tsx",
+                "bytesRead": 60
+              },
+              {
+                "step": "read apps/api/main.ts",
+                "bytesRead": 63
+              },
+              {
+                "step": "read apps/api/package.json",
+                "bytesRead": 170
+              }
+            ]
+          },
+          "withPrism": {
+            "toolCalls": 3,
+            "bytesRead": 7168,
+            "estimatedTokens": 1792,
+            "elapsedMs": 493,
+            "steps": [
+              {
+                "step": "index (once)",
+                "bytesRead": 2523
+              },
+              {
+                "step": "repository_dna",
+                "bytesRead": 4177
+              },
+              {
+                "step": "repository_overview",
+                "bytesRead": 468
+              }
+            ]
+          },
+          "savings": {
+            "toolCallsPct": 75,
+            "bytesPct": -402,
+            "tokensPct": -402,
+            "timePct": -49200
+          }
+        },
+        {
+          "scenario": "safe_edit",
+          "label": "Is this edit safe?",
+          "withoutPrism": {
+            "toolCalls": 8,
+            "bytesRead": 1315,
+            "estimatedTokens": 329,
+            "elapsedMs": 2,
+            "steps": [
+              {
+                "step": "read edit target",
+                "bytesRead": 63
+              },
+              {
+                "step": "glob source files",
+                "bytesRead": 96
+              },
+              {
+                "step": "scan turbo.json",
+                "bytesRead": 85
+              },
+              {
+                "step": "scan package.json",
+                "bytesRead": 343
+              },
+              {
+                "step": "scan apps/web/package.json",
+                "bytesRead": 155
+              },
+              {
+                "step": "scan apps/web/page.tsx",
+                "bytesRead": 60
+              },
+              {
+                "step": "scan apps/api/package.json",
+                "bytesRead": 170
+              },
+              {
+                "step": "read package.json",
+                "bytesRead": 343
+              }
+            ]
+          },
+          "withPrism": {
+            "toolCalls": 2,
+            "bytesRead": 3139,
+            "estimatedTokens": 785,
+            "elapsedMs": 4,
+            "steps": [
+              {
+                "step": "index (once)",
+                "bytesRead": 2523
+              },
+              {
+                "step": "blast_radius",
+                "bytesRead": 616
+              }
+            ]
+          },
+          "savings": {
+            "toolCallsPct": 75,
+            "bytesPct": -139,
+            "tokensPct": -139,
+            "timePct": -100
+          }
+        }
+      ]
+    },
+    {
+      "id": "m044-backend",
+      "root": "packages/intelligence/fixtures/m044-backend",
+      "editTarget": "express/auth.ts",
+      "scenarios": [
+        {
+          "scenario": "orient",
+          "label": "What is this repository?",
+          "withoutPrism": {
+            "toolCalls": 14,
+            "bytesRead": 2026,
+            "estimatedTokens": 507,
+            "elapsedMs": 2,
+            "steps": [
+              {
+                "step": "read package.json",
+                "bytesRead": 242
+              },
+              {
+                "step": "read README",
+                "bytesRead": 0
+              },
+              {
+                "step": "list root",
+                "bytesRead": 224
+              },
+              {
+                "step": "list packages/",
+                "bytesRead": 0
+              },
+              {
+                "step": "list src/",
+                "bytesRead": 0
+              },
+              {
+                "step": "list apps/",
+                "bytesRead": 0
+              },
+              {
+                "step": "read package.json",
+                "bytesRead": 242
+              },
+              {
+                "step": "read express/app.ts",
+                "bytesRead": 284
+              },
+              {
+                "step": "read express/auth.ts",
+                "bytesRead": 101
+              },
+              {
+                "step": "read config/env.ts",
+                "bytesRead": 193
+              },
+              {
+                "step": "read jobs/nightly.ts",
+                "bytesRead": 109
+              },
+              {
+                "step": "read data/users.ts",
+                "bytesRead": 156
+              },
+              {
+                "step": "read nest/health.controller.ts",
+                "bytesRead": 248
+              },
+              {
+                "step": "read fastify/server.ts",
+                "bytesRead": 227
+              }
+            ]
+          },
+          "withPrism": {
+            "toolCalls": 3,
+            "bytesRead": 7403,
+            "estimatedTokens": 1851,
+            "elapsedMs": 473,
+            "steps": [
+              {
+                "step": "index (once)",
+                "bytesRead": 5728
+              },
+              {
+                "step": "repository_dna",
+                "bytesRead": 1219
+              },
+              {
+                "step": "repository_overview",
+                "bytesRead": 456
+              }
+            ]
+          },
+          "savings": {
+            "toolCallsPct": 79,
+            "bytesPct": -265,
+            "tokensPct": -265,
+            "timePct": -23550
+          }
+        },
+        {
+          "scenario": "safe_edit",
+          "label": "Is this edit safe?",
+          "withoutPrism": {
+            "toolCalls": 10,
+            "bytesRead": 1930,
+            "estimatedTokens": 483,
+            "elapsedMs": 2,
+            "steps": [
+              {
+                "step": "read edit target",
+                "bytesRead": 101
+              },
+              {
+                "step": "glob source files",
+                "bytesRead": 128
+              },
+              {
+                "step": "scan package.json",
+                "bytesRead": 242
+              },
+              {
+                "step": "scan import hit express/app.ts",
+                "bytesRead": 284
+              },
+              {
+                "step": "scan config/env.ts",
+                "bytesRead": 193
+              },
+              {
+                "step": "scan jobs/nightly.ts",
+                "bytesRead": 109
+              },
+              {
+                "step": "scan data/users.ts",
+                "bytesRead": 156
+              },
+              {
+                "step": "scan nest/health.controller.ts",
+                "bytesRead": 248
+              },
+              {
+                "step": "scan fastify/server.ts",
+                "bytesRead": 227
+              },
+              {
+                "step": "read package.json",
+                "bytesRead": 242
+              }
+            ]
+          },
+          "withPrism": {
+            "toolCalls": 2,
+            "bytesRead": 6402,
+            "estimatedTokens": 1601,
+            "elapsedMs": 6,
+            "steps": [
+              {
+                "step": "index (once)",
+                "bytesRead": 5728
+              },
+              {
+                "step": "blast_radius",
+                "bytesRead": 674
+              }
+            ]
+          },
+          "savings": {
+            "toolCallsPct": 80,
+            "bytesPct": -232,
+            "tokensPct": -231,
+            "timePct": -200
+          }
+        }
+      ]
+    }
+  ],
+  "totals": {
+    "withoutPrism": {
+      "toolCalls": 70,
+      "bytesRead": 10474,
+      "estimatedTokens": 2620,
+      "elapsedMs": 12,
+      "steps": [
+        {
+          "step": "read package.json",
+          "bytesRead": 116
+        },
+        {
+          "step": "read README",
+          "bytesRead": 587
+        },
+        {
+          "step": "list root",
+          "bytesRead": 160
+        },
+        {
+          "step": "list packages/",
+          "bytesRead": 48
+        },
+        {
+          "step": "list src/",
+          "bytesRead": 48
+        },
+        {
+          "step": "list apps/",
+          "bytesRead": 0
+        },
+        {
+          "step": "read README.md",
+          "bytesRead": 587
+        },
+        {
+          "step": "read package.json",
+          "bytesRead": 116
+        },
+        {
+          "step": "read packages/auth/package.json",
+          "bytesRead": 69
+        },
+        {
+          "step": "read packages/billing/package.json",
+          "bytesRead": 72
+        },
+        {
+          "step": "read packages/auth/src/index.ts",
+          "bytesRead": 76
+        },
+        {
+          "step": "read packages/billing/src/index.ts",
+          "bytesRead": 68
+        },
+        {
+          "step": "read src/features/dashboard/Dashboard.ts",
+          "bytesRead": 152
+        },
+        {
+          "step": "read src/features/dashboard/widgets.ts",
+          "bytesRead": 54
+        },
+        {
+          "step": "read edit target",
+          "bytesRead": 76
+        },
+        {
+          "step": "glob source files",
+          "bytesRead": 160
+        },
+        {
+          "step": "scan README.md",
+          "bytesRead": 512
+        },
+        {
+          "step": "scan package.json",
+          "bytesRead": 116
+        },
+        {
+          "step": "scan packages/auth/package.json",
+          "bytesRead": 69
+        },
+        {
+          "step": "scan packages/billing/package.json",
+          "bytesRead": 72
+        },
+        {
+          "step": "scan packages/billing/src/index.ts",
+          "bytesRead": 68
+        },
+        {
+          "step": "scan import hit src/features/dashboard/Dashboard.ts",
+          "bytesRead": 152
+        },
+        {
+          "step": "scan src/features/dashboard/widgets.ts",
+          "bytesRead": 54
+        },
+        {
+          "step": "scan import hit src/routes/checkout/page.ts",
+          "bytesRead": 130
+        },
+        {
+          "step": "scan src/routes/checkout/cart.ts",
+          "bytesRead": 98
+        },
+        {
+          "step": "read package.json",
+          "bytesRead": 116
+        },
+        {
+          "step": "read package.json",
+          "bytesRead": 343
+        },
+        {
+          "step": "read README",
+          "bytesRead": 0
+        },
+        {
+          "step": "list root",
+          "bytesRead": 160
+        },
+        {
+          "step": "list packages/",
+          "bytesRead": 0
+        },
+        {
+          "step": "list src/",
+          "bytesRead": 0
+        },
+        {
+          "step": "list apps/",
+          "bytesRead": 48
+        },
+        {
+          "step": "read turbo.json",
+          "bytesRead": 85
+        },
+        {
+          "step": "read package.json",
+          "bytesRead": 343
+        },
+        {
+          "step": "read apps/web/package.json",
+          "bytesRead": 155
+        },
+        {
+          "step": "read apps/web/page.tsx",
+          "bytesRead": 60
+        },
+        {
+          "step": "read apps/api/main.ts",
+          "bytesRead": 63
+        },
+        {
+          "step": "read apps/api/package.json",
+          "bytesRead": 170
+        },
+        {
+          "step": "read edit target",
+          "bytesRead": 63
+        },
+        {
+          "step": "glob source files",
+          "bytesRead": 96
+        },
+        {
+          "step": "scan turbo.json",
+          "bytesRead": 85
+        },
+        {
+          "step": "scan package.json",
+          "bytesRead": 343
+        },
+        {
+          "step": "scan apps/web/package.json",
+          "bytesRead": 155
+        },
+        {
+          "step": "scan apps/web/page.tsx",
+          "bytesRead": 60
+        },
+        {
+          "step": "scan apps/api/package.json",
+          "bytesRead": 170
+        },
+        {
+          "step": "read package.json",
+          "bytesRead": 343
+        },
+        {
+          "step": "read package.json",
+          "bytesRead": 242
+        },
+        {
+          "step": "read README",
+          "bytesRead": 0
+        },
+        {
+          "step": "list root",
+          "bytesRead": 224
+        },
+        {
+          "step": "list packages/",
+          "bytesRead": 0
+        },
+        {
+          "step": "list src/",
+          "bytesRead": 0
+        },
+        {
+          "step": "list apps/",
+          "bytesRead": 0
+        },
+        {
+          "step": "read package.json",
+          "bytesRead": 242
+        },
+        {
+          "step": "read express/app.ts",
+          "bytesRead": 284
+        },
+        {
+          "step": "read express/auth.ts",
+          "bytesRead": 101
+        },
+        {
+          "step": "read config/env.ts",
+          "bytesRead": 193
+        },
+        {
+          "step": "read jobs/nightly.ts",
+          "bytesRead": 109
+        },
+        {
+          "step": "read data/users.ts",
+          "bytesRead": 156
+        },
+        {
+          "step": "read nest/health.controller.ts",
+          "bytesRead": 248
+        },
+        {
+          "step": "read fastify/server.ts",
+          "bytesRead": 227
+        },
+        {
+          "step": "read edit target",
+          "bytesRead": 101
+        },
+        {
+          "step": "glob source files",
+          "bytesRead": 128
+        },
+        {
+          "step": "scan package.json",
+          "bytesRead": 242
+        },
+        {
+          "step": "scan import hit express/app.ts",
+          "bytesRead": 284
+        },
+        {
+          "step": "scan config/env.ts",
+          "bytesRead": 193
+        },
+        {
+          "step": "scan jobs/nightly.ts",
+          "bytesRead": 109
+        },
+        {
+          "step": "scan data/users.ts",
+          "bytesRead": 156
+        },
+        {
+          "step": "scan nest/health.controller.ts",
+          "bytesRead": 248
+        },
+        {
+          "step": "scan fastify/server.ts",
+          "bytesRead": 227
+        },
+        {
+          "step": "read package.json",
+          "bytesRead": 242
+        }
+      ]
+    },
+    "withPrism": {
+      "toolCalls": 15,
+      "bytesRead": 35474,
+      "estimatedTokens": 8870,
+      "elapsedMs": 1988,
+      "steps": [
+        {
+          "step": "index (once)",
+          "bytesRead": 4200
+        },
+        {
+          "step": "repository_dna",
+          "bytesRead": 1383
+        },
+        {
+          "step": "repository_overview",
+          "bytesRead": 723
+        },
+        {
+          "step": "index (once)",
+          "bytesRead": 4199
+        },
+        {
+          "step": "blast_radius",
+          "bytesRead": 857
+        },
+        {
+          "step": "index (once)",
+          "bytesRead": 2523
+        },
+        {
+          "step": "repository_dna",
+          "bytesRead": 4177
+        },
+        {
+          "step": "repository_overview",
+          "bytesRead": 468
+        },
+        {
+          "step": "index (once)",
+          "bytesRead": 2523
+        },
+        {
+          "step": "blast_radius",
+          "bytesRead": 616
+        },
+        {
+          "step": "index (once)",
+          "bytesRead": 5728
+        },
+        {
+          "step": "repository_dna",
+          "bytesRead": 1219
+        },
+        {
+          "step": "repository_overview",
+          "bytesRead": 456
+        },
+        {
+          "step": "index (once)",
+          "bytesRead": 5728
+        },
+        {
+          "step": "blast_radius",
+          "bytesRead": 674
+        }
+      ]
+    },
+    "savings": {
+      "toolCallsPct": 79,
+      "bytesPct": -239,
+      "tokensPct": -239,
+      "timePct": -16467
+    }
+  }
+}

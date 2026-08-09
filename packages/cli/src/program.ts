@@ -31,6 +31,8 @@ type RawGlobals = {
   quiet?: boolean;
   verbose?: boolean;
   yes?: boolean;
+  maxFileBytes?: string;
+  exclude?: string | string[];
 };
 
 function buildProgram(): Command {
@@ -59,6 +61,16 @@ function buildProgram(): Command {
       "-y, --yes",
       "Consent to operations that would otherwise be refused",
     )
+    .option(
+      "--max-file-bytes <n>",
+      "Skip hashing files larger than this (overrides .prism/config.json)",
+    )
+    .option(
+      "--exclude <glob>",
+      "Extra ignore glob (repeatable; overrides/adds to .prism/config.json)",
+      collectExcludes,
+      [] as string[],
+    )
     // Global flags are accepted after the subcommand too, because
     // `prism blast x --json` is what people type and refusing it would be
     // pedantry rather than help.
@@ -82,7 +94,14 @@ function buildProgram(): Command {
       .option("--no-color", "Disable ANSI colour")
       .option("-q, --quiet", "Suppress progress output")
       .option("--verbose", "Include extra detail")
-      .option("-y, --yes", "Consent to gated operations");
+      .option("-y, --yes", "Consent to gated operations")
+      .option("--max-file-bytes <n>", "Skip hashing files larger than this")
+      .option(
+        "--exclude <glob>",
+        "Extra ignore glob (repeatable)",
+        collectExcludes,
+        [] as string[],
+      );
 
     if (spec.examples?.length) {
       command.addHelpText(
@@ -203,7 +222,23 @@ export async function run(
     ...(subOptions.quiet === true ? { quiet: true } : {}),
     ...(subOptions.verbose === true ? { verbose: true } : {}),
     ...(subOptions.yes === true ? { yes: true } : {}),
+    ...(subOptions.maxFileBytes === undefined
+      ? {}
+      : { maxFileBytes: String(subOptions.maxFileBytes) }),
+    ...(subOptions.exclude === undefined
+      ? {}
+      : { exclude: subOptions.exclude as string | string[] }),
   };
+
+  const maxFileBytes = parseMaxFileBytes(
+    raw.maxFileBytes ??
+      (typeof subOptions.maxFileBytes === "string"
+        ? subOptions.maxFileBytes
+        : undefined),
+  );
+  const excludeGlobs = normalizeExcludes(
+    raw.exclude ?? (subOptions.exclude as string | string[] | undefined),
+  );
 
   const globals: GlobalOptions = {
     workspace: raw.workspace,
@@ -217,6 +252,8 @@ export async function run(
     quiet: raw.quiet === true,
     verbose: raw.verbose === true,
     yes: raw.yes === true,
+    ...(maxFileBytes === undefined ? {} : { maxFileBytes }),
+    ...(excludeGlobs.length > 0 ? { excludeGlobs } : {}),
   };
 
   const args: CommandArgs = {
@@ -269,6 +306,26 @@ function editDistance(a: string, b: string): number {
     }
   }
   return grid[a.length]![b.length]!;
+}
+
+function collectExcludes(value: string, previous: string[]): string[] {
+  return [...previous, value];
+}
+
+function normalizeExcludes(
+  value: string | string[] | undefined,
+): readonly string[] {
+  if (value === undefined) return [];
+  return (Array.isArray(value) ? value : [value])
+    .map((g) => g.trim())
+    .filter((g) => g.length > 0);
+}
+
+function parseMaxFileBytes(raw: string | undefined): number | undefined {
+  if (raw === undefined) return undefined;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0 || !Number.isInteger(n)) return undefined;
+  return n;
 }
 
 /** Entry point for the binary. */

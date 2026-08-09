@@ -62,13 +62,6 @@ const DEFAULT_STEPS: readonly TourStep[] = [
     navigateTo: "map",
   },
   {
-    id: "profile",
-    title: "Codebase Profile",
-    body: "A structured read of what this repo is — languages, frameworks, and how the tree is organized.",
-    target: '[data-prism-tour="profile"]',
-    navigateTo: "profile",
-  },
-  {
     id: "domains",
     title: "Domains",
     body: "Ownership and domain boundaries across the codebase. Open a domain to dig into stacks, APIs, and hotspots.",
@@ -85,7 +78,7 @@ const DEFAULT_STEPS: readonly TourStep[] = [
   {
     id: "dna",
     title: "DNA Analysis",
-    body: "Stack fingerprints and architectural DNA. Use this when you need to understand what the repo is made of.",
+    body: "Health Score factors plus the Codebase Profile — languages, frameworks, and stack domains in one place.",
     target: '[data-prism-tour="dna"]',
     navigateTo: "dna",
   },

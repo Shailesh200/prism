@@ -4,6 +4,8 @@
  * store yet. Entries stay on-device (sessionStorage) and are never uploaded.
  */
 
+import { formatPrismDate } from "@repo-prism/ui";
+
 export type AuditCategory =
   | "index"
   | "analysis"
@@ -165,20 +167,14 @@ export function formatDuration(ms: number): string {
 }
 
 export function formatAuditTime(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
+  return formatPrismDate(iso, "time") || iso;
 }
 
 /** Short calendar date (e.g. `Jul 23`) to pair with {@link formatAuditTime}. */
 export function formatAuditDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
+  // Keep month+day (no year) for dense audit rows; full date via formatPrismDate.
   return d.toLocaleDateString(undefined, {
     month: "short",
     day: "2-digit",
@@ -186,16 +182,7 @@ export function formatAuditDate(iso: string): string {
 }
 
 export function relativeAuditTime(iso: string): string {
-  const ms = Date.parse(iso);
-  if (!Number.isFinite(ms)) return iso;
-  const delta = Date.now() - ms;
-  const secs = Math.round(delta / 1000);
-  if (secs < 60) return `${secs}s ago`;
-  const mins = Math.round(secs / 60);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.round(mins / 60);
-  if (hrs < 48) return `${hrs}h ago`;
-  return new Date(ms).toLocaleString();
+  return formatPrismDate(iso, "relative") || iso;
 }
 
 export const AUDIT_CATEGORIES: readonly {

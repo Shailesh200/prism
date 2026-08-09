@@ -30,6 +30,7 @@ import {
 } from "@repo-prism/app-shell";
 import type {
   DnaReport,
+  DomainReport,
   GitActivity,
   GraphSnapshotDto,
   HealthScore,
@@ -57,6 +58,7 @@ import {
   fetchDna,
   fetchEngineeringHealth,
   fetchGitActivity,
+  fetchChangeReview,
   fetchHealth,
   fetchHealthHistory,
   fetchHealthHistoryBackfillStatus,
@@ -72,6 +74,7 @@ import {
   ingestCoverage,
   listTests,
   discoverFrontendRoutes,
+  fetchDomainReport,
   runLighthouseLab,
   runBundleAnalyze,
   detectBundleAnalyzeCapability,
@@ -79,6 +82,13 @@ import {
   fetchConsent,
   setConsent,
   stageDevopsRemote,
+  fetchGithubWorkflows,
+  fetchGithubWorkflowRuns,
+  fetchGithubRepo,
+  fetchGithubAuthenticatedLogin,
+  testGithubRepoConnection,
+  dispatchGithubWorkflow,
+  fetchPagespeedMetrics,
   startHealthHistoryBackfill,
   type PlaygroundPreset,
 } from "./map-client.js";
@@ -143,7 +153,9 @@ export function App(): ReactElement {
     | "settings"
     | "review"
     | "explain"
-  >("overview");
+  >("map");
+  const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
+  const [blastSeedPath, setBlastSeedPath] = useState<string | null>(null);
   const [settingsSection, setSettingsSection] =
     useState<SettingsSection>("general");
   const [auditCategory, setAuditCategory] = useState<string | undefined>();
@@ -164,7 +176,10 @@ export function App(): ReactElement {
   const [backendReport, setBackendReport] = useState<BackendReport | null>(
     null,
   );
+  const [domainReport, setDomainReport] = useState<DomainReport | null>(null);
   const domainRuns = useRef<Map<string, DomainRun>>(new Map());
+  /** Generation guard for the in-flight domain Analyze run (cancel/stale). */
+  const overlayRunId = useRef(0);
   const [displayName, setDisplayName] = useState(
     () => loadSettings().displayName,
   );
@@ -219,6 +234,8 @@ export function App(): ReactElement {
       fetchDependencyGraph: () => fetchDependencyGraph(target),
       fetchImpactBundle: (impactTarget: ImpactTarget) =>
         fetchImpactBundle(impactTarget, target),
+      fetchChangeReview: (paths, base) =>
+        fetchChangeReview(paths, target, base),
       applyRename: (input) => applyRename(input, target),
       fetchSymbolHits: (query) => fetchSymbolHits(query, target),
       fetchGitActivity: () => fetchGitActivity(target),
@@ -236,7 +253,18 @@ export function App(): ReactElement {
       detectBundleAnalyzeCapability: (options) =>
         detectBundleAnalyzeCapability(target, options),
       discoverFrontendRoutes: () => discoverFrontendRoutes(target),
+      fetchDomainReport: (options) => fetchDomainReport(target, options),
       stageDevopsRemote: (input) => stageDevopsRemote(target, input),
+      fetchGithubWorkflows: (cfg) => fetchGithubWorkflows(target, cfg),
+      fetchGithubWorkflowRuns: (cfg, options) =>
+        fetchGithubWorkflowRuns(target, cfg, options),
+      fetchGithubRepo: (cfg) => fetchGithubRepo(target, cfg),
+      fetchGithubAuthenticatedLogin: (token) =>
+        fetchGithubAuthenticatedLogin(target, token),
+      testGithubRepoConnection: (cfg) => testGithubRepoConnection(target, cfg),
+      dispatchGithubWorkflow: (input) => dispatchGithubWorkflow(target, input),
+      fetchPagespeedMetrics: (apiKey, url) =>
+        fetchPagespeedMetrics(target, apiKey, url),
       listConsent: () => fetchConsent(target),
       setConsent: (purpose, granted) => setConsent(target, purpose, granted),
       fetchPrismGitignoreStatus: async (): Promise<PrismGitignoreStatus> => {
@@ -285,7 +313,8 @@ export function App(): ReactElement {
         | "review"
         | "explain",
     ) => {
-      setView(v);
+      // M-062: Profile merged into DNA — keep deep-links working.
+      setView(v === "profile" ? "dna" : v);
       if (v !== "settings") setSettingsSection("general");
     },
     [],
@@ -376,6 +405,7 @@ export function App(): ReactElement {
       const enrichBackend = activeDomain === "backend";
       const enrichMobile = activeDomain === "mobile";
       const enrichDesktop = activeDomain === "desktop";
+      const runId = ++overlayRunId.current;
       setOverlayStatus("loading");
       void Promise.all([
         fetchOverlay(kind, root),
@@ -389,28 +419,43 @@ export function App(): ReactElement {
           ? fetchDependencyGraph(root)
           : Promise.resolve(null),
         enrichBackend ? fetchBackendReport(root) : Promise.resolve(null),
-      ]).then(([main, security, qa, graph, backend]) => {
-        setOverlay(main);
-        setSecurityOverlay(security);
-        setQaOverlay(qa);
-        setDepGraph(graph);
-        setBackendReport(backend);
-        setOverlayStatus(main ? "ready" : "error");
-        if (main) {
-          const run: DomainRun = {
-            overlay: main,
-            security,
-            qa,
-            depGraph: graph,
-            backendReport: backend,
-          };
-          domainRuns.current.set(domainRunKey(root, activeDomain), run);
-          saveDomainRun(root, activeDomain, run);
-        }
-      });
+      ])
+        .then(([main, security, qa, graph, backend]) => {
+          if (overlayRunId.current !== runId) return;
+          setOverlay(main);
+          setSecurityOverlay(security);
+          setQaOverlay(qa);
+          setDepGraph(graph);
+          setBackendReport(backend);
+          setOverlayStatus(main ? "ready" : "error");
+          if (main) {
+            const run: DomainRun = {
+              overlay: main,
+              security,
+              qa,
+              depGraph: graph,
+              backendReport: backend,
+            };
+            domainRuns.current.set(domainRunKey(root, activeDomain), run);
+            saveDomainRun(root, activeDomain, run);
+          }
+        })
+        .catch(() => {
+          // A rejected leg (transport down, host timeout) must not strand the
+          // screen on the skeleton — surface the error/Retry state instead.
+          if (overlayRunId.current !== runId) return;
+          setOverlayStatus("error");
+        });
     },
     [root, activeDomain],
   );
+
+  const cancelOverlay = useCallback(() => {
+    // Invalidate the in-flight run so its late results are ignored; the domain
+    // falls back to its cached snapshot or the Analyze card.
+    overlayRunId.current += 1;
+    setOverlayStatus("idle");
+  }, []);
 
   const openDomain = useCallback(
     (domainId: string) => {
@@ -433,6 +478,14 @@ export function App(): ReactElement {
         setDepGraph(null);
         setBackendReport(null);
         setOverlayStatus("idle");
+      }
+      if (root) {
+        void fetchDomainReport(root, {
+          domain: domainId as DomainReport["domain"],
+          loadLatestCwvArtifact: domainId === "frontend",
+        }).then(setDomainReport);
+      } else {
+        setDomainReport(null);
       }
       setView("domain");
     },
@@ -561,12 +614,21 @@ export function App(): ReactElement {
             dna={dna}
             onOpenMap={() => setView("map")}
             onOpenDna={() => setView("dna")}
-            onOpenProfile={() => setView("profile")}
             onOpenDomains={() => setView("domains")}
+            onOpenDomain={openDomain}
             onOpenTesting={() => setView("testing")}
-            onOpenBlast={() => setView("blast")}
+            onOpenBlast={(seedPath) => {
+              setBlastSeedPath(seedPath ?? null);
+              setView("blast");
+            }}
+            onFocusMapNode={(nodeId) => {
+              setFocusNodeId(nodeId);
+              setView("map");
+            }}
             onOpenTrends={() => setView("trends")}
             onOpenIntegrations={() => setView("integrations")}
+            onOpenReview={() => setView("review")}
+            onOpenExplain={() => setView("explain")}
             onOpenSettings={() => {
               setSettingsSection("general");
               setView("settings");
@@ -584,7 +646,6 @@ export function App(): ReactElement {
             dna={dna}
             health={health}
             map={map}
-            mode={view === "profile" ? "profile" : "analysis"}
             onNavigate={navigate}
             onOpenDomain={openDomain}
             onOpenAuditLogs={openAuditLogs}
@@ -618,9 +679,11 @@ export function App(): ReactElement {
             qa={qaOverlay}
             depGraph={depGraph}
             backendReport={backendReport}
+            domainReport={domainReport}
             gitActivity={gitActivity}
             dna={dna}
             onRun={runOverlay}
+            onCancel={cancelOverlay}
             onNavigate={navigate}
           />
         ) : view === "blast" ? (
@@ -629,7 +692,12 @@ export function App(): ReactElement {
             repoLabel={rootLabel}
             branch={gitActivity?.summary?.branch}
             user={gitActivity?.recentCommits[0] ?? null}
+            initialFile={blastSeedPath}
             onNavigate={navigate}
+            onOpenPath={(path) => {
+              // Playground has no editor host — surface the path for copy/debug.
+              console.info(`[playground] open path: ${path}`);
+            }}
           />
         ) : view === "review" ? (
           <ChangeReviewScreen
@@ -731,6 +799,7 @@ export function App(): ReactElement {
               <RepositoryMapView
                 map={map}
                 bookmarks={bookmarks}
+                focusNodeId={focusNodeId}
                 brandMarkSrc="/brand/prism-mark.png"
                 showBrand={false}
                 branch={gitActivity?.summary?.branch ?? undefined}

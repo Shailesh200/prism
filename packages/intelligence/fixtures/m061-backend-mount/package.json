@@ -1,0 +1,5 @@
+{
+  "name": "@prism-fixture/m061-backend-mount",
+  "private": true,
+  "dependencies": { "express": "4.19.0" }
+}

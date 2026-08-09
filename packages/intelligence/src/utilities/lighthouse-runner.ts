@@ -344,6 +344,24 @@ export function isNonAppLabServer(serverHeader: string): boolean {
 }
 
 /**
+ * Dev-server HTML markers (HMR / fast-refresh clients injected into the
+ * document). Lab runs measure production builds only: dev servers ship
+ * unbundled modules + hold HMR websockets open, which explodes under
+ * simulated throttling and produces meaningless numbers (observed: LCP
+ * ~165s against a Vite dev server vs ~3.5s against its production preview).
+ */
+export function looksLikeDevServerHtml(html: string): boolean {
+  const sample = html.slice(0, 24_000);
+  return (
+    /@vite\/client/.test(sample) ||
+    /\/_next\/static\/development\//.test(sample) ||
+    /webpack-dev-server|sockjs-node|__webpack_dev_server__/.test(sample) ||
+    /@react-refresh|react-refresh\/runtime/.test(sample) ||
+    /livereload\.js|browser-sync/.test(sample)
+  );
+}
+
+/**
  * Soft-404 / empty-route heuristics for SPAs that return HTTP 200 with a
  * “Page not found” document (common with client routers).
  */
@@ -434,7 +452,10 @@ export function lighthouseLooksLikeNotFound(lhr: unknown): boolean {
  */
 export async function probeLabUrl(
   url: string,
-): Promise<{ ok: true; status: number } | { ok: false; message: string }> {
+): Promise<
+  | { ok: true; status: number; devServer: boolean }
+  | { ok: false; message: string }
+> {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -485,7 +506,7 @@ export async function probeLabUrl(
           if (status < 200 || status >= 400) {
             resolve({
               ok: false,
-              message: `${url} returned HTTP ${status}${server ? ` (Server: ${server})` : ""}. Start the app (or retry for a production preview) — Chrome’s interstitial usually means this URL is not serving your HTML.`,
+              message: `${url} returned HTTP ${status}${server ? ` (Server: ${server})` : ""}. The lab measures production builds only — let Prism build + preview, or serve a production build at this URL.`,
             });
             return;
           }
@@ -512,7 +533,11 @@ export async function probeLabUrl(
             return;
           }
 
-          resolve({ ok: true, status });
+          resolve({
+            ok: true,
+            status,
+            devServer: looksLikeDevServerHtml(body),
+          });
         });
       },
     );
@@ -520,13 +545,13 @@ export async function probeLabUrl(
       req.destroy();
       resolve({
         ok: false,
-        message: `Timed out reaching ${url}. Start your frontend (e.g. http://localhost:3000) and retry — or leave it stopped and Prism will try a production preview.`,
+        message: `Timed out reaching ${url}. The lab measures production builds only — serve a production build, or let Prism build + preview one.`,
       });
     });
     req.on("error", (err: Error) => {
       resolve({
         ok: false,
-        message: `Nothing is listening at ${url} (${err.message}). Start the app (common ports: 3000, 5173, …) or retry so Prism can start a production preview. Chrome’s interstitial usually means the URL was unreachable.`,
+        message: `Nothing is listening at ${url} (${err.message}). The lab measures production builds only — serve a production build, or let Prism build + preview one. Chrome’s interstitial usually means the URL was unreachable.`,
       });
     });
     req.end();
@@ -559,6 +584,12 @@ export async function runLighthouseCli(options: {
   readonly url: string;
   readonly chromePath: string;
   readonly bin: string;
+  /**
+   * Lab form factor. `mobile` (default) = Lighthouse mobile emulation with
+   * simulated Slow-4G throttling; `desktop` = Lighthouse's desktop preset
+   * (desktop viewport + lighter simulated throttling profile).
+   */
+  readonly formFactor?: "mobile" | "desktop";
   readonly onLog?: (line: string) => void;
 }): Promise<RunLighthouseCliResult> {
   const log = options.onLog ?? (() => undefined);
@@ -584,6 +615,15 @@ export async function runLighthouseCli(options: {
     "--disable-dev-shm-usage",
   ].join(" ");
 
+  // Pin the form factor so every pass uses the same model (multi-pass median
+  // handles noise). Desktop uses Lighthouse's preset: desktop viewport +
+  // desktop simulated-throttling profile (no 4x CPU slowdown).
+  const formFactor = options.formFactor ?? "mobile";
+  const formFactorFlags =
+    formFactor === "desktop"
+      ? ["--preset=desktop"]
+      : ["--form-factor=mobile", "--screenEmulation.mobile=true"];
+
   const args = [
     url,
     "--output=json",
@@ -591,10 +631,7 @@ export async function runLighthouseCli(options: {
     `--chrome-path=${options.chromePath}`,
     `--chrome-flags=${chromeFlags}`,
     "--only-categories=performance,accessibility,best-practices,seo",
-    // Pin mobile + simulated throttling so every pass uses the same model
-    // (reduces “laptop vs phone” confusion; multi-pass median handles noise).
-    "--form-factor=mobile",
-    "--screenEmulation.mobile=true",
+    ...formFactorFlags,
     "--throttling-method=simulate",
   ];
 

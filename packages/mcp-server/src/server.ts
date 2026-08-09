@@ -13,6 +13,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { createIndexProgressReporter } from "./index-progress.js";
 import { SERVER_INSTRUCTIONS } from "./instructions.js";
 import { registerPrompts } from "./prompts.js";
+import { registerResources } from "./resources.js";
 import {
   createWorkspaceSession,
   type SessionOptions,
@@ -51,7 +52,7 @@ export function createPrismMcpServer(
   const server = new McpServer(
     { name: SERVER_NAME, version: options.version ?? "0.1.0" },
     {
-      capabilities: { tools: {}, prompts: {}, logging: {} },
+      capabilities: { tools: {}, prompts: {}, resources: {}, logging: {} },
       instructions: SERVER_INSTRUCTIONS,
     },
   );
@@ -75,6 +76,7 @@ export function createPrismMcpServer(
 
   registerTools(server, session, TOOLS, options.workspaceRoot);
   registerPrompts(server);
+  registerResources(server, session);
 
   return { server, session };
 }

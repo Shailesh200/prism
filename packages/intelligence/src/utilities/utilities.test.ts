@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  CwvReportSchema,
   IngestArtifactSchema,
   PersonaPresetsSchema,
   PrismErrorCode,
@@ -13,6 +14,7 @@ import {
 import {
   buildCwvReport,
   buildCwvRollups,
+  cwvFieldReportFromPagespeedJson,
   cwvMetricsFromLighthouse,
   labFixtureLighthouseJson,
   labUrlForRoute,
@@ -313,6 +315,94 @@ describe("M-041 P0 utilities foundation", () => {
       (r) => r.level === "route" && r.key === "/login",
     );
     expect(loginRollup?.metrics.length).toBeGreaterThan(0);
+  });
+
+  it("mergeRouteCwvReports dedupes insight ids across routes", () => {
+    const primary = buildCwvReport({
+      url: "http://127.0.0.1:4173/",
+      source: "lighthouse",
+      lighthouseOrPayload: labFixtureLighthouseJson({
+        url: "http://127.0.0.1:4173/",
+      }),
+    });
+    const login = buildCwvReport({
+      url: labUrlForRoute("http://127.0.0.1:4173/", "/login"),
+      source: "lighthouse",
+      lighthouseOrPayload: labFixtureLighthouseJson({
+        url: "http://127.0.0.1:4173/login",
+      }),
+    });
+    const merged = mergeRouteCwvReports(primary, [
+      { route: "/login", report: login },
+    ]);
+    const ids = merged.insights.map((i) => i.id);
+    // Ids are unique (React keys) — identical findings appear once.
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids.filter((id) => id === "metric-LCP-good")).toHaveLength(1);
+  });
+
+  it("mergeRouteCwvReports keeps differing same-id insights with route context", () => {
+    const primary = buildCwvReport({
+      url: "http://127.0.0.1:4173/",
+      source: "lighthouse",
+      lighthouseOrPayload: labFixtureLighthouseJson({
+        url: "http://127.0.0.1:4173/",
+      }),
+    });
+    const loginRaw = labFixtureLighthouseJson({
+      url: "http://127.0.0.1:4173/login",
+    }) as { audits: Record<string, unknown> };
+    // Same audit id, different finding (another LCP element on /login).
+    loginRaw.audits["largest-contentful-paint-element"] = {
+      title: "Largest Contentful Paint element",
+      score: 0,
+      details: {
+        type: "list",
+        items: [
+          { type: "node", selector: "form.login", nodeLabel: "Login form" },
+        ],
+      },
+    };
+    const login = buildCwvReport({
+      url: "http://127.0.0.1:4173/login",
+      source: "lighthouse",
+      lighthouseOrPayload: loginRaw,
+    });
+    const merged = mergeRouteCwvReports(primary, [
+      { route: "/login", report: login },
+    ]);
+    const ids = merged.insights.map((i) => i.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    const routed = merged.insights.find(
+      (i) => i.id === "audit-largest-contentful-paint-element@/login",
+    );
+    expect(routed?.detail).toContain("Route /login");
+    expect(routed?.detail).toContain("Login form");
+    // Primary route's own LCP element insight survives untouched.
+    expect(
+      merged.insights.some(
+        (i) =>
+          i.id === "audit-largest-contentful-paint-element" &&
+          (i.detail ?? "").includes("Hero headline"),
+      ),
+    ).toBe(true);
+  });
+
+  it("cwvFieldReportFromPagespeedJson output satisfies CwvReportSchema", () => {
+    const report = cwvFieldReportFromPagespeedJson({
+      id: "https://example.com/",
+      lighthouseResult: labFixtureLighthouseJson({
+        url: "https://example.com/",
+      }),
+      loadingExperience: {
+        metrics: {
+          LARGEST_CONTENTFUL_PAINT_MS: { percentile: 2300, category: "FAST" },
+          CUMULATIVE_LAYOUT_SHIFT_SCORE: { percentile: 9, category: "FAST" },
+        },
+      },
+    });
+    const parsed = CwvReportSchema.safeParse(report);
+    expect(parsed.success).toBe(true);
   });
 
   it("looksLikeNotFoundHtml detects soft 404 pages", async () => {

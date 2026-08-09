@@ -34,6 +34,44 @@
   height: auto;
 }
 
+/* M-062: Overview rows / chips that navigate */
+.ov-table__row--clickable,
+.ov-activity__row--clickable {
+  cursor: pointer;
+}
+.ov-table__row--clickable:hover,
+.ov-activity__row--clickable:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.ov-domains__chip--btn,
+.ov-bars__col--btn,
+.ov-list__row--btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+.ov-domains__chip--btn {
+  display: inline-flex;
+  align-items: center;
+  gap: inherit;
+}
+.ov-bars__col--btn:disabled,
+.ov-list__row--btn:disabled {
+  cursor: default;
+  opacity: 1;
+}
+.ov-list__row--btn {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: inherit;
+}
+
 /* --- Sync button layout (M-046 UI tweak #4) ---
    Keep the Sync button vertically aligned with its sibling action buttons.
    The helper text is taken out of flow (absolutely positioned) so it never

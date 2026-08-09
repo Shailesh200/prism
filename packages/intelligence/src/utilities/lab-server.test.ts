@@ -9,6 +9,7 @@ import {
   resolveLabAppRoot,
   resolveLabPreviewStart,
 } from "./lab-server.js";
+import { looksLikeDevServerHtml } from "./lighthouse-runner.js";
 
 describe("lab-server", () => {
   it("detects next / vite from package.json and config files", async () => {
@@ -236,6 +237,106 @@ describe("lab-server", () => {
       if (!result.ok) return;
       expect(result.url).toBe(url);
       expect(result.port).toBe(addr.port);
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        server.close((err) => (err ? reject(err) : resolve())),
+      );
+    }
+  });
+
+  it("looksLikeDevServerHtml flags Vite / Next dev / webpack dev markers", () => {
+    expect(
+      looksLikeDevServerHtml(
+        '<html><head><script type="module" src="/@vite/client"></script></head>',
+      ),
+    ).toBe(true);
+    expect(
+      looksLikeDevServerHtml(
+        '<script src="/_next/static/development/_buildManifest.js"></script>',
+      ),
+    ).toBe(true);
+    expect(
+      looksLikeDevServerHtml("<script>__webpack_dev_server__ = true</script>"),
+    ).toBe(true);
+    expect(
+      looksLikeDevServerHtml(
+        '<script type="module">import RefreshRuntime from "/@react-refresh"</script>',
+      ),
+    ).toBe(true);
+    expect(
+      looksLikeDevServerHtml('<script src="/livereload.js"></script>'),
+    ).toBe(true);
+  });
+
+  it("looksLikeDevServerHtml passes production documents", () => {
+    expect(
+      looksLikeDevServerHtml(
+        '<html><head><script type="module" crossorigin src="/assets/index-a1b2c3.js"></script></head><body><div id="root"></div></body>',
+      ),
+    ).toBe(false);
+    expect(
+      looksLikeDevServerHtml(
+        '<html><head><script src="/_next/static/chunks/main-abc123.js"></script></head>',
+      ),
+    ).toBe(false);
+    expect(looksLikeDevServerHtml("<html><body>static</body></html>")).toBe(
+      false,
+    );
+    expect(looksLikeDevServerHtml("")).toBe(false);
+  });
+
+  it("discoverLabUrl skips dev servers and reports devServerUrl", async () => {
+    const { createServer } = await import("node:http");
+    const server = createServer((_req, res) => {
+      res.writeHead(200, { "content-type": "text/html" });
+      res.end(
+        '<html><head><script type="module" src="/@vite/client"></script></head><body><div id="root"></div></body>',
+      );
+    });
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    const addr = server.address();
+    if (!addr || typeof addr === "string") {
+      server.close();
+      throw new Error("expected TCP address");
+    }
+    const url = `http://127.0.0.1:${addr.port}/`;
+    try {
+      const result = await discoverLabUrl({ url, port: addr.port });
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.devServerUrl).toBe(url);
+      expect(result.message).toContain("production builds only");
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        server.close((err) => (err ? reject(err) : resolve())),
+      );
+    }
+  });
+
+  it("discoverLabUrl accepts a production build on the same probe path", async () => {
+    const { createServer } = await import("node:http");
+    const server = createServer((_req, res) => {
+      res.writeHead(200, { "content-type": "text/html" });
+      res.end(
+        '<html><head><script type="module" crossorigin src="/assets/index-a1b2c3.js"></script></head><body><div id="root"></div></body>',
+      );
+    });
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    const addr = server.address();
+    if (!addr || typeof addr === "string") {
+      server.close();
+      throw new Error("expected TCP address");
+    }
+    const url = `http://127.0.0.1:${addr.port}/`;
+    try {
+      const result = await discoverLabUrl({ url, port: addr.port });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.url).toBe(url);
     } finally {
       await new Promise<void>((resolve, reject) =>
         server.close((err) => (err ? reject(err) : resolve())),

@@ -13,6 +13,11 @@ export const SIGNAL_PROVENANCE = [
   "measured",
   /** Computed from real data through an inference rule: fan-in risk, feature guesses. */
   "heuristic",
+  /**
+   * Community / structural inference when stronger conventions are absent
+   * (M-061 / ADR-0029 amendment — feature detection fallback).
+   */
+  "inferred",
   /** A real computation attributed to a subject it was not computed for. */
   "estimated",
   /** No data exists. The accompanying value must be absent or null. */
@@ -57,6 +62,10 @@ export function heuristic(value: number): ProvenancedValue {
   return { value, provenance: "heuristic" };
 }
 
+export function inferred(value: number): ProvenancedValue {
+  return { value, provenance: "inferred" };
+}
+
 export function estimated(value: number): ProvenancedValue {
   return { value, provenance: "estimated" };
 }
@@ -91,6 +100,7 @@ export function combineProvenance(
   const present = parts.filter((p) => p !== "unavailable");
   if (present.length === 0) return "unavailable";
   if (present.includes("estimated")) return "estimated";
+  if (present.includes("inferred")) return "inferred";
   if (present.includes("heuristic")) return "heuristic";
   return "measured";
 }

@@ -24,6 +24,8 @@ export type LabServerHandle = {
   readonly url: string;
   readonly port: number;
   readonly kind: LabKind;
+  /** Package root that was built + previewed — scope route discovery to it. */
+  readonly appRoot: string;
   readonly stop: () => Promise<void>;
 };
 
@@ -298,8 +300,12 @@ async function waitForUrl(
   let last = "";
   while (Date.now() - start < timeoutMs) {
     const probe = await probeLabUrl(url);
-    if (probe.ok) return { ok: true };
-    last = probe.message;
+    // A dev server squatting on the preview port must not count as ready —
+    // the spawned production preview likely failed to bind behind it.
+    if (probe.ok && !probe.devServer) return { ok: true };
+    last = probe.ok
+      ? `${url} is a dev server, not the production preview`
+      : probe.message;
     await new Promise((r) => setTimeout(r, 500));
   }
   return {
@@ -326,12 +332,19 @@ function stopChild(child: ChildProcess | null): Promise<void> {
 
 /**
  * Probe preferred port / URL, then common local ports (3000, 5173, …).
+ *
+ * Dev servers are deliberately skipped: the lab measures production builds
+ * only. Unbundled dev modules + HMR websockets explode under simulated
+ * throttling, so a Vite/Next dev server produces meaningless numbers.
+ * When only dev servers respond, the failure carries `devServerUrl` so the
+ * caller can fall through to a build + production preview with a clear log.
  */
 export async function discoverLabUrl(options: {
   readonly url?: string;
   readonly port?: number;
 }): Promise<
-  { ok: true; url: string; port: number } | { ok: false; message: string }
+  | { ok: true; url: string; port: number }
+  | { ok: false; message: string; devServerUrl?: string }
 > {
   const preferred = options.port;
   const ports = [
@@ -345,9 +358,14 @@ export async function discoverLabUrl(options: {
   }
   const unique = [...new Set(candidates)];
   const errors: string[] = [];
+  const devServers: string[] = [];
   for (const candidate of unique) {
     const probe = await probeLabUrl(candidate);
     if (probe.ok) {
+      if (probe.devServer) {
+        devServers.push(candidate);
+        continue;
+      }
       let port = preferred ?? PRISM_LAB_PORT;
       try {
         const u = new URL(candidate);
@@ -358,6 +376,13 @@ export async function discoverLabUrl(options: {
       return { ok: true, url: candidate, port };
     }
     errors.push(probe.message);
+  }
+  if (devServers.length > 0) {
+    return {
+      ok: false,
+      devServerUrl: devServers[0]!,
+      message: `Dev server detected at ${devServers[0]} — skipped (lab measures production builds only).`,
+    };
   }
   return {
     ok: false,
@@ -385,15 +410,17 @@ export async function startLabPreviewServer(options: {
   const url = `http://127.0.0.1:${port}/`;
   const progress = options.onProgress ?? (() => undefined);
 
-  // Already up (race with discover) — reuse without spawning.
+  // Already up (race with discover) — reuse without spawning. A dev server
+  // squatting on the preview port is not reusable: lab measures production.
   const existing = await probeLabUrl(url);
-  if (existing.ok) {
+  if (existing.ok && !existing.devServer) {
     return {
       ok: true,
       handle: {
         url,
         port,
         kind,
+        appRoot,
         stop: async () => undefined,
       },
     };
@@ -492,6 +519,7 @@ export async function startLabPreviewServer(options: {
       url,
       port,
       kind,
+      appRoot,
       stop: async () => {
         await stopChild(child);
         // Kill process group when detached on Unix.

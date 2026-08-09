@@ -156,9 +156,14 @@ Risk of the current changes, or of the paths you name
 | `--base <rev>` | Diff against a git revision |
 | `--fail-on <band>` | Exit 1 when the risk is at or above this band: low, mid, high |
 | `--limit <n>` | Maximum rows to print (default 50) |
+| `--format <fmt>` | Machine output format: sarif (GitHub code scanning) |
 
 ```bash
 prism review --base origin/main --fail-on high
+```
+
+```bash
+prism review --base origin/main --format sarif
 ```
 
 ### `prism safe-delete <target>`
@@ -241,9 +246,14 @@ Import and re-export cycles
 | `--packages` | Aggregate files into packages |
 | `--fail-on <count>` | Exit 1 at this many findings, or 'any' for one or more |
 | `--limit <n>` | Maximum rows to print (default 50) |
+| `--format <fmt>` | Machine output format: sarif (GitHub code scanning) |
 
 ```bash
 prism cycles --fail-on any
+```
+
+```bash
+prism cycles --format sarif
 ```
 
 ### `prism symbol <name>`
@@ -370,8 +380,16 @@ prism bundle --artifact <id>
 
 Check the environment, workspace and index
 
+| Option | Meaning |
+|---|---|
+| `--ci` | Extra CI checks (e.g. warn on shallow clones that truncate history) |
+
 ```bash
 prism doctor
+```
+
+```bash
+prism doctor --ci
 ```
 
 ### `prism index`
@@ -380,4 +398,20 @@ Build or refresh the repository index
 
 ```bash
 prism index
+```
+
+### `prism completions <shell>`
+
+Print shell completion script (bash, zsh, or fish)
+
+| Argument | Meaning |
+|---|---|
+| `<shell>` | Shell to generate for: bash, zsh, or fish |
+
+```bash
+prism completions bash >> ~/.bashrc
+```
+
+```bash
+prism completions zsh > ~/.zfunc/_prism
 ```

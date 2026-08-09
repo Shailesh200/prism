@@ -52,7 +52,7 @@
 | M-051 Hardening & Signal Integrity | `milestone/M-051-hardening` | Verified | ✅ | ✅ | 2026-08-05. All five phases; verify green with cache bypassed. ADR-0029 signal provenance; release safety, watch/RPC correctness, risk bands, plan reconciliation. **Owner verified 2026-08-08** (merged on main) |
 | M-052 Surface Consolidation | `milestone/M-052-surface-consolidation` | Verified | ✅ | ✅ | 2026-08-05. Analysis lift only (§3a): `getOverviewModel`, `runWorkspaceTests`/`listWorkspaceTests`, ~450 duplicated lines deleted from `host-dispatch`. Presentation work → M-053. **Owner verified 2026-08-08** (merged on main) |
 | M-026 MCP Server Foundation | `milestone/M-026-mcp-server` | Verified | ✅ | ✅ | 2026-08-05. stdio MCP server over Core: lazy workspace + index-once lifecycle, 5 read-only tools, `PrismError`→JSON-RPC mapping, ADR-0030. Consent-gated Core paths deliberately unreachable. E2E against this repo (755 files). **Owner verified 2026-08-08** (merged on main) |
-| M-053 Presentation Consolidation | `milestone/M-053-presentation-consolidation` | Planned | ☐ | ☐ | Carries M-052's presentation half: `getDomainReport`, CWV convergence, `PrismClient` unification, screen de-duplication, a11y. Needs a human on the screens |
+| M-053 Presentation Consolidation | `milestone/M-053-presentation-consolidation` | In Progress | ☐ | ☐ | Carries M-052's presentation half: `getDomainReport`, CWV convergence, `PrismClient` unification, screen de-duplication, a11y. Needs a human on the screens |
 | M-033 Incremental Watch | `milestone/M-033-incremental-watch` | Deferred | ☐ | ☐ | Superseded by M-048 Phase 1 (ADR-0026) |
 | M-034 Tree-sitter | `milestone/M-034-tree-sitter` | Deferred | ☐ | ☐ | Deferred by owner 2026-08-05: blocks nothing, not on the GA path, and delivers nothing to TS/JS users. Revisit with the post-GA idea backlog; Q-005 remains open |
 | M-035 Perf Hardening | `milestone/M-035-perf-hardening` | Verified | ✅ | ✅ | 2026-08-05. Fixture generator, benchmark harness, baseline in `architecture/08_PERFORMANCE.md`, budgets in CI. Map 31.7s→1.0s at 10k; 66.9s→4.2s at 50k; incremental reindex 4.2s→1.9s. **Owner verified 2026-08-08** (merged on main) |
@@ -62,7 +62,15 @@
 | M-039 GA Readiness | `milestone/M-039-ga-readiness` | Verified | ✅ | ✅ | 2026-08-05. 1.0.0 across extension/Core/CLI/MCP; CHANGELOG + release runbook; ADRs Accepted; open questions dispositioned; first-run audit fixes. Tag `repo-prism-v1.0.0` local (push separate). **Owner verified 2026-08-08** (merged on main) |
 | M-054 Public Website | `milestone/M-054-website` | Verified | ✅ | ✅ | Merged 2026-08-06. Next.js 16 + Fumadocs at `apps/website` (ADR-0031); docs rewritten into CLI/IDE/MCP lanes + task guides; `/admin` from public APIs; VitePress retired. Owner: finish Vercel import + domain per `apps/website/OWNER_HANDOFF.md` |
 | M-055 Website Marketing Motion | `milestone/M-055-website-motion` | Verified | ✅ | ✅ | Approved + merged 2026-08-08. GSAP cartographic motion on marketing pages (ADR-0032); portfolio mechanism without gate/wipe/HUD/particles; prompt at `plans/prompts/WEBSITE_GSAP_REDESIGN.md`. Owner smoked locally. |
+| M-056 Number Integrity | `milestone/M-056-number-integrity` | Planned | ☐ | ☐ | Truncation honesty: unresolved imports, git cap, blast limits, polyglot coverage, coverage limitations |
+| M-057 Daily Loop | `milestone/M-057-daily-loop` | Planned | ☐ | ☐ | IDE hero: watcher, blast Quick Pick, shared config, completions, Node ≥22 |
+| M-058 Agent Surface v2 | `milestone/M-058-agent-surface` | Planned | ☐ | ☐ | MCP hero: bounded tools, resources, capabilities, compact JSON |
+| M-059 Reference Precision | `milestone/M-059-reference-precision` | Planned | ☐ | ☐ | Moat: homonyms, member calls, barrels, tsconfig, require(); deep-TS spike |
+| M-060 CI and PR Integration | `milestone/M-060-ci-pr` | Planned | ☐ | ☐ | GitHub Action, SARIF, PR comment, cold-start caching |
+| M-061 Detection Quality | `milestone/M-061-detection-quality` | Planned | ☐ | ☐ | Multi-signal detectors, feature inference fallback, backend extractors |
+| M-062 UI Actionability | `milestone/M-062-ui-actionability` | Planned | ☐ | ☐ | D-9 IA merge, DomainScreen split, dead-end fixes, shared table primitives |
+| M-063 Distribution and Proof | `milestone/M-063-distribution` | Planned | ☐ | ☐ | Benchmarks, one-click MCP install, URL updates, killer demo, CHANGELOG |
 
 ## Legend
 
-`Not Started` · `In Progress` · `In Review` · `Blocked` · `Verified` · `Deferred`
+`Not Started` · `Planned` · `In Progress` · `In Review` · `Blocked` · `Verified` · `Deferred`

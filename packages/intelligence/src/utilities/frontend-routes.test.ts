@@ -40,14 +40,21 @@ describe("frontend-routes", () => {
     expect(
       routeFromPageFilePath("apps/web/src/app/(marketing)/about/page.tsx"),
     ).toBe("/about");
-    expect(routeFromPageFilePath("src/app/@modal/(.)photo/[id]/page.tsx")).toBe(
-      "/[id]",
-    );
     expect(routeFromPageFilePath("app/dashboard/settings/page.tsx")).toBe(
       "/dashboard/settings",
     );
     expect(routeFromPageFilePath("pages/index.tsx")).toBe("/");
     expect(routeFromPageFilePath("pages/settings.tsx")).toBe("/settings");
+  });
+
+  it("drops dynamic segments — folder names are not measurable URLs", () => {
+    expect(routeFromPageFilePath("src/app/@modal/(.)photo/[id]/page.tsx")).toBe(
+      null,
+    );
+    expect(routeFromPageFilePath("app/blog/[slug]/page.tsx")).toBe(null);
+    expect(routeFromPageFilePath("app/docs/[[...slug]]/page.tsx")).toBe(null);
+    expect(routeFromPageFilePath("app/blog/[...slug]/page.tsx")).toBe(null);
+    expect(routeFromPageFilePath("pages/posts/[id].tsx")).toBe(null);
   });
 
   it("discovers Next App Router pages under src/app in a nested package", () => {
@@ -77,6 +84,33 @@ describe("frontend-routes", () => {
     expect(routes).toContain("/");
     expect(routes).toContain("/about");
     expect(routes).toContain("/pricing");
-    expect(routes).toContain("/blog/[slug]");
+    // Dynamic folder names are not measurable URLs.
+    expect(routes).not.toContain("/blog/[slug]");
+  });
+
+  it("scopes discovery to the measured app root in a monorepo", () => {
+    const root = mkdtempSync(join(tmpdir(), "prism-routes-scope-"));
+    // Website app (Next) — sibling that must NOT leak into the lab's routes.
+    const siteApp = join(root, "apps", "website", "app");
+    mkdirSync(join(siteApp, "security"), { recursive: true });
+    writeFileSync(join(siteApp, "page.tsx"), "export default function H() {}");
+    writeFileSync(
+      join(siteApp, "security", "page.tsx"),
+      "export default function S() {}",
+    );
+    // Playground app (Vite + React Router) — the app being measured.
+    const pgRoot = join(root, "apps", "playground");
+    mkdirSync(join(pgRoot, "src"), { recursive: true });
+    writeFileSync(
+      join(pgRoot, "src", "app.tsx"),
+      `export const routes = <><Route path="/" element={<M />} /><Route path="/map" element={<P />} /></>;`,
+    );
+
+    const scoped = discoverFrontendAppRoutes(root, pgRoot);
+    expect(scoped).toContain("/map");
+    expect(scoped).not.toContain("/security");
+
+    const wide = discoverFrontendAppRoutes(root);
+    expect(wide).toContain("/security");
   });
 });

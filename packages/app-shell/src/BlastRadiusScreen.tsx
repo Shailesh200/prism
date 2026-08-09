@@ -39,6 +39,7 @@ import { shellNavVariant, shellRootClass } from "./shell-layout.js";
 import { useAppShellClient } from "./client-context.js";
 import { recordAudit } from "./audit-log.js";
 import { resolveRenameToPath } from "./apply-rename.js";
+import { useModalFocus } from "./modal-focus.js";
 import type { ImpactBundle, ImpactTarget, SymbolSearchHit } from "./types.js";
 
 const GAUGE_C = 2 * Math.PI * 45;
@@ -103,6 +104,8 @@ export type BlastRadiusScreenProps = {
   /** Optional pre-selected edit vs delete intent (Safe Delete Check). */
   initialIntent?: "edit" | "delete" | null;
   onNavigate: (view: AppView) => void;
+  /** Open a repo-relative path in the host editor (Change Review pattern). */
+  readonly onOpenPath?: (path: string) => void;
 };
 
 type Mode = "file" | "symbol";
@@ -369,9 +372,15 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
   const [newName, setNewName] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [impactRetry, setImpactRetry] = useState(0);
   const [bundle, setBundle] = useState<ImpactBundle | null>(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [testsVisibleCount, setTestsVisibleCount] = useState(PAGE_SIZE);
   const [catFilter, setCatFilter] = useState<Category | "all">("all");
+  const openPath = (path: string): void => {
+    if (props.onOpenPath) props.onOpenPath(path);
+    else client.openFile?.(path);
+  };
   const [renameRefreshing, setRenameRefreshing] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewBusy, setPreviewBusy] = useState(false);
@@ -380,32 +389,39 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
   const [previewToPath, setPreviewToPath] = useState<string | null>(null);
 
   const [fileNodes, setFileNodes] = useState<GraphNodeDto[]>([]);
+  const [fileTreeLoading, setFileTreeLoading] = useState(true);
   const [symbolHits, setSymbolHits] = useState<SymbolSearchHit[]>([]);
   const [returnView, setReturnView] = useState<AppView | null>(null);
   const newNameRef = useRef(newName);
   newNameRef.current = newName;
   const lastRenameFetchedRef = useRef<string | null>(null);
+  const previewModalRef = useRef<HTMLDivElement>(null);
+  useModalFocus(previewOpen, previewModalRef);
 
   useEffect(() => {
     if (!props.root) return;
-    void client.fetchDependencyGraph().then((graph) => {
-      if (!graph) return;
-      const nodes = graph.nodes
-        .filter((n) => n.kind === "file" || n.id.startsWith("file:"))
-        .map((n) => {
-          const path = filePathFromNodeId(
-            n.id,
-            typeof n.attrs?.path === "string" ? n.attrs.path : n.label,
-          );
-          return {
-            ...n,
-            kind: "file",
-            label: path,
-            attrs: { ...n.attrs, path },
-          } satisfies GraphNodeDto;
-        });
-      setFileNodes(nodes);
-    });
+    setFileTreeLoading(true);
+    void client
+      .fetchDependencyGraph()
+      .then((graph) => {
+        if (!graph) return;
+        const nodes = graph.nodes
+          .filter((n) => n.kind === "file" || n.id.startsWith("file:"))
+          .map((n) => {
+            const path = filePathFromNodeId(
+              n.id,
+              typeof n.attrs?.path === "string" ? n.attrs.path : n.label,
+            );
+            return {
+              ...n,
+              kind: "file",
+              label: path,
+              attrs: { ...n.attrs, path },
+            } satisfies GraphNodeDto;
+          });
+        setFileNodes(nodes);
+      })
+      .finally(() => setFileTreeLoading(false));
   }, [props.root, client]);
 
   useEffect(() => {
@@ -466,6 +482,7 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
     setStatus("loading");
     setError(null);
     setVisibleCount(PAGE_SIZE);
+    setTestsVisibleCount(PAGE_SIZE);
     setCatFilter("all");
     const nameAtSelect = newNameRef.current.trim();
     lastRenameFetchedRef.current = nameAtSelect;
@@ -489,7 +506,7 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [target, props.root, client, impactIntent]);
+  }, [target, props.root, client, impactIntent, impactRetry]);
 
   // Debounced rename-only refresh — updates rename panel without layout remount.
   useEffect(() => {
@@ -866,9 +883,11 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
                 </div>
               ) : (
                 <p className="ov-empty">
-                  {props.root
-                    ? "No files in the dependency graph yet."
-                    : "Open a workspace to browse files."}
+                  {!props.root
+                    ? "Open a workspace to browse files."
+                    : fileTreeLoading
+                      ? "Loading file tree…"
+                      : "No files in the dependency graph yet."}
                 </p>
               )}
             </div>
@@ -919,9 +938,18 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
           ) : null}
 
           {status === "error" ? (
-            <p className="ov-empty br-error">
-              {error ?? "Could not compute impact for this target."}
-            </p>
+            <div>
+              <p className="ov-empty br-error">
+                {error ?? "Could not compute impact for this target."}
+              </p>
+              <button
+                type="button"
+                className="ov-btn ov-btn--primary"
+                onClick={() => setImpactRetry((n) => n + 1)}
+              >
+                Try again
+              </button>
+            </div>
           ) : null}
 
           {status === "ready" && blast && band && bundle && safeDelete ? (
@@ -1110,12 +1138,23 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
                               className="br-down__row"
                             >
                               <FileCode2 size={14} aria-hidden />
-                              <span
-                                className="ov-mono ov-ellipsis br-down__path"
-                                title={row.path}
-                              >
-                                {row.path}
-                              </span>
+                              {props.onOpenPath || client.openFile ? (
+                                <button
+                                  type="button"
+                                  className="set-link cr-path-btn ov-mono ov-ellipsis br-down__path"
+                                  title={`Open ${row.path}`}
+                                  onClick={() => openPath(row.path)}
+                                >
+                                  {row.path}
+                                </button>
+                              ) : (
+                                <span
+                                  className="ov-mono ov-ellipsis br-down__path"
+                                  title={row.path}
+                                >
+                                  {row.path}
+                                </span>
+                              )}
                               {row.confidence && row.confidence !== "high" ? (
                                 <span
                                   className="br-cat br-cat--sm"
@@ -1169,19 +1208,33 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
                       This file depends on…
                     </span>
                     <span className="ov-card__meta">
-                      {blast.forwardDependencies!.length}
+                      {blast.forwardDependenciesTruncated &&
+                      blast.forwardDependenciesTotalCount !== undefined
+                        ? `showing ${blast.forwardDependencies!.length} of ${blast.forwardDependenciesTotalCount}`
+                        : blast.forwardDependencies!.length}
                     </span>
                   </div>
                   <div className="br-forward__body">
-                    {blast.forwardDependencies!.slice(0, 40).map((dep) => (
+                    {blast.forwardDependencies!.map((dep) => (
                       <div key={dep.path} className="br-down__row">
                         <FileCode2 size={14} aria-hidden />
-                        <span
-                          className="ov-mono ov-ellipsis br-down__path"
-                          title={dep.path}
-                        >
-                          {dep.path}
-                        </span>
+                        {props.onOpenPath || client.openFile ? (
+                          <button
+                            type="button"
+                            className="set-link cr-path-btn ov-mono ov-ellipsis br-down__path"
+                            title={`Open ${dep.path}`}
+                            onClick={() => openPath(dep.path)}
+                          >
+                            {dep.path}
+                          </button>
+                        ) : (
+                          <span
+                            className="ov-mono ov-ellipsis br-down__path"
+                            title={dep.path}
+                          >
+                            {dep.path}
+                          </span>
+                        )}
                         <span className="br-cat br-cat--sm" data-cat="import">
                           {dep.kind}
                         </span>
@@ -1191,6 +1244,23 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
                       </div>
                     ))}
                   </div>
+                </article>
+              ) : null}
+
+              {(blast.coverageLimitations?.length ?? 0) > 0 ? (
+                <article className="ov-card br-coverage">
+                  <div className="ov-card__head">
+                    <span className="ov-card__title">Coverage limitations</span>
+                    <InfoTip label="Coverage limitations">
+                      Blast radius follows import and soft-analysis lanes. These
+                      dependency classes are invisible to the graph.
+                    </InfoTip>
+                  </div>
+                  <ul className="br-coverage__list">
+                    {blast.coverageLimitations!.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
                 </article>
               ) : null}
 
@@ -1460,39 +1530,69 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
                   </span>
                 </div>
                 {bundle.testImpact.tests.length > 0 ? (
-                  <div className="dm-rank">
-                    {bundle.testImpact.tests.map((t) => (
-                      <div
-                        key={`${t.path}:${t.depth}`}
-                        className="dm-rank__row"
+                  <>
+                    <div className="dm-rank">
+                      {bundle.testImpact.tests
+                        .slice(0, testsVisibleCount)
+                        .map((t) => (
+                          <div
+                            key={`${t.path}:${t.depth}`}
+                            className="dm-rank__row"
+                          >
+                            <div className="dm-rank__main">
+                              {props.onOpenPath || client.openFile ? (
+                                <button
+                                  type="button"
+                                  className="set-link cr-path-btn dm-rank__name ov-mono ov-ellipsis"
+                                  title={`Open ${t.path}`}
+                                  onClick={() => openPath(t.path)}
+                                >
+                                  {t.path}
+                                </button>
+                              ) : (
+                                <span className="dm-rank__name ov-mono ov-ellipsis">
+                                  {t.path}
+                                </span>
+                              )}
+                              <span className="dm-rank__path ov-ellipsis">
+                                {t.reason}
+                              </span>
+                            </div>
+                            <span className="dm-rank__val ov-mono">
+                              d{t.depth}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                    {bundle.testImpact.tests.length > testsVisibleCount ? (
+                      <button
+                        type="button"
+                        className="ov-btn ov-btn--ghost br-more"
+                        onClick={() =>
+                          setTestsVisibleCount((n) => n + PAGE_SIZE)
+                        }
                       >
-                        <div className="dm-rank__main">
-                          <span className="dm-rank__name ov-mono ov-ellipsis">
-                            {t.path}
-                          </span>
-                          <span className="dm-rank__path ov-ellipsis">
-                            {t.reason}
-                          </span>
-                        </div>
-                        <span className="dm-rank__val ov-mono">d{t.depth}</span>
-                      </div>
-                    ))}
-                  </div>
+                        Show more (
+                        {bundle.testImpact.tests.length - testsVisibleCount}{" "}
+                        remaining)
+                      </button>
+                    ) : null}
+                  </>
                 ) : (
                   <p className="ov-empty">No tests in the impact radius.</p>
                 )}
                 <button
                   type="button"
                   className="ov-btn ov-btn--ghost br-run"
-                  disabled
-                  title="Running tests from here is not available yet"
+                  onClick={() => props.onNavigate("testing")}
+                  title="Open Testing & Security to run these suites"
                 >
                   <Play size={13} aria-hidden />
                   Run these tests
                 </button>
                 <p className="dm-note">
-                  Test impact from Core — paths, reason, and depth. Running
-                  tests from here is not available yet.
+                  Test impact from Core — paths, reason, and depth. Open Testing
+                  &amp; Security to run suites from the discovered tree.
                 </p>
               </article>
             </div>
@@ -1512,6 +1612,7 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
           }}
         >
           <div
+            ref={previewModalRef}
             className="br-modal"
             role="dialog"
             aria-modal="true"

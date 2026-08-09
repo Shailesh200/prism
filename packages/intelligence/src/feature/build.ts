@@ -9,6 +9,14 @@ import {
   unsafeNodeId,
 } from "@repo-prism/shared";
 import {
+  loadTsconfigPathAliases,
+  resolveAliasSpecifier,
+} from "../dependency/aliases.js";
+import {
+  discoverLocalPackages,
+  resolveLocalPackageSpecifier,
+} from "../dependency/packages.js";
+import {
   isRelativeSpecifier,
   resolveImportTarget,
 } from "../dependency/resolve.js";
@@ -56,6 +64,7 @@ function toFeatureInfo(draft: FeatureDraft): FeatureInfo {
     confidence: draft.confidence,
     memberFiles: [...draft.files].sort((a, b) => a.localeCompare(b)),
     evidence: [...draft.evidence].sort((a, b) => a.localeCompare(b)),
+    ...(draft.provenance !== undefined ? { provenance: draft.provenance } : {}),
   };
 }
 
@@ -73,6 +82,7 @@ function ownerByFile(features: readonly FeatureInfo[]): Map<string, string> {
 
 /**
  * Infer a feature graph from an index snapshot (heuristics v1 — ADR-0011).
+ * Cross-feature edges include relative, alias, and workspace imports (M-061).
  */
 export function buildFeatureGraph(snapshot: IndexSnapshot): FeatureGraphResult {
   const drafts = inferFeatures(snapshot);
@@ -90,6 +100,7 @@ export function buildFeatureGraph(snapshot: IndexSnapshot): FeatureGraphResult {
       confidence: f.confidence,
       memberCount: f.memberFiles.length,
       evidence: f.evidence,
+      ...(f.provenance !== undefined ? { provenance: f.provenance } : {}),
     },
   }));
 
@@ -110,14 +121,28 @@ export function buildFeatureGraph(snapshot: IndexSnapshot): FeatureGraphResult {
   const indexedPaths = new Set(
     snapshot.files.filter((f) => f.status === "analyzed").map((f) => f.path),
   );
+  const packages = discoverLocalPackages(
+    snapshot.rootPath,
+    snapshot.files.map((f) => f.path),
+  );
+  const aliases = loadTsconfigPathAliases(
+    snapshot.rootPath,
+    snapshot.files.map((f) => f.path),
+  );
 
   for (const file of snapshot.files) {
     if (file.status !== "analyzed") continue;
     const fromFeature = owners.get(file.path);
     if (!fromFeature) continue;
     for (const imp of file.imports) {
-      if (!isRelativeSpecifier(imp.source)) continue;
-      const target = resolveImportTarget(file.path, imp.source, indexedPaths);
+      let target: string | null = null;
+      if (isRelativeSpecifier(imp.source)) {
+        target = resolveImportTarget(file.path, imp.source, indexedPaths);
+      } else {
+        target =
+          resolveAliasSpecifier(file.path, imp.source, indexedPaths, aliases) ??
+          resolveLocalPackageSpecifier(imp.source, packages, indexedPaths);
+      }
       if (!target) continue;
       const toFeature = owners.get(target);
       if (!toFeature || toFeature === fromFeature) continue;
@@ -144,4 +169,12 @@ export function buildFeatureGraph(snapshot: IndexSnapshot): FeatureGraphResult {
 
 export function listFeatures(result: FeatureGraphResult): FeatureInfo[] {
   return result.features;
+}
+
+/** True when every feature (if any) carries inferred provenance. */
+export function featuresAreInferenceOnly(
+  features: readonly FeatureInfo[],
+): boolean {
+  if (features.length === 0) return false;
+  return features.every((f) => f.provenance === "inferred");
 }

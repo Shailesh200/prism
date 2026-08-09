@@ -25,6 +25,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@repo-prism/intelligence": "workspace:*",
     "@repo-prism/shared": "workspace:*",
     "@repo-prism/ui": "workspace:*",
     "lucide-react": "^1.25.0",

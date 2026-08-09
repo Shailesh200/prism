@@ -278,20 +278,31 @@ function buildFileZoom(dependencyGraph: GraphSnapshotDto): {
   };
 }
 
+/** Per-file symbol cap at symbol zoom (M-056 / P-A5). */
+export const SYMBOL_ZOOM_PER_FILE_LIMIT = 8;
+
 function buildSymbolZoom(snapshot: IndexSnapshot): {
   graph: GraphSnapshotDto;
   clusters: MapCluster[];
+  truncated: boolean;
+  totalCount: number;
+  shownCount: number;
 } {
   const nodes: GraphNodeDto[] = [];
   const edges: GraphEdgeDto[] = [];
   const files = [...snapshot.files].sort((a, b) =>
     a.path.localeCompare(b.path),
   );
+  let totalCount = 0;
+  let shownCount = 0;
   for (const file of files) {
     const fileId = `file:${file.path}`;
-    const symbols = [...file.symbols]
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .slice(0, 8);
+    const sorted = [...file.symbols].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+    totalCount += sorted.length;
+    const symbols = sorted.slice(0, SYMBOL_ZOOM_PER_FILE_LIMIT);
+    shownCount += symbols.length;
     for (const sym of symbols) {
       const id = `sym:${file.path}:${sym.name}`;
       nodes.push(
@@ -311,6 +322,9 @@ function buildSymbolZoom(snapshot: IndexSnapshot): {
   return {
     graph: { id: "map:symbol", nodes, edges },
     clusters: [],
+    truncated: totalCount > shownCount,
+    totalCount,
+    shownCount,
   };
 }
 
@@ -556,6 +570,11 @@ export function buildRepositoryMap(
   const zoom = input.zoom ?? "feature";
   const activeLayerIds = resolveActiveLayers(input.layers);
   const hasGit = Boolean(input.gitSignals && input.gitSignals.size > 0);
+  const gitSummary = input.gitSummary;
+  const activityDescription =
+    gitSummary?.historyTruncated === true
+      ? `Recent commit heat (local git history; scanned latest ${gitSummary.windowCommits.toLocaleString()} of ${gitSummary.totalCommits.toLocaleString()})`
+      : "Recent commit heat (local git history)";
   const layers = listMapLayerDescriptors().map(
     (l): MapLayerDescriptor =>
       hasGit && (l.id === "activity" || l.id === "ownership")
@@ -564,7 +583,7 @@ export function buildRepositoryMap(
             stub: false,
             description:
               l.id === "activity"
-                ? "Recent commit heat (local git history)"
+                ? activityDescription
                 : "Top author bands (local git blame)",
           }
         : l,
@@ -573,7 +592,12 @@ export function buildRepositoryMap(
     a.id.localeCompare(b.id),
   );
 
-  let built: { graph: GraphSnapshotDto; clusters: MapCluster[] };
+  let built: {
+    graph: GraphSnapshotDto;
+    clusters: MapCluster[];
+    truncated?: boolean;
+    totalCount?: number;
+  };
   switch (zoom) {
     case "repo":
       built = buildRepoZoom(input.packages, input.snapshot.rootPath);
@@ -628,6 +652,12 @@ export function buildRepositoryMap(
     bookmarks,
     searchIndex,
     clusteringNote: clusteringNoteFor(zoom),
-    ...(input.gitSummary === undefined ? {} : { git: input.gitSummary }),
+    ...(gitSummary === undefined ? {} : { git: gitSummary }),
+    ...(built.totalCount !== undefined
+      ? {
+          totalCount: built.totalCount,
+          ...(built.truncated ? { truncated: true } : { truncated: false }),
+        }
+      : {}),
   };
 }

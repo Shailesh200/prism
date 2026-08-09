@@ -1,0 +1,5 @@
+{
+  "name": "@prism-fixture/m061-backend-trpc",
+  "private": true,
+  "dependencies": { "@trpc/server": "11.0.0" }
+}

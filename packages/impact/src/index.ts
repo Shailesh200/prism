@@ -2,8 +2,10 @@
 export const PACKAGE_NAME = "@repo-prism/impact" as const;
 
 export {
+  BLAST_COVERAGE_LIMITATIONS,
   computeBlastRadius,
   DEFAULT_BLAST_MAX_DEPTH,
+  FORWARD_DEPENDENCIES_LIMIT,
   classifyToolingRoot,
   isRepoCriticalPath,
   type BlastRadiusOptions,

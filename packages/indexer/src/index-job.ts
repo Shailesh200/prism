@@ -161,6 +161,7 @@ async function analyzeOne(
       specifiers: [...i.specifiers],
       ...(typeof i.start === "number" ? { start: i.start } : {}),
       ...(typeof i.end === "number" ? { end: i.end } : {}),
+      ...(i.kind === undefined ? {} : { kind: i.kind }),
     })),
     exports: value.exports.map((e) => ({
       name: e.name,
@@ -174,6 +175,7 @@ async function analyzeOne(
       kind: r.kind,
       start: r.start,
       end: r.end,
+      ...(r.via === undefined ? {} : { via: r.via }),
     })),
     diagnostics: value.diagnostics.map((d) => ({
       severity: d.severity,

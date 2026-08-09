@@ -160,7 +160,7 @@ export const testingCommand: CommandHandler = async (context) => {
             [
               "Coverage",
               testing.coverage?.present
-                ? `${Math.round(testing.coverage.linePct ?? 0)}% lines (${testing.coverage.source})`
+                ? `${Math.round(testing.coverage.linePct ?? 0)}% ${testing.coverage.metric ?? "lines"} (${testing.coverage.source})`
                 : "no coverage artifact on disk",
             ],
           ],

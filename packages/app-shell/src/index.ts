@@ -10,6 +10,33 @@ export type {
   LighthouseLabProgressEvent,
   StageDevopsRemoteResult,
 } from "./client.js";
+export {
+  createPrismClient,
+  createHttpTransport,
+  createPostMessageTransport,
+  createPlaygroundClient,
+  httpFetchDna,
+  httpFetchHealth,
+  httpFetchPresets,
+  playgroundFetchDna,
+  playgroundFetchHealth,
+  playgroundFetchPresets,
+  HostRequestError,
+  DEFAULT_RPC_TIMEOUT_MS,
+  PROGRESS_RPC_TIMEOUT_MS,
+  type PrismClient,
+  type PrismTransport,
+  type CreatePrismClientOptions,
+  type HttpTransportOptions,
+  type PostMessageTransport,
+  type PostMessageTransportOptions,
+  type PostMessageRequestEnvelope,
+  type TransportInvokeOptions,
+  type TransportProgressEvent,
+  type TransportResult,
+  type PlaygroundPreset,
+  type PlaygroundPresets,
+} from "./client/index.js";
 export { BundleWeightPanel } from "./BundleWeightPanel.js";
 export type {
   BundleWeightPanelHandle,
@@ -125,14 +152,7 @@ export {
 } from "./integrations-store.js";
 export {
   parseGithubRepoRef,
-  fetchGithubRepo,
-  testGithubRepoConnection,
-  dispatchGithubWorkflow,
   matchRemoteWorkflowId,
-  fetchGithubAuthenticatedLogin,
-  fetchGithubWorkflows,
-  fetchGithubWorkflowRuns,
-  fetchPagespeedMetrics,
   type GithubCiConfig,
   type GithubWorkflowSummary,
   type GithubWorkflowRun,
@@ -156,6 +176,7 @@ export { AuditLogsPanel } from "./AuditLogsPanel.js";
 export { Avatar } from "./Avatar.js";
 export { DOMAIN_CATALOG, type DomainCatalogEntry } from "./domain-catalog.js";
 export * from "./overview-model.js";
+export { formatPrismDate, relativePrismTime } from "@repo-prism/ui";
 export {
   getAuditEntries,
   subscribeAudit,

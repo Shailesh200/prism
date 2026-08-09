@@ -1,0 +1,5 @@
+{
+  "name": "@prism-fixture/m061-backend-graphql",
+  "private": true,
+  "dependencies": { "graphql": "16.0.0" }
+}

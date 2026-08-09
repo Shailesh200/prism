@@ -35,14 +35,16 @@ import type {
   FormEvent,
   ReactElement,
 } from "react";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { AppSidebar, type AppSidebarUser, type AppView } from "./AppSidebar.js";
 import { shellNavVariant, shellRootClass } from "./shell-layout.js";
+import { useModalFocus } from "./modal-focus.js";
 import { useAppShellClient } from "./client-context.js";
 import { DOMAIN_CATALOG } from "./domain-catalog.js";
 import {
   couplingBadge,
   couplingDensity,
+  couplingDensityPct,
   domainDisplayName,
 } from "./overview-model.js";
 import { describeSignal, signalDetectionTip } from "./stack-signal-meta.js";
@@ -68,6 +70,12 @@ type FactorMeta = {
   icon: ComponentType<{ size?: number | string; "aria-hidden"?: boolean }>;
   blurb: string;
   formula: string;
+  /**
+   * Formula for the M-046 TestingReport scoring path, when the factor has one
+   * (test_presence). Shown instead of `formula` when the factor's breakdown
+   * came from a TestingReport.
+   */
+  reportFormula?: string;
   improve: readonly string[];
 };
 
@@ -96,6 +104,10 @@ const FACTOR_META: Record<string, FactorMeta> = {
     blurb:
       "Ratio of test files to source files. Reaches 100 at about 0.5 tests per source file.",
     formula: "min(100, (test files ÷ source files) ÷ 0.5 × 100)",
+    // When Core scores this factor from a TestingReport (M-046 / ADR-0022) the
+    // ratio formula does not apply — the report's additive score is used.
+    reportFormula:
+      "suite-kind diversity (≤60) + runner bonus (≤10) + coverage (≤30) + suite files (≤10)",
     improve: [
       "Add unit / integration tests beside untested modules.",
       "Use a domain's ‘untested’ list to target the biggest gaps.",
@@ -107,7 +119,7 @@ const FACTOR_META: Record<string, FactorMeta> = {
     weight: 25,
     icon: GitBranch,
     blurb:
-      "Penalises import / re-export cycles between files (−20 points each; 100 = no cycles). This is NOT the dashboard's ‘Coupling Density’, which measures average dependencies per module (fan-out).",
+      "TS/JS import coupling: penalises import / re-export cycles between analyzed TypeScript/JavaScript files (−20 points each; 100 = no cycles). Other languages are outside this graph. This is NOT the dashboard's ‘Coupling Density’, which measures average dependencies per module (fan-out).",
     formula: "100 − (import cycles × 20)",
     improve: [
       "Break circular imports by extracting shared types/interfaces.",
@@ -142,6 +154,22 @@ const FACTOR_META: Record<string, FactorMeta> = {
     ],
   },
 };
+
+/**
+ * Pick the formula that actually produced a factor's score. test_presence has
+ * two scoring paths (M-046): the TestingReport additive score when a report
+ * is available — signalled by its "Testing score" breakdown row — else the
+ * test/source ratio.
+ */
+function factorFormula(factor: BreakdownFactor, meta: FactorMeta): string {
+  if (
+    meta.reportFormula !== undefined &&
+    (factor.breakdown?.some((b) => b.label === "Testing score") ?? false)
+  ) {
+    return meta.reportFormula;
+  }
+  return meta.formula;
+}
 
 /** `data_ml_ai` → `Data Ml Ai`; `typescript` → `Typescript`. */
 function titleCase(id: string): string {
@@ -197,7 +225,10 @@ export type DnaScreenProps = {
   readonly health?: HealthScore | null;
   /** Repository map — used for graph-derived metrics (coupling density). */
   readonly map?: RepositoryMap | null;
-  /** `analysis` = health metrics deep-dive; `profile` = stack/tech profile. */
+  /**
+   * @deprecated M-062 merges Profile into DNA — mode is ignored; both Health
+   * Score analysis and the Codebase Profile section render on one screen.
+   */
   readonly mode?: "analysis" | "profile";
   readonly user?: AppSidebarUser | null;
   readonly dna: DnaReport | null;
@@ -255,6 +286,12 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
   const checkLogsTitleId = useId();
   const explorerTitleId = useId();
   const explorerInputId = useId();
+  const breakdownModalRef = useRef<HTMLDivElement>(null);
+  const checkLogsModalRef = useRef<HTMLDivElement>(null);
+  const explorerModalRef = useRef<HTMLDivElement>(null);
+  useModalFocus(Boolean(breakdownFactor), breakdownModalRef);
+  useModalFocus(Boolean(checkLogsTarget), checkLogsModalRef);
+  useModalFocus(explorerOpen, explorerModalRef);
 
   useEffect(() => {
     if (!breakdownFactor && !checkLogsTarget && !explorerOpen) return;
@@ -270,7 +307,6 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
   }, [breakdownFactor, checkLogsTarget, explorerOpen]);
 
   useEffect(() => {
-    if ((props.mode ?? "analysis") !== "analysis") return;
     if (!client.fetchEngineeringHealth) return;
     let cancelled = false;
     void client.fetchEngineeringHealth().then((report) => {
@@ -279,7 +315,7 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [client, props.mode, health?.score]);
+  }, [client, health?.score]);
 
   const languages = (dna?.languages ?? []).filter(
     (l) => Math.round(l.share * 100) > 0,
@@ -334,14 +370,10 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
 
   const subtitle = [props.repoLabel, props.branch].filter(Boolean).join(" · ");
 
-  const mode = props.mode ?? "analysis";
-  const title = mode === "analysis" ? "DNA Analysis" : "Codebase Profile";
-  const activeNav: AppView = mode === "analysis" ? "dna" : "profile";
-  const isLoading = mode === "analysis" ? health == null : dna === null;
-  const loadingLabel =
-    mode === "analysis"
-      ? "Analyzing codebase DNA…"
-      : "Detecting codebase profile…";
+  const title = "DNA Analysis";
+  const activeNav: AppView = "dna";
+  const isLoading = health == null && dna === null;
+  const loadingLabel = "Analyzing codebase DNA…";
 
   const graph = props.map?.graph;
   const density = graph ? couplingDensity(graph) : null;
@@ -409,19 +441,19 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
         const focus = health.factors.filter((f) => f.score < 70).length;
         const tiles = [
           {
-            label: "DNA Score",
+            label: "Health Score",
             value: `${dnaScore}`,
             note: `Grade ${health.grade}`,
             brand: true,
-            tip: "Weighted composite of the five health factors. Same value as Overview Health Score.",
+            tip: "Start here: one number for repo health. Below 70 means prioritize the Factors below 70 tile and the weakest factor card.",
             icon: Sparkles,
             tone: "brand" as CardIconTone,
           },
           {
-            label: "Focus Areas",
+            label: "Factors below 70",
             value: `${focus}`,
-            note: "factors below 70",
-            tip: "Count of health factors scoring below 70 — candidates for improvement.",
+            note: "need attention",
+            tip: "How many health factors sit below 70 — open those factor cards first when planning cleanup.",
             icon: Target,
             tone: "amber" as CardIconTone,
           },
@@ -429,7 +461,7 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
             label: "Weakest Factor",
             value: weakest ? weakest.label : "—",
             note: weakest ? `${Math.round(weakest.score)}/100` : "",
-            tip: "Lowest-scoring health factor in the current index.",
+            tip: "The lowest factor — the best place to start if you only fix one thing this week.",
             icon: TrendingDown,
             tone: "rose" as CardIconTone,
           },
@@ -437,7 +469,7 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
             label: "Strongest Factor",
             value: strongest ? strongest.label : "—",
             note: strongest ? `${Math.round(strongest.score)}/100` : "",
-            tip: "Highest-scoring health factor in the current index.",
+            tip: "Your strongest health factor — protect this while improving weaker areas.",
             icon: TrendingUp,
             tone: "emerald" as CardIconTone,
           },
@@ -447,7 +479,7 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
             label: "Coupling Density",
             value: density.toFixed(2),
             note: `${densityBadge.label} · avg deps/module`,
-            tip: "Graph fan-out: edges ÷ nodes. Distinct from the Coupling factor (import cycles).",
+            tip: "Use this to judge fan-out risk before a refactor. High density means changes tend to ripple — target under 0.50.",
             icon: Network,
             tone: "violet" as CardIconTone,
           });
@@ -485,7 +517,7 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
               <ArrowLeft size={13} aria-hidden />
               Back to Overview
             </button>
-            {mode === "analysis" && client.fetchCodeExplorer ? (
+            {client.fetchCodeExplorer ? (
               <button
                 type="button"
                 className="ov-btn ov-btn--ghost"
@@ -513,7 +545,7 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
             <p className="ov-empty">{loadingLabel}</p>
           ) : (
             <>
-              {mode === "analysis" && health ? (
+              {health ? (
                 <section className="ov-kpis dna-analysis-kpis">
                   {analysisTiles.map((t) => (
                     <article key={t.label} className="ov-stat">
@@ -537,7 +569,7 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                 </section>
               ) : null}
 
-              {mode === "analysis" && engHealth ? (
+              {engHealth ? (
                 <EngHealthCard
                   report={engHealth}
                   {...(client.fetchCodeExplorer
@@ -551,9 +583,9 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                 />
               ) : null}
 
-              {mode === "profile" ? (
+              {dna ? (
                 <>
-                  {/* Hero tiles */}
+                  {/* Profile hero tiles (M-062 D-9: merged into DNA) */}
                   <section className="ov-kpis">
                     <article className="ov-stat">
                       <div className="ov-stat__head">
@@ -561,8 +593,8 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                           <CardIcon icon={Code} tone="brand" size={14} />
                           Primary Language
                           <InfoTip label="Primary Language" align="start">
-                            Language with the largest share of indexed source
-                            files.
+                            Use this when onboarding — the language you will
+                            touch most often in this repo.
                           </InfoTip>
                         </span>
                       </div>
@@ -712,7 +744,7 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                 </>
               ) : null}
 
-              {mode === "analysis" && health ? (
+              {health ? (
                 <section className="dna-metrics">
                   <div className="dna-metrics__head">
                     <div>
@@ -721,8 +753,9 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                         Health Factors — what they mean &amp; how to improve
                       </h3>
                       <p className="dna-section-sub">
-                        The five factors behind the Overview&apos;s Codebase DNA
-                        score, plus graph-derived coupling density.
+                        The five factors behind the Overview Health Score, plus
+                        graph-derived coupling density. Prioritize factors below
+                        70.
                       </p>
                     </div>
                     <div className="dna-metrics__overall">
@@ -747,8 +780,10 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                             <Network size={14} aria-hidden />
                             Coupling Density
                             <InfoTip label="Coupling Density">
-                              Average dependencies per module (edges ÷ nodes).
-                              Complements the cycle-based Coupling factor.
+                              High fan-out means refactors ripple farther —
+                              prefer modules under 0.50 average deps.
+                              Complements the cycle-based TS/JS import coupling
+                              factor.
                             </InfoTip>
                           </span>
                           <span
@@ -762,7 +797,7 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                           <span
                             className="ov-dna__fill"
                             style={{
-                              width: `${Math.min(100, Math.round((density / 1.5) * 100))}%`,
+                              width: `${couplingDensityPct(density)}%`,
                               background: densityColor,
                             }}
                           />
@@ -782,9 +817,10 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                         <p className="dna-metric__blurb">
                           Average dependencies per module — a structural
                           coupling lens that complements the cycle-based{" "}
-                          <strong>Coupling</strong> factor. Lower means modules
-                          lean on fewer neighbours, so changes stay contained
-                          and the graph is easier to reason about.
+                          <strong>TS/JS import coupling</strong> factor. Lower
+                          means modules lean on fewer neighbours, so changes
+                          stay contained and the graph is easier to reason
+                          about.
                         </p>
                         <p className="dna-metric__formula ov-mono">
                           density = edges ÷ nodes
@@ -881,11 +917,6 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                             </p>
                           ) : null}
                           {meta ? (
-                            <p className="dna-metric__formula ov-mono">
-                              {meta.formula}
-                            </p>
-                          ) : null}
-                          {meta ? (
                             <div className="dna-metric__improve">
                               <span className="dna-metric__improve-h">
                                 <Lightbulb size={12} aria-hidden />
@@ -947,8 +978,20 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                 </section>
               ) : null}
 
-              {mode === "profile" ? (
-                <>
+              {dna ? (
+                <section className="dna-profile-section">
+                  <div className="dna-metrics__head" style={{ marginTop: 8 }}>
+                    <div>
+                      <h3 className="dna-section-h">
+                        <Boxes size={15} aria-hidden />
+                        Codebase Profile
+                      </h3>
+                      <p className="dna-section-sub">
+                        Stack fingerprint — languages, frameworks, domains, and
+                        detection signals. Open a domain to dig in.
+                      </p>
+                    </div>
+                  </div>
                   <div className="card-masonry">
                     <article className="ov-card">
                       <div className="ov-card__head">
@@ -960,8 +1003,8 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                           />
                           Architecture Hints
                           <InfoTip label="Architecture Hints">
-                            Structural patterns inferred from the stack detector
-                            (monorepo, layered layout, etc.).
+                            Patterns to keep in mind when navigating — monorepo,
+                            layered layout, and similar structural cues.
                           </InfoTip>
                         </span>
                         {hints.length > 0 ? (
@@ -1334,7 +1377,7 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                       )}
                     </article>
                   </div>
-                </>
+                </section>
               ) : null}
             </>
           )}
@@ -1348,6 +1391,7 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
           onClick={() => setBreakdownFactor(null)}
         >
           <div
+            ref={breakdownModalRef}
             className="dna-modal"
             role="dialog"
             aria-modal="true"
@@ -1369,11 +1413,13 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
             </div>
             <p className="dna-modal__score ov-mono">
               Score {Math.round(breakdownFactor.score)}/100
-              {breakdownMeta ? ` · ${breakdownMeta.weight}% of DNA Score` : ""}
+              {breakdownMeta
+                ? ` · ${breakdownMeta.weight}% of Health Score`
+                : ""}
             </p>
             {breakdownMeta ? (
               <p className="dna-modal__formula ov-mono">
-                {breakdownMeta.formula}
+                {factorFormula(breakdownFactor, breakdownMeta)}
               </p>
             ) : null}
             {breakdownFactor.breakdown &&
@@ -1425,6 +1471,7 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
           onClick={() => setCheckLogsTarget(null)}
         >
           <div
+            ref={checkLogsModalRef}
             className="dna-modal"
             role="dialog"
             aria-modal="true"
@@ -1503,6 +1550,7 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
           onClick={() => setExplorerOpen(false)}
         >
           <div
+            ref={explorerModalRef}
             className="dna-modal dna-modal--wide"
             role="dialog"
             aria-modal="true"
@@ -1689,7 +1737,7 @@ function EngHealthCard(props: {
           <Activity size={14} className="ov-card__icon" aria-hidden />
           Engineering Health
           <InfoTip label="Engineering Health">
-            Complementary to DNA Score — entropy, architecture drift, and
+            Complementary to Health Score — entropy, architecture drift, and
             technical debt from Prism&apos;s engineering-health analysis.
           </InfoTip>
         </span>

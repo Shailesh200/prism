@@ -1,7 +1,19 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { IndexSnapshot } from "@repo-prism/shared";
-import { discoverLocalPackages } from "../dependency/packages.js";
+import { labelPropagationCommunities } from "@repo-prism/graph-engine";
+import type { IndexSnapshot, SignalProvenance } from "@repo-prism/shared";
+import {
+  discoverLocalPackages,
+  resolveLocalPackageSpecifier,
+} from "../dependency/packages.js";
+import {
+  isRelativeSpecifier,
+  resolveImportTarget,
+} from "../dependency/resolve.js";
+import {
+  loadTsconfigPathAliases,
+  resolveAliasSpecifier,
+} from "../dependency/aliases.js";
 import { featureSlug, NOISE_SEGMENTS } from "./slug.js";
 
 export type FeatureDraft = {
@@ -10,7 +22,12 @@ export type FeatureDraft = {
   confidence: number;
   files: Set<string>;
   evidence: string[];
+  /** ADR-0029 / M-061 — community fallback uses `"inferred"`. */
+  provenance?: SignalProvenance;
 };
+
+/** Max confidence for label-propagation community features (M-061 P-E2). */
+export const INFERRED_FEATURE_CONFIDENCE_CAP = 0.5;
 
 function analyzedPaths(snapshot: IndexSnapshot): string[] {
   return snapshot.files
@@ -33,6 +50,7 @@ function pushDraft(
   confidence: number,
   files: Iterable<string>,
   evidence: string,
+  provenance: SignalProvenance = "heuristic",
 ): void {
   if (!slug || NOISE_SEGMENTS.has(slug)) return;
   const fileSet = new Set(
@@ -45,6 +63,7 @@ function pushDraft(
     confidence,
     files: fileSet,
     evidence: [evidence],
+    provenance,
   });
 }
 
@@ -254,6 +273,130 @@ function inferReadmeHints(
   }
 }
 
+/**
+ * Build undirected import edges (relative + alias + workspace) for community
+ * detection when path conventions yield nothing.
+ */
+function importGraphEdges(snapshot: IndexSnapshot): {
+  nodes: string[];
+  edges: Array<{ from: string; to: string }>;
+} {
+  const paths = analyzedPaths(snapshot);
+  const indexedPaths = new Set(paths);
+  const packages = discoverLocalPackages(
+    snapshot.rootPath,
+    snapshot.files.map((f) => f.path),
+  );
+  const aliases = loadTsconfigPathAliases(
+    snapshot.rootPath,
+    snapshot.files.map((f) => f.path),
+  );
+
+  const edgeKeys = new Set<string>();
+  const edges: Array<{ from: string; to: string }> = [];
+  const push = (from: string, to: string) => {
+    if (from === to) return;
+    const key = from < to ? `${from}\0${to}` : `${to}\0${from}`;
+    if (edgeKeys.has(key)) return;
+    edgeKeys.add(key);
+    edges.push({ from, to });
+  };
+
+  for (const file of snapshot.files) {
+    if (file.status !== "analyzed") continue;
+    for (const imp of file.imports) {
+      let target: string | null = null;
+      if (isRelativeSpecifier(imp.source)) {
+        target = resolveImportTarget(file.path, imp.source, indexedPaths);
+      } else {
+        target =
+          resolveAliasSpecifier(file.path, imp.source, indexedPaths, aliases) ??
+          resolveLocalPackageSpecifier(imp.source, packages, indexedPaths);
+      }
+      if (target && indexedPaths.has(target)) {
+        push(file.path, target);
+      }
+    }
+  }
+
+  return { nodes: paths, edges };
+}
+
+function communityLabelSlug(memberPaths: readonly string[]): string {
+  // Prefer a meaningful directory segment shared by members.
+  const segCounts = new Map<string, number>();
+  for (const p of memberPaths) {
+    const parts = p.split("/").filter(Boolean);
+    for (const seg of parts.slice(0, -1)) {
+      if (NOISE_SEGMENTS.has(seg)) continue;
+      if (
+        ["src", "lib", "app", "apps", "packages", "pkg", "internal"].includes(
+          seg,
+        )
+      ) {
+        continue;
+      }
+      const slug = featureSlug(seg);
+      if (!slug) continue;
+      segCounts.set(slug, (segCounts.get(slug) ?? 0) + 1);
+    }
+  }
+  const ranked = [...segCounts.entries()].sort((a, b) => {
+    if (b[1] !== a[1]) return b[1] - a[1];
+    return a[0].localeCompare(b[0]);
+  });
+  if (ranked.length > 0 && ranked[0]![1] >= 2) return ranked[0]![0];
+
+  const first = memberPaths[0] ?? "community";
+  const base = first.includes("/")
+    ? first.slice(first.lastIndexOf("/") + 1)
+    : first;
+  const stem = base.replace(/\.[^.]+$/, "");
+  return featureSlug(stem) || `community-${featureSlug(first) || "cluster"}`;
+}
+
+/**
+ * Label-propagation fallback when directory / package heuristics find nothing
+ * (M-061 P-E2). Confidence capped at 0.5 with provenance `"inferred"`.
+ */
+function inferCommunities(
+  snapshot: IndexSnapshot,
+  drafts: FeatureDraft[],
+): void {
+  const { nodes, edges } = importGraphEdges(snapshot);
+  if (nodes.length < 2 || edges.length === 0) return;
+
+  const partition = labelPropagationCommunities(nodes, edges, {
+    minCommunitySize: 2,
+  });
+
+  let communityIndex = 0;
+  const usedSlugs = new Set<string>();
+  for (const members of partition.communities.values()) {
+    const codeMembers = members.filter(
+      (p) => !p.endsWith("/package.json") && !p.endsWith("package.json"),
+    );
+    if (codeMembers.length < 2) continue;
+
+    let slug = communityLabelSlug(codeMembers);
+    if (!slug || NOISE_SEGMENTS.has(slug) || usedSlugs.has(slug)) {
+      communityIndex += 1;
+      slug = `community-${communityIndex}`;
+    }
+    usedSlugs.add(slug);
+
+    pushDraft(
+      drafts,
+      slug,
+      titleCase(slug),
+      INFERRED_FEATURE_CONFIDENCE_CAP,
+      codeMembers,
+      `community:${slug}`,
+      "inferred",
+    );
+  }
+}
+
 /** Merge drafts with the same slug. */
 export function mergeFeatureDrafts(
   drafts: readonly FeatureDraft[],
@@ -268,6 +411,7 @@ export function mergeFeatureDrafts(
         confidence: d.confidence,
         files: new Set(d.files),
         evidence: [...d.evidence],
+        ...(d.provenance !== undefined ? { provenance: d.provenance } : {}),
       });
       continue;
     }
@@ -280,11 +424,23 @@ export function mergeFeatureDrafts(
     if (d.name.includes("/") || d.name.startsWith("@")) {
       existing.name = d.name;
     }
+    // Stronger provenance wins; never upgrade inferred over heuristic.
+    if (
+      d.provenance === "heuristic" ||
+      (d.provenance === "measured" && existing.provenance !== "measured")
+    ) {
+      existing.provenance = d.provenance;
+    } else if (!existing.provenance && d.provenance) {
+      existing.provenance = d.provenance;
+    }
   }
   return [...bySlug.values()].sort((a, b) => a.slug.localeCompare(b.slug));
 }
 
-/** Run v1 heuristics and return merged feature drafts. */
+/**
+ * Run path-convention heuristics; when they yield zero features, fall back to
+ * label-propagation communities over the import graph (M-061 P-E2).
+ */
 export function inferFeatures(snapshot: IndexSnapshot): FeatureDraft[] {
   const paths = analyzedPaths(snapshot);
   const drafts: FeatureDraft[] = [];
@@ -293,7 +449,12 @@ export function inferFeatures(snapshot: IndexSnapshot): FeatureDraft[] {
   inferPackages(snapshot, paths, drafts);
   inferSrcBoundaries(paths, drafts);
   inferReadmeHints(snapshot, paths, drafts);
-  return mergeFeatureDrafts(drafts);
+  const merged = mergeFeatureDrafts(drafts);
+  if (merged.length > 0) return merged;
+
+  const communityDrafts: FeatureDraft[] = [];
+  inferCommunities(snapshot, communityDrafts);
+  return mergeFeatureDrafts(communityDrafts);
 }
 
 export { parseReadmeFeatureNames };

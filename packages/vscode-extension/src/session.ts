@@ -14,7 +14,7 @@ import type {
   ExplainAreaSummary,
   GitActivity,
   GitRecentFile,
-  GraphSnapshotDto,
+  DependencyGraphDto,
   HealthHistoryBackfillStatus,
   HealthHistoryReport,
   HealthScore,
@@ -334,7 +334,7 @@ export class PrismSession {
     return ok(result.value);
   }
 
-  getDependencyGraph(): Result<GraphSnapshotDto | null, PrismError> {
+  getDependencyGraph(): Result<DependencyGraphDto | null, PrismError> {
     const ws = this.requireWs();
     if (!ws.ok) return ws;
     const result = ws.value.getDependencyGraph();
@@ -446,6 +446,42 @@ export class PrismSession {
     return ws.value.discoverFrontendRoutes();
   }
 
+  async getDomainReport(
+    domain: string,
+    options?: Parameters<
+      import("@repo-prism/core").PrismWorkspace["getDomainReport"]
+    >[1],
+  ): Promise<
+    Result<import("@repo-prism/shared").DomainReport | null, PrismError>
+  > {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    const result = await ws.value.getDomainReport(domain, options);
+    if (!result.ok) return ok(null);
+    return ok(result.value);
+  }
+
+  getChangedPaths(options?: {
+    base?: string;
+  }): Result<{ paths: readonly string[]; base: string }, PrismError> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    return ws.value.getChangedPaths(options);
+  }
+
+  async blastRadius(input: {
+    kind: "file" | "symbol";
+    id: string;
+    path?: string;
+    intent?: "edit" | "delete";
+  }): Promise<
+    Result<import("@repo-prism/shared").BlastRadiusReport, PrismError>
+  > {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    return ws.value.blastRadius(input);
+  }
+
   async reviewChanges(
     paths: readonly string[],
     base?: string,
@@ -504,6 +540,7 @@ export class PrismSession {
     url?: string;
     port?: number;
     routes?: readonly string[];
+    formFactor?: "mobile" | "desktop";
     onProgress?: (event: {
       message: string;
       detail?: import("@repo-prism/shared").JsonValue;
@@ -521,6 +558,7 @@ export class PrismSession {
         ...(options?.routes && options.routes.length > 0
           ? { routes: [...options.routes] }
           : {}),
+        ...(options?.formFactor ? { formFactor: options.formFactor } : {}),
       },
       ...(options?.onProgress
         ? {

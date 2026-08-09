@@ -34,6 +34,7 @@
     "verify:milestone": "bun run verify && bun run scripts/check-test-layers.mjs && bun run test:integration && bun run docs:check && bun run docs:build && bun run scripts/check-plan-progress.mjs",
     "bench": "node scripts/bench/run.mjs",
     "bench:check": "node scripts/bench/check.mjs",
+    "bench:orientation": "bun scripts/bench/agent-orientation.ts",
     "playground": "bun --filter @repo-prism/playground dev",
     "moon": "moon",
     "prepare": "lefthook install || true",

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **Planned** |
+| Status | **In Progress** |
 | Branch | `milestone/M-053-presentation-consolidation` (from latest `main`) |
 | Depends on | M-052 |
 | Unlocks | — |
@@ -100,19 +100,22 @@ Additive only, per [ADR-0019](../adr/0019-core-sdk-versioning.md).
 
 ## 6. Definition of Done
 
-- [ ] M-052 Verified and merged; this branch cut from updated `main`
-- [ ] Only one milestone `In Progress`
-- [ ] Inventory published with every entry classified
-- [ ] No analysis logic left in `@repo-prism/app-shell` outside the presentational list
-- [ ] `getDomainReport` reachable from Core, all six domains, with tests
-- [ ] One `PrismClient` interface; two transports; no duplicated method bodies
-- [ ] M-051's RPC deadline/rejection/validation behaviour intact (regression test)
-- [ ] Phase 1 characterisation tests pass unchanged — behaviour moved, not altered
-- [ ] `CORE_SDK.md` documents every new method
-- [ ] `bun run verify:milestone` green
-- [ ] Manual smoke: all six domain screens pixel-identical to pre-milestone screenshots
+- [x] M-052 Verified and merged; this branch cut from updated `main`
+- [x] Only one milestone `In Progress`
+- [x] Inventory published with every entry classified (`plans/notes/M-053-inventory.md`)
+- [x] No analysis logic left in `@repo-prism/app-shell` outside the presentational list (allowlist guard + Core `getDomainReport` / CWV / github-ci)
+- [x] `getDomainReport` reachable from Core, all six domains, with tests
+- [x] One `PrismClient` interface; two transports; no duplicated method bodies (T-09)
+- [x] M-051's RPC deadline/rejection/validation behaviour intact (regression test in `app-shell` + `host-client`)
+- [x] Phase 1 characterisation tests pass unchanged — behaviour moved, not altered
+- [x] `CORE_SDK.md` documents every new method
+- [x] `bun run verify:milestone` green (2026-08-08)
+- [ ] Manual smoke: all six domain screens + completion checklist (`plans/notes/SMOKE_COMPLETION_PROGRAM.md`)
 - [ ] Manual: keyboard-only pass through Overview, Domains, Blast Radius
 - [ ] Owner approval → commit → merge → Verified → snippet shared
+- [x] Number audit published (`plans/notes/M-053-number-audit.md`); ADR-0033 (github-ci/PageSpeed via Core)
+- [x] Successor stubs M-056–M-063 + Master Plan rows
+- [x] Completion-program implementation landed on this branch (M-056…M-063 code); smoke + commit sequencing still owner-gated
 
 ## 7. Risks
 

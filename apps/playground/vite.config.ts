@@ -21,11 +21,15 @@ import {
 import type {
   BackendReport,
   BlastRadiusReport,
+  ChangeReviewReport,
   CodeExplorerReport,
   CodeExplorerTarget,
   ConsentPurposeId,
   ConsentState,
+  CwvPreferredSource,
+  CwvReport,
   DnaReport,
+  DomainReport,
   EngineeringHealthReport,
   GitActivity,
   GraphSnapshotDto,
@@ -42,7 +46,6 @@ import type {
   TestImpactReport,
   TestingReport,
   UtilityOverlayReport,
-  CwvReport,
   UtilityJob,
 } from "@repo-prism/shared";
 import {
@@ -89,6 +92,20 @@ type Workspace = {
     packageId?: string;
   }) => Promise<
     | { ok: true; value: BackendReport }
+    | { ok: false; error: { message: string } }
+  >;
+  getDomainReport: (
+    domain: string,
+    options?: {
+      packageId?: string;
+      cwvLocal?: CwvReport | null;
+      cwvPagespeed?: CwvReport | null;
+      cwvPreferredSource?: CwvPreferredSource;
+      loadLatestCwvArtifact?: boolean;
+      includeBundleCapability?: boolean;
+    },
+  ) => Promise<
+    | { ok: true; value: DomainReport }
     | { ok: false; error: { message: string } }
   >;
   getTestingReport: () => Promise<
@@ -404,6 +421,35 @@ async function loadBackendReport(root: string): Promise<BackendReport> {
   return result.value;
 }
 
+async function loadDomainReport(
+  root: string,
+  options: {
+    domain?: string;
+    cwvLocal?: CwvReport | null;
+    cwvPagespeed?: CwvReport | null;
+    cwvPreferredSource?: CwvPreferredSource;
+    loadLatestCwvArtifact?: boolean;
+  },
+): Promise<DomainReport> {
+  const ws = await getIndexedWorkspace(root);
+  const result = await ws.getDomainReport(options.domain ?? "frontend", {
+    ...(options.cwvLocal !== undefined ? { cwvLocal: options.cwvLocal } : {}),
+    ...(options.cwvPagespeed !== undefined
+      ? { cwvPagespeed: options.cwvPagespeed }
+      : {}),
+    ...(options.cwvPreferredSource
+      ? { cwvPreferredSource: options.cwvPreferredSource }
+      : {}),
+    ...(options.loadLatestCwvArtifact === true
+      ? { loadLatestCwvArtifact: true }
+      : {}),
+  });
+  if (!result.ok) {
+    throw new Error(`getDomainReport failed: ${result.error.message}`);
+  }
+  return result.value;
+}
+
 async function loadTestingReport(root: string): Promise<TestingReport> {
   const ws = await getIndexedWorkspace(root);
   const result = await ws.getTestingReport();
@@ -488,6 +534,7 @@ async function loadLighthouseLab(
     url?: string;
     port?: number;
     routes?: readonly string[];
+    formFactor?: "mobile" | "desktop";
     onProgress?: (event: {
       message: string;
       detail?: import("@repo-prism/shared").JsonValue;
@@ -505,6 +552,7 @@ async function loadLighthouseLab(
       ...(options?.routes && options.routes.length > 0
         ? { routes: [...options.routes] }
         : {}),
+      ...(options?.formFactor ? { formFactor: options.formFactor } : {}),
     },
     ...(options?.onProgress
       ? {
@@ -607,6 +655,21 @@ async function loadGraph(root: string): Promise<GraphSnapshotDto> {
   const result = ws.getDependencyGraph();
   if (!result.ok) {
     throw new Error(`getDependencyGraph failed: ${result.error.message}`);
+  }
+  return result.value;
+}
+
+async function loadChangeReview(
+  root: string,
+  input: { paths: readonly string[]; base?: string },
+): Promise<ChangeReviewReport> {
+  const ws = await getIndexedWorkspace(root);
+  const result = await ws.reviewChanges({
+    paths: input.paths,
+    ...(input.base === undefined ? {} : { base: input.base }),
+  });
+  if (!result.ok) {
+    throw new Error(`reviewChanges failed: ${result.error.message}`);
   }
   return result.value;
 }
@@ -1023,12 +1086,178 @@ function prismMapApi(): Plugin {
               return;
             }
 
+            if (parsed.pathname === "/api/github-ci" && req.method === "POST") {
+              const body = (await readJsonBody(req)) as {
+                root?: string;
+                action?: string;
+                owner?: string;
+                repo?: string;
+                token?: string;
+                perPage?: number;
+                kind?: string;
+                workflowId?: number | string;
+                workflowPath?: string;
+                ref?: string;
+                inputs?: Record<string, string>;
+                eventType?: string;
+              };
+              const root = resolveRequestedRoot(body.root ?? null);
+              const action = typeof body.action === "string" ? body.action : "";
+              const owner =
+                typeof body.owner === "string" ? body.owner.trim() : "";
+              const repo =
+                typeof body.repo === "string" ? body.repo.trim() : "";
+              const token =
+                typeof body.token === "string" && body.token.trim() !== ""
+                  ? body.token.trim()
+                  : undefined;
+              const core = await import("@repo-prism/core");
+              const cfg = {
+                workspaceRoot: root,
+                owner,
+                repo,
+                ...(token ? { token } : {}),
+              };
+
+              if (action === "fetchGithubAuthenticatedLogin") {
+                const login = await core.fetchGithubAuthenticatedLogin({
+                  workspaceRoot: root,
+                  token: token ?? "",
+                });
+                sendJson(res, 200, login);
+                return;
+              }
+              if (action === "fetchGithubWorkflows") {
+                sendJson(res, 200, await core.fetchGithubWorkflows(cfg));
+                return;
+              }
+              if (action === "fetchGithubWorkflowRuns") {
+                sendJson(
+                  res,
+                  200,
+                  await core.fetchGithubWorkflowRuns({
+                    ...cfg,
+                    ...(typeof body.perPage === "number"
+                      ? { perPage: body.perPage }
+                      : {}),
+                  }),
+                );
+                return;
+              }
+              if (action === "fetchGithubRepo") {
+                sendJson(res, 200, await core.fetchGithubRepo(cfg));
+                return;
+              }
+              if (action === "testGithubRepoConnection") {
+                sendJson(res, 200, await core.testGithubRepoConnection(cfg));
+                return;
+              }
+              if (action === "dispatchGithubWorkflow") {
+                const kind =
+                  body.kind === "repository_dispatch"
+                    ? "repository_dispatch"
+                    : "workflow_dispatch";
+                sendJson(
+                  res,
+                  200,
+                  await core.dispatchGithubWorkflow({
+                    workspaceRoot: root,
+                    owner,
+                    repo,
+                    kind,
+                    ...(token ? { token } : {}),
+                    ...(body.workflowId !== undefined
+                      ? { workflowId: body.workflowId }
+                      : {}),
+                    ...(typeof body.workflowPath === "string"
+                      ? { workflowPath: body.workflowPath }
+                      : {}),
+                    ...(typeof body.ref === "string" ? { ref: body.ref } : {}),
+                    ...(body.inputs && typeof body.inputs === "object"
+                      ? { inputs: body.inputs }
+                      : {}),
+                    ...(typeof body.eventType === "string"
+                      ? { eventType: body.eventType }
+                      : {}),
+                  }),
+                );
+                return;
+              }
+              sendJson(res, 400, {
+                error: `Unknown github-ci action: ${action}`,
+              });
+              return;
+            }
+
+            if (parsed.pathname === "/api/pagespeed" && req.method === "POST") {
+              const body = (await readJsonBody(req)) as {
+                root?: string;
+                apiKey?: string;
+                url?: string;
+              };
+              const root = resolveRequestedRoot(body.root ?? null);
+              const { fetchPagespeedMetrics } =
+                await import("@repo-prism/core");
+              const result = await fetchPagespeedMetrics({
+                workspaceRoot: root,
+                apiKey: typeof body.apiKey === "string" ? body.apiKey : "",
+                url: typeof body.url === "string" ? body.url : "",
+              });
+              sendJson(res, 200, result);
+              return;
+            }
+
             if (parsed.pathname === "/api/backend") {
               const root = resolveRequestedRoot(
                 parsed.searchParams.get("root"),
               );
               const report = await loadBackendReport(root);
               sendJson(res, 200, report);
+              return;
+            }
+
+            if (
+              parsed.pathname === "/api/domain-report" &&
+              req.method === "POST"
+            ) {
+              const body = (await readJsonBody(req)) as {
+                root?: string;
+                domain?: string;
+                cwvLocal?: CwvReport | null;
+                cwvPagespeed?: CwvReport | null;
+                cwvPreferredSource?: CwvPreferredSource;
+                loadLatestCwvArtifact?: boolean;
+              };
+              const root = resolveRequestedRoot(
+                typeof body.root === "string"
+                  ? body.root
+                  : parsed.searchParams.get("root"),
+              );
+              try {
+                const report = await loadDomainReport(root, {
+                  domain: body.domain ?? "frontend",
+                  ...(body.cwvLocal !== undefined
+                    ? { cwvLocal: body.cwvLocal }
+                    : {}),
+                  ...(body.cwvPagespeed !== undefined
+                    ? { cwvPagespeed: body.cwvPagespeed }
+                    : {}),
+                  ...(body.cwvPreferredSource
+                    ? { cwvPreferredSource: body.cwvPreferredSource }
+                    : {}),
+                  ...(body.loadLatestCwvArtifact === true
+                    ? { loadLatestCwvArtifact: true }
+                    : {}),
+                });
+                sendJson(res, 200, report);
+              } catch (error) {
+                sendJson(res, 500, {
+                  error:
+                    error instanceof Error
+                      ? error.message
+                      : "getDomainReport failed",
+                });
+              }
               return;
             }
 
@@ -1126,13 +1355,7 @@ function prismMapApi(): Plugin {
               const root = resolveRequestedRoot(
                 parsed.searchParams.get("root"),
               );
-              const { createWorkspace } = await import("@repo-prism/core");
-              const ws = createWorkspace(root);
-              const opened = await ws.open();
-              if (!opened.ok) {
-                sendJson(res, 500, { error: opened.error.message });
-                return;
-              }
+              const ws = await getIndexedWorkspace(root);
               const routes = ws.discoverFrontendRoutes();
               sendJson(
                 res,
@@ -1163,6 +1386,11 @@ function prismMapApi(): Plugin {
                     .map((r) => r.trim())
                     .filter(Boolean)
                 : undefined;
+              const formFactorRaw = parsed.searchParams.get("formFactor");
+              const formFactor =
+                formFactorRaw === "desktop" || formFactorRaw === "mobile"
+                  ? formFactorRaw
+                  : undefined;
               const stream =
                 parsed.searchParams.get("stream") === "1" || mode === "run";
               if (stream) {
@@ -1183,6 +1411,7 @@ function prismMapApi(): Plugin {
                       ? { port }
                       : {}),
                     ...(routes && routes.length > 0 ? { routes } : {}),
+                    ...(formFactor ? { formFactor } : {}),
                     onProgress: (event) =>
                       writeLine({
                         type: "progress",
@@ -1207,6 +1436,7 @@ function prismMapApi(): Plugin {
                 ...(url ? { url } : {}),
                 ...(port !== undefined && !Number.isNaN(port) ? { port } : {}),
                 ...(routes && routes.length > 0 ? { routes } : {}),
+                ...(formFactor ? { formFactor } : {}),
               });
               sendJson(res, 200, report);
               return;
@@ -1330,6 +1560,35 @@ function prismMapApi(): Plugin {
                 ...(intent ? { intent } : {}),
               });
               sendJson(res, 200, bundle);
+              return;
+            }
+
+            if (parsed.pathname === "/api/review" && req.method === "POST") {
+              const body = (await readJsonBody(req)) as {
+                root?: string;
+                paths?: unknown;
+                base?: unknown;
+              };
+              const root = resolveRequestedRoot(body.root ?? null);
+              const paths = Array.isArray(body.paths)
+                ? body.paths.filter(
+                    (p): p is string =>
+                      typeof p === "string" && p.trim() !== "",
+                  )
+                : [];
+              if (paths.length === 0) {
+                sendJson(res, 400, { error: "paths is required" });
+                return;
+              }
+              const base =
+                typeof body.base === "string" && body.base.trim() !== ""
+                  ? body.base.trim()
+                  : undefined;
+              const report = await loadChangeReview(root, {
+                paths,
+                ...(base === undefined ? {} : { base }),
+              });
+              sendJson(res, 200, report);
               return;
             }
 

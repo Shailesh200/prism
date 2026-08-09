@@ -91,7 +91,9 @@ export function registerTools(
 
         if (!result.ok) throw toMcpError(result.error);
         return {
-          content: [{ type: "text" as const, text: serialise(result.value) }],
+          content: [
+            { type: "text" as const, text: serialiseForMcp(result.value) },
+          ],
         };
       },
     );
@@ -99,9 +101,15 @@ export function registerTools(
 }
 
 /**
- * Pretty-printed so a human reading an agent transcript can follow it. Prism's
- * reports are read by people at least as often as by machines.
+ * Compact JSON by default — pretty-printing burns agent context for no gain.
+ * Opt in with `PRISM_MCP_PRETTY=1` for human-readable transcripts (M-058 / P-C4).
  */
-function serialise(value: unknown): string {
-  return JSON.stringify(value ?? null, null, 2);
+export function serialiseForMcp(
+  value: unknown,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const pretty = env.PRISM_MCP_PRETTY === "1";
+  return pretty
+    ? JSON.stringify(value ?? null, null, 2)
+    : JSON.stringify(value ?? null);
 }

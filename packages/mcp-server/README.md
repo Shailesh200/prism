@@ -4,7 +4,7 @@
 [![license](https://img.shields.io/npm/l/@repo-prism/mcp-server.svg)](https://github.com/Shailesh200/prism/blob/main/LICENSE)
 
 **`prism-mcp`** — give any MCP-capable agent structural answers about the repo
-you have open. Same engine as the CLI and IDE extension. Local-only. 28 tools.
+you have open. Same engine as the CLI and IDE extension. Local-only. 32 tools.
 
 **Website:** [https://www.prismhq.in](https://www.prismhq.in) · **Docs:** [https://www.prismhq.in/docs/mcp/install](https://www.prismhq.in/docs/mcp/install)
 
@@ -48,7 +48,7 @@ walks up to the nearest **git root** (same as the CLI).
    ```
 3. Save the file.
 4. **Settings → MCP** → enable **prism**.
-5. Wait until ~**28 tools** appear.
+5. Wait until ~**32 tools** appear.
 6. In Agent chat, ask in plain language — no tool names.
 
 ### Claude Desktop
@@ -113,10 +113,27 @@ waiting for an MCP **client**. Configure the client; it starts the process.
 | “Is this codebase healthy?” | `repository_health` |
 | “What breaks if I edit `src/…`?” | `blast_radius`, `test_impact` |
 | “Can I delete this?” | `safe_delete` |
-| “Review my changes” | `review_changes` |
+| “Review my changes” | `review_changes` (omit paths to auto-discover) |
+| “What changed?” | `changed_paths` |
+| “Is the index ready?” | `workspace_status` |
+| “Can Prism do X?” | `capabilities` |
 
 Optional MCP **prompts** (picker / slash in some clients): `orient`,
 `before_edit`, `review_diff`.
+
+MCP **resources** (for clients that bind context): `prism://dna`,
+`prism://landmarks`, `prism://health`.
+
+---
+
+## CI vs MCP
+
+| Surface | Use it for |
+|---|---|
+| **CLI** (`@repo-prism/cli`) | Gates and scripts — exit codes, JSON for CI jobs, `prism health`, `prism review`, thresholds that fail a build |
+| **MCP** (this package) | Interactive agent queries — orient, blast radius, review a working tree, explore symbols while chatting |
+
+Do **not** drive CI pass/fail from MCP tool calls. Agents are non-deterministic about which tools they pick; the CLI is the stable gate. Install both when you want agents in the IDE and the same engine in pipelines.
 
 ---
 
@@ -126,6 +143,11 @@ Optional MCP **prompts** (picker / slash in some clients): `orient`,
 npm install -g @repo-prism/mcp-server
 # then use "command": "prism-mcp" instead of npx in configs
 ```
+
+## MCP Registry
+
+Manifest prepared for owner submission: [`server.json`](./server.json) ·
+[`REGISTRY.md`](./REGISTRY.md) · copy-paste config [`mcp-install.json`](./mcp-install.json).
 
 ---
 
@@ -139,23 +161,26 @@ All tools are read-only. No tool grants consent or reaches the network.
 |---|---|---|
 | `repository_dna` | Languages, frameworks, package manager, architecture hints, test runners, ranked domains | — |
 | `repository_health` | Overall health 0-100 with the per-factor breakdown | — |
-| `repository_map` | Structural map at a zoom level: nodes, edges, regions | `zoom`, `layers` |
+| `repository_map` | Structural map at a zoom level: nodes, edges, regions (default zoom `package`) | `zoom`, `layers` |
 | `repository_overview` | The dashboard snapshot: totals, coupling, regions, most connected, activity | `activityDays` |
 | `list_packages` | Packages in a monorepo, with roots | `limit` |
 | `stack_profile` | Frameworks, runtimes and build tooling, with detection signals | `packageId` |
 | `landmarks` | Entrypoints, package roots and feature anchors — where to start reading | `limit` |
 | `explain_area` | What a module or folder does: domains, degree, ownership | `path` |
+| `workspace_status` | Index readiness, freshness, git/cache presence, graph counts | — |
+| `capabilities` | Core + consent-gated capabilities with availability reasons | — |
 
 ### Graphs and navigation
 
 | Tool | Answers | Arguments |
 |---|---|---|
-| `dependency_graph` | The import graph, file-level or aggregated to packages | `packageAggregation`, `resolveAliases` |
+| `dependency_graph` | The import graph, file-level or aggregated to packages (bounded) | `packageAggregation`, `resolveAliases`, `limit`, `summaryOnly` |
 | `dependency_cycles` | Import and re-export cycles | `packageAggregation`, `limit` |
-| `knowledge_graph` | Symbol declarations and the references between them | — |
-| `feature_graph` | Inferred features and how they depend on each other | — |
+| `knowledge_graph` | Symbol declarations and the references between them | `path` or `limit` (required) |
+| `feature_graph` | Inferred features and how they depend on each other (bounded) | `limit`, `summaryOnly` |
 | `list_features` | Inferred features with member files and confidence | `limit` |
-| `find_symbol` | Where a symbol is declared | `name`, `path`, `kind`, `limit` |
+| `find_symbol` | Exact-name symbol lookup | `name`, `path`, `kind`, `limit` |
+| `search_symbols` | Substring/regex symbol search (hard max 50) | `pattern`, `regex`, `path`, `kind`, `limit` |
 | `find_references` | Who actually calls or imports a symbol | `name`, `path`, `start`, `limit` |
 | `dependency_route` | How one file or symbol reaches another | `from`, `to`, `maxAlternatives`, `maxHops` |
 
@@ -163,12 +188,13 @@ All tools are read-only. No tool grants consent or reaches the network.
 
 | Tool | Answers | Arguments |
 |---|---|---|
-| `blast_radius` | What depends on this, and how risky is changing it | `kind`, `id`, `path`, `intent` |
+| `blast_radius` | What depends on this, and how risky is changing it | `kind`, `id`, `path`, `intent`, `limit` |
 | `safe_delete` | Can this be deleted? Blockers and files left orphaned | `kind`, `id`, `path` |
 | `rename_impact` | Every edit site a rename would touch | `kind`, `id`, `path`, `newName` |
-| `test_impact` | Which tests cover this change target | `kind`, `id`, `path` |
-| `breaking_change_hints` | What a change here could break for consumers | `kind`, `id`, `path` |
-| `review_changes` | All of the above for a set of changed paths, rolled up | `paths`, `base` |
+| `test_impact` | Which tests cover this change target | `kind`, `id`, `path`, `limit` |
+| `breaking_change_hints` | Deprecated — included in `blast_radius` | `kind`, `id`, `path` |
+| `changed_paths` | Working-tree or base-ref changed paths | `base` |
+| `review_changes` | Rolled-up review; omit `paths` to auto-discover | `paths?`, `base` |
 
 ### Reports
 
@@ -176,7 +202,7 @@ All tools are read-only. No tool grants consent or reaches the network.
 |---|---|---|
 | `engineering_health` | Hotspots, churn, complexity, ownership, knowledge decay, debt | — |
 | `health_history` | Health over time, with provenance on each point | `maxPoints` |
-| `explore_code` | Everything about one file or symbol in one call | `kind`, `path`, `name`, `start` |
+| `explore_code` | Everything about one file or symbol in one call (usages bounded) | `kind`, `path`, `name`, `start`, `limit` |
 | `backend_report` | Endpoints, auth, data layer, env, background jobs | `packageId` |
 | `testing_report` | Test structure, and coverage when artifacts are on disk | — |
 | `security_report` | Left-shift security posture against local configuration | — |

@@ -93,7 +93,7 @@ describe("DTO schemas round-trip", () => {
       factors: [
         {
           id: "coupling",
-          label: "Coupling",
+          label: "TS/JS import coupling",
           score: 70,
           note: "ok",
           breakdown: [
@@ -102,9 +102,11 @@ describe("DTO schemas round-trip", () => {
           ],
         },
       ],
+      graphCoveragePct: 40,
     };
     const parsed = HealthScoreSchema.parse(raw);
     expect(parsed.grade).toBe("B");
+    expect(parsed.graphCoveragePct).toBe(40);
     expect(parsed.factors[0]?.breakdown?.[0]?.label).toBe("Graph nodes");
   });
 
@@ -151,9 +153,14 @@ describe("DTO schemas round-trip", () => {
       risk: 72,
       affectedFiles: [{ path: "src/api.ts", reason: "imports", depth: 1 }],
       testsLikelyAffected: ["src/pay.test.ts"],
+      coverageLimitations: ["Dependency-injection container bindings"],
+      forwardDependenciesTotalCount: 90,
+      forwardDependenciesTruncated: true,
     };
     const parsed = BlastRadiusReportSchema.parse(raw);
     expect(parsed.affectedFiles).toHaveLength(1);
+    expect(parsed.coverageLimitations).toHaveLength(1);
+    expect(parsed.forwardDependenciesTruncated).toBe(true);
     expect(parseDto(BlastRadiusReportSchema, { bad: true }).ok).toBe(false);
   });
 

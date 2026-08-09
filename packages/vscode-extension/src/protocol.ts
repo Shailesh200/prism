@@ -8,8 +8,10 @@ import type {
   CodeExplorerTarget,
   ConsentPurposeId,
   ConsentState,
+  CwvPreferredSource,
   CwvReport,
   DnaReport,
+  DomainReport,
   EngineeringHealthReport,
   ExplainAreaSummary,
   GitActivity,
@@ -35,6 +37,10 @@ import type {
   ApplyRenameInput,
   ApplyRenameResult,
   AuditEntry,
+  DispatchWorkflowInput,
+  GithubRepoInfo,
+  GithubWorkflowRun,
+  GithubWorkflowSummary,
   PrismGitignoreStatus,
   RunTestsOptions,
   TestListResult,
@@ -54,6 +60,7 @@ export type AppView =
   | "overview"
   | "map"
   | "dna"
+  /** @deprecated M-062 — aliased to dna (Profile merged into DNA). */
   | "profile"
   | "domains"
   | "domain"
@@ -141,6 +148,7 @@ export type HostRequest =
       url?: string;
       port?: number;
       routes?: string[];
+      formFactor?: "mobile" | "desktop";
     }
   | {
       id: string;
@@ -157,6 +165,15 @@ export type HostRequest =
       packageId?: string;
     }
   | { id: string; method: "frontendRoutes" }
+  | {
+      id: string;
+      method: "domainReport";
+      domain?: "frontend";
+      cwvLocal?: CwvReport | null;
+      cwvPagespeed?: CwvReport | null;
+      cwvPreferredSource?: CwvPreferredSource;
+      loadLatestCwvArtifact?: boolean;
+    }
   | { id: string; method: "applyRename"; input: ApplyRenameInput }
   | {
       id: string;
@@ -164,6 +181,59 @@ export type HostRequest =
       owner: string;
       repo: string;
       token?: string;
+    }
+  | {
+      id: string;
+      method: "fetchGithubWorkflows";
+      owner: string;
+      repo: string;
+      token?: string;
+    }
+  | {
+      id: string;
+      method: "fetchGithubWorkflowRuns";
+      owner: string;
+      repo: string;
+      token?: string;
+      perPage?: number;
+    }
+  | {
+      id: string;
+      method: "fetchGithubRepo";
+      owner: string;
+      repo: string;
+      token?: string;
+    }
+  | {
+      id: string;
+      method: "fetchGithubAuthenticatedLogin";
+      token: string;
+    }
+  | {
+      id: string;
+      method: "testGithubRepoConnection";
+      owner: string;
+      repo: string;
+      token?: string;
+    }
+  | {
+      id: string;
+      method: "dispatchGithubWorkflow";
+      owner: string;
+      repo: string;
+      token?: string;
+      kind: DispatchWorkflowInput["kind"];
+      workflowId?: number | string;
+      workflowPath?: string;
+      ref?: string;
+      inputs?: Record<string, string>;
+      eventType?: string;
+    }
+  | {
+      id: string;
+      method: "fetchPagespeedMetrics";
+      apiKey: string;
+      url: string;
     }
   | { id: string; method: "listConsent" }
   | {
@@ -267,6 +337,12 @@ export type HostResponse =
   | {
       id: string;
       ok: true;
+      method: "domainReport";
+      data: DomainReport | null;
+    }
+  | {
+      id: string;
+      ok: true;
       method: "prismGitignore";
       data: PrismGitignoreStatus;
     }
@@ -298,6 +374,58 @@ export type HostResponse =
         workflows: Array<{ id?: number; name: string; path: string }>;
         overlay: UtilityOverlayReport | null;
       };
+    }
+  | {
+      id: string;
+      ok: true;
+      method: "fetchGithubWorkflows";
+      data:
+        | { ok: true; workflows: GithubWorkflowSummary[] }
+        | { ok: false; error: string };
+    }
+  | {
+      id: string;
+      ok: true;
+      method: "fetchGithubWorkflowRuns";
+      data:
+        | { ok: true; runs: GithubWorkflowRun[] }
+        | { ok: false; error: string };
+    }
+  | {
+      id: string;
+      ok: true;
+      method: "fetchGithubRepo";
+      data: { ok: true; repo: GithubRepoInfo } | { ok: false; error: string };
+    }
+  | {
+      id: string;
+      ok: true;
+      method: "fetchGithubAuthenticatedLogin";
+      data: string | null;
+    }
+  | {
+      id: string;
+      ok: true;
+      method: "testGithubRepoConnection";
+      data:
+        | {
+            ok: true;
+            repo: GithubRepoInfo;
+            workflows: GithubWorkflowSummary[];
+          }
+        | { ok: false; error: string };
+    }
+  | {
+      id: string;
+      ok: true;
+      method: "dispatchGithubWorkflow";
+      data: { ok: true; ref: string } | { ok: false; error: string };
+    }
+  | {
+      id: string;
+      ok: true;
+      method: "fetchPagespeedMetrics";
+      data: { ok: true; raw: unknown } | { ok: false; error: string };
     }
   | {
       id: string;
@@ -381,4 +509,9 @@ export type WebviewToHost =
   | { type: "setAutoReindex"; enabled: boolean; intervalMs?: number }
   | { type: "setCodeLens"; enabled: boolean }
   | { type: "setLocalOnly"; enabled: boolean }
+  | {
+      type: "writePrismConfig";
+      excludeGlobs: string[];
+      maxFileBytes: number | null;
+    }
   | { type: "clearData" };

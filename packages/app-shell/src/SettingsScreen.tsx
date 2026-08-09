@@ -4,7 +4,13 @@ import type {
   MapZoomLevel,
   RepositoryMap,
 } from "@repo-prism/shared";
-import { Input, Select, Textarea, ToggleGroup } from "@repo-prism/ui";
+import {
+  formatPrismDate,
+  Input,
+  Select,
+  Textarea,
+  ToggleGroup,
+} from "@repo-prism/ui";
 import {
   AlertTriangle,
   Eye,
@@ -94,6 +100,14 @@ export type SettingsScreenProps = {
    * `intervalMs` carries the chosen debounce window.
    */
   onAutoReindexChange?: (enabled: boolean, intervalMs?: number) => void;
+  /**
+   * Persist indexing knobs to `.prism/config.json` (M-057 P-B6). Called when
+   * exclude globs or max file size change.
+   */
+  onIndexConfigChange?: (next: {
+    excludeGlobs: string;
+    maxFileSize: MaxFileSizeOption;
+  }) => void;
   allowNetworkIntegrations?: boolean;
   onNetworkIntegrationsChange?: (enabled: boolean) => void;
   /** Notify host that local-only analysis was toggled (host may halt indexing). */
@@ -153,15 +167,7 @@ type PendingModal = {
 };
 
 function relativeTime(iso: string): string {
-  const ms = Date.parse(iso);
-  if (!Number.isFinite(ms)) return iso;
-  const delta = Date.now() - ms;
-  const mins = Math.round(delta / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.round(mins / 60);
-  if (hrs < 48) return `${hrs}h ago`;
-  return new Date(ms).toLocaleString();
+  return formatPrismDate(iso, "relative") || iso;
 }
 
 export function SettingsScreen(props: SettingsScreenProps): ReactElement {
@@ -220,6 +226,12 @@ export function SettingsScreen(props: SettingsScreenProps): ReactElement {
   ): ReturnType<typeof saveSettings> => {
     const next = saveSettings(patch);
     setStored(next);
+    if (patch.excludeGlobs !== undefined || patch.maxFileSize !== undefined) {
+      props.onIndexConfigChange?.({
+        excludeGlobs: next.excludeGlobs,
+        maxFileSize: next.maxFileSize,
+      });
+    }
     return next;
   };
 

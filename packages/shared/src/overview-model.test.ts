@@ -4,6 +4,7 @@ import {
   bucketActivity,
   couplingBand,
   couplingDensity,
+  couplingDensityPct,
   couplingFor,
   deriveMostConnected,
   deriveRegions,
@@ -81,6 +82,16 @@ describe("couplingBand", () => {
   });
 });
 
+describe("couplingDensityPct", () => {
+  it("uses one shared meter scale: density 1.0 fills the meter", () => {
+    expect(couplingDensityPct(0)).toBe(0);
+    expect(couplingDensityPct(0.5)).toBe(50);
+    expect(couplingDensityPct(1)).toBe(100);
+    // Above one edge per node the meter stays full rather than overflowing.
+    expect(couplingDensityPct(1.5)).toBe(100);
+  });
+});
+
 describe("deriveRegions", () => {
   it("counts files from memberFiles first", () => {
     const graph = graphOf([
@@ -89,19 +100,19 @@ describe("deriveRegions", () => {
         fileCount: 99,
       }),
     ]);
-    expect(deriveRegions(graph)[0]?.files).toBe(2);
+    expect(deriveRegions(graph).regions[0]?.files).toBe(2);
   });
 
   it("falls back to fileCount, then files, then a path-prefix walk", () => {
-    expect(
-      deriveRegions(graphOf([node("p:x", "package", "x", { fileCount: 4 })]))[0]
-        ?.files,
-    ).toBe(4);
+    const byFileCount = deriveRegions(
+      graphOf([node("p:x", "package", "x", { fileCount: 4 })]),
+    );
+    expect(byFileCount.regions[0]?.files).toBe(4);
 
-    expect(
-      deriveRegions(graphOf([node("p:y", "package", "y", { files: 3 })]))[0]
-        ?.files,
-    ).toBe(3);
+    const byFilesAttr = deriveRegions(
+      graphOf([node("p:y", "package", "y", { files: 3 })]),
+    );
+    expect(byFilesAttr.regions[0]?.files).toBe(3);
 
     const walked = graphOf([
       node("d:src", "folder", "src", { rootDir: "src" }),
@@ -109,7 +120,7 @@ describe("deriveRegions", () => {
       node("file:src/nested/b.ts", "file"),
       node("file:other/c.ts", "file"),
     ]);
-    expect(deriveRegions(walked)[0]?.files).toBe(2);
+    expect(deriveRegions(walked).regions[0]?.files).toBe(2);
   });
 
   it("treats an empty rootDir as the whole repository", () => {
@@ -118,13 +129,13 @@ describe("deriveRegions", () => {
       node("file:a.ts", "file"),
       node("file:b.ts", "file"),
     ]);
-    expect(deriveRegions(graph)[0]?.files).toBe(2);
+    expect(deriveRegions(graph).regions[0]?.files).toBe(2);
   });
 
   it("scores nothing when a region has neither files nor edges", () => {
     // ADR-0029: no evidence means no number, not zero.
     const graph = graphOf([node("feat:empty", "feature", "Empty")]);
-    expect(deriveRegions(graph)[0]?.score).toBeNull();
+    expect(deriveRegions(graph).regions[0]?.score).toBeNull();
   });
 
   it("gives a mid score when the zoom level has no edges at all", () => {
@@ -132,7 +143,7 @@ describe("deriveRegions", () => {
       node("feat:a", "feature", "A", { fileCount: 3 }),
       node("feat:b", "feature", "B", { fileCount: 5 }),
     ]);
-    const regions = deriveRegions(graph);
+    const { regions } = deriveRegions(graph);
     expect(regions.map((r) => r.score)).toEqual([70, 70]);
   });
 
@@ -149,7 +160,7 @@ describe("deriveRegions", () => {
         { from: "feat:hub", to: "feat:leaf" },
       ],
     );
-    const byId = new Map(deriveRegions(graph).map((r) => [r.id, r]));
+    const byId = new Map(deriveRegions(graph).regions.map((r) => [r.id, r]));
     const hub = byId.get("feat:hub");
     const leaf = byId.get("feat:leaf");
     expect(hub?.degree).toBe(3);
@@ -163,12 +174,15 @@ describe("deriveRegions", () => {
         node(`feat:${i}`, "feature", `F${i}`, { fileCount: 1 }),
       ),
     );
-    expect(deriveRegions(graph)).toHaveLength(8);
+    const capped = deriveRegions(graph);
+    expect(capped.regions).toHaveLength(8);
+    expect(capped.truncated).toBe(true);
+    expect(capped.totalCount).toBe(20);
   });
 
   it("ignores node kinds that are not regions", () => {
     const graph = graphOf([node("file:a.ts", "file"), node("sym:x", "symbol")]);
-    expect(deriveRegions(graph)).toEqual([]);
+    expect(deriveRegions(graph).regions).toEqual([]);
   });
 });
 
@@ -186,10 +200,12 @@ describe("deriveMostConnected", () => {
         { from: "file:b.ts", to: "file:c.ts" },
       ],
     );
-    expect(deriveMostConnected(graph).map((n) => [n.label, n.degree])).toEqual([
-      ["a.ts", 2],
-      ["b.ts", 2],
-      ["c.ts", 2],
+    expect(
+      deriveMostConnected(graph).map((n) => [n.label, n.kind, n.degree]),
+    ).toEqual([
+      ["a.ts", "file", 2],
+      ["b.ts", "file", 2],
+      ["c.ts", "file", 2],
     ]);
   });
 
@@ -230,6 +246,17 @@ describe("deriveMostConnected", () => {
       [{ from: "sym:x", to: "sym:y" }],
     );
     expect(deriveMostConnected(graph)).toEqual([]);
+  });
+
+  it("includes map node kind on each ranked node", () => {
+    const graph = graphOf(
+      [node("feat:hub", "feature", "Hub"), node("file:a.ts", "file", "a.ts")],
+      [{ from: "feat:hub", to: "file:a.ts" }],
+    );
+    expect(deriveMostConnected(graph)).toEqual([
+      { id: "file:a.ts", label: "a.ts", kind: "file", degree: 1 },
+      { id: "feat:hub", label: "Hub", kind: "feature", degree: 1 },
+    ]);
   });
 });
 
@@ -315,5 +342,34 @@ describe("activity windows", () => {
       day("2026-08-02"),
       day("2026-08-03"),
     ]);
+  });
+
+  it("merges a partial tail week into the previous bucket instead of showing a fake drop", () => {
+    // A 365-day window is 52 full weeks + 1 tail day; the tail day folds into
+    // the final bucket rather than rendering as a 1-day "week" that reads as
+    // a collapse in activity.
+    const start = day("2025-08-05");
+    const end = day("2026-08-04");
+    const result = bucketActivity(
+      [
+        { date: "2026-07-29", commits: 4 }, // inside the final full week
+        { date: "2026-08-04", commits: 2 }, // the lone tail day
+      ],
+      start,
+      end,
+    );
+    expect(result.granularity).toBe("week");
+    expect(result.buckets).toHaveLength(52);
+    expect(result.starts).toHaveLength(52);
+    expect(result.buckets[51]).toBe(6); // tail day merged into the last bucket
+    expect(result.total).toBe(6);
+  });
+
+  it("keeps exact weekly windows unmerged", () => {
+    const start = day("2026-06-10");
+    const end = start + 62 * 86_400_000; // 63 days = 9 exact weeks
+    const result = bucketActivity([], start, end);
+    expect(result.granularity).toBe("week");
+    expect(result.buckets).toHaveLength(9);
   });
 });

@@ -21,7 +21,7 @@ Owner requested:
 | Area | Choice |
 |---|---|
 | Package manager / script runner | **Bun** (`bun install`, `bun run …`, Bun workspaces) |
-| Node engine | **Node.js ≥ 26** (pin `.nvmrc` / `.node-version` to latest Current 26.x; re-pin in M-001) |
+| Node engine | **Node.js ≥ 22** for published packages (M-057 P-B9 widened from the M-001 pin of 26.5); `.nvmrc` may stay on Current for contributors |
 | Lint + format (default) | **Biome** (`biome check`) for M-001+ |
 | Revisit | If lint/format becomes a bottleneck or Prettier 100% parity is required, evaluate **Oxlint + Oxfmt** via a superseding ADR |
 

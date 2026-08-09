@@ -16,12 +16,14 @@ import {
   prismError,
 } from "@repo-prism/shared";
 import { ExitCode, exitCodeForError } from "./exit.js";
+import { formatIndexProgress } from "./index-progress.js";
 import {
   renderError,
   renderJson,
   type OutputOptions,
   type Writer,
 } from "./output.js";
+import { indexLooksStale, STALE_INDEX_HINT } from "./stale-hint.js";
 import { terminalWidth } from "./table.js";
 import { resolveWorkspace, type ResolvedWorkspace } from "./workspace.js";
 
@@ -33,6 +35,10 @@ export type GlobalOptions = {
   readonly verbose: boolean;
   /** Explicit consent for the gated paths. Never implied. */
   readonly yes: boolean;
+  /** Override `.prism/config.json` maxFileBytes (M-057 P-B6). */
+  readonly maxFileBytes?: number | undefined;
+  /** Extra exclude globs (M-057 P-B6). */
+  readonly excludeGlobs?: readonly string[] | undefined;
 };
 
 /**
@@ -74,6 +80,12 @@ export type CommandOutcome = {
   readonly data: unknown;
   human(output: OutputOptions): string;
   readonly findings?: boolean;
+  /**
+   * When true, stdout is `JSON.stringify(data)` with no Prism `{ ok, data }`
+   * envelope. Used by `--format sarif` so code-scanning uploaders can consume
+   * the log directly (M-060).
+   */
+  readonly rawJson?: boolean;
 };
 
 export type CommandHandler = (
@@ -108,6 +120,11 @@ export async function runCommand(
   run: RunOptions,
   args: CommandArgs = NO_ARGS,
 ): Promise<ExitCode> {
+  // `--format sarif` is machine output the same way `--json` is: progress on
+  // stdout would break uploaders, so suppress it whenever a format is set.
+  const machineOutput =
+    globals.json || globals.quiet || args.option("format") !== undefined;
+
   const output: OutputOptions = {
     json: globals.json,
     color: globals.color,
@@ -130,9 +147,9 @@ export async function runCommand(
     args,
     cwd: run.cwd,
     progress(message) {
-      // Progress in JSON mode would be noise at best; in a pipeline it is the
-      // thing that breaks the consumer.
-      if (globals.json || globals.quiet) return;
+      // Progress in JSON/SARIF mode would be noise at best; in a pipeline it is
+      // the thing that breaks the consumer.
+      if (machineOutput) return;
       run.writer.err(message);
     },
     async open() {
@@ -149,13 +166,29 @@ export async function runCommand(
       if (!result.ok) return result;
       context.progress(`Indexing ${workspace.path} …`);
       const startedAt = Date.now();
-      const indexed = await result.value.index();
+      const indexed = await result.value.index({
+        ...(typeof globals.maxFileBytes === "number"
+          ? { maxFileBytes: globals.maxFileBytes }
+          : {}),
+        ...(globals.excludeGlobs?.length
+          ? { extraIgnorePatterns: globals.excludeGlobs }
+          : {}),
+        onProgress: (event) => {
+          // Detailed phases only on a TTY — pipes keep the one-line "Indexing…".
+          if (!run.isTty || machineOutput) return;
+          context.progress(formatIndexProgress(event));
+        },
+      });
       if (!indexed.ok) {
         result.value.close();
         return { ok: false, error: indexed.error };
       }
       detail(`Indexed in ${Date.now() - startedAt} ms`);
       opened = result.value;
+      if (!machineOutput) {
+        const stale = await indexLooksStale(indexed.value);
+        if (stale) context.progress(STALE_INDEX_HINT);
+      }
       return { ok: true, value: opened };
     },
   };
@@ -176,7 +209,9 @@ export async function runCommand(
       return exitCodeForError(result.error);
     }
 
-    if (output.json) {
+    if (result.value.rawJson) {
+      run.writer.out(JSON.stringify(result.value.data, null, 2));
+    } else if (output.json) {
       run.writer.out(renderJson({ ok: true, data: result.value.data }));
     } else {
       run.writer.out(result.value.human(output));

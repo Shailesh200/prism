@@ -155,6 +155,30 @@ describe("parseWebviewToHost", () => {
     );
   });
 
+  it("validates writePrismConfig fields", () => {
+    expect(
+      parseWebviewToHost({
+        type: "writePrismConfig",
+        excludeGlobs: ["vendor/**"],
+        maxFileBytes: 1024,
+      }).ok,
+    ).toBe(true);
+    expect(
+      parseWebviewToHost({
+        type: "writePrismConfig",
+        excludeGlobs: ["vendor/**"],
+        maxFileBytes: null,
+      }).ok,
+    ).toBe(true);
+    expect(
+      parseWebviewToHost({
+        type: "writePrismConfig",
+        excludeGlobs: "vendor/**",
+        maxFileBytes: 1024,
+      }).ok,
+    ).toBe(false);
+  });
+
   it("accepts messages with no payload", () => {
     expect(parseWebviewToHost({ type: "openInBrowser" }).ok).toBe(true);
     expect(parseWebviewToHost({ type: "clearData" }).ok).toBe(true);

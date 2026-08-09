@@ -26,6 +26,14 @@
   "breakingChanges": [],
   "originRole": "source",
   "intent": "edit",
+  "coverageLimitations": [
+    "Dependency-injection container bindings",
+    "String-keyed registries and service locators",
+    "Event bus / pub-sub subscribers",
+    "Template and i18n string references",
+    "Runtime-loaded configuration paths",
+    "Generated-code consumers outside the index"
+  ],
   "scenarioChecklist": [
     {
       "id": "tests",

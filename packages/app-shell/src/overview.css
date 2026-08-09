@@ -1289,11 +1289,6 @@
   margin-bottom: 16px;
 }
 
-.dm-skel__runbar {
-  height: 34px;
-  border-radius: var(--prism-radius-md, 8px);
-}
-
 .dm-skel__card {
   min-height: 150px;
 }
@@ -3923,6 +3918,15 @@
   font-size: 0.6875rem;
   line-height: 1.4;
   color: var(--prism-ink-muted, #94a3b8);
+}
+
+.br-coverage__list {
+  margin: 0;
+  padding: 0 0 0 1.1rem;
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  color: var(--ov-muted, #94a3b8);
 }
 
 .br-forward__body,

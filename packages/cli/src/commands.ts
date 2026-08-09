@@ -14,6 +14,7 @@ import {
   safeDeleteCommand,
   testImpactCommand,
 } from "./commands/change.js";
+import { completionsCommand } from "./commands/completions.js";
 import { dnaCommand } from "./commands/dna.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { indexCommand } from "./commands/index-command.js";
@@ -44,6 +45,7 @@ import {
 import {
   FAIL_ON_BAND_OPTION,
   FAIL_ON_COUNT_OPTION,
+  FORMAT_OPTION,
   LIMIT_OPTION,
   IN_OPTION,
   SYMBOL_OPTIONS,
@@ -56,7 +58,14 @@ export const COMMANDS: readonly CommandSpec[] = [
     group: "Diagnostics",
     summary: "Check the environment, workspace and index",
     handler: doctorCommand,
-    examples: ["prism doctor"],
+    options: [
+      {
+        flags: "--ci",
+        description:
+          "Extra CI checks (e.g. warn on shallow clones that truncate history)",
+      },
+    ],
+    examples: ["prism doctor", "prism doctor --ci"],
   },
   {
     name: "index",
@@ -64,6 +73,22 @@ export const COMMANDS: readonly CommandSpec[] = [
     summary: "Build or refresh the repository index",
     handler: indexCommand,
     examples: ["prism index"],
+  },
+  {
+    name: "completions",
+    group: "Diagnostics",
+    summary: "Print shell completion script (bash, zsh, or fish)",
+    handler: completionsCommand,
+    arguments: [
+      {
+        syntax: "<shell>",
+        description: "Shell to generate for: bash, zsh, or fish",
+      },
+    ],
+    examples: [
+      "prism completions bash >> ~/.bashrc",
+      "prism completions zsh > ~/.zfunc/_prism",
+    ],
   },
 
   {
@@ -180,8 +205,12 @@ export const COMMANDS: readonly CommandSpec[] = [
       { flags: "--base <rev>", description: "Diff against a git revision" },
       FAIL_ON_BAND_OPTION,
       LIMIT_OPTION,
+      FORMAT_OPTION,
     ],
-    examples: ["prism review --base origin/main --fail-on high"],
+    examples: [
+      "prism review --base origin/main --fail-on high",
+      "prism review --base origin/main --format sarif",
+    ],
   },
   {
     name: "safe-delete",
@@ -238,8 +267,9 @@ export const COMMANDS: readonly CommandSpec[] = [
       { flags: "--packages", description: "Aggregate files into packages" },
       FAIL_ON_COUNT_OPTION,
       LIMIT_OPTION,
+      FORMAT_OPTION,
     ],
-    examples: ["prism cycles --fail-on any"],
+    examples: ["prism cycles --fail-on any", "prism cycles --format sarif"],
   },
   {
     name: "symbol",

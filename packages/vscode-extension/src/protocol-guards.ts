@@ -23,6 +23,7 @@ export const HOST_REQUEST_METHODS = [
   "codeExplorer",
   "dashboard",
   "detectBundleAnalyze",
+  "domainReport",
   "engineeringHealth",
   "explainArea",
   "frontendRoutes",
@@ -51,6 +52,13 @@ export const HOST_REQUEST_METHODS = [
   "selectPackage",
   "setConsent",
   "stageDevopsRemote",
+  "fetchGithubWorkflows",
+  "fetchGithubWorkflowRuns",
+  "fetchGithubRepo",
+  "fetchGithubAuthenticatedLogin",
+  "testGithubRepoConnection",
+  "dispatchGithubWorkflow",
+  "fetchPagespeedMetrics",
   "symbols",
   "testing",
 ] as const;
@@ -68,6 +76,7 @@ const WEBVIEW_MESSAGE_TYPES = new Set([
   "setAutoReindex",
   "setCodeLens",
   "setLocalOnly",
+  "writePrismConfig",
   "clearData",
 ]);
 
@@ -153,6 +162,28 @@ export function parseWebviewToHost(raw: unknown): ProtocolParse<WebviewToHost> {
     case "setLocalOnly": {
       if (typeof raw.enabled !== "boolean") {
         return { ok: false, reason: `${raw.type}.enabled must be a boolean` };
+      }
+      break;
+    }
+    case "writePrismConfig": {
+      if (
+        !Array.isArray(raw.excludeGlobs) ||
+        raw.excludeGlobs.some((g) => typeof g !== "string")
+      ) {
+        return {
+          ok: false,
+          reason: "writePrismConfig.excludeGlobs must be a string array",
+        };
+      }
+      if (
+        raw.maxFileBytes !== null &&
+        (typeof raw.maxFileBytes !== "number" ||
+          !Number.isFinite(raw.maxFileBytes))
+      ) {
+        return {
+          ok: false,
+          reason: "writePrismConfig.maxFileBytes must be a number or null",
+        };
       }
       break;
     }

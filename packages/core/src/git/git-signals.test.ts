@@ -2,7 +2,11 @@ import { mkdtempSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { parseGitLog, readSyncStatus } from "./git-signals.js";
+import {
+  enrichSummaryWithCommitTotal,
+  parseGitLog,
+  readSyncStatus,
+} from "./git-signals.js";
 
 const REC = "\u001e";
 const SEP = "\u001f";
@@ -138,6 +142,48 @@ describe("parseGitLog", () => {
     const { signals, summary } = parseGitLog("", { now: NOW });
     expect(signals.size).toBe(0);
     expect(summary.totalCommits).toBe(0);
+  });
+});
+
+describe("enrichSummaryWithCommitTotal (M-056 / P-A2)", () => {
+  it("sets totalCommits from rev-list --count HEAD and flags truncation", () => {
+    const run = (args: string[]): string | null => {
+      if (
+        args[0] === "rev-list" &&
+        args.includes("--count") &&
+        args.includes("HEAD") &&
+        !args.some((a) => a.includes("..."))
+      ) {
+        return "5000\n";
+      }
+      return null;
+    };
+    const enriched = enrichSummaryWithCommitTotal(
+      {
+        totalCommits: 2000,
+        windowCommits: 2000,
+        historyTruncated: false,
+      },
+      run,
+      2000,
+    );
+    expect(enriched.totalCommits).toBe(5000);
+    expect(enriched.windowCommits).toBe(2000);
+    expect(enriched.historyTruncated).toBe(true);
+  });
+
+  it("leaves historyTruncated false when the window covers the repo", () => {
+    const run = (args: string[]): string | null => {
+      if (args[0] === "rev-list" && args.includes("--count")) return "3\n";
+      return null;
+    };
+    const enriched = enrichSummaryWithCommitTotal(
+      { totalCommits: 3, windowCommits: 3, historyTruncated: false },
+      run,
+    );
+    expect(enriched.totalCommits).toBe(3);
+    expect(enriched.windowCommits).toBe(3);
+    expect(enriched.historyTruncated).toBe(false);
   });
 });
 

@@ -10,6 +10,7 @@ import { paint, renderFields, renderHeading } from "../output.js";
 import type { CommandHandler, CommandContext } from "../runtime.js";
 import { bandStyle, plural, renderTable, scoreCell, wrap } from "../table.js";
 import { allWorkspaceRelative, resolveTarget } from "../target.js";
+import { parseFormat, reviewToSarif } from "../sarif.js";
 import {
   bound,
   meetsThreshold,
@@ -136,6 +137,8 @@ export const reviewCommand: CommandHandler = async (context) => {
   if (!failOn.ok) return failOn;
   const limit = parseLimit(context.args.option("limit"));
   if (!limit.ok) return limit;
+  const format = parseFormat(context.args.option("format"));
+  if (!format.ok) return format;
 
   const opened = await context.open();
   if (!opened.ok) return opened;
@@ -166,8 +169,25 @@ export const reviewCommand: CommandHandler = async (context) => {
   }
 
   if (paths.length === 0) {
+    const empty = {
+      generatedAt: new Date().toISOString(),
+      base: label,
+      items: [],
+      overallRisk: 0,
+      totalAffectedFiles: 0,
+      totalTestsAffected: 0,
+      totalBreakingChanges: 0,
+    };
+    if (format.value === "sarif") {
+      return ok({
+        data: reviewToSarif(empty),
+        rawJson: true,
+        human: () =>
+          `No changes to review against ${label ?? "the working tree"}.`,
+      });
+    }
     return ok({
-      data: { base: label, items: [], overallRisk: 0, totalAffectedFiles: 0 },
+      data: empty,
       human: () =>
         `No changes to review against ${label ?? "the working tree"}.`,
     });
@@ -180,10 +200,20 @@ export const reviewCommand: CommandHandler = async (context) => {
   if (!report.ok) return report;
 
   const review = report.value;
+  const findings = meetsThreshold(review.overallRisk, failOn.value);
+
+  if (format.value === "sarif") {
+    return ok({
+      data: reviewToSarif(review),
+      rawJson: true,
+      findings,
+      human: () => "",
+    });
+  }
 
   return ok({
     data: review,
-    findings: meetsThreshold(review.overallRisk, failOn.value),
+    findings,
     human({ color, width }) {
       const items = bound(review.items, limit.value);
       const lines = [

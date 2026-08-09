@@ -19,6 +19,7 @@ tasks:
     command: "bun run test"
     inputs:
       - "src/**/*"
+      - "schemas/**/*"
       - "vitest.config.ts"
   test-integration:
     command: "bun run test:integration"
