@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Progress** |
+| Status | **Verified** |
 | Branch | `milestone/M-056-number-integrity` (from latest `main`) |
 | Depends on | M-053 |
 | Unlocks | M-057 |
@@ -58,8 +58,8 @@ contracts additive per ADR-0019.
 - [x] `plans/notes/M-056-number-audit-2.md` records every before/after
 - [x] Additive contracts only per [ADR-0019](../adr/0019-core-sdk-versioning.md)
 - [x] `bun run verify:milestone` green (2026-08-09)
-- [ ] Owner smoke: a repo with unresolved imports visibly says so
-- [ ] Owner approval → commit → merge → Verified → snippet shared
+- [x] Owner smoke: a repo with unresolved imports visibly says so
+- [x] Owner approval → commit → merge → Verified → snippet shared
 
 ## 5. References
 
