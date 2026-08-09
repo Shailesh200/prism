@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **Planned** |
+| Status | **In Progress** |
 | Branch | `milestone/M-056-number-integrity` (from latest `main`) |
 | Depends on | M-053 |
 | Unlocks | M-057 |
@@ -25,6 +25,22 @@ on the DTO and in the UI — not silently dropped or implied to be complete.
 | **P-A6** | Polyglot distortion — only 8 TS/JS extensions are analyzed ([`typescript-plugin.ts:29-38`](../../packages/analyzer/src/typescript-plugin.ts)); graph-derived metrics silently exclude everything else. | Publish `graphCoveragePct` (analyzed analyzable files / total files) on the health DTO, the Overview footer and MCP `repository_health`; relabel the coupling factor "TS/JS import coupling". Tests: polyglot fixture asserting the percentage and the label. |
 | **P-A7** | Blast radius never says what it cannot see. | Static `coverageLimitations: string[]` on `BlastRadiusReport` listing the invisible classes (DI containers, string-keyed registries, event buses, template/i18n string refs, runtime-loaded config, generated-code consumers); rendered in the UI and the MCP tool description. |
 
+## 2a. Landed-on-main audit (2026-08-09, fast-tracked ahead of M-057)
+
+All five scope items landed on `main` via the M-053 merge (completion-program slices). Audited
+against the DoD — each verified present with surfaces and tests:
+
+| ID | Verified on `main` |
+|---|---|
+| P-A1 | `unresolvedImports { count, sample }` on `DependencyGraphDto` (shared schema); Core populates; MCP `dependency_graph` description + DTO; CLI `deps` footnote; `parse_health` factor note + "Unresolved imports" breakdown row. Tests: core dependency-graph, MCP contract, CLI integration (fixture `m056-unresolved`) |
+| P-A2 | `totalCommits` (real, `rev-list --count`) vs `windowCommits` (scanned) + `historyTruncated` on `GitRepoSummary`; map activity layer + Trends/Overview notes. Tests: `git-signals.test.ts` (`enrichSummaryWithCommitTotal`) |
+| P-A5 | `truncated` + `totalCount` on symbol zoom (`repository-map/build.ts`), overview regions (`overview-model.ts`), blast forward deps (`blast-radius.ts`); UI "showing N of M" in OverviewScreen, BlastRadiusScreen, BundleTreemap. Tests per package |
+| P-A6 | `graphCoveragePct` on health DTO + Overview footer + MCP `repository_health` description; coupling relabeled "TS/JS import coupling" (DnaScreen, OverviewScreen). Tests: health score, MCP contract (fixture `m056-polyglot`) |
+| P-A7 | Static `coverageLimitations` on `BlastRadiusReport` (6 invisible classes); rendered in BlastRadiusScreen; listed in MCP `blast_radius` tool description. Tests: impact + MCP contract |
+
+Before/after record: [`plans/notes/M-056-number-audit-2.md`](../notes/M-056-number-audit-2.md). All
+contracts additive per ADR-0019.
+
 ## 3. Out of scope
 
 | Deferred work | Destination |
@@ -36,12 +52,12 @@ on the DTO and in the UI — not silently dropped or implied to be complete.
 
 ## 4. Definition of Done
 
-- [ ] M-053 Verified and merged; this branch cut from updated `main`
-- [ ] Only one milestone `In Progress`
-- [ ] P-A1 through P-A7 implemented with tests on all three surfaces where applicable
-- [ ] `plans/notes/M-056-number-audit-2.md` records every before/after
-- [ ] Additive contracts only per [ADR-0019](../adr/0019-core-sdk-versioning.md)
-- [ ] `bun run verify:milestone` green
+- [x] M-053 Verified and merged; this branch cut from updated `main`
+- [x] Only one milestone `In Progress`
+- [x] P-A1 through P-A7 implemented with tests on all three surfaces where applicable
+- [x] `plans/notes/M-056-number-audit-2.md` records every before/after
+- [x] Additive contracts only per [ADR-0019](../adr/0019-core-sdk-versioning.md)
+- [x] `bun run verify:milestone` green (2026-08-09)
 - [ ] Owner smoke: a repo with unresolved imports visibly says so
 - [ ] Owner approval → commit → merge → Verified → snippet shared
 
