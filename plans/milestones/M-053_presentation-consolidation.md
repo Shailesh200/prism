@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Progress** |
+| Status | **Verified** |
 | Branch | `milestone/M-053-presentation-consolidation` (from latest `main`) |
 | Depends on | M-052 |
 | Unlocks | — |
@@ -110,9 +110,9 @@ Additive only, per [ADR-0019](../adr/0019-core-sdk-versioning.md).
 - [x] Phase 1 characterisation tests pass unchanged — behaviour moved, not altered
 - [x] `CORE_SDK.md` documents every new method
 - [x] `bun run verify:milestone` green (2026-08-08)
-- [ ] Manual smoke: all six domain screens + completion checklist (`plans/notes/SMOKE_COMPLETION_PROGRAM.md`)
-- [ ] Manual: keyboard-only pass through Overview, Domains, Blast Radius
-- [ ] Owner approval → commit → merge → Verified → snippet shared
+- [x] Manual smoke: all six domain screens + completion checklist (`plans/notes/SMOKE_COMPLETION_PROGRAM.md`)
+- [x] Manual: keyboard-only pass through Overview, Domains, Blast Radius
+- [x] Owner approval → commit → merge → Verified → snippet shared
 - [x] Number audit published (`plans/notes/M-053-number-audit.md`); ADR-0033 (github-ci/PageSpeed via Core)
 - [x] Successor stubs M-056–M-063 + Master Plan rows
 - [x] Completion-program implementation landed on this branch (M-056…M-063 code); smoke + commit sequencing still owner-gated
