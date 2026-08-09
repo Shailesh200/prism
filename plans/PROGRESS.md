@@ -62,7 +62,7 @@
 | M-039 GA Readiness | `milestone/M-039-ga-readiness` | Verified | ✅ | ✅ | 2026-08-05. 1.0.0 across extension/Core/CLI/MCP; CHANGELOG + release runbook; ADRs Accepted; open questions dispositioned; first-run audit fixes. Tag `repo-prism-v1.0.0` local (push separate). **Owner verified 2026-08-08** (merged on main) |
 | M-054 Public Website | `milestone/M-054-website` | Verified | ✅ | ✅ | Merged 2026-08-06. Next.js 16 + Fumadocs at `apps/website` (ADR-0031); docs rewritten into CLI/IDE/MCP lanes + task guides; `/admin` from public APIs; VitePress retired. Owner: finish Vercel import + domain per `apps/website/OWNER_HANDOFF.md` |
 | M-055 Website Marketing Motion | `milestone/M-055-website-motion` | Verified | ✅ | ✅ | Approved + merged 2026-08-08. GSAP cartographic motion on marketing pages (ADR-0032); portfolio mechanism without gate/wipe/HUD/particles; prompt at `plans/prompts/WEBSITE_GSAP_REDESIGN.md`. Owner smoked locally. |
-| M-056 Number Integrity | `milestone/M-056-number-integrity` | Planned | ☐ | ☐ | Truncation honesty: unresolved imports, git cap, blast limits, polyglot coverage, coverage limitations |
+| M-056 Number Integrity | `milestone/M-056-number-integrity` | In Progress | ☐ | ☐ | Truncation honesty: unresolved imports, git cap, blast limits, polyglot coverage, coverage limitations |
 | M-057 Daily Loop | `milestone/M-057-daily-loop` | Planned | ☐ | ☐ | IDE hero: watcher, blast Quick Pick, shared config, completions, Node ≥22 |
 | M-058 Agent Surface v2 | `milestone/M-058-agent-surface` | Planned | ☐ | ☐ | MCP hero: bounded tools, resources, capabilities, compact JSON |
 | M-059 Reference Precision | `milestone/M-059-reference-precision` | Planned | ☐ | ☐ | Moat: homonyms, member calls, barrels, tsconfig, require(); deep-TS spike |
