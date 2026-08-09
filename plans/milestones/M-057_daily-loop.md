@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Progress** |
+| Status | **Verified** |
 | Branch | `milestone/M-057-daily-loop` (from latest `main`) |
 | Depends on | M-056 |
 | Unlocks | M-058 |
