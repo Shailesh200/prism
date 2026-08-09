@@ -481,6 +481,17 @@ export type HostToWebview =
     }
   | { type: "audit"; entry: HostAuditEntry }
   | { type: "codeLensEnabled"; enabled: boolean }
+  /**
+   * `.prism/config.json` values at panel ready (M-057 P-B6): the shared
+   * config file is the source of truth for indexing knobs; the webview
+   * hydrates its settings store from this so CLI hand-edits show up in the
+   * Settings screen. Absent fields are not set in the file.
+   */
+  | {
+      type: "prismConfig";
+      excludeGlobs?: string[];
+      maxFileBytes?: number | null;
+    }
   /** Soft refresh after watch/reindex — keep the current view. */
   | { type: "dataRefresh" }
   /** Force-show the in-app product tour (Settings / command). */
@@ -513,5 +524,10 @@ export type WebviewToHost =
       type: "writePrismConfig";
       excludeGlobs: string[];
       maxFileBytes: number | null;
+      /**
+       * Migration mode (M-057 P-B6): only write when no config file exists —
+       * never clobber a hand-edited / CLI-written `.prism/config.json`.
+       */
+      ifAbsent?: boolean;
     }
   | { type: "clearData" };

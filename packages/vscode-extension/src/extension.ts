@@ -1,6 +1,5 @@
 import * as vscode from "vscode";
 import { dirname } from "node:path";
-import { riskBandDescriptor } from "@repo-prism/shared";
 import { BrowserBridge } from "./browser-bridge.js";
 import { PrismCodeLensProvider } from "./codelens-provider.js";
 import { checkHealthRegression } from "./health-alerts.js";
@@ -16,6 +15,8 @@ import {
   setActiveWorkspaceWatch,
   WorkspaceWatchController,
 } from "./workspace-watch.js";
+import { warmIndexOtherFolders } from "./warm-index.js";
+import { buildBlastQuickPickItems, reviewAllOutcome } from "./quick-picks.js";
 
 export const PACKAGE_NAME = "@repo-prism/vscode-extension" as const;
 
@@ -258,26 +259,10 @@ async function bootWorkspace(): Promise<void> {
 
   // M-057 P-B7 — warm-index additional multi-root folders so switching is fast.
   if (folders.length > 1) {
-    void warmIndexOtherFolders(folders.slice(1).map((f) => f.uri.fsPath));
-  }
-}
-
-/** Best-effort background index of non-active multi-root folders. */
-async function warmIndexOtherFolders(roots: readonly string[]): Promise<void> {
-  for (const root of roots) {
-    try {
-      const warm = new PrismSession();
-      const opened = await warm.open(root);
-      if (opened.ok) {
-        logger?.info(`Warm-indexed multi-root folder ${root}`);
-      } else {
-        logger?.warn(`Warm-index skipped ${root}: ${opened.error.message}`);
-      }
-      warm.close();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      logger?.warn(`Warm-index failed ${root}: ${msg}`);
-    }
+    void warmIndexOtherFolders(
+      folders.slice(1).map((f) => f.uri.fsPath),
+      { createSession: () => new PrismSession(), log: logger! },
+    );
   }
 }
 
@@ -772,14 +757,15 @@ export function activate(context: vscode.ExtensionContext): void {
           );
           return;
         }
-        if (changed.value.paths.length === 0) {
+        const outcome = reviewAllOutcome(changed.value);
+        if (outcome.kind === "empty") {
           void vscode.window.showInformationMessage(
-            `Prism: no changes to review against ${changed.value.base}.`,
+            `Prism: no changes to review against ${outcome.base}.`,
           );
           return;
         }
         await openPanel("review", {
-          targetPaths: [...changed.value.paths],
+          targetPaths: [...outcome.paths],
         });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -815,27 +801,7 @@ export function activate(context: vscode.ExtensionContext): void {
           return;
         }
         const report = blast.value;
-        const band = riskBandDescriptor(report.risk);
-        const top = [...report.affectedFiles]
-          .sort((a, b) => a.depth - b.depth)
-          .slice(0, 8);
-        type PickItem = vscode.QuickPickItem & { action?: "open" };
-        const items: PickItem[] = [
-          {
-            label: `$(zap) ${band.short} risk (${Math.round(report.risk)})`,
-            description: `${report.affectedFiles.length} affected`,
-            detail: path,
-          },
-          ...top.map((item) => ({
-            label: item.path,
-            description: `depth ${item.depth}`,
-            detail: item.reason,
-          })),
-          {
-            label: "$(link-external) Open full Impact",
-            action: "open" as const,
-          },
-        ];
+        const items = buildBlastQuickPickItems(report, path);
         const pick = await vscode.window.showQuickPick(items, {
           placeHolder: `Blast radius — ${path}`,
         });

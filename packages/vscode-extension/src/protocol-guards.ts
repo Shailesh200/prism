@@ -185,6 +185,12 @@ export function parseWebviewToHost(raw: unknown): ProtocolParse<WebviewToHost> {
           reason: "writePrismConfig.maxFileBytes must be a number or null",
         };
       }
+      if (raw.ifAbsent !== undefined && typeof raw.ifAbsent !== "boolean") {
+        return {
+          ok: false,
+          reason: "writePrismConfig.ifAbsent must be a boolean",
+        };
+      }
       break;
     }
     default:

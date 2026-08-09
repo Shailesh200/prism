@@ -111,3 +111,28 @@ export function maxFileSizeOptionToBytes(
       return null;
   }
 }
+
+/**
+ * Reverse of {@link maxFileSizeOptionToBytes} for hydrating the IDE settings
+ * UI from `.prism/config.json`. Returns undefined for byte values that do not
+ * map to an option (custom hand-edited sizes) so callers leave the current
+ * selection untouched instead of snapping to a wrong bucket.
+ */
+export function maxFileSizeOptionFromBytes(
+  bytes: number | null | undefined,
+): "256kb" | "1mb" | "5mb" | "10mb" | "none" | undefined {
+  if (bytes === null) return "none";
+  if (bytes === undefined) return undefined;
+  switch (bytes) {
+    case 256 * 1024:
+      return "256kb";
+    case 1024 * 1024:
+      return "1mb";
+    case 5 * 1024 * 1024:
+      return "5mb";
+    case 10 * 1024 * 1024:
+      return "10mb";
+    default:
+      return undefined;
+  }
+}

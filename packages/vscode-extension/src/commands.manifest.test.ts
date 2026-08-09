@@ -46,4 +46,9 @@ describe("extension contributes (M-057)", () => {
         ?.default,
     ).toBe(true);
   });
+
+  it("exposes Switch Workspace Folder for multi-root workspaces (P-B7)", () => {
+    const names = pkg.contributes.commands.map((c) => c.command);
+    expect(names).toContain("prism.switchWorkspaceFolder");
+  });
 });

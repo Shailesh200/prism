@@ -179,6 +179,25 @@ describe("parseWebviewToHost", () => {
     ).toBe(false);
   });
 
+  it("validates writePrismConfig ifAbsent flag", () => {
+    expect(
+      parseWebviewToHost({
+        type: "writePrismConfig",
+        excludeGlobs: [],
+        maxFileBytes: null,
+        ifAbsent: true,
+      }).ok,
+    ).toBe(true);
+    expect(
+      parseWebviewToHost({
+        type: "writePrismConfig",
+        excludeGlobs: [],
+        maxFileBytes: null,
+        ifAbsent: "yes",
+      }).ok,
+    ).toBe(false);
+  });
+
   it("accepts messages with no payload", () => {
     expect(parseWebviewToHost({ type: "openInBrowser" }).ok).toBe(true);
     expect(parseWebviewToHost({ type: "clearData" }).ok).toBe(true);
