@@ -25,7 +25,7 @@ export function MapControls(): ReactElement {
         <span className="prism-map__nav-sep" aria-hidden />
         <button
           type="button"
-          onClick={() => void fitView({ padding: 0.22, duration: 320 })}
+          onClick={() => void fitView({ padding: 0.28, duration: 320 })}
           aria-label="Fit view"
         >
           <Maximize2 size={15} strokeWidth={2} />

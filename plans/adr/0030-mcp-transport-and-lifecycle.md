@@ -117,7 +117,13 @@ frozen into a public tool contract.
 
 - HTTP/SSE transport.
 - Multi-workspace sessions and switching workspace mid-session.
-- MCP resources and prompts. Tools first; the others only if a real client needs them.
+
+**Amended by M-058 (Agent Surface v2)**
+
+- Tool JSON is compact by default (`PRISM_MCP_PRETTY=1` opt-in).
+- MCP resources `prism://dna`, `prism://landmarks`, `prism://health` are registered
+  (read through Core after the session index is ready).
+- List/graph tools use the bounded-list envelope; `knowledge_graph` requires `path` or `limit`.
 
 ## Alternatives considered
 

@@ -60,6 +60,12 @@ export const FAIL_ON_COUNT_OPTION: OptionSpec = {
   description: "Exit 1 at this many findings, or 'any' for one or more",
 };
 
+/** Shared by `review` and `cycles` for GitHub code scanning (M-060). */
+export const FORMAT_OPTION: OptionSpec = {
+  flags: "--format <fmt>",
+  description: "Machine output format: sarif (GitHub code scanning)",
+};
+
 /**
  * `--in` narrows a symbol query on some commands and disambiguates a shared
  * name on others. One wording covers both, because a flag that means slightly

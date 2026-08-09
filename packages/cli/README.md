@@ -72,8 +72,9 @@ Use **1** vs **2** carefully in CI: a typo must not look like a real finding.
 
 | Command | Purpose |
 |---|---|
-| `prism doctor` | Check Node, workspace resolution, git, index |
+| `prism doctor` | Check Node, workspace resolution, git, index (`--ci` warns on shallow clones) |
 | `prism index` | Build or refresh the repository index |
+| `prism completions <bash\|zsh\|fish>` | Print shell completion script |
 
 ### Understand a repository
 
@@ -94,7 +95,7 @@ Use **1** vs **2** carefully in CI: a typo must not look like a real finding.
 | Command | Purpose |
 |---|---|
 | `prism blast <target>` | Blast radius |
-| `prism review [paths…]` | Change review |
+| `prism review [paths…]` | Change review (`--format sarif` for code scanning) |
 | `prism safe-delete <target>` | Safe to delete? |
 | `prism rename <target> <newName>` | Rename edit sites |
 | `prism test-impact <target>` | Related tests |
@@ -104,7 +105,7 @@ Use **1** vs **2** carefully in CI: a typo must not look like a real finding.
 | Command | Purpose |
 |---|---|
 | `prism deps` | Graph size / hubs |
-| `prism cycles` | Import cycles |
+| `prism cycles` | Import cycles (`--format sarif` for code scanning) |
 | `prism symbol <name>` | Find declaration |
 | `prism refs <name>` | Find references |
 | `prism route <from> <to>` | Dependency path |

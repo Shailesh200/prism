@@ -1,17 +1,51 @@
 import type {
+  BackendDomainReport,
   BackendReport,
+  CwvInsight,
   CwvMetric,
   CwvReport,
+  DataMlAiDomainReport,
+  DesktopDomainReport,
+  DevopsDomainReport,
   DnaReport,
+  DomainReport,
+  DomainReportDomain,
+  FrontendDomainReport,
   GitActivity,
   GraphSnapshotDto,
-  UtilityOverlayFinding,
+  MobileDomainReport,
   UtilityOverlayReport,
 } from "@repo-prism/shared";
 import {
+  backendHandlerNodes,
+  buildBackendCoverage,
+  buildDesktopBoundaryLinks,
+  buildDesktopIpcChannels,
+  buildDesktopTiles,
+  buildDevopsFindings,
+  buildDevopsTiles,
+  buildDomainStackSnapshot,
+  buildFrontendComponentBreakdown,
+  buildFrontendRouteBreakdown,
+  buildMobileNavLinks,
+  buildMobileScreenCoverage,
+  buildMobileTiles,
+  countDataLayerByKind,
+  countOverlayKinds,
+  CwvReportSchema,
+  desktopProcessNodes,
+  kindCountOf,
+  mergeFrontendRoutes,
+  overlayNodePath,
+  rankChurnHotspots,
+  rankMostDepended,
+} from "@repo-prism/shared";
+import {
   CardIcon,
+  EmptyState,
   Input,
   InfoTip,
+  relativeTime,
   SearchableInput,
   Select,
   ToggleGroup,
@@ -65,6 +99,7 @@ import {
 } from "./BundleWeightPanel.js";
 import {
   LIGHTHOUSE_CATEGORIES,
+  cwvFieldReportFromPagespeedJson,
   cwvReportFromLighthouseJson,
   formatCwvValue,
   heuristicFrontendRoutes,
@@ -74,15 +109,8 @@ import {
   scoreRating,
 } from "./cwv-parse.js";
 import {
-  dispatchGithubWorkflow,
-  fetchGithubAuthenticatedLogin,
-  fetchGithubRepo,
-  fetchGithubWorkflowRuns,
-  fetchGithubWorkflows,
-  fetchPagespeedMetrics,
   matchRemoteWorkflowId,
   parseGithubRepoRef,
-  testGithubRepoConnection,
   type GithubWorkflowRun,
   type GithubWorkflowSummary,
 } from "./github-ci.js";
@@ -206,7 +234,7 @@ const DOMAINS: Record<string, DomainDef> = {
       "Runs a local Lighthouse lab to capture Core Web Vitals and a consent-gated Bundle Weight analyze for chunk/module sizes.",
     sources: "local Lighthouse run, imported CWV report, or local bundle stats",
     labNote:
-      "Runs a real local Lighthouse lab via Core. Requires Chrome/Chromium and a locally served app — never shows sample numbers. Bundle Weight runs separately with Analyze in the Bundle / Weight section.",
+      "Runs a real local Lighthouse lab via Core against a production build (Prism builds + previews one when needed; dev servers are skipped because they distort lab metrics). Requires Chrome/Chromium — never shows sample numbers. Bundle Weight runs separately with Analyze in the Bundle / Weight section.",
   },
 };
 
@@ -350,6 +378,10 @@ type OverlaySnapshot = {
 
 type CwvSource = "local" | "pagespeed";
 
+function cwvRatingSourceLabel(source: CwvSource): string {
+  return source === "pagespeed" ? "Field (CrUX)" : "Lab (Lighthouse)";
+}
+
 function titleCase(id: string): string {
   return id
     .split(/[\s_-]+/)
@@ -364,19 +396,6 @@ function kindLabel(kind: string): string {
 
 function kindColor(kind: string): string {
   return KIND_META[kind]?.color ?? "#8AA0AA";
-}
-
-function relativeTime(isoOrMs: string | number): string {
-  const then =
-    typeof isoOrMs === "number" ? isoOrMs : new Date(isoOrMs).getTime();
-  if (Number.isNaN(then)) return "just now";
-  const secs = Math.max(0, Math.round((Date.now() - then) / 1000));
-  if (secs < 60) return "just now";
-  const mins = Math.round(secs / 60);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.round(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.round(hrs / 24)}d ago`;
 }
 
 /** Readable status tag for GitHub Actions run status/conclusion. */
@@ -421,7 +440,7 @@ function PipelineActor(props: {
 }): ReactElement {
   const [imgOk, setImgOk] = useState(true);
   if (!props.login) {
-    return <span className="dm-pipe-actor dm-pipe-actor--empty">—</span>;
+    return <span className="dm-pipe-actor dm-pipe-actor--empty">No actor</span>;
   }
   const showImg = Boolean(props.avatarUrl) && imgOk;
   return (
@@ -546,50 +565,25 @@ export type DomainScreenProps = {
   depGraph?: GraphSnapshotDto | null;
   /** Route-granular backend report from Core `getBackendReport` (M-044). */
   backendReport?: BackendReport | null;
+  /**
+   * Per-domain aggregation from Core `getDomainReport` (M-053).
+   * When present for the open domain, rankings / coverage prefer the report.
+   */
+  domainReport?: DomainReport | null;
   gitActivity?: GitActivity | null;
   /** Stack DNA — Mobile / Desktop Wave 1 stack snapshot. */
   dna?: DnaReport | null;
   onRun: (kind: string) => void;
+  /**
+   * Abort the in-flight Analyze run (host ignores late results and returns to
+   * idle). When omitted, the loading state offers no cancel affordance.
+   */
+  onCancel?: (() => void) | undefined;
   onNavigate: (view: AppView) => void;
 };
 
 function nodePath(attrs: Record<string, unknown> | undefined): string {
-  return typeof attrs?.path === "string" ? attrs.path : "";
-}
-
-function normalizeDepKey(idOrPath: string): string {
-  let p = idOrPath.trim().replace(/\\/g, "/");
-  if (p.startsWith("file:")) p = p.slice("file:".length);
-  p = p.replace(/^\.\//, "");
-  return p;
-}
-
-function inboundDepCounts(
-  depGraph: GraphSnapshotDto | null | undefined,
-): Map<string, number> {
-  const inDeg = new Map<string, number>();
-  if (!depGraph) return inDeg;
-  for (const e of depGraph.edges) {
-    if (!e.to) continue;
-    const key = normalizeDepKey(e.to);
-    inDeg.set(key, (inDeg.get(key) ?? 0) + 1);
-  }
-  return inDeg;
-}
-
-function lookupInbound(inDeg: Map<string, number>, path: string): number {
-  const key = normalizeDepKey(path);
-  if (!key) return 0;
-  return inDeg.get(key) ?? 0;
-}
-
-function fileStem(path: string): string {
-  const base = path.split("/").pop() ?? path;
-  return base
-    .replace(/\.(test|spec)\.[cm]?[jt]sx?$/i, "")
-    .replace(/\.[cm]?[jt]sx?$/i, "")
-    .replace(/\.(go|py|rb|java|rs)$/i, "")
-    .toLowerCase();
+  return overlayNodePath(attrs);
 }
 
 function shortProcessLabel(label: string, kind: string, path: string): string {
@@ -643,6 +637,10 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
   const labMeasuringRef = useRef<string | null>(null);
   /** Which section route-Analyze menu is open (`cwv` | `lh`). */
   const [labMenuOpen, setLabMenuOpen] = useState<"cwv" | "lh" | null>(null);
+  /** Lab device profile for the next run (mobile = simulated Slow-4G). */
+  const [labFormFactor, setLabFormFactor] = useState<"mobile" | "desktop">(
+    "mobile",
+  );
   const [topAnalyzeMenuOpen, setTopAnalyzeMenuOpen] = useState(false);
   const [labSelectMode, setLabSelectMode] = useState(false);
   const [selectedLabRoutes, setSelectedLabRoutes] = useState<string[]>([]);
@@ -662,6 +660,9 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
   const [cwvSource, setCwvSource] = useState<CwvSource>("local");
   const [cwvSettingsOpen, setCwvSettingsOpen] = useState(false);
   const [discoveredRoutes, setDiscoveredRoutes] = useState<string[]>([]);
+  const [liveDomainReport, setLiveDomainReport] = useState<DomainReport | null>(
+    props.domainReport ?? null,
+  );
   const cwvSettingsRef = useRef<HTMLDivElement | null>(null);
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const cwvStoreKey = domainStoreKey(props.repoLabel, "frontend", "cwv");
@@ -770,11 +771,21 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
     if (props.domainId !== "frontend") return;
     const snap = readStore<CwvSnapshot>(cwvStoreKey);
     if (snap) {
-      setCwvLocal(snap.local);
-      setCwvPagespeed(snap.pagespeed);
+      // Snapshots outlive schema additions (e.g. `warnings`) — parse on
+      // restore so defaults migrate old payloads forward; drop what no
+      // longer validates instead of crashing the screen.
+      const localParsed = snap.local
+        ? CwvReportSchema.safeParse(snap.local)
+        : null;
+      const pagespeedParsed = snap.pagespeed
+        ? CwvReportSchema.safeParse(snap.pagespeed)
+        : null;
+      const local = localParsed?.success ? localParsed.data : null;
+      const pagespeed = pagespeedParsed?.success ? pagespeedParsed.data : null;
+      setCwvLocal(local);
+      setCwvPagespeed(pagespeed);
       setCwvTbtMs(
-        snap.tbtMs ??
-          (typeof snap.local?.tbtMs === "number" ? snap.local.tbtMs : null),
+        snap.tbtMs ?? (typeof local?.tbtMs === "number" ? local.tbtMs : null),
       );
       setLabFellBack(snap.fellBack);
       setLastRunAt((prev) => prev ?? snap.at);
@@ -825,11 +836,24 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
     setGithubError(null);
     void (async () => {
       const cfg = { owner, repo, ...(token ? { token } : {}) };
+      if (
+        !client.fetchGithubWorkflows ||
+        !client.fetchGithubWorkflowRuns ||
+        !client.fetchGithubRepo
+      ) {
+        if (!cancelled) {
+          setGithubError("GitHub CI is not available in this host.");
+          setGithubBusy(false);
+        }
+        return;
+      }
       const [wf, runs, login, info] = await Promise.all([
-        fetchGithubWorkflows(cfg),
-        fetchGithubWorkflowRuns(cfg),
-        token ? fetchGithubAuthenticatedLogin(token) : Promise.resolve(null),
-        fetchGithubRepo(cfg),
+        client.fetchGithubWorkflows(cfg),
+        client.fetchGithubWorkflowRuns(cfg),
+        token && client.fetchGithubAuthenticatedLogin
+          ? client.fetchGithubAuthenticatedLogin(token)
+          : Promise.resolve(null),
+        client.fetchGithubRepo(cfg),
       ]);
       if (cancelled) return;
       if (wf.ok) setRemoteWorkflows(wf.workflows);
@@ -852,6 +876,7 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
     primaryRepo,
     githubToken,
     githubRefreshKey,
+    client,
   ]);
 
   const refreshExtraRepo = async (entry: RemoteDevopsRepo): Promise<void> => {
@@ -895,9 +920,22 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
         });
         overlay = staged.overlay;
       }
+      if (!client.fetchGithubWorkflows || !client.fetchGithubWorkflowRuns) {
+        setExtraCi((prev) => ({
+          ...prev,
+          [key]: {
+            runs: [],
+            workflows: [],
+            overlay,
+            error: "GitHub CI is not available in this host.",
+            busy: false,
+          },
+        }));
+        return;
+      }
       const [wf, runs] = await Promise.all([
-        fetchGithubWorkflows(cfg),
-        fetchGithubWorkflowRuns(cfg),
+        client.fetchGithubWorkflows(cfg),
+        client.fetchGithubWorkflowRuns(cfg),
       ]);
       setExtraCi((prev) => ({
         ...prev,
@@ -961,48 +999,63 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
   const Icon = def.icon;
 
   const nodes = overlay?.graph.nodes ?? [];
-  const findings = useMemo(() => {
-    const base = [...(overlay?.findings ?? [])].sort(
-      (a, b) =>
-        (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9),
-    );
-    if (base.length > 0) return base;
-    // Client-side fallback heuristics when overlay returned no findings
-    const heuristic: UtilityOverlayFinding[] = [];
-    if (props.domainId === "devops_platform") {
-      for (const n of nodes.filter((x) => x.kind === "ci")) {
-        if (heuristic.length >= 3) break;
-        if (n.attrs?.hasConcurrency === false) {
-          heuristic.push({
-            id: `ui:concurrency:${n.id}`,
-            message: `Workflow "${n.label}" has no concurrency group — parallel runs may overlap`,
-            path: nodePath(n.attrs),
-            severity: "low",
-          });
-        }
-        if (n.attrs?.hasPermissions === false && heuristic.length < 3) {
-          heuristic.push({
-            id: `ui:permissions:${n.id}`,
-            message: `Workflow "${n.label}" lacks top-level permissions — GITHUB_TOKEN may be overly broad`,
-            path: nodePath(n.attrs),
-            severity: "medium",
-          });
-        }
-      }
-    }
-    return heuristic;
-  }, [overlay, nodes, props.domainId]);
-
-  const kindCounts = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const n of nodes) map.set(n.kind, (map.get(n.kind) ?? 0) + 1);
-    return [...map.entries()].sort((a, b) => b[1] - a[1]);
-  }, [nodes]);
-
   const enriched = props.domainId === "backend";
   const isDevops = props.domainId === "devops_platform";
   const isMobile = props.domainId === "mobile";
   const isDesktop = props.domainId === "desktop";
+  const isFrontend = props.domainId === "frontend";
+
+  const backendDomainReport: BackendDomainReport | null =
+    liveDomainReport?.domain === "backend" ? liveDomainReport : null;
+  const devopsDomainReport: DevopsDomainReport | null =
+    liveDomainReport?.domain === "devops_platform" ? liveDomainReport : null;
+  const mobileDomainReport: MobileDomainReport | null =
+    liveDomainReport?.domain === "mobile" ? liveDomainReport : null;
+  const desktopDomainReport: DesktopDomainReport | null =
+    liveDomainReport?.domain === "desktop" ? liveDomainReport : null;
+  const dataMlDomainReport: DataMlAiDomainReport | null =
+    liveDomainReport?.domain === "data_ml_ai" ? liveDomainReport : null;
+
+  /**
+   * The live Core report only when it matches the open domain. Its
+   * `generatedAt` is disclosed next to the overlay "Last run" so freshly
+   * computed numbers are never presented under a stale run timestamp (B1).
+   */
+  const activeDomainReport =
+    liveDomainReport?.domain === props.domainId ? liveDomainReport : null;
+
+  const activeBackendReport =
+    backendDomainReport?.backend ?? props.backendReport ?? null;
+
+  const findings = useMemo(() => {
+    if (isDevops) {
+      if (devopsDomainReport) return devopsDomainReport.findings;
+      return buildDevopsFindings(overlay);
+    }
+    if (dataMlDomainReport) return dataMlDomainReport.findings;
+    return [...(overlay?.findings ?? [])].sort(
+      (a, b) =>
+        (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9),
+    );
+  }, [isDevops, devopsDomainReport, dataMlDomainReport, overlay]);
+
+  const kindCounts = useMemo(() => {
+    const fromReport =
+      backendDomainReport?.kindCounts ??
+      devopsDomainReport?.kindCounts ??
+      mobileDomainReport?.kindCounts ??
+      desktopDomainReport?.kindCounts ??
+      dataMlDomainReport?.kindCounts;
+    if (fromReport) return fromReport.map((k) => [k.kind, k.count] as const);
+    return countOverlayKinds(nodes).map((k) => [k.kind, k.count] as const);
+  }, [
+    nodes,
+    backendDomainReport,
+    devopsDomainReport,
+    mobileDomainReport,
+    desktopDomainReport,
+    dataMlDomainReport,
+  ]);
 
   const ciNodes = useMemo(() => nodes.filter((n) => n.kind === "ci"), [nodes]);
   const iacNodes = useMemo(() => nodes.filter((n) => n.kind !== "ci"), [nodes]);
@@ -1018,63 +1071,35 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
     () => screenNodes.filter((n) => n.attrs?.router === "expo"),
     [screenNodes],
   );
-  const desktopProcessNodes = useMemo(
-    () =>
-      nodes.filter((n) =>
-        ["main", "preload", "renderer", "ipc", "tauri-config"].includes(n.kind),
-      ),
-    [nodes],
-  );
-  const kindCount = (kind: string): number =>
-    nodes.reduce((acc, n) => acc + (n.kind === kind ? 1 : 0), 0);
+  const kindCount = (kind: string): number => kindCountOf(nodes, kind);
 
-  /** Mobile — screen file stem ↔ test file heuristic (qa-test-gaps). */
   const screenCoverage = useMemo(() => {
     if (!isMobile) return null;
-    const testStems = (props.qa?.graph.nodes ?? [])
-      .map((n) => fileStem(nodePath(n.attrs)))
-      .filter(Boolean);
-    const stemSet = new Set(testStems);
-    const untested = screenNodes.filter((n) => {
-      const s = fileStem(nodePath(n.attrs));
-      if (s === "") return true;
-      return !(stemSet.has(s) || testStems.some((t) => t.includes(s)));
-    });
+    if (mobileDomainReport) {
+      return {
+        total: mobileDomainReport.screenCoverage.total,
+        tested: mobileDomainReport.screenCoverage.tested,
+        untestedIds: new Set(mobileDomainReport.screenCoverage.untestedIds),
+      };
+    }
+    const coverage = buildMobileScreenCoverage(screenNodes, props.qa);
     return {
-      total: screenNodes.length,
-      tested: screenNodes.length - untested.length,
-      untestedIds: new Set(untested.map((n) => n.id)),
+      total: coverage.total,
+      tested: coverage.tested,
+      untestedIds: new Set(coverage.untestedIds),
     };
-  }, [isMobile, screenNodes, props.qa]);
+  }, [isMobile, mobileDomainReport, screenNodes, props.qa]);
 
-  /** Code handlers (exclude pure spec nodes) with a resolvable file path. */
-  const handlers = useMemo(
-    () =>
-      nodes.filter(
-        (n) =>
-          nodePath(n.attrs) !== "" &&
-          n.kind !== "openapi" &&
-          n.kind !== "grpc-proto",
-      ),
-    [nodes],
-  );
-
-  /** Route-level coverage from Core BackendReport (replaces filename heuristic). */
   const coverage = useMemo(() => {
     if (!enriched) return null;
-    const endpoints = props.backendReport?.endpoints ?? [];
-    const untested = endpoints.filter((e) => !e.tested);
-    return {
-      total: endpoints.length,
-      tested: endpoints.length - untested.length,
-      untested,
-    };
-  }, [enriched, props.backendReport]);
+    if (backendDomainReport) return backendDomainReport.coverage;
+    return buildBackendCoverage(activeBackendReport);
+  }, [enriched, backendDomainReport, activeBackendReport]);
 
   const routeRows = useMemo(() => {
-    if (!enriched || !props.backendReport) return [];
+    if (!enriched || !activeBackendReport) return [];
     const q = routeFilter.trim().toLowerCase();
-    const rows = props.backendReport.endpoints;
+    const rows = activeBackendReport.endpoints;
     if (!q) return rows;
     return rows.filter(
       (e) =>
@@ -1087,7 +1112,7 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
         e.framework.toLowerCase().includes(q) ||
         e.auth.toLowerCase().includes(q),
     );
-  }, [enriched, props.backendReport, routeFilter]);
+  }, [enriched, activeBackendReport, routeFilter]);
 
   const coverageRows = useMemo(() => {
     if (!coverage) return [];
@@ -1104,231 +1129,102 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
     );
   }, [coverage, coverageFilter]);
 
-  /** Wave 1 — most-depended-on handlers (in-degree from dependency graph). */
   const mostDepended = useMemo(() => {
-    if (!enriched || !props.depGraph) return [];
-    const inDeg = inboundDepCounts(props.depGraph);
-    return handlers
-      .map((n) => ({
-        node: n,
-        deps: lookupInbound(inDeg, nodePath(n.attrs)),
-      }))
-      .filter((x) => x.deps > 0)
-      .sort((a, b) => b.deps - a.deps)
-      .slice(0, 8);
-  }, [enriched, handlers, props.depGraph]);
+    if (!enriched) return [];
+    if (backendDomainReport) return backendDomainReport.mostDepended;
+    return rankMostDepended(backendHandlerNodes(nodes), props.depGraph);
+  }, [enriched, backendDomainReport, nodes, props.depGraph]);
 
-  /** Wave 1 — churn hotspots (handlers × local git history). */
   const churn = useMemo(() => {
-    if (!enriched || !props.gitActivity) return [];
-    const byPath = new Map(
-      props.gitActivity.recentFiles.map((f) => [f.path, f]),
-    );
-    return handlers
-      .map((n) => ({ node: n, file: byPath.get(nodePath(n.attrs)) }))
-      .filter((x) => x.file !== undefined)
-      .sort((a, b) => (b.file?.commits ?? 0) - (a.file?.commits ?? 0))
-      .slice(0, 8);
-  }, [enriched, handlers, props.gitActivity]);
+    if (!enriched) return [];
+    if (backendDomainReport) return backendDomainReport.churn;
+    return rankChurnHotspots(backendHandlerNodes(nodes), props.gitActivity);
+  }, [enriched, backendDomainReport, nodes, props.gitActivity]);
 
-  /** Mobile Wave 1 — most-depended-on screens. */
   const screenMostDepended = useMemo(() => {
-    if (!isMobile || !props.depGraph) return [];
-    const inDeg = inboundDepCounts(props.depGraph);
-    return screenNodes
-      .map((n) => ({
-        node: n,
-        deps: lookupInbound(inDeg, nodePath(n.attrs)),
-      }))
-      .filter((x) => x.deps > 0)
-      .sort((a, b) => b.deps - a.deps)
-      .slice(0, 8);
-  }, [isMobile, screenNodes, props.depGraph]);
+    if (!isMobile) return [];
+    if (mobileDomainReport) return mobileDomainReport.screenMostDepended;
+    return rankMostDepended(screenNodes, props.depGraph);
+  }, [isMobile, mobileDomainReport, screenNodes, props.depGraph]);
 
-  /** Mobile Wave 1 — churn hotspots on screen files. */
   const screenChurn = useMemo(() => {
-    if (!isMobile || !props.gitActivity) return [];
-    const byPath = new Map(
-      props.gitActivity.recentFiles.map((f) => [f.path, f]),
-    );
-    return screenNodes
-      .map((n) => ({ node: n, file: byPath.get(nodePath(n.attrs)) }))
-      .filter((x) => x.file !== undefined)
-      .sort((a, b) => (b.file?.commits ?? 0) - (a.file?.commits ?? 0))
-      .slice(0, 8);
-  }, [isMobile, screenNodes, props.gitActivity]);
+    if (!isMobile) return [];
+    if (mobileDomainReport) return mobileDomainReport.screenChurn;
+    return rankChurnHotspots(screenNodes, props.gitActivity);
+  }, [isMobile, mobileDomainReport, screenNodes, props.gitActivity]);
 
-  /** Mobile Wave 1 — stack snapshot from DNA (Expo / RN / Flutter signals). */
   const mobileStack = useMemo(() => {
-    if (!isMobile || !props.dna) return null;
-    const signals = (props.dna.stack?.signals ?? [])
-      .filter(
-        (s) =>
-          s.domain === "mobile" ||
-          /^(mobile-|expo|react-native|flutter)/i.test(s.id),
-      )
-      .sort((a, b) => b.confidence - a.confidence);
-    const frameworks = (props.dna.frameworks ?? []).filter((f) =>
-      /expo|react-native|flutter|native/i.test(f),
-    );
-    const unique = new Map<string, (typeof signals)[number]>();
-    for (const s of signals) {
-      if (!unique.has(s.id)) unique.set(s.id, s);
-    }
-    return {
-      frameworks,
-      signals: [...unique.values()].slice(0, 8),
-      detected: props.dna.stack?.domains?.includes("mobile") ?? false,
-    };
-  }, [isMobile, props.dna]);
+    if (!isMobile) return null;
+    if (mobileDomainReport) return mobileDomainReport.stack;
+    return buildDomainStackSnapshot(props.dna, "mobile");
+  }, [isMobile, mobileDomainReport, props.dna]);
 
-  /** Desktop Wave 1 — most-depended-on process / IPC files. */
   const desktopMostDepended = useMemo(() => {
-    if (!isDesktop || !props.depGraph) return [];
-    const inDeg = inboundDepCounts(props.depGraph);
-    return desktopProcessNodes
-      .map((n) => ({
-        node: n,
-        deps: lookupInbound(inDeg, nodePath(n.attrs)),
-      }))
-      .filter((x) => x.deps > 0)
-      .sort((a, b) => b.deps - a.deps)
-      .slice(0, 8);
-  }, [isDesktop, desktopProcessNodes, props.depGraph]);
+    if (!isDesktop) return [];
+    if (desktopDomainReport) return desktopDomainReport.mostDepended;
+    return rankMostDepended(desktopProcessNodes(nodes), props.depGraph);
+  }, [isDesktop, desktopDomainReport, nodes, props.depGraph]);
 
-  /** Desktop Wave 1 — churn hotspots on desktop boundary files. */
   const desktopChurn = useMemo(() => {
-    if (!isDesktop || !props.gitActivity) return [];
-    const byPath = new Map(
-      props.gitActivity.recentFiles.map((f) => [f.path, f]),
-    );
-    return desktopProcessNodes
-      .map((n) => ({ node: n, file: byPath.get(nodePath(n.attrs)) }))
-      .filter((x) => x.file !== undefined)
-      .sort((a, b) => (b.file?.commits ?? 0) - (a.file?.commits ?? 0))
-      .slice(0, 8);
-  }, [isDesktop, desktopProcessNodes, props.gitActivity]);
+    if (!isDesktop) return [];
+    if (desktopDomainReport) return desktopDomainReport.churn;
+    return rankChurnHotspots(desktopProcessNodes(nodes), props.gitActivity);
+  }, [isDesktop, desktopDomainReport, nodes, props.gitActivity]);
 
-  /** Desktop Wave 1 — stack snapshot from DNA (Electron / Tauri). */
   const desktopStack = useMemo(() => {
-    if (!isDesktop || !props.dna) return null;
-    const signals = (props.dna.stack?.signals ?? [])
-      .filter(
-        (s) =>
-          s.domain === "desktop" || /^(desktop-|electron|tauri)/i.test(s.id),
-      )
-      .sort((a, b) => b.confidence - a.confidence);
-    const frameworks = (props.dna.frameworks ?? []).filter((f) =>
-      /electron|tauri/i.test(f),
-    );
-    const unique = new Map<string, (typeof signals)[number]>();
-    for (const s of signals) {
-      if (!unique.has(s.id)) unique.set(s.id, s);
-    }
-    return {
-      frameworks,
-      signals: [...unique.values()].slice(0, 8),
-      detected: props.dna.stack?.domains?.includes("desktop") ?? false,
-    };
-  }, [isDesktop, props.dna]);
+    if (!isDesktop) return null;
+    if (desktopDomainReport) return desktopDomainReport.stack;
+    return buildDomainStackSnapshot(props.dna, "desktop");
+  }, [isDesktop, desktopDomainReport, props.dna]);
 
-  /** Honest process-boundary links from the overlay (not per-channel IPC). */
   const desktopBoundaryLinks = useMemo(() => {
-    if (!isDesktop || !overlay) return [];
-    const byId = new Map(nodes.map((n) => [n.id, n]));
-    return (overlay.graph.edges ?? [])
-      .map((e) => {
-        const from = byId.get(e.from);
-        const to = byId.get(e.to);
-        return {
-          id: e.id,
-          kind: e.kind,
-          fromLabel: from?.label.split("/").pop() ?? e.from,
-          toLabel: to?.label.split("/").pop() ?? e.to,
-          fromKind: from?.kind ?? "",
-          toKind: to?.kind ?? "",
-        };
-      })
-      .filter((l) => l.fromKind !== "" && l.toKind !== "");
-  }, [isDesktop, overlay, nodes]);
+    if (!isDesktop) return [];
+    if (desktopDomainReport) return desktopDomainReport.boundaryLinks;
+    return buildDesktopBoundaryLinks(overlay);
+  }, [isDesktop, desktopDomainReport, overlay]);
 
-  /** Mobile navigates edges for Navigation Topology. */
   const mobileNavLinks = useMemo(() => {
-    if (!isMobile || !overlay) return [];
-    const byId = new Map(nodes.map((n) => [n.id, n]));
-    return (overlay.graph.edges ?? [])
-      .filter((e) => e.kind === "navigates")
-      .map((e) => {
-        const from = byId.get(e.from);
-        const to = byId.get(e.to);
-        return {
-          id: e.id,
-          fromLabel:
-            from?.label.split("/").pop() ??
-            String(from?.attrs?.path ?? e.from)
-              .split("/")
-              .pop() ??
-            e.from,
-          toLabel:
-            to?.label.split("/").pop() ??
-            String(to?.attrs?.path ?? e.to)
-              .split("/")
-              .pop() ??
-            e.to,
-          fromKind: from?.kind ?? "",
-          toKind: to?.kind ?? "",
-        };
-      });
-  }, [isMobile, overlay, nodes]);
+    if (!isMobile) return [];
+    if (mobileDomainReport) return mobileDomainReport.navLinks;
+    return buildMobileNavLinks(overlay);
+  }, [isMobile, mobileDomainReport, overlay]);
 
-  /** Desktop IPC channels from overlay findings / node attrs. */
   const desktopIpcChannels = useMemo(() => {
-    if (!isDesktop || !overlay) return [];
-    const rows: {
-      name: string;
-      source: string;
-      path: string;
-      risk: "low" | "medium";
-    }[] = [];
-    for (const f of overlay.findings ?? []) {
-      const m =
-        /^IPC (ipcMain\.handle|ipcMain\.on|ipcRenderer\.invoke|ipcRenderer\.send|contextBridge): "([^"]+)"/.exec(
-          f.message,
-        );
-      if (!m) continue;
-      rows.push({
-        name: m[2]!,
-        source: m[1]!,
-        path: f.path ?? "",
-        risk: f.severity === "medium" ? "medium" : "low",
-      });
-    }
-    if (rows.length === 0) {
-      for (const n of nodes.filter((x) => x.kind === "ipc")) {
-        const raw = String(n.attrs?.channels ?? "");
-        for (const name of raw
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean)) {
-          rows.push({
-            name,
-            source: "ipc",
-            path: nodePath(n.attrs),
-            risk: "low",
-          });
-        }
-      }
-    }
-    return rows;
-  }, [isDesktop, overlay, nodes]);
+    if (!isDesktop) return [];
+    if (desktopDomainReport) return desktopDomainReport.ipcChannels;
+    return buildDesktopIpcChannels(overlay);
+  }, [isDesktop, desktopDomainReport, overlay]);
+
+  const devopsTiles = useMemo(() => {
+    if (!isDevops) return null;
+    if (devopsDomainReport) return devopsDomainReport.tiles;
+    return buildDevopsTiles(nodes);
+  }, [isDevops, devopsDomainReport, nodes]);
+
+  const mobileTiles = useMemo(() => {
+    if (!isMobile) return null;
+    if (mobileDomainReport) return mobileDomainReport.tiles;
+    if (!screenCoverage) return null;
+    return buildMobileTiles(nodes, {
+      total: screenCoverage.total,
+      tested: screenCoverage.tested,
+      untestedIds: [...screenCoverage.untestedIds],
+    });
+  }, [isMobile, mobileDomainReport, nodes, screenCoverage]);
+
+  const desktopTiles = useMemo(() => {
+    if (!isDesktop) return null;
+    if (desktopDomainReport) return desktopDomainReport.tiles;
+    return buildDesktopTiles(nodes);
+  }, [isDesktop, desktopDomainReport, nodes]);
 
   /** Fixed 2×2 Data Layer grid (Models / Migrations / SQL / DB Clients). */
   const dataLayerGrid = useMemo(() => {
-    const items = props.backendReport?.dataLayer ?? [];
-    const map = new Map<string, number>();
-    for (const d of items) map.set(d.kind, (map.get(d.kind) ?? 0) + 1);
+    const counts =
+      backendDomainReport?.dataLayerByKind ??
+      countDataLayerByKind(activeBackendReport?.dataLayer ?? []);
     const meta: {
-      kind: string;
+      kind: keyof typeof counts;
       label: string;
       icon: LucideIcon;
       tone: "brand" | "violet" | "amber" | "emerald";
@@ -1343,8 +1239,8 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
       { kind: "sql", label: "SQL", icon: Table2, tone: "emerald" },
       { kind: "client", label: "DB Clients", icon: Plug, tone: "violet" },
     ];
-    return meta.map((m) => ({ ...m, count: map.get(m.kind) ?? 0 }));
-  }, [props.backendReport]);
+    return meta.map((m) => ({ ...m, count: counts[m.kind] ?? 0 }));
+  }, [backendDomainReport, activeBackendReport]);
 
   const securityNodes = props.security?.graph.nodes ?? [];
   const securityFindings = props.security?.findings ?? [];
@@ -1385,51 +1281,67 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
 
   const tiles: Tile[] = isMobile
     ? [
-        { label: "Screens", value: screenNodes.length },
-        { label: "Navigators", value: navigatorNodes.length },
-        { label: "Expo Router", value: expoScreens.length },
+        { label: "Screens", value: mobileTiles?.screens ?? screenNodes.length },
+        {
+          label: "Navigators",
+          value: mobileTiles?.navigators ?? navigatorNodes.length,
+        },
+        {
+          label: "Expo Router",
+          value: mobileTiles?.expoRouter ?? expoScreens.length,
+        },
         {
           label: "Untested",
-          value: screenCoverage?.untestedIds.size ?? 0,
-          warn: (screenCoverage?.untestedIds.size ?? 0) > 0,
+          value: mobileTiles?.untested ?? screenCoverage?.untestedIds.size ?? 0,
+          warn:
+            (mobileTiles?.untested ?? screenCoverage?.untestedIds.size ?? 0) >
+            0,
         },
       ]
     : isDesktop
       ? [
-          { label: "Main", value: kindCount("main") },
-          { label: "Renderer", value: kindCount("renderer") },
-          { label: "IPC Files", value: kindCount("ipc") },
+          { label: "Main", value: desktopTiles?.main ?? kindCount("main") },
+          {
+            label: "Renderer",
+            value: desktopTiles?.renderer ?? kindCount("renderer"),
+          },
+          {
+            label: "IPC Files",
+            value: desktopTiles?.ipc ?? kindCount("ipc"),
+          },
           {
             label:
-              kindCount("tauri-config") > 0 && kindCount("preload") === 0
+              (desktopTiles?.tauriConfig ?? kindCount("tauri-config")) > 0 &&
+              (desktopTiles?.preload ?? kindCount("preload")) === 0
                 ? "Tauri"
                 : "Preload",
             value:
-              kindCount("tauri-config") > 0 && kindCount("preload") === 0
-                ? kindCount("tauri-config")
-                : kindCount("preload"),
+              (desktopTiles?.tauriConfig ?? kindCount("tauri-config")) > 0 &&
+              (desktopTiles?.preload ?? kindCount("preload")) === 0
+                ? (desktopTiles?.tauriConfig ?? kindCount("tauri-config"))
+                : (desktopTiles?.preload ?? kindCount("preload")),
           },
         ]
       : isDevops
         ? [
             {
               label: "IaC Resources",
-              value: iacNodes.length,
+              value: devopsTiles?.iacResources ?? iacNodes.length,
               tip: DEVOPS_KPI_TIPS["IaC Resources"]!,
             },
             {
               label: "Pipelines",
-              value: ciNodes.length,
+              value: devopsTiles?.pipelines ?? ciNodes.length,
               tip: DEVOPS_KPI_TIPS.Pipelines!,
             },
             {
               label: "Containers",
-              value: kindCount("container"),
+              value: devopsTiles?.containers ?? kindCount("container"),
               tip: DEVOPS_KPI_TIPS.Containers!,
             },
             {
               label: "Kubernetes",
-              value: kindCount("kubernetes"),
+              value: devopsTiles?.kubernetes ?? kindCount("kubernetes"),
               tip: DEVOPS_KPI_TIPS.Kubernetes!,
             },
           ]
@@ -1437,24 +1349,31 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
           ? [
               {
                 label: "Endpoints",
-                value: props.backendReport?.endpoints.length ?? 0,
+                value: activeBackendReport?.endpoints.length ?? "—",
               },
               {
                 label: "Untested",
-                value: coverage?.untested.length ?? 0,
-                warn: (coverage?.untested.length ?? 0) > 0,
+                value: activeBackendReport
+                  ? (coverage?.untested.length ?? 0)
+                  : "—",
+                warn:
+                  activeBackendReport !== null &&
+                  (coverage?.untested.length ?? 0) > 0,
               },
               {
                 label: "Frameworks",
-                value: props.backendReport?.frameworksDetected.length ?? 0,
+                value: activeBackendReport?.frameworksDetected.length ?? "—",
               },
               {
                 label: "Data Layer",
-                value: props.backendReport?.dataLayer.length ?? 0,
+                value: activeBackendReport?.dataLayer.length ?? "—",
               },
             ]
           : [
-              { label: "Detected Nodes", value: nodes.length },
+              {
+                label: "Detected Nodes",
+                value: dataMlDomainReport?.nodeCount ?? nodes.length,
+              },
               ...kindCounts
                 .slice(0, 2)
                 .map((k) => ({ label: kindLabel(k[0]), value: k[1] })),
@@ -1466,7 +1385,17 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
             ].slice(0, 4);
 
   const canRun = def.kind !== null;
-  const isFrontend = props.domainId === "frontend";
+
+  // What the host actually runs on Analyze (mirrors runOverlay in each host)
+  // so the loading state can say what is happening instead of bare shimmer.
+  const analyzeSteps = useMemo(() => {
+    const steps = [`${def.kind ?? def.id} overlay`];
+    if (enriched) steps.push("security-surface overlay");
+    if (enriched || isMobile) steps.push("qa-test-gaps overlay");
+    if (enriched || isMobile || isDesktop) steps.push("dependency graph");
+    if (enriched) steps.push("backend report");
+    return steps;
+  }, [def.kind, def.id, enriched, isMobile, isDesktop]);
 
   const filteredRuns = useMemo(() => {
     if (!myTriggeredOnly) return remoteRuns;
@@ -1480,7 +1409,55 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
     return remoteRuns.filter((r) => r.event === "workflow_dispatch");
   }, [remoteRuns, myTriggeredOnly, githubActor]);
 
+  useEffect(() => {
+    setLiveDomainReport(props.domainReport ?? null);
+  }, [props.domainReport]);
+
+  // Refresh Core domain report when the open domain (or frontend CWV) changes.
+  // Frontend waits for localStorage restore so we do not wipe a host-loaded
+  // artifact with an empty lab state on first paint.
+  useEffect(() => {
+    const fetchReport = client.fetchDomainReport;
+    if (!fetchReport) return;
+    if (isFrontend && !cwvRestored) return;
+    const domain = props.domainId as DomainReportDomain;
+    let cancelled = false;
+    void fetchReport({
+      domain,
+      ...(isFrontend
+        ? {
+            cwvLocal,
+            cwvPagespeed,
+            cwvPreferredSource: cwvSource,
+            loadLatestCwvArtifact: false,
+          }
+        : {}),
+    })
+      .then((report) => {
+        if (!cancelled && report) setLiveDomainReport(report);
+      })
+      .catch(() => {
+        /* keep host / local fallback */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    client,
+    isFrontend,
+    cwvRestored,
+    props.domainId,
+    props.repoLabel,
+    cwvLocal,
+    cwvPagespeed,
+    cwvSource,
+  ]);
+
+  const frontendReport: FrontendDomainReport | null =
+    liveDomainReport?.domain === "frontend" ? liveDomainReport : null;
+
   const frontendRoutes = useMemo(() => {
+    if (frontendReport) return frontendReport.routes;
     const stack = props.dna?.stack;
     const signals = stack?.signals?.map((s) => s.id) ?? [];
     const evidencePaths = [
@@ -1490,17 +1467,11 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
       ),
     ];
     const heuristic = heuristicFrontendRoutes(signals, evidencePaths);
-    const merged = new Set<string>([...heuristic, ...discoveredRoutes]);
-    if (merged.size === 0) merged.add("/");
-    return [...merged].sort((a, b) => {
-      if (a === "/") return -1;
-      if (b === "/") return 1;
-      return a.localeCompare(b);
-    });
-  }, [props.dna, discoveredRoutes]);
+    return mergeFrontendRoutes(heuristic, discoveredRoutes);
+  }, [frontendReport, props.dna, discoveredRoutes]);
 
   useEffect(() => {
-    if (!isFrontend) return;
+    if (!isFrontend || frontendReport) return;
     let cancelled = false;
     const discover = client.discoverFrontendRoutes;
     if (!discover) return;
@@ -1516,147 +1487,87 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [client, isFrontend, props.repoLabel]);
+  }, [client, isFrontend, props.repoLabel, frontendReport]);
 
   // Report actually driving the frontend tiles (respects the CWV source pref).
   const cwvPrimaryReport =
-    cwvSource === "pagespeed"
+    frontendReport?.cwv.primary ??
+    (cwvSource === "pagespeed"
       ? (cwvPagespeed ?? cwvLocal)
-      : (cwvLocal ?? cwvPagespeed);
+      : (cwvLocal ?? cwvPagespeed));
+
+  /**
+   * Whether the primary view is backed by the PageSpeed (field/CrUX) report —
+   * mirrors `selectPrimaryCwv`. Route rows / summary pills must label the
+   * report actually shown, not the preference (a missing PageSpeed report
+   * falls back to the local lab and must not be labelled "Field (CrUX)").
+   */
+  const cwvPrimaryIsField =
+    cwvPagespeed !== null && (cwvSource === "pagespeed" || cwvLocal === null);
+  const cwvPrimarySourceLabel = cwvRatingSourceLabel(
+    cwvPrimaryIsField ? "pagespeed" : "local",
+  );
+
+  /**
+   * Lab-derived insights: from the local lab when present, else the embedded
+   * Lighthouse lab of the PageSpeed response. Never from CrUX field data
+   * (CrUX has no audits).
+   */
+  const labInsights = useMemo(
+    () =>
+      cwvLocal !== null ? cwvLocal.insights : (cwvPagespeed?.insights ?? []),
+    [cwvLocal, cwvPagespeed],
+  );
 
   /** Lighthouse category scores (performance / a11y / best-practices / SEO). */
   const frontendCategories = useMemo(() => {
-    const scores = cwvPrimaryReport?.categoryScores ?? {};
+    const scores =
+      frontendReport?.categoryScores ?? cwvPrimaryReport?.categoryScores ?? {};
     return LIGHTHOUSE_CATEGORIES.map((c) => ({
       ...c,
       score: typeof scores[c.id] === "number" ? scores[c.id]! : null,
     })).filter((c) => c.score !== null);
-  }, [cwvPrimaryReport]);
+  }, [frontendReport, cwvPrimaryReport]);
 
-  /** Route breakdown: measured lab URL + DNA heuristic routes. */
+  /** Route breakdown: Core report when present, else the shared builder. */
   const routeBreakdown = useMemo(() => {
-    const report = cwvPrimaryReport;
-    const reportUrl = (report?.url ?? "").toLowerCase();
-    const measuredRoute = (() => {
-      if (!report?.url) return null;
-      try {
-        const u = new URL(report.url);
-        const path = u.pathname || "/";
-        return path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
-      } catch {
-        return "/";
-      }
-    })();
-    const worstRating = (
-      metrics: readonly CwvMetric[],
-    ): CwvMetric["rating"] => {
-      if (metrics.some((m) => m.rating === "poor")) return "poor";
-      if (metrics.some((m) => m.rating === "needs-improvement"))
-        return "needs-improvement";
-      if (metrics.some((m) => m.rating === "good")) return "good";
-      return "unknown";
-    };
-    const routeMatches = (route: string): boolean => {
-      if (measuredRoute && route === measuredRoute) return true;
-      if (!reportUrl) return false;
-      if (route === "/") {
-        return (
-          reportUrl.endsWith("/") ||
-          reportUrl.includes("127.0.0.1") ||
-          reportUrl.includes("localhost")
-        );
-      }
-      return reportUrl.includes(route.toLowerCase());
-    };
-    const routes = new Set<string>(frontendRoutes);
-    if (measuredRoute) routes.add(measuredRoute);
-    for (const r of report?.rollups ?? []) {
-      if (r.level === "route") routes.add(r.key);
-    }
-    return [...routes]
-      .sort((a, b) => {
-        if (a === "/") return -1;
-        if (b === "/") return 1;
-        return a.localeCompare(b);
-      })
-      .map((route) => {
-        const rollup = report?.rollups?.find(
-          (r) => r.level === "route" && r.key === route,
-        );
-        const matched = routeMatches(route);
-        const metrics =
-          rollup?.metrics ?? (matched ? (report?.metrics ?? []) : []);
-        const rating = metrics.length > 0 ? worstRating(metrics) : "unknown";
-        const notes = (report?.attributions ?? [])
-          .filter((a) => a.route === route && a.note)
-          .map((a) => a.note!)
-          .slice(0, 4);
-        return {
-          route,
-          measured: Boolean(matched || rollup),
-          linked: Boolean(rollup) || matched,
-          sampleCount: rollup?.sampleCount ?? (matched ? 1 : 0),
-          metricCount: metrics.length,
-          metrics,
-          rating,
-          notes,
-        };
-      });
-  }, [frontendRoutes, cwvPrimaryReport]);
+    if (frontendReport) return frontendReport.routeBreakdown;
+    return buildFrontendRouteBreakdown(frontendRoutes, cwvPrimaryReport);
+  }, [frontendReport, frontendRoutes, cwvPrimaryReport]);
 
-  /** Pain / improve / good insights from the lab report. */
+  /**
+   * CWV "Metric breakdown" — per-metric band insights only (`metric-*`).
+   * Audit diagnostics / opportunities (`audit-*`, `opp-*`) are Lighthouse
+   * findings and live in the Lighthouse accordion instead.
+   */
   const insightGroups = useMemo(() => {
-    const all = cwvPrimaryReport?.insights ?? [];
+    const metricOnly = labInsights.filter((i) => i.id.startsWith("metric-"));
     const filtered =
       insightFilter === null
-        ? all
-        : all.filter((i) => i.metricId === insightFilter);
+        ? metricOnly
+        : metricOnly.filter((i) => i.metricId === insightFilter);
     return {
       pain: filtered.filter((i) => i.severity === "pain"),
       improve: filtered.filter((i) => i.severity === "improve"),
       good: filtered.filter((i) => i.severity === "good"),
     };
-  }, [cwvPrimaryReport, insightFilter]);
+  }, [labInsights, insightFilter]);
 
-  /** Component breakdown from rollups + attributions (never fabricated). */
+  /** Lighthouse audit diagnostics + opportunities from the lab run. */
+  const labInsightGroups = useMemo(() => {
+    const auditOnly = labInsights.filter((i) => !i.id.startsWith("metric-"));
+    return {
+      pain: auditOnly.filter((i) => i.severity === "pain"),
+      improve: auditOnly.filter((i) => i.severity === "improve"),
+      good: auditOnly.filter((i) => i.severity === "good"),
+    };
+  }, [labInsights]);
+
+  /** Component breakdown: Core report when present, else the shared builder. */
   const componentBreakdown = useMemo(() => {
-    const report = cwvPrimaryReport;
-    const rows = new Map<
-      string,
-      {
-        key: string;
-        sampleCount: number;
-        rating: CwvMetric["rating"];
-        metrics: readonly CwvMetric[];
-      }
-    >();
-    for (const r of report?.rollups ?? []) {
-      if (r.level !== "component") continue;
-      const rating = r.metrics.some((m) => m.rating === "poor")
-        ? "poor"
-        : r.metrics.some((m) => m.rating === "needs-improvement")
-          ? "needs-improvement"
-          : r.metrics.some((m) => m.rating === "good")
-            ? "good"
-            : "unknown";
-      rows.set(r.key, {
-        key: r.key,
-        sampleCount: r.sampleCount,
-        rating,
-        metrics: r.metrics,
-      });
-    }
-    for (const a of report?.attributions ?? []) {
-      if (!a.component || rows.has(a.component)) continue;
-      rows.set(a.component, {
-        key: a.component,
-        sampleCount: 0,
-        rating: "unknown",
-        metrics: [],
-      });
-    }
-    return [...rows.values()].slice(0, 10);
-  }, [cwvPrimaryReport]);
+    if (frontendReport) return frontendReport.componentBreakdown;
+    return buildFrontendComponentBreakdown(cwvPrimaryReport);
+  }, [frontendReport, cwvPrimaryReport]);
 
   useEffect(() => {
     if (!cwvSettingsOpen) return;
@@ -1758,7 +1669,7 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
       }
       if (!client.runLighthouseLab) {
         applyNoLabAvailable(
-          "Local Lighthouse isn’t available in this host. To get real CWV scores: (1) run Prism from the VS Code / Cursor extension, (2) ensure Chrome or Chromium is installed, (3) keep your app running (e.g. http://localhost:3000) or let Prism start a production preview, then click Run local lab again. Or enable PageSpeed Insights under Integrations for remote lab scores.",
+          "Local Lighthouse isn’t available in this host. To get real CWV scores: (1) run Prism from the VS Code / Cursor extension, (2) ensure Chrome or Chromium is installed, (3) click Run local lab again — Prism builds + previews a production bundle (dev servers are skipped; they distort lab metrics). Or enable PageSpeed Insights under Integrations for remote lab scores.",
         );
         return;
       }
@@ -1766,6 +1677,7 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
       try {
         report = await client.runLighthouseLab({
           mode: "run",
+          formFactor: labFormFactor,
           ...(routes && routes.length > 0 ? { routes: [...routes] } : {}),
           onProgress: (event) => {
             if (event.measuringRoute !== undefined) {
@@ -1797,7 +1709,7 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
       }
       if (!report || report.source === "lab-fixture") {
         applyNoLabAvailable(
-          "Real Lighthouse run unavailable (Chrome not found, or no frontend reachable / buildable). Install Chrome/Chromium, keep the app running on its usual port (3000 / 5173 / …), or allow Prism to build + preview — then retry. Or connect PageSpeed Insights under Integrations. Sample/dummy lab data is never shown.",
+          "Real Lighthouse run unavailable (Chrome not found, or no production build could be started). Install Chrome/Chromium and let Prism build + preview a production bundle — dev servers are intentionally skipped because they distort lab metrics. Or connect PageSpeed Insights under Integrations. Sample/dummy lab data is never shown.",
         );
         return;
       }
@@ -1902,8 +1814,75 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
             <FlaskConical size={14} aria-hidden />
             Analyse selected routes…
           </button>
+          <div className="dm-lab-menu__sep" role="separator" />
+          {(["mobile", "desktop"] as const).map((ff) => (
+            <button
+              key={ff}
+              type="button"
+              className="dm-lab-menu__item"
+              role="menuitemradio"
+              aria-checked={labFormFactor === ff}
+              onClick={() => setLabFormFactor(ff)}
+            >
+              {ff === "mobile" ? (
+                <Smartphone size={14} aria-hidden />
+              ) : (
+                <Monitor size={14} aria-hidden />
+              )}
+              {ff === "mobile" ? "Mobile lab" : "Desktop lab"}
+              <span className="dm-lab-menu__meta">
+                {labFormFactor === ff ? "selected" : ""}
+              </span>
+            </button>
+          ))}
         </div>
       ) : null}
+    </div>
+  );
+
+  /** Pain / needs-work / good columns for a CwvInsight set (CWV + Lighthouse). */
+  const renderInsightColumns = (groups: {
+    readonly pain: readonly CwvInsight[];
+    readonly improve: readonly CwvInsight[];
+    readonly good: readonly CwvInsight[];
+  }): ReactElement => (
+    <div className="cwv-insights__grid">
+      {(
+        [
+          ["pain", "Pain areas", groups.pain],
+          ["improve", "Needs work", groups.improve],
+          ["good", "Good", groups.good],
+        ] as const
+      ).map(([key, label, items]) => (
+        <div
+          key={key}
+          className={`cwv-insights__col cwv-insights__col--${key}`}
+        >
+          <div className="cwv-insights__col-h">
+            <span>{label}</span>
+            <span className="cwv-insights__count">{items.length}</span>
+          </div>
+          {items.length === 0 ? (
+            <p className="dm-note">None in this band.</p>
+          ) : (
+            <ul className="cwv-insights__list">
+              {items.slice(0, 8).map((i) => (
+                <li key={i.id} className="cwv-insights__item">
+                  {i.metricId ? (
+                    <span className="cwv-insights__metric">{i.metricId}</span>
+                  ) : null}
+                  <span className="cwv-insights__item-title">{i.title}</span>
+                  {i.detail ? (
+                    <span className="cwv-insights__item-detail">
+                      {i.detail}
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ))}
     </div>
   );
 
@@ -1938,14 +1917,21 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
     setPagespeedBusy(true);
     setPagespeedError(null);
     try {
-      const result = await fetchPagespeedMetrics(key, pagespeedUrl);
+      if (!client.fetchPagespeedMetrics) {
+        setPagespeedError("PageSpeed is not available in this host.");
+        return;
+      }
+      const result = await client.fetchPagespeedMetrics(key, pagespeedUrl);
       if (!result.ok) {
         setPagespeedError(result.error);
         return;
       }
-      const parsed = metricsFromLighthouseJson(result.raw);
-      setCwvPagespeed(cwvReportFromLighthouseJson(result.raw, "ingest"));
-      if (cwvTbtMs === null) setCwvTbtMs(parsed.tbtMs);
+      // Field (CrUX) metrics for the tiles; the embedded Lighthouse lab run
+      // still contributes category scores / insights to the Lighthouse
+      // section and TBT to the lab proxy tile.
+      const field = cwvFieldReportFromPagespeedJson(result.raw);
+      setCwvPagespeed(field);
+      if (cwvTbtMs === null) setCwvTbtMs(field.tbtMs ?? null);
       setLastRunAt(Date.now());
     } catch (err: unknown) {
       setPagespeedError(err instanceof Error ? err.message : String(err));
@@ -2026,12 +2012,20 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
     setWfBusy(nodeId);
     setWfResult(null);
     try {
+      if (!client.dispatchGithubWorkflow) {
+        setWfResult({
+          id: nodeId,
+          ok: false,
+          msg: "GitHub dispatch is not available in this host.",
+        });
+        return;
+      }
       if (kind === "workflow_dispatch") {
         const inputs: Record<string, string> = {};
         for (const [k, v] of data.entries()) {
           if (typeof v === "string" && v !== "") inputs[k] = v;
         }
-        const result = await dispatchGithubWorkflow({
+        const result = await client.dispatchGithubWorkflow({
           owner,
           repo,
           ...(token ? { token } : {}),
@@ -2052,7 +2046,7 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
         });
       } else {
         const eventType = String(data.get("__event_type") ?? "").trim();
-        const result = await dispatchGithubWorkflow({
+        const result = await client.dispatchGithubWorkflow({
           owner,
           repo,
           ...(token ? { token } : {}),
@@ -2098,7 +2092,11 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
     setTestBusy(true);
     try {
       const token = githubToken.trim();
-      const result = await testGithubRepoConnection({
+      if (!client.testGithubRepoConnection) {
+        setAddError("GitHub CI is not available in this host.");
+        return;
+      }
+      const result = await client.testGithubRepoConnection({
         owner: parsed.owner,
         repo: parsed.repo,
         ...(token ? { token } : {}),
@@ -2134,7 +2132,11 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
     setAddBusy(true);
     try {
       const token = githubToken.trim() || undefined;
-      const test = await testGithubRepoConnection({
+      if (!client.testGithubRepoConnection) {
+        setAddError("GitHub CI is not available in this host.");
+        return;
+      }
+      const test = await client.testGithubRepoConnection({
         owner: parsed.owner,
         repo: parsed.repo,
         ...(token ? { token } : {}),
@@ -2159,6 +2161,241 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
       setAddBusy(false);
     }
   };
+
+  // Backend pairs the two route-centric tables side-by-side at equal width
+  // (50/50); other domains let the surface card flow in the masonry.
+  const apiSurfaceCard = (
+    <article className="ov-card">
+      <div className="ov-card__head">
+        <span className="ov-card__title">
+          <Layers size={14} className="ov-card__icon" aria-hidden />
+          {def.surfaceLabel}
+          <InfoTip label={def.surfaceLabel}>
+            Nodes detected by the {def.kind ?? "domain"} overlay from{" "}
+            {def.sources}.
+          </InfoTip>
+        </span>
+        <SearchableInput
+          className="dm-filter-search"
+          value={filter}
+          onChange={setFilter}
+          placeholder={enriched ? "Filter routes or files…" : "Filter…"}
+          spellCheck={false}
+          aria-label={
+            enriched
+              ? "Filter routes and detected nodes"
+              : "Filter detected nodes"
+          }
+        />
+      </div>
+      {surfaceRows.length > 0 ? (
+        <div
+          className={`dm-surface${isMobile ? " dm-surface--mobile" : ""}${enriched ? " dm-surface--blast" : ""}`}
+        >
+          <div className="dm-surface__head">
+            {isMobile ? (
+              <>
+                <span>Screen</span>
+                <span>File</span>
+                <span>Router</span>
+                <span>Tests</span>
+              </>
+            ) : (
+              <>
+                <span>Kind</span>
+                <span>Name</span>
+                <span>File</span>
+                {enriched ? (
+                  <span className="dm-surface__impact-h">Impact</span>
+                ) : null}
+              </>
+            )}
+          </div>
+          <div className="dm-surface__body">
+            {surfaceRows.map((n) => {
+              const path = String(n.attrs?.path ?? "");
+              const base =
+                path
+                  .split("/")
+                  .pop()
+                  ?.replace(/\.[^.]+$/, "") ?? n.label;
+              const tested =
+                screenCoverage !== null &&
+                !screenCoverage.untestedIds.has(n.id);
+              return (
+                <div key={n.id} className="dm-surface__row">
+                  {isMobile ? (
+                    <>
+                      <span className="dm-surface__name ov-ellipsis">
+                        {base}
+                      </span>
+                      <span
+                        className="dm-surface__path ov-mono ov-ellipsis"
+                        title={path}
+                      >
+                        {path || "—"}
+                      </span>
+                      <span className="dm-surface__router ov-mono">
+                        {n.attrs?.router === "expo" ? "expo" : "—"}
+                      </span>
+                      <span
+                        className={`dm-surface__test${
+                          tested
+                            ? " dm-surface__test--ok"
+                            : " dm-surface__test--miss"
+                        }`}
+                      >
+                        {screenCoverage ? (tested ? "yes" : "no") : "—"}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span
+                        className="dm-kind"
+                        style={{
+                          color: kindColor(n.kind),
+                          borderColor: `color-mix(in srgb, ${kindColor(n.kind)} 34%, transparent)`,
+                          background: `color-mix(in srgb, ${kindColor(n.kind)} 13%, transparent)`,
+                        }}
+                      >
+                        {kindLabel(n.kind)}
+                      </span>
+                      <span className="dm-surface__name ov-ellipsis">
+                        {isDesktop
+                          ? shortProcessLabel(n.label, n.kind, path)
+                          : n.label}
+                      </span>
+                      <span
+                        className="dm-surface__path ov-mono ov-ellipsis"
+                        title={path}
+                      >
+                        {path || "—"}
+                      </span>
+                      {enriched ? (
+                        <button
+                          type="button"
+                          className="dm-blastbtn"
+                          aria-label={`Open Blast Radius for ${path || n.label}`}
+                          title="Open Blast Radius for this file"
+                          disabled={!path}
+                          onClick={() => openBlastFor(path)}
+                        >
+                          <Flame size={13} aria-hidden />
+                        </button>
+                      ) : null}
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <EmptyState>
+          {surfaceTotal === 0
+            ? "No surface markers detected in this workspace."
+            : "No nodes match the filter."}
+        </EmptyState>
+      )}
+      {isMobile && screenCoverage ? (
+        <p className="dm-note">
+          Tests: filename heuristic vs qa-test-gaps ({screenCoverage.tested}/
+          {screenCoverage.total} matched).
+        </p>
+      ) : null}
+    </article>
+  );
+
+  const backendRoutesCard = enriched ? (
+    <article className="ov-card">
+      <div className="ov-card__head">
+        <span className="ov-card__title">
+          <Server size={14} className="ov-card__icon" aria-hidden />
+          Routes
+          <InfoTip label="Routes">
+            HTTP endpoints from Core&apos;s backend report (Express / Nest /
+            Fastify). Handler prefers function name when extractable.
+          </InfoTip>
+        </span>
+        <SearchableInput
+          className="dm-filter-search"
+          value={routeFilter}
+          onChange={setRouteFilter}
+          placeholder="Filter routes…"
+          spellCheck={false}
+          aria-label="Filter routes"
+        />
+      </div>
+      {activeBackendReport && routeRows.length > 0 ? (
+        <div className="dm-surface dm-surface--routes dm-surface--routes-blast">
+          <div className="dm-surface__head">
+            <span>Method</span>
+            <span>Route</span>
+            <span>Auth</span>
+            <span>Test</span>
+            <span className="dm-surface__impact-h">Impact</span>
+          </div>
+          <div className="dm-surface__body">
+            {routeRows.map((e) => (
+              <div key={e.id} className="dm-surface__row">
+                <span className="dm-kind dm-route__method">{e.method}</span>
+                <div className="dm-rank__main">
+                  <span className="dm-surface__name ov-mono ov-ellipsis">
+                    {e.path}
+                  </span>
+                  <span
+                    className="dm-surface__path ov-mono ov-ellipsis"
+                    title={e.handlerFile}
+                  >
+                    {e.handlerName
+                      ? `${e.handlerName} · ${e.handlerFile.split("/").pop()}`
+                      : e.handlerFile}
+                  </span>
+                </div>
+                <span
+                  className={`dm-tag${
+                    e.auth === "public" ? " dm-tag--warn" : ""
+                  }`}
+                >
+                  {e.auth}
+                </span>
+                <span
+                  className={`dm-surface__test${
+                    e.tested
+                      ? " dm-surface__test--ok"
+                      : " dm-surface__test--miss"
+                  }`}
+                >
+                  {e.tested ? "yes" : "no"}
+                </span>
+                <button
+                  type="button"
+                  className="dm-blastbtn"
+                  aria-label={`Open Blast Radius for ${e.handlerFile}`}
+                  title="Open Blast Radius for this handler file"
+                  disabled={!e.handlerFile}
+                  onClick={() => openBlastFor(e.handlerFile)}
+                >
+                  <Flame size={13} aria-hidden />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <EmptyState>
+          {activeBackendReport
+            ? routeFilter.trim()
+              ? "No routes match the filter."
+              : "No Express / Nest / Fastify routes extracted."
+            : "Backend report unavailable — re-run analysis."}
+        </EmptyState>
+      )}
+      {activeBackendReport?.summary ? (
+        <p className="dm-note">{activeBackendReport.summary}</p>
+      ) : null}
+    </article>
+  ) : null;
 
   return (
     <div className={shellRootClass()}>
@@ -2260,6 +2497,27 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                       <Boxes size={14} aria-hidden />
                       Analyse Bundle
                     </button>
+                    <div className="dm-lab-menu__sep" role="separator" />
+                    {(["mobile", "desktop"] as const).map((ff) => (
+                      <button
+                        key={ff}
+                        type="button"
+                        className="dm-lab-menu__item"
+                        role="menuitemradio"
+                        aria-checked={labFormFactor === ff}
+                        onClick={() => setLabFormFactor(ff)}
+                      >
+                        {ff === "mobile" ? (
+                          <Smartphone size={14} aria-hidden />
+                        ) : (
+                          <Monitor size={14} aria-hidden />
+                        )}
+                        {ff === "mobile" ? "Mobile lab" : "Desktop lab"}
+                        <span className="dm-lab-menu__meta">
+                          {labFormFactor === ff ? "selected" : ""}
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 ) : null}
               </div>
@@ -2283,10 +2541,10 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                 <div className="dm-runbar">
                   <span className="dm-runbar__dot" aria-hidden />
                   {labBusy
-                    ? "Lab running… previous results cleared"
-                    : `Last run ${relativeTime(lastRunAt!)}${
+                    ? `Lab running (${labFormFactor})… previous results cleared`
+                    : `Last run ${relativeTime(new Date(lastRunAt!).toISOString())}${
                         cwvLocal
-                          ? ` · ${cwvLocal.source === "lab-fixture" ? "lab fixture" : cwvLocal.source}`
+                          ? ` · ${cwvLocal.source === "lab-fixture" ? "lab fixture" : cwvLocal.source}${cwvLocal.formFactor ? ` · ${cwvLocal.formFactor}` : ""}`
                           : ""
                       }`}
                   {!labBusy && (cwvLocal || cwvPagespeed) ? (
@@ -2336,8 +2594,10 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                       Core Web Vitals
                       <InfoTip label="Core Web Vitals">
                         Lab or imported Lighthouse metrics (LCP, INP, CLS, FCP,
-                        TTFB). Prism never fabricates field data — numbers come
-                        from a local lab run, imported JSON, or opt-in
+                        TTFB). Lab runs measure a production build (mobile,
+                        simulated throttling, median of 3 passes) — dev servers
+                        are skipped. Prism never fabricates field data — numbers
+                        come from a local lab run, imported JSON, or opt-in
                         PageSpeed.
                       </InfoTip>
                     </h2>
@@ -2397,6 +2657,15 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
 
                 {cwvAccOpen ? (
                   <div className="ts-acc__body">
+                    {cwvLocal && cwvLocal.warnings.length > 0 ? (
+                      <div className="dm-warnbar" role="alert">
+                        <AlertTriangle size={14} aria-hidden />
+                        <span>
+                          <strong>Unreliable measurement.</strong>{" "}
+                          {cwvLocal.warnings.join(" ")}
+                        </span>
+                      </div>
+                    ) : null}
                     <div className="cwv__grid">
                       {CWV_METRICS.map((m) => {
                         const local = metricFor(cwvLocal, m.id);
@@ -2405,11 +2674,11 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                           cwvSource === "pagespeed"
                             ? (remote ?? local)
                             : (local ?? remote);
+                        // TBT stands in whenever no lab *or* field INP exists
+                        // — the badge says "Lab proxy", so this stays honest
+                        // under a field-preferred view too.
                         const tbtFallback =
-                          m.id === "INP" &&
-                          !primary &&
-                          cwvTbtMs !== null &&
-                          cwvSource !== "pagespeed";
+                          m.id === "INP" && !primary && cwvTbtMs !== null;
                         const displayRating = tbtFallback
                           ? scoreRating(
                               cwvTbtMs! <= 200
@@ -2426,6 +2695,13 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                           : primary
                             ? formatCwvValue(primary)
                             : "—";
+                        const usingField =
+                          primary === remote &&
+                          remote !== undefined &&
+                          (cwvSource === "pagespeed" || local === undefined);
+                        const sourceLabel = cwvRatingSourceLabel(
+                          usingField ? "pagespeed" : "local",
+                        );
                         return (
                           <article
                             key={m.id}
@@ -2463,7 +2739,9 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                               >
                                 {tbtFallback
                                   ? "Lab proxy"
-                                  : ratingLabel(displayRating)}
+                                  : primary
+                                    ? `${sourceLabel} · ${ratingLabel(displayRating)}`
+                                    : "—"}
                               </span>
                             </div>
                             <div
@@ -2477,8 +2755,13 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                               </div>
                             ) : local && remote ? (
                               <div className="cwv-tile__hint">
-                                Local {formatCwvValue(local)} · PageSpeed{" "}
-                                {formatCwvValue(remote)}
+                                Lab (Lighthouse) {formatCwvValue(local)} · Field
+                                (CrUX) {formatCwvValue(remote)}
+                              </div>
+                            ) : primary ? (
+                              <div className="cwv-tile__hint">
+                                {sourceLabel} · Good {m.goodLabel} · Poor{" "}
+                                {m.poorLabel}
                               </div>
                             ) : (
                               <div className="cwv-tile__hint">
@@ -2532,75 +2815,6 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                       data; lab INP is often empty and TBT is used as a proxy.
                     </p>
 
-                    {(insightGroups.pain.length > 0 ||
-                      insightGroups.improve.length > 0 ||
-                      insightGroups.good.length > 0) && (
-                      <div className="cwv-insights">
-                        <div className="cwv-insights__h">
-                          Metric breakdown
-                          {insightFilter ? (
-                            <button
-                              type="button"
-                              className="dm-linkbtn"
-                              onClick={() => setInsightFilter(null)}
-                            >
-                              Clear {insightFilter} filter
-                            </button>
-                          ) : (
-                            <span className="cwv-insights__hint">
-                              Click a CWV tile to filter
-                            </span>
-                          )}
-                        </div>
-                        <div className="cwv-insights__grid">
-                          {(
-                            [
-                              ["pain", "Pain areas", insightGroups.pain],
-                              ["improve", "Needs work", insightGroups.improve],
-                              ["good", "Good", insightGroups.good],
-                            ] as const
-                          ).map(([key, label, items]) => (
-                            <div
-                              key={key}
-                              className={`cwv-insights__col cwv-insights__col--${key}`}
-                            >
-                              <div className="cwv-insights__col-h">
-                                <span>{label}</span>
-                                <span className="cwv-insights__count">
-                                  {items.length}
-                                </span>
-                              </div>
-                              {items.length === 0 ? (
-                                <p className="dm-note">None in this band.</p>
-                              ) : (
-                                <ul className="cwv-insights__list">
-                                  {items.slice(0, 8).map((i) => (
-                                    <li
-                                      key={i.id}
-                                      className="cwv-insights__item"
-                                    >
-                                      {i.metricId ? (
-                                        <span className="cwv-insights__metric">
-                                          {i.metricId}
-                                        </span>
-                                      ) : null}
-                                      <span className="cwv-insights__item-title">
-                                        {i.title}
-                                      </span>
-                                      {i.detail ? (
-                                        <span className="cwv-insights__item-detail">
-                                          {i.detail}
-                                        </span>
-                                      ) : null}
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                     <input
                       ref={importInputRef}
                       type="file"
@@ -2707,19 +2921,25 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                               {pagespeedError ? (
                                 <p className="dm-idle__err">{pagespeedError}</p>
                               ) : null}
+                              {cwvPagespeed ? (
+                                <p className="dm-note dm-note--wrap">
+                                  {cwvPagespeed.callout}
+                                </p>
+                              ) : null}
                               {cwvLocal && cwvPagespeed ? (
                                 <p className="dm-note">
-                                  Tiles above show local vs PageSpeed side by
-                                  side when both are present.
+                                  Tiles above show lab (local / imported) vs
+                                  field (CrUX) side by side when both are
+                                  present.
                                 </p>
                               ) : null}
                             </>
                           ) : (
                             <>
-                              <p className="ov-empty">
+                              <EmptyState>
                                 Enable PageSpeed under Integrations and Allow
                                 network integrations in Settings.
-                              </p>
+                              </EmptyState>
                               <button
                                 type="button"
                                 className="ov-btn ov-btn--ghost"
@@ -2733,6 +2953,31 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                         </article>
                       ) : null}
                     </div>
+
+                    {(insightGroups.pain.length > 0 ||
+                      insightGroups.improve.length > 0 ||
+                      insightGroups.good.length > 0) && (
+                      <div className="cwv-insights">
+                        <div className="cwv-insights__h">
+                          Metric breakdown
+                          {insightFilter ? (
+                            <button
+                              type="button"
+                              className="dm-linkbtn"
+                              onClick={() => setInsightFilter(null)}
+                            >
+                              Clear {insightFilter} filter
+                            </button>
+                          ) : (
+                            <span className="cwv-insights__hint">
+                              Click a CWV tile to filter · per-metric bands from
+                              the lab report
+                            </span>
+                          )}
+                        </div>
+                        {renderInsightColumns(insightGroups)}
+                      </div>
+                    )}
 
                     <div className="dm-routes">
                       <div className="dm-routes__head">
@@ -2876,7 +3121,7 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                                     {isMeasuring
                                       ? "Running"
                                       : r.measured
-                                        ? ratingLabel(r.rating)
+                                        ? `${cwvPrimarySourceLabel} · ${ratingLabel(r.rating)}`
                                         : "—"}
                                   </span>
                                 </div>
@@ -2904,6 +3149,7 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                                             <span
                                               className={`cwv-tile__badge ${ratingClass(m.rating)}`}
                                             >
+                                              {cwvPrimarySourceLabel} ·{" "}
                                               {ratingLabel(m.rating)}
                                             </span>
                                           </div>
@@ -2948,6 +3194,7 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                                             <span
                                               className={`cwv-tile__badge ${ratingClass(m.rating)}`}
                                             >
+                                              {cwvPrimarySourceLabel} ·{" "}
                                               {ratingLabel(m.rating)}
                                             </span>
                                           </div>
@@ -3008,10 +3255,10 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                           })}
                         </div>
                       ) : (
-                        <p className="ov-empty">
+                        <EmptyState>
                           No routes discovered yet — open the workspace and
                           ensure the frontend app is indexed.
-                        </p>
+                        </EmptyState>
                       )}
                       {componentBreakdown.length > 0 ? (
                         <>
@@ -3082,9 +3329,12 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                       <CardIcon icon={Monitor} tone="violet" size={18} />
                       Lighthouse
                       <InfoTip label="Lighthouse">
-                        Category scores (0–100) from the Lighthouse report —
-                        performance, accessibility, best practices, and SEO.
-                        Uses the same local lab as Core Web Vitals.
+                        Lab results from a Lighthouse run: category scores
+                        (0–100) — performance, accessibility, best practices,
+                        SEO — plus audit insights (LCP element, layout-shift
+                        nodes, opportunities with estimated savings). Uses the
+                        same local lab as Core Web Vitals; field (CrUX) data
+                        stays in the CWV section.
                       </InfoTip>
                     </h2>
                   </button>
@@ -3130,6 +3380,26 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                         local lab (same run also fills Core Web Vitals).
                       </p>
                     )}
+
+                    {labInsightGroups.pain.length > 0 ||
+                    labInsightGroups.improve.length > 0 ||
+                    labInsightGroups.good.length > 0 ? (
+                      <div className="cwv-insights">
+                        <div className="cwv-insights__h">
+                          Lab insights
+                          <span className="cwv-insights__hint">
+                            {cwvLocal
+                              ? "Lighthouse audits from the local lab run (elements, opportunities, savings)"
+                              : "Lighthouse audits from the PageSpeed lab run (elements, opportunities, savings)"}
+                          </span>
+                        </div>
+                        {renderInsightColumns(labInsightGroups)}
+                      </div>
+                    ) : frontendCategories.length > 0 ? (
+                      <p className="dm-note">
+                        No audit insights in this Lighthouse report.
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
               </section>
@@ -3189,8 +3459,25 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
             </>
           ) : status === "loading" ? (
             <>
-              <div className="dm-skel__runbar sk" />
-              <section className="ov-kpis">
+              <div className="dm-runbar dm-runbar--busy" role="status">
+                <Loader2 size={14} aria-hidden className="bw-spin" />
+                <span>Analyzing {def.title}…</span>
+                <span className="dm-runbar__steps" aria-label="Steps running">
+                  {analyzeSteps.join(" · ")}
+                </span>
+                {props.onCancel ? (
+                  <span className="dm-runbar__tools">
+                    <button
+                      type="button"
+                      className="dm-linkbtn"
+                      onClick={props.onCancel}
+                    >
+                      Cancel
+                    </button>
+                  </span>
+                ) : null}
+              </div>
+              <section className="ov-kpis" aria-hidden>
                 {[0, 1, 2, 3].map((i) => (
                   <article key={i} className="ov-stat">
                     <span className="sk sk-line sk-line--sm" />
@@ -3208,7 +3495,6 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                   </article>
                 ))}
               </div>
-              <span className="ov-sr">Analyzing {def.title}…</span>
             </>
           ) : status !== "ready" || overlay === null ? (
             <div className="dm-idle">
@@ -3251,8 +3537,16 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
             <>
               <div className="dm-runbar">
                 <span className="dm-runbar__dot" aria-hidden />
-                Last run {relativeTime(lastRunAt ?? overlay.generatedAt)} ·{" "}
-                {overlay.summary}
+                Last run{" "}
+                {relativeTime(
+                  new Date(lastRunAt ?? overlay.generatedAt).toISOString(),
+                )}{" "}
+                · {overlay.summary}
+                {activeDomainReport
+                  ? ` · Report computed ${relativeTime(
+                      new Date(activeDomainReport.generatedAt).toISOString(),
+                    )}`
+                  : null}
                 {isDevops ? (
                   <span className="dm-runbar__tools">
                     <button
@@ -3298,153 +3592,14 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
               </section>
 
               <div className="card-masonry">
-                <article className="ov-card">
-                  <div className="ov-card__head">
-                    <span className="ov-card__title">
-                      <Layers size={14} className="ov-card__icon" aria-hidden />
-                      {def.surfaceLabel}
-                      <InfoTip label={def.surfaceLabel}>
-                        Nodes detected by the {def.kind ?? "domain"} overlay
-                        from {def.sources}.
-                      </InfoTip>
-                    </span>
-                    <SearchableInput
-                      className="dm-filter-search"
-                      value={filter}
-                      onChange={setFilter}
-                      placeholder={
-                        enriched ? "Filter routes or files…" : "Filter…"
-                      }
-                      spellCheck={false}
-                      aria-label={
-                        enriched
-                          ? "Filter routes and detected nodes"
-                          : "Filter detected nodes"
-                      }
-                    />
+                {enriched ? (
+                  <div className="dm-pair card-span-all">
+                    {apiSurfaceCard}
+                    {backendRoutesCard}
                   </div>
-                  {surfaceRows.length > 0 ? (
-                    <div
-                      className={`dm-surface${isMobile ? " dm-surface--mobile" : ""}${enriched ? " dm-surface--blast" : ""}`}
-                    >
-                      <div className="dm-surface__head">
-                        {isMobile ? (
-                          <>
-                            <span>Screen</span>
-                            <span>File</span>
-                            <span>Router</span>
-                            <span>Tests</span>
-                          </>
-                        ) : (
-                          <>
-                            <span>Kind</span>
-                            <span>Name</span>
-                            <span>File</span>
-                            {enriched ? (
-                              <span className="dm-surface__impact-h">
-                                Impact
-                              </span>
-                            ) : null}
-                          </>
-                        )}
-                      </div>
-                      <div className="dm-surface__body">
-                        {surfaceRows.map((n) => {
-                          const path = String(n.attrs?.path ?? "");
-                          const base =
-                            path
-                              .split("/")
-                              .pop()
-                              ?.replace(/\.[^.]+$/, "") ?? n.label;
-                          const tested =
-                            screenCoverage !== null &&
-                            !screenCoverage.untestedIds.has(n.id);
-                          return (
-                            <div key={n.id} className="dm-surface__row">
-                              {isMobile ? (
-                                <>
-                                  <span className="dm-surface__name ov-ellipsis">
-                                    {base}
-                                  </span>
-                                  <span
-                                    className="dm-surface__path ov-mono ov-ellipsis"
-                                    title={path}
-                                  >
-                                    {path || "—"}
-                                  </span>
-                                  <span className="dm-surface__router ov-mono">
-                                    {n.attrs?.router === "expo" ? "expo" : "—"}
-                                  </span>
-                                  <span
-                                    className={`dm-surface__test${
-                                      tested
-                                        ? " dm-surface__test--ok"
-                                        : " dm-surface__test--miss"
-                                    }`}
-                                  >
-                                    {screenCoverage
-                                      ? tested
-                                        ? "yes"
-                                        : "no"
-                                      : "—"}
-                                  </span>
-                                </>
-                              ) : (
-                                <>
-                                  <span
-                                    className="dm-kind"
-                                    style={{
-                                      color: kindColor(n.kind),
-                                      borderColor: `color-mix(in srgb, ${kindColor(n.kind)} 34%, transparent)`,
-                                      background: `color-mix(in srgb, ${kindColor(n.kind)} 13%, transparent)`,
-                                    }}
-                                  >
-                                    {kindLabel(n.kind)}
-                                  </span>
-                                  <span className="dm-surface__name ov-ellipsis">
-                                    {isDesktop
-                                      ? shortProcessLabel(n.label, n.kind, path)
-                                      : n.label}
-                                  </span>
-                                  <span
-                                    className="dm-surface__path ov-mono ov-ellipsis"
-                                    title={path}
-                                  >
-                                    {path || "—"}
-                                  </span>
-                                  {enriched ? (
-                                    <button
-                                      type="button"
-                                      className="dm-blastbtn"
-                                      aria-label={`Open Blast Radius for ${path || n.label}`}
-                                      title="Open Blast Radius for this file"
-                                      disabled={!path}
-                                      onClick={() => openBlastFor(path)}
-                                    >
-                                      <Flame size={13} aria-hidden />
-                                    </button>
-                                  ) : null}
-                                </>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="ov-empty">
-                      {surfaceTotal === 0
-                        ? "No surface markers detected in this workspace."
-                        : "No nodes match the filter."}
-                    </p>
-                  )}
-                  {isMobile && screenCoverage ? (
-                    <p className="dm-note">
-                      Tests: filename heuristic vs qa-test-gaps (
-                      {screenCoverage.tested}/{screenCoverage.total} matched).
-                    </p>
-                  ) : null}
-                </article>
+                ) : (
+                  apiSurfaceCard
+                )}
 
                 <article className="ov-card">
                   <div className="ov-card__head">
@@ -3487,7 +3642,7 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                       })}
                     </div>
                   ) : (
-                    <p className="ov-empty">Nothing detected.</p>
+                    <EmptyState>Nothing detected.</EmptyState>
                   )}
                 </article>
 
@@ -3531,9 +3686,9 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                       ))}
                     </div>
                   ) : (
-                    <p className="ov-empty">
+                    <EmptyState>
                       No automated findings for this overlay run
-                    </p>
+                    </EmptyState>
                   )}
                 </article>
 
@@ -3573,9 +3728,9 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                           ))}
                         </div>
                       ) : (
-                        <p className="ov-empty">
+                        <EmptyState>
                           No navigation.* / Navigator files detected.
-                        </p>
+                        </EmptyState>
                       )}
                     </article>
 
@@ -3632,9 +3787,9 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                           ) : null}
                         </>
                       ) : (
-                        <p className="ov-empty">
+                        <EmptyState>
                           No mobile stack signals in Codebase DNA yet.
-                        </p>
+                        </EmptyState>
                       )}
                       <p className="dm-note">
                         From stack DNA (Expo / React Native / Flutter
@@ -3655,27 +3810,26 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                       </div>
                       {screenChurn.length > 0 ? (
                         <div className="dm-rank">
-                          {screenChurn.map(({ node: n, file }) => (
-                            <div key={n.id} className="dm-rank__row">
+                          {screenChurn.map((row) => (
+                            <div key={row.id} className="dm-rank__row">
                               <div className="dm-rank__main">
                                 <span className="dm-rank__name ov-ellipsis">
-                                  {nodePath(n.attrs).split("/").pop() ??
-                                    n.label}
+                                  {row.path.split("/").pop() || row.label}
                                 </span>
                                 <span className="dm-rank__path ov-mono ov-ellipsis">
-                                  {nodePath(n.attrs)}
+                                  {row.path}
                                 </span>
                               </div>
                               <span className="dm-rank__val ov-mono">
-                                {file?.commits ?? 0} commits
+                                {row.commits} commits
                               </span>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <p className="ov-empty">
+                        <EmptyState>
                           No recent git changes to screen files.
-                        </p>
+                        </EmptyState>
                       )}
                     </article>
 
@@ -3696,27 +3850,26 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                       </div>
                       {screenMostDepended.length > 0 ? (
                         <div className="dm-rank">
-                          {screenMostDepended.map(({ node: n, deps }) => (
-                            <div key={n.id} className="dm-rank__row">
+                          {screenMostDepended.map((row) => (
+                            <div key={row.id} className="dm-rank__row">
                               <div className="dm-rank__main">
                                 <span className="dm-rank__name ov-ellipsis">
-                                  {nodePath(n.attrs).split("/").pop() ??
-                                    n.label}
+                                  {row.path.split("/").pop() || row.label}
                                 </span>
                                 <span className="dm-rank__path ov-mono ov-ellipsis">
-                                  {nodePath(n.attrs)}
+                                  {row.path}
                                 </span>
                               </div>
                               <span className="dm-rank__val ov-mono">
-                                {deps} dependents
+                                {row.deps} dependents
                               </span>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <p className="ov-empty">
+                        <EmptyState>
                           No inbound dependencies found for screens.
-                        </p>
+                        </EmptyState>
                       )}
                       <p className="dm-note">
                         In-degree from the file dependency graph.
@@ -3762,11 +3915,11 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                           ))}
                         </div>
                       ) : (
-                        <p className="ov-empty">
+                        <EmptyState>
                           No navigates edges yet — re-run analysis after adding
                           Expo Router links, Stack.Screen registrations, or
                           Screen imports.
-                        </p>
+                        </EmptyState>
                       )}
                       <p className="dm-note">
                         Platform (iOS/Android) and Deep Link details are not
@@ -3835,9 +3988,9 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                           ) : null}
                         </>
                       ) : (
-                        <p className="ov-empty">
+                        <EmptyState>
                           No desktop stack signals in Codebase DNA yet.
-                        </p>
+                        </EmptyState>
                       )}
                       <p className="dm-note">
                         From stack DNA (Electron / Tauri detectors).
@@ -3883,14 +4036,14 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                           ))}
                         </div>
                       ) : (
-                        <p className="ov-empty">
+                        <EmptyState>
                           {kindCount("main") +
                             kindCount("preload") +
                             kindCount("renderer") <
                           2
                             ? "Need at least two of main / preload / renderer process files to infer boundary links."
                             : "Process files detected, but no ipc/exposes/loads edges were inferred — check entry filenames (main.ts, preload.ts, renderer)."}
-                        </p>
+                        </EmptyState>
                       )}
                       <p className="dm-note">
                         Structural edges only — not per-channel IPC.
@@ -3944,10 +4097,10 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                           ))}
                         </div>
                       ) : (
-                        <p className="ov-empty">
+                        <EmptyState>
                           No ipcMain / ipcRenderer / contextBridge channel names
                           parsed yet.
-                        </p>
+                        </EmptyState>
                       )}
                     </article>
 
@@ -3968,30 +4121,30 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                       </div>
                       {desktopChurn.length > 0 ? (
                         <div className="dm-rank">
-                          {desktopChurn.map(({ node: n, file }) => (
-                            <div key={n.id} className="dm-rank__row">
+                          {desktopChurn.map((row) => (
+                            <div key={row.id} className="dm-rank__row">
                               <div className="dm-rank__main">
                                 <span className="dm-rank__name ov-ellipsis">
                                   {shortProcessLabel(
-                                    n.label,
-                                    n.kind,
-                                    nodePath(n.attrs),
+                                    row.label,
+                                    row.kind,
+                                    row.path,
                                   )}
                                 </span>
                                 <span className="dm-rank__path ov-mono ov-ellipsis">
-                                  {nodePath(n.attrs)}
+                                  {row.path}
                                 </span>
                               </div>
                               <span className="dm-rank__val ov-mono">
-                                {file?.commits ?? 0} commits
+                                {row.commits} commits
                               </span>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <p className="ov-empty">
+                        <EmptyState>
                           No recent git changes to desktop boundary files.
-                        </p>
+                        </EmptyState>
                       )}
                     </article>
 
@@ -4012,30 +4165,30 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                       </div>
                       {desktopMostDepended.length > 0 ? (
                         <div className="dm-rank">
-                          {desktopMostDepended.map(({ node: n, deps }) => (
-                            <div key={n.id} className="dm-rank__row">
+                          {desktopMostDepended.map((row) => (
+                            <div key={row.id} className="dm-rank__row">
                               <div className="dm-rank__main">
                                 <span className="dm-rank__name ov-ellipsis">
                                   {shortProcessLabel(
-                                    n.label,
-                                    n.kind,
-                                    nodePath(n.attrs),
+                                    row.label,
+                                    row.kind,
+                                    row.path,
                                   )}
                                 </span>
                                 <span className="dm-rank__path ov-mono ov-ellipsis">
-                                  {nodePath(n.attrs)}
+                                  {row.path}
                                 </span>
                               </div>
                               <span className="dm-rank__val ov-mono">
-                                {deps} dependents
+                                {row.deps} dependents
                               </span>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <p className="ov-empty">
+                        <EmptyState>
                           No inbound dependencies found for process files.
-                        </p>
+                        </EmptyState>
                       )}
                       <p className="dm-note">
                         In-degree from the file dependency graph.
@@ -4133,13 +4286,13 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                                       runs={filteredRuns.slice(0, 24)}
                                     />
                                   ) : (
-                                    <p className="ov-empty">
+                                    <EmptyState>
                                       {githubBusy
                                         ? "Fetching runs…"
                                         : myTriggeredOnly
                                           ? "No runs match the My triggered filter."
                                           : "No recent workflow runs returned."}
-                                    </p>
+                                    </EmptyState>
                                   )}
                                 </>
                               ) : (
@@ -4465,10 +4618,10 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                                 })}
 
                                 {ciNodes.length === 0 ? (
-                                  <p className="ov-empty">
+                                  <EmptyState>
                                     No CI/CD workflows detected under
                                     .github/workflows.
-                                  </p>
+                                  </EmptyState>
                                 ) : null}
                               </div>
                             </section>
@@ -4592,13 +4745,13 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                                         runs={filteredExtraRuns.slice(0, 24)}
                                       />
                                     ) : (
-                                      <p className="ov-empty">
+                                      <EmptyState>
                                         {state?.busy
                                           ? "Fetching runs…"
                                           : myTriggeredOnly
                                             ? "No runs match the My triggered filter."
                                             : "No recent workflow runs returned."}
-                                      </p>
+                                      </EmptyState>
                                     )}
                                   </section>
 
@@ -4754,11 +4907,11 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                                           ))}
                                       {remoteCiNodes.length === 0 &&
                                       (state?.workflows.length ?? 0) === 0 ? (
-                                        <p className="ov-empty">
+                                        <EmptyState>
                                           {state?.busy
                                             ? "Staging DevOps files…"
                                             : "No workflows staged yet."}
-                                        </p>
+                                        </EmptyState>
                                       ) : null}
                                     </div>
                                   </section>
@@ -4773,166 +4926,22 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                       </p>
                     </article>
 
-                    <article className="ov-card">
-                      <div className="ov-card__head">
-                        <span className="ov-card__title">
-                          <Cloud
-                            size={14}
-                            className="ov-card__icon"
-                            aria-hidden
-                          />
-                          Argo CD / Workflows
-                          <InfoTip label="Argo">
-                            Placeholder for now — live Argo sync and drift will
-                            appear when the connector ships.
-                          </InfoTip>
-                        </span>
-                        <span className="ov-card__meta">Coming soon</span>
-                      </div>
-                      <p className="ov-empty">
-                        Argo apps, sync status, and drift will appear here once
-                        the Argo integration ships.
-                      </p>
+                    <p className="dm-note">
+                      Argo CD and Jenkins connectors live under{" "}
                       <button
                         type="button"
-                        className="ov-btn ov-btn--ghost"
+                        className="dm-linkbtn"
                         onClick={() => props.onNavigate("integrations")}
                       >
-                        <ExternalLink size={13} aria-hidden />
-                        Open Integrations
-                      </button>
-                    </article>
-
-                    <article className="ov-card">
-                      <div className="ov-card__head">
-                        <span className="ov-card__title">
-                          <Server
-                            size={14}
-                            className="ov-card__icon"
-                            aria-hidden
-                          />
-                          Jenkins
-                          <InfoTip label="Jenkins">
-                            Placeholder for now — job listing and last-build
-                            status need the Jenkins connector.
-                          </InfoTip>
-                        </span>
-                        <span className="ov-card__meta">Coming soon</span>
-                      </div>
-                      <p className="ov-empty">
-                        Jenkins jobs and build triggers will appear here once
-                        the connector ships.
-                      </p>
-                      <button
-                        type="button"
-                        className="ov-btn ov-btn--ghost"
-                        onClick={() => props.onNavigate("integrations")}
-                      >
-                        <ExternalLink size={13} aria-hidden />
-                        Open Integrations
-                      </button>
-                    </article>
+                        Integrations
+                      </button>{" "}
+                      (roadmap pills until live).
+                    </p>
                   </>
                 ) : null}
 
                 {enriched ? (
                   <>
-                    <article className="ov-card">
-                      <div className="ov-card__head">
-                        <span className="ov-card__title">
-                          <Server
-                            size={14}
-                            className="ov-card__icon"
-                            aria-hidden
-                          />
-                          Routes
-                          <InfoTip label="Routes">
-                            HTTP endpoints from Core&apos;s backend report
-                            (Express / Nest / Fastify). Handler prefers function
-                            name when extractable.
-                          </InfoTip>
-                        </span>
-                        <SearchableInput
-                          className="dm-filter-search"
-                          value={routeFilter}
-                          onChange={setRouteFilter}
-                          placeholder="Filter routes…"
-                          spellCheck={false}
-                          aria-label="Filter routes"
-                        />
-                      </div>
-                      {props.backendReport && routeRows.length > 0 ? (
-                        <div className="dm-surface dm-surface--routes dm-surface--routes-blast">
-                          <div className="dm-surface__head">
-                            <span>Method</span>
-                            <span>Route</span>
-                            <span>Auth</span>
-                            <span>Test</span>
-                            <span className="dm-surface__impact-h">Impact</span>
-                          </div>
-                          <div className="dm-surface__body">
-                            {routeRows.map((e) => (
-                              <div key={e.id} className="dm-surface__row">
-                                <span className="dm-kind dm-route__method">
-                                  {e.method}
-                                </span>
-                                <div className="dm-rank__main">
-                                  <span className="dm-surface__name ov-mono ov-ellipsis">
-                                    {e.path}
-                                  </span>
-                                  <span
-                                    className="dm-surface__path ov-mono ov-ellipsis"
-                                    title={e.handlerFile}
-                                  >
-                                    {e.handlerName
-                                      ? `${e.handlerName} · ${e.handlerFile.split("/").pop()}`
-                                      : e.handlerFile}
-                                  </span>
-                                </div>
-                                <span
-                                  className={`dm-tag${
-                                    e.auth === "public" ? " dm-tag--warn" : ""
-                                  }`}
-                                >
-                                  {e.auth}
-                                </span>
-                                <span
-                                  className={`dm-surface__test${
-                                    e.tested
-                                      ? " dm-surface__test--ok"
-                                      : " dm-surface__test--miss"
-                                  }`}
-                                >
-                                  {e.tested ? "yes" : "no"}
-                                </span>
-                                <button
-                                  type="button"
-                                  className="dm-blastbtn"
-                                  aria-label={`Open Blast Radius for ${e.handlerFile}`}
-                                  title="Open Blast Radius for this handler file"
-                                  disabled={!e.handlerFile}
-                                  onClick={() => openBlastFor(e.handlerFile)}
-                                >
-                                  <Flame size={13} aria-hidden />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="ov-empty">
-                          {props.backendReport
-                            ? routeFilter.trim()
-                              ? "No routes match the filter."
-                              : "No Express / Nest / Fastify routes extracted."
-                            : "Backend report unavailable — re-run analysis."}
-                        </p>
-                      )}
-                      {props.backendReport?.summary ? (
-                        <p className="dm-note">{props.backendReport.summary}</p>
-                      ) : null}
-                    </article>
-
                     <article className="ov-card">
                       <div className="ov-card__head">
                         <span className="ov-card__title">
@@ -4986,17 +4995,17 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                               ))}
                             </div>
                           ) : (
-                            <p className="ov-empty">
+                            <EmptyState>
                               No untested endpoints match the filter.
-                            </p>
+                            </EmptyState>
                           )
                         ) : (
-                          <p className="ov-empty">
+                          <EmptyState>
                             Every extracted route has linked test coverage.
-                          </p>
+                          </EmptyState>
                         )
                       ) : (
-                        <p className="ov-empty">No endpoints to assess.</p>
+                        <EmptyState>No endpoints to assess.</EmptyState>
                       )}
                       {coverage ? (
                         <p className="dm-note">
@@ -5017,7 +5026,7 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                           </InfoTip>
                         </span>
                         <span className="ov-card__meta">
-                          {props.backendReport?.dataLayer.length ?? 0}
+                          {activeBackendReport?.dataLayer.length ?? 0}
                         </span>
                       </div>
                       <div className="dm-datalayer-grid">
@@ -5031,10 +5040,10 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                           </div>
                         ))}
                       </div>
-                      {(props.backendReport?.dataLayer.length ?? 0) > 0 ? (
+                      {(activeBackendReport?.dataLayer.length ?? 0) > 0 ? (
                         <div className="dm-rank">
-                          {props
-                            .backendReport!.dataLayer.slice(0, 12)
+                          {activeBackendReport!.dataLayer
+                            .slice(0, 12)
                             .map((d) => (
                               <div key={d.id} className="dm-rank__row">
                                 <div className="dm-rank__main">
@@ -5049,9 +5058,9 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                             ))}
                         </div>
                       ) : (
-                        <p className="ov-empty">
+                        <EmptyState>
                           No models, migrations, or DB clients detected.
-                        </p>
+                        </EmptyState>
                       )}
                     </article>
 
@@ -5070,19 +5079,19 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                           </InfoTip>
                         </span>
                       </div>
-                      {(props.backendReport?.envVars.length ?? 0) > 0 ||
-                      (props.backendReport?.integrations.length ?? 0) > 0 ? (
+                      {(activeBackendReport?.envVars.length ?? 0) > 0 ||
+                      (activeBackendReport?.integrations.length ?? 0) > 0 ? (
                         <div className="dm-split-sections">
                           <div className="dm-split-section">
                             <div className="dm-split-section__head">
                               <span>Environment</span>
                               <span className="ov-card__meta">
-                                {props.backendReport?.envVars.length ?? 0}
+                                {activeBackendReport?.envVars.length ?? 0}
                               </span>
                             </div>
-                            {(props.backendReport?.envVars.length ?? 0) > 0 ? (
+                            {(activeBackendReport?.envVars.length ?? 0) > 0 ? (
                               <div className="dm-rank">
-                                {(props.backendReport?.envVars ?? [])
+                                {(activeBackendReport?.envVars ?? [])
                                   .slice(0, 8)
                                   .map((v) => (
                                     <div
@@ -5102,20 +5111,20 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                                   ))}
                               </div>
                             ) : (
-                              <p className="ov-empty">No env vars detected.</p>
+                              <EmptyState>No env vars detected.</EmptyState>
                             )}
                           </div>
                           <div className="dm-split-section">
                             <div className="dm-split-section__head">
                               <span>Integrations</span>
                               <span className="ov-card__meta">
-                                {props.backendReport?.integrations.length ?? 0}
+                                {activeBackendReport?.integrations.length ?? 0}
                               </span>
                             </div>
-                            {(props.backendReport?.integrations.length ?? 0) >
+                            {(activeBackendReport?.integrations.length ?? 0) >
                             0 ? (
                               <div className="dm-rank">
-                                {(props.backendReport?.integrations ?? [])
+                                {(activeBackendReport?.integrations ?? [])
                                   .slice(0, 8)
                                   .map((i) => (
                                     <div key={i.id} className="dm-rank__row">
@@ -5132,20 +5141,20 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                                   ))}
                               </div>
                             ) : (
-                              <p className="ov-empty">
+                              <EmptyState>
                                 No third-party SDKs detected.
-                              </p>
+                              </EmptyState>
                             )}
                           </div>
                         </div>
                       ) : (
-                        <p className="ov-empty">
+                        <EmptyState>
                           No env vars or third-party SDKs detected.
-                        </p>
+                        </EmptyState>
                       )}
                     </article>
 
-                    {(props.backendReport?.background.length ?? 0) > 0 ? (
+                    {(activeBackendReport?.background.length ?? 0) > 0 ? (
                       <article className="ov-card">
                         <div className="ov-card__head">
                           <span className="ov-card__title">
@@ -5157,11 +5166,11 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                             Background Work
                           </span>
                           <span className="ov-card__meta">
-                            {props.backendReport!.background.length}
+                            {activeBackendReport!.background.length}
                           </span>
                         </div>
                         <div className="dm-rank">
-                          {props.backendReport!.background.map((b) => (
+                          {activeBackendReport!.background.map((b) => (
                             <div key={b.id} className="dm-rank__row">
                               <div className="dm-rank__main">
                                 <span className="dm-rank__name ov-ellipsis">
@@ -5190,26 +5199,26 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                       </div>
                       {churn.length > 0 ? (
                         <div className="dm-rank">
-                          {churn.map(({ node: n, file }) => (
-                            <div key={n.id} className="dm-rank__row">
+                          {churn.map((row) => (
+                            <div key={row.id} className="dm-rank__row">
                               <div className="dm-rank__main">
                                 <span className="dm-rank__name ov-ellipsis">
-                                  {n.label}
+                                  {row.label}
                                 </span>
                                 <span className="dm-rank__path ov-mono ov-ellipsis">
-                                  {nodePath(n.attrs)}
+                                  {row.path}
                                 </span>
                               </div>
                               <span className="dm-rank__val ov-mono">
-                                {file?.commits ?? 0} commits
+                                {row.commits} commits
                               </span>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <p className="ov-empty">
+                        <EmptyState>
                           No recent git changes to handlers.
-                        </p>
+                        </EmptyState>
                       )}
                     </article>
 
@@ -5277,9 +5286,9 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                           ))}
                         </div>
                       ) : (
-                        <p className="ov-empty">
+                        <EmptyState>
                           No auth / security-sensitive files detected.
-                        </p>
+                        </EmptyState>
                       )}
                     </article>
 
@@ -5296,26 +5305,26 @@ export function DomainScreen(props: DomainScreenProps): ReactElement {
                       </div>
                       {mostDepended.length > 0 ? (
                         <div className="dm-rank">
-                          {mostDepended.map(({ node: n, deps }) => (
-                            <div key={n.id} className="dm-rank__row">
+                          {mostDepended.map((row) => (
+                            <div key={row.id} className="dm-rank__row">
                               <div className="dm-rank__main">
                                 <span className="dm-rank__name ov-ellipsis">
-                                  {n.label}
+                                  {row.label}
                                 </span>
                                 <span className="dm-rank__path ov-mono ov-ellipsis">
-                                  {nodePath(n.attrs)}
+                                  {row.path}
                                 </span>
                               </div>
                               <span className="dm-rank__val ov-mono">
-                                {deps} dependents
+                                {row.deps} dependents
                               </span>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <p className="ov-empty">
+                        <EmptyState>
                           No inbound dependencies found for handlers.
-                        </p>
+                        </EmptyState>
                       )}
                       <p className="dm-note">
                         In-degree from the file dependency graph.

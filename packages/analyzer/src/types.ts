@@ -48,6 +48,8 @@ export type ExtractedImport = {
   readonly specifiers: readonly string[];
   readonly start?: number;
   readonly end?: number;
+  /** `require` for CommonJS static require()/createRequire()(…) (M-059). */
+  readonly kind?: "import" | "require";
 };
 
 export type ExtractedExport = {
@@ -65,6 +67,8 @@ export type ExtractedReference = {
   readonly kind: string;
   readonly start: number;
   readonly end: number;
+  /** `member` for `obj.prop()` / `obj?.prop()` call sites (M-059 / P-A4). */
+  readonly via?: "member";
 };
 
 export type SymbolExtraction = {

@@ -7,6 +7,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./cwv": {
+      "types": "./dist/cwv.d.ts",
+      "import": "./dist/cwv.js"
+    },
+    "./github-ci": {
+      "types": "./dist/github-ci.d.ts",
+      "import": "./dist/github-ci.js"
     }
   },
   "files": [

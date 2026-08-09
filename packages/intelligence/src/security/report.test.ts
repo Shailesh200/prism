@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -62,17 +63,45 @@ describe("buildSecurityReport (M-046)", () => {
     expect(report.summary).toMatch(/pass/);
   });
 
-  it("fails env-gitignored when .env is committed and warns without tools", () => {
+  it("fails env-gitignored only when .env is git-tracked (committed)", () => {
     const root = tempRoot("prism-sec-env-");
     write(root, "package.json", JSON.stringify({ name: "demo" }));
     write(root, ".env", "SECRET=1\n");
+    execFileSync("git", ["init", "-q"], { cwd: root });
+    execFileSync("git", ["add", ".env", "package.json"], { cwd: root });
 
     const report = buildSecurityReport({ workspaceRoot: root });
     expect(check(report, "env-gitignored")?.status).toBe("fail");
+    expect(check(report, "env-gitignored")?.detail).toContain(".env");
     expect(check(report, "sast-tool")?.status).toBe("warn");
     expect(check(report, "secrets-scan-tool")?.status).toBe("warn");
     expect(check(report, "dependency-updates")?.status).toBe("warn");
     expect(report.tools.every((t) => !t.present)).toBe(true);
+  });
+
+  it("passes env-gitignored when .env exists on disk but is untracked + ignored", () => {
+    // The classic correct setup: local .env, gitignored, never committed.
+    // Filesystem presence alone must not claim "committed secret file".
+    const root = tempRoot("prism-sec-env-untracked-");
+    write(root, "package.json", JSON.stringify({ name: "demo" }));
+    write(root, ".gitignore", ".env\n");
+    write(root, ".env", "SECRET=1\n");
+    execFileSync("git", ["init", "-q"], { cwd: root });
+    execFileSync("git", ["add", "package.json", ".gitignore"], { cwd: root });
+
+    const report = buildSecurityReport({ workspaceRoot: root });
+    expect(check(report, "env-gitignored")?.status).toBe("pass");
+  });
+
+  it("warns (not fails) for on-disk .env when git is unavailable", () => {
+    const root = tempRoot("prism-sec-env-nogit-");
+    write(root, "package.json", JSON.stringify({ name: "demo" }));
+    write(root, ".env", "SECRET=1\n");
+
+    const report = buildSecurityReport({ workspaceRoot: root });
+    const c = check(report, "env-gitignored");
+    expect(c?.status).toBe("warn");
+    expect(c?.detail).toContain("cannot verify");
   });
 
   it("warns env-gitignored when nothing committed but no .gitignore rule", () => {

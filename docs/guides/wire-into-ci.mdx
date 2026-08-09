@@ -1,12 +1,53 @@
 ---
 title: Wire into CI
-description: "Fail builds on high blast radius, risky reviews, or dependency cycles."
+description: "Official GitHub Action, SARIF upload, sticky PR comments, and cold-start caching."
 ---
 
-> Use exit codes and `--fail-on` so structural risk fails the job, not the log.
+> Use the official Action (or exit codes and `--fail-on`) so structural risk fails
+> the job, not the log.
 
 <Tabs groupId="surface" items={['CLI', 'VS Code', 'AI agent']} persist>
   <Tab value="CLI">
+
+## Official GitHub Action
+
+Add a workflow that checks out with full history and calls the composite action
+at `action/` in this repository (tag `v1` when the owner publishes it):
+
+```yaml
+name: prism-review
+on: pull_request
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write   # only if you upload SARIF
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # required — shallow clones break --base
+      - uses: Shailesh200/prism/action@v1
+        with:
+          fail-on: high
+          comment: "true"
+          upload-sarif: "true"   # optional; needs code scanning enabled
+```
+
+The action:
+
+1. Refuses shallow clones (`fetch-depth: 0`)
+2. Caches `~/.npm` and `.prism` so cold starts stay short
+3. Runs `prism review --json --fail-on …`
+4. Uploads the JSON as a workflow artifact
+5. Posts (or updates) a sticky PR comment — risk band, per-file blast, tests to run
+6. Optionally emits `--format sarif` and uploads via `github/codeql-action/upload-sarif`
+
+This repository dogfoods the same action in
+[`.github/workflows/prism-review.yml`](https://github.com/Shailesh200/prism/blob/main/.github/workflows/prism-review.yml).
+
+## Manual CLI steps
 
 ```bash
 prism index
@@ -15,7 +56,7 @@ prism cycles --fail-on any
 prism blast src/critical/thing.ts --fail-on high
 ```
 
-Example GitHub Actions steps (full history for `--base`):
+Example GitHub Actions steps without the composite action:
 
 ```yaml
 - uses: actions/checkout@v4
@@ -23,17 +64,59 @@ Example GitHub Actions steps (full history for `--base`):
     fetch-depth: 0
 - uses: actions/setup-node@v4
   with:
-    node-version: "26"
-- run: npx -y @repo-prism/cli review --base origin/main --fail-on high
-- run: npx -y @repo-prism/cli cycles --fail-on any
+    node-version: "22"
+    cache: npm
+- uses: actions/cache@v4
+  with:
+    path: |
+      ~/.npm
+      .prism
+    key: prism-${{ runner.os }}-${{ hashFiles('**/package.json') }}
+- run: npm install -g @repo-prism/cli
+- run: prism review --base origin/main --fail-on high --json
+- run: prism cycles --fail-on any
 ```
+
+### Cold-start caching
+
+`npx -y @repo-prism/cli` downloads on every job unless npm's cache is warm.
+Prefer one of:
+
+| Approach | When |
+|---|---|
+| Action defaults | Cache `~/.npm` + `.prism` (built into `action/action.yml`) |
+| `npm install -g @repo-prism/cli` | Pin a version; reuse the runner's npm cache |
+| Workspace `prism-command` | Dogfood a monorepo build (`node packages/cli/dist/cli.js`) |
+
+The `.prism` directory holds the local index. Caching it across runs skips a
+full reindex when sources have not changed.
+
+### SARIF for code scanning
+
+```bash
+prism review --base origin/main --format sarif > prism-review.sarif
+prism cycles --format sarif > prism-cycles.sarif
+```
+
+Upload with GitHub code scanning:
+
+```yaml
+- run: prism review --base origin/${{ github.base_ref }} --format sarif > prism-review.sarif
+- uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: prism-review.sarif
+    category: prism-review
+```
+
+`--format sarif` writes a SARIF 2.1.0 root object (not the Prism JSON ok/data
+envelope). `--json` remains the envelope for scripts and the sticky comment.
 
   </Tab>
   <Tab value="VS Code">
 
 CI is a CLI concern. Use the extension locally to interpret the same bands, then
-copy the commands above into the pipeline. Bands match the UI via one shared
-helper.
+copy the Action or commands above into the pipeline. Bands match the UI via one
+shared helper.
 
   </Tab>
   <Tab value="AI agent">
@@ -56,12 +139,12 @@ Agents do not replace CI gates. Use MCP locally to explain a failing
 `--fail-on` takes a [band](/docs/concepts/risk-bands) (`low` / `mid` / `high`)
 and fires **at or above** it. For counts (cycles), use `any` or a number.
 
-stdout is data (and `--json` errors); progress goes to stderr.
+stdout is data (and `--json` / `--format sarif` payloads); progress goes to stderr.
 
 ## When this is wrong
 
-- Shallow clones (`--depth 1`) starve git-derived signals.
-- Do not parse human tables in scripts — use `--json`.
+- Shallow clones (`--depth 1`) starve git-derived signals and the Action fails fast.
+- Do not parse human tables in scripts — use `--json` or `--format sarif`.
 - A gate that passes High while failing Moderate is almost never what you want;
   at-or-above semantics prevent that.
 

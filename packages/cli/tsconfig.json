@@ -6,5 +6,6 @@
     "outDir": "dist"
   },
   "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.integration.test.ts"],
   "references": [{ "path": "../shared" }, { "path": "../core" }]
 }

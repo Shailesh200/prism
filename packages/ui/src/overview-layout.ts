@@ -250,6 +250,10 @@ export function layoutOverviewGraph(
       id: groupId,
       type: "prism",
       position: { x: cursorX, y: rowY },
+      // Initial dimensions keep pre-measurement bounds exact, so the mount
+      // fitView centers real card rectangles instead of node origins.
+      width: size.w,
+      height: size.h,
       style: { width: size.w, height: size.h },
       draggable: false,
       selectable: false,
@@ -285,6 +289,8 @@ export function layoutOverviewGraph(
       id: hub.id,
       type: "prism",
       position: pos,
+      width: CARD_W,
+      height: CARD_H,
       style: { width: CARD_W, height: CARD_H },
       zIndex: 2,
       data: {
@@ -337,6 +343,8 @@ export function layoutOverviewGraph(
         id: member.id,
         type: "prism",
         position: pos,
+        width: CARD_W,
+        height: CARD_H,
         style: { width: CARD_W, height: CARD_H },
         zIndex: 2,
         data: {

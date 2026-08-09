@@ -19,6 +19,7 @@ function nodeLabel(id: string): string {
   const colon = id.indexOf(":");
   return colon === -1 ? id : id.slice(colon + 1);
 }
+import { cyclesToSarif, parseFormat } from "../sarif.js";
 import { toWorkspaceRelative } from "../target.js";
 import {
   bound,
@@ -41,6 +42,7 @@ export const depsCommand: CommandHandler = async (context) => {
   if (!graph.ok) return graph;
 
   const snapshot = graph.value;
+  const unresolved = snapshot.unresolvedImports;
 
   // Out-degree per node: the question "what does this depend on?" asked of the
   // whole graph at once. Printing every edge would be unreadable and mostly
@@ -77,6 +79,9 @@ export const depsCommand: CommandHandler = async (context) => {
           [
             ["Nodes", String(snapshot.nodes.length)],
             ["Edges", String(snapshot.edges.length)],
+            ...(unresolved && unresolved.count > 0
+              ? [["Unresolved imports", String(unresolved.count)] as const]
+              : []),
           ],
           color,
           width,
@@ -101,6 +106,19 @@ export const depsCommand: CommandHandler = async (context) => {
 
       const note = truncationNote(top, "nodes");
       if (note) lines.push(paint(note, "dim", color));
+      if (unresolved && unresolved.count > 0) {
+        lines.push("");
+        lines.push(
+          paint(
+            `Unresolved imports: ${unresolved.count} (sample)`,
+            "dim",
+            color,
+          ),
+        );
+        for (const sample of unresolved.sample) {
+          lines.push(paint(`  ${sample}`, "dim", color));
+        }
+      }
       return lines.join("\n");
     },
   });
@@ -111,6 +129,8 @@ export const cyclesCommand: CommandHandler = async (context) => {
   if (!limit.ok) return limit;
   const failOn = parseFailOnCount(context.args.option("failOn"));
   if (!failOn.ok) return failOn;
+  const format = parseFormat(context.args.option("format"));
+  if (!format.ok) return format;
 
   const opened = await context.open();
   if (!opened.ok) return opened;
@@ -121,14 +141,26 @@ export const cyclesCommand: CommandHandler = async (context) => {
   if (!result.ok) return result;
 
   const cycles = bound(result.value, limit.value);
+  const data = {
+    cycles: cycles.items,
+    totalCount: cycles.totalCount,
+    truncated: cycles.truncated,
+  };
+  const findings =
+    failOn.value !== undefined && cycles.totalCount >= failOn.value;
+
+  if (format.value === "sarif") {
+    return ok({
+      data: cyclesToSarif(data),
+      rawJson: true,
+      findings,
+      human: () => "",
+    });
+  }
 
   return ok({
-    data: {
-      cycles: cycles.items,
-      totalCount: cycles.totalCount,
-      truncated: cycles.truncated,
-    },
-    findings: failOn.value !== undefined && cycles.totalCount >= failOn.value,
+    data,
+    findings,
     human({ color }) {
       if (cycles.totalCount === 0) return "No import cycles.";
 
@@ -235,7 +267,49 @@ export const refsCommand: CommandHandler = async (context) => {
   });
   if (!result.ok) return result;
 
-  const hits = bound(result.value, limit.value);
+  if (result.value.ambiguous) {
+    const candidates = result.value.candidates ?? [];
+    return ok({
+      data: {
+        ambiguous: true,
+        candidates,
+        references: [],
+        totalCount: candidates.length,
+        truncated: false,
+      },
+      human({ color, width }) {
+        const lines = [
+          renderHeading(
+            `Ambiguous symbol '${name}' — ${plural(candidates.length, "candidate")}`,
+            color,
+          ),
+          "",
+          wrap(
+            "Pass --in <file> to disambiguate same-named symbols.",
+            width,
+          ).join("\n"),
+          "",
+          renderTable({
+            columns: [
+              { header: "PATH", flex: true },
+              { header: "KIND" },
+              { header: "OFFSET", align: "right" },
+            ],
+            rows: candidates.map((c) => [
+              { text: c.path },
+              { text: c.kind },
+              { text: String(c.start) },
+            ]),
+            color,
+            width,
+          }),
+        ];
+        return lines.join("\n");
+      },
+    });
+  }
+
+  const hits = bound([...result.value.references], limit.value);
 
   return ok({
     data: {

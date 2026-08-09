@@ -1,0 +1,47 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Shailesh200/prism",
+  "title": "Prism",
+  "description": "Local-first Software Intelligence Engine for coding agents — repository DNA, health, blast radius, and 32 read-only MCP tools over your open project. No cloud upload for core analysis.",
+  "repository": {
+    "url": "https://github.com/Shailesh200/prism",
+    "source": "github"
+  },
+  "websiteUrl": "https://www.prismhq.in",
+  "version": "1.0.5",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@repo-prism/mcp-server",
+      "version": "1.0.5",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "valueHint": "workspace",
+          "description": "Optional absolute path to the repository root. Defaults to nearest git root from the client cwd."
+        }
+      ],
+      "environmentVariables": [
+        {
+          "name": "PRISM_WORKSPACE",
+          "description": "Optional override when the MCP client starts from a directory outside the project.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "io.prismhq": {
+        "docs": "https://www.prismhq.in/docs/mcp/install",
+        "installConfig": "packages/mcp-server/mcp-install.json"
+      }
+    }
+  }
+}

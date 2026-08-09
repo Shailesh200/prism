@@ -1,6 +1,7 @@
 {
   "name": "@repo-prism/mcp-server",
   "version": "1.0.5",
+  "mcpName": "io.github.Shailesh200/prism",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@repo-prism/core": "workspace:*",
@@ -27,6 +28,9 @@
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "devDependencies": {
     "@repo-prism/test-support": "workspace:*"
   },

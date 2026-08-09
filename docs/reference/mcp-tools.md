@@ -20,7 +20,9 @@ Tools that return a list accept `limit` and answer with `totalCount` and
 |---|---|
 | [`backend_report`](#backend_report) | Route-granular backend intelligence |
 | [`blast_radius`](#blast_radius) | What depends on a file or symbol, and how risky changing it is |
-| [`breaking_change_hints`](#breaking_change_hints) | Heuristic hints about what a change to this target could break for consumers — exported surface, widely imported modules, public entrypoints |
+| [`breaking_change_hints`](#breaking_change_hints) | Deprecated |
+| [`capabilities`](#capabilities) | List every Core analysis capability and consent-gated integration with availability and a reason when unavailable |
+| [`changed_paths`](#changed_paths) | List workspace-relative paths changed in the working tree, or against an optional git base ref |
 | [`dependency_cycles`](#dependency_cycles) | Import and re-export cycles, each returned as the list of files forming the loop |
 | [`dependency_graph`](#dependency_graph) | The import/re-export dependency graph, at file level or aggregated to packages |
 | [`dependency_route`](#dependency_route) | Show how one file or symbol reaches another through the dependency graph, with alternative paths |
@@ -29,7 +31,7 @@ Tools that return a list accept `limit` and answer with `totalCount` and
 | [`explore_code`](#explore_code) | Everything about one file or symbol in a single call |
 | [`feature_graph`](#feature_graph) | Inferred features and how they depend on each other |
 | [`find_references`](#find_references) | Find resolved references to a symbol — who actually calls or imports it |
-| [`find_symbol`](#find_symbol) | Find indexed symbols by name, optionally narrowed by file or kind |
+| [`find_symbol`](#find_symbol) | Find indexed symbols by exact name, optionally narrowed by file or kind |
 | [`health_history`](#health_history) | Health score over time from stored index snapshots and optional git backfill |
 | [`knowledge_graph`](#knowledge_graph) | The symbol-level graph — declarations and the references between them — with summary stats |
 | [`landmarks`](#landmarks) | Named entrypoints, package roots and feature anchors — the places a human would open first |
@@ -40,12 +42,14 @@ Tools that return a list accept `limit` and answer with `totalCount` and
 | [`repository_health`](#repository_health) | Score overall repository health from 0-100 with the per-factor breakdown behind the score |
 | [`repository_map`](#repository_map) | Return the repository's structural map at a zoom level |
 | [`repository_overview`](#repository_overview) | The dashboard summary in one call |
-| [`review_changes`](#review_changes) | Review a set of changed paths in one call |
+| [`review_changes`](#review_changes) | Review changed paths in one call |
 | [`safe_delete`](#safe_delete) | Whether a file or symbol can be deleted safely |
+| [`search_symbols`](#search_symbols) | Substring or regex search over indexed symbol names (unlike find_symbol, which is exact-match only) |
 | [`security_report`](#security_report) | Left-shift security posture |
 | [`stack_profile`](#stack_profile) | Detected stack for the workspace or a single package |
 | [`test_impact`](#test_impact) | Which test files transitively cover a change target — the tests worth running after touching it |
 | [`testing_report`](#testing_report) | Test structure and, when coverage artifacts are already on disk, coverage |
+| [`workspace_status`](#workspace_status) | Compact workspace readiness |
 
 ## `backend_report`
 
@@ -55,15 +59,27 @@ Arguments: `packageId`.
 
 ## `blast_radius`
 
-What depends on a file or symbol, and how risky changing it is: direct and transitive dependents, confidence lanes, evidence and a risk band. Call this before editing or deleting code you did not write. Use intent 'delete' when removing rather than modifying.
+What depends on a file or symbol, and how risky changing it is: direct and transitive dependents, confidence lanes, evidence and a risk band. Results are import/soft-lane based — coverageLimitations lists classes it cannot see (DI containers, string-keyed registries, event buses, template/i18n refs, runtime-loaded config, generated-code consumers). Call this before editing or deleting code you did not write. Use intent 'delete' when removing rather than modifying. affectedFiles and testsLikelyAffected are bounded (default 50).
 
-Arguments: `kind`, `id`, `path`, `intent`.
+Arguments: `kind`, `id`, `path`, `intent`, `limit`.
 
 ## `breaking_change_hints`
 
-Heuristic hints about what a change to this target could break for consumers — exported surface, widely imported modules, public entrypoints. Heuristic by design: treat as prompts to check, not as findings.
+Deprecated: breaking-change hints are included in blast_radius (and review_changes). Prefer those tools. Heuristic hints about what a change to this target could break for consumers — exported surface, widely imported modules, public entrypoints. Heuristic by design: treat as prompts to check, not as findings.
 
 Arguments: `kind`, `id`, `path`.
+
+## `capabilities`
+
+List every Core analysis capability and consent-gated integration with availability and a reason when unavailable. Use this to tell 'not supported by this build' apart from 'not consented / not exposed via MCP' — never guess why a network or build feature is missing.
+
+Takes no arguments.
+
+## `changed_paths`
+
+List workspace-relative paths changed in the working tree, or against an optional git base ref. Use before review_changes when you need the path list alone, or let review_changes auto-discover by omitting paths. Fails when git is unavailable — that is not the same as an empty change set.
+
+Arguments: `base`.
 
 ## `dependency_cycles`
 
@@ -73,9 +89,9 @@ Arguments: `packageAggregation`, `limit`.
 
 ## `dependency_graph`
 
-The import/re-export dependency graph, at file level or aggregated to packages. Large on any real repository — prefer packageAggregation, or use blast_radius if your question is about one file rather than the whole graph.
+The import/re-export dependency graph, at file level or aggregated to packages. Includes unresolvedImports { count, sample } for specs that did not resolve into the graph. Bounded by default (limit 50 nodes); use summaryOnly for counts + top-degree nodes. Prefer packageAggregation, or use blast_radius if your question is about one file rather than the whole graph.
 
-Arguments: `packageAggregation`, `resolveAliases`.
+Arguments: `packageAggregation`, `resolveAliases`, `limit`, `summaryOnly`.
 
 ## `dependency_route`
 
@@ -91,21 +107,21 @@ Takes no arguments.
 
 ## `explain_area`
 
-Explain what a module or folder does: domain overlap, dependency in/out degree and local ownership. Use before editing an unfamiliar directory. Deterministic — derived from the index and local git, never generated prose.
+Explain what a module or folder does: domain overlap, dependency in/out degree and local ownership. Use before editing an unfamiliar directory. For a single file target prefer explore_code (richer usages/ownership/timeline). Deterministic — derived from the index and local git, never generated prose.
 
 Arguments: `path`.
 
 ## `explore_code`
 
-Everything about one file or symbol in a single call: usages, ownership, related and similar code, and a change timeline. Use when asked to understand a specific thing rather than the repository as a whole.
+Everything about one file or symbol in a single call: usages, ownership, related and similar code, and a change timeline. Usages are bounded (default 50) via a nested envelope so large files do not drown the response. Use when asked to understand a specific thing rather than the repository as a whole.
 
-Arguments: `kind`, `path`, `name`, `start`.
+Arguments: `kind`, `path`, `name`, `start`, `limit`.
 
 ## `feature_graph`
 
-Inferred features and how they depend on each other. Features are heuristic groupings of files, not a declared structure, so treat them as a starting point rather than ground truth.
+Inferred features and how they depend on each other. Features are heuristic groupings of files, not a declared structure, so treat them as a starting point rather than ground truth. Bounded by default (limit 50 nodes); use summaryOnly for counts + top-degree nodes.
 
-Takes no arguments.
+Arguments: `limit`, `summaryOnly`.
 
 ## `find_references`
 
@@ -115,7 +131,7 @@ Arguments: `name`, `path`, `start`, `limit`.
 
 ## `find_symbol`
 
-Find indexed symbols by name, optionally narrowed by file or kind. Use to locate a definition before asking about its impact.
+Find indexed symbols by exact name, optionally narrowed by file or kind. Use to locate a definition before asking about its impact. For substring or regex search use search_symbols.
 
 Arguments: `name`, `path`, `kind`, `limit`.
 
@@ -127,9 +143,9 @@ Arguments: `maxPoints`.
 
 ## `knowledge_graph`
 
-The symbol-level graph — declarations and the references between them — with summary stats. Very large on a big repository. If you are looking for one symbol use find_symbol, and for its callers use find_references.
+The symbol-level graph — declarations and the references between them — with summary stats. Requires path (scope to one file) or limit (bound nodes). Very large on a big repository. If you are looking for one symbol use find_symbol or search_symbols, and for its callers use find_references.
 
-Takes no arguments.
+Arguments: `path`, `limit`.
 
 ## `landmarks`
 
@@ -163,25 +179,25 @@ Takes no arguments.
 
 ## `repository_health`
 
-Score overall repository health from 0-100 with the per-factor breakdown behind the score. Use to judge whether a codebase is in good shape or to find which factor drags it down. For the deeper engineering view (hotspots, churn, ownership, debt) call engineering_health instead.
+Score overall repository health from 0-100 with the per-factor breakdown behind the score. Includes graphCoveragePct (share of inventory files in the TS/JS dependency graph) and a 'TS/JS import coupling' factor. Use to judge whether a codebase is in good shape or to find which factor drags it down. For the deeper engineering view (hotspots, churn, ownership, debt) call engineering_health instead.
 
 Takes no arguments.
 
 ## `repository_map`
 
-Return the repository's structural map at a zoom level: nodes, edges and regions. Use to orient yourself or to find where a concern lives. 'repo' and 'package' are small; 'file' and 'symbol' can be very large on a big repository, so prefer the coarsest zoom that answers your question.
+Return the repository's structural map at a zoom level: nodes, edges and regions. Use to orient yourself or to find where a concern lives. Defaults to 'package' zoom (bounded). 'file' and 'symbol' can be very large on a big repository, so prefer the coarsest zoom that answers your question.
 
 Arguments: `zoom`, `layers`.
 
 ## `repository_overview`
 
-The dashboard summary in one call: totals, coupling density and band, the largest regions with health scores, the most connected files, and recent commit activity. Use when you want a single orienting snapshot rather than four separate calls. Region scores are null where there is no evidence — that means 'not measured', not 'zero'.
+The dashboard summary in one call: totals, coupling density and band, the largest regions with health scores, the most connected nodes (with map kind), and recent commit activity. Use when you want a single orienting snapshot rather than four separate calls. Region scores are null where there is no evidence — that means 'not measured', not 'zero'.
 
-Arguments: `activityDays`.
+Arguments: `zoom`, `activityDays`.
 
 ## `review_changes`
 
-Review a set of changed paths in one call: blast radius, test impact and breaking-change hints per path, rolled up with an overall risk band. Use for 'review my branch' rather than calling the per-file tools repeatedly.
+Review changed paths in one call: blast radius, test impact and breaking-change hints per path, rolled up with an overall risk band. Omit paths to auto-discover via git (same as changed_paths); pass base to compare against a ref. Use for 'review my branch' rather than calling the per-file tools repeatedly.
 
 Arguments: `paths`, `base`.
 
@@ -190,6 +206,12 @@ Arguments: `paths`, `base`.
 Whether a file or symbol can be deleted safely: blockers that still depend on it, and files that would be orphaned if it went. A report only — Prism never deletes anything. Prefer this over blast_radius when the question is specifically about removal.
 
 Arguments: `kind`, `id`, `path`.
+
+## `search_symbols`
+
+Substring or regex search over indexed symbol names (unlike find_symbol, which is exact-match only). Optional kind/path filters. Hard-capped at 50 hits.
+
+Arguments: `pattern`, `regex`, `path`, `kind`, `limit`.
 
 ## `security_report`
 
@@ -205,12 +227,18 @@ Arguments: `packageId`.
 
 ## `test_impact`
 
-Which test files transitively cover a change target — the tests worth running after touching it. Prism reports which tests are relevant; it does not run them.
+Which test files transitively cover a change target — the tests worth running after touching it. Prism reports which tests are relevant; it does not run them. The tests list is bounded (default 50).
 
-Arguments: `kind`, `id`, `path`.
+Arguments: `kind`, `id`, `path`, `limit`.
 
 ## `testing_report`
 
 Test structure and, when coverage artifacts are already on disk, coverage. Use to judge how well tested an area is. Prism reads existing artifacts; it never runs your tests.
+
+Takes no arguments.
+
+## `workspace_status`
+
+Compact workspace readiness: path, whether an index is loaded, indexedAt, freshness, git availability, whether a .prism/cache directory exists, and dependency-graph node/edge counts. Call this when a previous tool failed or to confirm the session is ready before a review.
 
 Takes no arguments.

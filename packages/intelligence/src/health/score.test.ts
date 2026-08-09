@@ -55,6 +55,17 @@ describe("computeHealthScore (M-015)", () => {
     expect(health.score).toBeLessThanOrEqual(100);
   });
 
+  it("keeps parse_health neutral (50) for an empty repo, like its siblings", () => {
+    const health = computeHealthScore(emptySnapshot("/tmp/empty"));
+    const parseHealth = health.factors.find((f) => f.id === "parse_health");
+    // "No indexed files" is not a failure — every empty-case factor sits at 50.
+    expect(parseHealth?.score).toBe(50);
+    expect(parseHealth?.note).toBe("No indexed files");
+    for (const f of health.factors) {
+      expect(f.score).toBe(50);
+    }
+  });
+
   it("rewards analyzed sources + tests and no cycles", () => {
     const snapshot: IndexSnapshot = {
       ...emptySnapshot("/tmp/healthy"),
@@ -153,6 +164,69 @@ describe("computeHealthScore (M-015)", () => {
     expect(coupling?.breakdown?.some((b) => b.label === "Graph edges")).toBe(
       true,
     );
+  });
+
+  it("labels coupling as TS/JS import coupling and reports graphCoveragePct (M-056)", () => {
+    const snapshot: IndexSnapshot = {
+      ...emptySnapshot("/tmp/polyglot"),
+      files: [
+        file("app.ts"),
+        file("main.go", {
+          pluginId: null,
+          status: "skipped_unsupported",
+        }),
+        file("util.py", {
+          pluginId: null,
+          status: "skipped_unsupported",
+        }),
+      ],
+      stats: {
+        filesTotal: 3,
+        filesIndexed: 1,
+        filesSkipped: 2,
+        durationMs: 1,
+      },
+    };
+    const health = computeHealthScore(snapshot);
+    expect(health.graphCoveragePct).toBe(33);
+    expect(health.factors.find((f) => f.id === "coupling")?.label).toBe(
+      "TS/JS import coupling",
+    );
+    expect(
+      health.factors
+        .find((f) => f.id === "parse_health")
+        ?.breakdown?.some((b) => b.label === "Unresolved imports"),
+    ).toBe(true);
+  });
+
+  it("does not penalize modularity when features are inference-only (M-061)", () => {
+    const snapshot: IndexSnapshot = {
+      ...emptySnapshot("/tmp/inferred-features"),
+      files: [
+        file("lib/alpha/a.ts", {
+          imports: [{ source: "./b.js", specifiers: [] }],
+        }),
+        file("lib/alpha/b.ts", {
+          imports: [{ source: "./a.js", specifiers: [] }],
+        }),
+        file("lib/beta/c.ts", {
+          imports: [{ source: "./d.js", specifiers: [] }],
+        }),
+        file("lib/beta/d.ts", {
+          imports: [{ source: "./c.js", specifiers: [] }],
+        }),
+      ],
+      stats: {
+        filesTotal: 4,
+        filesIndexed: 4,
+        filesSkipped: 0,
+        durationMs: 1,
+      },
+    };
+    const health = computeHealthScore(snapshot);
+    const modularity = health.factors.find((f) => f.id === "modularity");
+    expect(modularity?.score).toBeGreaterThanOrEqual(50);
+    expect(modularity?.note).toMatch(/inferred/i);
   });
 
   it("prefers TestingReport score for test_presence when provided", () => {

@@ -202,6 +202,11 @@
 .cwv-insights__list {
   margin: 0;
   padding: 0;
+  /* Keep long breakdown lists from blowing up the CWV section layout. */
+  max-height: 280px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
   list-style: none;
   display: flex;
   flex-direction: column;
@@ -512,6 +517,12 @@
   color: var(--prism-ink-muted, #64748b);
 }
 
+.dm-lab-menu__sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--prism-line, rgba(148, 163, 184, 0.25));
+}
+
 .dm-route-select {
   display: flex;
   flex-direction: column;
@@ -569,6 +580,41 @@
   align-items: center;
   gap: 10px;
   margin-left: auto;
+}
+
+/* Busy runbar (domain Analyze in flight): spinner + what is running, so the
+   skeleton below reads as a placeholder instead of a stuck screen. */
+.dm-runbar--busy {
+  color: var(--prism-text, #e6f0f2);
+}
+.dm-runbar--busy .bw-spin {
+  flex: none;
+  color: var(--prism-brand, #00c2c2);
+}
+.dm-runbar__steps {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--prism-text-dim, #8aa0aa);
+}
+
+/* Backend: API Surface + Routes side-by-side at equal width, spanning the
+   masonry columns; stacks on narrow widths like `.bw-split`. */
+.dm-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+.dm-pair > * {
+  min-width: 0;
+}
+@media (max-width: 900px) {
+  .dm-pair {
+    grid-template-columns: 1fr;
+  }
 }
 
 .dm-linkbtn {

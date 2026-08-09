@@ -13,6 +13,7 @@ import { DEFAULT_PROVENANCE } from "@repo-prism/shared";
 import { InfoTip } from "@repo-prism/ui";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -140,18 +141,26 @@ function SeriesAreaChart(props: {
    * measured at that commit (ADR-0029).
    */
   pointProvenance?: readonly SignalProvenance[];
+  /**
+   * Explicit y-axis domain. Score series pass 0–100 so a flat 50 renders at
+   * mid-height; the default (0..series max) suits unbounded counts.
+   */
+  minValue?: number;
+  maxValue?: number;
 }): ReactElement {
   const w = 600;
   const h = 200;
   const pad = 10;
-  const { line, area } = activityGeometry(props.values, w, h, pad);
+  const {
+    line,
+    area,
+    points: geometryPoints,
+  } = activityGeometry(props.values, w, h, pad, {
+    min: props.minValue,
+    max: props.maxValue,
+  });
   const n = props.values.length;
-  const max = Math.max(1, ...props.values);
-  const stepX = n > 1 ? (w - pad * 2) / (n - 1) : 0;
-  const points = props.values.map((v, i) => ({
-    x: pad + i * stepX,
-    y: h - pad - (v / max) * (h - pad * 2),
-  }));
+  const points = geometryPoints.map(([x, y]) => ({ x, y }));
 
   const plotRef = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<number | null>(null);
@@ -174,9 +183,16 @@ function SeriesAreaChart(props: {
 
   const idx = Math.max(0, Math.min(hover ?? lastIndex, n - 1));
   const hp = points[idx];
-  const hoveredEstimated = props.pointProvenance?.[idx] === "estimated";
+  const hoveredProvenance: SignalProvenance | undefined =
+    props.pointProvenance?.[idx];
+  // Heuristic points (pre-ADR-0029 cached history) get the same hollow
+  // treatment as estimated ones — neither was measured at the plotted commit.
+  const hoveredApproximate =
+    hoveredProvenance === "estimated" || hoveredProvenance === "heuristic";
   const estimatedCount =
     props.pointProvenance?.filter((p) => p === "estimated").length ?? 0;
+  const heuristicCount =
+    props.pointProvenance?.filter((p) => p === "heuristic").length ?? 0;
   // Center the guide/point/tip when there is only one point (no line to trace).
   const leftPct = n === 1 ? 50 : hp ? (hp.x / w) * 100 : 0;
   const visible = hover !== null && hp !== undefined;
@@ -251,7 +267,7 @@ function SeriesAreaChart(props: {
             <span
               className="ov-chart__point"
               data-visible={visible ? "true" : "false"}
-              data-estimated={hoveredEstimated ? "true" : "false"}
+              data-estimated={hoveredApproximate ? "true" : "false"}
               style={{ left: `${leftPct}%`, top: `${hp.y}px` }}
               aria-hidden
             />
@@ -266,9 +282,11 @@ function SeriesAreaChart(props: {
                 {props.valueSuffix ?? ""}
               </strong>
               <span className="ov-chart__tip-date">{tipDate}</span>
-              {hoveredEstimated ? (
+              {hoveredApproximate ? (
                 <span className="ov-chart__tip-note">
-                  Estimated — scored from the current tree
+                  {hoveredProvenance === "heuristic"
+                    ? "Heuristic — older cached score, not measured at that commit"
+                    : "Estimated — scored from the current tree"}
                 </span>
               ) : null}
             </div>
@@ -284,6 +302,12 @@ function SeriesAreaChart(props: {
           <span className="ov-chart__estimated">
             <span className="ov-dot ov-dot--hollow" />{" "}
             {`${estimatedCount} estimated`}
+          </span>
+        ) : null}
+        {heuristicCount > 0 ? (
+          <span className="ov-chart__estimated">
+            <span className="ov-dot ov-dot--hollow" />{" "}
+            {`${heuristicCount} heuristic`}
           </span>
         ) : null}
         <span className="ov-chart__total">{props.totalLabel}</span>
@@ -340,8 +364,8 @@ function MoverList(props: {
       return (
         <div className="tr-movers__empty">
           <p className="tr-empty__body">
-            No health history yet, so region movers can't be computed. Sync
-            history from local git to seed a baseline to compare against.
+            No health history yet, so region movers can&apos;t be computed.
+            Build history from local git to seed a baseline to compare against.
           </p>
           {props.onSync ? (
             <button
@@ -350,7 +374,7 @@ function MoverList(props: {
               onClick={props.onSync}
               disabled={props.syncing}
             >
-              Sync history
+              Build history
             </button>
           ) : null}
         </div>
@@ -476,6 +500,12 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
     gitStatus === "unavailable" ||
     (props.gitActivity !== null && !props.gitActivity.available);
 
+  const gitSummary = props.gitActivity?.summary;
+  const gitHistoryNote =
+    gitSummary?.historyTruncated === true
+      ? `Scanned latest ${gitSummary.windowCommits.toLocaleString()} of ${gitSummary.totalCommits.toLocaleString()} commits`
+      : null;
+
   const rangedHealth = useMemo(
     () =>
       filterHealthPoints(
@@ -506,39 +536,28 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
     return Math.round(latest.score);
   }, [props.health?.score, historyPoints]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async (): Promise<void> => {
-      try {
-        if (props.fetchHealthHistory) {
-          const hist = await props.fetchHealthHistory();
-          if (!cancelled) {
-            setHistoryPoints(hist.points);
-            setHistoryError(null);
-          }
-        } else if (props.healthHistory) {
-          if (!cancelled) setHistoryPoints(props.healthHistory.points);
-        }
-        if (props.fetchRegionMovers) {
-          const next = await props.fetchRegionMovers();
-          if (!cancelled) setMovers(next);
-        } else if (props.regionMovers) {
-          if (!cancelled) setMovers(props.regionMovers);
-        }
-        if (props.fetchHealthHistoryBackfillStatus) {
-          const status = await props.fetchHealthHistoryBackfillStatus();
-          if (!cancelled) setBackfill(status);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setHistoryError(err instanceof Error ? err.message : String(err));
-        }
+  const loadHistory = useCallback(async (): Promise<void> => {
+    try {
+      if (props.fetchHealthHistory) {
+        const hist = await props.fetchHealthHistory();
+        setHistoryPoints(hist.points);
+        setHistoryError(null);
+      } else if (props.healthHistory) {
+        setHistoryPoints(props.healthHistory.points);
       }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
+      if (props.fetchRegionMovers) {
+        const next = await props.fetchRegionMovers();
+        setMovers(next);
+      } else if (props.regionMovers) {
+        setMovers(props.regionMovers);
+      }
+      if (props.fetchHealthHistoryBackfillStatus) {
+        const status = await props.fetchHealthHistoryBackfillStatus();
+        setBackfill(status);
+      }
+    } catch (err) {
+      setHistoryError(err instanceof Error ? err.message : String(err));
+    }
   }, [
     props.fetchHealthHistory,
     props.fetchRegionMovers,
@@ -546,6 +565,10 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
     props.healthHistory,
     props.regionMovers,
   ]);
+
+  useEffect(() => {
+    void loadHistory();
+  }, [loadHistory]);
 
   useEffect(() => {
     if (!props.fetchHealthHistoryBackfillStatus) return;
@@ -704,7 +727,8 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
                 <span>Commits</span>
                 <InfoTip label="Commits">
                   Distinct commits in the selected window from local git day
-                  buckets.
+                  buckets
+                  {gitHistoryNote ? `. ${gitHistoryNote}.` : "."}
                 </InfoTip>
               </div>
               <div className="tr-kpi__row">
@@ -712,6 +736,9 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
                   {gitUnavailable ? "—" : activity.total.toLocaleString()}
                 </span>
               </div>
+              {gitHistoryNote && !gitUnavailable ? (
+                <span className="tr-kpi__note">{gitHistoryNote}</span>
+              ) : null}
             </div>
           </section>
 
@@ -736,7 +763,16 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
                 </div>
               </div>
               {historyError ? (
-                <p className="ov-empty">{historyError}</p>
+                <div>
+                  <p className="ov-empty">{historyError}</p>
+                  <button
+                    type="button"
+                    className="ov-btn ov-btn--primary"
+                    onClick={() => void loadHistory()}
+                  >
+                    Try again
+                  </button>
+                </div>
               ) : showBackfillCta ? (
                 <div className="tr-sync">
                   {backfill?.status === "running" || syncing ? (
@@ -747,8 +783,8 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
                   ) : (
                     <>
                       <p className="tr-empty__body">
-                        No historical health series for this range yet. Sync
-                        from local git history to seed approximate scores.
+                        No historical health series for this range yet. Build
+                        history from local git to seed approximate scores.
                       </p>
                       <button
                         type="button"
@@ -756,7 +792,7 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
                         onClick={() => void startBackfill()}
                         disabled={syncing}
                       >
-                        Sync history
+                        Build history
                       </button>
                     </>
                   )}
@@ -772,6 +808,8 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
                   emptyMessage="No health points in this range."
                   gradientId="tr-health-spark"
                   pointProvenance={healthProvenance}
+                  minValue={0}
+                  maxValue={100}
                 />
               )}
             </section>

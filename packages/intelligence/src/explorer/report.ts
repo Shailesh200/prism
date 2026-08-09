@@ -69,7 +69,7 @@ function buildUsages(
         ? { start: target.start }
         : {}),
     });
-    return refs.map((r) => ({
+    return refs.references.map((r) => ({
       name: r.name,
       kind: r.kind,
       path: r.path,

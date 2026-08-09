@@ -18,7 +18,8 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>;
 }
 
-function ratingFromScore(score: number | null | undefined): CwvRating {
+/** Map a Lighthouse 0–1 category/audit score to a CWV rating band. */
+export function ratingFromScore(score: number | null | undefined): CwvRating {
   if (score === null || score === undefined || Number.isNaN(score)) {
     return "unknown";
   }
@@ -27,7 +28,81 @@ function ratingFromScore(score: number | null | undefined): CwvRating {
   return "poor";
 }
 
-function pickNumeric(
+/** Alias used by surfaces (`scoreRating`). */
+export const scoreRating = ratingFromScore;
+
+/**
+ * Canonical CWV value thresholds (web.dev): good ≤ `good`, poor > `poor`.
+ * These are the bands the UI advertises in tooltips — ratings must come from
+ * the measured value, not from a Lighthouse audit score (the audit score is a
+ * log-normal curve whose 0.9/0.5 cut-offs vary by Lighthouse version, and is
+ * `null` on some imported reports even when a numeric value exists).
+ */
+export const CWV_THRESHOLDS: Record<
+  CwvMetricId,
+  { readonly good: number; readonly poor: number }
+> = {
+  LCP: { good: 2500, poor: 4000 },
+  CLS: { good: 0.1, poor: 0.25 },
+  INP: { good: 200, poor: 500 },
+  FCP: { good: 1800, poor: 3000 },
+  TTFB: { good: 800, poor: 1800 },
+};
+
+/** Rate a measured metric value against the canonical CWV bands. */
+export function ratingFromMetricValue(
+  id: CwvMetricId,
+  value: number | null | undefined,
+): CwvRating {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return "unknown";
+  }
+  const t = CWV_THRESHOLDS[id];
+  if (value <= t.good) return "good";
+  if (value > t.poor) return "poor";
+  return "needs-improvement";
+}
+
+/**
+ * Physical-plausibility ceilings for lab metrics. Beyond these, the
+ * measurement environment broke (throttling pathology, page never going
+ * idle, hung server) — the number says nothing about the page. Observed in
+ * the wild: LCP ~165s when a run accidentally targeted a Vite dev server.
+ */
+export const CWV_UNRELIABLE_CEILINGS: Record<CwvMetricId, number> = {
+  LCP: 60_000,
+  FCP: 60_000,
+  TTFB: 60_000,
+  INP: 10_000,
+  CLS: 5,
+};
+
+/**
+ * Warnings for metric values past the plausibility ceilings. Empty when the
+ * run looks trustworthy. Wording tells the user the measurement is at fault,
+ * not their page.
+ */
+export function unreliableMetricWarnings(
+  metrics: readonly CwvMetric[],
+): string[] {
+  const warnings: string[] = [];
+  for (const m of metrics) {
+    const ceiling = CWV_UNRELIABLE_CEILINGS[m.id];
+    if (m.value <= ceiling) continue;
+    const shown =
+      m.id === "CLS"
+        ? m.value.toFixed(2)
+        : m.value >= 1000
+          ? `${(m.value / 1000).toFixed(1)}s`
+          : `${Math.round(m.value)}ms`;
+    warnings.push(
+      `${m.id} measured ${shown} — beyond any plausible real-user value. This run is unreliable (the page likely never settled under simulated throttling); the numbers below say nothing about your production UX. Re-run against a production build.`,
+    );
+  }
+  return warnings;
+}
+
+export function pickNumeric(
   audits: Record<string, unknown>,
   id: string,
 ): number | null {
@@ -37,26 +112,43 @@ function pickNumeric(
   return typeof numeric === "number" ? numeric : null;
 }
 
-function pickScore(audits: Record<string, unknown>, id: string): number | null {
+export function pickScore(
+  audits: Record<string, unknown>,
+  id: string,
+): number | null {
   const audit = asRecord(audits[id]);
   if (!audit) return null;
   const score = audit.score;
   return typeof score === "number" ? score : null;
 }
 
-function metric(
+export function metric(
   id: CwvMetricId,
   value: number | null,
   unit: string,
   score: number | null,
 ): CwvMetric | null {
   if (value === null) return null;
+  // Rate the measured value against the CWV thresholds (identical to the
+  // bands the UI advertises). The Lighthouse audit score is only a fallback
+  // for values we cannot classify — all five ids have thresholds, so in
+  // practice the value always wins and a missing audit score no longer
+  // produces a misleading "unknown" rating next to a real number.
+  const byValue = ratingFromMetricValue(id, value);
   return {
     id,
     value,
     unit,
-    rating: ratingFromScore(score),
+    rating: byValue !== "unknown" ? byValue : ratingFromScore(score),
   };
+}
+
+/**
+ * Unwrap PageSpeed Insights JSON (`lighthouseResult`) to a raw LHR-like object.
+ * Pass-through when already an LHR.
+ */
+export function unwrapLighthouseJson(lhr: unknown): unknown {
+  return asRecord(asRecord(lhr)?.lighthouseResult) ?? lhr;
 }
 
 /**
@@ -106,6 +198,15 @@ export function cwvMetricsFromLighthouse(lhr: unknown): CwvMetric[] {
   return metrics;
 }
 
+/** Form factor the LHR was generated with (`configSettings.formFactor`). */
+export function formFactorFromLighthouse(
+  lhr: unknown,
+): "mobile" | "desktop" | undefined {
+  const settings = asRecord(asRecord(lhr)?.configSettings);
+  const value = settings?.formFactor;
+  return value === "mobile" || value === "desktop" ? value : undefined;
+}
+
 /** Total Blocking Time (ms) from LHR — lab proxy for responsiveness. */
 export function tbtMsFromLighthouse(lhr: unknown): number | undefined {
   const audits = asRecord(asRecord(lhr)?.audits);
@@ -114,7 +215,9 @@ export function tbtMsFromLighthouse(lhr: unknown): number | undefined {
   return value === null ? undefined : value;
 }
 
-function categoryScoresFromLighthouse(lhr: unknown): Record<string, number> {
+export function categoryScoresFromLighthouse(
+  lhr: unknown,
+): Record<string, number> {
   const cats = asRecord(asRecord(lhr)?.categories);
   if (!cats) return {};
   const out: Record<string, number> = {};
@@ -123,6 +226,198 @@ function categoryScoresFromLighthouse(lhr: unknown): Record<string, number> {
     if (typeof score === "number") out[key] = score;
   }
   return out;
+}
+
+function urlFromLighthouseJson(lhr: unknown, root: unknown): string {
+  const rootRec = asRecord(root);
+  const outer = asRecord(lhr);
+  return (
+    (typeof rootRec?.finalUrl === "string" && rootRec.finalUrl) ||
+    (typeof rootRec?.requestedUrl === "string" && rootRec.requestedUrl) ||
+    (typeof outer?.id === "string" && outer.id) ||
+    "imported"
+  );
+}
+
+/**
+ * Extract CWV (+ optional TBT) from a Lighthouse LHR or PageSpeed Insights JSON.
+ * Shares metric / insight helpers with the Core lab path (`buildCwvReport`).
+ */
+export function metricsFromLighthouseJson(lhr: unknown): {
+  metrics: CwvMetric[];
+  tbtMs: number | null;
+  categoryScores: Record<string, number>;
+  url: string;
+  insights: CwvInsight[];
+} {
+  const root = unwrapLighthouseJson(lhr);
+  const metrics = cwvMetricsFromLighthouse(root);
+  const tbtMs = tbtMsFromLighthouse(root) ?? null;
+  const categoryScores = categoryScoresFromLighthouse(root);
+  const url = urlFromLighthouseJson(lhr, root);
+  const insights = insightsFromLighthouse(root, metrics);
+  return { metrics, tbtMs, categoryScores, url, insights };
+}
+
+/**
+ * Build a `CwvReport` from imported / PageSpeed LHR JSON (browser path).
+ * Uses the same metric + insight extraction as `buildCwvReport`; import-specific
+ * callout, empty attributions, and a single route rollup are intentional
+ * (webview can hold a report Core has not ingested — see M-053 inventory).
+ */
+export function cwvReportFromLighthouseJson(
+  lhr: unknown,
+  source: CwvReport["source"] = "ingest",
+): CwvReport {
+  const { metrics, categoryScores, url, tbtMs, insights } =
+    metricsFromLighthouseJson(lhr);
+  const route = routeKeyFromUrl(url);
+  const finalMetrics =
+    metrics.length > 0
+      ? metrics
+      : ([
+          {
+            id: "LCP",
+            value: 0,
+            unit: "ms",
+            rating: "unknown",
+          },
+        ] satisfies CwvMetric[]);
+  return {
+    url,
+    collectedAt: new Date().toISOString(),
+    source,
+    callout:
+      "Imported Lighthouse / PageSpeed JSON — Core Web Vitals from the report audits.",
+    metrics: finalMetrics,
+    categoryScores,
+    attributions: [],
+    rollups: [
+      {
+        key: route,
+        level: "route",
+        metrics: finalMetrics,
+        sampleCount: 1,
+      },
+    ],
+    ...(tbtMs === null ? {} : { tbtMs }),
+    insights,
+    warnings: unreliableMetricWarnings(finalMetrics),
+  };
+}
+
+/**
+ * CrUX (`loadingExperience`) metric key → CWV id, in canonical display order.
+ * FID is deliberately not mapped: it is a different metric, not an INP alias.
+ */
+const CRUX_KEY_TO_METRIC: Record<string, CwvMetricId> = {
+  LARGEST_CONTENTFUL_PAINT_MS: "LCP",
+  CUMULATIVE_LAYOUT_SHIFT_SCORE: "CLS",
+  INTERACTION_TO_NEXT_PAINT: "INP",
+  FIRST_CONTENTFUL_PAINT_MS: "FCP",
+  EXPERIMENTAL_TIME_TO_FIRST_BYTE: "TTFB",
+  TIME_TO_FIRST_BYTE: "TTFB",
+};
+
+function cruxMetricFromRecord(
+  id: CwvMetricId,
+  value: unknown,
+): CwvMetric | null {
+  const rec = asRecord(value);
+  if (!rec) return null;
+  const percentile = rec.percentile;
+  if (typeof percentile !== "number" || Number.isNaN(percentile)) return null;
+  // CrUX reports CLS in hundredths (12 = 0.12); timings are already ms.
+  const scaled = id === "CLS" ? percentile / 100 : percentile;
+  return {
+    id,
+    value: scaled,
+    unit: id === "CLS" ? "score" : "ms",
+    rating: ratingFromMetricValue(id, scaled),
+  };
+}
+
+function cruxMetricsFromExperience(experience: unknown): CwvMetric[] {
+  const metricsRec = asRecord(asRecord(experience)?.metrics);
+  if (!metricsRec) return [];
+  const out: CwvMetric[] = [];
+  for (const [key, id] of Object.entries(CRUX_KEY_TO_METRIC)) {
+    const m = cruxMetricFromRecord(id, metricsRec[key]);
+    if (m) out.push(m);
+  }
+  return out;
+}
+
+/**
+ * Field (CrUX) p75 metrics from a PageSpeed Insights response: page-level
+ * `loadingExperience` first, `originLoadingExperience` as fallback. Empty
+ * when CrUX has no data — never substituted with the embedded lab run.
+ */
+export function fieldMetricsFromPagespeedJson(raw: unknown): {
+  metrics: CwvMetric[];
+  scope: "page" | "origin" | null;
+} {
+  const root = asRecord(raw);
+  const pageMetrics = cruxMetricsFromExperience(root?.loadingExperience);
+  if (pageMetrics.length > 0) return { metrics: pageMetrics, scope: "page" };
+  const originMetrics = cruxMetricsFromExperience(
+    root?.originLoadingExperience,
+  );
+  if (originMetrics.length > 0) {
+    return { metrics: originMetrics, scope: "origin" };
+  }
+  return { metrics: [], scope: null };
+}
+
+/**
+ * Build a `CwvReport` from a PageSpeed Insights API response.
+ *
+ * The PSI payload carries two distinct datasets and the report keeps their
+ * provenance straight:
+ * - `metrics` — **field** data: CrUX p75 percentiles (what the UI labels
+ *   "Field (CrUX)"). Previously the PSI path unwrapped `lighthouseResult`
+ *   instead, so tiles labelled "Field (CrUX)" showed lab numbers.
+ * - `categoryScores` / `insights` / `tbtMs` — from the embedded
+ *   `lighthouseResult`, i.e. the **lab** run on Google's servers. The UI
+ *   renders these only inside the Lighthouse (lab) section.
+ *
+ * No placeholder metric is synthesised when CrUX is empty: an empty metrics
+ * array lets the UI fall back per-metric to the local lab instead of
+ * shadowing it with a fake `0 ms`.
+ */
+export function cwvFieldReportFromPagespeedJson(raw: unknown): CwvReport {
+  const { metrics, scope } = fieldMetricsFromPagespeedJson(raw);
+  const lhr = unwrapLighthouseJson(raw);
+  const labMetrics = cwvMetricsFromLighthouse(lhr);
+  const categoryScores = categoryScoresFromLighthouse(lhr);
+  const tbtMs = tbtMsFromLighthouse(lhr) ?? null;
+  const url = urlFromLighthouseJson(raw, raw);
+  const route = routeKeyFromUrl(url);
+  // Metric-band insights are generated against the *lab* metrics so their
+  // "Lab value …" copy stays truthful next to field tiles.
+  const insights = insightsFromLighthouse(lhr, labMetrics);
+  const callout =
+    scope === "page"
+      ? "PageSpeed Insights — field metrics from the Chrome UX Report for this URL (p75, 28-day). Category scores and insights come from the PageSpeed Lighthouse lab run."
+      : scope === "origin"
+        ? "PageSpeed Insights — no page-level CrUX data; showing origin-level field metrics (p75, 28-day). Category scores and insights come from the PageSpeed Lighthouse lab run."
+        : "PageSpeed Insights — no CrUX field data for this URL or origin (insufficient traffic). Category scores and insights come from the PageSpeed Lighthouse lab run.";
+  return {
+    url,
+    collectedAt: new Date().toISOString(),
+    source: "pagespeed",
+    callout,
+    metrics,
+    categoryScores,
+    attributions: [],
+    rollups:
+      metrics.length > 0
+        ? [{ key: route, level: "route", metrics, sampleCount: 1 }]
+        : [],
+    ...(tbtMs === null ? {} : { tbtMs }),
+    insights,
+    warnings: unreliableMetricWarnings(metrics),
+  };
 }
 
 /**
@@ -539,6 +834,8 @@ export type BuildCwvReportInput = {
   readonly lighthouseOrPayload: unknown;
   readonly port?: number;
   readonly collectedAt?: string;
+  /** Lab form factor the run measured (recorded for honest display). */
+  readonly formFactor?: "mobile" | "desktop";
 };
 
 export function buildCwvReport(input: BuildCwvReportInput): CwvReport {
@@ -568,11 +865,17 @@ export function buildCwvReport(input: BuildCwvReportInput): CwvReport {
           },
         ] satisfies CwvMetric[]);
 
+  // The job option wins for live runs; imported reports tell their own truth
+  // via configSettings.formFactor.
+  const formFactor =
+    input.formFactor ?? formFactorFromLighthouse(input.lighthouseOrPayload);
+
   return {
     url: input.url,
     collectedAt: input.collectedAt ?? new Date().toISOString(),
     source: input.source,
     ...(input.port === undefined ? {} : { port: input.port }),
+    ...(formFactor === undefined ? {} : { formFactor }),
     callout: LIGHTHOUSE_CALLOUT,
     metrics: finalMetrics,
     categoryScores,
@@ -580,6 +883,7 @@ export function buildCwvReport(input: BuildCwvReportInput): CwvReport {
     rollups,
     ...(tbtMs === undefined ? {} : { tbtMs }),
     insights,
+    warnings: unreliableMetricWarnings(finalMetrics),
   };
 }
 
@@ -745,10 +1049,43 @@ export function mergeRouteCwvReports(
     ),
   ];
 
-  const insights = [
-    ...primary.insights,
-    ...extras.flatMap(({ report }) => report.insights),
-  ];
+  // Insight ids are per-report (e.g. `metric-LCP-poor`), so a naive concat
+  // repeats the same id once per measured route — duplicated rows and React
+  // keys in the UI. Keep the primary route's insight as-is; drop verbatim
+  // repeats from other routes; keep genuinely different same-id findings
+  // (e.g. a different LCP element) with the route they were measured on.
+  const insights: CwvInsight[] = [];
+  const insightsById = new Map<string, CwvInsight[]>();
+  const pushInsight = (insight: CwvInsight): void => {
+    insights.push(insight);
+    const list = insightsById.get(insight.id) ?? [];
+    list.push(insight);
+    insightsById.set(insight.id, list);
+  };
+  for (const insight of primary.insights) pushInsight(insight);
+  for (const { route, report } of extras) {
+    for (const insight of report.insights) {
+      const existing = insightsById.get(insight.id);
+      if (!existing) {
+        pushInsight(insight);
+        continue;
+      }
+      if (
+        existing.some(
+          (i) => i.title === insight.title && i.detail === insight.detail,
+        )
+      ) {
+        continue;
+      }
+      pushInsight({
+        ...insight,
+        id: `${insight.id}@${route}`,
+        detail: [`Route ${route}`, insight.detail]
+          .filter((p): p is string => typeof p === "string" && p !== "")
+          .join(" — "),
+      });
+    }
+  }
 
   return {
     ...primary,

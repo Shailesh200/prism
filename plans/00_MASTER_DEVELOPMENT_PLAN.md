@@ -505,6 +505,17 @@ flowchart TD
 | M-037 | End-to-End Test Suite | Quality | M-027, M-029, M-052 | Yes |
 | M-038 | Documentation Site | Docs | M-037 | Yes |
 | M-039 | GA Readiness | Release | M-036, M-037, M-038 | Yes |
+| M-053 | Presentation Consolidation | Core | M-052 | Yes |
+| M-054 | Public Website | Docs | M-039 | Yes |
+| M-055 | Website Marketing Motion | Docs | M-054 | Yes |
+| M-056 | Number Integrity and Truncation Honesty | Hardening | M-053 | Yes |
+| M-057 | Daily Loop (IDE hero) | Surfaces | M-056 | Yes |
+| M-058 | Agent Surface v2 (MCP hero) | Surfaces | M-057 | Yes |
+| M-059 | Reference Precision (the moat) | Intelligence | M-058 | Yes |
+| M-060 | CI and PR Integration | Surfaces | M-059 | Yes |
+| M-061 | Detection Quality | Intelligence | M-060 | Yes |
+| M-062 | UI Actionability and IA | Core | M-061 | Yes |
+| M-063 | Distribution and Proof | Release | M-062 | Yes |
 
 **Critical path (must stay green):** M-001 → M-005 → M-040 → M-014 → **M-041 Gate A** (P0 + P1 + Mono-v1) → M-017 → M-018 → M-025 → surfaces (M-026/M-028/M-030) → M-039.  
 **M-041 continued:** phases P2–P7 + Mono-v2 may run after Gate A (Map unblocked); still tracked as M-041 until epic complete.

@@ -1,4 +1,11 @@
 import type {
+  DispatchWorkflowInput,
+  GithubCiConfig,
+  GithubRepoInfo,
+  GithubWorkflowRun,
+  GithubWorkflowSummary,
+} from "@repo-prism/intelligence/github-ci";
+import type {
   BackendReport,
   BundleAnalyzeCapability,
   BundleWeightReport,
@@ -6,7 +13,9 @@ import type {
   CodeExplorerTarget,
   ConsentPurposeId,
   ConsentState,
+  CwvPreferredSource,
   CwvReport,
+  DomainReport,
   EngineeringHealthReport,
   GraphSnapshotDto,
   HealthHistoryBackfillStatus,
@@ -52,6 +61,8 @@ export type LighthouseLabOptions = {
   readonly reportPath?: string;
   /** When set, only these routes are measured (first = primary). */
   readonly routes?: readonly string[];
+  /** Lab form factor (default mobile simulated throttling). */
+  readonly formFactor?: "mobile" | "desktop";
   /** Live build / CLI log lines + progressive CWV while the lab job runs. */
   readonly onProgress?: (event: LighthouseLabProgressEvent) => void;
 };
@@ -72,7 +83,10 @@ export type BundleAnalyzeOptions = {
 
 /**
  * Host bridge injected by playground / vscode-extension / browser surfaces.
- * Screens call these methods; each host implements transport to Core.
+ * Screens call these methods; implementations come from {@link createPrismClient}
+ * over HTTP or postMessage (M-053 Phase 4).
+ *
+ * Prefer the `PrismClient` alias — same shape, milestone name.
  */
 export type AppShellClient = {
   fetchDashboard(): Promise<DashboardPayload>;
@@ -149,6 +163,17 @@ export type AppShellClient = {
    */
   discoverFrontendRoutes?(): Promise<string[]>;
   /**
+   * Per-domain aggregation from Core `getDomainReport` (M-053).
+   * Pass live CWV reports for frontend so breakdowns match lab / PageSpeed.
+   */
+  fetchDomainReport?(options?: {
+    domain?: DomainReport["domain"];
+    cwvLocal?: CwvReport | null;
+    cwvPagespeed?: CwvReport | null;
+    cwvPreferredSource?: CwvPreferredSource;
+    loadLatestCwvArtifact?: boolean;
+  }): Promise<DomainReport | null>;
+  /**
    * Whether the workspace's `.prism` folder is gitignored. Optional so hosts
    * that cannot determine it simply omit the method (sidebar chip stays hidden).
    */
@@ -171,6 +196,44 @@ export type AppShellClient = {
     repo: string;
     token?: string;
   }): Promise<StageDevopsRemoteResult>;
+  /**
+   * Live GitHub Actions workflows / runs / dispatch (Core, `network.github`).
+   * Tokens are per-call; Core refuses without consent (ADR-0033).
+   */
+  fetchGithubWorkflows?(
+    cfg: GithubCiConfig,
+  ): Promise<
+    | { ok: true; workflows: GithubWorkflowSummary[] }
+    | { ok: false; error: string }
+  >;
+  fetchGithubWorkflowRuns?(
+    cfg: GithubCiConfig,
+    options?: { perPage?: number },
+  ): Promise<
+    { ok: true; runs: GithubWorkflowRun[] } | { ok: false; error: string }
+  >;
+  fetchGithubRepo?(
+    cfg: GithubCiConfig,
+  ): Promise<{ ok: true; repo: GithubRepoInfo } | { ok: false; error: string }>;
+  fetchGithubAuthenticatedLogin?(token: string): Promise<string | null>;
+  testGithubRepoConnection?(cfg: GithubCiConfig): Promise<
+    | {
+        ok: true;
+        repo: GithubRepoInfo;
+        workflows: GithubWorkflowSummary[];
+      }
+    | { ok: false; error: string }
+  >;
+  dispatchGithubWorkflow?(
+    input: DispatchWorkflowInput,
+  ): Promise<{ ok: true; ref: string } | { ok: false; error: string }>;
+  /**
+   * PageSpeed Insights v5 (Core, `network.pagespeed`). API key is per-call.
+   */
+  fetchPagespeedMetrics?(
+    apiKey: string,
+    url: string,
+  ): Promise<{ ok: true; raw: unknown } | { ok: false; error: string }>;
   /**
    * Every consent purpose with the decision so far, straight from Core
    * (M-036). Optional only so a host that cannot reach Core degrades to "no

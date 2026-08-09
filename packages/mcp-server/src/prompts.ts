@@ -89,9 +89,9 @@ export function registerPrompts(server: McpServer): void {
     },
     async (args) => {
       const base = typeof args.base === "string" ? args.base.trim() : "";
-      const baseHint = base
-        ? `Pass base "${base}" to review_changes.`
-        : "Call review_changes on the current working tree (omit base unless I named one).";
+      const flow = base
+        ? `Call review_changes with base "${base}" and omit paths so Prism auto-discovers the diff against that ref (or call changed_paths with the same base first if you need the path list alone).`
+        : "Call review_changes with no paths so Prism auto-discovers the working-tree changes (or call changed_paths first if you need the path list alone).";
       return {
         messages: [
           {
@@ -100,7 +100,7 @@ export function registerPrompts(server: McpServer): void {
               type: "text" as const,
               text: [
                 "Review my changes with Prism before I merge or push.",
-                baseHint,
+                flow,
                 "Summarise risk, what could break, and which tests to run.",
                 "Do not invent dependents — use the tool results.",
               ].join(" "),

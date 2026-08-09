@@ -108,11 +108,15 @@ describe("M-013 detector packs + DNA", () => {
     );
     expect((dna.stack?.personas ?? []).length).toBeGreaterThan(1);
     expect(dna.languages.some((l) => l.id === "typescript")).toBe(true);
-    // Confidence ranking: FE/BE signals outweigh sparse devops markers.
+    // Confidence ranking: FE/BE/tooling outweigh sparse devops markers.
+    // Tooling (turbo + vitest) may OR above a single FE/BE signal under M-061
+    // multi-signal weights — still must not crown devops.
     expect(dna.primaryDomain).not.toBe(StackDomain.DEVOPS_PLATFORM);
-    expect([StackDomain.FRONTEND, StackDomain.BACKEND]).toContain(
-      dna.primaryDomain,
-    );
+    expect([
+      StackDomain.FRONTEND,
+      StackDomain.BACKEND,
+      StackDomain.TOOLING,
+    ]).toContain(dna.primaryDomain);
     expect(dna.rankedDomains.length).toBeGreaterThan(0);
     expect(dna.rankedDomains[0]?.id).toBe(dna.primaryDomain);
   });

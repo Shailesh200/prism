@@ -16,6 +16,7 @@ use this page when you need the exhaustive index.
 | `prism backend` | backend |
 | `prism blast` | blast |
 | `prism bundle` | bundle |
+| `prism completions` | completions |
 | `prism cycles` | cycles |
 | `prism deps` | deps |
 | `prism dna` | dna |
@@ -46,7 +47,9 @@ use this page when you need the exhaustive index.
 |---|---|
 | `backend_report` | Route-granular backend intelligence |
 | `blast_radius` | What depends on a file or symbol, and how risky changing it is |
-| `breaking_change_hints` | Heuristic hints about what a change to this target could break for consumers — exported surface, widely imported modules, public entrypoints |
+| `breaking_change_hints` | Deprecated |
+| `capabilities` | List every Core analysis capability and consent-gated integration with availability and a reason when unavailable |
+| `changed_paths` | List workspace-relative paths changed in the working tree, or against an optional git base ref |
 | `dependency_cycles` | Import and re-export cycles, each returned as the list of files forming the loop |
 | `dependency_graph` | The import/re-export dependency graph, at file level or aggregated to packages |
 | `dependency_route` | Show how one file or symbol reaches another through the dependency graph, with alternative paths |
@@ -55,7 +58,7 @@ use this page when you need the exhaustive index.
 | `explore_code` | Everything about one file or symbol in a single call |
 | `feature_graph` | Inferred features and how they depend on each other |
 | `find_references` | Find resolved references to a symbol — who actually calls or imports it |
-| `find_symbol` | Find indexed symbols by name, optionally narrowed by file or kind |
+| `find_symbol` | Find indexed symbols by exact name, optionally narrowed by file or kind |
 | `health_history` | Health score over time from stored index snapshots and optional git backfill |
 | `knowledge_graph` | The symbol-level graph — declarations and the references between them — with summary stats |
 | `landmarks` | Named entrypoints, package roots and feature anchors — the places a human would open first |
@@ -66,9 +69,11 @@ use this page when you need the exhaustive index.
 | `repository_health` | Score overall repository health from 0-100 with the per-factor breakdown behind the score |
 | `repository_map` | Return the repository's structural map at a zoom level |
 | `repository_overview` | The dashboard summary in one call |
-| `review_changes` | Review a set of changed paths in one call |
+| `review_changes` | Review changed paths in one call |
 | `safe_delete` | Whether a file or symbol can be deleted safely |
+| `search_symbols` | Substring or regex search over indexed symbol names (unlike find_symbol, which is exact-match only) |
 | `security_report` | Left-shift security posture |
 | `stack_profile` | Detected stack for the workspace or a single package |
 | `test_impact` | Which test files transitively cover a change target — the tests worth running after touching it |
 | `testing_report` | Test structure and, when coverage artifacts are already on disk, coverage |
+| `workspace_status` | Compact workspace readiness |

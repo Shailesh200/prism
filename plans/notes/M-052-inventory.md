@@ -100,7 +100,7 @@ Recorded so the boundary is explicit rather than assumed.
 | Label and icon maps | `stack-signal-meta.ts`, `security-stack-label.ts`, runner logos | Pure display vocabulary; no repository fact is derived |
 | Layout geometry | `BundleTreemap.layoutSquarify`, `overview-layout.ts`, `card-tree-layout.ts`, `file-scope.ts`, `file-tree.ts` | Pixels, not facts. Moving these to Core would make Core depend on a viewport |
 | Heat and band display rules | `map-layers.ts` `dominantHeat`, `heatBand`, `layersWithoutData`, `parseLayerSignals` | Decodes a Core DTO and picks a CSS band. The values themselves come from `@repo-prism/repository-map` |
-| Network adapters | `github-ci.ts` fetch functions, `fetchPagespeedMetrics` | I/O against third-party APIs, consent-gated. The *parsing* of what they return should not live here, but the fetch may |
+| Network adapters | ~~`github-ci.ts` fetch / PageSpeed~~ | **Superseded by ADR-0033 / M-053 §2.3** — network now goes through Core with consent; pure parse helpers in intelligence |
 | Display ranking | `mostDepended`, `churn`, stack filters in `DomainScreen`; `TrendsScreen` window filters; `buildSuiteTree` | Sorting and slicing Core data for a viewport |
 | Gravatar | `md5.ts`, `avatar-util.ts` | Not repository analysis |
 | Query parsing | `parseLayers`, `parseZoom` in `vite.config.ts` | HTTP plumbing |

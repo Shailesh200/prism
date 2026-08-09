@@ -26,6 +26,9 @@
     "@repo-prism/shared": "workspace:*",
     "commander": "^15.0.0"
   },
+  "engines": {
+    "node": ">=22"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -37,5 +40,9 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1"
   }
 }

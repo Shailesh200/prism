@@ -63,6 +63,15 @@ export function couplingBand(density: number): OverviewCouplingBand {
   return "high";
 }
 
+/**
+ * Coupling density as a 0–100 meter percentage on one shared scale: density
+ * 1.0 (one edge per node) fills the meter. Every surface (Overview, DNA, …)
+ * uses this so the same density reads identically everywhere.
+ */
+export function couplingDensityPct(density: number): number {
+  return clampPct(density * 100);
+}
+
 export function couplingFor(graph: MapGraph): OverviewCoupling {
   const density = couplingDensity(graph);
   return { density, band: couplingBand(density) };
@@ -101,21 +110,31 @@ function regionFileCount(node: MapNode, graph: MapGraph): number {
   return count;
 }
 
+/** Result of {@link deriveRegions}, including display-cap honesty (M-056). */
+export type DeriveRegionsResult = {
+  readonly regions: OverviewRegion[];
+  readonly truncated: boolean;
+  readonly totalCount: number;
+};
+
 /**
  * Up to eight regions with a coupling-aware health index.
  *
  * `score` is deliberately nullable: a region with no files and no edges has no
  * evidence behind it, and showing 0 there would read as "very unhealthy"
  * rather than "nothing measured" (ADR-0029).
+ *
+ * When more than eight region nodes exist, `truncated` is true and `totalCount`
+ * is the full group count (M-056 / P-A5).
  */
-export function deriveRegions(graph: MapGraph): OverviewRegion[] {
+export function deriveRegions(graph: MapGraph): DeriveRegionsResult {
   const groups = graph.nodes.filter((n) => REGION_KINDS.has(n.kind));
   const degrees = degreeByNodeId(graph);
   const groupDegrees = groups.map((n) => degrees.get(n.id) ?? 0);
   const allDegreesZero = groupDegrees.every((d) => d === 0);
   const maxDegree = Math.max(1, ...degrees.values(), ...groupDegrees);
 
-  return groups.slice(0, MAX_REGIONS).map((node) => {
+  const regions = groups.slice(0, MAX_REGIONS).map((node) => {
     const degree = degrees.get(node.id) ?? 0;
     const files = regionFileCount(node, graph);
 
@@ -131,6 +150,12 @@ export function deriveRegions(graph: MapGraph): OverviewRegion[] {
 
     return { id: node.id, label: node.label, files, degree, score };
   });
+
+  return {
+    regions,
+    truncated: groups.length > regions.length,
+    totalCount: groups.length,
+  };
 }
 
 /**
@@ -147,6 +172,7 @@ export function deriveMostConnected(
     .map((n) => ({
       id: n.id,
       label: n.label,
+      kind: n.kind,
       degree: degrees.get(n.id) ?? 0,
     }))
     .sort((a, b) => b.degree - a.degree || a.label.localeCompare(b.label))
@@ -193,7 +219,16 @@ export function bucketActivity(
   const spanDays = Math.round((end - start) / DAY_MS) + 1;
   const granularity = spanDays <= DAILY_SPAN_LIMIT_DAYS ? "day" : "week";
   const unitMs = (granularity === "day" ? 1 : 7) * DAY_MS;
-  const count = Math.max(1, Math.ceil(spanDays / (unitMs / DAY_MS)));
+  let count = Math.max(1, Math.ceil(spanDays / (unitMs / DAY_MS)));
+
+  // Weekly windows rarely divide into whole weeks. A tail bucket covering
+  // fewer days than its siblings undercounts commits and renders as a fake
+  // drop at the right edge, so fold those days into the previous bucket
+  // (which then spans up to two weeks). The index clamp below lands the tail
+  // days in that merged bucket.
+  if (granularity === "week" && count > 1 && spanDays % 7 !== 0) {
+    count -= 1;
+  }
 
   const buckets = Array.from({ length: count }, () => 0);
   const starts = Array.from({ length: count }, (_, i) => start + i * unitMs);

@@ -7,7 +7,12 @@ import type {
   TestingTestResult,
   TestingTestStatus,
 } from "@repo-prism/shared";
-import { CardIcon, InfoTip, SearchableInput } from "@repo-prism/ui";
+import {
+  CardIcon,
+  formatPrismDate,
+  InfoTip,
+  SearchableInput,
+} from "@repo-prism/ui";
 import {
   ArrowLeft,
   Check,
@@ -100,16 +105,7 @@ function runnerLabel(id: string): string {
 }
 
 function formatRelative(iso: string): string {
-  const ms = Date.parse(iso);
-  if (!Number.isFinite(ms)) return iso;
-  const delta = Date.now() - ms;
-  const secs = Math.round(delta / 1000);
-  if (secs < 60) return `${Math.max(0, secs)}s ago`;
-  const mins = Math.round(secs / 60);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.round(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return new Date(ms).toLocaleString();
+  return formatPrismDate(iso, "relative") || iso;
 }
 
 function formatDuration(ms?: number): string {
@@ -344,6 +340,9 @@ export function TestingSecurityScreen(
 
   const runners = testing?.runners ?? [];
   const suiteTree = useMemo(() => buildSuiteTree(testList), [testList]);
+  const SUITE_PAGE_SIZE = 25;
+  const [suiteVisibleCount, setSuiteVisibleCount] = useState(SUITE_PAGE_SIZE);
+  const visibleSuiteTree = suiteTree.slice(0, suiteVisibleCount);
 
   // Suite tree stays collapsed by default (accordion on demand).
 
@@ -524,8 +523,14 @@ export function TestingSecurityScreen(
               </button>
               <div className="ts-acc__actions">
                 <span className="ts-score">
-                  {testing ? `${Math.round(testing.score)}` : "—"}
-                  <span className="ts-score__unit">/100</span>
+                  {testing ? (
+                    <>
+                      {Math.round(testing.score)}
+                      <span className="ts-score__unit">/100</span>
+                    </>
+                  ) : (
+                    "—"
+                  )}
                 </span>
                 <div className="ts-split" ref={runGroupRef}>
                   <button
@@ -639,7 +644,7 @@ export function TestingSecurityScreen(
                   </p>
                 ) : (
                   <ul className="ts-tree">
-                    {suiteTree.map((folder) => {
+                    {visibleSuiteTree.map((folder) => {
                       const folderOpen = openFolders.has(folder.path);
                       return (
                         <li key={folder.path} className="ts-tree__folder">
@@ -763,6 +768,18 @@ export function TestingSecurityScreen(
                     })}
                   </ul>
                 )}
+                {suiteTree.length > suiteVisibleCount ? (
+                  <button
+                    type="button"
+                    className="ov-btn ov-btn--ghost"
+                    style={{ marginTop: 8 }}
+                    onClick={() =>
+                      setSuiteVisibleCount((n) => n + SUITE_PAGE_SIZE)
+                    }
+                  >
+                    Show more ({suiteTree.length - suiteVisibleCount} remaining)
+                  </button>
+                ) : null}
 
                 <div className="ts-tests-head">
                   <h3 className="ts-section-label ts-section-label--flush">
@@ -896,7 +913,7 @@ export function TestingSecurityScreen(
                   <CardIcon icon={ShieldCheck} tone="emerald" size={13} />
                   {testing?.coverage?.present
                     ? testing.coverage.linePct !== undefined
-                      ? `${testing.coverage.linePct}% lines · ${testing.coverage.source}`
+                      ? `${testing.coverage.linePct}% ${testing.coverage.metric ?? "lines"} · ${testing.coverage.source}`
                       : `Coverage present · ${testing.coverage.source}`
                     : "No coverage artifact on disk"}
                 </p>
@@ -929,8 +946,14 @@ export function TestingSecurityScreen(
                 </InfoTip>
               </h2>
               <span className="ts-score">
-                {security ? `${Math.round(security.score)}` : "—"}
-                <span className="ts-score__unit">/100</span>
+                {security ? (
+                  <>
+                    {Math.round(security.score)}
+                    <span className="ts-score__unit">/100</span>
+                  </>
+                ) : (
+                  "—"
+                )}
               </span>
             </button>
 

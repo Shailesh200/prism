@@ -88,6 +88,54 @@
   font-size: 12px;
 }
 
+/* —— Copyable install command (MCP / CLI cards) —— */
+.int-install {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.int-install__cmd-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #2a334a;
+  border-radius: 8px;
+  background: #0a0e1a;
+  padding: 8px 10px;
+}
+
+.int-install__cmd {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.72rem;
+  color: #e2e8f0;
+  overflow-wrap: anywhere;
+}
+
+.int-install__copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  font: inherit;
+  font-size: 0.6875rem;
+  cursor: pointer;
+}
+
+.int-install__copy:hover {
+  color: var(--prism-brand, #00c2c2);
+}
+
+.int-install__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+
 /* —— Lighthouse Frontend toggle switch —— */
 .int-switch {
   display: inline-flex;

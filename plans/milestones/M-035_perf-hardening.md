@@ -46,7 +46,7 @@ The first is fixed; the second is recorded as a deliberate trust decision.
 |---|---|
 | 1.1 | Generated fixture repositories at three scales — roughly 1k, 10k and 50k files — produced by a committed script rather than committed wholesale |
 | 1.2 | Benchmark harness recording wall time, peak RSS and index size for: cold index, warm index, incremental index of one file, dependency graph, repository map, blast radius, DNA, health |
-| 1.3 | Baseline committed as `plans/notes/M-035-baseline.md` — numbers, machine, and the commit they came from |
+| 1.3 | Baseline pointer in `plans/notes/M-035-baseline.md` — measured numbers in [`08_PERFORMANCE.md`](../architecture/08_PERFORMANCE.md), ceilings in `scripts/bench/budgets.json` |
 | 1.4 | `bun run bench` task; **not** part of `verify:milestone` (too slow), but runnable and documented |
 
 ### Phase 2 — Budgets
@@ -141,6 +141,8 @@ the files cost eighteen times the time. It now scales linearly, which matters mo
 
 Full baseline, the reasoning behind each change, and the costs deliberately left in place:
 [`plans/architecture/08_PERFORMANCE.md`](../architecture/08_PERFORMANCE.md).
+Absolute timings there supersede the §8 table above; see
+[`plans/notes/M-035-baseline.md`](../notes/M-035-baseline.md).
 
 ## 9. References
 

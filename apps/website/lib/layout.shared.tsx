@@ -24,6 +24,7 @@ export function baseOptions(): BaseLayoutProps {
       { text: "Docs", url: "/docs", active: "nested-url" },
       { text: "Features", url: "/features" },
       { text: "Products", url: "/products" },
+      { text: "Benchmarks", url: "/benchmarks" },
       { text: "What's new", url: "/whats-new" },
     ],
     // Single GitHub control — do not also add a links[] icon (duplicates).

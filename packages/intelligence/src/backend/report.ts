@@ -11,12 +11,16 @@ import type {
   BackendReport,
   IndexSnapshot,
 } from "@repo-prism/shared";
+import {
+  isRelativeSpecifier,
+  resolveImportTarget,
+} from "../dependency/resolve.js";
 
 export type BuildBackendReportInput = {
   workspaceRoot: string;
   packageId?: string;
   packageRootDir?: string;
-  /** Optional index for import-based test linkage. */
+  /** Optional index for import-based test linkage + mount resolution. */
   index?: IndexSnapshot;
 };
 
@@ -39,6 +43,8 @@ const SKIP_DIRS = new Set([
   ".next",
   "coverage",
   ".prism",
+  "vendor",
+  ".turbo",
 ]);
 
 const HTTP_METHODS = [
@@ -58,8 +64,8 @@ const AUTH_HINT =
 const PUBLIC_HINT = /\b(@Public\b|allowAnonymous|noAuth|skipAuth)\b/i;
 
 /**
- * Build a typed BackendReport (M-044 / ADR-0015). Static heuristics over local
- * files; optional index improves test linkage.
+ * Build a typed BackendReport (M-044 / ADR-0015 / M-061). Static heuristics over
+ * local files; optional index improves test linkage and mount-point resolution.
  */
 export function buildBackendReport(
   input: BuildBackendReportInput,
@@ -70,11 +76,23 @@ export function buildBackendReport(
   );
   const routes: RawRoute[] = [];
   const frameworks = new Set<BackendFramework>();
+  const indexedPaths = new Set(
+    (input.index?.files ?? [])
+      .filter((f) => f.status === "analyzed")
+      .map((f) => f.path),
+  );
+  // Prefer on-disk file list when index is absent/sparse.
+  for (const f of files) indexedPaths.add(f);
 
+  const fileText = new Map<string, string>();
   for (const path of files) {
-    if (!/\.(tsx?|jsx?|mjs|cjs)$/i.test(path)) continue;
+    if (!/\.(tsx?|jsx?|mjs|cjs|graphql|gql|proto)$/i.test(path)) continue;
     const text = readText(input.workspaceRoot, path);
-    if (!text) continue;
+    if (text) fileText.set(path, text);
+  }
+
+  for (const [path, text] of fileText) {
+    if (!/\.(tsx?|jsx?|mjs|cjs)$/i.test(path)) continue;
     for (const r of extractNest(path, text)) {
       routes.push(r);
       frameworks.add(r.framework);
@@ -87,6 +105,41 @@ export function buildBackendReport(
       routes.push(r);
       frameworks.add(r.framework);
     }
+    for (const r of extractTrpc(path, text)) {
+      routes.push(r);
+      frameworks.add(r.framework);
+    }
+    for (const r of extractGraphqlJs(path, text)) {
+      routes.push(r);
+      frameworks.add(r.framework);
+    }
+  }
+
+  for (const [path, text] of fileText) {
+    if (/\.(graphql|gql)$/i.test(path)) {
+      for (const r of extractGraphqlSchema(path, text)) {
+        routes.push(r);
+        frameworks.add(r.framework);
+      }
+    }
+    if (/\.proto$/i.test(path)) {
+      for (const r of extractProtoServices(path, text)) {
+        routes.push(r);
+        frameworks.add(r.framework);
+      }
+    }
+  }
+
+  // Mount-point tracking: app.use('/api', router) → prefix child routes.
+  const mounted = expandMountPoints(
+    input.workspaceRoot,
+    fileText,
+    indexedPaths,
+    routes,
+  );
+  for (const r of mounted) {
+    routes.push(r);
+    frameworks.add(r.framework);
   }
 
   const dataLayer = scanDataLayer(input.workspaceRoot, files);
@@ -114,7 +167,10 @@ export function buildBackendReport(
       dataLayer: touchesData,
       confidence: r.confidence,
       evidence: r.evidence,
-      overlayNodeId: `api:route-file:${r.handlerFile}`,
+      overlayNodeId:
+        r.framework === "grpc"
+          ? `api:proto:${r.handlerFile}`
+          : `api:route-file:${r.handlerFile}`,
     };
   });
 
@@ -122,7 +178,7 @@ export function buildBackendReport(
   const untested = endpoints.filter((e) => !e.tested).length;
   const summary =
     endpoints.length === 0
-      ? "No HTTP routes detected (Express / Nest / Fastify heuristics)"
+      ? "No routes detected (Express / Nest / Fastify / tRPC / GraphQL / gRPC heuristics)"
       : `Backend: ${endpoints.length} endpoint(s)` +
         (frameworksDetected.length
           ? ` · ${frameworksDetected.join(", ")}`
@@ -298,6 +354,314 @@ export function extractExpressLike(
     }
   }
 
+  return out;
+}
+
+/**
+ * Resolve `app.use('/api', router)` mounts by following local import bindings
+ * and prefixing routes declared in the mounted module (M-061 P-E3).
+ */
+export function expandMountPoints(
+  workspaceRoot: string,
+  fileText: ReadonlyMap<string, string>,
+  indexedPaths: ReadonlySet<string>,
+  existing: readonly RawRoute[],
+): RawRoute[] {
+  const out: RawRoute[] = [];
+  const existingKeys = new Set(existing.map((r) => routeKey(r)));
+
+  for (const [path, text] of fileText) {
+    if (!/\.(tsx?|jsx?|mjs|cjs)$/i.test(path)) continue;
+    const mounts = [
+      ...text.matchAll(
+        /\b(?:app|server|router)\.use\s*\(\s*(['"`])([^'"`]+)\1\s*,\s*([A-Za-z_$][\w$]*)/g,
+      ),
+    ];
+    if (mounts.length === 0) continue;
+
+    const importMap = parseLocalImportBindings(text);
+    for (const m of mounts) {
+      const prefix = normalizePath(m[2] ?? "") || "/";
+      const binding = m[3]!;
+      const spec = importMap.get(binding);
+      if (!spec || !isRelativeSpecifier(spec)) continue;
+      const target =
+        resolveImportTarget(path, spec, indexedPaths) ??
+        resolveRelativeWithFallback(workspaceRoot, path, spec, fileText);
+      if (!target) continue;
+      const childText = fileText.get(target) ?? readText(workspaceRoot, target);
+      if (!childText) continue;
+
+      const childRoutes = [
+        ...extractExpressLike(target, childText, "express"),
+        ...extractExpressLike(target, childText, "fastify"),
+      ];
+      for (const child of childRoutes) {
+        const mounted: RawRoute = {
+          ...child,
+          path: joinPaths(prefix, child.path),
+          confidence: Math.min(child.confidence, 0.78),
+          evidence: [`mount:${path}:${prefix}`, ...child.evidence],
+        };
+        const key = routeKey(mounted);
+        if (existingKeys.has(key)) continue;
+        existingKeys.add(key);
+        out.push(mounted);
+      }
+    }
+  }
+  return out;
+}
+
+function parseLocalImportBindings(text: string): Map<string, string> {
+  const map = new Map<string, string>();
+  const re =
+    /import\s+(?:([A-Za-z_$][\w$]*)\s*,?\s*)?(?:\{([^}]*)\}\s*)?from\s*['"`]([^'"`]+)['"`]/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const spec = m[3]!;
+    if (m[1]) map.set(m[1], spec);
+    if (m[2]) {
+      for (const part of m[2].split(",")) {
+        const bit = part.trim();
+        if (!bit) continue;
+        const asMatch = /^([A-Za-z_$][\w$]*)\s+as\s+([A-Za-z_$][\w$]*)$/.exec(
+          bit,
+        );
+        if (asMatch) {
+          map.set(asMatch[2]!, spec);
+        } else {
+          const name = bit.replace(/\s+as\s+.*/, "").trim();
+          if (/^[A-Za-z_$][\w$]*$/.test(name)) map.set(name, spec);
+        }
+      }
+    }
+  }
+  // CommonJS: const x = require('./x')
+  const cjs =
+    /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*require\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g;
+  while ((m = cjs.exec(text)) !== null) {
+    map.set(m[1]!, m[2]!);
+  }
+  return map;
+}
+
+function resolveRelativeWithFallback(
+  workspaceRoot: string,
+  fromFile: string,
+  spec: string,
+  fileText: ReadonlyMap<string, string>,
+): string | null {
+  const indexed = new Set(fileText.keys());
+  const hit = resolveImportTarget(fromFile, spec, indexed);
+  if (hit) return hit;
+  // Last resort: try reading candidates from disk via list already loaded.
+  const dir = fromFile.includes("/")
+    ? fromFile.slice(0, fromFile.lastIndexOf("/"))
+    : "";
+  const cleaned = spec.replace(/^\.\//, "");
+  const candidates = [
+    join(dir, cleaned).replace(/\\/g, "/"),
+    join(dir, cleaned + ".ts").replace(/\\/g, "/"),
+    join(dir, cleaned + ".js").replace(/\\/g, "/"),
+    join(dir, cleaned, "index.ts").replace(/\\/g, "/"),
+  ];
+  for (const c of candidates) {
+    const norm = c.replace(/^\.\//, "");
+    if (fileText.has(norm)) return norm;
+    if (readText(workspaceRoot, norm)) return norm;
+  }
+  return null;
+}
+
+/** Extract `{ … }` body after `router(` using brace depth (not regex). */
+function extractRouterObjectBody(
+  text: string,
+  fromIndex: number,
+): string | null {
+  const open = text.indexOf("{", fromIndex);
+  if (open < 0) return null;
+  let depth = 0;
+  for (let i = open; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === "{") depth += 1;
+    else if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) return text.slice(open + 1, i);
+    }
+  }
+  return null;
+}
+
+function collectTrpcProcedures(
+  body: string,
+  prefix: string,
+  path: string,
+  out: RawRoute[],
+): void {
+  // Blank out nested router(...) spans so top-level procedure scans skip them.
+  let scanBody = body;
+  const nestedKey = /(\w+)\s*:\s*router\s*\(/g;
+  let nm: RegExpExecArray | null;
+  const nested: Array<{ name: string; body: string }> = [];
+  while ((nm = nestedKey.exec(body)) !== null) {
+    const openIdx = body.indexOf("{", nm.index + nm[0].length - 1);
+    if (openIdx < 0) continue;
+    const nestedBody = extractRouterObjectBody(body, openIdx);
+    if (nestedBody === null) continue;
+    // Include trailing `}` of the object in the blanked range.
+    const closeIdx = openIdx + 1 + nestedBody.length;
+    nested.push({ name: nm[1]!, body: nestedBody });
+    scanBody =
+      scanBody.slice(0, nm.index) +
+      " ".repeat(Math.max(1, closeIdx - nm.index + 1)) +
+      scanBody.slice(closeIdx + 1);
+  }
+
+  for (const n of nested) {
+    const childPrefix = prefix ? `${prefix}.${n.name}` : n.name;
+    collectTrpcProcedures(n.body, childPrefix, path, out);
+  }
+
+  const procedureRe =
+    /(\w+)\s*:\s*(publicProcedure|protectedProcedure|procedure)\b[\s\S]{0,240}?\.(query|mutation|subscription)\s*\(/g;
+  let pm: RegExpExecArray | null;
+  while ((pm = procedureRe.exec(scanBody)) !== null) {
+    const name = pm[1]!;
+    const kind = pm[3]!;
+    const procPath = prefix ? `${prefix}.${name}` : name;
+    out.push({
+      method: kind.toUpperCase(),
+      path: `/${procPath}`,
+      handlerFile: path,
+      handlerName: name,
+      framework: "trpc",
+      auth: pm[2] === "protectedProcedure" ? "authenticated" : "unknown",
+      confidence: 0.8,
+      evidence: [`${procPath}: ${kind}`],
+    });
+  }
+}
+
+/** tRPC `router({ … procedure … })` procedure paths (M-061 P-E3). */
+export function extractTrpc(path: string, text: string): RawRoute[] {
+  if (
+    !/\b(router|publicProcedure|protectedProcedure|procedure)\b/.test(text) &&
+    !/@trpc\//.test(text) &&
+    !/\btrpc\b/i.test(text)
+  ) {
+    return [];
+  }
+  const out: RawRoute[] = [];
+  // Match `= router(` / `return router(` root declarations; skip `name: router(`.
+  const rootRe = /(?<![:\w])router\s*\(/g;
+  let rm: RegExpExecArray | null;
+  let foundRoot = false;
+  while ((rm = rootRe.exec(text)) !== null) {
+    const before = text.slice(Math.max(0, rm.index - 8), rm.index);
+    if (/:\s*$/.test(before)) continue;
+    const body = extractRouterObjectBody(text, rm.index);
+    if (body === null) continue;
+    foundRoot = true;
+    collectTrpcProcedures(body, "", path, out);
+  }
+  if (!foundRoot) {
+    collectTrpcProcedures(text, "", path, out);
+  }
+  const seen = new Set<string>();
+  return out.filter((r) => {
+    const key = `${r.method}|${r.path}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/** GraphQL SDL `type Query/Mutation { field }` operations. */
+export function extractGraphqlSchema(path: string, text: string): RawRoute[] {
+  const out: RawRoute[] = [];
+  const typeRe = /type\s+(Query|Mutation|Subscription)\s*\{([^}]*)\}/g;
+  let m: RegExpExecArray | null;
+  while ((m = typeRe.exec(text)) !== null) {
+    const kind = m[1]!.toUpperCase();
+    const body = m[2] ?? "";
+    const fieldRe = /^\s*([A-Za-z_]\w*)\s*(\(|:)/gm;
+    let fm: RegExpExecArray | null;
+    while ((fm = fieldRe.exec(body)) !== null) {
+      const field = fm[1]!;
+      out.push({
+        method: kind,
+        path: `/${field}`,
+        handlerFile: path,
+        handlerName: field,
+        framework: "graphql",
+        auth: "unknown",
+        confidence: 0.85,
+        evidence: [`type ${m[1]} { ${field} }`],
+      });
+    }
+  }
+  return out;
+}
+
+/** GraphQL resolver map keys: `Query: { user() {} }`. */
+export function extractGraphqlJs(path: string, text: string): RawRoute[] {
+  if (
+    !/\b(resolvers?|makeExecutableSchema|ApolloServer|graphql)\b/i.test(text)
+  ) {
+    return [];
+  }
+  const out: RawRoute[] = [];
+  const mapRe = /(Query|Mutation|Subscription)\s*:\s*\{([\s\S]*?)\}/g;
+  let m: RegExpExecArray | null;
+  while ((m = mapRe.exec(text)) !== null) {
+    const kind = m[1]!.toUpperCase();
+    const body = m[2] ?? "";
+    const fieldRe =
+      /([A-Za-z_]\w*)\s*(?::\s*(?:async\s*)?(?:function\b|\(|[A-Za-z_$]))/g;
+    let fm: RegExpExecArray | null;
+    while ((fm = fieldRe.exec(body)) !== null) {
+      const field = fm[1]!;
+      if (["async", "function", "return"].includes(field)) continue;
+      out.push({
+        method: kind,
+        path: `/${field}`,
+        handlerFile: path,
+        handlerName: field,
+        framework: "graphql",
+        auth: "unknown",
+        confidence: 0.75,
+        evidence: [`resolvers.${m[1]}.${field}`],
+      });
+    }
+  }
+  return out;
+}
+
+/** `.proto` `service` / `rpc` → BackendReport endpoints (M-061 P-E3). */
+export function extractProtoServices(path: string, text: string): RawRoute[] {
+  const out: RawRoute[] = [];
+  const serviceRe = /service\s+(\w+)\s*\{([^}]*)\}/g;
+  let m: RegExpExecArray | null;
+  while ((m = serviceRe.exec(text)) !== null) {
+    const service = m[1]!;
+    const body = m[2] ?? "";
+    const rpcRe = /rpc\s+(\w+)\s*\(([^)]*)\)\s*returns\s*\(([^)]*)\)/g;
+    let rm: RegExpExecArray | null;
+    while ((rm = rpcRe.exec(body)) !== null) {
+      const rpc = rm[1]!;
+      out.push({
+        method: "RPC",
+        path: `/${service}/${rpc}`,
+        handlerFile: path,
+        handlerName: rpc,
+        framework: "grpc",
+        auth: "unknown",
+        confidence: 0.9,
+        evidence: [`service ${service} { rpc ${rpc} }`],
+      });
+    }
+  }
   return out;
 }
 
@@ -574,7 +938,9 @@ function listRepoFiles(root: string, prefix = ""): string[] {
   }
   const out: string[] = [];
   for (const name of entries) {
-    if (SKIP_DIRS.has(name)) continue;
+    // Dot-dirs (.bench, .turbo, .cache, …) hold tooling fixtures/caches, never
+    // product source — same rule as the overlay scanner.
+    if (SKIP_DIRS.has(name) || name.startsWith(".")) continue;
     const rel = prefix ? `${prefix}/${name}` : name;
     let st;
     try {

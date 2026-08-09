@@ -1,6 +1,6 @@
 /**
- * Graph and navigation tools (M-027): dependencies, symbols, features and the
- * routes between them.
+ * Graph and navigation tools (M-027 / M-058): dependencies, symbols, features
+ * and the routes between them.
  *
  * These are the tools that can return the most data, so every one of them is
  * bounded and every description says when the cheaper alternative is better.
@@ -15,7 +15,13 @@ import {
   prismError,
 } from "@repo-prism/shared";
 import { z } from "zod";
-import { boundList, limitInput } from "../limits.js";
+import {
+  boundGraph,
+  boundList,
+  clampLimit,
+  limitInput,
+  topDegreeNodes,
+} from "../limits.js";
 import { toWorkspaceRelative } from "../paths.js";
 import { defineTool } from "../tool-registry.js";
 
@@ -26,26 +32,63 @@ const packageAggregation = z
     "Aggregate file nodes into package nodes. Much smaller output on a monorepo; prefer it unless you need file-level detail.",
   );
 
+const summaryOnly = z
+  .boolean()
+  .optional()
+  .describe(
+    "When true, return counts plus top-degree nodes only (no full edge list). Prefer this for orientation.",
+  );
+
 export const dependencyGraph = defineTool({
   name: "dependency_graph",
   title: "Dependency graph",
   description:
-    "The import/re-export dependency graph, at file level or aggregated to packages. Large on any real repository — prefer packageAggregation, or use blast_radius if your question is about one file rather than the whole graph.",
+    "The import/re-export dependency graph, at file level or aggregated to packages. Includes unresolvedImports { count, sample } for specs that did not resolve into the graph. Bounded by default (limit 50 nodes); use summaryOnly for counts + top-degree nodes. Prefer packageAggregation, or use blast_radius if your question is about one file rather than the whole graph.",
   inputSchema: {
     packageAggregation,
     resolveAliases: z
       .boolean()
       .optional()
       .describe("Resolve tsconfig paths and package imports (default true)."),
+    limit: limitInput,
+    summaryOnly,
   },
   async call({ workspace }, args) {
-    return workspace.getDependencyGraph({
+    const result = workspace.getDependencyGraph({
       ...(args.packageAggregation === undefined
         ? {}
         : { packageAggregation: args.packageAggregation }),
       ...(args.resolveAliases === undefined
         ? {}
         : { resolveAliases: args.resolveAliases }),
+    });
+    if (!result.ok) return result;
+    const graph = result.value;
+    if (args.summaryOnly) {
+      const top = topDegreeNodes(graph, args.limit);
+      return ok({
+        ...top,
+        summaryOnly: true as const,
+        id: graph.id,
+        nodeCount: graph.nodes.length,
+        edgeCount: graph.edges.length,
+        ...(graph.unresolvedImports
+          ? { unresolvedImports: graph.unresolvedImports }
+          : {}),
+      });
+    }
+    const bounded = boundGraph(graph.nodes, graph.edges, args.limit);
+    return ok({
+      items: bounded.items,
+      totalCount: bounded.totalCount,
+      truncated: bounded.truncated,
+      limit: bounded.limit,
+      summaryOnly: false as const,
+      id: graph.id,
+      edges: bounded.edges,
+      ...(graph.unresolvedImports
+        ? { unresolvedImports: graph.unresolvedImports }
+        : {}),
     });
   },
 });
@@ -71,10 +114,57 @@ export const knowledgeGraph = defineTool({
   name: "knowledge_graph",
   title: "Knowledge graph",
   description:
-    "The symbol-level graph — declarations and the references between them — with summary stats. Very large on a big repository. If you are looking for one symbol use find_symbol, and for its callers use find_references.",
-  inputSchema: {},
-  async call({ workspace }) {
-    return workspace.getKnowledgeGraph();
+    "The symbol-level graph — declarations and the references between them — with summary stats. Requires path (scope to one file) or limit (bound nodes). Very large on a big repository. If you are looking for one symbol use find_symbol or search_symbols, and for its callers use find_references.",
+  inputSchema: {
+    path: z
+      .string()
+      .min(1)
+      .optional()
+      .describe("Workspace-relative file to scope the graph to."),
+    limit: limitInput,
+  },
+  async call({ workspace, workspaceRoot }, args) {
+    if (args.path === undefined && args.limit === undefined) {
+      return err(
+        prismError(
+          PrismErrorCode.VALIDATION,
+          "knowledge_graph requires `path` or `limit` (unbounded dumps are locked)",
+        ),
+      );
+    }
+
+    let scopedPath: string | undefined;
+    if (args.path !== undefined) {
+      const relative = toWorkspaceRelative(workspaceRoot, args.path);
+      if (!relative.ok) return relative;
+      scopedPath = relative.value;
+    }
+
+    const result = workspace.getKnowledgeGraph();
+    if (!result.ok) return result;
+    const { graph, stats } = result.value;
+
+    let nodes = graph.nodes;
+    if (scopedPath !== undefined) {
+      const fileId = `file:${scopedPath}`;
+      nodes = graph.nodes.filter((node) => {
+        if (node.id === fileId) return true;
+        const attrs = node.attrs as { path?: unknown } | undefined;
+        return attrs?.path === scopedPath;
+      });
+    }
+
+    const bounded = boundGraph(nodes, graph.edges, args.limit);
+    return ok({
+      items: bounded.items,
+      totalCount: bounded.totalCount,
+      truncated: bounded.truncated,
+      limit: bounded.limit,
+      id: graph.id,
+      edges: bounded.edges,
+      stats,
+      ...(scopedPath !== undefined ? { path: scopedPath } : {}),
+    });
   },
 });
 
@@ -82,10 +172,37 @@ export const featureGraph = defineTool({
   name: "feature_graph",
   title: "Feature graph",
   description:
-    "Inferred features and how they depend on each other. Features are heuristic groupings of files, not a declared structure, so treat them as a starting point rather than ground truth.",
-  inputSchema: {},
-  async call({ workspace }) {
-    return workspace.getFeatureGraph();
+    "Inferred features and how they depend on each other. Features are heuristic groupings of files, not a declared structure, so treat them as a starting point rather than ground truth. Bounded by default (limit 50 nodes); use summaryOnly for counts + top-degree nodes.",
+  inputSchema: {
+    limit: limitInput,
+    summaryOnly,
+  },
+  async call({ workspace }, args) {
+    const result = workspace.getFeatureGraph();
+    if (!result.ok) return result;
+    const { graph, features } = result.value;
+    if (args.summaryOnly) {
+      const top = topDegreeNodes(graph, args.limit);
+      return ok({
+        ...top,
+        summaryOnly: true as const,
+        id: graph.id,
+        nodeCount: graph.nodes.length,
+        edgeCount: graph.edges.length,
+        featureCount: features.length,
+      });
+    }
+    const bounded = boundGraph(graph.nodes, graph.edges, args.limit);
+    return ok({
+      items: bounded.items,
+      totalCount: bounded.totalCount,
+      truncated: bounded.truncated,
+      limit: bounded.limit,
+      summaryOnly: false as const,
+      id: graph.id,
+      edges: bounded.edges,
+      features,
+    });
   },
 });
 
@@ -106,9 +223,9 @@ export const findSymbol = defineTool({
   name: "find_symbol",
   title: "Find symbol",
   description:
-    "Find indexed symbols by name, optionally narrowed by file or kind. Use to locate a definition before asking about its impact.",
+    "Find indexed symbols by exact name, optionally narrowed by file or kind. Use to locate a definition before asking about its impact. For substring or regex search use search_symbols.",
   inputSchema: {
-    name: z.string().min(1).describe("Symbol name to search for."),
+    name: z.string().min(1).describe("Exact symbol name to search for."),
     path: z
       .string()
       .min(1)
@@ -134,6 +251,70 @@ export const findSymbol = defineTool({
     });
     if (!result.ok) return result;
     return { ok: true as const, value: boundList(result.value, args.limit) };
+  },
+});
+
+export const searchSymbols = defineTool({
+  name: "search_symbols",
+  title: "Search symbols",
+  description:
+    "Substring or regex search over indexed symbol names (unlike find_symbol, which is exact-match only). Optional kind/path filters. Hard-capped at 50 hits.",
+  inputSchema: {
+    pattern: z
+      .string()
+      .min(1)
+      .describe(
+        "Substring to match (case-insensitive), or RegExp source when regex is true.",
+      ),
+    regex: z
+      .boolean()
+      .optional()
+      .describe(
+        "Treat pattern as a JavaScript RegExp source. Default false (substring).",
+      ),
+    path: z
+      .string()
+      .min(1)
+      .optional()
+      .describe("Workspace-relative file to restrict the search to."),
+    kind: z
+      .string()
+      .min(1)
+      .optional()
+      .describe("Symbol kind filter, e.g. 'function', 'class'."),
+    limit: z
+      .number()
+      .int()
+      .optional()
+      .describe("Maximum hits to return (default 50, hard max 50)."),
+  },
+  async call({ workspace, workspaceRoot }, args) {
+    const path = args.path
+      ? toWorkspaceRelative(workspaceRoot, args.path)
+      : undefined;
+    if (path && !path.ok) return path;
+
+    const limit =
+      args.limit === undefined ? 50 : Math.min(Math.max(args.limit, 1), 50);
+
+    const result = workspace.searchSymbols({
+      pattern: args.pattern,
+      ...(args.regex === undefined ? {} : { regex: args.regex }),
+      ...(path?.ok ? { path: path.value } : {}),
+      ...(args.kind ? { kind: args.kind } : {}),
+      limit,
+    });
+    if (!result.ok) return result;
+    // Core already hard-caps; envelope still reports totals honestly.
+    return {
+      ok: true as const,
+      value: {
+        items: result.value,
+        totalCount: result.value.length,
+        truncated: false,
+        limit: clampLimit(limit),
+      },
+    };
   },
 });
 
@@ -169,7 +350,23 @@ export const findReferences = defineTool({
       ...(args.start === undefined ? {} : { start: args.start }),
     });
     if (!result.ok) return result;
-    return { ok: true as const, value: boundList(result.value, args.limit) };
+    if (result.value.ambiguous) {
+      const candidates = [...(result.value.candidates ?? [])];
+      const bounded = boundList(candidates, args.limit);
+      return {
+        ok: true as const,
+        value: {
+          ...bounded,
+          ambiguous: true,
+          candidates: bounded.items,
+          references: [],
+        },
+      };
+    }
+    return {
+      ok: true as const,
+      value: boundList([...result.value.references], args.limit),
+    };
   },
 });
 
@@ -280,6 +477,7 @@ export const GRAPH_TOOLS = [
   featureGraph,
   listFeatures,
   findSymbol,
+  searchSymbols,
   findReferences,
   dependencyRoute,
 ];

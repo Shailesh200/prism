@@ -188,6 +188,7 @@ describe("local-only analysis makes no network calls (M-036 Phase 3)", () => {
     ["getSecurityReport", () => workspace.getSecurityReport()],
     ["getBackendReport", () => workspace.getBackendReport()],
     ["getOverviewModel", () => workspace.getOverviewModel()],
+    ["getDomainReport", () => workspace.getDomainReport("frontend")],
     ["getGitActivity", () => workspace.getGitActivity()],
     ["getChangedPaths", () => workspace.getChangedPaths()],
     [

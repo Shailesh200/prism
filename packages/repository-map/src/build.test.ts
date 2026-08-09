@@ -198,6 +198,40 @@ describe("buildRepositoryMap (M-017)", () => {
       "map:feat:feat:d:feat:e",
     ]);
   });
+
+  it("reports symbol zoom truncation when a file has more than 8 symbols (M-056)", () => {
+    const symbols = Array.from({ length: 12 }, (_, i) => ({
+      name: `sym${String(i).padStart(2, "0")}`,
+      kind: "function" as const,
+      start: i,
+      end: i + 1,
+    }));
+    const map = buildRepositoryMap({
+      snapshot: snapshot([
+        {
+          path: "src/big.ts",
+          pluginId: "typescript",
+          contentHash: "1",
+          status: "analyzed",
+          symbols,
+          imports: [],
+          exports: [],
+          references: [],
+          diagnostics: [],
+        },
+      ]),
+      dependencyGraph: { id: "deps", nodes: [], edges: [] },
+      features: [],
+      landmarks: [],
+      packages: [],
+      zoom: "symbol",
+      generatedAt: "2026-07-20T12:00:00.000Z",
+    });
+    expect(map.truncated).toBe(true);
+    expect(map.totalCount).toBe(12);
+    expect(map.graph.nodes.filter((n) => n.kind === "symbol")).toHaveLength(8);
+    expect(RepositoryMapSchema.safeParse(map).success).toBe(true);
+  });
 });
 
 function feature(id: string, memberFiles: string[]): FeatureInfo {

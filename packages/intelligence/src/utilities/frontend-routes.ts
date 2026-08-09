@@ -5,75 +5,25 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import {
+  extractFrontendRoutesFromSource,
+  hasDynamicRouteSegment,
+  routeFromPageFilePath,
+} from "./frontend-route-paths.js";
 import { resolveLabAppRoot } from "./lab-server.js";
+
+export {
+  extractFrontendRoutesFromSource,
+  hasDynamicRouteSegment,
+  heuristicFrontendRoutes,
+  normalizeFrontendRoute,
+  routeFromPageFilePath,
+} from "./frontend-route-paths.js";
 
 const MAX_ROUTES = 100;
 const MAX_FILES = 200;
 const MAX_FILE_BYTES = 400_000;
 const MAX_WALK_DEPTH = 12;
-
-/** Normalize a path to `/foo` form (no trailing slash except `/`). */
-export function normalizeFrontendRoute(path: string): string {
-  let p = path.trim();
-  if (!p) return "/";
-  if (!p.startsWith("/")) p = `/${p}`;
-  if (p.length > 1 && p.endsWith("/")) p = p.slice(0, -1);
-  return p || "/";
-}
-
-/**
- * Pull route paths from React Router JSX / SEO catalogs / path literals.
- * Relative `path="login"` entries become `/login` (pathless layout parents).
- */
-export function extractFrontendRoutesFromSource(source: string): string[] {
-  const routes = new Set<string>();
-
-  for (const m of source.matchAll(/\bpath\s*:\s*['"](\/[^'"]*)['"]/g)) {
-    const raw = m[1];
-    if (!raw || raw.includes("*")) continue;
-    routes.add(normalizeFrontendRoute(raw));
-  }
-
-  for (const m of source.matchAll(
-    /<Route\b[^>]*\bpath\s*=\s*\{?\s*['"]([^'"]+)['"]\s*\}?/g,
-  )) {
-    const raw = m[1]?.trim();
-    if (!raw || raw === "*" || raw.includes("*")) continue;
-    routes.add(normalizeFrontendRoute(raw));
-  }
-
-  if (/<Route\b[^>]*\bindex\b/.test(source)) {
-    routes.add("/");
-  }
-
-  return [...routes];
-}
-
-/** Strip Next route-group `(…)`, intercepting `(.)…`, and parallel `@…` segments. */
-function stripNextSpecialSegments(seg: string): string {
-  return seg
-    .replace(/\/@[A-Za-z0-9_-]+/g, "")
-    .replace(/\/\(\.{1,4}\)[^/]+/g, "")
-    .replace(/\/\([^)]+\)/g, "");
-}
-
-/** Next.js / pages file path → URL route. */
-export function routeFromPageFilePath(filePath: string): string | null {
-  const norm = filePath.replace(/\\/g, "/");
-  const app = /(?:^|\/)app(?:(\/.*?))?\/page\.(tsx?|jsx?)$/i.exec(norm);
-  if (app) {
-    const seg = stripNextSpecialSegments(app[1] ?? "");
-    return normalizeFrontendRoute(seg === "" ? "/" : seg);
-  }
-  const pages = /(?:^|\/)pages(\/.*?)\.(tsx?|jsx?)$/i.exec(norm);
-  if (pages) {
-    let seg = pages[1]!.replace(/\/index$/i, "");
-    if (seg.startsWith("/_")) return null;
-    if (seg === "") seg = "/";
-    return normalizeFrontendRoute(seg);
-  }
-  return null;
-}
 
 function shouldScanRouterFile(name: string): boolean {
   const n = name.toLowerCase();
@@ -226,11 +176,19 @@ function candidateRoots(workspaceRoot: string): string[] {
 /**
  * Scan the workspace for frontend URL routes (Next pages + Router/SEO sources).
  * Always includes `/`. Caps result size for UI.
+ *
+ * When `appRoot` is given (e.g. the app Prism just built + previewed), only
+ * that package is scanned — in a monorepo, workspace-wide discovery would
+ * otherwise mix routes from sibling frontends that the measured origin does
+ * not serve (SPA fallback makes every URL look measurable).
  */
-export function discoverFrontendAppRoutes(workspaceRoot: string): string[] {
+export function discoverFrontendAppRoutes(
+  workspaceRoot: string,
+  appRoot?: string,
+): string[] {
   const routes = new Set<string>(["/"]);
   const files: string[] = [];
-  const roots = candidateRoots(workspaceRoot);
+  const roots = appRoot ? [appRoot] : candidateRoots(workspaceRoot);
 
   // Preferential: walk known Next route trees first so page.tsx files are not
   // crowded out by unrelated sources in large monorepos.
@@ -261,7 +219,13 @@ export function discoverFrontendAppRoutes(workspaceRoot: string): string[] {
   }
 
   return [...routes]
-    .filter((r) => r.length > 0 && !r.includes("*") && isLikelyUrlRoute(r))
+    .filter(
+      (r) =>
+        r.length > 0 &&
+        !r.includes("*") &&
+        !hasDynamicRouteSegment(r) &&
+        isLikelyUrlRoute(r),
+    )
     .sort((a, b) => {
       if (a === "/") return -1;
       if (b === "/") return 1;

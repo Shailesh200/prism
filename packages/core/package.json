@@ -27,6 +27,9 @@
     "@repo-prism/repository-map": "workspace:*",
     "@repo-prism/shared": "workspace:*"
   },
+  "engines": {
+    "node": ">=22"
+  },
   "devDependencies": {
     "@repo-prism/test-support": "workspace:*"
   },

@@ -26,7 +26,11 @@ function snapshot(
 
 function analyzed(
   path: string,
-  imports: Array<{ source: string; specifiers?: string[] }> = [],
+  imports: Array<{
+    source: string;
+    specifiers?: string[];
+    kind?: "import" | "require";
+  }> = [],
   exports: Array<{ name: string; kind?: string; source?: string }> = [],
 ): IndexSnapshot["files"][number] {
   return {
@@ -38,6 +42,7 @@ function analyzed(
     imports: imports.map((i) => ({
       source: i.source,
       specifiers: i.specifiers ?? [],
+      ...(i.kind === undefined ? {} : { kind: i.kind }),
     })),
     exports: exports.map((e) => ({
       name: e.name,
@@ -70,6 +75,31 @@ describe("buildDependencyGraph", () => {
       "file:c.ts->file:a.ts",
     ]);
     expect(result.cycles).toEqual([["file:a.ts", "file:b.ts", "file:c.ts"]]);
+  });
+
+  it("emits require edges for CommonJS require() (P-E4)", () => {
+    const root = mkdtempSync(join(tmpdir(), "prism-m059-cjs-"));
+    const snap = snapshot(root, [
+      analyzed("main.js", [{ source: "./util.js", kind: "require" }]),
+      analyzed("util.js"),
+    ]);
+    const result = buildDependencyGraph(snap);
+    expect(
+      result.graph.edges.map((e) => `${e.from}->${e.to}:${e.kind}`),
+    ).toEqual(["file:main.js->file:util.js:require"]);
+  });
+
+  it("marks .d.ts importer edges typeOnly (P-E7)", () => {
+    const root = mkdtempSync(join(tmpdir(), "prism-m059-dts-"));
+    const snap = snapshot(root, [
+      analyzed("ambient.d.ts", [{ source: "./runtime.ts" }]),
+      analyzed("runtime.ts"),
+    ]);
+    const result = buildDependencyGraph(snap);
+    const edge = result.graph.edges.find(
+      (e) => e.from === "file:ambient.d.ts" && e.to === "file:runtime.ts",
+    );
+    expect(edge?.attrs?.["typeOnly"]).toBe(true);
   });
 
   it("includes re-export edges", () => {

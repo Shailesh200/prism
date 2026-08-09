@@ -78,7 +78,8 @@ export function defaultExcludeGlobs(
 
 export const DEFAULT_SETTINGS: PrismSettingsV1 = {
   displayName: "",
-  autoReindex: false,
+  /** M-057 P-B1 — keep the index warm; status bar shows stale when dirty. */
+  autoReindex: true,
   autoReindexInterval: "15m",
   excludeGlobs: "",
   maxFileSize: "5mb",

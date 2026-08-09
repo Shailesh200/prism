@@ -35,9 +35,19 @@ otherwise and mean different things.
 
 - Impact → enter a path → blast radius, tests, features.
 - Change review reads the working tree for aggregate risk.
+- **Review All Changes** (SCM title bar, or `Cmd/Ctrl+Alt+R`) reviews every
+  dirty path from git.
+- **Blast Quick Pick** (`Cmd/Ctrl+Alt+B`) shows risk + top dependents without
+  opening the full panel.
 - Map zoom: repository → package → feature → file → symbol; layers overlay
   coupling, churn, tests, risk.
 - Right-click: Blast Radius, Safe Delete, Explain, Reveal on Map.
+
+## Multi-root workspaces
+
+Prism indexes every workspace folder on activation (the first folder is active;
+others are warm-indexed in the background). Use the status-bar menu →
+**Switch workspace folder…** to change which root Impact, Map, and Review use.
 
 ## Cursor: extension + agent
 

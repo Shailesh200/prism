@@ -11,11 +11,12 @@ default that works.
 The one setting worth attention — it is behind most surprises about speed and
 file counts.
 
-Prism combines three sources:
+Prism combines these sources:
 
 1. A builtin list of directories nobody wants indexed
 2. Your `.gitignore`
 3. `.prismignore` at the repository root, if present
+4. Optional `excludeGlobs` in [`.prism/config.json`](#prismconfigjson)
 
 `.prismignore` uses gitignore syntax and applies on top of the others. Use it
 for things that belong in the repository but not in the analysis — generated
@@ -30,6 +31,25 @@ Defaults already cover `node_modules`, `dist`, `build`, `.next`, `out`,
 `coverage`, `.git`, `.turbo`, `.cache`, minified JavaScript and source maps, plus
 ecosystem-specific additions once Prism detects the ecosystem.
 
+## `.prism/config.json`
+
+Shared indexing knobs for CLI and IDE (Core reads this at workspace open):
+
+```json
+{
+  "excludeGlobs": ["vendor/**", "fixtures/large/**"],
+  "maxFileBytes": 5242880
+}
+```
+
+| Field | Effect |
+|---|---|
+| `excludeGlobs` | Extra gitignore-style patterns |
+| `maxFileBytes` | Skip hashing files larger than this; `null` = no limit |
+
+Precedence when indexing: CLI / API flags → `.prism/config.json` → defaults
+(5 MiB max file size).
+
 ## Environment variables
 
 | Variable | Effect |
@@ -40,8 +60,8 @@ ecosystem-specific additions once Prism detects the ecosystem.
 
 ## CLI
 
-Everything is a flag; there is no configuration file. See
-[using the CLI](/docs/cli/usage) for global options and
+Most behaviour is flags; indexing also honours [`.prism/config.json`](#prismconfigjson).
+See [using the CLI](/docs/cli/usage) for global options and
 [the command reference](/docs/reference/cli-commands) for per-command options.
 
 Workspace resolution, most explicit first: `--workspace`, then
@@ -72,7 +92,7 @@ See [IDE settings](/docs/ide/settings). One VS Code setting lives in the editor:
 
 | Setting | Default | Effect |
 |---|---|---|
-| `prism.codeLens.enabled` | `false` | Blast Radius, Ownership and Map lenses above the first line |
+| `prism.codeLens.enabled` | `true` | Blast Radius, Ownership and Map lenses above the first line of TS/JS files |
 
 Consent and privacy toggles are documented under
 [consent and privacy](/docs/concepts/consent-and-privacy).

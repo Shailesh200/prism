@@ -141,4 +141,20 @@ describe("buildFeatureGraph", () => {
       ),
     ).toBe(true);
   });
+
+  it("falls back to community detection with inferred provenance (M-061 P-E2)", () => {
+    const snap = syntheticSnapshot([
+      analyzed("lib/alpha/a.ts", [{ source: "./b.js" }]),
+      analyzed("lib/alpha/b.ts", [{ source: "./a.js" }]),
+      analyzed("lib/beta/c.ts", [{ source: "./d.js" }]),
+      analyzed("lib/beta/d.ts", [{ source: "./c.js" }]),
+    ]);
+    const result = buildFeatureGraph(snap);
+    expect(result.features.length).toBeGreaterThanOrEqual(1);
+    for (const f of result.features) {
+      expect(f.provenance).toBe("inferred");
+      expect(f.confidence).toBeLessThanOrEqual(0.5);
+      expect(f.evidence.some((e) => e.startsWith("community:"))).toBe(true);
+    }
+  });
 });

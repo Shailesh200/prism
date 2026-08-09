@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
+import { writePrismConfig } from "@repo-prism/core";
 import type * as vscode from "vscode";
 import { openPlaygroundInBrowser } from "../open-playground.js";
 import { checkHealthRegression } from "../health-alerts.js";
@@ -19,6 +20,13 @@ import type {
   WebviewToHost,
 } from "../protocol.js";
 import { parseWebviewToHost } from "../protocol-guards.js";
+import {
+  AUTO_REINDEX_INTERVAL_STATE_KEY,
+  AUTO_REINDEX_STATE_KEY,
+  getActiveWorkspaceWatch,
+  MIN_REINDEX_DEBOUNCE_MS,
+  resolveAutoReindexEnabled,
+} from "../workspace-watch.js";
 
 /** Deep-link payload forwarded alongside a `navigate` message (M-048 Phase 2/3). */
 type NavigateExtras = {
@@ -29,10 +37,7 @@ type NavigateExtras = {
   readonly intent?: "edit" | "delete";
 };
 
-const AUTO_REINDEX_STATE_KEY = "prism.autoReindex";
-const AUTO_REINDEX_INTERVAL_STATE_KEY = "prism.autoReindexIntervalMs";
 const LOCAL_ONLY_STATE_KEY = "prism.localOnlyAnalysis";
-const AUTO_REINDEX_DEBOUNCE_MS = 1500;
 
 function nonce(): string {
   const chars =
@@ -53,14 +58,13 @@ export class PrismPanel {
     layers: ["architecture", "dependency"],
   };
   private disposables: vscode.Disposable[] = [];
-  private watcher: vscode.FileSystemWatcher | undefined;
   private reindexTimer: ReturnType<typeof setTimeout> | undefined;
   /** Queued until the webview posts `ready` (first paint race). */
   private pendingNavigate: ({ view: AppView } & NavigateExtras) | undefined;
   private pendingShowTour = false;
   private webviewReady = false;
   private reindexInFlight = false;
-  private reindexDebounceMs = AUTO_REINDEX_DEBOUNCE_MS;
+  private reindexDebounceMs = MIN_REINDEX_DEBOUNCE_MS;
 
   private constructor(
     panel: vscode.WebviewPanel,
@@ -87,12 +91,14 @@ export class PrismPanel {
       this.panel.onDidDispose(() => this.dispose()),
     );
 
-    if (this.context.workspaceState.get<boolean>(AUTO_REINDEX_STATE_KEY)) {
-      const storedInterval = this.context.workspaceState.get<number>(
-        AUTO_REINDEX_INTERVAL_STATE_KEY,
-      );
-      this.setAutoReindex(true, storedInterval);
-    }
+    // Activation already owns the FS watch (M-057 P-B1). Sync preference only.
+    const stored = this.context.workspaceState.get<boolean>(
+      AUTO_REINDEX_STATE_KEY,
+    );
+    const storedInterval = this.context.workspaceState.get<number>(
+      AUTO_REINDEX_INTERVAL_STATE_KEY,
+    );
+    this.setAutoReindex(resolveAutoReindexEnabled(stored), storedInterval);
   }
 
   static show(
@@ -198,6 +204,23 @@ export class PrismPanel {
       this.setAutoReindex(msg.enabled, msg.intervalMs);
       return;
     }
+    if (msg.type === "writePrismConfig") {
+      const root = this.session.root;
+      if (!root) {
+        this.log.warn("writePrismConfig: no workspace root");
+        return;
+      }
+      const written = await writePrismConfig(root, {
+        excludeGlobs: msg.excludeGlobs,
+        maxFileBytes: msg.maxFileBytes,
+      });
+      if (!written.ok) {
+        this.log.warn(`writePrismConfig failed: ${written.error.message}`);
+      } else {
+        this.log.info("Wrote .prism/config.json from Settings");
+      }
+      return;
+    }
     if (msg.type === "setCodeLens") {
       await this.vscodeApi.workspace
         .getConfiguration("prism")
@@ -285,28 +308,21 @@ export class PrismPanel {
   private setAutoReindex(enabled: boolean, intervalMs?: number): void {
     void this.context.workspaceState.update(AUTO_REINDEX_STATE_KEY, enabled);
     if (typeof intervalMs === "number" && Number.isFinite(intervalMs)) {
-      this.reindexDebounceMs = Math.max(AUTO_REINDEX_DEBOUNCE_MS, intervalMs);
+      this.reindexDebounceMs = Math.max(MIN_REINDEX_DEBOUNCE_MS, intervalMs);
       void this.context.workspaceState.update(
         AUTO_REINDEX_INTERVAL_STATE_KEY,
         this.reindexDebounceMs,
       );
     }
-    this.disposeWatcher();
-    if (!enabled) {
-      this.session.stopWatch();
-      this.log.info("Auto Re-Index / watch off");
-      return;
+    if (this.reindexTimer) {
+      clearTimeout(this.reindexTimer);
+      this.reindexTimer = undefined;
     }
-    const root = this.session.root;
-    if (!root) {
-      this.log.info("Auto Re-Index requested but no workspace root");
-      return;
-    }
-    const started = this.session.startWatch({
-      debounceMs: this.reindexDebounceMs,
-      onChange: (freshness) => {
-        if (freshness.status === "fresh") {
-          // Soft refresh only — never bounce the user back to Overview.
+    const watch = getActiveWorkspaceWatch();
+    if (watch) {
+      watch.setOnChange(() => {
+        const freshness = this.session.getIndexFreshness();
+        if (freshness.ok && freshness.value.status === "fresh") {
           this.postDataRefresh();
           void checkHealthRegression(
             this.vscodeApi,
@@ -314,49 +330,14 @@ export class PrismPanel {
             this.context,
           );
         }
-        // Do not post status kind:"loading" — that blanked the whole webview
-        // behind an "Indexing…" screen (CodeLens / Review / Explain looked
-        // like a full reindex every time).
-      },
-    });
-    if (!started.ok) {
-      this.log.warn(`startWatch failed: ${started.error.message}`);
+      });
+      watch.setEnabled(enabled, this.reindexDebounceMs);
+      return;
     }
-    const pattern = new this.vscodeApi.RelativePattern(root, "**/*");
-    const watcher = this.vscodeApi.workspace.createFileSystemWatcher(pattern);
-    const toRel = (uri: vscode.Uri): string => {
-      const rel = this.vscodeApi.workspace.asRelativePath(uri, false);
-      return rel.replace(/\\/g, "/");
-    };
-    watcher.onDidCreate((uri) => {
-      this.session.notifyWatchPaths({ changedPaths: [toRel(uri)] });
-    });
-    watcher.onDidChange((uri) => {
-      this.session.notifyWatchPaths({ changedPaths: [toRel(uri)] });
-    });
-    watcher.onDidDelete((uri) => {
-      this.session.notifyWatchPaths({ deletedPaths: [toRel(uri)] });
-    });
-    this.watcher = watcher;
-    this.disposables.push(watcher);
-    this.log.info(
-      `Watch on — Core dirty-set reindex (debounce ${Math.round(
-        this.reindexDebounceMs / 1000,
-      )}s)`,
-    );
-  }
-
-  private disposeWatcher(): void {
-    if (this.reindexTimer) {
-      clearTimeout(this.reindexTimer);
-      this.reindexTimer = undefined;
-    }
-    this.session.stopWatch();
-    if (this.watcher) {
-      const w = this.watcher;
-      this.watcher = undefined;
-      w.dispose();
-      this.disposables = this.disposables.filter((d) => d !== w);
+    // Fallback if activation has not wired the controller yet.
+    if (!enabled) {
+      this.session.stopWatch();
+      this.log.info("Auto Re-Index / watch off");
     }
   }
 
@@ -625,7 +606,11 @@ export class PrismPanel {
 
   dispose(): void {
     PrismPanel.current = undefined;
-    this.disposeWatcher();
+    // Activation owns the FS watch — closing the panel must not stop it (P-B1).
+    if (this.reindexTimer) {
+      clearTimeout(this.reindexTimer);
+      this.reindexTimer = undefined;
+    }
     for (const d of this.disposables) d.dispose();
     this.disposables = [];
   }

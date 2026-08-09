@@ -46,9 +46,10 @@ import {
   activityGeometry,
   bucketActivity,
   buildReportMarkdown,
-  clampPct,
+  connectedNodeLabel,
   couplingBadge as couplingBadgeFor,
   couplingDensity,
+  couplingDensityPct,
   DEFAULT_ACTIVITY_RANGE,
   deriveMostConnected,
   deriveRegions,
@@ -63,6 +64,31 @@ import {
 /** Epoch-ms → `YYYY-MM-DD` for `<input type="date">` values. */
 function toDayInput(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10);
+}
+
+/** Best-effort path from a commit subject when it names a repo file. */
+function guessPathFromCommitMessage(
+  message: string,
+  map: RepositoryMap,
+): string | null {
+  const tokens = message.match(
+    /[A-Za-z0-9_./-]+\.(?:ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|kt|swift|md|json|yml|yaml)/g,
+  );
+  if (!tokens) return null;
+  const fileLabels = new Set(
+    map.graph.nodes
+      .filter((n) => n.kind === "file")
+      .map((n) => n.label.replace(/\\/g, "/")),
+  );
+  for (const token of tokens) {
+    const normalized = token.replace(/\\/g, "/");
+    if (fileLabels.has(normalized)) return normalized;
+    const hit = [...fileLabels].find(
+      (p) => p.endsWith(`/${normalized}`) || p === normalized,
+    );
+    if (hit) return hit;
+  }
+  return null;
 }
 
 /** Per-health-factor accent color. */
@@ -96,15 +122,24 @@ export type OverviewScreenProps = {
   readonly securityScore?: number | null;
   readonly onOpenMap: () => void;
   readonly onOpenDna: () => void;
+  /** @deprecated M-062 — Profile merged into DNA; prefer onOpenDna. */
   readonly onOpenProfile?: () => void;
   readonly onOpenDomains?: () => void;
+  /** Open a specific domain screen from an Overview chip. */
+  readonly onOpenDomain?: (domainId: string) => void;
   readonly onOpenTesting?: () => void;
-  readonly onOpenBlast?: () => void;
+  readonly onOpenBlast?: (seedPath?: string) => void;
+  /** Focus a map node/region when opening the Repository Map. */
+  readonly onFocusMapNode?: (nodeId: string) => void;
   readonly onOpenTrends?: () => void;
   readonly onOpenIntegrations?: () => void;
   readonly onOpenSettings?: () => void;
+  readonly onOpenReview?: () => void;
+  readonly onOpenExplain?: () => void;
+  /** Open a repo-relative path in the host editor when a path is known. */
+  readonly onOpenPath?: (path: string) => void;
   readonly onRefresh: () => void;
-  /** Re-fetch local git activity (and optionally refresh FETCH_HEAD-derived sync). */
+  /** Fetch remote git (and refresh local activity). */
   readonly onSyncGit?: () => Promise<void>;
 };
 
@@ -202,7 +237,8 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
     [map.graph],
   );
 
-  const regions = useMemo(() => deriveRegions(map.graph), [map.graph]);
+  const regionResult = useMemo(() => deriveRegions(map.graph), [map.graph]);
+  const regions = regionResult.regions;
   const connected = useMemo(
     () => deriveMostConnected(map.graph, 5),
     [map.graph],
@@ -248,11 +284,16 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
   );
 
   const branch = gitActivity?.summary?.branch ?? "main";
+  const gitSummary = gitActivity?.summary;
+  const gitHistoryNote =
+    gitSummary?.historyTruncated === true
+      ? `Scanned latest ${gitSummary.windowCommits.toLocaleString()} of ${gitSummary.totalCommits.toLocaleString()} commits`
+      : null;
   const [syncing, setSyncing] = useState(false);
 
-  /** Header "Last sync" = last indexed time (map generation), not git fetch. */
+  /** Header stamp = last indexed time (map generation), not git fetch. */
   const lastIndexedIso = map.generatedAt;
-  const lastSyncLabel = `Last sync ${relativeTime(lastIndexedIso)}`;
+  const lastIndexedLabel = `Last indexed ${relativeTime(lastIndexedIso)}`;
   const gitUser = gitActivity?.recentCommits[0];
   const days = gitActivity?.days ?? [];
 
@@ -351,6 +392,7 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
       detectedDomains: detectedDomainChips.map((d) => d.shortLabel),
       mostConnected: connected.map((r) => ({
         label: r.label,
+        kind: r.kind,
         degree: r.degree,
       })),
       recentActivity: recentCommits.slice(0, RECENT_PAGE_SIZE).map((c) => ({
@@ -381,13 +423,14 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
         onNavigate={(view) => {
           if (view === "map") props.onOpenMap();
           else if (view === "dna") props.onOpenDna();
-          else if (view === "profile") props.onOpenProfile?.();
           else if (view === "domains") props.onOpenDomains?.();
           else if (view === "testing") props.onOpenTesting?.();
           else if (view === "blast") props.onOpenBlast?.();
           else if (view === "trends") props.onOpenTrends?.();
           else if (view === "integrations") props.onOpenIntegrations?.();
           else if (view === "settings") props.onOpenSettings?.();
+          else if (view === "review") props.onOpenReview?.();
+          else if (view === "explain") props.onOpenExplain?.();
         }}
       />
 
@@ -397,7 +440,7 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
           <div>
             <div className="ov-top__title">Overview</div>
             <div className="ov-top__sub">
-              {props.repoLabel} · {branch} · {lastSyncLabel}
+              {props.repoLabel} · {branch} · {lastIndexedLabel}
             </div>
           </div>
           <div className="ov-top__actions">
@@ -407,10 +450,16 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
                 className="ov-btn ov-btn--ghost"
                 onClick={handleSync}
                 disabled={syncing}
-                title="Refresh local git activity from the work tree"
+                title={
+                  isGitIntegrationEnabled() && client.gitFetch
+                    ? "Fetch remote git and refresh local activity"
+                    : "Refresh local git activity from the work tree"
+                }
               >
                 <RefreshCw size={13} aria-hidden />
-                Sync
+                {isGitIntegrationEnabled() && client.gitFetch
+                  ? "Fetch remote git"
+                  : "Refresh git"}
               </button>
             </div>
             <button
@@ -451,9 +500,9 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
                   Health Score
                   <TipGuard>
                     <InfoTip label="Health Score">
-                      Weighted 0–100 composite of health factors (parse health,
-                      test presence, coupling, modularity, diagnostics). The
-                      grade is a band over the score.
+                      Below 70 means prioritize Factors below 70 on DNA
+                      Analysis. Same composite as the DNA Health Score (parse,
+                      tests, coupling, modularity, diagnostics).
                     </InfoTip>
                   </TipGuard>
                 </div>
@@ -485,11 +534,15 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
                   Coupling Density
                   <TipGuard>
                     <InfoTip label="Coupling Density">
-                      <span className="ov-mono">edges ÷ nodes</span> of the
-                      dependency graph — the average number of dependencies per
-                      module (fan-out). Lower means looser coupling; target &lt;
-                      0.50. Distinct from the DNA <em>Coupling</em> factor,
-                      which scores import <em>cycles</em>.
+                      Use this to judge whether modules are tightly coupled
+                      before a refactor — lower density means looser coupling
+                      and a smaller blast radius. Computed as{" "}
+                      <span className="ov-mono">edges ÷ nodes</span> on the
+                      dependency graph for analyzed TypeScript/JavaScript files
+                      at the current map zoom (not every file in the inventory).
+                      Target &lt; 0.50. Distinct from the DNA{" "}
+                      <em>TS/JS import coupling</em> factor, which scores import{" "}
+                      <em>cycles</em>.
                     </InfoTip>
                   </TipGuard>
                 </span>
@@ -502,7 +555,7 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
                 <span
                   className="ov-meter__fill"
                   style={{
-                    width: `${clampPct(density * 100)}%`,
+                    width: `${couplingDensityPct(density)}%`,
                     background: "#F59E0B",
                   }}
                 />
@@ -584,7 +637,10 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
               </div>
               <div className="ov-stat__v">{nodes.toLocaleString()}</div>
               <div className="ov-stat__note">
-                {edges.toLocaleString()} dependencies · {regions.length} regions
+                {edges.toLocaleString()} dependencies ·{" "}
+                {regionResult.truncated
+                  ? `showing ${regions.length} of ${regionResult.totalCount} regions`
+                  : `${regions.length} regions`}
               </div>
             </article>
           </section>
@@ -597,10 +653,9 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
                   <Dna size={14} className="ov-card__icon" aria-hidden />
                   DNA Analysis
                   <InfoTip label="DNA Analysis">
-                    Per-factor health bars (the same factors as Health Score;
-                    <em> Coupling</em> here scores import cycles). Open the DNA
-                    Analysis view for what each factor means, its formula, and
-                    concrete steps to improve.
+                    Open this when a factor looks weak — each card explains what
+                    to do next. Bars match Health Score (
+                    <em>TS/JS import coupling</em> scores import cycles).
                   </InfoTip>
                 </span>
                 <button
@@ -641,7 +696,7 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
                     ))}
                   </div>
                   <div className="ov-dna__overall">
-                    <span>Overall DNA Score</span>
+                    <span>Overall Health Score</span>
                     <strong>
                       {overallLabel} / 100
                       {health?.grade ? (
@@ -651,6 +706,12 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
                       ) : null}
                     </strong>
                   </div>
+                  {health.graphCoveragePct !== undefined ? (
+                    <p className="ov-stat__note" style={{ marginTop: 8 }}>
+                      Graph coverage {health.graphCoveragePct}% of inventory
+                      files (TS/JS analyzed)
+                    </p>
+                  ) : null}
                 </>
               ) : (
                 <p className="ov-empty">Computing health factors…</p>
@@ -730,9 +791,27 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
                       )}
                 </p>
               )}
+              {gitHistoryNote ? (
+                <p className="ov-stat__note" style={{ marginTop: 8 }}>
+                  {gitHistoryNote}
+                </p>
+              ) : null}
               <p className="ov-card__foot-note">
-                Historical health trends are not available yet — open Trends for
-                snapshot history when ready.
+                {props.onOpenTrends ? (
+                  <>
+                    View health history over time in{" "}
+                    <button
+                      type="button"
+                      className="dm-linkbtn"
+                      onClick={props.onOpenTrends}
+                    >
+                      Trends
+                    </button>
+                    .
+                  </>
+                ) : (
+                  "Open Trends for health history over time."
+                )}
               </p>
             </article>
           </section>
@@ -745,22 +824,18 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
                   <Boxes size={14} className="ov-card__icon" aria-hidden />
                   Codebase Profile
                   <InfoTip label="Codebase Profile">
-                    A snapshot of the stack detector: language composition,
-                    detected stack domains, frameworks and package manager. Open
-                    for the full repository profile (frameworks, packages,
-                    detection signals &amp; personas).
+                    Quick stack snapshot. Open DNA Analysis for the full profile
+                    — frameworks, packages, signals, and personas.
                   </InfoTip>
                 </span>
-                {props.onOpenProfile ? (
-                  <button
-                    type="button"
-                    className="ov-card__open"
-                    onClick={props.onOpenProfile}
-                    aria-label="Open Codebase Profile"
-                  >
-                    <ArrowRight size={15} aria-hidden />
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  className="ov-card__open"
+                  onClick={props.onOpenDna}
+                  aria-label="Open Codebase Profile on DNA Analysis"
+                >
+                  <ArrowRight size={15} aria-hidden />
+                </button>
               </div>
               {dna ? (
                 <>
@@ -862,16 +937,38 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
                     {detectedDomainChips.length > 0 ? (
                       detectedDomainChips.map((d) => {
                         const Icon = d.icon;
+                        const open = (): void => {
+                          if (props.onOpenDomain) props.onOpenDomain(d.id);
+                          else props.onOpenDomains?.();
+                        };
+                        const clickable = Boolean(
+                          props.onOpenDomain || props.onOpenDomains,
+                        );
+                        if (!clickable) {
+                          return (
+                            <span
+                              key={d.id}
+                              className="ov-domains__chip"
+                              data-on="true"
+                              title={`${d.shortLabel} detected`}
+                            >
+                              <Icon size={12} aria-hidden />
+                              {d.shortLabel}
+                            </span>
+                          );
+                        }
                         return (
-                          <span
+                          <button
                             key={d.id}
-                            className="ov-domains__chip"
+                            type="button"
+                            className="ov-domains__chip ov-domains__chip--btn"
                             data-on="true"
-                            title={`${d.shortLabel} detected`}
+                            title={`Open ${d.shortLabel} domain`}
+                            onClick={open}
                           >
                             <Icon size={12} aria-hidden />
                             {d.shortLabel}
-                          </span>
+                          </button>
                         );
                       })
                     ) : (
@@ -893,15 +990,8 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
                   <Layers size={14} className="ov-card__icon" aria-hidden />
                   Region Health
                   <InfoTip label="Region Health">
-                    Per region: file count (from{" "}
-                    <span className="ov-mono">memberFiles</span> /{" "}
-                    <span className="ov-mono">fileCount</span>) and a coupling
-                    score{" "}
-                    <span className="ov-mono">
-                      100 − (degree ÷ maxDegree) × 55
-                    </span>
-                    . Empty regions without edges are omitted; all-zero degrees
-                    use a mid score of 70 when files are present.
+                    Click a region to focus it on the map. Lower scores mean
+                    heavier dependency load — start decoupling there first.
                   </InfoTip>
                 </span>
               </div>
@@ -911,30 +1001,57 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
                   <span className="ov-table__num">Files</span>
                   <span className="ov-table__num">Score</span>
                 </div>
-                {regions.map((r) => (
-                  <div key={r.id} className="ov-table__row">
-                    <span className="ov-table__region">
-                      <span
-                        className="ov-dot"
-                        style={{ background: r.color }}
-                      />
-                      <span className="ov-mono ov-ellipsis" title={r.label}>
-                        {r.label}
-                      </span>
-                    </span>
-                    <span className="ov-table__num ov-mono">{r.files}</span>
-                    <span
-                      className="ov-table__num ov-mono"
-                      style={{
-                        color:
-                          r.score === null ? undefined : scoreColor(r.score),
-                      }}
+                {regions.map((r) => {
+                  const openRegion = (): void => {
+                    props.onFocusMapNode?.(r.id);
+                    props.onOpenMap();
+                  };
+                  const clickable = Boolean(props.onFocusMapNode);
+                  return (
+                    <div
+                      key={r.id}
+                      className={
+                        clickable
+                          ? "ov-table__row ov-table__row--clickable"
+                          : "ov-table__row"
+                      }
+                      role={clickable ? "button" : undefined}
+                      tabIndex={clickable ? 0 : undefined}
+                      onClick={clickable ? openRegion : undefined}
+                      onKeyDown={
+                        clickable
+                          ? (e) => kpiKeyActivate(e, openRegion)
+                          : undefined
+                      }
                     >
-                      {r.score ?? "—"}
-                    </span>
-                  </div>
-                ))}
+                      <span className="ov-table__region">
+                        <span
+                          className="ov-dot"
+                          style={{ background: r.color }}
+                        />
+                        <span className="ov-mono ov-ellipsis" title={r.label}>
+                          {r.label}
+                        </span>
+                      </span>
+                      <span className="ov-table__num ov-mono">{r.files}</span>
+                      <span
+                        className="ov-table__num ov-mono"
+                        style={{
+                          color:
+                            r.score === null ? undefined : scoreColor(r.score),
+                        }}
+                      >
+                        {r.score ?? "—"}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
+              {regionResult.truncated ? (
+                <p className="ov-stat__note" style={{ marginTop: 8 }}>
+                  Showing {regions.length} of {regionResult.totalCount} regions
+                </p>
+              ) : null}
             </article>
 
             <article className="ov-card">
@@ -943,16 +1060,15 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
                   <Zap size={14} className="ov-card__icon" aria-hidden />
                   Most Connected
                   <InfoTip label="Most Connected">
-                    Nodes ranked by total dependency degree (incoming + outgoing
-                    edges) across the current map graph — a proxy for
-                    blast-radius surface area.
+                    Click a node to open Blast Radius for that seed — high
+                    degree means a wider change surface.
                   </InfoTip>
                 </span>
                 {props.onOpenBlast ? (
                   <button
                     type="button"
                     className="ov-card__open"
-                    onClick={props.onOpenBlast}
+                    onClick={() => props.onOpenBlast?.()}
                     aria-label="Open Blast Radius"
                   >
                     <ArrowRight size={15} aria-hidden />
@@ -962,36 +1078,80 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
               {connected.length > 0 ? (
                 <>
                   <div className="ov-bars">
-                    {connected.slice(0, 3).map((r) => (
-                      <div key={r.id} className="ov-bars__col">
-                        <div className="ov-bars__track">
-                          <span
-                            className="ov-bars__fill"
-                            style={{
-                              height: `${(r.degree / maxDegree) * 100}%`,
-                              background: r.color,
-                            }}
-                          />
-                        </div>
-                        <div className="ov-bars__x ov-ellipsis" title={r.label}>
-                          {r.label}
-                        </div>
-                      </div>
-                    ))}
+                    {connected.slice(0, 3).map((r) => {
+                      const seed =
+                        r.kind === "file"
+                          ? r.id.startsWith("file:")
+                            ? r.id.slice("file:".length)
+                            : r.label
+                          : undefined;
+                      const open = (): void => {
+                        props.onOpenBlast?.(seed);
+                      };
+                      return (
+                        <button
+                          key={r.id}
+                          type="button"
+                          className="ov-bars__col ov-bars__col--btn"
+                          onClick={open}
+                          disabled={!props.onOpenBlast}
+                          title={`Open blast radius for ${connectedNodeLabel(r)}`}
+                        >
+                          <div className="ov-bars__track">
+                            <span
+                              className="ov-bars__fill"
+                              style={{
+                                height: `${(r.degree / maxDegree) * 100}%`,
+                                background: r.color,
+                              }}
+                            />
+                          </div>
+                          <div
+                            className="ov-bars__x ov-ellipsis"
+                            title={connectedNodeLabel(r)}
+                          >
+                            {connectedNodeLabel(r)}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                   <div className="ov-list">
-                    {connected.map((r) => (
-                      <div key={r.id} className="ov-list__row">
-                        <span
-                          className="ov-dot"
-                          style={{ background: r.color }}
-                        />
-                        <span className="ov-mono ov-ellipsis" title={r.label}>
-                          {r.label}
-                        </span>
-                        <span className="ov-list__badge">{r.degree} links</span>
-                      </div>
-                    ))}
+                    {connected.map((r) => {
+                      const seed =
+                        r.kind === "file"
+                          ? r.id.startsWith("file:")
+                            ? r.id.slice("file:".length)
+                            : r.label
+                          : undefined;
+                      const open = (): void => {
+                        props.onOpenBlast?.(seed);
+                      };
+                      return (
+                        <button
+                          key={r.id}
+                          type="button"
+                          className="ov-list__row ov-list__row--btn"
+                          onClick={open}
+                          disabled={!props.onOpenBlast}
+                          title={`Open blast radius for ${connectedNodeLabel(r)}`}
+                        >
+                          <span
+                            className="ov-dot"
+                            style={{ background: r.color }}
+                          />
+                          <span
+                            className="ov-mono ov-ellipsis"
+                            title={connectedNodeLabel(r)}
+                          >
+                            {connectedNodeLabel(r)}
+                          </span>
+                          <span className="ov-list__badge">
+                            {r.degree} links
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </>
               ) : (
@@ -1033,50 +1193,88 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
               {recentCommits.length > 0 ? (
                 <>
                   <div className="ov-activity">
-                    {pageCommits.map((commit) => (
-                      <div key={commit.sha} className="ov-activity__row">
-                        <Avatar
-                          name={commit.author}
-                          email={commit.email}
-                          size={28}
-                        />
-                        <div className="ov-activity__body">
-                          <div
-                            className="ov-activity__file ov-ellipsis"
-                            title={commit.message}
-                          >
-                            {commit.message || commit.sha.slice(0, 7)}
-                          </div>
-                          <div className="ov-activity__meta">
-                            <span className="ov-mono">
-                              {commit.sha.slice(0, 7)}
-                            </span>{" "}
-                            · {commit.author}
-                            {commit.pushed === false ? (
-                              <span className="ov-tag ov-tag--local">
-                                Local
-                              </span>
-                            ) : null}
-                          </div>
-                          <div className="ov-activity__time">
-                            {relativeTime(commit.date)}
-                            {commit.additions !== undefined ||
-                            commit.deletions !== undefined ? (
-                              <>
-                                {" "}
-                                ·{" "}
-                                <span className="ov-add">
-                                  +{commit.additions ?? 0}
-                                </span>{" "}
-                                <span className="ov-del">
-                                  −{commit.deletions ?? 0}
+                    {pageCommits.map((commit) => {
+                      const pathGuess = guessPathFromCommitMessage(
+                        commit.message,
+                        map,
+                      );
+                      const open = (): void => {
+                        if (pathGuess && props.onOpenPath) {
+                          props.onOpenPath(pathGuess);
+                        } else {
+                          props.onOpenTrends?.();
+                        }
+                      };
+                      const clickable = Boolean(
+                        (pathGuess && props.onOpenPath) || props.onOpenTrends,
+                      );
+                      return (
+                        <div
+                          key={commit.sha}
+                          className={
+                            clickable
+                              ? "ov-activity__row ov-activity__row--clickable"
+                              : "ov-activity__row"
+                          }
+                          role={clickable ? "button" : undefined}
+                          tabIndex={clickable ? 0 : undefined}
+                          onClick={clickable ? open : undefined}
+                          onKeyDown={
+                            clickable
+                              ? (e) => kpiKeyActivate(e, open)
+                              : undefined
+                          }
+                          title={
+                            pathGuess
+                              ? `Open ${pathGuess}`
+                              : props.onOpenTrends
+                                ? "Open Trends for health history"
+                                : undefined
+                          }
+                        >
+                          <Avatar
+                            name={commit.author}
+                            email={commit.email}
+                            size={28}
+                          />
+                          <div className="ov-activity__body">
+                            <div
+                              className="ov-activity__file ov-ellipsis"
+                              title={commit.message}
+                            >
+                              {commit.message || commit.sha.slice(0, 7)}
+                            </div>
+                            <div className="ov-activity__meta">
+                              <span className="ov-mono">
+                                {commit.sha.slice(0, 7)}
+                              </span>{" "}
+                              · {commit.author}
+                              {commit.pushed === false ? (
+                                <span className="ov-tag ov-tag--local">
+                                  Local
                                 </span>
-                              </>
-                            ) : null}
+                              ) : null}
+                            </div>
+                            <div className="ov-activity__time">
+                              {relativeTime(commit.date)}
+                              {commit.additions !== undefined ||
+                              commit.deletions !== undefined ? (
+                                <>
+                                  {" "}
+                                  ·{" "}
+                                  <span className="ov-add">
+                                    +{commit.additions ?? 0}
+                                  </span>{" "}
+                                  <span className="ov-del">
+                                    −{commit.deletions ?? 0}
+                                  </span>
+                                </>
+                              ) : null}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   {recentCommits.length > RECENT_PAGE_SIZE ? (
                     <div className="ov-pager">
@@ -1139,6 +1337,9 @@ function HealthRing(props: { score: number | null }): ReactElement {
   const color = known ? scoreColor(props.score!) : "#5A6B76";
   return (
     <div className="ov-ring" data-no-data={!known}>
+      {!known ? (
+        <span className="ov-sr">Health score not computed yet</span>
+      ) : null}
       <svg viewBox="0 0 56 56" className="ov-ring__svg" aria-hidden>
         <circle
           cx="28"

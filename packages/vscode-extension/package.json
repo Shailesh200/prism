@@ -91,6 +91,11 @@
         "category": "Prism"
       },
       {
+        "command": "prism.blastQuickPick",
+        "title": "Blast Radius (Quick Pick)",
+        "category": "Prism"
+      },
+      {
         "command": "prism.safeDelete",
         "title": "Safe Delete Check",
         "category": "Prism"
@@ -116,9 +121,27 @@
         "category": "Prism"
       },
       {
+        "command": "prism.reviewAllChanges",
+        "title": "Review All Changes",
+        "category": "Prism"
+      },
+      {
         "command": "prism.openWalkthrough",
         "title": "Getting Started Tour",
         "category": "Prism"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "prism.blastQuickPick",
+        "key": "ctrl+alt+b",
+        "mac": "cmd+alt+b",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "prism.reviewAllChanges",
+        "key": "ctrl+alt+r",
+        "mac": "cmd+alt+r"
       }
     ],
     "menus": {
@@ -175,6 +198,13 @@
           "command": "prism.blastRadius",
           "group": "prism@2"
         }
+      ],
+      "scm/title": [
+        {
+          "command": "prism.reviewAllChanges",
+          "group": "navigation@1",
+          "title": "Prism: Review All Changes"
+        }
       ]
     },
     "configuration": {
@@ -182,9 +212,9 @@
       "properties": {
         "prism.codeLens.enabled": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "title": "Enable CodeLens",
-          "description": "Show file-level Prism CodeLenses (Blast Radius, Ownership, Map) above the first line of each file. Also available in Prism → Settings → General.",
+          "description": "Show file-level Prism CodeLenses (Blast Radius, Ownership, Map) above the first line of TypeScript and JavaScript files. Also available in Prism → Settings → General.",
           "order": 1
         }
       }

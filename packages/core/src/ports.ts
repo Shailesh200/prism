@@ -40,6 +40,10 @@ export type IndexWorkspaceOptions = {
   /** Dirty-set paths (ADR-0026); skips full inventory when cache is warm. */
   readonly changedPaths?: readonly string[];
   readonly deletedPaths?: readonly string[];
+  /** Override max file size for hashing (M-057 P-B6). */
+  readonly maxFileBytes?: number;
+  /** Extra gitignore-style patterns on top of builtin / .gitignore (M-057 P-B6). */
+  readonly extraIgnorePatterns?: readonly string[];
 };
 
 export type IndexerPort = {

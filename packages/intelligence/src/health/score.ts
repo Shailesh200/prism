@@ -7,7 +7,10 @@ import {
 } from "@repo-prism/shared";
 import { buildDependencyGraph } from "../dependency/build.js";
 import { discoverLocalPackages } from "../dependency/packages.js";
-import { buildFeatureGraph } from "../feature/build.js";
+import {
+  buildFeatureGraph,
+  featuresAreInferenceOnly,
+} from "../feature/build.js";
 
 export type ComputeHealthScoreOptions = {
   /** Prefer TestingReport score for the test_presence factor (M-046 / ADR-0022). */
@@ -61,29 +64,34 @@ function factor(
   };
 }
 
-function scoreParseHealth(files: readonly IndexedFile[]): Factor {
+function scoreParseHealth(
+  files: readonly IndexedFile[],
+  unresolvedImportCount = 0,
+): Factor {
   if (files.length === 0) {
-    return factor("parse_health", "Parse health", 0, "No indexed files", [
+    // Nothing indexed is "not measured", not "everything failed" — stay
+    // neutral like the other factors' empty cases instead of scoring 0.
+    return factor("parse_health", "Parse health", 50, "No indexed files", [
       { label: "Indexed files", value: 0 },
       { label: "Analyzed", value: 0 },
       { label: "Failed / skipped", value: 0 },
+      { label: "Unresolved imports", value: 0 },
     ]);
   }
   const analyzed = files.filter((f) => f.status === "analyzed").length;
   const failed = files.length - analyzed;
   const ratio = analyzed / files.length;
-  return factor(
-    "parse_health",
-    "Parse health",
-    ratio * 100,
-    `${analyzed}/${files.length} files analyzed`,
-    [
-      { label: "Indexed files", value: files.length },
-      { label: "Analyzed (ok)", value: analyzed },
-      { label: "Failed / skipped", value: failed },
-      { label: "Parse ratio", value: Number(ratio.toFixed(3)) },
-    ],
-  );
+  const note =
+    unresolvedImportCount > 0
+      ? `${analyzed}/${files.length} files analyzed; ${unresolvedImportCount} unresolved import(s)`
+      : `${analyzed}/${files.length} files analyzed`;
+  return factor("parse_health", "Parse health", ratio * 100, note, [
+    { label: "Indexed files", value: files.length },
+    { label: "Analyzed (ok)", value: analyzed },
+    { label: "Failed / skipped", value: failed },
+    { label: "Parse ratio", value: Number(ratio.toFixed(3)) },
+    { label: "Unresolved imports", value: unresolvedImportCount },
+  ]);
 }
 
 function scoreTestPresence(
@@ -164,6 +172,8 @@ function scoreTestPresence(
   );
 }
 
+const COUPLING_LABEL = "TS/JS import coupling";
+
 function scoreCoupling(
   cycleCount: number,
   fileCount: number,
@@ -171,24 +181,36 @@ function scoreCoupling(
   edgeCount: number,
 ): Factor {
   if (fileCount === 0) {
-    return factor("coupling", "Coupling", 50, "No files to evaluate cycles", [
-      { label: "Graph nodes", value: nodeCount },
-      { label: "Graph edges", value: edgeCount },
-      { label: "Cycles", value: 0 },
-    ]);
+    return factor(
+      "coupling",
+      COUPLING_LABEL,
+      50,
+      "No files to evaluate cycles",
+      [
+        { label: "Graph nodes", value: nodeCount },
+        { label: "Graph edges", value: edgeCount },
+        { label: "Cycles", value: 0 },
+      ],
+    );
   }
   if (cycleCount === 0) {
-    return factor("coupling", "Coupling", 100, "No import/re-export cycles", [
-      { label: "Graph nodes", value: nodeCount },
-      { label: "Graph edges", value: edgeCount },
-      { label: "Cycles", value: 0 },
-    ]);
+    return factor(
+      "coupling",
+      COUPLING_LABEL,
+      100,
+      "No import/re-export cycles",
+      [
+        { label: "Graph nodes", value: nodeCount },
+        { label: "Graph edges", value: edgeCount },
+        { label: "Cycles", value: 0 },
+      ],
+    );
   }
   // Each cycle costs ~20 points, floor at 0
   const score = Math.max(0, 100 - cycleCount * 20);
   return factor(
     "coupling",
-    "Coupling",
+    COUPLING_LABEL,
     score,
     `${cycleCount} cycle(s) detected`,
     [
@@ -203,6 +225,7 @@ function scoreModularity(
   packageCount: number,
   featureCount: number,
   fileCount: number,
+  inferenceOnlyFeatures = false,
 ): Factor {
   if (fileCount === 0) {
     return factor("modularity", "Modularity", 50, "No files to evaluate", [
@@ -225,13 +248,19 @@ function scoreModularity(
       ],
     );
   }
-  // Reward some structure without requiring large monorepos
-  const score = Math.min(100, 55 + structure * 10);
+  // Reward some structure without requiring large monorepos.
+  // Inference-only communities still count as structure (M-061 P-E2) — do not
+  // apply the empty-structure penalty just because provenance is inferred.
+  const raw = Math.min(100, 55 + structure * 10);
+  const score =
+    inferenceOnlyFeatures && packageCount === 0 ? Math.max(50, raw) : raw;
   return factor(
     "modularity",
     "Modularity",
     score,
-    `${packageCount} package(s), ${featureCount} feature(s)`,
+    inferenceOnlyFeatures && packageCount === 0
+      ? `${featureCount} inferred feature community(ies)`
+      : `${packageCount} package(s), ${featureCount} feature(s)`,
     [
       { label: "Local packages", value: packageCount },
       { label: "Features", value: featureCount },
@@ -297,9 +326,10 @@ export function computeHealthScore(
     files.map((f) => f.path),
   );
   const features = buildFeatureGraph(snapshot).features;
+  const inferenceOnly = featuresAreInferenceOnly(features);
 
   const factors: Factor[] = [
-    scoreParseHealth(files),
+    scoreParseHealth(files, dep.unresolved.length),
     scoreTestPresence(files, options?.testingReport),
     scoreCoupling(
       dep.cycles.length,
@@ -307,7 +337,12 @@ export function computeHealthScore(
       dep.graph.nodes.length,
       dep.graph.edges.length,
     ),
-    scoreModularity(packages.length, features.length, files.length),
+    scoreModularity(
+      packages.length,
+      features.length,
+      files.length,
+      inferenceOnly,
+    ),
     scoreDiagnostics(files),
   ];
 
@@ -318,9 +353,17 @@ export function computeHealthScore(
   }
   const score = Math.round(clampScore(weighted));
 
+  const filesTotal = snapshot.stats.filesTotal;
+  const analyzed = files.filter((f) => f.status === "analyzed").length;
+  const graphCoveragePct =
+    filesTotal <= 0
+      ? 0
+      : Math.max(0, Math.min(100, Math.round((analyzed / filesTotal) * 100)));
+
   return {
     score,
     grade: gradeFromScore(score),
     factors,
+    graphCoveragePct,
   };
 }

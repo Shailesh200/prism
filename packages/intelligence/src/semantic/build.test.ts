@@ -3,7 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { IndexSnapshot } from "@repo-prism/shared";
 import { describe, expect, it } from "vitest";
-import { buildKnowledgeGraph, findReferences, findSymbol } from "./build.js";
+import {
+  buildKnowledgeGraph,
+  findReferences,
+  findSymbol,
+  searchSymbols,
+} from "./build.js";
 
 function snapshot(
   rootPath: string,
@@ -85,8 +90,16 @@ describe("buildKnowledgeGraph", () => {
     expect(syms).toHaveLength(1);
     expect(syms[0]?.path).toBe("helper.ts");
 
+    expect(searchSymbols(kg, { pattern: "ad" }).map((s) => s.name)).toEqual([
+      "add",
+    ]);
+    expect(
+      searchSymbols(kg, { pattern: "^a", regex: true }).map((s) => s.name),
+    ).toEqual(["add"]);
+
     const refs = findReferences(kg, { name: "add", path: "helper.ts" });
-    expect(refs).toEqual([
+    expect(refs.ambiguous).toBeFalsy();
+    expect(refs.references).toEqual([
       expect.objectContaining({
         name: "add",
         kind: "call",
@@ -94,6 +107,91 @@ describe("buildKnowledgeGraph", () => {
         start: 70,
         end: 73,
         targetSymbolId: syms[0]?.id,
+      }),
+    ]);
+  });
+
+  it("returns ambiguous candidates for homonym names without path (P-A3)", () => {
+    const root = mkdtempSync(join(tmpdir(), "prism-m059-homonym-"));
+    const snap = snapshot(root, [
+      analyzed("a.ts", {
+        symbols: [
+          {
+            name: "shared",
+            kind: "function",
+            start: 0,
+            end: 20,
+            exported: true,
+          },
+        ],
+        exports: [{ name: "shared", kind: "name" }],
+      }),
+      analyzed("b.ts", {
+        symbols: [
+          {
+            name: "shared",
+            kind: "function",
+            start: 0,
+            end: 20,
+            exported: true,
+          },
+        ],
+        exports: [{ name: "shared", kind: "name" }],
+      }),
+      analyzed("use-a.ts", {
+        imports: [{ source: "./a.ts", specifiers: ["shared"] }],
+        references: [{ name: "shared", kind: "call", start: 10, end: 16 }],
+      }),
+      analyzed("use-b.ts", {
+        imports: [{ source: "./b.ts", specifiers: ["shared"] }],
+        references: [{ name: "shared", kind: "call", start: 10, end: 16 }],
+      }),
+    ]);
+    const kg = buildKnowledgeGraph(snap);
+    const ambiguous = findReferences(kg, { name: "shared" });
+    expect(ambiguous.ambiguous).toBe(true);
+    expect(ambiguous.references).toEqual([]);
+    expect(ambiguous.candidates?.map((c) => c.path).sort()).toEqual([
+      "a.ts",
+      "b.ts",
+    ]);
+
+    const disambiguated = findReferences(kg, { name: "shared", path: "a.ts" });
+    expect(disambiguated.ambiguous).toBeFalsy();
+    expect(disambiguated.references).toEqual([
+      expect.objectContaining({
+        path: "use-a.ts",
+        targetSymbolId: expect.stringContaining("a.ts"),
+      }),
+    ]);
+  });
+
+  it("chases barrel re-exports including export * (P-E5)", () => {
+    const root = mkdtempSync(join(tmpdir(), "prism-m059-barrel-"));
+    const snap = snapshot(root, [
+      analyzed("impl.ts", {
+        symbols: [
+          { name: "bar", kind: "function", start: 0, end: 30, exported: true },
+        ],
+        exports: [{ name: "bar", kind: "name" }],
+      }),
+      analyzed("barrel.ts", {
+        exports: [{ name: "*", kind: "all", source: "./impl.ts" }],
+      }),
+      analyzed("app.ts", {
+        imports: [{ source: "./barrel.ts", specifiers: ["bar"] }],
+        references: [{ name: "bar", kind: "call", start: 40, end: 43 }],
+      }),
+    ]);
+    const kg = buildKnowledgeGraph(snap);
+    const sym = findSymbol(kg, { name: "bar", path: "impl.ts" })[0];
+    expect(sym).toBeDefined();
+    const refs = findReferences(kg, { name: "bar", path: "impl.ts" });
+    expect(refs.references).toEqual([
+      expect.objectContaining({
+        path: "app.ts",
+        kind: "call",
+        targetSymbolId: sym?.id,
       }),
     ]);
   });

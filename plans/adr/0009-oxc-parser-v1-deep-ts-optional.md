@@ -18,8 +18,10 @@ M-006 ships the first real `LanguagePlugin` for TS/JS. ADR-0003 already chose **
 2. **v1 extractions surface:** symbols, static imports/exports, call-site reference **hints**, file-level diagnostics — not type-accurate refs.
 3. **Deep TS** (`ts-morph` / `tsc` program) remains **optional** and off by default (Q-015). Introduce only if measured gaps on M-011+ demand it; document via a follow-up ADR amendment.
 4. **SWC:** only if Oxc API blocks a required extraction (document why in that PR).
+5. **Member-call hints (M-059 / P-A4):** `obj.prop()` / `obj?.prop()` record `kind: "call"` with `via: "member"`; resolution is **low confidence** (name match only).
+6. **M-059 spike:** Deep-TS adoption was evaluated and **rejected for this cycle** — see [ADR-0034](./0034-deep-typescript-spike.md).
 
 ## Consequences
 
 - Positive: Fast indexing path; SPI stays parser-agnostic; noop + future Tree-sitter plugins coexist.
-- Negative: Some reference quality gaps until optional deep TS or richer Oxc walks.
+- Negative: Some reference quality gaps until optional deep TS or richer Oxc walks (ADR-0034 keeps deep TS deferred).

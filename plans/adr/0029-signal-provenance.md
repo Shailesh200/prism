@@ -44,9 +44,15 @@ numbers as equally trustworthy.
    type SignalProvenance =
      | "measured"    // computed from real repository data (git, diagnostics, coverage, build stats)
      | "heuristic"   // computed from real data via an inference rule (fan-in risk, feature guesses)
+     | "inferred"    // structural/community inference when stronger conventions are absent (M-061)
      | "estimated"   // real computation, but attributed to a subject it was not computed for
      | "unavailable" // no data exists
    ```
+
+   **Amendment (M-061):** Feature detection that falls back to label-propagation community
+   detection over the import graph must tag those features `provenance: "inferred"` with
+   confidence capped at 0.5. Modularity scoring must not treat inference-only features as
+   “no structure.”
 
 2. **The load-bearing invariant:** when provenance is `"unavailable"`, the numeric field **must be
    absent or null**. It is a contract violation to emit a number alongside `"unavailable"`. This is

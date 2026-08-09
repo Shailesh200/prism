@@ -266,11 +266,37 @@ export function parseGitLog(
     authors,
     summary: {
       ...(headSha === undefined ? {} : { headSha }),
+      // parseGitLog only sees the scanned window; readGitSignals enriches
+      // totalCommits via `git rev-list --count HEAD` (M-056 / P-A2).
       totalCommits: shas.size,
       windowCommits: shas.size,
+      historyTruncated: false,
       ...(firstDate === undefined ? {} : { firstDate }),
       ...(lastDate === undefined ? {} : { lastDate }),
     },
+  };
+}
+
+/**
+ * Overlay the real repo commit total onto a parse-window summary.
+ * Exported for unit tests with a mock `run`.
+ */
+export function enrichSummaryWithCommitTotal(
+  summary: GitRepoSummary,
+  run: (args: string[]) => string | null,
+  _maxCommits: number = GIT_MAX_COMMITS,
+): GitRepoSummary {
+  const windowCommits = summary.windowCommits;
+  const countOut = run(["rev-list", "--count", "HEAD"])?.trim();
+  const parsed = countOut ? Number.parseInt(countOut, 10) : Number.NaN;
+  const totalCommits =
+    Number.isFinite(parsed) && parsed >= 0 ? parsed : windowCommits;
+  const historyTruncated = totalCommits > windowCommits;
+  return {
+    ...summary,
+    totalCommits,
+    windowCommits,
+    historyTruncated,
   };
 }
 
@@ -316,7 +342,8 @@ export function readGitSignals(
   const inside = run(["rev-parse", "--is-inside-work-tree"]);
   if (!inside || inside.trim() !== "true") return null;
 
-  const stdout = run(gitLogArgs(options.maxCommits ?? GIT_MAX_COMMITS));
+  const maxCommits = options.maxCommits ?? GIT_MAX_COMMITS;
+  const stdout = run(gitLogArgs(maxCommits));
   if (stdout === null) return null;
 
   const parsed = parseGitLog(stdout, {
@@ -330,7 +357,7 @@ export function readGitSignals(
   const { sync, unpushedShas } = readSyncStatus(rootPath, run);
 
   const summary: GitRepoSummary = {
-    ...parsed.summary,
+    ...enrichSummaryWithCommitTotal(parsed.summary, run, maxCommits),
     ...(branch && branch !== "HEAD" ? { branch } : {}),
     ...(sync ? { sync } : {}),
   };

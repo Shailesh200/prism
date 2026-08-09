@@ -140,6 +140,8 @@ describe("buildTestingReport (M-046)", () => {
     expect(kinds.has("e2e")).toBe(true);
     expect(report.coverage?.present).toBe(true);
     expect(report.coverage?.linePct).toBe(80);
+    // LCOV LF/LH counts lines, so the metric label is "lines".
+    expect(report.coverage?.metric).toBe("lines");
     expect(report.coverage?.source).toBe("coverage/lcov.info");
     expect(report.score).toBeGreaterThanOrEqual(60);
   });
@@ -162,5 +164,8 @@ describe("buildTestingReport (M-046)", () => {
     expect(after.coverage?.present).toBe(true);
     expect(after.coverage?.source).toBe("coverage/coverage-final.json");
     expect(after.coverage?.linePct).toBe(75);
+    // Istanbul's `s` map counts statements — the label must not say "lines".
+    expect(after.coverage?.metric).toBe("statements");
+    expect(after.summary).toContain("75% statements");
   });
 });

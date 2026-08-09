@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { dirname } from "node:path";
+import { riskBandDescriptor } from "@repo-prism/shared";
 import { BrowserBridge } from "./browser-bridge.js";
 import { PrismCodeLensProvider } from "./codelens-provider.js";
 import { checkHealthRegression } from "./health-alerts.js";
@@ -8,22 +9,57 @@ import { openPlaygroundInBrowser } from "./open-playground.js";
 import type { AppView } from "./protocol.js";
 import { PrismSession } from "./session.js";
 import { PrismPanel } from "./webview/prism-panel.js";
+import {
+  AUTO_REINDEX_INTERVAL_STATE_KEY,
+  AUTO_REINDEX_STATE_KEY,
+  resolveAutoReindexEnabled,
+  setActiveWorkspaceWatch,
+  WorkspaceWatchController,
+} from "./workspace-watch.js";
 
 export const PACKAGE_NAME = "@repo-prism/vscode-extension" as const;
 
 const AUTO_OPEN_STATE_KEY = "prism.autoOpenFolderAttempts";
+const FIRST_INDEX_TOAST_PREFIX = "prism.firstIndexToast.";
 
 let session: PrismSession | undefined;
 let logger: ReturnType<typeof createLogger> | undefined;
 let statusBar: vscode.StatusBarItem | undefined;
 let extensionUri: vscode.Uri | undefined;
 let extensionContext: vscode.ExtensionContext | undefined;
+let workspaceWatch: WorkspaceWatchController | undefined;
 /** Serializes index work so overlapping folder opens don't race. */
 let bootChain: Promise<void> = Promise.resolve();
 let lastBootedRoot: string | null = null;
 /** True while ensureSession/reindex own the status bar text (transient states). */
 let statusBarBusy = false;
 let statusBarTimer: ReturnType<typeof setInterval> | undefined;
+
+function syncActivationWatch(): void {
+  if (!workspaceWatch || !extensionContext || !session?.isOpen) return;
+  const stored = extensionContext.workspaceState.get<boolean>(
+    AUTO_REINDEX_STATE_KEY,
+  );
+  const interval = extensionContext.workspaceState.get<number>(
+    AUTO_REINDEX_INTERVAL_STATE_KEY,
+  );
+  workspaceWatch.setOnChange(() => updateStatusBar());
+  workspaceWatch.setEnabled(resolveAutoReindexEnabled(stored), interval);
+}
+
+async function maybeShowFirstIndexToast(root: string): Promise<void> {
+  if (!extensionContext) return;
+  const key = `${FIRST_INDEX_TOAST_PREFIX}${root}`;
+  if (extensionContext.workspaceState.get<boolean>(key)) return;
+  await extensionContext.workspaceState.update(key, true);
+  const pick = await vscode.window.showInformationMessage(
+    "Prism finished indexing this workspace.",
+    "Open Prism",
+  );
+  if (pick === "Open Prism") {
+    await vscode.commands.executeCommand("prism.open");
+  }
+}
 
 /**
  * Render Ready/Stale/Indexing from `session.getIndexFreshness()` (M-048
@@ -185,15 +221,21 @@ async function ensureSession(): Promise<PrismSession | undefined> {
   } finally {
     statusBarBusy = false;
   }
+  const isFirstIndexForRoot = lastBootedRoot !== folder.uri.fsPath;
   lastBootedRoot = folder.uri.fsPath;
   logger!.info("Index ready");
+  syncActivationWatch();
   updateStatusBar();
   void checkHealthRegression(vscode, session, extensionContext);
+  if (isFirstIndexForRoot) {
+    void maybeShowFirstIndexToast(folder.uri.fsPath);
+  }
   return session;
 }
 
 async function bootWorkspace(): Promise<void> {
-  const folder = vscode.workspace.workspaceFolders?.[0];
+  const folders = vscode.workspace.workspaceFolders ?? [];
+  const folder = folders[0];
   if (!folder) {
     statusBar!.text = "$(folder) Prism: open a folder";
     statusBar!.tooltip = "Prism — open a folder in this window to index";
@@ -213,6 +255,30 @@ async function bootWorkspace(): Promise<void> {
   // Index quietly in the background. Do not auto-open the Prism panel —
   // the Getting Started walkthrough and status bar point people there.
   logger!.info(`Indexed ${folder.name} (panel stays closed until opened)`);
+
+  // M-057 P-B7 — warm-index additional multi-root folders so switching is fast.
+  if (folders.length > 1) {
+    void warmIndexOtherFolders(folders.slice(1).map((f) => f.uri.fsPath));
+  }
+}
+
+/** Best-effort background index of non-active multi-root folders. */
+async function warmIndexOtherFolders(roots: readonly string[]): Promise<void> {
+  for (const root of roots) {
+    try {
+      const warm = new PrismSession();
+      const opened = await warm.open(root);
+      if (opened.ok) {
+        logger?.info(`Warm-indexed multi-root folder ${root}`);
+      } else {
+        logger?.warn(`Warm-index skipped ${root}: ${opened.error.message}`);
+      }
+      warm.close();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger?.warn(`Warm-index failed ${root}: ${msg}`);
+    }
+  }
 }
 
 function queueBoot(): void {
@@ -320,21 +386,27 @@ function watchForFolder(context: vscode.ExtensionContext): void {
 }
 
 /**
- * File-level Prism CodeLenses (M-048 Phase 2), gated behind
- * `prism.codeLens.enabled` (default off). Registers/disposes the provider as
- * the setting flips, so no reload is required.
+ * File-level Prism CodeLenses (M-048 Phase 2 / M-057 P-B3), gated behind
+ * `prism.codeLens.enabled` (default on for TS/JS). Registers/disposes the
+ * provider as the setting flips, so no reload is required.
  */
 function registerCodeLens(context: vscode.ExtensionContext): void {
   let registration: vscode.Disposable | undefined;
   const provider = new PrismCodeLensProvider();
+  const tsJsSelectors: vscode.DocumentSelector = [
+    { scheme: "file", language: "typescript" },
+    { scheme: "file", language: "typescriptreact" },
+    { scheme: "file", language: "javascript" },
+    { scheme: "file", language: "javascriptreact" },
+  ];
 
   const sync = (): void => {
     const enabled = vscode.workspace
       .getConfiguration("prism")
-      .get<boolean>("codeLens.enabled", false);
+      .get<boolean>("codeLens.enabled", true);
     if (enabled && !registration) {
       registration = vscode.languages.registerCodeLensProvider(
-        { scheme: "file" },
+        tsJsSelectors,
         provider,
       );
     } else if (!enabled && registration) {
@@ -547,8 +619,10 @@ export function activate(context: vscode.ExtensionContext): void {
         }
         lastBootedRoot = pick.folder.uri.fsPath;
         logger!.info(`Switched Prism workspace to ${pick.folder.uri.fsPath}`);
+        syncActivationWatch();
         if (PrismPanel.current) PrismPanel.current.postNavigateRefresh();
         void checkHealthRegression(vscode, session, extensionContext);
+        void maybeShowFirstIndexToast(pick.folder.uri.fsPath);
       } finally {
         statusBarBusy = false;
         updateStatusBar();
@@ -685,6 +759,98 @@ export function activate(context: vscode.ExtensionContext): void {
     },
   );
 
+  const reviewAllChanges = vscode.commands.registerCommand(
+    "prism.reviewAllChanges",
+    async () => {
+      try {
+        const s = await ensureSession();
+        if (!s) return;
+        const changed = s.getChangedPaths({});
+        if (!changed.ok) {
+          void vscode.window.showErrorMessage(
+            `Prism: could not list changes — ${changed.error.message}`,
+          );
+          return;
+        }
+        if (changed.value.paths.length === 0) {
+          void vscode.window.showInformationMessage(
+            `Prism: no changes to review against ${changed.value.base}.`,
+          );
+          return;
+        }
+        await openPanel("review", {
+          targetPaths: [...changed.value.paths],
+        });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        void vscode.window.showErrorMessage(
+          `Prism: review all changes failed — ${msg}`,
+        );
+      }
+    },
+  );
+
+  const blastQuickPick = vscode.commands.registerCommand(
+    "prism.blastQuickPick",
+    async (arg: unknown) => {
+      try {
+        const path = resolveCommandTargetPath(arg);
+        if (!path) {
+          void vscode.window.showWarningMessage(
+            "Prism: open or select a file first.",
+          );
+          return;
+        }
+        const s = await ensureSession();
+        if (!s) return;
+        const blast = await s.blastRadius({
+          kind: "file",
+          id: path,
+          path,
+        });
+        if (!blast.ok) {
+          void vscode.window.showErrorMessage(
+            `Prism: blast failed — ${blast.error.message}`,
+          );
+          return;
+        }
+        const report = blast.value;
+        const band = riskBandDescriptor(report.risk);
+        const top = [...report.affectedFiles]
+          .sort((a, b) => a.depth - b.depth)
+          .slice(0, 8);
+        type PickItem = vscode.QuickPickItem & { action?: "open" };
+        const items: PickItem[] = [
+          {
+            label: `$(zap) ${band.short} risk (${Math.round(report.risk)})`,
+            description: `${report.affectedFiles.length} affected`,
+            detail: path,
+          },
+          ...top.map((item) => ({
+            label: item.path,
+            description: `depth ${item.depth}`,
+            detail: item.reason,
+          })),
+          {
+            label: "$(link-external) Open full Impact",
+            action: "open" as const,
+          },
+        ];
+        const pick = await vscode.window.showQuickPick(items, {
+          placeHolder: `Blast radius — ${path}`,
+        });
+        if (pick?.action === "open") {
+          await openPanel("blast", { targetPath: path });
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        void vscode.window.showErrorMessage(
+          `Prism: blast quick pick failed — ${msg}`,
+        );
+      }
+    },
+  );
+
   const openWalkthrough = vscode.commands.registerCommand(
     "prism.openWalkthrough",
     () => {
@@ -699,11 +865,13 @@ export function activate(context: vscode.ExtensionContext): void {
     reindex,
     openInBrowser,
     blastRadius,
+    blastQuickPick,
     safeDelete,
     exploreOwnership,
     explainArea,
     revealOnMap,
     reviewChanges,
+    reviewAllChanges,
     openWalkthrough,
     statusBarMenu,
     switchWorkspaceFolder,
@@ -712,6 +880,9 @@ export function activate(context: vscode.ExtensionContext): void {
       dispose: () => {
         BrowserBridge.dispose();
         if (statusBarTimer) clearInterval(statusBarTimer);
+        workspaceWatch?.dispose();
+        workspaceWatch = undefined;
+        setActiveWorkspaceWatch(undefined);
         session?.close();
         logger?.dispose();
       },
@@ -722,6 +893,18 @@ export function activate(context: vscode.ExtensionContext): void {
 
   try {
     session = new PrismSession();
+    workspaceWatch = new WorkspaceWatchController(
+      {
+        createFileSystemWatcher: (pattern) =>
+          vscode.workspace.createFileSystemWatcher(pattern),
+        RelativePattern: vscode.RelativePattern,
+        asRelativePath: (uri, includeWorkspaceFolder) =>
+          vscode.workspace.asRelativePath(uri, includeWorkspaceFolder),
+      },
+      () => session,
+      logger,
+    );
+    setActiveWorkspaceWatch(workspaceWatch);
     logger.info(`${PACKAGE_NAME} activated`);
     watchForFolder(context);
     queueBoot();
@@ -739,6 +922,9 @@ export function activate(context: vscode.ExtensionContext): void {
 export function deactivate(): void {
   BrowserBridge.dispose();
   if (statusBarTimer) clearInterval(statusBarTimer);
+  workspaceWatch?.dispose();
+  workspaceWatch = undefined;
+  setActiveWorkspaceWatch(undefined);
   session?.close();
   session = undefined;
   PrismPanel.current?.dispose();

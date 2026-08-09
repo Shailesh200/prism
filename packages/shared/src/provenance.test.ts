@@ -8,16 +8,18 @@ import {
   estimated,
   hasValue,
   heuristic,
+  inferred,
   measured,
   unavailable,
   valueOr,
 } from "./provenance.js";
 
 describe("SignalProvenance", () => {
-  it("accepts exactly the four documented kinds", () => {
+  it("accepts the documented kinds including inferred (M-061)", () => {
     expect([...SIGNAL_PROVENANCE]).toEqual([
       "measured",
       "heuristic",
+      "inferred",
       "estimated",
       "unavailable",
     ]);
@@ -75,6 +77,7 @@ describe("constructors", () => {
   it("tag values with their origin", () => {
     expect(measured(0.5)).toEqual({ value: 0.5, provenance: "measured" });
     expect(heuristic(0.5)).toEqual({ value: 0.5, provenance: "heuristic" });
+    expect(inferred(0.5)).toEqual({ value: 0.5, provenance: "inferred" });
     expect(estimated(0.5)).toEqual({ value: 0.5, provenance: "estimated" });
     expect(unavailable()).toEqual({ value: null, provenance: "unavailable" });
   });
@@ -118,7 +121,10 @@ describe("combineProvenance", () => {
   // A rollup is only as strong as its weakest contributing source.
   it("degrades to the weakest present source", () => {
     expect(combineProvenance(["measured", "heuristic"])).toBe("heuristic");
+    expect(combineProvenance(["measured", "inferred"])).toBe("inferred");
+    expect(combineProvenance(["heuristic", "inferred"])).toBe("inferred");
     expect(combineProvenance(["measured", "estimated"])).toBe("estimated");
     expect(combineProvenance(["heuristic", "estimated"])).toBe("estimated");
+    expect(combineProvenance(["inferred", "estimated"])).toBe("estimated");
   });
 });

@@ -52,10 +52,13 @@ describe("workspace knowledge graph (M-011)", () => {
     const refs = ws.findReferences({ name: "add", path: "helper.ts" });
     expect(refs.ok).toBe(true);
     if (!refs.ok) return;
+    expect(refs.value.ambiguous).toBeFalsy();
     expect(
-      refs.value.some((r) => r.path === "main.ts" && r.kind === "call"),
+      refs.value.references.some(
+        (r) => r.path === "main.ts" && r.kind === "call",
+      ),
     ).toBe(true);
-    const call = refs.value.find((r) => r.path === "main.ts");
+    const call = refs.value.references.find((r) => r.path === "main.ts");
     expect(call?.targetSymbolId).toBe(syms.value[0]?.id);
     expect(typeof call?.start).toBe("number");
     expect(typeof call?.end).toBe("number");

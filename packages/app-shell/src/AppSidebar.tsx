@@ -1,12 +1,13 @@
 import { Tooltip } from "@repo-prism/ui";
 import {
   AlertTriangle,
-  Boxes,
   Compass,
   Dna,
   ExternalLink,
+  FileSearch,
   FlaskConical,
   GitBranch,
+  GitPullRequest,
   LayoutGrid,
   Map as MapIcon,
   Plug,
@@ -25,7 +26,6 @@ export type AppView =
   | "overview"
   | "map"
   | "dna"
-  | "profile"
   | "domains"
   | "domain"
   | "testing"
@@ -177,6 +177,7 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
           type="button"
           className="appnav__item appnav__item--external appnav__item--below-logo"
           title="Open the same Prism session in your system browser"
+          aria-label="Open in browser"
           onClick={() => client.postToHost?.({ type: "openInBrowser" })}
         >
           <ExternalLink size={16} aria-hidden />
@@ -214,6 +215,8 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
         <button
           type="button"
           className="appnav__item"
+          title="Overview"
+          aria-label="Overview"
           data-prism-tour="overview"
           data-active={props.active === "overview" ? "true" : "false"}
           onClick={() => props.onNavigate("overview")}
@@ -224,6 +227,8 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
         <button
           type="button"
           className="appnav__item"
+          title="Repository Map"
+          aria-label="Repository Map"
           data-prism-tour="map"
           data-active={props.active === "map" ? "true" : "false"}
           onClick={() => props.onNavigate("map")}
@@ -234,16 +239,8 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
         <button
           type="button"
           className="appnav__item"
-          data-prism-tour="profile"
-          data-active={props.active === "profile" ? "true" : "false"}
-          onClick={() => props.onNavigate("profile")}
-        >
-          <Boxes size={16} aria-hidden />
-          <span className="appnav__reveal">Codebase Profile</span>
-        </button>
-        <button
-          type="button"
-          className="appnav__item"
+          title="Domains"
+          aria-label="Domains"
           data-prism-tour="domains"
           data-active={
             props.active === "domains" || props.active === "domain"
@@ -258,6 +255,8 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
         <button
           type="button"
           className="appnav__item"
+          title="Testing & Security"
+          aria-label="Testing and Security"
           data-prism-tour="testing"
           data-active={props.active === "testing" ? "true" : "false"}
           onClick={() => props.onNavigate("testing")}
@@ -268,6 +267,8 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
         <button
           type="button"
           className="appnav__item"
+          title="DNA Analysis"
+          aria-label="DNA Analysis"
           data-prism-tour="dna"
           data-active={props.active === "dna" ? "true" : "false"}
           onClick={() => props.onNavigate("dna")}
@@ -278,6 +279,8 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
         <button
           type="button"
           className="appnav__item"
+          title="Blast Radius"
+          aria-label="Blast Radius"
           data-prism-tour="impact"
           data-active={props.active === "blast" ? "true" : "false"}
           onClick={() => props.onNavigate("blast")}
@@ -288,6 +291,8 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
         <button
           type="button"
           className="appnav__item"
+          title="Trends"
+          aria-label="Trends"
           data-prism-tour="trends"
           data-active={props.active === "trends" ? "true" : "false"}
           onClick={() => props.onNavigate("trends")}
@@ -296,10 +301,38 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
           <span className="appnav__reveal">Trends</span>
         </button>
 
+        <p className="appnav__group appnav__reveal">Tools</p>
+        <button
+          type="button"
+          className="appnav__item"
+          title="Change Review"
+          aria-label="Change Review"
+          data-prism-tour="review"
+          data-active={props.active === "review" ? "true" : "false"}
+          onClick={() => props.onNavigate("review")}
+        >
+          <GitPullRequest size={16} aria-hidden />
+          <span className="appnav__reveal">Change Review</span>
+        </button>
+        <button
+          type="button"
+          className="appnav__item"
+          title="Explain This Area"
+          aria-label="Explain This Area"
+          data-prism-tour="explain"
+          data-active={props.active === "explain" ? "true" : "false"}
+          onClick={() => props.onNavigate("explain")}
+        >
+          <FileSearch size={16} aria-hidden />
+          <span className="appnav__reveal">Explain This Area</span>
+        </button>
+
         <p className="appnav__group appnav__reveal">Settings</p>
         <button
           type="button"
           className="appnav__item"
+          title="Integrations"
+          aria-label="Integrations"
           data-prism-tour="integrations"
           data-active={props.active === "integrations" ? "true" : "false"}
           onClick={() => props.onNavigate("integrations")}
@@ -310,6 +343,8 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
         <button
           type="button"
           className="appnav__item"
+          title="Settings"
+          aria-label="Settings"
           data-prism-tour="settings"
           data-active={props.active === "settings" ? "true" : "false"}
           onClick={() => props.onNavigate("settings")}

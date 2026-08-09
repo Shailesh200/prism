@@ -19,24 +19,29 @@ import {
   discoverLocalPackages,
   findReferences as queryReferences,
   findSymbol as querySymbols,
+  searchSymbols as querySearchSymbols,
   getCwvReport as loadCwvReport,
   getBundleWeightReport as loadBundleWeightReport,
   detectBundleAnalyzeCapability as detectBundleAnalyzeCapabilityImpl,
   discoverFrontendAppRoutes,
+  heuristicFrontendRoutes,
   ingestCoverageFromWorkspace,
   listUtilityOverlayKinds as catalogUtilityOverlayKinds,
   parseUtilityOverlayKind,
   pickRegionMoverWindow,
+  resolveLabAppRoot,
   type DependencyGraphOptions,
   type FindReferencesQuery,
+  type FindReferencesResult,
   type FindSymbolQuery,
-  type ReferenceHit,
+  type SearchSymbolsQuery,
   type StartUtilityJobInput,
   type SymbolHit,
   type UtilitiesSession,
 } from "@repo-prism/intelligence";
 import {
   appendHealthHistory,
+  DEFAULT_MAX_FILE_BYTES,
   hasHealthHistorySha,
   listHealthHistory,
   openIndexCache,
@@ -79,13 +84,17 @@ import {
   type CodeExplorerTarget,
   type ConsentRecord,
   type ConsentState,
+  type CwvPreferredSource,
   type CwvReport,
+  type DomainReport,
+  type DomainReportDomain,
   type DnaReport,
   type EngineeringHealthReport,
   type ExplainAreaSummary,
   type FeatureInfo,
   type GitActivity,
   type GitCommitRef,
+  type DependencyGraphDto,
   type GraphSnapshotDto,
   type HealthHistoryBackfillStatus,
   type HealthHistoryReport,
@@ -104,6 +113,35 @@ import {
   type NavigationRouteResult,
   type OverviewModel,
   type PersonaPresets,
+  type PrismConfig,
+  mergeIndexLimits,
+  backendHandlerNodes,
+  buildBackendCoverage,
+  buildDesktopBoundaryLinks,
+  buildDesktopIpcChannels,
+  buildDesktopTiles,
+  buildDevopsFindings,
+  buildDevopsTiles,
+  buildDomainStackSnapshot,
+  buildFrontendComponentBreakdown,
+  buildFrontendRouteBreakdown,
+  buildMobileNavLinks,
+  buildMobileScreenCoverage,
+  buildMobileTiles,
+  countDataLayerByKind,
+  countOverlayKinds,
+  desktopProcessNodes,
+  DomainReportDomainSchema,
+  mergeFrontendRoutes,
+  rankChurnHotspots,
+  rankMostDepended,
+  selectPrimaryCwv,
+  summarizeBackendDomainReport,
+  summarizeDataMlAiDomainReport,
+  summarizeDesktopDomainReport,
+  summarizeDevopsDomainReport,
+  summarizeFrontendDomainReport,
+  summarizeMobileDomainReport,
   type PrismError,
   type RegionMoversReport,
   type RenameImpactReport,
@@ -133,6 +171,7 @@ import {
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { PrismCapabilities } from "./capabilities.js";
+import { loadPrismConfigSync } from "./prism-config-load.js";
 import { readChangedPaths, type ChangedPaths } from "./git/changed-paths.js";
 import {
   addPrismToGitignore,
@@ -168,10 +207,36 @@ export type GetOverviewModelOptions = {
   readonly activityDays?: number;
   /** How many nodes to rank in `mostConnected`. Defaults to 5. */
   readonly connectedLimit?: number;
+  /**
+   * Map zoom for graph-derived fields. Defaults to `"feature"` (Core map
+   * default). The resolved zoom is always echoed on {@link OverviewModel}.
+   */
+  readonly zoom?: MapZoomLevel;
+};
+
+/** Options for {@link PrismWorkspace.getDomainReport} (M-053). */
+export type GetDomainReportOptions = {
+  readonly packageId?: string;
+  /** Local / lab CWV. When omitted and `loadLatestCwvArtifact`, Core may fill. */
+  readonly cwvLocal?: CwvReport | null;
+  readonly cwvPagespeed?: CwvReport | null;
+  /** Defaults to `"local"`. */
+  readonly cwvPreferredSource?: CwvPreferredSource;
+  /**
+   * When true and `cwvLocal` is omitted, load the newest `lighthouse-cwv`
+   * ingest artifact. Does not start Lighthouse / PageSpeed.
+   */
+  readonly loadLatestCwvArtifact?: boolean;
+  /**
+   * Include {@link detectBundleAnalyzeCapability} on the frontend report.
+   * Defaults to true.
+   */
+  readonly includeBundleCapability?: boolean;
 };
 
 const OVERVIEW_DEFAULT_ACTIVITY_DAYS = 7;
 const OVERVIEW_DEFAULT_CONNECTED_LIMIT = 5;
+const OVERVIEW_DEFAULT_ZOOM: MapZoomLevel = "feature";
 
 /**
  * Coarse path → domain keyword heuristics for `explainArea` (M-048 Phase 5).
@@ -303,7 +368,7 @@ export type PrismWorkspace = {
    */
   getDependencyGraph(
     options?: DependencyGraphOptions,
-  ): Result<GraphSnapshotDto, PrismError>;
+  ): Result<DependencyGraphDto, PrismError>;
   /** Import/re-export cycles from the last index. `INDEX_REQUIRED` if none. */
   getCycles(options?: DependencyGraphOptions): Result<string[][], PrismError>;
   /**
@@ -313,10 +378,19 @@ export type PrismWorkspace = {
   getKnowledgeGraph(): Result<KnowledgeGraphView, PrismError>;
   /** Find indexed symbols by name (optional path/kind filters). */
   findSymbol(query: FindSymbolQuery): Result<SymbolHit[], PrismError>;
-  /** Find resolved references to a symbol. */
+  /**
+   * Substring or regex search over indexed symbol names (M-058 / P-C10).
+   * Hard-capped at 50 hits.
+   */
+  searchSymbols(query: SearchSymbolsQuery): Result<SymbolHit[], PrismError>;
+  /**
+   * Find resolved references to a symbol. When multiple same-named symbols
+   * match and `path`/`start` are omitted, returns `{ ambiguous: true, candidates }`
+   * with empty `references` (M-059 / P-A3).
+   */
   findReferences(
     query: FindReferencesQuery,
-  ): Result<ReferenceHit[], PrismError>;
+  ): Result<FindReferencesResult, PrismError>;
   /**
    * Inferred feature graph (ADR-0011 heuristics) from the last index.
    * `INDEX_REQUIRED` if none.
@@ -453,6 +527,15 @@ export type PrismWorkspace = {
   getOverviewModel(
     options?: GetOverviewModelOptions,
   ): Promise<Result<OverviewModel, PrismError>>;
+  /**
+   * Per-domain aggregation for Domain screens (M-053). Frontend first:
+   * merged routes, CWV primary selection, route/component breakdowns.
+   * Does not start Lighthouse or PageSpeed.
+   */
+  getDomainReport(
+    domain: DomainReportDomain | string,
+    options?: GetDomainReportOptions,
+  ): Promise<Result<DomainReport, PrismError>>;
   /**
    * Record the user's answer for one purpose (M-036). `purpose` must be a
    * known `ConsentPurposeId`; anything else is a validation error rather than
@@ -689,6 +772,10 @@ export function createWorkspace(options: {
 }): PrismWorkspace {
   const rootPath = options.rootPath;
   const repoId = unsafeRepoId(`repo:${rootPath}`);
+  // M-057 P-B6 — `.prism/config.json` (missing → empty). Invalid file fails soft
+  // with empty config so open still works; index warnings can surface later.
+  const loadedConfig = loadPrismConfigSync(rootPath);
+  const prismConfig: PrismConfig = loadedConfig.ok ? loadedConfig.value : {};
   let open = true;
   let lastIndexedAt: string | null = null;
   let lastSnapshot: IndexSnapshot | null = null;
@@ -975,9 +1062,33 @@ export function createWorkspace(options: {
     const satisfiedChanged = isFullRun ? [...pendingChanged] : [];
     const satisfiedDeleted = isFullRun ? [...pendingDeleted] : [];
 
+    // flags (indexOptions) > .prism/config.json > indexer defaults (M-057 P-B6)
+    const limits = mergeIndexLimits({
+      defaults: {
+        maxFileBytes: DEFAULT_MAX_FILE_BYTES,
+        extraIgnorePatterns: [],
+      },
+      config: prismConfig,
+      flags: {
+        ...(typeof indexOptions?.maxFileBytes === "number"
+          ? { maxFileBytes: indexOptions.maxFileBytes }
+          : {}),
+        ...(indexOptions?.extraIgnorePatterns
+          ? { extraIgnorePatterns: indexOptions.extraIgnorePatterns }
+          : {}),
+      },
+    });
+    const mergedOptions: IndexWorkspaceOptions = {
+      ...indexOptions,
+      maxFileBytes: limits.maxFileBytes,
+      ...(limits.extraIgnorePatterns.length > 0
+        ? { extraIgnorePatterns: limits.extraIgnorePatterns }
+        : {}),
+    };
+
     const result = await options.ports.indexer.indexWorkspace(
       rootPath,
-      indexOptions,
+      mergedOptions,
     );
     if (result.ok) {
       lastSnapshot = result.value;
@@ -1068,7 +1179,19 @@ export function createWorkspace(options: {
           ),
         );
       }
-      return ok(buildDependencyGraph(lastSnapshot, graphOptions).graph);
+      const built = buildDependencyGraph(lastSnapshot, graphOptions);
+      const sampleLimit = 8;
+      const unresolvedImports = {
+        count: built.unresolved.length,
+        sample: built.unresolved
+          .slice(0, sampleLimit)
+          .map((u) => `${u.from} → ${u.source}`),
+      };
+      const dto: DependencyGraphDto = {
+        ...built.graph,
+        unresolvedImports,
+      };
+      return ok(dto);
     },
     getCycles(graphOptions) {
       const gate = ensureOpen();
@@ -1116,6 +1239,31 @@ export function createWorkspace(options: {
         );
       }
       return ok(querySymbols(buildKnowledgeGraph(lastSnapshot), query));
+    },
+    searchSymbols(query) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      try {
+        return ok(querySearchSymbols(buildKnowledgeGraph(lastSnapshot), query));
+      } catch (cause) {
+        if (cause instanceof SyntaxError) {
+          return err(
+            prismError(
+              PrismErrorCode.VALIDATION,
+              `Invalid search_symbols regex: ${cause.message}`,
+            ),
+          );
+        }
+        throw cause;
+      }
     },
     findReferences(query) {
       const gate = ensureOpen();
@@ -1384,7 +1532,12 @@ export function createWorkspace(options: {
     discoverFrontendRoutes() {
       const gate = ensureOpen();
       if (!gate.ok) return gate;
-      return ok(discoverFrontendAppRoutes(rootPath));
+      // Scope to the app the lab would measure (the one Prism builds +
+      // previews) — workspace-wide discovery mixes sibling frontend routes
+      // that the measured origin does not serve.
+      return ok(
+        discoverFrontendAppRoutes(rootPath, resolveLabAppRoot(rootPath)),
+      );
     },
     listUtilityOverlayKinds() {
       const gate = ensureOpen();
@@ -1563,7 +1716,8 @@ export function createWorkspace(options: {
       const gate = ensureOpen();
       if (!gate.ok) return gate;
 
-      const mapResult = await this.getRepositoryMap();
+      const zoom = options.zoom ?? OVERVIEW_DEFAULT_ZOOM;
+      const mapResult = await this.getRepositoryMap({ zoom });
       if (!mapResult.ok) return mapResult;
       const graph = mapResult.value.graph;
 
@@ -1576,7 +1730,7 @@ export function createWorkspace(options: {
         Math.round(options.connectedLimit ?? OVERVIEW_DEFAULT_CONNECTED_LIMIT),
       );
 
-      const regions = deriveRegions(graph);
+      const regionResult = deriveRegions(graph);
       const mostConnected = deriveMostConnected(graph, connectedLimit);
 
       const gitResult = await this.getGitActivity();
@@ -1586,17 +1740,284 @@ export function createWorkspace(options: {
         activity = bucketActivity(gitResult.value.days ?? [], startMs, endMs);
       }
 
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+
       return ok({
+        zoom,
         totals: {
           nodes: graph.nodes.length,
           edges: graph.edges.length,
-          files: graph.nodes.filter((n) => n.kind === "file").length,
-          regions: regions.length,
+          files: lastSnapshot.stats.filesIndexed,
+          regions: regionResult.totalCount,
         },
         coupling: couplingFor(graph),
-        regions,
+        regions: regionResult.regions,
+        ...(regionResult.truncated
+          ? { truncated: true, totalCount: regionResult.totalCount }
+          : regionResult.totalCount > 0
+            ? { truncated: false, totalCount: regionResult.totalCount }
+            : {}),
         mostConnected,
         activity,
+      });
+    },
+    async getDomainReport(domain, options = {}) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+
+      const parsedDomain = DomainReportDomainSchema.safeParse(domain);
+      if (!parsedDomain.success) {
+        return err(
+          prismError(
+            PrismErrorCode.VALIDATION,
+            `Unknown domain "${domain}" for getDomainReport`,
+          ),
+        );
+      }
+      const domainId = parsedDomain.data;
+      const packageId = options.packageId ?? selectedPackageId ?? undefined;
+      const overlayOpts = packageId === undefined ? undefined : { packageId };
+      const generatedAt = new Date().toISOString();
+      const base = {
+        rootPath,
+        ...(packageId === undefined ? {} : { packageId }),
+        generatedAt,
+      };
+
+      const loadDepGraph = (): GraphSnapshotDto | null => {
+        const g = this.getDependencyGraph();
+        if (!g.ok) return null;
+        // Domain reports only need the graph snapshot (not honesty fields).
+        return {
+          id: g.value.id,
+          nodes: g.value.nodes,
+          edges: g.value.edges,
+        };
+      };
+      const loadGit = (): GitActivity | null => {
+        const g = this.getGitActivity();
+        return g.ok ? g.value : null;
+      };
+      const loadDna = async (): Promise<DnaReport | null> => {
+        const d = await this.getDna();
+        return d.ok ? d.value : null;
+      };
+      const loadOverlay = async (kind: string) => {
+        const o = await this.getUtilityOverlay(kind, overlayOpts);
+        return o.ok ? o.value : null;
+      };
+
+      if (domainId === "frontend") {
+        const preferredSource: CwvPreferredSource =
+          options.cwvPreferredSource ?? "local";
+
+        let cwvLocal: CwvReport | null =
+          options.cwvLocal === undefined ? null : (options.cwvLocal ?? null);
+        if (
+          options.cwvLocal === undefined &&
+          options.loadLatestCwvArtifact === true
+        ) {
+          const listed = await this.listIngestArtifacts({
+            kind: "lighthouse-cwv",
+            ...(packageId === undefined ? {} : { packageId }),
+          });
+          if (listed.ok && listed.value.length > 0) {
+            const newest = [...listed.value].sort((a, b) =>
+              b.storedAt.localeCompare(a.storedAt),
+            )[0]!;
+            const loaded = await this.getCwvReport(newest.id);
+            if (loaded.ok) cwvLocal = loaded.value;
+          }
+        }
+
+        const cwvPagespeed =
+          options.cwvPagespeed === undefined
+            ? null
+            : (options.cwvPagespeed ?? null);
+        const primary = selectPrimaryCwv(
+          preferredSource,
+          cwvLocal,
+          cwvPagespeed,
+        );
+
+        const discovered = discoverFrontendAppRoutes(
+          rootPath,
+          resolveLabAppRoot(rootPath),
+        );
+        const dnaResult = await this.getDna();
+        let heuristic: string[] = [];
+        if (dnaResult.ok) {
+          const stack = dnaResult.value.stack;
+          const signals = stack?.signals?.map((s) => s.id) ?? [];
+          const evidencePaths = [
+            ...(stack?.signals ?? []).flatMap((s) => s.evidence ?? []),
+            ...(stack?.packages ?? []).flatMap((p) =>
+              (p.profile.signals ?? []).flatMap((s) => s.evidence ?? []),
+            ),
+          ];
+          heuristic = heuristicFrontendRoutes(signals, evidencePaths);
+        } else {
+          heuristic = heuristicFrontendRoutes(undefined, undefined);
+        }
+
+        const routes = mergeFrontendRoutes(heuristic, discovered);
+        const routeBreakdown = buildFrontendRouteBreakdown(routes, primary);
+        const componentBreakdown = buildFrontendComponentBreakdown(primary);
+        const categoryScores = { ...primary?.categoryScores };
+        const summary = summarizeFrontendDomainReport({
+          routes,
+          routeBreakdown,
+          componentBreakdown,
+          hasPrimaryCwv: primary !== null,
+        });
+
+        const includeBundle = options.includeBundleCapability !== false;
+        let bundleCapability: BundleAnalyzeCapability | undefined;
+        if (includeBundle) {
+          const cap = this.detectBundleAnalyzeCapability(
+            packageId === undefined ? undefined : { packageId },
+          );
+          if (cap.ok) bundleCapability = cap.value;
+        }
+
+        return ok({
+          domain: "frontend" as const,
+          ...base,
+          summary,
+          routes,
+          cwv: {
+            preferredSource,
+            local: cwvLocal,
+            pagespeed: cwvPagespeed,
+            primary,
+          },
+          routeBreakdown,
+          componentBreakdown,
+          categoryScores,
+          ...(bundleCapability === undefined ? {} : { bundleCapability }),
+        });
+      }
+
+      if (domainId === "backend") {
+        const backendResult = await this.getBackendReport(overlayOpts);
+        if (!backendResult.ok) return backendResult;
+        const backend = backendResult.value;
+        const overlay = await loadOverlay("api-surface");
+        const nodes = overlay?.graph.nodes ?? [];
+        const handlers = backendHandlerNodes(nodes);
+        const depGraph = loadDepGraph();
+        const git = loadGit();
+        const coverage = buildBackendCoverage(backend);
+        const mostDepended = rankMostDepended(handlers, depGraph);
+        const churn = rankChurnHotspots(handlers, git);
+        const kindCounts = countOverlayKinds(nodes);
+        const dataLayerByKind = countDataLayerByKind(backend.dataLayer);
+        return ok({
+          domain: "backend" as const,
+          ...base,
+          summary: summarizeBackendDomainReport({
+            endpoints: backend.endpoints,
+            frameworks: backend.frameworksDetected,
+            untested: coverage.untested.length,
+          }),
+          backend,
+          coverage,
+          mostDepended,
+          churn,
+          kindCounts,
+          dataLayerByKind,
+        });
+      }
+
+      if (domainId === "devops_platform") {
+        const overlay = await loadOverlay("iac-resources");
+        const nodes = overlay?.graph.nodes ?? [];
+        const tiles = buildDevopsTiles(nodes);
+        const findings = buildDevopsFindings(overlay);
+        const kindCounts = countOverlayKinds(nodes);
+        return ok({
+          domain: "devops_platform" as const,
+          ...base,
+          summary: overlay?.summary ?? summarizeDevopsDomainReport(tiles),
+          overlaySummary: overlay?.summary ?? "",
+          kindCounts,
+          tiles,
+          findings,
+        });
+      }
+
+      if (domainId === "mobile") {
+        const overlay = await loadOverlay("mobile-nav");
+        const qa = await loadOverlay("qa-test-gaps");
+        const nodes = overlay?.graph.nodes ?? [];
+        const screenNodes = nodes.filter((n) => n.kind === "screen");
+        const depGraph = loadDepGraph();
+        const git = loadGit();
+        const dna = await loadDna();
+        const screenCoverage = buildMobileScreenCoverage(screenNodes, qa);
+        const tiles = buildMobileTiles(nodes, screenCoverage);
+        return ok({
+          domain: "mobile" as const,
+          ...base,
+          summary: summarizeMobileDomainReport(tiles),
+          tiles,
+          screenCoverage,
+          screenMostDepended: rankMostDepended(screenNodes, depGraph),
+          screenChurn: rankChurnHotspots(screenNodes, git),
+          stack: buildDomainStackSnapshot(dna, "mobile"),
+          navLinks: buildMobileNavLinks(overlay),
+          kindCounts: countOverlayKinds(nodes),
+        });
+      }
+
+      if (domainId === "desktop") {
+        const overlay = await loadOverlay("desktop-boundary");
+        const nodes = overlay?.graph.nodes ?? [];
+        const processNodes = desktopProcessNodes(nodes);
+        const depGraph = loadDepGraph();
+        const git = loadGit();
+        const dna = await loadDna();
+        const tiles = buildDesktopTiles(nodes);
+        return ok({
+          domain: "desktop" as const,
+          ...base,
+          summary: summarizeDesktopDomainReport(tiles),
+          tiles,
+          mostDepended: rankMostDepended(processNodes, depGraph),
+          churn: rankChurnHotspots(processNodes, git),
+          stack: buildDomainStackSnapshot(dna, "desktop"),
+          boundaryLinks: buildDesktopBoundaryLinks(overlay),
+          ipcChannels: buildDesktopIpcChannels(overlay),
+          kindCounts: countOverlayKinds(nodes),
+        });
+      }
+
+      // data_ml_ai
+      const overlay = await loadOverlay("data-pipeline-dag");
+      const nodes = overlay?.graph.nodes ?? [];
+      const kindCounts = countOverlayKinds(nodes);
+      const findings = [...(overlay?.findings ?? [])];
+      const dna = await loadDna();
+      return ok({
+        domain: "data_ml_ai" as const,
+        ...base,
+        summary: summarizeDataMlAiDomainReport({
+          nodeCount: nodes.length,
+          kindCounts,
+          findingCount: findings.length,
+        }),
+        overlaySummary: overlay?.summary ?? "",
+        nodeCount: nodes.length,
+        kindCounts,
+        findings,
+        stack: buildDomainStackSnapshot(dna, "data_ml_ai"),
       });
     },
     async setConsent(purpose, granted) {
@@ -1650,7 +2071,12 @@ export function createWorkspace(options: {
       const gate = ensureOpen();
       if (!gate.ok) return gate;
       const cache = await openIndexCache(rootPath);
-      if (!cache.ok) return cache;
+      // Cache is best-effort (same as index-time history append). An agent
+      // asking for history when SQLite cannot open should see "no points",
+      // not a native-module IO error (M-058 agent surface).
+      if (!cache.ok) {
+        return ok({ points: [] } satisfies HealthHistoryReport);
+      }
       try {
         const rows = listHealthHistory(cache.value.db, rootPath, {
           ...(historyOptions?.since === undefined

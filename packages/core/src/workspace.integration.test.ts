@@ -300,6 +300,38 @@ describe("reports over a real repository", () => {
     const routes = unwrap(workspace.discoverFrontendRoutes());
     expect(Array.isArray(routes)).toBe(true);
   });
+
+  it("builds a frontend domain report without starting labs", async () => {
+    const report = unwrap(await workspace.getDomainReport("frontend"));
+    expect(report.domain).toBe("frontend");
+    if (report.domain !== "frontend") return;
+    expect(report.routes.length).toBeGreaterThan(0);
+    expect(report.routes[0]).toBe("/");
+    expect(report.cwv.preferredSource).toBe("local");
+    expect(report.routeBreakdown.length).toBe(report.routes.length);
+    expect(Array.isArray(report.componentBreakdown)).toBe(true);
+  });
+});
+
+describe("repository overview", () => {
+  it("echoes zoom, counts files from the index snapshot, and ranks connected nodes with kind", async () => {
+    const overview = unwrap(await workspace.getOverviewModel());
+    expect(overview.zoom).toBe("feature");
+    expect(overview.totals.files).toBeGreaterThan(0);
+    expect(overview.totals.files).toBeGreaterThanOrEqual(
+      overview.mostConnected.filter((n) => n.kind === "file").length,
+    );
+    for (const node of overview.mostConnected) {
+      expect(node.kind.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("honours an explicit map zoom option", async () => {
+    const overview = unwrap(
+      await workspace.getOverviewModel({ zoom: "package" }),
+    );
+    expect(overview.zoom).toBe("package");
+  });
 });
 
 describe("utility jobs", () => {

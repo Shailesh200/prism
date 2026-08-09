@@ -1,6 +1,8 @@
 import {
   AlertTriangle,
+  Check,
   Code2,
+  Copy,
   ExternalLink,
   Eye,
   EyeOff,
@@ -19,7 +21,7 @@ import { useId, useState, type ReactElement, type ReactNode } from "react";
 import { CardIcon, InfoTip, Input, type CardIconTone } from "@repo-prism/ui";
 import { AppSidebar, type AppSidebarUser, type AppView } from "./AppSidebar.js";
 import { shellNavVariant, shellRootClass } from "./shell-layout.js";
-import { fetchGithubWorkflows, fetchPagespeedMetrics } from "./github-ci.js";
+import { useAppShellClient } from "./client-context.js";
 import { isBrowserShell } from "./is-browser.js";
 import {
   loadIntegrationsState,
@@ -51,6 +53,18 @@ function isExtensionWebview(): boolean {
 /** Google docs on obtaining a PageSpeed Insights API key. */
 const PAGESPEED_KEY_DOCS =
   "https://developers.google.com/speed/docs/insights/v5/get-started";
+
+/** Prism website install guides. */
+const PRISM_CLI_DOCS = "https://www.prismhq.in/docs/cli/install";
+const PRISM_MCP_DOCS = "https://www.prismhq.in/docs/mcp/install";
+
+/**
+ * Cursor one-click MCP install deeplink. The config param is base64 of
+ * {"command":"npx","args":["-y","@repo-prism/mcp-server"]} — keep in sync with
+ * apps/website/lib/mcp-install.ts (cursorMcpInstallHref).
+ */
+const CURSOR_MCP_INSTALL =
+  "cursor://anysphere.cursor-deeplink/mcp/install?name=prism&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkByZXBvLXByaXNtL21jcC1zZXJ2ZXIiXX0=";
 
 export type IntegrationsScreenProps = {
   repoLabel: string;
@@ -91,6 +105,12 @@ type Integration = {
   networkGated?: boolean;
   /** Show Connect / Disconnect + optional connector panel. */
   connectable?: boolean;
+  /** Copyable install/run command shown in the expanded panel. */
+  installCommand?: string;
+  /** Install guide on prismhq.in, linked from the expanded panel. */
+  docsHref?: string;
+  /** One-click Cursor MCP install deeplink. */
+  cursorInstallHref?: string;
 };
 
 const INTEGRATIONS: readonly Integration[] = [
@@ -98,21 +118,26 @@ const INTEGRATIONS: readonly Integration[] = [
     id: "mcp",
     name: "MCP Server",
     blurb: "Expose repo context to LLMs via Model Context Protocol.",
-    status: "coming_soon",
+    status: "available",
     icon: Plug,
     tone: "violet",
+    installCommand: "npx -y @repo-prism/mcp-server",
+    docsHref: PRISM_MCP_DOCS,
+    cursorInstallHref: CURSOR_MCP_INSTALL,
     details:
-      "MCP packaging exists, but a local port to configure from this playground is not available yet — use Core analysis here in the meantime.",
+      "Run `npx -y @repo-prism/mcp-server` or add it to your MCP client config. See docs/mcp/install.md in the repo for Cursor, Claude, and other hosts.",
   },
   {
     id: "cli",
     name: "CLI",
     blurb: "Command-line interface for local-first analysis.",
-    status: "coming_soon",
+    status: "available",
     icon: Terminal,
     tone: "ink",
+    installCommand: "npx -y @repo-prism/cli",
+    docsHref: PRISM_CLI_DOCS,
     details:
-      "The Prism CLI is in progress. Use Core / this playground for analysis until CLI commands ship.",
+      "Run `npx -y @repo-prism/cli doctor` to verify your workspace, then commands like `dna`, `health`, and `blast`. See packages/cli/README.md for the full list.",
   },
   {
     id: "vscode",
@@ -231,6 +256,7 @@ function looksLikePagespeedKey(key: string): boolean {
 export function IntegrationsScreen(
   props: IntegrationsScreenProps,
 ): ReactElement {
+  const client = useAppShellClient();
   const subtitle = "Connect Prism to your tools";
   const [openId, setOpenId] = useState<IntegrationId | null>(null);
   const [state, setState] = useState<IntegrationsState>(() =>
@@ -318,7 +344,12 @@ export function IntegrationsScreen(
     }
     setGithubBusy(true);
     setGithubTest(null);
-    const result = await fetchGithubWorkflows(
+    if (!client.fetchGithubWorkflows) {
+      setGithubTest("GitHub CI is not available in this host.");
+      setGithubBusy(false);
+      return;
+    }
+    const result = await client.fetchGithubWorkflows(
       token ? { owner, repo, token } : { owner, repo },
     );
     if (result.ok) {
@@ -354,8 +385,16 @@ export function IntegrationsScreen(
     }
     setPagespeedBusy(true);
     setPagespeedTest(null);
+    if (!client.fetchPagespeedMetrics) {
+      setPagespeedTest("PageSpeed is not available in this host.");
+      setPagespeedBusy(false);
+      return;
+    }
     // Minimal PSI call against a stable public URL to validate the key.
-    const result = await fetchPagespeedMetrics(key, "https://example.com");
+    const result = await client.fetchPagespeedMetrics(
+      key,
+      "https://example.com",
+    );
     if (result.ok) {
       setPagespeedTest(
         "API key works — live CWV can be used in the Frontend domain.",
@@ -452,6 +491,15 @@ export function IntegrationsScreen(
                   {open ? (
                     <div className="int-card__panel">
                       <p className="int-card__details">{item.details}</p>
+                      {item.installCommand && item.docsHref ? (
+                        <InstallPanel
+                          command={item.installCommand}
+                          docsHref={item.docsHref}
+                          {...(item.cursorInstallHref
+                            ? { cursorInstallHref: item.cursorInstallHref }
+                            : {})}
+                        />
+                      ) : null}
                       {item.id === "github" && !locked ? (
                         <GithubConnector
                           config={conn.config ?? {}}
@@ -558,13 +606,15 @@ export function IntegrationsScreen(
                       <span />
                     )}
                     {soon ? (
-                      <button
-                        type="button"
-                        className="ov-btn ov-btn--ghost int-card__btn"
-                        disabled
+                      <a
+                        className="int-pill int-pill--soon int-card__btn"
+                        href="https://github.com/repo-prism/prism#roadmap"
+                        target="_blank"
+                        rel="noreferrer"
+                        title="See roadmap for upcoming connectors"
                       >
-                        Soon
-                      </button>
+                        On the roadmap
+                      </a>
                     ) : locked && !open ? (
                       <button
                         type="button"
@@ -770,6 +820,58 @@ function NetworkGateHint(props: {
       </button>{" "}
       to connect.
     </p>
+  );
+}
+
+/**
+ * Copyable install command + docs links (MCP Server / CLI cards). Follows the
+ * copy-to-clipboard pattern from AuditLogsPanel's DetailBlock.
+ */
+function InstallPanel(props: {
+  command: string;
+  docsHref: string;
+  cursorInstallHref?: string;
+}): ReactElement {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="int-install">
+      <div className="int-install__cmd-row">
+        <code className="int-install__cmd">{props.command}</code>
+        <button
+          type="button"
+          className="int-install__copy"
+          onClick={() => {
+            void navigator.clipboard.writeText(props.command).then(() => {
+              setCopied(true);
+              window.setTimeout(() => setCopied(false), 1200);
+            });
+          }}
+        >
+          {copied ? (
+            <Check size={12} aria-hidden />
+          ) : (
+            <Copy size={12} aria-hidden />
+          )}
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+      <p className="int-connect__hint int-install__links">
+        <a
+          className="set-link int-docs-link"
+          href={props.docsHref}
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          Install guide
+          <ExternalLink size={12} aria-hidden />
+        </a>
+        {props.cursorInstallHref ? (
+          <a className="set-link int-docs-link" href={props.cursorInstallHref}>
+            Add to Cursor
+          </a>
+        ) : null}
+      </p>
+    </div>
   );
 }
 

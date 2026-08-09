@@ -1,5 +1,6 @@
 # Prism
 
+[![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen)](https://nodejs.org)
 [![Website](https://img.shields.io/badge/website-prismhq.in-00c2c2)](https://www.prismhq.in)
 [![npm @repo-prism/cli](https://img.shields.io/npm/v/@repo-prism/cli.svg?label=@repo-prism/cli)](https://www.npmjs.com/package/@repo-prism/cli)
 [![npm @repo-prism/mcp-server](https://img.shields.io/npm/v/@repo-prism/mcp-server.svg?label=@repo-prism/mcp-server)](https://www.npmjs.com/package/@repo-prism/mcp-server)
@@ -35,7 +36,7 @@ Prism is **not** an AI coding assistant. It is the intelligence layer behind an 
 
 ## Get started in 60 seconds
 
-**Needs Node.js 26.** No need to clone this repository.
+**Needs Node.js 22+.** No need to clone this repository.
 
 ```bash
 # 1) Go to your project
@@ -93,6 +94,25 @@ Package: [npmjs.com/package/@repo-prism/cli](https://www.npmjs.com/package/@repo
 **Set up once. Then ask the agent in plain language — never type tool names
 like `repository_health`.** The server tells the agent which tools to call.
 
+#### One-click (Cursor)
+
+[Add to Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=prism&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkByZXBvLXByaXNtL21jcC1zZXJ2ZXIiXX0=) · [Install guide](https://www.prismhq.in/docs/mcp/install) · [Benchmarks](https://www.prismhq.in/benchmarks)
+
+#### Copy-paste config (Cursor / Claude Desktop)
+
+```json
+{
+  "mcpServers": {
+    "prism": {
+      "command": "npx",
+      "args": ["-y", "@repo-prism/mcp-server"]
+    }
+  }
+}
+```
+
+Save as `.cursor/mcp.json` (project) or add to Claude Desktop config. Enable in **Settings → MCP** (~32 tools).
+
 #### Claude Code
 
 1. `cd /path/to/your/project`
@@ -100,7 +120,9 @@ like `repository_health`.** The server tells the agent which tools to call.
 3. Restart Claude Code if it was already running.
 4. Ask: “What is this repository?” or “How healthy is this codebase?”
 
-#### Cursor
+#### Cursor (manual)
+
+If the one-click link above does not work:
 
 1. Open the project folder in Cursor.
 2. Create `.cursor/mcp.json`:
@@ -114,7 +136,7 @@ like `repository_health`.** The server tells the agent which tools to call.
      }
    }
    ```
-3. **Settings → MCP** → enable **prism** → wait for ~28 tools.
+3. **Settings → MCP** → enable **prism** → wait for ~32 tools.
 4. In Agent chat, ask normally (no tool names).
 
 #### Claude Desktop / Codex
@@ -232,6 +254,17 @@ the server’s instructions tell the agent when to call which tool.
 | **Reports** | `engineering_health`, `health_history`, `backend_report`, `testing_report`, `security_report` |
 
 Setup steps: [MCP install](https://www.prismhq.in/docs/mcp/install) · Full tool list: [MCP tools](https://www.prismhq.in/docs/reference/mcp-tools).
+
+---
+
+## Demo — with vs without Prism
+
+Side-by-side script: [`plans/notes/M-063-demo.md`](./plans/notes/M-063-demo.md) · measured savings: [prismhq.in/benchmarks](https://www.prismhq.in/benchmarks)
+
+1. Ask **“What is this repository?”** — Prism returns DNA + landmarks in 2–3 calls; a naive agent walks directories.
+2. Ask **“Is this edit safe?”** on a file — `blast_radius` replaces scanning the tree for imports.
+
+Reproduce numbers: `bun run bench:orientation` (after `bun run build`).
 
 ---
 

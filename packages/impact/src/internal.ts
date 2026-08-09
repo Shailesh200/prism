@@ -211,6 +211,11 @@ export type ResolvedSymbol = {
 export type ResolvedOrigin = {
   readonly originPath: string;
   readonly symbol: ResolvedSymbol | null;
+  /**
+   * Set when a bare symbol name matched multiple definitions and impact
+   * refused to seed (M-059 / P-A3).
+   */
+  readonly resolutionNote?: string;
 };
 
 export function resolveOrigin(
@@ -237,18 +242,41 @@ export function resolveOrigin(
   }
 
   const symbols = context.symbols ?? [];
-  const match =
-    symbols.find((s) => s.id === origin.id) ??
-    symbols.find(
-      (s) =>
-        s.name === origin.id &&
-        (origin.path === undefined || s.path === origin.path),
-    );
-  if (!match) {
+  const byId = symbols.find((s) => s.id === origin.id);
+  if (byId) {
+    return ok({
+      originPath: byId.path,
+      symbol: {
+        id: byId.id,
+        name: byId.name,
+        path: byId.path,
+        ...(byId.kind === undefined ? {} : { kind: byId.kind }),
+        ...(byId.exported === undefined ? {} : { exported: byId.exported }),
+      },
+    });
+  }
+
+  const byName = symbols.filter(
+    (s) =>
+      s.name === origin.id &&
+      (origin.path === undefined || s.path === origin.path),
+  );
+  if (byName.length === 0) {
     return err(
       prismError(PrismErrorCode.NOT_FOUND, `Symbol not found: ${origin.id}`),
     );
   }
+  if (byName.length > 1 && origin.path === undefined) {
+    const candidates = byName
+      .map((s) => `${s.path}:${s.name}`)
+      .sort((a, b) => a.localeCompare(b));
+    return ok({
+      originPath: byName[0]!.path,
+      symbol: null,
+      resolutionNote: `Ambiguous symbol name '${origin.id}' (${byName.length} candidates: ${candidates.join(", ")}). Pass path or a full symbol id to disambiguate.`,
+    });
+  }
+  const match = byName[0]!;
   return ok({
     originPath: match.path,
     symbol: {
@@ -278,15 +306,16 @@ export type AffectedSet = {
   readonly symbol: ResolvedSymbol | null;
   readonly affected: Map<string, Affected>;
   readonly truncated: boolean;
+  readonly resolutionNote?: string;
 };
 
-/** References that resolve to (or name-match) the target symbol. */
+/** References that resolve to the target symbol id (no name-only fallback — M-059 / P-A3). */
 export function referencesToSymbol(
   context: ImpactContext,
   symbol: ResolvedSymbol,
 ): ImpactReference[] {
   return (context.references ?? []).filter(
-    (ref) => ref.targetSymbolId === symbol.id || ref.name === symbol.name,
+    (ref) => ref.targetSymbolId === symbol.id,
   );
 }
 
@@ -306,7 +335,7 @@ export function computeAffected(
 
   const resolved = resolveOrigin(origin, context, analyzed);
   if (!resolved.ok) return resolved;
-  const { originPath, symbol } = resolved.value;
+  const { originPath, symbol, resolutionNote } = resolved.value;
 
   const affected = new Map<string, Affected>();
   const seen = new Set<string>([originPath]);
@@ -330,6 +359,17 @@ export function computeAffected(
     });
     queue.push({ path, depth });
   };
+
+  if (origin.kind === "symbol" && resolutionNote && !symbol) {
+    // Ambiguous homonym — do not seed from name-matched references.
+    return ok({
+      originPath,
+      symbol: null,
+      affected,
+      truncated: false,
+      resolutionNote,
+    });
+  }
 
   if (origin.kind === "symbol" && symbol) {
     const refPaths = new Set<string>();
@@ -378,7 +418,13 @@ export function computeAffected(
     }
   }
 
-  return ok({ originPath, symbol, affected, truncated });
+  return ok({
+    originPath,
+    symbol,
+    affected,
+    truncated,
+    ...(resolutionNote ? { resolutionNote } : {}),
+  });
 }
 
 /**

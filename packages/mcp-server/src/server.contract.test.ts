@@ -123,6 +123,19 @@ describe("MCP server contract (M-026)", () => {
     }
   });
 
+  it("expands review_diff to the auto-discover review_changes flow (M-058 / P-C1)", async () => {
+    const result = await client.getPrompt({
+      name: "review_diff",
+      arguments: {},
+    });
+    const text = result.messages[0]?.content;
+    expect(text).toMatchObject({ type: "text" });
+    if (text && text.type === "text") {
+      expect(text.text).toMatch(/auto-discover/i);
+      expect(text.text).toContain("review_changes");
+    }
+  });
+
   it("advertises exactly the documented pack, with usable JSON Schema", async () => {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
@@ -134,6 +147,8 @@ describe("MCP server contract (M-026)", () => {
         "backend_report",
         "blast_radius",
         "breaking_change_hints",
+        "capabilities",
+        "changed_paths",
         "dependency_cycles",
         "dependency_graph",
         "dependency_route",
@@ -155,10 +170,12 @@ describe("MCP server contract (M-026)", () => {
         "repository_overview",
         "review_changes",
         "safe_delete",
+        "search_symbols",
         "security_report",
         "stack_profile",
         "test_impact",
         "testing_report",
+        "workspace_status",
       ].sort(),
     );
 
@@ -179,19 +196,29 @@ describe("MCP server contract (M-026)", () => {
     }
   });
 
-  it("gives every list tool a limit and bounds its output", async () => {
+  it("gives every top-level list tool a limit and bounds its output", async () => {
     /** Required arguments for the list tools that need more than a limit. */
     const REQUIRED: Record<string, Record<string, unknown>> = {
       find_symbol: { name: "a" },
       find_references: { name: "a" },
+      search_symbols: { pattern: "a" },
+      knowledge_graph: {},
     };
 
+    /** Tools that nest the envelope inside a report (not top-level BoundedList). */
+    const NESTED_LIMIT = new Set([
+      "blast_radius",
+      "test_impact",
+      "explore_code",
+    ]);
+
     const { tools } = await client.listTools();
-    const listTools = tools.filter(
-      (tool) =>
-        (tool.inputSchema.properties as Record<string, unknown> | undefined)
-          ?.limit !== undefined,
-    );
+    const listTools = tools.filter((tool) => {
+      const props = tool.inputSchema.properties as
+        | Record<string, unknown>
+        | undefined;
+      return props?.limit !== undefined && !NESTED_LIMIT.has(tool.name);
+    });
     // If this drops to zero the assertion below stops meaning anything.
     expect(listTools.length).toBeGreaterThanOrEqual(5);
 
@@ -207,6 +234,40 @@ describe("MCP server contract (M-026)", () => {
       );
     }
   }, 60_000);
+
+  it("defaults repository_map zoom to package (M-058 / P-C2)", async () => {
+    const map = await callJson("repository_map", {});
+    expect(map.zoom).toBe("package");
+  }, 60_000);
+
+  it("requires path or limit on knowledge_graph (M-058 / P-C2)", async () => {
+    expectToolError(
+      await call(client, "knowledge_graph", {}),
+      /requires `path` or `limit`/,
+    );
+  });
+
+  it("returns compact JSON by default (M-058 / P-C4)", async () => {
+    const response = await call(client, "landmarks", { limit: 1 });
+    const text = response.content?.[0]?.text ?? "";
+    expect(text.includes("\n")).toBe(false);
+  }, 60_000);
+
+  it("advertises DNA / landmarks / health resources (M-058 / P-C8)", async () => {
+    const { resources } = await client.listResources();
+    expect(resources.map((r) => r.uri).sort()).toEqual(
+      ["prism://dna", "prism://health", "prism://landmarks"].sort(),
+    );
+  });
+
+  it("marks overlapping tools as deprecated in descriptions (M-058 / P-C9)", async () => {
+    const { tools } = await client.listTools();
+    const breaking = tools.find((t) => t.name === "breaking_change_hints");
+    const explain = tools.find((t) => t.name === "explain_area");
+    expect(breaking?.description).toMatch(/deprecated/i);
+    expect(breaking?.description).toMatch(/blast_radius/i);
+    expect(explain?.description).toMatch(/explore_code/);
+  });
 
   it("marks the tools read-only and closed-world", async () => {
     // Prism never writes to the repository and never reaches the network;
@@ -230,6 +291,11 @@ describe("MCP server contract (M-026)", () => {
     expect(typeof health.score).toBe("number");
     expect(health.score as number).toBeGreaterThanOrEqual(0);
     expect(health.score as number).toBeLessThanOrEqual(100);
+    expect(typeof health.graphCoveragePct).toBe("number");
+    const factors = health.factors as { id: string; label: string }[];
+    expect(factors.find((f) => f.id === "coupling")?.label).toBe(
+      "TS/JS import coupling",
+    );
   }, 60_000);
 
   it("returns a real map with nodes and edges", async () => {
@@ -250,6 +316,8 @@ describe("MCP server contract (M-026)", () => {
       id: (file as { id: string }).id.replace(/^file:/, ""),
     });
     expect(report).toHaveProperty("risk");
+    expect(Array.isArray(report.coverageLimitations)).toBe(true);
+    expect((report.coverageLimitations as unknown[]).length).toBeGreaterThan(0);
   }, 60_000);
 
   it("answers every tool in the pack against the fixture", async () => {
@@ -274,12 +342,15 @@ describe("MCP server contract (M-026)", () => {
       ["stack_profile", {}],
       ["landmarks", {}],
       ["explain_area", { path: filePath }],
-      ["dependency_graph", { packageAggregation: true }],
+      ["workspace_status", {}],
+      ["capabilities", {}],
+      ["dependency_graph", { packageAggregation: true, limit: 10 }],
       ["dependency_cycles", {}],
-      ["knowledge_graph", {}],
-      ["feature_graph", {}],
+      ["knowledge_graph", { limit: 10 }],
+      ["feature_graph", { limit: 10 }],
       ["list_features", {}],
       ["find_symbol", { name: "a" }],
+      ["search_symbols", { pattern: "a" }],
       ["find_references", { name: "a" }],
       [
         "dependency_route",
@@ -293,6 +364,7 @@ describe("MCP server contract (M-026)", () => {
       ["rename_impact", target],
       ["test_impact", target],
       ["breaking_change_hints", target],
+      ["changed_paths", {}],
       ["review_changes", { paths: [filePath] }],
       ["engineering_health", {}],
       ["health_history", {}],
@@ -362,6 +434,31 @@ describe("MCP server contract (M-026)", () => {
   it("reports an unknown tool rather than answering it", async () => {
     expectToolError(await call(client, "prism_not_a_tool"), /not_a_tool/);
   });
+});
+
+describe("MCP dependency_graph unresolved imports (M-056 / P-A1)", () => {
+  const unresolvedFixture = join(
+    dirname(fileURLToPath(import.meta.url)),
+    "..",
+    "..",
+    "intelligence",
+    "fixtures",
+    "m056-unresolved",
+  );
+
+  it("surfaces unresolvedImports count and sample", async () => {
+    const { client: isolated, instance: built } =
+      await connect(unresolvedFixture);
+    const response = await call(isolated, "dependency_graph", {});
+    expect(response.isError).not.toBe(true);
+    const payload = JSON.parse(response.content?.[0]?.text ?? "{}") as {
+      unresolvedImports?: { count: number; sample: string[] };
+    };
+    expect(payload.unresolvedImports?.count).toBeGreaterThan(0);
+    expect(payload.unresolvedImports?.sample[0]).toContain("no-such-module");
+    built.session.close();
+    await isolated.close();
+  }, 60_000);
 });
 
 describe("MCP server against an unusable workspace (M-026)", () => {

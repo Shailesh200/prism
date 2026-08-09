@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type {
@@ -26,6 +27,10 @@ const SKIP_DIRS = new Set([
   "coverage",
   "vendor",
   ".turbo",
+  // Heavy tooling caches/fixtures — skipped for scan speed. Other dot-entries
+  // (.github, .env, .npmrc, …) ARE security-relevant and must stay visible.
+  ".bench",
+  ".cache",
 ]);
 
 const LOCKFILES = [
@@ -254,26 +259,41 @@ function runChecks(
 
   // --- General checks -------------------------------------------------------
 
-  // env-gitignored: a committed .env is a hard fail; a missing .gitignore rule
-  // is a warning; clean + ignored is a pass.
-  const envHit = files.find((f) => {
+  // env-gitignored: a *committed* .env is a hard fail — "committed" means
+  // tracked by git, not merely present on disk. A gitignored local .env is
+  // the correct setup and must not fail; an untracked one is at most a hint
+  // that the ignore rule matters. Without git we cannot verify committed
+  // state, so a filesystem hit is a warn with honest wording, never "committed".
+  const isEnvSecretPath = (f: string): boolean => {
     const base = f.split("/").pop() ?? f;
     return (
       ENV_SECRET_FILES.includes(base) ||
       (/^\.env\./i.test(base) &&
         !/\.(example|sample|template|dist)$/i.test(base))
     );
-  });
+  };
+  const trackedFiles = listGitTrackedFiles(root);
+  const committedEnvHit =
+    trackedFiles === null ? undefined : trackedFiles.find(isEnvSecretPath);
+  const diskEnvHit = files.find(isEnvSecretPath);
   const gitignoreIgnoresEnv = gitignoreHasEnvRule(root);
   checks.push({
     id: "env-gitignored",
-    status: envHit ? "fail" : gitignoreIgnoresEnv ? "pass" : "warn",
+    status: committedEnvHit
+      ? "fail"
+      : trackedFiles === null && diskEnvHit
+        ? "warn"
+        : gitignoreIgnoresEnv
+          ? "pass"
+          : "warn",
     title: ".env files are gitignored",
-    detail: envHit
-      ? `Committed secret file found: ${envHit}`
-      : gitignoreIgnoresEnv
-        ? ".env pattern present in .gitignore; no committed .env files"
-        : "No committed .env files, but .gitignore has no .env rule",
+    detail: committedEnvHit
+      ? `Committed secret file found: ${committedEnvHit}`
+      : trackedFiles === null && diskEnvHit
+        ? `Secret file on disk: ${diskEnvHit} — not a git repo, cannot verify it is uncommitted`
+        : gitignoreIgnoresEnv
+          ? ".env pattern present in .gitignore; no committed .env files"
+          : "No committed .env files, but .gitignore has no .env rule",
   });
 
   // lockfile-present
@@ -597,6 +617,25 @@ function gitignoreHasEnvRule(root: string): boolean {
     if (/(^|\/)\.env(\b|\.|\*|$)/i.test(line)) return true;
   }
   return false;
+}
+
+/**
+ * Git-tracked (committed) repo-relative paths, or null when git is
+ * unavailable / the root is not a repository. Local-only, no network.
+ */
+function listGitTrackedFiles(root: string): string[] | null {
+  try {
+    const out = execFileSync("git", ["ls-files"], {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: 15_000,
+      maxBuffer: 32 * 1024 * 1024,
+    });
+    return out.split("\n").filter((l) => l.trim().length > 0);
+  } catch {
+    return null;
+  }
 }
 
 /**

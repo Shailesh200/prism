@@ -16,7 +16,7 @@ description: "Indexing, appearance, CodeLens, and privacy toggles in the extensi
 
 | Setting | Default | Effect |
 |---|---|---|
-| `prism.codeLens.enabled` | `false` | Blast Radius, Ownership and Map lenses above the first line |
+| `prism.codeLens.enabled` | `true` | Blast Radius, Ownership and Map lenses above the first line of TS/JS files |
 
 Everything else lives in Prism's Settings screen.
 
@@ -25,8 +25,8 @@ Everything else lives in Prism's Settings screen.
 | Setting | Default | Notes |
 |---|---|---|
 | **Exclude globs** | Builtin + `.gitignore` + `.prismignore` | Newline-separated gitignore syntax |
-| **Max file size** | 1 MB | Options from 256 KB to no limit |
-| **Auto re-index** | On | As files change |
+| **Max file size** | 5 MB | Options from 256 KB to no limit |
+| **Auto re-index** | On | As files change (watch starts on activation, panel not required) |
 | **Auto re-index interval** | 15 minutes | 5 minutes to 6 hours |
 
 ### Appearance

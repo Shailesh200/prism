@@ -68,6 +68,11 @@ export type LighthouseJobOptions = {
    * When omitted, discovered routes are measured (capped).
    */
   readonly routes?: readonly string[];
+  /**
+   * Lab form factor (default `mobile` — simulated Slow-4G). `desktop` uses
+   * Lighthouse's desktop preset. Recorded on the report as `formFactor`.
+   */
+  readonly formFactor?: "mobile" | "desktop";
 };
 
 export type BundleAnalyzeJobOptions = {
@@ -267,6 +272,7 @@ export function createUtilityJobService(options: {
           const lh = input.lighthouse ?? {};
           const preferredPort = lh.port;
           const mode = lh.mode ?? (lh.reportPath ? "ingest" : "lab-fixture");
+          const formFactor = lh.formFactor ?? "mobile";
 
           let source: "lighthouse" | "ingest" | "lab-fixture" = "lab-fixture";
           let raw: unknown;
@@ -274,6 +280,8 @@ export function createUtilityJobService(options: {
             lh.url ?? `http://127.0.0.1:${preferredPort ?? PRISM_LAB_PORT}/`;
           let port = preferredPort ?? PRISM_LAB_PORT;
           let labHandle: LabServerHandle | null = null;
+          /** App root Prism built + previewed — route discovery scopes to it. */
+          let labAppRoot: string | undefined;
 
           if (mode === "ingest") {
             if (!lh.reportPath) {
@@ -341,11 +349,15 @@ export function createUtilityJobService(options: {
             });
 
             if (!reachable.ok) {
+              const why =
+                "devServerUrl" in reachable && reachable.devServerUrl
+                  ? `Dev server at ${reachable.devServerUrl} skipped — lab measures production builds only`
+                  : "No production build listening";
               emit(
                 {
                   phase: "lab-preview",
                   percent: 55,
-                  message: `No app listening — building + starting production preview on :${preferredPort ?? PRISM_LAB_PORT}`,
+                  message: `${why} — building + starting production preview on :${preferredPort ?? PRISM_LAB_PORT}`,
                 },
                 "running",
               );
@@ -359,14 +371,19 @@ export function createUtilityJobService(options: {
                   ),
               });
               if (!started.ok) {
+                const devHint =
+                  "devServerUrl" in reachable && reachable.devServerUrl
+                    ? ` (dev server at ${reachable.devServerUrl} was skipped — lab measures production builds only)`
+                    : "";
                 return ok(
                   fail(
                     "LAB_URL_UNREACHABLE",
-                    `Could not start a production preview: ${started.message}`,
+                    `Could not start a production preview: ${started.message}${devHint}`,
                   ),
                 );
               }
               labHandle = started.handle;
+              labAppRoot = started.handle.appRoot;
               reachable = {
                 ok: true,
                 url: started.handle.url,
@@ -434,6 +451,7 @@ export function createUtilityJobService(options: {
                   url: targetUrl,
                   chromePath: chrome.path,
                   bin: cli.bin,
+                  formFactor,
                   onLog: (line) =>
                     emit(
                       {
@@ -499,7 +517,10 @@ export function createUtilityJobService(options: {
                 extras = requestedRoutes.slice(1);
               } else {
                 primaryPath = primaryPathForLog(url);
-                extras = discoverFrontendAppRoutes(options.workspaceRoot)
+                extras = discoverFrontendAppRoutes(
+                  options.workspaceRoot,
+                  labAppRoot,
+                )
                   .map(normalizeRoutePath)
                   .filter((r) => !r.includes(":") && r !== primaryPath)
                   .slice(0, MAX_EXTRA_ROUTES);
@@ -531,6 +552,9 @@ export function createUtilityJobService(options: {
                 source,
                 lighthouseOrPayload: raw,
                 port,
+                // Only live runs may claim the job's form factor — imported
+                // reports speak for themselves via configSettings.
+                ...(source === "lighthouse" ? { formFactor } : {}),
               });
               measuredRoutes = [primaryPath];
 
@@ -592,6 +616,7 @@ export function createUtilityJobService(options: {
                     source: "lighthouse",
                     lighthouseOrPayload: ran.lhr,
                     port,
+                    formFactor,
                   }),
                 });
                 measuredRoutes = [...measuredRoutes, route];
@@ -699,6 +724,8 @@ export function createUtilityJobService(options: {
             );
           }
 
+          // Ingest / lab-fixture path — the report derives its form factor
+          // from the LHR's own configSettings (never the job option).
           const report = buildCwvReport({
             url,
             source,

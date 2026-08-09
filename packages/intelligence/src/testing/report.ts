@@ -345,16 +345,18 @@ function parseCoverage(root: string): TestingCoverage | undefined {
     return {
       present: true,
       ...(linePct === undefined ? {} : { linePct }),
+      metric: "lines",
       source: lcovRel,
     };
   }
 
   if (existsSync(jsonPath)) {
     const text = readFileSafe(jsonPath);
-    const linePct = parseIstanbulLinePct(text);
+    const statementPct = parseIstanbulStatementPct(text);
     return {
       present: true,
-      ...(linePct === undefined ? {} : { linePct }),
+      ...(statementPct === undefined ? {} : { linePct: statementPct }),
+      metric: "statements",
       source: jsonRel,
     };
   }
@@ -377,7 +379,12 @@ function parseLcovLinePct(text: string): number | undefined {
   return Number(((hit / found) * 100).toFixed(1));
 }
 
-function parseIstanbulLinePct(text: string): number | undefined {
+/**
+ * Istanbul `coverage-final.json` hit map → covered percent. The `s` map counts
+ * *statements*, not lines, so the result is statement coverage — callers label
+ * it via `TestingCoverage.metric`.
+ */
+function parseIstanbulStatementPct(text: string): number | undefined {
   if (!text) return undefined;
   try {
     const json = JSON.parse(text) as Record<
@@ -443,9 +450,10 @@ function summarizeTesting(
   else parts.push("no test suites found");
 
   if (coverage?.present) {
+    const metric = coverage.metric ?? "lines";
     parts.push(
       coverage.linePct !== undefined
-        ? `coverage ${coverage.linePct}% (${coverage.source})`
+        ? `coverage ${coverage.linePct}% ${metric} (${coverage.source})`
         : `coverage present (${coverage.source})`,
     );
   } else {
@@ -502,7 +510,9 @@ function listRepoFiles(root: string, prefix = ""): string[] {
   }
   const out: string[] = [];
   for (const name of entries) {
-    if (SKIP_DIRS.has(name)) continue;
+    // Dot-dirs (.bench, .turbo, .cache, …) hold tooling fixtures/caches, never
+    // product source — same rule as the overlay scanner.
+    if (SKIP_DIRS.has(name) || name.startsWith(".")) continue;
     const rel = prefix ? `${prefix}/${name}` : name;
     let st;
     try {

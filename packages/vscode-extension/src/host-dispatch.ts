@@ -1,5 +1,14 @@
 import { execFile } from "node:child_process";
-import { stageDevopsRemote } from "@repo-prism/core";
+import {
+  dispatchGithubWorkflow,
+  fetchGithubAuthenticatedLogin,
+  fetchGithubRepo,
+  fetchGithubWorkflowRuns,
+  fetchGithubWorkflows,
+  fetchPagespeedMetrics,
+  stageDevopsRemote,
+  testGithubRepoConnection,
+} from "@repo-prism/core";
 import { consentRequiredMessage } from "@repo-prism/shared";
 import type { MapLayerId, MapZoomLevel } from "@repo-prism/shared";
 import type * as vscode from "vscode";
@@ -266,6 +275,7 @@ export async function dispatchHostRequest(
         ...(req.url ? { url: req.url } : {}),
         ...(req.port !== undefined ? { port: req.port } : {}),
         ...(req.routes && req.routes.length > 0 ? { routes: req.routes } : {}),
+        ...(req.formFactor ? { formFactor: req.formFactor } : {}),
         ...(options.onProgress ? { onProgress: options.onProgress } : {}),
       });
       if (!result.ok)
@@ -316,6 +326,28 @@ export async function dispatchHostRequest(
         id: req.id,
         ok: true,
         method: "frontendRoutes",
+        data: result.value,
+      };
+    }
+    case "domainReport": {
+      const result = await session.getDomainReport(req.domain ?? "frontend", {
+        ...(req.cwvLocal !== undefined ? { cwvLocal: req.cwvLocal } : {}),
+        ...(req.cwvPagespeed !== undefined
+          ? { cwvPagespeed: req.cwvPagespeed }
+          : {}),
+        ...(req.cwvPreferredSource
+          ? { cwvPreferredSource: req.cwvPreferredSource }
+          : {}),
+        ...(req.loadLatestCwvArtifact === true
+          ? { loadLatestCwvArtifact: true }
+          : {}),
+      });
+      if (!result.ok)
+        return { id: req.id, ok: false, error: result.error.message };
+      return {
+        id: req.id,
+        ok: true,
+        method: "domainReport",
         data: result.value,
       };
     }
@@ -426,6 +458,111 @@ export async function dispatchHostRequest(
         method: "stageDevopsRemote",
         data: result.value,
       };
+    }
+    case "fetchGithubWorkflows": {
+      const root = session.root;
+      if (!root) {
+        return { id: req.id, ok: false, error: "No workspace open" };
+      }
+      const data = await fetchGithubWorkflows({
+        workspaceRoot: root,
+        owner: req.owner,
+        repo: req.repo,
+        ...(req.token ? { token: req.token } : {}),
+      });
+      return { id: req.id, ok: true, method: "fetchGithubWorkflows", data };
+    }
+    case "fetchGithubWorkflowRuns": {
+      const root = session.root;
+      if (!root) {
+        return { id: req.id, ok: false, error: "No workspace open" };
+      }
+      const data = await fetchGithubWorkflowRuns({
+        workspaceRoot: root,
+        owner: req.owner,
+        repo: req.repo,
+        ...(req.token ? { token: req.token } : {}),
+        ...(req.perPage !== undefined ? { perPage: req.perPage } : {}),
+      });
+      return { id: req.id, ok: true, method: "fetchGithubWorkflowRuns", data };
+    }
+    case "fetchGithubRepo": {
+      const root = session.root;
+      if (!root) {
+        return { id: req.id, ok: false, error: "No workspace open" };
+      }
+      const data = await fetchGithubRepo({
+        workspaceRoot: root,
+        owner: req.owner,
+        repo: req.repo,
+        ...(req.token ? { token: req.token } : {}),
+      });
+      return { id: req.id, ok: true, method: "fetchGithubRepo", data };
+    }
+    case "fetchGithubAuthenticatedLogin": {
+      const root = session.root;
+      if (!root) {
+        return { id: req.id, ok: false, error: "No workspace open" };
+      }
+      const data = await fetchGithubAuthenticatedLogin({
+        workspaceRoot: root,
+        token: req.token,
+      });
+      return {
+        id: req.id,
+        ok: true,
+        method: "fetchGithubAuthenticatedLogin",
+        data,
+      };
+    }
+    case "testGithubRepoConnection": {
+      const root = session.root;
+      if (!root) {
+        return { id: req.id, ok: false, error: "No workspace open" };
+      }
+      const data = await testGithubRepoConnection({
+        workspaceRoot: root,
+        owner: req.owner,
+        repo: req.repo,
+        ...(req.token ? { token: req.token } : {}),
+      });
+      return {
+        id: req.id,
+        ok: true,
+        method: "testGithubRepoConnection",
+        data,
+      };
+    }
+    case "dispatchGithubWorkflow": {
+      const root = session.root;
+      if (!root) {
+        return { id: req.id, ok: false, error: "No workspace open" };
+      }
+      const data = await dispatchGithubWorkflow({
+        workspaceRoot: root,
+        owner: req.owner,
+        repo: req.repo,
+        kind: req.kind,
+        ...(req.token ? { token: req.token } : {}),
+        ...(req.workflowId !== undefined ? { workflowId: req.workflowId } : {}),
+        ...(req.workflowPath ? { workflowPath: req.workflowPath } : {}),
+        ...(req.ref ? { ref: req.ref } : {}),
+        ...(req.inputs ? { inputs: req.inputs } : {}),
+        ...(req.eventType ? { eventType: req.eventType } : {}),
+      });
+      return { id: req.id, ok: true, method: "dispatchGithubWorkflow", data };
+    }
+    case "fetchPagespeedMetrics": {
+      const root = session.root;
+      if (!root) {
+        return { id: req.id, ok: false, error: "No workspace open" };
+      }
+      const data = await fetchPagespeedMetrics({
+        workspaceRoot: root,
+        apiKey: req.apiKey,
+        url: req.url,
+      });
+      return { id: req.id, ok: true, method: "fetchPagespeedMetrics", data };
     }
     case "listConsent": {
       const result = await session.listConsent();

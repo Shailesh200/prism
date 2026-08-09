@@ -35,3 +35,27 @@ jobs:
           node-version-file: ".nvmrc"
       - run: bun install --frozen-lockfile
       - run: bun run verify:milestone
+
+  # M-057 P-B9 — engines are >=22; keep a Node version matrix on the public
+  # surfaces (core / cli / mcp) without re-running the full milestone suite.
+  node-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["22", "24", "26"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: bun install --frozen-lockfile
+      - run: bun run --filter @repo-prism/shared test
+      - run: bun run --filter @repo-prism/core test
+      - run: bun run --filter @repo-prism/cli test
+      - run: bun run --filter @repo-prism/mcp-server test

@@ -262,6 +262,7 @@ const ARGUMENTS: Record<string, readonly string[]> = {
   // Reads an ingested build artifact rather than the source tree, so there is
   // nothing to point it at in a fixture that has never been built.
   bundle: [],
+  completions: ["bash"],
 };
 
 /** Commands that cannot succeed on a fixture without extra setup. */
@@ -398,6 +399,37 @@ describe("--fail-on (M-029)", () => {
   }, 120_000);
 });
 
+describe("--format sarif (M-060)", () => {
+  it("emits a SARIF 2.1.0 root object for an empty review", async () => {
+    const result = await runCli([
+      "review",
+      "--workspace",
+      fixture,
+      "--format",
+      "sarif",
+    ]);
+    expect(result.code).toBe(0);
+    const log = JSON.parse(result.stdout);
+    expect(log.version).toBe("2.1.0");
+    expect(log.runs?.[0]?.tool?.driver?.name).toBe("Prism");
+    expect(log.runs?.[0]?.results).toEqual([]);
+    // Not the Prism envelope — code scanning uploaders need a SARIF root.
+    expect(log.ok).toBeUndefined();
+  }, 120_000);
+
+  it("rejects an unknown format as a usage error", async () => {
+    const result = await runCli([
+      "cycles",
+      "--workspace",
+      fixture,
+      "--format",
+      "yaml",
+    ]);
+    expect(result.code).toBe(2);
+    expect(result.stderr + result.stdout).toContain("sarif");
+  }, 120_000);
+});
+
 describe("path arguments (M-029)", () => {
   it("refuses a path outside the workspace rather than analysing it", async () => {
     // Clamping instead would report "nothing depends on this" about a file
@@ -473,5 +505,48 @@ describe("path arguments (M-029)", () => {
       ok: true,
       data: { path: "src/features/dashboard" },
     });
+  }, 120_000);
+});
+
+describe("deps unresolved imports (M-056 / P-A1)", () => {
+  const unresolvedFixture = join(
+    packageDir,
+    "..",
+    "intelligence",
+    "fixtures",
+    "m056-unresolved",
+  );
+
+  afterAll(async () => {
+    await rm(join(unresolvedFixture, ".prism"), {
+      recursive: true,
+      force: true,
+    });
+  });
+
+  it("includes unresolvedImports on the deps JSON payload", async () => {
+    const result = await runCli([
+      "deps",
+      "--workspace",
+      unresolvedFixture,
+      "--json",
+    ]);
+    expect(result.code).toBe(0);
+    const payload = JSON.parse(result.stdout) as {
+      ok: boolean;
+      data: { unresolvedImports?: { count: number; sample: string[] } };
+    };
+    expect(payload.ok).toBe(true);
+    expect(payload.data.unresolvedImports?.count).toBeGreaterThan(0);
+    expect(payload.data.unresolvedImports?.sample[0]).toContain(
+      "no-such-module",
+    );
+  }, 120_000);
+
+  it("prints an unresolved-imports footnote in human mode", async () => {
+    const result = await runCli(["deps", "--workspace", unresolvedFixture]);
+    expect(result.code).toBe(0);
+    expect(result.stdout).toMatch(/Unresolved imports:\s*\d+/i);
+    expect(result.stdout).toContain("no-such-module");
   }, 120_000);
 });

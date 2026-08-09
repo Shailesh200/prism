@@ -325,6 +325,9 @@ export function layoutCardTree(
     id: n.id,
     type: "prism",
     position: { x: n.x, y: n.y },
+    // Initial dimensions keep pre-measurement bounds exact (see overview-layout).
+    width: n.w,
+    height: n.h,
     style: { width: n.w, height: n.h },
     data: {
       label:

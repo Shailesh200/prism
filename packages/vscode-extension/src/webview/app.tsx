@@ -26,6 +26,7 @@ import {
   TrendsScreen,
   applyAppearance,
   autoReindexIntervalMs,
+  parseExcludeGlobs,
   clearAuditLog,
   clearIntegrationsState,
   clearTourCompleted,
@@ -39,8 +40,10 @@ import {
   type GitStatus,
   type SettingsSection,
 } from "@repo-prism/app-shell";
+import { maxFileSizeOptionToBytes } from "@repo-prism/shared";
 import type {
   BackendReport,
+  DomainReport,
   GraphSnapshotDto,
   MapBookmark,
   MapLayerId,
@@ -54,6 +57,7 @@ import {
   fetchBookmarks,
   fetchDashboard,
   fetchDependencyGraph,
+  fetchDomainReport,
   fetchHealthHistory,
   fetchHealthHistoryBackfillStatus,
   fetchImpactBundle,
@@ -90,6 +94,13 @@ import {
   listConsent,
   setConsent,
   stageDevopsRemote,
+  fetchGithubWorkflows,
+  fetchGithubWorkflowRuns,
+  fetchGithubRepo,
+  fetchGithubAuthenticatedLogin,
+  testGithubRepoConnection,
+  dispatchGithubWorkflow,
+  fetchPagespeedMetrics,
   startHealthHistoryBackfill,
   type DashboardPayload,
 } from "./host-client.js";
@@ -159,7 +170,10 @@ function App(): ReactElement {
   const [backendReport, setBackendReport] = useState<BackendReport | null>(
     null,
   );
+  const [domainReport, setDomainReport] = useState<DomainReport | null>(null);
   const domainRuns = useRef<Map<string, DomainRun>>(new Map());
+  /** Generation guard for the in-flight domain Analyze run (cancel/stale). */
+  const overlayRunId = useRef(0);
   const [displayName, setDisplayName] = useState(
     () => loadSettings().displayName,
   );
@@ -187,13 +201,17 @@ function App(): ReactElement {
       monoFont: s.monoFont,
       sansFont: s.sansFont,
     });
-    if (s.autoReindex) {
-      postToHost({
-        type: "setAutoReindex",
-        enabled: true,
-        intervalMs: autoReindexIntervalMs(s.autoReindexInterval),
-      });
-    }
+    postToHost({
+      type: "setAutoReindex",
+      enabled: s.autoReindex,
+      intervalMs: autoReindexIntervalMs(s.autoReindexInterval),
+    });
+    // Migrate / write-through indexing knobs to `.prism/config.json` (P-B6).
+    postToHost({
+      type: "writePrismConfig",
+      excludeGlobs: parseExcludeGlobs(s.excludeGlobs),
+      maxFileBytes: maxFileSizeOptionToBytes(s.maxFileSize),
+    });
   }, []);
 
   const onDisplayNameChange = useCallback((name: string) => {
@@ -235,7 +253,15 @@ function App(): ReactElement {
       runBundleAnalyze,
       detectBundleAnalyzeCapability,
       discoverFrontendRoutes,
+      fetchDomainReport,
       stageDevopsRemote,
+      fetchGithubWorkflows,
+      fetchGithubWorkflowRuns,
+      fetchGithubRepo,
+      fetchGithubAuthenticatedLogin,
+      testGithubRepoConnection,
+      dispatchGithubWorkflow,
+      fetchPagespeedMetrics,
       listConsent,
       setConsent,
       fetchChangeReview: (paths, base) => reviewChanges(paths, base),
@@ -363,6 +389,7 @@ function App(): ReactElement {
       const enrichBackend = activeDomain === "backend";
       const enrichMobile = activeDomain === "mobile";
       const enrichDesktop = activeDomain === "desktop";
+      const runId = ++overlayRunId.current;
       setOverlayStatus("loading");
       void Promise.all([
         fetchOverlay(kind),
@@ -376,26 +403,41 @@ function App(): ReactElement {
           ? fetchDependencyGraph()
           : Promise.resolve(null),
         enrichBackend ? fetchBackendReport() : Promise.resolve(null),
-      ]).then(([main, security, qa, graph, backend]) => {
-        setOverlay(main);
-        setSecurityOverlay(security);
-        setQaOverlay(qa);
-        setDepGraph(graph);
-        setBackendReport(backend);
-        setOverlayStatus(main ? "ready" : "error");
-        if (main) {
-          domainRuns.current.set(activeDomain, {
-            overlay: main,
-            security,
-            qa,
-            depGraph: graph,
-            backendReport: backend,
-          });
-        }
-      });
+      ])
+        .then(([main, security, qa, graph, backend]) => {
+          if (overlayRunId.current !== runId) return;
+          setOverlay(main);
+          setSecurityOverlay(security);
+          setQaOverlay(qa);
+          setDepGraph(graph);
+          setBackendReport(backend);
+          setOverlayStatus(main ? "ready" : "error");
+          if (main) {
+            domainRuns.current.set(activeDomain, {
+              overlay: main,
+              security,
+              qa,
+              depGraph: graph,
+              backendReport: backend,
+            });
+          }
+        })
+        .catch(() => {
+          // A rejected leg (host timeout, dropped message) must not strand the
+          // screen on the skeleton — surface the error/Retry state instead.
+          if (overlayRunId.current !== runId) return;
+          setOverlayStatus("error");
+        });
     },
     [dashboard, activeDomain],
   );
+
+  const cancelOverlay = useCallback(() => {
+    // Invalidate the in-flight run so its late results are ignored; the domain
+    // falls back to its cached snapshot or the Analyze card.
+    overlayRunId.current += 1;
+    setOverlayStatus("idle");
+  }, []);
 
   const openDomain = useCallback((domainId: string) => {
     setActiveDomain(domainId);
@@ -415,11 +457,16 @@ function App(): ReactElement {
       setBackendReport(null);
       setOverlayStatus("idle");
     }
+    void fetchDomainReport({
+      domain: domainId as DomainReport["domain"],
+      loadLatestCwvArtifact: domainId === "frontend",
+    }).then(setDomainReport);
     setView("domain");
   }, []);
 
   const onNavigate = useCallback((next: AppView) => {
-    setView(next);
+    // M-062: Profile merged into DNA — keep deep-links working.
+    setView(next === "profile" ? "dna" : next);
     if (next !== "settings") setSettingsSection("general");
   }, []);
 
@@ -473,13 +520,23 @@ function App(): ReactElement {
         securityScore={dashboard?.securityScore ?? null}
         onOpenMap={() => setView("map")}
         onOpenDna={() => setView("dna")}
-        onOpenProfile={() => setView("profile")}
         onOpenDomains={() => setView("domains")}
+        onOpenDomain={openDomain}
         onOpenTesting={() => setView("testing")}
-        onOpenBlast={() => setView("blast")}
+        onOpenBlast={(seedPath) => {
+          setTargetPath(seedPath ?? null);
+          setView("blast");
+        }}
+        onFocusMapNode={(nodeId) => {
+          setFocusNodeId(nodeId);
+          setView("map");
+        }}
         onOpenTrends={() => setView("trends")}
         onOpenIntegrations={() => setView("integrations")}
         onOpenSettings={() => setView("settings")}
+        onOpenReview={() => setView("review")}
+        onOpenExplain={() => setView("explain")}
+        onOpenPath={openFile}
         onRefresh={() => {
           void refreshGit();
         }}
@@ -495,7 +552,6 @@ function App(): ReactElement {
         dna={dna}
         health={health}
         map={activeMap}
-        mode={view === "profile" ? "profile" : "analysis"}
         onNavigate={onNavigate}
         onOpenDomain={openDomain}
         onOpenAuditLogs={openAuditLogs}
@@ -535,9 +591,11 @@ function App(): ReactElement {
         qa={qaOverlay}
         depGraph={depGraph}
         backendReport={backendReport}
+        domainReport={domainReport}
         gitActivity={gitActivity}
         dna={dna}
         onRun={runOverlay}
+        onCancel={cancelOverlay}
         onNavigate={onNavigate}
       />
     );
@@ -551,6 +609,7 @@ function App(): ReactElement {
         initialFile={targetPath}
         initialIntent={blastIntent}
         onNavigate={onNavigate}
+        onOpenPath={openFile}
       />
     );
   } else if (view === "review") {
@@ -634,6 +693,13 @@ function App(): ReactElement {
             type: "setAutoReindex",
             enabled,
             ...(intervalMs !== undefined ? { intervalMs } : {}),
+          });
+        }}
+        onIndexConfigChange={(next) => {
+          postToHost({
+            type: "writePrismConfig",
+            excludeGlobs: parseExcludeGlobs(next.excludeGlobs),
+            maxFileBytes: maxFileSizeOptionToBytes(next.maxFileSize),
           });
         }}
         onLocalOnlyAnalysisChange={(enabled) => {

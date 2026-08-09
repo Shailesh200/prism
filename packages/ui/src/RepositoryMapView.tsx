@@ -26,6 +26,7 @@ import type {
   RepositoryMap,
 } from "@repo-prism/shared";
 import { layoutCardTree, toggleExpanded } from "./card-tree-layout.js";
+import { relativePrismTime as relativeTime } from "./format-prism-date.js";
 import { MapLayersPanel } from "./MapLayersPanel.js";
 import {
   dominantHeat,
@@ -164,24 +165,12 @@ type MetricRow = {
   /** `null` when the repository has no data for this metric (ADR-0029). */
   readonly fill: number | null;
   readonly tone: MetricTone;
+  /** Optional native tooltip on the label (e.g. proximity vs line coverage). */
+  readonly title?: string;
 };
 
 /** Compact relative time like "3h ago" / "2d ago" from an ISO date. */
-export function relativeTime(iso: string, now: number = Date.now()): string {
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return "";
-  const s = Math.max(0, Math.round((now - t) / 1000));
-  if (s < 60) return "just now";
-  const m = Math.round(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.round(h / 24);
-  if (d < 30) return `${d}d ago`;
-  const mo = Math.round(d / 30);
-  if (mo < 12) return `${mo}mo ago`;
-  return `${Math.round(mo / 12)}y ago`;
-}
+export { relativeTime };
 
 /** Initials for an avatar bubble. */
 function initials(name: string): string {
@@ -573,6 +562,7 @@ function MapCanvas(props: {
         onNodeDoubleClick={(_, node) => props.onToggle(node.id)}
         onPaneClick={() => props.onSelect(null)}
         fitView
+        fitViewOptions={{ padding: 0.28 }}
         minZoom={0.12}
         maxZoom={1.75}
         nodesDraggable={false}
@@ -792,7 +782,9 @@ export function RepositoryMapView(props: RepositoryMapViewProps): ReactElement {
       const coverage = signalValue(signals, "coverage");
       rows.push({
         key: "coverage",
-        label: "Test coverage",
+        label: "Test proximity",
+        title:
+          "Heat map of closeness to test files — not line coverage or suite %.",
         value: coverage === null ? "No data" : `${pct(coverage)}%`,
         fill: coverage === null ? null : pct(coverage),
         tone: "violet",
@@ -800,8 +792,8 @@ export function RepositoryMapView(props: RepositoryMapViewProps): ReactElement {
       const activity = signalValue(signals, "activity");
       rows.push({
         key: "churn",
-        label: "Churn (activity)",
-        value: activity === null ? "No data" : `${pct(activity)}%`,
+        label: "Activity (recent edits)",
+        value: activity === null ? "No data" : `${pct(activity)} / 100`,
         fill: activity === null ? null : pct(activity),
         tone: "rose",
       });
@@ -1204,6 +1196,11 @@ export function RepositoryMapView(props: RepositoryMapViewProps): ReactElement {
           {isFileZoom(props.map.zoom)
             ? "Double-click a folder to expand · click a file to inspect"
             : "Double-click a module to open its files · use the breadcrumb to go back"}
+          {props.map.zoom === "symbol" &&
+          props.map.truncated &&
+          props.map.totalCount !== undefined
+            ? ` · showing ${props.map.graph.nodes.filter((n) => n.kind === "symbol").length} of ${props.map.totalCount} symbols`
+            : ""}
         </div>
       </main>
 
@@ -1295,7 +1292,12 @@ export function RepositoryMapView(props: RepositoryMapViewProps): ReactElement {
                   {metrics.map((m) => (
                     <div key={m.key} data-no-data={m.fill === null}>
                       <div className="prism-metric__row">
-                        <span className="prism-metric__k">{m.label}</span>
+                        <span
+                          className="prism-metric__k"
+                          {...(m.title ? { title: m.title } : {})}
+                        >
+                          {m.label}
+                        </span>
                         <span
                           className="prism-metric__v"
                           data-tone={m.tone}

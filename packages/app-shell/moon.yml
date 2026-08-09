@@ -4,6 +4,7 @@ layer: "library"
 dependsOn:
   - ui
   - shared
+  - intelligence
 tasks:
   build:
     command: "bun run build"

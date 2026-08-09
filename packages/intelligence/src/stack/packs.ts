@@ -5,11 +5,25 @@ import type { StackDetector } from "../types.js";
 import {
   createManifestDetector,
   existingEvidence,
+  filterNoiseEvidence,
+  findFilesNamed,
   findFilesWithExt,
-  hasAnyDep,
+  findPathConventionHits,
+  hasDevDep,
+  hasProdDep,
   pathExists,
   readPackageJson,
+  requirementsMentions,
+  scoreMultiSignal,
 } from "./manifest.js";
+
+async function hasJsxPath(rootPath: string): Promise<string[]> {
+  const tsx = filterNoiseEvidence(
+    await findFilesWithExt(rootPath, ".tsx", 3, 3),
+  );
+  if (tsx.length > 0) return tsx;
+  return filterNoiseEvidence(await findFilesWithExt(rootPath, ".jsx", 3, 3));
+}
 
 function toolingPmDetectors(): StackDetector[] {
   return [
@@ -23,7 +37,7 @@ function toolingPmDetectors(): StackDetector[] {
           "bun.lockb",
         ]);
         if (evidence.length === 0) return null;
-        return { confidence: 0.9, evidence };
+        return scoreMultiSignal({ ecosystemRoot: true, evidence });
       },
     }),
     createManifestDetector({
@@ -36,7 +50,7 @@ function toolingPmDetectors(): StackDetector[] {
           "pnpm-workspace.yaml",
         ]);
         if (evidence.length === 0) return null;
-        return { confidence: 0.85, evidence };
+        return scoreMultiSignal({ ecosystemRoot: true, evidence });
       },
     }),
     createManifestDetector({
@@ -49,7 +63,7 @@ function toolingPmDetectors(): StackDetector[] {
           ".yarnrc.yml",
         ]);
         if (evidence.length === 0) return null;
-        return { confidence: 0.8, evidence };
+        return scoreMultiSignal({ ecosystemRoot: true, evidence });
       },
     }),
     createManifestDetector({
@@ -61,7 +75,7 @@ function toolingPmDetectors(): StackDetector[] {
           "package-lock.json",
         ]);
         if (evidence.length === 0) return null;
-        return { confidence: 0.75, evidence };
+        return scoreMultiSignal({ ecosystemRoot: true, evidence });
       },
     }),
     createManifestDetector({
@@ -71,7 +85,8 @@ function toolingPmDetectors(): StackDetector[] {
       async match(ctx) {
         const evidence = await existingEvidence(ctx.rootPath, ["package.json"]);
         if (evidence.length === 0) return null;
-        return { confidence: 0.4, evidence };
+        // Weak marker only — stays below threshold unless combined elsewhere.
+        return scoreMultiSignal({ config: true, evidence });
       },
     }),
     createManifestDetector({
@@ -81,13 +96,15 @@ function toolingPmDetectors(): StackDetector[] {
       async match(ctx) {
         const evidence = await existingEvidence(ctx.rootPath, ["turbo.json"]);
         const pkg = await readPackageJson(ctx.rootPath);
-        if (evidence.length === 0 && !(pkg && hasAnyDep(pkg, ["turbo"]))) {
-          return null;
-        }
-        return {
-          confidence: 0.8,
+        const toolingDep =
+          pkg !== null &&
+          (hasDevDep(pkg, ["turbo"]) || hasProdDep(pkg, ["turbo"]));
+        if (evidence.length === 0 && !toolingDep) return null;
+        return scoreMultiSignal({
+          toolingDep,
+          config: evidence.length > 0,
           evidence: evidence.length > 0 ? evidence : ["package.json"],
-        };
+        });
       },
     }),
     createManifestDetector({
@@ -100,16 +117,16 @@ function toolingPmDetectors(): StackDetector[] {
           "workspace.json",
         ]);
         const pkg = await readPackageJson(ctx.rootPath);
-        if (
-          evidence.length === 0 &&
-          !(pkg && hasAnyDep(pkg, ["nx", "@nx/devkit"]))
-        ) {
-          return null;
-        }
-        return {
-          confidence: 0.8,
+        const toolingDep =
+          pkg !== null &&
+          (hasDevDep(pkg, ["nx", "@nx/devkit"]) ||
+            hasProdDep(pkg, ["nx", "@nx/devkit"]));
+        if (evidence.length === 0 && !toolingDep) return null;
+        return scoreMultiSignal({
+          toolingDep,
+          config: evidence.length > 0,
           evidence: evidence.length > 0 ? evidence : ["package.json"],
-        };
+        });
       },
     }),
     createManifestDetector({
@@ -122,7 +139,7 @@ function toolingPmDetectors(): StackDetector[] {
           "moon.yml",
         ]);
         if (evidence.length === 0) return null;
-        return { confidence: 0.85, evidence };
+        return scoreMultiSignal({ ecosystemRoot: true, evidence });
       },
     }),
     createManifestDetector({
@@ -131,8 +148,27 @@ function toolingPmDetectors(): StackDetector[] {
       personaHints: [DeveloperPersona.QA_ENGINEER],
       async match(ctx) {
         const pkg = await readPackageJson(ctx.rootPath);
-        if (!pkg || !hasAnyDep(pkg, ["vitest"])) return null;
-        return { confidence: 0.85, evidence: ["package.json"] };
+        if (!pkg) return null;
+        const toolingDep =
+          hasDevDep(pkg, ["vitest"]) || hasProdDep(pkg, ["vitest"]);
+        if (!toolingDep) return null;
+        const config = (
+          await existingEvidence(ctx.rootPath, [
+            "vitest.config.ts",
+            "vitest.config.js",
+            "vitest.config.mts",
+          ])
+        ).length;
+        const pathHits = filterNoiseEvidence(
+          await findFilesWithExt(ctx.rootPath, ".test.ts", 3, 2),
+        );
+        // package.json declaring the runner counts as the config channel for tooling.
+        return scoreMultiSignal({
+          toolingDep: true,
+          config: true,
+          path: pathHits.length > 0 || config > 0,
+          evidence: ["package.json", ...pathHits.slice(0, 1)],
+        });
       },
     }),
     createManifestDetector({
@@ -141,8 +177,27 @@ function toolingPmDetectors(): StackDetector[] {
       personaHints: [DeveloperPersona.QA_ENGINEER],
       async match(ctx) {
         const pkg = await readPackageJson(ctx.rootPath);
-        if (!pkg || !hasAnyDep(pkg, ["jest", "@jest/core"])) return null;
-        return { confidence: 0.8, evidence: ["package.json"] };
+        if (!pkg) return null;
+        const toolingDep =
+          hasDevDep(pkg, ["jest", "@jest/core"]) ||
+          hasProdDep(pkg, ["jest", "@jest/core"]);
+        if (!toolingDep) return null;
+        const configFiles = (
+          await existingEvidence(ctx.rootPath, [
+            "jest.config.js",
+            "jest.config.ts",
+            "jest.config.mjs",
+          ])
+        ).length;
+        const pathHits = filterNoiseEvidence(
+          await findFilesWithExt(ctx.rootPath, ".test.js", 3, 2),
+        );
+        return scoreMultiSignal({
+          toolingDep: true,
+          config: true,
+          path: pathHits.length > 0 || configFiles > 0,
+          evidence: ["package.json"],
+        });
       },
     }),
     createManifestDetector({
@@ -154,18 +209,17 @@ function toolingPmDetectors(): StackDetector[] {
           "pytest.ini",
           "pyproject.toml",
         ]);
-        const req = join(ctx.rootPath, "requirements.txt");
-        if (await pathExists(req)) {
-          const { readFile } = await import("node:fs/promises");
-          const text = await readFile(req, "utf8");
-          if (/pytest/i.test(text)) {
-            return { confidence: 0.8, evidence: ["requirements.txt"] };
-          }
-        }
-        if (evidence.includes("pytest.ini")) {
-          return { confidence: 0.85, evidence: ["pytest.ini"] };
-        }
-        return null;
+        const inReq = await requirementsMentions(ctx.rootPath, /pytest/i);
+        if (!inReq && !evidence.includes("pytest.ini")) return null;
+        return scoreMultiSignal({
+          prodDep: inReq,
+          config: evidence.includes("pytest.ini"),
+          evidence: inReq
+            ? ["requirements.txt"]
+            : evidence.includes("pytest.ini")
+              ? ["pytest.ini"]
+              : evidence,
+        });
       },
     }),
   ];
@@ -179,8 +233,19 @@ function frontendDetectors(): StackDetector[] {
       personaHints: [DeveloperPersona.FRONTEND_ENGINEER],
       async match(ctx) {
         const pkg = await readPackageJson(ctx.rootPath);
-        if (!pkg || !hasAnyDep(pkg, ["react", "react-dom"])) return null;
-        return { confidence: 0.9, evidence: ["package.json"] };
+        if (!pkg) return null;
+        const names = ["react", "react-dom"] as const;
+        const prodDep = hasProdDep(pkg, names);
+        const devDepOnly = !prodDep && hasDevDep(pkg, names);
+        if (!prodDep && !devDepOnly) return null;
+        const jsx = await hasJsxPath(ctx.rootPath);
+        return scoreMultiSignal({
+          prodDep,
+          devDepOnly,
+          path: jsx.length > 0,
+          evidence:
+            prodDep || devDepOnly ? ["package.json", ...jsx.slice(0, 1)] : jsx,
+        });
       },
     }),
     createManifestDetector({
@@ -194,11 +259,41 @@ function frontendDetectors(): StackDetector[] {
           "next.config.mjs",
           "next.config.ts",
         ]);
-        const hasNext = pkg !== null && hasAnyDep(pkg, ["next"]);
-        if (!hasNext && evidence.length === 0) return null;
-        const paths = [...evidence];
-        if (pkg) paths.push("package.json");
-        return { confidence: 0.92, evidence: paths };
+        // Monorepos often keep next.config under apps/* — shallow search.
+        const nestedConfig =
+          evidence.length === 0
+            ? (
+                await Promise.all([
+                  findFilesNamed(ctx.rootPath, "next.config.js", 3, 2),
+                  findFilesNamed(ctx.rootPath, "next.config.mjs", 3, 2),
+                  findFilesNamed(ctx.rootPath, "next.config.ts", 3, 2),
+                ])
+              ).flat()
+            : [];
+        const configs = evidence.length > 0 ? evidence : nestedConfig;
+        const prodDep = pkg !== null && hasProdDep(pkg, ["next"]);
+        const devDepOnly = pkg !== null && !prodDep && hasDevDep(pkg, ["next"]);
+        const pathHits = [
+          ...(await existingEvidence(ctx.rootPath, [
+            "app",
+            "pages",
+            "src/app",
+            "src/pages",
+          ])),
+          ...(await findPathConventionHits(ctx.rootPath, ["app", "pages"])),
+        ];
+        if (!prodDep && !devDepOnly && configs.length === 0) return null;
+        return scoreMultiSignal({
+          prodDep,
+          devDepOnly,
+          config: configs.length > 0,
+          path: pathHits.length > 0,
+          evidence: [
+            ...configs.slice(0, 2),
+            ...(pkg ? ["package.json"] : []),
+            ...pathHits.slice(0, 1),
+          ],
+        });
       },
     }),
     createManifestDetector({
@@ -212,13 +307,16 @@ function frontendDetectors(): StackDetector[] {
           "vite.config.js",
           "vite.config.mts",
         ]);
-        if (!(pkg && hasAnyDep(pkg, ["vite"])) && evidence.length === 0) {
-          return null;
-        }
-        return {
-          confidence: 0.85,
+        const prodDep = pkg !== null && hasProdDep(pkg, ["vite"]);
+        const toolingDep = pkg !== null && !prodDep && hasDevDep(pkg, ["vite"]);
+        if (!prodDep && !toolingDep && evidence.length === 0) return null;
+        // Vite is typically a devDependency — treat as tooling dep channel.
+        // Declaring vite without a config file is not enough to claim a Vite app.
+        return scoreMultiSignal({
+          toolingDep: prodDep || toolingDep,
+          config: evidence.length > 0,
           evidence: evidence.length > 0 ? evidence : ["package.json"],
-        };
+        });
       },
     }),
     createManifestDetector({
@@ -227,8 +325,20 @@ function frontendDetectors(): StackDetector[] {
       personaHints: [DeveloperPersona.FRONTEND_ENGINEER],
       async match(ctx) {
         const pkg = await readPackageJson(ctx.rootPath);
-        if (!pkg || !hasAnyDep(pkg, ["vue", "nuxt"])) return null;
-        return { confidence: 0.88, evidence: ["package.json"] };
+        if (!pkg) return null;
+        const names = ["vue", "nuxt"] as const;
+        const prodDep = hasProdDep(pkg, names);
+        const devDepOnly = !prodDep && hasDevDep(pkg, names);
+        if (!prodDep && !devDepOnly) return null;
+        const vueFiles = filterNoiseEvidence(
+          await findFilesWithExt(ctx.rootPath, ".vue", 3, 2),
+        );
+        return scoreMultiSignal({
+          prodDep,
+          devDepOnly,
+          path: vueFiles.length > 0,
+          evidence: ["package.json", ...vueFiles.slice(0, 1)],
+        });
       },
     }),
     createManifestDetector({
@@ -237,8 +347,20 @@ function frontendDetectors(): StackDetector[] {
       personaHints: [DeveloperPersona.FRONTEND_ENGINEER],
       async match(ctx) {
         const pkg = await readPackageJson(ctx.rootPath);
-        if (!pkg || !hasAnyDep(pkg, ["svelte", "@sveltejs/kit"])) return null;
-        return { confidence: 0.88, evidence: ["package.json"] };
+        if (!pkg) return null;
+        const names = ["svelte", "@sveltejs/kit"] as const;
+        const prodDep = hasProdDep(pkg, names);
+        const devDepOnly = !prodDep && hasDevDep(pkg, names);
+        if (!prodDep && !devDepOnly) return null;
+        const files = filterNoiseEvidence(
+          await findFilesWithExt(ctx.rootPath, ".svelte", 3, 2),
+        );
+        return scoreMultiSignal({
+          prodDep,
+          devDepOnly,
+          path: files.length > 0,
+          evidence: ["package.json", ...files.slice(0, 1)],
+        });
       },
     }),
     createManifestDetector({
@@ -247,8 +369,17 @@ function frontendDetectors(): StackDetector[] {
       personaHints: [DeveloperPersona.FRONTEND_ENGINEER],
       async match(ctx) {
         const pkg = await readPackageJson(ctx.rootPath);
-        if (!pkg || !hasAnyDep(pkg, ["@angular/core"])) return null;
-        return { confidence: 0.9, evidence: ["package.json"] };
+        if (!pkg) return null;
+        const prodDep = hasProdDep(pkg, ["@angular/core"]);
+        const devDepOnly = !prodDep && hasDevDep(pkg, ["@angular/core"]);
+        if (!prodDep && !devDepOnly) return null;
+        const config = await existingEvidence(ctx.rootPath, ["angular.json"]);
+        return scoreMultiSignal({
+          prodDep,
+          devDepOnly,
+          config: config.length > 0,
+          evidence: ["package.json", ...config],
+        });
       },
     }),
     createManifestDetector({
@@ -257,8 +388,21 @@ function frontendDetectors(): StackDetector[] {
       personaHints: [DeveloperPersona.FRONTEND_ENGINEER],
       async match(ctx) {
         const pkg = await readPackageJson(ctx.rootPath);
-        if (!pkg || !hasAnyDep(pkg, ["astro"])) return null;
-        return { confidence: 0.88, evidence: ["package.json"] };
+        if (!pkg) return null;
+        const prodDep = hasProdDep(pkg, ["astro"]);
+        const devDepOnly = !prodDep && hasDevDep(pkg, ["astro"]);
+        if (!prodDep && !devDepOnly) return null;
+        const config = await existingEvidence(ctx.rootPath, [
+          "astro.config.mjs",
+          "astro.config.ts",
+          "astro.config.js",
+        ]);
+        return scoreMultiSignal({
+          prodDep,
+          devDepOnly,
+          config: config.length > 0,
+          evidence: ["package.json", ...config],
+        });
       },
     }),
     createManifestDetector({
@@ -267,10 +411,21 @@ function frontendDetectors(): StackDetector[] {
       personaHints: [DeveloperPersona.FRONTEND_ENGINEER],
       async match(ctx) {
         const pkg = await readPackageJson(ctx.rootPath);
-        if (!pkg || !hasAnyDep(pkg, ["@remix-run/react", "@remix-run/node"])) {
-          return null;
-        }
-        return { confidence: 0.88, evidence: ["package.json"] };
+        if (!pkg) return null;
+        const names = ["@remix-run/react", "@remix-run/node"] as const;
+        const prodDep = hasProdDep(pkg, names);
+        const devDepOnly = !prodDep && hasDevDep(pkg, names);
+        if (!prodDep && !devDepOnly) return null;
+        const pathHits = await existingEvidence(ctx.rootPath, [
+          "app/routes",
+          "app/root.tsx",
+        ]);
+        return scoreMultiSignal({
+          prodDep,
+          devDepOnly,
+          path: pathHits.length > 0,
+          evidence: ["package.json", ...pathHits.slice(0, 1)],
+        });
       },
     }),
   ];
@@ -284,8 +439,34 @@ function backendDetectors(): StackDetector[] {
       personaHints: [DeveloperPersona.BACKEND_ENGINEER],
       async match(ctx) {
         const pkg = await readPackageJson(ctx.rootPath);
-        if (!pkg || !hasAnyDep(pkg, ["express"])) return null;
-        return { confidence: 0.85, evidence: ["package.json"] };
+        if (!pkg) return null;
+        const prodDep = hasProdDep(pkg, ["express"]);
+        const devDepOnly = !prodDep && hasDevDep(pkg, ["express"]);
+        if (!prodDep && !devDepOnly) return null;
+        const pathHits = await findPathConventionHits(ctx.rootPath, [
+          "routes",
+          "controllers",
+          "api",
+        ]);
+        const entry = await existingEvidence(ctx.rootPath, [
+          "main.ts",
+          "server.ts",
+          "app.ts",
+          "src/main.ts",
+          "src/server.ts",
+          "src/app.ts",
+        ]);
+        return scoreMultiSignal({
+          prodDep,
+          devDepOnly,
+          config: entry.length > 0,
+          path: pathHits.length > 0,
+          evidence: [
+            "package.json",
+            ...entry.slice(0, 1),
+            ...pathHits.slice(0, 1),
+          ],
+        });
       },
     }),
     createManifestDetector({
@@ -294,8 +475,32 @@ function backendDetectors(): StackDetector[] {
       personaHints: [DeveloperPersona.BACKEND_ENGINEER],
       async match(ctx) {
         const pkg = await readPackageJson(ctx.rootPath);
-        if (!pkg || !hasAnyDep(pkg, ["fastify"])) return null;
-        return { confidence: 0.85, evidence: ["package.json"] };
+        if (!pkg) return null;
+        const prodDep = hasProdDep(pkg, ["fastify"]);
+        const devDepOnly = !prodDep && hasDevDep(pkg, ["fastify"]);
+        if (!prodDep && !devDepOnly) return null;
+        const pathHits = await findPathConventionHits(ctx.rootPath, [
+          "routes",
+          "plugins",
+        ]);
+        const entry = await existingEvidence(ctx.rootPath, [
+          "main.ts",
+          "server.ts",
+          "app.ts",
+          "src/main.ts",
+          "src/server.ts",
+        ]);
+        return scoreMultiSignal({
+          prodDep,
+          devDepOnly,
+          config: entry.length > 0,
+          path: pathHits.length > 0,
+          evidence: [
+            "package.json",
+            ...entry.slice(0, 1),
+            ...pathHits.slice(0, 1),
+          ],
+        });
       },
     }),
     createManifestDetector({
@@ -304,10 +509,30 @@ function backendDetectors(): StackDetector[] {
       personaHints: [DeveloperPersona.BACKEND_ENGINEER],
       async match(ctx) {
         const pkg = await readPackageJson(ctx.rootPath);
-        if (!pkg || !hasAnyDep(pkg, ["@nestjs/core", "@nestjs/common"])) {
-          return null;
-        }
-        return { confidence: 0.9, evidence: ["package.json"] };
+        if (!pkg) return null;
+        const names = ["@nestjs/core", "@nestjs/common"] as const;
+        const prodDep = hasProdDep(pkg, names);
+        const devDepOnly = !prodDep && hasDevDep(pkg, names);
+        if (!prodDep && !devDepOnly) return null;
+        const config = await existingEvidence(ctx.rootPath, [
+          "nest-cli.json",
+          "main.ts",
+          "src/main.ts",
+        ]);
+        const pathHits = filterNoiseEvidence(
+          await findFilesWithExt(ctx.rootPath, ".controller.ts", 3, 2),
+        );
+        return scoreMultiSignal({
+          prodDep,
+          devDepOnly,
+          config: config.length > 0,
+          path: pathHits.length > 0,
+          evidence: [
+            "package.json",
+            ...config.slice(0, 1),
+            ...pathHits.slice(0, 1),
+          ],
+        });
       },
     }),
     createManifestDetector({
@@ -317,7 +542,14 @@ function backendDetectors(): StackDetector[] {
       async match(ctx) {
         const evidence = await existingEvidence(ctx.rootPath, ["go.mod"]);
         if (evidence.length === 0) return null;
-        return { confidence: 0.9, evidence };
+        const goFiles = filterNoiseEvidence(
+          await findFilesWithExt(ctx.rootPath, ".go", 2, 2),
+        );
+        return scoreMultiSignal({
+          ecosystemRoot: true,
+          path: goFiles.length > 0,
+          evidence: [...evidence, ...goFiles.slice(0, 1)],
+        });
       },
     }),
     createManifestDetector({
@@ -325,25 +557,23 @@ function backendDetectors(): StackDetector[] {
       domains: [StackDomain.BACKEND],
       personaHints: [DeveloperPersona.BACKEND_ENGINEER],
       async match(ctx) {
-        const evidence = await existingEvidence(ctx.rootPath, [
-          "manage.py",
-          "requirements.txt",
-          "pyproject.toml",
+        const manage = await existingEvidence(ctx.rootPath, ["manage.py"]);
+        const inReq = await requirementsMentions(ctx.rootPath, /django/i);
+        const settings = await findPathConventionHits(ctx.rootPath, [
+          "settings.py",
         ]);
-        if (await pathExists(join(ctx.rootPath, "requirements.txt"))) {
-          const { readFile } = await import("node:fs/promises");
-          const text = await readFile(
-            join(ctx.rootPath, "requirements.txt"),
-            "utf8",
-          );
-          if (/django/i.test(text)) {
-            return { confidence: 0.88, evidence: ["requirements.txt"] };
-          }
-        }
-        if (evidence.includes("manage.py")) {
-          return { confidence: 0.85, evidence: ["manage.py"] };
-        }
-        return null;
+        // Bare manage.py is not enough (negative fixture).
+        if (!inReq && settings.length === 0) return null;
+        return scoreMultiSignal({
+          prodDep: inReq,
+          config: manage.length > 0,
+          path: settings.length > 0,
+          evidence: [
+            ...(inReq ? ["requirements.txt"] : []),
+            ...manage,
+            ...settings.slice(0, 1),
+          ],
+        });
       },
     }),
     createManifestDetector({
@@ -351,16 +581,17 @@ function backendDetectors(): StackDetector[] {
       domains: [StackDomain.BACKEND],
       personaHints: [DeveloperPersona.BACKEND_ENGINEER],
       async match(ctx) {
-        if (!(await pathExists(join(ctx.rootPath, "requirements.txt")))) {
-          return null;
-        }
-        const { readFile } = await import("node:fs/promises");
-        const text = await readFile(
-          join(ctx.rootPath, "requirements.txt"),
-          "utf8",
+        const inReq = await requirementsMentions(ctx.rootPath, /fastapi/i);
+        if (!inReq) return null;
+        const py = filterNoiseEvidence(
+          await findFilesWithExt(ctx.rootPath, ".py", 2, 2),
         );
-        if (!/fastapi/i.test(text)) return null;
-        return { confidence: 0.9, evidence: ["requirements.txt"] };
+        return scoreMultiSignal({
+          prodDep: true,
+          config: true, // requirements.txt is the config channel for the pin
+          path: py.length > 0,
+          evidence: ["requirements.txt", ...py.slice(0, 1)],
+        });
       },
     }),
     createManifestDetector({
@@ -368,16 +599,17 @@ function backendDetectors(): StackDetector[] {
       domains: [StackDomain.BACKEND],
       personaHints: [DeveloperPersona.BACKEND_ENGINEER],
       async match(ctx) {
-        if (!(await pathExists(join(ctx.rootPath, "requirements.txt")))) {
-          return null;
-        }
-        const { readFile } = await import("node:fs/promises");
-        const text = await readFile(
-          join(ctx.rootPath, "requirements.txt"),
-          "utf8",
+        const inReq = await requirementsMentions(ctx.rootPath, /flask/i);
+        if (!inReq) return null;
+        const py = filterNoiseEvidence(
+          await findFilesWithExt(ctx.rootPath, ".py", 2, 2),
         );
-        if (!/flask/i.test(text)) return null;
-        return { confidence: 0.85, evidence: ["requirements.txt"] };
+        return scoreMultiSignal({
+          prodDep: true,
+          config: true,
+          path: py.length > 0,
+          evidence: ["requirements.txt", ...py.slice(0, 1)],
+        });
       },
     }),
     createManifestDetector({
@@ -396,7 +628,10 @@ function backendDetectors(): StackDetector[] {
           const text = await readFile(join(ctx.rootPath, "pom.xml"), "utf8");
           if (!/spring/i.test(text)) return null;
         }
-        return { confidence: 0.85, evidence };
+        return scoreMultiSignal({
+          ecosystemRoot: true,
+          evidence,
+        });
       },
     }),
     createManifestDetector({
@@ -404,9 +639,11 @@ function backendDetectors(): StackDetector[] {
       domains: [StackDomain.BACKEND],
       personaHints: [DeveloperPersona.BACKEND_ENGINEER],
       async match(ctx) {
-        const csproj = await findFilesWithExt(ctx.rootPath, ".csproj", 2, 3);
+        const csproj = filterNoiseEvidence(
+          await findFilesWithExt(ctx.rootPath, ".csproj", 2, 3),
+        );
         if (csproj.length === 0) return null;
-        return { confidence: 0.85, evidence: csproj };
+        return scoreMultiSignal({ ecosystemRoot: true, evidence: csproj });
       },
     }),
     createManifestDetector({
@@ -422,7 +659,11 @@ function backendDetectors(): StackDetector[] {
         const { readFile } = await import("node:fs/promises");
         const text = await readFile(join(ctx.rootPath, "Gemfile"), "utf8");
         if (!/rails/i.test(text)) return null;
-        return { confidence: 0.88, evidence };
+        return scoreMultiSignal({
+          ecosystemRoot: true,
+          config: evidence.includes("config/application.rb"),
+          evidence,
+        });
       },
     }),
   ];
@@ -436,8 +677,23 @@ function mobileDesktopDetectors(): StackDetector[] {
       personaHints: [DeveloperPersona.MOBILE_ENGINEER],
       async match(ctx) {
         const pkg = await readPackageJson(ctx.rootPath);
-        if (!pkg || !hasAnyDep(pkg, ["react-native"])) return null;
-        return { confidence: 0.9, evidence: ["package.json"] };
+        if (!pkg) return null;
+        const prodDep = hasProdDep(pkg, ["react-native"]);
+        const devDepOnly = !prodDep && hasDevDep(pkg, ["react-native"]);
+        if (!prodDep && !devDepOnly) return null;
+        const pathHits = await existingEvidence(ctx.rootPath, [
+          "android",
+          "ios",
+          "App.tsx",
+          "app.json",
+        ]);
+        return scoreMultiSignal({
+          prodDep,
+          devDepOnly,
+          path: pathHits.length > 0,
+          config: pathHits.includes("app.json"),
+          evidence: ["package.json", ...pathHits.slice(0, 1)],
+        });
       },
     }),
     createManifestDetector({
@@ -451,17 +707,18 @@ function mobileDesktopDetectors(): StackDetector[] {
           "app.config.js",
           "app.config.ts",
         ]);
-        if (!(pkg && hasAnyDep(pkg, ["expo"])) && evidence.length === 0) {
-          return null;
-        }
-        if (!(pkg && hasAnyDep(pkg, ["expo"]))) return null;
-        return {
-          confidence: 0.92,
+        const prodDep = pkg !== null && hasProdDep(pkg, ["expo"]);
+        const devDepOnly = pkg !== null && !prodDep && hasDevDep(pkg, ["expo"]);
+        if (!prodDep && !devDepOnly) return null;
+        return scoreMultiSignal({
+          prodDep,
+          devDepOnly,
+          config: evidence.length > 0,
           evidence:
             evidence.length > 0
               ? [...evidence, "package.json"]
               : ["package.json"],
-        };
+        });
       },
     }),
     createManifestDetector({
@@ -476,7 +733,7 @@ function mobileDesktopDetectors(): StackDetector[] {
         if (!/flutter:/i.test(text) && !/sdk:\s*flutter/i.test(text)) {
           return null;
         }
-        return { confidence: 0.9, evidence };
+        return scoreMultiSignal({ ecosystemRoot: true, evidence });
       },
     }),
     createManifestDetector({
@@ -485,8 +742,20 @@ function mobileDesktopDetectors(): StackDetector[] {
       personaHints: [DeveloperPersona.DESKTOP_ENGINEER],
       async match(ctx) {
         const pkg = await readPackageJson(ctx.rootPath);
-        if (!pkg || !hasAnyDep(pkg, ["electron"])) return null;
-        return { confidence: 0.9, evidence: ["package.json"] };
+        if (!pkg) return null;
+        const prodDep = hasProdDep(pkg, ["electron"]);
+        const toolingDep = !prodDep && hasDevDep(pkg, ["electron"]);
+        if (!prodDep && !toolingDep) return null;
+        const pathHits = await existingEvidence(ctx.rootPath, [
+          "electron",
+          "src/main",
+        ]);
+        return scoreMultiSignal({
+          // Electron is often a devDependency of the app package.
+          toolingDep: prodDep || toolingDep,
+          path: pathHits.length > 0,
+          evidence: ["package.json", ...pathHits.slice(0, 1)],
+        });
       },
     }),
     createManifestDetector({
@@ -499,16 +768,20 @@ function mobileDesktopDetectors(): StackDetector[] {
           "tauri.conf.json",
         ]);
         const pkg = await readPackageJson(ctx.rootPath);
-        if (
-          evidence.length === 0 &&
-          !(pkg && hasAnyDep(pkg, ["@tauri-apps/api", "@tauri-apps/cli"]))
-        ) {
-          return null;
-        }
-        return {
-          confidence: 0.9,
+        const prodDep =
+          pkg !== null &&
+          hasProdDep(pkg, ["@tauri-apps/api", "@tauri-apps/cli"]);
+        const toolingDep =
+          pkg !== null &&
+          !prodDep &&
+          hasDevDep(pkg, ["@tauri-apps/api", "@tauri-apps/cli"]);
+        if (evidence.length === 0 && !prodDep && !toolingDep) return null;
+        return scoreMultiSignal({
+          toolingDep: prodDep || toolingDep,
+          config: evidence.length > 0,
+          ecosystemRoot: evidence.length > 0,
           evidence: evidence.length > 0 ? evidence : ["package.json"],
-        };
+        });
       },
     }),
   ];
@@ -521,15 +794,36 @@ function dataDetectors(): StackDetector[] {
       domains: [StackDomain.DATA_ML_AI],
       personaHints: [DeveloperPersona.DATA_SCIENTIST],
       async match(ctx) {
-        const notebooks = await findFilesWithExt(ctx.rootPath, ".ipynb", 3, 5);
+        const notebooks = filterNoiseEvidence(
+          await findFilesWithExt(ctx.rootPath, ".ipynb", 3, 5),
+        );
         const pkg = await readPackageJson(ctx.rootPath);
-        const jupyterDep =
-          pkg !== null && hasAnyDep(pkg, ["jupyter", "notebook", "jupyterlab"]);
-        if (notebooks.length === 0 && !jupyterDep) return null;
-        return {
-          confidence: notebooks.length > 0 ? 0.9 : 0.7,
-          evidence: notebooks.length > 0 ? notebooks : ["package.json"],
-        };
+        const prodDep =
+          pkg !== null &&
+          hasProdDep(pkg, ["jupyter", "notebook", "jupyterlab"]);
+        const inReq = await requirementsMentions(
+          ctx.rootPath,
+          /jupyter|notebook|jupyterlab/i,
+        );
+        // A lone sample notebook is not enough (negative fixture).
+        if (notebooks.length === 0 && !prodDep && !inReq) return null;
+        if (!prodDep && !inReq && notebooks.length > 0) {
+          return scoreMultiSignal({
+            path: true,
+            evidence: notebooks,
+          });
+        }
+        return scoreMultiSignal({
+          prodDep: prodDep || inReq,
+          config: inReq,
+          path: notebooks.length > 0,
+          evidence:
+            notebooks.length > 0
+              ? notebooks
+              : inReq
+                ? ["requirements.txt"]
+                : ["package.json"],
+        });
       },
     }),
     createManifestDetector({
@@ -537,16 +831,24 @@ function dataDetectors(): StackDetector[] {
       domains: [StackDomain.DATA_ML_AI],
       personaHints: [DeveloperPersona.ML_ENGINEER],
       async match(ctx) {
-        if (!(await pathExists(join(ctx.rootPath, "requirements.txt")))) {
-          return null;
-        }
-        const { readFile } = await import("node:fs/promises");
-        const text = await readFile(
-          join(ctx.rootPath, "requirements.txt"),
-          "utf8",
+        const inReq = await requirementsMentions(ctx.rootPath, /torch/i);
+        if (!inReq) return null;
+        const py = filterNoiseEvidence(
+          await findFilesWithExt(ctx.rootPath, ".py", 2, 2),
         );
-        if (!/torch/i.test(text)) return null;
-        return { confidence: 0.9, evidence: ["requirements.txt"] };
+        const notebooks = filterNoiseEvidence(
+          await findFilesWithExt(ctx.rootPath, ".ipynb", 3, 2),
+        );
+        return scoreMultiSignal({
+          prodDep: true,
+          config: true,
+          path: py.length > 0 || notebooks.length > 0,
+          evidence: [
+            "requirements.txt",
+            ...notebooks.slice(0, 1),
+            ...py.slice(0, 1),
+          ],
+        });
       },
     }),
     createManifestDetector({
@@ -554,16 +856,13 @@ function dataDetectors(): StackDetector[] {
       domains: [StackDomain.DATA_ML_AI],
       personaHints: [DeveloperPersona.ML_ENGINEER],
       async match(ctx) {
-        if (!(await pathExists(join(ctx.rootPath, "requirements.txt")))) {
-          return null;
-        }
-        const { readFile } = await import("node:fs/promises");
-        const text = await readFile(
-          join(ctx.rootPath, "requirements.txt"),
-          "utf8",
-        );
-        if (!/tensorflow/i.test(text)) return null;
-        return { confidence: 0.9, evidence: ["requirements.txt"] };
+        const inReq = await requirementsMentions(ctx.rootPath, /tensorflow/i);
+        if (!inReq) return null;
+        return scoreMultiSignal({
+          prodDep: true,
+          config: true,
+          evidence: ["requirements.txt"],
+        });
       },
     }),
     createManifestDetector({
@@ -572,19 +871,18 @@ function dataDetectors(): StackDetector[] {
       personaHints: [DeveloperPersona.AI_ENGINEER],
       async match(ctx) {
         const pkg = await readPackageJson(ctx.rootPath);
-        if (pkg && hasAnyDep(pkg, ["langchain", "@langchain/core"])) {
-          return { confidence: 0.88, evidence: ["package.json"] };
-        }
-        if (!(await pathExists(join(ctx.rootPath, "requirements.txt")))) {
-          return null;
-        }
-        const { readFile } = await import("node:fs/promises");
-        const text = await readFile(
-          join(ctx.rootPath, "requirements.txt"),
-          "utf8",
+        const prodDep =
+          pkg !== null && hasProdDep(pkg, ["langchain", "@langchain/core"]);
+        const inReq = await requirementsMentions(
+          ctx.rootPath,
+          /langchain|llama-index|llamaindex/i,
         );
-        if (!/langchain|llama-index|llamaindex/i.test(text)) return null;
-        return { confidence: 0.88, evidence: ["requirements.txt"] };
+        if (!prodDep && !inReq) return null;
+        return scoreMultiSignal({
+          prodDep: prodDep || inReq,
+          config: inReq,
+          evidence: inReq ? ["requirements.txt"] : ["package.json"],
+        });
       },
     }),
     createManifestDetector({
@@ -597,7 +895,7 @@ function dataDetectors(): StackDetector[] {
           "dbt_project.yaml",
         ]);
         if (evidence.length === 0) return null;
-        return { confidence: 0.9, evidence };
+        return scoreMultiSignal({ ecosystemRoot: true, evidence });
       },
     }),
     createManifestDetector({
@@ -605,12 +903,16 @@ function dataDetectors(): StackDetector[] {
       domains: [StackDomain.DATA_ENGINEERING],
       personaHints: [DeveloperPersona.DATA_ENGINEER],
       async match(ctx) {
-        const evidence = await existingEvidence(ctx.rootPath, [
-          "airflow.cfg",
-          "dags",
-        ]);
-        if (evidence.length === 0) return null;
-        return { confidence: 0.8, evidence };
+        const evidence = filterNoiseEvidence(
+          await existingEvidence(ctx.rootPath, ["airflow.cfg", "dags"]),
+        );
+        const pathHits = await findPathConventionHits(ctx.rootPath, ["dags"]);
+        if (evidence.length === 0 && pathHits.length === 0) return null;
+        return scoreMultiSignal({
+          ecosystemRoot: evidence.includes("airflow.cfg"),
+          path: pathHits.length > 0 || evidence.includes("dags"),
+          evidence: evidence.length > 0 ? evidence : pathHits,
+        });
       },
     }),
   ];
@@ -623,14 +925,16 @@ function devopsDetectors(): StackDetector[] {
       domains: [StackDomain.DEVOPS_PLATFORM],
       personaHints: [DeveloperPersona.DEVOPS_SRE],
       async match(ctx) {
-        const evidence = await existingEvidence(ctx.rootPath, [
-          "Dockerfile",
-          "docker-compose.yml",
-          "docker-compose.yaml",
-          "compose.yml",
-        ]);
+        const evidence = filterNoiseEvidence(
+          await existingEvidence(ctx.rootPath, [
+            "Dockerfile",
+            "docker-compose.yml",
+            "docker-compose.yaml",
+            "compose.yml",
+          ]),
+        );
         if (evidence.length === 0) return null;
-        return { confidence: 0.85, evidence };
+        return scoreMultiSignal({ ecosystemRoot: true, evidence });
       },
     }),
     createManifestDetector({
@@ -641,14 +945,22 @@ function devopsDetectors(): StackDetector[] {
         DeveloperPersona.PLATFORM_ENGINEER,
       ],
       async match(ctx) {
-        const evidence = await existingEvidence(ctx.rootPath, [
+        // Path hits exclude docs/examples (negative: docs/k8s).
+        const pathHits = await findPathConventionHits(ctx.rootPath, [
           "k8s",
           "kubernetes",
           "helm",
-          "Chart.yaml",
         ]);
-        if (evidence.length === 0) return null;
-        return { confidence: 0.8, evidence };
+        const chart = filterNoiseEvidence(
+          await existingEvidence(ctx.rootPath, ["Chart.yaml"]),
+        );
+        if (pathHits.length === 0 && chart.length === 0) return null;
+        return scoreMultiSignal({
+          ecosystemRoot: chart.length > 0,
+          path: pathHits.length > 0,
+          config: chart.length > 0,
+          evidence: [...chart, ...pathHits.slice(0, 1)],
+        });
       },
     }),
     createManifestDetector({
@@ -656,9 +968,14 @@ function devopsDetectors(): StackDetector[] {
       domains: [StackDomain.DEVOPS_PLATFORM],
       personaHints: [DeveloperPersona.DEVOPS_SRE],
       async match(ctx) {
-        const tf = await findFilesWithExt(ctx.rootPath, ".tf", 2, 3);
+        const tf = filterNoiseEvidence(
+          await findFilesWithExt(ctx.rootPath, ".tf", 2, 3),
+        );
         if (tf.length === 0) return null;
-        return { confidence: 0.88, evidence: tf };
+        return scoreMultiSignal({
+          ecosystemRoot: true,
+          evidence: tf,
+        });
       },
     }),
     createManifestDetector({
@@ -671,7 +988,7 @@ function devopsDetectors(): StackDetector[] {
           "Pulumi.yml",
         ]);
         if (evidence.length === 0) return null;
-        return { confidence: 0.88, evidence };
+        return scoreMultiSignal({ ecosystemRoot: true, evidence });
       },
     }),
   ];
@@ -688,7 +1005,7 @@ function nicheDetectors(): StackDetector[] {
           "platformio.ini",
         ]);
         if (evidence.length === 0) return null;
-        return { confidence: 0.85, evidence };
+        return scoreMultiSignal({ ecosystemRoot: true, evidence });
       },
     }),
     createManifestDetector({
@@ -701,10 +1018,11 @@ function nicheDetectors(): StackDetector[] {
         const versionFile = "ProjectSettings/ProjectVersion.txt";
         if (!(await pathExists(join(ctx.rootPath, versionFile)))) return null;
         if (!(await pathExists(join(ctx.rootPath, "Assets")))) return null;
-        return {
-          confidence: 0.9,
+        return scoreMultiSignal({
+          ecosystemRoot: true,
+          path: true,
           evidence: [versionFile, "Assets"],
-        };
+        });
       },
     }),
   ];

@@ -95,6 +95,13 @@ describe("consent (ADR-0024)", () => {
     // the guard for M-027, where the temptation to add one will be real.
     const CONSENT_GATED = [
       "stageDevopsRemote",
+      "fetchGithubWorkflows",
+      "fetchGithubWorkflowRuns",
+      "fetchGithubRepo",
+      "fetchGithubAuthenticatedLogin",
+      "testGithubRepoConnection",
+      "dispatchGithubWorkflow",
+      "fetchPagespeedMetrics",
       "startUtilityJob",
       "runWorkspaceTests",
       "detectBundleAnalyzeCapability",

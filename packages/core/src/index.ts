@@ -3,11 +3,15 @@
 export { Prism, type PrismClient, type PrismClientOptions } from "./prism.js";
 export type { ChangedPaths } from "./git/changed-paths.js";
 export type { PrismGitignoreStatus } from "./git/prism-gitignore.js";
+export { loadPrismConfig, loadPrismConfigSync } from "./prism-config-load.js";
+export { writePrismConfig } from "./prism-config-write.js";
 export {
   createWorkspace,
   type FeatureGraphView,
   type FindRouteQuery,
+  type GetDomainReportOptions,
   type GetRepositoryMapOptions,
+  type GetOverviewModelOptions,
   type GetStackProfileOptions,
   type GetUtilityOverlayOptions,
   type IndexFreshness,
@@ -26,8 +30,10 @@ export type { RouteEndpoint } from "@repo-prism/navigation";
 export type {
   DependencyGraphOptions,
   FindReferencesQuery,
+  FindReferencesResult,
   FindSymbolQuery,
   ReferenceHit,
+  SearchSymbolsQuery,
   StartUtilityJobInput,
   SymbolHit,
 } from "@repo-prism/intelligence";
@@ -50,11 +56,19 @@ export type {
   CodeExplorerTarget,
   ConsentRecord,
   CwvReport,
+  BackendDomainReport,
+  DataMlAiDomainReport,
+  DesktopDomainReport,
+  DevopsDomainReport,
+  DomainReport,
   DnaReport,
+  FrontendDomainReport,
+  MobileDomainReport,
   EngineeringHealthReport,
   ExplainAreaSummary,
   FeatureInfo,
   GitActivity,
+  DependencyGraphDto,
   GraphSnapshotDto,
   HealthHistoryBackfillStatus,
   HealthHistoryReport,
@@ -107,6 +121,26 @@ export {
   type StageDevopsRemoteResult,
   type StagedWorkflowSummary,
 } from "./stage-devops-remote.js";
+export {
+  dispatchGithubWorkflow,
+  fetchGithubAuthenticatedLogin,
+  fetchGithubRepo,
+  fetchGithubWorkflowRuns,
+  fetchGithubWorkflows,
+  testGithubRepoConnection,
+  type DispatchGithubWorkflowInput,
+  type DispatchWorkflowInput,
+  type DispatchWorkflowKind,
+  type GithubCiConfig,
+  type GithubCiNetworkInput,
+  type GithubRepoInfo,
+  type GithubWorkflowRun,
+  type GithubWorkflowSummary,
+} from "./github-ci.js";
+export {
+  fetchPagespeedMetrics,
+  type FetchPagespeedMetricsInput,
+} from "./pagespeed.js";
 export {
   listLocalWorkspaceTests,
   runLocalWorkspaceTests,
