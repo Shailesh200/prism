@@ -5,6 +5,7 @@ export type { ChangedPaths } from "./git/changed-paths.js";
 export type { PrismGitignoreStatus } from "./git/prism-gitignore.js";
 export { loadPrismConfig, loadPrismConfigSync } from "./prism-config-load.js";
 export { writePrismConfig } from "./prism-config-write.js";
+export type { WritePrismConfigOptions } from "./prism-config-write.js";
 export {
   createWorkspace,
   type FeatureGraphView,

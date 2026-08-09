@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
-import { writePrismConfig } from "@repo-prism/core";
+import { loadPrismConfig, writePrismConfig } from "@repo-prism/core";
 import type * as vscode from "vscode";
 import { openPlaygroundInBrowser } from "../open-playground.js";
 import { checkHealthRegression } from "../health-alerts.js";
@@ -165,6 +165,7 @@ export class PrismPanel {
       this.log.info("Prism webview ready");
       this.webviewReady = true;
       this.postCodeLensEnabled();
+      void this.postPrismConfig();
       if (this.pendingNavigate) {
         const pending = this.pendingNavigate;
         this.pendingNavigate = undefined;
@@ -210,14 +211,22 @@ export class PrismPanel {
         this.log.warn("writePrismConfig: no workspace root");
         return;
       }
-      const written = await writePrismConfig(root, {
-        excludeGlobs: msg.excludeGlobs,
-        maxFileBytes: msg.maxFileBytes,
-      });
+      const written = await writePrismConfig(
+        root,
+        {
+          excludeGlobs: msg.excludeGlobs,
+          maxFileBytes: msg.maxFileBytes,
+        },
+        msg.ifAbsent ? { ifAbsent: true } : undefined,
+      );
       if (!written.ok) {
         this.log.warn(`writePrismConfig failed: ${written.error.message}`);
       } else {
-        this.log.info("Wrote .prism/config.json from Settings");
+        this.log.info(
+          msg.ifAbsent
+            ? ".prism/config.json migration checked (written only if absent)"
+            : "Wrote .prism/config.json from Settings",
+        );
       }
       return;
     }
@@ -518,6 +527,38 @@ export class PrismPanel {
       .getConfiguration("prism")
       .get<boolean>("codeLens.enabled", false);
     this.post({ type: "codeLensEnabled", enabled });
+  }
+
+  /**
+   * Sync `.prism/config.json` into the webview settings store (M-057 P-B6):
+   * the shared file is the source of truth for indexing knobs, so CLI /
+   * hand edits appear in the Settings screen. Only fields present in the
+   * file are sent; absent fields leave the webview's values untouched.
+   */
+  async postPrismConfig(): Promise<void> {
+    const root = this.session.root;
+    if (!root) return;
+    const loaded = await loadPrismConfig(root);
+    if (!loaded.ok) {
+      this.log.warn(`loadPrismConfig failed: ${loaded.error.message}`);
+      return;
+    }
+    const config = loaded.value;
+    if (
+      config.excludeGlobs === undefined &&
+      config.maxFileBytes === undefined
+    ) {
+      return;
+    }
+    this.post({
+      type: "prismConfig",
+      ...(config.excludeGlobs !== undefined
+        ? { excludeGlobs: [...config.excludeGlobs] }
+        : {}),
+      ...(config.maxFileBytes !== undefined
+        ? { maxFileBytes: config.maxFileBytes }
+        : {}),
+    });
   }
 
   /** Ask the webview to reload dashboard data after reindex — keep current view. */

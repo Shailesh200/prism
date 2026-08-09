@@ -101,7 +101,7 @@ Default `Prism.create()` enables all of the above when default ports are wired.
 | `listUtilityOverlayKinds` / `getUtilityOverlay` | Map domain overlays |
 | `setConsent` / `getConsent` | Privacy consent |
 | `startWatch` / `stopWatch` / `notifyWatchPaths` / `getIndexFreshness` | M-048 Phase 1 incremental watch (ADR-0026) |
-| `.prism/config.json` (`excludeGlobs`, `maxFileBytes`) | **M-057** — loaded at workspace open; merged into every `index()` call. Precedence: explicit `IndexWorkspaceOptions` / CLI `--max-file-bytes` / `--exclude` → config file → indexer defaults (5 MiB). Helpers: `loadPrismConfig`, `writePrismConfig` |
+| `.prism/config.json` (`excludeGlobs`, `maxFileBytes`) | **M-057** — loaded at workspace open; merged into every `index()` call. Precedence: explicit `IndexWorkspaceOptions` / CLI `--max-file-bytes` / `--exclude` → config file → indexer defaults (5 MiB). Helpers: `loadPrismConfig`, `writePrismConfig` (`{ ifAbsent: true }` = migration mode: never clobber an existing file; the IDE uses it for one-time localStorage → file migration, then hydrates its Settings UI from the file) |
 | `reviewChanges` | M-048 Phase 4 — multi-path aggregate; **M-049** per-path `hardAffectedCount` / `softAffectedCount`; risk bands unify with Blast 60/20 (Q-023) |
 | `explainArea` | M-048 Phase 5 — deterministic path summary (domain overlap + dep degree + git ownership); **M-049** optional `fileRole` |
 | `listBookmarks` / `saveBookmark` / `removeBookmark` | M-048 Phase 6 — bookmarks persisted at `.prism/bookmarks.json` |

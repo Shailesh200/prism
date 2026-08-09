@@ -106,6 +106,7 @@ export {
   PRISM_CONFIG_FILENAME,
   PRISM_CONFIG_RELATIVE_PATH,
   PrismConfigSchema,
+  maxFileSizeOptionFromBytes,
   maxFileSizeOptionToBytes,
   mergeIndexLimits,
   parsePrismConfig,

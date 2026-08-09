@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  maxFileSizeOptionFromBytes,
   maxFileSizeOptionToBytes,
   mergeIndexLimits,
   parsePrismConfig,
@@ -43,5 +44,22 @@ describe("prism-config (M-057 P-B6)", () => {
   it("maps IDE size options to bytes", () => {
     expect(maxFileSizeOptionToBytes("5mb")).toBe(5 * 1024 * 1024);
     expect(maxFileSizeOptionToBytes("none")).toBeNull();
+  });
+
+  it("maps bytes back to IDE size options for settings hydration", () => {
+    expect(maxFileSizeOptionFromBytes(5 * 1024 * 1024)).toBe("5mb");
+    expect(maxFileSizeOptionFromBytes(256 * 1024)).toBe("256kb");
+    expect(maxFileSizeOptionFromBytes(null)).toBe("none");
+    // Custom hand-edited sizes and absent fields leave the UI selection alone.
+    expect(maxFileSizeOptionFromBytes(3 * 1024 * 1024)).toBeUndefined();
+    expect(maxFileSizeOptionFromBytes(undefined)).toBeUndefined();
+  });
+
+  it("round-trips every IDE size option through bytes", () => {
+    for (const option of ["256kb", "1mb", "5mb", "10mb", "none"] as const) {
+      expect(maxFileSizeOptionFromBytes(maxFileSizeOptionToBytes(option))).toBe(
+        option,
+      );
+    }
   });
 });

@@ -129,6 +129,11 @@
         "command": "prism.openWalkthrough",
         "title": "Getting Started Tour",
         "category": "Prism"
+      },
+      {
+        "command": "prism.switchWorkspaceFolder",
+        "title": "Switch Workspace Folder",
+        "category": "Prism"
       }
     ],
     "keybindings": [

@@ -1,9 +1,10 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { Prism } from "./prism.js";
 import { loadPrismConfigSync } from "./prism-config-load.js";
+import { writePrismConfig } from "./prism-config-write.js";
 
 const dirs: string[] = [];
 
@@ -78,5 +79,67 @@ describe("prism config load (M-057 P-B6)", () => {
       expect(mid?.status).toBe("analyzed");
     }
     opened.value.close();
+  });
+});
+
+describe("writePrismConfig ifAbsent (M-057 P-B6 migration)", () => {
+  it("writes when the file does not exist", async () => {
+    const root = await tempRoot();
+    const written = await writePrismConfig(
+      root,
+      { excludeGlobs: ["vendor/**"] },
+      { ifAbsent: true },
+    );
+    expect(written.ok).toBe(true);
+    const onDisk = JSON.parse(
+      await readFile(join(root, ".prism", "config.json"), "utf8"),
+    ) as { excludeGlobs?: string[] };
+    expect(onDisk.excludeGlobs).toEqual(["vendor/**"]);
+  });
+
+  it("never clobbers an existing file and returns its contents", async () => {
+    const root = await tempRoot();
+    await mkdir(join(root, ".prism"), { recursive: true });
+    const existing = { excludeGlobs: ["hand-edited/**"], maxFileBytes: 1024 };
+    await writeFile(
+      join(root, ".prism", "config.json"),
+      JSON.stringify(existing),
+      "utf8",
+    );
+
+    const result = await writePrismConfig(
+      root,
+      {
+        excludeGlobs: ["localstorage-value/**"],
+        maxFileBytes: 5 * 1024 * 1024,
+      },
+      { ifAbsent: true },
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value).toEqual(existing);
+
+    const onDisk = JSON.parse(
+      await readFile(join(root, ".prism", "config.json"), "utf8"),
+    ) as unknown;
+    expect(onDisk).toEqual(existing);
+  });
+
+  it("overwrites an existing file without the flag (explicit Settings save)", async () => {
+    const root = await tempRoot();
+    await mkdir(join(root, ".prism"), { recursive: true });
+    await writeFile(
+      join(root, ".prism", "config.json"),
+      JSON.stringify({ maxFileBytes: 1024 }),
+      "utf8",
+    );
+
+    const result = await writePrismConfig(root, {
+      maxFileBytes: 10 * 1024 * 1024,
+    });
+    expect(result.ok).toBe(true);
+    const onDisk = JSON.parse(
+      await readFile(join(root, ".prism", "config.json"), "utf8"),
+    ) as { maxFileBytes?: number };
+    expect(onDisk.maxFileBytes).toBe(10 * 1024 * 1024);
   });
 });

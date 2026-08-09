@@ -38,9 +38,13 @@ import {
   type AppShellClient,
   type DomainOverlayStatus,
   type GitStatus,
+  type MaxFileSizeOption,
   type SettingsSection,
 } from "@repo-prism/app-shell";
-import { maxFileSizeOptionToBytes } from "@repo-prism/shared";
+import {
+  maxFileSizeOptionFromBytes,
+  maxFileSizeOptionToBytes,
+} from "@repo-prism/shared";
 import type {
   BackendReport,
   DomainReport,
@@ -206,11 +210,15 @@ function App(): ReactElement {
       enabled: s.autoReindex,
       intervalMs: autoReindexIntervalMs(s.autoReindexInterval),
     });
-    // Migrate / write-through indexing knobs to `.prism/config.json` (P-B6).
+    // Migrate indexing knobs to `.prism/config.json` (P-B6) — only when the
+    // file does not exist; a hand-edited / CLI-written file is never
+    // clobbered. The host answers `ready` with the file's `prismConfig`
+    // values, which hydrate the store below (file is the source of truth).
     postToHost({
       type: "writePrismConfig",
       excludeGlobs: parseExcludeGlobs(s.excludeGlobs),
       maxFileBytes: maxFileSizeOptionToBytes(s.maxFileSize),
+      ifAbsent: true,
     });
   }, []);
 
@@ -334,6 +342,24 @@ function App(): ReactElement {
       }
       if ("type" in msg && msg.type === "codeLensEnabled") {
         setCodeLensEnabled(msg.enabled);
+      }
+      if ("type" in msg && msg.type === "prismConfig") {
+        // Hydrate indexing knobs from `.prism/config.json` (P-B6): the file
+        // wins over localStorage so CLI / hand edits show up in Settings.
+        const patch: {
+          excludeGlobs?: string;
+          maxFileSize?: MaxFileSizeOption;
+        } = {};
+        if (msg.excludeGlobs !== undefined) {
+          patch.excludeGlobs = msg.excludeGlobs.join("\n");
+        }
+        const option = maxFileSizeOptionFromBytes(msg.maxFileBytes);
+        if (option !== undefined) {
+          patch.maxFileSize = option;
+        }
+        if (Object.keys(patch).length > 0) {
+          saveSettings(patch);
+        }
       }
       if ("type" in msg && msg.type === "showTour") {
         setTourOpen(true);
