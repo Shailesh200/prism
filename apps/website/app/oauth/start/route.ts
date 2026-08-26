@@ -1,10 +1,6 @@
-import {
-  handleOAuthStart,
-  prismAuthConfig,
-  prismAuthRuntime,
-} from "@/lib/prism-auth";
+import { handleOAuthStart, prismAuthConfig } from "@/lib/prism-auth";
 
-export const runtime = prismAuthRuntime;
+export const runtime = "nodejs";
 
 export function GET(request: Request): Promise<Response> {
   return handleOAuthStart(request, prismAuthConfig());

@@ -6,8 +6,6 @@ import {
   handleOAuthStart,
 } from "@repo-prism/dispatch-auth";
 
-export const prismAuthRuntime = "nodejs" as const;
-
 export function prismAuthConfig() {
   return configFromEnv(process.env);
 }
