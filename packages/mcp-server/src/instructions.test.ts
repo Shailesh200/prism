@@ -12,7 +12,15 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toContain("blast_radius");
     expect(SERVER_INSTRUCTIONS).toContain("safe_delete");
     expect(SERVER_INSTRUCTIONS).toContain("review_changes");
+    expect(SERVER_INSTRUCTIONS).toContain("start_my_day");
+    expect(SERVER_INSTRUCTIONS).toContain("start_job");
     expect(SERVER_INSTRUCTIONS).not.toMatch(/prism_blast_radius/);
+  });
+
+  it("maps connect language onto integrations and Authenticate", () => {
+    expect(SERVER_INSTRUCTIONS).toContain("integrations");
+    expect(SERVER_INSTRUCTIONS).toMatch(/Authenticate/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(/google-calendar/);
   });
 
   it("requires blast_radius before editing unfamiliar code", () => {
@@ -24,7 +32,16 @@ describe("server instructions (agent auto-use)", () => {
 describe("prompt catalogue", () => {
   it("exposes the three workflow prompts", () => {
     expect([...PROMPT_NAMES].sort()).toEqual(
-      ["before_edit", "orient", "review_diff"].sort(),
+      [
+        "before_edit",
+        "configure",
+        "connect",
+        "orient",
+        "review_diff",
+        "start_my_day",
+        "start_work",
+        "where_are_we",
+      ].sort(),
     );
   });
 });

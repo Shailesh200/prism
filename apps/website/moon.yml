@@ -3,6 +3,7 @@ language: "typescript"
 layer: "application"
 dependsOn:
   - ui
+  - dispatch-auth
 tasks:
   build:
     command: "bun run build"

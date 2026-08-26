@@ -23,6 +23,7 @@ const ORDER = [
   "intelligence",
   "repository-map",
   "core",
+  "dispatch",
   "mcp-server",
   "cli",
 ];

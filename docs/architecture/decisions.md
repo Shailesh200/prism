@@ -13,11 +13,10 @@ The records themselves live in
 
 ## The ones that shape everything
 
-**Core is the only supported integration surface** (ADR-0004). Extensions, the
-CLI, the MCP server and the playground consume `@repo-prism/core` and nothing deeper.
-This is why the surfaces cannot disagree, and it has already paid for itself:
-test-runner logic that had been duplicated between the extension and the
-playground drifted apart and turned out to hold two different bugs.
+**Core is the only supported integration surface for analysis** (ADR-0004).
+Extensions, the CLI, and Intelligence MCP tools consume `@repo-prism/core`.
+Dispatch (ADR-0035) is a second façade on the same `prism` MCP server for jobs
+and OAuth — Core must not import it.
 
 **The cache is local and lives in your repository** (ADR-0010). SQLite in
 `.prism/`. No cloud, no shared index, nothing to sign in to.
@@ -71,6 +70,11 @@ into one number that hides which is which.
 points are marked estimated so a reconstructed trend never looks measured.
 
 ## Surfaces
+
+**Dispatch OAuth goes through Prism Auth** (ADR-0036). Users grant in the
+browser at `auth.prismhq.in`. Cursor shows a native Authenticate control;
+Claude opens the page (ADR-0037). Vendor app secrets stay on the broker.
+Tokens return to the local MCP. Analysis still never leaves the machine.
 
 **MCP speaks over stdio, indexes lazily, and refuses consent-gated work**
 (ADR-0030). See [using MCP](../mcp/usage.md).

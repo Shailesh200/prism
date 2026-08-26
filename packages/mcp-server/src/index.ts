@@ -10,6 +10,7 @@ export {
   type PrismMcpServer,
 } from "./server.js";
 export { TOOLS, TOOL_NAMES } from "./tools.js";
+export { DISPATCH_TOOLS, DISPATCH_TOOL_NAMES } from "./dispatch-registry.js";
 export {
   SERVER_INSTRUCTIONS,
   PROMPT_NAMES,

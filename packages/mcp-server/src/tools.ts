@@ -14,6 +14,7 @@
  *   presentation lift, so there is nothing to adapt yet.
  */
 
+import { DISPATCH_TOOLS } from "./dispatch-registry.js";
 import type { ToolDefinition } from "./tool-registry.js";
 import { GRAPH_TOOLS } from "./tools/graphs.js";
 import { IMPACT_TOOLS } from "./tools/impact.js";
@@ -27,5 +28,8 @@ export const TOOLS: readonly ToolDefinition<never>[] = [
   ...REPORT_TOOLS,
 ] as unknown as readonly ToolDefinition<never>[];
 
-/** Names only, for documentation and contract tests. */
-export const TOOL_NAMES: readonly string[] = TOOLS.map((tool) => tool.name);
+/** Intelligence tool names plus Dispatch names — the host MCP pack. */
+export const TOOL_NAMES: readonly string[] = [
+  ...TOOLS.map((tool) => tool.name),
+  ...DISPATCH_TOOLS.map((tool) => tool.name),
+];

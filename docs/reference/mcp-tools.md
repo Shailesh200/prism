@@ -8,10 +8,12 @@ description: "Every tool the Prism MCP server exposes, generated from the tool r
 Every tool the Prism MCP server exposes, generated from the tool registry
 the server is built from.
 
-All of them are read-only. No consent-gated path is reachable from an agent:
-an agent cannot give informed consent on your behalf, so those capabilities
-are simply absent rather than guarded. See
-[Consent and privacy](../concepts/consent-and-privacy.md).
+Intelligence tools are read-only Core adapters. Dispatch tools (jobs, OAuth,
+memory, configure) write gitignored state under `.prism/dispatch/` and do not
+index. Completing OAuth in the browser is the human grant for Dispatch drivers.
+Core analysis APIs stay ungated from MCP. See
+[Consent and privacy](../concepts/consent-and-privacy.md) and
+[Dispatch](../mcp/dispatch.md).
 
 Tools that return a list accept `limit` and answer with `totalCount` and
 `truncated`, so an agent can tell the first 20 of 340 from all 20 there are.
@@ -23,9 +25,11 @@ Tools that return a list accept `limit` and answer with `totalCount` and
 | [`breaking_change_hints`](#breaking_change_hints) | Deprecated |
 | [`capabilities`](#capabilities) | List every Core analysis capability and consent-gated integration with availability and a reason when unavailable |
 | [`changed_paths`](#changed_paths) | List workspace-relative paths changed in the working tree, or against an optional git base ref |
+| [`configure`](#configure) | Read or update gitignored Dispatch settings |
 | [`dependency_cycles`](#dependency_cycles) | Import and re-export cycles, each returned as the list of files forming the loop |
 | [`dependency_graph`](#dependency_graph) | The import/re-export dependency graph, at file level or aggregated to packages |
 | [`dependency_route`](#dependency_route) | Show how one file or symbol reaches another through the dependency graph, with alternative paths |
+| [`dispatch_doctor`](#dispatch_doctor) | Check whether Dispatch can run local Cursor workers |
 | [`engineering_health`](#engineering_health) | The deep engineering view |
 | [`explain_area`](#explain_area) | Explain what a module or folder does |
 | [`explore_code`](#explore_code) | Everything about one file or symbol in a single call |
@@ -33,10 +37,14 @@ Tools that return a list accept `limit` and answer with `totalCount` and
 | [`find_references`](#find_references) | Find resolved references to a symbol — who actually calls or imports it |
 | [`find_symbol`](#find_symbol) | Find indexed symbols by exact name, optionally narrowed by file or kind |
 | [`health_history`](#health_history) | Health score over time from stored index snapshots and optional git backfill |
+| [`integrations`](#integrations) | Catalogue what Dispatch can connect, start OAuth for GitHub (user), Linear, Jira, Slack (mentions + tracked channels), Notion, or Google Calendar, or disconnect a driver |
+| [`job_control`](#job_control) | Pause, resume, cancel, or attach extra context to a running Dispatch job |
 | [`knowledge_graph`](#knowledge_graph) | The symbol-level graph — declarations and the references between them — with summary stats |
 | [`landmarks`](#landmarks) | Named entrypoints, package roots and feature anchors — the places a human would open first |
 | [`list_features`](#list_features) | Inferred features with their member files and a confidence score |
+| [`list_jobs`](#list_jobs) | Where are we |
 | [`list_packages`](#list_packages) | List the packages in a monorepo with their roots |
+| [`remember`](#remember) | Save, list, or forget scoped memories that Dispatch injects into the next start_job prompt |
 | [`rename_impact`](#rename_impact) | Every edit site a rename would touch, plus breaking-change hints for public surface |
 | [`repository_dna`](#repository_dna) | Identify what a repository *is* |
 | [`repository_health`](#repository_health) | Score overall repository health from 0-100 with the per-factor breakdown behind the score |
@@ -47,6 +55,8 @@ Tools that return a list accept `limit` and answer with `totalCount` and
 | [`search_symbols`](#search_symbols) | Substring or regex search over indexed symbol names (unlike find_symbol, which is exact-match only) |
 | [`security_report`](#security_report) | Left-shift security posture |
 | [`stack_profile`](#stack_profile) | Detected stack for the workspace or a single package |
+| [`start_job`](#start_job) | Create a Dispatch job from a ticket or title plus PRD |
+| [`start_my_day`](#start_my_day) | Standup briefing for this repository |
 | [`test_impact`](#test_impact) | Which test files transitively cover a change target — the tests worth running after touching it |
 | [`testing_report`](#testing_report) | Test structure and, when coverage artifacts are already on disk, coverage |
 | [`workspace_status`](#workspace_status) | Compact workspace readiness |
@@ -81,6 +91,12 @@ List workspace-relative paths changed in the working tree, or against an optiona
 
 Arguments: `base`.
 
+## `configure`
+
+Read or update gitignored Dispatch settings: section order, standup template, Slack tracked channel ids, mention window and caps, max parallel jobs (default 5), hint policy, and whether the tickets slot is Linear or Jira. action=export returns a non-secret template (no tokens) for sharing. Chat only — there is no settings UI in v1.
+
+Arguments: `action`, `maxJobs`, `hints`, `ticketHost`, `standupTemplate`, `slackTrackChannelIds`, `mentionWindowHours`, `mentionLimit`, `trackedMessageLimit`, `sectionsOff`, `includeMemories`.
+
 ## `dependency_cycles`
 
 Import and re-export cycles, each returned as the list of files forming the loop. Use when investigating build order, flaky module initialisation, or before extracting a package.
@@ -98,6 +114,12 @@ Arguments: `packageAggregation`, `resolveAliases`, `limit`, `summaryOnly`.
 Show how one file or symbol reaches another through the dependency graph, with alternative paths. Use to answer 'how is this connected to that?' — an empty result means no path exists, which is itself an answer.
 
 Arguments: `from`, `to`, `maxAlternatives`, `maxHops`.
+
+## `dispatch_doctor`
+
+Check whether Dispatch can run local Cursor workers: CURSOR_API_KEY, @cursor/sdk import, host vs worker role, and active job count versus the configured cap. Use when start_job is blocked or the user asks if Dispatch is set up.
+
+Takes no arguments.
 
 ## `engineering_health`
 
@@ -141,6 +163,18 @@ Health score over time from stored index snapshots and optional git backfill. Us
 
 Arguments: `maxPoints`.
 
+## `integrations`
+
+Catalogue what Dispatch can connect, start OAuth for GitHub (user), Linear, Jira, Slack (mentions + tracked channels), Notion, or Google Calendar, or disconnect a driver. No connector is on by default. Connect uses Prism Auth (auth.prismhq.in). Cursor shows a native Authenticate control and a short step list; Claude opens the auth page. Never ask the user to create an OAuth app or paste a client id. Aliases like “google calendar” map to google-calendar. Tokens go in the OS keychain. Workers cannot start OAuth. Call when the user asks what we can connect or says connect Slack (or another driver).
+
+Arguments: `action`, `driver`.
+
+## `job_control`
+
+Pause, resume, cancel, or attach extra context to a running Dispatch job. Pause and cancel map to the Cursor SDK run.cancel() when the run supports it. Resume uses Agent.resume after an MCP restart. attach_context sends more text to the existing local agent.
+
+Arguments: `jobId`, `action`, `context`.
+
 ## `knowledge_graph`
 
 The symbol-level graph — declarations and the references between them — with summary stats. Requires path (scope to one file) or limit (bound nodes). Very large on a big repository. If you are looking for one symbol use find_symbol or search_symbols, and for its callers use find_references.
@@ -159,11 +193,23 @@ Inferred features with their member files and a confidence score. Cheaper than f
 
 Arguments: `limit`.
 
+## `list_jobs`
+
+Where are we: every Dispatch job with status, worktree path, source (cursor / claude / prism), git status in that tree, and last known Cursor agent status. Call when the user asks where we are, what's running, or to list jobs.
+
+Takes no arguments.
+
 ## `list_packages`
 
 List the packages in a monorepo with their roots. Call this first in a monorepo so later tools can be scoped with packageId instead of returning the whole workspace.
 
 Arguments: `limit`.
+
+## `remember`
+
+Save, list, or forget scoped memories that Dispatch injects into the next start_job prompt. Scope is job, repo, or user. Does not auto-save code-changing rules; those need confirm=true. Call when the user says remember this, forget that, or list memories.
+
+Arguments: `action`, `text`, `id`, `scope`, `jobId`, `confirm`.
 
 ## `rename_impact`
 
@@ -224,6 +270,18 @@ Takes no arguments.
 Detected stack for the workspace or a single package: frameworks, runtimes, build tooling and the signals each was detected from. Use when you need to know what a package is built with before changing its configuration.
 
 Arguments: `packageId`.
+
+## `start_job`
+
+Create a Dispatch job from a ticket or title plus PRD. Adopts an existing Cursor or Claude git worktree when one matches the ticket; otherwise creates `.prism/dispatch/worktrees/<id>`. Starts a local Cursor SDK agent in that tree with Prism MCP in worker role, and returns the job id immediately without waiting for the agent to finish. Requires CURSOR_API_KEY to actually spawn the worker.
+
+Arguments: `title`, `prd`, `jobId`, `branch`, `playbook`, `confirmOverlap`.
+
+## `start_my_day`
+
+Standup briefing for this repository: leftover Dispatch jobs, local git, then any connected drivers (GitHub reviews, Linear or Jira tickets, Slack mentions plus tracked channels, Notion, Google Calendar). Unconnected tools appear as named connect CTAs. Does not index the repo. Call this when the user says start my day, standup, or what's waiting on me.
+
+Takes no arguments.
 
 ## `test_impact`
 

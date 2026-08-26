@@ -38,12 +38,16 @@ Read milestone doc → implement (no commits) → bun run verify:milestone → f
 | shared | contracts |
 | analyzer / indexer / graph-engine | engine internals |
 | intelligence / impact / navigation / repository-map | domain engines |
-| core | **public SDK** |
+| dispatch | jobs, memories, OAuth drivers, local workers |
+| dispatch-auth | Prism Auth OAuth broker (website `/oauth/*`) |
+| core | **public SDK** (analysis) |
 | mcp-server / cli / vscode-extension / cursor-extension / ui | surfaces |
 
 ## MCP
 
-When editing `@repo-prism/mcp-server`, every tool must call Core and return JSON-serializable DTOs from `@repo-prism/shared`.
+Intelligence tools call Core and return JSON-serializable DTOs from `@repo-prism/shared`.
+Dispatch tools call `@repo-prism/dispatch` on a second registration path and must
+not go through `session.ready()` / the Core `Result` wrapper (ADR-0035).
 
 ## Verification
 

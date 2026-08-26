@@ -110,4 +110,143 @@ export function registerPrompts(server: McpServer): void {
       };
     },
   );
+
+  server.registerPrompt(
+    "start_my_day",
+    {
+      title: "Start my day",
+      description:
+        "Standup briefing: leftover jobs, git, connected tools, then connect CTAs.",
+    },
+    async () => ({
+      messages: [
+        {
+          role: "user" as const,
+          content: {
+            type: "text" as const,
+            text: [
+              "Start my day with Prism Dispatch.",
+              "Call start_my_day.",
+              "Summarise leftover jobs, git, and any connected sections.",
+              "Name the connect CTAs for tools that are not connected.",
+              "Suggest one focus item.",
+              "Do not ask me to name tools.",
+            ].join(" "),
+          },
+        },
+      ],
+    }),
+  );
+
+  server.registerPrompt(
+    "start_work",
+    {
+      title: "Start working on a ticket",
+      description: "Create a Dispatch job from a title/ticket and PRD.",
+      argsSchema: {
+        title: z.string().describe("Ticket id and/or short title"),
+        prd: z.string().optional().describe("Product brief"),
+      },
+    },
+    async (args) => {
+      const title = args.title.trim() || "the ticket";
+      const prd = typeof args.prd === "string" ? args.prd.trim() : "";
+      return {
+        messages: [
+          {
+            role: "user" as const,
+            content: {
+              type: "text" as const,
+              text: [
+                `Start working on ${title}.`,
+                prd
+                  ? `PRD: ${prd}`
+                  : "Ask me for a PRD if you do not have one.",
+                "Call start_job with the title and PRD.",
+                "Return the job id immediately; do not wait for the worker to finish.",
+              ].join(" "),
+            },
+          },
+        ],
+      };
+    },
+  );
+
+  server.registerPrompt(
+    "where_are_we",
+    {
+      title: "Where are we",
+      description:
+        "List Dispatch jobs, git in each worktree, and agent status.",
+    },
+    async () => ({
+      messages: [
+        {
+          role: "user" as const,
+          content: {
+            type: "text" as const,
+            text: [
+              "Where are we on Dispatch jobs?",
+              "Call list_jobs and summarise status, worktree, and git.",
+            ].join(" "),
+          },
+        },
+      ],
+    }),
+  );
+
+  server.registerPrompt(
+    "connect",
+    {
+      title: "What can we connect",
+      description: "Catalogue Dispatch drivers or start OAuth for one of them.",
+      argsSchema: {
+        driver: z
+          .string()
+          .optional()
+          .describe(
+            "Optional driver: github, linear, jira, slack, notion, google-calendar (or “google calendar”)",
+          ),
+      },
+    },
+    async (args) => {
+      const driver = typeof args.driver === "string" ? args.driver.trim() : "";
+      return {
+        messages: [
+          {
+            role: "user" as const,
+            content: {
+              type: "text" as const,
+              text: driver
+                ? `Connect ${driver} in Prism Dispatch. Call integrations with action start and that driver (use google-calendar for Calendar). In Cursor I will click Authenticate; in Claude the Prism Auth page opens. Do not ask me for a client id or secret.`
+                : "What can we connect in Prism Dispatch? Call integrations with action catalog, then tell me the named CTAs. Do not ask me for OAuth client ids.",
+            },
+          },
+        ],
+      };
+    },
+  );
+
+  server.registerPrompt(
+    "configure",
+    {
+      title: "Configure Dispatch",
+      description:
+        "Read or change standup layout, Slack channels, and job cap.",
+    },
+    async () => ({
+      messages: [
+        {
+          role: "user" as const,
+          content: {
+            type: "text" as const,
+            text: [
+              "Configure Prism Dispatch.",
+              "Call configure to read the current settings, then apply what I asked for (section order, Slack track list, max jobs, Linear vs Jira, hints).",
+            ].join(" "),
+          },
+        },
+      ],
+    }),
+  );
 }

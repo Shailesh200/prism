@@ -39,9 +39,22 @@ Vercel → Project → Settings → Environment Variables. Add for Production
 |---|---|---|
 | `NEXT_PUBLIC_SITE_URL` | Yes (for correct sitemap / OG / RSS) | `https://www.prismhq.in` |
 | `GITHUB_TOKEN` | Optional but recommended | Fine-grained PAT with public-repo read — higher GitHub API rate limits for `/admin` |
+| `PRISM_AUTH_PUBLIC_ORIGIN` | Yes, for Dispatch OAuth | `https://auth.prismhq.in` |
+| `PRISM_AUTH_SESSION_SECRET` | Yes, for Dispatch OAuth | Long random string; used to seal OAuth state/pickup blobs |
+| `PRISM_AUTH_GOOGLE_CLIENT_ID` / `_SECRET` | Per connector you enable | Prism-owned Google OAuth web client. Redirect URI: `https://auth.prismhq.in/oauth/callback` |
+| `PRISM_AUTH_GITHUB_CLIENT_ID` / `_SECRET` | Per connector | Same callback URI |
+| `PRISM_AUTH_LINEAR_CLIENT_ID` / `_SECRET` | Per connector | Same callback URI |
+| `PRISM_AUTH_JIRA_CLIENT_ID` / `_SECRET` | Per connector | Same callback URI |
+| `PRISM_AUTH_SLACK_CLIENT_ID` / `_SECRET` | Per connector | Same callback URI |
+| `PRISM_AUTH_NOTION_CLIENT_ID` / `_SECRET` | Per connector | Same callback URI |
 
 No product telemetry keys. No Core secrets. Marketplace / Open VSX / npm
-download counts are public APIs.
+download counts are public APIs. Never put `PRISM_AUTH_*` secrets in the MCP
+npm package.
+
+Add **`auth.prismhq.in`** as a domain on this same Vercel project (same
+deployment as `www`). `/oauth/start`, `/oauth/callback`, `/oauth/redeem`, and
+`/oauth/drivers` are the broker (ADR-0036).
 
 ## 3. Protect `/admin`
 

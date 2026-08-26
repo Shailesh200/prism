@@ -16,19 +16,25 @@ teach the agent which tools to call.
 | "I'm about to edit `src/…` — what breaks?" | `blast_radius`, `test_impact` |
 | "Can I delete this file?" | `safe_delete` |
 | "Review my current changes" | `review_changes` |
+| "Start my day" | `start_my_day` |
+| "Start working on …" | `start_job` |
+| "Connect Slack" | `integrations` |
 
-Optional [prompts](/docs/mcp/prompts) (`orient`, `before_edit`, `review_diff`)
-appear in clients that show a prompt picker.
+Optional [prompts](/docs/mcp/prompts) (`orient`, `before_edit`, `review_diff`,
+`start_my_day`, `start_work`, `where_are_we`, `connect`, `configure`) appear in
+clients that show a prompt picker.
 
 ## How the server behaves
 
 1. Handshake is fast — connect does not index.
-2. First tool call may take seconds while the index builds; later calls reuse it.
+2. First **Intelligence** tool call may take seconds while the index builds.
+   `start_my_day` does not wait on the index.
 3. stdio only — diagnostics on stderr / logging notifications.
 4. Lists are bounded (`totalCount` / `truncated`).
 5. Paths outside the workspace are refused.
-6. Every tool is read-only — no consent APIs for agents. See
-   [consent and privacy](/docs/concepts/consent-and-privacy).
+6. Intelligence tools are read-only. Dispatch tools write gitignored state and
+   may open a browser for OAuth. See [Dispatch](/docs/mcp/dispatch) and
+   [consent](/docs/concepts/consent-and-privacy).
 
 ## Force a specific repo path
 
@@ -52,5 +58,5 @@ Put the same into the client's `args` / `env` if needed.
 
 ## Related
 
-[Tools](/docs/mcp/tools) · [Install](/docs/mcp/install) ·
-[Before you edit](/docs/guides/before-you-edit)
+[Dispatch](/docs/mcp/dispatch) · [Tools](/docs/mcp/tools) ·
+[Install](/docs/mcp/install)

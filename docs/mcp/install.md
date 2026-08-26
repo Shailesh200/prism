@@ -17,7 +17,7 @@ cwd.
 [Add to Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=prism&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkByZXBvLXByaXNtL21jcC1zZXJ2ZXIiXX0=)
 
 Click the link (or open it from [/benchmarks](/benchmarks)) → approve in Cursor →
-**Settings → MCP** → enable **prism** (~32 tools).
+**Settings → MCP** → enable **prism** (~40 tools).
 
 ### Copy-paste config
 
@@ -61,7 +61,7 @@ project):
 }
 ```
 
-**Settings → MCP** → enable **prism** → wait for ~32 tools. No `--workspace` —
+**Settings → MCP** → enable **prism** → wait for ~40 tools. No `--workspace` —
 Cursor starts the server from the open project.
 
 ## Claude Desktop
@@ -91,5 +91,5 @@ it is waiting for a client. Configure the client; the client starts the process.
 
 ## Next
 
-[Usage](/docs/mcp/usage) · [Prompts](/docs/mcp/prompts) ·
+[Usage](/docs/mcp/usage) · [Dispatch](/docs/mcp/dispatch) · [Prompts](/docs/mcp/prompts) ·
 [Tool reference](/docs/reference/mcp-tools)

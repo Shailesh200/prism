@@ -21,7 +21,9 @@
 | `repository-map` | `shared`, `graph-engine`, `navigation` |
 | `core` | all engine packages + `shared` |
 | `ui` | `shared` (+ map DTOs; not engines) |
-| `mcp-server` | `core`, `shared` |
+| `mcp-server` | `core`, `shared`, `dispatch` |
+| `dispatch` | `shared` |
+| `dispatch-auth` | `dispatch` |
 | `cli` | `core`, `shared` |
 | `vscode-extension` | `core`, `ui`, `shared` |
 | `cursor-extension` | `core`, `ui`, `shared` (thin overlay) |
@@ -96,7 +98,19 @@ Anything not listed is **forbidden** without an ADR.
 
 | Owns | Must not contain |
 |---|---|
-| MCP transport, tool registration, JSON responses via Core | Second copy of impact/graph logic |
+| MCP transport, Intelligence tools via Core, Dispatch tools via `@repo-prism/dispatch` | Second copy of impact/graph logic |
+
+### `@repo-prism/dispatch`
+
+| Owns | Must not contain |
+|---|---|
+| Jobs, memories, OAuth drivers, worktree adopt/create, local Cursor workers | Indexer/SQLite, Core analysis APIs |
+
+### `@repo-prism/dispatch-auth`
+
+| Owns | Must not contain |
+|---|---|
+| Prism Auth OAuth broker handlers | Repository analysis, token persistence |
 
 ### `@repo-prism/cli`
 
@@ -123,6 +137,7 @@ Anything not listed is **forbidden** without an ADR.
 | App | Owns | Must not |
 |---|---|---|
 | `apps/playground` | Interactive demos of Map + Core | Become the production extension |
+| `apps/website` | Public site, docs, Prism Auth `/oauth/*` | Core analysis |
 | `apps/docs` | Human docs site (M-038 tooling) | Replace `plans/` as engineering SoT |
 
 ---
@@ -131,7 +146,7 @@ Anything not listed is **forbidden** without an ADR.
 
 Before merging a PR, ask:
 
-1. Does a surface import anything other than `core` / `shared` / `ui`? → **Fail**
+1. Does a surface import an **engine** package? → **Fail**. `mcp-server` may import `dispatch` in addition to `core` / `shared` (ADR-0035).
 2. Does an engine import `mcp-server`, `cli`, or an extension? → **Fail**
 3. Is new stack tech introduced without ADR? → **Fail**
 4. Does analysis require network? → **Fail** (unless explicit post-GA feature + ADR)

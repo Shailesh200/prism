@@ -9,6 +9,13 @@ the `prism` CLI, the `prism-mcp` server, and the Core SDK they all call. They
 move as one because they are one build; a mismatch between them has never been
 a supported configuration.
 
+## 1.1.1 — Dispatch MCP
+
+- **Dispatch:** chat-native teammate on the same `prism` MCP server — `start_my_day`, jobs on local Cursor SDK workers, remember, configure, loopback OAuth (GitHub user, Linear, Jira, Slack mentions + tracked channels, Notion, Google Calendar). Connect goes through Prism Auth (`auth.prismhq.in`); Cursor shows a native Authenticate control and step list, Claude opens the auth page. Users never paste client ids. Tokens stay in the OS keychain.
+- **Package:** `@repo-prism/dispatch` plus `@repo-prism/dispatch-auth` (broker handlers on the website). Intelligence tools stay Core-only; Dispatch does not index.
+- **Privacy:** new consent purposes for Dispatch drivers; user tokens in the OS keychain; OAuth app secrets stay on Prism Auth, not in the npm package.
+- **MCP:** server handshake advertises title `Prism`, website, and the faceted P mark (`icons`) for clients that render it.
+
 ## 1.1.0 — Completion program (M-053–M-063)
 
 - **Proof:** agent-orientation benchmark harness (`bun run bench:orientation`) and published methodology at `/benchmarks`.

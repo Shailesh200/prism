@@ -107,7 +107,9 @@ primitives the screens are built from.
 
 ## Surfaces
 
-Each of these consumes `@repo-prism/core` and computes nothing itself.
+Each of these consumes `@repo-prism/core` for analysis and computes nothing
+itself. The MCP server additionally consumes `@repo-prism/dispatch` for the
+teammate workflow (ADR-0035).
 
 ### `@repo-prism/cli`
 
@@ -120,10 +122,30 @@ boundary test.
 
 ### `@repo-prism/mcp-server`
 
-The `prism-mcp` binary. Read-only tools over stdio for AI agents.
+The `prism-mcp` binary. Intelligence tools over Core, plus Dispatch tools over
+`@repo-prism/dispatch`, on the same stdio server named `prism`.
 
-**Must never** expose a consent-gated capability. An agent cannot consent on the
-user's behalf, so those capabilities are absent rather than guarded.
+**Must never** expose Core's consent-gated analysis APIs. Intelligence tools
+stay read-only. Dispatch tools are a second path (ADR-0035): jobs, OAuth, and
+local workers, never an index.
+
+### `@repo-prism/dispatch`
+
+Chat-native jobs, memories, OAuth drivers, worktree adopt/create, and local
+Cursor SDK workers. Consumed only by `@repo-prism/mcp-server`. User tokens stay
+in the OS keychain. Connect uses the Prism Auth broker (ADR-0036). Cursor
+shows a native Authenticate control; Claude opens the auth page (ADR-0037).
+
+**Must never** be imported by `@repo-prism/core` or any engine package.
+
+### `@repo-prism/dispatch-auth`
+
+OAuth broker handlers (`/oauth/start|callback|redeem|drivers`). Mounted on the
+public website as `https://auth.prismhq.in`. Holds Prism-owned vendor app
+secrets in deploy env. Does not store user tokens.
+
+**Must never** be imported by Core or by the published MCP package (the MCP
+talks to the broker over HTTPS).
 
 ### `@repo-prism/vscode-extension`
 
@@ -166,6 +188,8 @@ for which fixture to reach for.
 
 ```
 surface  →  @repo-prism/core  →  engine internals  →  @repo-prism/shared
+mcp-server  →  @repo-prism/dispatch  (jobs/OAuth only; ADR-0035)
+website     →  @repo-prism/dispatch-auth  (OAuth broker; ADR-0036)
 ```
 
 Arrows point at what may be imported. There is no arrow from a surface to an

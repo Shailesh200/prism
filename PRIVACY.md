@@ -37,10 +37,16 @@ one on says nothing about the others.
 | Purpose | What happens | Where it goes |
 |---|---|---|
 | `network.github` | Fetches workflow runs and pull request metadata for your repository's remote | `api.github.com` |
+| `network.github-user` | Dispatch reads your GitHub PRs, reviews, and notifications | `api.github.com` |
 | `network.pagespeed` | Sends a URL you choose and reads back Core Web Vitals | `www.googleapis.com` |
 | `network.package-install` | Installs the Lighthouse CLI into `.prism/tools` before measuring | your configured npm registry |
 | `network.git-remote` | Runs `git fetch --prune` so branch counts are current, using your existing git credentials | your repository's git remote |
 | `network.gravatar` | Requests contributor avatars, revealing a hash of each committer's email | `gravatar.com` |
+| `network.linear` | Dispatch reads issues assigned to you | `api.linear.app` |
+| `network.jira` | Dispatch reads unresolved issues assigned to you | `api.atlassian.com` |
+| `network.slack` | Dispatch reads mentions and tracked channels/groups; does not post | `slack.com` |
+| `network.notion` | Dispatch searches pages shared with the connected integration | `api.notion.com` |
+| `network.google-calendar` | Dispatch reads today's calendar events | `www.googleapis.com` |
 
 `run.local-build` is not a network purpose, but it is consented the same way: it
 runs your repository's own build script so bundle weight can be measured.
@@ -68,11 +74,18 @@ Everything is under `.prism/` in the repository you opened:
 | `.prism/consent.json` | Your consent decisions |
 | `.prism/history/` | Health scores over time |
 | `.prism/tools/` | Locally installed measurement tools, if you consented to that |
-| `.prism/remote-ci/` | Metadata fetched from GitHub, if you consented to that |
+| `.prism/dispatch/` | Dispatch jobs, config, memories (gitignored). User tokens are not stored here when the OS keychain is available |
 
-No credential is ever written to `.prism/`. Tokens you enter for an integration
-stay in the host's own storage, and a contract test asserts that no Core data
-structure has a field named for a token, key, secret, or password.
+No analysis credential is written to `.prism/`. Dispatch OAuth **user tokens**
+live in the OS keychain (a `0600` fallback file is used only when keychain is
+unavailable, and is gitignored).
+
+**Prism Auth** (`https://auth.prismhq.in`) is the OAuth broker for Dispatch
+connectors. It holds Prism's vendor app secrets, sees the authorization code
+during connect, and returns a short-lived encrypted pickup to your machine. It
+does not store your access tokens, and it never sees your repository or index.
+Completing the vendor grant (Cursor Authenticate, or the page Claude opens)
+is how you turn a driver on.
 
 Prism offers to add `.prism/` to your `.gitignore`. It contains no secrets, but
 it is derived build output and does not belong in version control.

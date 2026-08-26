@@ -24,30 +24,40 @@ Each is off until you turn it on, individually. There is no master switch.
 | Purpose | What happens | Where it goes |
 |---|---|---|
 | `network.github` | Fetches workflow runs and PR metadata | `api.github.com` |
+| `network.github-user` | Dispatch: your GitHub PRs, reviews, notifications | `api.github.com` |
 | `network.pagespeed` | Sends a URL you choose, reads Core Web Vitals | `www.googleapis.com` |
 | `network.package-install` | Installs the Lighthouse CLI before measuring | your npm registry |
 | `network.git-remote` | Runs `git fetch --prune` for branch counts | your git remote |
 | `network.gravatar` | Fetches contributor avatars (email hashes) | `gravatar.com` |
+| `network.linear` | Dispatch: issues assigned to you | `api.linear.app` |
+| `network.jira` | Dispatch: unresolved issues assigned to you | `api.atlassian.com` |
+| `network.slack` | Dispatch: mentions + tracked channels (no post) | `slack.com` |
+| `network.notion` | Dispatch: recent pages you shared with the app | `api.notion.com` |
+| `network.google-calendar` | Dispatch: today's events, read-only | `www.googleapis.com` |
 | `run.local-build` | Runs your repository's own build for bundle weight | your shell |
 
-Decisions live in `.prism/consent.json`, read by the engine itself — every
-surface is bound by it; callers cannot assert consent.
+Decisions live in `.prism/consent.json`. Callers cannot assert consent.
 
-**`network.gravatar`** stays off unless you say otherwise — avatars disclose
-email hashes. Prism draws local avatars instead.
+**`network.gravatar`** stays off unless you say otherwise.
 
-**`run.local-build`** runs your build script. Granting it on an unfamiliar repo
-is equivalent to cloning and typing `npm run build`.
+## Agents and consent
 
-## Agents cannot consent for you
-
-The MCP server exposes read-only tools only. No consent-gated capability is
-reachable from an agent — absent, not guarded.
+Intelligence MCP tools stay read-only: Core network APIs are absent, not
+guarded. Dispatch drivers turn on when **you** say “connect …” and finish OAuth
+in the browser — that grant is yours, not the model's. See
+[Dispatch](/docs/mcp/dispatch).
 
 ## What is stored
 
-Everything in `.prism/`: index, consent, health history, consented fetches. No
-credential is ever written there.
+**Dispatch drivers.** Saying “connect Google Calendar” (or Slack, GitHub, …)
+opens Prism Auth (`https://auth.prismhq.in`) — Cursor via Authenticate, Claude
+by opening the page. That broker holds Prism's vendor
+OAuth apps, exchanges the code, and returns a short-lived pickup to your local
+MCP. Access tokens stay in the OS keychain. The broker does not see your
+repository or index. Completing the vendor grant is the human consent.
+
+Index, consent, and health history under `.prism/`. Dispatch user tokens live in
+the OS keychain (gitignored fallback only if keychain is missing).
 
 ## Related
 

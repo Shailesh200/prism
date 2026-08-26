@@ -2,19 +2,26 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Shailesh200/prism",
   "title": "Prism",
-  "description": "Local-first Software Intelligence Engine for coding agents — repository DNA, health, blast radius, and 32 read-only MCP tools over your open project. No cloud upload for core analysis.",
+  "description": "Local-first Software Intelligence Engine for coding agents — repository DNA, health, blast radius, Dispatch jobs, and MCP tools over your open project. No cloud upload for core analysis.",
   "repository": {
     "url": "https://github.com/Shailesh200/prism",
     "source": "github"
   },
   "websiteUrl": "https://www.prismhq.in",
-  "version": "1.0.5",
+  "icons": [
+    {
+      "src": "https://www.prismhq.in/brand/prism-mark.png",
+      "mimeType": "image/png",
+      "sizes": ["128x128"]
+    }
+  ],
+  "version": "1.1.1",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@repo-prism/mcp-server",
-      "version": "1.0.5",
+      "version": "1.1.1",
       "transport": {
         "type": "stdio"
       },
@@ -29,6 +36,20 @@
         {
           "name": "PRISM_WORKSPACE",
           "description": "Optional override when the MCP client starts from a directory outside the project.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CURSOR_API_KEY",
+          "description": "Required to spawn local Cursor SDK workers from start_job. Briefing, connect, and remember work without it.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "PRISM_DISPATCH_ROLE",
+          "description": "Set to worker by Dispatch when attaching Prism MCP to a job agent, so start_job and start_my_day are hidden.",
           "format": "string",
           "isRequired": false,
           "isSecret": false

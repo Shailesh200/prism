@@ -120,8 +120,13 @@ async function cliCommandsPage() {
   return `${lines.join("\n").trimEnd()}\n`;
 }
 
+async function loadMcpTools() {
+  const { TOOLS, DISPATCH_TOOLS } = await loadBuilt("mcp-server");
+  return [...TOOLS, ...DISPATCH_TOOLS];
+}
+
 async function mcpToolsPage() {
-  const { TOOLS } = await loadBuilt("mcp-server");
+  const allTools = await loadMcpTools();
 
   const lines = [
     "---",
@@ -134,10 +139,12 @@ async function mcpToolsPage() {
     "Every tool the Prism MCP server exposes, generated from the tool registry",
     "the server is built from.",
     "",
-    "All of them are read-only. No consent-gated path is reachable from an agent:",
-    "an agent cannot give informed consent on your behalf, so those capabilities",
-    "are simply absent rather than guarded. See",
-    "[Consent and privacy](../concepts/consent-and-privacy.md).",
+    "Intelligence tools are read-only Core adapters. Dispatch tools (jobs, OAuth,",
+    "memory, configure) write gitignored state under `.prism/dispatch/` and do not",
+    "index. Completing OAuth in the browser is the human grant for Dispatch drivers.",
+    "Core analysis APIs stay ungated from MCP. See",
+    "[Consent and privacy](../concepts/consent-and-privacy.md) and",
+    "[Dispatch](../mcp/dispatch.md).",
     "",
     "Tools that return a list accept `limit` and answer with `totalCount` and",
     "`truncated`, so an agent can tell the first 20 of 340 from all 20 there are.",
@@ -146,7 +153,9 @@ async function mcpToolsPage() {
     "|---|---|",
   ];
 
-  for (const tool of TOOLS.toSorted((a, b) => a.name.localeCompare(b.name))) {
+  for (const tool of allTools.toSorted((a, b) =>
+    a.name.localeCompare(b.name),
+  )) {
     lines.push(
       `| [\`${cell(tool.name)}\`](#${tool.name}) | ${cell(firstSentence(tool.description))} |`,
     );
@@ -154,7 +163,9 @@ async function mcpToolsPage() {
 
   lines.push("");
 
-  for (const tool of TOOLS.toSorted((a, b) => a.name.localeCompare(b.name))) {
+  for (const tool of allTools.toSorted((a, b) =>
+    a.name.localeCompare(b.name),
+  )) {
     lines.push(`## \`${tool.name}\``, "", tool.description, "");
     const keys = Object.keys(tool.inputSchema ?? {});
     lines.push(
@@ -170,7 +181,7 @@ async function mcpToolsPage() {
 
 async function capabilitiesPage() {
   const { COMMANDS } = await loadBuilt("cli");
-  const { TOOLS } = await loadBuilt("mcp-server");
+  const allTools = await loadMcpTools();
 
   const lines = [
     "---",
@@ -200,7 +211,9 @@ async function capabilitiesPage() {
 
   lines.push("", "## MCP tools", "", "| Tool | What it answers |", "|---|---|");
 
-  for (const tool of TOOLS.toSorted((a, b) => a.name.localeCompare(b.name))) {
+  for (const tool of allTools.toSorted((a, b) =>
+    a.name.localeCompare(b.name),
+  )) {
     lines.push(
       `| \`${cell(tool.name)}\` | ${cell(firstSentence(tool.description))} |`,
     );

@@ -12,6 +12,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createIndexProgressReporter } from "./index-progress.js";
 import { SERVER_INSTRUCTIONS } from "./instructions.js";
+import { prismMcpImplementation } from "./branding.js";
 import { registerPrompts } from "./prompts.js";
 import { registerResources } from "./resources.js";
 import {
@@ -19,6 +20,7 @@ import {
   type SessionOptions,
   type WorkspaceSession,
 } from "./session.js";
+import { registerDispatchTools } from "./dispatch-registry.js";
 import { registerTools } from "./tool-registry.js";
 import { TOOLS } from "./tools.js";
 import {
@@ -27,13 +29,14 @@ import {
   type ResolvedWorkspace,
 } from "./workspace-resolution.js";
 
-export const SERVER_NAME = "prism";
+export { SERVER_NAME } from "./branding.js";
 
 export type CreateServerOptions = {
   readonly workspaceRoot: string;
   readonly version?: string;
   /** Injectable for tests. */
   readonly openWorkspace?: SessionOptions["openWorkspace"];
+  readonly env?: NodeJS.ProcessEnv;
 };
 
 export type PrismMcpServer = {
@@ -49,13 +52,10 @@ export type PrismMcpServer = {
 export function createPrismMcpServer(
   options: CreateServerOptions,
 ): PrismMcpServer {
-  const server = new McpServer(
-    { name: SERVER_NAME, version: options.version ?? "0.1.0" },
-    {
-      capabilities: { tools: {}, prompts: {}, resources: {}, logging: {} },
-      instructions: SERVER_INSTRUCTIONS,
-    },
-  );
+  const server = new McpServer(prismMcpImplementation(options.version), {
+    capabilities: { tools: {}, prompts: {}, resources: {}, logging: {} },
+    instructions: SERVER_INSTRUCTIONS,
+  });
 
   const reportProgress = createIndexProgressReporter((line) => {
     // Prefer MCP logging so agent UIs surface it; also write stderr for
@@ -75,6 +75,9 @@ export function createPrismMcpServer(
   });
 
   registerTools(server, session, TOOLS, options.workspaceRoot);
+  registerDispatchTools(server, options.workspaceRoot, {
+    env: options.env ?? process.env,
+  });
   registerPrompts(server);
   registerResources(server, session);
 

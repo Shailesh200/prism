@@ -47,6 +47,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@gsap/react": "^2.1.2",
+        "@repo-prism/dispatch-auth": "workspace:*",
         "@repo-prism/ui": "workspace:*",
         "fumadocs-core": "^16.0.11",
         "fumadocs-mdx": "^14.0.5",
@@ -145,6 +146,21 @@
         "@types/vscode": "^1.90.0",
       },
     },
+    "packages/dispatch": {
+      "name": "@repo-prism/dispatch",
+      "version": "1.0.0",
+      "dependencies": {
+        "@repo-prism/shared": "workspace:*",
+        "zod": "^3.25.0",
+      },
+    },
+    "packages/dispatch-auth": {
+      "name": "@repo-prism/dispatch-auth",
+      "version": "1.0.0",
+      "dependencies": {
+        "@repo-prism/dispatch": "workspace:*",
+      },
+    },
     "packages/graph-engine": {
       "name": "@repo-prism/graph-engine",
       "version": "1.0.0",
@@ -184,13 +200,14 @@
     },
     "packages/mcp-server": {
       "name": "@repo-prism/mcp-server",
-      "version": "1.0.5",
+      "version": "1.1.1",
       "bin": {
         "prism-mcp": "./dist/bin.js",
       },
       "dependencies": {
         "@modelcontextprotocol/sdk": "^1.30.0",
         "@repo-prism/core": "workspace:*",
+        "@repo-prism/dispatch": "workspace:*",
         "@repo-prism/shared": "workspace:*",
         "zod": "^3.25.0",
       },
@@ -773,6 +790,10 @@
     "@repo-prism/core": ["@repo-prism/core@workspace:packages/core"],
 
     "@repo-prism/cursor-extension": ["@repo-prism/cursor-extension@workspace:packages/cursor-extension"],
+
+    "@repo-prism/dispatch": ["@repo-prism/dispatch@workspace:packages/dispatch"],
+
+    "@repo-prism/dispatch-auth": ["@repo-prism/dispatch-auth@workspace:packages/dispatch-auth"],
 
     "@repo-prism/graph-engine": ["@repo-prism/graph-engine@workspace:packages/graph-engine"],
 

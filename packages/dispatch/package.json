@@ -1,0 +1,38 @@
+{
+  "name": "@repo-prism/dispatch",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Prism Dispatch — jobs, memory, drivers, and start-my-day briefings for agents",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./oauth-providers": {
+      "types": "./dist/oauth-providers.d.ts",
+      "import": "./dist/oauth-providers.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@repo-prism/shared": "workspace:*",
+    "zod": "^3.25.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Shailesh200/prism.git"
+  },
+  "homepage": "https://www.prismhq.in",
+  "bugs": {
+    "url": "https://github.com/Shailesh200/prism/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

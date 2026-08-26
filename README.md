@@ -111,7 +111,7 @@ like `repository_health`.** The server tells the agent which tools to call.
 }
 ```
 
-Save as `.cursor/mcp.json` (project) or add to Claude Desktop config. Enable in **Settings → MCP** (~32 tools).
+Save as `.cursor/mcp.json` (project) or add to Claude Desktop config. Enable in **Settings → MCP** (~40 tools).
 
 #### Claude Code
 
@@ -136,7 +136,7 @@ If the one-click link above does not work:
      }
    }
    ```
-3. **Settings → MCP** → enable **prism** → wait for ~32 tools.
+3. **Settings → MCP** → enable **prism** → wait for ~40 tools.
 4. In Agent chat, ask normally (no tool names).
 
 #### Claude Desktop / Codex

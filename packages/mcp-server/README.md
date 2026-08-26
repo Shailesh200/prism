@@ -4,14 +4,15 @@
 [![license](https://img.shields.io/npm/l/@repo-prism/mcp-server.svg)](https://github.com/Shailesh200/prism/blob/main/LICENSE)
 
 **`prism-mcp`** — give any MCP-capable agent structural answers about the repo
-you have open. Same engine as the CLI and IDE extension. Local-only. 32 tools.
+you have open, plus Dispatch (start my day, jobs, connect). Same engine as the
+CLI and IDE extension. Local analysis. ~40 tools.
 
 **Website:** [https://www.prismhq.in](https://www.prismhq.in) · **Docs:** [https://www.prismhq.in/docs/mcp/install](https://www.prismhq.in/docs/mcp/install)
 
 > Requires **Node.js 26**.
 
 **You never type tool names.** After setup, ask in plain language (“is this repo
-healthy?”, “what breaks if I change auth?”). The server instructs the agent
+healthy?”, “start my day”, “connect Slack”). The server instructs the agent
 which tools to call.
 
 ---
@@ -48,7 +49,7 @@ walks up to the nearest **git root** (same as the CLI).
    ```
 3. Save the file.
 4. **Settings → MCP** → enable **prism**.
-5. Wait until ~**32 tools** appear.
+5. Wait until ~**40 tools** appear.
 6. In Agent chat, ask in plain language — no tool names.
 
 ### Claude Desktop
@@ -117,9 +118,20 @@ waiting for an MCP **client**. Configure the client; it starts the process.
 | “What changed?” | `changed_paths` |
 | “Is the index ready?” | `workspace_status` |
 | “Can Prism do X?” | `capabilities` |
+| “Start my day” | `start_my_day` |
+| “Start working on …” | `start_job` |
+| “Where are we?” | `list_jobs` |
+| “Remember this” | `remember` |
+| “Connect Slack” | `integrations` |
+| “Configure Dispatch” | `configure` |
 
 Optional MCP **prompts** (picker / slash in some clients): `orient`,
-`before_edit`, `review_diff`.
+`before_edit`, `review_diff`, `start_my_day`, `start_work`, `where_are_we`,
+`connect`, `configure`.
+
+Set `CURSOR_API_KEY` on the server env to spawn local Cursor workers from
+`start_job`. Briefing, connect, and remember work without it. Dispatch docs:
+see the public [Dispatch guide](https://www.prismhq.in/docs/mcp/dispatch).
 
 MCP **resources** (for clients that bind context): `prism://dna`,
 `prism://landmarks`, `prism://health`.
@@ -153,7 +165,21 @@ Manifest prepared for owner submission: [`server.json`](./server.json) ·
 
 ## Tools
 
-All tools are read-only. No tool grants consent or reaches the network.
+Intelligence tools are read-only. Dispatch tools write gitignored state under
+`.prism/dispatch/` and may show Authenticate / open Prism Auth for OAuth.
+
+### Dispatch
+
+| Tool | Answers | Arguments |
+|---|---|---|
+| `start_my_day` | Standup: jobs, git, connected drivers, connect CTAs | — |
+| `start_job` | Adopt/create worktree, start local Cursor worker, return job id | `title`, `prd`, `jobId`, `branch`, `confirmOverlap` |
+| `list_jobs` | Job status, worktree, git, agent | — |
+| `job_control` | pause / resume / cancel / attach_context | `jobId`, `action`, `context` |
+| `remember` | Save, list, or forget memories for the next job | `action`, `text`, `scope`, `confirm` |
+| `integrations` | Catalogue, OAuth start, disconnect | `action`, `driver` |
+| `configure` | Standup settings or export a non-secret template | `action`, Slack channels, `maxJobs`, `ticketHost` |
+| `dispatch_doctor` | API key, SDK, role, job cap | — |
 
 ### Orientation — what is this, and how is it laid out?
 

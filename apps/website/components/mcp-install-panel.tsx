@@ -65,7 +65,7 @@ export function McpInstallPanel() {
       <CopyBlock
         label="Cursor / Claude Desktop — `.cursor/mcp.json` or global config"
         value={PRISM_MCP_JSON_STRING.trim()}
-        hint="Save at the project root, then Settings → MCP → enable prism (~32 tools)."
+        hint="Save at the project root, then Settings → MCP → enable prism (~40 tools)."
       />
 
       <CopyBlock

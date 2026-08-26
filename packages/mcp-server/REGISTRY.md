@@ -13,7 +13,7 @@ Prepared in M-063. **Publishing is an owner action** — the repo cannot push to
 
 ## Before you publish
 
-1. **npm package live** — `@repo-prism/mcp-server@1.0.5` (or bump `version` +
+1. **npm package live** — `@repo-prism/mcp-server@1.1.1` (or bump `version` +
    `mcpName` together in `server.json` and `package.json`).
 2. **`mcpName` matches `server.json` `name`** — both must be
    `io.github.Shailesh200/prism`.

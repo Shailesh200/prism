@@ -96,6 +96,17 @@ describe("MCP server contract (M-026)", () => {
     // A handshake that indexes looks like a hung server to the client.
     expect(instance.session.isOpen()).toBe(false);
     expect(client.getServerVersion()?.name).toBe("prism");
+    expect(client.getServerVersion()?.title).toBe("Prism");
+    expect(client.getServerVersion()?.websiteUrl).toBe(
+      "https://www.prismhq.in",
+    );
+    expect(client.getServerVersion()?.icons?.length).toBeGreaterThan(0);
+  });
+
+  it("runs start_my_day without opening or indexing the workspace", async () => {
+    const briefing = await callJson("start_my_day");
+    expect(instance.session.isOpen()).toBe(false);
+    expect(briefing.message).toBeTypeOf("string");
   });
 
   it("advertises instructions that teach agents to call tools without being asked", async () => {
@@ -103,13 +114,23 @@ describe("MCP server contract (M-026)", () => {
     expect(instructions).toBeTypeOf("string");
     expect(instructions).toMatch(/users never name tools/i);
     expect(instructions).toContain("blast_radius");
+    expect(instructions).toContain("start_my_day");
     expect(instructions).not.toMatch(/prism_blast_radius/);
   });
 
   it("lists workflow prompts for clients that expose a picker", async () => {
     const { prompts } = await client.listPrompts();
     expect(prompts.map((prompt) => prompt.name).sort()).toEqual(
-      ["before_edit", "orient", "review_diff"].sort(),
+      [
+        "before_edit",
+        "configure",
+        "connect",
+        "orient",
+        "review_diff",
+        "start_my_day",
+        "start_work",
+        "where_are_we",
+      ].sort(),
     );
   });
 
@@ -149,9 +170,11 @@ describe("MCP server contract (M-026)", () => {
         "breaking_change_hints",
         "capabilities",
         "changed_paths",
+        "configure",
         "dependency_cycles",
         "dependency_graph",
         "dependency_route",
+        "dispatch_doctor",
         "engineering_health",
         "explain_area",
         "explore_code",
@@ -159,10 +182,14 @@ describe("MCP server contract (M-026)", () => {
         "find_references",
         "find_symbol",
         "health_history",
+        "integrations",
+        "job_control",
         "knowledge_graph",
         "landmarks",
         "list_features",
+        "list_jobs",
         "list_packages",
+        "remember",
         "rename_impact",
         "repository_dna",
         "repository_health",
@@ -173,6 +200,8 @@ describe("MCP server contract (M-026)", () => {
         "search_symbols",
         "security_report",
         "stack_profile",
+        "start_job",
+        "start_my_day",
         "test_impact",
         "testing_report",
         "workspace_status",
@@ -269,11 +298,44 @@ describe("MCP server contract (M-026)", () => {
     expect(explain?.description).toMatch(/explore_code/);
   });
 
-  it("marks the tools read-only and closed-world", async () => {
-    // Prism never writes to the repository and never reaches the network;
-    // saying so lets an agent skip its own confirmation prompts.
+  it("marks Intelligence tools read-only and closed-world", async () => {
+    const intelligence = new Set([
+      "backend_report",
+      "blast_radius",
+      "breaking_change_hints",
+      "capabilities",
+      "changed_paths",
+      "dependency_cycles",
+      "dependency_graph",
+      "dependency_route",
+      "engineering_health",
+      "explain_area",
+      "explore_code",
+      "feature_graph",
+      "find_references",
+      "find_symbol",
+      "health_history",
+      "knowledge_graph",
+      "landmarks",
+      "list_features",
+      "list_packages",
+      "rename_impact",
+      "repository_dna",
+      "repository_health",
+      "repository_map",
+      "repository_overview",
+      "review_changes",
+      "safe_delete",
+      "search_symbols",
+      "security_report",
+      "stack_profile",
+      "test_impact",
+      "testing_report",
+      "workspace_status",
+    ]);
     const { tools } = await client.listTools();
     for (const tool of tools) {
+      if (!intelligence.has(tool.name)) continue;
       expect(tool.annotations?.readOnlyHint, tool.name).toBe(true);
       expect(tool.annotations?.openWorldHint, tool.name).toBe(false);
     }
@@ -372,6 +434,12 @@ describe("MCP server contract (M-026)", () => {
       ["backend_report", {}],
       ["testing_report", {}],
       ["security_report", {}],
+      ["start_my_day", {}],
+      ["list_jobs", {}],
+      ["remember", { action: "list" }],
+      ["integrations", { action: "catalog" }],
+      ["configure", { action: "get" }],
+      ["dispatch_doctor", {}],
     ];
 
     const failures: string[] = [];
@@ -390,10 +458,15 @@ describe("MCP server contract (M-026)", () => {
     }
 
     expect(failures).toEqual([]);
-    // Every tool in the pack must appear above, or the sweep is not a sweep.
+    // Intelligence tools plus safe Dispatch tools. start_job / job_control
+    // mutate worktrees and are covered by @repo-prism/dispatch unit tests.
     const { tools } = await client.listTools();
+    const skipped = new Set(["start_job", "job_control"]);
     expect(calls.map(([name]) => name).sort()).toEqual(
-      tools.map((t) => t.name).sort(),
+      tools
+        .map((t) => t.name)
+        .filter((name) => !skipped.has(name))
+        .sort(),
     );
   }, 120_000);
 

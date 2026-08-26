@@ -11,6 +11,7 @@ const withMDX = createMDX();
 const config = {
   reactStrictMode: true,
   outputFileTracingRoot: repoRoot,
+  transpilePackages: ["@repo-prism/dispatch-auth", "@repo-prism/dispatch"],
   async redirects() {
     return [
       {

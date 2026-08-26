@@ -17,6 +17,7 @@ Prism/
 │   ├── impact/
 │   ├── navigation/
 │   ├── repository-map/
+│   ├── dispatch/
 │   ├── mcp-server/
 │   ├── cli/
 │   ├── ui/

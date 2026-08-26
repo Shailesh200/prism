@@ -22,7 +22,7 @@ const SLIDES = [
     id: "mcp",
     label: "MCP",
     command: "claude mcp add prism -- npx -y @repo-prism/mcp-server",
-    hint: "Cursor: Add to Cursor on prismhq.in/benchmarks · ~32 tools",
+    hint: "Cursor: Add to Cursor on prismhq.in/benchmarks · ~40 tools",
     href: "/docs/mcp/install",
   },
 ] as const;
