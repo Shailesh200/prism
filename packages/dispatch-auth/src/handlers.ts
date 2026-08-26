@@ -6,6 +6,7 @@ import {
   exchangeCode,
   OAUTH_PROVIDERS,
   parseDriverId,
+  refreshAccessToken,
   type DriverId,
   type TokenExchange,
 } from "@repo-prism/dispatch/oauth-providers";
@@ -264,4 +265,59 @@ export async function handleOAuthRedeem(
     ...(pickup.x ? { expiresAt: pickup.x } : {}),
     ...(pickup.extra ? { extra: pickup.extra } : {}),
   });
+}
+
+export async function handleOAuthRefresh(
+  request: Request,
+  config: AuthConfig,
+): Promise<Response> {
+  if (!config.sessionSecret) {
+    return json(503, { message: "Prism Auth is not configured." });
+  }
+  if (request.method !== "POST") {
+    return json(405, { message: "POST { driver, refreshToken }." });
+  }
+  let driverRaw: unknown;
+  let refreshToken: string | undefined;
+  try {
+    const body = (await request.json()) as {
+      driver?: unknown;
+      refreshToken?: unknown;
+    };
+    driverRaw = body.driver;
+    refreshToken =
+      typeof body.refreshToken === "string"
+        ? body.refreshToken.trim()
+        : undefined;
+  } catch {
+    return json(400, { message: "Expected JSON { driver, refreshToken }." });
+  }
+  const driver = parseDriverId(typeof driverRaw === "string" ? driverRaw : null);
+  if (!driver || !refreshToken) {
+    return json(400, { message: "refresh needs a driver and refreshToken." });
+  }
+  const credentials = brokerCredentials(driver, config.env);
+  if (!credentials) {
+    return json(503, { message: `${driver} is not enabled on Prism Auth yet.` });
+  }
+  try {
+    const bundle = await refreshAccessToken({
+      provider: OAUTH_PROVIDERS[driver],
+      clientId: credentials.clientId,
+      ...(credentials.clientSecret
+        ? { clientSecret: credentials.clientSecret }
+        : {}),
+      refreshToken,
+      ...(config.fetchImpl ? { fetchImpl: config.fetchImpl } : {}),
+    });
+    return json(200, {
+      driver,
+      accessToken: bundle.accessToken,
+      ...(bundle.refreshToken ? { refreshToken: bundle.refreshToken } : {}),
+      ...(bundle.expiresAt ? { expiresAt: bundle.expiresAt } : {}),
+    });
+  } catch (cause) {
+    const detail = cause instanceof Error ? cause.message : String(cause);
+    return json(401, { message: detail });
+  }
 }

@@ -23,6 +23,7 @@ export {
   OAUTH_PROVIDERS,
   type OAuthProvider,
   type TokenExchange,
+  refreshAccessToken,
 } from "./oauth-providers.js";
 
 export function clientIdFor(

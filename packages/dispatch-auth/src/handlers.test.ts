@@ -4,6 +4,7 @@ import {
   handleOAuthCallback,
   handleOAuthDrivers,
   handleOAuthRedeem,
+  handleOAuthRefresh,
   handleOAuthStart,
   vendorCallbackUri,
 } from "./handlers.js";
@@ -110,6 +111,40 @@ describe("Prism Auth broker", () => {
     };
     expect(tokens.accessToken).toBe("ya29.local");
     expect(tokens.refreshToken).toBe("refresh");
+  });
+
+  it("refreshes a Google access token with the broker secret", async () => {
+    const fetchImpl: typeof fetch = async (_url, init) => {
+      const body = String(init?.body ?? "");
+      expect(body).toContain("grant_type=refresh_token");
+      expect(body).toContain("refresh_token=refresh");
+      expect(body).toContain("client_secret=google-secret");
+      return new Response(
+        JSON.stringify({
+          access_token: "ya29.fresh",
+          expires_in: 3600,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    };
+    const response = await handleOAuthRefresh(
+      new Request("https://auth.prismhq.in/oauth/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          driver: "google-calendar",
+          refreshToken: "refresh",
+        }),
+      }),
+      authConfig(fetchImpl),
+    );
+    expect(response.status).toBe(200);
+    const tokens = (await response.json()) as {
+      accessToken: string;
+      expiresAt?: string;
+    };
+    expect(tokens.accessToken).toBe("ya29.fresh");
+    expect(tokens.expiresAt).toBeTruthy();
   });
 
   it("does not start OAuth when the broker has no client for that driver", async () => {

@@ -3,6 +3,7 @@ import {
   handleOAuthCallback,
   handleOAuthDrivers,
   handleOAuthRedeem,
+  handleOAuthRefresh,
   handleOAuthStart,
 } from "@repo-prism/dispatch-auth";
 
@@ -14,5 +15,6 @@ export {
   handleOAuthCallback,
   handleOAuthDrivers,
   handleOAuthRedeem,
+  handleOAuthRefresh,
   handleOAuthStart,
 };

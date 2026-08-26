@@ -4,6 +4,7 @@ import {
   brokerFetchReason,
   brokerStartUrl,
   listBrokerDrivers,
+  refreshBrokerToken,
 } from "./broker.js";
 
 describe("Prism Auth client", () => {
@@ -38,6 +39,28 @@ describe("Prism Auth client", () => {
     );
     expect(catalog.reachable).toBe(false);
     expect(catalog.reason).toBe("HTTP 503");
+  });
+
+  it("posts a refresh token to Prism Auth", async () => {
+    const bundle = await refreshBrokerToken(
+      "https://auth.prismhq.in",
+      "google-calendar",
+      "refresh-me",
+      async (input, init) => {
+        expect(String(input)).toBe("https://auth.prismhq.in/oauth/refresh");
+        expect(init?.method).toBe("POST");
+        return new Response(
+          JSON.stringify({
+            accessToken: "fresh",
+            refreshToken: "rotated",
+            expiresAt: "2099-01-01T00:00:00.000Z",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      },
+    );
+    expect(bundle.accessToken).toBe("fresh");
+    expect(bundle.refreshToken).toBe("rotated");
   });
 });
 

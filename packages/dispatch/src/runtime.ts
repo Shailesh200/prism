@@ -166,7 +166,14 @@ export function createDispatchRuntime(
       switch (name) {
         case "start_my_day":
           await reapJobs(options.workspaceRoot);
-          return buildDayBriefing(options);
+          return buildDayBriefing({
+            ...options,
+            ...(options.brokerFetch ?? options.fetchImpl
+              ? {
+                  brokerFetch: options.brokerFetch ?? options.fetchImpl,
+                }
+              : {}),
+          });
         case "init":
           return initTool(options, env, context);
         case "start_job":

@@ -6,6 +6,7 @@
  * goes to stderr, where agent clients surface it as server logs.
  */
 
+import { readPackageVersion } from "./branding.js";
 import { trustSystemCertificateAuthorities } from "./system-ca.js";
 import { resolveWorkspaceFromProcess, startStdioServer } from "./server.js";
 
@@ -14,7 +15,7 @@ trustSystemCertificateAuthorities();
 async function main(): Promise<void> {
   const workspace = resolveWorkspaceFromProcess();
   process.stderr.write(
-    `prism-mcp: workspace ${workspace.path} (from ${workspace.source})\n`,
+    `prism-mcp ${readPackageVersion()}: workspace ${workspace.path} (from ${workspace.source})\n`,
   );
 
   await startStdioServer({ workspaceRoot: workspace.path });

@@ -39,7 +39,15 @@ Project (`.cursor/mcp.json`) or global (`~/.cursor/mcp.json` / Claude Desktop):
 
 Canonical copy: [`packages/mcp-server/mcp-install.json`](https://github.com/Shailesh200/prism/blob/main/packages/mcp-server/mcp-install.json)
 
-`@latest` plus `--prefer-online` means a new npm publish is picked up the next time the MCP server starts. Do not pin `1.1.2` — you should not edit this file per release. Reload **prism** in Settings → MCP (or restart Cursor) after we publish.
+`@latest` plus `--prefer-online` is the default. **npx does not always pick up a new publish.** The `_npx` cache is keyed by the specifier string: `@latest` reuses the tree already installed for that tag. npm 10 only reinstalls when the packument’s resolved tarball URL changes. Corporate HTTP caches often keep `GET /@repo-prism/mcp-server` (the dist-tag) on an old version while a newer tarball is already live — so reload still runs the old server. Pinning `@1.1.5` is a different cache key and hits the version URL, which is why an absolute version worked.
+
+After a publish, either pin the new version once:
+
+```json
+"args": ["-y", "--prefer-online", "@repo-prism/mcp-server@1.1.5"]
+```
+
+or delete `~/.npm/_npx` (Windows: `%LocalAppData%\npm-cache\_npx`) and **fully quit Cursor** (not only Reload MCP). Confirm in MCP logs: `prism-mcp 1.1.5: workspace …`.
 
 ## Claude Code
 

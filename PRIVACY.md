@@ -84,6 +84,9 @@ unavailable, and is gitignored).
 connectors. It holds Prism's vendor app secrets, sees the authorization code
 during connect, and returns a short-lived encrypted pickup to your machine. It
 does not store your access tokens, and it never sees your repository or index.
+When a vendor token expires (Google Calendar is ~1 hour), the local MCP POSTs
+only the refresh token to `/oauth/refresh`; the broker returns a new access
+token and still does not persist it.
 Completing the vendor grant (Cursor Authenticate, or the page Claude opens)
 is how you turn a driver on.
 

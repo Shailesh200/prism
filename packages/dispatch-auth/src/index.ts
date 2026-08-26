@@ -5,6 +5,7 @@ export {
   handleOAuthCallback,
   handleOAuthDrivers,
   handleOAuthRedeem,
+  handleOAuthRefresh,
   handleOAuthStart,
   vendorCallbackUri,
   type AuthConfig,

@@ -7,7 +7,7 @@ import { saveConfig } from "./config.js";
 import { grantPurpose } from "./consent.js";
 import { remember } from "./memory.js";
 import { createDispatchRuntime } from "./runtime.js";
-import { saveToken } from "./tokens.js";
+import { saveToken, loadToken } from "./tokens.js";
 import { loadOAuthApp } from "./oauth-apps.js";
 import { authBrokerUrl } from "./broker.js";
 import type { GitRunner } from "./git.js";
@@ -124,6 +124,99 @@ describe("start-my-day briefing", () => {
     expect(
       briefing.drivers.filter((driver) => driver.connected).map((d) => d.id),
     ).toEqual(["github", "google-calendar"]);
+  });
+
+  it("refreshes an expired Google Calendar token through Prism Auth", async () => {
+    root = await tempRoot();
+    await grantPurpose(root, "network.google-calendar");
+    await saveToken(root, "google-calendar", {
+      accessToken: "expired",
+      refreshToken: "refresh-me",
+      expiresAt: "2020-01-01T00:00:00.000Z",
+    });
+    const http: HttpGet = async (_url, headers) => {
+      if (headers.Authorization === "Bearer expired") {
+        return { ok: false, status: 401, json: {}, text: "401" };
+      }
+      expect(headers.Authorization).toBe("Bearer fresh");
+      return {
+        ok: true,
+        status: 200,
+        json: { items: [{ id: "1", summary: "Standup" }] },
+        text: "{}",
+      };
+    };
+    const brokerFetch: typeof fetch = async (input, init) => {
+      expect(String(input)).toMatch(/\/oauth\/refresh$/);
+      expect(init?.method).toBe("POST");
+      const body = JSON.parse(String(init?.body)) as {
+        driver?: string;
+        refreshToken?: string;
+      };
+      expect(body.driver).toBe("google-calendar");
+      expect(body.refreshToken).toBe("refresh-me");
+      return new Response(
+        JSON.stringify({
+          accessToken: "fresh",
+          refreshToken: "refresh-me",
+          expiresAt: "2099-01-01T00:00:00.000Z",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    };
+    const briefing = await buildDayBriefing({
+      workspaceRoot: root,
+      git,
+      http,
+      brokerFetch,
+    });
+    const calendar = briefing.drivers.find((row) => row.id === "google-calendar");
+    expect(calendar?.error).toBeUndefined();
+    expect(calendar?.items[0]?.title).toBe("Standup");
+    expect((await loadToken(root, "google-calendar"))?.accessToken).toBe(
+      "fresh",
+    );
+  });
+
+  it("retries Calendar once after a 401 when expiry is unknown", async () => {
+    root = await tempRoot();
+    await grantPurpose(root, "network.google-calendar");
+    await saveToken(root, "google-calendar", {
+      accessToken: "stale",
+      refreshToken: "refresh-me",
+    });
+    let calls = 0;
+    const http: HttpGet = async (_url, headers) => {
+      calls += 1;
+      if (headers.Authorization === "Bearer stale") {
+        return { ok: false, status: 401, json: {}, text: "401" };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: { items: [{ id: "2", summary: "Sync" }] },
+        text: "{}",
+      };
+    };
+    const brokerFetch: typeof fetch = async () =>
+      new Response(
+        JSON.stringify({
+          accessToken: "fresh",
+          expiresAt: "2099-01-01T00:00:00.000Z",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    const briefing = await buildDayBriefing({
+      workspaceRoot: root,
+      git,
+      http,
+      brokerFetch,
+    });
+    expect(calls).toBe(2);
+    expect(
+      briefing.drivers.find((row) => row.id === "google-calendar")?.items[0]
+        ?.title,
+    ).toBe("Sync");
   });
 
   it("hides the configure band when hints are off", async () => {

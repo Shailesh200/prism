@@ -9,6 +9,10 @@ the `prism` CLI, the `prism-mcp` server, and the Core SDK they all call. They
 move as one because they are one build; a mismatch between them has never been
 a supported configuration.
 
+## 1.1.5 — Calendar token refresh
+
+- **Dispatch:** start-my-day renews Google Calendar (and other vendor) access tokens through Prism Auth `/oauth/refresh` so connect lasts past the one-hour Google token. MCP logs print `prism-mcp 1.1.5` on startup. `npx @latest` can still serve a cached tree; pin the new version or clear `~/.npm/_npx` after a publish.
+
 ## 1.1.4 — Standup start-my-day
 
 - **Dispatch:** start-my-day is a standup: greeting, yesterday (git + finished jobs + completed Linear), then open items on Linear/GitHub/Slack/Calendar. Linear OAuth uses a Bearer token so assigned issues actually load after connect.

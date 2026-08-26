@@ -53,8 +53,8 @@ download counts are public APIs. Never put `PRISM_AUTH_*` secrets in the MCP
 npm package.
 
 Add **`auth.prismhq.in`** as a domain on this same Vercel project (same
-deployment as `www`). `/oauth/start`, `/oauth/callback`, `/oauth/redeem`, and
-`/oauth/drivers` are the broker (ADR-0036).
+deployment as `www`). `/oauth/start`, `/oauth/callback`, `/oauth/redeem`,
+`/oauth/refresh`, and `/oauth/drivers` are the broker (ADR-0036).
 
 ## 3. Protect `/admin`
 

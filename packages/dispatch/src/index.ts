@@ -112,6 +112,7 @@ export {
   brokerStartUrl,
   listBrokerDrivers,
   redeemBrokerPickup,
+  refreshBrokerToken,
   type BrokerDriverStatus,
 } from "./broker.js";
 export {

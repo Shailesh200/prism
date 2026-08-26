@@ -162,6 +162,34 @@ export type TokenExchange = {
   extra?: Record<string, string>;
 };
 
+function expiresAtFromOAuth(
+  json: Record<string, unknown>,
+  now = Date.now(),
+): string | undefined {
+  const raw = json.expires_in;
+  const expiresIn =
+    typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : NaN;
+  if (!Number.isFinite(expiresIn) || expiresIn <= 0) return undefined;
+  return new Date(now + expiresIn * 1000).toISOString();
+}
+
+export function tokenBundleFromOAuthJson(
+  json: Record<string, unknown>,
+  now = Date.now(),
+): TokenExchange {
+  const access =
+    typeof json.access_token === "string" ? json.access_token : undefined;
+  if (!access) throw new Error("OAuth returned no access_token");
+  const expiresAt = expiresAtFromOAuth(json, now);
+  return {
+    accessToken: access,
+    ...(typeof json.refresh_token === "string"
+      ? { refreshToken: json.refresh_token }
+      : {}),
+    ...(expiresAt ? { expiresAt } : {}),
+  };
+}
+
 export async function exchangeCode(input: {
   readonly provider: OAuthProvider;
   readonly clientId: string;
@@ -212,18 +240,40 @@ export async function exchangeCode(input: {
     return { accessToken: token };
   }
 
-  const access =
-    typeof json.access_token === "string" ? json.access_token : undefined;
-  if (!access) throw new Error("OAuth returned no access_token");
-  const expiresIn =
-    typeof json.expires_in === "number" ? json.expires_in : undefined;
-  return {
-    accessToken: access,
-    ...(typeof json.refresh_token === "string"
-      ? { refreshToken: json.refresh_token }
-      : {}),
-    ...(expiresIn
-      ? { expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString() }
-      : {}),
-  };
+  return tokenBundleFromOAuthJson(json);
+}
+
+/** Vendor refresh. Client secret stays on Prism Auth (ADR-0036). */
+export async function refreshAccessToken(input: {
+  readonly provider: OAuthProvider;
+  readonly clientId: string;
+  readonly clientSecret?: string;
+  readonly refreshToken: string;
+  readonly fetchImpl?: typeof fetch;
+}): Promise<TokenExchange> {
+  const fetchImpl = input.fetchImpl ?? fetch;
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    client_id: input.clientId,
+    refresh_token: input.refreshToken,
+  });
+  if (input.clientSecret) body.set("client_secret", input.clientSecret);
+
+  const response = await fetchImpl(input.provider.tokenUrl, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+  const json = (await response.json()) as Record<string, unknown>;
+  if (!response.ok) {
+    throw new Error(
+      typeof json.error_description === "string"
+        ? json.error_description
+        : `token refresh failed (${response.status})`,
+    );
+  }
+  return tokenBundleFromOAuthJson(json);
 }

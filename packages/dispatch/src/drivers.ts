@@ -417,7 +417,10 @@ export async function fetchGoogleCalendar(
       id: "google-calendar",
       connected: true,
       available: false,
-      error: `Calendar ${response.status}`,
+      error:
+        response.status === 401 || response.status === 403
+          ? "Calendar access expired. Say “connect Google Calendar” to sign in again."
+          : `Calendar ${response.status}`,
       items: [],
     };
   }

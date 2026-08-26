@@ -114,3 +114,39 @@ export async function redeemBrokerPickup(
       : {}),
   };
 }
+
+export async function refreshBrokerToken(
+  brokerUrl: string,
+  driver: DriverId,
+  refreshToken: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<TokenExchange> {
+  const response = await fetchImpl(new URL("/oauth/refresh", `${brokerUrl}/`), {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ driver, refreshToken }),
+  });
+  const json = (await response.json()) as Record<string, unknown>;
+  if (!response.ok) {
+    throw new Error(
+      typeof json.message === "string"
+        ? json.message
+        : `Prism Auth refresh failed (${response.status})`,
+    );
+  }
+  const access =
+    typeof json.accessToken === "string" ? json.accessToken : undefined;
+  if (!access) throw new Error("Prism Auth refresh returned no access token");
+  return {
+    accessToken: access,
+    ...(typeof json.refreshToken === "string"
+      ? { refreshToken: json.refreshToken }
+      : {}),
+    ...(typeof json.expiresAt === "string"
+      ? { expiresAt: json.expiresAt }
+      : {}),
+  };
+}

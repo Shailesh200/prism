@@ -43,6 +43,12 @@ Prism's broker holds the vendor app secrets. Your access token comes back to
 the local MCP and is stored in the OS keychain. Completing that grant is the
 consent decision (see [privacy](/docs/concepts/consent-and-privacy)).
 
+Google Calendar access tokens last about an hour. Dispatch asks Prism Auth
+(`/oauth/refresh`) to mint a new one with the stored refresh token — the MCP
+never has Google’s client secret. If start-my-day still says Calendar access
+expired, say **connect Google Calendar** again (revoked grant, or no refresh
+token from the first login).
+
 A connector that is not enabled on Prism Auth yet will say so — that is Prism's
 job to register, not yours.
 

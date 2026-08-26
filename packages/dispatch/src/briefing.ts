@@ -15,6 +15,11 @@ import { gitSnapshot, type GitRunner } from "./git.js";
 import { loadJobs } from "./jobs.js";
 import { loadMemories } from "./memory.js";
 import { leftoverFocusSpeak, jobRef, statusPhrase } from "./job-voice.js";
+import {
+  isDriverAuthFailure,
+  renewDriverToken,
+  tokenNeedsRefresh,
+} from "./token-refresh.js";
 import { loadToken } from "./tokens.js";
 import {
   DRIVER_CONSENT,
@@ -34,6 +39,8 @@ export type BriefingDeps = {
   readonly http?: HttpGet;
   readonly now?: Date;
   readonly snapshots?: Partial<Record<DriverId, DriverSnapshot>>;
+  /** Injected in tests. Production uses global fetch for Prism Auth refresh. */
+  readonly brokerFetch?: typeof fetch;
 };
 
 const DRIVER_ORDER: readonly DriverId[] = [
@@ -106,30 +113,37 @@ async function loadDriverSnapshot(
   if (deps.snapshots?.[id]) return deps.snapshots[id];
   const purpose = DRIVER_CONSENT[id];
   const granted = await isPurposeGranted(deps.workspaceRoot, purpose);
-  const token = await loadToken(deps.workspaceRoot, id);
+  let token = await loadToken(deps.workspaceRoot, id);
   if (!granted || !token) {
     return { id, connected: false, available: true, items: [] };
   }
+  const now = deps.now ?? new Date();
+  if (tokenNeedsRefresh(token, now.getTime())) {
+    token =
+      (await renewDriverToken({
+        workspaceRoot: deps.workspaceRoot,
+        driver: id,
+        token,
+        ...(deps.env ? { env: deps.env } : {}),
+        ...(deps.brokerFetch ? { fetchImpl: deps.brokerFetch } : {}),
+      })) ?? token;
+  }
   const http = deps.http ?? defaultHttpGet;
   try {
-    switch (id) {
-      case "github":
-        return await fetchGithubUser(token.accessToken, http);
-      case "linear":
-        return await fetchLinear(token.accessToken, http);
-      case "jira":
-        return await fetchJira(token.accessToken, token.extra?.cloudId, http);
-      case "slack":
-        return await fetchSlack(token.accessToken, config, http);
-      case "notion":
-        return await fetchNotion(token.accessToken, http);
-      case "google-calendar":
-        return await fetchGoogleCalendar(
-          token.accessToken,
-          deps.now ?? new Date(),
-          http,
-        );
+    let snapshot = await fetchConnectedDriver(id, token, config, http, now);
+    if (isDriverAuthFailure(snapshot.error) && token.refreshToken) {
+      const renewed = await renewDriverToken({
+        workspaceRoot: deps.workspaceRoot,
+        driver: id,
+        token,
+        ...(deps.env ? { env: deps.env } : {}),
+        ...(deps.brokerFetch ? { fetchImpl: deps.brokerFetch } : {}),
+      });
+      if (renewed) {
+        snapshot = await fetchConnectedDriver(id, renewed, config, http, now);
+      }
     }
+    return snapshot;
   } catch (cause) {
     return {
       id,
@@ -138,6 +152,29 @@ async function loadDriverSnapshot(
       error: cause instanceof Error ? cause.message : String(cause),
       items: [],
     };
+  }
+}
+
+async function fetchConnectedDriver(
+  id: DriverId,
+  token: { accessToken: string; extra?: Record<string, string> },
+  config: DispatchConfig,
+  http: HttpGet,
+  now: Date,
+): Promise<DriverSnapshot> {
+  switch (id) {
+    case "github":
+      return fetchGithubUser(token.accessToken, http);
+    case "linear":
+      return fetchLinear(token.accessToken, http);
+    case "jira":
+      return fetchJira(token.accessToken, token.extra?.cloudId, http);
+    case "slack":
+      return fetchSlack(token.accessToken, config, http);
+    case "notion":
+      return fetchNotion(token.accessToken, http);
+    case "google-calendar":
+      return fetchGoogleCalendar(token.accessToken, now, http);
   }
 }
 
