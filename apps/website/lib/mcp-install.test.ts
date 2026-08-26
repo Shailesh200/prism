@@ -15,9 +15,15 @@ describe("mcp-install", () => {
     expect(config).toBeTruthy();
     const decoded = JSON.parse(
       Buffer.from(config!, "base64").toString("utf8"),
-    ) as { command: string; args: string[] };
+    ) as {
+      command: string;
+      args: string[];
+      env?: { NODE_USE_SYSTEM_CA?: string };
+    };
     expect(decoded.command).toBe("npx");
-    expect(decoded.args).toContain("@repo-prism/mcp-server");
+    expect(decoded.args).toContain("--prefer-online");
+    expect(decoded.args).toContain("@repo-prism/mcp-server@latest");
+    expect(decoded.env?.NODE_USE_SYSTEM_CA).toBe("1");
   });
 
   it("mcp json includes prism server", () => {

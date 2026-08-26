@@ -14,7 +14,7 @@ cwd.
 
 ### Cursor
 
-[Add to Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=prism&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkByZXBvLXByaXNtL21jcC1zZXJ2ZXIiXX0=)
+[Add to Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=prism&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIi0tcHJlZmVyLW9ubGluZSIsIkByZXBvLXByaXNtL21jcC1zZXJ2ZXJAbGF0ZXN0Il0sImVudiI6eyJOT0RFX1VTRV9TWVNURU1fQ0EiOiIxIn19)
 
 Click the link (or open it from [/benchmarks](/benchmarks)) → approve in Cursor →
 **Settings → MCP** → enable **prism** (~40 tools).
@@ -28,7 +28,10 @@ Project (`.cursor/mcp.json`) or global (`~/.cursor/mcp.json` / Claude Desktop):
   "mcpServers": {
     "prism": {
       "command": "npx",
-      "args": ["-y", "@repo-prism/mcp-server"]
+      "args": ["-y", "--prefer-online", "@repo-prism/mcp-server@latest"],
+      "env": {
+        "NODE_USE_SYSTEM_CA": "1"
+      }
     }
   }
 }
@@ -36,11 +39,13 @@ Project (`.cursor/mcp.json`) or global (`~/.cursor/mcp.json` / Claude Desktop):
 
 Canonical copy: [`packages/mcp-server/mcp-install.json`](https://github.com/Shailesh200/prism/blob/main/packages/mcp-server/mcp-install.json)
 
+`@latest` plus `--prefer-online` means a new npm publish is picked up the next time the MCP server starts. Do not pin `1.1.2` — you should not edit this file per release. Reload **prism** in Settings → MCP (or restart Cursor) after we publish.
+
 ## Claude Code
 
 ```bash
 cd /path/to/your/project
-claude mcp add prism -- npx -y @repo-prism/mcp-server
+claude mcp add prism -- npx -y --prefer-online @repo-prism/mcp-server@latest
 ```
 
 Restart Claude Code if it was already open. Ask: "What is this repository?"
@@ -55,7 +60,10 @@ project):
   "mcpServers": {
     "prism": {
       "command": "npx",
-      "args": ["-y", "@repo-prism/mcp-server"]
+      "args": ["-y", "--prefer-online", "@repo-prism/mcp-server@latest"],
+      "env": {
+        "NODE_USE_SYSTEM_CA": "1"
+      }
     }
   }
 }
@@ -79,7 +87,7 @@ In `~/.codex/config.toml`:
 ```toml
 [mcp_servers.prism]
 command = "npx"
-args = ["-y", "@repo-prism/mcp-server"]
+args = ["-y", "--prefer-online", "@repo-prism/mcp-server@latest"]
 ```
 
 Run Codex from inside your project directory.

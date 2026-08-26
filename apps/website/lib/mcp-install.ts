@@ -4,7 +4,8 @@ export const PRISM_MCP_SERVER_NAME = "prism";
 
 export const PRISM_MCP_TRANSPORT = {
   command: "npx",
-  args: ["-y", "@repo-prism/mcp-server"],
+  args: ["-y", "--prefer-online", "@repo-prism/mcp-server@latest"],
+  env: { NODE_USE_SYSTEM_CA: "1" },
 } as const;
 
 export const PRISM_MCP_JSON = {
@@ -16,7 +17,7 @@ export const PRISM_MCP_JSON = {
 export const PRISM_MCP_JSON_STRING = `${JSON.stringify(PRISM_MCP_JSON, null, 2)}\n`;
 
 export const PRISM_CLAUDE_CODE_COMMAND =
-  "claude mcp add prism -- npx -y @repo-prism/mcp-server";
+  "claude mcp add prism -- npx -y --prefer-online @repo-prism/mcp-server@latest";
 
 function base64UrlSafe(value: string): string {
   return Buffer.from(value, "utf8").toString("base64");

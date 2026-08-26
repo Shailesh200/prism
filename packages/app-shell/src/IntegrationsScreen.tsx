@@ -60,11 +60,12 @@ const PRISM_MCP_DOCS = "https://www.prismhq.in/docs/mcp/install";
 
 /**
  * Cursor one-click MCP install deeplink. The config param is base64 of
- * {"command":"npx","args":["-y","@repo-prism/mcp-server"]} — keep in sync with
+ * {"command":"npx","args":["-y","--prefer-online","@repo-prism/mcp-server@latest"],
+ * "env":{"NODE_USE_SYSTEM_CA":"1"}} — keep in sync with
  * apps/website/lib/mcp-install.ts (cursorMcpInstallHref).
  */
 const CURSOR_MCP_INSTALL =
-  "cursor://anysphere.cursor-deeplink/mcp/install?name=prism&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkByZXBvLXByaXNtL21jcC1zZXJ2ZXIiXX0=";
+  "cursor://anysphere.cursor-deeplink/mcp/install?name=prism&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIi0tcHJlZmVyLW9ubGluZSIsIkByZXBvLXByaXNtL21jcC1zZXJ2ZXJAbGF0ZXN0Il0sImVudiI6eyJOT0RFX1VTRV9TWVNURU1fQ0EiOiIxIn19";
 
 export type IntegrationsScreenProps = {
   repoLabel: string;

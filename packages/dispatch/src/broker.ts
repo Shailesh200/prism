@@ -32,6 +32,7 @@ export async function listBrokerDrivers(
 ): Promise<{
   reachable: boolean;
   drivers: BrokerDriverStatus[];
+  reason?: string;
 }> {
   try {
     const response = await fetchImpl(
@@ -42,7 +43,11 @@ export async function listBrokerDrivers(
       },
     );
     if (!response.ok) {
-      return { reachable: false, drivers: [] };
+      return {
+        reachable: false,
+        drivers: [],
+        reason: `HTTP ${String(response.status)}`,
+      };
     }
     const json = (await response.json()) as {
       drivers?: { id?: unknown; enabled?: unknown }[];
@@ -54,9 +59,22 @@ export async function listBrokerDrivers(
       drivers.push({ id: parsed.data, enabled: row.enabled === true });
     }
     return { reachable: true, drivers };
-  } catch {
-    return { reachable: false, drivers: [] };
+  } catch (cause) {
+    return {
+      reachable: false,
+      drivers: [],
+      reason: brokerFetchReason(cause),
+    };
   }
+}
+
+/** Node TLS / proxy failures are why connect says “Prism Auth unreachable”. */
+export function brokerFetchReason(cause: unknown): string {
+  const message = cause instanceof Error ? cause.message : String(cause);
+  if (/certificate|UNABLE_TO_GET_ISSUER|self-signed/i.test(message)) {
+    return `${message} (corporate TLS intercept — Node must trust the OS certificate store)`;
+  }
+  return message;
 }
 
 export async function redeemBrokerPickup(

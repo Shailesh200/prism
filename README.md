@@ -96,7 +96,7 @@ like `repository_health`.** The server tells the agent which tools to call.
 
 #### One-click (Cursor)
 
-[Add to Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=prism&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkByZXBvLXByaXNtL21jcC1zZXJ2ZXIiXX0=) · [Install guide](https://www.prismhq.in/docs/mcp/install) · [Benchmarks](https://www.prismhq.in/benchmarks)
+[Add to Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=prism&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIi0tcHJlZmVyLW9ubGluZSIsIkByZXBvLXByaXNtL21jcC1zZXJ2ZXJAbGF0ZXN0Il0sImVudiI6eyJOT0RFX1VTRV9TWVNURU1fQ0EiOiIxIn19) · [Install guide](https://www.prismhq.in/docs/mcp/install) · [Benchmarks](https://www.prismhq.in/benchmarks)
 
 #### Copy-paste config (Cursor / Claude Desktop)
 

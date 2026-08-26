@@ -6,7 +6,10 @@
  * goes to stderr, where agent clients surface it as server logs.
  */
 
+import { trustSystemCertificateAuthorities } from "./system-ca.js";
 import { resolveWorkspaceFromProcess, startStdioServer } from "./server.js";
+
+trustSystemCertificateAuthorities();
 
 async function main(): Promise<void> {
   const workspace = resolveWorkspaceFromProcess();

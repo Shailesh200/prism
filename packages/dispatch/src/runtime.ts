@@ -632,7 +632,7 @@ async function integrationsTool(
             return `${row.label}: not connected — say “connect ${row.label}”`;
           }
           if (!brokerCatalog.reachable) {
-            return `${row.label}: not connected (Prism Auth unreachable)`;
+            return `${row.label}: not connected (Prism Auth unreachable${brokerCatalog.reason ? ` — ${brokerCatalog.reason}` : ""})`;
           }
           return `${row.label}: not connected (Prism Auth has not enabled this connector yet)`;
         })
@@ -733,10 +733,11 @@ async function startOAuth(
   const enabled =
     catalog.drivers.find((row) => row.id === driver)?.enabled === true;
   if (!catalog.reachable) {
+    const detail = catalog.reason ? ` (${catalog.reason})` : "";
     return {
       broker,
       reachable: false,
-      message: `Prism Auth (${broker}) is unreachable. Try “connect ${DRIVER_LABELS[driver]}” again in a moment. You do not create an OAuth app.`,
+      message: `Prism Auth (${broker}) is unreachable${detail}. Try “connect ${DRIVER_LABELS[driver]}” again in a moment. You do not create an OAuth app.`,
     };
   }
   if (!enabled) {
@@ -1161,7 +1162,7 @@ async function doctorTool(
       ok: brokerCatalog.reachable,
       detail: brokerCatalog.reachable
         ? `${broker} · ${enabledCount} connector(s) enabled`
-        : `${broker} unreachable — connect will wait until Prism Auth is up`,
+        : `${broker} unreachable${brokerCatalog.reason ? ` (${brokerCatalog.reason})` : ""} — connect will wait until Prism Auth is up`,
     },
   ];
   return {

@@ -9,6 +9,10 @@ the `prism` CLI, the `prism-mcp` server, and the Core SDK they all call. They
 move as one because they are one build; a mismatch between them has never been
 a supported configuration.
 
+## 1.1.3 — Corporate TLS for connect
+
+- **MCP:** trust the OS certificate store at startup so `connect Linear` (and other Prism Auth grants) work behind corporate HTTPS inspection. Cursor reload no longer depends on `NODE_USE_SYSTEM_CA` in mcp.json. If the probe still fails, the error now includes the TLS/HTTP reason instead of a bare “unreachable.”
+
 ## 1.1.2 — Connect on Cursor
 
 - **MCP:** skip the extra Continue elicitation on Cursor. The host advertised form elicitation then auto-returned `cancel`, which aborted Linear/Slack/Calendar connect before Authenticate appeared. Connect goes straight to the native Authenticate control.
