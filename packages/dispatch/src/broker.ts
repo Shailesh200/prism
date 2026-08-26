@@ -38,7 +38,7 @@ export async function listBrokerDrivers(
       new URL("/oauth/drivers", `${brokerUrl}/`),
       {
         headers: { Accept: "application/json" },
-        signal: AbortSignal.timeout(4_000),
+        signal: AbortSignal.timeout(10_000),
       },
     );
     if (!response.ok) {

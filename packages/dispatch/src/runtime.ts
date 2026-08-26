@@ -5,7 +5,25 @@ import { loadConfig, saveConfig } from "./config.js";
 import { DRIVER_LABELS } from "./drivers.js";
 import { exportSettings } from "./export-settings.js";
 import { gitStatusShort, type GitRunner } from "./git.js";
-import { activeJobCount, getJob, loadJobs, upsertJob } from "./jobs.js";
+import { allocateJobId, displayJobId, resolveJobRef } from "./job-id.js";
+import {
+  agentNameForJob,
+  alreadyRunningSpeak,
+  ambiguousJobSpeak,
+  controlSpeak,
+  doctorSpeak,
+  initSpeak,
+  jobRef,
+  listJobsSpeak,
+  missingJobSpeak,
+  overlapSpeak,
+  publicWorkerError,
+  recordedJobSpeak,
+  signedInSpeak,
+  startJobSpeak,
+} from "./job-voice.js";
+import { activeJobCount, upsertJob } from "./jobs.js";
+import { isProcessAlive, reapJobs } from "./run-state.js";
 import { forgetMemory, loadMemories, remember } from "./memory.js";
 import {
   authBrokerUrl,
@@ -55,10 +73,20 @@ import {
   workerPrompt,
   type WorkerPort,
 } from "./worker.js";
+import {
+  createSdkCursorAuthPort,
+  ensureCursorWorkerAuth,
+  inspectCursorWorkerAuth,
+  type CursorAuthInspect,
+  type CursorAuthPort,
+} from "./cursor-auth.js";
 import { adoptOrCreateWorktree } from "./worktrees.js";
+import { diskBudgetMessage, ramBudgetMessage } from "./worker-budget.js";
+import { linkWorktreeInstall } from "./worktree-install.js";
 
 export const DISPATCH_TOOL_NAMES = [
   "start_my_day",
+  "init",
   "start_job",
   "list_jobs",
   "job_control",
@@ -72,6 +100,7 @@ export type DispatchToolName = (typeof DISPATCH_TOOL_NAMES)[number];
 
 export const WORKER_HIDDEN_TOOLS: readonly DispatchToolName[] = [
   "start_my_day",
+  "init",
   "start_job",
 ];
 
@@ -107,7 +136,16 @@ export type DispatchRuntimeOptions = BriefingDeps & {
   readonly startOAuth?: (driver: DriverId) => Promise<unknown>;
   readonly fetchImpl?: typeof fetch;
   readonly oauthUi?: OAuthUiPort;
+  /** Injected in tests. Production uses Cursor.auth (SDK store), not mcp.json. */
+  readonly cursorAuth?: CursorAuthPort;
+  /** Injected in tests. Production reads `os.freemem()`. */
+  readonly freeMemoryBytes?: number;
 };
+
+function ramGate(options: DispatchRuntimeOptions): string | undefined {
+  if (options.freeMemoryBytes == null && process.env.VITEST) return undefined;
+  return ramBudgetMessage(options.freeMemoryBytes);
+}
 
 export function createDispatchRuntime(
   options: DispatchRuntimeOptions,
@@ -118,7 +156,7 @@ export function createDispatchRuntime(
     async handle(name, args, context) {
       if (
         isWorkerRole(env) &&
-        (name === "start_my_day" || name === "start_job")
+        (name === "start_my_day" || name === "start_job" || name === "init")
       ) {
         return {
           message:
@@ -127,13 +165,16 @@ export function createDispatchRuntime(
       }
       switch (name) {
         case "start_my_day":
+          await reapJobs(options.workspaceRoot);
           return buildDayBriefing(options);
+        case "init":
+          return initTool(options, env, context);
         case "start_job":
-          return startJob(options, args, env);
+          return startJob(options, args, env, context);
         case "list_jobs":
           return listJobs(options);
         case "job_control":
-          return jobControl(options, args, env);
+          return jobControl(options, args, env, context);
         case "remember":
           return rememberTool(options.workspaceRoot, args);
         case "integrations":
@@ -147,34 +188,57 @@ export function createDispatchRuntime(
   };
 }
 
-function jobIdFrom(title: string, explicit?: unknown): string {
-  if (typeof explicit === "string" && explicit.trim()) return explicit.trim();
-  const ticket = title.match(/\b([A-Z]{2,}-\d+)\b/);
-  if (ticket?.[1]) return ticket[1];
-  return `job-${randomUUID().slice(0, 8)}`;
+function jobIdFrom(
+  title: string,
+  taken: ReadonlySet<string>,
+  explicit?: unknown,
+): string {
+  return allocateJobId({
+    title,
+    taken,
+    ...(typeof explicit === "string" ? { explicit } : {}),
+  });
 }
 
 async function startJob(
   options: DispatchRuntimeOptions,
   args: Record<string, unknown>,
   env: NodeJS.ProcessEnv,
+  context?: DispatchToolContext,
 ): Promise<unknown> {
   const title = String(args.title ?? args.ticket ?? "").trim();
   const prd = String(args.prd ?? args.brief ?? "").trim();
   if (!title) {
     return { message: "start_job needs a title (and a PRD helps)." };
   }
+  const ram = ramGate(options);
+  if (ram) return { message: ram };
+  const disk = await diskBudgetMessage(options.workspaceRoot);
+  if (disk) return { message: disk };
   const config = await loadConfig(options.workspaceRoot);
-  const jobs = await loadJobs(options.workspaceRoot);
+  const jobs = await reapJobs(options.workspaceRoot);
+  const id = jobIdFrom(
+    title,
+    new Set(jobs.map((job) => job.id)),
+    args.jobId ?? args.id,
+  );
+  const existing = jobs.find((job) => job.id === id);
+  if (
+    existing &&
+    (existing.status === "running" || existing.status === "booting") &&
+    isProcessAlive(existing.workerPid)
+  ) {
+    return {
+      job: existing,
+      message: alreadyRunningSpeak(existing),
+    };
+  }
   if (activeJobCount(jobs) >= config.maxJobs) {
     return {
       message: `At the job cap (${config.maxJobs}). Finish or cancel one, or raise maxJobs with configure.`,
       maxJobs: config.maxJobs,
     };
   }
-
-  const id = jobIdFrom(title, args.jobId ?? args.id);
-  const existing = jobs.find((job) => job.id === id);
   const tree = existing
     ? {
         path: existing.worktreePath,
@@ -193,6 +257,13 @@ async function startJob(
         ...(options.git ? { run: options.git } : {}),
       });
 
+  if (tree.source === "prism") {
+    await linkWorktreeInstall({
+      workspaceRoot: options.workspaceRoot,
+      worktreePath: tree.path,
+    });
+  }
+
   const overlap = await findPathOverlap({
     jobs,
     path: tree.path,
@@ -203,7 +274,10 @@ async function startJob(
     return {
       needsConfirm: true,
       overlap,
-      message: `Job ${overlap.existingJobId} already uses ${overlap.path}${overlap.dirty ? " (dirty)" : ""}. Call start_job again with confirmOverlap=true if you still want a second agent there.`,
+      message: overlapSpeak({
+        title: overlap.existingTitle,
+        dirty: overlap.dirty,
+      }),
     };
   }
 
@@ -227,18 +301,22 @@ async function startJob(
   };
   job = await upsertJob(options.workspaceRoot, job);
 
-  const apiKey = env.CURSOR_API_KEY?.trim();
-  if (!apiKey) {
+  const creds = await resolveWorkerAuth(options, env, context, {
+    login: true,
+  });
+  if (!creds.ready) {
     job = await upsertJob(options.workspaceRoot, {
       ...job,
       status: "blocked",
-      waitingOn: "CURSOR_API_KEY",
-      nextStep:
-        "Set CURSOR_API_KEY on the Prism MCP server, then job_control resume.",
+      waitingOn: "cursor-auth",
+      nextStep: creds.message,
     });
     return {
       job,
-      message: `Job ${job.id} is recorded at ${job.worktreePath} (source: ${job.source}). Set CURSOR_API_KEY to start the local Cursor worker. Briefing, connect, and remember still work without it.`,
+      message: recordedJobSpeak(
+        job,
+        `sign-in is still needed. ${creds.message} Then say “resume ${displayJobId(job)}”.`,
+      ),
     };
   }
 
@@ -248,7 +326,10 @@ async function startJob(
   if (!worker) {
     return {
       job,
-      message: `Job ${job.id} is ready at ${job.worktreePath}, but no worker is configured.`,
+      message: recordedJobSpeak(
+        job,
+        "no teammate is configured. Reload the prism MCP server, then say prism init.",
+      ),
     };
   }
 
@@ -258,8 +339,10 @@ async function startJob(
   });
   try {
     const started = await worker.start({
+      jobId: job.id,
       cwd: job.worktreePath,
-      apiKey,
+      name: agentNameForJob(job),
+      ...(creds.apiKey ? { apiKey: creds.apiKey } : {}),
       prompt: workerPrompt({ job, memories }),
       mcpCommand: launch.command,
       mcpArgs: launch.args,
@@ -268,12 +351,16 @@ async function startJob(
     job = await upsertJob(options.workspaceRoot, {
       ...job,
       status: "running",
-      cursorAgentId: started.agentId,
-      nextStep: "worker running",
+      lastActivity: "Starting",
+      errorMessage: undefined,
+      resultSummary: undefined,
+      nextStep: "",
+      ...(started.agentId ? { cursorAgentId: started.agentId } : {}),
+      ...(typeof started.pid === "number" ? { workerPid: started.pid } : {}),
     });
     return {
       job,
-      message: `Started ${job.id} in ${job.worktreePath} (${job.source} worktree). Agent ${started.agentId} is running; this call does not wait for it to finish.`,
+      message: startJobSpeak(job),
     };
   } catch (cause) {
     const detail = cause instanceof Error ? cause.message : String(cause);
@@ -281,46 +368,34 @@ async function startJob(
       ...job,
       status: "blocked",
       waitingOn: "worker",
-      nextStep: detail,
+      nextStep: "",
     });
     return {
       job,
-      message: `Job ${job.id} is recorded at ${job.worktreePath}, but the worker did not start: ${detail}`,
+      message: recordedJobSpeak(job, publicWorkerError(detail)),
     };
   }
 }
 
 async function listJobs(options: DispatchRuntimeOptions): Promise<unknown> {
-  const jobs = await loadJobs(options.workspaceRoot);
+  const jobs = await reapJobs(options.workspaceRoot);
   const rows = [];
   for (const job of jobs) {
     const git = await gitStatusShort(job.worktreePath, options.git);
-    let agent = { status: "n/a", detail: "" };
-    if (job.cursorAgentId && options.worker && options.env?.CURSOR_API_KEY) {
-      agent = await options.worker.status({
-        agentId: job.cursorAgentId,
-        cwd: job.worktreePath,
-        apiKey: options.env.CURSOR_API_KEY,
-      });
-    }
     rows.push({
-      ...job,
+      id: job.id,
+      title: job.title,
+      status: job.status,
       gitStatus: git || "clean",
-      agentStatus: agent.status,
-      agentDetail: agent.detail,
+      agentStatus: job.status,
+      ...(job.lastActivity ? { lastActivity: job.lastActivity } : {}),
+      ...(job.resultSummary ? { resultSummary: job.resultSummary } : {}),
+      ...(job.errorMessage ? { errorMessage: job.errorMessage } : {}),
     });
   }
   return {
     jobs: rows,
-    message:
-      rows.length === 0
-        ? "No Dispatch jobs yet. Say “start working on …” with a ticket and PRD."
-        : rows
-            .map(
-              (job) =>
-                `${job.id} · ${job.status} · ${job.title} · ${job.worktreePath} · git ${job.gitStatus.split("\n")[0] || "clean"}`,
-            )
-            .join("\n"),
+    message: listJobsSpeak(rows),
   };
 }
 
@@ -328,73 +403,126 @@ async function jobControl(
   options: DispatchRuntimeOptions,
   args: Record<string, unknown>,
   env: NodeJS.ProcessEnv,
+  context?: DispatchToolContext,
 ): Promise<unknown> {
   const id = String(args.jobId ?? args.id ?? "").trim();
   const action = String(args.action ?? "").trim();
-  const job = await getJob(options.workspaceRoot, id);
-  if (!job) return { message: `No job named ${id || "(missing id)"}.` };
-  const apiKey = env.CURSOR_API_KEY?.trim();
+  const jobs = await reapJobs(options.workspaceRoot);
+  const resolved = resolveJobRef(jobs, id);
+  if (!resolved) {
+    return { message: missingJobSpeak(id || "that job", jobs) };
+  }
+  if (resolved.kind === "many") {
+    return { message: ambiguousJobSpeak(resolved.jobs) };
+  }
+  const job = resolved.job;
   const launch = resolveMcpLaunch(env);
 
   if (action === "cancel" || action === "pause") {
-    if (job.cursorAgentId && options.worker && apiKey) {
+    if (options.worker) {
       await options.worker.cancel({
-        agentId: job.cursorAgentId,
+        ...(job.cursorAgentId ? { agentId: job.cursorAgentId } : {}),
         cwd: job.worktreePath,
-        apiKey,
+        jobId: job.id,
+        workspaceRoot: options.workspaceRoot,
+        ...(typeof job.workerPid === "number" ? { pid: job.workerPid } : {}),
       });
     }
     const next = await upsertJob(options.workspaceRoot, {
       ...job,
       status: action === "cancel" ? "cancelled" : "paused",
+      lastActivity: action === "cancel" ? "Cancelled" : "Paused",
       nextStep: action === "cancel" ? "" : "paused — say resume to continue",
     });
-    return { job: next, message: `${action}d ${next.id}.` };
+    return {
+      job: next,
+      message: controlSpeak(action === "cancel" ? "cancel" : "pause", next),
+    };
   }
 
   if (action === "resume" || action === "attach_context") {
-    if (!apiKey) {
-      return { message: "Set CURSOR_API_KEY first.", job };
+    const extra = String(args.context ?? args.text ?? "").trim();
+    if (isProcessAlive(job.workerPid)) {
+      if (action === "attach_context" && extra) {
+        const next = await upsertJob(options.workspaceRoot, {
+          ...job,
+          pendingContext: [job.pendingContext, extra]
+            .filter(Boolean)
+            .join("\n\n"),
+        });
+        return {
+          job: next,
+          message: `Noted for ${jobRef(next)}. The teammate is still working — say “where are we” for live status.`,
+        };
+      }
+      return { job, message: alreadyRunningSpeak(job) };
+    }
+    const creds = await resolveWorkerAuth(options, env, context, {
+      login: true,
+    });
+    if (!creds.ready) {
+      return { message: creds.message, job };
     }
     if (!options.worker) {
       return { message: "No worker configured.", job };
     }
+    const ram = ramGate(options);
+    if (ram) return { message: ram, job };
+    const disk = await diskBudgetMessage(options.workspaceRoot);
+    if (disk) return { message: disk, job };
+    if (job.source === "prism") {
+      await linkWorktreeInstall({
+        workspaceRoot: options.workspaceRoot,
+        worktreePath: job.worktreePath,
+      });
+    }
     const memories = await loadMemories(options.workspaceRoot);
-    const extra = String(args.context ?? args.text ?? "").trim();
+    const combinedExtra = [job.pendingContext, extra]
+      .filter(Boolean)
+      .join("\n\n");
+    let pid: number | undefined;
+    let agentId = job.cursorAgentId;
     if (job.cursorAgentId) {
-      await options.worker.resume({
+      const resumed = await options.worker.resume({
+        jobId: job.id,
         agentId: job.cursorAgentId,
         cwd: job.worktreePath,
-        apiKey,
+        name: agentNameForJob(job),
+        ...(creds.apiKey ? { apiKey: creds.apiKey } : {}),
         prompt:
           action === "attach_context"
-            ? extra || "Continue."
-            : workerPrompt({ job, memories, extra }),
+            ? combinedExtra || "Continue."
+            : workerPrompt({ job, memories, extra: combinedExtra }),
         mcpCommand: launch.command,
         mcpArgs: launch.args,
         workspaceRoot: options.workspaceRoot,
       });
+      if (resumed && typeof resumed.pid === "number") pid = resumed.pid;
     } else {
       const started = await options.worker.start({
+        jobId: job.id,
         cwd: job.worktreePath,
-        apiKey,
-        prompt: workerPrompt({ job, memories, extra }),
+        name: agentNameForJob(job),
+        ...(creds.apiKey ? { apiKey: creds.apiKey } : {}),
+        prompt: workerPrompt({ job, memories, extra: combinedExtra }),
         mcpCommand: launch.command,
         mcpArgs: launch.args,
         workspaceRoot: options.workspaceRoot,
       });
-      await upsertJob(options.workspaceRoot, {
-        ...job,
-        cursorAgentId: started.agentId,
-        status: "running",
-      });
+      agentId = started.agentId ?? agentId;
+      if (typeof started.pid === "number") pid = started.pid;
     }
     const next = await upsertJob(options.workspaceRoot, {
       ...job,
       status: "running",
-      nextStep: "worker running",
+      lastActivity: "Starting",
+      errorMessage: undefined,
+      pendingContext: undefined,
+      nextStep: "",
+      ...(agentId ? { cursorAgentId: agentId } : {}),
+      ...(typeof pid === "number" ? { workerPid: pid } : {}),
     });
-    return { job: next, message: `Resumed ${next.id}.` };
+    return { job: next, message: controlSpeak("resume", next) };
   }
 
   return {
@@ -941,13 +1069,49 @@ function formatConfig(config: DispatchConfig): string {
   ].join(" · ");
 }
 
+async function initTool(
+  options: DispatchRuntimeOptions,
+  env: NodeJS.ProcessEnv,
+  context?: DispatchToolContext,
+): Promise<unknown> {
+  const creds = await resolveWorkerAuth(options, env, context, { login: true });
+  return {
+    ready: creds.ready,
+    message: creds.ready ? initSpeak(true, creds.email) : creds.message,
+  };
+}
+
+async function resolveWorkerAuth(
+  options: DispatchRuntimeOptions,
+  env: NodeJS.ProcessEnv,
+  context?: DispatchToolContext,
+  flags: { readonly login?: boolean } = {},
+): Promise<CursorAuthInspect> {
+  const auth = options.cursorAuth ?? (await createSdkCursorAuthPort());
+  if (!flags.login) {
+    let status:
+      | { kind: "stored"; email?: string; expiresAtMs?: number }
+      | { kind: "missing" }
+      | undefined;
+    if (!env.CURSOR_API_KEY?.trim() && auth) {
+      status = await auth.status();
+    }
+    return inspectCursorWorkerAuth(env, status);
+  }
+  return ensureCursorWorkerAuth({
+    env,
+    ...(auth ? { auth } : {}),
+    ...(context?.signal ? { signal: context.signal } : {}),
+  });
+}
+
 async function doctorTool(
   options: DispatchRuntimeOptions,
   env: NodeJS.ProcessEnv,
 ): Promise<unknown> {
   const sdk = await loadCursorSdk();
   const config = await loadConfig(options.workspaceRoot);
-  const jobs = await loadJobs(options.workspaceRoot);
+  const jobs = await reapJobs(options.workspaceRoot);
   const broker = authBrokerUrl(env);
   const brokerCatalog = await listBrokerDrivers(
     broker,
@@ -956,18 +1120,21 @@ async function doctorTool(
   const enabledCount = brokerCatalog.drivers.filter(
     (row) => row.enabled,
   ).length;
+  const creds = await resolveWorkerAuth(options, env);
+  const diskMessage = await diskBudgetMessage(options.workspaceRoot);
+  const ramMessage = ramGate(options);
   const checks = [
     {
-      id: "cursor_api_key",
-      ok: Boolean(env.CURSOR_API_KEY?.trim()),
-      detail: env.CURSOR_API_KEY?.trim()
-        ? "set"
-        : "missing — briefing still works; start_job will wait",
+      id: "cursor_workers",
+      ok: creds.ready,
+      detail: creds.ready
+        ? signedInSpeak(creds.email)
+        : "Sign in — say prism init and finish the Cursor page in your browser.",
     },
     {
       id: "cursor_sdk",
       ok: Boolean(sdk),
-      detail: sdk ? "importable" : "@cursor/sdk not installed",
+      detail: sdk ? "importable" : "Cursor SDK did not load — reload prism MCP",
     },
     {
       id: "role",
@@ -980,6 +1147,16 @@ async function doctorTool(
       detail: `${activeJobCount(jobs)} active / ${config.maxJobs} max`,
     },
     {
+      id: "disk",
+      ok: !diskMessage,
+      detail: diskMessage ?? "enough free space",
+    },
+    {
+      id: "ram",
+      ok: !ramMessage,
+      detail: ramMessage ?? "enough free memory",
+    },
+    {
       id: "prism_auth",
       ok: brokerCatalog.reachable,
       detail: brokerCatalog.reachable
@@ -989,11 +1166,7 @@ async function doctorTool(
   ];
   return {
     checks,
-    message: checks
-      .map(
-        (check) => `${check.ok ? "ok" : "warn"} ${check.id}: ${check.detail}`,
-      )
-      .join("\n"),
+    message: doctorSpeak(checks),
   };
 }
 

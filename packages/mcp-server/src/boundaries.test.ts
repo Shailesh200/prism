@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { TOOLS, TOOL_NAMES } from "./tools.js";
+import { DISPATCH_TOOL_NAMES } from "./dispatch-registry.js";
 
 /**
  * Two rules that break a stdio MCP server quietly rather than loudly, so each
@@ -146,7 +147,7 @@ describe("pack coherence (M-027)", () => {
 
   it("documents every tool in the README", async () => {
     const readme = await readFile(join(packageDir, "README.md"), "utf8");
-    const undocumented = TOOL_NAMES.filter(
+    const undocumented = [...TOOL_NAMES, ...DISPATCH_TOOL_NAMES].filter(
       (name) => !readme.includes(`\`${name}\``),
     );
     expect(undocumented).toEqual([]);
@@ -157,7 +158,8 @@ describe("pack coherence (M-027)", () => {
     const claimed = [...readme.matchAll(/^\| `([a-z][a-z0-9_]*)` \|/gm)].map(
       (match) => match[1] as string,
     );
+    const advertised = new Set([...TOOL_NAMES, ...DISPATCH_TOOL_NAMES]);
     expect(claimed.length).toBeGreaterThan(0);
-    expect(claimed.filter((name) => !TOOL_NAMES.includes(name))).toEqual([]);
+    expect(claimed.filter((name) => !advertised.has(name))).toEqual([]);
   });
 });

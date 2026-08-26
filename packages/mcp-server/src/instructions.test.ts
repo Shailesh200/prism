@@ -14,6 +14,7 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toContain("review_changes");
     expect(SERVER_INSTRUCTIONS).toContain("start_my_day");
     expect(SERVER_INSTRUCTIONS).toContain("start_job");
+    expect(SERVER_INSTRUCTIONS).toContain("init");
     expect(SERVER_INSTRUCTIONS).not.toMatch(/prism_blast_radius/);
   });
 
@@ -21,11 +22,49 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toContain("integrations");
     expect(SERVER_INSTRUCTIONS).toMatch(/Authenticate/i);
     expect(SERVER_INSTRUCTIONS).toMatch(/google-calendar/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/Do not search the repository/);
+  });
+
+  it("maps prism init onto init and forbids mcp.json API keys", () => {
+    expect(SERVER_INSTRUCTIONS).toContain("init");
+    expect(SERVER_INSTRUCTIONS).toMatch(
+      /Do not ask the user to paste CURSOR_API_KEY or edit mcp\.json/,
+    );
+    expect(SERVER_INSTRUCTIONS).toMatch(/speak only each Dispatch tool/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(/canonical id/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/where are we/);
+  });
+
+  it("tells agents never to call mcp_auth and to Skip the Authenticating prism card", () => {
+    expect(SERVER_INSTRUCTIONS).toMatch(/Never call mcp_auth for Prism/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/Authenticating prism/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/click Skip/);
+  });
+
+  it("maps start my day onto start_my_day as the first tool", () => {
+    expect(SERVER_INSTRUCTIONS).toContain("start_my_day as the first tool");
   });
 
   it("requires blast_radius before editing unfamiliar code", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/BEFORE editing/i);
     expect(SERVER_INSTRUCTIONS).toMatch(/blast_radius/);
+  });
+
+  it("does not attach Prism MCP to Dispatch job workers", () => {
+    expect(SERVER_INSTRUCTIONS).toMatch(/do not get Prism MCP/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(/no bun install/i);
+  });
+
+  it("routes repo-wide audit to repository_health, not start_job", () => {
+    expect(SERVER_INSTRUCTIONS).toMatch(/find issues/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(
+      /Do not start_job for a repo-wide scan/,
+    );
+  });
+
+  it("treats the Google unverified-app screen as expected", () => {
+    expect(SERVER_INSTRUCTIONS).toMatch(/Google hasn’t verified this app/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/click Advanced/i);
   });
 });
 
@@ -36,6 +75,7 @@ describe("prompt catalogue", () => {
         "before_edit",
         "configure",
         "connect",
+        "init",
         "orient",
         "review_diff",
         "start_my_day",

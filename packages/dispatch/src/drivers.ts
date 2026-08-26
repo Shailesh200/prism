@@ -18,8 +18,13 @@ export type HttpGet = (
   headers: Record<string, string>,
 ) => Promise<{ ok: boolean; status: number; json: unknown; text: string }>;
 
+export const DRIVER_HTTP_TIMEOUT_MS = 8_000;
+
 export const defaultHttpGet: HttpGet = async (url, headers) => {
-  const response = await fetch(url, { headers });
+  const response = await fetch(url, {
+    headers,
+    signal: AbortSignal.timeout(DRIVER_HTTP_TIMEOUT_MS),
+  });
   const text = await response.text();
   let json: unknown = undefined;
   try {
@@ -289,6 +294,7 @@ export async function fetchNotion(
       page_size: 8,
       sort: { direction: "descending", timestamp: "last_edited_time" },
     }),
+    signal: AbortSignal.timeout(DRIVER_HTTP_TIMEOUT_MS),
   });
   if (!response.ok) {
     return {

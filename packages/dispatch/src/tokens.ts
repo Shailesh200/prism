@@ -22,14 +22,11 @@ async function keychainGet(
   const { promisify } = await import("node:util");
   const exec = promisify(execFile);
   try {
-    const result = await exec("security", [
-      "find-generic-password",
-      "-s",
-      service,
-      "-a",
-      account,
-      "-w",
-    ]);
+    const result = await exec(
+      "security",
+      ["find-generic-password", "-s", service, "-a", account, "-w"],
+      { timeout: 8_000 },
+    );
     return result.stdout.trim() || undefined;
   } catch {
     return undefined;

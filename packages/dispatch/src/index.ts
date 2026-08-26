@@ -41,6 +41,35 @@ export {
   formatMemoriesForPrompt,
 } from "./memory.js";
 export {
+  allocateJobId,
+  displayJobId,
+  slugFromTitle,
+  resolveJobRef,
+} from "./job-id.js";
+export { jobRef, startJobSpeak, agentNameForJob } from "./job-voice.js";
+export {
+  reapJobs,
+  isProcessAlive,
+  activityFromEvent,
+  startJobNoticeWatcher,
+} from "./run-state.js";
+export {
+  workerMcpEnv,
+  cursorAgentOptions,
+  WORKER_EDIT_TOOLS,
+} from "./worker-options.js";
+export {
+  linkWorktreeInstall,
+  isPrismDispatchWorktree,
+} from "./worktree-install.js";
+export {
+  diskBudgetMessage,
+  ramBudgetMessage,
+  workerChildEnv,
+  MIN_FREE_BYTES,
+  MIN_FREE_RAM_BYTES,
+} from "./worker-budget.js";
+export {
   loadJobs,
   saveJobs,
   upsertJob,
@@ -54,11 +83,13 @@ export {
   createCursorWorkerPort,
   loadCursorSdk,
   resolveMcpLaunch,
+  isPrismMcpBin,
   workerPrompt,
   type WorkerPort,
 } from "./worker.js";
 export {
   gitSnapshot,
+  gitChangeSummary,
   listGitWorktrees,
   defaultGitRunner,
   type GitRunner,
@@ -90,6 +121,7 @@ export {
   clientLooksLikeCursor,
   confirmElicitationMessage,
   connectPlan,
+  cursorLoginElicitationMessage,
   hasFormElicitation,
   hasUrlElicitation,
   shouldOpenAuthPage,
@@ -101,3 +133,10 @@ export {
   type ConnectStep,
   type OAuthUiPort,
 } from "./connect-ux.js";
+export {
+  createSdkCursorAuthPort,
+  ensureCursorWorkerAuth,
+  inspectCursorWorkerAuth,
+  type CursorAuthInspect,
+  type CursorAuthPort,
+} from "./cursor-auth.js";

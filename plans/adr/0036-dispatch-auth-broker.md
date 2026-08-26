@@ -81,9 +81,9 @@ the repository, the index, or Dispatch jobs.
   mode first). Until a driver has `PRISM_AUTH_*` env, connect says that
   connector is not enabled yet — not “create your own app”.
 - Follow-ups: native host Authenticate / open-page connect UX (ADR-0037);
-  register vendor apps; add `auth.prismhq.in` on the website Vercel project;
-  refresh-token renewal through the broker if a vendor requires the secret to
-  refresh.
+  Cursor worker SDK login (ADR-0038); register vendor apps; add
+  `auth.prismhq.in` on the website Vercel project; refresh-token renewal
+  through the broker if a vendor requires the secret to refresh.
 
 ## Compliance
 

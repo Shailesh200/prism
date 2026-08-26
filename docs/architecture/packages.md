@@ -135,6 +135,12 @@ Chat-native jobs, memories, OAuth drivers, worktree adopt/create, and local
 Cursor SDK workers. Consumed only by `@repo-prism/mcp-server`. User tokens stay
 in the OS keychain. Connect uses the Prism Auth broker (ADR-0036). Cursor
 shows a native Authenticate control; Claude opens the auth page (ADR-0037).
+Local Cursor workers sign in via a browser Cursor login (ADR-0038), not mcp.json.
+Job ids are tickets or title slugs; chat never speaks `job-<hex>` (ADR-0039).
+Workers run out-of-process in isolated git worktrees; live status and
+finished/failed results are reaped into `list_jobs` / start-my-day (ADR-0040).
+Job agents do not attach Prism MCP; Prism worktrees symlink the host
+`node_modules` (ADR-0041).
 
 **Must never** be imported by `@repo-prism/core` or any engine package.
 

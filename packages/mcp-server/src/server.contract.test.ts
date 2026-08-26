@@ -125,6 +125,7 @@ describe("MCP server contract (M-026)", () => {
         "before_edit",
         "configure",
         "connect",
+        "init",
         "orient",
         "review_diff",
         "start_my_day",
@@ -182,6 +183,7 @@ describe("MCP server contract (M-026)", () => {
         "find_references",
         "find_symbol",
         "health_history",
+        "init",
         "integrations",
         "job_control",
         "knowledge_graph",
@@ -458,10 +460,10 @@ describe("MCP server contract (M-026)", () => {
     }
 
     expect(failures).toEqual([]);
-    // Intelligence tools plus safe Dispatch tools. start_job / job_control
-    // mutate worktrees and are covered by @repo-prism/dispatch unit tests.
+    // Intelligence tools plus safe Dispatch tools. start_job / job_control /
+    // init mutate worktrees or start Cursor login and are covered by unit tests.
     const { tools } = await client.listTools();
-    const skipped = new Set(["start_job", "job_control"]);
+    const skipped = new Set(["start_job", "job_control", "init"]);
     expect(calls.map(([name]) => name).sort()).toEqual(
       tools
         .map((t) => t.name)

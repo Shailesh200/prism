@@ -10,6 +10,7 @@ import {
   DISPATCH_OAUTH_REDIRECT_URI,
   type OAuthProvider,
 } from "./oauth-providers.js";
+import { loopbackPageHtml } from "./loopback-page.js";
 import type { DriverId } from "./types.js";
 
 export {
@@ -132,17 +133,24 @@ export async function waitForLoopbackCode(input: {
       const url = new URL(req.url ?? "/", "http://127.0.0.1");
       if (url.pathname !== "/callback") {
         res.statusCode = 404;
-        res.end("Not found");
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        res.setHeader("Cache-Control", "no-store");
+        res.end(loopbackPageHtml("not-found"));
         return;
       }
       const code = url.searchParams.get("code");
       const state = url.searchParams.get("state") ?? "";
       const error = url.searchParams.get("error");
+      const ok = Boolean(code) && !error;
       res.statusCode = 200;
       res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Cache-Control", "no-store");
       res.end(
         input.html ??
-          "<html><body><p>Prism Dispatch is connected. You can close this tab.</p></body></html>",
+          loopbackPageHtml(
+            ok ? "success" : "error",
+            error ?? (ok ? undefined : "missing OAuth code"),
+          ),
       );
       if (error || !code) {
         finish(() => reject(new Error(error ?? "missing OAuth code")));

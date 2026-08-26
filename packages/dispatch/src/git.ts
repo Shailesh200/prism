@@ -32,18 +32,16 @@ export async function gitSnapshot(
   workspaceRoot: string,
   run: GitRunner = defaultGitRunner,
 ): Promise<GitSnapshot> {
-  const branch = await run(workspaceRoot, [
-    "rev-parse",
-    "--abbrev-ref",
-    "HEAD",
-  ]);
-  const status = await run(workspaceRoot, ["status", "--porcelain"]);
-  const log = await run(workspaceRoot, ["log", "-5", "--pretty=format:%h %s"]);
-  const aheadBehind = await run(workspaceRoot, [
-    "rev-list",
-    "--left-right",
-    "--count",
-    "@{upstream}...HEAD",
+  const [branch, status, log, aheadBehind] = await Promise.all([
+    run(workspaceRoot, ["rev-parse", "--abbrev-ref", "HEAD"]),
+    run(workspaceRoot, ["status", "--porcelain"]),
+    run(workspaceRoot, ["log", "-5", "--pretty=format:%h %s"]),
+    run(workspaceRoot, [
+      "rev-list",
+      "--left-right",
+      "--count",
+      "@{upstream}...HEAD",
+    ]),
   ]);
 
   if (!branch.ok) {
@@ -59,7 +57,7 @@ export async function gitSnapshot(
   const dirtyLines = status.stdout
     .split("\n")
     .map((line) => line.trimEnd())
-    .filter((line) => line.length > 0);
+    .filter((line) => line.length > 0 && !isGitNoiseStatusLine(line));
   let ahead: number | undefined;
   let behind: number | undefined;
   if (aheadBehind.ok) {
@@ -88,7 +86,67 @@ export async function gitStatusShort(
   run: GitRunner = defaultGitRunner,
 ): Promise<string> {
   const result = await run(cwd, ["status", "--short"]);
-  return result.ok ? result.stdout.trim() : result.stderr.trim();
+  if (!result.ok) return result.stderr.trim();
+  return result.stdout
+    .split("\n")
+    .filter((line) => line.trim() && !isGitNoiseStatusLine(line))
+    .join("\n")
+    .trim();
+}
+
+function isGitNoisePath(path: string): boolean {
+  const normalized = path.replaceAll("\\", "/").replace(/^\.\//, "");
+  return (
+    normalized === "node_modules" ||
+    normalized.startsWith("node_modules/") ||
+    normalized.includes("/node_modules/") ||
+    normalized === ".prism" ||
+    normalized.startsWith(".prism/")
+  );
+}
+
+function isGitNoiseStatusLine(line: string): boolean {
+  const path = line.slice(3).trim().split(" -> ").at(-1) ?? "";
+  return isGitNoisePath(path);
+}
+
+/** One line for chat: what the worktree changed, without paths to the tree. */
+export async function gitChangeSummary(
+  cwd: string,
+  run: GitRunner = defaultGitRunner,
+): Promise<string> {
+  const [stat, short] = await Promise.all([
+    run(cwd, ["diff", "--stat"]),
+    run(cwd, ["status", "--short"]),
+  ]);
+  const dirty = short.ok
+    ? short.stdout
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line && !isGitNoiseStatusLine(line))
+    : [];
+  const statLines = stat.ok
+    ? stat.stdout
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+    : [];
+  const totals = statLines.at(-1);
+  if (totals && /\d+\s+file/.test(totals)) {
+    return totals.replace(/\s+/g, " ");
+  }
+  if (dirty.length === 0) return "No file changes yet.";
+  const names = dirty
+    .map((line) => line.slice(3).trim())
+    .filter(Boolean)
+    .slice(0, 4)
+    .map((name) => name.replace(/\\/g, "/").split("/").at(-1) ?? name);
+  const extra =
+    dirty.length > names.length
+      ? ` (+${dirty.length - names.length} more)`
+      : "";
+  const noun = dirty.length === 1 ? "file" : "files";
+  return `Changed ${dirty.length} ${noun}${names.length ? ` (${names.join(", ")}${extra})` : ""}.`;
 }
 
 export type ListedWorktree = {

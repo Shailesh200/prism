@@ -17,13 +17,14 @@ describe("worker tool filter", () => {
     const names = visibleDispatchTools({ PRISM_DISPATCH_ROLE: "worker" });
     expect(names).not.toContain("start_job");
     expect(names).not.toContain("start_my_day");
-    expect(WORKER_HIDDEN_TOOLS).toEqual(["start_my_day", "start_job"]);
+    expect(names).not.toContain("init");
+    expect(WORKER_HIDDEN_TOOLS).toEqual(["start_my_day", "init", "start_job"]);
     expect(names).toContain("list_jobs");
     expect(names).toContain("remember");
   });
 
   it("exposes the full pack on the host", () => {
-    expect(visibleDispatchTools({}).length).toBe(8);
+    expect(visibleDispatchTools({}).length).toBe(9);
   });
 });
 
@@ -56,7 +57,7 @@ describe("oauth helpers", () => {
 });
 
 describe("worker prompt", () => {
-  it("tells the worker to use blast_radius and not recurse", () => {
+  it("tells the worker not to install or recurse", () => {
     const job: JobRecord = {
       id: "J1",
       title: "Fix auth",
@@ -84,7 +85,8 @@ describe("worker prompt", () => {
         },
       ],
     });
-    expect(text).toContain("blast_radius");
+    expect(text).toContain("bun install");
+    expect(text).toContain("no shell");
     expect(text).toContain("Do not start new Dispatch jobs");
     expect(text).toContain("Prefer existing auth helpers");
   });
@@ -120,6 +122,9 @@ describe("oauth loopback", () => {
     });
     const response = await fetch(`${loopback.redirectUri}?code=abc&state=s`);
     expect(response.ok).toBe(true);
+    const html = await response.text();
+    expect(html).toContain("Prism Dispatch is connected");
+    expect(html).toContain("#00c2c2");
     const result = await loopback.done;
     expect(result.code).toBe("abc");
     expect(result.state).toBe("s");

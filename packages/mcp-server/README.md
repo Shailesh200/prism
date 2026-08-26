@@ -120,6 +120,7 @@ waiting for an MCP **client**. Configure the client; it starts the process.
 | “Can Prism do X?” | `capabilities` |
 | “Start my day” | `start_my_day` |
 | “Start working on …” | `start_job` |
+| “Prism init” / set up jobs | `init` |
 | “Where are we?” | `list_jobs` |
 | “Remember this” | `remember` |
 | “Connect Slack” | `integrations` |
@@ -127,10 +128,11 @@ waiting for an MCP **client**. Configure the client; it starts the process.
 
 Optional MCP **prompts** (picker / slash in some clients): `orient`,
 `before_edit`, `review_diff`, `start_my_day`, `start_work`, `where_are_we`,
-`connect`, `configure`.
+`connect`, `configure`, `init`.
 
-Set `CURSOR_API_KEY` on the server env to spawn local Cursor workers from
-`start_job`. Briefing, connect, and remember work without it. Dispatch docs:
+Say **prism init** (or start a job) to sign in to Cursor for local workers.
+Do not paste `CURSOR_API_KEY` into mcp.json. `CURSOR_API_KEY` is only an
+optional CI override. Dispatch docs:
 see the public [Dispatch guide](https://www.prismhq.in/docs/mcp/dispatch).
 
 MCP **resources** (for clients that bind context): `prism://dna`,
@@ -173,13 +175,14 @@ Intelligence tools are read-only. Dispatch tools write gitignored state under
 | Tool | Answers | Arguments |
 |---|---|---|
 | `start_my_day` | Standup: jobs, git, connected drivers, connect CTAs | — |
-| `start_job` | Adopt/create worktree, start local Cursor worker, return job id | `title`, `prd`, `jobId`, `branch`, `confirmOverlap` |
-| `list_jobs` | Job status, worktree, git, agent | — |
+| `init` | One-time Cursor sign-in for local job workers (Authenticate) | — |
+| `start_job` | Start a named teammate in its own worktree; returns immediately | `title`, `prd`, `jobId`, `branch`, `confirmOverlap` |
+| `list_jobs` | Live activity plus finished results or errors (“where are we”) | — |
 | `job_control` | pause / resume / cancel / attach_context | `jobId`, `action`, `context` |
 | `remember` | Save, list, or forget memories for the next job | `action`, `text`, `scope`, `confirm` |
 | `integrations` | Catalogue, OAuth start, disconnect | `action`, `driver` |
 | `configure` | Standup settings or export a non-secret template | `action`, Slack channels, `maxJobs`, `ticketHost` |
-| `dispatch_doctor` | API key, SDK, role, job cap | — |
+| `dispatch_doctor` | Cursor worker login, SDK, role, job cap | — |
 
 ### Orientation — what is this, and how is it laid out?
 

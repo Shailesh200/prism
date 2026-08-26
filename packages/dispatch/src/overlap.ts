@@ -4,6 +4,7 @@ import type { JobRecord } from "./types.js";
 export type Overlap = {
   readonly path: string;
   readonly existingJobId: string;
+  readonly existingTitle: string;
   readonly dirty: boolean;
 };
 
@@ -25,6 +26,7 @@ export async function findPathOverlap(input: {
   return {
     path: input.path,
     existingJobId: other.id,
+    existingTitle: other.title,
     dirty: status.length > 0,
   };
 }

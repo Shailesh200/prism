@@ -42,14 +42,14 @@
         },
         {
           "name": "CURSOR_API_KEY",
-          "description": "Required to spawn local Cursor SDK workers from start_job. Briefing, connect, and remember work without it.",
+          "description": "Optional override to spawn local Cursor SDK workers. Prefer prism init / first start_job (Cursor.auth.login). Do not put this in mcp.json for normal use.",
           "format": "string",
           "isRequired": false,
           "isSecret": true
         },
         {
           "name": "PRISM_DISPATCH_ROLE",
-          "description": "Set to worker by Dispatch when attaching Prism MCP to a job agent, so start_job and start_my_day are hidden.",
+          "description": "Set to worker to skip Intelligence tools and hide start_job / start_my_day / init. Dispatch job agents do not attach Prism MCP.",
           "format": "string",
           "isRequired": false,
           "isSecret": false

@@ -29,7 +29,7 @@ Tools that return a list accept `limit` and answer with `totalCount` and
 | [`dependency_cycles`](#dependency_cycles) | Import and re-export cycles, each returned as the list of files forming the loop |
 | [`dependency_graph`](#dependency_graph) | The import/re-export dependency graph, at file level or aggregated to packages |
 | [`dependency_route`](#dependency_route) | Show how one file or symbol reaches another through the dependency graph, with alternative paths |
-| [`dispatch_doctor`](#dispatch_doctor) | Check whether Dispatch can run local Cursor workers |
+| [`dispatch_doctor`](#dispatch_doctor) | Check whether Dispatch can run local teammates |
 | [`engineering_health`](#engineering_health) | The deep engineering view |
 | [`explain_area`](#explain_area) | Explain what a module or folder does |
 | [`explore_code`](#explore_code) | Everything about one file or symbol in a single call |
@@ -37,8 +37,9 @@ Tools that return a list accept `limit` and answer with `totalCount` and
 | [`find_references`](#find_references) | Find resolved references to a symbol — who actually calls or imports it |
 | [`find_symbol`](#find_symbol) | Find indexed symbols by exact name, optionally narrowed by file or kind |
 | [`health_history`](#health_history) | Health score over time from stored index snapshots and optional git backfill |
+| [`init`](#init) | One-time Cursor sign-in so Prism can run local job workers |
 | [`integrations`](#integrations) | Catalogue what Dispatch can connect, start OAuth for GitHub (user), Linear, Jira, Slack (mentions + tracked channels), Notion, or Google Calendar, or disconnect a driver |
-| [`job_control`](#job_control) | Pause, resume, cancel, or attach extra context to a running Dispatch job |
+| [`job_control`](#job_control) | Pause, resume, cancel, or add context to a running Dispatch job |
 | [`knowledge_graph`](#knowledge_graph) | The symbol-level graph — declarations and the references between them — with summary stats |
 | [`landmarks`](#landmarks) | Named entrypoints, package roots and feature anchors — the places a human would open first |
 | [`list_features`](#list_features) | Inferred features with their member files and a confidence score |
@@ -55,7 +56,7 @@ Tools that return a list accept `limit` and answer with `totalCount` and
 | [`search_symbols`](#search_symbols) | Substring or regex search over indexed symbol names (unlike find_symbol, which is exact-match only) |
 | [`security_report`](#security_report) | Left-shift security posture |
 | [`stack_profile`](#stack_profile) | Detected stack for the workspace or a single package |
-| [`start_job`](#start_job) | Create a Dispatch job from a ticket or title plus PRD |
+| [`start_job`](#start_job) | Create a Dispatch job from a ticket or title plus a PRD |
 | [`start_my_day`](#start_my_day) | Standup briefing for this repository |
 | [`test_impact`](#test_impact) | Which test files transitively cover a change target — the tests worth running after touching it |
 | [`testing_report`](#testing_report) | Test structure and, when coverage artifacts are already on disk, coverage |
@@ -93,7 +94,7 @@ Arguments: `base`.
 
 ## `configure`
 
-Read or update gitignored Dispatch settings: section order, standup template, Slack tracked channel ids, mention window and caps, max parallel jobs (default 5), hint policy, and whether the tickets slot is Linear or Jira. action=export returns a non-secret template (no tokens) for sharing. Chat only — there is no settings UI in v1.
+Read or update gitignored Dispatch settings: section order, standup template, Slack tracked channel ids, mention window and caps, max parallel jobs (default 1), hint policy, and whether the tickets slot is Linear or Jira. action=export returns a non-secret template (no tokens) for sharing. Chat only — there is no settings UI in v1.
 
 Arguments: `action`, `maxJobs`, `hints`, `ticketHost`, `standupTemplate`, `slackTrackChannelIds`, `mentionWindowHours`, `mentionLimit`, `trackedMessageLimit`, `sectionsOff`, `includeMemories`.
 
@@ -117,7 +118,7 @@ Arguments: `from`, `to`, `maxAlternatives`, `maxHops`.
 
 ## `dispatch_doctor`
 
-Check whether Dispatch can run local Cursor workers: CURSOR_API_KEY, @cursor/sdk import, host vs worker role, and active job count versus the configured cap. Use when start_job is blocked or the user asks if Dispatch is set up.
+Check whether Dispatch can run local teammates. Speak only the tool message — never mention API keys, mcp.json, host role, or connector counts. If sign-in is missing, call init.
 
 Takes no arguments.
 
@@ -163,15 +164,21 @@ Health score over time from stored index snapshots and optional git backfill. Us
 
 Arguments: `maxPoints`.
 
+## `init`
+
+One-time Cursor sign-in so Prism can run local job workers. Opens the Cursor login page in the browser. Speak only the tool message to the user — never mention API keys, mcp.json, host role, or connector counts. If Cursor shows “Authenticating prism…” with Skip, that is host tool-approval: tell the user to click Skip, then retry init.
+
+Takes no arguments.
+
 ## `integrations`
 
-Catalogue what Dispatch can connect, start OAuth for GitHub (user), Linear, Jira, Slack (mentions + tracked channels), Notion, or Google Calendar, or disconnect a driver. No connector is on by default. Connect uses Prism Auth (auth.prismhq.in). Cursor shows a native Authenticate control and a short step list; Claude opens the auth page. Never ask the user to create an OAuth app or paste a client id. Aliases like “google calendar” map to google-calendar. Tokens go in the OS keychain. Workers cannot start OAuth. Call when the user asks what we can connect or says connect Slack (or another driver).
+Catalogue what Dispatch can connect, start OAuth for GitHub (user), Linear, Jira, Slack (mentions + tracked channels), Notion, or Google Calendar, or disconnect a driver. No connector is on by default. Connect uses Prism Auth (auth.prismhq.in). Cursor shows a native Authenticate control and a short step list; Claude opens the auth page. Never ask the user to create an OAuth app or paste a client id. Aliases like “google calendar” map to google-calendar. Google’s “hasn’t verified this app” warning is expected until Prism Auth finishes Calendar scope verification — tell the user to click Advanced, then continue. Tokens go in the OS keychain. Workers cannot start OAuth. Call when the user asks what we can connect or says connect Slack (or another driver).
 
 Arguments: `action`, `driver`.
 
 ## `job_control`
 
-Pause, resume, cancel, or attach extra context to a running Dispatch job. Pause and cancel map to the Cursor SDK run.cancel() when the run supports it. Resume uses Agent.resume after an MCP restart. attach_context sends more text to the existing local agent.
+Pause, resume, cancel, or add context to a running Dispatch job. Speak only the tool message, using the job title and canonical id. jobId may be a ticket, a slug like audit-issues, or the title.
 
 Arguments: `jobId`, `action`, `context`.
 
@@ -195,7 +202,7 @@ Arguments: `limit`.
 
 ## `list_jobs`
 
-Where are we: every Dispatch job with status, worktree path, source (cursor / claude / prism), git status in that tree, and last known Cursor agent status. Call when the user asks where we are, what's running, or to list jobs.
+Where are we: every Dispatch job with title, canonical id, live activity, and a result or error when a teammate finishes. Speak only the tool message — titles, what they are doing, and what changed, not worktree paths or job-<hex> ids. Call when the user asks where we are, what's running, how a job is going, or whether a teammate finished.
 
 Takes no arguments.
 
@@ -273,13 +280,13 @@ Arguments: `packageId`.
 
 ## `start_job`
 
-Create a Dispatch job from a ticket or title plus PRD. Adopts an existing Cursor or Claude git worktree when one matches the ticket; otherwise creates `.prism/dispatch/worktrees/<id>`. Starts a local Cursor SDK agent in that tree with Prism MCP in worker role, and returns the job id immediately without waiting for the agent to finish. Requires CURSOR_API_KEY to actually spawn the worker.
+Create a Dispatch job from a ticket or title plus a PRD. Starts a local Cursor teammate in its own worktree (host node_modules linked; no shell; no second Prism MCP) and returns immediately. Speak only the tool message: use the job title and canonical id (ticket like AI-971 or slug like audit-issues), never job-<hex>, worktree paths, or API keys. Tell the user to say where are we for live status and the result when it finishes. Default cap is one job at a time. Do not use this for a repo-wide audit or health scan — call repository_health instead. If sign-in is needed, a Cursor login page opens in the browser. If Cursor shows “Authenticating prism…” with Skip, tell the user to click Skip and retry.
 
 Arguments: `title`, `prd`, `jobId`, `branch`, `playbook`, `confirmOverlap`.
 
 ## `start_my_day`
 
-Standup briefing for this repository: leftover Dispatch jobs, local git, then any connected drivers (GitHub reviews, Linear or Jira tickets, Slack mentions plus tracked channels, Notion, Google Calendar). Unconnected tools appear as named connect CTAs. Does not index the repo. Call this when the user says start my day, standup, or what's waiting on me.
+Standup briefing for this repository: leftover Dispatch jobs, teammates that just finished (what changed or why they failed), local git, then any connected drivers (GitHub reviews, Linear or Jira tickets, Slack mentions plus tracked channels, Notion, Google Calendar). Unconnected tools appear as named connect CTAs. Does not index the repo. Call this when the user says start my day, standup, or what's waiting on me.
 
 Takes no arguments.
 

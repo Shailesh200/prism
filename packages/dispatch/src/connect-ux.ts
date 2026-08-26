@@ -45,6 +45,8 @@ export type BeginAuthInput = {
   readonly driverLabel: string;
   readonly authorizeUrl: string;
   readonly elicitationId: string;
+  /** Overrides the default Prism Auth elicitation copy (used for Cursor SDK login). */
+  readonly message?: string;
 };
 
 export type OAuthUiPort = {
@@ -162,7 +164,7 @@ export function skipConnectStep(
 }
 
 export function confirmElicitationMessage(driverLabel: string): string {
-  return [
+  const lines = [
     `Connect ${driverLabel} to Prism.`,
     "",
     "What happens next:",
@@ -172,13 +174,30 @@ export function confirmElicitationMessage(driverLabel: string): string {
     `4. ${driverLabel} shows up on start my day.`,
     "",
     "You never create an OAuth app or paste a client id.",
-  ].join("\n");
+  ];
+  if (/google calendar/i.test(driverLabel)) {
+    lines.push(
+      "",
+      "Google may show “Google hasn’t verified this app.” That is expected.",
+      "Branding verified in Google Cloud is not the same as app verification for Calendar (a sensitive scope).",
+      "Click Advanced, then continue. The warning stays until Google finishes verifying Prism Auth’s Calendar scopes — that is Prism’s job, not yours.",
+    );
+  }
+  return lines.join("\n");
 }
 
 export function authElicitationMessage(driverLabel: string): string {
   return [
     `Authenticate ${driverLabel} through Prism Auth.`,
     "Tokens stay on this machine. Click Authenticate (Cursor) or finish the page that opened (Claude).",
+  ].join(" ");
+}
+
+export function cursorLoginElicitationMessage(): string {
+  return [
+    "Sign in to Cursor so Prism can run local job workers.",
+    "A Cursor sign-in page opens in your browser. Finish that page.",
+    "If you see Authenticating prism with Skip, click Skip — that card is not the sign-in.",
   ].join(" ");
 }
 

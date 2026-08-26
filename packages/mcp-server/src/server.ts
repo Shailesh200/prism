@@ -20,6 +20,7 @@ import {
   type SessionOptions,
   type WorkspaceSession,
 } from "./session.js";
+import { isWorkerRole } from "@repo-prism/dispatch";
 import { registerDispatchTools } from "./dispatch-registry.js";
 import { registerTools } from "./tool-registry.js";
 import { TOOLS } from "./tools.js";
@@ -74,12 +75,14 @@ export function createPrismMcpServer(
     ...(options.openWorkspace ? { openWorkspace: options.openWorkspace } : {}),
   });
 
-  registerTools(server, session, TOOLS, options.workspaceRoot);
   registerDispatchTools(server, options.workspaceRoot, {
     env: options.env ?? process.env,
   });
-  registerPrompts(server);
-  registerResources(server, session);
+  if (!isWorkerRole(options.env ?? process.env)) {
+    registerTools(server, session, TOOLS, options.workspaceRoot);
+    registerPrompts(server);
+    registerResources(server, session);
+  }
 
   return { server, session };
 }

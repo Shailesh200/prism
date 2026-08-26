@@ -29,6 +29,22 @@ export function worktreesDir(workspaceRoot: string): string {
   return join(dispatchDir(workspaceRoot), "worktrees");
 }
 
+export function runsDir(workspaceRoot: string): string {
+  return join(dispatchDir(workspaceRoot), "runs");
+}
+
+export function runFileId(jobId: string): string {
+  return jobId.replace(/[^A-Za-z0-9._-]+/g, "_");
+}
+
+export function runStatePath(workspaceRoot: string, jobId: string): string {
+  return join(runsDir(workspaceRoot), `${runFileId(jobId)}.json`);
+}
+
+export function spawnPayloadPath(workspaceRoot: string, jobId: string): string {
+  return join(runsDir(workspaceRoot), `${runFileId(jobId)}.spawn.json`);
+}
+
 export function consentPath(workspaceRoot: string): string {
   return join(workspaceRoot, ".prism", "consent.json");
 }

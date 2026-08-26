@@ -29,12 +29,13 @@ when connect feels like a host-native login, not a scavenger hunt.
 3. **Cursor:** MCP form elicitation lists those steps with Continue, then
    URL-mode elicitation (`elicitation/create`, `mode: "url"`) so Cursor can
    render its native **Authenticate** button pointing at
-   `https://auth.prismhq.in/oauth/start?…`. Do not also `open` a window.
+   `https://auth.prismhq.in/oauth/start?…`. Clicking Authenticate opens
+   Prism Auth / the vendor login (Google, etc.). Do not also `open` a window.
 4. **Claude:** skip the extra Continue card; open the Prism Auth page. If the
    host also supports URL elicitation, still send it — opening the page is
    what the user asked for.
-5. **Fallback:** if the host has no elicitation, open the page (previous
-   behaviour). Never ask the user for a client id.
+5. **Fallback:** if the host has no elicitation, or URL elicitation is
+   rejected, open the page. Never ask the user for a client id.
 6. **Dispatch stays SDK-free.** `@repo-prism/dispatch` owns the step machine
    and an `OAuthUiPort`. `@repo-prism/mcp-server` implements that port with
    MCP elicitation. Core still does not import Dispatch.
@@ -60,12 +61,14 @@ when connect feels like a host-native login, not a scavenger hunt.
 
 ## Consequences
 
-- Positive: `@prism connect Google Calendar` is a short native flow; agent
-  instructions tell Cursor users to click Authenticate.
+- Positive: `@prism connect Google Calendar` is a short native flow; Cursor
+  shows Authenticate, which opens the vendor login.
 - Negative: a host that advertises elicitation but never shows the UI will
   look hung until the 3-minute loopback timeout; we still include
-  `authorizeUrl` in the tool result so the agent can recover.
-- Follow-ups: none beyond deploying Prism Auth (ADR-0036).
+  `authorizeUrl` in the tool result so the agent can recover. Agents that
+  cannot invoke `integrations` must reload the prism MCP server rather than
+  searching the repo. Worker sign-in reuses this Authenticate control
+  ([ADR-0038](./0038-cursor-worker-sdk-login.md)).
 
 ## Compliance
 

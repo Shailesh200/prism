@@ -126,7 +126,8 @@ export function registerPrompts(server: McpServer): void {
             type: "text" as const,
             text: [
               "Start my day with Prism Dispatch.",
-              "Call start_my_day.",
+              "Call start_my_day as the first tool and use that briefing.",
+              "Do not search the repo or fetch Calendar yourself.",
               "Summarise leftover jobs, git, and any connected sections.",
               "Name the connect CTAs for tools that are not connected.",
               "Suggest one focus item.",
@@ -163,7 +164,9 @@ export function registerPrompts(server: McpServer): void {
                   ? `PRD: ${prd}`
                   : "Ask me for a PRD if you do not have one.",
                 "Call start_job with the title and PRD.",
-                "Return the job id immediately; do not wait for the worker to finish.",
+                "If a Cursor login page opens, finish it. If Authenticating prism with Skip appears, click Skip and retry.",
+                "Read back the tool message. Use the job title and canonical id, never a job-hex id or worktree path.",
+                "Tell them to say where are we for live status and the result when the teammate finishes.",
               ].join(" "),
             },
           },
@@ -176,8 +179,7 @@ export function registerPrompts(server: McpServer): void {
     "where_are_we",
     {
       title: "Where are we",
-      description:
-        "List Dispatch jobs, git in each worktree, and agent status.",
+      description: "List Dispatch jobs by title and status.",
     },
     async () => ({
       messages: [
@@ -187,7 +189,7 @@ export function registerPrompts(server: McpServer): void {
             type: "text" as const,
             text: [
               "Where are we on Dispatch jobs?",
-              "Call list_jobs and summarise status, worktree, and git.",
+              "Call list_jobs and speak the tool message: live activity, finished results, and errors. Do not list worktree paths or job-hex ids.",
             ].join(" "),
           },
         },
@@ -218,7 +220,7 @@ export function registerPrompts(server: McpServer): void {
             content: {
               type: "text" as const,
               text: driver
-                ? `Connect ${driver} in Prism Dispatch. Call integrations with action start and that driver (use google-calendar for Calendar). In Cursor I will click Authenticate; in Claude the Prism Auth page opens. Do not ask me for a client id or secret.`
+                ? `Connect ${driver} in Prism Dispatch. Call the integrations tool immediately with action start and that driver (use google-calendar for Calendar). Do not search the repo. In Cursor I will click the native Authenticate button, which opens the vendor login. In Claude the Prism Auth page opens. If integrations is not found, tell me to reload the prism MCP server. Do not ask me for a client id or secret.`
                 : "What can we connect in Prism Dispatch? Call integrations with action catalog, then tell me the named CTAs. Do not ask me for OAuth client ids.",
             },
           },
@@ -243,6 +245,31 @@ export function registerPrompts(server: McpServer): void {
             text: [
               "Configure Prism Dispatch.",
               "Call configure to read the current settings, then apply what I asked for (section order, Slack track list, max jobs, Linear vs Jira, hints).",
+            ].join(" "),
+          },
+        },
+      ],
+    }),
+  );
+
+  server.registerPrompt(
+    "init",
+    {
+      title: "Set up Dispatch workers",
+      description:
+        "One-time Cursor sign-in so Prism can spawn local job workers.",
+    },
+    async () => ({
+      messages: [
+        {
+          role: "user" as const,
+          content: {
+            type: "text" as const,
+            text: [
+              "Set up Prism Dispatch workers.",
+              "Call init immediately.",
+              "A Cursor login page should open in the browser. Finish that page.",
+              "If Cursor shows Authenticating prism with Skip, click Skip and retry.",
             ].join(" "),
           },
         },

@@ -14,6 +14,7 @@ import {
 import { gitSnapshot, type GitRunner } from "./git.js";
 import { loadJobs } from "./jobs.js";
 import { loadMemories } from "./memory.js";
+import { leftoverFocusSpeak, jobRef, statusPhrase } from "./job-voice.js";
 import { loadToken } from "./tokens.js";
 import {
   DRIVER_CONSENT,
@@ -47,16 +48,20 @@ const DRIVER_ORDER: readonly DriverId[] = [
 export async function buildDayBriefing(
   deps: BriefingDeps,
 ): Promise<DayBriefing> {
-  const config = await loadConfig(deps.workspaceRoot);
-  const git = await gitSnapshot(deps.workspaceRoot, deps.git);
-  const jobs = await loadJobs(deps.workspaceRoot);
-  const memories = await loadMemories(deps.workspaceRoot);
-  const drivers: DriverSnapshot[] = [];
-  for (const id of DRIVER_ORDER) {
-    if (id === "linear" && config.ticketHost !== "linear") continue;
-    if (id === "jira" && config.ticketHost !== "jira") continue;
-    drivers.push(await loadDriverSnapshot(id, config, deps));
-  }
+  const [config, git, jobs, memories] = await Promise.all([
+    loadConfig(deps.workspaceRoot),
+    gitSnapshot(deps.workspaceRoot, deps.git),
+    loadJobs(deps.workspaceRoot),
+    loadMemories(deps.workspaceRoot),
+  ]);
+  const driverIds = DRIVER_ORDER.filter((id) => {
+    if (id === "linear" && config.ticketHost !== "linear") return false;
+    if (id === "jira" && config.ticketHost !== "jira") return false;
+    return true;
+  });
+  const drivers = await Promise.all(
+    driverIds.map((id) => loadDriverSnapshot(id, config, deps)),
+  );
 
   const connectCtas = drivers
     .filter((driver) => !driver.connected)
@@ -146,9 +151,22 @@ function suggestFocus(
       job.status === "paused",
   );
   if (leftover) {
-    return leftover.nextStep
-      ? `Continue ${leftover.id}: ${leftover.nextStep}`
-      : `Continue leftover job ${leftover.id} (${leftover.title})`;
+    if (leftover.lastActivity && leftover.status === "running") {
+      return `Continue ${jobRef(leftover)}: ${leftover.lastActivity}`;
+    }
+    return leftoverFocusSpeak(leftover);
+  }
+  const justFinished = jobs.find(
+    (job) =>
+      (job.status === "done" || job.status === "error") &&
+      isRecent(job.updatedAt, 48) &&
+      Boolean(job.resultSummary || job.errorMessage),
+  );
+  if (justFinished?.status === "done" && justFinished.resultSummary) {
+    return `${jobRef(justFinished)} finished: ${justFinished.resultSummary}`;
+  }
+  if (justFinished?.errorMessage) {
+    return `${jobRef(justFinished)} failed: ${justFinished.errorMessage}`;
   }
   const ticket = drivers.find(
     (driver) => driver.id === "linear" || driver.id === "jira",
@@ -183,13 +201,38 @@ export function formatBriefing(input: {
       job.status !== "cancelled" &&
       job.status !== "error",
   );
+  const finished = input.jobs.filter(
+    (job) =>
+      (job.status === "done" || job.status === "error") &&
+      isRecent(job.updatedAt, 48),
+  );
+  if (finished.length > 0) {
+    lines.push("## Just finished");
+    for (const job of finished) {
+      const detail =
+        job.status === "error"
+          ? job.errorMessage || "The teammate hit an error."
+          : job.resultSummary || "Wrapped up.";
+      lines.push(`- ${jobRef(job)} — ${detail}`);
+    }
+    lines.push("");
+  }
   lines.push("## Live");
   if (leftover.length === 0) {
     lines.push("- No leftover Dispatch jobs.");
   } else {
     for (const job of leftover) {
       lines.push(
-        `- ${job.id} · ${job.status} · ${job.title}${job.nextStep ? ` · next: ${job.nextStep}` : ""}`,
+        `- ${jobRef(job)} — ${statusPhrase(job.status)}${
+          job.lastActivity && job.status === "running"
+            ? ` · ${job.lastActivity}`
+            : job.nextStep &&
+                !/worker running|agent booting|cursor-auth|CURSOR_API_KEY/i.test(
+                  job.nextStep,
+                )
+              ? ` · ${job.nextStep}`
+              : ""
+        }`,
       );
     }
   }
@@ -233,6 +276,12 @@ export function formatBriefing(input: {
   }
 
   return lines.join("\n");
+}
+
+function isRecent(iso: string, hours: number, now = Date.now()): boolean {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return false;
+  return now - t < hours * 60 * 60 * 1000;
 }
 
 function label(id: DriverId): string {

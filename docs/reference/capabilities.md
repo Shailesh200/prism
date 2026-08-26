@@ -54,7 +54,7 @@ use this page when you need the exhaustive index.
 | `dependency_cycles` | Import and re-export cycles, each returned as the list of files forming the loop |
 | `dependency_graph` | The import/re-export dependency graph, at file level or aggregated to packages |
 | `dependency_route` | Show how one file or symbol reaches another through the dependency graph, with alternative paths |
-| `dispatch_doctor` | Check whether Dispatch can run local Cursor workers |
+| `dispatch_doctor` | Check whether Dispatch can run local teammates |
 | `engineering_health` | The deep engineering view |
 | `explain_area` | Explain what a module or folder does |
 | `explore_code` | Everything about one file or symbol in a single call |
@@ -62,8 +62,9 @@ use this page when you need the exhaustive index.
 | `find_references` | Find resolved references to a symbol — who actually calls or imports it |
 | `find_symbol` | Find indexed symbols by exact name, optionally narrowed by file or kind |
 | `health_history` | Health score over time from stored index snapshots and optional git backfill |
+| `init` | One-time Cursor sign-in so Prism can run local job workers |
 | `integrations` | Catalogue what Dispatch can connect, start OAuth for GitHub (user), Linear, Jira, Slack (mentions + tracked channels), Notion, or Google Calendar, or disconnect a driver |
-| `job_control` | Pause, resume, cancel, or attach extra context to a running Dispatch job |
+| `job_control` | Pause, resume, cancel, or add context to a running Dispatch job |
 | `knowledge_graph` | The symbol-level graph — declarations and the references between them — with summary stats |
 | `landmarks` | Named entrypoints, package roots and feature anchors — the places a human would open first |
 | `list_features` | Inferred features with their member files and a confidence score |
@@ -80,7 +81,7 @@ use this page when you need the exhaustive index.
 | `search_symbols` | Substring or regex search over indexed symbol names (unlike find_symbol, which is exact-match only) |
 | `security_report` | Left-shift security posture |
 | `stack_profile` | Detected stack for the workspace or a single package |
-| `start_job` | Create a Dispatch job from a ticket or title plus PRD |
+| `start_job` | Create a Dispatch job from a ticket or title plus a PRD |
 | `start_my_day` | Standup briefing for this repository |
 | `test_impact` | Which test files transitively cover a change target — the tests worth running after touching it |
 | `testing_report` | Test structure and, when coverage artifacts are already on disk, coverage |

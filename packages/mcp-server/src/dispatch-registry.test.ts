@@ -43,13 +43,15 @@ describe("worker role omits recursive tools", () => {
     if (root) await rm(root, { recursive: true, force: true });
   });
 
-  it("keeps Intelligence tools and list_jobs, hides start_job", async () => {
+  it("keeps list_jobs, hides start_job and Intelligence", async () => {
     const { tools } = await client.listTools();
     const names = tools.map((tool) => tool.name);
-    expect(names).toContain("blast_radius");
+    expect(names).not.toContain("blast_radius");
+    expect(names).not.toContain("repository_health");
     expect(names).toContain("list_jobs");
     expect(names).toContain("remember");
     expect(names).not.toContain("start_job");
     expect(names).not.toContain("start_my_day");
+    expect(names).not.toContain("init");
   });
 });

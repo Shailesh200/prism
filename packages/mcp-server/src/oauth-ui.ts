@@ -1,8 +1,9 @@
 /**
  * MCP host for Dispatch connect (ADR-0037).
  *
- * Cursor: form elicitation lists the steps, then URL elicitation is the native
- * Authenticate control. Claude: skip the extra card and open Prism Auth.
+ * Cursor: URL elicitation is the native Authenticate control that opens
+ * Prism Auth / the vendor login. Do not also `open` a window when that
+ * control is shown. Claude: skip the extra card and open Prism Auth.
  * Tokens never pass through this layer — the loopback + keychain stay in
  * `@repo-prism/dispatch`.
  */
@@ -20,7 +21,6 @@ import {
   clientLooksLikeClaude,
   confirmElicitationMessage,
   hasFormElicitation,
-  hasUrlElicitation,
   openInBrowser,
   shouldOpenAuthPage,
   type AuthPresentation,
@@ -116,7 +116,6 @@ export function createMcpOAuthUi(
       return startAuthSession(server, extra, input, {
         attemptUrl,
         openPage,
-        declaredUrl: hasUrlElicitation(elicitation),
       });
     },
   };
@@ -129,7 +128,6 @@ async function startAuthSession(
   flags: {
     readonly attemptUrl: boolean;
     readonly openPage: boolean;
-    readonly declaredUrl: boolean;
   },
 ): Promise<AuthSession> {
   let presentation: AuthPresentation = flags.openPage
@@ -161,25 +159,14 @@ async function startAuthSession(
         mode: "url" as const,
         url: input.authorizeUrl,
         elicitationId: input.elicitationId,
-        message: authElicitationMessage(input.driverLabel),
+        message: input.message ?? authElicitationMessage(input.driverLabel),
       };
-      const elicit = flags.declaredUrl
-        ? server.server.elicitInput(params, {
-            timeout: AUTH_TIMEOUT_MS,
-            resetTimeoutOnProgress: true,
-            signal,
-            relatedRequestId: extra.requestId,
-          })
-        : extra.sendRequest(
-            { method: "elicitation/create", params },
-            ElicitResultSchema,
-            {
-              timeout: AUTH_TIMEOUT_MS,
-              resetTimeoutOnProgress: true,
-              signal,
-              relatedRequestId: extra.requestId,
-            },
-          );
+      const elicit = server.server.elicitInput(params, {
+        timeout: AUTH_TIMEOUT_MS,
+        resetTimeoutOnProgress: true,
+        signal,
+        relatedRequestId: extra.requestId,
+      });
       elicitationStarted = true;
       void elicit.then(
         (result) => {

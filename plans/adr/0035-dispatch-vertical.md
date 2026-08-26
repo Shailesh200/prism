@@ -70,8 +70,9 @@ façade, not a second copy of blast radius.
   SQLite; ADR-0004 remains true for analysis.
 - Negative: mcp-server now has two tool wrappers; docs must distinguish
   read-only Intelligence from Dispatch writes.
-- Follow-ups: Prism Auth broker (ADR-0036); Claude Code as a worker; export-settings
-  UX beyond JSON.
+- Follow-ups: Prism Auth broker (ADR-0036); native connect UX (ADR-0037);
+  Cursor worker credentials via SDK login (ADR-0038); canonical job ids and
+  chat voice (ADR-0039); Claude Code as a worker; export-settings UX beyond JSON.
 
 ## Compliance
 

@@ -10,6 +10,8 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   createCursorWorkerPort,
   createDispatchRuntime,
+  isWorkerRole,
+  startJobNoticeWatcher,
   visibleDispatchTools,
   type DispatchRuntime,
   type DispatchToolName,
@@ -34,16 +36,25 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     name: "start_my_day",
     title: "Start my day",
     description:
-      "Standup briefing for this repository: leftover Dispatch jobs, local git, then any connected drivers (GitHub reviews, Linear or Jira tickets, Slack mentions plus tracked channels, Notion, Google Calendar). Unconnected tools appear as named connect CTAs. Does not index the repo. Call this when the user says start my day, standup, or what's waiting on me.",
+      "Standup briefing for this repository: leftover Dispatch jobs, teammates that just finished (what changed or why they failed), local git, then any connected drivers (GitHub reviews, Linear or Jira tickets, Slack mentions plus tracked channels, Notion, Google Calendar). Unconnected tools appear as named connect CTAs. Does not index the repo. Call this when the user says start my day, standup, or what's waiting on me.",
     inputSchema: {},
     readOnly: true,
     openWorld: true,
   },
   {
+    name: "init",
+    title: "Set up Dispatch workers",
+    description:
+      "One-time Cursor sign-in so Prism can run local job workers. Opens the Cursor login page in the browser. Speak only the tool message to the user — never mention API keys, mcp.json, host role, or connector counts. If Cursor shows “Authenticating prism…” with Skip, that is host tool-approval: tell the user to click Skip, then retry init.",
+    inputSchema: {},
+    readOnly: false,
+    openWorld: false,
+  },
+  {
     name: "start_job",
     title: "Start a Dispatch job",
     description:
-      "Create a Dispatch job from a ticket or title plus PRD. Adopts an existing Cursor or Claude git worktree when one matches the ticket; otherwise creates `.prism/dispatch/worktrees/<id>`. Starts a local Cursor SDK agent in that tree with Prism MCP in worker role, and returns the job id immediately without waiting for the agent to finish. Requires CURSOR_API_KEY to actually spawn the worker.",
+      "Create a Dispatch job from a ticket or title plus a PRD. Starts a local Cursor teammate in its own worktree (host node_modules linked; no shell; no second Prism MCP) and returns immediately. Speak only the tool message: use the job title and canonical id (ticket like AI-971 or slug like audit-issues), never job-<hex>, worktree paths, or API keys. Tell the user to say where are we for live status and the result when it finishes. Default cap is one job at a time. Do not use this for a repo-wide audit or health scan — call repository_health instead. If sign-in is needed, a Cursor login page opens in the browser. If Cursor shows “Authenticating prism…” with Skip, tell the user to click Skip and retry.",
     inputSchema: {
       title: z.string().describe("Ticket id and/or short job title"),
       prd: z
@@ -53,7 +64,9 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
       jobId: z
         .string()
         .optional()
-        .describe("Stable job id; inferred from a ticket token when omitted"),
+        .describe(
+          "Canonical job id; inferred from a ticket or title slug when omitted",
+        ),
       branch: z
         .string()
         .optional()
@@ -76,7 +89,7 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     name: "list_jobs",
     title: "List Dispatch jobs",
     description:
-      "Where are we: every Dispatch job with status, worktree path, source (cursor / claude / prism), git status in that tree, and last known Cursor agent status. Call when the user asks where we are, what's running, or to list jobs.",
+      "Where are we: every Dispatch job with title, canonical id, live activity, and a result or error when a teammate finishes. Speak only the tool message — titles, what they are doing, and what changed, not worktree paths or job-<hex> ids. Call when the user asks where we are, what's running, how a job is going, or whether a teammate finished.",
     inputSchema: {},
     readOnly: true,
     openWorld: false,
@@ -85,9 +98,11 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     name: "job_control",
     title: "Control a Dispatch job",
     description:
-      "Pause, resume, cancel, or attach extra context to a running Dispatch job. Pause and cancel map to the Cursor SDK run.cancel() when the run supports it. Resume uses Agent.resume after an MCP restart. attach_context sends more text to the existing local agent.",
+      "Pause, resume, cancel, or add context to a running Dispatch job. Speak only the tool message, using the job title and canonical id. jobId may be a ticket, a slug like audit-issues, or the title.",
     inputSchema: {
-      jobId: z.string().describe("Job id from start_job / list_jobs"),
+      jobId: z
+        .string()
+        .describe("Canonical job id (ticket or slug) or the job title"),
       action: z
         .enum(["pause", "resume", "cancel", "attach_context"])
         .describe("pause, resume, cancel, or attach_context"),
@@ -131,7 +146,7 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     name: "integrations",
     title: "Connect Dispatch drivers",
     description:
-      "Catalogue what Dispatch can connect, start OAuth for GitHub (user), Linear, Jira, Slack (mentions + tracked channels), Notion, or Google Calendar, or disconnect a driver. No connector is on by default. Connect uses Prism Auth (auth.prismhq.in). Cursor shows a native Authenticate control and a short step list; Claude opens the auth page. Never ask the user to create an OAuth app or paste a client id. Aliases like “google calendar” map to google-calendar. Tokens go in the OS keychain. Workers cannot start OAuth. Call when the user asks what we can connect or says connect Slack (or another driver).",
+      "Catalogue what Dispatch can connect, start OAuth for GitHub (user), Linear, Jira, Slack (mentions + tracked channels), Notion, or Google Calendar, or disconnect a driver. No connector is on by default. Connect uses Prism Auth (auth.prismhq.in). Cursor shows a native Authenticate control and a short step list; Claude opens the auth page. Never ask the user to create an OAuth app or paste a client id. Aliases like “google calendar” map to google-calendar. Google’s “hasn’t verified this app” warning is expected until Prism Auth finishes Calendar scope verification — tell the user to click Advanced, then continue. Tokens go in the OS keychain. Workers cannot start OAuth. Call when the user asks what we can connect or says connect Slack (or another driver).",
     inputSchema: {
       action: z
         .enum(["catalog", "start", "connect", "disconnect", "status", "setup"])
@@ -151,7 +166,7 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     name: "configure",
     title: "Configure Dispatch",
     description:
-      "Read or update gitignored Dispatch settings: section order, standup template, Slack tracked channel ids, mention window and caps, max parallel jobs (default 5), hint policy, and whether the tickets slot is Linear or Jira. action=export returns a non-secret template (no tokens) for sharing. Chat only — there is no settings UI in v1.",
+      "Read or update gitignored Dispatch settings: section order, standup template, Slack tracked channel ids, mention window and caps, max parallel jobs (default 1), hint policy, and whether the tickets slot is Linear or Jira. action=export returns a non-secret template (no tokens) for sharing. Chat only — there is no settings UI in v1.",
     inputSchema: {
       action: z
         .enum(["get", "set", "export"])
@@ -178,7 +193,7 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     name: "dispatch_doctor",
     title: "Dispatch doctor",
     description:
-      "Check whether Dispatch can run local Cursor workers: CURSOR_API_KEY, @cursor/sdk import, host vs worker role, and active job count versus the configured cap. Use when start_job is blocked or the user asks if Dispatch is set up.",
+      "Check whether Dispatch can run local teammates. Speak only the tool message — never mention API keys, mcp.json, host role, or connector counts. If sign-in is missing, call init.",
     inputSchema: {},
     readOnly: true,
     openWorld: false,
@@ -212,6 +227,16 @@ export function registerDispatchTools(
   const runtime =
     options.runtime ?? createDefaultDispatchRuntime(workspaceRoot, env);
   const allowed = new Set(visibleDispatchTools(env));
+
+  if (!isWorkerRole(env) && !options.runtime) {
+    startJobNoticeWatcher(workspaceRoot, (notice) => {
+      void server.sendLoggingMessage({
+        level: notice.level,
+        logger: "prism.dispatch",
+        data: notice.text,
+      });
+    });
+  }
 
   for (const tool of DISPATCH_TOOLS) {
     if (!allowed.has(tool.name)) continue;
