@@ -292,13 +292,17 @@ export async function handleOAuthRefresh(
   } catch {
     return json(400, { message: "Expected JSON { driver, refreshToken }." });
   }
-  const driver = parseDriverId(typeof driverRaw === "string" ? driverRaw : null);
+  const driver = parseDriverId(
+    typeof driverRaw === "string" ? driverRaw : null,
+  );
   if (!driver || !refreshToken) {
     return json(400, { message: "refresh needs a driver and refreshToken." });
   }
   const credentials = brokerCredentials(driver, config.env);
   if (!credentials) {
-    return json(503, { message: `${driver} is not enabled on Prism Auth yet.` });
+    return json(503, {
+      message: `${driver} is not enabled on Prism Auth yet.`,
+    });
   }
   try {
     const bundle = await refreshAccessToken({

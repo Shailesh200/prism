@@ -168,7 +168,7 @@ export function createDispatchRuntime(
           await reapJobs(options.workspaceRoot);
           return buildDayBriefing({
             ...options,
-            ...(options.brokerFetch ?? options.fetchImpl
+            ...((options.brokerFetch ?? options.fetchImpl)
               ? {
                   brokerFetch: options.brokerFetch ?? options.fetchImpl,
                 }

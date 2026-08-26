@@ -170,7 +170,9 @@ describe("start-my-day briefing", () => {
       http,
       brokerFetch,
     });
-    const calendar = briefing.drivers.find((row) => row.id === "google-calendar");
+    const calendar = briefing.drivers.find(
+      (row) => row.id === "google-calendar",
+    );
     expect(calendar?.error).toBeUndefined();
     expect(calendar?.items[0]?.title).toBe("Standup");
     expect((await loadToken(root, "google-calendar"))?.accessToken).toBe(
