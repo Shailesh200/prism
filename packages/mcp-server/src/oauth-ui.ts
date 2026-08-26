@@ -245,7 +245,7 @@ export function shouldOfferConnectConfirm(input: {
  */
 export function confirmElicitationAccepted(result: {
   readonly action: string;
-  readonly content?: { readonly continue?: unknown };
+  readonly content?: { readonly continue?: unknown } | undefined;
 }): boolean {
   if (result.action === "decline") return false;
   if (result.action === "cancel") return true;
