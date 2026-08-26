@@ -9,6 +9,10 @@ the `prism` CLI, the `prism-mcp` server, and the Core SDK they all call. They
 move as one because they are one build; a mismatch between them has never been
 a supported configuration.
 
+## 1.1.4 — Standup start-my-day
+
+- **Dispatch:** start-my-day is a standup: greeting, yesterday (git + finished jobs + completed Linear), then open items on Linear/GitHub/Slack/Calendar. Linear OAuth uses a Bearer token so assigned issues actually load after connect.
+
 ## 1.1.3 — Corporate TLS for connect
 
 - **MCP:** trust the OS certificate store at startup so `connect Linear` (and other Prism Auth grants) work behind corporate HTTPS inspection. Cursor reload no longer depends on `NODE_USE_SYSTEM_CA` in mcp.json. If the probe still fails, the error now includes the TLS/HTTP reason instead of a bare “unreachable.”
