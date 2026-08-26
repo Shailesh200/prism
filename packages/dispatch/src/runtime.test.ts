@@ -30,6 +30,9 @@ const git: GitRunner = async (_cwd, args) => {
   if (args[0] === "log") {
     return { ok: true, stdout: "abc commit\n", stderr: "" };
   }
+  if (args[0] === "config" && args[1] === "user.name") {
+    return { ok: true, stdout: "Shailesh Jha\n", stderr: "" };
+  }
   if (args[0] === "rev-list") {
     return { ok: true, stdout: "0\t1\n", stderr: "" };
   }
@@ -85,10 +88,16 @@ describe("start-my-day briefing", () => {
 
   it("shows git in live, CTAs for unconnected drivers, and a configure hint", async () => {
     root = await tempRoot();
-    const briefing = await buildDayBriefing({ workspaceRoot: root, git });
-    expect(briefing.message).toContain("## Live");
+    const briefing = await buildDayBriefing({
+      workspaceRoot: root,
+      git,
+      now: new Date("2026-08-26T10:00:00+05:30"),
+    });
+    expect(briefing.message).toMatch(/Good morning, Shailesh/);
+    expect(briefing.message).toContain("## Yesterday");
+    expect(briefing.message).toContain("## Waiting on you");
     expect(briefing.message).toContain("Git:");
-    expect(briefing.message).toContain("## Available");
+    expect(briefing.message).toContain("## Not connected yet");
     expect(briefing.connectCtas.length).toBeGreaterThan(0);
     expect(briefing.connectCtas.some((cta) => /Slack/i.test(cta))).toBe(true);
     expect(briefing.configureHint).toMatch(/configure/i);
@@ -150,7 +159,35 @@ describe("start-my-day briefing", () => {
     });
     expect(briefing.message).toContain("PR review");
     expect(briefing.message).toContain("missing_scope");
+    expect(briefing.message).toContain("### Slack");
+    expect(briefing.message).toContain("### GitHub");
     expect(briefing.git.branch).toBe("main");
+  });
+
+  it("keeps Linear in Waiting on you after connect even with no open issues", async () => {
+    root = await tempRoot();
+    const briefing = await buildDayBriefing({
+      workspaceRoot: root,
+      git,
+      now: new Date("2026-08-26T10:00:00+05:30"),
+      snapshots: {
+        linear: {
+          id: "linear",
+          connected: true,
+          available: true,
+          items: [],
+          recentlyDone: [
+            { id: "d1", title: "ENG-1 Shipped connect", detail: "completed" },
+          ],
+          viewerName: "Shailesh",
+        },
+      },
+    });
+    expect(briefing.message).toContain("Good morning, Shailesh.");
+    expect(briefing.message).toContain("### Linear");
+    expect(briefing.message).toContain("Nothing waiting.");
+    expect(briefing.message).toContain("ENG-1 Shipped connect");
+    expect(briefing.connectCtas.some((cta) => /Linear/i.test(cta))).toBe(false);
   });
 
   it("caps Slack mention items in the formatted briefing", async () => {
@@ -774,7 +811,7 @@ describe("live status and completion inbox", () => {
     const day = (await runtime.handle("start_my_day", {})) as {
       message: string;
     };
-    expect(day.message).toMatch(/Just finished/i);
+    expect(day.message).toMatch(/## Yesterday/i);
     expect(day.message).toMatch(/lighthouse/i);
   });
 

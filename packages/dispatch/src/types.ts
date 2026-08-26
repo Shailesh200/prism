@@ -163,6 +163,8 @@ export const DriverSnapshotSchema = z.object({
   available: z.boolean(),
   error: z.string().optional(),
   items: z.array(DriverItemSchema).default([]),
+  recentlyDone: z.array(DriverItemSchema).optional(),
+  viewerName: z.string().optional(),
 });
 export type DriverSnapshot = z.infer<typeof DriverSnapshotSchema>;
 
@@ -173,6 +175,8 @@ export const GitSnapshotSchema = z.object({
   ahead: z.number().int().optional(),
   behind: z.number().int().optional(),
   recent: z.array(z.string()),
+  sinceYesterday: z.array(z.string()).optional(),
+  userName: z.string().optional(),
   error: z.string().optional(),
 });
 export type GitSnapshot = z.infer<typeof GitSnapshotSchema>;

@@ -48,6 +48,7 @@ const DRIVER_ORDER: readonly DriverId[] = [
 export async function buildDayBriefing(
   deps: BriefingDeps,
 ): Promise<DayBriefing> {
+  const now = deps.now ?? new Date();
   const [config, git, jobs, memories] = await Promise.all([
     loadConfig(deps.workspaceRoot),
     gitSnapshot(deps.workspaceRoot, deps.git),
@@ -80,12 +81,13 @@ export async function buildDayBriefing(
     suggestedFocus,
     connectCtas,
     config,
+    now,
     ...(configureHint ? { configureHint } : {}),
   });
 
   return {
     message,
-    generatedAt: (deps.now ?? new Date()).toISOString(),
+    generatedAt: now.toISOString(),
     git,
     jobs,
     drivers,
@@ -189,12 +191,9 @@ export function formatBriefing(input: {
   readonly connectCtas: readonly string[];
   readonly configureHint?: string;
   readonly config: DispatchConfig;
+  readonly now?: Date;
 }): string {
-  const lines: string[] = ["# Start my day", ""];
-  if (input.config.standupTemplate.trim()) {
-    lines.push(input.config.standupTemplate.trim(), "");
-  }
-
+  const now = input.now ?? new Date();
   const leftover = input.jobs.filter(
     (job) =>
       job.status !== "done" &&
@@ -204,20 +203,44 @@ export function formatBriefing(input: {
   const finished = input.jobs.filter(
     (job) =>
       (job.status === "done" || job.status === "error") &&
-      isRecent(job.updatedAt, 48),
+      isRecent(job.updatedAt, 48, now.getTime()),
   );
-  if (finished.length > 0) {
-    lines.push("## Just finished");
-    for (const job of finished) {
-      const detail =
-        job.status === "error"
-          ? job.errorMessage || "The teammate hit an error."
-          : job.resultSummary || "Wrapped up.";
-      lines.push(`- ${jobRef(job)} — ${detail}`);
-    }
-    lines.push("");
+  const lines: string[] = [
+    greetingLine(now, standupName(input.drivers, input.git)),
+    "",
+    "Here's your standup.",
+    "",
+  ];
+  if (input.config.standupTemplate.trim()) {
+    lines.push(input.config.standupTemplate.trim(), "");
   }
-  lines.push("## Live");
+
+  lines.push("## Yesterday");
+  const yesterdayLines = yesterdaySection(input.git, finished, input.drivers);
+  if (yesterdayLines.length === 0) {
+    lines.push("- Nothing recorded since yesterday.");
+  } else {
+    lines.push(...yesterdayLines);
+  }
+  lines.push("");
+
+  lines.push("## Waiting on you");
+  for (const driver of input.drivers) {
+    if (!driver.connected) continue;
+    lines.push(`### ${label(driver.id)}`);
+    if (driver.error) {
+      lines.push(`- Connected, but ${driver.error}`);
+      continue;
+    }
+    if (driver.items.length === 0) {
+      lines.push(`- Nothing waiting.`);
+      continue;
+    }
+    for (const item of driver.items.slice(0, 8)) {
+      lines.push(itemLine(item));
+    }
+  }
+  lines.push("### This repo");
   if (leftover.length === 0) {
     lines.push("- No leftover Dispatch jobs.");
   } else {
@@ -237,37 +260,21 @@ export function formatBriefing(input: {
     }
   }
   lines.push(
-    `- Git: \`${input.git.branch}\`${input.git.dirtyCount ? ` · ${input.git.dirtyCount} dirty` : " · clean"}`,
+    `- Git: \`${input.git.branch}\`${input.git.dirtyCount ? ` · ${String(input.git.dirtyCount)} uncommitted` : " · clean"}`,
   );
   if (input.git.error) lines.push(`- Git note: ${input.git.error}`);
-
-  for (const driver of input.drivers) {
-    if (!driver.connected) continue;
-    if (driver.error) {
-      lines.push(`- ${label(driver.id)}: connected, but ${driver.error}`);
-      continue;
-    }
-    if (driver.items.length === 0) {
-      lines.push(`- ${label(driver.id)}: nothing waiting.`);
-      continue;
-    }
-    lines.push(`- ${label(driver.id)}:`);
-    for (const item of driver.items.slice(0, 8)) {
-      lines.push(`  - ${item.title}${item.detail ? ` (${item.detail})` : ""}`);
-    }
-  }
-
   if (input.memories.length > 0) {
-    lines.push("- Memories in play:");
+    lines.push("### Notes");
     for (const memory of input.memories.slice(0, 8)) {
-      lines.push(`  - (${memory.scope}) ${memory.text}`);
+      lines.push(`- (${memory.scope}) ${memory.text}`);
     }
   }
+  lines.push("");
 
-  lines.push("", `**Suggested focus:** ${input.suggestedFocus}`);
+  lines.push(`**Suggested focus:** ${briefFocus(input.suggestedFocus)}`);
 
   if (input.connectCtas.length > 0) {
-    lines.push("", "## Available");
+    lines.push("", "## Not connected yet");
     for (const cta of input.connectCtas) lines.push(`- ${cta}`);
   }
 
@@ -276,6 +283,75 @@ export function formatBriefing(input: {
   }
 
   return lines.join("\n");
+}
+
+function greetingLine(now: Date, name: string | undefined): string {
+  const hour = now.getHours();
+  const when =
+    hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  return name ? `${when}, ${name}.` : `${when}.`;
+}
+
+function standupName(
+  drivers: readonly DriverSnapshot[],
+  git: GitSnapshot,
+): string | undefined {
+  const fromDriver = drivers.find((driver) =>
+    driver.viewerName?.trim(),
+  )?.viewerName;
+  const raw = fromDriver?.trim() || git.userName?.trim();
+  if (!raw) return undefined;
+  return raw.split(/\s+/)[0];
+}
+
+function yesterdaySection(
+  git: GitSnapshot,
+  finished: readonly JobRecord[],
+  drivers: readonly DriverSnapshot[],
+): string[] {
+  const lines: string[] = [];
+  const commits = git.sinceYesterday ?? [];
+  if (commits.length > 0) {
+    lines.push("### Git");
+    for (const commit of commits.slice(0, 8)) {
+      lines.push(`- ${commit}`);
+    }
+  }
+  if (finished.length > 0) {
+    lines.push("### Dispatch");
+    for (const job of finished) {
+      const detail =
+        job.status === "error"
+          ? job.errorMessage || "The teammate hit an error."
+          : job.resultSummary || "Wrapped up.";
+      lines.push(`- ${jobRef(job)} — ${briefFocus(detail)}`);
+    }
+  }
+  for (const driver of drivers) {
+    if (!driver.connected) continue;
+    const done = driver.recentlyDone ?? [];
+    if (done.length === 0) continue;
+    lines.push(`### ${label(driver.id)}`);
+    for (const item of done.slice(0, 8)) {
+      lines.push(itemLine(item));
+    }
+  }
+  return lines;
+}
+
+function itemLine(item: {
+  title: string;
+  detail?: string | undefined;
+  url?: string | undefined;
+}): string {
+  const detail = item.detail ? ` (${item.detail})` : "";
+  return `- ${item.title}${detail}`;
+}
+
+function briefFocus(text: string): string {
+  const first = text.split("\n")[0]?.trim() || text.trim();
+  if (first.length <= 220) return first;
+  return `${first.slice(0, 217)}…`;
 }
 
 function isRecent(iso: string, hours: number, now = Date.now()): boolean {

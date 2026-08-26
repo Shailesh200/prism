@@ -126,11 +126,10 @@ export function registerPrompts(server: McpServer): void {
             type: "text" as const,
             text: [
               "Start my day with Prism Dispatch.",
-              "Call start_my_day as the first tool and use that briefing.",
+              "Call start_my_day as the first tool and speak that briefing as written.",
+              "Keep the greeting, Yesterday, and Waiting on you sections — including empty Linear/GitHub/Slack lists.",
               "Do not search the repo or fetch Calendar yourself.",
-              "Summarise leftover jobs, git, and any connected sections.",
               "Name the connect CTAs for tools that are not connected.",
-              "Suggest one focus item.",
               "Do not ask me to name tools.",
             ].join(" "),
           },

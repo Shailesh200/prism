@@ -53,10 +53,15 @@ export async function fetchGithubUser(
       items: [],
     };
   }
-  const login =
-    user.json && typeof user.json === "object" && "login" in user.json
-      ? String((user.json as { login: unknown }).login)
-      : "me";
+  const payload =
+    user.json && typeof user.json === "object"
+      ? (user.json as { login?: unknown; name?: unknown })
+      : {};
+  const login = typeof payload.login === "string" ? payload.login : "me";
+  const viewerName =
+    typeof payload.name === "string" && payload.name.trim()
+      ? payload.name.trim()
+      : login;
   const search = await http(
     `https://api.github.com/search/issues?q=${encodeURIComponent(`is:pr is:open review-requested:${login}`)}&per_page=10`,
     {
@@ -79,38 +84,109 @@ export async function fetchGithubUser(
       });
     }
   }
-  return { id: "github", connected: true, available: true, items };
+  return {
+    id: "github",
+    connected: true,
+    available: true,
+    items,
+    viewerName,
+  };
 }
+
+export function linearAuthHeader(token: string): string {
+  const trimmed = token.trim();
+  if (/^bearer\s/i.test(trimmed)) return trimmed;
+  return `Bearer ${trimmed}`;
+}
+
+type LinearIssueNode = {
+  id: string;
+  identifier: string;
+  title: string;
+  url?: string;
+};
 
 export async function fetchLinear(
   token: string,
   _http: HttpGet,
 ): Promise<DriverSnapshot> {
+  const headers = {
+    Authorization: linearAuthHeader(token),
+    "Content-Type": "application/json",
+  };
   const response = await fetch("https://api.linear.app/graphql", {
     method: "POST",
-    headers: {
-      Authorization: token,
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify({
-      query: `{ viewer { assignedIssues(first: 10, filter: { state: { type: { nin: ["completed", "canceled"] } } }) { nodes { id identifier title url } } } }`,
+      query: `{
+        viewer {
+          name
+          displayName
+          open: assignedIssues(first: 15, filter: { state: { type: { nin: ["completed", "canceled"] } } }) {
+            nodes { id identifier title url }
+          }
+          done: assignedIssues(first: 10, filter: { state: { type: { in: ["completed"] } }, updatedAt: { gte: "-P1D" } }) {
+            nodes { id identifier title url }
+          }
+        }
+      }`,
     }),
   });
-  const json = await response.json();
+  const json: unknown = await response.json();
   if (!response.ok) {
     return {
       id: "linear",
       connected: true,
       available: false,
-      error: `Linear ${response.status}`,
+      error: `Linear ${String(response.status)}`,
       items: [],
     };
   }
-  return parseLinear(json);
+  const parsed = parseLinear(json);
+  if (parsed.available) return parsed;
+  const fallback = await fetch("https://api.linear.app/graphql", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      query: `{ viewer { name assignedIssues(first: 15, filter: { state: { type: { nin: ["completed", "canceled"] } } }) { nodes { id identifier title url } } } }`,
+    }),
+  });
+  if (!fallback.ok) return parsed;
+  return parseLinear(await fallback.json());
 }
 
-function parseLinear(json: unknown): DriverSnapshot {
-  const nodes =
+function graphqlErrorMessage(json: unknown): string | undefined {
+  if (!json || typeof json !== "object" || !("errors" in json))
+    return undefined;
+  const errors = (json as { errors?: { message?: string }[] }).errors;
+  const message = errors?.[0]?.message?.trim();
+  return message || undefined;
+}
+
+function linearNodes(
+  nodes: LinearIssueNode[] | undefined,
+  detail: string,
+): DriverSnapshot["items"] {
+  return (nodes ?? []).map((node) => ({
+    id: node.id,
+    title: `${node.identifier} ${node.title}`,
+    ...(node.url ? { url: node.url } : {}),
+    detail,
+  }));
+}
+
+export function parseLinear(json: unknown): DriverSnapshot {
+  const graphError = graphqlErrorMessage(json);
+  if (graphError) {
+    return {
+      id: "linear",
+      connected: true,
+      available: false,
+      error: graphError,
+      items: [],
+    };
+  }
+  const viewer =
     json &&
     typeof json === "object" &&
     "data" in json &&
@@ -120,28 +196,25 @@ function parseLinear(json: unknown): DriverSnapshot {
       ? (
           json.data as {
             viewer?: {
-              assignedIssues?: {
-                nodes?: {
-                  id: string;
-                  identifier: string;
-                  title: string;
-                  url?: string;
-                }[];
-              };
+              name?: string;
+              displayName?: string;
+              open?: { nodes?: LinearIssueNode[] };
+              assignedIssues?: { nodes?: LinearIssueNode[] };
+              done?: { nodes?: LinearIssueNode[] };
             };
           }
-        ).viewer?.assignedIssues?.nodes
+        ).viewer
       : undefined;
+  const viewerName =
+    viewer?.displayName?.trim() || viewer?.name?.trim() || undefined;
+  const openNodes = viewer?.open?.nodes ?? viewer?.assignedIssues?.nodes;
   return {
     id: "linear",
     connected: true,
     available: true,
-    items: (nodes ?? []).map((node) => ({
-      id: node.id,
-      title: `${node.identifier} ${node.title}`,
-      ...(node.url ? { url: node.url } : {}),
-      detail: "assigned to you",
-    })),
+    items: linearNodes(openNodes, "assigned to you"),
+    recentlyDone: linearNodes(viewer?.done?.nodes, "completed"),
+    ...(viewerName ? { viewerName } : {}),
   };
 }
 

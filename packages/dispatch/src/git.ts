@@ -32,17 +32,26 @@ export async function gitSnapshot(
   workspaceRoot: string,
   run: GitRunner = defaultGitRunner,
 ): Promise<GitSnapshot> {
-  const [branch, status, log, aheadBehind] = await Promise.all([
-    run(workspaceRoot, ["rev-parse", "--abbrev-ref", "HEAD"]),
-    run(workspaceRoot, ["status", "--porcelain"]),
-    run(workspaceRoot, ["log", "-5", "--pretty=format:%h %s"]),
-    run(workspaceRoot, [
-      "rev-list",
-      "--left-right",
-      "--count",
-      "@{upstream}...HEAD",
-    ]),
-  ]);
+  const [branch, status, log, aheadBehind, yesterday, user] = await Promise.all(
+    [
+      run(workspaceRoot, ["rev-parse", "--abbrev-ref", "HEAD"]),
+      run(workspaceRoot, ["status", "--porcelain"]),
+      run(workspaceRoot, ["log", "-5", "--pretty=format:%h %s"]),
+      run(workspaceRoot, [
+        "rev-list",
+        "--left-right",
+        "--count",
+        "@{upstream}...HEAD",
+      ]),
+      run(workspaceRoot, [
+        "log",
+        "--since=yesterday",
+        "--pretty=format:%h %s",
+        "--no-merges",
+      ]),
+      run(workspaceRoot, ["config", "user.name"]),
+    ],
+  );
 
   if (!branch.ok) {
     return {
@@ -50,6 +59,7 @@ export async function gitSnapshot(
       dirtyCount: 0,
       dirtySample: [],
       recent: [],
+      sinceYesterday: [],
       error: branch.stderr.trim() || "not a git repository",
     };
   }
@@ -78,6 +88,16 @@ export async function gitSnapshot(
           .map((line) => line.trim())
           .filter(Boolean)
       : [],
+    sinceYesterday: yesterday.ok
+      ? yesterday.stdout
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .slice(0, 12)
+      : [],
+    ...(user.ok && user.stdout.trim()
+      ? { userName: user.stdout.trim().split("\n")[0] }
+      : {}),
   };
 }
 

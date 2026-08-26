@@ -43,6 +43,7 @@ describe("server instructions (agent auto-use)", () => {
 
   it("maps start my day onto start_my_day as the first tool", () => {
     expect(SERVER_INSTRUCTIONS).toContain("start_my_day as the first tool");
+    expect(SERVER_INSTRUCTIONS).toMatch(/return its briefing as written/i);
   });
 
   it("requires blast_radius before editing unfamiliar code", () => {

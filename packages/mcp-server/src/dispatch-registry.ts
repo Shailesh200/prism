@@ -36,7 +36,7 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     name: "start_my_day",
     title: "Start my day",
     description:
-      "Standup briefing for this repository: leftover Dispatch jobs, teammates that just finished (what changed or why they failed), local git, then any connected drivers (GitHub reviews, Linear or Jira tickets, Slack mentions plus tracked channels, Notion, Google Calendar). Unconnected tools appear as named connect CTAs. Does not index the repo. Call this when the user says start my day, standup, or what's waiting on me.",
+      "Standup briefing for this repository: greeting, what happened yesterday (git + finished jobs + completed Linear), then open items on Linear/GitHub/Slack/Calendar/Notion, leftover Dispatch jobs, and one suggested focus. Unconnected tools appear as named connect CTAs. Does not index the repo. Call this when the user says start my day, standup, or what's waiting on me. Return the message as written — do not omit a connected driver.",
     inputSchema: {},
     readOnly: true,
     openWorld: true,

@@ -10,7 +10,7 @@ Dispatch runs standup, jobs, and optional connectors. Same server name `prism`.
 
 | You say | What happens |
 |---|---|
-| "start my day" | `start_my_day` — leftover jobs, git, then connected tools, then connect CTAs |
+| "start my day" | `start_my_day` — greeting, yesterday (git + finished work), then open Linear/GitHub/Slack items |
 | "start working on AI-971" + a PRD | `start_job` — a teammate starts in its own worktree; say “where are we” for live status and the result |
 | "prism init" | `init` — same Cursor login page, without starting a job |
 | "where are we" | `list_jobs` — live activity, then finished results or errors |
