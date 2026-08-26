@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Shailesh200/prism",
   "title": "Prism",
-  "description": "Local-first Software Intelligence Engine for coding agents — repository DNA, health, blast radius, Dispatch jobs, and MCP tools over your open project. No cloud upload for core analysis.",
+  "description": "Local-first repo intelligence for agents: DNA, health, blast radius, and Dispatch jobs.",
   "repository": {
     "url": "https://github.com/Shailesh200/prism",
     "source": "github"

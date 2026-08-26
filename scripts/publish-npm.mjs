@@ -45,6 +45,14 @@ function writePkg(dir, pkg) {
   writeFileSync(join(dir, "package.json"), JSON.stringify(pkg, null, 2) + "\n");
 }
 
+function npmVersionExists(name, version) {
+  const result = spawnSync("npm", ["view", `${name}@${version}`, "version"], {
+    encoding: "utf8",
+    env: process.env,
+  });
+  return result.status === 0 && result.stdout.trim() === version;
+}
+
 /** Rewrite workspace protocol deps that we also publish to their package versions. */
 function forPublish(pkg, versions) {
   const next = structuredClone(pkg);
@@ -94,6 +102,12 @@ for (const name of ORDER) {
     fail(
       `${original.name} is still private — remove private before publishing`,
     );
+  }
+  if (npmVersionExists(original.name, original.version)) {
+    console.log(
+      `\n=== skip ${original.name}@${original.version} (already on npm) ===`,
+    );
+    continue;
   }
   if (!existsSync(join(dir, "dist"))) {
     fail(`${original.name} has no dist/ — run bun run build first`);
