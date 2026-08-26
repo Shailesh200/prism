@@ -3,7 +3,9 @@
  *
  * Cursor: URL elicitation is the native Authenticate control that opens
  * Prism Auth / the vendor login. Do not also `open` a window when that
- * control is shown. Claude: skip the extra card and open Prism Auth.
+ * control is shown, and do not send a form Continue card — Cursor advertises
+ * form elicitation then auto-returns cancel, which aborted connect. Claude:
+ * skip the extra card and open Prism Auth.
  * Tokens never pass through this layer — the loopback + keychain stay in
  * `@repo-prism/dispatch`.
  */
@@ -19,6 +21,7 @@ import {
   authElicitationMessage,
   canAttemptUrlElicitation,
   clientLooksLikeClaude,
+  clientLooksLikeCursor,
   confirmElicitationMessage,
   hasFormElicitation,
   openInBrowser,
@@ -49,8 +52,7 @@ export function createMcpOAuthUi(
     clientName,
     urlElicitation: attemptUrl,
   });
-  const confirm =
-    !clientLooksLikeClaude(clientName) && hasFormElicitation(elicitation);
+  const confirm = shouldOfferConnectConfirm({ clientName, elicitation });
 
   return {
     async reportStep(step: ConnectStep, index: number, total: number) {
@@ -104,8 +106,7 @@ export function createMcpOAuthUi(
                   relatedRequestId: extra.requestId,
                 },
               );
-              if (result.action !== "accept") return false;
-              return result.content?.continue !== false;
+              return confirmElicitationAccepted(result);
             } catch {
               return true;
             }
@@ -224,8 +225,30 @@ export function mcpConnectPolicy(input: {
       clientName: input.clientName,
       urlElicitation: attemptUrl,
     }),
-    confirm:
-      !clientLooksLikeClaude(input.clientName) &&
-      hasFormElicitation(input.elicitation),
+    confirm: shouldOfferConnectConfirm(input),
   };
+}
+
+/** Cursor auto-cancels form Continue; Authenticate is the real grant. */
+export function shouldOfferConnectConfirm(input: {
+  readonly clientName?: string | undefined;
+  readonly elicitation?: unknown;
+}): boolean {
+  if (clientLooksLikeClaude(input.clientName)) return false;
+  if (clientLooksLikeCursor(input.clientName)) return false;
+  return hasFormElicitation(input.elicitation);
+}
+
+/**
+ * Host elicitation actions: accept, decline, cancel.
+ * `cancel` means the host dismissed the extra card, not that the user said no.
+ */
+export function confirmElicitationAccepted(result: {
+  readonly action: string;
+  readonly content?: { readonly continue?: unknown };
+}): boolean {
+  if (result.action === "decline") return false;
+  if (result.action === "cancel") return true;
+  if (result.action !== "accept") return true;
+  return result.content?.continue !== false;
 }

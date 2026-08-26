@@ -26,11 +26,13 @@ when connect feels like a host-native login, not a scavenger hunt.
 2. **Dedicated steps** on every connect: review, prepare a local callback,
    authenticate, save locally, done. The MCP host reports them as progress /
    logging so the tool card is a short wizard, not a dump of JSON.
-3. **Cursor:** MCP form elicitation lists those steps with Continue, then
-   URL-mode elicitation (`elicitation/create`, `mode: "url"`) so Cursor can
-   render its native **Authenticate** button pointing at
+3. **Cursor:** URL-mode elicitation (`elicitation/create`, `mode: "url"`) so
+   Cursor can render its native **Authenticate** button pointing at
    `https://auth.prismhq.in/oauth/start?…`. Clicking Authenticate opens
-   Prism Auth / the vendor login (Google, etc.). Do not also `open` a window.
+   Prism Auth / the vendor login (Google, Linear, etc.). Do not also `open` a
+   window. Do **not** send a form Continue card first — Cursor advertises form
+   elicitation then auto-returns `cancel`, which aborted connect before
+   Authenticate appeared.
 4. **Claude:** skip the extra Continue card; open the Prism Auth page. If the
    host also supports URL elicitation, still send it — opening the page is
    what the user asked for.
@@ -46,8 +48,7 @@ when connect feels like a host-native login, not a scavenger hunt.
 
 - Pros: native Authenticate in Cursor; Claude opens the page; tokens stay
   local; no user-created OAuth apps.
-- Cons: depends on the host declaring (or honouring) URL elicitation; form
-  elicitation is an extra click on Cursor.
+- Cons: depends on the host declaring (or honouring) URL elicitation.
 
 ### Option B — Keep auto-opening the browser
 

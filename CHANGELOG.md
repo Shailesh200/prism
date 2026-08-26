@@ -9,6 +9,10 @@ the `prism` CLI, the `prism-mcp` server, and the Core SDK they all call. They
 move as one because they are one build; a mismatch between them has never been
 a supported configuration.
 
+## 1.1.2 — Connect on Cursor
+
+- **MCP:** skip the extra Continue elicitation on Cursor. The host advertised form elicitation then auto-returned `cancel`, which aborted Linear/Slack/Calendar connect before Authenticate appeared. Connect goes straight to the native Authenticate control.
+
 ## 1.1.1 — Dispatch MCP
 
 - **Dispatch:** chat-native teammate on the same `prism` MCP server — `start_my_day`, jobs on local Cursor SDK workers, remember, configure, loopback OAuth (GitHub user, Linear, Jira, Slack mentions + tracked channels, Notion, Google Calendar). Connect goes through Prism Auth (`auth.prismhq.in`); Cursor shows a native Authenticate control and step list, Claude opens the auth page. Users never paste client ids. Tokens stay in the OS keychain. Local job workers sign in once via `init` / first `start_job` (`Cursor.auth.login`); do not put `CURSOR_API_KEY` in mcp.json. Jobs use a ticket or title slug (`audit-issues`) as the canonical id — chat never speaks `job-<hex>`. Each worker runs in its own process and git worktree (default one at a time; no Prism MCP on the job agent; worktrees symlink the host `node_modules`). Say **where are we** for live status and the result when a teammate finishes or fails. Google’s “hasn’t verified this app” screen for Calendar is expected until Prism Auth finishes sensitive-scope verification — click Advanced, then continue.
