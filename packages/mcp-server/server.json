@@ -29,7 +29,7 @@
         {
           "type": "positional",
           "valueHint": "workspace",
-          "description": "Optional absolute path to the repository root. Defaults to nearest git root from the client cwd."
+          "description": "Optional absolute path to the repository root. Defaults to host WORKSPACE_FOLDER_PATHS, then nearest git root from the client cwd."
         }
       ],
       "environmentVariables": [

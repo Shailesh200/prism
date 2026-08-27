@@ -4,7 +4,9 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   findGitRoot,
+  pathFromHint,
   resolveWorkspacePath,
+  splitHostPaths,
   workspaceArgFrom,
 } from "./workspace-resolution.js";
 
@@ -73,6 +75,77 @@ describe("workspace resolution (M-026)", () => {
       "/tmp/launch-dir/repo",
     );
     expect(resolveWorkspacePath({ argument: "..", cwd }).path).toBe("/tmp");
+  });
+
+  it("prefers Cursor WORKSPACE_FOLDER_PATHS over a non-repo launch cwd", () => {
+    const project = tempDir();
+    writeFileSync(join(project, ".git"), "gitdir: /somewhere");
+    const editorHome = tempDir();
+
+    expect(
+      resolveWorkspacePath({
+        cwd: editorHome,
+        env: { WORKSPACE_FOLDER_PATHS: project },
+      }),
+    ).toEqual({ path: project, source: "WORKSPACE_FOLDER_PATHS" });
+  });
+
+  it("walks from a workspace folder up to its git root", () => {
+    const project = tempDir();
+    writeFileSync(join(project, ".git"), "gitdir: /somewhere");
+    const nested = join(project, "apps", "web");
+    mkdirSync(nested, { recursive: true });
+
+    expect(
+      resolveWorkspacePath({
+        cwd: tempDir(),
+        env: { WORKSPACE_FOLDER_PATHS: nested },
+      }),
+    ).toEqual({ path: project, source: "WORKSPACE_FOLDER_PATHS" });
+  });
+
+  it("uses INIT_CWD only when it contains a git root and cwd does not", () => {
+    const project = tempDir();
+    writeFileSync(join(project, ".git"), "gitdir: /somewhere");
+    const npxCache = tempDir();
+
+    expect(
+      resolveWorkspacePath({
+        cwd: npxCache,
+        env: { INIT_CWD: project },
+      }),
+    ).toEqual({ path: project, source: "INIT_CWD" });
+  });
+
+  it("does not let a non-git INIT_CWD steal a cwd that is already a repo", () => {
+    const project = tempDir();
+    writeFileSync(join(project, ".git"), "gitdir: /somewhere");
+    const home = tempDir();
+
+    expect(
+      resolveWorkspacePath({
+        cwd: project,
+        env: { INIT_CWD: home },
+      }),
+    ).toEqual({ path: project, source: "git root" });
+  });
+
+  it("decodes file:// workspace folder URIs", () => {
+    const project = tempDir();
+    writeFileSync(join(project, ".git"), "gitdir: /somewhere");
+    expect(pathFromHint(`file://${project}`, cwd)).toBe(project);
+    expect(
+      resolveWorkspacePath({
+        cwd: tempDir(),
+        env: { WORKSPACE_FOLDER_PATHS: `file://${project}` },
+      }),
+    ).toEqual({ path: project, source: "WORKSPACE_FOLDER_PATHS" });
+  });
+
+  it("splits host search paths on the OS delimiter", () => {
+    expect(splitHostPaths("")).toEqual([]);
+    expect(splitHostPaths("  ")).toEqual([]);
+    expect(splitHostPaths("/only")).toEqual(["/only"]);
   });
 
   describe("argument parsing", () => {

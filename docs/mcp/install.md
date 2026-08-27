@@ -7,8 +7,8 @@ Set Prism up once. After that, talk to the agent in plain language — you never
 type tool names.
 
 **Needs:** Node.js 26+, and your project open (or `cd`'d into). Workspace
-resolves automatically: `--workspace` → `PRISM_WORKSPACE` → nearest git root →
-cwd.
+resolves automatically: `--workspace` → `PRISM_WORKSPACE` → host
+`WORKSPACE_FOLDER_PATHS` (Cursor / VS Code) → nearest git root → cwd.
 
 ## One-click install
 
@@ -78,7 +78,9 @@ project):
 ```
 
 **Settings → MCP** → enable **prism** → wait for ~40 tools. No `--workspace` —
-Cursor starts the server from the open project.
+Prism reads Cursor’s `WORKSPACE_FOLDER_PATHS` when the process cwd is the
+editor folder rather than the project. Set `PRISM_WORKSPACE` only if that
+still points at the wrong tree.
 
 ## Claude Desktop
 

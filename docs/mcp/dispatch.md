@@ -56,6 +56,8 @@ job to register, not yours.
 
 `start_job` starts a **local** Cursor teammate **in its own git worktree**
 (adopt a matching Cursor/Claude tree, or create `.prism/dispatch/worktrees/<id>`).
+The open folder must be a git repository. If a job returns that Prism does not
+see a git repo, reload prism after opening the project (or set `PRISM_WORKSPACE`).
 The agent loop runs in a **separate Node process**, not inside the prism MCP
 server, so chat stays responsive. Default cap is **one job at a time**
 (`configure` can raise `maxJobs` once the machine can take it). Prism job

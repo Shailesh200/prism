@@ -65,8 +65,9 @@ See [using the CLI](/docs/cli/usage) for global options and
 [the command reference](/docs/reference/cli-commands) for per-command options.
 
 Workspace resolution, most explicit first: `--workspace`, then
-`PRISM_WORKSPACE`, then the nearest ancestor with a `.git`, then the current
-directory. `prism doctor` prints which rule won.
+`PRISM_WORKSPACE`, then (MCP only) the host `WORKSPACE_FOLDER_PATHS`, then the
+nearest ancestor with a `.git`, then the current directory. `prism doctor`
+prints which rule won.
 
 ## MCP server
 
@@ -83,8 +84,10 @@ Configured by your MCP client, not by Prism. Happy path — no path flags:
 }
 ```
 
-Resolution matches the CLI. Only set `--workspace` / `PRISM_WORKSPACE` when the
-client starts the server from the wrong directory. See [MCP install](/docs/mcp/install).
+Resolution: `--workspace` → `PRISM_WORKSPACE` → host `WORKSPACE_FOLDER_PATHS` →
+nearest git root → cwd. Only set `--workspace` / `PRISM_WORKSPACE` when the
+client starts the server from the wrong directory and the host folder env is
+empty. See [MCP install](/docs/mcp/install).
 
 ## Extension settings
 

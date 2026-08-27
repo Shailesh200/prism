@@ -19,8 +19,9 @@ which tools to call.
 
 ## Setup — step by step
 
-**No `--workspace` path.** The server uses the client’s working directory, then
-walks up to the nearest **git root** (same as the CLI).
+**No `--workspace` path.** The server uses the host workspace folders when the
+client provides them (`WORKSPACE_FOLDER_PATHS` in Cursor / VS Code), then the
+client’s working directory, then walks up to the nearest **git root**.
 
 ### Claude Code
 
@@ -101,8 +102,10 @@ waiting for an MCP **client**. Configure the client; it starts the process.
 
 1. `--workspace <path>` (or `-w`, or first positional)
 2. `PRISM_WORKSPACE`
-3. Nearest ancestor of cwd with `.git`
-4. Process cwd
+3. Host `WORKSPACE_FOLDER_PATHS` (Cursor / VS Code open folders)
+4. Nearest ancestor of cwd with `.git`
+5. Git root from `VSCODE_CWD` / `INIT_CWD`
+6. Process cwd
 
 ---
 

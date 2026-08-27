@@ -96,6 +96,7 @@ export function resolveWorkspaceFromProcess(
   return resolveWorkspacePath({
     argument: workspaceArgFrom(argv),
     environment: env.PRISM_WORKSPACE,
+    env,
     cwd,
   });
 }

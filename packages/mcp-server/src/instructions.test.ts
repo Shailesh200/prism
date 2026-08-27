@@ -56,6 +56,11 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/no bun install/i);
   });
 
+  it("tells agents not to guess a path when git is missing", () => {
+    expect(SERVER_INSTRUCTIONS).toMatch(/does not see a git repository/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/PRISM_WORKSPACE/);
+  });
+
   it("routes repo-wide audit to repository_health, not start_job", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/find issues/i);
     expect(SERVER_INSTRUCTIONS).toMatch(
