@@ -18,7 +18,12 @@ async function main(): Promise<void> {
     `prism-mcp ${readPackageVersion()}: workspace ${workspace.path} (from ${workspace.source})\n`,
   );
 
-  await startStdioServer({ workspaceRoot: workspace.path });
+  await startStdioServer({
+    workspaceRoot: workspace.path,
+    workspaceSource: workspace.source,
+    workspaceLocked:
+      workspace.source === "argument" || workspace.source === "environment",
+  });
   process.stderr.write("prism-mcp: ready on stdio\n");
 }
 

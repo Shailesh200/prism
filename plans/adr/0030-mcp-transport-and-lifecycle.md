@@ -48,12 +48,19 @@ once. Concurrent first calls await a single shared index rather than racing into
 A failed open is **not** memoised. The server is long-lived; one transient failure must not make
 every subsequent call fail for the rest of the session.
 
-### 3. Workspace resolution: argument → environment → cwd
+### 3. Workspace resolution: argument → environment → host folders → cwd
 
 Most explicit wins. An agent launches us with a working directory we did not choose, so inferring
 from cwd is the last resort rather than the default. Relative paths resolve against cwd instead of
 being rejected — an agent passing `.` means the directory it launched us in, and refusing that would
 be pedantry rather than safety.
+
+Cursor and VS Code often spawn the MCP process from the editor user folder, not the open project.
+After `--workspace` / `PRISM_WORKSPACE`, honour `WORKSPACE_FOLDER_PATHS` (the host workspace list),
+then the nearest `.git` from cwd, then a git root from `VSCODE_CWD` / `INIT_CWD`. After `initialize`,
+ask the client for `roots/list` and rebind to the open folder (the one the user is chatting in)
+unless the user set an explicit path. Without that, Dispatch's `git worktree` calls fail with
+`fatal: not a git repository` and surface as `PRISM_UNKNOWN`.
 
 ### 4. Consent-gated paths are refused, not proxied
 

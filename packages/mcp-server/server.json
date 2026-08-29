@@ -15,13 +15,13 @@
       "sizes": ["128x128"]
     }
   ],
-  "version": "1.1.5",
+  "version": "1.1.6",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@repo-prism/mcp-server",
-      "version": "1.1.5",
+      "version": "1.1.6",
       "transport": {
         "type": "stdio"
       },
@@ -29,7 +29,7 @@
         {
           "type": "positional",
           "valueHint": "workspace",
-          "description": "Optional absolute path to the repository root. Defaults to nearest git root from the client cwd."
+          "description": "Optional absolute path to the repository root. Defaults to the client's MCP roots (open folder), then host WORKSPACE_FOLDER_PATHS, then nearest git root from cwd."
         }
       ],
       "environmentVariables": [

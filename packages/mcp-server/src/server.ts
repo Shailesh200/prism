@@ -25,9 +25,14 @@ import { registerDispatchTools } from "./dispatch-registry.js";
 import { registerTools } from "./tool-registry.js";
 import { TOOLS } from "./tools.js";
 import {
+  createWorkspaceBinding,
+  type WorkspaceBinding,
+} from "./workspace-binding.js";
+import {
   resolveWorkspacePath,
   workspaceArgFrom,
   type ResolvedWorkspace,
+  type WorkspaceSource,
 } from "./workspace-resolution.js";
 
 export { SERVER_NAME } from "./branding.js";
@@ -38,11 +43,20 @@ export type CreateServerOptions = {
   /** Injectable for tests. */
   readonly openWorkspace?: SessionOptions["openWorkspace"];
   readonly env?: NodeJS.ProcessEnv;
+  /** How the startup path was chosen. Used to decide whether MCP roots may override. */
+  readonly workspaceSource?: WorkspaceSource;
+  /**
+   * When true, `--workspace` / `PRISM_WORKSPACE` stay in force even if the
+   * client later reports a different root.
+   */
+  readonly workspaceLocked?: boolean;
 };
 
 export type PrismMcpServer = {
   readonly server: McpServer;
   readonly session: WorkspaceSession;
+  readonly binding: WorkspaceBinding;
+  applyClientRoots(): Promise<void>;
 };
 
 /**
@@ -69,22 +83,60 @@ export function createPrismMcpServer(
     process.stderr.write(`prism-mcp: ${line}\n`);
   });
 
-  const session = createWorkspaceSession({
-    root: options.workspaceRoot,
+  const binding = createWorkspaceBinding(
+    {
+      path: options.workspaceRoot,
+      source: options.workspaceSource ?? "cwd",
+    },
+    options.workspaceLocked,
+  );
+
+  const innerSession = createWorkspaceSession({
+    root: () => binding.current(),
     onIndexProgress: reportProgress,
     ...(options.openWorkspace ? { openWorkspace: options.openWorkspace } : {}),
   });
 
-  registerDispatchTools(server, options.workspaceRoot, {
+  let rootsAttempted = false;
+  const applyClientRoots = async (): Promise<void> => {
+    if (binding.locked) return;
+    try {
+      const listed = await server.server.listRoots();
+      rootsAttempted = true;
+      const hints = listed.roots.map((root) => root.uri);
+      if (binding.applyHints(hints)) {
+        process.stderr.write(
+          `prism-mcp: workspace ${binding.current()} (from mcp roots)\n`,
+        );
+      }
+    } catch {
+      rootsAttempted = true;
+    }
+  };
+
+  const session: WorkspaceSession = {
+    async ready() {
+      if (!innerSession.isOpen() && !rootsAttempted) {
+        await applyClientRoots();
+      }
+      return innerSession.ready();
+    },
+    isOpen: () => innerSession.isOpen(),
+    close: () => innerSession.close(),
+  };
+
+  registerDispatchTools(server, binding.current(), {
     env: options.env ?? process.env,
+    getWorkspaceRoot: () => binding.current(),
+    beforeCall: applyClientRoots,
   });
   if (!isWorkerRole(options.env ?? process.env)) {
-    registerTools(server, session, TOOLS, options.workspaceRoot);
+    registerTools(server, session, TOOLS, () => binding.current());
     registerPrompts(server);
     registerResources(server, session);
   }
 
-  return { server, session };
+  return { server, session, binding, applyClientRoots };
 }
 
 /** Resolve the workspace from argv and the environment. */
@@ -96,6 +148,7 @@ export function resolveWorkspaceFromProcess(
   return resolveWorkspacePath({
     argument: workspaceArgFrom(argv),
     environment: env.PRISM_WORKSPACE,
+    env,
     cwd,
   });
 }
@@ -134,5 +187,6 @@ export async function startStdioServer(
   process.once("beforeExit", shutdown);
 
   await instance.server.connect(transport);
+  await instance.applyClientRoots();
   return instance;
 }

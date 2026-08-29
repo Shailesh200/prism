@@ -46,7 +46,13 @@ export {
   slugFromTitle,
   resolveJobRef,
 } from "./job-id.js";
-export { jobRef, startJobSpeak, agentNameForJob } from "./job-voice.js";
+export {
+  jobRef,
+  startJobSpeak,
+  agentNameForJob,
+  missingGitRepoSpeak,
+  gitFailureSpeak,
+} from "./job-voice.js";
 export {
   reapJobs,
   isProcessAlive,
@@ -92,6 +98,8 @@ export {
   gitChangeSummary,
   listGitWorktrees,
   defaultGitRunner,
+  gitChildEnv,
+  isMissingGitRepoMessage,
   type GitRunner,
 } from "./git.js";
 export { DRIVER_LABELS, connectCta } from "./drivers.js";

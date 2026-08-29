@@ -207,11 +207,13 @@ export const DISPATCH_TOOL_NAMES: readonly string[] = DISPATCH_TOOLS.map(
 export function createDefaultDispatchRuntime(
   workspaceRoot: string,
   env: NodeJS.ProcessEnv = process.env,
+  getWorkspaceRoot?: () => string,
 ): DispatchRuntime {
   return createDispatchRuntime({
     workspaceRoot,
     env,
     worker: createCursorWorkerPort(),
+    ...(getWorkspaceRoot ? { getWorkspaceRoot } : {}),
   });
 }
 
@@ -221,15 +223,19 @@ export function registerDispatchTools(
   options: {
     readonly env?: NodeJS.ProcessEnv;
     readonly runtime?: DispatchRuntime;
+    readonly getWorkspaceRoot?: () => string;
+    readonly beforeCall?: () => Promise<void>;
   } = {},
 ): void {
   const env = options.env ?? process.env;
+  const getRoot = options.getWorkspaceRoot ?? (() => workspaceRoot);
   const runtime =
-    options.runtime ?? createDefaultDispatchRuntime(workspaceRoot, env);
+    options.runtime ??
+    createDefaultDispatchRuntime(workspaceRoot, env, getRoot);
   const allowed = new Set(visibleDispatchTools(env));
 
   if (!isWorkerRole(env) && !options.runtime) {
-    startJobNoticeWatcher(workspaceRoot, (notice) => {
+    startJobNoticeWatcher(getRoot, (notice) => {
       void server.sendLoggingMessage({
         level: notice.level,
         logger: "prism.dispatch",
@@ -253,6 +259,7 @@ export function registerDispatchTools(
       },
       async (args: unknown, extra) => {
         try {
+          await options.beforeCall?.();
           const value = await runtime.handle(
             tool.name,
             (args ?? {}) as Record<string, unknown>,

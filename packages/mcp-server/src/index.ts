@@ -9,6 +9,11 @@ export {
   type CreateServerOptions,
   type PrismMcpServer,
 } from "./server.js";
+export {
+  createWorkspaceBinding,
+  pickWorkspaceFromHints,
+  type WorkspaceBinding,
+} from "./workspace-binding.js";
 export { TOOLS, TOOL_NAMES } from "./tools.js";
 export { DISPATCH_TOOLS, DISPATCH_TOOL_NAMES } from "./dispatch-registry.js";
 export {
@@ -40,7 +45,10 @@ export {
 } from "./session.js";
 export { toMcpError, toMcpErrorFromThrown } from "./errors.js";
 export {
+  findGitRoot,
+  pathFromHint,
   resolveWorkspacePath,
+  splitHostPaths,
   workspaceArgFrom,
   type ResolvedWorkspace,
   type WorkspaceSource,

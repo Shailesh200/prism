@@ -51,7 +51,8 @@ Put the same into the client's `args` / `env` if needed.
 ## If something fails
 
 1. `npx -y @repo-prism/cli doctor` inside the same project.
-2. Check workspace (`git root` vs cwd).
+2. Check workspace (MCP roots / git root vs cwd). If Dispatch says it cannot
+   see a git repository, reload prism while the git project is the open folder.
 3. Confirm Node 26+.
 4. Disable/re-enable **prism** in the client, or restart.
 5. Set `PRISM_WORKSPACE` once and retry.

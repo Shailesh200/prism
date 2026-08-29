@@ -2,17 +2,28 @@
  * Where the server looks for the repository it should analyse (M-026).
  *
  * Agents launch us with a working directory we did not choose. Explicit wins:
- * argument → `PRISM_WORKSPACE` → nearest git root from cwd → cwd.
+ * argument → `PRISM_WORKSPACE` → host workspace folders → nearest git root
+ * from cwd → host launch cwd (`VSCODE_CWD` / `INIT_CWD` when they contain a
+ * git root) → cwd.
  *
- * Git-root discovery matches the CLI so users never have to paste an absolute
- * path: open a project in Cursor / Claude and the server analyses that repo.
+ * Cursor (and VS Code) often spawn MCP from the editor user folder, not the
+ * open project. `WORKSPACE_FOLDER_PATHS` is the host's real workspace list;
+ * without it, Dispatch's `git worktree` calls fail with "not a git repository".
  */
 
 import { existsSync } from "node:fs";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { delimiter, dirname, isAbsolute, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 /** Precedence order, most explicit first. */
-export type WorkspaceSource = "argument" | "environment" | "git root" | "cwd";
+export type WorkspaceSource =
+  | "argument"
+  | "environment"
+  | "WORKSPACE_FOLDER_PATHS"
+  | "VSCODE_CWD"
+  | "INIT_CWD"
+  | "git root"
+  | "cwd";
 
 export type ResolvedWorkspace = {
   /** Absolute path, resolved against `cwd` when the input was relative. */
@@ -25,6 +36,8 @@ export type ResolveWorkspaceInput = {
   readonly argument?: string | undefined;
   /** `PRISM_WORKSPACE`. */
   readonly environment?: string | undefined;
+  /** Process env — used for host workspace hints. */
+  readonly env?: NodeJS.ProcessEnv | undefined;
   readonly cwd: string;
 };
 
@@ -48,8 +61,49 @@ export function findGitRoot(start: string): string | undefined {
   }
 }
 
+function absolute(path: string, cwd: string): string {
+  return isAbsolute(path) ? resolve(path) : resolve(cwd, path);
+}
+
+/** Accept `file://` URIs from MCP-style hosts; leave ordinary paths alone. */
+export function pathFromHint(value: string, cwd: string): string {
+  const text = value.trim();
+  if (text.startsWith("file:")) {
+    try {
+      return fileURLToPath(text);
+    } catch {
+      /* fall through */
+    }
+  }
+  return absolute(text, cwd);
+}
+
 /**
- * Resolve the workspace root: argument → `PRISM_WORKSPACE` → git root → cwd.
+ * Split a host search path (`WORKSPACE_FOLDER_PATHS`) on the OS delimiter.
+ * Empty segments are dropped.
+ */
+export function splitHostPaths(value: string | undefined): string[] {
+  const text = trimmed(value);
+  if (text === undefined) return [];
+  return text
+    .split(delimiter)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+}
+
+function existingPath(hint: string, cwd: string): string | undefined {
+  const path = pathFromHint(hint, cwd);
+  return existsSync(path) ? path : undefined;
+}
+
+function existingGitRoot(hint: string, cwd: string): string | undefined {
+  const path = existingPath(hint, cwd);
+  return path === undefined ? undefined : findGitRoot(path);
+}
+
+/**
+ * Resolve the workspace root: argument → `PRISM_WORKSPACE` → host folders →
+ * git root from cwd → git root from launch cwd → cwd.
  */
 export function resolveWorkspacePath(
   input: ResolveWorkspaceInput,
@@ -64,16 +118,39 @@ export function resolveWorkspacePath(
     return { path: absolute(environment, input.cwd), source: "environment" };
   }
 
+  const env = input.env ?? {};
+  const folderHints = splitHostPaths(env.WORKSPACE_FOLDER_PATHS);
+  for (const hint of folderHints) {
+    const path = existingPath(hint, input.cwd);
+    if (path === undefined) continue;
+    return {
+      path: findGitRoot(path) ?? path,
+      source: "WORKSPACE_FOLDER_PATHS",
+    };
+  }
+
   const gitRoot = findGitRoot(input.cwd);
   if (gitRoot !== undefined) {
     return { path: gitRoot, source: "git root" };
   }
 
-  return { path: absolute(input.cwd, input.cwd), source: "cwd" };
-}
+  const vscodeCwd = trimmed(env.VSCODE_CWD);
+  if (vscodeCwd !== undefined) {
+    const path = existingGitRoot(vscodeCwd, input.cwd);
+    if (path !== undefined) {
+      return { path, source: "VSCODE_CWD" };
+    }
+  }
 
-function absolute(path: string, cwd: string): string {
-  return isAbsolute(path) ? resolve(path) : resolve(cwd, path);
+  const initCwd = trimmed(env.INIT_CWD);
+  if (initCwd !== undefined) {
+    const path = existingGitRoot(initCwd, input.cwd);
+    if (path !== undefined) {
+      return { path, source: "INIT_CWD" };
+    }
+  }
+
+  return { path: absolute(input.cwd, input.cwd), source: "cwd" };
 }
 
 /**

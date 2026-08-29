@@ -7,8 +7,9 @@ Set Prism up once. After that, talk to the agent in plain language — you never
 type tool names.
 
 **Needs:** Node.js 26+, and your project open (or `cd`'d into). Workspace
-resolves automatically: `--workspace` → `PRISM_WORKSPACE` → nearest git root →
-cwd.
+resolves automatically: `--workspace` → `PRISM_WORKSPACE` → the folder the
+client reports as MCP roots (the repo you are chatting in) → host
+`WORKSPACE_FOLDER_PATHS` → nearest git root → cwd.
 
 ## One-click install
 
@@ -39,15 +40,15 @@ Project (`.cursor/mcp.json`) or global (`~/.cursor/mcp.json` / Claude Desktop):
 
 Canonical copy: [`packages/mcp-server/mcp-install.json`](https://github.com/Shailesh200/prism/blob/main/packages/mcp-server/mcp-install.json)
 
-`@latest` plus `--prefer-online` is the default. **npx does not always pick up a new publish.** The `_npx` cache is keyed by the specifier string: `@latest` reuses the tree already installed for that tag. npm 10 only reinstalls when the packument’s resolved tarball URL changes. Corporate HTTP caches often keep `GET /@repo-prism/mcp-server` (the dist-tag) on an old version while a newer tarball is already live — so reload still runs the old server. Pinning `@1.1.5` is a different cache key and hits the version URL, which is why an absolute version worked.
+`@latest` plus `--prefer-online` is the default. **npx does not always pick up a new publish.** The `_npx` cache is keyed by the specifier string: `@latest` reuses the tree already installed for that tag. npm 10 only reinstalls when the packument’s resolved tarball URL changes. Corporate HTTP caches often keep `GET /@repo-prism/mcp-server` (the dist-tag) on an old version while a newer tarball is already live — so reload still runs the old server. Pinning `@1.1.6` is a different cache key and hits the version URL, which is why an absolute version worked.
 
 After a publish, either pin the new version once:
 
 ```json
-"args": ["-y", "--prefer-online", "@repo-prism/mcp-server@1.1.5"]
+"args": ["-y", "--prefer-online", "@repo-prism/mcp-server@1.1.6"]
 ```
 
-or delete `~/.npm/_npx` (Windows: `%LocalAppData%\npm-cache\_npx`) and **fully quit Cursor** (not only Reload MCP). Confirm in MCP logs: `prism-mcp 1.1.5: workspace …`.
+or delete `~/.npm/_npx` (Windows: `%LocalAppData%\npm-cache\_npx`) and **fully quit Cursor** (not only Reload MCP). Confirm in MCP logs: `prism-mcp 1.1.6: workspace …`.
 
 ## Claude Code
 
@@ -78,7 +79,9 @@ project):
 ```
 
 **Settings → MCP** → enable **prism** → wait for ~40 tools. No `--workspace` —
-Cursor starts the server from the open project.
+chatting in a git project is enough. Prism asks Cursor for the open folder
+(`roots/list`) after connect. Set `PRISM_WORKSPACE` only if that still
+points at the wrong tree.
 
 ## Claude Desktop
 

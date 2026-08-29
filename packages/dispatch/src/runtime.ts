@@ -4,7 +4,7 @@ import { grantPurpose, isPurposeGranted, revokePurpose } from "./consent.js";
 import { loadConfig, saveConfig } from "./config.js";
 import { DRIVER_LABELS } from "./drivers.js";
 import { exportSettings } from "./export-settings.js";
-import { gitStatusShort, type GitRunner } from "./git.js";
+import { gitSnapshot, gitStatusShort, type GitRunner } from "./git.js";
 import { allocateJobId, displayJobId, resolveJobRef } from "./job-id.js";
 import {
   agentNameForJob,
@@ -12,6 +12,7 @@ import {
   ambiguousJobSpeak,
   controlSpeak,
   doctorSpeak,
+  gitFailureSpeak,
   initSpeak,
   jobRef,
   listJobsSpeak,
@@ -140,6 +141,11 @@ export type DispatchRuntimeOptions = BriefingDeps & {
   readonly cursorAuth?: CursorAuthPort;
   /** Injected in tests. Production reads `os.freemem()`. */
   readonly freeMemoryBytes?: number;
+  /**
+   * Live workspace when the MCP client later reports roots. Each tool call
+   * reads this so Dispatch does not stay stuck on the process cwd.
+   */
+  readonly getWorkspaceRoot?: () => string;
 };
 
 function ramGate(options: DispatchRuntimeOptions): string | undefined {
@@ -148,11 +154,20 @@ function ramGate(options: DispatchRuntimeOptions): string | undefined {
 }
 
 export function createDispatchRuntime(
-  options: DispatchRuntimeOptions,
+  input: DispatchRuntimeOptions,
 ): DispatchRuntime {
+  const getRoot = input.getWorkspaceRoot ?? (() => input.workspaceRoot);
+  const options: DispatchRuntimeOptions = {
+    ...input,
+    get workspaceRoot() {
+      return getRoot();
+    },
+  };
   const env = options.env ?? process.env;
   return {
-    workspaceRoot: options.workspaceRoot,
+    get workspaceRoot() {
+      return getRoot();
+    },
     async handle(name, args, context) {
       if (
         isWorkerRole(env) &&
@@ -246,23 +261,39 @@ async function startJob(
       maxJobs: config.maxJobs,
     };
   }
-  const tree = existing
-    ? {
-        path: existing.worktreePath,
-        branch: existing.branch,
-        source: existing.source,
-        cursorAgentId: existing.cursorAgentId,
-        claudeSession: existing.claudeSession,
-      }
-    : await adoptOrCreateWorktree({
-        workspaceRoot: options.workspaceRoot,
-        jobId: id,
-        title,
-        ...(typeof args.branch === "string"
-          ? { preferredBranch: args.branch }
-          : {}),
-        ...(options.git ? { run: options.git } : {}),
-      });
+  let tree: {
+    path: string;
+    branch: string;
+    source: JobRecord["source"];
+    cursorAgentId?: string;
+    claudeSession?: string;
+  };
+  try {
+    tree = existing
+      ? {
+          path: existing.worktreePath,
+          branch: existing.branch,
+          source: existing.source,
+          ...(existing.cursorAgentId
+            ? { cursorAgentId: existing.cursorAgentId }
+            : {}),
+          ...(existing.claudeSession
+            ? { claudeSession: existing.claudeSession }
+            : {}),
+        }
+      : await adoptOrCreateWorktree({
+          workspaceRoot: options.workspaceRoot,
+          jobId: id,
+          title,
+          ...(typeof args.branch === "string"
+            ? { preferredBranch: args.branch }
+            : {}),
+          ...(options.git ? { run: options.git } : {}),
+        });
+  } catch (cause) {
+    const detail = cause instanceof Error ? cause.message : String(cause);
+    return { message: gitFailureSpeak(detail) };
+  }
 
   if (tree.source === "prism") {
     await linkWorktreeInstall({
@@ -1131,7 +1162,15 @@ async function doctorTool(
   const creds = await resolveWorkerAuth(options, env);
   const diskMessage = await diskBudgetMessage(options.workspaceRoot);
   const ramMessage = ramGate(options);
+  const git = await gitSnapshot(options.workspaceRoot, options.git);
   const checks = [
+    {
+      id: "git",
+      ok: !git.error,
+      detail: git.error
+        ? "not a git repository"
+        : git.branch || "git repository",
+    },
     {
       id: "cursor_workers",
       ok: creds.ready,

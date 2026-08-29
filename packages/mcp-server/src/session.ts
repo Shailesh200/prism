@@ -30,7 +30,8 @@ export type WorkspaceSession = {
 };
 
 export type SessionOptions = {
-  readonly root: string;
+  /** Absolute path, or a getter so MCP roots can rebind before first open. */
+  readonly root: string | (() => string);
   /** Injectable for tests; defaults to the real Core client. */
   readonly openWorkspace?: (root: string) => Result<PrismWorkspace, PrismError>;
   /** Forwarded during the first index so clients can show progress. */
@@ -55,11 +56,16 @@ export function createWorkspaceSession(
   // into several. Cleared on failure so a transient error is retryable.
   let pending: Promise<Result<PrismWorkspace, PrismError>> | undefined;
 
+  function rootPath(): string {
+    return typeof options.root === "function" ? options.root() : options.root;
+  }
+
   async function openAndIndex(): Promise<Result<PrismWorkspace, PrismError>> {
-    const directory = await assertDirectory(options.root);
+    const root = rootPath();
+    const directory = await assertDirectory(root);
     if (!directory.ok) return directory;
 
-    const opened = open(options.root);
+    const opened = open(root);
     if (!opened.ok) return opened;
 
     options.onIndexProgress?.({

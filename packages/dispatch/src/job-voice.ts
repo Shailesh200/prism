@@ -1,3 +1,4 @@
+import { isMissingGitRepoMessage } from "./git.js";
 import { displayJobId, isOpaqueJobId } from "./job-id.js";
 import type { JobRecord } from "./types.js";
 
@@ -56,10 +57,26 @@ export function initSpeak(ready: boolean, email?: string): string {
   return `${signedInSpeak(email)} Say “start working on …” with a ticket and what you want done.`;
 }
 
+export function missingGitRepoSpeak(): string {
+  return [
+    "Prism does not see a git repository here, so it cannot start a teammate.",
+    "Open the project folder that contains .git — or set PRISM_WORKSPACE to that path — then reload prism and retry.",
+  ].join(" ");
+}
+
+export function gitFailureSpeak(detail: string): string {
+  if (isMissingGitRepoMessage(detail)) return missingGitRepoSpeak();
+  const cleaned = stripSecrets(detail);
+  return cleaned
+    ? `Could not prepare a place for the teammate (${cleaned}).`
+    : "Could not prepare a place for the teammate. Open the git project folder and retry.";
+}
+
 export function doctorSpeak(
   checks: readonly { id: string; ok: boolean }[],
 ): string {
   const byId = Object.fromEntries(checks.map((check) => [check.id, check.ok]));
+  if (byId.git === false) return missingGitRepoSpeak();
   if (byId.cursor_workers === false) return needsSignInSpeak();
   if (byId.cursor_sdk === false) {
     return "Reload the prism MCP server, then say prism init.";

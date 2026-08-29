@@ -7,6 +7,11 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DISPATCH_TOOLS } from "./dispatch-registry.js";
 import { createPrismMcpServer, type PrismMcpServer } from "./server.js";
 
+type ToolResponse = {
+  content?: { type: string; text?: string }[];
+  isError?: boolean;
+};
+
 describe("Dispatch MCP registration", () => {
   it("gives every Dispatch tool a usable description", () => {
     for (const tool of DISPATCH_TOOLS) {
@@ -53,5 +58,33 @@ describe("worker role omits recursive tools", () => {
     expect(names).not.toContain("start_job");
     expect(names).not.toContain("start_my_day");
     expect(names).not.toContain("init");
+  });
+});
+
+describe("start_job without a git repository", () => {
+  it("returns a spoken error instead of a JSON-RPC throw", async () => {
+    const root = await mkdtemp(join(tmpdir(), "prism-dispatch-nogit-"));
+    const built = createPrismMcpServer({ workspaceRoot: root });
+    const client = new Client({ name: "nogit-test", version: "0.0.0" });
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      built.server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+    try {
+      const response = (await client.callTool({
+        name: "start_job",
+        arguments: { title: "Review PR", prd: "Look at the diff" },
+      })) as ToolResponse;
+      expect(response.isError).not.toBe(true);
+      const text = response.content?.[0]?.text ?? "";
+      expect(text).toMatch(/git repository/i);
+      expect(text).not.toMatch(/PRISM_UNKNOWN|fatal:/);
+    } finally {
+      built.session.close();
+      await client.close();
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });

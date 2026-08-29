@@ -9,10 +9,35 @@ export type GitRunner = (
   args: readonly string[],
 ) => Promise<{ stdout: string; stderr: string; ok: boolean }>;
 
+/**
+ * Hosts (Cursor, hooks, CI) sometimes export `GIT_DIR` / `GIT_WORK_TREE`.
+ * Those override `cwd` and make a perfectly good repo look missing.
+ */
+export const GIT_OVERRIDE_ENV = [
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_COMMON_DIR",
+  "GIT_INDEX_FILE",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_PREFIX",
+] as const;
+
+export function gitChildEnv(
+  base: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
+  const env = { ...base };
+  for (const key of GIT_OVERRIDE_ENV) {
+    delete env[key];
+  }
+  return env;
+}
+
 export const defaultGitRunner: GitRunner = async (cwd, args) => {
   try {
-    const result = await execFileAsync("git", [...args], {
+    const result = await execFileAsync("git", ["-C", cwd, ...args], {
       cwd,
+      env: gitChildEnv(),
       encoding: "utf8",
       timeout: 15_000,
       maxBuffer: 2_000_000,
@@ -27,6 +52,10 @@ export const defaultGitRunner: GitRunner = async (cwd, args) => {
     };
   }
 };
+
+export function isMissingGitRepoMessage(detail: string): boolean {
+  return /not a git repository/i.test(detail);
+}
 
 export async function gitSnapshot(
   workspaceRoot: string,

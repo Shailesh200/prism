@@ -468,6 +468,57 @@ describe("jobs, worktrees, overlap, cap", () => {
     expect(blocked.message).toMatch(/job cap/i);
   });
 
+  it("follows getWorkspaceRoot when the MCP client later reports the repo", async () => {
+    root = await tempRoot();
+    const trees: string[] = [];
+    const liveGit: GitRunner = async (cwd, args) => {
+      if (args[0] === "worktree" && args[1] === "add") {
+        trees.push(cwd);
+      }
+      return git(cwd, args);
+    };
+    let liveRoot = root;
+    const runtime = createDispatchRuntime({
+      workspaceRoot: "/not-the-repo",
+      getWorkspaceRoot: () => liveRoot,
+      git: liveGit,
+      worker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    liveRoot = root;
+    const result = (await runtime.handle("start_job", {
+      title: "from-roots",
+      prd: "Use the live workspace",
+    })) as { job?: { worktreePath: string }; message: string };
+    expect(result.job).toBeDefined();
+    expect(trees).toEqual([root]);
+    expect(result.message).not.toMatch(/git repository/i);
+  });
+
+  it("returns a spoken error instead of throwing when git cannot see a repo", async () => {
+    root = await tempRoot();
+    const noGit: GitRunner = async () => ({
+      ok: false,
+      stdout: "",
+      stderr:
+        "fatal: not a git repository (or any of the parent directories): .git",
+    });
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git: noGit,
+      worker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    const result = (await runtime.handle("start_job", {
+      title: "Review PR 5631",
+      prd: "Review the pull request",
+    })) as { message: string; job?: unknown };
+    expect(result.job).toBeUndefined();
+    expect(result.message).toMatch(/git repository/i);
+    expect(result.message).toMatch(/PRISM_WORKSPACE/);
+    expect(result.message).not.toMatch(/fatal:/);
+  });
+
   it("records the job when the worker fails to start", async () => {
     root = await tempRoot();
     const exploding: WorkerPort = {
@@ -691,6 +742,7 @@ describe("worker role and doctor", () => {
       const doctor = (await runtime.handle("dispatch_doctor", {})) as {
         checks: { id: string; ok: boolean }[];
       };
+      expect(doctor.checks.find((check) => check.id === "git")?.ok).toBe(true);
       expect(
         doctor.checks.find((check) => check.id === "cursor_workers")?.ok,
       ).toBe(false);
@@ -698,6 +750,34 @@ describe("worker role and doctor", () => {
         git: { branch: string };
       };
       expect(day.git.branch).toBe("main");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("tells the user when doctor cannot see a git repository", async () => {
+    const root = await tempRoot();
+    try {
+      const noGit: GitRunner = async () => ({
+        ok: false,
+        stdout: "",
+        stderr:
+          "fatal: not a git repository (or any of the parent directories): .git",
+      });
+      const runtime = createDispatchRuntime({
+        workspaceRoot: root,
+        git: noGit,
+        env: {},
+        fetchImpl: mockBrokerFetch(),
+        cursorAuth: missingCursorAuth,
+      });
+      const doctor = (await runtime.handle("dispatch_doctor", {})) as {
+        checks: { id: string; ok: boolean }[];
+        message: string;
+      };
+      expect(doctor.checks.find((check) => check.id === "git")?.ok).toBe(false);
+      expect(doctor.message).toMatch(/git repository/i);
+      expect(doctor.message).not.toMatch(/fatal:/);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
