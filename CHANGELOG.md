@@ -9,6 +9,10 @@ the `prism` CLI, the `prism-mcp` server, and the Core SDK they all call. They
 move as one because they are one build; a mismatch between them has never been
 a supported configuration.
 
+## 1.1.6 — Auto-bind Dispatch to the open chat folder
+
+- **MCP / Dispatch:** starting a job from chat no longer fails with `fatal: not a git repository` when the MCP process was launched from the editor user folder. After initialize, Prism asks the client for MCP roots and rebinds Intelligence + Dispatch to the open folder. Git child processes ignore inherited `GIT_DIR` / `GIT_WORK_TREE`. Startup log: `prism-mcp 1.1.6: workspace … (from mcp roots)`. Pin `@1.1.6` or clear `~/.npm/_npx` after install.
+
 ## 1.1.5 — Calendar token refresh
 
 - **Dispatch:** start-my-day renews Google Calendar (and other vendor) access tokens through Prism Auth `/oauth/refresh` so connect lasts past the one-hour Google token. MCP logs print `prism-mcp 1.1.5` on startup. `npx @latest` can still serve a cached tree; pin the new version or clear `~/.npm/_npx` after a publish.
