@@ -468,6 +468,33 @@ describe("jobs, worktrees, overlap, cap", () => {
     expect(blocked.message).toMatch(/job cap/i);
   });
 
+  it("follows getWorkspaceRoot when the MCP client later reports the repo", async () => {
+    root = await tempRoot();
+    const trees: string[] = [];
+    const liveGit: GitRunner = async (cwd, args) => {
+      if (args[0] === "worktree" && args[1] === "add") {
+        trees.push(cwd);
+      }
+      return git(cwd, args);
+    };
+    let liveRoot = root;
+    const runtime = createDispatchRuntime({
+      workspaceRoot: "/not-the-repo",
+      getWorkspaceRoot: () => liveRoot,
+      git: liveGit,
+      worker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    liveRoot = root;
+    const result = (await runtime.handle("start_job", {
+      title: "from-roots",
+      prd: "Use the live workspace",
+    })) as { job?: { worktreePath: string }; message: string };
+    expect(result.job).toBeDefined();
+    expect(trees).toEqual([root]);
+    expect(result.message).not.toMatch(/git repository/i);
+  });
+
   it("returns a spoken error instead of throwing when git cannot see a repo", async () => {
     root = await tempRoot();
     const noGit: GitRunner = async () => ({

@@ -141,6 +141,11 @@ export type DispatchRuntimeOptions = BriefingDeps & {
   readonly cursorAuth?: CursorAuthPort;
   /** Injected in tests. Production reads `os.freemem()`. */
   readonly freeMemoryBytes?: number;
+  /**
+   * Live workspace when the MCP client later reports roots. Each tool call
+   * reads this so Dispatch does not stay stuck on the process cwd.
+   */
+  readonly getWorkspaceRoot?: () => string;
 };
 
 function ramGate(options: DispatchRuntimeOptions): string | undefined {
@@ -149,11 +154,20 @@ function ramGate(options: DispatchRuntimeOptions): string | undefined {
 }
 
 export function createDispatchRuntime(
-  options: DispatchRuntimeOptions,
+  input: DispatchRuntimeOptions,
 ): DispatchRuntime {
+  const getRoot = input.getWorkspaceRoot ?? (() => input.workspaceRoot);
+  const options: DispatchRuntimeOptions = {
+    ...input,
+    get workspaceRoot() {
+      return getRoot();
+    },
+  };
   const env = options.env ?? process.env;
   return {
-    workspaceRoot: options.workspaceRoot,
+    get workspaceRoot() {
+      return getRoot();
+    },
     async handle(name, args, context) {
       if (
         isWorkerRole(env) &&

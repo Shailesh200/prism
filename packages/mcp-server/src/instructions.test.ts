@@ -58,7 +58,8 @@ describe("server instructions (agent auto-use)", () => {
 
   it("tells agents not to guess a path when git is missing", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/does not see a git repository/);
-    expect(SERVER_INSTRUCTIONS).toMatch(/PRISM_WORKSPACE/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/reload the prism MCP server/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/open folder/);
   });
 
   it("routes repo-wide audit to repository_health, not start_job", () => {

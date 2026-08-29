@@ -57,9 +57,10 @@ be pedantry rather than safety.
 
 Cursor and VS Code often spawn the MCP process from the editor user folder, not the open project.
 After `--workspace` / `PRISM_WORKSPACE`, honour `WORKSPACE_FOLDER_PATHS` (the host workspace list),
-then the nearest `.git` from cwd, then a git root from `VSCODE_CWD` / `INIT_CWD`. Without the host
-folder hint, Dispatch's `git worktree` calls fail with `fatal: not a git repository` and surface as
-`PRISM_UNKNOWN`.
+then the nearest `.git` from cwd, then a git root from `VSCODE_CWD` / `INIT_CWD`. After `initialize`,
+ask the client for `roots/list` and rebind to the open folder (the one the user is chatting in)
+unless the user set an explicit path. Without that, Dispatch's `git worktree` calls fail with
+`fatal: not a git repository` and surface as `PRISM_UNKNOWN`.
 
 ### 4. Consent-gated paths are refused, not proxied
 

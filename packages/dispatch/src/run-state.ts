@@ -449,15 +449,17 @@ export async function drainNewNotices(
 }
 
 export function startJobNoticeWatcher(
-  workspaceRoot: string,
+  workspaceRoot: string | (() => string),
   emit: (notice: JobNotice) => void,
   intervalMs = 2_000,
 ): () => void {
+  const root = (): string =>
+    typeof workspaceRoot === "function" ? workspaceRoot() : workspaceRoot;
   const seen = new Map<string, string>();
   const tick = async (): Promise<void> => {
     try {
-      await reapJobs(workspaceRoot);
-      const notices = await drainNewNotices(workspaceRoot, seen);
+      await reapJobs(root());
+      const notices = await drainNewNotices(root(), seen);
       for (const notice of notices) emit(notice);
     } catch {
       /* host MCP must stay up even if a sidecar file is mid-write */

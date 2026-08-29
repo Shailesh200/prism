@@ -60,7 +60,7 @@ export function registerTools(
   server: McpServer,
   session: WorkspaceSession,
   tools: readonly ToolDefinition<never>[],
-  workspaceRoot: string,
+  workspaceRoot: string | (() => string),
 ): void {
   for (const tool of tools as readonly ToolDefinition[]) {
     server.registerTool(
@@ -81,8 +81,12 @@ export function registerTools(
 
         let result: Result<unknown, PrismError>;
         try {
+          const root =
+            typeof workspaceRoot === "function"
+              ? workspaceRoot()
+              : workspaceRoot;
           result = await tool.call(
-            { workspace: ready.value, workspaceRoot },
+            { workspace: ready.value, workspaceRoot: root },
             args as Parameters<typeof tool.call>[1],
           );
         } catch (cause) {

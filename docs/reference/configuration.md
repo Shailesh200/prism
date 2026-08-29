@@ -84,10 +84,10 @@ Configured by your MCP client, not by Prism. Happy path — no path flags:
 }
 ```
 
-Resolution: `--workspace` → `PRISM_WORKSPACE` → host `WORKSPACE_FOLDER_PATHS` →
-nearest git root → cwd. Only set `--workspace` / `PRISM_WORKSPACE` when the
-client starts the server from the wrong directory and the host folder env is
-empty. See [MCP install](/docs/mcp/install).
+Resolution: `--workspace` → `PRISM_WORKSPACE` → MCP roots (open chat folder) →
+host `WORKSPACE_FOLDER_PATHS` → nearest git root → cwd. Only set
+`--workspace` / `PRISM_WORKSPACE` when the client reports no roots. See
+[MCP install](/docs/mcp/install).
 
 ## Extension settings
 
