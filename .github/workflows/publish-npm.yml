@@ -44,7 +44,7 @@ jobs:
         # and mcp-server are new versions on this cut.
         run: |
           set -euo pipefail
-          for name in shared analyzer graph-engine impact navigation indexer intelligence repository-map core dispatch mcp-server; do
+          for name in shared test-support analyzer graph-engine impact navigation indexer intelligence repository-map core dispatch mcp-server; do
             bun run --filter "@repo-prism/${name}" build
           done
 
