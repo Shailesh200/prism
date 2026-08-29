@@ -38,7 +38,15 @@ jobs:
       - run: bun install --frozen-lockfile
 
       - name: Build publishable packages
-        run: bunx moon run dispatch:build mcp-server:build
+        # Build bottom-up without moon. `mcp-server:build` depends on `^:build`,
+        # and moon also schedules `cli:build`, which races `shared:build` and
+        # fails in CI (`Cannot find module '@repo-prism/shared'`). Only dispatch
+        # and mcp-server are new versions on this cut.
+        run: |
+          set -euo pipefail
+          for name in shared analyzer graph-engine impact navigation indexer intelligence repository-map core dispatch mcp-server; do
+            bun run --filter "@repo-prism/${name}" build
+          done
 
       - name: Check npm token
         env:
