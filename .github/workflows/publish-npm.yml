@@ -2,7 +2,7 @@ name: publish-npm
 
 # Publishing is an explicit act: it fires when a `prism-npm-v*` tag is pushed.
 # Cut a release with: bump versions -> commit -> tag prism-npm-vX.Y.Z -> push tag.
-# Requires secret: NPM_TOKEN (Automation token that can publish @repo-prism/*)
+# Auth: npm trusted publishing (OIDC) first, then optional NPM_TOKEN.
 
 on:
   push:
@@ -34,30 +34,39 @@ jobs:
         with:
           node-version-file: ".nvmrc"
           registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
+
+      - name: Ensure npm can use OIDC trusted publishing
+        run: |
+          set -euo pipefail
+          npm install -g npm@11.5.2
+          npm --version
 
       - run: bun install --frozen-lockfile
 
       - name: Build publishable packages
         # Build bottom-up without moon. `mcp-server:build` depends on `^:build`,
         # and moon also schedules `cli:build`, which races `shared:build` and
-        # fails in CI (`Cannot find module '@repo-prism/shared'`). Only dispatch
-        # and mcp-server are new versions on this cut.
+        # fails in CI (`Cannot find module '@repo-prism/shared'`).
         run: |
           set -euo pipefail
           for name in shared test-support analyzer graph-engine impact navigation indexer intelligence repository-map core dispatch mcp-server; do
             bun run --filter "@repo-prism/${name}" build
           done
 
-      - name: Check npm token
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          if [ -z "$NODE_AUTH_TOKEN" ]; then
-            echo "::error::Missing secret NPM_TOKEN. Add an npm Automation token with publish access to @repo-prism, then re-run this workflow."
-            exit 1
-          fi
-
       - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: bun run publish:npm
+        run: |
+          set -euo pipefail
+          if [ -n "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "Publishing with NPM_TOKEN"
+          else
+            echo "No NPM_TOKEN; publishing with OIDC trusted publishing"
+            unset NODE_AUTH_TOKEN
+            # setup-node writes an empty _authToken that blocks OIDC fallback
+            if [ -n "${NPM_CONFIG_USERCONFIG:-}" ] && [ -f "${NPM_CONFIG_USERCONFIG}" ]; then
+              sed -i '/_authToken/d' "${NPM_CONFIG_USERCONFIG}"
+            fi
+          fi
+          bun run publish:npm
