@@ -9,6 +9,11 @@ the `prism` CLI, the `prism-mcp` server, and the Core SDK they all call. They
 move as one because they are one build; a mismatch between them has never been
 a supported configuration.
 
+## 1.1.16 — A job survives an older agent CLI
+
+- **Dispatch:** an agent CLI that rejects an optional flag no longer costs you the job. A Claude Code worker died at launch on `unknown option '--forward-subagent-text'` — a flag that only enriches the console with subagent text — before touching a file. Optional flags are now dropped on one retry, and the console says which one. Flags that carry the sandbox (`--tools`, `--disallowedTools`, `--bare`) are deliberately not droppable: those still fail, but the message names the flag and the upgrade instead of printing a launcher dump.
+- Keep `@latest`; hop on the next Cursor/MCP start. Logs: `prism-mcp 1.1.16: workspace …`. `@repo-prism/dispatch@1.1.16`, `@repo-prism/dispatch-hub@1.1.16`, and `@repo-prism/mcp-server@1.1.16`.
+
 ## 1.1.15 — Checkout-first jobs, Claude Code footer, configure anything
 
 - **Dispatch:** jobs work in your own checkout by default and leave edits uncommitted — no surprise branches or commits. Ask for a branch (or run a second job alongside) and it takes a worktree; a dirty tree asks first; the review subtracts what was already yours. “Commit it” commits only the job's files. `configure` → `placement: worktree` restores the old default.
