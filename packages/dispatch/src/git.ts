@@ -406,6 +406,185 @@ export async function gitReviewSummary(
     baseRef: input.baseRef,
     committed: files.length > 0,
     merged: false,
+    mixedPaths: [],
+  };
+}
+
+/**
+ * Paths with uncommitted changes in a checkout (ADR-0045 §3).
+ *
+ * Snapshotted at dispatch time so the finish review can tell the job's edits
+ * apart from work the user already had in flight. Porcelain, noise-filtered
+ * the same way as the change summary.
+ */
+export async function gitDirtyPaths(
+  cwd: string,
+  run: GitRunner = defaultGitRunner,
+): Promise<string[]> {
+  const result = await run(cwd, ["status", "--porcelain"]);
+  if (!result.ok) return [];
+  const paths: string[] = [];
+  for (const line of result.stdout.split("\n")) {
+    if (!line.trim()) continue;
+    const path = line.slice(3).trim().split(" -> ").at(-1) ?? "";
+    const normalized = path.replaceAll("\\", "/").replace(/^\.\//, "");
+    if (!normalized || isGitNoisePath(normalized)) continue;
+    paths.push(normalized);
+  }
+  return paths.sort();
+}
+
+/**
+ * Review for a checkout-placed job: the uncommitted diff, minus the paths
+ * that were already dirty at dispatch (ADR-0045 §2, §3).
+ *
+ * The worktree review reads a commit range; there is no commit here by
+ * design, so this reads `git diff HEAD` for tracked churn and porcelain for
+ * untracked files. A path dirty at start that the job also touched is
+ * reported in `mixedPaths` — attributing its churn to either side would be a
+ * guess.
+ */
+export async function gitCheckoutReview(
+  cwd: string,
+  input: { readonly preExisting: readonly string[]; readonly branch?: string },
+  run: GitRunner = defaultGitRunner,
+): Promise<JobReview> {
+  const preExisting = new Set(input.preExisting);
+  const [numstat, porcelain] = await Promise.all([
+    run(cwd, ["diff", "--numstat", "HEAD"]),
+    run(cwd, ["status", "--porcelain"]),
+  ]);
+
+  const changeByPath = new Map<string, ReviewFile["change"]>();
+  const untracked: string[] = [];
+  if (porcelain.ok) {
+    for (const line of porcelain.stdout.split("\n")) {
+      if (!line.trim()) continue;
+      const code = line.slice(0, 2);
+      const path = (line.slice(3).trim().split(" -> ").at(-1) ?? "")
+        .replaceAll("\\", "/")
+        .replace(/^\.\//, "");
+      if (!path || isGitNoisePath(path)) continue;
+      if (code.includes("?")) {
+        untracked.push(path);
+      } else {
+        changeByPath.set(path, reviewChangeFromStatusLetter(code));
+      }
+    }
+  }
+
+  const files: ReviewFile[] = [];
+  const mixed = new Set<string>();
+  if (numstat.ok) {
+    for (const line of numstat.stdout.split("\n")) {
+      const row = line.trim();
+      if (!row) continue;
+      const [addedRaw, removedRaw, ...pathParts] = row.split(/\t+/);
+      const path = (pathParts.at(-1) ?? "").trim();
+      if (!path || isGitNoisePath(path)) continue;
+      if (preExisting.has(path)) {
+        mixed.add(path);
+        continue;
+      }
+      const added = Number.parseInt(addedRaw ?? "0", 10);
+      const removed = Number.parseInt(removedRaw ?? "0", 10);
+      files.push({
+        path,
+        added: Number.isFinite(added) ? added : 0,
+        removed: Number.isFinite(removed) ? removed : 0,
+        change: changeByPath.get(path) ?? "modified",
+      });
+    }
+  }
+  for (const path of untracked) {
+    if (preExisting.has(path)) {
+      mixed.add(path);
+      continue;
+    }
+    files.push({ path, added: 0, removed: 0, change: "untracked" });
+  }
+
+  files.sort((a, b) => a.path.localeCompare(b.path));
+
+  return {
+    files: files.slice(0, MAX_REVIEW_FILES),
+    totalAdded: files.reduce((sum, file) => sum + file.added, 0),
+    totalRemoved: files.reduce((sum, file) => sum + file.removed, 0),
+    truncated: files.length > MAX_REVIEW_FILES,
+    branch: input.branch ?? "",
+    baseRef: "HEAD",
+    // Uncommitted by design (ADR-0045 §2): the tree is the reviewable unit.
+    committed: false,
+    merged: false,
+    mixedPaths: [...mixed].sort(),
+  };
+}
+
+/**
+ * Commit only the job-touched paths in a checkout, on explicit ask
+ * (ADR-0045 §2). The user's unrelated uncommitted work is never staged.
+ */
+export async function commitJobPaths(
+  cwd: string,
+  input: {
+    readonly jobId: string;
+    readonly title: string;
+    readonly paths: readonly string[];
+  },
+  run: GitRunner = defaultGitRunner,
+): Promise<JobCommit> {
+  const paths = input.paths.filter(
+    (path) => !isGitNoisePath(path) || isJobArtifactPath(path),
+  );
+  if (paths.length === 0) {
+    return { committed: false, summary: "" };
+  }
+  await run(cwd, ["add", "--", ...paths]);
+  for (const path of JOB_ARTIFACT_PATHS) {
+    await run(cwd, ["add", "-f", "--", path]);
+  }
+  const staged = await run(cwd, ["diff", "--cached", "--name-only"]);
+  const names = staged.ok
+    ? staged.stdout
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(
+          (line) => line && (!isGitNoisePath(line) || isJobArtifactPath(line)),
+        )
+    : [];
+  if (names.length === 0) {
+    return { committed: false, summary: "" };
+  }
+  const message = `dispatch(${input.jobId}): ${input.title}`.slice(0, 200);
+  const committed = await run(cwd, [
+    "-c",
+    "user.name=Prism Dispatch",
+    "-c",
+    "user.email=dispatch@prismhq.in",
+    "commit",
+    "--no-verify",
+    "-m",
+    message,
+  ]);
+  if (!committed.ok) {
+    await run(cwd, ["reset"]);
+    return { committed: false, summary: "" };
+  }
+  const [stat, sha] = await Promise.all([
+    run(cwd, ["show", "--stat", "--format=", "HEAD"]),
+    run(cwd, ["rev-parse", "--short", "HEAD"]),
+  ]);
+  const totals = stat.ok
+    ? (stat.stdout
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .at(-1) ?? "")
+    : "";
+  return {
+    committed: true,
+    summary: totals.replace(/\s+/g, " "),
+    ...(sha.ok && sha.stdout.trim() ? { sha: sha.stdout.trim() } : {}),
   };
 }
 

@@ -9,6 +9,17 @@ import type { HubEvent, JobSnapshot } from "../types.js";
 
 type JobsResponse = { jobs: JobSnapshot[] };
 
+/** One console line from /api/jobs/:id/logs (RunLogEntry shape). */
+type ConsoleEntry = {
+  ts: string;
+  phase: string;
+  text: string;
+  tool?: string;
+  /** Task tool_use id when this line is subagent work (M-066 P-P6). */
+  parent?: string;
+  level: "info" | "error";
+};
+
 function tokenFromPage(): string {
   const query = new URLSearchParams(window.location.search).get("token");
   if (query) {
@@ -56,6 +67,8 @@ export function JobsBoard(): ReactElement {
   const token = useMemo(() => tokenFromPage(), []);
   const [jobs, setJobs] = useState<JobSnapshot[]>([]);
   const [error, setError] = useState<string>("");
+  const [consoleKey, setConsoleKey] = useState<string>("");
+  const [logs, setLogs] = useState<Record<string, ConsoleEntry[]>>({});
 
   const applyEvent = useCallback((event: HubEvent) => {
     if (event.type === "snapshot") {
@@ -136,6 +149,53 @@ export function JobsBoard(): ReactElement {
       body: JSON.stringify({ action, workspace: job.workspacePath }),
     });
   };
+
+  // Per-card console (M-066 P-P6): tails the job's run log while open.
+  const toggleConsole = useCallback(
+    async (job: JobSnapshot): Promise<void> => {
+      const key = `${job.workspacePath}:${job.id}`;
+      if (consoleKey === key) {
+        setConsoleKey("");
+        return;
+      }
+      setConsoleKey(key);
+      const load = async (): Promise<void> => {
+        const response = await fetch(
+          `/api/jobs/${encodeURIComponent(job.id)}/logs?workspace=${encodeURIComponent(job.workspacePath)}`,
+          { headers: authHeaders(token) },
+        );
+        if (!response.ok) return;
+        const body = (await response.json()) as { entries?: ConsoleEntry[] };
+        setLogs((current) => ({ ...current, [key]: body.entries ?? [] }));
+      };
+      await load();
+    },
+    [consoleKey, token],
+  );
+
+  useEffect(() => {
+    if (!consoleKey) return;
+    const job = jobs.find(
+      (row) => `${row.workspacePath}:${row.id}` === consoleKey,
+    );
+    if (!job) return;
+    const refresh = window.setInterval(() => {
+      void fetch(
+        `/api/jobs/${encodeURIComponent(job.id)}/logs?workspace=${encodeURIComponent(job.workspacePath)}`,
+        { headers: authHeaders(token) },
+      )
+        .then(async (response) => {
+          if (!response.ok) return;
+          const body = (await response.json()) as { entries?: ConsoleEntry[] };
+          setLogs((current) => ({
+            ...current,
+            [consoleKey]: body.entries ?? [],
+          }));
+        })
+        .catch(() => undefined);
+    }, 3_000);
+    return () => window.clearInterval(refresh);
+  }, [consoleKey, jobs, token]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, JobSnapshot[]>();
@@ -241,6 +301,40 @@ export function JobsBoard(): ReactElement {
                     >
                       Cancel
                     </button>
+                  </div>
+                ) : null}
+                <div className="hub-actions">
+                  <button type="button" onClick={() => void toggleConsole(job)}>
+                    {consoleKey === `${job.workspacePath}:${job.id}`
+                      ? "Hide console"
+                      : "Console"}
+                  </button>
+                </div>
+                {consoleKey === `${job.workspacePath}:${job.id}` ? (
+                  <div className="hub-console">
+                    {(logs[`${job.workspacePath}:${job.id}`] ?? []).length ===
+                    0 ? (
+                      <p className="hub-console-empty">
+                        No console output yet.
+                      </p>
+                    ) : (
+                      (logs[`${job.workspacePath}:${job.id}`] ?? []).map(
+                        (entry, index) => (
+                          <p
+                            key={`${entry.ts}-${index}`}
+                            className={`hub-console-line${
+                              entry.parent ? " hub-console-sub" : ""
+                            }${entry.level === "error" ? " hub-console-err" : ""}`}
+                          >
+                            <span className="hub-console-phase">
+                              {entry.parent ? "↳ " : ""}
+                              {entry.phase}
+                            </span>
+                            {entry.text}
+                          </p>
+                        ),
+                      )
+                    )}
                   </div>
                 ) : null}
               </li>

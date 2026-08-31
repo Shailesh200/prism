@@ -5,7 +5,10 @@ import { loadConfig, saveConfig } from "./config.js";
 import { DRIVER_LABELS } from "./drivers.js";
 import { exportSettings } from "./export-settings.js";
 import {
+  commitJobPaths,
   defaultBaseBranch,
+  defaultGitRunner,
+  gitDirtyPaths,
   gitSnapshot,
   gitStatusShort,
   type GitRunner,
@@ -16,6 +19,7 @@ import {
   alreadyRunningSpeak,
   ambiguousJobSpeak,
   controlSpeak,
+  dirtyCheckoutSpeak,
   doctorSpeak,
   gitFailureSpeak,
   initSpeak,
@@ -73,6 +77,7 @@ import {
   parseDriverId,
   type DispatchConfig,
   type DriverId,
+  type JobPlacement,
   type JobRecord,
   type MemoryScope,
 } from "./types.js";
@@ -332,6 +337,31 @@ async function startJob(
   if (admission) {
     return { message: admission, maxJobs: config.maxJobs };
   }
+
+  // Placement (ADR-0045): the checkout by default; a worktree only when the
+  // user asks for isolation or the checkout already has a live teammate.
+  const isolationIntent =
+    args.placement === "worktree" || typeof args.branch === "string";
+  let placement: JobPlacement =
+    existing?.placement ?? (isolationIntent ? "worktree" : config.placement);
+  let placementNote = "";
+  if (placement === "checkout" && !existing) {
+    const checkoutBusy = jobs.some(
+      (job) =>
+        job.placement === "checkout" &&
+        job.id !== id &&
+        (job.status === "running" ||
+          job.status === "booting" ||
+          job.status === "ready") &&
+        isProcessAlive(job.workerPid),
+    );
+    if (checkoutBusy) {
+      placement = "worktree";
+      placementNote =
+        "Your checkout already has a teammate in it, so this one took its own branch.";
+    }
+  }
+
   let tree: {
     path: string;
     branch: string;
@@ -339,28 +369,59 @@ async function startJob(
     cursorAgentId?: string;
     claudeSession?: string;
   };
+  let preExistingChanges: string[] = [];
   try {
-    tree = existing
-      ? {
-          path: existing.worktreePath,
-          branch: existing.branch,
-          source: existing.source,
-          ...(existing.cursorAgentId
-            ? { cursorAgentId: existing.cursorAgentId }
-            : {}),
-          ...(existing.claudeSession
-            ? { claudeSession: existing.claudeSession }
-            : {}),
-        }
-      : await adoptOrCreateWorktree({
-          workspaceRoot: options.workspaceRoot,
-          jobId: id,
-          title,
-          ...(typeof args.branch === "string"
-            ? { preferredBranch: args.branch }
-            : {}),
-          ...(options.git ? { run: options.git } : {}),
-        });
+    if (placement === "checkout" && !existing) {
+      const [branchRow, dirty] = await Promise.all([
+        (options.git ?? defaultGitRunner)(options.workspaceRoot, [
+          "rev-parse",
+          "--abbrev-ref",
+          "HEAD",
+        ]),
+        gitDirtyPaths(options.workspaceRoot, options.git),
+      ]);
+      if (!branchRow.ok) {
+        return { message: gitFailureSpeak(branchRow.stderr.trim()) };
+      }
+      // Dirty tree asks first (ADR-0045 §4): the teammate works alongside
+      // whatever the user has in flight, and the finish review subtracts it.
+      if (dirty.length > 0 && args.confirmDirty !== true) {
+        return {
+          needsConfirm: true,
+          dirtyPaths: dirty,
+          message: dirtyCheckoutSpeak(dirty.length),
+        };
+      }
+      const branch = branchRow.stdout.trim() || "HEAD";
+      tree = {
+        path: options.workspaceRoot,
+        branch,
+        source: "checkout",
+      };
+      preExistingChanges = dirty;
+    } else {
+      tree = existing
+        ? {
+            path: existing.worktreePath,
+            branch: existing.branch,
+            source: existing.source,
+            ...(existing.cursorAgentId
+              ? { cursorAgentId: existing.cursorAgentId }
+              : {}),
+            ...(existing.claudeSession
+              ? { claudeSession: existing.claudeSession }
+              : {}),
+          }
+        : await adoptOrCreateWorktree({
+            workspaceRoot: options.workspaceRoot,
+            jobId: id,
+            title,
+            ...(typeof args.branch === "string"
+              ? { preferredBranch: args.branch }
+              : {}),
+            ...(options.git ? { run: options.git } : {}),
+          });
+    }
   } catch (cause) {
     const detail = cause instanceof Error ? cause.message : String(cause);
     return { message: gitFailureSpeak(detail) };
@@ -404,10 +465,14 @@ async function startJob(
     nextStep: "agent booting",
     waitingOn: "",
     workerBackend: backend,
+    placement,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
     ...(tree.cursorAgentId ? { cursorAgentId: tree.cursorAgentId } : {}),
     ...(tree.claudeSession ? { claudeSession: tree.claudeSession } : {}),
+    ...(placement === "checkout" && preExistingChanges.length > 0
+      ? { preExistingChanges }
+      : {}),
   };
   job = await upsertJob(options.workspaceRoot, job);
 
@@ -454,7 +519,12 @@ async function startJob(
       cwd: job.worktreePath,
       name: agentNameForJob(job),
       ...(creds.apiKey ? { apiKey: creds.apiKey } : {}),
-      prompt: workerPrompt({ job, memories, subagents: config.subagents }),
+      prompt: workerPrompt({
+        job,
+        memories,
+        subagents: config.subagents,
+        placement,
+      }),
       mcpCommand: launch.command,
       mcpArgs: launch.args,
       workspaceRoot: options.workspaceRoot,
@@ -462,6 +532,10 @@ async function startJob(
       baseRef: await defaultBaseRef(options),
       subagents: config.subagents,
       verify: config.verifyJobs,
+      placement,
+      ...(job.preExistingChanges
+        ? { preExistingChanges: job.preExistingChanges }
+        : {}),
     });
     job = await upsertJob(options.workspaceRoot, {
       ...job,
@@ -475,7 +549,7 @@ async function startJob(
     });
     return {
       job,
-      message: startJobSpeak(job),
+      message: [startJobSpeak(job), placementNote].filter(Boolean).join(" "),
     };
   } catch (cause) {
     const detail = cause instanceof Error ? cause.message : String(cause);
@@ -666,6 +740,13 @@ async function jobControl(
     const combinedExtra = [job.pendingContext, extra]
       .filter(Boolean)
       .join("\n\n");
+    const jobPlacement = job.placement ?? "worktree";
+    const placementFields = {
+      placement: jobPlacement,
+      ...(job.preExistingChanges
+        ? { preExistingChanges: job.preExistingChanges }
+        : {}),
+    } as const;
     let pid: number | undefined;
     let agentId = job.cursorAgentId;
     // The resume handle is backend-specific: Cursor agentId, Claude session_id.
@@ -681,10 +762,16 @@ async function jobControl(
         prompt:
           action === "attach_context"
             ? combinedExtra || "Continue."
-            : workerPrompt({ job, memories, extra: combinedExtra }),
+            : workerPrompt({
+                job,
+                memories,
+                extra: combinedExtra,
+                placement: jobPlacement,
+              }),
         mcpCommand: launch.command,
         mcpArgs: launch.args,
         workspaceRoot: options.workspaceRoot,
+        ...placementFields,
       });
       if (resumed && typeof resumed.pid === "number") pid = resumed.pid;
     } else {
@@ -693,10 +780,16 @@ async function jobControl(
         cwd: job.worktreePath,
         name: agentNameForJob(job),
         ...(creds.apiKey ? { apiKey: creds.apiKey } : {}),
-        prompt: workerPrompt({ job, memories, extra: combinedExtra }),
+        prompt: workerPrompt({
+          job,
+          memories,
+          extra: combinedExtra,
+          placement: jobPlacement,
+        }),
         mcpCommand: launch.command,
         mcpArgs: launch.args,
         workspaceRoot: options.workspaceRoot,
+        ...placementFields,
       });
       agentId = started.agentId ?? agentId;
       if (typeof started.pid === "number") pid = started.pid;
@@ -714,9 +807,50 @@ async function jobControl(
     return { job: next, message: controlSpeak("resume", next) };
   }
 
+  if (action === "commit") {
+    // Checkout jobs finish uncommitted (ADR-0045 §2); this is the explicit
+    // "commit it". Only the job-touched set is staged — never the user's
+    // unrelated uncommitted work.
+    if ((job.placement ?? "worktree") !== "checkout") {
+      return {
+        message: `${jobRef(job)} is already committed on its own branch — review it there.`,
+        job,
+      };
+    }
+    const paths = (job.review?.files ?? []).map((file) => file.path);
+    if (paths.length === 0) {
+      return {
+        message: `${jobRef(job)} has no file changes to commit.`,
+        job,
+      };
+    }
+    const commit = await commitJobPaths(
+      options.workspaceRoot,
+      { jobId: job.id, title: job.title, paths },
+      ...(options.git ? ([options.git] as const) : ([] as const)),
+    );
+    if (!commit.committed) {
+      return {
+        message: `${jobRef(job)} — those files are no longer changed in your tree, so there is nothing to commit.`,
+        job,
+      };
+    }
+    const next = await upsertJob(options.workspaceRoot, {
+      ...job,
+      status: "done",
+      ...(commit.sha ? { commitSha: commit.sha } : {}),
+      nextStep: "",
+      waitingOn: "",
+    });
+    return {
+      job: next,
+      message: `Committed ${jobRef(next)} on your current branch — ${commit.summary || "its files"}${commit.sha ? ` (${commit.sha})` : ""}. Only the job's files were included; your other changes are untouched.`,
+    };
+  }
+
   return {
     message:
-      "job_control action must be pause, resume, cancel, or attach_context.",
+      "job_control action must be pause, resume, cancel, attach_context, or commit.",
     job,
   };
 }
@@ -1228,6 +1362,34 @@ async function configureTool(
     patchRaw && typeof patchRaw === "object"
       ? (patchRaw as Record<string, unknown>)
       : {};
+
+  // Free-form wishes first (M-066 P-P9): "configure" never says no — a wish
+  // that is not a typed setting becomes a standing preference.
+  const current = await loadConfig(workspaceRoot);
+  let preferences = current.preferences;
+  const preferenceNotes: string[] = [];
+  const addPreference = String(
+    args.preference ?? args.pref ?? patch.preference ?? "",
+  ).trim();
+  if (addPreference) {
+    preferences = [...preferences, addPreference];
+    preferenceNotes.push(`Noted: "${addPreference}"`);
+  }
+  const removePreference = String(
+    args.removePreference ?? patch.removePreference ?? "",
+  ).trim();
+  if (removePreference) {
+    const before = preferences.length;
+    preferences = preferences.filter(
+      (item) => !item.includes(removePreference),
+    );
+    preferenceNotes.push(
+      before === preferences.length
+        ? `No preference matched "${removePreference}".`
+        : `Dropped ${before - preferences.length} preference(s).`,
+    );
+  }
+
   const allowed: Partial<DispatchConfig> = {};
   const parsed = DispatchConfigSchema.partial().safeParse({
     sectionOrder: patch.sectionOrder,
@@ -1239,18 +1401,44 @@ async function configureTool(
     fanout: patch.fanout,
     verifyJobs: patch.verifyJobs,
     workerBackend: patch.workerBackend,
+    placement: patch.placement,
     ticketHost: patch.ticketHost,
     mentionWindowHours: patch.mentionWindowHours,
     mentionLimit: patch.mentionLimit,
     trackedMessageLimit: patch.trackedMessageLimit,
     slackTrackChannelIds: patch.slackTrackChannelIds,
+    preferences,
   });
   if (!parsed.success) {
     return { message: `Invalid configure patch: ${parsed.error.message}` };
   }
   Object.assign(allowed, parsed.data);
+
+  // Unknown keys must not silently drop: they become preferences, loudly.
+  const KNOWN_PATCH_KEYS = new Set([
+    "action",
+    "patch",
+    "config",
+    "preference",
+    "pref",
+    "removePreference",
+    "includeMemories",
+    ...Object.keys(DispatchConfigSchema.shape),
+  ]);
+  for (const [key, value] of Object.entries(patch)) {
+    if (KNOWN_PATCH_KEYS.has(key) || value === undefined) continue;
+    const note = `${key}: ${typeof value === "string" ? value : JSON.stringify(value)}`;
+    allowed.preferences = [...(allowed.preferences ?? preferences), note];
+    preferenceNotes.push(
+      `"${key}" is not a Dispatch setting, so I kept it as a standing preference ("${note}").`,
+    );
+  }
+
   const config = await saveConfig(workspaceRoot, allowed);
-  return { config, message: formatConfig(config) };
+  const message = [formatConfig(config), ...preferenceNotes]
+    .filter(Boolean)
+    .join(" — ");
+  return { config, message };
 }
 
 function formatConfig(config: DispatchConfig): string {
@@ -1261,10 +1449,16 @@ function formatConfig(config: DispatchConfig): string {
     `fanout=${config.fanout}`,
     `verifyJobs=${config.verifyJobs}`,
     `workerBackend=${config.workerBackend}`,
+    `placement=${config.placement}`,
     `ticketHost=${config.ticketHost}`,
     `slack channels=${config.slackTrackChannelIds.join(",") || "(none)"}`,
     `mention window=${config.mentionWindowHours}h cap=${config.mentionLimit}`,
-  ].join(" · ");
+    config.preferences.length > 0
+      ? `preferences: ${config.preferences.join(" · ")}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 async function initTool(

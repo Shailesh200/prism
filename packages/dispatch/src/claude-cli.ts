@@ -36,6 +36,9 @@ export function claudeWorkerArgs(input: {
     "stream-json",
     "--verbose",
     "--bare",
+    // Subagent text/thinking flows into the stream so the console can show
+    // what each subagent did (M-066 P-P6).
+    ...(input.subagents ? ["--forward-subagent-text"] : []),
     "--permission-mode",
     "acceptEdits",
     "--tools",

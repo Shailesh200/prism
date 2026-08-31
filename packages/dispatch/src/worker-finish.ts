@@ -1,33 +1,41 @@
 /**
- * How a worker run ends — the same for every backend (ADR-0042, ADR-0044 §7).
+ * How a worker run ends — the same for every backend (ADR-0042, ADR-0044 §7),
+ * now forked on placement (ADR-0045).
  *
  * The agent (Cursor SDK or Claude CLI) never commits and never runs checks.
- * When it stops, the worker child calls these: commit the worktree onto the
- * job branch, run typecheck/test, audit cited paths, and leave a review the
- * human lands — or doesn't. Extracted so a second backend cannot drift from
- * the contract.
+ * When it stops, the worker child calls these. Worktree placement: commit the
+ * worktree onto the job branch, run checks, leave a review the human lands.
+ * Checkout placement: no commit — the edits stay uncommitted in the user's
+ * tree, checks run against the live tree, and the review subtracts whatever
+ * was already dirty at dispatch.
  */
 
 import {
   commitJobWork,
   committedJobPaths,
   gitChangeSummary,
+  gitCheckoutReview,
   gitReviewSummary,
 } from "./git.js";
 import { auditCitedPaths, fabricationNote } from "./job-artifacts.js";
 import { verifyJobWork } from "./job-verify.js";
 import { publicRunFailure } from "./job-voice.js";
 import { composeJobResult, type RunState } from "./run-state.js";
+import type { JobPlacement } from "./types.js";
 
 export type WorkerFinishInput = {
   readonly jobId: string;
-  /** The job worktree. */
+  /** The job worktree, or the user's checkout for placement=checkout. */
   readonly cwd: string;
   readonly workspaceRoot: string;
   readonly title?: string;
   readonly baseRef?: string;
   readonly branch?: string;
   readonly verify?: boolean;
+  /** Absent = worktree (the pre-M-066 default). */
+  readonly placement?: JobPlacement;
+  /** Checkout only: paths already dirty at dispatch (ADR-0045 §3). */
+  readonly preExistingChanges?: readonly string[];
 };
 
 export type WorkerFinishDeps = {
@@ -44,14 +52,17 @@ export async function failWorkerRun(
   detail: string,
   deps: WorkerFinishDeps,
 ): Promise<void> {
-  const gitSummary = await gitChangeSummary(input.cwd);
+  const checkout = input.placement === "checkout";
+  const gitSummary = checkout ? "" : await gitChangeSummary(input.cwd);
   await deps.logLine("failed", detail || "the run failed");
   await deps.patch(
     {
       phase: "failed",
       errorMessage: publicRunFailure(detail || "the run failed"),
       gitSummary,
-      resultSummary: gitSummary,
+      resultSummary: checkout
+        ? "Any edits it made are uncommitted in your working tree."
+        : gitSummary,
       completedAt: new Date().toISOString(),
     },
     { immediate: true },
@@ -63,7 +74,8 @@ export async function cancelWorkerRunFinish(
   input: WorkerFinishInput,
   deps: WorkerFinishDeps,
 ): Promise<void> {
-  const gitSummary = await gitChangeSummary(input.cwd);
+  const checkout = input.placement === "checkout";
+  const gitSummary = checkout ? "" : await gitChangeSummary(input.cwd);
   await deps.logLine("cancelled", "Cancelled");
   await deps.patch(
     {
@@ -77,11 +89,12 @@ export async function cancelWorkerRunFinish(
 }
 
 /**
- * The agent stopped normally. Commit before anything else reads the tree:
- * until the work is on the branch it is untracked in a worktree the user is
- * never told about, and pruning that worktree destroys it (ADR-0042 §1).
+ * The agent stopped normally, worktree placement. Commit before anything
+ * else reads the tree: until the work is on the branch it is untracked in a
+ * worktree the user is never told about, and pruning that worktree destroys
+ * it (ADR-0042 §1).
  */
-export async function completeWorkerRun(
+async function completeWorktreeRun(
   input: WorkerFinishInput,
   assistant: string,
   deps: WorkerFinishDeps,
@@ -147,4 +160,82 @@ export async function completeWorkerRun(
     },
     { immediate: true },
   );
+}
+
+/**
+ * The agent stopped normally, checkout placement (ADR-0045 §2). No commit:
+ * the edits stay uncommitted in the user's tree. The review is the diff
+ * minus what was already dirty at dispatch.
+ */
+async function completeCheckoutRun(
+  input: WorkerFinishInput,
+  assistant: string,
+  deps: WorkerFinishDeps,
+): Promise<void> {
+  const preExisting = input.preExistingChanges ?? [];
+
+  await deps.patch({ lastActivity: "Running checks" });
+  const checked = await verifyJobWork(input.cwd, {
+    enabled: input.verify !== false,
+  });
+  // Checks ran against the live tree; say so when the user's own uncommitted
+  // work was in it, so a failure is not misattributed to the job (§7).
+  const verificationDetail =
+    preExisting.length > 0 && checked.status !== "skipped"
+      ? `${checked.detail} (your uncommitted changes were present)`.trim()
+      : checked.detail;
+
+  const review = await gitCheckoutReview(input.cwd, {
+    preExisting,
+    ...(input.branch ? { branch: input.branch } : {}),
+  });
+
+  const committedPaths = review.files.map((file) => file.path);
+  const audit = await auditCitedPaths({
+    text: assistant,
+    worktreePath: input.cwd,
+    committedPaths,
+  });
+
+  const changed = review.files.length > 0;
+  const gitSummary = changed
+    ? `${review.files.length} file(s) in your working tree, +${review.totalAdded} -${review.totalRemoved}, uncommitted`
+    : "";
+  await deps.logLine(
+    "done",
+    changed
+      ? `Done — ${review.files.length} file(s) in your working tree, uncommitted`
+      : "Done — no reviewable change",
+  );
+  await deps.patch(
+    {
+      phase: "done",
+      gitSummary,
+      review,
+      verification: checked.status,
+      verificationDetail,
+      resultSummary: composeJobResult({
+        gitSummary,
+        assistant,
+        committed: false,
+        verification: checked.status,
+        verificationDetail,
+        fabricationNote: fabricationNote(audit),
+      }),
+      lastActivity: "Done",
+      completedAt: new Date().toISOString(),
+    },
+    { immediate: true },
+  );
+}
+
+export async function completeWorkerRun(
+  input: WorkerFinishInput,
+  assistant: string,
+  deps: WorkerFinishDeps,
+): Promise<void> {
+  if (input.placement === "checkout") {
+    return completeCheckoutRun(input, assistant, deps);
+  }
+  return completeWorktreeRun(input, assistant, deps);
 }

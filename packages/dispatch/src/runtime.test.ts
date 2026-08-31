@@ -362,6 +362,63 @@ describe("remember + configure", () => {
     expect(exported.settings.slackTrackChannelIds).toEqual(["C999"]);
     expect(JSON.stringify(exported)).not.toMatch(/accessToken|xoxp-|ghp_/);
   });
+
+  it("keeps standing preferences and lists them (M-066 P-P9)", async () => {
+    root = await tempRoot();
+    const runtime = createDispatchRuntime({ workspaceRoot: root, git });
+    const added = (await runtime.handle("configure", {
+      action: "set",
+      preference: "standup: terse, no headings",
+    })) as { config: { preferences: string[] }; message: string };
+    expect(added.config.preferences).toEqual(["standup: terse, no headings"]);
+    expect(added.message).toMatch(/noted/i);
+
+    const listed = (await runtime.handle("configure", {
+      action: "get",
+    })) as { message: string };
+    expect(listed.message).toContain("standup: terse");
+
+    const removed = (await runtime.handle("configure", {
+      action: "set",
+      removePreference: "terse",
+    })) as { config: { preferences: string[] }; message: string };
+    expect(removed.config.preferences).toEqual([]);
+    expect(removed.message).toMatch(/dropped/i);
+  });
+
+  it("never silently drops an unknown setting — it becomes a preference, loudly", async () => {
+    root = await tempRoot();
+    const runtime = createDispatchRuntime({ workspaceRoot: root, git });
+    const result = (await runtime.handle("configure", {
+      action: "set",
+      maxjobs: 2,
+    })) as {
+      config: { maxJobs: number; preferences: string[] };
+      message: string;
+    };
+    // The typo did not set maxJobs…
+    expect(result.config.maxJobs).toBe(4);
+    // …and it was not silently dropped either.
+    expect(result.config.preferences).toEqual(["maxjobs: 2"]);
+    expect(result.message).toMatch(/not a Dispatch setting/i);
+  });
+
+  it("carries standing preferences into the standup briefing", async () => {
+    root = await tempRoot();
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      fetchImpl: mockBrokerFetch(),
+    });
+    await runtime.handle("configure", {
+      action: "set",
+      preference: "greet me as Chief",
+    });
+    const day = (await runtime.handle("start_my_day", {})) as {
+      message: string;
+    };
+    expect(day.message).toContain("greet me as Chief");
+  });
 });
 
 describe("jobs, worktrees, overlap, cap", () => {
@@ -383,6 +440,7 @@ describe("jobs, worktrees, overlap, cap", () => {
 
   it("adopts a matching git worktree instead of creating one", async () => {
     root = await tempRoot();
+    await saveConfig(root, { placement: "worktree" });
     const adoptGit: GitRunner = async (_cwd, args) => {
       if (args[0] === "worktree" && args[1] === "list") {
         return {
@@ -416,7 +474,7 @@ describe("jobs, worktrees, overlap, cap", () => {
 
   it("asks for confirm when a second job would share a dirty tree", async () => {
     root = await tempRoot();
-    await saveConfig(root, { maxJobs: 2 });
+    await saveConfig(root, { maxJobs: 2, placement: "worktree" });
     const sharedGit: GitRunner = async (_cwd, args) => {
       if (args[0] === "worktree" && args[1] === "list") {
         return {
@@ -450,7 +508,7 @@ describe("jobs, worktrees, overlap, cap", () => {
 
   it("refuses a new job past maxJobs", async () => {
     root = await tempRoot();
-    await saveConfig(root, { maxJobs: 1 });
+    await saveConfig(root, { maxJobs: 1, placement: "worktree" });
     const runtime = createDispatchRuntime({
       workspaceRoot: root,
       git,
@@ -471,6 +529,7 @@ describe("jobs, worktrees, overlap, cap", () => {
 
   it("follows getWorkspaceRoot when the MCP client later reports the repo", async () => {
     root = await tempRoot();
+    await saveConfig(root, { placement: "worktree" });
     const trees: string[] = [];
     const liveGit: GitRunner = async (cwd, args) => {
       if (args[0] === "worktree" && args[1] === "add") {
@@ -522,6 +581,7 @@ describe("jobs, worktrees, overlap, cap", () => {
 
   it("records the job when the worker fails to start", async () => {
     root = await tempRoot();
+    await saveConfig(root, { placement: "worktree" });
     const exploding: WorkerPort = {
       async start() {
         throw new Error("@cursor/sdk is not installed");
@@ -549,6 +609,7 @@ describe("jobs, worktrees, overlap, cap", () => {
 
   it("injects memories into the worker prompt", async () => {
     root = await tempRoot();
+    await saveConfig(root, { placement: "worktree" });
     await remember({
       workspaceRoot: root,
       text: "Use existing Button primitive",
@@ -580,6 +641,7 @@ describe("jobs, worktrees, overlap, cap", () => {
 
   it("starts a worker from a stored Cursor SDK login without CURSOR_API_KEY", async () => {
     root = await tempRoot();
+    await saveConfig(root, { placement: "worktree" });
     const stored: CursorAuthPort = {
       async status() {
         return { kind: "stored", email: "dev@prism.test" };
@@ -620,6 +682,7 @@ describe("jobs, worktrees, overlap, cap", () => {
 
   it("uses a title slug as the canonical job id", async () => {
     root = await tempRoot();
+    await saveConfig(root, { placement: "worktree" });
     let workerName = "";
     const capturing: WorkerPort = {
       async start(input) {
@@ -650,6 +713,7 @@ describe("jobs, worktrees, overlap, cap", () => {
 
   it("runs Cursor login from start_job when nothing is stored", async () => {
     root = await tempRoot();
+    await saveConfig(root, { placement: "worktree" });
     const loggingIn: CursorAuthPort = {
       async status() {
         return { kind: "missing" };
@@ -993,6 +1057,7 @@ describe("live status and completion inbox", () => {
 
   it("passes the job id into the worker port so the sidecar can be named", async () => {
     root = await tempRoot();
+    await saveConfig(root, { placement: "worktree" });
     let jobId = "";
     const capturing: WorkerPort = {
       async start(input) {

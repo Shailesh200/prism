@@ -251,6 +251,14 @@ export function formatBriefing(input: {
   if (input.config.standupTemplate.trim()) {
     lines.push(input.config.standupTemplate.trim(), "");
   }
+  // Standing wishes travel with the briefing so the presenting agent can
+  // apply them (M-066 P-P9). They shape presentation, never content.
+  if (input.config.preferences.length > 0) {
+    lines.push(
+      `_Standing preferences: ${input.config.preferences.join(" · ")}_`,
+      "",
+    );
+  }
 
   lines.push("## Yesterday");
   const yesterdayLines = yesterdaySection(input.git, finished, input.drivers);

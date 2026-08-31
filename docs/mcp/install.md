@@ -64,6 +64,10 @@ Restart Claude Code if it was already open. Ask: "What is this repository?"
 Dispatch jobs run on the Claude Code you are already signed in to — no Cursor
 login. Say **prism init** to check that sign-in before starting a job.
 
+Optional footer: `npx -y --prefer-online @repo-prism/dispatch-hub@latest
+statusline --setup` prints a `statusLine` block for `~/.claude/settings.json`
+— live job state pinned under the prompt.
+
 ## Cursor (manual)
 
 If the deeplink above does not work, create `.cursor/mcp.json` at the project root (or `~/.cursor/mcp.json` for every

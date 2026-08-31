@@ -87,6 +87,10 @@ export type WorkerBackend = z.infer<typeof WorkerBackendSchema>;
 export const WorkerBackendSettingSchema = z.enum(["auto", "cursor", "claude"]);
 export type WorkerBackendSetting = z.infer<typeof WorkerBackendSettingSchema>;
 
+/** Where a job works (ADR-0045): the user's checkout, or an isolated worktree. */
+export const JobPlacementSchema = z.enum(["checkout", "worktree"]);
+export type JobPlacement = z.infer<typeof JobPlacementSchema>;
+
 export const DispatchConfigSchema = z.object({
   sectionOrder: z
     .array(BriefingSectionIdSchema)
@@ -114,11 +118,23 @@ export const DispatchConfigSchema = z.object({
    * host: claude-code chats get Claude workers, everything else Cursor.
    */
   workerBackend: WorkerBackendSettingSchema.default("auto"),
+  /**
+   * Where jobs work (ADR-0045). "checkout" (default) edits the user's tree
+   * and leaves changes uncommitted; "worktree" restores the pre-M-066
+   * isolated branch + commit-on-finish default.
+   */
+  placement: JobPlacementSchema.default("checkout"),
   ticketHost: TicketHostSchema.default("linear"),
   mentionWindowHours: z.number().int().min(1).max(168).default(24),
   mentionLimit: z.number().int().min(1).max(50).default(10),
   trackedMessageLimit: z.number().int().min(1).max(50).default(15),
   slackTrackChannelIds: z.array(z.string()).max(5).default([]),
+  /**
+   * Standing free-form wishes (M-066 P-P9): "standup: terse", "greet me by
+   * name". Surfaced in the standup so the presenting agent applies them.
+   * Job-behavior rules belong in `remember`, not here.
+   */
+  preferences: z.array(z.string()).default([]),
 });
 export type DispatchConfig = z.infer<typeof DispatchConfigSchema>;
 
@@ -179,10 +195,21 @@ export const JobReviewSchema = z.object({
   committed: z.boolean().default(false),
   /** Always false: Prism does not merge a job for the user. */
   merged: z.literal(false).default(false),
+  /**
+   * Paths dirty at dispatch that the job also touched (ADR-0045 §3) — the
+   * user's change and the job's change are genuinely mixed there.
+   */
+  mixedPaths: z.array(z.string()).default([]),
 });
 export type JobReview = z.infer<typeof JobReviewSchema>;
 
-export const WorktreeSourceSchema = z.enum(["cursor", "claude", "prism"]);
+export const WorktreeSourceSchema = z.enum([
+  "cursor",
+  "claude",
+  "prism",
+  /** The user's own checkout — no worktree at all (ADR-0045). */
+  "checkout",
+]);
 export type WorktreeSource = z.infer<typeof WorktreeSourceSchema>;
 
 export const JobRecordSchema = z.object({
@@ -199,6 +226,16 @@ export const JobRecordSchema = z.object({
   workerBackend: WorkerBackendSchema.optional(),
   /** Claude session_id, captured from stream-json init; the resume handle. */
   workerSessionId: z.string().optional(),
+  /**
+   * Where this job works (ADR-0045). Absent on pre-M-066 records = worktree
+   * (every job was isolated then).
+   */
+  placement: JobPlacementSchema.optional(),
+  /**
+   * Paths already dirty in the checkout when the job was dispatched. The
+   * review and any later commit subtract them (ADR-0045 §3).
+   */
+  preExistingChanges: z.array(z.string()).optional(),
   workerPid: z.number().int().optional(),
   runId: z.string().optional(),
   lastActivity: z.string().optional(),

@@ -153,6 +153,7 @@ describe("a finished job asks before it lands", () => {
     baseRef: "main",
     committed: true,
     merged: false,
+    mixedPaths: [],
   };
 
   it("moves a done job with work to needs_review", () => {
@@ -190,6 +191,7 @@ describe("a finished job asks before it lands", () => {
         baseRef: "main",
         committed: false,
         merged: false,
+        mixedPaths: [],
       },
       startedAt: baseJob.createdAt,
       updatedAt: new Date().toISOString(),

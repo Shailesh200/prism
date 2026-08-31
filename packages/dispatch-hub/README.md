@@ -14,5 +14,12 @@ npx prism-hub
 `PRISM_HUB=0` on the MCP process skips spawn. `PRISM_HUB_HOME` and
 `PRISM_HUB_PORT` override the state directory and bind port (tests).
 
+## Claude Code statusLine (M-066)
+
+`prism-hub statusline` prints one line of live job state for Claude Code's
+footer — it reads the same `.prism/dispatch/` files, so it works with no
+daemon running. `--setup` prints the `statusLine` block to merge into
+`~/.claude/settings.json`.
+
 **Must never** be imported by `@repo-prism/core` or any engine package. The
 IDE extension talks to it over HTTP rather than importing this package.

@@ -174,3 +174,52 @@ describe("claudeActivityFrom", () => {
     expect(claudeActivityFrom(toolResult)).toBeUndefined();
   });
 });
+
+describe("subagent grouping (M-066 P-P6)", () => {
+  it("carries parent_tool_use_id onto the console entry", () => {
+    const subagentEdit = {
+      type: "assistant",
+      session_id: "sess-1",
+      parent_tool_use_id: "toolu_task_1",
+      message: {
+        role: "assistant",
+        content: [
+          {
+            type: "tool_use",
+            id: "toolu_2",
+            name: "Edit",
+            input: { file_path: "src/sub.ts" },
+          },
+        ],
+      },
+    };
+    const entry = claudeLogEntryFrom(subagentEdit);
+    expect(entry?.parent).toBe("toolu_task_1");
+    expect(entry?.phase).toBe("editing");
+  });
+
+  it("labels a Task call as the subagent root", () => {
+    const taskCall = {
+      type: "assistant",
+      session_id: "sess-1",
+      message: {
+        role: "assistant",
+        content: [
+          {
+            type: "tool_use",
+            id: "toolu_task_1",
+            name: "Task",
+            input: { description: "map the login flow" },
+          },
+        ],
+      },
+    };
+    const entry = claudeLogEntryFrom(taskCall);
+    expect(entry?.text).toBe("Subagent: map the login flow");
+    expect(entry?.parent).toBeUndefined();
+  });
+
+  it("leaves primary-agent entries unparented", () => {
+    expect(claudeLogEntryFrom(assistantToolUse)?.parent).toBeUndefined();
+  });
+});

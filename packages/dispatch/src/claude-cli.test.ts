@@ -32,8 +32,10 @@ describe("claudeWorkerArgs", () => {
     const withSub = claudeWorkerArgs({ subagents: true });
     const tools = withSub[withSub.indexOf("--tools") + 1] ?? "";
     expect(tools.split(",")).toContain("Task");
+    expect(withSub).toContain("--forward-subagent-text");
     const without = claudeWorkerArgs({ subagents: false });
     expect(without[without.indexOf("--tools") + 1]).not.toContain("Task");
+    expect(without).not.toContain("--forward-subagent-text");
   });
 
   it("resumes a session by id", () => {

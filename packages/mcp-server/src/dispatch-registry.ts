@@ -66,7 +66,7 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     name: "start_job",
     title: "Start a Dispatch job",
     description:
-      "Hand a code change to a background teammate. Call this for ANY request to change this repository — fix a bug or broken behaviour, implement, add, wire up, refactor, rename, migrate, or make one area behave like another. Intent is enough: it does not require the words “start working on”, a ticket id, or a PRD, so “the highlighting is not working in the news tab, fix that issue” is a start_job. Derive title and prd yourself from the request plus the repo; do not interview the user. Say in one line what you are starting, then call it. An explicit request overrides every exclusion that follows: if the user asks for a background job in words (“start working on …”, “start a job”, “dispatch this”, “in the background”, “hand it off”), call this even when the task is read-only — “start working on reviewing the local changes” is a start_job, and answering it inline while explaining why you did not dispatch is wrong. Otherwise do NOT call this when the user wants it done inline now (“do it now”, “right here”, “yourself”, “quick fix”, “don't dispatch”), when they are asking a question rather than assigning work, for one trivial fully-specified edit, or for a repo-wide audit (repository_health). Always pass workspace as the absolute path of the git repository you are editing (the folder that contains .git). Starts a local teammate in its own worktree — a Cursor agent in Cursor, a Claude Code agent in Claude Code (host node_modules linked; no shell; no second Prism MCP; may use in-process subagents for multi-part work) — and returns immediately. When the teammate stops, Prism commits its work to the job branch and runs typecheck and tests, so the result carries a real pass/fail. Speak only the tool message: use the job title and canonical id (ticket like AI-971 or slug like audit-issues), never job-<hex>, worktree paths, or API keys. Tell the user to say where are we for live status and the result when it finishes. Jobs are admitted on free memory, so a second teammate may be refused while one is running. If sign-in is needed, the message says what to do (Cursor: a login page opens; Claude Code: run claude once in a terminal). If Cursor shows “Authenticating prism…” with Skip, tell the user to click Skip and retry. If the tool says Prism does not see a git repository, retry once with workspace set to the open project path — do not throw PRISM_UNKNOWN at the user.",
+      "Hand a code change to a background teammate. Call this for ANY request to change this repository — fix a bug or broken behaviour, implement, add, wire up, refactor, rename, migrate, or make one area behave like another. Intent is enough: it does not require the words “start working on”, a ticket id, or a PRD, so “the highlighting is not working in the news tab, fix that issue” is a start_job. Derive title and prd yourself from the request plus the repo; do not interview the user. Say in one line what you are starting, then call it. An explicit request overrides every exclusion that follows: if the user asks for a background job in words (“start working on …”, “start a job”, “dispatch this”, “in the background”, “hand it off”), call this even when the task is read-only — “start working on reviewing the local changes” is a start_job, and answering it inline while explaining why you did not dispatch is wrong. Otherwise do NOT call this when the user wants it done inline now (“do it now”, “right here”, “yourself”, “quick fix”, “don't dispatch”), when they are asking a question rather than assigning work, for one trivial fully-specified edit, or for a repo-wide audit (repository_health). Always pass workspace as the absolute path of the git repository you are editing (the folder that contains .git). Starts a local teammate — a Cursor agent in Cursor, a Claude Code agent in Claude Code (no shell; no second Prism MCP; may use in-process subagents for multi-part work) — and returns immediately. By default the teammate works in the user's own checkout and leaves edits uncommitted (ADR-0045); pass placement=worktree when the user asks for a separate branch/worktree or wants their tree left alone. When the teammate stops, Prism runs typecheck and tests, so the result carries a real pass/fail; worktree jobs also get a commit on the job branch. Speak only the tool message: use the job title and canonical id (ticket like AI-971 or slug like audit-issues), never job-<hex>, worktree paths, or API keys. Tell the user to say where are we for live status and the result when it finishes. Jobs are admitted on free memory, so a second teammate may be refused while one is running. If the tree has uncommitted changes, the tool asks first — relay that and re-call with confirmDirty=true only if the user agrees. If sign-in is needed, the message says what to do (Cursor: a login page opens; Claude Code: run claude once in a terminal). If Cursor shows “Authenticating prism…” with Skip, tell the user to click Skip and retry. If the tool says Prism does not see a git repository, retry once with workspace set to the open project path — do not throw PRISM_UNKNOWN at the user.",
     inputSchema: {
       title: z.string().describe("Ticket id and/or short job title"),
       prd: z
@@ -83,6 +83,18 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
         .string()
         .optional()
         .describe("Preferred branch when creating a worktree"),
+      placement: z
+        .enum(["checkout", "worktree"])
+        .optional()
+        .describe(
+          "Where the teammate works. Default checkout (the user's tree, uncommitted edits). Use worktree when the user asks for a separate branch or wants their tree untouched.",
+        ),
+      confirmDirty: z
+        .boolean()
+        .optional()
+        .describe(
+          "Set true only after the user agrees a checkout job may work alongside their uncommitted changes",
+        ),
       workspace: z
         .string()
         .optional()
@@ -141,14 +153,16 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     name: "job_control",
     title: "Control a Dispatch job",
     description:
-      "Pause, resume, cancel, or add context to a running Dispatch job. Speak only the tool message, using the job title and canonical id. jobId may be a ticket, a slug like audit-issues, or the title.",
+      "Pause, resume, cancel, add context to, or commit a Dispatch job. commit is only for checkout jobs that finished with uncommitted edits — it stages exactly the job's files on the user's current branch, never anything else. Speak only the tool message, using the job title and canonical id. jobId may be a ticket, a slug like audit-issues, or the title.",
     inputSchema: {
       jobId: z
         .string()
         .describe("Canonical job id (ticket or slug) or the job title"),
       action: z
-        .enum(["pause", "resume", "cancel", "attach_context"])
-        .describe("pause, resume, cancel, or attach_context"),
+        .enum(["pause", "resume", "cancel", "attach_context", "commit"])
+        .describe(
+          "pause, resume, cancel, attach_context, or commit (checkout jobs only)",
+        ),
       context: z
         .string()
         .optional()
@@ -209,7 +223,7 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     name: "configure",
     title: "Configure Dispatch",
     description:
-      "Read or update gitignored Dispatch settings: section order, standup template, Slack tracked channel ids, mention window and caps, max parallel jobs (default 4, admitted on free memory), in-process subagents, host fan-out, post-job verification, worker backend (auto = match this host, cursor, or claude), hint policy, and whether the tickets slot is Linear or Jira. action=export returns a non-secret template (no tokens) for sharing. Chat only — there is no settings UI in v1.",
+      'Read or update gitignored Dispatch settings: section order, standup template, Slack tracked channel ids, mention window and caps, max parallel jobs (default 4, admitted on free memory), in-process subagents, host fan-out, post-job verification, worker backend (auto = match this host, cursor, or claude), placement (checkout = your tree uncommitted, worktree = separate branch + commit), hint policy, and whether the tickets slot is Linear or Jira. Any other wish works too: pass preference="…" to add a standing preference (applied to standup presentation), removePreference="…" to drop one; an unknown setting key is kept as a preference and said so, never silently dropped. Job-behavior rules belong to remember, not configure. action=export returns a non-secret template (no tokens) for sharing. Chat only — there is no settings UI in v1.',
     inputSchema: {
       action: z
         .enum(["get", "set", "export"])
@@ -234,6 +248,22 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
         .describe(
           "Which agent runs jobs: auto (match this host), cursor, or claude",
         ),
+      placement: z
+        .enum(["checkout", "worktree"])
+        .optional()
+        .describe(
+          "Where jobs work: checkout (default — your tree, uncommitted) or worktree (separate branch + commit)",
+        ),
+      preference: z
+        .string()
+        .optional()
+        .describe(
+          "Add a standing free-form preference (e.g. 'standup: terse'). Applied to standup presentation.",
+        ),
+      removePreference: z
+        .string()
+        .optional()
+        .describe("Drop standing preferences containing this text"),
       hints: z.boolean().optional(),
       ticketHost: z.enum(["linear", "jira"]).optional(),
       standupTemplate: z.string().optional(),
@@ -394,9 +424,14 @@ async function decorateDispatchValue(
   getRoot: () => string,
   env: NodeJS.ProcessEnv,
 ): Promise<unknown> {
-  if (name !== "list_jobs" && name !== "dispatch_doctor") return value;
+  if (
+    name !== "list_jobs" &&
+    name !== "dispatch_doctor" &&
+    name !== "start_job"
+  )
+    return value;
   const hub: HubHandle =
-    name === "list_jobs"
+    name === "list_jobs" || name === "start_job"
       ? await ensureHub({ workspaceRoot: getRoot(), env }).catch(() => ({
           enabled: false,
           detail: "Jobs board did not start.",
@@ -406,7 +441,8 @@ async function decorateDispatchValue(
   const record = value as { message?: string; [key: string]: unknown };
   if (typeof record.message !== "string") return value;
   const board = hub.dashboardUrl ?? hub.url;
-  if (name === "list_jobs" && board) {
+  // P-P8: the dispatch moment names the watch surface, not just list_jobs.
+  if ((name === "list_jobs" || name === "start_job") && board) {
     return {
       ...record,
       dashboardUrl: board,

@@ -329,10 +329,14 @@ export type VerificationStatus = z.infer<typeof VerificationStatusSchema>;
 export function composeJobResult(input: JobResultInput): string {
   const parts: string[] = [];
 
-  if (input.committed && input.gitSummary.trim()) {
-    parts.push(input.gitSummary.trim());
+  // Checkout placements finish uncommitted with real changes (ADR-0045 §2),
+  // so an uncommitted run with a summary is reviewable; only an empty one is
+  // "no reviewable change" (ADR-0042 §1).
+  const summary = input.gitSummary.trim();
+  if (input.committed && summary) {
+    parts.push(summary);
   } else if (!input.committed) {
-    parts.push("Produced no reviewable change.");
+    parts.push(summary || "Produced no reviewable change.");
   }
 
   const text = clip(input.assistant, 360);
