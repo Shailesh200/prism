@@ -11,7 +11,8 @@ Intelligence tools still map the repo. Same server name `prism`.
 | You say | What happens |
 |---|---|
 | "start my day" | `start_my_day` — greeting, yesterday (git + finished work), then open Linear/GitHub/Slack |
-| "fix the flaky login test" / "implement AI-971" | `start_job` — describing work is enough; there is no trigger phrase. The agent says what it is starting first, so you can stop it |
+| any request to change code ("fix the news tab highlighting") | `start_job` — no trigger phrase; the agent says what it is starting first |
+| that request plus "do it now" / "right here" | no job — the agent edits inline |
 | "prism init" | `init` — same Cursor login page, without starting a job |
 | "where are we" | `list_jobs` — live activity, then finished results or errors |
 | "remember …" | `remember` |
@@ -43,13 +44,11 @@ hourly; if start-my-day says access expired, connect Calendar again.
 with the agent loop in a **separate Node process** so chat stays responsive.
 The agent passes `workspace` itself; do not paste a path into mcp.json.
 
-Job agents get **no shell** and **no Prism MCP** (no second index), and job
-worktrees **symlink** the host `node_modules`, so a teammate cannot install
-packages or fill the disk. For multi-part work a teammate splits itself into
-**subagents inside its own process**, adding no worktree and no second index.
-Repo-wide “find issues / audit” is host `repository_health`, not a job. Jobs
-are admitted on **free memory** rather than a flat cap (`configure` sets
-`maxJobs`; `fanout`, splitting a brief into siblings, is off by default).
+Job agents get **no shell** and **no Prism MCP** (no second index). Job
+worktrees **symlink** the host `node_modules`. Multi-part work splits into
+**subagents inside that process**. Repo-wide “find issues / audit” is host
+`repository_health`, not a job. Jobs are admitted on **free memory**
+(`configure` sets `maxJobs`; `fanout` is off by default).
 
 ### How work comes back
 

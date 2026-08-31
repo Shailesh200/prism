@@ -81,7 +81,7 @@ use this page when you need the exhaustive index.
 | `search_symbols` | Substring or regex search over indexed symbol names (unlike find_symbol, which is exact-match only) |
 | `security_report` | Left-shift security posture |
 | `stack_profile` | Detected stack for the workspace or a single package |
-| `start_job` | Start a teammate on work the user described — a ticket, a PRD, a bug to fix, a refactor |
+| `start_job` | Hand a code change to a background teammate |
 | `start_my_day` | Standup briefing for this repository |
 | `test_impact` | Which test files transitively cover a change target — the tests worth running after touching it |
 | `testing_report` | Test structure and, when coverage artifacts are already on disk, coverage |

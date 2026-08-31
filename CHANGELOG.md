@@ -9,6 +9,11 @@ the `prism` CLI, the `prism-mcp` server, and the Core SDK they all call. They
 move as one because they are one build; a mismatch between them has never been
 a supported configuration.
 
+## 1.1.10 — Dispatch every code change by default
+
+- **MCP:** a request to change the repo (`fix that issue`, `make this work like that`) starts a teammate without a ticket, PRD, or the words “start working on”. The agent writes the PRD itself. “Do it now” / “right here” keeps the edit inline. Combined with 1.1.9: finished jobs still commit, run typecheck/test, and may use in-process subagents.
+- Keep `@latest`; hop on the next Cursor/MCP start. Logs: `prism-mcp 1.1.10: workspace …`. `@repo-prism/dispatch@1.1.10` and `@repo-prism/mcp-server@1.1.10`.
+
 ## 1.1.9 — Durable Dispatch jobs (commit, checks, subagents)
 
 - **Dispatch:** when a teammate stops, Prism commits the job branch and runs typecheck/test. Empty work says “produced no reviewable change”; summaries cannot cite files that were never written. Write-ups under `.prism/dispatch/notes/` ship with the commit.

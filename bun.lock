@@ -148,7 +148,7 @@
     },
     "packages/dispatch": {
       "name": "@repo-prism/dispatch",
-      "version": "1.1.9",
+      "version": "1.1.10",
       "dependencies": {
         "@cursor/sdk": "^1.0.28",
         "@repo-prism/shared": "workspace:*",
@@ -201,7 +201,7 @@
     },
     "packages/mcp-server": {
       "name": "@repo-prism/mcp-server",
-      "version": "1.1.9",
+      "version": "1.1.10",
       "bin": {
         "prism-mcp": "./dist/bin.js",
       },

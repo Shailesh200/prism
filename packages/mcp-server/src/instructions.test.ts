@@ -65,7 +65,7 @@ describe("server instructions (agent auto-use)", () => {
   it("routes on intent rather than a magic phrase", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/never say magic phrases/i);
     expect(SERVER_INSTRUCTIONS).toMatch(
-      /Do not wait for the words “start working on”/,
+      /Do not wait for “use Prism”, “call repository_health”, or “start working on”/,
     );
     expect(SERVER_INSTRUCTIONS).toMatch(
       /asking about.+or.+asking for work on/is,
@@ -83,6 +83,23 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/commits to its own branch/);
     expect(SERVER_INSTRUCTIONS).toMatch(/typecheck and tests/);
     expect(SERVER_INSTRUCTIONS).toMatch(/no reviewable change/);
+  });
+
+  it("dispatches code changes by intent, not the phrase start working on", () => {
+    expect(SERVER_INSTRUCTIONS).toMatch(/dispatch code work by default/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(
+      /does NOT require the words “start working on”/,
+    );
+    expect(SERVER_INSTRUCTIONS).toMatch(/ticket id, or a PRD/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/do not also do the work inline/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(/Write the PRD yourself/i);
+  });
+
+  it("keeps an inline escape hatch that beats the dispatch signal", () => {
+    expect(SERVER_INSTRUCTIONS).toMatch(/Do NOT dispatch/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/do it now/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(/don't dispatch/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(/the inline signal wins/i);
   });
 
   it("routes repo-wide audit to repository_health, not start_job", () => {
