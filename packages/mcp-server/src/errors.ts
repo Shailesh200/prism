@@ -52,6 +52,12 @@ export function toMcpError(error: PrismError): McpError {
 export function toMcpErrorFromThrown(cause: unknown): McpError {
   if (cause instanceof McpError) return cause;
   const message = cause instanceof Error ? cause.message : String(cause);
+  if (/not a git repository/i.test(message)) {
+    return new McpError(
+      ErrorCode.InvalidParams,
+      "Prism does not see a git repository. Retry start_job with workspace set to the open project folder that contains .git.",
+    );
+  }
   return new McpError(
     ErrorCode.InternalError,
     `${PrismErrorCode.UNKNOWN}: ${message}`,

@@ -86,5 +86,17 @@ describe("PrismError → MCP error (M-026)", () => {
         "just a string",
       );
     });
+
+    it("does not leak PRISM_UNKNOWN for a missing git repository", () => {
+      const mapped = toMcpErrorFromThrown(
+        new Error(
+          "fatal: not a git repository (or any of the parent directories): .git",
+        ),
+      );
+      expect(mapped.code).toBe(ErrorCode.InvalidParams);
+      expect(mapped.message).toMatch(/git repository/i);
+      expect(mapped.message).toMatch(/workspace/i);
+      expect(mapped.message).not.toMatch(/PRISM_UNKNOWN|fatal:/);
+    });
   });
 });
