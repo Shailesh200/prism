@@ -148,7 +148,7 @@
     },
     "packages/dispatch": {
       "name": "@repo-prism/dispatch",
-      "version": "1.0.0",
+      "version": "1.1.10",
       "dependencies": {
         "@cursor/sdk": "^1.0.28",
         "@repo-prism/shared": "workspace:*",
@@ -160,6 +160,23 @@
       "version": "1.0.0",
       "dependencies": {
         "@repo-prism/dispatch": "workspace:*",
+      },
+    },
+    "packages/dispatch-hub": {
+      "name": "@repo-prism/dispatch-hub",
+      "version": "1.1.10",
+      "bin": {
+        "prism-hub": "./dist/bin.js",
+      },
+      "dependencies": {
+        "@repo-prism/dispatch": "workspace:*",
+      },
+      "devDependencies": {
+        "@repo-prism/ui": "workspace:*",
+        "@types/react": "^19.2.17",
+        "@types/react-dom": "^19.2.3",
+        "react": "^19.2.7",
+        "react-dom": "^19.2.7",
       },
     },
     "packages/graph-engine": {
@@ -201,7 +218,7 @@
     },
     "packages/mcp-server": {
       "name": "@repo-prism/mcp-server",
-      "version": "1.1.1",
+      "version": "1.1.10",
       "bin": {
         "prism-mcp": "./dist/bin.js",
       },
@@ -209,6 +226,7 @@
         "@modelcontextprotocol/sdk": "^1.30.0",
         "@repo-prism/core": "workspace:*",
         "@repo-prism/dispatch": "workspace:*",
+        "@repo-prism/dispatch-hub": "workspace:*",
         "@repo-prism/shared": "workspace:*",
         "zod": "^3.25.0",
       },
@@ -233,7 +251,7 @@
     },
     "packages/shared": {
       "name": "@repo-prism/shared",
-      "version": "1.0.0",
+      "version": "1.1.1",
       "dependencies": {
         "zod": "^3.25.0",
       },
@@ -817,6 +835,8 @@
     "@repo-prism/dispatch": ["@repo-prism/dispatch@workspace:packages/dispatch"],
 
     "@repo-prism/dispatch-auth": ["@repo-prism/dispatch-auth@workspace:packages/dispatch-auth"],
+
+    "@repo-prism/dispatch-hub": ["@repo-prism/dispatch-hub@workspace:packages/dispatch-hub"],
 
     "@repo-prism/graph-engine": ["@repo-prism/graph-engine@workspace:packages/graph-engine"],
 

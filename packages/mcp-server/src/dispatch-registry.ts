@@ -18,9 +18,11 @@ import {
   type DispatchRuntime,
   type DispatchToolName,
 } from "@repo-prism/dispatch";
+import { ensureHub, peekHub, type HubHandle } from "@repo-prism/dispatch-hub";
 import type { ZodRawShape } from "zod";
 import { z } from "zod";
 import { toMcpErrorFromThrown } from "./errors.js";
+import { JOBS_APP_URI } from "./jobs-app-uri.js";
 import { createMcpOAuthUi } from "./oauth-ui.js";
 import { serialiseForMcp } from "./tool-registry.js";
 
@@ -63,7 +65,7 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     name: "start_job",
     title: "Start a Dispatch job",
     description:
-      "Hand a code change to a background teammate. Call this for ANY request to change this repository — fix a bug or broken behaviour, implement, add, wire up, refactor, rename, migrate, or make one area behave like another. Intent is enough: it does not require the words “start working on”, a ticket id, or a PRD, so “the highlighting is not working in the news tab, fix that issue” is a start_job. Derive title and prd yourself from the request plus the repo; do not interview the user. Do NOT call this when the user wants it done inline now (“do it now”, “right here”, “yourself”, “quick fix”, “don't dispatch”), for questions/explanations/reviews, for one trivial fully-specified edit, or for a repo-wide audit (repository_health). Always pass workspace as the absolute path of the git repository you are editing (the folder that contains .git). Starts a local Cursor teammate in its own worktree (host node_modules linked; no shell; no second Prism MCP) and returns immediately. Speak only the tool message: use the job title and canonical id (ticket like AI-971 or slug like audit-issues), never job-<hex>, worktree paths, or API keys. Tell the user to say where are we for live status and the result when it finishes. Default cap is one job at a time. Do not use this for a repo-wide audit or health scan — call repository_health instead. If sign-in is needed, a Cursor login page opens in the browser. If Cursor shows “Authenticating prism…” with Skip, tell the user to click Skip and retry. If the tool says Prism does not see a git repository, retry once with workspace set to the open project path — do not throw PRISM_UNKNOWN at the user.",
+      "Hand a code change to a background teammate. Call this for ANY request to change this repository — fix a bug or broken behaviour, implement, add, wire up, refactor, rename, migrate, or make one area behave like another. Intent is enough: it does not require the words “start working on”, a ticket id, or a PRD, so “the highlighting is not working in the news tab, fix that issue” is a start_job. Derive title and prd yourself from the request plus the repo; do not interview the user. Say in one line what you are starting, then call it. Do NOT call this when the user wants it done inline now (“do it now”, “right here”, “yourself”, “quick fix”, “don't dispatch”), for questions/explanations/reviews, for one trivial fully-specified edit, or for a repo-wide audit (repository_health). Always pass workspace as the absolute path of the git repository you are editing (the folder that contains .git). Starts a local Cursor teammate in its own worktree (host node_modules linked; no shell; no second Prism MCP; may use in-process subagents for multi-part work) and returns immediately. When the teammate stops, Prism commits its work to the job branch and runs typecheck and tests, so the result carries a real pass/fail. Speak only the tool message: use the job title and canonical id (ticket like AI-971 or slug like audit-issues), never job-<hex>, worktree paths, or API keys. Tell the user to say where are we for live status and the result when it finishes. Jobs are admitted on free memory, so a second teammate may be refused while one is running. If sign-in is needed, a Cursor login page opens in the browser. If Cursor shows “Authenticating prism…” with Skip, tell the user to click Skip and retry. If the tool says Prism does not see a git repository, retry once with workspace set to the open project path — do not throw PRISM_UNKNOWN at the user.",
     inputSchema: {
       title: z.string().describe("Ticket id and/or short job title"),
       prd: z
@@ -129,7 +131,7 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     name: "list_jobs",
     title: "List Dispatch jobs",
     description:
-      "Where are we: every Dispatch job with title, canonical id, live activity, and a result or error when a teammate finishes. A finished job that changed files reports as ready for your review with the uncommitted file list — Prism never commits a teammate's work, so relay that summary and ask what to do with it. A job that has gone quiet reports no activity for N minutes; call job_logs to see why. Speak only the tool message — titles, what they are doing, and what changed, not worktree paths or job-<hex> ids. Call when the user asks where we are, what's running, how a job is going, or whether a teammate finished.",
+      "Where are we: every Dispatch job with title, canonical id, live activity, and a result, verification outcome, or error when a teammate finishes. Speak only the tool message — titles, what they are doing, and what changed, not worktree paths or job-<hex> ids. A finished job that produced work reports as ready for your review, with the changed files on its own branch: name the branch and commit rather than a path, and ask whether to merge, leave, or drop it — nothing is merged into the user's branch for them. A job reporting no activity for N minutes is stalled; call job_logs to see why. Report a failed check as a failure, and say so plainly when a job produced no reviewable change. Also prunes worktrees whose job is gone, keeping any that still hold unmerged commits. Call when the user asks where we are, what's running, how a job is going, or whether a teammate finished. Mention the jobs dashboard URL from the message so they can watch live.",
     inputSchema: {},
     readOnly: true,
     openWorld: false,
@@ -206,13 +208,25 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     name: "configure",
     title: "Configure Dispatch",
     description:
-      "Read or update gitignored Dispatch settings: section order, standup template, Slack tracked channel ids, mention window and caps, max parallel jobs (default 1), hint policy, and whether the tickets slot is Linear or Jira. action=export returns a non-secret template (no tokens) for sharing. Chat only — there is no settings UI in v1.",
+      "Read or update gitignored Dispatch settings: section order, standup template, Slack tracked channel ids, mention window and caps, max parallel jobs (default 4, admitted on free memory), in-process subagents, host fan-out, post-job verification, hint policy, and whether the tickets slot is Linear or Jira. action=export returns a non-secret template (no tokens) for sharing. Chat only — there is no settings UI in v1.",
     inputSchema: {
       action: z
         .enum(["get", "set", "export"])
         .optional()
         .describe("get (default), set, or export"),
       maxJobs: z.number().int().optional(),
+      subagents: z
+        .boolean()
+        .optional()
+        .describe("In-process subagents inside one teammate (default on)"),
+      fanout: z
+        .boolean()
+        .optional()
+        .describe("Split one brief into sibling jobs (default off; heavy)"),
+      verifyJobs: z
+        .boolean()
+        .optional()
+        .describe("Run typecheck and tests after a teammate stops"),
       hints: z.boolean().optional(),
       ticketHost: z.enum(["linear", "jira"]).optional(),
       standupTemplate: z.string().optional(),
@@ -233,7 +247,7 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     name: "dispatch_doctor",
     title: "Dispatch doctor",
     description:
-      "Check whether Dispatch can run local teammates. Speak only the tool message — never mention API keys, mcp.json, host role, or connector counts. If sign-in is missing, call init.",
+      "Check whether Dispatch can run local teammates. Speak only the tool message — never mention API keys, mcp.json, host role, or connector counts. If sign-in is missing, call init. The message also says whether the jobs board is up.",
     inputSchema: {},
     readOnly: true,
     openWorld: false,
@@ -283,6 +297,9 @@ export function registerDispatchTools(
         data: notice.text,
       });
     });
+    void ensureHub({ workspaceRoot: getRoot(), env }).catch(() => {
+      /* hub spawn is best-effort */
+    });
   }
 
   for (const tool of DISPATCH_TOOLS) {
@@ -297,6 +314,12 @@ export function registerDispatchTools(
           readOnlyHint: tool.readOnly,
           openWorldHint: tool.openWorld,
         },
+        // MCP Apps bind the tool to ui://prism/jobs (protocol field `_meta`).
+        ...(tool.name === "list_jobs"
+          ? ({
+              _meta: { ui: { resourceUri: JOBS_APP_URI } },
+            } as { _meta: { ui: { resourceUri: string } } })
+          : {}),
       },
       async (args: unknown, extra) => {
         try {
@@ -309,9 +332,28 @@ export function registerDispatchTools(
             oauthUi: createMcpOAuthUi(server, extra),
             signal: extra.signal,
           });
-          return {
-            content: [{ type: "text" as const, text: serialiseForMcp(value) }],
+          const decorated = await decorateDispatchValue(
+            tool.name,
+            value,
+            getRoot,
+            env,
+          );
+          const result: {
+            content: { type: "text"; text: string }[];
+            structuredContent?: Record<string, unknown>;
+          } = {
+            content: [{ type: "text", text: serialiseForMcp(decorated) }],
           };
+          if (tool.name === "list_jobs") {
+            if (decorated && typeof decorated === "object") {
+              result.structuredContent = decorated as Record<string, unknown>;
+            }
+            // MCP Apps protocol field on CallToolResult.
+            return Object.assign(result, {
+              _meta: { ui: { resourceUri: JOBS_APP_URI } },
+            });
+          }
+          return result;
         } catch (cause) {
           const detail = cause instanceof Error ? cause.message : String(cause);
           if (isMissingGitRepoMessage(detail)) {
@@ -329,4 +371,38 @@ export function registerDispatchTools(
       },
     );
   }
+}
+
+async function decorateDispatchValue(
+  name: DispatchToolName,
+  value: unknown,
+  getRoot: () => string,
+  env: NodeJS.ProcessEnv,
+): Promise<unknown> {
+  if (name !== "list_jobs" && name !== "dispatch_doctor") return value;
+  const hub: HubHandle =
+    name === "list_jobs"
+      ? await ensureHub({ workspaceRoot: getRoot(), env }).catch(() => ({
+          enabled: false,
+          detail: "Jobs board did not start.",
+        }))
+      : await peekHub(env);
+  if (!value || typeof value !== "object") return value;
+  const record = value as { message?: string; [key: string]: unknown };
+  if (typeof record.message !== "string") return value;
+  const board = hub.dashboardUrl ?? hub.url;
+  if (name === "list_jobs" && board) {
+    return {
+      ...record,
+      dashboardUrl: board,
+      message: `${record.message}\nWatch live at ${board}`,
+    };
+  }
+  if (name === "dispatch_doctor") {
+    return {
+      ...record,
+      message: `${record.message} ${hub.detail}${board ? ` ${board}` : ""}`,
+    };
+  }
+  return value;
 }

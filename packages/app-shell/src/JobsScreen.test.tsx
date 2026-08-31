@@ -24,12 +24,15 @@ const review = {
       removed: 1,
       change: "modified" as const,
     },
-    { path: "src/new.ts", added: 4, removed: 0, change: "untracked" as const },
+    { path: "src/new.ts", added: 4, removed: 0, change: "added" as const },
   ],
   totalAdded: 15,
   totalRemoved: 1,
   truncated: false,
-  committed: false as const,
+  branch: "dispatch/rms-pagination",
+  baseRef: "main",
+  committed: true,
+  merged: false as const,
 };
 
 function entry(text: string, ts: string): JobConsoleEntry {
@@ -133,8 +136,10 @@ describe("JobsScreen", () => {
 
     await user.click(screen.getByRole("button", { name: /Fix pagination/ }));
     expect(await screen.findByText("src/table.ts")).toBeTruthy();
-    expect(screen.getByText("untracked")).toBeTruthy();
-    expect(screen.getByText(/Nothing was committed/i)).toBeTruthy();
+    expect(screen.getByText("added")).toBeTruthy();
+    expect(
+      screen.getByText(/Nothing has been merged into the branch you are on/i),
+    ).toBeTruthy();
   });
 
   it("warns that a stalled job has gone quiet", async () => {

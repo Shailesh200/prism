@@ -62,6 +62,29 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/do not put it in mcp\.json/i);
   });
 
+  it("routes on intent rather than a magic phrase", () => {
+    expect(SERVER_INSTRUCTIONS).toMatch(/never say magic phrases/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(
+      /Do not wait for “use Prism”, “call repository_health”, or “start working on”/,
+    );
+    expect(SERVER_INSTRUCTIONS).toMatch(
+      /asking about.+or.+asking for work on/is,
+    );
+  });
+
+  it("announces a job before starting it", () => {
+    expect(SERVER_INSTRUCTIONS).toMatch(
+      /say in one line what you are about to start/i,
+    );
+    expect(SERVER_INSTRUCTIONS).toMatch(/the user can stop you/i);
+  });
+
+  it("tells agents a finished job is committed and checked", () => {
+    expect(SERVER_INSTRUCTIONS).toMatch(/commits to its own branch/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/typecheck and tests/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/no reviewable change/);
+  });
+
   it("dispatches code changes by intent, not the phrase start working on", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/dispatch code work by default/i);
     expect(SERVER_INSTRUCTIONS).toMatch(
@@ -84,6 +107,10 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(
       /Do not start_job for a repo-wide scan/,
     );
+  });
+
+  it("points where-are-we at the jobs dashboard when the message includes a URL", () => {
+    expect(SERVER_INSTRUCTIONS).toMatch(/jobs dashboard URL/);
   });
 
   it("treats the Google unverified-app screen as expected", () => {

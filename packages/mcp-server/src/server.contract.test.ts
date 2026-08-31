@@ -297,8 +297,21 @@ describe("MCP server contract (M-026)", () => {
   it("advertises DNA / landmarks / health resources (M-058 / P-C8)", async () => {
     const { resources } = await client.listResources();
     expect(resources.map((r) => r.uri).sort()).toEqual(
-      ["prism://dna", "prism://health", "prism://landmarks"].sort(),
+      [
+        "prism://dna",
+        "prism://health",
+        "prism://landmarks",
+        "ui://prism/jobs",
+      ].sort(),
     );
+  });
+
+  it("binds list_jobs to the jobs MCP App (M-064)", async () => {
+    const { tools } = await client.listTools();
+    const listJobs = tools.find((tool) => tool.name === "list_jobs") as
+      | { _meta?: { ui?: { resourceUri?: string } } }
+      | undefined;
+    expect(listJobs?._meta?.ui?.resourceUri).toBe("ui://prism/jobs");
   });
 
   it("marks overlapping tools as deprecated in descriptions (M-058 / P-C9)", async () => {

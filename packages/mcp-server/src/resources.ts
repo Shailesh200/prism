@@ -5,10 +5,19 @@
  * there is no separate cache to stale.
  */
 
+import { readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { toMcpError } from "./errors.js";
+import { JOBS_APP_URI } from "./jobs-app-uri.js";
 import type { WorkspaceSession } from "./session.js";
 import { serialiseForMcp } from "./tool-registry.js";
+
+async function jobsAppHtml(): Promise<string> {
+  const media = join(dirname(fileURLToPath(import.meta.url)), "..", "media");
+  return readFile(join(media, "jobs-app.html"), "utf8");
+}
 
 export function registerResources(
   server: McpServer,
@@ -83,6 +92,28 @@ export function registerResources(
             uri: uri.href,
             mimeType: "application/json",
             text: serialiseForMcp(health.value),
+          },
+        ],
+      };
+    },
+  );
+
+  server.registerResource(
+    "jobs",
+    JOBS_APP_URI,
+    {
+      description:
+        "Dispatch jobs board widget — live teammates. Open the loopback dashboard for the durable view.",
+      mimeType: "text/html;profile=mcp-app",
+    },
+    async (uri) => {
+      const html = await jobsAppHtml();
+      return {
+        contents: [
+          {
+            uri: uri.href,
+            mimeType: "text/html;profile=mcp-app",
+            text: html,
           },
         ],
       };

@@ -12,23 +12,22 @@ import type { JobRecord, JobReview } from "./types.js";
 
 function runner(files: {
   numstat?: string;
-  status?: string;
+  nameStatus?: string;
   ok?: boolean;
 }): GitRunner {
   return async (_cwd, args) => {
-    if (args[0] === "diff" && args.includes("--numstat")) {
-      return {
-        ok: files.ok ?? true,
-        stdout: files.numstat ?? "",
-        stderr: "",
-      };
+    const ok = files.ok ?? true;
+    if (args.includes("--numstat")) {
+      return { ok, stdout: files.numstat ?? "", stderr: "" };
     }
-    if (args[0] === "status") {
-      return { ok: files.ok ?? true, stdout: files.status ?? "", stderr: "" };
+    if (args.includes("--name-status")) {
+      return { ok, stdout: files.nameStatus ?? "", stderr: "" };
     }
     return { ok: true, stdout: "", stderr: "" };
   };
 }
+
+const BASE = { baseRef: "main", branch: "dispatch/rms-pagination" };
 
 const baseJob: JobRecord = {
   id: "rms-pagination",
@@ -46,35 +45,40 @@ const baseJob: JobRecord = {
   updatedAt: "2026-01-01T00:00:00.000Z",
 };
 
-describe("review summary from the worktree", () => {
-  it("counts tracked churn and picks up untracked files", async () => {
+describe("review summary from the job branch", () => {
+  it("reads churn from the commit range, not the dirty tree", async () => {
     const review = await gitReviewSummary(
       "/tmp/tree",
+      BASE,
       runner({
-        numstat: "11\t1\tsrc/table.ts\n4\t0\tsrc/paginate.ts\n",
-        status: " M src/table.ts\n?? src/new-file.ts\n",
+        numstat: "11\t1\tsrc/table.ts\n4\t0\tsrc/new.ts\n",
+        nameStatus: "M\tsrc/table.ts\nA\tsrc/new.ts\n",
       }),
     );
 
     expect(review.files.map((file) => file.path)).toEqual([
-      "src/new-file.ts",
-      "src/paginate.ts",
+      "src/new.ts",
       "src/table.ts",
     ]);
     expect(review.totalAdded).toBe(15);
     expect(review.totalRemoved).toBe(1);
-    expect(
-      review.files.find((file) => file.path === "src/new-file.ts")?.change,
-    ).toBe("untracked");
-    expect(review.committed).toBe(false);
+    expect(review.files.find((f) => f.path === "src/new.ts")?.change).toBe(
+      "added",
+    );
+    // Committed by the supervisor (ADR-0042 §1), but never merged for the user.
+    expect(review.committed).toBe(true);
+    expect(review.merged).toBe(false);
+    expect(review.branch).toBe("dispatch/rms-pagination");
+    expect(review.baseRef).toBe("main");
   });
 
   it("marks deletions and renames", async () => {
     const review = await gitReviewSummary(
       "/tmp/tree",
+      BASE,
       runner({
-        numstat: "0\t9\tsrc/gone.ts\n",
-        status: " D src/gone.ts\nR  old.ts -> new.ts\n",
+        numstat: "0\t9\tsrc/gone.ts\n2\t2\tnew.ts\n",
+        nameStatus: "D\tsrc/gone.ts\nR100\told.ts\tnew.ts\n",
       }),
     );
     expect(review.files.find((f) => f.path === "src/gone.ts")?.change).toBe(
@@ -85,12 +89,12 @@ describe("review summary from the worktree", () => {
     );
   });
 
-  it("ignores node_modules and .prism noise", async () => {
+  it("ignores node_modules noise", async () => {
     const review = await gitReviewSummary(
       "/tmp/tree",
+      BASE,
       runner({
         numstat: "5\t0\tnode_modules/pkg/index.js\n2\t0\tsrc/real.ts\n",
-        status: "?? .prism/dispatch/runs/x.json\n",
       }),
     );
     expect(review.files.map((file) => file.path)).toEqual(["src/real.ts"]);
@@ -99,6 +103,7 @@ describe("review summary from the worktree", () => {
   it("treats a binary file as zero churn rather than NaN", async () => {
     const review = await gitReviewSummary(
       "/tmp/tree",
+      BASE,
       runner({ numstat: "-\t-\tassets/logo.png\n" }),
     );
     expect(review.files[0]).toMatchObject({
@@ -116,6 +121,7 @@ describe("review summary from the worktree", () => {
     ).join("\n");
     const review = await gitReviewSummary(
       "/tmp/tree",
+      BASE,
       runner({ numstat: many }),
     );
     expect(review.files).toHaveLength(MAX_REVIEW_FILES);
@@ -123,26 +129,33 @@ describe("review summary from the worktree", () => {
     expect(review.totalAdded).toBe(MAX_REVIEW_FILES + 10);
   });
 
-  it("returns an empty review when git cannot answer", async () => {
-    const review = await gitReviewSummary("/tmp/tree", runner({ ok: false }));
+  it("reports nothing reviewable when git cannot answer", async () => {
+    const review = await gitReviewSummary(
+      "/tmp/tree",
+      BASE,
+      runner({ ok: false }),
+    );
     expect(review.files).toEqual([]);
-    expect(review.totalAdded).toBe(0);
+    expect(review.committed).toBe(false);
   });
 });
 
-describe("a finished job asks instead of committing", () => {
+describe("a finished job asks before it lands", () => {
   const review: JobReview = {
     files: [
       { path: "src/table.ts", added: 11, removed: 1, change: "modified" },
-      { path: "src/new.ts", added: 4, removed: 0, change: "untracked" },
+      { path: "src/new.ts", added: 4, removed: 0, change: "added" },
     ],
     totalAdded: 15,
     totalRemoved: 1,
     truncated: false,
-    committed: false,
+    branch: "dispatch/rms-pagination",
+    baseRef: "main",
+    committed: true,
+    merged: false,
   };
 
-  it("moves a done job with edits to needs_review", () => {
+  it("moves a done job with work to needs_review", () => {
     const run: RunState = {
       jobId: baseJob.id,
       phase: "done",
@@ -160,20 +173,23 @@ describe("a finished job asks instead of committing", () => {
     expect(next.nextStep).toBe("review the changes");
   });
 
-  it("still closes a job that changed nothing", () => {
+  it("still closes a job that produced no reviewable change", () => {
     const run: RunState = {
       jobId: baseJob.id,
       phase: "done",
       lastActivity: "Done",
       resultSummary: "",
       errorMessage: "",
-      gitSummary: "No file changes yet.",
+      gitSummary: "produced no reviewable change",
       review: {
         files: [],
         totalAdded: 0,
         totalRemoved: 0,
         truncated: false,
+        branch: "dispatch/rms-pagination",
+        baseRef: "main",
         committed: false,
+        merged: false,
       },
       startedAt: baseJob.createdAt,
       updatedAt: new Date().toISOString(),
@@ -181,14 +197,15 @@ describe("a finished job asks instead of committing", () => {
     expect(applyRunToJob(baseJob, run).status).toBe("done");
   });
 
-  it("names the files, says nothing was committed, and asks", () => {
+  it("names the files and branch, and asks before merging", () => {
     const text = reviewSpeak(baseJob, review);
-    expect(text).toMatch(/2 files uncommitted/i);
     expect(text).toContain("src/table.ts +11 -1");
-    expect(text).toContain("src/new.ts +4 -0 (untracked)");
+    expect(text).toContain("src/new.ts +4 -0 (added)");
     expect(text).toMatch(/\+15 -1/);
-    expect(text).toMatch(/Nothing was committed/i);
-    expect(text).toMatch(/commit these, keep them as they are, or discard/i);
+    expect(text).toContain("dispatch/rms-pagination");
+    // The whole point: the user's branch is untouched and they are asked.
+    expect(text).toMatch(/nothing has been merged/i);
+    expect(text).toMatch(/merge it, leave it, or drop it/i);
   });
 
   it("speaks the review through the job list", () => {
@@ -202,7 +219,7 @@ describe("a finished job asks instead of committing", () => {
         review,
       },
     ]);
-    expect(text).toMatch(/Nothing was committed/i);
+    expect(text).toMatch(/nothing has been merged/i);
     expect(statusPhrase("needs_review")).toBe("ready for your review");
   });
 });

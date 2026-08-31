@@ -10,6 +10,7 @@
     { "path": "../shared" },
     { "path": "../core" },
     { "path": "../dispatch" },
+    { "path": "../dispatch-hub" },
     { "path": "../test-support" }
   ]
 }

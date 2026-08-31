@@ -13,6 +13,8 @@ export type CursorAgentOptionsInput = {
   readonly mcpCommand: string;
   readonly mcpArgs: readonly string[];
   readonly workspaceRoot: string;
+  /** Allow the worker to spawn in-process subagents (ADR-0042 §4). */
+  readonly subagents?: boolean;
 };
 
 export function workerMcpEnv(
@@ -37,7 +39,7 @@ export function mcpArgsWithWorkspace(
   return [...args, "--workspace", workspaceRoot];
 }
 
-/** Built-in tools only — no shell, MCP, or nested agents (ADR-0041). */
+/** Built-in edit tools. No shell and no MCP (ADR-0041). */
 export const WORKER_EDIT_TOOLS = [
   "read",
   "edit",
@@ -47,6 +49,20 @@ export const WORKER_EDIT_TOOLS = [
   "delete",
   "readLints",
 ] as const;
+
+/**
+ * In-process subagents (ADR-0042 §4). A subagent runs inside the worker's own
+ * process, so it adds no OS process, no worktree, and no second index — the
+ * costs ADR-0041 was actually guarding against. It inherits this same
+ * allowlist, so it gets no shell either.
+ */
+export const WORKER_SUBAGENT_TOOL = "task";
+
+export function workerTools(subagents: boolean): string[] {
+  return subagents
+    ? [...WORKER_EDIT_TOOLS, WORKER_SUBAGENT_TOOL]
+    : [...WORKER_EDIT_TOOLS];
+}
 
 export function cursorAgentOptions(
   input: CursorAgentOptionsInput,
@@ -63,6 +79,7 @@ export function cursorAgentOptions(
     mcpServers: {},
     // No shell: a teammate with shell ran `prism` and re-indexed the repo
     // (second intelligence pass) and exhausted RAM on 8 GB machines.
-    tools: [...WORKER_EDIT_TOOLS],
+    // Verification runs in the supervisor instead (ADR-0042 §3).
+    tools: workerTools(input.subagents ?? false),
   };
 }

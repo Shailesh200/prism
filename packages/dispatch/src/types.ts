@@ -86,7 +86,21 @@ export const DispatchConfigSchema = z.object({
   sectionsOff: z.array(BriefingSectionIdSchema).default([]),
   standupTemplate: z.string().default(""),
   hints: z.boolean().default(true),
-  maxJobs: z.number().int().min(1).max(20).default(1),
+  maxJobs: z.number().int().min(1).max(20).default(4),
+  /**
+   * In-process subagents inside one worker (ADR-0042 §4). No extra OS
+   * process, no extra worktree, so the ADR-0041 resource findings do not
+   * apply — on by default.
+   */
+  subagents: z.boolean().default(true),
+  /**
+   * Host fan-out: one brief becomes sibling jobs, each with its own worktree
+   * and supervisor. This is the shape that exhausted RAM, so it stays off
+   * until the owner turns it on (ADR-0042 §4).
+   */
+  fanout: z.boolean().default(false),
+  /** Supervisor-run typecheck/test after the agent stops (ADR-0042 §3). */
+  verifyJobs: z.boolean().default(true),
   ticketHost: TicketHostSchema.default("linear"),
   mentionWindowHours: z.number().int().min(1).max(168).default(24),
   mentionLimit: z.number().int().min(1).max(50).default(10),
@@ -116,8 +130,9 @@ export const JobStatusSchema = z.enum([
   "blocked",
   "paused",
   /**
-   * Finished with edits still uncommitted in the worktree. Prism never commits
-   * a teammate's work: the human reads the review summary and decides.
+   * Finished, with commits on the job branch that are not on the user's
+   * branch. ADR-0042 §1 makes the supervisor commit so work survives worktree
+   * pruning; landing it anywhere the user did not ask for is still their call.
    */
   "needs_review",
   "done",
@@ -126,12 +141,11 @@ export const JobStatusSchema = z.enum([
 ]);
 export type JobStatus = z.infer<typeof JobStatusSchema>;
 
-/** One changed file in a job's review summary. */
+/** One file carried by a job branch's own commits. */
 export const ReviewFileSchema = z.object({
   path: z.string(),
   added: z.number().int().min(0).default(0),
   removed: z.number().int().min(0).default(0),
-  /** `added` | `modified` | `deleted` | `renamed` | `untracked`. */
   change: z
     .enum(["added", "modified", "deleted", "renamed", "untracked"])
     .default("modified"),
@@ -144,7 +158,14 @@ export const JobReviewSchema = z.object({
   totalRemoved: z.number().int().min(0).default(0),
   /** True when the file list was capped for display. */
   truncated: z.boolean().default(false),
-  committed: z.literal(false).default(false),
+  /** Branch holding the work. Never the branch the user is on. */
+  branch: z.string().default(""),
+  /** What the branch was compared against. */
+  baseRef: z.string().default(""),
+  /** True once the supervisor committed (ADR-0042 §1). */
+  committed: z.boolean().default(false),
+  /** Always false: Prism does not merge a job for the user. */
+  merged: z.literal(false).default(false),
 });
 export type JobReview = z.infer<typeof JobReviewSchema>;
 
@@ -167,7 +188,11 @@ export const JobRecordSchema = z.object({
   resultSummary: z.string().optional(),
   errorMessage: z.string().optional(),
   pendingContext: z.string().optional(),
+  /** Supervisor-run checks and the job commit (ADR-0042 §1, §3). */
   review: JobReviewSchema.optional(),
+  verification: z.enum(["passed", "failed", "skipped"]).optional(),
+  verificationDetail: z.string().optional(),
+  commitSha: z.string().optional(),
   status: JobStatusSchema,
   lastStep: z.string().default(""),
   nextStep: z.string().default(""),

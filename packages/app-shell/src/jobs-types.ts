@@ -47,8 +47,13 @@ export type JobReview = {
   readonly totalAdded: number;
   readonly totalRemoved: number;
   readonly truncated: boolean;
-  /** Always false: Prism never commits a teammate's work. */
-  readonly committed: false;
+  /** Branch holding the work. Never the branch the user is on. */
+  readonly branch?: string;
+  readonly baseRef?: string;
+  /** True once the supervisor committed it (ADR-0042 §1). */
+  readonly committed?: boolean;
+  /** Always false: Prism does not merge a job for the user. */
+  readonly merged?: false;
 };
 
 export type JobConsoleEntry = {

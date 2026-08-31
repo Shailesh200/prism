@@ -198,36 +198,184 @@ export async function gitChangeSummary(
   return `Changed ${dirty.length} ${noun}${names.length ? ` (${names.join(", ")}${extra})` : ""}.`;
 }
 
+/**
+ * Job artifacts a worker is allowed to hand back even though `.gitignore`
+ * excludes `.prism/`. Anything else under `.prism/` stays ignored: caches and
+ * index output are not work product (ADR-0042 §1).
+ */
+export const JOB_ARTIFACT_PATHS: readonly string[] = [".prism/dispatch/notes"];
+
+export function isJobArtifactPath(path: string): boolean {
+  const normalized = path.replaceAll("\\", "/").replace(/^\.\//, "");
+  return JOB_ARTIFACT_PATHS.some(
+    (allowed) => normalized === allowed || normalized.startsWith(`${allowed}/`),
+  );
+}
+
+export type JobCommit = {
+  /** False when the run produced nothing reachable from a ref. */
+  readonly committed: boolean;
+  /** `git show --stat` totals for the commit, or "" when nothing committed. */
+  readonly summary: string;
+  readonly sha?: string;
+};
+
+/**
+ * Commit whatever the agent produced onto the job branch (ADR-0042 §1).
+ *
+ * Without this the work exists only as untracked files in a worktree the chat
+ * voice rules forbid naming, so it is unreachable in practice. The supervisor
+ * commits rather than the agent because the supervisor knows when the run
+ * ended and cannot forget to do it.
+ */
+export async function commitJobWork(
+  cwd: string,
+  input: { readonly jobId: string; readonly title: string },
+  run: GitRunner = defaultGitRunner,
+): Promise<JobCommit> {
+  await run(cwd, ["add", "-A"]);
+  // `.prism/` is gitignored, so report-style output needs an explicit force
+  // add. Scoped to the artifact allowlist — never the whole directory.
+  for (const path of JOB_ARTIFACT_PATHS) {
+    await run(cwd, ["add", "-f", "--", path]);
+  }
+
+  const staged = await run(cwd, ["diff", "--cached", "--name-only"]);
+  // `.prism/` is noise everywhere else, but the notes allowlist is the one
+  // place a job hands back a write-up, so it must survive the filter.
+  const names = staged.ok
+    ? staged.stdout
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(
+          (line) => line && (!isGitNoisePath(line) || isJobArtifactPath(line)),
+        )
+    : [];
+  if (names.length === 0) {
+    // Unstage the noise we just added so the tree is left as we found it.
+    await run(cwd, ["reset"]);
+    return { committed: false, summary: "" };
+  }
+
+  const message = `dispatch(${input.jobId}): ${input.title}`.slice(0, 200);
+  const committed = await run(cwd, [
+    "-c",
+    "user.name=Prism Dispatch",
+    "-c",
+    "user.email=dispatch@prismhq.in",
+    "commit",
+    "--no-verify",
+    "-m",
+    message,
+  ]);
+  if (!committed.ok) {
+    await run(cwd, ["reset"]);
+    return { committed: false, summary: "" };
+  }
+
+  const [stat, sha] = await Promise.all([
+    run(cwd, ["show", "--stat", "--format=", "HEAD"]),
+    run(cwd, ["rev-parse", "--short", "HEAD"]),
+  ]);
+  const totals = stat.ok
+    ? (stat.stdout
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .at(-1) ?? "")
+    : "";
+  return {
+    committed: true,
+    summary: totals.replace(/\s+/g, " "),
+    ...(sha.ok && sha.stdout.trim() ? { sha: sha.stdout.trim() } : {}),
+  };
+}
+
+/**
+ * The branch a job branched from, used as the diff base for "what did this
+ * job actually produce". Falls back through the usual names before giving up.
+ */
+export async function defaultBaseBranch(
+  workspaceRoot: string,
+  run: GitRunner = defaultGitRunner,
+): Promise<string> {
+  const head = await run(workspaceRoot, [
+    "symbolic-ref",
+    "--quiet",
+    "--short",
+    "refs/remotes/origin/HEAD",
+  ]);
+  if (head.ok && head.stdout.trim()) return head.stdout.trim();
+  for (const candidate of ["main", "master"]) {
+    const found = await run(workspaceRoot, [
+      "rev-parse",
+      "--verify",
+      "--quiet",
+      candidate,
+    ]);
+    if (found.ok && found.stdout.trim()) return candidate;
+  }
+  return "HEAD~1";
+}
+
+/** Files carried by the job's own commits — what the branch actually holds. */
+export async function committedJobPaths(
+  cwd: string,
+  baseRef: string,
+  run: GitRunner = defaultGitRunner,
+): Promise<string[]> {
+  const result = await run(cwd, ["diff", "--name-only", `${baseRef}...HEAD`]);
+  if (!result.ok) return [];
+  return result.stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 /** Cap the review file list; a 500-file job is a summary, not a list. */
 export const MAX_REVIEW_FILES = 50;
 
-function reviewChangeFromStatus(code: string): ReviewFile["change"] {
-  const flags = code.trim();
-  if (flags.startsWith("??")) return "untracked";
-  if (flags.startsWith("R")) return "renamed";
-  if (flags.includes("D")) return "deleted";
-  if (flags.startsWith("A")) return "added";
+function reviewChangeFromStatusLetter(code: string): ReviewFile["change"] {
+  const flag = code.trim().charAt(0);
+  if (flag === "A") return "added";
+  if (flag === "D") return "deleted";
+  if (flag === "R") return "renamed";
   return "modified";
 }
 
 /**
- * What the teammate changed, uncommitted, for the human to review.
+ * What the job branch carries, for the human to review before it lands.
  *
- * `--numstat` against HEAD covers tracked edits; `status --porcelain` adds
- * untracked files, which numstat cannot see and which are usually the new
- * files the job was asked to create.
+ * Read from the commit range rather than the dirty tree: ADR-0042 §1 has the
+ * supervisor commit before this runs, so `git status` is clean by now and the
+ * diff against the base branch is the only honest source. Prism never merges
+ * this — the branch is the reviewable unit and landing it stays the user's
+ * decision.
  */
 export async function gitReviewSummary(
   cwd: string,
+  input: { readonly baseRef: string; readonly branch?: string },
   run: GitRunner = defaultGitRunner,
 ): Promise<JobReview> {
-  const [numstat, status] = await Promise.all([
-    run(cwd, ["diff", "--numstat", "HEAD"]),
-    run(cwd, ["status", "--porcelain"]),
+  const range = `${input.baseRef}...HEAD`;
+  const [numstat, nameStatus] = await Promise.all([
+    run(cwd, ["diff", "--numstat", range]),
+    run(cwd, ["diff", "--name-status", range]),
   ]);
 
-  const byPath = new Map<string, ReviewFile>();
+  const changeByPath = new Map<string, ReviewFile["change"]>();
+  if (nameStatus.ok) {
+    for (const line of nameStatus.stdout.split("\n")) {
+      const row = line.trim();
+      if (!row) continue;
+      const parts = row.split(/\t+/);
+      const path = (parts.at(-1) ?? "").trim();
+      if (!path) continue;
+      changeByPath.set(path, reviewChangeFromStatusLetter(parts[0] ?? ""));
+    }
+  }
 
+  const files: ReviewFile[] = [];
   if (numstat.ok) {
     for (const line of numstat.stdout.split("\n")) {
       const row = line.trim();
@@ -238,42 +386,57 @@ export async function gitReviewSummary(
       // "-" is git's marker for a binary file.
       const added = Number.parseInt(addedRaw ?? "0", 10);
       const removed = Number.parseInt(removedRaw ?? "0", 10);
-      byPath.set(path, {
+      files.push({
         path,
         added: Number.isFinite(added) ? added : 0,
         removed: Number.isFinite(removed) ? removed : 0,
-        change: "modified",
+        change: changeByPath.get(path) ?? "modified",
       });
     }
   }
 
-  if (status.ok) {
-    for (const line of status.stdout.split("\n")) {
-      if (!line.trim() || isGitNoiseStatusLine(line)) continue;
-      const code = line.slice(0, 2);
-      const path = (line.slice(3).trim().split(" -> ").at(-1) ?? "").trim();
-      if (!path || isGitNoisePath(path)) continue;
-      const change = reviewChangeFromStatus(code);
-      const existing = byPath.get(path);
-      if (existing) {
-        byPath.set(path, { ...existing, change });
-      } else {
-        byPath.set(path, { path, added: 0, removed: 0, change });
-      }
-    }
-  }
-
-  const all = [...byPath.values()].sort((a, b) => a.path.localeCompare(b.path));
-  const totalAdded = all.reduce((sum, file) => sum + file.added, 0);
-  const totalRemoved = all.reduce((sum, file) => sum + file.removed, 0);
+  files.sort((a, b) => a.path.localeCompare(b.path));
 
   return {
-    files: all.slice(0, MAX_REVIEW_FILES),
-    totalAdded,
-    totalRemoved,
-    truncated: all.length > MAX_REVIEW_FILES,
-    committed: false,
+    files: files.slice(0, MAX_REVIEW_FILES),
+    totalAdded: files.reduce((sum, file) => sum + file.added, 0),
+    totalRemoved: files.reduce((sum, file) => sum + file.removed, 0),
+    truncated: files.length > MAX_REVIEW_FILES,
+    branch: input.branch ?? "",
+    baseRef: input.baseRef,
+    committed: files.length > 0,
+    merged: false,
   };
+}
+
+/** True when the branch holds commits that are not on `baseRef`. */
+export async function branchHasUnmergedCommits(
+  workspaceRoot: string,
+  branch: string,
+  baseRef: string,
+  run: GitRunner = defaultGitRunner,
+): Promise<boolean> {
+  const result = await run(workspaceRoot, [
+    "rev-list",
+    "--count",
+    `${baseRef}..${branch}`,
+  ]);
+  if (!result.ok) return true; // unknown: never prune on a failed check
+  return Number.parseInt(result.stdout.trim(), 10) > 0;
+}
+
+export async function removeGitWorktree(
+  workspaceRoot: string,
+  path: string,
+  run: GitRunner = defaultGitRunner,
+): Promise<boolean> {
+  const result = await run(workspaceRoot, [
+    "worktree",
+    "remove",
+    "--force",
+    path,
+  ]);
+  return result.ok;
 }
 
 export type ListedWorktree = {

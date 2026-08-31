@@ -20,6 +20,22 @@ const FETCH_MS = 2000;
 
 export type AutoUpdateResult = "current" | "reexec" | "skipped";
 
+/**
+ * A checkout is not a stale npx cache. Hopping to npm from a local build
+ * silently replaces the code the developer is running, and costs ~35s of
+ * download on every start; the same probe against the local build is ~0.5s.
+ * `node_modules/` is excluded so an installed copy still self-updates.
+ */
+export function isLocalCheckout(entry: string | undefined): boolean {
+  if (!entry) return false;
+  const normalized = entry.replaceAll("\\", "/");
+  if (normalized.includes("/node_modules/")) return false;
+  return (
+    normalized.includes("/packages/mcp-server/") ||
+    normalized.endsWith("/src/bin.ts")
+  );
+}
+
 export function isNewerVersion(latest: string, current: string): boolean {
   const a = latest.split(".").map((part) => Number.parseInt(part, 10));
   const b = current.split(".").map((part) => Number.parseInt(part, 10));
@@ -55,6 +71,8 @@ export type ReexecLatestInput = {
   readonly currentVersion: string;
   readonly argv: readonly string[];
   readonly env: NodeJS.ProcessEnv;
+  /** `process.argv[1]` — how we tell a checkout from an npx cache. */
+  readonly entry?: string;
   readonly fetchImpl?: typeof fetch;
   readonly spawnImpl?: typeof spawn;
   readonly write?: (line: string) => void;
@@ -71,6 +89,9 @@ export async function maybeReexecLatest(
     return { status: "skipped" };
   }
   if (input.env.PRISM_DISPATCH_ROLE === "worker") {
+    return { status: "skipped" };
+  }
+  if (isLocalCheckout(input.entry)) {
     return { status: "skipped" };
   }
 

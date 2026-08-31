@@ -230,11 +230,12 @@ export function reviewFileLine(file: ReviewFile): string {
 }
 
 /**
- * The finished-job line: what changed, that nothing was committed, and the ask.
+ * The finished-job line: what the branch carries, and the ask.
  *
- * Prism deliberately never commits a teammate's work, so this is the moment the
- * human decides. Saying so explicitly is the difference between "done" and
- * "done, and your working tree quietly changed".
+ * The supervisor commits so the work survives worktree pruning (ADR-0042 §1),
+ * but that commit is on the job's own branch. Finishing is not landing, so this
+ * says the user's branch is untouched and asks — the difference between "done"
+ * and "done, and something quietly moved under you".
  */
 export function reviewSpeak(
   job: { id: string; title: string },
@@ -242,11 +243,12 @@ export function reviewSpeak(
 ): string {
   const count = review.files.length;
   if (count === 0) {
-    return `${jobRef(job)} finished with no file changes.`;
+    return `${jobRef(job)} finished without producing a reviewable change.`;
   }
   const noun = count === 1 ? "file" : "files";
+  const branch = review.branch ? ` on ${review.branch}` : "";
   const head = [
-    `${jobRef(job)} is done and left ${count} ${noun} uncommitted for review`,
+    `${jobRef(job)} is ready for your review — ${count} ${noun}${branch}`,
     `(+${review.totalAdded} -${review.totalRemoved}).`,
   ].join(" ");
   const shown = review.files.slice(0, SPOKEN_REVIEW_FILES);
@@ -258,7 +260,7 @@ export function reviewSpeak(
   return [
     head,
     ...lines,
-    "Nothing was committed. Want me to commit these, keep them as they are, or discard them?",
+    "That work is on its own branch — nothing has been merged into the branch you are on. Want me to merge it, leave it, or drop it?",
   ].join("\n");
 }
 

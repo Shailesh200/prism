@@ -17,6 +17,14 @@ import {
 } from "./workspace-watch.js";
 import { warmIndexOtherFolders } from "./warm-index.js";
 import { buildBlastQuickPickItems, reviewAllOutcome } from "./quick-picks.js";
+import {
+  dashboardUrl,
+  listenHubEvents,
+  readLocalHubRecord,
+  runningCount,
+  sameWorkspace,
+  type HubListener,
+} from "./hub-client.js";
 
 export const PACKAGE_NAME = "@repo-prism/vscode-extension" as const;
 
@@ -26,6 +34,10 @@ const FIRST_INDEX_TOAST_PREFIX = "prism.firstIndexToast.";
 let session: PrismSession | undefined;
 let logger: ReturnType<typeof createLogger> | undefined;
 let statusBar: vscode.StatusBarItem | undefined;
+let jobsStatusBar: vscode.StatusBarItem | undefined;
+let hubListener: HubListener | undefined;
+let hubPollTimer: ReturnType<typeof setInterval> | undefined;
+let hubConnectionKey = "";
 let extensionUri: vscode.Uri | undefined;
 let extensionContext: vscode.ExtensionContext | undefined;
 let workspaceWatch: WorkspaceWatchController | undefined;
@@ -101,6 +113,7 @@ function updateStatusBar(): void {
 async function showStatusBarMenu(): Promise<void> {
   const picks: Array<vscode.QuickPickItem & { action: string }> = [
     { label: "$(book) Open Prism", action: "open" },
+    { label: "$(hubot) Open Agent Dashboard", action: "jobs" },
     { label: "$(sync) Reindex", action: "reindex" },
     { label: "$(location) Reveal on Map", action: "map" },
   ];
@@ -117,6 +130,8 @@ async function showStatusBarMenu(): Promise<void> {
   if (!pick) return;
   if (pick.action === "open") {
     await vscode.commands.executeCommand("prism.open");
+  } else if (pick.action === "jobs") {
+    await vscode.commands.executeCommand("prism.openAgentDashboard");
   } else if (pick.action === "reindex") {
     await vscode.commands.executeCommand("prism.reindex");
   } else if (pick.action === "map") {
@@ -128,6 +143,77 @@ async function showStatusBarMenu(): Promise<void> {
 
 function folderPath(): string | undefined {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+}
+
+function updateJobsStatusBar(count: number): void {
+  if (!jobsStatusBar) return;
+  jobsStatusBar.text =
+    count === 0
+      ? "$(hubot) Prism jobs"
+      : `$(hubot) ${count} job${count === 1 ? "" : "s"}`;
+  jobsStatusBar.tooltip =
+    count === 0
+      ? "Prism — Open agent dashboard"
+      : `Prism — ${count} live Dispatch job${count === 1 ? "" : "s"}`;
+}
+
+async function openAgentDashboard(): Promise<void> {
+  const record = await readLocalHubRecord();
+  if (!record) {
+    void vscode.window.showInformationMessage(
+      "No jobs board yet — start a Dispatch job from chat and Prism will open it.",
+    );
+    return;
+  }
+  await vscode.env.openExternal(vscode.Uri.parse(dashboardUrl(record)));
+}
+
+function startHubListener(): void {
+  if (hubPollTimer) return;
+  hubPollTimer = setInterval(() => {
+    void tickHubListener();
+  }, 4_000);
+  void tickHubListener();
+}
+
+async function tickHubListener(): Promise<void> {
+  const record = await readLocalHubRecord();
+  const key = record ? `${record.port}:${record.token}` : "";
+  if (key === hubConnectionKey && (hubListener || !record)) return;
+  hubListener?.stop();
+  hubListener = undefined;
+  hubConnectionKey = key;
+  if (!record) {
+    updateJobsStatusBar(0);
+    return;
+  }
+  hubListener = listenHubEvents(record, (event) => {
+    const root = session?.root ?? folderPath();
+    if (event.type === "snapshot" && event.jobs) {
+      const scoped = root
+        ? event.jobs.filter((job) => sameWorkspace(job.workspacePath, root))
+        : event.jobs;
+      updateJobsStatusBar(runningCount(scoped));
+      return;
+    }
+    if (event.job && root && !sameWorkspace(event.job.workspacePath, root)) {
+      return;
+    }
+    if (event.type === "job.finished" && event.job) {
+      const text =
+        event.notice ??
+        (event.job.status === "error"
+          ? `${event.job.title} failed`
+          : `${event.job.title} finished`);
+      void vscode.window
+        .showInformationMessage(text, "Open dashboard", "Show diff")
+        .then((pick) => {
+          if (pick === "Open dashboard" || pick === "Show diff") {
+            void vscode.commands.executeCommand("prism.openAgentDashboard");
+          }
+        });
+    }
+  });
 }
 
 /** Repo-relative, forward-slashed path for a URI (undefined if not resolvable). */
@@ -439,9 +525,23 @@ export function activate(context: vscode.ExtensionContext): void {
   statusBar.command = "prism.statusBarMenu";
   statusBar.show();
 
+  jobsStatusBar = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Left,
+    99,
+  );
+  jobsStatusBar.text = "$(hubot) Prism jobs";
+  jobsStatusBar.tooltip = "Prism — Open agent dashboard";
+  jobsStatusBar.command = "prism.openAgentDashboard";
+  jobsStatusBar.show();
+
   const statusBarMenu = vscode.commands.registerCommand(
     "prism.statusBarMenu",
     () => showStatusBarMenu(),
+  );
+
+  const openAgentDashboardCmd = vscode.commands.registerCommand(
+    "prism.openAgentDashboard",
+    () => openAgentDashboard(),
   );
 
   statusBarTimer = setInterval(updateStatusBar, 2500);
@@ -840,15 +940,22 @@ export function activate(context: vscode.ExtensionContext): void {
     reviewAllChanges,
     openWalkthrough,
     statusBarMenu,
+    openAgentDashboardCmd,
     switchWorkspaceFolder,
     statusBar,
+    jobsStatusBar,
     {
       dispose: () => {
         BrowserBridge.dispose();
         if (statusBarTimer) clearInterval(statusBarTimer);
+        if (hubPollTimer) clearInterval(hubPollTimer);
+        hubPollTimer = undefined;
+        hubConnectionKey = "";
         workspaceWatch?.dispose();
         workspaceWatch = undefined;
         setActiveWorkspaceWatch(undefined);
+        hubListener?.stop();
+        hubListener = undefined;
         session?.close();
         logger?.dispose();
       },
@@ -874,6 +981,7 @@ export function activate(context: vscode.ExtensionContext): void {
     logger.info(`${PACKAGE_NAME} activated`);
     watchForFolder(context);
     queueBoot();
+    startHubListener();
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     statusBar.text = "$(error) Prism";
@@ -891,6 +999,8 @@ export function deactivate(): void {
   workspaceWatch?.dispose();
   workspaceWatch = undefined;
   setActiveWorkspaceWatch(undefined);
+  hubListener?.stop();
+  hubListener = undefined;
   session?.close();
   session = undefined;
   PrismPanel.current?.dispose();

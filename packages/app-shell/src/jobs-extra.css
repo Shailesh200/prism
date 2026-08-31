@@ -330,6 +330,17 @@
   color: var(--prism-ink-muted, #94a3b8);
 }
 
+.job-review__branch {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+.job-review__branch code {
+  font-family: var(--prism-font-mono, ui-monospace, monospace);
+  color: var(--prism-ink, #fff);
+}
+
 .job-review__files {
   display: flex;
   flex-direction: column;

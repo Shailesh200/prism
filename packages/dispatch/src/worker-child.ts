@@ -8,7 +8,18 @@
 
 import { unlink } from "node:fs/promises";
 import { readJsonFile } from "./json-file.js";
-import { gitChangeSummary, gitReviewSummary } from "./git.js";
+import {
+  commitJobWork,
+  committedJobPaths,
+  gitChangeSummary,
+  gitReviewSummary,
+} from "./git.js";
+import {
+  auditCitedPaths,
+  fabricationNote,
+  stripWorktreePaths,
+} from "./job-artifacts.js";
+import { verifyJobWork } from "./job-verify.js";
 import { publicRunFailure, publicWorkerError } from "./job-voice.js";
 import {
   appendRunLog,
@@ -18,7 +29,7 @@ import {
 import { trustSystemCertificateAuthorities } from "./system-ca.js";
 import {
   activityFromEvent,
-  composeResultSummary,
+  composeJobResult,
   createRunWriter,
   killDirectChildren,
   patchRunState,
@@ -40,6 +51,11 @@ type SpawnPayload = {
   readonly mcpCommand: string;
   readonly mcpArgs: readonly string[];
   readonly resumeAgentId?: string;
+  readonly title?: string;
+  readonly baseRef?: string;
+  readonly branch?: string;
+  readonly subagents?: boolean;
+  readonly verify?: boolean;
 };
 
 type SdkRun = {
@@ -205,6 +221,7 @@ async function main(): Promise<void> {
     workspaceRoot: payload.workspaceRoot,
     mcpCommand: payload.mcpCommand,
     mcpArgs: payload.mcpArgs,
+    subagents: payload.subagents ?? false,
     ...(payload.name ? { name: payload.name } : {}),
   });
 
@@ -247,21 +264,18 @@ async function main(): Promise<void> {
     }
 
     const result = await sent.wait();
-    const [gitSummary, review] = await Promise.all([
-      gitChangeSummary(payload.cwd),
-      gitReviewSummary(payload.cwd),
-    ]);
-    const assistant = assistantText(result.result);
+    const rawAssistant = assistantText(result.result);
+    const assistant = stripWorktreePaths(rawAssistant, payload.cwd);
     const completedAt = new Date().toISOString();
 
     if (result.status === "error") {
+      const gitSummary = await gitChangeSummary(payload.cwd);
       await logLine("failed", assistant || "the run failed");
       await writer.patch(
         {
           phase: "failed",
           errorMessage: publicRunFailure(assistant || "the run failed"),
           gitSummary,
-          review,
           resultSummary: gitSummary,
           completedAt,
         },
@@ -270,12 +284,12 @@ async function main(): Promise<void> {
       process.exit(2);
     }
     if (result.status === "cancelled") {
+      const gitSummary = await gitChangeSummary(payload.cwd);
       await logLine("cancelled", "Cancelled");
       await writer.patch(
         {
           phase: "cancelled",
           gitSummary,
-          review,
           lastActivity: "Cancelled",
           completedAt,
         },
@@ -284,18 +298,65 @@ async function main(): Promise<void> {
       process.exit(0);
     }
 
+    // Commit before anything else reads the tree: until the work is on the
+    // branch it is untracked in a worktree the user is never told about, and
+    // pruning that worktree destroys it (ADR-0042 §1).
+    await writer.patch({ lastActivity: "Saving work" });
+    const commit = await commitJobWork(payload.cwd, {
+      jobId: payload.jobId,
+      title: payload.title ?? payload.jobId,
+    });
+
+    let verification: "passed" | "failed" | "skipped" = "skipped";
+    let verificationDetail = "";
+    if (commit.committed) {
+      await writer.patch({ lastActivity: "Running checks" });
+      const checked = await verifyJobWork(payload.cwd, {
+        enabled: payload.verify !== false,
+      });
+      verification = checked.status;
+      verificationDetail = checked.detail;
+    }
+
+    const baseRef = payload.baseRef ?? "HEAD~1";
+    const committedPaths = commit.committed
+      ? await committedJobPaths(payload.cwd, baseRef)
+      : [];
+    const audit = await auditCitedPaths({
+      text: assistant,
+      worktreePath: payload.cwd,
+      committedPaths,
+    });
+
+    // What the branch now carries, for the human to review. Read from the
+    // commit range, not the tree: the commit above already cleaned it.
+    const review = await gitReviewSummary(payload.cwd, {
+      baseRef,
+      ...(payload.branch ? { branch: payload.branch } : {}),
+    });
+
     await logLine(
       "done",
       review.files.length > 0
-        ? `Done — ${review.files.length} file(s) changed, left uncommitted for review`
-        : "Done — no file changes",
+        ? `Done — ${review.files.length} file(s) on the job branch, awaiting your review`
+        : "Done — no reviewable change",
     );
     await writer.patch(
       {
         phase: "done",
-        gitSummary,
+        gitSummary: commit.summary,
         review,
-        resultSummary: composeResultSummary(gitSummary, assistant),
+        verification,
+        verificationDetail,
+        ...(commit.sha ? { commitSha: commit.sha } : {}),
+        resultSummary: composeJobResult({
+          gitSummary: commit.summary,
+          assistant,
+          committed: commit.committed,
+          verification,
+          verificationDetail,
+          fabricationNote: fabricationNote(audit),
+        }),
         lastActivity: "Done",
         completedAt,
       },

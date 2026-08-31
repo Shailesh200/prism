@@ -1,6 +1,12 @@
-import { readdir, stat } from "node:fs/promises";
+import { readdir, realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { addGitWorktree, listGitWorktrees, type GitRunner } from "./git.js";
+import {
+  addGitWorktree,
+  branchHasUnmergedCommits,
+  listGitWorktrees,
+  removeGitWorktree,
+  type GitRunner,
+} from "./git.js";
 import { worktreesDir } from "./paths.js";
 import type { WorktreeSource } from "./types.js";
 
@@ -98,6 +104,66 @@ export async function discoverWorktrees(
     });
   }
   return [...fromGit, ...extra];
+}
+
+async function resolvePath(path: string): Promise<string> {
+  try {
+    return await realpath(path);
+  } catch {
+    return path;
+  }
+}
+
+export type PrunedWorktrees = {
+  readonly removed: string[];
+  /** Kept because they still carry commits nobody has merged (ADR-0042 §6). */
+  readonly keptWithCommits: string[];
+};
+
+/**
+ * Drop Prism worktrees whose job is gone (ADR-0042 §6).
+ *
+ * Only trees under `.prism/dispatch/worktrees/` are touched, and only when the
+ * branch holds nothing that is not already on the base. A tree with unmerged
+ * commits is reported, never removed — the whole point of committing job work
+ * is that it stops being disposable.
+ */
+export async function pruneOrphanWorktrees(input: {
+  readonly workspaceRoot: string;
+  readonly liveJobIds: ReadonlySet<string>;
+  readonly baseRef: string;
+  readonly run?: GitRunner;
+}): Promise<PrunedWorktrees> {
+  // git reports resolved paths, so on macOS (`/tmp` → `/private/tmp`) and any
+  // symlinked checkout a raw prefix compare silently matches nothing.
+  const prefix = await resolvePath(worktreesDir(input.workspaceRoot));
+  const listed = await listGitWorktrees(input.workspaceRoot, input.run);
+  const removed: string[] = [];
+  const keptWithCommits: string[] = [];
+
+  for (const tree of listed) {
+    const resolved = await resolvePath(tree.path);
+    if (!resolved.startsWith(prefix)) continue;
+    const id = resolved.slice(prefix.length).replace(/^[/\\]/, "");
+    if (!id || input.liveJobIds.has(id)) continue;
+
+    if (
+      tree.branch &&
+      (await branchHasUnmergedCommits(
+        input.workspaceRoot,
+        tree.branch,
+        input.baseRef,
+        input.run,
+      ))
+    ) {
+      keptWithCommits.push(id);
+      continue;
+    }
+    if (await removeGitWorktree(input.workspaceRoot, tree.path, input.run)) {
+      removed.push(id);
+    }
+  }
+  return { removed, keptWithCommits };
 }
 
 export async function adoptOrCreateWorktree(input: {

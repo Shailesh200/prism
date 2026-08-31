@@ -9,6 +9,28 @@ the `prism` CLI, the `prism-mcp` server, and the Core SDK they all call. They
 move as one because they are one build; a mismatch between them has never been
 a supported configuration.
 
+## 1.1.12 — Agent Dashboard Hub + worker OS CAs
+
+- **Dispatch:** a local jobs board watches every registered repo, lists parallel teammates, and fires a desktop notification (plus a Cursor toast) when one finishes. Open **Prism: Open Agent Dashboard** or `http://127.0.0.1:17330/`. `PRISM_HUB=0` opts out.
+- **Dispatch:** job workers trust OS certificate stores so they can reach Cursor behind HTTPS interception. A failed network call is spoken as a network error, not the SDK's "Network request failed".
+- Keep `@latest`; hop on the next Cursor/MCP start. Logs: `prism-mcp 1.1.12: workspace …`. `@repo-prism/dispatch@1.1.12`, `@repo-prism/dispatch-hub@1.1.12`, and `@repo-prism/mcp-server@1.1.12`.
+
+## 1.1.11 — Agent Dashboard Hub
+
+- **Dispatch:** a local jobs board watches every registered repo, lists parallel teammates, and fires a desktop notification (plus a Cursor toast) when one finishes. Open **Prism: Open Agent Dashboard** or `http://127.0.0.1:17330/`. `PRISM_HUB=0` opts out.
+- Keep `@latest`; hop on the next Cursor/MCP start. Logs: `prism-mcp 1.1.11: workspace …`. `@repo-prism/dispatch@1.1.11`, `@repo-prism/dispatch-hub@1.1.11`, and `@repo-prism/mcp-server@1.1.11`.
+
+## 1.1.10 — Dispatch every code change by default
+
+- **MCP:** a request to change the repo (`fix that issue`, `make this work like that`) starts a teammate without a ticket, PRD, or the words “start working on”. The agent writes the PRD itself. “Do it now” / “right here” keeps the edit inline. Combined with 1.1.9: finished jobs still commit, run typecheck/test, and may use in-process subagents.
+- Keep `@latest`; hop on the next Cursor/MCP start. Logs: `prism-mcp 1.1.10: workspace …`. `@repo-prism/dispatch@1.1.10` and `@repo-prism/mcp-server@1.1.10`.
+
+## 1.1.9 — Durable Dispatch jobs (commit, checks, subagents)
+
+- **Dispatch:** when a teammate stops, Prism commits the job branch and runs typecheck/test. Empty work says “produced no reviewable change”; summaries cannot cite files that were never written. Write-ups under `.prism/dispatch/notes/` ship with the commit.
+- **Dispatch:** in-process subagents (`task`) are on; host fan-out stays off. Jobs are admitted on free memory (default `maxJobs` 4). Orphan worktrees with no unmerged commits are pruned.
+- **MCP:** describing work is enough to start a job — no “start working on” phrase. The agent announces what it will start first. Local checkouts no longer hop to npm. Keep `@latest`; hop on the next Cursor/MCP start. Logs: `prism-mcp 1.1.9: workspace …`. `@repo-prism/dispatch@1.1.9` and `@repo-prism/mcp-server@1.1.9`.
+
 ## 1.1.7 — Open-folder jobs without reloading after every publish
 
 - **MCP / Dispatch:** ignore Cursor’s `Library/Containers` sandbox as a workspace. `start_job` / `start_my_day` accept `workspace` (the folder the agent already has open). Recommended mcp.json sets `CURSOR_WORKSPACE` to `${workspaceFolder}` — not a path you type.

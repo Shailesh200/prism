@@ -19,6 +19,7 @@ async function main(): Promise<void> {
     currentVersion,
     argv: process.argv.slice(2),
     env: process.env,
+    ...(process.argv[1] ? { entry: process.argv[1] } : {}),
     write: (line) => process.stderr.write(line),
   });
   if (update.status === "reexec" && update.child) {

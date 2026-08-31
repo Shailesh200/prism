@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { EventEmitter } from "node:events";
 import {
   fetchLatestMcpVersion,
+  isLocalCheckout,
   isNewerVersion,
   maybeReexecLatest,
 } from "./auto-update.js";
@@ -33,6 +34,35 @@ describe("auto-update", () => {
         currentVersion: "1.1.6",
         argv: [],
         env: { PRISM_DISPATCH_ROLE: "worker" },
+      }),
+    ).resolves.toEqual({ status: "skipped" });
+  });
+
+  it("recognises a checkout, but not an installed copy", () => {
+    expect(
+      isLocalCheckout("/Users/me/Prism/packages/mcp-server/dist/bin.js"),
+    ).toBe(true);
+    expect(
+      isLocalCheckout("/Users/me/Prism/packages/mcp-server/src/bin.ts"),
+    ).toBe(true);
+    expect(
+      isLocalCheckout(
+        "/tmp/.npx/node_modules/@repo-prism/mcp-server/dist/bin.js",
+      ),
+    ).toBe(false);
+    expect(isLocalCheckout(undefined)).toBe(false);
+  });
+
+  it("does not replace a developer's local build with npm", async () => {
+    const fetchImpl: typeof fetch = async () =>
+      new Response(JSON.stringify({ version: "9.9.9" }), { status: 200 });
+    await expect(
+      maybeReexecLatest({
+        currentVersion: "1.1.7",
+        argv: [],
+        env: {},
+        entry: "/Users/me/Prism/packages/mcp-server/dist/bin.js",
+        fetchImpl,
       }),
     ).resolves.toEqual({ status: "skipped" });
   });

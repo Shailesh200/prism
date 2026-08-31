@@ -1,11 +1,12 @@
 {
   "name": "@repo-prism/mcp-server",
-  "version": "1.1.7",
+  "version": "1.1.12",
   "mcpName": "io.github.Shailesh200/prism",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@repo-prism/core": "workspace:*",
     "@repo-prism/dispatch": "workspace:*",
+    "@repo-prism/dispatch-hub": "workspace:*",
     "@repo-prism/shared": "workspace:*",
     "zod": "^3.25.0"
   },

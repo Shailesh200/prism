@@ -55,9 +55,14 @@ function ReviewSummary(props: { review: JobReview }): ReactElement {
     <div className="job-review">
       <div className="job-review__head">
         <FileDiff size={14} aria-hidden />
-        <strong>Uncommitted changes</strong>
+        <strong>Ready for review</strong>
         <span className="job-review__totals">{reviewFileTotals(review)}</span>
       </div>
+      {review.branch ? (
+        <p className="job-review__branch">
+          on <code>{review.branch}</code>
+        </p>
+      ) : null}
       <ul className="job-review__files">
         {review.files.map((file) => (
           <li key={file.path} className="job-review__file">
@@ -80,8 +85,8 @@ function ReviewSummary(props: { review: JobReview }): ReactElement {
         </p>
       ) : null}
       <p className="job-review__note job-review__note--strong">
-        Nothing was committed. Review the diff, then commit or discard it
-        yourself.
+        This work is on its own branch. Nothing has been merged into the branch
+        you are on — review the diff, then merge or drop it yourself.
       </p>
     </div>
   );
