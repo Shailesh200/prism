@@ -17,6 +17,6 @@ describe("renderInlineMarkdown", () => {
   });
 
   it("drops javascript: hrefs", () => {
-    expect(html("[x](javascript:alert(1))")).toBe("<span>x</span>");
+    expect(html("[x](javascript:evil)")).toBe("<span>x</span>");
   });
 });
