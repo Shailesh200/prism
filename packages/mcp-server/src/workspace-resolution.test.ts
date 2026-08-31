@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   findGitRoot,
+  isEditorSandboxPath,
   pathFromHint,
   resolveWorkspacePath,
   splitHostPaths,
@@ -75,6 +76,28 @@ describe("workspace resolution (M-026)", () => {
       "/tmp/launch-dir/repo",
     );
     expect(resolveWorkspacePath({ argument: "..", cwd }).path).toBe("/tmp");
+  });
+
+  it("treats macOS Cursor container homes as sandbox", () => {
+    expect(
+      isEditorSandboxPath(
+        "/Users/me/Library/Containers/com.todesktop.230313mzl4w4u92/Data",
+      ),
+    ).toBe(true);
+    expect(isEditorSandboxPath("/Users/me/src/arcana-platform-website")).toBe(
+      false,
+    );
+  });
+
+  it("uses CURSOR_WORKSPACE when it is a git repo", () => {
+    const project = tempDir();
+    writeFileSync(join(project, ".git"), "gitdir: /somewhere");
+    expect(
+      resolveWorkspacePath({
+        cwd: tempDir(),
+        env: { CURSOR_WORKSPACE: project },
+      }),
+    ).toEqual({ path: project, source: "CURSOR_WORKSPACE" });
   });
 
   it("prefers Cursor WORKSPACE_FOLDER_PATHS over a non-repo launch cwd", () => {

@@ -15,13 +15,13 @@
       "sizes": ["128x128"]
     }
   ],
-  "version": "1.1.6",
+  "version": "1.1.7",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@repo-prism/mcp-server",
-      "version": "1.1.6",
+      "version": "1.1.7",
       "transport": {
         "type": "stdio"
       },
@@ -36,6 +36,13 @@
         {
           "name": "PRISM_WORKSPACE",
           "description": "Optional override when the MCP client starts from a directory outside the project.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CURSOR_WORKSPACE",
+          "description": "Optional host-interpolated project folder (Cursor ${workspaceFolder}). Used only when it contains a git root. Not locked like PRISM_WORKSPACE.",
           "format": "string",
           "isRequired": false,
           "isSecret": false

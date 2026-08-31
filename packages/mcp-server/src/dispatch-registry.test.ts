@@ -1,6 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -58,6 +58,41 @@ describe("worker role omits recursive tools", () => {
     expect(names).not.toContain("start_job");
     expect(names).not.toContain("start_my_day");
     expect(names).not.toContain("init");
+  });
+});
+
+describe("start_job workspace hint", () => {
+  it("rebinds a container launch cwd onto the repo the agent passes", async () => {
+    const launch = await mkdtemp(join(tmpdir(), "prism-dispatch-launch-"));
+    const repo = await mkdtemp(join(tmpdir(), "prism-dispatch-repo-"));
+    await writeFile(join(repo, ".git"), "gitdir: /somewhere");
+    const built = createPrismMcpServer({
+      workspaceRoot: launch,
+      workspaceSource: "cwd",
+    });
+    const client = new Client({ name: "hint-test", version: "0.0.0" });
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      built.server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+    try {
+      await client.callTool({
+        name: "start_job",
+        arguments: {
+          title: "News highlight",
+          prd: "Highlight HTML body",
+          workspace: repo,
+        },
+      });
+      expect(built.binding.current()).toBe(repo);
+    } finally {
+      built.session.close();
+      await client.close();
+      await rm(launch, { recursive: true, force: true });
+      await rm(repo, { recursive: true, force: true });
+    }
   });
 });
 

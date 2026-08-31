@@ -6,6 +6,7 @@
  * goes to stderr, where agent clients surface it as server logs.
  */
 
+import { maybeReexecLatest } from "./auto-update.js";
 import { readPackageVersion } from "./branding.js";
 import { trustSystemCertificateAuthorities } from "./system-ca.js";
 import { resolveWorkspaceFromProcess, startStdioServer } from "./server.js";
@@ -13,9 +14,25 @@ import { resolveWorkspaceFromProcess, startStdioServer } from "./server.js";
 trustSystemCertificateAuthorities();
 
 async function main(): Promise<void> {
+  const currentVersion = readPackageVersion();
+  const update = await maybeReexecLatest({
+    currentVersion,
+    argv: process.argv.slice(2),
+    env: process.env,
+    write: (line) => process.stderr.write(line),
+  });
+  if (update.status === "reexec" && update.child) {
+    const code = await new Promise<number>((resolve) => {
+      update.child?.once("exit", (exitCode, signal) => {
+        resolve(exitCode ?? (signal ? 1 : 0));
+      });
+    });
+    process.exit(code);
+  }
+
   const workspace = resolveWorkspaceFromProcess();
   process.stderr.write(
-    `prism-mcp ${readPackageVersion()}: workspace ${workspace.path} (from ${workspace.source})\n`,
+    `prism-mcp ${currentVersion}: workspace ${workspace.path} (from ${workspace.source})\n`,
   );
 
   await startStdioServer({

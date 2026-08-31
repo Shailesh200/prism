@@ -128,6 +128,7 @@ export function createPrismMcpServer(
   registerDispatchTools(server, binding.current(), {
     env: options.env ?? process.env,
     getWorkspaceRoot: () => binding.current(),
+    applyWorkspaceHint: (path) => binding.applyHints([path]),
     beforeCall: applyClientRoots,
   });
   if (!isWorkerRole(options.env ?? process.env)) {

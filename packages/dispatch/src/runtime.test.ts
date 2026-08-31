@@ -515,7 +515,7 @@ describe("jobs, worktrees, overlap, cap", () => {
     })) as { message: string; job?: unknown };
     expect(result.job).toBeUndefined();
     expect(result.message).toMatch(/git repository/i);
-    expect(result.message).toMatch(/PRISM_WORKSPACE/);
+    expect(result.message).toMatch(/mcp\.json/);
     expect(result.message).not.toMatch(/fatal:/);
   });
 
