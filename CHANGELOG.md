@@ -9,6 +9,13 @@ the `prism` CLI, the `prism-mcp` server, and the Core SDK they all call. They
 move as one because they are one build; a mismatch between them has never been
 a supported configuration.
 
+## 1.1.15 — Checkout-first jobs, Claude Code footer, configure anything
+
+- **Dispatch:** jobs work in your own checkout by default and leave edits uncommitted — no surprise branches or commits. Ask for a branch (or run a second job alongside) and it takes a worktree; a dirty tree asks first; the review subtracts what was already yours. “Commit it” commits only the job's files. `configure` → `placement: worktree` restores the old default.
+- **Dispatch:** `configure` accepts standing preferences (`preference: "standup: terse"`) applied to standup presentation; unknown setting keys are kept as preferences loudly instead of vanishing.
+- **Hub:** `prism-hub statusline` prints live job state for Claude Code's statusLine footer (`--setup` prints the settings block). The jobs board gains a per-job Console with subagent work indented; `job_logs` marks subagent lines.
+- Keep `@latest`; hop on the next Cursor/MCP start. Logs: `prism-mcp 1.1.15: workspace …`. `@repo-prism/dispatch@1.1.15`, `@repo-prism/dispatch-hub@1.1.15`, and `@repo-prism/mcp-server@1.1.15`.
+
 ## 1.1.14 — Claude Code workers
 
 - **Dispatch:** jobs run on the host's own agent CLI — a Cursor agent in Cursor, a Claude Code agent (`claude -p`) in Claude Code. `configure` → `workerBackend` overrides; `PRISM_WORKER` works too.
