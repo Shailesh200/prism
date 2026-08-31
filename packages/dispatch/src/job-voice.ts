@@ -249,7 +249,27 @@ function stripSecrets(detail: string): string {
     .trim();
 }
 
+/**
+ * The Cursor SDK reports any failed HTTPS call as “Network request failed”,
+ * which reads as “Prism is broken” rather than “this machine could not reach
+ * Cursor”. VPN/proxy TLS interception is the common cause.
+ */
+export function isNetworkFailureMessage(detail: string): boolean {
+  return /network request failed|fetch failed|ENOTFOUND|ECONNREFUSED|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up|self[- ]signed certificate|unable to (?:get|verify) local issuer|certificate has expired|UNABLE_TO_VERIFY_LEAF_SIGNATURE/i.test(
+    detail,
+  );
+}
+
+export function networkFailureSpeak(): string {
+  return [
+    "the teammate could not reach Cursor, so nothing is on a branch yet.",
+    "This machine blocked the request — usually VPN, a corporate proxy, or being offline.",
+    "Check the connection and say resume, or ask me to do it in this chat instead.",
+  ].join(" ");
+}
+
 export function publicWorkerError(detail: string): string {
+  if (isNetworkFailureMessage(detail)) return networkFailureSpeak();
   if (
     /not installed|cannot find module|CURSOR_API_KEY|api key|mcp\.json/i.test(
       detail,
@@ -264,6 +284,9 @@ export function publicWorkerError(detail: string): string {
 }
 
 export function publicRunFailure(detail: string): string {
+  if (isNetworkFailureMessage(detail)) {
+    return "The teammate lost its connection to Cursor. Check VPN/proxy or your network, then say resume.";
+  }
   if (
     /not installed|cannot find module|CURSOR_API_KEY|api key|mcp\.json/i.test(
       detail,

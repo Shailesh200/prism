@@ -52,6 +52,8 @@ export {
   agentNameForJob,
   missingGitRepoSpeak,
   gitFailureSpeak,
+  isNetworkFailureMessage,
+  networkFailureSpeak,
 } from "./job-voice.js";
 export {
   reapJobs,
@@ -132,6 +134,10 @@ export {
   type GitRunner,
   type JobCommit,
 } from "./git.js";
+export {
+  trustSystemCertificateAuthorities,
+  type SystemCaTls,
+} from "./system-ca.js";
 export { DRIVER_LABELS, connectCta } from "./drivers.js";
 export {
   OAUTH_PROVIDERS,
