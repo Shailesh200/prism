@@ -17,6 +17,8 @@ import {
   claudeGrandchildEnv,
   claudeCliCommand,
   claudeWorkerArgs,
+  isOptionalClaudeFlag,
+  unknownOptionFrom,
 } from "./claude-cli.js";
 import {
   claudeActivityFrom,
@@ -103,13 +105,18 @@ async function main(): Promise<void> {
   };
 
   const cli = claudeCliCommand();
-  const args = claudeWorkerArgs({
-    subagents: payload.subagents ?? false,
-    ...(payload.resumeAgentId
-      ? { resumeSessionId: payload.resumeAgentId }
-      : {}),
-  });
+  /** Optional flags this CLI rejected; dropped on the retry. */
+  const omitFlags: string[] = [];
+  const buildArgs = (): string[] =>
+    claudeWorkerArgs({
+      subagents: payload.subagents ?? false,
+      ...(payload.resumeAgentId
+        ? { resumeSessionId: payload.resumeAgentId }
+        : {}),
+      omitFlags,
+    });
 
+  let args = buildArgs();
   let child: ChildProcess;
   try {
     child = spawn(cli.command, args, {
@@ -128,6 +135,7 @@ async function main(): Promise<void> {
   const onStop = (): void => {
     cancelled = true;
     try {
+      // `child` is reassigned on a retry; kill whichever is current.
       child.kill("SIGTERM");
     } catch {
       /* already gone */
@@ -148,75 +156,108 @@ async function main(): Promise<void> {
   process.once("SIGINT", onStop);
 
   let stderrTail = "";
-  child.stderr?.on("data", (chunk: Buffer) => {
-    stderrTail = (stderrTail + chunk.toString("utf8")).slice(-STDERR_TAIL);
-  });
-
   let result: ClaudeResult | undefined;
   let sessionPatched = false;
-  let buffer = "";
-  child.stdout?.on("data", (chunk: Buffer) => {
-    buffer += chunk.toString("utf8");
-    for (;;) {
-      const newline = buffer.indexOf("\n");
-      if (newline < 0) break;
-      const line = buffer.slice(0, newline).trim();
-      buffer = buffer.slice(newline + 1);
-      if (!line) continue;
-      let event: unknown;
-      try {
-        event = JSON.parse(line);
-      } catch {
-        continue; // a truncated line must not take the job down
-      }
-      const sessionId = claudeSessionIdFrom(event);
-      if (sessionId && !sessionPatched) {
-        sessionPatched = true;
-        void writer.patch(
-          {
-            agentId: sessionId,
-            phase: "running",
-            lastActivity: "Teammate is on it",
-          },
-          { immediate: true },
-        );
-      }
-      const entry = claudeLogEntryFrom(event);
-      if (entry) {
-        void appendRunLog(payload.workspaceRoot, payload.jobId, entry);
-      }
-      const activity = claudeActivityFrom(event);
-      if (activity) void writer.patch(activity);
-      const terminal = claudeResultFrom(event);
-      if (terminal) result = terminal;
-    }
-  });
 
-  child.on("error", (cause) => {
-    // ENOENT and friends: the CLI is not installed or not on PATH.
-    const detail = cause instanceof Error ? cause.message : String(cause);
-    void (async () => {
-      await logLine("failed", detail);
-      await patchRunState(payload.workspaceRoot, payload.jobId, {
-        phase: "failed",
-        errorMessage: publicWorkerError(detail),
-        completedAt: new Date().toISOString(),
-      });
-      process.exit(1);
-    })();
-  });
+  /** Wire one CLI process up to the console and run it to completion. */
+  const runChild = async (active: ChildProcess): Promise<number | null> => {
+    stderrTail = "";
+    let buffer = "";
 
-  // The prompt travels over stdin: user text never touches argv.
-  child.stdin?.on("error", () => {
-    /* EPIPE when the CLI exits before reading */
-  });
-  child.stdin?.write(payload.prompt);
-  child.stdin?.end();
+    active.stderr?.on("data", (chunk: Buffer) => {
+      stderrTail = (stderrTail + chunk.toString("utf8")).slice(-STDERR_TAIL);
+    });
 
-  const exitCode = await new Promise<number | null>((resolve) => {
-    child.on("close", (code) => resolve(code));
-  });
+    active.stdout?.on("data", (chunk: Buffer) => {
+      buffer += chunk.toString("utf8");
+      for (;;) {
+        const newline = buffer.indexOf("\n");
+        if (newline < 0) break;
+        const line = buffer.slice(0, newline).trim();
+        buffer = buffer.slice(newline + 1);
+        if (!line) continue;
+        let event: unknown;
+        try {
+          event = JSON.parse(line);
+        } catch {
+          continue; // a truncated line must not take the job down
+        }
+        const sessionId = claudeSessionIdFrom(event);
+        if (sessionId && !sessionPatched) {
+          sessionPatched = true;
+          void writer.patch(
+            {
+              agentId: sessionId,
+              phase: "running",
+              lastActivity: "Teammate is on it",
+            },
+            { immediate: true },
+          );
+        }
+        const entry = claudeLogEntryFrom(event);
+        if (entry) {
+          void appendRunLog(payload.workspaceRoot, payload.jobId, entry);
+        }
+        const activity = claudeActivityFrom(event);
+        if (activity) void writer.patch(activity);
+        const terminal = claudeResultFrom(event);
+        if (terminal) result = terminal;
+      }
+    });
+
+    active.on("error", (cause) => {
+      // ENOENT and friends: the CLI is not installed or not on PATH.
+      const detail = cause instanceof Error ? cause.message : String(cause);
+      void (async () => {
+        await logLine("failed", detail);
+        await patchRunState(payload.workspaceRoot, payload.jobId, {
+          phase: "failed",
+          errorMessage: publicWorkerError(detail),
+          completedAt: new Date().toISOString(),
+        });
+        process.exit(1);
+      })();
+    });
+
+    // The prompt travels over stdin: user text never touches argv.
+    active.stdin?.on("error", () => {
+      /* EPIPE when the CLI exits before reading */
+    });
+    active.stdin?.write(payload.prompt);
+    active.stdin?.end();
+
+    return new Promise<number | null>((resolve) => {
+      active.on("close", (code) => resolve(code));
+    });
+  };
+
+  let exitCode = await runChild(child);
   if (cancelled) return; // the signal handler already patched and exited
+
+  // An older CLI can reject a flag we only use to enrich the console. Losing
+  // subagent detail is worth far less than losing the job, so drop it and go
+  // again — but only for flags that are not load-bearing. A rejected safety
+  // flag falls through to the normal failure path rather than silently
+  // running the agent without its tool allowlist.
+  if (!result && exitCode !== 0) {
+    const rejected = unknownOptionFrom(stderrTail);
+    if (isOptionalClaudeFlag(rejected) && !omitFlags.includes(rejected!)) {
+      omitFlags.push(rejected!);
+      await logLine(
+        "starting",
+        `This claude does not support ${rejected}; retrying without it.`,
+      );
+      args = buildArgs();
+      child = spawn(cli.command, args, {
+        cwd: payload.cwd,
+        env: claudeGrandchildEnv(process.env),
+        shell: cli.shell,
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+      exitCode = await runChild(child);
+      if (cancelled) return;
+    }
+  }
 
   try {
     if (result?.isError) {

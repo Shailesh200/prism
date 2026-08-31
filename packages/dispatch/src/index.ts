@@ -212,6 +212,12 @@ export {
   trustSystemCertificateAuthorities,
   type SystemCaTls,
 } from "./system-ca.js";
+export {
+  OPTIONAL_CLAUDE_FLAGS,
+  isOptionalClaudeFlag,
+  unknownOptionFrom,
+  withoutClaudeFlag,
+} from "./claude-cli.js";
 export { DRIVER_LABELS, connectCta } from "./drivers.js";
 export {
   OAUTH_PROVIDERS,
