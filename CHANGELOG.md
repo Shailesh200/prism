@@ -9,6 +9,12 @@ the `prism` CLI, the `prism-mcp` server, and the Core SDK they all call. They
 move as one because they are one build; a mismatch between them has never been
 a supported configuration.
 
+## 1.1.12 — Agent Dashboard Hub + worker OS CAs
+
+- **Dispatch:** a local jobs board watches every registered repo, lists parallel teammates, and fires a desktop notification (plus a Cursor toast) when one finishes. Open **Prism: Open Agent Dashboard** or `http://127.0.0.1:17330/`. `PRISM_HUB=0` opts out.
+- **Dispatch:** job workers trust OS certificate stores so they can reach Cursor behind HTTPS interception. A failed network call is spoken as a network error, not the SDK's "Network request failed".
+- Keep `@latest`; hop on the next Cursor/MCP start. Logs: `prism-mcp 1.1.12: workspace …`. `@repo-prism/dispatch@1.1.12`, `@repo-prism/dispatch-hub@1.1.12`, and `@repo-prism/mcp-server@1.1.12`.
+
 ## 1.1.11 — Agent Dashboard Hub
 
 - **Dispatch:** a local jobs board watches every registered repo, lists parallel teammates, and fires a desktop notification (plus a Cursor toast) when one finishes. Open **Prism: Open Agent Dashboard** or `http://127.0.0.1:17330/`. `PRISM_HUB=0` opts out.
