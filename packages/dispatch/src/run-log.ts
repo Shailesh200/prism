@@ -36,6 +36,11 @@ export const RunLogEntrySchema = z.object({
   phase: RunPhaseSchema,
   text: z.string().default(""),
   tool: z.string().optional(),
+  /**
+   * Subagent grouping (M-066 P-P6): the Task tool_use id this line belongs
+   * to. Absent = the primary agent.
+   */
+  parent: z.string().optional(),
   level: z.enum(["info", "error"]).default("info"),
 });
 export type RunLogEntry = z.infer<typeof RunLogEntrySchema>;

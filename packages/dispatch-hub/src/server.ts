@@ -9,8 +9,10 @@ import { createReadStream } from "node:fs";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  createClaudeWorkerPort,
   createCursorWorkerPort,
   createDispatchRuntime,
+  readRunLog,
 } from "@repo-prism/dispatch";
 import { originAllowed, tokenFromRequest, tokensMatch } from "./auth.js";
 import { createIdleTimer, IDLE_MS } from "./idle.js";
@@ -78,6 +80,7 @@ async function defaultControl(
   const runtime = createDispatchRuntime({
     workspaceRoot: workspacePath,
     worker: createCursorWorkerPort(),
+    claudeWorker: createClaudeWorkerPort(),
   });
   return runtime.handle("job_control", { jobId, action });
 }
@@ -240,6 +243,25 @@ export async function startHub(
 
     if (req.method === "GET" && url.pathname === "/api/jobs") {
       json(res, 200, { jobs });
+      return;
+    }
+
+    // Per-job console for the board's expander (M-066 P-P6).
+    const logsMatch = /^\/api\/jobs\/([^/]+)\/logs$/.exec(url.pathname);
+    if (req.method === "GET" && logsMatch) {
+      const jobId = decodeURIComponent(logsMatch[1] ?? "");
+      const workspace =
+        url.searchParams.get("workspace") ??
+        jobs.find((job) => job.id === jobId)?.workspacePath ??
+        "";
+      if (!workspace) {
+        json(res, 400, { error: "workspace required" });
+        return;
+      }
+      const page = await readRunLog(workspace, jobId, {
+        limit: Number(url.searchParams.get("limit") ?? "200") || 200,
+      });
+      json(res, 200, page);
       return;
     }
 

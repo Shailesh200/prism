@@ -23,6 +23,9 @@ export type WorkerStartInput = {
   readonly branch?: string;
   readonly subagents?: boolean;
   readonly verify?: boolean;
+  /** ADR-0045: checkout edits the user's tree, uncommitted. */
+  readonly placement?: "checkout" | "worktree";
+  readonly preExistingChanges?: readonly string[];
 };
 
 export type WorkerHandle = {
@@ -47,6 +50,8 @@ export type WorkerPort = {
     readonly branch?: string;
     readonly subagents?: boolean;
     readonly verify?: boolean;
+    readonly placement?: "checkout" | "worktree";
+    readonly preExistingChanges?: readonly string[];
   }): Promise<WorkerHandle | void>;
   cancel(input: {
     readonly agentId?: string;
@@ -117,23 +122,34 @@ export function workerPrompt(input: {
   readonly memories: readonly MemoryItem[];
   readonly extra?: string;
   readonly subagents?: boolean;
+  /** ADR-0045: checkout jobs edit the user's tree and never commit. */
+  readonly placement?: "checkout" | "worktree";
 }): string {
   const remembered = formatMemoriesForPrompt(
     memoriesForJob(input.memories, input.job.id),
   );
+  const checkout = input.placement === "checkout";
   return [
     `You are a Prism Dispatch worker for ${input.job.title} (${input.job.id}).`,
-    "Work only in this worktree. Do not start new Dispatch jobs, run start_my_day, or begin OAuth. You already have a job.",
+    checkout
+      ? "Work only in this repository checkout — the user's own working tree on their current branch. Do not start new Dispatch jobs, run start_my_day, or begin OAuth. You already have a job."
+      : "Work only in this worktree. Do not start new Dispatch jobs, run start_my_day, or begin OAuth. You already have a job.",
     "Do not install dependencies (no bun install, npm install, or yarn). node_modules is already linked from the host repo.",
     "You have no shell. Do not run prism, git, bun, npm, or any CLI. Edit existing source with the file tools only.",
     input.subagents
       ? "For multi-part work, split it with the task tool and run subagents in parallel. They share your sandbox: file tools only, no shell."
       : "",
     "Do not copy the repo, do not create extra worktrees, and do not write large caches. Prefer small, targeted edits.",
-    // Prism commits the worktree and runs typecheck/test once the agent
-    // stops, so the model must not claim either happened (ADR-0042 §1, §3).
-    "Prism commits your work on the job branch and runs typecheck and tests after you stop. Do not claim you committed, ran tests, or verified anything.",
-    "Write any write-up to .prism/dispatch/notes/ — that is the one path under .prism/ that ships with the commit. Everything else there is ignored and will be lost.",
+    // Prism runs typecheck/test once the agent stops, so the model must not
+    // claim either happened (ADR-0042 §3). Committing is placement-dependent
+    // (ADR-0045): worktree jobs are committed by Prism; checkout jobs stay
+    // uncommitted in the user's tree.
+    checkout
+      ? "Prism never commits here: your edits stay uncommitted in the user's working tree. Prism runs typecheck and tests after you stop. Do not claim you committed, ran tests, or verified anything."
+      : "Prism commits your work on the job branch and runs typecheck and tests after you stop. Do not claim you committed, ran tests, or verified anything.",
+    checkout
+      ? "Write any write-up to .prism/dispatch/notes/ — the one .prism/ path included if the user later asks for a commit. Everything else there is ignored."
+      : "Write any write-up to .prism/dispatch/notes/ — that is the one path under .prism/ that ships with the commit. Everything else there is ignored and will be lost.",
     "When you finish, say what changed in a short last message (files and why), even if nothing shipped. Only name files you actually wrote.",
     input.job.prd ? `PRD:\n${input.job.prd}` : "",
     remembered ? `Memories:\n${remembered}` : "",
@@ -186,6 +202,10 @@ export function createCursorWorkerPort(
           ...(input.apiKey ? { apiKey: input.apiKey } : {}),
           ...(input.name ? { name: input.name } : {}),
           ...(input.agentId ? { resumeAgentId: input.agentId } : {}),
+          ...(input.placement ? { placement: input.placement } : {}),
+          ...(input.preExistingChanges
+            ? { preExistingChanges: input.preExistingChanges }
+            : {}),
         },
         childJs,
       );

@@ -46,6 +46,10 @@ export function createClaudeWorkerPort(
           ...(input.branch ? { branch: input.branch } : {}),
           ...(input.name ? { name: input.name } : {}),
           ...(input.agentId ? { resumeAgentId: input.agentId } : {}),
+          ...(input.placement ? { placement: input.placement } : {}),
+          ...(input.preExistingChanges
+            ? { preExistingChanges: input.preExistingChanges }
+            : {}),
         },
         childJs,
       );

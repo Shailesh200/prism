@@ -79,10 +79,12 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/the user can stop you/i);
   });
 
-  it("tells agents a finished job is committed and checked", () => {
-    expect(SERVER_INSTRUCTIONS).toMatch(/commits to its own branch/);
+  it("tells agents a finished job is checked and never landed silently", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/typecheck and tests/);
     expect(SERVER_INSTRUCTIONS).toMatch(/no reviewable change/);
+    // ADR-0045: checkout jobs stay uncommitted; worktree jobs get a commit.
+    expect(SERVER_INSTRUCTIONS).toMatch(/uncommitted/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/job branch/);
   });
 
   it("dispatches code changes by intent, not the phrase start working on", () => {

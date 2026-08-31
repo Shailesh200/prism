@@ -72,6 +72,7 @@
 | M-063 Distribution and Proof | `milestone/M-063-distribution` | Planned | ☐ | ☐ | Benchmarks, one-click MCP install, URL updates, killer demo, CHANGELOG |
 | M-064 Agent Dashboard Hub | `milestone/M-064-agent-dashboard` | Verified | ✅ | ✅ | Global jobs board: dispatch-hub daemon on :17330, OS + IDE toasts, thin MCP App widget (ADR-0043). Shipped in `@repo-prism/mcp-server@1.1.12`; owner reviewed smoke path 2026-08-31 |
 | M-065 Claude Code Worker | `milestone/M-065-claude-code-worker` | Verified | ✅ | ✅ | Dispatch worker backends: `claude -p` worker child, backend resolution from MCP clientInfo, per-backend init (ADR-0044). Owner approved direct release 2026-08-31 |
+| M-066 Checkout-first Jobs + Claude Presence | `milestone/M-066-checkout-first-jobs` | In Progress | ☐ | ☐ | Checkout-first placement, no-commit default (ADR-0045); statusLine, subagent tree, `claude --bg` spike (ADR-0046) |
 
 ## Legend
 

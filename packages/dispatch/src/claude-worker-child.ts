@@ -91,6 +91,10 @@ async function main(): Promise<void> {
     ...(payload.baseRef ? { baseRef: payload.baseRef } : {}),
     ...(payload.branch ? { branch: payload.branch } : {}),
     ...(payload.verify !== undefined ? { verify: payload.verify } : {}),
+    ...(payload.placement ? { placement: payload.placement } : {}),
+    ...(payload.preExistingChanges
+      ? { preExistingChanges: payload.preExistingChanges }
+      : {}),
   };
   const finish = {
     patch: (partial: Partial<RunState>, options?: { immediate?: boolean }) =>

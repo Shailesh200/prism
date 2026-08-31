@@ -53,7 +53,12 @@ const SPOKEN_LOG_LINES = 12;
 
 export function jobLogsSpeak(
   job: { id: string; title: string; status: string },
-  entries: readonly { ts: string; phase: string; text: string }[],
+  entries: readonly {
+    ts: string;
+    phase: string;
+    text: string;
+    parent?: string | undefined;
+  }[],
   review?: JobReview,
 ): string {
   const head = `${jobRef(job)} — ${statusPhrase(job.status)}`;
@@ -61,7 +66,10 @@ export function jobLogsSpeak(
     return `${head}. No console output yet.`;
   }
   const shown = entries.slice(-SPOKEN_LOG_LINES);
-  const lines = shown.map((entry) => `  ${entry.phase}: ${entry.text}`);
+  // Subagent lines are marked, not flattened away (M-066 P-P6).
+  const lines = shown.map(
+    (entry) => `  ${entry.parent ? "↳ " : ""}${entry.phase}: ${entry.text}`,
+  );
   const parts = [head, ...lines];
   if (job.status === "needs_review" && review) {
     parts.push("", reviewSpeak(job, review));
@@ -136,8 +144,12 @@ export function doctorSpeak(
 
 export function startJobSpeak(job: JobRecord): string {
   const id = displayJobId(job);
+  const where =
+    job.placement === "checkout"
+      ? "A teammate is working right in your working tree — edits appear as it goes, and nothing is committed until you ask."
+      : "A teammate is working in its own worktree, so you can keep chatting or start another job.";
   return [
-    `Started ${jobRef(job)}. A teammate is working in its own worktree, so you can keep chatting or start another job.`,
+    `Started ${jobRef(job)}. ${where}`,
     `Say “where are we” anytime for live status — including when it finishes or if it fails.`,
     `Pause or cancel with “pause ${id}”.`,
   ].join(" ");
@@ -249,20 +261,44 @@ export function reviewSpeak(
     return `${jobRef(job)} finished without producing a reviewable change.`;
   }
   const noun = count === 1 ? "file" : "files";
-  const branch = review.branch ? ` on ${review.branch}` : "";
-  const head = [
-    `${jobRef(job)} is ready for your review — ${count} ${noun}${branch}`,
-    `(+${review.totalAdded} -${review.totalRemoved}).`,
-  ].join(" ");
   const shown = review.files.slice(0, SPOKEN_REVIEW_FILES);
   const rest = count - shown.length;
   const lines = shown.map(reviewFileLine);
   if (rest > 0 || review.truncated) {
     lines.push(`  …and ${rest > 0 ? rest : "more"} more`);
   }
+  const mixed = review.mixedPaths ?? [];
+  const mixedNote =
+    mixed.length > 0
+      ? `Already yours and also touched by the job — review together: ${mixed
+          .slice(0, 4)
+          .join(", ")}${mixed.length > 4 ? `, +${mixed.length - 4} more` : ""}.`
+      : "";
+
+  // Checkout placement (ADR-0045 §2): uncommitted in the user's tree; the
+  // commit is an explicit ask and stages only the job's files.
+  if (!review.committed) {
+    const head = [
+      `${jobRef(job)} is ready for your review — ${count} ${noun} in your working tree`,
+      `(+${review.totalAdded} -${review.totalRemoved}), uncommitted.`,
+    ].join(" ");
+    return [
+      head,
+      ...lines,
+      ...(mixedNote ? [mixedNote] : []),
+      "Nothing was committed. Say “commit it” and only those files land on your current branch — or leave them and commit yourself.",
+    ].join("\n");
+  }
+
+  const branch = review.branch ? ` on ${review.branch}` : "";
+  const head = [
+    `${jobRef(job)} is ready for your review — ${count} ${noun}${branch}`,
+    `(+${review.totalAdded} -${review.totalRemoved}).`,
+  ].join(" ");
   return [
     head,
     ...lines,
+    ...(mixedNote ? [mixedNote] : []),
     "That work is on its own branch — nothing has been merged into the branch you are on. Want me to merge it, leave it, or drop it?",
   ].join("\n");
 }
@@ -301,7 +337,7 @@ function teammateLine(status: string, agentStatus: string): string {
 
 export function controlSpeak(
   action: "pause" | "resume" | "cancel",
-  job: { id: string; title: string },
+  job: { id: string; title: string; placement?: string | undefined },
 ): string {
   const verb =
     action === "pause"
@@ -309,7 +345,22 @@ export function controlSpeak(
       : action === "cancel"
         ? "Cancelled"
         : "Resumed";
-  return `${verb} ${jobRef(job)}.`;
+  // Checkout jobs edit the user's tree directly (ADR-0045): cancel kills the
+  // worker but cannot un-edit. Say so instead of implying a rollback.
+  const note =
+    action === "cancel" && job.placement === "checkout"
+      ? " Any edits it made are still in your working tree — discard them with git if you don't want them."
+      : "";
+  return `${verb} ${jobRef(job)}.${note}`;
+}
+
+/** Dirty-tree confirm before a checkout job starts (ADR-0045 §4). */
+export function dirtyCheckoutSpeak(dirtyCount: number): string {
+  const noun = dirtyCount === 1 ? "file" : "files";
+  return [
+    `Your working tree has uncommitted changes (${dirtyCount} ${noun}). A teammate would work alongside them, in the same tree.`,
+    `Its review will separate what it changed from what was already yours. Say yes to go ahead, or ask for a separate branch instead.`,
+  ].join(" ");
 }
 
 export function missingJobSpeak(

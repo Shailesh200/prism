@@ -37,7 +37,15 @@ function toolTarget(block: Record<string, unknown>): string {
   const input = block.input;
   if (!input || typeof input !== "object") return "";
   const row = input as Record<string, unknown>;
-  for (const key of ["file_path", "pattern", "query", "command", "path"]) {
+  for (const key of [
+    "file_path",
+    "pattern",
+    "query",
+    "description",
+    "prompt",
+    "command",
+    "path",
+  ]) {
     const value = row[key];
     if (typeof value === "string" && value.trim()) return value.trim();
   }
@@ -55,6 +63,18 @@ export function claudeSessionIdFrom(event: unknown): string | undefined {
   if (typeof row.session_id !== "string" || !row.session_id) return undefined;
   if (row.type === "system" || row.type === "result") return row.session_id;
   return undefined;
+}
+
+/**
+ * Subagent grouping key (M-066 P-P6): stream-json sets
+ * `parent_tool_use_id` on events inside a Task subagent. The primary agent's
+ * events have it null.
+ */
+export function claudeParentFrom(event: unknown): string | undefined {
+  if (!event || typeof event !== "object") return undefined;
+  const row = event as Record<string, unknown>;
+  const parent = row.parent_tool_use_id;
+  return typeof parent === "string" && parent ? parent : undefined;
 }
 
 export type ClaudeResult = {
@@ -83,6 +103,8 @@ export function claudeLogEntryFrom(
   if (!event || typeof event !== "object") return undefined;
   const row = event as Record<string, unknown>;
   const ts = now.toISOString();
+  const parent = claudeParentFrom(event);
+  const sub = parent ? { parent } : {};
 
   if (row.type === "system" && row.subtype === "init") {
     return { ts, phase: "running", text: "Teammate is on it", level: "info" };
@@ -94,19 +116,28 @@ export function claudeLogEntryFrom(
       if (block.type === "thinking" || block.type === "text") {
         const text = clip(blockText(block), MAX_ENTRY_TEXT);
         if (text) {
-          entries.push({ ts, phase: "thinking", text, level: "info" });
+          entries.push({ ts, phase: "thinking", text, level: "info", ...sub });
         }
       }
       if (block.type === "tool_use") {
         const name = toolName(block);
         const target = clip(toolTarget(block), 200);
+        // A Task call is the subagent's root: label it so the console can
+        // group the lines that carry its id as `parent`.
+        const label =
+          name === "Task" && target
+            ? `Subagent: ${target}`
+            : target
+              ? `Using ${name} on ${target}`
+              : `Using ${name}`;
         const editing = EDIT_TOOLS.has(name);
         entries.push({
           ts,
           phase: editing ? "editing" : "tool",
-          text: target ? `Using ${name} on ${target}` : `Using ${name}`,
+          text: label,
           level: "info",
           ...(name ? { tool: name } : {}),
+          ...sub,
         });
       }
     }
@@ -138,6 +169,7 @@ export function claudeLogEntryFrom(
           phase: "tool",
           text: text || "Tool call failed",
           level: "error",
+          ...sub,
         };
       }
     }

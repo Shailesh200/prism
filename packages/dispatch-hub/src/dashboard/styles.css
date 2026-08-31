@@ -165,3 +165,46 @@ body {
 .hub-actions button:hover {
   border-color: var(--prism-brand);
 }
+
+.hub-console {
+  margin-top: 12px;
+  border: 1px solid var(--prism-line);
+  border-radius: 8px;
+  background: var(--prism-tile);
+  padding: 10px 12px;
+  max-height: 320px;
+  overflow-y: auto;
+  font-family: var(--prism-font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.hub-console-empty {
+  color: var(--prism-ink-muted);
+  margin: 0;
+}
+
+.hub-console-line {
+  margin: 2px 0;
+  color: var(--prism-ink);
+  word-break: break-word;
+}
+
+.hub-console-phase {
+  color: var(--prism-ink-muted);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  margin-right: 8px;
+}
+
+.hub-console-sub {
+  margin-left: 18px;
+  border-left: 2px solid var(--prism-line);
+  padding-left: 8px;
+  color: var(--prism-ink-muted);
+}
+
+.hub-console-err {
+  color: var(--prism-rose, #e11d48);
+}

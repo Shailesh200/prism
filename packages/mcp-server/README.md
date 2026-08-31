@@ -186,8 +186,8 @@ Intelligence tools are read-only. Dispatch tools write gitignored state under
 | `init` | One-time worker sign-in (Cursor browser login; Claude CLI check) | — |
 | `start_job` | Start a named teammate in its own worktree; returns immediately | `title`, `prd`, `jobId`, `branch`, `confirmOverlap` |
 | `list_jobs` | Live activity plus finished results (“where are we”); names the jobs board | — |
-| `job_logs` | One job's console: activity lines plus the branch review awaiting you | `jobId`, `limit`, `since` |
-| `job_control` | pause / resume / cancel / attach_context | `jobId`, `action`, `context` |
+| `job_logs` | One job's console: activity lines (subagent lines marked) plus the review awaiting you | `jobId`, `limit`, `since` |
+| `job_control` | pause / resume / cancel / attach_context / commit (checkout jobs) | `jobId`, `action`, `context` |
 | `remember` | Save, list, or forget memories for the next job | `action`, `text`, `scope`, `confirm` |
 | `integrations` | Catalogue, OAuth start, disconnect | `action`, `driver` |
 | `configure` | Standup settings or export a non-secret template | `action`, Slack channels, `maxJobs`, `ticketHost` |

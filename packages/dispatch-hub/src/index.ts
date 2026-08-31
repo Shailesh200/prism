@@ -14,6 +14,12 @@ export { originAllowed, tokenFromRequest, tokensMatch } from "./auth.js";
 export { diffJobs, collectJobs, isInFlight, isTerminal } from "./watch.js";
 export { toSnapshot } from "./snapshot.js";
 export { registerWorkspace, workspaceLabel, loadRegistry } from "./registry.js";
+export {
+  buildStatusline,
+  formatStatusline,
+  parseStatuslineStdin,
+  statuslineSetupSnippet,
+} from "./statusline.js";
 export { readHubRecord, newHubToken } from "./hub-record.js";
 export type {
   HubEvent,

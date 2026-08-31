@@ -134,18 +134,21 @@ local workers, never an index.
 
 Chat-native jobs, memories, OAuth drivers, worktree adopt/create, and local
 workers on the host's own agent CLI — Cursor SDK in Cursor, Claude Code CLI in
-Claude Code (ADR-0044). Consumed by `@repo-prism/mcp-server` and
+Claude Code (ADR-0044). Jobs are checkout-first (ADR-0045): edits land in the
+user's tree uncommitted, and a worktree + job branch is the explicit or
+parallel-collision path. Consumed by `@repo-prism/mcp-server` and
 `@repo-prism/dispatch-hub`. User tokens stay
 in the OS keychain. Connect uses the Prism Auth broker (ADR-0036). Cursor
 shows a native Authenticate control; Claude opens the auth page (ADR-0037).
 Cursor workers sign in via a browser Cursor login (ADR-0038), not mcp.json;
 Claude workers reuse the machine's `claude` sign-in.
 Job ids are tickets or title slugs; chat never speaks `job-<hex>` (ADR-0039).
-Workers run out-of-process in isolated git worktrees; live status and
+Workers run out-of-process; live status and
 finished/failed results are reaped into `list_jobs` / start-my-day (ADR-0040).
 Job agents do not attach Prism MCP; Prism worktrees symlink the host
-`node_modules` (ADR-0041). Prism commits the job branch and verifies after
-the agent stops; in-process subagents are on (ADR-0042). The jobs board is
+`node_modules` (ADR-0041). Prism verifies after
+the agent stops and commits worktree placements; in-process subagents are on
+(ADR-0042). The jobs board is
 a separate package (`@repo-prism/dispatch-hub`, ADR-0043).
 
 **Must never** be imported by `@repo-prism/core`, any engine package, or the

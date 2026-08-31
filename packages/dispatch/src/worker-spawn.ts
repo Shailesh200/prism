@@ -38,6 +38,10 @@ export type SpawnPayload = {
   readonly branch?: string;
   readonly subagents?: boolean;
   readonly verify?: boolean;
+  /** Absent = worktree (the pre-M-066 default, ADR-0045). */
+  readonly placement?: "checkout" | "worktree";
+  /** Checkout only: paths already dirty at dispatch (ADR-0045 §3). */
+  readonly preExistingChanges?: readonly string[];
 };
 
 export function isSpawnPayload(value: unknown): value is SpawnPayload {
@@ -77,6 +81,8 @@ export type LaunchWorkerInput = {
   readonly branch?: string;
   readonly subagents?: boolean;
   readonly verify?: boolean;
+  readonly placement?: "checkout" | "worktree";
+  readonly preExistingChanges?: readonly string[];
 };
 
 export async function launchWorkerChild(
@@ -109,6 +115,10 @@ export async function launchWorkerChild(
       ...(input.branch ? { branch: input.branch } : {}),
       ...(input.name ? { name: input.name } : {}),
       ...(input.resumeAgentId ? { resumeAgentId: input.resumeAgentId } : {}),
+      ...(input.placement ? { placement: input.placement } : {}),
+      ...(input.preExistingChanges
+        ? { preExistingChanges: [...input.preExistingChanges] }
+        : {}),
     },
     0o600,
   );
