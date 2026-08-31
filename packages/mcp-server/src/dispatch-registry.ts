@@ -18,9 +18,11 @@ import {
   type DispatchRuntime,
   type DispatchToolName,
 } from "@repo-prism/dispatch";
+import { ensureHub, peekHub, type HubHandle } from "@repo-prism/dispatch-hub";
 import type { ZodRawShape } from "zod";
 import { z } from "zod";
 import { toMcpErrorFromThrown } from "./errors.js";
+import { JOBS_APP_URI } from "./jobs-app-uri.js";
 import { createMcpOAuthUi } from "./oauth-ui.js";
 import { serialiseForMcp } from "./tool-registry.js";
 
@@ -104,7 +106,7 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     name: "list_jobs",
     title: "List Dispatch jobs",
     description:
-      "Where are we: every Dispatch job with title, canonical id, live activity, and a result, verification outcome, or error when a teammate finishes. Speak only the tool message — titles, what they are doing, and what changed, not worktree paths or job-<hex> ids. A finished job lives on its branch: name the branch and commit rather than a path. Report a failed check as a failure, and say so plainly when a job produced no reviewable change. Also prunes worktrees whose job is gone, keeping any that still hold unmerged commits. Call when the user asks where we are, what's running, how a job is going, or whether a teammate finished.",
+      "Where are we: every Dispatch job with title, canonical id, live activity, and a result, verification outcome, or error when a teammate finishes. Speak only the tool message — titles, what they are doing, and what changed, not worktree paths or job-<hex> ids. A finished job lives on its branch: name the branch and commit rather than a path. Report a failed check as a failure, and say so plainly when a job produced no reviewable change. Also prunes worktrees whose job is gone, keeping any that still hold unmerged commits. Call when the user asks where we are, what's running, how a job is going, or whether a teammate finished. Mention the jobs dashboard URL from the message so they can watch live.",
     inputSchema: {},
     readOnly: true,
     openWorld: false,
@@ -220,7 +222,7 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     name: "dispatch_doctor",
     title: "Dispatch doctor",
     description:
-      "Check whether Dispatch can run local teammates. Speak only the tool message — never mention API keys, mcp.json, host role, or connector counts. If sign-in is missing, call init.",
+      "Check whether Dispatch can run local teammates. Speak only the tool message — never mention API keys, mcp.json, host role, or connector counts. If sign-in is missing, call init. The message also says whether the jobs board is up.",
     inputSchema: {},
     readOnly: true,
     openWorld: false,
@@ -270,6 +272,9 @@ export function registerDispatchTools(
         data: notice.text,
       });
     });
+    void ensureHub({ workspaceRoot: getRoot(), env }).catch(() => {
+      /* hub spawn is best-effort */
+    });
   }
 
   for (const tool of DISPATCH_TOOLS) {
@@ -284,6 +289,12 @@ export function registerDispatchTools(
           readOnlyHint: tool.readOnly,
           openWorldHint: tool.openWorld,
         },
+        // MCP Apps bind the tool to ui://prism/jobs (protocol field `_meta`).
+        ...(tool.name === "list_jobs"
+          ? ({
+              _meta: { ui: { resourceUri: JOBS_APP_URI } },
+            } as { _meta: { ui: { resourceUri: string } } })
+          : {}),
       },
       async (args: unknown, extra) => {
         try {
@@ -296,9 +307,28 @@ export function registerDispatchTools(
             oauthUi: createMcpOAuthUi(server, extra),
             signal: extra.signal,
           });
-          return {
-            content: [{ type: "text" as const, text: serialiseForMcp(value) }],
+          const decorated = await decorateDispatchValue(
+            tool.name,
+            value,
+            getRoot,
+            env,
+          );
+          const result: {
+            content: { type: "text"; text: string }[];
+            structuredContent?: Record<string, unknown>;
+          } = {
+            content: [{ type: "text", text: serialiseForMcp(decorated) }],
           };
+          if (tool.name === "list_jobs") {
+            if (decorated && typeof decorated === "object") {
+              result.structuredContent = decorated as Record<string, unknown>;
+            }
+            // MCP Apps protocol field on CallToolResult.
+            return Object.assign(result, {
+              _meta: { ui: { resourceUri: JOBS_APP_URI } },
+            });
+          }
+          return result;
         } catch (cause) {
           const detail = cause instanceof Error ? cause.message : String(cause);
           if (isMissingGitRepoMessage(detail)) {
@@ -316,4 +346,38 @@ export function registerDispatchTools(
       },
     );
   }
+}
+
+async function decorateDispatchValue(
+  name: DispatchToolName,
+  value: unknown,
+  getRoot: () => string,
+  env: NodeJS.ProcessEnv,
+): Promise<unknown> {
+  if (name !== "list_jobs" && name !== "dispatch_doctor") return value;
+  const hub: HubHandle =
+    name === "list_jobs"
+      ? await ensureHub({ workspaceRoot: getRoot(), env }).catch(() => ({
+          enabled: false,
+          detail: "Jobs board did not start.",
+        }))
+      : await peekHub(env);
+  if (!value || typeof value !== "object") return value;
+  const record = value as { message?: string; [key: string]: unknown };
+  if (typeof record.message !== "string") return value;
+  const board = hub.dashboardUrl ?? hub.url;
+  if (name === "list_jobs" && board) {
+    return {
+      ...record,
+      dashboardUrl: board,
+      message: `${record.message}\nWatch live at ${board}`,
+    };
+  }
+  if (name === "dispatch_doctor") {
+    return {
+      ...record,
+      message: `${record.message} ${hub.detail}${board ? ` ${board}` : ""}`,
+    };
+  }
+  return value;
 }

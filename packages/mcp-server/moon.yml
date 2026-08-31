@@ -5,6 +5,7 @@ dependsOn:
   - "shared"
   - "core"
   - "dispatch"
+  - "dispatch-hub"
   - "test-support"
 tasks:
   build:

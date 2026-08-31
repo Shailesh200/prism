@@ -70,6 +70,7 @@
 | M-061 Detection Quality | `milestone/M-061-detection-quality` | Planned | ☐ | ☐ | Multi-signal detectors, feature inference fallback, backend extractors |
 | M-062 UI Actionability | `milestone/M-062-ui-actionability` | Planned | ☐ | ☐ | D-9 IA merge, DomainScreen split, dead-end fixes, shared table primitives |
 | M-063 Distribution and Proof | `milestone/M-063-distribution` | Planned | ☐ | ☐ | Benchmarks, one-click MCP install, URL updates, killer demo, CHANGELOG |
+| M-064 Agent Dashboard Hub | `milestone/M-064-agent-dashboard` | In Progress | ☐ | ☐ | Global jobs board: dispatch-hub daemon on :17330, OS + IDE toasts, thin MCP App widget (ADR-0043) |
 
 ## Legend
 

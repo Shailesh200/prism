@@ -26,7 +26,9 @@ façade, not a second copy of blast radius.
    quality.
 2. **New package `@repo-prism/dispatch`.** `mcp-server` may depend on
    `dispatch` + `core` + `shared`. Core must not import Dispatch. Engine
-   packages stay internal.
+   packages stay internal. [ADR-0043](./0043-agent-dashboard-hub.md) adds
+   `@repo-prism/dispatch-hub` as a second Dispatch consumer (loopback
+   dashboard). The IDE extension still must not import Dispatch.
 3. **Dual registration path.** Intelligence tools keep `registerTools` (session
    open + index + Core `Result`). Dispatch tools use `registerDispatchTools`,
    which never calls `session.ready()`.

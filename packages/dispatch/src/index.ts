@@ -58,6 +58,7 @@ export {
   isProcessAlive,
   activityFromEvent,
   startJobNoticeWatcher,
+  readRunState,
 } from "./run-state.js";
 export {
   workerMcpEnv,

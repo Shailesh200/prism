@@ -28,6 +28,7 @@ describe("@repo-prism/cursor-extension", () => {
     const ids = pkg.contributes.commands.map((c) => c.command);
     expect(ids).toContain("prism.open");
     expect(ids).toContain("prism.reindex");
+    expect(ids).toContain("prism.openAgentDashboard");
   });
 
   it("staged build points at the shared extension host (when built)", () => {

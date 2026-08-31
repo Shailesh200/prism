@@ -30,3 +30,4 @@ Critical-path milestones have full specs here. Summaries for other milestones li
 | M-039 | [M-039_ga-readiness.md](./M-039_ga-readiness.md) |
 | M-048 | [M-048_extension-polish.md](./M-048_extension-polish.md) — includes Phase 8 Blast Radius Depth |
 | M-049 | [M-049_blast-radius-depth.md](./M-049_blast-radius-depth.md) — **Absorbed** into M-048 Phase 8 (design archive) |
+| M-064 | [M-064_agent-dashboard.md](./M-064_agent-dashboard.md) — jobs hub daemon, OS/IDE toasts, MCP App widget |

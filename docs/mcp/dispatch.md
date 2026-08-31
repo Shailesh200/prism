@@ -66,8 +66,10 @@ Summaries are checked against the branch, so a teammate cannot claim a file it
 never wrote. Worktrees whose job is gone are pruned; any holding unmerged
 commits are kept and reported.
 
-Say **where are we** anytime for live activity, what changed, whether checks
-passed, or a real error — MCP cannot push into an idle chat.
+Say **where are we** for live activity, results, or errors. MCP cannot push
+into an idle chat, so a **jobs board** at `http://127.0.0.1:17330/` (Prism →
+Open Agent Dashboard) plus a desktop notification reports when a teammate
+finishes. `PRISM_HUB=0` turns the board off.
 
 The first time, a **Cursor login page** opens; say **prism init** to sign in
 without starting a job. Chat names a job by ticket (`AI-971`) or slug

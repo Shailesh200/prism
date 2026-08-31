@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prism jobs</title>
+  <style>
+    :root { color-scheme: dark; font-family: ui-sans-serif, system-ui, sans-serif; }
+    body { margin: 0; padding: 12px; background: #0a0e1a; color: #e6f0f2; }
+    h1 { font-size: 14px; margin: 0 0 10px; }
+    ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+    li { border: 1px solid #2a334a; border-radius: 8px; padding: 8px 10px; background: #131926; }
+    .muted { color: #94a3b8; font-size: 12px; }
+    button {
+      margin-top: 10px; appearance: none; border: 1px solid #2a334a;
+      background: #1e2433; color: #fff; border-radius: 8px; padding: 6px 10px; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>Dispatch jobs</h1>
+  <ul id="jobs"></ul>
+  <p id="empty" class="muted">Ask Prism “where are we” if this stays empty.</p>
+  <button type="button" id="open">Open dashboard</button>
+  <script>
+    let dashboardUrl = "http://127.0.0.1:17330/";
+    const list = document.getElementById("jobs");
+    const empty = document.getElementById("empty");
+    function render(jobs) {
+      list.innerHTML = "";
+      const rows = Array.isArray(jobs) ? jobs : [];
+      empty.style.display = rows.length ? "none" : "block";
+      for (const job of rows) {
+        const li = document.createElement("li");
+        const title = job.title || job.id || "job";
+        const status = job.status || "";
+        const activity = job.lastActivity || job.resultSummary || job.errorMessage || "";
+        li.innerHTML = "<strong></strong><div class='muted'></div>";
+        li.querySelector("strong").textContent = title + (status ? " · " + status : "");
+        li.querySelector(".muted").textContent = activity;
+        list.appendChild(li);
+      }
+    }
+    function fromPayload(payload) {
+      if (!payload || typeof payload !== "object") return;
+      if (typeof payload.dashboardUrl === "string" && payload.dashboardUrl) {
+        dashboardUrl = payload.dashboardUrl;
+      }
+      if (Array.isArray(payload.jobs)) render(payload.jobs);
+      else if (payload.result && Array.isArray(payload.result.jobs)) render(payload.result.jobs);
+    }
+    window.addEventListener("message", (event) => {
+      const data = event.data;
+      if (!data) return;
+    fromPayload(data);
+    fromPayload(data.params);
+    fromPayload(data.result);
+    fromPayload(data.structuredContent);
+    fromPayload(data.params && data.params.result);
+    fromPayload(data.params && data.params.structuredContent);
+    });
+    document.getElementById("open").addEventListener("click", () => {
+      window.open(dashboardUrl, "_blank", "noopener");
+    });
+    try {
+      window.parent.postMessage({ jsonrpc: "2.0", method: "ui/notifications/initialized" }, "*");
+    } catch (_) {}
+  </script>
+</body>
+</html>
