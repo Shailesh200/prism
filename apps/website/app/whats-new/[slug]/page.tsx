@@ -45,7 +45,9 @@ export default async function PostPage(props: Props) {
               {page.data.title}
             </h1>
             {page.data.description ? (
-              <p className="text-fd-muted-foreground">{page.data.description}</p>
+              <p className="text-fd-muted-foreground">
+                {page.data.description}
+              </p>
             ) : null}
             <MDX components={getMDXComponents()} />
           </DocsBody>

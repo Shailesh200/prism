@@ -4,7 +4,9 @@ import { describe, expect, it } from "vitest";
 import { renderInlineMarkdown } from "./inline-markdown";
 
 function html(text: string): string {
-  return renderToStaticMarkup(createElement("span", null, renderInlineMarkdown(text)));
+  return renderToStaticMarkup(
+    createElement("span", null, renderInlineMarkdown(text)),
+  );
 }
 
 describe("renderInlineMarkdown", () => {

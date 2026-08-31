@@ -3,7 +3,11 @@ import { createElement, type ReactNode } from "react";
 const TOKEN = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g;
 
 function safeHref(href: string): string | null {
-  if (href.startsWith("/") || href.startsWith("#") || href.startsWith("mailto:")) {
+  if (
+    href.startsWith("/") ||
+    href.startsWith("#") ||
+    href.startsWith("mailto:")
+  ) {
     return href;
   }
   try {
@@ -29,7 +33,8 @@ export function renderInlineMarkdown(text: string): ReactNode {
     if (link) {
       const href = safeHref(link[2]);
       if (!href) return link[1];
-      const external = href.startsWith("http://") || href.startsWith("https://");
+      const external =
+        href.startsWith("http://") || href.startsWith("https://");
       return createElement(
         "a",
         {

@@ -82,7 +82,10 @@ export default async function WhatsNewPage() {
                   </h2>
                   <ul className="list-disc space-y-2 pl-5 text-fd-muted-foreground">
                     {release.bullets.map((b) => (
-                      <li key={b} className="leading-relaxed [&_strong]:text-fd-foreground">
+                      <li
+                        key={b}
+                        className="leading-relaxed [&_strong]:text-fd-foreground"
+                      >
                         {renderInlineMarkdown(b)}
                       </li>
                     ))}
