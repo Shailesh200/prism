@@ -79,6 +79,14 @@ export const DEFAULT_SECTION_ORDER: readonly BriefingSectionId[] = [
 export const TicketHostSchema = z.enum(["linear", "jira"]);
 export type TicketHost = z.infer<typeof TicketHostSchema>;
 
+/** Agent CLI that runs a Dispatch job's worker child (ADR-0044). */
+export const WorkerBackendSchema = z.enum(["cursor", "claude"]);
+export type WorkerBackend = z.infer<typeof WorkerBackendSchema>;
+
+/** Config setting: explicit backend, or "auto" to match the MCP host. */
+export const WorkerBackendSettingSchema = z.enum(["auto", "cursor", "claude"]);
+export type WorkerBackendSetting = z.infer<typeof WorkerBackendSettingSchema>;
+
 export const DispatchConfigSchema = z.object({
   sectionOrder: z
     .array(BriefingSectionIdSchema)
@@ -101,6 +109,11 @@ export const DispatchConfigSchema = z.object({
   fanout: z.boolean().default(false),
   /** Supervisor-run typecheck/test after the agent stops (ADR-0042 §3). */
   verifyJobs: z.boolean().default(true),
+  /**
+   * Which agent CLI runs job workers (ADR-0044). "auto" matches the MCP
+   * host: claude-code chats get Claude workers, everything else Cursor.
+   */
+  workerBackend: WorkerBackendSettingSchema.default("auto"),
   ticketHost: TicketHostSchema.default("linear"),
   mentionWindowHours: z.number().int().min(1).max(168).default(24),
   mentionLimit: z.number().int().min(1).max(50).default(10),
@@ -182,6 +195,10 @@ export const JobRecordSchema = z.object({
   source: WorktreeSourceSchema,
   cursorAgentId: z.string().optional(),
   claudeSession: z.string().optional(),
+  /** Backend running this job (ADR-0044). Absent on pre-M-065 records = cursor. */
+  workerBackend: WorkerBackendSchema.optional(),
+  /** Claude session_id, captured from stream-json init; the resume handle. */
+  workerSessionId: z.string().optional(),
   workerPid: z.number().int().optional(),
   runId: z.string().optional(),
   lastActivity: z.string().optional(),

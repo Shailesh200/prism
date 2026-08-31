@@ -7,6 +7,8 @@ export {
   parseDriverId,
   JobRecordSchema,
   MemoryItemSchema,
+  WorkerBackendSchema,
+  WorkerBackendSettingSchema,
   type BriefingSectionId,
   type DayBriefing,
   type DispatchConfig,
@@ -17,6 +19,8 @@ export {
   type MemoryItem,
   type MemoryScope,
   type TicketHost,
+  type WorkerBackend,
+  type WorkerBackendSetting,
   type WorktreeSource,
   JobReviewSchema,
   ReviewFileSchema,
@@ -149,6 +153,37 @@ export {
   workerPrompt,
   type WorkerPort,
 } from "./worker.js";
+export {
+  resolveWorkerBackend,
+  workerBackendLabel,
+  type WorkerAuthInspect,
+} from "./worker-backend.js";
+export {
+  createClaudeWorkerPort,
+  resolveClaudeWorkerChildPath,
+} from "./claude-worker.js";
+export {
+  claudeWorkerArgs,
+  claudeGrandchildEnv,
+  claudeCliCommand,
+  CLAUDE_WORKER_TOOLS,
+  CLAUDE_SUBAGENT_TOOL,
+} from "./claude-cli.js";
+export {
+  claudeActivityFrom,
+  claudeLogEntryFrom,
+  claudeResultFrom,
+  claudeSessionIdFrom,
+  type ClaudeResult,
+} from "./claude-stream.js";
+export {
+  createClaudeAuthPort,
+  ensureClaudeWorkerAuth,
+  inspectClaudeWorkerAuth,
+  probeClaudeCli,
+  type ClaudeAuthPort,
+  type ClaudeAuthStatus,
+} from "./claude-auth.js";
 export {
   gitSnapshot,
   gitChangeSummary,

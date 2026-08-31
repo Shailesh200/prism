@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Progress** |
+| Status | **Verified** |
 | Branch | `milestone/M-064-agent-dashboard` (from latest `main`) |
 | Depends on | Dispatch v2 (`dispatch/v2-agentic`, on `main`) |
 | Unlocks | — |
@@ -37,16 +37,16 @@ thin in-chat companion.
 
 ## 4. Definition of Done
 
-- [ ] Only one milestone `In Progress`
-- [ ] `@repo-prism/dispatch-hub` binds loopback `:17330`, writes `~/.prism/hub/hub.json` (`0o600`) with a token, registers workspaces, watches `.prism/dispatch/`
-- [ ] Dashboard lists jobs across repos with live activity, verification, commit, pause/resume/cancel
-- [ ] OS notification + IDE toast on job finish (no worktree paths)
-- [ ] Host MCP spawns the hub (`PRISM_HUB=0` opts out); `list_jobs` / `dispatch_doctor` name the board
-- [ ] `ui://prism/jobs` resource + `_meta.ui.resourceUri` on `list_jobs`
-- [ ] Extension command `prism.openAgentDashboard`; Cursor manifest mirrored
-- [ ] ADR-0043 Accepted; packages.md + dispatch docs updated
-- [ ] `bun run verify:milestone` green
-- [ ] Owner approval → commit → merge → Verified → snippet shared
+- [x] Only one milestone `In Progress`
+- [x] `@repo-prism/dispatch-hub` binds loopback `:17330`, writes `~/.prism/hub/hub.json` (`0o600`) with a token, registers workspaces, watches `.prism/dispatch/`
+- [x] Dashboard lists jobs across repos with live activity, verification, commit, pause/resume/cancel
+- [x] OS notification + IDE toast on job finish (no worktree paths)
+- [x] Host MCP spawns the hub (`PRISM_HUB=0` opts out); `list_jobs` / `dispatch_doctor` name the board
+- [x] `ui://prism/jobs` resource + `_meta.ui.resourceUri` on `list_jobs`
+- [x] Extension command `prism.openAgentDashboard`; Cursor manifest mirrored
+- [x] ADR-0043 Accepted; packages.md + dispatch docs updated
+- [x] `bun run verify:milestone` green
+- [x] Owner approval → commit → merge → Verified → snippet shared
 
 ## 5. References
 

@@ -1,26 +1,13 @@
 #!/usr/bin/env node
 /**
- * Out-of-process Dispatch worker. Spawned by the host MCP so the agent loop
- * never runs inside the prism stdio server (ADR-0040).
+ * Out-of-process Dispatch worker (Cursor SDK backend). Spawned by the host
+ * MCP so the agent loop never runs inside the prism stdio server (ADR-0040).
  *
  * argv[2] = path to a 0600 spawn payload JSON (deleted after read).
  */
 
-import { unlink } from "node:fs/promises";
-import { readJsonFile } from "./json-file.js";
-import {
-  commitJobWork,
-  committedJobPaths,
-  gitChangeSummary,
-  gitReviewSummary,
-} from "./git.js";
-import {
-  auditCitedPaths,
-  fabricationNote,
-  stripWorktreePaths,
-} from "./job-artifacts.js";
-import { verifyJobWork } from "./job-verify.js";
-import { publicRunFailure, publicWorkerError } from "./job-voice.js";
+import { stripWorktreePaths } from "./job-artifacts.js";
+import { publicWorkerError } from "./job-voice.js";
 import {
   appendRunLog,
   lifecycleLogEntry,
@@ -29,34 +16,23 @@ import {
 import { trustSystemCertificateAuthorities } from "./system-ca.js";
 import {
   activityFromEvent,
-  composeJobResult,
   createRunWriter,
   killDirectChildren,
   patchRunState,
   type RunState,
 } from "./run-state.js";
+import { readSpawnPayload } from "./worker-spawn.js";
+import {
+  cancelWorkerRunFinish,
+  completeWorkerRun,
+  failWorkerRun,
+} from "./worker-finish.js";
 import { cursorAgentOptions } from "./worker-options.js";
 
 // Own process, own TLS state: the host MCP trusting the OS store does not carry
 // across the spawn, and without this the Cursor SDK reports "Network request
 // failed" behind corporate HTTPS interception.
 trustSystemCertificateAuthorities();
-
-type SpawnPayload = {
-  readonly jobId: string;
-  readonly cwd: string;
-  readonly workspaceRoot: string;
-  readonly prompt: string;
-  readonly name?: string;
-  readonly mcpCommand: string;
-  readonly mcpArgs: readonly string[];
-  readonly resumeAgentId?: string;
-  readonly title?: string;
-  readonly baseRef?: string;
-  readonly branch?: string;
-  readonly subagents?: boolean;
-  readonly verify?: boolean;
-};
 
 type SdkRun = {
   id?: string;
@@ -75,19 +51,6 @@ type SdkAgent = {
   send(prompt: string): Promise<SdkRun>;
   [Symbol.asyncDispose]?: () => Promise<void>;
 };
-
-function isPayload(value: unknown): value is SpawnPayload {
-  if (!value || typeof value !== "object") return false;
-  const row = value as Record<string, unknown>;
-  return (
-    typeof row.jobId === "string" &&
-    typeof row.cwd === "string" &&
-    typeof row.workspaceRoot === "string" &&
-    typeof row.prompt === "string" &&
-    typeof row.mcpCommand === "string" &&
-    Array.isArray(row.mcpArgs)
-  );
-}
 
 function assistantText(result: unknown): string {
   if (typeof result === "string") return result;
@@ -128,13 +91,11 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const raw = await readJsonFile<unknown>(payloadPath, null);
-  await unlink(payloadPath).catch(() => undefined);
-  if (!isPayload(raw)) {
+  const payload = await readSpawnPayload(payloadPath);
+  if (!payload) {
     process.stderr.write("dispatch-worker: invalid spawn payload\n");
     process.exit(1);
   }
-  const payload = raw;
   const now = new Date().toISOString();
   const writer = createRunWriter(payload.workspaceRoot, payload.jobId, {
     jobId: payload.jobId,
@@ -167,6 +128,17 @@ async function main(): Promise<void> {
     );
   };
   await logLine("starting", "Teammate starting");
+
+  const finish = { patch: writer.patch.bind(writer), logLine: logLine };
+  const finishInput = {
+    jobId: payload.jobId,
+    cwd: payload.cwd,
+    workspaceRoot: payload.workspaceRoot,
+    ...(payload.title ? { title: payload.title } : {}),
+    ...(payload.baseRef ? { baseRef: payload.baseRef } : {}),
+    ...(payload.branch ? { branch: payload.branch } : {}),
+    ...(payload.verify !== undefined ? { verify: payload.verify } : {}),
+  };
 
   let activeRun: SdkRun | undefined;
   const onStop = (): void => {
@@ -266,102 +238,17 @@ async function main(): Promise<void> {
     const result = await sent.wait();
     const rawAssistant = assistantText(result.result);
     const assistant = stripWorktreePaths(rawAssistant, payload.cwd);
-    const completedAt = new Date().toISOString();
 
     if (result.status === "error") {
-      const gitSummary = await gitChangeSummary(payload.cwd);
-      await logLine("failed", assistant || "the run failed");
-      await writer.patch(
-        {
-          phase: "failed",
-          errorMessage: publicRunFailure(assistant || "the run failed"),
-          gitSummary,
-          resultSummary: gitSummary,
-          completedAt,
-        },
-        { immediate: true },
-      );
+      await failWorkerRun(finishInput, assistant || "the run failed", finish);
       process.exit(2);
     }
     if (result.status === "cancelled") {
-      const gitSummary = await gitChangeSummary(payload.cwd);
-      await logLine("cancelled", "Cancelled");
-      await writer.patch(
-        {
-          phase: "cancelled",
-          gitSummary,
-          lastActivity: "Cancelled",
-          completedAt,
-        },
-        { immediate: true },
-      );
+      await cancelWorkerRunFinish(finishInput, finish);
       process.exit(0);
     }
 
-    // Commit before anything else reads the tree: until the work is on the
-    // branch it is untracked in a worktree the user is never told about, and
-    // pruning that worktree destroys it (ADR-0042 §1).
-    await writer.patch({ lastActivity: "Saving work" });
-    const commit = await commitJobWork(payload.cwd, {
-      jobId: payload.jobId,
-      title: payload.title ?? payload.jobId,
-    });
-
-    let verification: "passed" | "failed" | "skipped" = "skipped";
-    let verificationDetail = "";
-    if (commit.committed) {
-      await writer.patch({ lastActivity: "Running checks" });
-      const checked = await verifyJobWork(payload.cwd, {
-        enabled: payload.verify !== false,
-      });
-      verification = checked.status;
-      verificationDetail = checked.detail;
-    }
-
-    const baseRef = payload.baseRef ?? "HEAD~1";
-    const committedPaths = commit.committed
-      ? await committedJobPaths(payload.cwd, baseRef)
-      : [];
-    const audit = await auditCitedPaths({
-      text: assistant,
-      worktreePath: payload.cwd,
-      committedPaths,
-    });
-
-    // What the branch now carries, for the human to review. Read from the
-    // commit range, not the tree: the commit above already cleaned it.
-    const review = await gitReviewSummary(payload.cwd, {
-      baseRef,
-      ...(payload.branch ? { branch: payload.branch } : {}),
-    });
-
-    await logLine(
-      "done",
-      review.files.length > 0
-        ? `Done — ${review.files.length} file(s) on the job branch, awaiting your review`
-        : "Done — no reviewable change",
-    );
-    await writer.patch(
-      {
-        phase: "done",
-        gitSummary: commit.summary,
-        review,
-        verification,
-        verificationDetail,
-        ...(commit.sha ? { commitSha: commit.sha } : {}),
-        resultSummary: composeJobResult({
-          gitSummary: commit.summary,
-          assistant,
-          committed: commit.committed,
-          verification,
-          verificationDetail,
-          fabricationNote: fabricationNote(audit),
-        }),
-        lastActivity: "Done",
-        completedAt,
-      },
-      { immediate: true },
-    );
+    await completeWorkerRun(finishInput, assistant, finish);
     process.exit(0);
   } catch (cause) {
     const detail = cause instanceof Error ? cause.message : String(cause);

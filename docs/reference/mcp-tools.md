@@ -37,7 +37,7 @@ Tools that return a list accept `limit` and answer with `totalCount` and
 | [`find_references`](#find_references) | Find resolved references to a symbol — who actually calls or imports it |
 | [`find_symbol`](#find_symbol) | Find indexed symbols by exact name, optionally narrowed by file or kind |
 | [`health_history`](#health_history) | Health score over time from stored index snapshots and optional git backfill |
-| [`init`](#init) | One-time Cursor sign-in so Prism can run local job workers |
+| [`init`](#init) | One-time worker sign-in so Prism can run local job teammates |
 | [`integrations`](#integrations) | Catalogue what Dispatch can connect, start OAuth for GitHub (user), Linear, Jira, Slack (mentions + tracked channels), Notion, or Google Calendar, or disconnect a driver |
 | [`job_control`](#job_control) | Pause, resume, cancel, or add context to a running Dispatch job |
 | [`job_logs`](#job_logs) | The console for one Dispatch job |
@@ -95,9 +95,9 @@ Arguments: `base`.
 
 ## `configure`
 
-Read or update gitignored Dispatch settings: section order, standup template, Slack tracked channel ids, mention window and caps, max parallel jobs (default 4, admitted on free memory), in-process subagents, host fan-out, post-job verification, hint policy, and whether the tickets slot is Linear or Jira. action=export returns a non-secret template (no tokens) for sharing. Chat only — there is no settings UI in v1.
+Read or update gitignored Dispatch settings: section order, standup template, Slack tracked channel ids, mention window and caps, max parallel jobs (default 4, admitted on free memory), in-process subagents, host fan-out, post-job verification, worker backend (auto = match this host, cursor, or claude), hint policy, and whether the tickets slot is Linear or Jira. action=export returns a non-secret template (no tokens) for sharing. Chat only — there is no settings UI in v1.
 
-Arguments: `action`, `maxJobs`, `subagents`, `fanout`, `verifyJobs`, `hints`, `ticketHost`, `standupTemplate`, `slackTrackChannelIds`, `mentionWindowHours`, `mentionLimit`, `trackedMessageLimit`, `sectionsOff`, `includeMemories`.
+Arguments: `action`, `maxJobs`, `subagents`, `fanout`, `verifyJobs`, `workerBackend`, `hints`, `ticketHost`, `standupTemplate`, `slackTrackChannelIds`, `mentionWindowHours`, `mentionLimit`, `trackedMessageLimit`, `sectionsOff`, `includeMemories`.
 
 ## `dependency_cycles`
 
@@ -167,7 +167,7 @@ Arguments: `maxPoints`.
 
 ## `init`
 
-One-time Cursor sign-in so Prism can run local job workers. Opens the Cursor login page in the browser. Speak only the tool message to the user — never mention API keys, mcp.json, host role, or connector counts. If Cursor shows “Authenticating prism…” with Skip, that is host tool-approval: tell the user to click Skip, then retry init.
+One-time worker sign-in so Prism can run local job teammates. The worker matches the host (ADR-0044): in Cursor a Cursor login page opens in the browser; in Claude Code this checks the claude CLI is installed and signed in, and the message says what to run when it is not. Speak only the tool message to the user — never mention API keys, mcp.json, host role, or connector counts. If Cursor shows “Authenticating prism…” with Skip, that is host tool-approval: tell the user to click Skip, then retry init.
 
 Takes no arguments.
 
@@ -287,7 +287,7 @@ Arguments: `packageId`.
 
 ## `start_job`
 
-Hand a code change to a background teammate. Call this for ANY request to change this repository — fix a bug or broken behaviour, implement, add, wire up, refactor, rename, migrate, or make one area behave like another. Intent is enough: it does not require the words “start working on”, a ticket id, or a PRD, so “the highlighting is not working in the news tab, fix that issue” is a start_job. Derive title and prd yourself from the request plus the repo; do not interview the user. Say in one line what you are starting, then call it. Do NOT call this when the user wants it done inline now (“do it now”, “right here”, “yourself”, “quick fix”, “don't dispatch”), for questions/explanations/reviews, for one trivial fully-specified edit, or for a repo-wide audit (repository_health). Always pass workspace as the absolute path of the git repository you are editing (the folder that contains .git). Starts a local Cursor teammate in its own worktree (host node_modules linked; no shell; no second Prism MCP; may use in-process subagents for multi-part work) and returns immediately. When the teammate stops, Prism commits its work to the job branch and runs typecheck and tests, so the result carries a real pass/fail. Speak only the tool message: use the job title and canonical id (ticket like AI-971 or slug like audit-issues), never job-<hex>, worktree paths, or API keys. Tell the user to say where are we for live status and the result when it finishes. Jobs are admitted on free memory, so a second teammate may be refused while one is running. If sign-in is needed, a Cursor login page opens in the browser. If Cursor shows “Authenticating prism…” with Skip, tell the user to click Skip and retry. If the tool says Prism does not see a git repository, retry once with workspace set to the open project path — do not throw PRISM_UNKNOWN at the user.
+Hand a code change to a background teammate. Call this for ANY request to change this repository — fix a bug or broken behaviour, implement, add, wire up, refactor, rename, migrate, or make one area behave like another. Intent is enough: it does not require the words “start working on”, a ticket id, or a PRD, so “the highlighting is not working in the news tab, fix that issue” is a start_job. Derive title and prd yourself from the request plus the repo; do not interview the user. Say in one line what you are starting, then call it. Do NOT call this when the user wants it done inline now (“do it now”, “right here”, “yourself”, “quick fix”, “don't dispatch”), for questions/explanations/reviews, for one trivial fully-specified edit, or for a repo-wide audit (repository_health). Always pass workspace as the absolute path of the git repository you are editing (the folder that contains .git). Starts a local teammate in its own worktree — a Cursor agent in Cursor, a Claude Code agent in Claude Code (host node_modules linked; no shell; no second Prism MCP; may use in-process subagents for multi-part work) — and returns immediately. When the teammate stops, Prism commits its work to the job branch and runs typecheck and tests, so the result carries a real pass/fail. Speak only the tool message: use the job title and canonical id (ticket like AI-971 or slug like audit-issues), never job-<hex>, worktree paths, or API keys. Tell the user to say where are we for live status and the result when it finishes. Jobs are admitted on free memory, so a second teammate may be refused while one is running. If sign-in is needed, the message says what to do (Cursor: a login page opens; Claude Code: run claude once in a terminal). If Cursor shows “Authenticating prism…” with Skip, tell the user to click Skip and retry. If the tool says Prism does not see a git repository, retry once with workspace set to the open project path — do not throw PRISM_UNKNOWN at the user.
 
 Arguments: `title`, `prd`, `jobId`, `branch`, `workspace`, `playbook`, `confirmOverlap`.
 

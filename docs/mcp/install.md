@@ -61,6 +61,8 @@ claude mcp add prism -- npx -y --prefer-online @repo-prism/mcp-server@latest
 ```
 
 Restart Claude Code if it was already open. Ask: "What is this repository?"
+Dispatch jobs run on the Claude Code you are already signed in to — no Cursor
+login. Say **prism init** to check that sign-in before starting a job.
 
 ## Cursor (manual)
 

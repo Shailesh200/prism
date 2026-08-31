@@ -62,7 +62,7 @@ use this page when you need the exhaustive index.
 | `find_references` | Find resolved references to a symbol — who actually calls or imports it |
 | `find_symbol` | Find indexed symbols by exact name, optionally narrowed by file or kind |
 | `health_history` | Health score over time from stored index snapshots and optional git backfill |
-| `init` | One-time Cursor sign-in so Prism can run local job workers |
+| `init` | One-time worker sign-in so Prism can run local job teammates |
 | `integrations` | Catalogue what Dispatch can connect, start OAuth for GitHub (user), Linear, Jira, Slack (mentions + tracked channels), Notion, or Google Calendar, or disconnect a driver |
 | `job_control` | Pause, resume, cancel, or add context to a running Dispatch job |
 | `job_logs` | The console for one Dispatch job |
