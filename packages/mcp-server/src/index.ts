@@ -46,6 +46,7 @@ export {
 export { toMcpError, toMcpErrorFromThrown } from "./errors.js";
 export {
   findGitRoot,
+  isEditorSandboxPath,
   pathFromHint,
   resolveWorkspacePath,
   splitHostPaths,

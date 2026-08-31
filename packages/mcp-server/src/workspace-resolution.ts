@@ -20,6 +20,7 @@ export type WorkspaceSource =
   | "argument"
   | "environment"
   | "WORKSPACE_FOLDER_PATHS"
+  | "CURSOR_WORKSPACE"
   | "VSCODE_CWD"
   | "INIT_CWD"
   | "git root"
@@ -102,6 +103,26 @@ function existingGitRoot(hint: string, cwd: string): string | undefined {
 }
 
 /**
+ * Cursor / VS Code often start MCP inside the editor sandbox (macOS
+ * `Library/Containers/…`, app support folders, npx cache). Those directories
+ * exist and are not git repos — never treat them as the project.
+ */
+export function isEditorSandboxPath(path: string): boolean {
+  const normalized = path.replace(/\\/g, "/");
+  return (
+    normalized.includes("/Library/Containers/") ||
+    normalized.includes("/Library/Application Support/Cursor") ||
+    normalized.includes("/Library/Application Support/Code") ||
+    normalized.includes("/.cursor-server/") ||
+    normalized.includes("/.npm/_npx/") ||
+    normalized.includes("/npm/_npx/") ||
+    normalized.includes("/AppData/Roaming/Cursor") ||
+    normalized.includes("/AppData/Roaming/Code") ||
+    normalized.includes("/AppData/Local/npm-cache/_npx")
+  );
+}
+
+/**
  * Resolve the workspace root: argument → `PRISM_WORKSPACE` → host folders →
  * git root from cwd → git root from launch cwd → cwd.
  */
@@ -121,12 +142,17 @@ export function resolveWorkspacePath(
   const env = input.env ?? {};
   const folderHints = splitHostPaths(env.WORKSPACE_FOLDER_PATHS);
   for (const hint of folderHints) {
-    const path = existingPath(hint, input.cwd);
+    const path = existingGitRoot(hint, input.cwd);
     if (path === undefined) continue;
-    return {
-      path: findGitRoot(path) ?? path,
-      source: "WORKSPACE_FOLDER_PATHS",
-    };
+    return { path, source: "WORKSPACE_FOLDER_PATHS" };
+  }
+
+  const cursorWorkspace = trimmed(env.CURSOR_WORKSPACE);
+  if (cursorWorkspace !== undefined) {
+    const path = existingGitRoot(cursorWorkspace, input.cwd);
+    if (path !== undefined) {
+      return { path, source: "CURSOR_WORKSPACE" };
+    }
   }
 
   const gitRoot = findGitRoot(input.cwd);

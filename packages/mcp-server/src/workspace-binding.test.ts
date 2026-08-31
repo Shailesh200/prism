@@ -45,6 +45,21 @@ describe("workspace binding", () => {
     expect(pickWorkspaceFromHints([pathToFileURL(repo).href])).toBe(repo);
   });
 
+  it("ignores Cursor Library/Containers sandbox folders", () => {
+    const repo = gitDir();
+    expect(
+      pickWorkspaceFromHints([
+        "/Users/me/Library/Containers/com.todesktop.230313mzl4w4u92/Data",
+        repo,
+      ]),
+    ).toBe(repo);
+    expect(
+      pickWorkspaceFromHints([
+        "/Users/me/Library/Containers/com.todesktop.230313mzl4w4u92/Data",
+      ]),
+    ).toBeUndefined();
+  });
+
   it("walks from a nested workspace folder up to the git root", () => {
     const repo = gitDir();
     const nested = join(repo, "apps", "web");

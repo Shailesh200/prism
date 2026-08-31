@@ -37,7 +37,14 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     title: "Start my day",
     description:
       "Standup briefing for this repository: greeting, what happened yesterday (git + finished jobs + completed Linear), then open items on Linear/GitHub/Slack/Calendar/Notion, leftover Dispatch jobs, and one suggested focus. Unconnected tools appear as named connect CTAs. Does not index the repo. Call this when the user says start my day, standup, or what's waiting on me. Return the message as written — do not omit a connected driver.",
-    inputSchema: {},
+    inputSchema: {
+      workspace: z
+        .string()
+        .optional()
+        .describe(
+          "Absolute path of the git repository the user has open. Pass the folder that contains .git when you know it — do not ask the user.",
+        ),
+    },
     readOnly: true,
     openWorld: true,
   },
@@ -71,6 +78,12 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
         .string()
         .optional()
         .describe("Preferred branch when creating a worktree"),
+      workspace: z
+        .string()
+        .optional()
+        .describe(
+          "Absolute path of the git repository the user has open. Pass the folder that contains .git when you know it — do not ask the user. Do not put this in mcp.json.",
+        ),
       playbook: z
         .string()
         .optional()
@@ -224,6 +237,7 @@ export function registerDispatchTools(
     readonly env?: NodeJS.ProcessEnv;
     readonly runtime?: DispatchRuntime;
     readonly getWorkspaceRoot?: () => string;
+    readonly applyWorkspaceHint?: (path: string) => boolean;
     readonly beforeCall?: () => Promise<void>;
   } = {},
 ): void {
@@ -260,14 +274,14 @@ export function registerDispatchTools(
       async (args: unknown, extra) => {
         try {
           await options.beforeCall?.();
-          const value = await runtime.handle(
-            tool.name,
-            (args ?? {}) as Record<string, unknown>,
-            {
-              oauthUi: createMcpOAuthUi(server, extra),
-              signal: extra.signal,
-            },
-          );
+          const record = (args ?? {}) as Record<string, unknown>;
+          if (typeof record.workspace === "string") {
+            options.applyWorkspaceHint?.(record.workspace);
+          }
+          const value = await runtime.handle(tool.name, record, {
+            oauthUi: createMcpOAuthUi(server, extra),
+            signal: extra.signal,
+          });
           return {
             content: [{ type: "text" as const, text: serialiseForMcp(value) }],
           };

@@ -56,10 +56,10 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/no bun install/i);
   });
 
-  it("tells agents not to guess a path when git is missing", () => {
+  it("tells agents to pass the open git folder as workspace", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/does not see a git repository/);
-    expect(SERVER_INSTRUCTIONS).toMatch(/reload the prism MCP server/);
-    expect(SERVER_INSTRUCTIONS).toMatch(/open folder/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/pass workspace as the absolute path/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(/do not put it in mcp\.json/i);
   });
 
   it("routes repo-wide audit to repository_health, not start_job", () => {

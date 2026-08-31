@@ -11,6 +11,7 @@
 import { existsSync } from "node:fs";
 import {
   findGitRoot,
+  isEditorSandboxPath,
   pathFromHint,
   type ResolvedWorkspace,
   type WorkspaceSource,
@@ -51,24 +52,22 @@ export function createWorkspaceBinding(
 }
 
 /**
- * First existing hint that sits in a git repo wins; otherwise the first
- * existing directory. Relative and `file://` hints resolve against cwd.
+ * First existing hint that sits in a git repo wins. Editor sandbox folders
+ * (Cursor's `Library/Containers` home, npx cache) are ignored even if they
+ * exist. We never fall back to a non-git directory — that is how Dispatch
+ * used to bind to the Mac container path and fail `git worktree`.
  */
 export function pickWorkspaceFromHints(
   hints: readonly string[],
   cwd: string = process.cwd(),
 ): string | undefined {
-  const existing: string[] = [];
   for (const hint of hints) {
     const text = hint.trim();
     if (!text) continue;
     const resolved = pathFromHint(text, cwd);
-    if (!existsSync(resolved)) continue;
-    existing.push(resolved);
+    if (!existsSync(resolved) || isEditorSandboxPath(resolved)) continue;
+    const gitRoot = findGitRoot(resolved);
+    if (gitRoot !== undefined && !isEditorSandboxPath(gitRoot)) return gitRoot;
   }
-  for (const path of existing) {
-    const gitRoot = findGitRoot(path);
-    if (gitRoot !== undefined) return gitRoot;
-  }
-  return existing[0];
+  return undefined;
 }

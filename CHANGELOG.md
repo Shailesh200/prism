@@ -9,6 +9,11 @@ the `prism` CLI, the `prism-mcp` server, and the Core SDK they all call. They
 move as one because they are one build; a mismatch between them has never been
 a supported configuration.
 
+## 1.1.7 — Open-folder jobs without reloading after every publish
+
+- **MCP / Dispatch:** ignore Cursor’s `Library/Containers` sandbox as a workspace. `start_job` / `start_my_day` accept `workspace` (the folder the agent already has open). Recommended mcp.json sets `CURSOR_WORKSPACE` to `${workspaceFolder}` — not a path you type.
+- **Updates:** at startup the server checks npm and hops to a newer `@repo-prism/mcp-server` when `npx @latest` is stale. Keep `@latest` in mcp.json. A running session cannot swap mid-chat; the next Cursor/MCP start picks up the publish.
+
 ## 1.1.6 — Auto-bind Dispatch to the open chat folder
 
 - **MCP / Dispatch:** starting a job from chat no longer fails with `fatal: not a git repository` when the MCP process was launched from the editor user folder. After initialize, Prism asks the client for MCP roots and rebinds Intelligence + Dispatch to the open folder. Git child processes ignore inherited `GIT_DIR` / `GIT_WORK_TREE`. Startup log: `prism-mcp 1.1.6: workspace … (from mcp roots)`. Pin `@1.1.6` or clear `~/.npm/_npx` after install.

@@ -60,7 +60,7 @@ export function initSpeak(ready: boolean, email?: string): string {
 export function missingGitRepoSpeak(): string {
   return [
     "Prism does not see a git repository here, so it cannot start a teammate.",
-    "Open the project folder that contains .git — or set PRISM_WORKSPACE to that path — then reload prism and retry.",
+    "Keep this git project open in the chat and retry — do not paste a path into mcp.json.",
   ].join(" ");
 }
 

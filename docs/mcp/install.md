@@ -7,15 +7,16 @@ Set Prism up once. After that, talk to the agent in plain language — you never
 type tool names.
 
 **Needs:** Node.js 26+, and your project open (or `cd`'d into). Workspace
-resolves automatically: `--workspace` → `PRISM_WORKSPACE` → the folder the
-client reports as MCP roots (the repo you are chatting in) → host
-`WORKSPACE_FOLDER_PATHS` → nearest git root → cwd.
+resolves automatically: `--workspace` → `PRISM_WORKSPACE` → Cursor
+`${workspaceFolder}` (`CURSOR_WORKSPACE`) → MCP roots → host
+`WORKSPACE_FOLDER_PATHS` → nearest git root → cwd. Editor sandbox folders
+(`Library/Containers`) are never treated as the project.
 
 ## One-click install
 
 ### Cursor
 
-[Add to Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=prism&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIi0tcHJlZmVyLW9ubGluZSIsIkByZXBvLXByaXNtL21jcC1zZXJ2ZXJAbGF0ZXN0Il0sImVudiI6eyJOT0RFX1VTRV9TWVNURU1fQ0EiOiIxIn19)
+[Add to Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=prism&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIi0tcHJlZmVyLW9ubGluZSIsIkByZXBvLXByaXNtL21jcC1zZXJ2ZXJAbGF0ZXN0Il0sImVudiI6eyJOT0RFX1VTRV9TWVNURU1fQ0EiOiIxIiwiQ1VSU09SX1dPUktTUEFDRSI6IiR7d29ya3NwYWNlRm9sZGVyfSJ9fQ==)
 
 Click the link (or open it from [/benchmarks](/benchmarks)) → approve in Cursor →
 **Settings → MCP** → enable **prism** (~40 tools).
@@ -31,7 +32,8 @@ Project (`.cursor/mcp.json`) or global (`~/.cursor/mcp.json` / Claude Desktop):
       "command": "npx",
       "args": ["-y", "--prefer-online", "@repo-prism/mcp-server@latest"],
       "env": {
-        "NODE_USE_SYSTEM_CA": "1"
+        "NODE_USE_SYSTEM_CA": "1",
+        "CURSOR_WORKSPACE": "${workspaceFolder}"
       }
     }
   }
@@ -40,15 +42,16 @@ Project (`.cursor/mcp.json`) or global (`~/.cursor/mcp.json` / Claude Desktop):
 
 Canonical copy: [`packages/mcp-server/mcp-install.json`](https://github.com/Shailesh200/prism/blob/main/packages/mcp-server/mcp-install.json)
 
-`@latest` plus `--prefer-online` is the default. **npx does not always pick up a new publish.** The `_npx` cache is keyed by the specifier string: `@latest` reuses the tree already installed for that tag. npm 10 only reinstalls when the packument’s resolved tarball URL changes. Corporate HTTP caches often keep `GET /@repo-prism/mcp-server` (the dist-tag) on an old version while a newer tarball is already live — so reload still runs the old server. Pinning `@1.1.6` is a different cache key and hits the version URL, which is why an absolute version worked.
+Keep `@latest` — do not pin a version after each publish. From 1.1.7 the
+server checks npm at startup and hops to the newer package when the `_npx`
+cache is stale. A running session cannot swap binaries mid-chat; quit Cursor
+once (or toggle prism off/on once) after you first land 1.1.7. Later
+publishes apply on the next start. Logs: `prism-mcp 1.1.7: workspace …`.
 
-After a publish, either pin the new version once:
-
-```json
-"args": ["-y", "--prefer-online", "@repo-prism/mcp-server@1.1.6"]
-```
-
-or delete `~/.npm/_npx` (Windows: `%LocalAppData%\npm-cache\_npx`) and **fully quit Cursor** (not only Reload MCP). Confirm in MCP logs: `prism-mcp 1.1.6: workspace …`.
+`${workspaceFolder}` is Cursor interpolation, not a path you type. Combined
+with MCP roots and the start_job workspace argument (the folder the agent
+already has open), Dispatch should see the git repo even when the process cwd
+is Library/Containers.
 
 ## Claude Code
 
@@ -71,7 +74,8 @@ project):
       "command": "npx",
       "args": ["-y", "--prefer-online", "@repo-prism/mcp-server@latest"],
       "env": {
-        "NODE_USE_SYSTEM_CA": "1"
+        "NODE_USE_SYSTEM_CA": "1",
+        "CURSOR_WORKSPACE": "${workspaceFolder}"
       }
     }
   }
