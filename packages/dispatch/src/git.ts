@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import type { GitSnapshot } from "./types.js";
+import type { GitSnapshot, JobReview, ReviewFile } from "./types.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -196,6 +196,84 @@ export async function gitChangeSummary(
       : "";
   const noun = dirty.length === 1 ? "file" : "files";
   return `Changed ${dirty.length} ${noun}${names.length ? ` (${names.join(", ")}${extra})` : ""}.`;
+}
+
+/** Cap the review file list; a 500-file job is a summary, not a list. */
+export const MAX_REVIEW_FILES = 50;
+
+function reviewChangeFromStatus(code: string): ReviewFile["change"] {
+  const flags = code.trim();
+  if (flags.startsWith("??")) return "untracked";
+  if (flags.startsWith("R")) return "renamed";
+  if (flags.includes("D")) return "deleted";
+  if (flags.startsWith("A")) return "added";
+  return "modified";
+}
+
+/**
+ * What the teammate changed, uncommitted, for the human to review.
+ *
+ * `--numstat` against HEAD covers tracked edits; `status --porcelain` adds
+ * untracked files, which numstat cannot see and which are usually the new
+ * files the job was asked to create.
+ */
+export async function gitReviewSummary(
+  cwd: string,
+  run: GitRunner = defaultGitRunner,
+): Promise<JobReview> {
+  const [numstat, status] = await Promise.all([
+    run(cwd, ["diff", "--numstat", "HEAD"]),
+    run(cwd, ["status", "--porcelain"]),
+  ]);
+
+  const byPath = new Map<string, ReviewFile>();
+
+  if (numstat.ok) {
+    for (const line of numstat.stdout.split("\n")) {
+      const row = line.trim();
+      if (!row) continue;
+      const [addedRaw, removedRaw, ...pathParts] = row.split(/\t+/);
+      const path = (pathParts.at(-1) ?? "").trim();
+      if (!path || isGitNoisePath(path)) continue;
+      // "-" is git's marker for a binary file.
+      const added = Number.parseInt(addedRaw ?? "0", 10);
+      const removed = Number.parseInt(removedRaw ?? "0", 10);
+      byPath.set(path, {
+        path,
+        added: Number.isFinite(added) ? added : 0,
+        removed: Number.isFinite(removed) ? removed : 0,
+        change: "modified",
+      });
+    }
+  }
+
+  if (status.ok) {
+    for (const line of status.stdout.split("\n")) {
+      if (!line.trim() || isGitNoiseStatusLine(line)) continue;
+      const code = line.slice(0, 2);
+      const path = (line.slice(3).trim().split(" -> ").at(-1) ?? "").trim();
+      if (!path || isGitNoisePath(path)) continue;
+      const change = reviewChangeFromStatus(code);
+      const existing = byPath.get(path);
+      if (existing) {
+        byPath.set(path, { ...existing, change });
+      } else {
+        byPath.set(path, { path, added: 0, removed: 0, change });
+      }
+    }
+  }
+
+  const all = [...byPath.values()].sort((a, b) => a.path.localeCompare(b.path));
+  const totalAdded = all.reduce((sum, file) => sum + file.added, 0);
+  const totalRemoved = all.reduce((sum, file) => sum + file.removed, 0);
+
+  return {
+    files: all.slice(0, MAX_REVIEW_FILES),
+    totalAdded,
+    totalRemoved,
+    truncated: all.length > MAX_REVIEW_FILES,
+    committed: false,
+  };
 }
 
 export type ListedWorktree = {

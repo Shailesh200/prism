@@ -45,6 +45,16 @@ export function spawnPayloadPath(workspaceRoot: string, jobId: string): string {
   return join(runsDir(workspaceRoot), `${runFileId(jobId)}.spawn.json`);
 }
 
+/** Append-only console log for one job (JSONL). */
+export function runLogPath(workspaceRoot: string, jobId: string): string {
+  return join(runsDir(workspaceRoot), `${runFileId(jobId)}.log.jsonl`);
+}
+
+/** Single previous generation, so one job is bounded at two files. */
+export function rotatedRunLogPath(logPath: string): string {
+  return `${logPath}.1`;
+}
+
 export function consentPath(workspaceRoot: string): string {
   return join(workspaceRoot, ".prism", "consent.json");
 }

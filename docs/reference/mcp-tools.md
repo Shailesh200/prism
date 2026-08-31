@@ -40,6 +40,7 @@ Tools that return a list accept `limit` and answer with `totalCount` and
 | [`init`](#init) | One-time Cursor sign-in so Prism can run local job workers |
 | [`integrations`](#integrations) | Catalogue what Dispatch can connect, start OAuth for GitHub (user), Linear, Jira, Slack (mentions + tracked channels), Notion, or Google Calendar, or disconnect a driver |
 | [`job_control`](#job_control) | Pause, resume, cancel, or add context to a running Dispatch job |
+| [`job_logs`](#job_logs) | The console for one Dispatch job |
 | [`knowledge_graph`](#knowledge_graph) | The symbol-level graph — declarations and the references between them — with summary stats |
 | [`landmarks`](#landmarks) | Named entrypoints, package roots and feature anchors — the places a human would open first |
 | [`list_features`](#list_features) | Inferred features with their member files and a confidence score |
@@ -182,6 +183,12 @@ Pause, resume, cancel, or add context to a running Dispatch job. Speak only the 
 
 Arguments: `jobId`, `action`, `context`.
 
+## `job_logs`
+
+The console for one Dispatch job: recent activity lines (thinking, tool calls, edits, errors) plus the uncommitted review summary when it has finished. Call this when the user asks what a teammate is doing, why it is stuck, what went wrong, or wants to see logs/output — and when list_jobs shows no activity for a while. Omit jobId for the job that is still running. Pass since (an ISO timestamp from the last entry) to tail only new lines instead of re-reading everything. Speak the tool message; do not print worktree paths.
+
+Arguments: `jobId`, `limit`, `since`.
+
 ## `knowledge_graph`
 
 The symbol-level graph — declarations and the references between them — with summary stats. Requires path (scope to one file) or limit (bound nodes). Very large on a big repository. If you are looking for one symbol use find_symbol or search_symbols, and for its callers use find_references.
@@ -202,7 +209,7 @@ Arguments: `limit`.
 
 ## `list_jobs`
 
-Where are we: every Dispatch job with title, canonical id, live activity, and a result or error when a teammate finishes. Speak only the tool message — titles, what they are doing, and what changed, not worktree paths or job-<hex> ids. Call when the user asks where we are, what's running, how a job is going, or whether a teammate finished.
+Where are we: every Dispatch job with title, canonical id, live activity, and a result or error when a teammate finishes. A finished job that changed files reports as ready for your review with the uncommitted file list — Prism never commits a teammate's work, so relay that summary and ask what to do with it. A job that has gone quiet reports no activity for N minutes; call job_logs to see why. Speak only the tool message — titles, what they are doing, and what changed, not worktree paths or job-<hex> ids. Call when the user asks where we are, what's running, how a job is going, or whether a teammate finished.
 
 Takes no arguments.
 

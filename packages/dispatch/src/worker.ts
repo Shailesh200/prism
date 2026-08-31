@@ -122,6 +122,7 @@ export function workerPrompt(input: {
     "Do not install dependencies (no bun install, npm install, or yarn). node_modules is already linked from the host repo.",
     "You have no shell. Do not run prism, git, bun, npm, or any CLI. Do not write reports under .prism/. Edit existing source with the file tools only.",
     "Do not copy the repo, do not create extra worktrees, and do not write large caches. Prefer small, targeted edits.",
+    "Do not commit, stage, branch, or push anything. Leave every edit uncommitted in the worktree — the human reviews the diff and decides.",
     "When you finish, say what changed in a short last message (files and why), even if nothing shipped.",
     input.job.prd ? `PRD:\n${input.job.prd}` : "",
     remembered ? `Memories:\n${remembered}` : "",

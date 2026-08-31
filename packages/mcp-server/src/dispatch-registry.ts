@@ -101,10 +101,35 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     openWorld: false,
   },
   {
+    name: "job_logs",
+    title: "Show a job's console",
+    description:
+      "The console for one Dispatch job: recent activity lines (thinking, tool calls, edits, errors) plus the uncommitted review summary when it has finished. Call this when the user asks what a teammate is doing, why it is stuck, what went wrong, or wants to see logs/output — and when list_jobs shows no activity for a while. Omit jobId for the job that is still running. Pass since (an ISO timestamp from the last entry) to tail only new lines instead of re-reading everything. Speak the tool message; do not print worktree paths.",
+    inputSchema: {
+      jobId: z
+        .string()
+        .optional()
+        .describe(
+          "Canonical job id (ticket or slug) or the job title. Omit for the running job.",
+        ),
+      limit: z
+        .number()
+        .int()
+        .optional()
+        .describe("Most recent entries to return (default 200)"),
+      since: z
+        .string()
+        .optional()
+        .describe("ISO timestamp; return only entries newer than this"),
+    },
+    readOnly: true,
+    openWorld: false,
+  },
+  {
     name: "list_jobs",
     title: "List Dispatch jobs",
     description:
-      "Where are we: every Dispatch job with title, canonical id, live activity, and a result or error when a teammate finishes. Speak only the tool message — titles, what they are doing, and what changed, not worktree paths or job-<hex> ids. Call when the user asks where we are, what's running, how a job is going, or whether a teammate finished.",
+      "Where are we: every Dispatch job with title, canonical id, live activity, and a result or error when a teammate finishes. A finished job that changed files reports as ready for your review with the uncommitted file list — Prism never commits a teammate's work, so relay that summary and ask what to do with it. A job that has gone quiet reports no activity for N minutes; call job_logs to see why. Speak only the tool message — titles, what they are doing, and what changed, not worktree paths or job-<hex> ids. Call when the user asks where we are, what's running, how a job is going, or whether a teammate finished.",
     inputSchema: {},
     readOnly: true,
     openWorld: false,

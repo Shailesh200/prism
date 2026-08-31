@@ -115,11 +115,38 @@ export const JobStatusSchema = z.enum([
   "waiting_on_you",
   "blocked",
   "paused",
+  /**
+   * Finished with edits still uncommitted in the worktree. Prism never commits
+   * a teammate's work: the human reads the review summary and decides.
+   */
+  "needs_review",
   "done",
   "cancelled",
   "error",
 ]);
 export type JobStatus = z.infer<typeof JobStatusSchema>;
+
+/** One changed file in a job's review summary. */
+export const ReviewFileSchema = z.object({
+  path: z.string(),
+  added: z.number().int().min(0).default(0),
+  removed: z.number().int().min(0).default(0),
+  /** `added` | `modified` | `deleted` | `renamed` | `untracked`. */
+  change: z
+    .enum(["added", "modified", "deleted", "renamed", "untracked"])
+    .default("modified"),
+});
+export type ReviewFile = z.infer<typeof ReviewFileSchema>;
+
+export const JobReviewSchema = z.object({
+  files: z.array(ReviewFileSchema).default([]),
+  totalAdded: z.number().int().min(0).default(0),
+  totalRemoved: z.number().int().min(0).default(0),
+  /** True when the file list was capped for display. */
+  truncated: z.boolean().default(false),
+  committed: z.literal(false).default(false),
+});
+export type JobReview = z.infer<typeof JobReviewSchema>;
 
 export const WorktreeSourceSchema = z.enum(["cursor", "claude", "prism"]);
 export type WorktreeSource = z.infer<typeof WorktreeSourceSchema>;
@@ -140,6 +167,7 @@ export const JobRecordSchema = z.object({
   resultSummary: z.string().optional(),
   errorMessage: z.string().optional(),
   pendingContext: z.string().optional(),
+  review: JobReviewSchema.optional(),
   status: JobStatusSchema,
   lastStep: z.string().default(""),
   nextStep: z.string().default(""),

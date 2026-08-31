@@ -8,8 +8,13 @@
 
 import { unlink } from "node:fs/promises";
 import { readJsonFile } from "./json-file.js";
-import { gitChangeSummary } from "./git.js";
+import { gitChangeSummary, gitReviewSummary } from "./git.js";
 import { publicRunFailure, publicWorkerError } from "./job-voice.js";
+import {
+  appendRunLog,
+  lifecycleLogEntry,
+  logEntryFromEvent,
+} from "./run-log.js";
 import { trustSystemCertificateAuthorities } from "./system-ca.js";
 import {
   activityFromEvent,
@@ -84,10 +89,14 @@ async function observeRun(
     partial: Partial<RunState>,
     options?: { immediate?: boolean },
   ) => Promise<unknown>,
+  log: (event: unknown) => Promise<void>,
 ): Promise<void> {
   if (typeof run.stream !== "function") return;
   try {
     for await (const event of run.stream()) {
+      // Log first: the one-line activity is throttled and overwritten, so the
+      // console is the only place an event survives.
+      await log(event);
       const activity = activityFromEvent(event);
       if (activity) await patch(activity);
     }
@@ -126,6 +135,22 @@ async function main(): Promise<void> {
     { pid: process.pid, phase: "starting" },
     { immediate: true },
   );
+
+  const logEvent = async (event: unknown): Promise<void> => {
+    const entry = logEntryFromEvent(event);
+    if (entry) await appendRunLog(payload.workspaceRoot, payload.jobId, entry);
+  };
+  const logLine = async (
+    phase: RunState["phase"],
+    text: string,
+  ): Promise<void> => {
+    await appendRunLog(
+      payload.workspaceRoot,
+      payload.jobId,
+      lifecycleLogEntry(phase, text),
+    );
+  };
+  await logLine("starting", "Teammate starting");
 
   let activeRun: SdkRun | undefined;
   const onStop = (): void => {
@@ -202,7 +227,11 @@ async function main(): Promise<void> {
     if (sent.id) {
       await writer.patch({ runId: sent.id, phase: "running" });
     }
-    void observeRun(sent, (partial, extra) => writer.patch(partial, extra));
+    void observeRun(
+      sent,
+      (partial, extra) => writer.patch(partial, extra),
+      logEvent,
+    );
 
     if (typeof sent.wait !== "function") {
       await writer.patch(
@@ -218,16 +247,21 @@ async function main(): Promise<void> {
     }
 
     const result = await sent.wait();
-    const gitSummary = await gitChangeSummary(payload.cwd);
+    const [gitSummary, review] = await Promise.all([
+      gitChangeSummary(payload.cwd),
+      gitReviewSummary(payload.cwd),
+    ]);
     const assistant = assistantText(result.result);
     const completedAt = new Date().toISOString();
 
     if (result.status === "error") {
+      await logLine("failed", assistant || "the run failed");
       await writer.patch(
         {
           phase: "failed",
           errorMessage: publicRunFailure(assistant || "the run failed"),
           gitSummary,
+          review,
           resultSummary: gitSummary,
           completedAt,
         },
@@ -236,10 +270,12 @@ async function main(): Promise<void> {
       process.exit(2);
     }
     if (result.status === "cancelled") {
+      await logLine("cancelled", "Cancelled");
       await writer.patch(
         {
           phase: "cancelled",
           gitSummary,
+          review,
           lastActivity: "Cancelled",
           completedAt,
         },
@@ -248,10 +284,17 @@ async function main(): Promise<void> {
       process.exit(0);
     }
 
+    await logLine(
+      "done",
+      review.files.length > 0
+        ? `Done — ${review.files.length} file(s) changed, left uncommitted for review`
+        : "Done — no file changes",
+    );
     await writer.patch(
       {
         phase: "done",
         gitSummary,
+        review,
         resultSummary: composeResultSummary(gitSummary, assistant),
         lastActivity: "Done",
         completedAt,
@@ -261,6 +304,7 @@ async function main(): Promise<void> {
     process.exit(0);
   } catch (cause) {
     const detail = cause instanceof Error ? cause.message : String(cause);
+    await logLine("failed", detail);
     await patchRunState(payload.workspaceRoot, payload.jobId, {
       phase: "failed",
       errorMessage: publicWorkerError(detail),

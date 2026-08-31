@@ -15,6 +15,7 @@ Dispatch runs standup, jobs, and optional connectors. Same server name `prism`.
 | that request plus "do it now" / "right here" | no job — the agent edits inline |
 | "prism init" | `init` — same Cursor login page, without starting a job |
 | "where are we" | `list_jobs` — live activity, then finished results or errors |
+| "what is it doing" / "show me the logs" | `job_logs` — that job's console, plus the uncommitted review |
 | "remember …" | `remember` |
 | "connect Slack" | `integrations` — Cursor: Authenticate button; Claude: Prism Auth page |
 | "configure Dispatch" | `configure` — standup layout, Slack channels, Linear vs Jira, job cap |
@@ -24,10 +25,20 @@ Directory): mentions plus a few tracked channels or groups. It does not post.
 Google Calendar is read-only, today only.
 
 Google may show **Google hasn’t verified this app** even when Google Cloud
-**Branding status** is verified. Branding is not the same as **app
-verification** for Calendar (`calendar.readonly` is a sensitive scope). Click
-**Advanced**, then continue. Clearing that screen for every Google account is
-Prism’s job (submit Calendar scopes on the Prism Auth GCP project), not yours.
+**Branding status** is verified. Branding is not app **verification** for
+Calendar (`calendar.readonly` is a sensitive scope). Click **Advanced**, then
+continue. Clearing that screen for every account is Prism’s job, not yours.
+
+## Nothing is committed for you
+
+A teammate never commits, stages, branches, or pushes — it has no shell. When a
+job finishes it reports **ready for your review** with the changed files and
+`+`/`-` counts still sitting uncommitted in its worktree, and chat asks whether
+to commit, keep, or discard. Read the diff before you decide.
+
+A job that goes quiet says **no activity for N minutes** instead of claiming to
+run: a live process is not the same as progress. Call `job_logs` to see the last
+thing it actually did, then resume or cancel.
 
 ## Connect (Prism Auth)
 
@@ -44,14 +55,10 @@ Prism's broker holds the vendor app secrets. Your access token comes back to
 the local MCP and is stored in the OS keychain. Completing that grant is the
 consent decision (see [privacy](/docs/concepts/consent-and-privacy)).
 
-Google Calendar access tokens last about an hour. Dispatch asks Prism Auth
-(`/oauth/refresh`) to mint a new one with the stored refresh token — the MCP
-never has Google’s client secret. If start-my-day still says Calendar access
-expired, say **connect Google Calendar** again (revoked grant, or no refresh
-token from the first login).
-
-A connector that is not enabled on Prism Auth yet will say so — that is Prism's
-job to register, not yours.
+Google Calendar tokens last about an hour; Dispatch refreshes them through
+Prism Auth, so the MCP never holds Google’s client secret. If Calendar still
+reads as expired, say **connect Google Calendar** again. A connector Prism has
+not registered yet will say so.
 
 ## Local workers
 
@@ -72,22 +79,16 @@ to sign in without starting a job. Chat names the job with a ticket (`AI-971`)
 or a slug (`audit-issues`) — never a `job-<hex>` hash. Pause with “pause
 audit-issues”.
 
-**Live status and results live in chat.** Say **where are we** anytime: you
-see what each teammate is doing, and when it finishes you get what changed (or
-a real error if it failed). Start my day also lists jobs that just finished.
-MCP cannot push a line into an idle chat — “where are we” is how the result
-comes back.
-
-Cursor’s **Agents window** (Filter → Source → SDK) is optional and often empty
-for local workers. The guaranteed view is chat.
+**Live status and results live in chat.** Say **where are we** anytime, or
+**show me the logs** for the console. MCP cannot push a line into an idle chat,
+so asking is how a result comes back. Cursor’s **Agents window** (Filter →
+Source → SDK) is optional and often empty for local workers.
 
 If Cursor shows a card titled **Authenticating prism…** with **Skip**, that is
 Cursor approving MCP tools — not worker login. Click **Skip**, then retry.
 
-Workers cannot start more jobs or OAuth. They do not get Prism MCP — host
-chat still uses `blast_radius` before risky edits. `node_modules` in a Prism
-job worktree is a symlink to the host install so a job cannot fill the disk
-with a second copy of the repo’s packages.
+Workers cannot start more jobs or OAuth, and host chat still uses
+`blast_radius` before risky edits.
 
 State is gitignored under `.prism/dispatch/` (jobs plus `runs/<id>.json` live
 sidecars). Vendor tokens go in the OS keychain. Worker sign-in stays in the

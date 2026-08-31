@@ -14,6 +14,8 @@ import {
   doctorSpeak,
   gitFailureSpeak,
   initSpeak,
+  isLiveJobStatus,
+  jobLogsSpeak,
   jobRef,
   listJobsSpeak,
   missingJobSpeak,
@@ -24,6 +26,7 @@ import {
   startJobSpeak,
 } from "./job-voice.js";
 import { activeJobCount, upsertJob } from "./jobs.js";
+import { readRunLog } from "./run-log.js";
 import { isProcessAlive, reapJobs } from "./run-state.js";
 import { forgetMemory, loadMemories, remember } from "./memory.js";
 import {
@@ -90,6 +93,7 @@ export const DISPATCH_TOOL_NAMES = [
   "init",
   "start_job",
   "list_jobs",
+  "job_logs",
   "job_control",
   "remember",
   "integrations",
@@ -195,6 +199,8 @@ export function createDispatchRuntime(
           return startJob(options, args, env, context);
         case "list_jobs":
           return listJobs(options);
+        case "job_logs":
+          return jobLogs(options, args);
         case "job_control":
           return jobControl(options, args, env, context);
         case "remember":
@@ -415,6 +421,55 @@ async function startJob(
   }
 }
 
+/**
+ * The console behind a job: recent log lines plus the uncommitted review.
+ *
+ * `since` makes this pollable — the Jobs console and chat both tail forward
+ * rather than re-reading the whole file.
+ */
+async function jobLogs(
+  options: DispatchRuntimeOptions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const jobs = await reapJobs(options.workspaceRoot);
+  const ref = String(args.jobId ?? args.id ?? args.job ?? "").trim();
+
+  let job: JobRecord | undefined;
+  if (ref) {
+    const resolved = resolveJobRef(jobs, ref);
+    if (resolved?.kind === "many") {
+      return { message: ambiguousJobSpeak(resolved.jobs) };
+    }
+    job = resolved?.job;
+    if (!job) return { message: missingJobSpeak(ref, jobs) };
+  } else {
+    // No id: the console the user means is the one still running, else the
+    // most recent job.
+    job = jobs.find((row) => isLiveJobStatus(row.status)) ?? jobs.at(-1);
+    if (!job) {
+      return {
+        message: "No jobs yet. Ask me to change something and I'll start one.",
+      };
+    }
+  }
+
+  const page = await readRunLog(options.workspaceRoot, job.id, {
+    ...(typeof args.limit === "number" ? { limit: args.limit } : {}),
+    ...(typeof args.since === "string" ? { since: args.since } : {}),
+  });
+
+  return {
+    jobId: job.id,
+    title: job.title,
+    status: job.status,
+    entries: page.entries,
+    totalCount: page.totalCount,
+    truncated: page.truncated,
+    ...(job.review ? { review: job.review } : {}),
+    message: jobLogsSpeak(job, page.entries, job.review),
+  };
+}
+
 async function listJobs(options: DispatchRuntimeOptions): Promise<unknown> {
   const jobs = await reapJobs(options.workspaceRoot);
   const rows = [];
@@ -429,6 +484,7 @@ async function listJobs(options: DispatchRuntimeOptions): Promise<unknown> {
       ...(job.lastActivity ? { lastActivity: job.lastActivity } : {}),
       ...(job.resultSummary ? { resultSummary: job.resultSummary } : {}),
       ...(job.errorMessage ? { errorMessage: job.errorMessage } : {}),
+      ...(job.review ? { review: job.review } : {}),
     });
   }
   return {

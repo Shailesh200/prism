@@ -172,6 +172,29 @@ export { TestingSecurityScreen } from "./TestingSecurityScreen.js";
 export type { TestingSecurityScreenProps } from "./TestingSecurityScreen.js";
 export { AppSidebar } from "./AppSidebar.js";
 export type { AppSidebarProps, AppSidebarUser, AppView } from "./AppSidebar.js";
+export { JobsScreen } from "./JobsScreen.js";
+export type { JobsScreenProps } from "./JobsScreen.js";
+export { JobConsole } from "./JobConsole.js";
+export type { JobConsoleProps } from "./JobConsole.js";
+export {
+  formatElapsed,
+  isLiveJob,
+  jobStatusLabel,
+  jobStatusTone,
+  mergeConsoleEntries,
+  newestEntryTs,
+  reviewFileTotals,
+  type JobConsoleEntry,
+  type JobConsolePage,
+  type JobControlAction,
+  type JobReview,
+  type JobReviewFile,
+  type JobReviewFileChange,
+  type JobRunPhase,
+  type JobStatus as DispatchJobStatus,
+  type JobSummary,
+  type JobsPort,
+} from "./jobs-types.js";
 export { AuditLogsPanel } from "./AuditLogsPanel.js";
 export { Avatar } from "./Avatar.js";
 export { DOMAIN_CATALOG, type DomainCatalogEntry } from "./domain-catalog.js";

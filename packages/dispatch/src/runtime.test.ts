@@ -15,6 +15,7 @@ import type { HttpGet } from "./drivers.js";
 import type { WorkerPort } from "./worker.js";
 import type { CursorAuthPort } from "./cursor-auth.js";
 import { loadJobs, upsertJob } from "./jobs.js";
+import { appendRunLog, lifecycleLogEntry } from "./run-log.js";
 
 async function tempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "prism-dispatch-"));
@@ -1015,5 +1016,153 @@ describe("live status and completion inbox", () => {
       prd: "Ship it",
     });
     expect(jobId).toBe("AI-971");
+  });
+});
+
+describe("job_logs", () => {
+  let root = "";
+
+  const logWorker: WorkerPort = {
+    async start() {
+      return { agentId: "agent-id" };
+    },
+    async resume() {},
+    async cancel() {},
+    async status() {
+      return { status: "running", detail: "" };
+    },
+  };
+
+  afterEach(async () => {
+    if (root) await rm(root, { recursive: true, force: true });
+    root = "";
+  });
+
+  async function seedJob(status = "running"): Promise<void> {
+    await upsertJob(root, {
+      id: "rms-pagination",
+      title: "RMS pagination 100k+ cap",
+      playbook: "ticket",
+      prd: "",
+      branch: "dispatch/rms-pagination",
+      worktreePath: root,
+      source: "prism",
+      status: status as "running",
+      lastStep: "",
+      nextStep: "",
+      waitingOn: "",
+      workerPid: process.pid,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  it("returns the console for the running job without an id", async () => {
+    root = await tempRoot();
+    await seedJob();
+    await appendRunLog(
+      root,
+      "rms-pagination",
+      lifecycleLogEntry("tool", "Using grep"),
+    );
+    await appendRunLog(
+      root,
+      "rms-pagination",
+      lifecycleLogEntry("editing", "Editing table.ts"),
+    );
+
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker: logWorker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    const result = (await runtime.handle("job_logs", {})) as {
+      jobId: string;
+      entries: { text: string }[];
+      message: string;
+    };
+    expect(result.jobId).toBe("rms-pagination");
+    expect(result.entries.map((entry) => entry.text)).toEqual([
+      "Using grep",
+      "Editing table.ts",
+    ]);
+    expect(result.message).toMatch(/Editing table\.ts/);
+    expect(result.message).not.toMatch(/worktree|\/tmp\//);
+  });
+
+  it("tails only new lines when given since", async () => {
+    root = await tempRoot();
+    await seedJob();
+    const first = new Date("2026-01-01T00:00:00.000Z");
+    await appendRunLog(
+      root,
+      "rms-pagination",
+      lifecycleLogEntry("thinking", "old", first),
+    );
+    await appendRunLog(
+      root,
+      "rms-pagination",
+      lifecycleLogEntry(
+        "thinking",
+        "fresh",
+        new Date("2026-01-01T00:01:00.000Z"),
+      ),
+    );
+
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker: logWorker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    const result = (await runtime.handle("job_logs", {
+      since: first.toISOString(),
+    })) as { entries: { text: string }[] };
+    expect(result.entries.map((entry) => entry.text)).toEqual(["fresh"]);
+  });
+
+  it("says so when a job has no console output yet", async () => {
+    root = await tempRoot();
+    await seedJob();
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker: logWorker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    const result = (await runtime.handle("job_logs", {})) as {
+      message: string;
+    };
+    expect(result.message).toMatch(/No console output yet/i);
+  });
+
+  it("names the unknown reference instead of guessing", async () => {
+    root = await tempRoot();
+    await seedJob();
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker: logWorker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    const result = (await runtime.handle("job_logs", {
+      jobId: "nope",
+    })) as { message: string };
+    expect(result.message).toMatch(/couldn’t find “nope”/i);
+  });
+
+  it("has nothing to show before any job exists", async () => {
+    root = await tempRoot();
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker: logWorker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    const result = (await runtime.handle("job_logs", {})) as {
+      message: string;
+    };
+    expect(result.message).toMatch(/No jobs yet/i);
   });
 });

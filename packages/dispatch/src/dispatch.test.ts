@@ -24,7 +24,13 @@ describe("worker tool filter", () => {
   });
 
   it("exposes the full pack on the host", () => {
-    expect(visibleDispatchTools({}).length).toBe(9);
+    expect(visibleDispatchTools({}).length).toBe(10);
+  });
+
+  it("lets a worker read its own console but not spawn work", () => {
+    const names = visibleDispatchTools({ PRISM_DISPATCH_ROLE: "worker" });
+    expect(names).toContain("job_logs");
+    expect(names).not.toContain("start_job");
   });
 });
 

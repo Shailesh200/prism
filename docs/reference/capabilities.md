@@ -65,6 +65,7 @@ use this page when you need the exhaustive index.
 | `init` | One-time Cursor sign-in so Prism can run local job workers |
 | `integrations` | Catalogue what Dispatch can connect, start OAuth for GitHub (user), Linear, Jira, Slack (mentions + tracked channels), Notion, or Google Calendar, or disconnect a driver |
 | `job_control` | Pause, resume, cancel, or add context to a running Dispatch job |
+| `job_logs` | The console for one Dispatch job |
 | `knowledge_graph` | The symbol-level graph — declarations and the references between them — with summary stats |
 | `landmarks` | Named entrypoints, package roots and feature anchors — the places a human would open first |
 | `list_features` | Inferred features with their member files and a confidence score |

@@ -1,6 +1,6 @@
 import { isMissingGitRepoMessage } from "./git.js";
 import { displayJobId, isOpaqueJobId } from "./job-id.js";
-import type { JobRecord } from "./types.js";
+import type { JobRecord, JobReview, ReviewFile } from "./types.js";
 
 export function jobRef(job: { id: string; title: string }): string {
   const title = job.title.trim();
@@ -14,6 +14,8 @@ export function statusPhrase(status: string): string {
   switch (status) {
     case "booting":
       return "starting";
+    case "needs_review":
+      return "ready for your review";
     case "waiting_on_you":
       return "waiting on you";
     case "blocked":
@@ -33,6 +35,38 @@ export function statusPhrase(status: string): string {
     default:
       return status.replaceAll("_", " ");
   }
+}
+
+/** Statuses that mean a teammate is still on it. */
+export function isLiveJobStatus(status: string): boolean {
+  return (
+    status === "running" ||
+    status === "booting" ||
+    status === "ready" ||
+    status === "waiting_on_you" ||
+    status === "blocked"
+  );
+}
+
+/** How many console lines a chat reply shows before it stops. */
+const SPOKEN_LOG_LINES = 12;
+
+export function jobLogsSpeak(
+  job: { id: string; title: string; status: string },
+  entries: readonly { ts: string; phase: string; text: string }[],
+  review?: JobReview,
+): string {
+  const head = `${jobRef(job)} — ${statusPhrase(job.status)}`;
+  if (entries.length === 0) {
+    return `${head}. No console output yet.`;
+  }
+  const shown = entries.slice(-SPOKEN_LOG_LINES);
+  const lines = shown.map((entry) => `  ${entry.phase}: ${entry.text}`);
+  const parts = [head, ...lines];
+  if (job.status === "needs_review" && review) {
+    parts.push("", reviewSpeak(job, review));
+  }
+  return parts.join("\n");
 }
 
 export function agentNameForJob(job: { id: string; title: string }): string {
@@ -134,6 +168,7 @@ export type JobListRow = {
   lastActivity?: string;
   resultSummary?: string;
   errorMessage?: string;
+  review?: JobReview;
 };
 
 export function listJobsSpeak(rows: readonly JobListRow[]): string {
@@ -141,7 +176,10 @@ export function listJobsSpeak(rows: readonly JobListRow[]): string {
     return "Nothing running. Say “start working on …” with a ticket and what you want done.";
   }
   const finished = rows.filter(
-    (job) => job.status === "done" || job.status === "error",
+    (job) =>
+      job.status === "done" ||
+      job.status === "error" ||
+      job.status === "needs_review",
   );
   const live = rows.filter(
     (job) =>
@@ -173,9 +211,55 @@ function finishedLine(job: JobListRow): string {
       job.errorMessage || "The teammate hit an error. Say resume to try again.",
     ].join(" — ");
   }
+  if (job.status === "needs_review" && job.review) {
+    return reviewSpeak(job, job.review);
+  }
   return [jobRef(job), "finished", job.resultSummary || "Wrapped up."].join(
     " — ",
   );
+}
+
+/** How many files a chat line names before it stops listing. */
+const SPOKEN_REVIEW_FILES = 8;
+
+export function reviewFileLine(file: ReviewFile): string {
+  const churn =
+    file.added || file.removed ? ` +${file.added} -${file.removed}` : "";
+  const tag = file.change === "modified" ? "" : ` (${file.change})`;
+  return `  ${file.path}${churn}${tag}`;
+}
+
+/**
+ * The finished-job line: what changed, that nothing was committed, and the ask.
+ *
+ * Prism deliberately never commits a teammate's work, so this is the moment the
+ * human decides. Saying so explicitly is the difference between "done" and
+ * "done, and your working tree quietly changed".
+ */
+export function reviewSpeak(
+  job: { id: string; title: string },
+  review: JobReview,
+): string {
+  const count = review.files.length;
+  if (count === 0) {
+    return `${jobRef(job)} finished with no file changes.`;
+  }
+  const noun = count === 1 ? "file" : "files";
+  const head = [
+    `${jobRef(job)} is done and left ${count} ${noun} uncommitted for review`,
+    `(+${review.totalAdded} -${review.totalRemoved}).`,
+  ].join(" ");
+  const shown = review.files.slice(0, SPOKEN_REVIEW_FILES);
+  const rest = count - shown.length;
+  const lines = shown.map(reviewFileLine);
+  if (rest > 0 || review.truncated) {
+    lines.push(`  …and ${rest > 0 ? rest : "more"} more`);
+  }
+  return [
+    head,
+    ...lines,
+    "Nothing was committed. Want me to commit these, keep them as they are, or discard them?",
+  ].join("\n");
 }
 
 function liveLine(job: JobListRow): string {
