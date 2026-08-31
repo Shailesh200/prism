@@ -1,19 +1,11 @@
-import { spawn } from "node:child_process";
-import { access, unlink } from "node:fs/promises";
-import { setPriority } from "node:os";
 import { fileURLToPath } from "node:url";
-import { writeJsonFile } from "./json-file.js";
 import { formatMemoriesForPrompt, memoriesForJob } from "./memory.js";
-import { spawnPayloadPath, runStatePath } from "./paths.js";
 import {
-  killWorkerTree,
-  killWorkerTreeForce,
-  patchRunState,
-  readRunState,
-  writeRunState,
-} from "./run-state.js";
+  cancelWorkerRun,
+  launchWorkerChild,
+  workerRunStatus,
+} from "./worker-spawn.js";
 import type { JobRecord, MemoryItem } from "./types.js";
-import { workerChildEnv } from "./worker-budget.js";
 
 export type WorkerStartInput = {
   readonly jobId: string;
@@ -168,92 +160,6 @@ export type CursorWorkerPortOptions = {
   readonly childPath?: string;
 };
 
-async function launchWorkerChild(
-  input: {
-    readonly jobId: string;
-    readonly cwd: string;
-    readonly apiKey?: string;
-    readonly name?: string;
-    readonly prompt: string;
-    readonly mcpCommand: string;
-    readonly mcpArgs: readonly string[];
-    readonly workspaceRoot: string;
-    readonly resumeAgentId?: string;
-    readonly title?: string;
-    readonly baseRef?: string;
-    readonly branch?: string;
-    readonly subagents?: boolean;
-    readonly verify?: boolean;
-  },
-  childJs: string,
-): Promise<number> {
-  try {
-    await access(childJs);
-  } catch {
-    throw new Error(
-      "Prism could not start a teammate. Reload the prism MCP server, then say prism init.",
-    );
-  }
-
-  const payloadPath = spawnPayloadPath(input.workspaceRoot, input.jobId);
-  await writeJsonFile(
-    payloadPath,
-    {
-      jobId: input.jobId,
-      cwd: input.cwd,
-      workspaceRoot: input.workspaceRoot,
-      prompt: input.prompt,
-      mcpCommand: input.mcpCommand,
-      mcpArgs: [...input.mcpArgs],
-      runPath: runStatePath(input.workspaceRoot, input.jobId),
-      subagents: input.subagents ?? false,
-      verify: input.verify ?? true,
-      ...(input.title ? { title: input.title } : {}),
-      ...(input.baseRef ? { baseRef: input.baseRef } : {}),
-      ...(input.branch ? { branch: input.branch } : {}),
-      ...(input.name ? { name: input.name } : {}),
-      ...(input.resumeAgentId ? { resumeAgentId: input.resumeAgentId } : {}),
-    },
-    0o600,
-  );
-
-  const startedAt = new Date().toISOString();
-  await writeRunState(input.workspaceRoot, input.jobId, {
-    jobId: input.jobId,
-    phase: "starting",
-    lastActivity: "Starting",
-    resultSummary: "",
-    errorMessage: "",
-    gitSummary: "",
-    startedAt,
-    updatedAt: startedAt,
-  });
-
-  const child = spawn(process.execPath, [childJs, payloadPath], {
-    detached: true,
-    stdio: "ignore",
-    cwd: input.cwd,
-    env: workerChildEnv(process.env, input.apiKey),
-  });
-  const pid = child.pid;
-  if (pid == null) {
-    await unlink(payloadPath).catch(() => undefined);
-    throw new Error("Prism could not start a teammate.");
-  }
-  child.unref();
-  try {
-    setPriority(pid, 10);
-  } catch {
-    /* best-effort niceness */
-  }
-  await patchRunState(input.workspaceRoot, input.jobId, {
-    pid,
-    phase: "starting",
-    lastActivity: "Starting",
-  });
-  return pid;
-}
-
 export function createCursorWorkerPort(
   options: CursorWorkerPortOptions = {},
 ): WorkerPort {
@@ -286,35 +192,17 @@ export function createCursorWorkerPort(
       return { pid };
     },
     async cancel(input) {
-      let pid = input.pid;
-      if (pid == null && input.workspaceRoot && input.jobId) {
-        pid = (await readRunState(input.workspaceRoot, input.jobId))?.pid;
-      }
-      if (pid != null) {
-        killWorkerTree(pid);
-        const captured = pid;
-        setTimeout(() => {
-          killWorkerTreeForce(captured);
-        }, 2_000).unref();
-      }
-      if (input.workspaceRoot && input.jobId) {
-        await patchRunState(input.workspaceRoot, input.jobId, {
-          phase: "cancelled",
-          lastActivity: "Cancelled",
-          completedAt: new Date().toISOString(),
-        });
-      }
+      await cancelWorkerRun({
+        ...(typeof input.pid === "number" ? { pid: input.pid } : {}),
+        ...(input.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
+        ...(input.jobId ? { jobId: input.jobId } : {}),
+      });
     },
     async status(input) {
-      if (!input.workspaceRoot || !input.jobId) {
-        return { status: "unknown", detail: "" };
-      }
-      const run = await readRunState(input.workspaceRoot, input.jobId);
-      if (!run) return { status: "unknown", detail: "" };
-      return {
-        status: run.phase,
-        detail: run.lastActivity,
-      };
+      return workerRunStatus({
+        ...(input.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
+        ...(input.jobId ? { jobId: input.jobId } : {}),
+      });
     },
   };
 }

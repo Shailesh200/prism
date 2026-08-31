@@ -112,6 +112,9 @@ export function doctorSpeak(
 ): string {
   const byId = Object.fromEntries(checks.map((check) => [check.id, check.ok]));
   if (byId.git === false) return missingGitRepoSpeak();
+  if (byId.claude_workers === false) {
+    return "Claude Code needs a sign-in before it can run a teammate. Say prism init for the steps.";
+  }
   if (byId.cursor_workers === false) return needsSignInSpeak();
   if (byId.cursor_sdk === false) {
     return "Reload the prism MCP server, then say prism init.";
@@ -401,7 +404,7 @@ export function leftoverFocusSpeak(job: {
 function isInternalNextStep(step: string): boolean {
   return (
     isOpaqueJobId(step) ||
-    /CURSOR_API_KEY|mcp\.json|agent booting|worker running|cursor-auth/i.test(
+    /CURSOR_API_KEY|mcp\.json|agent booting|worker running|cursor-auth|worker-auth/i.test(
       step,
     )
   );

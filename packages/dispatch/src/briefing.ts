@@ -287,7 +287,7 @@ export function formatBriefing(input: {
           job.lastActivity && job.status === "running"
             ? ` · ${job.lastActivity}`
             : job.nextStep &&
-                !/worker running|agent booting|cursor-auth|CURSOR_API_KEY/i.test(
+                !/worker running|agent booting|cursor-auth|worker-auth|CURSOR_API_KEY/i.test(
                   job.nextStep,
                 )
               ? ` · ${job.nextStep}`

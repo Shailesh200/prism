@@ -86,9 +86,19 @@ import {
   createSdkCursorAuthPort,
   ensureCursorWorkerAuth,
   inspectCursorWorkerAuth,
-  type CursorAuthInspect,
   type CursorAuthPort,
 } from "./cursor-auth.js";
+import {
+  createClaudeAuthPort,
+  ensureClaudeWorkerAuth,
+  type ClaudeAuthPort,
+} from "./claude-auth.js";
+import {
+  resolveWorkerBackend,
+  workerBackendLabel,
+  type WorkerAuthInspect,
+  type WorkerBackend,
+} from "./worker-backend.js";
 import { adoptOrCreateWorktree, pruneOrphanWorktrees } from "./worktrees.js";
 import {
   admissionMessage,
@@ -147,11 +157,19 @@ export type DispatchRuntime = {
 
 export type DispatchRuntimeOptions = BriefingDeps & {
   readonly worker?: WorkerPort;
+  /** Claude Code backend (ADR-0044). Chosen per job by resolveWorkerBackend. */
+  readonly claudeWorker?: WorkerPort;
   readonly startOAuth?: (driver: DriverId) => Promise<unknown>;
   readonly fetchImpl?: typeof fetch;
   readonly oauthUi?: OAuthUiPort;
   /** Injected in tests. Production uses Cursor.auth (SDK store), not mcp.json. */
   readonly cursorAuth?: CursorAuthPort;
+  /** Injected in tests. Production probes the claude CLI + credentials. */
+  readonly claudeAuth?: ClaudeAuthPort;
+  /** Injected in tests. Production reads MCP clientInfo after initialize. */
+  readonly getClientName?: () => string | undefined;
+  /** Injected in tests. Skips config/env/client resolution entirely. */
+  readonly workerBackend?: WorkerBackend;
   /** Injected in tests. Production reads `os.freemem()`. */
   readonly freeMemoryBytes?: number;
   /**
@@ -282,6 +300,13 @@ async function startJob(
   const disk = await diskBudgetMessage(options.workspaceRoot);
   if (disk) return { message: disk };
   const config = await loadConfig(options.workspaceRoot);
+  const backend =
+    options.workerBackend ??
+    resolveWorkerBackend({
+      config,
+      env,
+      clientName: options.getClientName?.(),
+    });
   const jobs = await reapJobs(options.workspaceRoot);
   const id = jobIdFrom(
     title,
@@ -378,6 +403,7 @@ async function startJob(
     lastStep: "",
     nextStep: "agent booting",
     waitingOn: "",
+    workerBackend: backend,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
     ...(tree.cursorAgentId ? { cursorAgentId: tree.cursorAgentId } : {}),
@@ -387,12 +413,13 @@ async function startJob(
 
   const creds = await resolveWorkerAuth(options, env, context, {
     login: true,
+    backend,
   });
   if (!creds.ready) {
     job = await upsertJob(options.workspaceRoot, {
       ...job,
       status: "blocked",
-      waitingOn: "cursor-auth",
+      waitingOn: "worker-auth",
       nextStep: creds.message,
     });
     return {
@@ -406,7 +433,7 @@ async function startJob(
 
   const memories = await loadMemories(options.workspaceRoot);
   const launch = resolveMcpLaunch(env);
-  const worker = options.worker;
+  const worker = workerForBackend(options, backend);
   if (!worker) {
     return {
       job,
@@ -571,8 +598,12 @@ async function jobControl(
   const launch = resolveMcpLaunch(env);
 
   if (action === "cancel" || action === "pause") {
-    if (options.worker) {
-      await options.worker.cancel({
+    const cancelWorker =
+      workerForBackend(options, job.workerBackend ?? "cursor") ??
+      options.worker ??
+      options.claudeWorker;
+    if (cancelWorker) {
+      await cancelWorker.cancel({
         ...(job.cursorAgentId ? { agentId: job.cursorAgentId } : {}),
         cwd: job.worktreePath,
         jobId: job.id,
@@ -609,13 +640,16 @@ async function jobControl(
       }
       return { job, message: alreadyRunningSpeak(job) };
     }
+    const backend = job.workerBackend ?? "cursor";
     const creds = await resolveWorkerAuth(options, env, context, {
       login: true,
+      backend,
     });
     if (!creds.ready) {
       return { message: creds.message, job };
     }
-    if (!options.worker) {
+    const resumeWorker = workerForBackend(options, backend);
+    if (!resumeWorker) {
       return { message: "No worker configured.", job };
     }
     const ram = ramGate(options);
@@ -634,10 +668,13 @@ async function jobControl(
       .join("\n\n");
     let pid: number | undefined;
     let agentId = job.cursorAgentId;
-    if (job.cursorAgentId) {
-      const resumed = await options.worker.resume({
+    // The resume handle is backend-specific: Cursor agentId, Claude session_id.
+    const sessionHandle =
+      backend === "claude" ? job.workerSessionId : job.cursorAgentId;
+    if (sessionHandle) {
+      const resumed = await resumeWorker.resume({
         jobId: job.id,
-        agentId: job.cursorAgentId,
+        agentId: sessionHandle,
         cwd: job.worktreePath,
         name: agentNameForJob(job),
         ...(creds.apiKey ? { apiKey: creds.apiKey } : {}),
@@ -651,7 +688,7 @@ async function jobControl(
       });
       if (resumed && typeof resumed.pid === "number") pid = resumed.pid;
     } else {
-      const started = await options.worker.start({
+      const started = await resumeWorker.start({
         jobId: job.id,
         cwd: job.worktreePath,
         name: agentNameForJob(job),
@@ -1201,6 +1238,7 @@ async function configureTool(
     subagents: patch.subagents,
     fanout: patch.fanout,
     verifyJobs: patch.verifyJobs,
+    workerBackend: patch.workerBackend,
     ticketHost: patch.ticketHost,
     mentionWindowHours: patch.mentionWindowHours,
     mentionLimit: patch.mentionLimit,
@@ -1222,6 +1260,7 @@ function formatConfig(config: DispatchConfig): string {
     `subagents=${config.subagents}`,
     `fanout=${config.fanout}`,
     `verifyJobs=${config.verifyJobs}`,
+    `workerBackend=${config.workerBackend}`,
     `ticketHost=${config.ticketHost}`,
     `slack channels=${config.slackTrackChannelIds.join(",") || "(none)"}`,
     `mention window=${config.mentionWindowHours}h cap=${config.mentionLimit}`,
@@ -1240,12 +1279,39 @@ async function initTool(
   };
 }
 
+/** Which agent CLI runs the next job (ADR-0044 §2). */
+async function resolveBackend(
+  options: DispatchRuntimeOptions,
+  env: NodeJS.ProcessEnv,
+): Promise<WorkerBackend> {
+  if (options.workerBackend) return options.workerBackend;
+  const config = await loadConfig(options.workspaceRoot).catch(() => undefined);
+  return resolveWorkerBackend({
+    config,
+    env,
+    clientName: options.getClientName?.(),
+  });
+}
+
+/** The port for a backend. Cursor stays `options.worker` (pre-M-065 seam). */
+function workerForBackend(
+  options: DispatchRuntimeOptions,
+  backend: WorkerBackend,
+): WorkerPort | undefined {
+  return backend === "claude" ? options.claudeWorker : options.worker;
+}
+
 async function resolveWorkerAuth(
   options: DispatchRuntimeOptions,
   env: NodeJS.ProcessEnv,
   context?: DispatchToolContext,
-  flags: { readonly login?: boolean } = {},
-): Promise<CursorAuthInspect> {
+  flags: { readonly login?: boolean; readonly backend?: WorkerBackend } = {},
+): Promise<WorkerAuthInspect> {
+  const backend = flags.backend ?? (await resolveBackend(options, env));
+  if (backend === "claude") {
+    const auth = options.claudeAuth ?? createClaudeAuthPort({ env });
+    return ensureClaudeWorkerAuth({ env, auth });
+  }
   const auth = options.cursorAuth ?? (await createSdkCursorAuthPort());
   if (!flags.login) {
     let status:
@@ -1268,7 +1334,8 @@ async function doctorTool(
   options: DispatchRuntimeOptions,
   env: NodeJS.ProcessEnv,
 ): Promise<unknown> {
-  const sdk = await loadCursorSdk();
+  const backend = await resolveBackend(options, env);
+  const sdk = backend === "cursor" ? await loadCursorSdk() : undefined;
   const config = await loadConfig(options.workspaceRoot);
   const jobs = await reapJobs(options.workspaceRoot);
   const broker = authBrokerUrl(env);
@@ -1279,10 +1346,37 @@ async function doctorTool(
   const enabledCount = brokerCatalog.drivers.filter(
     (row) => row.enabled,
   ).length;
-  const creds = await resolveWorkerAuth(options, env);
+  const creds = await resolveWorkerAuth(options, env, undefined, { backend });
   const diskMessage = await diskBudgetMessage(options.workspaceRoot);
   const ramMessage = ramGate(options);
   const git = await gitSnapshot(options.workspaceRoot, options.git);
+  const workerChecks =
+    backend === "claude"
+      ? [
+          {
+            id: "claude_workers",
+            ok: creds.ready,
+            detail: creds.ready
+              ? signedInSpeak(creds.email)
+              : "Claude Code needs a sign-in — say prism init for the steps.",
+          },
+        ]
+      : [
+          {
+            id: "cursor_workers",
+            ok: creds.ready,
+            detail: creds.ready
+              ? signedInSpeak(creds.email)
+              : "Sign in — say prism init and finish the Cursor page in your browser.",
+          },
+          {
+            id: "cursor_sdk",
+            ok: Boolean(sdk),
+            detail: sdk
+              ? "importable"
+              : "Cursor SDK did not load — reload prism MCP",
+          },
+        ];
   const checks = [
     {
       id: "git",
@@ -1292,17 +1386,11 @@ async function doctorTool(
         : git.branch || "git repository",
     },
     {
-      id: "cursor_workers",
-      ok: creds.ready,
-      detail: creds.ready
-        ? signedInSpeak(creds.email)
-        : "Sign in — say prism init and finish the Cursor page in your browser.",
+      id: "worker_backend",
+      ok: true,
+      detail: workerBackendLabel(backend),
     },
-    {
-      id: "cursor_sdk",
-      ok: Boolean(sdk),
-      detail: sdk ? "importable" : "Cursor SDK did not load — reload prism MCP",
-    },
+    ...workerChecks,
     {
       id: "role",
       ok: !isWorkerRole(env),

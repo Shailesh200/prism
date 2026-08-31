@@ -357,9 +357,16 @@ export function applyRunToJob(
 ): JobRecord {
   const pid = run?.pid ?? job.workerPid;
   const alive = isProcessAlive(pid);
+  // The run sidecar's agentId is the backend's session handle: Cursor agentId
+  // for cursor jobs, Claude session_id for claude jobs (ADR-0044 §5).
+  const sessionPatch = run?.agentId
+    ? job.workerBackend === "claude"
+      ? { workerSessionId: run.agentId }
+      : { cursorAgentId: run.agentId }
+    : {};
   const base: JobRecord = {
     ...job,
-    ...(run?.agentId ? { cursorAgentId: run.agentId } : {}),
+    ...sessionPatch,
     ...(typeof run?.pid === "number" ? { workerPid: run.pid } : {}),
     ...(run?.runId ? { runId: run.runId } : {}),
     ...(run?.lastActivity ? { lastActivity: run.lastActivity } : {}),

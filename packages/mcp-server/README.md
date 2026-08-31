@@ -137,9 +137,10 @@ Optional MCP **prompts** (picker / slash in some clients): `orient`,
 `before_edit`, `review_diff`, `start_my_day`, `start_work`, `where_are_we`,
 `connect`, `configure`, `init`.
 
-Say **prism init** (or start a job) to sign in to Cursor for local workers.
-Do not paste `CURSOR_API_KEY` into mcp.json. `CURSOR_API_KEY` is only an
-optional CI override. Dispatch docs:
+Say **prism init** to set up local workers. The worker matches your host:
+Cursor signs in via a browser page; Claude Code reuses the `claude` CLI
+sign-in. Do not paste `CURSOR_API_KEY` into mcp.json — it is only an optional
+CI override. Dispatch docs:
 see the public [Dispatch guide](https://www.prismhq.in/docs/mcp/dispatch).
 
 MCP **resources** (for clients that bind context): `prism://dna`,
@@ -182,7 +183,7 @@ Intelligence tools are read-only. Dispatch tools write gitignored state under
 | Tool | Answers | Arguments |
 |---|---|---|
 | `start_my_day` | Standup: jobs, git, connected drivers, connect CTAs | — |
-| `init` | One-time Cursor sign-in for local job workers (Authenticate) | — |
+| `init` | One-time worker sign-in (Cursor browser login; Claude CLI check) | — |
 | `start_job` | Start a named teammate in its own worktree; returns immediately | `title`, `prd`, `jobId`, `branch`, `confirmOverlap` |
 | `list_jobs` | Live activity plus finished results (“where are we”); names the jobs board | — |
 | `job_logs` | One job's console: activity lines plus the branch review awaiting you | `jobId`, `limit`, `since` |
@@ -190,7 +191,7 @@ Intelligence tools are read-only. Dispatch tools write gitignored state under
 | `remember` | Save, list, or forget memories for the next job | `action`, `text`, `scope`, `confirm` |
 | `integrations` | Catalogue, OAuth start, disconnect | `action`, `driver` |
 | `configure` | Standup settings or export a non-secret template | `action`, Slack channels, `maxJobs`, `ticketHost` |
-| `dispatch_doctor` | Cursor worker login, SDK, role, job cap | — |
+| `dispatch_doctor` | Worker backend + sign-in, role, job cap | — |
 
 ### Orientation — what is this, and how is it laid out?
 
