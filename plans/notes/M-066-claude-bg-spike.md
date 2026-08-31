@@ -5,6 +5,9 @@
 Dispatch worker under ADR-0041/0042 rules, so jobs appear natively in
 `/workflows` / `claude agents`?
 **Outcome:** recorded in ADR-0046 (adopt or reject, with this evidence).
+**Run:** `bash scripts/spike-claude-bg.sh` on the Claude Code machine —
+throwaway, works in a temp repo, stops only what it started. The script below
+is the same content, kept for reading.
 
 ## Established from the CLI reference (docs, 2026-09-01)
 
