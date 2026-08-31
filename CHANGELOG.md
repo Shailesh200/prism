@@ -9,6 +9,13 @@ the `prism` CLI, the `prism-mcp` server, and the Core SDK they all call. They
 move as one because they are one build; a mismatch between them has never been
 a supported configuration.
 
+## 1.1.14 — Claude Code workers
+
+- **Dispatch:** jobs run on the host's own agent CLI — a Cursor agent in Cursor, a Claude Code agent (`claude -p`) in Claude Code. `configure` → `workerBackend` overrides; `PRISM_WORKER` works too.
+- **Dispatch:** Claude workers reuse the machine's existing Claude Code sign-in. `prism init` checks the `claude` CLI and says what to run — never asks for a key.
+- **Dispatch:** same contract on both backends: own worktree, no shell, no MCP, console (`job_logs`), stall detection, Prism-side commit + checks, review before land. Resume continues the Claude session.
+- Keep `@latest`; hop on the next Cursor/MCP start. Logs: `prism-mcp 1.1.14: workspace …`. `@repo-prism/dispatch@1.1.14`, `@repo-prism/dispatch-hub@1.1.14`, and `@repo-prism/mcp-server@1.1.14`.
+
 ## 1.1.13 — Job console, stall detection, review before land
 
 - **Dispatch:** each job keeps an append-only console. Ask “what is it doing” / “show me the logs” (`job_logs`).

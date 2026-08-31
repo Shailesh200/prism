@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Progress** |
+| Status | **Verified** |
 | Branch | `milestone/M-065-claude-code-worker` (from latest `main`) |
 | Depends on | M-064 (Agent Dashboard Hub) |
 | Unlocks | Codex worker (same backend seam) |
@@ -39,16 +39,16 @@ review-before-land. Cursor hosts keep the Cursor SDK worker.
 
 ## 4. Definition of Done
 
-- [ ] Only one milestone `In Progress`
-- [ ] `resolveWorkerBackend` picks `claude` for `claude-code` clients, `cursor` otherwise; `PRISM_WORKER` and `configure` override
-- [ ] Claude worker child runs `claude -p --bare` in the worktree with no Bash and no MCP; events land in the same JSONL console and run-state sidecar
-- [ ] Stall detection, `job_logs`, `needs_review`, and the hub board work unchanged for Claude jobs
-- [ ] Shared `worker-finish` (commit + typecheck/test + cited-path audit) used by both backends
-- [ ] `init` is backend-aware; Claude path never asks for `CURSOR_API_KEY`
-- [ ] Resume works via Claude `session_id`
-- [ ] ADR-0044 Accepted; dispatch docs (≤650 words), install docs, READMEs, reference docs updated
-- [ ] `bun run verify:milestone` green
-- [ ] Owner approval → commit → merge → Verified → snippet shared
+- [x] Only one milestone `In Progress`
+- [x] `resolveWorkerBackend` picks `claude` for `claude-code` clients, `cursor` otherwise; `PRISM_WORKER` and `configure` override
+- [x] Claude worker child runs `claude -p --bare` in the worktree with no Bash and no MCP; events land in the same JSONL console and run-state sidecar
+- [x] Stall detection, `job_logs`, `needs_review`, and the hub board work unchanged for Claude jobs
+- [x] Shared `worker-finish` (commit + typecheck/test + cited-path audit) used by both backends
+- [x] `init` is backend-aware; Claude path never asks for `CURSOR_API_KEY`
+- [x] Resume works via Claude `session_id`
+- [x] ADR-0044 Accepted; dispatch docs (≤650 words), install docs, READMEs, reference docs updated
+- [x] `bun run verify:milestone` green
+- [x] Owner approval → commit → merge → Verified → snippet shared
 
 ## 5. References
 

@@ -15,13 +15,13 @@
       "sizes": ["128x128"]
     }
   ],
-  "version": "1.1.13",
+  "version": "1.1.14",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@repo-prism/mcp-server",
-      "version": "1.1.13",
+      "version": "1.1.14",
       "transport": {
         "type": "stdio"
       },
