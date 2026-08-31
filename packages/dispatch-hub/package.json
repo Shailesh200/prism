@@ -1,6 +1,6 @@
 {
   "name": "@repo-prism/dispatch-hub",
-  "version": "1.1.15",
+  "version": "1.1.16",
   "type": "module",
   "description": "Prism Hub — loopback dashboard and OS notifications for Dispatch jobs",
   "exports": {
