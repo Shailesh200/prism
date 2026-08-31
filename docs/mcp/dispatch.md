@@ -11,7 +11,8 @@ Dispatch runs standup, jobs, and optional connectors. Same server name `prism`.
 | You say | What happens |
 |---|---|
 | "start my day" | `start_my_day` — greeting, yesterday (git + finished work), then open Linear/GitHub/Slack items |
-| "start working on AI-971" + a PRD | `start_job` — a teammate starts in its own worktree; say “where are we” for live status and the result |
+| any request to change code ("fix the news tab highlighting") | `start_job` — a teammate starts in its own worktree; say “where are we” for status and the result |
+| that request plus "do it now" / "right here" | no job — the agent edits inline |
 | "prism init" | `init` — same Cursor login page, without starting a job |
 | "where are we" | `list_jobs` — live activity, then finished results or errors |
 | "remember …" | `remember` |
@@ -56,21 +57,20 @@ job to register, not yours.
 
 `start_job` starts a **local** Cursor teammate **in its own git worktree**
 (adopt a matching Cursor/Claude tree, or create `.prism/dispatch/worktrees/<id>`).
-The open folder must be a git repository. If a job returns that Prism does not
-see a git repo, retry while that project is the open chat folder — the agent
-should pass `workspace` itself. Do not paste a path into mcp.json.
-The agent loop runs in a **separate Node process**, not inside the prism MCP
-server, so chat stays responsive. Default cap is **one job at a time**
+The open folder must be a git repository. If a job says Prism cannot see a git
+repo, retry with that project open — the agent passes `workspace` itself. Do
+not paste a path into mcp.json. The agent loop runs in a **separate Node
+process**, not inside the prism MCP server, so chat stays responsive. Default cap is **one job at a time**
 (`configure` can raise `maxJobs` once the machine can take it). Prism job
 worktrees **symlink** the host `node_modules` — teammates must not `bun install`.
 Job agents do **not** get Prism MCP (no second index) and have **no shell**
 (they cannot run `prism` or `bun install`). Repo-wide “find issues / audit”
 is host `repository_health`, not a Dispatch job.
 
-The first time, a **Cursor login page** opens in the browser. Say **prism init**
-to do that sign-in without starting a job. Chat names the job with a ticket
-(`AI-971`) or a title slug (`audit-issues`) — never a `job-<hex>` hash. Pause
-with “pause audit-issues”.
+The first time, a **Cursor login page** opens in the browser; say **prism init**
+to sign in without starting a job. Chat names the job with a ticket (`AI-971`)
+or a slug (`audit-issues`) — never a `job-<hex>` hash. Pause with “pause
+audit-issues”.
 
 **Live status and results live in chat.** Say **where are we** anytime: you
 see what each teammate is doing, and when it finishes you get what changed (or
@@ -78,9 +78,8 @@ a real error if it failed). Start my day also lists jobs that just finished.
 MCP cannot push a line into an idle chat — “where are we” is how the result
 comes back.
 
-Open Cursor’s **Agents window** (Filter → Source → SDK) if you want the IDE
-list; it is optional and often empty for local workers. The guaranteed view is
-chat.
+Cursor’s **Agents window** (Filter → Source → SDK) is optional and often empty
+for local workers. The guaranteed view is chat.
 
 If Cursor shows a card titled **Authenticating prism…** with **Skip**, that is
 Cursor approving MCP tools — not worker login. Click **Skip**, then retry.
