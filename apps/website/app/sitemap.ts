@@ -1,4 +1,4 @@
-import { source } from "@/lib/source";
+import { postSource, source } from "@/lib/source";
 import type { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -17,6 +17,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url: `${site}${page.url}`,
     lastModified: new Date(),
   }));
+  const posts = postSource.getPages().map((page) => ({
+    url: `${site}${page.url}`,
+    lastModified: new Date(),
+  }));
 
   return [
     ...staticRoutes.map((route) => ({
@@ -24,5 +28,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: new Date(),
     })),
     ...docs,
+    ...posts,
   ];
 }

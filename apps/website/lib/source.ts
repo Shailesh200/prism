@@ -1,4 +1,4 @@
-import { docs, adminDocs } from "@/.source/server";
+import { docs, adminDocs, posts } from "@/.source/server";
 import { loader } from "fumadocs-core/source";
 import { icons } from "lucide-react";
 import { createElement } from "react";
@@ -20,4 +20,9 @@ export const adminSource = loader({
   baseUrl: "/admin/docs",
   source: adminDocs.toFumadocsSource(),
   icon,
+});
+
+export const postSource = loader({
+  baseUrl: "/whats-new",
+  source: posts.toFumadocsSource(),
 });

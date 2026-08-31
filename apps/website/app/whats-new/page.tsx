@@ -1,7 +1,9 @@
 import { HomeLayout } from "fumadocs-ui/layouts/home";
 import { baseOptions } from "@/lib/layout.shared";
 import { parseChangelog } from "@/lib/changelog";
-import { readFile, readdir } from "node:fs/promises";
+import { renderInlineMarkdown } from "@/lib/inline-markdown";
+import { postSource } from "@/lib/source";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -14,45 +16,13 @@ export const metadata: Metadata = {
   description: "Prism release timeline and highlight posts.",
 };
 
-type PostMeta = {
-  slug: string;
-  title: string;
-  description: string;
-  version?: string;
-};
-
-async function loadPosts(): Promise<PostMeta[]> {
-  const dir = path.join(process.cwd(), "content/posts");
-  const entries = await readdir(dir).catch(() => [] as string[]);
-  const posts: PostMeta[] = [];
-  for (const file of entries) {
-    if (!file.endsWith(".mdx")) continue;
-    const text = await readFile(path.join(dir, file), "utf8");
-    const fm = /^---\n([\s\S]*?)\n---/.exec(text);
-    const fields = Object.fromEntries(
-      (fm?.[1] ?? "")
-        .split("\n")
-        .map((line) => line.split(":").map((p) => p.trim()))
-        .filter((p) => p.length >= 2)
-        .map(([k, ...rest]) => [k, rest.join(":").replace(/^["']|["']$/g, "")]),
-    );
-    posts.push({
-      slug: file.replace(/\.mdx$/, ""),
-      title: fields.title ?? file,
-      description: fields.description ?? "",
-      version: fields.version,
-    });
-  }
-  return posts;
-}
-
 export default async function WhatsNewPage() {
   const changelog = await readFile(
     path.join(process.cwd(), "../../CHANGELOG.md"),
     "utf8",
   );
   const releases = parseChangelog(changelog);
-  const posts = await loadPosts();
+  const posts = postSource.getPages();
 
   return (
     <HomeLayout {...baseOptions()}>
@@ -71,18 +41,20 @@ export default async function WhatsNewPage() {
               </Reveal>
               <ul className="divide-y divide-fd-border border-y border-fd-border">
                 {posts.map((post, i) => (
-                  <Reveal key={post.slug} delay={i * 0.05} y={12}>
+                  <Reveal key={post.url} delay={i * 0.05} y={12}>
                     <li>
                       <Link
-                        href={`/whats-new/${post.slug}`}
+                        href={post.url}
                         className="block py-5 transition hover:text-fd-primary"
                       >
                         <div className="font-display font-medium text-fd-foreground">
-                          {post.title}
+                          {post.data.title}
                         </div>
-                        <p className="mt-1 text-sm text-fd-muted-foreground">
-                          {post.description}
-                        </p>
+                        {post.data.description ? (
+                          <p className="mt-1 text-sm text-fd-muted-foreground">
+                            {post.data.description}
+                          </p>
+                        ) : null}
                       </Link>
                     </li>
                   </Reveal>
@@ -98,7 +70,10 @@ export default async function WhatsNewPage() {
                 delay={Math.min(i * 0.04, 0.24)}
                 y={14}
               >
-                <article className="space-y-3 border-t border-fd-border pt-6">
+                <article
+                  id={release.version}
+                  className="space-y-3 border-t border-fd-border pt-6"
+                >
                   <h2 className="font-display text-2xl font-semibold tracking-tight">
                     <span className="mr-3 font-mono text-xs tracking-widest text-fd-primary">
                       {String(i + 1).padStart(2, "0")}
@@ -107,8 +82,8 @@ export default async function WhatsNewPage() {
                   </h2>
                   <ul className="list-disc space-y-2 pl-5 text-fd-muted-foreground">
                     {release.bullets.map((b) => (
-                      <li key={b} className="leading-relaxed">
-                        {b.replace(/\*\*/g, "")}
+                      <li key={b} className="leading-relaxed [&_strong]:text-fd-foreground">
+                        {renderInlineMarkdown(b)}
                       </li>
                     ))}
                   </ul>
