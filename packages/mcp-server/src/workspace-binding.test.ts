@@ -87,6 +87,15 @@ describe("workspace binding", () => {
     expect(binding.applyHints([repo])).toBe(false);
     expect(binding.current()).toBe(chosen);
   });
+
+  it("lets a later MCP root replace a wrong launch cwd", () => {
+    const launch = tempDir();
+    const repo = gitDir();
+    const binding = createWorkspaceBinding({ path: launch, source: "cwd" });
+    expect(binding.applyHints([repo])).toBe(true);
+    expect(binding.current()).toBe(repo);
+    expect(binding.source()).toBe("mcp roots");
+  });
 });
 
 describe("MCP roots rebind the live workspace", () => {

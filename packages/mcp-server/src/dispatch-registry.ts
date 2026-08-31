@@ -10,6 +10,8 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   createCursorWorkerPort,
   createDispatchRuntime,
+  gitFailureSpeak,
+  isMissingGitRepoMessage,
   isWorkerRole,
   startJobNoticeWatcher,
   visibleDispatchTools,
@@ -61,7 +63,7 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     name: "start_job",
     title: "Start a Dispatch job",
     description:
-      "Create a Dispatch job from a ticket or title plus a PRD. Starts a local Cursor teammate in its own worktree (host node_modules linked; no shell; no second Prism MCP) and returns immediately. Speak only the tool message: use the job title and canonical id (ticket like AI-971 or slug like audit-issues), never job-<hex>, worktree paths, or API keys. Tell the user to say where are we for live status and the result when it finishes. Default cap is one job at a time. Do not use this for a repo-wide audit or health scan — call repository_health instead. If sign-in is needed, a Cursor login page opens in the browser. If Cursor shows “Authenticating prism…” with Skip, tell the user to click Skip and retry.",
+      "Create a Dispatch job from a ticket or title plus a PRD. Always pass workspace as the absolute path of the git repository you are editing (the folder that contains .git). Starts a local Cursor teammate in its own worktree (host node_modules linked; no shell; no second Prism MCP) and returns immediately. Speak only the tool message: use the job title and canonical id (ticket like AI-971 or slug like audit-issues), never job-<hex>, worktree paths, or API keys. Tell the user to say where are we for live status and the result when it finishes. Default cap is one job at a time. Do not use this for a repo-wide audit or health scan — call repository_health instead. If sign-in is needed, a Cursor login page opens in the browser. If Cursor shows “Authenticating prism…” with Skip, tell the user to click Skip and retry. If the tool says Prism does not see a git repository, retry once with workspace set to the open project path — do not throw PRISM_UNKNOWN at the user.",
     inputSchema: {
       title: z.string().describe("Ticket id and/or short job title"),
       prd: z
@@ -286,6 +288,17 @@ export function registerDispatchTools(
             content: [{ type: "text" as const, text: serialiseForMcp(value) }],
           };
         } catch (cause) {
+          const detail = cause instanceof Error ? cause.message : String(cause);
+          if (isMissingGitRepoMessage(detail)) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: serialiseForMcp({ message: gitFailureSpeak(detail) }),
+                },
+              ],
+            };
+          }
           throw toMcpErrorFromThrown(cause);
         }
       },
