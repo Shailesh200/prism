@@ -1,11 +1,12 @@
 import { execFileSync, spawn } from "node:child_process";
 import { readdir } from "node:fs/promises";
 import { z } from "zod";
+import { clip, textFromUnknown, toolNameFrom } from "./event-text.js";
 import { readJsonFile, writeJsonFile } from "./json-file.js";
 import { loadJobs, saveJobs } from "./jobs.js";
 import { jobRef } from "./job-voice.js";
 import { runStatePath, runsDir } from "./paths.js";
-import type { JobRecord } from "./types.js";
+import { JobReviewSchema, type JobRecord } from "./types.js";
 
 export const RunPhaseSchema = z.enum([
   "starting",
@@ -31,6 +32,8 @@ export const RunStateSchema = z.object({
   resultSummary: z.string().default(""),
   errorMessage: z.string().default(""),
   gitSummary: z.string().default(""),
+  /** What the job branch carries, for the human to review before it lands. */
+  review: JobReviewSchema.optional(),
   /** Supervisor-run checks after the agent stopped (ADR-0042 §3). */
   verification: VerificationStatusSchema.optional(),
   verificationDetail: z.string().optional(),
@@ -43,6 +46,48 @@ export const RunStateSchema = z.object({
 export type RunState = z.infer<typeof RunStateSchema>;
 
 const WRITE_THROTTLE_MS = 400;
+
+/**
+ * How long a live worker may emit nothing before we stop calling it "running".
+ *
+ * Liveness alone is not progress: a wedged agent keeps its pid, so the old code
+ * showed "Thinking" for an hour with no way to tell a slow model from a dead
+ * one. Generous enough that a long tool call is not flagged.
+ */
+export const STALL_AFTER_MS = 10 * 60_000;
+
+export function runStallMs(
+  run: RunState | undefined,
+  now: number = Date.now(),
+): number {
+  if (!run) return 0;
+  const updated = Date.parse(run.updatedAt);
+  if (!Number.isFinite(updated)) return 0;
+  return Math.max(0, now - updated);
+}
+
+export function isRunStalled(
+  run: RunState | undefined,
+  now: number = Date.now(),
+  thresholdMs: number = STALL_AFTER_MS,
+): boolean {
+  if (!run) return false;
+  const active =
+    run.phase === "running" ||
+    run.phase === "thinking" ||
+    run.phase === "tool" ||
+    run.phase === "editing" ||
+    run.phase === "starting";
+  return active && runStallMs(run, now) >= thresholdMs;
+}
+
+export function formatStallDuration(ms: number): string {
+  const minutes = Math.floor(ms / 60_000);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`;
+}
 
 export function isProcessAlive(pid: number | undefined): boolean {
   if (pid == null || !Number.isInteger(pid) || pid <= 0) return false;
@@ -211,35 +256,6 @@ export function createRunWriter(
   };
 }
 
-function clip(text: string, max = 160): string {
-  const t = text.replace(/\s+/g, " ").trim();
-  if (!t) return "";
-  return t.length <= max ? t : `${t.slice(0, max - 1)}…`;
-}
-
-function textFromUnknown(value: unknown): string {
-  if (typeof value === "string") return value;
-  if (!value || typeof value !== "object") return "";
-  const row = value as Record<string, unknown>;
-  if (typeof row.text === "string") return row.text;
-  if (Array.isArray(row.content)) {
-    return row.content.map(textFromUnknown).filter(Boolean).join(" ");
-  }
-  if (row.message) return textFromUnknown(row.message);
-  return "";
-}
-
-function toolNameFrom(value: unknown): string {
-  if (!value || typeof value !== "object") return "";
-  const row = value as Record<string, unknown>;
-  if (typeof row.name === "string" && row.name.trim()) return row.name.trim();
-  if (typeof row.tool === "string") return row.tool;
-  if (row.tool && typeof row.tool === "object") return toolNameFrom(row.tool);
-  if (row.message) return toolNameFrom(row.message);
-  if (row.delta) return toolNameFrom(row.delta);
-  return "";
-}
-
 export function activityFromEvent(
   event: unknown,
 ): { phase: RunPhase; lastActivity: string } | undefined {
@@ -350,12 +366,18 @@ export function applyRunToJob(
   };
 
   if (run?.phase === "done") {
+    const review = run.review ?? job.review;
+    const changed = (review?.files.length ?? 0) > 0;
     return {
       ...base,
-      status: "done",
+      // The supervisor commits so the work survives worktree pruning
+      // (ADR-0042 §1), but landing it is the human's decision — a branch with
+      // commits is a review, not a closed job.
+      status: changed ? "needs_review" : "done",
+      ...(review ? { review } : {}),
       resultSummary: run.resultSummary || run.gitSummary || job.resultSummary,
       errorMessage: undefined,
-      nextStep: "",
+      nextStep: changed ? "review the changes" : "",
       waitingOn: "",
       ...(run.verification ? { verification: run.verification } : {}),
       ...(run.verificationDetail
@@ -401,6 +423,19 @@ export function applyRunToJob(
         nextStep: "say resume to try again",
       };
     }
+  }
+
+  // Alive but silent for too long: say so instead of reporting progress that
+  // is not happening. The pid is left alone — resume/cancel is the user's call.
+  if (inFlight && alive && isRunStalled(run)) {
+    const stalledFor = formatStallDuration(runStallMs(run));
+    return {
+      ...base,
+      status: "waiting_on_you",
+      lastActivity: `No activity for ${stalledFor}`,
+      nextStep: "say resume to nudge it, or cancel",
+      waitingOn: "stalled",
+    };
   }
 
   if (

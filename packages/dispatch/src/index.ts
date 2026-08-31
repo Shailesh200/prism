@@ -18,6 +18,11 @@ export {
   type MemoryScope,
   type TicketHost,
   type WorktreeSource,
+  JobReviewSchema,
+  ReviewFileSchema,
+  type JobReview,
+  type JobStatus,
+  type ReviewFile,
 } from "./types.js";
 
 export {
@@ -54,13 +59,38 @@ export {
   gitFailureSpeak,
   isNetworkFailureMessage,
   networkFailureSpeak,
+  isLiveJobStatus,
+  jobLogsSpeak,
+  reviewSpeak,
+  reviewFileLine,
+  statusPhrase,
 } from "./job-voice.js";
+export {
+  appendRunLog,
+  readRunLog,
+  logEntryFromEvent,
+  lifecycleLogEntry,
+  formatRunLogLine,
+  parseRunLogLine,
+  MAX_LOG_BYTES,
+  MAX_ENTRY_TEXT,
+  RunLogEntrySchema,
+  type RunLogEntry,
+  type RunLogPage,
+  type ReadRunLogOptions,
+} from "./run-log.js";
 export {
   reapJobs,
   isProcessAlive,
   activityFromEvent,
   startJobNoticeWatcher,
+  isRunStalled,
+  runStallMs,
+  formatStallDuration,
   readRunState,
+  STALL_AFTER_MS,
+  type RunState,
+  type RunPhase,
 } from "./run-state.js";
 export {
   workerMcpEnv,
@@ -131,6 +161,8 @@ export {
   defaultGitRunner,
   gitChildEnv,
   isMissingGitRepoMessage,
+  gitReviewSummary,
+  MAX_REVIEW_FILES,
   JOB_ARTIFACT_PATHS,
   type GitRunner,
   type JobCommit,

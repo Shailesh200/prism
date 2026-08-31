@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import type { GitSnapshot } from "./types.js";
+import type { GitSnapshot, JobReview, ReviewFile } from "./types.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -330,6 +330,83 @@ export async function committedJobPaths(
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+/** Cap the review file list; a 500-file job is a summary, not a list. */
+export const MAX_REVIEW_FILES = 50;
+
+function reviewChangeFromStatusLetter(code: string): ReviewFile["change"] {
+  const flag = code.trim().charAt(0);
+  if (flag === "A") return "added";
+  if (flag === "D") return "deleted";
+  if (flag === "R") return "renamed";
+  return "modified";
+}
+
+/**
+ * What the job branch carries, for the human to review before it lands.
+ *
+ * Read from the commit range rather than the dirty tree: ADR-0042 §1 has the
+ * supervisor commit before this runs, so `git status` is clean by now and the
+ * diff against the base branch is the only honest source. Prism never merges
+ * this — the branch is the reviewable unit and landing it stays the user's
+ * decision.
+ */
+export async function gitReviewSummary(
+  cwd: string,
+  input: { readonly baseRef: string; readonly branch?: string },
+  run: GitRunner = defaultGitRunner,
+): Promise<JobReview> {
+  const range = `${input.baseRef}...HEAD`;
+  const [numstat, nameStatus] = await Promise.all([
+    run(cwd, ["diff", "--numstat", range]),
+    run(cwd, ["diff", "--name-status", range]),
+  ]);
+
+  const changeByPath = new Map<string, ReviewFile["change"]>();
+  if (nameStatus.ok) {
+    for (const line of nameStatus.stdout.split("\n")) {
+      const row = line.trim();
+      if (!row) continue;
+      const parts = row.split(/\t+/);
+      const path = (parts.at(-1) ?? "").trim();
+      if (!path) continue;
+      changeByPath.set(path, reviewChangeFromStatusLetter(parts[0] ?? ""));
+    }
+  }
+
+  const files: ReviewFile[] = [];
+  if (numstat.ok) {
+    for (const line of numstat.stdout.split("\n")) {
+      const row = line.trim();
+      if (!row) continue;
+      const [addedRaw, removedRaw, ...pathParts] = row.split(/\t+/);
+      const path = (pathParts.at(-1) ?? "").trim();
+      if (!path || isGitNoisePath(path)) continue;
+      // "-" is git's marker for a binary file.
+      const added = Number.parseInt(addedRaw ?? "0", 10);
+      const removed = Number.parseInt(removedRaw ?? "0", 10);
+      files.push({
+        path,
+        added: Number.isFinite(added) ? added : 0,
+        removed: Number.isFinite(removed) ? removed : 0,
+        change: changeByPath.get(path) ?? "modified",
+      });
+    }
+  }
+
+  files.sort((a, b) => a.path.localeCompare(b.path));
+
+  return {
+    files: files.slice(0, MAX_REVIEW_FILES),
+    totalAdded: files.reduce((sum, file) => sum + file.added, 0),
+    totalRemoved: files.reduce((sum, file) => sum + file.removed, 0),
+    truncated: files.length > MAX_REVIEW_FILES,
+    branch: input.branch ?? "",
+    baseRef: input.baseRef,
+    committed: files.length > 0,
+    merged: false,
+  };
 }
 
 /** True when the branch holds commits that are not on `baseRef`. */

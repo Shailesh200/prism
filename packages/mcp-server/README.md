@@ -128,6 +128,7 @@ waiting for an MCP **client**. Configure the client; it starts the process.
 | The same request plus “do it now” / “right here” | no job — inline edit |
 | “Prism init” / set up jobs | `init` |
 | “Where are we?” | `list_jobs` |
+| “What is it doing?” / “show me the logs” | `job_logs` |
 | “Remember this” | `remember` |
 | “Connect Slack” | `integrations` |
 | “Configure Dispatch” | `configure` |
@@ -184,6 +185,7 @@ Intelligence tools are read-only. Dispatch tools write gitignored state under
 | `init` | One-time Cursor sign-in for local job workers (Authenticate) | — |
 | `start_job` | Start a named teammate in its own worktree; returns immediately | `title`, `prd`, `jobId`, `branch`, `confirmOverlap` |
 | `list_jobs` | Live activity plus finished results (“where are we”); names the jobs board | — |
+| `job_logs` | One job's console: activity lines plus the branch review awaiting you | `jobId`, `limit`, `since` |
 | `job_control` | pause / resume / cancel / attach_context | `jobId`, `action`, `context` |
 | `remember` | Save, list, or forget memories for the next job | `action`, `text`, `scope`, `confirm` |
 | `integrations` | Catalogue, OAuth start, disconnect | `action`, `driver` |

@@ -8,7 +8,12 @@
 
 import { unlink } from "node:fs/promises";
 import { readJsonFile } from "./json-file.js";
-import { commitJobWork, committedJobPaths, gitChangeSummary } from "./git.js";
+import {
+  commitJobWork,
+  committedJobPaths,
+  gitChangeSummary,
+  gitReviewSummary,
+} from "./git.js";
 import {
   auditCitedPaths,
   fabricationNote,
@@ -16,6 +21,11 @@ import {
 } from "./job-artifacts.js";
 import { verifyJobWork } from "./job-verify.js";
 import { publicRunFailure, publicWorkerError } from "./job-voice.js";
+import {
+  appendRunLog,
+  lifecycleLogEntry,
+  logEntryFromEvent,
+} from "./run-log.js";
 import { trustSystemCertificateAuthorities } from "./system-ca.js";
 import {
   activityFromEvent,
@@ -43,6 +53,7 @@ type SpawnPayload = {
   readonly resumeAgentId?: string;
   readonly title?: string;
   readonly baseRef?: string;
+  readonly branch?: string;
   readonly subagents?: boolean;
   readonly verify?: boolean;
 };
@@ -94,10 +105,14 @@ async function observeRun(
     partial: Partial<RunState>,
     options?: { immediate?: boolean },
   ) => Promise<unknown>,
+  log: (event: unknown) => Promise<void>,
 ): Promise<void> {
   if (typeof run.stream !== "function") return;
   try {
     for await (const event of run.stream()) {
+      // Log first: the one-line activity is throttled and overwritten, so the
+      // console is the only place an event survives.
+      await log(event);
       const activity = activityFromEvent(event);
       if (activity) await patch(activity);
     }
@@ -136,6 +151,22 @@ async function main(): Promise<void> {
     { pid: process.pid, phase: "starting" },
     { immediate: true },
   );
+
+  const logEvent = async (event: unknown): Promise<void> => {
+    const entry = logEntryFromEvent(event);
+    if (entry) await appendRunLog(payload.workspaceRoot, payload.jobId, entry);
+  };
+  const logLine = async (
+    phase: RunState["phase"],
+    text: string,
+  ): Promise<void> => {
+    await appendRunLog(
+      payload.workspaceRoot,
+      payload.jobId,
+      lifecycleLogEntry(phase, text),
+    );
+  };
+  await logLine("starting", "Teammate starting");
 
   let activeRun: SdkRun | undefined;
   const onStop = (): void => {
@@ -213,7 +244,11 @@ async function main(): Promise<void> {
     if (sent.id) {
       await writer.patch({ runId: sent.id, phase: "running" });
     }
-    void observeRun(sent, (partial, extra) => writer.patch(partial, extra));
+    void observeRun(
+      sent,
+      (partial, extra) => writer.patch(partial, extra),
+      logEvent,
+    );
 
     if (typeof sent.wait !== "function") {
       await writer.patch(
@@ -235,6 +270,7 @@ async function main(): Promise<void> {
 
     if (result.status === "error") {
       const gitSummary = await gitChangeSummary(payload.cwd);
+      await logLine("failed", assistant || "the run failed");
       await writer.patch(
         {
           phase: "failed",
@@ -249,6 +285,7 @@ async function main(): Promise<void> {
     }
     if (result.status === "cancelled") {
       const gitSummary = await gitChangeSummary(payload.cwd);
+      await logLine("cancelled", "Cancelled");
       await writer.patch(
         {
           phase: "cancelled",
@@ -281,8 +318,9 @@ async function main(): Promise<void> {
       verificationDetail = checked.detail;
     }
 
+    const baseRef = payload.baseRef ?? "HEAD~1";
     const committedPaths = commit.committed
-      ? await committedJobPaths(payload.cwd, payload.baseRef ?? "HEAD~1")
+      ? await committedJobPaths(payload.cwd, baseRef)
       : [];
     const audit = await auditCitedPaths({
       text: assistant,
@@ -290,10 +328,24 @@ async function main(): Promise<void> {
       committedPaths,
     });
 
+    // What the branch now carries, for the human to review. Read from the
+    // commit range, not the tree: the commit above already cleaned it.
+    const review = await gitReviewSummary(payload.cwd, {
+      baseRef,
+      ...(payload.branch ? { branch: payload.branch } : {}),
+    });
+
+    await logLine(
+      "done",
+      review.files.length > 0
+        ? `Done — ${review.files.length} file(s) on the job branch, awaiting your review`
+        : "Done — no reviewable change",
+    );
     await writer.patch(
       {
         phase: "done",
         gitSummary: commit.summary,
+        review,
         verification,
         verificationDetail,
         ...(commit.sha ? { commitSha: commit.sha } : {}),
@@ -313,6 +365,7 @@ async function main(): Promise<void> {
     process.exit(0);
   } catch (cause) {
     const detail = cause instanceof Error ? cause.message : String(cause);
+    await logLine("failed", detail);
     await patchRunState(payload.workspaceRoot, payload.jobId, {
       phase: "failed",
       errorMessage: publicWorkerError(detail),

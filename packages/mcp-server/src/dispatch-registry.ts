@@ -103,10 +103,35 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     openWorld: false,
   },
   {
+    name: "job_logs",
+    title: "Show a job's console",
+    description:
+      "The console for one Dispatch job: recent activity lines (thinking, tool calls, edits, errors) plus the uncommitted review summary when it has finished. Call this when the user asks what a teammate is doing, why it is stuck, what went wrong, or wants to see logs/output — and when list_jobs shows no activity for a while. Omit jobId for the job that is still running. Pass since (an ISO timestamp from the last entry) to tail only new lines instead of re-reading everything. Speak the tool message; do not print worktree paths.",
+    inputSchema: {
+      jobId: z
+        .string()
+        .optional()
+        .describe(
+          "Canonical job id (ticket or slug) or the job title. Omit for the running job.",
+        ),
+      limit: z
+        .number()
+        .int()
+        .optional()
+        .describe("Most recent entries to return (default 200)"),
+      since: z
+        .string()
+        .optional()
+        .describe("ISO timestamp; return only entries newer than this"),
+    },
+    readOnly: true,
+    openWorld: false,
+  },
+  {
     name: "list_jobs",
     title: "List Dispatch jobs",
     description:
-      "Where are we: every Dispatch job with title, canonical id, live activity, and a result, verification outcome, or error when a teammate finishes. Speak only the tool message — titles, what they are doing, and what changed, not worktree paths or job-<hex> ids. A finished job lives on its branch: name the branch and commit rather than a path. Report a failed check as a failure, and say so plainly when a job produced no reviewable change. Also prunes worktrees whose job is gone, keeping any that still hold unmerged commits. Call when the user asks where we are, what's running, how a job is going, or whether a teammate finished. Mention the jobs dashboard URL from the message so they can watch live.",
+      "Where are we: every Dispatch job with title, canonical id, live activity, and a result, verification outcome, or error when a teammate finishes. Speak only the tool message — titles, what they are doing, and what changed, not worktree paths or job-<hex> ids. A finished job that produced work reports as ready for your review, with the changed files on its own branch: name the branch and commit rather than a path, and ask whether to merge, leave, or drop it — nothing is merged into the user's branch for them. A job reporting no activity for N minutes is stalled; call job_logs to see why. Report a failed check as a failure, and say so plainly when a job produced no reviewable change. Also prunes worktrees whose job is gone, keeping any that still hold unmerged commits. Call when the user asks where we are, what's running, how a job is going, or whether a teammate finished. Mention the jobs dashboard URL from the message so they can watch live.",
     inputSchema: {},
     readOnly: true,
     openWorld: false,

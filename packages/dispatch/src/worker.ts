@@ -27,6 +27,8 @@ export type WorkerStartInput = {
   /** Commit message subject and artifact audit context (ADR-0042 §1). */
   readonly title?: string;
   readonly baseRef?: string;
+  /** Job branch, named in the review summary so chat never says a worktree. */
+  readonly branch?: string;
   readonly subagents?: boolean;
   readonly verify?: boolean;
 };
@@ -50,6 +52,7 @@ export type WorkerPort = {
     readonly workspaceRoot: string;
     readonly title?: string;
     readonly baseRef?: string;
+    readonly branch?: string;
     readonly subagents?: boolean;
     readonly verify?: boolean;
   }): Promise<WorkerHandle | void>;
@@ -178,6 +181,7 @@ async function launchWorkerChild(
     readonly resumeAgentId?: string;
     readonly title?: string;
     readonly baseRef?: string;
+    readonly branch?: string;
     readonly subagents?: boolean;
     readonly verify?: boolean;
   },
@@ -206,6 +210,7 @@ async function launchWorkerChild(
       verify: input.verify ?? true,
       ...(input.title ? { title: input.title } : {}),
       ...(input.baseRef ? { baseRef: input.baseRef } : {}),
+      ...(input.branch ? { branch: input.branch } : {}),
       ...(input.name ? { name: input.name } : {}),
       ...(input.resumeAgentId ? { resumeAgentId: input.resumeAgentId } : {}),
     },
@@ -271,6 +276,7 @@ export function createCursorWorkerPort(
           verify: input.verify ?? true,
           ...(input.title ? { title: input.title } : {}),
           ...(input.baseRef ? { baseRef: input.baseRef } : {}),
+          ...(input.branch ? { branch: input.branch } : {}),
           ...(input.apiKey ? { apiKey: input.apiKey } : {}),
           ...(input.name ? { name: input.name } : {}),
           ...(input.agentId ? { resumeAgentId: input.agentId } : {}),

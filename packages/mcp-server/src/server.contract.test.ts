@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { DISPATCH_TOOL_NAMES } from "@repo-prism/dispatch";
 import { createPrismMcpServer, type PrismMcpServer } from "./server.js";
 
 /**
@@ -187,6 +188,7 @@ describe("MCP server contract (M-026)", () => {
         "integrations",
         "job_control",
         "knowledge_graph",
+        "job_logs",
         "landmarks",
         "list_features",
         "list_jobs",
@@ -243,12 +245,20 @@ describe("MCP server contract (M-026)", () => {
       "explore_code",
     ]);
 
+    // Dispatch tools are not Intelligence lists: job_logs pages `entries` for a
+    // job that may not exist yet, so it has a limit without an items envelope.
+    const dispatchTools = new Set<string>(DISPATCH_TOOL_NAMES);
+
     const { tools } = await client.listTools();
     const listTools = tools.filter((tool) => {
       const props = tool.inputSchema.properties as
         | Record<string, unknown>
         | undefined;
-      return props?.limit !== undefined && !NESTED_LIMIT.has(tool.name);
+      return (
+        props?.limit !== undefined &&
+        !NESTED_LIMIT.has(tool.name) &&
+        !dispatchTools.has(tool.name)
+      );
     });
     // If this drops to zero the assertion below stops meaning anything.
     expect(listTools.length).toBeGreaterThanOrEqual(5);
@@ -451,6 +461,7 @@ describe("MCP server contract (M-026)", () => {
       ["security_report", {}],
       ["start_my_day", {}],
       ["list_jobs", {}],
+      ["job_logs", {}],
       ["remember", { action: "list" }],
       ["integrations", { action: "catalog" }],
       ["configure", { action: "get" }],

@@ -129,11 +129,45 @@ export const JobStatusSchema = z.enum([
   "waiting_on_you",
   "blocked",
   "paused",
+  /**
+   * Finished, with commits on the job branch that are not on the user's
+   * branch. ADR-0042 §1 makes the supervisor commit so work survives worktree
+   * pruning; landing it anywhere the user did not ask for is still their call.
+   */
+  "needs_review",
   "done",
   "cancelled",
   "error",
 ]);
 export type JobStatus = z.infer<typeof JobStatusSchema>;
+
+/** One file carried by a job branch's own commits. */
+export const ReviewFileSchema = z.object({
+  path: z.string(),
+  added: z.number().int().min(0).default(0),
+  removed: z.number().int().min(0).default(0),
+  change: z
+    .enum(["added", "modified", "deleted", "renamed", "untracked"])
+    .default("modified"),
+});
+export type ReviewFile = z.infer<typeof ReviewFileSchema>;
+
+export const JobReviewSchema = z.object({
+  files: z.array(ReviewFileSchema).default([]),
+  totalAdded: z.number().int().min(0).default(0),
+  totalRemoved: z.number().int().min(0).default(0),
+  /** True when the file list was capped for display. */
+  truncated: z.boolean().default(false),
+  /** Branch holding the work. Never the branch the user is on. */
+  branch: z.string().default(""),
+  /** What the branch was compared against. */
+  baseRef: z.string().default(""),
+  /** True once the supervisor committed (ADR-0042 §1). */
+  committed: z.boolean().default(false),
+  /** Always false: Prism does not merge a job for the user. */
+  merged: z.literal(false).default(false),
+});
+export type JobReview = z.infer<typeof JobReviewSchema>;
 
 export const WorktreeSourceSchema = z.enum(["cursor", "claude", "prism"]);
 export type WorktreeSource = z.infer<typeof WorktreeSourceSchema>;
@@ -155,6 +189,7 @@ export const JobRecordSchema = z.object({
   errorMessage: z.string().optional(),
   pendingContext: z.string().optional(),
   /** Supervisor-run checks and the job commit (ADR-0042 §1, §3). */
+  review: JobReviewSchema.optional(),
   verification: z.enum(["passed", "failed", "skipped"]).optional(),
   verificationDetail: z.string().optional(),
   commitSha: z.string().optional(),

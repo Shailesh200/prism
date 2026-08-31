@@ -1,6 +1,17 @@
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
+export async function readTextFile(
+  path: string,
+  fallback: string,
+): Promise<string> {
+  try {
+    return await readFile(path, "utf8");
+  } catch {
+    return fallback;
+  }
+}
+
 export async function readJsonFile<T>(path: string, fallback: T): Promise<T> {
   try {
     const raw = JSON.parse(await readFile(path, "utf8")) as unknown;
