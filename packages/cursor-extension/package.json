@@ -52,6 +52,11 @@
         "category": "Prism"
       },
       {
+        "command": "prism.openAgentDashboard",
+        "title": "Prism: Open Agent Dashboard",
+        "category": "Prism"
+      },
+      {
         "command": "prism.blastRadius",
         "title": "Prism: Blast Radius",
         "category": "Prism"

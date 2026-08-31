@@ -24,6 +24,7 @@ const ORDER = [
   "repository-map",
   "core",
   "dispatch",
+  "dispatch-hub",
   "mcp-server",
   "cli",
 ];

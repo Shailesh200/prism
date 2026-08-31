@@ -83,7 +83,9 @@ results come back through “where are we” (ADR-0040). Job agents do not
 attach Prism MCP and share the host `node_modules` (ADR-0041). When a job
 stops, Prism commits the branch and runs typecheck/test; in-process
 subagents are on, host fan-out is off (ADR-0042). Named local teammates can
-be watched in Cursor’s Agents window (Filter → Source → SDK).
+be watched in Cursor’s Agents window (Filter → Source → SDK). A loopback
+jobs board (ADR-0043) lists every teammate across repos and notifies the OS
+when one finishes — MCP cannot push into an idle chat.
 
 **MCP speaks over stdio, indexes lazily, and refuses consent-gated work**
 (ADR-0030). See [using MCP](../mcp/usage.md).

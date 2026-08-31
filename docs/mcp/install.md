@@ -46,7 +46,7 @@ Keep `@latest` — do not pin a version after each publish. From 1.1.7 the
 server checks npm at startup and hops to the newer package when the `_npx`
 cache is stale. A running session cannot swap binaries mid-chat; quit Cursor
 once (or toggle prism off/on once) after you first land 1.1.7. Later
-publishes apply on the next start. Logs: `prism-mcp 1.1.10: workspace …`.
+publishes apply on the next start. Logs: `prism-mcp 1.1.12: workspace …`.
 
 `${workspaceFolder}` is Cursor interpolation, not a path you type. Combined
 with MCP roots and the start_job workspace argument (the folder the agent

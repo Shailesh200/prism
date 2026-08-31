@@ -109,6 +109,10 @@ describe("server instructions (agent auto-use)", () => {
     );
   });
 
+  it("points where-are-we at the jobs dashboard when the message includes a URL", () => {
+    expect(SERVER_INSTRUCTIONS).toMatch(/jobs dashboard URL/);
+  });
+
   it("treats the Google unverified-app screen as expected", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/Google hasn’t verified this app/);
     expect(SERVER_INSTRUCTIONS).toMatch(/click Advanced/i);

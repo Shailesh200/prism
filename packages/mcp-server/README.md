@@ -183,7 +183,7 @@ Intelligence tools are read-only. Dispatch tools write gitignored state under
 | `start_my_day` | Standup: jobs, git, connected drivers, connect CTAs | — |
 | `init` | One-time Cursor sign-in for local job workers (Authenticate) | — |
 | `start_job` | Start a named teammate in its own worktree; returns immediately | `title`, `prd`, `jobId`, `branch`, `confirmOverlap` |
-| `list_jobs` | Live activity plus finished results or errors (“where are we”) | — |
+| `list_jobs` | Live activity plus finished results (“where are we”); names the jobs board | — |
 | `job_control` | pause / resume / cancel / attach_context | `jobId`, `action`, `context` |
 | `remember` | Save, list, or forget memories for the next job | `action`, `text`, `scope`, `confirm` |
 | `integrations` | Catalogue, OAuth start, disconnect | `action`, `driver` |

@@ -51,4 +51,9 @@ describe("extension contributes (M-057)", () => {
     const names = pkg.contributes.commands.map((c) => c.command);
     expect(names).toContain("prism.switchWorkspaceFolder");
   });
+
+  it("exposes Open Agent Dashboard (M-064)", () => {
+    const names = pkg.contributes.commands.map((c) => c.command);
+    expect(names).toContain("prism.openAgentDashboard");
+  });
 });

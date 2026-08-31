@@ -109,7 +109,8 @@ primitives the screens are built from.
 
 Each of these consumes `@repo-prism/core` for analysis and computes nothing
 itself. The MCP server additionally consumes `@repo-prism/dispatch` for the
-teammate workflow (ADR-0035).
+teammate workflow (ADR-0035) and `@repo-prism/dispatch-hub` for the jobs
+board (ADR-0043).
 
 ### `@repo-prism/cli`
 
@@ -132,7 +133,8 @@ local workers, never an index.
 ### `@repo-prism/dispatch`
 
 Chat-native jobs, memories, OAuth drivers, worktree adopt/create, and local
-Cursor SDK workers. Consumed only by `@repo-prism/mcp-server`. User tokens stay
+Cursor SDK workers. Consumed by `@repo-prism/mcp-server` and
+`@repo-prism/dispatch-hub`. User tokens stay
 in the OS keychain. Connect uses the Prism Auth broker (ADR-0036). Cursor
 shows a native Authenticate control; Claude opens the auth page (ADR-0037).
 Local Cursor workers sign in via a browser Cursor login (ADR-0038), not mcp.json.
@@ -141,9 +143,21 @@ Workers run out-of-process in isolated git worktrees; live status and
 finished/failed results are reaped into `list_jobs` / start-my-day (ADR-0040).
 Job agents do not attach Prism MCP; Prism worktrees symlink the host
 `node_modules` (ADR-0041). Prism commits the job branch and verifies after
-the agent stops; in-process subagents are on (ADR-0042).
+the agent stops; in-process subagents are on (ADR-0042). The jobs board is
+a separate package (`@repo-prism/dispatch-hub`, ADR-0043).
 
-**Must never** be imported by `@repo-prism/core` or any engine package.
+**Must never** be imported by `@repo-prism/core`, any engine package, or the
+IDE extension. The extension talks to the hub over HTTP.
+
+### `@repo-prism/dispatch-hub`
+
+User-level loopback daemon (`127.0.0.1:17330`) that watches every registered
+workspace's `.prism/dispatch/` tree, serves the jobs dashboard, and fires OS
+notifications when a teammate finishes. Spawned by host `prism-mcp`. State
+lives in `~/.prism/hub/`. `PRISM_HUB=0` opts out.
+
+**Must never** be imported by Core or by the IDE extension (the extension
+uses HTTP). Workers never spawn it.
 
 ### `@repo-prism/dispatch-auth`
 
@@ -196,6 +210,7 @@ for which fixture to reach for.
 ```
 surface  →  @repo-prism/core  →  engine internals  →  @repo-prism/shared
 mcp-server  →  @repo-prism/dispatch  (jobs/OAuth only; ADR-0035)
+mcp-server  →  @repo-prism/dispatch-hub  (jobs board; ADR-0043)
 website     →  @repo-prism/dispatch-auth  (OAuth broker; ADR-0036)
 ```
 

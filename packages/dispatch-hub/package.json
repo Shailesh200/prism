@@ -1,0 +1,44 @@
+{
+  "name": "@repo-prism/dispatch-hub",
+  "version": "1.1.12",
+  "type": "module",
+  "description": "Prism Hub — loopback dashboard and OS notifications for Dispatch jobs",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "prism-hub": "./dist/bin.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && bun run scripts/build-dashboard.ts",
+    "start": "node dist/bin.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@repo-prism/dispatch": "workspace:*"
+  },
+  "devDependencies": {
+    "@repo-prism/ui": "workspace:*",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Shailesh200/prism.git"
+  },
+  "homepage": "https://www.prismhq.in",
+  "bugs": {
+    "url": "https://github.com/Shailesh200/prism/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
