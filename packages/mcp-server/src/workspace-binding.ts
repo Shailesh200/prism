@@ -43,10 +43,17 @@ export function createWorkspaceBinding(
     applyHints(hints, nextSource = "mcp roots") {
       if (locked) return false;
       const picked = pickWorkspaceFromHints(hints);
-      if (picked === undefined || picked === path) return false;
-      path = picked;
-      source = nextSource;
-      return true;
+      if (picked === undefined) return false;
+      if (picked === path) return false;
+      // A wrong cwd (editor sandbox, npx cache) must not stick once the client
+      // reports the real open folder — that is how start_job used to throw
+      // "not a git repository" from the wrong root.
+      if (source === "cwd" || source === "mcp roots") {
+        path = picked;
+        source = nextSource;
+        return true;
+      }
+      return false;
     },
   };
 }
