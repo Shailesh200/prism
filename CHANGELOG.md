@@ -9,6 +9,13 @@ the `prism` CLI, the `prism-mcp` server, and the Core SDK they all call. They
 move as one because they are one build; a mismatch between them has never been
 a supported configuration.
 
+## 1.1.13 — Job console, stall detection, review before land
+
+- **Dispatch:** each job keeps an append-only console. Ask “what is it doing” / “show me the logs” (`job_logs`).
+- **Dispatch:** a live worker that goes quiet is stalled — chat says **no activity for N minutes** and offers resume or cancel.
+- **Dispatch:** finishing is not landing. Prism still commits the job branch and runs checks; a job that changed files returns **ready for your review**. Nothing is merged or pushed for you.
+- Keep `@latest`; hop on the next Cursor/MCP start. Logs: `prism-mcp 1.1.13: workspace …`. `@repo-prism/dispatch@1.1.13`, `@repo-prism/dispatch-hub@1.1.13`, and `@repo-prism/mcp-server@1.1.13`.
+
 ## 1.1.12 — Agent Dashboard Hub + worker OS CAs
 
 - **Dispatch:** a local jobs board watches every registered repo, lists parallel teammates, and fires a desktop notification (plus a Cursor toast) when one finishes. Open **Prism: Open Agent Dashboard** or `http://127.0.0.1:17330/`. `PRISM_HUB=0` opts out.

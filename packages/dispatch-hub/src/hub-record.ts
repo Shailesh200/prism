@@ -35,5 +35,5 @@ export function isHubRecordLive(record: HubRecord | undefined): boolean {
 }
 
 export function packageVersion(): string {
-  return "1.1.12";
+  return "1.1.13";
 }
