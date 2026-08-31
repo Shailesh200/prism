@@ -10,6 +10,7 @@ import { unlink } from "node:fs/promises";
 import { readJsonFile } from "./json-file.js";
 import { gitChangeSummary } from "./git.js";
 import { publicRunFailure, publicWorkerError } from "./job-voice.js";
+import { trustSystemCertificateAuthorities } from "./system-ca.js";
 import {
   activityFromEvent,
   composeResultSummary,
@@ -19,6 +20,11 @@ import {
   type RunState,
 } from "./run-state.js";
 import { cursorAgentOptions } from "./worker-options.js";
+
+// Own process, own TLS state: the host MCP trusting the OS store does not carry
+// across the spawn, and without this the Cursor SDK reports "Network request
+// failed" behind corporate HTTPS interception.
+trustSystemCertificateAuthorities();
 
 type SpawnPayload = {
   readonly jobId: string;

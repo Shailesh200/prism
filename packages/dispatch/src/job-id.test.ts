@@ -9,6 +9,7 @@ import {
 import {
   agentNameForJob,
   initSpeak,
+  isNetworkFailureMessage,
   jobRef,
   listJobsSpeak,
   publicRunFailure,
@@ -130,5 +131,39 @@ describe("job voice", () => {
     );
     expect(publicRunFailure("run failed crsr_abc123")).toMatch(/hit an error/i);
     expect(publicRunFailure("run failed crsr_abc123")).not.toMatch(/crsr_/i);
+  });
+
+  it("explains a failed Cursor request instead of echoing the SDK string", () => {
+    const text = publicWorkerError("Network request failed");
+    expect(text).toMatch(/could not reach Cursor/i);
+    expect(text).toMatch(/VPN|proxy|offline/i);
+    expect(text).toMatch(/resume|in this chat/i);
+    expect(text).not.toMatch(/Network request failed/);
+  });
+
+  it("treats TLS interception and DNS errors as the same network story", () => {
+    for (const detail of [
+      "fetch failed",
+      "unable to get local issuer certificate",
+      "self-signed certificate in certificate chain",
+      "getaddrinfo ENOTFOUND api.cursor.com",
+      "connect ETIMEDOUT 1.2.3.4:443",
+    ]) {
+      expect(isNetworkFailureMessage(detail), detail).toBe(true);
+      expect(publicWorkerError(detail), detail).toMatch(
+        /could not reach Cursor/i,
+      );
+    }
+  });
+
+  it("does not call an ordinary failure a network problem", () => {
+    expect(isNetworkFailureMessage("@cursor/sdk is not installed")).toBe(false);
+    expect(isNetworkFailureMessage("the run failed")).toBe(false);
+  });
+
+  it("points a mid-run connection loss at resume", () => {
+    const text = publicRunFailure("Network request failed");
+    expect(text).toMatch(/lost its connection/i);
+    expect(text).toMatch(/resume/i);
   });
 });
