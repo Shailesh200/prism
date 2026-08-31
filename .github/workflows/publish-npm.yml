@@ -48,9 +48,14 @@ jobs:
         # Build bottom-up without moon. `mcp-server:build` depends on `^:build`,
         # and moon also schedules `cli:build`, which races `shared:build` and
         # fails in CI (`Cannot find module '@repo-prism/shared'`).
+        #
+        # This list is the build order and must stay a superset of the publish
+        # order in scripts/publish-npm.mjs. Omitting dispatch-hub is what broke
+        # 1.1.14 and 1.1.15: mcp-server imports it, so it failed to compile and
+        # no package shipped.
         run: |
           set -euo pipefail
-          for name in shared test-support analyzer graph-engine impact navigation indexer intelligence repository-map core dispatch mcp-server; do
+          for name in shared test-support analyzer graph-engine impact navigation indexer intelligence repository-map core dispatch dispatch-hub mcp-server; do
             bun run --filter "@repo-prism/${name}" build
           done
 
