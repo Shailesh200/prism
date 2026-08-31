@@ -9,6 +9,12 @@ the `prism` CLI, the `prism-mcp` server, and the Core SDK they all call. They
 move as one because they are one build; a mismatch between them has never been
 a supported configuration.
 
+## 1.1.9 — Durable Dispatch jobs (commit, checks, subagents)
+
+- **Dispatch:** when a teammate stops, Prism commits the job branch and runs typecheck/test. Empty work says “produced no reviewable change”; summaries cannot cite files that were never written. Write-ups under `.prism/dispatch/notes/` ship with the commit.
+- **Dispatch:** in-process subagents (`task`) are on; host fan-out stays off. Jobs are admitted on free memory (default `maxJobs` 4). Orphan worktrees with no unmerged commits are pruned.
+- **MCP:** describing work is enough to start a job — no “start working on” phrase. The agent announces what it will start first. Local checkouts no longer hop to npm. Keep `@latest`; hop on the next Cursor/MCP start. Logs: `prism-mcp 1.1.9: workspace …`. `@repo-prism/dispatch@1.1.9` and `@repo-prism/mcp-server@1.1.9`.
+
 ## 1.1.7 — Open-folder jobs without reloading after every publish
 
 - **MCP / Dispatch:** ignore Cursor’s `Library/Containers` sandbox as a workspace. `start_job` / `start_my_day` accept `workspace` (the folder the agent already has open). Recommended mcp.json sets `CURSOR_WORKSPACE` to `${workspaceFolder}` — not a path you type.

@@ -4,7 +4,12 @@ import { grantPurpose, isPurposeGranted, revokePurpose } from "./consent.js";
 import { loadConfig, saveConfig } from "./config.js";
 import { DRIVER_LABELS } from "./drivers.js";
 import { exportSettings } from "./export-settings.js";
-import { gitSnapshot, gitStatusShort, type GitRunner } from "./git.js";
+import {
+  defaultBaseBranch,
+  gitSnapshot,
+  gitStatusShort,
+  type GitRunner,
+} from "./git.js";
 import { allocateJobId, displayJobId, resolveJobRef } from "./job-id.js";
 import {
   agentNameForJob,
@@ -81,8 +86,12 @@ import {
   type CursorAuthInspect,
   type CursorAuthPort,
 } from "./cursor-auth.js";
-import { adoptOrCreateWorktree } from "./worktrees.js";
-import { diskBudgetMessage, ramBudgetMessage } from "./worker-budget.js";
+import { adoptOrCreateWorktree, pruneOrphanWorktrees } from "./worktrees.js";
+import {
+  admissionMessage,
+  diskBudgetMessage,
+  ramBudgetMessage,
+} from "./worker-budget.js";
 import { linkWorktreeInstall } from "./worktree-install.js";
 
 export const DISPATCH_TOOL_NAMES = [
@@ -153,6 +162,26 @@ function ramGate(options: DispatchRuntimeOptions): string | undefined {
   return ramBudgetMessage(options.freeMemoryBytes);
 }
 
+/**
+ * Live free memory decides admission, except under vitest where an
+ * uninjected reading would make the suite depend on the host machine. The
+ * explicit `maxJobs` cap is still enforced there.
+ */
+function admissionGate(
+  options: DispatchRuntimeOptions,
+  activeCount: number,
+  maxJobs: number,
+): string | undefined {
+  const freeBytes =
+    options.freeMemoryBytes ??
+    (process.env.VITEST ? Number.POSITIVE_INFINITY : undefined);
+  return admissionMessage({
+    activeCount,
+    maxJobs,
+    ...(freeBytes == null ? {} : { freeBytes }),
+  });
+}
+
 export function createDispatchRuntime(
   input: DispatchRuntimeOptions,
 ): DispatchRuntime {
@@ -210,6 +239,15 @@ export function createDispatchRuntime(
   };
 }
 
+async function defaultBaseRef(
+  options: DispatchRuntimeOptions,
+): Promise<string> {
+  return defaultBaseBranch(
+    options.workspaceRoot,
+    ...(options.git ? ([options.git] as const) : ([] as const)),
+  );
+}
+
 function jobIdFrom(
   title: string,
   taken: ReadonlySet<string>,
@@ -255,11 +293,13 @@ async function startJob(
       message: alreadyRunningSpeak(existing),
     };
   }
-  if (activeJobCount(jobs) >= config.maxJobs) {
-    return {
-      message: `At the job cap (${config.maxJobs}). Finish or cancel one, or raise maxJobs with configure.`,
-      maxJobs: config.maxJobs,
-    };
+  const admission = admissionGate(
+    options,
+    activeJobCount(jobs),
+    config.maxJobs,
+  );
+  if (admission) {
+    return { message: admission, maxJobs: config.maxJobs };
   }
   let tree: {
     path: string;
@@ -381,10 +421,14 @@ async function startJob(
       cwd: job.worktreePath,
       name: agentNameForJob(job),
       ...(creds.apiKey ? { apiKey: creds.apiKey } : {}),
-      prompt: workerPrompt({ job, memories }),
+      prompt: workerPrompt({ job, memories, subagents: config.subagents }),
       mcpCommand: launch.command,
       mcpArgs: launch.args,
       workspaceRoot: options.workspaceRoot,
+      title: job.title,
+      baseRef: await defaultBaseRef(options),
+      subagents: config.subagents,
+      verify: config.verifyJobs,
     });
     job = await upsertJob(options.workspaceRoot, {
       ...job,
@@ -417,6 +461,18 @@ async function startJob(
 
 async function listJobs(options: DispatchRuntimeOptions): Promise<unknown> {
   const jobs = await reapJobs(options.workspaceRoot);
+  // Reap is the natural place to notice trees whose job record is gone.
+  // Best-effort: a GC failure must never break "where are we".
+  try {
+    await pruneOrphanWorktrees({
+      workspaceRoot: options.workspaceRoot,
+      liveJobIds: new Set(jobs.map((job) => job.id)),
+      baseRef: await defaultBaseRef(options),
+      ...(options.git ? { run: options.git } : {}),
+    });
+  } catch {
+    /* ignore */
+  }
   const rows = [];
   for (const job of jobs) {
     const git = await gitStatusShort(job.worktreePath, options.git);
@@ -429,6 +485,8 @@ async function listJobs(options: DispatchRuntimeOptions): Promise<unknown> {
       ...(job.lastActivity ? { lastActivity: job.lastActivity } : {}),
       ...(job.resultSummary ? { resultSummary: job.resultSummary } : {}),
       ...(job.errorMessage ? { errorMessage: job.errorMessage } : {}),
+      ...(job.verification ? { verification: job.verification } : {}),
+      ...(job.commitSha ? { commitSha: job.commitSha } : {}),
     });
   }
   return {
@@ -1084,6 +1142,9 @@ async function configureTool(
     standupTemplate: patch.standupTemplate,
     hints: patch.hints,
     maxJobs: patch.maxJobs,
+    subagents: patch.subagents,
+    fanout: patch.fanout,
+    verifyJobs: patch.verifyJobs,
     ticketHost: patch.ticketHost,
     mentionWindowHours: patch.mentionWindowHours,
     mentionLimit: patch.mentionLimit,
@@ -1102,6 +1163,9 @@ function formatConfig(config: DispatchConfig): string {
   return [
     `hints=${config.hints}`,
     `maxJobs=${config.maxJobs}`,
+    `subagents=${config.subagents}`,
+    `fanout=${config.fanout}`,
+    `verifyJobs=${config.verifyJobs}`,
     `ticketHost=${config.ticketHost}`,
     `slack channels=${config.slackTrackChannelIds.join(",") || "(none)"}`,
     `mention window=${config.mentionWindowHours}h cap=${config.mentionLimit}`,

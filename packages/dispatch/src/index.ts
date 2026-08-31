@@ -62,18 +62,36 @@ export {
 export {
   workerMcpEnv,
   cursorAgentOptions,
+  workerTools,
   WORKER_EDIT_TOOLS,
+  WORKER_SUBAGENT_TOOL,
 } from "./worker-options.js";
+export {
+  verifyJobWork,
+  firstFailureLine,
+  VERIFY_STEPS,
+  type VerificationResult,
+  type VerificationStatus,
+} from "./job-verify.js";
+export {
+  auditCitedPaths,
+  citedPaths,
+  fabricationNote,
+  stripWorktreePaths,
+  type PathAudit,
+} from "./job-artifacts.js";
 export {
   linkWorktreeInstall,
   isPrismDispatchWorktree,
 } from "./worktree-install.js";
 export {
+  admissionMessage,
   diskBudgetMessage,
   ramBudgetMessage,
   workerChildEnv,
   MIN_FREE_BYTES,
   MIN_FREE_RAM_BYTES,
+  PER_JOB_RESERVE_BYTES,
 } from "./worker-budget.js";
 export {
   loadJobs,
@@ -82,7 +100,12 @@ export {
   getJob,
   activeJobCount,
 } from "./jobs.js";
-export { discoverWorktrees, adoptOrCreateWorktree } from "./worktrees.js";
+export {
+  discoverWorktrees,
+  adoptOrCreateWorktree,
+  pruneOrphanWorktrees,
+  type PrunedWorktrees,
+} from "./worktrees.js";
 export { findPathOverlap } from "./overlap.js";
 export { exportSettings } from "./export-settings.js";
 export {
@@ -96,11 +119,18 @@ export {
 export {
   gitSnapshot,
   gitChangeSummary,
+  commitJobWork,
+  committedJobPaths,
+  branchHasUnmergedCommits,
+  defaultBaseBranch,
+  removeGitWorktree,
   listGitWorktrees,
   defaultGitRunner,
   gitChildEnv,
   isMissingGitRepoMessage,
+  JOB_ARTIFACT_PATHS,
   type GitRunner,
+  type JobCommit,
 } from "./git.js";
 export { DRIVER_LABELS, connectCta } from "./drivers.js";
 export {

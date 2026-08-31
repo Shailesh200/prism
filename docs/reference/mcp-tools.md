@@ -56,7 +56,7 @@ Tools that return a list accept `limit` and answer with `totalCount` and
 | [`search_symbols`](#search_symbols) | Substring or regex search over indexed symbol names (unlike find_symbol, which is exact-match only) |
 | [`security_report`](#security_report) | Left-shift security posture |
 | [`stack_profile`](#stack_profile) | Detected stack for the workspace or a single package |
-| [`start_job`](#start_job) | Create a Dispatch job from a ticket or title plus a PRD |
+| [`start_job`](#start_job) | Start a teammate on work the user described — a ticket, a PRD, a bug to fix, a refactor |
 | [`start_my_day`](#start_my_day) | Standup briefing for this repository |
 | [`test_impact`](#test_impact) | Which test files transitively cover a change target — the tests worth running after touching it |
 | [`testing_report`](#testing_report) | Test structure and, when coverage artifacts are already on disk, coverage |
@@ -94,9 +94,9 @@ Arguments: `base`.
 
 ## `configure`
 
-Read or update gitignored Dispatch settings: section order, standup template, Slack tracked channel ids, mention window and caps, max parallel jobs (default 1), hint policy, and whether the tickets slot is Linear or Jira. action=export returns a non-secret template (no tokens) for sharing. Chat only — there is no settings UI in v1.
+Read or update gitignored Dispatch settings: section order, standup template, Slack tracked channel ids, mention window and caps, max parallel jobs (default 4, admitted on free memory), in-process subagents, host fan-out, post-job verification, hint policy, and whether the tickets slot is Linear or Jira. action=export returns a non-secret template (no tokens) for sharing. Chat only — there is no settings UI in v1.
 
-Arguments: `action`, `maxJobs`, `hints`, `ticketHost`, `standupTemplate`, `slackTrackChannelIds`, `mentionWindowHours`, `mentionLimit`, `trackedMessageLimit`, `sectionsOff`, `includeMemories`.
+Arguments: `action`, `maxJobs`, `subagents`, `fanout`, `verifyJobs`, `hints`, `ticketHost`, `standupTemplate`, `slackTrackChannelIds`, `mentionWindowHours`, `mentionLimit`, `trackedMessageLimit`, `sectionsOff`, `includeMemories`.
 
 ## `dependency_cycles`
 
@@ -202,7 +202,7 @@ Arguments: `limit`.
 
 ## `list_jobs`
 
-Where are we: every Dispatch job with title, canonical id, live activity, and a result or error when a teammate finishes. Speak only the tool message — titles, what they are doing, and what changed, not worktree paths or job-<hex> ids. Call when the user asks where we are, what's running, how a job is going, or whether a teammate finished.
+Where are we: every Dispatch job with title, canonical id, live activity, and a result, verification outcome, or error when a teammate finishes. Speak only the tool message — titles, what they are doing, and what changed, not worktree paths or job-<hex> ids. A finished job lives on its branch: name the branch and commit rather than a path. Report a failed check as a failure, and say so plainly when a job produced no reviewable change. Also prunes worktrees whose job is gone, keeping any that still hold unmerged commits. Call when the user asks where we are, what's running, how a job is going, or whether a teammate finished.
 
 Takes no arguments.
 
@@ -280,15 +280,15 @@ Arguments: `packageId`.
 
 ## `start_job`
 
-Create a Dispatch job from a ticket or title plus a PRD. Starts a local Cursor teammate in its own worktree (host node_modules linked; no shell; no second Prism MCP) and returns immediately. Speak only the tool message: use the job title and canonical id (ticket like AI-971 or slug like audit-issues), never job-<hex>, worktree paths, or API keys. Tell the user to say where are we for live status and the result when it finishes. Default cap is one job at a time. Do not use this for a repo-wide audit or health scan — call repository_health instead. If sign-in is needed, a Cursor login page opens in the browser. If Cursor shows “Authenticating prism…” with Skip, tell the user to click Skip and retry.
+Start a teammate on work the user described — a ticket, a PRD, a bug to fix, a refactor. Call this whenever the user asks for a change to this repo, without waiting for the phrase “start working on”; state what you are starting in one line first, then call it. Always pass workspace as the absolute path of the git repository you are editing (the folder that contains .git). Starts a local Cursor teammate in its own worktree (host node_modules linked; no shell; no second Prism MCP; may use in-process subagents for multi-part work) and returns immediately. When the teammate stops, Prism commits its work to the job branch and runs typecheck and tests, so the result carries a real pass/fail. Speak only the tool message: use the job title and canonical id (ticket like AI-971 or slug like audit-issues), never job-<hex>, worktree paths, or API keys. Tell the user to say where are we for live status and the result when it finishes. Jobs are admitted on free memory, so a second teammate may be refused while one is running. Do not use this for a repo-wide audit or health scan — call repository_health instead. If sign-in is needed, a Cursor login page opens in the browser. If Cursor shows “Authenticating prism…” with Skip, tell the user to click Skip and retry. If the tool says Prism does not see a git repository, retry once with workspace set to the open project path — do not throw PRISM_UNKNOWN at the user.
 
-Arguments: `title`, `prd`, `jobId`, `branch`, `playbook`, `confirmOverlap`.
+Arguments: `title`, `prd`, `jobId`, `branch`, `workspace`, `playbook`, `confirmOverlap`.
 
 ## `start_my_day`
 
-Standup briefing for this repository: leftover Dispatch jobs, teammates that just finished (what changed or why they failed), local git, then any connected drivers (GitHub reviews, Linear or Jira tickets, Slack mentions plus tracked channels, Notion, Google Calendar). Unconnected tools appear as named connect CTAs. Does not index the repo. Call this when the user says start my day, standup, or what's waiting on me.
+Standup briefing for this repository: greeting, what happened yesterday (git + finished jobs + completed Linear), then open items on Linear/GitHub/Slack/Calendar/Notion, leftover Dispatch jobs, and one suggested focus. Unconnected tools appear as named connect CTAs. Does not index the repo. Call this when the user says start my day, standup, or what's waiting on me. Return the message as written — do not omit a connected driver.
 
-Takes no arguments.
+Arguments: `workspace`.
 
 ## `test_impact`
 

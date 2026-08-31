@@ -19,6 +19,8 @@ export const RunPhaseSchema = z.enum([
 ]);
 export type RunPhase = z.infer<typeof RunPhaseSchema>;
 
+export const VerificationStatusSchema = z.enum(["passed", "failed", "skipped"]);
+
 export const RunStateSchema = z.object({
   jobId: z.string(),
   pid: z.number().int().optional(),
@@ -29,6 +31,11 @@ export const RunStateSchema = z.object({
   resultSummary: z.string().default(""),
   errorMessage: z.string().default(""),
   gitSummary: z.string().default(""),
+  /** Supervisor-run checks after the agent stopped (ADR-0042 §3). */
+  verification: VerificationStatusSchema.optional(),
+  verificationDetail: z.string().optional(),
+  /** Short sha of the job commit, when the run produced one (ADR-0042 §1). */
+  commitSha: z.string().optional(),
   startedAt: z.string(),
   updatedAt: z.string(),
   completedAt: z.string().optional(),
@@ -284,6 +291,50 @@ export function composeResultSummary(
   return text || git || "Wrapped up with no file changes.";
 }
 
+export type JobResultInput = {
+  /** `git show --stat` totals for the job commit, "" when nothing committed. */
+  readonly gitSummary: string;
+  /** The agent's closing text, already stripped of worktree paths. */
+  readonly assistant: string;
+  readonly committed: boolean;
+  readonly verification?: VerificationStatus;
+  readonly verificationDetail?: string;
+  /** Claimed-but-absent artifacts, from `fabricationNote`. */
+  readonly fabricationNote?: string;
+};
+
+export type VerificationStatus = z.infer<typeof VerificationStatusSchema>;
+
+/**
+ * The user-facing result. A run that committed nothing says so plainly rather
+ * than dressing up an empty branch as success (ADR-0042 §1), and a failing
+ * check is never hidden behind "done".
+ */
+export function composeJobResult(input: JobResultInput): string {
+  const parts: string[] = [];
+
+  if (input.committed && input.gitSummary.trim()) {
+    parts.push(input.gitSummary.trim());
+  } else if (!input.committed) {
+    parts.push("Produced no reviewable change.");
+  }
+
+  const text = clip(input.assistant, 360);
+  if (text) parts.push(text);
+
+  if (input.verification === "failed") {
+    parts.push(
+      `Checks failed: ${input.verificationDetail || "see the branch"}.`,
+    );
+  } else if (input.verification === "passed") {
+    parts.push(input.verificationDetail || "Checks passed.");
+  }
+
+  if (input.fabricationNote) parts.push(input.fabricationNote);
+
+  return clip(parts.filter(Boolean).join(" "), 700);
+}
+
 export function applyRunToJob(
   job: JobRecord,
   run: RunState | undefined,
@@ -306,6 +357,11 @@ export function applyRunToJob(
       errorMessage: undefined,
       nextStep: "",
       waitingOn: "",
+      ...(run.verification ? { verification: run.verification } : {}),
+      ...(run.verificationDetail
+        ? { verificationDetail: run.verificationDetail }
+        : {}),
+      ...(run.commitSha ? { commitSha: run.commitSha } : {}),
     };
   }
   if (run?.phase === "failed") {

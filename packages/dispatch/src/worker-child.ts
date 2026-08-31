@@ -8,11 +8,17 @@
 
 import { unlink } from "node:fs/promises";
 import { readJsonFile } from "./json-file.js";
-import { gitChangeSummary } from "./git.js";
+import { commitJobWork, committedJobPaths, gitChangeSummary } from "./git.js";
+import {
+  auditCitedPaths,
+  fabricationNote,
+  stripWorktreePaths,
+} from "./job-artifacts.js";
+import { verifyJobWork } from "./job-verify.js";
 import { publicRunFailure, publicWorkerError } from "./job-voice.js";
 import {
   activityFromEvent,
-  composeResultSummary,
+  composeJobResult,
   createRunWriter,
   killDirectChildren,
   patchRunState,
@@ -29,6 +35,10 @@ type SpawnPayload = {
   readonly mcpCommand: string;
   readonly mcpArgs: readonly string[];
   readonly resumeAgentId?: string;
+  readonly title?: string;
+  readonly baseRef?: string;
+  readonly subagents?: boolean;
+  readonly verify?: boolean;
 };
 
 type SdkRun = {
@@ -174,6 +184,7 @@ async function main(): Promise<void> {
     workspaceRoot: payload.workspaceRoot,
     mcpCommand: payload.mcpCommand,
     mcpArgs: payload.mcpArgs,
+    subagents: payload.subagents ?? false,
     ...(payload.name ? { name: payload.name } : {}),
   });
 
@@ -212,11 +223,12 @@ async function main(): Promise<void> {
     }
 
     const result = await sent.wait();
-    const gitSummary = await gitChangeSummary(payload.cwd);
-    const assistant = assistantText(result.result);
+    const rawAssistant = assistantText(result.result);
+    const assistant = stripWorktreePaths(rawAssistant, payload.cwd);
     const completedAt = new Date().toISOString();
 
     if (result.status === "error") {
+      const gitSummary = await gitChangeSummary(payload.cwd);
       await writer.patch(
         {
           phase: "failed",
@@ -230,6 +242,7 @@ async function main(): Promise<void> {
       process.exit(2);
     }
     if (result.status === "cancelled") {
+      const gitSummary = await gitChangeSummary(payload.cwd);
       await writer.patch(
         {
           phase: "cancelled",
@@ -242,11 +255,50 @@ async function main(): Promise<void> {
       process.exit(0);
     }
 
+    // Commit before anything else reads the tree: until the work is on the
+    // branch it is untracked in a worktree the user is never told about, and
+    // pruning that worktree destroys it (ADR-0042 §1).
+    await writer.patch({ lastActivity: "Saving work" });
+    const commit = await commitJobWork(payload.cwd, {
+      jobId: payload.jobId,
+      title: payload.title ?? payload.jobId,
+    });
+
+    let verification: "passed" | "failed" | "skipped" = "skipped";
+    let verificationDetail = "";
+    if (commit.committed) {
+      await writer.patch({ lastActivity: "Running checks" });
+      const checked = await verifyJobWork(payload.cwd, {
+        enabled: payload.verify !== false,
+      });
+      verification = checked.status;
+      verificationDetail = checked.detail;
+    }
+
+    const committedPaths = commit.committed
+      ? await committedJobPaths(payload.cwd, payload.baseRef ?? "HEAD~1")
+      : [];
+    const audit = await auditCitedPaths({
+      text: assistant,
+      worktreePath: payload.cwd,
+      committedPaths,
+    });
+
     await writer.patch(
       {
         phase: "done",
-        gitSummary,
-        resultSummary: composeResultSummary(gitSummary, assistant),
+        gitSummary: commit.summary,
+        verification,
+        verificationDetail,
+        ...(commit.sha ? { commitSha: commit.sha } : {}),
+        resultSummary: composeJobResult({
+          gitSummary: commit.summary,
+          assistant,
+          committed: commit.committed,
+          verification,
+          verificationDetail,
+          fabricationNote: fabricationNote(audit),
+        }),
         lastActivity: "Done",
         completedAt,
       },

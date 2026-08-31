@@ -86,7 +86,21 @@ export const DispatchConfigSchema = z.object({
   sectionsOff: z.array(BriefingSectionIdSchema).default([]),
   standupTemplate: z.string().default(""),
   hints: z.boolean().default(true),
-  maxJobs: z.number().int().min(1).max(20).default(1),
+  maxJobs: z.number().int().min(1).max(20).default(4),
+  /**
+   * In-process subagents inside one worker (ADR-0042 §4). No extra OS
+   * process, no extra worktree, so the ADR-0041 resource findings do not
+   * apply — on by default.
+   */
+  subagents: z.boolean().default(true),
+  /**
+   * Host fan-out: one brief becomes sibling jobs, each with its own worktree
+   * and supervisor. This is the shape that exhausted RAM, so it stays off
+   * until the owner turns it on (ADR-0042 §4).
+   */
+  fanout: z.boolean().default(false),
+  /** Supervisor-run typecheck/test after the agent stops (ADR-0042 §3). */
+  verifyJobs: z.boolean().default(true),
   ticketHost: TicketHostSchema.default("linear"),
   mentionWindowHours: z.number().int().min(1).max(168).default(24),
   mentionLimit: z.number().int().min(1).max(50).default(10),
@@ -140,6 +154,10 @@ export const JobRecordSchema = z.object({
   resultSummary: z.string().optional(),
   errorMessage: z.string().optional(),
   pendingContext: z.string().optional(),
+  /** Supervisor-run checks and the job commit (ADR-0042 §1, §3). */
+  verification: z.enum(["passed", "failed", "skipped"]).optional(),
+  verificationDetail: z.string().optional(),
+  commitSha: z.string().optional(),
   status: JobStatusSchema,
   lastStep: z.string().default(""),
   nextStep: z.string().default(""),

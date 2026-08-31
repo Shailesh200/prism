@@ -161,8 +161,8 @@ export function registerPrompts(server: McpServer): void {
                 `Start working on ${title}.`,
                 prd
                   ? `PRD: ${prd}`
-                  : "Ask me for a PRD if you do not have one.",
-                "Call start_job with the title and PRD.",
+                  : "Ask me for a PRD only if the brief is too thin to act on.",
+                "Say in one line what you are starting and what it will touch, then call start_job with the title and PRD.",
                 "If a Cursor login page opens, finish it. If Authenticating prism with Skip appears, click Skip and retry.",
                 "Read back the tool message. Use the job title and canonical id, never a job-hex id or worktree path.",
                 "Tell them to say where are we for live status and the result when the teammate finishes.",

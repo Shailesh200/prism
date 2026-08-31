@@ -140,7 +140,8 @@ Job ids are tickets or title slugs; chat never speaks `job-<hex>` (ADR-0039).
 Workers run out-of-process in isolated git worktrees; live status and
 finished/failed results are reaped into `list_jobs` / start-my-day (ADR-0040).
 Job agents do not attach Prism MCP; Prism worktrees symlink the host
-`node_modules` (ADR-0041).
+`node_modules` (ADR-0041). Prism commits the job branch and verifies after
+the agent stops; in-process subagents are on (ADR-0042).
 
 **Must never** be imported by `@repo-prism/core` or any engine package.
 

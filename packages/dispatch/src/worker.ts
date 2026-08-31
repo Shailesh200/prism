@@ -24,6 +24,11 @@ export type WorkerStartInput = {
   readonly mcpCommand: string;
   readonly mcpArgs: readonly string[];
   readonly workspaceRoot: string;
+  /** Commit message subject and artifact audit context (ADR-0042 §1). */
+  readonly title?: string;
+  readonly baseRef?: string;
+  readonly subagents?: boolean;
+  readonly verify?: boolean;
 };
 
 export type WorkerHandle = {
@@ -43,6 +48,10 @@ export type WorkerPort = {
     readonly mcpCommand: string;
     readonly mcpArgs: readonly string[];
     readonly workspaceRoot: string;
+    readonly title?: string;
+    readonly baseRef?: string;
+    readonly subagents?: boolean;
+    readonly verify?: boolean;
   }): Promise<WorkerHandle | void>;
   cancel(input: {
     readonly agentId?: string;
@@ -112,6 +121,7 @@ export function workerPrompt(input: {
   readonly job: JobRecord;
   readonly memories: readonly MemoryItem[];
   readonly extra?: string;
+  readonly subagents?: boolean;
 }): string {
   const remembered = formatMemoriesForPrompt(
     memoriesForJob(input.memories, input.job.id),
@@ -120,9 +130,16 @@ export function workerPrompt(input: {
     `You are a Prism Dispatch worker for ${input.job.title} (${input.job.id}).`,
     "Work only in this worktree. Do not start new Dispatch jobs, run start_my_day, or begin OAuth. You already have a job.",
     "Do not install dependencies (no bun install, npm install, or yarn). node_modules is already linked from the host repo.",
-    "You have no shell. Do not run prism, git, bun, npm, or any CLI. Do not write reports under .prism/. Edit existing source with the file tools only.",
+    "You have no shell. Do not run prism, git, bun, npm, or any CLI. Edit existing source with the file tools only.",
+    input.subagents
+      ? "For multi-part work, split it with the task tool and run subagents in parallel. They share your sandbox: file tools only, no shell."
+      : "",
     "Do not copy the repo, do not create extra worktrees, and do not write large caches. Prefer small, targeted edits.",
-    "When you finish, say what changed in a short last message (files and why), even if nothing shipped.",
+    // Prism commits the worktree and runs typecheck/test once the agent
+    // stops, so the model must not claim either happened (ADR-0042 §1, §3).
+    "Prism commits your work on the job branch and runs typecheck and tests after you stop. Do not claim you committed, ran tests, or verified anything.",
+    "Write any write-up to .prism/dispatch/notes/ — that is the one path under .prism/ that ships with the commit. Everything else there is ignored and will be lost.",
+    "When you finish, say what changed in a short last message (files and why), even if nothing shipped. Only name files you actually wrote.",
     input.job.prd ? `PRD:\n${input.job.prd}` : "",
     remembered ? `Memories:\n${remembered}` : "",
     input.extra ?? "",
@@ -159,6 +176,10 @@ async function launchWorkerChild(
     readonly mcpArgs: readonly string[];
     readonly workspaceRoot: string;
     readonly resumeAgentId?: string;
+    readonly title?: string;
+    readonly baseRef?: string;
+    readonly subagents?: boolean;
+    readonly verify?: boolean;
   },
   childJs: string,
 ): Promise<number> {
@@ -181,6 +202,10 @@ async function launchWorkerChild(
       mcpCommand: input.mcpCommand,
       mcpArgs: [...input.mcpArgs],
       runPath: runStatePath(input.workspaceRoot, input.jobId),
+      subagents: input.subagents ?? false,
+      verify: input.verify ?? true,
+      ...(input.title ? { title: input.title } : {}),
+      ...(input.baseRef ? { baseRef: input.baseRef } : {}),
       ...(input.name ? { name: input.name } : {}),
       ...(input.resumeAgentId ? { resumeAgentId: input.resumeAgentId } : {}),
     },
@@ -242,6 +267,10 @@ export function createCursorWorkerPort(
           prompt: input.prompt ?? "Continue.",
           mcpCommand: input.mcpCommand,
           mcpArgs: input.mcpArgs,
+          subagents: input.subagents ?? false,
+          verify: input.verify ?? true,
+          ...(input.title ? { title: input.title } : {}),
+          ...(input.baseRef ? { baseRef: input.baseRef } : {}),
           ...(input.apiKey ? { apiKey: input.apiKey } : {}),
           ...(input.name ? { name: input.name } : {}),
           ...(input.agentId ? { resumeAgentId: input.agentId } : {}),
