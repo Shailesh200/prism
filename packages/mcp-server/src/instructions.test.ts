@@ -95,11 +95,25 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/Write the PRD yourself/i);
   });
 
+  it("honours an explicit request for a job even for read-only work", () => {
+    // Regression: "start working on reviewing the local changes" was answered
+    // inline because the rules listed reviews as inline, with no way for the
+    // user to override. An explicit ask must win.
+    expect(SERVER_INSTRUCTIONS).toMatch(
+      /an explicit request beats every rule below/i,
+    );
+    expect(SERVER_INSTRUCTIONS).toMatch(/even when the task is read-only/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(
+      /start working on reviewing the local changes/,
+    );
+    expect(SERVER_INSTRUCTIONS).toMatch(/Precedence, in order/);
+  });
+
   it("keeps an inline escape hatch that beats the dispatch signal", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/Do NOT dispatch/);
     expect(SERVER_INSTRUCTIONS).toMatch(/do it now/i);
     expect(SERVER_INSTRUCTIONS).toMatch(/don't dispatch/i);
-    expect(SERVER_INSTRUCTIONS).toMatch(/the inline signal wins/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(/when the user says to do it here/i);
   });
 
   it("routes repo-wide audit to repository_health, not start_job", () => {
