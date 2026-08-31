@@ -124,7 +124,8 @@ waiting for an MCP **client**. Configure the client; it starts the process.
 | “Is the index ready?” | `workspace_status` |
 | “Can Prism do X?” | `capabilities` |
 | “Start my day” | `start_my_day` |
-| “Start working on …” | `start_job` |
+| Any request to change code (“fix the news tab highlighting”) | `start_job` |
+| The same request plus “do it now” / “right here” | no job — inline edit |
 | “Prism init” / set up jobs | `init` |
 | “Where are we?” | `list_jobs` |
 | “Remember this” | `remember` |

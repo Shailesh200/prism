@@ -62,6 +62,23 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/do not put it in mcp\.json/i);
   });
 
+  it("dispatches code changes by intent, not the phrase start working on", () => {
+    expect(SERVER_INSTRUCTIONS).toMatch(/dispatch code work by default/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(
+      /does NOT require the words “start working on”/,
+    );
+    expect(SERVER_INSTRUCTIONS).toMatch(/ticket id, or a PRD/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/do not also do the work inline/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(/Write the PRD yourself/i);
+  });
+
+  it("keeps an inline escape hatch that beats the dispatch signal", () => {
+    expect(SERVER_INSTRUCTIONS).toMatch(/Do NOT dispatch/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/do it now/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(/don't dispatch/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(/the inline signal wins/i);
+  });
+
   it("routes repo-wide audit to repository_health, not start_job", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/find issues/i);
     expect(SERVER_INSTRUCTIONS).toMatch(

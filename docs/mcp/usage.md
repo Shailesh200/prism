@@ -17,7 +17,8 @@ teach the agent which tools to call.
 | "Can I delete this file?" | `safe_delete` |
 | "Review my current changes" | `review_changes` |
 | "Start my day" | `start_my_day` |
-| "Start working on …" | `start_job` |
+| "Fix the broken highlighting in the news tab" | `start_job` — any request to change code dispatches a background teammate |
+| "Fix it now, right here" | no job — the agent edits inline in the chat |
 | "Connect Slack" | `integrations` |
 
 Optional [prompts](/docs/mcp/prompts) (`orient`, `before_edit`, `review_diff`,
