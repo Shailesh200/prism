@@ -3,7 +3,12 @@ import {
   claudeCliCommand,
   claudeGrandchildEnv,
   claudeWorkerArgs,
+  isOptionalClaudeFlag,
+  OPTIONAL_CLAUDE_FLAGS,
+  unknownOptionFrom,
+  withoutClaudeFlag,
 } from "./claude-cli.js";
+import { publicWorkerError } from "./job-voice.js";
 
 describe("claudeWorkerArgs", () => {
   it("pins the ADR-0041 contract: bare, no shell, no MCP, stream-json", () => {
@@ -42,6 +47,59 @@ describe("claudeWorkerArgs", () => {
     const args = claudeWorkerArgs({ resumeSessionId: "sess-123" });
     const at = args.indexOf("--resume");
     expect(args[at + 1]).toBe("sess-123");
+  });
+
+  it("can drop a rejected optional flag and keep the safety ones", () => {
+    // A worker died with "unknown option '--forward-subagent-text'" before
+    // touching a file. Console detail is not worth the job.
+    const args = claudeWorkerArgs({
+      subagents: true,
+      omitFlags: ["--forward-subagent-text"],
+    });
+    expect(args).not.toContain("--forward-subagent-text");
+    expect(args).toContain("--bare");
+    expect(args).toContain("--disallowedTools");
+    expect(args).toContain("Bash");
+    expect(args[args.indexOf("--tools") + 1]).toContain("Task");
+    expect(args.join(" ")).toContain("--output-format stream-json");
+  });
+});
+
+describe("unsupported CLI flags", () => {
+  it("reads the offending flag out of a launcher error", () => {
+    expect(
+      unknownOptionFrom("error: unknown option '--forward-subagent-text'"),
+    ).toBe("--forward-subagent-text");
+    expect(unknownOptionFrom('unknown option "--bare"')).toBe("--bare");
+    expect(unknownOptionFrom("claude exited with code 1")).toBeUndefined();
+  });
+
+  it("treats only cosmetic flags as droppable", () => {
+    expect(isOptionalClaudeFlag("--forward-subagent-text")).toBe(true);
+    // Dropping these would run the agent without its sandbox or leave the
+    // stream unreadable, so they must fail loudly instead.
+    for (const flag of ["--bare", "--tools", "--disallowedTools", "-p"]) {
+      expect(isOptionalClaudeFlag(flag), flag).toBe(false);
+    }
+    expect(isOptionalClaudeFlag(undefined)).toBe(false);
+    expect(OPTIONAL_CLAUDE_FLAGS).not.toContain("--tools");
+  });
+
+  it("removes only the named flag", () => {
+    expect(withoutClaudeFlag(["-p", "--bare", "--verbose"], "--bare")).toEqual([
+      "-p",
+      "--verbose",
+    ]);
+  });
+
+  it("explains a rejected flag as a version mismatch, not a task failure", () => {
+    const text = publicWorkerError(
+      "error: unknown option '--forward-subagent-text'",
+    );
+    expect(text).toContain("--forward-subagent-text");
+    expect(text).toMatch(/does not support/i);
+    expect(text).toMatch(/update the agent cli/i);
+    expect(text).toMatch(/resume/i);
   });
 });
 

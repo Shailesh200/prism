@@ -21,16 +21,51 @@ export const CLAUDE_WORKER_TOOLS = [
 /** In-process subagents (ADR-0042 §4): Claude's built-in Task tool. */
 export const CLAUDE_SUBAGENT_TOOL = "Task";
 
+/**
+ * Flags we can run without.
+ *
+ * These buy nicer output, not safety, so an older `claude` that rejects one
+ * must not cost the user their job — a worker died with "unknown option
+ * `--forward-subagent-text`" before touching a file. Anything not listed here
+ * (the tool allowlist, `--bare`, the stream format) is load-bearing: dropping
+ * it would either hand the agent a shell or leave us unable to read the run,
+ * so an unknown-option failure on those is reported instead of retried.
+ */
+export const OPTIONAL_CLAUDE_FLAGS: readonly string[] = [
+  "--forward-subagent-text",
+];
+
+/** The offending flag from a CLI launcher error, if that is what failed. */
+export function unknownOptionFrom(stderr: string): string | undefined {
+  const match = /unknown option[^'"`]*['"`]([^'"`]+)['"`]/i.exec(stderr);
+  return match?.[1];
+}
+
+export function isOptionalClaudeFlag(flag: string | undefined): boolean {
+  return flag !== undefined && OPTIONAL_CLAUDE_FLAGS.includes(flag);
+}
+
+/** Drop a flag (and nothing else) from an argv built by `claudeWorkerArgs`. */
+export function withoutClaudeFlag(
+  args: readonly string[],
+  flag: string,
+): string[] {
+  return args.filter((arg) => arg !== flag);
+}
+
 export function claudeWorkerArgs(input: {
   readonly subagents?: boolean;
   /** Claude session_id to resume (ADR-0044 §5). */
   readonly resumeSessionId?: string;
+  /** Flags a previous launch rejected as unknown. */
+  readonly omitFlags?: readonly string[];
 }): string[] {
   const tools = [
     ...CLAUDE_WORKER_TOOLS,
     ...(input.subagents ? [CLAUDE_SUBAGENT_TOOL] : []),
   ];
-  return [
+  const omit = new Set(input.omitFlags ?? []);
+  const args = [
     "-p",
     "--output-format",
     "stream-json",
@@ -50,6 +85,7 @@ export function claudeWorkerArgs(input: {
     "mcp__*",
     ...(input.resumeSessionId ? ["--resume", input.resumeSessionId] : []),
   ];
+  return omit.size === 0 ? args : args.filter((arg) => !omit.has(arg));
 }
 
 /**

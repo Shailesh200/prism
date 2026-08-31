@@ -410,6 +410,14 @@ export function networkFailureSpeak(): string {
 
 export function publicWorkerError(detail: string): string {
   if (isNetworkFailureMessage(detail)) return networkFailureSpeak();
+  // A rejected flag is a version mismatch, not a broken task. Say which one,
+  // and point at the upgrade rather than printing a launcher stack.
+  const unknownOption = /unknown option[^'"`]*['"`]([^'"`]+)['"`]/i.exec(
+    detail,
+  );
+  if (unknownOption) {
+    return `the teammate's CLI does not support ${unknownOption[1]}, so it never started. Update the agent CLI (for Claude Code: npm i -g @anthropic-ai/claude-code), then say resume.`;
+  }
   if (
     /not installed|cannot find module|CURSOR_API_KEY|api key|mcp\.json/i.test(
       detail,
