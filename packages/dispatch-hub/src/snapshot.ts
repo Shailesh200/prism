@@ -29,6 +29,10 @@ export function toSnapshot(
       ? { verificationDetail: job.verificationDetail }
       : {}),
     ...(job.commitSha ? { commitSha: job.commitSha } : {}),
+    // Without this the board can show that a job finished but never what it
+    // changed, which is the one thing a reviewer needs.
+    ...(job.review ? { review: job.review } : {}),
+    ...(job.nextStep ? { nextStep: job.nextStep } : {}),
     createdAt: job.createdAt,
     updatedAt: job.updatedAt,
     elapsedMs: elapsedMs(job.createdAt, now),
@@ -42,6 +46,9 @@ export function snapshotKey(job: JobSnapshot): string {
     job.lastActivity,
     job.verification ?? "",
     job.commitSha ?? "",
+    // A review arriving is a visible change; leaving it out of the key means
+    // the board would not re-render when the file list lands.
+    job.review ? String(job.review.files.length) : "",
     job.updatedAt,
   ].join(":");
 }

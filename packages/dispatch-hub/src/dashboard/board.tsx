@@ -5,7 +5,11 @@ import {
   useState,
   type ReactElement,
 } from "react";
-import type { HubEvent, JobSnapshot } from "../types.js";
+import {
+  IN_FLIGHT_STATUSES,
+  type HubEvent,
+  type JobSnapshot,
+} from "../types.js";
 
 type JobsResponse = { jobs: JobSnapshot[] };
 
@@ -277,7 +281,45 @@ export function JobsBoard(): ReactElement {
                       </dd>
                     </div>
                   ) : null}
+                  {job.review && job.review.files.length > 0 ? (
+                    <div>
+                      <dt>Changes</dt>
+                      <dd>
+                        {job.review.files.length}
+                        {job.review.truncated ? "+" : ""} file
+                        {job.review.files.length === 1 ? "" : "s"} +
+                        {job.review.totalAdded} -{job.review.totalRemoved}
+                      </dd>
+                    </div>
+                  ) : null}
                 </dl>
+                {job.verification === "failed" && job.verificationDetail ? (
+                  <p className="hub-verify-failed">
+                    Checks failed: {job.verificationDetail}
+                  </p>
+                ) : null}
+                {job.review && job.review.files.length > 0 ? (
+                  <div className="hub-review">
+                    <ul className="hub-review-files">
+                      {job.review.files.map((file) => (
+                        <li key={file.path}>
+                          <code>{file.path}</code>
+                          <span className="hub-review-change">
+                            {file.change}
+                          </span>
+                          <span className="hub-review-churn">
+                            +{file.added} -{file.removed}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="hub-review-note">
+                      {job.review.branch
+                        ? `On ${job.review.branch} — nothing merged into the branch you are on.`
+                        : "Left for you to review — nothing was merged for you."}
+                    </p>
+                  </div>
+                ) : null}
                 {canControl(job) ? (
                   <div className="hub-actions">
                     {job.status === "paused" ? (
@@ -315,7 +357,9 @@ export function JobsBoard(): ReactElement {
                     {(logs[`${job.workspacePath}:${job.id}`] ?? []).length ===
                     0 ? (
                       <p className="hub-console-empty">
-                        No console output yet.
+                        {IN_FLIGHT_STATUSES.includes(job.status)
+                          ? "Waiting for the teammate's first output…"
+                          : "This job has no console log. Jobs started before console logging shipped never wrote one — a new job will."}
                       </p>
                     ) : (
                       (logs[`${job.workspacePath}:${job.id}`] ?? []).map(

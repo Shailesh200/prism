@@ -1,6 +1,7 @@
-import type { JobRecord } from "@repo-prism/dispatch";
+import type { JobRecord, JobReview } from "@repo-prism/dispatch";
 
 export type JobStatus = JobRecord["status"];
+export type { JobReview };
 
 export type HubRecord = {
   readonly port: number;
@@ -33,6 +34,9 @@ export type JobSnapshot = {
   readonly verification?: "passed" | "failed" | "skipped";
   readonly verificationDetail?: string;
   readonly commitSha?: string;
+  /** What the job left for review. The board cannot show files without it. */
+  readonly review?: JobReview;
+  readonly nextStep?: string;
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly elapsedMs: number;

@@ -111,6 +111,15 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/Precedence, in order/);
   });
 
+  it("reviews through Prism intelligence, not a raw diff read", () => {
+    // Observed: an agent asked to review ran `git diff`, read 1129 lines with a
+    // generic code-review skill, and never called Prism at all.
+    expect(SERVER_INSTRUCTIONS).toMatch(/Never review from a raw git diff/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(/review_changes already carries/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(/repository_dna or stack_profile/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/which findings came from Prism/i);
+  });
+
   it("keeps an inline escape hatch that beats the dispatch signal", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/Do NOT dispatch/);
     expect(SERVER_INSTRUCTIONS).toMatch(/do it now/i);
