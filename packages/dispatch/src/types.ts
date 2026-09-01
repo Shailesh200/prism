@@ -87,6 +87,16 @@ export type WorkerBackend = z.infer<typeof WorkerBackendSchema>;
 export const WorkerBackendSettingSchema = z.enum(["auto", "cursor", "claude"]);
 export type WorkerBackendSetting = z.infer<typeof WorkerBackendSettingSchema>;
 
+/**
+ * How the chat decides between a teammate and an inline edit.
+ *
+ * `ask` offers the choice in one line before any work starts. `auto` dispatches
+ * code changes without asking. `inline` never dispatches unless the user asks
+ * for a job outright.
+ */
+export const DispatchModeSchema = z.enum(["ask", "auto", "inline"]);
+export type DispatchMode = z.infer<typeof DispatchModeSchema>;
+
 /** Where a job works (ADR-0045): the user's checkout, or an isolated worktree. */
 export const JobPlacementSchema = z.enum(["checkout", "worktree"]);
 export type JobPlacement = z.infer<typeof JobPlacementSchema>;
@@ -124,6 +134,16 @@ export const DispatchConfigSchema = z.object({
    * isolated branch + commit-on-finish default.
    */
   placement: JobPlacementSchema.default("checkout"),
+  /**
+   * Who decides between a background teammate and an inline edit.
+   *
+   * Guessing is what went wrong in practice: the agent read a change request,
+   * decided the task was small or read-only, and silently did it in chat — and
+   * an MCP server cannot intercept a host agent's edits to prevent that. So the
+   * default is to ask, in one line, before touching anything. Asking fails safe
+   * where guessing does not.
+   */
+  dispatchMode: DispatchModeSchema.default("ask"),
   ticketHost: TicketHostSchema.default("linear"),
   mentionWindowHours: z.number().int().min(1).max(168).default(24),
   mentionLimit: z.number().int().min(1).max(50).default(10),
