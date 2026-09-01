@@ -42,6 +42,10 @@ actually have those pressures.
 4. **Dirty tree asks first.** Dispatching onto a dirty checkout returns
    `needsConfirm`: "the teammate will work alongside your uncommitted
    changes" — confirm, or redirect to a worktree. (Owner, 2026-09-01.)
+   The same confirm runs on **resume** when the checkout gained files the
+   job has not already accounted for (dispatch snapshot, pause snapshot, or
+   review). Confirmed new files join `preExistingChanges` so the review
+   still subtracts the user's work.
 5. **One checkout job at a time.** A concurrent second job takes a
    worktree and chat says why. Isolation intent ("on a branch", "keep my
    tree clean", "separate worktree") always takes the worktree path with

@@ -54,6 +54,29 @@ describe("resolveWorkerBackend", () => {
     ).toBe("claude");
   });
 
+  it("shares an explicit workerBackend across hosts, including Codex", () => {
+    // Codex has no worker CLI (ADR-0044). auto → Cursor; a pin in ~/.prism
+    // still wins, so configure from any host is the configuration for all.
+    expect(
+      resolveWorkerBackend({
+        config: { workerBackend: "auto" },
+        clientName: "codex",
+      }),
+    ).toBe("cursor");
+    expect(
+      resolveWorkerBackend({
+        config: { workerBackend: "claude" },
+        clientName: "codex",
+      }),
+    ).toBe("claude");
+    expect(
+      resolveWorkerBackend({
+        config: { workerBackend: "cursor" },
+        clientName: "Claude Desktop",
+      }),
+    ).toBe("cursor");
+  });
+
   it("ignores junk env values", () => {
     expect(resolveWorkerBackend({ env: { PRISM_WORKER: "gemini" } })).toBe(
       "cursor",

@@ -9,6 +9,11 @@ the `prism` CLI, the `prism-mcp` server, and the Core SDK they all call. They
 move as one because they are one build; a mismatch between them has never been
 a supported configuration.
 
+## Unreleased
+
+- **Dispatch:** Pause freezes the teammate instead of killing it. Resume continues the same process from where it left off. A checkout job that is resumed into uncommitted files it has not seen asks first, the same way dispatch does.
+- **Dispatch:** `configure` (and user-scoped memories) live in `~/.prism/dispatch/` so every repository and every MCP host on the machine (Cursor, Claude Code, Codex, Claude Desktop) shares them. Jobs, logs, and worktrees stay in the repo. `workerBackend: auto` still matches the host that started the job; pin `cursor` or `claude` to use the same worker everywhere.
+
 ## 1.1.16 — A job survives an older agent CLI
 
 - **Dispatch:** an agent CLI that rejects an optional flag no longer costs you the job. A Claude Code worker died at launch on `unknown option '--forward-subagent-text'` — a flag that only enriches the console with subagent text — before touching a file. Optional flags are now dropped on one retry, and the console says which one. Flags that carry the sandbox (`--tools`, `--disallowedTools`, `--bare`) are deliberately not droppable: those still fail, but the message names the flag and the upgrade instead of printing a launcher dump.

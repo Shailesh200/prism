@@ -72,11 +72,39 @@ describe("applyRunToJob", () => {
     expect(next.workerPid).toBe(process.pid);
   });
 
+  it("keeps a paused job paused even when the pid is gone", () => {
+    const next = applyRunToJob(
+      job({ status: "paused", workerPid: 99999999 }),
+      undefined,
+    );
+    expect(next.status).toBe("paused");
+    expect(next.errorMessage).toBeUndefined();
+  });
+
   it("marks a dead pid as a user-safe error", () => {
     const next = applyRunToJob(job({ workerPid: 99999999 }), undefined);
     expect(next.status).toBe("error");
     expect(next.errorMessage).toMatch(/stopped unexpectedly/i);
     expect(next.errorMessage).not.toMatch(/API key|pid|mcp\.json/i);
+  });
+
+  it("keeps a frozen run in paused instead of marking it stalled", () => {
+    const next = applyRunToJob(
+      job({ status: "paused", workerPid: process.pid }),
+      {
+        jobId: "audit-issues",
+        pid: process.pid,
+        phase: "paused",
+        lastActivity: "Paused",
+        resultSummary: "",
+        errorMessage: "",
+        gitSummary: "",
+        startedAt: "t",
+        updatedAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+      },
+    );
+    expect(next.status).toBe("paused");
+    expect(next.nextStep).toMatch(/resume/i);
   });
 
   it("keeps a mock in-process job running when it has no pid yet", () => {

@@ -38,8 +38,10 @@ Cursor’s Agents window is not a live dashboard for local SDK workers
    `packages/dispatch/dist/worker-child.js` as a detached Node process.
    The child owns `Agent.create`/`resume`, `send`, `run.stream()`, and
    **`run.wait()`**. The host MCP records `workerPid` and returns immediately.
-   Cancel sends SIGTERM (then SIGKILL) to the process group. Workers survive
-   MCP reload; the sidecar reconnects them.
+   Cancel sends SIGTERM (then SIGKILL) to the process group. Pause sends
+   SIGSTOP (Windows: NtSuspendProcess) so the teammate stays in memory with
+   its session; resume is SIGCONT on the same pid, or a new spawn if the
+   process is gone. Workers survive MCP reload; the sidecar reconnects them.
 
 2. **One job = one git worktree.** Unchanged: adopt a Cursor/Claude tree if
    one matches, otherwise `.prism/dispatch/worktrees/<id>`. Parallel jobs do
@@ -70,9 +72,11 @@ Cursor’s Agents window is not a live dashboard for local SDK workers
      a terminal phase (best-effort; chat still uses where-are-we).
 
 6. **Follow-ups while running.** A second `Agent.send` cannot join a child
-   blocked on `wait()`. If the pid is alive, resume is a no-op (“already
-   running”) and `attach_context` is stored as `pendingContext` for the next
-   spawn. Pause/cancel kill the child.
+   blocked on `wait()`. If the pid is alive and the job is not paused, resume
+   is a no-op (“already running”) and `attach_context` is stored as
+   `pendingContext` for the next spawn. Pause freezes the child (SIGSTOP);
+   cancel kills it. Resume of a frozen child is SIGCONT. Extra brief text on
+   resume cannot join a `wait()`, so that path kills and respawns.
 
 ## Options considered
 

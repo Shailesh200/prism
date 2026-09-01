@@ -50,6 +50,7 @@ export function activeJobCount(jobs: readonly JobRecord[]): number {
       job.status === "running" ||
       job.status === "booting" ||
       job.status === "ready" ||
-      job.status === "waiting_on_you",
+      job.status === "waiting_on_you" ||
+      job.status === "paused",
   ).length;
 }

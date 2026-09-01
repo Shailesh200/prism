@@ -5,7 +5,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import { saveConfig } from "./config.js";
 import { createDispatchRuntime } from "./runtime.js";
 import { upsertJob } from "./jobs.js";
-import { defaultGitRunner, gitCheckoutReview, gitDirtyPaths } from "./git.js";
+import {
+  defaultGitRunner,
+  gitCheckoutReview,
+  gitDirtyPaths,
+  unexpectedDirtyPaths,
+} from "./git.js";
 import { completeWorkerRun } from "./worker-finish.js";
 import { reviewSpeak } from "./job-voice.js";
 import type { GitRunner } from "./git.js";
@@ -66,7 +71,9 @@ function capturingWorker(seen: Seen): WorkerPort {
       seen.prompt = input.prompt;
       return { pid: 99_999_999 };
     },
-    async resume() {
+    async resume(input) {
+      seen.calls.push(`resume:${input.jobId}`);
+      seen.preExisting = input.preExistingChanges;
       return { pid: 99_999_999 };
     },
     async cancel() {},
@@ -286,6 +293,113 @@ describe("checkout-first placement (ADR-0045)", () => {
     expect(result.message).toMatch(/only the job's files/i);
   });
 
+  it("snapshots dirty paths on pause so resume can tell new files apart", async () => {
+    root = await tempRoot();
+    await upsertJob(
+      root,
+      baseJob({
+        id: "fix-login",
+        title: "fix login",
+        placement: "checkout",
+        worktreePath: root,
+        status: "running",
+        preExistingChanges: ["src/app.ts"],
+      }),
+    );
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git: makeGit({
+        "status --porcelain": " M src/app.ts\n M src/job.ts\n",
+      }),
+      worker: capturingWorker(makeSeen()),
+      env: { CURSOR_API_KEY: "k" },
+    });
+    const paused = (await runtime.handle("job_control", {
+      jobId: "fix-login",
+      action: "pause",
+    })) as { job: JobRecord; message: string };
+    expect(paused.job.status).toBe("paused");
+    expect(paused.job.knownDirtyPaths).toEqual(["src/app.ts", "src/job.ts"]);
+    expect(paused.message).toMatch(/paused/i);
+    expect(paused.message).not.toMatch(/cancelled/i);
+  });
+
+  it("asks before resuming a checkout job into files it has not seen", async () => {
+    root = await tempRoot();
+    const seen = makeSeen();
+    await upsertJob(
+      root,
+      baseJob({
+        id: "fix-login",
+        title: "fix login",
+        placement: "checkout",
+        worktreePath: root,
+        status: "paused",
+        preExistingChanges: ["src/app.ts"],
+        knownDirtyPaths: ["src/app.ts", "src/job.ts"],
+      }),
+    );
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git: makeGit({
+        "status --porcelain": " M src/app.ts\n M src/job.ts\n?? extra.ts\n",
+      }),
+      worker: capturingWorker(seen),
+      env: { CURSOR_API_KEY: "k" },
+    });
+    const first = (await runtime.handle("job_control", {
+      jobId: "fix-login",
+      action: "resume",
+    })) as { needsConfirm?: boolean; message: string; job?: JobRecord };
+    expect(first.needsConfirm).toBe(true);
+    expect(first.message).toMatch(/has not seen yet/i);
+    expect(seen.calls).toEqual([]);
+
+    const confirmed = (await runtime.handle("job_control", {
+      jobId: "fix-login",
+      action: "resume",
+      confirmDirty: true,
+    })) as { job: JobRecord };
+    expect(confirmed.job.status).toBe("running");
+    expect(confirmed.job.preExistingChanges).toEqual([
+      "extra.ts",
+      "src/app.ts",
+    ]);
+    expect(seen.calls).toEqual(["start:fix-login"]);
+  });
+
+  it("resumes a checkout job without asking when dirty paths were already known", async () => {
+    root = await tempRoot();
+    const seen = makeSeen();
+    await upsertJob(
+      root,
+      baseJob({
+        id: "fix-login",
+        title: "fix login",
+        placement: "checkout",
+        worktreePath: root,
+        status: "paused",
+        preExistingChanges: ["src/app.ts"],
+        knownDirtyPaths: ["src/app.ts", "src/job.ts"],
+      }),
+    );
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git: makeGit({
+        "status --porcelain": " M src/app.ts\n M src/job.ts\n",
+      }),
+      worker: capturingWorker(seen),
+      env: { CURSOR_API_KEY: "k" },
+    });
+    const result = (await runtime.handle("job_control", {
+      jobId: "fix-login",
+      action: "resume",
+    })) as { job: JobRecord; needsConfirm?: boolean };
+    expect(result.needsConfirm).toBeUndefined();
+    expect(result.job.status).toBe("running");
+    expect(seen.calls).toEqual(["start:fix-login"]);
+  });
+
   it("refuses to commit a worktree job (it is already committed)", async () => {
     root = await tempRoot();
     await upsertJob(
@@ -354,6 +468,23 @@ describe("gitDirtyPaths", () => {
         " M src/app.ts\n?? .prism/cache/x\n M node_modules/pkg/y\n",
     });
     expect(await gitDirtyPaths("/tmp/x", git)).toEqual(["src/app.ts"]);
+  });
+});
+
+describe("unexpectedDirtyPaths", () => {
+  it("subtracts dispatch, pause, and review paths", () => {
+    expect(
+      unexpectedDirtyPaths(
+        {
+          preExistingChanges: ["src/app.ts"],
+          knownDirtyPaths: ["src/app.ts", "src/job.ts"],
+          review: {
+            files: [{ path: "src/new.ts" }],
+          },
+        },
+        ["src/app.ts", "src/job.ts", "src/new.ts", "extra.ts"],
+      ),
+    ).toEqual(["extra.ts"]);
   });
 });
 

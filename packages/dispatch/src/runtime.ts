@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { buildDayBriefing, type BriefingDeps } from "./briefing.js";
 import { grantPurpose, isPurposeGranted, revokePurpose } from "./consent.js";
-import { loadConfig, saveConfig } from "./config.js";
+import {
+  loadConfig,
+  saveConfig,
+  SHARED_DISPATCH_CONFIG_SPEAK,
+} from "./config.js";
 import { DRIVER_LABELS } from "./drivers.js";
 import { exportSettings } from "./export-settings.js";
 import {
@@ -11,6 +15,8 @@ import {
   gitDirtyPaths,
   gitSnapshot,
   gitStatusShort,
+  unexpectedDirtyPaths,
+  unionPaths,
   type GitRunner,
 } from "./git.js";
 import { allocateJobId, displayJobId, resolveJobRef } from "./job-id.js";
@@ -20,6 +26,7 @@ import {
   ambiguousJobSpeak,
   controlSpeak,
   dirtyCheckoutSpeak,
+  dirtyResumeSpeak,
   doctorSpeak,
   gitFailureSpeak,
   initSpeak,
@@ -36,7 +43,8 @@ import {
 } from "./job-voice.js";
 import { activeJobCount, upsertJob } from "./jobs.js";
 import { readRunLog } from "./run-log.js";
-import { isProcessAlive, reapJobs } from "./run-state.js";
+import { isProcessAlive, killWorkerTreeForce, reapJobs } from "./run-state.js";
+import { continueWorkerRun, pauseWorkerRun } from "./worker-spawn.js";
 import { forgetMemory, loadMemories, remember } from "./memory.js";
 import {
   authBrokerUrl,
@@ -321,9 +329,17 @@ async function startJob(
   const existing = jobs.find((job) => job.id === id);
   if (
     existing &&
-    (existing.status === "running" || existing.status === "booting") &&
-    isProcessAlive(existing.workerPid)
+    isProcessAlive(existing.workerPid) &&
+    (existing.status === "running" ||
+      existing.status === "booting" ||
+      existing.status === "paused")
   ) {
+    if (existing.status === "paused") {
+      return {
+        job: existing,
+        message: `${jobRef(existing)} is paused — say resume to continue.`,
+      };
+    }
     return {
       job: existing,
       message: alreadyRunningSpeak(existing),
@@ -352,7 +368,8 @@ async function startJob(
         job.id !== id &&
         (job.status === "running" ||
           job.status === "booting" ||
-          job.status === "ready") &&
+          job.status === "ready" ||
+          job.status === "paused") &&
         isProcessAlive(job.workerPid),
     );
     if (checkoutBusy) {
@@ -652,6 +669,36 @@ async function listJobs(options: DispatchRuntimeOptions): Promise<unknown> {
   };
 }
 
+async function confirmCheckoutResume(
+  options: DispatchRuntimeOptions,
+  job: JobRecord,
+  args: Record<string, unknown>,
+): Promise<{ job: JobRecord; blocked?: Record<string, unknown> }> {
+  if ((job.placement ?? "worktree") !== "checkout") {
+    return { job };
+  }
+  const dirty = await gitDirtyPaths(job.worktreePath, options.git);
+  const unexpected = unexpectedDirtyPaths(job, dirty);
+  if (unexpected.length === 0) return { job };
+  if (args.confirmDirty !== true) {
+    return {
+      job,
+      blocked: {
+        needsConfirm: true,
+        dirtyPaths: unexpected,
+        message: dirtyResumeSpeak(unexpected.length),
+        job,
+      },
+    };
+  }
+  const next = await upsertJob(options.workspaceRoot, {
+    ...job,
+    preExistingChanges: unionPaths(job.preExistingChanges, unexpected),
+    knownDirtyPaths: unionPaths(job.knownDirtyPaths, dirty),
+  });
+  return { job: next };
+}
+
 async function jobControl(
   options: DispatchRuntimeOptions,
   args: Record<string, unknown>,
@@ -671,7 +718,32 @@ async function jobControl(
   const job = resolved.job;
   const launch = resolveMcpLaunch(env);
 
-  if (action === "cancel" || action === "pause") {
+  if (action === "pause") {
+    const dirty =
+      (job.placement ?? "worktree") === "checkout"
+        ? await gitDirtyPaths(job.worktreePath, options.git)
+        : [];
+    const paused = await pauseWorkerRun({
+      ...(typeof job.workerPid === "number" ? { pid: job.workerPid } : {}),
+      workspaceRoot: options.workspaceRoot,
+      jobId: job.id,
+    });
+    const next = await upsertJob(options.workspaceRoot, {
+      ...job,
+      status: "paused",
+      lastActivity: "Paused",
+      nextStep: "paused — say resume to continue",
+      ...(dirty.length > 0
+        ? { knownDirtyPaths: unionPaths(job.knownDirtyPaths, dirty) }
+        : {}),
+    });
+    return {
+      job: next,
+      message: controlSpeak("pause", next, paused.mode),
+    };
+  }
+
+  if (action === "cancel") {
     const cancelWorker =
       workerForBackend(options, job.workerBackend ?? "cursor") ??
       options.worker ??
@@ -687,19 +759,49 @@ async function jobControl(
     }
     const next = await upsertJob(options.workspaceRoot, {
       ...job,
-      status: action === "cancel" ? "cancelled" : "paused",
-      lastActivity: action === "cancel" ? "Cancelled" : "Paused",
-      nextStep: action === "cancel" ? "" : "paused — say resume to continue",
+      status: "cancelled",
+      lastActivity: "Cancelled",
+      nextStep: "",
     });
     return {
       job: next,
-      message: controlSpeak(action === "cancel" ? "cancel" : "pause", next),
+      message: controlSpeak("cancel", next),
     };
   }
 
   if (action === "resume" || action === "attach_context") {
     const extra = String(args.context ?? args.text ?? "").trim();
-    if (isProcessAlive(job.workerPid)) {
+    let live = isProcessAlive(job.workerPid);
+    if (live && job.status === "paused" && action === "resume" && extra) {
+      // A frozen child is blocked on wait() — extra brief text cannot join
+      // it. SIGKILL works on a SIGSTOP'd process; SIGTERM does not fire
+      // until SIGCONT. Tear it down and spawn with the new context.
+      if (typeof job.workerPid === "number") {
+        killWorkerTreeForce(job.workerPid);
+      }
+      live = false;
+    }
+    if (live && job.status === "paused" && action === "resume") {
+      const guard = await confirmCheckoutResume(options, job, args);
+      if (guard.blocked) return guard.blocked;
+      await continueWorkerRun({
+        ...(typeof guard.job.workerPid === "number"
+          ? { pid: guard.job.workerPid }
+          : {}),
+        workspaceRoot: options.workspaceRoot,
+        jobId: guard.job.id,
+      });
+      const next = await upsertJob(options.workspaceRoot, {
+        ...guard.job,
+        status: "running",
+        lastActivity: "Resumed",
+        errorMessage: undefined,
+        nextStep: "",
+        waitingOn: "",
+      });
+      return { job: next, message: controlSpeak("resume", next) };
+    }
+    if (live) {
       if (action === "attach_context" && extra) {
         const next = await upsertJob(options.workspaceRoot, {
           ...job,
@@ -714,56 +816,59 @@ async function jobControl(
       }
       return { job, message: alreadyRunningSpeak(job) };
     }
-    const backend = job.workerBackend ?? "cursor";
+    const guard = await confirmCheckoutResume(options, job, args);
+    if (guard.blocked) return guard.blocked;
+    const current = guard.job;
+    const backend = current.workerBackend ?? "cursor";
     const creds = await resolveWorkerAuth(options, env, context, {
       login: true,
       backend,
     });
     if (!creds.ready) {
-      return { message: creds.message, job };
+      return { message: creds.message, job: current };
     }
     const resumeWorker = workerForBackend(options, backend);
     if (!resumeWorker) {
-      return { message: "No worker configured.", job };
+      return { message: "No worker configured.", job: current };
     }
     const ram = ramGate(options);
-    if (ram) return { message: ram, job };
+    if (ram) return { message: ram, job: current };
     const disk = await diskBudgetMessage(options.workspaceRoot);
-    if (disk) return { message: disk, job };
-    if (job.source === "prism") {
+    if (disk) return { message: disk, job: current };
+    if (current.source === "prism") {
       await linkWorktreeInstall({
         workspaceRoot: options.workspaceRoot,
-        worktreePath: job.worktreePath,
+        worktreePath: current.worktreePath,
       });
     }
     const memories = await loadMemories(options.workspaceRoot);
-    const combinedExtra = [job.pendingContext, extra]
+    const combinedExtra = [current.pendingContext, extra]
       .filter(Boolean)
       .join("\n\n");
-    const jobPlacement = job.placement ?? "worktree";
+    const jobPlacement = current.placement ?? "worktree";
     const placementFields = {
       placement: jobPlacement,
-      ...(job.preExistingChanges
-        ? { preExistingChanges: job.preExistingChanges }
+      ...(current.preExistingChanges
+        ? { preExistingChanges: current.preExistingChanges }
         : {}),
     } as const;
     let pid: number | undefined;
-    let agentId = job.cursorAgentId;
+    let agentId = current.cursorAgentId;
     // The resume handle is backend-specific: Cursor agentId, Claude session_id.
     const sessionHandle =
-      backend === "claude" ? job.workerSessionId : job.cursorAgentId;
+      backend === "claude" ? current.workerSessionId : current.cursorAgentId;
     if (sessionHandle) {
       const resumed = await resumeWorker.resume({
-        jobId: job.id,
+        jobId: current.id,
         agentId: sessionHandle,
-        cwd: job.worktreePath,
-        name: agentNameForJob(job),
+        cwd: current.worktreePath,
+        name: agentNameForJob(current),
         ...(creds.apiKey ? { apiKey: creds.apiKey } : {}),
         prompt:
           action === "attach_context"
             ? combinedExtra || "Continue."
             : workerPrompt({
-                job,
+                job: current,
                 memories,
                 extra: combinedExtra,
                 placement: jobPlacement,
@@ -776,12 +881,12 @@ async function jobControl(
       if (resumed && typeof resumed.pid === "number") pid = resumed.pid;
     } else {
       const started = await resumeWorker.start({
-        jobId: job.id,
-        cwd: job.worktreePath,
-        name: agentNameForJob(job),
+        jobId: current.id,
+        cwd: current.worktreePath,
+        name: agentNameForJob(current),
         ...(creds.apiKey ? { apiKey: creds.apiKey } : {}),
         prompt: workerPrompt({
-          job,
+          job: current,
           memories,
           extra: combinedExtra,
           placement: jobPlacement,
@@ -795,7 +900,7 @@ async function jobControl(
       if (typeof started.pid === "number") pid = started.pid;
     }
     const next = await upsertJob(options.workspaceRoot, {
-      ...job,
+      ...current,
       status: "running",
       lastActivity: "Starting",
       errorMessage: undefined,
@@ -1354,7 +1459,7 @@ async function configureTool(
     const config = await loadConfig(workspaceRoot);
     return {
       config,
-      message: formatConfig(config),
+      message: `${SHARED_DISPATCH_CONFIG_SPEAK} ${formatConfig(config)}`,
     };
   }
   const patchRaw = args.patch ?? args.config ?? args;
@@ -1436,7 +1541,11 @@ async function configureTool(
   }
 
   const config = await saveConfig(workspaceRoot, allowed);
-  const message = [formatConfig(config), ...preferenceNotes]
+  const message = [
+    SHARED_DISPATCH_CONFIG_SPEAK,
+    formatConfig(config),
+    ...preferenceNotes,
+  ]
     .filter(Boolean)
     .join(" — ");
   return { config, message };

@@ -2,7 +2,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { loadConfig, saveConfig } from "./config.js";
+import {
+  loadConfig,
+  saveConfig,
+  SHARED_DISPATCH_CONFIG_SPEAK,
+} from "./config.js";
 import { createDispatchRuntime } from "./runtime.js";
 import { DispatchModeSchema } from "./types.js";
 import type { GitRunner } from "./git.js";
@@ -49,6 +53,7 @@ describe("dispatchMode", () => {
       patch: { dispatchMode: "auto" },
     })) as { message: string };
     expect(set.message).toContain("dispatchMode=auto");
+    expect(set.message).toContain(SHARED_DISPATCH_CONFIG_SPEAK);
     expect((await loadConfig(root)).dispatchMode).toBe("auto");
 
     const read = (await runtime.handle("configure", { action: "get" })) as {
@@ -57,6 +62,7 @@ describe("dispatchMode", () => {
     };
     expect(read.config.dispatchMode).toBe("auto");
     expect(read.message).toContain("dispatchMode=auto");
+    expect(read.message).toContain(SHARED_DISPATCH_CONFIG_SPEAK);
   });
 
   it("keeps an unrelated setting intact when only the mode changes", async () => {

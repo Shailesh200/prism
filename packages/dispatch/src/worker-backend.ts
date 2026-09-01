@@ -5,7 +5,10 @@
  * and checks, review-before-land — is backend-neutral. Only the child that
  * drives an agent differs: Cursor SDK (`worker-child`) or Claude Code CLI
  * (`claude-worker-child`). Resolution order: `configure` → `PRISM_WORKER` →
- * the MCP client's own name → Cursor (the pre-M-065 default).
+ * the MCP client's own name → Cursor (the pre-M-065 default). Codex has
+ * no worker CLI yet, so `auto` from Codex uses Cursor. An explicit
+ * `configure workerBackend cursor|claude` is stored in `~/.prism` and
+ * applies on every host.
  */
 
 import { clientLooksLikeClaude } from "./connect-ux.js";

@@ -153,7 +153,7 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     name: "job_control",
     title: "Control a Dispatch job",
     description:
-      "Pause, resume, cancel, add context to, or commit a Dispatch job. commit is only for checkout jobs that finished with uncommitted edits — it stages exactly the job's files on the user's current branch, never anything else. Speak only the tool message, using the job title and canonical id. jobId may be a ticket, a slug like audit-issues, or the title.",
+      "Pause, resume, cancel, add context to, or commit a Dispatch job. Pause freezes the teammate in place (it keeps its process and session); resume continues from there, or respawns if the process is gone. commit is only for checkout jobs that finished with uncommitted edits — it stages exactly the job's files on the user's current branch, never anything else. If resume returns needsConfirm for a dirty checkout, relay that and re-call with confirmDirty=true only when the user agrees. Speak only the tool message, using the job title and canonical id. jobId may be a ticket, a slug like audit-issues, or the title.",
     inputSchema: {
       jobId: z
         .string()
@@ -167,6 +167,12 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
         .string()
         .optional()
         .describe("Extra brief text for attach_context or resume"),
+      confirmDirty: z
+        .boolean()
+        .optional()
+        .describe(
+          "Set true only after the user agrees a checkout resume may work alongside uncommitted files the job has not seen yet",
+        ),
     },
     readOnly: false,
     openWorld: false,
@@ -223,7 +229,7 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     name: "configure",
     title: "Configure Dispatch",
     description:
-      'Read or update gitignored Dispatch settings: section order, standup template, Slack tracked channel ids, mention window and caps, max parallel jobs (default 4, admitted on free memory), in-process subagents, host fan-out, post-job verification, worker backend (auto = match this host, cursor, or claude), placement (checkout = your tree uncommitted, worktree = separate branch + commit), dispatchMode (ask = offer teammate-or-inline in one line before changing code, the default; auto = dispatch without asking; inline = only dispatch when the user asks for a job), hint policy, and whether the tickets slot is Linear or Jira. Any other wish works too: pass preference="…" to add a standing preference (applied to standup presentation), removePreference="…" to drop one; an unknown setting key is kept as a preference and said so, never silently dropped. Job-behavior rules belong to remember, not configure. action=export returns a non-secret template (no tokens) for sharing. Chat only — there is no settings UI in v1.',
+      'Read or update Dispatch settings shared across every repository and every MCP host on this machine (Cursor, Claude Code, Codex, Claude Desktop). Lives in ~/.prism/dispatch/config.json: section order, standup template, Slack tracked channel ids, mention window and caps, max parallel jobs (default 4, admitted on free memory), in-process subagents, host fan-out, post-job verification, worker backend (auto = match this host, cursor, or claude — an explicit cursor/claude applies on every host), placement (checkout = your tree uncommitted, worktree = separate branch + commit), dispatchMode (ask = offer teammate-or-inline in one line before changing code, the default; auto = dispatch without asking; inline = only dispatch when the user asks for a job), hint policy, and whether the tickets slot is Linear or Jira. Any other wish works too: pass preference="…" to add a standing preference (applied to standup presentation), removePreference="…" to drop one; an unknown setting key is kept as a preference and said so, never silently dropped. Job-behavior rules belong to remember, not configure. action=export returns a non-secret template (no tokens). Chat only — there is no settings UI in v1.',
     inputSchema: {
       action: z
         .enum(["get", "set", "export"])
@@ -246,7 +252,7 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
         .enum(["auto", "cursor", "claude"])
         .optional()
         .describe(
-          "Which agent runs jobs: auto (match this host), cursor, or claude",
+          "Which agent runs jobs: auto (match this host), cursor, or claude. An explicit cursor/claude is shared across Cursor, Claude Code, and Codex.",
         ),
       placement: z
         .enum(["checkout", "worktree"])
