@@ -33,6 +33,10 @@ export function toSnapshot(
     // changed, which is the one thing a reviewer needs.
     ...(job.review ? { review: job.review } : {}),
     ...(job.nextStep ? { nextStep: job.nextStep } : {}),
+    // Whether a teammate is in your working tree is not a detail: it is the
+    // difference between "safe to keep editing" and "do not touch this repo".
+    ...(job.placement ? { placement: job.placement } : {}),
+    ...(job.waitingOn ? { waitingOn: job.waitingOn } : {}),
     createdAt: job.createdAt,
     updatedAt: job.updatedAt,
     elapsedMs: elapsedMs(job.createdAt, now),

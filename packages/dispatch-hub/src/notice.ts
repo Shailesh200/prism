@@ -30,6 +30,24 @@ export function formatJobFinishedNotice(job: JobSnapshot): JobNoticeCopy {
       : job.verification === "passed"
         ? "Checks passed."
         : "";
+
+  // A review is the one finish that needs the human to do something, so say
+  // what changed and that nothing landed for them.
+  if (job.status === "needs_review") {
+    const files = job.review?.files.length ?? 0;
+    const churn = job.review
+      ? ` (+${job.review.totalAdded} -${job.review.totalRemoved})`
+      : "";
+    const what =
+      files > 0
+        ? `${files} file${files === 1 ? "" : "s"} changed${churn}, nothing merged for you.`
+        : "Nothing was merged for you.";
+    return {
+      title: `${title} is ready for your review`,
+      body: clip([what, checks].filter(Boolean).join(" ")),
+    };
+  }
+
   return {
     title: `${title} finished`,
     body: clip([result, checks].filter(Boolean).join(" ")),

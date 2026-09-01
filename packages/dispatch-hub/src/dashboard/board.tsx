@@ -13,6 +13,17 @@ import {
 
 type JobsResponse = { jobs: JobSnapshot[] };
 
+/** Why a console is blank, in words the reader can act on. */
+function consoleErrorText(status: number): string {
+  if (status === 401 || status === 403) {
+    return "The hub rejected this request. Reopen the dashboard from Prism to get a fresh token.";
+  }
+  if (status === 400) {
+    return "The hub does not know which workspace this job belongs to, so it cannot find its log.";
+  }
+  return `The hub could not return this console (HTTP ${status}).`;
+}
+
 /** One console line from /api/jobs/:id/logs (RunLogEntry shape). */
 type ConsoleEntry = {
   ts: string;
@@ -73,6 +84,7 @@ export function JobsBoard(): ReactElement {
   const [error, setError] = useState<string>("");
   const [consoleKey, setConsoleKey] = useState<string>("");
   const [logs, setLogs] = useState<Record<string, ConsoleEntry[]>>({});
+  const [logErrors, setLogErrors] = useState<Record<string, string>>({});
 
   const applyEvent = useCallback((event: HubEvent) => {
     if (event.type === "snapshot") {
@@ -164,13 +176,29 @@ export function JobsBoard(): ReactElement {
       }
       setConsoleKey(key);
       const load = async (): Promise<void> => {
-        const response = await fetch(
-          `/api/jobs/${encodeURIComponent(job.id)}/logs?workspace=${encodeURIComponent(job.workspacePath)}`,
-          { headers: authHeaders(token) },
-        );
-        if (!response.ok) return;
-        const body = (await response.json()) as { entries?: ConsoleEntry[] };
-        setLogs((current) => ({ ...current, [key]: body.entries ?? [] }));
+        try {
+          const response = await fetch(
+            `/api/jobs/${encodeURIComponent(job.id)}/logs?workspace=${encodeURIComponent(job.workspacePath)}`,
+            { headers: authHeaders(token) },
+          );
+          if (!response.ok) {
+            // Swallowing this rendered "no console output yet" for a 400 or a
+            // 401, so a broken console was indistinguishable from a quiet job.
+            setLogErrors((current) => ({
+              ...current,
+              [key]: consoleErrorText(response.status),
+            }));
+            return;
+          }
+          const body = (await response.json()) as { entries?: ConsoleEntry[] };
+          setLogErrors((current) => ({ ...current, [key]: "" }));
+          setLogs((current) => ({ ...current, [key]: body.entries ?? [] }));
+        } catch (cause) {
+          setLogErrors((current) => ({
+            ...current,
+            [key]: `Could not reach the hub (${cause instanceof Error ? cause.message : "network error"}).`,
+          }));
+        }
       };
       await load();
     },
@@ -189,8 +217,15 @@ export function JobsBoard(): ReactElement {
         { headers: authHeaders(token) },
       )
         .then(async (response) => {
-          if (!response.ok) return;
+          if (!response.ok) {
+            setLogErrors((current) => ({
+              ...current,
+              [consoleKey]: consoleErrorText(response.status),
+            }));
+            return;
+          }
           const body = (await response.json()) as { entries?: ConsoleEntry[] };
+          setLogErrors((current) => ({ ...current, [consoleKey]: "" }));
           setLogs((current) => ({
             ...current,
             [consoleKey]: body.entries ?? [],
@@ -267,6 +302,16 @@ export function JobsBoard(): ReactElement {
                       <code>{job.branch}</code>
                     </dd>
                   </div>
+                  {job.placement ? (
+                    <div>
+                      <dt>Where</dt>
+                      <dd>
+                        {job.placement === "checkout"
+                          ? "your checkout"
+                          : "own worktree"}
+                      </dd>
+                    </div>
+                  ) : null}
                   {job.verification ? (
                     <div>
                       <dt>Checks</dt>
@@ -296,6 +341,12 @@ export function JobsBoard(): ReactElement {
                 {job.verification === "failed" && job.verificationDetail ? (
                   <p className="hub-verify-failed">
                     Checks failed: {job.verificationDetail}
+                  </p>
+                ) : null}
+                {job.waitingOn === "stalled" ? (
+                  <p className="hub-verify-failed">
+                    No recent output.{" "}
+                    {job.nextStep || "Resume to nudge it, or cancel."}
                   </p>
                 ) : null}
                 {job.review && job.review.files.length > 0 ? (
@@ -354,8 +405,12 @@ export function JobsBoard(): ReactElement {
                 </div>
                 {consoleKey === `${job.workspacePath}:${job.id}` ? (
                   <div className="hub-console">
-                    {(logs[`${job.workspacePath}:${job.id}`] ?? []).length ===
-                    0 ? (
+                    {logErrors[`${job.workspacePath}:${job.id}`] ? (
+                      <p className="hub-console-empty hub-console-err">
+                        {logErrors[`${job.workspacePath}:${job.id}`]}
+                      </p>
+                    ) : (logs[`${job.workspacePath}:${job.id}`] ?? [])
+                        .length === 0 ? (
                       <p className="hub-console-empty">
                         {IN_FLIGHT_STATUSES.includes(job.status)
                           ? "Waiting for the teammate's first output…"
