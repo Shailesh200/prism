@@ -87,14 +87,36 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/job branch/);
   });
 
-  it("dispatches code changes by intent, not the phrase start working on", () => {
-    expect(SERVER_INSTRUCTIONS).toMatch(/dispatch code work by default/i);
+  it("recognises code changes by intent, not the phrase start working on", () => {
+    expect(SERVER_INSTRUCTIONS).toMatch(/recognise a code change/i);
     expect(SERVER_INSTRUCTIONS).toMatch(
       /does NOT require the words “start working on”/,
     );
     expect(SERVER_INSTRUCTIONS).toMatch(/ticket id, or a PRD/);
     expect(SERVER_INSTRUCTIONS).toMatch(/do not also do the work inline/i);
-    expect(SERVER_INSTRUCTIONS).toMatch(/Write the PRD yourself/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(/write the PRD yourself/i);
+    // Recognising the work must not itself decide where it runs.
+    expect(SERVER_INSTRUCTIONS).toMatch(/settled by the ask rule below/i);
+  });
+
+  it("asks teammate-or-inline instead of guessing", () => {
+    // Guessing produced both failure modes: a stranded job, and an unwanted
+    // edit in a tree the user was mid-work in. Asking costs one line.
+    expect(SERVER_INSTRUCTIONS).toMatch(/ask before you change code/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(
+      /hand this to a background teammate, or do it here/i,
+    );
+    expect(SERVER_INSTRUCTIONS).toMatch(/dispatchMode=ask/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/dispatchMode=auto/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/dispatchMode=inline/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/never ask twice/i);
+  });
+
+  it("still recognises change intent without a magic phrase", () => {
+    expect(SERVER_INSTRUCTIONS).toMatch(/recognise a code change/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(
+      /does NOT require the words “start working on”/,
+    );
   });
 
   it("honours an explicit request for a job even for read-only work", () => {

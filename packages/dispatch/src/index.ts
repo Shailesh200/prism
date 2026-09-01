@@ -24,6 +24,8 @@ export {
   type WorkerBackend,
   type WorkerBackendSetting,
   type WorktreeSource,
+  DispatchModeSchema,
+  type DispatchMode,
   JobReviewSchema,
   ReviewFileSchema,
   type JobReview,
