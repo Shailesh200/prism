@@ -39,7 +39,7 @@ Intelligence (read-only, indexes on first call):
 - Cycles, coupling, import graph → dependency_cycles, dependency_graph (prefer summaryOnly / limit)
 - BEFORE editing unfamiliar or risky code → blast_radius on that file/symbol (required habit)
 - BEFORE deleting → safe_delete; BEFORE renaming → rename_impact; which tests to run → test_impact
-- Reviewing a diff / PR / “what did I break?” → review_changes (omit paths to auto-discover; or changed_paths first)
+- Reviewing a diff / PR / branch / “what did I break?” → review_changes (omit paths to auto-discover; or changed_paths first). Never review from a raw git diff alone: reading the patch tells you what changed, not what depends on it, and that is the whole reason Prism is attached. review_changes already carries blast radius, test impact, and breaking-change hints per path — lead with those. For anything beyond a couple of files, add repository_dna or stack_profile so you judge the change against this repo's actual conventions and frameworks rather than generic style, and blast_radius on any file the roll-up flags as risky. Say which findings came from Prism and which are your own reading, and never invent dependents the tools did not report.
 - Backend / testing / security posture → backend_report, testing_report, security_report
 - Session readiness / “is indexing done?” → workspace_status; what is unavailable vs unsupported → capabilities
 

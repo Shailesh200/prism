@@ -101,8 +101,12 @@ export function registerPrompts(server: McpServer): void {
               text: [
                 "Review my changes with Prism before I merge or push.",
                 flow,
+                // A review that only reads the patch is the failure mode here:
+                // it sees what changed and misses what depends on it.
+                "Do not review by reading the raw diff alone — review_changes carries blast radius, test impact, and breaking-change hints per path, so lead with what it reports.",
+                "If more than a couple of files changed, also call repository_dna (or stack_profile) and judge the change against this repo's real conventions and frameworks, not generic style. Call blast_radius on anything the roll-up flags as risky.",
                 "Summarise risk, what could break, and which tests to run.",
-                "Do not invent dependents — use the tool results.",
+                "Separate what Prism reported from your own reading of the code, and do not invent dependents — use the tool results.",
               ].join(" "),
             },
           },
@@ -144,12 +148,18 @@ export function registerPrompts(server: McpServer): void {
       title: "Start working on a ticket",
       description: "Create a Dispatch job from a title/ticket and PRD.",
       argsSchema: {
-        title: z.string().describe("Ticket id and/or short title"),
+        // Optional on purpose. Claude Code sends required prompt args as empty
+        // strings and splits multi-word values on whitespace, so demanding a
+        // title here turns a working slash command into a validation error.
+        title: z
+          .string()
+          .optional()
+          .describe("Ticket id and/or short title (optional)"),
         prd: z.string().optional().describe("Product brief"),
       },
     },
     async (args) => {
-      const title = args.title.trim() || "the ticket";
+      const title = (typeof args.title === "string" ? args.title : "").trim();
       const prd = typeof args.prd === "string" ? args.prd.trim() : "";
       return {
         messages: [
@@ -158,10 +168,16 @@ export function registerPrompts(server: McpServer): void {
             content: {
               type: "text" as const,
               text: [
-                `Start working on ${title}.`,
+                title
+                  ? `Start working on ${title}.`
+                  : "Start working on what I just described in this conversation. Derive the title and brief from it yourself — do not ask me to repeat it.",
                 prd
                   ? `PRD: ${prd}`
                   : "Ask me for a PRD only if the brief is too thin to act on.",
+                // Invoking this prompt IS the dispatch instruction. An earlier
+                // build read it as advice, investigated with grep, and solved
+                // the request in chat — the one outcome it must never produce.
+                "start_job is the first tool you call for this. Do not grep, read files, or fix anything yourself first, and do not decide the task is too small or too read-only to dispatch — I asked for a teammate, so start one.",
                 "Say in one line what you are starting and what it will touch, then call start_job with the title and PRD.",
                 "If a Cursor login page opens, finish it. If Authenticating prism with Skip appears, click Skip and retry.",
                 "Read back the tool message. Use the job title and canonical id, never a job-hex id or worktree path.",
