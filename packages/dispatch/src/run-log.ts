@@ -105,9 +105,16 @@ export async function readRunLog(
   options: ReadRunLogOptions = {},
 ): Promise<RunLogPage> {
   const limit = Math.max(1, Math.min(options.limit ?? 200, 2_000));
-  const raw = await readTextFile(runLogPath(workspaceRoot, jobId), "");
+  const path = runLogPath(workspaceRoot, jobId);
+  // Rotation moves history to `.1`, so reading only the live file silently
+  // dropped everything before the last roll — the exact window you want when a
+  // long job went wrong. Oldest first.
+  const [rotated, current] = await Promise.all([
+    readTextFile(rotatedRunLogPath(path), ""),
+    readTextFile(path, ""),
+  ]);
   const all: RunLogEntry[] = [];
-  for (const line of raw.split("\n")) {
+  for (const line of `${rotated}\n${current}`.split("\n")) {
     const entry = parseRunLogLine(line);
     if (entry) all.push(entry);
   }

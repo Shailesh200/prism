@@ -37,6 +37,10 @@ export type JobSnapshot = {
   /** What the job left for review. The board cannot show files without it. */
   readonly review?: JobReview;
   readonly nextStep?: string;
+  /** checkout = editing your working tree; worktree = isolated branch. */
+  readonly placement?: JobRecord["placement"];
+  /** Why a job is waiting, e.g. "stalled". */
+  readonly waitingOn?: string;
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly elapsedMs: number;
@@ -63,4 +67,8 @@ export const TERMINAL_STATUSES: readonly JobStatus[] = [
   "done",
   "error",
   "cancelled",
+  // The teammate has stopped and is waiting on a human decision. Leaving this
+  // out meant the one state that needs you never raised a finish notification,
+  // and the hub could idle out while a review sat unread.
+  "needs_review",
 ];

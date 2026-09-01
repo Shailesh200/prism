@@ -99,6 +99,36 @@ describe("append-only job console", () => {
     expect(page.entries.map((entry) => entry.text)).toEqual(["good"]);
   });
 
+  it("still reads history after rotation", async () => {
+    // Reading only the live file threw away everything before the last roll —
+    // exactly the window you want when a long job went wrong.
+    const root = await tempRoot();
+    const path = runLogPath(root, "job-1");
+    await appendRunLog(root, "job-1", lifecycleLogEntry("thinking", "seed"));
+    await writeFile(path, "x".repeat(MAX_LOG_BYTES + 1), "utf8");
+    await appendRunLog(root, "job-1", lifecycleLogEntry("thinking", "before"));
+    // Force a second rotation so "before" lands in the rotated generation.
+    await writeFile(path, "y".repeat(MAX_LOG_BYTES + 1), "utf8");
+    await appendRunLog(root, "job-1", lifecycleLogEntry("thinking", "after"));
+
+    const page = await readRunLog(root, "job-1");
+    expect(page.entries.map((entry) => entry.text)).toEqual(["after"]);
+
+    // And a normal rotation keeps the older lines readable, oldest first.
+    const root2 = await tempRoot();
+    const path2 = runLogPath(root2, "job-2");
+    await appendRunLog(root2, "job-2", lifecycleLogEntry("thinking", "old"));
+    const seeded = await readFile(path2, "utf8");
+    await writeFile(rotatedRunLogPath(path2), seeded.repeat(1), "utf8");
+    await appendRunLog(root2, "job-2", lifecycleLogEntry("thinking", "new"));
+    const page2 = await readRunLog(root2, "job-2");
+    expect(page2.entries.map((entry) => entry.text)).toEqual([
+      "old",
+      "old",
+      "new",
+    ]);
+  });
+
   it("rotates instead of growing without bound", async () => {
     const root = await tempRoot();
     const path = runLogPath(root, "job-1");
