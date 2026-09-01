@@ -3,9 +3,9 @@
  *
  * Both worker children — Cursor SDK (`worker-child`) and Claude Code CLI
  * (`claude-worker-child`) — are spawned the same way: a 0600 spawn payload
- * under `runs/`, a fresh run-state sidecar, a detached Node child. Cancel and
- * status are pid/run-state based and identical for every backend, so the
- * ports share them from here.
+ * under `runs/`, a fresh run-state sidecar, a detached Node child. Cancel
+ * kills the group; pause freezes it (SIGSTOP). Status is pid/run-state
+ * based and identical for every backend, so the ports share them from here.
  */
 
 import { spawn } from "node:child_process";
@@ -14,12 +14,16 @@ import { setPriority } from "node:os";
 import { writeJsonFile, readJsonFile } from "./json-file.js";
 import { spawnPayloadPath, runStatePath } from "./paths.js";
 import {
+  continueWorkerTree,
+  isProcessAlive,
   killWorkerTree,
   killWorkerTreeForce,
   patchRunState,
+  pauseWorkerTree,
   readRunState,
   writeRunState,
 } from "./run-state.js";
+import { appendRunLog, lifecycleLogEntry } from "./run-log.js";
 import { workerChildEnv } from "./worker-budget.js";
 
 /** The 0600 payload a worker child reads once at boot (then deletes). */
@@ -184,6 +188,66 @@ export async function cancelWorkerRun(input: {
       completedAt: new Date().toISOString(),
     });
   }
+}
+
+export type PauseWorkerResult = {
+  readonly mode: "frozen" | "stopped";
+};
+
+/** Freeze the worker in place. Cancel still kills; this does not. */
+export async function pauseWorkerRun(input: {
+  readonly pid?: number;
+  readonly workspaceRoot?: string;
+  readonly jobId?: string;
+}): Promise<PauseWorkerResult> {
+  let pid = input.pid;
+  if (pid == null && input.workspaceRoot && input.jobId) {
+    pid = (await readRunState(input.workspaceRoot, input.jobId))?.pid;
+  }
+  let mode: PauseWorkerResult["mode"] = "stopped";
+  if (pid != null && isProcessAlive(pid)) {
+    mode = pauseWorkerTree(pid);
+  }
+  if (input.workspaceRoot && input.jobId) {
+    await patchRunState(input.workspaceRoot, input.jobId, {
+      phase: "paused",
+      lastActivity: "Paused",
+    });
+    await appendRunLog(
+      input.workspaceRoot,
+      input.jobId,
+      lifecycleLogEntry("paused", "Paused"),
+    );
+  }
+  return { mode };
+}
+
+/** Continue a frozen worker. No-op when the pid is already gone. */
+export async function continueWorkerRun(input: {
+  readonly pid?: number;
+  readonly workspaceRoot?: string;
+  readonly jobId?: string;
+}): Promise<{ continued: boolean }> {
+  let pid = input.pid;
+  if (pid == null && input.workspaceRoot && input.jobId) {
+    pid = (await readRunState(input.workspaceRoot, input.jobId))?.pid;
+  }
+  const alive = pid != null && isProcessAlive(pid);
+  if (alive && pid != null) {
+    continueWorkerTree(pid);
+  }
+  if (input.workspaceRoot && input.jobId) {
+    await patchRunState(input.workspaceRoot, input.jobId, {
+      phase: "running",
+      lastActivity: "Resumed",
+    });
+    await appendRunLog(
+      input.workspaceRoot,
+      input.jobId,
+      lifecycleLogEntry("running", "Resumed"),
+    );
+  }
+  return { continued: alive };
 }
 
 /** Status is read from the run-state sidecar — the same for every backend. */

@@ -50,7 +50,7 @@ use this page when you need the exhaustive index.
 | `breaking_change_hints` | Deprecated |
 | `capabilities` | List every Core analysis capability and consent-gated integration with availability and a reason when unavailable |
 | `changed_paths` | List workspace-relative paths changed in the working tree, or against an optional git base ref |
-| `configure` | Read or update gitignored Dispatch settings |
+| `configure` | Read or update Dispatch settings shared across every repository and every MCP host on this machine (Cursor, Claude Code, Codex, Claude Desktop) |
 | `dependency_cycles` | Import and re-export cycles, each returned as the list of files forming the loop |
 | `dependency_graph` | The import/re-export dependency graph, at file level or aggregated to packages |
 | `dependency_route` | Show how one file or symbol reaches another through the dependency graph, with alternative paths |

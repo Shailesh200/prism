@@ -14,6 +14,7 @@ export const RunPhaseSchema = z.enum([
   "thinking",
   "tool",
   "editing",
+  "paused",
   "done",
   "failed",
   "cancelled",
@@ -117,6 +118,92 @@ export function killWorkerTree(pid: number): void {
   } catch {
     /* already gone */
   }
+}
+
+/**
+ * Freeze a worker process group without tearing it down.
+ *
+ * Pause used to send SIGTERM (the same path as cancel), so "pause" destroyed
+ * the teammate and resume had to spawn a new one. SIGSTOP holds the group in
+ * place — CPU and tokens stop, the session handle stays, resume is SIGCONT.
+ * Windows has no SIGSTOP: NtSuspendProcess on the pid, then SIGTERM if that
+ * fails so the job is at least stopped rather than still running under a
+ * "paused" label.
+ */
+export function pauseWorkerTree(pid: number): "frozen" | "stopped" {
+  if (pid === process.pid) return "stopped";
+  if (process.platform === "win32") {
+    try {
+      windowsNtControl(pid, "suspend");
+      return "frozen";
+    } catch {
+      killWorkerTree(pid);
+      return "stopped";
+    }
+  }
+  try {
+    process.kill(-pid, "SIGSTOP");
+  } catch {
+    /* not a group leader */
+  }
+  try {
+    process.kill(pid, "SIGSTOP");
+    return "frozen";
+  } catch {
+    return "stopped";
+  }
+}
+
+/** Undo {@link pauseWorkerTree}. No-op when the pid is already gone. */
+export function continueWorkerTree(pid: number): void {
+  if (pid === process.pid) return;
+  if (process.platform === "win32") {
+    try {
+      windowsNtControl(pid, "resume");
+    } catch {
+      /* already gone, or pause fell back to terminate */
+    }
+    return;
+  }
+  try {
+    process.kill(-pid, "SIGCONT");
+  } catch {
+    /* not a group leader */
+  }
+  try {
+    process.kill(pid, "SIGCONT");
+  } catch {
+    /* already gone */
+  }
+}
+
+function windowsNtControl(pid: number, mode: "suspend" | "resume"): void {
+  const fn = mode === "suspend" ? "NtSuspendProcess" : "NtResumeProcess";
+  // PROCESS_SUSPEND_RESUME = 0x0800. Pid is a validated integer, not user text.
+  const script = [
+    `Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public static class PrismProc {
+  [DllImport("ntdll.dll")] public static extern uint NtSuspendProcess(IntPtr h);
+  [DllImport("ntdll.dll")] public static extern uint NtResumeProcess(IntPtr h);
+  [DllImport("kernel32.dll", SetLastError = true)] public static extern IntPtr OpenProcess(uint a, bool i, int id);
+  [DllImport("kernel32.dll", SetLastError = true)] public static extern bool CloseHandle(IntPtr h);
+}
+"@`,
+    `$h = [PrismProc]::OpenProcess(0x800, $false, ${pid})`,
+    `if ($h -eq [IntPtr]::Zero) { exit 1 }`,
+    `[void][PrismProc]::${fn}($h)`,
+    `[void][PrismProc]::CloseHandle($h)`,
+  ].join("; ");
+  execFileSync(
+    "powershell.exe",
+    ["-NoProfile", "-NonInteractive", "-Command", script],
+    {
+      timeout: 5_000,
+      stdio: "ignore",
+    },
+  );
 }
 
 export function killWorkerTreeForce(pid: number): void {
@@ -415,6 +502,31 @@ export function applyRunToJob(
     }
     if (job.status === "cancelled") return base;
     return { ...base, status: "cancelled", nextStep: "" };
+  }
+  if (run?.phase === "paused") {
+    return {
+      ...base,
+      status: "paused",
+      nextStep: "paused — say resume to continue",
+    };
+  }
+  if (job.status === "paused") {
+    const resumed =
+      run?.phase === "starting" ||
+      run?.phase === "running" ||
+      run?.phase === "thinking" ||
+      run?.phase === "tool" ||
+      run?.phase === "editing";
+    if (resumed) {
+      return { ...base, status: "running" };
+    }
+    // A frozen worker is still alive; do not reap it as a crash. A pause
+    // whose pid later dies stays paused so resume can spawn from the session.
+    return {
+      ...base,
+      status: "paused",
+      nextStep: "paused — say resume to continue",
+    };
   }
 
   const inFlight =

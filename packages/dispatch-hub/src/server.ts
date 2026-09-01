@@ -46,6 +46,7 @@ export type JobControlFn = (
   workspacePath: string,
   jobId: string,
   action: string,
+  extra?: Record<string, unknown>,
 ) => Promise<unknown>;
 
 export type HubOptions = {
@@ -76,13 +77,14 @@ async function defaultControl(
   workspacePath: string,
   jobId: string,
   action: string,
+  extra: Record<string, unknown> = {},
 ): Promise<unknown> {
   const runtime = createDispatchRuntime({
     workspaceRoot: workspacePath,
     worker: createCursorWorkerPort(),
     claudeWorker: createClaudeWorkerPort(),
   });
-  return runtime.handle("job_control", { jobId, action });
+  return runtime.handle("job_control", { jobId, action, ...extra });
 }
 
 export async function startHub(
@@ -307,7 +309,9 @@ export async function startHub(
         return;
       }
       try {
-        const result = await control(workspace, jobId, action);
+        const extra: Record<string, unknown> = {};
+        if (body.confirmDirty === true) extra.confirmDirty = true;
+        const result = await control(workspace, jobId, action, extra);
         void watcher.refresh();
         json(res, 200, result ?? { ok: true });
       } catch (cause) {

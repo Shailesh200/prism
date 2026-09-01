@@ -164,6 +164,10 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/Google hasn’t verified this app/);
     expect(SERVER_INSTRUCTIONS).toMatch(/click Advanced/i);
   });
+
+  it("shares Dispatch configure across Cursor, Claude Code, and Codex", () => {
+    expect(SERVER_INSTRUCTIONS).toMatch(/Cursor, Claude Code, Codex/);
+  });
 });
 
 describe("prompt catalogue", () => {

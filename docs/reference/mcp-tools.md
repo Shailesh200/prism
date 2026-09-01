@@ -25,7 +25,7 @@ Tools that return a list accept `limit` and answer with `totalCount` and
 | [`breaking_change_hints`](#breaking_change_hints) | Deprecated |
 | [`capabilities`](#capabilities) | List every Core analysis capability and consent-gated integration with availability and a reason when unavailable |
 | [`changed_paths`](#changed_paths) | List workspace-relative paths changed in the working tree, or against an optional git base ref |
-| [`configure`](#configure) | Read or update gitignored Dispatch settings |
+| [`configure`](#configure) | Read or update Dispatch settings shared across every repository and every MCP host on this machine (Cursor, Claude Code, Codex, Claude Desktop) |
 | [`dependency_cycles`](#dependency_cycles) | Import and re-export cycles, each returned as the list of files forming the loop |
 | [`dependency_graph`](#dependency_graph) | The import/re-export dependency graph, at file level or aggregated to packages |
 | [`dependency_route`](#dependency_route) | Show how one file or symbol reaches another through the dependency graph, with alternative paths |
@@ -95,7 +95,7 @@ Arguments: `base`.
 
 ## `configure`
 
-Read or update gitignored Dispatch settings: section order, standup template, Slack tracked channel ids, mention window and caps, max parallel jobs (default 4, admitted on free memory), in-process subagents, host fan-out, post-job verification, worker backend (auto = match this host, cursor, or claude), placement (checkout = your tree uncommitted, worktree = separate branch + commit), hint policy, and whether the tickets slot is Linear or Jira. Any other wish works too: pass preference="…" to add a standing preference (applied to standup presentation), removePreference="…" to drop one; an unknown setting key is kept as a preference and said so, never silently dropped. Job-behavior rules belong to remember, not configure. action=export returns a non-secret template (no tokens) for sharing. Chat only — there is no settings UI in v1.
+Read or update Dispatch settings shared across every repository and every MCP host on this machine (Cursor, Claude Code, Codex, Claude Desktop). Lives in ~/.prism/dispatch/config.json: section order, standup template, Slack tracked channel ids, mention window and caps, max parallel jobs (default 4, admitted on free memory), in-process subagents, host fan-out, post-job verification, worker backend (auto = match this host, cursor, or claude — an explicit cursor/claude applies on every host), placement (checkout = your tree uncommitted, worktree = separate branch + commit), dispatchMode (ask = offer teammate-or-inline in one line before changing code, the default; auto = dispatch without asking; inline = only dispatch when the user asks for a job), hint policy, and whether the tickets slot is Linear or Jira. Any other wish works too: pass preference="…" to add a standing preference (applied to standup presentation), removePreference="…" to drop one; an unknown setting key is kept as a preference and said so, never silently dropped. Job-behavior rules belong to remember, not configure. action=export returns a non-secret template (no tokens). Chat only — there is no settings UI in v1.
 
 Arguments: `action`, `maxJobs`, `subagents`, `fanout`, `verifyJobs`, `workerBackend`, `placement`, `preference`, `removePreference`, `hints`, `ticketHost`, `standupTemplate`, `slackTrackChannelIds`, `mentionWindowHours`, `mentionLimit`, `trackedMessageLimit`, `sectionsOff`, `includeMemories`.
 
@@ -179,9 +179,9 @@ Arguments: `action`, `driver`.
 
 ## `job_control`
 
-Pause, resume, cancel, add context to, or commit a Dispatch job. commit is only for checkout jobs that finished with uncommitted edits — it stages exactly the job's files on the user's current branch, never anything else. Speak only the tool message, using the job title and canonical id. jobId may be a ticket, a slug like audit-issues, or the title.
+Pause, resume, cancel, add context to, or commit a Dispatch job. Pause freezes the teammate in place (it keeps its process and session); resume continues from there, or respawns if the process is gone. commit is only for checkout jobs that finished with uncommitted edits — it stages exactly the job's files on the user's current branch, never anything else. If resume returns needsConfirm for a dirty checkout, relay that and re-call with confirmDirty=true only when the user agrees. Speak only the tool message, using the job title and canonical id. jobId may be a ticket, a slug like audit-issues, or the title.
 
-Arguments: `jobId`, `action`, `context`.
+Arguments: `jobId`, `action`, `context`, `confirmDirty`.
 
 ## `job_logs`
 

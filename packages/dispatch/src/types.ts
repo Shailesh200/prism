@@ -256,6 +256,12 @@ export const JobRecordSchema = z.object({
    * review and any later commit subtract them (ADR-0045 §3).
    */
   preExistingChanges: z.array(z.string()).optional(),
+  /**
+   * Dirty paths snapshotted at pause (and merged on a confirmed dirty
+   * resume). Resume asks before working alongside anything not in this set,
+   * preExistingChanges, or the review (ADR-0045 §4).
+   */
+  knownDirtyPaths: z.array(z.string()).optional(),
   workerPid: z.number().int().optional(),
   runId: z.string().optional(),
   lastActivity: z.string().optional(),

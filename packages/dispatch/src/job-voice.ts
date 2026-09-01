@@ -338,6 +338,7 @@ function teammateLine(status: string, agentStatus: string): string {
 export function controlSpeak(
   action: "pause" | "resume" | "cancel",
   job: { id: string; title: string; placement?: string | undefined },
+  pauseMode?: "frozen" | "stopped",
 ): string {
   const verb =
     action === "pause"
@@ -350,7 +351,11 @@ export function controlSpeak(
   const note =
     action === "cancel" && job.placement === "checkout"
       ? " Any edits it made are still in your working tree — discard them with git if you don't want them."
-      : "";
+      : action === "pause" && pauseMode === "frozen"
+        ? " The teammate is frozen in place — say resume to continue from where it left off."
+        : action === "pause"
+          ? " Say resume to continue."
+          : "";
   return `${verb} ${jobRef(job)}.${note}`;
 }
 
@@ -360,6 +365,16 @@ export function dirtyCheckoutSpeak(dirtyCount: number): string {
   return [
     `Your working tree has uncommitted changes (${dirtyCount} ${noun}). A teammate would work alongside them, in the same tree.`,
     `Its review will separate what it changed from what was already yours. Say yes to go ahead, or ask for a separate branch instead.`,
+  ].join(" ");
+}
+
+/** Dirty-tree confirm before resuming a checkout job (ADR-0045 §4). */
+export function dirtyResumeSpeak(dirtyCount: number): string {
+  const noun = dirtyCount === 1 ? "file" : "files";
+  return [
+    `Your working tree has uncommitted changes this job has not seen yet (${dirtyCount} ${noun}).`,
+    `Resuming would keep working alongside them, in the same tree.`,
+    `Say yes to go ahead, or cancel and start on a separate branch instead.`,
   ].join(" ");
 }
 

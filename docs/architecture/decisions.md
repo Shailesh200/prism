@@ -79,7 +79,10 @@ Local job workers sign in the same way via `Cursor.auth.login` (ADR-0038) —
 not by pasting `CURSOR_API_KEY` into mcp.json. Jobs use a ticket or title
 slug as the canonical id, never `job-<hex>` in chat (ADR-0039). Parallel
 local workers run in isolated processes and worktrees; live status and
-results come back through “where are we” (ADR-0040). Job agents do not
+results come back through “where are we” (ADR-0040). Pause freezes a worker
+in place; cancel kills it. Dispatch settings live in `~/.prism` so every
+repo and every MCP host on the machine (Cursor, Claude Code, Codex,
+Claude Desktop) shares them (ADR-0047). Job agents do not
 attach Prism MCP and share the host `node_modules` (ADR-0041). When a job
 stops, Prism commits the branch and runs typecheck/test; in-process
 subagents are on, host fan-out is off (ADR-0042). Named local teammates can

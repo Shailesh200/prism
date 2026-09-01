@@ -86,6 +86,10 @@ which tools to call.
 3. Run Codex from inside your project.
 4. Ask in plain language.
 
+Each host still needs its own MCP install. Dispatch **configure** settings
+are shared afterwards: Cursor, Claude Code, Codex, and Claude Desktop all
+read `~/.prism/dispatch/config.json`.
+
 ### Optional overrides
 
 Only if auto-detection is wrong:
@@ -187,10 +191,10 @@ Intelligence tools are read-only. Dispatch tools write gitignored state under
 | `start_job` | Start a named teammate in its own worktree; returns immediately | `title`, `prd`, `jobId`, `branch`, `confirmOverlap` |
 | `list_jobs` | Live activity plus finished results (“where are we”); names the jobs board | — |
 | `job_logs` | One job's console: activity lines (subagent lines marked) plus the review awaiting you | `jobId`, `limit`, `since` |
-| `job_control` | pause / resume / cancel / attach_context / commit (checkout jobs) | `jobId`, `action`, `context` |
+| `job_control` | pause / resume / cancel / attach_context / commit (checkout jobs) | `jobId`, `action`, `context`, `confirmDirty` |
 | `remember` | Save, list, or forget memories for the next job | `action`, `text`, `scope`, `confirm` |
 | `integrations` | Catalogue, OAuth start, disconnect | `action`, `driver` |
-| `configure` | Standup settings or export a non-secret template | `action`, Slack channels, `maxJobs`, `ticketHost` |
+| `configure` | Shared Dispatch settings for every repo and every MCP host (Cursor, Claude Code, Codex) on this machine, or export a non-secret template | `action`, Slack channels, `maxJobs`, `ticketHost` |
 | `dispatch_doctor` | Worker backend + sign-in, role, job cap | — |
 
 ### Orientation — what is this, and how is it laid out?

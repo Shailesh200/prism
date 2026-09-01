@@ -260,6 +260,7 @@ export function registerPrompts(server: McpServer): void {
             text: [
               "Configure Prism Dispatch.",
               "Call configure to read the current settings, then apply what I asked for (section order, Slack track list, max jobs, Linear vs Jira, hints).",
+              "These settings live in ~/.prism and apply in Cursor, Claude Code, Codex, and Claude Desktop — not only this chat.",
             ].join(" "),
           },
         },

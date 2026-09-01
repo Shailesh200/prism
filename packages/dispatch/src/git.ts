@@ -435,6 +435,38 @@ export async function gitDirtyPaths(
 }
 
 /**
+ * Dirty paths a checkout resume has not already accounted for.
+ *
+ * Dispatch snapshots dirty files at start (`preExistingChanges`) and at
+ * pause (`knownDirtyPaths`). Job-touched files land in the review. Anything
+ * else appeared while the teammate was away — resume asks before mixing
+ * with it (ADR-0045 §4).
+ */
+export function unexpectedDirtyPaths(
+  job: {
+    readonly preExistingChanges?: readonly string[] | undefined;
+    readonly knownDirtyPaths?: readonly string[] | undefined;
+    readonly review?:
+      | { readonly files: readonly { readonly path: string }[] }
+      | undefined;
+  },
+  dirty: readonly string[],
+): string[] {
+  const known = new Set<string>([
+    ...(job.preExistingChanges ?? []),
+    ...(job.knownDirtyPaths ?? []),
+    ...(job.review?.files.map((file) => file.path) ?? []),
+  ]);
+  return dirty.filter((path) => !known.has(path));
+}
+
+export function unionPaths(
+  ...lists: readonly (readonly string[] | undefined)[]
+): string[] {
+  return [...new Set(lists.flatMap((list) => list ?? []))].sort();
+}
+
+/**
  * Review for a checkout-placed job: the uncommitted diff, minus the paths
  * that were already dirty at dispatch (ADR-0045 §2, §3).
  *

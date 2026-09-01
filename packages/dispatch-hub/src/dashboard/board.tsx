@@ -155,15 +155,36 @@ export function JobsBoard(): ReactElement {
     };
   }, [applyEvent, token]);
 
-  const control = async (job: JobSnapshot, action: string): Promise<void> => {
-    await fetch(`/api/jobs/${encodeURIComponent(job.id)}/control`, {
-      method: "POST",
-      headers: {
-        ...authHeaders(token),
-        "Content-Type": "application/json",
+  const control = async (
+    job: JobSnapshot,
+    action: string,
+    extra: Record<string, unknown> = {},
+  ): Promise<void> => {
+    const response = await fetch(
+      `/api/jobs/${encodeURIComponent(job.id)}/control`,
+      {
+        method: "POST",
+        headers: {
+          ...authHeaders(token),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action,
+          workspace: job.workspacePath,
+          ...extra,
+        }),
       },
-      body: JSON.stringify({ action, workspace: job.workspacePath }),
-    });
+    );
+    if (!response.ok) return;
+    const result = (await response.json()) as {
+      needsConfirm?: boolean;
+      message?: string;
+    };
+    if (result.needsConfirm && result.message) {
+      if (window.confirm(result.message)) {
+        await control(job, action, { ...extra, confirmDirty: true });
+      }
+    }
   };
 
   // Per-card console (M-066 P-P6): tails the job's run log while open.

@@ -46,9 +46,17 @@ stays responsive, and matches your host: a **Cursor** agent in Cursor, a
 Code. `configure` → `workerBackend` / `placement` overrides. The agent passes
 `workspace` itself; never paste a path into mcp.json.
 
+**Pause** freezes the teammate in place — it keeps its process and session.
+**Resume** continues from there. A dirty checkout asks before a job starts,
+and again before resume if new uncommitted files appeared while it was away.
+
 **Who decides.** By default the agent asks: teammate, or here? Guessing wrong
 strands a job or edits a tree you were using. `configure` → `dispatchMode`:
-`auto` never asks, `inline` dispatches only when you ask.
+`auto` never asks, `inline` dispatches only when you ask. Those settings live
+in `~/.prism` and apply to every repository and every MCP host on the machine
+(Cursor, Claude Code, Codex, Claude Desktop). `workerBackend: auto` still
+matches the host that started the job; pin `cursor` or `claude` to use the
+same worker CLI everywhere.
 
 Job agents get **no shell** and **no Prism MCP** (no second index); worktrees
 **symlink** the host `node_modules`. Multi-part work splits into **in-process

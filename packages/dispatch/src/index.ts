@@ -45,7 +45,18 @@ export {
   type DispatchToolName,
 } from "./runtime.js";
 export { buildDayBriefing, formatBriefing } from "./briefing.js";
-export { loadConfig, saveConfig } from "./config.js";
+export {
+  loadConfig,
+  saveConfig,
+  SHARED_DISPATCH_CONFIG_SPEAK,
+} from "./config.js";
+export {
+  prismHome,
+  userDispatchDir,
+  configPath,
+  repoConfigPath,
+  userMemoryPath,
+} from "./paths.js";
 export {
   loadMemories,
   remember,
@@ -64,6 +75,7 @@ export {
   startJobSpeak,
   agentNameForJob,
   dirtyCheckoutSpeak,
+  dirtyResumeSpeak,
   missingGitRepoSpeak,
   gitFailureSpeak,
   isNetworkFailureMessage,
@@ -98,6 +110,8 @@ export {
   formatStallDuration,
   readRunState,
   STALL_AFTER_MS,
+  pauseWorkerTree,
+  continueWorkerTree,
   type RunState,
   type RunPhase,
 } from "./run-state.js";
@@ -168,6 +182,11 @@ export {
   resolveClaudeWorkerChildPath,
 } from "./claude-worker.js";
 export {
+  cancelWorkerRun,
+  continueWorkerRun,
+  pauseWorkerRun,
+} from "./worker-spawn.js";
+export {
   claudeWorkerArgs,
   claudeGrandchildEnv,
   claudeCliCommand,
@@ -199,6 +218,8 @@ export {
   defaultBaseBranch,
   gitCheckoutReview,
   gitDirtyPaths,
+  unexpectedDirtyPaths,
+  unionPaths,
   removeGitWorktree,
   listGitWorktrees,
   defaultGitRunner,
