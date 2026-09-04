@@ -38,8 +38,8 @@ Read milestone doc → implement (no commits) → bun run verify:milestone → f
 | shared | contracts |
 | analyzer / indexer / graph-engine | engine internals |
 | intelligence / impact / navigation / repository-map | domain engines |
-| dispatch | jobs, memories, OAuth drivers, local workers |
-| dispatch-auth | Prism Auth OAuth broker (website `/oauth/*`) |
+| dispatch | jobs, memories, local workers, host-connector discovery |
+| host-session | Core RPC shared by the IDE webview and the Console |
 | core | **public SDK** (analysis) |
 | mcp-server / cli / vscode-extension / cursor-extension / ui | surfaces |
 

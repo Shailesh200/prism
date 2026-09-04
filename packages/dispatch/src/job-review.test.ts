@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { gitReviewSummary, MAX_REVIEW_FILES, type GitRunner } from "./git.js";
-import { reviewSpeak, listJobsSpeak, statusPhrase } from "./job-voice.js";
+import {
+  analysisSpeak,
+  reviewSpeak,
+  listJobsSpeak,
+  statusPhrase,
+} from "./job-voice.js";
 import {
   applyRunToJob,
   formatStallDuration,
@@ -174,6 +179,34 @@ describe("a finished job asks before it lands", () => {
     expect(next.nextStep).toBe("review the changes");
   });
 
+  it("does not bounce a kept review back to needs_review", () => {
+    const run: RunState = {
+      jobId: baseJob.id,
+      phase: "done",
+      lastActivity: "Done",
+      resultSummary: "2 files changed",
+      errorMessage: "",
+      gitSummary: "2 files changed",
+      review,
+      startedAt: baseJob.createdAt,
+      updatedAt: new Date().toISOString(),
+    };
+    const kept: JobRecord = {
+      ...baseJob,
+      status: "done",
+      review: {
+        ...review,
+        keptPaths: review.files.map((file) => file.path),
+      },
+    };
+    const next = applyRunToJob(kept, run);
+    expect(next.status).toBe("done");
+    expect(next.review?.keptPaths).toEqual(
+      review.files.map((file) => file.path),
+    );
+    expect(next.nextStep).toBe("");
+  });
+
   it("still closes a job that produced no reviewable change", () => {
     const run: RunState = {
       jobId: baseJob.id,
@@ -271,5 +304,25 @@ describe("stalled jobs stop claiming progress", () => {
     expect(formatStallDuration(11 * 60_000)).toBe("11m");
     expect(formatStallDuration(64 * 60_000)).toBe("1h 4m");
     expect(formatStallDuration(120 * 60_000)).toBe("2h");
+  });
+});
+
+describe("analysisSpeak", () => {
+  it("lifts thinking and edits out of the console noise", () => {
+    const text = analysisSpeak([
+      { phase: "starting", text: "Teammate starting" },
+      { phase: "running", text: "Teammate is on it" },
+      {
+        phase: "thinking",
+        text: "The repository is Prism. The brief said change nothing, so I will only print the name.",
+      },
+      { phase: "editing", text: "Using Edit on src/job.ts" },
+      { phase: "done", text: "Done — 1 file(s) in your working tree" },
+    ]);
+    expect(text).toMatch(/Why it did that/);
+    expect(text).toMatch(/change nothing/);
+    expect(text).toMatch(/Files it touched/);
+    expect(text).toMatch(/src\/job\.ts/);
+    expect(text).not.toMatch(/Teammate starting/);
   });
 });

@@ -46,7 +46,6 @@ Prism/
 │   ├── repository-map/
 │   ├── core/
 │   ├── dispatch/
-│   ├── dispatch-auth/
 │   ├── ui/
 │   ├── mcp-server/
 │   ├── cli/
@@ -79,8 +78,7 @@ Prism/
 | `packages/*-engine` / domain | Domain algorithms | UI, MCP protocol |
 | `packages/ui` | React Map widgets | Calling analyzer directly |
 | `packages/mcp-server` | MCP wiring | Reimplement graphs |
-| `packages/dispatch` | Jobs, OAuth, workers | Indexer / Core analysis |
-| `packages/dispatch-auth` | Prism Auth broker handlers | Analysis, token store |
+| `packages/dispatch` | Jobs, workers, host-connector discovery | Indexer / Core analysis / network |
 | `packages/cli` | CLI wiring | Reimplement graphs |
 | `packages/*-extension` | IDE wiring + webview | Core reimplementation |
 | `apps/playground` | Demos | Production extension code |

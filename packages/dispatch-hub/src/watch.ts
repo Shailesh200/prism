@@ -10,17 +10,28 @@ import {
   type HubEvent,
   type JobSnapshot,
   type WorkspaceEntry,
+  type WorkspaceError,
 } from "./types.js";
+
+export type { WorkspaceError };
 
 const DEBOUNCE_MS = 250;
 const POLL_MS = 2_000;
 
 export type WatchEmit = (event: HubEvent) => void;
 
+export type CollectResult = {
+  readonly jobs: JobSnapshot[];
+  readonly errors: WorkspaceError[];
+};
+
 export type WorkspaceWatch = {
-  readonly refresh: () => Promise<void>;
+  readonly refresh: (opts?: { drain?: boolean }) => Promise<void>;
   readonly close: () => void;
   readonly jobs: () => readonly JobSnapshot[];
+  readonly errors: () => readonly WorkspaceError[];
+  /** When the last successful read completed — the board's "as of" time. */
+  readonly asOf: () => string;
 };
 
 async function pathExists(path: string): Promise<boolean> {
@@ -40,39 +51,55 @@ export function isTerminal(job: JobSnapshot): boolean {
   return TERMINAL_STATUSES.includes(job.status);
 }
 
+/**
+ * Read every registered workspace.
+ *
+ * Failures are **reported, not swallowed** (M-067 P-S2 data integrity). The
+ * old empty `catch` meant a repo whose `.prism/dispatch` had gone unreadable
+ * simply vanished from the board with no explanation — indistinguishable from
+ * a repo with no jobs. Now the caller gets the error and the UI can say which
+ * workspace it could not read.
+ */
 export async function collectJobs(
   workspaces: readonly WorkspaceEntry[],
-  now = Date.now(),
-): Promise<JobSnapshot[]> {
+): Promise<CollectResult> {
   const jobs: JobSnapshot[] = [];
+  const errors: WorkspaceError[] = [];
   for (const entry of workspaces) {
     try {
       const records = await reapJobs(entry.path);
       for (const record of records) {
-        jobs.push(toSnapshot(record, entry.path, now));
+        jobs.push(toSnapshot(record, entry.path));
       }
-    } catch {
-      /* a missing dispatch dir is not a hub failure */
+    } catch (cause) {
+      errors.push({
+        workspacePath: entry.path,
+        label: entry.label,
+        detail: cause instanceof Error ? cause.message : String(cause),
+      });
     }
   }
-  return jobs;
+  return { jobs, errors };
 }
 
 /**
  * Diff two snapshots. `job.finished` fires once per terminal transition
  * (deduped by workspace+id+status+updatedAt).
  */
+function jobKey(job: Pick<JobSnapshot, "workspacePath" | "id">): string {
+  return `${job.workspacePath}:${job.id}`;
+}
+
 export function diffJobs(
   previous: readonly JobSnapshot[],
   next: readonly JobSnapshot[],
   seenFinished: Set<string>,
 ): HubEvent[] {
-  const prevById = new Map(
-    previous.map((job) => [`${job.workspacePath}:${job.id}`, job]),
-  );
+  const prevById = new Map(previous.map((job) => [jobKey(job), job]));
+  const nextKeys = new Set(next.map(jobKey));
   const events: HubEvent[] = [];
   for (const job of next) {
-    const key = `${job.workspacePath}:${job.id}`;
+    const key = jobKey(job);
     const before = prevById.get(key);
     if (!before) {
       events.push({ type: "job.updated", job });
@@ -92,6 +119,11 @@ export function diffJobs(
       }
     }
   }
+  for (const job of previous) {
+    if (!nextKeys.has(jobKey(job))) {
+      events.push({ type: "job.removed", job });
+    }
+  }
   return events;
 }
 
@@ -101,24 +133,45 @@ export function watchWorkspaces(
   options: {
     readonly debounceMs?: number | undefined;
     readonly pollMs?: number | undefined;
+    /** Advance the job queue for one workspace before reading it (ADR-0047). */
+    readonly drain?: ((workspacePath: string) => Promise<void>) | undefined;
   } = {},
 ): WorkspaceWatch {
   const debounceMs = options.debounceMs ?? DEBOUNCE_MS;
   const pollMs = options.pollMs ?? POLL_MS;
   let snapshots: JobSnapshot[] = [];
+  let workspaceErrors: WorkspaceError[] = [];
+  let asOf = new Date().toISOString();
   const seenFinished = new Set<string>();
   const watchers = new Map<string, FSWatcher[]>();
   let timer: ReturnType<typeof setTimeout> | undefined;
   let poll: ReturnType<typeof setInterval> | undefined;
   let closed = false;
 
-  const refresh = async (): Promise<void> => {
+  const refresh = async (opts?: { drain?: boolean }): Promise<void> => {
     if (closed) return;
-    const next = await collectJobs(getWorkspaces());
+    // Drain before reading, so a queued job becomes a running job in the same
+    // tick the board renders (ADR-0047). This is the safety net for jobs whose
+    // originating MCP process exited before its own kick landed.
+    // Control actions (delete) skip drain so the board does not wait on a
+    // worker spawn just to drop a row that is already gone from disk.
+    if (opts?.drain !== false && options.drain) {
+      for (const entry of getWorkspaces()) {
+        await options.drain(entry.path).catch(() => {
+          /* a failed drain leaves the job queued; the next tick retries */
+        });
+      }
+    }
+    const { jobs: next, errors } = await collectJobs(getWorkspaces());
     const events = diffJobs(snapshots, next, seenFinished);
+    const errorsChanged =
+      errors.length !== workspaceErrors.length ||
+      errors.some((row, i) => row.detail !== workspaceErrors[i]?.detail);
     snapshots = next;
-    if (events.length > 0) {
-      emit({ type: "snapshot", jobs: next });
+    workspaceErrors = errors;
+    asOf = new Date().toISOString();
+    if (events.length > 0 || errorsChanged) {
+      emit({ type: "snapshot", jobs: next, asOf, errors });
       for (const event of events) emit(event);
     }
   };
@@ -161,11 +214,14 @@ export function watchWorkspaces(
   };
 
   void (async () => {
-    snapshots = await collectJobs(getWorkspaces());
+    const initial = await collectJobs(getWorkspaces());
+    snapshots = initial.jobs;
+    workspaceErrors = initial.errors;
+    asOf = new Date().toISOString();
     for (const job of snapshots) {
       if (isTerminal(job)) seenFinished.add(finishedKey(job));
     }
-    emit({ type: "snapshot", jobs: snapshots });
+    emit({ type: "snapshot", jobs: snapshots, asOf, errors: workspaceErrors });
     syncWatchers();
     if (closed) return;
     poll = setInterval(() => {
@@ -178,6 +234,8 @@ export function watchWorkspaces(
   return {
     refresh,
     jobs: () => snapshots,
+    errors: () => workspaceErrors,
+    asOf: () => asOf,
     close: () => {
       closed = true;
       if (timer) clearTimeout(timer);

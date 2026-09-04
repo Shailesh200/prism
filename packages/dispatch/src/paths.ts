@@ -17,14 +17,6 @@ export function memoryPath(workspaceRoot: string): string {
   return join(dispatchDir(workspaceRoot), "memory.json");
 }
 
-export function secretsPath(workspaceRoot: string): string {
-  return join(dispatchDir(workspaceRoot), "secrets.json");
-}
-
-export function oauthAppsPath(workspaceRoot: string): string {
-  return join(dispatchDir(workspaceRoot), "oauth-apps.json");
-}
-
 export function worktreesDir(workspaceRoot: string): string {
   return join(dispatchDir(workspaceRoot), "worktrees");
 }
@@ -43,6 +35,20 @@ export function runStatePath(workspaceRoot: string, jobId: string): string {
 
 export function spawnPayloadPath(workspaceRoot: string, jobId: string): string {
   return join(runsDir(workspaceRoot), `${runFileId(jobId)}.spawn.json`);
+}
+
+/**
+ * The worker's own `mcp.json`, holding only worker-role Prism (ADR-0050).
+ *
+ * Per job rather than shared: two jobs can be resolved against different
+ * workspace roots, and a shared file would give the second one the first one's
+ * repository.
+ */
+export function workerMcpConfigPath(
+  workspaceRoot: string,
+  jobId: string,
+): string {
+  return join(runsDir(workspaceRoot), `${runFileId(jobId)}.mcp.json`);
 }
 
 /** Append-only console log for one job (JSONL). */

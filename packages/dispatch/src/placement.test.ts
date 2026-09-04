@@ -4,18 +4,29 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { saveConfig } from "./config.js";
 import { createDispatchRuntime } from "./runtime.js";
+import { dispatchAndDrain, drain } from "./drain-harness.js";
 import { upsertJob } from "./jobs.js";
-import { defaultGitRunner, gitCheckoutReview, gitDirtyPaths } from "./git.js";
+import {
+  defaultGitRunner,
+  gitCheckoutReview,
+  gitDirtyPaths,
+  restoreCheckoutPaths,
+  diffPathSides,
+} from "./git.js";
 import { completeWorkerRun } from "./worker-finish.js";
 import { reviewSpeak } from "./job-voice.js";
 import type { GitRunner } from "./git.js";
 import type { WorkerPort } from "./worker.js";
 import type { JobRecord, JobReview } from "./types.js";
 import type { RunState } from "./run-state.js";
+import { settleDrains } from "./queue.js";
 
 let root: string | undefined;
 
 afterEach(async () => {
+  // A kicked drain outlives the call that started it; removing the root
+  // underneath one is how this suite raced itself into ENOTEMPTY.
+  await settleDrains();
   if (root) await rm(root, { recursive: true, force: true });
   root = undefined;
 });
@@ -106,14 +117,16 @@ describe("checkout-first placement (ADR-0045)", () => {
       worker: capturingWorker(seen),
       env: { CURSOR_API_KEY: "k" },
     });
-    const result = (await runtime.handle("start_job", {
+    const result = await dispatchAndDrain(runtime, {
       title: "fix login",
       jobId: "fix-login",
-    })) as { job: JobRecord; message: string };
-    expect(result.job.placement).toBe("checkout");
-    expect(result.job.source).toBe("checkout");
-    expect(result.job.worktreePath).toBe(root);
-    expect(result.job.branch).toBe("main");
+    });
+    // Chat is told immediately, before any git or sign-in work (ADR-0047).
+    expect(result.accepted.job?.status).toBe("queued");
+    expect(result.job?.placement).toBe("checkout");
+    expect(result.job?.source).toBe("checkout");
+    expect(result.job?.worktreePath).toBe(root);
+    expect(result.job?.branch).toBe("main");
     expect(seen.cwd).toBe(root);
     expect(seen.placement).toBe("checkout");
     expect(seen.prompt).toContain("user's own working tree");
@@ -131,26 +144,58 @@ describe("checkout-first placement (ADR-0045)", () => {
       worker: capturingWorker(seen),
       env: { CURSOR_API_KEY: "k" },
     });
-    const first = (await runtime.handle("start_job", {
+    const first = await dispatchAndDrain(runtime, {
       title: "fix login",
       jobId: "fix-login",
-    })) as { needsConfirm?: boolean; message: string; job?: JobRecord };
-    expect(first.needsConfirm).toBe(true);
-    expect(first.message).toMatch(/work alongside/i);
-    expect(first.job).toBeUndefined();
+    });
+    // The gate now leaves a visible job behind instead of a message and
+    // nothing else — before M-067 the dispatch simply vanished.
+    expect(first.job?.status).toBe("needs_confirm");
+    expect(first.job?.confirm?.arg).toBe("confirmDirty");
+    expect(first.job?.confirm?.question).toMatch(/work alongside/i);
+    expect(first.job?.confirm?.dirtyPaths).toEqual(["notes.txt", "src/app.ts"]);
     expect(seen.calls).toEqual([]);
 
-    const confirmed = (await runtime.handle("start_job", {
+    const confirmed = await dispatchAndDrain(runtime, {
       title: "fix login",
       jobId: "fix-login",
       confirmDirty: true,
-    })) as { job: JobRecord };
-    expect(confirmed.job.placement).toBe("checkout");
-    expect(confirmed.job.preExistingChanges).toEqual([
+    });
+    expect(confirmed.job?.status).toBe("running");
+    expect(confirmed.job?.confirm).toBeUndefined();
+    expect(confirmed.job?.placement).toBe("checkout");
+    expect(confirmed.job?.preExistingChanges).toEqual([
       "notes.txt",
       "src/app.ts",
     ]);
     expect(seen.preExisting).toEqual(["notes.txt", "src/app.ts"]);
+  });
+
+  it("clears a dirty-tree gate through job_control confirm, which is what the board's button calls", async () => {
+    root = await tempRoot();
+    const seen = makeSeen();
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git: makeGit({ "status --porcelain": " M src/app.ts\n" }),
+      worker: capturingWorker(seen),
+      env: { CURSOR_API_KEY: "k" },
+    });
+    const gated = await dispatchAndDrain(runtime, {
+      title: "fix login",
+      jobId: "fix-login",
+    });
+    expect(gated.job?.status).toBe("needs_confirm");
+
+    const answered = (await runtime.handle("job_control", {
+      jobId: "fix-login",
+      action: "confirm",
+    })) as { job: JobRecord };
+    expect(answered.job.status).toBe("queued");
+    expect(answered.job.confirmed).toContain("confirmDirty");
+
+    const after = await drain(runtime);
+    expect(after.find((row) => row.id === "fix-login")?.status).toBe("running");
+    expect(seen.calls).toEqual(["start:fix-login"]);
   });
 
   it("honours an explicit worktree ask", async () => {
@@ -162,13 +207,13 @@ describe("checkout-first placement (ADR-0045)", () => {
       worker: capturingWorker(seen),
       env: { CURSOR_API_KEY: "k" },
     });
-    const result = (await runtime.handle("start_job", {
+    const result = await dispatchAndDrain(runtime, {
       title: "fix login",
       jobId: "fix-login",
       placement: "worktree",
-    })) as { job: JobRecord };
-    expect(result.job.placement).toBe("worktree");
-    expect(result.job.source).not.toBe("checkout");
+    });
+    expect(result.job?.placement).toBe("worktree");
+    expect(result.job?.source).not.toBe("checkout");
     expect(seen.placement).toBe("worktree");
   });
 
@@ -182,11 +227,11 @@ describe("checkout-first placement (ADR-0045)", () => {
       worker: capturingWorker(seen),
       env: { CURSOR_API_KEY: "k" },
     });
-    const result = (await runtime.handle("start_job", {
+    const result = await dispatchAndDrain(runtime, {
       title: "fix login",
       jobId: "fix-login",
-    })) as { job: JobRecord };
-    expect(result.job.placement).toBe("worktree");
+    });
+    expect(result.job?.placement).toBe("worktree");
   });
 
   it("moves a concurrent second job to a worktree and says why", async () => {
@@ -208,12 +253,14 @@ describe("checkout-first placement (ADR-0045)", () => {
       worker: capturingWorker(seen),
       env: { CURSOR_API_KEY: "k" },
     });
-    const result = (await runtime.handle("start_job", {
+    const result = await dispatchAndDrain(runtime, {
       title: "second job",
       jobId: "second-job",
-    })) as { job: JobRecord; message: string };
-    expect(result.job.placement).toBe("worktree");
-    expect(result.message).toMatch(/already has a teammate/i);
+    });
+    expect(result.job?.placement).toBe("worktree");
+    // The explanation now rides on the job (the drain decides placement, long
+    // after chat has been answered), so the board can show it too.
+    expect(result.job?.lastStep).toMatch(/already had a teammate/i);
   });
 
   it("commit stages only the job's files, on the current branch", async () => {
@@ -341,6 +388,32 @@ describe("gitCheckoutReview", () => {
     expect(review.merged).toBe(false);
   });
 
+  it("does not treat a pre-existing rename as the job's work", async () => {
+    const git = makeGit({
+      "diff --numstat HEAD":
+        "39\t8\tpackages/{vscode-extension => host-session}/src/host-dispatch.ts\n10\t0\tsrc/job.ts\n",
+      "status --porcelain":
+        "RM packages/vscode-extension/src/host-dispatch.ts -> packages/host-session/src/host-dispatch.ts\n M src/job.ts\n",
+    });
+    const review = await gitCheckoutReview(
+      "/tmp/x",
+      {
+        preExisting: [
+          "packages/vscode-extension/src/host-dispatch.ts",
+          "packages/host-session/src/host-dispatch.ts",
+        ],
+      },
+      git,
+    );
+    expect(review.files.map((file) => file.path)).toEqual(["src/job.ts"]);
+    expect(review.mixedPaths).toEqual(
+      expect.arrayContaining([
+        "packages/host-session/src/host-dispatch.ts",
+        "packages/vscode-extension/src/host-dispatch.ts",
+      ]),
+    );
+  });
+
   it("is empty when nothing changed", async () => {
     const review = await gitCheckoutReview("/tmp/x", { preExisting: [] });
     expect(review.files).toEqual([]);
@@ -354,6 +427,52 @@ describe("gitDirtyPaths", () => {
         " M src/app.ts\n?? .prism/cache/x\n M node_modules/pkg/y\n",
     });
     expect(await gitDirtyPaths("/tmp/x", git)).toEqual(["src/app.ts"]);
+  });
+
+  it("records both sides of a porcelain rename", async () => {
+    const git = makeGit({
+      "status --porcelain":
+        "RM packages/vscode-extension/src/host-dispatch.ts -> packages/host-session/src/host-dispatch.ts\n",
+    });
+    expect(await gitDirtyPaths("/tmp/x", git)).toEqual([
+      "packages/host-session/src/host-dispatch.ts",
+      "packages/vscode-extension/src/host-dispatch.ts",
+    ]);
+  });
+});
+
+describe("diffPathSides", () => {
+  it("expands compact git rename paths", () => {
+    expect(
+      diffPathSides(
+        "packages/{vscode-extension => host-session}/src/host-dispatch.ts",
+      ),
+    ).toEqual([
+      "packages/vscode-extension/src/host-dispatch.ts",
+      "packages/host-session/src/host-dispatch.ts",
+    ]);
+  });
+});
+
+describe("restoreCheckoutPaths", () => {
+  it("skips mixed files and restores the rest", async () => {
+    const seen: string[] = [];
+    const git: GitRunner = async (_cwd, args) => {
+      seen.push(args.join(" "));
+      return { ok: true, stdout: "", stderr: "" };
+    };
+    const result = await restoreCheckoutPaths(
+      "/tmp/x",
+      {
+        paths: ["src/job.ts", "src/app.ts"],
+        mixedPaths: ["src/app.ts"],
+      },
+      git,
+    );
+    expect(result.restored).toEqual(["src/job.ts"]);
+    expect(result.skipped).toEqual(["src/app.ts"]);
+    expect(seen.some((row) => row.includes("src/job.ts"))).toBe(true);
+    expect(seen.some((row) => row.includes("src/app.ts"))).toBe(false);
   });
 });
 

@@ -57,4 +57,10 @@ describe("job snapshot diff", () => {
     );
     expect(events.some((event) => event.type === "job.updated")).toBe(true);
   });
+
+  it("emits job.removed when a record disappears from disk", () => {
+    const seen = new Set<string>();
+    const events = diffJobs([job({})], [], seen);
+    expect(events.some((event) => event.type === "job.removed")).toBe(true);
+  });
 });

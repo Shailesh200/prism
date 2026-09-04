@@ -35,6 +35,9 @@ describe("git runner isolation", () => {
     return root;
   }
 
+  // Six real git subprocesses to build the fixture plus one to assert on. The
+  // default 5s budget is fine alone but starves when the whole package runs in
+  // parallel, so this asserts isolation, not speed.
   it("still sees a real repo when GIT_DIR is inherited and wrong", async () => {
     const root = await gitRepo();
     const previous = process.env.GIT_DIR;
@@ -50,7 +53,7 @@ describe("git runner isolation", () => {
       if (previous === undefined) delete process.env.GIT_DIR;
       else process.env.GIT_DIR = previous;
     }
-  });
+  }, 30_000);
 
   it("strips git override variables from the child env", () => {
     const env = gitChildEnv({

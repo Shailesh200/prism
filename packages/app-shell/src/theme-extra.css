@@ -952,3 +952,33 @@ html[data-theme="light"] .dm-pipe-table th {
     color: var(--prism-ink-muted);
   }
 }
+
+/*
+ * View transitions (ADR-0051).
+ *
+ * The webview swaps whole screens with no route change, so without this a
+ * click from Overview to Blast Radius repaints instantly and gives no sense
+ * that anything moved. Keyed on the active view so React remounts the node
+ * and the animation replays.
+ */
+@keyframes prism-view-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.ov-main > .ov-scroll {
+  animation: prism-view-enter var(--prism-dur-2, 200ms)
+    var(--prism-ease-out, ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ov-main > .ov-scroll {
+    animation: none;
+  }
+}

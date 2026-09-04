@@ -6,6 +6,7 @@ dependsOn:
   - shared
   - ui
   - app-shell
+  - host-session
 tasks:
   build:
     command: "bun run build"
@@ -13,6 +14,7 @@ tasks:
       - "core:build"
       - "ui:build"
       - "app-shell:build"
+      - "host-session:build"
     inputs:
       - "src/**/*"
       - "scripts/**/*"
@@ -27,6 +29,7 @@ tasks:
       - "core:build"
       - "ui:build"
       - "app-shell:build"
+      - "host-session:build"
     inputs:
       - "src/**/*"
       - "tsconfig.json"
@@ -35,6 +38,7 @@ tasks:
     deps:
       - "core:build"
       - "app-shell:build"
+      - "host-session:build"
     inputs:
       - "src/**/*"
       - "vitest.config.ts"

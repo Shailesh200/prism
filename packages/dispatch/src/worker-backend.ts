@@ -8,7 +8,7 @@
  * the MCP client's own name → Cursor (the pre-M-065 default).
  */
 
-import { clientLooksLikeClaude } from "./connect-ux.js";
+import { clientLooksLikeClaude } from "./host-client.js";
 import type { WorkerBackend, WorkerBackendSetting } from "./types.js";
 
 export type { WorkerBackend, WorkerBackendSetting };

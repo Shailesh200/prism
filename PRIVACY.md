@@ -74,21 +74,21 @@ Everything is under `.prism/` in the repository you opened:
 | `.prism/consent.json` | Your consent decisions |
 | `.prism/history/` | Health scores over time |
 | `.prism/tools/` | Locally installed measurement tools, if you consented to that |
-| `.prism/dispatch/` | Dispatch jobs, config, memories (gitignored). User tokens are not stored here when the OS keychain is available |
+| `.prism/dispatch/` | Dispatch jobs, config, memories (gitignored) |
 
-No analysis credential is written to `.prism/`. Dispatch OAuth **user tokens**
-live in the OS keychain (a `0600` fallback file is used only when keychain is
-unavailable, and is gitignored).
+No credential of any kind is written to `.prism/`.
 
-**Prism Auth** (`https://auth.prismhq.in`) is the OAuth broker for Dispatch
-connectors. It holds Prism's vendor app secrets, sees the authorization code
-during connect, and returns a short-lived encrypted pickup to your machine. It
-does not store your access tokens, and it never sees your repository or index.
-When a vendor token expires (Google Calendar is ~1 hour), the local MCP POSTs
-only the refresh token to `/oauth/refresh`; the broker returns a new access
-token and still does not persist it.
-Completing the vendor grant (Cursor Authenticate, or the page Claude opens)
-is how you turn a driver on.
+**Prism holds no third-party credentials.** Earlier versions ran an OAuth
+broker at `auth.prismhq.in` so Dispatch could read Slack, Linear, Jira, Notion,
+GitHub and Google Calendar. That is gone, and the service is retired. Dispatch
+makes no network calls at all.
+
+Those services are now reached by your agent window — Cursor or Claude Code —
+using connectors you authenticated there. Prism reads your editor's plugin and
+MCP manifests to learn which connectors exist: names, descriptions and skill
+lists only. It does not read tokens, secrets or OAuth client secrets, and
+discovery opens no network connection. When a briefing needs Slack, Prism names
+the section and your agent makes the call.
 
 Prism offers to add `.prism/` to your `.gitignore`. It contains no secrets, but
 it is derived build output and does not belong in version control.

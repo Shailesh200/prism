@@ -294,6 +294,7 @@
   "dependencies": {
     "@repo-prism/app-shell": "workspace:*",
     "@repo-prism/core": "workspace:*",
+    "@repo-prism/host-session": "workspace:*",
     "@repo-prism/shared": "workspace:*",
     "@repo-prism/ui": "workspace:*",
     "better-sqlite3": "^12.11.1",

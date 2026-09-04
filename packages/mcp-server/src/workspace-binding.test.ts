@@ -99,36 +99,142 @@ describe("workspace binding", () => {
 });
 
 describe("MCP roots rebind the live workspace", () => {
-  it("switches onto the client's open git folder after initialize", async () => {
-    const launch = mkdtempSync(join(tmpdir(), "prism-mcp-launch-"));
-    const repo = mkdtempSync(join(tmpdir(), "prism-mcp-repo-"));
-    writeFileSync(join(repo, ".git"), "gitdir: /somewhere");
+  const temps: string[] = [];
+
+  afterEach(() => {
+    for (const dir of temps.splice(0)) {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  function tempDir(): string {
+    const dir = mkdtempSync(join(tmpdir(), "prism-mcp-roots-"));
+    temps.push(dir);
+    return dir;
+  }
+
+  function gitDir(): string {
+    const root = tempDir();
+    writeFileSync(join(root, ".git"), "gitdir: /somewhere");
+    return root;
+  }
+
+  async function connectWithRoots(
+    handler: () => Promise<{ roots: Array<{ uri: string }> }>,
+  ) {
+    const launch = tempDir();
     const built = createPrismMcpServer({
       workspaceRoot: launch,
       workspaceSource: "cwd",
     });
     const client = new Client(
       { name: "roots-test", version: "0.0.0" },
-      { capabilities: { roots: {} } },
+      { capabilities: { roots: { listChanged: true } } },
     );
-    client.setRequestHandler(ListRootsRequestSchema, async () => ({
-      roots: [{ uri: pathToFileURL(repo).href }],
-    }));
+    client.setRequestHandler(ListRootsRequestSchema, handler);
     const [clientTransport, serverTransport] =
       InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      built.server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+    return { built, client };
+  }
+
+  it("switches onto the client's open git folder after initialize", async () => {
+    const repo = gitDir();
+    const { built, client } = await connectWithRoots(async () => ({
+      roots: [{ uri: pathToFileURL(repo).href }],
+    }));
     try {
-      await Promise.all([
-        built.server.connect(serverTransport),
-        client.connect(clientTransport),
-      ]);
       await built.applyClientRoots();
       expect(built.binding.current()).toBe(repo);
       expect(built.binding.source()).toBe("mcp roots");
     } finally {
       built.session.close();
       await client.close();
-      rmSync(launch, { recursive: true, force: true });
-      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("retries after a transient listRoots failure instead of latching", async () => {
+    const repo = gitDir();
+    let failures = 1;
+    const { built, client } = await connectWithRoots(async () => {
+      if (failures > 0) {
+        failures -= 1;
+        throw new Error("timed out");
+      }
+      return { roots: [{ uri: pathToFileURL(repo).href }] };
+    });
+    try {
+      await built.applyClientRoots();
+      expect(built.binding.source()).toBe("cwd");
+      await built.applyClientRoots();
+      expect(built.binding.current()).toBe(repo);
+      expect(built.binding.source()).toBe("mcp roots");
+    } finally {
+      built.session.close();
+      await client.close();
+    }
+  });
+
+  it("stops asking once the client proves it has no roots capability", async () => {
+    const launch = tempDir();
+    const built = createPrismMcpServer({
+      workspaceRoot: launch,
+      workspaceSource: "cwd",
+    });
+    // No roots capability — listRoots rejects inside the SDK.
+    const client = new Client({ name: "no-roots", version: "0.0.0" }, {});
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    let calls = 0;
+    const original = built.server.server.listRoots.bind(built.server.server);
+    built.server.server.listRoots = (async (
+      ...args: Parameters<typeof original>
+    ) => {
+      calls += 1;
+      return original(...args);
+    }) as typeof original;
+    try {
+      await Promise.all([
+        built.server.connect(serverTransport),
+        client.connect(clientTransport),
+      ]);
+      await built.applyClientRoots();
+      await built.applyClientRoots();
+      expect(calls).toBe(1);
+      expect(built.binding.source()).toBe("cwd");
+    } finally {
+      built.session.close();
+      await client.close();
+    }
+  });
+
+  it("re-resolves when the client notifies roots/list_changed", async () => {
+    const first = gitDir();
+    const second = gitDir();
+    let current = first;
+    const { built, client } = await connectWithRoots(async () => ({
+      roots: [{ uri: pathToFileURL(current).href }],
+    }));
+    try {
+      await built.applyClientRoots();
+      expect(built.binding.current()).toBe(first);
+
+      current = second;
+      await client.notification({ method: "notifications/roots/list_changed" });
+
+      const deadline = Date.now() + 2000;
+      while (built.binding.current() !== second) {
+        if (Date.now() > deadline) break;
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+      expect(built.binding.current()).toBe(second);
+      expect(built.binding.source()).toBe("mcp roots");
+    } finally {
+      built.session.close();
+      await client.close();
     }
   });
 });

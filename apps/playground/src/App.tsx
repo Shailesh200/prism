@@ -1,6 +1,7 @@
 import { RepositoryMapView } from "@repo-prism/ui";
 import {
   AppShellClientProvider,
+  ConsoleJobsScreen,
   AppSidebar,
   BlastRadiusScreen,
   ChangeReviewScreen,
@@ -22,6 +23,7 @@ import {
   withAudit,
   SETTINGS_STORAGE_KEY,
   type AppShellClient,
+  type AppView,
   type DomainOverlayStatus,
   type ImpactTarget,
   type MapPayload,
@@ -41,6 +43,7 @@ import type {
   UtilityOverlayReport,
   BackendReport,
 } from "@repo-prism/shared";
+import { NO_CONSOLE_STATUS } from "@repo-prism/shared";
 import {
   useCallback,
   useEffect,
@@ -92,6 +95,7 @@ import {
   startHealthHistoryBackfill,
   type PlaygroundPreset,
 } from "./map-client.js";
+import { parsePlaygroundView, playgroundHash } from "./hash-route.js";
 
 /** A cached domain analysis run so re-opening a domain doesn't re-analyze. */
 type DomainRun = {
@@ -139,21 +143,28 @@ export function App(): ReactElement {
   const [loading, setLoading] = useState(true);
   /** Bumped on Start Indexing so a same-path reindex still refetches. */
   const [indexNonce, setIndexNonce] = useState(0);
-  const [view, setView] = useState<
-    | "map"
-    | "overview"
-    | "dna"
-    | "profile"
-    | "domains"
-    | "domain"
-    | "testing"
-    | "blast"
-    | "trends"
-    | "integrations"
-    | "settings"
-    | "review"
-    | "explain"
-  >("map");
+  const [view, setViewState] = useState<AppView>(
+    () => parsePlaygroundView(window.location.hash) ?? "map",
+  );
+  const setView = useCallback((v: AppView) => {
+    setViewState(v);
+    const next = playgroundHash(v);
+    if (window.location.hash !== next) {
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}${next}`,
+      );
+    }
+  }, []);
+  useEffect(() => {
+    const onHash = (): void => {
+      const next = parsePlaygroundView(window.location.hash);
+      if (next) setViewState(next);
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
   const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
   const [blastSeedPath, setBlastSeedPath] = useState<string | null>(null);
   const [settingsSection, setSettingsSection] =
@@ -296,29 +307,10 @@ export function App(): ReactElement {
     };
   }, [root, zoom, layers]);
 
-  const navigate = useCallback(
-    (
-      v:
-        | "map"
-        | "overview"
-        | "dna"
-        | "profile"
-        | "domains"
-        | "domain"
-        | "testing"
-        | "blast"
-        | "trends"
-        | "integrations"
-        | "settings"
-        | "review"
-        | "explain",
-    ) => {
-      // M-062: Profile merged into DNA — keep deep-links working.
-      setView(v === "profile" ? "dna" : v);
-      if (v !== "settings") setSettingsSection("general");
-    },
-    [],
-  );
+  const navigate = useCallback((v: AppView) => {
+    setView(v);
+    if (v !== "settings") setSettingsSection("general");
+  }, []);
 
   const openAuditLogs = useCallback((category?: string) => {
     setAuditCategory(category);
@@ -638,7 +630,7 @@ export function App(): ReactElement {
             }}
             onSyncGit={() => refreshGit(root)}
           />
-        ) : view === "dna" || view === "profile" ? (
+        ) : view === "dna" ? (
           <DnaScreen
             repoLabel={rootLabel}
             branch={gitActivity?.summary?.branch}
@@ -704,6 +696,16 @@ export function App(): ReactElement {
             repoLabel={rootLabel}
             branch={gitActivity?.summary?.branch}
             user={gitActivity?.recentCommits[0] ?? null}
+            onNavigate={navigate}
+          />
+        ) : view === "jobs" ? (
+          <ConsoleJobsScreen
+            repoLabel={rootLabel}
+            // The playground builds its client by hand and has no Console
+            // link, so this renders the "not running" state. Honest: the
+            // playground genuinely cannot see Dispatch jobs.
+            status={NO_CONSOLE_STATUS}
+            onRetry={() => undefined}
             onNavigate={navigate}
           />
         ) : view === "explain" ? (

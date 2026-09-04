@@ -40,6 +40,8 @@ export function statusPhrase(status: string): string {
 /** Statuses that mean a teammate is still on it. */
 export function isLiveJobStatus(status: string): boolean {
   return (
+    status === "queued" ||
+    status === "needs_confirm" ||
     status === "running" ||
     status === "booting" ||
     status === "ready" ||
@@ -49,7 +51,36 @@ export function isLiveJobStatus(status: string): boolean {
 }
 
 /** How many console lines a chat reply shows before it stops. */
-const SPOKEN_LOG_LINES = 12;
+const SPOKEN_LOG_LINES = 16;
+
+const NOISE_LOG = /^(Teammate starting|Teammate is on it|Done —)/i;
+
+export function analysisSpeak(
+  entries: readonly { phase: string; text: string }[],
+): string {
+  const thinking = entries.filter(
+    (entry) =>
+      entry.phase === "thinking" &&
+      entry.text.trim().length >= 20 &&
+      !NOISE_LOG.test(entry.text.trim()),
+  );
+  const edits = entries.filter((entry) => entry.phase === "editing");
+  const parts: string[] = [];
+  if (thinking.length > 0) {
+    parts.push("Why it did that:");
+    for (const entry of thinking.slice(-4)) {
+      const text = entry.text.replace(/\s+/g, " ").trim();
+      parts.push(`  • ${text.length > 320 ? `${text.slice(0, 317)}…` : text}`);
+    }
+  }
+  if (edits.length > 0) {
+    parts.push("Files it touched:");
+    for (const entry of edits.slice(-6)) {
+      parts.push(`  • ${entry.text}`);
+    }
+  }
+  return parts.join("\n");
+}
 
 export function jobLogsSpeak(
   job: { id: string; title: string; status: string },
@@ -65,12 +96,20 @@ export function jobLogsSpeak(
   if (entries.length === 0) {
     return `${head}. No console output yet.`;
   }
-  const shown = entries.slice(-SPOKEN_LOG_LINES);
+  const useful = entries.filter(
+    (entry) =>
+      !NOISE_LOG.test(entry.text.trim()) ||
+      entry.phase === "failed" ||
+      entry.phase === "editing",
+  );
+  const shown = (useful.length > 0 ? useful : entries).slice(-SPOKEN_LOG_LINES);
   // Subagent lines are marked, not flattened away (M-066 P-P6).
   const lines = shown.map(
     (entry) => `  ${entry.parent ? "↳ " : ""}${entry.phase}: ${entry.text}`,
   );
   const parts = [head, ...lines];
+  const analysis = analysisSpeak(entries);
+  if (analysis) parts.push("", analysis);
   if (job.status === "needs_review" && review) {
     parts.push("", reviewSpeak(job, review));
   }
@@ -134,7 +173,7 @@ export function doctorSpeak(
     return "This machine is low on disk. Free some space, then start a job again.";
   }
   if (byId.ram === false) {
-    return "This machine is low on memory. Close extra Cursor windows, then start a job.";
+    return "This machine is low on memory. Close extra Cursor or browser windows, then start a job.";
   }
   if (checks.every((check) => check.ok)) {
     return `${signedInSpeak()} Say “start working on …” when you want a teammate on a ticket.`;
@@ -142,16 +181,36 @@ export function doctorSpeak(
   return "Something needs a moment. Say prism init, then try again.";
 }
 
-export function startJobSpeak(job: JobRecord): string {
+/**
+ * What chat says the instant a job is accepted (ADR-0047).
+ *
+ * This replaced `startJobSpeak`, which promised "a teammate is working". Since
+ * `start_job` now returns before the worker exists, that promise was a lie for
+ * the first few seconds — and a much longer lie whenever the drain parked the
+ * job on sign-in. There is no chat turn at the moment the worker actually
+ * launches, so nothing speaks then; the board and `list_jobs` carry it.
+ */
+export function queuedJobSpeak(job: JobRecord): string {
   const id = displayJobId(job);
   const where =
-    job.placement === "checkout"
-      ? "A teammate is working right in your working tree — edits appear as it goes, and nothing is committed until you ask."
-      : "A teammate is working in its own worktree, so you can keep chatting or start another job.";
+    job.placement === "worktree"
+      ? "It will take its own worktree and branch."
+      : "It will work right in your working tree, and nothing gets committed until you ask.";
   return [
-    `Started ${jobRef(job)}. ${where}`,
-    `Say “where are we” anytime for live status — including when it finishes or if it fails.`,
+    `Queued ${jobRef(job)}. ${where}`,
+    `It starts on its own — say “where are we” for live status.`,
     `Pause or cancel with “pause ${id}”.`,
+  ].join(" ");
+}
+
+/** A job parked on a gate that only the user can clear. */
+export function needsConfirmSpeak(job: JobRecord): string {
+  const question = job.confirm?.question?.trim();
+  const id = displayJobId(job);
+  return [
+    `${jobRef(job)} is waiting on you.`,
+    question ?? "It needs a confirmation before it can start.",
+    `Say “yes, start ${id}” to go ahead, or cancel it.`,
   ].join(" ");
 }
 
@@ -184,6 +243,10 @@ export type JobListRow = {
   resultSummary?: string;
   errorMessage?: string;
   review?: JobReview;
+  /** The gate question, when `status` is `needs_confirm`. */
+  confirmQuestion?: string;
+  /** Why a `queued` job has not started yet, when the drain knows. */
+  nextStep?: string;
 };
 
 export function listJobsSpeak(rows: readonly JobListRow[]): string {
@@ -196,6 +259,9 @@ export function listJobsSpeak(rows: readonly JobListRow[]): string {
       job.status === "error" ||
       job.status === "needs_review",
   );
+  // A gated job leads, because it is the only kind that will never move
+  // without the user (ADR-0047).
+  const gated = rows.filter((job) => job.status === "needs_confirm");
   const live = rows.filter(
     (job) =>
       job.status === "running" ||
@@ -204,18 +270,38 @@ export function listJobsSpeak(rows: readonly JobListRow[]): string {
       job.status === "waiting_on_you" ||
       job.status === "blocked",
   );
+  const waiting = rows.filter((job) => job.status === "queued");
   const other = rows.filter(
     (job) => job.status === "paused" || job.status === "cancelled",
   );
   const lines: string[] = [];
+  for (const job of gated) lines.push(gatedLine(job));
   for (const job of finished) lines.push(finishedLine(job));
   for (const job of live) lines.push(liveLine(job));
+  for (const job of waiting) lines.push(queuedLine(job));
   for (const job of other) {
     lines.push(
       [jobRef(job), statusPhrase(job.status)].filter(Boolean).join(" — "),
     );
   }
   return lines.join("\n");
+}
+
+function gatedLine(job: JobListRow): string {
+  return [
+    jobRef(job),
+    "needs your OK",
+    job.confirmQuestion ||
+      `It cannot start until you confirm. Say “yes, start ${job.id}”.`,
+  ].join(" — ");
+}
+
+function queuedLine(job: JobListRow): string {
+  return [
+    jobRef(job),
+    "queued",
+    job.nextStep || "Waiting its turn — it starts on its own.",
+  ].join(" — ");
 }
 
 function finishedLine(job: JobListRow): string {
@@ -336,9 +422,16 @@ function teammateLine(status: string, agentStatus: string): string {
 }
 
 export function controlSpeak(
-  action: "pause" | "resume" | "cancel",
+  action: "pause" | "resume" | "cancel" | "delete",
   job: { id: string; title: string; placement?: string | undefined },
 ): string {
+  if (action === "delete") {
+    const note =
+      job.placement === "checkout"
+        ? " Any edits it made are still in your working tree."
+        : "";
+    return `Deleted ${jobRef(job)} from the board.${note}`;
+  }
   const verb =
     action === "pause"
       ? "Paused"

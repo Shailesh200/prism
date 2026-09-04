@@ -105,6 +105,24 @@ lands in both at once.
 Lower-level shared React components: the map canvas, the explorer, and the
 primitives the screens are built from.
 
+### `@repo-prism/host-session`
+
+The Core-backed request surface two hosts both need: the `HostRequest` /
+`HostResponse` protocol, its runtime guards, the `PrismSession` wrapper around
+Core, and the dispatcher that turns one into the other.
+
+Extracted from the IDE extension so the Prism Console can answer the same RPC
+(ADR-0048) instead of the extension running a second, tokenless server on
+`:17321`. The filesystem-rename fallback lives here; the extension injects its
+own workspace-edit version.
+
+Import `@repo-prism/host-session/protocol` for the types and guards alone —
+that entry point does not reach Core, which is what lets the Console validate
+a request before deciding to load the engine.
+
+**Must never** import `vscode`. It runs in the extension host *and* in a plain
+Node daemon.
+
 ## Surfaces
 
 Each of these consumes `@repo-prism/core` for analysis and computes nothing
@@ -137,11 +155,15 @@ workers on the host's own agent CLI — Cursor SDK in Cursor, Claude Code CLI in
 Claude Code (ADR-0044). Jobs are checkout-first (ADR-0045): edits land in the
 user's tree uncommitted, and a worktree + job branch is the explicit or
 parallel-collision path. Consumed by `@repo-prism/mcp-server` and
-`@repo-prism/dispatch-hub`. User tokens stay
-in the OS keychain. Connect uses the Prism Auth broker (ADR-0036). Cursor
-shows a native Authenticate control; Claude opens the auth page (ADR-0037).
-Cursor workers sign in via a browser Cursor login (ADR-0038), not mcp.json;
-Claude workers reuse the machine's `claude` sign-in.
+`@repo-prism/dispatch-hub`. Makes no network calls and stores no third-party
+credentials: `host-connectors.ts` learns which connectors are signed in —
+Cursor session MCP tools (not the plugin download cache, and not a plugin
+that still only exposes `mcp_auth`) plus Claude plugin installs and host
+MCP configs — names and capabilities, never tokens — and
+`fill-contract.ts` turns that into the sections `start_my_day` asks the host
+agent to fill with its own tools (ADR-0049). Cursor workers sign in via a
+browser Cursor login (ADR-0038), not mcp.json; Claude workers reuse the
+machine's `claude` sign-in.
 Job ids are tickets or title slugs; chat never speaks `job-<hex>` (ADR-0039).
 Workers run out-of-process; live status and
 finished/failed results are reaped into `list_jobs` / start-my-day (ADR-0040).
@@ -154,30 +176,54 @@ a separate package (`@repo-prism/dispatch-hub`, ADR-0043).
 **Must never** be imported by `@repo-prism/core`, any engine package, or the
 IDE extension. The extension talks to the hub over HTTP.
 
+### `@repo-prism/plugin`
+
+The **Prism plugin pack** (ADR-0050): skills and slash commands that say how
+Prism's tools compose, and how to combine them with the connectors the editor
+already has. Reviewing a PR means impact analysis before opinion; editing
+unfamiliar code means checking what depends on it first. A tool list cannot say
+either, and `instructions.ts` is the wrong place to — every client pays for it
+on every session.
+
+`bun run build` emits `dist/pack/`, installable by both Cursor and Claude Code.
+Both manifests are generated from `src/definition.ts`, because the two hosts
+disagree in shape and a pack maintained as two hand-written JSON files drifts
+silently — it still installs, just missing whatever was forgotten. Skill prose
+stays as markdown on disk; the build copies it and refuses to emit a pack whose
+definition and directories disagree.
+
+Depends on nothing. It ships text, not code, and importing it at runtime would
+mean the pack had become a second way to configure the server.
+
 ### `@repo-prism/dispatch-hub`
 
-User-level loopback daemon (`127.0.0.1:17330`) that watches every registered
-workspace's `.prism/dispatch/` tree, serves the jobs dashboard, and fires OS
-notifications when a teammate finishes. Spawned by host `prism-mcp`. State
-lives in `~/.prism/hub/`. `PRISM_HUB=0` opts out.
+The **Prism Console**: a user-level loopback daemon on `prismhq.localhost:17330`
+(`127.0.0.1` keeps working) with two planes (ADR-0048).
 
-**Must never** be imported by Core or by the IDE extension (the extension
-uses HTTP). Workers never spawn it.
+The Jobs plane is always on and Core-free — it watches every registered
+workspace's `.prism/dispatch/` tree, serves the dashboard over HTTP and SSE,
+drains the job queue (ADR-0047), and fires OS notifications when a teammate
+finishes. The Intelligence plane loads `@repo-prism/host-session` on the first
+`POST /api/host` and holds one Core session at a time, evicted when idle, so a
+user who only watches jobs never pays for the engine.
 
-### `@repo-prism/dispatch-auth`
+Spawned by host `prism-mcp`. State lives in `~/.prism/hub/`. Every request
+needs the token from `~/.prism/hub/hub.json`. `PRISM_HUB=0` opts out.
 
-OAuth broker handlers (`/oauth/start|callback|redeem|drivers`). Mounted on the
-public website as `https://auth.prismhq.in`. Holds Prism-owned vendor app
-secrets in deploy env. Does not store user tokens.
-
-**Must never** be imported by Core or by the published MCP package (the MCP
-talks to the broker over HTTPS).
+**Must never** be imported by Core or by the IDE extension (the extension uses
+HTTP, and finds the Console by reading the hub record). Workers never spawn it.
+**Must never** import Core statically — the lazy `import()` in
+`intelligence.ts` is the only path, and a static edge would put the engine back
+in the always-on process.
 
 ### `@repo-prism/vscode-extension`
 
 The **Prism** IDE extension. Hosts the app-shell in a webview, bridges it to
-Core over RPC, and owns the extension-side concerns: indexing lifecycle, file
-watching, and the content security policy.
+Core over RPC via `@repo-prism/host-session`, and owns the extension-side
+concerns: indexing lifecycle, file watching, and the content security policy.
+
+*Open in Browser* opens the Prism Console rather than starting a server of its
+own; the `:17321` bridge was retired by ADR-0048.
 
 ### `@repo-prism/cursor-extension`
 
@@ -214,9 +260,8 @@ for which fixture to reach for.
 
 ```
 surface  →  @repo-prism/core  →  engine internals  →  @repo-prism/shared
-mcp-server  →  @repo-prism/dispatch  (jobs/OAuth only; ADR-0035)
-mcp-server  →  @repo-prism/dispatch-hub  (jobs board; ADR-0043)
-website     →  @repo-prism/dispatch-auth  (OAuth broker; ADR-0036)
+mcp-server  →  @repo-prism/dispatch  (jobs only; ADR-0035)
+mcp-server  →  @repo-prism/dispatch-hub  (the Console; ADR-0048)
 ```
 
 Arrows point at what may be imported. There is no arrow from a surface to an

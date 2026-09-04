@@ -21,6 +21,9 @@ import {
   auditCitedPaths,
   citedPaths,
   fabricationNote,
+  isDispatchNotePath,
+  notePathsFromText,
+  notePathsOf,
   stripWorktreePaths,
 } from "./job-artifacts.js";
 import { firstFailureLine, verifyJobWork } from "./job-verify.js";
@@ -175,10 +178,33 @@ describe("citedPaths / auditCitedPaths", { timeout: GIT_TIMEOUT_MS }, () => {
     expect(found).toEqual([]);
   });
 
+  it("collects delivered notes paths", () => {
+    expect(
+      notePathsOf({
+        delivered: [".prism/dispatch/notes/a.md", "src/x.ts"],
+        uncommitted: [".prism/dispatch/notes/b.md"],
+        missing: [".prism/dispatch/notes/missing.md"],
+      }),
+    ).toEqual([".prism/dispatch/notes/a.md", ".prism/dispatch/notes/b.md"]);
+    expect(isDispatchNotePath(".prism/dispatch/notes/../x.md")).toBe(false);
+    expect(
+      notePathsFromText(
+        "I wrote the findings to `.prism/dispatch/notes/audit.md`.",
+      ),
+    ).toEqual([".prism/dispatch/notes/audit.md"]);
+  });
+
   it("names what was claimed but never written", () => {
     expect(
       fabricationNote({ delivered: [], uncommitted: [], missing: ["a.md"] }),
     ).toBe("It mentioned a.md, which was not written.");
+    expect(
+      fabricationNote({
+        delivered: [],
+        uncommitted: [],
+        missing: ["a.md", "b.md", "c.md"],
+      }),
+    ).toBe("It mentioned a.md, b.md (+1 more), which was not written.");
     expect(
       fabricationNote({ delivered: [], uncommitted: [], missing: [] }),
     ).toBe("");
@@ -260,6 +286,8 @@ describe("composeJobResult", () => {
       committed: false,
     });
     expect(text).toContain("Produced no reviewable change.");
+    expect(text).toContain("Audit complete.");
+    expect(text).toMatch(/\n\n/);
   });
 
   it("does not hide a failing check behind done", () => {

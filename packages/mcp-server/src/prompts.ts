@@ -120,7 +120,7 @@ export function registerPrompts(server: McpServer): void {
     {
       title: "Start my day",
       description:
-        "Standup briefing: leftover jobs, git, connected tools, then connect CTAs.",
+        "Standup briefing: the local spine from Prism, the rest from your own connectors.",
     },
     async () => ({
       messages: [
@@ -128,13 +128,17 @@ export function registerPrompts(server: McpServer): void {
           role: "user" as const,
           content: {
             type: "text" as const,
+            // Prism supplies git, jobs and memories, then names the sections
+            // you should fill (ADR-0049). It used to say "do not fetch
+            // Calendar yourself", which is now exactly backwards: Prism holds
+            // no credentials, and you do.
             text: [
               "Start my day with Prism Dispatch.",
               "Call start_my_day as the first tool and speak that briefing as written.",
-              "Keep the greeting, Yesterday, and Waiting on you sections — including empty Linear/GitHub/Slack lists.",
-              "Do not search the repo or fetch Calendar yourself.",
-              "Name the connect CTAs for tools that are not connected.",
-              "Do not ask me to name tools.",
+              "Keep the greeting, Yesterday, and Waiting on you sections.",
+              "Then read its fill contract: for each section it lists, call the connector tools you already have and add that section under Waiting on you.",
+              "If a section has no connector, say so once in a short line rather than dropping the heading.",
+              "Do not search the repo yourself, and do not ask me to name tools.",
             ].join(" "),
           },
         },
@@ -215,15 +219,14 @@ export function registerPrompts(server: McpServer): void {
   server.registerPrompt(
     "connect",
     {
-      title: "What can we connect",
-      description: "Catalogue Dispatch drivers or start OAuth for one of them.",
+      title: "What is connected",
+      description:
+        "List the connectors this agent window already has, and what Prism can do with them.",
       argsSchema: {
         driver: z
           .string()
           .optional()
-          .describe(
-            "Optional driver: github, linear, jira, slack, notion, google-calendar (or “google calendar”)",
-          ),
+          .describe("Optional connector to ask about, e.g. slack or linear"),
       },
     },
     async (args) => {
@@ -234,9 +237,12 @@ export function registerPrompts(server: McpServer): void {
             role: "user" as const,
             content: {
               type: "text" as const,
+              // Prism no longer runs OAuth (ADR-0049). Connecting a service is
+              // something the user does in their editor's own plugin settings;
+              // Prism's job is to notice what is there and compose with it.
               text: driver
-                ? `Connect ${driver} in Prism Dispatch. Call the integrations tool immediately with action start and that driver (use google-calendar for Calendar). Do not search the repo. In Cursor I will click the native Authenticate button, which opens the vendor login. In Claude the Prism Auth page opens. If integrations is not found, tell me to reload the prism MCP server. Do not ask me for a client id or secret.`
-                : "What can we connect in Prism Dispatch? Call integrations with action catalog, then tell me the named CTAs. Do not ask me for OAuth client ids.",
+                ? `Do I have ${driver} connected in this agent window, and what can Prism do with it? Call dispatch_doctor and read its host_connectors check. If ${driver} is missing, tell me to install it from my editor's plugin or MCP settings — Prism does not run its own OAuth and will not ask me for a client id.`
+                : "What is connected in this agent window? Call dispatch_doctor and read its host_connectors check. List what is there, and say which Prism workflows each one unlocks — for example a ticket tracker lets start_my_day fill its Tickets section, and a GitHub connector lets a PR review post its findings. Do not search the repo.",
             },
           },
         ],

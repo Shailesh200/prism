@@ -1,0 +1,14 @@
+---
+title: "MCP — Dispatch is a teammate"
+description: "Queue a change from chat, watch it in the Console, and keep connectors in the host window. Prism holds no OAuth tokens."
+version: "1.1.17"
+---
+
+The `prism` MCP server is still one process: Intelligence for questions, Dispatch for changes.
+
+- Ask in plain language. A fix or a feature starts a teammate (`start_job`) without a ticket id.
+- The job is queued in milliseconds. Watch it live in the local Console.
+- Prism does not run OAuth. Slack, Linear, GitHub, and Calendar stay in the host window — the agent uses those connectors and composes them with Prism's analysis.
+- Workers read blast radius and the rest from the Console's existing index. They do not start a second copy of the repo.
+
+Install remains `npx -y --prefer-online @repo-prism/mcp-server@latest`. Reload MCP after this publish. See [Usage](/docs/usage) and [Prism Dispatch](/docs/guides/dispatch).

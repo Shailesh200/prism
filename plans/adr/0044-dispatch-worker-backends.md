@@ -36,13 +36,15 @@ a second Dispatch.
    otherwise.
 3. **Claude worker = `claude -p` subprocess, no SDK dependency.** The CLI is
    already the prerequisite (the user signed in there). Spawned with
-   `--bare` (no hooks, skills, plugins, MCP servers, or CLAUDE.md
-   auto-discovery — ADR-0041's no-second-index rule), `--output-format
-   stream-json --verbose`, cwd = job worktree. Allowed tools: `Read Edit
-   Write Grep Glob LS` plus `Task` when subagents are on (ADR-0042 §4).
-   `Bash` is denied: no shell, so no `bun install` against the symlinked
-   `node_modules` and no re-index. Prism — never the worker — commits and
-   runs checks (ADR-0042 §3).
+   `--output-format stream-json --verbose`, cwd = the job placement.
+   Isolation is the tool allowlist (`Read Edit Write Grep Glob LS`, plus
+   `Task` when subagents are on) and an explicit `--mcp-config` for
+   worker-role Prism — not `--bare`. From Claude Code 2.1, `--bare` skips
+   keychain OAuth, so a teammate using the user's existing claude.ai login
+   would fail before touching a file. `--disable-slash-commands` still
+   drops skills. `Bash` is denied: no shell, so no `bun install` against
+   the symlinked `node_modules` and no re-index. Prism — never the worker
+   — commits and runs checks (ADR-0042 §3).
 4. **Events map onto the existing console.** stream-json
    `system/init` (capture `session_id`), `assistant` (text → thinking,
    `tool_use` → tool/editing), `result` (terminal). `job_logs`, stall
@@ -51,11 +53,12 @@ a second Dispatch.
 5. **Resume via `session_id`.** Stored where the Cursor backend stores
    `agentId`; resume spawns `claude -p --resume <session_id>`.
 6. **Auth is detection, not a new grant.** Claude workers use the machine's
-   existing Claude Code sign-in (`~/.claude` credentials or
-   `ANTHROPIC_API_KEY`). `init` checks the CLI is on PATH and signed in, and
-   says `run claude once in a terminal to sign in` when not. We never paste
-   keys into mcp.json (ADR-0038), and we do not spawn Claude's interactive
-   login from a stdio server.
+   existing Claude Code sign-in. `init` asks `claude auth status` (which
+   sees keychain OAuth, `ANTHROPIC_API_KEY`, and the legacy
+   `~/.claude/.credentials.json`). A missing credentials *file* is not
+   signed-out — Claude Code 2.1+ keeps the token in the OS keychain. We
+   never paste keys into mcp.json (ADR-0038), and we do not spawn Claude's
+   interactive login from a stdio server.
 7. **Shared finish.** Commit, verify, and cited-path audit move from
    `worker-child.ts` into `worker-finish.ts`, called by both children. One
    implementation, no drift.
@@ -72,7 +75,8 @@ a second Dispatch.
 ### Option B — `claude -p` subprocess with stream-json (chosen)
 
 - Pros: zero new dependencies; the CLI is the prerequisite anyway; flags
-  (`--bare`, `--allowedTools`, `--resume`) map 1:1 onto ADR-0041/0042 rules.
+  (`--tools`, `--disallowedTools`, `--resume`) map 1:1 onto ADR-0041/0042
+  rules. `--bare` is not passed: from Claude Code 2.1 it skips keychain OAuth.
 - Cons: we parse JSONL ourselves; CLI flag drift needs a contract test.
 
 ### Option C — Route Claude-host jobs to the Cursor worker (status quo, rejected)

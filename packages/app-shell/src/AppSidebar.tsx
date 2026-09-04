@@ -9,6 +9,7 @@ import {
   GitBranch,
   GitPullRequest,
   LayoutGrid,
+  ListChecks,
   Map as MapIcon,
   Plug,
   Settings,
@@ -32,6 +33,7 @@ export type AppView =
   | "blast"
   | "trends"
   | "integrations"
+  | "jobs"
   | "settings"
   | "review"
   | "explain";
@@ -325,6 +327,17 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
         >
           <FileSearch size={16} aria-hidden />
           <span className="appnav__reveal">Explain This Area</span>
+        </button>
+        <button
+          type="button"
+          className="appnav__item"
+          title="Jobs"
+          aria-label="Jobs"
+          data-active={props.active === "jobs" ? "true" : "false"}
+          onClick={() => props.onNavigate("jobs")}
+        >
+          <ListChecks size={16} aria-hidden />
+          <span className="appnav__reveal">Jobs</span>
         </button>
 
         <p className="appnav__group appnav__reveal">Settings</p>

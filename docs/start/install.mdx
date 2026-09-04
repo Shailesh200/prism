@@ -1,0 +1,179 @@
+---
+title: Install
+description: "Prerequisites, pick a surface, confirm it works — about five minutes."
+---
+
+One engine, every surface. Install the lane that matches how you work and add
+others later — they share the same index. You do **not** need to clone the
+Prism repo; published packages are enough.
+
+## 1. Prerequisites
+
+<Steps>
+<Step>
+
+**Node.js 26+** — check with `node -v` (should start with `v26`).
+
+</Step>
+<Step>
+
+**A project folder** — TypeScript / JavaScript. Open or `cd` into it. Git is
+recommended but not required.
+
+</Step>
+</Steps>
+
+## 2. Install a surface
+
+<Tabs items={["CLI", "IDE (VS Code / Cursor)", "AI agents (MCP)"]}>
+<Tab value="CLI">
+
+Terminal and CI. Run inside your project — no `--workspace` needed, Prism uses
+the git root:
+
+```bash
+cd /path/to/your/project
+npx -y @repo-prism/cli doctor
+```
+
+`doctor` prints which folder it chose and the cache state. A warn on the index
+cache is expected on a first run. Then analyse:
+
+```bash
+npx -y @repo-prism/cli dna
+npx -y @repo-prism/cli health
+npx -y @repo-prism/cli blast src/index.ts --fail-on high
+```
+
+Optional global install:
+
+```bash
+npm install -g @repo-prism/cli
+prism doctor
+```
+
+More: [CLI usage](/docs/usage)
+
+</Tab>
+<Tab value="IDE (VS Code / Cursor)">
+
+Map, health, and blast radius inside the editor. Extension id
+`prismhq.repo-prism`.
+
+1. Install **Prism** —
+   [Marketplace](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism)
+   (VS Code) or [Open VSX](https://open-vsx.org/extension/prismhq/repo-prism)
+   (Cursor). If Cursor's extension search lags, use
+   **Extensions: Install from VSIX…**.
+2. **File → Open Folder…** on your project — a folder, not a single file.
+3. Command Palette → **Prism: Open Prism**. Wait for indexing in the status bar.
+
+In Cursor, add the MCP config from the next tab too, so the agent and the UI
+share one analysis.
+
+More: [IDE usage](/docs/usage) · [Settings](/docs/reference/ide-settings)
+
+</Tab>
+<Tab value="AI agents (MCP)">
+
+Structural tools for Cursor, Claude Code, Claude Desktop, VS Code, or Codex.
+No workspace variable is needed — the server asks the client for its open
+folders (MCP roots) and follows folder changes. `NODE_USE_SYSTEM_CA` lets the
+npm download trust corporate proxy certificates.
+
+**Cursor** —
+[Add to Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=prism&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIi0tcHJlZmVyLW9ubGluZSIsIkByZXBvLXByaXNtL21jcC1zZXJ2ZXJAbGF0ZXN0Il0sImVudiI6eyJOT0RFX1VTRV9TWVNURU1fQ0EiOiIxIn19),
+or write `.cursor/mcp.json` at the project root (`~/.cursor/mcp.json` covers
+every project):
+
+```json
+{
+  "mcpServers": {
+    "prism": {
+      "command": "npx",
+      "args": ["-y", "--prefer-online", "@repo-prism/mcp-server@latest"],
+      "env": {
+        "NODE_USE_SYSTEM_CA": "1"
+      }
+    }
+  }
+}
+```
+
+Then **Settings → MCP** → enable **prism** and wait for 41 tools.
+
+**Claude Code** — from your project directory:
+
+```bash
+claude mcp add prism -- npx -y --prefer-online @repo-prism/mcp-server@latest
+```
+
+**Claude Desktop** — same `mcpServers.prism` block, in
+`~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or
+`%APPDATA%\Claude\claude_desktop_config.json` (Windows). Quit and reopen.
+
+**VS Code** —
+[Add to VS Code](vscode:mcp/install?%7B%22name%22%3A%22prism%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22--prefer-online%22%2C%22%40repo-prism%2Fmcp-server%40latest%22%5D%2C%22env%22%3A%7B%22NODE_USE_SYSTEM_CA%22%3A%221%22%7D%7D),
+or the same block in your MCP configuration. Separate from the Prism extension,
+which is the visual UI.
+
+**Codex CLI** — in `~/.codex/config.toml`, then run Codex from the project:
+
+```toml
+[mcp_servers.prism]
+command = "npx"
+args = ["-y", "--prefer-online", "@repo-prism/mcp-server@latest"]
+```
+
+Keep `@latest`; the server hops to a newer package itself. Canonical copy:
+[`mcp-install.json`](https://github.com/Shailesh200/prism/blob/main/packages/mcp-server/mcp-install.json).
+
+**Plugin pack** (optional) — skills and slash commands that teach an agent how
+Prism's tools compose. Install the **Prism** pack from your editor's own plugin
+settings; it calls the MCP server above.
+
+More: [Agent usage](/docs/usage) · [Dispatch](/docs/guides/dispatch)
+
+</Tab>
+</Tabs>
+
+## 3. Confirm it works
+
+| Surface | You should see |
+|---|---|
+| CLI | `doctor` prints a workspace path; `dna` prints a report |
+| IDE | The Prism panel opens after indexing |
+| MCP | Tools listed in the client; the agent answers with repository structure |
+
+Something off? [Troubleshooting](/docs/help/troubleshooting).
+
+## What Prism writes in your project
+
+```
+your-repo/
+  .prism/
+    cache/           index + health history
+    consent.json     optional network feature decisions
+    bookmarks.json   map bookmarks
+    ingest/          artifacts you asked Prism to read
+    tools/           tools you consented to install
+    dispatch/        Dispatch jobs, memories, and notes (gitignored)
+```
+
+Let Prism add `.prism/` to `.gitignore` when offered — it is derived output.
+
+## Next
+
+[Quickstart](/docs/start/quickstart) — five minutes of analysis ·
+[Usage](/docs/usage) · [Understand a repo](/docs/guides/understand-a-repo)
+
+## From source (contributors)
+
+```bash
+git clone https://github.com/Shailesh200/prism
+cd prism
+bun install
+bun run verify:milestone
+```
+
+See [CONTRIBUTING](https://github.com/Shailesh200/prism/blob/main/CONTRIBUTING.md).

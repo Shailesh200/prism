@@ -95,4 +95,12 @@ export {
 export { CardIcon, type CardIconProps, type CardIconTone } from "./CardIcon.js";
 export { EmptyState, type EmptyStateProps } from "./EmptyState.js";
 
+export {
+  PRISM_DURATION,
+  PRISM_EASE,
+  motionDuration,
+  prefersReducedMotion,
+  staggerStep,
+} from "./motion.js";
+
 export const PACKAGE_NAME = "@repo-prism/ui" as const;

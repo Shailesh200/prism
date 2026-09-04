@@ -22,9 +22,11 @@ import {
 } from "./claude-cli.js";
 import {
   claudeActivityFrom,
-  claudeLogEntryFrom,
+  claudeLogEntriesFrom,
   claudeResultFrom,
   claudeSessionIdFrom,
+  claudeModelFrom,
+  claudeThinkingFrom,
   type ClaudeResult,
 } from "./claude-stream.js";
 import { appendRunLog, lifecycleLogEntry } from "./run-log.js";
@@ -35,6 +37,8 @@ import {
   type RunState,
 } from "./run-state.js";
 import { readSpawnPayload } from "./worker-spawn.js";
+import { workerMcpConfigPath } from "./paths.js";
+import { writeWorkerMcpConfig } from "./worker-options.js";
 import {
   completeWorkerRun,
   failWorkerRun,
@@ -105,6 +109,15 @@ async function main(): Promise<void> {
   };
 
   const cli = claudeCliCommand();
+  // Read-only Prism, answered by the Console rather than a Core of this
+  // worker's own (ADR-0050). Undefined when there is nothing to launch, in
+  // which case the args keep the blanket `mcp__*` block.
+  const mcpConfigPath = await writeWorkerMcpConfig({
+    path: workerMcpConfigPath(payload.workspaceRoot, payload.jobId),
+    mcpCommand: payload.mcpCommand,
+    mcpArgs: payload.mcpArgs,
+    workspaceRoot: payload.workspaceRoot,
+  });
   /** Optional flags this CLI rejected; dropped on the retry. */
   const omitFlags: string[] = [];
   const buildArgs = (): string[] =>
@@ -113,6 +126,7 @@ async function main(): Promise<void> {
       ...(payload.resumeAgentId
         ? { resumeSessionId: payload.resumeAgentId }
         : {}),
+      ...(mcpConfigPath ? { mcpConfigPath } : {}),
       omitFlags,
     });
 
@@ -158,6 +172,8 @@ async function main(): Promise<void> {
   let stderrTail = "";
   let result: ClaudeResult | undefined;
   let sessionPatched = false;
+  let modelPatched = false;
+  let thinkingPatched = false;
 
   /** Wire one CLI process up to the console and run it to completion. */
   const runChild = async (active: ChildProcess): Promise<number | null> => {
@@ -183,19 +199,34 @@ async function main(): Promise<void> {
           continue; // a truncated line must not take the job down
         }
         const sessionId = claudeSessionIdFrom(event);
+        const model = claudeModelFrom(event);
+        const thinking = claudeThinkingFrom(event);
         if (sessionId && !sessionPatched) {
           sessionPatched = true;
+          if (model) modelPatched = true;
+          if (thinking) thinkingPatched = true;
           void writer.patch(
             {
               agentId: sessionId,
+              ...(model ? { model } : {}),
+              ...(thinking ? { thinking } : {}),
               phase: "running",
               lastActivity: "Teammate is on it",
             },
             { immediate: true },
           );
+        } else if (model && !modelPatched) {
+          modelPatched = true;
+          void writer.patch({
+            model,
+            ...(thinking && !thinkingPatched ? { thinking } : {}),
+          });
+          if (thinking) thinkingPatched = true;
+        } else if (thinking && (!thinkingPatched || thinking !== "thinking")) {
+          thinkingPatched = true;
+          void writer.patch({ thinking });
         }
-        const entry = claudeLogEntryFrom(event);
-        if (entry) {
+        for (const entry of claudeLogEntriesFrom(event)) {
           void appendRunLog(payload.workspaceRoot, payload.jobId, entry);
         }
         const activity = claudeActivityFrom(event);
@@ -275,6 +306,9 @@ async function main(): Promise<void> {
       process.exit(1);
     }
     const assistant = stripWorktreePaths(result?.text ?? "", payload.cwd);
+    if (assistant.trim()) {
+      await logLine("thinking", assistant);
+    }
     await completeWorkerRun(finishInput, assistant, finish);
     process.exit(0);
   } catch (cause) {

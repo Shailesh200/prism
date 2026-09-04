@@ -185,7 +185,6 @@ describe("MCP server contract (M-026)", () => {
         "find_symbol",
         "health_history",
         "init",
-        "integrations",
         "job_control",
         "knowledge_graph",
         "job_logs",
@@ -463,7 +462,6 @@ describe("MCP server contract (M-026)", () => {
       ["list_jobs", {}],
       ["job_logs", {}],
       ["remember", { action: "list" }],
-      ["integrations", { action: "catalog" }],
       ["configure", { action: "get" }],
       ["dispatch_doctor", {}],
     ];

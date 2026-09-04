@@ -1,5 +1,0 @@
-{
-  "title": "CLI",
-  "root": true,
-  "pages": ["install", "usage", "commands"]
-}

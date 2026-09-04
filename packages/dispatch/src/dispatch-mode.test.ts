@@ -6,10 +6,14 @@ import { loadConfig, saveConfig } from "./config.js";
 import { createDispatchRuntime } from "./runtime.js";
 import { DispatchModeSchema } from "./types.js";
 import type { GitRunner } from "./git.js";
+import { settleDrains } from "./queue.js";
 
 const roots: string[] = [];
 
 afterEach(async () => {
+  // A kicked drain outlives the call that started it; removing the root
+  // underneath one is how this suite raced itself into ENOTEMPTY.
+  await settleDrains();
   for (const root of roots.splice(0)) {
     await rm(root, { recursive: true, force: true });
   }

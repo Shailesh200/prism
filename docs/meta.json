@@ -2,16 +2,19 @@
   "title": "Docs",
   "pages": [
     "index",
+    "---What is Prism---",
+    "what-is-prism",
     "---Get Started---",
     "...start",
+    "---Usage---",
+    "usage",
     "---Guides---",
     "...guides",
     "---Concepts---",
     "...concepts",
     "---Reference---",
     "...reference",
-    "...cli",
-    "...ide",
-    "...mcp"
+    "---Help---",
+    "...help"
   ]
 }

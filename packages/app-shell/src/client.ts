@@ -12,6 +12,7 @@ import type {
   CodeExplorerReport,
   CodeExplorerTarget,
   ConsentPurposeId,
+  ConsoleStatus,
   ConsentState,
   CwvPreferredSource,
   CwvReport,
@@ -267,6 +268,13 @@ export type AppShellClient = {
   /** Mono-v1 package picker (M-048 Phase 6). */
   fetchPackages?(): Promise<WorkspacePackageInfo[]>;
   selectPackage?(packageId: string | null): Promise<string | null>;
+  /**
+   * The Prism Console, and what the agent window has connected (M-067 P-S5).
+   *
+   * Optional like the rest: the playground has no Console to find, and the
+   * Integrations screen renders the "not running" state rather than breaking.
+   */
+  fetchConsoleStatus?(): Promise<ConsoleStatus>;
 };
 
 export type StageDevopsRemoteResult = {

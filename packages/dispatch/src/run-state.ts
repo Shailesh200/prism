@@ -1,12 +1,12 @@
 import { execFileSync, spawn } from "node:child_process";
-import { readdir } from "node:fs/promises";
+import { readdir, unlink } from "node:fs/promises";
 import { z } from "zod";
 import { clip, textFromUnknown, toolNameFrom } from "./event-text.js";
 import { readJsonFile, writeJsonFile } from "./json-file.js";
 import { loadJobs, saveJobs } from "./jobs.js";
 import { jobRef } from "./job-voice.js";
-import { runStatePath, runsDir } from "./paths.js";
-import { JobReviewSchema, type JobRecord } from "./types.js";
+import { runStatePath, runsDir, spawnPayloadPath } from "./paths.js";
+import { JobReviewSchema, type JobRecord, type JobReview } from "./types.js";
 
 export const RunPhaseSchema = z.enum([
   "starting",
@@ -26,12 +26,18 @@ export const RunStateSchema = z.object({
   jobId: z.string(),
   pid: z.number().int().optional(),
   agentId: z.string().optional(),
+  /** Vendor model id, when the worker reported one. */
+  model: z.string().optional(),
+  /** Thinking / effort the worker reported (`10000`, `adaptive`, `high`). */
+  thinking: z.string().optional(),
   runId: z.string().optional(),
   phase: RunPhaseSchema,
   lastActivity: z.string().default(""),
   resultSummary: z.string().default(""),
   errorMessage: z.string().default(""),
   gitSummary: z.string().default(""),
+  notes: z.array(z.string()).optional(),
+  citedMissing: z.array(z.string()).optional(),
   /** What the job branch carries, for the human to review before it lands. */
   review: JobReviewSchema.optional(),
   /** Supervisor-run checks after the agent stopped (ADR-0042 §3). */
@@ -175,6 +181,26 @@ export async function writeRunState(
   state: RunState,
 ): Promise<void> {
   await writeJsonFile(runStatePath(workspaceRoot, jobId), state);
+}
+
+/**
+ * Drop the previous generation's sidecar so a re-queued job is not immediately
+ * reaped back to cancelled/done from leftover run JSON (same slug, new queue).
+ */
+export async function clearRunState(
+  workspaceRoot: string,
+  jobId: string,
+): Promise<void> {
+  for (const path of [
+    runStatePath(workspaceRoot, jobId),
+    spawnPayloadPath(workspaceRoot, jobId),
+  ]) {
+    try {
+      await unlink(path);
+    } catch {
+      /* missing is fine */
+    }
+  }
 }
 
 export async function patchRunState(
@@ -339,7 +365,7 @@ export function composeJobResult(input: JobResultInput): string {
     parts.push(summary || "Produced no reviewable change.");
   }
 
-  const text = clip(input.assistant, 360);
+  const text = trimResult(input.assistant, 8_000);
   if (text) parts.push(text);
 
   if (input.verification === "failed") {
@@ -352,64 +378,102 @@ export function composeJobResult(input: JobResultInput): string {
 
   if (input.fabricationNote) parts.push(input.fabricationNote);
 
-  return clip(parts.filter(Boolean).join(" "), 700);
+  return parts.filter(Boolean).join("\n\n");
+}
+
+/** Length cap that keeps newlines. `clip()` flattens whitespace. */
+function trimResult(text: string, max: number): string {
+  const t = text.trim();
+  if (!t) return "";
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1).trimEnd()}…`;
+}
+
+/** Files still waiting on Keep / Restore. Kept paths are a human decision. */
+export function reviewHasPendingFiles(review: JobReview | undefined): boolean {
+  if (!review) return false;
+  const kept = new Set(review.keptPaths ?? []);
+  return review.files.some((file) => !kept.has(file.path));
+}
+
+function mergeKeptReview(
+  fromRun: JobReview | undefined,
+  fromJob: JobReview | undefined,
+): JobReview | undefined {
+  if (!fromRun && !fromJob) return undefined;
+  const review = fromRun ?? fromJob;
+  if (!review) return undefined;
+  const kept = [
+    ...new Set([...(fromJob?.keptPaths ?? []), ...(fromRun?.keptPaths ?? [])]),
+  ];
+  return kept.length > 0 ? { ...review, keptPaths: kept } : review;
 }
 
 export function applyRunToJob(
   job: JobRecord,
   run: RunState | undefined,
 ): JobRecord {
-  const pid = run?.pid ?? job.workerPid;
+  const liveRun = run && isPriorGenerationRun(job, run) ? undefined : run;
+  const pid = liveRun?.pid ?? job.workerPid;
   const alive = isProcessAlive(pid);
   // The run sidecar's agentId is the backend's session handle: Cursor agentId
   // for cursor jobs, Claude session_id for claude jobs (ADR-0044 §5).
-  const sessionPatch = run?.agentId
+  const sessionPatch = liveRun?.agentId
     ? job.workerBackend === "claude"
-      ? { workerSessionId: run.agentId }
-      : { cursorAgentId: run.agentId }
+      ? { workerSessionId: liveRun.agentId }
+      : { cursorAgentId: liveRun.agentId }
     : {};
   const base: JobRecord = {
     ...job,
     ...sessionPatch,
-    ...(typeof run?.pid === "number" ? { workerPid: run.pid } : {}),
-    ...(run?.runId ? { runId: run.runId } : {}),
-    ...(run?.lastActivity ? { lastActivity: run.lastActivity } : {}),
+    ...(typeof liveRun?.pid === "number" ? { workerPid: liveRun.pid } : {}),
+    ...(liveRun?.runId ? { runId: liveRun.runId } : {}),
+    ...(liveRun?.lastActivity ? { lastActivity: liveRun.lastActivity } : {}),
+    ...(liveRun?.updatedAt ? { lastHeartbeat: liveRun.updatedAt } : {}),
+    ...(liveRun?.model ? { workerModel: liveRun.model } : {}),
+    ...(liveRun?.thinking ? { workerThinking: liveRun.thinking } : {}),
   };
 
-  if (run?.phase === "done") {
-    const review = run.review ?? job.review;
-    const changed = (review?.files.length ?? 0) > 0;
+  if (liveRun?.phase === "done") {
+    const review = mergeKeptReview(liveRun.review ?? job.review, job.review);
+    const pending = reviewHasPendingFiles(review);
     return {
       ...base,
       // The supervisor commits so the work survives worktree pruning
       // (ADR-0042 §1), but landing it is the human's decision — a branch with
-      // commits is a review, not a closed job.
-      status: changed ? "needs_review" : "done",
+      // commits is a review, not a closed job. Files the user already Kept
+      // stay kept: reaping must not bounce the card back to needs_review.
+      status: pending ? "needs_review" : "done",
       ...(review ? { review } : {}),
-      resultSummary: run.resultSummary || run.gitSummary || job.resultSummary,
+      resultSummary:
+        liveRun.resultSummary || liveRun.gitSummary || job.resultSummary,
       errorMessage: undefined,
-      nextStep: changed ? "review the changes" : "",
-      waitingOn: "",
-      ...(run.verification ? { verification: run.verification } : {}),
-      ...(run.verificationDetail
-        ? { verificationDetail: run.verificationDetail }
+      ...(liveRun.notes?.length ? { notes: liveRun.notes } : {}),
+      ...(liveRun.citedMissing?.length
+        ? { citedMissing: liveRun.citedMissing }
         : {}),
-      ...(run.commitSha ? { commitSha: run.commitSha } : {}),
+      nextStep: pending ? "review the changes" : "",
+      waitingOn: "",
+      ...(liveRun.verification ? { verification: liveRun.verification } : {}),
+      ...(liveRun.verificationDetail
+        ? { verificationDetail: liveRun.verificationDetail }
+        : {}),
+      ...(liveRun.commitSha ? { commitSha: liveRun.commitSha } : {}),
     };
   }
-  if (run?.phase === "failed") {
+  if (liveRun?.phase === "failed") {
     return {
       ...base,
       status: "error",
       errorMessage:
-        run.errorMessage ||
+        liveRun.errorMessage ||
         job.errorMessage ||
         "The teammate hit an error. Say resume to try again.",
-      resultSummary: run.gitSummary || job.resultSummary,
+      resultSummary: liveRun.gitSummary || job.resultSummary,
       nextStep: "say resume to try again",
     };
   }
-  if (run?.phase === "cancelled") {
+  if (liveRun?.phase === "cancelled") {
     if (job.status === "paused") {
       return { ...base, status: "paused" };
     }
@@ -423,7 +487,7 @@ export function applyRunToJob(
     job.status === "ready";
   if (inFlight && !alive) {
     const hadPid = pid != null;
-    const stale = !hadPid && !run && isStaleIso(job.updatedAt, 120_000);
+    const stale = !hadPid && !liveRun && isStaleIso(job.updatedAt, 120_000);
     if (hadPid || stale) {
       return {
         ...base,
@@ -438,8 +502,8 @@ export function applyRunToJob(
 
   // Alive but silent for too long: say so instead of reporting progress that
   // is not happening. The pid is left alone — resume/cancel is the user's call.
-  if (inFlight && alive && isRunStalled(run)) {
-    const stalledFor = formatStallDuration(runStallMs(run));
+  if (inFlight && alive && isRunStalled(liveRun)) {
+    const stalledFor = formatStallDuration(runStallMs(liveRun));
     return {
       ...base,
       status: "waiting_on_you",
@@ -451,16 +515,24 @@ export function applyRunToJob(
 
   if (
     job.status === "booting" &&
-    run &&
-    (run.phase === "running" ||
-      run.phase === "thinking" ||
-      run.phase === "tool" ||
-      run.phase === "editing")
+    liveRun &&
+    (liveRun.phase === "running" ||
+      liveRun.phase === "thinking" ||
+      liveRun.phase === "tool" ||
+      liveRun.phase === "editing")
   ) {
     return { ...base, status: "running" };
   }
 
   return base;
+}
+
+/** Sidecar from a previous cancel/finish of the same slug must not reap a new queue. */
+function isPriorGenerationRun(job: JobRecord, run: RunState): boolean {
+  const queued = Date.parse(job.queuedAt ?? "");
+  const updated = Date.parse(run.updatedAt);
+  if (!Number.isFinite(queued) || !Number.isFinite(updated)) return false;
+  return updated < queued;
 }
 
 function isStaleIso(iso: string, ms: number): boolean {
@@ -475,6 +547,7 @@ function jobChanged(a: JobRecord, b: JobRecord): boolean {
     a.resultSummary !== b.resultSummary ||
     a.errorMessage !== b.errorMessage ||
     a.workerPid !== b.workerPid ||
+    a.lastHeartbeat !== b.lastHeartbeat ||
     a.cursorAgentId !== b.cursorAgentId ||
     a.runId !== b.runId ||
     a.nextStep !== b.nextStep

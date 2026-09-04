@@ -2,7 +2,7 @@
 
 Cursor packaging overlay for Prism ([ADR-0020](../../plans/adr/0020-cursor-packaging-overlay.md)).
 
-**Website:** [https://www.prismhq.in](https://www.prismhq.in) · **Docs:** [https://www.prismhq.in/docs/ide/install](https://www.prismhq.in/docs/ide/install)
+**Website:** [https://www.prismhq.in](https://www.prismhq.in) · **Docs:** [https://www.prismhq.in/docs/start/install](https://www.prismhq.in/docs/start/install)
 
 This package does **not** reimplement analysis. It stages the same
 `@repo-prism/vscode-extension` build (`dist` + `media`) with Cursor-oriented
@@ -44,14 +44,15 @@ Ownership / Explain / Reveal on Map. SCM changed files also get Review Changes.
 A **Getting Started** walkthrough appears in Cursor’s walkthroughs list and
 opens the in-app tour.
 
-**Open in Browser** serves the same Core session over a loopback bridge
-(`http://127.0.0.1:17321`) — not a separate Vite playground.
+**Open in Browser** opens the Prism Console (`http://prismhq.localhost:17330`) —
+not a separate Vite playground, and no longer a loopback server inside the
+extension (ADR-0048).
 
 ## MCP coexistence
 
 When `@repo-prism/mcp-server` is available:
 
 - **Extension** — human UI (Map, Overview, Blast, …) in the IDE
-- **MCP** — agent tools against the same Core APIs — [setup](https://www.prismhq.in/docs/mcp/install)
+- **MCP** — agent tools against the same Core APIs — [setup](https://www.prismhq.in/docs/start/install)
 
 Both are local-first surfaces over Core.

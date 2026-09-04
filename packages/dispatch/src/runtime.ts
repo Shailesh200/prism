@@ -1,82 +1,46 @@
-import { randomUUID } from "node:crypto";
 import { buildDayBriefing, type BriefingDeps } from "./briefing.js";
-import { grantPurpose, isPurposeGranted, revokePurpose } from "./consent.js";
+import { discoverHostConnectors } from "./host-connectors.js";
 import { loadConfig, saveConfig } from "./config.js";
-import { DRIVER_LABELS } from "./drivers.js";
 import { exportSettings } from "./export-settings.js";
 import {
   commitJobPaths,
   defaultBaseBranch,
-  defaultGitRunner,
-  gitDirtyPaths,
   gitSnapshot,
   gitStatusShort,
+  gitCheckoutReview,
+  hasGitRepo,
+  restoreCheckoutPaths,
+  defaultGitRunner,
   type GitRunner,
 } from "./git.js";
-import { allocateJobId, displayJobId, resolveJobRef } from "./job-id.js";
+import { allocateJobId, resolveJobRef } from "./job-id.js";
 import {
   agentNameForJob,
   alreadyRunningSpeak,
   ambiguousJobSpeak,
   controlSpeak,
-  dirtyCheckoutSpeak,
   doctorSpeak,
   gitFailureSpeak,
   initSpeak,
   isLiveJobStatus,
+  analysisSpeak,
   jobLogsSpeak,
   jobRef,
   listJobsSpeak,
   missingJobSpeak,
-  overlapSpeak,
-  publicWorkerError,
+  needsConfirmSpeak,
+  queuedJobSpeak,
   recordedJobSpeak,
   signedInSpeak,
-  startJobSpeak,
 } from "./job-voice.js";
-import { activeJobCount, upsertJob } from "./jobs.js";
+import { activeJobCount, deleteJob, loadJobs, upsertJob } from "./jobs.js";
+import { kickDrain, requeueAuthBlocked, type DrainDeps } from "./queue.js";
 import { readRunLog } from "./run-log.js";
-import { isProcessAlive, reapJobs } from "./run-state.js";
+import { clearRunState, isProcessAlive, reapJobs } from "./run-state.js";
 import { forgetMemory, loadMemories, remember } from "./memory.js";
 import {
-  authBrokerUrl,
-  brokerStartUrl,
-  listBrokerDrivers,
-  redeemBrokerPickup,
-} from "./broker.js";
-import {
-  buildAuthorizeUrl,
-  createPkce,
-  DISPATCH_OAUTH_LOOPBACK_PORT,
-  DISPATCH_OAUTH_REDIRECT_URI,
-  exchangeCode,
-  oauthSetupGuide,
-  OAUTH_PROVIDERS,
-  openInBrowser,
-  resolveOAuthClient,
-  waitForLoopbackCode,
-  type LoopbackResult,
-} from "./oauth.js";
-import { saveOAuthApp } from "./oauth-apps.js";
-import {
-  connectPlan,
-  markConnectStep,
-  presentationHint,
-  silentAuthSession,
-  skipConnectStep,
-  type AuthPresentation,
-  type ConnectStep,
-  type OAuthUiPort,
-} from "./connect-ux.js";
-import { findPathOverlap } from "./overlap.js";
-import { deleteToken, loadToken, saveToken } from "./tokens.js";
-import {
-  DRIVER_CONSENT,
   DispatchConfigSchema,
-  DriverIdSchema,
-  parseDriverId,
   type DispatchConfig,
-  type DriverId,
   type JobPlacement,
   type JobRecord,
   type MemoryScope,
@@ -104,7 +68,7 @@ import {
   type WorkerAuthInspect,
   type WorkerBackend,
 } from "./worker-backend.js";
-import { adoptOrCreateWorktree, pruneOrphanWorktrees } from "./worktrees.js";
+import { pruneOrphanWorktrees } from "./worktrees.js";
 import {
   admissionMessage,
   diskBudgetMessage,
@@ -120,7 +84,6 @@ export const DISPATCH_TOOL_NAMES = [
   "job_logs",
   "job_control",
   "remember",
-  "integrations",
   "configure",
   "dispatch_doctor",
 ] as const;
@@ -147,7 +110,6 @@ export function visibleDispatchTools(
 }
 
 export type DispatchToolContext = {
-  readonly oauthUi?: OAuthUiPort;
   readonly signal?: AbortSignal;
 };
 
@@ -158,15 +120,15 @@ export type DispatchRuntime = {
     args: Record<string, unknown>,
     context?: DispatchToolContext,
   ): Promise<unknown>;
+  /** Dependencies for `drainWorkspace` (ADR-0047). */
+  drainDeps(): DrainDeps;
 };
 
 export type DispatchRuntimeOptions = BriefingDeps & {
   readonly worker?: WorkerPort;
   /** Claude Code backend (ADR-0044). Chosen per job by resolveWorkerBackend. */
   readonly claudeWorker?: WorkerPort;
-  readonly startOAuth?: (driver: DriverId) => Promise<unknown>;
   readonly fetchImpl?: typeof fetch;
-  readonly oauthUi?: OAuthUiPort;
   /** Injected in tests. Production uses Cursor.auth (SDK store), not mcp.json. */
   readonly cursorAuth?: CursorAuthPort;
   /** Injected in tests. Production probes the claude CLI + credentials. */
@@ -224,6 +186,14 @@ export function createDispatchRuntime(
     get workspaceRoot() {
       return getRoot();
     },
+    /**
+     * The closure set the queue drain needs (ADR-0047), so an always-on
+     * process like the hub can advance this workspace's queue without
+     * reaching into runtime internals.
+     */
+    drainDeps() {
+      return drainDepsFor(options, env);
+    },
     async handle(name, args, context) {
       if (
         isWorkerRole(env) &&
@@ -237,28 +207,19 @@ export function createDispatchRuntime(
       switch (name) {
         case "start_my_day":
           await reapJobs(options.workspaceRoot);
-          return buildDayBriefing({
-            ...options,
-            ...((options.brokerFetch ?? options.fetchImpl)
-              ? {
-                  brokerFetch: options.brokerFetch ?? options.fetchImpl,
-                }
-              : {}),
-          });
+          return buildDayBriefing(options);
         case "init":
           return initTool(options, env, context);
         case "start_job":
           return startJob(options, args, env, context);
         case "list_jobs":
-          return listJobs(options);
+          return listJobs(options, args);
         case "job_logs":
           return jobLogs(options, args);
         case "job_control":
           return jobControl(options, args, env, context);
         case "remember":
           return rememberTool(options.workspaceRoot, args);
-        case "integrations":
-          return integrationsTool(options, args, env, context);
         case "configure":
           return configureTool(options.workspaceRoot, args);
         case "dispatch_doctor":
@@ -289,6 +250,50 @@ function jobIdFrom(
   });
 }
 
+function isWorkingJobStatus(status: string): boolean {
+  return (
+    status === "queued" ||
+    status === "booting" ||
+    status === "running" ||
+    status === "ready"
+  );
+}
+
+/**
+ * Build the dependency bundle the drain loop needs (ADR-0047).
+ *
+ * `start_job` no longer performs any of this work itself; it hands the closure
+ * set to `kickDrain` and returns.
+ */
+function drainDepsFor(
+  options: DispatchRuntimeOptions,
+  env: NodeJS.ProcessEnv,
+  context?: DispatchToolContext,
+): DrainDeps {
+  return {
+    workspaceRoot: options.workspaceRoot,
+    ...(options.git ? { git: options.git } : {}),
+    env,
+    resolveAuth: async (backend) =>
+      await resolveWorkerAuth(options, env, context, { login: true, backend }),
+    workerFor: (backend) => workerForBackend(options, backend),
+    baseRef: async () => await defaultBaseRef(options),
+    ramGate: () => ramGate(options),
+    admissionGate: (activeCount, maxJobs) =>
+      admissionGate(options, activeCount, maxJobs),
+  };
+}
+
+/**
+ * Accept a job and return (M-067 P-S1, ADR-0047).
+ *
+ * The budget is under 500ms, which rules out everything that used to live
+ * here: sign-in, `git worktree add`, `reapJobs` over every sidecar, and the
+ * worker spawn. All of it moved to `queue.ts`, behind the return.
+ *
+ * What is left is one file read (to allocate a non-colliding id and spot a
+ * duplicate dispatch), one file write, and a fire-and-forget kick.
+ */
 async function startJob(
   options: DispatchRuntimeOptions,
   args: Record<string, unknown>,
@@ -300,10 +305,15 @@ async function startJob(
   if (!title) {
     return { message: "start_job needs a title (and a PRD helps)." };
   }
-  const ram = ramGate(options);
-  if (ram) return { message: ram };
-  const disk = await diskBudgetMessage(options.workspaceRoot);
-  if (disk) return { message: disk };
+
+  // The one precondition worth paying for before accepting (ADR-0047): a job
+  // outside a repository is not delayed, it is impossible, so queuing it would
+  // just move the failure somewhere the user is less likely to look.
+  const repo = await hasGitRepo(options.workspaceRoot, options.git);
+  if (!repo.ok) {
+    return { message: gitFailureSpeak(repo.detail) };
+  }
+
   const config = await loadConfig(options.workspaceRoot);
   const backend =
     options.workerBackend ??
@@ -312,258 +322,100 @@ async function startJob(
       env,
       clientName: options.getClientName?.(),
     });
-  const jobs = await reapJobs(options.workspaceRoot);
+
+  // `loadJobs`, not `reapJobs`: reconciling every run sidecar is the drain
+  // loop's job now, and it is the single most expensive thing this handler
+  // used to do.
+  const jobs = await loadJobs(options.workspaceRoot);
   const id = jobIdFrom(
     title,
     new Set(jobs.map((job) => job.id)),
     args.jobId ?? args.id,
   );
   const existing = jobs.find((job) => job.id === id);
+
   if (
     existing &&
     (existing.status === "running" || existing.status === "booting") &&
     isProcessAlive(existing.workerPid)
   ) {
+    return { job: existing, message: alreadyRunningSpeak(existing) };
+  }
+  if (existing && existing.status === "queued") {
     return {
       job: existing,
-      message: alreadyRunningSpeak(existing),
+      message: recordedJobSpeak(
+        existing,
+        "it is already in the queue and will start on its own.",
+      ),
     };
   }
-  const admission = admissionGate(
-    options,
-    activeJobCount(jobs),
-    config.maxJobs,
-  );
-  if (admission) {
-    return { message: admission, maxJobs: config.maxJobs };
-  }
 
-  // Placement (ADR-0045): the checkout by default; a worktree only when the
-  // user asks for isolation or the checkout already has a live teammate.
+  // Answering a gate: a re-dispatch carrying a confirm flag records the grant
+  // and drops the pending question, so the drain stops asking.
+  const granted = new Set(existing?.confirmed ?? []);
+  if (args.confirmDirty === true) granted.add("confirmDirty");
+  if (args.confirmOverlap === true) granted.add("confirmOverlap");
+  const pendingAnswered =
+    existing?.confirm !== undefined && granted.has(existing.confirm.arg);
+
   const isolationIntent =
     args.placement === "worktree" || typeof args.branch === "string";
-  let placement: JobPlacement =
+  const placement: JobPlacement =
     existing?.placement ?? (isolationIntent ? "worktree" : config.placement);
-  let placementNote = "";
-  if (placement === "checkout" && !existing) {
-    const checkoutBusy = jobs.some(
-      (job) =>
-        job.placement === "checkout" &&
-        job.id !== id &&
-        (job.status === "running" ||
-          job.status === "booting" ||
-          job.status === "ready") &&
-        isProcessAlive(job.workerPid),
-    );
-    if (checkoutBusy) {
-      placement = "worktree";
-      placementNote =
-        "Your checkout already has a teammate in it, so this one took its own branch.";
-    }
-  }
-
-  let tree: {
-    path: string;
-    branch: string;
-    source: JobRecord["source"];
-    cursorAgentId?: string;
-    claudeSession?: string;
-  };
-  let preExistingChanges: string[] = [];
-  try {
-    if (placement === "checkout" && !existing) {
-      const [branchRow, dirty] = await Promise.all([
-        (options.git ?? defaultGitRunner)(options.workspaceRoot, [
-          "rev-parse",
-          "--abbrev-ref",
-          "HEAD",
-        ]),
-        gitDirtyPaths(options.workspaceRoot, options.git),
-      ]);
-      if (!branchRow.ok) {
-        return { message: gitFailureSpeak(branchRow.stderr.trim()) };
-      }
-      // Dirty tree asks first (ADR-0045 §4): the teammate works alongside
-      // whatever the user has in flight, and the finish review subtracts it.
-      if (dirty.length > 0 && args.confirmDirty !== true) {
-        return {
-          needsConfirm: true,
-          dirtyPaths: dirty,
-          message: dirtyCheckoutSpeak(dirty.length),
-        };
-      }
-      const branch = branchRow.stdout.trim() || "HEAD";
-      tree = {
-        path: options.workspaceRoot,
-        branch,
-        source: "checkout",
-      };
-      preExistingChanges = dirty;
-    } else {
-      tree = existing
-        ? {
-            path: existing.worktreePath,
-            branch: existing.branch,
-            source: existing.source,
-            ...(existing.cursorAgentId
-              ? { cursorAgentId: existing.cursorAgentId }
-              : {}),
-            ...(existing.claudeSession
-              ? { claudeSession: existing.claudeSession }
-              : {}),
-          }
-        : await adoptOrCreateWorktree({
-            workspaceRoot: options.workspaceRoot,
-            jobId: id,
-            title,
-            ...(typeof args.branch === "string"
-              ? { preferredBranch: args.branch }
-              : {}),
-            ...(options.git ? { run: options.git } : {}),
-          });
-    }
-  } catch (cause) {
-    const detail = cause instanceof Error ? cause.message : String(cause);
-    return { message: gitFailureSpeak(detail) };
-  }
-
-  if (tree.source === "prism") {
-    await linkWorktreeInstall({
-      workspaceRoot: options.workspaceRoot,
-      worktreePath: tree.path,
-    });
-  }
-
-  const overlap = await findPathOverlap({
-    jobs,
-    path: tree.path,
-    ignoreJobId: id,
-    ...(options.git ? { git: options.git } : {}),
-  });
-  if (overlap && args.confirmOverlap !== true) {
-    return {
-      needsConfirm: true,
-      overlap,
-      message: overlapSpeak({
-        title: overlap.existingTitle,
-        dirty: overlap.dirty,
-      }),
-    };
-  }
 
   const now = new Date().toISOString();
-  let job: JobRecord = {
+  const job: JobRecord = {
+    ...existing,
     id,
     title,
     playbook: String(args.playbook ?? "ticket"),
     prd,
-    branch: tree.branch,
-    worktreePath: tree.path,
-    source: tree.source,
-    status: "ready",
+    // Placement resolves in the drain; an empty tree means "not placed yet".
+    branch:
+      existing?.branch ?? (typeof args.branch === "string" ? args.branch : ""),
+    worktreePath: existing?.worktreePath ?? "",
+    source: existing?.source ?? "checkout",
+    status: "queued",
     lastStep: "",
-    nextStep: "agent booting",
+    nextStep: "waiting for a slot",
     waitingOn: "",
     workerBackend: backend,
     placement,
     createdAt: existing?.createdAt ?? now,
+    queuedAt: now,
     updatedAt: now,
-    ...(tree.cursorAgentId ? { cursorAgentId: tree.cursorAgentId } : {}),
-    ...(tree.claudeSession ? { claudeSession: tree.claudeSession } : {}),
-    ...(placement === "checkout" && preExistingChanges.length > 0
-      ? { preExistingChanges }
+    lastActivity: "Queued",
+    workerPid: undefined,
+    cursorAgentId: undefined,
+    claudeSession: undefined,
+    workerSessionId: undefined,
+    runId: undefined,
+    lastHeartbeat: undefined,
+    resultSummary: undefined,
+    errorMessage: undefined,
+    startedAt: undefined,
+    finishedAt: undefined,
+    ...(granted.size > 0 ? { confirmed: [...granted] } : {}),
+    // Keep an unanswered question so the board still shows it; drop it once
+    // the matching grant arrives.
+    ...(existing?.confirm && !pendingAnswered
+      ? { confirm: existing.confirm }
       : {}),
   };
-  job = await upsertJob(options.workspaceRoot, job);
+  if (pendingAnswered) delete (job as { confirm?: unknown }).confirm;
 
-  const creds = await resolveWorkerAuth(options, env, context, {
-    login: true,
-    backend,
-  });
-  if (!creds.ready) {
-    job = await upsertJob(options.workspaceRoot, {
-      ...job,
-      status: "blocked",
-      waitingOn: "worker-auth",
-      nextStep: creds.message,
-    });
-    return {
-      job,
-      message: recordedJobSpeak(
-        job,
-        `sign-in is still needed. ${creds.message} Then say “resume ${displayJobId(job)}”.`,
-      ),
-    };
-  }
+  // Same slug after cancel/delete leaves a cancelled sidecar; reap would
+  // immediately overwrite this queued row. Clear first, then persist.
+  await clearRunState(options.workspaceRoot, id);
+  const saved = await upsertJob(options.workspaceRoot, job);
 
-  const memories = await loadMemories(options.workspaceRoot);
-  const launch = resolveMcpLaunch(env);
-  const worker = workerForBackend(options, backend);
-  if (!worker) {
-    return {
-      job,
-      message: recordedJobSpeak(
-        job,
-        "no teammate is configured. Reload the prism MCP server, then say prism init.",
-      ),
-    };
-  }
+  kickDrain(drainDepsFor(options, env, context));
 
-  job = await upsertJob(options.workspaceRoot, {
-    ...job,
-    status: "booting",
-  });
-  try {
-    const started = await worker.start({
-      jobId: job.id,
-      cwd: job.worktreePath,
-      name: agentNameForJob(job),
-      ...(creds.apiKey ? { apiKey: creds.apiKey } : {}),
-      prompt: workerPrompt({
-        job,
-        memories,
-        subagents: config.subagents,
-        placement,
-      }),
-      mcpCommand: launch.command,
-      mcpArgs: launch.args,
-      workspaceRoot: options.workspaceRoot,
-      title: job.title,
-      baseRef: await defaultBaseRef(options),
-      subagents: config.subagents,
-      verify: config.verifyJobs,
-      placement,
-      ...(job.preExistingChanges
-        ? { preExistingChanges: job.preExistingChanges }
-        : {}),
-    });
-    job = await upsertJob(options.workspaceRoot, {
-      ...job,
-      status: "running",
-      lastActivity: "Starting",
-      errorMessage: undefined,
-      resultSummary: undefined,
-      nextStep: "",
-      ...(started.agentId ? { cursorAgentId: started.agentId } : {}),
-      ...(typeof started.pid === "number" ? { workerPid: started.pid } : {}),
-    });
-    return {
-      job,
-      message: [startJobSpeak(job), placementNote].filter(Boolean).join(" "),
-    };
-  } catch (cause) {
-    const detail = cause instanceof Error ? cause.message : String(cause);
-    job = await upsertJob(options.workspaceRoot, {
-      ...job,
-      status: "blocked",
-      waitingOn: "worker",
-      nextStep: "",
-    });
-    return {
-      job,
-      message: recordedJobSpeak(job, publicWorkerError(detail)),
-    };
-  }
+  return {
+    job: saved,
+    message: queuedJobSpeak(saved),
+  };
 }
 
 /**
@@ -615,7 +467,30 @@ async function jobLogs(
   };
 }
 
-async function listJobs(options: DispatchRuntimeOptions): Promise<unknown> {
+async function listJobs(
+  options: DispatchRuntimeOptions,
+  args: Record<string, unknown> = {},
+): Promise<unknown> {
+  const waitFor = String(args.waitFor ?? "").trim();
+  const timeoutMs = Math.min(
+    Math.max(
+      typeof args.timeoutMs === "number" ? args.timeoutMs : 180_000,
+      1_000,
+    ),
+    600_000,
+  );
+  if (waitFor) {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const live = await reapJobs(options.workspaceRoot);
+      const resolved = resolveJobRef(live, waitFor);
+      const job = resolved?.kind === "one" ? resolved.job : undefined;
+      if (!job || !isWorkingJobStatus(job.status) || Date.now() >= deadline) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1_500));
+    }
+  }
   const jobs = await reapJobs(options.workspaceRoot);
   // Reap is the natural place to notice trees whose job record is gone.
   // Best-effort: a GC failure must never break "where are we".
@@ -644,11 +519,27 @@ async function listJobs(options: DispatchRuntimeOptions): Promise<unknown> {
       ...(job.review ? { review: job.review } : {}),
       ...(job.verification ? { verification: job.verification } : {}),
       ...(job.commitSha ? { commitSha: job.commitSha } : {}),
+      ...(job.confirm?.question
+        ? { confirmQuestion: job.confirm.question }
+        : {}),
+      ...(job.nextStep ? { nextStep: job.nextStep } : {}),
     });
+  }
+  let message = listJobsSpeak(rows);
+  if (waitFor) {
+    const resolved = resolveJobRef(jobs, waitFor);
+    const waited = resolved?.kind === "one" ? resolved.job : undefined;
+    if (waited && !isWorkingJobStatus(waited.status)) {
+      const page = await readRunLog(options.workspaceRoot, waited.id, {
+        limit: 80,
+      });
+      const analysis = analysisSpeak(page.entries);
+      if (analysis) message = `${message}\n\n${analysis}`;
+    }
   }
   return {
     jobs: rows,
-    message: listJobsSpeak(rows),
+    message,
   };
 }
 
@@ -671,7 +562,7 @@ async function jobControl(
   const job = resolved.job;
   const launch = resolveMcpLaunch(env);
 
-  if (action === "cancel" || action === "pause") {
+  if (action === "cancel" || action === "pause" || action === "delete") {
     const cancelWorker =
       workerForBackend(options, job.workerBackend ?? "cursor") ??
       options.worker ??
@@ -685,6 +576,15 @@ async function jobControl(
         ...(typeof job.workerPid === "number" ? { pid: job.workerPid } : {}),
       });
     }
+    if (action === "delete") {
+      await clearRunState(options.workspaceRoot, job.id);
+      await deleteJob(options.workspaceRoot, job.id);
+      return {
+        deleted: true,
+        jobId: job.id,
+        message: controlSpeak("delete", job),
+      };
+    }
     const next = await upsertJob(options.workspaceRoot, {
       ...job,
       status: action === "cancel" ? "cancelled" : "paused",
@@ -697,8 +597,38 @@ async function jobControl(
     };
   }
 
+  // Answer a gate the drain parked (ADR-0047). Records the grant, clears the
+  // question and re-queues; the drain picks it up from there. This is what the
+  // board's Confirm button calls.
+  if (action === "confirm") {
+    if (job.status !== "needs_confirm" || !job.confirm) {
+      return {
+        job,
+        message: `${jobRef(job)} is not waiting on a confirmation.`,
+      };
+    }
+    const granted = new Set(job.confirmed ?? []);
+    granted.add(job.confirm.arg);
+    const next = await upsertJob(options.workspaceRoot, {
+      ...job,
+      status: "queued",
+      queuedAt: new Date().toISOString(),
+      confirmed: [...granted],
+      confirm: undefined,
+      waitingOn: "",
+      nextStep: "waiting for a slot",
+    });
+    kickDrain(drainDepsFor(options, env, context));
+    return { job: next, message: queuedJobSpeak(next) };
+  }
+
   if (action === "resume" || action === "attach_context") {
     const extra = String(args.context ?? args.text ?? "").trim();
+    // A gated job has no worker to resume — it never started. Say what it is
+    // waiting for rather than falling through to a spawn that cannot happen.
+    if (job.status === "needs_confirm" && action === "resume") {
+      return { job, message: needsConfirmSpeak(job) };
+    }
     if (isProcessAlive(job.workerPid)) {
       if (action === "attach_context" && extra) {
         const next = await upsertJob(options.workspaceRoot, {
@@ -741,6 +671,14 @@ async function jobControl(
       .filter(Boolean)
       .join("\n\n");
     const jobPlacement = job.placement ?? "worktree";
+    const standing = (await loadConfig(options.workspaceRoot)).jobInstructions;
+    const promptFields = {
+      job,
+      memories,
+      extra: combinedExtra,
+      placement: jobPlacement,
+      jobInstructions: standing,
+    } as const;
     const placementFields = {
       placement: jobPlacement,
       ...(job.preExistingChanges
@@ -762,12 +700,7 @@ async function jobControl(
         prompt:
           action === "attach_context"
             ? combinedExtra || "Continue."
-            : workerPrompt({
-                job,
-                memories,
-                extra: combinedExtra,
-                placement: jobPlacement,
-              }),
+            : workerPrompt(promptFields),
         mcpCommand: launch.command,
         mcpArgs: launch.args,
         workspaceRoot: options.workspaceRoot,
@@ -780,12 +713,7 @@ async function jobControl(
         cwd: job.worktreePath,
         name: agentNameForJob(job),
         ...(creds.apiKey ? { apiKey: creds.apiKey } : {}),
-        prompt: workerPrompt({
-          job,
-          memories,
-          extra: combinedExtra,
-          placement: jobPlacement,
-        }),
+        prompt: workerPrompt(promptFields),
         mcpCommand: launch.command,
         mcpArgs: launch.args,
         workspaceRoot: options.workspaceRoot,
@@ -797,6 +725,10 @@ async function jobControl(
     const next = await upsertJob(options.workspaceRoot, {
       ...job,
       status: "running",
+      // A job resumed after a pause has a live worker again, so the clock
+      // restarts here. `upsertJob` clears `finishedAt` on the way out of a
+      // stopped status, which is what un-freezes it.
+      startedAt: job.startedAt ?? new Date().toISOString(),
       lastActivity: "Starting",
       errorMessage: undefined,
       pendingContext: undefined,
@@ -848,9 +780,108 @@ async function jobControl(
     };
   }
 
+  if (action === "reject_file" || action === "reject_all") {
+    if (job.status !== "needs_review" || !job.review) {
+      return {
+        job,
+        message: `${jobRef(job)} is not waiting on a review.`,
+      };
+    }
+    const cwd = job.worktreePath || options.workspaceRoot;
+    const paths =
+      action === "reject_all"
+        ? job.review.files.map((file) => file.path)
+        : [String(args.path ?? "").trim()].filter(Boolean);
+    if (paths.length === 0) {
+      return {
+        job,
+        message:
+          "Say which file to restore, or restore all of the job's files.",
+      };
+    }
+    const result = await restoreCheckoutPaths(
+      cwd,
+      {
+        paths,
+        mixedPaths: job.review.mixedPaths,
+      },
+      options.git ?? defaultGitRunner,
+    );
+    const review = await gitCheckoutReview(cwd, {
+      preExisting: job.preExistingChanges ?? [],
+      ...(job.branch ? { branch: job.branch } : {}),
+    });
+    const keptPaths = (job.review.keptPaths ?? []).filter((path) =>
+      review.files.some((file) => file.path === path),
+    );
+    const nextReview = { ...review, keptPaths };
+    const remaining = nextReview.files.filter(
+      (file) => !keptPaths.includes(file.path),
+    );
+    const stillWork = remaining.length > 0;
+    const next = await upsertJob(options.workspaceRoot, {
+      ...job,
+      review: nextReview,
+      status: stillWork ? "needs_review" : "done",
+      nextStep: stillWork ? "review the changes" : "",
+      resultSummary: stillWork
+        ? `${remaining.length} file(s) still need a look`
+        : "Restored the job's files. Your other uncommitted work is untouched.",
+    });
+    const restored = result.restored.join(", ") || "nothing";
+    const skipped = result.skipped.length
+      ? ` Left mixed files alone: ${result.skipped.slice(0, 4).join(", ")}.`
+      : "";
+    return {
+      job: next,
+      message: stillWork
+        ? `Restored ${restored} for ${jobRef(next)}.${skipped} ${review.files.length} file(s) still need a look.`
+        : `Restored ${restored} for ${jobRef(next)}.${skipped} Nothing from that job remains.`,
+    };
+  }
+
+  if (action === "accept_file" || action === "accept_all") {
+    if (job.status !== "needs_review" || !job.review) {
+      return {
+        job,
+        message: `${jobRef(job)} is not waiting on a review.`,
+      };
+    }
+    const kept = new Set(job.review.keptPaths ?? []);
+    if (action === "accept_all") {
+      for (const file of job.review.files) kept.add(file.path);
+    } else {
+      const path = String(args.path ?? "").trim();
+      if (!path) {
+        return {
+          job,
+          message: "Say which file to keep, or keep all of the job's files.",
+        };
+      }
+      kept.add(path);
+    }
+    const remaining = job.review.files.filter((file) => !kept.has(file.path));
+    const stillWork = remaining.length > 0;
+    const next = await upsertJob(options.workspaceRoot, {
+      ...job,
+      review: { ...job.review, keptPaths: [...kept] },
+      status: stillWork ? "needs_review" : "done",
+      nextStep: stillWork ? "review the changes" : "",
+      resultSummary: stillWork
+        ? `${remaining.length} file(s) still need a look`
+        : `You kept ${kept.size} file(s) from ${jobRef(job)}.`,
+    });
+    return {
+      job: next,
+      message: stillWork
+        ? `Kept ${action === "accept_all" ? "those files" : String(args.path)} for ${jobRef(next)}. ${remaining.length} file(s) still need a look.`
+        : `Kept the changes from ${jobRef(next)}. They are still uncommitted in your working tree.`,
+    };
+  }
+
   return {
     message:
-      "job_control action must be pause, resume, cancel, attach_context, or commit.",
+      "job_control action must be pause, resume, cancel, delete, attach_context, commit, accept_file, or reject_file.",
     job,
   };
 }
@@ -901,437 +932,6 @@ async function rememberTool(
 
 function looksLikeCodeRule(text: string): boolean {
   return /\b(always|never|must|rewrite|replace all|force push)\b/i.test(text);
-}
-
-async function integrationsTool(
-  options: DispatchRuntimeOptions,
-  args: Record<string, unknown>,
-  env: NodeJS.ProcessEnv,
-  context?: DispatchToolContext,
-): Promise<unknown> {
-  if (
-    isWorkerRole(env) &&
-    ["start", "connect", "callback"].includes(String(args.action))
-  ) {
-    return { message: "Workers cannot start OAuth." };
-  }
-  const action = String(args.action ?? "catalog").trim();
-  const fetchImpl = options.fetchImpl ?? fetch;
-  if (action === "catalog" || action === "status") {
-    const broker = authBrokerUrl(env);
-    const brokerCatalog = await listBrokerDrivers(broker, fetchImpl);
-    const rows = [];
-    for (const id of DriverIdSchema.options) {
-      const granted = await isPurposeGranted(
-        options.workspaceRoot,
-        DRIVER_CONSENT[id],
-      );
-      const token = await loadToken(options.workspaceRoot, id);
-      const credentials = await resolveOAuthClient(
-        options.workspaceRoot,
-        OAUTH_PROVIDERS[id],
-        env,
-      );
-      const brokerEnabled =
-        brokerCatalog.drivers.find((row) => row.id === id)?.enabled === true;
-      rows.push({
-        id,
-        label: DRIVER_LABELS[id],
-        connected: Boolean(granted && token),
-        brokerEnabled,
-        connectReady: Boolean(credentials.clientId || brokerEnabled),
-        consentPurpose: DRIVER_CONSENT[id],
-      });
-    }
-    return {
-      drivers: rows,
-      broker,
-      brokerReachable: brokerCatalog.reachable,
-      redirectUri: DISPATCH_OAUTH_REDIRECT_URI,
-      message: rows
-        .map((row) => {
-          if (row.connected) return `${row.label}: connected`;
-          if (row.connectReady) {
-            return `${row.label}: not connected — say “connect ${row.label}”`;
-          }
-          if (!brokerCatalog.reachable) {
-            return `${row.label}: not connected (Prism Auth unreachable${brokerCatalog.reason ? ` — ${brokerCatalog.reason}` : ""})`;
-          }
-          return `${row.label}: not connected (Prism Auth has not enabled this connector yet)`;
-        })
-        .join("\n"),
-    };
-  }
-  if (action === "setup") {
-    const driver = parseDriverId(args.driver);
-    if (!driver) {
-      return {
-        broker: authBrokerUrl(env),
-        message:
-          "Name a driver: github, linear, jira, slack, notion, google-calendar. Say “connect …” — Cursor shows Authenticate; Claude opens Prism Auth. You do not paste a client id.",
-      };
-    }
-    return oauthSetupGuide(OAUTH_PROVIDERS[driver]);
-  }
-  if (action === "disconnect") {
-    const driver = parseDriverId(args.driver);
-    if (!driver) return { message: "disconnect needs a driver id." };
-    await deleteToken(options.workspaceRoot, driver);
-    await revokePurpose(options.workspaceRoot, DRIVER_CONSENT[driver]);
-    return { message: `Disconnected ${DRIVER_LABELS[driver]}.` };
-  }
-  if (action === "start" || action === "connect") {
-    const driver = parseDriverId(args.driver);
-    await persistClientCredentials(options.workspaceRoot, driver, args);
-    if (options.startOAuth && driver) {
-      return options.startOAuth(driver);
-    }
-    return startOAuth(options, args, env, context);
-  }
-  return {
-    message:
-      "integrations action must be catalog, setup, start, or disconnect.",
-  };
-}
-
-async function persistClientCredentials(
-  workspaceRoot: string,
-  driver: DriverId | undefined,
-  args: Record<string, unknown>,
-): Promise<void> {
-  if (!driver) return;
-  const clientId = stringArg(args.clientId ?? args.client_id);
-  if (!clientId) return;
-  const clientSecret = stringArg(args.clientSecret ?? args.client_secret);
-  await saveOAuthApp(workspaceRoot, driver, {
-    clientId,
-    ...(clientSecret ? { clientSecret } : {}),
-  });
-}
-
-function stringArg(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  return trimmed || undefined;
-}
-
-async function startOAuth(
-  options: DispatchRuntimeOptions,
-  args: Record<string, unknown>,
-  env: NodeJS.ProcessEnv,
-  context?: DispatchToolContext,
-): Promise<unknown> {
-  const driver = parseDriverId(args.driver);
-  if (!driver) {
-    return {
-      message:
-        "Name a driver: github, linear, jira, slack, notion, google-calendar (or say “google calendar”).",
-    };
-  }
-  await persistClientCredentials(options.workspaceRoot, driver, args);
-  const provider = OAUTH_PROVIDERS[driver];
-  const credentials = await resolveOAuthClient(
-    options.workspaceRoot,
-    provider,
-    env,
-  );
-  const fetchImpl = options.fetchImpl ?? fetch;
-
-  if (credentials.clientId) {
-    return startDirectOAuth(
-      options,
-      driver,
-      {
-        clientId: credentials.clientId,
-        ...(credentials.clientSecret
-          ? { clientSecret: credentials.clientSecret }
-          : {}),
-      },
-      context,
-    );
-  }
-
-  const broker = authBrokerUrl(env);
-  const catalog = await listBrokerDrivers(broker, fetchImpl);
-  const enabled =
-    catalog.drivers.find((row) => row.id === driver)?.enabled === true;
-  if (!catalog.reachable) {
-    const detail = catalog.reason ? ` (${catalog.reason})` : "";
-    return {
-      broker,
-      reachable: false,
-      message: `Prism Auth (${broker}) is unreachable${detail}. Try “connect ${DRIVER_LABELS[driver]}” again in a moment. You do not create an OAuth app.`,
-    };
-  }
-  if (!enabled) {
-    return {
-      broker,
-      brokerEnabled: false,
-      message: `${DRIVER_LABELS[driver]} is not enabled on Prism Auth yet. Prism registers that vendor app once — you do not create an OAuth client.`,
-    };
-  }
-
-  const state = randomUUID();
-  const authorizeUrl = brokerStartUrl(broker, driver, state);
-  const grant = await collectGrant(
-    context?.oauthUi ?? options.oauthUi,
-    context?.signal,
-    driver,
-    authorizeUrl,
-    state,
-  );
-  if (!grant.ok) return grant.result;
-  const bundle = await redeemBrokerPickup(
-    broker,
-    grant.callback.code,
-    fetchImpl,
-  );
-  return finishConnected(
-    options,
-    driver,
-    grant.steps,
-    grant.presentation,
-    bundle,
-  );
-}
-
-async function startDirectOAuth(
-  options: DispatchRuntimeOptions,
-  driver: DriverId,
-  credentials: { clientId: string; clientSecret?: string },
-  context?: DispatchToolContext,
-): Promise<unknown> {
-  const provider = OAUTH_PROVIDERS[driver];
-  const clientId = credentials.clientId;
-  const pkce = provider.usePkce ? createPkce() : undefined;
-  const state = randomUUID();
-  const grant = await collectGrant(
-    context?.oauthUi ?? options.oauthUi,
-    context?.signal,
-    driver,
-    (redirectUri) =>
-      buildAuthorizeUrl({
-        provider,
-        clientId,
-        redirectUri,
-        state,
-        ...(pkce ? { challenge: pkce.challenge } : {}),
-      }),
-    state,
-  );
-  if (!grant.ok) return grant.result;
-  const secret = credentials.clientSecret;
-  const bundle = await exchangeCode({
-    provider,
-    clientId,
-    ...(secret ? { clientSecret: secret } : {}),
-    redirectUri: grant.callback.redirectUri,
-    code: grant.callback.code,
-    ...(pkce ? { verifier: pkce.verifier } : {}),
-  });
-  await saveToken(options.workspaceRoot, driver, bundle);
-  await grantPurpose(options.workspaceRoot, DRIVER_CONSENT[driver]);
-  return connectedResult(driver, grant.steps, grant.presentation);
-}
-
-type AuthorizeUrlFactory = string | ((redirectUri: string) => string);
-
-async function collectGrant(
-  oauthUi: OAuthUiPort | undefined,
-  signal: AbortSignal | undefined,
-  driver: DriverId,
-  authorizeUrlOrFactory: AuthorizeUrlFactory,
-  expectedState: string,
-): Promise<
-  | {
-      ok: true;
-      callback: LoopbackResult;
-      steps: ConnectStep[];
-      presentation: AuthPresentation;
-    }
-  | { ok: false; result: unknown }
-> {
-  const label = DRIVER_LABELS[driver];
-  let steps = connectPlan(label);
-  const total = steps.length;
-  const report = async () => {
-    const current =
-      steps.find((step) => step.status === "active") ??
-      steps.find((step) => step.status === "done");
-    if (!current || !oauthUi) return;
-    const index = steps.findIndex((step) => step.id === current.id) + 1;
-    await oauthUi.reportStep(current, index, total);
-  };
-
-  if (oauthUi?.confirmConnect) {
-    steps = markConnectStep(steps, "confirm", "active");
-    await report();
-    const confirmed = await oauthUi.confirmConnect(label);
-    if (!confirmed) {
-      steps = markConnectStep(steps, "confirm", "failed");
-      return {
-        ok: false,
-        result: {
-          driver,
-          connected: false,
-          cancelled: true,
-          steps,
-          message: `Cancelled connecting ${label}. Say “connect ${label}” when you want to try again.`,
-        },
-      };
-    }
-    steps = markConnectStep(steps, "confirm", "done");
-  } else {
-    steps = skipConnectStep(steps, "confirm");
-  }
-
-  steps = markConnectStep(steps, "prepare", "active");
-  await report();
-  const abort = new AbortController();
-  const onToolAbort = () => abort.abort();
-  signal?.addEventListener("abort", onToolAbort, { once: true });
-  let loopback: Awaited<ReturnType<typeof waitForLoopbackCode>>;
-  try {
-    loopback = await waitForLoopbackCode({
-      timeoutMs: 180_000,
-      preferredPort: DISPATCH_OAUTH_LOOPBACK_PORT,
-      signal: abort.signal,
-    });
-  } catch (cause) {
-    signal?.removeEventListener("abort", onToolAbort);
-    steps = markConnectStep(steps, "prepare", "failed");
-    return {
-      ok: false,
-      result: {
-        redirectUri: DISPATCH_OAUTH_REDIRECT_URI,
-        steps,
-        message: cause instanceof Error ? cause.message : String(cause),
-      },
-    };
-  }
-  steps = markConnectStep(steps, "prepare", "done");
-
-  const authorizeUrl =
-    typeof authorizeUrlOrFactory === "function"
-      ? authorizeUrlOrFactory(loopback.redirectUri)
-      : authorizeUrlOrFactory;
-
-  steps = markConnectStep(steps, "authenticate", "active");
-  await report();
-  const elicitationId = randomUUID();
-  const session = oauthUi
-    ? await oauthUi.beginAuth({
-        driverLabel: label,
-        authorizeUrl,
-        elicitationId,
-      })
-    : await fallbackOpenAuth(authorizeUrl);
-
-  let callback: LoopbackResult;
-  try {
-    const raced = await Promise.race([
-      loopback.done.then((value) => ({ kind: "callback" as const, value })),
-      session.userRejected.then((action) => ({
-        kind: "rejected" as const,
-        action,
-      })),
-    ]);
-    if (raced.kind === "rejected") {
-      abort.abort();
-      void loopback.done.catch(() => undefined);
-      steps = markConnectStep(steps, "authenticate", "failed");
-      return {
-        ok: false,
-        result: {
-          driver,
-          connected: false,
-          cancelled: true,
-          presentation: session.presentation,
-          steps,
-          agentHint: presentationHint(session.presentation),
-          message: `Cancelled connecting ${label}.`,
-        },
-      };
-    }
-    callback = raced.value;
-    await Promise.race([
-      session.complete(),
-      new Promise<void>((resolve) => setTimeout(resolve, 2_000)),
-    ]);
-  } catch (cause) {
-    abort.abort();
-    void loopback.done.catch(() => undefined);
-    steps = markConnectStep(steps, "authenticate", "failed");
-    return {
-      ok: false,
-      result: {
-        authorizeUrl,
-        redirectUri: loopback.redirectUri,
-        presentation: session.presentation,
-        steps,
-        agentHint: presentationHint(session.presentation),
-        message: `Finish connecting ${label} — ${presentationHint(session.presentation)}${cause instanceof Error ? ` (${cause.message})` : ""}`,
-      },
-    };
-  } finally {
-    session.abort();
-    signal?.removeEventListener("abort", onToolAbort);
-  }
-
-  if (callback.state && callback.state !== expectedState) {
-    steps = markConnectStep(steps, "authenticate", "failed");
-    return {
-      ok: false,
-      result: { message: "OAuth state mismatch — try connect again.", steps },
-    };
-  }
-  steps = markConnectStep(steps, "authenticate", "done");
-  steps = markConnectStep(steps, "store", "active");
-  await report();
-  return {
-    ok: true,
-    callback,
-    steps,
-    presentation: session.presentation,
-  };
-}
-
-async function fallbackOpenAuth(authorizeUrl: string) {
-  await openInBrowser(authorizeUrl);
-  return silentAuthSession("opened-page");
-}
-
-async function finishConnected(
-  options: DispatchRuntimeOptions,
-  driver: DriverId,
-  steps: ConnectStep[],
-  presentation: AuthPresentation,
-  bundle: Awaited<ReturnType<typeof redeemBrokerPickup>>,
-): Promise<unknown> {
-  await saveToken(options.workspaceRoot, driver, bundle);
-  await grantPurpose(options.workspaceRoot, DRIVER_CONSENT[driver]);
-  return connectedResult(driver, steps, presentation);
-}
-
-function connectedResult(
-  driver: DriverId,
-  steps: ConnectStep[],
-  presentation: AuthPresentation,
-): unknown {
-  const done = markConnectStep(
-    markConnectStep(steps, "store", "done"),
-    "done",
-    "done",
-  );
-  const label = DRIVER_LABELS[driver];
-  return {
-    driver,
-    connected: true,
-    presentation,
-    steps: done,
-    agentHint: `Connected. ${label} will show up on start my day. Do not ask for a client id.`,
-    message: `Connected ${label}. It will show up on the next start-my-day.`,
-  };
 }
 
 async function configureTool(
@@ -1395,6 +995,7 @@ async function configureTool(
     sectionOrder: patch.sectionOrder,
     sectionsOff: patch.sectionsOff,
     standupTemplate: patch.standupTemplate,
+    jobInstructions: patch.jobInstructions,
     hints: patch.hints,
     maxJobs: patch.maxJobs,
     subagents: patch.subagents,
@@ -1458,6 +1059,9 @@ function formatConfig(config: DispatchConfig): string {
     config.preferences.length > 0
       ? `preferences: ${config.preferences.join(" · ")}`
       : "",
+    config.jobInstructions.trim()
+      ? `jobInstructions: ${config.jobInstructions.trim()}`
+      : "",
   ]
     .filter(Boolean)
     .join(" · ");
@@ -1469,9 +1073,25 @@ async function initTool(
   context?: DispatchToolContext,
 ): Promise<unknown> {
   const creds = await resolveWorkerAuth(options, env, context, { login: true });
+  if (!creds.ready) return { ready: false, message: creds.message };
+
+  // Sign-in was the thing every auth-blocked job was waiting for, so put them
+  // back in the queue rather than making the user say "resume" once per job
+  // (ADR-0047).
+  const requeued = await requeueAuthBlocked(options.workspaceRoot);
+  if (requeued.length > 0) kickDrain(drainDepsFor(options, env, context));
+
+  const resumedNote =
+    requeued.length === 0
+      ? ""
+      : requeued.length === 1
+        ? ` ${jobRef(requeued[0]!)} is back in the queue and will start on its own.`
+        : ` ${requeued.length} waiting jobs are back in the queue and will start on their own.`;
+
   return {
-    ready: creds.ready,
-    message: creds.ready ? initSpeak(true, creds.email) : creds.message,
+    ready: true,
+    requeued: requeued.length,
+    message: `${initSpeak(true, creds.email)}${resumedNote}`,
   };
 }
 
@@ -1534,14 +1154,9 @@ async function doctorTool(
   const sdk = backend === "cursor" ? await loadCursorSdk() : undefined;
   const config = await loadConfig(options.workspaceRoot);
   const jobs = await reapJobs(options.workspaceRoot);
-  const broker = authBrokerUrl(env);
-  const brokerCatalog = await listBrokerDrivers(
-    broker,
-    options.fetchImpl ?? fetch,
-  );
-  const enabledCount = brokerCatalog.drivers.filter(
-    (row) => row.enabled,
-  ).length;
+  const hosts = await discoverHostConnectors({
+    workspaceRoot: options.workspaceRoot,
+  });
   const creds = await resolveWorkerAuth(options, env, undefined, { backend });
   const diskMessage = await diskBudgetMessage(options.workspaceRoot);
   const ramMessage = ramGate(options);
@@ -1608,11 +1223,15 @@ async function doctorTool(
       detail: ramMessage ?? "enough free memory",
     },
     {
-      id: "prism_auth",
-      ok: brokerCatalog.reachable,
-      detail: brokerCatalog.reachable
-        ? `${broker} · ${enabledCount} connector(s) enabled`
-        : `${broker} unreachable${brokerCatalog.reason ? ` (${brokerCatalog.reason})` : ""} — connect will wait until Prism Auth is up`,
+      // Replaces the Prism Auth reachability check (ADR-0049). Prism no longer
+      // runs connectors, so what matters is whether the *host* has any: that
+      // is what decides how much of a standup can be filled.
+      id: "host_connectors",
+      ok: hosts.connectors.length > 0,
+      detail:
+        hosts.connectors.length > 0
+          ? `${hosts.connectors.map((row) => row.label).join(", ")} available in your agent window`
+          : "No connectors found in Cursor or Claude Code — standups will cover this repo only.",
     },
   ];
   return {

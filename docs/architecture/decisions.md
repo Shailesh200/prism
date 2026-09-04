@@ -71,11 +71,15 @@ points are marked estimated so a reconstructed trend never looks measured.
 
 ## Surfaces
 
-**Dispatch OAuth goes through Prism Auth** (ADR-0036). Users grant in the
-browser at `auth.prismhq.in`. Cursor shows a native Authenticate control;
-Claude opens the page (ADR-0037). Vendor app secrets stay on the broker.
-Tokens return to the local MCP. Analysis still never leaves the machine.
-Local job workers sign in the same way via `Cursor.auth.login` (ADR-0038) —
+**Connectors belong to the agent window** (ADR-0049). Prism runs no OAuth of
+its own: it learns which connectors are signed in — Cursor session MCP tools
+(not the plugin download cache, and not a plugin that still only exposes
+`mcp_auth`) plus Claude plugin installs and host MCP configs — names and
+capabilities only, never a token — and asks the
+host agent to fill the sections it cannot. This supersedes the Prism Auth
+broker (ADR-0036) and the per-host connect UX (ADR-0037), and retires
+`auth.prismhq.in`. Dispatch now makes no network calls at all.
+Local job workers still sign in via `Cursor.auth.login` (ADR-0038) —
 not by pasting `CURSOR_API_KEY` into mcp.json. Jobs use a ticket or title
 slug as the canonical id, never `job-<hex>` in chat (ADR-0039). Parallel
 local workers run in isolated processes and worktrees; live status and

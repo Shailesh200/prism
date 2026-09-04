@@ -4,7 +4,8 @@ Loopback dashboard and OS notifications for Prism Dispatch jobs (ADR-0043).
 
 The host MCP server (`prism-mcp`) spawns this daemon when a chat session
 starts. It binds `127.0.0.1:17330`, watches every registered workspace's
-`.prism/dispatch/` tree, and serves a live jobs board.
+`.prism/dispatch/` tree, and serves a live jobs board at
+`http://prismhq.localhost:17330` (ADR-0048).
 
 ```text
 npx prism-hub

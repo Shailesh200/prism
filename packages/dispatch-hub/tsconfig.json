@@ -14,7 +14,16 @@
   ],
   "references": [
     {
+      "path": "../app-shell"
+    },
+    {
       "path": "../dispatch"
+    },
+    {
+      "path": "../host-session"
+    },
+    {
+      "path": "../shared"
     },
     {
       "path": "../ui"

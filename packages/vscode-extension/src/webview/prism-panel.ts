@@ -4,13 +4,15 @@ import { join } from "node:path";
 import { loadPrismConfig, writePrismConfig } from "@repo-prism/core";
 import type * as vscode from "vscode";
 import { openPlaygroundInBrowser } from "../open-playground.js";
+import { applyWorkspaceRename } from "../apply-rename.js";
 import { checkHealthRegression } from "../health-alerts.js";
+import { fetchConsoleStatus } from "../console-link.js";
 import {
   dispatchHostRequest,
   type HostDispatchState,
-} from "../host-dispatch.js";
+} from "@repo-prism/host-session";
 import type { PrismLogger } from "../logger.js";
-import type { PrismSession } from "../session.js";
+import type { PrismSession } from "@repo-prism/host-session";
 import type {
   AppView,
   HostAuditEntry,
@@ -18,8 +20,8 @@ import type {
   HostResponse,
   HostToWebview,
   WebviewToHost,
-} from "../protocol.js";
-import { parseWebviewToHost } from "../protocol-guards.js";
+} from "@repo-prism/host-session";
+import { parseWebviewToHost } from "@repo-prism/host-session";
 import {
   AUTO_REINDEX_INTERVAL_STATE_KEY,
   AUTO_REINDEX_STATE_KEY,
@@ -383,7 +385,13 @@ export class PrismPanel {
         req,
         this.dispatchState,
         {
-          vscodeApi: this.vscodeApi,
+          // Rename through a workspace edit rather than plain `fs`, so it
+          // lands in the editor's undo stack and open buffers follow it.
+          applyRename: (root, input) =>
+            applyWorkspaceRename(this.vscodeApi, root, input),
+          // Over HTTP to the Console, so the extension keeps no Dispatch
+          // dependency of its own (M-067 P-S5).
+          consoleStatus: () => fetchConsoleStatus(),
           ...(req.method === "lighthouseLab" || req.method === "bundleAnalyze"
             ? {
                 onProgress: (event: {
@@ -623,7 +631,11 @@ export class PrismPanel {
       // Opt-in network integrations (GitHub Actions, PageSpeed) from the
       // webview. A host listed here is reachable, not permitted: consent is
       // enforced in Core, and the CSP only bounds the blast radius of a bug.
-      `connect-src ${webview.cspSource} https://api.github.com https://www.googleapis.com`,
+      // The Prism Console, for the Jobs view. Loopback only,
+      // and the Console still demands its own token — this widens what the
+      // webview can reach to one process already running on this machine
+      // (ADR-0048), not to the network.
+      `connect-src ${webview.cspSource} http://127.0.0.1:* http://prismhq.localhost:* http://prism.localhost:* http://local.prismhq.in:* https://api.github.com https://www.googleapis.com`,
     ].join("; ");
 
     return `<!DOCTYPE html>

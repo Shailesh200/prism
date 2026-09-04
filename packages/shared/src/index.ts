@@ -1,5 +1,11 @@
 /** @repo-prism/shared — contracts, errors, IDs, paths, Zod DTOs */
 
+export { PRISM_TOOL_COUNT } from "./generated/tool-count.js";
+export {
+  NO_CONSOLE_STATUS,
+  type ConsoleStatus,
+  type HostConnectorInfo,
+} from "./console-status.js";
 export {
   err,
   isErr,
@@ -19,6 +25,19 @@ export {
 } from "./errors.js";
 
 export { isTestPath, isTypeDeclarationPath } from "./test-paths.js";
+
+export {
+  CLOCK_STOPPED_STATUSES,
+  durationMs,
+  endOfLifeFor,
+  formatDuration,
+  formatDurationOr,
+  formatJobDuration,
+  jobDurations,
+  primaryDurationMs,
+  type JobDurations,
+  type JobTimestamps,
+} from "./duration.js";
 
 export {
   CONSENT_PURPOSES,

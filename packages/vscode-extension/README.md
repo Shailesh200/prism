@@ -20,8 +20,8 @@ uploaded for core analysis.
 
 Prefer the terminal or agents? Same engine:
 
-- **CLI** — [install guide](https://www.prismhq.in/docs/cli/install)
-- **MCP** — [install guide](https://www.prismhq.in/docs/mcp/install)
+- **CLI** — [install guide](https://www.prismhq.in/docs/start/install)
+- **MCP** — [install guide](https://www.prismhq.in/docs/start/install)
 
 ## Commands
 
@@ -33,8 +33,10 @@ Prefer the terminal or agents? Same engine:
 | Prism: Reindex | `prism.reindex` |
 | Prism: Open in Browser | `prism.openInBrowser` |
 
-`Open in Browser` serves the same Core session over a loopback bridge
-(`http://127.0.0.1:17321`).
+`Open in Browser` opens the Prism Console (`http://prismhq.localhost:17330`),
+which serves the same analysis over its Intelligence plane. The Console is a
+user-level daemon started by any Prism tool; if none is running the command
+says so rather than opening a dead tab (ADR-0048).
 
 ## Develop (contributors)
 

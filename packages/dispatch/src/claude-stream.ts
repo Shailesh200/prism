@@ -65,6 +65,63 @@ export function claudeSessionIdFrom(event: unknown): string | undefined {
   return undefined;
 }
 
+/** Model id from `system/init`, an assistant message, or `result.modelUsage`. */
+export function claudeModelFrom(event: unknown): string | undefined {
+  if (!event || typeof event !== "object") return undefined;
+  const row = event as Record<string, unknown>;
+  if (typeof row.model === "string" && row.model.trim())
+    return row.model.trim();
+  const message = row.message;
+  if (message && typeof message === "object") {
+    const model = (message as Record<string, unknown>).model;
+    if (typeof model === "string" && model.trim()) return model.trim();
+  }
+  const usage = row.modelUsage;
+  if (usage && typeof usage === "object" && !Array.isArray(usage)) {
+    const first = Object.keys(usage)[0];
+    if (first?.trim()) return first.trim();
+  }
+  return undefined;
+}
+
+function thinkingValue(value: unknown): string | undefined {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(Math.round(value));
+  }
+  if (value && typeof value === "object") {
+    const row = value as Record<string, unknown>;
+    if (
+      typeof row.budget_tokens === "number" &&
+      Number.isFinite(row.budget_tokens)
+    ) {
+      return String(Math.round(row.budget_tokens));
+    }
+    if (typeof row.type === "string" && row.type.trim()) return row.type.trim();
+  }
+  return undefined;
+}
+
+/**
+ * Thinking / effort from init, a result, or a thinking content block.
+ *
+ * Native Claude Code reports this as `thinking` (enabled / adaptive / a
+ * budget) or `effort`. A thinking content block only tells us it was on.
+ */
+export function claudeThinkingFrom(event: unknown): string | undefined {
+  if (!event || typeof event !== "object") return undefined;
+  const row = event as Record<string, unknown>;
+  const direct =
+    thinkingValue(row.thinking) ??
+    thinkingValue(row.effort) ??
+    thinkingValue(row.thinkingBudget);
+  if (direct) return direct;
+  for (const block of blocks(row)) {
+    if (block.type === "thinking") return "thinking";
+  }
+  return undefined;
+}
+
 /**
  * Subagent grouping key (M-066 P-P6): stream-json sets
  * `parent_tool_use_id` on events inside a Task subagent. The primary agent's
@@ -95,19 +152,22 @@ export function claudeResultFrom(event: unknown): ClaudeResult | undefined {
   };
 }
 
-/** Console line for one stream event; undefined when nothing is worth keeping. */
-export function claudeLogEntryFrom(
+/** Console lines for one stream event (one per content block). */
+export function claudeLogEntriesFrom(
   event: unknown,
   now: Date = new Date(),
-): RunLogEntry | undefined {
-  if (!event || typeof event !== "object") return undefined;
+): RunLogEntry[] {
+  if (!event || typeof event !== "object") return [];
   const row = event as Record<string, unknown>;
+  if (row.type === "stream_event" && row.event) {
+    return claudeLogEntriesFrom(row.event, now);
+  }
   const ts = now.toISOString();
   const parent = claudeParentFrom(event);
   const sub = parent ? { parent } : {};
 
   if (row.type === "system" && row.subtype === "init") {
-    return { ts, phase: "running", text: "Teammate is on it", level: "info" };
+    return [{ ts, phase: "running", text: "Teammate is on it", level: "info" }];
   }
 
   if (row.type === "assistant") {
@@ -122,8 +182,6 @@ export function claudeLogEntryFrom(
       if (block.type === "tool_use") {
         const name = toolName(block);
         const target = clip(toolTarget(block), 200);
-        // A Task call is the subagent's root: label it so the console can
-        // group the lines that carry its id as `parent`.
         const label =
           name === "Task" && target
             ? `Subagent: ${target}`
@@ -141,22 +199,17 @@ export function claudeLogEntryFrom(
         });
       }
     }
-    // One entry per event keeps the append loop simple; extra blocks are
-    // folded into the first so nothing is silently dropped.
-    if (entries.length > 1) {
-      return {
-        ...entries[0]!,
-        text: clip(
-          entries.map((entry) => entry.text).join(" · "),
-          MAX_ENTRY_TEXT,
-        ),
-      };
-    }
-    return entries[0];
+    return entries;
+  }
+
+  // Streaming deltas are one token at a time. Logging them produced a
+  // console that said "Prism" and nothing else; the complete `assistant`
+  // event already carries the full thought.
+  if (row.type === "content_block_delta") {
+    return [];
   }
 
   if (row.type === "user") {
-    // Tool results are bulk, not signal — keep only failures.
     for (const block of blocks(row)) {
       if (block.type === "tool_result" && block.is_error === true) {
         const content = block.content;
@@ -164,19 +217,45 @@ export function claudeLogEntryFrom(
           typeof content === "string" ? content : "Tool call failed",
           MAX_ENTRY_TEXT,
         );
-        return {
-          ts,
-          phase: "tool",
-          text: text || "Tool call failed",
-          level: "error",
-          ...sub,
-        };
+        return [
+          {
+            ts,
+            phase: "tool",
+            text: text || "Tool call failed",
+            level: "error",
+            ...sub,
+          },
+        ];
       }
     }
-    return undefined;
+    return [];
   }
 
-  return undefined;
+  if (
+    row.type === "result" &&
+    typeof row.result === "string" &&
+    row.result.trim()
+  ) {
+    return [
+      {
+        ts,
+        phase: "thinking",
+        text: clip(row.result, MAX_ENTRY_TEXT),
+        level: "info",
+        ...sub,
+      },
+    ];
+  }
+
+  return [];
+}
+
+/** Console line for one stream event; undefined when nothing is worth keeping. */
+export function claudeLogEntryFrom(
+  event: unknown,
+  now: Date = new Date(),
+): RunLogEntry | undefined {
+  return claudeLogEntriesFrom(event, now)[0];
 }
 
 /** One-line activity for the run-state sidecar; undefined when unchanged. */

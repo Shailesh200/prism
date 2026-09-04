@@ -62,7 +62,7 @@ Two changes, one milestone (owner, 2026-09-01):
 - [x] `configure` accepts standing preferences; unknown keys become preferences loudly, never silently
 - [x] `bun run verify:milestone` green
 - [x] Owner approval → commit → merge → Verified → snippet shared
-- [ ] Spike answered + ADR-0046 — **deferred by owner 2026-09-01**: script + evidence table in `plans/notes/M-066-claude-bg-spike.md`; runs on the owner's Claude Code machine, ADR lands with the output. Does not gate the release.
+- [x] Spike answered + ADR-0046 — deferred by owner 2026-09-01, **run 2026-09-02** during M-067 once Claude Code was installed. Evidence in `plans/notes/M-066-claude-bg-spike.md`; [ADR-0046](../adr/0046-claude-bg-worker-backend.md) rejects `claude --bg` as a worker backend.
 
 ## 5. References
 

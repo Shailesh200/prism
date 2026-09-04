@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Accepted |
+| Status | Superseded by [ADR-0049](./0049-host-delegated-integrations.md) |
 | Date | 2026-08-26 |
 | Decision makers | Owner, Architect |
 | Related milestones | Dispatch v1 (`dispatch/v1`) |

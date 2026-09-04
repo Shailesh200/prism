@@ -1,4 +1,10 @@
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,17 +27,22 @@ if (!web.success) {
   process.exit(1);
 }
 
+function readIfPresent(path: string): string {
+  return existsSync(path) ? readFileSync(path, "utf8") : "";
+}
+
 const uiDist = join(root, "../ui/dist");
-const tokens = existsSync(join(uiDist, "tokens.css"))
-  ? readFileSync(join(uiDist, "tokens.css"), "utf8")
-  : "";
-const primitives = existsSync(join(uiDist, "primitives.css"))
-  ? readFileSync(join(uiDist, "primitives.css"), "utf8")
-  : "";
-const local = existsSync(join(out, "app.css"))
-  ? readFileSync(join(out, "app.css"), "utf8")
-  : "";
-writeFileSync(join(out, "hub.css"), [tokens, primitives, local].join("\n"));
+const tokens = readIfPresent(join(uiDist, "tokens.css"));
+const primitives = readIfPresent(join(uiDist, "primitives.css"));
+// The Console mounts `JobsScreen` from app-shell (ADR-0048), so it needs
+// app-shell's stylesheet — the job card, console and review rules live there,
+// not here. Without it the board renders as unstyled markup.
+const appShell = readIfPresent(join(root, "../app-shell/dist/styles.css"));
+const local = readIfPresent(join(out, "app.css"));
+writeFileSync(
+  join(out, "hub.css"),
+  [tokens, primitives, appShell, local].join("\n"),
+);
 
 writeFileSync(
   join(out, "index.html"),
@@ -40,7 +51,8 @@ writeFileSync(
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Prism Jobs</title>
+  <title>Prism Dispatch</title>
+  <link rel="icon" href="/assets/prism-mark.png" />
   <link rel="stylesheet" href="/assets/hub.css" />
 </head>
 <body class="prism-theme">
@@ -50,5 +62,10 @@ writeFileSync(
 </html>
 `,
 );
+
+const mark = join(root, "../ui/assets/prism-mark-teal-128.png");
+if (existsSync(mark)) {
+  copyFileSync(mark, join(out, "prism-mark.png"));
+}
 
 console.log("dispatch-hub: dashboard bundled");

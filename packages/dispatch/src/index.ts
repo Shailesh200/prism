@@ -1,10 +1,7 @@
 export {
   DISPATCH_DIR,
-  DRIVER_CONSENT,
   DEFAULT_SECTION_ORDER,
   DispatchConfigSchema,
-  DriverIdSchema,
-  parseDriverId,
   JobRecordSchema,
   MemoryItemSchema,
   WorkerBackendSchema,
@@ -14,8 +11,6 @@ export {
   type BriefingSectionId,
   type DayBriefing,
   type DispatchConfig,
-  type DriverId,
-  type DriverSnapshot,
   type GitSnapshot,
   type JobRecord,
   type MemoryItem,
@@ -28,6 +23,13 @@ export {
   type DispatchMode,
   JobReviewSchema,
   ReviewFileSchema,
+  JobConfirmSchema,
+  JobStatusSchema,
+  TERMINAL_JOB_STATUSES,
+  CLOCK_STOPPED_JOB_STATUSES,
+  isTerminalJobStatus,
+  isClockStoppedStatus,
+  type JobConfirm,
   type JobReview,
   type JobStatus,
   type ReviewFile,
@@ -45,7 +47,7 @@ export {
   type DispatchToolName,
 } from "./runtime.js";
 export { buildDayBriefing, formatBriefing } from "./briefing.js";
-export { loadConfig, saveConfig } from "./config.js";
+export { loadConfig, saveConfig, standupNotesText } from "./config.js";
 export {
   loadMemories,
   remember,
@@ -61,7 +63,8 @@ export {
 } from "./job-id.js";
 export {
   jobRef,
-  startJobSpeak,
+  queuedJobSpeak,
+  needsConfirmSpeak,
   agentNameForJob,
   dirtyCheckoutSpeak,
   missingGitRepoSpeak,
@@ -69,6 +72,7 @@ export {
   isNetworkFailureMessage,
   networkFailureSpeak,
   isLiveJobStatus,
+  analysisSpeak,
   jobLogsSpeak,
   reviewSpeak,
   reviewFileLine,
@@ -97,6 +101,7 @@ export {
   runStallMs,
   formatStallDuration,
   readRunState,
+  clearRunState,
   STALL_AFTER_MS,
   type RunState,
   type RunPhase,
@@ -105,8 +110,13 @@ export {
   workerMcpEnv,
   cursorAgentOptions,
   workerTools,
+  workerMcpServers,
+  writeWorkerMcpConfig,
   WORKER_EDIT_TOOLS,
   WORKER_SUBAGENT_TOOL,
+  WORKER_MCP_TOOL,
+  WORKER_INTELLIGENCE_TOOLS,
+  type WorkerIntelligenceTool,
 } from "./worker-options.js";
 export {
   verifyJobWork,
@@ -119,6 +129,9 @@ export {
   auditCitedPaths,
   citedPaths,
   fabricationNote,
+  isDispatchNotePath,
+  notePathsFromText,
+  notePathsOf,
   stripWorktreePaths,
   type PathAudit,
 } from "./job-artifacts.js";
@@ -128,7 +141,9 @@ export {
 } from "./worktree-install.js";
 export {
   admissionMessage,
+  availableMemoryBytes,
   diskBudgetMessage,
+  parseDarwinVmStat,
   ramBudgetMessage,
   workerChildEnv,
   MIN_FREE_BYTES,
@@ -140,8 +155,18 @@ export {
   saveJobs,
   upsertJob,
   getJob,
+  deleteJob,
   activeJobCount,
+  queuedJobs,
+  claimQueuedJob,
 } from "./jobs.js";
+export {
+  drainWorkspace,
+  kickDrain,
+  requeueAuthBlocked,
+  settleDrains,
+  type DrainDeps,
+} from "./queue.js";
 export {
   discoverWorktrees,
   adoptOrCreateWorktree,
@@ -179,12 +204,15 @@ export {
   claudeLogEntryFrom,
   claudeResultFrom,
   claudeSessionIdFrom,
+  claudeModelFrom,
+  claudeThinkingFrom,
   type ClaudeResult,
 } from "./claude-stream.js";
 export {
   createClaudeAuthPort,
   ensureClaudeWorkerAuth,
   inspectClaudeWorkerAuth,
+  parseClaudeAuthStatus,
   probeClaudeCli,
   type ClaudeAuthPort,
   type ClaudeAuthStatus,
@@ -199,6 +227,8 @@ export {
   defaultBaseBranch,
   gitCheckoutReview,
   gitDirtyPaths,
+  diffPathSides,
+  restoreCheckoutPaths,
   removeGitWorktree,
   listGitWorktrees,
   defaultGitRunner,
@@ -220,46 +250,30 @@ export {
   unknownOptionFrom,
   withoutClaudeFlag,
 } from "./claude-cli.js";
-export { DRIVER_LABELS, connectCta } from "./drivers.js";
+// Host detection outlived the connect flow it shipped with (ADR-0049).
+export { clientLooksLikeClaude, clientLooksLikeCursor } from "./host-client.js";
 export {
-  OAUTH_PROVIDERS,
-  buildAuthorizeUrl,
-  createPkce,
-  clientIdFor,
-  DEFAULT_AUTH_BROKER_URL,
-  DISPATCH_OAUTH_LOOPBACK_PORT,
-  DISPATCH_OAUTH_REDIRECT_URI,
-  oauthSetupGuide,
-  resolveOAuthClient,
-} from "./oauth.js";
-export { openInBrowser } from "./oauth.js";
+  discoverHostConnectors,
+  connectorCovers,
+  vendorCoverage,
+  cursorProjectSlug,
+  labelFor,
+  serverEntriesOf,
+  transportOf,
+  type DiscoveryDeps,
+  type HostConnector,
+  type HostDiscovery,
+  type HostVendor,
+  type HostKind,
+} from "./host-connectors.js";
 export {
-  authBrokerUrl,
-  brokerStartUrl,
-  listBrokerDrivers,
-  redeemBrokerPickup,
-  refreshBrokerToken,
-  type BrokerDriverStatus,
-} from "./broker.js";
-export {
-  authElicitationMessage,
-  canAttemptUrlElicitation,
-  clientLooksLikeClaude,
-  clientLooksLikeCursor,
-  confirmElicitationMessage,
-  connectPlan,
-  cursorLoginElicitationMessage,
-  hasFormElicitation,
-  hasUrlElicitation,
-  shouldOpenAuthPage,
-  silentAuthSession,
-  type AuthPresentation,
-  type AuthRejectAction,
-  type AuthSession,
-  type BeginAuthInput,
-  type ConnectStep,
-  type OAuthUiPort,
-} from "./connect-ux.js";
+  buildFillContract,
+  fillSectionsFromConfig,
+  formatFillContract,
+  type FillSectionId,
+  type FillContract,
+  type FillRequest,
+} from "./fill-contract.js";
 export {
   createSdkCursorAuthPort,
   ensureCursorWorkerAuth,

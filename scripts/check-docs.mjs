@@ -61,6 +61,61 @@ const toolNames = new Set(TOOL_NAMES);
 const consentIds = new Set(CONSENT_PURPOSE_IDS);
 
 /**
+ * Vocabulary that belonged to features Prism has removed.
+ *
+ * A doc page can be wrong in two ways. It can use a name that never existed —
+ * every other rule here catches that. Or it can describe, correctly and
+ * fluently, something that used to be true. The second is worse: nothing about
+ * it reads as broken, so it survives review and ships.
+ *
+ * When you delete a feature, add its words here. The cost is one entry; the
+ * alternative is prose that outlives the code by a year.
+ */
+const REMOVED = [
+  {
+    pattern: /\bauth\.prismhq\.in\b/g,
+    why: "the Prism Auth broker was retired (ADR-0049)",
+  },
+  {
+    pattern: /\bPrism Auth\b/g,
+    why: "the Prism Auth broker was retired (ADR-0049)",
+  },
+  {
+    pattern: /\bdispatch-auth\b/g,
+    why: "the @repo-prism/dispatch-auth package was deleted (ADR-0049)",
+  },
+  {
+    pattern: /\bPRISM_AUTH_[A-Z_]+\b/g,
+    why: "the broker's environment variables are gone (ADR-0049)",
+  },
+  {
+    pattern: /\bDispatch (driver|connector)s?\b/g,
+    why: "connectors belong to the agent window now (ADR-0049)",
+  },
+  {
+    pattern: /`integrations`/g,
+    why: "the integrations tool was removed (ADR-0049)",
+  },
+];
+
+/**
+ * Retirement notices are the one place removed vocabulary belongs.
+ *
+ * A page that says "the broker at auth.prismhq.in is retired" is doing exactly
+ * what this check wants — telling a reader with stale knowledge what changed.
+ * Banning the words outright would delete the migration notes along with the
+ * lies, so a nearby retirement word makes the mention legitimate.
+ */
+const RETIREMENT_WORDS =
+  /\b(retire[sd]?|remove[sd]?|delete[sd]?|no longer|used to|supersede[sd]?|previously|earlier versions|is gone)\b/i;
+
+function allowsRemoved(text, index) {
+  return RETIREMENT_WORDS.test(
+    text.slice(Math.max(0, index - 400), index + 400),
+  );
+}
+
+/**
  * Global options accepted by every command, so a documented example that uses
  * one is not reporting an unknown flag for the subcommand.
  */
@@ -85,10 +140,37 @@ const GLOBAL_FLAGS = new Set([
  * Kept explicit so the check stays useful rather than being widened away.
  * MCP prompt names (not tools) are allowlisted from the server export.
  */
+function countWords(text) {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+/**
+ * How much a reader actually reads, not how much the file holds.
+ *
+ * The budget exists so a page stays short enough to finish. A `<Tabs>` page
+ * breaks the equivalence between the two: a reader picks CLI or IDE or MCP and
+ * reads one branch, so summing all three punishes a page that is short for
+ * everybody. Measuring the shared prose plus the fattest single tab keeps the
+ * discipline where it matters — no one branch may sprawl — while letting one
+ * page serve three surfaces instead of three pages repeating each other.
+ */
+function readerPathWords(body) {
+  const tabs = [...body.matchAll(/<Tab\b[^>]*>([\s\S]*?)<\/Tab>/g)].map(
+    (match) => countWords(match[1]),
+  );
+  if (tabs.length === 0) return countWords(body);
+
+  const shared = body.replace(/<Tab\b[^>]*>[\s\S]*?<\/Tab>/g, "");
+  return countWords(shared) + Math.max(...tabs);
+}
+
 const NOT_TOOL_NAMES = new Set([
   "node_modules",
   "cache_db",
   "package_json",
+  // The MCP authorization tool other servers expose. Architecture notes
+  // mention it to say Prism's discovery does not settle for it.
+  "mcp_auth",
   ...PROMPT_NAMES,
 ]);
 
@@ -172,6 +254,34 @@ for (const file of files) {
     }
   }
 
+  // 4a. A tool count in prose matches the registry.
+  //
+  //     This was "~28 tools" on one page and "~40" on another, with the real
+  //     answer being neither. A number a human types is a number that stops
+  //     being true, so the only claim allowed is the generated one.
+  for (const match of text.matchAll(/~?(\d+)\+? tools\b/g)) {
+    if (Number(match[1]) !== toolNames.size) {
+      fail(
+        file,
+        `"${match[0]}" is stale — Prism exposes ${toolNames.size}. Cite the generated reference instead of a number.`,
+      );
+    }
+  }
+
+  // 4b. Nothing describes a feature that was removed.
+  //
+  //     The other rules catch a name that was never real. They cannot catch a
+  //     page that confidently, fluently explains something Prism used to do —
+  //     which is the worse failure, because it reads as true. Deleting a
+  //     feature therefore means adding its vocabulary here, so the next person
+  //     who reintroduces the prose is told rather than trusted.
+  for (const { pattern, why } of REMOVED) {
+    for (const match of text.matchAll(pattern)) {
+      if (allowsRemoved(text, match.index ?? 0)) continue;
+      fail(file, `"${match[0]}" describes a removed feature — ${why}`);
+    }
+  }
+
   // 9. Frontmatter title + description (Fumadocs + search cards).
   const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
   if (!fm) {
@@ -195,16 +305,19 @@ for (const file of files) {
     }
   }
 
-  // Word budget for non-reference, non-generated pages.
+  // Word budget for non-reference, non-generated pages. Help pages (FAQ,
+  // troubleshooting) are exempt for the same reason reference pages are: they
+  // are lookup tables that grow with the product, not reading paths.
   if (
     !rel.startsWith("reference/") &&
+    !rel.startsWith("help/") &&
     !rel.startsWith("architecture/") &&
     !generated
   ) {
     const body = text.replace(/^---[\s\S]*?---\r?\n/, "");
-    const words = body.trim().split(/\s+/).filter(Boolean).length;
+    const words = readerPathWords(body);
     if (words > 650) {
-      fail(file, `page is ${words} words (budget 650)`);
+      fail(file, `longest reader path is ${words} words (budget 650)`);
     }
   }
 }

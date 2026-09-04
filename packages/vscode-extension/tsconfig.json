@@ -33,6 +33,9 @@
       "path": "../app-shell"
     },
     {
+      "path": "../host-session"
+    },
+    {
       "path": "../test-support"
     }
   ]

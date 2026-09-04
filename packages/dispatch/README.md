@@ -1,15 +1,18 @@
 # @repo-prism/dispatch
 
-Prism Dispatch: jobs, memories, OAuth drivers, and start-my-day briefings.
+Prism Dispatch: jobs, memories, host-connector discovery, and start-my-day
+briefings.
 
 The MCP server (`@repo-prism/mcp-server`) is the only surface that calls this
 package. `@repo-prism/core` must not import it. Intelligence analysis stays on
 Core; Dispatch is a second façade for teammate workflow.
 
-State lives under `.prism/dispatch/` (gitignored). User OAuth tokens go in the OS
-keychain, with a `0600` fallback file only when keychain is unavailable. Connect
-uses the Prism Auth broker (`https://auth.prismhq.in`); users grant in the
-browser (Cursor: Authenticate; Claude: auth page) and never paste client ids.
+State lives under `.prism/dispatch/` (gitignored). **This package makes no
+network calls and stores no third-party credentials** (ADR-0049). Connectors
+belong to the agent window: `host-connectors.ts` reads Cursor and Claude Code
+plugin and MCP manifests to learn which exist — names and capabilities only,
+never tokens — and `fill-contract.ts` turns that into the sections
+`start_my_day` asks the host agent to fill with its own tools.
 
 Workers run in a detached child process per job. Placement is checkout-first
 (ADR-0045): by default the worker edits the user's own checkout and leaves

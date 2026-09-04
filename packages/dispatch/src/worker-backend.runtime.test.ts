@@ -4,16 +4,21 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { saveConfig } from "./config.js";
 import { createDispatchRuntime } from "./runtime.js";
+import { dispatchAndDrain } from "./drain-harness.js";
 import { applyRunToJob, patchRunState } from "./run-state.js";
 import type { GitRunner } from "./git.js";
 import type { WorkerPort } from "./worker.js";
 import type { ClaudeAuthPort } from "./claude-auth.js";
 import type { CursorAuthPort } from "./cursor-auth.js";
 import type { JobRecord } from "./types.js";
+import { settleDrains } from "./queue.js";
 
 let root: string | undefined;
 
 afterEach(async () => {
+  // A kicked drain outlives the call that started it; removing the root
+  // underneath one is how this suite raced itself into ENOTEMPTY.
+  await settleDrains();
   if (root) await rm(root, { recursive: true, force: true });
   root = undefined;
 });
@@ -91,12 +96,12 @@ describe("worker backends (ADR-0044)", () => {
       env: {},
       getClientName: () => "claude-code",
     });
-    const result = (await runtime.handle("start_job", {
+    const result = await dispatchAndDrain(runtime, {
       title: "fix login",
       jobId: "fix-login",
-    })) as { job: { status: string; workerBackend?: string } };
-    expect(result.job.status).toBe("running");
-    expect(result.job.workerBackend).toBe("claude");
+    });
+    expect(result.job?.status).toBe("running");
+    expect(result.job?.workerBackend).toBe("claude");
     expect(seen.calls).toEqual(["claude:start:fix-login"]);
   });
 
@@ -111,11 +116,11 @@ describe("worker backends (ADR-0044)", () => {
       env: { CURSOR_API_KEY: "k" },
       getClientName: () => "cursor",
     });
-    const result = (await runtime.handle("start_job", {
+    const result = await dispatchAndDrain(runtime, {
       title: "fix login",
       jobId: "fix-login",
-    })) as { job: { status: string; workerBackend?: string } };
-    expect(result.job.workerBackend).toBe("cursor");
+    });
+    expect(result.job?.workerBackend).toBe("cursor");
     expect(seen.calls).toEqual(["cursor:start:fix-login"]);
   });
 
@@ -132,11 +137,11 @@ describe("worker backends (ADR-0044)", () => {
       env: {},
       getClientName: () => "cursor",
     });
-    const result = (await runtime.handle("start_job", {
+    const result = await dispatchAndDrain(runtime, {
       title: "fix login",
       jobId: "fix-login",
-    })) as { job: { status: string; workerBackend?: string } };
-    expect(result.job.workerBackend).toBe("claude");
+    });
+    expect(result.job?.workerBackend).toBe("claude");
     expect(seen.calls).toEqual(["claude:start:fix-login"]);
   });
 
@@ -153,14 +158,16 @@ describe("worker backends (ADR-0044)", () => {
       env: {},
       getClientName: () => "claude-code",
     });
-    const result = (await runtime.handle("start_job", {
+    const result = await dispatchAndDrain(runtime, {
       title: "fix login",
       jobId: "fix-login",
-    })) as { job: { status: string; waitingOn: string }; message: string };
-    expect(result.job.status).toBe("blocked");
-    expect(result.job.waitingOn).toBe("worker-auth");
-    expect(result.message).toMatch(/run claude once in a terminal/i);
-    expect(result.message).not.toMatch(/Cursor|API key|mcp\.json/i);
+    });
+    // The sign-in gate now parks the job with the reason on the record, so it
+    // is visible on the board rather than only in the chat turn that asked.
+    expect(result.job?.status).toBe("blocked");
+    expect(result.job?.waitingOn).toBe("worker-auth");
+    expect(result.job?.nextStep).toMatch(/run claude once in a terminal/i);
+    expect(result.job?.nextStep).not.toMatch(/Cursor|API key|mcp\.json/i);
     expect(seen.calls).toEqual([]);
   });
 
@@ -176,7 +183,10 @@ describe("worker backends (ADR-0044)", () => {
       env: {},
       getClientName: () => "claude-code",
     });
-    await runtime.handle("start_job", {
+    // Drained rather than fired and forgotten: the job has to actually reach
+    // the worker before there is a session to resume, and a background drain
+    // still writing into the temp root races this test's own teardown.
+    await dispatchAndDrain(runtime, {
       title: "fix login",
       jobId: "fix-login",
     });

@@ -9,6 +9,27 @@ the `prism` CLI, the `prism-mcp` server, and the Core SDK they all call. They
 move as one because they are one build; a mismatch between them has never been
 a supported configuration.
 
+## 1.1.17 — Shippable product
+
+### MCP
+
+- Dispatch is a teammate in the same `prism` server: queue a change from chat (`start_job`), watch it in the local Console, and keep connectors in the host window. Prism does not run OAuth and does not hold vendor tokens.
+- A job is durable the moment it is queued. The clock starts when work starts and stops when it finishes. Dirty trees and overlap become a visible job state instead of a silent refusal.
+- Workers read Prism intelligence from the Console's existing index. They cannot start jobs and they do not get a second copy of the repo in memory.
+- MCP roots are retried and subscribed. You do not set `CURSOR_WORKSPACE`. `npx -y --prefer-online @repo-prism/mcp-server@latest` is the install; hop on the next Cursor/MCP start. Logs: `prism-mcp 1.1.17: workspace …`.
+
+### CLI
+
+- Install and day-to-day use live on one Get Started page and one Usage page — CLI, IDE, and MCP as tabs, not three sidebars.
+- `prism doctor` still confirms the workspace and the index. Analysis stays local; nothing is uploaded.
+
+### IDE
+
+- The extension opens the same Console the agent watches: Jobs, Workflows, and Host Connectors. There is no Prism sign-in and no connect flow inside the panel.
+- A job that finishes is ready for your review in the checkout (or on its branch if you asked for a worktree). Nothing is merged or pushed for you.
+
+Keep `@latest`. `@repo-prism/dispatch@1.1.17`, `@repo-prism/dispatch-hub@1.1.17`, and `@repo-prism/mcp-server@1.1.17`.
+
 ## 1.1.16 — A job survives an older agent CLI
 
 - **Dispatch:** an agent CLI that rejects an optional flag no longer costs you the job. A Claude Code worker died at launch on `unknown option '--forward-subagent-text'` — a flag that only enriches the console with subagent text — before touching a file. Optional flags are now dropped on one retry, and the console says which one. Flags that carry the sandbox (`--tools`, `--disallowedTools`, `--bare`) are deliberately not droppable: those still fail, but the message names the flag and the upgrade instead of printing a launcher dump.

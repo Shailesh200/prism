@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
-    "@repo-prism/dispatch-auth": "workspace:*",
+    "@repo-prism/shared": "workspace:*",
     "@repo-prism/ui": "workspace:*",
     "fumadocs-core": "^16.0.11",
     "fumadocs-mdx": "^14.0.5",

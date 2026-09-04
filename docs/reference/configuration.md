@@ -61,7 +61,7 @@ Precedence when indexing: CLI / API flags → `.prism/config.json` → defaults
 ## CLI
 
 Most behaviour is flags; indexing also honours [`.prism/config.json`](#prismconfigjson).
-See [using the CLI](/docs/cli/usage) for global options and
+See [using the CLI](/docs/usage) for global options and
 [the command reference](/docs/reference/cli-commands) for per-command options.
 
 Workspace resolution, most explicit first: `--workspace`, then
@@ -71,27 +71,38 @@ prints which rule won.
 
 ## MCP server
 
-Configured by your MCP client, not by Prism. Happy path — no path flags:
+Configured by your MCP client, not by Prism. Happy path — no path flags, no
+workspace variable:
 
 ```json
 {
   "mcpServers": {
     "prism": {
       "command": "npx",
-      "args": ["-y", "@repo-prism/mcp-server"]
+      "args": ["-y", "--prefer-online", "@repo-prism/mcp-server@latest"],
+      "env": {
+        "NODE_USE_SYSTEM_CA": "1"
+      }
     }
   }
 }
 ```
 
-Resolution: `--workspace` → `PRISM_WORKSPACE` → MCP roots (open chat folder) →
-host `WORKSPACE_FOLDER_PATHS` → nearest git root → cwd. Only set
-`--workspace` / `PRISM_WORKSPACE` when the client reports no roots. See
-[MCP install](/docs/mcp/install).
+Canonical copy:
+[`packages/mcp-server/mcp-install.json`](https://github.com/Shailesh200/prism/blob/main/packages/mcp-server/mcp-install.json) —
+keep `@latest` so the server can hop to the newest publish.
+
+Resolution: `--workspace` → `PRISM_WORKSPACE` → host `WORKSPACE_FOLDER_PATHS`
+→ `CURSOR_WORKSPACE` → nearest git root → cwd. When that lands on a directory
+with no git root (an editor sandbox), the server asks the client for its open
+folders via MCP roots — retried until answered — and follows
+`roots/list_changed`. Only set `--workspace` / `PRISM_WORKSPACE` when the
+client cannot report roots. See
+[MCP install](/docs/start/install).
 
 ## Extension settings
 
-See [IDE settings](/docs/ide/settings). One VS Code setting lives in the editor:
+See [IDE settings](/docs/reference/ide-settings). One VS Code setting lives in the editor:
 
 | Setting | Default | Effect |
 |---|---|---|
@@ -107,5 +118,5 @@ alongside the index. Presentation settings belong to the client.
 
 ## Related
 
-[Troubleshooting](/docs/reference/troubleshooting) · [CLI usage](/docs/cli/usage) ·
+[Troubleshooting](/docs/help/troubleshooting) · [CLI usage](/docs/usage) ·
 [Consent and privacy](/docs/concepts/consent-and-privacy)

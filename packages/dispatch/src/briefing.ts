@@ -1,92 +1,83 @@
-import { isPurposeGranted } from "./consent.js";
-import { loadConfig } from "./config.js";
+import { isSectionOn, loadConfig, standupNotesText } from "./config.js";
 import {
-  connectCta,
-  defaultHttpGet,
-  fetchGithubUser,
-  fetchGoogleCalendar,
-  fetchJira,
-  fetchLinear,
-  fetchNotion,
-  fetchSlack,
-  type HttpGet,
-} from "./drivers.js";
+  buildFillContract,
+  formatFillContract,
+  type FillContract,
+} from "./fill-contract.js";
 import { gitSnapshot, type GitRunner } from "./git.js";
+import {
+  discoverHostConnectors,
+  connectorCovers,
+  type HostConnector,
+} from "./host-connectors.js";
 import { loadJobs } from "./jobs.js";
 import { loadMemories } from "./memory.js";
 import { leftoverFocusSpeak, jobRef, statusPhrase } from "./job-voice.js";
-import {
-  isDriverAuthFailure,
-  renewDriverToken,
-  tokenNeedsRefresh,
-} from "./token-refresh.js";
-import { loadToken } from "./tokens.js";
-import {
-  DRIVER_CONSENT,
-  type DayBriefing,
-  type DispatchConfig,
-  type DriverId,
-  type DriverSnapshot,
-  type GitSnapshot,
-  type JobRecord,
-  type MemoryItem,
+import type {
+  DayBriefing,
+  DispatchConfig,
+  GitSnapshot,
+  JobRecord,
+  MemoryItem,
 } from "./types.js";
 
 export type BriefingDeps = {
   readonly workspaceRoot: string;
   readonly env?: NodeJS.ProcessEnv;
   readonly git?: GitRunner;
-  readonly http?: HttpGet;
   readonly now?: Date;
-  readonly snapshots?: Partial<Record<DriverId, DriverSnapshot>>;
-  /** Injected in tests. Production uses global fetch for Prism Auth refresh. */
-  readonly brokerFetch?: typeof fetch;
+  /** Injected in tests so discovery does not read the developer's own machine. */
+  readonly connectors?: readonly HostConnector[];
 };
 
-const DRIVER_ORDER: readonly DriverId[] = [
-  "linear",
-  "jira",
-  "github",
-  "slack",
-  "notion",
-  "google-calendar",
-];
-
+/**
+ * The standup: a local spine plus a contract for the rest (ADR-0049).
+ *
+ * Prism supplies what only Prism can — git, jobs, memories — and names the
+ * sections the host agent should fill with connectors it already has. Nothing
+ * here touches the network.
+ */
 export async function buildDayBriefing(
   deps: BriefingDeps,
 ): Promise<DayBriefing> {
   const now = deps.now ?? new Date();
-  const [config, git, jobs, memories] = await Promise.all([
+  const [config, git, jobs, memories, discovered] = await Promise.all([
     loadConfig(deps.workspaceRoot),
     gitSnapshot(deps.workspaceRoot, deps.git),
     loadJobs(deps.workspaceRoot),
     loadMemories(deps.workspaceRoot),
+    deps.connectors
+      ? Promise.resolve({ connectors: deps.connectors })
+      : discoverHostConnectors({ workspaceRoot: deps.workspaceRoot }),
   ]);
-  const driverIds = DRIVER_ORDER.filter((id) => {
-    if (id === "linear" && config.ticketHost !== "linear") return false;
-    if (id === "jira" && config.ticketHost !== "jira") return false;
-    return true;
+  const connectors = discovered.connectors;
+  const fill = buildFillContract(connectors, {
+    ticketHost: config.ticketHost,
+    sectionOrder: config.sectionOrder,
+    sectionsOff: config.sectionsOff,
+    ...(connectorCovers(connectors, "slack")
+      ? {
+          slack: {
+            channelIds: config.slackTrackChannelIds,
+            mentionWindowHours: config.mentionWindowHours,
+            mentionLimit: config.mentionLimit,
+            trackedMessageLimit: config.trackedMessageLimit,
+          },
+        }
+      : {}),
   });
-  const drivers = await Promise.all(
-    driverIds.map((id) => loadDriverSnapshot(id, config, deps)),
-  );
 
-  const connectCtas = drivers
-    .filter((driver) => !driver.connected)
-    .map((driver) => connectCta(driver.id));
-
-  const suggestedFocus = suggestFocus(jobs, git, drivers);
+  const suggestedFocus = suggestFocus(jobs, git);
   const configureHint = config.hints
-    ? "Say “configure Dispatch” to change section order, Slack channels, or the tickets host (Linear vs Jira)."
+    ? "Say \u201cconfigure Dispatch\u201d to change section order, Slack channels, or the tickets host (Linear vs Jira)."
     : undefined;
 
   const message = formatBriefing({
     git,
     jobs,
-    drivers,
     memories,
     suggestedFocus,
-    connectCtas,
+    fill,
     config,
     now,
     ...(configureHint ? { configureHint } : {}),
@@ -97,92 +88,33 @@ export async function buildDayBriefing(
     generatedAt: now.toISOString(),
     git,
     jobs,
-    drivers,
     memories,
     suggestedFocus,
-    connectCtas,
+    connectors: connectors.map((row) => ({
+      ...row,
+      hosts: [...row.hosts],
+      skills: [...row.skills],
+    })),
+    fill: {
+      requests: fill.requests.map((row) => ({
+        ...row,
+        connectors: [...row.connectors],
+      })),
+      unfillable: [...fill.unfillable],
+    },
     ...(configureHint ? { configureHint } : {}),
   };
 }
 
-async function loadDriverSnapshot(
-  id: DriverId,
-  config: DispatchConfig,
-  deps: BriefingDeps,
-): Promise<DriverSnapshot> {
-  if (deps.snapshots?.[id]) return deps.snapshots[id];
-  const purpose = DRIVER_CONSENT[id];
-  const granted = await isPurposeGranted(deps.workspaceRoot, purpose);
-  let token = await loadToken(deps.workspaceRoot, id);
-  if (!granted || !token) {
-    return { id, connected: false, available: true, items: [] };
-  }
-  const now = deps.now ?? new Date();
-  if (tokenNeedsRefresh(token, now.getTime())) {
-    token =
-      (await renewDriverToken({
-        workspaceRoot: deps.workspaceRoot,
-        driver: id,
-        token,
-        ...(deps.env ? { env: deps.env } : {}),
-        ...(deps.brokerFetch ? { fetchImpl: deps.brokerFetch } : {}),
-      })) ?? token;
-  }
-  const http = deps.http ?? defaultHttpGet;
-  try {
-    let snapshot = await fetchConnectedDriver(id, token, config, http, now);
-    if (isDriverAuthFailure(snapshot.error) && token.refreshToken) {
-      const renewed = await renewDriverToken({
-        workspaceRoot: deps.workspaceRoot,
-        driver: id,
-        token,
-        ...(deps.env ? { env: deps.env } : {}),
-        ...(deps.brokerFetch ? { fetchImpl: deps.brokerFetch } : {}),
-      });
-      if (renewed) {
-        snapshot = await fetchConnectedDriver(id, renewed, config, http, now);
-      }
-    }
-    return snapshot;
-  } catch (cause) {
-    return {
-      id,
-      connected: true,
-      available: false,
-      error: cause instanceof Error ? cause.message : String(cause),
-      items: [],
-    };
-  }
-}
-
-async function fetchConnectedDriver(
-  id: DriverId,
-  token: { accessToken: string; extra?: Record<string, string> },
-  config: DispatchConfig,
-  http: HttpGet,
-  now: Date,
-): Promise<DriverSnapshot> {
-  switch (id) {
-    case "github":
-      return fetchGithubUser(token.accessToken, http);
-    case "linear":
-      return fetchLinear(token.accessToken, http);
-    case "jira":
-      return fetchJira(token.accessToken, token.extra?.cloudId, http);
-    case "slack":
-      return fetchSlack(token.accessToken, config, http);
-    case "notion":
-      return fetchNotion(token.accessToken, http);
-    case "google-calendar":
-      return fetchGoogleCalendar(token.accessToken, now, http);
-  }
-}
-
-function suggestFocus(
-  jobs: readonly JobRecord[],
-  git: GitSnapshot,
-  drivers: readonly DriverSnapshot[],
-): string {
+/**
+ * What to do next, from what Prism can see on its own.
+ *
+ * The ticket and PR branches are gone with the drivers (ADR-0049): Prism no
+ * longer fetches either, and guessing a focus from a section the host has not
+ * filled yet would be inventing one. The host agent, which *does* have that
+ * data, can override this once it fills the contract.
+ */
+function suggestFocus(jobs: readonly JobRecord[], git: GitSnapshot): string {
   const leftover = jobs.find(
     (job) =>
       job.status === "waiting_on_you" ||
@@ -207,12 +139,6 @@ function suggestFocus(
   if (justFinished?.errorMessage) {
     return `${jobRef(justFinished)} failed: ${justFinished.errorMessage}`;
   }
-  const ticket = drivers.find(
-    (driver) => driver.id === "linear" || driver.id === "jira",
-  )?.items[0];
-  if (ticket) return `Start with ${ticket.title}`;
-  const pr = drivers.find((driver) => driver.id === "github")?.items[0];
-  if (pr) return `Review ${pr.title}`;
   if (git.dirtyCount > 0) {
     return `Finish the ${git.dirtyCount} uncommitted change${git.dirtyCount === 1 ? "" : "s"} on ${git.branch}`;
   }
@@ -222,10 +148,9 @@ function suggestFocus(
 export function formatBriefing(input: {
   readonly git: GitSnapshot;
   readonly jobs: readonly JobRecord[];
-  readonly drivers: readonly DriverSnapshot[];
   readonly memories: readonly MemoryItem[];
   readonly suggestedFocus: string;
-  readonly connectCtas: readonly string[];
+  readonly fill: FillContract;
   readonly configureHint?: string;
   readonly config: DispatchConfig;
   readonly now?: Date;
@@ -243,25 +168,20 @@ export function formatBriefing(input: {
       isRecent(job.updatedAt, 48, now.getTime()),
   );
   const lines: string[] = [
-    greetingLine(now, standupName(input.drivers, input.git)),
+    greetingLine(now, standupName(input.git)),
     "",
     "Here's your standup.",
     "",
   ];
-  if (input.config.standupTemplate.trim()) {
-    lines.push(input.config.standupTemplate.trim(), "");
-  }
-  // Standing wishes travel with the briefing so the presenting agent can
-  // apply them (M-066 P-P9). They shape presentation, never content.
-  if (input.config.preferences.length > 0) {
-    lines.push(
-      `_Standing preferences: ${input.config.preferences.join(" · ")}_`,
-      "",
-    );
+  // Template and standing preferences are one note for the presenting
+  // agent. They shape presentation, never content (M-066 P-P9).
+  const standupNotes = standupNotesText(input.config).trim();
+  if (standupNotes) {
+    lines.push(standupNotes, "");
   }
 
   lines.push("## Yesterday");
-  const yesterdayLines = yesterdaySection(input.git, finished, input.drivers);
+  const yesterdayLines = yesterdaySection(input.git, finished, input.config);
   if (yesterdayLines.length === 0) {
     lines.push("- Nothing recorded since yesterday.");
   } else {
@@ -269,46 +189,42 @@ export function formatBriefing(input: {
   }
   lines.push("");
 
-  lines.push("## Waiting on you");
-  for (const driver of input.drivers) {
-    if (!driver.connected) continue;
-    lines.push(`### ${label(driver.id)}`);
-    if (driver.error) {
-      lines.push(`- Connected, but ${driver.error}`);
-      continue;
+  // Only "This repo" is Prism's to write. The connector-backed subsections
+  // are named in the fill contract below and written by the host agent, which
+  // is the one holding the credentials (ADR-0049).
+  const showJobs = isSectionOn(input.config, "jobs");
+  const showGit = isSectionOn(input.config, "git");
+  if (showJobs || showGit) {
+    lines.push("## Waiting on you");
+    lines.push("### This repo");
+    if (showJobs) {
+      if (leftover.length === 0) {
+        lines.push("- No leftover Dispatch jobs.");
+      } else {
+        for (const job of leftover) {
+          lines.push(
+            `- ${jobRef(job)} — ${statusPhrase(job.status)}${
+              job.lastActivity && job.status === "running"
+                ? ` · ${job.lastActivity}`
+                : job.nextStep &&
+                    !/worker running|agent booting|cursor-auth|worker-auth|CURSOR_API_KEY/i.test(
+                      job.nextStep,
+                    )
+                  ? ` · ${job.nextStep}`
+                  : ""
+            }`,
+          );
+        }
+      }
     }
-    if (driver.items.length === 0) {
-      lines.push(`- Nothing waiting.`);
-      continue;
-    }
-    for (const item of driver.items.slice(0, 8)) {
-      lines.push(itemLine(item));
-    }
-  }
-  lines.push("### This repo");
-  if (leftover.length === 0) {
-    lines.push("- No leftover Dispatch jobs.");
-  } else {
-    for (const job of leftover) {
+    if (showGit) {
       lines.push(
-        `- ${jobRef(job)} — ${statusPhrase(job.status)}${
-          job.lastActivity && job.status === "running"
-            ? ` · ${job.lastActivity}`
-            : job.nextStep &&
-                !/worker running|agent booting|cursor-auth|worker-auth|CURSOR_API_KEY/i.test(
-                  job.nextStep,
-                )
-              ? ` · ${job.nextStep}`
-              : ""
-        }`,
+        `- Git: \`${input.git.branch}\`${input.git.dirtyCount ? ` · ${String(input.git.dirtyCount)} uncommitted` : " · clean"}`,
       );
+      if (input.git.error) lines.push(`- Git note: ${input.git.error}`);
     }
   }
-  lines.push(
-    `- Git: \`${input.git.branch}\`${input.git.dirtyCount ? ` · ${String(input.git.dirtyCount)} uncommitted` : " · clean"}`,
-  );
-  if (input.git.error) lines.push(`- Git note: ${input.git.error}`);
-  if (input.memories.length > 0) {
+  if (isSectionOn(input.config, "memories") && input.memories.length > 0) {
     lines.push("### Notes");
     for (const memory of input.memories.slice(0, 8)) {
       lines.push(`- (${memory.scope}) ${memory.text}`);
@@ -316,12 +232,12 @@ export function formatBriefing(input: {
   }
   lines.push("");
 
-  lines.push(`**Suggested focus:** ${briefFocus(input.suggestedFocus)}`);
-
-  if (input.connectCtas.length > 0) {
-    lines.push("", "## Not connected yet");
-    for (const cta of input.connectCtas) lines.push(`- ${cta}`);
+  if (isSectionOn(input.config, "focus")) {
+    lines.push(`**Suggested focus:** ${briefFocus(input.suggestedFocus)}`);
   }
+
+  const contract = formatFillContract(input.fill);
+  if (contract) lines.push("", contract);
 
   if (input.configureHint) {
     lines.push("", "## Configure", `- ${input.configureHint}`);
@@ -337,14 +253,11 @@ function greetingLine(now: Date, name: string | undefined): string {
   return name ? `${when}, ${name}.` : `${when}.`;
 }
 
-function standupName(
-  drivers: readonly DriverSnapshot[],
-  git: GitSnapshot,
-): string | undefined {
-  const fromDriver = drivers.find((driver) =>
-    driver.viewerName?.trim(),
-  )?.viewerName;
-  const raw = fromDriver?.trim() || git.userName?.trim();
+function standupName(git: GitSnapshot): string | undefined {
+  // git config is the only name Prism still knows: the connector viewer names
+  // went with the drivers. An unset user.name means no greeting name, which is
+  // better than guessing one.
+  const raw = git.userName?.trim();
   if (!raw) return undefined;
   return raw.split(/\s+/)[0];
 }
@@ -352,17 +265,17 @@ function standupName(
 function yesterdaySection(
   git: GitSnapshot,
   finished: readonly JobRecord[],
-  drivers: readonly DriverSnapshot[],
+  config: DispatchConfig,
 ): string[] {
   const lines: string[] = [];
   const commits = git.sinceYesterday ?? [];
-  if (commits.length > 0) {
+  if (isSectionOn(config, "git") && commits.length > 0) {
     lines.push("### Git");
     for (const commit of commits.slice(0, 8)) {
       lines.push(`- ${commit}`);
     }
   }
-  if (finished.length > 0) {
+  if (isSectionOn(config, "jobs") && finished.length > 0) {
     lines.push("### Dispatch");
     for (const job of finished) {
       const detail =
@@ -372,25 +285,7 @@ function yesterdaySection(
       lines.push(`- ${jobRef(job)} — ${briefFocus(detail)}`);
     }
   }
-  for (const driver of drivers) {
-    if (!driver.connected) continue;
-    const done = driver.recentlyDone ?? [];
-    if (done.length === 0) continue;
-    lines.push(`### ${label(driver.id)}`);
-    for (const item of done.slice(0, 8)) {
-      lines.push(itemLine(item));
-    }
-  }
   return lines;
-}
-
-function itemLine(item: {
-  title: string;
-  detail?: string | undefined;
-  url?: string | undefined;
-}): string {
-  const detail = item.detail ? ` (${item.detail})` : "";
-  return `- ${item.title}${detail}`;
 }
 
 function briefFocus(text: string): string {
@@ -403,21 +298,4 @@ function isRecent(iso: string, hours: number, now = Date.now()): boolean {
   const t = Date.parse(iso);
   if (!Number.isFinite(t)) return false;
   return now - t < hours * 60 * 60 * 1000;
-}
-
-function label(id: DriverId): string {
-  switch (id) {
-    case "github":
-      return "GitHub";
-    case "linear":
-      return "Linear";
-    case "jira":
-      return "Jira";
-    case "slack":
-      return "Slack";
-    case "notion":
-      return "Notion";
-    case "google-calendar":
-      return "Calendar";
-  }
 }

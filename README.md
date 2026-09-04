@@ -87,7 +87,7 @@ All surfaces call the same Core SDK. None re-implements analysis.
    prism health --verbose   # shows workspace + index timing
    ```
 
-Package: [npmjs.com/package/@repo-prism/cli](https://www.npmjs.com/package/@repo-prism/cli) · Guide: [CLI docs](https://www.prismhq.in/docs/cli/usage)
+Package: [npmjs.com/package/@repo-prism/cli](https://www.npmjs.com/package/@repo-prism/cli) · Guide: [CLI docs](https://www.prismhq.in/docs/usage)
 
 ### B. MCP — `@repo-prism/mcp-server`
 
@@ -96,7 +96,7 @@ like `repository_health`.** The server tells the agent which tools to call.
 
 #### One-click (Cursor)
 
-[Add to Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=prism&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIi0tcHJlZmVyLW9ubGluZSIsIkByZXBvLXByaXNtL21jcC1zZXJ2ZXJAbGF0ZXN0Il0sImVudiI6eyJOT0RFX1VTRV9TWVNURU1fQ0EiOiIxIn19) · [Install guide](https://www.prismhq.in/docs/mcp/install) · [Benchmarks](https://www.prismhq.in/benchmarks)
+[Add to Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=prism&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIi0tcHJlZmVyLW9ubGluZSIsIkByZXBvLXByaXNtL21jcC1zZXJ2ZXJAbGF0ZXN0Il0sImVudiI6eyJOT0RFX1VTRV9TWVNURU1fQ0EiOiIxIn19) · [Install guide](https://www.prismhq.in/docs/start/install) · [Benchmarks](https://www.prismhq.in/benchmarks)
 
 #### Copy-paste config (Cursor / Claude Desktop)
 
@@ -142,7 +142,7 @@ If the one-click link above does not work:
 #### Claude Desktop / Codex
 
 Same `npx` / `@repo-prism/mcp-server` config — no `--workspace`. Full numbered
-steps for every client: [MCP install](https://www.prismhq.in/docs/mcp/install).
+steps for every client: [MCP install](https://www.prismhq.in/docs/start/install).
 
 Only add `--workspace` / `PRISM_WORKSPACE` if auto-detection picks the wrong folder.
 
@@ -157,7 +157,7 @@ Package: [npmjs.com/package/@repo-prism/mcp-server](https://www.npmjs.com/packag
 3. Command Palette → **Prism: Open Prism**.
 4. Wait for indexing; use the UI.
 5. (Cursor) Also complete [B. MCP](#b-mcp--repo-prismmcp-server) so the agent
-   shares the same analysis — [IDE install](https://www.prismhq.in/docs/ide/install).
+   shares the same analysis — [IDE install](https://www.prismhq.in/docs/start/install).
 
 ---
 
@@ -253,7 +253,7 @@ the server’s instructions tell the agent when to call which tool.
 | **Impact** | `blast_radius`, `safe_delete`, `rename_impact`, `test_impact`, `breaking_change_hints`, `review_changes`, `explore_code` |
 | **Reports** | `engineering_health`, `health_history`, `backend_report`, `testing_report`, `security_report` |
 
-Setup steps: [MCP install](https://www.prismhq.in/docs/mcp/install) · Full tool list: [MCP tools](https://www.prismhq.in/docs/reference/mcp-tools).
+Setup steps: [MCP install](https://www.prismhq.in/docs/start/install) · Full tool list: [MCP tools](https://www.prismhq.in/docs/reference/mcp-tools).
 
 ---
 
@@ -274,19 +274,17 @@ Reproduce numbers: `bun run bench:orientation` (after `bun run build`).
 
 | Topic | Link |
 |---|---|
-| Get started wizard | [docs/start/get-started](https://www.prismhq.in/docs/start/get-started) |
-| What Prism is | [docs/start/what-is-prism](https://www.prismhq.in/docs/start/what-is-prism) |
-| Install | [docs/start/install](https://www.prismhq.in/docs/start/install) |
+| What Prism is | [docs/what-is-prism](https://www.prismhq.in/docs/what-is-prism) |
+| Install (CLI / IDE / MCP) | [docs/start/install](https://www.prismhq.in/docs/start/install) |
 | Quickstart | [docs/start/quickstart](https://www.prismhq.in/docs/start/quickstart) |
 | Capabilities | [docs/reference/capabilities](https://www.prismhq.in/docs/reference/capabilities) |
 | Task guides | [docs/guides](https://www.prismhq.in/docs/guides/understand-a-repo) |
-| CLI | [docs/cli/usage](https://www.prismhq.in/docs/cli/usage) |
-| MCP | [docs/mcp/usage](https://www.prismhq.in/docs/mcp/usage) |
-| IDE | [docs/ide/usage](https://www.prismhq.in/docs/ide/usage) |
+| Usage (CLI / IDE / MCP) | [docs/usage](https://www.prismhq.in/docs/usage) |
+| Dispatch | [docs/guides/dispatch](https://www.prismhq.in/docs/guides/dispatch) |
 | CLI reference | [docs/reference/cli-commands](https://www.prismhq.in/docs/reference/cli-commands) |
 | MCP tools | [docs/reference/mcp-tools](https://www.prismhq.in/docs/reference/mcp-tools) |
-| Known limitations | [docs/reference/known-limitations](https://www.prismhq.in/docs/reference/known-limitations) |
-| FAQ | [docs/reference/faq](https://www.prismhq.in/docs/reference/faq) |
+| Known limitations | [docs/help/known-limitations](https://www.prismhq.in/docs/help/known-limitations) |
+| FAQ | [docs/help/faq](https://www.prismhq.in/docs/help/faq) |
 | Changelog | [`CHANGELOG.md`](./CHANGELOG.md) |
 
 Markdown sources also live in [`docs/`](./docs/) in this repo. Local preview: `bun run docs:dev`

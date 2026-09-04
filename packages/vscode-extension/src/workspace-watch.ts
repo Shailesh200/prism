@@ -1,6 +1,6 @@
 import type * as vscode from "vscode";
 import type { PrismLogger } from "./logger.js";
-import type { PrismSession } from "./session.js";
+import type { PrismSession } from "@repo-prism/host-session";
 
 export const AUTO_REINDEX_STATE_KEY = "prism.autoReindex";
 export const AUTO_REINDEX_INTERVAL_STATE_KEY = "prism.autoReindexIntervalMs";

@@ -12,12 +12,35 @@ import {
   createClaudeWorkerPort,
   createCursorWorkerPort,
   createDispatchRuntime,
+  DispatchConfigSchema,
+  discoverHostConnectors,
+  vendorCoverage,
+  drainWorkspace,
+  loadConfig,
   readRunLog,
+  saveConfig,
+  type DispatchConfig,
 } from "@repo-prism/dispatch";
-import { originAllowed, tokenFromRequest, tokensMatch } from "./auth.js";
+import { parseHostRequest } from "@repo-prism/host-session/protocol";
+import {
+  originAllowed,
+  tokenFromRequest,
+  tokensMatch,
+  hubCookieHeader,
+} from "./auth.js";
 import { createIdleTimer, IDLE_MS } from "./idle.js";
-import { newHubToken, packageVersion, writeHubRecord } from "./hub-record.js";
+import {
+  createIntelligencePlane,
+  type IntelligencePlane,
+} from "./intelligence.js";
+import {
+  newHubToken,
+  packageVersion,
+  readHubRecord,
+  writeHubRecord,
+} from "./hub-record.js";
 import { formatJobFinishedNotice } from "./notice.js";
+import { listJobNotes, readJobNote } from "./notes.js";
 import { createOsNotifier, type NotifyFn } from "./notify.js";
 import { dashboardUrl, hubPort, type HubEnv } from "./paths.js";
 import { dropMissingWorkspaces, registerWorkspace } from "./registry.js";
@@ -26,6 +49,7 @@ import type {
   HubRecord,
   JobSnapshot,
   WorkspaceEntry,
+  WorkspaceError,
 } from "./types.js";
 import {
   collectJobs,
@@ -46,6 +70,7 @@ export type JobControlFn = (
   workspacePath: string,
   jobId: string,
   action: string,
+  extra?: { readonly path?: string },
 ) => Promise<unknown>;
 
 export type HubOptions = {
@@ -56,6 +81,10 @@ export type HubOptions = {
   readonly assetsDir?: string;
   readonly control?: JobControlFn;
   readonly version?: string;
+  /** Injected in tests; production drains through `@repo-prism/dispatch`. */
+  readonly drain?: (workspacePath: string) => Promise<void>;
+  /** Injected in tests; production lazily imports Core (ADR-0048). */
+  readonly intelligence?: IntelligencePlane;
 };
 
 export type StartedHub = {
@@ -76,13 +105,37 @@ async function defaultControl(
   workspacePath: string,
   jobId: string,
   action: string,
+  extra?: { readonly path?: string },
 ): Promise<unknown> {
   const runtime = createDispatchRuntime({
     workspaceRoot: workspacePath,
     worker: createCursorWorkerPort(),
     claudeWorker: createClaudeWorkerPort(),
   });
-  return runtime.handle("job_control", { jobId, action });
+  return runtime.handle("job_control", {
+    jobId,
+    action,
+    ...(extra?.path ? { path: extra.path } : {}),
+  });
+}
+
+/**
+ * Advance one workspace's job queue (ADR-0047).
+ *
+ * The hub is the only always-on process on the machine, which makes it the
+ * right owner of the drain: a job queued by an MCP server that has since
+ * exited still starts, and a job parked behind the cap starts as soon as a
+ * slot frees.
+ */
+async function defaultDrain(workspacePath: string): Promise<void> {
+  const cursor = createCursorWorkerPort();
+  const claude = createClaudeWorkerPort();
+  const runtime = createDispatchRuntime({
+    workspaceRoot: workspacePath,
+    worker: cursor,
+    claudeWorker: claude,
+  });
+  await drainWorkspace(runtime.drainDeps());
 }
 
 export async function startHub(
@@ -93,7 +146,12 @@ export async function startHub(
   const assetsDir = options.assetsDir ?? defaultAssetsDir();
   const control = options.control ?? defaultControl;
   const version = options.version ?? packageVersion();
-  const token = newHubToken();
+  const intelligence = options.intelligence ?? createIntelligencePlane();
+  const previous = await readHubRecord(env);
+  const token =
+    typeof previous?.token === "string" && previous.token.length >= 16
+      ? previous.token
+      : newHubToken();
   const wantedPort = hubPort(env);
 
   let workspaces: WorkspaceEntry[] = await dropMissingWorkspaces(
@@ -102,6 +160,10 @@ export async function startHub(
   );
   const sse = new Set<SseClient>();
   let jobs: JobSnapshot[] = [];
+  // Mirrored from the watcher so every payload can state when it was read and
+  // which workspaces failed, rather than presenting a partial list as whole.
+  let asOf = new Date().toISOString();
+  let workspaceErrors: WorkspaceError[] = [];
   let server: Server | undefined;
   let closed = false;
   let liveRecord: HubRecord = {
@@ -113,7 +175,11 @@ export async function startHub(
   };
 
   const broadcast = (event: HubEvent): void => {
-    if (event.type === "snapshot") jobs = [...event.jobs];
+    if (event.type === "snapshot") {
+      jobs = [...event.jobs];
+      asOf = event.asOf;
+      workspaceErrors = [...event.errors];
+    }
     if (event.type === "job.updated") {
       jobs = [
         ...jobs.filter(
@@ -125,6 +191,15 @@ export async function startHub(
         ),
         event.job,
       ];
+    }
+    if (event.type === "job.removed") {
+      jobs = jobs.filter(
+        (row) =>
+          !(
+            row.id === event.job.id &&
+            row.workspacePath === event.job.workspacePath
+          ),
+      );
     }
     const payload = `data: ${JSON.stringify(event)}\n\n`;
     for (const client of sse) {
@@ -147,8 +222,12 @@ export async function startHub(
     idle.touch();
   };
 
+  // The hub tick is the queue's safety net (ADR-0047). `start_job` kicks its
+  // own drain, but that kick dies with the MCP process; this catches anything
+  // left `queued`, and re-checks jobs parked behind the concurrency cap.
   const watcher = watchWorkspaces(() => workspaces, onEvent, {
     pollMs: options.pollMs,
+    drain: options.drain ?? defaultDrain,
   });
 
   const idle = createIdleTimer({
@@ -164,6 +243,7 @@ export async function startHub(
     closed = true;
     idle.stop();
     watcher.close();
+    intelligence.close();
     for (const client of sse) {
       try {
         client.res.end();
@@ -210,8 +290,13 @@ export async function startHub(
 
   liveRecord = { ...liveRecord, port: listen.port };
   await writeHubRecord(liveRecord, env);
-  jobs = await collectJobs(workspaces);
-  broadcast({ type: "snapshot", jobs });
+  const initial = await collectJobs(workspaces);
+  broadcast({
+    type: "snapshot",
+    jobs: initial.jobs,
+    asOf: new Date().toISOString(),
+    errors: initial.errors,
+  });
 
   async function handleRequest(
     req: IncomingMessage,
@@ -231,6 +316,12 @@ export async function startHub(
         pid: process.pid,
         version,
         workspaces: workspaces.length,
+        // Whether the Intelligence plane has actually loaded Core, and on
+        // what. A reader can tell an idle Console from a busy one.
+        intelligence: {
+          loaded: intelligence.loaded(),
+          workspace: intelligence.openWorkspace() ?? null,
+        },
       });
       return;
     }
@@ -242,7 +333,48 @@ export async function startHub(
     }
 
     if (req.method === "GET" && url.pathname === "/api/jobs") {
-      json(res, 200, { jobs });
+      json(res, 200, {
+        jobs: [...watcher.jobs()],
+        asOf: watcher.asOf(),
+        errors: [...watcher.errors()],
+      });
+      return;
+    }
+
+    // The Repos plane needs to tell "no repositories registered" apart from
+    // "registered, but no jobs" — two very different things the old board
+    // rendered as one empty sentence (ADR-0048).
+    if (req.method === "GET" && url.pathname === "/api/repos") {
+      json(res, 200, {
+        repos: workspaces.map((entry) => ({
+          path: entry.path,
+          label: entry.label,
+          lastSeenAt: entry.lastSeenAt,
+          jobCount: jobs.filter((job) => job.workspacePath === entry.path)
+            .length,
+          error: workspaceErrors.find((row) => row.workspacePath === entry.path)
+            ?.detail,
+        })),
+        asOf,
+      });
+      return;
+    }
+
+    // What the user's agent window already has connected (ADR-0049). Served
+    // from here rather than read directly by the IDE, so the extension keeps
+    // its one dependency on Dispatch — HTTP — instead of importing it.
+    if (req.method === "GET" && url.pathname === "/api/connectors") {
+      const workspace =
+        url.searchParams.get("workspace")?.trim() || workspaces[0]?.path;
+      const discovery = await discoverHostConnectors(
+        workspace ? { workspaceRoot: workspace } : {},
+      );
+      json(res, 200, {
+        connectors: discovery.connectors,
+        unreadable: discovery.unreadable,
+        vendors: vendorCoverage(discovery.connectors),
+        asOf: new Date().toISOString(),
+      });
       return;
     }
 
@@ -265,6 +397,45 @@ export async function startHub(
       return;
     }
 
+    const notesMatch = /^\/api\/jobs\/([^/]+)\/notes$/.exec(url.pathname);
+    if (req.method === "GET" && notesMatch) {
+      const jobId = decodeURIComponent(notesMatch[1] ?? "");
+      const job = jobs.find((row) => row.id === jobId);
+      const workspace =
+        url.searchParams.get("workspace") ?? job?.workspacePath ?? "";
+      if (!workspace) {
+        json(res, 400, { error: "workspace required" });
+        return;
+      }
+      const rel = url.searchParams.get("path")?.trim();
+      try {
+        if (rel) {
+          const file = await readJobNote({
+            workspace,
+            rel,
+            ...(job?.worktreePath ? { worktreePath: job.worktreePath } : {}),
+          });
+          if (!file) {
+            json(res, 404, { error: "note not found" });
+            return;
+          }
+          json(res, 200, file);
+          return;
+        }
+        const listed = await listJobNotes({
+          workspace,
+          jobId,
+          ...(job?.worktreePath ? { worktreePath: job.worktreePath } : {}),
+          ...(job?.resultSummary ? { summary: job.resultSummary } : {}),
+          ...(job?.notes ? { stored: job.notes } : {}),
+        });
+        json(res, 200, { notes: listed });
+      } catch {
+        json(res, 500, { error: "note read failed" });
+      }
+      return;
+    }
+
     if (req.method === "GET" && url.pathname === "/api/events") {
       res.writeHead(200, {
         "Content-Type": "text/event-stream",
@@ -274,7 +445,14 @@ export async function startHub(
       const client = { res };
       sse.add(client);
       idle.touch();
-      res.write(`data: ${JSON.stringify({ type: "snapshot", jobs })}\n\n`);
+      res.write(
+        `data: ${JSON.stringify({
+          type: "snapshot",
+          jobs: [...watcher.jobs()],
+          asOf: watcher.asOf(),
+          errors: [...watcher.errors()],
+        })}\n\n`,
+      );
       req.on("close", () => {
         sse.delete(client);
       });
@@ -294,6 +472,45 @@ export async function startHub(
       return;
     }
 
+    // The Intelligence plane (ADR-0048). Same `HostRequest`/`HostResponse`
+    // contract the IDE webview already speaks, so `@repo-prism/app-shell`
+    // mounts against it unchanged — but behind this Console's token and origin
+    // allowlist, rather than the retired bridge's `Access-Control-Allow-Origin: *`.
+    if (req.method === "POST" && url.pathname === "/api/host") {
+      const body = await readBody(req);
+      const id = typeof body.id === "string" ? body.id : "?";
+      // Validated with the same guard the webview host uses, so an unknown
+      // method is a 400 here rather than an unhandled cast three layers down.
+      const parsed = parseHostRequest(body);
+      if (!parsed.ok) {
+        json(res, 400, { id, ok: false, error: parsed.reason });
+        return;
+      }
+      const workspace =
+        (typeof body.workspace === "string" ? body.workspace.trim() : "") ||
+        url.searchParams.get("workspace") ||
+        workspaces[0]?.path ||
+        "";
+      if (!workspace) {
+        json(res, 200, {
+          id,
+          ok: false,
+          error:
+            "No repository registered with Prism yet. Open a repo in your editor, or run a Prism command in it.",
+        });
+        return;
+      }
+      idle.touch();
+      try {
+        const answer = await intelligence.handle(workspace, parsed.value);
+        json(res, 200, answer);
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : String(cause);
+        json(res, 200, { id, ok: false, error: message });
+      }
+      return;
+    }
+
     const controlMatch = /^\/api\/jobs\/([^/]+)\/control$/.exec(url.pathname);
     if (req.method === "POST" && controlMatch) {
       const jobId = decodeURIComponent(controlMatch[1] ?? "");
@@ -307,8 +524,13 @@ export async function startHub(
         return;
       }
       try {
-        const result = await control(workspace, jobId, action);
-        void watcher.refresh();
+        const result = await control(
+          workspace,
+          jobId,
+          action,
+          typeof body.path === "string" ? { path: body.path } : {},
+        );
+        await watcher.refresh({ drain: false });
         json(res, 200, result ?? { ok: true });
       } catch (cause) {
         const message = cause instanceof Error ? cause.message : String(cause);
@@ -317,15 +539,59 @@ export async function startHub(
       return;
     }
 
+    if (req.method === "GET" && url.pathname === "/api/settings") {
+      const workspace =
+        url.searchParams.get("workspace")?.trim() || workspaces[0]?.path;
+      if (!workspace) {
+        json(res, 400, { error: "workspace required" });
+        return;
+      }
+      const config = await loadConfig(workspace);
+      const entry = workspaces.find((row) => row.path === workspace);
+      json(res, 200, {
+        workspace,
+        label: entry?.label ?? workspace,
+        config,
+      });
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/settings") {
+      const body = await readBody(req);
+      const workspace =
+        String(body.workspace ?? "").trim() || workspaces[0]?.path;
+      if (!workspace) {
+        json(res, 400, { error: "workspace required" });
+        return;
+      }
+      const parsed = DispatchConfigSchema.partial().safeParse(body);
+      if (!parsed.success) {
+        json(res, 400, { error: parsed.error.message });
+        return;
+      }
+      const patch: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(parsed.data)) {
+        if (value !== undefined) patch[key] = value;
+      }
+      const config = await saveConfig(
+        workspace,
+        patch as Partial<DispatchConfig>,
+      );
+      json(res, 200, { workspace, config });
+      return;
+    }
+
     if (
       req.method === "GET" &&
       (url.pathname === "/" || url.pathname === "/index.html")
     ) {
-      await serveFile(
-        res,
-        join(assetsDir, "index.html"),
-        "text/html; charset=utf-8",
-      );
+      const headers: Record<string, string> = {
+        "Content-Type": "text/html; charset=utf-8",
+      };
+      if (tokensMatch(liveRecord.token, tokenFromRequest(req, url))) {
+        headers["Set-Cookie"] = hubCookieHeader(liveRecord.token);
+      }
+      await serveFile(res, join(assetsDir, "index.html"), headers);
       return;
     }
 
@@ -336,11 +602,9 @@ export async function startHub(
         return;
       }
       const file = join(assetsDir, relative);
-      await serveFile(
-        res,
-        file,
-        MIME[extname(file)] ?? "application/octet-stream",
-      );
+      await serveFile(res, file, {
+        "Content-Type": MIME[extname(file)] ?? "application/octet-stream",
+      });
       return;
     }
 
@@ -380,7 +644,7 @@ async function readBody(
 async function serveFile(
   res: ServerResponse,
   path: string,
-  mime: string,
+  headers: Record<string, string>,
 ): Promise<void> {
   try {
     await access(path);
@@ -388,6 +652,6 @@ async function serveFile(
     json(res, 404, { error: "not found" });
     return;
   }
-  res.writeHead(200, { "Content-Type": mime });
+  res.writeHead(200, headers);
   createReadStream(path).pipe(res);
 }

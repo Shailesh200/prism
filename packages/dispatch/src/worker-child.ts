@@ -181,6 +181,7 @@ async function main(): Promise<void> {
     sdk = (await import("@cursor/sdk")) as unknown as typeof sdk;
   } catch (cause) {
     const detail = cause instanceof Error ? cause.message : String(cause);
+    await logLine("failed", detail);
     await writer.patch(
       {
         phase: "failed",
@@ -206,9 +207,19 @@ async function main(): Promise<void> {
     agent = payload.resumeAgentId
       ? await sdk.Agent.resume(payload.resumeAgentId, options)
       : await sdk.Agent.create(options);
+    const modelValue = (agent as { model?: unknown }).model;
+    const model =
+      typeof modelValue === "string"
+        ? modelValue
+        : modelValue &&
+            typeof modelValue === "object" &&
+            typeof (modelValue as { id?: unknown }).id === "string"
+          ? (modelValue as { id: string }).id
+          : undefined;
     await writer.patch(
       {
         agentId: agent.agentId,
+        ...(typeof model === "string" && model ? { model } : {}),
         phase: "running",
         lastActivity: "Teammate is on it",
       },

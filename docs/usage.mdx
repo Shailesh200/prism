@@ -1,0 +1,206 @@
+---
+title: Usage
+description: "Day-to-day use of the CLI, the IDE extension, and AI agents — one engine, three surfaces."
+---
+
+One engine, three ways to reach it. The numbers are identical whichever tab you
+pick; only the presentation changes.
+
+<Tabs items={["CLI", "IDE extension", "AI agents (MCP)"]}>
+<Tab value="CLI">
+
+Real exit codes and clean JSON — what makes `prism` useful in a script. Full
+command list: [CLI reference](/docs/reference/cli-commands).
+
+### Global options
+
+| Option | Effect |
+|---|---|
+| `-w, --workspace <path>` | Which repository to analyse |
+| `--json` | Emit JSON on stdout instead of a human table |
+| `--no-color` | Disable ANSI colour (`NO_COLOR` honoured too) |
+| `-q, --quiet` | Suppress progress on stderr |
+| `--verbose` | Workspace chosen + index timing on stderr |
+| `-y, --yes` | Consent to an operation that would otherwise be refused |
+| `--max-file-bytes <n>` | Skip hashing files larger than this |
+| `--exclude <glob>` | Extra ignore glob; repeatable |
+| `-V, --version` | Engine version and API level |
+
+No subcommand prints help and exits **0**. A near-miss typo exits **2** with a
+suggestion.
+
+### Which repository?
+
+Most explicit wins: `--workspace` → `PRISM_WORKSPACE` → nearest `.git` ancestor
+→ cwd. `prism doctor` prints which rule won. Path arguments resolve from
+**your** directory; paths outside the workspace are refused, not clamped.
+
+### Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | Ran successfully |
+| `1` | Ran successfully, and found what you gated on |
+| `2` | Usage error |
+| `3` | Prism itself failed |
+
+### Failing a build
+
+```bash
+prism blast src/core/index.ts --fail-on high
+prism review --base origin/main --fail-on high
+prism cycles --fail-on any
+prism engineering --fail-on high
+```
+
+`--fail-on` takes a [band](/docs/concepts/risk-bands) and fires at or above it.
+
+### Scripting
+
+```bash
+prism dna --json | jq '.data.rankedDomains'
+```
+
+Success and failure share one JSON envelope; in `--json` mode errors go to
+**stdout** inside it. Colour is never emitted when stdout is not a TTY.
+`--json` is never truncated — `--limit` bounds only the human table.
+
+### Worth knowing
+
+- The first command in a repo is slow (it builds the index); later commands
+  reuse it.
+- `prism review` with no args reviews the working tree, including untracked
+  files. Pass `--base` in CI.
+- `prism rename` and `prism safe-delete` never write — they only report.
+- `prism security` is a config checklist, not a vulnerability scanner.
+
+</Tab>
+<Tab value="IDE extension">
+
+The visual surface — same engine, arranged for reading. On first open Prism
+indexes the workspace; until the index exists, screens that need it say so
+rather than showing zeroes. An empty chart and an unbuilt index look identical
+otherwise and mean different things.
+
+### Screens
+
+| Screen | For |
+|---|---|
+| **Overview** | Health, DNA, activity, most-connected files |
+| **Map** | Structure laid out spatially, with layers |
+| **Domains** | Frontend / backend / data / infrastructure when DNA detects them |
+| **Impact** | Blast radius, safe delete, rename impact |
+| **Trends** | Health over time |
+| **Jobs** | [Dispatch](/docs/guides/dispatch) teammates — live, queued, waiting on you, finished — read from the local Console over loopback |
+| **Integrations** | MCP status, host connectors, optional consented connectors |
+| **Settings** | Indexing, appearance, privacy |
+
+### Integrations
+
+**MCP Server** shows whether the Console is running, on which port, its
+version, how many tools Prism exposes, and how many repositories it watches.
+
+**Host connectors** lists what *your* agent window already has connected —
+Slack, Linear, Notion, Google Calendar — read from Cursor's and Claude Code's
+own plugin and MCP manifests. Prism runs no OAuth and holds no tokens
+(ADR-0049); it composes with whatever is there.
+
+**Optional connectors** (Remote Git, GitHub Actions, PageSpeed) are Prism's
+own, each gated on Settings → Allow network integrations.
+
+### Reading the interface
+
+- **Provenance markers** — estimated vs unavailable; see
+  [signal provenance](/docs/concepts/signal-provenance).
+- **Risk colour** — green → amber → red maps to
+  [risk bands](/docs/concepts/risk-bands).
+- **Confidence** — on features and stack signals; low means look before you act.
+
+### Working in it
+
+- Impact → enter a path → blast radius, tests, features.
+- **Review All Changes** (SCM title bar, or `Cmd/Ctrl+Alt+R`) reviews every
+  dirty path from git.
+- **Blast Quick Pick** (`Cmd/Ctrl+Alt+B`) shows risk and top dependents without
+  opening the full panel.
+- **Open Agent Dashboard** opens the local Console — the jobs board across
+  every registered repository.
+- Map zoom: repository → package → feature → file → symbol; layers overlay
+  coupling, churn, tests, risk.
+- Right-click: Blast Radius, Safe Delete, Explain, Reveal on Map.
+
+### Multi-root workspaces
+
+Prism indexes every workspace folder on activation — the first is active, the
+rest warm-index in the background. Status-bar menu → **Switch workspace
+folder…** changes which root Impact, Map, and Review use.
+
+All keys and toggles: [IDE settings](/docs/reference/ide-settings).
+
+</Tab>
+<Tab value="AI agents (MCP)">
+
+You set Prism up once. After that, ask for what you want — the server's
+instructions teach the agent which tools to call, so you never type a tool name.
+
+### How to talk
+
+| You say | Agent should use |
+|---|---|
+| "What is this repo?" / "Orient me" | `repository_dna`, landmarks / overview |
+| "Is this codebase healthy?" | `repository_health` |
+| "Where does checkout live?" | landmarks / features / `find_symbol` |
+| "I'm about to edit `src/…` — what breaks?" | `blast_radius`, `test_impact` |
+| "Can I delete this file?" | `safe_delete` |
+| "Review my current changes" | `review_changes` |
+| "Start my day" | `start_my_day` |
+| "Fix the broken highlighting in the news tab" | `start_job` — any request to change code dispatches a background teammate |
+| "Fix it now, right here" | no job — the agent edits inline in the chat |
+| "What is connected?" | `dispatch_doctor` — Prism runs no OAuth; connectors are your editor's |
+
+Optional [prompts](/docs/reference/mcp-prompts) appear in clients that show a
+prompt picker.
+
+### How the server behaves
+
+1. Handshake is fast — connecting does not index.
+2. The first **Intelligence** call may take seconds while the index builds.
+   `start_my_day` does not wait on the index.
+3. stdio only — diagnostics on stderr and logging notifications.
+4. Lists are bounded (`totalCount` / `truncated`).
+5. Paths outside the workspace are refused.
+6. Intelligence tools are read-only. Dispatch tools write gitignored state
+   under `.prism/dispatch/`, make no network calls, and hold no third-party
+   credentials — see [consent](/docs/concepts/consent-and-privacy).
+
+### Force a specific repo path
+
+Only if auto-detection is wrong:
+
+```bash
+npx -y @repo-prism/mcp-server --workspace /path/to/repo
+# or
+PRISM_WORKSPACE=/path/to/repo npx -y @repo-prism/mcp-server
+```
+
+Put the same into the client's `args` / `env` if needed.
+
+### If something fails
+
+1. Run `npx -y @repo-prism/cli doctor` inside the same project.
+2. Check the workspace (MCP roots / git root vs cwd). If Dispatch says it
+   cannot see a git repository, reload prism with the git project open.
+3. Confirm Node 26+.
+4. Disable and re-enable **prism** in the client, or restart it.
+5. Set `PRISM_WORKSPACE` once and retry.
+
+All tools: [MCP reference](/docs/reference/mcp-tools).
+
+</Tab>
+</Tabs>
+
+## Related
+
+[Install](/docs/start/install) · [Dispatch](/docs/guides/dispatch) ·
+[Wire into CI](/docs/guides/wire-into-ci) ·
+[Troubleshooting](/docs/help/troubleshooting)
