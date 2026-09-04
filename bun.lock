@@ -47,7 +47,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@gsap/react": "^2.1.2",
-        "@repo-prism/dispatch-auth": "workspace:*",
+        "@repo-prism/shared": "workspace:*",
         "@repo-prism/ui": "workspace:*",
         "fumadocs-core": "^16.0.11",
         "fumadocs-mdx": "^14.0.5",
@@ -148,33 +148,31 @@
     },
     "packages/dispatch": {
       "name": "@repo-prism/dispatch",
-      "version": "1.1.16",
+      "version": "1.1.17",
       "dependencies": {
         "@cursor/sdk": "^1.0.28",
         "@repo-prism/shared": "workspace:*",
         "zod": "^3.25.0",
       },
     },
-    "packages/dispatch-auth": {
-      "name": "@repo-prism/dispatch-auth",
-      "version": "1.0.0",
-      "dependencies": {
-        "@repo-prism/dispatch": "workspace:*",
-      },
-    },
     "packages/dispatch-hub": {
       "name": "@repo-prism/dispatch-hub",
-      "version": "1.1.16",
+      "version": "1.1.17",
       "bin": {
         "prism-hub": "./dist/bin.js",
       },
       "dependencies": {
         "@repo-prism/dispatch": "workspace:*",
+        "@repo-prism/host-session": "workspace:*",
+        "@repo-prism/shared": "workspace:*",
       },
       "devDependencies": {
+        "@repo-prism/app-shell": "workspace:*",
         "@repo-prism/ui": "workspace:*",
         "@types/react": "^19.2.17",
         "@types/react-dom": "^19.2.3",
+        "gsap": "^3.15.0",
+        "lucide-react": "^1.25.0",
         "react": "^19.2.7",
         "react-dom": "^19.2.7",
       },
@@ -186,6 +184,15 @@
         "@repo-prism/shared": "workspace:*",
         "ngraph.graph": "^20.1.2",
         "ngraph.path": "^1.6.1",
+      },
+    },
+    "packages/host-session": {
+      "name": "@repo-prism/host-session",
+      "version": "1.0.0",
+      "dependencies": {
+        "@repo-prism/app-shell": "workspace:*",
+        "@repo-prism/core": "workspace:*",
+        "@repo-prism/shared": "workspace:*",
       },
     },
     "packages/impact": {
@@ -218,7 +225,7 @@
     },
     "packages/mcp-server": {
       "name": "@repo-prism/mcp-server",
-      "version": "1.1.16",
+      "version": "1.1.17",
       "bin": {
         "prism-mcp": "./dist/bin.js",
       },
@@ -240,6 +247,10 @@
       "dependencies": {
         "@repo-prism/shared": "workspace:*",
       },
+    },
+    "packages/plugin": {
+      "name": "@repo-prism/plugin",
+      "version": "1.1.17",
     },
     "packages/repository-map": {
       "name": "@repo-prism/repository-map",
@@ -290,6 +301,7 @@
       "dependencies": {
         "@repo-prism/app-shell": "workspace:*",
         "@repo-prism/core": "workspace:*",
+        "@repo-prism/host-session": "workspace:*",
         "@repo-prism/shared": "workspace:*",
         "@repo-prism/ui": "workspace:*",
         "better-sqlite3": "^12.11.1",
@@ -802,11 +814,11 @@
 
     "@repo-prism/dispatch": ["@repo-prism/dispatch@workspace:packages/dispatch"],
 
-    "@repo-prism/dispatch-auth": ["@repo-prism/dispatch-auth@workspace:packages/dispatch-auth"],
-
     "@repo-prism/dispatch-hub": ["@repo-prism/dispatch-hub@workspace:packages/dispatch-hub"],
 
     "@repo-prism/graph-engine": ["@repo-prism/graph-engine@workspace:packages/graph-engine"],
+
+    "@repo-prism/host-session": ["@repo-prism/host-session@workspace:packages/host-session"],
 
     "@repo-prism/impact": ["@repo-prism/impact@workspace:packages/impact"],
 
@@ -819,6 +831,8 @@
     "@repo-prism/navigation": ["@repo-prism/navigation@workspace:packages/navigation"],
 
     "@repo-prism/playground": ["@repo-prism/playground@workspace:apps/playground"],
+
+    "@repo-prism/plugin": ["@repo-prism/plugin@workspace:packages/plugin"],
 
     "@repo-prism/repository-map": ["@repo-prism/repository-map@workspace:packages/repository-map"],
 
@@ -2443,8 +2457,6 @@
     "@radix-ui/react-tabs/@radix-ui/react-use-controllable-state": ["@radix-ui/react-use-controllable-state@1.2.6", "", { "dependencies": { "@radix-ui/primitive": "1.1.7", "@radix-ui/react-use-effect-event": "0.0.5", "@radix-ui/react-use-layout-effect": "1.1.4" }, "peerDependencies": { "@types/react": "*", "react": "^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc" }, "optionalPeers": ["@types/react"] }, "sha512-uEQJGT97ZA/TgP/Hydw47lHu+/vQj6z/0jA+WeTbK1o9Rx45GImjpD0tc3W5ad3D6XTSR6e1yEO0FvGq6WQfVQ=="],
 
     "@repo-prism/playground/lucide-react": ["lucide-react@1.25.0", "", { "peerDependencies": { "react": "^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-/mdJTRbiwcLOQ1NZZK1amZF9rIZyvO18D6r9TngE6TG1NmqHgFuT4eE7Xrkm9UsXMbBJD1NlfwHVltCDWHrOTw=="],
-
-    "@repo-prism/vscode-extension/lucide-react": ["lucide-react@1.25.0", "", { "peerDependencies": { "react": "^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-/mdJTRbiwcLOQ1NZZK1amZF9rIZyvO18D6r9TngE6TG1NmqHgFuT4eE7Xrkm9UsXMbBJD1NlfwHVltCDWHrOTw=="],
 
     "@repo-prism/website/zod": ["zod@4.4.3", "", {}, "sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ=="],
 

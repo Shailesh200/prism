@@ -11,9 +11,72 @@ const withMDX = createMDX();
 const config = {
   reactStrictMode: true,
   outputFileTracingRoot: repoRoot,
-  transpilePackages: ["@repo-prism/dispatch-auth", "@repo-prism/dispatch"],
+  transpilePackages: ["@repo-prism/dispatch"],
   async redirects() {
     return [
+      // Docs restructure (M-067): the per-surface CLI / IDE / MCP lanes were
+      // folded into one Install page and one Usage page, so every lane URL
+      // that was ever shared has to keep resolving.
+      {
+        source: "/docs/start/get-started",
+        destination: "/docs/start/install",
+        permanent: true,
+      },
+      {
+        source: "/docs/start/what-is-prism",
+        destination: "/docs/what-is-prism",
+        permanent: true,
+      },
+      {
+        source: "/docs/:surface(cli|ide|mcp)/install",
+        destination: "/docs/start/install",
+        permanent: true,
+      },
+      {
+        source: "/docs/:surface(cli|ide|mcp)/usage",
+        destination: "/docs/usage",
+        permanent: true,
+      },
+      {
+        source: "/docs/mcp/dispatch",
+        destination: "/docs/guides/dispatch",
+        permanent: true,
+      },
+      {
+        source: "/docs/mcp/prompts",
+        destination: "/docs/reference/mcp-prompts",
+        permanent: true,
+      },
+      {
+        source: "/docs/ide/settings",
+        destination: "/docs/reference/ide-settings",
+        permanent: true,
+      },
+      {
+        source: "/docs/cli/commands",
+        destination: "/docs/reference/cli-commands",
+        permanent: true,
+      },
+      {
+        source: "/docs/mcp/tools",
+        destination: "/docs/reference/mcp-tools",
+        permanent: true,
+      },
+      {
+        source: "/docs/reference/faq",
+        destination: "/docs/help/faq",
+        permanent: true,
+      },
+      {
+        source: "/docs/reference/troubleshooting",
+        destination: "/docs/help/troubleshooting",
+        permanent: true,
+      },
+      {
+        source: "/docs/reference/known-limitations",
+        destination: "/docs/help/known-limitations",
+        permanent: true,
+      },
       {
         source: "/getting-started/:path*",
         destination: "/docs/start/:path*",
@@ -26,42 +89,42 @@ const config = {
       },
       {
         source: "/using/cli",
-        destination: "/docs/cli/usage",
+        destination: "/docs/usage",
         permanent: true,
       },
       {
         source: "/docs/using/cli",
-        destination: "/docs/cli/usage",
+        destination: "/docs/usage",
         permanent: true,
       },
       {
         source: "/using/mcp",
-        destination: "/docs/mcp/usage",
+        destination: "/docs/usage",
         permanent: true,
       },
       {
         source: "/docs/using/mcp",
-        destination: "/docs/mcp/usage",
+        destination: "/docs/usage",
         permanent: true,
       },
       {
         source: "/using/vscode-extension",
-        destination: "/docs/ide/usage",
+        destination: "/docs/usage",
         permanent: true,
       },
       {
         source: "/docs/using/vscode-extension",
-        destination: "/docs/ide/usage",
+        destination: "/docs/usage",
         permanent: true,
       },
       {
         source: "/using/cursor",
-        destination: "/docs/ide/usage",
+        destination: "/docs/usage",
         permanent: true,
       },
       {
         source: "/docs/using/cursor",
-        destination: "/docs/ide/usage",
+        destination: "/docs/usage",
         permanent: true,
       },
       {

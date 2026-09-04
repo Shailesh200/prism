@@ -3,9 +3,10 @@
 import { useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { Magnetic } from "@/components/motion/Magnetic";
 import { useGSAP } from "@gsap/react";
 import { CopyInstall } from "@/components/copy-install";
-import { ChartHeroScene } from "@/components/chart-hero-scene";
+import { HeroConstellation } from "@/components/hero-constellation";
 import {
   ensureGsap,
   prefersReducedMotion,
@@ -108,16 +109,18 @@ export function HomeHero() {
             data-hero-meta
             className="max-w-md font-mono text-xs tracking-wide text-fd-foreground md:text-sm"
           >
-            Local-first · No AI needed · No account
+            Local-first · Answers without a model · No account
           </p>
         </div>
         <div data-hero-actions className="flex flex-wrap gap-3">
-          <Link
-            href="/docs/start/get-started"
-            className="rounded-md bg-fd-primary px-4 py-2.5 text-sm font-medium text-fd-primary-foreground"
-          >
-            Get started
-          </Link>
+          <Magnetic>
+            <Link
+              href="/docs/start/install"
+              className="inline-block rounded-md bg-fd-primary px-4 py-2.5 text-sm font-medium text-fd-primary-foreground"
+            >
+              Get started
+            </Link>
+          </Magnetic>
           <Link
             href="/docs"
             className="rounded-md border border-fd-border px-4 py-2.5 text-sm text-fd-foreground"
@@ -130,7 +133,7 @@ export function HomeHero() {
         </div>
       </div>
       <div className="relative min-h-[300px] border-t border-fd-border lg:min-h-0 lg:border-l lg:border-t-0">
-        <ChartHeroScene />
+        <HeroConstellation />
       </div>
     </section>
   );

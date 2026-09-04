@@ -45,9 +45,6 @@
   "references": [
     {
       "path": "../../packages/ui"
-    },
-    {
-      "path": "../../packages/dispatch-auth"
     }
   ]
 }

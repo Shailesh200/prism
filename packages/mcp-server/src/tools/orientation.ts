@@ -204,21 +204,14 @@ export const capabilities = defineTool({
           }),
     }));
 
-    const DISPATCH_PURPOSES = new Set([
-      "network.github-user",
-      "network.linear",
-      "network.jira",
-      "network.slack",
-      "network.notion",
-      "network.google-calendar",
-    ]);
-
+    // The six Dispatch driver purposes went with Prism's OAuth stack
+    // (ADR-0049), so every remaining purpose is a Core analysis feature and
+    // gets the one answer that is true of all of them.
     const consentEntries = CONSENT_PURPOSES.map((purpose) => ({
       id: purpose.id,
       available: false as const,
-      reason: DISPATCH_PURPOSES.has(purpose.id)
-        ? "Dispatch driver. Say “connect …” — Cursor shows Authenticate, Claude opens Prism Auth. Completing that grant is the human consent. Not a Core analysis API."
-        : "Consent-gated and not available via MCP intelligence tools (ADR-0024). Grant consent in the IDE/CLI if you need this; agents cannot consent on the user's behalf for Core network APIs.",
+      reason:
+        "Consent-gated and not available via MCP intelligence tools (ADR-0024). Grant consent in the IDE/CLI if you need this; agents cannot consent on the user's behalf for Core network APIs.",
       title: purpose.title,
       group: purpose.group,
     }));

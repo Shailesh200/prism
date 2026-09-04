@@ -4,8 +4,10 @@ import { HomeHero } from "@/components/home-hero";
 import { TerminalDemo } from "@/components/terminal-demo";
 import { QuestionLed } from "@/components/question-led";
 import { SurfacesStrip } from "@/components/surfaces-strip";
+import { McpInstallPanel } from "@/components/mcp-install-panel";
 import { PageEnter } from "@/components/motion/PageEnter";
 import { Reveal } from "@/components/motion/Reveal";
+import { SiteFooter } from "@/components/site-footer";
 import Link from "next/link";
 
 export default function HomePage() {
@@ -30,7 +32,7 @@ export default function HomePage() {
                   engine.
                 </p>
                 <Link
-                  href="/docs/cli/install"
+                  href="/docs/start/install"
                   className="inline-block text-sm text-fd-primary"
                 >
                   Install the CLI →
@@ -48,7 +50,30 @@ export default function HomePage() {
         </div>
 
         <SurfacesStrip />
+
+        <section className="border-t border-fd-border px-6 py-20">
+          <div className="mx-auto w-full max-w-3xl space-y-8">
+            <Reveal>
+              <div className="space-y-3">
+                <p className="font-mono text-xs tracking-widest text-fd-primary">
+                  Nº05
+                </p>
+                <h2 className="font-display text-2xl font-semibold tracking-tight text-fd-foreground md:text-3xl">
+                  Connect it to your agent
+                </h2>
+                <p className="max-w-md text-fd-muted-foreground">
+                  One config, then talk in plain language — you never type tool
+                  names. Nothing leaves your machine.
+                </p>
+              </div>
+            </Reveal>
+            <Reveal delay={0.1} y={20}>
+              <McpInstallPanel />
+            </Reveal>
+          </div>
+        </section>
       </PageEnter>
+      <SiteFooter />
     </HomeLayout>
   );
 }

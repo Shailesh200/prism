@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { DISPATCH_TOOLS } from "./dispatch-registry.js";
+import { DISPATCH_TOOLS, speakableBoardUrl } from "./dispatch-registry.js";
 import { createPrismMcpServer, type PrismMcpServer } from "./server.js";
 
 type ToolResponse = {
@@ -17,6 +17,29 @@ describe("Dispatch MCP registration", () => {
     for (const tool of DISPATCH_TOOLS) {
       expect(tool.description.length, tool.name).toBeGreaterThan(80);
     }
+  });
+
+  it("speaks the tokenised Console URL so a first visit is authorised", () => {
+    expect(
+      speakableBoardUrl({
+        enabled: true,
+        detail: "Jobs board is up.",
+        url: "http://prismhq.localhost:17330/",
+        dashboardUrl: "http://prismhq.localhost:17330/?token=session-token",
+      }),
+    ).toBe("http://prismhq.localhost:17330/?token=session-token");
+  });
+
+  it("falls back to prismhq.localhost", () => {
+    expect(
+      speakableBoardUrl({ enabled: true, detail: "Jobs board is up." }),
+    ).toBe("http://prismhq.localhost:17330/");
+  });
+
+  it("omits the board link when the hub is explicitly off", () => {
+    expect(
+      speakableBoardUrl({ enabled: false, detail: "Jobs board is off." }),
+    ).toBeUndefined();
   });
 });
 

@@ -44,4 +44,4 @@ Prism cloud. See [consent and privacy](/docs/concepts/consent-and-privacy).
 
 ## Related
 
-[IDE usage](/docs/ide/usage) · [What is Prism](/docs/start/what-is-prism)
+[IDE usage](/docs/usage) · [What is Prism](/docs/what-is-prism)

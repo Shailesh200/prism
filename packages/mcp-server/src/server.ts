@@ -10,6 +10,10 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import {
+  ErrorCode,
+  RootsListChangedNotificationSchema,
+} from "@modelcontextprotocol/sdk/types.js";
 import { createIndexProgressReporter } from "./index-progress.js";
 import { SERVER_INSTRUCTIONS } from "./instructions.js";
 import { prismMcpImplementation } from "./branding.js";
@@ -23,6 +27,7 @@ import {
 import { isWorkerRole } from "@repo-prism/dispatch";
 import { registerDispatchTools } from "./dispatch-registry.js";
 import { registerTools } from "./tool-registry.js";
+import { registerWorkerIntelligence } from "./worker-intelligence.js";
 import { TOOLS } from "./tools.js";
 import {
   createWorkspaceBinding,
@@ -97,27 +102,54 @@ export function createPrismMcpServer(
     ...(options.openWorkspace ? { openWorkspace: options.openWorkspace } : {}),
   });
 
-  let rootsAttempted = false;
-  const applyClientRoots = async (): Promise<void> => {
+  /**
+   * One roots round-trip: apply whatever the client currently reports. An
+   * answer — even an empty one — settles polling until `roots/list_changed`;
+   * a capability failure settles it for good; anything else (timeout, client
+   * still starting) leaves it retryable so the next call tries again.
+   */
+  let rootsSettled = false;
+  const queryClientRoots = async (): Promise<void> => {
     if (binding.locked) return;
     try {
       const listed = await server.server.listRoots();
-      rootsAttempted = true;
+      rootsSettled = true;
       const hints = listed.roots.map((root) => root.uri);
       if (binding.applyHints(hints)) {
         process.stderr.write(
           `prism-mcp: workspace ${binding.current()} (from mcp roots)\n`,
         );
       }
-    } catch {
-      rootsAttempted = true;
+    } catch (error) {
+      if (isRootsUnsupported(error)) rootsSettled = true;
     }
   };
 
+  /**
+   * Polling path for the unresolved case. The first `listRoots` can race the
+   * client's own setup, and a one-shot attempt used to leave the server bound
+   * to a sandbox cwd forever — which is why `CURSOR_WORKSPACE` existed.
+   */
+  const applyClientRoots = async (): Promise<void> => {
+    if (rootsSettled) return;
+    await queryClientRoots();
+  };
+
+  /** Ask for roots only while the launch cwd resolved to nothing git-backed. */
+  const applyClientRootsIfWeak = async (): Promise<void> => {
+    if (binding.source() === "cwd") await applyClientRoots();
+  };
+
+  // A folder opened (or changed) after startup re-resolves without a restart.
+  server.server.setNotificationHandler(
+    RootsListChangedNotificationSchema,
+    () => void queryClientRoots(),
+  );
+
   const session: WorkspaceSession = {
     async ready() {
-      if (!innerSession.isOpen() && !rootsAttempted) {
-        await applyClientRoots();
+      if (!innerSession.isOpen()) {
+        await applyClientRootsIfWeak();
       }
       return innerSession.ready();
     },
@@ -129,15 +161,47 @@ export function createPrismMcpServer(
     env: options.env ?? process.env,
     getWorkspaceRoot: () => binding.current(),
     applyWorkspaceHint: (path) => binding.applyHints([path]),
-    beforeCall: applyClientRoots,
+    beforeCall: applyClientRootsIfWeak,
   });
-  if (!isWorkerRole(options.env ?? process.env)) {
+  if (isWorkerRole(options.env ?? process.env)) {
+    // A worker gets intelligence from the Console, which already has Core
+    // loaded and indexed, rather than from a Core of its own (ADR-0050). If no
+    // Console answers it gets none — a local fallback here would be the second
+    // index ADR-0041 was written to prevent.
+    void registerWorkerIntelligence(server, {
+      workspaceRoot: binding.current(),
+      env: options.env ?? process.env,
+    }).catch(() => {
+      /* a teammate without intelligence still edits; it must not fail to start */
+    });
+  } else {
     registerTools(server, session, TOOLS, () => binding.current());
     registerPrompts(server);
     registerResources(server, session);
   }
 
   return { server, session, binding, applyClientRoots };
+}
+
+/**
+ * A client without roots never gains the capability mid-session. With the
+ * SDK's strict-capability mode the guard throws before the wire; without it
+ * the request reaches the client, which answers MethodNotFound when it has no
+ * roots handler. Both are permanent — anything else is a transient failure
+ * worth retrying.
+ */
+function isRootsUnsupported(error: unknown): boolean {
+  if (
+    error instanceof Error &&
+    error.message.includes("does not support listing roots")
+  ) {
+    return true;
+  }
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { code?: unknown }).code === ErrorCode.MethodNotFound
+  );
 }
 
 /** Resolve the workspace from argv and the environment. */

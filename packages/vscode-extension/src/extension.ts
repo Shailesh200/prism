@@ -1,12 +1,11 @@
 import * as vscode from "vscode";
 import { dirname } from "node:path";
-import { BrowserBridge } from "./browser-bridge.js";
 import { PrismCodeLensProvider } from "./codelens-provider.js";
 import { checkHealthRegression } from "./health-alerts.js";
 import { createLogger } from "./logger.js";
 import { openPlaygroundInBrowser } from "./open-playground.js";
-import type { AppView } from "./protocol.js";
-import { PrismSession } from "./session.js";
+import type { AppView } from "@repo-prism/host-session";
+import { PrismSession } from "@repo-prism/host-session";
 import { PrismPanel } from "./webview/prism-panel.js";
 import {
   AUTO_REINDEX_INTERVAL_STATE_KEY,
@@ -946,7 +945,6 @@ export function activate(context: vscode.ExtensionContext): void {
     jobsStatusBar,
     {
       dispose: () => {
-        BrowserBridge.dispose();
         if (statusBarTimer) clearInterval(statusBarTimer);
         if (hubPollTimer) clearInterval(hubPollTimer);
         hubPollTimer = undefined;
@@ -994,7 +992,6 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate(): void {
-  BrowserBridge.dispose();
   if (statusBarTimer) clearInterval(statusBarTimer);
   workspaceWatch?.dispose();
   workspaceWatch = undefined;

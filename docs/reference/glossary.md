@@ -59,7 +59,7 @@ coupling, churn, tests, risk, ownership, features.
 estimated.
 
 **MCP** — Model Context Protocol, the standard by which an AI client calls
-external tools. Prism ships an MCP server. See [using MCP](/docs/mcp/usage).
+external tools. Prism ships an MCP server. See [using MCP](/docs/usage).
 
 **Orphan** — A file left dead because the only thing reaching it was deleted.
 Reported by safe delete. See [Delete safely](/docs/guides/delete-safely).

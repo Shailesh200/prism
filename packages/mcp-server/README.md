@@ -7,7 +7,7 @@
 you have open, plus Dispatch (start my day, jobs, connect). Same engine as the
 CLI and IDE extension. Local analysis. ~40 tools.
 
-**Website:** [https://www.prismhq.in](https://www.prismhq.in) · **Docs:** [https://www.prismhq.in/docs/mcp/install](https://www.prismhq.in/docs/mcp/install)
+**Website:** [https://www.prismhq.in](https://www.prismhq.in) · **Docs:** [https://www.prismhq.in/docs/start/install](https://www.prismhq.in/docs/start/install)
 
 > Requires **Node.js 26**.
 
@@ -130,7 +130,6 @@ waiting for an MCP **client**. Configure the client; it starts the process.
 | “Where are we?” | `list_jobs` |
 | “What is it doing?” / “show me the logs” | `job_logs` |
 | “Remember this” | `remember` |
-| “Connect Slack” | `integrations` |
 | “Configure Dispatch” | `configure` |
 
 Optional MCP **prompts** (picker / slash in some clients): `orient`,
@@ -141,7 +140,7 @@ Say **prism init** to set up local workers. The worker matches your host:
 Cursor signs in via a browser page; Claude Code reuses the `claude` CLI
 sign-in. Do not paste `CURSOR_API_KEY` into mcp.json — it is only an optional
 CI override. Dispatch docs:
-see the public [Dispatch guide](https://www.prismhq.in/docs/mcp/dispatch).
+see the public [Dispatch guide](https://www.prismhq.in/docs/guides/dispatch).
 
 MCP **resources** (for clients that bind context): `prism://dna`,
 `prism://landmarks`, `prism://health`.
@@ -176,7 +175,8 @@ Manifest prepared for owner submission: [`server.json`](./server.json) ·
 ## Tools
 
 Intelligence tools are read-only. Dispatch tools write gitignored state under
-`.prism/dispatch/` and may show Authenticate / open Prism Auth for OAuth.
+`.prism/dispatch/`. Dispatch makes no network calls and holds no third-party
+credentials — connectors belong to the agent window (ADR-0049).
 
 ### Dispatch
 
@@ -189,7 +189,6 @@ Intelligence tools are read-only. Dispatch tools write gitignored state under
 | `job_logs` | One job's console: activity lines (subagent lines marked) plus the review awaiting you | `jobId`, `limit`, `since` |
 | `job_control` | pause / resume / cancel / attach_context / commit (checkout jobs) | `jobId`, `action`, `context` |
 | `remember` | Save, list, or forget memories for the next job | `action`, `text`, `scope`, `confirm` |
-| `integrations` | Catalogue, OAuth start, disconnect | `action`, `driver` |
 | `configure` | Standup settings or export a non-secret template | `action`, Slack channels, `maxJobs`, `ticketHost` |
 | `dispatch_doctor` | Worker backend + sign-in, role, job cap | — |
 
@@ -255,7 +254,7 @@ Full reference: [MCP tools](https://www.prismhq.in/docs/reference/mcp-tools).
 |---|---|
 | **CLI** | [`@repo-prism/cli`](https://www.npmjs.com/package/@repo-prism/cli) — `npm i -g @repo-prism/cli` then `prism health` |
 | **IDE** | [Prism](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism) |
-| **Docs** | [MCP guide](https://www.prismhq.in/docs/mcp/install) |
+| **Docs** | [MCP guide](https://www.prismhq.in/docs/start/install) |
 | **Website** | [prismhq.in](https://www.prismhq.in) |
 | **Source** | [github.com/Shailesh200/prism](https://github.com/Shailesh200/prism) |
 

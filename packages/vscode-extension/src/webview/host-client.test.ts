@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { HostToWebview, WebviewToHost } from "../protocol.js";
+import type { HostToWebview, WebviewToHost } from "@repo-prism/host-session";
 
 type HostClientModule = typeof import("./host-client.js");
 

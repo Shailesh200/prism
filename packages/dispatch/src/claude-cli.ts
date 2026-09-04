@@ -1,12 +1,16 @@
 /**
  * The `claude` CLI invocation for a Dispatch worker (ADR-0044 §3).
  *
- * The CLI is the contract — no SDK dependency. Flags pin ADR-0041/0042's
- * rules: `--bare` skips hooks/skills/MCP/CLAUDE.md discovery (no second
- * index), `--tools` removes everything but the file allowlist (no shell, so
- * no `bun install` against the symlinked node_modules), `acceptEdits` lets
- * those edits through in non-interactive mode.
+ * The CLI is the contract — no SDK dependency. Isolation is the tool
+ * allowlist plus an explicit `--mcp-config` (ADR-0041 / ADR-0050), not
+ * `--bare`. From Claude Code 2.1, `--bare` skips keychain OAuth, so a
+ * teammate on the user's existing claude.ai login would fail with an API
+ * error before touching a file. `--disable-slash-commands` still drops
+ * skills; `--strict-mcp-config` (optional) keeps MCP discovery from merging
+ * the user's other servers onto the worker-role Prism config.
  */
+
+import { WORKER_INTELLIGENCE_TOOLS } from "./worker-options.js";
 
 /** File tools a worker may use. No Bash — Prism runs checks, not the agent. */
 export const CLAUDE_WORKER_TOOLS = [
@@ -24,15 +28,15 @@ export const CLAUDE_SUBAGENT_TOOL = "Task";
 /**
  * Flags we can run without.
  *
- * These buy nicer output, not safety, so an older `claude` that rejects one
- * must not cost the user their job — a worker died with "unknown option
- * `--forward-subagent-text`" before touching a file. Anything not listed here
- * (the tool allowlist, `--bare`, the stream format) is load-bearing: dropping
- * it would either hand the agent a shell or leave us unable to read the run,
- * so an unknown-option failure on those is reported instead of retried.
+ * `--forward-subagent-text` is cosmetic. `--strict-mcp-config` and
+ * `--disable-slash-commands` tighten isolation but older CLIs lack them, so
+ * an unknown-option failure must not cost the user their job. Anything not
+ * listed here (the tool allowlist, the stream format) is load-bearing.
  */
 export const OPTIONAL_CLAUDE_FLAGS: readonly string[] = [
   "--forward-subagent-text",
+  "--strict-mcp-config",
+  "--disable-slash-commands",
 ];
 
 /** The offending flag from a CLI launcher error, if that is what failed. */
@@ -59,10 +63,18 @@ export function claudeWorkerArgs(input: {
   readonly resumeSessionId?: string;
   /** Flags a previous launch rejected as unknown. */
   readonly omitFlags?: readonly string[];
+  /** A written mcp.json holding only worker-role Prism (ADR-0050). */
+  readonly mcpConfigPath?: string;
 }): string[] {
   const tools = [
     ...CLAUDE_WORKER_TOOLS,
     ...(input.subagents ? [CLAUDE_SUBAGENT_TOOL] : []),
+    // Named one by one. `--tools` is an allowlist, so this both admits Prism's
+    // tools and is the whole restriction: anything else a `--mcp-config` might
+    // carry is excluded by not appearing, with no pattern matching to trust.
+    ...(input.mcpConfigPath
+      ? WORKER_INTELLIGENCE_TOOLS.map((name) => `mcp__prism__${name}`)
+      : []),
   ];
   const omit = new Set(input.omitFlags ?? []);
   const args = [
@@ -70,7 +82,7 @@ export function claudeWorkerArgs(input: {
     "--output-format",
     "stream-json",
     "--verbose",
-    "--bare",
+    "--disable-slash-commands",
     // Subagent text/thinking flows into the stream so the console can show
     // what each subagent did (M-066 P-P6).
     ...(input.subagents ? ["--forward-subagent-text"] : []),
@@ -81,8 +93,9 @@ export function claudeWorkerArgs(input: {
     // Belt and braces with --tools: a bare name removes the tool entirely.
     "--disallowedTools",
     "Bash",
-    "--disallowedTools",
-    "mcp__*",
+    ...(input.mcpConfigPath
+      ? ["--strict-mcp-config", "--mcp-config", input.mcpConfigPath]
+      : ["--disallowedTools", "mcp__*"]),
     ...(input.resumeSessionId ? ["--resume", input.resumeSessionId] : []),
   ];
   return omit.size === 0 ? args : args.filter((arg) => !omit.has(arg));

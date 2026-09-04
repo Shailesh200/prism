@@ -2,11 +2,13 @@
  * Subagents, admission control, and worktree GC (ADR-0042 §4–§6).
  */
 
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { defaultGitRunner } from "./git.js";
+import { workerMcpConfigPath } from "./paths.js";
+import { writeWorkerMcpConfig } from "./worker-options.js";
 import {
   admissionMessage,
   MIN_FREE_RAM_BYTES,
@@ -44,11 +46,13 @@ describe("worker tool allowlist", () => {
   it("never grants shell or mcp, with or without subagents", () => {
     for (const tools of [workerTools(true), workerTools(false)]) {
       expect(tools).not.toContain("shell");
+      // MCP is opt-in per call: the default stays off, so nothing gets it by
+      // simply forgetting to say no.
       expect(tools).not.toContain("mcp");
     }
   });
 
-  it("attaches no MCP server to the agent", () => {
+  it("attaches a worker-role Prism, and only that", () => {
     const options = cursorAgentOptions({
       cwd: "/tmp/wt",
       workspaceRoot: "/tmp/repo",
@@ -56,8 +60,10 @@ describe("worker tool allowlist", () => {
       mcpArgs: [],
       subagents: true,
     });
-    expect(options.mcpServers).toEqual({});
+    expect(Object.keys(options.mcpServers as object)).toEqual(["prism"]);
     expect(options.tools).toContain("task");
+    expect(options.tools).toContain("mcp");
+    expect(options.tools).not.toContain("shell");
   });
 });
 
@@ -214,5 +220,43 @@ describe("pruneOrphanWorktrees", { timeout: 30_000 }, () => {
     });
 
     expect(pruned.removed).toEqual([]);
+  });
+});
+
+describe("writeWorkerMcpConfig (ADR-0050)", () => {
+  it("writes a 0600 config Claude can load, holding only Prism", async () => {
+    const root = await mkdtemp(join(tmpdir(), "prism-mcpcfg-"));
+    const path = workerMcpConfigPath(root, "AI-1");
+    await expect(
+      writeWorkerMcpConfig({
+        path,
+        mcpCommand: "node",
+        mcpArgs: ["/mcp/bin.js"],
+        workspaceRoot: root,
+      }),
+    ).resolves.toBe(path);
+
+    const written = JSON.parse(await readFile(path, "utf8")) as {
+      mcpServers: Record<string, { env: Record<string, string> }>;
+    };
+    expect(Object.keys(written.mcpServers)).toEqual(["prism"]);
+    expect(written.mcpServers.prism?.env.PRISM_DISPATCH_ROLE).toBe("worker");
+    // A token-free file still names the workspace, so keep it owner-only.
+    expect((await stat(path)).mode & 0o777).toBe(0o600);
+    await rm(root, { recursive: true, force: true });
+  });
+
+  it("reports nothing to launch rather than writing a broken config", async () => {
+    // A worker that cannot get intelligence still edits code, as before.
+    const root = await mkdtemp(join(tmpdir(), "prism-mcpcfg-"));
+    await expect(
+      writeWorkerMcpConfig({
+        path: workerMcpConfigPath(root, "AI-2"),
+        mcpCommand: "",
+        mcpArgs: [],
+        workspaceRoot: root,
+      }),
+    ).resolves.toBeUndefined();
+    await rm(root, { recursive: true, force: true });
   });
 });

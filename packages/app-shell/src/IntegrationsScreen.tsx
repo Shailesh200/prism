@@ -17,11 +17,23 @@ import {
   Workflow,
   type LucideIcon,
 } from "lucide-react";
-import { useId, useState, type ReactElement, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { CardIcon, InfoTip, Input, type CardIconTone } from "@repo-prism/ui";
+import {
+  NO_CONSOLE_STATUS,
+  PRISM_TOOL_COUNT,
+  type ConsoleStatus,
+} from "@repo-prism/shared";
 import { AppSidebar, type AppSidebarUser, type AppView } from "./AppSidebar.js";
 import { shellNavVariant, shellRootClass } from "./shell-layout.js";
 import { useAppShellClient } from "./client-context.js";
+import type { AppShellClient } from "./client.js";
 import { isBrowserShell } from "./is-browser.js";
 import {
   loadIntegrationsState,
@@ -55,14 +67,18 @@ const PAGESPEED_KEY_DOCS =
   "https://developers.google.com/speed/docs/insights/v5/get-started";
 
 /** Prism website install guides. */
-const PRISM_CLI_DOCS = "https://www.prismhq.in/docs/cli/install";
-const PRISM_MCP_DOCS = "https://www.prismhq.in/docs/mcp/install";
+const PRISM_CLI_DOCS = "https://www.prismhq.in/docs/start/install";
+const PRISM_MCP_DOCS = "https://www.prismhq.in/docs/start/install";
 
 /**
  * Cursor one-click MCP install deeplink. The config param is base64 of
  * {"command":"npx","args":["-y","--prefer-online","@repo-prism/mcp-server@latest"],
- * "env":{"NODE_USE_SYSTEM_CA":"1"}} — keep in sync with
- * apps/website/lib/mcp-install.ts (cursorMcpInstallHref).
+ * "env":{"NODE_USE_SYSTEM_CA":"1"}} —
+ * keep in sync with apps/website/lib/mcp-install.ts (cursorMcpInstallHref).
+ *
+ * No workspace variable: the server resolves the open folder from MCP roots
+ * and follows roots/list_changed, so the deeplink config matches what every
+ * other install path hands out.
  */
 const CURSOR_MCP_INSTALL =
   "cursor://anysphere.cursor-deeplink/mcp/install?name=prism&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIi0tcHJlZmVyLW9ubGluZSIsIkByZXBvLXByaXNtL21jcC1zZXJ2ZXJAbGF0ZXN0Il0sImVudiI6eyJOT0RFX1VTRV9TWVNURU1fQ0EiOiIxIn19";
@@ -126,7 +142,7 @@ const INTEGRATIONS: readonly Integration[] = [
     docsHref: PRISM_MCP_DOCS,
     cursorInstallHref: CURSOR_MCP_INSTALL,
     details:
-      "Run `npx -y @repo-prism/mcp-server` or add it to your MCP client config. See docs/mcp/install.md in the repo for Cursor, Claude, and other hosts.",
+      "Run `npx -y @repo-prism/mcp-server` or add it to your MCP client config. See docs/start/install.mdx in the repo for Cursor, Claude, and other hosts.",
   },
   {
     id: "cli",
@@ -254,10 +270,44 @@ function looksLikePagespeedKey(key: string): boolean {
   return t.length >= 20 && /^AIza[0-9A-Za-z_-]+$/.test(t);
 }
 
+/**
+ * Ask the host what the Console knows.
+ *
+ * `undefined` while in flight is deliberately distinct from a status whose
+ * `console` is null: "looking" and "nothing running" are different sentences,
+ * and rendering the second one during the first is how a screen tells a user
+ * something false for a second.
+ */
+function useConsoleStatus(client: AppShellClient): {
+  readonly status: ConsoleStatus | undefined;
+  readonly refresh: () => void;
+} {
+  const [status, setStatus] = useState<ConsoleStatus | undefined>(undefined);
+  const [nonce, setNonce] = useState(0);
+
+  useEffect(() => {
+    let live = true;
+    if (!client.fetchConsoleStatus) {
+      setStatus(NO_CONSOLE_STATUS);
+      return;
+    }
+    void client.fetchConsoleStatus().then((next) => {
+      if (live) setStatus(next);
+    });
+    return () => {
+      live = false;
+    };
+  }, [client, nonce]);
+
+  return { status, refresh: () => setNonce((n) => n + 1) };
+}
+
 export function IntegrationsScreen(
   props: IntegrationsScreenProps,
 ): ReactElement {
   const client = useAppShellClient();
+  const { status: consoleStatus, refresh: refreshConsole } =
+    useConsoleStatus(client);
   const subtitle = "Connect Prism to your tools";
   const [openId, setOpenId] = useState<IntegrationId | null>(null);
   const [state, setState] = useState<IntegrationsState>(() =>
@@ -445,6 +495,8 @@ export function IntegrationsScreen(
             </p>
           </div>
 
+          <HostConnectors status={consoleStatus} onRefresh={refreshConsole} />
+
           <div className="int-grid">
             {visibleIntegrations.map((item) => {
               const Icon = item.icon;
@@ -492,6 +544,12 @@ export function IntegrationsScreen(
                   {open ? (
                     <div className="int-card__panel">
                       <p className="int-card__details">{item.details}</p>
+                      {item.id === "mcp" ? (
+                        <McpRuntimePanel
+                          status={consoleStatus}
+                          onRefresh={refreshConsole}
+                        />
+                      ) : null}
                       {item.installCommand && item.docsHref ? (
                         <InstallPanel
                           command={item.installCommand}
@@ -828,6 +886,174 @@ function NetworkGateHint(props: {
  * Copyable install command + docs links (MCP Server / CLI cards). Follows the
  * copy-to-clipboard pattern from AuditLogsPanel's DetailBlock.
  */
+/**
+ * Live state for the MCP card.
+ *
+ * The card used to be install-only — a command, a link, and no way to tell a
+ * working server from one that never started. Everything here comes from the
+ * Console, which is the only thing on the machine that actually knows.
+ */
+function McpRuntimePanel(props: {
+  status: ConsoleStatus | undefined;
+  onRefresh: () => void;
+}): ReactElement {
+  const { status } = props;
+
+  if (!status) {
+    return (
+      <p className="int-runtime int-runtime--idle">Checking the Console…</p>
+    );
+  }
+
+  if (!status.console) {
+    return (
+      <div className="int-runtime int-runtime--idle">
+        <p className="int-runtime__line">
+          <span className="int-runtime__dot" data-tone="idle" aria-hidden />
+          Console not running
+        </p>
+        <p className="int-connect__hint">
+          It starts itself the first time an agent calls a Prism tool. Ask Prism
+          anything in chat, then refresh.
+        </p>
+        <button
+          type="button"
+          className="int-btn int-btn--test"
+          onClick={props.onRefresh}
+        >
+          Check again
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="int-runtime">
+      <p className="int-runtime__line">
+        <span className="int-runtime__dot" data-tone="live" aria-hidden />
+        Connected on port {status.console.port}
+        {status.version ? ` · v${status.version}` : ""}
+      </p>
+      <dl className="int-runtime__facts">
+        <div>
+          <dt>Tools</dt>
+          <dd>{PRISM_TOOL_COUNT}</dd>
+        </div>
+        <div>
+          <dt>Repositories watched</dt>
+          <dd>{status.workspaces ?? "—"}</dd>
+        </div>
+      </dl>
+      <p className="int-connect__hint int-install__links">
+        <a
+          className="set-link int-docs-link"
+          href={status.console.url}
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          Open the Console
+          <ExternalLink size={12} aria-hidden />
+        </a>
+        <button
+          type="button"
+          className="int-runtime__refresh"
+          onClick={props.onRefresh}
+        >
+          Refresh
+        </button>
+      </p>
+    </div>
+  );
+}
+
+/**
+ * What the agent window already has connected (ADR-0049).
+ *
+ * Prism holds no third-party credentials, so this is the screen where "every
+ * org has different connections" stops being an abstraction: it lists what is
+ * actually installed in Cursor or Claude Code on this machine, and Prism's
+ * skills compose with whatever is here.
+ */
+function HostConnectors(props: {
+  status: ConsoleStatus | undefined;
+  onRefresh: () => void;
+}): ReactElement | null {
+  const { status } = props;
+
+  // Nothing to say until the Console answers, and nothing useful to say when
+  // it is not running — the MCP card already explains that case once.
+  if (!status || !status.console) return null;
+
+  return (
+    <section className="int-hosts" aria-labelledby="int-hosts-title">
+      <div className="int-hosts__head">
+        <div>
+          <h2 className="int-hosts__title" id="int-hosts-title">
+            Host connectors
+          </h2>
+          <p className="int-hosts__sub">
+            Prism runs no OAuth and holds no tokens. These are your editor’s
+            connectors — Prism’s skills compose with whichever you have.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="int-runtime__refresh"
+          onClick={props.onRefresh}
+        >
+          Rescan
+        </button>
+      </div>
+
+      {status.connectors.length === 0 ? (
+        <p className="int-hosts__empty">
+          None found. Connect Slack, Linear, Notion or Google Calendar in
+          Cursor’s or Claude Code’s own settings and rescan.
+        </p>
+      ) : (
+        <ul className="int-hosts__list">
+          {status.connectors.map((connector) => (
+            <li key={connector.id} className="int-hosts__item">
+              <div className="int-hosts__row">
+                <span className="int-hosts__name">{connector.label}</span>
+                {connector.hosts.map((host) => (
+                  <span key={host} className="int-hosts__pill">
+                    {host === "cursor" ? "Cursor" : "Claude Code"}
+                  </span>
+                ))}
+                {connector.transport ? (
+                  <span className="int-hosts__pill int-hosts__pill--muted">
+                    {connector.transport}
+                  </span>
+                ) : null}
+              </div>
+              {connector.description ? (
+                <p className="int-hosts__desc">{connector.description}</p>
+              ) : null}
+              {connector.skills.length > 0 ? (
+                <p className="int-hosts__skills">
+                  {connector.skills.length} skill
+                  {connector.skills.length === 1 ? "" : "s"}:{" "}
+                  {connector.skills.slice(0, 4).join(", ")}
+                  {connector.skills.length > 4 ? "…" : ""}
+                </p>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {status.unreadable.length > 0 ? (
+        <p className="int-hosts__warn">
+          {status.unreadable.length} location
+          {status.unreadable.length === 1 ? "" : "s"} could not be read, so this
+          list may be incomplete.
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 function InstallPanel(props: {
   command: string;
   docsHref: string;

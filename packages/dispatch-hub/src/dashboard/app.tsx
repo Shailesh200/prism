@@ -1,8 +1,8 @@
 import { createRoot } from "react-dom/client";
-import { JobsBoard } from "./board.js";
+import { ConsoleApp } from "./console-app.js";
 import "./styles.css";
 
 const root = document.getElementById("root");
 if (root) {
-  createRoot(root).render(<JobsBoard />);
+  createRoot(root).render(<ConsoleApp />);
 }

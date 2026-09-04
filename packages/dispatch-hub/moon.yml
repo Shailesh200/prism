@@ -4,6 +4,8 @@ layer: "library"
 dependsOn:
   - "dispatch"
   - "ui"
+  - "host-session"
+  - "app-shell"
 tasks:
   build:
     command: "bun run build"

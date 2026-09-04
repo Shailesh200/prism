@@ -1,6 +1,14 @@
 # M-066 spike — `claude --bg` as a Dispatch worker
 
-**Status:** prepared, evidence pending (needs a machine with Claude Code signed in).
+**Status:** **Run 2026-09-02 against Claude Code 2.1.258. Outcome: reject.**
+See [ADR-0046](../adr/0046-claude-bg-worker-backend.md) for the evidence table
+and the re-open condition. Q1 and Q2 passed; Q3 (`claude logs` is an ANSI TUI
+dump, not an event stream) and Q4 (sessions never ran — `--bg` starts an
+interactive REPL and ignores the positional prompt) failed. `--bg` also
+relocates work into its own `.claude/worktrees/<name>`, which contradicts
+ADR-0045 checkout-first placement.
+
+The rest of this note is the original plan, kept for the record.
 **Question:** can a supervisor-hosted background session (`claude --bg`) be a
 Dispatch worker under ADR-0041/0042 rules, so jobs appear natively in
 `/workflows` / `claude agents`?

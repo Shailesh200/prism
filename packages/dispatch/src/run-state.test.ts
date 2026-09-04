@@ -72,6 +72,24 @@ describe("applyRunToJob", () => {
     expect(next.workerPid).toBe(process.pid);
   });
 
+  it("copies the worker model from the sidecar", () => {
+    const next = applyRunToJob(job(), {
+      jobId: "audit-issues",
+      pid: process.pid,
+      phase: "running",
+      lastActivity: "Teammate is on it",
+      resultSummary: "",
+      errorMessage: "",
+      gitSummary: "",
+      model: "claude-sonnet-4-5",
+      thinking: "10000",
+      startedAt: "t",
+      updatedAt: "t",
+    });
+    expect(next.workerModel).toBe("claude-sonnet-4-5");
+    expect(next.workerThinking).toBe("10000");
+  });
+
   it("marks a dead pid as a user-safe error", () => {
     const next = applyRunToJob(job({ workerPid: 99999999 }), undefined);
     expect(next.status).toBe("error");
@@ -110,6 +128,49 @@ describe("applyRunToJob", () => {
     expect(next.status).toBe("done");
     expect(next.resultSummary).toMatch(/lighthouse/);
   });
+
+  it("copies notes and cited-missing paths from a finished sidecar", () => {
+    const next = applyRunToJob(job(), {
+      jobId: "audit-issues",
+      phase: "done",
+      lastActivity: "Done",
+      resultSummary: "I wrote the findings to `.prism/dispatch/notes/a.md`.",
+      errorMessage: "",
+      gitSummary: "",
+      notes: [".prism/dispatch/notes/a.md"],
+      citedMissing: ["lib/gsap.ts", "src/x.ts"],
+      startedAt: "t",
+      updatedAt: "t",
+      completedAt: "t",
+    });
+    expect(next.notes).toEqual([".prism/dispatch/notes/a.md"]);
+    expect(next.citedMissing).toEqual(["lib/gsap.ts", "src/x.ts"]);
+  });
+
+  it("does not reap a newly queued job from a leftover cancelled sidecar", () => {
+    const next = applyRunToJob(
+      job({
+        status: "queued",
+        queuedAt: "2026-09-04T00:02:00.000Z",
+        lastActivity: "Queued",
+        workerPid: undefined,
+        branch: "",
+        worktreePath: "",
+      }),
+      {
+        jobId: "audit-issues",
+        phase: "cancelled",
+        lastActivity: "Cancelled",
+        resultSummary: "",
+        errorMessage: "",
+        gitSummary: "",
+        startedAt: "2026-09-04T00:00:00.000Z",
+        updatedAt: "2026-09-04T00:01:00.000Z",
+      },
+    );
+    expect(next.status).toBe("queued");
+    expect(next.lastActivity).toBe("Queued");
+  });
 });
 
 describe("composeResultSummary", () => {
@@ -146,7 +207,7 @@ describe("reapJobs", () => {
 });
 
 describe("worker MCP env", () => {
-  it("does not attach Prism MCP to the job agent", () => {
+  it("points the worker's Prism at the host checkout, not its worktree", () => {
     expect(workerMcpEnv("/host/repo")).toEqual({
       PRISM_DISPATCH_ROLE: "worker",
       PRISM_WORKSPACE: "/host/repo",
@@ -166,12 +227,22 @@ describe("worker MCP env", () => {
     expect(options.local).toMatchObject({
       cwd: "/host/repo/.prism/dispatch/worktrees/audit-issues",
     });
-    expect(options.mcpServers).toEqual({});
+    // ADR-0050: a worker-role Prism, resolved against the host root because
+    // that is the tree the Console indexes. Its worktree is not indexed, so
+    // pointing it there would answer about a repository nobody is looking at.
+    expect(options.mcpServers).toEqual({
+      prism: {
+        command: "node",
+        args: ["/mcp/bin.js", "--workspace", "/host/repo"],
+        env: { PRISM_DISPATCH_ROLE: "worker", PRISM_WORKSPACE: "/host/repo" },
+      },
+    });
     expect(options.tools).toEqual(
-      expect.arrayContaining(["read", "edit", "grep"]),
+      expect.arrayContaining(["read", "edit", "grep", "mcp"]),
     );
+    // The shell ban is untouched: it is what stopped a worker running `bun
+    // install` and re-indexing (ADR-0041).
     expect(options.tools).not.toContain("shell");
-    expect(options.tools).not.toContain("mcp");
   });
 });
 

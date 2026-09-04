@@ -14,7 +14,7 @@ import {
   listJobsSpeak,
   publicRunFailure,
   publicWorkerError,
-  startJobSpeak,
+  queuedJobSpeak,
 } from "./job-voice.js";
 
 describe("canonical job ids", () => {
@@ -62,8 +62,8 @@ describe("canonical job ids", () => {
 });
 
 describe("job voice", () => {
-  it("starts a job without hex ids, paths, or API keys", () => {
-    const text = startJobSpeak({
+  it("accepts a job without hex ids, paths, or API keys", () => {
+    const text = queuedJobSpeak({
       id: "audit-issues",
       title: "Audit issues in this repo",
       playbook: "ticket",
@@ -71,7 +71,7 @@ describe("job voice", () => {
       branch: "dispatch/audit-issues",
       worktreePath: "/tmp/hidden",
       source: "prism",
-      status: "running",
+      status: "queued",
       lastStep: "",
       nextStep: "",
       waitingOn: "",

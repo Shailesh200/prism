@@ -23,7 +23,6 @@
 | `ui` | `shared` (+ map DTOs; not engines) |
 | `mcp-server` | `core`, `shared`, `dispatch` |
 | `dispatch` | `shared` |
-| `dispatch-auth` | `dispatch` |
 | `cli` | `core`, `shared` |
 | `vscode-extension` | `core`, `ui`, `shared` |
 | `cursor-extension` | `core`, `ui`, `shared` (thin overlay) |
@@ -104,13 +103,7 @@ Anything not listed is **forbidden** without an ADR.
 
 | Owns | Must not contain |
 |---|---|
-| Jobs, memories, OAuth drivers, worktree adopt/create, local Cursor workers | Indexer/SQLite, Core analysis APIs |
-
-### `@repo-prism/dispatch-auth`
-
-| Owns | Must not contain |
-|---|---|
-| Prism Auth OAuth broker handlers | Repository analysis, token persistence |
+| Jobs, memories, host-connector discovery, worktree adopt/create, local workers | Indexer/SQLite, Core analysis APIs, any network call |
 
 ### `@repo-prism/cli`
 
@@ -137,7 +130,7 @@ Anything not listed is **forbidden** without an ADR.
 | App | Owns | Must not |
 |---|---|---|
 | `apps/playground` | Interactive demos of Map + Core | Become the production extension |
-| `apps/website` | Public site, docs, Prism Auth `/oauth/*` | Core analysis |
+| `apps/website` | Public site, docs | Core analysis |
 | `apps/docs` | Human docs site (M-038 tooling) | Replace `plans/` as engineering SoT |
 
 ---

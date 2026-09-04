@@ -1,5 +1,5 @@
 import type * as vscode from "vscode";
-import type { PrismSession } from "./session.js";
+import type { PrismSession } from "@repo-prism/host-session";
 
 const HEALTH_ALERT_SIGNATURE_KEY = "prism.healthAlert.signature";
 /** Minimum health-score drop (points) or region-mover delta to warn on. */

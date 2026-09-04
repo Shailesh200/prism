@@ -1,6 +1,6 @@
 {
   "name": "@repo-prism/dispatch-hub",
-  "version": "1.1.16",
+  "version": "1.1.17",
   "type": "module",
   "description": "Prism Hub — loopback dashboard and OS notifications for Dispatch jobs",
   "exports": {
@@ -14,16 +14,21 @@
   },
   "files": ["dist"],
   "scripts": {
-    "build": "tsc -p tsconfig.json && bun run scripts/build-dashboard.ts",
+    "build": "tsc -p tsconfig.json && bun run scripts/build-dashboard.ts && bun run scripts/build-notify.ts",
     "start": "node dist/bin.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
-    "@repo-prism/dispatch": "workspace:*"
+    "@repo-prism/dispatch": "workspace:*",
+    "@repo-prism/host-session": "workspace:*",
+    "@repo-prism/shared": "workspace:*"
   },
   "devDependencies": {
+    "@repo-prism/app-shell": "workspace:*",
     "@repo-prism/ui": "workspace:*",
+    "gsap": "^3.15.0",
+    "lucide-react": "^1.25.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "react": "^19.2.7",

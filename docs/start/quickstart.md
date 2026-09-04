@@ -63,7 +63,7 @@ prism explain src/some/directory
 
 ## 7. Optional — give an agent the same data
 
-Follow [MCP install](/docs/mcp/install), then ask in plain language — you never
+Follow [MCP install](/docs/start/install), then ask in plain language — you never
 type tool names.
 
 ## Next
@@ -72,4 +72,4 @@ type tool names.
 |---|---|
 | Task recipes | [Guides](/docs/guides/understand-a-repo) |
 | Every command | [CLI reference](/docs/reference/cli-commands) |
-| Something looks wrong | [Troubleshooting](/docs/reference/troubleshooting) |
+| Something looks wrong | [Troubleshooting](/docs/help/troubleshooting) |

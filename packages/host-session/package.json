@@ -1,0 +1,41 @@
+{
+  "name": "@repo-prism/host-session",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Prism host session and RPC — the Core-backed request surface shared by the IDE extension and the Prism Console",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./protocol": {
+      "types": "./dist/protocol-only.d.ts",
+      "import": "./dist/protocol-only.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@repo-prism/app-shell": "workspace:*",
+    "@repo-prism/core": "workspace:*",
+    "@repo-prism/shared": "workspace:*"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Shailesh200/prism.git"
+  },
+  "homepage": "https://www.prismhq.in",
+  "bugs": {
+    "url": "https://github.com/Shailesh200/prism/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

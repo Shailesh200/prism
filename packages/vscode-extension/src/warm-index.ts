@@ -1,5 +1,5 @@
 import type { PrismLogger } from "./logger.js";
-import type { PrismSession } from "./session.js";
+import type { PrismSession } from "@repo-prism/host-session";
 
 /**
  * Minimal session surface for warm-indexing — anything that can open a root

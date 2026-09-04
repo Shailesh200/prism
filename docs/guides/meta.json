@@ -7,6 +7,7 @@
     "delete-safely",
     "track-health",
     "investigate-domain",
+    "dispatch",
     "wire-into-ci"
   ]
 }

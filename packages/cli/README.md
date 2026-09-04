@@ -5,7 +5,7 @@
 
 **`prism`** — local-first repository intelligence from a terminal or CI.
 
-**Website:** [https://www.prismhq.in](https://www.prismhq.in) · **Docs:** [https://www.prismhq.in/docs/cli/install](https://www.prismhq.in/docs/cli/install)
+**Website:** [https://www.prismhq.in](https://www.prismhq.in) · **Docs:** [https://www.prismhq.in/docs/start/install](https://www.prismhq.in/docs/start/install)
 
 Same engine as the VS Code / Cursor extension and the MCP server. Runs on your
 machine. Nothing is uploaded.
@@ -126,7 +126,7 @@ Use **1** vs **2** carefully in CI: a typo must not look like a real finding.
 |---|---|
 | **MCP** | [`@repo-prism/mcp-server`](https://www.npmjs.com/package/@repo-prism/mcp-server) — one-command agent setup |
 | **IDE** | [Prism](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism) |
-| **Docs** | [CLI guide](https://www.prismhq.in/docs/cli/usage) |
+| **Docs** | [CLI guide](https://www.prismhq.in/docs/usage) |
 | **Website** | [prismhq.in](https://www.prismhq.in) |
 | **Source** | [github.com/Shailesh200/prism](https://github.com/Shailesh200/prism) |
 

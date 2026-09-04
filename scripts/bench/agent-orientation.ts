@@ -7,7 +7,8 @@
  *   bun run bench:orientation
  *   bun run bench:orientation -- --out plans/notes/benchmarks-sample.json
  *
- * Token estimates use bytes ÷ 4 (common LLM heuristic). Real agent runs vary
+ * Token estimates use bytes ÷ 4 (common LLM heuristic). Per-call context is
+ * bytesRead / toolCalls (and the same ratio in tokens). Real agent runs vary
  * by model and prompting; this harness measures deterministic proxy costs.
  */
 
@@ -22,12 +23,19 @@ function arg(name: string, fallback: string): string {
   return index === -1 ? fallback : (process.argv[index + 1] ?? fallback);
 }
 
-type ScenarioId = "orient" | "safe_edit";
+type ScenarioId =
+  | "orient"
+  | "safe_edit"
+  | "health"
+  | "find"
+  | "test_impact"
+  | "cycles";
 
 type FixtureSpec = {
   id: string;
   root: string;
   editTarget: string;
+  symbol: string;
 };
 
 type StepMetric = {
@@ -39,6 +47,10 @@ type RunMetrics = {
   toolCalls: number;
   bytesRead: number;
   estimatedTokens: number;
+  /** bytesRead / toolCalls — context dumped into the window per hop. */
+  bytesPerCall: number;
+  /** estimatedTokens / toolCalls. */
+  tokensPerCall: number;
   elapsedMs: number;
   steps: StepMetric[];
 };
@@ -86,22 +98,41 @@ const FIXTURES: FixtureSpec[] = [
     id: "m012-features",
     root: join(repoRoot, "packages/intelligence/fixtures/m012-features"),
     editTarget: "packages/auth/src/index.ts",
+    symbol: "login",
   },
   {
     id: "m013-mono",
     root: join(repoRoot, "packages/intelligence/fixtures/m013-mono"),
     editTarget: "apps/api/main.ts",
+    symbol: "boot",
   },
   {
     id: "m044-backend",
     root: join(repoRoot, "packages/intelligence/fixtures/m044-backend"),
     editTarget: "express/auth.ts",
+    symbol: "requireAuth",
+  },
+  {
+    id: "m049-soft",
+    root: join(repoRoot, "packages/intelligence/fixtures/m049-soft"),
+    editTarget: "src/util.ts",
+    symbol: "util",
+  },
+  {
+    id: "m010-cycles",
+    root: join(repoRoot, "packages/intelligence/fixtures/m010-cycles"),
+    editTarget: "b.ts",
+    symbol: "b",
   },
 ];
 
 const SCENARIOS: Array<{ id: ScenarioId; label: string }> = [
   { id: "orient", label: "What is this repository?" },
   { id: "safe_edit", label: "Is this edit safe?" },
+  { id: "health", label: "Is this codebase healthy?" },
+  { id: "find", label: "Where does this symbol live?" },
+  { id: "test_impact", label: "Which tests should I run?" },
+  { id: "cycles", label: "Are there import cycles?" },
 ];
 
 async function loadCore() {
@@ -120,27 +151,63 @@ function estimateTokens(bytes: number): number {
   return Math.round(bytes / 4);
 }
 
+function perCall(
+  toolCalls: number,
+  bytesRead: number,
+  estimatedTokens: number,
+): {
+  bytesPerCall: number;
+  tokensPerCall: number;
+} {
+  const n = Math.max(toolCalls, 1);
+  return {
+    bytesPerCall: Math.round(bytesRead / n),
+    tokensPerCall: Math.round(estimatedTokens / n),
+  };
+}
+
+function finishRun(
+  toolCalls: number,
+  bytesRead: number,
+  elapsedMs: number,
+  steps: StepMetric[],
+): RunMetrics {
+  const estimatedTokens = estimateTokens(bytesRead);
+  return {
+    toolCalls,
+    bytesRead,
+    estimatedTokens,
+    elapsedMs,
+    steps,
+    ...perCall(toolCalls, bytesRead, estimatedTokens),
+  };
+}
+
 function pctSaved(without: number, withPrism: number): number {
   if (without === 0) return 0;
   return Math.round(((without - withPrism) / without) * 100);
 }
 
 function aggregate(metrics: RunMetrics[]): RunMetrics {
-  return metrics.reduce(
+  const summed = metrics.reduce(
     (acc, m) => ({
       toolCalls: acc.toolCalls + m.toolCalls,
       bytesRead: acc.bytesRead + m.bytesRead,
-      estimatedTokens: acc.estimatedTokens + m.estimatedTokens,
       elapsedMs: acc.elapsedMs + m.elapsedMs,
       steps: [...acc.steps, ...m.steps],
     }),
     {
       toolCalls: 0,
       bytesRead: 0,
-      estimatedTokens: 0,
       elapsedMs: 0,
       steps: [] as StepMetric[],
     },
+  );
+  return finishRun(
+    summed.toolCalls,
+    summed.bytesRead,
+    summed.elapsedMs,
+    summed.steps,
   );
 }
 
@@ -226,13 +293,7 @@ async function withoutPrismOrient(root: string): Promise<RunMetrics> {
   }
 
   const elapsedMs = Math.round(performance.now() - started);
-  return {
-    toolCalls,
-    bytesRead,
-    estimatedTokens: estimateTokens(bytesRead),
-    elapsedMs,
-    steps,
-  };
+  return finishRun(toolCalls, bytesRead, elapsedMs, steps);
 }
 
 /** Naive agent: read target + scan repo for import references. */
@@ -280,112 +341,203 @@ async function withoutPrismSafeEdit(
   await readStep("read package.json", join(root, "package.json"));
 
   const elapsedMs = Math.round(performance.now() - started);
-  return {
-    toolCalls,
-    bytesRead,
-    estimatedTokens: estimateTokens(bytesRead),
-    elapsedMs,
-    steps,
-  };
+  return finishRun(toolCalls, bytesRead, elapsedMs, steps);
 }
 
-async function withPrismOrient(
+type WorkspaceHandle = {
+  index: () => Promise<unknown>;
+  getDna: () => Promise<unknown>;
+  getOverviewModel: (o: object) => Promise<unknown>;
+  blastRadius: (o: object) => Promise<unknown>;
+  getHealth: () => Promise<unknown>;
+  getEngineeringHealth: () => Promise<unknown>;
+  findSymbol: (q: object) => unknown;
+  testImpact: (o: object) => Promise<unknown>;
+  getCycles: () => unknown;
+  close?: () => void;
+};
+
+function openWorkspace(
   root: string,
   Prism: { create: () => { openRepository: (p: string) => unknown } },
+): WorkspaceHandle {
+  const opened = Prism.create().openRepository(root) as {
+    ok: boolean;
+    value?: WorkspaceHandle;
+    error?: { message: string };
+  };
+  if (!opened.ok || !opened.value) {
+    throw new Error(opened.error?.message ?? "openRepository failed");
+  }
+  return opened.value;
+}
+
+async function withPrismCalls(
+  root: string,
+  Prism: { create: () => { openRepository: (p: string) => unknown } },
+  calls: Array<{
+    step: string;
+    run: (ws: WorkspaceHandle) => unknown | Promise<unknown>;
+  }>,
+): Promise<RunMetrics> {
+  const started = performance.now();
+  const steps: StepMetric[] = [];
+  let toolCalls = 0;
+  let bytesRead = 0;
+  const workspace = openWorkspace(root, Prism);
+
+  for (const call of calls) {
+    toolCalls += 1;
+    const result = await call.run(workspace);
+    const json = JSON.stringify(result ?? {});
+    const bytes = Buffer.byteLength(json, "utf8");
+    bytesRead += bytes;
+    steps.push({ step: call.step, bytesRead: bytes });
+  }
+
+  workspace.close?.();
+  const elapsedMs = Math.round(performance.now() - started);
+  return finishRun(toolCalls, bytesRead, elapsedMs, steps);
+}
+
+/** Naive agent: skim CI/lint/test config the way an agent hunts for health. */
+async function withoutPrismHealth(root: string): Promise<RunMetrics> {
+  const started = performance.now();
+  const steps: StepMetric[] = [];
+  let toolCalls = 0;
+  let bytesRead = 0;
+
+  const readStep = async (step: string, path: string) => {
+    toolCalls += 1;
+    const bytes = await readBytes(path);
+    bytesRead += bytes;
+    steps.push({ step, bytesRead: bytes });
+  };
+
+  await readStep("read package.json", join(root, "package.json"));
+  for (const name of [
+    "README.md",
+    "tsconfig.json",
+    "vitest.config.ts",
+    "eslint.config.js",
+    ".github/workflows/ci.yml",
+  ]) {
+    await readStep(`read ${name}`, join(root, name));
+  }
+
+  toolCalls += 1;
+  const files = await collectSourceFiles(root, 12);
+  bytesRead += files.length * 16;
+  steps.push({ step: "glob source files", bytesRead: files.length * 16 });
+  for (const file of files) {
+    await readStep(`skim ${relative(root, file)}`, file);
+  }
+
+  const elapsedMs = Math.round(performance.now() - started);
+  return finishRun(toolCalls, bytesRead, elapsedMs, steps);
+}
+
+/** Naive agent: grep every source file for a symbol name. */
+async function withoutPrismFind(
+  root: string,
+  symbol: string,
 ): Promise<RunMetrics> {
   const started = performance.now();
   const steps: StepMetric[] = [];
   let toolCalls = 0;
   let bytesRead = 0;
 
-  const opened = Prism.create().openRepository(root) as {
-    ok: boolean;
-    value?: {
-      index: () => Promise<unknown>;
-      getDna: () => Promise<unknown>;
-      getOverviewModel: (o: object) => Promise<unknown>;
-      close?: () => void;
-    };
-    error?: { message: string };
-  };
-  if (!opened.ok || !opened.value) {
-    throw new Error(opened.error?.message ?? "openRepository failed");
-  }
-  const workspace = opened.value;
+  const files = await collectSourceFiles(root, 40);
+  toolCalls += 1;
+  bytesRead += files.length * 16;
+  steps.push({ step: "glob source files", bytesRead: files.length * 16 });
 
-  const record = async (step: string, fn: () => Promise<unknown>) => {
+  for (const file of files) {
     toolCalls += 1;
-    const result = await fn();
-    const json = JSON.stringify(result ?? {});
-    const bytes = Buffer.byteLength(json, "utf8");
+    const text = await readFile(file, "utf8").catch(() => "");
+    const hit = text.includes(symbol);
+    const bytes = hit ? text.length : Math.min(text.length, 256);
     bytesRead += bytes;
-    steps.push({ step, bytesRead: bytes });
-  };
-
-  await record("index (once)", () => workspace.index());
-  await record("repository_dna", () => workspace.getDna());
-  await record("repository_overview", () => workspace.getOverviewModel({}));
-
-  workspace.close?.();
+    steps.push({
+      step: hit
+        ? `grep hit ${relative(root, file)}`
+        : `grep ${relative(root, file)}`,
+      bytesRead: bytes,
+    });
+  }
 
   const elapsedMs = Math.round(performance.now() - started);
-  return {
-    toolCalls,
-    bytesRead,
-    estimatedTokens: estimateTokens(bytesRead),
-    elapsedMs,
-    steps,
-  };
+  return finishRun(toolCalls, bytesRead, elapsedMs, steps);
 }
 
-async function withPrismSafeEdit(
+/** Naive agent: find test files and scan them for the edit target. */
+async function withoutPrismTestImpact(
   root: string,
   target: string,
-  Prism: { create: () => { openRepository: (p: string) => unknown } },
 ): Promise<RunMetrics> {
   const started = performance.now();
   const steps: StepMetric[] = [];
   let toolCalls = 0;
   let bytesRead = 0;
 
-  const opened = Prism.create().openRepository(root) as {
-    ok: boolean;
-    value?: {
-      index: () => Promise<unknown>;
-      blastRadius: (o: object) => Promise<unknown>;
-      close?: () => void;
-    };
-    error?: { message: string };
-  };
-  if (!opened.ok || !opened.value) {
-    throw new Error(opened.error?.message ?? "openRepository failed");
-  }
-  const workspace = opened.value;
-
-  const record = async (step: string, fn: () => Promise<unknown>) => {
+  const readStep = async (step: string, path: string) => {
     toolCalls += 1;
-    const result = await fn();
-    const json = JSON.stringify(result ?? {});
-    const bytes = Buffer.byteLength(json, "utf8");
+    const bytes = await readBytes(path);
     bytesRead += bytes;
     steps.push({ step, bytesRead: bytes });
   };
 
-  await record("index (once)", () => workspace.index());
-  await record("blast_radius", () =>
-    workspace.blastRadius({ kind: "file", id: target }),
-  );
+  await readStep("read edit target", join(root, target));
+  await readStep("read package.json", join(root, "package.json"));
 
-  workspace.close?.();
+  const files = await collectSourceFiles(root, 40);
+  toolCalls += 1;
+  bytesRead += files.length * 16;
+  steps.push({ step: "glob source files", bytesRead: files.length * 16 });
+
+  const needle =
+    target
+      .replace(/\.[^.]+$/, "")
+      .split("/")
+      .pop() ?? target;
+  for (const file of files) {
+    const rel = relative(root, file);
+    const looksTest = /\.(test|spec)\.|\/tests?\//i.test(rel);
+    if (!looksTest && !rel.includes(needle)) continue;
+    toolCalls += 1;
+    const text = await readFile(file, "utf8").catch(() => "");
+    bytesRead += text.length;
+    steps.push({ step: `read ${rel}`, bytesRead: text.length });
+  }
 
   const elapsedMs = Math.round(performance.now() - started);
-  return {
-    toolCalls,
-    bytesRead,
-    estimatedTokens: estimateTokens(bytesRead),
-    elapsedMs,
-    steps,
-  };
+  return finishRun(toolCalls, bytesRead, elapsedMs, steps);
+}
+
+/** Naive agent: read every file's imports to hunt for cycles. */
+async function withoutPrismCycles(root: string): Promise<RunMetrics> {
+  const started = performance.now();
+  const steps: StepMetric[] = [];
+  let toolCalls = 0;
+  let bytesRead = 0;
+
+  const files = await collectSourceFiles(root, 40);
+  toolCalls += 1;
+  bytesRead += files.length * 16;
+  steps.push({ step: "glob source files", bytesRead: files.length * 16 });
+
+  for (const file of files) {
+    toolCalls += 1;
+    const text = await readFile(file, "utf8").catch(() => "");
+    bytesRead += text.length;
+    steps.push({
+      step: `read imports ${relative(root, file)}`,
+      bytesRead: text.length,
+    });
+  }
+
+  const elapsedMs = Math.round(performance.now() - started);
+  return finishRun(toolCalls, bytesRead, elapsedMs, steps);
 }
 
 async function runScenario(
@@ -393,24 +545,83 @@ async function runScenario(
   scenario: ScenarioId,
   Prism: { create: () => { openRepository: (p: string) => unknown } },
 ): Promise<{ without: RunMetrics; with: RunMetrics }> {
-  if (scenario === "orient") {
-    return {
-      without: await withoutPrismOrient(fixture.root),
-      with: await withPrismOrient(fixture.root, Prism),
-    };
+  switch (scenario) {
+    case "orient":
+      return {
+        without: await withoutPrismOrient(fixture.root),
+        with: await withPrismCalls(fixture.root, Prism, [
+          { step: "index (once)", run: (ws) => ws.index() },
+          { step: "repository_dna", run: (ws) => ws.getDna() },
+          {
+            step: "repository_overview",
+            run: (ws) => ws.getOverviewModel({}),
+          },
+        ]),
+      };
+    case "safe_edit":
+      return {
+        without: await withoutPrismSafeEdit(fixture.root, fixture.editTarget),
+        with: await withPrismCalls(fixture.root, Prism, [
+          { step: "index (once)", run: (ws) => ws.index() },
+          {
+            step: "blast_radius",
+            run: (ws) =>
+              ws.blastRadius({ kind: "file", id: fixture.editTarget }),
+          },
+        ]),
+      };
+    case "health":
+      return {
+        without: await withoutPrismHealth(fixture.root),
+        with: await withPrismCalls(fixture.root, Prism, [
+          { step: "index (once)", run: (ws) => ws.index() },
+          { step: "repository_health", run: (ws) => ws.getHealth() },
+          {
+            step: "engineering_health",
+            run: (ws) => ws.getEngineeringHealth(),
+          },
+        ]),
+      };
+    case "find":
+      return {
+        without: await withoutPrismFind(fixture.root, fixture.symbol),
+        with: await withPrismCalls(fixture.root, Prism, [
+          { step: "index (once)", run: (ws) => ws.index() },
+          {
+            step: "find_symbol",
+            run: (ws) => ws.findSymbol({ name: fixture.symbol }),
+          },
+        ]),
+      };
+    case "test_impact":
+      return {
+        without: await withoutPrismTestImpact(fixture.root, fixture.editTarget),
+        with: await withPrismCalls(fixture.root, Prism, [
+          { step: "index (once)", run: (ws) => ws.index() },
+          {
+            step: "test_impact",
+            run: (ws) =>
+              ws.testImpact({ kind: "file", id: fixture.editTarget }),
+          },
+        ]),
+      };
+    case "cycles":
+      return {
+        without: await withoutPrismCycles(fixture.root),
+        with: await withPrismCalls(fixture.root, Prism, [
+          { step: "index (once)", run: (ws) => ws.index() },
+          { step: "dependency_cycles", run: (ws) => ws.getCycles() },
+        ]),
+      };
   }
-  return {
-    without: await withoutPrismSafeEdit(fixture.root, fixture.editTarget),
-    with: await withPrismSafeEdit(fixture.root, fixture.editTarget, Prism),
-  };
 }
 
 function formatMetrics(label: string, m: RunMetrics): string {
   return [
     `  ${label}`,
     `    tool calls: ${m.toolCalls}`,
-    `    bytes read: ${m.bytesRead.toLocaleString()}`,
-    `    est. tokens: ${m.estimatedTokens.toLocaleString()}`,
+    `    bytes read: ${m.bytesRead.toLocaleString()} (${m.bytesPerCall.toLocaleString()} / call)`,
+    `    est. tokens: ${m.estimatedTokens.toLocaleString()} (${m.tokensPerCall.toLocaleString()} / call)`,
     `    elapsed: ${m.elapsedMs} ms`,
   ].join("\n");
 }
@@ -468,11 +679,12 @@ async function main() {
   const report: BenchReport = {
     recordedAt: new Date().toISOString(),
     methodology: {
-      tokenEstimate: "estimatedTokens = bytesRead / 4",
+      tokenEstimate:
+        "estimatedTokens = bytesRead / 4; tokensPerCall = estimatedTokens / toolCalls",
       withoutPrism:
         "Simulated naive agent: list dirs, read manifests, scan/grep files",
       withPrism:
-        "Core SDK calls matching MCP tools (repository_dna, repository_overview, blast_radius)",
+        "Core SDK calls matching MCP tools (repository_dna, repository_overview, blast_radius, repository_health, find_symbol, test_impact, dependency_cycles)",
     },
     machine: {
       platform: process.platform,
@@ -490,6 +702,37 @@ async function main() {
   await mkdir(join(outPath, ".."), { recursive: true });
   await writeFile(outPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
 
+  const publicPath = join(
+    repoRoot,
+    arg("public", "apps/website/data/benchmarks-sample.json"),
+  );
+  const slimMetrics = ({
+    steps: _steps,
+    ...rest
+  }: RunMetrics): Omit<RunMetrics, "steps"> => rest;
+  const publicReport = {
+    ...report,
+    fixtures: report.fixtures.map((fixture) => ({
+      ...fixture,
+      scenarios: fixture.scenarios.map((scenario) => ({
+        ...scenario,
+        withoutPrism: slimMetrics(scenario.withoutPrism),
+        withPrism: slimMetrics(scenario.withPrism),
+      })),
+    })),
+    totals: {
+      ...report.totals,
+      withoutPrism: slimMetrics(report.totals.withoutPrism),
+      withPrism: slimMetrics(report.totals.withPrism),
+    },
+  };
+  await mkdir(join(publicPath, ".."), { recursive: true });
+  await writeFile(
+    publicPath,
+    `${JSON.stringify(publicReport, null, 2)}\n`,
+    "utf8",
+  );
+
   console.log("\nbench:orientation — agent orientation savings\n");
   for (const fixture of fixtureResults) {
     console.log(`${fixture.id} (${fixture.editTarget})`);
@@ -498,7 +741,7 @@ async function main() {
       console.log(formatMetrics("without Prism", s.withoutPrism));
       console.log(formatMetrics("with Prism", s.withPrism));
       console.log(
-        `    savings: ${s.savings.toolCallsPct}% calls · ${s.savings.tokensPct}% tokens · ${s.savings.timePct}% time\n`,
+        `    savings: ${s.savings.toolCallsPct}% calls · ${s.savings.tokensPct}% tokens · ${s.withoutPrism.tokensPerCall}→${s.withPrism.tokensPerCall} tok/call · ${s.savings.timePct}% time\n`,
       );
     }
   }
@@ -507,9 +750,11 @@ async function main() {
   console.log(formatMetrics("without Prism", totalWithout));
   console.log(formatMetrics("with Prism", totalWith));
   console.log(
-    `\n  savings: ${report.totals.savings.toolCallsPct}% calls · ${report.totals.savings.tokensPct}% tokens · ${report.totals.savings.timePct}% time`,
+    `\n  savings: ${report.totals.savings.toolCallsPct}% calls · ${report.totals.savings.tokensPct}% tokens · ${totalWithout.tokensPerCall}→${totalWith.tokensPerCall} tok/call · ${report.totals.savings.timePct}% time`,
   );
-  console.log(`\nbench:orientation: wrote ${relative(repoRoot, outPath)}`);
+  console.log(
+    `\nbench:orientation: wrote ${relative(repoRoot, outPath)} and ${relative(repoRoot, publicPath)}`,
+  );
 }
 
 main().catch((error) => {

@@ -4,32 +4,53 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { PageEnter } from "@/components/motion/PageEnter";
 import { Reveal } from "@/components/motion/Reveal";
+import { StaggerGrid } from "@/components/motion/StaggerGrid";
 import { SectionIntro } from "@/components/motion/SectionIntro";
+import { McpInstallPanel } from "@/components/mcp-install-panel";
+import { SiteFooter } from "@/components/site-footer";
 
 export const metadata: Metadata = {
   title: "Products",
   description:
-    "Install Prism as a CLI, IDE extension, MCP server, or playground.",
+    "Install Prism as a CLI, IDE extension, MCP server, plugin pack, or playground.",
 };
 
 const PRODUCTS = [
   {
     title: "CLI",
     install: "npm install -g @repo-prism/cli",
-    href: "/docs/cli/install",
+    href: "/docs/start/install",
     body: "Terminal and CI. Same Core as every other surface.",
   },
   {
     title: "VS Code & Cursor",
     install: "Install “Prism” from the marketplace",
-    href: "/docs/ide/install",
+    href: "/docs/start/install",
     body: "Map, blast, health, and domains inside the editor.",
   },
   {
     title: "MCP server",
     install: "npx @repo-prism/mcp-server",
-    href: "/docs/mcp/install",
+    href: "/docs/start/install",
     body: "Repository structure for AI agents, local-first.",
+  },
+  {
+    title: "Plugin pack",
+    install: "Install “Prism” from your editor's plugins",
+    href: "/docs/start/install",
+    body: "Skills that compose Prism's tools with the connectors you already have — review a PR with its blast radius, check what breaks before editing.",
+  },
+  {
+    title: "Dispatch",
+    install: "Say “start working on …” in chat",
+    href: "/docs/guides/dispatch",
+    body: "Hand work to a background teammate. It edits your own checkout by default; Prism runs the checks when it stops.",
+  },
+  {
+    title: "Prism Console",
+    install: "Runs itself — any Prism tool starts it",
+    href: "/docs/guides/dispatch#local-workers",
+    body: "A local page at prismhq.localhost:17330 listing every teammate across every repo, with live output and OS notifications.",
   },
   {
     title: "Core SDK",
@@ -55,10 +76,13 @@ export default function ProductsPage() {
             title="Products"
             description="Pick a surface. They share one engine and agree with each other."
           />
-          <ul className="divide-y divide-fd-border border-y border-fd-border">
-            {PRODUCTS.map((p, i) => (
-              <Reveal key={p.title} delay={i * 0.05} y={14}>
-                <li className="flex flex-col gap-3 py-6 sm:flex-row sm:items-start sm:justify-between sm:gap-10">
+          <StaggerGrid items="li">
+            <ul className="divide-y divide-fd-border border-y border-fd-border">
+              {PRODUCTS.map((p, i) => (
+                <li
+                  key={p.title}
+                  className="flex flex-col gap-3 py-6 sm:flex-row sm:items-start sm:justify-between sm:gap-10"
+                >
                   <div className="space-y-2">
                     <div className="flex items-baseline gap-4">
                       <span className="font-mono text-xs text-fd-primary">
@@ -82,11 +106,20 @@ export default function ProductsPage() {
                     Docs →
                   </Link>
                 </li>
-              </Reveal>
-            ))}
-          </ul>
+              ))}
+            </ul>
+          </StaggerGrid>
+          <Reveal y={14}>
+            <section className="space-y-6 border-t border-fd-border pt-12">
+              <h2 className="font-display text-xl font-medium text-fd-foreground">
+                Connect the MCP server
+              </h2>
+              <McpInstallPanel />
+            </section>
+          </Reveal>
         </main>
       </PageEnter>
+      <SiteFooter />
     </HomeLayout>
   );
 }

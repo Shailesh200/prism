@@ -4,8 +4,7 @@
       "command": "npx",
       "args": ["-y", "--prefer-online", "@repo-prism/mcp-server@latest"],
       "env": {
-        "NODE_USE_SYSTEM_CA": "1",
-        "CURSOR_WORKSPACE": "${workspaceFolder}"
+        "NODE_USE_SYSTEM_CA": "1"
       }
     }
   }

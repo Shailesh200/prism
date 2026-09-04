@@ -65,6 +65,47 @@
   color: #f5a524;
 }
 
+.jobs-screen__count--waiting {
+  border-color: color-mix(in oklab, #f97316 55%, transparent);
+  background: color-mix(in oklab, #f97316 16%, transparent);
+  color: #fb923c;
+}
+
+.jobs-screen__waiting {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in oklab, #f97316 45%, transparent);
+  background: color-mix(in oklab, #f97316 10%, transparent);
+  color: var(--prism-ink, #fff);
+}
+
+.jobs-screen__waiting strong {
+  display: block;
+  font-size: 14px;
+}
+
+.jobs-screen__waiting-list {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--prism-ink, #fff);
+}
+
+.jobs-screen__waiting-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+.jobs-screen__waiting svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #fb923c;
+}
+
 .jobs-screen__refresh,
 .job-card__button,
 .job-console__action,
@@ -91,6 +132,71 @@
 .job-console__filter:hover {
   color: var(--prism-ink, #fff);
   border-color: color-mix(in oklab, var(--prism-brand, #00c2c2) 45%, transparent);
+}
+
+.jobs-screen__filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.jobs-screen__lanes,
+.jobs-screen__repos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.jobs-screen__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  border: 1px solid var(--prism-line, #2a334a);
+  background: transparent;
+  color: var(--prism-ink-muted, #94a3b8);
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.jobs-screen__chip:hover {
+  color: var(--prism-ink, #fff);
+}
+
+.jobs-screen__chip[aria-pressed="true"] {
+  border-color: color-mix(in oklab, var(--prism-brand, #00c2c2) 55%, transparent);
+  background: color-mix(in oklab, var(--prism-brand, #00c2c2) 12%, transparent);
+  color: var(--prism-brand, #00c2c2);
+}
+
+.jobs-screen__chip-count {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+.job-card__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--prism-ink-muted, #94a3b8);
+  cursor: pointer;
+}
+
+.job-card__icon-btn:hover:not(:disabled) {
+  color: #ff6b6b;
+  border-color: color-mix(in oklab, #ff6b6b 45%, transparent);
+}
+
+.job-card__icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .job-card__button:disabled,
@@ -127,7 +233,7 @@
 .jobs-screen__list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -136,10 +242,14 @@
 /* ---- Job card ---- */
 
 .job-card {
-  border-radius: 14px;
+  border-radius: 12px;
   border: 1px solid var(--prism-line, #2a334a);
   background: var(--prism-panel, #131926);
-  padding: 16px 18px;
+  padding: 10px 14px;
+}
+
+.job-card--open {
+  padding-bottom: 14px;
 }
 
 .job-card--attention {
@@ -154,7 +264,35 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
+}
+
+.job-card__scan {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex-shrink: 1;
+  color: var(--prism-ink-muted, #94a3b8);
+  font-size: 12px;
+}
+
+.job-card__time {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.job-card__branch,
+.job-card__repo {
+  max-width: 18ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.job-card__repo {
+  color: var(--prism-ink-muted, #94a3b8);
 }
 
 .job-card__disclose {
@@ -190,6 +328,13 @@
   font-weight: 600;
   letter-spacing: 0.02em;
   border: 1px solid var(--prism-line, #2a334a);
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+.job-card__when {
+  flex-shrink: 0;
+  font-family: var(--prism-font-mono, ui-monospace, monospace);
+  font-size: 11px;
   color: var(--prism-ink-muted, #94a3b8);
 }
 
@@ -242,9 +387,13 @@
 }
 
 .job-card__activity {
-  margin: 8px 0 0 24px;
+  margin: 6px 0 0 24px;
   font-size: 13px;
   color: var(--prism-ink-muted, #94a3b8);
+}
+
+.job-card__activity--panel {
+  margin-left: 0;
 }
 
 .job-card__activity:empty {
@@ -256,6 +405,10 @@
   flex-wrap: wrap;
   gap: 22px;
   margin: 12px 0 0 24px;
+}
+
+.job-card__panel .job-card__facts {
+  margin-left: 0;
 }
 
 .job-card__facts div {
@@ -309,10 +462,10 @@
 /* ---- Review summary ---- */
 
 .job-review {
-  border-radius: 10px;
-  border: 1px solid var(--prism-line, #2a334a);
-  background: color-mix(in oklab, #f5a524 5%, transparent);
-  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in oklab, #f5a524 35%, var(--prism-line, #2a334a));
+  background: color-mix(in oklab, #f5a524 7%, transparent);
+  padding: 14px 16px;
 }
 
 .job-review__head {
@@ -353,8 +506,87 @@
 .job-review__file {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
   font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--prism-line, #2a334a);
+  background: color-mix(in oklab, var(--prism-panel, #131926) 70%, transparent);
+}
+
+.job-review__file--kept {
+  border-color: color-mix(in oklab, #47d18a 40%, transparent);
+}
+
+.job-review__file-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.job-review__bulk,
+.job-review__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.job-review__keep,
+.job-review__keep-all,
+.job-review__restore,
+.job-review__restore-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  border-radius: 8px;
+  border: 1px solid var(--prism-line, #2a334a);
+  background: transparent;
+  color: var(--prism-ink, #fff);
+  font-size: 11px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.job-review__keep,
+.job-review__keep-all {
+  border-color: color-mix(in oklab, #47d18a 45%, transparent);
+  color: #47d18a;
+}
+
+.job-review__keep:hover,
+.job-review__keep-all:hover {
+  background: color-mix(in oklab, #47d18a 12%, transparent);
+}
+
+.job-review__restore:hover,
+.job-review__restore-all:hover {
+  border-color: #f97316;
+  color: #fb923c;
+  background: color-mix(in oklab, #f97316 10%, transparent);
+}
+
+.job-review__keep:disabled,
+.job-review__keep-all:disabled,
+.job-review__restore:disabled,
+.job-review__restore-all:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.job-review__kept {
+  flex: none;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #47d18a;
+  border: 1px solid color-mix(in oklab, #47d18a 40%, transparent);
 }
 
 .job-review__path {
@@ -424,6 +656,10 @@
   overflow: hidden;
 }
 
+.job-console--collapsed .job-console__bar {
+  border-bottom: 0;
+}
+
 .job-console__bar {
   display: flex;
   align-items: center;
@@ -432,6 +668,25 @@
   flex-wrap: wrap;
   padding: 8px 10px;
   border-bottom: 1px solid var(--prism-line, #2a334a);
+}
+
+.job-console__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--prism-ink, #fff);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.job-console__count {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--prism-ink-muted, #94a3b8);
 }
 
 .job-console__filters,
@@ -462,13 +717,24 @@
 }
 
 .job-console__line {
-  display: grid;
-  grid-template-columns: 64px 92px 1fr;
-  gap: 10px;
-  align-items: baseline;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0;
   font-family: var(--prism-font-mono, ui-monospace, monospace);
   font-size: 12px;
   line-height: 1.55;
+  border-bottom: 1px solid color-mix(in oklab, var(--prism-line, #2a334a) 55%, transparent);
+}
+
+.job-console__line:last-child {
+  border-bottom: 0;
+}
+
+.job-console__meta {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
 }
 
 .job-console__line--error .job-console__text {
@@ -480,14 +746,22 @@
 }
 
 .job-console__phase {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: var(--prism-ink-muted, #94a3b8);
+  text-transform: lowercase;
 }
 
-.job-console__phase--tool {
-  color: var(--prism-accent, #6c63ff);
+.job-console__phase--thinking {
+  color: #c4b5fd;
+}
+
+.job-console__line--thinking .job-console__text {
+  color: color-mix(in oklab, var(--prism-ink, #fff) 88%, #c4b5fd);
+}
+
+.job-console__line--thinking {
+  border-left: 2px solid color-mix(in oklab, #c4b5fd 55%, transparent);
+  padding-left: 8px;
+  margin-left: -8px;
 }
 
 .job-console__phase--editing {
@@ -499,9 +773,36 @@
 }
 
 .job-console__text {
+  margin: 0;
   color: var(--prism-ink, #fff);
   overflow-wrap: anywhere;
-  white-space: pre-wrap;
+}
+
+.job-console .md-doc.job-console__text {
+  gap: 8px;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+}
+
+.job-console .md-doc__h {
+  margin: 0;
+  font-size: 12px;
+}
+
+.job-console .md-doc__list {
+  gap: 4px;
+}
+
+.job-console .md-doc__code {
+  padding: 8px 10px;
+  font-size: 11.5px;
+  border-radius: 8px;
+}
+
+.job-console .md-doc__table {
+  min-width: 360px;
+  font-size: 11.5px;
 }
 
 .job-console__empty {
@@ -532,12 +833,749 @@
   .jobs-screen {
     padding: 20px 16px 32px;
   }
+}
 
-  .job-console__line {
-    grid-template-columns: 56px 1fr;
+/* ---- M-067 P-S2: tones the markup emitted but nothing styled ----
+   `jobStatusTone` returns five tones and the console eight phases, but only a
+   subset ever had rules, so a done job and a cancelled job were visually
+   identical to a queued one. */
+
+.job-card--live {
+  border-color: color-mix(
+    in oklab,
+    var(--prism-brand, #00c2c2) 32%,
+    var(--prism-line, #2a334a)
+  );
+}
+
+.job-card--good {
+  border-color: color-mix(in oklab, #2ecc71 30%, var(--prism-line, #2a334a));
+}
+
+.job-card--idle {
+  border-color: var(--prism-line, #2a334a);
+  opacity: 0.86;
+}
+
+.job-card__status--idle {
+  border-color: var(--prism-line, #2a334a);
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+.job-review__change--modified {
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+.job-review__change--renamed {
+  color: #c4b5fd;
+  border-color: color-mix(in oklab, #a78bfa 45%, transparent);
+}
+
+.job-console__phase--starting,
+.job-console__phase--running {
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+.job-console__phase--done {
+  color: #47d18a;
+}
+
+.job-console__phase--cancelled {
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+/* ---- Loading skeleton ----
+   Without this the empty-state copy paints for one frame on every load. */
+
+.job-card--skeleton {
+  display: grid;
+  gap: 10px;
+}
+
+.job-card__skeleton-line {
+  display: block;
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--prism-line, #2a334a) 25%,
+    color-mix(in oklab, var(--prism-line, #2a334a) 55%, transparent) 50%,
+    var(--prism-line, #2a334a) 75%
+  );
+  background-size: 200% 100%;
+  animation: job-skeleton 1.4s ease-in-out infinite;
+}
+
+.job-card__skeleton-line--short {
+  width: 40%;
+}
+
+@keyframes job-skeleton {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ---- Staleness and unknowns ----
+   A dropped stream must be visible, and an unmeasurable value must read as
+   unknown rather than as a confident zero (ADR-0048). */
+
+.jobs-screen__stale {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in oklab, #f5a524 40%, transparent);
+  background: color-mix(in oklab, #f5a524 10%, transparent);
+  color: #f5c26b;
+  font-size: 13px;
+}
+
+.job-card__unknown,
+.job-card__note {
+  color: var(--prism-ink-muted, #94a3b8);
+  font-style: italic;
+}
+
+.job-card__note {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+/* ---- Confirm gate ----
+   The board affordance for a job the drain parked on a question (ADR-0047). */
+
+.job-card__gate {
+  margin: 8px 0 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in oklab, #f5a524 34%, transparent);
+  background: color-mix(in oklab, #f5a524 8%, transparent);
+}
+
+.job-card__gate-paths {
+  margin: 6px 0 8px;
+  padding-left: 18px;
+  display: grid;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+.job-card__button--primary {
+  border-color: color-mix(
+    in oklab,
+    var(--prism-brand, #00c2c2) 55%,
+    transparent
+  );
+  color: var(--prism-brand, #00c2c2);
+}
+
+/* ---- Job detail facts ---- */
+
+.job-facts {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--prism-line, #2a334a);
+}
+
+.job-facts__split {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--prism-ink, #fff);
+}
+
+/*
+ * Connected timeline: one track, four nodes on it. GSAP on the Console tweens
+ * the fill; CSS holds the fallback for the IDE webview (ADR-0051).
+ */
+.job-rail {
+  position: relative;
+  margin: 10px 0 8px;
+  padding: 0 2px;
+}
+
+.job-rail__bar {
+  position: absolute;
+  top: 11px;
+  left: 11px;
+  right: 11px;
+  height: 6px;
+  pointer-events: none;
+}
+
+.job-rail__track,
+.job-rail__fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.job-rail__track {
+  background: var(--prism-border, #1f2937);
+}
+
+.job-rail__fill {
+  position: absolute;
+  inset: 0;
+  transform: scaleX(var(--job-rail-fill, 0));
+  transform-origin: 0 50%;
+  background: linear-gradient(
+    90deg,
+    var(--prism-brand, #00c2c2),
+    var(--prism-accent, #38bdf8)
+  );
+  box-shadow: 0 0 14px color-mix(in oklab, var(--prism-brand, #00c2c2) 45%, transparent);
+}
+
+.job-rail--complete .job-rail__fill {
+  transform: scaleX(1);
+}
+
+.job-rail__steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  position: relative;
+}
+
+.job-rail__step {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 4px;
+  padding-top: 28px;
+  min-width: 0;
+}
+
+.job-rail__step:first-child {
+  justify-items: start;
+  text-align: left;
+}
+
+.job-rail__step:last-child {
+  justify-items: end;
+  text-align: right;
+}
+
+.job-rail__node {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  margin-left: -11px;
+  border-radius: 50%;
+  border: 2px solid var(--prism-border, #1f2937);
+  background: var(--prism-bg, #0b1220);
+  display: grid;
+  place-items: center;
+  color: #041414;
+  box-shadow: 0 0 0 3px var(--prism-panel, #131926);
+}
+
+.job-rail__step:first-child .job-rail__node {
+  left: 0;
+  margin-left: 0;
+}
+
+.job-rail__step:last-child .job-rail__node {
+  left: auto;
+  right: 0;
+  margin-left: 0;
+}
+
+.job-rail__step--reached .job-rail__node {
+  border-color: var(--prism-brand, #00c2c2);
+  background: var(--prism-brand, #00c2c2);
+}
+
+.job-rail__step--current .job-rail__node {
+  animation: job-pulse 1.6s ease-in-out infinite;
+  background: var(--prism-accent, #38bdf8);
+  border-color: var(--prism-accent, #38bdf8);
+  box-shadow:
+    0 0 0 4px color-mix(in oklab, var(--prism-accent, #38bdf8) 22%, transparent),
+    0 0 14px color-mix(in oklab, var(--prism-accent, #38bdf8) 40%, transparent);
+}
+
+.job-rail__label {
+  color: var(--prism-ink, #fff);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.job-rail__step--current .job-rail__label {
+  color: var(--prism-accent, #38bdf8);
+}
+
+.job-rail__step:not(.job-rail__step--reached) .job-rail__label {
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+.job-rail__at {
+  font-family: var(--prism-font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+.job-rail__at--pending {
+  opacity: 0.5;
+}
+
+.job-rail__span {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+.job-rail__step--current .job-rail__span {
+  color: var(--prism-accent, #38bdf8);
+}
+
+@media (max-width: 720px) {
+  .job-rail__steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 16px;
   }
 
-  .job-console__phase {
+  .job-rail__bar {
     display: none;
   }
+
+  .job-rail__step:nth-child(2) {
+    justify-items: end;
+    text-align: right;
+  }
+
+  .job-rail__step:nth-child(2) .job-rail__node {
+    left: auto;
+    right: 0;
+    margin-left: 0;
+  }
+
+  .job-rail__step:nth-child(3) {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .job-rail__step:nth-child(3) .job-rail__node {
+    left: 0;
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .job-rail__step--current .job-rail__node {
+    animation: none;
+  }
+}
+
+.job-outcome {
+  margin: 0 0 12px;
+  padding: 0;
+  overflow: visible;
+  border-radius: 12px;
+  border: 1px solid color-mix(in oklab, var(--prism-brand, #00c2c2) 32%, transparent);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--prism-brand, #00c2c2) 12%, transparent),
+      color-mix(in oklab, var(--prism-panel, #131926) 88%, transparent) 42px
+    );
+}
+
+.job-outcome__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid color-mix(in oklab, var(--prism-brand, #00c2c2) 18%, transparent);
+}
+
+.job-outcome__kicker {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--prism-brand, #00c2c2);
+}
+
+.job-outcome__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.job-outcome__chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--prism-brand, #00c2c2) 35%, transparent);
+  background: color-mix(in oklab, var(--prism-brand, #00c2c2) 12%, transparent);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--prism-ink, #fff);
+}
+
+.job-outcome__chip--model {
+  border-color: color-mix(in oklab, var(--prism-accent, #38bdf8) 40%, transparent);
+  background: color-mix(in oklab, var(--prism-accent, #38bdf8) 12%, transparent);
+  color: var(--prism-accent, #38bdf8);
+}
+
+.job-outcome__meta {
+  margin: 0;
+  padding: 12px 16px 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+.job-outcome__meta--checks {
+  padding-top: 0;
+  padding-bottom: 12px;
+}
+
+.job-outcome__prose {
+  margin: 0;
+  padding: 14px 16px 16px;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--prism-ink, #fff);
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.job-outcome__prose p {
+  margin: 0 0 10px;
+}
+
+.job-outcome__prose p:last-child {
+  margin-bottom: 0;
+}
+
+.job-outcome__prose strong {
+  font-weight: 650;
+  color: #fff;
+}
+
+.job-outcome__prose code {
+  font-family: var(--prism-font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: color-mix(in oklab, var(--prism-canvas, #0b0f1a) 70%, transparent);
+  color: var(--prism-brand, #00c2c2);
+}
+
+.job-outcome__heading {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.job-outcome__note {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--prism-font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  color: var(--prism-brand, #00c2c2);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.job-outcome__note:hover,
+.job-outcome__note--on {
+  color: #fff;
+}
+
+.job-outcome__more {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 650;
+  color: var(--prism-brand, #00c2c2);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.job-outcome__extras {
+  margin: 8px 0 0;
+  padding-left: 1.1rem;
+}
+
+.job-outcome__findings {
+  margin: 0;
+  padding: 0 16px 16px;
+  border-top: 1px solid color-mix(in oklab, var(--prism-brand, #00c2c2) 14%, transparent);
+}
+
+.job-outcome__findings-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0 8px;
+}
+
+.job-outcome__findings-kicker {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--prism-brand, #00c2c2);
+}
+
+.job-outcome__open {
+  border: 1px solid color-mix(in oklab, var(--prism-brand, #00c2c2) 40%, transparent);
+  background: color-mix(in oklab, var(--prism-brand, #00c2c2) 12%, transparent);
+  color: var(--prism-brand, #00c2c2);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.job-outcome__findings-files {
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.job-outcome__list {
+  margin: 0 0 10px;
+  padding-left: 1.1rem;
+}
+
+.job-outcome__list li {
+  margin: 0 0 4px;
+}
+
+.job-outcome__error {
+  margin: 0;
+  padding: 0 16px 14px;
+  font-size: 13px;
+  color: #f87171;
+}
+
+.job-facts__repo {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+/* Evidence for a live badge, set quieter than the badge it qualifies. */
+.job-card__heartbeat {
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 400;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
+.job-facts__where {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--prism-ink-muted, #94a3b8);
+  overflow-wrap: anywhere;
+}
+
+.job-facts__where code {
+  font-family: var(--prism-font-mono, ui-monospace, monospace);
+}
+
+/* Truncation disclosure. Styled quietly — it is a caveat, not a warning. */
+.job-console__note {
+  margin: 0;
+  padding: 6px 12px;
+  border-top: 1px solid var(--prism-line, #2a334a);
+  font-size: 11px;
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+/* ---- Verification ---- */
+
+.job-verify {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--prism-line, #2a334a);
+  font-size: 13px;
+}
+
+.job-verify--passed {
+  border-color: color-mix(in oklab, #2ecc71 40%, transparent);
+  color: #47d18a;
+}
+
+.job-verify--failed {
+  border-color: color-mix(in oklab, #ff6b6b 45%, transparent);
+  color: #ff9d9d;
+}
+
+.job-verify--skipped {
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+/*
+ * Motion that carries meaning (ADR-0051).
+ *
+ * CSS, not GSAP. The webview bundles as one file with no code splitting, so a
+ * tween engine would be ~70 kB paid on every panel open to do what a
+ * transition does natively — and CSS reads the reduced-motion tokens that
+ * `tokens.css` already zeroes, instead of re-deciding the question in JS.
+ */
+
+/* A row entering the board. Capped so a long list is not still playing in. */
+@keyframes prism-job-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.job-card:not(.job-card--skeleton) {
+  animation: prism-job-enter var(--prism-dur-3, 320ms)
+    var(--prism-ease-out, ease-out) both;
+}
+
+/*
+ * Only the first eight stagger. Past that the delay says nothing the position
+ * on screen has not already said, and row forty would arrive two seconds late.
+ */
+.job-card:nth-child(1) { animation-delay: 0ms; }
+.job-card:nth-child(2) { animation-delay: 30ms; }
+.job-card:nth-child(3) { animation-delay: 60ms; }
+.job-card:nth-child(4) { animation-delay: 90ms; }
+.job-card:nth-child(5) { animation-delay: 120ms; }
+.job-card:nth-child(6) { animation-delay: 150ms; }
+.job-card:nth-child(7) { animation-delay: 180ms; }
+.job-card:nth-child(n + 8) { animation-delay: 210ms; }
+
+/* A status changing is information, so the pill is what moves. */
+.job-card__status {
+  transition:
+    background-color var(--prism-dur-2, 200ms) var(--prism-ease, ease),
+    color var(--prism-dur-2, 200ms) var(--prism-ease, ease),
+    border-color var(--prism-dur-2, 200ms) var(--prism-ease, ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .job-card:not(.job-card--skeleton) {
+    animation: none;
+  }
+}
+
+.md-doc {
+  display: grid;
+  gap: 12px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--prism-ink, #fff);
+}
+
+.md-doc__h {
+  margin: 4px 0 0;
+  font-weight: 650;
+  color: #fff;
+}
+
+.md-doc__h--1 { font-size: 20px; }
+.md-doc__h--2 { font-size: 16px; }
+.md-doc__h--3,
+.md-doc__h--4 { font-size: 14px; }
+
+.md-doc__p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.md-doc__list {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 6px;
+}
+
+.md-doc__table-wrap {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid var(--prism-line, #2a334a);
+}
+
+.md-doc__table {
+  width: 100%;
+  min-width: 480px;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.md-doc__table th,
+.md-doc__table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--prism-line, #2a334a);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.md-doc__table th {
+  font-weight: 650;
+  color: var(--prism-brand, #00c2c2);
+  background: color-mix(in oklab, var(--prism-brand, #00c2c2) 10%, transparent);
+}
+
+.md-doc__table tr:last-child td {
+  border-bottom: 0;
+}
+
+.md-doc__table code,
+.md-doc p code,
+.md-doc li code {
+  font-family: var(--prism-font-mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: color-mix(in oklab, var(--prism-canvas, #0b0f1a) 70%, transparent);
+  color: var(--prism-brand, #00c2c2);
+}
+
+.md-doc__code {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  overflow-x: auto;
+  background: color-mix(in oklab, var(--prism-canvas, #0b0f1a) 70%, transparent);
+  font-size: 12px;
+  line-height: 1.5;
 }

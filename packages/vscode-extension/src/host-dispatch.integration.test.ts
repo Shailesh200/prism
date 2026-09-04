@@ -3,10 +3,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   dispatchHostRequest,
   type HostDispatchState,
-} from "./host-dispatch.js";
-import { parseWebviewToHost } from "./protocol-guards.js";
-import type { HostRequest, HostResponse } from "./protocol.js";
-import { PrismSession } from "./session.js";
+} from "@repo-prism/host-session";
+import { parseWebviewToHost } from "@repo-prism/host-session";
+import type { HostRequest, HostResponse } from "@repo-prism/host-session";
+import { PrismSession } from "@repo-prism/host-session";
 
 /**
  * The extension host surface, driven by protocol messages against a real

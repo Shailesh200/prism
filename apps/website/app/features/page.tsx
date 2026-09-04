@@ -3,8 +3,9 @@ import { baseOptions } from "@/lib/layout.shared";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { PageEnter } from "@/components/motion/PageEnter";
-import { Reveal } from "@/components/motion/Reveal";
+import { StaggerGrid } from "@/components/motion/StaggerGrid";
 import { SectionIntro } from "@/components/motion/SectionIntro";
+import { SiteFooter } from "@/components/site-footer";
 
 export const metadata: Metadata = {
   title: "Features",
@@ -49,6 +50,16 @@ const FEATURES = [
     body: "Run Prism in pipelines with fail-on thresholds.",
   },
   {
+    href: "/docs/guides/dispatch#local-workers",
+    title: "Dispatch a teammate",
+    body: "Hand a change to a background teammate in your editor; Prism runs the checks when it stops.",
+  },
+  {
+    href: "/docs/guides/dispatch#talk-in-chat",
+    title: "Start my day",
+    body: "A standup briefing: yesterday's jobs, what's waiting, suggested focus.",
+  },
+  {
     href: "/docs/reference/capabilities",
     title: "Full capability table",
     body: "Every command and MCP tool in one lookup.",
@@ -65,10 +76,10 @@ export default function FeaturesPage() {
             title="Features"
             description="Task guides first. The capability table is the exhaustive index."
           />
-          <ul className="divide-y divide-fd-border border-y border-fd-border">
-            {FEATURES.map((f, i) => (
-              <Reveal key={f.href} delay={i * 0.04} y={12}>
-                <li>
+          <StaggerGrid items="li">
+            <ul className="divide-y divide-fd-border border-y border-fd-border">
+              {FEATURES.map((f, i) => (
+                <li key={f.href}>
                   <Link
                     href={f.href}
                     className="group flex flex-col gap-2 py-5 transition sm:flex-row sm:items-baseline sm:justify-between sm:gap-8"
@@ -86,11 +97,12 @@ export default function FeaturesPage() {
                     </p>
                   </Link>
                 </li>
-              </Reveal>
-            ))}
-          </ul>
+              ))}
+            </ul>
+          </StaggerGrid>
         </main>
       </PageEnter>
+      <SiteFooter />
     </HomeLayout>
   );
 }

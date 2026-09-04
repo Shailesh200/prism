@@ -6,6 +6,7 @@ import {
   createClaudeAuthPort,
   ensureClaudeWorkerAuth,
   inspectClaudeWorkerAuth,
+  parseClaudeAuthStatus,
 } from "./claude-auth.js";
 
 let home: string | undefined;
@@ -39,13 +40,40 @@ describe("createClaudeAuthPort", () => {
     home = await mkdtemp(join(tmpdir(), "prism-claude-auth-"));
     await mkdir(join(home, ".claude"), { recursive: true });
     await writeFile(join(home, ".claude", ".credentials.json"), "{}");
-    const port = createClaudeAuthPort({ home, probeCli: cliFound, env: {} });
+    const port = createClaudeAuthPort({
+      home,
+      probeCli: cliFound,
+      probeLogin: async () => ({ loggedIn: false }),
+      env: {},
+    });
     expect(await port.status()).toEqual({ kind: "stored" });
+  });
+
+  it("treats claude auth status as signed in when the credentials file is gone", async () => {
+    home = await mkdtemp(join(tmpdir(), "prism-claude-auth-"));
+    const port = createClaudeAuthPort({
+      home,
+      probeCli: cliFound,
+      probeLogin: async () => ({
+        loggedIn: true,
+        email: "dev@prism.test",
+      }),
+      env: {},
+    });
+    expect(await port.status()).toEqual({
+      kind: "stored",
+      email: "dev@prism.test",
+    });
   });
 
   it("reports signin-missing when the CLI exists without credentials", async () => {
     home = await mkdtemp(join(tmpdir(), "prism-claude-auth-"));
-    const port = createClaudeAuthPort({ home, probeCli: cliFound, env: {} });
+    const port = createClaudeAuthPort({
+      home,
+      probeCli: cliFound,
+      probeLogin: async () => ({ loggedIn: false }),
+      env: {},
+    });
     expect(await port.status()).toEqual({
       kind: "missing",
       reason: "signin-missing",
@@ -73,9 +101,28 @@ describe("inspectClaudeWorkerAuth", () => {
   });
 
   it("is ready on a stored sign-in without exposing anything", () => {
-    const row = inspectClaudeWorkerAuth({ kind: "stored" });
+    const row = inspectClaudeWorkerAuth({
+      kind: "stored",
+      email: "dev@prism.test",
+    });
     expect(row.ready).toBe(true);
+    expect(row.email).toBe("dev@prism.test");
     expect(row.apiKey).toBeUndefined();
+    expect(row.message).not.toMatch(/API key|token|keychain/i);
+  });
+});
+
+describe("parseClaudeAuthStatus", () => {
+  it("reads loggedIn from claude auth status JSON", () => {
+    expect(
+      parseClaudeAuthStatus(
+        '{\n  "loggedIn": true,\n  "authMethod": "claude.ai",\n  "email": "dev@prism.test"\n}\n',
+      ),
+    ).toEqual({ loggedIn: true, email: "dev@prism.test" });
+    expect(parseClaudeAuthStatus('{"loggedIn": false}')).toEqual({
+      loggedIn: false,
+    });
+    expect(parseClaudeAuthStatus("not json")).toEqual({ loggedIn: false });
   });
 });
 

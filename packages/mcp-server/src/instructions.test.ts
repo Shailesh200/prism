@@ -18,11 +18,24 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).not.toMatch(/prism_blast_radius/);
   });
 
-  it("maps connect language onto integrations and Authenticate", () => {
-    expect(SERVER_INSTRUCTIONS).toContain("integrations");
-    expect(SERVER_INSTRUCTIONS).toMatch(/Authenticate/i);
-    expect(SERVER_INSTRUCTIONS).toMatch(/google-calendar/);
+  // ADR-0049: connecting is something the user does in their editor. The
+  // instructions must not send an agent looking for a Prism connect flow that
+  // no longer exists.
+  it("sends connect language to the host, not to a Prism OAuth flow", () => {
+    expect(SERVER_INSTRUCTIONS).toMatch(/host_connectors/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/Prism does not run its own OAuth/i);
     expect(SERVER_INSTRUCTIONS).toMatch(/Do not search the repository/);
+  });
+
+  it("tells the host to fill the standup from its own connectors", () => {
+    expect(SERVER_INSTRUCTIONS).toMatch(/fill contract/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(/Prism holds no credentials/i);
+  });
+
+  it("no longer advertises the deleted connector stack", () => {
+    expect(SERVER_INSTRUCTIONS).not.toMatch(/auth\.prismhq\.in/);
+    expect(SERVER_INSTRUCTIONS).not.toMatch(/Prism Auth/);
+    expect(SERVER_INSTRUCTIONS).not.toMatch(/OS keychain/);
   });
 
   it("maps prism init onto init and forbids mcp.json API keys", () => {
@@ -51,9 +64,12 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/blast_radius/);
   });
 
-  it("does not attach Prism MCP to Dispatch job workers", () => {
-    expect(SERVER_INSTRUCTIONS).toMatch(/do not get Prism MCP/i);
-    expect(SERVER_INSTRUCTIONS).toMatch(/no bun install/i);
+  it("gives job workers read-only intelligence off the shared index", () => {
+    // ADR-0050 amended ADR-0041: the rule was one Core per machine, not a
+    // blind worker. What must stay true is that no second index appears.
+    expect(SERVER_INSTRUCTIONS).toMatch(/workers get read-only Prism/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(/rather than a second one/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(/cannot start jobs/i);
   });
 
   it("tells agents to pass the open git folder as workspace", () => {
@@ -90,13 +106,11 @@ describe("server instructions (agent auto-use)", () => {
   it("recognises code changes by intent, not the phrase start working on", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/recognise a code change/i);
     expect(SERVER_INSTRUCTIONS).toMatch(
-      /does NOT require the words “start working on”/,
+      /does NOT require the phrase “start working on”/,
     );
     expect(SERVER_INSTRUCTIONS).toMatch(/ticket id, or a PRD/);
     expect(SERVER_INSTRUCTIONS).toMatch(/do not also do the work inline/i);
     expect(SERVER_INSTRUCTIONS).toMatch(/write the PRD yourself/i);
-    // Recognising the work must not itself decide where it runs.
-    expect(SERVER_INSTRUCTIONS).toMatch(/settled by the ask rule below/i);
   });
 
   it("asks teammate-or-inline instead of guessing", () => {
@@ -112,41 +126,41 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/never ask twice/i);
   });
 
-  it("still recognises change intent without a magic phrase", () => {
-    expect(SERVER_INSTRUCTIONS).toMatch(/recognise a code change/i);
-    expect(SERVER_INSTRUCTIONS).toMatch(
-      /does NOT require the words “start working on”/,
-    );
-  });
-
   it("honours an explicit request for a job even for read-only work", () => {
     // Regression: "start working on reviewing the local changes" was answered
     // inline because the rules listed reviews as inline, with no way for the
     // user to override. An explicit ask must win.
-    expect(SERVER_INSTRUCTIONS).toMatch(
-      /an explicit request beats every rule below/i,
-    );
-    expect(SERVER_INSTRUCTIONS).toMatch(/even when the task is read-only/i);
-    expect(SERVER_INSTRUCTIONS).toMatch(
-      /start working on reviewing the local changes/,
-    );
     expect(SERVER_INSTRUCTIONS).toMatch(/Precedence, in order/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/even for read-only work/i);
+    // The observed failure: an agent asked to dispatch did the work in chat
+    // and explained why it had not dispatched.
+    expect(SERVER_INSTRUCTIONS).toMatch(
+      /Do not answer such a request by doing the work in chat/i,
+    );
   });
 
   it("reviews through Prism intelligence, not a raw diff read", () => {
     // Observed: an agent asked to review ran `git diff`, read 1129 lines with a
     // generic code-review skill, and never called Prism at all.
     expect(SERVER_INSTRUCTIONS).toMatch(/Never review from a raw git diff/i);
-    expect(SERVER_INSTRUCTIONS).toMatch(/review_changes already carries/i);
-    expect(SERVER_INSTRUCTIONS).toMatch(/repository_dna or stack_profile/);
-    expect(SERVER_INSTRUCTIONS).toMatch(/which findings came from Prism/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(/review_changes/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/blast radius/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(/never invent dependents/i);
+    // The craft of reviewing well moved to the skill (ADR-0050); routing to
+    // the tool did not, because a client without the pack still needs it.
+    expect(SERVER_INSTRUCTIONS).toMatch(/prism-review-pr skill/);
   });
 
   it("keeps an inline escape hatch that beats the dispatch signal", () => {
-    expect(SERVER_INSTRUCTIONS).toMatch(/Do NOT dispatch/);
     expect(SERVER_INSTRUCTIONS).toMatch(/do it now/i);
-    expect(SERVER_INSTRUCTIONS).toMatch(/don't dispatch/i);
-    expect(SERVER_INSTRUCTIONS).toMatch(/when the user says to do it here/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(/no job/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(/→ inline/);
+    // It has to outrank the change-detection rule, or "just fix this typo"
+    // spawns a teammate.
+    const explicitInline = SERVER_INSTRUCTIONS.indexOf("→ inline");
+    const otherwise = SERVER_INSTRUCTIONS.indexOf("Otherwise it changes code");
+    expect(explicitInline).toBeGreaterThan(-1);
+    expect(explicitInline).toBeLessThan(otherwise);
   });
 
   it("routes repo-wide audit to repository_health, not start_job", () => {
@@ -156,13 +170,17 @@ describe("server instructions (agent auto-use)", () => {
     );
   });
 
-  it("points where-are-we at the jobs dashboard when the message includes a URL", () => {
-    expect(SERVER_INSTRUCTIONS).toMatch(/jobs dashboard URL/);
+  it("requires the Console watch URL whenever a job is queued", () => {
+    expect(SERVER_INSTRUCTIONS).toMatch(/Watch live at/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/token query/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/waitFor/);
   });
 
-  it("treats the Google unverified-app screen as expected", () => {
-    expect(SERVER_INSTRUCTIONS).toMatch(/Google hasn’t verified this app/);
-    expect(SERVER_INSTRUCTIONS).toMatch(/click Advanced/i);
+  // The Google consent-screen guidance went with Prism's own OAuth apps
+  // (ADR-0049). Whatever the vendor shows is now the host's flow to explain.
+  it("no longer coaches the user through a Prism-owned consent screen", () => {
+    expect(SERVER_INSTRUCTIONS).not.toMatch(/Google hasn’t verified this app/);
+    expect(SERVER_INSTRUCTIONS).not.toMatch(/click Advanced/i);
   });
 });
 

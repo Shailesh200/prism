@@ -43,9 +43,37 @@ describe("job snapshot", () => {
     expect(snap.nextStep).toBe("review the changes");
   });
 
-  it("never leaks the worktree path (ADR-0039)", () => {
+  // ADR-0039 bans worktree paths from *spoken* copy. ADR-0048 amends that for
+  // the board: a job detail is exactly where someone needs the path, because
+  // they are trying to go open the branch. So it travels in its own field —
+  // and nowhere a voice surface reads from.
+  it("carries the worktree path for the board to show on the detail", () => {
+    expect(toSnapshot(job, "/repo").worktreePath).toBe("/tmp/tree");
+  });
+
+  it("keeps the path out of every field chat and the statusline read", () => {
     const snap = toSnapshot(job, "/repo");
-    expect(JSON.stringify(snap)).not.toContain("/tmp/tree");
+    const { worktreePath: _detailOnly, ...spoken } = snap;
+    expect(JSON.stringify(spoken)).not.toContain("/tmp/tree");
+  });
+
+  it("carries the worker backend for the board", () => {
+    const snap = toSnapshot(
+      {
+        ...job,
+        workerBackend: "claude",
+        workerModel: "claude-sonnet-4-5",
+        workerThinking: "adaptive",
+        notes: [".prism/dispatch/notes/a.md"],
+        citedMissing: ["lib/gsap.ts"],
+      },
+      "/repo",
+    );
+    expect(snap.workerBackend).toBe("claude");
+    expect(snap.workerModel).toBe("claude-sonnet-4-5");
+    expect(snap.workerThinking).toBe("adaptive");
+    expect(snap.notes).toEqual([".prism/dispatch/notes/a.md"]);
+    expect(snap.citedMissing).toEqual(["lib/gsap.ts"]);
   });
 
   it("omits review for a job that has none", () => {

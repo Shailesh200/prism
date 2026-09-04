@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { PRISM_TOOL_COUNT } from "@/lib/mcp-install";
 
 const SLIDES = [
   {
@@ -9,24 +10,24 @@ const SLIDES = [
     label: "IDE Extension",
     command: "code --install-extension prismhq.repo-prism",
     hint: "Or search Prism in VS Code / Cursor Extensions",
-    href: "/docs/ide/install",
+    href: "/docs/start/install",
   },
   {
     id: "cli",
     label: "CLI",
     command: "npx -y @repo-prism/cli doctor",
     hint: "Run inside your project — uses the git root",
-    href: "/docs/cli/install",
+    href: "/docs/start/install",
   },
   {
     id: "mcp",
     label: "MCP",
     command:
       "claude mcp add prism -- npx -y --prefer-online @repo-prism/mcp-server@latest",
-    hint: "Cursor: Add to Cursor on prismhq.in/benchmarks · ~40 tools",
-    href: "/docs/mcp/install",
+    hint: `Cursor: use Add to Cursor below · ${PRISM_TOOL_COUNT} tools`,
+    href: "/docs/start/install",
   },
-] as const;
+];
 
 const INTERVAL_MS = 3000;
 

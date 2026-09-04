@@ -2,55 +2,6 @@ import { z } from "zod";
 
 export const DISPATCH_DIR = ".prism/dispatch";
 
-export const DriverIdSchema = z.enum([
-  "github",
-  "linear",
-  "jira",
-  "slack",
-  "notion",
-  "google-calendar",
-]);
-export type DriverId = z.infer<typeof DriverIdSchema>;
-
-/** Chat phrasing ("google calendar") maps onto the canonical driver id. */
-const DRIVER_ALIASES: Record<string, DriverId> = {
-  github: "github",
-  gh: "github",
-  linear: "linear",
-  jira: "jira",
-  slack: "slack",
-  notion: "notion",
-  "google-calendar": "google-calendar",
-  "google calendar": "google-calendar",
-  googlecalendar: "google-calendar",
-  gcal: "google-calendar",
-  calendar: "google-calendar",
-  google: "google-calendar",
-};
-
-export function parseDriverId(value: unknown): DriverId | undefined {
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim().toLowerCase();
-  if (!trimmed) return undefined;
-  const spaced = trimmed.replaceAll("_", " ").replace(/\s+/g, " ");
-  const dashed = spaced.replaceAll(" ", "-");
-  const compact = spaced.replaceAll(" ", "");
-  const aliased =
-    DRIVER_ALIASES[spaced] ?? DRIVER_ALIASES[dashed] ?? DRIVER_ALIASES[compact];
-  if (aliased) return aliased;
-  const parsed = DriverIdSchema.safeParse(dashed);
-  return parsed.success ? parsed.data : undefined;
-}
-
-export const DRIVER_CONSENT: Record<DriverId, string> = {
-  github: "network.github-user",
-  linear: "network.linear",
-  jira: "network.jira",
-  slack: "network.slack",
-  notion: "network.notion",
-  "google-calendar": "network.google-calendar",
-};
-
 export const BriefingSectionIdSchema = z.enum([
   "jobs",
   "git",
@@ -107,6 +58,12 @@ export const DispatchConfigSchema = z.object({
     .default([...DEFAULT_SECTION_ORDER]),
   sectionsOff: z.array(BriefingSectionIdSchema).default([]),
   standupTemplate: z.string().default(""),
+  /**
+   * Standing instructions for every Dispatch job (how the teammate should
+   * work). Injected into the worker prompt. Ad-hoc facts still belong in
+   * `remember`.
+   */
+  jobInstructions: z.string().default(""),
   hints: z.boolean().default(true),
   maxJobs: z.number().int().min(1).max(20).default(4),
   /**
@@ -152,7 +109,8 @@ export const DispatchConfigSchema = z.object({
   /**
    * Standing free-form wishes (M-066 P-P9): "standup: terse", "greet me by
    * name". Surfaced in the standup so the presenting agent applies them.
-   * Job-behavior rules belong in `remember`, not here.
+   * The Console Settings tab edits these together with `standupTemplate`.
+   * Job-behavior rules belong in `jobInstructions` or `remember`.
    */
   preferences: z.array(z.string()).default([]),
 });
@@ -172,6 +130,18 @@ export const MemoryItemSchema = z.object({
 export type MemoryItem = z.infer<typeof MemoryItemSchema>;
 
 export const JobStatusSchema = z.enum([
+  /**
+   * Accepted and durable, waiting for the drain loop to pick it up (ADR-0047).
+   * `start_job` returns here — auth, git and worker spawn all happen after.
+   * A job also returns to `queued` when it was blocked and the block clears.
+   */
+  "queued",
+  /**
+   * A gate needs a human answer before this job can run (ADR-0047): a dirty
+   * checkout, or an overlap with another job's paths. Before M-067 these
+   * returned a message and created no job at all, so the work vanished.
+   */
+  "needs_confirm",
   "ready",
   "booting",
   "running",
@@ -220,6 +190,8 @@ export const JobReviewSchema = z.object({
    * user's change and the job's change are genuinely mixed there.
    */
   mixedPaths: z.array(z.string()).default([]),
+  /** Files the user kept from this review (checkout Keep). */
+  keptPaths: z.array(z.string()).optional(),
 });
 export type JobReview = z.infer<typeof JobReviewSchema>;
 
@@ -231,6 +203,24 @@ export const WorktreeSourceSchema = z.enum([
   "checkout",
 ]);
 export type WorktreeSource = z.infer<typeof WorktreeSourceSchema>;
+
+/**
+ * A gate waiting on a human (ADR-0047). Carried on the job record so the
+ * question survives the chat turn that asked it — the board can show it, and
+ * any surface can answer it.
+ */
+export const JobConfirmSchema = z.object({
+  kind: z.enum(["dirty-checkout", "path-overlap"]),
+  /** The argument `start_job` must be re-called with to clear this gate. */
+  arg: z.enum(["confirmDirty", "confirmOverlap"]),
+  question: z.string().default(""),
+  /** Dirty paths, for `dirty-checkout`. */
+  dirtyPaths: z.array(z.string()).default([]),
+  /** The job already holding the overlapping paths, for `path-overlap`. */
+  overlapJobId: z.string().optional(),
+  overlapTitle: z.string().optional(),
+});
+export type JobConfirm = z.infer<typeof JobConfirmSchema>;
 
 export const JobRecordSchema = z.object({
   id: z.string(),
@@ -246,6 +236,10 @@ export const JobRecordSchema = z.object({
   workerBackend: WorkerBackendSchema.optional(),
   /** Claude session_id, captured from stream-json init; the resume handle. */
   workerSessionId: z.string().optional(),
+  /** Model id the worker reported (e.g. claude-sonnet-4-5). */
+  workerModel: z.string().optional(),
+  /** Thinking / effort the worker reported. */
+  workerThinking: z.string().optional(),
   /**
    * Where this job works (ADR-0045). Absent on pre-M-066 records = worktree
    * (every job was isolated then).
@@ -259,8 +253,21 @@ export const JobRecordSchema = z.object({
   workerPid: z.number().int().optional(),
   runId: z.string().optional(),
   lastActivity: z.string().optional(),
+  /**
+   * When the worker last wrote to its run sidecar (M-067 P-S2).
+   *
+   * `status: "running"` is a claim about right now, and a stored status cannot
+   * make that claim on its own. This is the evidence behind it: the UI can say
+   * "running, last output 8s ago" instead of asking the reader to trust a
+   * string that was written some unknown time ago.
+   */
+  lastHeartbeat: z.string().optional(),
   resultSummary: z.string().optional(),
   errorMessage: z.string().optional(),
+  /** Write-ups under `.prism/dispatch/notes/`, when the job left any. */
+  notes: z.array(z.string()).optional(),
+  /** Cited paths the agent claimed but did not write. */
+  citedMissing: z.array(z.string()).optional(),
   pendingContext: z.string().optional(),
   /** Supervisor-run checks and the job commit (ADR-0042 §1, §3). */
   review: JobReviewSchema.optional(),
@@ -271,29 +278,66 @@ export const JobRecordSchema = z.object({
   lastStep: z.string().default(""),
   nextStep: z.string().default(""),
   waitingOn: z.string().default(""),
+  /**
+   * The gate currently waiting on a human, when `status` is `needs_confirm`.
+   * The board renders a Confirm action from this. Cleared once answered.
+   */
+  confirm: JobConfirmSchema.optional(),
+  /**
+   * Gates the user has already granted, by argument name. Kept separate from
+   * `confirm` so "the question" and "the answer" cannot be confused: a job can
+   * hold a granted `confirmDirty` while a fresh `confirmOverlap` question is
+   * still pending.
+   */
+  confirmed: z.array(z.string()).optional(),
+  /**
+   * The four timestamps (ADR-0047). Before M-067 there was only `createdAt`,
+   * stamped at enqueue, and every surface measured elapsed time from it —
+   * which counted a 180-second login as work the agent was doing.
+   *
+   * `createdAt` accepted · `queuedAt` entered the queue · `startedAt` worker
+   * launched · `finishedAt` reached a terminal state. Elapsed derives from
+   * `startedAt` and freezes at `finishedAt`; see `@repo-prism/shared`
+   * `jobDurations`. All three new fields are optional so pre-M-067 records on
+   * disk still parse.
+   */
   createdAt: z.string(),
+  queuedAt: z.string().optional(),
+  startedAt: z.string().optional(),
+  finishedAt: z.string().optional(),
   updatedAt: z.string(),
 });
 export type JobRecord = z.infer<typeof JobRecordSchema>;
 
-export const DriverItemSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  url: z.string().optional(),
-  detail: z.string().default(""),
-});
-export type DriverItem = z.infer<typeof DriverItemSchema>;
+/** Statuses a job cannot leave without a human or a worker acting. */
+export const TERMINAL_JOB_STATUSES = [
+  "done",
+  "cancelled",
+  "error",
+  "needs_review",
+] as const satisfies readonly JobStatus[];
 
-export const DriverSnapshotSchema = z.object({
-  id: DriverIdSchema,
-  connected: z.boolean(),
-  available: z.boolean(),
-  error: z.string().optional(),
-  items: z.array(DriverItemSchema).default([]),
-  recentlyDone: z.array(DriverItemSchema).optional(),
-  viewerName: z.string().optional(),
-});
-export type DriverSnapshot = z.infer<typeof DriverSnapshotSchema>;
+export function isTerminalJobStatus(status: JobStatus): boolean {
+  return (TERMINAL_JOB_STATUSES as readonly JobStatus[]).includes(status);
+}
+
+/**
+ * Statuses where no worker is burning time, so the duration clock must stop.
+ *
+ * Wider than terminal on purpose: a `paused` job has a live record but no
+ * running process, and letting its "worked" time climb overnight would be the
+ * same class of lie M-067 set out to remove. `finishedAt` is stamped on entry
+ * to any of these and cleared when the job starts moving again, so it reads as
+ * "when the clock stopped" rather than strictly "when it ended".
+ */
+export const CLOCK_STOPPED_JOB_STATUSES = [
+  ...TERMINAL_JOB_STATUSES,
+  "paused",
+] as const satisfies readonly JobStatus[];
+
+export function isClockStoppedStatus(status: JobStatus): boolean {
+  return (CLOCK_STOPPED_JOB_STATUSES as readonly JobStatus[]).includes(status);
+}
 
 export const GitSnapshotSchema = z.object({
   branch: z.string(),
@@ -308,15 +352,47 @@ export const GitSnapshotSchema = z.object({
 });
 export type GitSnapshot = z.infer<typeof GitSnapshotSchema>;
 
+/**
+ * A connector the host agent has, as discovery found it (ADR-0049).
+ *
+ * Names and capabilities only. There is no token field and there will not be
+ * one: the host makes the call, so a credential never reaches Prism.
+ */
+export const HostConnectorSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  description: z.string().optional(),
+  hosts: z.array(z.enum(["cursor", "claude"])),
+  skills: z.array(z.string()),
+  transport: z.string().optional(),
+  source: z.string(),
+});
+
+export const FillRequestSchema = z.object({
+  section: z.enum(["tickets", "reviews", "messages", "calendar", "docs"]),
+  heading: z.string(),
+  ask: z.string(),
+  connectors: z.array(z.string()),
+});
+
+export const FillContractSchema = z.object({
+  requests: z.array(FillRequestSchema),
+  unfillable: z.array(
+    z.enum(["tickets", "reviews", "messages", "calendar", "docs"]),
+  ),
+});
+
 export const DayBriefingSchema = z.object({
   message: z.string(),
   generatedAt: z.string(),
   git: GitSnapshotSchema,
   jobs: z.array(JobRecordSchema),
-  drivers: z.array(DriverSnapshotSchema),
   memories: z.array(MemoryItemSchema),
   suggestedFocus: z.string(),
-  connectCtas: z.array(z.string()),
+  /** What the host has connected, so a surface can show it. */
+  connectors: z.array(HostConnectorSchema),
+  /** The sections the host agent should fill, and with what. */
+  fill: FillContractSchema,
   configureHint: z.string().optional(),
 });
 export type DayBriefing = z.infer<typeof DayBriefingSchema>;

@@ -47,3 +47,16 @@ export function isSectionOn(
 ): boolean {
   return !config.sectionsOff.includes(id);
 }
+
+/**
+ * One standup note for the presenting agent: the template, plus any
+ * standing preferences that are not already in it.
+ */
+export function standupNotesText(config: DispatchConfig): string {
+  const template = config.standupTemplate;
+  const extras = config.preferences.filter(
+    (line) => line.length > 0 && !template.includes(line),
+  );
+  if (extras.length === 0) return template;
+  return template ? `${template}\n${extras.join("\n")}` : extras.join("\n");
+}

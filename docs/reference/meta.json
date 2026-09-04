@@ -4,10 +4,9 @@
     "capabilities",
     "cli-commands",
     "mcp-tools",
+    "mcp-prompts",
+    "ide-settings",
     "configuration",
-    "troubleshooting",
-    "known-limitations",
-    "faq",
     "glossary"
   ]
 }

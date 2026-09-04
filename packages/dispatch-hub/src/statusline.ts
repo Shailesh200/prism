@@ -11,11 +11,11 @@
  */
 
 import {
-  formatStallDuration,
   isLiveJobStatus,
   reapJobs,
   type JobRecord,
 } from "@repo-prism/dispatch";
+import { formatDuration, primaryDurationMs } from "@repo-prism/shared";
 import { loadRegistry } from "./registry.js";
 import type { HubEnv } from "./paths.js";
 
@@ -43,10 +43,17 @@ function isFailed(job: JobRecord): boolean {
   return job.status === "error";
 }
 
+/**
+ * The same duration the board shows for the same job (M-067 P-S1).
+ *
+ * This used to measure from `updatedAt` while the board measured from
+ * `createdAt`, so a single job displayed two different times depending on
+ * where you looked. Both now go through `primaryDurationMs`, and both show
+ * seconds — the old `formatStallDuration` floored to whole minutes, so a
+ * 40-second job read as `0m`.
+ */
 function elapsed(job: JobRecord, now: number): string {
-  const started = Date.parse(job.updatedAt || job.createdAt);
-  if (!Number.isFinite(started)) return "";
-  return formatStallDuration(Math.max(0, now - started));
+  return formatDuration(primaryDurationMs(job, now)) ?? "";
 }
 
 /** One line, ≤ ~120 chars, ADR-0039 voice: titles, never paths. */
@@ -75,6 +82,13 @@ export function formatStatusline(
         .join(" · "),
     );
     if (live.length > 1) parts.push(`+${live.length - 1} running`);
+  }
+  // A gated job will never move on its own, so it outranks a review in the
+  // footer: the user is the only thing that can unblock it.
+  for (const gated of current
+    .filter((row) => row.status === "needs_confirm")
+    .slice(0, 2)) {
+    parts.push(`? ${gated.title || gated.id} needs your OK`);
   }
   for (const job of review.slice(0, 2)) {
     parts.push(`✓ ${job.title || job.id} ready for review`);
@@ -115,6 +129,11 @@ export async function buildStatusline(
     }
   }
   return formatStatusline(current, others);
+}
+
+/** Jobs parked on a gate need naming, or the user waits for something that will never move. */
+export function confirmCount(jobs: readonly JobRecord[]): number {
+  return jobs.filter((job) => job.status === "needs_confirm").length;
 }
 
 /** The settings.json block Claude Code needs, for `statusline --setup`. */

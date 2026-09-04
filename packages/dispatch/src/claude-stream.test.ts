@@ -1,15 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
   claudeActivityFrom,
+  claudeLogEntriesFrom,
   claudeLogEntryFrom,
   claudeResultFrom,
   claudeSessionIdFrom,
+  claudeModelFrom,
+  claudeThinkingFrom,
 } from "./claude-stream.js";
 
 const init = {
   type: "system",
   subtype: "init",
   session_id: "sess-1",
+  model: "claude-sonnet-4-20250514",
   tools: ["Read", "Edit"],
   cwd: "/tmp/worktree",
 };
@@ -83,6 +87,51 @@ describe("claudeSessionIdFrom", () => {
   });
 });
 
+describe("claudeModelFrom", () => {
+  it("reads the model from init, and from an assistant message", () => {
+    expect(claudeModelFrom(init)).toBe("claude-sonnet-4-20250514");
+    expect(
+      claudeModelFrom({
+        type: "assistant",
+        message: { model: "claude-haiku-4-5-20251001", content: [] },
+      }),
+    ).toBe("claude-haiku-4-5-20251001");
+    expect(claudeModelFrom(assistantText)).toBeUndefined();
+    expect(claudeModelFrom(null)).toBeUndefined();
+  });
+
+  it("reads the model from result.modelUsage when init omitted it", () => {
+    expect(
+      claudeModelFrom({
+        type: "result",
+        modelUsage: { "claude-sonnet-4-5-20250929": { inputTokens: 1 } },
+      }),
+    ).toBe("claude-sonnet-4-5-20250929");
+  });
+});
+
+describe("claudeThinkingFrom", () => {
+  it("reads a budget, effort, or a thinking content block", () => {
+    expect(
+      claudeThinkingFrom({
+        type: "system",
+        subtype: "init",
+        thinking: { type: "enabled", budget_tokens: 10_000 },
+      }),
+    ).toBe("10000");
+    expect(claudeThinkingFrom({ type: "system", effort: "high" })).toBe("high");
+    expect(
+      claudeThinkingFrom({
+        type: "assistant",
+        message: {
+          content: [{ type: "thinking", thinking: "Let me look around." }],
+        },
+      }),
+    ).toBe("thinking");
+    expect(claudeThinkingFrom(assistantText)).toBeUndefined();
+  });
+});
+
 describe("claudeResultFrom", () => {
   it("reads the terminal result event", () => {
     expect(claudeResultFrom(resultOk)).toEqual({
@@ -113,6 +162,45 @@ describe("claudeLogEntryFrom", () => {
       phase: "thinking",
       text: "I will update the login form.",
     });
+  });
+
+  it("keeps thinking and tool calls as separate console lines", () => {
+    const mixed = {
+      type: "assistant",
+      message: {
+        content: [
+          { type: "text", text: "I will only print the repo name." },
+          {
+            type: "tool_use",
+            name: "mcp__prism__repository_dna",
+            input: { query: "name" },
+          },
+        ],
+      },
+    };
+    const entries = claudeLogEntriesFrom(mixed);
+    expect(entries.map((entry) => entry.phase)).toEqual(["thinking", "tool"]);
+    expect(entries[0]?.text).toContain("print the repo name");
+    expect(entries[1]?.text).toContain("repository_dna");
+  });
+
+  it("unwraps stream_event envelopes", () => {
+    const wrapped = { type: "stream_event", event: assistantText };
+    expect(claudeLogEntryFrom(wrapped)?.text).toContain("login form");
+  });
+
+  it("does not log streaming thinking fragments", () => {
+    const delta = {
+      type: "content_block_delta",
+      delta: { type: "thinking_delta", thinking: "Prism" },
+    };
+    expect(claudeLogEntriesFrom(delta)).toEqual([]);
+  });
+
+  it("logs the terminal result as the teammate's analysis", () => {
+    expect(claudeLogEntryFrom(resultOk)?.text).toContain(
+      "Updated src/login.ts",
+    );
   });
 
   it("logs edit tool_use as editing with the target file", () => {

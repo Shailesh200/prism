@@ -19,7 +19,7 @@ import type {
   DashboardPayload,
   MapPayload,
   WebviewToHost,
-} from "../protocol.js";
+} from "@repo-prism/host-session";
 
 export { HostRequestError };
 export type {

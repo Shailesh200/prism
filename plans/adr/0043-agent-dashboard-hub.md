@@ -63,7 +63,7 @@ iframe would disappear when Cursor collapses the “Worked for Ns” group.
 
 | Port | Owner |
 |---|---|
-| 17321 | Extension Core browser bridge |
+| ~~17321~~ | ~~Extension Core browser bridge~~ — retired by ADR-0048 |
 | 8765 | Dispatch OAuth loopback |
 | 4173 | Lab / Lighthouse |
 | **17330** | **Hub dashboard** |

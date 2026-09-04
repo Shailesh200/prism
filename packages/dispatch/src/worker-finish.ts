@@ -17,7 +17,12 @@ import {
   gitCheckoutReview,
   gitReviewSummary,
 } from "./git.js";
-import { auditCitedPaths, fabricationNote } from "./job-artifacts.js";
+import {
+  auditCitedPaths,
+  fabricationNote,
+  notePathsOf,
+  type PathAudit,
+} from "./job-artifacts.js";
 import { verifyJobWork } from "./job-verify.js";
 import { publicRunFailure } from "./job-voice.js";
 import { composeJobResult, type RunState } from "./run-state.js";
@@ -45,6 +50,17 @@ export type WorkerFinishDeps = {
   ) => Promise<unknown>;
   readonly logLine: (phase: RunState["phase"], text: string) => Promise<void>;
 };
+
+function auditSidecar(audit: PathAudit): {
+  readonly notes?: string[];
+  readonly citedMissing?: string[];
+} {
+  const notes = notePathsOf(audit);
+  return {
+    ...(notes.length > 0 ? { notes } : {}),
+    ...(audit.missing.length > 0 ? { citedMissing: audit.missing } : {}),
+  };
+}
 
 /** The agent reported failure: capture what the tree holds, then say so. */
 export async function failWorkerRun(
@@ -157,6 +173,7 @@ async function completeWorktreeRun(
       }),
       lastActivity: "Done",
       completedAt: new Date().toISOString(),
+      ...auditSidecar(audit),
     },
     { immediate: true },
   );
@@ -224,6 +241,7 @@ async function completeCheckoutRun(
       }),
       lastActivity: "Done",
       completedAt: new Date().toISOString(),
+      ...auditSidecar(audit),
     },
     { immediate: true },
   );

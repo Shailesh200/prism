@@ -20,6 +20,42 @@ export type PathAudit = {
 };
 
 const PATH_TOKEN = /`([^`\n]{2,200})`/g;
+const NOTE_PREFIX = ".prism/dispatch/notes/";
+
+export function isDispatchNotePath(value: string): boolean {
+  const n = value.replace(/\\/g, "/").replace(/^\.\//, "");
+  if (!n.startsWith(NOTE_PREFIX) || !n.endsWith(".md")) return false;
+  if (n.includes("..") || n.includes("//")) return false;
+  return n.slice(NOTE_PREFIX.length).length > 0;
+}
+
+function normaliseNotePath(value: string): string {
+  return value.replace(/\\/g, "/").replace(/^\.\//, "");
+}
+
+/** Write-up paths the job actually left on disk (delivered or uncommitted). */
+export function notePathsOf(audit: PathAudit): string[] {
+  return [
+    ...new Set(
+      [...audit.delivered, ...audit.uncommitted].filter(isDispatchNotePath),
+    ),
+  ];
+}
+
+/** Note paths claimed in prose, including those the model never wrote. */
+export function notePathsFromText(text: string): string[] {
+  const found = new Set<string>();
+  for (const match of text.matchAll(PATH_TOKEN)) {
+    const raw = match[1]?.trim();
+    if (raw && isDispatchNotePath(raw)) found.add(normaliseNotePath(raw));
+  }
+  for (const match of text.matchAll(
+    /\.prism\/dispatch\/notes\/[\w./-]+\.md/g,
+  )) {
+    if (isDispatchNotePath(match[0])) found.add(normaliseNotePath(match[0]));
+  }
+  return [...found];
+}
 
 function looksLikePath(token: string): boolean {
   const value = token.trim();

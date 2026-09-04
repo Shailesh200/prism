@@ -24,16 +24,10 @@ Each is off until you turn it on, individually. There is no master switch.
 | Purpose | What happens | Where it goes |
 |---|---|---|
 | `network.github` | Fetches workflow runs and PR metadata | `api.github.com` |
-| `network.github-user` | Dispatch: your GitHub PRs, reviews, notifications | `api.github.com` |
 | `network.pagespeed` | Sends a URL you choose, reads Core Web Vitals | `www.googleapis.com` |
 | `network.package-install` | Installs the Lighthouse CLI before measuring | your npm registry |
 | `network.git-remote` | Runs `git fetch --prune` for branch counts | your git remote |
 | `network.gravatar` | Fetches contributor avatars (email hashes) | `gravatar.com` |
-| `network.linear` | Dispatch: issues assigned to you | `api.linear.app` |
-| `network.jira` | Dispatch: unresolved issues assigned to you | `api.atlassian.com` |
-| `network.slack` | Dispatch: mentions + tracked channels (no post) | `slack.com` |
-| `network.notion` | Dispatch: recent pages you shared with the app | `api.notion.com` |
-| `network.google-calendar` | Dispatch: today's events, read-only | `www.googleapis.com` |
 | `run.local-build` | Runs your repository's own build for bundle weight | your shell |
 
 Decisions live in `.prism/consent.json`. Callers cannot assert consent.
@@ -43,21 +37,28 @@ Decisions live in `.prism/consent.json`. Callers cannot assert consent.
 ## Agents and consent
 
 Intelligence MCP tools stay read-only: Core network APIs are absent, not
-guarded. Dispatch drivers turn on when **you** say “connect …” and finish OAuth
-in the browser — that grant is yours, not the model's. See
-[Dispatch](/docs/mcp/dispatch).
+guarded. Every purpose above is a Core analysis feature you turn on yourself.
+
+## Connectors are your editor's, not Prism's
+
+Prism used to run its own OAuth for Slack, Linear, Jira, Notion, GitHub and
+Google Calendar. It no longer does, and the hosted broker at `auth.prismhq.in`
+is retired (ADR-0049).
+
+Dispatch now makes **no network calls at all**. When a standup or a workflow
+needs one of those services, Prism names the section and your agent window —
+Cursor or Claude Code — calls its own connector, with the grant you already
+gave it there. Prism never holds a third-party token, because the call never
+happens inside Prism.
+
+Prism does read your editor's plugin and MCP manifests to know *which*
+connectors exist. That is names and capabilities only: no tokens, no secrets,
+and no network access.
 
 ## What is stored
 
-**Dispatch drivers.** Saying “connect Google Calendar” (or Slack, GitHub, …)
-opens Prism Auth (`https://auth.prismhq.in`) — Cursor via Authenticate, Claude
-by opening the page. That broker holds Prism's vendor
-OAuth apps, exchanges the code, and returns a short-lived pickup to your local
-MCP. Access tokens stay in the OS keychain. The broker does not see your
-repository or index. Completing the vendor grant is the human consent.
-
-Index, consent, and health history under `.prism/`. Dispatch user tokens live in
-the OS keychain (gitignored fallback only if keychain is missing).
+Index, consent, and health history under `.prism/`. Dispatch job state under
+`.prism/dispatch/`, gitignored. No third-party credentials anywhere.
 
 ## Related
 

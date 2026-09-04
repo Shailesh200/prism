@@ -16,16 +16,10 @@ import { z } from "zod";
  */
 export const CONSENT_PURPOSE_IDS = [
   "network.github",
-  "network.github-user",
   "network.pagespeed",
   "network.package-install",
   "network.git-remote",
   "network.gravatar",
-  "network.linear",
-  "network.jira",
-  "network.slack",
-  "network.notion",
-  "network.google-calendar",
   "run.local-build",
 ] as const;
 
@@ -58,54 +52,6 @@ export const CONSENT_PURPOSES: readonly ConsentPurpose[] = [
     detail:
       "Prism will request workflow runs and pull request metadata for this repository's remote.",
     reaches: "api.github.com",
-  },
-  {
-    id: "network.github-user",
-    group: "network",
-    title: "GitHub (your account)",
-    detail:
-      "Prism Dispatch will read pull requests, reviews, and notifications for the GitHub user you connect, using a token stored in the OS keychain.",
-    reaches: "api.github.com",
-  },
-  {
-    id: "network.linear",
-    group: "network",
-    title: "Linear tickets",
-    detail:
-      "Prism Dispatch will read issues assigned to you in Linear for start-my-day.",
-    reaches: "api.linear.app",
-  },
-  {
-    id: "network.jira",
-    group: "network",
-    title: "Jira tickets",
-    detail:
-      "Prism Dispatch will read unresolved issues assigned to you in Jira for start-my-day.",
-    reaches: "api.atlassian.com",
-  },
-  {
-    id: "network.slack",
-    group: "network",
-    title: "Slack mentions and tracked channels",
-    detail:
-      "Prism Dispatch will search Slack for messages that mention you and read recent messages from channels or groups you pick. It will not post, and it will not open your full DM inbox.",
-    reaches: "slack.com",
-  },
-  {
-    id: "network.notion",
-    group: "network",
-    title: "Notion",
-    detail:
-      "Prism Dispatch will search Notion pages you have shared with the connected integration.",
-    reaches: "api.notion.com",
-  },
-  {
-    id: "network.google-calendar",
-    group: "network",
-    title: "Google Calendar",
-    detail:
-      "Prism Dispatch will read today's events from your Google Calendar. Read-only.",
-    reaches: "www.googleapis.com",
   },
   {
     id: "network.pagespeed",

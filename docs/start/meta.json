@@ -1,5 +1,4 @@
 {
   "title": "Get Started",
-  "root": true,
-  "pages": ["get-started", "what-is-prism", "install", "quickstart", "playground"]
+  "pages": ["install", "quickstart", "playground"]
 }

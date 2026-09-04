@@ -13,6 +13,7 @@ import type {
   CodeExplorerReport,
   CodeExplorerTarget,
   ConsentPurposeId,
+  ConsoleStatus,
   ConsentState,
   CwvPreferredSource,
   CwvReport,
@@ -1049,6 +1050,13 @@ export function createPrismClient(
         packageId,
       });
       return res.ok ? res.data : null;
+    },
+
+    async fetchConsoleStatus(): Promise<ConsoleStatus> {
+      const res = await transport.invoke<ConsoleStatus>("consoleStatus");
+      return res.ok
+        ? res.data
+        : { console: null, connectors: [], unreadable: [] };
     },
 
     ...(extras.openFile ? { openFile: extras.openFile } : {}),

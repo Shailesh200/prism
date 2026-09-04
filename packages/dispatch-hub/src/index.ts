@@ -1,6 +1,8 @@
 export const PACKAGE_NAME = "@repo-prism/dispatch-hub" as const;
 
 export {
+  CONSOLE_ALIAS_HOST,
+  CONSOLE_HOST,
   HUB_PORT,
   dashboardUrl,
   hubEnabled,

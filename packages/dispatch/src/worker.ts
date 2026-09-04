@@ -124,11 +124,14 @@ export function workerPrompt(input: {
   readonly subagents?: boolean;
   /** ADR-0045: checkout jobs edit the user's tree and never commit. */
   readonly placement?: "checkout" | "worktree";
+  /** Standing how-to from Dispatch Settings; injected on every job. */
+  readonly jobInstructions?: string;
 }): string {
   const remembered = formatMemoriesForPrompt(
     memoriesForJob(input.memories, input.job.id),
   );
   const checkout = input.placement === "checkout";
+  const standing = input.jobInstructions?.trim() ?? "";
   return [
     `You are a Prism Dispatch worker for ${input.job.title} (${input.job.id}).`,
     checkout
@@ -150,7 +153,9 @@ export function workerPrompt(input: {
     checkout
       ? "Write any write-up to .prism/dispatch/notes/ — the one .prism/ path included if the user later asks for a commit. Everything else there is ignored."
       : "Write any write-up to .prism/dispatch/notes/ — that is the one path under .prism/ that ships with the commit. Everything else there is ignored and will be lost.",
+    "If the brief says to change nothing, print something and stop, or otherwise avoid edits: do not create, edit, or delete any files. Answer in your last message only.",
     "When you finish, say what changed in a short last message (files and why), even if nothing shipped. Only name files you actually wrote.",
+    standing ? `Standing job instructions from the user:\n${standing}` : "",
     input.job.prd ? `PRD:\n${input.job.prd}` : "",
     remembered ? `Memories:\n${remembered}` : "",
     input.extra ?? "",

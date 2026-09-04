@@ -173,26 +173,60 @@ export type { TestingSecurityScreenProps } from "./TestingSecurityScreen.js";
 export { AppSidebar } from "./AppSidebar.js";
 export type { AppSidebarProps, AppSidebarUser, AppView } from "./AppSidebar.js";
 export { JobsScreen } from "./JobsScreen.js";
+export { ConsoleJobsScreen } from "./ConsoleJobsScreen.js";
+export type { ConsoleJobsScreenProps } from "./ConsoleJobsScreen.js";
 export type { JobsScreenProps } from "./JobsScreen.js";
-export { JobConsole } from "./JobConsole.js";
+export { consoleNote, JobConsole } from "./JobConsole.js";
+export { MarkdownDoc } from "./MarkdownDoc.js";
+export { parseMarkdown, prepareMarkdown } from "./markdown.js";
 export type { JobConsoleProps } from "./JobConsole.js";
 export {
-  formatElapsed,
+  GATE_PATH_SAMPLE,
+  gateOverflowNote,
+  heartbeatAge,
   isLiveJob,
+  isWaitingOnYou,
+  jobElapsed,
+  jobsWaitingOnYou,
+  jobDisplayLabel,
+  jobStages,
+  jobRailFill,
+  jobReviewPending,
+  jobAgentLabel,
+  jobModelLabel,
+  formatWorkerModel,
+  formatWorkerThinking,
+  unfoldJobSummary,
+  splitJobSummary,
+  isDispatchNotePath,
+  notePathsFromText,
+  jobNotePaths,
+  parseFabricationMention,
+  isSettledJob,
   jobStatusLabel,
   jobStatusTone,
+  jobTimeBreakdown,
   mergeConsoleEntries,
   newestEntryTs,
+  orderJobsForBoard,
   reviewFileTotals,
+  jobBoardKey,
+  matchesBoardLane,
+  workspaceChipsForBoard,
+  type JobBoardLane,
+  type JobConfirm,
   type JobConsoleEntry,
   type JobConsolePage,
+  type JobStage,
   type JobControlAction,
+  type JobControlExtra,
   type JobReview,
   type JobReviewFile,
   type JobReviewFileChange,
   type JobRunPhase,
   type JobStatus as DispatchJobStatus,
   type JobSummary,
+  type JobWorkspaceChip,
   type JobsPort,
 } from "./jobs-types.js";
 export { AuditLogsPanel } from "./AuditLogsPanel.js";

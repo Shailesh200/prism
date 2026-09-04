@@ -31,3 +31,5 @@ Critical-path milestones have full specs here. Summaries for other milestones li
 | M-048 | [M-048_extension-polish.md](./M-048_extension-polish.md) — includes Phase 8 Blast Radius Depth |
 | M-049 | [M-049_blast-radius-depth.md](./M-049_blast-radius-depth.md) — **Absorbed** into M-048 Phase 8 (design archive) |
 | M-064 | [M-064_agent-dashboard.md](./M-064_agent-dashboard.md) — jobs hub daemon, OS/IDE toasts, MCP App widget |
+| M-067 | [M-067_shippable-product.md](./M-067_shippable-product.md) — queue + honest clock, Console, host-delegated integrations, plugin pack |
+| M-068 | [M-068_identity-and-design-system.md](./M-068_identity-and-design-system.md) — Iris + Spectrum, token repair, chart primitives |

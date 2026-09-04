@@ -1,9 +1,9 @@
 {
-  "recordedAt": "2026-08-08T19:09:33.785Z",
+  "recordedAt": "2026-09-04T14:18:27.955Z",
   "methodology": {
     "tokenEstimate": "estimatedTokens = bytesRead / 4",
     "withoutPrism": "Simulated naive agent: list dirs, read manifests, scan/grep files",
-    "withPrism": "Core SDK calls matching MCP tools (repository_dna, repository_overview, blast_radius)"
+    "withPrism": "Core SDK calls matching MCP tools (repository_dna, repository_overview, blast_radius, repository_health, find_symbol, test_impact, dependency_cycles)"
   },
   "machine": {
     "platform": "darwin",
@@ -21,93 +21,21 @@
           "label": "What is this repository?",
           "withoutPrism": {
             "toolCalls": 14,
-            "bytesRead": 2153,
-            "estimatedTokens": 538,
-            "elapsedMs": 3,
-            "steps": [
-              {
-                "step": "read package.json",
-                "bytesRead": 116
-              },
-              {
-                "step": "read README",
-                "bytesRead": 587
-              },
-              {
-                "step": "list root",
-                "bytesRead": 160
-              },
-              {
-                "step": "list packages/",
-                "bytesRead": 48
-              },
-              {
-                "step": "list src/",
-                "bytesRead": 48
-              },
-              {
-                "step": "list apps/",
-                "bytesRead": 0
-              },
-              {
-                "step": "read README.md",
-                "bytesRead": 587
-              },
-              {
-                "step": "read package.json",
-                "bytesRead": 116
-              },
-              {
-                "step": "read packages/auth/package.json",
-                "bytesRead": 69
-              },
-              {
-                "step": "read packages/billing/package.json",
-                "bytesRead": 72
-              },
-              {
-                "step": "read packages/auth/src/index.ts",
-                "bytesRead": 76
-              },
-              {
-                "step": "read packages/billing/src/index.ts",
-                "bytesRead": 68
-              },
-              {
-                "step": "read src/features/dashboard/Dashboard.ts",
-                "bytesRead": 152
-              },
-              {
-                "step": "read src/features/dashboard/widgets.ts",
-                "bytesRead": 54
-              }
-            ]
+            "bytesRead": 2121,
+            "estimatedTokens": 530,
+            "elapsedMs": 5
           },
           "withPrism": {
             "toolCalls": 3,
             "bytesRead": 6306,
             "estimatedTokens": 1577,
-            "elapsedMs": 1006,
-            "steps": [
-              {
-                "step": "index (once)",
-                "bytesRead": 4200
-              },
-              {
-                "step": "repository_dna",
-                "bytesRead": 1383
-              },
-              {
-                "step": "repository_overview",
-                "bytesRead": 723
-              }
-            ]
+            "elapsedMs": 1467
           },
           "savings": {
             "toolCallsPct": 79,
-            "bytesPct": -193,
-            "tokensPct": -193,
-            "timePct": -33433
+            "bytesPct": -197,
+            "tokensPct": -198,
+            "timePct": -29240
           }
         },
         {
@@ -117,78 +45,106 @@
             "toolCalls": 12,
             "bytesRead": 1623,
             "estimatedTokens": 406,
-            "elapsedMs": 2,
-            "steps": [
-              {
-                "step": "read edit target",
-                "bytesRead": 76
-              },
-              {
-                "step": "glob source files",
-                "bytesRead": 160
-              },
-              {
-                "step": "scan README.md",
-                "bytesRead": 512
-              },
-              {
-                "step": "scan package.json",
-                "bytesRead": 116
-              },
-              {
-                "step": "scan packages/auth/package.json",
-                "bytesRead": 69
-              },
-              {
-                "step": "scan packages/billing/package.json",
-                "bytesRead": 72
-              },
-              {
-                "step": "scan packages/billing/src/index.ts",
-                "bytesRead": 68
-              },
-              {
-                "step": "scan import hit src/features/dashboard/Dashboard.ts",
-                "bytesRead": 152
-              },
-              {
-                "step": "scan src/features/dashboard/widgets.ts",
-                "bytesRead": 54
-              },
-              {
-                "step": "scan import hit src/routes/checkout/page.ts",
-                "bytesRead": 130
-              },
-              {
-                "step": "scan src/routes/checkout/cart.ts",
-                "bytesRead": 98
-              },
-              {
-                "step": "read package.json",
-                "bytesRead": 116
-              }
-            ]
+            "elapsedMs": 2
           },
           "withPrism": {
             "toolCalls": 2,
             "bytesRead": 5056,
             "estimatedTokens": 1264,
-            "elapsedMs": 6,
-            "steps": [
-              {
-                "step": "index (once)",
-                "bytesRead": 4199
-              },
-              {
-                "step": "blast_radius",
-                "bytesRead": 857
-              }
-            ]
+            "elapsedMs": 6
           },
           "savings": {
             "toolCallsPct": 83,
             "bytesPct": -212,
             "tokensPct": -211,
+            "timePct": -200
+          }
+        },
+        {
+          "scenario": "health",
+          "label": "Is this codebase healthy?",
+          "withoutPrism": {
+            "toolCalls": 17,
+            "bytesRead": 2285,
+            "estimatedTokens": 571,
+            "elapsedMs": 1
+          },
+          "withPrism": {
+            "toolCalls": 3,
+            "bytesRead": 7443,
+            "estimatedTokens": 1861,
+            "elapsedMs": 666
+          },
+          "savings": {
+            "toolCallsPct": 82,
+            "bytesPct": -226,
+            "tokensPct": -226,
+            "timePct": -66500
+          }
+        },
+        {
+          "scenario": "find",
+          "label": "Where does this symbol live?",
+          "withoutPrism": {
+            "toolCalls": 11,
+            "bytesRead": 1251,
+            "estimatedTokens": 313,
+            "elapsedMs": 2
+          },
+          "withPrism": {
+            "toolCalls": 2,
+            "bytesRead": 4375,
+            "estimatedTokens": 1094,
+            "elapsedMs": 6
+          },
+          "savings": {
+            "toolCallsPct": 82,
+            "bytesPct": -250,
+            "tokensPct": -250,
+            "timePct": -200
+          }
+        },
+        {
+          "scenario": "test_impact",
+          "label": "Which tests should I run?",
+          "withoutPrism": {
+            "toolCalls": 5,
+            "bytesRead": 496,
+            "estimatedTokens": 124,
+            "elapsedMs": 1
+          },
+          "withPrism": {
+            "toolCalls": 2,
+            "bytesRead": 4326,
+            "estimatedTokens": 1082,
+            "elapsedMs": 4
+          },
+          "savings": {
+            "toolCallsPct": 60,
+            "bytesPct": -772,
+            "tokensPct": -773,
+            "timePct": -300
+          }
+        },
+        {
+          "scenario": "cycles",
+          "label": "Are there import cycles?",
+          "withoutPrism": {
+            "toolCalls": 11,
+            "bytesRead": 1580,
+            "estimatedTokens": 395,
+            "elapsedMs": 1
+          },
+          "withPrism": {
+            "toolCalls": 2,
+            "bytesRead": 4221,
+            "estimatedTokens": 1055,
+            "elapsedMs": 3
+          },
+          "savings": {
+            "toolCallsPct": 82,
+            "bytesPct": -167,
+            "tokensPct": -167,
             "timePct": -200
           }
         }
@@ -206,83 +162,19 @@
             "toolCalls": 12,
             "bytesRead": 1427,
             "estimatedTokens": 357,
-            "elapsedMs": 1,
-            "steps": [
-              {
-                "step": "read package.json",
-                "bytesRead": 343
-              },
-              {
-                "step": "read README",
-                "bytesRead": 0
-              },
-              {
-                "step": "list root",
-                "bytesRead": 160
-              },
-              {
-                "step": "list packages/",
-                "bytesRead": 0
-              },
-              {
-                "step": "list src/",
-                "bytesRead": 0
-              },
-              {
-                "step": "list apps/",
-                "bytesRead": 48
-              },
-              {
-                "step": "read turbo.json",
-                "bytesRead": 85
-              },
-              {
-                "step": "read package.json",
-                "bytesRead": 343
-              },
-              {
-                "step": "read apps/web/package.json",
-                "bytesRead": 155
-              },
-              {
-                "step": "read apps/web/page.tsx",
-                "bytesRead": 60
-              },
-              {
-                "step": "read apps/api/main.ts",
-                "bytesRead": 63
-              },
-              {
-                "step": "read apps/api/package.json",
-                "bytesRead": 170
-              }
-            ]
+            "elapsedMs": 2
           },
           "withPrism": {
             "toolCalls": 3,
             "bytesRead": 7168,
             "estimatedTokens": 1792,
-            "elapsedMs": 493,
-            "steps": [
-              {
-                "step": "index (once)",
-                "bytesRead": 2523
-              },
-              {
-                "step": "repository_dna",
-                "bytesRead": 4177
-              },
-              {
-                "step": "repository_overview",
-                "bytesRead": 468
-              }
-            ]
+            "elapsedMs": 657
           },
           "savings": {
             "toolCallsPct": 75,
             "bytesPct": -402,
             "tokensPct": -402,
-            "timePct": -49200
+            "timePct": -32750
           }
         },
         {
@@ -292,63 +184,107 @@
             "toolCalls": 8,
             "bytesRead": 1315,
             "estimatedTokens": 329,
-            "elapsedMs": 2,
-            "steps": [
-              {
-                "step": "read edit target",
-                "bytesRead": 63
-              },
-              {
-                "step": "glob source files",
-                "bytesRead": 96
-              },
-              {
-                "step": "scan turbo.json",
-                "bytesRead": 85
-              },
-              {
-                "step": "scan package.json",
-                "bytesRead": 343
-              },
-              {
-                "step": "scan apps/web/package.json",
-                "bytesRead": 155
-              },
-              {
-                "step": "scan apps/web/page.tsx",
-                "bytesRead": 60
-              },
-              {
-                "step": "scan apps/api/package.json",
-                "bytesRead": 170
-              },
-              {
-                "step": "read package.json",
-                "bytesRead": 343
-              }
-            ]
+            "elapsedMs": 1
           },
           "withPrism": {
             "toolCalls": 2,
             "bytesRead": 3139,
             "estimatedTokens": 785,
-            "elapsedMs": 4,
-            "steps": [
-              {
-                "step": "index (once)",
-                "bytesRead": 2523
-              },
-              {
-                "step": "blast_radius",
-                "bytesRead": 616
-              }
-            ]
+            "elapsedMs": 3
           },
           "savings": {
             "toolCallsPct": 75,
             "bytesPct": -139,
             "tokensPct": -139,
+            "timePct": -200
+          }
+        },
+        {
+          "scenario": "health",
+          "label": "Is this codebase healthy?",
+          "withoutPrism": {
+            "toolCalls": 13,
+            "bytesRead": 1315,
+            "estimatedTokens": 329,
+            "elapsedMs": 1
+          },
+          "withPrism": {
+            "toolCalls": 3,
+            "bytesRead": 5779,
+            "estimatedTokens": 1445,
+            "elapsedMs": 670
+          },
+          "savings": {
+            "toolCallsPct": 77,
+            "bytesPct": -339,
+            "tokensPct": -339,
+            "timePct": -66900
+          }
+        },
+        {
+          "scenario": "find",
+          "label": "Where does this symbol live?",
+          "withoutPrism": {
+            "toolCalls": 7,
+            "bytesRead": 885,
+            "estimatedTokens": 221,
+            "elapsedMs": 1
+          },
+          "withPrism": {
+            "toolCalls": 2,
+            "bytesRead": 2677,
+            "estimatedTokens": 669,
+            "elapsedMs": 2
+          },
+          "savings": {
+            "toolCallsPct": 71,
+            "bytesPct": -202,
+            "tokensPct": -203,
             "timePct": -100
+          }
+        },
+        {
+          "scenario": "test_impact",
+          "label": "Which tests should I run?",
+          "withoutPrism": {
+            "toolCalls": 4,
+            "bytesRead": 565,
+            "estimatedTokens": 141,
+            "elapsedMs": 1
+          },
+          "withPrism": {
+            "toolCalls": 2,
+            "bytesRead": 2630,
+            "estimatedTokens": 658,
+            "elapsedMs": 4
+          },
+          "savings": {
+            "toolCallsPct": 50,
+            "bytesPct": -365,
+            "tokensPct": -367,
+            "timePct": -300
+          }
+        },
+        {
+          "scenario": "cycles",
+          "label": "Are there import cycles?",
+          "withoutPrism": {
+            "toolCalls": 7,
+            "bytesRead": 972,
+            "estimatedTokens": 243,
+            "elapsedMs": 0
+          },
+          "withPrism": {
+            "toolCalls": 2,
+            "bytesRead": 2545,
+            "estimatedTokens": 636,
+            "elapsedMs": 2
+          },
+          "savings": {
+            "toolCallsPct": 71,
+            "bytesPct": -162,
+            "tokensPct": -162,
+            "timePct": 0
           }
         }
       ]
@@ -363,93 +299,21 @@
           "label": "What is this repository?",
           "withoutPrism": {
             "toolCalls": 14,
-            "bytesRead": 2026,
-            "estimatedTokens": 507,
-            "elapsedMs": 2,
-            "steps": [
-              {
-                "step": "read package.json",
-                "bytesRead": 242
-              },
-              {
-                "step": "read README",
-                "bytesRead": 0
-              },
-              {
-                "step": "list root",
-                "bytesRead": 224
-              },
-              {
-                "step": "list packages/",
-                "bytesRead": 0
-              },
-              {
-                "step": "list src/",
-                "bytesRead": 0
-              },
-              {
-                "step": "list apps/",
-                "bytesRead": 0
-              },
-              {
-                "step": "read package.json",
-                "bytesRead": 242
-              },
-              {
-                "step": "read express/app.ts",
-                "bytesRead": 284
-              },
-              {
-                "step": "read express/auth.ts",
-                "bytesRead": 101
-              },
-              {
-                "step": "read config/env.ts",
-                "bytesRead": 193
-              },
-              {
-                "step": "read jobs/nightly.ts",
-                "bytesRead": 109
-              },
-              {
-                "step": "read data/users.ts",
-                "bytesRead": 156
-              },
-              {
-                "step": "read nest/health.controller.ts",
-                "bytesRead": 248
-              },
-              {
-                "step": "read fastify/server.ts",
-                "bytesRead": 227
-              }
-            ]
+            "bytesRead": 2058,
+            "estimatedTokens": 515,
+            "elapsedMs": 2
           },
           "withPrism": {
             "toolCalls": 3,
             "bytesRead": 7403,
             "estimatedTokens": 1851,
-            "elapsedMs": 473,
-            "steps": [
-              {
-                "step": "index (once)",
-                "bytesRead": 5728
-              },
-              {
-                "step": "repository_dna",
-                "bytesRead": 1219
-              },
-              {
-                "step": "repository_overview",
-                "bytesRead": 456
-              }
-            ]
+            "elapsedMs": 674
           },
           "savings": {
             "toolCallsPct": 79,
-            "bytesPct": -265,
-            "tokensPct": -265,
-            "timePct": -23550
+            "bytesPct": -260,
+            "tokensPct": -259,
+            "timePct": -33600
           }
         },
         {
@@ -459,71 +323,385 @@
             "toolCalls": 10,
             "bytesRead": 1930,
             "estimatedTokens": 483,
-            "elapsedMs": 2,
-            "steps": [
-              {
-                "step": "read edit target",
-                "bytesRead": 101
-              },
-              {
-                "step": "glob source files",
-                "bytesRead": 128
-              },
-              {
-                "step": "scan package.json",
-                "bytesRead": 242
-              },
-              {
-                "step": "scan import hit express/app.ts",
-                "bytesRead": 284
-              },
-              {
-                "step": "scan config/env.ts",
-                "bytesRead": 193
-              },
-              {
-                "step": "scan jobs/nightly.ts",
-                "bytesRead": 109
-              },
-              {
-                "step": "scan data/users.ts",
-                "bytesRead": 156
-              },
-              {
-                "step": "scan nest/health.controller.ts",
-                "bytesRead": 248
-              },
-              {
-                "step": "scan fastify/server.ts",
-                "bytesRead": 227
-              },
-              {
-                "step": "read package.json",
-                "bytesRead": 242
-              }
-            ]
+            "elapsedMs": 3
           },
           "withPrism": {
             "toolCalls": 2,
             "bytesRead": 6402,
             "estimatedTokens": 1601,
-            "elapsedMs": 6,
-            "steps": [
-              {
-                "step": "index (once)",
-                "bytesRead": 5728
-              },
-              {
-                "step": "blast_radius",
-                "bytesRead": 674
-              }
-            ]
+            "elapsedMs": 4
           },
           "savings": {
             "toolCallsPct": 80,
             "bytesPct": -232,
             "tokensPct": -231,
+            "timePct": -33
+          }
+        },
+        {
+          "scenario": "health",
+          "label": "Is this codebase healthy?",
+          "withoutPrism": {
+            "toolCalls": 15,
+            "bytesRead": 1930,
+            "estimatedTokens": 483,
+            "elapsedMs": 1
+          },
+          "withPrism": {
+            "toolCalls": 3,
+            "bytesRead": 8780,
+            "estimatedTokens": 2195,
+            "elapsedMs": 696
+          },
+          "savings": {
+            "toolCallsPct": 80,
+            "bytesPct": -355,
+            "tokensPct": -354,
+            "timePct": -69500
+          }
+        },
+        {
+          "scenario": "find",
+          "label": "Where does this symbol live?",
+          "withoutPrism": {
+            "toolCalls": 9,
+            "bytesRead": 1688,
+            "estimatedTokens": 422,
+            "elapsedMs": 2
+          },
+          "withPrism": {
+            "toolCalls": 2,
+            "bytesRead": 5895,
+            "estimatedTokens": 1474,
+            "elapsedMs": 4
+          },
+          "savings": {
+            "toolCallsPct": 78,
+            "bytesPct": -249,
+            "tokensPct": -249,
+            "timePct": -100
+          }
+        },
+        {
+          "scenario": "test_impact",
+          "label": "Which tests should I run?",
+          "withoutPrism": {
+            "toolCalls": 4,
+            "bytesRead": 572,
+            "estimatedTokens": 143,
+            "elapsedMs": 0
+          },
+          "withPrism": {
+            "toolCalls": 2,
+            "bytesRead": 5833,
+            "estimatedTokens": 1458,
+            "elapsedMs": 3
+          },
+          "savings": {
+            "toolCallsPct": 50,
+            "bytesPct": -920,
+            "tokensPct": -920,
+            "timePct": 0
+          }
+        },
+        {
+          "scenario": "cycles",
+          "label": "Are there import cycles?",
+          "withoutPrism": {
+            "toolCalls": 9,
+            "bytesRead": 1688,
+            "estimatedTokens": 422,
+            "elapsedMs": 1
+          },
+          "withPrism": {
+            "toolCalls": 2,
+            "bytesRead": 5750,
+            "estimatedTokens": 1438,
+            "elapsedMs": 3
+          },
+          "savings": {
+            "toolCallsPct": 78,
+            "bytesPct": -241,
+            "tokensPct": -241,
             "timePct": -200
+          }
+        }
+      ]
+    },
+    {
+      "id": "m049-soft",
+      "root": "packages/intelligence/fixtures/m049-soft",
+      "editTarget": "src/util.ts",
+      "scenarios": [
+        {
+          "scenario": "orient",
+          "label": "What is this repository?",
+          "withoutPrism": {
+            "toolCalls": 14,
+            "bytesRead": 2277,
+            "estimatedTokens": 569,
+            "elapsedMs": 2
+          },
+          "withPrism": {
+            "toolCalls": 3,
+            "bytesRead": 11311,
+            "estimatedTokens": 2828,
+            "elapsedMs": 676
+          },
+          "savings": {
+            "toolCallsPct": 79,
+            "bytesPct": -397,
+            "tokensPct": -397,
+            "timePct": -33700
+          }
+        },
+        {
+          "scenario": "safe_edit",
+          "label": "Is this edit safe?",
+          "withoutPrism": {
+            "toolCalls": 22,
+            "bytesRead": 2447,
+            "estimatedTokens": 612,
+            "elapsedMs": 2
+          },
+          "withPrism": {
+            "toolCalls": 2,
+            "bytesRead": 12206,
+            "estimatedTokens": 3052,
+            "elapsedMs": 10
+          },
+          "savings": {
+            "toolCallsPct": 91,
+            "bytesPct": -399,
+            "tokensPct": -399,
+            "timePct": -400
+          }
+        },
+        {
+          "scenario": "health",
+          "label": "Is this codebase healthy?",
+          "withoutPrism": {
+            "toolCalls": 19,
+            "bytesRead": 2266,
+            "estimatedTokens": 567,
+            "elapsedMs": 1
+          },
+          "withPrism": {
+            "toolCalls": 3,
+            "bytesRead": 12723,
+            "estimatedTokens": 3181,
+            "elapsedMs": 675
+          },
+          "savings": {
+            "toolCallsPct": 84,
+            "bytesPct": -461,
+            "tokensPct": -461,
+            "timePct": -67400
+          }
+        },
+        {
+          "scenario": "find",
+          "label": "Where does this symbol live?",
+          "withoutPrism": {
+            "toolCalls": 21,
+            "bytesRead": 2054,
+            "estimatedTokens": 514,
+            "elapsedMs": 3
+          },
+          "withPrism": {
+            "toolCalls": 2,
+            "bytesRead": 8763,
+            "estimatedTokens": 2191,
+            "elapsedMs": 4
+          },
+          "savings": {
+            "toolCallsPct": 90,
+            "bytesPct": -327,
+            "tokensPct": -326,
+            "timePct": -33
+          }
+        },
+        {
+          "scenario": "test_impact",
+          "label": "Which tests should I run?",
+          "withoutPrism": {
+            "toolCalls": 5,
+            "bytesRead": 780,
+            "estimatedTokens": 195,
+            "elapsedMs": 0
+          },
+          "withPrism": {
+            "toolCalls": 2,
+            "bytesRead": 8714,
+            "estimatedTokens": 2179,
+            "elapsedMs": 8
+          },
+          "savings": {
+            "toolCallsPct": 60,
+            "bytesPct": -1017,
+            "tokensPct": -1017,
+            "timePct": 0
+          }
+        },
+        {
+          "scenario": "cycles",
+          "label": "Are there import cycles?",
+          "withoutPrism": {
+            "toolCalls": 21,
+            "bytesRead": 2054,
+            "estimatedTokens": 514,
+            "elapsedMs": 3
+          },
+          "withPrism": {
+            "toolCalls": 2,
+            "bytesRead": 8639,
+            "estimatedTokens": 2160,
+            "elapsedMs": 9
+          },
+          "savings": {
+            "toolCallsPct": 90,
+            "bytesPct": -321,
+            "tokensPct": -320,
+            "timePct": -200
+          }
+        }
+      ]
+    },
+    {
+      "id": "m010-cycles",
+      "root": "packages/intelligence/fixtures/m010-cycles",
+      "editTarget": "b.ts",
+      "scenarios": [
+        {
+          "scenario": "orient",
+          "label": "What is this repository?",
+          "withoutPrism": {
+            "toolCalls": 10,
+            "bytesRead": 495,
+            "estimatedTokens": 124,
+            "elapsedMs": 2
+          },
+          "withPrism": {
+            "toolCalls": 3,
+            "bytesRead": 3396,
+            "estimatedTokens": 849,
+            "elapsedMs": 658
+          },
+          "savings": {
+            "toolCallsPct": 70,
+            "bytesPct": -586,
+            "tokensPct": -585,
+            "timePct": -32800
+          }
+        },
+        {
+          "scenario": "safe_edit",
+          "label": "Is this edit safe?",
+          "withoutPrism": {
+            "toolCalls": 6,
+            "bytesRead": 399,
+            "estimatedTokens": 100,
+            "elapsedMs": 2
+          },
+          "withPrism": {
+            "toolCalls": 2,
+            "bytesRead": 3051,
+            "estimatedTokens": 763,
+            "elapsedMs": 2
+          },
+          "savings": {
+            "toolCallsPct": 67,
+            "bytesPct": -665,
+            "tokensPct": -663,
+            "timePct": 0
+          }
+        },
+        {
+          "scenario": "health",
+          "label": "Is this codebase healthy?",
+          "withoutPrism": {
+            "toolCalls": 11,
+            "bytesRead": 399,
+            "estimatedTokens": 100,
+            "elapsedMs": 0
+          },
+          "withPrism": {
+            "toolCalls": 3,
+            "bytesRead": 5128,
+            "estimatedTokens": 1282,
+            "elapsedMs": 665
+          },
+          "savings": {
+            "toolCallsPct": 73,
+            "bytesPct": -1185,
+            "tokensPct": -1182,
+            "timePct": 0
+          }
+        },
+        {
+          "scenario": "find",
+          "label": "Where does this symbol live?",
+          "withoutPrism": {
+            "toolCalls": 5,
+            "bytesRead": 317,
+            "estimatedTokens": 79,
+            "elapsedMs": 1
+          },
+          "withPrism": {
+            "toolCalls": 2,
+            "bytesRead": 2341,
+            "estimatedTokens": 585,
+            "elapsedMs": 2
+          },
+          "savings": {
+            "toolCallsPct": 60,
+            "bytesPct": -638,
+            "tokensPct": -641,
+            "timePct": -100
+          }
+        },
+        {
+          "scenario": "test_impact",
+          "label": "Which tests should I run?",
+          "withoutPrism": {
+            "toolCalls": 4,
+            "bytesRead": 260,
+            "estimatedTokens": 65,
+            "elapsedMs": 0
+          },
+          "withPrism": {
+            "toolCalls": 2,
+            "bytesRead": 2298,
+            "estimatedTokens": 575,
+            "elapsedMs": 2
+          },
+          "savings": {
+            "toolCallsPct": 50,
+            "bytesPct": -784,
+            "tokensPct": -785,
+            "timePct": 0
+          }
+        },
+        {
+          "scenario": "cycles",
+          "label": "Are there import cycles?",
+          "withoutPrism": {
+            "toolCalls": 5,
+            "bytesRead": 317,
+            "estimatedTokens": 79,
+            "elapsedMs": 0
+          },
+          "withPrism": {
+            "toolCalls": 2,
+            "bytesRead": 2274,
+            "estimatedTokens": 569,
+            "elapsedMs": 1
+          },
+          "savings": {
+            "toolCallsPct": 60,
+            "bytesPct": -617,
+            "tokensPct": -620,
+            "timePct": 0
           }
         }
       ]
@@ -531,366 +709,22 @@
   ],
   "totals": {
     "withoutPrism": {
-      "toolCalls": 70,
-      "bytesRead": 10474,
-      "estimatedTokens": 2620,
-      "elapsedMs": 12,
-      "steps": [
-        {
-          "step": "read package.json",
-          "bytesRead": 116
-        },
-        {
-          "step": "read README",
-          "bytesRead": 587
-        },
-        {
-          "step": "list root",
-          "bytesRead": 160
-        },
-        {
-          "step": "list packages/",
-          "bytesRead": 48
-        },
-        {
-          "step": "list src/",
-          "bytesRead": 48
-        },
-        {
-          "step": "list apps/",
-          "bytesRead": 0
-        },
-        {
-          "step": "read README.md",
-          "bytesRead": 587
-        },
-        {
-          "step": "read package.json",
-          "bytesRead": 116
-        },
-        {
-          "step": "read packages/auth/package.json",
-          "bytesRead": 69
-        },
-        {
-          "step": "read packages/billing/package.json",
-          "bytesRead": 72
-        },
-        {
-          "step": "read packages/auth/src/index.ts",
-          "bytesRead": 76
-        },
-        {
-          "step": "read packages/billing/src/index.ts",
-          "bytesRead": 68
-        },
-        {
-          "step": "read src/features/dashboard/Dashboard.ts",
-          "bytesRead": 152
-        },
-        {
-          "step": "read src/features/dashboard/widgets.ts",
-          "bytesRead": 54
-        },
-        {
-          "step": "read edit target",
-          "bytesRead": 76
-        },
-        {
-          "step": "glob source files",
-          "bytesRead": 160
-        },
-        {
-          "step": "scan README.md",
-          "bytesRead": 512
-        },
-        {
-          "step": "scan package.json",
-          "bytesRead": 116
-        },
-        {
-          "step": "scan packages/auth/package.json",
-          "bytesRead": 69
-        },
-        {
-          "step": "scan packages/billing/package.json",
-          "bytesRead": 72
-        },
-        {
-          "step": "scan packages/billing/src/index.ts",
-          "bytesRead": 68
-        },
-        {
-          "step": "scan import hit src/features/dashboard/Dashboard.ts",
-          "bytesRead": 152
-        },
-        {
-          "step": "scan src/features/dashboard/widgets.ts",
-          "bytesRead": 54
-        },
-        {
-          "step": "scan import hit src/routes/checkout/page.ts",
-          "bytesRead": 130
-        },
-        {
-          "step": "scan src/routes/checkout/cart.ts",
-          "bytesRead": 98
-        },
-        {
-          "step": "read package.json",
-          "bytesRead": 116
-        },
-        {
-          "step": "read package.json",
-          "bytesRead": 343
-        },
-        {
-          "step": "read README",
-          "bytesRead": 0
-        },
-        {
-          "step": "list root",
-          "bytesRead": 160
-        },
-        {
-          "step": "list packages/",
-          "bytesRead": 0
-        },
-        {
-          "step": "list src/",
-          "bytesRead": 0
-        },
-        {
-          "step": "list apps/",
-          "bytesRead": 48
-        },
-        {
-          "step": "read turbo.json",
-          "bytesRead": 85
-        },
-        {
-          "step": "read package.json",
-          "bytesRead": 343
-        },
-        {
-          "step": "read apps/web/package.json",
-          "bytesRead": 155
-        },
-        {
-          "step": "read apps/web/page.tsx",
-          "bytesRead": 60
-        },
-        {
-          "step": "read apps/api/main.ts",
-          "bytesRead": 63
-        },
-        {
-          "step": "read apps/api/package.json",
-          "bytesRead": 170
-        },
-        {
-          "step": "read edit target",
-          "bytesRead": 63
-        },
-        {
-          "step": "glob source files",
-          "bytesRead": 96
-        },
-        {
-          "step": "scan turbo.json",
-          "bytesRead": 85
-        },
-        {
-          "step": "scan package.json",
-          "bytesRead": 343
-        },
-        {
-          "step": "scan apps/web/package.json",
-          "bytesRead": 155
-        },
-        {
-          "step": "scan apps/web/page.tsx",
-          "bytesRead": 60
-        },
-        {
-          "step": "scan apps/api/package.json",
-          "bytesRead": 170
-        },
-        {
-          "step": "read package.json",
-          "bytesRead": 343
-        },
-        {
-          "step": "read package.json",
-          "bytesRead": 242
-        },
-        {
-          "step": "read README",
-          "bytesRead": 0
-        },
-        {
-          "step": "list root",
-          "bytesRead": 224
-        },
-        {
-          "step": "list packages/",
-          "bytesRead": 0
-        },
-        {
-          "step": "list src/",
-          "bytesRead": 0
-        },
-        {
-          "step": "list apps/",
-          "bytesRead": 0
-        },
-        {
-          "step": "read package.json",
-          "bytesRead": 242
-        },
-        {
-          "step": "read express/app.ts",
-          "bytesRead": 284
-        },
-        {
-          "step": "read express/auth.ts",
-          "bytesRead": 101
-        },
-        {
-          "step": "read config/env.ts",
-          "bytesRead": 193
-        },
-        {
-          "step": "read jobs/nightly.ts",
-          "bytesRead": 109
-        },
-        {
-          "step": "read data/users.ts",
-          "bytesRead": 156
-        },
-        {
-          "step": "read nest/health.controller.ts",
-          "bytesRead": 248
-        },
-        {
-          "step": "read fastify/server.ts",
-          "bytesRead": 227
-        },
-        {
-          "step": "read edit target",
-          "bytesRead": 101
-        },
-        {
-          "step": "glob source files",
-          "bytesRead": 128
-        },
-        {
-          "step": "scan package.json",
-          "bytesRead": 242
-        },
-        {
-          "step": "scan import hit express/app.ts",
-          "bytesRead": 284
-        },
-        {
-          "step": "scan config/env.ts",
-          "bytesRead": 193
-        },
-        {
-          "step": "scan jobs/nightly.ts",
-          "bytesRead": 109
-        },
-        {
-          "step": "scan data/users.ts",
-          "bytesRead": 156
-        },
-        {
-          "step": "scan nest/health.controller.ts",
-          "bytesRead": 248
-        },
-        {
-          "step": "scan fastify/server.ts",
-          "bytesRead": 227
-        },
-        {
-          "step": "read package.json",
-          "bytesRead": 242
-        }
-      ]
+      "toolCalls": 325,
+      "bytesRead": 39766,
+      "estimatedTokens": 9945,
+      "elapsedMs": 43
     },
     "withPrism": {
-      "toolCalls": 15,
-      "bytesRead": 35474,
-      "estimatedTokens": 8870,
-      "elapsedMs": 1988,
-      "steps": [
-        {
-          "step": "index (once)",
-          "bytesRead": 4200
-        },
-        {
-          "step": "repository_dna",
-          "bytesRead": 1383
-        },
-        {
-          "step": "repository_overview",
-          "bytesRead": 723
-        },
-        {
-          "step": "index (once)",
-          "bytesRead": 4199
-        },
-        {
-          "step": "blast_radius",
-          "bytesRead": 857
-        },
-        {
-          "step": "index (once)",
-          "bytesRead": 2523
-        },
-        {
-          "step": "repository_dna",
-          "bytesRead": 4177
-        },
-        {
-          "step": "repository_overview",
-          "bytesRead": 468
-        },
-        {
-          "step": "index (once)",
-          "bytesRead": 2523
-        },
-        {
-          "step": "blast_radius",
-          "bytesRead": 616
-        },
-        {
-          "step": "index (once)",
-          "bytesRead": 5728
-        },
-        {
-          "step": "repository_dna",
-          "bytesRead": 1219
-        },
-        {
-          "step": "repository_overview",
-          "bytesRead": 456
-        },
-        {
-          "step": "index (once)",
-          "bytesRead": 5728
-        },
-        {
-          "step": "blast_radius",
-          "bytesRead": 674
-        }
-      ]
+      "toolCalls": 70,
+      "bytesRead": 176572,
+      "estimatedTokens": 44149,
+      "elapsedMs": 7586
     },
     "savings": {
-      "toolCallsPct": 79,
-      "bytesPct": -239,
-      "tokensPct": -239,
-      "timePct": -16467
+      "toolCallsPct": 78,
+      "bytesPct": -344,
+      "tokensPct": -344,
+      "timePct": -17542
     }
   }
 }

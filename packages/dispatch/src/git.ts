@@ -1,4 +1,6 @@
 import { execFile } from "node:child_process";
+import { unlink } from "node:fs/promises";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import type { GitSnapshot, JobReview, ReviewFile } from "./types.js";
 
@@ -55,6 +57,26 @@ export const defaultGitRunner: GitRunner = async (cwd, args) => {
 
 export function isMissingGitRepoMessage(detail: string): boolean {
   return /not a git repository/i.test(detail);
+}
+
+/**
+ * Is there a repository here at all?
+ *
+ * One `rev-parse`, a few milliseconds, so it stays inside the `start_job`
+ * latency budget (ADR-0047). Everything else git-shaped — dirty trees,
+ * worktree creation, branch setup — moved to the drain, because those either
+ * resolve themselves or become a visible blocked job. This one cannot: Prism
+ * will not create a repository, so a job accepted here would queue forever
+ * against a `.prism/dispatch` directory in a folder git does not track.
+ */
+export async function hasGitRepo(
+  workspaceRoot: string,
+  run: GitRunner = defaultGitRunner,
+): Promise<{ ok: boolean; detail: string }> {
+  const probe = await run(workspaceRoot, ["rev-parse", "--git-dir"]);
+  return probe.ok
+    ? { ok: true, detail: "" }
+    : { ok: false, detail: probe.stderr.trim() || "not a git repository" };
 }
 
 export async function gitSnapshot(
@@ -415,7 +437,8 @@ export async function gitReviewSummary(
  *
  * Snapshotted at dispatch time so the finish review can tell the job's edits
  * apart from work the user already had in flight. Porcelain, noise-filtered
- * the same way as the change summary.
+ * the same way as the change summary. A rename records *both* sides so a
+ * later `git diff --numstat` compact path (`{old => new}`) still matches.
  */
 export async function gitDirtyPaths(
   cwd: string,
@@ -423,15 +446,61 @@ export async function gitDirtyPaths(
 ): Promise<string[]> {
   const result = await run(cwd, ["status", "--porcelain"]);
   if (!result.ok) return [];
-  const paths: string[] = [];
+  const paths = new Set<string>();
   for (const line of result.stdout.split("\n")) {
-    if (!line.trim()) continue;
-    const path = line.slice(3).trim().split(" -> ").at(-1) ?? "";
-    const normalized = path.replaceAll("\\", "/").replace(/^\.\//, "");
-    if (!normalized || isGitNoisePath(normalized)) continue;
-    paths.push(normalized);
+    for (const path of porcelainLinePaths(line)) {
+      if (!isGitNoisePath(path)) paths.add(path);
+    }
   }
-  return paths.sort();
+  return [...paths].sort();
+}
+
+/**
+ * Expand a `git diff` path into every filesystem path it names.
+ *
+ * Rename lines arrive as `old => new`, `{old => new}/rest`, or two tab
+ * columns. Matching only the destination left a checkout job claiming the
+ * user's in-flight rename as its own review.
+ */
+export function diffPathSides(path: string): string[] {
+  const trimmed = path.replaceAll("\\", "/").replace(/^\.\//, "").trim();
+  if (!trimmed) return [];
+  if (trimmed.includes(" => ")) {
+    const compact = /^\{(.+) => (.+)\}(.*)$/.exec(trimmed);
+    if (compact) {
+      return [`${compact[1]}${compact[3]}`, `${compact[2]}${compact[3]}`];
+    }
+    const nested = /^(.*)\{(.+) => (.+)\}(.*)$/.exec(trimmed);
+    if (nested) {
+      return [
+        `${nested[1]}${nested[2]}${nested[4]}`,
+        `${nested[1]}${nested[3]}${nested[4]}`,
+      ];
+    }
+    return trimmed
+      .split(" => ")
+      .map((part) => part.trim())
+      .filter(Boolean);
+  }
+  return [trimmed];
+}
+
+function porcelainLinePaths(line: string): string[] {
+  if (!line.trim()) return [];
+  const rest = line.slice(3).trim();
+  if (!rest) return [];
+  if (rest.includes(" -> ")) {
+    return rest.split(" -> ").flatMap((part) => diffPathSides(part));
+  }
+  return diffPathSides(rest);
+}
+
+function preExistingCovers(
+  preExisting: ReadonlySet<string>,
+  path: string,
+): boolean {
+  if (preExisting.has(path)) return true;
+  return diffPathSides(path).some((side) => preExisting.has(side));
 }
 
 /**
@@ -480,19 +549,26 @@ export async function gitCheckoutReview(
       const row = line.trim();
       if (!row) continue;
       const [addedRaw, removedRaw, ...pathParts] = row.split(/\t+/);
+      const rawPath = pathParts.join("\t").trim();
       const path = (pathParts.at(-1) ?? "").trim();
       if (!path || isGitNoisePath(path)) continue;
-      if (preExisting.has(path)) {
+      if (
+        preExistingCovers(preExisting, rawPath) ||
+        preExistingCovers(preExisting, path)
+      ) {
+        for (const side of diffPathSides(rawPath)) mixed.add(side);
         mixed.add(path);
         continue;
       }
       const added = Number.parseInt(addedRaw ?? "0", 10);
       const removed = Number.parseInt(removedRaw ?? "0", 10);
+      const sides = diffPathSides(rawPath);
+      const displayPath = sides.at(-1) ?? path;
       files.push({
-        path,
+        path: displayPath,
         added: Number.isFinite(added) ? added : 0,
         removed: Number.isFinite(removed) ? removed : 0,
-        change: changeByPath.get(path) ?? "modified",
+        change: changeByPath.get(displayPath) ?? "modified",
       });
     }
   }
@@ -517,7 +593,49 @@ export async function gitCheckoutReview(
     committed: false,
     merged: false,
     mixedPaths: [...mixed].sort(),
+    keptPaths: [],
   };
+}
+
+/**
+ * Put a checkout path back to HEAD (or delete it if it was untracked).
+ *
+ * Used by the review card's Restore. Mixed paths — dirty before the job and
+ * also touched by it — are refused: restoring would throw away the user's
+ * own uncommitted work.
+ */
+export async function restoreCheckoutPaths(
+  cwd: string,
+  input: {
+    readonly paths: readonly string[];
+    readonly mixedPaths?: readonly string[];
+  },
+  run: GitRunner = defaultGitRunner,
+): Promise<{ readonly restored: string[]; readonly skipped: string[] }> {
+  const mixed = new Set(input.mixedPaths ?? []);
+  const restored: string[] = [];
+  const skipped: string[] = [];
+  for (const raw of input.paths) {
+    const sides = diffPathSides(raw);
+    if (sides.some((side) => mixed.has(side)) || mixed.has(raw)) {
+      skipped.push(raw);
+      continue;
+    }
+    for (const path of sides.length > 0 ? sides : [raw]) {
+      const checkout = await run(cwd, ["checkout", "HEAD", "--", path]);
+      if (checkout.ok) {
+        restored.push(path);
+        continue;
+      }
+      try {
+        await unlink(join(cwd, path));
+        restored.push(path);
+      } catch {
+        skipped.push(path);
+      }
+    }
+  }
+  return { restored, skipped };
 }
 
 /**

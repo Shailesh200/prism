@@ -3,15 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildDayBriefing } from "./briefing.js";
+import type { HostConnector } from "./host-connectors.js";
 import { saveConfig } from "./config.js";
-import { grantPurpose } from "./consent.js";
 import { remember } from "./memory.js";
 import { createDispatchRuntime } from "./runtime.js";
-import { saveToken, loadToken } from "./tokens.js";
-import { loadOAuthApp } from "./oauth-apps.js";
-import { authBrokerUrl } from "./broker.js";
+import { dispatchAndDrain, drain } from "./drain-harness.js";
 import type { GitRunner } from "./git.js";
-import type { HttpGet } from "./drivers.js";
 import type { WorkerPort } from "./worker.js";
 import type { CursorAuthPort } from "./cursor-auth.js";
 import { loadJobs, upsertJob } from "./jobs.js";
@@ -87,223 +84,145 @@ describe("start-my-day briefing", () => {
     if (root) await rm(root, { recursive: true, force: true });
   });
 
-  it("shows git in live, CTAs for unconnected drivers, and a configure hint", async () => {
+  const slack: HostConnector = {
+    id: "slack",
+    label: "Slack",
+    hosts: ["cursor"],
+    skills: [],
+    source: "/fake",
+  };
+  const linear: HostConnector = {
+    id: "linear",
+    label: "Linear",
+    hosts: ["cursor"],
+    skills: [],
+    source: "/fake",
+  };
+
+  it("gives the local spine and a configure hint", async () => {
     root = await tempRoot();
     const briefing = await buildDayBriefing({
       workspaceRoot: root,
       git,
+      connectors: [],
       now: new Date("2026-08-26T10:00:00+05:30"),
     });
     expect(briefing.message).toMatch(/Good morning, Shailesh/);
     expect(briefing.message).toContain("## Yesterday");
     expect(briefing.message).toContain("## Waiting on you");
     expect(briefing.message).toContain("Git:");
-    expect(briefing.message).toContain("## Not connected yet");
-    expect(briefing.connectCtas.length).toBeGreaterThan(0);
-    expect(briefing.connectCtas.some((cta) => /Slack/i.test(cta))).toBe(true);
     expect(briefing.configureHint).toMatch(/configure/i);
-    expect(briefing.drivers.every((driver) => !driver.connected)).toBe(true);
   });
 
-  it("includes every connected driver in one briefing", async () => {
+  // The core of ADR-0049: Prism names the section, the host fills it.
+  it("asks the host to fill the sections its connectors can serve", async () => {
     root = await tempRoot();
-    await grantPurpose(root, "network.github-user");
-    await grantPurpose(root, "network.google-calendar");
-    await saveToken(root, "github", { accessToken: "gh" });
-    await saveToken(root, "google-calendar", { accessToken: "gc" });
-    const http: HttpGet = async () => ({
-      ok: true,
-      status: 200,
-      json: { items: [] },
-      text: "{}",
-    });
     const briefing = await buildDayBriefing({
       workspaceRoot: root,
       git,
-      http,
+      connectors: [slack, linear],
     });
-    expect(
-      briefing.drivers.filter((driver) => driver.connected).map((d) => d.id),
-    ).toEqual(["github", "google-calendar"]);
+    const sections = briefing.fill.requests.map((row) => row.section);
+    expect(sections).toContain("tickets");
+    expect(sections).toContain("messages");
+    expect(briefing.message).toContain("Fill these from your own connectors");
+    expect(briefing.message).toMatch(/\*\*Tickets\*\* — via linear/);
   });
 
-  it("refreshes an expired Google Calendar token through Prism Auth", async () => {
+  it("names a section it cannot fill rather than dropping the heading", async () => {
     root = await tempRoot();
-    await grantPurpose(root, "network.google-calendar");
-    await saveToken(root, "google-calendar", {
-      accessToken: "expired",
-      refreshToken: "refresh-me",
-      expiresAt: "2020-01-01T00:00:00.000Z",
-    });
-    const http: HttpGet = async (_url, headers) => {
-      if (headers.Authorization === "Bearer expired") {
-        return { ok: false, status: 401, json: {}, text: "401" };
-      }
-      expect(headers.Authorization).toBe("Bearer fresh");
-      return {
-        ok: true,
-        status: 200,
-        json: { items: [{ id: "1", summary: "Standup" }] },
-        text: "{}",
-      };
-    };
-    const brokerFetch: typeof fetch = async (input, init) => {
-      expect(String(input)).toMatch(/\/oauth\/refresh$/);
-      expect(init?.method).toBe("POST");
-      const body = JSON.parse(String(init?.body)) as {
-        driver?: string;
-        refreshToken?: string;
-      };
-      expect(body.driver).toBe("google-calendar");
-      expect(body.refreshToken).toBe("refresh-me");
-      return new Response(
-        JSON.stringify({
-          accessToken: "fresh",
-          refreshToken: "refresh-me",
-          expiresAt: "2099-01-01T00:00:00.000Z",
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      );
-    };
     const briefing = await buildDayBriefing({
       workspaceRoot: root,
       git,
-      http,
-      brokerFetch,
+      connectors: [slack],
     });
-    const calendar = briefing.drivers.find(
-      (row) => row.id === "google-calendar",
+    expect(briefing.fill.unfillable).toContain("tickets");
+    expect(briefing.fill.unfillable).toContain("reviews");
+    expect(briefing.message).toContain("No connector for:");
+  });
+
+  it("says nothing about connectors on a machine that has none", async () => {
+    root = await tempRoot();
+    const briefing = await buildDayBriefing({
+      workspaceRoot: root,
+      git,
+      connectors: [],
+    });
+    expect(briefing.fill.requests).toEqual([]);
+    expect(briefing.message).not.toContain("Fill these from your own");
+    expect(briefing.message).toContain("No connector for:");
+  });
+
+  // A Jira shop should not be asked about Linear just because the plugin is
+  // installed for some other project.
+  it("respects the configured ticket host", async () => {
+    root = await tempRoot();
+    await saveConfig(root, { ticketHost: "jira" });
+    const briefing = await buildDayBriefing({
+      workspaceRoot: root,
+      git,
+      connectors: [linear],
+    });
+    expect(briefing.fill.unfillable).toContain("tickets");
+  });
+
+  it("reports what the host has, with no credential field to leak", async () => {
+    root = await tempRoot();
+    const briefing = await buildDayBriefing({
+      workspaceRoot: root,
+      git,
+      connectors: [slack],
+    });
+    expect(briefing.connectors.map((row) => row.label)).toEqual(["Slack"]);
+    expect(JSON.stringify(briefing.connectors)).not.toMatch(
+      /token|secret|accessToken/i,
     );
-    expect(calendar?.error).toBeUndefined();
-    expect(calendar?.items[0]?.title).toBe("Standup");
-    expect((await loadToken(root, "google-calendar"))?.accessToken).toBe(
-      "fresh",
-    );
-  });
-
-  it("retries Calendar once after a 401 when expiry is unknown", async () => {
-    root = await tempRoot();
-    await grantPurpose(root, "network.google-calendar");
-    await saveToken(root, "google-calendar", {
-      accessToken: "stale",
-      refreshToken: "refresh-me",
-    });
-    let calls = 0;
-    const http: HttpGet = async (_url, headers) => {
-      calls += 1;
-      if (headers.Authorization === "Bearer stale") {
-        return { ok: false, status: 401, json: {}, text: "401" };
-      }
-      return {
-        ok: true,
-        status: 200,
-        json: { items: [{ id: "2", summary: "Sync" }] },
-        text: "{}",
-      };
-    };
-    const brokerFetch: typeof fetch = async () =>
-      new Response(
-        JSON.stringify({
-          accessToken: "fresh",
-          expiresAt: "2099-01-01T00:00:00.000Z",
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      );
-    const briefing = await buildDayBriefing({
-      workspaceRoot: root,
-      git,
-      http,
-      brokerFetch,
-    });
-    expect(calls).toBe(2);
-    expect(
-      briefing.drivers.find((row) => row.id === "google-calendar")?.items[0]
-        ?.title,
-    ).toBe("Sync");
   });
 
   it("hides the configure band when hints are off", async () => {
     root = await tempRoot();
     await saveConfig(root, { hints: false });
-    const briefing = await buildDayBriefing({ workspaceRoot: root, git });
+    const briefing = await buildDayBriefing({
+      workspaceRoot: root,
+      git,
+      connectors: [],
+    });
     expect(briefing.configureHint).toBeUndefined();
     expect(briefing.message).not.toContain("## Configure");
   });
 
-  it("keeps Slack errors from wiping the rest of the briefing", async () => {
+  it("stops asking for Slack when that standup section is off", async () => {
     root = await tempRoot();
-    await grantPurpose(root, "network.slack");
-    await saveToken(root, "slack", { accessToken: "xoxp-test" });
+    await saveConfig(root, { sectionsOff: ["slack"] });
     const briefing = await buildDayBriefing({
       workspaceRoot: root,
       git,
-      snapshots: {
-        slack: {
-          id: "slack",
-          connected: true,
-          available: false,
-          error: "missing_scope",
-          items: [],
-        },
-        github: {
-          id: "github",
-          connected: true,
-          available: true,
-          items: [{ id: "1", title: "PR review", detail: "review requested" }],
-        },
-      },
+      connectors: [slack],
     });
-    expect(briefing.message).toContain("PR review");
-    expect(briefing.message).toContain("missing_scope");
-    expect(briefing.message).toContain("### Slack");
-    expect(briefing.message).toContain("### GitHub");
-    expect(briefing.git.branch).toBe("main");
+    expect(briefing.fill.requests.map((row) => row.section)).not.toContain(
+      "messages",
+    );
+    expect(briefing.message).not.toContain("**Messages**");
   });
 
-  it("keeps Linear in Waiting on you after connect even with no open issues", async () => {
+  it("puts saved Slack channels into the standup fill contract", async () => {
     root = await tempRoot();
+    await saveConfig(root, {
+      slackTrackChannelIds: ["C01234567"],
+      mentionWindowHours: 6,
+      mentionLimit: 4,
+    });
     const briefing = await buildDayBriefing({
       workspaceRoot: root,
       git,
-      now: new Date("2026-08-26T10:00:00+05:30"),
-      snapshots: {
-        linear: {
-          id: "linear",
-          connected: true,
-          available: true,
-          items: [],
-          recentlyDone: [
-            { id: "d1", title: "ENG-1 Shipped connect", detail: "completed" },
-          ],
-          viewerName: "Shailesh",
-        },
-      },
+      connectors: [slack],
     });
-    expect(briefing.message).toContain("Good morning, Shailesh.");
-    expect(briefing.message).toContain("### Linear");
-    expect(briefing.message).toContain("Nothing waiting.");
-    expect(briefing.message).toContain("ENG-1 Shipped connect");
-    expect(briefing.connectCtas.some((cta) => /Linear/i.test(cta))).toBe(false);
-  });
-
-  it("caps Slack mention items in the formatted briefing", async () => {
-    root = await tempRoot();
-    const items = Array.from({ length: 20 }, (_, i) => ({
-      id: `m${i}`,
-      title: `mention ${i}`,
-      detail: "mention",
-    }));
-    const briefing = await buildDayBriefing({
-      workspaceRoot: root,
-      git,
-      snapshots: {
-        slack: { id: "slack", connected: true, available: true, items },
-      },
-    });
-    const mentionLines = briefing.message
-      .split("\n")
-      .filter((line) => line.includes("mention "));
-    expect(mentionLines.length).toBeLessThanOrEqual(8);
+    const messages = briefing.fill.requests.find(
+      (row) => row.section === "messages",
+    );
+    expect(messages?.ask).toContain("C01234567");
+    expect(messages?.ask).toContain("6 hour");
+    expect(messages?.ask).toContain("at most 4");
   });
 });
 
@@ -419,6 +338,35 @@ describe("remember + configure", () => {
     };
     expect(day.message).toContain("greet me as Chief");
   });
+
+  it("does not repeat standup notes that are already in the template", async () => {
+    root = await tempRoot();
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      fetchImpl: mockBrokerFetch(),
+    });
+    await runtime.handle("configure", {
+      action: "set",
+      standupTemplate: "greet me by name\nstandup: terse",
+      preference: "standup: terse",
+    });
+    const day = (await runtime.handle("start_my_day", {})) as {
+      message: string;
+    };
+    expect(day.message.match(/standup: terse/g)?.length).toBe(1);
+  });
+
+  it("stores standing job instructions on configure", async () => {
+    root = await tempRoot();
+    const runtime = createDispatchRuntime({ workspaceRoot: root, git });
+    const result = (await runtime.handle("configure", {
+      action: "set",
+      jobInstructions: "Prefer small diffs.",
+    })) as { config: { jobInstructions: string }; message: string };
+    expect(result.config.jobInstructions).toBe("Prefer small diffs.");
+    expect(result.message).toContain("Prefer small diffs.");
+  });
 });
 
 describe("jobs, worktrees, overlap, cap", () => {
@@ -463,13 +411,13 @@ describe("jobs, worktrees, overlap, cap", () => {
       worker,
       env: { CURSOR_API_KEY: "test-key" },
     });
-    const result = (await runtime.handle("start_job", {
+    const result = await dispatchAndDrain(runtime, {
       title: "AI-971 login",
       prd: "Ship login",
-    })) as { job: { worktreePath: string; source: string; id: string } };
-    expect(result.job.id).toBe("AI-971");
-    expect(result.job.worktreePath).toBe("/tmp/cursor-trees/AI-971");
-    expect(result.job.source).toBe("cursor");
+    });
+    expect(result.job?.id).toBe("AI-971");
+    expect(result.job?.worktreePath).toBe("/tmp/cursor-trees/AI-971");
+    expect(result.job?.source).toBe("cursor");
   });
 
   it("asks for confirm when a second job would share a dirty tree", async () => {
@@ -498,12 +446,15 @@ describe("jobs, worktrees, overlap, cap", () => {
       worker,
       env: { CURSOR_API_KEY: "test-key" },
     });
-    await runtime.handle("start_job", { title: "first", jobId: "share" });
-    const second = (await runtime.handle("start_job", {
+    await dispatchAndDrain(runtime, { title: "first", jobId: "share" });
+    const second = await dispatchAndDrain(runtime, {
       title: "second",
       jobId: "shared",
-    })) as { needsConfirm?: boolean };
-    expect(second.needsConfirm).toBe(true);
+    });
+    // The overlap gate leaves a job the board can show and answer, rather
+    // than a bare needsConfirm flag that dies with the chat turn (ADR-0047).
+    expect(second.job?.status).toBe("needs_confirm");
+    expect(second.job?.confirm?.arg).toBe("confirmOverlap");
   });
 
   it("refuses a new job past maxJobs", async () => {
@@ -515,16 +466,40 @@ describe("jobs, worktrees, overlap, cap", () => {
       worker,
       env: { CURSOR_API_KEY: "test-key" },
     });
-    await runtime.handle("start_job", {
-      title: "first",
-      jobId: "one",
-    });
-    const blocked = (await runtime.handle("start_job", {
+    await dispatchAndDrain(runtime, { title: "first", jobId: "one" });
+    const second = await dispatchAndDrain(runtime, {
       title: "second",
       jobId: "two",
-    })) as { maxJobs?: number; message: string };
-    expect(blocked.maxJobs).toBe(1);
-    expect(blocked.message).toMatch(/job cap/i);
+    });
+    // Past the cap the job now waits instead of being refused. Nothing is
+    // lost, and it starts by itself when a slot frees (ADR-0047).
+    expect(second.job?.status).toBe("queued");
+    expect(second.job?.nextStep).toMatch(/job cap/i);
+
+    // Free the slot and the queue moves on its own.
+    await runtime.handle("job_control", { jobId: "one", action: "cancel" });
+    const after = await drain(runtime);
+    expect(after.find((row) => row.id === "two")?.status).toBe("running");
+  });
+
+  it("delete removes a job from the board entirely", async () => {
+    root = await tempRoot();
+    await saveConfig(root, { placement: "worktree" });
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    await dispatchAndDrain(runtime, { title: "gone soon", jobId: "gone" });
+    await runtime.handle("job_control", { jobId: "gone", action: "cancel" });
+    const deleted = (await runtime.handle("job_control", {
+      jobId: "gone",
+      action: "delete",
+    })) as { message: string; deleted?: boolean };
+    expect(deleted.deleted).toBe(true);
+    expect(deleted.message).toMatch(/Deleted/i);
+    expect(await loadJobs(root)).toEqual([]);
   });
 
   it("follows getWorkspaceRoot when the MCP client later reports the repo", async () => {
@@ -546,10 +521,10 @@ describe("jobs, worktrees, overlap, cap", () => {
       env: { CURSOR_API_KEY: "test-key" },
     });
     liveRoot = root;
-    const result = (await runtime.handle("start_job", {
+    const result = await dispatchAndDrain(runtime, {
       title: "from-roots",
       prd: "Use the live workspace",
-    })) as { job?: { worktreePath: string }; message: string };
+    });
     expect(result.job).toBeDefined();
     expect(trees).toEqual([root]);
     expect(result.message).not.toMatch(/git repository/i);
@@ -569,14 +544,43 @@ describe("jobs, worktrees, overlap, cap", () => {
       worker,
       env: { CURSOR_API_KEY: "test-key" },
     });
-    const result = (await runtime.handle("start_job", {
+    const result = await dispatchAndDrain(runtime, {
       title: "Review PR 5631",
       prd: "Review the pull request",
-    })) as { message: string; job?: unknown };
-    expect(result.job).toBeUndefined();
+    });
+    // "No repository here" is rejected at accept time rather than queued
+    // (ADR-0047). Unlike a dirty tree or a busy machine, nothing about waiting
+    // fixes it, so there is no job to persist — only an answer.
+    expect(result.accepted.job).toBeUndefined();
     expect(result.message).toMatch(/git repository/i);
-    expect(result.message).toMatch(/mcp\.json/);
     expect(result.message).not.toMatch(/fatal:/);
+  });
+
+  it("blocks rather than drops a job when git fails after accepting it", async () => {
+    root = await tempRoot();
+    let probed = false;
+    // Healthy on the accept-time probe, broken by the time the drain runs —
+    // the interesting case, because the job already exists on disk.
+    const flaky: GitRunner = async (_cwd, args) => {
+      if (args[0] === "rev-parse" && args[1] === "--git-dir" && !probed) {
+        probed = true;
+        return { ok: true, stdout: ".git", stderr: "" };
+      }
+      return { ok: false, stdout: "", stderr: "fatal: git exploded" };
+    };
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git: flaky,
+      worker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    const result = await dispatchAndDrain(runtime, {
+      title: "Review PR 5632",
+      prd: "Review the pull request",
+    });
+    expect(result.job?.status).toBe("blocked");
+    expect(result.job?.waitingOn).toBe("git");
+    expect(result.job?.nextStep).toBeTruthy();
   });
 
   it("records the job when the worker fails to start", async () => {
@@ -598,13 +602,13 @@ describe("jobs, worktrees, overlap, cap", () => {
       worker: exploding,
       env: { CURSOR_API_KEY: "test-key" },
     });
-    const result = (await runtime.handle("start_job", {
+    const result = await dispatchAndDrain(runtime, {
       title: "blocked worker",
       jobId: "bw1",
-    })) as { job: { status: string }; message: string };
-    expect(result.job.status).toBe("blocked");
-    expect(result.message).toMatch(/didn’t start|didn't start/i);
-    expect(result.message).not.toMatch(/@cursor\/sdk|API key/i);
+    });
+    expect(result.job?.status).toBe("blocked");
+    expect(result.job?.nextStep).toMatch(/didn’t start|didn't start/i);
+    expect(result.job?.nextStep).not.toMatch(/@cursor\/sdk|API key/i);
   });
 
   it("injects memories into the worker prompt", async () => {
@@ -633,10 +637,39 @@ describe("jobs, worktrees, overlap, cap", () => {
       worker: capturing,
       env: { CURSOR_API_KEY: "test-key" },
     });
-    await runtime.handle("start_job", { title: "UI polish", prd: "Polish" });
+    await dispatchAndDrain(runtime, { title: "UI polish", prd: "Polish" });
     expect(prompt).toContain("Use existing Button primitive");
     expect(prompt).toContain("bun install");
     expect(prompt).toContain("UI polish");
+  });
+
+  it("injects standing job instructions into the worker prompt", async () => {
+    root = await tempRoot();
+    await saveConfig(root, {
+      placement: "worktree",
+      jobInstructions: "Prefer small diffs.",
+    });
+    let prompt = "";
+    const capturing: WorkerPort = {
+      async start(input) {
+        prompt = input.prompt;
+        return { agentId: "agent-instr" };
+      },
+      async resume() {},
+      async cancel() {},
+      async status() {
+        return { status: "running", detail: "" };
+      },
+    };
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker: capturing,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    await dispatchAndDrain(runtime, { title: "UI polish", prd: "Polish" });
+    expect(prompt).toContain("Standing job instructions from the user:");
+    expect(prompt).toContain("Prefer small diffs.");
   });
 
   it("starts a worker from a stored Cursor SDK login without CURSOR_API_KEY", async () => {
@@ -669,12 +702,12 @@ describe("jobs, worktrees, overlap, cap", () => {
       env: {},
       cursorAuth: stored,
     });
-    const result = (await runtime.handle("start_job", {
+    const result = await dispatchAndDrain(runtime, {
       title: "audit",
       jobId: "audit-1",
-    })) as { job: { status: string; cursorAgentId?: string }; message: string };
-    expect(result.job.status).toBe("running");
-    expect(result.job.cursorAgentId).toBe("agent-stored");
+    });
+    expect(result.job?.status).toBe("running");
+    expect(result.job?.cursorAgentId).toBe("agent-stored");
     expect(sawKey).toBeUndefined();
     expect(result.message).toMatch(/audit/i);
     expect(result.message).not.toMatch(/job-[0-9a-f]{8}|API key|mcp\.json/i);
@@ -701,11 +734,11 @@ describe("jobs, worktrees, overlap, cap", () => {
       worker: capturing,
       env: { CURSOR_API_KEY: "test-key" },
     });
-    const result = (await runtime.handle("start_job", {
+    const result = await dispatchAndDrain(runtime, {
       title: "Audit issues in this repo",
       prd: "Find real issues",
-    })) as { job: { id: string; title: string }; message: string };
-    expect(result.job.id).toBe("audit-issues-in-this-repo");
+    });
+    expect(result.job?.id).toBe("audit-issues-in-this-repo");
     expect(workerName).toBe("Prism · Audit issues in this repo");
     expect(result.message).toMatch(/where are we/i);
     expect(result.message).not.toMatch(/job-[0-9a-f]{8}/i);
@@ -741,11 +774,11 @@ describe("jobs, worktrees, overlap, cap", () => {
       env: {},
       cursorAuth: loggingIn,
     });
-    const result = (await runtime.handle("start_job", {
+    const result = await dispatchAndDrain(runtime, {
       title: "audit",
       jobId: "audit-2",
-    })) as { job: { status: string } };
-    expect(result.job.status).toBe("running");
+    });
+    expect(result.job?.status).toBe("running");
     expect(usedKey).toBe("minted");
   });
 
@@ -847,125 +880,6 @@ describe("worker role and doctor", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
-
-  it("uses injected OAuth instead of opening a browser", async () => {
-    const root = await tempRoot();
-    try {
-      const runtime = createDispatchRuntime({
-        workspaceRoot: root,
-        git,
-        startOAuth: async (driver) => ({
-          driver,
-          connected: true,
-          message: `fake connected ${driver}`,
-        }),
-      });
-      const result = (await runtime.handle("integrations", {
-        action: "start",
-        driver: "linear",
-      })) as { message: string };
-      expect(result.message).toContain("linear");
-    } finally {
-      await rm(root, { recursive: true, force: true });
-    }
-  });
-
-  it("connects through Prism Auth without asking for a client id", async () => {
-    const root = await tempRoot();
-    try {
-      const runtime = createDispatchRuntime({
-        workspaceRoot: root,
-        git,
-        env: {},
-        fetchImpl: mockBrokerFetch(),
-      });
-      const result = (await runtime.handle("integrations", {
-        action: "connect",
-        driver: "google calendar",
-      })) as {
-        brokerEnabled?: boolean;
-        message: string;
-      };
-      expect(result.brokerEnabled).toBe(false);
-      expect(result.message).toMatch(/Prism Auth/i);
-      expect(result.message).toMatch(/do not create an OAuth client/i);
-    } finally {
-      await rm(root, { recursive: true, force: true });
-    }
-  });
-
-  it("stores a pasted OAuth client id so connect can retry without a reload", async () => {
-    const root = await tempRoot();
-    try {
-      const runtime = createDispatchRuntime({
-        workspaceRoot: root,
-        git,
-        env: {},
-        fetchImpl: mockBrokerFetch(),
-        startOAuth: async (driver) => ({
-          driver,
-          message: `would open browser for ${driver}`,
-        }),
-      });
-      await runtime.handle("integrations", {
-        action: "connect",
-        driver: "google calendar",
-        clientId: "abc.apps.googleusercontent.com",
-        clientSecret: "s3cret",
-      });
-      const saved = await loadOAuthApp(root, "google-calendar");
-      expect(saved?.clientId).toBe("abc.apps.googleusercontent.com");
-      const catalog = (await runtime.handle("integrations", {
-        action: "catalog",
-      })) as {
-        drivers: { id: string; connectReady: boolean }[];
-        broker: string;
-      };
-      expect(catalog.broker).toBe(authBrokerUrl({}));
-      expect(
-        catalog.drivers.find((row) => row.id === "google-calendar")
-          ?.connectReady,
-      ).toBe(true);
-    } finally {
-      await rm(root, { recursive: true, force: true });
-    }
-  });
-
-  it("stops at the first native step when the user declines Connect", async () => {
-    const root = await tempRoot();
-    try {
-      const runtime = createDispatchRuntime({
-        workspaceRoot: root,
-        git,
-        env: {},
-        fetchImpl: mockBrokerFetch({ "google-calendar": true }),
-        oauthUi: {
-          async reportStep() {},
-          async confirmConnect() {
-            return false;
-          },
-          async beginAuth() {
-            throw new Error("must not start Authenticate after decline");
-          },
-        },
-      });
-      const result = (await runtime.handle("integrations", {
-        action: "connect",
-        driver: "google calendar",
-      })) as {
-        cancelled?: boolean;
-        steps?: { id: string; status: string }[];
-        message: string;
-      };
-      expect(result.cancelled).toBe(true);
-      expect(result.steps?.find((step) => step.id === "confirm")?.status).toBe(
-        "failed",
-      );
-      expect(result.message).toMatch(/Cancelled connecting Google Calendar/i);
-    } finally {
-      await rm(root, { recursive: true, force: true });
-    }
-  });
 });
 
 describe("live status and completion inbox", () => {
@@ -1055,6 +969,97 @@ describe("live status and completion inbox", () => {
     expect(day.message).toMatch(/lighthouse/i);
   });
 
+  it("waitFor returns immediately for a settled job and speaks why", async () => {
+    root = await tempRoot();
+    await upsertJob(root, {
+      id: "latency-check",
+      title: "Latency check",
+      playbook: "ticket",
+      prd: "",
+      branch: "main",
+      worktreePath: root,
+      source: "checkout",
+      status: "done",
+      lastStep: "",
+      nextStep: "",
+      waitingOn: "",
+      resultSummary: "Printed the repo name. Changed nothing.",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    await appendRunLog(root, "latency-check", {
+      ts: new Date().toISOString(),
+      phase: "thinking",
+      text: "The repository name is Prism. I will not edit any files because the brief said change nothing.",
+      level: "info",
+    });
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    const listed = (await runtime.handle("list_jobs", {
+      waitFor: "latency-check",
+      timeoutMs: 2000,
+    })) as { message: string };
+    expect(listed.message).toMatch(/finished/i);
+    expect(listed.message).toMatch(/Why it did that/);
+    expect(listed.message).toMatch(/change nothing/);
+  });
+
+  it("keeps a checkout review file without restoring it", async () => {
+    root = await tempRoot();
+    await upsertJob(root, {
+      id: "latency-check",
+      title: "Latency check",
+      playbook: "ticket",
+      prd: "",
+      branch: "main",
+      worktreePath: root,
+      source: "checkout",
+      status: "needs_review",
+      lastStep: "",
+      nextStep: "review the changes",
+      waitingOn: "",
+      review: {
+        files: [
+          { path: "src/job.ts", added: 10, removed: 0, change: "modified" },
+          { path: "src/other.ts", added: 2, removed: 1, change: "modified" },
+        ],
+        totalAdded: 12,
+        totalRemoved: 1,
+        truncated: false,
+        branch: "main",
+        baseRef: "HEAD",
+        committed: false,
+        merged: false,
+        mixedPaths: [],
+        keptPaths: [],
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    const kept = (await runtime.handle("job_control", {
+      jobId: "latency-check",
+      action: "accept_file",
+      path: "src/job.ts",
+    })) as { message: string };
+    expect(kept.message).toMatch(/Kept src\/job\.ts/);
+    const all = (await runtime.handle("job_control", {
+      jobId: "latency-check",
+      action: "accept_all",
+    })) as { message: string; job: { status: string } };
+    expect(all.job.status).toBe("done");
+    expect(all.message).toMatch(/Kept the changes/);
+  });
+
   it("passes the job id into the worker port so the sidecar can be named", async () => {
     root = await tempRoot();
     await saveConfig(root, { placement: "worktree" });
@@ -1076,7 +1081,7 @@ describe("live status and completion inbox", () => {
       worker: capturing,
       env: { CURSOR_API_KEY: "test-key" },
     });
-    await runtime.handle("start_job", {
+    await dispatchAndDrain(runtime, {
       title: "AI-971 login",
       prd: "Ship it",
     });

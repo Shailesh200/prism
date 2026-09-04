@@ -8,6 +8,7 @@ import {
   type ReactElement,
 } from "react";
 import { RepositoryMapView } from "@repo-prism/ui";
+import type { ConsoleStatus } from "@repo-prism/shared";
 import {
   AppShellClientProvider,
   AppSidebar,
@@ -17,6 +18,7 @@ import {
   DomainScreen,
   DomainsScreen,
   ExplainAreaScreen,
+  ConsoleJobsScreen,
   IntegrationsScreen,
   OverviewScreen,
   PrismErrorBoundary,
@@ -55,7 +57,7 @@ import type {
   RepositoryMap,
   UtilityOverlayReport,
 } from "@repo-prism/shared";
-import type { AppView, HostToWebview } from "../protocol.js";
+import type { AppView, HostToWebview } from "@repo-prism/host-session";
 import {
   fetchBackendReport,
   fetchBookmarks,
@@ -490,6 +492,27 @@ function App(): ReactElement {
     setView("domain");
   }, []);
 
+  // Fetched here rather than inside each screen: Integrations, Jobs and
+  // Workflows all need it, and three independent pollers would ask the same
+  // loopback port the same question three times.
+  const [consoleStatus, setConsoleStatus] = useState<ConsoleStatus | undefined>(
+    undefined,
+  );
+  const [consoleNonce, setConsoleNonce] = useState(0);
+  useEffect(() => {
+    let live = true;
+    void client.fetchConsoleStatus?.().then((next) => {
+      if (live) setConsoleStatus(next);
+    });
+    return () => {
+      live = false;
+    };
+  }, [client, consoleNonce]);
+  const refreshConsoleStatus = useCallback(
+    () => setConsoleNonce((n) => n + 1),
+    [],
+  );
+
   const onNavigate = useCallback((next: AppView) => {
     // M-062: Profile merged into DNA — keep deep-links working.
     setView(next === "profile" ? "dna" : next);
@@ -683,6 +706,17 @@ function App(): ReactElement {
         branch={branch}
         user={user}
         networkIntegrationsAllowed={networkIntegrationsAllowed}
+        onNavigate={onNavigate}
+      />
+    );
+  } else if (view === "jobs") {
+    body = (
+      <ConsoleJobsScreen
+        repoLabel={repoLabel}
+        branch={branch}
+        user={user}
+        status={consoleStatus}
+        onRetry={refreshConsoleStatus}
         onNavigate={onNavigate}
       />
     );

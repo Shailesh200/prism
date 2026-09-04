@@ -1,5 +1,0 @@
-{
-  "title": "AI Agents",
-  "root": true,
-  "pages": ["install", "usage", "dispatch", "tools", "prompts"]
-}

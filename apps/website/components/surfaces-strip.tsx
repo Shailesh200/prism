@@ -5,19 +5,24 @@ import { Reveal } from "@/components/motion/Reveal";
 
 const SURFACES = [
   {
-    href: "/docs/cli/install",
+    href: "/docs/start/install",
     title: "CLI",
     body: "prism commands for terminals and CI.",
   },
   {
-    href: "/docs/ide/install",
+    href: "/docs/start/install",
     title: "IDE extension",
     body: "VS Code and Cursor — same Map and blast UI.",
   },
   {
-    href: "/docs/mcp/install",
+    href: "/docs/start/install",
     title: "AI agents (MCP)",
-    body: "Structure for agents — Prism does not write code.",
+    body: "41 structural tools for agents — plus Dispatch for the changes you hand off.",
+  },
+  {
+    href: "/docs/guides/dispatch",
+    title: "Dispatch",
+    body: "Hand work to a background teammate, watched from the local Console.",
   },
   {
     href: "/docs/start/playground",
@@ -36,16 +41,17 @@ export function SurfacesStrip() {
               Nº04
             </p>
             <h2 className="font-display text-2xl font-semibold tracking-tight text-fd-foreground md:text-3xl">
-              One engine, four surfaces
+              One engine, every surface
             </h2>
             <p className="max-w-md text-fd-muted-foreground">
-              Install where you work. Every surface calls the same Core.
+              Install where you work. Every surface calls the same Core, and
+              reads the same local index.
             </p>
           </div>
         </Reveal>
         <ul className="divide-y divide-fd-border border-y border-fd-border">
           {SURFACES.map((s, i) => (
-            <Reveal key={s.href} delay={i * 0.06} y={14}>
+            <Reveal key={s.title} delay={i * 0.06} y={14}>
               <li>
                 <Link
                   href={s.href}

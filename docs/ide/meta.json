@@ -1,5 +1,0 @@
-{
-  "title": "IDE Extension",
-  "root": true,
-  "pages": ["install", "usage", "settings"]
-}
