@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Review** — owner approved 2026-09-04 |
+| Status | **Verified** — merged to main 2026-09-04 |
 | Branch | `milestone/M-067-shippable-product` (from latest `main`) |
 | Depends on | M-066 (Checkout-first Jobs), M-064 (Agent Dashboard Hub), M-062 (UI Actionability) |
 | Unlocks | GA re-cut on the plugin-pack shape |
@@ -71,7 +71,7 @@ One branch. Each phase is independently verifiable; run
 - [x] P-S6: shared motion module; website chrome; docs prose untouched; IDE bundle within stated budget
 - [x] P-S7: hands-on smoke complete; report written and shared
 - [x] `bun run verify:milestone` green
-- [x] Owner approval → commit (merge to `main` still outstanding)
+- [x] Owner approval → commit → merged to `main`
 
 ## 4a. P-S7 ship-gate report
 
