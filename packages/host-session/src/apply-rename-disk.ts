@@ -1,10 +1,81 @@
 import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import {
-  rewritePathReferences,
-  type ApplyRenameInput,
-  type ApplyRenameResult,
+import type {
+  ApplyRenameInput,
+  ApplyRenameResult,
 } from "@repo-prism/app-shell/apply-rename";
+
+/** Local copy of app-shell's rewrite so this package can publish without it. */
+function rewritePathReferences(
+  content: string,
+  fromPath: string,
+  toPath: string,
+): { readonly next: string; readonly replacements: number } {
+  const from = fromPath
+    .replace(/\\/g, "/")
+    .replace(/^\.\//, "")
+    .replace(/^\/+/, "");
+  const to = toPath
+    .replace(/\\/g, "/")
+    .replace(/^\.\//, "")
+    .replace(/^\/+/, "");
+  if (!from || from === to) return { next: content, replacements: 0 };
+
+  const stripExt = (path: string): string => path.replace(/\.[^./]+$/, "");
+  const basename = (path: string): string => {
+    const i = path.lastIndexOf("/");
+    return i >= 0 ? path.slice(i + 1) : path;
+  };
+  const escapeRegExp = (s: string): string =>
+    s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  const fromStem = stripExt(from);
+  const toStem = stripExt(to);
+  const fromBase = basename(from);
+  const toBase = basename(to);
+  const fromBaseStem = stripExt(fromBase);
+  const toBaseStem = stripExt(toBase);
+
+  let next = content;
+  let replacements = 0;
+  const replaceAll = (haystack: string, old: string, neu: string): string => {
+    if (!old || old === neu || !haystack.includes(old)) return haystack;
+    const parts = haystack.split(old);
+    replacements += parts.length - 1;
+    return parts.join(neu);
+  };
+
+  next = replaceAll(next, from, to);
+  if (fromStem !== from && toStem !== to) {
+    next = replaceAll(next, fromStem, toStem);
+  }
+  if (fromBase && fromBase !== toBase) {
+    const baseRe = new RegExp(
+      `(?<=[/'"\`])${escapeRegExp(fromBase)}(?=['"\`?]|$)`,
+      "g",
+    );
+    next = next.replace(baseRe, () => {
+      replacements += 1;
+      return toBase;
+    });
+  }
+  if (
+    fromBaseStem &&
+    fromBaseStem !== toBaseStem &&
+    fromBaseStem !== fromBase &&
+    fromBaseStem.length >= 2
+  ) {
+    const stemRe = new RegExp(
+      `(?<=[/'"\`])${escapeRegExp(fromBaseStem)}(?=['"\`])`,
+      "g",
+    );
+    next = next.replace(stemRe, () => {
+      replacements += 1;
+      return toBaseStem;
+    });
+  }
+  return { next, replacements };
+}
 
 function normalize(path: string): string {
   return path.replace(/\\/g, "/").replace(/^\/+/, "");

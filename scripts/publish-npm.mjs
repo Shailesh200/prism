@@ -24,9 +24,11 @@ const ORDER = [
   "repository-map",
   "core",
   "dispatch",
+  "host-session",
   "dispatch-hub",
   "mcp-server",
   "cli",
+  "plugin",
 ];
 
 const PUBLISHABLE = new Set(ORDER.map((name) => `@repo-prism/${name}`));

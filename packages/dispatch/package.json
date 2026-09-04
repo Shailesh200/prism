@@ -7,10 +7,6 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./oauth-providers": {
-      "types": "./dist/oauth-providers.d.ts",
-      "import": "./dist/oauth-providers.js"
     }
   },
   "files": ["dist"],
