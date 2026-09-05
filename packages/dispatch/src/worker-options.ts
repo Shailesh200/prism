@@ -156,13 +156,67 @@ export async function writeWorkerMcpConfig(input: {
   }
 }
 
+/**
+ * Prefer a concrete vendor model id over Cursor's `default` / `auto` sentinels.
+ *
+ * `Agent.create` often echoes `{ id: "default" }` when no model was pinned.
+ * The SDK may also expose a display name beside that sentinel — use it when
+ * present so the console can show what actually ran, without inventing one.
+ */
+export function cursorModelId(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed || undefined;
+  }
+  if (!value || typeof value !== "object") return undefined;
+  const row = value as Record<string, unknown>;
+  const fields: unknown[] = [
+    row.id,
+    row.name,
+    row.displayName,
+    row.modelId,
+    row.model,
+  ];
+  const found: string[] = [];
+  for (const field of fields) {
+    if (typeof field === "string" && field.trim()) {
+      found.push(field.trim());
+      continue;
+    }
+    if (field && typeof field === "object" && field !== value) {
+      const nested = cursorModelId(field);
+      if (nested) found.push(nested);
+    }
+  }
+  const concrete = found.find((id) => {
+    const lower = id.toLowerCase();
+    return lower !== "default" && lower !== "auto";
+  });
+  return concrete ?? found[0];
+}
+
+/** Model id from a Cursor stream event, when the run reports one. */
+export function cursorModelFromEvent(event: unknown): string | undefined {
+  if (!event || typeof event !== "object") return undefined;
+  const row = event as Record<string, unknown>;
+  const direct = cursorModelId(row.model);
+  if (direct) return direct;
+  if (row.message && typeof row.message === "object") {
+    return cursorModelId((row.message as Record<string, unknown>).model);
+  }
+  return undefined;
+}
+
 export function cursorAgentOptions(
   input: CursorAgentOptionsInput,
 ): Record<string, unknown> {
   return {
     ...(input.apiKey ? { apiKey: input.apiKey } : {}),
     ...(input.name ? { name: input.name } : {}),
-    model: { id: "auto" },
+    // Do not pin `model: { id: "auto" }`. That forced a sentinel the console
+    // showed as MODEL = "default" once the SDK echoed it back. Omitting the
+    // field lets Cursor use the host's current model; the worker then stores
+    // whatever concrete id (or honest "default") the agent reports.
     local: {
       cwd: input.cwd,
       settingSources: [],

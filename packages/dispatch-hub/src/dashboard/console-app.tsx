@@ -31,7 +31,9 @@ export function ConsoleApp(): ReactElement {
   } = useHashRoute();
   const feed = useJobsFeed(token);
   const waitingCount = jobsWaitingOnYou(feed.summaries).length;
-  const workspaces = useWorkspaces(token, feed);
+  /** Bumped on manual Refresh so /api/repos re-reads even when job count is unchanged. */
+  const [reposEpoch, setReposEpoch] = useState(0);
+  const workspaces = useWorkspaces(token, feed, reposEpoch);
   const shellRef = useRef<HTMLDivElement | null>(null);
   const [version, setVersion] = useState<string | undefined>();
   const railSignature = feed.summaries
@@ -111,7 +113,10 @@ export function ConsoleApp(): ReactElement {
             port={feed.port}
             jobs={feed.summaries}
             loading={feed.loading}
-            onRefresh={feed.refresh}
+            onRefresh={() => {
+              feed.refresh();
+              setReposEpoch((n) => n + 1);
+            }}
             asOf={feed.asOf}
             stale={feed.stale}
             workspaceErrors={feed.errors.map((row) => ({
@@ -194,6 +199,7 @@ function useWorkspaces(
   feed: {
     readonly jobs: readonly { workspacePath: string; workspaceLabel: string }[];
   },
+  reposEpoch: number,
 ) {
   const [repos, setRepos] = useState<RepoRow[]>([]);
   useEffect(() => {
@@ -208,7 +214,7 @@ function useWorkspaces(
     return () => {
       alive = false;
     };
-  }, [token, feed.jobs.length]);
+  }, [token, feed.jobs.length, reposEpoch]);
   return useMemo(() => {
     const counts = new Map<string, number>();
     for (const job of feed.jobs) {

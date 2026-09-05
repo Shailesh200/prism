@@ -109,6 +109,8 @@ export {
 export {
   workerMcpEnv,
   cursorAgentOptions,
+  cursorModelId,
+  cursorModelFromEvent,
   workerTools,
   workerMcpServers,
   writeWorkerMcpConfig,

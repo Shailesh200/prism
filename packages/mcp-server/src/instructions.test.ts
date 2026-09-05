@@ -92,7 +92,10 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(
       /say in one line what you are about to start/i,
     );
-    expect(SERVER_INSTRUCTIONS).toMatch(/the user can stop you/i);
+    // Announce is not a substitute for the ask: under ask, wait for
+    // teammate-or-inline before calling start_job.
+    expect(SERVER_INSTRUCTIONS).not.toMatch(/Do not wait to be asked/);
+    expect(SERVER_INSTRUCTIONS).not.toMatch(/the user can stop you/i);
   });
 
   it("tells agents a finished job is checked and never landed silently", () => {
@@ -124,6 +127,12 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/dispatchMode=auto/);
     expect(SERVER_INSTRUCTIONS).toMatch(/dispatchMode=inline/);
     expect(SERVER_INSTRUCTIONS).toMatch(/never ask twice/i);
+    // The Dispatch bullet and closing line used to say "start_job" without
+    // waiting, which overrode the CRITICAL ask and silently auto-dispatched.
+    expect(SERVER_INSTRUCTIONS).toMatch(/Never silently auto-dispatch/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(
+      /ask teammate-or-inline first/i,
+    );
   });
 
   it("honours an explicit request for a job even for read-only work", () => {

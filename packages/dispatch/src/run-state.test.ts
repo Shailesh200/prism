@@ -14,6 +14,8 @@ import {
   workerMcpEnv,
   mcpArgsWithWorkspace,
   cursorAgentOptions,
+  cursorModelFromEvent,
+  cursorModelId,
 } from "./worker-options.js";
 import { gitChangeSummary, type GitRunner } from "./git.js";
 import type { JobRecord } from "./types.js";
@@ -243,6 +245,26 @@ describe("worker MCP env", () => {
     // The shell ban is untouched: it is what stopped a worker running `bun
     // install` and re-indexing (ADR-0041).
     expect(options.tools).not.toContain("shell");
+    // Do not pin a sentinel model — that was what the console showed as
+    // MODEL = "default". The host's current selection is the right default.
+    expect(options).not.toHaveProperty("model");
+  });
+
+  it("prefers a concrete Cursor model id over default/auto sentinels", () => {
+    expect(cursorModelId("claude-sonnet-4-5")).toBe("claude-sonnet-4-5");
+    expect(cursorModelId({ id: "default" })).toBe("default");
+    expect(cursorModelId({ id: "default", name: "claude-sonnet-4-5" })).toBe(
+      "claude-sonnet-4-5",
+    );
+    expect(cursorModelId({ id: "auto", displayName: "Composer 1" })).toBe(
+      "Composer 1",
+    );
+    expect(
+      cursorModelFromEvent({
+        type: "assistant",
+        message: { model: "composer-1" },
+      }),
+    ).toBe("composer-1");
   });
 });
 

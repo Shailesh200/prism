@@ -293,11 +293,20 @@ export function jobAgentLabel(
  * third-party ids stay as reported — inventing a pretty name would hide the
  * model that actually ran.
  */
+/** Cursor / vendor placeholders — not a concrete model that actually ran. */
+function isWorkerModelSentinel(raw: string): boolean {
+  const lower = raw.trim().toLowerCase();
+  return !lower || lower === "default" || lower === "auto";
+}
+
 export function formatWorkerModel(raw: string): string {
   const id = raw.trim();
   if (!id) return "Unknown";
   const lower = id.toLowerCase();
+  // Cursor's unset / host-default picker reports `default`; `auto` is the
+  // same class of sentinel. Never show the bare word "default" in the UI.
   if (lower === "auto") return "Auto";
+  if (lower === "default") return "Cursor default";
   const family = lower.includes("opus")
     ? "Opus"
     : lower.includes("sonnet")
@@ -367,12 +376,17 @@ export function jobModelLabel(
   model?: string | undefined,
   thinking?: string | undefined,
 ): string {
-  const name = model?.trim()
-    ? formatWorkerModel(model)
+  const trimmed = model?.trim() ?? "";
+  // A real workerModel (e.g. claude-sonnet-4-5) always wins. Sentinels and an
+  // empty id fall through to a backend-aware label — never invent a model.
+  const name = !isWorkerModelSentinel(trimmed)
+    ? formatWorkerModel(trimmed)
     : backend === "claude"
       ? "Claude"
       : backend === "cursor"
-        ? "Auto"
+        ? trimmed.toLowerCase() === "auto"
+          ? "Auto"
+          : "Cursor default"
         : "Unknown";
   const suffix = thinking?.trim() ? formatWorkerThinking(thinking) : "";
   return suffix ? `${name} · ${suffix}` : name;
