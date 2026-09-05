@@ -203,6 +203,7 @@ export {
   jobNotePaths,
   parseFabricationMention,
   isSettledJob,
+  jobOffersResume,
   jobStatusLabel,
   jobStatusTone,
   jobTimeBreakdown,

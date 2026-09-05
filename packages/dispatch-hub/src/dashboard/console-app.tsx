@@ -1,11 +1,20 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
-import { JobsScreen, jobsWaitingOnYou } from "@repo-prism/app-shell";
+import {
+  JobsScreen,
+  jobsWaitingOnYou,
+  type JobSummary,
+} from "@repo-prism/app-shell";
 import { ConsoleFooter } from "./console-footer.js";
 import { FindingsView } from "./findings-view.js";
 import { IntelligenceView } from "./intelligence-view.js";
-import { CONSOLE_VIEWS, useHashRoute, VIEW_LABELS } from "./router.js";
+import {
+  CONSOLE_VIEWS,
+  jobsHash,
+  useHashRoute,
+  VIEW_LABELS,
+} from "./router.js";
 import { getJson, readToken } from "./session.js";
-import { ConsoleToastHost } from "./console-toast.js";
+import { ConsoleToastHost, showConsoleToast } from "./console-toast.js";
 import { SettingsView } from "./settings-view.js";
 import { useJobsFeed } from "./use-jobs.js";
 import { useJobRailMotion } from "./job-rail-motion.js";
@@ -19,6 +28,24 @@ type RepoRow = {
 };
 
 type ReposResponse = { readonly repos: RepoRow[]; readonly asOf: string };
+
+/**
+ * Shareable Console URL for one job: keep `?token=` and hash Focus to that id.
+ * Token may live only in storage after the first load — always re-attach it.
+ */
+export function consoleJobShareUrl(
+  job: Pick<JobSummary, "id" | "workspacePath">,
+  token: string,
+  href: string = typeof window !== "undefined" ? window.location.href : "",
+): string {
+  const url = new URL(href || "http://127.0.0.1/");
+  if (token) url.searchParams.set("token", token);
+  url.hash = jobsHash({
+    job: job.id,
+    ...(job.workspacePath ? { repo: job.workspacePath } : {}),
+  });
+  return url.toString();
+}
 
 export function ConsoleApp(): ReactElement {
   const token = useMemo(() => readToken(), []);
@@ -124,6 +151,14 @@ export function ConsoleApp(): ReactElement {
               go("jobs", path === "all" ? undefined : { repo: path })
             }
             {...(feed.fatal ? { listError: feed.fatal } : {})}
+            {...(jobId ? { focusJobId: jobId } : {})}
+            onCopyJobLink={(job) => {
+              const link = consoleJobShareUrl(job, token);
+              void navigator.clipboard?.writeText(link).then(
+                () => showConsoleToast("Link copied"),
+                () => showConsoleToast("Could not copy link"),
+              );
+            }}
             onOpenFindings={(job, note) =>
               go("findings", {
                 job: job.id,

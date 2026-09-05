@@ -4,7 +4,9 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  Copy,
   FileDiff,
+  MoreVertical,
   RefreshCw,
   RotateCcw,
   Terminal,
@@ -30,6 +32,7 @@ import {
   jobAgentLabel,
   jobDisplayLabel,
   jobModelLabel,
+  jobOffersResume,
   jobsWaitingOnYou,
   jobRailFill,
   jobStages,
@@ -113,6 +116,16 @@ export type JobsScreenProps = {
   readonly onRepoFilterChange?: (path: string) => void;
   /** Open the job's write-up on the Findings page. */
   readonly onOpenFindings?: (job: JobSummary, notePath?: string) => void;
+  /**
+   * Deep-link Focus to this job id (from `#/jobs?job=`). The Console passes
+   * the hash route; the IDE host can omit it.
+   */
+  readonly focusJobId?: string;
+  /**
+   * Copy a shareable Console URL for the job (token + Focus hash). When set,
+   * every row gets a ⋮ menu with Copy link.
+   */
+  readonly onCopyJobLink?: (job: JobSummary) => void;
 };
 
 const DEFAULT_POLL_MS = 2_000;
@@ -511,6 +524,9 @@ function JobWriteUp(props: {
 function JobOutcome(props: {
   job: JobSummary;
   onOpenFindings?: (job: JobSummary, notePath?: string) => void;
+  busy?: boolean;
+  onResume?: () => void;
+  onCancel?: () => void;
 }): ReactElement | null {
   const { job } = props;
   const summary = job.resultSummary?.trim();
@@ -571,7 +587,117 @@ function JobOutcome(props: {
         </ul>
       ) : null}
       {job.errorMessage ? (
-        <p className="job-outcome__error">{job.errorMessage}</p>
+        <div className="job-outcome__fail">
+          <p className="job-outcome__error">{job.errorMessage}</p>
+          {props.onResume || props.onCancel ? (
+            <div className="job-card__controls job-outcome__controls">
+              {props.onResume ? (
+                <button
+                  type="button"
+                  className="job-card__button job-card__button--primary"
+                  disabled={props.busy}
+                  onClick={props.onResume}
+                >
+                  Resume
+                </button>
+              ) : null}
+              {props.onCancel ? (
+                <button
+                  type="button"
+                  className="job-card__button job-card__button--secondary"
+                  disabled={props.busy}
+                  onClick={props.onCancel}
+                >
+                  <X size={13} aria-hidden />
+                  Cancel
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function JobRowMenu(props: {
+  job: JobSummary;
+  open: boolean;
+  canDelete: boolean;
+  busy?: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+  onCopyLink?: () => void;
+  onDelete?: () => void;
+}): ReactElement {
+  const root = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!props.open) return;
+    const onPointer = (event: MouseEvent): void => {
+      if (!root.current?.contains(event.target as Node)) props.onClose();
+    };
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") props.onClose();
+    };
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [props]);
+
+  return (
+    <div className="job-card__menu" ref={root}>
+      <button
+        type="button"
+        className="job-card__icon-btn"
+        aria-label={`Actions for ${props.job.title}`}
+        aria-haspopup="menu"
+        aria-expanded={props.open}
+        disabled={props.busy}
+        onClick={(event) => {
+          event.stopPropagation();
+          props.onToggle();
+        }}
+      >
+        <MoreVertical size={14} aria-hidden />
+      </button>
+      {props.open ? (
+        <ul className="job-card__menu-list" role="menu">
+          {props.onCopyLink ? (
+            <li role="none">
+              <button
+                type="button"
+                className="job-card__menu-item"
+                role="menuitem"
+                onClick={() => {
+                  props.onCopyLink?.();
+                  props.onClose();
+                }}
+              >
+                <Copy size={13} aria-hidden />
+                Copy link
+              </button>
+            </li>
+          ) : null}
+          {props.canDelete && props.onDelete ? (
+            <li role="none">
+              <button
+                type="button"
+                className="job-card__menu-item job-card__menu-item--danger"
+                role="menuitem"
+                onClick={() => {
+                  props.onDelete?.();
+                  props.onClose();
+                }}
+              >
+                <Trash2 size={13} aria-hidden />
+                Delete
+              </button>
+            </li>
+          ) : null}
+        </ul>
       ) : null}
     </div>
   );
@@ -669,7 +795,10 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
   }, [props.jobs, hiddenKeys, repoFilter]);
   const listError = props.listError;
   const loaded = !props.loading;
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(
+    () => props.focusJobId ?? null,
+  );
+  const [menuId, setMenuId] = useState<string | null>(null);
   const [consoles, setConsoles] = useState<Record<string, ConsoleState>>({});
   const [tick, setTick] = useState(() => nowFn());
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -766,6 +895,13 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
     },
     [loadConsole],
   );
+
+  useEffect(() => {
+    const focusId = props.focusJobId;
+    if (!focusId) return;
+    setOpenId(focusId);
+    void loadConsole(focusId);
+  }, [props.focusJobId, loadConsole]);
 
   const control = useCallback(
     async (
@@ -1093,20 +1229,60 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
                     {jobStamp(job)}
                   </time>
                 ) : null}
-                {props.port.control &&
-                !gated &&
-                !live &&
-                job.status !== "paused" ? (
+                {open && props.onCopyJobLink ? (
                   <button
                     type="button"
-                    className="job-card__icon-btn"
-                    disabled={busyId === job.id}
-                    onClick={() => void control("delete", job)}
-                    title="Remove this job from the board"
-                    aria-label="Delete"
+                    className="job-card__button job-card__button--secondary"
+                    onClick={() => props.onCopyJobLink?.(job)}
                   >
-                    <Trash2 size={14} aria-hidden />
+                    <Copy size={13} aria-hidden />
+                    Copy link
                   </button>
+                ) : null}
+                {props.onCopyJobLink ||
+                (props.port.control &&
+                  !gated &&
+                  !live &&
+                  job.status !== "paused") ? (
+                  props.onCopyJobLink ? (
+                    <JobRowMenu
+                      job={job}
+                      open={menuId === job.id}
+                      canDelete={Boolean(
+                        props.port.control &&
+                          !gated &&
+                          !live &&
+                          job.status !== "paused",
+                      )}
+                      busy={busyId === job.id}
+                      onToggle={() =>
+                        setMenuId((current) =>
+                          current === job.id ? null : job.id,
+                        )
+                      }
+                      onClose={() => setMenuId(null)}
+                      {...(props.onCopyJobLink
+                        ? { onCopyLink: () => props.onCopyJobLink?.(job) }
+                        : {})}
+                      {...(props.port.control &&
+                      !gated &&
+                      !live &&
+                      job.status !== "paused"
+                        ? { onDelete: () => void control("delete", job) }
+                        : {})}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className="job-card__icon-btn"
+                      disabled={busyId === job.id}
+                      onClick={() => void control("delete", job)}
+                      title="Remove this job from the board"
+                      aria-label="Delete"
+                    >
+                      <Trash2 size={14} aria-hidden />
+                    </button>
+                  )
                 ) : null}
               </div>
 
@@ -1192,12 +1368,13 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
 
               {props.port.control &&
               !gated &&
-              (live || job.status === "paused") ? (
+              (live || jobOffersResume(job.status)) &&
+              !(open && job.errorMessage && jobOffersResume(job.status)) ? (
                 <div className="job-card__controls">
-                  {job.status === "paused" || stalled ? (
+                  {jobOffersResume(job.status) || stalled ? (
                     <button
                       type="button"
-                      className="job-card__button"
+                      className="job-card__button job-card__button--primary"
                       disabled={busyId === job.id}
                       onClick={() => void control("resume", job)}
                     >
@@ -1206,7 +1383,7 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
                   ) : (
                     <button
                       type="button"
-                      className="job-card__button"
+                      className="job-card__button job-card__button--secondary"
                       disabled={busyId === job.id}
                       onClick={() => void control("pause", job)}
                     >
@@ -1215,7 +1392,7 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
                   )}
                   <button
                     type="button"
-                    className="job-card__button job-card__button--danger"
+                    className="job-card__button job-card__button--secondary"
                     disabled={busyId === job.id}
                     onClick={() => void control("cancel", job)}
                   >
@@ -1276,8 +1453,15 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
                   {!live ? (
                     <JobOutcome
                       job={job}
+                      busy={busyId === job.id}
                       {...(props.onOpenFindings
                         ? { onOpenFindings: props.onOpenFindings }
+                        : {})}
+                      {...(props.port.control && jobOffersResume(job.status)
+                        ? {
+                            onResume: () => void control("resume", job),
+                            onCancel: () => void control("cancel", job),
+                          }
                         : {})}
                     />
                   ) : null}

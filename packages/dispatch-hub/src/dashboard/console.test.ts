@@ -5,10 +5,11 @@ import {
   parseRepoFilter,
   parseView,
   findingsHash,
+  jobsHash,
 } from "./router.js";
 import { explainStatus } from "./session.js";
 import { isStale, STALE_AFTER_MS, toJobSummary } from "./use-jobs.js";
-import { repoLabel } from "./console-app.js";
+import { consoleJobShareUrl, repoLabel } from "./console-app.js";
 import type { JobSnapshot } from "../types.js";
 
 const base: JobSnapshot = {
@@ -49,6 +50,20 @@ describe("parseView", () => {
       "/Users/me/Prism",
     );
     expect(parseRepoFilter("#/jobs")).toBeUndefined();
+  });
+
+  it("builds a Focus deep-link that keeps job (and optional repo)", () => {
+    expect(jobsHash()).toBe("#/jobs");
+    expect(jobsHash("/Users/me/Prism")).toBe(
+      "#/jobs?repo=%2FUsers%2Fme%2FPrism",
+    );
+    expect(jobsHash({ job: "attention-cards" })).toBe(
+      "#/jobs?job=attention-cards",
+    );
+    expect(
+      jobsHash({ job: "attention-cards", repo: "/Users/me/Prism" }),
+    ).toBe("#/jobs?repo=%2FUsers%2Fme%2FPrism&job=attention-cards");
+    expect(parseJobId("#/jobs?job=attention-cards")).toBe("attention-cards");
   });
 
   it("reads a findings job and note from the hash", () => {
@@ -180,6 +195,30 @@ describe("repoLabel", () => {
         fatal: "Your Console token expired. Ask Prism for a fresh token.",
       }),
     ).toBe("Could not read your repositories");
+  });
+});
+
+describe("consoleJobShareUrl", () => {
+  it("keeps the token and hashes Focus to the job", () => {
+    expect(
+      consoleJobShareUrl(
+        { id: "attention-cards", workspacePath: "/Users/me/Prism" },
+        "abc-token",
+        "http://prismhq.localhost:17330/?token=old#/jobs",
+      ),
+    ).toBe(
+      "http://prismhq.localhost:17330/?token=abc-token#/jobs?repo=%2FUsers%2Fme%2FPrism&job=attention-cards",
+    );
+  });
+
+  it("re-attaches a stored token when the query was stripped", () => {
+    expect(
+      consoleJobShareUrl(
+        { id: "job-1" },
+        "fresh",
+        "http://127.0.0.1:17330/#/jobs",
+      ),
+    ).toBe("http://127.0.0.1:17330/?token=fresh#/jobs?job=job-1");
   });
 });
 

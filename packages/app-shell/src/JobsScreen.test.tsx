@@ -328,6 +328,65 @@ describe("JobsScreen", () => {
     );
   });
 
+  it("offers Resume next to an unexpected-stop message and calls the host", async () => {
+    const user = userEvent.setup();
+    const control = vi.fn(async () => {});
+    render(
+      <JobsScreen
+        repoLabel="repo"
+        {...board(
+          [
+            {
+              id: "attention-cards",
+              title: "Attention cards: inline Start Resume Pause Cancel",
+              status: "error",
+              branch: "dispatch/attention-cards",
+              errorMessage:
+                "The teammate stopped unexpectedly. Say resume to try again.",
+            },
+          ],
+          { control },
+        )}
+      />,
+    );
+
+    expect(
+      screen.getByText(/stopped unexpectedly/i),
+    ).toBeTruthy();
+    await user.click(await screen.findByRole("button", { name: "Resume" }));
+    await waitFor(() =>
+      expect(control).toHaveBeenCalledWith("resume", "attention-cards"),
+    );
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy();
+  });
+
+  it("copies a job link from the row menu when the host provides it", async () => {
+    const user = userEvent.setup();
+    const onCopyJobLink = vi.fn();
+    render(
+      <JobsScreen
+        repoLabel="repo"
+        onCopyJobLink={onCopyJobLink}
+        {...board([
+          {
+            id: "job-1",
+            title: "Fix pagination",
+            status: "done",
+            branch: "dispatch/job-1",
+          },
+        ])}
+      />,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: /Actions for Fix pagination/i }),
+    );
+    await user.click(await screen.findByRole("menuitem", { name: "Copy link" }));
+    expect(onCopyJobLink).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "job-1" }),
+    );
+  });
+
   it("offers Delete on a finished job and removes it via the host", async () => {
     const user = userEvent.setup();
     const control = vi.fn(async () => {});

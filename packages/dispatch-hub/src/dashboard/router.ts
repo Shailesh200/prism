@@ -61,9 +61,23 @@ export function parseNotePath(hash: string): string | undefined {
   return queryParam(hash, "note");
 }
 
-export function jobsHash(repo?: string): string {
-  if (!repo || repo === "all") return "#/jobs";
-  return `#/jobs?repo=${encodeURIComponent(repo)}`;
+/**
+ * Jobs canvas hash. A string arg is treated as a repo filter for call sites
+ * that only scope by workspace; pass a {@link RouteQuery} to deep-link Focus
+ * with `?job=` (and optional `repo=`).
+ */
+export function jobsHash(repoOrQuery?: string | RouteQuery): string {
+  const query: RouteQuery =
+    typeof repoOrQuery === "string"
+      ? { repo: repoOrQuery }
+      : (repoOrQuery ?? {});
+  const params = new URLSearchParams();
+  if (query.repo && query.repo !== "all") {
+    params.set("repo", query.repo);
+  }
+  if (query.job) params.set("job", query.job);
+  const q = params.toString();
+  return q ? `#/jobs?${q}` : "#/jobs";
 }
 
 export function findingsHash(query?: RouteQuery): string {
@@ -76,7 +90,7 @@ export function findingsHash(query?: RouteQuery): string {
 }
 
 export function viewHash(view: ConsoleView, query?: RouteQuery): string {
-  if (view === "jobs") return jobsHash(query?.repo);
+  if (view === "jobs") return jobsHash(query);
   if (view === "findings") return findingsHash(query);
   return `#/${view}`;
 }
