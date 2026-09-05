@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   EmptyState,
+  HoverTip,
   InfoTip,
   Input,
   PACKAGE_NAME,
@@ -10,6 +11,7 @@ import {
   Textarea,
   ToggleGroup,
   Tooltip,
+  Truncate,
 } from "./index.js";
 
 function isComponent(value: unknown): boolean {
@@ -29,6 +31,8 @@ describe("design-system primitives exports", () => {
     expect(typeof Tabs).toBe("function");
     expect(typeof Tooltip).toBe("function");
     expect(InfoTip).toBe(Tooltip);
+    expect(typeof HoverTip).toBe("function");
+    expect(typeof Truncate).toBe("function");
     expect(typeof EmptyState).toBe("function");
   });
 });

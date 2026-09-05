@@ -130,6 +130,10 @@ export type JobSummary = {
   readonly notes?: readonly string[];
   /** Cited paths the agent claimed but did not write. */
   readonly citedMissing?: readonly string[];
+  /** Playbook that queued the job (`console`, `finding`, plugin skill id). */
+  readonly playbook?: string;
+  /** The brief the user typed when they queued the job. */
+  readonly prd?: string;
 };
 
 export type JobConsolePage = {
@@ -595,6 +599,41 @@ export function jobDisplayLabel(job: {
     if (/job cap/i.test(job.nextStep)) return "Waiting for a slot";
   }
   return jobStatusLabel(job.status);
+}
+
+/** Design-system Badge tone for a job status. Failed ≠ Done. */
+export function jobBadgeTone(
+  status: JobStatus,
+  nextStep?: string | undefined,
+): "neutral" | "brand" | "accent" | "emerald" | "amber" | "rose" | "violet" {
+  if (
+    status === "queued" &&
+    nextStep &&
+    /low on (memory|disk)|job cap/i.test(nextStep)
+  ) {
+    return "amber";
+  }
+  switch (status) {
+    case "error":
+      return "rose";
+    case "done":
+      return "emerald";
+    case "running":
+    case "booting":
+    case "ready":
+      return "accent";
+    case "queued":
+      return "brand";
+    case "waiting_on_you":
+    case "blocked":
+    case "needs_confirm":
+    case "needs_review":
+      return "amber";
+    case "paused":
+      return "violet";
+    default:
+      return "neutral";
+  }
 }
 
 /** Grouping for the status pill colour. */

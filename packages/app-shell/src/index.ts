@@ -205,6 +205,7 @@ export {
   isSettledJob,
   jobStatusLabel,
   jobStatusTone,
+  jobBadgeTone,
   jobTimeBreakdown,
   mergeConsoleEntries,
   newestEntryTs,

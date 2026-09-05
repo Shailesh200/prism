@@ -57,6 +57,8 @@ export function toJobSummary(job: JobSnapshot): JobSummary {
     ...(job.citedMissing?.length
       ? { citedMissing: [...job.citedMissing] }
       : {}),
+    ...(job.playbook ? { playbook: job.playbook } : {}),
+    ...(job.prd ? { prd: job.prd } : {}),
     ...(job.nextStep ? { nextStep: job.nextStep } : {}),
     ...(job.resultSummary ? { resultSummary: job.resultSummary } : {}),
     ...(job.errorMessage ? { errorMessage: job.errorMessage } : {}),

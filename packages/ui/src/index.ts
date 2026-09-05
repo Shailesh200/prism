@@ -77,6 +77,42 @@ export { Input, type InputProps } from "./Input.js";
 export { Textarea, type TextareaProps } from "./Textarea.js";
 export { Select, type SelectOption, type SelectProps } from "./Select.js";
 export {
+  Button,
+  IconButton,
+  type ButtonProps,
+  type ButtonSize,
+  type ButtonVariant,
+  type IconButtonProps,
+} from "./Button.js";
+export { Badge, type BadgeProps, type BadgeTone } from "./Badge.js";
+export { Checkbox, type CheckboxProps } from "./Checkbox.js";
+export {
+  RadioGroup,
+  type RadioGroupProps,
+  type RadioOption,
+} from "./RadioGroup.js";
+export { Accordion, type AccordionProps } from "./Accordion.js";
+export {
+  Drawer,
+  type DrawerProps,
+  type DrawerSize,
+} from "./Drawer.js";
+export { Popover, type PopoverProps } from "./Popover.js";
+export {
+  DropdownMenu,
+  type DropdownMenuItem,
+  type DropdownMenuProps,
+} from "./DropdownMenu.js";
+export {
+  Table,
+  sortRows,
+  type TableColumn,
+  type TableProps,
+  type TableSort,
+} from "./Table.js";
+export { HoverTip, type HoverTipProps } from "./HoverTip.js";
+export { Truncate, type TruncateProps } from "./Truncate.js";
+export {
   SearchableInput,
   type SearchableInputProps,
 } from "./SearchableInput.js";
@@ -94,6 +130,23 @@ export {
 } from "./Tooltip.js";
 export { CardIcon, type CardIconProps, type CardIconTone } from "./CardIcon.js";
 export { EmptyState, type EmptyStateProps } from "./EmptyState.js";
+export {
+  AreaChart,
+  Gauge,
+  GanttRow,
+  Sparkline,
+  type AreaChartProps,
+  type GaugeProps,
+  type GanttRowProps,
+  type SparklineProps,
+} from "./ChartPrimitives.js";
+export {
+  ganttSegmentPercents,
+  gaugeArc,
+  seriesGeometry,
+  type GanttSegment,
+  type SeriesGeometry,
+} from "./charts.js";
 
 export {
   PRISM_DURATION,

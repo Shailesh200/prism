@@ -1,30 +1,27 @@
 import { useEffect, useState } from "react";
 
 /**
- * The Console's views.
+ * Console routes (M-068).
  *
- * Repos is a filter on Jobs, not a tab. Workflows was a duplicate of the
- * waiting banner. Dispatch settings used to be chat-only (`configure`); they
- * live here so a preference survives after the agent stops talking. Old
- * `#/workflows` and `#/repos` hashes still land on Jobs.
- *
- * Findings is the full write-up for a job (the markdown under
- * `.prism/dispatch/notes/`), opened from a summary path or this tab.
+ * Legacy hashes keep working: `#/jobs` → dashboard, `#/intelligence` → iris,
+ * `#/workflows` → attention.
  */
 export const CONSOLE_VIEWS = [
-  "jobs",
+  "dashboard",
+  "attention",
   "findings",
-  "intelligence",
+  "iris",
   "settings",
 ] as const;
 
 export type ConsoleView = (typeof CONSOLE_VIEWS)[number];
 
 export const VIEW_LABELS: Record<ConsoleView, string> = {
-  jobs: "Jobs",
+  dashboard: "Dashboard",
+  attention: "Attention",
   findings: "Findings",
-  intelligence: "Intelligence",
-  settings: "Dispatch Settings",
+  iris: "Iris",
+  settings: "Settings",
 };
 
 export type RouteQuery = {
@@ -35,10 +32,12 @@ export type RouteQuery = {
 
 export function parseView(hash: string): ConsoleView {
   const raw = hash.replace(/^#\/?/, "").split("?")[0] ?? "";
-  if (raw === "workflows" || raw === "repos") return "jobs";
+  if (raw === "jobs" || raw === "repos") return "dashboard";
+  if (raw === "workflows") return "attention";
+  if (raw === "intelligence") return "iris";
   return (CONSOLE_VIEWS as readonly string[]).includes(raw)
     ? (raw as ConsoleView)
-    : "jobs";
+    : "dashboard";
 }
 
 function queryParam(hash: string, key: string): string | undefined {
@@ -48,7 +47,6 @@ function queryParam(hash: string, key: string): string | undefined {
   return value ? value : undefined;
 }
 
-/** Workspace path from `#/jobs?repo=` or `#/findings?repo=`. */
 export function parseRepoFilter(hash: string): string | undefined {
   return queryParam(hash, "repo");
 }
@@ -61,9 +59,13 @@ export function parseNotePath(hash: string): string | undefined {
   return queryParam(hash, "note");
 }
 
+export function dashboardHash(repo?: string): string {
+  if (!repo || repo === "all") return "#/dashboard";
+  return `#/dashboard?repo=${encodeURIComponent(repo)}`;
+}
+
 export function jobsHash(repo?: string): string {
-  if (!repo || repo === "all") return "#/jobs";
-  return `#/jobs?repo=${encodeURIComponent(repo)}`;
+  return dashboardHash(repo);
 }
 
 export function findingsHash(query?: RouteQuery): string {
@@ -76,18 +78,14 @@ export function findingsHash(query?: RouteQuery): string {
 }
 
 export function viewHash(view: ConsoleView, query?: RouteQuery): string {
-  if (view === "jobs") return jobsHash(query?.repo);
+  if (view === "dashboard") return dashboardHash(query?.repo);
   if (view === "findings") return findingsHash(query);
+  if (view === "attention" && query?.job) {
+    return `#/attention?job=${encodeURIComponent(query.job)}`;
+  }
   return `#/${view}`;
 }
 
-/**
- * A hash router, deliberately.
- *
- * The Console is served from a plain Node HTTP server with no rewrite rules,
- * so a path-based route would 404 on reload. A hash also keeps the token in
- * the query string working across navigation.
- */
 export function useHashRoute(): {
   readonly view: ConsoleView;
   readonly go: (next: ConsoleView, query?: RouteQuery) => void;
