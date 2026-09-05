@@ -1,11 +1,21 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
-import { JobsScreen, jobsWaitingOnYou } from "@repo-prism/app-shell";
+import {
+  JobsScreen,
+  isLiveJob,
+  jobBadgeTone,
+  jobDisplayLabel,
+  type JobControlAction,
+  type JobControlExtra,
+  type JobSummary,
+} from "@repo-prism/app-shell";
+import { Badge, Button } from "@repo-prism/ui";
+import { attentionJobs } from "./attention.js";
 import { ConsoleFooter } from "./console-footer.js";
 import { FindingsView } from "./findings-view.js";
 import { IntelligenceView } from "./intelligence-view.js";
 import { CONSOLE_VIEWS, useHashRoute, VIEW_LABELS } from "./router.js";
 import { getJson, readToken } from "./session.js";
-import { ConsoleToastHost } from "./console-toast.js";
+import { ConsoleToastHost, showConsoleToast } from "./console-toast.js";
 import { SettingsView } from "./settings-view.js";
 import { useJobsFeed } from "./use-jobs.js";
 import { useJobRailMotion } from "./job-rail-motion.js";
@@ -20,6 +30,12 @@ type RepoRow = {
 
 type ReposResponse = { readonly repos: RepoRow[]; readonly asOf: string };
 
+type JobControlFn = (
+  action: JobControlAction,
+  jobId: string,
+  extra?: JobControlExtra,
+) => Promise<void>;
+
 export function ConsoleApp(): ReactElement {
   const token = useMemo(() => readToken(), []);
   const {
@@ -30,10 +46,11 @@ export function ConsoleApp(): ReactElement {
     note: notePath,
   } = useHashRoute();
   const feed = useJobsFeed(token);
-  const waitingCount = jobsWaitingOnYou(feed.summaries).length;
+  const waitingCount = attentionJobs(feed.summaries).length;
   const workspaces = useWorkspaces(token, feed);
   const shellRef = useRef<HTMLDivElement | null>(null);
   const [version, setVersion] = useState<string | undefined>();
+  const [focusId, setFocusId] = useState<string | undefined>();
   const railSignature = feed.summaries
     .map(
       (job) =>
@@ -55,6 +72,31 @@ export function ConsoleApp(): ReactElement {
       alive = false;
     };
   }, [token]);
+
+  const focusJob = focusId
+    ? feed.summaries.find((job) => job.id === focusId)
+    : undefined;
+
+  /** Same hub control path the Jobs inspector uses. */
+  const runJobControl: JobControlFn = async (action, jobId, extra) => {
+    if (!feed.port.control) {
+      showConsoleToast("Job controls are not available.");
+      return;
+    }
+    try {
+      await (extra
+        ? feed.port.control(action, jobId, extra)
+        : feed.port.control(action, jobId));
+      if (action === "resume") {
+        showConsoleToast("Resumed");
+      }
+    } catch (cause) {
+      showConsoleToast(
+        cause instanceof Error ? cause.message : String(cause),
+      );
+      throw cause;
+    }
+  };
 
   return (
     <div className="console" ref={shellRef}>
@@ -82,7 +124,7 @@ export function ConsoleApp(): ReactElement {
               onClick={() => go(id)}
             >
               {VIEW_LABELS[id]}
-              {id === "jobs" && waitingCount > 0 ? (
+              {id === "attention" && waitingCount > 0 ? (
                 <span
                   className="console__tab-badge"
                   aria-label={`${waitingCount} need your OK`}
@@ -134,6 +176,16 @@ export function ConsoleApp(): ReactElement {
           />
         ) : null}
 
+        {view === "attention" ? (
+          <AttentionView
+            jobs={feed.summaries}
+            control={runJobControl}
+            canControl={Boolean(feed.port.control)}
+            loading={feed.loading}
+            onOpen={(job) => setFocusId(job.id)}
+          />
+        ) : null}
+
         {view === "findings" ? (
           <FindingsView
             token={token}
@@ -154,6 +206,49 @@ export function ConsoleApp(): ReactElement {
       </main>
       <ConsoleFooter {...(version ? { version } : {})} />
       <ConsoleToastHost />
+
+      {focusJob ? (
+        <div className="focus-layer" role="dialog" aria-label="Focus">
+          <button
+            type="button"
+            className="focus-layer__scrim"
+            aria-label="Close"
+            onClick={() => setFocusId(undefined)}
+          />
+          <div className="focus-layer__panel">
+            <header className="focus-layer__head">
+              <h2 className="focus-layer__title">{focusJob.title}</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setFocusId(undefined)}
+              >
+                Close
+              </Button>
+            </header>
+            <JobsScreen
+              repoLabel={focusJob.workspaceLabel ?? "Job"}
+              port={{
+                ...feed.port,
+                control: runJobControl,
+              }}
+              jobs={[focusJob]}
+              loading={false}
+              onRefresh={feed.refresh}
+              heading={focusJob.title}
+              eyebrow="Focus"
+              onOpenFindings={(job, note) => {
+                setFocusId(undefined);
+                go("findings", {
+                  job: job.id,
+                  ...(note ? { note } : {}),
+                  ...(job.workspacePath ? { repo: job.workspacePath } : {}),
+                });
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -187,6 +282,120 @@ export function repoLabel(feed: {
     return `${jobs} · ${repos} unreadable`;
   }
   return `${jobs} across your repositories`;
+}
+
+function AttentionView(props: {
+  readonly jobs: readonly JobSummary[];
+  readonly control: JobControlFn;
+  readonly canControl: boolean;
+  readonly loading: boolean;
+  readonly onOpen: (job: JobSummary) => void;
+}): ReactElement {
+  const rows = attentionJobs(props.jobs);
+  const [busyId, setBusyId] = useState<string | undefined>();
+
+  const run = async (
+    action: JobControlAction,
+    job: JobSummary,
+  ): Promise<void> => {
+    setBusyId(job.id);
+    try {
+      await props.control(action, job.id);
+    } catch {
+      /* Toast already shown by runJobControl. */
+    } finally {
+      setBusyId(undefined);
+    }
+  };
+
+  return (
+    <section className="console__panel">
+      <h1 className="console__title">Attention</h1>
+      {rows.length === 0 ? (
+        <p className="console__lede">
+          Nothing is waiting on you. Dirty-tree gates, stalled teammates, and
+          paused jobs show up here.
+        </p>
+      ) : (
+        <p className="console__lede">{rows.length} need you</p>
+      )}
+      {props.loading ? <div className="attention-scan" aria-hidden /> : null}
+      <ul className="attention-list">
+        {rows.map((job) => {
+          const stalled = job.status === "waiting_on_you";
+          const paused = job.status === "paused";
+          const gated = job.status === "needs_confirm";
+          const live = isLiveJob(job.status) && !stalled;
+          const busy = busyId === job.id;
+          return (
+            <li
+              key={`${job.workspacePath}:${job.id}`}
+              className="attention-card"
+            >
+              <div className="attention-card__head">
+                <strong>{job.title}</strong>
+                <Badge tone={jobBadgeTone(job.status, job.nextStep)}>
+                  {jobDisplayLabel(job)}
+                </Badge>
+              </div>
+              {job.workspaceLabel ? <span>{job.workspaceLabel}</span> : null}
+              <p>
+                {job.confirm?.question ??
+                  (stalled
+                    ? "No recent output. Resume to nudge it, or cancel."
+                    : paused
+                      ? "Paused — resume when you want it to continue."
+                      : "The teammate asked a question.")}
+              </p>
+              <div className="attention-card__actions">
+                {gated ? (
+                  <Button
+                    variant="primary"
+                    disabled={busy || !props.canControl}
+                    onClick={() => void run("confirm", job)}
+                  >
+                    Start anyway
+                  </Button>
+                ) : null}
+                {paused || stalled ? (
+                  <Button
+                    variant="primary"
+                    disabled={busy || !props.canControl}
+                    onClick={() => void run("resume", job)}
+                  >
+                    Resume
+                  </Button>
+                ) : null}
+                {live ? (
+                  <Button
+                    variant="secondary"
+                    disabled={busy || !props.canControl}
+                    onClick={() => void run("pause", job)}
+                  >
+                    Pause
+                  </Button>
+                ) : null}
+                <Button
+                  variant="danger"
+                  disabled={busy || !props.canControl}
+                  onClick={() => void run("cancel", job)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() => props.onOpen(job)}
+                >
+                  Open job
+                </Button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
 }
 
 function useWorkspaces(

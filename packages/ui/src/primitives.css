@@ -395,6 +395,175 @@
   pointer-events: auto;
 }
 
+/* —— Buttons —— */
+.prism-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: var(--prism-radius-md);
+  font-family: var(--prism-font);
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    background var(--prism-dur-1) var(--prism-ease),
+    color var(--prism-dur-1) var(--prism-ease),
+    border-color var(--prism-dur-1) var(--prism-ease);
+}
+
+.prism-btn--md {
+  padding: var(--prism-space-sm) var(--prism-space-md);
+  font-size: var(--prism-type-body-sm);
+}
+
+.prism-btn--sm {
+  padding: 5px 10px;
+  font-size: var(--prism-type-label);
+}
+
+.prism-btn--primary {
+  background: var(--prism-brand);
+  color: var(--prism-on-brand, var(--prism-canvas));
+}
+
+.prism-btn--primary:hover:not(:disabled) {
+  background: var(--prism-brand-strong);
+}
+
+.prism-btn--secondary {
+  background: var(--prism-panel);
+  color: var(--prism-ink);
+  border-color: var(--prism-line);
+}
+
+.prism-btn--secondary:hover:not(:disabled) {
+  border-color: var(--prism-brand);
+}
+
+.prism-btn--ghost {
+  background: transparent;
+  color: var(--prism-ink-muted);
+}
+
+.prism-btn--ghost:hover:not(:disabled) {
+  color: var(--prism-ink);
+  background: color-mix(in srgb, var(--prism-ink) 6%, transparent);
+}
+
+.prism-btn--danger {
+  background: color-mix(in srgb, var(--prism-rose) 16%, transparent);
+  color: var(--prism-rose);
+  border-color: color-mix(in srgb, var(--prism-rose) 35%, transparent);
+}
+
+.prism-btn--icon {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
+
+.prism-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--prism-ring);
+}
+
+.prism-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* —— Badges —— */
+.prism-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-family: var(--prism-font);
+  font-size: var(--prism-type-label);
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.prism-badge--neutral {
+  color: var(--prism-ink-muted);
+  background: color-mix(in srgb, var(--prism-ink) 8%, transparent);
+  border-color: var(--prism-line);
+}
+
+.prism-badge--brand {
+  color: var(--prism-brand);
+  background: color-mix(in srgb, var(--prism-brand) 14%, transparent);
+  border-color: color-mix(in srgb, var(--prism-brand) 35%, transparent);
+}
+
+.prism-badge--accent {
+  color: var(--prism-accent, var(--prism-brand));
+  background: color-mix(
+    in srgb,
+    var(--prism-accent, var(--prism-brand)) 14%,
+    transparent
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--prism-accent, var(--prism-brand)) 35%,
+    transparent
+  );
+}
+
+.prism-badge--emerald {
+  color: var(--prism-emerald, var(--prism-safe, var(--prism-brand)));
+  background: color-mix(
+    in srgb,
+    var(--prism-emerald, var(--prism-safe, var(--prism-brand))) 14%,
+    transparent
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--prism-emerald, var(--prism-safe, var(--prism-brand))) 35%,
+    transparent
+  );
+}
+
+.prism-badge--amber {
+  color: var(--prism-amber, var(--prism-risk, var(--prism-brand)));
+  background: color-mix(
+    in srgb,
+    var(--prism-amber, var(--prism-risk, var(--prism-brand))) 14%,
+    transparent
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--prism-amber, var(--prism-risk, var(--prism-brand))) 35%,
+    transparent
+  );
+}
+
+.prism-badge--rose {
+  color: var(--prism-rose);
+  background: color-mix(in srgb, var(--prism-rose) 14%, transparent);
+  border-color: color-mix(in srgb, var(--prism-rose) 35%, transparent);
+}
+
+.prism-badge--violet {
+  color: var(--prism-violet, var(--prism-ownership, var(--prism-brand)));
+  background: color-mix(
+    in srgb,
+    var(--prism-violet, var(--prism-ownership, var(--prism-brand))) 14%,
+    transparent
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--prism-violet, var(--prism-ownership, var(--prism-brand))) 35%,
+    transparent
+  );
+}
+
 @media (prefers-reduced-motion: reduce) {
   .prism-input,
   .prism-textarea,
@@ -403,7 +572,8 @@
   .prism-toggle-group__btn,
   .prism-tabs__btn,
   .prism-tooltip__trigger,
-  .prism-tooltip__pop {
+  .prism-tooltip__pop,
+  .prism-btn {
     transition: none;
   }
 }

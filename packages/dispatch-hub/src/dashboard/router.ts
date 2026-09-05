@@ -3,16 +3,16 @@ import { useEffect, useState } from "react";
 /**
  * The Console's views.
  *
- * Repos is a filter on Jobs, not a tab. Workflows was a duplicate of the
- * waiting banner. Dispatch settings used to be chat-only (`configure`); they
- * live here so a preference survives after the agent stops talking. Old
- * `#/workflows` and `#/repos` hashes still land on Jobs.
+ * Attention is the inbox for gates, stalled work, and pauses. Repos is a
+ * filter on Jobs, not a tab. Old `#/workflows` hashes land on Attention;
+ * `#/repos` still lands on Jobs.
  *
  * Findings is the full write-up for a job (the markdown under
  * `.prism/dispatch/notes/`), opened from a summary path or this tab.
  */
 export const CONSOLE_VIEWS = [
   "jobs",
+  "attention",
   "findings",
   "intelligence",
   "settings",
@@ -22,6 +22,7 @@ export type ConsoleView = (typeof CONSOLE_VIEWS)[number];
 
 export const VIEW_LABELS: Record<ConsoleView, string> = {
   jobs: "Jobs",
+  attention: "Attention",
   findings: "Findings",
   intelligence: "Intelligence",
   settings: "Dispatch Settings",
@@ -35,7 +36,8 @@ export type RouteQuery = {
 
 export function parseView(hash: string): ConsoleView {
   const raw = hash.replace(/^#\/?/, "").split("?")[0] ?? "";
-  if (raw === "workflows" || raw === "repos") return "jobs";
+  if (raw === "repos") return "jobs";
+  if (raw === "workflows") return "attention";
   return (CONSOLE_VIEWS as readonly string[]).includes(raw)
     ? (raw as ConsoleView)
     : "jobs";
@@ -72,12 +74,15 @@ export function findingsHash(query?: RouteQuery): string {
   if (query?.note) params.set("note", query.note);
   if (query?.repo && query.repo !== "all") params.set("repo", query.repo);
   const q = params.toString();
-  return q ? `#/findings?${q}` : "#/findings";
+  return q ? `#/findings?${q}` : `#/findings`;
 }
 
 export function viewHash(view: ConsoleView, query?: RouteQuery): string {
   if (view === "jobs") return jobsHash(query?.repo);
   if (view === "findings") return findingsHash(query);
+  if (view === "attention" && query?.job) {
+    return `#/attention?job=${encodeURIComponent(query.job)}`;
+  }
   return `#/${view}`;
 }
 

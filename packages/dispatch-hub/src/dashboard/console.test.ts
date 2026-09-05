@@ -35,8 +35,8 @@ describe("parseView", () => {
     expect(parseView("#/nonsense")).toBe("jobs");
   });
 
-  it("redirects the retired Workflows and Repos hashes to Jobs", () => {
-    expect(parseView("#/workflows")).toBe("jobs");
+  it("redirects the retired Workflows hash to Attention and Repos to Jobs", () => {
+    expect(parseView("#/workflows")).toBe("attention");
     expect(parseView("#/repos")).toBe("jobs");
   });
 

@@ -597,6 +597,41 @@ export function jobDisplayLabel(job: {
   return jobStatusLabel(job.status);
 }
 
+/** Design-system Badge tone for a job status. Failed ≠ Done. */
+export function jobBadgeTone(
+  status: JobStatus,
+  nextStep?: string | undefined,
+): "neutral" | "brand" | "accent" | "emerald" | "amber" | "rose" | "violet" {
+  if (
+    status === "queued" &&
+    nextStep &&
+    /low on (memory|disk)|job cap/i.test(nextStep)
+  ) {
+    return "amber";
+  }
+  switch (status) {
+    case "error":
+      return "rose";
+    case "done":
+      return "emerald";
+    case "running":
+    case "booting":
+    case "ready":
+      return "accent";
+    case "queued":
+      return "brand";
+    case "waiting_on_you":
+    case "blocked":
+    case "needs_confirm":
+    case "needs_review":
+      return "amber";
+    case "paused":
+      return "violet";
+    default:
+      return "neutral";
+  }
+}
+
 /** Grouping for the status pill colour. */
 export function jobStatusTone(
   status: JobStatus,

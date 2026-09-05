@@ -94,6 +94,15 @@ export {
 } from "./Tooltip.js";
 export { CardIcon, type CardIconProps, type CardIconTone } from "./CardIcon.js";
 export { EmptyState, type EmptyStateProps } from "./EmptyState.js";
+export {
+  Button,
+  IconButton,
+  type ButtonProps,
+  type ButtonSize,
+  type ButtonVariant,
+  type IconButtonProps,
+} from "./Button.js";
+export { Badge, type BadgeProps, type BadgeTone } from "./Badge.js";
 
 export {
   PRISM_DURATION,

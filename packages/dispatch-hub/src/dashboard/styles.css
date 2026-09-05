@@ -843,3 +843,114 @@ body {
   border: 1px solid color-mix(in oklab, var(--prism-brand, #00c2c2) 28%, transparent);
   background: color-mix(in oklab, var(--prism-panel, #131926) 88%, transparent);
 }
+
+.attention-scan {
+  height: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--prism-brand) 45%, transparent);
+}
+
+.attention-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.attention-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--prism-line);
+  background: var(--prism-panel);
+  min-width: 0;
+}
+
+.attention-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.attention-card__head strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attention-card p,
+.attention-card > span {
+  margin: 0;
+  color: var(--prism-ink-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.attention-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.attention-card__actions .prism-btn {
+  flex: 1 1 auto;
+  min-width: 7rem;
+}
+
+.focus-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: end;
+}
+
+.focus-layer__scrim {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  background: color-mix(in srgb, var(--prism-canvas) 55%, transparent);
+  cursor: pointer;
+}
+
+.focus-layer__panel {
+  position: relative;
+  z-index: 1;
+  width: min(520px, 100vw);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-left: 1px solid var(--prism-line);
+  background: var(--prism-panel);
+  box-shadow: var(--prism-shadow, 0 0 0 transparent);
+  overflow: auto;
+}
+
+.focus-layer__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--prism-line);
+}
+
+.focus-layer__title {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1rem;
+  font-weight: 650;
+  color: var(--prism-ink);
+}

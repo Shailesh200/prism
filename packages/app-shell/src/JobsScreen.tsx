@@ -1197,7 +1197,7 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
                   {job.status === "paused" || stalled ? (
                     <button
                       type="button"
-                      className="job-card__button"
+                      className="job-card__button job-card__button--primary"
                       disabled={busyId === job.id}
                       onClick={() => void control("resume", job)}
                     >
