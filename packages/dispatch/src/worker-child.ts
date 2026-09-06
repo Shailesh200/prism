@@ -27,7 +27,11 @@ import {
   completeWorkerRun,
   failWorkerRun,
 } from "./worker-finish.js";
-import { cursorAgentOptions } from "./worker-options.js";
+import {
+  cursorAgentOptions,
+  cursorModelFromEvent,
+  cursorModelId,
+} from "./worker-options.js";
 
 // Own process, own TLS state: the host MCP trusting the OS store does not carry
 // across the spawn, and without this the Cursor SDK reports "Network request
@@ -48,6 +52,7 @@ type SdkRun = {
 
 type SdkAgent = {
   agentId: string;
+  model?: unknown;
   send(prompt: string): Promise<SdkRun>;
   [Symbol.asyncDispose]?: () => Promise<void>;
 };
@@ -62,6 +67,12 @@ function assistantText(result: unknown): string {
   return "";
 }
 
+function isModelSentinel(id: string | undefined): boolean {
+  if (!id) return true;
+  const lower = id.toLowerCase();
+  return lower === "default" || lower === "auto";
+}
+
 async function observeRun(
   run: SdkRun,
   patch: (
@@ -69,6 +80,7 @@ async function observeRun(
     options?: { immediate?: boolean },
   ) => Promise<unknown>,
   log: (event: unknown) => Promise<void>,
+  modelRef: { current: string | undefined },
 ): Promise<void> {
   if (typeof run.stream !== "function") return;
   try {
@@ -76,6 +88,16 @@ async function observeRun(
       // Log first: the one-line activity is throttled and overwritten, so the
       // console is the only place an event survives.
       await log(event);
+      // Upgrade a sentinel (or missing) model when the stream names a real one.
+      const fromEvent = cursorModelFromEvent(event);
+      if (
+        fromEvent &&
+        !isModelSentinel(fromEvent) &&
+        isModelSentinel(modelRef.current)
+      ) {
+        modelRef.current = fromEvent;
+        await patch({ model: fromEvent });
+      }
       const activity = activityFromEvent(event);
       if (activity) await patch(activity);
     }
@@ -207,19 +229,12 @@ async function main(): Promise<void> {
     agent = payload.resumeAgentId
       ? await sdk.Agent.resume(payload.resumeAgentId, options)
       : await sdk.Agent.create(options);
-    const modelValue = (agent as { model?: unknown }).model;
-    const model =
-      typeof modelValue === "string"
-        ? modelValue
-        : modelValue &&
-            typeof modelValue === "object" &&
-            typeof (modelValue as { id?: unknown }).id === "string"
-          ? (modelValue as { id: string }).id
-          : undefined;
+    // Prefer a concrete id (or display name) over Cursor's "default" sentinel.
+    const modelRef = { current: cursorModelId(agent.model) };
     await writer.patch(
       {
         agentId: agent.agentId,
-        ...(typeof model === "string" && model ? { model } : {}),
+        ...(modelRef.current ? { model: modelRef.current } : {}),
         phase: "running",
         lastActivity: "Teammate is on it",
       },
@@ -235,6 +250,7 @@ async function main(): Promise<void> {
       sent,
       (partial, extra) => writer.patch(partial, extra),
       logEvent,
+      modelRef,
     );
 
     if (typeof sent.wait !== "function") {

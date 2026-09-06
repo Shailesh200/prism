@@ -871,7 +871,7 @@ function useWorkspaces(
       alive = false;
       window.removeEventListener(WORKSPACES_CHANGED, load);
     };
-  }, [token, feed.jobs.length]);
+  }, [token, feed.jobs.length, reposEpoch]);
   return useMemo(() => {
     const counts = new Map<string, number>();
     for (const job of feed.jobs) {

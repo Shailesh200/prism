@@ -136,8 +136,16 @@
 
 .jobs-screen__filters {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
+}
+
+.jobs-screen__toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
 }
 
 .jobs-screen__lanes,

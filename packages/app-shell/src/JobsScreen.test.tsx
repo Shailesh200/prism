@@ -916,6 +916,7 @@ describe("formatWorkerModel", () => {
     expect(formatWorkerModel("claude-haiku-4-5-20251001")).toBe("Haiku 4.5");
     expect(formatWorkerModel("claude-opus-4-1")).toBe("Opus 4.1");
     expect(formatWorkerModel("auto")).toBe("Auto");
+    expect(formatWorkerModel("default")).toBe("Cursor default");
   });
 
   it("keeps a third-party id readable without inventing a Claude name", () => {
@@ -938,6 +939,14 @@ describe("jobModelLabel thinking", () => {
     expect(jobModelLabel("claude", "claude-opus-4-1", "disabled")).toBe(
       "Opus 4.1",
     );
+  });
+
+  it("surfaces a real Cursor model and avoids bare default", () => {
+    expect(jobModelLabel("cursor", "claude-sonnet-4-5")).toBe("Sonnet 4.5");
+    expect(jobModelLabel("cursor", "composer-1")).toBe("Composer 1");
+    expect(jobModelLabel("cursor", "default")).toBe("Cursor default");
+    expect(jobModelLabel("cursor", "auto")).toBe("Auto");
+    expect(jobModelLabel("cursor")).toBe("Cursor default");
   });
 });
 

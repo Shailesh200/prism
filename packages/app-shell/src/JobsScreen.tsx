@@ -74,7 +74,7 @@ export type JobsScreenProps = {
   readonly loading: boolean;
   /** A failure the host hit reading the list. */
   readonly listError?: string;
-  /** Re-read now. Wired to the Refresh button. */
+  /** Re-read now. Wired to the Refresh control on the jobs toolbar. */
   readonly onRefresh?: () => void;
   /** Poll interval for the open console. Defaults to 2s. */
   readonly pollMs?: number;
@@ -841,14 +841,6 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
               {reviewCount} to review
             </span>
           ) : null}
-          <button
-            type="button"
-            className="jobs-screen__refresh"
-            onClick={() => props.onRefresh?.()}
-          >
-            <RefreshCw size={14} aria-hidden />
-            Refresh
-          </button>
         </div>
       </header>
 
@@ -882,78 +874,97 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
         </p>
       ) : null}
 
-      {!props.approvalsOnly ? (
+      {/* Refresh lives on the dashboard filter toolbar (not header chrome).
+          Same toolbar stays mounted for Timeline / Board / List renderings. */}
+      {!props.approvalsOnly || props.onRefresh ? (
         <div
           className="jobs-screen__filters"
           role="toolbar"
-          aria-label="Filter jobs"
+          aria-label="Jobs toolbar"
         >
-          <div className="jobs-screen__lanes">
-            {(
-              [
-                ["all", "All", scopedJobs.length],
-                [
-                  "live",
-                  "Live",
-                  scopedJobs.filter((job) => isLiveJob(job.status)).length,
-                ],
-                ["waiting", "Waiting", waitingCount],
-                [
-                  "finished",
-                  "Finished",
-                  scopedJobs.filter((job) => matchesBoardLane(job, "finished"))
-                    .length,
-                ],
-              ] as const
-            ).map(([id, label, count]) => (
-              <button
-                key={id}
-                type="button"
-                className="jobs-screen__chip"
-                aria-pressed={lane === id}
-                onClick={() => setLane(id)}
-              >
-                {label}
-                <span className="jobs-screen__chip-count">{count}</span>
-              </button>
-            ))}
-          </div>
-          {workspaces.length > 0 ? (
-            <div
-              className="jobs-screen__repos"
-              role="group"
-              aria-label="Repository"
-            >
+          <div className="jobs-screen__toolbar-actions">
+            {props.onRefresh ? (
               <button
                 type="button"
-                className="jobs-screen__chip"
-                aria-pressed={repoFilter === "all"}
-                onClick={() => selectRepo("all")}
+                className="jobs-screen__refresh"
+                onClick={() => props.onRefresh?.()}
               >
-                All repos
+                <RefreshCw size={14} aria-hidden />
+                Refresh
               </button>
-              {workspaces.map((repo) => (
-                <button
-                  key={repo.path}
-                  type="button"
-                  className="jobs-screen__chip"
-                  aria-pressed={repoFilter === repo.path}
-                  title={
-                    repo.error ? `Could not read: ${repo.error}` : repo.path
-                  }
-                  aria-label={`${repo.label} repository`}
-                  onClick={() => selectRepo(repo.path)}
+            ) : null}
+            {!props.approvalsOnly ? (
+              <>
+              <div className="jobs-screen__lanes">
+                {(
+                  [
+                    ["all", "All", scopedJobs.length],
+                    [
+                      "live",
+                      "Live",
+                      scopedJobs.filter((job) => isLiveJob(job.status)).length,
+                    ],
+                    ["waiting", "Waiting", waitingCount],
+                    [
+                      "finished",
+                      "Finished",
+                      scopedJobs.filter((job) =>
+                        matchesBoardLane(job, "finished"),
+                      ).length,
+                    ],
+                  ] as const
+                ).map(([id, label, count]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className="jobs-screen__chip"
+                    aria-pressed={lane === id}
+                    onClick={() => setLane(id)}
+                  >
+                    {label}
+                    <span className="jobs-screen__chip-count">{count}</span>
+                  </button>
+                ))}
+              </div>
+              {workspaces.length > 0 ? (
+                <div
+                  className="jobs-screen__repos"
+                  role="group"
+                  aria-label="Repository"
                 >
-                  {repo.label}
-                  {typeof repo.jobCount === "number" ? (
-                    <span className="jobs-screen__chip-count">
-                      {repo.jobCount}
-                    </span>
-                  ) : null}
-                </button>
-              ))}
-            </div>
-          ) : null}
+                  <button
+                    type="button"
+                    className="jobs-screen__chip"
+                    aria-pressed={repoFilter === "all"}
+                    onClick={() => selectRepo("all")}
+                  >
+                    All repos
+                  </button>
+                  {workspaces.map((repo) => (
+                    <button
+                      key={repo.path}
+                      type="button"
+                      className="jobs-screen__chip"
+                      aria-pressed={repoFilter === repo.path}
+                      title={
+                        repo.error ? `Could not read: ${repo.error}` : repo.path
+                      }
+                      aria-label={`${repo.label} repository`}
+                      onClick={() => selectRepo(repo.path)}
+                    >
+                      {repo.label}
+                      {typeof repo.jobCount === "number" ? (
+                        <span className="jobs-screen__chip-count">
+                          {repo.jobCount}
+                        </span>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </>
+            ) : null}
+          </div>
         </div>
       ) : null}
 
@@ -1005,8 +1016,8 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
               ) : (
                 <>
                   {" "}
-                  — ask Prism to change something (“fix the pagination cap”) and
-                  a teammate starts here.
+                  — ask Prism to change something (“fix the pagination cap”);
+                  it asks teammate or here first, then the job appears here.
                 </>
               )}
             </>
