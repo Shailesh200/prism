@@ -281,6 +281,16 @@ export function isSettledJob(status: JobStatus): boolean {
   return SETTLED_STATUSES.has(status);
 }
 
+/**
+ * Statuses where Resume is a real control (not chat-only copy).
+ *
+ * Failed / paused jobs keep a worker handle the hub can restart; `error` is
+ * what the board shows after an unexpected stop ("Say resume to try again").
+ */
+export function jobOffersResume(status: JobStatus): boolean {
+  return status === "error" || status === "paused";
+}
+
 export function jobAgentLabel(
   backend: JobSummary["workerBackend"] | undefined,
 ): string {

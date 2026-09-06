@@ -979,6 +979,64 @@
     transparent
   );
   color: var(--prism-brand, #00c2c2);
+  background: color-mix(in oklab, var(--prism-brand, #00c2c2) 12%, transparent);
+}
+
+.job-card__button--secondary {
+  border-color: color-mix(
+    in oklab,
+    var(--prism-brand, #00c2c2) 40%,
+    transparent
+  );
+  color: var(--prism-ink, #fff);
+  background: color-mix(in oklab, var(--prism-panel, #131926) 70%, transparent);
+}
+
+.job-card__menu {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.job-card__menu-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 5;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  min-width: 148px;
+  border-radius: 10px;
+  border: 1px solid var(--prism-line, #2a334a);
+  background: var(--prism-panel, #131926);
+  box-shadow: 0 8px 24px color-mix(in oklab, #000 45%, transparent);
+}
+
+.job-card__menu-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--prism-ink, #fff);
+  padding: 8px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.job-card__menu-item:hover {
+  background: color-mix(in oklab, var(--prism-brand, #00c2c2) 14%, transparent);
+}
+
+.job-card__menu-item--danger {
+  color: var(--prism-danger, #ff9d9d);
+}
+
+.job-card__menu-item--danger:hover {
+  background: color-mix(in oklab, var(--prism-danger, #ff9d9d) 12%, transparent);
 }
 
 /* ---- Job detail facts ---- */
@@ -1386,9 +1444,20 @@
 
 .job-outcome__error {
   margin: 0;
-  padding: 0 16px 14px;
+  padding: 0;
   font-size: 13px;
-  color: #f87171;
+  color: var(--prism-danger, #f87171);
+}
+
+.job-outcome__fail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 16px 14px;
+}
+
+.job-outcome__controls {
+  margin: 0;
 }
 
 .job-facts__repo {
