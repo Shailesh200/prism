@@ -8,7 +8,7 @@ import {
 } from "./router.js";
 import { explainStatus } from "./session.js";
 import { isStale, STALE_AFTER_MS, toJobSummary } from "./use-jobs.js";
-import { repoLabel } from "./console-app.js";
+import { repoLabel } from "./fleet.js";
 import type { JobSnapshot } from "../types.js";
 
 const base: JobSnapshot = {
@@ -16,6 +16,7 @@ const base: JobSnapshot = {
   title: "AI-971 fix the thing",
   status: "running",
   branch: "prism/ai-971",
+  lastActivity: "Editing files",
   createdAt: "2026-09-02T10:00:00.000Z",
   updatedAt: "2026-09-02T10:05:00.000Z",
   workspacePath: "/repo",
@@ -29,19 +30,22 @@ describe("parseView", () => {
     }
   });
 
-  it("falls back to jobs for an empty or unknown hash", () => {
-    expect(parseView("")).toBe("jobs");
-    expect(parseView("#")).toBe("jobs");
-    expect(parseView("#/nonsense")).toBe("jobs");
+  it("falls back to dashboard for an empty or unknown hash", () => {
+    expect(parseView("")).toBe("dashboard");
+    expect(parseView("#")).toBe("dashboard");
+    expect(parseView("#/nonsense")).toBe("dashboard");
   });
 
-  it("redirects the retired Workflows and Repos hashes to Jobs", () => {
-    expect(parseView("#/workflows")).toBe("jobs");
-    expect(parseView("#/repos")).toBe("jobs");
+  it("redirects retired hashes to the new IA", () => {
+    expect(parseView("#/jobs")).toBe("dashboard");
+    expect(parseView("#/repos")).toBe("dashboard");
+    expect(parseView("#/workflows")).toBe("attention");
+    expect(parseView("#/intelligence")).toBe("iris");
   });
 
   it("ignores a query string after the view", () => {
-    expect(parseView("#/intelligence?token=abc")).toBe("intelligence");
+    expect(parseView("#/intelligence?token=abc")).toBe("iris");
+    expect(parseView("#/iris?load=1")).toBe("iris");
   });
 
   it("reads a repo filter from the jobs hash", () => {
@@ -110,12 +114,13 @@ describe("toJobSummary", () => {
       ...base,
       status: "needs_confirm",
       confirm: {
-        kind: "dirty_tree",
+        kind: "dirty-checkout",
+        arg: "confirmDirty",
         question: "You have uncommitted work. Start anyway?",
         dirtyPaths: ["src/a.ts", "src/b.ts"],
       },
     });
-    expect(summary.confirm?.kind).toBe("dirty_tree");
+    expect(summary.confirm?.kind).toBe("dirty-checkout");
     expect(summary.confirm?.dirtyPaths).toEqual(["src/a.ts", "src/b.ts"]);
   });
 
@@ -124,12 +129,21 @@ describe("toJobSummary", () => {
       ...base,
       status: "needs_confirm",
       confirm: {
-        kind: "overlap",
+        kind: "path-overlap",
+        arg: "confirmOverlap",
         question: "Another job touches this.",
         dirtyPaths: [],
       },
     });
     expect(summary.confirm && "dirtyPaths" in summary.confirm).toBe(false);
+  });
+
+  it("carries the prompt onto the summary", () => {
+    const summary = toJobSummary({
+      ...base,
+      prd: "Make the news tab highlight.",
+    });
+    expect(summary.prd).toBe("Make the news tab highlight.");
   });
 });
 

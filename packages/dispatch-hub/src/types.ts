@@ -76,6 +76,10 @@ export type JobSnapshot = {
   readonly notes?: readonly string[];
   /** Cited paths the agent claimed but did not write. */
   readonly citedMissing?: readonly string[];
+  /** Playbook that queued the job (`console`, `finding`, plugin skill id). */
+  readonly playbook?: string;
+  /** The brief the user typed when they queued the job. */
+  readonly prd?: string;
 };
 
 /** A workspace the Console could not read, and why. */
