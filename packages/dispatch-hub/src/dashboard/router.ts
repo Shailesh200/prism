@@ -74,7 +74,7 @@ export function findingsHash(query?: RouteQuery): string {
   if (query?.note) params.set("note", query.note);
   if (query?.repo && query.repo !== "all") params.set("repo", query.repo);
   const q = params.toString();
-  return q ? `#/findings?${q}` : "#/findings";
+  return q ? `#/findings?${q}` : `#/findings`;
 }
 
 export function viewHash(view: ConsoleView, query?: RouteQuery): string {

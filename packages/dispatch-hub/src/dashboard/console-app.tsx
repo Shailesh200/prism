@@ -520,6 +520,49 @@ export function ConsoleApp(): ReactElement {
         ) : null}
       </div>
       <ConsoleToastHost />
+
+      {focusJob ? (
+        <div className="focus-layer" role="dialog" aria-label="Focus">
+          <button
+            type="button"
+            className="focus-layer__scrim"
+            aria-label="Close"
+            onClick={() => setFocusId(undefined)}
+          />
+          <div className="focus-layer__panel">
+            <header className="focus-layer__head">
+              <h2 className="focus-layer__title">{focusJob.title}</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setFocusId(undefined)}
+              >
+                Close
+              </Button>
+            </header>
+            <JobsScreen
+              repoLabel={focusJob.workspaceLabel ?? "Job"}
+              port={{
+                ...feed.port,
+                control: runJobControl,
+              }}
+              jobs={[focusJob]}
+              loading={false}
+              onRefresh={feed.refresh}
+              heading={focusJob.title}
+              eyebrow="Focus"
+              onOpenFindings={(job, note) => {
+                setFocusId(undefined);
+                go("findings", {
+                  job: job.id,
+                  ...(note ? { note } : {}),
+                  ...(job.workspacePath ? { repo: job.workspacePath } : {}),
+                });
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -687,6 +730,120 @@ function AttentionView(props: {
             )}
           </li>
         ))}
+      </ul>
+    </section>
+  );
+}
+
+function AttentionView(props: {
+  readonly jobs: readonly JobSummary[];
+  readonly control: JobControlFn;
+  readonly canControl: boolean;
+  readonly loading: boolean;
+  readonly onOpen: (job: JobSummary) => void;
+}): ReactElement {
+  const rows = attentionJobs(props.jobs);
+  const [busyId, setBusyId] = useState<string | undefined>();
+
+  const run = async (
+    action: JobControlAction,
+    job: JobSummary,
+  ): Promise<void> => {
+    setBusyId(job.id);
+    try {
+      await props.control(action, job.id);
+    } catch {
+      /* Toast already shown by runJobControl. */
+    } finally {
+      setBusyId(undefined);
+    }
+  };
+
+  return (
+    <section className="console__panel">
+      <h1 className="console__title">Attention</h1>
+      {rows.length === 0 ? (
+        <p className="console__lede">
+          Nothing is waiting on you. Dirty-tree gates, stalled teammates, and
+          paused jobs show up here.
+        </p>
+      ) : (
+        <p className="console__lede">{rows.length} need you</p>
+      )}
+      {props.loading ? <div className="attention-scan" aria-hidden /> : null}
+      <ul className="attention-list">
+        {rows.map((job) => {
+          const stalled = job.status === "waiting_on_you";
+          const paused = job.status === "paused";
+          const gated = job.status === "needs_confirm";
+          const live = isLiveJob(job.status) && !stalled;
+          const busy = busyId === job.id;
+          return (
+            <li
+              key={`${job.workspacePath}:${job.id}`}
+              className="attention-card"
+            >
+              <div className="attention-card__head">
+                <strong>{job.title}</strong>
+                <Badge tone={jobBadgeTone(job.status, job.nextStep)}>
+                  {jobDisplayLabel(job)}
+                </Badge>
+              </div>
+              {job.workspaceLabel ? <span>{job.workspaceLabel}</span> : null}
+              <p>
+                {job.confirm?.question ??
+                  (stalled
+                    ? "No recent output. Resume to nudge it, or cancel."
+                    : paused
+                      ? "Paused — resume when you want it to continue."
+                      : "The teammate asked a question.")}
+              </p>
+              <div className="attention-card__actions">
+                {gated ? (
+                  <Button
+                    variant="primary"
+                    disabled={busy || !props.canControl}
+                    onClick={() => void run("confirm", job)}
+                  >
+                    Start anyway
+                  </Button>
+                ) : null}
+                {paused || stalled ? (
+                  <Button
+                    variant="primary"
+                    disabled={busy || !props.canControl}
+                    onClick={() => void run("resume", job)}
+                  >
+                    Resume
+                  </Button>
+                ) : null}
+                {live ? (
+                  <Button
+                    variant="secondary"
+                    disabled={busy || !props.canControl}
+                    onClick={() => void run("pause", job)}
+                  >
+                    Pause
+                  </Button>
+                ) : null}
+                <Button
+                  variant="danger"
+                  disabled={busy || !props.canControl}
+                  onClick={() => void run("cancel", job)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() => props.onOpen(job)}
+                >
+                  Open job
+                </Button>
+              </div>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
