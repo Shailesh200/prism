@@ -212,7 +212,7 @@ fails the milestone. There is no “UI polish later” bucket after P-C9.
 - [x] P-C9: craft + screenshots attached; owner visual yes 2026-09-07
 - [x] `bun run verify:milestone` green
 - [x] Hands-on gate written as a P-C9 report (below)
-- [ ] Owner approval → commit → merge → Verified → snippet shared
+- [x] Owner approval → commit → merge → Verified → snippet shared
 
 ## 4a. P-C9 ship-gate report
 
