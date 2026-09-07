@@ -55,6 +55,13 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - run: bun install --frozen-lockfile
+      # Core/CLI/MCP import workspace packages; tests fail without dist.
+      - name: Build dependency graph
+        run: |
+          set -euo pipefail
+          for name in shared test-support analyzer graph-engine impact navigation indexer intelligence repository-map core ui app-shell host-session dispatch dispatch-hub mcp-server cli; do
+            bun run --filter "@repo-prism/${name}" build
+          done
       - run: bun run --filter @repo-prism/shared test
       - run: bun run --filter @repo-prism/core test
       - run: bun run --filter @repo-prism/cli test
