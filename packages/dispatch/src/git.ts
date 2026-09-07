@@ -877,13 +877,56 @@ export async function listGitWorktrees(
   return trees;
 }
 
+/**
+ * Find a remote-tracking ref for a branch that has no local head yet.
+ *
+ * A PR branch is usually fetched as `origin/<branch>` without a matching local
+ * branch, so a new worktree must fork from that remote ref — not the current
+ * HEAD — or it carries none of the branch's commits. Prefers `origin`, then
+ * any other remote that has the branch.
+ */
+async function resolveRemoteBranch(
+  workspaceRoot: string,
+  branch: string,
+  run: GitRunner,
+): Promise<string | undefined> {
+  const origin = await run(workspaceRoot, [
+    "rev-parse",
+    "--verify",
+    "--quiet",
+    `refs/remotes/origin/${branch}`,
+  ]);
+  if (origin.ok) return `origin/${branch}`;
+  const remotes = await run(workspaceRoot, ["remote"]);
+  if (!remotes.ok) return undefined;
+  for (const remote of remotes.stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)) {
+    if (remote === "origin") continue;
+    const ref = await run(workspaceRoot, [
+      "rev-parse",
+      "--verify",
+      "--quiet",
+      `refs/remotes/${remote}/${branch}`,
+    ]);
+    if (ref.ok) return `${remote}/${branch}`;
+  }
+  return undefined;
+}
+
 export async function addGitWorktree(
   workspaceRoot: string,
   path: string,
   branch: string,
   run: GitRunner = defaultGitRunner,
 ): Promise<{ ok: boolean; error?: string }> {
-  const existing = await run(workspaceRoot, ["rev-parse", "--verify", branch]);
+  const existing = await run(workspaceRoot, [
+    "rev-parse",
+    "--verify",
+    "--quiet",
+    branch,
+  ]);
   if (existing.ok) {
     const checkout = await run(workspaceRoot, [
       "worktree",
@@ -894,6 +937,23 @@ export async function addGitWorktree(
     return checkout.ok
       ? { ok: true }
       : { ok: false, error: checkout.stderr.trim() };
+  }
+  // No local branch. If the branch lives on a remote (e.g. a PR branch), fork
+  // the new local branch from that remote ref so the worktree holds its
+  // commits — a shell-less worker cannot `git checkout` the branch itself.
+  const remoteStart = await resolveRemoteBranch(workspaceRoot, branch, run);
+  if (remoteStart) {
+    const tracked = await run(workspaceRoot, [
+      "worktree",
+      "add",
+      "-b",
+      branch,
+      path,
+      remoteStart,
+    ]);
+    return tracked.ok
+      ? { ok: true }
+      : { ok: false, error: tracked.stderr.trim() };
   }
   const created = await run(workspaceRoot, [
     "worktree",

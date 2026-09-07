@@ -31,10 +31,11 @@ jobs:
 
       - name: Install and build CLI from this workspace
         run: |
+          set -euo pipefail
           bun install --frozen-lockfile
-          bun run --filter @repo-prism/shared build
-          bun run --filter @repo-prism/core build
-          bun run --filter @repo-prism/cli build
+          for name in shared test-support analyzer graph-engine impact navigation indexer intelligence repository-map core ui app-shell host-session dispatch dispatch-hub mcp-server cli; do
+            bun run --filter "@repo-prism/${name}" build
+          done
 
       - name: Prism review
         uses: ./action

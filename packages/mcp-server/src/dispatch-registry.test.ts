@@ -84,6 +84,46 @@ describe("worker role omits recursive tools", () => {
   });
 });
 
+describe("configure dispatchMode over MCP", () => {
+  it("persists dispatchMode set through the registered tool schema", async () => {
+    // The chat agent calls configure with flat args (dispatchMode at the top
+    // level), so the field has to be in the tool inputSchema — otherwise the
+    // MCP SDK strips it before the handler runs and the mode is stuck on ask,
+    // which is what made Dispatch "always do inline".
+    const root = await mkdtemp(join(tmpdir(), "prism-dispatch-mode-mcp-"));
+    const built = createPrismMcpServer({ workspaceRoot: root });
+    const client = new Client({ name: "mode-test", version: "0.0.0" });
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      built.server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+    try {
+      const setResponse = (await client.callTool({
+        name: "configure",
+        arguments: { action: "set", dispatchMode: "auto" },
+      })) as ToolResponse;
+      expect(setResponse.isError).not.toBe(true);
+      expect(setResponse.content?.[0]?.text ?? "").toContain(
+        "dispatchMode=auto",
+      );
+
+      const getResponse = (await client.callTool({
+        name: "configure",
+        arguments: { action: "get" },
+      })) as ToolResponse;
+      expect(getResponse.content?.[0]?.text ?? "").toContain(
+        "dispatchMode=auto",
+      );
+    } finally {
+      built.session.close();
+      await client.close();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("start_job workspace hint", () => {
   it("rebinds a container launch cwd onto the repo the agent passes", async () => {
     const launch = await mkdtemp(join(tmpdir(), "prism-dispatch-launch-"));

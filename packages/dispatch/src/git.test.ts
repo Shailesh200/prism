@@ -1,9 +1,10 @@
 import { execFileSync } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  addGitWorktree,
   defaultGitRunner,
   gitChildEnv,
   isMissingGitRepoMessage,
@@ -151,5 +152,81 @@ describe("mergeJobBranch", () => {
     expect(result.ok).toBe(false);
     const status = await defaultGitRunner(root, ["status", "--porcelain"]);
     expect(status.stdout.trim()).toBe("");
+  }, 30_000);
+});
+
+function commitAll(cwd: string, message: string): void {
+  execFileSync("git", ["add", "-A"], { cwd });
+  execFileSync("git", ["commit", "--quiet", "-m", message], { cwd });
+}
+
+describe("addGitWorktree branch base", () => {
+  const temps: string[] = [];
+
+  afterEach(async () => {
+    for (const dir of temps.splice(0)) {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  async function repo(prefix: string): Promise<string> {
+    const root = await mkdtemp(join(tmpdir(), prefix));
+    temps.push(root);
+    execFileSync("git", ["init", "--quiet", "--initial-branch=main"], {
+      cwd: root,
+    });
+    execFileSync("git", ["config", "user.name", "Fixture"], { cwd: root });
+    execFileSync("git", ["config", "user.email", "fixture@example.invalid"], {
+      cwd: root,
+    });
+    execFileSync("git", ["config", "commit.gpgsign", "false"], { cwd: root });
+    await writeFile(join(root, "README.md"), "base\n");
+    commitAll(root, "first");
+    return root;
+  }
+
+  // The PR-review case: the branch exists only on the remote (origin/<branch>),
+  // never as a local head. Before the fix, addGitWorktree forked the new branch
+  // from the current HEAD, so the worktree missed every PR commit and the agent
+  // fell back to editing inline.
+  it("bases a worktree on a remote-only branch, not the current HEAD", async () => {
+    const remote = await repo("prism-dispatch-remote-");
+    execFileSync("git", ["checkout", "-b", "feature/pr", "--quiet"], {
+      cwd: remote,
+    });
+    await writeFile(join(remote, "pr-only.txt"), "from the PR\n");
+    commitAll(remote, "pr change");
+    execFileSync("git", ["checkout", "main", "--quiet"], { cwd: remote });
+
+    const local = await repo("prism-dispatch-local-");
+    execFileSync("git", ["remote", "add", "origin", remote], { cwd: local });
+    execFileSync("git", ["fetch", "--quiet", "origin"], { cwd: local });
+
+    const worktreePath = join(local, ".prism", "worktrees", "pr");
+    const added = await addGitWorktree(local, worktreePath, "feature/pr");
+    expect(added.ok).toBe(true);
+
+    const listed = await defaultGitRunner(local, [
+      "worktree",
+      "list",
+      "--porcelain",
+    ]);
+    expect(listed.stdout).toMatch(/branch refs\/heads\/feature\/pr/);
+    // The worktree must actually contain the PR's commit.
+    const files = await readdir(worktreePath);
+    expect(files).toContain("pr-only.txt");
+  }, 30_000);
+
+  it("creates a brand-new branch from HEAD when it exists nowhere", async () => {
+    const local = await repo("prism-dispatch-fresh-");
+    const worktreePath = join(local, ".prism", "worktrees", "fresh");
+    const added = await addGitWorktree(local, worktreePath, "dispatch/fresh");
+    expect(added.ok).toBe(true);
+    const listed = await defaultGitRunner(local, [
+      "worktree",
+      "list",
+      "--porcelain",
+    ]);
+    expect(listed.stdout).toMatch(/branch refs\/heads\/dispatch\/fresh/);
   }, 30_000);
 });

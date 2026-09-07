@@ -23,6 +23,8 @@ docs/.vitepress/cache/
 .env
 .env.*
 !.env.example
+# Soft-impact fixture: a dummy .env the parser must see in CI.
+!packages/intelligence/fixtures/**/.env
 
 # OS / editor
 .DS_Store
