@@ -1,6 +1,6 @@
 {
   "name": "@repo-prism/dispatch",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "type": "module",
   "description": "Prism Dispatch — jobs, memory, drivers, and start-my-day briefings for agents",
   "exports": {
