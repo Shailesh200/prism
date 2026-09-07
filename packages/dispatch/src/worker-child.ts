@@ -6,6 +6,8 @@
  * argv[2] = path to a 0600 spawn payload JSON (deleted after read).
  */
 
+import { mkdir } from "node:fs/promises";
+import { join } from "node:path";
 import { stripWorktreePaths } from "./job-artifacts.js";
 import { publicWorkerError } from "./job-voice.js";
 import {
@@ -21,17 +23,20 @@ import {
   patchRunState,
   type RunState,
 } from "./run-state.js";
+import {
+  applyParsedUsage,
+  tokenUsageEqual,
+  type TokenUsage,
+} from "./token-usage.js";
 import { readSpawnPayload } from "./worker-spawn.js";
+import { installWorkerCrashGuards } from "./worker-exit.js";
 import {
   cancelWorkerRunFinish,
   completeWorkerRun,
   failWorkerRun,
 } from "./worker-finish.js";
-import {
-  cursorAgentOptions,
-  cursorModelFromEvent,
-  cursorModelId,
-} from "./worker-options.js";
+import { cursorAgentOptions } from "./worker-options.js";
+import { modelsFromAgentList, pickCursorSpawnModel } from "./worker-models.js";
 
 // Own process, own TLS state: the host MCP trusting the OS store does not carry
 // across the spawn, and without this the Cursor SDK reports "Network request
@@ -44,15 +49,16 @@ type SdkRun = {
     status?: string;
     result?: unknown;
     id?: string;
+    usage?: unknown;
   }>;
   stream?: () => AsyncIterable<unknown>;
   cancel?: () => Promise<void>;
   supports?: (name: string) => boolean;
+  usage?: unknown;
 };
 
 type SdkAgent = {
   agentId: string;
-  model?: unknown;
   send(prompt: string): Promise<SdkRun>;
   [Symbol.asyncDispose]?: () => Promise<void>;
 };
@@ -67,12 +73,6 @@ function assistantText(result: unknown): string {
   return "";
 }
 
-function isModelSentinel(id: string | undefined): boolean {
-  if (!id) return true;
-  const lower = id.toLowerCase();
-  return lower === "default" || lower === "auto";
-}
-
 async function observeRun(
   run: SdkRun,
   patch: (
@@ -80,26 +80,25 @@ async function observeRun(
     options?: { immediate?: boolean },
   ) => Promise<unknown>,
   log: (event: unknown) => Promise<void>,
-  modelRef: { current: string | undefined },
 ): Promise<void> {
   if (typeof run.stream !== "function") return;
+  let usage: TokenUsage | undefined = applyParsedUsage(undefined, run);
+  if (usage) await patch({ tokenUsage: usage });
   try {
     for await (const event of run.stream()) {
       // Log first: the one-line activity is throttled and overwritten, so the
       // console is the only place an event survives.
       await log(event);
-      // Upgrade a sentinel (or missing) model when the stream names a real one.
-      const fromEvent = cursorModelFromEvent(event);
-      if (
-        fromEvent &&
-        !isModelSentinel(fromEvent) &&
-        isModelSentinel(modelRef.current)
-      ) {
-        modelRef.current = fromEvent;
-        await patch({ model: fromEvent });
-      }
       const activity = activityFromEvent(event);
-      if (activity) await patch(activity);
+      const next = applyParsedUsage(applyParsedUsage(usage, event), run);
+      const usageChanged = Boolean(next) && !tokenUsageEqual(usage, next);
+      if (usageChanged) usage = next;
+      if (activity || usageChanged) {
+        await patch({
+          ...activity,
+          ...(usageChanged && usage ? { tokenUsage: usage } : {}),
+        });
+      }
     }
   } catch {
     /* stream closed when wait() finishes */
@@ -118,6 +117,10 @@ async function main(): Promise<void> {
     process.stderr.write("dispatch-worker: invalid spawn payload\n");
     process.exit(1);
   }
+  installWorkerCrashGuards({
+    workspaceRoot: payload.workspaceRoot,
+    jobId: payload.jobId,
+  });
   const now = new Date().toISOString();
   const writer = createRunWriter(payload.workspaceRoot, payload.jobId, {
     jobId: payload.jobId,
@@ -198,6 +201,12 @@ async function main(): Promise<void> {
         options: Record<string, unknown>,
       ): Promise<SdkAgent>;
     };
+    JsonlLocalAgentStore: new (rootDir: string) => unknown;
+    Cursor?: {
+      models?: {
+        list?: (options?: Record<string, unknown>) => Promise<unknown>;
+      };
+    };
   };
   try {
     sdk = (await import("@cursor/sdk")) as unknown as typeof sdk;
@@ -215,26 +224,70 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const options = cursorAgentOptions({
-    cwd: payload.cwd,
-    workspaceRoot: payload.workspaceRoot,
-    mcpCommand: payload.mcpCommand,
-    mcpArgs: payload.mcpArgs,
-    subagents: payload.subagents ?? false,
-    ...(payload.name ? { name: payload.name } : {}),
-  });
-
+  const storeRoot = join(
+    payload.workspaceRoot,
+    ".prism",
+    "dispatch",
+    "agent-store",
+  );
+  await mkdir(storeRoot, { recursive: true });
   let agent: SdkAgent | undefined;
   try {
+    let listed: ReturnType<typeof modelsFromAgentList> = [];
+    if (!pickCursorSpawnModel([], payload.model)) {
+      const list = sdk.Cursor?.models?.list;
+      if (typeof list === "function") {
+        try {
+          const items = await Promise.race([
+            list(),
+            new Promise<never>((_, reject) => {
+              const timer = setTimeout(
+                () => reject(new Error("timeout")),
+                8_000,
+              );
+              timer.unref();
+            }),
+          ]);
+          listed = modelsFromAgentList(Array.isArray(items) ? items : []);
+        } catch {
+          listed = [];
+        }
+      }
+    }
+    const modelId = pickCursorSpawnModel(listed, payload.model);
+    if (!modelId) {
+      const detail =
+        "Cursor needs a model for this job and none were listed. Pick a model in New Job.";
+      await logLine("failed", detail);
+      await failWorkerRun(finishInput, detail, finish);
+      process.exit(1);
+    }
+    const options = cursorAgentOptions({
+      cwd: payload.cwd,
+      workspaceRoot: payload.workspaceRoot,
+      mcpCommand: payload.mcpCommand,
+      mcpArgs: payload.mcpArgs,
+      subagents: payload.subagents ?? false,
+      store: new sdk.JsonlLocalAgentStore(storeRoot),
+      model: modelId,
+      ...(payload.name ? { name: payload.name } : {}),
+    });
     agent = payload.resumeAgentId
       ? await sdk.Agent.resume(payload.resumeAgentId, options)
       : await sdk.Agent.create(options);
-    // Prefer a concrete id (or display name) over Cursor's "default" sentinel.
-    const modelRef = { current: cursorModelId(agent.model) };
+    const modelValue = (agent as { model?: unknown }).model;
+    const model =
+      typeof modelValue === "string"
+        ? modelValue
+        : modelValue &&
+            typeof modelValue === "object" &&
+            typeof (modelValue as { id?: unknown }).id === "string"
+          ? (modelValue as { id: string }).id
+          : undefined;
     await writer.patch(
       {
         agentId: agent.agentId,
-        ...(modelRef.current ? { model: modelRef.current } : {}),
+        ...(typeof model === "string" && model ? { model } : {}),
         phase: "running",
         lastActivity: "Teammate is on it",
       },
@@ -250,7 +303,6 @@ async function main(): Promise<void> {
       sent,
       (partial, extra) => writer.patch(partial, extra),
       logEvent,
-      modelRef,
     );
 
     if (typeof sent.wait !== "function") {
@@ -267,6 +319,10 @@ async function main(): Promise<void> {
     }
 
     const result = await sent.wait();
+    const settledUsage = applyParsedUsage(writer.snapshot().tokenUsage, result);
+    if (settledUsage) {
+      await writer.patch({ tokenUsage: settledUsage }, { immediate: true });
+    }
     const rawAssistant = assistantText(result.result);
     const assistant = stripWorktreePaths(rawAssistant, payload.cwd);
 
@@ -285,6 +341,7 @@ async function main(): Promise<void> {
     const detail = cause instanceof Error ? cause.message : String(cause);
     await logLine("failed", detail);
     await patchRunState(payload.workspaceRoot, payload.jobId, {
+      pid: process.pid,
       phase: "failed",
       errorMessage: publicWorkerError(detail),
       completedAt: new Date().toISOString(),

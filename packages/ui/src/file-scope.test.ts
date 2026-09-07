@@ -71,4 +71,70 @@ describe("file-scope", () => {
     expect(parentFolderPath("src")).toBe("");
     expect(parentFolderPath("")).toBeNull();
   });
+
+  describe("package drill-in", () => {
+    const packageNode = {
+      id: "pkg:@demo/web",
+      kind: "package" as const,
+      label: "@demo/web",
+      attrs: { rootDir: "apps/web", fileCount: 2 },
+    };
+    const monorepoFiles = [
+      {
+        id: "file:apps/web/a.ts",
+        kind: "file" as const,
+        label: "apps/web/a.ts",
+        attrs: { path: "apps/web/a.ts" },
+      },
+      {
+        id: "file:apps/web/lib/b.ts",
+        kind: "file" as const,
+        label: "apps/web/lib/b.ts",
+        attrs: { path: "apps/web/lib/b.ts" },
+      },
+      {
+        id: "file:apps/api/c.ts",
+        kind: "file" as const,
+        label: "apps/api/c.ts",
+        attrs: { path: "apps/api/c.ts" },
+      },
+    ];
+
+    it("scopes a package node to its rootDir prefix", () => {
+      const scope = drillScopeFromMapNode(packageNode);
+      expect(scope).toEqual({
+        title: "@demo/web",
+        kind: "package",
+        sourceNodeId: "pkg:@demo/web",
+        pathPrefix: "apps/web",
+      });
+    });
+
+    it("omits pathPrefix for workspace-root packages", () => {
+      const scope = drillScopeFromMapNode({
+        ...packageNode,
+        attrs: { rootDir: "." },
+      });
+      expect(scope?.pathPrefix).toBeUndefined();
+    });
+
+    it("renders package children from a file-zoom graph, not package nodes", () => {
+      const scope = drillScopeFromMapNode(packageNode);
+      expect(scope?.pathPrefix).toBe("apps/web");
+      const cards = cardEntriesAt(monorepoFiles, scope!.pathPrefix!);
+      expect(cards.map((c) => c.name).sort()).toEqual(["a.ts", "lib"]);
+      // Package-only graphs (Spectrum before refetch) yield no file cards.
+      expect(folderCardEntries([packageNode])).toEqual([]);
+      expect(cardEntriesAt([packageNode], "apps/web")).toEqual([]);
+    });
+
+    it("filters explorer nodes to the package prefix", () => {
+      const scope = drillScopeFromMapNode(packageNode)!;
+      expect(
+        scopeGraphNodes(monorepoFiles, scope)
+          .map((n) => n.id)
+          .sort(),
+      ).toEqual(["file:apps/web/a.ts", "file:apps/web/lib/b.ts"]);
+    });
+  });
 });

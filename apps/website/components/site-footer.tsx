@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { GITHUB } from "@/lib/layout.shared";
+import { GITHUB } from "@/lib/github";
 
 /**
  * Site footer for the marketing pages.
@@ -16,8 +16,11 @@ const COLUMNS: Array<{
   {
     title: "Product",
     links: [
-      { href: "/features", label: "Features" },
       { href: "/products", label: "Products" },
+      { href: "/products#playground", label: "Playground" },
+      { href: "/products#intelligence", label: "Intelligence" },
+      { href: "/products#dispatch", label: "Dispatch" },
+      { href: "/install", label: "Install" },
       { href: "/benchmarks", label: "Benchmarks" },
       { href: "/whats-new", label: "What's new" },
     ],
@@ -26,9 +29,9 @@ const COLUMNS: Array<{
     title: "Docs",
     links: [
       { href: "/docs/what-is-prism", label: "What is Prism" },
-      { href: "/docs/start/install", label: "Install" },
+      { href: "/docs/start/install", label: "Install guide" },
       { href: "/docs/usage", label: "Usage" },
-      { href: "/docs/guides/understand-a-repo", label: "Task guides" },
+      { href: "/docs/guides/understand-a-repo", label: "Intelligence" },
       { href: "/docs/guides/dispatch", label: "Dispatch" },
     ],
   },

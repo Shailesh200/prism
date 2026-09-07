@@ -7,24 +7,26 @@ import {
 
 export type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
   readonly label?: string;
+  readonly hint?: string;
 };
 
 export const Textarea = forwardRef(function Textarea(
   props: TextareaProps,
   ref: Ref<HTMLTextAreaElement>,
 ): ReactElement {
-  const { label, className, id, ...rest } = props;
+  const { label, hint, className, id, ...rest } = props;
   const textareaClass = className
     ? `prism-textarea ${className}`
     : "prism-textarea";
   const field = (
     <textarea ref={ref} id={id} className={textareaClass} {...rest} />
   );
-  if (!label) return field;
+  if (!label && !hint) return field;
   return (
     <label className="prism-field" htmlFor={id}>
-      <span className="prism-field__label">{label}</span>
+      {label ? <span className="prism-field__label">{label}</span> : null}
       {field}
+      {hint ? <span className="prism-field__hint">{hint}</span> : null}
     </label>
   );
 });

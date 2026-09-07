@@ -76,32 +76,25 @@ async function notifyDarwin(
   await run("osascript", ["-e", script], { timeout: 4_000 });
 }
 
-function darwinNotifyHelperPath(): string | undefined {
+function darwinNotifyHelperBin(): string | undefined {
   if (process.platform !== "darwin") return undefined;
   const here = dirname(fileURLToPath(import.meta.url));
-  const app = join(here, "Prism.app");
-  const bin = join(app, "Contents", "MacOS", "prism-notify");
-  return existsSync(bin) ? app : undefined;
+  const bin = join(here, "Prism.app", "Contents", "MacOS", "prism-notify");
+  return existsSync(bin) ? bin : undefined;
 }
 
 function notifyDarwinHelper(
   copy: JobNoticeCopy,
   url: string | undefined,
 ): boolean {
-  const app = darwinNotifyHelperPath();
-  if (!app) return false;
+  const bin = darwinNotifyHelperBin();
+  if (!bin) return false;
   try {
+    // Spawn the helper binary, not `open Prism.app`. Activating the .app is
+    // what made Notification Center's Show button reveal Finder.
     const child = spawn(
-      "/usr/bin/open",
-      [
-        "-n",
-        "-g",
-        app,
-        "--args",
-        copy.title,
-        copy.body,
-        httpConsoleUrl(url) ?? "",
-      ],
+      bin,
+      [copy.title, copy.body, httpConsoleUrl(url) ?? ""],
       { detached: true, stdio: "ignore" },
     );
     child.unref();

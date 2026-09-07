@@ -4,9 +4,14 @@ import { z } from "zod";
 import { clip, textFromUnknown, toolNameFrom } from "./event-text.js";
 import { readJsonFile, writeJsonFile } from "./json-file.js";
 import { loadJobs, saveJobs } from "./jobs.js";
-import { jobRef } from "./job-voice.js";
+import { jobRef, unexpectedStopSpeak } from "./job-voice.js";
 import { runStatePath, runsDir, spawnPayloadPath } from "./paths.js";
-import { JobReviewSchema, type JobRecord, type JobReview } from "./types.js";
+import {
+  JobReviewSchema,
+  TokenUsageSchema,
+  type JobRecord,
+  type JobReview,
+} from "./types.js";
 
 export const RunPhaseSchema = z.enum([
   "starting",
@@ -30,6 +35,8 @@ export const RunStateSchema = z.object({
   model: z.string().optional(),
   /** Thinking / effort the worker reported (`10000`, `adaptive`, `high`). */
   thinking: z.string().optional(),
+  /** Live then final token usage the worker reported. */
+  tokenUsage: TokenUsageSchema.optional(),
   runId: z.string().optional(),
   phase: RunPhaseSchema,
   lastActivity: z.string().default(""),
@@ -95,6 +102,32 @@ export function formatStallDuration(ms: number): string {
   return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`;
 }
 
+/**
+ * A `start_job` retry must not wipe a teammate that just spawned.
+ * Booting rows often have no pid yet; running rows can look dead for a
+ * moment between spawn and the first sidecar write.
+ */
+export const LIVE_JOB_GRACE_MS = 60_000;
+
+export function isReusableLiveJob(
+  job: Pick<JobRecord, "status" | "workerPid" | "updatedAt">,
+  now: number = Date.now(),
+): boolean {
+  if (
+    job.status !== "running" &&
+    job.status !== "booting" &&
+    job.status !== "ready"
+  ) {
+    return false;
+  }
+  if (isProcessAlive(job.workerPid)) return true;
+  // A recorded pid that is gone is a crash — start_job may replace it.
+  // Grace is only for the spawn window before a pid exists.
+  if (job.workerPid != null) return false;
+  const updated = Date.parse(job.updatedAt);
+  return Number.isFinite(updated) && now - updated < LIVE_JOB_GRACE_MS;
+}
+
 export function isProcessAlive(pid: number | undefined): boolean {
   if (pid == null || !Number.isInteger(pid) || pid <= 0) return false;
   try {
@@ -106,6 +139,7 @@ export function isProcessAlive(pid: number | undefined): boolean {
 }
 
 export function killWorkerTree(pid: number): void {
+  if (!Number.isInteger(pid) || pid <= 0 || pid === process.pid) return;
   if (process.platform === "win32") {
     spawn("taskkill", ["/PID", String(pid), "/T", "/F"], {
       stdio: "ignore",
@@ -126,6 +160,7 @@ export function killWorkerTree(pid: number): void {
 }
 
 export function killWorkerTreeForce(pid: number): void {
+  if (!Number.isInteger(pid) || pid <= 0 || pid === process.pid) return;
   if (process.platform === "win32") {
     killWorkerTree(pid);
     return;
@@ -203,6 +238,18 @@ export async function clearRunState(
   }
 }
 
+/**
+ * A previous generation must not clobber a newer worker's sidecar.
+ * Used when a cancelled child's delayed write lands after retry started.
+ */
+export function shouldWriteRunSidecar(
+  disk: RunState | undefined,
+  next: Pick<RunState, "pid">,
+): boolean {
+  if (disk?.pid == null || next.pid == null) return true;
+  return disk.pid === next.pid;
+}
+
 export async function patchRunState(
   workspaceRoot: string,
   jobId: string,
@@ -225,6 +272,9 @@ export async function patchRunState(
     jobId,
     updatedAt: now,
   };
+  if (!shouldWriteRunSidecar(current, next)) {
+    return current;
+  }
   await writeRunState(workspaceRoot, jobId, next);
   return next;
 }
@@ -245,6 +295,10 @@ export function createRunWriter(
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   const flush = async (): Promise<RunState> => {
+    const disk = await readRunState(workspaceRoot, jobId);
+    if (!shouldWriteRunSidecar(disk, current)) {
+      return current;
+    }
     lastWrite = Date.now();
     await writeRunState(workspaceRoot, jobId, current);
     return current;
@@ -406,7 +460,30 @@ function mergeKeptReview(
   const kept = [
     ...new Set([...(fromJob?.keptPaths ?? []), ...(fromRun?.keptPaths ?? [])]),
   ];
-  return kept.length > 0 ? { ...review, keptPaths: kept } : review;
+  const merged = fromJob?.merged === true || fromRun?.merged === true;
+  return {
+    ...review,
+    ...(kept.length > 0 ? { keptPaths: kept } : {}),
+    merged,
+  };
+}
+
+/** Supervisor writes (Keep all, reverify) must not lose to an older sidecar. */
+function jobIsNewerThanRun(job: JobRecord, run: RunState): boolean {
+  const jobAt = Date.parse(job.updatedAt);
+  const runAt = Date.parse(run.updatedAt);
+  if (!Number.isFinite(jobAt) || !Number.isFinite(runAt)) return false;
+  return jobAt > runAt;
+}
+
+function keepSupervisorJob(job: JobRecord, run: RunState | undefined): boolean {
+  if (!run) return false;
+  if (jobIsNewerThanRun(job, run)) return true;
+  const runAt = Date.parse(run.updatedAt);
+  const jobAt = Date.parse(job.updatedAt);
+  const runIsNewer =
+    Number.isFinite(runAt) && Number.isFinite(jobAt) && runAt > jobAt;
+  return job.lastActivity === "Running checks…" && !runIsNewer;
 }
 
 export function applyRunToJob(
@@ -416,6 +493,7 @@ export function applyRunToJob(
   const liveRun = run && isPriorGenerationRun(job, run) ? undefined : run;
   const pid = liveRun?.pid ?? job.workerPid;
   const alive = isProcessAlive(pid);
+  const jobNewer = keepSupervisorJob(job, liveRun);
   // The run sidecar's agentId is the backend's session handle: Cursor agentId
   // for cursor jobs, Claude session_id for claude jobs (ADR-0044 §5).
   const sessionPatch = liveRun?.agentId
@@ -428,15 +506,26 @@ export function applyRunToJob(
     ...sessionPatch,
     ...(typeof liveRun?.pid === "number" ? { workerPid: liveRun.pid } : {}),
     ...(liveRun?.runId ? { runId: liveRun.runId } : {}),
-    ...(liveRun?.lastActivity ? { lastActivity: liveRun.lastActivity } : {}),
+    ...(liveRun?.lastActivity && !jobNewer
+      ? { lastActivity: liveRun.lastActivity }
+      : {}),
     ...(liveRun?.updatedAt ? { lastHeartbeat: liveRun.updatedAt } : {}),
     ...(liveRun?.model ? { workerModel: liveRun.model } : {}),
     ...(liveRun?.thinking ? { workerThinking: liveRun.thinking } : {}),
+    ...(liveRun?.tokenUsage ? { tokenUsage: liveRun.tokenUsage } : {}),
   };
 
   if (liveRun?.phase === "done") {
     const review = mergeKeptReview(liveRun.review ?? job.review, job.review);
     const pending = reviewHasPendingFiles(review);
+    const verification =
+      jobNewer && job.verification
+        ? job.verification
+        : (liveRun.verification ?? job.verification);
+    const verificationDetail =
+      jobNewer && job.verificationDetail
+        ? job.verificationDetail
+        : (liveRun.verificationDetail ?? job.verificationDetail);
     return {
       ...base,
       // The supervisor commits so the work survives worktree pruning
@@ -445,19 +534,18 @@ export function applyRunToJob(
       // stay kept: reaping must not bounce the card back to needs_review.
       status: pending ? "needs_review" : "done",
       ...(review ? { review } : {}),
-      resultSummary:
-        liveRun.resultSummary || liveRun.gitSummary || job.resultSummary,
+      resultSummary: jobNewer
+        ? job.resultSummary || liveRun.resultSummary || liveRun.gitSummary
+        : liveRun.resultSummary || liveRun.gitSummary || job.resultSummary,
       errorMessage: undefined,
       ...(liveRun.notes?.length ? { notes: liveRun.notes } : {}),
       ...(liveRun.citedMissing?.length
         ? { citedMissing: liveRun.citedMissing }
         : {}),
-      nextStep: pending ? "review the changes" : "",
+      nextStep: pending ? "review the changes" : jobNewer ? job.nextStep : "",
       waitingOn: "",
-      ...(liveRun.verification ? { verification: liveRun.verification } : {}),
-      ...(liveRun.verificationDetail
-        ? { verificationDetail: liveRun.verificationDetail }
-        : {}),
+      ...(verification ? { verification } : {}),
+      ...(verificationDetail ? { verificationDetail } : {}),
       ...(liveRun.commitSha ? { commitSha: liveRun.commitSha } : {}),
     };
   }
@@ -492,8 +580,10 @@ export function applyRunToJob(
       return {
         ...base,
         status: "error",
-        errorMessage:
-          "The teammate stopped unexpectedly. Say resume to try again.",
+        errorMessage: unexpectedStopSpeak({
+          lastActivity: liveRun?.lastActivity || job.lastActivity,
+          errorMessage: liveRun?.errorMessage || job.errorMessage,
+        }),
         lastActivity: undefined,
         nextStep: "say resume to try again",
       };
@@ -529,6 +619,9 @@ export function applyRunToJob(
 
 /** Sidecar from a previous cancel/finish of the same slug must not reap a new queue. */
 function isPriorGenerationRun(job: JobRecord, run: RunState): boolean {
+  if (job.workerPid != null && run.pid != null && job.workerPid !== run.pid) {
+    return true;
+  }
   const queued = Date.parse(job.queuedAt ?? "");
   const updated = Date.parse(run.updatedAt);
   if (!Number.isFinite(queued) || !Number.isFinite(updated)) return false;
@@ -550,7 +643,9 @@ function jobChanged(a: JobRecord, b: JobRecord): boolean {
     a.lastHeartbeat !== b.lastHeartbeat ||
     a.cursorAgentId !== b.cursorAgentId ||
     a.runId !== b.runId ||
-    a.nextStep !== b.nextStep
+    a.nextStep !== b.nextStep ||
+    JSON.stringify(a.tokenUsage ?? null) !==
+      JSON.stringify(b.tokenUsage ?? null)
   );
 }
 

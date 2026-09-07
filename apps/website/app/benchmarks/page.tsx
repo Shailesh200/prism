@@ -3,18 +3,20 @@ import { baseOptions } from "@/lib/layout.shared";
 import Link from "next/link";
 import { PageEnter } from "@/components/motion/PageEnter";
 import { Reveal } from "@/components/motion/Reveal";
+import { StaggerGrid } from "@/components/motion/StaggerGrid";
 import { SectionIntro } from "@/components/motion/SectionIntro";
 import { McpInstallPanel } from "@/components/mcp-install-panel";
 import { Counter } from "@/components/motion/Counter";
 import { SiteFooter } from "@/components/site-footer";
+import { FEATURES } from "@/lib/features";
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import sampleReport from "@/data/benchmarks-sample.json";
 
 export const metadata: Metadata = {
-  title: "Benchmarks",
+  title: "Features & Benchmarks",
   description:
-    "Agent orientation savings with Prism — six questions on five fixture repos, measured as tool-call counts.",
+    "What Prism can do, and the measured hop-count savings before an edit.",
 };
 
 type RunSide = {
@@ -105,10 +107,35 @@ export default async function BenchmarksPage() {
       <PageEnter>
         <main className="mx-auto flex w-full max-w-5xl flex-col gap-12 px-6 py-16">
           <SectionIntro
-            index="Nº PROOF"
-            title="Benchmarks"
-            description="Structural intelligence before an edit — six questions, five fixture repos, measured as tool-call counts."
+            index="Nº FEATURES + PROOF"
+            title="Features & Benchmarks"
+            description="Task-led capabilities, then the hop-count proof: six questions, five fixture repos."
           />
+
+          <StaggerGrid items="li">
+            <ul className="divide-y divide-fd-border border-y border-fd-border">
+              {FEATURES.map((f, i) => (
+                <li key={f.href}>
+                  <Link
+                    href={f.href}
+                    className="group flex flex-col gap-2 py-5 transition sm:flex-row sm:items-baseline sm:justify-between sm:gap-8"
+                  >
+                    <div className="flex items-baseline gap-4">
+                      <span className="font-mono text-xs text-fd-primary">
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                      <span className="font-display text-lg font-medium text-fd-foreground group-hover:text-fd-primary">
+                        {f.title}
+                      </span>
+                    </div>
+                    <p className="max-w-md text-sm text-fd-muted-foreground sm:text-right">
+                      {f.body}
+                    </p>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </StaggerGrid>
 
           <Reveal>
             <section className="space-y-3 text-fd-muted-foreground">

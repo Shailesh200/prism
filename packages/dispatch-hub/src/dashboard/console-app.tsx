@@ -1,6 +1,7 @@
 import {
   JobsScreen,
   jobBadgeTone,
+  jobBadgePulse,
   jobDisplayLabel,
   jobNotePaths,
   type JobSummary,
@@ -9,10 +10,16 @@ import {
 import {
   Badge,
   Button,
+  CUSTOM_RANGE_PRESET,
   Drawer,
   EmptyState,
   Input,
-  formatPrismDate,
+  SearchableInput,
+  isActivateTarget,
+  isPrimaryActionKey,
+  listCursorDelta,
+  pageShortcutBlocked,
+  type DateRangeValue,
 } from "@repo-prism/ui";
 import {
   Aperture,
@@ -23,6 +30,7 @@ import {
   Inbox,
   LayoutDashboard,
   MemoryStick,
+  Plus,
   ScrollText,
   Settings,
 } from "lucide-react";
@@ -34,42 +42,60 @@ import {
   useState,
   type ReactElement,
 } from "react";
-import { ComposeDrawer } from "./compose-drawer.js";
+import { ComposeDrawer, InstructionDrawer } from "./compose-drawer.js";
 import { ConsoleFooter } from "./console-footer.js";
 import { ConsoleToastHost, showConsoleToast } from "./console-toast.js";
 import { FindingsView } from "./findings-view.js";
 import {
   DEFAULT_FLEET_RANGE,
+  FLEET_RANGES,
   TILES_STORAGE_KEY,
   VIEW_STORAGE_KEY,
   attentionJobs,
   hydrateJobs,
+  jobsInRange,
   parseFleetView,
+  selectedRangeWindow,
   type FleetRange,
   type FleetViewMode,
+  type TimeWindow,
 } from "./fleet.js";
 import {
   BoardView,
   DashboardToolbar,
   JobListDrawer,
   ListView,
-  TimelineView,
   useVisibleRepos,
 } from "./fleet-views.js";
+import { PulseView } from "./pulse-view.js";
+import {
+  FocusJobBar,
+  JobActions,
+  jobActionHandlers,
+  type JobActionHandlers,
+} from "./job-actions.js";
+import { JobLineage } from "./job-lineage-view.js";
 import { IntelligenceView } from "./intelligence-view.js";
 import {
   CONSOLE_VIEWS,
   useHashRoute,
   VIEW_LABELS,
-  type ConsoleView,
+  type RailView,
 } from "./router.js";
-import { getJson, notifyWorkspacesChanged, postJson, readToken, WORKSPACES_CHANGED } from "./session.js";
+import {
+  getJson,
+  notifyWorkspacesChanged,
+  postJson,
+  readToken,
+  WORKSPACES_CHANGED,
+} from "./session.js";
 import { SettingsView } from "./settings-view.js";
+import { WhatsNewView } from "./whats-new-view.js";
 import { useJobsFeed } from "./use-jobs.js";
 
 const RAIL_STORAGE_KEY = "prism.console.rail";
 
-const RAIL_ICONS: Record<ConsoleView, ReactElement> = {
+const RAIL_ICONS: Record<RailView, ReactElement> = {
   dashboard: <LayoutDashboard size={16} aria-hidden />,
   attention: <Inbox size={16} aria-hidden />,
   findings: <ScrollText size={16} aria-hidden />,
@@ -117,6 +143,7 @@ export function ConsoleApp(): ReactElement {
     ),
   );
   const [range, setRange] = useState<FleetRange>(DEFAULT_FLEET_RANGE);
+  const [customWindow, setCustomWindow] = useState<TimeWindow | undefined>();
   const [railCollapsed, setRailCollapsed] = useState(() => {
     if (typeof localStorage === "undefined") return false;
     return localStorage.getItem(RAIL_STORAGE_KEY) === "collapsed";
@@ -128,9 +155,12 @@ export function ConsoleApp(): ReactElement {
         readonly title?: string;
         readonly prd?: string;
         readonly playbook?: string;
+        readonly finding?: JobSummary;
+        readonly workspace?: string;
       }
     | { readonly open: false }
   >({ open: false });
+  const [instructJob, setInstructJob] = useState<JobSummary | undefined>();
   const [focusId, setFocusId] = useState<string | undefined>();
   const [listDrawer, setListDrawer] = useState<{
     readonly title: string;
@@ -151,8 +181,30 @@ export function ConsoleApp(): ReactElement {
   });
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [addPath, setAddPath] = useState("");
+  const [pending, setPending] = useState<{
+    readonly jobId: string;
+    readonly action: "retry" | "reverify";
+  }>();
+  const pendingRef = useRef(false);
   const filterRef = useRef<HTMLInputElement | null>(null);
   const focusJob = feed.summaries.find((job) => job.id === focusId);
+  const timeWindow = customWindow ?? selectedRangeWindow(range, nowMs);
+  const rangeValue: DateRangeValue = {
+    preset: customWindow ? CUSTOM_RANGE_PRESET : range,
+    startMs: timeWindow.startMs,
+    endMs: Number.isFinite(timeWindow.endMs) ? timeWindow.endMs : nowMs,
+  };
+  const onRangeValue = (next: DateRangeValue): void => {
+    if (
+      next.preset === CUSTOM_RANGE_PRESET ||
+      !FLEET_RANGES.includes(next.preset as FleetRange)
+    ) {
+      setCustomWindow({ startMs: next.startMs, endMs: next.endMs });
+      return;
+    }
+    setRange(next.preset as FleetRange);
+    setCustomWindow(undefined);
+  };
 
   useEffect(() => {
     const id = window.setInterval(() => setNowMs(Date.now()), 2000);
@@ -178,12 +230,8 @@ export function ConsoleApp(): ReactElement {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      const target = event.target as HTMLElement | null;
-      const typing =
-        target?.tagName === "INPUT" ||
-        target?.tagName === "TEXTAREA" ||
-        target?.isContentEditable;
-      if (event.key === "/" && !typing) {
+      if (pageShortcutBlocked(event)) return;
+      if (event.key === "/") {
         event.preventDefault();
         filterRef.current?.focus();
       }
@@ -205,17 +253,14 @@ export function ConsoleApp(): ReactElement {
     [],
   );
 
-  const repos = useVisibleRepos(
-    feed.summaries,
-    workspaces,
-    filter,
-    repoFilter,
-    range,
-    nowMs,
+  const rangedJobs = useMemo(
+    () => jobsInRange(feed.summaries, timeWindow, nowMs),
+    [feed.summaries, timeWindow, nowMs],
   );
+  const repos = useVisibleRepos(rangedJobs, workspaces, filter, repoFilter);
   const listJobs = useMemo(
     () =>
-      feed.summaries.filter(
+      rangedJobs.filter(
         (job) =>
           (!repoFilter ||
             repoFilter === "all" ||
@@ -226,7 +271,7 @@ export function ConsoleApp(): ReactElement {
               .toLowerCase()
               .includes(filter.toLowerCase())),
       ),
-    [feed.summaries, filter, repoFilter],
+    [rangedJobs, filter, repoFilter],
   );
 
   const openFinding = useCallback(
@@ -240,32 +285,121 @@ export function ConsoleApp(): ReactElement {
     },
     [go],
   );
+  const runJobControl = useCallback(
+    async (action: "retry" | "reverify", job: JobSummary) => {
+      if (pendingRef.current) {
+        showConsoleToast(
+          action === "reverify"
+            ? "Checks already running…"
+            : "Retry already running…",
+        );
+        return;
+      }
+      pendingRef.current = true;
+      setPending({ jobId: job.id, action });
+      if (action === "reverify") {
+        showConsoleToast(
+          "Running checks. If they fail, a teammate will fix them.",
+        );
+      }
+      try {
+        await feed.port.control?.(action, job.id);
+      } finally {
+        pendingRef.current = false;
+        setPending(undefined);
+      }
+    },
+    [feed.port],
+  );
   const fleetActions = {
     onOpenJob: (job: JobSummary) => setFocusId(job.id),
     onOpenFinding: openFinding,
     onPause: (job: JobSummary) => void feed.port.control?.("pause", job.id),
+    onCancel: (job: JobSummary) => void feed.port.control?.("cancel", job.id),
+    onConfirm: (job: JobSummary) => void feed.port.control?.("confirm", job.id),
+    onResume: (job: JobSummary) => void feed.port.control?.("resume", job.id),
+    onRetry: (job: JobSummary) => void runJobControl("retry", job),
+    onReverify: (job: JobSummary) => void runJobControl("reverify", job),
     onDelete: (job: JobSummary) => void feed.port.control?.("delete", job.id),
+    onStartFromJob: (job: JobSummary) => {
+      setFocusId(undefined);
+      setInstructJob(undefined);
+      setCompose({
+        open: true,
+        title: job.title,
+        playbook: "finding",
+        finding: job,
+        ...(job.workspacePath ? { workspace: job.workspacePath } : {}),
+      });
+    },
+    onAddInstruction: (job: JobSummary) => {
+      setFocusId(undefined);
+      setCompose({ open: false });
+      setInstructJob(job);
+    },
+    ...(pending ? { pending } : {}),
   };
+  const removeRepo = useCallback(
+    (path: string, label: string) => {
+      void postJson("/api/workspaces/remove", token, { path })
+        .then(() => {
+          notifyWorkspacesChanged();
+          if (repoFilter === path) go("dashboard", {});
+          showConsoleToast(
+            `Removed ${label} from this Console. The checkout is unchanged.`,
+          );
+          void feed.refresh();
+        })
+        .catch((cause) =>
+          showConsoleToast(
+            cause instanceof Error ? cause.message : String(cause),
+            "error",
+          ),
+        );
+    },
+    [feed, go, repoFilter, token],
+  );
   const firstRun = workspaces.length === 0 && !feed.loading;
 
   return (
     <div className="console">
       <header className="console__bar">
-        <div className="console__brand" aria-label="Prism Dispatch">
-          <img
-            className="console__mark-img"
-            src="/assets/prism-mark.png"
-            width={22}
-            height={22}
-            alt=""
-          />
-          <span className="console__wordmark">
-            <span className="console__wordmark-prism">Prism</span>
-            <span className="console__wordmark-dispatch">Dispatch</span>
-          </span>
+        <div className="console__brand-host">
+          <div className="console__brand" aria-label="Prism Dispatch">
+            <img
+              className="console__mark-img"
+              src="/assets/prism-mark.png"
+              width={22}
+              height={22}
+              alt=""
+            />
+            <span className="console__wordmark">
+              <span className="console__wordmark-prism">Prism</span>
+              <span className="console__wordmark-dispatch">Dispatch</span>
+            </span>
+          </div>
+          <div className="console__host" aria-label="This machine">
+            {hostStrip(host)}
+          </div>
         </div>
-        <div className="console__host" aria-label="This machine">
-          {hostStrip(host)}
+        <div className="console__bar-actions">
+          <SearchableInput
+            ref={filterRef}
+            placeholder="Filter repos and jobs"
+            value={filter}
+            onChange={setFilter}
+            aria-label="Filter repos and jobs"
+          />
+          <Button
+            variant="primary"
+            icon={<Plus size={16} aria-hidden />}
+            onClick={() => {
+              setInstructJob(undefined);
+              setCompose({ open: true });
+            }}
+          >
+            New job
+          </Button>
         </div>
       </header>
 
@@ -278,10 +412,13 @@ export function ConsoleApp(): ReactElement {
           }
           aria-label="Console"
         >
-          <button
+          <Button
             type="button"
+            variant="tertiary"
             className="console-rail__item console-rail__toggle"
-            aria-label={railCollapsed ? "Expand navigation" : "Collapse navigation"}
+            aria-label={
+              railCollapsed ? "Expand navigation" : "Collapse navigation"
+            }
             title={railCollapsed ? "Expand navigation" : "Collapse navigation"}
             onClick={() => {
               const next = !railCollapsed;
@@ -297,11 +434,12 @@ export function ConsoleApp(): ReactElement {
             ) : (
               <PanelLeftClose size={16} aria-hidden />
             )}
-          </button>
+          </Button>
           {CONSOLE_VIEWS.map((id) => (
-            <button
+            <Button
               key={id}
               type="button"
+              variant="tertiary"
               className={
                 view === id
                   ? "console-rail__item console-rail__item--on"
@@ -320,7 +458,7 @@ export function ConsoleApp(): ReactElement {
                   {waitingCount}
                 </span>
               ) : null}
-            </button>
+            </Button>
           ))}
         </nav>
 
@@ -345,14 +483,11 @@ export function ConsoleApp(): ReactElement {
                 <>
                   <DashboardToolbar
                     token={token}
-                    filter={filter}
-                    onFilter={setFilter}
-                    range={range}
-                    onRange={setRange}
+                    rangeValue={rangeValue}
+                    onRangeValue={onRangeValue}
+                    nowMs={nowMs}
                     mode={mode}
                     onMode={setModePersist}
-                    onNewJob={() => setCompose({ open: true })}
-                    filterRef={filterRef}
                     repos={workspaces}
                     repoFilter={repoFilter ?? "all"}
                     onRepoFilter={(path) =>
@@ -360,38 +495,27 @@ export function ConsoleApp(): ReactElement {
                     }
                   />
                   {mode === "timeline" ? (
-                    <TimelineView
+                    <PulseView
                       repos={repos}
-                      range={range}
+                      range={timeWindow}
                       nowMs={nowMs}
                       loading={feed.loading}
                       onOpenRepo={(path) => go("dashboard", { repo: path })}
-                      onOpenCluster={(jobs, atMs) => {
-                        const stamp = atMs
-                          ? formatPrismDate(
-                              new Date(atMs).toISOString(),
-                              "time",
-                            )
-                          : "";
-                        setListDrawer({
-                          title: `${jobs.length} Jobs at ${stamp}`,
-                          jobs,
-                        });
-                      }}
                       {...fleetActions}
                     />
                   ) : null}
                   {mode === "board" ? (
                     <BoardView
                       repos={repos}
-                      range={range}
+                      range={timeWindow}
                       nowMs={nowMs}
-                      jobs={feed.summaries}
+                      jobs={rangedJobs}
                       loading={feed.loading}
                       {...(feed.fatal ? { jobsError: feed.fatal } : {})}
                       showSummary={tiles.summary}
                       showFailures={tiles.failures}
                       onTiles={setTilesPersist}
+                      onRemoveRepo={removeRepo}
                       onOpenJobs={(title, jobs, sections) =>
                         setListDrawer({
                           title,
@@ -417,9 +541,9 @@ export function ConsoleApp(): ReactElement {
             {view === "attention" ? (
               <AttentionView
                 jobs={feed.summaries}
-                port={feed.port}
                 loading={feed.loading}
-                onOpen={(job) => {
+                {...fleetActions}
+                onOpenJob={(job) => {
                   setFocusId(job.id);
                   go("dashboard");
                 }}
@@ -430,16 +554,18 @@ export function ConsoleApp(): ReactElement {
               <FindingsView
                 token={token}
                 jobs={feed.summaries}
+                repos={workspaces}
                 {...(jobId ? { jobId } : {})}
                 {...(notePath ? { notePath } : {})}
-                onHandOff={(job, text) =>
+                onHandOff={(job, text) => {
+                  setInstructJob(undefined);
                   setCompose({
                     open: true,
                     title: job.title,
                     prd: text,
                     playbook: "finding",
-                  })
-                }
+                  });
+                }}
               />
             ) : null}
 
@@ -450,7 +576,21 @@ export function ConsoleApp(): ReactElement {
                 workspaces={workspaces}
               />
             ) : null}
-            {view === "settings" ? <SettingsView token={token} /> : null}
+            {view === "settings" ? (
+              <SettingsView token={token} onRemoveRepo={removeRepo} />
+            ) : null}
+            {view === "whats-new" ? (
+              <WhatsNewView
+                onOpenPulse={() => {
+                  setModePersist("timeline");
+                  go("dashboard");
+                }}
+                onNewJob={() => {
+                  setInstructJob(undefined);
+                  setCompose({ open: true });
+                }}
+              />
+            ) : null}
           </main>
           <ConsoleFooter {...(version ? { version } : {})} />
         </div>
@@ -469,22 +609,35 @@ export function ConsoleApp(): ReactElement {
               : {})}
             onOpenJob={(job) => setFocusId(job.id)}
             onClose={() => setListDrawer(undefined)}
+            actions={jobActionHandlers(fleetActions)}
           />
         ) : null}
 
         {focusJob ? (
           <Drawer
-            size="lg"
+            size="xl"
             title={focusJob.title}
             label="Job"
             onClose={() => setFocusId(undefined)}
+            footer={
+              <FocusJobBar
+                job={focusJob}
+                {...fleetActions}
+                onOpenJob={(job) => setFocusId(job.id)}
+              />
+            }
           >
+            <JobLineage
+              job={focusJob}
+              jobs={feed.summaries}
+              onOpen={(job) => setFocusId(job.id)}
+            />
             <JobsScreen
               repoLabel={focusJob.workspaceLabel ?? "Job"}
               port={feed.port}
               jobs={[focusJob]}
               loading={false}
-              chrome="inspector"
+              chrome="focus"
               defaultOpenId={focusJob.id}
               heading={focusJob.title}
               eyebrow="Focus"
@@ -504,13 +657,18 @@ export function ConsoleApp(): ReactElement {
             token={token}
             workspaces={workspaces}
             jobs={feed.summaries}
-            {...(repoFilter ? { defaultWorkspace: repoFilter } : {})}
-            {...(compose.title || compose.prd
+            {...(compose.workspace
+              ? { defaultWorkspace: compose.workspace }
+              : repoFilter
+                ? { defaultWorkspace: repoFilter }
+                : {})}
+            {...(compose.title || compose.prd || compose.finding
               ? {
                   preset: {
                     title: compose.title ?? "",
                     prd: compose.prd ?? "",
                     ...(compose.playbook ? { playbook: compose.playbook } : {}),
+                    ...(compose.finding ? { finding: compose.finding } : {}),
                   },
                 }
               : {})}
@@ -518,61 +676,28 @@ export function ConsoleApp(): ReactElement {
             onQueued={(message) => showConsoleToast(message)}
           />
         ) : null}
+
+        {instructJob ? (
+          <InstructionDrawer
+            token={token}
+            job={instructJob}
+            workspaces={workspaces}
+            onClose={() => setInstructJob(undefined)}
+            onSent={(message) => {
+              showConsoleToast(message);
+              void feed.refresh();
+            }}
+          />
+        ) : null}
       </div>
       <ConsoleToastHost />
-
-      {focusJob ? (
-        <div className="focus-layer" role="dialog" aria-label="Focus">
-          <button
-            type="button"
-            className="focus-layer__scrim"
-            aria-label="Close"
-            onClick={() => setFocusId(undefined)}
-          />
-          <div className="focus-layer__panel">
-            <header className="focus-layer__head">
-              <h2 className="focus-layer__title">{focusJob.title}</h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setFocusId(undefined)}
-              >
-                Close
-              </Button>
-            </header>
-            <JobsScreen
-              repoLabel={focusJob.workspaceLabel ?? "Job"}
-              port={{
-                ...feed.port,
-                control: runJobControl,
-              }}
-              jobs={[focusJob]}
-              loading={false}
-              onRefresh={feed.refresh}
-              heading={focusJob.title}
-              eyebrow="Focus"
-              onOpenFindings={(job, note) => {
-                setFocusId(undefined);
-                go("findings", {
-                  job: job.id,
-                  ...(note ? { note } : {}),
-                  ...(job.workspacePath ? { repo: job.workspacePath } : {}),
-                });
-              }}
-            />
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
 
 function hostStrip(host: HostTelemetry | undefined): ReactElement {
   const cpu = typeof host?.cpu === "number" ? `${Math.round(host.cpu)}%` : "—";
-  const mem =
-    host?.memUsed !== undefined && host.memTotal !== undefined
-      ? `${fmtGb(host.memUsed)}/${fmtGb(host.memTotal)}`
-      : "—";
+  const mem = host?.memUsed !== undefined ? fmtGb(host.memUsed) : "—";
   const disk =
     host?.diskUsed !== undefined && host.diskTotal !== undefined
       ? `${Math.round((host.diskUsed / host.diskTotal) * 100)}%`
@@ -586,7 +711,7 @@ function hostStrip(host: HostTelemetry | undefined): ReactElement {
         <MemoryStick size={13} aria-hidden /> MEM {mem}
       </span>
       <span>
-        <HardDrive size={13} aria-hidden /> DISK {disk}
+        <HardDrive size={13} aria-hidden /> DSK {disk}
       </span>
     </>
   );
@@ -613,6 +738,12 @@ function FirstRun(props: {
       </p>
       <form
         className="first-run"
+        onKeyDown={(event) => {
+          if (isPrimaryActionKey(event)) {
+            event.preventDefault();
+            event.currentTarget.requestSubmit();
+          }
+        }}
         onSubmit={(event) => {
           event.preventDefault();
           const path = props.addPath.trim();
@@ -673,18 +804,63 @@ function FirstRun(props: {
   );
 }
 
-function AttentionView(props: {
-  readonly jobs: readonly JobSummary[];
-  readonly port: {
-    control?: (
-      action: "confirm" | "cancel" | "delete",
-      jobId: string,
-    ) => Promise<void>;
-  };
-  readonly loading: boolean;
-  readonly onOpen: (job: JobSummary) => void;
-}): ReactElement {
+function AttentionView(
+  props: {
+    readonly jobs: readonly JobSummary[];
+    readonly loading: boolean;
+    readonly onOpenJob?: (job: JobSummary) => void;
+  } & JobActionHandlers,
+): ReactElement {
   const rows = attentionJobs(props.jobs);
+  const [busyId, setBusyId] = useState<string | undefined>();
+  const [cursor, setCursor] = useState(0);
+  const actions = jobActionHandlers(props);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (pageShortcutBlocked(event)) return;
+      const delta = listCursorDelta(event.key);
+      if (delta !== 0) {
+        event.preventDefault();
+        setCursor((index) =>
+          Math.min(rows.length - 1, Math.max(0, index + delta)),
+        );
+        return;
+      }
+      if (event.key === "Enter") {
+        if (isActivateTarget(event.target)) return;
+        const job = rows[cursor];
+        if (job) {
+          event.preventDefault();
+          props.onOpenJob?.(job);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [cursor, props, rows]);
+
+  const run = async (
+    action: "confirm" | "pause" | "resume" | "cancel",
+    job: JobSummary,
+  ): Promise<void> => {
+    const handler =
+      action === "confirm"
+        ? props.onConfirm
+        : action === "pause"
+          ? props.onPause
+          : action === "resume"
+            ? props.onResume
+            : props.onCancel;
+    if (!handler) return;
+    setBusyId(job.id);
+    try {
+      await handler(job);
+    } finally {
+      setBusyId(undefined);
+    }
+  };
+
   return (
     <section className="console__panel">
       <h1 className="console__title">Attention</h1>
@@ -701,95 +877,39 @@ function AttentionView(props: {
       )}
       {props.loading ? <div className="fleet-scan" aria-hidden /> : null}
       <ul className="attention-list">
-        {rows.map((job) => (
-          <li key={`${job.workspacePath}:${job.id}`} className="attention-card">
-            <div className="attention-card__head">
-              <strong>{job.title}</strong>
-              <Badge tone={jobBadgeTone(job.status, job.nextStep)}>
-                {jobDisplayLabel(job)}
-              </Badge>
-            </div>
-            <span>{job.workspaceLabel}</span>
-            <p>{job.confirm?.question ?? "The teammate asked a question."}</p>
-            {job.status === "needs_confirm" ? (
-              <div className="attention-card__actions">
-                <Button
-                  variant="primary"
-                  onClick={() => void props.port.control?.("confirm", job.id)}
-                >
-                  Start anyway
-                </Button>
-                <Button
-                  onClick={() => void props.port.control?.("cancel", job.id)}
-                >
-                  Cancel
-                </Button>
-              </div>
-            ) : (
-              <Button onClick={() => props.onOpen(job)}>Open job</Button>
-            )}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function AttentionView(props: {
-  readonly jobs: readonly JobSummary[];
-  readonly control: JobControlFn;
-  readonly canControl: boolean;
-  readonly loading: boolean;
-  readonly onOpen: (job: JobSummary) => void;
-}): ReactElement {
-  const rows = attentionJobs(props.jobs);
-  const [busyId, setBusyId] = useState<string | undefined>();
-
-  const run = async (
-    action: JobControlAction,
-    job: JobSummary,
-  ): Promise<void> => {
-    setBusyId(job.id);
-    try {
-      await props.control(action, job.id);
-    } catch {
-      /* Toast already shown by runJobControl. */
-    } finally {
-      setBusyId(undefined);
-    }
-  };
-
-  return (
-    <section className="console__panel">
-      <h1 className="console__title">Attention</h1>
-      {rows.length === 0 ? (
-        <p className="console__lede">
-          Nothing is waiting on you. Dirty-tree gates, stalled teammates, and
-          paused jobs show up here.
-        </p>
-      ) : (
-        <p className="console__lede">{rows.length} need you</p>
-      )}
-      {props.loading ? <div className="attention-scan" aria-hidden /> : null}
-      <ul className="attention-list">
-        {rows.map((job) => {
+        {rows.map((job, index) => {
           const stalled = job.status === "waiting_on_you";
           const paused = job.status === "paused";
           const gated = job.status === "needs_confirm";
-          const live = isLiveJob(job.status) && !stalled;
           const busy = busyId === job.id;
           return (
             <li
               key={`${job.workspacePath}:${job.id}`}
-              className="attention-card"
+              className={
+                index === cursor
+                  ? "attention-card attention-card--on"
+                  : "attention-card"
+              }
+              tabIndex={0}
+              aria-current={index === cursor ? "true" : undefined}
             >
               <div className="attention-card__head">
                 <strong>{job.title}</strong>
-                <Badge tone={jobBadgeTone(job.status, job.nextStep)}>
-                  {jobDisplayLabel(job)}
-                </Badge>
+                <div className="attention-card__head-end">
+                  <Badge
+                    tone={jobBadgeTone(job.status, job.nextStep)}
+                    pulse={jobBadgePulse(job.status)}
+                  >
+                    {jobDisplayLabel(job)}
+                  </Badge>
+                  <JobActions
+                    job={job}
+                    onOpenJob={props.onOpenJob}
+                    {...actions}
+                  />
+                </div>
               </div>
-              {job.workspaceLabel ? <span>{job.workspaceLabel}</span> : null}
+              <span>{job.workspaceLabel}</span>
               <p>
                 {job.confirm?.question ??
                   (stalled
@@ -802,7 +922,7 @@ function AttentionView(props: {
                 {gated ? (
                   <Button
                     variant="primary"
-                    disabled={busy || !props.canControl}
+                    disabled={busy || !props.onConfirm}
                     onClick={() => void run("confirm", job)}
                   >
                     Start anyway
@@ -811,24 +931,15 @@ function AttentionView(props: {
                 {paused || stalled ? (
                   <Button
                     variant="primary"
-                    disabled={busy || !props.canControl}
+                    disabled={busy || !props.onResume}
                     onClick={() => void run("resume", job)}
                   >
                     Resume
                   </Button>
                 ) : null}
-                {live ? (
-                  <Button
-                    variant="secondary"
-                    disabled={busy || !props.canControl}
-                    onClick={() => void run("pause", job)}
-                  >
-                    Pause
-                  </Button>
-                ) : null}
                 <Button
                   variant="danger"
-                  disabled={busy || !props.canControl}
+                  disabled={busy || !props.onCancel}
                   onClick={() => void run("cancel", job)}
                 >
                   Cancel
@@ -836,7 +947,7 @@ function AttentionView(props: {
                 <Button
                   variant="secondary"
                   disabled={busy}
-                  onClick={() => props.onOpen(job)}
+                  onClick={() => props.onOpenJob?.(job)}
                 >
                   Open job
                 </Button>
@@ -871,7 +982,7 @@ function useWorkspaces(
       alive = false;
       window.removeEventListener(WORKSPACES_CHANGED, load);
     };
-  }, [token, feed.jobs.length, reposEpoch]);
+  }, [token, feed.jobs.length]);
   return useMemo(() => {
     const counts = new Map<string, number>();
     for (const job of feed.jobs) {

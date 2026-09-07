@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| Status | Proposed |
+| Status | Accepted |
 | Date | 2026-09-04 |
-| Milestone | M-068 / M-069 |
+| Milestone | M-068 |
 | Amends | [ADR-0043](./0043-agent-dashboard-hub.md), [ADR-0047](./0047-job-queue-and-latency-budget.md), [ADR-0048](./0048-prism-console-unification.md), [ADR-0051](./0051-motion-system.md) |
 | Research | [`notes/COMPETITIVE_LANDSCAPE_2026-09.md`](../notes/COMPETITIVE_LANDSCAPE_2026-09.md) |
 
@@ -66,7 +66,7 @@ Trinity's views. We already have the long-lived row.
 The complexity budget holds, and the fleet views fit inside it once stated
 correctly:
 
-- **≤1 primary canvas.** Timeline, Board and List are three *renderings* of
+- **≤1 primary canvas.** Pulse, Board and List are three *renderings* of
   the same canvas, switched and never simultaneous. One is mounted at a time.
 - **≤1 inspector.** The expanded job card stays the only inspector, unchanged
   and reused across all three renderings.
@@ -82,21 +82,31 @@ The current accordion is not deleted. It becomes the **Focus** rendering — the
 best single-job reading surface we have, and the correct default when there is
 one live job.
 
-### 3. Timeline is the default, and it shows waited versus worked
+### 3. Pulse is the default, and it shows waited versus worked
 
-Timeline renders repositories as rows and jobs as bars in time, coloured by
-`job.source`, which already exists on the record.
+Pulse is the operations desk: Live / Needs you / Settled, plus an idle-repo
+strip. Trinity's Gantt is the wrong metaphor for Prism — jobs are sparse and
+ephemeral — but the unique Prism fact still has to show: **waited versus
+worked**.
 
-Each bar is drawn as **two segments — waited and worked** — from the four
-timestamps P-S1 split apart (`createdAt`, `queuedAt`, `startedAt`,
-`finishedAt`). This is the whole reason to build Timeline before Board.
-ADR-0047 fought to make the clock honest and the result currently surfaces in
-a `title` tooltip on one line of `JobFacts`. A queue gate that held a job for
-three minutes and a worker that took twelve are different facts about
-different problems, and a single bar hides that distinction while two segments
-give it away at a glance.
+Each live card draws a **dual meter** from the four timestamps P-S1 split
+apart (`createdAt`, `queuedAt`, `startedAt`, `finishedAt`). A queue gate that
+held a job for three minutes and a worker that took twelve are different facts
+about different problems. ADR-0047 fought to make the clock honest; Pulse is
+where that split is visible at a glance, not buried in a `JobFacts` tooltip.
 
-No competitor draws this, because none of them separated the stamps.
+Needs-you gates (`needs_confirm`, `waiting_on_you`, `paused`, `blocked`) sit
+in their own section so a dirty-tree OK is not mixed into Live. Card status
+is the job status; card copy is the job message (`errorMessage` /
+`lastActivity` / `resultSummary`). Verification is a Focus fact and a Retry
+verification action in the **⋯** menu, not the badge or the lede. Pulse
+actions share List's overflow menu: **Add instruction** on a running job
+(`attach_context`), **Start New job from this finding** on every other
+status (compose with the finding playbook, that job selected, title
+pre-filled; finding fields are repo + finding only).
+
+No competitor draws the wait/work split, because none of them separated the
+stamps.
 
 The rules from ADR-0051 §10 carry over without change: a stage with no stamp
 is drawn unreached and never given a plausible time; a terminal record with no
@@ -118,7 +128,7 @@ Three constraints, all inherited rather than new:
   plugin pack's skills (ADR-0050) rather than introducing a second registry.
 
 `job.source` gains a value for Console-originated jobs, which is also what
-makes Timeline's colour coding say something worth knowing.
+makes Pulse's source notch say something worth knowing.
 
 ### 5. A finding is a handoff, not a document
 
@@ -165,7 +175,7 @@ argument for a tile.
 ### 8. A nav rail, and no second one
 
 The four top tabs become a persistent left rail, and the main pane goes
-full-bleed rather than 1120px centered, because a Timeline of repositories
+full-bleed rather than 1120px centered, because a Pulse of the fleet
 over two weeks does not fit in a reading column.
 
 The rail is `AppSidebar` from `@repo-prism/app-shell`, which already exists
@@ -188,9 +198,23 @@ are sufficient.
 And the sequencing rule: **a chart ships after the metric it plots is
 persisted and defensible, never before.** Cost and token counts are the
 concrete case — `claude-stream.ts` parses `modelUsage.inputTokens` today and
-discards it, so a cost axis on Timeline is not buildable until the record
+discards it, so a cost axis on Pulse is not buildable until the record
 carries it. Drawing an estimate would be the exact failure M-056 exists to
 prevent.
+
+### 10. Sellable craft is in scope, not a follow-up
+
+The owner’s reason for the Trinity and market work is UI/UX. M-068 is
+therefore judged as a **storefront**, not as “the views exist”.
+
+[`CONSOLE_FLEET.md`](../mockups/CONSOLE_FLEET.md) §2a is part of this ADR’s
+decision: type, spacing, four states, keyboard, focus, copy, screenshot
+hygiene, and a homepage test. A rendering that matches §2’s IA but fails
+§2a is unfinished. “Polish in a later milestone” is rejected; that is how
+this Console stayed a side project after M-064 and M-067.
+
+P-C9 is the gate. The question on its screenshots is whether we would put
+them on `prismhq.in` and sell the product.
 
 ## Consequences
 
@@ -205,19 +229,21 @@ prevent.
   is not, that is a bug to fix rather than a button to keep.
 - `AppSidebar` becomes shared chrome between the IDE and the Console, so a
   change to it now touches two shipping surfaces.
-- **Planned M-062 (UI Actionability) overlaps this.** Its scope — "D-9 IA
-  merge, dead-end fixes, shared table primitives" — is a subset of §5, §8 and
-  §9. Per `AGENTS.md`, that conflict is reconciled in the plan rather than
-  discovered in code: M-062 should be absorbed or re-scoped before M-069
-  starts, and the owner decides which.
+- **Planned M-062 (UI Actionability) overlaps this.** Console dead-ends —
+  findings with no action, no create verb, the missing table — are absorbed
+  by M-068 (P-C5, P-C6, P-C7). DomainScreen split and IDE-only table work
+  stay on M-062.
 
 ## Alternatives rejected
 
-**Board as the default view.** Trinity defaults to Timeline and it is the
-right call for the same reason here: a tile canvas answers "what exists",
-which a user already knows, while Timeline answers "what happened", which they
-do not. Board also cannot show the waited/worked split that is our best
-original idea.
+**Board as the default view.** A tile canvas answers "what exists", which a
+user already knows, while Pulse answers "what needs me, what is live, what
+just settled" — and it is the only rendering that shows waited versus worked
+at a glance. Board stays the second view.
+
+**A Gantt Timeline as the default canvas.** Trinity's metaphor assumes many
+long-lived agents. Prism jobs are sparse and ephemeral. Pulse keeps the
+wait/work split as meters and drops the shared time axis.
 
 **The org overlay** (department zones, reporting-line arrows, stored as tags).
 Genuinely clever, and meaningless here. Repositories do not report to each
@@ -235,6 +261,10 @@ the easiest to fake.
 cheapest option, and it fails the actual complaint: the problem is not that
 the list lacks decoration, it is that the list cannot express time or
 comparison, and cannot start work.
+
+**Ship the three views, polish later.** Rejected under §10. That is the
+side-project failure mode. Craft is P-C9 on this branch, or the milestone
+is not Verified.
 
 **A separate Operations page** (Trinity's five-tab split). Rejected as
 premature. Their tabs exist because a fleet of containers generates health,

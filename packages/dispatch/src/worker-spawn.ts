@@ -14,6 +14,7 @@ import { setPriority } from "node:os";
 import { writeJsonFile, readJsonFile } from "./json-file.js";
 import { spawnPayloadPath, runStatePath } from "./paths.js";
 import {
+  isProcessAlive,
   killWorkerTree,
   killWorkerTreeForce,
   patchRunState,
@@ -42,6 +43,8 @@ export type SpawnPayload = {
   readonly placement?: "checkout" | "worktree";
   /** Checkout only: paths already dirty at dispatch (ADR-0045 §3). */
   readonly preExistingChanges?: readonly string[];
+  /** Vendor model id from that agent's list. Absent: Cursor child picks one. */
+  readonly model?: string;
 };
 
 export function isSpawnPayload(value: unknown): value is SpawnPayload {
@@ -83,6 +86,7 @@ export type LaunchWorkerInput = {
   readonly verify?: boolean;
   readonly placement?: "checkout" | "worktree";
   readonly preExistingChanges?: readonly string[];
+  readonly model?: string;
 };
 
 export async function launchWorkerChild(
@@ -95,6 +99,15 @@ export async function launchWorkerChild(
     throw new Error(
       "Prism could not start a teammate. Reload the prism MCP server, then say prism init.",
     );
+  }
+
+  const previous = await readRunState(input.workspaceRoot, input.jobId);
+  if (
+    previous?.pid &&
+    previous.pid !== process.pid &&
+    isProcessAlive(previous.pid)
+  ) {
+    killWorkerTree(previous.pid);
   }
 
   const payloadPath = spawnPayloadPath(input.workspaceRoot, input.jobId);
@@ -118,6 +131,9 @@ export async function launchWorkerChild(
       ...(input.placement ? { placement: input.placement } : {}),
       ...(input.preExistingChanges
         ? { preExistingChanges: [...input.preExistingChanges] }
+        : {}),
+      ...(typeof input.model === "string" && input.model.trim()
+        ? { model: input.model.trim() }
         : {}),
     },
     0o600,

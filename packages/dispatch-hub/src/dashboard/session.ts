@@ -1,3 +1,5 @@
+import { apiErrorMessage, HUB_ERROR } from "../api-errors.js";
+
 /**
  * How the browser app talks to the Console (ADR-0048).
  *
@@ -7,7 +9,15 @@
  * cookie on a successful page load; fetch sends that cookie for same-origin
  * calls when the stored token is missing.
  */
+
 const TOKEN_KEY = "prism-hub-token";
+
+/** Fired after the hub registers a repository from the folder picker. */
+export const WORKSPACES_CHANGED = "prism:workspaces";
+
+export function notifyWorkspacesChanged(): void {
+  window.dispatchEvent(new Event(WORKSPACES_CHANGED));
+}
 
 function writeStoredToken(token: string): void {
   try {
@@ -45,6 +55,28 @@ export function authHeaders(token: string): HeadersInit {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+/**
+ * A URL another Console tab (or a teammate on the same box) can open straight
+ * into this job: swaps in the caller's own token and rebuilds the hash from
+ * the job rather than trusting whatever route the current tab happens to be
+ * on.
+ */
+export function consoleJobShareUrl(
+  job: { readonly id: string; readonly workspacePath?: string },
+  token: string,
+  currentHref: string,
+): string {
+  const url = new URL(currentHref);
+  const next = new URLSearchParams();
+  if (token) next.set("token", token);
+  url.search = next.toString();
+  const hash = new URLSearchParams();
+  if (job.workspacePath) hash.set("repo", job.workspacePath);
+  hash.set("job", job.id);
+  url.hash = `/dashboard?${hash.toString()}`;
+  return url.toString();
+}
+
 /** A failed request the UI can explain rather than just colour red. */
 export class ConsoleRequestError extends Error {
   readonly status: number;
@@ -58,15 +90,28 @@ export class ConsoleRequestError extends Error {
 
 export function explainStatus(status: number): string {
   if (status === 401 || status === 403) {
-    return "This page needs a Prism session. Reopen the Console from Prism to get a fresh token.";
+    return HUB_ERROR.unauthorized;
   }
   if (status === 400) {
     return "The Console could not tell which repository this belongs to.";
+  }
+  if (status === 404) {
+    return "That repository is not registered.";
   }
   if (status >= 500) {
     return `The Console hit an error answering this (HTTP ${status}).`;
   }
   return `The Console could not answer this request (HTTP ${status}).`;
+}
+
+export { apiErrorMessage };
+
+async function readJsonBody(response: Response): Promise<unknown> {
+  try {
+    return (await response.json()) as unknown;
+  } catch {
+    return undefined;
+  }
 }
 
 export async function getJson<T>(path: string, token: string): Promise<T> {
@@ -81,13 +126,22 @@ export async function getJson<T>(path: string, token: string): Promise<T> {
       "Could not reach Prism Dispatch. It may have shut down — run a Prism command to start it again.",
     );
   }
+  const body = await readJsonBody(response);
   if (!response.ok) {
     throw new ConsoleRequestError(
       response.status,
-      explainStatus(response.status),
+      apiErrorMessage(body, explainStatus(response.status)),
     );
   }
-  return (await response.json()) as T;
+  return body as T;
+}
+
+export async function patchJson<T>(
+  path: string,
+  token: string,
+  body: unknown,
+): Promise<T> {
+  return sendJson<T>(path, token, body, "PATCH");
 }
 
 export async function postJson<T>(
@@ -95,16 +149,34 @@ export async function postJson<T>(
   token: string,
   body: unknown,
 ): Promise<T> {
-  const response = await fetch(path, {
-    method: "POST",
-    headers: { ...authHeaders(token), "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  return sendJson<T>(path, token, body, "POST");
+}
+
+async function sendJson<T>(
+  path: string,
+  token: string,
+  body: unknown,
+  method: "POST" | "PATCH",
+): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      method,
+      headers: { ...authHeaders(token), "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new ConsoleRequestError(
+      0,
+      "Could not reach Prism Dispatch. It may have shut down — run a Prism command to start it again.",
+    );
+  }
+  const parsed = await readJsonBody(response);
   if (!response.ok) {
     throw new ConsoleRequestError(
       response.status,
-      explainStatus(response.status),
+      apiErrorMessage(parsed, explainStatus(response.status)),
     );
   }
-  return (await response.json()) as T;
+  return parsed as T;
 }

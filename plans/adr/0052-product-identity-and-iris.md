@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| Status | Proposed |
+| Status | Accepted |
 | Date | 2026-09-04 |
-| Milestone | M-068 |
+| Milestone | M-068 (P-C1, P-C8) |
 | Amends | [ADR-0014](./0014-uxpilot-dark-product-ui.md), [ADR-0039](./0039-dispatch-chat-voice.md) |
 | Research | [`notes/COMPETITIVE_LANDSCAPE_2026-09.md`](../notes/COMPETITIVE_LANDSCAPE_2026-09.md) |
 

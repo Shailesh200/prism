@@ -1,12 +1,31 @@
-import type {
-  ButtonHTMLAttributes,
-  ReactElement,
-  ReactNode,
-  Ref,
-} from "react";
+import type { ButtonHTMLAttributes, ReactElement, ReactNode, Ref } from "react";
 
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+export type ButtonVariant =
+  | "primary"
+  | "secondary"
+  | "tertiary"
+  | "ghost"
+  | "success"
+  | "danger"
+  | "error"
+  | "warning"
+  | "warn"
+  | "info";
 export type ButtonSize = "sm" | "md";
+
+/** Map aliases onto the class names in `primitives.css`. */
+export function buttonVariantClass(variant: ButtonVariant | undefined): string {
+  switch (variant) {
+    case "ghost":
+      return "tertiary";
+    case "error":
+      return "danger";
+    case "warn":
+      return "warning";
+    default:
+      return variant ?? "secondary";
+  }
+}
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   readonly variant?: ButtonVariant;
@@ -28,7 +47,7 @@ export function Button(props: ButtonProps): ReactElement {
   } = props;
   const classes = [
     "prism-btn",
-    `prism-btn--${variant}`,
+    `prism-btn--${buttonVariantClass(variant)}`,
     `prism-btn--${size}`,
     className,
   ]
@@ -61,7 +80,7 @@ export function IconButton(props: IconButtonProps): ReactElement {
   const classes = [
     "prism-btn",
     "prism-btn--icon",
-    `prism-btn--${variant}`,
+    `prism-btn--${buttonVariantClass(variant)}`,
     className,
   ]
     .filter(Boolean)

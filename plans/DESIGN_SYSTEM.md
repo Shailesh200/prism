@@ -31,6 +31,24 @@ Think: *topographic map + flight instruments + code*, not *SaaS dashboard + purp
 - Voice: short, technical, confident, no emoji fluff  
 - Hero signal: the **Map** (and the word Prism), not a marketing headline stack
 
+### Iris and Spectrum (ADR-0052)
+
+**Iris** is the accumulated, durable knowledge of a workspace: the index, the
+graphs, DNA, landmarks, health history, findings, and memories. It is not the
+tools, not `@repo-prism/core`, and not a single analysis run. Substitution
+test: if the sentence still reads with “the index and graphs” in place of
+Iris, the usage is legitimate.
+
+Iris is an **aperture**, not a persona. No first person, no avatar, no eye
+icon, no rainbow goddess. Speak of it the way you speak of Postgres:
+“Iris has indexed 14,204 symbols.” Never “I found”.
+
+**Spectrum** is the visualization of that knowledge — `RepositoryMapView` and
+the website hero, the same artifact. Pictured is not a mockup.
+
+Do not rename Prism, Dispatch, Console, Findings, Playbooks, Memories, or any
+MCP tool.
+
 ---
 
 ## 3. Visual theme — “Signal Chart”
@@ -153,6 +171,20 @@ No confetti, no ambient particle networks.
 | VS Code / Cursor | Compress chrome; inherit IDE bg where sensible; keep teal signal + overlays |
 | CLI | Ink + teal ANSI sparingly; tables over banners |
 | Docs | Light chart atmosphere; Map screenshots as proof |
+
+### Overlay primitives (Radix + Prism tokens)
+
+Interactive overlays live in `@repo-prism/ui` and consume `tokens.css` only — no second palette.
+
+| Primitive | Built on | Rule |
+|---|---|---|
+| `Popover` | `@radix-ui/react-popover` | `modal={false}` by default so several can stay open |
+| `DropdownMenu` | `@radix-ui/react-dropdown-menu` | Same; action menus portal so tables do not clip them |
+| `Select` | Prism listbox | Portal to `document.body`; checkmark on the current value. Trigger and option labels are one line with ellipsis |
+| `Drawer` | Prism | Overlay. `lg` = 50% viewport, `md` = 360px list. Does not shrink the canvas behind it |
+| `Tooltip` / `HoverTip` | Prism | Portal; never clip in a drawer |
+
+Do not use native OS `<select>` menus or one-off `position: absolute` action lists on Console surfaces.
 
 ---
 

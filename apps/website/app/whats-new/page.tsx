@@ -1,15 +1,25 @@
 import { HomeLayout } from "fumadocs-ui/layouts/home";
 import { baseOptions } from "@/lib/layout.shared";
-import { parseChangelog } from "@/lib/changelog";
+import {
+  parseChangelog,
+  releaseChips,
+  releaseDek,
+  releaseTags,
+  stripMd,
+} from "@/lib/changelog";
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import Link from "next/link";
 import type { Metadata } from "next";
+import { Globe, LayoutDashboard, UsersRound } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { PageEnter } from "@/components/motion/PageEnter";
 import { Reveal } from "@/components/motion/Reveal";
 import { StaggerGrid } from "@/components/motion/StaggerGrid";
-import { SectionIntro } from "@/components/motion/SectionIntro";
 import { SiteFooter } from "@/components/site-footer";
+import { WhatsNewStill } from "@/components/whats-new-still";
+import { ShipArchive } from "@/components/ship-archive";
+import "./whats-new.css";
 
 export const metadata: Metadata = {
   title: "What's new",
@@ -22,6 +32,16 @@ type PostMeta = {
   description: string;
   version?: string;
 };
+
+const FEATURE_CARDS: Array<{
+  slug: string;
+  kicker: string;
+  Icon: LucideIcon;
+}> = [
+  { slug: "1-8-0-console", kicker: "FEAT_01 · Console", Icon: LayoutDashboard },
+  { slug: "1-8-0-website", kicker: "FEAT_02 · Website", Icon: Globe },
+  { slug: "1-8-0-mcp", kicker: "FEAT_03 · MCP", Icon: UsersRound },
+];
 
 async function loadPosts(): Promise<PostMeta[]> {
   const dir = path.join(process.cwd(), "content/posts");
@@ -59,95 +79,124 @@ export default async function WhatsNewPage() {
   );
   const releases = parseChangelog(changelog);
   const posts = await loadPosts();
+  const featured = releases[0];
+  const rest = featured ? releases.slice(1) : releases;
+  const featurePosts = FEATURE_CARDS.flatMap((card) => {
+    const post = posts.find((p) => p.slug === card.slug);
+    return post ? [{ ...card, post }] : [];
+  });
+  const leadPost = featurePosts[0]?.post ?? posts[0] ?? null;
+  const earlierNotes = posts.filter(
+    (post) => !FEATURE_CARDS.some((card) => card.slug === post.slug),
+  );
+
+  const dek = featured
+    ? featured.sections
+        .slice(0, 2)
+        .map((section) => stripMd(section.bullets[0] ?? ""))
+        .filter(Boolean)
+        .join(" ") || releaseDek(featured)
+    : "";
 
   return (
     <HomeLayout {...baseOptions()}>
       <PageEnter>
-        <main className="mx-auto flex w-full max-w-3xl flex-col gap-12 px-6 py-16">
-          <SectionIntro
-            index="Nº CHANGELOG"
-            title="What's new"
-            description="Release timeline from the product changelog, plus optional highlight posts."
-          />
+        <main className="wn">
+          <div className="wn__inner">
+            <p className="wn-folio">
+              <span>
+                <strong>What&apos;s new</strong> — Prism Intelligence
+              </span>
+              {featured ? <span>Latest · {featured.version}</span> : null}
+            </p>
 
-          {posts.length > 0 ? (
-            <section className="space-y-4">
-              <Reveal>
-                <h2 className="font-display text-xl font-medium">Highlights</h2>
-              </Reveal>
-              <StaggerGrid items="li">
-                <ul className="divide-y divide-fd-border border-y border-fd-border">
-                  {posts.map((post) => (
-                    <li key={post.slug}>
-                      <Link
-                        href={`/whats-new/${post.slug}`}
-                        className="block py-5 transition hover:text-fd-primary"
-                      >
-                        <div className="font-display font-medium text-fd-foreground">
-                          {post.title}
-                        </div>
-                        <p className="mt-1 text-sm text-fd-muted-foreground">
-                          {post.description}
-                        </p>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </StaggerGrid>
-            </section>
-          ) : null}
-
-          {/*
-            One budgeted stagger rather than a Reveal per release. The
-            changelog grows every ship, so a per-item delay would either creep
-            past the reader or need the clamp it used to carry.
-          */}
-          <StaggerGrid items="article" className="space-y-8">
-            {releases.map((release, i) => (
-              <article
-                key={release.version}
-                className="space-y-3 border-t border-fd-border pt-6"
-              >
-                <h2 className="font-display text-2xl font-semibold tracking-tight">
-                  <span className="mr-3 font-mono text-xs tracking-widest text-fd-primary">
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  {release.version}
-                  {release.title ? (
-                    <span className="mt-1 block font-sans text-base font-medium text-fd-muted-foreground">
-                      {release.title}
-                    </span>
+            {featured ? (
+              <article className="wn-spread" id={featured.version}>
+                <h1 className="wn-spread__title">
+                  {featured.version}
+                  {featured.title ? ` — ${featured.title}` : ""}
+                </h1>
+                <div className="wn-spread__copy">
+                  <p className="wn-spread__kicker">Feature</p>
+                  <p className="wn-spread__dek">{dek}</p>
+                  {leadPost ? (
+                    <Link
+                      href={`/whats-new/${leadPost.slug}`}
+                      className="wn-spread__cta"
+                    >
+                      Read highlight post →
+                    </Link>
                   ) : null}
-                </h2>
-                {release.sections.length > 0 ? (
-                  <div className="space-y-5">
-                    {release.sections.map((section) => (
-                      <div key={section.title} className="space-y-2">
-                        <h3 className="font-mono text-xs tracking-widest text-fd-primary">
-                          {section.title}
-                        </h3>
-                        <ul className="list-disc space-y-2 pl-5 text-fd-muted-foreground">
-                          {section.bullets.map((b) => (
-                            <li key={b} className="leading-relaxed">
-                              {b.replace(/\*\*/g, "")}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <ul className="list-disc space-y-2 pl-5 text-fd-muted-foreground">
-                    {release.bullets.map((b) => (
-                      <li key={b} className="leading-relaxed">
-                        {b.replace(/\*\*/g, "")}
+                </div>
+                <Reveal className="wn-spread__plate" y={24}>
+                  <WhatsNewStill />
+                </Reveal>
+              </article>
+            ) : (
+              <h1 className="wn-spread__title">What&apos;s new</h1>
+            )}
+
+            {featurePosts.length > 0 ? (
+              <section>
+                <h2 className="wn-label">Feature highlights</h2>
+                <StaggerGrid items="li">
+                  <ul className="wn-feats">
+                    {featurePosts.map(({ kicker, Icon, post }) => (
+                      <li key={post.slug}>
+                        <Link
+                          href={`/whats-new/${post.slug}`}
+                          className="wn-feat"
+                        >
+                          <span className="wn-feat__icon" aria-hidden>
+                            <Icon size={16} strokeWidth={1.75} />
+                          </span>
+                          <span className="wn-feat__kicker">{kicker}</span>
+                          <span className="wn-feat__title">{post.title}</span>
+                          <p>{post.description}</p>
+                        </Link>
                       </li>
                     ))}
                   </ul>
-                )}
-              </article>
-            ))}
-          </StaggerGrid>
+                </StaggerGrid>
+              </section>
+            ) : null}
+
+            {earlierNotes.length > 0 ? (
+              <section>
+                <h2 className="wn-label">Earlier notes</h2>
+                <StaggerGrid items="li">
+                  <ul className="wn-feats wn-feats--notes">
+                    {earlierNotes.map((post) => (
+                      <li key={post.slug}>
+                        <Link
+                          href={`/whats-new/${post.slug}`}
+                          className="wn-feat"
+                        >
+                          {post.version ? (
+                            <span className="wn-feat__kicker">
+                              {post.version}
+                            </span>
+                          ) : null}
+                          <span className="wn-feat__title">{post.title}</span>
+                          <p>{post.description}</p>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </StaggerGrid>
+              </section>
+            ) : null}
+
+            <ShipArchive
+              entries={rest.map((release) => ({
+                version: release.version,
+                title: release.title,
+                dek: releaseDek(release),
+                chips: releaseChips(release),
+                tags: releaseTags(release),
+              }))}
+            />
+          </div>
         </main>
       </PageEnter>
       <SiteFooter />

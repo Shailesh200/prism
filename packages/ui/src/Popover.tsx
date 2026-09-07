@@ -16,6 +16,8 @@ export type PopoverProps = {
   readonly modal?: boolean;
   readonly className?: string;
   readonly contentClassName?: string;
+  readonly open?: boolean;
+  readonly onOpenChange?: (open: boolean) => void;
 };
 
 /**
@@ -27,7 +29,11 @@ export function Popover(props: PopoverProps): ReactElement {
     .filter(Boolean)
     .join(" ");
   return (
-    <RadixPopover.Root modal={props.modal ?? false}>
+    <RadixPopover.Root
+      modal={props.modal ?? false}
+      {...(props.open !== undefined ? { open: props.open } : {})}
+      {...(props.onOpenChange ? { onOpenChange: props.onOpenChange } : {})}
+    >
       <RadixPopover.Trigger asChild>{props.trigger}</RadixPopover.Trigger>
       <RadixPopover.Portal>
         <RadixPopover.Content

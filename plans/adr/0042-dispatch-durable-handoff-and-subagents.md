@@ -67,6 +67,10 @@ reporting a terminal phase.
 - A run that produces **no commit and no tracked change** may not report
   `done`. It reports `done` with an explicit "produced no reviewable change"
   summary. Silence is not success.
+- **Landing is the human's decision.** Finish never merges. Console **Keep all**
+  / `job_control accept_all` on a worktree job is that decision: Prism merges
+  the job branch into the current checkout branch. A conflict leaves the job
+  in review so Keep all can be retried.
 
 ### 2. Result summaries are checked, not echoed
 

@@ -23,6 +23,10 @@ export type CursorAgentOptionsInput = {
   readonly workspaceRoot: string;
   /** Allow the worker to spawn in-process subagents (ADR-0042 §4). */
   readonly subagents?: boolean;
+  /** Portable agent catalog when Node has no `node:sqlite`. */
+  readonly store?: unknown;
+  /** Vendor model id from `Cursor.models.list()`. Omit for the SDK default. */
+  readonly model?: string;
 };
 
 export function workerMcpEnv(
@@ -213,14 +217,12 @@ export function cursorAgentOptions(
   return {
     ...(input.apiKey ? { apiKey: input.apiKey } : {}),
     ...(input.name ? { name: input.name } : {}),
-    // Do not pin `model: { id: "auto" }`. That forced a sentinel the console
-    // showed as MODEL = "default" once the SDK echoed it back. Omitting the
-    // field lets Cursor use the host's current model; the worker then stores
-    // whatever concrete id (or honest "default") the agent reports.
+    ...(input.model?.trim() ? { model: { id: input.model.trim() } } : {}),
     local: {
       cwd: input.cwd,
       settingSources: [],
-      sandboxOptions: { enabled: true },
+      sandboxOptions: { enabled: false },
+      ...(input.store ? { store: input.store } : {}),
     },
     mcpServers: workerMcpServers(input),
     // No shell: a teammate with shell ran `prism` and re-indexed the repo

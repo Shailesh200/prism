@@ -2,8 +2,8 @@
  * GSAP draw for the job lifecycle timeline (Console only).
  *
  * The board itself lives in `@repo-prism/app-shell` and must stay CSS-only
- * (ADR-0051). The Console bundle tweens the single fill bar to the honest
- * `--job-rail-fill` value, then pops the reached nodes.
+ * (ADR-0051). The Console bundle tweens each reached connector from its node,
+ * then pops the reached nodes.
  */
 import gsap from "gsap";
 import { useLayoutEffect, type RefObject } from "react";
@@ -21,29 +21,29 @@ export function useJobRailMotion(
     ) {
       return;
     }
-    const fills = el.querySelectorAll<HTMLElement>(".job-rail__fill");
+    const segs = el.querySelectorAll<HTMLElement>(
+      ".job-rail__step--reached .job-rail__seg",
+    );
     const nodes = el.querySelectorAll<HTMLElement>(
       ".job-rail__step--reached .job-rail__node",
     );
     const tweens: gsap.core.Tween[] = [];
-    fills.forEach((fill) => {
-      const rail = fill.closest<HTMLElement>(".job-rail");
-      const raw = rail?.style.getPropertyValue("--job-rail-fill") ?? "0";
-      const target = Number.parseFloat(raw);
+    if (segs.length > 0) {
       tweens.push(
         gsap.fromTo(
-          fill,
+          segs,
           { scaleX: 0 },
           {
-            scaleX: Number.isFinite(target) ? target : 1,
-            duration: 0.75,
+            scaleX: 1,
+            duration: 0.45,
+            stagger: 0.12,
             ease: "power3.out",
             transformOrigin: "0% 50%",
             overwrite: "auto",
           },
         ),
       );
-    });
+    }
     if (nodes.length > 0) {
       tweens.push(
         gsap.from(nodes, {

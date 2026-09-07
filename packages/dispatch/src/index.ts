@@ -13,6 +13,7 @@ export {
   type DispatchConfig,
   type GitSnapshot,
   type JobRecord,
+  type JobOrigin,
   type MemoryItem,
   type MemoryScope,
   type TicketHost,
@@ -25,6 +26,7 @@ export {
   ReviewFileSchema,
   JobConfirmSchema,
   JobStatusSchema,
+  TokenUsageSchema,
   TERMINAL_JOB_STATUSES,
   CLOCK_STOPPED_JOB_STATUSES,
   isTerminalJobStatus,
@@ -33,6 +35,7 @@ export {
   type JobReview,
   type JobStatus,
   type ReviewFile,
+  type TokenUsage,
 } from "./types.js";
 
 export {
@@ -77,6 +80,7 @@ export {
   reviewSpeak,
   reviewFileLine,
   statusPhrase,
+  unexpectedStopSpeak,
 } from "./job-voice.js";
 export {
   appendRunLog,
@@ -85,6 +89,8 @@ export {
   lifecycleLogEntry,
   formatRunLogLine,
   parseRunLogLine,
+  joinThinkingText,
+  coalesceThinkingEntries,
   MAX_LOG_BYTES,
   MAX_ENTRY_TEXT,
   RunLogEntrySchema,
@@ -93,8 +99,16 @@ export {
   type ReadRunLogOptions,
 } from "./run-log.js";
 export {
+  parseTokenUsage,
+  mergeTokenUsage,
+  applyParsedUsage,
+  type ParsedUsage,
+} from "./token-usage.js";
+export {
   reapJobs,
   isProcessAlive,
+  isReusableLiveJob,
+  LIVE_JOB_GRACE_MS,
   activityFromEvent,
   startJobNoticeWatcher,
   isRunStalled,
@@ -123,6 +137,9 @@ export {
 export {
   verifyJobWork,
   firstFailureLine,
+  isCheckInterrupted,
+  bunCliPath,
+  verifyRunFailure,
   VERIFY_STEPS,
   type VerificationResult,
   type VerificationStatus,
@@ -183,6 +200,7 @@ export {
   resolveMcpLaunch,
   isPrismMcpBin,
   workerPrompt,
+  verificationFixExtra,
   type WorkerPort,
 } from "./worker.js";
 export {
@@ -190,6 +208,13 @@ export {
   workerBackendLabel,
   type WorkerAuthInspect,
 } from "./worker-backend.js";
+export {
+  listWorkerModels,
+  pickCursorSpawnModel,
+  cursorModelForSpawn,
+  requestedWorkerModel,
+  type WorkerModelOption,
+} from "./worker-models.js";
 export {
   createClaudeWorkerPort,
   resolveClaudeWorkerChildPath,
@@ -225,6 +250,7 @@ export {
   commitJobWork,
   commitJobPaths,
   committedJobPaths,
+  mergeJobBranch,
   branchHasUnmergedCommits,
   defaultBaseBranch,
   gitCheckoutReview,
@@ -241,6 +267,7 @@ export {
   JOB_ARTIFACT_PATHS,
   type GitRunner,
   type JobCommit,
+  type JobMergeResult,
 } from "./git.js";
 export {
   trustSystemCertificateAuthorities,

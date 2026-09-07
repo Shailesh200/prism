@@ -2594,15 +2594,9 @@ button.prism-crumbs__seg:hover {
   flex-shrink: 0;
 }
 
-.prism-badge {
+.prism-insp .prism-badge {
   flex-shrink: 0;
   font-size: 0.625rem;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: var(--prism-radius-pill);
-  border: 1px solid color-mix(in srgb, var(--prism-amber) 30%, transparent);
-  background: color-mix(in srgb, var(--prism-amber) 10%, transparent);
-  color: var(--prism-amber);
 }
 
 /* —— Inspector: dependency rows —— */

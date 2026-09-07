@@ -9,10 +9,11 @@
  *
  * JSONL rather than a growing JSON array so an append is one `appendFile` and
  * a truncated tail (worker killed mid-write) costs one unparsable line instead
- * of the whole file.
+ * of the whole file. Consecutive thinking events extend the last line so the
+ * console shows one thought, then the next line when a tool runs.
  */
 
-import { appendFile, mkdir, rename, stat } from "node:fs/promises";
+import { appendFile, mkdir, open, rename, stat } from "node:fs/promises";
 import { dirname } from "node:path";
 import { z } from "zod";
 import {
@@ -30,6 +31,9 @@ export const MAX_ENTRY_TEXT = 2_000;
 
 /** Rotate at 4 MB, keep one previous file: bounded at ~8 MB per job. */
 export const MAX_LOG_BYTES = 4_000_000;
+
+/** Bytes of tail to inspect when extending the open thinking line. */
+const TAIL_WINDOW = 16_384;
 
 export const RunLogEntrySchema = z.object({
   ts: z.string(),
@@ -61,6 +65,127 @@ export function parseRunLogLine(line: string): RunLogEntry | undefined {
   }
 }
 
+/**
+ * Glue a streaming thinking chunk onto the open thought.
+ *
+ * Cursor (and similar) emit a few words per event. Cumulative buffers
+ * (`"The cat"` then `"The cat sat"`) replace; deltas append with a space.
+ */
+export function joinThinkingText(prev: string, next: string): string {
+  const a = prev.replace(/\s+/g, " ").trim();
+  const b = next.replace(/\s+/g, " ").trim();
+  if (!a || /^thinking\.?$/i.test(a)) return b || a;
+  if (!b || /^thinking\.?$/i.test(b)) return a;
+  if (b.startsWith(a)) return b;
+  if (a.startsWith(b) || a.endsWith(b)) return a;
+  return `${a} ${b}`;
+}
+
+type ThinkingBlockEntry = {
+  readonly phase: string;
+  readonly text: string;
+  readonly parent?: string | undefined;
+  readonly level?: string | undefined;
+  readonly tool?: string | undefined;
+};
+
+function isModelSpeech(entry: ThinkingBlockEntry): boolean {
+  if (entry.tool) return false;
+  if (entry.phase === "thinking") return true;
+  if (entry.phase !== "running") return false;
+  const text = entry.text.trim();
+  if (!text) return false;
+  return !/^(Teammate |Done —)/i.test(text);
+}
+
+export function thinkingBlockContinues(
+  last: ThinkingBlockEntry,
+  next: ThinkingBlockEntry,
+): boolean {
+  return (
+    isModelSpeech(last) &&
+    isModelSpeech(next) &&
+    (last.level ?? "info") === (next.level ?? "info") &&
+    (last.parent ?? "") === (next.parent ?? "")
+  );
+}
+
+/** Fold consecutive thinking lines until a tool (or any other phase) breaks the block. */
+export function coalesceThinkingEntries<T extends ThinkingBlockEntry>(
+  entries: readonly T[],
+): T[] {
+  const out: T[] = [];
+  for (const entry of entries) {
+    const prev = out.at(-1);
+    if (prev && thinkingBlockContinues(prev, entry)) {
+      const text = joinThinkingText(prev.text, entry.text);
+      if (text === prev.text) continue;
+      const phase =
+        prev.phase === "thinking" || entry.phase === "thinking"
+          ? "thinking"
+          : prev.phase;
+      out[out.length - 1] = { ...prev, text, phase };
+      continue;
+    }
+    out.push(entry);
+  }
+  return out;
+}
+
+async function readLogTail(
+  path: string,
+): Promise<{ lastLine: string; lastStart: number } | undefined> {
+  let handle: Awaited<ReturnType<typeof open>> | undefined;
+  try {
+    handle = await open(path, "r");
+    const { size } = await handle.stat();
+    if (size === 0) return undefined;
+    const window = Math.min(size, TAIL_WINDOW);
+    const buf = Buffer.alloc(window);
+    await handle.read(buf, 0, window, size - window);
+    const chunk = buf.toString("utf8");
+    let end = chunk.length;
+    if (chunk.endsWith("\n")) end -= 1;
+    const nl = chunk.lastIndexOf("\n", Math.max(end - 1, 0));
+    const lineStartInChunk = nl === -1 ? 0 : nl + 1;
+    return {
+      lastLine: chunk.slice(lineStartInChunk, end),
+      lastStart: size - window + lineStartInChunk,
+    };
+  } catch {
+    return undefined;
+  } finally {
+    await handle?.close();
+  }
+}
+
+/** Rewrite the last JSONL line when it is still the same thinking block. */
+async function extendLastThinking(
+  path: string,
+  entry: RunLogEntry,
+): Promise<boolean> {
+  if (!isModelSpeech(entry)) return false;
+  const tail = await readLogTail(path);
+  if (!tail?.lastLine) return false;
+  const last = parseRunLogLine(tail.lastLine);
+  if (!last || !thinkingBlockContinues(last, entry)) return false;
+  const joined = joinThinkingText(last.text, entry.text);
+  const text = clip(joined, MAX_ENTRY_TEXT);
+  if (text === last.text) {
+    // Cap hit with more text still coming — start a fresh line so we keep it.
+    return joined.length <= last.text.length;
+  }
+  const next: RunLogEntry = { ...last, text, ts: entry.ts };
+  const handle = await open(path, "r+");
+  try {
+    await handle.truncate(tail.lastStart);
+    await handle.write(formatRunLogLine(next), tail.lastStart);
+  } finally {
+    await handle.close();
+  }
+  return true;
+}
+
 async function rotateIfLarge(path: string): Promise<void> {
   try {
     const info = await stat(path);
@@ -80,6 +205,7 @@ export async function appendRunLog(
   try {
     await mkdir(dirname(path), { recursive: true });
     await rotateIfLarge(path);
+    if (await extendLastThinking(path, entry)) return;
     await appendFile(path, formatRunLogLine(entry), "utf8");
   } catch {
     // Logging must never take the job down.
@@ -153,6 +279,9 @@ export function logEntryFromEvent(
 
   if (type === "thinking" || type === "reason" || type === "reasoning") {
     return { ts, phase: "thinking", text: text || "Thinking", level: "info" };
+  }
+  if ((type === "assistant" || type === "delta") && text) {
+    return { ts, phase: "thinking", text, level: "info" };
   }
   if (
     type.includes("tool_call") ||

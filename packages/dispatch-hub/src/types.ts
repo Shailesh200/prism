@@ -80,6 +80,12 @@ export type JobSnapshot = {
   readonly playbook?: string;
   /** The brief the user typed when they queued the job. */
   readonly prd?: string;
+  /** MCP client or Console that queued this job. */
+  readonly hostClient?: string;
+  readonly parentJobId?: string;
+  readonly origin?: "retry" | "reverify" | "finding" | "instruct";
+  /** Live then final token usage the worker reported. */
+  readonly tokenUsage?: JobRecord["tokenUsage"];
 };
 
 /** A workspace the Console could not read, and why. */

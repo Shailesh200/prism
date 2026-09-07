@@ -28,9 +28,9 @@ export async function GET() {
 
 ## Product
 
-- [Features](${site}/features): task-led feature index
-- [Products](${site}/products): every surface and how to install it
-- [Benchmarks](${site}/benchmarks): measured agent-orientation savings
+- [Install](${site}/install): Node 26+, pick a surface, confirm it works
+- [Products](${site}/products): Playground, Intelligence, and Dispatch
+- [Benchmarks](${site}/benchmarks): task-led features plus measured orientation savings
 - [What's new](${site}/whats-new): release timeline
 - [Privacy](${site}/privacy): no account, no telemetry, consent-gated network
 - [Security](${site}/security): reporting policy

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { parseChangelog } from "./changelog";
+import {
+  parseChangelog,
+  releaseChips,
+  releaseDek,
+  releaseTags,
+} from "./changelog";
 
 describe("parseChangelog", () => {
   it("parses semver sections and bullets", () => {
@@ -49,5 +54,39 @@ describe("parseChangelog", () => {
       "Queue a teammate from chat.",
     ]);
     expect(releases[0]?.bullets).toHaveLength(3);
+  });
+
+  it("tags MCP/CLI/IDE subsections for the magazine archive", () => {
+    const [release] = parseChangelog(`# Changelog
+
+## 1.1.17 — Shippable product
+
+### MCP
+
+- Queue a teammate from chat.
+
+### CLI
+
+- One install page.
+
+### IDE
+
+- Open the Console from the sidebar.
+`);
+    expect(releaseTags(release!)).toEqual(["Dispatch", "CLI", "MCP"]);
+    expect(releaseChips(release!)).toEqual(["MCP", "CLI", "IDE"]);
+    expect(releaseDek(release!)).toBe("Queue a teammate from chat.");
+  });
+
+  it("does not treat Cursor/MCP boilerplate as an MCP chip", () => {
+    const [release] = parseChangelog(`# Changelog
+
+## 1.1.16
+
+- **Dispatch:** optional flags dropped on retry.
+- Keep \`@latest\`; hop on the next Cursor/MCP start.
+`);
+    expect(releaseTags(release!)).toEqual(["Dispatch"]);
+    expect(releaseChips(release!)).toEqual(["Dispatch"]);
   });
 });

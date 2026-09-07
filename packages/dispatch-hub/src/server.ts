@@ -17,9 +17,16 @@ import {
   vendorCoverage,
   drainWorkspace,
   loadConfig,
+  listWorkerModels,
+  requestedWorkerModel,
+  resolveWorkerBackend,
+  getJob,
+  upsertJob,
   readRunLog,
   saveConfig,
   type DispatchConfig,
+  type WorkerBackend,
+  type WorkerModelOption,
 } from "@repo-prism/dispatch";
 import { parseHostRequest } from "@repo-prism/host-session/protocol";
 import {
@@ -42,8 +49,16 @@ import {
 import { formatJobFinishedNotice } from "./notice.js";
 import { listJobNotes, readJobNote } from "./notes.js";
 import { createOsNotifier, type NotifyFn } from "./notify.js";
+import { readHostTelemetry } from "./host-telemetry.js";
 import { dashboardUrl, hubPort, type HubEnv } from "./paths.js";
-import { dropMissingWorkspaces, registerWorkspace } from "./registry.js";
+import { HUB_ERROR, publicCaughtError } from "./api-errors.js";
+import { pickLocalFolder } from "./pick-folder.js";
+import {
+  dropMissingWorkspaces,
+  registerWorkspace,
+  unregisterWorkspace,
+  workspaceLabel,
+} from "./registry.js";
 import type {
   HubEvent,
   HubRecord,
@@ -57,6 +72,7 @@ import {
   pathExists,
   watchWorkspaces,
 } from "./watch.js";
+import { toSnapshot } from "./snapshot.js";
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -70,7 +86,12 @@ export type JobControlFn = (
   workspacePath: string,
   jobId: string,
   action: string,
-  extra?: { readonly path?: string },
+  extra?: { readonly path?: string; readonly context?: string },
+) => Promise<unknown>;
+
+export type JobStartFn = (
+  workspacePath: string,
+  args: Record<string, unknown>,
 ) => Promise<unknown>;
 
 export type HubOptions = {
@@ -80,11 +101,18 @@ export type HubOptions = {
   readonly pollMs?: number;
   readonly assetsDir?: string;
   readonly control?: JobControlFn;
+  readonly startJob?: JobStartFn;
   readonly version?: string;
   /** Injected in tests; production drains through `@repo-prism/dispatch`. */
   readonly drain?: (workspacePath: string) => Promise<void>;
   /** Injected in tests; production lazily imports Core (ADR-0048). */
   readonly intelligence?: IntelligencePlane;
+  /** Injected in tests; production opens the native folder picker. */
+  readonly pickFolder?: () => Promise<string | undefined>;
+  /** Injected in tests; production asks the selected agent for its model list. */
+  readonly listWorkerModels?: (input: {
+    readonly backend: WorkerBackend;
+  }) => Promise<readonly WorkerModelOption[]>;
 };
 
 export type StartedHub = {
@@ -101,21 +129,40 @@ function defaultAssetsDir(): string {
   return join(dirname(fileURLToPath(import.meta.url)), "dashboard");
 }
 
-async function defaultControl(
+async function defaultStartJob(
   workspacePath: string,
-  jobId: string,
-  action: string,
-  extra?: { readonly path?: string },
+  args: Record<string, unknown>,
 ): Promise<unknown> {
   const runtime = createDispatchRuntime({
     workspaceRoot: workspacePath,
     worker: createCursorWorkerPort(),
     claudeWorker: createClaudeWorkerPort(),
+    getClientName: () => String(args.hostClient ?? "console"),
+  });
+  return runtime.handle("start_job", {
+    ...args,
+    hostClient: args.hostClient ?? "console",
+  });
+}
+
+async function defaultControl(
+  workspacePath: string,
+  jobId: string,
+  action: string,
+  extra?: { readonly path?: string; readonly context?: string },
+): Promise<unknown> {
+  const runtime = createDispatchRuntime({
+    workspaceRoot: workspacePath,
+    worker: createCursorWorkerPort(),
+    claudeWorker: createClaudeWorkerPort(),
+    getClientName: () => "console",
+    ...(action === "reverify" ? { deferVerify: true } : {}),
   });
   return runtime.handle("job_control", {
     jobId,
     action,
     ...(extra?.path ? { path: extra.path } : {}),
+    ...(extra?.context ? { context: extra.context } : {}),
   });
 }
 
@@ -145,8 +192,14 @@ export async function startHub(
   const notify = options.notify ?? createOsNotifier();
   const assetsDir = options.assetsDir ?? defaultAssetsDir();
   const control = options.control ?? defaultControl;
+  const startJob = options.startJob ?? defaultStartJob;
   const version = options.version ?? packageVersion();
   const intelligence = options.intelligence ?? createIntelligencePlane();
+  const pickFolder = options.pickFolder ?? pickLocalFolder;
+  const listModels =
+    options.listWorkerModels ??
+    ((input: { readonly backend: WorkerBackend }) =>
+      listWorkerModels({ backend: input.backend }));
   const previous = await readHubRecord(env);
   const token =
     typeof previous?.token === "string" && previous.token.length >= 16
@@ -257,7 +310,17 @@ export async function startHub(
         resolve();
         return;
       }
-      server.close(() => resolve());
+      const timer = setTimeout(resolve, 1_000);
+      timer.unref();
+      server.close(() => {
+        clearTimeout(timer);
+        resolve();
+      });
+      try {
+        server.closeAllConnections();
+      } catch {
+        /* bun / older node */
+      }
     });
   };
 
@@ -290,6 +353,9 @@ export async function startHub(
 
   liveRecord = { ...liveRecord, port: listen.port };
   await writeHubRecord(liveRecord, env);
+  void listModels({ backend: "cursor" }).catch(() => {
+    /* spawn still lists if this misses */
+  });
   const initial = await collectJobs(workspaces);
   broadcast({
     type: "snapshot",
@@ -305,7 +371,7 @@ export async function startHub(
     const host = req.headers.host ?? `127.0.0.1:${liveRecord.port}`;
     const url = new URL(req.url ?? "/", `http://${host}`);
     if (!originAllowed(req.headers.origin)) {
-      json(res, 403, { error: "origin not allowed" });
+      json(res, 403, { error: HUB_ERROR.origin });
       return;
     }
 
@@ -328,7 +394,117 @@ export async function startHub(
 
     const isApi = url.pathname.startsWith("/api/");
     if (isApi && !tokensMatch(liveRecord.token, tokenFromRequest(req, url))) {
-      json(res, 401, { error: "unauthorized" });
+      json(res, 401, { error: HUB_ERROR.unauthorized });
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/telemetry/host") {
+      json(
+        res,
+        200,
+        await readHostTelemetry(workspaces[0]?.path ?? process.cwd()),
+      );
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/worker-models") {
+      const requested = url.searchParams.get("backend")?.trim();
+      const workspace =
+        url.searchParams.get("workspace")?.trim() || workspaces[0]?.path;
+      let backend: WorkerBackend;
+      if (requested === "cursor" || requested === "claude") {
+        backend = requested;
+      } else {
+        const config = workspace
+          ? await loadConfig(workspace).catch(() => undefined)
+          : undefined;
+        backend = resolveWorkerBackend({ config, env });
+      }
+      json(res, 200, {
+        backend,
+        models: await listModels({ backend }),
+      });
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/jobs") {
+      const body = await readBody(req);
+      const workspace =
+        String(body.workspace ?? "").trim() || workspaces[0]?.path || "";
+      const title = String(body.title ?? "").trim();
+      if (!workspace || !title) {
+        json(res, 400, { error: HUB_ERROR.titleRequired });
+        return;
+      }
+      try {
+        const workerModel = requestedWorkerModel(
+          body.workerModel ?? body.model,
+        );
+        const origin =
+          body.origin === "retry" ||
+          body.origin === "reverify" ||
+          body.origin === "finding" ||
+          body.origin === "instruct"
+            ? body.origin
+            : undefined;
+        const parentJobId = String(body.parentJobId ?? "").trim();
+        const result = await startJob(workspace, {
+          title,
+          prd: String(body.prd ?? ""),
+          playbook: String(body.playbook ?? "console"),
+          ...(body.placement === "worktree" || body.placement === "checkout"
+            ? { placement: body.placement }
+            : {}),
+          ...(body.workerBackend === "cursor" || body.workerBackend === "claude"
+            ? { workerBackend: body.workerBackend }
+            : {}),
+          ...(workerModel ? { workerModel } : {}),
+          ...(parentJobId ? { parentJobId } : {}),
+          ...(origin ? { origin } : {}),
+          hostClient: "console",
+        });
+        await watcher.refresh({ drain: true });
+        json(res, 200, result ?? { ok: true });
+      } catch (cause) {
+        json(res, 500, { error: publicCaughtError(cause) });
+      }
+      return;
+    }
+
+    const jobPatch = /^\/api\/jobs\/([^/]+)$/.exec(url.pathname);
+    if (req.method === "PATCH" && jobPatch) {
+      const jobId = decodeURIComponent(jobPatch[1] ?? "");
+      const body = await readBody(req);
+      const workspace =
+        String(body.workspace ?? "").trim() ||
+        jobs.find((job) => job.id === jobId)?.workspacePath ||
+        "";
+      if (!workspace || !jobId) {
+        json(res, 400, { error: HUB_ERROR.workspaceJob });
+        return;
+      }
+      if (!("prd" in body)) {
+        json(res, 400, { error: HUB_ERROR.prdRequired });
+        return;
+      }
+      try {
+        const current = await getJob(workspace, jobId);
+        if (!current) {
+          json(res, 404, { error: HUB_ERROR.jobMissing });
+          return;
+        }
+        const next = await upsertJob(workspace, {
+          ...current,
+          prd: String(body.prd ?? ""),
+        });
+        await watcher.refresh({ drain: false });
+        json(res, 200, {
+          job: toSnapshot(next, workspace),
+          message: "Saved the brief.",
+        });
+      } catch (cause) {
+        json(res, 500, { error: publicCaughtError(cause) });
+      }
       return;
     }
 
@@ -387,11 +563,13 @@ export async function startHub(
         jobs.find((job) => job.id === jobId)?.workspacePath ??
         "";
       if (!workspace) {
-        json(res, 400, { error: "workspace required" });
+        json(res, 400, { error: HUB_ERROR.workspaceRequired });
         return;
       }
+      const since = url.searchParams.get("since")?.trim();
       const page = await readRunLog(workspace, jobId, {
         limit: Number(url.searchParams.get("limit") ?? "200") || 200,
+        ...(since ? { since } : {}),
       });
       json(res, 200, page);
       return;
@@ -404,7 +582,7 @@ export async function startHub(
       const workspace =
         url.searchParams.get("workspace") ?? job?.workspacePath ?? "";
       if (!workspace) {
-        json(res, 400, { error: "workspace required" });
+        json(res, 400, { error: HUB_ERROR.workspaceRequired });
         return;
       }
       const rel = url.searchParams.get("path")?.trim();
@@ -416,7 +594,7 @@ export async function startHub(
             ...(job?.worktreePath ? { worktreePath: job.worktreePath } : {}),
           });
           if (!file) {
-            json(res, 404, { error: "note not found" });
+            json(res, 404, { error: HUB_ERROR.noteMissing });
             return;
           }
           json(res, 200, file);
@@ -431,7 +609,7 @@ export async function startHub(
         });
         json(res, 200, { notes: listed });
       } catch {
-        json(res, 500, { error: "note read failed" });
+        json(res, 500, { error: HUB_ERROR.noteRead });
       }
       return;
     }
@@ -463,12 +641,46 @@ export async function startHub(
       const body = await readBody(req);
       const path = String(body.path ?? "").trim();
       if (!path) {
-        json(res, 400, { error: "path required" });
+        json(res, 400, { error: HUB_ERROR.pathRequired });
         return;
       }
       workspaces = await registerWorkspace(path, env);
       void watcher.refresh();
       json(res, 200, { workspaces });
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/workspaces/remove") {
+      const body = await readBody(req);
+      const path = String(body.path ?? "").trim();
+      if (!path) {
+        json(res, 400, { error: HUB_ERROR.pathRequired });
+        return;
+      }
+      const before = workspaces.length;
+      workspaces = await unregisterWorkspace(path, env);
+      if (workspaces.length === before) {
+        json(res, 404, { error: "That repository is not registered." });
+        return;
+      }
+      void watcher.refresh();
+      json(res, 200, { workspaces });
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/workspaces/pick") {
+      const picked = await pickFolder();
+      if (!picked) {
+        json(res, 200, { cancelled: true });
+        return;
+      }
+      workspaces = await registerWorkspace(picked, env);
+      void watcher.refresh();
+      json(res, 200, {
+        path: picked,
+        label: workspaceLabel(picked),
+        workspaces,
+      });
       return;
     }
 
@@ -505,8 +717,7 @@ export async function startHub(
         const answer = await intelligence.handle(workspace, parsed.value);
         json(res, 200, answer);
       } catch (cause) {
-        const message = cause instanceof Error ? cause.message : String(cause);
-        json(res, 200, { id, ok: false, error: message });
+        json(res, 200, { id, ok: false, error: publicCaughtError(cause) });
       }
       return;
     }
@@ -520,21 +731,21 @@ export async function startHub(
         String(body.workspace ?? "").trim() ||
         jobs.find((job) => job.id === jobId)?.workspacePath;
       if (!workspace || !action) {
-        json(res, 400, { error: "workspace and action required" });
+        json(res, 400, { error: HUB_ERROR.actionRequired });
         return;
       }
       try {
-        const result = await control(
-          workspace,
-          jobId,
-          action,
-          typeof body.path === "string" ? { path: body.path } : {},
-        );
+        const extra = {
+          ...(typeof body.path === "string" ? { path: body.path } : {}),
+          ...(typeof body.context === "string"
+            ? { context: body.context }
+            : {}),
+        };
+        const result = await control(workspace, jobId, action, extra);
         await watcher.refresh({ drain: false });
         json(res, 200, result ?? { ok: true });
       } catch (cause) {
-        const message = cause instanceof Error ? cause.message : String(cause);
-        json(res, 500, { error: message });
+        json(res, 500, { error: publicCaughtError(cause) });
       }
       return;
     }
@@ -543,7 +754,7 @@ export async function startHub(
       const workspace =
         url.searchParams.get("workspace")?.trim() || workspaces[0]?.path;
       if (!workspace) {
-        json(res, 400, { error: "workspace required" });
+        json(res, 400, { error: HUB_ERROR.workspaceRequired });
         return;
       }
       const config = await loadConfig(workspace);
@@ -561,12 +772,12 @@ export async function startHub(
       const workspace =
         String(body.workspace ?? "").trim() || workspaces[0]?.path;
       if (!workspace) {
-        json(res, 400, { error: "workspace required" });
+        json(res, 400, { error: HUB_ERROR.workspaceRequired });
         return;
       }
       const parsed = DispatchConfigSchema.partial().safeParse(body);
       if (!parsed.success) {
-        json(res, 400, { error: parsed.error.message });
+        json(res, 400, { error: publicCaughtError(parsed.error) });
         return;
       }
       const patch: Record<string, unknown> = {};
@@ -587,6 +798,7 @@ export async function startHub(
     ) {
       const headers: Record<string, string> = {
         "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store",
       };
       if (tokensMatch(liveRecord.token, tokenFromRequest(req, url))) {
         headers["Set-Cookie"] = hubCookieHeader(liveRecord.token);
@@ -598,17 +810,18 @@ export async function startHub(
     if (req.method === "GET" && url.pathname.startsWith("/assets/")) {
       const relative = url.pathname.slice("/assets/".length);
       if (relative.includes("..")) {
-        json(res, 400, { error: "bad path" });
+        json(res, 400, { error: HUB_ERROR.badPath });
         return;
       }
       const file = join(assetsDir, relative);
       await serveFile(res, file, {
         "Content-Type": MIME[extname(file)] ?? "application/octet-stream",
+        "Cache-Control": "no-store",
       });
       return;
     }
 
-    json(res, 404, { error: "not found" });
+    json(res, 404, { error: HUB_ERROR.notFound });
   }
 
   return {
@@ -649,7 +862,7 @@ async function serveFile(
   try {
     await access(path);
   } catch {
-    json(res, 404, { error: "not found" });
+    json(res, 404, { error: HUB_ERROR.notFound });
     return;
   }
   res.writeHead(200, headers);

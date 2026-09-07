@@ -6,8 +6,17 @@ import {
   parseView,
   findingsHash,
   jobsHash,
+  viewHash,
 } from "./router.js";
-import { explainStatus } from "./session.js";
+import {
+  ConsoleRequestError,
+  explainStatus,
+  apiErrorMessage,
+  consoleJobShareUrl,
+  getJson,
+  postJson,
+} from "./session.js";
+import { controlFinishToast } from "./console-toast.js";
 import { isStale, STALE_AFTER_MS, toJobSummary } from "./use-jobs.js";
 import { repoLabel } from "./fleet.js";
 import type { JobSnapshot } from "../types.js";
@@ -42,6 +51,8 @@ describe("parseView", () => {
     expect(parseView("#/repos")).toBe("dashboard");
     expect(parseView("#/workflows")).toBe("attention");
     expect(parseView("#/intelligence")).toBe("iris");
+    expect(parseView("#/whats-new")).toBe("whats-new");
+    expect(viewHash("whats-new")).toBe("#/whats-new");
   });
 
   it("ignores a query string after the view", () => {
@@ -54,20 +65,14 @@ describe("parseView", () => {
       "/Users/me/Prism",
     );
     expect(parseRepoFilter("#/jobs")).toBeUndefined();
+    expect(parseJobId("#/jobs?job=attention-cards")).toBe("attention-cards");
   });
 
-  it("builds a Focus deep-link that keeps job (and optional repo)", () => {
-    expect(jobsHash()).toBe("#/jobs");
+  it("builds a dashboard hash that keeps an optional repo filter", () => {
+    expect(jobsHash()).toBe("#/dashboard");
     expect(jobsHash("/Users/me/Prism")).toBe(
-      "#/jobs?repo=%2FUsers%2Fme%2FPrism",
+      "#/dashboard?repo=%2FUsers%2Fme%2FPrism",
     );
-    expect(jobsHash({ job: "attention-cards" })).toBe(
-      "#/jobs?job=attention-cards",
-    );
-    expect(
-      jobsHash({ job: "attention-cards", repo: "/Users/me/Prism" }),
-    ).toBe("#/jobs?repo=%2FUsers%2Fme%2FPrism&job=attention-cards");
-    expect(parseJobId("#/jobs?job=attention-cards")).toBe("attention-cards");
   });
 
   it("reads a findings job and note from the hash", () => {
@@ -160,6 +165,20 @@ describe("toJobSummary", () => {
     });
     expect(summary.prd).toBe("Make the news tab highlight.");
   });
+
+  it("passes token usage through", () => {
+    const summary = toJobSummary({
+      ...base,
+      tokenUsage: {
+        inputTokens: 1_200,
+        outputTokens: 80,
+        contextTokens: 48_000,
+        contextWindow: 200_000,
+      },
+    });
+    expect(summary.tokenUsage?.inputTokens).toBe(1_200);
+    expect(summary.tokenUsage?.outputTokens).toBe(80);
+  });
 });
 
 describe("isStale", () => {
@@ -221,7 +240,7 @@ describe("consoleJobShareUrl", () => {
         "http://prismhq.localhost:17330/?token=old#/jobs",
       ),
     ).toBe(
-      "http://prismhq.localhost:17330/?token=abc-token#/jobs?repo=%2FUsers%2Fme%2FPrism&job=attention-cards",
+      "http://prismhq.localhost:17330/?token=abc-token#/dashboard?repo=%2FUsers%2Fme%2FPrism&job=attention-cards",
     );
   });
 
@@ -232,7 +251,7 @@ describe("consoleJobShareUrl", () => {
         "fresh",
         "http://127.0.0.1:17330/#/jobs",
       ),
-    ).toBe("http://127.0.0.1:17330/?token=fresh#/jobs?job=job-1");
+    ).toBe("http://127.0.0.1:17330/?token=fresh#/dashboard?job=job-1");
   });
 });
 
@@ -240,5 +259,93 @@ describe("explainStatus", () => {
   it("tells an expired token apart from a server fault", () => {
     expect(explainStatus(401)).toMatch(/fresh token/);
     expect(explainStatus(500)).toMatch(/HTTP 500/);
+  });
+});
+
+describe("apiErrorMessage", () => {
+  it("prefers the server's error text over a generic HTTP label", () => {
+    expect(
+      apiErrorMessage({ error: "No worker configured." }, "HTTP 500"),
+    ).toBe("No worker configured.");
+    expect(
+      apiErrorMessage(
+        { message: "Could not retry Fix map: spawn failed" },
+        "fallback",
+      ),
+    ).toBe("Could not retry Fix map: spawn failed");
+    expect(apiErrorMessage(undefined, "fallback")).toBe("fallback");
+    expect(apiErrorMessage({ error: "unauthorized" }, "fresh token")).toBe(
+      "fresh token",
+    );
+  });
+});
+
+describe("getJson / postJson", () => {
+  it("returns JSON on 200 and formats a 401", async () => {
+    const orig = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("fail")) {
+        return new Response(JSON.stringify({ error: "unauthorized" }), {
+          status: 401,
+        });
+      }
+      return new Response(JSON.stringify({ jobs: [] }), { status: 200 });
+    }) as typeof fetch;
+    try {
+      await expect(getJson("/api/jobs", "tok")).resolves.toEqual({ jobs: [] });
+      await expect(getJson("/api/fail", "tok")).rejects.toMatchObject({
+        name: "ConsoleRequestError",
+        status: 401,
+        message: expect.stringMatching(/fresh token/),
+      });
+      await expect(
+        postJson("/api/jobs", "tok", { title: "x" }),
+      ).resolves.toEqual({ jobs: [] });
+    } finally {
+      globalThis.fetch = orig;
+    }
+  });
+
+  it("names a dead hub instead of a generic fetch failure", async () => {
+    const orig = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      throw new TypeError("fetch failed");
+    }) as typeof fetch;
+    try {
+      await expect(getJson("/api/jobs", "tok")).rejects.toBeInstanceOf(
+        ConsoleRequestError,
+      );
+      await expect(getJson("/api/jobs", "tok")).rejects.toMatchObject({
+        status: 0,
+        message: expect.stringMatching(/Could not reach Prism Dispatch/),
+      });
+    } finally {
+      globalThis.fetch = orig;
+    }
+  });
+});
+
+describe("controlFinishToast", () => {
+  it("names a retry by title", () => {
+    expect(controlFinishToast("retry", { title: "Fix the map" })).toEqual({
+      message: "Retrying Fix the map",
+      tone: "ok",
+    });
+  });
+
+  it("toasts verification outcome", () => {
+    expect(controlFinishToast("reverify", { verification: "passed" })).toEqual({
+      message: "Verification passed",
+      tone: "ok",
+    });
+    expect(controlFinishToast("reverify", { verification: "failed" })).toEqual({
+      message: "Verification failed",
+      tone: "error",
+    });
+    expect(controlFinishToast("reverify")).toEqual({
+      message: "Verification finished",
+      tone: "ok",
+    });
   });
 });

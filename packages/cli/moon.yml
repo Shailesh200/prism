@@ -1,9 +1,14 @@
 $schema: "https://moonrepo.dev/schemas/project.json"
 language: "typescript"
 layer: "library"
+dependsOn:
+  - "shared"
+  - "core"
 tasks:
   build:
     command: "bun run build"
+    deps:
+      - "^:build"
     inputs:
       - "src/**/*"
       - "tsconfig.json"
@@ -12,6 +17,8 @@ tasks:
       - "dist"
   typecheck:
     command: "bun run typecheck"
+    deps:
+      - "^:build"
     inputs:
       - "src/**/*"
       - "tsconfig.json"

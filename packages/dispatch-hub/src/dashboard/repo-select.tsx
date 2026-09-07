@@ -1,9 +1,6 @@
 import { Select } from "@repo-prism/ui";
 import { useMemo, useState, type ReactElement } from "react";
-import {
-  notifyWorkspacesChanged,
-  postJson,
-} from "./session.js";
+import { notifyWorkspacesChanged, postJson } from "./session.js";
 
 export const PICK_REPO = "__pick__";
 
@@ -43,6 +40,7 @@ export function RepoSelect(props: {
   readonly value: string;
   readonly onChange: (path: string) => void;
   readonly label?: string;
+  readonly hint?: string;
   readonly includeAll?: boolean;
   readonly jobsOnly?: boolean;
   readonly className?: string;
@@ -62,6 +60,7 @@ export function RepoSelect(props: {
   return (
     <Select
       {...(props.label ? { label: props.label } : {})}
+      {...(props.hint ? { hint: props.hint } : {})}
       {...(props.className ? { className: props.className } : {})}
       {...(props["aria-label"] ? { "aria-label": props["aria-label"] } : {})}
       value={props.value}

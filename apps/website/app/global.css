@@ -2,6 +2,7 @@
 @import "fumadocs-ui/css/neutral.css";
 @import "fumadocs-ui/css/preset.css";
 @import "@repo-prism/ui/tokens.css";
+@import "./landing-theaters.css";
 
 @source "../app";
 @source "../components";
@@ -19,7 +20,7 @@ html.dark {
   --prism-panel: #131926;
   --prism-canvas: #0a0e1a;
   --prism-brand: #00c2c2;
-  --prism-accent: #6c63ff;
+  --prism-accent: #38bdf8;
   --prism-on-brand: #041016;
 
   --color-fd-background: var(--prism-canvas);
@@ -200,41 +201,7 @@ html.prism-cursor-active * {
   pointer-events: none;
 }
 
-/*
- * A themed scrollbar, not a replacement one.
- *
- * Styling the native scrollbar keeps keyboard scrolling, Cmd+F's match marks
- * and the OS overlay behaviour intact. A JS scroll hijacker looks the same
- * and breaks all three.
- */
-@supports (scrollbar-color: auto) {
-  html {
-    scrollbar-color: color-mix(in oklab, var(--prism-brand) 45%, transparent)
-      transparent;
-    scrollbar-width: thin;
-  }
-}
-
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: color-mix(in oklab, var(--prism-brand) 32%, transparent);
-  background-clip: content-box;
-  border: 3px solid transparent;
-  border-radius: 999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in oklab, var(--prism-brand) 55%, transparent);
-  background-clip: content-box;
-}
+/* Scrollbar chrome lives on the tokens import above (ADR-0051). */
 
 /* Cursor and loader are motion; the scrollbar is colour, so it stays. */
 @media (prefers-reduced-motion: reduce) {

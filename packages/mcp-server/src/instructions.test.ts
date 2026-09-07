@@ -130,9 +130,7 @@ describe("server instructions (agent auto-use)", () => {
     // The Dispatch bullet and closing line used to say "start_job" without
     // waiting, which overrode the CRITICAL ask and silently auto-dispatched.
     expect(SERVER_INSTRUCTIONS).toMatch(/Never silently auto-dispatch/i);
-    expect(SERVER_INSTRUCTIONS).toMatch(
-      /ask teammate-or-inline first/i,
-    );
+    expect(SERVER_INSTRUCTIONS).toMatch(/ask teammate-or-inline first/i);
   });
 
   it("honours an explicit request for a job even for read-only work", () => {

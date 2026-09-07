@@ -54,6 +54,7 @@ type TreeScope = {
 import { CommandPalette } from "./CommandPalette.js";
 import { MapAtmosphere } from "./MapAtmosphere.js";
 import { MapControls } from "./MapControls.js";
+import { Badge } from "./Badge.js";
 import { MapNode } from "./MapNode.js";
 import { MaterialFileIcon } from "./MaterialFileIcon.js";
 import {
@@ -82,6 +83,8 @@ export type RepositoryMapViewProps = {
   readonly onSelectNode?: (nodeId: string | null) => void;
   /** Open a repo-relative file path in the host editor (IDE). */
   readonly onOpenPath?: (path: string) => void;
+  readonly onShare?: () => void;
+  readonly onBlastRadius?: (nodeId: string | null) => void;
   /**
    * Deep-link focus (M-048 Phase 3 "Reveal on map"): selects this node id when
    * it changes. Takes priority over {@link focusPath}.
@@ -648,7 +651,39 @@ function resolveCardNode(
   };
 }
 
+/** File/symbol altitude needs file or symbol graph nodes — package nodes alone paint empty. */
+function mapHasFileAltitudeNodes(map: RepositoryMap): boolean {
+  return map.graph.nodes.some((n) => n.kind === "file" || n.kind === "symbol");
+}
+
 export function RepositoryMapView(props: RepositoryMapViewProps): ReactElement {
+  const [zoomOverride, setZoomOverride] = useState<MapZoomLevel | undefined>();
+  useEffect(() => {
+    setZoomOverride(undefined);
+  }, [props.map.rootPath]);
+  const baseZoom: MapZoomLevel =
+    props.map.zoom === "repo" ? "package" : props.map.zoom;
+  const requested = zoomOverride ?? baseZoom;
+  // Hold package/feature paint until the host supplies a file-zoom graph.
+  // Otherwise Spectrum drill-in blanks the canvas (package nodes, On map 0).
+  const zoom: MapZoomLevel =
+    isFileZoom(requested) && !mapHasFileAltitudeNodes(props.map)
+      ? baseZoom
+      : requested;
+  const map = useMemo(() => ({ ...props.map, zoom }), [props.map, zoom]);
+  return (
+    <MapViewInner
+      {...props}
+      map={map}
+      onZoomChange={(next) => {
+        setZoomOverride(next);
+        props.onZoomChange?.(next);
+      }}
+    />
+  );
+}
+
+function MapViewInner(props: RepositoryMapViewProps): ReactElement {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -976,20 +1011,27 @@ export function RepositoryMapView(props: RepositoryMapViewProps): ReactElement {
             <span className="prism-map__sync-dot" aria-hidden />
             {visibleCount} on map
           </span>
-          <button type="button" className="prism-map__action">
+          <button
+            type="button"
+            className="prism-map__action"
+            onClick={() => props.onShare?.()}
+          >
             <Share2 size={13} strokeWidth={2} aria-hidden />
             Share
           </button>
           <button
             type="button"
             className="prism-map__action prism-map__action--primary"
+            onClick={() => props.onBlastRadius?.(selectedId)}
           >
             <Zap size={13} strokeWidth={2} aria-hidden />
             Blast Radius
           </button>
-          <span className="prism-map__avatar" aria-hidden>
-            PR
-          </span>
+          {props.showBrand === false ? null : (
+            <span className="prism-map__avatar" aria-hidden>
+              PR
+            </span>
+          )}
         </div>
       </header>
 
@@ -1330,13 +1372,21 @@ export function RepositoryMapView(props: RepositoryMapViewProps): ReactElement {
                 <p className="prism-map__sheet-kicker" style={{ margin: 0 }}>
                   Blast Radius
                 </p>
-                <span className="prism-badge">
+                <Badge
+                  tone={
+                    selectedStats && selectedStats.links >= 8
+                      ? "rose"
+                      : selectedStats && selectedStats.links >= 3
+                        ? "amber"
+                        : "emerald"
+                  }
+                >
                   {selectedStats && selectedStats.links >= 8
                     ? "High"
                     : selectedStats && selectedStats.links >= 3
                       ? "Medium"
                       : "Low"}
-                </span>
+                </Badge>
               </div>
               <div className="prism-blast__row">
                 <span className="prism-blast__k">Direct links</span>

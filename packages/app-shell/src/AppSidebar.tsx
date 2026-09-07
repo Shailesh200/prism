@@ -1,4 +1,4 @@
-import { Tooltip } from "@repo-prism/ui";
+import { Select, Tooltip } from "@repo-prism/ui";
 import {
   AlertTriangle,
   Compass,
@@ -196,19 +196,19 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
           <GitBranch size={13} aria-hidden />
         </div>
         {packages.length > 1 ? (
-          <select
+          <Select
             className="appnav__pkg-select"
             aria-label="Package"
             value={selectedPackageId ?? ""}
-            onChange={(e) => selectPackageId(e.target.value || null)}
-          >
-            <option value="">All packages ({packages.length})</option>
-            {packages.map((pkg) => (
-              <option key={pkg.id} value={pkg.id}>
-                {pkg.name ?? pkg.id}
-              </option>
-            ))}
-          </select>
+            onChange={(next) => selectPackageId(next || null)}
+            options={[
+              { value: "", label: `All packages (${packages.length})` },
+              ...packages.map((pkg) => ({
+                value: pkg.id,
+                label: pkg.name ?? pkg.id,
+              })),
+            ]}
+          />
         ) : null}
       </div>
 

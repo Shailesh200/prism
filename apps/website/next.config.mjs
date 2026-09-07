@@ -138,6 +138,11 @@ const config = {
         permanent: true,
       },
       {
+        source: "/features",
+        destination: "/benchmarks",
+        permanent: true,
+      },
+      {
         source: "/features/catalog",
         destination: "/docs/reference/capabilities",
         permanent: true,

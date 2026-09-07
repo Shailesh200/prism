@@ -173,6 +173,7 @@ export type { TestingSecurityScreenProps } from "./TestingSecurityScreen.js";
 export { AppSidebar } from "./AppSidebar.js";
 export type { AppSidebarProps, AppSidebarUser, AppView } from "./AppSidebar.js";
 export { JobsScreen } from "./JobsScreen.js";
+export { JobTokenIo } from "./JobTokenIo.js";
 export { ConsoleJobsScreen } from "./ConsoleJobsScreen.js";
 export type { ConsoleJobsScreenProps } from "./ConsoleJobsScreen.js";
 export type { JobsScreenProps } from "./JobsScreen.js";
@@ -185,16 +186,27 @@ export {
   gateOverflowNote,
   heartbeatAge,
   isLiveJob,
+  canRetryJob,
+  canRetryVerification,
   isWaitingOnYou,
   jobElapsed,
   jobsWaitingOnYou,
   jobDisplayLabel,
-  jobBadgeTone,
+  jobMessage,
+  compactJobError,
+  jobShareUrl,
   jobStages,
   jobRailFill,
   jobReviewPending,
   jobAgentLabel,
+  hostClientLabel,
+  jobOriginLabel,
   jobModelLabel,
+  formatTokenCount,
+  jobContextLabel,
+  jobTokensLabel,
+  jobUsageLine,
+  jobUsageFigures,
   formatWorkerModel,
   formatWorkerThinking,
   unfoldJobSummary,
@@ -204,10 +216,10 @@ export {
   jobNotePaths,
   parseFabricationMention,
   isSettledJob,
-  jobOffersResume,
   jobStatusLabel,
   jobStatusTone,
   jobBadgeTone,
+  jobBadgePulse,
   jobTimeBreakdown,
   mergeConsoleEntries,
   newestEntryTs,
@@ -229,6 +241,7 @@ export {
   type JobRunPhase,
   type JobStatus as DispatchJobStatus,
   type JobSummary,
+  type JobTokenUsage,
   type JobWorkspaceChip,
   type JobsPort,
 } from "./jobs-types.js";

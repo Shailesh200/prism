@@ -38,7 +38,7 @@ export function SurfacesStrip() {
         <Reveal>
           <div className="space-y-3">
             <p className="font-mono text-xs tracking-widest text-fd-primary">
-              Nº04
+              Nº07
             </p>
             <h2 className="font-display text-2xl font-semibold tracking-tight text-fd-foreground md:text-3xl">
               One engine, every surface

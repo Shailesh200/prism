@@ -15,8 +15,12 @@ export default function SecurityPage() {
     <HomeLayout {...baseOptions()}>
       <PageEnter>
         <main className="mx-auto w-full max-w-3xl px-6 py-16">
-          <p className="mb-6 font-mono text-xs tracking-widest text-fd-primary">
+          <p className="font-mono text-xs tracking-widest text-fd-primary">
             Nº SECURITY
+          </p>
+          <p className="mt-3 mb-10 max-w-2xl text-fd-muted-foreground">
+            How to report a vulnerability. Prism does not run a public bug
+            bounty.
           </p>
           <LegalDoc file="SECURITY.md" />
         </main>

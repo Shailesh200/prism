@@ -1,3 +1,4 @@
+import { access } from "node:fs/promises";
 import { buildDayBriefing, type BriefingDeps } from "./briefing.js";
 import { discoverHostConnectors } from "./host-connectors.js";
 import { loadConfig, saveConfig } from "./config.js";
@@ -9,11 +10,13 @@ import {
   gitStatusShort,
   gitCheckoutReview,
   hasGitRepo,
+  mergeJobBranch,
   restoreCheckoutPaths,
   defaultGitRunner,
   type GitRunner,
 } from "./git.js";
 import { allocateJobId, resolveJobRef } from "./job-id.js";
+import { verifyJobWork, type VerificationResult } from "./job-verify.js";
 import {
   agentNameForJob,
   alreadyRunningSpeak,
@@ -36,19 +39,29 @@ import {
 import { activeJobCount, deleteJob, loadJobs, upsertJob } from "./jobs.js";
 import { kickDrain, requeueAuthBlocked, type DrainDeps } from "./queue.js";
 import { readRunLog } from "./run-log.js";
-import { clearRunState, isProcessAlive, reapJobs } from "./run-state.js";
+import {
+  clearRunState,
+  isProcessAlive,
+  isReusableLiveJob,
+  killWorkerTree,
+  patchRunState,
+  readRunState,
+  reapJobs,
+} from "./run-state.js";
 import { forgetMemory, loadMemories, remember } from "./memory.js";
 import {
   DispatchConfigSchema,
   type DispatchConfig,
   type JobPlacement,
   type JobRecord,
+  type JobOrigin,
   type MemoryScope,
 } from "./types.js";
 import {
   loadCursorSdk,
   resolveMcpLaunch,
   workerPrompt,
+  verificationFixExtra,
   type WorkerPort,
 } from "./worker.js";
 import {
@@ -75,6 +88,7 @@ import {
   ramBudgetMessage,
 } from "./worker-budget.js";
 import { linkWorktreeInstall } from "./worktree-install.js";
+import { requestedWorkerModel, cursorModelForSpawn } from "./worker-models.js";
 
 export const DISPATCH_TOOL_NAMES = [
   "start_my_day",
@@ -144,6 +158,16 @@ export type DispatchRuntimeOptions = BriefingDeps & {
    * reads this so Dispatch does not stay stuck on the process cwd.
    */
   readonly getWorkspaceRoot?: () => string;
+  /** Injected in tests. Production runs typecheck then test in the job tree. */
+  readonly verifyWork?: (
+    cwd: string,
+    options?: { enabled?: boolean },
+  ) => Promise<VerificationResult>;
+  /**
+   * Console / hub: return as soon as checks start so the HTTP request is not
+   * stuck behind a multi-minute typecheck. Tests leave this unset and wait.
+   */
+  readonly deferVerify?: boolean;
 };
 
 function ramGate(options: DispatchRuntimeOptions): string | undefined {
@@ -250,6 +274,81 @@ function jobIdFrom(
   });
 }
 
+const JOB_ORIGINS: readonly JobOrigin[] = [
+  "retry",
+  "reverify",
+  "finding",
+  "instruct",
+];
+
+function parseOrigin(value: unknown): JobOrigin | undefined {
+  return typeof value === "string" &&
+    (JOB_ORIGINS as readonly string[]).includes(value)
+    ? (value as JobOrigin)
+    : undefined;
+}
+
+function hostClientOf(
+  options: DispatchRuntimeOptions,
+  args?: Record<string, unknown>,
+): string | undefined {
+  const fromArgs = String(args?.hostClient ?? "").trim();
+  if (fromArgs) return fromArgs;
+  const fromClient = options.getClientName?.()?.trim();
+  return fromClient || undefined;
+}
+
+async function createLinkedChild(
+  options: DispatchRuntimeOptions,
+  parent: JobRecord,
+  input: {
+    readonly origin: JobOrigin;
+    readonly prd?: string;
+    readonly extra?: string;
+    readonly hostClient?: string;
+    readonly status?: JobRecord["status"];
+    readonly lastActivity?: string;
+  },
+): Promise<JobRecord> {
+  const jobs = await loadJobs(options.workspaceRoot);
+  const id = jobIdFrom(parent.title, new Set(jobs.map((job) => job.id)));
+  const now = new Date().toISOString();
+  const extra = input.extra?.trim();
+  const hostClient = input.hostClient ?? parent.hostClient;
+  return upsertJob(options.workspaceRoot, {
+    id,
+    title: parent.title,
+    playbook: parent.playbook,
+    prd: input.prd ?? parent.prd,
+    branch: parent.branch,
+    worktreePath: parent.worktreePath,
+    source: parent.source,
+    status: input.status ?? "queued",
+    lastStep: "",
+    nextStep:
+      input.status === "queued" ? "waiting for a slot" : parent.nextStep,
+    waitingOn: "",
+    workerBackend: parent.workerBackend,
+    ...(parent.workerModel ? { workerModel: parent.workerModel } : {}),
+    ...(parent.placement ? { placement: parent.placement } : {}),
+    ...(parent.preExistingChanges
+      ? { preExistingChanges: parent.preExistingChanges }
+      : {}),
+    parentJobId: parent.id,
+    origin: input.origin,
+    ...(hostClient ? { hostClient } : {}),
+    ...(parent.verification ? { verification: parent.verification } : {}),
+    ...(parent.verificationDetail
+      ? { verificationDetail: parent.verificationDetail }
+      : {}),
+    createdAt: now,
+    queuedAt: now,
+    updatedAt: now,
+    lastActivity: input.lastActivity ?? "Queued",
+    ...(extra ? { pendingContext: extra } : {}),
+  });
+}
+
 function isWorkingJobStatus(status: string): boolean {
   return (
     status === "queued" ||
@@ -257,6 +356,279 @@ function isWorkingJobStatus(status: string): boolean {
     status === "running" ||
     status === "ready"
   );
+}
+
+async function firstExistingDir(
+  paths: readonly string[],
+): Promise<string | undefined> {
+  const seen = new Set<string>();
+  for (const path of paths) {
+    const cwd = path.trim();
+    if (!cwd || seen.has(cwd)) continue;
+    seen.add(cwd);
+    try {
+      await access(cwd);
+      return cwd;
+    } catch {
+      /* try the next candidate */
+    }
+  }
+  return undefined;
+}
+
+/**
+ * After Retry verification still fails, start a teammate whose brief is the
+ * check failure — not the original PRD. Prism re-runs typecheck/test when
+ * that teammate stops.
+ */
+async function launchVerificationFix(
+  options: DispatchRuntimeOptions,
+  env: NodeJS.ProcessEnv,
+  context: DispatchToolContext | undefined,
+  launch: ReturnType<typeof resolveMcpLaunch>,
+  job: JobRecord,
+  cwd: string,
+  failureDetail: string,
+): Promise<{ readonly job: JobRecord; readonly message: string }> {
+  const abort = async (message: string) => {
+    await patchSidecarIfPresent(options.workspaceRoot, job.id, {
+      verification: "failed",
+      verificationDetail: failureDetail,
+      lastActivity: "Could not start a teammate",
+    });
+    const next = await upsertJob(options.workspaceRoot, {
+      ...job,
+      lastActivity: "Could not start a teammate",
+      verification: "failed",
+      verificationDetail: failureDetail,
+    });
+    return { job: next, message };
+  };
+  const backend = job.workerBackend ?? "cursor";
+  const creds = await resolveWorkerAuth(options, env, context, {
+    login: true,
+    backend,
+  });
+  if (!creds.ready) {
+    return abort(creds.message);
+  }
+  const worker = workerForBackend(options, backend);
+  if (!worker) {
+    return abort("No worker configured.");
+  }
+  const ram = ramGate(options);
+  if (ram) return abort(ram);
+  const disk = await diskBudgetMessage(options.workspaceRoot);
+  if (disk) return abort(disk);
+  if (job.source === "prism") {
+    await linkWorktreeInstall({
+      workspaceRoot: options.workspaceRoot,
+      worktreePath: cwd,
+    });
+  }
+  const config = await loadConfig(options.workspaceRoot);
+  const jobPlacement = job.placement ?? "worktree";
+  const [memories, spawnModel] = await Promise.all([
+    loadMemories(options.workspaceRoot),
+    backend === "cursor"
+      ? cursorModelForSpawn(job.workerModel)
+      : Promise.resolve(job.workerModel),
+  ]);
+  await clearRunState(options.workspaceRoot, job.id);
+  let pid: number | undefined;
+  let agentId: string | undefined;
+  try {
+    const started = await worker.start({
+      jobId: job.id,
+      cwd,
+      name: agentNameForJob(job),
+      mcpCommand: launch.command,
+      mcpArgs: launch.args,
+      workspaceRoot: options.workspaceRoot,
+      prompt: workerPrompt({
+        job,
+        memories,
+        extra: verificationFixExtra(failureDetail),
+        subagents: config.subagents,
+        placement: jobPlacement,
+        jobInstructions: config.jobInstructions,
+      }),
+      title: job.title,
+      baseRef: await defaultBaseRef(options),
+      subagents: config.subagents,
+      verify: true,
+      placement: jobPlacement,
+      ...(job.branch ? { branch: job.branch } : {}),
+      ...(job.preExistingChanges
+        ? { preExistingChanges: job.preExistingChanges }
+        : {}),
+      ...(creds.apiKey ? { apiKey: creds.apiKey } : {}),
+      ...(spawnModel ? { model: spawnModel } : {}),
+    });
+    agentId = started.agentId;
+    if (typeof started.pid === "number") pid = started.pid;
+  } catch (cause) {
+    const detail = cause instanceof Error ? cause.message : String(cause);
+    return abort(
+      detail.trim()
+        ? `Could not start a teammate to fix ${jobRef(job)}: ${detail.trim()}`
+        : `Could not start a teammate to fix ${jobRef(job)}.`,
+    );
+  }
+  const retryAt = new Date().toISOString();
+  const next = await upsertJob(options.workspaceRoot, {
+    ...job,
+    status: "running",
+    startedAt: retryAt,
+    queuedAt: retryAt,
+    lastActivity: "Starting",
+    errorMessage: undefined,
+    pendingContext: undefined,
+    waitingOn: "",
+    nextStep: "",
+    verification: undefined,
+    verificationDetail: undefined,
+    workerSessionId: undefined,
+    runId: undefined,
+    claudeSession: undefined,
+    lastHeartbeat: undefined,
+    ...(spawnModel ? { workerModel: spawnModel } : {}),
+    ...(agentId ? { cursorAgentId: agentId } : { cursorAgentId: undefined }),
+    ...(typeof pid === "number"
+      ? { workerPid: pid }
+      : { workerPid: undefined }),
+  });
+  return {
+    job: next,
+    message: `${jobRef(next)} — checks still failing; a teammate is fixing them.`,
+  };
+}
+
+async function retryAsChildJob(
+  options: DispatchRuntimeOptions,
+  env: NodeJS.ProcessEnv,
+  context: DispatchToolContext | undefined,
+  launch: ReturnType<typeof resolveMcpLaunch>,
+  parent: JobRecord,
+  extra: string,
+): Promise<{ readonly job: JobRecord; readonly message: string }> {
+  const backend = parent.workerBackend ?? "cursor";
+  const creds = await resolveWorkerAuth(options, env, context, {
+    login: true,
+    backend,
+  });
+  if (!creds.ready) {
+    return { message: creds.message, job: parent };
+  }
+  const resumeWorker = workerForBackend(options, backend);
+  if (!resumeWorker) {
+    return { message: "No worker configured.", job: parent };
+  }
+  const ram = ramGate(options);
+  if (ram) return { message: ram, job: parent };
+  const disk = await diskBudgetMessage(options.workspaceRoot);
+  if (disk) return { message: disk, job: parent };
+  if (parent.source === "prism") {
+    await linkWorktreeInstall({
+      workspaceRoot: options.workspaceRoot,
+      worktreePath: parent.worktreePath,
+    });
+  }
+  const hostClient = hostClientOf(options);
+  const child = await createLinkedChild(options, parent, {
+    origin: "retry",
+    extra,
+    ...(hostClient ? { hostClient } : {}),
+    status: "queued",
+    lastActivity: "Queued",
+  });
+  const jobPlacement = child.placement ?? parent.placement ?? "worktree";
+  const [memories, standing, spawnModel] = await Promise.all([
+    loadMemories(options.workspaceRoot),
+    loadConfig(options.workspaceRoot).then((row) => row.jobInstructions),
+    backend === "cursor"
+      ? cursorModelForSpawn(child.workerModel ?? parent.workerModel)
+      : Promise.resolve(child.workerModel ?? parent.workerModel),
+  ]);
+  const cwd = child.worktreePath || options.workspaceRoot;
+  let pid: number | undefined;
+  let agentId: string | undefined;
+  try {
+    const started = await resumeWorker.start({
+      jobId: child.id,
+      cwd,
+      name: agentNameForJob(child),
+      mcpCommand: launch.command,
+      mcpArgs: launch.args,
+      workspaceRoot: options.workspaceRoot,
+      placement: jobPlacement,
+      ...(child.preExistingChanges
+        ? { preExistingChanges: child.preExistingChanges }
+        : {}),
+      ...(creds.apiKey ? { apiKey: creds.apiKey } : {}),
+      ...(spawnModel ? { model: spawnModel } : {}),
+      prompt: workerPrompt({
+        job: child,
+        memories,
+        extra,
+        placement: jobPlacement,
+        jobInstructions: standing,
+      }),
+    });
+    agentId = started.agentId;
+    if (typeof started.pid === "number") pid = started.pid;
+  } catch (cause) {
+    const detail = cause instanceof Error ? cause.message : String(cause);
+    const failed = await upsertJob(options.workspaceRoot, {
+      ...child,
+      status: "error",
+      lastActivity: "Could not start a teammate",
+      errorMessage: detail.trim() || "The teammate failed to start.",
+    });
+    return {
+      job: failed,
+      message: detail.trim()
+        ? `Could not retry ${jobRef(parent)}: ${detail.trim()}`
+        : `Could not retry ${jobRef(parent)}. The teammate failed to start.`,
+    };
+  }
+  const retryAt = new Date().toISOString();
+  const next = await upsertJob(options.workspaceRoot, {
+    ...child,
+    status: "running",
+    startedAt: retryAt,
+    queuedAt: retryAt,
+    lastActivity: "Starting",
+    errorMessage: undefined,
+    pendingContext: undefined,
+    waitingOn: "",
+    nextStep: "",
+    ...(spawnModel ? { workerModel: spawnModel } : {}),
+    ...(agentId ? { cursorAgentId: agentId } : {}),
+    ...(typeof pid === "number" ? { workerPid: pid } : {}),
+  });
+  return {
+    job: next,
+    message: controlSpeak("retry", next),
+  };
+}
+
+function shouldLandWorktree(job: JobRecord): boolean {
+  return (
+    (job.placement ?? "worktree") !== "checkout" &&
+    Boolean(job.branch?.trim()) &&
+    job.review?.committed === true
+  );
+}
+
+async function patchSidecarIfPresent(
+  workspaceRoot: string,
+  jobId: string,
+  patch: Parameters<typeof patchRunState>[2],
+): Promise<void> {
+  const current = await readRunState(workspaceRoot, jobId);
+  if (!current) return;
+  await patchRunState(workspaceRoot, jobId, patch);
 }
 
 /**
@@ -282,6 +654,26 @@ function drainDepsFor(
     admissionGate: (activeCount, maxJobs) =>
       admissionGate(options, activeCount, maxJobs),
   };
+}
+
+/**
+ * Compose/MCP can pick checkout vs isolated per job. Settings are only the
+ * default when the caller omitted placement. An explicit `branch` still means
+ * isolated, but an empty string does not.
+ */
+function placementForStart(
+  args: Record<string, unknown>,
+  configPlacement: JobPlacement,
+  existing?: JobPlacement,
+): JobPlacement {
+  if (existing) return existing;
+  if (args.placement === "checkout" || args.placement === "worktree") {
+    return args.placement;
+  }
+  if (typeof args.branch === "string" && args.branch.trim()) {
+    return "worktree";
+  }
+  return configPlacement;
 }
 
 /**
@@ -315,7 +707,13 @@ async function startJob(
   }
 
   const config = await loadConfig(options.workspaceRoot);
+  const workerModel = requestedWorkerModel(args.workerModel ?? args.model);
+  const requested =
+    args.workerBackend === "cursor" || args.workerBackend === "claude"
+      ? args.workerBackend
+      : undefined;
   const backend =
+    requested ??
     options.workerBackend ??
     resolveWorkerBackend({
       config,
@@ -327,18 +725,18 @@ async function startJob(
   // loop's job now, and it is the single most expensive thing this handler
   // used to do.
   const jobs = await loadJobs(options.workspaceRoot);
+  const parentJobId = String(args.parentJobId ?? "").trim();
+  const requestedId = args.jobId ?? args.id;
   const id = jobIdFrom(
     title,
     new Set(jobs.map((job) => job.id)),
-    args.jobId ?? args.id,
+    parentJobId && String(requestedId ?? "").trim() === parentJobId
+      ? undefined
+      : requestedId,
   );
   const existing = jobs.find((job) => job.id === id);
 
-  if (
-    existing &&
-    (existing.status === "running" || existing.status === "booting") &&
-    isProcessAlive(existing.workerPid)
-  ) {
+  if (existing && isReusableLiveJob(existing)) {
     return { job: existing, message: alreadyRunningSpeak(existing) };
   }
   if (existing && existing.status === "queued") {
@@ -359,10 +757,11 @@ async function startJob(
   const pendingAnswered =
     existing?.confirm !== undefined && granted.has(existing.confirm.arg);
 
-  const isolationIntent =
-    args.placement === "worktree" || typeof args.branch === "string";
-  const placement: JobPlacement =
-    existing?.placement ?? (isolationIntent ? "worktree" : config.placement);
+  const placement: JobPlacement = placementForStart(
+    args,
+    config.placement,
+    existing?.placement,
+  );
 
   const now = new Date().toISOString();
   const job: JobRecord = {
@@ -381,7 +780,17 @@ async function startJob(
     nextStep: "waiting for a slot",
     waitingOn: "",
     workerBackend: backend,
+    ...(workerModel ? { workerModel } : {}),
     placement,
+    ...(parentJobId ? { parentJobId } : {}),
+    ...(parseOrigin(args.origin)
+      ? { origin: parseOrigin(args.origin) }
+      : parentJobId
+        ? { origin: "finding" as const }
+        : {}),
+    ...(hostClientOf(options, args)
+      ? { hostClient: hostClientOf(options, args) }
+      : {}),
     createdAt: existing?.createdAt ?? now,
     queuedAt: now,
     updatedAt: now,
@@ -406,7 +815,11 @@ async function startJob(
   if (pendingAnswered) delete (job as { confirm?: unknown }).confirm;
 
   // Same slug after cancel/delete leaves a cancelled sidecar; reap would
-  // immediately overwrite this queued row. Clear first, then persist.
+  // immediately overwrite this queued row. Kill a leftover pid first so a
+  // retried start_job cannot orphan two teammates on one job.
+  if (existing?.workerPid && existing.workerPid !== process.pid) {
+    killWorkerTree(existing.workerPid);
+  }
   await clearRunState(options.workspaceRoot, id);
   const saved = await upsertJob(options.workspaceRoot, job);
 
@@ -597,6 +1010,109 @@ async function jobControl(
     };
   }
 
+  if (action === "reverify") {
+    if (
+      isWorkingJobStatus(job.status) ||
+      job.status === "paused" ||
+      job.status === "waiting_on_you" ||
+      job.status === "blocked" ||
+      job.status === "needs_confirm" ||
+      job.lastActivity === "Running checks…"
+    ) {
+      return {
+        job,
+        message: `${jobRef(job)} is still in flight — wait until it finishes before re-running checks.`,
+      };
+    }
+    const cwd = await firstExistingDir(
+      job.placement === "worktree" && job.review?.merged !== true
+        ? [job.worktreePath, options.workspaceRoot]
+        : [options.workspaceRoot, job.worktreePath],
+    );
+    if (!cwd) {
+      return {
+        job,
+        message: `${jobRef(job)} has no tree left to check.`,
+      };
+    }
+    const verify = options.verifyWork ?? verifyJobWork;
+    const hostClient = hostClientOf(options);
+    const running = await createLinkedChild(options, job, {
+      origin: "reverify",
+      ...(hostClient ? { hostClient } : {}),
+      status: job.status,
+      lastActivity: "Running checks…",
+    });
+    const recordCheck = async (
+      checked: VerificationResult,
+    ): Promise<{
+      readonly job: JobRecord;
+      readonly message: string;
+    }> => {
+      const lastActivity =
+        checked.status === "passed" ? "Checks passed" : "Checks failed";
+      await patchSidecarIfPresent(options.workspaceRoot, running.id, {
+        verification: checked.status,
+        verificationDetail: checked.detail,
+        lastActivity,
+      });
+      const next = await upsertJob(options.workspaceRoot, {
+        ...running,
+        verification: checked.status,
+        verificationDetail: checked.detail,
+        lastActivity,
+      });
+      return {
+        job: next,
+        message: `${jobRef(next)} — ${checked.detail}`,
+      };
+    };
+    const finish = async (): Promise<{
+      readonly job: JobRecord;
+      readonly message: string;
+    }> => {
+      const checked = await verify(cwd, { enabled: true });
+      if (checked.status !== "failed") {
+        return recordCheck(checked);
+      }
+      return launchVerificationFix(
+        options,
+        env,
+        context,
+        launch,
+        running,
+        cwd,
+        checked.detail,
+      );
+    };
+    if (options.deferVerify) {
+      void finish().catch(async (cause) => {
+        const detail = cause instanceof Error ? cause.message : String(cause);
+        await patchSidecarIfPresent(options.workspaceRoot, running.id, {
+          verification: "failed",
+          verificationDetail: detail,
+          lastActivity: "Checks failed",
+        }).catch(() => undefined);
+        await upsertJob(options.workspaceRoot, {
+          ...running,
+          verification: "failed",
+          verificationDetail: detail,
+          lastActivity: "Checks failed",
+        }).catch(() => undefined);
+      });
+      return {
+        job: running,
+        deferred: true,
+        message: `${jobRef(running)} — running checks. If they fail, a teammate will fix them.`,
+      };
+    }
+    const finished = await finish();
+    return {
+      job: finished.job,
+      message: finished.message,
+    };
+  }
+
   // Answer a gate the drain parked (ADR-0047). Records the grant, clears the
   // question and re-queues; the drain picks it up from there. This is what the
   // board's Confirm button calls.
@@ -622,8 +1138,22 @@ async function jobControl(
     return { job: next, message: queuedJobSpeak(next) };
   }
 
-  if (action === "resume" || action === "attach_context") {
+  if (
+    action === "resume" ||
+    action === "retry" ||
+    action === "attach_context"
+  ) {
     const extra = String(args.context ?? args.text ?? "").trim();
+    if (
+      action === "retry" &&
+      job.status !== "error" &&
+      job.status !== "cancelled"
+    ) {
+      return {
+        job,
+        message: `${jobRef(job)} is not failed or cancelled — use resume if it is paused.`,
+      };
+    }
     // A gated job has no worker to resume — it never started. Say what it is
     // waiting for rather than falling through to a spawn that cannot happen.
     if (job.status === "needs_confirm" && action === "resume") {
@@ -642,7 +1172,33 @@ async function jobControl(
           message: `Noted for ${jobRef(next)}. The teammate is still working — say “where are we” for live status.`,
         };
       }
-      return { job, message: alreadyRunningSpeak(job) };
+      // Stalled resume and retry both need a new teammate. A leftover pid on
+      // a failed/cancelled job must not look "already running" — that used to
+      // skip spawn, and the cancelled sidecar then reaped the row back.
+      const stalled =
+        job.waitingOn === "stalled" || job.status === "waiting_on_you";
+      if (action !== "retry" && !(action === "resume" && stalled)) {
+        return { job, message: alreadyRunningSpeak(job) };
+      }
+      const cancelWorker =
+        workerForBackend(options, job.workerBackend ?? "cursor") ??
+        options.worker ??
+        options.claudeWorker;
+      if (cancelWorker) {
+        await cancelWorker.cancel({
+          ...(job.cursorAgentId ? { agentId: job.cursorAgentId } : {}),
+          cwd: job.worktreePath,
+          jobId: job.id,
+          workspaceRoot: options.workspaceRoot,
+          ...(typeof job.workerPid === "number" ? { pid: job.workerPid } : {}),
+        });
+      }
+    }
+    if (action === "retry") {
+      const combinedExtra = [job.pendingContext, extra]
+        .filter(Boolean)
+        .join("\n\n");
+      return retryAsChildJob(options, env, context, launch, job, combinedExtra);
     }
     const backend = job.workerBackend ?? "cursor";
     const creds = await resolveWorkerAuth(options, env, context, {
@@ -666,12 +1222,17 @@ async function jobControl(
         worktreePath: job.worktreePath,
       });
     }
-    const memories = await loadMemories(options.workspaceRoot);
+    const jobPlacement = job.placement ?? "worktree";
     const combinedExtra = [job.pendingContext, extra]
       .filter(Boolean)
       .join("\n\n");
-    const jobPlacement = job.placement ?? "worktree";
-    const standing = (await loadConfig(options.workspaceRoot)).jobInstructions;
+    const [memories, standing, spawnModel] = await Promise.all([
+      loadMemories(options.workspaceRoot),
+      loadConfig(options.workspaceRoot).then((row) => row.jobInstructions),
+      backend === "cursor"
+        ? cursorModelForSpawn(job.workerModel)
+        : Promise.resolve(job.workerModel),
+    ]);
     const promptFields = {
       job,
       memories,
@@ -690,37 +1251,46 @@ async function jobControl(
     // The resume handle is backend-specific: Cursor agentId, Claude session_id.
     const sessionHandle =
       backend === "claude" ? job.workerSessionId : job.cursorAgentId;
-    if (sessionHandle) {
-      const resumed = await resumeWorker.resume({
-        jobId: job.id,
-        agentId: sessionHandle,
-        cwd: job.worktreePath,
-        name: agentNameForJob(job),
-        ...(creds.apiKey ? { apiKey: creds.apiKey } : {}),
-        prompt:
-          action === "attach_context"
-            ? combinedExtra || "Continue."
-            : workerPrompt(promptFields),
-        mcpCommand: launch.command,
-        mcpArgs: launch.args,
-        workspaceRoot: options.workspaceRoot,
-        ...placementFields,
-      });
-      if (resumed && typeof resumed.pid === "number") pid = resumed.pid;
-    } else {
-      const started = await resumeWorker.start({
-        jobId: job.id,
-        cwd: job.worktreePath,
-        name: agentNameForJob(job),
-        ...(creds.apiKey ? { apiKey: creds.apiKey } : {}),
-        prompt: workerPrompt(promptFields),
-        mcpCommand: launch.command,
-        mcpArgs: launch.args,
-        workspaceRoot: options.workspaceRoot,
-        ...placementFields,
-      });
-      agentId = started.agentId ?? agentId;
-      if (typeof started.pid === "number") pid = started.pid;
+    const cwd = job.worktreePath || options.workspaceRoot;
+    const spawnBase = {
+      jobId: job.id,
+      cwd,
+      name: agentNameForJob(job),
+      mcpCommand: launch.command,
+      mcpArgs: launch.args,
+      workspaceRoot: options.workspaceRoot,
+      ...placementFields,
+      ...(creds.apiKey ? { apiKey: creds.apiKey } : {}),
+      ...(spawnModel ? { model: spawnModel } : {}),
+    } as const;
+    try {
+      if (sessionHandle) {
+        const resumed = await resumeWorker.resume({
+          ...spawnBase,
+          agentId: sessionHandle,
+          prompt:
+            action === "attach_context"
+              ? combinedExtra || "Continue."
+              : workerPrompt(promptFields),
+        });
+        if (resumed && typeof resumed.pid === "number") pid = resumed.pid;
+      } else {
+        const started = await resumeWorker.start({
+          ...spawnBase,
+          prompt: workerPrompt(promptFields),
+        });
+        agentId = started.agentId ?? agentId;
+        if (typeof started.pid === "number") pid = started.pid;
+      }
+    } catch (cause) {
+      const detail = cause instanceof Error ? cause.message : String(cause);
+      const verb = action === "attach_context" ? "continue" : "resume";
+      return {
+        job,
+        message: detail.trim()
+          ? `Could not ${verb} ${jobRef(job)}: ${detail.trim()}`
+          : `Could not ${verb} ${jobRef(job)}. The teammate failed to start.`,
+      };
     }
     const next = await upsertJob(options.workspaceRoot, {
       ...job,
@@ -732,11 +1302,16 @@ async function jobControl(
       lastActivity: "Starting",
       errorMessage: undefined,
       pendingContext: undefined,
+      waitingOn: "",
       nextStep: "",
+      ...(spawnModel ? { workerModel: spawnModel } : {}),
       ...(agentId ? { cursorAgentId: agentId } : {}),
       ...(typeof pid === "number" ? { workerPid: pid } : {}),
     });
-    return { job: next, message: controlSpeak("resume", next) };
+    return {
+      job: next,
+      message: controlSpeak("resume", next),
+    };
   }
 
   if (action === "commit") {
@@ -862,26 +1437,60 @@ async function jobControl(
     }
     const remaining = job.review.files.filter((file) => !kept.has(file.path));
     const stillWork = remaining.length > 0;
+    let landInto = "";
+    let landAlready = false;
+    if (!stillWork && shouldLandWorktree(job)) {
+      const land = await mergeJobBranch(
+        options.workspaceRoot,
+        job.branch ?? "",
+        options.git ?? defaultGitRunner,
+      );
+      if (!land.ok) {
+        return {
+          job,
+          message: `${jobRef(job)} — could not merge onto ${land.into ?? "your current branch"}: ${land.error}`,
+        };
+      }
+      landInto = land.into;
+      landAlready = land.already;
+    }
+    const review = {
+      ...job.review,
+      keptPaths: [...kept],
+      merged: Boolean(landInto) || job.review.merged === true,
+    };
     const next = await upsertJob(options.workspaceRoot, {
       ...job,
-      review: { ...job.review, keptPaths: [...kept] },
+      review,
       status: stillWork ? "needs_review" : "done",
       nextStep: stillWork ? "review the changes" : "",
       resultSummary: stillWork
         ? `${remaining.length} file(s) still need a look`
-        : `You kept ${kept.size} file(s) from ${jobRef(job)}.`,
+        : landInto
+          ? landAlready
+            ? `You kept ${kept.size} file(s) from ${jobRef(job)} — already on ${landInto}.`
+            : `Merged ${jobRef(job)} onto ${landInto}.`
+          : `You kept ${kept.size} file(s) from ${jobRef(job)}.`,
+    });
+    await patchSidecarIfPresent(options.workspaceRoot, job.id, {
+      ...(next.review ? { review: next.review } : {}),
+      lastActivity: next.lastActivity ?? next.resultSummary ?? "Kept",
     });
     return {
       job: next,
       message: stillWork
         ? `Kept ${action === "accept_all" ? "those files" : String(args.path)} for ${jobRef(next)}. ${remaining.length} file(s) still need a look.`
-        : `Kept the changes from ${jobRef(next)}. They are still uncommitted in your working tree.`,
+        : landInto
+          ? landAlready
+            ? `Kept the changes from ${jobRef(next)}. They are already on ${landInto}.`
+            : `Merged ${jobRef(next)} onto ${landInto}.`
+          : `Kept the changes from ${jobRef(next)}. They are still uncommitted in your working tree.`,
     };
   }
 
   return {
     message:
-      "job_control action must be pause, resume, cancel, delete, attach_context, commit, accept_file, or reject_file.",
+      "job_control action must be pause, resume, retry, reverify, cancel, delete, attach_context, commit, accept_file, or reject_file.",
     job,
   };
 }

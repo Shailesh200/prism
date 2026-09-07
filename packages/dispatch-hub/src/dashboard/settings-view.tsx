@@ -1,13 +1,27 @@
 import { useEffect, useState, type FormEvent, type ReactElement } from "react";
-import { EmptyState } from "@repo-prism/ui";
+import {
+  EmptyState,
+  Select,
+  Button,
+  Textarea,
+  Input,
+  isPrimaryActionKey,
+} from "@repo-prism/ui";
 import type { DispatchConfig } from "@repo-prism/dispatch";
 import { showConsoleToast } from "./console-toast.js";
-import { MenuSelect, ToggleCheck } from "./fields.js";
-import { getJson, postJson } from "./session.js";
+import { ToggleCheck } from "./fields.js";
+import { RepoSelect } from "./repo-select.js";
+import {
+  getJson,
+  postJson,
+  WORKSPACES_CHANGED,
+  notifyWorkspacesChanged,
+} from "./session.js";
 
 type RepoRow = {
   readonly path: string;
   readonly label: string;
+  readonly jobCount?: number;
 };
 
 type ReposResponse = { readonly repos: RepoRow[] };
@@ -72,7 +86,10 @@ const SECTION_LABELS: Record<SectionId, string> = {
   memories: "Memories",
 };
 
-export function SettingsView(props: { token: string }): ReactElement {
+export function SettingsView(props: {
+  readonly token: string;
+  readonly onRemoveRepo?: (path: string, label: string) => void;
+}): ReactElement {
   const [repos, setRepos] = useState<RepoRow[]>([]);
   const [workspace, setWorkspace] = useState<string>("");
   const [config, setConfig] = useState<DispatchConfig | undefined>();
@@ -116,20 +133,29 @@ export function SettingsView(props: { token: string }): ReactElement {
 
   useEffect(() => {
     let alive = true;
-    void getJson<ReposResponse>("/api/repos", props.token)
-      .then((body) => {
-        if (!alive) return;
-        const list = body.repos ?? [];
-        setRepos(list);
-        setWorkspace((current) => current || list[0]?.path || "");
-      })
-      .catch((cause: unknown) => {
-        if (alive) {
-          setError(cause instanceof Error ? cause.message : String(cause));
-        }
-      });
+    const load = (): void => {
+      void getJson<ReposResponse>("/api/repos", props.token)
+        .then((body) => {
+          if (!alive) return;
+          const list = body.repos ?? [];
+          setRepos(list);
+          setWorkspace((current) =>
+            list.some((row) => row.path === current)
+              ? current
+              : list[0]?.path || "",
+          );
+        })
+        .catch((cause: unknown) => {
+          if (alive) {
+            setError(cause instanceof Error ? cause.message : String(cause));
+          }
+        });
+    };
+    load();
+    window.addEventListener(WORKSPACES_CHANGED, load);
     return () => {
       alive = false;
+      window.removeEventListener(WORKSPACES_CHANGED, load);
     };
   }, [props.token]);
 
@@ -228,26 +254,96 @@ export function SettingsView(props: { token: string }): ReactElement {
         machine.
       </p>
       {error ? <EmptyState>{error}</EmptyState> : null}
+      {repos.length > 0 ? (
+        <div className="dispatch-settings">
+          <fieldset className="dispatch-settings__group">
+            <legend>Repositories</legend>
+            <p className="dispatch-settings__lede">
+              Removing a repository hides it from this Console. The checkout and
+              its jobs stay on disk.
+            </p>
+            <ul className="dispatch-settings__repos">
+              {repos.map((repo) => (
+                <li key={repo.path}>
+                  <span>
+                    <strong>{repo.label}</strong>
+                    <em>{repo.path}</em>
+                  </span>
+                  {props.onRemoveRepo ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        props.onRemoveRepo?.(repo.path, repo.label)
+                      }
+                    >
+                      Remove
+                    </Button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                void postJson<{ path?: string; cancelled?: boolean }>(
+                  "/api/workspaces/pick",
+                  props.token,
+                  {},
+                )
+                  .then((result) => {
+                    if (!result.path) return;
+                    notifyWorkspacesChanged();
+                    setWorkspace(result.path);
+                    showConsoleToast("Repository added");
+                  })
+                  .catch((cause) =>
+                    showConsoleToast(
+                      cause instanceof Error ? cause.message : String(cause),
+                      "error",
+                    ),
+                  );
+              }}
+            >
+              Add repository
+            </Button>
+          </fieldset>
+        </div>
+      ) : null}
       {repos.length === 0 && !error ? (
-        <EmptyState>
-          <strong>No repositories registered.</strong> Open a repo in your
-          editor and run a Prism command, then come back here.
-        </EmptyState>
+        <>
+          <EmptyState>
+            <strong>No repositories registered.</strong> Select a folder to add
+            one.
+          </EmptyState>
+          <RepoSelect
+            token={props.token}
+            label="Repository"
+            value={workspace}
+            onChange={setWorkspace}
+            repos={[]}
+          />
+        </>
       ) : null}
       {config && repos.length > 0 ? (
         <form
           className="dispatch-settings"
+          onKeyDown={(event) => {
+            if (isPrimaryActionKey(event)) {
+              event.preventDefault();
+              event.currentTarget.requestSubmit();
+            }
+          }}
           onSubmit={(event) => void onSubmit(event)}
         >
-          {repos.length > 1 ? (
-            <MenuSelect
+          {repos.length > 0 ? (
+            <RepoSelect
               label="Repository"
+              token={props.token}
               value={workspace}
-              options={repos.map((repo) => ({
-                value: repo.path,
-                label: repo.label,
-              }))}
               onChange={setWorkspace}
+              repos={repos}
             />
           ) : (
             <p className="console__lede">
@@ -257,7 +353,7 @@ export function SettingsView(props: { token: string }): ReactElement {
 
           <fieldset className="dispatch-settings__group">
             <legend>How jobs run</legend>
-            <MenuSelect
+            <Select
               label="When Prism should start a teammate"
               value={config.dispatchMode}
               options={[
@@ -269,21 +365,21 @@ export function SettingsView(props: { token: string }): ReactElement {
                 patch({ dispatchMode: value as DispatchConfig["dispatchMode"] })
               }
             />
-            <MenuSelect
+            <Select
               label="Where the teammate works"
               value={config.placement}
               options={[
                 {
                   value: "checkout",
-                  label: "Your working tree (uncommitted)",
+                  label: "Current worktree (uncommitted)",
                 },
-                { value: "worktree", label: "Own branch and worktree" },
+                { value: "worktree", label: "Isolated branch" },
               ]}
               onChange={(value) =>
                 patch({ placement: value as DispatchConfig["placement"] })
               }
             />
-            <MenuSelect
+            <Select
               label="Which agent runs the job"
               value={config.workerBackend}
               options={[
@@ -297,21 +393,18 @@ export function SettingsView(props: { token: string }): ReactElement {
                 })
               }
             />
-            <label className="dispatch-settings__field">
-              <span>Max jobs at once</span>
-              <input
-                className="prism-input"
-                type="number"
-                min={1}
-                max={20}
-                value={config.maxJobs}
-                onChange={(event) =>
-                  patch({
-                    maxJobs: Number.parseInt(event.target.value, 10) || 1,
-                  })
-                }
-              />
-            </label>
+            <Input
+              label="Max jobs at once"
+              type="number"
+              min={1}
+              max={20}
+              value={config.maxJobs}
+              onChange={(event) =>
+                patch({
+                  maxJobs: Number.parseInt(event.target.value, 10) || 1,
+                })
+              }
+            />
             <ToggleCheck
               checked={config.verifyJobs}
               onChange={(checked) => patch({ verifyJobs: checked })}
@@ -333,28 +426,22 @@ export function SettingsView(props: { token: string }): ReactElement {
             >
               Split one brief into sibling jobs
             </ToggleCheck>
-            <label className="dispatch-settings__field">
-              <span>Instructions for Dispatch jobs</span>
-              <textarea
-                className="prism-textarea"
-                rows={4}
-                value={config.jobInstructions}
-                placeholder="e.g. Prefer small diffs. Ask before renaming public APIs. Don't add comments I didn't ask for."
-                onChange={(event) =>
-                  patch({ jobInstructions: event.target.value })
-                }
-              />
-              <span className="dispatch-settings__lede">
-                How every teammate should work — pasted into the job prompt.
-                One-off facts still belong in Remember.
-              </span>
-            </label>
+            <Textarea
+              label="Instructions for Dispatch jobs"
+              rows={4}
+              value={config.jobInstructions}
+              placeholder="e.g. Prefer small diffs. Ask before renaming public APIs. Don't add comments I didn't ask for."
+              hint="How every teammate should work — pasted into the job prompt. One-off facts still belong in Remember."
+              onChange={(event) =>
+                patch({ jobInstructions: event.target.value })
+              }
+            />
           </fieldset>
 
-          <fieldset className="dispatch-settings__group">
-            <legend>Standup</legend>
+          <details className="dispatch-settings__group">
+            <summary>Standup</summary>
             {ticketOptions.length > 0 ? (
-              <MenuSelect
+              <Select
                 label="Tickets"
                 value={
                   ticketOptions.some((row) => row.value === config.ticketHost)
@@ -396,105 +483,80 @@ export function SettingsView(props: { token: string }): ReactElement {
                 </ToggleCheck>
               ))}
             </div>
-            <label className="dispatch-settings__field">
-              <span>Standup notes</span>
-              <textarea
-                className="prism-textarea"
-                rows={4}
-                value={config.standupTemplate}
-                placeholder={"standup: terse\ngreet me by name"}
-                onChange={(event) =>
-                  patch({ standupTemplate: event.target.value })
-                }
-              />
-              <span className="dispatch-settings__lede">
-                How “start my day” should be written — terse, greet by name,
-                lead with tickets. Pasted at the top of the standup. Never hides
-                a section or a finished job.
-              </span>
-            </label>
-          </fieldset>
+            <Textarea
+              label="Standup notes"
+              rows={4}
+              value={config.standupTemplate}
+              placeholder={"standup: terse\ngreet me by name"}
+              hint="How “start my day” should be written — terse, greet by name, lead with tickets. Pasted at the top of the standup. Never hides a section or a finished job."
+              onChange={(event) =>
+                patch({ standupTemplate: event.target.value })
+              }
+            />
+          </details>
 
           {has("slack") ? (
-            <fieldset className="dispatch-settings__group">
-              <legend>Mentions and Slack</legend>
-              <label className="dispatch-settings__field">
-                <span>Mention window (hours)</span>
-                <input
-                  className="prism-input"
-                  type="number"
-                  min={1}
-                  max={168}
-                  value={config.mentionWindowHours}
-                  onChange={(event) =>
-                    patch({
-                      mentionWindowHours:
-                        Number.parseInt(event.target.value, 10) || 24,
-                    })
-                  }
-                />
-              </label>
-              <label className="dispatch-settings__field">
-                <span>Mention limit</span>
-                <input
-                  className="prism-input"
-                  type="number"
-                  min={1}
-                  max={50}
-                  value={config.mentionLimit}
-                  onChange={(event) =>
-                    patch({
-                      mentionLimit:
-                        Number.parseInt(event.target.value, 10) || 10,
-                    })
-                  }
-                />
-              </label>
-              <label className="dispatch-settings__field">
-                <span>Tracked Slack messages</span>
-                <input
-                  className="prism-input"
-                  type="number"
-                  min={1}
-                  max={50}
-                  value={config.trackedMessageLimit}
-                  onChange={(event) =>
-                    patch({
-                      trackedMessageLimit:
-                        Number.parseInt(event.target.value, 10) || 15,
-                    })
-                  }
-                />
-              </label>
-              <label className="dispatch-settings__field">
-                <span>Slack channels to track (comma-separated ids)</span>
-                <input
-                  className="prism-input"
-                  type="text"
-                  value={config.slackTrackChannelIds.join(", ")}
-                  placeholder="C01234567, C08999999"
-                  onChange={(event) =>
-                    patch({
-                      slackTrackChannelIds: event.target.value
-                        .split(",")
-                        .map((id) => id.trim())
-                        .filter(Boolean)
-                        .slice(0, 5),
-                    })
-                  }
-                />
-              </label>
-            </fieldset>
+            <details className="dispatch-settings__group">
+              <summary>Mentions and Slack</summary>
+              <Input
+                label="Mention window (hours)"
+                type="number"
+                min={1}
+                max={168}
+                value={config.mentionWindowHours}
+                onChange={(event) =>
+                  patch({
+                    mentionWindowHours:
+                      Number.parseInt(event.target.value, 10) || 24,
+                  })
+                }
+              />
+              <Input
+                label="Mention limit"
+                type="number"
+                min={1}
+                max={50}
+                value={config.mentionLimit}
+                onChange={(event) =>
+                  patch({
+                    mentionLimit: Number.parseInt(event.target.value, 10) || 10,
+                  })
+                }
+              />
+              <Input
+                label="Tracked Slack messages"
+                type="number"
+                min={1}
+                max={50}
+                value={config.trackedMessageLimit}
+                onChange={(event) =>
+                  patch({
+                    trackedMessageLimit:
+                      Number.parseInt(event.target.value, 10) || 15,
+                  })
+                }
+              />
+              <Input
+                label="Slack channels to track (comma-separated ids)"
+                value={config.slackTrackChannelIds.join(", ")}
+                placeholder="C01234567, C08999999"
+                onChange={(event) =>
+                  patch({
+                    slackTrackChannelIds: event.target.value
+                      .split(",")
+                      .map((id) => id.trim())
+                      .filter(Boolean)
+                      .slice(0, 5),
+                  })
+                }
+              />
+            </details>
           ) : null}
 
           <div className="dispatch-settings__actions">
-            <button
-              type="submit"
-              className="dispatch-settings__save"
-              disabled={busy}
-            >
+            <Button type="submit" variant="primary" disabled={busy}>
               {busy ? "Saving…" : "Save"}
-            </button>
+            </Button>
           </div>
         </form>
       ) : null}

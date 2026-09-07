@@ -1,5 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { JobsScreen } from "./JobsScreen.js";
@@ -100,7 +106,6 @@ describe("JobsScreen", () => {
   });
 
   it("opens a console and shows the tailed lines", async () => {
-    const user = userEvent.setup();
     render(
       <JobsScreen
         repoLabel="repo"
@@ -127,11 +132,39 @@ describe("JobsScreen", () => {
       />,
     );
 
-    await user.click(
+    fireEvent.click(
       await screen.findByRole("button", { name: /Fix pagination/ }),
     );
     expect(await screen.findByText("Using grep")).toBeTruthy();
     expect(screen.getByText("Editing table.ts")).toBeTruthy();
+  });
+
+  it("loads console lines when the inspector opens a finished job", async () => {
+    render(
+      <JobsScreen
+        repoLabel="repo"
+        chrome="inspector"
+        defaultOpenId="job-1"
+        {...board(
+          [
+            {
+              id: "job-1",
+              title: "Fix pagination",
+              status: "done",
+              branch: "dispatch/job-1",
+            },
+          ],
+          {
+            jobLogs: async () => ({
+              entries: [entry("Using grep", "2026-01-01T00:00:01.000Z")],
+              totalCount: 1,
+              truncated: false,
+            }),
+          },
+        )}
+      />,
+    );
+    expect(await screen.findByText("Using grep")).toBeTruthy();
   });
 
   it("presents the uncommitted review and says nothing was committed", async () => {
@@ -281,6 +314,60 @@ describe("JobsScreen", () => {
     );
   });
 
+  it("colors retry verification as a warning action", async () => {
+    render(
+      <JobsScreen
+        chrome="inspector"
+        repoLabel="Prism"
+        {...board(
+          [
+            {
+              id: "audit",
+              title: "Audit test cases",
+              status: "done",
+              verification: "failed",
+              lastActivity: "Checks failed",
+              branch: "dispatch/audit-t",
+            },
+          ],
+          { control: async () => {} },
+        )}
+      />,
+    );
+    const retry = await screen.findByRole("button", {
+      name: "Retry verification",
+    });
+    expect(retry.className).toMatch(/prism-btn--warning/);
+    expect(screen.getByRole("button", { name: "Delete" }).className).toMatch(
+      /danger/,
+    );
+  });
+
+  it("keeps the job message, not the verification stamp", async () => {
+    render(
+      <JobsScreen
+        repoLabel="Prism"
+        {...board([
+          {
+            id: "audit",
+            title: "Audit test cases",
+            status: "done",
+            verification: "failed",
+            lastActivity: "Checks failed",
+            resultSummary: "Produced no reviewable change.",
+            verificationDetail:
+              'test failed — app-shell:build | $ bun -e "concat"',
+            branch: "dispatch/audit-t",
+          },
+        ])}
+      />,
+    );
+    expect(await screen.findByText("Done")).toBeTruthy();
+    expect(screen.getByText("Produced no reviewable change.")).toBeTruthy();
+    expect(screen.queryByText("Checks failed")).toBeNull();
+    expect(screen.queryByText(/app-shell:build/)).toBeNull();
+  });
+
   it("warns that a stalled job has gone quiet", async () => {
     render(
       <JobsScreen
@@ -342,7 +429,7 @@ describe("JobsScreen", () => {
               status: "error",
               branch: "dispatch/attention-cards",
               errorMessage:
-                "The teammate stopped unexpectedly. Say resume to try again.",
+                "The teammate stopped without reporting a result. Say resume to try again.",
             },
           ],
           { control },
@@ -351,40 +438,13 @@ describe("JobsScreen", () => {
     );
 
     expect(
-      screen.getByText(/stopped unexpectedly/i),
+      screen.getByText(/stopped without reporting a result/i),
     ).toBeTruthy();
     await user.click(await screen.findByRole("button", { name: "Resume" }));
     await waitFor(() =>
       expect(control).toHaveBeenCalledWith("resume", "attention-cards"),
     );
     expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy();
-  });
-
-  it("copies a job link from the row menu when the host provides it", async () => {
-    const user = userEvent.setup();
-    const onCopyJobLink = vi.fn();
-    render(
-      <JobsScreen
-        repoLabel="repo"
-        onCopyJobLink={onCopyJobLink}
-        {...board([
-          {
-            id: "job-1",
-            title: "Fix pagination",
-            status: "done",
-            branch: "dispatch/job-1",
-          },
-        ])}
-      />,
-    );
-
-    await user.click(
-      await screen.findByRole("button", { name: /Actions for Fix pagination/i }),
-    );
-    await user.click(await screen.findByRole("menuitem", { name: "Copy link" }));
-    expect(onCopyJobLink).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "job-1" }),
-    );
   });
 
   it("offers Delete on a finished job and removes it via the host", async () => {
@@ -762,8 +822,8 @@ describe("the dirty-checkout gate", () => {
         ])}
       />,
     );
-    expect(await screen.findByText("1 job needs your OK")).toBeTruthy();
-    expect(screen.getByText("1 need your OK")).toBeTruthy();
+    expect(await screen.findByText("1 job is awaiting approval")).toBeTruthy();
+    expect(screen.getByText("1 awaiting approval")).toBeTruthy();
     // Approvals sort above finished work so they cannot hide under history.
     const jobTitles = Array.from(
       document.querySelectorAll(".job-card__title"),
@@ -915,6 +975,34 @@ describe("job lifecycle rail", () => {
     expect(stages[2]!.at).toBeUndefined();
     expect(jobRailFill(stages)).toBe(1);
   });
+
+  it("draws one connector per gap, coloured from the step it leaves", async () => {
+    render(
+      <JobsScreen
+        repoLabel="repo"
+        chrome="inspector"
+        defaultOpenId="j1"
+        {...board([
+          {
+            ...base,
+            status: "done",
+            createdAt: "2026-01-01T00:00:00.000Z",
+            queuedAt: "2026-01-01T00:00:02.000Z",
+            startedAt: "2026-01-01T00:00:05.000Z",
+            finishedAt: "2026-01-01T00:08:00.000Z",
+          },
+        ])}
+      />,
+    );
+    expect(await screen.findByText("Accepted")).toBeTruthy();
+    const rail = document.querySelector(".job-rail");
+    expect(rail).toBeTruthy();
+    expect(rail!.querySelectorAll(".job-rail__fill")).toHaveLength(0);
+    expect(rail!.querySelectorAll(".job-rail__seg")).toHaveLength(3);
+    expect(
+      rail!.querySelectorAll(".job-rail__step--reached .job-rail__seg"),
+    ).toHaveLength(3);
+  });
 });
 
 describe("jobReviewPending", () => {
@@ -1006,6 +1094,111 @@ describe("jobModelLabel thinking", () => {
     expect(jobModelLabel("cursor", "default")).toBe("Cursor default");
     expect(jobModelLabel("cursor", "auto")).toBe("Auto");
     expect(jobModelLabel("cursor")).toBe("Cursor default");
+  });
+});
+
+describe("job token usage in Focus", () => {
+  it("always shows Context and Tokens, with figures when the worker reported them", () => {
+    render(
+      <JobsScreen
+        repoLabel="prism"
+        chrome="focus"
+        defaultOpenId="verify"
+        heading="verify-typecheck-and-tests"
+        eyebrow="Focus"
+        {...board([
+          {
+            id: "verify",
+            title: "verify-typecheck-and-tests",
+            status: "done",
+            branch: "dispatch/verify",
+            createdAt: "2026-09-07T00:00:00.000Z",
+            tokenUsage: {
+              inputTokens: 25_964,
+              outputTokens: 1_877,
+              cacheReadTokens: 12_032,
+              totalTokens: 39_873,
+              contextTokens: 37_996,
+            },
+          },
+        ])}
+      />,
+    );
+    expect(screen.getByText("Context")).toBeTruthy();
+    expect(screen.getByText("38k used")).toBeTruthy();
+    expect(screen.getByText("Tokens")).toBeTruthy();
+    expect(screen.getByLabelText("In 26k, out 1.9k")).toBeTruthy();
+    expect(screen.queryByText("in 26k · out 1.9k")).toBeNull();
+  });
+
+  it("keeps the Context and Tokens slots when usage is unknown", () => {
+    render(
+      <JobsScreen
+        repoLabel="prism"
+        chrome="focus"
+        defaultOpenId="old"
+        heading="old job"
+        eyebrow="Focus"
+        {...board([
+          {
+            id: "old",
+            title: "old job",
+            status: "done",
+            branch: "dispatch/old",
+            createdAt: "2026-09-01T00:00:00.000Z",
+          },
+        ])}
+      />,
+    );
+    expect(screen.getByText("Context")).toBeTruthy();
+    expect(screen.getByText("Tokens")).toBeTruthy();
+    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("job brief in Focus", () => {
+  it("starts a child job once the instructions change", async () => {
+    const user = userEvent.setup();
+    const startChild = vi.fn(async () => undefined);
+    render(
+      <JobsScreen
+        repoLabel="prism"
+        chrome="inspector"
+        defaultOpenId="fixes"
+        heading="Fixes"
+        eyebrow="Focus"
+        {...board(
+          [
+            {
+              id: "fixes",
+              title: "Fixes",
+              status: "queued",
+              branch: "",
+              prd: "Old brief",
+              createdAt: "2026-01-01T00:00:00.000Z",
+            },
+          ],
+          { startChild },
+        )}
+      />,
+    );
+    const field = await screen.findByRole("textbox", {
+      name: "Teammate instructions",
+    });
+    expect((field as HTMLTextAreaElement).value).toBe("Old brief");
+    const button = screen.getByRole("button", { name: "Start child job" });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+    await user.clear(field);
+    await user.type(field, "Updated brief from Focus");
+    expect((button as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.keyDown(field, { key: "Enter", metaKey: true });
+    await waitFor(() => {
+      expect(startChild).toHaveBeenCalledWith(
+        "fixes",
+        "Updated brief from Focus",
+      );
+    });
   });
 });
 

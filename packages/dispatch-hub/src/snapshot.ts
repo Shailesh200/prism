@@ -54,7 +54,19 @@ export function toSnapshot(job: JobRecord, workspacePath: string): JobSnapshot {
     ...(job.workerThinking ? { workerThinking: job.workerThinking } : {}),
     ...(job.notes?.length ? { notes: job.notes } : {}),
     ...(job.citedMissing?.length ? { citedMissing: job.citedMissing } : {}),
+    ...(job.playbook ? { playbook: job.playbook } : {}),
+    ...(job.prd.trim() ? { prd: clipSnapshotText(job.prd, 2_000) } : {}),
+    ...(job.hostClient ? { hostClient: job.hostClient } : {}),
+    ...(job.parentJobId ? { parentJobId: job.parentJobId } : {}),
+    ...(job.origin ? { origin: job.origin } : {}),
+    ...(job.tokenUsage ? { tokenUsage: job.tokenUsage } : {}),
   };
+}
+
+function clipSnapshotText(text: string, maxChars: number): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= maxChars) return trimmed;
+  return `${trimmed.slice(0, Math.max(1, maxChars - 1)).trimEnd()}…`;
 }
 
 export function snapshotKey(job: JobSnapshot): string {
@@ -68,7 +80,11 @@ export function snapshotKey(job: JobSnapshot): string {
     // the board would not re-render when the file list lands.
     job.review ? String(job.review.files.length) : "",
     job.review?.keptPaths?.length ? String(job.review.keptPaths.length) : "",
+    job.prd ?? "",
     job.updatedAt,
+    job.tokenUsage
+      ? `${job.tokenUsage.inputTokens}:${job.tokenUsage.outputTokens}:${job.tokenUsage.contextTokens ?? ""}`
+      : "",
   ].join(":");
 }
 

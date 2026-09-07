@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { CustomCursor } from "@/components/motion/CustomCursor";
 import { RouteLoader } from "@/components/motion/RouteLoader";
-import { installHashScroll } from "@/components/motion/hash-scroll";
+import { installHashScroll, scrollToId } from "@/components/motion/hash-scroll";
 
 /**
  * Global website chrome: the cursor, the route loader, and hash scrolling.
@@ -15,7 +16,24 @@ import { installHashScroll } from "@/components/motion/hash-scroll";
  * editor panel where a custom cursor would be actively wrong.
  */
 export function MotionChrome() {
+  const pathname = usePathname();
+
   useEffect(() => installHashScroll(), []);
+
+  useEffect(() => {
+    const id = decodeURIComponent(window.location.hash.replace(/^#/, ""));
+    if (!id) return;
+    let timeout = 0;
+    const frame = window.requestAnimationFrame(() => {
+      if (!scrollToId(id)) {
+        timeout = window.setTimeout(() => scrollToId(id), 80);
+      }
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (timeout) window.clearTimeout(timeout);
+    };
+  }, [pathname]);
 
   return (
     <>

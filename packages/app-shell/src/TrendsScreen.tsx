@@ -10,7 +10,7 @@ import type {
   SignalProvenance,
 } from "@repo-prism/shared";
 import { DEFAULT_PROVENANCE } from "@repo-prism/shared";
-import { InfoTip } from "@repo-prism/ui";
+import { AreaChart, InfoTip } from "@repo-prism/ui";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   useCallback,
@@ -151,11 +151,7 @@ function SeriesAreaChart(props: {
   const w = 600;
   const h = 200;
   const pad = 10;
-  const {
-    line,
-    area,
-    points: geometryPoints,
-  } = activityGeometry(props.values, w, h, pad, {
+  const { points: geometryPoints } = activityGeometry(props.values, w, h, pad, {
     min: props.minValue,
     max: props.maxValue,
   });
@@ -226,29 +222,20 @@ function SeriesAreaChart(props: {
         onMouseMove={onMove}
         onMouseLeave={() => setHover(null)}
       >
-        <svg
-          viewBox={`0 0 ${w} ${h}`}
-          preserveAspectRatio="none"
+        <AreaChart
+          values={props.values}
+          width={w}
+          height={h}
+          label={props.totalLabel}
           className="ov-chart__svg"
-          aria-hidden
-        >
-          <defs>
-            <linearGradient id={props.gradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="rgba(0,194,194,0.4)" />
-              <stop offset="100%" stopColor="rgba(0,194,194,0)" />
-            </linearGradient>
-          </defs>
-          <polygon points={area} fill={`url(#${props.gradientId})`} />
-          <polyline
-            points={line}
-            fill="none"
-            stroke="#00C2C2"
-            strokeWidth="2"
-            strokeLinejoin="round"
-            strokeLinecap="round"
-            vectorEffect="non-scaling-stroke"
-          />
-        </svg>
+          pad={pad}
+          {...(props.minValue !== undefined
+            ? { minValue: props.minValue }
+            : {})}
+          {...(props.maxValue !== undefined
+            ? { maxValue: props.maxValue }
+            : {})}
+        />
         {n === 1 ? (
           <span
             className="tr-chart__dot"

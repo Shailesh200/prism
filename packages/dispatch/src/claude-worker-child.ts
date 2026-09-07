@@ -29,6 +29,11 @@ import {
   claudeThinkingFrom,
   type ClaudeResult,
 } from "./claude-stream.js";
+import {
+  applyParsedUsage,
+  tokenUsageEqual,
+  type TokenUsage,
+} from "./token-usage.js";
 import { appendRunLog, lifecycleLogEntry } from "./run-log.js";
 import {
   createRunWriter,
@@ -37,6 +42,7 @@ import {
   type RunState,
 } from "./run-state.js";
 import { readSpawnPayload } from "./worker-spawn.js";
+import { installWorkerCrashGuards } from "./worker-exit.js";
 import { workerMcpConfigPath } from "./paths.js";
 import { writeWorkerMcpConfig } from "./worker-options.js";
 import {
@@ -60,6 +66,10 @@ async function main(): Promise<void> {
     process.stderr.write("dispatch-worker: invalid spawn payload\n");
     process.exit(1);
   }
+  installWorkerCrashGuards({
+    workspaceRoot: payload.workspaceRoot,
+    jobId: payload.jobId,
+  });
   const now = new Date().toISOString();
   const writer = createRunWriter(payload.workspaceRoot, payload.jobId, {
     jobId: payload.jobId,
@@ -127,6 +137,7 @@ async function main(): Promise<void> {
         ? { resumeSessionId: payload.resumeAgentId }
         : {}),
       ...(mcpConfigPath ? { mcpConfigPath } : {}),
+      ...(payload.model ? { model: payload.model } : {}),
       omitFlags,
     });
 
@@ -174,6 +185,7 @@ async function main(): Promise<void> {
   let sessionPatched = false;
   let modelPatched = false;
   let thinkingPatched = false;
+  let usage: TokenUsage | undefined;
 
   /** Wire one CLI process up to the console and run it to completion. */
   const runChild = async (active: ChildProcess): Promise<number | null> => {
@@ -231,6 +243,11 @@ async function main(): Promise<void> {
         }
         const activity = claudeActivityFrom(event);
         if (activity) void writer.patch(activity);
+        const nextUsage = applyParsedUsage(usage, event);
+        if (nextUsage && !tokenUsageEqual(usage, nextUsage)) {
+          usage = nextUsage;
+          void writer.patch({ tokenUsage: usage });
+        }
         const terminal = claudeResultFrom(event);
         if (terminal) result = terminal;
       }
@@ -242,6 +259,7 @@ async function main(): Promise<void> {
       void (async () => {
         await logLine("failed", detail);
         await patchRunState(payload.workspaceRoot, payload.jobId, {
+          pid: process.pid,
           phase: "failed",
           errorMessage: publicWorkerError(detail),
           completedAt: new Date().toISOString(),
@@ -315,6 +333,7 @@ async function main(): Promise<void> {
     const detail = cause instanceof Error ? cause.message : String(cause);
     await logLine("failed", detail);
     await patchRunState(payload.workspaceRoot, payload.jobId, {
+      pid: process.pid,
       phase: "failed",
       errorMessage: publicWorkerError(detail),
       completedAt: new Date().toISOString(),

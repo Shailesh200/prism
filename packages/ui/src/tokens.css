@@ -23,9 +23,15 @@
   /* Primary button label — always white for contrast on teal (Design.md on-primary). */
   --prism-on-brand: #ffffff;
   --prism-violet: #6c63ff;
+  /* Sky accent — live rail, running cap (ADR-0053 / M-068). */
+  --prism-accent: #38bdf8;
 
   /* Text */
   --prism-ink: #ffffff;
+  --prism-ink-1: #ffffff;
+  --prism-ink-2: #e6f0f2;
+  --prism-ink-3: #94a3b8;
+  --prism-ink-4: color-mix(in srgb, #94a3b8 70%, #0a0e1a);
   --prism-ink-muted: #94a3b8;
   --prism-text: #e6f0f2;
   --prism-text-faint: #94a3b8;
@@ -40,6 +46,10 @@
   --prism-canvas-alt: #0f1420;
   --prism-tile: #1e2433;
   --prism-elev: #1e2433;
+  --prism-surface-1: var(--prism-canvas);
+  --prism-surface-2: var(--prism-panel);
+  --prism-surface-3: var(--prism-tile);
+  --prism-surface-4: var(--prism-elev);
 
   /* Map graph */
   --prism-route: #00c2c2;
@@ -212,6 +222,15 @@ html[data-theme="light"] .prism-theme {
   --prism-brand: #005c55;
   --prism-brand-strong: #0f766e;
   --prism-on-brand: #ffffff;
+  --prism-accent: #0284c7;
+  --prism-ink-1: #191c1d;
+  --prism-ink-2: #191c1d;
+  --prism-ink-3: #5a6b76;
+  --prism-ink-4: color-mix(in srgb, #5a6b76 70%, #e8eef2);
+  --prism-surface-1: var(--prism-canvas);
+  --prism-surface-2: var(--prism-panel);
+  --prism-surface-3: var(--prism-tile);
+  --prism-surface-4: var(--prism-elev);
   --prism-node-fill: #ffffff;
   --prism-node-fill-selected: color-mix(in srgb, #005c55 12%, #ffffff);
   --prism-edge: color-mix(in srgb, #005c55 40%, #c5d0d8);
@@ -256,6 +275,15 @@ html[data-theme="light"] .prism-theme {
     --prism-elev: #ffffff;
     --prism-brand: #005c55;
     --prism-brand-strong: #0f766e;
+    --prism-accent: #0284c7;
+    --prism-ink-1: #191c1d;
+    --prism-ink-2: #191c1d;
+    --prism-ink-3: #5a6b76;
+    --prism-ink-4: color-mix(in srgb, #5a6b76 70%, #e8eef2);
+    --prism-surface-1: var(--prism-canvas);
+    --prism-surface-2: var(--prism-panel);
+    --prism-surface-3: var(--prism-tile);
+    --prism-surface-4: var(--prism-elev);
     --prism-on-brand: #ffffff;
     --prism-node-fill: #ffffff;
     --prism-node-fill-selected: color-mix(in srgb, #005c55 12%, #ffffff);
@@ -292,4 +320,42 @@ html[data-theme="light"] .prism-theme {
     --prism-dur-3: 0ms;
     --prism-dur-4: 0ms;
   }
+}
+
+/*
+ * Native scrollbar, themed. Not a JS replacement (ADR-0051).
+ *
+ * Keyboard scrolling, Cmd+F match marks, and OS overlay behaviour stay.
+ * Form controls do not always inherit `html` scrollbar colour, so this is
+ * on `*` — clip-synced panes still hide with `scrollbar-width: none`.
+ */
+@supports (scrollbar-color: auto) {
+  :root,
+  .prism-theme,
+  * {
+    scrollbar-color: color-mix(in oklab, var(--prism-brand) 45%, transparent)
+      transparent;
+    scrollbar-width: thin;
+  }
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--prism-brand) 32%, transparent);
+  background-clip: content-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--prism-brand) 55%, transparent);
+  background-clip: content-box;
 }

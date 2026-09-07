@@ -6,6 +6,7 @@ export type DropdownMenuItem = {
   readonly label: string;
   readonly icon?: ReactNode;
   readonly danger?: boolean;
+  readonly tone?: "amber" | "brand";
   readonly onSelect: () => void;
 };
 
@@ -37,11 +38,14 @@ export function DropdownMenu(props: DropdownMenuProps): ReactElement {
           {props.items.map((item) => (
             <RadixDropdown.Item
               key={item.id}
-              className={
-                item.danger
-                  ? "prism-menu__item prism-menu__item--danger"
-                  : "prism-menu__item"
-              }
+              className={[
+                "prism-menu__item",
+                item.danger ? "prism-menu__item--danger" : "",
+                item.tone === "amber" ? "prism-menu__item--amber" : "",
+                item.tone === "brand" ? "prism-menu__item--brand" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
               onSelect={() => item.onSelect()}
             >
               {item.icon}

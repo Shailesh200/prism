@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { runLogPath, rotatedRunLogPath } from "./paths.js";
 import {
   appendRunLog,
+  coalesceThinkingEntries,
+  joinThinkingText,
   lifecycleLogEntry,
   logEntryFromEvent,
   MAX_ENTRY_TEXT,
@@ -79,6 +81,11 @@ describe("append-only job console", () => {
     await appendRunLog(
       root,
       "job-1",
+      lifecycleLogEntry("tool", "Using grep", first),
+    );
+    await appendRunLog(
+      root,
+      "job-1",
       lifecycleLogEntry("thinking", "new", second),
     );
 
@@ -120,11 +127,13 @@ describe("append-only job console", () => {
     await appendRunLog(root2, "job-2", lifecycleLogEntry("thinking", "old"));
     const seeded = await readFile(path2, "utf8");
     await writeFile(rotatedRunLogPath(path2), seeded.repeat(1), "utf8");
+    await appendRunLog(root2, "job-2", lifecycleLogEntry("tool", "Using grep"));
     await appendRunLog(root2, "job-2", lifecycleLogEntry("thinking", "new"));
     const page2 = await readRunLog(root2, "job-2");
     expect(page2.entries.map((entry) => entry.text)).toEqual([
       "old",
       "old",
+      "Using grep",
       "new",
     ]);
   });
@@ -184,6 +193,62 @@ describe("log entries from stream events", () => {
       text: "y".repeat(MAX_ENTRY_TEXT * 3),
     });
     expect(entry!.text.length).toBeLessThanOrEqual(MAX_ENTRY_TEXT);
+    expect(entry!.phase).toBe("thinking");
+  });
+});
+
+describe("thinking blocks", () => {
+  it("appends streaming deltas and replaces cumulative buffers", () => {
+    expect(joinThinkingText("is allowed, imports", "in DropdownMenu.tsx")).toBe(
+      "is allowed, imports in DropdownMenu.tsx",
+    );
+    expect(joinThinkingText("The cat", "The cat sat")).toBe("The cat sat");
+    expect(joinThinkingText("Thinking", "Look at RadioGroup")).toBe(
+      "Look at RadioGroup",
+    );
+  });
+
+  it("folds consecutive thinking until a tool call", () => {
+    expect(
+      coalesceThinkingEntries([
+        { phase: "thinking", text: "is allowed, imports" },
+        { phase: "thinking", text: "in DropdownMenu.tsx" },
+        { phase: "running", text: "and Popover.tsx would fail typechecking." },
+        { phase: "tool", text: "Using grep", tool: "grep" },
+        { phase: "thinking", text: "This likely explains" },
+      ]).map((entry) => `${entry.phase}:${entry.text}`),
+    ).toEqual([
+      "thinking:is allowed, imports in DropdownMenu.tsx and Popover.tsx would fail typechecking.",
+      "tool:Using grep",
+      "thinking:This likely explains",
+    ]);
+  });
+
+  it("extends the open thinking line instead of a new console message", async () => {
+    const root = await tempRoot();
+    await appendRunLog(
+      root,
+      "job-1",
+      lifecycleLogEntry("thinking", "is allowed, imports"),
+    );
+    await appendRunLog(
+      root,
+      "job-1",
+      lifecycleLogEntry("thinking", "in DropdownMenu.tsx"),
+    );
+    await appendRunLog(root, "job-1", lifecycleLogEntry("tool", "Using grep"));
+    await appendRunLog(
+      root,
+      "job-1",
+      lifecycleLogEntry("thinking", "This likely explains"),
+    );
+    const page = await readRunLog(root, "job-1");
+    expect(page.entries.map((entry) => entry.text)).toEqual([
+      "is allowed, imports in DropdownMenu.tsx",
+      "Using grep",
+      "This likely explains",
+    ]);
+    expect(page.totalCount).toBe(3);
   });
 });
 

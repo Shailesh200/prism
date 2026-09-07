@@ -1,10 +1,12 @@
 import { Search } from "lucide-react";
 import {
+  forwardRef,
   useEffect,
   useRef,
   type ChangeEvent,
   type InputHTMLAttributes,
   type ReactElement,
+  type Ref,
 } from "react";
 
 export type SearchableInputProps = Omit<
@@ -17,7 +19,10 @@ export type SearchableInputProps = Omit<
   readonly debounceMs?: number;
 };
 
-export function SearchableInput(props: SearchableInputProps): ReactElement {
+export const SearchableInput = forwardRef(function SearchableInput(
+  props: SearchableInputProps,
+  ref: Ref<HTMLInputElement>,
+): ReactElement {
   const {
     value,
     onChange,
@@ -55,6 +60,7 @@ export function SearchableInput(props: SearchableInputProps): ReactElement {
         <Search size={14} strokeWidth={2} />
       </span>
       <input
+        ref={ref}
         type="search"
         className="prism-search__input"
         value={value}
@@ -65,4 +71,4 @@ export function SearchableInput(props: SearchableInputProps): ReactElement {
       />
     </div>
   );
-}
+});

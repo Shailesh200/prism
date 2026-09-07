@@ -183,8 +183,8 @@ export const JobReviewSchema = z.object({
   baseRef: z.string().default(""),
   /** True once the supervisor committed (ADR-0042 §1). */
   committed: z.boolean().default(false),
-  /** Always false: Prism does not merge a job for the user. */
-  merged: z.literal(false).default(false),
+  /** True once Keep all merged the job branch onto the user's current branch. */
+  merged: z.boolean().default(false),
   /**
    * Paths dirty at dispatch that the job also touched (ADR-0045 §3) — the
    * user's change and the job's change are genuinely mixed there.
@@ -222,6 +222,20 @@ export const JobConfirmSchema = z.object({
 });
 export type JobConfirm = z.infer<typeof JobConfirmSchema>;
 
+/** Billed and occupancy counts a worker reported for one job. */
+export const TokenUsageSchema = z.object({
+  inputTokens: z.number().nonnegative(),
+  outputTokens: z.number().nonnegative(),
+  cacheReadTokens: z.number().nonnegative().optional(),
+  cacheWriteTokens: z.number().nonnegative().optional(),
+  totalTokens: z.number().nonnegative().optional(),
+  /** Prompt-side occupancy of the last reported turn, when known. */
+  contextTokens: z.number().nonnegative().optional(),
+  /** Model context window, when the vendor reported it. */
+  contextWindow: z.number().positive().optional(),
+});
+export type TokenUsage = z.infer<typeof TokenUsageSchema>;
+
 export const JobRecordSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -236,10 +250,20 @@ export const JobRecordSchema = z.object({
   workerBackend: WorkerBackendSchema.optional(),
   /** Claude session_id, captured from stream-json init; the resume handle. */
   workerSessionId: z.string().optional(),
-  /** Model id the worker reported (e.g. claude-sonnet-4-5). */
+  /** Model id requested from the agent's list, then whatever the worker reported. */
   workerModel: z.string().optional(),
   /** Thinking / effort the worker reported. */
   workerThinking: z.string().optional(),
+  /** Live then final token usage the worker reported. */
+  tokenUsage: TokenUsageSchema.optional(),
+  /**
+   * MCP client or Console that queued this job (raw name: `cursor`,
+   * `vscode`, `console`, `kilo-code`, …). Display with `hostClientLabel`.
+   */
+  hostClient: z.string().optional(),
+  /** Parent job when this row is a retry, reverify, finding, or instruct child. */
+  parentJobId: z.string().optional(),
+  origin: z.enum(["retry", "reverify", "finding", "instruct"]).optional(),
   /**
    * Where this job works (ADR-0045). Absent on pre-M-066 records = worktree
    * (every job was isolated then).
@@ -308,6 +332,7 @@ export const JobRecordSchema = z.object({
   updatedAt: z.string(),
 });
 export type JobRecord = z.infer<typeof JobRecordSchema>;
+export type JobOrigin = NonNullable<JobRecord["origin"]>;
 
 /** Statuses a job cannot leave without a human or a worker acting. */
 export const TERMINAL_JOB_STATUSES = [

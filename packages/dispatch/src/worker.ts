@@ -26,6 +26,8 @@ export type WorkerStartInput = {
   /** ADR-0045: checkout edits the user's tree, uncommitted. */
   readonly placement?: "checkout" | "worktree";
   readonly preExistingChanges?: readonly string[];
+  /** Vendor model id from that agent's own list. Omit for the agent's default. */
+  readonly model?: string;
 };
 
 export type WorkerHandle = {
@@ -52,6 +54,7 @@ export type WorkerPort = {
     readonly verify?: boolean;
     readonly placement?: "checkout" | "worktree";
     readonly preExistingChanges?: readonly string[];
+    readonly model?: string;
   }): Promise<WorkerHandle | void>;
   cancel(input: {
     readonly agentId?: string;
@@ -114,6 +117,9 @@ export type CursorSdk = {
           }
       >;
     };
+    models?: {
+      list(options?: Record<string, unknown>): Promise<unknown>;
+    };
   };
 };
 
@@ -143,6 +149,7 @@ export function workerPrompt(input: {
       ? "For multi-part work, split it with the task tool and run subagents in parallel. They share your sandbox: file tools only, no shell."
       : "",
     "Do not copy the repo, do not create extra worktrees, and do not write large caches. Prefer small, targeted edits.",
+    "Finish as soon as the brief is done. Do not survey, audit, or rewrite files the brief did not name.",
     // Prism runs typecheck/test once the agent stops, so the model must not
     // claim either happened (ADR-0042 §3). Committing is placement-dependent
     // (ADR-0045): worktree jobs are committed by Prism; checkout jobs stay
@@ -156,12 +163,22 @@ export function workerPrompt(input: {
     "If the brief says to change nothing, print something and stop, or otherwise avoid edits: do not create, edit, or delete any files. Answer in your last message only.",
     "When you finish, say what changed in a short last message (files and why), even if nothing shipped. Only name files you actually wrote.",
     standing ? `Standing job instructions from the user:\n${standing}` : "",
+    input.extra ?? "",
     input.job.prd ? `PRD:\n${input.job.prd}` : "",
     remembered ? `Memories:\n${remembered}` : "",
-    input.extra ?? "",
   ]
     .filter(Boolean)
     .join("\n\n");
+}
+
+/** Brief injected when Retry verification has to fix a failed check, not just re-run it. */
+export function verificationFixExtra(detail: string): string {
+  const failure = detail.trim() || "Checks failed.";
+  return [
+    "Supervisor checks failed after this job finished. Your only job is to make typecheck and tests pass.",
+    `Failure:\n${failure}`,
+    "Do not reopen the original brief except where those edits are required to make checks pass.",
+  ].join("\n\n");
 }
 
 export async function loadCursorSdk(): Promise<CursorSdk | undefined> {
@@ -211,6 +228,7 @@ export function createCursorWorkerPort(
           ...(input.preExistingChanges
             ? { preExistingChanges: input.preExistingChanges }
             : {}),
+          ...(input.model ? { model: input.model } : {}),
         },
         childJs,
       );

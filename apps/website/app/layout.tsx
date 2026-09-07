@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     template: "%s · Prism",
   },
   description:
-    "Local-first software intelligence — no AI required. Maps, graphs, impact and health on your machine.",
+    "Local-first software intelligence — a teammate for every agent. Maps, graphs, impact, health, and Dispatch on your machine. Not a coding model.",
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.prismhq.in",
   ),

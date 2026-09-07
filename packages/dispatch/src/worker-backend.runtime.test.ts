@@ -45,6 +45,7 @@ function capturingWorker(tag: string, seen: { calls: string[] }): WorkerPort {
   return {
     async start(input) {
       seen.calls.push(`${tag}:start:${input.jobId}`);
+      if (input.model) seen.calls.push(`${tag}:model:${input.model}`);
       // A pid above every platform's pid_max, so isProcessAlive is false.
       return { pid: 99_999_999 };
     },
@@ -122,6 +123,50 @@ describe("worker backends (ADR-0044)", () => {
     });
     expect(result.job?.workerBackend).toBe("cursor");
     expect(seen.calls).toEqual(["cursor:start:fix-login"]);
+  });
+
+  it("lets start_job pick the backend for this run", async () => {
+    root = await tempRoot();
+    const seen = { calls: [] as string[] };
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker: capturingWorker("cursor", seen),
+      claudeWorker: capturingWorker("claude", seen),
+      claudeAuth: claudeSignedIn,
+      env: { CURSOR_API_KEY: "k" },
+      getClientName: () => "cursor",
+    });
+    const result = await dispatchAndDrain(runtime, {
+      title: "fix login",
+      jobId: "fix-login-claude",
+      workerBackend: "claude",
+    });
+    expect(result.job?.workerBackend).toBe("claude");
+    expect(seen.calls).toEqual(["claude:start:fix-login-claude"]);
+  });
+
+  it("passes a requested worker model through to spawn", async () => {
+    root = await tempRoot();
+    const seen = { calls: [] as string[] };
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker: capturingWorker("cursor", seen),
+      claudeWorker: capturingWorker("claude", seen),
+      env: { CURSOR_API_KEY: "k" },
+      getClientName: () => "cursor",
+    });
+    const result = await dispatchAndDrain(runtime, {
+      title: "fix login",
+      jobId: "fix-login-model",
+      workerModel: "id-from-agent",
+    });
+    expect(result.job?.workerModel).toBe("id-from-agent");
+    expect(seen.calls).toEqual([
+      "cursor:start:fix-login-model",
+      "cursor:model:id-from-agent",
+    ]);
   });
 
   it("lets configure pick the backend regardless of host", async () => {

@@ -1,5 +1,5 @@
 {
-  "title": "Guides",
+  "title": "Intelligence",
   "pages": [
     "understand-a-repo",
     "before-you-edit",
@@ -7,7 +7,6 @@
     "delete-safely",
     "track-health",
     "investigate-domain",
-    "dispatch",
     "wire-into-ci"
   ]
 }

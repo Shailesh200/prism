@@ -74,7 +74,7 @@
 | M-065 Claude Code Worker | `milestone/M-065-claude-code-worker` | Verified | ✅ | ✅ | Dispatch worker backends: `claude -p` worker child, backend resolution from MCP clientInfo, per-backend init (ADR-0044). Owner approved direct release 2026-08-31 |
 | M-066 Checkout-first Jobs + Claude Presence | `milestone/M-066-checkout-first-jobs` | Verified | ✅ | ✅ | Checkout-first placement, no-commit default (ADR-0045); statusLine, subagent tree, configure preferences. `claude --bg` spike deferred to owner's machine (ADR-0046 follows) |
 | M-067 Shippable Product | `milestone/M-067-shippable-product` | Verified | ✅ | ✅ | Owner verified 2026-09-04 (merged on main). Queue + Console + host connectors; website/docs match the shipped product. npm `1.1.17`. |
-| M-068 Identity & Design System v3 | `milestone/M-068-identity-design-system` | Planned | ☐ | ☐ | Iris + Spectrum naming (ADR-0052), token repair (`--prism-accent`, ink/surface ladders), four SVG chart primitives in `ui`, website hero = real map render, one loading motion. No new screens; enables M-069/M-070. Blocked until M-067 Verified |
+| M-068 Trinity-grade Console | `milestone/M-068-trinity-console` | In Progress | ☐ | ☐ | Sellable Console UX: Pulse/Board/List + craft bar (P-C9 homepage test). Start-job, Attention, Iris/Spectrum. Lock: `plans/mockups/CONSOLE_FLEET.md`. |
 
 ## Legend
 

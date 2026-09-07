@@ -46,6 +46,13 @@ matters; neither metric alone identifies it.
 `.prism/cache/index.sqlite`. Every answer derives from it. See
 [the repository index](/docs/concepts/repository-index).
 
+**Iris** — The accumulated knowledge of a workspace: the index, graphs, DNA,
+landmarks, health, findings, and memories. An aperture, not a persona — never
+first person, never an avatar. See the Console `#/iris` route.
+
+**Spectrum** — The visualization of Iris: `RepositoryMapView` in the Console
+and the website hero. The same artifact in both places.
+
 **Knowledge graph** — Semantic relationships beyond imports: what a symbol is,
 what it relates to, what it belongs to. See [graphs](/docs/concepts/graphs).
 

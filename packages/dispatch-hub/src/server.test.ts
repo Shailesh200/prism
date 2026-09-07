@@ -283,6 +283,48 @@ describe("hub HTTP", () => {
     expect(list.jobs).toEqual([]);
   });
 
+  it("forwards attach_context text to job_control", async () => {
+    const home = await mkdtemp(join(tmpdir(), "prism-hub-home-"));
+    const repo = await mkdtemp(join(tmpdir(), "prism-hub-repo-"));
+    temps.push(home, repo);
+    let captured: { action: string; extra?: { context?: string } } | undefined;
+    const started = await startHub({
+      env: {
+        PRISM_HUB_HOME: home,
+        PRISM_HUB_PORT: "0",
+        PRISM_HUB: "1",
+      },
+      idleMs: 60_000,
+      pollMs: 5_000,
+      control: async (_workspace, _jobId, action, extra) => {
+        captured = { action, extra };
+        return { ok: true, message: "Noted." };
+      },
+    });
+    if ("alreadyRunning" in started) throw new Error("expected a fresh hub");
+    closers.push(started.close);
+    const port = started.record.port;
+    const token = started.record.token;
+    const auth = { Authorization: `Bearer ${token}` };
+    const response = await fetch(
+      `http://127.0.0.1:${port}/api/jobs/live-job/control`,
+      {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "attach_context",
+          workspace: repo,
+          context: "Cover the empty state.",
+        }),
+      },
+    );
+    expect(response.status).toBe(200);
+    expect(captured).toEqual({
+      action: "attach_context",
+      extra: { context: "Cover the empty state." },
+    });
+  });
+
   it("reads and writes Dispatch settings for a workspace", async () => {
     const home = await mkdtemp(join(tmpdir(), "prism-hub-home-"));
     const repo = await mkdtemp(join(tmpdir(), "prism-hub-repo-"));
@@ -428,6 +470,211 @@ describe("hub HTTP", () => {
       { headers: auth },
     );
     expect(blocked.status).toBe(404);
+  }, 15_000);
+
+  it("queues a job through POST /api/jobs and reports host telemetry", async () => {
+    const home = await mkdtemp(join(tmpdir(), "prism-hub-home-"));
+    const repo = await mkdtemp(join(tmpdir(), "prism-hub-repo-"));
+    temps.push(home, repo);
+    const startedJobs: Record<string, unknown>[] = [];
+    const started = await startHub({
+      env: {
+        PRISM_HUB_HOME: home,
+        PRISM_HUB_PORT: "0",
+        PRISM_HUB: "1",
+      },
+      idleMs: 60_000,
+      pollMs: 200,
+      notify: async () => undefined,
+      startJob: async (workspace, args) => {
+        startedJobs.push({ workspace, ...args });
+        return {
+          job: { id: "from-console", title: args.title },
+          message: "Queued.",
+        };
+      },
+    });
+    if ("alreadyRunning" in started) throw new Error("expected a fresh hub");
+    closers.push(started.close);
+    const { port, token } = started.record;
+    const auth = { Authorization: `Bearer ${token}` };
+    await fetch(`http://127.0.0.1:${port}/api/workspaces`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({ path: repo }),
+    });
+    const created = await fetch(`http://127.0.0.1:${port}/api/jobs`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workspace: repo,
+        title: "Fix the highlighting",
+        prd: "Make the news tab highlight.",
+        playbook: "console",
+        placement: "checkout",
+        workerBackend: "claude",
+        workerModel: "id-from-agent",
+      }),
+    });
+    expect(created.status).toBe(200);
+    expect(await created.json()).toMatchObject({ message: "Queued." });
+    expect(startedJobs).toEqual([
+      {
+        workspace: repo,
+        title: "Fix the highlighting",
+        prd: "Make the news tab highlight.",
+        playbook: "console",
+        placement: "checkout",
+        workerBackend: "claude",
+        workerModel: "id-from-agent",
+        hostClient: "console",
+      },
+    ]);
+    const missing = await fetch(`http://127.0.0.1:${port}/api/jobs`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "" }),
+    });
+    expect(missing.status).toBe(400);
+    const telemetry = await fetch(
+      `http://127.0.0.1:${port}/api/telemetry/host`,
+      {
+        headers: auth,
+      },
+    );
+    expect(telemetry.status).toBe(200);
+    const body = (await telemetry.json()) as {
+      cpu?: number;
+      memTotal?: number;
+    };
+    expect("cpu" in body).toBe(true);
+    expect("memTotal" in body).toBe(true);
+  }, 15_000);
+
+  it("persists an edited job brief through PATCH /api/jobs/:id", async () => {
+    const home = await mkdtemp(join(tmpdir(), "prism-hub-home-"));
+    const repo = await mkdtemp(join(tmpdir(), "prism-hub-repo-"));
+    temps.push(home, repo);
+    await writeJob(repo, "running");
+    const started = await startHub({
+      env: {
+        PRISM_HUB_HOME: home,
+        PRISM_HUB_PORT: "0",
+        PRISM_HUB: "1",
+      },
+      idleMs: 60_000,
+      pollMs: 200,
+      notify: async () => undefined,
+      drain: async () => undefined,
+    });
+    if ("alreadyRunning" in started) throw new Error("expected a fresh hub");
+    closers.push(started.close);
+    const { port, token } = started.record;
+    const auth = { Authorization: `Bearer ${token}` };
+    await fetch(`http://127.0.0.1:${port}/api/workspaces`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({ path: repo }),
+    });
+    await waitFor(async () => {
+      const response = await fetch(`http://127.0.0.1:${port}/api/jobs`, {
+        headers: auth,
+      });
+      const body = (await response.json()) as { jobs: JobSnapshot[] };
+      return body.jobs.some((job) => job.id === "news-tab");
+    });
+    const patched = await fetch(`http://127.0.0.1:${port}/api/jobs/news-tab`, {
+      method: "PATCH",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workspace: repo,
+        prd: "Updated brief from Focus.",
+      }),
+    });
+    expect(patched.status).toBe(200);
+    expect(await patched.json()).toMatchObject({
+      message: "Saved the brief.",
+      job: { id: "news-tab", prd: "Updated brief from Focus." },
+    });
+    const listed = await fetch(`http://127.0.0.1:${port}/api/jobs`, {
+      headers: auth,
+    });
+    const body = (await listed.json()) as { jobs: JobSnapshot[] };
+    expect(body.jobs.find((job) => job.id === "news-tab")?.prd).toBe(
+      "Updated brief from Focus.",
+    );
+  }, 15_000);
+
+  it("lists models from the selected agent, not a Prism catalog", async () => {
+    const home = await mkdtemp(join(tmpdir(), "prism-hub-home-"));
+    temps.push(home);
+    const started = await startHub({
+      env: {
+        PRISM_HUB_HOME: home,
+        PRISM_HUB_PORT: "0",
+        PRISM_HUB: "1",
+      },
+      idleMs: 60_000,
+      pollMs: 200,
+      notify: async () => undefined,
+      listWorkerModels: async ({ backend }) =>
+        backend === "claude"
+          ? [{ id: "claude-id", label: "From Claude" }]
+          : [{ id: "cursor-id", label: "From Cursor" }],
+    });
+    if ("alreadyRunning" in started) throw new Error("expected a fresh hub");
+    closers.push(started.close);
+    const { port, token } = started.record;
+    const auth = { Authorization: `Bearer ${token}` };
+    const cursor = await fetch(
+      `http://127.0.0.1:${port}/api/worker-models?backend=cursor`,
+      { headers: auth },
+    );
+    expect(cursor.status).toBe(200);
+    expect(await cursor.json()).toEqual({
+      backend: "cursor",
+      models: [{ id: "cursor-id", label: "From Cursor" }],
+    });
+    const claude = await fetch(
+      `http://127.0.0.1:${port}/api/worker-models?backend=claude`,
+      { headers: auth },
+    );
+    expect(claude.status).toBe(200);
+    expect(await claude.json()).toEqual({
+      backend: "claude",
+      models: [{ id: "claude-id", label: "From Claude" }],
+    });
+  }, 15_000);
+
+  it("registers a picked folder from the native dialog", async () => {
+    const home = await mkdtemp(join(tmpdir(), "prism-hub-home-"));
+    const repo = await mkdtemp(join(tmpdir(), "prism-hub-repo-"));
+    temps.push(home, repo);
+    const started = await startHub({
+      env: {
+        PRISM_HUB_HOME: home,
+        PRISM_HUB_PORT: "0",
+        PRISM_HUB: "1",
+      },
+      idleMs: 60_000,
+      pollMs: 200,
+      notify: async () => undefined,
+      drain: async () => undefined,
+      pickFolder: async () => repo,
+    });
+    if ("alreadyRunning" in started) throw new Error("expected a fresh hub");
+    closers.push(started.close);
+    const { port, token } = started.record;
+    const picked = await fetch(`http://127.0.0.1:${port}/api/workspaces/pick`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: "{}",
+    });
+    expect(picked.status).toBe(200);
+    expect(await picked.json()).toMatchObject({ path: repo });
   }, 15_000);
 });
 

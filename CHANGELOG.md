@@ -9,6 +9,26 @@ the `prism` CLI, the `prism-mcp` server, and the Core SDK they all call. They
 move as one because they are one build; a mismatch between them has never been
 a supported configuration.
 
+## 1.8.0 — Fleet Console
+
+### Console
+
+- Pulse, Board, and List are three views of the same jobs canvas. New job is a verb on the board, not only a sentence in chat.
+- Live cards show wait and work as two meters. Billed in/out lives in Focus, not on Pulse.
+- Attention is the inbox for jobs that need you. A finding can hand a brief to a teammate instead of dying as a note.
+
+### Website
+
+- prismhq.in now leads with Dispatch, Intelligence, and Iris — theaters for DNA, blast radius, and domains, and Spectrum as the map they already share.
+- Install is a vertical wizard. What's new is this magazine. Docs stay the command center.
+
+### MCP
+
+- The Console is another door onto `start_job`. Compose a brief, pick a playbook, default to checkout. Chat still works.
+- Keep `@latest`; hop on the next Cursor/MCP start. Logs: `prism-mcp 1.8.0: workspace …`.
+
+Keep `@latest`. `@repo-prism/dispatch@1.8.0`, `@repo-prism/dispatch-hub@1.8.0`, and `@repo-prism/mcp-server@1.8.0`.
+
 ## 1.1.17 — Shippable product
 
 ### MCP

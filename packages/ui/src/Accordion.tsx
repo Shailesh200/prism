@@ -1,4 +1,9 @@
-import { useState, type ReactElement, type ReactNode, type ToggleEvent } from "react";
+import {
+  useState,
+  type ReactElement,
+  type ReactNode,
+  type ToggleEvent,
+} from "react";
 
 export type AccordionProps = {
   readonly summary: ReactNode;

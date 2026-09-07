@@ -13,9 +13,19 @@ import type { WorkerPort } from "./worker.js";
 import type { CursorAuthPort } from "./cursor-auth.js";
 import { loadJobs, upsertJob } from "./jobs.js";
 import { appendRunLog, lifecycleLogEntry } from "./run-log.js";
+import { reapJobs, writeRunState } from "./run-state.js";
 
 async function tempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "prism-dispatch-"));
+}
+
+async function rmTree(path: string): Promise<void> {
+  await rm(path, {
+    recursive: true,
+    force: true,
+    maxRetries: 8,
+    retryDelay: 40,
+  });
 }
 
 const git: GitRunner = async (_cwd, args) => {
@@ -81,7 +91,7 @@ const missingCursorAuth: CursorAuthPort = {
 describe("start-my-day briefing", () => {
   let root = "";
   afterEach(async () => {
-    if (root) await rm(root, { recursive: true, force: true });
+    if (root) await rmTree(root);
   });
 
   const slack: HostConnector = {
@@ -229,7 +239,7 @@ describe("start-my-day briefing", () => {
 describe("remember + configure", () => {
   let root = "";
   afterEach(async () => {
-    if (root) await rm(root, { recursive: true, force: true });
+    if (root) await rmTree(root);
   });
 
   it("stores a memory and lists it", async () => {
@@ -372,7 +382,7 @@ describe("remember + configure", () => {
 describe("jobs, worktrees, overlap, cap", () => {
   let root = "";
   afterEach(async () => {
-    if (root) await rm(root, { recursive: true, force: true });
+    if (root) await rmTree(root);
   });
 
   const worker: WorkerPort = {
@@ -672,6 +682,23 @@ describe("jobs, worktrees, overlap, cap", () => {
     expect(prompt).toContain("Prefer small diffs.");
   });
 
+  it("honors compose checkout when settings prefer an isolated worktree", async () => {
+    root = await tempRoot();
+    await saveConfig(root, { placement: "worktree" });
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    const result = (await runtime.handle("start_job", {
+      title: "Stay in this folder",
+      prd: "Edit here",
+      placement: "checkout",
+    })) as { job: { placement: string } };
+    expect(result.job.placement).toBe("checkout");
+  });
+
   it("starts a worker from a stored Cursor SDK login without CURSOR_API_KEY", async () => {
     root = await tempRoot();
     await saveConfig(root, { placement: "worktree" });
@@ -849,7 +876,7 @@ describe("worker role and doctor", () => {
       };
       expect(day.git.branch).toBe("main");
     } finally {
-      await rm(root, { recursive: true, force: true });
+      await rmTree(root);
     }
   });
 
@@ -877,7 +904,7 @@ describe("worker role and doctor", () => {
       expect(doctor.message).toMatch(/git repository/i);
       expect(doctor.message).not.toMatch(/fatal:/);
     } finally {
-      await rm(root, { recursive: true, force: true });
+      await rmTree(root);
     }
   });
 });
@@ -895,7 +922,105 @@ describe("live status and completion inbox", () => {
     },
   };
   afterEach(async () => {
-    if (root) await rm(root, { recursive: true, force: true });
+    if (root) await rmTree(root);
+  });
+
+  it("resume kills a silent stalled worker then respawns", async () => {
+    root = await tempRoot();
+    let cancelled = false;
+    let resumed = false;
+    const stallWorker: WorkerPort = {
+      async start() {
+        return { agentId: "agent-new", pid: 4242 };
+      },
+      async resume() {
+        resumed = true;
+        return { pid: 4242 };
+      },
+      async cancel() {
+        cancelled = true;
+      },
+      async status() {
+        return { status: "running", detail: "agent-test" };
+      },
+    };
+    await upsertJob(root, {
+      id: "stalled-job",
+      title: "Stalled job",
+      playbook: "ticket",
+      prd: "",
+      branch: "dispatch/stalled-job",
+      worktreePath: root,
+      source: "prism",
+      status: "waiting_on_you",
+      lastStep: "",
+      nextStep: "say resume to nudge it, or cancel",
+      waitingOn: "stalled",
+      workerPid: process.pid,
+      cursorAgentId: "agent-stalled",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker: stallWorker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    const result = (await runtime.handle("job_control", {
+      jobId: "stalled-job",
+      action: "resume",
+    })) as { job: { status: string; waitingOn: string }; message: string };
+    expect(cancelled).toBe(true);
+    expect(resumed).toBe(true);
+    expect(result.job.status).toBe("running");
+    expect(result.job.waitingOn).toBe("");
+  });
+
+  it("resume on a live non-stalled job says already running", async () => {
+    root = await tempRoot();
+    let cancelled = false;
+    const liveWorker: WorkerPort = {
+      async start() {
+        return { agentId: "agent-test" };
+      },
+      async resume() {},
+      async cancel() {
+        cancelled = true;
+      },
+      async status() {
+        return { status: "running", detail: "agent-test" };
+      },
+    };
+    await upsertJob(root, {
+      id: "live-job",
+      title: "Live job",
+      playbook: "ticket",
+      prd: "",
+      branch: "dispatch/live-job",
+      worktreePath: root,
+      source: "prism",
+      status: "running",
+      lastStep: "",
+      nextStep: "",
+      waitingOn: "",
+      workerPid: process.pid,
+      cursorAgentId: "agent-live",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker: liveWorker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    const result = (await runtime.handle("job_control", {
+      jobId: "live-job",
+      action: "resume",
+    })) as { message: string };
+    expect(cancelled).toBe(false);
+    expect(result.message).toMatch(/already running/i);
   });
 
   it("reaps a dead worker and speaks a failure in where-are-we", async () => {
@@ -928,9 +1053,54 @@ describe("live status and completion inbox", () => {
     };
     expect(listed.jobs[0]?.status).toBe("error");
     expect(listed.message).toMatch(/failed/i);
-    expect(listed.message).toMatch(/stopped unexpectedly/i);
+    expect(listed.message).toMatch(/stopped without reporting a result/i);
     expect(listed.message).not.toMatch(/API key|mcp\.json|99999999/i);
     expect((await loadJobs(root))[0]?.status).toBe("error");
+  });
+
+  it("does not restart a booting job when start_job is retried", async () => {
+    root = await tempRoot();
+    await upsertJob(root, {
+      id: "console-actions-retry-child-errors-checkout-defa",
+      title: "Console actions, retry child, errors, checkout default",
+      playbook: "ticket",
+      prd: "do the work",
+      branch: "main",
+      worktreePath: root,
+      source: "checkout",
+      status: "booting",
+      lastStep: "",
+      nextStep: "",
+      waitingOn: "",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    let starts = 0;
+    const counting: WorkerPort = {
+      async start() {
+        starts += 1;
+        return { agentId: "agent-boot" };
+      },
+      async resume() {},
+      async cancel() {},
+      async status() {
+        return { status: "running", detail: "" };
+      },
+    };
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker: counting,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    const result = (await runtime.handle("start_job", {
+      title: "Console actions, retry child, errors, checkout default",
+      prd: "do the work",
+      jobId: "console-actions-retry-child-errors-checkout-defa",
+    })) as { message: string; job: { status: string } };
+    expect(starts).toBe(0);
+    expect(result.job.status).toBe("booting");
+    expect(result.message).toMatch(/already running/i);
   });
 
   it("leads where-are-we with a finished result summary", async () => {
@@ -1060,6 +1230,144 @@ describe("live status and completion inbox", () => {
     expect(all.message).toMatch(/Kept the changes/);
   });
 
+  it("merges a worktree job onto the current branch on Keep all", async () => {
+    root = await tempRoot();
+    const gitCalls: string[][] = [];
+    const landGit: GitRunner = async (_cwd, args) => {
+      gitCalls.push([...args]);
+      if (args[0] === "rev-parse" && args[1] === "--abbrev-ref") {
+        return { ok: true, stdout: "main\n", stderr: "" };
+      }
+      if (args[0] === "rev-list") {
+        return { ok: true, stdout: "1\n", stderr: "" };
+      }
+      if (args[0] === "rev-parse" && args[1] === "--short") {
+        return { ok: true, stdout: "abc1234\n", stderr: "" };
+      }
+      if (args[0] === "merge") {
+        return { ok: true, stdout: "", stderr: "" };
+      }
+      return git(_cwd, args);
+    };
+    await upsertJob(root, {
+      id: "land-me",
+      title: "Land me",
+      playbook: "ticket",
+      prd: "",
+      branch: "dispatch/land-me",
+      worktreePath: root,
+      source: "prism",
+      placement: "worktree",
+      status: "needs_review",
+      lastStep: "",
+      nextStep: "review the changes",
+      waitingOn: "",
+      review: {
+        files: [
+          { path: "src/job.ts", added: 4, removed: 0, change: "modified" },
+        ],
+        totalAdded: 4,
+        totalRemoved: 0,
+        truncated: false,
+        branch: "dispatch/land-me",
+        baseRef: "main",
+        committed: true,
+        merged: false,
+        mixedPaths: [],
+        keptPaths: [],
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git: landGit,
+      worker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    const result = (await runtime.handle("job_control", {
+      jobId: "land-me",
+      action: "accept_all",
+    })) as {
+      message: string;
+      job: { status: string; review?: { merged?: boolean } };
+    };
+    expect(result.job.status).toBe("done");
+    expect(result.job.review?.merged).toBe(true);
+    expect(result.message).toMatch(/Merged .* onto main/);
+    expect(
+      gitCalls.some(
+        (args) => args[0] === "merge" && args.includes("dispatch/land-me"),
+      ),
+    ).toBe(true);
+  });
+
+  it("leaves a worktree job in review when Keep all cannot merge", async () => {
+    root = await tempRoot();
+    const landGit: GitRunner = async (_cwd, args) => {
+      if (args[0] === "rev-parse" && args[1] === "--abbrev-ref") {
+        return { ok: true, stdout: "main\n", stderr: "" };
+      }
+      if (args[0] === "rev-list") {
+        return { ok: true, stdout: "1\n", stderr: "" };
+      }
+      if (args[0] === "merge" && args[1] === "--abort") {
+        return { ok: true, stdout: "", stderr: "" };
+      }
+      if (args[0] === "merge") {
+        return {
+          ok: false,
+          stdout: "",
+          stderr: "CONFLICT (content): Merge conflict in src/job.ts\n",
+        };
+      }
+      return git(_cwd, args);
+    };
+    await upsertJob(root, {
+      id: "clash",
+      title: "Clash",
+      playbook: "ticket",
+      prd: "",
+      branch: "dispatch/clash",
+      worktreePath: root,
+      source: "prism",
+      placement: "worktree",
+      status: "needs_review",
+      lastStep: "",
+      nextStep: "review the changes",
+      waitingOn: "",
+      review: {
+        files: [
+          { path: "src/job.ts", added: 1, removed: 1, change: "modified" },
+        ],
+        totalAdded: 1,
+        totalRemoved: 1,
+        truncated: false,
+        branch: "dispatch/clash",
+        baseRef: "main",
+        committed: true,
+        merged: false,
+        mixedPaths: [],
+        keptPaths: [],
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git: landGit,
+      worker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    const result = (await runtime.handle("job_control", {
+      jobId: "clash",
+      action: "accept_all",
+    })) as { message: string; job: { status: string } };
+    expect(result.job.status).toBe("needs_review");
+    expect(result.message).toMatch(/could not merge/i);
+    expect(result.message).toMatch(/conflict/i);
+  });
+
   it("passes the job id into the worker port so the sidecar can be named", async () => {
     root = await tempRoot();
     await saveConfig(root, { placement: "worktree" });
@@ -1104,7 +1412,7 @@ describe("job_logs", () => {
   };
 
   afterEach(async () => {
-    if (root) await rm(root, { recursive: true, force: true });
+    if (root) await rmTree(root);
     root = "";
   });
 
@@ -1162,13 +1470,19 @@ describe("job_logs", () => {
   });
 
   it("tails only new lines when given since", async () => {
-    root = await tempRoot();
+    const workspace = await tempRoot();
+    root = workspace;
     await seedJob();
     const first = new Date("2026-01-01T00:00:00.000Z");
     await appendRunLog(
       root,
       "rms-pagination",
       lifecycleLogEntry("thinking", "old", first),
+    );
+    await appendRunLog(
+      root,
+      "rms-pagination",
+      lifecycleLogEntry("tool", "Using grep", first),
     );
     await appendRunLog(
       root,
@@ -1181,7 +1495,7 @@ describe("job_logs", () => {
     );
 
     const runtime = createDispatchRuntime({
-      workspaceRoot: root,
+      workspaceRoot: workspace,
       git,
       worker: logWorker,
       env: { CURSOR_API_KEY: "test-key" },
@@ -1234,5 +1548,720 @@ describe("job_logs", () => {
       message: string;
     };
     expect(result.message).toMatch(/No jobs yet/i);
+  });
+});
+
+describe("retry and reverify", () => {
+  let root = "";
+  afterEach(async () => {
+    if (root) await rmTree(root);
+  });
+
+  it("retry on a failed job starts a new teammate instead of resuming", async () => {
+    root = await tempRoot();
+    let started = false;
+    let resumed = false;
+    const retryWorker: WorkerPort = {
+      async start() {
+        started = true;
+        return { agentId: "agent-retry", pid: 4300 };
+      },
+      async resume() {
+        resumed = true;
+        return { pid: 4300 };
+      },
+      async cancel() {},
+      async status() {
+        return { status: "running", detail: "agent-test" };
+      },
+    };
+    await upsertJob(root, {
+      id: "failed-job",
+      title: "Failed job",
+      playbook: "ticket",
+      prd: "",
+      branch: "dispatch/failed-job",
+      worktreePath: root,
+      source: "prism",
+      status: "error",
+      lastStep: "",
+      nextStep: "",
+      waitingOn: "",
+      workerPid: 1,
+      cursorAgentId: "agent-dead",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker: retryWorker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    const result = (await runtime.handle("job_control", {
+      jobId: "failed-job",
+      action: "retry",
+    })) as {
+      job: { status: string; id: string; parentJobId?: string };
+      message: string;
+    };
+    expect(started).toBe(true);
+    expect(resumed).toBe(false);
+    expect(result.job.status).toBe("running");
+    expect(result.job.parentJobId).toBe("failed-job");
+    expect(result.job.id).not.toBe("failed-job");
+    const rows = await loadJobs(root);
+    expect(rows.find((job) => job.id === "failed-job")?.status).toBe("error");
+  });
+
+  it("retry reports why the teammate failed to start", async () => {
+    root = await tempRoot();
+    const retryWorker: WorkerPort = {
+      async start() {
+        throw new Error("Cursor agent refused to launch");
+      },
+      async resume() {},
+      async cancel() {},
+      async status() {
+        return { status: "error", detail: "" };
+      },
+    };
+    await upsertJob(root, {
+      id: "failed-job",
+      title: "Failed job",
+      playbook: "ticket",
+      prd: "",
+      branch: "dispatch/failed-job",
+      worktreePath: root,
+      source: "prism",
+      status: "error",
+      lastStep: "",
+      nextStep: "",
+      waitingOn: "",
+      createdAt: "2026-09-04T00:00:00.000Z",
+      queuedAt: "2026-09-04T00:00:00.000Z",
+      updatedAt: "2026-09-04T00:00:00.000Z",
+    });
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker: retryWorker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    const result = (await runtime.handle("job_control", {
+      jobId: "failed-job",
+      action: "retry",
+    })) as { job: { status: string }; message: string };
+    expect(result.job.status).toBe("error");
+    expect(result.message).toMatch(/Could not retry/);
+    expect(result.message).toMatch(/Cursor agent refused to launch/);
+  });
+
+  it("retry on a cancelled job starts a new teammate instead of staying cancelled", async () => {
+    root = await tempRoot();
+    let started = false;
+    let resumed = false;
+    let cancelled = false;
+    const retryWorker: WorkerPort = {
+      async start() {
+        started = true;
+        return { agentId: "agent-retry", pid: process.pid };
+      },
+      async resume() {
+        resumed = true;
+        return { pid: process.pid };
+      },
+      async cancel() {
+        cancelled = true;
+      },
+      async status() {
+        return { status: "cancelled", detail: "stopped" };
+      },
+    };
+    const queuedAt = "2026-09-04T00:00:00.000Z";
+    await upsertJob(root, {
+      id: "cancelled-job",
+      title: "Cancelled job",
+      playbook: "ticket",
+      prd: "",
+      branch: "dispatch/cancelled-job",
+      worktreePath: root,
+      source: "prism",
+      status: "cancelled",
+      lastStep: "",
+      nextStep: "",
+      waitingOn: "",
+      queuedAt,
+      createdAt: queuedAt,
+      updatedAt: queuedAt,
+    });
+    await writeRunState(root, "cancelled-job", {
+      jobId: "cancelled-job",
+      phase: "cancelled",
+      lastActivity: "Cancelled",
+      resultSummary: "",
+      errorMessage: "",
+      gitSummary: "",
+      startedAt: queuedAt,
+      updatedAt: "2026-09-04T00:01:00.000Z",
+    });
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker: retryWorker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    const result = (await runtime.handle("job_control", {
+      jobId: "cancelled-job",
+      action: "retry",
+    })) as {
+      job: { status: string; id: string; parentJobId?: string };
+      message: string;
+    };
+    expect(started).toBe(true);
+    expect(resumed).toBe(false);
+    expect(cancelled).toBe(false);
+    expect(result.job.status).toBe("running");
+    expect(result.job.parentJobId).toBe("cancelled-job");
+    expect(result.job.id).not.toBe("cancelled-job");
+    expect(result.message).toMatch(/Retried/i);
+    await writeRunState(root, "cancelled-job", {
+      jobId: "cancelled-job",
+      pid: 99,
+      phase: "cancelled",
+      lastActivity: "Cancelled",
+      resultSummary: "",
+      errorMessage: "",
+      gitSummary: "",
+      startedAt: queuedAt,
+      updatedAt: new Date().toISOString(),
+    });
+    const reaped = await reapJobs(root);
+    expect(reaped.find((job) => job.id === "cancelled-job")?.status).toBe(
+      "cancelled",
+    );
+    expect(reaped.find((job) => job.id === result.job.id)?.status).toBe(
+      "running",
+    );
+  });
+
+  it("reverify on a finished job without package.json records NA", async () => {
+    root = await tempRoot();
+    await upsertJob(root, {
+      id: "done-job",
+      title: "Done job",
+      playbook: "ticket",
+      prd: "",
+      branch: "dispatch/done-job",
+      worktreePath: root,
+      source: "prism",
+      status: "done",
+      lastStep: "",
+      nextStep: "",
+      waitingOn: "",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    let started = false;
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker: {
+        async start() {
+          started = true;
+          return { agentId: "agent-test" };
+        },
+        async resume() {},
+        async cancel() {},
+        async status() {
+          return { status: "running", detail: "agent-test" };
+        },
+      },
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    const result = (await runtime.handle("job_control", {
+      jobId: "done-job",
+      action: "reverify",
+    })) as {
+      job: {
+        verification?: string;
+        verificationDetail?: string;
+        parentJobId?: string;
+        id: string;
+      };
+      message: string;
+    };
+    expect(started).toBe(false);
+    expect(result.job.parentJobId).toBe("done-job");
+    expect(result.job.verification).toBe("skipped");
+    expect(result.message).toMatch(/package\.json/i);
+  });
+
+  it("reverify actually runs checks again and survives a later reap", async () => {
+    root = await tempRoot();
+    let calls = 0;
+    await upsertJob(root, {
+      id: "done-job",
+      title: "Done job",
+      playbook: "ticket",
+      prd: "",
+      branch: "dispatch/done-job",
+      worktreePath: "/missing-worktree",
+      source: "prism",
+      status: "done",
+      lastStep: "",
+      nextStep: "",
+      waitingOn: "",
+      verification: "failed",
+      verificationDetail: "typecheck failed — error TS2345",
+      lastActivity: "Checks failed",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    await writeRunState(root, "done-job", {
+      jobId: "done-job",
+      phase: "done",
+      lastActivity: "Checks failed",
+      resultSummary: "1 file changed",
+      errorMessage: "",
+      gitSummary: "1 file changed",
+      verification: "failed",
+      verificationDetail: "typecheck failed — error TS2345",
+      startedAt: "2026-09-04T00:00:00.000Z",
+      updatedAt: "2026-09-04T00:01:00.000Z",
+    });
+    let started = false;
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker: {
+        async start() {
+          started = true;
+          return { agentId: "agent-test" };
+        },
+        async resume() {},
+        async cancel() {},
+        async status() {
+          return { status: "running", detail: "agent-test" };
+        },
+      },
+      env: { CURSOR_API_KEY: "test-key" },
+      verifyWork: async () => {
+        calls += 1;
+        return { status: "passed", detail: "typecheck and test passed." };
+      },
+    });
+    const result = (await runtime.handle("job_control", {
+      jobId: "done-job",
+      action: "reverify",
+    })) as {
+      job: {
+        verification?: string;
+        verificationDetail?: string;
+        parentJobId?: string;
+        id: string;
+      };
+      message: string;
+    };
+    expect(calls).toBe(1);
+    expect(started).toBe(false);
+    expect(result.job.verification).toBe("passed");
+    expect(result.job.parentJobId).toBe("done-job");
+    expect(result.message).toMatch(/typecheck and test passed/i);
+    const reaped = await reapJobs(root);
+    expect(reaped.find((job) => job.id === result.job.id)?.verification).toBe(
+      "passed",
+    );
+    expect(reaped.find((job) => job.id === "done-job")?.verification).toBe(
+      "failed",
+    );
+  });
+
+  it("deferVerify returns before checks finish so the Console is not blocked", async () => {
+    root = await tempRoot();
+    let finishChecks: (value: {
+      readonly status: "passed" | "failed" | "skipped";
+      readonly detail: string;
+    }) => void = () => undefined;
+    const pendingChecks = new Promise<{
+      readonly status: "passed" | "failed" | "skipped";
+      readonly detail: string;
+    }>((resolve) => {
+      finishChecks = resolve;
+    });
+    await upsertJob(root, {
+      id: "done-job",
+      title: "Done job",
+      playbook: "ticket",
+      prd: "",
+      branch: "dispatch/done-job",
+      worktreePath: "/missing-worktree",
+      source: "prism",
+      status: "done",
+      lastStep: "",
+      nextStep: "",
+      waitingOn: "",
+      verification: "failed",
+      verificationDetail: "typecheck failed — error TS2345",
+      lastActivity: "Checks failed",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker: {
+        async start() {
+          return { agentId: "agent-test" };
+        },
+        async resume() {},
+        async cancel() {},
+        async status() {
+          return { status: "running", detail: "agent-test" };
+        },
+      },
+      env: { CURSOR_API_KEY: "test-key" },
+      deferVerify: true,
+      verifyWork: () => pendingChecks,
+    });
+    const result = (await runtime.handle("job_control", {
+      jobId: "done-job",
+      action: "reverify",
+    })) as {
+      job: {
+        lastActivity?: string;
+        verification?: string;
+        id: string;
+        parentJobId?: string;
+      };
+      deferred?: boolean;
+      message: string;
+    };
+    expect(result.deferred).toBe(true);
+    expect(result.job.lastActivity).toBe("Running checks…");
+    expect(result.job.verification).toBe("failed");
+    expect(result.job.parentJobId).toBe("done-job");
+    const childId = result.job.id;
+    finishChecks({ status: "passed", detail: "typecheck and test passed." });
+    for (let i = 0; i < 40; i++) {
+      const listed = await loadJobs(root);
+      if (listed.find((job) => job.id === childId)?.verification === "passed") {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    expect(
+      (await loadJobs(root)).find((job) => job.id === childId)?.verification,
+    ).toBe("passed");
+    expect(
+      (await loadJobs(root)).find((job) => job.id === "done-job")?.verification,
+    ).toBe("failed");
+  });
+
+  it("reverify starts a teammate when checks still fail", async () => {
+    root = await tempRoot();
+    let prompt = "";
+    const retryWorker: WorkerPort = {
+      async start(input) {
+        prompt = input.prompt;
+        return { agentId: "agent-fix", pid: 4400 };
+      },
+      async resume() {},
+      async cancel() {},
+      async status() {
+        return { status: "running", detail: "agent-fix" };
+      },
+    };
+    await upsertJob(root, {
+      id: "done-job",
+      title: "Done job",
+      playbook: "ticket",
+      prd: "Original brief about auth",
+      branch: "dispatch/done-job",
+      worktreePath: root,
+      source: "prism",
+      status: "done",
+      lastStep: "",
+      nextStep: "",
+      waitingOn: "",
+      verification: "failed",
+      verificationDetail: "typecheck failed — error TS2345",
+      lastActivity: "Checks failed",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker: retryWorker,
+      env: { CURSOR_API_KEY: "test-key" },
+      verifyWork: async () => ({
+        status: "failed",
+        detail: "typecheck failed — error TS2345",
+      }),
+    });
+    const result = (await runtime.handle("job_control", {
+      jobId: "done-job",
+      action: "reverify",
+    })) as { job: { status: string; verification?: string }; message: string };
+    expect(result.job.status).toBe("running");
+    expect(result.job.verification).toBeUndefined();
+    expect(result.message).toMatch(/teammate is fixing/i);
+    expect(prompt).toContain(
+      "Your only job is to make typecheck and tests pass",
+    );
+    expect(prompt).toContain("typecheck failed — error TS2345");
+    expect(prompt.indexOf("typecheck failed")).toBeLessThan(
+      prompt.indexOf("Original brief about auth"),
+    );
+  });
+
+  it("reverify reports why the fix teammate failed to start", async () => {
+    root = await tempRoot();
+    const retryWorker: WorkerPort = {
+      async start() {
+        throw new Error("Cursor agent refused to launch");
+      },
+      async resume() {},
+      async cancel() {},
+      async status() {
+        return { status: "error", detail: "" };
+      },
+    };
+    await upsertJob(root, {
+      id: "done-job",
+      title: "Done job",
+      playbook: "ticket",
+      prd: "",
+      branch: "dispatch/done-job",
+      worktreePath: root,
+      source: "prism",
+      status: "done",
+      lastStep: "",
+      nextStep: "",
+      waitingOn: "",
+      verification: "failed",
+      verificationDetail: "typecheck failed — error TS2345",
+      lastActivity: "Checks failed",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker: retryWorker,
+      env: { CURSOR_API_KEY: "test-key" },
+      verifyWork: async () => ({
+        status: "failed",
+        detail: "typecheck failed — error TS2345",
+      }),
+    });
+    const result = (await runtime.handle("job_control", {
+      jobId: "done-job",
+      action: "reverify",
+    })) as {
+      job: { status: string; verification?: string; lastActivity?: string };
+      message: string;
+    };
+    expect(result.job.status).toBe("done");
+    expect(result.job.verification).toBe("failed");
+    expect(result.job.lastActivity).toBe("Could not start a teammate");
+    expect(result.message).toMatch(/Could not start a teammate/);
+    expect(result.message).toMatch(/Cursor agent refused to launch/);
+  });
+
+  it("deferVerify starts a teammate after checks still fail", async () => {
+    root = await tempRoot();
+    let started = false;
+    let finishChecks: (value: {
+      readonly status: "passed" | "failed" | "skipped";
+      readonly detail: string;
+    }) => void = () => undefined;
+    const pendingChecks = new Promise<{
+      readonly status: "passed" | "failed" | "skipped";
+      readonly detail: string;
+    }>((resolve) => {
+      finishChecks = resolve;
+    });
+    await upsertJob(root, {
+      id: "done-job",
+      title: "Done job",
+      playbook: "ticket",
+      prd: "",
+      branch: "dispatch/done-job",
+      worktreePath: root,
+      source: "prism",
+      status: "done",
+      lastStep: "",
+      nextStep: "",
+      waitingOn: "",
+      verification: "failed",
+      verificationDetail: "typecheck failed — error TS2345",
+      lastActivity: "Checks failed",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker: {
+        async start() {
+          started = true;
+          return { agentId: "agent-fix", pid: 4401 };
+        },
+        async resume() {},
+        async cancel() {},
+        async status() {
+          return { status: "running", detail: "agent-fix" };
+        },
+      },
+      env: { CURSOR_API_KEY: "test-key" },
+      deferVerify: true,
+      verifyWork: () => pendingChecks,
+    });
+    const result = (await runtime.handle("job_control", {
+      jobId: "done-job",
+      action: "reverify",
+    })) as {
+      job: {
+        lastActivity?: string;
+        status: string;
+        id: string;
+        parentJobId?: string;
+      };
+      deferred?: boolean;
+      message: string;
+    };
+    expect(result.deferred).toBe(true);
+    expect(result.job.parentJobId).toBe("done-job");
+    expect(result.job.status).toBe("done");
+    expect(started).toBe(false);
+    expect(result.message).toMatch(/teammate will fix/i);
+    const childId = result.job.id;
+    finishChecks({
+      status: "failed",
+      detail: "typecheck failed — error TS2345",
+    });
+    for (let i = 0; i < 40; i++) {
+      const listed = await loadJobs(root);
+      if (listed.find((job) => job.id === childId)?.status === "running") {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    expect(
+      (await loadJobs(root)).find((job) => job.id === childId)?.status,
+    ).toBe("running");
+    expect(
+      (await loadJobs(root)).find((job) => job.id === "done-job")?.status,
+    ).toBe("done");
+    expect(started).toBe(true);
+  });
+});
+
+describe("attach_context", () => {
+  let root = "";
+  afterEach(async () => {
+    if (root) await rmTree(root);
+  });
+
+  it("queues follow-up text on a live teammate for the next turn", async () => {
+    root = await tempRoot();
+    const worker: WorkerPort = {
+      async start() {
+        return { pid: 1 };
+      },
+      async resume() {
+        throw new Error("should not resume a live teammate");
+      },
+      async cancel() {},
+      async status() {
+        return { status: "running", detail: "agent-test" };
+      },
+    };
+    await upsertJob(root, {
+      id: "live-job",
+      title: "Live job",
+      playbook: "ticket",
+      prd: "Ship the gate.",
+      branch: "dispatch/live-job",
+      worktreePath: root,
+      source: "prism",
+      status: "running",
+      lastStep: "",
+      nextStep: "",
+      waitingOn: "",
+      workerPid: process.pid,
+      cursorAgentId: "agent-live",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    const first = (await runtime.handle("job_control", {
+      jobId: "live-job",
+      action: "attach_context",
+      context: "Also fix the flaky test.",
+    })) as { job: { pendingContext?: string }; message: string };
+    expect(first.message).toMatch(/Noted for/i);
+    expect(first.job.pendingContext).toBe("Also fix the flaky test.");
+    const second = (await runtime.handle("job_control", {
+      jobId: "live-job",
+      action: "attach_context",
+      context: "And add a regression test.",
+    })) as { job: { pendingContext?: string } };
+    expect(second.job.pendingContext).toBe(
+      "Also fix the flaky test.\n\nAnd add a regression test.",
+    );
+  });
+
+  it("resumes a stopped teammate with the follow-up as the prompt", async () => {
+    root = await tempRoot();
+    let prompt = "";
+    const worker: WorkerPort = {
+      async start() {
+        return { pid: 4400 };
+      },
+      async resume(input) {
+        prompt = input.prompt ?? "";
+        return { pid: 4400 };
+      },
+      async cancel() {},
+      async status() {
+        return { status: "running", detail: "agent-test" };
+      },
+    };
+    await upsertJob(root, {
+      id: "paused-run",
+      title: "Paused run",
+      playbook: "ticket",
+      prd: "Ship the gate.",
+      branch: "dispatch/paused-run",
+      worktreePath: root,
+      source: "prism",
+      status: "running",
+      lastStep: "",
+      nextStep: "",
+      waitingOn: "",
+      cursorAgentId: "agent-paused",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    await runtime.handle("job_control", {
+      jobId: "paused-run",
+      action: "attach_context",
+      context: "Cover the empty state.",
+    });
+    expect(prompt).toBe("Cover the empty state.");
   });
 });

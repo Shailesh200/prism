@@ -59,16 +59,24 @@ export function installHashScroll(): () => void {
 
     const link = (event.target as Element | null)?.closest("a");
     const href = link?.getAttribute("href");
-    if (!link || !href?.startsWith("#") || href.length < 2) return;
-    if (link.target === "_blank") return;
+    if (!link || !href || link.target === "_blank") return;
 
-    const id = decodeURIComponent(href.slice(1));
+    let url: URL;
+    try {
+      url = new URL(href, window.location.href);
+    } catch {
+      return;
+    }
+    if (url.origin !== window.location.origin) return;
+    if (url.pathname !== window.location.pathname) return;
+    const id = decodeURIComponent(url.hash.replace(/^#/, ""));
+    if (!id) return;
     if (!scrollToId(id)) return;
 
     event.preventDefault();
     // Kept in the URL so the link stays copyable and Back still works, but
     // without the browser's own jump that `location.hash =` would trigger.
-    history.pushState(null, "", href);
+    history.pushState(null, "", url.hash);
   };
 
   document.addEventListener("click", onClick);

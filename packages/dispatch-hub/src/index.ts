@@ -15,7 +15,12 @@ export { formatJobFinishedNotice, type JobNoticeCopy } from "./notice.js";
 export { originAllowed, tokenFromRequest, tokensMatch } from "./auth.js";
 export { diffJobs, collectJobs, isInFlight, isTerminal } from "./watch.js";
 export { toSnapshot } from "./snapshot.js";
-export { registerWorkspace, workspaceLabel, loadRegistry } from "./registry.js";
+export {
+  registerWorkspace,
+  unregisterWorkspace,
+  workspaceLabel,
+  loadRegistry,
+} from "./registry.js";
 export {
   buildStatusline,
   formatStatusline,

@@ -370,9 +370,8 @@ function reviewChangeFromStatusLetter(code: string): ReviewFile["change"] {
  *
  * Read from the commit range rather than the dirty tree: ADR-0042 §1 has the
  * supervisor commit before this runs, so `git status` is clean by now and the
- * diff against the base branch is the only honest source. Prism never merges
- * this — the branch is the reviewable unit and landing it stays the user's
- * decision.
+ * diff against the base branch is the only honest source. Finish does not
+ * merge — Keep all / accept_all is the landing step.
  */
 export async function gitReviewSummary(
   cwd: string,
@@ -702,6 +701,96 @@ export async function commitJobPaths(
   return {
     committed: true,
     summary: totals.replace(/\s+/g, " "),
+    ...(sha.ok && sha.stdout.trim() ? { sha: sha.stdout.trim() } : {}),
+  };
+}
+
+export type JobMergeResult =
+  | {
+      readonly ok: true;
+      readonly into: string;
+      readonly already: boolean;
+      readonly sha?: string;
+    }
+  | { readonly ok: false; readonly into?: string; readonly error: string };
+
+function firstGitLine(text: string): string {
+  const line = text
+    .split("\n")
+    .map((part) => part.trim())
+    .find((part) => part.length > 0);
+  if (!line) return "merge failed";
+  return line.length > 160 ? `${line.slice(0, 157)}…` : line;
+}
+
+/**
+ * Land a finished worktree job onto the branch the user is on.
+ *
+ * Finish never merges (ADR-0042): the job branch is the reviewable unit.
+ * Keep all / accept_all is the human landing that merge.
+ */
+export async function mergeJobBranch(
+  workspaceRoot: string,
+  jobBranch: string,
+  run: GitRunner = defaultGitRunner,
+): Promise<JobMergeResult> {
+  const branch = jobBranch.trim();
+  if (!branch) {
+    return { ok: false, error: "This job has no branch to merge." };
+  }
+  const head = await run(workspaceRoot, ["rev-parse", "--abbrev-ref", "HEAD"]);
+  if (!head.ok) {
+    return {
+      ok: false,
+      error: firstGitLine(head.stderr) || "Could not read the current branch.",
+    };
+  }
+  const into = head.stdout.trim();
+  if (!into || into === "HEAD") {
+    return {
+      ok: false,
+      error: "Check out a branch first — HEAD is detached.",
+    };
+  }
+  if (into === branch) {
+    return { ok: true, into, already: true };
+  }
+
+  const ahead = await run(workspaceRoot, [
+    "rev-list",
+    "--count",
+    `${into}..${branch}`,
+  ]);
+  if (!ahead.ok) {
+    return {
+      ok: false,
+      into,
+      error: firstGitLine(ahead.stderr) || `Could not read ${branch}.`,
+    };
+  }
+  if (Number.parseInt(ahead.stdout.trim(), 10) === 0) {
+    return { ok: true, into, already: true };
+  }
+
+  const merged = await run(workspaceRoot, [
+    "merge",
+    "--no-edit",
+    "--no-verify",
+    branch,
+  ]);
+  if (!merged.ok) {
+    await run(workspaceRoot, ["merge", "--abort"]);
+    return {
+      ok: false,
+      into,
+      error: firstGitLine(merged.stderr || merged.stdout),
+    };
+  }
+  const sha = await run(workspaceRoot, ["rev-parse", "--short", "HEAD"]);
+  return {
+    ok: true,
+    into,
+    already: false,
     ...(sha.ok && sha.stdout.trim() ? { sha: sha.stdout.trim() } : {}),
   };
 }

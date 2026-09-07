@@ -36,7 +36,7 @@ const job: JobRecord = {
 describe("job snapshot", () => {
   it("carries the review so the board can show what changed", () => {
     // Without this the board reported a finished job and nothing about it.
-    const snap = toSnapshot(job, "/repo", Date.parse(job.updatedAt));
+    const snap = toSnapshot(job, "/repo");
     expect(snap.review?.files).toHaveLength(2);
     expect(snap.review?.totalAdded).toBe(15);
     expect(snap.review?.branch).toBe("dispatch/rms-pagination");
@@ -76,10 +76,39 @@ describe("job snapshot", () => {
     expect(snap.citedMissing).toEqual(["lib/gsap.ts"]);
   });
 
+  it("carries token usage so Focus can show live then final totals", () => {
+    const snap = toSnapshot(
+      {
+        ...job,
+        tokenUsage: {
+          inputTokens: 1_200,
+          outputTokens: 80,
+          contextTokens: 48_000,
+          contextWindow: 200_000,
+        },
+      },
+      "/repo",
+    );
+    expect(snap.tokenUsage?.inputTokens).toBe(1_200);
+    expect(snap.tokenUsage?.contextWindow).toBe(200_000);
+  });
+
   it("omits review for a job that has none", () => {
     const { review: _drop, ...bare } = job;
     const snap = toSnapshot(bare as JobRecord, "/repo");
     expect(snap.review).toBeUndefined();
+  });
+
+  it("carries the prompt so the board can show what was asked", () => {
+    const snap = toSnapshot({ ...job, prd: "Fix the highlighting." }, "/repo");
+    expect(snap.prd).toBe("Fix the highlighting.");
+  });
+
+  it("clips a huge PRD so the hub poll does not keep the whole brief in RAM", () => {
+    const prd = "x".repeat(3_000);
+    const snap = toSnapshot({ ...job, prd }, "/repo");
+    expect(snap.prd?.length).toBeLessThanOrEqual(2_000);
+    expect(snap.prd?.endsWith("…")).toBe(true);
   });
 
   it("changes key when a review lands so the board re-renders", () => {

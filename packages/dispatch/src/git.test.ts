@@ -7,6 +7,7 @@ import {
   defaultGitRunner,
   gitChildEnv,
   isMissingGitRepoMessage,
+  mergeJobBranch,
 } from "./git.js";
 
 describe("git runner isolation", () => {
@@ -76,4 +77,79 @@ describe("git runner isolation", () => {
     ).toBe(true);
     expect(isMissingGitRepoMessage("worktree add failed")).toBe(false);
   });
+});
+
+describe("mergeJobBranch", () => {
+  const temps: string[] = [];
+
+  afterEach(async () => {
+    for (const dir of temps.splice(0)) {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  async function gitRepo(): Promise<string> {
+    const root = await mkdtemp(join(tmpdir(), "prism-dispatch-merge-"));
+    temps.push(root);
+    execFileSync("git", ["init", "--quiet", "--initial-branch=main"], {
+      cwd: root,
+    });
+    execFileSync("git", ["config", "user.name", "Fixture"], { cwd: root });
+    execFileSync("git", ["config", "user.email", "fixture@example.invalid"], {
+      cwd: root,
+    });
+    execFileSync("git", ["config", "commit.gpgsign", "false"], { cwd: root });
+    await writeFile(join(root, "README.md"), "ok\n");
+    execFileSync("git", ["add", "README.md"], { cwd: root });
+    execFileSync("git", ["commit", "--quiet", "-m", "first"], { cwd: root });
+    return root;
+  }
+
+  it("merges a job branch onto the current checkout", async () => {
+    const root = await gitRepo();
+    execFileSync("git", ["checkout", "-b", "dispatch/land-me", "--quiet"], {
+      cwd: root,
+    });
+    await writeFile(join(root, "job.txt"), "from the job\n");
+    execFileSync("git", ["add", "job.txt"], { cwd: root });
+    execFileSync("git", ["commit", "--quiet", "-m", "job work"], { cwd: root });
+    execFileSync("git", ["checkout", "main", "--quiet"], { cwd: root });
+    const result = await mergeJobBranch(root, "dispatch/land-me");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.into).toBe("main");
+      expect(result.already).toBe(false);
+    }
+    expect(
+      execFileSync("git", ["log", "--oneline"], { cwd: root }).toString(),
+    ).toMatch(/job work/);
+  }, 30_000);
+
+  it("is a no-op when the job branch is already the current branch", async () => {
+    const root = await gitRepo();
+    const result = await mergeJobBranch(root, "main");
+    expect(result).toEqual({ ok: true, into: "main", already: true });
+  }, 30_000);
+
+  it("aborts a conflicting merge and leaves the tree clean", async () => {
+    const root = await gitRepo();
+    execFileSync("git", ["checkout", "-b", "dispatch/clash", "--quiet"], {
+      cwd: root,
+    });
+    await writeFile(join(root, "README.md"), "job\n");
+    execFileSync("git", ["add", "README.md"], { cwd: root });
+    execFileSync("git", ["commit", "--quiet", "-m", "job readme"], {
+      cwd: root,
+    });
+    execFileSync("git", ["checkout", "main", "--quiet"], { cwd: root });
+    await writeFile(join(root, "README.md"), "main\n");
+    execFileSync("git", ["add", "README.md"], { cwd: root });
+    execFileSync("git", ["commit", "--quiet", "-m", "main readme"], {
+      cwd: root,
+    });
+    const result = await mergeJobBranch(root, "dispatch/clash");
+    expect(result.ok).toBe(false);
+    const status = await defaultGitRunner(root, ["status", "--porcelain"]);
+    expect(status.stdout.trim()).toBe("");
+  }, 30_000);
 });

@@ -86,6 +86,7 @@ export function Table<Row>(props: TableProps<Row>): ReactElement {
           ) : (
             props.rows.map((row) => {
               const key = props.rowKey(row);
+              const clickable = Boolean(props.onRowClick);
               return (
                 <tr
                   key={key}
@@ -94,7 +95,15 @@ export function Table<Row>(props: TableProps<Row>): ReactElement {
                       ? "prism-table__row--on"
                       : undefined
                   }
+                  tabIndex={clickable ? 0 : undefined}
                   onClick={() => props.onRowClick?.(row)}
+                  onKeyDown={(event) => {
+                    if (!clickable) return;
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      props.onRowClick?.(row);
+                    }
+                  }}
                 >
                   {props.columns.map((column) => (
                     <td key={column.id} className={column.className}>

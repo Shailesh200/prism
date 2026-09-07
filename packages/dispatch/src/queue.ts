@@ -49,6 +49,7 @@ import { resolveMcpLaunch, workerPrompt, type WorkerPort } from "./worker.js";
 import { adoptOrCreateWorktree } from "./worktrees.js";
 import { linkWorktreeInstall } from "./worktree-install.js";
 import type { WorkerBackend } from "./worker-backend.js";
+import { cursorModelForSpawn } from "./worker-models.js";
 
 /**
  * Everything the drain needs from the runtime, passed in rather than imported,
@@ -126,6 +127,11 @@ export async function settleDrains(): Promise<void> {
 
 async function drainOnce(deps: DrainDeps): Promise<void> {
   const config = await loadConfig(deps.workspaceRoot);
+  // Warm the Cursor model list while we reap/place so spawn does not wait
+  // on it serially. Tests skip the live list.
+  void cursorModelForSpawn(undefined).catch(() => {
+    /* spawn still resolves a model if this misses */
+  });
   // Reconcile with run sidecars first so the cap counts reality, not a stale
   // `running` row whose pid died an hour ago.
   const jobs = await reapJobs(deps.workspaceRoot);
@@ -413,8 +419,14 @@ async function spawnWorker(
   auth: { apiKey?: string },
   config: DrainConfig,
 ): Promise<DrainOutcome> {
-  const memories = await loadMemories(deps.workspaceRoot);
   const launch = resolveMcpLaunch(deps.env);
+  const backend = job.workerBackend ?? "cursor";
+  const [memories, spawnModel] = await Promise.all([
+    loadMemories(deps.workspaceRoot),
+    backend === "cursor"
+      ? cursorModelForSpawn(job.workerModel)
+      : Promise.resolve(job.workerModel),
+  ]);
   try {
     const started = await worker.start({
       jobId: job.id,
@@ -439,6 +451,7 @@ async function spawnWorker(
       ...(job.preExistingChanges
         ? { preExistingChanges: job.preExistingChanges }
         : {}),
+      ...(spawnModel ? { model: spawnModel } : {}),
     });
     const running = await upsertJob(deps.workspaceRoot, {
       ...job,
@@ -450,6 +463,7 @@ async function spawnWorker(
       resultSummary: undefined,
       nextStep: "",
       waitingOn: "",
+      ...(spawnModel ? { workerModel: spawnModel } : {}),
       ...(started.agentId ? { cursorAgentId: started.agentId } : {}),
       ...(typeof started.pid === "number" ? { workerPid: started.pid } : {}),
     });

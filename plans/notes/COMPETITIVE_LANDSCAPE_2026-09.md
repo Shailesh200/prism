@@ -5,8 +5,9 @@
 > Prism Dispatch was reaching for — what does it actually do, what else is in
 > this market, and which of it belongs in Prism?
 >
-> Feeds [ADR-0052](../adr/0052-product-identity-and-iris.md) and
-> [ADR-0053](../adr/0053-console-information-architecture.md).
+> Feeds [ADR-0052](../adr/0052-product-identity-and-iris.md),
+> [ADR-0053](../adr/0053-console-information-architecture.md), and the visual
+> lock [`mockups/CONSOLE_FLEET.md`](../mockups/CONSOLE_FLEET.md) (M-068).
 
 ## The finding in one paragraph
 
@@ -24,6 +25,14 @@ Nimbalyst, Superset, Vibe Kanban. Every one of them is "git worktrees + a
 board + diff review". **None of them does analysis.** That is the gap Prism's
 32 intelligence tools sit in, and it is the only durable advantage on this
 page.
+
+**Why this note exists for M-068:** the owner’s priority is not more
+orchestration features. It is a Console that can stand next to Trinity (and
+those workspaces) as a **sellable product** in the first thirty seconds.
+Buyers do not read ADRs; they open a dashboard. M-068’s visual lock
+(`CONSOLE_FLEET.md`) and craft bar are the product response to this
+research. Features we already have lose if the storefront still looks like
+a side project.
 
 ## Where each product sits
 

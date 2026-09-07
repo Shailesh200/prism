@@ -26,7 +26,14 @@ import {
   notePathsOf,
   stripWorktreePaths,
 } from "./job-artifacts.js";
-import { firstFailureLine, verifyJobWork } from "./job-verify.js";
+import {
+  bunCliPath,
+  firstFailureLine,
+  isCheckInterrupted,
+  verifyJobWork,
+  verifyRunFailure,
+  VERIFY_TIMEOUT_MS,
+} from "./job-verify.js";
 import { composeJobResult } from "./run-state.js";
 
 /** These suites shell out to real git, which is slow under a parallel run. */
@@ -259,6 +266,30 @@ describe("verifyJobWork", { timeout: GIT_TIMEOUT_MS }, () => {
     expect(seen).toEqual(["typecheck"]);
   });
 
+  it("retries an interrupted check once then skips instead of failing the job", async () => {
+    const dir = await repo();
+    await writeFile(join(dir, "package.json"), "{}");
+    const seen: string[] = [];
+
+    const result = await verifyJobWork(dir, {
+      steps,
+      run: async (_cwd, script) => {
+        seen.push(script);
+        return {
+          ok: false,
+          output: [
+            'cli:typecheck | error: script "typecheck" was terminated by signal SIGTERM (Polite quit request).',
+            "Error: task_runner::run_failed.",
+          ].join("\n"),
+        };
+      },
+    });
+
+    expect(result.status).toBe("skipped");
+    expect(result.detail).toMatch(/interrupted/i);
+    expect(seen).toEqual(["typecheck", "typecheck"]);
+  });
+
   it("skips when there is nothing to run", async () => {
     const dir = await repo();
     const result = await verifyJobWork(dir, { steps });
@@ -275,6 +306,76 @@ describe("verifyJobWork", { timeout: GIT_TIMEOUT_MS }, () => {
     expect(firstFailureLine("ok\n\nsrc/a.ts: error TS1: bad\nmore")).toBe(
       "src/a.ts: error TS1: bad",
     );
+  });
+
+  it("skips moon SIGTERM cancellation noise", () => {
+    expect(
+      firstFailureLine(
+        'ui:typecheck | error: script "typecheck" was terminated by signal SIGTERM (Polite quit request)\nsrc/a.ts(3,1): error TS2345: nope',
+      ),
+    ).toBe("src/a.ts(3,1): error TS2345: nope");
+  });
+
+  it("skips moon exited-with-code wrappers", () => {
+    expect(
+      firstFailureLine(
+        'cli:typecheck | error: script "typecheck" exited with code 1\nsrc/bin.ts(4,1): error TS2322: nope',
+      ),
+    ).toBe("src/bin.ts(4,1): error TS2322: nope");
+  });
+
+  it("names a SIGTERM-only abort instead of quoting Bun's polite quit", () => {
+    expect(
+      firstFailureLine(
+        'ui:typecheck | error: script "typecheck" was terminated by signal SIGTERM (Polite quit request)',
+      ),
+    ).toBe("checks were interrupted before they finished");
+  });
+
+  it("does not treat moon task_runner wrappers as the failure", () => {
+    const output = [
+      'cli:typecheck | error: script "typecheck" was terminated by signal SIGTERM (Polite quit request).',
+      "Error: task_runner::run_failed.",
+    ].join("\n");
+    expect(firstFailureLine(output)).toBe(
+      "checks were interrupted before they finished",
+    );
+    expect(isCheckInterrupted(output)).toBe(true);
+  });
+});
+
+describe("verifyRunFailure", () => {
+  it("does not treat a moon SIGTERM as a timeout", () => {
+    expect(
+      verifyRunFailure({
+        stderr:
+          'ui:typecheck | error: script "typecheck" was terminated by signal SIGTERM (Polite quit request)',
+        stdout: "src/a.ts(3,1): error TS2345: nope",
+      }).output,
+    ).toContain("TS2345");
+    expect(
+      verifyRunFailure({
+        stderr: "terminated by signal SIGTERM",
+      }).output,
+    ).not.toMatch(/timed out/);
+  });
+
+  it("reports a missing bun and a real timeout distinctly", () => {
+    expect(verifyRunFailure({ code: "ENOENT" }).output).toMatch(
+      /bun is not available/,
+    );
+    expect(verifyRunFailure({ timedOut: true }).output).toBe(
+      `timed out after ${VERIFY_TIMEOUT_MS}ms`,
+    );
+  });
+});
+
+describe("bunCliPath", () => {
+  it("uses the running Bun binary when execPath is bun", () => {
+    expect(bunCliPath("/Users/me/.bun/bin/bun", "/tmp/missing-home")).toBe(
+      "/Users/me/.bun/bin/bun",
+    );
+    expect(bunCliPath("/usr/bin/node", "/tmp/missing-home")).toBe("bun");
   });
 });
 

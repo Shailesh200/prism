@@ -65,6 +65,8 @@ export function claudeWorkerArgs(input: {
   readonly omitFlags?: readonly string[];
   /** A written mcp.json holding only worker-role Prism (ADR-0050). */
   readonly mcpConfigPath?: string;
+  /** Vendor model id from this Claude install. Omit for the CLI default. */
+  readonly model?: string;
 }): string[] {
   const tools = [
     ...CLAUDE_WORKER_TOOLS,
@@ -79,6 +81,7 @@ export function claudeWorkerArgs(input: {
   const omit = new Set(input.omitFlags ?? []);
   const args = [
     "-p",
+    ...(input.model?.trim() ? ["--model", input.model.trim()] : []),
     "--output-format",
     "stream-json",
     "--verbose",

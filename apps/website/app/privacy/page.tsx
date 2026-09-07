@@ -7,7 +7,8 @@ import { LegalDoc } from "@/components/legal-doc";
 
 export const metadata: Metadata = {
   title: "Privacy",
-  description: "Prism privacy policy — local-first, no telemetry by default.",
+  description:
+    "Analysis makes zero network calls. Optional features are consent-gated. None send source.",
 };
 
 export default function PrivacyPage() {
@@ -15,8 +16,12 @@ export default function PrivacyPage() {
     <HomeLayout {...baseOptions()}>
       <PageEnter>
         <main className="mx-auto w-full max-w-3xl px-6 py-16">
-          <p className="mb-6 font-mono text-xs tracking-widest text-fd-primary">
+          <p className="font-mono text-xs tracking-widest text-fd-primary">
             Nº PRIVACY
+          </p>
+          <p className="mt-3 mb-10 max-w-2xl text-fd-muted-foreground">
+            Analysis stays on your machine. Optional features are consent-gated;
+            none send source.
           </p>
           <LegalDoc file="PRIVACY.md" />
         </main>

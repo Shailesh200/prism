@@ -104,11 +104,29 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
         .string()
         .optional()
         .describe("Job playbook id, default ticket"),
+      workerModel: z
+        .string()
+        .optional()
+        .describe(
+          "Model id from the selected agent's own list. Omit to use that agent's default. Do not invent a name.",
+        ),
       confirmOverlap: z
         .boolean()
         .optional()
         .describe(
           "Set true only after the user confirms a second agent on a shared dirty worktree",
+        ),
+      parentJobId: z
+        .string()
+        .optional()
+        .describe(
+          "Canonical id of the parent job when this is a retry, reverify, finding, or instruction child",
+        ),
+      origin: z
+        .enum(["retry", "reverify", "finding", "instruct"])
+        .optional()
+        .describe(
+          "Why this job is a child of parentJobId. Default finding when parentJobId is set.",
         ),
     },
     readOnly: false,
@@ -166,7 +184,7 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     name: "job_control",
     title: "Control a Dispatch job",
     description:
-      "Pause, resume, cancel, delete, confirm, add context to, commit, keep, or restore files for a Dispatch job. cancel stops a live job but keeps it on the board; delete removes it from the board entirely (and stops it first if it is still running). confirm answers a job sitting in needs_confirm (a dirty checkout or an overlap) and puts it back in the queue. commit is only for checkout jobs that finished with uncommitted edits — it stages exactly the job's files on the user's current branch, never anything else. accept_file / accept_all keep the job's files; reject_file / reject_all restore them in a checkout (never mixed files the user already had dirty). Speak only the tool message, using the job title and canonical id. jobId may be a ticket, a slug like audit-issues, or the title.",
+      "Pause, resume, retry, reverify, cancel, delete, confirm, add context to, commit, keep, or restore files for a Dispatch job. retry restarts a failed or cancelled job. reverify re-runs supervisor checks on a finished job whose Verify is Failure or NA. If those checks still fail, a teammate fixes the errors and Prism verifies again. cancel stops a live job but keeps it on the board; delete removes it from the board entirely (and stops it first if it is still running). confirm answers a job sitting in needs_confirm (a dirty checkout or an overlap) and puts it back in the queue. commit is only for checkout jobs that finished with uncommitted edits — it stages exactly the job's files on the user's current branch, never anything else. accept_file / accept_all keep the job's files; on a worktree job, accept_all also merges the job branch onto the user's current branch. reject_file / reject_all restore them in a checkout (never mixed files the user already had dirty). Speak only the tool message, using the job title and canonical id. jobId may be a ticket, a slug like audit-issues, or the title.",
     inputSchema: {
       jobId: z
         .string()
@@ -175,6 +193,8 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
         .enum([
           "pause",
           "resume",
+          "retry",
+          "reverify",
           "cancel",
           "delete",
           "confirm",
@@ -186,7 +206,7 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
           "reject_all",
         ])
         .describe(
-          "pause, resume, cancel, delete (remove from the board), confirm (clear a needs_confirm gate), attach_context, commit (checkout jobs only), accept_file / accept_all (keep), or reject_file / reject_all (restore)",
+          "pause, resume, retry (failed or cancelled jobs), reverify (re-run checks on Failure or NA; if they still fail, a teammate fixes them), cancel, delete (remove from the board), confirm (clear a needs_confirm gate), attach_context, commit (checkout jobs only), accept_file / accept_all (keep; worktree jobs merge onto the current branch), or reject_file / reject_all (restore)",
         ),
       context: z
         .string()

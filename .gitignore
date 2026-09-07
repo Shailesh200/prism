@@ -47,3 +47,6 @@ npm-debug.log*
 apps/website/.next/
 apps/website/.source/
 apps/website/next-env.d.ts
+
+# Superdesign scratch HTML
+.superdesign/tmp/

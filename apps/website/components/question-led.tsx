@@ -30,7 +30,7 @@ export function QuestionLed() {
       <Reveal>
         <div className="mb-10 space-y-3">
           <p className="font-mono text-xs tracking-widest text-fd-primary">
-            Nº03
+            Nº06
           </p>
           <h2 className="max-w-xl font-display text-3xl font-semibold tracking-tight text-fd-foreground md:text-4xl">
             Three questions Prism answers

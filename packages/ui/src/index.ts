@@ -79,6 +79,7 @@ export { Select, type SelectOption, type SelectProps } from "./Select.js";
 export {
   Button,
   IconButton,
+  buttonVariantClass,
   type ButtonProps,
   type ButtonSize,
   type ButtonVariant,
@@ -94,10 +95,33 @@ export {
 export { Accordion, type AccordionProps } from "./Accordion.js";
 export {
   Drawer,
+  focusableElements,
+  isActivateTarget,
+  isDrawerOpen,
+  isPrimaryActionKey,
+  isTypingTarget,
+  listCursorDelta,
+  pageShortcutBlocked,
+  trapTabKey,
   type DrawerProps,
   type DrawerSize,
+  type KeyChord,
 } from "./Drawer.js";
 export { Popover, type PopoverProps } from "./Popover.js";
+export {
+  DateRangePicker,
+  type DateRangePickerProps,
+} from "./DateRangePicker.js";
+export {
+  CUSTOM_RANGE_PRESET,
+  formatRangeAbs,
+  fromDatetimeLocalValue,
+  presetLabel,
+  toDatetimeLocalValue,
+  type DateRangePreset,
+  type DateRangeValue,
+  type DateRangeWindow,
+} from "./date-range.js";
 export {
   DropdownMenu,
   type DropdownMenuItem,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { visibleDispatchTools, WORKER_HIDDEN_TOOLS } from "./runtime.js";
-import { workerPrompt } from "./worker.js";
+import { workerPrompt, verificationFixExtra } from "./worker.js";
 import type { JobRecord } from "./types.js";
 
 describe("worker tool filter", () => {
@@ -56,6 +56,7 @@ describe("worker prompt", () => {
     });
     expect(text).toContain("bun install");
     expect(text).toContain("no shell");
+    expect(text).toContain("Finish as soon as the brief is done");
     expect(text).toContain("Do not start new Dispatch jobs");
     expect(text).toContain("change nothing");
     expect(text).toContain("Prefer existing auth helpers");
@@ -85,6 +86,34 @@ describe("worker prompt", () => {
     expect(text).toContain("Standing job instructions from the user:");
     expect(text).toContain("Prefer small diffs.");
     expect(text.indexOf("Prefer small diffs.")).toBeLessThan(
+      text.indexOf("Do not leak tokens"),
+    );
+  });
+
+  it("puts a failed-check brief ahead of the original PRD", () => {
+    const job: JobRecord = {
+      id: "J1",
+      title: "Fix auth",
+      playbook: "ticket",
+      prd: "Do not leak tokens",
+      branch: "feat/j1",
+      worktreePath: "/tmp/j1",
+      source: "prism",
+      status: "done",
+      lastStep: "",
+      nextStep: "",
+      waitingOn: "",
+      createdAt: "t",
+      updatedAt: "t",
+    };
+    const text = workerPrompt({
+      job,
+      memories: [],
+      extra: verificationFixExtra("typecheck failed — error TS2345"),
+    });
+    expect(text).toContain("Your only job is to make typecheck and tests pass");
+    expect(text).toContain("typecheck failed — error TS2345");
+    expect(text.indexOf("typecheck failed")).toBeLessThan(
       text.indexOf("Do not leak tokens"),
     );
   });

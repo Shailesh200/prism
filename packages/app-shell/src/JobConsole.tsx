@@ -1,3 +1,4 @@
+import { Button } from "@repo-prism/ui";
 import { ChevronDown, ChevronRight, Copy, Pause, Play } from "lucide-react";
 import {
   useCallback,
@@ -9,6 +10,10 @@ import {
   type ReactElement,
 } from "react";
 import { MarkdownDoc } from "./MarkdownDoc.js";
+import {
+  coalesceThinkingEntries,
+  isModelSpeech,
+} from "./job-console-coalesce.js";
 import type { JobConsoleEntry, JobRunPhase } from "./jobs-types.js";
 
 export type JobConsoleProps = {
@@ -99,9 +104,13 @@ export function JobConsole(props: JobConsoleProps): ReactElement {
   const [expanded, setExpanded] = useState(props.defaultExpanded ?? true);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
+  const coalesced = useMemo(
+    () => coalesceThinkingEntries(props.entries),
+    [props.entries],
+  );
   const visible = useMemo(
-    () => props.entries.filter((entry) => matchesFilter(entry, filter)),
-    [props.entries, filter],
+    () => coalesced.filter((entry) => matchesFilter(entry, filter)),
+    [coalesced, filter],
   );
 
   const onScroll = useCallback(() => {
@@ -115,7 +124,7 @@ export function JobConsole(props: JobConsoleProps): ReactElement {
     if (!follow) return;
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [visible.length, follow]);
+  }, [visible, follow]);
 
   useEffect(() => {
     if (!copied) return;
@@ -133,11 +142,24 @@ export function JobConsole(props: JobConsoleProps): ReactElement {
     );
   }, [visible]);
 
+  const note = consoleNote(
+    {
+      entries: coalesced,
+      ...(props.totalCount !== undefined
+        ? { totalCount: props.totalCount }
+        : {}),
+      ...(props.truncated !== undefined ? { truncated: props.truncated } : {}),
+    },
+    visible.length,
+    filter !== "all",
+  );
+
   return (
     <div className={`job-console${expanded ? "" : " job-console--collapsed"}`}>
       <div className="job-console__bar">
-        <button
+        <Button
           type="button"
+          variant="tertiary"
           className="job-console__toggle"
           aria-expanded={expanded}
           onClick={() => setExpanded((value) => !value)}
@@ -148,10 +170,10 @@ export function JobConsole(props: JobConsoleProps): ReactElement {
             <ChevronRight size={14} aria-hidden />
           )}
           Console
-          {props.entries.length > 0 ? (
-            <span className="job-console__count">{props.entries.length}</span>
+          {coalesced.length > 0 ? (
+            <span className="job-console__count">{coalesced.length}</span>
           ) : null}
-        </button>
+        </Button>
         {expanded ? (
           <>
             <div
@@ -160,21 +182,23 @@ export function JobConsole(props: JobConsoleProps): ReactElement {
               aria-label="Filter console"
             >
               {FILTERS.map((option) => (
-                <button
+                <Button
                   key={option.id}
                   type="button"
+                  variant="tertiary"
                   className="job-console__filter"
                   aria-pressed={filter === option.id}
                   onClick={() => setFilter(option.id)}
                 >
                   {option.label}
-                </button>
+                </Button>
               ))}
             </div>
             <div className="job-console__actions">
               {props.live ? (
-                <button
+                <Button
                   type="button"
+                  variant="tertiary"
                   className="job-console__action"
                   aria-pressed={follow}
                   onClick={() => setFollow((value) => !value)}
@@ -186,17 +210,18 @@ export function JobConsole(props: JobConsoleProps): ReactElement {
                     <Play size={13} aria-hidden />
                   )}
                   {follow ? "Following" : "Paused"}
-                </button>
+                </Button>
               ) : null}
-              <button
+              <Button
                 type="button"
+                variant="tertiary"
                 className="job-console__action"
                 onClick={copyAll}
                 disabled={visible.length === 0}
               >
                 <Copy size={13} aria-hidden />
                 {copied ? "Copied" : "Copy"}
-              </button>
+              </Button>
             </div>
           </>
         ) : null}
@@ -229,27 +254,40 @@ export function JobConsole(props: JobConsoleProps): ReactElement {
               </p>
             ) : (
               <ol className="job-console__lines">
-                {visible.map((entry, index) => (
-                  <li
-                    key={`${entry.ts}-${index}`}
-                    className={`job-console__line job-console__line--${entry.level} job-console__line--${entry.phase}`}
-                  >
-                    <div className="job-console__meta">
-                      <span className="job-console__time">
-                        {timeLabel(entry.ts)}
-                      </span>
-                      <span
-                        className={`job-console__phase job-console__phase--${entry.phase}`}
-                      >
-                        {entry.tool ?? entry.phase}
-                      </span>
-                    </div>
-                    <MarkdownDoc
-                      className="job-console__text"
-                      text={entry.text}
-                    />
-                  </li>
-                ))}
+                {visible.map((entry, index) => {
+                  const streaming =
+                    props.live &&
+                    index === visible.length - 1 &&
+                    isModelSpeech(entry);
+                  return (
+                    <li
+                      key={`${entry.ts}-${index}`}
+                      className={`job-console__line job-console__line--${entry.level} job-console__line--${entry.phase}`}
+                    >
+                      <div className="job-console__meta">
+                        <span className="job-console__time">
+                          {timeLabel(entry.ts)}
+                        </span>
+                        <span
+                          className={`job-console__phase job-console__phase--${entry.phase}`}
+                        >
+                          {entry.tool ?? entry.phase}
+                        </span>
+                      </div>
+                      {streaming ? (
+                        <p className="job-console__text job-console__text--stream">
+                          {entry.text}
+                          <span className="job-console__caret" aria-hidden />
+                        </p>
+                      ) : (
+                        <MarkdownDoc
+                          className="job-console__text"
+                          text={entry.text}
+                        />
+                      )}
+                    </li>
+                  );
+                })}
               </ol>
             )}
           </div>
@@ -257,20 +295,17 @@ export function JobConsole(props: JobConsoleProps): ReactElement {
           {/* Two different truncations can bite: the host capping its page, and
           this component capping its buffer. Both are stated, and the filter is
           named separately so "42 of 900" is never read as data loss. */}
-          {consoleNote(props, visible.length, filter !== "all") ? (
-            <p className="job-console__note">
-              {consoleNote(props, visible.length, filter !== "all")}
-            </p>
-          ) : null}
+          {note ? <p className="job-console__note">{note}</p> : null}
 
           {props.live && !follow && visible.length > 0 ? (
-            <button
+            <Button
               type="button"
+              variant="tertiary"
               className="job-console__jump"
               onClick={() => setFollow(true)}
             >
               Jump to latest
-            </button>
+            </Button>
           ) : null}
         </>
       ) : null}

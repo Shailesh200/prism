@@ -63,7 +63,7 @@ use this page when you need the exhaustive index.
 | `find_symbol` | Find indexed symbols by exact name, optionally narrowed by file or kind |
 | `health_history` | Health score over time from stored index snapshots and optional git backfill |
 | `init` | One-time worker sign-in so Prism can run local job teammates |
-| `job_control` | Pause, resume, cancel, delete, confirm, add context to, commit, keep, or restore files for a Dispatch job |
+| `job_control` | Pause, resume, retry, reverify, cancel, delete, confirm, add context to, commit, keep, or restore files for a Dispatch job |
 | `job_logs` | The console for one Dispatch job |
 | `knowledge_graph` | The symbol-level graph — declarations and the references between them — with summary stats |
 | `landmarks` | Named entrypoints, package roots and feature anchors — the places a human would open first |

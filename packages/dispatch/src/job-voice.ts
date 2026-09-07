@@ -1,5 +1,6 @@
 import { isMissingGitRepoMessage } from "./git.js";
 import { displayJobId, isOpaqueJobId } from "./job-id.js";
+import { coalesceThinkingEntries } from "./run-log.js";
 import type { JobRecord, JobReview, ReviewFile } from "./types.js";
 
 export function jobRef(job: { id: string; title: string }): string {
@@ -58,7 +59,7 @@ const NOISE_LOG = /^(Teammate starting|Teammate is on it|Done —)/i;
 export function analysisSpeak(
   entries: readonly { phase: string; text: string }[],
 ): string {
-  const thinking = entries.filter(
+  const thinking = coalesceThinkingEntries(entries).filter(
     (entry) =>
       entry.phase === "thinking" &&
       entry.text.trim().length >= 20 &&
@@ -96,19 +97,22 @@ export function jobLogsSpeak(
   if (entries.length === 0) {
     return `${head}. No console output yet.`;
   }
-  const useful = entries.filter(
+  const coalesced = coalesceThinkingEntries(entries);
+  const useful = coalesced.filter(
     (entry) =>
       !NOISE_LOG.test(entry.text.trim()) ||
       entry.phase === "failed" ||
       entry.phase === "editing",
   );
-  const shown = (useful.length > 0 ? useful : entries).slice(-SPOKEN_LOG_LINES);
+  const shown = (useful.length > 0 ? useful : coalesced).slice(
+    -SPOKEN_LOG_LINES,
+  );
   // Subagent lines are marked, not flattened away (M-066 P-P6).
   const lines = shown.map(
     (entry) => `  ${entry.parent ? "↳ " : ""}${entry.phase}: ${entry.text}`,
   );
   const parts = [head, ...lines];
-  const analysis = analysisSpeak(entries);
+  const analysis = analysisSpeak(coalesced);
   if (analysis) parts.push("", analysis);
   if (job.status === "needs_review" && review) {
     parts.push("", reviewSpeak(job, review));
@@ -422,7 +426,7 @@ function teammateLine(status: string, agentStatus: string): string {
 }
 
 export function controlSpeak(
-  action: "pause" | "resume" | "cancel" | "delete",
+  action: "pause" | "resume" | "retry" | "cancel" | "delete",
   job: { id: string; title: string; placement?: string | undefined },
 ): string {
   if (action === "delete") {
@@ -437,7 +441,9 @@ export function controlSpeak(
       ? "Paused"
       : action === "cancel"
         ? "Cancelled"
-        : "Resumed";
+        : action === "retry"
+          ? "Retried"
+          : "Resumed";
   // Checkout jobs edit the user's tree directly (ADR-0045): cancel kills the
   // worker but cannot un-edit. Say so instead of implying a rollback.
   const note =
@@ -539,6 +545,31 @@ export function publicRunFailure(detail: string): string {
   return cleaned
     ? `The teammate hit an error (${cleaned}).`
     : "The teammate hit an error. Say resume to try again.";
+}
+
+/**
+ * Dead pid, no failed sidecar: say what it was doing instead of a blank
+ * “stopped unexpectedly”.
+ */
+export function unexpectedStopSpeak(input: {
+  readonly lastActivity?: string | undefined;
+  readonly errorMessage?: string | undefined;
+}): string {
+  const detail = input.errorMessage?.trim() ?? "";
+  if (detail && !/stopped unexpectedly/i.test(detail)) {
+    return publicRunFailure(detail);
+  }
+  const doing = input.lastActivity?.trim() ?? "";
+  if (
+    doing &&
+    !/^(starting|teammate starting|teammate is on it)$/i.test(doing)
+  ) {
+    const clause = /^using /i.test(doing)
+      ? doing
+      : `working (${doing.replace(/\.$/, "")})`;
+    return `The teammate stopped while ${clause}. Say resume to try again.`;
+  }
+  return "The teammate stopped without reporting a result. Say resume to try again.";
 }
 
 export function leftoverFocusSpeak(job: {

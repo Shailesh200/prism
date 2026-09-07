@@ -5,17 +5,30 @@
 @end
 
 @implementation PrismNotifyDelegate
+- (void)openConsole:(NSString *)url {
+  if (url.length == 0) return;
+  NSURL *parsed = [NSURL URLWithString:url];
+  BOOL opened = parsed && [[NSWorkspace sharedWorkspace] openURL:parsed];
+  if (opened) return;
+  NSTask *task = [[NSTask alloc] init];
+  task.launchPath = @"/usr/bin/open";
+  task.arguments = @[ url ];
+  @try {
+    [task launch];
+  } @catch (NSException *ex) {
+    (void)ex;
+  }
+}
+
 - (void)userNotificationCenter:(NSUserNotificationCenter *)center
        didActivateNotification:(NSUserNotification *)notification {
   NSString *url = notification.userInfo[@"url"];
-  if (url.length > 0) {
-    NSURL *parsed = [NSURL URLWithString:url];
-    if (parsed) {
-      [[NSWorkspace sharedWorkspace] openURL:parsed];
-    }
-  }
+  [self openConsole:url];
   [center removeDeliveredNotification:notification];
-  exit(0);
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)),
+                 dispatch_get_main_queue(), ^{
+                   exit(0);
+                 });
 }
 
 - (BOOL)userNotificationCenter:(NSUserNotificationCenter *)center
@@ -33,6 +46,9 @@ int main(int argc, const char *argv[]) {
     NSString *body = [NSString stringWithUTF8String:argv[2]];
     NSString *url = argc > 3 ? [NSString stringWithUTF8String:argv[3]] : @"";
 
+    [NSApplication sharedApplication];
+    [NSApp setActivationPolicy:NSApplicationActivationPolicyProhibited];
+
     PrismNotifyDelegate *delegate = [PrismNotifyDelegate new];
     NSUserNotificationCenter *center =
         [NSUserNotificationCenter defaultUserNotificationCenter];
@@ -43,6 +59,8 @@ int main(int argc, const char *argv[]) {
     note.subtitle = title;
     note.informativeText = body;
     note.soundName = NSUserNotificationDefaultSoundName;
+    note.hasActionButton = YES;
+    note.actionButtonTitle = @"Show";
     if (url.length > 0) {
       note.userInfo = @{@"url" : url};
     }

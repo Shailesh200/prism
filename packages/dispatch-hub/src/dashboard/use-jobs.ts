@@ -6,7 +6,14 @@ import type {
   JobsPort,
 } from "@repo-prism/app-shell";
 import type { HubEvent, JobSnapshot, WorkspaceError } from "../types.js";
-import { ConsoleRequestError, getJson, postJson } from "./session.js";
+import { HUB_ERROR } from "../api-errors.js";
+import {
+  ConsoleRequestError,
+  getJson,
+  patchJson,
+  postJson,
+} from "./session.js";
+import { controlFinishToast, showConsoleToast } from "./console-toast.js";
 
 const POLL_MS = 2_000;
 
@@ -59,6 +66,10 @@ export function toJobSummary(job: JobSnapshot): JobSummary {
       : {}),
     ...(job.playbook ? { playbook: job.playbook } : {}),
     ...(job.prd ? { prd: job.prd } : {}),
+    ...(job.hostClient ? { hostClient: job.hostClient } : {}),
+    ...(job.parentJobId ? { parentJobId: job.parentJobId } : {}),
+    ...(job.origin ? { origin: job.origin } : {}),
+    ...(job.tokenUsage ? { tokenUsage: job.tokenUsage } : {}),
     ...(job.nextStep ? { nextStep: job.nextStep } : {}),
     ...(job.resultSummary ? { resultSummary: job.resultSummary } : {}),
     ...(job.errorMessage ? { errorMessage: job.errorMessage } : {}),
@@ -94,7 +105,7 @@ export type JobsFeed = {
   /** True until the first successful read — distinct from "empty". */
   readonly loading: boolean;
   readonly errors: readonly WorkspaceError[];
-  readonly refresh: () => void;
+  readonly refresh: () => Promise<void>;
   readonly fatal?: string;
 };
 
@@ -217,8 +228,19 @@ export function useJobsFeed(token: string): JobsFeed {
   }, [token, applyEvent]);
 
   useEffect(() => {
-    const timer = setInterval(() => void pull(), POLL_MS);
-    return () => clearInterval(timer);
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const arm = (): void => {
+      if (timer !== undefined) clearInterval(timer);
+      const hidden =
+        typeof document !== "undefined" && document.hidden === true;
+      timer = setInterval(() => void pull(), hidden ? POLL_MS * 8 : POLL_MS);
+    };
+    arm();
+    document.addEventListener("visibilitychange", arm);
+    return () => {
+      if (timer !== undefined) clearInterval(timer);
+      document.removeEventListener("visibilitychange", arm);
+    };
   }, [pull]);
 
   // Staleness is a function of elapsed time, so it needs its own tick —
@@ -231,15 +253,19 @@ export function useJobsFeed(token: string): JobsFeed {
 
   const port = useMemo<JobsPort>(
     () => ({
-      jobLogs: async (jobId: string): Promise<JobConsolePage> => {
+      jobLogs: async (
+        jobId: string,
+        since?: string,
+      ): Promise<JobConsolePage> => {
         const workspace = jobsRef.current.find(
           (row) => row.id === jobId,
         )?.workspacePath;
-        const query = workspace
-          ? `?workspace=${encodeURIComponent(workspace)}`
-          : "";
+        const params = new URLSearchParams();
+        if (workspace) params.set("workspace", workspace);
+        if (since) params.set("since", since);
+        const query = params.toString();
         return await getJson<JobConsolePage>(
-          `/api/jobs/${encodeURIComponent(jobId)}/logs${query}`,
+          `/api/jobs/${encodeURIComponent(jobId)}/logs${query ? `?${query}` : ""}`,
           token,
         );
       },
@@ -267,40 +293,172 @@ export function useJobsFeed(token: string): JobsFeed {
           truncated?: boolean;
         }>(`/api/jobs/${encodeURIComponent(jobId)}/notes?${params}`, token);
       },
-      control: async (action: JobControlAction, jobId: string, extra) => {
-        const workspace = jobsRef.current.find(
-          (row) => row.id === jobId,
-        )?.workspacePath;
-        if (action === "delete") {
-          commit(
-            jobsRef.current.filter(
-              (row) =>
-                !(
-                  row.id === jobId &&
-                  (!workspace || row.workspacePath === workspace)
-                ),
-            ),
-          );
-        }
-        const result = await postJson<{
-          deleted?: boolean;
-          message?: string;
-        }>(`/api/jobs/${encodeURIComponent(jobId)}/control`, token, {
-          action,
+      updatePrd: async (jobId, prd) => {
+        const current = jobsRef.current.find((row) => row.id === jobId);
+        const workspace = current?.workspacePath;
+        const next = await patchJson<{
+          error?: string;
+          job?: JobSnapshot;
+        }>(`/api/jobs/${encodeURIComponent(jobId)}`, token, {
+          prd,
           ...(workspace ? { workspace } : {}),
-          ...(extra?.path ? { path: extra.path } : {}),
         });
-        if (action === "delete" && result.deleted !== true) {
-          await pull();
-          throw new ConsoleRequestError(
-            400,
-            result.message ?? "The Console could not delete that job.",
-          );
+        if (typeof next.error === "string" && next.error.trim()) {
+          throw new ConsoleRequestError(400, next.error.trim());
+        }
+        if (next.job) {
+          applyEvent({ type: "job.updated", job: next.job });
         }
         await pull();
       },
+      startChild: async (jobId, prd) => {
+        const parent = jobsRef.current.find((row) => row.id === jobId);
+        const workspace = parent?.workspacePath;
+        if (!workspace || !parent) {
+          throw new ConsoleRequestError(400, HUB_ERROR.jobMissing);
+        }
+        const result = await postJson<{ error?: string; message?: string }>(
+          "/api/jobs",
+          token,
+          {
+            workspace,
+            title: parent.title,
+            prd,
+            playbook: parent.playbook ?? "console",
+            ...(parent.placement ? { placement: parent.placement } : {}),
+            ...(parent.workerBackend
+              ? { workerBackend: parent.workerBackend }
+              : {}),
+            ...(parent.workerModel ? { workerModel: parent.workerModel } : {}),
+            parentJobId: jobId,
+            origin: "instruct",
+            hostClient: "console",
+          },
+        );
+        if (typeof result.error === "string" && result.error.trim()) {
+          throw new ConsoleRequestError(400, result.error.trim());
+        }
+        await pull();
+      },
+      control: async (action: JobControlAction, jobId: string, extra) => {
+        const current = jobsRef.current.find((row) => row.id === jobId);
+        const workspace = current?.workspacePath;
+        const jobTitle = current?.title;
+        try {
+          if (action === "delete") {
+            commit(
+              jobsRef.current.filter(
+                (row) =>
+                  !(
+                    row.id === jobId &&
+                    (!workspace || row.workspacePath === workspace)
+                  ),
+              ),
+            );
+          }
+          const result = await postJson<{
+            deleted?: boolean;
+            error?: string;
+            message?: string;
+            job?: {
+              readonly title?: string;
+              readonly status?: string;
+              readonly verification?: "passed" | "failed" | "skipped";
+              readonly lastActivity?: string;
+            };
+            deferred?: boolean;
+          }>(`/api/jobs/${encodeURIComponent(jobId)}/control`, token, {
+            action,
+            ...(workspace ? { workspace } : {}),
+            ...(extra?.path ? { path: extra.path } : {}),
+            ...(extra?.context ? { context: extra.context } : {}),
+          });
+          if (typeof result.error === "string" && result.error.trim()) {
+            throw new ConsoleRequestError(400, result.error.trim());
+          }
+          if (action === "delete" && result.deleted !== true) {
+            await pull();
+            throw new ConsoleRequestError(
+              400,
+              result.message ?? "The Console could not delete that job.",
+            );
+          }
+          await pull();
+          if (action === "retry") {
+            const status = result.job?.status;
+            const started =
+              status === "running" ||
+              status === "booting" ||
+              status === "queued" ||
+              status === "ready";
+            if (!started) {
+              showConsoleToast(
+                result.message?.trim() ||
+                  "Could not retry this job. The teammate did not start.",
+                "error",
+              );
+              return;
+            }
+            const toast = controlFinishToast(
+              action,
+              jobTitle ? { title: jobTitle } : {},
+            );
+            showConsoleToast(result.message?.trim() || toast.message, "ok");
+            return;
+          }
+          if (action === "reverify") {
+            if (result.deferred === true) {
+              return;
+            }
+            if (/still in flight|no tree left/i.test(result.message ?? "")) {
+              showConsoleToast(
+                result.message ?? "Could not re-run checks.",
+                "error",
+              );
+              return;
+            }
+            const toast = controlFinishToast(
+              action,
+              result.job?.verification
+                ? { verification: result.job.verification }
+                : {},
+            );
+            showConsoleToast(
+              result.message?.trim() && toast.tone === "error"
+                ? result.message.trim()
+                : toast.message,
+              toast.tone,
+            );
+            return;
+          }
+          if (action === "attach_context") {
+            showConsoleToast(
+              result.message?.trim() || "Instruction queued.",
+              "ok",
+            );
+          }
+        } catch (cause) {
+          if (action === "delete") {
+            // The row above was removed optimistically; a thrown request
+            // means the server never confirmed it, so pull the real list
+            // back rather than leave the job looking deleted.
+            await pull();
+          }
+          if (
+            action === "retry" ||
+            action === "reverify" ||
+            action === "delete"
+          ) {
+            showConsoleToast(
+              cause instanceof Error ? cause.message : String(cause),
+              "error",
+            );
+          }
+          throw cause;
+        }
+      },
     }),
-    [token, pull],
+    [token, pull, applyEvent, commit],
   );
 
   const summaries = useMemo(() => jobs.map(toJobSummary), [jobs]);
@@ -313,7 +471,7 @@ export function useJobsFeed(token: string): JobsFeed {
     stale: isStale(lastContactAt, clock),
     loading: lastContactAt === undefined,
     errors,
-    refresh: () => void pull(),
+    refresh: () => pull(),
     ...(fatal ? { fatal } : {}),
   };
 }

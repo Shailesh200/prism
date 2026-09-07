@@ -1,14 +1,33 @@
-import { useEffect, useState, type ReactElement } from "react";
-import { EmptyState } from "@repo-prism/ui";
+import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
+import {
+  Button,
+  CUSTOM_RANGE_PRESET,
+  DateRangePicker,
+  EmptyState,
+  SearchableInput,
+  isActivateTarget,
+  listCursorDelta,
+  pageShortcutBlocked,
+  type DateRangeValue,
+} from "@repo-prism/ui";
 import {
   formatPrismDate,
   jobNotePaths,
   MarkdownDoc,
   type JobSummary,
+  type JobWorkspaceChip,
 } from "@repo-prism/app-shell";
 import { ArrowLeft } from "lucide-react";
-import { findingWhenIso, findingsIndex } from "./findings.js";
+import { findingWhenIso, findingsIndex, findingsInView } from "./findings.js";
+import {
+  FLEET_RANGE_PRESETS,
+  FLEET_RANGES,
+  selectedRangeWindow,
+  type FleetRange,
+  type TimeWindow,
+} from "./fleet.js";
 import { findingsHash } from "./router.js";
+import { RepoSelect } from "./repo-select.js";
 import { getJson } from "./session.js";
 
 type NoteFile = {
@@ -20,10 +39,40 @@ type NoteFile = {
 export function FindingsView(props: {
   readonly token: string;
   readonly jobs: readonly JobSummary[];
+  readonly repos?: readonly JobWorkspaceChip[];
   readonly jobId?: string;
   readonly notePath?: string;
+  readonly onHandOff?: (job: JobSummary, text: string) => void;
 }): ReactElement {
-  const listed = findingsIndex(props.jobs);
+  const [filter, setFilter] = useState("");
+  const [repo, setRepo] = useState("all");
+  const [range, setRange] = useState<FleetRange>("all");
+  const [customWindow, setCustomWindow] = useState<TimeWindow | undefined>();
+  const [nowMs] = useState(() => Date.now());
+  const [cursor, setCursor] = useState(0);
+  const filterRef = useRef<HTMLInputElement | null>(null);
+  const timeWindow = customWindow ?? selectedRangeWindow(range, nowMs);
+  const rangeValue: DateRangeValue = {
+    preset: customWindow ? CUSTOM_RANGE_PRESET : range,
+    startMs: timeWindow.startMs,
+    endMs: Number.isFinite(timeWindow.endMs) ? timeWindow.endMs : nowMs,
+  };
+  const allFindings = useMemo(() => findingsIndex(props.jobs), [props.jobs]);
+  const listed = useMemo(
+    () =>
+      findingsInView(props.jobs, { filter, repo, range: timeWindow, nowMs }),
+    [props.jobs, filter, repo, timeWindow, nowMs],
+  );
+  const findingRepos = useMemo(
+    () =>
+      (props.repos ?? []).map((row) => ({
+        path: row.path,
+        label: row.label,
+        jobCount: allFindings.filter((job) => job.workspacePath === row.path)
+          .length,
+      })),
+    [props.repos, allFindings],
+  );
   const job =
     props.jobs.find((row) => row.id === props.jobId) ??
     listed.find((row) => row.id === props.jobId);
@@ -32,6 +81,39 @@ export function FindingsView(props: {
     props.notePath && paths.includes(props.notePath)
       ? props.notePath
       : paths[0];
+
+  useEffect(() => {
+    if (job) return;
+    const onKey = (event: KeyboardEvent): void => {
+      if (pageShortcutBlocked(event)) return;
+      if (event.key === "/") {
+        event.preventDefault();
+        filterRef.current?.focus();
+        return;
+      }
+      const delta = listCursorDelta(event.key);
+      if (delta !== 0) {
+        event.preventDefault();
+        setCursor((index) =>
+          Math.min(listed.length - 1, Math.max(0, index + delta)),
+        );
+        return;
+      }
+      if (event.key === "Enter") {
+        if (isActivateTarget(event.target)) return;
+        const row = listed[cursor];
+        if (!row) return;
+        event.preventDefault();
+        window.location.hash = findingsHash({
+          job: row.id,
+          ...(jobNotePaths(row)[0] ? { note: jobNotePaths(row)[0] } : {}),
+          ...(row.workspacePath ? { repo: row.workspacePath } : {}),
+        });
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [cursor, job, listed]);
 
   if (!job) {
     return (
@@ -42,17 +124,74 @@ export function FindingsView(props: {
           Full write-ups from finished jobs. Open one from a job summary, or
           pick it here.
         </p>
-        {listed.length === 0 ? (
+        <div className="fleet-toolbar findings-toolbar">
+          <SearchableInput
+            ref={filterRef}
+            className="fleet-toolbar__filter"
+            placeholder="Filter findings"
+            value={filter}
+            onChange={setFilter}
+            aria-label="Filter findings"
+          />
+          <div className="fleet-toolbar__end">
+            <DateRangePicker
+              aria-label="Time range"
+              className="fleet-toolbar__range-select"
+              presets={FLEET_RANGE_PRESETS}
+              value={rangeValue}
+              nowMs={nowMs}
+              presetWindow={(id, now) =>
+                selectedRangeWindow(
+                  (FLEET_RANGES.includes(id as FleetRange)
+                    ? id
+                    : "all") as FleetRange,
+                  now,
+                )
+              }
+              onChange={(next) => {
+                if (
+                  next.preset === CUSTOM_RANGE_PRESET ||
+                  !FLEET_RANGES.includes(next.preset as FleetRange)
+                ) {
+                  setCustomWindow({
+                    startMs: next.startMs,
+                    endMs: next.endMs,
+                  });
+                  return;
+                }
+                setRange(next.preset as FleetRange);
+                setCustomWindow(undefined);
+              }}
+            />
+            <RepoSelect
+              token={props.token}
+              aria-label="Filter by repository"
+              className="fleet-toolbar__repo-select"
+              value={repo}
+              onChange={setRepo}
+              includeAll
+              jobsOnly={false}
+              repos={findingRepos}
+            />
+          </div>
+        </div>
+        {allFindings.length === 0 ? (
           <EmptyState>No job has left a write-up yet.</EmptyState>
+        ) : listed.length === 0 ? (
+          <EmptyState>No findings match these filters.</EmptyState>
         ) : (
           <ul className="findings-index">
-            {listed.map((row) => {
+            {listed.map((row, index) => {
               const first = jobNotePaths(row)[0];
               const when = findingWhenIso(row);
               const whenLabel = when ? formatPrismDate(when, "datetime") : "";
               return (
                 <li key={`${row.workspacePath}:${row.id}`}>
                   <a
+                    className={
+                      index === cursor ? "findings-index__on" : undefined
+                    }
+                    aria-current={index === cursor ? "true" : undefined}
                     href={findingsHash({
                       job: row.id,
                       ...(first ? { note: first } : {}),
@@ -87,6 +226,21 @@ export function FindingsView(props: {
           Back
         </a>
         <h1 className="console__title">{job.title}</h1>
+        {props.onHandOff ? (
+          <Button
+            variant="secondary"
+            onClick={() =>
+              props.onHandOff?.(
+                job,
+                [job.title, job.resultSummary, ...(job.notes ?? [])]
+                  .filter(Boolean)
+                  .join("\n"),
+              )
+            }
+          >
+            Hand to a teammate
+          </Button>
+        ) : null}
         <p className="console__lede">
           {job.workspaceLabel ?? job.workspacePath}
           {active ? (

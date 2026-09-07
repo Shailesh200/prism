@@ -63,8 +63,24 @@ const BY_ZOOM: Record<MapZoomLevel, MapEmptyState> = {
  *
  * Takes the whole map rather than a count so callers cannot accidentally ask
  * about one zoom while rendering another.
+ *
+ * File/symbol altitude also counts as empty when the graph only has coarser
+ * nodes (e.g. a package-zoom payload painted at file zoom) — otherwise the
+ * canvas is a blank grid with "On map 0".
  */
 export function mapEmptyState(map: RepositoryMap): MapEmptyState | null {
-  if (map.graph.nodes.length > 0) return null;
-  return BY_ZOOM[map.zoom] ?? BY_ZOOM.repo;
+  if (map.graph.nodes.length === 0) {
+    return BY_ZOOM[map.zoom] ?? BY_ZOOM.repo;
+  }
+  if (
+    (map.zoom === "file" || map.zoom === "symbol") &&
+    !map.graph.nodes.some((n) => n.kind === "file" || n.kind === "symbol")
+  ) {
+    return {
+      ...BY_ZOOM[map.zoom],
+      suggestZoom: "package",
+      suggestLabel: "Back to packages",
+    };
+  }
+  return null;
 }

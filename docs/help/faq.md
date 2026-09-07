@@ -108,8 +108,8 @@ See [Dispatch](/docs/guides/dispatch).
 
 No. A checkout job leaves its edits uncommitted in your tree — you review the
 changed files and say "commit it" (which commits only the job's files) or
-commit yourself. A worktree job gets one commit on its own branch and is never
-merged. Prism never pushes.
+commit yourself. A worktree job gets one commit on its own branch; **Keep all**
+merges that onto the branch you are on. Prism never pushes.
 
 ## Why does the agent ask "teammate or here?" before changing code?
 

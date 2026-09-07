@@ -414,6 +414,23 @@ for (const command of COMMANDS) {
   }
 }
 
+// 9. Iris / Spectrum stay named where the product identity is documented.
+const designSystem = await readFile(
+  join(repoRoot, "plans", "DESIGN_SYSTEM.md"),
+  "utf8",
+);
+const glossary = await readFile(
+  join(docsDir, "reference", "glossary.md"),
+  "utf8",
+);
+for (const word of ["Iris", "Spectrum"]) {
+  if (!designSystem.includes(word)) {
+    problems.push(`plans/DESIGN_SYSTEM.md: ${word} is missing (ADR-0052)`);
+  }
+  if (!glossary.includes(`**${word}**`)) {
+    problems.push(`docs/reference/glossary.md: ${word} is missing`);
+  }
+}
 if (problems.length > 0) {
   console.error("check-docs: the docs describe a Prism that does not exist\n");
   for (const problem of problems) console.error(`  ${problem}`);

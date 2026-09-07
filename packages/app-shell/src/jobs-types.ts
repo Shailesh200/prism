@@ -73,8 +73,8 @@ export type JobReview = {
   readonly baseRef?: string;
   /** True once the supervisor committed it (ADR-0042 §1). */
   readonly committed?: boolean;
-  /** Always false: Prism does not merge a job for the user. */
-  readonly merged?: false;
+  /** True once Keep all merged the job branch onto the user's current branch. */
+  readonly merged?: boolean;
   /** Paths the user already had dirty that the job also touched. */
   readonly mixedPaths?: readonly string[];
   /** Files the user kept from this review. */
@@ -134,6 +134,23 @@ export type JobSummary = {
   readonly playbook?: string;
   /** The brief the user typed when they queued the job. */
   readonly prd?: string;
+  /** MCP client or Console that queued this job. */
+  readonly hostClient?: string;
+  /** Parent job when this row is a retry, reverify, finding, or instruct child. */
+  readonly parentJobId?: string;
+  readonly origin?: "retry" | "reverify" | "finding" | "instruct";
+  /** Live then final token usage the worker reported. */
+  readonly tokenUsage?: JobTokenUsage;
+};
+
+export type JobTokenUsage = {
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  readonly cacheReadTokens?: number;
+  readonly cacheWriteTokens?: number;
+  readonly totalTokens?: number;
+  readonly contextTokens?: number;
+  readonly contextWindow?: number;
 };
 
 export type JobConsolePage = {
@@ -149,6 +166,12 @@ export type JobControlAction =
   | "delete"
   /** Answer a `needs_confirm` gate and return the job to the queue. */
   | "confirm"
+  /** Re-run a failed or cancelled job's teammate. */
+  | "retry"
+  /** Re-run supervisor checks on a finished job (Failure or NA). */
+  | "reverify"
+  /** Queue extra brief text for a running teammate. */
+  | "attach_context"
   | "accept_file"
   | "accept_all"
   | "reject_file"
@@ -156,6 +179,8 @@ export type JobControlAction =
 
 export type JobControlExtra = {
   readonly path?: string;
+  /** Follow-up brief for `attach_context`. */
+  readonly context?: string;
 };
 
 export type JobsPort = {
@@ -174,6 +199,10 @@ export type JobsPort = {
     jobId: string,
     path: string,
   ): Promise<{ path: string; text: string; truncated?: boolean }>;
+  /** Persist an edited brief on the job record. */
+  updatePrd?(jobId: string, prd: string): Promise<void>;
+  /** Queue a child job from an updated instruction. */
+  startChild?(jobId: string, prd: string): Promise<void>;
 };
 
 const LIVE_STATUSES = new Set<JobStatus>([
@@ -281,14 +310,19 @@ export function isSettledJob(status: JobStatus): boolean {
   return SETTLED_STATUSES.has(status);
 }
 
+/** Failed or cancelled jobs can be sent back to a teammate. */
+export function canRetryJob(job: Pick<JobSummary, "status">): boolean {
+  return job.status === "error" || job.status === "cancelled";
+}
+
 /**
- * Statuses where Resume is a real control (not chat-only copy).
- *
- * Failed / paused jobs keep a worker handle the hub can restart; `error` is
- * what the board shows after an unexpected stop ("Say resume to try again").
+ * Supervisor checks on a finished job. Live rows show NA while they run;
+ * only settled Failure / NA get a retry.
  */
-export function jobOffersResume(status: JobStatus): boolean {
-  return status === "error" || status === "paused";
+export function canRetryVerification(
+  job: Pick<JobSummary, "status" | "verification">,
+): boolean {
+  return isSettledJob(job.status) && job.verification !== "passed";
 }
 
 export function jobAgentLabel(
@@ -300,6 +334,126 @@ export function jobAgentLabel(
 }
 
 /**
+ * Where the user triggered this job — Cursor, VS Code, Kilo, Roo, Codex,
+ * the Prism Console, or whatever MCP client name arrived.
+ */
+export function hostClientLabel(raw?: string | undefined): string {
+  const value = (raw ?? "").trim();
+  if (!value) return "—";
+  const lower = value.toLowerCase();
+  if (
+    lower === "console" ||
+    lower === "prism console" ||
+    lower.includes("dispatch-hub")
+  ) {
+    return "Prism Console";
+  }
+  if (lower.includes("cursor")) return "Cursor";
+  if (
+    lower.includes("visual studio") ||
+    lower === "vscode" ||
+    lower.includes("vs code") ||
+    lower.includes("code - oss") ||
+    lower.includes("code-oss")
+  ) {
+    return "VS Code";
+  }
+  if (lower.includes("claude")) return "Claude Code";
+  if (lower.includes("kilo")) return "Kilo";
+  if (lower.includes("roo")) return "Roo Code";
+  if (lower.includes("codex") || lower.includes("openai")) return "Codex";
+  if (lower.includes("windsurf") || lower.includes("cascade"))
+    return "Windsurf";
+  if (lower.includes("continue")) return "Continue";
+  if (lower.includes("aider")) return "Aider";
+  if (lower.includes("cline")) return "Cline";
+  if (lower.includes("gemini")) return "Gemini CLI";
+  if (lower.includes("zed")) return "Zed";
+  return value;
+}
+
+export function jobOriginLabel(
+  origin: JobSummary["origin"] | undefined,
+): string | undefined {
+  switch (origin) {
+    case "retry":
+      return "Retry";
+    case "reverify":
+      return "Retry verification";
+    case "finding":
+      return "From a finding";
+    case "instruct":
+      return "Child job";
+    default:
+      return undefined;
+  }
+}
+
+/** Compact token counts for the board: `80`, `1.2k`, `12k`, `1.2M`. */
+export function formatTokenCount(value: number): string {
+  if (!Number.isFinite(value) || value < 0) return "0";
+  const n = Math.round(value);
+  if (n < 1_000) return String(n);
+  if (n < 1_000_000) {
+    const k = n / 1_000;
+    const label =
+      k < 10 ? k.toFixed(1).replace(/\.0$/, "") : String(Math.round(k));
+    return `${label}k`;
+  }
+  const m = n / 1_000_000;
+  const label =
+    m < 10 ? m.toFixed(1).replace(/\.0$/, "") : String(Math.round(m));
+  return `${label}M`;
+}
+
+export function jobContextLabel(
+  usage: JobTokenUsage | undefined,
+): string | undefined {
+  if (!usage) return undefined;
+  const used = usage.contextTokens;
+  const window = usage.contextWindow;
+  if (used != null && window != null) {
+    return `${formatTokenCount(used)} / ${formatTokenCount(window)}`;
+  }
+  if (used != null) return `${formatTokenCount(used)} used`;
+  if (window != null) return `${formatTokenCount(window)} window`;
+  return undefined;
+}
+
+export function jobTokensLabel(
+  usage: JobTokenUsage | undefined,
+): string | undefined {
+  if (!usage) return undefined;
+  if (usage.inputTokens <= 0 && usage.outputTokens <= 0) return undefined;
+  return `in ${formatTokenCount(usage.inputTokens)} · out ${formatTokenCount(usage.outputTokens)}`;
+}
+
+/** List one-liner: context first, then billed in/out. */
+export function jobUsageLine(
+  usage: JobTokenUsage | undefined,
+): string | undefined {
+  const context = jobContextLabel(usage);
+  const tokens = jobTokensLabel(usage);
+  if (context && tokens) return `${context} · ${tokens}`;
+  return context ?? tokens;
+}
+
+/** Labeled figures for List / Focus — "—" when the worker never reported. */
+export function jobUsageFigures(usage: JobTokenUsage | undefined): {
+  readonly context: string;
+  readonly input: string;
+  readonly output: string;
+} {
+  const billed =
+    usage != null && (usage.inputTokens > 0 || usage.outputTokens > 0);
+  return {
+    context: jobContextLabel(usage) ?? "—",
+    input: billed && usage ? formatTokenCount(usage.inputTokens) : "—",
+    output: billed && usage ? formatTokenCount(usage.outputTokens) : "—",
+  };
+}
+
+/**
  * Turn a vendor model id into the name people actually say.
  *
  * `claude-sonnet-4-20250514` → "Sonnet 4". Date suffixes are dropped so two
@@ -307,18 +461,10 @@ export function jobAgentLabel(
  * third-party ids stay as reported — inventing a pretty name would hide the
  * model that actually ran.
  */
-/** Cursor / vendor placeholders — not a concrete model that actually ran. */
-function isWorkerModelSentinel(raw: string): boolean {
-  const lower = raw.trim().toLowerCase();
-  return !lower || lower === "default" || lower === "auto";
-}
-
 export function formatWorkerModel(raw: string): string {
   const id = raw.trim();
   if (!id) return "Unknown";
   const lower = id.toLowerCase();
-  // Cursor's unset / host-default picker reports `default`; `auto` is the
-  // same class of sentinel. Never show the bare word "default" in the UI.
   if (lower === "auto") return "Auto";
   if (lower === "default") return "Cursor default";
   const family = lower.includes("opus")
@@ -390,17 +536,12 @@ export function jobModelLabel(
   model?: string | undefined,
   thinking?: string | undefined,
 ): string {
-  const trimmed = model?.trim() ?? "";
-  // A real workerModel (e.g. claude-sonnet-4-5) always wins. Sentinels and an
-  // empty id fall through to a backend-aware label — never invent a model.
-  const name = !isWorkerModelSentinel(trimmed)
-    ? formatWorkerModel(trimmed)
+  const name = model?.trim()
+    ? formatWorkerModel(model)
     : backend === "claude"
       ? "Claude"
       : backend === "cursor"
-        ? trimmed.toLowerCase() === "auto"
-          ? "Auto"
-          : "Cursor default"
+        ? "Cursor default"
         : "Unknown";
   const suffix = thinking?.trim() ? formatWorkerThinking(thinking) : "";
   return suffix ? `${name} · ${suffix}` : name;
@@ -582,7 +723,7 @@ export function jobStatusLabel(status: JobStatus): string {
     case "queued":
       return "Queued";
     case "needs_confirm":
-      return "Needs your OK";
+      return "Awaiting approval";
     case "booting":
       return "Starting";
     case "waiting_on_you":
@@ -625,6 +766,79 @@ export function jobDisplayLabel(job: {
   return jobStatusLabel(job.status);
 }
 
+/**
+ * What a compact row should say under the title.
+ *
+ * Supervisor stamps (`Checks failed` / `Checks passed`) overwrite
+ * `lastActivity` after verify. Those are verification, not the job's
+ * message — skip them and keep error / summary / next step.
+ */
+export function jobMessage(
+  job: Pick<
+    JobSummary,
+    "errorMessage" | "lastActivity" | "resultSummary" | "nextStep"
+  >,
+): string | undefined {
+  const stamp = job.lastActivity?.trim() ?? "";
+  const activity =
+    stamp && !/^(checks failed|checks passed)$/i.test(stamp)
+      ? job.lastActivity
+      : undefined;
+  const text =
+    job.errorMessage ?? activity ?? job.resultSummary ?? job.nextStep;
+  return compactJobError(text);
+}
+
+/**
+ * Compact surfaces (Pulse, List, Attention) must never dump bun -e / moon
+ * internals. One line; interrupt noise is not a test failure.
+ */
+export function compactJobError(text: string | undefined): string | undefined {
+  const trimmed = text?.replace(/\s+/g, " ").trim();
+  if (!trimmed) return undefined;
+  if (
+    /terminated by signal|polite quit|task_runner::run_failed|checks were interrupted/i.test(
+      trimmed,
+    ) &&
+    !/error TS\d{3,5}/i.test(trimmed)
+  ) {
+    return "Checks were interrupted — retry verification to run them again.";
+  }
+  if (/stopped unexpectedly/i.test(trimmed)) {
+    return "The teammate stopped without reporting a result. Say resume to try again.";
+  }
+  if (/\$\s*bun\s+-e|const parts=\[/i.test(trimmed)) {
+    const named = /((?:typecheck|test) failed)(?:\s+[—-]\s+([^|]+))?/i.exec(
+      trimmed,
+    );
+    const target = named?.[2]?.trim();
+    return target ? `Checks failed — ${target}` : "Checks failed.";
+  }
+  if (trimmed.length > 160) {
+    return `${trimmed.slice(0, 159).trimEnd()}…`;
+  }
+  return trimmed;
+}
+
+/** Console URL another agent or tab can open straight into this job. */
+export function jobShareUrl(
+  job: { readonly id: string; readonly workspacePath?: string },
+  currentHref: string,
+  token?: string,
+): string {
+  const url = new URL(currentHref);
+  const query = new URLSearchParams(url.search);
+  const tok = (token ?? query.get("token") ?? "").trim();
+  const next = new URLSearchParams();
+  if (tok) next.set("token", tok);
+  url.search = next.toString();
+  const hash = new URLSearchParams();
+  if (job.workspacePath) hash.set("repo", job.workspacePath);
+  hash.set("job", job.id);
+  url.hash = `/dashboard?${hash.toString()}`;
+  return url.toString();
+}
+
 /** Design-system Badge tone for a job status. Failed ≠ Done. */
 export function jobBadgeTone(
   status: JobStatus,
@@ -658,6 +872,11 @@ export function jobBadgeTone(
     default:
       return "neutral";
   }
+}
+
+/** Running (and booting/ready) pills glow like the in-progress rail node. */
+export function jobBadgePulse(status: JobStatus): boolean {
+  return status === "running" || status === "booting" || status === "ready";
 }
 
 /** Grouping for the status pill colour. */

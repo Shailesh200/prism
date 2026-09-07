@@ -14,6 +14,8 @@ tasks:
       - "dist"
   typecheck:
     command: "bun run typecheck"
+    deps:
+      - "^:build"
     inputs:
       - "src/**/*"
       - "tsconfig.json"

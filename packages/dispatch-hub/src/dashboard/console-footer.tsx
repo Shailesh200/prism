@@ -1,18 +1,18 @@
 import type { ReactElement } from "react";
 
 const SITE = "https://www.prismhq.in";
-/** Local IDE (playground) — same screens as the editor dashboard. */
 const PLAYGROUND = "http://127.0.0.1:5173";
 
-const LINKS: readonly { href: string; label: string }[] = [
-  { href: SITE, label: "Website" },
-  { href: `${SITE}/docs`, label: "Docs" },
+const LINKS: readonly {
+  href: string;
+  label: string;
+  sameTab?: boolean;
+}[] = [
   { href: `${PLAYGROUND}/#/dna`, label: "Repo DNA" },
   { href: `${PLAYGROUND}/#/overview`, label: "Health" },
-  { href: `${PLAYGROUND}/#/blast`, label: "Blast radius" },
-  { href: `${SITE}/features`, label: "Features" },
-  { href: `${SITE}/products`, label: "Products" },
-  { href: `${SITE}/whats-new`, label: "What's new" },
+  { href: `${SITE}/docs`, label: "Docs" },
+  { href: SITE, label: "Prism" },
+  { href: "#/whats-new", label: "What's new", sameTab: true },
 ];
 
 export function ConsoleFooter(props: {
@@ -29,7 +29,11 @@ export function ConsoleFooter(props: {
       </div>
       <nav className="console-footer__links" aria-label="Prism">
         {LINKS.map((link) => (
-          <a key={link.href} href={link.href} target="_blank" rel="noreferrer">
+          <a
+            key={link.href}
+            href={link.href}
+            {...(link.sameTab ? {} : { target: "_blank", rel: "noreferrer" })}
+          >
             {link.label}
           </a>
         ))}

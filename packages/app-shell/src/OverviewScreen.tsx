@@ -6,7 +6,7 @@ import type {
   SecurityReport,
   TestingReport,
 } from "@repo-prism/shared";
-import { CardIcon, relativeTime } from "@repo-prism/ui";
+import { AreaChart, CardIcon, Gauge, relativeTime } from "@repo-prism/ui";
 import {
   Activity,
   ArrowRight,
@@ -24,7 +24,6 @@ import {
 } from "lucide-react";
 import {
   useEffect,
-  useId,
   useMemo,
   useRef,
   useState,
@@ -43,7 +42,6 @@ import { isGitIntegrationEnabled } from "./integrations-store.js";
 import { recordAudit } from "./audit-log.js";
 import {
   ACTIVITY_RANGES,
-  activityGeometry,
   bucketActivity,
   buildReportMarkdown,
   connectedNodeLabel,
@@ -1330,41 +1328,18 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
  * Prism had simply not scored yet (ADR-0029).
  */
 function HealthRing(props: { score: number | null }): ReactElement {
-  const r = 22;
-  const c = 2 * Math.PI * r;
   const known = props.score !== null;
-  const offset = known ? c * (1 - props.score! / 100) : c;
-  const color = known ? scoreColor(props.score!) : "#5A6B76";
+  const color = known ? scoreColor(props.score!) : "var(--prism-ink-4)";
   return (
     <div className="ov-ring" data-no-data={!known}>
       {!known ? (
         <span className="ov-sr">Health score not computed yet</span>
       ) : null}
-      <svg viewBox="0 0 56 56" className="ov-ring__svg" aria-hidden>
-        <circle
-          cx="28"
-          cy="28"
-          r={r}
-          fill="none"
-          stroke="#2A334A"
-          strokeWidth="5"
-          {...(known ? {} : { strokeDasharray: "3 4" })}
-        />
-        {known ? (
-          <circle
-            cx="28"
-            cy="28"
-            r={r}
-            fill="none"
-            stroke={color}
-            strokeWidth="5"
-            strokeLinecap="round"
-            strokeDasharray={c}
-            strokeDashoffset={offset}
-            transform="rotate(-90 28 28)"
-          />
-        ) : null}
-      </svg>
+      {known ? (
+        <Gauge score={props.score!} label={`Health ${props.score}`} />
+      ) : (
+        <Gauge score={0} label="Health not computed yet" />
+      )}
       <span className="ov-ring__label" style={{ color }}>
         {known ? props.score : "—"}
       </span>
@@ -1392,8 +1367,6 @@ function ActivityChart(props: {
   const w = 600;
   const h = 180;
   const pad = 8;
-  const sparkId = useId();
-  const { line, area } = activityGeometry(props.values, w, h, pad);
   const unit = props.granularity === "day" ? "day" : "week";
 
   const n = props.values.length;
@@ -1438,32 +1411,12 @@ function ActivityChart(props: {
         onMouseMove={onMove}
         onMouseLeave={() => setHover(null)}
       >
-        <svg
-          viewBox={`0 0 ${w} ${h}`}
-          preserveAspectRatio="none"
-          className="ov-chart__svg"
-          aria-hidden
-        >
-          <defs>
-            {/* Instance-scoped: two charts on one page with the same gradient
-                id is a duplicate DOM id, and the second chart then paints with
-                the first one's fill. */}
-            <linearGradient id={sparkId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="rgba(0,194,194,0.35)" />
-              <stop offset="100%" stopColor="rgba(0,194,194,0)" />
-            </linearGradient>
-          </defs>
-          <polygon points={area} fill={`url(#${sparkId})`} />
-          <polyline
-            points={line}
-            fill="none"
-            stroke="#00C2C2"
-            strokeWidth="2"
-            strokeLinejoin="round"
-            strokeLinecap="round"
-            vectorEffect="non-scaling-stroke"
-          />
-        </svg>
+        <AreaChart
+          values={props.values}
+          width={w}
+          height={h}
+          label={`${props.total} commits`}
+        />
 
         {hp ? (
           <>

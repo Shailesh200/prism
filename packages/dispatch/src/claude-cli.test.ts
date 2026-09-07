@@ -15,6 +15,7 @@ describe("claudeWorkerArgs", () => {
   it("pins the ADR-0041 contract: no shell, explicit MCP, stream-json", () => {
     const args = claudeWorkerArgs({});
     expect(args).toContain("-p");
+    expect(args).not.toContain("--model");
     expect(args).not.toContain("--bare");
     expect(args).toContain("--disable-slash-commands");
     expect(args.join(" ")).toContain("--output-format stream-json");
@@ -71,6 +72,12 @@ describe("claudeWorkerArgs", () => {
     const without = claudeWorkerArgs({ subagents: false });
     expect(without[without.indexOf("--tools") + 1]).not.toContain("Task");
     expect(without).not.toContain("--forward-subagent-text");
+  });
+
+  it("passes through a model id from the CLI's own list", () => {
+    const args = claudeWorkerArgs({ model: "id-from-agent" });
+    const at = args.indexOf("--model");
+    expect(args[at + 1]).toBe("id-from-agent");
   });
 
   it("resumes a session by id", () => {

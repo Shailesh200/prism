@@ -50,6 +50,7 @@ export function createClaudeWorkerPort(
           ...(input.preExistingChanges
             ? { preExistingChanges: input.preExistingChanges }
             : {}),
+          ...(input.model ? { model: input.model } : {}),
         },
         childJs,
       );

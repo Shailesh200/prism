@@ -37,6 +37,8 @@ writeFileSync(
   <string>APPL</string>
   <key>LSUIElement</key>
   <true/>
+  <key>LSBackgroundOnly</key>
+  <true/>
 </dict>
 </plist>
 `,

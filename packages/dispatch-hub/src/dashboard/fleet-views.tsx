@@ -2,8 +2,10 @@ import {
   formatPrismDate,
   isLiveJob,
   jobBadgeTone,
+  jobBadgePulse,
   jobDisplayLabel,
-  jobNotePaths,
+  jobUsageFigures,
+  jobUsageLine,
   type JobSummary,
   type JobWorkspaceChip,
 } from "@repo-prism/app-shell";
@@ -12,136 +14,103 @@ import {
   Badge,
   Button,
   Checkbox,
+  DateRangePicker,
   Drawer,
-  DropdownMenu,
-  GanttRow,
-  HoverTip,
-  IconButton,
   Popover,
-  SearchableInput,
-  Select,
   Sparkline,
   Table,
   ToggleGroup,
   Truncate,
+  isActivateTarget,
+  listCursorDelta,
+  pageShortcutBlocked,
   sortRows,
-  type DropdownMenuItem,
+  type DateRangeValue,
   type TableColumn,
   type TableSort,
 } from "@repo-prism/ui";
+import { Activity, LayoutGrid, List } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactElement } from "react";
 import {
-  Eye,
-  FileText,
-  LayoutGrid,
-  List,
-  MoreHorizontal,
-  Pause,
-  Plus,
-  StretchHorizontal,
-  Trash2,
-} from "lucide-react";
-import {
-  useEffect,
-  useMemo,
-  useState,
-  type ReactElement,
-  type RefObject,
-} from "react";
-import {
-  FLEET_RANGES,
-  RANGE_LABELS,
+  FLEET_RANGE_PRESETS,
   attentionJobs,
-  clusterGanttBars,
-  ganttBarsForRepo,
-  groupRepos,
-  jobPlaybookNotch,
+  compactJobPrd,
+  FAILURES_VISIBLE,
+  jobChecksRunning,
   jobsChronological,
-  matchesFilter,
-  reposWithJobsInRange,
+  jobsInRange,
+  overflowMoreLabel,
+  selectedRangeWindow,
   sparklineValues,
-  timelineBarLabel,
+  stackVisible,
+  timelineRepoStatus,
   verifyTag,
+  visibleFleetRepos,
   waitedWorkedLabel,
   type FleetRange,
+  type FleetTimeRange,
   type FleetViewMode,
-  type GanttCluster,
   type RepoFleet,
 } from "./fleet.js";
+import {
+  JobActions,
+  jobActionHandlers,
+  type JobActionHandlers,
+} from "./job-actions.js";
 import { RepoSelect } from "./repo-select.js";
-
-/**
- * Inline + tip preview for a job brief. Full PRD stays in Focus/inspector —
- * hover only needs a scannable snippet (HoverTip clamps further).
- */
-function compactJobPrd(prd: string, maxChars = 160): string {
-  const flat = prd.replace(/\s+/g, " ").trim();
-  if (flat.length <= maxChars) return flat;
-  return `${flat.slice(0, Math.max(1, maxChars - 1)).trimEnd()}…`;
-}
 
 export function DashboardToolbar(props: {
   readonly token: string;
-  readonly filter: string;
-  readonly onFilter: (value: string) => void;
-  readonly range: FleetRange;
-  readonly onRange: (range: FleetRange) => void;
+  readonly rangeValue: DateRangeValue;
+  readonly onRangeValue: (next: DateRangeValue) => void;
+  readonly nowMs: number;
   readonly mode: FleetViewMode;
   readonly onMode: (mode: FleetViewMode) => void;
-  readonly onNewJob: () => void;
-  readonly filterRef: RefObject<HTMLInputElement | null>;
   readonly repos?: readonly JobWorkspaceChip[];
   readonly repoFilter?: string;
   readonly onRepoFilter?: (path: string) => void;
 }): ReactElement {
   return (
     <div className="fleet-toolbar">
-      <Button
-        variant="primary"
-        icon={<Plus size={16} aria-hidden />}
-        onClick={props.onNewJob}
-      >
-        New job
-      </Button>
-      <SearchableInput
-        ref={props.filterRef}
-        className="fleet-toolbar__filter"
-        placeholder="Filter repos and jobs"
-        value={props.filter}
-        onChange={props.onFilter}
-        aria-label="Filter repos and jobs"
+      <ToggleGroup
+        aria-label="View"
+        className="fleet-toolbar__views"
+        value={props.mode}
+        onChange={(id) => props.onMode(id as FleetViewMode)}
+        options={[
+          {
+            id: "timeline",
+            label: "Pulse",
+            icon: <Activity size={14} aria-hidden />,
+          },
+          {
+            id: "board",
+            label: "Board",
+            icon: <LayoutGrid size={14} aria-hidden />,
+          },
+          {
+            id: "list",
+            label: "List",
+            icon: <List size={14} aria-hidden />,
+          },
+        ]}
       />
       <div className="fleet-toolbar__end">
-        <ToggleGroup
-          aria-label="View"
-          value={props.mode}
-          onChange={(id) => props.onMode(id as FleetViewMode)}
-          options={[
-            {
-              id: "timeline",
-              label: "Timeline",
-              icon: <StretchHorizontal size={14} aria-hidden />,
-            },
-            {
-              id: "board",
-              label: "Board",
-              icon: <LayoutGrid size={14} aria-hidden />,
-            },
-            {
-              id: "list",
-              label: "List",
-              icon: <List size={14} aria-hidden />,
-            },
-          ]}
-        />
-        <Select
+        <DateRangePicker
           aria-label="Time range"
           className="fleet-toolbar__range-select"
-          value={props.range}
-          onChange={(value) => props.onRange(value as FleetRange)}
-          options={FLEET_RANGES.map((range) => ({
-            value: range,
-            label: RANGE_LABELS[range],
-          }))}
+          presets={FLEET_RANGE_PRESETS}
+          value={props.rangeValue}
+          nowMs={props.nowMs}
+          presetWindow={(id, nowMs) =>
+            selectedRangeWindow(
+              (FLEET_RANGE_PRESETS.some((row) => row.id === id)
+                ? id
+                : "1h") as FleetRange,
+              nowMs,
+            )
+          }
+          onChange={props.onRangeValue}
         />
         {props.repos && props.onRepoFilter ? (
           <RepoSelect
@@ -159,102 +128,7 @@ export function DashboardToolbar(props: {
   );
 }
 
-function JobActions(props: {
-  readonly job: JobSummary;
-  readonly onOpenJob: (job: JobSummary) => void;
-  readonly onOpenFinding?: (job: JobSummary) => void;
-  readonly onPause?: (job: JobSummary) => void;
-  readonly onDelete?: (job: JobSummary) => void;
-}): ReactElement {
-  const notes = jobNotePaths(props.job);
-  const items: DropdownMenuItem[] = [
-    {
-      id: "details",
-      label: "View details",
-      icon: <Eye size={14} aria-hidden />,
-      onSelect: () => props.onOpenJob(props.job),
-    },
-    ...(notes.length > 0 && props.onOpenFinding
-      ? [
-          {
-            id: "finding",
-            label: "View finding",
-            icon: <FileText size={14} aria-hidden />,
-            onSelect: () => props.onOpenFinding?.(props.job),
-          },
-        ]
-      : []),
-    ...(isLiveJob(props.job.status) && props.onPause
-      ? [
-          {
-            id: "pause",
-            label: "Pause",
-            icon: <Pause size={14} aria-hidden />,
-            onSelect: () => props.onPause?.(props.job),
-          },
-        ]
-      : []),
-    ...(props.onDelete &&
-    !isLiveJob(props.job.status) &&
-    props.job.status !== "needs_confirm"
-      ? [
-          {
-            id: "delete",
-            label: "Delete",
-            icon: <Trash2 size={14} aria-hidden />,
-            danger: true,
-            onSelect: () => props.onDelete?.(props.job),
-          },
-        ]
-      : []),
-  ];
-  return (
-    <DropdownMenu
-      trigger={
-        <IconButton
-          label="Job actions"
-          onClick={(event) => event.stopPropagation()}
-          onPointerDown={(event) => event.stopPropagation()}
-        >
-          <MoreHorizontal size={16} aria-hidden />
-        </IconButton>
-      }
-      items={items}
-    />
-  );
-}
-
-function barGeometry(cluster: GanttCluster): {
-  readonly left: number;
-  readonly width: number;
-  readonly waited?: { readonly left: number; readonly width: number };
-  readonly worked?: { readonly left: number; readonly width: number };
-} {
-  const outerLeft = Math.min(
-    cluster.waited?.left ?? 100,
-    cluster.worked?.left ?? 100,
-  );
-  const outerRight = Math.max(
-    cluster.waited ? cluster.waited.left + cluster.waited.width : 0,
-    cluster.worked ? cluster.worked.left + cluster.worked.width : 0,
-  );
-  const width = Math.max(1, outerRight - outerLeft);
-  const rel = (
-    seg: { readonly left: number; readonly width: number } | undefined,
-  ): { readonly left: number; readonly width: number } | undefined =>
-    seg
-      ? {
-          left: ((seg.left - outerLeft) / width) * 100,
-          width: (seg.width / width) * 100,
-        }
-      : undefined;
-  return {
-    left: outerLeft,
-    width,
-    ...(rel(cluster.waited) ? { waited: rel(cluster.waited) } : {}),
-    ...(rel(cluster.worked) ? { worked: rel(cluster.worked) } : {}),
-  };
-}
+export { PulseView as TimelineView } from "./pulse-view.js";
 
 export function JobListDrawer(props: {
   readonly title: string;
@@ -265,6 +139,7 @@ export function JobListDrawer(props: {
   }[];
   readonly onOpenJob: (job: JobSummary) => void;
   readonly onClose: () => void;
+  readonly actions?: JobActionHandlers;
 }): ReactElement {
   const sections = (
     props.sections ?? (props.jobs ? [{ title: "", jobs: props.jobs }] : [])
@@ -290,40 +165,57 @@ export function JobListDrawer(props: {
                 <p className="fleet-job-list__empty">None</p>
               ) : (
                 <ul>
-                  {section.jobs.map((job) => (
-                    <li key={`${job.workspacePath}:${job.id}`}>
-                      <button
-                        type="button"
-                        onClick={() => props.onOpenJob(job)}
+                  {section.jobs.map((job) => {
+                    const usageLine = jobUsageLine(job.tokenUsage);
+                    return (
+                      <li
+                        key={`${job.workspacePath}:${job.id}`}
+                        className="fleet-job-list__row"
                       >
-                        <span className="fleet-job-list__copy">
-                          <strong>
-                            <Truncate title={job.title}>{job.title}</Truncate>
-                          </strong>
-                          {job.prd ? (
-                            <em className="fleet-job-list__prd">
-                              <Truncate
-                                heading={job.title}
-                                title={compactJobPrd(job.prd)}
-                              >
-                                {compactJobPrd(job.prd)}
-                              </Truncate>
-                            </em>
-                          ) : (
-                            <em>
-                              {job.workspaceLabel ?? job.workspacePath ?? ""}
-                            </em>
-                          )}
-                        </span>
-                        <Badge
-                          className="fleet-job-list__tag"
-                          tone={jobBadgeTone(job.status, job.nextStep)}
+                        <button
+                          type="button"
+                          className="fleet-job-list__open"
+                          onClick={() => props.onOpenJob(job)}
                         >
-                          {jobDisplayLabel(job)}
-                        </Badge>
-                      </button>
-                    </li>
-                  ))}
+                          <span className="fleet-job-list__copy">
+                            <strong>
+                              <Truncate title={job.title}>{job.title}</Truncate>
+                            </strong>
+                            {job.prd ? (
+                              <em className="fleet-job-list__prd">
+                                <Truncate
+                                  heading={job.title}
+                                  title={compactJobPrd(job.prd)}
+                                >
+                                  {compactJobPrd(job.prd)}
+                                </Truncate>
+                              </em>
+                            ) : (
+                              <em>
+                                {job.workspaceLabel ?? job.workspacePath ?? ""}
+                              </em>
+                            )}
+                            {usageLine ? (
+                              <span className="fleet-job-list__usage">
+                                {usageLine}
+                              </span>
+                            ) : null}
+                          </span>
+                          <Badge
+                            className="fleet-job-list__tag"
+                            tone={jobBadgeTone(job.status, job.nextStep)}
+                          >
+                            {jobDisplayLabel(job)}
+                          </Badge>
+                        </button>
+                        <JobActions
+                          job={job}
+                          onOpenJob={props.onOpenJob}
+                          {...(props.actions ?? {})}
+                        />
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </section>
@@ -334,157 +226,9 @@ export function JobListDrawer(props: {
   );
 }
 
-export function TimelineView(props: {
-  readonly repos: readonly RepoFleet[];
-  readonly range: FleetRange;
-  readonly nowMs: number;
-  readonly onOpenJob: (job: JobSummary) => void;
-  readonly onOpenRepo: (path: string) => void;
-  readonly onOpenCluster: (jobs: readonly JobSummary[], atMs: number) => void;
-  readonly onOpenFinding?: (job: JobSummary) => void;
-  readonly onPause?: (job: JobSummary) => void;
-  readonly onDelete?: (job: JobSummary) => void;
-  readonly loading: boolean;
-}): ReactElement {
-  if (props.loading) {
-    return <div className="fleet-scan" aria-hidden />;
-  }
-  if (props.repos.length === 0) {
-    return (
-      <p className="console__lede">
-        No jobs in this range. Start one, or widen All.
-      </p>
-    );
-  }
-  return (
-    <div className="fleet-timeline">
-      {props.repos.map((repo) => {
-        const clusters = clusterGanttBars(
-          ganttBarsForRepo(repo.jobs, props.range, props.nowMs),
-        );
-        const stats = `${repo.live} live · ${repo.waiting} wait`;
-        const verify = verifyTag(repo.verify);
-        return (
-          <div key={repo.path} className="fleet-timeline__repo">
-            <div className="fleet-timeline__row">
-              <button
-                type="button"
-                className="fleet-timeline__id"
-                onClick={() => props.onOpenRepo(repo.path)}
-              >
-                <span className="fleet-mark" aria-hidden>
-                  {repo.label.slice(0, 1).toUpperCase()}
-                </span>
-                <span>
-                  <strong>
-                    <Truncate title={repo.label}>{repo.label}</Truncate>
-                  </strong>
-                  {repo.error ? (
-                    <em className="fleet-error">{repo.error}</em>
-                  ) : null}
-                </span>
-              </button>
-              <GanttRow className="fleet-timeline__track">
-                {clusters.map((cluster, index) => {
-                  const geo = barGeometry(cluster);
-                  const many = cluster.jobs.length > 1;
-                  const stamp = cluster.atMs
-                    ? formatPrismDate(
-                        new Date(cluster.atMs).toISOString(),
-                        "time",
-                      )
-                    : "";
-                  const title = many
-                    ? `${cluster.jobs.length} jobs at ${stamp}`
-                    : (cluster.jobs[0]?.title ?? "");
-                  const first = cluster.jobs[0];
-                  const label = timelineBarLabel(cluster.jobs);
-                  const running = cluster.jobs.some((job) =>
-                    isLiveJob(job.status),
-                  );
-                  return (
-                    <button
-                      key={
-                        many
-                          ? `${repo.path}:cluster:${cluster.atMs}:${index}`
-                          : `${repo.path}:${first?.id ?? index}`
-                      }
-                      type="button"
-                      className={`fleet-bar fleet-bar--${jobBadgeTone(first?.status ?? "done", first?.nextStep)} fleet-bar--${jobPlaybookNotch(first?.playbook)}${running ? " fleet-bar--running" : ""}`}
-                      title={title}
-                      style={{ left: `${geo.left}%`, width: `${geo.width}%` }}
-                      onClick={() => {
-                        if (many) {
-                          props.onOpenCluster(cluster.jobs, cluster.atMs);
-                        } else if (first) {
-                          props.onOpenJob(first);
-                        }
-                      }}
-                    >
-                      {geo.waited ? (
-                        <span
-                          className="fleet-bar__wait"
-                          style={{
-                            left: `${geo.waited.left}%`,
-                            width: `${geo.waited.width}%`,
-                          }}
-                        />
-                      ) : null}
-                      {geo.worked ? (
-                        <span
-                          className="fleet-bar__work"
-                          style={{
-                            left: `${geo.worked.left}%`,
-                            width: `${geo.worked.width}%`,
-                          }}
-                        />
-                      ) : null}
-                      {label ? (
-                        <span className="fleet-bar__label">{label}</span>
-                      ) : null}
-                    </button>
-                  );
-                })}
-              </GanttRow>
-              <HoverTip
-                label={
-                  repo.live > 0
-                    ? `${stats} · Running · verify ${verify.label}`
-                    : `${stats} · verify ${verify.label}`
-                }
-              >
-                <div className="fleet-timeline__stats">
-                  {stats}
-                  {repo.live > 0 ? (
-                    <Badge tone="accent">Running</Badge>
-                  ) : null}
-                  <Badge tone={verify.tone}>{verify.label}</Badge>
-                </div>
-              </HoverTip>
-              {repo.last ? (
-                <JobActions
-                  job={repo.last}
-                  onOpenJob={props.onOpenJob}
-                  {...(props.onOpenFinding
-                    ? { onOpenFinding: props.onOpenFinding }
-                    : {})}
-                  {...(props.onPause ? { onPause: props.onPause } : {})}
-                  {...(props.onDelete ? { onDelete: props.onDelete } : {})}
-                />
-              ) : (
-                <span />
-              )}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 export function BoardView(props: {
   readonly repos: readonly RepoFleet[];
-  readonly range: FleetRange;
+  readonly range: FleetTimeRange;
   readonly nowMs: number;
   readonly onOpenJobs: (
     title: string,
@@ -500,11 +244,14 @@ export function BoardView(props: {
   readonly showSummary: boolean;
   readonly showFailures: boolean;
   readonly onTiles: (next: { summary: boolean; failures: boolean }) => void;
+  readonly onRemoveRepo?: (path: string, label: string) => void;
 }): ReactElement {
-  const failures = props.jobs.filter((job) => job.status === "error");
-  const liveJobs = props.jobs.filter((job) => isLiveJob(job.status));
-  const waitingJobs = attentionJobs(props.jobs);
-  const blockedJobs = props.jobs.filter((job) => job.status === "blocked");
+  const rangedJobs = jobsInRange(props.jobs, props.range, props.nowMs);
+  const failures = rangedJobs.filter((job) => job.status === "error");
+  const failureStack = stackVisible(failures, FAILURES_VISIBLE);
+  const liveJobs = rangedJobs.filter((job) => isLiveJob(job.status));
+  const waitingJobs = attentionJobs(rangedJobs);
+  const blockedJobs = rangedJobs.filter((job) => job.status === "blocked");
 
   if (props.loading) return <div className="fleet-scan" aria-hidden />;
 
@@ -541,63 +288,73 @@ export function BoardView(props: {
           </Checkbox>
         </Popover>
       </div>
-      <Accordion summary="Repositories" defaultOpen className="fleet-board__row">
+      <Accordion
+        summary="Repositories"
+        defaultOpen
+        className="fleet-board__row"
+      >
         <div className="fleet-board__grid">
           {props.repos.map((repo) => {
-            const verify = verifyTag(repo.verify);
+            const inRange = jobsInRange(repo.jobs, props.range, props.nowMs);
+            const status =
+              inRange.length > 0
+                ? timelineRepoStatus({
+                    ...repo,
+                    jobs: inRange,
+                    live: inRange.filter((job) => isLiveJob(job.status)).length,
+                    last: inRange[0],
+                  })
+                : { label: "NA", tone: "neutral" as const };
             return (
-              <button
-                key={repo.path}
-                type="button"
-                className="fleet-tile fleet-tile--repo"
-                onClick={() => props.onOpenJobs(repo.label, repo.jobs)}
-              >
-                <header>
-                  <span className="fleet-mark" aria-hidden>
-                    {repo.label.slice(0, 1).toUpperCase()}
-                  </span>
-                  <strong>
-                    <Truncate title={repo.label}>{repo.label}</Truncate>
-                  </strong>
-                  <Badge
-                    tone={
-                      repo.live > 0
-                        ? "accent"
-                        : repo.error
-                          ? "rose"
-                          : repo.waiting > 0
-                            ? "amber"
-                            : "neutral"
-                    }
-                  >
-                    {repo.live > 0
-                      ? "live"
-                      : repo.error
-                        ? "error"
-                        : repo.waiting > 0
-                          ? "blocked"
-                          : "idle"}
-                  </Badge>
-                  <Badge
-                    className="fleet-tile__last-status"
-                    tone={verify.tone}
-                  >
-                    {verify.label}
-                  </Badge>
-                </header>
-                <p>
-                  {repo.live} running · {repo.waiting} waiting
-                </p>
-                <p className="fleet-tile__last">
-                  {repo.last
-                    ? `last  ${repo.last.title} · ${formatPrismDate(repo.last.updatedAt ?? repo.last.createdAt ?? "", "relative")}`
-                    : "No jobs yet"}
-                </p>
-                <Sparkline
-                  values={sparklineValues(repo.jobs, props.range, props.nowMs)}
-                  label={`${repo.label} activity`}
-                />
-              </button>
+              <div key={repo.path} className="fleet-tile-shell">
+                <button
+                  type="button"
+                  className="fleet-tile fleet-tile--repo"
+                  onClick={() => props.onOpenJobs(repo.label, inRange)}
+                >
+                  <header>
+                    <span className="fleet-mark" aria-hidden>
+                      {repo.label.slice(0, 1).toUpperCase()}
+                    </span>
+                    <strong>
+                      <Truncate title={repo.label}>{repo.label}</Truncate>
+                    </strong>
+                    <Badge
+                      className="fleet-tile__last-status"
+                      tone={status.tone}
+                      pulse={status.label === "Running"}
+                    >
+                      {status.label}
+                    </Badge>
+                  </header>
+                  <p>
+                    {inRange.filter((job) => isLiveJob(job.status)).length}{" "}
+                    running · {attentionJobs(inRange).length} waiting
+                  </p>
+                  <p className="fleet-tile__last">
+                    {inRange.length > 0
+                      ? `last  ${inRange[0]?.title} · ${formatPrismDate(inRange[0]?.updatedAt ?? inRange[0]?.createdAt ?? "", "relative")}`
+                      : "No data available"}
+                  </p>
+                  <Sparkline
+                    values={sparklineValues(
+                      repo.jobs,
+                      props.range,
+                      props.nowMs,
+                    )}
+                    label={`${repo.label} activity`}
+                  />
+                </button>
+                {props.onRemoveRepo ? (
+                  <div className="fleet-tile__actions">
+                    <JobActions
+                      onRemoveRepo={() =>
+                        props.onRemoveRepo?.(repo.path, repo.label)
+                      }
+                    />
+                  </div>
+                ) : null}
+              </div>
             );
           })}
         </div>
@@ -610,11 +367,15 @@ export function BoardView(props: {
                 type="button"
                 className="fleet-tile fleet-tile--info fleet-tile--dispatch"
                 onClick={() =>
-                  props.onOpenJobs("Dispatch", [], [
-                    { title: "Live", jobs: liveJobs },
-                    { title: "Blocked", jobs: blockedJobs },
-                    { title: "Waiting", jobs: waitingJobs },
-                  ])
+                  props.onOpenJobs(
+                    "Dispatch",
+                    [],
+                    [
+                      { title: "Live", jobs: liveJobs },
+                      { title: "Blocked", jobs: blockedJobs },
+                      { title: "Waiting", jobs: waitingJobs },
+                    ],
+                  )
                 }
               >
                 <h3>Dispatch</h3>
@@ -634,19 +395,29 @@ export function BoardView(props: {
                 className="fleet-tile fleet-tile--info fleet-tile--failures"
                 onClick={() => props.onOpenJobs("Recent failures", failures)}
               >
-                <h3>Recent failures</h3>
+                <h3>
+                  Recent failures
+                  {failures.length > 0 ? (
+                    <span className="fleet-tile__count">{failures.length}</span>
+                  ) : null}
+                </h3>
                 {props.jobsError ? (
                   <p>Couldn&apos;t read the failure list</p>
                 ) : failures.length === 0 ? (
                   <p>No failures in this range</p>
                 ) : (
-                  <ul>
-                    {failures.slice(0, 4).map((job) => (
-                      <li key={job.id}>
+                  <div className="fleet-fail-stack">
+                    {failureStack.visible.map((job) => (
+                      <span key={job.id} className="fleet-fail-chip">
                         <Truncate title={job.title}>{job.title}</Truncate>
-                      </li>
+                      </span>
                     ))}
-                  </ul>
+                    {failureStack.hidden > 0 ? (
+                      <span className="fleet-fail-more">
+                        {overflowMoreLabel(failureStack.hidden)}
+                      </span>
+                    ) : null}
+                  </div>
                 )}
               </button>
             ) : null}
@@ -657,16 +428,15 @@ export function BoardView(props: {
   );
 }
 
-export function ListView(props: {
-  readonly jobs: readonly JobSummary[];
-  readonly nowMs: number;
-  readonly selectedId?: string;
-  readonly onOpenJob: (job: JobSummary) => void;
-  readonly onOpenFinding?: (job: JobSummary) => void;
-  readonly onPause?: (job: JobSummary) => void;
-  readonly onDelete?: (job: JobSummary) => void;
-  readonly loading: boolean;
-}): ReactElement {
+export function ListView(
+  props: {
+    readonly jobs: readonly JobSummary[];
+    readonly nowMs: number;
+    readonly selectedId?: string;
+    readonly onOpenJob: (job: JobSummary) => void;
+    readonly loading: boolean;
+  } & JobActionHandlers,
+): ReactElement {
   const [cursor, setCursor] = useState(0);
   const [sort, setSort] = useState<TableSort>({ id: "when", dir: "desc" });
   const columns: readonly TableColumn<JobSummary>[] = [
@@ -677,7 +447,10 @@ export function ListView(props: {
       sortable: true,
       sortValue: (job) => jobDisplayLabel(job),
       render: (job) => (
-        <Badge tone={jobBadgeTone(job.status, job.nextStep)}>
+        <Badge
+          tone={jobBadgeTone(job.status, job.nextStep)}
+          pulse={jobBadgePulse(job.status)}
+        >
           {jobDisplayLabel(job)}
         </Badge>
       ),
@@ -693,10 +466,7 @@ export function ListView(props: {
           <Truncate title={job.title}>{job.title}</Truncate>
           {job.prd ? (
             <em>
-              <Truncate
-                heading={job.title}
-                title={compactJobPrd(job.prd)}
-              >
+              <Truncate heading={job.title} title={compactJobPrd(job.prd)}>
                 {compactJobPrd(job.prd)}
               </Truncate>
             </em>
@@ -733,14 +503,54 @@ export function ListView(props: {
       render: (job) => waitedWorkedLabel(job, props.nowMs).worked,
     },
     {
+      id: "tokens",
+      header: "Tokens",
+      className: "fleet-list__tokens",
+      sortable: true,
+      sortValue: (job) =>
+        job.tokenUsage?.totalTokens ??
+        (job.tokenUsage
+          ? job.tokenUsage.inputTokens + job.tokenUsage.outputTokens
+          : -1),
+      render: (job) => {
+        const usage = jobUsageFigures(job.tokenUsage);
+        return (
+          <span className="fleet-list__usage">
+            <span>{usage.context}</span>
+            <span>
+              in {usage.input} · out {usage.output}
+            </span>
+          </span>
+        );
+      },
+    },
+    {
       id: "verify",
       header: "Verify",
       className: "fleet-list__verify",
       sortable: true,
       sortValue: (job) => verifyTag(job.verification).label,
       render: (job) => {
+        const checking =
+          jobChecksRunning(job) ||
+          (props.pending?.jobId === job.id &&
+            props.pending.action === "reverify");
+        if (checking) {
+          return <Badge tone="amber">Checking</Badge>;
+        }
         const tag = verifyTag(job.verification);
-        return <Badge tone={tag.tone}>{tag.label}</Badge>;
+        return (
+          <span className="fleet-list__verify-cell">
+            <Badge
+              tone={tag.tone}
+              {...(job.verificationDetail
+                ? { className: "fleet-list__verify-badge" }
+                : {})}
+            >
+              <span title={job.verificationDetail}>{tag.label}</span>
+            </Badge>
+          </span>
+        );
       },
     },
     {
@@ -764,11 +574,7 @@ export function ListView(props: {
         <JobActions
           job={job}
           onOpenJob={props.onOpenJob}
-          {...(props.onOpenFinding
-            ? { onOpenFinding: props.onOpenFinding }
-            : {})}
-          {...(props.onPause ? { onPause: props.onPause } : {})}
-          {...(props.onDelete ? { onDelete: props.onDelete } : {})}
+          {...jobActionHandlers(props)}
         />
       ),
     },
@@ -780,23 +586,17 @@ export function ListView(props: {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      const target = event.target as HTMLElement | null;
-      if (
-        target?.tagName === "INPUT" ||
-        target?.tagName === "TEXTAREA" ||
-        target?.isContentEditable
-      ) {
+      if (pageShortcutBlocked(event)) return;
+      const delta = listCursorDelta(event.key);
+      if (delta !== 0) {
+        event.preventDefault();
+        setCursor((index) =>
+          Math.min(rows.length - 1, Math.max(0, index + delta)),
+        );
         return;
       }
-      if (event.key === "j") {
-        event.preventDefault();
-        setCursor((i) => Math.min(rows.length - 1, i + 1));
-      }
-      if (event.key === "k") {
-        event.preventDefault();
-        setCursor((i) => Math.max(0, i - 1));
-      }
       if (event.key === "Enter") {
+        if (isActivateTarget(event.target)) return;
         const job = rows[cursor];
         if (job) props.onOpenJob(job);
       }
@@ -813,22 +613,22 @@ export function ListView(props: {
         columns={columns}
         rows={rows}
         rowKey={(job) => `${job.workspacePath}:${job.id}`}
-      sort={sort}
-      onSort={setSort}
-      selectedKey={
-        props.selectedId
-          ? rows.find((job) => job.id === props.selectedId)
-            ? `${rows.find((job) => job.id === props.selectedId)?.workspacePath}:${props.selectedId}`
+        sort={sort}
+        onSort={setSort}
+        selectedKey={
+          props.selectedId
+            ? rows.find((job) => job.id === props.selectedId)
+              ? `${rows.find((job) => job.id === props.selectedId)?.workspacePath}:${props.selectedId}`
+              : rows[cursor]
+                ? `${rows[cursor]?.workspacePath}:${rows[cursor]?.id}`
+                : undefined
             : rows[cursor]
               ? `${rows[cursor]?.workspacePath}:${rows[cursor]?.id}`
               : undefined
-          : rows[cursor]
-            ? `${rows[cursor]?.workspacePath}:${rows[cursor]?.id}`
-            : undefined
-      }
-      onRowClick={props.onOpenJob}
-      empty="No jobs match this filter."
-    />
+        }
+        onRowClick={props.onOpenJob}
+        empty="No jobs match this filter."
+      />
     </div>
   );
 }
@@ -838,24 +638,9 @@ export function useVisibleRepos(
   workspaces: readonly JobWorkspaceChip[],
   filter: string,
   repoFilter: string | undefined,
-  range: FleetRange,
-  nowMs: number,
 ): readonly RepoFleet[] {
-  return useMemo(() => {
-    const visible = jobs.filter(
-      (job) =>
-        matchesFilter(job, filter) &&
-        (!repoFilter ||
-          repoFilter === "all" ||
-          job.workspacePath === repoFilter),
-    );
-    const groups = groupRepos(visible, workspaces);
-    const active = reposWithJobsInRange(groups, range, nowMs);
-    if (!filter.trim()) return active;
-    return active.filter(
-      (repo) =>
-        repo.label.toLowerCase().includes(filter.trim().toLowerCase()) ||
-        repo.jobs.length > 0,
-    );
-  }, [jobs, workspaces, filter, repoFilter, range, nowMs]);
+  return useMemo(
+    () => visibleFleetRepos(jobs, workspaces, filter, repoFilter),
+    [jobs, workspaces, filter, repoFilter],
+  );
 }

@@ -6,16 +6,19 @@ import {
   activityFromEvent,
   applyRunToJob,
   composeResultSummary,
+  createRunWriter,
   isProcessAlive,
+  isReusableLiveJob,
+  killWorkerTree,
+  readRunState,
   reapJobs,
+  writeRunState,
 } from "./run-state.js";
 import { upsertJob, loadJobs } from "./jobs.js";
 import {
   workerMcpEnv,
   mcpArgsWithWorkspace,
   cursorAgentOptions,
-  cursorModelFromEvent,
-  cursorModelId,
 } from "./worker-options.js";
 import { gitChangeSummary, type GitRunner } from "./git.js";
 import type { JobRecord } from "./types.js";
@@ -92,11 +95,46 @@ describe("applyRunToJob", () => {
     expect(next.workerThinking).toBe("10000");
   });
 
+  it("copies token usage from the sidecar", () => {
+    const next = applyRunToJob(job(), {
+      jobId: "audit-issues",
+      pid: process.pid,
+      phase: "running",
+      lastActivity: "Using blast_radius",
+      resultSummary: "",
+      errorMessage: "",
+      gitSummary: "",
+      tokenUsage: {
+        inputTokens: 1_200,
+        outputTokens: 80,
+        contextTokens: 48_000,
+        contextWindow: 200_000,
+      },
+      startedAt: "t",
+      updatedAt: "t",
+    });
+    expect(next.tokenUsage).toEqual({
+      inputTokens: 1_200,
+      outputTokens: 80,
+      contextTokens: 48_000,
+      contextWindow: 200_000,
+    });
+  });
+
   it("marks a dead pid as a user-safe error", () => {
     const next = applyRunToJob(job({ workerPid: 99999999 }), undefined);
     expect(next.status).toBe("error");
-    expect(next.errorMessage).toMatch(/stopped unexpectedly/i);
+    expect(next.errorMessage).toMatch(/stopped without reporting a result/i);
     expect(next.errorMessage).not.toMatch(/API key|pid|mcp\.json/i);
+  });
+
+  it("names what the teammate was doing when the pid dies", () => {
+    const next = applyRunToJob(
+      job({ workerPid: 99999999, lastActivity: "Using task" }),
+      undefined,
+    );
+    expect(next.status).toBe("error");
+    expect(next.errorMessage).toMatch(/while Using task/i);
   });
 
   it("keeps a mock in-process job running when it has no pid yet", () => {
@@ -173,6 +211,162 @@ describe("applyRunToJob", () => {
     expect(next.status).toBe("queued");
     expect(next.lastActivity).toBe("Queued");
   });
+
+  it("does not reap a retried running job from a leftover cancelled sidecar", () => {
+    const next = applyRunToJob(
+      job({
+        status: "running",
+        queuedAt: "2026-09-04T00:02:00.000Z",
+        workerPid: process.pid,
+        lastActivity: "Starting",
+      }),
+      {
+        jobId: "audit-issues",
+        pid: 99,
+        phase: "cancelled",
+        lastActivity: "Cancelled",
+        resultSummary: "",
+        errorMessage: "",
+        gitSummary: "",
+        startedAt: "2026-09-04T00:00:00.000Z",
+        updatedAt: "2026-09-04T00:03:00.000Z",
+      },
+    );
+    expect(next.status).toBe("running");
+    expect(next.workerPid).toBe(process.pid);
+  });
+
+  it("does not let a stale sidecar overwrite a newer reverify", () => {
+    const next = applyRunToJob(
+      job({
+        status: "done",
+        updatedAt: "2026-09-05T12:00:00.000Z",
+        verification: "passed",
+        verificationDetail: "typecheck and test passed.",
+        lastActivity: "Checks passed",
+        resultSummary: "Merged onto main.",
+      }),
+      {
+        jobId: "audit-issues",
+        phase: "done",
+        lastActivity: "Checks failed",
+        resultSummary: "1 file changed",
+        errorMessage: "",
+        gitSummary: "1 file changed",
+        verification: "failed",
+        verificationDetail: "typecheck failed",
+        startedAt: "2026-09-04T00:00:00.000Z",
+        updatedAt: "2026-09-04T00:01:00.000Z",
+      },
+    );
+    expect(next.verification).toBe("passed");
+    expect(next.lastActivity).toBe("Checks passed");
+    expect(next.resultSummary).toMatch(/Merged onto main/);
+  });
+
+  it("does not let a sidecar clobber in-flight checks", () => {
+    const next = applyRunToJob(
+      job({
+        status: "done",
+        updatedAt: "2026-09-05T12:00:00.000Z",
+        verification: "failed",
+        lastActivity: "Running checks…",
+      }),
+      {
+        jobId: "audit-issues",
+        phase: "done",
+        lastActivity: "Checks failed",
+        resultSummary: "1 file changed",
+        errorMessage: "",
+        gitSummary: "1 file changed",
+        verification: "failed",
+        verificationDetail: "typecheck failed",
+        startedAt: "2026-09-04T00:00:00.000Z",
+        updatedAt: "2026-09-05T12:00:00.000Z",
+      },
+    );
+    expect(next.lastActivity).toBe("Running checks…");
+  });
+
+  it("keeps a landed review merged after reap", () => {
+    const review = {
+      files: [
+        { path: "src/a.ts", added: 1, removed: 0, change: "modified" as const },
+      ],
+      totalAdded: 1,
+      totalRemoved: 0,
+      truncated: false,
+      branch: "dispatch/audit-issues",
+      baseRef: "main",
+      committed: true,
+      merged: true,
+      mixedPaths: [] as string[],
+      keptPaths: ["src/a.ts"],
+    };
+    const next = applyRunToJob(
+      job({
+        status: "done",
+        review,
+        updatedAt: "2026-09-05T12:00:00.000Z",
+      }),
+      {
+        jobId: "audit-issues",
+        phase: "done",
+        lastActivity: "Done",
+        resultSummary: "1 file changed",
+        errorMessage: "",
+        gitSummary: "1 file changed",
+        review: { ...review, merged: false, keptPaths: [] },
+        startedAt: "2026-09-04T00:00:00.000Z",
+        updatedAt: "2026-09-04T00:01:00.000Z",
+      },
+    );
+    expect(next.status).toBe("done");
+    expect(next.review?.merged).toBe(true);
+    expect(next.review?.keptPaths).toEqual(["src/a.ts"]);
+  });
+});
+
+describe("createRunWriter generation guard", () => {
+  let root = "";
+  afterEach(async () => {
+    if (root) await rm(root, { recursive: true, force: true });
+  });
+
+  it("does not let a previous worker overwrite a newer sidecar", async () => {
+    root = await mkdtemp(join(tmpdir(), "prism-run-writer-"));
+    const now = new Date().toISOString();
+    const writer = createRunWriter(root, "audit-issues", {
+      jobId: "audit-issues",
+      pid: 111,
+      phase: "running",
+      lastActivity: "Working",
+      resultSummary: "",
+      errorMessage: "",
+      gitSummary: "",
+      startedAt: now,
+      updatedAt: now,
+    });
+    await writer.patch({ phase: "running" }, { immediate: true });
+    await writeRunState(root, "audit-issues", {
+      jobId: "audit-issues",
+      pid: 222,
+      phase: "starting",
+      lastActivity: "Starting",
+      resultSummary: "",
+      errorMessage: "",
+      gitSummary: "",
+      startedAt: now,
+      updatedAt: now,
+    });
+    await writer.patch(
+      { phase: "cancelled", lastActivity: "Cancelled" },
+      { immediate: true },
+    );
+    const run = await readRunState(root, "audit-issues");
+    expect(run?.pid).toBe(222);
+    expect(run?.phase).toBe("starting");
+  });
 });
 
 describe("composeResultSummary", () => {
@@ -191,6 +385,45 @@ describe("isProcessAlive", () => {
   });
 });
 
+describe("isReusableLiveJob", () => {
+  it("treats a fresh booting job with no pid as still live", () => {
+    expect(
+      isReusableLiveJob(job({ status: "booting", workerPid: undefined })),
+    ).toBe(true);
+  });
+
+  it("lets a stale dead running job be replaced", () => {
+    expect(
+      isReusableLiveJob(
+        job({
+          status: "running",
+          workerPid: 99999999,
+          updatedAt: new Date(Date.now() - 10 * 60_000).toISOString(),
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it("lets a just-crashed running job with a dead pid be replaced", () => {
+    expect(
+      isReusableLiveJob(
+        job({
+          status: "running",
+          workerPid: 99999999,
+          updatedAt: new Date().toISOString(),
+        }),
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("killWorkerTree", () => {
+  it("refuses to signal this process", () => {
+    expect(() => killWorkerTree(process.pid)).not.toThrow();
+    expect(isProcessAlive(process.pid)).toBe(true);
+  });
+});
+
 describe("reapJobs", () => {
   let root = "";
   afterEach(async () => {
@@ -203,7 +436,7 @@ describe("reapJobs", () => {
     const next = await reapJobs(root);
     expect(next[0]?.status).toBe("error");
     expect((await loadJobs(root))[0]?.errorMessage).toMatch(
-      /stopped unexpectedly/i,
+      /stopped without reporting a result/i,
     );
   });
 });
@@ -228,6 +461,7 @@ describe("worker MCP env", () => {
     });
     expect(options.local).toMatchObject({
       cwd: "/host/repo/.prism/dispatch/worktrees/audit-issues",
+      sandboxOptions: { enabled: false },
     });
     // ADR-0050: a worker-role Prism, resolved against the host root because
     // that is the tree the Console indexes. Its worktree is not indexed, so
@@ -245,26 +479,16 @@ describe("worker MCP env", () => {
     // The shell ban is untouched: it is what stopped a worker running `bun
     // install` and re-indexing (ADR-0041).
     expect(options.tools).not.toContain("shell");
-    // Do not pin a sentinel model — that was what the console showed as
-    // MODEL = "default". The host's current selection is the right default.
-    expect(options).not.toHaveProperty("model");
-  });
-
-  it("prefers a concrete Cursor model id over default/auto sentinels", () => {
-    expect(cursorModelId("claude-sonnet-4-5")).toBe("claude-sonnet-4-5");
-    expect(cursorModelId({ id: "default" })).toBe("default");
-    expect(cursorModelId({ id: "default", name: "claude-sonnet-4-5" })).toBe(
-      "claude-sonnet-4-5",
-    );
-    expect(cursorModelId({ id: "auto", displayName: "Composer 1" })).toBe(
-      "Composer 1",
-    );
+    expect(options.model).toBeUndefined();
     expect(
-      cursorModelFromEvent({
-        type: "assistant",
-        message: { model: "composer-1" },
-      }),
-    ).toBe("composer-1");
+      cursorAgentOptions({
+        cwd: "/tmp/wt",
+        workspaceRoot: "/tmp/repo",
+        mcpCommand: "node",
+        mcpArgs: [],
+        model: "id-from-agent",
+      }).model,
+    ).toEqual({ id: "id-from-agent" });
   });
 });
 

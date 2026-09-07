@@ -34,16 +34,20 @@ function readIfPresent(path: string): string {
 const uiDist = join(root, "../ui/dist");
 const tokens = readIfPresent(join(uiDist, "tokens.css"));
 const primitives = readIfPresent(join(uiDist, "primitives.css"));
+const mapCss = readIfPresent(join(uiDist, "map.css"));
 // The Console mounts `JobsScreen` from app-shell (ADR-0048), so it needs
 // app-shell's stylesheet — the job card, console and review rules live there,
 // not here. Without it the board renders as unstyled markup.
+// Primitives come after map.css so Badge tones cannot be flattened by a
+// later inspector rule of equal specificity (Failed was painting like Done).
 const appShell = readIfPresent(join(root, "../app-shell/dist/styles.css"));
 const local = readIfPresent(join(out, "app.css"));
 writeFileSync(
   join(out, "hub.css"),
-  [tokens, primitives, appShell, local].join("\n"),
+  [tokens, mapCss, primitives, appShell, local].join("\n"),
 );
 
+const stamp = Date.now().toString(36);
 writeFileSync(
   join(out, "index.html"),
   `<!DOCTYPE html>
@@ -53,11 +57,11 @@ writeFileSync(
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Prism Dispatch</title>
   <link rel="icon" href="/assets/prism-mark.png" />
-  <link rel="stylesheet" href="/assets/hub.css" />
+  <link rel="stylesheet" href="/assets/hub.css?v=${stamp}" />
 </head>
 <body class="prism-theme">
   <div id="root"></div>
-  <script type="module" src="/assets/app.js"></script>
+  <script type="module" src="/assets/app.js?v=${stamp}"></script>
 </body>
 </html>
 `,

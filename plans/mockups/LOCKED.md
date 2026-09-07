@@ -11,7 +11,8 @@
 | Horizontal lockup (light) | **Locked** | `logo/prism-lockup.png` + `logo/exports/prism-lockup-light-*` |
 | Horizontal lockup (dark) | **Locked** | `logo/prism-lockup-dark.png` + `logo/exports/prism-lockup-dark-*` |
 | Design system (Signal Chart) | **Locked** | [`../DESIGN_SYSTEM.md`](../DESIGN_SYSTEM.md) + [`DESIGN.md`](./DESIGN.md) tokens |
-| UI screen mockups | Deferred | Generate later only if needed for M-018+ |
+| UI screen mockups | Deferred (intelligence screens) | [`screens/SPECS.md`](./screens/SPECS.md) |
+| Console fleet chrome | **Locked for M-068** | [`CONSOLE_FLEET.md`](./CONSOLE_FLEET.md) |
 
 ## App-ready brand files
 

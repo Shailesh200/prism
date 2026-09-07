@@ -42,6 +42,27 @@ describe("mapEmptyState", () => {
     expect(state?.detail).toMatch(/TypeScript and JavaScript/);
   });
 
+  it("treats a file zoom over package-only nodes as empty", () => {
+    // Spectrum used to paint package-zoom graphs at file altitude after drill-in.
+    const map = {
+      zoom: "file",
+      graph: {
+        nodes: [
+          {
+            id: "pkg:demo",
+            kind: "package",
+            label: "demo",
+            attrs: { rootDir: "." },
+          },
+        ],
+        edges: [],
+      },
+    } as unknown as RepositoryMap;
+    const state = mapEmptyState(map);
+    expect(state?.title).toBe("No files in the graph");
+    expect(state?.suggestZoom).toBe("package");
+  });
+
   it("covers every zoom level, so no zoom can render blank and unexplained", () => {
     const levels: MapZoomLevel[] = [
       "repo",
