@@ -1,6 +1,5 @@
 import { HomeLayout } from "fumadocs-ui/layouts/home";
 import { baseOptions } from "@/lib/layout.shared";
-import type { Metadata } from "next";
 import { PageEnter } from "@/components/motion/PageEnter";
 import { SectionIntro } from "@/components/motion/SectionIntro";
 import { SiteFooter } from "@/components/site-footer";
@@ -8,12 +7,14 @@ import { LandingChapter } from "@/components/landing-chapter";
 import { SpectrumTheater } from "@/components/spectrum-theater";
 import { IntelligenceTheater } from "@/components/intelligence-theater";
 import { DispatchTheater } from "@/components/dispatch-theater";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Products",
   description:
     "Playground, Intelligence, and Dispatch — three surfaces, one local engine.",
-};
+  path: "/products",
+});
 
 export default function ProductsPage() {
   return (

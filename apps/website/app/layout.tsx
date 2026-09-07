@@ -1,9 +1,12 @@
 import { RootProvider } from "fumadocs-ui/provider/next";
 import { Inter, JetBrains_Mono, Syne } from "next/font/google";
 import type { ReactNode } from "react";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { ThemeSync } from "@/components/theme-sync";
 import { MotionChrome } from "@/components/motion/MotionChrome";
+import { PulseRoot } from "@/components/pulse-root";
+import { JsonLd } from "@/components/json-ld";
+import { rootMetadata, websiteJsonLd } from "@/lib/seo";
 import "./global.css";
 
 const inter = Inter({
@@ -21,57 +24,16 @@ const jetbrains = JetBrains_Mono({
   variable: "--font-mono",
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: "Prism",
-    template: "%s · Prism",
-  },
-  description:
-    "Local-first software intelligence — a teammate for every agent. Maps, graphs, impact, health, and Dispatch on your machine. Not a coding model.",
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.prismhq.in",
-  ),
-};
+export const metadata: Metadata = rootMetadata();
 
-/**
- * Structured data for crawlers and answer engines. Keep every field literally
- * true: the claims here (free, local-first, surfaces) match the docs, and an
- * inaccurate schema is worse than none.
- */
-function jsonLd() {
-  const site = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.prismhq.in";
-  return JSON.stringify({
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "WebSite",
-        name: "Prism",
-        url: site,
-        description:
-          "Local-first software intelligence — maps, graphs, impact and health on your machine.",
-      },
-      {
-        "@type": "SoftwareApplication",
-        name: "Prism",
-        url: site,
-        applicationCategory: "DeveloperApplication",
-        operatingSystem: ["macOS", "Windows", "Linux"],
-        offers: { "@type": "Offer", price: 0, priceCurrency: "USD" },
-        description:
-          "Local-first software intelligence engine. Repository maps, dependency graphs, blast radius, and health — exposed as a CLI, IDE extensions, and an MCP server for AI agents. Analysis makes no network calls.",
-        featureList: [
-          "Repository map and DNA",
-          "Blast radius and impact analysis",
-          "Engineering health tracking",
-          "MCP server with 41 tools for AI agents",
-          "Dispatch background teammates",
-          "CLI for terminals and CI",
-          "VS Code and Cursor extensions",
-        ],
-      },
-    ],
-  });
-}
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#0a0e1a" },
+    { media: "(prefers-color-scheme: light)", color: "#f4f7f8" },
+  ],
+  width: "device-width",
+  initialScale: 1,
+};
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
@@ -81,10 +43,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       suppressHydrationWarning
     >
       <body className="flex min-h-screen flex-col font-sans antialiased">
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: jsonLd() }}
-        />
+        <JsonLd data={websiteJsonLd()} />
         <RootProvider
           theme={{
             attribute: "class",
@@ -95,6 +54,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         >
           <ThemeSync />
           <MotionChrome />
+          <PulseRoot />
           {children}
         </RootProvider>
       </body>

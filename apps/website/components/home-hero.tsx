@@ -6,6 +6,7 @@ import { Magnetic } from "@/components/motion/Magnetic";
 import { useGSAP } from "@gsap/react";
 import { CopyCommand } from "@/components/copy-command";
 import { GitHubStar } from "@/components/github-star";
+import { prismhqEvents, trackProps } from "@/lib/pulse";
 import {
   ensureGsap,
   prefersReducedMotion,
@@ -105,6 +106,7 @@ export function HomeHero() {
             <Link
               href="/install"
               className="inline-block rounded-md bg-fd-primary px-5 py-2.5 text-sm font-medium text-fd-primary-foreground"
+              {...trackProps(prismhqEvents.ctaClick, "get-started")}
             >
               Get started
             </Link>
@@ -112,7 +114,10 @@ export function HomeHero() {
           <GitHubStar size="lg" />
         </div>
         <div data-hero-install className="mt-8 w-full max-w-xl">
-          <CopyCommand command="npx -y @repo-prism/cli doctor" />
+          <CopyCommand
+            command="npx -y @repo-prism/cli doctor"
+            trackTarget="cli"
+          />
         </div>
       </div>
     </section>

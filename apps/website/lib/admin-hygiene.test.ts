@@ -11,5 +11,7 @@ describe("admin surface hygiene", () => {
       return Array.isArray(d) ? d : [d];
     });
     expect(disallow.some((d) => String(d).startsWith("/admin"))).toBe(true);
+    expect(result.sitemap).toBe("https://www.prismhq.in/sitemap.xml");
+    expect(result.host).toBe("www.prismhq.in");
   });
 });

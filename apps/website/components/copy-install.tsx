@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { PRISM_TOOL_COUNT } from "@/lib/mcp-install";
+import { prismhqEvents, trackProps } from "@/lib/pulse";
 
 const SLIDES = [
   {
@@ -88,6 +89,7 @@ export function CopyInstall() {
         <Link
           href={slide.href}
           className="shrink-0 text-xs text-fd-primary hover:underline"
+          {...trackProps(prismhqEvents.navClick, `install-guide-${slide.id}`)}
         >
           Guide →
         </Link>
@@ -103,6 +105,7 @@ export function CopyInstall() {
         <button
           type="button"
           className="shrink-0 rounded-md border border-fd-border px-3 py-1.5 text-sm text-fd-foreground hover:border-fd-primary"
+          {...trackProps(prismhqEvents.installCopy, slide.id)}
           onClick={async () => {
             await navigator.clipboard.writeText(slide.command);
             setCopied(true);

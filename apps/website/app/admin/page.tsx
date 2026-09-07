@@ -4,12 +4,14 @@ import { getAdoptionSnapshot } from "@/lib/adoption";
 import { Sparkline } from "@/components/sparkline";
 import { Counter } from "@/components/motion/Counter";
 import { PageEnter } from "@/components/motion/PageEnter";
-import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Admin",
-  robots: { index: false, follow: false },
-};
+  description: "Internal product console.",
+  path: "/admin",
+  index: false,
+});
 
 export const revalidate = 3600;
 

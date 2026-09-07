@@ -10,14 +10,15 @@ import { Counter } from "@/components/motion/Counter";
 import { SiteFooter } from "@/components/site-footer";
 import { FEATURES } from "@/lib/features";
 import type { ReactNode } from "react";
-import type { Metadata } from "next";
 import sampleReport from "@/data/benchmarks-sample.json";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Features & Benchmarks",
   description:
     "What Prism can do, and the measured hop-count savings before an edit.",
-};
+  path: "/benchmarks",
+});
 
 type RunSide = {
   toolCalls: number;

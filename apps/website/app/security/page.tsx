@@ -1,14 +1,15 @@
 import { HomeLayout } from "fumadocs-ui/layouts/home";
 import { baseOptions } from "@/lib/layout.shared";
-import type { Metadata } from "next";
 import { PageEnter } from "@/components/motion/PageEnter";
 import { SiteFooter } from "@/components/site-footer";
 import { LegalDoc } from "@/components/legal-doc";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Security",
   description: "How to report security issues in Prism.",
-};
+  path: "/security",
+});
 
 export default function SecurityPage() {
   return (

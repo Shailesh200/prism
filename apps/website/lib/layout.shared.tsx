@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { GitHubStar } from "@/components/github-star";
 import { GITHUB } from "@/lib/github";
+import { prismhqEvents, trackProps } from "@/lib/pulse";
 
 export { GITHUB };
 
@@ -62,6 +63,7 @@ export function baseOptions(): BaseLayoutProps {
           <Link
             href="/install"
             className="inline-flex h-8 items-center rounded-md border border-fd-border bg-fd-secondary px-3 text-sm font-medium text-fd-primary transition hover:border-fd-primary hover:bg-fd-accent"
+            {...trackProps(prismhqEvents.ctaClick, "nav-get-started")}
           >
             Get started
           </Link>
