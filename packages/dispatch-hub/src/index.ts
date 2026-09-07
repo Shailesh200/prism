@@ -21,12 +21,8 @@ export {
   workspaceLabel,
   loadRegistry,
 } from "./registry.js";
-export {
-  buildStatusline,
-  formatStatusline,
-  parseStatuslineStdin,
-  statuslineSetupSnippet,
-} from "./statusline.js";
+// Statusline is the `prism-hub statusline` CLI only. Re-exporting it here
+// pulled `formatDuration` into every MCP import of this package.
 export { readHubRecord, newHubToken } from "./hub-record.js";
 export type {
   HubEvent,

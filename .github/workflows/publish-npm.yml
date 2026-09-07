@@ -59,6 +59,13 @@ jobs:
             bun run --filter "@repo-prism/${name}" build
           done
 
+      - name: Refuse a publish that npm would not load
+        # Catches "hub imports a name shared@already-published does not export".
+        run: bun run scripts/check-publish-exports.mjs --against-npm
+
+      - name: Refuse a publish whose MCP process cannot initialize
+        run: bun run scripts/check-mcp-start.mjs
+
       - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

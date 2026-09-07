@@ -59,3 +59,25 @@ jobs:
       - run: bun run --filter @repo-prism/core test
       - run: bun run --filter @repo-prism/cli test
       - run: bun run --filter @repo-prism/mcp-server test
+
+  # 1.8.0 died on `import` (`formatDuration` missing from published shared)
+  # before initialize. Source tests never saw it; this job loads dist.
+  mcp-start:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+      - run: bun install --frozen-lockfile
+      - name: Build MCP import graph
+        run: |
+          set -euo pipefail
+          for name in shared test-support analyzer graph-engine impact navigation indexer intelligence repository-map core ui app-shell host-session dispatch dispatch-hub mcp-server; do
+            bun run --filter "@repo-prism/${name}" build
+          done
+      - run: bun run scripts/check-publish-exports.mjs
+      - run: bun run scripts/check-mcp-start.mjs
