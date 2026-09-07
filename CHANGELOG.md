@@ -9,6 +9,15 @@ the `prism` CLI, the `prism-mcp` server, and the Core SDK they all call. They
 move as one because they are one build; a mismatch between them has never been
 a supported configuration.
 
+## 1.8.1 — MCP start
+
+- **MCP:** `npx @repo-prism/mcp-server` starts again. 1.8.0 imported
+  `formatDuration` from `@repo-prism/shared` while the published `shared@1.1.1`
+  did not export it, so the process died before handshake (`-32000 Connection
+  closed`). `shared` is now `1.2.0` and ships those duration helpers.
+- Keep `@latest`. `@repo-prism/shared@1.2.0`, `@repo-prism/dispatch-hub@1.8.1`,
+  and `@repo-prism/mcp-server@1.8.1`.
+
 ## 1.8.0 — Fleet Console
 
 ### Console

@@ -12,6 +12,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { assertPublishable } from "./check-publish-exports.mjs";
 
 const ORDER = [
   "shared",
@@ -97,6 +98,11 @@ for (const name of ORDER) {
   const pkg = readPkg(join(root, "packages", name));
   versions.set(pkg.name, pkg.version);
 }
+
+await assertPublishable({
+  root,
+  againstNpm: true,
+});
 
 for (const name of ORDER) {
   const dir = join(root, "packages", name);
