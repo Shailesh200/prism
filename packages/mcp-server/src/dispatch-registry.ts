@@ -283,6 +283,12 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
         .describe(
           "Where jobs work: checkout (default — your tree, uncommitted) or worktree (separate branch + commit)",
         ),
+      dispatchMode: z
+        .enum(["ask", "auto", "inline"])
+        .optional()
+        .describe(
+          "How the chat routes a code change: ask (default — offer teammate-or-inline in one line first), auto (dispatch without asking), or inline (only dispatch when the user asks for a job outright)",
+        ),
       preference: z
         .string()
         .optional()
