@@ -9,7 +9,7 @@ the `prism` CLI, the `prism-mcp` server, and the Core SDK they all call. They
 move as one because they are one build; a mismatch between them has never been
 a supported configuration.
 
-## 1.9.0 — Dispatch stays a teammate
+## 1.8.2 — Dispatch stays a teammate
 
 ### Dispatch
 
@@ -19,7 +19,7 @@ a supported configuration.
 
 - **MCP:** `configure dispatchMode=auto` (and `inline`) sticks again. The setting was documented but missing from the tool schema, so the host stayed on `ask` and kept routing changes inline. You can set the mode from chat once more.
 
-Keep `@latest`. `@repo-prism/dispatch@1.9.0` and `@repo-prism/mcp-server@1.9.0`.
+Keep `@latest`. `@repo-prism/dispatch@1.8.2` and `@repo-prism/mcp-server@1.8.2`.
 
 ## 1.8.1 — MCP start
 
