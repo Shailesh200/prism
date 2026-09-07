@@ -13,6 +13,12 @@ import { PageEnter } from "@/components/motion/PageEnter";
 import { Reveal } from "@/components/motion/Reveal";
 import { SiteFooter } from "@/components/site-footer";
 import Link from "next/link";
+import { SITE_DESCRIPTION, pageMetadata } from "@/lib/seo";
+
+export const metadata = pageMetadata({
+  description: SITE_DESCRIPTION,
+  path: "/",
+});
 
 export default function HomePage() {
   return (

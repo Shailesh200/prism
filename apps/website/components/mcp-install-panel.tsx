@@ -10,14 +10,16 @@ import {
   cursorMcpInstallHref,
   vscodeMcpInstallHref,
 } from "@/lib/mcp-install";
+import { prismhqEvents, trackProps } from "@/lib/pulse";
 
 type CopyBlockProps = {
   label: string;
   value: string;
   hint?: string;
+  trackTarget: string;
 };
 
-function CopyBlock({ label, value, hint }: CopyBlockProps) {
+function CopyBlock({ label, value, hint, trackTarget }: CopyBlockProps) {
   const [copied, setCopied] = useState(false);
 
   return (
@@ -27,6 +29,7 @@ function CopyBlock({ label, value, hint }: CopyBlockProps) {
         <button
           type="button"
           className="shrink-0 rounded-md border border-fd-border px-2.5 py-1 text-xs text-fd-foreground hover:border-fd-primary"
+          {...trackProps(prismhqEvents.installCopy, trackTarget)}
           onClick={async () => {
             await navigator.clipboard.writeText(value);
             setCopied(true);
@@ -94,12 +97,14 @@ export function McpInstallPanel() {
           <a
             href={cursorMcpInstallHref()}
             className="inline-block rounded-md bg-fd-primary px-4 py-2.5 text-sm font-medium text-fd-primary-foreground"
+            {...trackProps(prismhqEvents.installOpen, "cursor")}
           >
             Add to Cursor
           </a>
           <CopyBlock
             label="Or paste into `.cursor/mcp.json`"
             value={PRISM_MCP_JSON_STRING.trim()}
+            trackTarget="cursor-mcp"
             hint={`Project root, or ~/.cursor/mcp.json for every project. Then Settings → MCP → enable prism (${PRISM_TOOL_COUNT} tools).`}
           />
         </div>
@@ -109,6 +114,7 @@ export function McpInstallPanel() {
         <CopyBlock
           label="One command"
           value={PRISM_CLAUDE_CODE_COMMAND}
+          trackTarget="claude-code"
           hint="Run inside your project directory. Restart Claude Code if it was already open. Jobs run on the Claude you are already signed in to."
         />
       ) : null}
@@ -118,6 +124,7 @@ export function McpInstallPanel() {
           <CopyBlock
             label={`Add to ${CLAUDE_DESKTOP_CONFIG_PATHS.macos}`}
             value={PRISM_MCP_JSON_STRING.trim()}
+            trackTarget="claude-desktop"
             hint={`Windows: ${CLAUDE_DESKTOP_CONFIG_PATHS.windows}. Quit and reopen Claude afterwards.`}
           />
           <p className="text-xs text-fd-muted-foreground">
@@ -135,6 +142,7 @@ export function McpInstallPanel() {
         <CopyBlock
           label="Add to ~/.codex/config.toml"
           value={PRISM_CODEX_TOML.trim()}
+          trackTarget="codex"
           hint="Codex reads TOML, not JSON. Run Codex from inside your project directory."
         />
       ) : null}
@@ -144,12 +152,14 @@ export function McpInstallPanel() {
           <a
             href={vscodeMcpInstallHref()}
             className="inline-block rounded-md bg-fd-primary px-4 py-2.5 text-sm font-medium text-fd-primary-foreground"
+            {...trackProps(prismhqEvents.installOpen, "vscode")}
           >
             Add to VS Code
           </a>
           <CopyBlock
             label="Or paste into your MCP config"
             value={PRISM_MCP_JSON_STRING.trim()}
+            trackTarget="vscode-mcp"
           />
         </div>
       ) : null}

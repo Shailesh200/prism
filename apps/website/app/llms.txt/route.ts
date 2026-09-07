@@ -1,4 +1,5 @@
 import { source } from "@/lib/source";
+import { siteOrigin } from "@/lib/seo";
 
 /**
  * llms.txt — the curated map answer engines read first.
@@ -9,7 +10,7 @@ import { source } from "@/lib/source";
  * are five; a collection would be theatre).
  */
 export async function GET() {
-  const site = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.prismhq.in";
+  const site = siteOrigin();
 
   const pages = source
     .getPages()

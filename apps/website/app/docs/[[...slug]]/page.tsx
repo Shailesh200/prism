@@ -6,9 +6,10 @@ import {
   DocsTitle,
 } from "fumadocs-ui/layouts/notebook/page";
 import { notFound } from "next/navigation";
-import { getMDXComponents } from "@/components/mdx";
-import type { Metadata } from "next";
+import { getMDXComponents, withPulseAnchors } from "@/components/mdx";
+import { JsonLd } from "@/components/json-ld";
 import { createRelativeLink } from "fumadocs-ui/mdx";
+import { docsBreadcrumbJsonLd, faqJsonLd, pageMetadata } from "@/lib/seo";
 
 export default async function Page(props: {
   params: Promise<{ slug?: string[] }>;
@@ -18,15 +19,23 @@ export default async function Page(props: {
   if (!page) notFound();
 
   const MDX = page.data.body;
+  const isFaq = params.slug?.[0] === "help" && params.slug?.[1] === "faq";
 
   return (
     <DocsPage toc={page.data.toc} full={page.data.full}>
+      <JsonLd
+        data={docsBreadcrumbJsonLd({
+          title: page.data.title,
+          url: page.url,
+        })}
+      />
+      {isFaq ? <JsonLd data={faqJsonLd()} /> : null}
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>
       <DocsBody>
         <MDX
           components={getMDXComponents({
-            a: createRelativeLink(source, page),
+            a: withPulseAnchors(createRelativeLink(source, page)),
           })}
         />
       </DocsBody>
@@ -40,13 +49,14 @@ export async function generateStaticParams() {
 
 export async function generateMetadata(props: {
   params: Promise<{ slug?: string[] }>;
-}): Promise<Metadata> {
+}) {
   const params = await props.params;
   const page = source.getPage(params.slug);
   if (!page) notFound();
 
-  return {
+  return pageMetadata({
     title: page.data.title,
     description: page.data.description,
-  };
+    path: page.url,
+  });
 }

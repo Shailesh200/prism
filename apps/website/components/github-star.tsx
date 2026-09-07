@@ -7,6 +7,7 @@ import {
   formatStarCount,
   parseStarCount,
 } from "@/lib/github";
+import { prismhqEvents, trackProps } from "@/lib/pulse";
 
 type GitHubStarProps = {
   size?: "sm" | "lg";
@@ -54,6 +55,7 @@ export function GitHubStar({ size = "sm" }: GitHubStarProps) {
       target="_blank"
       rel="noreferrer"
       aria-label={label}
+      {...trackProps(prismhqEvents.ctaClick, "github")}
       className={
         large
           ? "group inline-flex h-10 items-center gap-2 rounded-md border border-fd-primary bg-transparent px-4 font-mono text-sm text-fd-primary transition hover:bg-fd-primary hover:text-fd-primary-foreground"

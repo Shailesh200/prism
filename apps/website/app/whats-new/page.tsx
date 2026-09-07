@@ -10,7 +10,7 @@ import {
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import Link from "next/link";
-import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 import { Globe, LayoutDashboard, UsersRound } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { PageEnter } from "@/components/motion/PageEnter";
@@ -21,10 +21,11 @@ import { WhatsNewStill } from "@/components/whats-new-still";
 import { ShipArchive } from "@/components/ship-archive";
 import "./whats-new.css";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "What's new",
   description: "Prism release timeline and highlight posts.",
-};
+  path: "/whats-new",
+});
 
 type PostMeta = {
   slug: string;

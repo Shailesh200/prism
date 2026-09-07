@@ -6,9 +6,9 @@ import {
   DocsTitle,
 } from "fumadocs-ui/layouts/docs/page";
 import { notFound, redirect } from "next/navigation";
-import { getMDXComponents } from "@/components/mdx";
-import type { Metadata } from "next";
+import { getMDXComponents, withPulseAnchors } from "@/components/mdx";
 import { createRelativeLink } from "fumadocs-ui/mdx";
+import { pageMetadata } from "@/lib/seo";
 
 export default async function Page(props: {
   params: Promise<{ slug?: string[] }>;
@@ -29,7 +29,7 @@ export default async function Page(props: {
       <DocsBody>
         <MDX
           components={getMDXComponents({
-            a: createRelativeLink(adminSource, page),
+            a: withPulseAnchors(createRelativeLink(adminSource, page)),
           })}
         />
       </DocsBody>
@@ -43,19 +43,22 @@ export async function generateStaticParams() {
 
 export async function generateMetadata(props: {
   params: Promise<{ slug?: string[] }>;
-}): Promise<Metadata> {
+}) {
   const params = await props.params;
   if (!params.slug || params.slug.length === 0) {
-    return {
+    return pageMetadata({
       title: "Architecture",
-      robots: { index: false, follow: false },
-    };
+      description: "Internal architecture docs.",
+      path: "/admin/docs",
+      index: false,
+    });
   }
   const page = adminSource.getPage(params.slug);
   if (!page) notFound();
-  return {
+  return pageMetadata({
     title: page.data.title,
     description: page.data.description,
-    robots: { index: false, follow: false },
-  };
+    path: page.url,
+    index: false,
+  });
 }

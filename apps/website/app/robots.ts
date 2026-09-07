@@ -1,7 +1,17 @@
+import { isPreviewDeploy, siteHost, siteOrigin } from "../lib/seo";
 import type { MetadataRoute } from "next";
 
 export default function robots(): MetadataRoute.Robots {
-  const site = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.prismhq.in";
+  if (isPreviewDeploy()) {
+    return {
+      rules: {
+        userAgent: "*",
+        disallow: "/",
+      },
+    };
+  }
+
+  const site = siteOrigin();
   return {
     rules: [
       {
@@ -11,5 +21,6 @@ export default function robots(): MetadataRoute.Robots {
       },
     ],
     sitemap: `${site}/sitemap.xml`,
+    host: siteHost(),
   };
 }

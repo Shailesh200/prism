@@ -1,15 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import { installCopyTarget, prismhqEvents, trackProps } from "@/lib/pulse";
 
 export function CopyCommand({
   command,
   className = "",
+  trackTarget,
 }: {
   command: string;
   className?: string;
+  trackTarget?: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const target = trackTarget ?? installCopyTarget(command) ?? "command";
 
   return (
     <div
@@ -22,6 +26,7 @@ export function CopyCommand({
       <button
         type="button"
         className="shrink-0 rounded-md border border-fd-border px-3 py-1.5 text-xs text-fd-foreground hover:border-fd-primary"
+        {...trackProps(prismhqEvents.installCopy, target)}
         onClick={async () => {
           await navigator.clipboard.writeText(command);
           setCopied(true);

@@ -1,9 +1,10 @@
 import { parseChangelog } from "@/lib/changelog";
+import { siteOrigin } from "@/lib/seo";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 export async function GET() {
-  const site = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.prismhq.in";
+  const site = siteOrigin();
   const changelog = await readFile(
     path.join(process.cwd(), "../../CHANGELOG.md"),
     "utf8",

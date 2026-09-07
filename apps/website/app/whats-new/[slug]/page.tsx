@@ -1,11 +1,12 @@
 import { HomeLayout } from "fumadocs-ui/layouts/home";
 import { baseOptions } from "@/lib/layout.shared";
 import { notFound } from "next/navigation";
-import type { Metadata } from "next";
 import { PageEnter } from "@/components/motion/PageEnter";
 import { SiteFooter } from "@/components/site-footer";
+import { JsonLd } from "@/components/json-ld";
 import { posts } from "@/.source/server";
 import { getMDXComponents } from "@/components/mdx";
+import { articleJsonLd, pageMetadata, SITE_DESCRIPTION } from "@/lib/seo";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -19,14 +20,16 @@ export function generateStaticParams() {
   }));
 }
 
-export async function generateMetadata(props: Props): Promise<Metadata> {
+export async function generateMetadata(props: Props) {
   const { slug } = await props.params;
   const post = findPost(slug);
   if (!post) return {};
-  return {
+  return pageMetadata({
     title: post.title ?? slug,
-    description: post.description ?? undefined,
-  };
+    description: post.description ?? SITE_DESCRIPTION,
+    path: `/whats-new/${slug}`,
+    type: "article",
+  });
 }
 
 export default async function PostPage(props: Props) {
@@ -39,6 +42,13 @@ export default async function PostPage(props: Props) {
     <HomeLayout {...baseOptions()}>
       <PageEnter>
         <main className="mx-auto w-full max-w-3xl px-6 py-16">
+          <JsonLd
+            data={articleJsonLd({
+              title: post.title ?? slug,
+              description: post.description,
+              url: `/whats-new/${slug}`,
+            })}
+          />
           <article className="space-y-6">
             <h1 className="font-display text-4xl font-semibold tracking-tight">
               {post.title ?? slug}

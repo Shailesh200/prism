@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { HomeLayout } from "fumadocs-ui/layouts/home";
 import { baseOptions } from "@/lib/layout.shared";
-import type { Metadata } from "next";
 import Link from "next/link";
 import { PageEnter } from "@/components/motion/PageEnter";
 import { Reveal } from "@/components/motion/Reveal";
@@ -11,12 +10,14 @@ import { CopyInstall } from "@/components/copy-install";
 import { McpInstallPanel } from "@/components/mcp-install-panel";
 import { SiteFooter } from "@/components/site-footer";
 import { PRISM_TOOL_COUNT } from "@/lib/mcp-install";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Install",
   description:
     "Node 26+, pick a surface, confirm it works. prism init never asks for a key.",
-};
+  path: "/install",
+});
 
 const SURFACES = [
   {
@@ -169,7 +170,10 @@ export default function InstallPage() {
                   offered — including{" "}
                   <code className="text-fd-primary">dispatch/</code>.
                 </p>
-                <CopyCommand command="npx -y @repo-prism/cli doctor" />
+                <CopyCommand
+                  command="npx -y @repo-prism/cli doctor"
+                  trackTarget="cli"
+                />
               </WizardStep>
             </ol>
           </Reveal>
