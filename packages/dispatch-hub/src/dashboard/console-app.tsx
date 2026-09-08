@@ -16,6 +16,8 @@ import {
 } from "@repo-prism/ui";
 import {
   Aperture,
+  BookOpen,
+  GitBranch,
   PanelLeft,
   PanelLeftClose,
   Cpu,
@@ -77,6 +79,9 @@ import {
   WORKSPACES_CHANGED,
 } from "./session.js";
 import { SettingsView } from "./settings-view.js";
+import { SkillsView } from "./skills-view.js";
+import { TreesView } from "./trees-view.js";
+import { WakeView } from "./wake-view.js";
 import { WhatsNewView } from "./whats-new-view.js";
 import { useJobsFeed } from "./use-jobs.js";
 
@@ -86,6 +91,8 @@ const RAIL_ICONS: Record<RailView, ReactElement> = {
   dashboard: <LayoutDashboard size={16} aria-hidden />,
   findings: <ScrollText size={16} aria-hidden />,
   iris: <Aperture size={16} aria-hidden />,
+  trees: <GitBranch size={16} aria-hidden />,
+  skills: <BookOpen size={16} aria-hidden />,
   settings: <Settings size={16} aria-hidden />,
 };
 
@@ -119,6 +126,15 @@ export function ConsoleApp(): ReactElement {
   const feed = useJobsFeed(token);
   const workspaces = useWorkspaces(token, feed);
   const [version, setVersion] = useState<string | undefined>();
+  const [playgroundUrl, setPlaygroundUrl] = useState(
+    "http://prismhq.localhost:5173/",
+  );
+  const [update, setUpdate] = useState<{
+    readonly current: string;
+    readonly latest?: string;
+    readonly stale: boolean;
+  }>();
+  const [updateDismissed, setUpdateDismissed] = useState(false);
   const [host, setHost] = useState<HostTelemetry | undefined>();
   const [mode, setMode] = useState<FleetViewMode>(() =>
     parseFleetView(
@@ -203,9 +219,29 @@ export function ConsoleApp(): ReactElement {
 
   useEffect(() => {
     let alive = true;
-    void getJson<{ version: string }>("/api/healthz", token)
+    void getJson<{
+      version: string;
+      playground?: { url?: string };
+    }>("/api/healthz", token)
       .then((body) => {
-        if (alive) setVersion(body.version);
+        if (!alive) return;
+        setVersion(body.version);
+        if (body.playground?.url) setPlaygroundUrl(body.playground.url);
+      })
+      .catch(() => undefined);
+    void getJson<{
+      current: string;
+      latest?: string;
+      stale: boolean;
+    }>("/api/update", token)
+      .then((body) => {
+        if (!alive) return;
+        setUpdate(body);
+        if (body.latest) {
+          setUpdateDismissed(
+            localStorage.getItem(`prism.console.update.${body.latest}`) === "1",
+          );
+        }
       })
       .catch(() => undefined);
     void getJson<HostTelemetry>("/api/telemetry/host", token)
@@ -447,11 +483,38 @@ export function ConsoleApp(): ReactElement {
         </nav>
 
         <div className="console__column">
+          {update?.stale && update.latest && !updateDismissed ? (
+            <div className="console-banner" role="status">
+              <p className="console-banner__copy">
+                Prism {update.latest} is on npm. This Console is{" "}
+                {update.current}. Reload Prism MCP in this chat to hop.
+              </p>
+              <div className="console-banner__actions">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    localStorage.setItem(
+                      `prism.console.update.${update.latest}`,
+                      "1",
+                    );
+                    setUpdateDismissed(true);
+                  }}
+                >
+                  Dismiss
+                </Button>
+              </div>
+            </div>
+          ) : null}
           <main
             className={
               view === "findings" && jobId
                 ? "console__main console__main--findings"
-                : "console__main"
+                : view === "skills"
+                  ? "console__main console__main--skills"
+                  : view === "trees"
+                    ? "console__main console__main--trees"
+                    : "console__main"
             }
           >
             {view === "dashboard" ? (
@@ -548,8 +611,55 @@ export function ConsoleApp(): ReactElement {
                 workspaces={workspaces}
               />
             ) : null}
+            {view === "trees" ? (
+              <TreesView
+                token={token}
+                repos={workspaces}
+                {...(repoFilter ? { repoFilter } : {})}
+                onOpenJob={(id) => {
+                  setFocusId(id);
+                  go("dashboard");
+                }}
+              />
+            ) : null}
+            {view === "skills" ? (
+              <SkillsView
+                token={token}
+                repos={workspaces}
+                jobs={feed.summaries}
+                onWatchJob={(id) => {
+                  setFocusId(id);
+                  go("dashboard");
+                }}
+                onGenerate={(input) => {
+                  setInstructJob(undefined);
+                  setCompose({
+                    open: true,
+                    title: input.title,
+                    prd: input.prd,
+                    playbook: "console",
+                    ...(input.workspace ? { workspace: input.workspace } : {}),
+                  });
+                }}
+              />
+            ) : null}
             {view === "settings" ? (
               <SettingsView token={token} onRemoveRepo={removeRepo} />
+            ) : null}
+            {view === "wake" ? (
+              <WakeView
+                token={token}
+                repos={workspaces}
+                {...(repoFilter ? { repoFilter } : {})}
+                consoleUrl={`${window.location.protocol}//${window.location.host}/`}
+                playgroundUrl={playgroundUrl}
+                onRepoFilter={(path) =>
+                  go("wake", path === "all" ? {} : { repo: path })
+                }
+                onOpenConsole={() =>
+                  go("dashboard", repoFilter ? { repo: repoFilter } : {})
+                }
+              />
             ) : null}
             {view === "whats-new" ? (
               <WhatsNewView
@@ -564,7 +674,10 @@ export function ConsoleApp(): ReactElement {
               />
             ) : null}
           </main>
-          <ConsoleFooter {...(version ? { version } : {})} />
+          <ConsoleFooter
+            {...(version ? { version } : {})}
+            playgroundUrl={playgroundUrl}
+          />
         </div>
 
         {listDrawer ? (

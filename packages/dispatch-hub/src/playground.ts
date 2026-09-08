@@ -9,7 +9,8 @@ import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { access } from "node:fs/promises";
 import { join } from "node:path";
-import { hubHome, type HubEnv } from "./paths.js";
+import { fileURLToPath } from "node:url";
+import { consoleHost, hubHome, type HubEnv } from "./paths.js";
 import { readJsonFile, writeJsonFile } from "./json-file.js";
 
 const execFileAsync = promisify(execFile);
@@ -60,20 +61,62 @@ export function playgroundRecordPath(env: HubEnv = process.env): string {
   return join(hubHome(env), "playground.json");
 }
 
-export function playgroundUrl(port: number): string {
+export function playgroundUrl(port: number, env: HubEnv = process.env): string {
+  return `http://${consoleHost(env)}:${port}/`;
+}
+
+/** Bind/health checks stay on loopback — the daemon listens on 127.0.0.1. */
+export function playgroundBindUrl(port: number): string {
   return `http://127.0.0.1:${port}/`;
+}
+
+async function playgroundPackageAt(dir: string): Promise<string | undefined> {
+  try {
+    await access(join(dir, "package.json"));
+    return dir;
+  } catch {
+    return undefined;
+  }
 }
 
 export async function findPlaygroundApp(
   workspaceRoot: string,
+  extraRoots: readonly string[] = [],
 ): Promise<string | undefined> {
-  const candidate = join(workspaceRoot, "apps", "playground");
-  try {
-    await access(join(candidate, "package.json"));
-    return candidate;
-  } catch {
-    return undefined;
+  const roots = [workspaceRoot, ...extraRoots].filter((root) => root.trim());
+  const seen = new Set<string>();
+  for (const root of roots) {
+    const candidate = join(root, "apps", "playground");
+    if (seen.has(candidate)) continue;
+    seen.add(candidate);
+    const found = await playgroundPackageAt(candidate);
+    if (found) return found;
   }
+  return undefined;
+}
+
+/**
+ * Where Vite actually lives: the requested repo, other registered
+ * workspaces, `PRISM_PLAYGROUND_ROOT`, then this Prism checkout. Tests stay
+ * isolated — they only see the workspace unless they opt in.
+ */
+export async function resolvePlaygroundApp(
+  workspaceRoot: string,
+  extraRoots: readonly string[] = [],
+  env: HubEnv = process.env,
+): Promise<string | undefined> {
+  const found = await findPlaygroundApp(workspaceRoot, extraRoots);
+  if (found) return found;
+  const override = env.PRISM_PLAYGROUND_ROOT?.trim();
+  if (override) {
+    const fromOverride =
+      (await playgroundPackageAt(override)) ??
+      (await findPlaygroundApp(override));
+    if (fromOverride) return fromOverride;
+  }
+  if (env.VITEST === "true" || process.env.VITEST === "true") return undefined;
+  const hubRepo = fileURLToPath(new URL("../../..", import.meta.url));
+  return findPlaygroundApp(hubRepo);
 }
 
 export async function readPlaygroundRecord(
@@ -141,9 +184,15 @@ function stopPid(pid: number): void {
 
 export async function spawnPlaygroundVite(input: {
   readonly workspaceRoot: string;
+  readonly extraRoots?: readonly string[];
   readonly env?: HubEnv;
 }): Promise<{ pid: number } | undefined> {
-  const app = await findPlaygroundApp(input.workspaceRoot);
+  const env = input.env ?? process.env;
+  const app = await resolvePlaygroundApp(
+    input.workspaceRoot,
+    input.extraRoots ?? [],
+    env,
+  );
   if (!app) return undefined;
   const child = spawn("bun", ["run", "dev"], {
     cwd: app,
@@ -167,7 +216,7 @@ export async function playgroundIsLive(
 ): Promise<boolean> {
   if (port <= 0) return false;
   try {
-    const response = await fetchImpl(playgroundUrl(port), {
+    const response = await fetchImpl(playgroundBindUrl(port), {
       signal: AbortSignal.timeout(800),
     });
     if (!response.ok) return false;
@@ -184,7 +233,7 @@ export async function playgroundIsDownPage(
 ): Promise<boolean> {
   if (port <= 0) return false;
   try {
-    const response = await fetchImpl(playgroundUrl(port), {
+    const response = await fetchImpl(playgroundBindUrl(port), {
       signal: AbortSignal.timeout(800),
     });
     if (!response.ok) return false;

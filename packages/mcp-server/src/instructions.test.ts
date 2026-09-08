@@ -17,6 +17,7 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toContain("init");
     expect(SERVER_INSTRUCTIONS).toContain("sleep");
     expect(SERVER_INSTRUCTIONS).toContain("wake");
+    expect(SERVER_INSTRUCTIONS).toContain("use_skill");
     expect(SERVER_INSTRUCTIONS).not.toMatch(/prism_blast_radius/);
   });
 

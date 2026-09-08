@@ -1067,6 +1067,52 @@ export function pulseSections(
   return { live, needsYou, settled };
 }
 
+export type RepoJobGroup = {
+  readonly path: string;
+  readonly label: string;
+  readonly jobs: readonly JobSummary[];
+};
+
+/** Preserve caller order; first-seen repo stays first. */
+export function groupJobsByRepo(
+  jobs: readonly JobSummary[],
+): readonly RepoJobGroup[] {
+  const groups: RepoJobGroup[] = [];
+  const index = new Map<string, number>();
+  for (const job of jobs) {
+    const path = job.workspacePath ?? "";
+    const at = index.get(path);
+    if (at === undefined) {
+      index.set(path, groups.length);
+      groups.push({
+        path,
+        label: job.workspaceLabel ?? "Repo",
+        jobs: [job],
+      });
+      continue;
+    }
+    const current = groups[at];
+    if (!current) continue;
+    groups[at] = { ...current, jobs: [...current.jobs, job] };
+  }
+  return groups;
+}
+
+export function jobTreeLabel(job: JobSummary): {
+  readonly label: string;
+  readonly you: boolean;
+  readonly worktree: boolean;
+} {
+  if (job.placement === "worktree") {
+    return {
+      label: job.branch?.trim() || "worktree",
+      you: false,
+      worktree: true,
+    };
+  }
+  return { label: "This checkout", you: true, worktree: false };
+}
+
 export function pulseIdleRepos(
   repos: readonly RepoFleet[],
   range: FleetTimeRange,

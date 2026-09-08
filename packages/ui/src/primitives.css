@@ -167,6 +167,14 @@
   text-transform: uppercase;
 }
 
+.prism-field__label--mono {
+  font-family: var(--prism-mono, "JetBrains Mono", ui-monospace, monospace);
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
 /* —— Search —— */
 .prism-search {
   position: relative;
@@ -688,6 +696,47 @@
     0 0 12px color-mix(in oklab, var(--prism-accent) 40%, transparent);
 }
 
+.prism-badge.prism-badge--fill.prism-badge--brand {
+  background: var(--prism-brand);
+  color: var(--prism-canvas);
+  border-color: var(--prism-brand);
+}
+
+.prism-tile {
+  display: flex;
+  width: 100%;
+  margin: 0;
+  padding: 8px;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--prism-radius-md, 8px);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.prism-tile:hover:not(:disabled) {
+  background: var(--prism-panel, #131926);
+}
+
+.prism-tile[data-selected="true"] {
+  background: var(--prism-tile, #1e2433);
+  border-color: var(--prism-line, #2a334a);
+}
+
+.prism-tile:focus-visible {
+  outline: none;
+  box-shadow: var(--prism-ring);
+}
+
+.prism-tile:disabled {
+  cursor: default;
+}
+
 @keyframes prism-badge-live {
   50% {
     box-shadow:
@@ -1207,6 +1256,107 @@ fieldset.prism-field,
   font-size: var(--prism-type-body);
 }
 
+.prism-pip {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--prism-ink-muted, #94a3b8);
+}
+
+.prism-pip--sm {
+  width: 6px;
+  height: 6px;
+}
+
+.prism-pip--lg {
+  width: 10px;
+  height: 10px;
+}
+
+.prism-pip--brand {
+  background: var(--prism-brand, #00c2c2);
+}
+
+.prism-pip--accent {
+  background: var(--prism-accent, #38bdf8);
+}
+
+.prism-pip--amber {
+  background: var(--prism-amber, #f59e0b);
+}
+
+.prism-pip--emerald {
+  background: var(--prism-emerald, #10b981);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--prism-emerald, #10b981) 50%, transparent);
+}
+
+.prism-pip--rose {
+  background: var(--prism-rose, #f43f5e);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--prism-rose, #f43f5e) 50%, transparent);
+}
+
+.prism-pip--pulse {
+  animation: prism-pip-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+@keyframes prism-pip-ring {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--prism-accent, #38bdf8) 70%, transparent);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px transparent;
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.prism-progress {
+  display: block;
+  width: 100%;
+  height: var(--prism-progress, 2px);
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--prism-line, #2a334a);
+}
+
+.prism-progress--hairline {
+  height: var(--prism-progress-hairline, 1px);
+}
+
+.prism-progress__fill {
+  display: block;
+  height: 100%;
+  background: var(--prism-accent, #38bdf8);
+  transform-origin: left center;
+}
+
+.prism-progress[data-indeterminate="true"] .prism-progress__fill {
+  width: 100%;
+  background-image: linear-gradient(
+    to right,
+    transparent 0%,
+    var(--prism-accent, #38bdf8) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: prism-progress-indeterminate 2s linear infinite;
+}
+
+@keyframes prism-progress-indeterminate {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .prism-input,
   .prism-textarea,
@@ -1216,7 +1366,11 @@ fieldset.prism-field,
   .prism-tabs__btn,
   .prism-tooltip__trigger,
   .prism-tooltip__pop,
-  .prism-btn {
+  .prism-btn,
+  .prism-tile,
+  .prism-pip--pulse,
+  .prism-progress[data-indeterminate="true"] .prism-progress__fill {
     transition: none;
+    animation: none;
   }
 }

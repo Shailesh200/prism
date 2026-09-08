@@ -20,10 +20,12 @@ describe("worker tool filter", () => {
     ]);
     expect(names).toContain("list_jobs");
     expect(names).toContain("remember");
+    expect(names).toContain("use_skill");
   });
 
   it("exposes the full pack on the host", () => {
-    expect(visibleDispatchTools({}).length).toBe(11);
+    expect(visibleDispatchTools({}).length).toBe(12);
+    expect(visibleDispatchTools({})).toContain("use_skill");
   });
 
   it("lets a worker read its own console but not spawn work", () => {

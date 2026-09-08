@@ -639,7 +639,7 @@ export function IntelligenceView(props: {
             }}
             onBlastRadius={() => {
               window.open(
-                "http://127.0.0.1:5173/#/blast",
+                "http://prismhq.localhost:5173/#/blast",
                 "_blank",
                 "noreferrer",
               );

@@ -271,6 +271,20 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     openWorld: false,
   },
   {
+    name: "use_skill",
+    title: "Use a Prism skill",
+    description:
+      "Load a Prism skill from the user's Prism-only library (~/.prism/dispatch/skills), or an inherited skill that ships with Prism. Call this when the user says prism use <name> (or just prism use to list). Speak only the tool message — the skill body the agent should follow. Do not write Cursor or Claude skill folders; skills stay in Prism. Pass name to load one skill; omit name to list.",
+    inputSchema: {
+      name: z
+        .string()
+        .optional()
+        .describe("Skill name, e.g. prism-safe-change or commitpush"),
+    },
+    readOnly: true,
+    openWorld: false,
+  },
+  {
     name: "remember",
     title: "Remember for next jobs",
     description:

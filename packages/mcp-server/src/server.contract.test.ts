@@ -210,6 +210,7 @@ describe("MCP server contract (M-026)", () => {
         "start_my_day",
         "test_impact",
         "testing_report",
+        "use_skill",
         "wake",
         "workspace_status",
       ].sort(),
@@ -466,6 +467,7 @@ describe("MCP server contract (M-026)", () => {
       ["list_jobs", {}],
       ["job_logs", {}],
       ["remember", { action: "list" }],
+      ["use_skill", {}],
       ["configure", { action: "get" }],
       ["dispatch_doctor", {}],
     ];

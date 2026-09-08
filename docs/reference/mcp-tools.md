@@ -19,7 +19,7 @@ Core analysis APIs stay ungated from MCP. See
 Tools that return a list accept `limit` and answer with `totalCount` and
 `truncated`, so an agent can tell the first 20 of 340 from all 20 there are.
 
-Prism exposes **43 tools**. Every count elsewhere in the docs is
+Prism exposes **44 tools**. Every count elsewhere in the docs is
 checked against this one, so the number cannot drift into prose.
 
 | Tool | What it answers |
@@ -65,6 +65,7 @@ checked against this one, so the number cannot drift into prose.
 | [`start_my_day`](#start_my_day) | Standup briefing for this repository |
 | [`test_impact`](#test_impact) | Which test files transitively cover a change target — the tests worth running after touching it |
 | [`testing_report`](#testing_report) | Test structure and, when coverage artifacts are already on disk, coverage |
+| [`use_skill`](#use_skill) | Load a Prism skill from the user's Prism-only library (~/.prism/dispatch/skills), or an inherited skill that ships with Prism |
 | [`wake`](#wake) | Bring Prism back |
 | [`workspace_status`](#workspace_status) | Compact workspace readiness |
 
@@ -313,6 +314,12 @@ Arguments: `kind`, `id`, `path`, `limit`.
 Test structure and, when coverage artifacts are already on disk, coverage. Use to judge how well tested an area is. Prism reads existing artifacts; it never runs your tests.
 
 Takes no arguments.
+
+## `use_skill`
+
+Load a Prism skill from the user's Prism-only library (~/.prism/dispatch/skills), or an inherited skill that ships with Prism. Call this when the user says prism use <name> (or just prism use to list). Speak only the tool message — the skill body the agent should follow. Do not write Cursor or Claude skill folders; skills stay in Prism. Pass name to load one skill; omit name to list.
+
+Arguments: `name`.
 
 ## `wake`
 

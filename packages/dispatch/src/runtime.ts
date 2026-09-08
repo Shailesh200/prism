@@ -65,6 +65,7 @@ import {
   reapJobs,
 } from "./run-state.js";
 import { forgetMemory, loadMemories, remember } from "./memory.js";
+import { listSkills, readSkill, skillSpeak } from "./skills.js";
 import {
   DispatchConfigSchema,
   type DispatchConfig,
@@ -116,6 +117,7 @@ export const DISPATCH_TOOL_NAMES = [
   "job_logs",
   "job_control",
   "remember",
+  "use_skill",
   "configure",
   "dispatch_doctor",
 ] as const;
@@ -272,6 +274,8 @@ export function createDispatchRuntime(
           return jobControl(options, args, env, context);
         case "remember":
           return rememberTool(options.workspaceRoot, args);
+        case "use_skill":
+          return useSkillTool(args, env);
         case "configure":
           return configureTool(options.workspaceRoot, args);
         case "dispatch_doctor":
@@ -1692,6 +1696,47 @@ async function wakeTool(
     asleep: false,
     resumed,
     message: wakeSpeak(resumed),
+  };
+}
+
+async function useSkillTool(
+  args: Record<string, unknown>,
+  env: NodeJS.ProcessEnv,
+): Promise<unknown> {
+  const name = String(args.name ?? args.skill ?? "").trim();
+  if (!name) {
+    const listed = await listSkills(env);
+    return {
+      skills: listed.map((skill) => ({
+        name: skill.name,
+        description: skill.description,
+        inherited: skill.inherited,
+        status: skill.status,
+      })),
+      message:
+        listed.length === 0
+          ? "No Prism skills yet."
+          : listed
+              .map((skill) =>
+                skill.description
+                  ? `${skill.name} — ${skill.description}`
+                  : skill.name,
+              )
+              .join("\n"),
+    };
+  }
+  const skill = await readSkill(name, env);
+  if (!skill) {
+    return {
+      message: `No skill named ${name}. Say prism use to list them.`,
+    };
+  }
+  return {
+    name: skill.name,
+    description: skill.description,
+    inherited: skill.inherited,
+    status: skill.status,
+    message: skillSpeak(skill),
   };
 }
 

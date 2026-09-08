@@ -15,6 +15,8 @@ export type BadgeProps = {
   readonly className?: string;
   /** Live jobs: glow like the in-progress rail node. */
   readonly pulse?: boolean;
+  /** Solid fill (Stitch YOU / primary chips). */
+  readonly fill?: boolean;
 };
 
 export function Badge(props: BadgeProps): ReactElement {
@@ -23,6 +25,7 @@ export function Badge(props: BadgeProps): ReactElement {
     "prism-badge",
     `prism-badge--${tone}`,
     props.pulse ? "prism-badge--pulse" : "",
+    props.fill ? "prism-badge--fill" : "",
     props.className,
   ]
     .filter(Boolean)

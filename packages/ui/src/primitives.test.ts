@@ -18,7 +18,10 @@ import {
   DropdownMenu,
   EmptyState,
   HoverTip,
+  ListTile,
+  Pip,
   Popover,
+  ProgressBar,
   IconButton,
   InfoTip,
   Input,
@@ -86,6 +89,9 @@ describe("design-system primitives exports", () => {
     expect(typeof DropdownMenu).toBe("function");
     expect(typeof Table).toBe("function");
     expect(typeof HoverTip).toBe("function");
+    expect(typeof ListTile).toBe("function");
+    expect(typeof Pip).toBe("function");
+    expect(typeof ProgressBar).toBe("function");
     expect(typeof Truncate).toBe("function");
     expect(typeof DateRangePicker).toBe("function");
   });

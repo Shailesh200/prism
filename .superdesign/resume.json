@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "targets": {
+    "console-inspector-chrome": {
+      "targetKind": "existing-ui",
+      "projectId": "d7c623da-64a3-4d9b-905d-4559a70b4862",
+      "baselineDraftId": "89ca8803-b81d-4542-b6aa-605b38802252",
+      "activeDraftId": "89ca8803-b81d-4542-b6aa-605b38802252",
+      "designSystemPath": ".superdesign/design-system.md",
+      "referenceIds": [
+        "7234af13-288f-4a10-95b8-d8e3320d38c3",
+        "2234d048-7f12-4f7a-8eca-6fdcbcfeec28",
+        "cdb08815-fe14-48fc-a2ce-16336de1f54d",
+        "packages-ui-assets-prism-mark-teal-128.png"
+      ],
+      "brandAssets": {
+        "logo": {
+          "assetKey": "packages-ui-assets-prism-mark-teal-128.png",
+          "url": "https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/projects/d7c623da-64a3-4d9b-905d-4559a70b4862/brand-assets/packages-ui-assets-prism-mark-teal-128.png/prism-mark-teal-128.png",
+          "sourcePath": "packages/ui/assets/prism-mark-teal-128.png"
+        }
+      },
+      "contextFiles": [
+        ".superdesign/design-system.md",
+        "packages/ui/src/Button.tsx",
+        "packages/ui/src/Badge.tsx",
+        "packages/ui/src/Textarea.tsx",
+        "packages/ui/src/Drawer.tsx",
+        "packages/dispatch-hub/src/dashboard/console-app.tsx:771:861",
+        "packages/app-shell/src/JobsScreen.tsx:633:706",
+        "packages/app-shell/src/JobsScreen.tsx:1141:1148",
+        "packages/app-shell/src/JobsScreen.tsx:1485:1492",
+        "packages/dispatch-hub/src/dashboard/styles.css:2061:2100",
+        "packages/app-shell/src/jobs-extra.css:1448:1495",
+        "packages/ui/src/primitives.css:481:574",
+        "packages/ui/src/primitives.css:981:986"
+      ],
+      "fingerprints": {
+        ".superdesign/design-system.md": "e88d98b29b6d7b2e7e7b02e61313de679ff291bb5389fa729ab9da89426ccf40",
+        "packages/ui/src/Button.tsx": "9f3b76aa01eecf37563fd4acc43bf263fa82594be56e6bfce1c5408d3597fba4",
+        "packages/ui/src/Badge.tsx": "2b5ff3e07e2cea04d3ba831b4e13076e9e7e6dde664659aa43a974b9bd4650c1",
+        "packages/ui/src/Textarea.tsx": "5ee86c7f21c8a2f5ad53290bc39d3f534566add9af205d4af0c698fc38f7615f",
+        "packages/ui/src/Drawer.tsx": "9a85e44ee884920bb75e59bb895b2378baa30e3f35b37782f5d47d5a4a2a376c",
+        "packages/dispatch-hub/src/dashboard/console-app.tsx": "0bd1c4f68712b3d0357b4f5cc31f5cceb457d3962941e8014aa51b4fe77bb6dc",
+        "packages/app-shell/src/JobsScreen.tsx": "b907e44debfc11ff5bc5e2c70860915f15e52a22d12de80389bfc4dcc83f838d",
+        "packages/dispatch-hub/src/dashboard/styles.css": "253818f624698ff0deac967de22e9fadf1dd76251e11c832510f265502e3bba8",
+        "packages/app-shell/src/jobs-extra.css": "6c077d7c63e3b2e252e912a8d8a10260c27cd171e89312bab93ae7632e758b31",
+        "packages/ui/src/primitives.css": "848f010aa29a9091d45ffe15cd50a8096fb2c77b31a6dc8e4c6ceec29ddeab71"
+      },
+      "components": [
+        {
+          "name": "Drawer",
+          "id": "79e2f26e-65e7-40e9-a3a5-33c1ee2e1f2c",
+          "sourcePath": "packages/ui/src/Drawer.tsx"
+        }
+      ],
+      "drafts": {
+        "89ca8803-b81d-4542-b6aa-605b38802252": {
+          "title": "Prism Console Chrome - Fixed",
+          "visualDirection": "compact sm actions bottom-right, structured check errors",
+          "currentVersion": 2
+        }
+      },
+      "updatedAt": "2026-09-06T16:28:00.649488Z"
+    },
+    "console-timeline": {
+      "targetKind": "existing-ui",
+      "projectId": "d7c623da-64a3-4d9b-905d-4559a70b4862",
+      "baselineDraftId": "915196b0-46f0-4d70-b7cb-b614688bc059",
+      "activeDraftId": "915196b0-46f0-4d70-b7cb-b614688bc059",
+      "designSystemPath": ".superdesign/design-system.md",
+      "referenceIds": [
+        "e2d65d2e-3eff-4c40-a38e-372b0b5d9e1c",
+        "packages-ui-assets-prism-mark-teal-128.png"
+      ],
+      "brandAssets": {
+        "logo": {
+          "assetKey": "packages-ui-assets-prism-mark-teal-128.png",
+          "url": "https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/projects/d7c623da-64a3-4d9b-905d-4559a70b4862/brand-assets/packages-ui-assets-prism-mark-teal-128.png/prism-mark-teal-128.png",
+          "sourcePath": "packages/ui/assets/prism-mark-teal-128.png"
+        }
+      },
+      "contextFiles": [
+        ".superdesign/design-system.md",
+        "packages/ui/src/tokens.css",
+        "packages/ui/src/ChartPrimitives.tsx:125:139",
+        "packages/ui/src/Badge.tsx",
+        "packages/ui/src/Button.tsx",
+        "packages/dispatch-hub/src/dashboard/fleet-views.tsx:735:965",
+        "packages/dispatch-hub/src/dashboard/styles.css:1201:1479",
+        "plans/mockups/CONSOLE_FLEET.md:185:238"
+      ],
+      "fingerprints": {
+        ".superdesign/design-system.md": "e88d98b29b6d7b2e7e7b02e61313de679ff291bb5389fa729ab9da89426ccf40",
+        "packages/ui/src/tokens.css": "e937cf2c39be6062e8dc1aeb08ce34c2c65f864261ebca59e7cddc5a47953571",
+        "packages/ui/src/ChartPrimitives.tsx": "bef848138cead2f540147bb8dbbb9134af7053ff80230971f9a752aec5984aaf",
+        "packages/ui/src/Badge.tsx": "2b5ff3e07e2cea04d3ba831b4e13076e9e7e6dde664659aa43a974b9bd4650c1",
+        "packages/ui/src/Button.tsx": "9f3b76aa01eecf37563fd4acc43bf263fa82594be56e6bfce1c5408d3597fba4",
+        "packages/dispatch-hub/src/dashboard/fleet-views.tsx": "6ff31bf0163d6fbd813f8b5c681730fb0351388a5596bf7bcdaac2cbeaf4b83b",
+        "packages/dispatch-hub/src/dashboard/styles.css": "253818f624698ff0deac967de22e9fadf1dd76251e11c832510f265502e3bba8",
+        "plans/mockups/CONSOLE_FLEET.md": "d157f12376694dec4c00c9846f68ecef3a9e0b95b89fb747a081eeed4acaa63a"
+      },
+      "components": [],
+      "drafts": {
+        "915196b0-46f0-4d70-b7cb-b614688bc059": {
+          "title": "Current Console Timeline",
+          "visualDirection": "pixel-perfect current Gantt",
+          "currentVersion": 1
+        },
+        "6aa7d843-984f-462b-9ba2-2649a83c7f21": {
+          "title": "Prism Gantt Production",
+          "visualDirection": "locked Trinity Gantt, production craft",
+          "parentDraftId": "915196b0-46f0-4d70-b7cb-b614688bc059",
+          "currentVersion": 1
+        },
+        "18806bc0-d0df-44ec-8c76-04bd8be66195": {
+          "title": "Production Ops Timeline",
+          "visualDirection": "Grafana-dense Gantt with nested retry child lanes",
+          "parentDraftId": "915196b0-46f0-4d70-b7cb-b614688bc059",
+          "currentVersion": 1
+        },
+        "fe218d85-f9db-4d03-a3f1-6d0fd6afe42b": {
+          "title": "Prism Timeline Waterfall",
+          "visualDirection": "APM span waterfall: titles on bars, nested retry children, 360px Focus",
+          "parentDraftId": "915196b0-46f0-4d70-b7cb-b614688bc059",
+          "currentVersion": 1
+        },
+        "1bcedf25-76e3-4df6-9bcc-38ab9ea0ac16": {
+          "title": "Prism Console - Day Planner",
+          "visualDirection": "time-down calendar: repos as columns, jobs as blocks",
+          "parentDraftId": "915196b0-46f0-4d70-b7cb-b614688bc059",
+          "currentVersion": 1
+        }
+      },
+      "updatedAt": "2026-09-06T16:41:35.450489Z"
+    }
+  }
+}

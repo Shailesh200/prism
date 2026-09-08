@@ -714,9 +714,13 @@ describe("hub HTTP", () => {
     };
     expect(health.ok).toBe(true);
     expect(health.asleep).toBe(true);
-    expect(health.playground?.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/$/);
+    expect(health.playground?.url).toMatch(
+      /^http:\/\/prismhq\.localhost:\d+\/$/,
+    );
 
-    const playground = await fetch(health.playground!.url);
+    const playground = await fetch(
+      `http://127.0.0.1:${health.playground!.port}/`,
+    );
     expect(playground.status).toBe(200);
     expect(await playground.text()).toContain("Prism is down");
 
@@ -751,9 +755,10 @@ describe("hub HTTP", () => {
         headers: { ...auth, "Content-Type": "application/json" },
         body: JSON.stringify({ action: "sleep" }),
       })
-    ).json()) as { ok: boolean; url: string };
+    ).json()) as { ok: boolean; url: string; port: number };
     expect(parked.ok).toBe(true);
-    const down = await fetch(parked.url);
+    expect(parked.url).toContain("prismhq.localhost");
+    const down = await fetch(`http://127.0.0.1:${parked.port}/`);
     expect(down.status).toBe(200);
     expect(await down.text()).toContain("Prism is down");
 
@@ -763,7 +768,68 @@ describe("hub HTTP", () => {
       body: JSON.stringify({ action: "wake" }),
     });
     expect(woken.status).toBe(503);
-    await expect(fetch(parked.url)).rejects.toThrow();
+    await expect(fetch(`http://127.0.0.1:${parked.port}/`)).rejects.toThrow();
+  });
+
+  it("lists Prism skills, trees, and a local update check", async () => {
+    const home = await mkdtemp(join(tmpdir(), "prism-hub-skills-"));
+    temps.push(home);
+    const started = await startHub({
+      env: {
+        PRISM_HUB_HOME: home,
+        PRISM_HUB_PORT: "0",
+        PRISM_HUB: "1",
+        PRISM_HOME: home,
+      },
+      idleMs: 60_000,
+      pollMs: 200,
+      drain: async () => undefined,
+    });
+    if ("alreadyRunning" in started) throw new Error("expected a fresh hub");
+    closers.push(started.close);
+    const port = started.record.port;
+    const auth = { Authorization: `Bearer ${started.record.token}` };
+
+    const skills = (await (
+      await fetch(`http://127.0.0.1:${port}/api/skills`, { headers: auth })
+    ).json()) as { skills: { name: string }[] };
+    expect(skills.skills.map((row) => row.name)).toContain("prism-safe-change");
+
+    const saved = await fetch(`http://127.0.0.1:${port}/api/skills`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "save",
+        name: "commitpush",
+        description: "Commit the job files.",
+        body: "Commit only the job's files, then push.",
+        status: "draft",
+      }),
+    });
+    expect(saved.status).toBe(200);
+
+    const duplicated = await fetch(`http://127.0.0.1:${port}/api/skills`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "duplicate",
+        name: "prism-safe-change",
+      }),
+    });
+    expect(duplicated.status).toBe(200);
+    const copy = (await duplicated.json()) as { name: string; status: string };
+    expect(copy).toMatchObject({ name: "safe-change", status: "draft" });
+
+    const trees = (await (
+      await fetch(`http://127.0.0.1:${port}/api/trees`, { headers: auth })
+    ).json()) as { repos: unknown[] };
+    expect(Array.isArray(trees.repos)).toBe(true);
+
+    const update = (await (
+      await fetch(`http://127.0.0.1:${port}/api/update`, { headers: auth })
+    ).json()) as { current: string; stale: boolean };
+    expect(update.stale).toBe(false);
+    expect(update.current).toBeTruthy();
   });
 });
 

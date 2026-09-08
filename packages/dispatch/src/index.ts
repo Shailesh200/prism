@@ -207,6 +207,20 @@ export {
   type SleptJob,
 } from "./sleep.js";
 export {
+  INHERITED_SKILLS,
+  deleteSkill,
+  duplicateSkill,
+  listSkills,
+  nameForDuplicate,
+  normalizeSkillName,
+  readSkill,
+  skillSpeak,
+  skillsDir,
+  writeSkill,
+  type PrismSkill,
+  type SkillStatus,
+} from "./skills.js";
+export {
   discoverWorktrees,
   adoptOrCreateWorktree,
   pruneOrphanWorktrees,

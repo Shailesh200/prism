@@ -135,6 +135,9 @@ export {
   type TableSort,
 } from "./Table.js";
 export { HoverTip, type HoverTipProps } from "./HoverTip.js";
+export { ListTile, type ListTileProps } from "./ListTile.js";
+export { Pip, type PipProps, type PipSize, type PipTone } from "./Pip.js";
+export { ProgressBar, type ProgressBarProps } from "./ProgressBar.js";
 export { Truncate, type TruncateProps } from "./Truncate.js";
 export {
   SearchableInput,

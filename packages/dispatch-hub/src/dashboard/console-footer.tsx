@@ -1,23 +1,28 @@
 import type { ReactElement } from "react";
 
 const SITE = "https://www.prismhq.in";
-const PLAYGROUND = "http://127.0.0.1:5173";
-
-const LINKS: readonly {
-  href: string;
-  label: string;
-  sameTab?: boolean;
-}[] = [
-  { href: `${PLAYGROUND}/#/dna`, label: "Repo DNA" },
-  { href: `${PLAYGROUND}/#/overview`, label: "Health" },
-  { href: `${SITE}/docs`, label: "Docs" },
-  { href: SITE, label: "Prism" },
-  { href: "#/whats-new", label: "What's new", sameTab: true },
-];
+const PLAYGROUND_DEFAULT = "http://prismhq.localhost:5173";
 
 export function ConsoleFooter(props: {
   readonly version?: string;
+  readonly playgroundUrl?: string;
 }): ReactElement {
+  const playground = (props.playgroundUrl ?? PLAYGROUND_DEFAULT).replace(
+    /\/$/,
+    "",
+  );
+  const links: readonly {
+    href: string;
+    label: string;
+    sameTab?: boolean;
+  }[] = [
+    { href: `${playground}/#/dna`, label: "Repo DNA" },
+    { href: `${playground}/#/overview`, label: "Health" },
+    { href: "#/wake", label: "Wake", sameTab: true },
+    { href: `${SITE}/docs`, label: "Docs" },
+    { href: SITE, label: "Prism" },
+    { href: "#/whats-new", label: "What's new", sameTab: true },
+  ];
   return (
     <footer className="console-footer">
       <div className="console-footer__brand">
@@ -28,7 +33,7 @@ export function ConsoleFooter(props: {
         ) : null}
       </div>
       <nav className="console-footer__links" aria-label="Prism">
-        {LINKS.map((link) => (
+        {links.map((link) => (
           <a
             key={link.href}
             href={link.href}

@@ -10,6 +10,8 @@ import {
   groupRepos,
   isWorkingJob,
   nowPlayheadPercent,
+  groupJobsByRepo,
+  jobTreeLabel,
   trackGridPercents,
   jobsChronological,
   jobsInRange,
@@ -1243,5 +1245,56 @@ describe("PLAYBOOKS", () => {
     expect(compactJobPrd("Short.")).toBe("Short.");
     expect(compactJobPrd("word ".repeat(80)).endsWith("…")).toBe(true);
     expect(compactJobPrd("word ".repeat(80)).length).toBeLessThanOrEqual(160);
+  });
+});
+
+describe("groupJobsByRepo", () => {
+  it("keeps first-seen repo order and nests jobs", () => {
+    const groups = groupJobsByRepo([
+      job({
+        id: "a",
+        status: "running",
+        workspacePath: "/a",
+        workspaceLabel: "alpha",
+      }),
+      job({
+        id: "b",
+        status: "done",
+        workspacePath: "/b",
+        workspaceLabel: "beta",
+      }),
+      job({
+        id: "c",
+        status: "queued",
+        workspacePath: "/a",
+        workspaceLabel: "alpha",
+      }),
+    ]);
+    expect(groups.map((row) => row.label)).toEqual(["alpha", "beta"]);
+    expect(groups[0]?.jobs.map((row) => row.id)).toEqual(["a", "c"]);
+  });
+});
+
+describe("jobTreeLabel", () => {
+  it("names the user's checkout versus a worktree branch", () => {
+    expect(jobTreeLabel(job({ id: "a", status: "running" }))).toEqual({
+      label: "This checkout",
+      you: true,
+      worktree: false,
+    });
+    expect(
+      jobTreeLabel(
+        job({
+          id: "b",
+          status: "running",
+          placement: "worktree",
+          branch: "prism/fix-news",
+        }),
+      ),
+    ).toEqual({
+      label: "prism/fix-news",
+      you: false,
+      worktree: true,
+    });
   });
 });

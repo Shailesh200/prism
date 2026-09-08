@@ -11,11 +11,13 @@ import {
   Button,
   HoverTip,
   Truncate,
+  Accordion,
   formatPrismDate,
 } from "@repo-prism/ui";
 import { type ReactElement, type ReactNode } from "react";
 import {
   jobPlaybookNotch,
+  groupJobsByRepo,
   pulseIdleRepos,
   pulseSections,
   waitWorkMeter,
@@ -55,40 +57,33 @@ export function PulseView(
         </p>
       ) : null}
       <PulseSection label="Live" hidden={sections.live.length === 0}>
-        {sections.live.map((job) => (
-          <PulseCard
-            key={job.id}
-            job={job}
-            kind="live"
-            nowMs={props.nowMs}
-            onOpenJob={props.onOpenJob}
-            {...actions}
-          />
-        ))}
+        <PulseRepoGroups
+          jobs={sections.live}
+          kind="live"
+          nowMs={props.nowMs}
+          defaultOpen
+          onOpenJob={props.onOpenJob}
+          {...actions}
+        />
       </PulseSection>
       <PulseSection label="Needs you" hidden={sections.needsYou.length === 0}>
-        {sections.needsYou.map((job) => (
-          <PulseCard
-            key={job.id}
-            job={job}
-            kind="needsYou"
-            nowMs={props.nowMs}
-            onOpenJob={props.onOpenJob}
-            {...actions}
-          />
-        ))}
+        <PulseRepoGroups
+          jobs={sections.needsYou}
+          kind="needsYou"
+          nowMs={props.nowMs}
+          defaultOpen
+          onOpenJob={props.onOpenJob}
+          {...actions}
+        />
       </PulseSection>
       <PulseSection label="Settled" hidden={sections.settled.length === 0}>
-        {sections.settled.map((job) => (
-          <PulseCard
-            key={job.id}
-            job={job}
-            kind="settled"
-            nowMs={props.nowMs}
-            onOpenJob={props.onOpenJob}
-            {...actions}
-          />
-        ))}
+        <PulseRepoGroups
+          jobs={sections.settled}
+          kind="settled"
+          nowMs={props.nowMs}
+          onOpenJob={props.onOpenJob}
+          {...actions}
+        />
       </PulseSection>
       {idle.length > 0 ? (
         <div className="pulse-idle">
@@ -106,6 +101,57 @@ export function PulseView(
         </div>
       ) : null}
     </div>
+  );
+}
+
+function PulseRepoGroups(
+  props: {
+    readonly jobs: readonly JobSummary[];
+    readonly kind: "live" | "needsYou" | "settled";
+    readonly nowMs: number;
+    readonly defaultOpen?: boolean;
+    readonly onOpenJob: (job: JobSummary) => void;
+  } & JobActionHandlers,
+): ReactElement {
+  const groups = groupJobsByRepo(props.jobs);
+  return (
+    <>
+      {groups.map((group, index) => (
+        <Accordion
+          key={`${props.kind}:${group.path || group.label}`}
+          className="pulse-group"
+          defaultOpen={Boolean(props.defaultOpen) || index === 0}
+          summary={
+            <span className="repo-group-summary">
+              <span className="fleet-mark" aria-hidden>
+                {group.label.slice(0, 1).toUpperCase()}
+              </span>
+              <strong>{group.label}</strong>
+              <span className="repo-group-summary__meta">
+                {group.jobs.length}{" "}
+                {props.kind === "live"
+                  ? "live"
+                  : props.kind === "needsYou"
+                    ? "need you"
+                    : "settled"}
+              </span>
+            </span>
+          }
+        >
+          {group.jobs.map((job) => (
+            <PulseCard
+              key={job.id}
+              job={job}
+              kind={props.kind}
+              nowMs={props.nowMs}
+              onOpenJob={props.onOpenJob}
+              hideRepo
+              {...jobActionHandlers(props)}
+            />
+          ))}
+        </Accordion>
+      ))}
+    </>
   );
 }
 
@@ -154,6 +200,7 @@ function PulseCard(
     readonly job: JobSummary;
     readonly kind: "live" | "needsYou" | "settled";
     readonly nowMs: number;
+    readonly hideRepo?: boolean;
     readonly onOpenJob: (job: JobSummary) => void;
   } & JobActionHandlers,
 ): ReactElement {
@@ -180,7 +227,9 @@ function PulseCard(
               <Truncate title={job.title}>{job.title}</Truncate>
             </strong>
           </HoverTip>
-          <span className="pulse-card__repo">{job.workspaceLabel}</span>
+          {props.hideRepo ? null : (
+            <span className="pulse-card__repo">{job.workspaceLabel}</span>
+          )}
         </div>
         <Badge
           tone={jobBadgeTone(job.status, job.nextStep)}
