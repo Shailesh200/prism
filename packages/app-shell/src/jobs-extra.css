@@ -16,15 +16,16 @@
 
 .jobs-screen__eyebrow {
   margin: 0;
-  font-family: var(--prism-font-mono, ui-monospace, monospace);
-  font-size: 11px;
-  letter-spacing: 0.14em;
+  font-family: var(--prism-mono, "JetBrains Mono", ui-monospace, monospace);
+  font-size: var(--prism-type-mono, 11px);
+  letter-spacing: var(--prism-type-label-tracking, 0.14em);
   text-transform: uppercase;
   color: var(--prism-brand, #00c2c2);
 }
 
 .jobs-screen__title {
   margin: 4px 0 0;
+  font-family: var(--prism-font);
   font-size: 30px;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -33,8 +34,8 @@
 
 .jobs-screen__repo {
   margin: 6px 0 0;
-  font-family: var(--prism-font-mono, ui-monospace, monospace);
-  font-size: 12px;
+  font-family: var(--prism-mono, "JetBrains Mono", ui-monospace, monospace);
+  font-size: var(--prism-type-mono, 12px);
   color: var(--prism-ink-muted, #94a3b8);
 }
 
@@ -54,7 +55,11 @@
 }
 
 .jobs-screen__count--live {
-  border-color: color-mix(in oklab, var(--prism-brand, #00c2c2) 55%, transparent);
+  border-color: color-mix(
+    in oklab,
+    var(--prism-brand, #00c2c2) 55%,
+    transparent
+  );
   background: color-mix(in oklab, var(--prism-brand, #00c2c2) 14%, transparent);
   color: var(--prism-brand, #00c2c2);
 }
@@ -131,7 +136,11 @@
 .job-console__action:hover:not(:disabled),
 .job-console__filter:hover {
   color: var(--prism-ink, #fff);
-  border-color: color-mix(in oklab, var(--prism-brand, #00c2c2) 45%, transparent);
+  border-color: color-mix(
+    in oklab,
+    var(--prism-brand, #00c2c2) 45%,
+    transparent
+  );
 }
 
 .jobs-screen__filters {
@@ -165,7 +174,11 @@
 }
 
 .jobs-screen__chip[aria-pressed="true"] {
-  border-color: color-mix(in oklab, var(--prism-brand, #00c2c2) 55%, transparent);
+  border-color: color-mix(
+    in oklab,
+    var(--prism-brand, #00c2c2) 55%,
+    transparent
+  );
   background: color-mix(in oklab, var(--prism-brand, #00c2c2) 12%, transparent);
   color: var(--prism-brand, #00c2c2);
 }
@@ -243,7 +256,11 @@
 .job-console__filter[aria-pressed="true"],
 .job-console__action[aria-pressed="true"] {
   color: var(--prism-brand, #00c2c2);
-  border-color: color-mix(in oklab, var(--prism-brand, #00c2c2) 55%, transparent);
+  border-color: color-mix(
+    in oklab,
+    var(--prism-brand, #00c2c2) 55%,
+    transparent
+  );
   background: color-mix(in oklab, var(--prism-brand, #00c2c2) 10%, transparent);
 }
 
@@ -315,11 +332,19 @@
 }
 
 .job-card--attention {
-  border-color: color-mix(in oklab, var(--prism-amber) 40%, var(--prism-line, #2a334a));
+  border-color: color-mix(
+    in oklab,
+    var(--prism-amber) 40%,
+    var(--prism-line, #2a334a)
+  );
 }
 
 .job-card--bad {
-  border-color: color-mix(in oklab, var(--prism-rose) 40%, var(--prism-line, #2a334a));
+  border-color: color-mix(
+    in oklab,
+    var(--prism-rose) 40%,
+    var(--prism-line, #2a334a)
+  );
 }
 
 .job-card__row {
@@ -410,7 +435,11 @@
 }
 
 .job-card__status--live {
-  border-color: color-mix(in oklab, var(--prism-brand, #00c2c2) 55%, transparent);
+  border-color: color-mix(
+    in oklab,
+    var(--prism-brand, #00c2c2) 55%,
+    transparent
+  );
   background: color-mix(in oklab, var(--prism-brand, #00c2c2) 14%, transparent);
   color: var(--prism-brand, #00c2c2);
 }
@@ -543,7 +572,8 @@
 
 .job-review {
   border-radius: 12px;
-  border: 1px solid color-mix(in oklab, var(--prism-amber) 35%, var(--prism-line, #2a334a));
+  border: 1px solid
+    color-mix(in oklab, var(--prism-amber) 35%, var(--prism-line, #2a334a));
   background: color-mix(in oklab, var(--prism-amber) 7%, transparent);
   padding: 14px 16px;
 }
@@ -786,7 +816,8 @@
   font-family: var(--prism-font-mono, ui-monospace, monospace);
   font-size: 12px;
   line-height: 1.55;
-  border-bottom: 1px solid color-mix(in oklab, var(--prism-line, #2a334a) 55%, transparent);
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--prism-line, #2a334a) 55%, transparent);
 }
 
 .job-console__line:last-child {
@@ -821,7 +852,8 @@
 }
 
 .job-console__line--thinking {
-  border-left: 2px solid color-mix(in oklab, var(--prism-violet) 55%, transparent);
+  border-left: 2px solid
+    color-mix(in oklab, var(--prism-violet) 55%, transparent);
   padding-left: 8px;
   margin-left: -8px;
 }
@@ -909,7 +941,8 @@
   right: 12px;
   bottom: 12px;
   border-radius: 999px;
-  border: 1px solid color-mix(in oklab, var(--prism-brand, #00c2c2) 55%, transparent);
+  border: 1px solid
+    color-mix(in oklab, var(--prism-brand, #00c2c2) 55%, transparent);
   background: var(--prism-panel, #131926);
   color: var(--prism-brand, #00c2c2);
   padding: 4px 12px;
@@ -937,7 +970,11 @@
 }
 
 .job-card--good {
-  border-color: color-mix(in oklab, var(--prism-emerald) 30%, var(--prism-line, #2a334a));
+  border-color: color-mix(
+    in oklab,
+    var(--prism-emerald) 30%,
+    var(--prism-line, #2a334a)
+  );
 }
 
 .job-card--idle {
@@ -1091,87 +1128,55 @@
 .job-rail {
   position: relative;
   margin: 10px 0 8px;
-  padding: 0 2px;
+  padding: 16px 16px 12px;
   overflow: visible;
+  background: var(--prism-tile, #1e2433);
+  border: 1px solid var(--prism-line, #2a334a);
+  border-radius: 12px;
 }
 
 .job-rail__step {
   position: relative;
   display: grid;
-  justify-items: start;
-  text-align: left;
-  gap: 8px;
-  padding-top: 36px;
-  min-width: 0;
-  overflow: visible;
-}
-
-.job-rail__step:nth-child(2),
-.job-rail__step:nth-child(3) {
   justify-items: center;
   text-align: center;
-}
-
-.job-rail__step:nth-child(4),
-.job-rail__step:last-child {
-  justify-items: end;
-  text-align: right;
+  gap: 8px;
+  padding-top: 40px;
+  min-width: 4.5rem;
+  overflow: visible;
+  flex: 1 1 4.5rem;
 }
 
 .job-rail__node {
   position: absolute;
   top: 0;
-  left: 0;
+  left: 50%;
   z-index: 1;
-  width: 22px;
-  height: 22px;
-  margin-left: 0;
+  width: 28px;
+  height: 28px;
+  margin-left: -14px;
   border-radius: 50%;
-  border: 2px solid var(--prism-border, #1f2937);
-  background: var(--prism-bg, #0b1220);
+  border: 2px solid var(--prism-line, #2a334a);
+  background: var(--prism-panel, #131926);
   display: grid;
   place-items: center;
   color: var(--prism-canvas);
-  box-shadow: 0 0 0 3px var(--prism-panel, #131926);
+  box-shadow: 0 0 0 3px var(--prism-tile, #1e2433);
 }
 
 .job-rail__seg {
   position: absolute;
-  top: 8px;
+  top: 12px;
+  left: 50%;
   z-index: 0;
-  height: 6px;
+  height: 4px;
+  width: 100%;
   pointer-events: none;
   transform-origin: 0 50%;
-  background: var(--prism-border, #1f2937);
+  background: var(--prism-line, #2a334a);
 }
 
-.job-rail__step:nth-child(1) .job-rail__seg {
-  left: 11px;
-  width: calc(150% - 11px);
-}
-
-.job-rail__step:nth-child(2) .job-rail__seg {
-  left: 50%;
-  width: 100%;
-}
-
-.job-rail__step:nth-child(3) .job-rail__seg {
-  left: 50%;
-  width: calc(150% - 11px);
-}
-
-.job-rail__step:nth-child(2) .job-rail__node,
-.job-rail__step:nth-child(3) .job-rail__node {
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.job-rail__step:nth-child(4) .job-rail__node,
-.job-rail__step:last-child .job-rail__node {
-  left: auto;
-  right: 0;
-}
-
+.job-rail__step--accepted,
 .job-rail__step--created {
   --job-rail-phase: var(--prism-violet);
 }
@@ -1180,19 +1185,30 @@
   --job-rail-phase: var(--prism-amber);
 }
 
+.job-rail__step--working,
 .job-rail__step--started {
   --job-rail-phase: var(--prism-brand, #00c2c2);
+}
+
+.job-rail__step--waiting,
+.job-rail__step--review {
+  --job-rail-phase: var(--prism-amber);
 }
 
 .job-rail__step--finished {
   --job-rail-phase: var(--prism-emerald);
 }
 
+.job-rail__step--failed {
+  --job-rail-phase: var(--prism-rose);
+}
+
 .job-rail--failed .job-rail__step--finished {
   --job-rail-phase: var(--prism-rose);
 }
 
-.job-rail--cancelled .job-rail__step--finished {
+.job-rail--cancelled .job-rail__step--finished,
+.job-rail__step--cancelled {
   --job-rail-phase: var(--prism-ink-3, #94a3b8);
 }
 
@@ -1200,13 +1216,41 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: flex;
   position: relative;
-  overflow: visible;
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
-.job-rail__step--reached .job-rail__seg {
+.job-rail__cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--prism-line, #2a334a);
+}
+
+.job-rail__cta-copy {
+  margin: 0;
+  font-family: var(--prism-font);
+  font-size: var(--prism-type-body-sm);
+  color: var(--prism-ink-2, #e6f0f2);
+}
+
+.job-rail__cta-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.job-rail__cta-actions .prism-btn {
+  flex: none;
+}
+
+.job-rail__step--reached:not(.job-rail__step--current) .job-rail__seg {
   background: var(--job-rail-phase);
 }
 
@@ -1216,18 +1260,18 @@
 }
 
 .job-rail__step--current .job-rail__node {
-  animation: job-pulse 1.6s ease-in-out infinite;
+  animation: job-rail-blink 1.1s ease-in-out infinite;
   background: var(--job-rail-phase);
   border-color: var(--job-rail-phase);
-  box-shadow:
-    0 0 0 4px color-mix(in oklab, var(--job-rail-phase) 22%, transparent),
-    0 0 14px color-mix(in oklab, var(--job-rail-phase) 40%, transparent);
+  transform-origin: center;
 }
 
 .job-rail__label {
-  color: var(--prism-ink, #fff);
+  font-family: var(--prism-font);
+  font-size: var(--prism-type-label);
   font-weight: 600;
-  font-size: 12px;
+  letter-spacing: var(--prism-type-label-tracking);
+  color: var(--prism-ink, #fff);
 }
 
 .job-rail__step--reached .job-rail__label {
@@ -1243,8 +1287,8 @@
 }
 
 .job-rail__at {
-  font-family: var(--prism-font-mono, ui-monospace, monospace);
-  font-size: 11px;
+  font-family: var(--prism-mono, "JetBrains Mono", ui-monospace, monospace);
+  font-size: var(--prism-type-mono);
   color: var(--prism-ink-muted, #94a3b8);
 }
 
@@ -1253,9 +1297,10 @@
 }
 
 .job-rail__span {
-  font-size: 10px;
+  font-family: var(--prism-font);
+  font-size: var(--prism-type-label);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--prism-type-label-tracking);
   color: var(--prism-ink-muted, #94a3b8);
 }
 
@@ -1287,9 +1332,30 @@
   }
 }
 
+@keyframes job-rail-blink {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow:
+      0 0 0 4px color-mix(in oklab, var(--job-rail-phase) 30%, transparent),
+      0 0 16px color-mix(in oklab, var(--job-rail-phase) 55%, transparent);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.86);
+    box-shadow:
+      0 0 0 8px color-mix(in oklab, var(--job-rail-phase) 10%, transparent),
+      0 0 4px color-mix(in oklab, var(--job-rail-phase) 20%, transparent);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .job-rail__step--current .job-rail__node {
     animation: none;
+    box-shadow:
+      0 0 0 4px color-mix(in oklab, var(--job-rail-phase) 22%, transparent),
+      0 0 14px color-mix(in oklab, var(--job-rail-phase) 40%, transparent);
   }
 }
 
@@ -1299,13 +1365,13 @@
   min-width: 0;
   overflow: hidden;
   border-radius: 12px;
-  border: 1px solid color-mix(in oklab, var(--prism-brand, #00c2c2) 32%, transparent);
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in oklab, var(--prism-brand, #00c2c2) 12%, transparent),
-      color-mix(in oklab, var(--prism-panel, #131926) 88%, transparent) 42px
-    );
+  border: 1px solid
+    color-mix(in oklab, var(--prism-brand, #00c2c2) 32%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--prism-brand, #00c2c2) 12%, transparent),
+    color-mix(in oklab, var(--prism-panel, #131926) 88%, transparent) 42px
+  );
 }
 
 .job-outcome__head {
@@ -1314,7 +1380,8 @@
   justify-content: space-between;
   gap: 12px;
   padding: 12px 16px 10px;
-  border-bottom: 1px solid color-mix(in oklab, var(--prism-brand, #00c2c2) 18%, transparent);
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--prism-brand, #00c2c2) 18%, transparent);
 }
 
 .job-outcome__kicker {
@@ -1337,7 +1404,8 @@
   align-items: center;
   padding: 3px 8px;
   border-radius: 999px;
-  border: 1px solid color-mix(in oklab, var(--prism-brand, #00c2c2) 35%, transparent);
+  border: 1px solid
+    color-mix(in oklab, var(--prism-brand, #00c2c2) 35%, transparent);
   background: color-mix(in oklab, var(--prism-brand, #00c2c2) 12%, transparent);
   font-size: 11px;
   font-weight: 600;
@@ -1393,7 +1461,11 @@
   font-size: 12px;
   padding: 1px 5px;
   border-radius: 4px;
-  background: color-mix(in oklab, var(--prism-canvas, #0b0f1a) 70%, transparent);
+  background: color-mix(
+    in oklab,
+    var(--prism-canvas, #0b0f1a) 70%,
+    transparent
+  );
   color: var(--prism-brand, #00c2c2);
 }
 
@@ -1464,7 +1536,8 @@
 .job-outcome__findings {
   margin: 0;
   padding: 0 16px 16px;
-  border-top: 1px solid color-mix(in oklab, var(--prism-brand, #00c2c2) 14%, transparent);
+  border-top: 1px solid
+    color-mix(in oklab, var(--prism-brand, #00c2c2) 14%, transparent);
 }
 
 .job-outcome__findings-bar {
@@ -1485,7 +1558,8 @@
 }
 
 .job-outcome__open {
-  border: 1px solid color-mix(in oklab, var(--prism-brand, #00c2c2) 40%, transparent);
+  border: 1px solid
+    color-mix(in oklab, var(--prism-brand, #00c2c2) 40%, transparent);
   background: color-mix(in oklab, var(--prism-brand, #00c2c2) 12%, transparent);
   color: var(--prism-brand, #00c2c2);
   border-radius: 999px;
@@ -1628,14 +1702,30 @@
  * Only the first eight stagger. Past that the delay says nothing the position
  * on screen has not already said, and row forty would arrive two seconds late.
  */
-.job-card:nth-child(1) { animation-delay: 0ms; }
-.job-card:nth-child(2) { animation-delay: 30ms; }
-.job-card:nth-child(3) { animation-delay: 60ms; }
-.job-card:nth-child(4) { animation-delay: 90ms; }
-.job-card:nth-child(5) { animation-delay: 120ms; }
-.job-card:nth-child(6) { animation-delay: 150ms; }
-.job-card:nth-child(7) { animation-delay: 180ms; }
-.job-card:nth-child(n + 8) { animation-delay: 210ms; }
+.job-card:nth-child(1) {
+  animation-delay: 0ms;
+}
+.job-card:nth-child(2) {
+  animation-delay: 30ms;
+}
+.job-card:nth-child(3) {
+  animation-delay: 60ms;
+}
+.job-card:nth-child(4) {
+  animation-delay: 90ms;
+}
+.job-card:nth-child(5) {
+  animation-delay: 120ms;
+}
+.job-card:nth-child(6) {
+  animation-delay: 150ms;
+}
+.job-card:nth-child(7) {
+  animation-delay: 180ms;
+}
+.job-card:nth-child(n + 8) {
+  animation-delay: 210ms;
+}
 
 /* A status changing is information, so the pill is what moves. */
 .job-card__status {
@@ -1665,10 +1755,16 @@
   color: var(--prism-ink);
 }
 
-.md-doc__h--1 { font-size: 20px; }
-.md-doc__h--2 { font-size: 16px; }
+.md-doc__h--1 {
+  font-size: 20px;
+}
+.md-doc__h--2 {
+  font-size: 16px;
+}
 .md-doc__h--3,
-.md-doc__h--4 { font-size: 14px; }
+.md-doc__h--4 {
+  font-size: 14px;
+}
 
 .md-doc__p {
   margin: 0;
@@ -1722,7 +1818,11 @@
   font-size: 11.5px;
   padding: 1px 5px;
   border-radius: 4px;
-  background: color-mix(in oklab, var(--prism-canvas, #0b0f1a) 70%, transparent);
+  background: color-mix(
+    in oklab,
+    var(--prism-canvas, #0b0f1a) 70%,
+    transparent
+  );
   color: var(--prism-brand, #00c2c2);
 }
 
@@ -1731,7 +1831,11 @@
   padding: 12px 14px;
   border-radius: 10px;
   overflow-x: auto;
-  background: color-mix(in oklab, var(--prism-canvas, #0b0f1a) 70%, transparent);
+  background: color-mix(
+    in oklab,
+    var(--prism-canvas, #0b0f1a) 70%,
+    transparent
+  );
   font-size: 12px;
   line-height: 1.5;
 }

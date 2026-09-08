@@ -12,6 +12,7 @@ import type { GitRunner } from "./git.js";
 import type { WorkerPort } from "./worker.js";
 import type { CursorAuthPort } from "./cursor-auth.js";
 import { loadJobs, upsertJob } from "./jobs.js";
+import type { JobRecord } from "./types.js";
 import { appendRunLog, lifecycleLogEntry } from "./run-log.js";
 import { reapJobs, writeRunState } from "./run-state.js";
 
@@ -852,6 +853,10 @@ describe("worker role and doctor", () => {
     expect(result.message).toMatch(/worker/i);
     const init = (await runtime.handle("init", {})) as { message: string };
     expect(init.message).toMatch(/worker/i);
+    const sleep = (await runtime.handle("sleep", {})) as { message: string };
+    expect(sleep.message).toMatch(/worker/i);
+    const wake = (await runtime.handle("wake", {})) as { message: string };
+    expect(wake.message).toMatch(/worker/i);
   });
 
   it("reports missing Cursor workers without failing briefing", async () => {
@@ -2263,5 +2268,111 @@ describe("attach_context", () => {
       context: "Cover the empty state.",
     });
     expect(prompt).toBe("Cover the empty state.");
+  });
+});
+
+describe("sleep and wake", () => {
+  let root = "";
+  let hub = "";
+  afterEach(async () => {
+    if (root) await rmTree(root);
+    if (hub) await rmTree(hub);
+  });
+
+  function runningJob(): JobRecord {
+    const now = new Date().toISOString();
+    return {
+      id: "fix-auth",
+      title: "Fix auth",
+      playbook: "ticket",
+      prd: "Lock it down.",
+      branch: "dispatch/fix-auth",
+      worktreePath: root,
+      source: "prism",
+      status: "running",
+      lastStep: "",
+      nextStep: "",
+      waitingOn: "",
+      createdAt: now,
+      updatedAt: now,
+    };
+  }
+
+  async function runtimeWithHub() {
+    root = await tempRoot();
+    hub = await mkdtemp(join(tmpdir(), "prism-hub-sleep-"));
+    const cancelled: string[] = [];
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      env: { PRISM_HUB_HOME: hub, CURSOR_API_KEY: "k" },
+      worker: {
+        async start() {
+          return { pid: process.pid };
+        },
+        async resume() {
+          return { pid: process.pid };
+        },
+        async cancel(input) {
+          if (input.jobId) cancelled.push(input.jobId);
+        },
+        async status() {
+          return { status: "running", detail: "" };
+        },
+      },
+    });
+    return { runtime, cancelled };
+  }
+
+  it("sleeps immediately when nothing is running", async () => {
+    const { runtime } = await runtimeWithHub();
+    const result = (await runtime.handle("sleep", {})) as {
+      asleep: boolean;
+      message: string;
+      needsConfirm?: boolean;
+    };
+    expect(result.needsConfirm).toBeUndefined();
+    expect(result.asleep).toBe(true);
+    expect(result.message).toMatch(/down/i);
+  });
+
+  it("asks before sleeping while a teammate is running", async () => {
+    const { runtime, cancelled } = await runtimeWithHub();
+    await upsertJob(root, runningJob());
+    const asked = (await runtime.handle("sleep", {})) as {
+      needsConfirm?: boolean;
+    };
+    expect(asked.needsConfirm).toBe(true);
+    expect(cancelled).toEqual([]);
+
+    const slept = (await runtime.handle("sleep", { confirm: true })) as {
+      asleep: boolean;
+      paused: number;
+    };
+    expect(slept.asleep).toBe(true);
+    expect(slept.paused).toBe(1);
+    expect(cancelled).toEqual(["fix-auth"]);
+    const jobs = await loadJobs(root);
+    expect(jobs[0]?.status).toBe("paused");
+  });
+
+  it("wakes and requeues jobs it paused", async () => {
+    const { runtime } = await runtimeWithHub();
+    await upsertJob(root, runningJob());
+    await runtime.handle("sleep", { confirm: true });
+    const woke = (await runtime.handle("wake", {})) as {
+      asleep: boolean;
+      resumed: number;
+    };
+    expect(woke.asleep).toBe(false);
+    expect(woke.resumed).toBe(1);
+    const jobs = await loadJobs(root);
+    expect(jobs[0]?.status).toBe("queued");
+  });
+
+  it("wake is a no-op when already up", async () => {
+    const { runtime } = await runtimeWithHub();
+    const result = (await runtime.handle("wake", {})) as { message: string };
+    expect(result.message).toMatch(/already up/i);
   });
 });

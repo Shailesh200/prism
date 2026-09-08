@@ -111,6 +111,34 @@ describe("job snapshot", () => {
     expect(snap.prd?.endsWith("…")).toBe(true);
   });
 
+  it("carries lifecycle so the rail can append Working after a pause", () => {
+    const snap = toSnapshot(
+      {
+        ...job,
+        lifecycle: [
+          { kind: "accepted", at: "2026-01-01T00:00:00.000Z" },
+          { kind: "queued", at: "2026-01-01T00:00:02.000Z" },
+          { kind: "working", at: "2026-01-01T00:09:00.000Z" },
+          {
+            kind: "queued",
+            at: "2026-01-01T00:12:00.000Z",
+            by: "user",
+            note: "paused",
+          },
+          { kind: "working", at: "2026-01-01T00:13:00.000Z", note: "resumed" },
+        ],
+      },
+      "/repo",
+    );
+    expect(snap.lifecycle?.map((event) => event.kind)).toEqual([
+      "accepted",
+      "queued",
+      "working",
+      "queued",
+      "working",
+    ]);
+  });
+
   it("changes key when a review lands so the board re-renders", () => {
     const { review: _drop, ...bare } = job;
     const before = snapshotKey(toSnapshot(bare as JobRecord, "/repo"));

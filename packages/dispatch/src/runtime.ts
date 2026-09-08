@@ -33,11 +33,27 @@ import {
   missingJobSpeak,
   needsConfirmSpeak,
   queuedJobSpeak,
+  queuedWhileAsleepSpeak,
   recordedJobSpeak,
   signedInSpeak,
+  sleepConfirmSpeak,
+  sleepSpeak,
+  alreadyAsleepSpeak,
+  wakeConfirmSpeak,
+  wakeSpeak,
+  alreadyAwakeSpeak,
+  listJobsAsleepSpeak,
 } from "./job-voice.js";
 import { activeJobCount, deleteJob, loadJobs, upsertJob } from "./jobs.js";
 import { kickDrain, requeueAuthBlocked, type DrainDeps } from "./queue.js";
+import {
+  isInProcessJobStatus,
+  isPrismAsleep,
+  listedWorkspaceRoots,
+  putPrismToSleep,
+  wakePrism,
+  type SleptJob,
+} from "./sleep.js";
 import { readRunLog } from "./run-log.js";
 import {
   clearRunState,
@@ -93,6 +109,8 @@ import { requestedWorkerModel, cursorModelForSpawn } from "./worker-models.js";
 export const DISPATCH_TOOL_NAMES = [
   "start_my_day",
   "init",
+  "sleep",
+  "wake",
   "start_job",
   "list_jobs",
   "job_logs",
@@ -107,6 +125,8 @@ export type DispatchToolName = (typeof DISPATCH_TOOL_NAMES)[number];
 export const WORKER_HIDDEN_TOOLS: readonly DispatchToolName[] = [
   "start_my_day",
   "init",
+  "sleep",
+  "wake",
   "start_job",
 ];
 
@@ -221,7 +241,11 @@ export function createDispatchRuntime(
     async handle(name, args, context) {
       if (
         isWorkerRole(env) &&
-        (name === "start_my_day" || name === "start_job" || name === "init")
+        (name === "start_my_day" ||
+          name === "start_job" ||
+          name === "init" ||
+          name === "sleep" ||
+          name === "wake")
       ) {
         return {
           message:
@@ -234,10 +258,14 @@ export function createDispatchRuntime(
           return buildDayBriefing(options);
         case "init":
           return initTool(options, env, context);
+        case "sleep":
+          return sleepTool(options, args, env);
+        case "wake":
+          return wakeTool(options, args, env, context);
         case "start_job":
           return startJob(options, args, env, context);
         case "list_jobs":
-          return listJobs(options, args);
+          return listJobs(options, args, env);
         case "job_logs":
           return jobLogs(options, args);
         case "job_control":
@@ -656,6 +684,24 @@ function drainDepsFor(
   };
 }
 
+async function kickDrainIfAwake(
+  options: DispatchRuntimeOptions,
+  env: NodeJS.ProcessEnv,
+  context?: DispatchToolContext,
+  workspaceRoot = options.workspaceRoot,
+): Promise<void> {
+  if (await isPrismAsleep(env)) return;
+  kickDrain(
+    drainDepsFor(
+      workspaceRoot === options.workspaceRoot
+        ? options
+        : { ...options, workspaceRoot },
+      env,
+      context,
+    ),
+  );
+}
+
 /**
  * Compose/MCP can pick checkout vs isolated per job. Settings are only the
  * default when the caller omitted placement. An explicit `branch` still means
@@ -823,7 +869,14 @@ async function startJob(
   await clearRunState(options.workspaceRoot, id);
   const saved = await upsertJob(options.workspaceRoot, job);
 
-  kickDrain(drainDepsFor(options, env, context));
+  if (await isPrismAsleep(env)) {
+    return {
+      job: saved,
+      message: queuedWhileAsleepSpeak(saved),
+    };
+  }
+
+  await kickDrainIfAwake(options, env, context);
 
   return {
     job: saved,
@@ -883,6 +936,7 @@ async function jobLogs(
 async function listJobs(
   options: DispatchRuntimeOptions,
   args: Record<string, unknown> = {},
+  env: NodeJS.ProcessEnv = process.env,
 ): Promise<unknown> {
   const waitFor = String(args.waitFor ?? "").trim();
   const timeoutMs = Math.min(
@@ -892,7 +946,8 @@ async function listJobs(
     ),
     600_000,
   );
-  if (waitFor) {
+  const asleep = await isPrismAsleep(env);
+  if (waitFor && !asleep) {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
       const live = await reapJobs(options.workspaceRoot);
@@ -939,6 +994,7 @@ async function listJobs(
     });
   }
   let message = listJobsSpeak(rows);
+  if (asleep) message = listJobsAsleepSpeak(message);
   if (waitFor) {
     const resolved = resolveJobRef(jobs, waitFor);
     const waited = resolved?.kind === "one" ? resolved.job : undefined;
@@ -1134,7 +1190,7 @@ async function jobControl(
       waitingOn: "",
       nextStep: "waiting for a slot",
     });
-    kickDrain(drainDepsFor(options, env, context));
+    kickDrainIfAwake(options, env, context);
     return { job: next, message: queuedJobSpeak(next) };
   }
 
@@ -1446,9 +1502,19 @@ async function jobControl(
         options.git ?? defaultGitRunner,
       );
       if (!land.ok) {
+        const held = {
+          ...job.review,
+          keptPaths: [...kept],
+        };
+        const next = await upsertJob(options.workspaceRoot, {
+          ...job,
+          review: held,
+          status: "needs_review",
+          nextStep: "review the changes",
+        });
         return {
-          job,
-          message: `${jobRef(job)} — could not merge onto ${land.into ?? "your current branch"}: ${land.error}`,
+          job: next,
+          message: `${jobRef(next)} — kept the files but could not merge onto ${land.into ?? "your current branch"}: ${land.error}`,
         };
       }
       landInto = land.into;
@@ -1492,6 +1558,140 @@ async function jobControl(
     message:
       "job_control action must be pause, resume, retry, reverify, cancel, delete, attach_context, commit, accept_file, or reject_file.",
     job,
+  };
+}
+
+async function collectInProcessJobs(
+  env: NodeJS.ProcessEnv,
+  currentRoot: string,
+): Promise<Array<{ workspaceRoot: string; job: JobRecord }>> {
+  const out: Array<{ workspaceRoot: string; job: JobRecord }> = [];
+  for (const root of await listedWorkspaceRoots(env, currentRoot)) {
+    const jobs = await loadJobs(root).catch(() => []);
+    for (const job of jobs) {
+      if (isInProcessJobStatus(job.status)) {
+        out.push({ workspaceRoot: root, job });
+      }
+    }
+  }
+  return out;
+}
+
+async function pauseJobForSleep(
+  options: DispatchRuntimeOptions,
+  workspaceRoot: string,
+  job: JobRecord,
+): Promise<void> {
+  const cancelWorker =
+    workerForBackend(options, job.workerBackend ?? "cursor") ??
+    options.worker ??
+    options.claudeWorker;
+  if (cancelWorker) {
+    await cancelWorker.cancel({
+      ...(job.cursorAgentId ? { agentId: job.cursorAgentId } : {}),
+      cwd: job.worktreePath,
+      jobId: job.id,
+      workspaceRoot,
+      ...(typeof job.workerPid === "number" ? { pid: job.workerPid } : {}),
+    });
+  }
+  await upsertJob(workspaceRoot, {
+    ...job,
+    status: "paused",
+    lastActivity: "Paused — Prism is asleep",
+    nextStep: "paused — say prism wake to continue",
+  });
+}
+
+async function requeueSleptJob(
+  workspaceRoot: string,
+  jobId: string,
+): Promise<boolean> {
+  const jobs = await loadJobs(workspaceRoot);
+  const job = jobs.find((row) => row.id === jobId);
+  if (!job || job.status !== "paused") return false;
+  await upsertJob(workspaceRoot, {
+    ...job,
+    status: "queued",
+    queuedAt: new Date().toISOString(),
+    lastActivity: "Waking",
+    nextStep: "waiting for a slot",
+    waitingOn: "",
+  });
+  return true;
+}
+
+async function sleepTool(
+  options: DispatchRuntimeOptions,
+  args: Record<string, unknown>,
+  env: NodeJS.ProcessEnv,
+): Promise<unknown> {
+  if (await isPrismAsleep(env)) {
+    return { asleep: true, message: alreadyAsleepSpeak() };
+  }
+  const inProcess = await collectInProcessJobs(env, options.workspaceRoot);
+  if (inProcess.length > 0 && args.confirm !== true) {
+    return {
+      needsConfirm: true,
+      asleep: false,
+      inProcess: inProcess.map((row) => ({
+        jobId: row.job.id,
+        title: row.job.title,
+      })),
+      message: sleepConfirmSpeak(inProcess.map((row) => row.job)),
+    };
+  }
+  const paused: SleptJob[] = [];
+  for (const row of inProcess) {
+    await pauseJobForSleep(options, row.workspaceRoot, row.job);
+    paused.push({ workspaceRoot: row.workspaceRoot, jobId: row.job.id });
+  }
+  await putPrismToSleep(env, paused);
+  return {
+    asleep: true,
+    paused: paused.length,
+    message: sleepSpeak(paused.length),
+  };
+}
+
+async function wakeTool(
+  options: DispatchRuntimeOptions,
+  args: Record<string, unknown>,
+  env: NodeJS.ProcessEnv,
+  context?: DispatchToolContext,
+): Promise<unknown> {
+  if (!(await isPrismAsleep(env))) {
+    return { asleep: false, message: alreadyAwakeSpeak() };
+  }
+  const inProcess = await collectInProcessJobs(env, options.workspaceRoot);
+  if (inProcess.length > 0 && args.confirm !== true) {
+    return {
+      needsConfirm: true,
+      asleep: true,
+      inProcess: inProcess.map((row) => ({
+        jobId: row.job.id,
+        title: row.job.title,
+      })),
+      message: wakeConfirmSpeak(inProcess.map((row) => row.job)),
+    };
+  }
+  const slept = await wakePrism(env);
+  let resumed = 0;
+  const drainRoots = new Set<string>();
+  for (const row of slept) {
+    if (await requeueSleptJob(row.workspaceRoot, row.jobId)) {
+      resumed += 1;
+      drainRoots.add(row.workspaceRoot);
+    }
+  }
+  drainRoots.add(options.workspaceRoot);
+  for (const root of drainRoots) {
+    await kickDrainIfAwake(options, env, context, root);
+  }
+  return {
+    asleep: false,
+    resumed,
+    message: wakeSpeak(resumed),
   };
 }
 
@@ -1688,7 +1888,9 @@ async function initTool(
   // back in the queue rather than making the user say "resume" once per job
   // (ADR-0047).
   const requeued = await requeueAuthBlocked(options.workspaceRoot);
-  if (requeued.length > 0) kickDrain(drainDepsFor(options, env, context));
+  if (requeued.length > 0) {
+    await kickDrainIfAwake(options, env, context);
+  }
 
   const resumedNote =
     requeued.length === 0
@@ -1737,6 +1939,11 @@ async function resolveWorkerAuth(
     const auth = options.claudeAuth ?? createClaudeAuthPort({ env });
     return ensureClaudeWorkerAuth({ env, auth });
   }
+  // An env key is enough to start. Do not load the Cursor SDK just to
+  // inspect stored login — that import hangs tests and slows drain.
+  if (env.CURSOR_API_KEY?.trim()) {
+    return inspectCursorWorkerAuth(env, undefined);
+  }
   const auth = options.cursorAuth ?? (await createSdkCursorAuthPort());
   if (!flags.login) {
     let status:
@@ -1760,7 +1967,10 @@ async function doctorTool(
   env: NodeJS.ProcessEnv,
 ): Promise<unknown> {
   const backend = await resolveBackend(options, env);
-  const sdk = backend === "cursor" ? await loadCursorSdk() : undefined;
+  const sdk =
+    backend === "cursor" && process.env.VITEST !== "true"
+      ? await loadCursorSdk()
+      : undefined;
   const config = await loadConfig(options.workspaceRoot);
   const jobs = await reapJobs(options.workspaceRoot);
   const hosts = await discoverHostConnectors({
@@ -1769,6 +1979,7 @@ async function doctorTool(
   const creds = await resolveWorkerAuth(options, env, undefined, { backend });
   const diskMessage = await diskBudgetMessage(options.workspaceRoot);
   const ramMessage = ramGate(options);
+  const asleep = await isPrismAsleep(env);
   const git = await gitSnapshot(options.workspaceRoot, options.git);
   const workerChecks =
     backend === "claude"
@@ -1830,6 +2041,11 @@ async function doctorTool(
       id: "ram",
       ok: !ramMessage,
       detail: ramMessage ?? "enough free memory",
+    },
+    {
+      id: "sleep",
+      ok: !asleep,
+      detail: asleep ? "asleep — say prism wake" : "awake",
     },
     {
       // Replaces the Prism Auth reachability check (ADR-0049). Prism no longer

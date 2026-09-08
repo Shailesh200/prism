@@ -15,6 +15,8 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toContain("start_my_day");
     expect(SERVER_INSTRUCTIONS).toContain("start_job");
     expect(SERVER_INSTRUCTIONS).toContain("init");
+    expect(SERVER_INSTRUCTIONS).toContain("sleep");
+    expect(SERVER_INSTRUCTIONS).toContain("wake");
     expect(SERVER_INSTRUCTIONS).not.toMatch(/prism_blast_radius/);
   });
 
@@ -46,6 +48,15 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/speak only each Dispatch tool/i);
     expect(SERVER_INSTRUCTIONS).toMatch(/canonical id/);
     expect(SERVER_INSTRUCTIONS).toMatch(/where are we/);
+  });
+
+  it("maps prism sleep and prism wake onto sleep and wake", () => {
+    expect(SERVER_INSTRUCTIONS).toMatch(/prism sleep/);
+    expect(SERVER_INSTRUCTIONS).toContain("sleep");
+    expect(SERVER_INSTRUCTIONS).toMatch(/prism wake/);
+    expect(SERVER_INSTRUCTIONS).toContain("wake");
+    expect(SERVER_INSTRUCTIONS).toMatch(/playground/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/confirm=true/);
   });
 
   it("tells agents never to call mcp_auth and to Skip the Authenticating prism card", () => {
@@ -201,8 +212,10 @@ describe("prompt catalogue", () => {
         "init",
         "orient",
         "review_diff",
+        "sleep",
         "start_my_day",
         "start_work",
+        "wake",
         "where_are_we",
       ].sort(),
     );

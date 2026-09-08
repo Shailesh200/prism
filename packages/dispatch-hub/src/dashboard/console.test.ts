@@ -49,7 +49,8 @@ describe("parseView", () => {
   it("redirects retired hashes to the new IA", () => {
     expect(parseView("#/jobs")).toBe("dashboard");
     expect(parseView("#/repos")).toBe("dashboard");
-    expect(parseView("#/workflows")).toBe("attention");
+    expect(parseView("#/workflows")).toBe("dashboard");
+    expect(parseView("#/attention")).toBe("dashboard");
     expect(parseView("#/intelligence")).toBe("iris");
     expect(parseView("#/whats-new")).toBe("whats-new");
     expect(viewHash("whats-new")).toBe("#/whats-new");
@@ -127,6 +128,33 @@ describe("toJobSummary", () => {
     expect(summary.queuedAt).toBe("2026-09-02T10:00:01.000Z");
     expect(summary.startedAt).toBe("2026-09-02T10:00:09.000Z");
     expect(summary.finishedAt).toBe("2026-09-02T10:04:00.000Z");
+  });
+
+  it("passes lifecycle through so resume can add a Working node", () => {
+    const summary = toJobSummary({
+      ...base,
+      status: "running",
+      startedAt: "2026-09-02T10:00:09.000Z",
+      lifecycle: [
+        { kind: "accepted", at: "2026-09-02T10:00:00.000Z" },
+        { kind: "queued", at: "2026-09-02T10:00:01.000Z" },
+        { kind: "working", at: "2026-09-02T10:00:09.000Z" },
+        {
+          kind: "queued",
+          at: "2026-09-02T10:02:00.000Z",
+          by: "user",
+          note: "paused",
+        },
+        { kind: "working", at: "2026-09-02T10:03:00.000Z", note: "resumed" },
+      ],
+    });
+    expect(summary.lifecycle?.map((event) => event.kind)).toEqual([
+      "accepted",
+      "queued",
+      "working",
+      "queued",
+      "working",
+    ]);
   });
 
   it("passes a confirm gate through with its dirty paths", () => {

@@ -15,14 +15,15 @@ const job = (
 });
 
 describe("attentionJobs", () => {
-  it("keeps gates, stalled, and paused jobs", () => {
+  it("keeps gates, stalled, paused, stuck, and review jobs", () => {
     const rows = attentionJobs([
       job({ id: "a", status: "needs_confirm" }),
       job({ id: "b", status: "waiting_on_you" }),
       job({ id: "c", status: "paused" }),
       job({ id: "d", status: "needs_review" }),
+      job({ id: "stuck", status: "blocked" }),
       job({ id: "e", status: "running" }),
     ]);
-    expect(rows.map((row) => row.id)).toEqual(["a", "b", "c"]);
+    expect(rows.map((row) => row.id)).toEqual(["a", "b", "c", "d", "stuck"]);
   });
 });

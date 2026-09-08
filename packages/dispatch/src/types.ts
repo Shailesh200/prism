@@ -330,8 +330,33 @@ export const JobRecordSchema = z.object({
   startedAt: z.string().optional(),
   finishedAt: z.string().optional(),
   updatedAt: z.string(),
+  /**
+   * Append-only graph of status nodes. Pause after Working adds a new Queued
+   * node; stuck after Working adds Waiting — the rail never rewinds.
+   * Optional so pre-lifecycle records still parse; upsert seeds the array.
+   */
+  lifecycle: z
+    .array(
+      z.object({
+        kind: z.enum([
+          "accepted",
+          "queued",
+          "working",
+          "waiting",
+          "review",
+          "finished",
+          "failed",
+          "cancelled",
+        ]),
+        at: z.string(),
+        by: z.enum(["system", "user"]).optional(),
+        note: z.string().optional(),
+      }),
+    )
+    .optional(),
 });
 export type JobRecord = z.infer<typeof JobRecordSchema>;
+export type JobLifecycleEvent = NonNullable<JobRecord["lifecycle"]>[number];
 export type JobOrigin = NonNullable<JobRecord["origin"]>;
 
 /** Statuses a job cannot leave without a human or a worker acting. */

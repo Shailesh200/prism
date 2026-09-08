@@ -129,8 +129,10 @@ describe("MCP server contract (M-026)", () => {
         "init",
         "orient",
         "review_diff",
+        "sleep",
         "start_my_day",
         "start_work",
+        "wake",
         "where_are_we",
       ].sort(),
     );
@@ -202,11 +204,13 @@ describe("MCP server contract (M-026)", () => {
         "safe_delete",
         "search_symbols",
         "security_report",
+        "sleep",
         "stack_profile",
         "start_job",
         "start_my_day",
         "test_impact",
         "testing_report",
+        "wake",
         "workspace_status",
       ].sort(),
     );
@@ -485,7 +489,13 @@ describe("MCP server contract (M-026)", () => {
     // Intelligence tools plus safe Dispatch tools. start_job / job_control /
     // init mutate worktrees or start Cursor login and are covered by unit tests.
     const { tools } = await client.listTools();
-    const skipped = new Set(["start_job", "job_control", "init"]);
+    const skipped = new Set([
+      "start_job",
+      "job_control",
+      "init",
+      "sleep",
+      "wake",
+    ]);
     expect(calls.map(([name]) => name).sort()).toEqual(
       tools
         .map((t) => t.name)

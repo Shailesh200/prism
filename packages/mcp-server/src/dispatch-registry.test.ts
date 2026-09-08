@@ -81,6 +81,8 @@ describe("worker role omits recursive tools", () => {
     expect(names).not.toContain("start_job");
     expect(names).not.toContain("start_my_day");
     expect(names).not.toContain("init");
+    expect(names).not.toContain("sleep");
+    expect(names).not.toContain("wake");
   });
 });
 

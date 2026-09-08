@@ -19,7 +19,7 @@ Core analysis APIs stay ungated from MCP. See
 Tools that return a list accept `limit` and answer with `totalCount` and
 `truncated`, so an agent can tell the first 20 of 340 from all 20 there are.
 
-Prism exposes **41 tools**. Every count elsewhere in the docs is
+Prism exposes **43 tools**. Every count elsewhere in the docs is
 checked against this one, so the number cannot drift into prose.
 
 | Tool | What it answers |
@@ -59,11 +59,13 @@ checked against this one, so the number cannot drift into prose.
 | [`safe_delete`](#safe_delete) | Whether a file or symbol can be deleted safely |
 | [`search_symbols`](#search_symbols) | Substring or regex search over indexed symbol names (unlike find_symbol, which is exact-match only) |
 | [`security_report`](#security_report) | Left-shift security posture |
+| [`sleep`](#sleep) | Park Prism |
 | [`stack_profile`](#stack_profile) | Detected stack for the workspace or a single package |
 | [`start_job`](#start_job) | Hand a code change to a background teammate |
 | [`start_my_day`](#start_my_day) | Standup briefing for this repository |
 | [`test_impact`](#test_impact) | Which test files transitively cover a change target — the tests worth running after touching it |
 | [`testing_report`](#testing_report) | Test structure and, when coverage artifacts are already on disk, coverage |
+| [`wake`](#wake) | Bring Prism back |
 | [`workspace_status`](#workspace_status) | Compact workspace readiness |
 
 ## `backend_report`
@@ -276,6 +278,12 @@ Left-shift security posture: which tooling is configured, which fundamental chec
 
 Takes no arguments.
 
+## `sleep`
+
+Park Prism: the Console and playground show a down page and queued jobs stay queued until prism wake. Call this when the user says prism sleep, put Prism to sleep, or go to sleep. Speak only the tool message. If teammates are already running, the tool asks first — relay that and re-call with confirm=true only if the user agrees; that pauses them. Do not confuse this with init (worker sign-in).
+
+Arguments: `confirm`, `workspace`.
+
 ## `stack_profile`
 
 Detected stack for the workspace or a single package: frameworks, runtimes, build tooling and the signals each was detected from. Use when you need to know what a package is built with before changing its configuration.
@@ -305,6 +313,12 @@ Arguments: `kind`, `id`, `path`, `limit`.
 Test structure and, when coverage artifacts are already on disk, coverage. Use to judge how well tested an area is. Prism reads existing artifacts; it never runs your tests.
 
 Takes no arguments.
+
+## `wake`
+
+Bring Prism back: the Console and playground return, and queued jobs (including any sleep paused) start on their own. Call this when the user says prism wake, wake Prism, or wake up — even if the Console is already up, this starts the playground too. Speak only the tool message, including the Console URL and the playground URL. If teammates are still running, the tool asks first — relay that and re-call with confirm=true. Do not confuse this with init.
+
+Arguments: `confirm`, `workspace`.
 
 ## `workspace_status`
 

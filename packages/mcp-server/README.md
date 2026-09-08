@@ -5,7 +5,7 @@
 
 **`prism-mcp`** — give any MCP-capable agent structural answers about the repo
 you have open, plus Dispatch (start my day, jobs, connect). Same engine as the
-CLI and IDE extension. Local analysis. ~40 tools.
+CLI and IDE extension. Local analysis. 43 tools.
 
 **Website:** [https://www.prismhq.in](https://www.prismhq.in) · **Docs:** [https://www.prismhq.in/docs/start/install](https://www.prismhq.in/docs/start/install)
 
@@ -127,6 +127,8 @@ waiting for an MCP **client**. Configure the client; it starts the process.
 | Any request to change code (“fix the news tab highlighting”) | `start_job` |
 | The same request plus “do it now” / “right here” | no job — inline edit |
 | “Prism init” / set up jobs | `init` |
+| “Prism sleep” / put Prism to sleep | `sleep` |
+| “Prism wake” / wake up | `wake` |
 | “Where are we?” | `list_jobs` |
 | “What is it doing?” / “show me the logs” | `job_logs` |
 | “Remember this” | `remember` |
@@ -134,7 +136,7 @@ waiting for an MCP **client**. Configure the client; it starts the process.
 
 Optional MCP **prompts** (picker / slash in some clients): `orient`,
 `before_edit`, `review_diff`, `start_my_day`, `start_work`, `where_are_we`,
-`connect`, `configure`, `init`.
+`connect`, `configure`, `init`, `sleep`, `wake`.
 
 Say **prism init** to set up local workers. The worker matches your host:
 Cursor signs in via a browser page; Claude Code reuses the `claude` CLI
@@ -184,6 +186,8 @@ credentials — connectors belong to the agent window (ADR-0049).
 |---|---|---|
 | `start_my_day` | Standup: jobs, git, connected drivers, connect CTAs | — |
 | `init` | One-time worker sign-in (Cursor browser login; Claude CLI check) | — |
+| `sleep` | Park the Console and hold queued jobs until wake | `confirm` |
+| `wake` | Bring the Console back and start queued jobs | `confirm` |
 | `start_job` | Start a named teammate in its own worktree; returns immediately | `title`, `prd`, `jobId`, `branch`, `confirmOverlap` |
 | `list_jobs` | Live activity plus finished results (“where are we”); names the jobs board | — |
 | `job_logs` | One job's console: activity lines (subagent lines marked) plus the review awaiting you | `jobId`, `limit`, `since` |

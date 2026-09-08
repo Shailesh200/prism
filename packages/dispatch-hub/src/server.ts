@@ -24,6 +24,9 @@ import {
   upsertJob,
   readRunLog,
   saveConfig,
+  asleepPageHtml,
+  isPrismAsleep,
+  isPrismAsleepSync,
   type DispatchConfig,
   type WorkerBackend,
   type WorkerModelOption,
@@ -51,6 +54,18 @@ import { listJobNotes, readJobNote } from "./notes.js";
 import { createOsNotifier, type NotifyFn } from "./notify.js";
 import { readHostTelemetry } from "./host-telemetry.js";
 import { dashboardUrl, hubPort, type HubEnv } from "./paths.js";
+import {
+  PLAYGROUND_PORT,
+  effectivePlaygroundPort,
+  findPlaygroundApp,
+  playgroundIsLive,
+  playgroundUrl,
+  playgroundViteEnabled,
+  spawnPlaygroundVite,
+  stopPlaygroundListeners,
+  waitForPlaygroundLive,
+  writePlaygroundRecord,
+} from "./playground.js";
 import { HUB_ERROR, publicCaughtError } from "./api-errors.js";
 import { pickLocalFolder } from "./pick-folder.js";
 import {
@@ -113,6 +128,10 @@ export type HubOptions = {
   readonly listWorkerModels?: (input: {
     readonly backend: WorkerBackend;
   }) => Promise<readonly WorkerModelOption[]>;
+  /** Injected in tests. Production starts `apps/playground` with bun. */
+  readonly spawnPlayground?: (
+    workspaceRoot: string,
+  ) => Promise<{ pid: number } | undefined>;
 };
 
 export type StartedHub = {
@@ -174,13 +193,17 @@ async function defaultControl(
  * exited still starts, and a job parked behind the cap starts as soon as a
  * slot frees.
  */
-async function defaultDrain(workspacePath: string): Promise<void> {
+async function defaultDrain(
+  workspacePath: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<void> {
   const cursor = createCursorWorkerPort();
   const claude = createClaudeWorkerPort();
   const runtime = createDispatchRuntime({
     workspaceRoot: workspacePath,
     worker: cursor,
     claudeWorker: claude,
+    env,
   });
   await drainWorkspace(runtime.drainDeps());
 }
@@ -218,6 +241,9 @@ export async function startHub(
   let asOf = new Date().toISOString();
   let workspaceErrors: WorkspaceError[] = [];
   let server: Server | undefined;
+  let playgroundHttp: Server | undefined;
+  let playgroundBoundPort = 0;
+  let playgroundPid: number | undefined;
   let closed = false;
   let liveRecord: HubRecord = {
     port: wantedPort,
@@ -275,17 +301,134 @@ export async function startHub(
     idle.touch();
   };
 
+  const wantedPlaygroundPort = effectivePlaygroundPort(env);
+  const spawnPlayground =
+    options.spawnPlayground ??
+    (async (workspaceRoot: string) =>
+      playgroundViteEnabled(env)
+        ? spawnPlaygroundVite({ workspaceRoot, env })
+        : undefined);
+
+  const stopPlaygroundPort = async (): Promise<void> => {
+    if (playgroundHttp) {
+      const current = playgroundHttp;
+      playgroundHttp = undefined;
+      await new Promise<void>((resolve) => {
+        current.close(() => resolve());
+        try {
+          current.closeAllConnections();
+        } catch {
+          /* bun / older node */
+        }
+      });
+    }
+    playgroundBoundPort = 0;
+  };
+
+  const parkPlaygroundPort = async (): Promise<{
+    port: number;
+    url: string;
+  }> => {
+    await stopPlaygroundPort();
+    await stopPlaygroundListeners(
+      wantedPlaygroundPort || PLAYGROUND_PORT,
+      playgroundPid,
+    );
+    playgroundPid = undefined;
+    await new Promise((resolve) => {
+      setTimeout(resolve, 50).unref?.();
+    });
+    const html = asleepPageHtml();
+    const bound = await new Promise<{ server: Server; port: number }>(
+      (resolve, reject) => {
+        const srv = createServer((req, res) => {
+          if (!originAllowed(req.headers.origin)) {
+            json(res, 403, { error: HUB_ERROR.origin });
+            return;
+          }
+          res.writeHead(200, {
+            "Content-Type": "text/html; charset=utf-8",
+            "Cache-Control": "no-store",
+          });
+          res.end(html);
+        });
+        srv.once("error", (error: NodeJS.ErrnoException) => {
+          reject(error);
+        });
+        srv.listen(wantedPlaygroundPort, "127.0.0.1", () => {
+          const address = srv.address();
+          const port =
+            address && typeof address === "object"
+              ? address.port
+              : wantedPlaygroundPort;
+          resolve({ server: srv, port });
+        });
+      },
+    );
+    playgroundHttp = bound.server;
+    playgroundBoundPort = bound.port;
+    await writePlaygroundRecord(env, {
+      port: bound.port,
+      mode: "asleep",
+    });
+    return { port: bound.port, url: playgroundUrl(bound.port) };
+  };
+
+  const wakePlaygroundPort = async (
+    workspaceRoot: string,
+  ): Promise<{
+    ok: boolean;
+    port: number;
+    url: string;
+    detail: string;
+  }> => {
+    await stopPlaygroundPort();
+    const port = wantedPlaygroundPort || PLAYGROUND_PORT;
+    const url = playgroundUrl(port);
+    if (await playgroundIsLive(port)) {
+      await writePlaygroundRecord(env, { port, mode: "vite" });
+      return { ok: true, port, url, detail: "Playground is up." };
+    }
+    const app = await findPlaygroundApp(workspaceRoot);
+    if (!app) {
+      return {
+        ok: false,
+        port,
+        url,
+        detail: "This repo has no playground app.",
+      };
+    }
+    const spawned = await spawnPlayground(workspaceRoot);
+    playgroundPid = spawned?.pid;
+    const live = await waitForPlaygroundLive(port);
+    if (live) {
+      await writePlaygroundRecord(env, {
+        port,
+        mode: "vite",
+        ...(typeof playgroundPid === "number" ? { pid: playgroundPid } : {}),
+      });
+      return { ok: true, port, url, detail: "Playground is up." };
+    }
+    return {
+      ok: Boolean(spawned),
+      port,
+      url,
+      detail: spawned ? "Playground is starting." : "Playground did not start.",
+    };
+  };
+
   // The hub tick is the queue's safety net (ADR-0047). `start_job` kicks its
   // own drain, but that kick dies with the MCP process; this catches anything
   // left `queued`, and re-checks jobs parked behind the concurrency cap.
   const watcher = watchWorkspaces(() => workspaces, onEvent, {
     pollMs: options.pollMs,
-    drain: options.drain ?? defaultDrain,
+    drain: options.drain ?? ((workspace) => defaultDrain(workspace, env)),
   });
 
   const idle = createIdleTimer({
     idleMs: options.idleMs ?? IDLE_MS,
-    shouldExit: () => sse.size === 0 && !jobs.some(isInFlight),
+    shouldExit: () =>
+      !isPrismAsleepSync(env) && sse.size === 0 && !jobs.some(isInFlight),
     onIdle: () => {
       void close();
     },
@@ -305,6 +448,7 @@ export async function startHub(
       }
     }
     sse.clear();
+    await stopPlaygroundPort();
     await new Promise<void>((resolve) => {
       if (!server) {
         resolve();
@@ -353,9 +497,11 @@ export async function startHub(
 
   liveRecord = { ...liveRecord, port: listen.port };
   await writeHubRecord(liveRecord, env);
-  void listModels({ backend: "cursor" }).catch(() => {
-    /* spawn still lists if this misses */
-  });
+  if (process.env.VITEST !== "true") {
+    void listModels({ backend: "cursor" }).catch(() => {
+      /* spawn still lists if this misses */
+    });
+  }
   const initial = await collectJobs(workspaces);
   broadcast({
     type: "snapshot",
@@ -363,6 +509,10 @@ export async function startHub(
     asOf: new Date().toISOString(),
     errors: initial.errors,
   });
+
+  if (await isPrismAsleep(env)) {
+    await parkPlaygroundPort().catch(() => undefined);
+  }
 
   async function handleRequest(
     req: IncomingMessage,
@@ -375,6 +525,8 @@ export async function startHub(
       return;
     }
 
+    const asleep = await isPrismAsleep(env);
+
     if (url.pathname === "/api/healthz") {
       json(res, 200, {
         ok: true,
@@ -382,12 +534,73 @@ export async function startHub(
         pid: process.pid,
         version,
         workspaces: workspaces.length,
+        asleep,
+        playground: {
+          port: playgroundBoundPort || wantedPlaygroundPort || PLAYGROUND_PORT,
+          url: playgroundUrl(
+            playgroundBoundPort || wantedPlaygroundPort || PLAYGROUND_PORT,
+          ),
+        },
         // Whether the Intelligence plane has actually loaded Core, and on
         // what. A reader can tell an idle Console from a busy one.
         intelligence: {
           loaded: intelligence.loaded(),
           workspace: intelligence.openWorkspace() ?? null,
         },
+      });
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/playground") {
+      if (!tokensMatch(liveRecord.token, tokenFromRequest(req, url))) {
+        json(res, 401, { error: HUB_ERROR.unauthorized });
+        return;
+      }
+      const body = await readBody(req);
+      const action = String(body.action ?? "").trim();
+      const workspace =
+        String(body.workspace ?? "").trim() || workspaces[0]?.path || "";
+      try {
+        if (action === "sleep") {
+          const parked = await parkPlaygroundPort();
+          json(res, 200, {
+            ok: true,
+            ...parked,
+            detail: "Playground is down.",
+          });
+          return;
+        }
+        if (action === "wake") {
+          const woken = await wakePlaygroundPort(workspace);
+          json(res, woken.ok ? 200 : 503, woken);
+          return;
+        }
+        json(res, 400, { error: HUB_ERROR.actionRequired });
+      } catch (cause) {
+        json(res, 500, { error: publicCaughtError(cause) });
+      }
+      return;
+    }
+
+    if (asleep) {
+      if (
+        req.method === "GET" &&
+        (url.pathname === "/" || url.pathname === "/index.html")
+      ) {
+        const headers: Record<string, string> = {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "no-store",
+        };
+        if (tokensMatch(liveRecord.token, tokenFromRequest(req, url))) {
+          headers["Set-Cookie"] = hubCookieHeader(liveRecord.token);
+        }
+        res.writeHead(200, headers);
+        res.end(asleepPageHtml());
+        return;
+      }
+      json(res, 503, {
+        error: "asleep",
+        message: "Prism is down. Say prism wake.",
       });
       return;
     }

@@ -53,6 +53,9 @@ export function toJobSummary(job: JobSnapshot): JobSummary {
     ...(job.queuedAt ? { queuedAt: job.queuedAt } : {}),
     ...(job.startedAt ? { startedAt: job.startedAt } : {}),
     ...(job.finishedAt ? { finishedAt: job.finishedAt } : {}),
+    ...(job.lifecycle && job.lifecycle.length > 0
+      ? { lifecycle: job.lifecycle }
+      : {}),
     ...(job.lastActivity ? { lastActivity: job.lastActivity } : {}),
     ...(job.worktreePath ? { worktreePath: job.worktreePath } : {}),
     ...(job.lastHeartbeat ? { lastHeartbeat: job.lastHeartbeat } : {}),

@@ -37,6 +37,13 @@ export {
   type ReviewFile,
   type TokenUsage,
 } from "./types.js";
+export {
+  kindForStatus,
+  seedLifecycle,
+  withLifecycleEvents,
+  type JobLifecycleEvent,
+  type JobLifecycleKind,
+} from "./lifecycle.js";
 
 export {
   createDispatchRuntime,
@@ -67,6 +74,7 @@ export {
 export {
   jobRef,
   queuedJobSpeak,
+  queuedWhileAsleepSpeak,
   needsConfirmSpeak,
   agentNameForJob,
   dirtyCheckoutSpeak,
@@ -186,6 +194,18 @@ export {
   settleDrains,
   type DrainDeps,
 } from "./queue.js";
+export {
+  asleepPageHtml,
+  isPrismAsleep,
+  isPrismAsleepSync,
+  isInProcessJobStatus,
+  putPrismToSleep,
+  readSleepState,
+  sleepStatePath,
+  wakePrism,
+  type SleepState,
+  type SleptJob,
+} from "./sleep.js";
 export {
   discoverWorktrees,
   adoptOrCreateWorktree,

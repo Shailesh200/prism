@@ -81,6 +81,23 @@ export type JobReview = {
   readonly keptPaths?: readonly string[];
 };
 
+export type JobLifecycleKind =
+  | "accepted"
+  | "queued"
+  | "working"
+  | "waiting"
+  | "review"
+  | "finished"
+  | "failed"
+  | "cancelled";
+
+export type JobLifecycleEvent = {
+  readonly kind: JobLifecycleKind;
+  readonly at: string;
+  readonly by?: "system" | "user";
+  readonly note?: string;
+};
+
 export type JobConsoleEntry = {
   readonly ts: string;
   readonly phase: JobRunPhase;
@@ -102,6 +119,12 @@ export type JobSummary = {
   readonly queuedAt?: string;
   readonly startedAt?: string;
   readonly finishedAt?: string;
+  /**
+   * Append-only graph nodes. Pause after Working adds a new Queued node;
+   * stuck after Working adds Waiting. Older records omit this and the rail
+   * seeds from the four stamps plus current status.
+   */
+  readonly lifecycle?: readonly JobLifecycleEvent[];
   readonly updatedAt?: string;
   readonly lastActivity?: string;
   readonly nextStep?: string;
@@ -995,85 +1018,219 @@ export function heartbeatAge(
 }
 
 /**
- * One rung of the job lifecycle rail.
+ * One node on the job graph.
  *
  * `reached` is the honest bit: a stage without a timestamp is drawn but not
- * claimed, so a job that skipped the queue does not get a fabricated queue
- * time. `span` is how long the job sat at that stage — measured to the next
- * stamp, or to `now` for the stage it is still on.
+ * claimed. `span` is how long the job sat at that stage — measured to the next
+ * stamp, or to `now` for the stage it is still on. Pause after Working is a
+ * new Queued node; stuck after Working is a new Waiting node — the graph
+ * never rewinds.
  */
 export type JobStage = {
-  readonly id: "created" | "queued" | "started" | "finished";
+  readonly id: string;
+  readonly kind: JobLifecycleKind;
   readonly label: string;
+  /** History line on Pulse Needs you (e.g. "Paused by you"). */
+  readonly historyLabel: string;
   readonly at?: string;
   readonly reached: boolean;
   /** The stage the job is sitting on right now, if it is still moving. */
   readonly current: boolean;
   readonly span?: string;
+  readonly elapsedMs?: number;
 };
 
+const STAGE_LABEL: Record<JobLifecycleKind, string> = {
+  accepted: "Accepted",
+  queued: "Queued",
+  working: "Working",
+  waiting: "Waiting",
+  review: "Review",
+  finished: "Finished",
+  failed: "Failed",
+  cancelled: "Cancelled",
+};
+
+function historyLabelOf(event: JobLifecycleEvent): string {
+  if (event.note === "paused" || event.by === "user") return "Paused by you";
+  if (event.note === "stuck") return "Waiting (stuck)";
+  if (event.kind === "review") return "Ready for review";
+  return STAGE_LABEL[event.kind];
+}
+
+const WORKING_NOW = new Set<JobStatus>(["booting", "running", "ready"]);
+
+function stampLifecycleEvents(job: JobSummary): JobLifecycleEvent[] {
+  const events: JobLifecycleEvent[] = [];
+  if (job.createdAt) events.push({ kind: "accepted", at: job.createdAt });
+  if (job.queuedAt) events.push({ kind: "queued", at: job.queuedAt });
+  if (job.startedAt) events.push({ kind: "working", at: job.startedAt });
+
+  const afterWork = Boolean(job.startedAt);
+  const at =
+    job.updatedAt ?? job.finishedAt ?? job.startedAt ?? job.createdAt ?? "";
+  if (job.status === "paused" && afterWork) {
+    events.push({ kind: "queued", at, by: "user", note: "paused" });
+  } else if (
+    (job.status === "waiting_on_you" || job.status === "blocked") &&
+    afterWork
+  ) {
+    events.push({ kind: "waiting", at, note: "stuck" });
+  } else if (job.status === "queued" && afterWork) {
+    const queuedAfter =
+      job.queuedAt && job.startedAt && job.queuedAt > job.startedAt
+        ? job.queuedAt
+        : at;
+    events.push({ kind: "queued", at: queuedAfter, note: "requeued" });
+  } else if (job.status === "needs_review") {
+    events.push({
+      kind: "review",
+      at: job.finishedAt ?? at,
+    });
+  } else if (job.status === "done") {
+    events.push({ kind: "finished", at: job.finishedAt ?? at });
+  } else if (job.status === "error") {
+    events.push({ kind: "failed", at: job.finishedAt ?? at });
+  } else if (job.status === "cancelled") {
+    events.push({ kind: "cancelled", at: job.finishedAt ?? at });
+  }
+  return events;
+}
+
+function seedLifecycleEvents(job: JobSummary): JobLifecycleEvent[] {
+  const events: JobLifecycleEvent[] =
+    job.lifecycle && job.lifecycle.length > 0
+      ? [...job.lifecycle]
+      : stampLifecycleEvents(job);
+  const last = events.at(-1);
+  // Resume must not rewind onto the previous Working node. If the durable
+  // list still ends on pause/queue but the job is running, append Working.
+  if (
+    WORKING_NOW.has(job.status) &&
+    last &&
+    last.kind !== "working" &&
+    last.kind !== "finished"
+  ) {
+    const at = job.updatedAt ?? job.startedAt ?? last.at;
+    events.push({ kind: "working", at, note: "resumed" });
+  }
+  return events.filter((event) => event.at);
+}
+
 /**
- * The four lifecycle stamps as a rail (ADR-0047, ADR-0051).
+ * Append-only job graph (ADR-0047 stamps + pause/resume/stuck nodes).
  *
- * The stamps were already on the detail pane as a flat definition list, which
- * shows *when* each thing happened but not *where the job is*. The rail
- * answers the question people actually open a job to ask: is it moving, and
- * what is it waiting on. Motion is CSS on the current rung only — the rail is
- * information, and only the live rung is allowed to draw the eye.
- *
- * The final rung takes its name from the outcome, because "Finished" over a
- * job that crashed is the kind of cheerful inaccuracy this milestone exists to
- * remove.
+ * Pause stamps `finishedAt` to stop the duration clock — that must not mark
+ * the job as finished on the rail. Outcome nodes take their name from status.
  */
 export function jobStages(job: JobSummary, now: number): readonly JobStage[] {
-  const finalLabel =
-    job.status === "error"
-      ? "Failed"
-      : job.status === "cancelled"
-        ? "Cancelled"
-        : "Finished";
-
-  const settled = Boolean(job.finishedAt) || isSettledJob(job.status);
-  const finishedAt =
-    job.finishedAt ??
-    (settled ? (job.updatedAt ?? job.startedAt ?? job.createdAt) : undefined);
-
-  const raw: {
-    id: JobStage["id"];
-    label: string;
+  const events = seedLifecycleEvents(job);
+  const ended =
+    job.status === "done" ||
+    job.status === "error" ||
+    job.status === "cancelled";
+  const lastKind = events.at(-1)?.kind;
+  const pendingFinish =
+    lastKind !== "finished" &&
+    lastKind !== "failed" &&
+    lastKind !== "cancelled";
+  const nodes: {
+    kind: JobLifecycleKind;
     at: string | undefined;
-  }[] = [
-    { id: "created", label: "Accepted", at: job.createdAt },
-    { id: "queued", label: "Queued", at: job.queuedAt },
-    { id: "started", label: "Working", at: job.startedAt },
-    { id: "finished", label: finalLabel, at: finishedAt },
-  ];
+    note?: string;
+    by?: "system" | "user";
+    reached: boolean;
+  }[] = events.map((event) => ({
+    kind: event.kind,
+    at: event.at,
+    ...(event.note ? { note: event.note } : {}),
+    ...(event.by ? { by: event.by } : {}),
+    reached: true,
+  }));
+  if (pendingFinish) {
+    nodes.push({
+      kind:
+        job.status === "error"
+          ? "failed"
+          : job.status === "cancelled"
+            ? "cancelled"
+            : "finished",
+      at: ended ? (job.finishedAt ?? job.updatedAt) : undefined,
+      reached: ended,
+    });
+  }
 
-  const lastReached = raw.reduce(
-    (acc, stage, i) => (stage.at ? i : acc),
+  const lastReached = nodes.reduce(
+    (acc, stage, i) => (stage.reached ? i : acc),
     Number.NaN,
   );
 
-  return raw.map((stage, i) => {
-    // A settled job with missing intermediate stamps still passed those
-    // rungs — leaving them hollow under a full bar looks like the timeline
-    // broke. Do not invent times; just mark them reached.
-    const reached = Boolean(stage.at) || settled;
-    const current = Boolean(stage.at) && i === lastReached && !settled;
-    const nextAt = raw.slice(i + 1).find((s) => s.at)?.at;
+  return nodes.map((stage, i) => {
+    const current = stage.reached && i === lastReached && !ended;
+    const nextAt = nodes.slice(i + 1).find((item) => item.at)?.at;
     const until = current ? now : nextAt;
-    const span = reached
-      ? formatDuration(durationMs(stage.at, until))
-      : undefined;
+    const elapsed = durationMs(stage.at, until);
+    const span = stage.reached ? formatDuration(elapsed) : undefined;
+    const event: JobLifecycleEvent = {
+      kind: stage.kind,
+      at: stage.at ?? "",
+      ...(stage.note ? { note: stage.note } : {}),
+      ...(stage.by ? { by: stage.by } : {}),
+    };
+    const label =
+      stage.kind === "finished" && job.status === "error"
+        ? "Failed"
+        : stage.kind === "finished" && job.status === "cancelled"
+          ? "Cancelled"
+          : STAGE_LABEL[stage.kind];
     return {
-      id: stage.id,
-      label: stage.label,
+      id: `${stage.kind}-${i}`,
+      kind: stage.kind,
+      label,
+      historyLabel: historyLabelOf(event),
       ...(stage.at ? { at: stage.at } : {}),
-      reached,
+      reached: stage.reached,
       current,
       ...(span ? { span } : {}),
+      ...(elapsed !== undefined ? { elapsedMs: elapsed } : {}),
     };
   });
+}
+
+/** Copy + CTA for a job that needs the user. Empty when nothing is required. */
+export function jobNextAction(job: JobSummary):
+  | {
+      readonly copy: string;
+      readonly action: "resume" | "cancel" | "keep" | "confirm";
+    }
+  | undefined {
+  if (job.status === "needs_confirm") {
+    return {
+      copy: job.confirm?.question || "The teammate asked a question.",
+      action: "confirm",
+    };
+  }
+  if (job.status === "blocked" || job.status === "waiting_on_you") {
+    return {
+      copy:
+        job.nextStep?.trim() ||
+        "No recent output. Resume to nudge it, or cancel.",
+      action: "resume",
+    };
+  }
+  if (job.status === "paused") {
+    return {
+      copy: "Paused — resume when you want it to continue.",
+      action: "resume",
+    };
+  }
+  if (jobReviewPending(job)) {
+    return {
+      copy: "Files are ready. Keep all to land them.",
+      action: "keep",
+    };
+  }
+  return undefined;
 }
 
 /** How many dirty paths a confirm gate lists before it summarises the rest. */

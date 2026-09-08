@@ -44,6 +44,43 @@ describe("jobActionItems", () => {
     expect(ids).toContain("copy-link");
   });
 
+  it("offers Resume when a job is stuck", () => {
+    const ids = jobActionItems({
+      job: job({ id: "stuck", status: "blocked" }),
+      onResume: () => undefined,
+      onCancel: () => undefined,
+    }).map((item) => item.id);
+    expect(ids).toContain("resume");
+    expect(ids).toContain("cancel");
+  });
+
+  it("offers Keep all while files are waiting for review", () => {
+    const ids = jobActionItems({
+      job: job({
+        id: "review",
+        status: "needs_review",
+        review: {
+          files: [
+            {
+              path: "src/a.ts",
+              added: 1,
+              removed: 0,
+              change: "modified",
+            },
+          ],
+          totalAdded: 1,
+          totalRemoved: 0,
+          truncated: false,
+          committed: false,
+          merged: false,
+          keptPaths: [],
+        },
+      }),
+      onKeepAll: () => undefined,
+    }).map((item) => item.id);
+    expect(ids).toContain("keep-all");
+  });
+
   it("keeps retry and reverify on Failed jobs", () => {
     const ids = jobActionItems({
       job: job({
@@ -125,5 +162,9 @@ describe("focusBarMeta", () => {
     expect(focusBarMeta("retry", "Retry job").label).toBe("Job");
     expect(focusBarMeta("delete", "Delete").variant).toBe("danger");
     expect(focusBarMeta("resume", "Resume").variant).toBe("primary");
+    expect(focusBarMeta("keep-all", "Keep all")).toMatchObject({
+      label: "Keep all",
+      variant: "primary",
+    });
   });
 });

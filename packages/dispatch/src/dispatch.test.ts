@@ -9,13 +9,21 @@ describe("worker tool filter", () => {
     expect(names).not.toContain("start_job");
     expect(names).not.toContain("start_my_day");
     expect(names).not.toContain("init");
-    expect(WORKER_HIDDEN_TOOLS).toEqual(["start_my_day", "init", "start_job"]);
+    expect(names).not.toContain("sleep");
+    expect(names).not.toContain("wake");
+    expect(WORKER_HIDDEN_TOOLS).toEqual([
+      "start_my_day",
+      "init",
+      "sleep",
+      "wake",
+      "start_job",
+    ]);
     expect(names).toContain("list_jobs");
     expect(names).toContain("remember");
   });
 
   it("exposes the full pack on the host", () => {
-    expect(visibleDispatchTools({}).length).toBe(9);
+    expect(visibleDispatchTools({}).length).toBe(11);
   });
 
   it("lets a worker read its own console but not spawn work", () => {

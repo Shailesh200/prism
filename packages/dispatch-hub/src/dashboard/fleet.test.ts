@@ -82,15 +82,16 @@ describe("DEFAULT_FLEET_RANGE", () => {
 });
 
 describe("attentionJobs", () => {
-  it("keeps only blocking statuses", () => {
+  it("keeps blocking statuses including stuck and review", () => {
     const rows = attentionJobs([
       job({ id: "a", status: "needs_confirm" }),
       job({ id: "b", status: "waiting_on_you" }),
       job({ id: "c", status: "paused" }),
       job({ id: "d", status: "needs_review" }),
+      job({ id: "stuck", status: "blocked" }),
       job({ id: "e", status: "running" }),
     ]);
-    expect(rows.map((row) => row.id)).toEqual(["a", "b", "c"]);
+    expect(rows.map((row) => row.id)).toEqual(["a", "b", "c", "d", "stuck"]);
   });
 });
 
@@ -124,6 +125,9 @@ describe("pulseBucket", () => {
       "needsYou",
     );
     expect(pulseBucket(job({ id: "e", status: "paused" }))).toBe("needsYou");
+    expect(pulseBucket(job({ id: "review", status: "needs_review" }))).toBe(
+      "needsYou",
+    );
     expect(pulseBucket(job({ id: "g", status: "done" }))).toBe("settled");
     expect(pulseBucket(job({ id: "h", status: "error" }))).toBe("settled");
     expect(pulseBucket(job({ id: "i", status: "cancelled" }))).toBe("settled");

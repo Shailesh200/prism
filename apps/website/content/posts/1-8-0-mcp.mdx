@@ -1,14 +1,14 @@
 ---
-title: "MCP — start a job from the Console"
-description: "Compose a brief in the Console or in chat. Same start_job. Checkout-first. Tokens in Focus, not on Pulse."
-version: "1.8.2"
+title: "MCP — sleep, wake, and start a job"
+description: "prism sleep parks the Console and playground. prism wake brings both back. Compose still queues the same teammate."
+version: "1.9.0"
 ---
 
 The `prism` MCP server is still one process. The Console is another door onto the same `start_job`.
 
 - Compose a brief, pick a playbook, default to checkout. Chat still queues the same teammate.
-- A finding can fill that brief instead of dying as a note.
-- Focus shows billed in/out. Pulse stays wait and work.
+- `prism sleep` parks the Console and playground and holds the queue. `prism wake` brings both back and starts queued jobs.
+- Focus shows billed in/out. Pulse stays wait and work. Cursor worker state lives in `~/.prism`, not the repo.
 - Prism still holds no OAuth tokens. Connectors stay in the host window.
 
 Install remains `npx -y --prefer-online @repo-prism/mcp-server@latest`. Reload MCP after this publish. See [Usage](/docs/usage) and [Prism Dispatch](/docs/guides/dispatch).

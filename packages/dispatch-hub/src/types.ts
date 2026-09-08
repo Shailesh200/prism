@@ -65,6 +65,7 @@ export type JobSnapshot = {
   readonly queuedAt?: string;
   readonly startedAt?: string;
   readonly finishedAt?: string;
+  readonly lifecycle?: JobRecord["lifecycle"];
   readonly updatedAt: string;
   /** Agent CLI that ran this job. Absent on older records. */
   readonly workerBackend?: JobRecord["workerBackend"];

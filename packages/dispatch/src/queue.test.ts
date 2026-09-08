@@ -15,6 +15,7 @@ import {
 import { jobsPath } from "./paths.js";
 import { createDispatchRuntime } from "./runtime.js";
 import type { GitRunner } from "./git.js";
+import { putPrismToSleep } from "./sleep.js";
 import type { JobRecord } from "./types.js";
 import type { WorkerPort } from "./worker.js";
 
@@ -97,6 +98,28 @@ describe("start_job accepts and returns (ADR-0047)", () => {
     expect(accepted.message).toMatch(/queued/i);
     // The reply cannot claim work has begun, because it has not.
     expect(accepted.message).not.toMatch(/^Started/);
+  });
+
+  it("does not start queued jobs while Prism is asleep", async () => {
+    root = await tempRoot();
+    const hub = await mkdtemp(join(tmpdir(), "prism-sleep-hub-"));
+    const calls: string[] = [];
+    const env = { CURSOR_API_KEY: "k", PRISM_HUB_HOME: hub };
+    await putPrismToSleep(env);
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker: recordingWorker(calls),
+      env,
+    });
+    const result = await dispatchAndDrain(runtime, {
+      title: "fix login",
+      jobId: "fix-login",
+    });
+    expect(result.job?.status).toBe("queued");
+    expect(calls).toEqual([]);
+    expect(result.accepted.message).toMatch(/asleep/i);
+    await rm(hub, { recursive: true, force: true });
   });
 
   it("stays inside the 500ms latency budget even when sign-in is slow", async () => {

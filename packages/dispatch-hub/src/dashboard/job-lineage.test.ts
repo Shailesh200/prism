@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { JobSummary } from "@repo-prism/app-shell";
 import {
   jobsRelatedTo,
+  lineageDotKind,
   lineageRoot,
   lineageSummary,
   lineageTree,
@@ -60,5 +61,12 @@ describe("job lineage", () => {
         job({ id: "child", title: "Retry checks", status: "done" }),
       ),
     ).toBe("Retry checks · Done");
+  });
+
+  it("picks a rail-style node mark from status", () => {
+    expect(lineageDotKind("done")).toBe("check");
+    expect(lineageDotKind("error")).toBe("x");
+    expect(lineageDotKind("blocked")).toBe("alert");
+    expect(lineageDotKind("running")).toBe("pulse");
   });
 });

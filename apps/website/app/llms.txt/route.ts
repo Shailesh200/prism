@@ -24,7 +24,7 @@ export async function GET() {
 
 > Local-first software intelligence for repositories — maps, graphs, blast
 > radius, and health, analysed on your machine. Exposed as a CLI, VS Code /
-> Cursor extensions, and an MCP server (41 tools) for AI agents. Dispatch adds
+> Cursor extensions, and an MCP server (43 tools) for AI agents. Dispatch adds
 > background teammates that edit your checkout while Prism runs the checks.
 
 ## Product

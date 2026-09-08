@@ -4,18 +4,18 @@ import type { ReactElement } from "react";
 const HIGHLIGHTS = [
   {
     kicker: "Console",
-    title: "Pulse, Board, List",
-    body: "Three views of one jobs canvas. New job is a button. Attention is the inbox for work that needs you.",
+    title: "Append-only job graph",
+    body: "Focus draws Accepted → Queued → Working. Pause then resume adds a new Working node; the rail never rewinds.",
   },
   {
     kicker: "Pulse",
-    title: "Wait and work",
-    body: "Live cards show wait and work as two meters. Billed in/out lives in Focus, not on Pulse.",
+    title: "Needs you lives here",
+    body: "Live / Needs you / Settled. The extra inbox tab is gone. Related jobs is a parent/child tree.",
   },
   {
     kicker: "MCP",
-    title: "Start a job here",
-    body: "Compose a brief, pick a playbook, default to checkout. Chat still queues the same teammate.",
+    title: "prism sleep / prism wake",
+    body: "Sleep parks the Console and playground. Wake brings both back and starts the queue.",
   },
 ] as const;
 
@@ -26,10 +26,10 @@ export function WhatsNewView(props: {
   return (
     <section className="console__panel ship-log">
       <p className="console__eyebrow">What's new</p>
-      <h1 className="console__title">1.8.0 — Fleet Console</h1>
+      <h1 className="console__title">1.9.0 — Job graph, sleep and wake</h1>
       <p className="console__lede">
-        Pulse, Board, and List are three views of the same jobs canvas. New job
-        is a verb on this board, not only a sentence in chat.
+        Focus draws an append-only graph. Pulse is the inbox. prism sleep and
+        prism wake park and restore the Console.
       </p>
       <ul className="ship-log__feats">
         {HIGHLIGHTS.map((row) => (

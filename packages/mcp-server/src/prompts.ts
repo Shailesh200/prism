@@ -297,4 +297,51 @@ export function registerPrompts(server: McpServer): void {
       ],
     }),
   );
+
+  server.registerPrompt(
+    "sleep",
+    {
+      title: "Put Prism to sleep",
+      description:
+        "Park the Console and hold queued jobs until someone says prism wake.",
+    },
+    async () => ({
+      messages: [
+        {
+          role: "user" as const,
+          content: {
+            type: "text" as const,
+            text: [
+              "Put Prism to sleep.",
+              "Call sleep immediately.",
+              "If it asks to confirm because teammates are running, tell me and wait.",
+            ].join(" "),
+          },
+        },
+      ],
+    }),
+  );
+
+  server.registerPrompt(
+    "wake",
+    {
+      title: "Wake Prism",
+      description: "Bring the Console back and start queued jobs.",
+    },
+    async () => ({
+      messages: [
+        {
+          role: "user" as const,
+          content: {
+            type: "text" as const,
+            text: [
+              "Wake Prism.",
+              "Call wake immediately.",
+              "If it asks to confirm because teammates are still running, tell me and wait.",
+            ].join(" "),
+          },
+        },
+      ],
+    }),
+  );
 }

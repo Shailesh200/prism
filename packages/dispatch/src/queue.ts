@@ -50,6 +50,7 @@ import { adoptOrCreateWorktree } from "./worktrees.js";
 import { linkWorktreeInstall } from "./worktree-install.js";
 import type { WorkerBackend } from "./worker-backend.js";
 import { cursorModelForSpawn } from "./worker-models.js";
+import { isPrismAsleep } from "./sleep.js";
 
 /**
  * Everything the drain needs from the runtime, passed in rather than imported,
@@ -126,6 +127,7 @@ export async function settleDrains(): Promise<void> {
 }
 
 async function drainOnce(deps: DrainDeps): Promise<void> {
+  if (await isPrismAsleep(deps.env)) return;
   const config = await loadConfig(deps.workspaceRoot);
   // Warm the Cursor model list while we reap/place so spawn does not wait
   // on it serially. Tests skip the live list.

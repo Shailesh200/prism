@@ -3,6 +3,7 @@ import {
   canRetryVerification,
   isLiveJob,
   jobNotePaths,
+  jobReviewPending,
   type JobSummary,
 } from "@repo-prism/app-shell";
 import {
@@ -13,6 +14,7 @@ import {
   type DropdownMenuItem,
 } from "@repo-prism/ui";
 import {
+  Check,
   CopyPlus,
   Eye,
   FileText,
@@ -78,6 +80,7 @@ export type JobActionHandlers = {
   readonly onCancel?: (job: JobSummary) => void;
   readonly onConfirm?: (job: JobSummary) => void;
   readonly onResume?: (job: JobSummary) => void;
+  readonly onKeepAll?: (job: JobSummary) => void;
   readonly onRetry?: (job: JobSummary) => void;
   readonly onReverify?: (job: JobSummary) => void;
   readonly onDelete?: (job: JobSummary) => void;
@@ -93,6 +96,7 @@ export function jobActionHandlers(props: JobActionHandlers): JobActionHandlers {
     ...(props.onCancel ? { onCancel: props.onCancel } : {}),
     ...(props.onConfirm ? { onConfirm: props.onConfirm } : {}),
     ...(props.onResume ? { onResume: props.onResume } : {}),
+    ...(props.onKeepAll ? { onKeepAll: props.onKeepAll } : {}),
     ...(props.onRetry ? { onRetry: props.onRetry } : {}),
     ...(props.onReverify ? { onReverify: props.onReverify } : {}),
     ...(props.onDelete ? { onDelete: props.onDelete } : {}),
@@ -121,6 +125,7 @@ export type JobActionsProps = {
   readonly onCancel?: (job: JobSummary) => void;
   readonly onConfirm?: (job: JobSummary) => void;
   readonly onResume?: (job: JobSummary) => void;
+  readonly onKeepAll?: (job: JobSummary) => void;
   readonly onRetry?: (job: JobSummary) => void;
   readonly onReverify?: (job: JobSummary) => void;
   readonly onDelete?: (job: JobSummary) => void;
@@ -211,6 +216,7 @@ export function jobActionItems(
     ...(job &&
     (job.status === "paused" ||
       job.status === "waiting_on_you" ||
+      job.status === "blocked" ||
       job.status === "error") &&
     props.onResume
       ? [
@@ -220,6 +226,17 @@ export function jobActionItems(
             icon: <Play size={14} aria-hidden />,
             tone: "brand" as const,
             onSelect: () => props.onResume?.(job),
+          },
+        ]
+      : []),
+    ...(job && jobReviewPending(job) && props.onKeepAll
+      ? [
+          {
+            id: "keep-all",
+            label: "Keep all",
+            icon: <Check size={14} aria-hidden />,
+            tone: "brand" as const,
+            onSelect: () => props.onKeepAll?.(job),
           },
         ]
       : []),
@@ -324,6 +341,7 @@ const FOCUS_BAR_IDS = new Set([
   "copy-link",
   "confirm",
   "resume",
+  "keep-all",
   "pause",
   "cancel",
   "retry",
@@ -337,6 +355,7 @@ function focusBarVariant(id: string): ButtonVariant {
   switch (id) {
     case "resume":
     case "confirm":
+    case "keep-all":
       return "primary";
     case "start-from":
       return "secondary";
@@ -369,6 +388,8 @@ function focusBarLabel(id: string, fallback: string): string {
       return "Delete";
     case "resume":
       return "Resume";
+    case "keep-all":
+      return "Keep all";
     default:
       return fallback;
   }
@@ -390,6 +411,8 @@ function focusBarDetail(id: string): string {
       return "Delete this job";
     case "resume":
       return "Resume this job";
+    case "keep-all":
+      return "Keep every file this job changed";
     case "pause":
       return "Pause this job";
     case "cancel":

@@ -676,6 +676,95 @@ describe("hub HTTP", () => {
     expect(picked.status).toBe(200);
     expect(await picked.json()).toMatchObject({ path: repo });
   }, 15_000);
+
+  it("serves a down page while Prism is asleep", async () => {
+    const home = await mkdtemp(join(tmpdir(), "prism-hub-sleep-"));
+    temps.push(home);
+    await writeFile(
+      join(home, "sleep.json"),
+      `${JSON.stringify({ asleep: true, at: new Date().toISOString() })}\n`,
+    );
+    const started = await startHub({
+      env: {
+        PRISM_HUB_HOME: home,
+        PRISM_HUB_PORT: "0",
+        PRISM_HUB: "1",
+      },
+      idleMs: 60_000,
+      pollMs: 200,
+      drain: async () => undefined,
+    });
+    if ("alreadyRunning" in started) throw new Error("expected a fresh hub");
+    closers.push(started.close);
+    const port = started.record.port;
+    const token = started.record.token;
+
+    const page = await fetch(`http://127.0.0.1:${port}/`);
+    expect(page.status).toBe(200);
+    const html = await page.text();
+    expect(html).toContain("Prism is down");
+    expect(html).toContain("prism wake");
+
+    const health = (await (
+      await fetch(`http://127.0.0.1:${port}/api/healthz`)
+    ).json()) as {
+      asleep: boolean;
+      ok: boolean;
+      playground?: { port: number; url: string };
+    };
+    expect(health.ok).toBe(true);
+    expect(health.asleep).toBe(true);
+    expect(health.playground?.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/$/);
+
+    const playground = await fetch(health.playground!.url);
+    expect(playground.status).toBe(200);
+    expect(await playground.text()).toContain("Prism is down");
+
+    const jobs = await fetch(`http://127.0.0.1:${port}/api/jobs`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(jobs.status).toBe(503);
+  });
+
+  it("parks and wakes the playground port through the hub", async () => {
+    const home = await mkdtemp(join(tmpdir(), "prism-hub-pg-"));
+    temps.push(home);
+    const started = await startHub({
+      env: {
+        PRISM_HUB_HOME: home,
+        PRISM_HUB_PORT: "0",
+        PRISM_HUB: "1",
+      },
+      idleMs: 60_000,
+      pollMs: 200,
+      drain: async () => undefined,
+    });
+    if ("alreadyRunning" in started) throw new Error("expected a fresh hub");
+    closers.push(started.close);
+    const port = started.record.port;
+    const token = started.record.token;
+    const auth = { Authorization: `Bearer ${token}` };
+
+    const parked = (await (
+      await fetch(`http://127.0.0.1:${port}/api/playground`, {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "sleep" }),
+      })
+    ).json()) as { ok: boolean; url: string };
+    expect(parked.ok).toBe(true);
+    const down = await fetch(parked.url);
+    expect(down.status).toBe(200);
+    expect(await down.text()).toContain("Prism is down");
+
+    const woken = await fetch(`http://127.0.0.1:${port}/api/playground`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "wake" }),
+    });
+    expect(woken.status).toBe(503);
+    await expect(fetch(parked.url)).rejects.toThrow();
+  });
 });
 
 function sleep(ms: number): Promise<void> {

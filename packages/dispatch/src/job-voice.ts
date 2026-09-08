@@ -179,6 +179,9 @@ export function doctorSpeak(
   if (byId.ram === false) {
     return "This machine is low on memory. Close extra Cursor or browser windows, then start a job.";
   }
+  if (byId.sleep === false) {
+    return "Prism is asleep. Queued jobs are waiting. Say prism wake to bring it back.";
+  }
   if (checks.every((check) => check.ok)) {
     return `${signedInSpeak()} Say “start working on …” when you want a teammate on a ticket.`;
   }
@@ -205,6 +208,59 @@ export function queuedJobSpeak(job: JobRecord): string {
     `It starts on its own — say “where are we” for live status.`,
     `Pause or cancel with “pause ${id}”.`,
   ].join(" ");
+}
+
+export function queuedWhileAsleepSpeak(job: JobRecord): string {
+  return `${queuedJobSpeak(job)} Prism is asleep — it will wait until you say prism wake.`;
+}
+
+export function listJobsAsleepSpeak(base: string): string {
+  return `Prism is asleep. Queued jobs are waiting — say prism wake.\n${base}`;
+}
+
+function inProcessNames(
+  jobs: readonly { title: string; id: string }[],
+): string {
+  return jobs.map((job) => jobRef(job)).join(", ");
+}
+
+export function sleepConfirmSpeak(
+  jobs: readonly { title: string; id: string }[],
+): string {
+  const n = jobs.length;
+  const who = n === 1 ? "1 teammate is" : `${n} teammates are`;
+  return `Prism is still running ${who} (${inProcessNames(jobs)}). Sleep anyway? That pauses them and holds queued jobs until you say prism wake. Call sleep again with confirm=true.`;
+}
+
+export function sleepSpeak(paused: number): string {
+  const pausedBit =
+    paused > 0
+      ? ` Paused ${paused} in-progress teammate${paused === 1 ? "" : "s"}.`
+      : "";
+  return `Prism is down.${pausedBit} Queued jobs will wait. Say prism wake in chat to bring it back.`;
+}
+
+export function alreadyAsleepSpeak(): string {
+  return "Prism is already asleep. Say prism wake to bring it back.";
+}
+
+export function wakeConfirmSpeak(
+  jobs: readonly { title: string; id: string }[],
+): string {
+  const n = jobs.length;
+  const who = n === 1 ? "1 teammate is" : `${n} teammates are`;
+  return `Prism is still running ${who} (${inProcessNames(jobs)}). Wake anyway? That brings the Console back; those jobs keep going. Call wake again with confirm=true.`;
+}
+
+export function wakeSpeak(resumed: number): string {
+  if (resumed > 0) {
+    return `Prism is up. ${resumed} paused teammate${resumed === 1 ? "" : "s"} will start again.`;
+  }
+  return "Prism is up. Queued jobs will start on their own.";
+}
+
+export function alreadyAwakeSpeak(): string {
+  return "Prism is already up.";
 }
 
 /** A job parked on a gate that only the user can clear. */
