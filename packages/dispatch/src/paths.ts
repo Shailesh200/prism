@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { DISPATCH_DIR } from "./types.js";
 
@@ -63,4 +64,22 @@ export function rotatedRunLogPath(logPath: string): string {
 
 export function consentPath(workspaceRoot: string): string {
   return join(workspaceRoot, ".prism", "consent.json");
+}
+
+/**
+ * Machine-wide Prism dir (`~/.prism`). Override with `PRISM_HOME`.
+ *
+ * Job records, console logs, notes and worktrees stay per-repo (ADR-0043 /
+ * ADR-0053). The Cursor SDK agent catalog is not a repo artifact — it belongs
+ * here so a Dispatch run does not write hundreds of megabytes into the tree.
+ */
+export function prismHome(env: NodeJS.ProcessEnv = process.env): string {
+  const override = env.PRISM_HOME?.trim();
+  if (override) return override;
+  return join(homedir(), ".prism");
+}
+
+/** Cursor SDK `JsonlLocalAgentStore` root — never `<repo>/.prism/dispatch`. */
+export function agentStoreDir(env: NodeJS.ProcessEnv = process.env): string {
+  return join(prismHome(env), "dispatch", "agent-store");
 }

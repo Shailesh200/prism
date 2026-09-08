@@ -9,7 +9,19 @@ export {
   hubHome,
   hubPort,
 } from "./paths.js";
-export { ensureHub, peekHub, resolveHubBin, type HubHandle } from "./ensure.js";
+export {
+  ensureHub,
+  peekHub,
+  resolveHubBin,
+  ensurePlayground,
+  parkPlayground,
+  type HubHandle,
+} from "./ensure.js";
+export {
+  PLAYGROUND_PORT,
+  playgroundUrl,
+  type PlaygroundHandle,
+} from "./playground.js";
 export { startHub, type HubOptions, type StartedHub } from "./server.js";
 export { formatJobFinishedNotice, type JobNoticeCopy } from "./notice.js";
 export { originAllowed, tokenFromRequest, tokensMatch } from "./auth.js";

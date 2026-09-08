@@ -1,9 +1,9 @@
 /**
- * GSAP draw for the job lifecycle timeline (Console only).
+ * GSAP draw for the job lifecycle graph (Console only).
  *
  * The board itself lives in `@repo-prism/app-shell` and must stay CSS-only
- * (ADR-0051). The Console bundle tweens each reached connector from its node,
- * then pops the reached nodes.
+ * (ADR-0051). Completed hops fill onto the next node. The current step has
+ * no outgoing connector — it blinks in CSS until the job proceeds.
  */
 import gsap from "gsap";
 import { useLayoutEffect, type RefObject } from "react";
@@ -13,30 +13,31 @@ export function useJobRailMotion(
   signature: string,
 ): void {
   useLayoutEffect(() => {
-    const el = root.current;
-    if (!el) return;
+    const host = root.current;
+    if (!host) return;
     if (
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches
     ) {
       return;
     }
-    const segs = el.querySelectorAll<HTMLElement>(
-      ".job-rail__step--reached .job-rail__seg",
+    const el = host.querySelector<HTMLElement>(".job-rail") ?? host;
+    const doneSegs = el.querySelectorAll<HTMLElement>(
+      ".job-rail__step--reached:not(.job-rail__step--current) .job-rail__seg",
     );
     const nodes = el.querySelectorAll<HTMLElement>(
-      ".job-rail__step--reached .job-rail__node",
+      ".job-rail__step--reached:not(.job-rail__step--current) .job-rail__node",
     );
     const tweens: gsap.core.Tween[] = [];
-    if (segs.length > 0) {
+    if (doneSegs.length > 0) {
       tweens.push(
         gsap.fromTo(
-          segs,
+          doneSegs,
           { scaleX: 0 },
           {
             scaleX: 1,
             duration: 0.45,
-            stagger: 0.12,
+            stagger: 0.1,
             ease: "power3.out",
             transformOrigin: "0% 50%",
             overwrite: "auto",

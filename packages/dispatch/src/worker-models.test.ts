@@ -49,6 +49,7 @@ describe("pickCursorSpawnModel", () => {
       }),
     ).toBe("grok-4.6");
     expect(listed).toBe(1);
+    expect(await cursorModelForSpawn(undefined)).toBeUndefined();
   });
 });
 

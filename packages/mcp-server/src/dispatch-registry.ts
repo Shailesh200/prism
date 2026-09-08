@@ -19,7 +19,13 @@ import {
   type DispatchRuntime,
   type DispatchToolName,
 } from "@repo-prism/dispatch";
-import { ensureHub, peekHub, type HubHandle } from "@repo-prism/dispatch-hub";
+import {
+  ensureHub,
+  ensurePlayground,
+  parkPlayground,
+  peekHub,
+  type HubHandle,
+} from "@repo-prism/dispatch-hub";
 import type { ZodRawShape } from "zod";
 import { z } from "zod";
 import { toMcpErrorFromThrown } from "./errors.js";
@@ -58,6 +64,50 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     description:
       "One-time worker sign-in so Prism can run local job teammates. The worker matches the host (ADR-0044): in Cursor a Cursor login page opens in the browser; in Claude Code this checks the claude CLI is installed and signed in, and the message says what to run when it is not. Speak only the tool message to the user — never mention API keys, mcp.json, host role, or connector counts. If Cursor shows “Authenticating prism…” with Skip, that is host tool-approval: tell the user to click Skip, then retry init.",
     inputSchema: {},
+    readOnly: false,
+    openWorld: false,
+  },
+  {
+    name: "sleep",
+    title: "Put Prism to sleep",
+    description:
+      "Park Prism: the Console and playground show a down page and queued jobs stay queued until prism wake. Call this when the user says prism sleep, put Prism to sleep, or go to sleep. Speak only the tool message. If teammates are already running, the tool asks first — relay that and re-call with confirm=true only if the user agrees; that pauses them. Do not confuse this with init (worker sign-in).",
+    inputSchema: {
+      confirm: z
+        .boolean()
+        .optional()
+        .describe(
+          "Set true only after the user agrees to pause in-progress teammates",
+        ),
+      workspace: z
+        .string()
+        .optional()
+        .describe(
+          "Absolute path of the git repository the user has open. Pass the folder that contains .git when you know it — do not ask the user.",
+        ),
+    },
+    readOnly: false,
+    openWorld: false,
+  },
+  {
+    name: "wake",
+    title: "Wake Prism",
+    description:
+      "Bring Prism back: the Console and playground return, and queued jobs (including any sleep paused) start on their own. Call this when the user says prism wake, wake Prism, or wake up — even if the Console is already up, this starts the playground too. Speak only the tool message, including the Console URL and the playground URL. If teammates are still running, the tool asks first — relay that and re-call with confirm=true. Do not confuse this with init.",
+    inputSchema: {
+      confirm: z
+        .boolean()
+        .optional()
+        .describe(
+          "Set true only after the user agrees to wake while teammates are still running",
+        ),
+      workspace: z
+        .string()
+        .optional()
+        .describe(
+          "Absolute path of the git repository the user has open. Pass the folder that contains .git when you know it — do not ask the user.",
+        ),
+    },
     readOnly: false,
     openWorld: false,
   },
@@ -485,11 +535,16 @@ async function decorateDispatchValue(
   if (
     name !== "list_jobs" &&
     name !== "dispatch_doctor" &&
-    name !== "start_job"
+    name !== "start_job" &&
+    name !== "sleep" &&
+    name !== "wake"
   )
     return value;
   const hub: HubHandle =
-    name === "list_jobs" || name === "start_job"
+    name === "list_jobs" ||
+    name === "start_job" ||
+    name === "sleep" ||
+    name === "wake"
       ? await ensureHub({ workspaceRoot: getRoot(), env }).catch(() => ({
           enabled: false,
           detail: "Jobs board did not start.",
@@ -499,14 +554,41 @@ async function decorateDispatchValue(
   const record = value as { message?: string; [key: string]: unknown };
   if (typeof record.message !== "string") return value;
   const board = speakableBoardUrl(hub);
+  const skippedConfirm = record.needsConfirm === true;
+  let playgroundUrl: string | undefined;
+  if (name === "sleep" && !skippedConfirm) {
+    const parked = await parkPlayground({
+      workspaceRoot: getRoot(),
+      env,
+    }).catch(() => undefined);
+    playgroundUrl = parked?.url;
+  }
+  if (name === "wake" && !skippedConfirm) {
+    const woken = await ensurePlayground({
+      workspaceRoot: getRoot(),
+      env,
+    }).catch(() => undefined);
+    playgroundUrl = woken?.url;
+  }
   // The dispatch moment must name the watch surface. Agents paraphrase; put
   // the URL on its own line so dropping it — or stripping `?token=` — is an
   // obvious omission.
-  if ((name === "list_jobs" || name === "start_job") && board) {
+  if (
+    (name === "list_jobs" ||
+      name === "start_job" ||
+      name === "sleep" ||
+      name === "wake") &&
+    board
+  ) {
+    const playgroundLine =
+      playgroundUrl && (name === "sleep" || name === "wake")
+        ? `\nPlayground at ${playgroundUrl}`
+        : "";
     return {
       ...record,
       dashboardUrl: board,
-      message: `${record.message}\nWatch live at ${board}`,
+      ...(playgroundUrl ? { playgroundUrl } : {}),
+      message: `${record.message}\nWatch live at ${board}${playgroundLine}`,
     };
   }
   if (name === "dispatch_doctor") {

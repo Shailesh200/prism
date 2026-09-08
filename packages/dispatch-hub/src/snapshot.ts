@@ -48,6 +48,9 @@ export function toSnapshot(job: JobRecord, workspacePath: string): JobSnapshot {
     ...(job.queuedAt ? { queuedAt: job.queuedAt } : {}),
     ...(job.startedAt ? { startedAt: job.startedAt } : {}),
     ...(job.finishedAt ? { finishedAt: job.finishedAt } : {}),
+    ...(job.lifecycle && job.lifecycle.length > 0
+      ? { lifecycle: job.lifecycle }
+      : {}),
     updatedAt: job.updatedAt,
     ...(job.workerBackend ? { workerBackend: job.workerBackend } : {}),
     ...(job.workerModel ? { workerModel: job.workerModel } : {}),
@@ -82,6 +85,7 @@ export function snapshotKey(job: JobSnapshot): string {
     job.review?.keptPaths?.length ? String(job.review.keptPaths.length) : "",
     job.prd ?? "",
     job.updatedAt,
+    job.lifecycle?.length ? String(job.lifecycle.length) : "",
     job.tokenUsage
       ? `${job.tokenUsage.inputTokens}:${job.tokenUsage.outputTokens}:${job.tokenUsage.contextTokens ?? ""}`
       : "",

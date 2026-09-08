@@ -35,7 +35,10 @@ import {
   type JobsPort,
 } from "./jobs-types.js";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  sessionStorage.clear();
+});
 
 const review = {
   files: [
@@ -895,10 +898,10 @@ describe("job lifecycle rail", () => {
       },
       now,
     );
-    expect(stages.map((s) => [s.id, s.reached, s.current])).toEqual([
-      ["created", true, false],
+    expect(stages.map((s) => [s.kind, s.reached, s.current])).toEqual([
+      ["accepted", true, false],
       ["queued", true, false],
-      ["started", true, true],
+      ["working", true, true],
       ["finished", false, false],
     ]);
     // Reached stages measure to the next stamp; the current one measures to now.
@@ -952,6 +955,7 @@ describe("job lifecycle rail", () => {
       },
       Date.parse("2026-01-01T00:00:30.000Z"),
     );
+    expect(stages.map((stage) => stage.kind)).toEqual(["accepted", "finished"]);
     expect(stages[1]!.reached).toBe(false);
     expect(stages[1]!.at).toBeUndefined();
     expect(stages[1]!.span).toBeUndefined();
@@ -970,10 +974,108 @@ describe("job lifecycle rail", () => {
       },
       Date.parse("2026-01-01T01:00:00.000Z"),
     );
+    expect(stages.map((stage) => stage.kind)).toEqual(["accepted", "finished"]);
     expect(stages.every((stage) => stage.reached)).toBe(true);
-    expect(stages[1]!.at).toBeUndefined();
-    expect(stages[2]!.at).toBeUndefined();
+    expect(stages[0]!.at).toBe("2026-01-01T00:00:00.000Z");
+    expect(stages[1]!.at).toBe("2026-01-01T00:08:15.000Z");
     expect(jobRailFill(stages)).toBe(1);
+  });
+
+  it("appends Queued after Working on pause instead of rewinding", () => {
+    const stages = jobStages(
+      {
+        ...base,
+        status: "paused",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        queuedAt: "2026-01-01T00:00:02.000Z",
+        startedAt: "2026-01-01T00:09:00.000Z",
+        finishedAt: "2026-01-01T00:12:00.000Z",
+        updatedAt: "2026-01-01T00:12:00.000Z",
+      },
+      Date.parse("2026-01-01T00:15:00.000Z"),
+    );
+    expect(stages.map((stage) => stage.kind)).toEqual([
+      "accepted",
+      "queued",
+      "working",
+      "queued",
+      "finished",
+    ]);
+    expect(stages[3]!.current).toBe(true);
+    expect(stages[3]!.historyLabel).toBe("Paused by you");
+    expect(stages.at(-1)?.reached).toBe(false);
+  });
+
+  it("appends a new Working node after pause+resume instead of rewinding", () => {
+    const stages = jobStages(
+      {
+        ...base,
+        status: "running",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        queuedAt: "2026-01-01T00:00:02.000Z",
+        startedAt: "2026-01-01T00:09:00.000Z",
+        updatedAt: "2026-01-01T00:13:00.000Z",
+        lifecycle: [
+          { kind: "accepted", at: "2026-01-01T00:00:00.000Z" },
+          { kind: "queued", at: "2026-01-01T00:00:02.000Z" },
+          { kind: "working", at: "2026-01-01T00:09:00.000Z" },
+          {
+            kind: "queued",
+            at: "2026-01-01T00:12:00.000Z",
+            by: "user",
+            note: "paused",
+          },
+          { kind: "working", at: "2026-01-01T00:13:00.000Z", note: "resumed" },
+        ],
+      },
+      Date.parse("2026-01-01T00:15:00.000Z"),
+    );
+    expect(stages.map((stage) => stage.kind)).toEqual([
+      "accepted",
+      "queued",
+      "working",
+      "queued",
+      "working",
+      "finished",
+    ]);
+    expect(stages.filter((stage) => stage.kind === "working")).toHaveLength(2);
+    expect(stages[2]!.current).toBe(false);
+    expect(stages[4]!.current).toBe(true);
+    expect(stages.at(-1)?.reached).toBe(false);
+  });
+
+  it("synthesises Working after a stale pause hop while the job is running", () => {
+    const stages = jobStages(
+      {
+        ...base,
+        status: "running",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        queuedAt: "2026-01-01T00:00:02.000Z",
+        startedAt: "2026-01-01T00:09:00.000Z",
+        updatedAt: "2026-01-01T00:13:00.000Z",
+        lifecycle: [
+          { kind: "accepted", at: "2026-01-01T00:00:00.000Z" },
+          { kind: "queued", at: "2026-01-01T00:00:02.000Z" },
+          { kind: "working", at: "2026-01-01T00:09:00.000Z" },
+          {
+            kind: "queued",
+            at: "2026-01-01T00:12:00.000Z",
+            by: "user",
+            note: "paused",
+          },
+        ],
+      },
+      Date.parse("2026-01-01T00:15:00.000Z"),
+    );
+    expect(stages.map((stage) => stage.kind)).toEqual([
+      "accepted",
+      "queued",
+      "working",
+      "queued",
+      "working",
+      "finished",
+    ]);
+    expect(stages[4]!.current).toBe(true);
   });
 
   it("draws one connector per gap, coloured from the step it leaves", async () => {
@@ -1002,6 +1104,35 @@ describe("job lifecycle rail", () => {
     expect(
       rail!.querySelectorAll(".job-rail__step--reached .job-rail__seg"),
     ).toHaveLength(3);
+  });
+
+  it("does not draw a connector from the step the job is sitting on", async () => {
+    render(
+      <JobsScreen
+        repoLabel="repo"
+        chrome="inspector"
+        defaultOpenId="j1"
+        {...board([
+          {
+            ...base,
+            status: "paused",
+            createdAt: "2026-01-01T00:00:00.000Z",
+            queuedAt: "2026-01-01T00:00:02.000Z",
+            startedAt: "2026-01-01T00:09:00.000Z",
+            finishedAt: "2026-01-01T00:12:00.000Z",
+            updatedAt: "2026-01-01T00:12:00.000Z",
+          },
+        ])}
+      />,
+    );
+    expect(await screen.findByText("Resume")).toBeTruthy();
+    const rail = document.querySelector(".job-rail");
+    expect(rail).toBeTruthy();
+    const current = rail!.querySelector(".job-rail__step--current");
+    expect(current).toBeTruthy();
+    expect(current!.querySelector(".job-rail__seg")).toBeNull();
+    expect(rail!.querySelectorAll(".job-rail__seg")).toHaveLength(3);
+    expect(rail!.querySelector(".job-rail__seg--crawl")).toBeNull();
   });
 });
 

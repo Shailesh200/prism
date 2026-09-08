@@ -64,3 +64,20 @@ export function lineageTree(
 export function lineageSummary(job: JobSummary): string {
   return `${job.title} · ${jobDisplayLabel(job)}`;
 }
+
+/** Mark inside the 28px status node (Stitch lineage tree). */
+export function lineageDotKind(
+  status: JobSummary["status"],
+): "check" | "x" | "alert" | "pulse" {
+  if (status === "done") return "check";
+  if (status === "error" || status === "cancelled") return "x";
+  if (
+    status === "waiting_on_you" ||
+    status === "blocked" ||
+    status === "needs_confirm" ||
+    status === "needs_review"
+  ) {
+    return "alert";
+  }
+  return "pulse";
+}

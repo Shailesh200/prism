@@ -66,11 +66,17 @@ export async function cursorModelForSpawn(
 ): Promise<string | undefined> {
   const immediate = pickCursorSpawnModel([], requested);
   if (immediate) return immediate;
-  if (process.env.VITEST && !list) return undefined;
+  if (!list && skipLiveCursorModelList()) return undefined;
   const models = await (
     list ?? (() => listWorkerModels({ backend: "cursor" }))
   )();
   return pickCursorSpawnModel(models, requested);
+}
+
+/** Vitest/bun test must not wait on Cursor.models.list() (12s timeout). */
+function skipLiveCursorModelList(): boolean {
+  if (process.env.PRISM_LIVE_MODELS === "1") return false;
+  return process.env.VITEST != null || process.env.NODE_ENV === "test";
 }
 
 export function modelsFromAgentList(

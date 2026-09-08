@@ -3,6 +3,7 @@ import {
   jobBadgeTone,
   jobDisplayLabel,
   jobMessage,
+  jobNextAction,
   type JobSummary,
 } from "@repo-prism/app-shell";
 import {
@@ -138,16 +139,7 @@ function pulseMessage(
   kind: "live" | "needsYou" | "settled",
 ): string | undefined {
   if (kind === "needsYou") {
-    return (
-      job.confirm?.question ??
-      (job.status === "waiting_on_you"
-        ? "No recent output. Resume to nudge it, or cancel."
-        : job.status === "paused"
-          ? "Paused — resume when you want it to continue."
-          : job.status === "blocked"
-            ? (job.nextStep ?? "Stuck — open the job to see why.")
-            : "The teammate asked a question.")
-    );
+    return jobNextAction(job)?.copy;
   }
   const text = jobMessage(job);
   const badge = jobDisplayLabel(job);
@@ -170,6 +162,7 @@ function PulseCard(
   const liveMeter = props.kind === "live" && jobBadgePulse(job.status);
   const message = pulseMessage(job, props.kind);
   const mark = (job.workspaceLabel ?? "?").slice(0, 1).toUpperCase();
+  const next = props.kind === "needsYou" ? jobNextAction(job) : undefined;
   return (
     <article
       className={`pulse-card pulse-card--${props.kind}`}
@@ -292,6 +285,43 @@ function PulseCard(
       ) : null}
       {message && props.kind !== "live" ? (
         <p className="pulse-card__copy">{message}</p>
+      ) : null}
+      {next ? (
+        <div
+          className="pulse-card__cta"
+          onClick={(event) => event.stopPropagation()}
+        >
+          {next.action === "keep" ? (
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={!props.onKeepAll}
+              onClick={() => props.onKeepAll?.(job)}
+            >
+              Keep all
+            </Button>
+          ) : null}
+          {next.action === "resume" ? (
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={!props.onResume}
+              onClick={() => props.onResume?.(job)}
+            >
+              Resume
+            </Button>
+          ) : null}
+          {next.action === "confirm" ? (
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={!props.onConfirm}
+              onClick={() => props.onConfirm?.(job)}
+            >
+              Start anyway
+            </Button>
+          ) : null}
+        </div>
       ) : null}
     </article>
   );

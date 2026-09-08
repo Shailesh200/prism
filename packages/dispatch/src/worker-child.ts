@@ -7,7 +7,6 @@
  */
 
 import { mkdir } from "node:fs/promises";
-import { join } from "node:path";
 import { stripWorktreePaths } from "./job-artifacts.js";
 import { publicWorkerError } from "./job-voice.js";
 import {
@@ -37,6 +36,7 @@ import {
 } from "./worker-finish.js";
 import { cursorAgentOptions } from "./worker-options.js";
 import { modelsFromAgentList, pickCursorSpawnModel } from "./worker-models.js";
+import { agentStoreDir } from "./paths.js";
 
 // Own process, own TLS state: the host MCP trusting the OS store does not carry
 // across the spawn, and without this the Cursor SDK reports "Network request
@@ -224,12 +224,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const storeRoot = join(
-    payload.workspaceRoot,
-    ".prism",
-    "dispatch",
-    "agent-store",
-  );
+  const storeRoot = agentStoreDir();
   await mkdir(storeRoot, { recursive: true });
   let agent: SdkAgent | undefined;
   try {

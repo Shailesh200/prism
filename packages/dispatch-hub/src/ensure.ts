@@ -4,6 +4,11 @@ import { fileURLToPath } from "node:url";
 import { dashboardUrl, hubEnabled, hubPort, type HubEnv } from "./paths.js";
 import { isHubRecordLive, readHubRecord } from "./hub-record.js";
 import type { HubRecord } from "./types.js";
+import {
+  PLAYGROUND_PORT,
+  playgroundUrl,
+  type PlaygroundHandle,
+} from "./playground.js";
 
 export type HubHandle = {
   readonly enabled: boolean;
@@ -139,6 +144,93 @@ export async function peekHub(
     return { enabled: false, detail: "Jobs board is not running." };
   }
   return handleFrom(record, "Jobs board is up.");
+}
+
+async function postPlayground(
+  input: {
+    readonly workspaceRoot: string;
+    readonly env?: HubEnv;
+    readonly fetchImpl?: typeof fetch;
+  },
+  action: "sleep" | "wake",
+): Promise<PlaygroundHandle> {
+  const env = input.env ?? process.env;
+  const fetchImpl = input.fetchImpl ?? fetch;
+  const fallbackUrl = playgroundUrl(PLAYGROUND_PORT);
+  const record = await readHubRecord(env);
+  if (!record) {
+    return {
+      enabled: false,
+      detail: "Jobs board is not running.",
+      url: fallbackUrl,
+    };
+  }
+  try {
+    const response = await fetchImpl(
+      `http://127.0.0.1:${record.port}/api/playground`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${record.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action,
+          workspace: input.workspaceRoot,
+        }),
+        signal: AbortSignal.timeout(action === "wake" ? 25_000 : 5_000),
+      },
+    );
+    const body = (await response.json()) as {
+      ok?: boolean;
+      url?: string;
+      port?: number;
+      detail?: string;
+    };
+    const url =
+      typeof body.url === "string"
+        ? body.url
+        : typeof body.port === "number"
+          ? playgroundUrl(body.port)
+          : fallbackUrl;
+    if (response.ok && body.ok !== false) {
+      return {
+        enabled: true,
+        detail:
+          body.detail ??
+          (action === "wake" ? "Playground is up." : "Playground is down."),
+        url,
+        port: typeof body.port === "number" ? body.port : PLAYGROUND_PORT,
+      };
+    }
+    return {
+      enabled: false,
+      detail: body.detail ?? "Playground did not start.",
+      url,
+    };
+  } catch {
+    return {
+      enabled: false,
+      detail: "Playground did not start.",
+      url: fallbackUrl,
+    };
+  }
+}
+
+export async function ensurePlayground(input: {
+  readonly workspaceRoot: string;
+  readonly env?: HubEnv;
+  readonly fetchImpl?: typeof fetch;
+}): Promise<PlaygroundHandle> {
+  return postPlayground(input, "wake");
+}
+
+export async function parkPlayground(input: {
+  readonly workspaceRoot: string;
+  readonly env?: HubEnv;
+  readonly fetchImpl?: typeof fetch;
+}): Promise<PlaygroundHandle> {
+  return postPlayground(input, "sleep");
 }
 
 function spawnDetached(bin: string, env: HubEnv): void {

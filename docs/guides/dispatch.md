@@ -16,6 +16,8 @@ Dispatch is the `@prism` teammate: standup, jobs, and connectors on the same
 | any request to change code ("fix the news tab highlighting") | the agent asks: teammate, or here? |
 | that request plus "do it now" | no job — the agent edits inline |
 | "prism init" | `init` — worker sign-in, without starting a job |
+| "prism sleep" | `sleep` — Console down; queue waits (confirms if jobs are running) |
+| "prism wake" | `wake` — Console and playground back; starts the queue |
 | "where are we" | `list_jobs` — live activity, then results or errors |
 | "what is it doing" / "show me the logs" | `job_logs` — that job's console |
 | "remember …" | `remember` |
@@ -24,16 +26,15 @@ Dispatch is the `@prism` teammate: standup, jobs, and connectors on the same
 ## Connectors are your editor’s
 
 Prism runs **no OAuth** and holds **no third-party tokens** (ADR-0049).
-Dispatch makes no network calls at all.
+Dispatch makes no network calls.
 
 Connect Slack, Linear, Jira, Notion, GitHub or Calendar in Cursor’s or Claude
 Code’s plugin settings. Prism reads those manifests for names and
 capabilities, never tokens.
 
-So `start_my_day` returns what only Prism can produce (git, jobs, memories)
-plus a **fill contract**: which of *your* connectors answers each section. Your
-agent makes those calls with the grant you already gave it. A section with
-nothing behind it is named as unfillable, not dropped.
+`start_my_day` returns git, jobs, and memories plus a **fill contract**: which
+of *your* connectors answers each section. A section with nothing behind it is
+named as unfillable, not dropped.
 
 ## Local workers
 
@@ -45,9 +46,8 @@ stays responsive, and matches your host: a **Cursor** agent in Cursor, a
 `workerBackend` / `placement` overrides. The agent passes `workspace` itself;
 never paste a path into mcp.json.
 
-**Who decides.** By default the agent asks: teammate, or here? Guessing wrong
-strands a job or edits a tree you were using. `configure` → `dispatchMode`:
-`auto` never asks, `inline` dispatches only when you ask.
+**Who decides.** By default the agent asks: teammate, or here? `configure` →
+`dispatchMode`: `auto` never asks, `inline` dispatches only when you ask.
 
 Job agents get **no shell** and **no Prism MCP** (no second index); worktrees
 **symlink** the host `node_modules`. Multi-part work splits into **in-process

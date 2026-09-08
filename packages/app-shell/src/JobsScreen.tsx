@@ -51,6 +51,7 @@ import {
   jobModelLabel,
   jobsWaitingOnYou,
   jobStages,
+  jobNextAction,
   jobReviewPending,
   jobStatusTone,
   jobTimeBreakdown,
@@ -180,6 +181,36 @@ type ConsoleState = {
   readonly totalCount?: number;
   readonly truncated?: boolean;
 };
+
+const CONSOLE_CACHE_PREFIX = "prism.dispatch.console.v1:";
+
+function readConsoleCache(
+  jobId: string,
+): readonly JobConsoleEntry[] | undefined {
+  try {
+    const raw = sessionStorage.getItem(`${CONSOLE_CACHE_PREFIX}${jobId}`);
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as { entries?: JobConsoleEntry[] };
+    return Array.isArray(parsed.entries) ? parsed.entries : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeConsoleCache(
+  jobId: string,
+  entries: readonly JobConsoleEntry[],
+): void {
+  if (entries.length === 0) return;
+  try {
+    sessionStorage.setItem(
+      `${CONSOLE_CACHE_PREFIX}${jobId}`,
+      JSON.stringify({ entries: entries.slice(-2_000) }),
+    );
+  } catch {
+    // Quota or private mode — the JSONL file is still the source of truth.
+  }
+}
 
 function ReviewSummary(props: {
   review: JobReview;
@@ -316,16 +347,19 @@ function ReviewSummary(props: {
 }
 
 /**
- * The lifecycle rail: where the job is, and how long each stage took.
+ * GitHub Actions-style job graph: append-only nodes, never a rewound bar.
  *
- * An ordered list rather than a row of divs, because that is what it is — a
- * screen reader gets "1 of 4, Accepted" instead of four unlabelled boxes. The
- * only animation is on the rung the job is currently sitting on, and
- * `jobs-extra.css` drops it under `prefers-reduced-motion`.
+ * Motion (GSAP) lives in the Console bundle (ADR-0051). This tree is
+ * CSS-only so the IDE Jobs board stays off GSAP. The current step has no
+ * outgoing connector and blinks until the job proceeds.
  */
 function JobTimeline(props: {
   stages: readonly JobStage[];
   outcome?: "error" | "cancelled";
+  nextAction?: ReturnType<typeof jobNextAction>;
+  onResume?: () => void;
+  onCancel?: () => void;
+  onKeepAll?: () => void;
 }): ReactElement {
   const complete = props.stages.at(-1)?.reached ?? false;
   const railClass = [
@@ -336,27 +370,40 @@ function JobTimeline(props: {
   ]
     .filter(Boolean)
     .join(" ");
+  const current = props.stages.find((stage) => stage.current);
+  const showCta =
+    Boolean(props.nextAction) &&
+    (current?.kind === "waiting" ||
+      current?.kind === "queued" ||
+      current?.kind === "review");
   return (
     <div className={railClass}>
       <ol className="job-rail__steps">
         {props.stages.map((stage, index) => {
           const failedFinish =
-            stage.id === "finished" &&
+            (stage.kind === "finished" ||
+              stage.kind === "failed" ||
+              stage.kind === "cancelled") &&
             (props.outcome === "error" || props.outcome === "cancelled");
           return (
             <li
               key={stage.id}
               className={[
                 "job-rail__step",
-                `job-rail__step--${stage.id}`,
+                `job-rail__step--${stage.kind}`,
                 stage.reached ? "job-rail__step--reached" : "",
                 stage.current ? "job-rail__step--current" : "",
               ]
                 .filter(Boolean)
                 .join(" ")}
               aria-current={stage.current ? "step" : undefined}
+              {...(stage.elapsedMs !== undefined
+                ? { "data-elapsed-ms": String(stage.elapsedMs) }
+                : {})}
             >
-              {index < props.stages.length - 1 ? (
+              {index < props.stages.length - 1 &&
+              stage.reached &&
+              !stage.current ? (
                 <span className="job-rail__seg" aria-hidden />
               ) : null}
               <span className="job-rail__node" aria-hidden>
@@ -366,6 +413,8 @@ function JobTimeline(props: {
                   ) : (
                     <Check size={11} strokeWidth={3} />
                   )
+                ) : stage.current && stage.kind === "waiting" ? (
+                  <AlertTriangle size={11} strokeWidth={3} />
                 ) : null}
               </span>
               <span className="job-rail__label">{stage.label}</span>
@@ -385,6 +434,39 @@ function JobTimeline(props: {
           );
         })}
       </ol>
+      {showCta && props.nextAction ? (
+        <div className="job-rail__cta">
+          <p className="job-rail__cta-copy">{props.nextAction.copy}</p>
+          <div className="job-rail__cta-actions">
+            {props.nextAction.action === "keep" ? (
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => props.onKeepAll?.()}
+              >
+                Keep all
+              </Button>
+            ) : props.nextAction.action === "confirm" ? null : (
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => props.onResume?.()}
+              >
+                Resume
+              </Button>
+            )}
+            {props.nextAction.action !== "keep" ? (
+              <Button
+                size="sm"
+                variant="danger"
+                onClick={() => props.onCancel?.()}
+              >
+                Cancel
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -634,11 +716,15 @@ function JobOutcome(props: {
 function JobFacts(props: {
   job: JobSummary;
   now: number;
+  onResume?: () => void;
+  onCancel?: () => void;
+  onKeepAll?: () => void;
 }): ReactElement | null {
   const { job } = props;
   const stages = jobStages(job, props.now);
   const known = stages.filter((stage) => stage.reached);
   const breakdown = jobTimeBreakdown(job, props.now);
+  const nextAction = jobNextAction(job);
   if (known.length === 0 && !breakdown) return null;
   return (
     <div className="job-facts">
@@ -649,6 +735,10 @@ function JobFacts(props: {
           {...(job.status === "error" || job.status === "cancelled"
             ? { outcome: job.status }
             : {})}
+          {...(nextAction ? { nextAction } : {})}
+          {...(props.onResume ? { onResume: props.onResume } : {})}
+          {...(props.onCancel ? { onCancel: props.onCancel } : {})}
+          {...(props.onKeepAll ? { onKeepAll: props.onKeepAll } : {})}
         />
       ) : null}
       {job.workspaceLabel ? (
@@ -819,15 +909,30 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
   consolesRef.current = consoles;
 
   const loadConsole = useCallback(async (jobId: string) => {
-    const since = newestEntryTs(consolesRef.current[jobId]?.entries ?? []);
+    const cached = readConsoleCache(jobId);
+    const since = newestEntryTs(
+      consolesRef.current[jobId]?.entries ?? cached ?? [],
+    );
     setConsoles((current) => {
       const prev = current[jobId];
+      const seeded = prev?.entries.length
+        ? prev.entries
+        : (cached ?? prev?.entries ?? []);
+      if (prev?.fetched && seeded.length > 0) {
+        return seeded === prev.entries
+          ? current
+          : {
+              ...current,
+              [jobId]: { ...prev, entries: seeded, loading: false },
+            };
+      }
       if (prev?.fetched) return current;
       return {
         ...current,
         [jobId]: {
-          entries: prev?.entries ?? [],
-          loading: (prev?.entries.length ?? 0) === 0,
+          entries: seeded,
+          loading: seeded.length === 0,
+          ...(seeded.length > 0 ? { fetched: true } : {}),
         },
       };
     });
@@ -835,7 +940,13 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
       const page = await portRef.current.jobLogs(jobId, since);
       setConsoles((current) => {
         const prev = current[jobId];
-        const entries = mergeConsoleEntries(prev?.entries ?? [], page.entries);
+        const held = prev?.entries ?? cached ?? [];
+        const incoming = page.entries;
+        const entries =
+          incoming.length === 0 && held.length > 0
+            ? (held as JobConsoleEntry[])
+            : mergeConsoleEntries(held, incoming);
+        writeConsoleCache(jobId, entries);
         const truncated = page.truncated || entries.length < page.totalCount;
         if (
           prev?.fetched &&
@@ -853,7 +964,7 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
             entries,
             loading: false,
             fetched: true,
-            totalCount: page.totalCount,
+            totalCount: Math.max(page.totalCount, entries.length),
             truncated,
           },
         };
@@ -862,7 +973,7 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
       setConsoles((current) => ({
         ...current,
         [jobId]: {
-          entries: current[jobId]?.entries ?? [],
+          entries: current[jobId]?.entries ?? cached ?? [],
           loading: false,
           fetched: true,
           error: cause instanceof Error ? cause.message : String(cause),
@@ -1176,7 +1287,8 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
         {jobs.map((job) => {
           const open = props.chrome === "focus" || openId === job.id;
           const live = isLiveJob(job.status);
-          const stalled = job.status === "waiting_on_you";
+          const stalled =
+            job.status === "waiting_on_you" || job.status === "blocked";
           const gated = job.status === "needs_confirm";
           const consoleState = consoles[job.id];
           const reviewing = jobReviewPending(job);
@@ -1558,7 +1670,17 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
                       </dd>
                     </div>
                   </dl>
-                  <JobFacts job={job} now={tick} />
+                  <JobFacts
+                    job={job}
+                    now={tick}
+                    {...(props.port.control
+                      ? {
+                          onResume: () => void control("resume", job),
+                          onCancel: () => void control("cancel", job),
+                          onKeepAll: () => void control("accept_all", job),
+                        }
+                      : {})}
+                  />
                   <JobBrief
                     job={job}
                     {...(props.port.startChild

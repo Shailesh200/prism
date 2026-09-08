@@ -9,6 +9,26 @@ the `prism` CLI, the `prism-mcp` server, and the Core SDK they all call. They
 move as one because they are one build; a mismatch between them has never been
 a supported configuration.
 
+## 1.9.0 — Job graph, sleep and wake
+
+### Console
+
+- Focus draws an append-only job graph (Accepted → Queued → Working). Pause then resume adds a new Working node; the rail never rewinds.
+- Pulse is the inbox: Live / Needs you / Settled. The extra Needs Action tab is gone.
+- Related jobs is a parent/child tree with status dots and a You marker.
+- Stuck jobs offer Resume; review jobs offer Keep all. Pulse left-edge colors match the graph.
+
+### MCP
+
+- `prism sleep` parks the Console and playground and holds the queue; `prism wake` brings both back and starts queued jobs. Confirms first if teammates are already running.
+- Cursor worker state lives in `~/.prism/dispatch/agent-store`, not the repo.
+
+### Dispatch
+
+- Job lifecycle is append-only. Hub snapshots include it so resume draws as a new Working node, not a rewind.
+
+Keep `@latest`. `@repo-prism/dispatch@1.9.0`, `@repo-prism/dispatch-hub@1.9.0`, and `@repo-prism/mcp-server@1.9.0`.
+
 ## 1.8.2 — Dispatch stays a teammate
 
 ### Dispatch

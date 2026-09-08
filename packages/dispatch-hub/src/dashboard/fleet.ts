@@ -1028,7 +1028,8 @@ export function pulseBucket(job: Pick<JobSummary, "status">): PulseBucket {
     job.status === "needs_confirm" ||
     job.status === "waiting_on_you" ||
     job.status === "paused" ||
-    job.status === "blocked"
+    job.status === "blocked" ||
+    job.status === "needs_review"
   ) {
     return "needsYou";
   }

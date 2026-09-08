@@ -1,3 +1,4 @@
+import { withLifecycleEvents } from "./lifecycle.js";
 import {
   JobRecordSchema,
   isClockStoppedStatus,
@@ -50,7 +51,12 @@ export async function upsertJob(
 ): Promise<JobRecord> {
   const jobs = await loadJobs(workspaceRoot);
   const now = new Date().toISOString();
-  const stamped = { ...withLifecycleStamps(job, now), updatedAt: now };
+  const prev = jobs.find((item) => item.id === job.id);
+  const stamped = withLifecycleEvents(
+    prev,
+    { ...withLifecycleStamps(job, now), updatedAt: now },
+    now,
+  );
   const next = [...jobs.filter((item) => item.id !== job.id), stamped];
   await saveJobs(workspaceRoot, next);
   return next.find((item) => item.id === job.id) ?? stamped;

@@ -4,11 +4,10 @@ import { useEffect, useState } from "react";
  * Console routes (M-068).
  *
  * Legacy hashes keep working: `#/jobs` → dashboard, `#/intelligence` → iris,
- * `#/workflows` → attention.
+ * `#/workflows` and `#/attention` → dashboard (Needs you lives on Pulse).
  */
 export const CONSOLE_VIEWS = [
   "dashboard",
-  "attention",
   "findings",
   "iris",
   "settings",
@@ -19,7 +18,6 @@ export type ConsoleView = RailView | "whats-new";
 
 export const VIEW_LABELS: Record<ConsoleView, string> = {
   dashboard: "Dashboard",
-  attention: "Attention",
   findings: "Findings",
   iris: "Iris",
   settings: "Settings",
@@ -35,7 +33,7 @@ export type RouteQuery = {
 export function parseView(hash: string): ConsoleView {
   const raw = hash.replace(/^#\/?/, "").split("?")[0] ?? "";
   if (raw === "jobs" || raw === "repos") return "dashboard";
-  if (raw === "workflows") return "attention";
+  if (raw === "workflows" || raw === "attention") return "dashboard";
   if (raw === "intelligence") return "iris";
   if (raw === "whats-new") return "whats-new";
   return (CONSOLE_VIEWS as readonly string[]).includes(raw)
@@ -83,9 +81,6 @@ export function findingsHash(query?: RouteQuery): string {
 export function viewHash(view: ConsoleView, query?: RouteQuery): string {
   if (view === "dashboard") return dashboardHash(query?.repo);
   if (view === "findings") return findingsHash(query);
-  if (view === "attention" && query?.job) {
-    return `#/attention?job=${encodeURIComponent(query.job)}`;
-  }
   if (view === "whats-new") return "#/whats-new";
   return `#/${view}`;
 }
