@@ -23,7 +23,13 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactElement, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { showConsoleToast } from "./console-toast.js";
 import { getJson, postJson } from "./session.js";
 
@@ -183,9 +189,12 @@ export function TreesView(props: {
 
   useEffect(() => {
     void load().catch(() => undefined);
-    const tick = window.setInterval(() => {
-      void load().catch(() => undefined);
-    }, hasLive ? 3000 : 8000);
+    const tick = window.setInterval(
+      () => {
+        void load().catch(() => undefined);
+      },
+      hasLive ? 3000 : 8000,
+    );
     return () => window.clearInterval(tick);
   }, [props.token, hasLive]);
 

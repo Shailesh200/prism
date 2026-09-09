@@ -229,9 +229,7 @@ export function TestingSecurityScreen(
   const [testing, setTesting] = useState<TestingReport | null>(null);
   const [security, setSecurity] = useState<SecurityReport | null>(null);
   const [testList, setTestList] = useState<TestListResult | null>(null);
-  const [status, setStatus] = useState<"idle" | "loading" | "error">(
-    "loading",
-  );
+  const [status, setStatus] = useState<"idle" | "loading" | "error">("loading");
   const [message, setMessage] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [listing, setListing] = useState(false);
@@ -470,7 +468,8 @@ export function TestingSecurityScreen(
     });
   };
 
-  const showSkeleton = status === "loading" && testing === null && security === null;
+  const showSkeleton =
+    status === "loading" && testing === null && security === null;
 
   return (
     <div className={shellRootClass()}>
@@ -609,347 +608,380 @@ export function TestingSecurityScreen(
                   <ReportSkeleton />
                 ) : (
                   <>
-                <p className="ts-summary">
-                  {testing?.summary ?? "Not analyzed yet."}
-                </p>
+                    <p className="ts-summary">
+                      {testing?.summary ?? "Not analyzed yet."}
+                    </p>
 
-                <h3 className="ts-section-label">
-                  <CardIcon icon={FlaskConical} tone="brand" size={14} />
-                  Runners
-                  <InfoTip label="Runners">
-                    Detected from package.json dependencies/scripts and config
-                    files (vitest.config, jest.config, playwright.config, …).
-                  </InfoTip>
-                </h3>
-                {runners.length === 0 ? (
-                  <p className="ts-empty">No runners detected.</p>
-                ) : (
-                  <ul className="ts-runners">
-                    {runners.map((id) => {
-                      const Logo = RUNNER_LOGOS[id];
-                      return (
-                        <li key={id} className="ts-runner">
-                          {Logo ? (
-                            <Logo className="ts-runner__logo" aria-hidden />
-                          ) : (
-                            <FlaskConical
-                              size={16}
-                              className="ts-runner__logo"
-                              aria-hidden
-                            />
-                          )}
-                          <span>{runnerLabel(id)}</span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-
-                <div className="ts-tests-head">
-                  <h3 className="ts-section-label ts-section-label--flush">
-                    <CardIcon icon={Folder} tone="violet" size={14} />
-                    Suite tree
-                    <InfoTip label="Suite tree">
-                      Discovered via vitest/jest list APIs before any run. Run
-                      buttons filter by folder, file, or individual test name.
-                    </InfoTip>
-                  </h3>
-                  <button
-                    type="button"
-                    className="ov-btn ov-btn--ghost ts-tree-refresh"
-                    disabled={listing || running}
-                    onClick={() => void loadTestList()}
-                  >
-                    {listing ? (
-                      <Loader2 size={13} aria-hidden className="ts-spin" />
+                    <h3 className="ts-section-label">
+                      <CardIcon icon={FlaskConical} tone="brand" size={14} />
+                      Runners
+                      <InfoTip label="Runners">
+                        Detected from package.json dependencies/scripts and
+                        config files (vitest.config, jest.config,
+                        playwright.config, …).
+                      </InfoTip>
+                    </h3>
+                    {runners.length === 0 ? (
+                      <p className="ts-empty">No runners detected.</p>
                     ) : (
-                      <RefreshCw size={13} aria-hidden />
-                    )}
-                    {listing ? "Listing…" : "Refresh list"}
-                  </button>
-                </div>
-
-                {suiteTree.length === 0 ? (
-                  <p className="ts-empty">
-                    {listing
-                      ? "Discovering tests…"
-                      : "No tests discovered yet. Use Refresh list or Analyze."}
-                  </p>
-                ) : (
-                  <ul className="ts-tree">
-                    {visibleSuiteTree.map((folder) => {
-                      const folderOpen = openFolders.has(folder.path);
-                      return (
-                        <li key={folder.path} className="ts-tree__folder">
-                          <div className="ts-tree__row">
-                            <button
-                              type="button"
-                              className="ts-tree__toggle"
-                              aria-expanded={folderOpen}
-                              onClick={() => toggleFolder(folder.path)}
-                            >
-                              {folderOpen ? (
-                                <ChevronDown size={14} aria-hidden />
+                      <ul className="ts-runners">
+                        {runners.map((id) => {
+                          const Logo = RUNNER_LOGOS[id];
+                          return (
+                            <li key={id} className="ts-runner">
+                              {Logo ? (
+                                <Logo className="ts-runner__logo" aria-hidden />
                               ) : (
-                                <ChevronRight size={14} aria-hidden />
+                                <FlaskConical
+                                  size={16}
+                                  className="ts-runner__logo"
+                                  aria-hidden
+                                />
                               )}
-                              <Folder size={14} aria-hidden />
-                              <span className="ts-tree__label">
-                                {folder.path}
-                              </span>
-                              <span className="ts-tree__count">
-                                {folder.files.length}
-                              </span>
-                            </button>
-                            <button
-                              type="button"
-                              className="ts-tree__run"
-                              disabled={running}
-                              title={`Run tests under ${folder.path}`}
-                              onClick={() =>
-                                void onRunTests(
-                                  folder.path === "."
-                                    ? undefined
-                                    : { path: folder.path },
-                                )
-                              }
-                            >
-                              <Play size={12} aria-hidden />
-                              Run
-                            </button>
-                          </div>
-                          {folderOpen ? (
-                            <ul className="ts-tree__files">
-                              {folder.files.map((file) => {
-                                const fileOpen = openFiles.has(file.path);
-                                return (
-                                  <li key={file.path} className="ts-tree__file">
-                                    <div className="ts-tree__row">
-                                      <button
-                                        type="button"
-                                        className="ts-tree__toggle"
-                                        aria-expanded={fileOpen}
-                                        onClick={() => toggleFile(file.path)}
-                                      >
-                                        {fileOpen ? (
-                                          <ChevronDown size={14} aria-hidden />
-                                        ) : (
-                                          <ChevronRight size={14} aria-hidden />
-                                        )}
-                                        <FileCode2 size={14} aria-hidden />
-                                        <span className="ts-tree__label">
-                                          {basenameOf(file.path)}
-                                        </span>
-                                        <span className="ts-tree__count">
-                                          {file.tests.length}
-                                        </span>
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="ts-tree__run"
-                                        disabled={running}
-                                        title={`Run ${file.path}`}
-                                        onClick={() =>
-                                          void onRunTests({ path: file.path })
-                                        }
-                                      >
-                                        <Play size={12} aria-hidden />
-                                        Run
-                                      </button>
-                                    </div>
-                                    {fileOpen && file.tests.length > 0 ? (
-                                      <ul className="ts-tree__tests">
-                                        {file.tests.map((t, i) => {
-                                          const pattern = t.fullName ?? t.name;
-                                          return (
-                                            <li
-                                              key={`${file.path}:${i}:${t.name}`}
-                                              className="ts-tree__test"
-                                            >
-                                              <div className="ts-tree__row">
-                                                <span className="ts-tree__test-name">
-                                                  {t.name}
-                                                </span>
-                                                <button
-                                                  type="button"
-                                                  className="ts-tree__run"
-                                                  disabled={running}
-                                                  title={`Run ${pattern}`}
-                                                  onClick={() =>
-                                                    void onRunTests({
-                                                      path: file.path,
-                                                      testNamePattern: pattern,
-                                                    })
-                                                  }
-                                                >
-                                                  <Play size={12} aria-hidden />
-                                                  Run
-                                                </button>
-                                              </div>
-                                            </li>
-                                          );
-                                        })}
-                                      </ul>
-                                    ) : null}
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          ) : null}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-                {suiteTree.length > suiteVisibleCount ? (
-                  <button
-                    type="button"
-                    className="ov-btn ov-btn--ghost"
-                    style={{ marginTop: 8 }}
-                    onClick={() =>
-                      setSuiteVisibleCount((n) => n + SUITE_PAGE_SIZE)
-                    }
-                  >
-                    Show more ({suiteTree.length - suiteVisibleCount} remaining)
-                  </button>
-                ) : null}
+                              <span>{runnerLabel(id)}</span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
 
-                <div className="ts-tests-head">
-                  <h3 className="ts-section-label ts-section-label--flush">
-                    <CardIcon icon={FlaskConical} tone="violet" size={14} />
-                    {hasResults ? "Test results" : "Test suites"}
-                    <InfoTip label="Test results">
-                      Per-test pass/fail after a run — all parsed results are
-                      listed. Before a run, discovered suites from Core are
-                      shown.
-                    </InfoTip>
-                  </h3>
-                  <div className="ts-tests-head__right">
-                    {testing?.lastRunAt ? (
-                      <span className="ts-lastrun">
-                        Last run {formatRelative(testing.lastRunAt)}
-                      </span>
-                    ) : null}
-                    <SearchableInput
-                      className="ts-filter"
-                      value={testFilter}
-                      onChange={setTestFilter}
-                      placeholder="Filter by name / file…"
-                      aria-label="Filter tests"
-                    />
-                  </div>
-                </div>
-
-                {!hasResults ? (
-                  <p className="ts-hint">Run tests to see pass/fail.</p>
-                ) : null}
-
-                {hasResults ? (
-                  <div className="ts-table-wrap ts-table-wrap--scroll">
-                    <table className="ts-table">
-                      <thead>
-                        <tr>
-                          <th className="ts-table__status">Status</th>
-                          <th>Name</th>
-                          <th>File</th>
-                          <th className="ts-table__num">Duration</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredTestRows.length === 0 ? (
-                          <tr>
-                            <td colSpan={4} className="ts-table__empty">
-                              {testRows.length === 0
-                                ? "No suites found."
-                                : "No rows match the filter."}
-                            </td>
-                          </tr>
+                    <div className="ts-tests-head">
+                      <h3 className="ts-section-label ts-section-label--flush">
+                        <CardIcon icon={Folder} tone="violet" size={14} />
+                        Suite tree
+                        <InfoTip label="Suite tree">
+                          Discovered via vitest/jest list APIs before any run.
+                          Run buttons filter by folder, file, or individual test
+                          name.
+                        </InfoTip>
+                      </h3>
+                      <button
+                        type="button"
+                        className="ov-btn ov-btn--ghost ts-tree-refresh"
+                        disabled={listing || running}
+                        onClick={() => void loadTestList()}
+                      >
+                        {listing ? (
+                          <Loader2 size={13} aria-hidden className="ts-spin" />
                         ) : (
-                          filteredTestRows.map((r) => (
-                            <tr key={r.key}>
-                              <td className="ts-table__status">
-                                <TestStatusPill status={r.status} />
-                              </td>
-                              <td>
-                                <span className="ts-cell-name">{r.name}</span>
-                                {r.suite ? (
-                                  <span className="ts-cell-suite">
-                                    {r.suite}
+                          <RefreshCw size={13} aria-hidden />
+                        )}
+                        {listing ? "Listing…" : "Refresh list"}
+                      </button>
+                    </div>
+
+                    {suiteTree.length === 0 ? (
+                      <p className="ts-empty">
+                        {listing
+                          ? "Discovering tests…"
+                          : "No tests discovered yet. Use Refresh list or Analyze."}
+                      </p>
+                    ) : (
+                      <ul className="ts-tree">
+                        {visibleSuiteTree.map((folder) => {
+                          const folderOpen = openFolders.has(folder.path);
+                          return (
+                            <li key={folder.path} className="ts-tree__folder">
+                              <div className="ts-tree__row">
+                                <button
+                                  type="button"
+                                  className="ts-tree__toggle"
+                                  aria-expanded={folderOpen}
+                                  onClick={() => toggleFolder(folder.path)}
+                                >
+                                  {folderOpen ? (
+                                    <ChevronDown size={14} aria-hidden />
+                                  ) : (
+                                    <ChevronRight size={14} aria-hidden />
+                                  )}
+                                  <Folder size={14} aria-hidden />
+                                  <span className="ts-tree__label">
+                                    {folder.path}
                                   </span>
-                                ) : null}
-                              </td>
-                              <td className="ts-cell-mono">{r.file}</td>
-                              <td className="ts-table__num">
-                                {formatDuration(r.durationMs)}
+                                  <span className="ts-tree__count">
+                                    {folder.files.length}
+                                  </span>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="ts-tree__run"
+                                  disabled={running}
+                                  title={`Run tests under ${folder.path}`}
+                                  onClick={() =>
+                                    void onRunTests(
+                                      folder.path === "."
+                                        ? undefined
+                                        : { path: folder.path },
+                                    )
+                                  }
+                                >
+                                  <Play size={12} aria-hidden />
+                                  Run
+                                </button>
+                              </div>
+                              {folderOpen ? (
+                                <ul className="ts-tree__files">
+                                  {folder.files.map((file) => {
+                                    const fileOpen = openFiles.has(file.path);
+                                    return (
+                                      <li
+                                        key={file.path}
+                                        className="ts-tree__file"
+                                      >
+                                        <div className="ts-tree__row">
+                                          <button
+                                            type="button"
+                                            className="ts-tree__toggle"
+                                            aria-expanded={fileOpen}
+                                            onClick={() =>
+                                              toggleFile(file.path)
+                                            }
+                                          >
+                                            {fileOpen ? (
+                                              <ChevronDown
+                                                size={14}
+                                                aria-hidden
+                                              />
+                                            ) : (
+                                              <ChevronRight
+                                                size={14}
+                                                aria-hidden
+                                              />
+                                            )}
+                                            <FileCode2 size={14} aria-hidden />
+                                            <span className="ts-tree__label">
+                                              {basenameOf(file.path)}
+                                            </span>
+                                            <span className="ts-tree__count">
+                                              {file.tests.length}
+                                            </span>
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="ts-tree__run"
+                                            disabled={running}
+                                            title={`Run ${file.path}`}
+                                            onClick={() =>
+                                              void onRunTests({
+                                                path: file.path,
+                                              })
+                                            }
+                                          >
+                                            <Play size={12} aria-hidden />
+                                            Run
+                                          </button>
+                                        </div>
+                                        {fileOpen && file.tests.length > 0 ? (
+                                          <ul className="ts-tree__tests">
+                                            {file.tests.map((t, i) => {
+                                              const pattern =
+                                                t.fullName ?? t.name;
+                                              return (
+                                                <li
+                                                  key={`${file.path}:${i}:${t.name}`}
+                                                  className="ts-tree__test"
+                                                >
+                                                  <div className="ts-tree__row">
+                                                    <span className="ts-tree__test-name">
+                                                      {t.name}
+                                                    </span>
+                                                    <button
+                                                      type="button"
+                                                      className="ts-tree__run"
+                                                      disabled={running}
+                                                      title={`Run ${pattern}`}
+                                                      onClick={() =>
+                                                        void onRunTests({
+                                                          path: file.path,
+                                                          testNamePattern:
+                                                            pattern,
+                                                        })
+                                                      }
+                                                    >
+                                                      <Play
+                                                        size={12}
+                                                        aria-hidden
+                                                      />
+                                                      Run
+                                                    </button>
+                                                  </div>
+                                                </li>
+                                              );
+                                            })}
+                                          </ul>
+                                        ) : null}
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              ) : null}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                    {suiteTree.length > suiteVisibleCount ? (
+                      <button
+                        type="button"
+                        className="ov-btn ov-btn--ghost"
+                        style={{ marginTop: 8 }}
+                        onClick={() =>
+                          setSuiteVisibleCount((n) => n + SUITE_PAGE_SIZE)
+                        }
+                      >
+                        Show more ({suiteTree.length - suiteVisibleCount}{" "}
+                        remaining)
+                      </button>
+                    ) : null}
+
+                    <div className="ts-tests-head">
+                      <h3 className="ts-section-label ts-section-label--flush">
+                        <CardIcon icon={FlaskConical} tone="violet" size={14} />
+                        {hasResults ? "Test results" : "Test suites"}
+                        <InfoTip label="Test results">
+                          Per-test pass/fail after a run — all parsed results
+                          are listed. Before a run, discovered suites from Core
+                          are shown.
+                        </InfoTip>
+                      </h3>
+                      <div className="ts-tests-head__right">
+                        {testing?.lastRunAt ? (
+                          <span className="ts-lastrun">
+                            Last run {formatRelative(testing.lastRunAt)}
+                          </span>
+                        ) : null}
+                        <SearchableInput
+                          className="ts-filter"
+                          value={testFilter}
+                          onChange={setTestFilter}
+                          placeholder="Filter by name / file…"
+                          aria-label="Filter tests"
+                        />
+                      </div>
+                    </div>
+
+                    {!hasResults ? (
+                      <p className="ts-hint">Run tests to see pass/fail.</p>
+                    ) : null}
+
+                    {hasResults ? (
+                      <div className="ts-table-wrap ts-table-wrap--scroll">
+                        <table className="ts-table">
+                          <thead>
+                            <tr>
+                              <th className="ts-table__status">Status</th>
+                              <th>Name</th>
+                              <th>File</th>
+                              <th className="ts-table__num">Duration</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredTestRows.length === 0 ? (
+                              <tr>
+                                <td colSpan={4} className="ts-table__empty">
+                                  {testRows.length === 0
+                                    ? "No suites found."
+                                    : "No rows match the filter."}
+                                </td>
+                              </tr>
+                            ) : (
+                              filteredTestRows.map((r) => (
+                                <tr key={r.key}>
+                                  <td className="ts-table__status">
+                                    <TestStatusPill status={r.status} />
+                                  </td>
+                                  <td>
+                                    <span className="ts-cell-name">
+                                      {r.name}
+                                    </span>
+                                    {r.suite ? (
+                                      <span className="ts-cell-suite">
+                                        {r.suite}
+                                      </span>
+                                    ) : null}
+                                  </td>
+                                  <td className="ts-cell-mono">{r.file}</td>
+                                  <td className="ts-table__num">
+                                    {formatDuration(r.durationMs)}
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : suiteGroups.length === 0 ? (
+                      <div className="ts-table-wrap ts-table-wrap--scroll">
+                        <table className="ts-table">
+                          <tbody>
+                            <tr>
+                              <td className="ts-table__empty">
+                                {testRows.length === 0
+                                  ? "No suites found."
+                                  : "No rows match the filter."}
                               </td>
                             </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : suiteGroups.length === 0 ? (
-                  <div className="ts-table-wrap ts-table-wrap--scroll">
-                    <table className="ts-table">
-                      <tbody>
-                        <tr>
-                          <td className="ts-table__empty">
-                            {testRows.length === 0
-                              ? "No suites found."
-                              : "No rows match the filter."}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="ts-suite-acc ts-table-wrap--scroll">
-                    {suiteGroups.map((group) => {
-                      const open = openSuiteGroups.has(group.kind);
-                      return (
-                        <div key={group.kind} className="ts-suite-acc__group">
-                          <button
-                            type="button"
-                            className="ts-suite-acc__trigger"
-                            aria-expanded={open}
-                            onClick={() => toggleSuiteGroup(group.kind)}
-                          >
-                            {open ? (
-                              <ChevronDown size={14} aria-hidden />
-                            ) : (
-                              <ChevronRight size={14} aria-hidden />
-                            )}
-                            <span className="ts-suite-acc__kind">
-                              {group.kind}
-                            </span>
-                            <span className="ts-suite-acc__count">
-                              {group.rows.length}
-                            </span>
-                          </button>
-                          {open ? (
-                            <ul className="ts-suite-acc__list">
-                              {group.rows.map((r) => (
-                                <li key={r.key} className="ts-suite-acc__row">
-                                  <span className="ts-cell-name">{r.name}</span>
-                                  <span className="ts-cell-mono">{r.file}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="ts-suite-acc ts-table-wrap--scroll">
+                        {suiteGroups.map((group) => {
+                          const open = openSuiteGroups.has(group.kind);
+                          return (
+                            <div
+                              key={group.kind}
+                              className="ts-suite-acc__group"
+                            >
+                              <button
+                                type="button"
+                                className="ts-suite-acc__trigger"
+                                aria-expanded={open}
+                                onClick={() => toggleSuiteGroup(group.kind)}
+                              >
+                                {open ? (
+                                  <ChevronDown size={14} aria-hidden />
+                                ) : (
+                                  <ChevronRight size={14} aria-hidden />
+                                )}
+                                <span className="ts-suite-acc__kind">
+                                  {group.kind}
+                                </span>
+                                <span className="ts-suite-acc__count">
+                                  {group.rows.length}
+                                </span>
+                              </button>
+                              {open ? (
+                                <ul className="ts-suite-acc__list">
+                                  {group.rows.map((r) => (
+                                    <li
+                                      key={r.key}
+                                      className="ts-suite-acc__row"
+                                    >
+                                      <span className="ts-cell-name">
+                                        {r.name}
+                                      </span>
+                                      <span className="ts-cell-mono">
+                                        {r.file}
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
 
-                <p className="ts-cov">
-                  <CardIcon icon={ShieldCheck} tone="emerald" size={13} />
-                  {testing?.coverage?.present
-                    ? testing.coverage.linePct !== undefined
-                      ? `${testing.coverage.linePct}% ${testing.coverage.metric ?? "lines"} · ${testing.coverage.source}`
-                      : `Coverage present · ${testing.coverage.source}`
-                    : "No coverage artifact on disk"}
-                </p>
+                    <p className="ts-cov">
+                      <CardIcon icon={ShieldCheck} tone="emerald" size={13} />
+                      {testing?.coverage?.present
+                        ? testing.coverage.linePct !== undefined
+                          ? `${testing.coverage.linePct}% ${testing.coverage.metric ?? "lines"} · ${testing.coverage.source}`
+                          : `Coverage present · ${testing.coverage.source}`
+                        : "No coverage artifact on disk"}
+                    </p>
                   </>
                 )}
               </div>
@@ -1000,119 +1032,124 @@ export function TestingSecurityScreen(
                   <ReportSkeleton />
                 ) : (
                   <>
-                <p className="ts-summary">
-                  {security?.summary ?? "Not analyzed yet."}
-                </p>
-                <h3 className="ts-section-label">
-                  <CardIcon icon={Wrench} tone="amber" size={14} />
-                  Tools
-                  <InfoTip label="Security tools">
-                    Present when config files or CI workflows mention the tool.
-                  </InfoTip>
-                </h3>
-                <div className="ts-table-wrap">
-                  <table className="ts-table">
-                    <thead>
-                      <tr>
-                        <th>Tool</th>
-                        <th className="ts-table__status">Present</th>
-                        <th>Path</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(security?.tools ?? []).length === 0 ? (
-                        <tr>
-                          <td colSpan={3} className="ts-table__empty">
-                            No tools detected.
-                          </td>
-                        </tr>
-                      ) : (
-                        security!.tools.map((t) => (
-                          <tr key={t.id}>
-                            <td>
-                              <span className="ts-cell-name">{t.name}</span>
-                            </td>
-                            <td className="ts-table__status">
-                              <span
-                                className={`ts-present ts-present--${
-                                  t.present ? "yes" : "no"
-                                }`}
-                              >
-                                {t.present ? "Yes" : "No"}
-                              </span>
-                            </td>
-                            <td className="ts-cell-mono">{t.path ?? "—"}</td>
+                    <p className="ts-summary">
+                      {security?.summary ?? "Not analyzed yet."}
+                    </p>
+                    <h3 className="ts-section-label">
+                      <CardIcon icon={Wrench} tone="amber" size={14} />
+                      Tools
+                      <InfoTip label="Security tools">
+                        Present when config files or CI workflows mention the
+                        tool.
+                      </InfoTip>
+                    </h3>
+                    <div className="ts-table-wrap">
+                      <table className="ts-table">
+                        <thead>
+                          <tr>
+                            <th>Tool</th>
+                            <th className="ts-table__status">Present</th>
+                            <th>Path</th>
                           </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                        </thead>
+                        <tbody>
+                          {(security?.tools ?? []).length === 0 ? (
+                            <tr>
+                              <td colSpan={3} className="ts-table__empty">
+                                No tools detected.
+                              </td>
+                            </tr>
+                          ) : (
+                            security!.tools.map((t) => (
+                              <tr key={t.id}>
+                                <td>
+                                  <span className="ts-cell-name">{t.name}</span>
+                                </td>
+                                <td className="ts-table__status">
+                                  <span
+                                    className={`ts-present ts-present--${
+                                      t.present ? "yes" : "no"
+                                    }`}
+                                  >
+                                    {t.present ? "Yes" : "No"}
+                                  </span>
+                                </td>
+                                <td className="ts-cell-mono">
+                                  {t.path ?? "—"}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
 
-                <div className="ts-tests-head">
-                  <h3 className="ts-section-label ts-section-label--flush">
-                    <CardIcon icon={ShieldCheck} tone="rose" size={14} />
-                    Checks
-                    <InfoTip label="Security checks">
-                      Fundamentals in one table with a Stack column derived from
-                      detected frameworks (e.g. Next/React Frontend, Next
-                      server). Covers secrets, lockfiles, auth signals,
-                      scanners, and more.
-                    </InfoTip>
-                  </h3>
-                  <SearchableInput
-                    className="ts-filter"
-                    value={checkFilter}
-                    onChange={setCheckFilter}
-                    placeholder="Filter checks…"
-                    aria-label="Filter checks"
-                  />
-                </div>
+                    <div className="ts-tests-head">
+                      <h3 className="ts-section-label ts-section-label--flush">
+                        <CardIcon icon={ShieldCheck} tone="rose" size={14} />
+                        Checks
+                        <InfoTip label="Security checks">
+                          Fundamentals in one table with a Stack column derived
+                          from detected frameworks (e.g. Next/React Frontend,
+                          Next server). Covers secrets, lockfiles, auth signals,
+                          scanners, and more.
+                        </InfoTip>
+                      </h3>
+                      <SearchableInput
+                        className="ts-filter"
+                        value={checkFilter}
+                        onChange={setCheckFilter}
+                        placeholder="Filter checks…"
+                        aria-label="Filter checks"
+                      />
+                    </div>
 
-                {flatChecks.length === 0 ? (
-                  <p className="ts-empty">
-                    {(security?.checks ?? []).length === 0
-                      ? "No checks available."
-                      : "No checks match the filter."}
-                  </p>
-                ) : (
-                  <div className="ts-table-wrap ts-table-wrap--scroll">
-                    <table className="ts-table ts-table--checks">
-                      <colgroup>
-                        <col className="ts-col-status" />
-                        <col className="ts-col-stack" />
-                        <col className="ts-col-check" />
-                        <col className="ts-col-detail" />
-                      </colgroup>
-                      <thead>
-                        <tr>
-                          <th className="ts-table__status">Status</th>
-                          <th>Stack</th>
-                          <th>Check</th>
-                          <th className="ts-table__detail">Detail</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {flatChecks.map(({ check: c, stack }) => (
-                          <tr key={c.id} data-status={c.status}>
-                            <td className="ts-table__status">
-                              <CheckStatusIcon status={c.status} />
-                            </td>
-                            <td>
-                              <span className="ts-stack-pill">{stack}</span>
-                            </td>
-                            <td>
-                              <span className="ts-cell-name">{c.title}</span>
-                            </td>
-                            <td className="ts-cell-detail">
-                              {c.detail ?? "—"}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                    {flatChecks.length === 0 ? (
+                      <p className="ts-empty">
+                        {(security?.checks ?? []).length === 0
+                          ? "No checks available."
+                          : "No checks match the filter."}
+                      </p>
+                    ) : (
+                      <div className="ts-table-wrap ts-table-wrap--scroll">
+                        <table className="ts-table ts-table--checks">
+                          <colgroup>
+                            <col className="ts-col-status" />
+                            <col className="ts-col-stack" />
+                            <col className="ts-col-check" />
+                            <col className="ts-col-detail" />
+                          </colgroup>
+                          <thead>
+                            <tr>
+                              <th className="ts-table__status">Status</th>
+                              <th>Stack</th>
+                              <th>Check</th>
+                              <th className="ts-table__detail">Detail</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {flatChecks.map(({ check: c, stack }) => (
+                              <tr key={c.id} data-status={c.status}>
+                                <td className="ts-table__status">
+                                  <CheckStatusIcon status={c.status} />
+                                </td>
+                                <td>
+                                  <span className="ts-stack-pill">{stack}</span>
+                                </td>
+                                <td>
+                                  <span className="ts-cell-name">
+                                    {c.title}
+                                  </span>
+                                </td>
+                                <td className="ts-cell-detail">
+                                  {c.detail ?? "—"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </>
                 )}
               </div>

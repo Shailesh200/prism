@@ -20,7 +20,9 @@ describe("TestingSecurityScreen loading", () => {
         <TestingSecurityScreen repoLabel="prism" onNavigate={vi.fn()} />
       </AppShellClientProvider>,
     );
-    expect(screen.getByText("Loading testing and security reports")).toBeTruthy();
+    expect(
+      screen.getByText("Loading testing and security reports"),
+    ).toBeTruthy();
     expect(screen.queryByText("Not analyzed yet.")).toBeNull();
     expect(screen.queryByText("No runners detected.")).toBeNull();
     expect(screen.queryByText("No tools detected.")).toBeNull();

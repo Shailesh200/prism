@@ -1,10 +1,5 @@
 import type { ExplainAreaSummary } from "@repo-prism/shared";
-import {
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  Layers,
-  Users,
-} from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Layers, Users } from "lucide-react";
 import type { ReactElement } from "react";
 
 export type ExplainPanelProps = {

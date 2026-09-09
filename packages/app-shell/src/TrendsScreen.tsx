@@ -204,9 +204,7 @@ function SeriesAreaChart(props: {
     e.preventDefault();
     const base = hover ?? lastIndex;
     const next =
-      e.key === "ArrowLeft"
-        ? Math.max(0, base - 1)
-        : Math.min(n - 1, base + 1);
+      e.key === "ArrowLeft" ? Math.max(0, base - 1) : Math.min(n - 1, base + 1);
     setHover(next);
     setLastIndex(next);
   };

@@ -61,7 +61,10 @@ describe("findPathOverlap", () => {
 
   it("ignores queued and needs_confirm jobs — they have no teammate yet", async () => {
     const overlap = await findPathOverlap({
-      jobs: [job({ status: "queued" }), job({ id: "j2", status: "needs_confirm" })],
+      jobs: [
+        job({ status: "queued" }),
+        job({ id: "j2", status: "needs_confirm" }),
+      ],
       path: "/tmp/wt",
       git: async () => ({ ok: true, stdout: "", stderr: "" }),
     });

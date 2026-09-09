@@ -42,15 +42,8 @@ import {
 } from "./shared.js";
 
 export function BackendSection(props: DomainScreenProps): ReactElement {
-  const {
-    def,
-    overlay,
-    status,
-    lastRunAt,
-    liveDomainReport,
-    subtitle,
-    nodes,
-  } = useOverlaySession(props);
+  const { def, overlay, status, lastRunAt, liveDomainReport, subtitle, nodes } =
+    useOverlaySession(props);
   const [filter, setFilter] = useState("");
   const [routeFilter, setRouteFilter] = useState("");
   const [coverageFilter, setCoverageFilter] = useState("");
@@ -64,10 +57,7 @@ export function BackendSection(props: DomainScreenProps): ReactElement {
   const activeBackendReport =
     backendDomainReport?.backend ?? props.backendReport ?? null;
 
-  const findings = useMemo(
-    () => sortedOverlayFindings(overlay),
-    [overlay],
-  );
+  const findings = useMemo(() => sortedOverlayFindings(overlay), [overlay]);
 
   const kindCounts = useMemo(
     () => overlayKindCounts(nodes, backendDomainReport?.kindCounts),
@@ -431,8 +421,8 @@ export function BackendSection(props: DomainScreenProps): ReactElement {
                       <Plug size={14} className="ov-card__icon" aria-hidden />
                       Env &amp; Integrations
                       <InfoTip label="Env & Integrations">
-                        Environment variables and third-party SDK usage
-                        detected in source.
+                        Environment variables and third-party SDK usage detected
+                        in source.
                       </InfoTip>
                     </span>
                   </div>
@@ -497,9 +487,7 @@ export function BackendSection(props: DomainScreenProps): ReactElement {
                               ))}
                           </div>
                         ) : (
-                          <EmptyState>
-                            No third-party SDKs detected.
-                          </EmptyState>
+                          <EmptyState>No third-party SDKs detected.</EmptyState>
                         )}
                       </div>
                     </div>

@@ -689,8 +689,7 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
     setReviewPaths(next);
     setReviewChipsOpen(false);
     if (next.length === 0) return;
-    const keep =
-      targetPath && next.includes(targetPath) ? targetPath : next[0];
+    const keep = targetPath && next.includes(targetPath) ? targetPath : next[0];
     if (keep) selectFilePath(keep);
   };
 
@@ -1022,14 +1021,12 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
               {reviewPaths.length > 0 ? (
                 <div
                   className={
-                    reviewChipsOpen &&
-                    reviewPaths.length > REVIEW_CHIP_PREVIEW
+                    reviewChipsOpen && reviewPaths.length > REVIEW_CHIP_PREVIEW
                       ? "imp-chips imp-chips--scroll"
                       : "imp-chips"
                   }
                 >
-                  {(reviewChipsOpen ||
-                  reviewPaths.length <= REVIEW_CHIP_PREVIEW
+                  {(reviewChipsOpen || reviewPaths.length <= REVIEW_CHIP_PREVIEW
                     ? reviewPaths
                     : reviewPaths.slice(0, REVIEW_CHIP_PREVIEW)
                   ).map((path) => (
@@ -1139,9 +1136,7 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
               <SearchableInput
                 className="br-target__search"
                 value={impactTab === "review" ? reviewDraft : query}
-                onChange={
-                  impactTab === "review" ? setReviewDraft : setQuery
-                }
+                onChange={impactTab === "review" ? setReviewDraft : setQuery}
                 placeholder={
                   impactTab === "review"
                     ? "Add another path…"
@@ -1179,7 +1174,8 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
                       runReview(paths);
                     }}
                   >
-                    Review {reviewCount === 1 ? "1 path" : `${reviewCount} paths`}
+                    Review{" "}
+                    {reviewCount === 1 ? "1 path" : `${reviewCount} paths`}
                   </button>
                 </>
               ) : (
@@ -1274,8 +1270,8 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
                     edit or delete
                   </li>
                   <li>
-                    <strong>Review changes</strong> — roll up impact across dirty
-                    files
+                    <strong>Review changes</strong> — roll up impact across
+                    dirty files
                   </li>
                 </ul>
               </div>

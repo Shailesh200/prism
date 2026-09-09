@@ -1,7 +1,11 @@
 import { ArrowLeft, Loader2, Play, RefreshCw } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
 import type { UtilityOverlayReport } from "@repo-prism/shared";
-import { AppSidebar, type AppSidebarUser, type AppView } from "../AppSidebar.js";
+import {
+  AppSidebar,
+  type AppSidebarUser,
+  type AppView,
+} from "../AppSidebar.js";
 import { shellNavVariant, shellRootClass } from "../shell-layout.js";
 import type {
   DomainDef,
@@ -183,8 +187,7 @@ export function OverlayIdle(props: {
         <h2 className="dm-idle__title">{props.def.title}</h2>
         <p className="dm-idle__desc">{props.def.description}</p>
         <p className="dm-idle__privacy">
-          Runs locally on demand — no network, no code leaves your
-          machine.
+          Runs locally on demand — no network, no code leaves your machine.
         </p>
         {canRun ? (
           <button

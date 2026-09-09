@@ -28,15 +28,8 @@ import {
 } from "./shared.js";
 
 export function MobileSection(props: DomainScreenProps): ReactElement {
-  const {
-    def,
-    overlay,
-    status,
-    lastRunAt,
-    liveDomainReport,
-    subtitle,
-    nodes,
-  } = useOverlaySession(props);
+  const { def, overlay, status, lastRunAt, liveDomainReport, subtitle, nodes } =
+    useOverlaySession(props);
   const [filter, setFilter] = useState("");
 
   const mobileDomainReport: MobileDomainReport | null =
@@ -45,10 +38,7 @@ export function MobileSection(props: DomainScreenProps): ReactElement {
   const activeDomainReport =
     liveDomainReport?.domain === props.domainId ? liveDomainReport : null;
 
-  const findings = useMemo(
-    () => sortedOverlayFindings(overlay),
-    [overlay],
-  );
+  const findings = useMemo(() => sortedOverlayFindings(overlay), [overlay]);
 
   const kindCounts = useMemo(
     () => overlayKindCounts(nodes, mobileDomainReport?.kindCounts),
@@ -363,7 +353,9 @@ export function MobileSection(props: DomainScreenProps): ReactElement {
                         when explicit links are limited.
                       </InfoTip>
                     </span>
-                    <span className="ov-card__meta">{mobileNavLinks.length}</span>
+                    <span className="ov-card__meta">
+                      {mobileNavLinks.length}
+                    </span>
                   </div>
                   {mobileNavLinks.length > 0 ? (
                     <div className="dm-rank">
@@ -378,19 +370,22 @@ export function MobileSection(props: DomainScreenProps): ReactElement {
                               {kindLabel(l.toKind || "node")}
                             </span>
                           </div>
-                          <span className="dm-rank__val ov-mono">navigates</span>
+                          <span className="dm-rank__val ov-mono">
+                            navigates
+                          </span>
                         </div>
                       ))}
                     </div>
                   ) : (
                     <EmptyState>
                       No navigates edges yet — re-run analysis after adding Expo
-                      Router links, Stack.Screen registrations, or Screen imports.
+                      Router links, Stack.Screen registrations, or Screen
+                      imports.
                     </EmptyState>
                   )}
                   <p className="dm-note">
-                    Platform (iOS/Android) and Deep Link details are not available
-                    yet.
+                    Platform (iOS/Android) and Deep Link details are not
+                    available yet.
                   </p>
                 </article>
               </>

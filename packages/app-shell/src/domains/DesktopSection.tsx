@@ -30,15 +30,8 @@ import {
 } from "./shared.js";
 
 export function DesktopSection(props: DomainScreenProps): ReactElement {
-  const {
-    def,
-    overlay,
-    status,
-    lastRunAt,
-    liveDomainReport,
-    subtitle,
-    nodes,
-  } = useOverlaySession(props);
+  const { def, overlay, status, lastRunAt, liveDomainReport, subtitle, nodes } =
+    useOverlaySession(props);
   const [filter, setFilter] = useState("");
 
   const desktopDomainReport: DesktopDomainReport | null =
@@ -47,10 +40,7 @@ export function DesktopSection(props: DomainScreenProps): ReactElement {
   const activeDomainReport =
     liveDomainReport?.domain === props.domainId ? liveDomainReport : null;
 
-  const findings = useMemo(
-    () => sortedOverlayFindings(overlay),
-    [overlay],
-  );
+  const findings = useMemo(() => sortedOverlayFindings(overlay), [overlay]);
 
   const kindCounts = useMemo(
     () => overlayKindCounts(nodes, desktopDomainReport?.kindCounts),
@@ -160,8 +150,8 @@ export function DesktopSection(props: DomainScreenProps): ReactElement {
                       />
                       Desktop Stack
                       <InfoTip label="Desktop Stack">
-                        Electron / Tauri frameworks and stack DNA signals for this
-                        workspace.
+                        Electron / Tauri frameworks and stack DNA signals for
+                        this workspace.
                       </InfoTip>
                     </span>
                     {desktopStack?.detected ? (
@@ -225,8 +215,8 @@ export function DesktopSection(props: DomainScreenProps): ReactElement {
                       />
                       Boundary Links
                       <InfoTip label="Boundary Links">
-                        Structural edges from desktop-boundary (ipc /
-                        exposes / loads) between main, preload, and renderer.
+                        Structural edges from desktop-boundary (ipc / exposes /
+                        loads) between main, preload, and renderer.
                       </InfoTip>
                     </span>
                     <span className="ov-card__meta">
@@ -310,8 +300,8 @@ export function DesktopSection(props: DomainScreenProps): ReactElement {
                     </div>
                   ) : (
                     <EmptyState>
-                      No ipcMain / ipcRenderer / contextBridge channel names parsed
-                      yet.
+                      No ipcMain / ipcRenderer / contextBridge channel names
+                      parsed yet.
                     </EmptyState>
                   )}
                 </article>

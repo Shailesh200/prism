@@ -76,7 +76,12 @@ export async function mcpUpdateStatus(
 ): Promise<McpUpdateStatus> {
   const latest = await fetchLatestMcpVersion(fetchImpl);
   if (!latest) {
-    return { current: currentVersion, stale: false, localCheckout, hop: "current" };
+    return {
+      current: currentVersion,
+      stale: false,
+      localCheckout,
+      hop: "current",
+    };
   }
   const stale = isNewerVersion(latest, currentVersion);
   return {
@@ -101,7 +106,9 @@ export async function defaultNpmPack(
     return { ok: true, detail: `Cached ${version}.` };
   } catch (cause) {
     const detail =
-      cause instanceof Error ? cause.message.split("\n")[0] ?? cause.message : "npm pack failed.";
+      cause instanceof Error
+        ? (cause.message.split("\n")[0] ?? cause.message)
+        : "npm pack failed.";
     return { ok: false, detail };
   }
 }

@@ -980,10 +980,7 @@ function MapViewInner(props: RepositoryMapViewProps): ReactElement {
       return;
     }
 
-    if (
-      entry.children.length > FILE_ZOOM_EXPLORER_THRESHOLD &&
-      entry.path
-    ) {
+    if (entry.children.length > FILE_ZOOM_EXPLORER_THRESHOLD && entry.path) {
       setTreeScope({
         folderPath: entry.path,
         ...(treeScope?.memberFiles
@@ -1019,8 +1016,7 @@ function MapViewInner(props: RepositoryMapViewProps): ReactElement {
     : [];
   const fileZoom = presentFileZoom(fileRoots, cardPage);
   const useExplorer =
-    isFileZoom(props.map.zoom) &&
-    (forceList || fileZoom.mode === "explorer");
+    isFileZoom(props.map.zoom) && (forceList || fileZoom.mode === "explorer");
 
   return (
     <div className="prism-map prism-theme">

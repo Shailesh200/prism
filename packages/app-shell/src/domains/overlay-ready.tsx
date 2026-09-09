@@ -4,7 +4,12 @@ import type {
   UtilityOverlayFinding,
   UtilityOverlayReport,
 } from "@repo-prism/shared";
-import { EmptyState, InfoTip, relativeTime, SearchableInput } from "@repo-prism/ui";
+import {
+  EmptyState,
+  InfoTip,
+  relativeTime,
+  SearchableInput,
+} from "@repo-prism/ui";
 import { FileWarning, Flame, Layers, ShieldAlert } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
 import {
@@ -118,8 +123,8 @@ export function OverlayFindings(props: {
           Findings
           <InfoTip label="Findings">
             Heuristic callouts from this overlay (e.g. workflows missing
-            concurrency or permissions). Empty means no automated findings —
-            not a deep audit pass.
+            concurrency or permissions). Empty means no automated findings — not
+            a deep audit pass.
           </InfoTip>
         </span>
         {props.findings.length > 0 ? (
@@ -193,7 +198,11 @@ export function OverlayReadyView(props: {
   );
 }
 
-export type OverlaySurfaceVariant = "generic" | "backend" | "mobile" | "desktop";
+export type OverlaySurfaceVariant =
+  | "generic"
+  | "backend"
+  | "mobile"
+  | "desktop";
 
 export function OverlaySurfaceCard(props: {
   def: DomainDef;
@@ -269,12 +278,15 @@ export function OverlaySurfaceCard(props: {
                   .pop()
                   ?.replace(/\.[^.]+$/, "") ?? n.label;
               const tested =
-                screenCoverage !== null && !screenCoverage.untestedIds.has(n.id);
+                screenCoverage !== null &&
+                !screenCoverage.untestedIds.has(n.id);
               return (
                 <div key={n.id} className="dm-surface__row">
                   {isMobile ? (
                     <>
-                      <span className="dm-surface__name ov-ellipsis">{base}</span>
+                      <span className="dm-surface__name ov-ellipsis">
+                        {base}
+                      </span>
                       <span
                         className="dm-surface__path ov-mono ov-ellipsis"
                         title={path}

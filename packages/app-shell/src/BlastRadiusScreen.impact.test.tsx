@@ -78,7 +78,9 @@ describe("Impact workspace", () => {
     expect(screen.getByRole("tab", { name: "Explain" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Blast radius" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Review changes" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Use dirty files" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Use dirty files" }),
+    ).toBeTruthy();
     expect(screen.getByText("Pick a file to inspect")).toBeTruthy();
   });
 
@@ -161,9 +163,7 @@ describe("Impact workspace", () => {
       initialPaths: paths,
     });
     expect(screen.getByText("20 paths")).toBeTruthy();
-    expect(
-      screen.getByRole("button", { name: "Show 12 more" }),
-    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Show 12 more" })).toBeTruthy();
     expect(screen.queryByTitle(paths[8] ?? "")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Show 12 more" }));
     expect(screen.getByTitle(paths[8] ?? "")).toBeTruthy();

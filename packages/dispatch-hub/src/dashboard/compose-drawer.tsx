@@ -113,9 +113,7 @@ export function ComposeDrawer(props: {
   const [placement, setPlacement] = useState<"checkout" | "worktree">(
     props.preset?.placement === "worktree" ? "worktree" : "checkout",
   );
-  const [targetBranch, setTargetBranch] = useState(
-    props.preset?.branch ?? "",
-  );
+  const [targetBranch, setTargetBranch] = useState(props.preset?.branch ?? "");
   const [targetWorktree, setTargetWorktree] = useState(
     props.preset?.worktreePath ?? "",
   );

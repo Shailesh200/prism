@@ -128,9 +128,7 @@ export function ConsoleApp(): ReactElement {
   const feed = useJobsFeed(token);
   const workspaces = useWorkspaces(token, feed);
   const [version, setVersion] = useState<string | undefined>();
-  const [playgroundUrl, setPlaygroundUrl] = useState(
-    `${PLAYGROUND_DEFAULT}/`,
-  );
+  const [playgroundUrl, setPlaygroundUrl] = useState(`${PLAYGROUND_DEFAULT}/`);
   const [update, setUpdate] = useState<{
     readonly current: string;
     readonly latest?: string;
@@ -731,9 +729,7 @@ export function ConsoleApp(): ReactElement {
                     title: input.title,
                     prd: input.prd,
                     playbook: input.playbook ?? SKILL_PLAYBOOK,
-                    ...(input.workspace
-                      ? { workspace: input.workspace }
-                      : {}),
+                    ...(input.workspace ? { workspace: input.workspace } : {}),
                   });
                 }}
               />

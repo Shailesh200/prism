@@ -1,4 +1,8 @@
-import { MarkdownDoc, type JobSummary, type JobWorkspaceChip } from "@repo-prism/app-shell";
+import {
+  MarkdownDoc,
+  type JobSummary,
+  type JobWorkspaceChip,
+} from "@repo-prism/app-shell";
 import {
   Button,
   EmptyState,
@@ -12,10 +16,7 @@ import {
 import { Copy, Eye, Pencil, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { SKILL_PLAYBOOK } from "./fleet.js";
-import {
-  LabeledJobBar,
-  type JobActionHandlers,
-} from "./job-actions.js";
+import { LabeledJobBar, type JobActionHandlers } from "./job-actions.js";
 import { showConsoleToast } from "./console-toast.js";
 import {
   APPLIED_GENERATE,
@@ -54,7 +55,9 @@ function loadAppliedGenerateIds(): Set<string> {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return new Set();
     return new Set(
-      parsed.filter((id): id is string => typeof id === "string" && id.trim() !== ""),
+      parsed.filter(
+        (id): id is string => typeof id === "string" && id.trim() !== "",
+      ),
     );
   } catch {
     return new Set();
@@ -166,7 +169,10 @@ export function SkillsView(props: {
 
   function apply(
     skill: PrismSkill | undefined,
-    opts?: { readonly keepArmed?: boolean; readonly tab?: "yours" | "inherited" },
+    opts?: {
+      readonly keepArmed?: boolean;
+      readonly tab?: "yours" | "inherited";
+    },
   ): void {
     setConfirmDelete(false);
     setEditingPublished(false);
@@ -300,13 +306,9 @@ export function SkillsView(props: {
     () =>
       Boolean(
         name.trim() &&
-          (props.jobs ?? []).some((job) =>
-            skillJobCoversPending(
-              job,
-              name,
-              props.pendingGenerateQueuedAt,
-            ),
-          ),
+        (props.jobs ?? []).some((job) =>
+          skillJobCoversPending(job, name, props.pendingGenerateQueuedAt),
+        ),
       ),
     [props.jobs, name, props.pendingGenerateQueuedAt],
   );
@@ -340,15 +342,7 @@ export function SkillsView(props: {
       });
     }, 800);
     return () => window.clearTimeout(timer);
-  }, [
-    name,
-    description,
-    body,
-    inherited,
-    status,
-    props.token,
-    generateBusy,
-  ]);
+  }, [name, description, body, inherited, status, props.token, generateBusy]);
 
   const yours = useMemo(
     () => skills.filter((skill) => !skill.inherited),
@@ -636,45 +630,45 @@ export function SkillsView(props: {
                   : "No skills yet."}
             </EmptyState>
           ) : (
-          listed.map((skill) => {
-            const on = skill.name === selected;
-            return (
-              <ListTile
-                key={skill.name}
-                selected={on}
-                className="skills-card"
-                onClick={() => {
-                  if (skill.name === selected) {
-                    apply(skill, { keepArmed: generateBusy });
-                    return;
-                  }
-                  flushDraft();
-                  apply(skill);
-                }}
-              >
-                <span className="skills-card__notch" aria-hidden />
-                <span className="skills-card__row">
-                  <strong className="skills-card__name">{skill.name}</strong>
-                  {skill.inherited ? (
-                    <span className="skills-card__meta">read-only</span>
-                  ) : skill.status === "published" ? (
-                    <span className="skills-pill skills-pill--published">
-                      Published
-                    </span>
-                  ) : (
-                    <HoverTip label="Not live yet. Agents cannot use this until you publish.">
-                      <span className="skills-pill skills-pill--draft">
-                        Draft
+            listed.map((skill) => {
+              const on = skill.name === selected;
+              return (
+                <ListTile
+                  key={skill.name}
+                  selected={on}
+                  className="skills-card"
+                  onClick={() => {
+                    if (skill.name === selected) {
+                      apply(skill, { keepArmed: generateBusy });
+                      return;
+                    }
+                    flushDraft();
+                    apply(skill);
+                  }}
+                >
+                  <span className="skills-card__notch" aria-hidden />
+                  <span className="skills-card__row">
+                    <strong className="skills-card__name">{skill.name}</strong>
+                    {skill.inherited ? (
+                      <span className="skills-card__meta">read-only</span>
+                    ) : skill.status === "published" ? (
+                      <span className="skills-pill skills-pill--published">
+                        Published
                       </span>
-                    </HoverTip>
-                  )}
-                </span>
-                <span className="skills-card__blurb">
-                  {skill.description || "No when-to-use yet."}
-                </span>
-              </ListTile>
-            );
-          })
+                    ) : (
+                      <HoverTip label="Not live yet. Agents cannot use this until you publish.">
+                        <span className="skills-pill skills-pill--draft">
+                          Draft
+                        </span>
+                      </HoverTip>
+                    )}
+                  </span>
+                  <span className="skills-card__blurb">
+                    {skill.description || "No when-to-use yet."}
+                  </span>
+                </ListTile>
+              );
+            })
           )}
         </div>
       </aside>
@@ -965,7 +959,9 @@ export function SkillsView(props: {
                 {body.trim() ? (
                   <MarkdownDoc text={body} />
                 ) : (
-                  <p className="skills-workflow-empty">Nothing to preview yet.</p>
+                  <p className="skills-workflow-empty">
+                    Nothing to preview yet.
+                  </p>
                 )}
               </div>
             ) : (

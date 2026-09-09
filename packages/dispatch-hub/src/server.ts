@@ -683,8 +683,7 @@ export async function startHub(
           ...(typeof body.branch === "string" && body.branch.trim()
             ? { branch: String(body.branch).trim() }
             : {}),
-          ...(typeof body.worktreePath === "string" &&
-          body.worktreePath.trim()
+          ...(typeof body.worktreePath === "string" && body.worktreePath.trim()
             ? { worktreePath: String(body.worktreePath).trim() }
             : {}),
           ...(body.workerBackend === "cursor" || body.workerBackend === "claude"

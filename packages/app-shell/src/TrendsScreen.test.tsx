@@ -89,9 +89,9 @@ describe("TrendsScreen health chart", () => {
     const bars = container.querySelector(".tr-bars");
     expect(bars?.querySelector("button[title]")).toBeNull();
     const frame = bars?.closest(".prism-chart");
-    expect(frame?.querySelectorAll(".prism-chart__y-tick").length).toBeGreaterThan(
-      0,
-    );
+    expect(
+      frame?.querySelectorAll(".prism-chart__y-tick").length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getByRole("img", { name: "Commit volume by period" }),
     ).toBeTruthy();

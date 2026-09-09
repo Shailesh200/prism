@@ -176,7 +176,12 @@ export function isFinishedSkillJob(
 }
 
 export function latestFinishedSkillJob<
-  T extends { readonly title: string; readonly status: string; readonly updatedAt?: string; readonly finishedAt?: string },
+  T extends {
+    readonly title: string;
+    readonly status: string;
+    readonly updatedAt?: string;
+    readonly finishedAt?: string;
+  },
 >(jobs: readonly T[] | undefined, skillName: string): T | undefined {
   const key = skillName.trim();
   if (!key || !jobs) return undefined;

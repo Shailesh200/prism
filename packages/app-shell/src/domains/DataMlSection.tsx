@@ -16,15 +16,8 @@ import {
 } from "./shared.js";
 
 export function DataMlSection(props: DomainScreenProps): ReactElement {
-  const {
-    def,
-    overlay,
-    status,
-    lastRunAt,
-    liveDomainReport,
-    subtitle,
-    nodes,
-  } = useOverlaySession(props);
+  const { def, overlay, status, lastRunAt, liveDomainReport, subtitle, nodes } =
+    useOverlaySession(props);
   const [filter, setFilter] = useState("");
 
   const dataMlDomainReport: DataMlAiDomainReport | null =
