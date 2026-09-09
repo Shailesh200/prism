@@ -55,6 +55,8 @@ export type CreateServerOptions = {
    * client later reports a different root.
    */
   readonly workspaceLocked?: boolean;
+  /** Injectable for worker-intelligence tests (Console health + RPC). */
+  readonly fetchImpl?: typeof fetch;
 };
 
 export type PrismMcpServer = {
@@ -62,6 +64,8 @@ export type PrismMcpServer = {
   readonly session: WorkspaceSession;
   readonly binding: WorkspaceBinding;
   applyClientRoots(): Promise<void>;
+  /** Worker-role intelligence tools finish registering before this settles. */
+  readonly toolsReady: Promise<void>;
 };
 
 /**
@@ -163,24 +167,25 @@ export function createPrismMcpServer(
     applyWorkspaceHint: (path) => binding.applyHints([path]),
     beforeCall: applyClientRootsIfWeak,
   });
+  let toolsReady = Promise.resolve();
   if (isWorkerRole(options.env ?? process.env)) {
-    // A worker gets intelligence from the Console, which already has Core
-    // loaded and indexed, rather than from a Core of its own (ADR-0050). If no
-    // Console answers it gets none — a local fallback here would be the second
-    // index ADR-0041 was written to prevent.
-    void registerWorkerIntelligence(server, {
+    // Awaited before stdio connect so Cursor lists blast_radius / list_packages
+    // on the first tools/list, not after the agent has already started walking.
+    toolsReady = registerWorkerIntelligence(server, {
       workspaceRoot: binding.current(),
       env: options.env ?? process.env,
-    }).catch(() => {
-      /* a teammate without intelligence still edits; it must not fail to start */
-    });
+      ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+    }).then(
+      () => undefined,
+      () => undefined,
+    );
   } else {
     registerTools(server, session, TOOLS, () => binding.current());
     registerPrompts(server);
     registerResources(server, session);
   }
 
-  return { server, session, binding, applyClientRoots };
+  return { server, session, binding, applyClientRoots, toolsReady };
 }
 
 /**
@@ -229,6 +234,7 @@ export async function startStdioServer(
   options: CreateServerOptions,
 ): Promise<PrismMcpServer> {
   const instance = createPrismMcpServer(options);
+  await instance.toolsReady;
   const transport = new StdioServerTransport();
 
   let closed = false;

@@ -19,6 +19,7 @@ import {
   Eye,
   FileText,
   FolderMinus,
+  Download,
   Link2,
   Loader2,
   MessageSquarePlus,
@@ -32,6 +33,7 @@ import {
 import { type ReactElement } from "react";
 import { canInstructJob, canStartFromJob, jobChecksRunning } from "./fleet.js";
 import { showConsoleToast } from "./console-toast.js";
+import { exportJobLogs } from "./job-export.js";
 import { consoleJobShareUrl, readToken } from "./session.js";
 
 function copyText(text: string): Promise<void> {
@@ -168,6 +170,14 @@ export function jobActionItems(
             label: "Copy job link",
             icon: <Link2 size={14} aria-hidden />,
             onSelect: () => copyJobLink(job),
+          },
+          {
+            id: "export-logs",
+            label: "Export logs",
+            icon: <Download size={14} aria-hidden />,
+            onSelect: () => {
+              void exportJobLogs(job);
+            },
           },
         ]
       : []),
@@ -339,6 +349,7 @@ export function JobActions(props: JobActionsProps): ReactElement {
 
 const FOCUS_BAR_IDS = new Set([
   "copy-link",
+  "export-logs",
   "confirm",
   "resume",
   "keep-all",
@@ -376,6 +387,8 @@ function focusBarLabel(id: string, fallback: string): string {
   switch (id) {
     case "copy-link":
       return "Copy";
+    case "export-logs":
+      return "Export";
     case "start-from":
       return "Start new job";
     case "finding":
@@ -399,6 +412,8 @@ function focusBarDetail(id: string): string {
   switch (id) {
     case "copy-link":
       return "Copy a link to this job";
+    case "export-logs":
+      return "Download this job's console as markdown";
     case "start-from":
       return "Start a new job from this finding";
     case "finding":
@@ -437,6 +452,44 @@ export function focusBarMeta(
     detail: focusBarDetail(id),
     variant: focusBarVariant(id),
   };
+}
+
+/** Controls shown under the Skills generating chip. */
+export const SKILL_GENERATE_BAR_IDS = new Set([
+  "resume",
+  "pause",
+  "cancel",
+  "retry",
+]);
+
+export function LabeledJobBar(
+  props: JobActionsProps & {
+    readonly job: JobSummary;
+    readonly ids?: ReadonlySet<string>;
+  },
+): ReactElement | null {
+  const allowed = props.ids ?? SKILL_GENERATE_BAR_IDS;
+  const items = jobActionItems(props).filter((item) => allowed.has(item.id));
+  if (items.length === 0) return null;
+  return (
+    <div className="job-action-bar job-action-bar--icons">
+      {items.map((item) => {
+        const meta = focusBarMeta(item.id, item.label);
+        return (
+          <HoverTip key={item.id} label={meta.label} detail={meta.detail}>
+            <IconButton
+              label={meta.label}
+              title=""
+              variant={item.danger ? "danger" : meta.variant}
+              onClick={() => item.onSelect()}
+            >
+              {item.icon}
+            </IconButton>
+          </HoverTip>
+        );
+      })}
+    </div>
+  );
 }
 
 export function FocusJobBar(

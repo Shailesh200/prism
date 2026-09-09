@@ -39,6 +39,11 @@
   min-width: 220px;
 }
 
+.br-target__controls .ov-btn--primary {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .br-target__controls .prism-toggle-group {
   flex-shrink: 0;
   margin-left: auto;

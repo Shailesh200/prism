@@ -157,6 +157,24 @@ function CheckStatusIcon({
   );
 }
 
+function ReportSkeleton(): ReactElement {
+  return (
+    <div className="ts-skel" aria-hidden>
+      <span className="sk sk-line ts-skel__summary" />
+      <div className="ts-skel__chips">
+        <span className="sk ts-skel__chip" />
+        <span className="sk ts-skel__chip" />
+        <span className="sk ts-skel__chip" />
+      </div>
+      <span className="sk sk-line" />
+      <span className="sk sk-line" />
+      <span className="sk sk-line sk-line--sm" />
+      <span className="sk sk-line" />
+      <span className="sk sk-line sk-line--sm" />
+    </div>
+  );
+}
+
 function dirnameOf(filePath: string): string {
   const normalized = filePath.replace(/\\/g, "/");
   const idx = normalized.lastIndexOf("/");
@@ -211,7 +229,9 @@ export function TestingSecurityScreen(
   const [testing, setTesting] = useState<TestingReport | null>(null);
   const [security, setSecurity] = useState<SecurityReport | null>(null);
   const [testList, setTestList] = useState<TestListResult | null>(null);
-  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "loading" | "error">(
+    "loading",
+  );
   const [message, setMessage] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [listing, setListing] = useState(false);
@@ -450,6 +470,8 @@ export function TestingSecurityScreen(
     });
   };
 
+  const showSkeleton = status === "loading" && testing === null && security === null;
+
   return (
     <div className={shellRootClass()}>
       <AppSidebar
@@ -488,7 +510,12 @@ export function TestingSecurityScreen(
           </div>
         </header>
 
-        <div className="ov-scroll">
+        <div className="ov-scroll" aria-busy={showSkeleton}>
+          {showSkeleton ? (
+            <p className="ov-sr" role="status">
+              Loading testing and security reports
+            </p>
+          ) : null}
           {message ? (
             <p className="ts-banner" role="status">
               {message}
@@ -523,7 +550,9 @@ export function TestingSecurityScreen(
               </button>
               <div className="ts-acc__actions">
                 <span className="ts-score">
-                  {testing ? (
+                  {showSkeleton ? (
+                    <span className="sk ts-skel__score" />
+                  ) : testing ? (
                     <>
                       {Math.round(testing.score)}
                       <span className="ts-score__unit">/100</span>
@@ -576,6 +605,10 @@ export function TestingSecurityScreen(
 
             {testingOpen ? (
               <div className="ts-acc__body">
+                {showSkeleton ? (
+                  <ReportSkeleton />
+                ) : (
+                  <>
                 <p className="ts-summary">
                   {testing?.summary ?? "Not analyzed yet."}
                 </p>
@@ -917,6 +950,8 @@ export function TestingSecurityScreen(
                       : `Coverage present · ${testing.coverage.source}`
                     : "No coverage artifact on disk"}
                 </p>
+                  </>
+                )}
               </div>
             ) : null}
           </section>
@@ -946,7 +981,9 @@ export function TestingSecurityScreen(
                 </InfoTip>
               </h2>
               <span className="ts-score">
-                {security ? (
+                {showSkeleton ? (
+                  <span className="sk ts-skel__score" />
+                ) : security ? (
                   <>
                     {Math.round(security.score)}
                     <span className="ts-score__unit">/100</span>
@@ -959,10 +996,13 @@ export function TestingSecurityScreen(
 
             {securityOpen ? (
               <div className="ts-acc__body">
+                {showSkeleton ? (
+                  <ReportSkeleton />
+                ) : (
+                  <>
                 <p className="ts-summary">
                   {security?.summary ?? "Not analyzed yet."}
                 </p>
-
                 <h3 className="ts-section-label">
                   <CardIcon icon={Wrench} tone="amber" size={14} />
                   Tools
@@ -1072,6 +1112,8 @@ export function TestingSecurityScreen(
                       </tbody>
                     </table>
                   </div>
+                )}
+                  </>
                 )}
               </div>
             ) : null}

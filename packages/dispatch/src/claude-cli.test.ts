@@ -27,7 +27,6 @@ describe("claudeWorkerArgs", () => {
       "Write",
       "Grep",
       "Glob",
-      "LS",
     ]);
     // No shell, no MCP tools — repeated flags for commander variadic parsing.
     expect(args).toContain("--disallowedTools");

@@ -4,6 +4,7 @@
  */
 
 import { ok, PrismErrorCode, err, prismError } from "@repo-prism/shared";
+import { CLI_COMMAND_NAMES } from "../command-names.js";
 import type { CommandHandler } from "../runtime.js";
 
 const SHELLS = ["bash", "zsh", "fish"] as const;
@@ -69,12 +70,7 @@ export const completionsCommand: CommandHandler = async (context) => {
     );
   }
 
-  // Dynamic import avoids a cycle with commands.ts (which registers this handler).
-  const { COMMANDS } = await import("../commands.js");
-  const script = renderCompletions(
-    shell,
-    COMMANDS.map((command) => command.name),
-  );
+  const script = renderCompletions(shell, CLI_COMMAND_NAMES);
   return ok({
     data: { shell, script },
     human: () => script.replace(/\n$/, ""),

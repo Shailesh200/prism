@@ -24,7 +24,7 @@ import {
 } from "./event-text.js";
 import { readTextFile } from "./json-file.js";
 import { runLogPath, rotatedRunLogPath } from "./paths.js";
-import { RunPhaseSchema } from "./run-state.js";
+import { RunPhaseSchema } from "./run-phase.js";
 
 /** Per-entry text cap. Long model output is for the transcript, not this log. */
 export const MAX_ENTRY_TEXT = 2_000;

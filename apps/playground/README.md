@@ -9,7 +9,7 @@ bun --filter @repo-prism/playground dev
 # or: bun run playground
 ```
 
-Opens at http://localhost:5173.
+Opens at http://prismhq.localhost:17331 (not Vite’s default 5173). Override with `PRISM_PLAYGROUND_PORT`.
 
 ## Open a repository
 

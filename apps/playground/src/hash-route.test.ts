@@ -6,7 +6,9 @@ describe("parsePlaygroundView", () => {
     expect(parsePlaygroundView("#/dna")).toBe("dna");
     expect(parsePlaygroundView("#/blast")).toBe("blast");
     expect(parsePlaygroundView("#/health")).toBe("overview");
-    expect(parsePlaygroundView("#/overview")).toBe("overview");
+    expect(parsePlaygroundView("#/review")).toBe("review");
+    expect(parsePlaygroundView("#/explain")).toBe("explain");
+    expect(parsePlaygroundView("#/impact")).toBe("blast");
   });
 
   it("ignores an empty or unknown hash", () => {

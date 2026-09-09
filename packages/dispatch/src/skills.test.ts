@@ -3,11 +3,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  applyGeneratedSkill,
   deleteSkill,
   duplicateSkill,
   listSkills,
   nameForDuplicate,
   readSkill,
+  skillDraftFromMarkdown,
+  skillNameFromJobTitle,
+  unwrapSkillMarkdown,
   writeSkill,
 } from "./skills.js";
 
@@ -106,5 +110,68 @@ describe("use_skill tool", () => {
       name: "prism-review-pr",
     })) as { message: string };
     expect(loaded.message).toContain("review_changes");
+  });
+});
+
+describe("applyGeneratedSkill", () => {
+  it("reads the skill name from a Skill: job title", () => {
+    expect(skillNameFromJobTitle("Skill: commitpush")).toBe("commitpush");
+    expect(skillNameFromJobTitle("skill: commit-push — draft")).toBe(
+      "commit-push",
+    );
+    expect(skillNameFromJobTitle("Fix login")).toBeUndefined();
+  });
+
+  it("unwraps a fenced SKILL.md and keeps an existing draft status", async () => {
+    const home = await mkdtemp(join(tmpdir(), "prism-skill-apply-"));
+    temps.push(home);
+    const env = { PRISM_HOME: home };
+    await writeSkill(
+      {
+        name: "commitpush",
+        description: "old when",
+        body: "old workflow",
+        status: "draft",
+      },
+      env,
+    );
+    const markdown = [
+      "Here is the skill:",
+      "",
+      "```markdown",
+      "---",
+      'description: "Ship the job files."',
+      "status: published",
+      "---",
+      "",
+      "Never git add -A.",
+      "1. Stage the job files.",
+      "```",
+    ].join("\n");
+    expect(unwrapSkillMarkdown(markdown)).toContain("Never git add -A");
+    expect(skillDraftFromMarkdown("commitpush", markdown).description).toBe(
+      "Ship the job files.",
+    );
+    const saved = await applyGeneratedSkill({
+      title: "Skill: commitpush",
+      assistant: markdown,
+      env,
+    });
+    expect(saved?.body).toContain("Never git add -A");
+    expect(saved?.description).toBe("Ship the job files.");
+    expect(saved?.status).toBe("draft");
+    const got = await readSkill("commitpush", env);
+    expect(got?.body).toContain("Stage the job files");
+  });
+
+  it("does not overwrite an inherited skill", async () => {
+    const home = await mkdtemp(join(tmpdir(), "prism-skill-inherit-"));
+    temps.push(home);
+    const saved = await applyGeneratedSkill({
+      title: "Skill: prism-safe-change",
+      assistant: "# nope\n\nShould not land.",
+      env: { PRISM_HOME: home },
+    });
+    expect(saved).toBeUndefined();
   });
 });

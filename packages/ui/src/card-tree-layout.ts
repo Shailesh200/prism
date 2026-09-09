@@ -84,23 +84,35 @@ function gridTracks(childBoxes: readonly Box[]): GridTracks {
  * (instead of one runaway row), so a folder with many files stays readable.
  * Results are memoized per entry id to keep measure+place linear.
  */
+function visibleChildren(
+  entry: TreeEntry,
+  perLevelLimit: number | undefined,
+): readonly TreeEntry[] {
+  if (perLevelLimit == null || entry.children.length <= perLevelLimit) {
+    return entry.children;
+  }
+  return entry.children.slice(0, perLevelLimit);
+}
+
 function measureSubtree(
   entry: TreeEntry,
   expanded: ReadonlySet<string>,
   memo: Map<string, Box>,
+  perLevelLimit: number | undefined,
 ): Box {
   const cached = memo.get(entry.id);
   if (cached) return cached;
 
   const self = cardSize(entry.kind);
-  if (!expanded.has(entry.id) || entry.children.length === 0) {
+  const kids = visibleChildren(entry, perLevelLimit);
+  if (!expanded.has(entry.id) || kids.length === 0) {
     const box = { w: self.w, h: self.h };
     memo.set(entry.id, box);
     return box;
   }
 
-  const childBoxes = entry.children.map((c) =>
-    measureSubtree(c, expanded, memo),
+  const childBoxes = kids.map((c) =>
+    measureSubtree(c, expanded, memo, perLevelLimit),
   );
   const grid = gridTracks(childBoxes);
   const box = {
@@ -217,6 +229,11 @@ export function cardsOverlap(
   return false;
 }
 
+export type LayoutCardTreeOptions = {
+  /** Cap siblings at each expanded level (M-062 P-D6). Omit to show all. */
+  readonly perLevelLimit?: number;
+};
+
 /**
  * Lay out visible tree cards: roots in a row; expanded children below
  * their parent, linked by edges. Card sizes match CSS; a collision pass
@@ -226,12 +243,16 @@ export function layoutCardTree(
   roots: readonly TreeEntry[],
   expanded: ReadonlySet<string>,
   selectedId: string | null,
+  options?: LayoutCardTreeOptions,
 ): CardTreeLayout {
+  const perLevelLimit = options?.perLevelLimit;
+  const visibleRoots =
+    perLevelLimit == null ? roots : roots.slice(0, perLevelLimit);
   const laid: LaidNode[] = [];
   const edges: Edge[] = [];
   const boxes = new Map<string, Box>();
   const boxOf = (entry: TreeEntry): Box =>
-    measureSubtree(entry, expanded, boxes);
+    measureSubtree(entry, expanded, boxes, perLevelLimit);
 
   const place = (
     entry: TreeEntry,
@@ -270,9 +291,10 @@ export function layoutCardTree(
 
     if (!hasChildren || !isExpanded) return;
 
+    const kids = visibleChildren(entry, perLevelLimit);
     // Lay children out as a near-square grid centered under the parent, so a
     // level with many files/folders wraps instead of forming a long strip.
-    const childBoxes = entry.children.map(boxOf);
+    const childBoxes = kids.map(boxOf);
     const grid = gridTracks(childBoxes);
     const blockLeft = boxLeft + Math.max(0, (box.w - grid.blockW) / 2);
     const childTop = y + size.h + GAP_Y;
@@ -290,7 +312,7 @@ export function layoutCardTree(
       ry += (grid.rowH[r] ?? 0) + GAP_Y;
     }
 
-    entry.children.forEach((child, i) => {
+    kids.forEach((child, i) => {
       const c = i % grid.cols;
       const r = Math.floor(i / grid.cols);
       const cb = childBoxes[i] ?? { w: 0, h: 0 };
@@ -307,7 +329,7 @@ export function layoutCardTree(
   let rowX = 0;
   let rowY = 0;
   let rowMaxH = 0;
-  for (const root of roots) {
+  for (const root of visibleRoots) {
     const box = boxOf(root);
     if (rowX > 0 && rowX + box.w > MAX_ROW_W) {
       rowX = 0;
@@ -341,7 +363,7 @@ export function layoutCardTree(
       meta:
         n.entry.children.length > 0
           ? expanded.has(n.id)
-            ? `${n.entry.children.length} open · double-click to close`
+            ? `${visibleChildren(n.entry, perLevelLimit).length} of ${n.entry.children.length} open · double-click to close`
             : `${n.entry.kind === "folder" ? n.entry.fileCount : n.entry.children.length} inside · double-click`
           : n.entry.kind === "symbol"
             ? "Symbol"

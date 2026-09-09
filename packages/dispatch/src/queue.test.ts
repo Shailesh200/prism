@@ -7,6 +7,7 @@ import { dispatchAndDrain, drain } from "./drain-harness.js";
 import { settleDrains } from "./queue.js";
 import {
   activeJobCount,
+  claimQueuedJob,
   deleteJob,
   loadJobs,
   queuedJobs,
@@ -380,5 +381,20 @@ describe("jobs.json durability", () => {
     const removed = await deleteJob(root, "latency-check");
     expect(removed?.id).toBe("latency-check");
     expect(await loadJobs(root)).toEqual([]);
+  });
+
+  it("lets only one claimant win when two drains race the same queued job", async () => {
+    root = await tempRoot();
+    await upsertJob(root, baseJob({ id: "shared", status: "queued" }));
+    const [first, second] = await Promise.all([
+      claimQueuedJob(root, "shared"),
+      claimQueuedJob(root, "shared"),
+    ]);
+    const winners = [first, second].filter(Boolean);
+    expect(winners).toHaveLength(1);
+    expect(winners[0]?.status).toBe("booting");
+    expect(
+      (await loadJobs(root)).filter((job) => job.status === "booting"),
+    ).toHaveLength(1);
   });
 });

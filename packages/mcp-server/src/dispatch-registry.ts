@@ -153,7 +153,9 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
       playbook: z
         .string()
         .optional()
-        .describe("Job playbook id, default ticket"),
+        .describe(
+          "Job playbook id, default ticket. Use skill for a Prism skill stored globally — that job skips dirty-tree confirmation and repo checks.",
+        ),
       workerModel: z
         .string()
         .optional()

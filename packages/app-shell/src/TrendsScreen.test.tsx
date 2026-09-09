@@ -47,6 +47,56 @@ function renderTrends(props: Partial<TrendsScreenProps> = {}) {
 }
 
 describe("TrendsScreen health chart", () => {
+  it("renders cartesian y-axis ticks for a 0–100 health series", () => {
+    const { container } = renderTrends({
+      healthHistory: {
+        points: [point(1, 50, "measured"), point(0, 50, "measured")],
+      },
+    });
+    const healthChart = container.querySelector(".tr-chart");
+    const yTicks = [
+      ...healthChart!.querySelectorAll(".prism-chart__y-tick"),
+    ].map((el) => el.textContent);
+    expect(yTicks).toEqual(["0", "25", "50", "75", "100"]);
+    expect(
+      container.querySelectorAll(".tr-chart .prism-chart__x-tick").length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("gives commit volume bars a y-axis instead of native title tooltips", () => {
+    const { container } = renderTrends({
+      gitStatus: "ready",
+      gitActivity: {
+        root: "/repo",
+        generatedAt: new Date().toISOString(),
+        available: true,
+        days: [
+          {
+            date: new Date(Date.now() - 86_400_000).toISOString().slice(0, 10),
+            commits: 4,
+          },
+          {
+            date: new Date().toISOString().slice(0, 10),
+            commits: 7,
+          },
+        ],
+        authors: [],
+        weeks: [],
+        recentCommits: [],
+        recentFiles: [],
+      },
+    });
+    const bars = container.querySelector(".tr-bars");
+    expect(bars?.querySelector("button[title]")).toBeNull();
+    const frame = bars?.closest(".prism-chart");
+    expect(frame?.querySelectorAll(".prism-chart__y-tick").length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      screen.getByRole("img", { name: "Commit volume by period" }),
+    ).toBeTruthy();
+  });
+
   it("plots scores on a fixed 0–100 axis so a flat 50 renders at mid-height", () => {
     const { container } = renderTrends({
       healthHistory: {

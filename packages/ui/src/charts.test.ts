@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { gaugeArc, ganttSegmentPercents, seriesGeometry } from "./charts.js";
+import {
+  gaugeArc,
+  ganttSegmentPercents,
+  integerTicks,
+  niceTicks,
+  pickAxisIndices,
+  seriesGeometry,
+} from "./charts.js";
 
 describe("seriesGeometry", () => {
   it("returns empty geometry for no values", () => {
@@ -17,6 +24,26 @@ describe("seriesGeometry", () => {
     expect(geo.points).toHaveLength(1);
     expect(geo.line).toMatch(/^\d/);
     expect(geo.area.startsWith("2,18")).toBe(true);
+  });
+});
+
+describe("niceTicks / integerTicks / pickAxisIndices", () => {
+  it("covers a 0–100 score domain with five ticks", () => {
+    expect(niceTicks(0, 100, 5)).toEqual([0, 25, 50, 75, 100]);
+  });
+
+  it("returns integer counts from 0 to max", () => {
+    expect(integerTicks(3)).toEqual([0, 1, 2, 3]);
+    expect(integerTicks(100)[0]).toBe(0);
+    expect(integerTicks(100).at(-1)).toBe(100);
+    expect(integerTicks(11).at(-1)).toBe(11);
+    expect(integerTicks(11)).not.toContain(12);
+  });
+
+  it("always includes first and last indices", () => {
+    expect(pickAxisIndices(2)).toEqual([0, 1]);
+    expect(pickAxisIndices(20, 5)[0]).toBe(0);
+    expect(pickAxisIndices(20, 5).at(-1)).toBe(19);
   });
 });
 

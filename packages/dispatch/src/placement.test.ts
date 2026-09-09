@@ -55,6 +55,7 @@ type Seen = {
   placement: string | undefined;
   preExisting: readonly string[] | undefined;
   prompt: string | undefined;
+  verify: boolean | undefined;
 };
 
 function makeSeen(): Seen {
@@ -64,6 +65,7 @@ function makeSeen(): Seen {
     placement: undefined,
     preExisting: undefined,
     prompt: undefined,
+    verify: undefined,
   };
 }
 
@@ -75,6 +77,7 @@ function capturingWorker(seen: Seen): WorkerPort {
       seen.placement = input.placement;
       seen.preExisting = input.preExistingChanges;
       seen.prompt = input.prompt;
+      seen.verify = input.verify;
       return { pid: 99_999_999 };
     },
     async resume() {
@@ -196,6 +199,54 @@ describe("checkout-first placement (ADR-0045)", () => {
     const after = await drain(runtime);
     expect(after.find((row) => row.id === "fix-login")?.status).toBe("running");
     expect(seen.calls).toEqual(["start:fix-login"]);
+  });
+
+  it("does not park a Skills playbook job on a dirty checkout", async () => {
+    root = await tempRoot();
+    const seen = makeSeen();
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git: makeGit({ "status --porcelain": " M src/app.ts\n?? notes.txt\n" }),
+      worker: capturingWorker(seen),
+      env: { CURSOR_API_KEY: "k" },
+    });
+    const first = await dispatchAndDrain(runtime, {
+      title: "Skill: commitpush",
+      jobId: "skill-commitpush",
+      playbook: "skill",
+    });
+    expect(first.job?.status).toBe("running");
+    expect(first.job?.confirm).toBeUndefined();
+    expect(first.job?.playbook).toBe("skill");
+    expect(first.job?.placement).toBe("checkout");
+    expect(first.job?.preExistingChanges).toEqual(["notes.txt", "src/app.ts"]);
+    expect(seen.verify).toBe(false);
+    expect(seen.prompt).toMatch(/global library/);
+    expect(seen.calls).toEqual(["start:skill-commitpush"]);
+  });
+
+  it("does not park a Skills playbook job behind an overlapping checkout", async () => {
+    root = await tempRoot();
+    await saveConfig(root, { maxJobs: 2 });
+    const seen = makeSeen();
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git: makeGit(),
+      worker: capturingWorker(seen),
+      env: { CURSOR_API_KEY: "k" },
+    });
+    await dispatchAndDrain(runtime, {
+      title: "fix login",
+      jobId: "fix-login",
+    });
+    const skill = await dispatchAndDrain(runtime, {
+      title: "Skill: commitpush",
+      jobId: "skill-commitpush",
+      playbook: "skill",
+    });
+    expect(skill.job?.status).toBe("running");
+    expect(skill.job?.confirm).toBeUndefined();
+    expect(seen.calls).toEqual(["start:fix-login", "start:skill-commitpush"]);
   });
 
   it("honours an explicit worktree ask", async () => {

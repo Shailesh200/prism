@@ -391,6 +391,17 @@ describe("composeJobResult", () => {
     expect(text).toMatch(/\n\n/);
   });
 
+  it("omits the empty-tree line for a skill playbook result", () => {
+    const text = composeJobResult({
+      gitSummary: "",
+      assistant: "Never git add -A.",
+      committed: false,
+      omitEmptyTree: true,
+    });
+    expect(text).toBe("Never git add -A.");
+    expect(text).not.toContain("Produced no reviewable change.");
+  });
+
   it("does not hide a failing check behind done", () => {
     const text = composeJobResult({
       gitSummary: "2 files changed",

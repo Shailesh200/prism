@@ -6,7 +6,14 @@ import type {
   SecurityReport,
   TestingReport,
 } from "@repo-prism/shared";
-import { AreaChart, CardIcon, Gauge, relativeTime } from "@repo-prism/ui";
+import {
+  AreaChart,
+  CardIcon,
+  CartesianFrame,
+  Gauge,
+  pickAxisIndices,
+  relativeTime,
+} from "@repo-prism/ui";
 import {
   Activity,
   ArrowRight,
@@ -1357,6 +1364,14 @@ function bucketLabel(ms: number, granularity: "day" | "week"): string {
   return granularity === "week" ? `Week of ${d}` : d;
 }
 
+function axisDateLabel(ms: number): string {
+  return new Date(ms).toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
+}
+
 /** Real commit-activity area chart derived from git day/week buckets. */
 function ActivityChart(props: {
   values: number[];
@@ -1375,6 +1390,10 @@ function ActivityChart(props: {
   const points = props.values.map((v, i) => ({
     x: pad + i * stepX,
     y: h - pad - (v / max) * (h - pad * 2),
+  }));
+  const xLabels = pickAxisIndices(n).map((i) => ({
+    fraction: (points[i]?.x ?? 0) / w,
+    label: axisDateLabel(props.starts[i] ?? 0),
   }));
 
   const plotRef = useRef<HTMLDivElement>(null);
@@ -1398,6 +1417,19 @@ function ActivityChart(props: {
     setLastIndex(next);
   };
 
+  const onKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>): void => {
+    if (n === 0) return;
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const base = hover ?? lastIndex;
+    const next =
+      e.key === "ArrowLeft"
+        ? Math.max(0, base - 1)
+        : Math.min(n - 1, base + 1);
+    setHover(next);
+    setLastIndex(next);
+  };
+
   const idx = Math.max(0, Math.min(hover ?? lastIndex, n - 1));
   const hp = points[idx];
   const leftPct = hp ? (hp.x / w) * 100 : 0;
@@ -1405,48 +1437,70 @@ function ActivityChart(props: {
 
   return (
     <div className="ov-chart">
-      <div
-        ref={plotRef}
-        className="ov-chart__plot"
-        onMouseMove={onMove}
-        onMouseLeave={() => setHover(null)}
+      <CartesianFrame
+        width={w}
+        height={h}
+        pad={pad}
+        min={0}
+        max={max}
+        integerY
+        xLabels={xLabels}
       >
-        <AreaChart
-          values={props.values}
-          width={w}
-          height={h}
-          label={`${props.total} commits`}
-        />
+        <div
+          ref={plotRef}
+          className="ov-chart__plot"
+          tabIndex={0}
+          role="img"
+          aria-label={`${props.total} commits`}
+          onMouseMove={onMove}
+          onMouseLeave={() => setHover(null)}
+          onBlur={() => setHover(null)}
+          onKeyDown={onKeyDown}
+        >
+          <AreaChart
+            values={props.values}
+            width={w}
+            height={h}
+            pad={pad}
+            label={`${props.total} commits`}
+          />
 
-        {hp ? (
-          <>
-            <span
-              className="ov-chart__guide"
-              data-visible={visible ? "true" : "false"}
-              style={{ left: `${leftPct}%` }}
-              aria-hidden
-            />
-            <span
-              className="ov-chart__point"
-              data-visible={visible ? "true" : "false"}
-              style={{ left: `${leftPct}%`, top: `${hp.y}px` }}
-              aria-hidden
-            />
-            <div
-              className="ov-chart__tip"
-              data-visible={visible ? "true" : "false"}
-              style={{ left: `${leftPct}%` }}
-              role="status"
-            >
-              <strong>{props.values[idx]}</strong> commit
-              {props.values[idx] === 1 ? "" : "s"}
-              <span className="ov-chart__tip-date">
-                {bucketLabel(props.starts[idx] ?? 0, props.granularity)}
-              </span>
-            </div>
-          </>
-        ) : null}
-      </div>
+          {hp ? (
+            <>
+              <span
+                className="ov-chart__guide"
+                data-visible={visible ? "true" : "false"}
+                style={{ left: `${leftPct}%` }}
+                aria-hidden
+              />
+              <span
+                className="ov-chart__point"
+                data-visible={visible ? "true" : "false"}
+                style={{
+                  left: `${leftPct}%`,
+                  top: `${(hp.y / h) * 100}%`,
+                }}
+                aria-hidden
+              />
+              <div
+                className="ov-chart__tip"
+                data-visible={visible ? "true" : "false"}
+                style={{
+                  left: `${leftPct}%`,
+                  top: `${(hp.y / h) * 100}%`,
+                }}
+                role="status"
+              >
+                <strong>{props.values[idx]}</strong> commit
+                {props.values[idx] === 1 ? "" : "s"}
+                <span className="ov-chart__tip-date">
+                  {bucketLabel(props.starts[idx] ?? 0, props.granularity)}
+                </span>
+              </div>
+            </>
+          ) : null}
+        </div>
+      </CartesianFrame>
       <div className="ov-chart__legend">
         <span>
           <span className="ov-dot" style={{ background: "#00C2C2" }} /> Commits

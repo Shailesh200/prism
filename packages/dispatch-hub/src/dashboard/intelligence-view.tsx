@@ -45,6 +45,7 @@ import { RepoSelect } from "./repo-select.js";
 import { jobsHash } from "./router.js";
 import { getJson, postJson } from "./session.js";
 import { showConsoleToast } from "./console-toast.js";
+import { PLAYGROUND_DEFAULT } from "./console-footer.js";
 
 const IRIS_WORKSPACE_KEY = "prism.console.iris.workspace";
 
@@ -639,7 +640,7 @@ export function IntelligenceView(props: {
             }}
             onBlastRadius={() => {
               window.open(
-                "http://prismhq.localhost:5173/#/blast",
+                `${PLAYGROUND_DEFAULT}/#/blast`,
                 "_blank",
                 "noreferrer",
               );

@@ -15,6 +15,7 @@ import {
   trackGridPercents,
   jobsChronological,
   jobsInRange,
+  jobsOutsideRange,
   matchesFilter,
   overflowMoreLabel,
   packTimelineLanes,
@@ -50,6 +51,7 @@ import {
   verifyTag,
   visibleFleetRepos,
   PLAYBOOKS,
+  SKILL_PLAYBOOK,
   playbookHint,
   compactJobPrd,
   composeQueuedPrd,
@@ -202,6 +204,30 @@ describe("pulseSections", () => {
   });
 });
 
+describe("jobsOutsideRange", () => {
+  it("counts jobs the 1h window hides", () => {
+    const now = Date.parse("2026-09-04T12:00:00.000Z");
+    const rows = [
+      job({
+        id: "old",
+        status: "done",
+        createdAt: "2026-09-04T08:00:00.000Z",
+        finishedAt: "2026-09-04T08:10:00.000Z",
+        updatedAt: "2026-09-04T08:10:00.000Z",
+      }),
+      job({
+        id: "recent",
+        status: "done",
+        createdAt: "2026-09-04T11:30:00.000Z",
+        finishedAt: "2026-09-04T11:40:00.000Z",
+        updatedAt: "2026-09-04T11:40:00.000Z",
+      }),
+    ];
+    expect(jobsOutsideRange(rows, "1h", now)).toBe(1);
+    expect(jobsOutsideRange(rows, "all", now)).toBe(0);
+  });
+});
+
 describe("pulseIdleRepos", () => {
   it("names registered repos with nothing in range", () => {
     const now = Date.parse("2026-09-04T12:00:00.000Z");
@@ -245,6 +271,8 @@ describe("waitWorkMeter", () => {
     );
     expect(meter.waited).toBe("30m");
     expect(meter.worked).toBe("30m");
+    expect(meter.waitVerb).toBe("waited");
+    expect(meter.workVerb).toBe("worked");
     expect(meter.waitPct).toBe(50);
     expect(meter.workPct).toBe(50);
     expect(meter.outcomePct).toBe(0);
@@ -305,6 +333,62 @@ describe("waitWorkMeter", () => {
     expect(meter.workPct).toBe(0);
     expect(meter.outcomePct).toBe(100);
     expect(meter.outcome).toBe("error");
+  });
+
+  it("counts working time on a live job that never got startedAt", () => {
+    const now = Date.parse("2026-09-04T12:00:00.000Z");
+    const meter = waitWorkMeter(
+      job({
+        id: "live",
+        status: "running",
+        createdAt: "2026-09-04T11:00:00.000Z",
+        queuedAt: "2026-09-04T11:00:00.000Z",
+        updatedAt: "2026-09-04T12:00:00.000Z",
+      }),
+      now,
+    );
+    expect(meter.waitVerb).toBe("waited");
+    expect(meter.workVerb).toBe("working");
+    expect(meter.waited).toBe("0s");
+    expect(meter.worked).toBe("1h");
+    expect(meter.workPct).toBeGreaterThan(0);
+  });
+
+  it("uses the working lifecycle stamp when startedAt is missing", () => {
+    const now = Date.parse("2026-09-04T12:00:00.000Z");
+    const meter = waitWorkMeter(
+      job({
+        id: "live",
+        status: "running",
+        createdAt: "2026-09-04T11:00:00.000Z",
+        queuedAt: "2026-09-04T11:00:00.000Z",
+        lifecycle: [
+          { kind: "queued", at: "2026-09-04T11:00:00.000Z" },
+          { kind: "working", at: "2026-09-04T11:30:00.000Z" },
+        ],
+      }),
+      now,
+    );
+    expect(meter.waited).toBe("30m");
+    expect(meter.worked).toBe("30m");
+    expect(meter.workVerb).toBe("working");
+  });
+
+  it("says waiting while the job is still queued", () => {
+    const now = Date.parse("2026-09-04T12:00:00.000Z");
+    const meter = waitWorkMeter(
+      job({
+        id: "q",
+        status: "queued",
+        createdAt: "2026-09-04T11:50:00.000Z",
+        queuedAt: "2026-09-04T11:50:00.000Z",
+      }),
+      now,
+    );
+    expect(meter.waitVerb).toBe("waiting");
+    expect(meter.waited).toBe("10m");
+    expect(meter.worked).toBe("—");
+    expect(meter.workVerb).toBe("worked");
   });
 });
 
@@ -1221,10 +1305,13 @@ describe("PLAYBOOKS", () => {
     expect(labels).toContain("Review");
     expect(labels).not.toContain("Review a PR");
     expect(labels).toContain("From a finding");
+    expect(labels).toContain("Skills");
     expect(labels).toContain("Audit");
     expect(labels).toContain("Test");
     expect(labels).toContain("Investigate");
     expect(playbookHint("finding")).toMatch(/write-up/i);
+    expect(playbookHint("skill")).toMatch(/globally/i);
+    expect(SKILL_PLAYBOOK).toBe("skill");
     expect(reviewTargetOf("uncommitted")?.label).toBe("Uncommitted changes");
   });
 

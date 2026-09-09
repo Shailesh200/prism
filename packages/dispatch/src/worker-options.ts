@@ -51,13 +51,13 @@ export function mcpArgsWithWorkspace(
   return [...args, "--workspace", workspaceRoot];
 }
 
-/** Built-in edit tools. No shell (ADR-0041). */
+/** Built-in edit tools. No shell (ADR-0041). No `ls` — that is how workers wander. */
 export const WORKER_EDIT_TOOLS = [
   "read",
   "edit",
   "grep",
   "glob",
-  "ls",
+  "semSearch",
   "delete",
   "readLints",
 ] as const;
@@ -99,6 +99,7 @@ export const WORKER_INTELLIGENCE_TOOLS = [
   "test_impact",
   "find_symbol",
   "explain_area",
+  "list_packages",
 ] as const;
 
 export type WorkerIntelligenceTool = (typeof WORKER_INTELLIGENCE_TOOLS)[number];

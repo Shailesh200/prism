@@ -111,6 +111,7 @@ async function main(): Promise<void> {
     ...(payload.preExistingChanges
       ? { preExistingChanges: payload.preExistingChanges }
       : {}),
+    ...(payload.playbook ? { playbook: payload.playbook } : {}),
   };
   const finish = {
     patch: (partial: Partial<RunState>, options?: { immediate?: boolean }) =>

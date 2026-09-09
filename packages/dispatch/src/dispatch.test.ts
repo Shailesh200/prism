@@ -67,6 +67,8 @@ describe("worker prompt", () => {
     expect(text).toContain("bun install");
     expect(text).toContain("no shell");
     expect(text).toContain("Finish as soon as the brief is done");
+    expect(text).toContain("package map");
+    expect(text).toContain("semSearch");
     expect(text).toContain("Do not start new Dispatch jobs");
     expect(text).toContain("change nothing");
     expect(text).toContain("Prefer existing auth helpers");
@@ -126,5 +128,33 @@ describe("worker prompt", () => {
     expect(text.indexOf("typecheck failed")).toBeLessThan(
       text.indexOf("Do not leak tokens"),
     );
+  });
+
+  it("tells a Skills playbook worker not to touch the repo or wait on checks", () => {
+    const job: JobRecord = {
+      id: "J1",
+      title: "Skill: commitpush",
+      playbook: "skill",
+      prd: "Write the skill.",
+      branch: "main",
+      worktreePath: "/tmp/prism",
+      source: "checkout",
+      status: "running",
+      lastStep: "",
+      nextStep: "",
+      waitingOn: "",
+      createdAt: "t",
+      updatedAt: "t",
+    };
+    const text = workerPrompt({
+      job,
+      memories: [],
+      placement: "checkout",
+    });
+    expect(text).toMatch(/global library/);
+    expect(text).toMatch(/skips dirty-tree confirmation/);
+    expect(text).not.toMatch(/Prism runs typecheck/);
+    expect(text).not.toMatch(/Edit existing source/);
+    expect(text).toContain("Write the skill.");
   });
 });

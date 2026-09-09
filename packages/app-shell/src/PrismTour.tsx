@@ -84,8 +84,8 @@ const DEFAULT_STEPS: readonly TourStep[] = [
   },
   {
     id: "impact",
-    title: "Blast Radius",
-    body: "See what a change touches before you merge. From the editor, right-click a file for Blast Radius.",
+    title: "Impact",
+    body: "Pick a file, then choose Explain, Blast radius, or Review changes — one target, three questions.",
     target: '[data-prism-tour="impact"]',
     navigateTo: "blast",
   },
@@ -95,22 +95,6 @@ const DEFAULT_STEPS: readonly TourStep[] = [
     body: "Health over time and region movers — catch regressions early without leaving the IDE.",
     target: '[data-prism-tour="trends"]',
     navigateTo: "trends",
-  },
-  {
-    id: "review",
-    title: "Change Review",
-    body: "Aggregate blast radius across dirty files. From Source Control, use Review Changes on your selection.",
-    target: '[data-prism-tour="review"]',
-    navigateTo: "review",
-    collapseSidebar: true,
-  },
-  {
-    id: "explain",
-    title: "Explain This Area",
-    body: "A quick brief on a file or folder — domains, dependencies, and local ownership. Also available from the editor context menu.",
-    target: '[data-prism-tour="explain"]',
-    navigateTo: "explain",
-    collapseSidebar: true,
   },
   {
     id: "integrations",

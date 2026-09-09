@@ -123,6 +123,27 @@ describe("job voice", () => {
     expect(text).not.toMatch(/worktree|job-2405972d/i);
   });
 
+  it("includes token usage on a finished job", () => {
+    const text = listJobsSpeak([
+      {
+        id: "lookup",
+        title: "Lookup path",
+        status: "done",
+        agentStatus: "done",
+        gitStatus: "clean",
+        resultSummary: "Found the handler.",
+        tokenUsage: {
+          inputTokens: 12439,
+          outputTokens: 506,
+          contextTokens: 12439,
+        },
+      },
+    ]);
+    expect(text).toMatch(/12,439 in/);
+    expect(text).toMatch(/506 out/);
+    expect(text).toMatch(/12,439 context/);
+  });
+
   it("never mentions API keys in init or worker errors", () => {
     expect(initSpeak(true, "dev@prism.test")).toMatch(/You're set as/);
     expect(initSpeak(true, "dev@prism.test")).not.toMatch(/API key|mcp\.json/i);

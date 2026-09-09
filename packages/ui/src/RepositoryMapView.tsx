@@ -26,6 +26,8 @@ import type {
   RepositoryMap,
 } from "@repo-prism/shared";
 import { layoutCardTree, toggleExpanded } from "./card-tree-layout.js";
+import { FileExplorer } from "./FileExplorer.js";
+import { presentFileZoom, FILE_ZOOM_EXPLORER_THRESHOLD } from "./file-zoom.js";
 import { relativePrismTime as relativeTime } from "./format-prism-date.js";
 import { MapLayersPanel } from "./MapLayersPanel.js";
 import {
@@ -42,6 +44,7 @@ import {
   findTreeEntryById,
   folderCardEntries,
   nodesFromMemberFiles,
+  scopeGraphNodes,
 } from "./file-scope.js";
 import type { TreeEntry } from "./file-tree.js";
 import { layoutOverviewGraph } from "./overview-layout.js";
@@ -465,10 +468,16 @@ function toFlow(
   selectedId: string | null,
   expanded: ReadonlySet<string>,
   scope: TreeScope | null,
+  perLevelLimit?: number,
 ): { nodes: Node[]; edges: Edge[] } {
   if (isFileZoom(map.zoom)) {
     const roots = treeRootsForMap(map, scope);
-    return layoutCardTree(roots, expanded, selectedId);
+    return layoutCardTree(
+      roots,
+      expanded,
+      selectedId,
+      perLevelLimit == null ? undefined : { perLevelLimit },
+    );
   }
 
   return layoutOverviewGraph(
@@ -479,12 +488,32 @@ function toFlow(
   );
 }
 
+function explorerNodesForScope(
+  map: RepositoryMap,
+  scope: TreeScope | null,
+): GraphNodeDto[] {
+  const base =
+    scope?.memberFiles && scope.memberFiles.length > 0
+      ? nodesFromMemberFiles(scope.memberFiles)
+      : map.graph.nodes;
+  if (!scope?.folderPath) {
+    return base.filter((n) => n.kind === "file" || n.kind === "symbol");
+  }
+  return scopeGraphNodes(base, {
+    title: scope.folderPath,
+    kind: "folder",
+    sourceNodeId: `folder:${scope.folderPath}`,
+    pathPrefix: scope.folderPath,
+  });
+}
+
 function MapCanvas(props: {
   map: RepositoryMap;
   selectedId: string | null;
   expanded: ReadonlySet<string>;
   scope: TreeScope | null;
   activeLayerIds: readonly MapLayerId[];
+  perLevelLimit?: number;
   onSelect: (id: string | null) => void;
   onToggle: (id: string) => void;
   dimLayers: boolean;
@@ -496,8 +525,21 @@ function MapCanvas(props: {
   const scopeKey = `${props.scope?.folderPath ?? ""}|${props.scope?.memberFiles?.join(",") ?? ""}`;
   const layersKey = props.activeLayerIds.join(",");
   const initial = useMemo(
-    () => toFlow(props.map, props.selectedId, props.expanded, props.scope),
-    [props.map, props.selectedId, props.expanded, props.scope],
+    () =>
+      toFlow(
+        props.map,
+        props.selectedId,
+        props.expanded,
+        props.scope,
+        props.perLevelLimit,
+      ),
+    [
+      props.map,
+      props.selectedId,
+      props.expanded,
+      props.scope,
+      props.perLevelLimit,
+    ],
   );
   const [nodes, setNodes, onNodesChange] = useNodesState(initial.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initial.edges);
@@ -508,6 +550,7 @@ function MapCanvas(props: {
       props.selectedId,
       props.expanded,
       props.scope,
+      props.perLevelLimit,
     );
     const showDeps = props.activeLayerIds.includes("dependency");
     const byId = new Map(props.map.graph.nodes.map((n) => [n.id, n]));
@@ -547,6 +590,7 @@ function MapCanvas(props: {
     props.expanded,
     props.scope,
     props.activeLayerIds,
+    props.perLevelLimit,
   ]);
 
   return (
@@ -692,6 +736,8 @@ function MapViewInner(props: RepositoryMapViewProps): ReactElement {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [treeScope, setTreeScope] = useState<TreeScope | null>(null);
   const [pendingScope, setPendingScope] = useState<TreeScope | null>(null);
+  const [cardPage, setCardPage] = useState(1);
+  const [forceList, setForceList] = useState(false);
   const [activeLayerIds, setActiveLayerIds] = useState<MapLayerId[]>(() => [
     ...props.map.activeLayerIds,
   ]);
@@ -838,12 +884,15 @@ function MapViewInner(props: RepositoryMapViewProps): ReactElement {
 
   const visibleCount = useMemo(() => {
     if (!isFileZoom(props.map.zoom)) return props.map.graph.nodes.length;
-    return layoutCardTree(
-      treeRootsForMap(props.map, treeScope),
-      expanded,
-      selectedId,
-    ).nodes.length;
-  }, [props.map, treeScope, expanded, selectedId]);
+    const roots = treeRootsForMap(props.map, treeScope);
+    const presentation = presentFileZoom(roots, cardPage);
+    if (forceList || presentation.mode === "explorer") {
+      return explorerNodesForScope(props.map, treeScope).length;
+    }
+    return layoutCardTree(roots, expanded, selectedId, {
+      perLevelLimit: presentation.cardLimit,
+    }).nodes.length;
+  }, [props.map, treeScope, expanded, selectedId, cardPage, forceList]);
 
   useEffect(() => {
     setDim(true);
@@ -859,10 +908,17 @@ function MapViewInner(props: RepositoryMapViewProps): ReactElement {
   useEffect(() => {
     setExpanded(new Set());
     setSelectedId(null);
+    setCardPage(1);
+    setForceList(false);
     if (!isFileZoom(props.map.zoom)) {
       setTreeScope(null);
     }
   }, [props.map.zoom]);
+
+  useEffect(() => {
+    setCardPage(1);
+    setForceList(false);
+  }, [treeScope?.folderPath, treeScope?.memberFiles?.join(",")]);
 
   useEffect(() => {
     if (pendingScope === null) return;
@@ -924,6 +980,22 @@ function MapViewInner(props: RepositoryMapViewProps): ReactElement {
       return;
     }
 
+    if (
+      entry.children.length > FILE_ZOOM_EXPLORER_THRESHOLD &&
+      entry.path
+    ) {
+      setTreeScope({
+        folderPath: entry.path,
+        ...(treeScope?.memberFiles
+          ? { memberFiles: treeScope.memberFiles }
+          : {}),
+      });
+      setCardPage(1);
+      setForceList(false);
+      setExpanded(new Set());
+      return;
+    }
+
     setExpanded((prev) => toggleExpanded(prev, entry));
   };
 
@@ -941,6 +1013,14 @@ function MapViewInner(props: RepositoryMapViewProps): ReactElement {
       featureLens ? FEATURE_LENS_BASE_ZOOM : FEATURE_LENS_ZOOM,
     );
   };
+
+  const fileRoots = isFileZoom(props.map.zoom)
+    ? treeRootsForMap(props.map, treeScope)
+    : [];
+  const fileZoom = presentFileZoom(fileRoots, cardPage);
+  const useExplorer =
+    isFileZoom(props.map.zoom) &&
+    (forceList || fileZoom.mode === "explorer");
 
   return (
     <div className="prism-map prism-theme">
@@ -1201,22 +1281,76 @@ function MapViewInner(props: RepositoryMapViewProps): ReactElement {
           ) : null}
         </nav>
 
-        <ReactFlowProvider>
-          <MapCanvas
-            map={props.map}
+        {useExplorer ? (
+          <FileExplorer
+            nodes={explorerNodesForScope(props.map, treeScope)}
             selectedId={selectedId}
-            expanded={expanded}
-            scope={treeScope}
-            activeLayerIds={activeLayerIds}
-            dimLayers={dim}
-            onSelect={(id) => {
-              if (id?.startsWith("group:")) return;
+            filterQuery={query}
+            onSelectNode={(id) => {
               setSelectedId(id);
               props.onSelectNode?.(id);
             }}
-            onToggle={onToggle}
           />
-        </ReactFlowProvider>
+        ) : (
+          <ReactFlowProvider>
+            <MapCanvas
+              map={props.map}
+              selectedId={selectedId}
+              expanded={expanded}
+              scope={treeScope}
+              activeLayerIds={activeLayerIds}
+              {...(isFileZoom(props.map.zoom)
+                ? { perLevelLimit: fileZoom.cardLimit }
+                : {})}
+              dimLayers={dim}
+              onSelect={(id) => {
+                if (id?.startsWith("group:")) return;
+                setSelectedId(id);
+                props.onSelectNode?.(id);
+              }}
+              onToggle={onToggle}
+            />
+          </ReactFlowProvider>
+        )}
+
+        {isFileZoom(props.map.zoom) ? (
+          <div className="prism-map__more">
+            {useExplorer ? (
+              fileZoom.mode === "cards" ? (
+                <button
+                  type="button"
+                  className="prism-map__more-btn"
+                  onClick={() => setForceList(false)}
+                >
+                  Show as cards
+                </button>
+              ) : (
+                <span className="prism-map__more-note">
+                  Large folder — browsing as a list
+                </span>
+              )
+            ) : (
+              <>
+                {fileZoom.canShowMore ? (
+                  <button
+                    type="button"
+                    className="prism-map__more-btn"
+                    onClick={() => setCardPage((p) => p + 1)}
+                  >
+                    Show more ({fileZoom.hiddenCount} remaining)
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="prism-map__more-btn prism-map__more-btn--ghost"
+                  onClick={() => setForceList(true)}
+                >
+                  Browse as list
+                </button>
+              </>
+            )}
+          </div>
+        ) : null}
 
         {emptyState ? (
           <div className="prism-map__empty" role="status">
@@ -1236,7 +1370,9 @@ function MapViewInner(props: RepositoryMapViewProps): ReactElement {
 
         <div className="prism-map__legend" aria-hidden>
           {isFileZoom(props.map.zoom)
-            ? "Double-click a folder to expand · click a file to inspect"
+            ? useExplorer
+              ? "Scroll the list · click a file to inspect"
+              : "Double-click a folder to expand · click a file to inspect"
             : "Double-click a module to open its files · use the breadcrumb to go back"}
           {props.map.zoom === "symbol" &&
           props.map.truncated &&

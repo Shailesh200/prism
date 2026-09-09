@@ -1,5 +1,7 @@
 /**
- * Playground Vite on :5173, parked with the same down page as the Console.
+ * Playground Vite on :17331 (next to the Console on :17330), parked with the
+ * same down page as the Console. 5173 is Vite’s default and collides with
+ * other local apps; override with `PRISM_PLAYGROUND_PORT` when needed.
  *
  * Sleep frees the port (kills whatever is listening) and the hub serves
  * “Prism is down”. Wake starts `apps/playground` again when this repo has one.
@@ -15,7 +17,7 @@ import { readJsonFile, writeJsonFile } from "./json-file.js";
 
 const execFileAsync = promisify(execFile);
 
-export const PLAYGROUND_PORT = 5173;
+export const PLAYGROUND_PORT = 17331;
 
 export type PlaygroundMode = "vite" | "asleep";
 
@@ -39,7 +41,7 @@ export function playgroundPort(env: HubEnv = process.env): number {
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : PLAYGROUND_PORT;
 }
 
-/** Tests must not steal the user's :5173. */
+/** Tests must not steal the user's playground port. */
 export function effectivePlaygroundPort(env: HubEnv = process.env): number {
   if (env.PRISM_PLAYGROUND_PORT?.trim()) return playgroundPort(env);
   if (process.env.VITEST === "true") return 0;
@@ -186,25 +188,42 @@ export async function spawnPlaygroundVite(input: {
   readonly workspaceRoot: string;
   readonly extraRoots?: readonly string[];
   readonly env?: HubEnv;
+  readonly port?: number;
 }): Promise<{ pid: number } | undefined> {
   const env = input.env ?? process.env;
+  const port = input.port ?? playgroundPort(env);
+  if (port <= 0) return undefined;
   const app = await resolvePlaygroundApp(
     input.workspaceRoot,
     input.extraRoots ?? [],
     env,
   );
   if (!app) return undefined;
-  const child = spawn("bun", ["run", "dev"], {
-    cwd: app,
-    detached: true,
-    stdio: "ignore",
-    env: {
-      ...process.env,
-      ...(input.env as NodeJS.ProcessEnv),
-      PRISM_PLAYGROUND_ROOT: input.workspaceRoot,
+  const child = spawn(
+    "bun",
+    [
+      "run",
+      "dev",
+      "--",
+      "--port",
+      String(port),
+      "--strictPort",
+      "--host",
+      "127.0.0.1",
+    ],
+    {
+      cwd: app,
+      detached: true,
+      stdio: "ignore",
+      env: {
+        ...process.env,
+        ...(input.env as NodeJS.ProcessEnv),
+        PRISM_PLAYGROUND_ROOT: input.workspaceRoot,
+        PRISM_PLAYGROUND_PORT: String(port),
+      },
+      windowsHide: true,
     },
-    windowsHide: true,
-  });
+  );
   child.unref();
   if (typeof child.pid !== "number") return undefined;
   return { pid: child.pid };

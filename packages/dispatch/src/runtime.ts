@@ -65,6 +65,7 @@ import {
   reapJobs,
 } from "./run-state.js";
 import { forgetMemory, loadMemories, remember } from "./memory.js";
+import { isSkillPlaybook } from "./playbook.js";
 import { listSkills, readSkill, skillSpeak } from "./skills.js";
 import {
   DispatchConfigSchema,
@@ -77,7 +78,7 @@ import {
 import {
   loadCursorSdk,
   resolveMcpLaunch,
-  workerPrompt,
+  composeWorkerPrompt,
   verificationFixExtra,
   type WorkerPort,
 } from "./worker.js";
@@ -477,13 +478,14 @@ async function launchVerificationFix(
       mcpCommand: launch.command,
       mcpArgs: launch.args,
       workspaceRoot: options.workspaceRoot,
-      prompt: workerPrompt({
+      prompt: await composeWorkerPrompt({
         job,
         memories,
         extra: verificationFixExtra(failureDetail),
         subagents: config.subagents,
         placement: jobPlacement,
         jobInstructions: config.jobInstructions,
+        workspaceRoot: options.workspaceRoot,
       }),
       title: job.title,
       baseRef: await defaultBaseRef(options),
@@ -599,12 +601,13 @@ async function retryAsChildJob(
         : {}),
       ...(creds.apiKey ? { apiKey: creds.apiKey } : {}),
       ...(spawnModel ? { model: spawnModel } : {}),
-      prompt: workerPrompt({
+      prompt: await composeWorkerPrompt({
         job: child,
         memories,
         extra,
         placement: jobPlacement,
         jobInstructions: standing,
+        workspaceRoot: options.workspaceRoot,
       }),
     });
     agentId = started.agentId;
@@ -716,9 +719,15 @@ function placementForStart(
   configPlacement: JobPlacement,
   existing?: JobPlacement,
 ): JobPlacement {
+  // Skills live in ~/.prism, not the repo — never spin a worktree or join
+  // a dirty-tree gate for this playbook.
+  if (isSkillPlaybook(String(args.playbook ?? ""))) return "checkout";
   if (existing) return existing;
   if (args.placement === "checkout" || args.placement === "worktree") {
     return args.placement;
+  }
+  if (typeof args.worktreePath === "string" && args.worktreePath.trim()) {
+    return "worktree";
   }
   if (typeof args.branch === "string" && args.branch.trim()) {
     return "worktree";
@@ -823,7 +832,9 @@ async function startJob(
     // Placement resolves in the drain; an empty tree means "not placed yet".
     branch:
       existing?.branch ?? (typeof args.branch === "string" ? args.branch : ""),
-    worktreePath: existing?.worktreePath ?? "",
+    worktreePath:
+      existing?.worktreePath ??
+      (typeof args.worktreePath === "string" ? args.worktreePath.trim() : ""),
     source: existing?.source ?? "checkout",
     status: "queued",
     lastStep: "",
@@ -995,6 +1006,7 @@ async function listJobs(
         ? { confirmQuestion: job.confirm.question }
         : {}),
       ...(job.nextStep ? { nextStep: job.nextStep } : {}),
+      ...(job.tokenUsage ? { tokenUsage: job.tokenUsage } : {}),
     });
   }
   let message = listJobsSpeak(rows);
@@ -1286,9 +1298,9 @@ async function jobControl(
     const combinedExtra = [job.pendingContext, extra]
       .filter(Boolean)
       .join("\n\n");
-    const [memories, standing, spawnModel] = await Promise.all([
+    const [memories, configRow, spawnModel] = await Promise.all([
       loadMemories(options.workspaceRoot),
-      loadConfig(options.workspaceRoot).then((row) => row.jobInstructions),
+      loadConfig(options.workspaceRoot),
       backend === "cursor"
         ? cursorModelForSpawn(job.workerModel)
         : Promise.resolve(job.workerModel),
@@ -1298,7 +1310,9 @@ async function jobControl(
       memories,
       extra: combinedExtra,
       placement: jobPlacement,
-      jobInstructions: standing,
+      jobInstructions: configRow.jobInstructions,
+      subagents: configRow.subagents,
+      workspaceRoot: options.workspaceRoot,
     } as const;
     const placementFields = {
       placement: jobPlacement,
@@ -1319,6 +1333,9 @@ async function jobControl(
       mcpCommand: launch.command,
       mcpArgs: launch.args,
       workspaceRoot: options.workspaceRoot,
+      title: job.title,
+      verify: !isSkillPlaybook(job.playbook),
+      ...(job.playbook ? { playbook: job.playbook } : {}),
       ...placementFields,
       ...(creds.apiKey ? { apiKey: creds.apiKey } : {}),
       ...(spawnModel ? { model: spawnModel } : {}),
@@ -1331,13 +1348,13 @@ async function jobControl(
           prompt:
             action === "attach_context"
               ? combinedExtra || "Continue."
-              : workerPrompt(promptFields),
+              : await composeWorkerPrompt(promptFields),
         });
         if (resumed && typeof resumed.pid === "number") pid = resumed.pid;
       } else {
         const started = await resumeWorker.start({
           ...spawnBase,
-          prompt: workerPrompt(promptFields),
+          prompt: await composeWorkerPrompt(promptFields),
         });
         agentId = started.agentId ?? agentId;
         if (typeof started.pid === "number") pid = started.pid;

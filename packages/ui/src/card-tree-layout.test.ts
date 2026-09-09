@@ -166,6 +166,21 @@ describe("card-tree-layout", () => {
     expect(childGridCols(100)).toBe(6);
   });
 
+  it("caps siblings when perLevelLimit is set", () => {
+    const dense = Array.from({ length: 40 }, (_, i) => ({
+      id: `file:src/f${i}.ts`,
+      kind: "file",
+      label: `src/f${i}.ts`,
+      attrs: { path: `src/f${i}.ts` },
+    }));
+    const roots = buildFileTreeIndex(dense).root.children;
+    const laid = layoutCardTree(roots, new Set(["folder:src"]), null, {
+      perLevelLimit: 8,
+    });
+    const files = laid.nodes.filter((n) => n.id.startsWith("file:"));
+    expect(files.length).toBe(8);
+  });
+
   it("toggles expand and collapses descendants", () => {
     const roots = buildFileTreeIndex(nodes).root.children;
     const src = roots.find((r) => r.id === "folder:src")!;

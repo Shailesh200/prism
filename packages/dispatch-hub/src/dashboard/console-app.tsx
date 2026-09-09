@@ -37,7 +37,7 @@ import {
   type ReactElement,
 } from "react";
 import { ComposeDrawer, InstructionDrawer } from "./compose-drawer.js";
-import { ConsoleFooter } from "./console-footer.js";
+import { ConsoleFooter, PLAYGROUND_DEFAULT } from "./console-footer.js";
 import { ConsoleToastHost, showConsoleToast } from "./console-toast.js";
 import { FindingsView } from "./findings-view.js";
 import {
@@ -47,8 +47,10 @@ import {
   VIEW_STORAGE_KEY,
   hydrateJobs,
   jobsInRange,
+  jobsOutsideRange,
   parseFleetView,
   selectedRangeWindow,
+  SKILL_PLAYBOOK,
   type FleetRange,
   type FleetViewMode,
   type TimeWindow,
@@ -127,14 +129,18 @@ export function ConsoleApp(): ReactElement {
   const workspaces = useWorkspaces(token, feed);
   const [version, setVersion] = useState<string | undefined>();
   const [playgroundUrl, setPlaygroundUrl] = useState(
-    "http://prismhq.localhost:5173/",
+    `${PLAYGROUND_DEFAULT}/`,
   );
   const [update, setUpdate] = useState<{
     readonly current: string;
     readonly latest?: string;
     readonly stale: boolean;
+    readonly hop?: "current" | "reload" | "local";
+    readonly localCheckout?: boolean;
   }>();
   const [updateDismissed, setUpdateDismissed] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [updateMessage, setUpdateMessage] = useState<string | undefined>();
   const [host, setHost] = useState<HostTelemetry | undefined>();
   const [mode, setMode] = useState<FleetViewMode>(() =>
     parseFleetView(
@@ -158,9 +164,16 @@ export function ConsoleApp(): ReactElement {
         readonly playbook?: string;
         readonly finding?: JobSummary;
         readonly workspace?: string;
+        readonly placement?: "checkout" | "worktree";
+        readonly branch?: string;
+        readonly worktreePath?: string;
       }
     | { readonly open: false }
   >({ open: false });
+  const composeQueuedRef = useRef(false);
+  const [pendingSkill, setPendingSkill] = useState<
+    { readonly title: string; readonly queuedAt: string } | undefined
+  >();
   const [instructJob, setInstructJob] = useState<JobSummary | undefined>();
   const [focusId, setFocusId] = useState<string | undefined>();
   const [listDrawer, setListDrawer] = useState<{
@@ -233,6 +246,8 @@ export function ConsoleApp(): ReactElement {
       current: string;
       latest?: string;
       stale: boolean;
+      hop?: "current" | "reload" | "local";
+      localCheckout?: boolean;
     }>("/api/update", token)
       .then((body) => {
         if (!alive) return;
@@ -283,6 +298,21 @@ export function ConsoleApp(): ReactElement {
     () => jobsInRange(feed.summaries, timeWindow, nowMs),
     [feed.summaries, timeWindow, nowMs],
   );
+  const scopedJobs = useMemo(
+    () =>
+      feed.summaries.filter(
+        (job) =>
+          !repoFilter ||
+          repoFilter === "all" ||
+          job.workspacePath === repoFilter,
+      ),
+    [feed.summaries, repoFilter],
+  );
+  const outsideCount = jobsOutsideRange(scopedJobs, timeWindow, nowMs);
+  const showAllTime = useCallback(() => {
+    setRange("all");
+    setCustomWindow(undefined);
+  }, []);
   const repos = useVisibleRepos(rangedJobs, workspaces, filter, repoFilter);
   const listJobs = useMemo(
     () =>
@@ -486,10 +516,43 @@ export function ConsoleApp(): ReactElement {
           {update?.stale && update.latest && !updateDismissed ? (
             <div className="console-banner" role="status">
               <p className="console-banner__copy">
-                Prism {update.latest} is on npm. This Console is{" "}
-                {update.current}. Reload Prism MCP in this chat to hop.
+                {updateMessage ??
+                  (update.hop === "local"
+                    ? `Prism ${update.latest} is on npm. This Console is a local ${update.current} build — reload will not hop until you publish or run the npx install.`
+                    : `Prism ${update.latest} is on npm. This Console is ${update.current}. Cache it here, then reload Prism MCP in this chat to hop.`)}
               </p>
               <div className="console-banner__actions">
+                {update.hop !== "local" && !updateMessage ? (
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    disabled={updating}
+                    onClick={() => {
+                      setUpdating(true);
+                      void postJson<{
+                        ok: boolean;
+                        message: string;
+                      }>("/api/update", token, {})
+                        .then((result) => {
+                          setUpdateMessage(result.message);
+                          if (!result.ok) {
+                            showConsoleToast(result.message, "error");
+                          }
+                        })
+                        .catch((cause) =>
+                          showConsoleToast(
+                            cause instanceof Error
+                              ? cause.message
+                              : "Could not cache the update.",
+                            "error",
+                          ),
+                        )
+                        .finally(() => setUpdating(false));
+                    }}
+                  >
+                    {updating ? "Updating…" : "Update"}
+                  </Button>
+                ) : null}
                 <Button
                   size="sm"
                   variant="ghost"
@@ -547,6 +610,8 @@ export function ConsoleApp(): ReactElement {
                       range={timeWindow}
                       nowMs={nowMs}
                       loading={feed.loading}
+                      outsideCount={outsideCount}
+                      onShowAllTime={showAllTime}
                       onOpenRepo={(path) => go("dashboard", { repo: path })}
                       {...fleetActions}
                     />
@@ -577,6 +642,9 @@ export function ConsoleApp(): ReactElement {
                       jobs={listJobs}
                       nowMs={nowMs}
                       loading={feed.loading}
+                      outsideCount={outsideCount}
+                      filter={filter}
+                      onShowAllTime={showAllTime}
                       {...(focusId ? { selectedId: focusId } : {})}
                       {...fleetActions}
                     />
@@ -615,10 +683,24 @@ export function ConsoleApp(): ReactElement {
               <TreesView
                 token={token}
                 repos={workspaces}
+                filter={filter}
                 {...(repoFilter ? { repoFilter } : {})}
                 onOpenJob={(id) => {
                   setFocusId(id);
                   go("dashboard");
+                }}
+                onCompose={(input) => {
+                  setInstructJob(undefined);
+                  setFocusId(undefined);
+                  setCompose({
+                    open: true,
+                    workspace: input.workspace,
+                    placement: input.placement,
+                    ...(input.branch ? { branch: input.branch } : {}),
+                    ...(input.worktreePath
+                      ? { worktreePath: input.worktreePath }
+                      : {}),
+                  });
                 }}
               />
             ) : null}
@@ -627,18 +709,31 @@ export function ConsoleApp(): ReactElement {
                 token={token}
                 repos={workspaces}
                 jobs={feed.summaries}
-                onWatchJob={(id) => {
-                  setFocusId(id);
-                  go("dashboard");
+                {...(pendingSkill
+                  ? {
+                      pendingGenerateTitle: pendingSkill.title,
+                      pendingGenerateQueuedAt: pendingSkill.queuedAt,
+                    }
+                  : {})}
+                onWatchJob={(id) => setFocusId(id)}
+                jobActions={fleetActions}
+                onPendingGenerateConsumed={() => setPendingSkill(undefined)}
+                onCloseCompose={() => {
+                  setCompose({ open: false });
+                  setPendingSkill(undefined);
                 }}
                 onGenerate={(input) => {
+                  composeQueuedRef.current = false;
                   setInstructJob(undefined);
+                  setFocusId(undefined);
                   setCompose({
                     open: true,
                     title: input.title,
                     prd: input.prd,
-                    playbook: "console",
-                    ...(input.workspace ? { workspace: input.workspace } : {}),
+                    playbook: input.playbook ?? SKILL_PLAYBOOK,
+                    ...(input.workspace
+                      ? { workspace: input.workspace }
+                      : {}),
                   });
                 }}
               />
@@ -741,6 +836,7 @@ export function ConsoleApp(): ReactElement {
 
         {compose.open ? (
           <ComposeDrawer
+            key={`${compose.title ?? ""}:${compose.playbook ?? ""}:${compose.placement ?? ""}:${compose.worktreePath ?? ""}:${compose.branch ?? ""}`}
             token={token}
             workspaces={workspaces}
             jobs={feed.summaries}
@@ -749,18 +845,43 @@ export function ConsoleApp(): ReactElement {
               : repoFilter
                 ? { defaultWorkspace: repoFilter }
                 : {})}
-            {...(compose.title || compose.prd || compose.finding
+            {...(compose.title ||
+            compose.prd ||
+            compose.finding ||
+            compose.placement ||
+            compose.worktreePath ||
+            compose.branch
               ? {
                   preset: {
                     title: compose.title ?? "",
                     prd: compose.prd ?? "",
                     ...(compose.playbook ? { playbook: compose.playbook } : {}),
                     ...(compose.finding ? { finding: compose.finding } : {}),
+                    ...(compose.placement
+                      ? { placement: compose.placement }
+                      : {}),
+                    ...(compose.branch ? { branch: compose.branch } : {}),
+                    ...(compose.worktreePath
+                      ? { worktreePath: compose.worktreePath }
+                      : {}),
                   },
                 }
               : {})}
-            onClose={() => setCompose({ open: false })}
-            onQueued={(message) => showConsoleToast(message)}
+            onClose={() => {
+              setCompose({ open: false });
+              if (!composeQueuedRef.current) setPendingSkill(undefined);
+            }}
+            onQueued={(message) => {
+              composeQueuedRef.current = true;
+              showConsoleToast(message);
+              if (compose.title) {
+                setPendingSkill({
+                  title: compose.title,
+                  queuedAt: new Date().toISOString(),
+                });
+              }
+              void feed.refresh();
+            }}
           />
         ) : null}
 

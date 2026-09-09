@@ -21,6 +21,7 @@ import { findingsForRepo, findingsIndex, withSeedFinding } from "./findings.js";
 import {
   PLAYBOOKS,
   REVIEW_TARGETS,
+  SKILL_PLAYBOOK,
   composeQueuedPrd,
   playbookHint,
   playbookOf,
@@ -73,6 +74,9 @@ export function ComposeDrawer(props: {
     readonly prd: string;
     readonly playbook?: string;
     readonly finding?: JobSummary;
+    readonly placement?: "checkout" | "worktree";
+    readonly branch?: string;
+    readonly worktreePath?: string;
   };
   readonly onClose: () => void;
   readonly onQueued: (message: string) => void;
@@ -107,7 +111,13 @@ export function ComposeDrawer(props: {
   const [reviewTarget, setReviewTarget] = useState("pr");
   const [findingText, setFindingText] = useState("");
   const [placement, setPlacement] = useState<"checkout" | "worktree">(
-    "checkout",
+    props.preset?.placement === "worktree" ? "worktree" : "checkout",
+  );
+  const [targetBranch, setTargetBranch] = useState(
+    props.preset?.branch ?? "",
+  );
+  const [targetWorktree, setTargetWorktree] = useState(
+    props.preset?.worktreePath ?? "",
   );
   const [agent, setAgent] = useState<AgentChoice>(() => {
     if (typeof localStorage === "undefined") return "auto";
@@ -254,6 +264,8 @@ export function ComposeDrawer(props: {
             }
           : {}),
       });
+      const nextPlacement =
+        playbook === SKILL_PLAYBOOK ? "checkout" : placement;
       const result = await postJson<{ message?: string; error?: string }>(
         "/api/jobs",
         props.token,
@@ -262,9 +274,15 @@ export function ComposeDrawer(props: {
           title: title.trim(),
           prd: queuedPrd,
           playbook,
-          placement,
+          placement: nextPlacement,
           workerBackend: agent === "auto" ? undefined : agent,
           ...(model.trim() ? { workerModel: model.trim() } : {}),
+          ...(nextPlacement === "worktree" && targetBranch.trim()
+            ? { branch: targetBranch.trim() }
+            : {}),
+          ...(nextPlacement === "worktree" && targetWorktree.trim()
+            ? { worktreePath: targetWorktree.trim() }
+            : {}),
           ...(playbook === "finding" && selectedFinding
             ? { parentJobId: selectedFinding.id, origin: "finding" }
             : {}),
@@ -332,7 +350,14 @@ export function ComposeDrawer(props: {
             label="Playbook"
             hint={playbookHint(playbook)}
             value={playbook}
-            onChange={setPlaybook}
+            onChange={(id) => {
+              setPlaybook(id);
+              if (id === SKILL_PLAYBOOK) {
+                setPlacement("checkout");
+                setTargetBranch("");
+                setTargetWorktree("");
+              }
+            }}
             options={PLAYBOOKS.map((row) => ({
               value: row.id,
               label: row.label,
@@ -423,19 +448,35 @@ export function ComposeDrawer(props: {
           name="placement"
           legend="Placement"
           value={placement}
-          onChange={(value) =>
-            setPlacement(value === "worktree" ? "worktree" : "checkout")
-          }
+          onChange={(value) => {
+            const next = value === "worktree" ? "worktree" : "checkout";
+            setPlacement(next);
+            if (next === "checkout") {
+              setTargetBranch("");
+              setTargetWorktree("");
+              return;
+            }
+            setTargetBranch(props.preset?.branch ?? "");
+            setTargetWorktree(props.preset?.worktreePath ?? "");
+          }}
           options={[
             {
               value: "checkout",
               label: "Current worktree",
-              hint: "Edits stay uncommitted on this branch, in this folder",
+              hint:
+                playbook === SKILL_PLAYBOOK
+                  ? "Context only — this job does not edit the repo, so a dirty tree is fine"
+                  : "Edits stay uncommitted on this branch, in this folder",
             },
             {
               value: "worktree",
               label: "Isolated branch",
-              hint: "New branch in a separate worktree Prism reviews later",
+              hint:
+                playbook === SKILL_PLAYBOOK
+                  ? "Not needed for a skill. Prefer Current worktree"
+                  : targetWorktree
+                    ? `Runs on ${targetBranch || "this worktree"}`
+                    : "New branch in a separate worktree Prism reviews later",
             },
           ]}
         />

@@ -397,6 +397,19 @@ export async function dispatchHostRequest(
         data: result.value,
       };
     }
+    case "changedPaths": {
+      const result = session.getChangedPaths(
+        req.base === undefined ? undefined : { base: req.base },
+      );
+      if (!result.ok)
+        return { id: req.id, ok: false, error: result.error.message };
+      return {
+        id: req.id,
+        ok: true,
+        method: "changedPaths",
+        data: [...result.value.paths],
+      };
+    }
     case "explainArea": {
       const result = await session.explainArea(req.path);
       if (!result.ok)

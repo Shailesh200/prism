@@ -165,6 +165,10 @@ export const reviewChanges = (
   ...args: Parameters<NonNullable<PrismClient["fetchChangeReview"]>>
 ): ReturnType<NonNullable<PrismClient["fetchChangeReview"]>> =>
   client.fetchChangeReview!(...args);
+export const fetchChangedPaths = (
+  ...args: Parameters<NonNullable<PrismClient["fetchChangedPaths"]>>
+): ReturnType<NonNullable<PrismClient["fetchChangedPaths"]>> =>
+  client.fetchChangedPaths!(...args);
 export const explainArea = (
   ...args: Parameters<NonNullable<PrismClient["fetchExplainArea"]>>
 ): ReturnType<NonNullable<PrismClient["fetchExplainArea"]>> =>

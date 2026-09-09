@@ -117,7 +117,10 @@ async function readJsonBody(response: Response): Promise<unknown> {
 export async function getJson<T>(path: string, token: string): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(path, { headers: authHeaders(token) });
+    response = await fetch(path, {
+      headers: authHeaders(token),
+      cache: "no-store",
+    });
   } catch {
     // A dead daemon and a rejected request are different problems with
     // different fixes, so they must not share one message.

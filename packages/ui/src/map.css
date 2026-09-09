@@ -893,6 +893,54 @@ button.prism-crumbs__seg:hover {
   line-height: 1.35;
 }
 
+.prism-map__stage > .prism-explorer {
+  z-index: 1;
+}
+
+.prism-map__more {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 280px);
+}
+
+.prism-map__more-btn {
+  border: 1px solid var(--prism-line);
+  background: color-mix(in srgb, var(--prism-panel) 94%, transparent);
+  color: var(--prism-ink);
+  font-family: var(--prism-font);
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: var(--prism-radius-md);
+  padding: 8px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.prism-map__more-btn:hover {
+  border-color: var(--prism-brand);
+  color: var(--prism-brand-strong);
+}
+
+.prism-map__more-btn--ghost {
+  font-weight: 500;
+  color: var(--prism-ink-muted);
+}
+
+.prism-map__more-note {
+  font-size: 0.75rem;
+  color: var(--prism-ink-muted);
+  padding: 8px 12px;
+  border-radius: var(--prism-radius-md);
+  background: color-mix(in srgb, var(--prism-panel) 94%, transparent);
+  border: 1px solid var(--prism-line);
+}
+
 /* Custom map nav (replaces RF Controls) */
 .prism-map__nav-panel {
   margin: 0 16px 20px 0 !important;

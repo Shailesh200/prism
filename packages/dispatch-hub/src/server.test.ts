@@ -820,6 +820,32 @@ describe("hub HTTP", () => {
     const copy = (await duplicated.json()) as { name: string; status: string };
     expect(copy).toMatchObject({ name: "safe-change", status: "draft" });
 
+    const deleted = await fetch(`http://127.0.0.1:${port}/api/skills`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete", name: "commitpush" }),
+    });
+    expect(deleted.status).toBe(200);
+    expect(await deleted.json()).toMatchObject({ ok: true });
+
+    const refused = await fetch(`http://127.0.0.1:${port}/api/skills`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "delete",
+        name: "prism-safe-change",
+      }),
+    });
+    expect(refused.status).toBe(400);
+
+    const remaining = (await (
+      await fetch(`http://127.0.0.1:${port}/api/skills`, { headers: auth })
+    ).json()) as { skills: { name: string }[] };
+    expect(remaining.skills.map((row) => row.name)).not.toContain("commitpush");
+    expect(remaining.skills.map((row) => row.name)).toContain(
+      "prism-safe-change",
+    );
+
     const trees = (await (
       await fetch(`http://127.0.0.1:${port}/api/trees`, { headers: auth })
     ).json()) as { repos: unknown[] };
@@ -827,9 +853,25 @@ describe("hub HTTP", () => {
 
     const update = (await (
       await fetch(`http://127.0.0.1:${port}/api/update`, { headers: auth })
-    ).json()) as { current: string; stale: boolean };
+    ).json()) as {
+      current: string;
+      stale: boolean;
+      hop?: string;
+      localCheckout?: boolean;
+    };
     expect(update.stale).toBe(false);
     expect(update.current).toBeTruthy();
+    expect(update.hop).toBe("current");
+
+    const applied = (await (
+      await fetch(`http://127.0.0.1:${port}/api/update`, {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: "{}",
+      })
+    ).json()) as { ok: boolean; message: string };
+    expect(applied.ok).toBe(true);
+    expect(applied.message).toBeTruthy();
   });
 });
 

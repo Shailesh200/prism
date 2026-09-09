@@ -230,55 +230,64 @@ export function ChangeReviewScreen(
               </div>
 
               <div className="ov-card cr-table-card">
-                <table className="cr-table">
-                  <thead>
-                    <tr>
-                      <th>Path</th>
-                      <th>Risk</th>
-                      <th>Affected files</th>
-                      <th>Tests</th>
-                      <th>Breaking</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {report.items
-                      .slice()
-                      .sort((a, b) => b.risk - a.risk)
-                      .map((item: ChangeReviewItem) => (
-                        <tr key={item.path}>
-                          <td>
-                            {props.onOpenFile ? (
-                              <button
-                                type="button"
-                                className="set-link cr-path-btn ov-mono"
-                                onClick={() => props.onOpenFile?.(item.path)}
+                <div className="cr-table-scroll">
+                  <table className="cr-table">
+                    <thead>
+                      <tr>
+                        <th className="cr-table__path">Path</th>
+                        <th className="cr-table__risk">Risk</th>
+                        <th className="cr-table__affected">Affected files</th>
+                        <th className="cr-table__num">Tests</th>
+                        <th className="cr-table__num">Breaking</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {report.items
+                        .slice()
+                        .sort((a, b) => b.risk - a.risk)
+                        .map((item: ChangeReviewItem) => (
+                          <tr key={item.path}>
+                            <td className="cr-table__path">
+                              {props.onOpenFile ? (
+                                <button
+                                  type="button"
+                                  className="set-link cr-path-btn ov-mono"
+                                  title={item.path}
+                                  onClick={() => props.onOpenFile?.(item.path)}
+                                >
+                                  {item.path}
+                                </button>
+                              ) : (
+                                <span className="ov-mono" title={item.path}>
+                                  {item.path}
+                                </span>
+                              )}
+                            </td>
+                            <td className="cr-table__risk">
+                              <span
+                                className="cr-risk-pill"
+                                data-tier={riskTier(item.risk)}
                               >
-                                {item.path}
-                              </button>
-                            ) : (
-                              <span className="ov-mono">{item.path}</span>
-                            )}
-                          </td>
-                          <td>
-                            <span
-                              className="cr-risk-pill"
-                              data-tier={riskTier(item.risk)}
-                            >
-                              {riskLabel(item.risk)}
-                            </span>
-                          </td>
-                          <td>
-                            {item.hardAffectedCount !== undefined ||
-                            item.softAffectedCount !== undefined
-                              ? `${item.hardAffectedCount ?? 0} hard · ${item.softAffectedCount ?? 0} soft`
-                              : item.affectedFilesCount}
-                          </td>
-                          <td>{item.testsLikelyAffected.length}</td>
-                          <td>{item.breakingChanges.length}</td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
+                                {riskLabel(item.risk)}
+                              </span>
+                            </td>
+                            <td className="cr-table__affected">
+                              {item.hardAffectedCount !== undefined ||
+                              item.softAffectedCount !== undefined
+                                ? `${item.hardAffectedCount ?? 0} hard · ${item.softAffectedCount ?? 0} soft`
+                                : item.affectedFilesCount}
+                            </td>
+                            <td className="cr-table__num">
+                              {item.testsLikelyAffected.length}
+                            </td>
+                            <td className="cr-table__num">
+                              {item.breakingChanges.length}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </>
           ) : status === "idle" ? (

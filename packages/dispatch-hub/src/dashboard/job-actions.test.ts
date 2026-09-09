@@ -4,6 +4,7 @@ import {
   focusBarMeta,
   jobActionHandlers,
   jobActionItems,
+  SKILL_GENERATE_BAR_IDS,
 } from "./job-actions.js";
 
 const job = (
@@ -32,6 +33,7 @@ describe("jobActionItems", () => {
         (item) => item.id,
       );
       expect(ids, status).toContain("copy-link");
+      expect(ids, status).toContain("export-logs");
     }
   });
 
@@ -166,5 +168,22 @@ describe("focusBarMeta", () => {
       label: "Keep all",
       variant: "primary",
     });
+  });
+});
+
+describe("SKILL_GENERATE_BAR_IDS", () => {
+  it("keeps Resume, Pause, Cancel, and Retry on the chip", () => {
+    expect([...SKILL_GENERATE_BAR_IDS]).toEqual([
+      "resume",
+      "pause",
+      "cancel",
+      "retry",
+    ]);
+    const ids = jobActionItems({
+      job: job({ id: "live", status: "running" }),
+      onPause: () => undefined,
+      onCancel: () => undefined,
+    }).filter((item) => SKILL_GENERATE_BAR_IDS.has(item.id));
+    expect(ids.map((item) => item.id)).toEqual(["pause", "cancel"]);
   });
 });

@@ -1357,6 +1357,82 @@ fieldset.prism-field,
   }
 }
 
+/* —— Cartesian chart frame (Playground Trends / Overview) —— */
+.prism-chart {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) 22px;
+  column-gap: 8px;
+  row-gap: 2px;
+  width: 100%;
+  min-width: 0;
+}
+
+.prism-chart__y {
+  position: relative;
+  min-height: 0;
+}
+
+.prism-chart__y-tick {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+  font-family: var(--prism-mono, "JetBrains Mono", ui-monospace, monospace);
+  font-size: 10px;
+  line-height: 1;
+  color: var(--prism-ink-muted, #94a3b8);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.prism-chart__body {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: visible;
+}
+
+.prism-chart__grid {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.prism-chart__x {
+  grid-column: 2;
+  position: relative;
+  height: 22px;
+}
+
+.prism-chart__x-tick {
+  position: absolute;
+  top: 4px;
+  transform: translateX(-50%);
+  font-family: var(--prism-mono, "JetBrains Mono", ui-monospace, monospace);
+  font-size: 10px;
+  line-height: 1;
+  color: var(--prism-ink-muted, #94a3b8);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.prism-chart__x-tick:first-child {
+  transform: none;
+}
+
+.prism-chart__x-tick:last-child {
+  transform: translateX(-100%);
+}
+
+.prism-chart__x-tick:first-child:last-child {
+  transform: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .prism-input,
   .prism-textarea,

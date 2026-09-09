@@ -2,6 +2,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { CLI_COMMAND_NAMES } from "./command-names.js";
 import { COMMANDS } from "./commands.js";
 
 const srcDir = dirname(fileURLToPath(import.meta.url));
@@ -151,6 +152,7 @@ describe("command pack coherence (M-029)", () => {
 
     const implemented = COMMANDS.map((command) => command.name);
     expect([...documented].sort()).toEqual([...implemented].sort());
+    expect(implemented).toEqual([...CLI_COMMAND_NAMES]);
   });
 
   it("names commands consistently, so they are guessable", () => {

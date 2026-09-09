@@ -3,10 +3,11 @@ import {
   defaultGitRunner,
   discoverWorktrees,
   gitDirtyPaths,
+  isSkillPlaybook,
   mergeJobBranch,
   removeGitWorktree,
+  sameWorktreePath,
 } from "@repo-prism/dispatch";
-import { resolve } from "node:path";
 
 type TreeJob = {
   readonly id: string;
@@ -14,9 +15,50 @@ type TreeJob = {
   readonly status: string;
   readonly worktreePath?: string;
   readonly workspacePath?: string;
+  readonly playbook?: string;
 };
 
 export type TreeKind = "primary" | "linked";
+
+const TREE_JOB_RANK: Record<string, number> = {
+  running: 0,
+  booting: 0,
+  ready: 0,
+  queued: 1,
+  needs_confirm: 1,
+  paused: 2,
+  waiting_on_you: 2,
+  blocked: 2,
+  failed: 3,
+  error: 3,
+  needs_review: 4,
+  done: 5,
+};
+
+export function sortTreeJobs<T extends { readonly status: string }>(
+  jobs: readonly T[],
+): T[] {
+  return [...jobs].sort((a, b) => {
+    const rankA = TREE_JOB_RANK[a.status] ?? 6;
+    const rankB = TREE_JOB_RANK[b.status] ?? 6;
+    return rankA - rankB;
+  });
+}
+
+function treeSortRank(tree: {
+  readonly kind: TreeKind;
+  readonly jobStatus?: string;
+  readonly dirty: boolean;
+}): number {
+  if (tree.kind === "primary") return 0;
+  const live =
+    tree.jobStatus === "running" ||
+    tree.jobStatus === "booting" ||
+    tree.jobStatus === "ready";
+  if (live) return 1;
+  if (tree.dirty) return 2;
+  return 3;
+}
 
 export type TreeJobRow = {
   readonly id: string;
@@ -45,7 +87,12 @@ export type RepoTrees = {
 };
 
 function samePath(a: string, b: string): boolean {
-  return resolve(a) === resolve(b);
+  return sameWorktreePath(a, b);
+}
+
+function isSkillTreeJob(job: TreeJob): boolean {
+  if (isSkillPlaybook(job.playbook)) return true;
+  return /^\s*skill:\s/i.test(job.title);
 }
 
 export async function collectRepoTrees(input: {
@@ -71,6 +118,7 @@ export async function collectRepoTrees(input: {
       : "linked";
     const files = await gitDirtyPaths(tree.path).catch(() => [] as string[]);
     const matches = input.jobs.filter((row) => {
+      if (isSkillTreeJob(row)) return false;
       if (row.worktreePath) return samePath(row.worktreePath, tree.path);
       return (
         kind === "primary" &&
@@ -93,11 +141,13 @@ export async function collectRepoTrees(input: {
       dirty: files.length > 0,
       files: files.length,
       jobCount: matches.length,
-      jobs: matches.slice(0, 8).map((row) => ({
-        id: row.id,
-        title: row.title,
-        status: row.status,
-      })),
+      jobs: sortTreeJobs(matches)
+        .slice(0, 40)
+        .map((row) => ({
+          id: row.id,
+          title: row.title,
+          status: row.status,
+        })),
       ...(job
         ? {
             jobId: job.id,
@@ -108,7 +158,8 @@ export async function collectRepoTrees(input: {
     });
   }
   trees.sort((a, b) => {
-    if (a.kind !== b.kind) return a.kind === "primary" ? -1 : 1;
+    const rank = treeSortRank(a) - treeSortRank(b);
+    if (rank !== 0) return rank;
     return a.branch.localeCompare(b.branch);
   });
   return { path: input.workspacePath, label: input.label, trees };

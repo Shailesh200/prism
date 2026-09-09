@@ -71,7 +71,7 @@ import {
   writePlaygroundRecord,
 } from "./playground.js";
 import { collectRepoTrees, runTreeAction } from "./trees.js";
-import { mcpUpdateStatus } from "./update.js";
+import { mcpUpdateStatus, applyMcpUpdate } from "./update.js";
 import { HUB_ERROR, publicCaughtError } from "./api-errors.js";
 import { pickLocalFolder } from "./pick-folder.js";
 import {
@@ -316,6 +316,7 @@ export async function startHub(
             workspaceRoot,
             extraRoots: workspaces.map((row) => row.path),
             env,
+            port: wantedPlaygroundPort || PLAYGROUND_PORT,
           })
         : undefined);
 
@@ -679,6 +680,13 @@ export async function startHub(
           ...(body.placement === "worktree" || body.placement === "checkout"
             ? { placement: body.placement }
             : {}),
+          ...(typeof body.branch === "string" && body.branch.trim()
+            ? { branch: String(body.branch).trim() }
+            : {}),
+          ...(typeof body.worktreePath === "string" &&
+          body.worktreePath.trim()
+            ? { worktreePath: String(body.worktreePath).trim() }
+            : {}),
           ...(body.workerBackend === "cursor" || body.workerBackend === "claude"
             ? { workerBackend: body.workerBackend }
             : {}),
@@ -852,10 +860,34 @@ export async function startHub(
 
     if (req.method === "GET" && url.pathname === "/api/update") {
       if (process.env.VITEST === "true") {
-        json(res, 200, { current: version, stale: false });
+        json(res, 200, {
+          current: version,
+          stale: false,
+          localCheckout: true,
+          hop: "current",
+        });
         return;
       }
       json(res, 200, await mcpUpdateStatus(version));
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/update") {
+      if (process.env.VITEST === "true") {
+        json(res, 200, {
+          ok: true,
+          current: version,
+          cached: false,
+          localCheckout: true,
+          message: "Already on this build.",
+        });
+        return;
+      }
+      try {
+        json(res, 200, await applyMcpUpdate(version));
+      } catch (cause) {
+        json(res, 500, { error: publicCaughtError(cause) });
+      }
       return;
     }
 

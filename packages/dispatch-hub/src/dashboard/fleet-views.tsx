@@ -437,6 +437,9 @@ export function ListView(
     readonly selectedId?: string;
     readonly onOpenJob: (job: JobSummary) => void;
     readonly loading: boolean;
+    readonly outsideCount?: number;
+    readonly filter?: string;
+    readonly onShowAllTime?: () => void;
   } & JobActionHandlers,
 ): ReactElement {
   const [cursor, setCursor] = useState(0);
@@ -614,10 +617,25 @@ export function ListView(
 
   if (props.loading) return <div className="fleet-scan" aria-hidden />;
   const groups = groupJobsByRepo(rows);
+  const outside = props.outsideCount ?? 0;
+  const filtered = Boolean(props.filter?.trim());
   return (
     <div className="fleet-list-wrap">
       {groups.length === 0 ? (
-        <p className="console__lede">No jobs match this filter.</p>
+        <div className="pulse-empty">
+          <p className="console__lede">
+            {outside > 0 && !filtered
+              ? `${outside} job${outside === 1 ? "" : "s"} sit outside this range.`
+              : filtered
+                ? "No jobs match this filter."
+                : "No jobs in this range. Start one, or widen All."}
+          </p>
+          {outside > 0 && !filtered && props.onShowAllTime ? (
+            <Button size="sm" variant="secondary" onClick={props.onShowAllTime}>
+              Show all time
+            </Button>
+          ) : null}
+        </div>
       ) : (
         groups.map((group, index) => {
           const live = group.jobs.some((job) => isLiveJob(job.status));

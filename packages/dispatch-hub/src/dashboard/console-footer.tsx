@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 
 const SITE = "https://www.prismhq.in";
-const PLAYGROUND_DEFAULT = "http://prismhq.localhost:5173";
+export const PLAYGROUND_DEFAULT = "http://prismhq.localhost:17331";
 
 export function ConsoleFooter(props: {
   readonly version?: string;

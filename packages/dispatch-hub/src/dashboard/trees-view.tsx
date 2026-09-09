@@ -1,11 +1,12 @@
 import {
   Badge,
-  Button,
   EmptyState,
+  HoverTip,
   IconButton,
   ListTile,
   Pip,
   Truncate,
+  type ButtonVariant,
 } from "@repo-prism/ui";
 import type { JobWorkspaceChip } from "@repo-prism/app-shell";
 import {
@@ -15,9 +16,14 @@ import {
   ExternalLink,
   Folder,
   GitBranch,
+  GitCommit,
+  GitMerge,
+  Play,
+  Trash2,
+  Upload,
   X,
 } from "lucide-react";
-import { useEffect, useState, type ReactElement } from "react";
+import { useEffect, useMemo, useState, type ReactElement, type ReactNode } from "react";
 import { showConsoleToast } from "./console-toast.js";
 import { getJson, postJson } from "./session.js";
 
@@ -86,7 +92,7 @@ function jobVisual(status: string): {
   if (status === "done") {
     return { pip: "emerald", tone: "emerald", label: "Success" };
   }
-  if (status === "failed") {
+  if (status === "failed" || status === "error") {
     return { pip: "rose", tone: "rose", label: "Failed" };
   }
   if (isWorking(status)) {
@@ -101,13 +107,49 @@ function jobVisual(status: string): {
   return { pip: "muted", tone: "neutral", label: status };
 }
 
+function TreeIconAction(props: {
+  readonly label: string;
+  readonly detail: string;
+  readonly variant?: ButtonVariant;
+  readonly disabled?: boolean;
+  readonly className?: string;
+  readonly onClick: () => void;
+  readonly children: ReactNode;
+}): ReactElement {
+  return (
+    <HoverTip
+      label={props.label}
+      detail={props.detail}
+      {...(props.className ? { className: props.className } : {})}
+    >
+      <IconButton
+        label={props.label}
+        title=""
+        variant={props.variant}
+        disabled={props.disabled}
+        onClick={props.onClick}
+      >
+        {props.children}
+      </IconButton>
+    </HoverTip>
+  );
+}
+
 export function TreesView(props: {
   readonly token: string;
   readonly repos: readonly JobWorkspaceChip[];
   readonly repoFilter?: string;
+  readonly filter?: string;
   readonly onOpenJob?: (jobId: string) => void;
+  readonly onCompose?: (input: {
+    readonly workspace: string;
+    readonly placement: "checkout" | "worktree";
+    readonly branch?: string;
+    readonly worktreePath?: string;
+  }) => void;
 }): ReactElement {
   const [ledger, setLedger] = useState<readonly RepoTrees[]>([]);
+  const [ready, setReady] = useState(false);
   const [selectedRepo, setSelectedRepo] = useState<string | undefined>(
     props.repoFilter,
   );
@@ -115,31 +157,49 @@ export function TreesView(props: {
   const [busy, setBusy] = useState<string | undefined>();
 
   const load = async (): Promise<void> => {
-    const body = await getJson<{ repos: RepoTrees[] }>(
-      "/api/trees",
-      props.token,
-    );
-    setLedger(body.repos);
-    setSelectedRepo((current) => {
-      if (current && body.repos.some((row) => row.path === current)) {
-        return current;
-      }
-      return props.repoFilter &&
-        body.repos.some((row) => row.path === props.repoFilter)
-        ? props.repoFilter
-        : body.repos[0]?.path;
-    });
+    try {
+      const body = await getJson<{ repos: RepoTrees[] }>(
+        "/api/trees",
+        props.token,
+      );
+      setLedger(body.repos);
+      setSelectedRepo((current) => {
+        if (current && body.repos.some((row) => row.path === current)) {
+          return current;
+        }
+        return props.repoFilter &&
+          body.repos.some((row) => row.path === props.repoFilter)
+          ? props.repoFilter
+          : body.repos[0]?.path;
+      });
+    } finally {
+      setReady(true);
+    }
   };
+
+  const hasLive = ledger.some((row) =>
+    row.trees.some((tree) => isWorking(tree.jobStatus)),
+  );
 
   useEffect(() => {
     void load().catch(() => undefined);
     const tick = window.setInterval(() => {
       void load().catch(() => undefined);
-    }, 8000);
+    }, hasLive ? 3000 : 8000);
     return () => window.clearInterval(tick);
-  }, [props.token]);
+  }, [props.token, hasLive]);
 
-  const active = ledger.find((row) => row.path === selectedRepo) ?? ledger[0];
+  const visible = useMemo(() => {
+    const needle = (props.filter ?? "").trim().toLowerCase();
+    if (!needle) return ledger;
+    return ledger.filter(
+      (row) =>
+        row.label.toLowerCase().includes(needle) ||
+        row.path.toLowerCase().includes(needle),
+    );
+  }, [ledger, props.filter]);
+
+  const active = visible.find((row) => row.path === selectedRepo) ?? visible[0];
   const primary = active?.trees.find((tree) => tree.kind === "primary");
   const inspect =
     active?.trees.find((tree) => tree.path === selectedTree) ??
@@ -199,6 +259,12 @@ export function TreesView(props: {
     }
   };
 
+  const inspectJobs = inspect?.jobs ?? [];
+  const liveOnTree = inspectJobs.filter((job) => isWorking(job.status));
+  const failedOnTree = inspectJobs.filter(
+    (job) => job.status === "failed" || job.status === "error",
+  );
+
   const copyPath = async (path: string): Promise<void> => {
     try {
       await navigator.clipboard.writeText(path);
@@ -215,15 +281,20 @@ export function TreesView(props: {
           <span>Repositories</span>
         </header>
         <div className="trees-repos__list">
-          {ledger.length === 0 ? (
+          {!ready ? (
+            <EmptyState>Reading worktrees…</EmptyState>
+          ) : visible.length === 0 ? (
             <EmptyState>
-              Add a repository to see its trees
-              {props.repos.length > 0
-                ? ` (${props.repos.length} registered).`
-                : "."}
+              {ledger.length === 0
+                ? `Add a repository to see its trees${
+                    props.repos.length > 0
+                      ? ` (${props.repos.length} registered).`
+                      : "."
+                  }`
+                : "No repositories match this filter."}
             </EmptyState>
           ) : (
-            ledger.map((row) => {
+            visible.map((row) => {
               const on = row.path === active?.path;
               return (
                 <ListTile
@@ -255,7 +326,9 @@ export function TreesView(props: {
         </div>
       </aside>
       <section className="tree-map" aria-label="Worktree map">
-        {!active ? (
+        {!ready ? (
+          <EmptyState>Reading worktrees…</EmptyState>
+        ) : !active ? (
           <EmptyState>No checkout selected.</EmptyState>
         ) : (
           <div className="tree-map__stack">
@@ -431,7 +504,28 @@ export function TreesView(props: {
             </div>
           </div>
           <div className="tree-inspector__jobs">
-            <h3>Jobs on this worktree</h3>
+            <div className="tree-inspector__jobs-head">
+              <h3>Jobs on this worktree</h3>
+              {inspect.jobs.length > 0 ? (
+                <span className="tree-inspector__job-counts">
+                  {liveOnTree.length > 0
+                    ? `${liveOnTree.length} live`
+                    : "none live"}
+                  {failedOnTree.length > 0
+                    ? ` · ${failedOnTree.length} failed`
+                    : ""}
+                  {` · ${inspect.jobCount}`}
+                </span>
+              ) : null}
+            </div>
+            {liveOnTree.length > 0 ? (
+              <div className="tree-inspector__live">
+                <Pip tone="accent" pulse />
+                <span>
+                  {liveOnTree[0]?.title ?? "A job"} is working on this tree
+                </span>
+              </div>
+            ) : null}
             {inspect.jobs.length === 0 ? (
               <EmptyState>No jobs on this worktree.</EmptyState>
             ) : (
@@ -459,51 +553,80 @@ export function TreesView(props: {
             )}
           </div>
           <div className="tree-inspector__actions">
-            {inspect.kind === "linked" && !isWorking(inspect.jobStatus) ? (
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={Boolean(busy)}
-                onClick={() => void act(inspect, "merge")}
-              >
-                Merge into checkout
-              </Button>
-            ) : null}
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={Boolean(busy)}
-              onClick={() => void act(inspect, "commit")}
-            >
-              Commit
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={Boolean(busy)}
-              onClick={() => void act(inspect, "push")}
-            >
-              Push
-            </Button>
             {inspect.kind === "linked" ? (
-              <Button
-                size="sm"
+              <TreeIconAction
+                label="Remove tree"
+                detail="Unlink this worktree. The branch stays."
                 variant="danger"
                 className="tree-inspector__remove"
                 disabled={Boolean(busy) || isWorking(inspect.jobStatus)}
                 onClick={() => void act(inspect, "remove")}
               >
-                Remove tree
-              </Button>
+                <Trash2 size={16} aria-hidden />
+              </TreeIconAction>
+            ) : (
+              <span className="tree-inspector__remove" />
+            )}
+            {inspect.kind === "linked" && !isWorking(inspect.jobStatus) ? (
+              <TreeIconAction
+                label="Merge into checkout"
+                detail={`Merge ${inspect.branch || "this branch"} into the current checkout`}
+                disabled={Boolean(busy)}
+                onClick={() => void act(inspect, "merge")}
+              >
+                <GitMerge size={16} aria-hidden />
+              </TreeIconAction>
             ) : null}
-            <Button
-              size="sm"
+            <TreeIconAction
+              label="Commit"
+              detail="Commit dirty files on this tree"
+              disabled={Boolean(busy)}
+              onClick={() => void act(inspect, "commit")}
+            >
+              <GitCommit size={16} aria-hidden />
+            </TreeIconAction>
+            <TreeIconAction
+              label="Push"
+              detail="Push this branch"
+              disabled={Boolean(busy)}
+              onClick={() => void act(inspect, "push")}
+            >
+              <Upload size={16} aria-hidden />
+            </TreeIconAction>
+            {props.onCompose ? (
+              <TreeIconAction
+                label="Dispatch here"
+                detail={
+                  inspect.kind === "primary"
+                    ? "Queue a job in this checkout"
+                    : `Queue a job on ${inspect.branch || "this worktree"}`
+                }
+                disabled={Boolean(busy)}
+                onClick={() =>
+                  props.onCompose?.({
+                    workspace: active.path,
+                    placement:
+                      inspect.kind === "linked" ? "worktree" : "checkout",
+                    ...(inspect.kind === "linked" && inspect.branch
+                      ? { branch: inspect.branch }
+                      : {}),
+                    ...(inspect.kind === "linked"
+                      ? { worktreePath: inspect.path }
+                      : {}),
+                  })
+                }
+              >
+                <Play size={16} aria-hidden />
+              </TreeIconAction>
+            ) : null}
+            <TreeIconAction
+              label="Open in IDE"
+              detail="Open this folder in Cursor"
               variant="primary"
               onClick={() => openInIde(inspect.path)}
             >
-              Open in IDE
               <ExternalLink size={16} aria-hidden />
-            </Button>
+            </TreeIconAction>
           </div>
         </aside>
       ) : null}

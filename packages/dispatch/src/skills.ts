@@ -81,7 +81,11 @@ function skillFile(name: string, env?: NodeJS.ProcessEnv): string {
   return join(skillsDir(env), name, "SKILL.md");
 }
 
-function parseSkill(name: string, raw: string, inherited: boolean): PrismSkill {
+export function parseSkill(
+  name: string,
+  raw: string,
+  inherited: boolean,
+): PrismSkill {
   let description = "";
   let status: SkillStatus = "draft";
   let body = raw;
@@ -225,4 +229,78 @@ export function skillSpeak(skill: PrismSkill): string {
   return [when ? `${skill.name} — ${when}` : skill.name, skill.body.trim()]
     .filter(Boolean)
     .join("\n\n");
+}
+
+/** Title Prism uses for generate-skill jobs: `Skill: commitpush`. */
+export function skillNameFromJobTitle(
+  title: string | undefined,
+): string | undefined {
+  const match = title?.trim().match(/^skill:\s*([a-z][a-z0-9-]{0,62})/i);
+  return match?.[1] ? normalizeSkillName(match[1]) : undefined;
+}
+
+/** Pull a SKILL.md out of a last message that may wrap it in a fence. */
+export function unwrapSkillMarkdown(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed) return "";
+  const fences = [
+    ...trimmed.matchAll(/```(?:markdown|md|skill)?\s*\r?\n([\s\S]*?)```/gi),
+  ];
+  if (fences.length > 0) {
+    const longest = fences.reduce((best, row) =>
+      (row[1]?.length ?? 0) >= (best[1]?.length ?? 0) ? row : best,
+    );
+    const inner = longest[1]?.trim() ?? "";
+    if (inner.length >= 20) return inner;
+  }
+  return trimmed;
+}
+
+export type SkillDraft = {
+  readonly name: string;
+  readonly description: string;
+  readonly body: string;
+};
+
+export function skillDraftFromMarkdown(name: string, raw: string): SkillDraft {
+  const unwrapped = unwrapSkillMarkdown(raw);
+  const parsed = parseSkill(name, unwrapped, false);
+  if (/^---\r?\n/.test(unwrapped)) {
+    return { name, description: parsed.description, body: parsed.body };
+  }
+  const heading = unwrapped.search(/^#{1,3}\s/m);
+  const body = heading > 0 ? unwrapped.slice(heading).trim() : parsed.body;
+  const when = unwrapped.match(/when to use:\s*(.+)/i);
+  return {
+    name,
+    description: parsed.description || when?.[1]?.trim() || "",
+    body,
+  };
+}
+
+/**
+ * Write a finished generate-skill last message into the global library.
+ * Keeps the existing draft/published status. Refuses inherited names.
+ */
+export async function applyGeneratedSkill(input: {
+  readonly title?: string;
+  readonly assistant: string;
+  readonly env?: NodeJS.ProcessEnv;
+}): Promise<PrismSkill | undefined> {
+  const name = skillNameFromJobTitle(input.title);
+  if (!name) return undefined;
+  const draft = skillDraftFromMarkdown(name, input.assistant);
+  if (!draft.body.trim()) return undefined;
+  const existing = await readSkill(name, input.env);
+  if (existing?.inherited) return undefined;
+  const written = await writeSkill(
+    {
+      name,
+      description: draft.description.trim() || existing?.description || "",
+      body: draft.body,
+      status: existing?.status ?? "draft",
+    },
+    input.env,
+  );
+  return "error" in written ? undefined : written;
 }

@@ -698,7 +698,13 @@
 
 .ov-chart__plot {
   position: relative;
+  z-index: 1;
   width: 100%;
+  height: 180px;
+  overflow: visible;
+}
+
+.prism-chart__body > .ov-chart__plot {
   height: 180px;
 }
 
@@ -742,11 +748,10 @@
     transform 0.16s ease;
 }
 
-/* Tooltip above the marker. */
+/* Tooltip anchored to the hovered marker (inline `top` / `left`). */
 .ov-chart__tip {
   position: absolute;
-  top: -4px;
-  transform: translate(-50%, -100%);
+  transform: translate(-50%, calc(-100% - 8px));
   padding: 6px 9px;
   border-radius: 8px;
   background: #131926;
@@ -4140,7 +4145,7 @@
 
 .tr-grid-charts--secondary {
   grid-template-columns: 1fr 1fr;
-  min-height: 220px;
+  min-height: 280px;
   min-width: 0;
 }
 
@@ -4157,7 +4162,7 @@
   flex-direction: column;
   min-height: 0;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .tr-panel--wide {
@@ -4179,7 +4184,12 @@
 }
 
 .tr-chart .ov-chart__plot {
-  min-height: 180px;
+  height: 200px;
+  min-height: 200px;
+}
+
+.tr-chart .ov-chart__svg {
+  height: 200px;
 }
 
 .tr-empty {
@@ -4226,9 +4236,15 @@
   align-items: flex-end;
   gap: 3px;
   min-height: 160px;
-  padding: 8px 4px 4px;
-  border-bottom: 1px solid #2a334a;
-  border-left: 1px solid #2a334a;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+}
+
+.tr-bars.ov-chart__plot {
+  padding: 10px;
+  box-sizing: border-box;
 }
 
 .tr-bars__col {
@@ -4237,6 +4253,16 @@
   height: 100%;
   display: flex;
   align-items: flex-end;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.tr-bars__col:focus-visible {
+  outline: 2px solid var(--prism-brand, #00c2c2);
+  outline-offset: 1px;
 }
 
 .tr-bars__fill {
@@ -4244,6 +4270,16 @@
   border-radius: 2px 2px 0 0;
   background: color-mix(in srgb, #6c63ff 85%, #3826cd);
   opacity: 0.85;
+  pointer-events: none;
+  transition:
+    opacity 0.12s ease,
+    filter 0.12s ease;
+}
+
+.tr-bars__col:hover .tr-bars__fill,
+.tr-bars__col[data-active="true"] .tr-bars__fill {
+  opacity: 1;
+  filter: brightness(1.12);
 }
 
 .tr-authors {

@@ -9,6 +9,31 @@ the `prism` CLI, the `prism-mcp` server, and the Core SDK they all call. They
 move as one because they are one build; a mismatch between them has never been
 a supported configuration.
 
+## 1.10.0 — Skills, trees, and Impact
+
+### Console
+
+- Skills is a first-class view: grouped Prism skills live in `~/.prism`, not the repo, and Generate writes one from a brief.
+- Trees shows the checkout versus linked worktrees and which job owns each.
+- Focus can export a job; compose has a generate line for skill playbooks.
+
+### Dispatch
+
+- Workers get a short orientation so a teammate starts with repo context instead of a cold tree.
+- Overlap checks keep concurrent jobs from silently stacking on the same paths.
+- Skill playbook jobs write into the global skills store.
+
+### Intelligence
+
+- Impact is one workspace: Explain, Blast radius, and Review changes share a target. Use dirty files on every tab.
+- Trends and Overview commit charts have real X/Y axes and hover, not native `title` tooltips.
+
+### MCP
+
+- Keep `@latest`. Reload MCP after this publish. Logs: `prism-mcp 1.10.0: workspace …`.
+
+Keep `@latest`. `@repo-prism/dispatch@1.10.0`, `@repo-prism/dispatch-hub@1.10.0`, `@repo-prism/mcp-server@1.10.0`, `@repo-prism/shared@1.2.1`, and `@repo-prism/host-session@1.1.18`.
+
 ## 1.9.0 — Job graph, sleep and wake
 
 ### Console

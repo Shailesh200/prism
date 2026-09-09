@@ -1,22 +1,35 @@
-import type { JobSummary, JobWorkspaceChip } from "@repo-prism/app-shell";
+import { MarkdownDoc, type JobSummary, type JobWorkspaceChip } from "@repo-prism/app-shell";
 import {
   Button,
+  EmptyState,
   HoverTip,
+  IconButton,
   Input,
   ListTile,
-  Pip,
-  ProgressBar,
   Tabs,
   Textarea,
 } from "@repo-prism/ui";
-import { Plus, Sparkles } from "lucide-react";
+import { Copy, Eye, Pencil, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
+import { SKILL_PLAYBOOK } from "./fleet.js";
+import {
+  LabeledJobBar,
+  type JobActionHandlers,
+} from "./job-actions.js";
 import { showConsoleToast } from "./console-toast.js";
 import {
+  APPLIED_GENERATE,
   formatElapsed,
+  generateElapsedFrom,
+  isPendingSkillGenerate,
   isSkillGenerateJob,
+  latestFinishedSkillJob,
+  PENDING_GENERATE,
+  shouldCancelArrivingSkillJob,
   skillGenerateStage,
+  skillJobCoversPending,
 } from "./skill-generate.js";
+import { GenerateFlow } from "./generate-line.js";
 import { getJson, postJson } from "./session.js";
 
 type SkillStatus = "draft" | "published";
@@ -30,6 +43,33 @@ type PrismSkill = {
 };
 
 const emptyBody = "Describe the workflow and knowledge this skill provides.";
+const APPLY_DELAYS_MS = [0, 400, 1200, 2500] as const;
+const APPLIED_GENERATE_IDS_KEY = "prism.console.skill-generate.applied";
+
+function loadAppliedGenerateIds(): Set<string> {
+  if (typeof sessionStorage === "undefined") return new Set();
+  try {
+    const raw = sessionStorage.getItem(APPLIED_GENERATE_IDS_KEY);
+    if (!raw) return new Set();
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(
+      parsed.filter((id): id is string => typeof id === "string" && id.trim() !== ""),
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+function rememberAppliedGenerateId(id: string): void {
+  const ids = loadAppliedGenerateIds();
+  ids.add(id);
+  try {
+    sessionStorage.setItem(APPLIED_GENERATE_IDS_KEY, JSON.stringify([...ids]));
+  } catch {
+    // Quota or private mode — the in-memory set still covers this mount.
+  }
+}
 
 function snapshotOf(form: {
   readonly name: string;
@@ -37,7 +77,12 @@ function snapshotOf(form: {
   readonly body: string;
   readonly status: SkillStatus;
 }): string {
-  return JSON.stringify(form);
+  return JSON.stringify({
+    name: form.name,
+    description: form.description,
+    body: form.body,
+    status: form.status,
+  });
 }
 
 function editorBadge(skill: {
@@ -54,18 +99,32 @@ function editorBadge(skill: {
   return { label: "Draft", tone: "draft" };
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
 export function SkillsView(props: {
   readonly token: string;
   readonly repos: readonly JobWorkspaceChip[];
   readonly jobs?: readonly JobSummary[];
+  readonly pendingGenerateTitle?: string;
+  readonly pendingGenerateQueuedAt?: string;
+  readonly jobActions?: JobActionHandlers;
+  readonly onCloseCompose?: () => void;
+  readonly onPendingGenerateConsumed?: () => void;
   readonly onGenerate: (input: {
     readonly title: string;
     readonly prd: string;
     readonly workspace?: string;
+    readonly playbook?: string;
   }) => void;
   readonly onWatchJob?: (jobId: string) => void;
 }): ReactElement {
   const [skills, setSkills] = useState<readonly PrismSkill[]>([]);
+  const [ready, setReady] = useState(false);
+  const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string | undefined>();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -73,8 +132,28 @@ export function SkillsView(props: {
   const [status, setStatus] = useState<SkillStatus>("draft");
   const [inherited, setInherited] = useState(false);
   const [tab, setTab] = useState<"yours" | "inherited">("yours");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editingPublished, setEditingPublished] = useState(false);
+  const [workflowMode, setWorkflowMode] = useState<"edit" | "preview">(
+    "preview",
+  );
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [pendingSince, setPendingSince] = useState<string | undefined>();
+  const [armedName, setArmedName] = useState<string | undefined>();
+  const [applying, setApplying] = useState(false);
+  const [dismissedGenerateIds, setDismissedGenerateIds] = useState(
+    () => new Set<string>(),
+  );
+  const [cancelPending, setCancelPending] = useState(false);
+  const watchedGenerateIds = useRef(new Set<string>());
+  const appliedGenerateIds = useRef(loadAppliedGenerateIds());
+  const autoConfirmedIds = useRef(new Set<string>());
+  const cancelledGenerateName = useRef<string | undefined>(undefined);
+  const pendingConsumedRef = useRef(props.onPendingGenerateConsumed);
+  pendingConsumedRef.current = props.onPendingGenerateConsumed;
   const snapshotRef = useRef("");
+  const deletingRef = useRef(false);
+  const selectedRef = useRef<string | undefined>(undefined);
   const formRef = useRef({
     name: "",
     description: "",
@@ -83,16 +162,25 @@ export function SkillsView(props: {
     inherited: false,
   });
   formRef.current = { name, description, body, status, inherited };
+  selectedRef.current = selected;
 
-  function apply(skill: PrismSkill | undefined): void {
+  function apply(
+    skill: PrismSkill | undefined,
+    opts?: { readonly keepArmed?: boolean; readonly tab?: "yours" | "inherited" },
+  ): void {
+    setConfirmDelete(false);
+    setEditingPublished(false);
+    if (!opts?.keepArmed) setArmedName(undefined);
     if (!skill) {
+      const nextTab = opts?.tab ?? "yours";
       setSelected(undefined);
-      setInherited(false);
+      setInherited(nextTab === "inherited");
       setStatus("draft");
       setName("");
       setDescription("");
       setBody(emptyBody);
-      setTab("yours");
+      setTab(nextTab);
+      setWorkflowMode("edit");
       snapshotRef.current = snapshotOf({
         name: "",
         description: "",
@@ -108,6 +196,9 @@ export function SkillsView(props: {
     setStatus(skill.status);
     setInherited(skill.inherited);
     setTab(skill.inherited ? "inherited" : "yours");
+    if (skill.inherited || skill.status === "published") {
+      setWorkflowMode("preview");
+    }
     snapshotRef.current = snapshotOf(skill);
   }
 
@@ -147,36 +238,95 @@ export function SkillsView(props: {
     return saved;
   };
 
-  const load = async (keep?: string): Promise<void> => {
-    const listed = await getJson<{ skills: PrismSkill[] }>(
-      "/api/skills",
-      props.token,
-    );
-    setSkills(listed.skills);
-    if (keep) {
-      const next = listed.skills.find((row) => row.name === keep);
-      if (next) apply(next);
-      return;
-    }
-    if (selected) {
-      const still = listed.skills.find((row) => row.name === selected);
-      if (!still) {
-        apply(listed.skills.find((row) => !row.inherited) ?? listed.skills[0]);
+  const load = async (
+    keep?: string,
+    opts?: { readonly keepArmed?: boolean },
+  ): Promise<void> => {
+    try {
+      const listed = await getJson<{ skills: PrismSkill[] }>(
+        "/api/skills",
+        props.token,
+      );
+      setSkills(listed.skills);
+      const target = keep ?? selectedRef.current;
+      if (keep) {
+        const next = listed.skills.find((row) => row.name === keep);
+        if (
+          next &&
+          (selectedRef.current === keep || formRef.current.name.trim() === keep)
+        ) {
+          apply(next, { keepArmed: opts?.keepArmed });
+        }
+        return;
       }
-      return;
+      if (target) {
+        const still = listed.skills.find((row) => row.name === target);
+        if (!still) {
+          apply(
+            listed.skills.find((row) => !row.inherited) ?? listed.skills[0],
+            { keepArmed: opts?.keepArmed },
+          );
+          return;
+        }
+        if (opts?.keepArmed) apply(still, { keepArmed: true });
+        return;
+      }
+      apply(listed.skills.find((row) => !row.inherited) ?? listed.skills[0]);
+    } finally {
+      setReady(true);
     }
-    apply(listed.skills.find((row) => !row.inherited) ?? listed.skills[0]);
   };
 
   useEffect(() => {
     void load().catch(() => undefined);
   }, [props.token]);
 
+  const arrivingGenerate = useMemo(() => {
+    const key = name.trim();
+    if (!key) return undefined;
+    return props.jobs?.find((job) => isSkillGenerateJob(job, key));
+  }, [props.jobs, name]);
+  const generateJob =
+    arrivingGenerate &&
+    !dismissedGenerateIds.has(arrivingGenerate.id) &&
+    !shouldCancelArrivingSkillJob(cancelledGenerateName.current, name)
+      ? arrivingGenerate
+      : undefined;
+  const finishedGenerate = useMemo(
+    () => latestFinishedSkillJob(props.jobs, name),
+    [props.jobs, name],
+  );
+  const pendingCovered = useMemo(
+    () =>
+      Boolean(
+        name.trim() &&
+          (props.jobs ?? []).some((job) =>
+            skillJobCoversPending(
+              job,
+              name,
+              props.pendingGenerateQueuedAt,
+            ),
+          ),
+      ),
+    [props.jobs, name, props.pendingGenerateQueuedAt],
+  );
+  const pendingGenerate =
+    isPendingSkillGenerate(props.pendingGenerateTitle, name) &&
+    !generateJob &&
+    !pendingCovered;
+  const armed = Boolean(name.trim()) && armedName === name.trim();
+  const generateBusy = Boolean(
+    generateJob || pendingGenerate || armed || applying || cancelPending,
+  );
+
   useEffect(() => {
+    if (deletingRef.current) return;
+    if (generateBusy) return;
     if (inherited || status !== "draft" || !name.trim()) return;
     const snap = snapshotOf({ name, description, body, status });
     if (snap === snapshotRef.current) return;
     const timer = window.setTimeout(() => {
+      if (deletingRef.current) return;
       void persist(
         { name, description, body, status: "draft" },
         { toast: false },
@@ -190,7 +340,15 @@ export function SkillsView(props: {
       });
     }, 800);
     return () => window.clearTimeout(timer);
-  }, [name, description, body, inherited, status, props.token]);
+  }, [
+    name,
+    description,
+    body,
+    inherited,
+    status,
+    props.token,
+    generateBusy,
+  ]);
 
   const yours = useMemo(
     () => skills.filter((skill) => !skill.inherited),
@@ -200,21 +358,150 @@ export function SkillsView(props: {
     () => skills.filter((skill) => skill.inherited),
     [skills],
   );
-  const listed = tab === "yours" ? yours : inheritedRows;
+  const listed = useMemo(() => {
+    const pool = tab === "yours" ? yours : inheritedRows;
+    const needle = query.trim().toLowerCase();
+    if (!needle) return pool;
+    return pool.filter(
+      (skill) =>
+        skill.name.toLowerCase().includes(needle) ||
+        skill.description.toLowerCase().includes(needle),
+    );
+  }, [tab, yours, inheritedRows, query]);
 
-  const generateJob = useMemo(() => {
+  useEffect(() => {
+    if (!selected) return;
+    if (listed.some((skill) => skill.name === selected)) return;
+    apply(listed[0], { tab });
+  }, [listed, selected, tab]);
+
+  useEffect(() => {
     const key = name.trim();
-    if (!key) return undefined;
-    return props.jobs?.find((job) => isSkillGenerateJob(job, key));
+    if (!key) return;
+    for (const job of props.jobs ?? []) {
+      if (isSkillGenerateJob(job, key)) watchedGenerateIds.current.add(job.id);
+    }
   }, [props.jobs, name]);
 
   useEffect(() => {
-    if (!generateJob) return;
+    if (generateJob?.status !== "needs_confirm") return;
+    if (!props.jobActions?.onConfirm) return;
+    if (autoConfirmedIds.current.has(generateJob.id)) return;
+    if (shouldCancelArrivingSkillJob(cancelledGenerateName.current, name)) {
+      return;
+    }
+    autoConfirmedIds.current.add(generateJob.id);
+    props.jobActions.onConfirm(generateJob);
+  }, [generateJob, name, props.jobActions]);
+
+  useEffect(() => {
+    if (!arrivingGenerate) return;
+    if (!shouldCancelArrivingSkillJob(cancelledGenerateName.current, name)) {
+      return;
+    }
+    if (dismissedGenerateIds.has(arrivingGenerate.id)) return;
+    setDismissedGenerateIds((prev) => {
+      const next = new Set(prev);
+      next.add(arrivingGenerate.id);
+      return next;
+    });
+    props.jobActions?.onCancel?.(arrivingGenerate);
+    setCancelPending(false);
+  }, [arrivingGenerate, dismissedGenerateIds, name, props.jobActions]);
+
+  useEffect(() => {
+    if (!cancelPending) return;
+    const timer = window.setTimeout(() => setCancelPending(false), 8000);
+    return () => window.clearTimeout(timer);
+  }, [cancelPending]);
+
+  useEffect(() => {
+    if (!props.pendingGenerateTitle) return;
+    if (!generateJob && !pendingCovered) return;
+    pendingConsumedRef.current?.();
+  }, [generateJob?.id, pendingCovered, props.pendingGenerateTitle]);
+
+  useEffect(() => {
+    const finished = finishedGenerate;
+    if (!finished) return;
+    if (!watchedGenerateIds.current.has(finished.id)) return;
+    if (appliedGenerateIds.current.has(finished.id)) return;
+    if (dismissedGenerateIds.has(finished.id)) return;
+    if (shouldCancelArrivingSkillJob(cancelledGenerateName.current, name)) {
+      return;
+    }
+    appliedGenerateIds.current.add(finished.id);
+    rememberAppliedGenerateId(finished.id);
+    const keep = name.trim();
+    if (!keep) return;
+    setApplying(true);
+    setWorkflowMode("preview");
+    void (async () => {
+      try {
+        for (const wait of APPLY_DELAYS_MS) {
+          if (wait) await sleep(wait);
+          await load(keep);
+        }
+        setArmedName(undefined);
+        setPendingSince(undefined);
+        if (formRef.current.name.trim() === keep) {
+          showConsoleToast("Skill updated.");
+        }
+      } finally {
+        setApplying(false);
+      }
+    })();
+  }, [finishedGenerate?.id, name, props.token]);
+
+  useEffect(() => {
+    if (!generateJob && !applying) return;
+    const key = name.trim();
+    if (!key) return;
+    const tick = window.setInterval(() => {
+      void load(key, { keepArmed: true }).catch(() => undefined);
+    }, 2000);
+    return () => window.clearInterval(tick);
+  }, [generateJob?.id, applying, name, props.token]);
+
+  useEffect(() => {
+    const stamp =
+      generateElapsedFrom(generateJob) ?? props.pendingGenerateQueuedAt;
+    if (stamp) {
+      setPendingSince(stamp);
+      return;
+    }
+    if (pendingGenerate) {
+      setPendingSince((current) => current ?? new Date().toISOString());
+      return;
+    }
+    if (!armed && !applying) setPendingSince(undefined);
+  }, [
+    pendingGenerate,
+    generateJob,
+    armed,
+    applying,
+    props.pendingGenerateQueuedAt,
+  ]);
+
+  useEffect(() => {
+    if (pendingGenerate || generateJob || !armedName) return;
+    const timer = window.setTimeout(() => setArmedName(undefined), 4000);
+    return () => window.clearTimeout(timer);
+  }, [pendingGenerate, generateJob?.id, armedName]);
+
+  useEffect(() => {
+    if (!generateJob && !pendingGenerate && !armed && !applying) return;
     const tick = window.setInterval(() => setNowMs(Date.now()), 1000);
     return () => window.clearInterval(tick);
-  }, [generateJob?.id]);
+  }, [generateJob?.id, pendingGenerate, armed, applying]);
 
-  const generating = generateJob ? skillGenerateStage(generateJob) : undefined;
+  const generating = generateJob
+    ? skillGenerateStage(generateJob)
+    : applying
+      ? APPLIED_GENERATE
+      : pendingGenerate || armed
+        ? PENDING_GENERATE
+        : undefined;
 
   const flushDraft = (): void => {
     const prev = formRef.current;
@@ -254,10 +541,46 @@ export function SkillsView(props: {
     await load(copied.name);
   };
 
+  const remove = async (): Promise<void> => {
+    if (!selected || inherited) return;
+    deletingRef.current = true;
+    try {
+      const doomed = selected;
+      const result = await postJson<{ ok: boolean; detail: string }>(
+        "/api/skills",
+        props.token,
+        { action: "delete", name: doomed },
+      );
+      if (!result.ok) {
+        showConsoleToast(result.detail, "error");
+        return;
+      }
+      showConsoleToast(`Deleted ${doomed}.`);
+      const listedSkills = await getJson<{ skills: PrismSkill[] }>(
+        "/api/skills",
+        props.token,
+      );
+      const remaining = listedSkills.skills.filter(
+        (row) => row.name !== doomed,
+      );
+      setSkills(remaining);
+      apply(remaining.find((row) => !row.inherited));
+    } catch (cause) {
+      showConsoleToast(
+        cause instanceof Error ? cause.message : "Could not delete that skill.",
+        "error",
+      );
+    } finally {
+      deletingRef.current = false;
+    }
+  };
+
   const badge = editorBadge({ inherited, status });
   const useName = name.trim() || "…";
-  const canEdit = !inherited;
-  const generateBusy = Boolean(generating);
+  const publishedLocked =
+    !inherited && status === "published" && !editingPublished;
+  const canEdit = !inherited && !publishedLocked;
+  const workflowTab = canEdit ? workflowMode : "preview";
 
   return (
     <div className="skills-layout">
@@ -266,7 +589,16 @@ export function SkillsView(props: {
           <Tabs
             aria-label="Skill source"
             value={tab}
-            onChange={(id) => setTab(id as "yours" | "inherited")}
+            onChange={(id) => {
+              const next = id as "yours" | "inherited";
+              flushDraft();
+              const pool = next === "yours" ? yours : inheritedRows;
+              if (selected && pool.some((skill) => skill.name === selected)) {
+                setTab(next);
+                return;
+              }
+              apply(pool[0], { tab: next });
+            }}
             options={[
               { id: "yours", label: "Yours" },
               { id: "inherited", label: "Inherited" },
@@ -284,8 +616,27 @@ export function SkillsView(props: {
             New
           </Button>
         </header>
+        <div className="skills-library__search">
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search skills"
+            aria-label="Search skills"
+          />
+        </div>
         <div className="skills-library__list">
-          {listed.map((skill) => {
+          {!ready ? (
+            <EmptyState>Loading skills…</EmptyState>
+          ) : listed.length === 0 ? (
+            <EmptyState>
+              {query.trim()
+                ? "No skills match."
+                : tab === "inherited"
+                  ? "No inherited skills."
+                  : "No skills yet."}
+            </EmptyState>
+          ) : (
+          listed.map((skill) => {
             const on = skill.name === selected;
             return (
               <ListTile
@@ -293,7 +644,10 @@ export function SkillsView(props: {
                 selected={on}
                 className="skills-card"
                 onClick={() => {
-                  if (skill.name === selected) return;
+                  if (skill.name === selected) {
+                    apply(skill, { keepArmed: generateBusy });
+                    return;
+                  }
                   flushDraft();
                   apply(skill);
                 }}
@@ -320,7 +674,8 @@ export function SkillsView(props: {
                 </span>
               </ListTile>
             );
-          })}
+          })
+          )}
         </div>
       </aside>
       <section className="skills-editor">
@@ -340,26 +695,71 @@ export function SkillsView(props: {
                 </span>
               )}
               {inherited ? (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => void duplicate()}
+                <HoverTip
+                  label="Duplicate"
+                  detail="Copy this skill into Yours as a draft"
                 >
-                  Duplicate to Yours
-                </Button>
+                  <IconButton
+                    label="Duplicate"
+                    title=""
+                    variant="secondary"
+                    disabled={!selected}
+                    onClick={() => void duplicate()}
+                  >
+                    <Copy size={14} aria-hidden />
+                  </IconButton>
+                </HoverTip>
+              ) : publishedLocked ? (
+                <>
+                  <HoverTip
+                    label="Edit"
+                    detail="Open this published skill for editing"
+                  >
+                    <IconButton
+                      label="Edit"
+                      title=""
+                      variant="secondary"
+                      disabled={generateBusy}
+                      onClick={() => {
+                        setEditingPublished(true);
+                        setWorkflowMode("edit");
+                      }}
+                    >
+                      <Pencil size={14} aria-hidden />
+                    </IconButton>
+                  </HoverTip>
+                  <HoverTip
+                    label="Duplicate"
+                    detail="Create a new draft with the same content"
+                  >
+                    <IconButton
+                      label="Duplicate"
+                      title=""
+                      variant="secondary"
+                      disabled={!selected || generateBusy}
+                      onClick={() => void duplicate()}
+                    >
+                      <Copy size={14} aria-hidden />
+                    </IconButton>
+                  </HoverTip>
+                </>
               ) : (
                 <>
                   <Button
                     size="sm"
                     variant="secondary"
-                    icon={<Sparkles size={16} aria-hidden />}
+                    icon={<Sparkles size={14} aria-hidden />}
                     disabled={!name.trim() || generateBusy}
                     onClick={() => {
+                      cancelledGenerateName.current = undefined;
+                      setCancelPending(false);
+                      setWorkflowMode("preview");
                       props.onGenerate({
                         title: `Skill: ${name.trim()}`,
+                        playbook: SKILL_PLAYBOOK,
                         prd: [
-                          "This job is for Prism, not a product repo.",
                           "Write a complete Prism skill (SKILL.md) from this draft.",
+                          "Store nothing in the repository — skills live in the user's global Prism library.",
                           `Name: ${name.trim()}`,
                           `When to use: ${description.trim()}`,
                           "",
@@ -376,40 +776,136 @@ export function SkillsView(props: {
                   <Button
                     size="sm"
                     variant="primary"
-                    disabled={!name.trim()}
+                    disabled={!name.trim() || generateBusy}
                     onClick={() => void save("published")}
                   >
                     Publish
                   </Button>
+                  {selected ? (
+                    <HoverTip
+                      label="Duplicate"
+                      detail="Create a new draft with the same content"
+                    >
+                      <IconButton
+                        label="Duplicate"
+                        title=""
+                        variant="secondary"
+                        disabled={generateBusy}
+                        onClick={() => void duplicate()}
+                      >
+                        <Copy size={14} aria-hidden />
+                      </IconButton>
+                    </HoverTip>
+                  ) : null}
                 </>
               )}
+              {selected && !inherited ? (
+                confirmDelete ? (
+                  <span className="skills-editor__confirm">
+                    <span>{`Delete ${selected}?`}</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setConfirmDelete(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <HoverTip
+                      label="Delete"
+                      detail={`Delete ${selected} for good`}
+                    >
+                      <IconButton
+                        label="Delete"
+                        title=""
+                        variant="danger"
+                        disabled={generateBusy}
+                        onClick={() => void remove()}
+                      >
+                        <Trash2 size={14} aria-hidden />
+                      </IconButton>
+                    </HoverTip>
+                  </span>
+                ) : (
+                  <HoverTip
+                    label="Delete skill"
+                    detail="Remove this skill from Prism"
+                  >
+                    <IconButton
+                      label="Delete skill"
+                      title=""
+                      variant="danger"
+                      className="skills-editor__delete"
+                      disabled={generateBusy}
+                      onClick={() => setConfirmDelete(true)}
+                    >
+                      <Trash2 size={14} aria-hidden />
+                    </IconButton>
+                  </HoverTip>
+                )
+              ) : null}
             </div>
           </div>
-          {generating && generateJob ? (
-            <div className="skills-generate">
-              <Pip tone="accent" pulse />
-              <span>Generating · {generating.stage}</span>
-              <ProgressBar
-                value={generating.progress}
-                label={`Generating ${generating.stage}`}
-                className="prism-progress--hairline"
-              />
-              <span className="skills-generate__elapsed">
-                {formatElapsed(
-                  generateJob.startedAt ??
-                    generateJob.queuedAt ??
-                    generateJob.createdAt,
-                  nowMs,
-                )}
-              </span>
-              {props.onWatchJob ? (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => props.onWatchJob?.(generateJob.id)}
-                >
-                  Watch live
-                </Button>
+          {generating ? (
+            <div className="skills-generate-stack">
+              <div className="skills-generate">
+                <span>Generating · {generating.stage}</span>
+                <GenerateFlow stage={generating.stage} />
+                <span className="skills-generate__elapsed">
+                  {formatElapsed(
+                    generateElapsedFrom(generateJob) ??
+                      props.pendingGenerateQueuedAt ??
+                      pendingSince,
+                    nowMs,
+                  )}
+                </span>
+                {props.onWatchJob && generateJob ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="skills-generate__watch"
+                    icon={<Eye size={14} aria-hidden />}
+                    onClick={() => props.onWatchJob?.(generateJob.id)}
+                  >
+                    Watch live
+                  </Button>
+                ) : null}
+              </div>
+              {generateJob && props.jobActions ? (
+                <LabeledJobBar
+                  job={generateJob}
+                  {...props.jobActions}
+                  onCancel={(job) => {
+                    cancelledGenerateName.current = name.trim();
+                    setArmedName(undefined);
+                    setPendingSince(undefined);
+                    setDismissedGenerateIds((prev) => {
+                      const next = new Set(prev);
+                      next.add(job.id);
+                      return next;
+                    });
+                    props.jobActions?.onCancel?.(job);
+                    props.onCloseCompose?.();
+                  }}
+                />
+              ) : pendingGenerate || armed || cancelPending ? (
+                <div className="job-action-bar job-action-bar--icons">
+                  <HoverTip label="Cancel" detail="Stop this generate">
+                    <IconButton
+                      label="Cancel"
+                      title=""
+                      variant="danger"
+                      onClick={() => {
+                        cancelledGenerateName.current = name.trim();
+                        setCancelPending(true);
+                        setArmedName(undefined);
+                        setPendingSince(undefined);
+                        props.onCloseCompose?.();
+                      }}
+                    >
+                      <X size={14} aria-hidden />
+                    </IconButton>
+                  </HoverTip>
+                </div>
               ) : null}
             </div>
           ) : null}
@@ -441,32 +937,58 @@ export function SkillsView(props: {
               rows={4}
             />
           </label>
-          <label className="skills-field skills-field--workflow">
-            <span className="prism-field__label prism-field__label--mono">
-              Workflow
-            </span>
-            {generating ? (
+          <div className="skills-field skills-field--workflow">
+            <div className="skills-workflow-head">
+              <span className="prism-field__label prism-field__label--mono">
+                Workflow
+              </span>
+              <Tabs
+                aria-label="Workflow view"
+                value={workflowTab}
+                onChange={(id) => {
+                  if (!canEdit) return;
+                  setWorkflowMode(id as "edit" | "preview");
+                }}
+                options={[
+                  { id: "edit", label: "Edit", disabled: !canEdit },
+                  { id: "preview", label: "Preview" },
+                ]}
+              />
+            </div>
+            {generateJob || pendingGenerate || armed ? (
               <p className="skills-generating-hint">
                 // Generating workflow steps…
               </p>
             ) : null}
-            <Textarea
-              className="skills-workflow"
-              value={body}
-              disabled={!canEdit || generateBusy}
-              onChange={(event) => setBody(event.target.value)}
-              aria-label="Skill workflow"
-            />
-          </label>
-        </div>
-        <footer className="skills-editor__bar">
+            {workflowTab === "preview" ? (
+              <div className="skills-workflow-preview">
+                {body.trim() ? (
+                  <MarkdownDoc text={body} />
+                ) : (
+                  <p className="skills-workflow-empty">Nothing to preview yet.</p>
+                )}
+              </div>
+            ) : (
+              <Textarea
+                className="skills-workflow"
+                value={body}
+                disabled={!canEdit || generateBusy}
+                onChange={(event) => setBody(event.target.value)}
+                aria-label="Skill workflow"
+              />
+            )}
+          </div>
           <p className="skills-editor__note">
             A Prism skill. In chat: <code>{`prism use ${useName}`}</code>
           </p>
           <p className="skills-editor__hint">
-            Drafts autosave in Prism. Publish to make it live.
+            {inherited
+              ? "Inherited skills are read-only. Duplicate to edit a copy in Yours."
+              : publishedLocked
+                ? "Published skills are read-only. Edit to change, or Duplicate to start a new draft."
+                : "Drafts autosave in Prism. Publish to make it live."}
           </p>
-        </footer>
+        </div>
       </section>
     </div>
   );

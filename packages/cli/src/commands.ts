@@ -14,7 +14,6 @@ import {
   safeDeleteCommand,
   testImpactCommand,
 } from "./commands/change.js";
-import { completionsCommand } from "./commands/completions.js";
 import { dnaCommand } from "./commands/dna.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { indexCommand } from "./commands/index-command.js";
@@ -78,7 +77,10 @@ export const COMMANDS: readonly CommandSpec[] = [
     name: "completions",
     group: "Diagnostics",
     summary: "Print shell completion script (bash, zsh, or fish)",
-    handler: completionsCommand,
+    handler: async (context) => {
+      const { completionsCommand } = await import("./commands/completions.js");
+      return completionsCommand(context);
+    },
     arguments: [
       {
         syntax: "<shell>",
