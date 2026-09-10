@@ -1,3 +1,6 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+import { mkdir, open, unlink } from "node:fs/promises";
+import { dirname } from "node:path";
 import { withLifecycleEvents } from "./lifecycle.js";
 import {
   JobRecordSchema,
@@ -9,7 +12,64 @@ import { readJsonFile, writeJsonFile } from "./json-file.js";
 
 type JobsFile = { jobs: JobRecord[] };
 
-export async function loadJobs(workspaceRoot: string): Promise<JobRecord[]> {
+const LOCK_WAIT_MS = 5_000;
+const LOCK_RETRY_MS = 15;
+
+/** Nested `updateJobs` on the same async chain may reenter; siblings must not. */
+const lockOwner = new AsyncLocalStorage<string>();
+/** Serialises concurrent claims inside one process (MCP kick + hub drain). */
+const inProcessTail = new Map<string, Promise<void>>();
+
+async function withJobsLock<T>(
+  workspaceRoot: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const lockPath = `${jobsPath(workspaceRoot)}.lock`;
+  if (lockOwner.getStore() === lockPath) {
+    return await fn();
+  }
+
+  const prev = inProcessTail.get(lockPath) ?? Promise.resolve();
+  let releaseQueue: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => {
+    releaseQueue = resolve;
+  });
+  inProcessTail.set(
+    lockPath,
+    prev.then(
+      () => held,
+      () => held,
+    ),
+  );
+  await prev.catch(() => undefined);
+
+  try {
+    await mkdir(dirname(lockPath), { recursive: true });
+    const started = Date.now();
+    for (;;) {
+      try {
+        const handle = await open(lockPath, "wx");
+        try {
+          return await lockOwner.run(lockPath, fn);
+        } finally {
+          await handle.close();
+          await unlink(lockPath).catch(() => undefined);
+        }
+      } catch (cause) {
+        const code = (cause as NodeJS.ErrnoException).code;
+        if (code !== "EEXIST" && code !== "EPERM") throw cause;
+        if (Date.now() - started >= LOCK_WAIT_MS) {
+          throw new Error("Prism could not update the job list (busy).");
+        }
+        await new Promise((resolve) => setTimeout(resolve, LOCK_RETRY_MS));
+      }
+    }
+  } finally {
+    releaseQueue();
+  }
+}
+
+async function readJobsFile(workspaceRoot: string): Promise<JobRecord[]> {
   const file = await readJsonFile<JobsFile>(jobsPath(workspaceRoot), {
     jobs: [],
   });
@@ -19,11 +79,45 @@ export async function loadJobs(workspaceRoot: string): Promise<JobRecord[]> {
   });
 }
 
-export async function saveJobs(
+async function writeJobsFile(
   workspaceRoot: string,
   jobs: readonly JobRecord[],
 ): Promise<void> {
   await writeJsonFile(jobsPath(workspaceRoot), { jobs });
+}
+
+export async function loadJobs(workspaceRoot: string): Promise<JobRecord[]> {
+  return await readJobsFile(workspaceRoot);
+}
+
+/**
+ * Read-modify-write `jobs.json` under an exclusive lock so the hub drain and
+ * the MCP `start_job` kick cannot both claim the same queued row.
+ */
+export async function updateJobs<T>(
+  workspaceRoot: string,
+  mutator: (
+    jobs: JobRecord[],
+  ) =>
+    | { jobs: JobRecord[]; result: T }
+    | Promise<{ jobs: JobRecord[]; result: T }>,
+): Promise<T> {
+  return await withJobsLock(workspaceRoot, async () => {
+    const jobs = await readJobsFile(workspaceRoot);
+    const next = await mutator(jobs);
+    await writeJobsFile(workspaceRoot, next.jobs);
+    return next.result;
+  });
+}
+
+export async function saveJobs(
+  workspaceRoot: string,
+  jobs: readonly JobRecord[],
+): Promise<void> {
+  await updateJobs(workspaceRoot, () => ({
+    jobs: [...jobs],
+    result: undefined,
+  }));
 }
 
 /**
@@ -45,12 +139,11 @@ function withLifecycleStamps(job: JobRecord, nowIso: string): JobRecord {
   return job;
 }
 
-export async function upsertJob(
-  workspaceRoot: string,
+function applyUpsert(
+  jobs: readonly JobRecord[],
   job: JobRecord,
-): Promise<JobRecord> {
-  const jobs = await loadJobs(workspaceRoot);
-  const now = new Date().toISOString();
+  now: string,
+): { jobs: JobRecord[]; stamped: JobRecord } {
   const prev = jobs.find((item) => item.id === job.id);
   const stamped = withLifecycleEvents(
     prev,
@@ -58,8 +151,18 @@ export async function upsertJob(
     now,
   );
   const next = [...jobs.filter((item) => item.id !== job.id), stamped];
-  await saveJobs(workspaceRoot, next);
-  return next.find((item) => item.id === job.id) ?? stamped;
+  return { jobs: next, stamped };
+}
+
+export async function upsertJob(
+  workspaceRoot: string,
+  job: JobRecord,
+): Promise<JobRecord> {
+  const now = new Date().toISOString();
+  return await updateJobs(workspaceRoot, (jobs) => {
+    const applied = applyUpsert(jobs, job, now);
+    return { jobs: applied.jobs, result: applied.stamped };
+  });
 }
 
 export async function getJob(
@@ -83,16 +186,16 @@ export async function deleteJob(
   workspaceRoot: string,
   id: string,
 ): Promise<JobRecord | undefined> {
-  const jobs = await loadJobs(workspaceRoot);
-  const removed = jobs.find(
-    (job) => job.id === id || job.id.toLowerCase() === id.toLowerCase(),
-  );
-  if (!removed) return undefined;
-  await saveJobs(
-    workspaceRoot,
-    jobs.filter((job) => job.id !== removed.id),
-  );
-  return removed;
+  return await updateJobs(workspaceRoot, (jobs) => {
+    const removed = jobs.find(
+      (job) => job.id === id || job.id.toLowerCase() === id.toLowerCase(),
+    );
+    if (!removed) return { jobs, result: undefined };
+    return {
+      jobs: jobs.filter((job) => job.id !== removed.id),
+      result: removed,
+    };
+  });
 }
 
 /**
@@ -126,10 +229,8 @@ export function queuedJobs(jobs: readonly JobRecord[]): JobRecord[] {
 /**
  * Move a queued job to `booting`, but only if it is still queued.
  *
- * This is the claim step of the drain loop. Re-reading immediately before the
- * write keeps two drains (the in-process kick and the hub tick) from starting
- * the same worker twice. `writeJsonFile` is atomic, so the loser of a race
- * sees the winner's `booting` and backs off.
+ * Hub drain and the MCP `start_job` kick race across processes. The jobs-file
+ * lock is the claim: the loser sees `booting` and backs off.
  *
  * Returns the claimed job, or `undefined` if someone else got there first.
  */
@@ -137,12 +238,15 @@ export async function claimQueuedJob(
   workspaceRoot: string,
   jobId: string,
 ): Promise<JobRecord | undefined> {
-  const jobs = await loadJobs(workspaceRoot);
-  const job = jobs.find((item) => item.id === jobId);
-  if (!job || job.status !== "queued") return undefined;
-  // Deliberately no `startedAt` here. Booting is git setup and sign-in, which
-  // is pipeline overhead, not agent work — stamping it now would charge a
-  // 180-second login to the agent. `startedAt` lands on the `running`
-  // transition, so `working` time means what a reader assumes it means.
-  return await upsertJob(workspaceRoot, { ...job, status: "booting" });
+  const now = new Date().toISOString();
+  return await updateJobs(workspaceRoot, (jobs) => {
+    const job = jobs.find((item) => item.id === jobId);
+    if (!job || job.status !== "queued") {
+      return { jobs, result: undefined };
+    }
+    // Deliberately no `startedAt` here. Booting is git setup and sign-in,
+    // which is pipeline overhead, not agent work.
+    const applied = applyUpsert(jobs, { ...job, status: "booting" }, now);
+    return { jobs: applied.jobs, result: applied.stamped };
+  });
 }

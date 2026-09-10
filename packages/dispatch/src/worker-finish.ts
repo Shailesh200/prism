@@ -26,6 +26,8 @@ import {
 import { verifyJobWork } from "./job-verify.js";
 import { publicRunFailure } from "./job-voice.js";
 import { composeJobResult, type RunState } from "./run-state.js";
+import { isSkillPlaybook } from "./playbook.js";
+import { applyGeneratedSkill } from "./skills.js";
 import type { JobPlacement } from "./types.js";
 
 export type WorkerFinishInput = {
@@ -41,6 +43,9 @@ export type WorkerFinishInput = {
   readonly placement?: JobPlacement;
   /** Checkout only: paths already dirty at dispatch (ADR-0045 §3). */
   readonly preExistingChanges?: readonly string[];
+  readonly playbook?: string;
+  /** Tests inject PRISM_HOME so a finish cannot write into the real library. */
+  readonly env?: NodeJS.ProcessEnv;
 };
 
 export type WorkerFinishDeps = {
@@ -115,6 +120,7 @@ async function completeWorktreeRun(
   assistant: string,
   deps: WorkerFinishDeps,
 ): Promise<void> {
+  await maybeApplyGeneratedSkill(input, assistant, deps);
   await deps.patch({ lastActivity: "Saving work" });
   const commit = await commitJobWork(input.cwd, {
     jobId: input.jobId,
@@ -170,6 +176,7 @@ async function completeWorktreeRun(
         verification,
         verificationDetail,
         fabricationNote: fabricationNote(audit),
+        omitEmptyTree: isSkillPlaybook(input.playbook),
       }),
       lastActivity: "Done",
       completedAt: new Date().toISOString(),
@@ -189,6 +196,7 @@ async function completeCheckoutRun(
   assistant: string,
   deps: WorkerFinishDeps,
 ): Promise<void> {
+  await maybeApplyGeneratedSkill(input, assistant, deps);
   const preExisting = input.preExistingChanges ?? [];
 
   await deps.patch({ lastActivity: "Running checks" });
@@ -238,6 +246,7 @@ async function completeCheckoutRun(
         verification: checked.status,
         verificationDetail,
         fabricationNote: fabricationNote(audit),
+        omitEmptyTree: isSkillPlaybook(input.playbook),
       }),
       lastActivity: "Done",
       completedAt: new Date().toISOString(),
@@ -245,6 +254,22 @@ async function completeCheckoutRun(
     },
     { immediate: true },
   );
+}
+
+async function maybeApplyGeneratedSkill(
+  input: WorkerFinishInput,
+  assistant: string,
+  deps: WorkerFinishDeps,
+): Promise<void> {
+  if (!isSkillPlaybook(input.playbook)) return;
+  const saved = await applyGeneratedSkill({
+    assistant,
+    ...(input.title ? { title: input.title } : {}),
+    ...(input.env ? { env: input.env } : {}),
+  });
+  if (saved) {
+    await deps.patch({ lastActivity: `Updated skill ${saved.name}` });
+  }
 }
 
 export async function completeWorkerRun(

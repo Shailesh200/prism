@@ -209,4 +209,77 @@ describe("registration", () => {
     expect(answer.isError).toBe(true);
     expect(answer.content[0]?.text).toMatch(/could not answer/i);
   });
+
+  it("returns compact JSON so worker hops stay cheap", async () => {
+    const bundle = {
+      ok: true,
+      value: {
+        blast: { risk: "low" },
+        rename: { sites: [] },
+        safeDelete: { safe: true },
+        testImpact: { suites: ["a"] },
+      },
+    };
+    const { fetchImpl } = console_(bundle);
+    const server = { registerTool: vi.fn() };
+    await registerWorkerIntelligence(server as never, {
+      workspaceRoot: "/repo",
+      link: { port: 17330, token: "tok" },
+      fetchImpl,
+    });
+    const handler = server.registerTool.mock.calls[0]?.[2] as (
+      args: Record<string, unknown>,
+    ) => Promise<{ content: { text: string }[] }>;
+    const answer = await handler({ kind: "file", id: "a.ts" });
+    expect(answer.content[0]?.text).toBe(
+      '{"blast":{"risk":"low"},"testImpact":{"suites":["a"]}}',
+    );
+    expect(answer.content[0]?.text).not.toContain("\n");
+  });
+
+  it("answers list_packages in compact JSON, without extra package fields", async () => {
+    const { fetchImpl, sent } = console_([
+      {
+        id: "dispatch",
+        name: "@repo-prism/dispatch",
+        rootDir: "packages/dispatch",
+        domains: ["jobs"],
+      },
+    ]);
+    const listed = WORKER_TOOLS.find((tool) => tool.name === "list_packages");
+    const call = consoleCaller({ port: 1, token: "t" }, "/repo", fetchImpl);
+    const rows = await listed?.run(call, {});
+    expect(sent[0]?.method).toBe("listPackages");
+    expect(rows).toEqual([
+      {
+        id: "dispatch",
+        name: "@repo-prism/dispatch",
+        rootDir: "packages/dispatch",
+      },
+    ]);
+    expect(JSON.stringify(rows)).not.toContain("\n");
+  });
+
+  it("returns compact find_symbol hits without ids", async () => {
+    const { fetchImpl, sent } = console_([
+      {
+        id: "sym:1",
+        name: "waitedWorkedLabel",
+        kind: "function",
+        path: "packages/dispatch-hub/src/dashboard/fleet.ts",
+        exported: true,
+      },
+    ]);
+    const listed = WORKER_TOOLS.find((tool) => tool.name === "find_symbol");
+    const call = consoleCaller({ port: 1, token: "t" }, "/repo", fetchImpl);
+    const rows = await listed?.run(call, { query: "waitedWorkedLabel" });
+    expect(sent[0]?.method).toBe("symbols");
+    expect(rows).toEqual([
+      {
+        name: "waitedWorkedLabel",
+        kind: "function",
+        path: "packages/dispatch-hub/src/dashboard/fleet.ts",
+      },
+    ]);
+  });
 });

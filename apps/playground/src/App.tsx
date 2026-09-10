@@ -4,11 +4,9 @@ import {
   ConsoleJobsScreen,
   AppSidebar,
   BlastRadiusScreen,
-  ChangeReviewScreen,
   DnaScreen,
   DomainScreen,
   DomainsScreen,
-  ExplainAreaScreen,
   IntegrationsScreen,
   OverviewScreen,
   PrismErrorBoundary,
@@ -62,6 +60,8 @@ import {
   fetchEngineeringHealth,
   fetchGitActivity,
   fetchChangeReview,
+  fetchChangedPaths,
+  fetchExplainArea,
   fetchHealth,
   fetchHealthHistory,
   fetchHealthHistoryBackfillStatus,
@@ -247,6 +247,8 @@ export function App(): ReactElement {
         fetchImpactBundle(impactTarget, target),
       fetchChangeReview: (paths, base) =>
         fetchChangeReview(paths, target, base),
+      fetchChangedPaths: (base) => fetchChangedPaths(target, base),
+      fetchExplainArea: (path) => fetchExplainArea(path, target),
       applyRename: (input) => applyRename(input, target),
       fetchSymbolHits: (query) => fetchSymbolHits(query, target),
       fetchGitActivity: () => fetchGitActivity(target),
@@ -678,25 +680,26 @@ export function App(): ReactElement {
             onCancel={cancelOverlay}
             onNavigate={navigate}
           />
-        ) : view === "blast" ? (
+        ) : view === "blast" || view === "review" || view === "explain" ? (
           <BlastRadiusScreen
+            key="impact"
             root={root}
             repoLabel={rootLabel}
             branch={gitActivity?.summary?.branch}
             user={gitActivity?.recentCommits[0] ?? null}
             initialFile={blastSeedPath}
+            initialTab={
+              view === "explain"
+                ? "explain"
+                : view === "review"
+                  ? "review"
+                  : "blast"
+            }
             onNavigate={navigate}
             onOpenPath={(path) => {
               // Playground has no editor host — surface the path for copy/debug.
               console.info(`[playground] open path: ${path}`);
             }}
-          />
-        ) : view === "review" ? (
-          <ChangeReviewScreen
-            repoLabel={rootLabel}
-            branch={gitActivity?.summary?.branch}
-            user={gitActivity?.recentCommits[0] ?? null}
-            onNavigate={navigate}
           />
         ) : view === "jobs" ? (
           <ConsoleJobsScreen
@@ -706,13 +709,6 @@ export function App(): ReactElement {
             // playground genuinely cannot see Dispatch jobs.
             status={NO_CONSOLE_STATUS}
             onRetry={() => undefined}
-            onNavigate={navigate}
-          />
-        ) : view === "explain" ? (
-          <ExplainAreaScreen
-            repoLabel={rootLabel}
-            branch={gitActivity?.summary?.branch}
-            user={gitActivity?.recentCommits[0] ?? null}
             onNavigate={navigate}
           />
         ) : view === "trends" ? (

@@ -257,6 +257,11 @@ export type AppShellClient = {
     base?: string,
   ): Promise<ChangeReviewReport>;
   /**
+   * Working-tree (or optional base-ref) changed paths. Used by Impact
+   * "Use dirty files" on Explain / Blast without running a full review.
+   */
+  fetchChangedPaths?(base?: string): Promise<readonly string[]>;
+  /**
    * Deterministic module/folder summary (M-048 Phase 5): domain overlap +
    * dependency degree + local git ownership.
    */

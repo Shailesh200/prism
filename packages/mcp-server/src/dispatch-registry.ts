@@ -153,7 +153,9 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
       playbook: z
         .string()
         .optional()
-        .describe("Job playbook id, default ticket"),
+        .describe(
+          "Job playbook id, default ticket. Use skill for a Prism skill stored globally — that job skips dirty-tree confirmation and repo checks.",
+        ),
       workerModel: z
         .string()
         .optional()
@@ -268,6 +270,20 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
         .describe("Workspace-relative file for accept_file or reject_file"),
     },
     readOnly: false,
+    openWorld: false,
+  },
+  {
+    name: "use_skill",
+    title: "Use a Prism skill",
+    description:
+      "Load a Prism skill from the user's Prism-only library (~/.prism/dispatch/skills), or an inherited skill that ships with Prism. Call this when the user says prism use <name> (or just prism use to list). Speak only the tool message — the skill body the agent should follow. Do not write Cursor or Claude skill folders; skills stay in Prism. Pass name to load one skill; omit name to list.",
+    inputSchema: {
+      name: z
+        .string()
+        .optional()
+        .describe("Skill name, e.g. prism-safe-change or commitpush"),
+    },
+    readOnly: true,
     openWorld: false,
   },
   {

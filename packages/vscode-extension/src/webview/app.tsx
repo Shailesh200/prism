@@ -13,11 +13,9 @@ import {
   AppShellClientProvider,
   AppSidebar,
   BlastRadiusScreen,
-  ChangeReviewScreen,
   DnaScreen,
   DomainScreen,
   DomainsScreen,
-  ExplainAreaScreen,
   ConsoleJobsScreen,
   IntegrationsScreen,
   OverviewScreen,
@@ -90,6 +88,7 @@ import {
   discoverFrontendRoutes,
   removeBookmark,
   reviewChanges,
+  fetchChangedPaths,
   runLighthouseLab,
   runBundleAnalyze,
   detectBundleAnalyzeCapability,
@@ -275,6 +274,7 @@ function App(): ReactElement {
       listConsent,
       setConsent,
       fetchChangeReview: (paths, base) => reviewChanges(paths, base),
+      fetchChangedPaths,
       fetchExplainArea: (path) => explainArea(path),
       fetchBookmarks,
       saveBookmark,
@@ -648,38 +648,26 @@ function App(): ReactElement {
         onNavigate={onNavigate}
       />
     );
-  } else if (view === "blast") {
+  } else if (view === "blast" || view === "review" || view === "explain") {
     body = (
       <BlastRadiusScreen
+        key="impact"
         root={root}
         repoLabel={repoLabel}
         branch={branch}
         user={user}
         initialFile={targetPath}
         initialIntent={blastIntent}
-        onNavigate={onNavigate}
-        onOpenPath={openFile}
-      />
-    );
-  } else if (view === "review") {
-    body = (
-      <ChangeReviewScreen
-        repoLabel={repoLabel}
-        branch={branch}
-        user={user}
+        initialTab={
+          view === "explain"
+            ? "explain"
+            : view === "review"
+              ? "review"
+              : "blast"
+        }
         initialPaths={targetPaths}
         onNavigate={onNavigate}
-        onOpenFile={openFile}
-      />
-    );
-  } else if (view === "explain") {
-    body = (
-      <ExplainAreaScreen
-        repoLabel={repoLabel}
-        branch={branch}
-        user={user}
-        initialPath={targetPath}
-        onNavigate={onNavigate}
+        onOpenPath={openFile}
       />
     );
   } else if (view === "trends") {

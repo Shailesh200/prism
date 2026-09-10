@@ -1,5 +1,11 @@
 import { useId, type ReactElement, type ReactNode } from "react";
-import { gaugeArc, seriesGeometry } from "./charts.js";
+import {
+  gaugeArc,
+  integerTicks,
+  niceTicks,
+  seriesGeometry,
+  valueToY,
+} from "./charts.js";
 
 export type SparklineProps = {
   readonly values: readonly number[];
@@ -134,6 +140,115 @@ export function GanttRow(props: GanttRowProps): ReactElement {
       className={`prism-gantt${props.className ? ` ${props.className}` : ""}`}
     >
       {props.children}
+    </div>
+  );
+}
+
+export type ChartXLabel = {
+  readonly fraction: number;
+  readonly label: string;
+};
+
+export type CartesianFrameProps = {
+  readonly width: number;
+  readonly height: number;
+  readonly pad: number;
+  readonly min: number;
+  readonly max: number;
+  readonly xLabels: readonly ChartXLabel[];
+  /** Use integer ticks for counts; otherwise nice ticks (e.g. 0–100 scores). */
+  readonly integerY?: boolean;
+  readonly yFormat?: (value: number) => string;
+  readonly children: ReactNode;
+  readonly className?: string;
+};
+
+/**
+ * Plot chrome: Y ticks, X ticks, and faint grid aligned to {@link seriesGeometry}.
+ */
+export function CartesianFrame(props: CartesianFrameProps): ReactElement {
+  const min = props.min;
+  const max = Math.max(props.max, min + 1e-9);
+  const ticks = props.integerY
+    ? integerTicks(max)
+    : niceTicks(min, max, min === 0 && max === 100 ? 5 : 4);
+  const format = props.yFormat ?? ((value: number) => String(value));
+  const gridClass = props.className
+    ? `prism-chart ${props.className}`
+    : "prism-chart";
+
+  return (
+    <div className={gridClass}>
+      <div className="prism-chart__y" aria-hidden>
+        {ticks.map((tick) => {
+          const y = valueToY(tick, props.height, props.pad, min, max);
+          const top = (y / props.height) * 100;
+          return (
+            <span
+              key={tick}
+              className="prism-chart__y-tick"
+              style={{ top: `${top}%` }}
+            >
+              {format(tick)}
+            </span>
+          );
+        })}
+      </div>
+      <div className="prism-chart__body">
+        <svg
+          className="prism-chart__grid"
+          viewBox={`0 0 ${props.width} ${props.height}`}
+          preserveAspectRatio="none"
+          aria-hidden
+        >
+          {ticks.map((tick) => {
+            const y = valueToY(tick, props.height, props.pad, min, max);
+            return (
+              <line
+                key={tick}
+                x1={props.pad}
+                x2={props.width - props.pad}
+                y1={y}
+                y2={y}
+                stroke="var(--prism-line)"
+                strokeOpacity="0.55"
+                strokeWidth="1"
+                vectorEffect="non-scaling-stroke"
+              />
+            );
+          })}
+          <line
+            x1={props.pad}
+            x2={props.pad}
+            y1={props.pad}
+            y2={props.height - props.pad}
+            stroke="var(--prism-line)"
+            strokeWidth="1"
+            vectorEffect="non-scaling-stroke"
+          />
+          <line
+            x1={props.pad}
+            x2={props.width - props.pad}
+            y1={props.height - props.pad}
+            y2={props.height - props.pad}
+            stroke="var(--prism-line)"
+            strokeWidth="1"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+        {props.children}
+      </div>
+      <div className="prism-chart__x" aria-hidden>
+        {props.xLabels.map((item) => (
+          <span
+            key={`${item.fraction}-${item.label}`}
+            className="prism-chart__x-tick"
+            style={{ left: `${item.fraction * 100}%` }}
+          >
+            {item.label}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { readdir, realpath, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import {
   addGitWorktree,
   branchHasUnmergedCommits,
@@ -166,6 +166,26 @@ export async function pruneOrphanWorktrees(input: {
   return { removed, keptWithCommits };
 }
 
+function linkedTrees(
+  workspaceRoot: string,
+  trees: readonly DiscoveredWorktree[],
+): DiscoveredWorktree[] {
+  const root = resolve(workspaceRoot);
+  return trees.filter((tree) => resolve(tree.path) !== root);
+}
+
+function branchName(branch: string): string {
+  return branch.replace(/^refs\/heads\//, "").trim();
+}
+
+/** `fatal: 'feat/x' is already checked out at '/path'` */
+export function alreadyCheckedOutPath(error: string): string | undefined {
+  const quoted = error.match(/already checked out at ['"]([^'"]+)['"]/i);
+  if (quoted?.[1]) return quoted[1];
+  const bare = error.match(/already checked out at (\S+)/i);
+  return bare?.[1];
+}
+
 export async function adoptOrCreateWorktree(input: {
   readonly workspaceRoot: string;
   readonly jobId: string;
@@ -175,11 +195,19 @@ export async function adoptOrCreateWorktree(input: {
 }): Promise<DiscoveredWorktree> {
   const needles = slugParts(input.jobId, input.title);
   const discovered = await discoverWorktrees(input.workspaceRoot, input.run);
-  const match = discovered.find((tree) => matches(tree, needles));
+  const linked = linkedTrees(input.workspaceRoot, discovered);
+  const preferred = input.preferredBranch?.trim();
+  if (preferred) {
+    const byBranch = linked.find(
+      (tree) => branchName(tree.branch) === branchName(preferred),
+    );
+    if (byBranch) return byBranch;
+  }
+  const match = linked.find((tree) => matches(tree, needles));
   if (match) return match;
 
   const branch =
-    input.preferredBranch?.trim() ||
+    preferred ||
     `dispatch/${input.jobId.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   const path = join(worktreesDir(input.workspaceRoot), input.jobId);
   const added = await addGitWorktree(
@@ -189,6 +217,19 @@ export async function adoptOrCreateWorktree(input: {
     input.run,
   );
   if (!added.ok) {
+    const existingPath = alreadyCheckedOutPath(added.error ?? "");
+    if (existingPath) {
+      const again = await discoverWorktrees(input.workspaceRoot, input.run);
+      const found = linkedTrees(input.workspaceRoot, again).find(
+        (tree) => resolve(tree.path) === resolve(existingPath),
+      );
+      if (found) return found;
+      return {
+        path: existingPath,
+        branch,
+        ...(await inferSource(existingPath, input.workspaceRoot)),
+      };
+    }
     throw new Error(added.error ?? "failed to create worktree");
   }
   return { path, branch, source: "prism" };

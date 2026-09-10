@@ -4,18 +4,18 @@ import type { ReactElement } from "react";
 const HIGHLIGHTS = [
   {
     kicker: "Console",
-    title: "Append-only job graph",
-    body: "Focus draws Accepted → Queued → Working. Pause then resume adds a new Working node; the rail never rewinds.",
+    title: "Skills and Trees",
+    body: "Skills is a grouped view in ~/.prism, not the repo. Trees shows checkout versus linked worktrees.",
   },
   {
-    kicker: "Pulse",
-    title: "Needs you lives here",
-    body: "Live / Needs you / Settled. The extra inbox tab is gone. Related jobs is a parent/child tree.",
+    kicker: "Impact",
+    title: "One workspace",
+    body: "Explain, Blast radius, and Review changes share a target. Use dirty files on every tab.",
   },
   {
-    kicker: "MCP",
-    title: "prism sleep / prism wake",
-    body: "Sleep parks the Console and playground. Wake brings both back and starts the queue.",
+    kicker: "Dispatch",
+    title: "Orientation and overlap",
+    body: "Teammates start with repo context. Concurrent jobs cannot silently stack on the same paths.",
   },
 ] as const;
 
@@ -26,10 +26,10 @@ export function WhatsNewView(props: {
   return (
     <section className="console__panel ship-log">
       <p className="console__eyebrow">What's new</p>
-      <h1 className="console__title">1.9.0 — Job graph, sleep and wake</h1>
+      <h1 className="console__title">1.10.0 — Skills, trees, and Impact</h1>
       <p className="console__lede">
-        Focus draws an append-only graph. Pulse is the inbox. prism sleep and
-        prism wake park and restore the Console.
+        Skills and Trees in the Console. Impact is one workspace. Teammates
+        start oriented and do not overlap in silence.
       </p>
       <ul className="ship-log__feats">
         {HIGHLIGHTS.map((row) => (

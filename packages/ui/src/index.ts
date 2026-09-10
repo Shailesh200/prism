@@ -68,6 +68,12 @@ export {
   resolveCardOverlaps,
 } from "./card-tree-layout.js";
 export {
+  presentFileZoom,
+  FILE_ZOOM_CARD_PAGE_SIZE,
+  FILE_ZOOM_EXPLORER_THRESHOLD,
+  type FileZoomPresentation,
+} from "./file-zoom.js";
+export {
   layoutOverviewGraph,
   clusterKeyForLabel,
   shortLabelInCluster,
@@ -135,6 +141,9 @@ export {
   type TableSort,
 } from "./Table.js";
 export { HoverTip, type HoverTipProps } from "./HoverTip.js";
+export { ListTile, type ListTileProps } from "./ListTile.js";
+export { Pip, type PipProps, type PipSize, type PipTone } from "./Pip.js";
+export { ProgressBar, type ProgressBarProps } from "./ProgressBar.js";
 export { Truncate, type TruncateProps } from "./Truncate.js";
 export {
   SearchableInput,
@@ -156,10 +165,13 @@ export { CardIcon, type CardIconProps, type CardIconTone } from "./CardIcon.js";
 export { EmptyState, type EmptyStateProps } from "./EmptyState.js";
 export {
   AreaChart,
+  CartesianFrame,
   Gauge,
   GanttRow,
   Sparkline,
   type AreaChartProps,
+  type CartesianFrameProps,
+  type ChartXLabel,
   type GaugeProps,
   type GanttRowProps,
   type SparklineProps,
@@ -167,7 +179,11 @@ export {
 export {
   ganttSegmentPercents,
   gaugeArc,
+  integerTicks,
+  niceTicks,
+  pickAxisIndices,
   seriesGeometry,
+  valueToY,
   type GanttSegment,
   type SeriesGeometry,
 } from "./charts.js";

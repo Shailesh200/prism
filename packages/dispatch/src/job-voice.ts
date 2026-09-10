@@ -1,7 +1,7 @@
 import { isMissingGitRepoMessage } from "./git.js";
 import { displayJobId, isOpaqueJobId } from "./job-id.js";
 import { coalesceThinkingEntries } from "./run-log.js";
-import type { JobRecord, JobReview, ReviewFile } from "./types.js";
+import type { JobRecord, JobReview, ReviewFile, TokenUsage } from "./types.js";
 
 export function jobRef(job: { id: string; title: string }): string {
   const title = job.title.trim();
@@ -307,6 +307,7 @@ export type JobListRow = {
   confirmQuestion?: string;
   /** Why a `queued` job has not started yet, when the drain knows. */
   nextStep?: string;
+  tokenUsage?: TokenUsage;
 };
 
 export function listJobsSpeak(rows: readonly JobListRow[]): string {
@@ -347,6 +348,18 @@ export function listJobsSpeak(rows: readonly JobListRow[]): string {
   return lines.join("\n");
 }
 
+function tokenUsageSpeak(usage: TokenUsage | undefined): string {
+  if (!usage) return "";
+  const bits = [
+    `${usage.inputTokens.toLocaleString()} in`,
+    `${usage.outputTokens.toLocaleString()} out`,
+  ];
+  if (usage.contextTokens != null && usage.contextTokens > 0) {
+    bits.push(`${usage.contextTokens.toLocaleString()} context`);
+  }
+  return bits.join(" / ");
+}
+
 function gatedLine(job: JobListRow): string {
   return [
     jobRef(job),
@@ -370,14 +383,22 @@ function finishedLine(job: JobListRow): string {
       jobRef(job),
       "failed",
       job.errorMessage || "The teammate hit an error. Say resume to try again.",
-    ].join(" — ");
+      tokenUsageSpeak(job.tokenUsage),
+    ]
+      .filter(Boolean)
+      .join(" — ");
   }
   if (job.status === "needs_review" && job.review) {
     return reviewSpeak(job, job.review);
   }
-  return [jobRef(job), "finished", job.resultSummary || "Wrapped up."].join(
-    " — ",
-  );
+  return [
+    jobRef(job),
+    "finished",
+    job.resultSummary || "Wrapped up.",
+    tokenUsageSpeak(job.tokenUsage),
+  ]
+    .filter(Boolean)
+    .join(" — ");
 }
 
 /** How many files a chat line names before it stops listing. */
@@ -459,6 +480,7 @@ function liveLine(job: JobListRow): string {
     activity,
     gone,
     git,
+    tokenUsageSpeak(job.tokenUsage),
   ].filter(Boolean);
   return bits.join(" — ");
 }

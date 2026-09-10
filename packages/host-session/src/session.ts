@@ -488,7 +488,29 @@ export class PrismSession {
   ): Promise<Result<ChangeReviewReport, PrismError>> {
     const ws = this.requireWs();
     if (!ws.ok) return ws;
-    return ws.value.reviewChanges({ paths, ...(base ? { base } : {}) });
+    let resolved = [...paths];
+    let resolvedBase = base;
+    // Empty paths means "use dirty files" — same contract as MCP review_changes.
+    if (resolved.length === 0) {
+      const changed = ws.value.getChangedPaths(
+        base === undefined ? undefined : { base },
+      );
+      if (!changed.ok) return changed;
+      resolved = [...changed.value.paths];
+      resolvedBase = resolvedBase ?? changed.value.base;
+      if (resolved.length === 0) {
+        return err(
+          prismError(
+            PrismErrorCode.VALIDATION,
+            "No changed paths to review (working tree clean, or nothing under this workspace)",
+          ),
+        );
+      }
+    }
+    return ws.value.reviewChanges({
+      paths: resolved,
+      ...(resolvedBase === undefined ? {} : { base: resolvedBase }),
+    });
   }
 
   async explainArea(

@@ -5,7 +5,7 @@
 
 **`prism-mcp`** — give any MCP-capable agent structural answers about the repo
 you have open, plus Dispatch (start my day, jobs, connect). Same engine as the
-CLI and IDE extension. Local analysis. 43 tools.
+CLI and IDE extension. Local analysis. 44 tools.
 
 **Website:** [https://www.prismhq.in](https://www.prismhq.in) · **Docs:** [https://www.prismhq.in/docs/start/install](https://www.prismhq.in/docs/start/install)
 
@@ -129,6 +129,7 @@ waiting for an MCP **client**. Configure the client; it starts the process.
 | “Prism init” / set up jobs | `init` |
 | “Prism sleep” / put Prism to sleep | `sleep` |
 | “Prism wake” / wake up | `wake` |
+| “Prism use …” | `use_skill` |
 | “Where are we?” | `list_jobs` |
 | “What is it doing?” / “show me the logs” | `job_logs` |
 | “Remember this” | `remember` |
@@ -188,6 +189,7 @@ credentials — connectors belong to the agent window (ADR-0049).
 | `init` | One-time worker sign-in (Cursor browser login; Claude CLI check) | — |
 | `sleep` | Park the Console and hold queued jobs until wake | `confirm` |
 | `wake` | Bring the Console back and start queued jobs | `confirm` |
+| `use_skill` | Load a Prism skill (`prism use <name>`) | `name` |
 | `start_job` | Start a named teammate in its own worktree; returns immediately | `title`, `prd`, `jobId`, `branch`, `confirmOverlap` |
 | `list_jobs` | Live activity plus finished results (“where are we”); names the jobs board | — |
 | `job_logs` | One job's console: activity lines (subagent lines marked) plus the review awaiting you | `jobId`, `limit`, `since` |

@@ -474,10 +474,9 @@ describe("worker MCP env", () => {
       },
     });
     expect(options.tools).toEqual(
-      expect.arrayContaining(["read", "edit", "grep", "mcp"]),
+      expect.arrayContaining(["read", "edit", "grep", "semSearch", "mcp"]),
     );
-    // The shell ban is untouched: it is what stopped a worker running `bun
-    // install` and re-indexing (ADR-0041).
+    expect(options.tools).not.toContain("ls");
     expect(options.tools).not.toContain("shell");
     expect(options.model).toBeUndefined();
     expect(

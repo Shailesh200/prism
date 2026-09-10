@@ -43,9 +43,11 @@ describe("worker tool allowlist", () => {
     expect(workerTools(false)).toEqual([...WORKER_EDIT_TOOLS]);
   });
 
-  it("never grants shell or mcp, with or without subagents", () => {
+  it("never grants shell, ls, or mcp, with or without subagents", () => {
     for (const tools of [workerTools(true), workerTools(false)]) {
       expect(tools).not.toContain("shell");
+      expect(tools).not.toContain("ls");
+      expect(tools).toContain("semSearch");
       // MCP is opt-in per call: the default stays off, so nothing gets it by
       // simply forgetting to say no.
       expect(tools).not.toContain("mcp");

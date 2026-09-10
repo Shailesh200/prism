@@ -151,6 +151,14 @@ html[data-prism-tour-active] .appnav__logo {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.appnav__nav::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .appnav__group {
@@ -211,6 +219,16 @@ html[data-prism-tour-active] .appnav__logo {
 
 .appnav__item--external:hover {
   color: #e2e8f0;
+}
+
+.appnav__ext {
+  margin-left: auto;
+  flex-shrink: 0;
+  opacity: 0.55;
+}
+
+.appnav--rail:not(:hover):not(:focus-within) .appnav__ext {
+  display: none;
 }
 
 .appnav__item--below-logo {

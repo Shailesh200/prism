@@ -19,11 +19,13 @@ import {
   DomainReportSchema,
   DnaReportSchema,
   EngineeringHealthReportSchema,
+  ExplainAreaSummarySchema,
   GitActivitySchema,
   GraphSnapshotDtoSchema,
   HealthHistoryBackfillStatusSchema,
   HealthHistoryReportSchema,
   HealthScoreSchema,
+  NO_CONSOLE_STATUS,
   RegionMoversReportSchema,
   RenameImpactReportSchema,
   RepositoryMapSchema,
@@ -925,6 +927,45 @@ export function createHttpTransport(
           }
         }
 
+        case "consoleStatus": {
+          try {
+            const { ok, json } = await getJson("/api/console");
+            if (!ok) return { ok: true, data: NO_CONSOLE_STATUS as T };
+            return { ok: true, data: json as T };
+          } catch {
+            return { ok: true, data: NO_CONSOLE_STATUS as T };
+          }
+        }
+
+        case "changedPaths": {
+          const qs = new URLSearchParams();
+          rootParam(qs);
+          if (typeof params.base === "string" && params.base.trim()) {
+            qs.set("base", params.base.trim());
+          }
+          const { ok, json } = await getJson(`/api/changed-paths?${qs}`);
+          if (!ok) {
+            const message =
+              json &&
+              typeof json === "object" &&
+              "error" in json &&
+              typeof json.error === "string"
+                ? json.error
+                : "changed-paths failed";
+            return { ok: false, error: message };
+          }
+          const paths =
+            json &&
+            typeof json === "object" &&
+            "paths" in json &&
+            Array.isArray((json as { paths: unknown }).paths)
+              ? (json as { paths: unknown[] }).paths.filter(
+                  (p): p is string => typeof p === "string" && p.trim() !== "",
+                )
+              : [];
+          return { ok: true, data: paths as T };
+        }
+
         case "reviewChanges": {
           const res = await fetchImpl("/api/review", {
             method: "POST",
@@ -935,13 +976,18 @@ export function createHttpTransport(
               ...(typeof params.base === "string" ? { base: params.base } : {}),
             }),
           });
+          const json: unknown = await res.json().catch(() => null);
           if (!res.ok) {
-            return {
-              ok: false,
-              error: `Review changes failed (${res.status})`,
-            };
+            const message =
+              json &&
+              typeof json === "object" &&
+              "error" in json &&
+              typeof json.error === "string"
+                ? json.error
+                : `Review changes failed (${res.status})`;
+            return { ok: false, error: message };
           }
-          const parsed = ChangeReviewReportSchema.safeParse(await res.json());
+          const parsed = ChangeReviewReportSchema.safeParse(json);
           if (!parsed.success) {
             return {
               ok: false,
@@ -951,7 +997,27 @@ export function createHttpTransport(
           return { ok: true, data: parsed.data as T };
         }
 
-        case "explainArea":
+        case "explainArea": {
+          const qs = new URLSearchParams();
+          rootParam(qs);
+          const path = typeof params.path === "string" ? params.path : "";
+          qs.set("path", path);
+          const { ok, json } = await getJson(`/api/explain?${qs}`);
+          if (!ok || json === null) {
+            const message =
+              json &&
+              typeof json === "object" &&
+              "error" in json &&
+              typeof json.error === "string"
+                ? json.error
+                : "explainArea failed";
+            return { ok: false, error: message };
+          }
+          const parsed = ExplainAreaSummarySchema.safeParse(json);
+          return parsed.success
+            ? { ok: true, data: parsed.data as T }
+            : { ok: false, error: "Invalid explain area payload" };
+        }
         case "listBookmarks":
         case "saveBookmark":
         case "removeBookmark":

@@ -26,6 +26,8 @@ describe("UXPilot dark tokens (ADR-0014)", () => {
   it("keeps signal accent colors", () => {
     expect(tokens).toContain("--prism-risk: #f59e0b");
     expect(tokens).toContain("--prism-safe: #10b981");
+    expect(tokens).toContain("--prism-node-size: 28px");
+    expect(tokens).toContain("--prism-trees-inspector: 440px");
   });
 
   it("defines density overrides", () => {

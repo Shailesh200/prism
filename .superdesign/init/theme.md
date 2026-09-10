@@ -1,0 +1,358 @@
+# Theme tokens
+
+## Compact token summary
+
+Dark product UI (ADR-0014 / M-068). Inter + JetBrains Mono. Canvas `#0a0e1a`.
+
+| Token | Value |
+|---|---|
+| `--prism-brand` | `#00c2c2` |
+| `--prism-brand-strong` | `#00dcd4` |
+| `--prism-on-brand` | `#ffffff` |
+| `--prism-accent` | `#38bdf8` |
+| `--prism-violet` | `#6c63ff` |
+| `--prism-ink` / `--prism-ink-1` | `#ffffff` |
+| `--prism-ink-2` | `#e6f0f2` |
+| `--prism-ink-3` / muted | `#94a3b8` |
+| `--prism-canvas` | `#0a0e1a` |
+| `--prism-panel` | `#131926` |
+| `--prism-tile` / elev | `#1e2433` |
+| `--prism-line` | `#2a334a` |
+| `--prism-amber` | `#f59e0b` |
+| `--prism-rose` | `#f43f5e` |
+| `--prism-emerald` | `#10b981` |
+| radius sm/md/lg/pill | 6 / 8 / 12 / 999 |
+| space xs–xl | 4 / 8 / 16 / 24 / 32 |
+| type body / body-sm / label | 0.9375 / 0.8125 / 0.75 rem |
+| button md padding | 8px 16px |
+| button sm padding | 5px 10px |
+| drawer footer | flex, justify flex-end, 12px 14px |
+
+## Raw source
+
+```css
+/**
+ * Prism UI tokens — UXPilot dark product system.
+ * Source of truth: plans/mockups/screens/html/*.html + plans/mockups/DESIGN.md.
+ * ADR-0014 relocked the product UI from light Signal Chart to this dark theme.
+ * Surfaces must consume these tokens; do not invent alternate palettes.
+ *
+ * Theme contract (consumers):
+ *   document.documentElement.dataset.theme = 'light' | 'dark' | 'system'
+ * The overrides below apply whether `data-theme` is set on :root/<html> OR on
+ * any `.prism-theme` ancestor, so the toggle takes effect app-wide regardless
+ * of where the attribute lands. Default (no attribute) = dark.
+ *
+ * Density:   document.documentElement.dataset.prismDensity = 'comfortable' | 'compact'
+ *            (or data-density on a .prism-theme ancestor)
+ * Mono font: document.documentElement.dataset.prismMonoFont = 'jetbrains' | 'ibm-plex' | 'fira' | 'system'
+ * Sans font: document.documentElement.dataset.prismSansFont = 'inter' | 'ibm-plex' | 'system'
+ */
+:root,
+.prism-theme {
+  /* Brand + accents (UXPilot) */
+  --prism-brand: #00c2c2;
+  --prism-brand-strong: #00dcd4;
+  /* Primary button label — always white for contrast on teal (Design.md on-primary). */
+  --prism-on-brand: #ffffff;
+  --prism-violet: #6c63ff;
+  /* Sky accent — live rail, running cap (ADR-0053 / M-068). */
+  --prism-accent: #38bdf8;
+
+  /* Text */
+  --prism-ink: #ffffff;
+  --prism-ink-1: #ffffff;
+  --prism-ink-2: #e6f0f2;
+  --prism-ink-3: #94a3b8;
+  --prism-ink-4: color-mix(in srgb, #94a3b8 70%, #0a0e1a);
+  --prism-ink-muted: #94a3b8;
+  --prism-text: #e6f0f2;
+  --prism-text-faint: #94a3b8;
+  --prism-surface: #131926;
+  --prism-border: #2a334a;
+
+  /* Structure */
+  --prism-line: #2a334a;
+  --prism-panel: #131926;
+  --prism-panel-2: #0f1420;
+  --prism-canvas: #0a0e1a;
+  --prism-canvas-alt: #0f1420;
+  --prism-tile: #1e2433;
+  --prism-elev: #1e2433;
+  --prism-surface-1: var(--prism-canvas);
+  --prism-surface-2: var(--prism-panel);
+  --prism-surface-3: var(--prism-tile);
+  --prism-surface-4: var(--prism-elev);
+
+  /* Map graph */
+  --prism-route: #00c2c2;
+  --prism-edge: color-mix(in srgb, #00c2c2 45%, #2a334a);
+  --prism-edge-strong: color-mix(in srgb, #00c2c2 78%, #94a3b8);
+  --prism-node-fill: #1e2433;
+  --prism-node-fill-selected: color-mix(in srgb, #00c2c2 16%, #131926);
+
+  /* Signal colors */
+  --prism-risk: #f59e0b;
+  --prism-risk-extreme: #f43f5e;
+  --prism-safe: #10b981;
+  --prism-amber: #f59e0b;
+  --prism-rose: #f43f5e;
+  --prism-emerald: #10b981;
+
+  /* Tooltip / instrument chrome */
+  --prism-dark-chrome: #1e2433;
+  --prism-dark-ink: #e8eef2;
+
+  /* Aliases */
+  --bg-canvas: var(--prism-canvas);
+  --bg-panel: var(--prism-panel);
+  --ink: var(--prism-ink);
+  --ink-muted: var(--prism-ink-muted);
+  --line: var(--prism-line);
+  --brand: var(--prism-brand);
+  /* Shell aliases used by overview/settings (keep in sync with light block). */
+  --prism-text-dim: var(--prism-ink-muted);
+  --prism-surface-raised: var(--prism-elev);
+  --prism-surface-container: var(--prism-tile);
+
+  /* Typography (UXPilot: Inter + JetBrains Mono) */
+  --prism-font: "Inter", "Segoe UI", system-ui, sans-serif;
+  --prism-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  --prism-type-brand-size: 1.125rem;
+  --prism-type-brand-weight: 650;
+  --prism-type-brand-tracking: -0.02em;
+  --prism-type-h2-size: 1.15rem;
+  --prism-type-h2-weight: 600;
+  --prism-type-body: 0.9375rem;
+  --prism-type-body-sm: 0.8125rem;
+  --prism-type-label: 0.75rem;
+  --prism-type-label-tracking: 0.04em;
+  --prism-type-mono: 0.75rem;
+  --prism-leading-body: 1.45;
+
+  /* Shape + space */
+  --prism-radius-sm: 6px;
+  --prism-radius-md: 8px;
+  --prism-radius-lg: 12px;
+  --prism-radius-pill: 999px;
+  --prism-space-xs: 4px;
+  --prism-space-sm: 8px;
+  --prism-space-md: 16px;
+  --prism-space-lg: 24px;
+  --prism-space-xl: 32px;
+  --prism-topbar-h: 48px;
+  --prism-sidebar-w: 224px;
+  --prism-inspector-w: 288px;
+  --prism-shadow-inspector: 0 8px 24px rgba(0, 0, 0, 0.45);
+
+  /* Elevation ladder (dark) */
+  --prism-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 1px rgba(0, 0, 0, 0.3);
+  --prism-shadow-2: 0 4px 12px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.35);
+  --prism-shadow-3: 0 14px 34px rgba(0, 0, 0, 0.55), 0 4px 10px rgba(0, 0, 0, 0.4);
+  --prism-shadow-float: 0 22px 52px rgba(0, 0, 0, 0.6), 0 6px 16px rgba(0, 0, 0, 0.45);
+
+  /* Selection focus ring (teal) */
+  --prism-ring: 0 0 0 3px color-mix(in srgb, var(--prism-brand) 26%, transparent);
+  --prism-ring-strong: 0 0 0 2px color-mix(in srgb, var(--prism-brand) 60%, transparent);
+
+  /* Signal glass — thin instrument surfaces floating over the map */
+  --prism-glass: color-mix(in srgb, var(--prism-tile) 86%, transparent);
+  --prism-glass-line: color-mix(in srgb, var(--prism-line) 90%, transparent);
+  --prism-glass-blur: 14px;
+
+  /* Motion */
+  --prism-dur-1: 120ms;
+  --prism-dur-2: 200ms;
+  --prism-dur-3: 320ms;
+  --prism-dur-4: 480ms;
+  --prism-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --prism-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --prism-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* Map atmosphere — dot grid over deep navy */
+  --prism-grid-line: rgba(42, 51, 74, 0.7);
+  --prism-grid-fine: rgba(42, 51, 74, 0.4);
+  --prism-vignette: rgba(0, 0, 0, 0.4);
+}
+
+/* Density overrides */
+.prism-theme[data-density="comfortable"],
+:root[data-prism-density="comfortable"],
+html[data-prism-density="comfortable"] body,
+:root[data-prism-density="comfortable"] .prism-theme {
+  --prism-space-xs: 6px;
+  --prism-space-sm: 10px;
+  --prism-space-md: 18px;
+  --prism-space-lg: 28px;
+}
+
+.prism-theme[data-density="compact"],
+:root[data-prism-density="compact"],
+html[data-prism-density="compact"] body,
+:root[data-prism-density="compact"] .prism-theme {
+  --prism-space-xs: 2px;
+  --prism-space-sm: 6px;
+  --prism-space-md: 12px;
+  --prism-space-lg: 18px;
+}
+
+/* Mono font family — set data-prism-mono-font on :root/<html> or .prism-theme */
+:root[data-prism-mono-font="jetbrains"],
+.prism-theme[data-prism-mono-font="jetbrains"] {
+  --prism-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+:root[data-prism-mono-font="ibm-plex"],
+.prism-theme[data-prism-mono-font="ibm-plex"] {
+  --prism-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+:root[data-prism-mono-font="fira"],
+.prism-theme[data-prism-mono-font="fira"] {
+  --prism-mono: "Fira Code", "Fira Mono", ui-monospace, monospace;
+}
+
+:root[data-prism-mono-font="system"],
+.prism-theme[data-prism-mono-font="system"] {
+  --prism-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* Sans font family — set data-prism-sans-font on :root/<html> or .prism-theme */
+:root[data-prism-sans-font="inter"],
+.prism-theme[data-prism-sans-font="inter"] {
+  --prism-font: "Inter", "Segoe UI", system-ui, sans-serif;
+}
+
+:root[data-prism-sans-font="ibm-plex"],
+.prism-theme[data-prism-sans-font="ibm-plex"] {
+  --prism-font: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+}
+
+:root[data-prism-sans-font="system"],
+.prism-theme[data-prism-sans-font="system"] {
+  --prism-font: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* Light theme — keep brand teal; flip structure + chrome.
+   Applies when data-theme="light" is on :root/<html>, on a .prism-theme
+   ancestor, or on :root with a nested .prism-theme container. */
+.prism-theme[data-theme="light"],
+:root[data-theme="light"],
+html[data-theme="light"],
+html[data-theme="light"] body,
+:root[data-theme="light"] .prism-theme,
+html[data-theme="light"] .prism-theme {
+  /* Signal Chart / Design.md light atmospheric palette */
+  --prism-ink: #191c1d;
+  --prism-ink-muted: #5a6b76;
+  --prism-line: #c5d0d8;
+  --prism-panel: #ffffff;
+  --prism-panel-2: #f3f4f5;
+  --prism-canvas: #e8eef2;
+  --prism-canvas-alt: #f4f7f9;
+  --prism-tile: #edeeef;
+  --prism-elev: #ffffff;
+  --prism-brand: #005c55;
+  --prism-brand-strong: #0f766e;
+  --prism-on-brand: #ffffff;
+  --prism-accent: #0284c7;
+  --prism-ink-1: #191c1d;
+  --prism-ink-2: #191c1d;
+  --prism-ink-3: #5a6b76;
+  --prism-ink-4: color-mix(in srgb, #5a6b76 70%, #e8eef2);
+  --prism-surface-1: var(--prism-canvas);
+  --prism-surface-2: var(--prism-panel);
+  --prism-surface-3: var(--prism-tile);
+  --prism-surface-4: var(--prism-elev);
+  --prism-node-fill: #ffffff;
+  --prism-node-fill-selected: color-mix(in srgb, #005c55 12%, #ffffff);
+  --prism-edge: color-mix(in srgb, #005c55 40%, #c5d0d8);
+  --prism-dark-chrome: #ffffff;
+  --prism-dark-ink: #191c1d;
+  --prism-text: #191c1d;
+  --prism-text-faint: #5a6b76;
+  --prism-surface: #f8f9fa;
+  --prism-border: #c5d0d8;
+  --prism-grid-line: rgba(90, 107, 118, 0.35);
+  --prism-grid-fine: rgba(90, 107, 118, 0.2);
+  --prism-vignette: rgba(25, 28, 29, 0.06);
+  --prism-shadow-inspector: 0 8px 24px rgba(25, 28, 29, 0.1);
+  --prism-shadow-1: 0 1px 2px rgba(25, 28, 29, 0.06),
+    0 1px 1px rgba(25, 28, 29, 0.04);
+  --prism-shadow-2: 0 4px 12px rgba(25, 28, 29, 0.08),
+    0 1px 3px rgba(25, 28, 29, 0.06);
+  --prism-shadow-3: 0 14px 34px rgba(25, 28, 29, 0.12),
+    0 4px 10px rgba(25, 28, 29, 0.08);
+  --prism-shadow-float: 0 22px 52px rgba(25, 28, 29, 0.14),
+    0 6px 16px rgba(25, 28, 29, 0.08);
+  --prism-text-dim: var(--prism-ink-muted);
+  --prism-surface-raised: var(--prism-elev);
+  --prism-surface-container: var(--prism-tile);
+}
+
+@media (prefers-color-scheme: light) {
+  .prism-theme[data-theme="system"],
+  :root[data-theme="system"],
+  html[data-theme="system"],
+  html[data-theme="system"] body,
+  :root[data-theme="system"] .prism-theme,
+  html[data-theme="system"] .prism-theme {
+    --prism-ink: #191c1d;
+    --prism-ink-muted: #5a6b76;
+    --prism-line: #c5d0d8;
+    --prism-panel: #ffffff;
+    --prism-panel-2: #f3f4f5;
+    --prism-canvas: #e8eef2;
+    --prism-canvas-alt: #f4f7f9;
+    --prism-tile: #edeeef;
+    --prism-elev: #ffffff;
+    --prism-brand: #005c55;
+    --prism-brand-strong: #0f766e;
+    --prism-accent: #0284c7;
+    --prism-ink-1: #191c1d;
+    --prism-ink-2: #191c1d;
+    --prism-ink-3: #5a6b76;
+    --prism-ink-4: color-mix(in srgb, #5a6b76 70%, #e8eef2);
+    --prism-surface-1: var(--prism-canvas);
+    --prism-surface-2: var(--prism-panel);
+    --prism-surface-3: var(--prism-tile);
+    --prism-surface-4: var(--prism-elev);
+    --prism-on-brand: #ffffff;
+    --prism-node-fill: #ffffff;
+    --prism-node-fill-selected: color-mix(in srgb, #005c55 12%, #ffffff);
+    --prism-edge: color-mix(in srgb, #005c55 40%, #c5d0d8);
+    --prism-dark-chrome: #ffffff;
+    --prism-dark-ink: #191c1d;
+    --prism-text: #191c1d;
+    --prism-text-faint: #5a6b76;
+    --prism-surface: #f8f9fa;
+    --prism-border: #c5d0d8;
+    --prism-grid-line: rgba(90, 107, 118, 0.35);
+    --prism-grid-fine: rgba(90, 107, 118, 0.2);
+    --prism-vignette: rgba(25, 28, 29, 0.06);
+    --prism-shadow-inspector: 0 8px 24px rgba(25, 28, 29, 0.1);
+    --prism-shadow-1: 0 1px 2px rgba(25, 28, 29, 0.06),
+      0 1px 1px rgba(25, 28, 29, 0.04);
+    --prism-shadow-2: 0 4px 12px rgba(25, 28, 29, 0.08),
+      0 1px 3px rgba(25, 28, 29, 0.06);
+    --prism-shadow-3: 0 14px 34px rgba(25, 28, 29, 0.12),
+      0 4px 10px rgba(25, 28, 29, 0.08);
+    --prism-shadow-float: 0 22px 52px rgba(25, 28, 29, 0.14),
+      0 6px 16px rgba(25, 28, 29, 0.08);
+    --prism-text-dim: var(--prism-ink-muted);
+    --prism-surface-raised: var(--prism-elev);
+    --prism-surface-container: var(--prism-tile);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root,
+  .prism-theme {
+    --prism-dur-1: 0ms;
+    --prism-dur-2: 0ms;
+    --prism-dur-3: 0ms;
+    --prism-dur-4: 0ms;
+  }
+}
+
+```

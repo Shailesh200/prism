@@ -27,6 +27,10 @@ import {
   asleepPageHtml,
   isPrismAsleep,
   isPrismAsleepSync,
+  listSkills,
+  writeSkill,
+  deleteSkill,
+  duplicateSkill,
   type DispatchConfig,
   type WorkerBackend,
   type WorkerModelOption,
@@ -57,15 +61,17 @@ import { dashboardUrl, hubPort, type HubEnv } from "./paths.js";
 import {
   PLAYGROUND_PORT,
   effectivePlaygroundPort,
-  findPlaygroundApp,
   playgroundIsLive,
   playgroundUrl,
   playgroundViteEnabled,
+  resolvePlaygroundApp,
   spawnPlaygroundVite,
   stopPlaygroundListeners,
   waitForPlaygroundLive,
   writePlaygroundRecord,
 } from "./playground.js";
+import { collectRepoTrees, runTreeAction } from "./trees.js";
+import { mcpUpdateStatus, applyMcpUpdate } from "./update.js";
 import { HUB_ERROR, publicCaughtError } from "./api-errors.js";
 import { pickLocalFolder } from "./pick-folder.js";
 import {
@@ -306,7 +312,12 @@ export async function startHub(
     options.spawnPlayground ??
     (async (workspaceRoot: string) =>
       playgroundViteEnabled(env)
-        ? spawnPlaygroundVite({ workspaceRoot, env })
+        ? spawnPlaygroundVite({
+            workspaceRoot,
+            extraRoots: workspaces.map((row) => row.path),
+            env,
+            port: wantedPlaygroundPort || PLAYGROUND_PORT,
+          })
         : undefined);
 
   const stopPlaygroundPort = async (): Promise<void> => {
@@ -389,7 +400,8 @@ export async function startHub(
       await writePlaygroundRecord(env, { port, mode: "vite" });
       return { ok: true, port, url, detail: "Playground is up." };
     }
-    const app = await findPlaygroundApp(workspaceRoot);
+    const extraRoots = workspaces.map((row) => row.path);
+    const app = await resolvePlaygroundApp(workspaceRoot, extraRoots, env);
     if (!app) {
       return {
         ok: false,
@@ -422,7 +434,13 @@ export async function startHub(
   // left `queued`, and re-checks jobs parked behind the concurrency cap.
   const watcher = watchWorkspaces(() => workspaces, onEvent, {
     pollMs: options.pollMs,
-    drain: options.drain ?? ((workspace) => defaultDrain(workspace, env)),
+    // Vitest must not spawn a worker drain: it races GET /api/jobs and can
+    // keep `.prism/dispatch` open so afterEach cannot remove the fixture.
+    drain:
+      options.drain ??
+      (process.env.VITEST === "true"
+        ? undefined
+        : (workspace) => defaultDrain(workspace, env)),
   });
 
   const idle = createIdleTimer({
@@ -668,6 +686,12 @@ export async function startHub(
           ...(body.placement === "worktree" || body.placement === "checkout"
             ? { placement: body.placement }
             : {}),
+          ...(typeof body.branch === "string" && body.branch.trim()
+            ? { branch: String(body.branch).trim() }
+            : {}),
+          ...(typeof body.worktreePath === "string" && body.worktreePath.trim()
+            ? { worktreePath: String(body.worktreePath).trim() }
+            : {}),
           ...(body.workerBackend === "cursor" || body.workerBackend === "claude"
             ? { workerBackend: body.workerBackend }
             : {}),
@@ -722,11 +746,154 @@ export async function startHub(
     }
 
     if (req.method === "GET" && url.pathname === "/api/jobs") {
+      await watcher.refresh({ drain: false });
       json(res, 200, {
         jobs: [...watcher.jobs()],
         asOf: watcher.asOf(),
         errors: [...watcher.errors()],
       });
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/trees") {
+      const filter = url.searchParams.get("workspace")?.trim();
+      const listed = filter
+        ? workspaces.filter((entry) => entry.path === filter)
+        : workspaces;
+      const repos = await Promise.all(
+        listed.map((entry) =>
+          collectRepoTrees({
+            workspacePath: entry.path,
+            label: entry.label,
+            jobs: jobs.filter((job) => job.workspacePath === entry.path),
+          }),
+        ),
+      );
+      json(res, 200, { repos });
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/trees") {
+      const body = await readBody(req);
+      const workspace =
+        String(body.workspace ?? "").trim() || workspaces[0]?.path || "";
+      const treePath = String(body.treePath ?? "").trim();
+      const action = String(body.action ?? "").trim();
+      if (
+        !workspace ||
+        !treePath ||
+        (action !== "merge" &&
+          action !== "commit" &&
+          action !== "push" &&
+          action !== "remove")
+      ) {
+        json(res, 400, { error: HUB_ERROR.actionRequired });
+        return;
+      }
+      try {
+        const result = await runTreeAction({
+          workspacePath: workspace,
+          treePath,
+          action,
+          ...(String(body.branch ?? "").trim()
+            ? { branch: String(body.branch).trim() }
+            : {}),
+          ...(String(body.jobId ?? "").trim()
+            ? { jobId: String(body.jobId).trim() }
+            : {}),
+          ...(String(body.title ?? "").trim()
+            ? { title: String(body.title).trim() }
+            : {}),
+        });
+        json(res, result.ok ? 200 : 400, result);
+      } catch (cause) {
+        json(res, 500, { error: publicCaughtError(cause) });
+      }
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/skills") {
+      json(res, 200, { skills: await listSkills(env as NodeJS.ProcessEnv) });
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/skills") {
+      const body = await readBody(req);
+      const action = String(body.action ?? "save").trim();
+      try {
+        if (action === "delete") {
+          const ok = await deleteSkill(
+            String(body.name ?? ""),
+            env as NodeJS.ProcessEnv,
+          );
+          json(res, ok ? 200 : 400, {
+            ok,
+            detail: ok ? "Deleted." : "Could not delete that skill.",
+          });
+          return;
+        }
+        if (action === "duplicate") {
+          const copied = await duplicateSkill(
+            String(body.name ?? ""),
+            env as NodeJS.ProcessEnv,
+          );
+          if ("error" in copied) {
+            json(res, 400, copied);
+            return;
+          }
+          json(res, 200, copied);
+          return;
+        }
+        const saved = await writeSkill(
+          {
+            name: String(body.name ?? ""),
+            description: String(body.description ?? ""),
+            body: String(body.body ?? ""),
+            status: body.status === "published" ? "published" : "draft",
+          },
+          env as NodeJS.ProcessEnv,
+        );
+        if ("error" in saved) {
+          json(res, 400, saved);
+          return;
+        }
+        json(res, 200, saved);
+      } catch (cause) {
+        json(res, 500, { error: publicCaughtError(cause) });
+      }
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/update") {
+      if (process.env.VITEST === "true") {
+        json(res, 200, {
+          current: version,
+          stale: false,
+          localCheckout: true,
+          hop: "current",
+        });
+        return;
+      }
+      json(res, 200, await mcpUpdateStatus(version));
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/update") {
+      if (process.env.VITEST === "true") {
+        json(res, 200, {
+          ok: true,
+          current: version,
+          cached: false,
+          localCheckout: true,
+          message: "Already on this build.",
+        });
+        return;
+      }
+      try {
+        json(res, 200, await applyMcpUpdate(version));
+      } catch (cause) {
+        json(res, 500, { error: publicCaughtError(cause) });
+      }
       return;
     }
 
@@ -858,7 +1025,7 @@ export async function startHub(
         return;
       }
       workspaces = await registerWorkspace(path, env);
-      void watcher.refresh();
+      await watcher.refresh({ drain: false });
       json(res, 200, { workspaces });
       return;
     }

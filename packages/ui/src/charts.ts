@@ -70,3 +70,77 @@ export function gaugeArc(score: number, radius = 36): string {
   const large = clamped > 50 ? 1 : 0;
   return `M ${sx} ${sy} A ${radius} ${radius} 0 ${large} 1 ${ex} ${ey}`;
 }
+
+/** Nice y-axis tick values covering `[min, max]`. */
+export function niceTicks(min: number, max: number, count = 4): number[] {
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return [0, 1];
+  let lo = min;
+  let hi = max;
+  if (hi < lo) {
+    const swap = lo;
+    lo = hi;
+    hi = swap;
+  }
+  if (hi === lo) {
+    if (hi === 0) return [0, 1];
+    return lo >= 0 ? [0, hi] : [lo, 0];
+  }
+  if (lo === 0 && hi === 100) {
+    return [0, 25, 50, 75, 100];
+  }
+  const span = hi - lo;
+  const raw = span / Math.max(1, count - 1);
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const residual = raw / mag;
+  const step = residual >= 5 ? 5 * mag : residual >= 2 ? 2 * mag : mag;
+  const start = Math.floor(lo / step) * step;
+  const end = Math.ceil(hi / step) * step;
+  const ticks: number[] = [];
+  for (let value = start; value <= end + step * 0.5; value += step) {
+    ticks.push(Number(value.toFixed(8)));
+  }
+  return ticks.length >= 2 ? ticks : [lo, hi];
+}
+
+/** Integer y ticks from 0 to `max` — commit counts, degrees, etc. */
+export function integerTicks(max: number, count = 5): number[] {
+  const top = Math.max(1, Math.ceil(max));
+  if (top <= 4) {
+    return Array.from({ length: top + 1 }, (_, i) => i);
+  }
+  const ticks = niceTicks(0, top, count).map((value) => Math.round(value));
+  const unique = [...new Set(ticks)].filter((value) => value >= 0);
+  if (unique[0] !== 0) unique.unshift(0);
+  const last = unique[unique.length - 1] ?? 0;
+  if (last > top) unique[unique.length - 1] = top;
+  else if (last < top) unique.push(top);
+  return [...new Set(unique)];
+}
+
+/** Sparse indices for x-axis labels (always includes first and last). */
+export function pickAxisIndices(length: number, maxLabels = 6): number[] {
+  if (length <= 0) return [];
+  if (length <= maxLabels) {
+    return Array.from({ length }, (_, i) => i);
+  }
+  const inner = maxLabels - 2;
+  const out = [0];
+  for (let i = 1; i <= inner; i += 1) {
+    out.push(Math.round((i * (length - 1)) / (inner + 1)));
+  }
+  out.push(length - 1);
+  return [...new Set(out)];
+}
+
+/** SVG y for a domain value, matching {@link seriesGeometry}. */
+export function valueToY(
+  value: number,
+  height: number,
+  pad: number,
+  min: number,
+  max: number,
+): number {
+  const span = Math.max(1, max - min);
+  const frac = Math.max(0, Math.min(1, (value - min) / span));
+  return height - pad - frac * (height - pad * 2);
+}

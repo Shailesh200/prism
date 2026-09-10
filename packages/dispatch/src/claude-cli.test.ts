@@ -21,14 +21,7 @@ describe("claudeWorkerArgs", () => {
     expect(args.join(" ")).toContain("--output-format stream-json");
     expect(args.join(" ")).toContain("--permission-mode acceptEdits");
     const tools = args[args.indexOf("--tools") + 1] ?? "";
-    expect(tools.split(",")).toEqual([
-      "Read",
-      "Edit",
-      "Write",
-      "Grep",
-      "Glob",
-      "LS",
-    ]);
+    expect(tools.split(",")).toEqual(["Read", "Edit", "Write", "Grep", "Glob"]);
     // No shell, no MCP tools — repeated flags for commander variadic parsing.
     expect(args).toContain("--disallowedTools");
     expect(args).toContain("Bash");

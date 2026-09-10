@@ -18,6 +18,7 @@ const HASH_VIEWS = new Set<string>([
 
 const ALIAS: Record<string, AppView> = {
   health: "overview",
+  impact: "blast",
 };
 
 export function parsePlaygroundView(hash: string): AppView | undefined {

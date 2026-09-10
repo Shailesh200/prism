@@ -45,6 +45,7 @@ export type SpawnPayload = {
   readonly preExistingChanges?: readonly string[];
   /** Vendor model id from that agent's list. Absent: Cursor child picks one. */
   readonly model?: string;
+  readonly playbook?: string;
 };
 
 export function isSpawnPayload(value: unknown): value is SpawnPayload {
@@ -87,6 +88,7 @@ export type LaunchWorkerInput = {
   readonly placement?: "checkout" | "worktree";
   readonly preExistingChanges?: readonly string[];
   readonly model?: string;
+  readonly playbook?: string;
 };
 
 export async function launchWorkerChild(
@@ -135,6 +137,7 @@ export async function launchWorkerChild(
       ...(typeof input.model === "string" && input.model.trim()
         ? { model: input.model.trim() }
         : {}),
+      ...(input.playbook ? { playbook: input.playbook } : {}),
     },
     0o600,
   );

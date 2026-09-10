@@ -3,9 +3,10 @@ import { readdir, unlink } from "node:fs/promises";
 import { z } from "zod";
 import { clip, textFromUnknown, toolNameFrom } from "./event-text.js";
 import { readJsonFile, writeJsonFile } from "./json-file.js";
-import { loadJobs, saveJobs } from "./jobs.js";
+import { loadJobs, updateJobs } from "./jobs.js";
 import { jobRef, unexpectedStopSpeak } from "./job-voice.js";
 import { runStatePath, runsDir, spawnPayloadPath } from "./paths.js";
+import { RunPhaseSchema, type RunPhase } from "./run-phase.js";
 import {
   JobReviewSchema,
   TokenUsageSchema,
@@ -13,17 +14,7 @@ import {
   type JobReview,
 } from "./types.js";
 
-export const RunPhaseSchema = z.enum([
-  "starting",
-  "running",
-  "thinking",
-  "tool",
-  "editing",
-  "done",
-  "failed",
-  "cancelled",
-]);
-export type RunPhase = z.infer<typeof RunPhaseSchema>;
+export { RunPhaseSchema, type RunPhase } from "./run-phase.js";
 
 export const VerificationStatusSchema = z.enum(["passed", "failed", "skipped"]);
 
@@ -397,6 +388,8 @@ export type JobResultInput = {
   readonly verificationDetail?: string;
   /** Claimed-but-absent artifacts, from `fabricationNote`. */
   readonly fabricationNote?: string;
+  /** Skills playbook: the deliverable is markdown, not a repo diff. */
+  readonly omitEmptyTree?: boolean;
 };
 
 export type VerificationStatus = z.infer<typeof VerificationStatusSchema>;
@@ -416,7 +409,8 @@ export function composeJobResult(input: JobResultInput): string {
   if (input.committed && summary) {
     parts.push(summary);
   } else if (!input.committed) {
-    parts.push(summary || "Produced no reviewable change.");
+    if (summary) parts.push(summary);
+    else if (!input.omitEmptyTree) parts.push("Produced no reviewable change.");
   }
 
   const text = trimResult(input.assistant, 8_000);
@@ -650,17 +644,17 @@ function jobChanged(a: JobRecord, b: JobRecord): boolean {
 }
 
 export async function reapJobs(workspaceRoot: string): Promise<JobRecord[]> {
-  const jobs = await loadJobs(workspaceRoot);
-  const next: JobRecord[] = [];
-  let changed = false;
-  for (const job of jobs) {
-    const run = await readRunState(workspaceRoot, job.id);
-    const merged = applyRunToJob(job, run);
-    if (jobChanged(job, merged)) changed = true;
-    next.push(merged);
-  }
-  if (changed) await saveJobs(workspaceRoot, next);
-  return changed ? next : jobs;
+  return await updateJobs(workspaceRoot, async (jobs) => {
+    const next: JobRecord[] = [];
+    let changed = false;
+    for (const job of jobs) {
+      const run = await readRunState(workspaceRoot, job.id);
+      const merged = applyRunToJob(job, run);
+      if (jobChanged(job, merged)) changed = true;
+      next.push(merged);
+    }
+    return { jobs: changed ? next : jobs, result: changed ? next : jobs };
+  });
 }
 
 export type JobNotice = {

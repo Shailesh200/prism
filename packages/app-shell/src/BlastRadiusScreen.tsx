@@ -1,6 +1,8 @@
 import type {
   BlastRadiusItem,
   BlastRadiusReport,
+  ChangeReviewReport,
+  ExplainAreaSummary,
   FileRole,
   GraphNodeDto,
   ImpactLane,
@@ -18,6 +20,7 @@ import {
   Input,
   SearchableInput,
   Select,
+  Tabs,
   ToggleGroup,
 } from "@repo-prism/ui";
 import {
@@ -28,6 +31,7 @@ import {
   FlaskConical,
   Pencil,
   Play,
+  Plus,
   ShieldAlert,
   Trash2,
   X,
@@ -40,10 +44,14 @@ import { useAppShellClient } from "./client-context.js";
 import { recordAudit } from "./audit-log.js";
 import { resolveRenameToPath } from "./apply-rename.js";
 import { useModalFocus } from "./modal-focus.js";
+import { ExplainPanel } from "./ExplainPanel.js";
+import { ReviewPanel } from "./ReviewPanel.js";
 import type { ImpactBundle, ImpactTarget, SymbolSearchHit } from "./types.js";
 
 const GAUGE_C = 2 * Math.PI * 45;
 const PAGE_SIZE = 25;
+/** Preview count before review path chips collapse (dirty-file sets). */
+const REVIEW_CHIP_PREVIEW = 8;
 const RENAME_DEBOUNCE_MS = 300;
 const PENDING_BLAST_KEY = "prism:blast:pending-target";
 
@@ -103,6 +111,10 @@ export type BlastRadiusScreenProps = {
   initialFile?: string | null;
   /** Optional pre-selected edit vs delete intent (Safe Delete Check). */
   initialIntent?: "edit" | "delete" | null;
+  /** Which Impact tab to open (hash aliases #/explain #/blast #/review). */
+  initialTab?: ImpactTab;
+  /** Pre-selected review paths (SCM / editor command). */
+  initialPaths?: readonly string[] | null;
   onNavigate: (view: AppView) => void;
   /** Open a repo-relative path in the host editor (Change Review pattern). */
   readonly onOpenPath?: (path: string) => void;
@@ -111,6 +123,14 @@ export type BlastRadiusScreenProps = {
 type Mode = "file" | "symbol";
 type ImpactIntent = "edit" | "delete";
 type Status = "idle" | "loading" | "ready" | "error";
+export type ImpactTab = "explain" | "blast" | "review";
+
+/** Compact chip label: `parent/file` when the path is nested. */
+function chipFileLabel(path: string): string {
+  const parts = path.split("/").filter(Boolean);
+  if (parts.length <= 2) return path;
+  return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`;
+}
 
 function roleHeadlineHint(role: FileRole | undefined): string | null {
   if (!role || role === "source") return null;
@@ -392,6 +412,29 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
   const [fileTreeLoading, setFileTreeLoading] = useState(true);
   const [symbolHits, setSymbolHits] = useState<SymbolSearchHit[]>([]);
   const [returnView, setReturnView] = useState<AppView | null>(null);
+  const [impactTab, setImpactTab] = useState<ImpactTab>(
+    props.initialTab ?? "blast",
+  );
+  const [explainStatus, setExplainStatus] = useState<
+    "idle" | "loading" | "ready" | "error" | "empty"
+  >("idle");
+  const [explainError, setExplainError] = useState<string | null>(null);
+  const [explainSummary, setExplainSummary] =
+    useState<ExplainAreaSummary | null>(null);
+  const [reviewPaths, setReviewPaths] = useState<string[]>(() =>
+    [...(props.initialPaths ?? [])].map((p) => p.trim()).filter(Boolean),
+  );
+  const [reviewDraft, setReviewDraft] = useState("");
+  const [reviewStatus, setReviewStatus] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [reviewReport, setReviewReport] = useState<ChangeReviewReport | null>(
+    null,
+  );
+  const [reviewChipsOpen, setReviewChipsOpen] = useState(false);
+  const [dirtyBusy, setDirtyBusy] = useState(false);
+  const [dirtyError, setDirtyError] = useState<string | null>(null);
   const newNameRef = useRef(newName);
   newNameRef.current = newName;
   const lastRenameFetchedRef = useRef<string | null>(null);
@@ -438,6 +481,18 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
       setImpactIntent(props.initialIntent);
     }
   }, [props.initialIntent]);
+
+  useEffect(() => {
+    if (props.initialTab) setImpactTab(props.initialTab);
+  }, [props.initialTab]);
+
+  useEffect(() => {
+    if (props.initialPaths && props.initialPaths.length > 0) {
+      setReviewPaths(
+        [...props.initialPaths].map((p) => p.trim()).filter(Boolean),
+      );
+    }
+  }, [props.initialPaths]);
 
   // Cross-screen focus: Domain (and others) stash a target under localStorage
   // (onNavigate can't carry a payload) then route here.
@@ -539,12 +594,146 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
     };
   }, [newName, target, props.root, client, status, impactIntent]);
 
+  const targetPath =
+    target?.kind === "file"
+      ? (target.path ?? target.id)
+      : (target?.path ?? null);
+
+  const goTab = (tab: ImpactTab): void => {
+    setImpactTab(tab);
+    props.onNavigate(tab);
+    if (tab === "review" && reviewPaths.length === 0 && targetPath) {
+      setReviewPaths([targetPath]);
+    }
+  };
+
+  useEffect(() => {
+    if (impactTab !== "explain") return;
+    const path = targetPath?.trim();
+    if (!path) {
+      setExplainStatus("idle");
+      setExplainSummary(null);
+      setExplainError(null);
+      return;
+    }
+    if (!client.fetchExplainArea) {
+      setExplainStatus("error");
+      setExplainError("Explain area is not supported on this surface.");
+      return;
+    }
+    let cancelled = false;
+    setExplainStatus("loading");
+    setExplainError(null);
+    void client
+      .fetchExplainArea(path)
+      .then((data) => {
+        if (cancelled) return;
+        setExplainSummary(data);
+        setExplainStatus(data ? "ready" : "empty");
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setExplainStatus("error");
+        setExplainError(err instanceof Error ? err.message : String(err));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [impactTab, targetPath, client]);
+
+  const runReview = (paths: readonly string[]): void => {
+    const trimmed = [...new Set(paths.map((p) => p.trim()).filter(Boolean))];
+    if (!client.fetchChangeReview) {
+      setReviewStatus("error");
+      setReviewError("Change review is not supported on this surface.");
+      return;
+    }
+    setReviewStatus("loading");
+    setReviewError(null);
+    void client
+      .fetchChangeReview(trimmed)
+      .then((data) => {
+        setReviewReport(data);
+        setReviewStatus("ready");
+        if (trimmed.length === 0) {
+          setReviewPaths(data.items.map((item) => item.path));
+        }
+      })
+      .catch((err: unknown) => {
+        setReviewStatus("error");
+        setReviewError(err instanceof Error ? err.message : String(err));
+      });
+  };
+
+  useEffect(() => {
+    if (impactTab !== "review") return;
+    if (reviewPaths.length === 0) {
+      setReviewStatus("idle");
+      return;
+    }
+    runReview(reviewPaths);
+    // Re-run when the tab or the path set changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [impactTab, reviewPaths.join("\n")]);
+
   const selectFilePath = (path: string) => {
     setMode("file");
     setTarget({ kind: "file", id: path, path });
     setSymbolLabel(null);
     setQuery(path);
     setNewName(path.split("/").pop() ?? path);
+  };
+
+  const applyDirtyPaths = (paths: readonly string[]): void => {
+    const next = [...new Set(paths.map((p) => p.trim()).filter(Boolean))];
+    setReviewPaths(next);
+    setReviewChipsOpen(false);
+    if (next.length === 0) return;
+    const keep = targetPath && next.includes(targetPath) ? targetPath : next[0];
+    if (keep) selectFilePath(keep);
+  };
+
+  const loadDirtyFiles = (): void => {
+    setDirtyError(null);
+    setReviewChipsOpen(false);
+    if (impactTab === "review") {
+      runReview([]);
+      return;
+    }
+    setDirtyBusy(true);
+    const request = client.fetchChangedPaths
+      ? client.fetchChangedPaths().then((paths) => [...paths])
+      : client.fetchChangeReview
+        ? client.fetchChangeReview([]).then((data) => {
+            setReviewReport(data);
+            setReviewStatus("ready");
+            return data.items.map((item) => item.path);
+          })
+        : Promise.reject(
+            new Error("Dirty files are not supported on this surface."),
+          );
+    void request
+      .then((paths) => {
+        if (paths.length === 0) {
+          setDirtyError("Working tree is clean — no dirty files.");
+          return;
+        }
+        applyDirtyPaths(paths);
+      })
+      .catch((err: unknown) => {
+        setDirtyError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        setDirtyBusy(false);
+      });
+  };
+
+  const removeReviewPath = (path: string): void => {
+    const next = reviewPaths.filter((p) => p !== path);
+    setReviewPaths(next);
+    if (targetPath !== path) return;
+    if (next[0]) selectFilePath(next[0]);
+    else if (impactTab !== "review") clearTarget();
   };
 
   const selectSymbolHit = (hit: SymbolSearchHit) => {
@@ -766,22 +955,37 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
 
   const showSymbolPicker =
     mode === "symbol" && (!target || symbolHits.length > 0);
-  const showFileLanding = mode === "file" && !target;
+  const showFileLanding =
+    mode === "file" &&
+    !target &&
+    (impactTab !== "review" ||
+      (reviewPaths.length === 0 &&
+        reviewStatus !== "ready" &&
+        reviewStatus !== "loading" &&
+        reviewStatus !== "error"));
+  const helperText =
+    dirtyError ??
+    (impactTab === "explain"
+      ? "A brief on this file or folder — domains, dependency degree, local ownership."
+      : impactTab === "review"
+        ? "Aggregate blast radius, tests, and breaking hints across selected or dirty files."
+        : "Pick a file or symbol, or load dirty files from the working tree.");
+  const reviewCount = reviewPaths.length || (reviewDraft.trim() ? 1 : 0);
 
   return (
     <div className={shellRootClass()}>
       <AppSidebar
         variant={shellNavVariant()}
-        active="blast"
+        active={impactTab}
         repoLabel={props.repoLabel}
         user={props.user ?? null}
         onNavigate={props.onNavigate}
       />
 
       <div className="ov-main">
-        <header className="ov-top">
+        <header className="ov-top" data-prism-tour="impact">
           <div>
-            <div className="ov-top__title">Blast Radius</div>
+            <div className="ov-top__title">Impact</div>
             <div className="ov-top__sub">{subtitle}</div>
           </div>
           {returnView ? (
@@ -803,93 +1007,274 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
         </header>
 
         <div className="ov-scroll">
-          <div className="br-target">
-            {target && chipLabel ? (
-              <div className="br-target__head">
-                <span className="br-target__label">Target</span>
-                <div className="br-chip">
-                  {target.kind === "file" ? (
-                    <FileCode2 size={14} aria-hidden />
-                  ) : (
-                    <Code2 size={14} aria-hidden />
-                  )}
-                  <span className="ov-mono ov-ellipsis" title={chipLabel}>
-                    {chipLabel}
-                  </span>
+          <div className="ov-card imp-target">
+            <div className="imp-target__kicker">
+              <span>Target</span>
+              {reviewPaths.length > 0 ? (
+                <span className="imp-target__count">
+                  {reviewPaths.length} path
+                  {reviewPaths.length === 1 ? "" : "s"}
+                </span>
+              ) : null}
+            </div>
+            <div className="imp-chips-wrap">
+              {reviewPaths.length > 0 ? (
+                <div
+                  className={
+                    reviewChipsOpen && reviewPaths.length > REVIEW_CHIP_PREVIEW
+                      ? "imp-chips imp-chips--scroll"
+                      : "imp-chips"
+                  }
+                >
+                  {(reviewChipsOpen || reviewPaths.length <= REVIEW_CHIP_PREVIEW
+                    ? reviewPaths
+                    : reviewPaths.slice(0, REVIEW_CHIP_PREVIEW)
+                  ).map((path) => (
+                    <span
+                      key={path}
+                      className="br-chip"
+                      data-active={targetPath === path ? "true" : "false"}
+                    >
+                      <button
+                        type="button"
+                        className="br-chip__pick"
+                        title={path}
+                        onClick={() => selectFilePath(path)}
+                      >
+                        <FileCode2 size={14} aria-hidden />
+                        <span className="ov-mono ov-ellipsis">
+                          {chipFileLabel(path)}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className="br-chip__clear"
+                        aria-label={`Remove ${path}`}
+                        onClick={() => removeReviewPath(path)}
+                      >
+                        <X size={14} aria-hidden />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              ) : target && chipLabel ? (
+                <div className="imp-chips">
+                  <div className="br-chip">
+                    {target.kind === "file" ? (
+                      <FileCode2 size={14} aria-hidden />
+                    ) : (
+                      <Code2 size={14} aria-hidden />
+                    )}
+                    <span className="ov-mono ov-ellipsis" title={chipLabel}>
+                      {chipLabel}
+                    </span>
+                    <button
+                      type="button"
+                      className="br-chip__clear"
+                      aria-label="Clear target"
+                      onClick={clearTarget}
+                    >
+                      <X size={14} aria-hidden />
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+              <div className="imp-chips imp-chips--actions">
+                {reviewPaths.length > REVIEW_CHIP_PREVIEW ? (
                   <button
                     type="button"
-                    className="br-chip__clear"
-                    aria-label="Clear target"
-                    onClick={clearTarget}
+                    className="ov-btn ov-btn--ghost"
+                    onClick={() => setReviewChipsOpen((open) => !open)}
                   >
-                    <X size={14} aria-hidden />
+                    {reviewChipsOpen
+                      ? "Show less"
+                      : `Show ${reviewPaths.length - REVIEW_CHIP_PREVIEW} more`}
                   </button>
-                </div>
+                ) : null}
+                {impactTab === "review" ? (
+                  <button
+                    type="button"
+                    className="ov-btn ov-btn--ghost"
+                    onClick={() => {
+                      const next = reviewDraft.trim();
+                      if (!next) return;
+                      setReviewPaths((prev) =>
+                        prev.includes(next) ? prev : [...prev, next],
+                      );
+                      setReviewDraft("");
+                    }}
+                  >
+                    <Plus size={14} aria-hidden />
+                    Add path
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="ov-btn ov-btn--ghost"
+                  disabled={dirtyBusy || reviewStatus === "loading"}
+                  onClick={() => loadDirtyFiles()}
+                >
+                  Use dirty files
+                </button>
+                {reviewPaths.length > 0 ? (
+                  <button
+                    type="button"
+                    className="ov-btn ov-btn--ghost"
+                    onClick={() => {
+                      setReviewPaths([]);
+                      setReviewChipsOpen(false);
+                      setDirtyError(null);
+                      if (impactTab !== "review") clearTarget();
+                    }}
+                  >
+                    Clear all
+                  </button>
+                ) : null}
               </div>
-            ) : null}
+            </div>
             <div className="br-target__controls">
               <SearchableInput
                 className="br-target__search"
-                value={query}
-                onChange={setQuery}
+                value={impactTab === "review" ? reviewDraft : query}
+                onChange={impactTab === "review" ? setReviewDraft : setQuery}
                 placeholder={
-                  mode === "file" ? "Search files…" : "Search symbols…"
+                  impactTab === "review"
+                    ? "Add another path…"
+                    : mode === "file"
+                      ? "Search files or paste a path…"
+                      : "Search symbols…"
                 }
-                aria-label="Search blast targets"
+                aria-label={
+                  impactTab === "review"
+                    ? "Add review path"
+                    : "Search blast targets"
+                }
                 spellCheck={false}
               />
-              <ToggleGroup
-                aria-label="Target mode"
-                options={[
-                  { id: "file", label: "File" },
-                  { id: "symbol", label: "Symbol" },
-                ]}
-                value={mode}
-                onChange={(id) => changeMode(id as Mode)}
-              />
-              {target ? (
-                <ToggleGroup
-                  aria-label="Change intent"
-                  options={[
-                    { id: "edit", label: "Edit" },
-                    { id: "delete", label: "Delete" },
-                  ]}
-                  value={impactIntent}
-                  onChange={(id) => setImpactIntent(id as ImpactIntent)}
-                />
-              ) : null}
+              {impactTab === "review" ? (
+                <>
+                  <button
+                    type="button"
+                    className="ov-btn ov-btn--primary"
+                    disabled={
+                      reviewStatus === "loading" ||
+                      (reviewPaths.length === 0 && !reviewDraft.trim())
+                    }
+                    onClick={() => {
+                      const extra = reviewDraft.trim();
+                      const paths = extra
+                        ? reviewPaths.includes(extra)
+                          ? reviewPaths
+                          : [...reviewPaths, extra]
+                        : reviewPaths;
+                      if (extra) {
+                        setReviewPaths(paths);
+                        setReviewDraft("");
+                      }
+                      runReview(paths);
+                    }}
+                  >
+                    Review{" "}
+                    {reviewCount === 1 ? "1 path" : `${reviewCount} paths`}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <ToggleGroup
+                    aria-label="Target mode"
+                    options={[
+                      { id: "file", label: "File" },
+                      { id: "symbol", label: "Symbol" },
+                    ]}
+                    value={mode}
+                    onChange={(id) => changeMode(id as Mode)}
+                  />
+                  {impactTab === "blast" && target ? (
+                    <ToggleGroup
+                      aria-label="Change intent"
+                      options={[
+                        { id: "edit", label: "Edit" },
+                        { id: "delete", label: "Delete" },
+                      ]}
+                      value={impactIntent}
+                      onChange={(id) => setImpactIntent(id as ImpactIntent)}
+                    />
+                  ) : null}
+                </>
+              )}
             </div>
+            <p
+              className="imp-target__help"
+              data-error={dirtyError ? "true" : "false"}
+            >
+              {helperText}
+            </p>
           </div>
 
+          <Tabs
+            aria-label="Impact mode"
+            className="imp-tabs"
+            value={impactTab}
+            onChange={(id) => goTab(id as ImpactTab)}
+            options={[
+              { id: "explain", label: "Explain" },
+              { id: "blast", label: "Blast radius" },
+              { id: "review", label: "Review changes" },
+            ]}
+          />
+
           {showFileLanding ? (
-            <div className="br-landing">
-              <p className="br-landing__lead">
-                Browse the indexed folder tree and pick a file to compute its
-                blast radius (reverse dependents from the dependency graph). Use
-                search to filter paths.
-              </p>
-              {fileNodes.length > 0 ? (
-                <div className="br-explorer">
-                  <FileExplorer
-                    nodes={fileNodes}
-                    selectedId={null}
-                    filterQuery={query}
-                    onSelectNode={(nodeId) => {
-                      if (!nodeId) return;
-                      const path = filePathFromNodeId(nodeId, nodeId);
-                      if (path) selectFilePath(path);
-                    }}
-                  />
-                </div>
-              ) : (
-                <p className="ov-empty">
-                  {!props.root
-                    ? "Open a workspace to browse files."
-                    : fileTreeLoading
-                      ? "Loading file tree…"
-                      : "No files in the dependency graph yet."}
-                </p>
-              )}
+            <div className="imp-split">
+              <div className="br-landing">
+                {fileNodes.length > 0 ? (
+                  <div className="br-explorer">
+                    <FileExplorer
+                      nodes={fileNodes}
+                      selectedId={null}
+                      filterQuery={query}
+                      onSelectNode={(nodeId) => {
+                        if (!nodeId) return;
+                        const path = filePathFromNodeId(nodeId, nodeId);
+                        if (!path) return;
+                        if (impactTab === "review") {
+                          setReviewPaths((prev) =>
+                            prev.includes(path) ? prev : [...prev, path],
+                          );
+                        }
+                        selectFilePath(path);
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <p className="ov-empty">
+                    {!props.root
+                      ? "Open a workspace to browse files."
+                      : fileTreeLoading
+                        ? "Loading file tree…"
+                        : "No files in the dependency graph yet."}
+                  </p>
+                )}
+              </div>
+              <div className="imp-empty">
+                <span className="imp-empty__icon" aria-hidden>
+                  <Zap size={22} />
+                </span>
+                <h2 className="imp-empty__title">Pick a file to inspect</h2>
+                <ul className="imp-empty__list">
+                  <li>
+                    <strong>Explain</strong> — what this area is (domains,
+                    owners, degree)
+                  </li>
+                  <li>
+                    <strong>Blast radius</strong> — what depends on it if you
+                    edit or delete
+                  </li>
+                  <li>
+                    <strong>Review changes</strong> — roll up impact across
+                    dirty files
+                  </li>
+                </ul>
+              </div>
             </div>
           ) : null}
 
@@ -933,11 +1318,28 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
             </div>
           ) : null}
 
-          {status === "loading" ? (
+          {impactTab === "explain" && !showFileLanding ? (
+            <ExplainPanel
+              status={explainStatus}
+              error={explainError}
+              summary={explainSummary}
+            />
+          ) : null}
+
+          {impactTab === "review" && !showFileLanding ? (
+            <ReviewPanel
+              status={reviewStatus}
+              error={reviewError}
+              report={reviewReport}
+              onOpenFile={openPath}
+            />
+          ) : null}
+
+          {impactTab === "blast" && status === "loading" ? (
             <p className="ov-empty">Computing impact…</p>
           ) : null}
 
-          {status === "error" ? (
+          {impactTab === "blast" && status === "error" ? (
             <div>
               <p className="ov-empty br-error">
                 {error ?? "Could not compute impact for this target."}
@@ -952,7 +1354,12 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
             </div>
           ) : null}
 
-          {status === "ready" && blast && band && bundle && safeDelete ? (
+          {impactTab === "blast" &&
+          status === "ready" &&
+          blast &&
+          band &&
+          bundle &&
+          safeDelete ? (
             <div className="br-stack">
               <article className="ov-card br-risk">
                 <div className="br-risk__gauge" data-tone={band.tone}>

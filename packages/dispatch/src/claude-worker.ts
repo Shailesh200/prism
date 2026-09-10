@@ -51,6 +51,7 @@ export function createClaudeWorkerPort(
             ? { preExistingChanges: input.preExistingChanges }
             : {}),
           ...(input.model ? { model: input.model } : {}),
+          ...(input.playbook ? { playbook: input.playbook } : {}),
         },
         childJs,
       );

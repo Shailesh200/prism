@@ -4,13 +4,11 @@ import {
   Compass,
   Dna,
   ExternalLink,
-  FileSearch,
   FlaskConical,
   GitBranch,
-  GitPullRequest,
   LayoutGrid,
-  ListChecks,
   Map as MapIcon,
+  Monitor,
   Plug,
   Settings,
   TrendingUp,
@@ -99,6 +97,19 @@ function usePrismGitignoreStatus(client: AppShellClient): {
       : null;
 
   return { status, addToGitignore };
+}
+
+const DISPATCH_FALLBACK = "http://prismhq.localhost:17330/";
+
+async function openDispatchConsole(client: AppShellClient): Promise<void> {
+  let href = DISPATCH_FALLBACK;
+  try {
+    const status = await client.fetchConsoleStatus?.();
+    if (status?.console?.url) href = status.console.url;
+  } catch {
+    /* keep the loopback default */
+  }
+  window.open(href, "_blank", "noopener,noreferrer");
 }
 
 /**
@@ -281,18 +292,6 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
         <button
           type="button"
           className="appnav__item"
-          title="Blast Radius"
-          aria-label="Blast Radius"
-          data-prism-tour="impact"
-          data-active={props.active === "blast" ? "true" : "false"}
-          onClick={() => props.onNavigate("blast")}
-        >
-          <Zap size={16} aria-hidden />
-          <span className="appnav__reveal">Blast Radius</span>
-        </button>
-        <button
-          type="button"
-          className="appnav__item"
           title="Trends"
           aria-label="Trends"
           data-prism-tour="trends"
@@ -307,37 +306,31 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
         <button
           type="button"
           className="appnav__item"
-          title="Change Review"
-          aria-label="Change Review"
-          data-prism-tour="review"
-          data-active={props.active === "review" ? "true" : "false"}
-          onClick={() => props.onNavigate("review")}
+          title="Impact"
+          aria-label="Impact"
+          data-prism-tour="impact"
+          data-active={
+            props.active === "blast" ||
+            props.active === "review" ||
+            props.active === "explain"
+              ? "true"
+              : "false"
+          }
+          onClick={() => props.onNavigate("blast")}
         >
-          <GitPullRequest size={16} aria-hidden />
-          <span className="appnav__reveal">Change Review</span>
+          <Zap size={16} aria-hidden />
+          <span className="appnav__reveal">Impact</span>
         </button>
         <button
           type="button"
-          className="appnav__item"
-          title="Explain This Area"
-          aria-label="Explain This Area"
-          data-prism-tour="explain"
-          data-active={props.active === "explain" ? "true" : "false"}
-          onClick={() => props.onNavigate("explain")}
+          className="appnav__item appnav__item--external"
+          title="Open Dispatch in a new tab"
+          aria-label="Open Dispatch console"
+          onClick={() => void openDispatchConsole(client)}
         >
-          <FileSearch size={16} aria-hidden />
-          <span className="appnav__reveal">Explain This Area</span>
-        </button>
-        <button
-          type="button"
-          className="appnav__item"
-          title="Jobs"
-          aria-label="Jobs"
-          data-active={props.active === "jobs" ? "true" : "false"}
-          onClick={() => props.onNavigate("jobs")}
-        >
-          <ListChecks size={16} aria-hidden />
-          <span className="appnav__reveal">Jobs</span>
+          <Monitor size={16} aria-hidden />
+          <span className="appnav__reveal">Dispatch</span>
+          <ExternalLink size={12} aria-hidden className="appnav__ext" />
         </button>
 
         <p className="appnav__group appnav__reveal">Settings</p>

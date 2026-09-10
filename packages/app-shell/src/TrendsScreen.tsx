@@ -10,7 +10,12 @@ import type {
   SignalProvenance,
 } from "@repo-prism/shared";
 import { DEFAULT_PROVENANCE } from "@repo-prism/shared";
-import { AreaChart, InfoTip } from "@repo-prism/ui";
+import {
+  AreaChart,
+  CartesianFrame,
+  InfoTip,
+  pickAxisIndices,
+} from "@repo-prism/ui";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   useCallback,
@@ -18,6 +23,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type ReactElement,
 } from "react";
@@ -67,6 +73,14 @@ function bucketLabel(ms: number, granularity: "day" | "week"): string {
     timeZone: "UTC",
   });
   return granularity === "week" ? `Week of ${d}` : d;
+}
+
+function axisDateLabel(ms: number): string {
+  return new Date(ms).toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
 }
 
 function churnWidths(adds: number, dels: number): { add: number; del: number } {
@@ -162,6 +176,13 @@ function SeriesAreaChart(props: {
   const [hover, setHover] = useState<number | null>(null);
   const [lastIndex, setLastIndex] = useState(0);
 
+  const yMin = props.minValue ?? 0;
+  const yMax = props.maxValue ?? Math.max(1, ...props.values);
+  const xLabels = pickAxisIndices(n).map((i) => ({
+    fraction: (points[i]?.x ?? 0) / w,
+    label: axisDateLabel(props.starts[i] ?? 0),
+  }));
+
   const onMove = (e: ReactMouseEvent<HTMLDivElement>): void => {
     const el = plotRef.current;
     if (!el || n === 0) return;
@@ -173,6 +194,17 @@ function SeriesAreaChart(props: {
       Math.min(1, (relX - pad) / Math.max(1, w - pad * 2)),
     );
     const next = Math.max(0, Math.min(n - 1, Math.round(frac * (n - 1))));
+    setHover(next);
+    setLastIndex(next);
+  };
+
+  const onKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>): void => {
+    if (n === 0) return;
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const base = hover ?? lastIndex;
+    const next =
+      e.key === "ArrowLeft" ? Math.max(0, base - 1) : Math.min(n - 1, base + 1);
     setHover(next);
     setLastIndex(next);
   };
@@ -216,70 +248,91 @@ function SeriesAreaChart(props: {
 
   return (
     <div className="ov-chart tr-chart">
-      <div
-        ref={plotRef}
-        className="ov-chart__plot"
-        onMouseMove={onMove}
-        onMouseLeave={() => setHover(null)}
+      <CartesianFrame
+        width={w}
+        height={h}
+        pad={pad}
+        min={yMin}
+        max={yMax}
+        integerY={props.maxValue === undefined}
+        xLabels={xLabels}
       >
-        <AreaChart
-          values={props.values}
-          width={w}
-          height={h}
-          label={props.totalLabel}
-          className="ov-chart__svg"
-          pad={pad}
-          {...(props.minValue !== undefined
-            ? { minValue: props.minValue }
-            : {})}
-          {...(props.maxValue !== undefined
-            ? { maxValue: props.maxValue }
-            : {})}
-        />
-        {n === 1 ? (
-          <span
-            className="tr-chart__dot"
-            style={{ left: "50%", top: `${singleY}%` }}
-            aria-hidden
+        <div
+          ref={plotRef}
+          className="ov-chart__plot"
+          tabIndex={0}
+          role="img"
+          aria-label={props.totalLabel}
+          onMouseMove={onMove}
+          onMouseLeave={() => setHover(null)}
+          onBlur={() => setHover(null)}
+          onKeyDown={onKeyDown}
+        >
+          <AreaChart
+            values={props.values}
+            width={w}
+            height={h}
+            label={props.totalLabel}
+            className="ov-chart__svg"
+            pad={pad}
+            {...(props.minValue !== undefined
+              ? { minValue: props.minValue }
+              : {})}
+            {...(props.maxValue !== undefined
+              ? { maxValue: props.maxValue }
+              : {})}
           />
-        ) : null}
-        {hp ? (
-          <>
+          {n === 1 ? (
             <span
-              className="ov-chart__guide"
-              data-visible={visible ? "true" : "false"}
-              style={{ left: `${leftPct}%` }}
+              className="tr-chart__dot"
+              style={{ left: "50%", top: `${singleY}%` }}
               aria-hidden
             />
-            <span
-              className="ov-chart__point"
-              data-visible={visible ? "true" : "false"}
-              data-estimated={hoveredApproximate ? "true" : "false"}
-              style={{ left: `${leftPct}%`, top: `${hp.y}px` }}
-              aria-hidden
-            />
-            <div
-              className="ov-chart__tip"
-              data-visible={visible ? "true" : "false"}
-              style={{ left: `${leftPct}%` }}
-              role="status"
-            >
-              <strong>
-                {props.values[idx]}
-                {props.valueSuffix ?? ""}
-              </strong>
-              <span className="ov-chart__tip-date">{tipDate}</span>
-              {hoveredApproximate ? (
-                <span className="ov-chart__tip-note">
-                  {hoveredProvenance === "heuristic"
-                    ? "Heuristic — older cached score, not measured at that commit"
-                    : "Estimated — scored from the current tree"}
-                </span>
-              ) : null}
-            </div>
-          </>
-        ) : null}
-      </div>
+          ) : null}
+          {hp ? (
+            <>
+              <span
+                className="ov-chart__guide"
+                data-visible={visible ? "true" : "false"}
+                style={{ left: `${leftPct}%` }}
+                aria-hidden
+              />
+              <span
+                className="ov-chart__point"
+                data-visible={visible ? "true" : "false"}
+                data-estimated={hoveredApproximate ? "true" : "false"}
+                style={{
+                  left: `${leftPct}%`,
+                  top: `${(hp.y / h) * 100}%`,
+                }}
+                aria-hidden
+              />
+              <div
+                className="ov-chart__tip"
+                data-visible={visible ? "true" : "false"}
+                style={{
+                  left: `${leftPct}%`,
+                  top: `${(hp.y / h) * 100}%`,
+                }}
+                role="status"
+              >
+                <strong>
+                  {props.values[idx]}
+                  {props.valueSuffix ?? ""}
+                </strong>
+                <span className="ov-chart__tip-date">{tipDate}</span>
+                {hoveredApproximate ? (
+                  <span className="ov-chart__tip-note">
+                    {hoveredProvenance === "heuristic"
+                      ? "Heuristic — older cached score, not measured at that commit"
+                      : "Estimated — scored from the current tree"}
+                  </span>
+                ) : null}
+              </div>
+            </>
+          ) : null}
+        </div>
+      </CartesianFrame>
       <div className="ov-chart__legend">
         <span>
           <span className="ov-dot" style={{ background: "#00C2C2" }} />{" "}
@@ -309,30 +362,88 @@ function CommitBarChart(props: {
   starts: number[];
   granularity: "day" | "week";
 }): ReactElement {
+  const w = 600;
+  const h = 200;
+  const pad = 10;
   const max = Math.max(1, ...props.values);
   const n = props.values.length;
-  if (n === 0) {
-    return <p className="ov-empty">No commit volume in this range.</p>;
-  }
+  const [hover, setHover] = useState<number | null>(null);
   const step = n > 40 ? Math.ceil(n / 40) : 1;
   const shown = props.values
     .map((v, i) => ({ v, i }))
     .filter((_, idx) => idx % step === 0);
+  const xLabels = pickAxisIndices(shown.length).map((shownIdx) => {
+    const i = shown[shownIdx]?.i ?? 0;
+    const frac =
+      shown.length > 1
+        ? pad / w + (shownIdx / (shown.length - 1)) * (1 - (pad * 2) / w)
+        : 0.5;
+    return {
+      fraction: frac,
+      label: axisDateLabel(props.starts[i] ?? 0),
+    };
+  });
+  const hovered = hover === null ? null : shown[hover];
+
+  if (n === 0) {
+    return <p className="ov-empty">No commit volume in this range.</p>;
+  }
 
   return (
-    <div className="tr-bars" role="img" aria-label="Commit volume by period">
-      {shown.map(({ v, i }) => {
-        const h = Math.max(2, Math.round((v / max) * 100));
-        return (
-          <div
-            key={props.starts[i] ?? i}
-            className="tr-bars__col"
-            title={`${bucketLabel(props.starts[i] ?? 0, props.granularity)}: ${v}`}
-          >
-            <span className="tr-bars__fill" style={{ height: `${h}%` }} />
-          </div>
-        );
-      })}
+    <div className="ov-chart tr-chart">
+      <CartesianFrame
+        width={w}
+        height={h}
+        pad={pad}
+        min={0}
+        max={max}
+        integerY
+        xLabels={xLabels}
+      >
+        <div
+          className="tr-bars ov-chart__plot"
+          role="img"
+          aria-label="Commit volume by period"
+          onMouseLeave={() => setHover(null)}
+        >
+          {shown.map(({ v, i }, shownIdx) => {
+            const barH = Math.max(2, Math.round((v / max) * 100));
+            return (
+              <button
+                key={props.starts[i] ?? i}
+                type="button"
+                className="tr-bars__col"
+                data-active={hover === shownIdx ? "true" : "false"}
+                onMouseEnter={() => setHover(shownIdx)}
+                onFocus={() => setHover(shownIdx)}
+                onBlur={() => setHover(null)}
+                aria-label={`${bucketLabel(props.starts[i] ?? 0, props.granularity)}: ${v} commits`}
+              >
+                <span
+                  className="tr-bars__fill"
+                  style={{ height: `${barH}%` }}
+                />
+              </button>
+            );
+          })}
+          {hovered ? (
+            <div
+              className="ov-chart__tip"
+              data-visible="true"
+              style={{
+                left: `${(((hover ?? 0) + 0.5) / shown.length) * 100}%`,
+                top: `${100 - Math.max(2, Math.round((hovered.v / max) * 100))}%`,
+              }}
+              role="status"
+            >
+              <strong>{hovered.v}</strong>
+              <span className="ov-chart__tip-date">
+                {axisDateLabel(props.starts[hovered.i] ?? 0)}
+              </span>
+            </div>
+          ) : null}
+        </div>
+      </CartesianFrame>
     </div>
   );
 }
@@ -533,8 +644,12 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
         setHistoryPoints(props.healthHistory.points);
       }
       if (props.fetchRegionMovers) {
-        const next = await props.fetchRegionMovers();
-        setMovers(next);
+        try {
+          const next = await props.fetchRegionMovers();
+          setMovers(next);
+        } catch {
+          setMovers(null);
+        }
       } else if (props.regionMovers) {
         setMovers(props.regionMovers);
       }

@@ -5,7 +5,7 @@ import {
   jobDisplayLabel,
   type JobSummary,
 } from "@repo-prism/app-shell";
-import { jobDurations } from "@repo-prism/shared";
+import { formatDuration, jobDurations } from "@repo-prism/shared";
 import { formatPrismDate, ganttSegmentPercents } from "@repo-prism/ui";
 
 export const RANGE_MS = {
@@ -857,6 +857,15 @@ export function jobsInRange(
   });
 }
 
+/** Jobs that exist but sit outside the Pulse / List time window. */
+export function jobsOutsideRange(
+  jobs: readonly JobSummary[],
+  range: FleetTimeRange,
+  nowMs: number,
+): number {
+  return Math.max(0, jobs.length - jobsInRange(jobs, range, nowMs).length);
+}
+
 export function reposWithJobsInRange(
   repos: readonly RepoFleet[],
   range: FleetTimeRange,
@@ -988,19 +997,33 @@ export function matchesFilter(job: JobSummary, query: string): boolean {
   );
 }
 
+/** When work actually began — `startedAt`, else the last Working lifecycle stamp. */
+export function jobWorkStartedAt(job: JobSummary): string | undefined {
+  if (job.startedAt) return job.startedAt;
+  const fromLifecycle = [...(job.lifecycle ?? [])]
+    .reverse()
+    .find((event) => event.kind === "working")?.at;
+  if (fromLifecycle) return fromLifecycle;
+  if (isWorkingJob(job.status)) return job.queuedAt ?? job.createdAt;
+  return undefined;
+}
+
 export function waitedWorkedLabel(
   job: JobSummary,
   nowMs: number,
 ): {
   readonly waited: string;
   readonly worked: string;
+  readonly waitVerb: "waiting" | "waited";
+  readonly workVerb: "working" | "worked";
 } {
+  const startedAt = jobWorkStartedAt(job);
   const d = jobDurations(
     {
       createdAt:
         job.createdAt ?? job.updatedAt ?? new Date(nowMs).toISOString(),
       queuedAt: job.queuedAt,
-      startedAt: job.startedAt,
+      startedAt,
       finishedAt: job.finishedAt,
       updatedAt: job.updatedAt,
       lastHeartbeat: job.lastHeartbeat,
@@ -1008,15 +1031,12 @@ export function waitedWorkedLabel(
     },
     nowMs,
   );
-  const fmt = (ms: number | undefined): string => {
-    if (ms === undefined || ms < 1000) return "0s";
-    if (ms < 60_000) return `${Math.round(ms / 1000)}s`;
-    if (ms < 3_600_000) return `${Math.round(ms / 60_000)}m`;
-    return `${(ms / 3_600_000).toFixed(1)}h`;
-  };
+  const waitingNow = job.status === "queued" || job.status === "needs_confirm";
   return {
-    waited: fmt(d.queued),
-    worked: fmt(d.working),
+    waited: formatDuration(d.queued) ?? "—",
+    worked: formatDuration(d.working) ?? "—",
+    waitVerb: waitingNow ? "waiting" : "waited",
+    workVerb: isWorkingJob(job.status) ? "working" : "worked",
   };
 }
 
@@ -1067,6 +1087,52 @@ export function pulseSections(
   return { live, needsYou, settled };
 }
 
+export type RepoJobGroup = {
+  readonly path: string;
+  readonly label: string;
+  readonly jobs: readonly JobSummary[];
+};
+
+/** Preserve caller order; first-seen repo stays first. */
+export function groupJobsByRepo(
+  jobs: readonly JobSummary[],
+): readonly RepoJobGroup[] {
+  const groups: RepoJobGroup[] = [];
+  const index = new Map<string, number>();
+  for (const job of jobs) {
+    const path = job.workspacePath ?? "";
+    const at = index.get(path);
+    if (at === undefined) {
+      index.set(path, groups.length);
+      groups.push({
+        path,
+        label: job.workspaceLabel ?? "Repo",
+        jobs: [job],
+      });
+      continue;
+    }
+    const current = groups[at];
+    if (!current) continue;
+    groups[at] = { ...current, jobs: [...current.jobs, job] };
+  }
+  return groups;
+}
+
+export function jobTreeLabel(job: JobSummary): {
+  readonly label: string;
+  readonly you: boolean;
+  readonly worktree: boolean;
+} {
+  if (job.placement === "worktree") {
+    return {
+      label: job.branch?.trim() || "worktree",
+      you: false,
+      worktree: true,
+    };
+  }
+  return { label: "This checkout", you: true, worktree: false };
+}
+
 export function pulseIdleRepos(
   repos: readonly RepoFleet[],
   range: FleetTimeRange,
@@ -1083,18 +1149,21 @@ export function waitWorkMeter(
 ): {
   readonly waited: string;
   readonly worked: string;
+  readonly waitVerb: "waiting" | "waited";
+  readonly workVerb: "working" | "worked";
   readonly waitPct: number;
   readonly workPct: number;
   readonly outcomePct: number;
   readonly outcome?: "error" | "cancelled";
 } {
   const label = waitedWorkedLabel(job, nowMs);
+  const startedAt = jobWorkStartedAt(job);
   const d = jobDurations(
     {
       createdAt:
         job.createdAt ?? job.updatedAt ?? new Date(nowMs).toISOString(),
       queuedAt: job.queuedAt,
-      startedAt: job.startedAt,
+      startedAt,
       finishedAt: job.finishedAt,
       updatedAt: job.updatedAt,
       lastHeartbeat: job.lastHeartbeat,
@@ -1123,8 +1192,7 @@ export function waitWorkMeter(
   }
   const scale = (100 - outcomePct) / 100;
   return {
-    waited: label.waited,
-    worked: label.worked,
+    ...label,
     waitPct: (wait / total) * 100 * scale,
     workPct: (work / total) * 100 * scale,
     outcomePct,
@@ -1157,6 +1225,8 @@ export type PlaybookOption = {
   readonly hint: string;
 };
 
+export const SKILL_PLAYBOOK = "skill";
+
 export const PLAYBOOKS: readonly PlaybookOption[] = [
   {
     id: "console",
@@ -1167,6 +1237,11 @@ export const PLAYBOOKS: readonly PlaybookOption[] = [
     id: "finding",
     label: "From a finding",
     hint: "Attach a write-up as context.",
+  },
+  {
+    id: SKILL_PLAYBOOK,
+    label: "Skills",
+    hint: "Write a Prism skill stored globally. Skip dirty-tree approval and repo checks for this job only — it does not change the repository.",
   },
   {
     id: "prism-review-pr",

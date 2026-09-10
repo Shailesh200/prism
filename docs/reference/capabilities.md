@@ -86,5 +86,6 @@ use this page when you need the exhaustive index.
 | `start_my_day` | Standup briefing for this repository |
 | `test_impact` | Which test files transitively cover a change target — the tests worth running after touching it |
 | `testing_report` | Test structure and, when coverage artifacts are already on disk, coverage |
+| `use_skill` | Load a Prism skill from the user's Prism-only library (~/.prism/dispatch/skills), or an inherited skill that ships with Prism |
 | `wake` | Bring Prism back |
 | `workspace_status` | Compact workspace readiness |

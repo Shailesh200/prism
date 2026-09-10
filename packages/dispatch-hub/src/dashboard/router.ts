@@ -10,18 +10,23 @@ export const CONSOLE_VIEWS = [
   "dashboard",
   "findings",
   "iris",
+  "trees",
+  "skills",
   "settings",
 ] as const;
 
 export type RailView = (typeof CONSOLE_VIEWS)[number];
-export type ConsoleView = RailView | "whats-new";
+export type ConsoleView = RailView | "whats-new" | "wake";
 
 export const VIEW_LABELS: Record<ConsoleView, string> = {
   dashboard: "Dashboard",
   findings: "Findings",
   iris: "Iris",
+  trees: "Trees",
+  skills: "Skills",
   settings: "Settings",
   "whats-new": "What's new",
+  wake: "Wake",
 };
 
 export type RouteQuery = {
@@ -36,6 +41,7 @@ export function parseView(hash: string): ConsoleView {
   if (raw === "workflows" || raw === "attention") return "dashboard";
   if (raw === "intelligence") return "iris";
   if (raw === "whats-new") return "whats-new";
+  if (raw === "wake") return "wake";
   return (CONSOLE_VIEWS as readonly string[]).includes(raw)
     ? (raw as ConsoleView)
     : "dashboard";
@@ -82,6 +88,7 @@ export function viewHash(view: ConsoleView, query?: RouteQuery): string {
   if (view === "dashboard") return dashboardHash(query?.repo);
   if (view === "findings") return findingsHash(query);
   if (view === "whats-new") return "#/whats-new";
+  if (view === "wake") return "#/wake";
   return `#/${view}`;
 }
 

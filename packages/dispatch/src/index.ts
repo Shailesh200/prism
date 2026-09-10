@@ -143,6 +143,15 @@ export {
   type WorkerIntelligenceTool,
 } from "./worker-options.js";
 export {
+  compactPackageRows,
+  estimateTokens,
+  formatPackageMap,
+  formatWorkerOrientation,
+  loadWorkerOrientation,
+  packagesFromManifests,
+  type PackageMapRow,
+} from "./worker-orientation.js";
+export {
   verifyJobWork,
   firstFailureLine,
   isCheckInterrupted,
@@ -186,6 +195,7 @@ export {
   activeJobCount,
   queuedJobs,
   claimQueuedJob,
+  updateJobs,
 } from "./jobs.js";
 export {
   drainWorkspace,
@@ -207,12 +217,32 @@ export {
   type SleptJob,
 } from "./sleep.js";
 export {
+  INHERITED_SKILLS,
+  applyGeneratedSkill,
+  deleteSkill,
+  duplicateSkill,
+  listSkills,
+  nameForDuplicate,
+  normalizeSkillName,
+  readSkill,
+  skillDraftFromMarkdown,
+  skillNameFromJobTitle,
+  skillSpeak,
+  skillsDir,
+  unwrapSkillMarkdown,
+  writeSkill,
+  type PrismSkill,
+  type SkillStatus,
+} from "./skills.js";
+export {
   discoverWorktrees,
   adoptOrCreateWorktree,
+  alreadyCheckedOutPath,
   pruneOrphanWorktrees,
   type PrunedWorktrees,
 } from "./worktrees.js";
-export { findPathOverlap } from "./overlap.js";
+export { findPathOverlap, sameWorktreePath } from "./overlap.js";
+export { SKILL_PLAYBOOK, isSkillPlaybook } from "./playbook.js";
 export { exportSettings } from "./export-settings.js";
 export {
   createCursorWorkerPort,
@@ -220,6 +250,7 @@ export {
   resolveMcpLaunch,
   isPrismMcpBin,
   workerPrompt,
+  composeWorkerPrompt,
   verificationFixExtra,
   type WorkerPort,
 } from "./worker.js";

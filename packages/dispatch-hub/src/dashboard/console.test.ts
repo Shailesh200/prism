@@ -54,6 +54,10 @@ describe("parseView", () => {
     expect(parseView("#/intelligence")).toBe("iris");
     expect(parseView("#/whats-new")).toBe("whats-new");
     expect(viewHash("whats-new")).toBe("#/whats-new");
+    expect(parseView("#/wake")).toBe("wake");
+    expect(viewHash("wake")).toBe("#/wake");
+    expect(parseView("#/trees")).toBe("trees");
+    expect(parseView("#/skills")).toBe("skills");
   });
 
   it("ignores a query string after the view", () => {

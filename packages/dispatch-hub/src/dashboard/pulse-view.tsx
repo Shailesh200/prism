@@ -11,17 +11,22 @@ import {
   Button,
   HoverTip,
   Truncate,
+  Accordion,
   formatPrismDate,
 } from "@repo-prism/ui";
 import { type ReactElement, type ReactNode } from "react";
 import {
+  isWorkingJob,
   jobPlaybookNotch,
+  groupJobsByRepo,
+  jobWorkStartedAt,
   pulseIdleRepos,
   pulseSections,
   waitWorkMeter,
   type FleetTimeRange,
   type RepoFleet,
 } from "./fleet.js";
+import { GenerateFlow } from "./generate-line.js";
 import {
   JobActions,
   jobActionHandlers,
@@ -34,6 +39,8 @@ export function PulseView(
     readonly range: FleetTimeRange;
     readonly nowMs: number;
     readonly loading: boolean;
+    readonly outsideCount?: number;
+    readonly onShowAllTime?: () => void;
     readonly onOpenJob: (job: JobSummary) => void;
     readonly onOpenRepo: (path: string) => void;
   } & JobActionHandlers,
@@ -47,48 +54,51 @@ export function PulseView(
     sections.needsYou.length === 0 &&
     sections.settled.length === 0;
   const actions = jobActionHandlers(props);
+  const outside = props.outsideCount ?? 0;
   return (
     <div className="pulse">
       {empty ? (
-        <p className="console__lede">
-          No jobs in this range. Start one, or widen All.
-        </p>
+        <div className="pulse-empty">
+          <p className="console__lede">
+            {outside > 0
+              ? `${outside} job${outside === 1 ? "" : "s"} sit outside this range.`
+              : "No jobs in this range. Start one, or widen All."}
+          </p>
+          {outside > 0 && props.onShowAllTime ? (
+            <Button size="sm" variant="secondary" onClick={props.onShowAllTime}>
+              Show all time
+            </Button>
+          ) : null}
+        </div>
       ) : null}
       <PulseSection label="Live" hidden={sections.live.length === 0}>
-        {sections.live.map((job) => (
-          <PulseCard
-            key={job.id}
-            job={job}
-            kind="live"
-            nowMs={props.nowMs}
-            onOpenJob={props.onOpenJob}
-            {...actions}
-          />
-        ))}
+        <PulseRepoGroups
+          jobs={sections.live}
+          kind="live"
+          nowMs={props.nowMs}
+          defaultOpen
+          onOpenJob={props.onOpenJob}
+          {...actions}
+        />
       </PulseSection>
       <PulseSection label="Needs you" hidden={sections.needsYou.length === 0}>
-        {sections.needsYou.map((job) => (
-          <PulseCard
-            key={job.id}
-            job={job}
-            kind="needsYou"
-            nowMs={props.nowMs}
-            onOpenJob={props.onOpenJob}
-            {...actions}
-          />
-        ))}
+        <PulseRepoGroups
+          jobs={sections.needsYou}
+          kind="needsYou"
+          nowMs={props.nowMs}
+          defaultOpen
+          onOpenJob={props.onOpenJob}
+          {...actions}
+        />
       </PulseSection>
       <PulseSection label="Settled" hidden={sections.settled.length === 0}>
-        {sections.settled.map((job) => (
-          <PulseCard
-            key={job.id}
-            job={job}
-            kind="settled"
-            nowMs={props.nowMs}
-            onOpenJob={props.onOpenJob}
-            {...actions}
-          />
-        ))}
+        <PulseRepoGroups
+          jobs={sections.settled}
+          kind="settled"
+          nowMs={props.nowMs}
+          onOpenJob={props.onOpenJob}
+          {...actions}
+        />
       </PulseSection>
       {idle.length > 0 ? (
         <div className="pulse-idle">
@@ -106,6 +116,57 @@ export function PulseView(
         </div>
       ) : null}
     </div>
+  );
+}
+
+function PulseRepoGroups(
+  props: {
+    readonly jobs: readonly JobSummary[];
+    readonly kind: "live" | "needsYou" | "settled";
+    readonly nowMs: number;
+    readonly defaultOpen?: boolean;
+    readonly onOpenJob: (job: JobSummary) => void;
+  } & JobActionHandlers,
+): ReactElement {
+  const groups = groupJobsByRepo(props.jobs);
+  return (
+    <>
+      {groups.map((group, index) => (
+        <Accordion
+          key={`${props.kind}:${group.path || group.label}`}
+          className="pulse-group"
+          defaultOpen={Boolean(props.defaultOpen) || index === 0}
+          summary={
+            <span className="repo-group-summary">
+              <span className="fleet-mark" aria-hidden>
+                {group.label.slice(0, 1).toUpperCase()}
+              </span>
+              <strong>{group.label}</strong>
+              <span className="repo-group-summary__meta">
+                {group.jobs.length}{" "}
+                {props.kind === "live"
+                  ? "live"
+                  : props.kind === "needsYou"
+                    ? "need you"
+                    : "settled"}
+              </span>
+            </span>
+          }
+        >
+          {group.jobs.map((job) => (
+            <PulseCard
+              key={job.id}
+              job={job}
+              kind={props.kind}
+              nowMs={props.nowMs}
+              onOpenJob={props.onOpenJob}
+              hideRepo
+              {...jobActionHandlers(props)}
+            />
+          ))}
+        </Accordion>
+      ))}
+    </>
   );
 }
 
@@ -154,6 +215,7 @@ function PulseCard(
     readonly job: JobSummary;
     readonly kind: "live" | "needsYou" | "settled";
     readonly nowMs: number;
+    readonly hideRepo?: boolean;
     readonly onOpenJob: (job: JobSummary) => void;
   } & JobActionHandlers,
 ): ReactElement {
@@ -180,7 +242,9 @@ function PulseCard(
               <Truncate title={job.title}>{job.title}</Truncate>
             </strong>
           </HoverTip>
-          <span className="pulse-card__repo">{job.workspaceLabel}</span>
+          {props.hideRepo ? null : (
+            <span className="pulse-card__repo">{job.workspaceLabel}</span>
+          )}
         </div>
         <Badge
           tone={jobBadgeTone(job.status, job.nextStep)}
@@ -199,72 +263,78 @@ function PulseCard(
           />
         </div>
       </header>
-      {meter.waitPct + meter.workPct + meter.outcomePct > 0 ? (
+      {isWorkingJob(job.status) ? (
+        <GenerateFlow moving className="pulse-card__flow" />
+      ) : null}
+      {meter.waitPct + meter.workPct + meter.outcomePct > 0 ||
+      isWorkingJob(job.status) ? (
         <div className="pulse-meter-wrap">
-          <div
-            className={
-              liveMeter ? "pulse-meter pulse-meter--live" : "pulse-meter"
-            }
-            aria-hidden
-          >
-            {meter.waitPct > 0 ? (
-              <span
-                className="pulse-meter__seg"
-                style={{ flexGrow: meter.waitPct, flexBasis: 0 }}
-              >
-                <HoverTip
-                  label={`Waited ${meter.waited}`}
-                  {...(meterWaitDetail(job)
-                    ? { detail: meterWaitDetail(job) }
-                    : {})}
+          {meter.waitPct + meter.workPct + meter.outcomePct > 0 ? (
+            <div
+              className={
+                liveMeter ? "pulse-meter pulse-meter--live" : "pulse-meter"
+              }
+              aria-hidden
+            >
+              {meter.waitPct > 0 ? (
+                <span
+                  className="pulse-meter__seg"
+                  style={{ flexGrow: meter.waitPct, flexBasis: 0 }}
                 >
-                  <span className="pulse-meter__wait" />
-                </HoverTip>
-              </span>
-            ) : null}
-            {meter.workPct > 0 ? (
-              <span
-                className="pulse-meter__seg"
-                style={{ flexGrow: meter.workPct, flexBasis: 0 }}
-              >
-                <HoverTip
-                  label={`Worked ${meter.worked}`}
-                  {...(meterWorkDetail(job)
-                    ? { detail: meterWorkDetail(job) }
-                    : {})}
+                  <HoverTip
+                    label={`${meter.waitVerb === "waiting" ? "Waiting" : "Waited"} ${meter.waited}`}
+                    {...(meterWaitDetail(job)
+                      ? { detail: meterWaitDetail(job) }
+                      : {})}
+                  >
+                    <span className="pulse-meter__wait" />
+                  </HoverTip>
+                </span>
+              ) : null}
+              {meter.workPct > 0 ? (
+                <span
+                  className="pulse-meter__seg"
+                  style={{ flexGrow: meter.workPct, flexBasis: 0 }}
                 >
-                  <span className="pulse-meter__work" />
-                </HoverTip>
-              </span>
-            ) : null}
-            {meter.outcome && meter.outcomePct > 0 ? (
-              <span
-                className="pulse-meter__seg"
-                style={{ flexGrow: meter.outcomePct, flexBasis: 0 }}
-              >
-                <HoverTip
-                  label={meter.outcome === "error" ? "Failed" : "Cancelled"}
-                  {...(meterOutcomeDetail(job)
-                    ? { detail: meterOutcomeDetail(job) }
-                    : {})}
+                  <HoverTip
+                    label={`${meter.workVerb === "working" ? "Working" : "Worked"} ${meter.worked}`}
+                    {...(meterWorkDetail(job)
+                      ? { detail: meterWorkDetail(job) }
+                      : {})}
+                  >
+                    <span className="pulse-meter__work" />
+                  </HoverTip>
+                </span>
+              ) : null}
+              {meter.outcome && meter.outcomePct > 0 ? (
+                <span
+                  className="pulse-meter__seg"
+                  style={{ flexGrow: meter.outcomePct, flexBasis: 0 }}
                 >
-                  <span
-                    className={
-                      meter.outcome === "error"
-                        ? "pulse-meter__fail"
-                        : "pulse-meter__cancel"
-                    }
-                  />
-                </HoverTip>
-              </span>
-            ) : null}
-          </div>
+                  <HoverTip
+                    label={meter.outcome === "error" ? "Failed" : "Cancelled"}
+                    {...(meterOutcomeDetail(job)
+                      ? { detail: meterOutcomeDetail(job) }
+                      : {})}
+                  >
+                    <span
+                      className={
+                        meter.outcome === "error"
+                          ? "pulse-meter__fail"
+                          : "pulse-meter__cancel"
+                      }
+                    />
+                  </HoverTip>
+                </span>
+              ) : null}
+            </div>
+          ) : null}
           <div className="pulse-meter__legend">
             <span className="pulse-meter__legend-wait">
-              waited {meter.waited}
+              {meter.waitVerb} {meter.waited}
             </span>
             <span className="pulse-meter__legend-work">
-              worked {meter.worked}
+              {meter.workVerb} {meter.worked}
             </span>
             {meter.outcome ? (
               <span
@@ -341,7 +411,7 @@ function meterWaitDetail(job: JobSummary): string | undefined {
 }
 
 function meterWorkDetail(job: JobSummary): string | undefined {
-  const started = stampLine(job.startedAt, "Started");
+  const started = stampLine(jobWorkStartedAt(job), "Started");
   const finished = stampLine(job.finishedAt, "Finished");
   const parts = [started, finished].filter(Boolean);
   return parts.length > 0 ? parts.join(" · ") : undefined;

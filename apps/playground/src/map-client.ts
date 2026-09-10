@@ -353,6 +353,24 @@ export async function fetchChangeReview(
   return fn(paths, base);
 }
 
+export async function fetchChangedPaths(
+  root: string | null,
+  base?: string,
+): Promise<readonly string[]> {
+  const fn = client(root).fetchChangedPaths;
+  if (!fn) throw new Error("Changed paths are not supported on this surface.");
+  return fn(base);
+}
+
+export async function fetchExplainArea(
+  path: string,
+  root: string | null,
+): Promise<import("@repo-prism/shared").ExplainAreaSummary | null> {
+  const fn = client(root).fetchExplainArea;
+  if (!fn) return null;
+  return fn(path);
+}
+
 export async function applyRename(
   input: ApplyRenameInput,
   root: string | null,

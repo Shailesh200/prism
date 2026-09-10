@@ -19,7 +19,6 @@ export const CLAUDE_WORKER_TOOLS = [
   "Write",
   "Grep",
   "Glob",
-  "LS",
 ] as const;
 
 /** In-process subagents (ADR-0042 §4): Claude's built-in Task tool. */

@@ -40,13 +40,18 @@ import {
   publicWorkerError,
 } from "./job-voice.js";
 import { loadMemories } from "./memory.js";
-import { findPathOverlap } from "./overlap.js";
+import { findPathOverlap, sameWorktreePath } from "./overlap.js";
+import { isSkillPlaybook } from "./playbook.js";
 import { isProcessAlive, reapJobs } from "./run-state.js";
 import type { GitRunner } from "./git.js";
 import type { JobConfirm, JobPlacement, JobRecord } from "./types.js";
 import { diskBudgetMessage } from "./worker-budget.js";
-import { resolveMcpLaunch, workerPrompt, type WorkerPort } from "./worker.js";
-import { adoptOrCreateWorktree } from "./worktrees.js";
+import {
+  resolveMcpLaunch,
+  composeWorkerPrompt,
+  type WorkerPort,
+} from "./worker.js";
+import { adoptOrCreateWorktree, discoverWorktrees } from "./worktrees.js";
 import { linkWorktreeInstall } from "./worktree-install.js";
 import type { WorkerBackend } from "./worker-backend.js";
 import { cursorModelForSpawn } from "./worker-models.js";
@@ -321,7 +326,11 @@ async function placeJob(
     ]);
     if (!branchRow.ok) throw new Error(branchRow.stderr.trim() || "git failed");
 
-    if (dirty.length > 0 && !hasGrant(job, "confirmDirty")) {
+    if (
+      dirty.length > 0 &&
+      !hasGrant(job, "confirmDirty") &&
+      !isSkillPlaybook(job.playbook)
+    ) {
       return await parkForConfirm(deps, job, {
         kind: "dirty-checkout",
         arg: "confirmDirty",
@@ -335,14 +344,36 @@ async function placeJob(
       source: "checkout",
     };
     preExistingChanges = dirty;
-  } else if (job.worktreePath && job.branch) {
-    tree = {
-      path: job.worktreePath,
-      branch: job.branch,
-      source: job.source,
-      ...(job.cursorAgentId ? { cursorAgentId: job.cursorAgentId } : {}),
-      ...(job.claudeSession ? { claudeSession: job.claudeSession } : {}),
-    };
+  } else if (job.worktreePath) {
+    const discovered = await discoverWorktrees(deps.workspaceRoot, deps.git);
+    const found = discovered.find((row) =>
+      sameWorktreePath(row.path, job.worktreePath),
+    );
+    if (found) {
+      tree = {
+        path: found.path,
+        branch: found.branch || job.branch,
+        source: found.source,
+        ...(found.cursorAgentId ? { cursorAgentId: found.cursorAgentId } : {}),
+        ...(found.claudeSession ? { claudeSession: found.claudeSession } : {}),
+      };
+    } else if (job.branch) {
+      tree = {
+        path: job.worktreePath,
+        branch: job.branch,
+        source: job.source,
+        ...(job.cursorAgentId ? { cursorAgentId: job.cursorAgentId } : {}),
+        ...(job.claudeSession ? { claudeSession: job.claudeSession } : {}),
+      };
+    } else {
+      tree = await adoptOrCreateWorktree({
+        workspaceRoot: deps.workspaceRoot,
+        jobId: job.id,
+        title: job.title,
+        ...(job.branch ? { preferredBranch: job.branch } : {}),
+        ...(deps.git ? { run: deps.git } : {}),
+      });
+    }
   } else {
     tree = await adoptOrCreateWorktree({
       workspaceRoot: deps.workspaceRoot,
@@ -366,7 +397,11 @@ async function placeJob(
     ignoreJobId: job.id,
     ...(deps.git ? { git: deps.git } : {}),
   });
-  if (overlap && !hasGrant(job, "confirmOverlap")) {
+  if (
+    overlap &&
+    !hasGrant(job, "confirmOverlap") &&
+    !isSkillPlaybook(job.playbook)
+  ) {
     return await parkForConfirm(deps, job, {
       kind: "path-overlap",
       arg: "confirmOverlap",
@@ -435,12 +470,13 @@ async function spawnWorker(
       cwd: job.worktreePath,
       name: agentNameForJob(job),
       ...(auth.apiKey ? { apiKey: auth.apiKey } : {}),
-      prompt: workerPrompt({
+      prompt: await composeWorkerPrompt({
         job,
         memories,
         subagents: config.subagents,
         placement: job.placement ?? "checkout",
         jobInstructions: config.jobInstructions,
+        workspaceRoot: deps.workspaceRoot,
       }),
       mcpCommand: launch.command,
       mcpArgs: launch.args,
@@ -448,8 +484,9 @@ async function spawnWorker(
       title: job.title,
       baseRef: await deps.baseRef(),
       subagents: config.subagents,
-      verify: config.verify,
+      verify: config.verify && !isSkillPlaybook(job.playbook),
       placement: job.placement ?? "checkout",
+      ...(job.playbook ? { playbook: job.playbook } : {}),
       ...(job.preExistingChanges
         ? { preExistingChanges: job.preExistingChanges }
         : {}),

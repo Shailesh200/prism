@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   PLAYGROUND_PORT,
   findPlaygroundApp,
+  playgroundBindUrl,
   playgroundPort,
   playgroundUrl,
   playgroundViteEnabled,
@@ -20,11 +21,13 @@ afterEach(async () => {
 });
 
 describe("playground helpers", () => {
-  it("defaults to Vite's 5173", () => {
-    expect(PLAYGROUND_PORT).toBe(5173);
-    expect(playgroundPort({})).toBe(5173);
+  it("defaults next to the Console, not Vite's 5173", () => {
+    expect(PLAYGROUND_PORT).toBe(17331);
+    expect(playgroundPort({})).toBe(17331);
     expect(playgroundPort({ PRISM_PLAYGROUND_PORT: "0" })).toBe(0);
-    expect(playgroundUrl(5173)).toBe("http://127.0.0.1:5173/");
+    expect(playgroundPort({ PRISM_PLAYGROUND_PORT: "5199" })).toBe(5199);
+    expect(playgroundUrl(17331)).toBe("http://prismhq.localhost:17331/");
+    expect(playgroundBindUrl(17331)).toBe("http://127.0.0.1:17331/");
   });
 
   it("does not spawn Vite under vitest unless opted in", () => {

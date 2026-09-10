@@ -36,7 +36,9 @@ import {
   attentionJobs,
   compactJobPrd,
   FAILURES_VISIBLE,
+  groupJobsByRepo,
   jobChecksRunning,
+  jobTreeLabel,
   jobsChronological,
   jobsInRange,
   overflowMoreLabel,
@@ -435,6 +437,9 @@ export function ListView(
     readonly selectedId?: string;
     readonly onOpenJob: (job: JobSummary) => void;
     readonly loading: boolean;
+    readonly outsideCount?: number;
+    readonly filter?: string;
+    readonly onShowAllTime?: () => void;
   } & JobActionHandlers,
 ): ReactElement {
   const [cursor, setCursor] = useState(0);
@@ -475,16 +480,21 @@ export function ListView(
       ),
     },
     {
-      id: "repo",
-      header: "Repo",
+      id: "tree",
+      header: "Tree",
       className: "fleet-list__repo",
       sortable: true,
-      sortValue: (job) => job.workspaceLabel ?? "",
-      render: (job) => (
-        <Truncate title={job.workspaceLabel ?? "—"}>
-          {job.workspaceLabel ?? "—"}
-        </Truncate>
-      ),
+      sortValue: (job) => jobTreeLabel(job).label,
+      render: (job) => {
+        const tree = jobTreeLabel(job);
+        return (
+          <span className="fleet-list__tree">
+            <Truncate title={tree.label}>{tree.label}</Truncate>
+            {tree.you ? <em>You</em> : null}
+            {tree.worktree ? <em>worktree</em> : null}
+          </span>
+        );
+      },
     },
     {
       id: "waited",
@@ -606,29 +616,66 @@ export function ListView(
   }, [cursor, props, rows]);
 
   if (props.loading) return <div className="fleet-scan" aria-hidden />;
+  const groups = groupJobsByRepo(rows);
+  const outside = props.outsideCount ?? 0;
+  const filtered = Boolean(props.filter?.trim());
   return (
     <div className="fleet-list-wrap">
-      <Table
-        className="fleet-list-table"
-        columns={columns}
-        rows={rows}
-        rowKey={(job) => `${job.workspacePath}:${job.id}`}
-        sort={sort}
-        onSort={setSort}
-        selectedKey={
-          props.selectedId
-            ? rows.find((job) => job.id === props.selectedId)
-              ? `${rows.find((job) => job.id === props.selectedId)?.workspacePath}:${props.selectedId}`
-              : rows[cursor]
-                ? `${rows[cursor]?.workspacePath}:${rows[cursor]?.id}`
-                : undefined
-            : rows[cursor]
-              ? `${rows[cursor]?.workspacePath}:${rows[cursor]?.id}`
-              : undefined
-        }
-        onRowClick={props.onOpenJob}
-        empty="No jobs match this filter."
-      />
+      {groups.length === 0 ? (
+        <div className="pulse-empty">
+          <p className="console__lede">
+            {outside > 0 && !filtered
+              ? `${outside} job${outside === 1 ? "" : "s"} sit outside this range.`
+              : filtered
+                ? "No jobs match this filter."
+                : "No jobs in this range. Start one, or widen All."}
+          </p>
+          {outside > 0 && !filtered && props.onShowAllTime ? (
+            <Button size="sm" variant="secondary" onClick={props.onShowAllTime}>
+              Show all time
+            </Button>
+          ) : null}
+        </div>
+      ) : (
+        groups.map((group, index) => {
+          const live = group.jobs.some((job) => isLiveJob(job.status));
+          return (
+            <Accordion
+              key={group.path || group.label}
+              className="fleet-list-group"
+              defaultOpen={live || index === 0}
+              summary={
+                <span className="repo-group-summary">
+                  <span className="fleet-mark" aria-hidden>
+                    {group.label.slice(0, 1).toUpperCase()}
+                  </span>
+                  <strong>{group.label}</strong>
+                  <span className="repo-group-summary__meta">
+                    {`${group.jobs.length} job${group.jobs.length === 1 ? "" : "s"}`}
+                  </span>
+                </span>
+              }
+            >
+              <Table
+                className="fleet-list-table"
+                columns={columns}
+                rows={group.jobs}
+                rowKey={(job) => `${job.workspacePath}:${job.id}`}
+                sort={sort}
+                onSort={setSort}
+                selectedKey={
+                  props.selectedId &&
+                  group.jobs.some((job) => job.id === props.selectedId)
+                    ? `${group.path}:${props.selectedId}`
+                    : undefined
+                }
+                onRowClick={props.onOpenJob}
+                empty="No jobs in this repository."
+              />
+            </Accordion>
+          );
+        })
+      )}
     </div>
   );
 }

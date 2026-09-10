@@ -10,6 +10,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import type { IncomingMessage } from "node:http";
 import { defineConfig, type Plugin } from "vite";
@@ -26,6 +27,7 @@ import type {
   CodeExplorerTarget,
   ConsentPurposeId,
   ConsentState,
+  ConsoleStatus,
   CwvPreferredSource,
   CwvReport,
   DnaReport,
@@ -64,6 +66,30 @@ const uiSrc = resolve(appRoot, "../../packages/ui/src");
 const appShellSrc = resolve(appRoot, "../../packages/app-shell/src");
 
 const ZOOM_LEVELS = MapZoomLevelSchema.options;
+
+async function playgroundConsoleStatus(): Promise<ConsoleStatus> {
+  try {
+    const raw = await readFile(join(homedir(), ".prism/hub/hub.json"), "utf8");
+    const rec = JSON.parse(raw) as {
+      port?: number;
+      token?: string;
+    };
+    if (typeof rec.port !== "number") {
+      return { console: null, connectors: [], unreadable: [] };
+    }
+    const token = typeof rec.token === "string" ? rec.token : "";
+    const url = token
+      ? `http://prismhq.localhost:${rec.port}/?token=${encodeURIComponent(token)}`
+      : `http://prismhq.localhost:${rec.port}/`;
+    return {
+      console: { url, port: rec.port },
+      connectors: [],
+      unreadable: [],
+    };
+  } catch {
+    return { console: null, connectors: [], unreadable: [] };
+  }
+}
 
 type Workspace = {
   getRepositoryMap: (options?: {
@@ -664,12 +690,42 @@ async function loadChangeReview(
   input: { paths: readonly string[]; base?: string },
 ): Promise<ChangeReviewReport> {
   const ws = await getIndexedWorkspace(root);
+  let paths = [...input.paths];
+  let base = input.base;
+  // Empty paths means "use dirty files" — same contract as MCP review_changes.
+  if (paths.length === 0) {
+    const changed = ws.getChangedPaths(
+      base === undefined ? undefined : { base },
+    );
+    if (!changed.ok) {
+      throw new BadRequest(changed.error.message);
+    }
+    paths = [...changed.value.paths];
+    base = base ?? changed.value.base;
+    if (paths.length === 0) {
+      throw new BadRequest(
+        "No changed paths to review (working tree clean, or nothing under this workspace)",
+      );
+    }
+  }
   const result = await ws.reviewChanges({
-    paths: input.paths,
-    ...(input.base === undefined ? {} : { base: input.base }),
+    paths,
+    ...(base === undefined ? {} : { base }),
   });
   if (!result.ok) {
     throw new Error(`reviewChanges failed: ${result.error.message}`);
+  }
+  return result.value;
+}
+
+async function loadExplainArea(
+  root: string,
+  path: string,
+): Promise<import("@repo-prism/shared").ExplainAreaSummary> {
+  const ws = await getIndexedWorkspace(root);
+  const result = await ws.explainArea(path);
+  if (!result.ok) {
+    throw new Error(`explainArea failed: ${result.error.message}`);
   }
   return result.value;
 }
@@ -882,6 +938,11 @@ function prismMapApi(): Plugin {
               const layers = parseLayers(parsed.searchParams.get("layers"));
               const map = await loadMap(zoom, root, layers);
               sendJson(res, 200, map);
+              return;
+            }
+
+            if (parsed.pathname === "/api/console") {
+              sendJson(res, 200, await playgroundConsoleStatus());
               return;
             }
 
@@ -1563,6 +1624,26 @@ function prismMapApi(): Plugin {
               return;
             }
 
+            if (parsed.pathname === "/api/changed-paths") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const baseParam = parsed.searchParams.get("base")?.trim();
+              const ws = await getIndexedWorkspace(root);
+              const changed = ws.getChangedPaths(
+                baseParam ? { base: baseParam } : undefined,
+              );
+              if (!changed.ok) {
+                sendJson(res, 400, { error: changed.error.message });
+                return;
+              }
+              sendJson(res, 200, {
+                base: changed.value.base,
+                paths: [...changed.value.paths],
+              });
+              return;
+            }
+
             if (parsed.pathname === "/api/review" && req.method === "POST") {
               const body = (await readJsonBody(req)) as {
                 root?: string;
@@ -1576,10 +1657,6 @@ function prismMapApi(): Plugin {
                       typeof p === "string" && p.trim() !== "",
                   )
                 : [];
-              if (paths.length === 0) {
-                sendJson(res, 400, { error: "paths is required" });
-                return;
-              }
               const base =
                 typeof body.base === "string" && body.base.trim() !== ""
                   ? body.base.trim()
@@ -1589,6 +1666,20 @@ function prismMapApi(): Plugin {
                 ...(base === undefined ? {} : { base }),
               });
               sendJson(res, 200, report);
+              return;
+            }
+
+            if (parsed.pathname === "/api/explain") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const path = parsed.searchParams.get("path")?.trim() ?? "";
+              if (path === "") {
+                sendJson(res, 400, { error: "path is required" });
+                return;
+              }
+              const summary = await loadExplainArea(root, path);
+              sendJson(res, 200, summary);
               return;
             }
 
@@ -1680,11 +1771,25 @@ function prismMapApi(): Plugin {
   };
 }
 
+const DEFAULT_PLAYGROUND_PORT = 17331;
+
+function playgroundDevPort(): number {
+  const raw = process.env.PRISM_PLAYGROUND_PORT?.trim();
+  if (!raw) return DEFAULT_PLAYGROUND_PORT;
+  if (raw === "0") return 0;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isInteger(parsed) && parsed >= 0
+    ? parsed
+    : DEFAULT_PLAYGROUND_PORT;
+}
+
 export default defineConfig({
   plugins: [react(), prismMapApi()],
   server: {
-    port: 5173,
+    host: "127.0.0.1",
+    port: playgroundDevPort(),
     strictPort: true,
+    allowedHosts: ["localhost", "prismhq.localhost", ".localhost"],
   },
   build: {
     outDir: "dist",

@@ -1,5 +1,6 @@
 import { source } from "@/lib/source";
 import { siteOrigin } from "@/lib/seo";
+import { PRISM_TOOL_COUNT } from "@repo-prism/shared";
 
 /**
  * llms.txt — the curated map answer engines read first.
@@ -24,7 +25,7 @@ export async function GET() {
 
 > Local-first software intelligence for repositories — maps, graphs, blast
 > radius, and health, analysed on your machine. Exposed as a CLI, VS Code /
-> Cursor extensions, and an MCP server (43 tools) for AI agents. Dispatch adds
+> Cursor extensions, and an MCP server (${PRISM_TOOL_COUNT} tools) for AI agents. Dispatch adds
 > background teammates that edit your checkout while Prism runs the checks.
 
 ## Product

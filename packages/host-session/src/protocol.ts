@@ -248,6 +248,7 @@ export type HostRequest =
       granted: boolean;
     }
   | { id: string; method: "reviewChanges"; paths: string[]; base?: string }
+  | { id: string; method: "changedPaths"; base?: string }
   | { id: string; method: "explainArea"; path: string }
   | { id: string; method: "listBookmarks" }
   | { id: string; method: "saveBookmark"; input: SaveBookmarkInput }
@@ -444,6 +445,12 @@ export type HostResponse =
       ok: true;
       method: "reviewChanges";
       data: ChangeReviewReport;
+    }
+  | {
+      id: string;
+      ok: true;
+      method: "changedPaths";
+      data: readonly string[];
     }
   | {
       id: string;

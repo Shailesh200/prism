@@ -26,6 +26,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { readHubRecord } from "@repo-prism/dispatch-hub";
 import {
   WORKER_INTELLIGENCE_TOOLS,
+  compactPackageRows,
   type WorkerIntelligenceTool,
 } from "@repo-prism/dispatch";
 
@@ -207,7 +208,20 @@ const WORKER_TOOL_BODIES: Record<WorkerIntelligenceTool, WorkerToolBody> = {
     description: `Locate a symbol by name and see where it is declared. ${WORKTREE_NOTE}`,
     schema: { query: z.string().describe("Symbol name or fragment.") },
     async run(call, args) {
-      return await call("symbols", { query: String(args.query ?? "") });
+      const rows = await call("symbols", { query: String(args.query ?? "") });
+      if (!Array.isArray(rows)) return rows;
+      return rows.slice(0, 12).map((row) => {
+        const hit = row as {
+          name?: unknown;
+          kind?: unknown;
+          path?: unknown;
+        };
+        return {
+          ...(typeof hit.name === "string" ? { name: hit.name } : {}),
+          ...(typeof hit.kind === "string" ? { kind: hit.kind } : {}),
+          ...(typeof hit.path === "string" ? { path: hit.path } : {}),
+        };
+      });
     },
   },
   explain_area: {
@@ -216,6 +230,16 @@ const WORKER_TOOL_BODIES: Record<WorkerIntelligenceTool, WorkerToolBody> = {
     schema: { path: z.string().describe("Workspace-relative path.") },
     async run(call, args) {
       return await call("explainArea", { path: String(args.path ?? "") });
+    },
+  },
+  list_packages: {
+    title: "List packages",
+    description: `Workspace packages Prism already indexed. Call once to orient; do not glob the tree. ${WORKTREE_NOTE}`,
+    schema: {},
+    async run(call) {
+      const rows = await call("listPackages", {});
+      if (!Array.isArray(rows)) return rows;
+      return compactPackageRows(rows);
     },
   },
 };
@@ -277,7 +301,8 @@ export async function registerWorkerIntelligence(
             content: [
               {
                 type: "text" as const,
-                text: JSON.stringify(data, undefined, 2),
+                // Compact JSON: pretty-print was burning tokens on every hop.
+                text: JSON.stringify(data),
               },
             ],
           };

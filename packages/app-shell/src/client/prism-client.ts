@@ -967,6 +967,14 @@ export function createPrismClient(
       return must(res);
     },
 
+    async fetchChangedPaths(base?: string): Promise<readonly string[]> {
+      const res = await transport.invoke<readonly string[]>(
+        "changedPaths",
+        base ? { base } : {},
+      );
+      return must(res);
+    },
+
     async fetchChangeReview(
       paths: readonly string[],
       base?: string,
@@ -1003,12 +1011,13 @@ export function createPrismClient(
           target: path,
           command: transport.command("explainArea", path),
         },
-        async () =>
-          soft(
-            await transport.invoke<ExplainAreaSummary | null>("explainArea", {
-              path,
-            }),
-          ),
+        async () => {
+          const res = await transport.invoke<ExplainAreaSummary | null>(
+            "explainArea",
+            { path },
+          );
+          return must(res);
+        },
         (data) => {
           if (!data)
             return { status: "error", output: "explainArea unavailable." };

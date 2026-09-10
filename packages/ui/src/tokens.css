@@ -57,6 +57,14 @@
   --prism-edge-strong: color-mix(in srgb, #00c2c2 78%, #94a3b8);
   --prism-node-fill: #1e2433;
   --prism-node-fill-selected: color-mix(in srgb, #00c2c2 16%, #131926);
+  --prism-node-size: 28px;
+  --prism-trees-repos: 220px;
+  --prism-trees-inspector: 440px;
+  --prism-ink-variant: #bbc9c9;
+  --prism-surface-variant: #313442;
+  --prism-headline-lg: 24px;
+  --prism-progress: 2px;
+  --prism-progress-hairline: 1px;
 
   /* Signal colors */
   --prism-risk: #f59e0b;
@@ -85,6 +93,7 @@
   /* Typography (UXPilot: Inter + JetBrains Mono) */
   --prism-font: "Inter", "Segoe UI", system-ui, sans-serif;
   --prism-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  --prism-font-mono: var(--prism-mono);
   --prism-type-brand-size: 1.125rem;
   --prism-type-brand-weight: 650;
   --prism-type-brand-tracking: -0.02em;

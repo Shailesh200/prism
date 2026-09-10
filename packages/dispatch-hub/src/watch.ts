@@ -148,20 +148,8 @@ export function watchWorkspaces(
   let poll: ReturnType<typeof setInterval> | undefined;
   let closed = false;
 
-  const refresh = async (opts?: { drain?: boolean }): Promise<void> => {
+  const applySnapshot = async (): Promise<void> => {
     if (closed) return;
-    // Drain before reading, so a queued job becomes a running job in the same
-    // tick the board renders (ADR-0047). This is the safety net for jobs whose
-    // originating MCP process exited before its own kick landed.
-    // Control actions (delete) skip drain so the board does not wait on a
-    // worker spawn just to drop a row that is already gone from disk.
-    if (opts?.drain !== false && options.drain) {
-      for (const entry of getWorkspaces()) {
-        await options.drain(entry.path).catch(() => {
-          /* a failed drain leaves the job queued; the next tick retries */
-        });
-      }
-    }
     const { jobs: next, errors } = await collectJobs(getWorkspaces());
     const events = diffJobs(snapshots, next, seenFinished);
     const errorsChanged =
@@ -174,6 +162,34 @@ export function watchWorkspaces(
       emit({ type: "snapshot", jobs: next, asOf, errors });
       for (const event of events) emit(event);
     }
+  };
+
+  const runDrain = async (): Promise<void> => {
+    if (!options.drain) return;
+    for (const entry of getWorkspaces()) {
+      if (closed) return;
+      await options.drain(entry.path).catch(() => {
+        /* a failed drain leaves the job queued; the next tick retries */
+      });
+    }
+  };
+
+  const refresh = async (opts?: { drain?: boolean }): Promise<void> => {
+    if (closed) return;
+    // Drain so a queued job can become running (ADR-0047). Await it only when
+    // the caller just enqueued work (`drain: true`). The poll tick and
+    // workspace register must not wait — a slow worker-auth drain would freeze
+    // GET /api/jobs, which is how the board and these tests observe disk.
+    // Control actions (delete) skip drain so the board does not wait on a
+    // spawn just to drop a row that is already gone from disk.
+    if (opts?.drain === true && options.drain) {
+      await runDrain();
+    } else if (opts?.drain !== false && options.drain) {
+      void runDrain().then(() => {
+        void applySnapshot();
+      });
+    }
+    await applySnapshot();
   };
 
   const schedule = (): void => {

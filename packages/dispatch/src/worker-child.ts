@@ -167,6 +167,7 @@ async function main(): Promise<void> {
     ...(payload.preExistingChanges
       ? { preExistingChanges: payload.preExistingChanges }
       : {}),
+    ...(payload.playbook ? { playbook: payload.playbook } : {}),
   };
 
   let activeRun: SdkRun | undefined;

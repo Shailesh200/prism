@@ -20,6 +20,7 @@ export const HOST_REQUEST_METHODS = [
   "applyRename",
   "backend",
   "bundleAnalyze",
+  "changedPaths",
   "codeExplorer",
   "consoleStatus",
   "dashboard",

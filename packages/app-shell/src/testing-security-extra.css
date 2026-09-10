@@ -725,4 +725,39 @@
   .ts-spin {
     animation: none;
   }
+
+  .ts-skel .sk::after {
+    animation: none;
+  }
+}
+
+.ts-skel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 6px 0 8px;
+}
+
+.ts-skel__summary {
+  width: 72%;
+  height: 14px;
+}
+
+.ts-skel__chips {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 8px;
+}
+
+.ts-skel__chip {
+  width: 76px;
+  height: 28px;
+  border-radius: 999px;
+}
+
+.ts-skel__score {
+  display: inline-block;
+  width: 48px;
+  height: 18px;
+  vertical-align: middle;
 }
