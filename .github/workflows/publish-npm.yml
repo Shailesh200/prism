@@ -33,8 +33,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: ".nvmrc"
-          registry-url: "https://registry.npmjs.org"
-          package-manager-cache: false
 
       - name: Ensure npm can use OIDC trusted publishing
         run: |
@@ -67,9 +65,12 @@ jobs:
         run: bun run scripts/check-mcp-start.mjs
 
       - name: Publish to npm
-        # OIDC only. A classic NPM_TOKEN in the environment (or the empty
-        # `_authToken` setup-node writes) stops npm 11 from exchanging the
-        # GitHub id-token, which is how 1.10.0 failed with ENEEDAUTH.
+        # OIDC only. setup-node's `registry-url` writes `_authToken` and injects
+        # `github.token` as NODE_AUTH_TOKEN; npm then never exchanges the
+        # id-token and fails with ENEEDAUTH. 1.8.0 published when the secret
+        # was empty and the dummy line was stripped.
+        env:
+          NODE_AUTH_TOKEN: ""
         run: |
           set -euo pipefail
           unset NODE_AUTH_TOKEN
