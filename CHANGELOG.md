@@ -32,7 +32,7 @@ a supported configuration.
 
 - Keep `@latest`. Reload MCP after this publish. Logs: `prism-mcp 1.10.0: workspace …`.
 
-Keep `@latest`. `@repo-prism/dispatch@1.10.0`, `@repo-prism/dispatch-hub@1.10.0`, `@repo-prism/mcp-server@1.10.0`, `@repo-prism/shared@1.2.1`, and `@repo-prism/host-session@1.1.18`.
+Keep `@latest`. `@repo-prism/dispatch@1.10.0`, `@repo-prism/dispatch-hub@1.10.0`, `@repo-prism/mcp-server@1.10.0`, `@repo-prism/core@1.0.2`, engine packages `@1.0.1` (analyzer, graph-engine, impact, navigation, indexer, intelligence, repository-map), `@repo-prism/shared@1.2.1`, and `@repo-prism/host-session@1.1.18`.
 
 ## 1.9.0 — Job graph, sleep and wake
 

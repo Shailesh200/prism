@@ -1,6 +1,6 @@
 {
   "name": "@repo-prism/navigation",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "Feature and symbol navigation routes",
   "exports": {

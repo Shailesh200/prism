@@ -73,7 +73,7 @@
     },
     "packages/analyzer": {
       "name": "@repo-prism/analyzer",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "dependencies": {
         "@repo-prism/shared": "workspace:*",
         "oxc-parser": "^0.140.0",
@@ -122,7 +122,7 @@
     },
     "packages/core": {
       "name": "@repo-prism/core",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "dependencies": {
         "@repo-prism/analyzer": "workspace:*",
         "@repo-prism/impact": "workspace:*",
@@ -179,7 +179,7 @@
     },
     "packages/graph-engine": {
       "name": "@repo-prism/graph-engine",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "dependencies": {
         "@repo-prism/shared": "workspace:*",
         "ngraph.graph": "^20.1.2",
@@ -199,14 +199,14 @@
     },
     "packages/impact": {
       "name": "@repo-prism/impact",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "dependencies": {
         "@repo-prism/shared": "workspace:*",
       },
     },
     "packages/indexer": {
       "name": "@repo-prism/indexer",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "dependencies": {
         "@repo-prism/analyzer": "workspace:*",
         "@repo-prism/shared": "workspace:*",
@@ -219,7 +219,7 @@
     },
     "packages/intelligence": {
       "name": "@repo-prism/intelligence",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "dependencies": {
         "@repo-prism/graph-engine": "workspace:*",
         "@repo-prism/shared": "workspace:*",
@@ -245,7 +245,7 @@
     },
     "packages/navigation": {
       "name": "@repo-prism/navigation",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "dependencies": {
         "@repo-prism/shared": "workspace:*",
       },
@@ -256,7 +256,7 @@
     },
     "packages/repository-map": {
       "name": "@repo-prism/repository-map",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "dependencies": {
         "@repo-prism/graph-engine": "workspace:*",
         "@repo-prism/shared": "workspace:*",
