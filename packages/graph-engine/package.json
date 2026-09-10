@@ -1,6 +1,6 @@
 {
   "name": "@repo-prism/graph-engine",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "Typed graph store and query primitives",
   "exports": {
