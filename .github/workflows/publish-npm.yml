@@ -67,18 +67,14 @@ jobs:
         run: bun run scripts/check-mcp-start.mjs
 
       - name: Publish to npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # OIDC only. A classic NPM_TOKEN in the environment (or the empty
+        # `_authToken` setup-node writes) stops npm 11 from exchanging the
+        # GitHub id-token, which is how 1.10.0 failed with ENEEDAUTH.
         run: |
           set -euo pipefail
-          if [ -n "${NODE_AUTH_TOKEN:-}" ]; then
-            echo "Publishing with NPM_TOKEN"
-          else
-            echo "No NPM_TOKEN; publishing with OIDC trusted publishing"
-            unset NODE_AUTH_TOKEN
-            # setup-node writes an empty _authToken that blocks OIDC fallback
-            if [ -n "${NPM_CONFIG_USERCONFIG:-}" ] && [ -f "${NPM_CONFIG_USERCONFIG}" ]; then
-              sed -i '/_authToken/d' "${NPM_CONFIG_USERCONFIG}"
-            fi
+          unset NODE_AUTH_TOKEN
+          if [ -n "${NPM_CONFIG_USERCONFIG:-}" ] && [ -f "${NPM_CONFIG_USERCONFIG}" ]; then
+            sed -i '/_authToken/d' "${NPM_CONFIG_USERCONFIG}"
           fi
+          echo "Publishing with OIDC trusted publishing"
           bun run publish:npm
