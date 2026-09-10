@@ -12,7 +12,11 @@ const closers: Array<() => Promise<void>> = [];
 afterEach(async () => {
   await Promise.all(closers.splice(0).map((close) => close()));
   await Promise.all(
-    temps.splice(0).map((dir) => rm(dir, { recursive: true, force: true })),
+    temps
+      .splice(0)
+      .map((dir) =>
+        rm(dir, { recursive: true, force: true, maxRetries: 8, retryDelay: 50 }),
+      ),
   );
 });
 

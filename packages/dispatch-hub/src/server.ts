@@ -434,7 +434,13 @@ export async function startHub(
   // left `queued`, and re-checks jobs parked behind the concurrency cap.
   const watcher = watchWorkspaces(() => workspaces, onEvent, {
     pollMs: options.pollMs,
-    drain: options.drain ?? ((workspace) => defaultDrain(workspace, env)),
+    // Vitest must not spawn a worker drain: it races GET /api/jobs and can
+    // keep `.prism/dispatch` open so afterEach cannot remove the fixture.
+    drain:
+      options.drain ??
+      (process.env.VITEST === "true"
+        ? undefined
+        : (workspace) => defaultDrain(workspace, env)),
   });
 
   const idle = createIdleTimer({
@@ -740,6 +746,7 @@ export async function startHub(
     }
 
     if (req.method === "GET" && url.pathname === "/api/jobs") {
+      await watcher.refresh({ drain: false });
       json(res, 200, {
         jobs: [...watcher.jobs()],
         asOf: watcher.asOf(),
@@ -1018,7 +1025,7 @@ export async function startHub(
         return;
       }
       workspaces = await registerWorkspace(path, env);
-      void watcher.refresh();
+      await watcher.refresh({ drain: false });
       json(res, 200, { workspaces });
       return;
     }
