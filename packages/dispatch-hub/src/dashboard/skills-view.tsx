@@ -1,5 +1,8 @@
 import {
   MarkdownDoc,
+  heartbeatAge,
+  jobDisplayLabel,
+  jobMessage,
   type JobSummary,
   type JobWorkspaceChip,
 } from "@repo-prism/app-shell";
@@ -14,7 +17,16 @@ import {
   Tabs,
   Textarea,
 } from "@repo-prism/ui";
-import { Copy, Eye, Pencil, Plus, Sparkles, Trash2, X } from "lucide-react";
+import {
+  Copy,
+  Eye,
+  History,
+  Pencil,
+  Plus,
+  Sparkles,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { SKILL_PLAYBOOK } from "./fleet.js";
 import { LabeledJobBar, type JobActionHandlers } from "./job-actions.js";
@@ -30,8 +42,10 @@ import {
   shouldCancelArrivingSkillJob,
   skillGenerateStage,
   skillJobCoversPending,
+  skillJobTitle,
 } from "./skill-generate.js";
 import { GenerateFlow } from "./generate-line.js";
+import { SkillHistoryDrawer } from "./skill-history.js";
 import { getJson, postJson } from "./session.js";
 
 type SkillStatus = "draft" | "published";
@@ -120,9 +134,16 @@ export function SkillsView(props: {
   readonly onPendingGenerateConsumed?: () => void;
   readonly onGenerate: (input: {
     readonly title: string;
-    readonly prd: string;
+    readonly prd?: string;
     readonly workspace?: string;
     readonly playbook?: string;
+    readonly skillName?: string;
+    readonly skillUpdate?: boolean;
+    readonly skillDraft?: {
+      readonly name: string;
+      readonly description: string;
+      readonly body: string;
+    };
   }) => void;
   readonly onWatchJob?: (jobId: string) => void;
 }): ReactElement {
@@ -150,6 +171,7 @@ export function SkillsView(props: {
     () => new Set<string>(),
   );
   const [cancelPending, setCancelPending] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const watchedGenerateIds = useRef(new Set<string>());
   const appliedGenerateIds = useRef(loadAppliedGenerateIds());
   const autoConfirmedIds = useRef(new Set<string>());
@@ -572,215 +594,200 @@ export function SkillsView(props: {
     !inherited && status === "published" && !editingPublished;
   const canEdit = !inherited && !publishedLocked;
   const workflowTab = canEdit ? workflowMode : "preview";
+  const skillUpdate = editingPublished && status === "published";
+  const generateActivity = (() => {
+    if (!generateJob) return undefined;
+    const text = jobMessage(generateJob);
+    const statusLabel = jobDisplayLabel(generateJob);
+    if (text && text.trim().toLowerCase() === statusLabel.toLowerCase()) {
+      return undefined;
+    }
+    return text;
+  })();
+  const generateAgo = generateJob
+    ? heartbeatAge(generateJob, nowMs)
+    : undefined;
+
+  const startSkillJob = (update: boolean): void => {
+    const key = name.trim();
+    if (!key) return;
+    cancelledGenerateName.current = undefined;
+    setCancelPending(false);
+    setWorkflowMode("preview");
+    props.onGenerate({
+      title: skillJobTitle(key),
+      playbook: SKILL_PLAYBOOK,
+      skillName: key,
+      skillUpdate: update,
+      skillDraft: {
+        name: key,
+        description,
+        body,
+      },
+      workspace: props.repos[0]?.path,
+    });
+  };
 
   return (
-    <div className="skills-layout">
-      <aside className="skills-library">
-        <header className="skills-library__head">
-          <Tabs
-            aria-label="Skill source"
-            value={tab}
-            onChange={(id) => {
-              const next = id as "yours" | "inherited";
-              flushDraft();
-              const pool = next === "yours" ? yours : inheritedRows;
-              if (selected && pool.some((skill) => skill.name === selected)) {
-                setTab(next);
-                return;
-              }
-              apply(pool[0], { tab: next });
-            }}
-            options={[
-              { id: "yours", label: "Yours" },
-              { id: "inherited", label: "Inherited" },
-            ]}
-          />
-          <Button
-            size="sm"
-            variant="secondary"
-            icon={<Plus size={14} aria-hidden />}
-            onClick={() => {
-              flushDraft();
-              apply(undefined);
-            }}
-          >
-            New
-          </Button>
-        </header>
-        <div className="skills-library__search">
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search skills"
-            aria-label="Search skills"
-          />
-        </div>
-        <div className="skills-library__list">
-          {!ready ? (
-            <ScreenSkeleton label="Loading skills…" rows={5} />
-          ) : loadError ? (
-            <>
-              <EmptyState>{loadError}</EmptyState>
-              <Button size="sm" variant="secondary" onClick={() => void load()}>
-                Try again
-              </Button>
-            </>
-          ) : listed.length === 0 ? (
-            <EmptyState>
-              {query.trim()
-                ? "No skills match."
-                : tab === "inherited"
-                  ? "No inherited skills."
-                  : "No skills yet."}
-            </EmptyState>
-          ) : (
-            listed.map((skill) => {
-              const on = skill.name === selected;
-              return (
-                <ListTile
-                  key={skill.name}
-                  selected={on}
-                  className="skills-card"
-                  onClick={() => {
-                    if (skill.name === selected) {
-                      apply(skill, { keepArmed: generateBusy });
-                      return;
-                    }
-                    flushDraft();
-                    apply(skill);
-                  }}
+    <>
+      <div className="skills-layout">
+        <aside className="skills-library">
+          <header className="skills-library__head">
+            <Tabs
+              aria-label="Skill source"
+              value={tab}
+              onChange={(id) => {
+                const next = id as "yours" | "inherited";
+                flushDraft();
+                const pool = next === "yours" ? yours : inheritedRows;
+                if (selected && pool.some((skill) => skill.name === selected)) {
+                  setTab(next);
+                  return;
+                }
+                apply(pool[0], { tab: next });
+              }}
+              options={[
+                { id: "yours", label: "Yours" },
+                { id: "inherited", label: "Inherited" },
+              ]}
+            />
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<Plus size={14} aria-hidden />}
+              onClick={() => {
+                flushDraft();
+                apply(undefined);
+              }}
+            >
+              New
+            </Button>
+          </header>
+          <div className="skills-library__search">
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search skills"
+              aria-label="Search skills"
+            />
+          </div>
+          <div className="skills-library__list">
+            {!ready ? (
+              <ScreenSkeleton label="Loading skills…" rows={5} />
+            ) : loadError ? (
+              <>
+                <EmptyState>{loadError}</EmptyState>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => void load()}
                 >
-                  <span className="skills-card__notch" aria-hidden />
-                  <span className="skills-card__row">
-                    <strong className="skills-card__name">{skill.name}</strong>
-                    {skill.inherited ? (
-                      <span className="skills-card__meta">read-only</span>
-                    ) : skill.status === "published" ? (
-                      <span className="skills-pill skills-pill--published">
-                        Published
-                      </span>
-                    ) : (
-                      <HoverTip label="Not live yet. Agents cannot use this until you publish.">
-                        <span className="skills-pill skills-pill--draft">
-                          Draft
+                  Try again
+                </Button>
+              </>
+            ) : listed.length === 0 ? (
+              <EmptyState>
+                {query.trim()
+                  ? "No skills match."
+                  : tab === "inherited"
+                    ? "No inherited skills."
+                    : "No skills yet."}
+              </EmptyState>
+            ) : (
+              listed.map((skill) => {
+                const on = skill.name === selected;
+                return (
+                  <ListTile
+                    key={skill.name}
+                    selected={on}
+                    className="skills-card"
+                    onClick={() => {
+                      if (skill.name === selected) {
+                        apply(skill, { keepArmed: generateBusy });
+                        return;
+                      }
+                      flushDraft();
+                      apply(skill);
+                    }}
+                  >
+                    <span className="skills-card__notch" aria-hidden />
+                    <span className="skills-card__row">
+                      <strong className="skills-card__name">
+                        {skill.name}
+                      </strong>
+                      {skill.inherited ? (
+                        <span className="skills-card__meta">read-only</span>
+                      ) : skill.status === "published" ? (
+                        <span className="skills-pill skills-pill--published">
+                          Published
                         </span>
-                      </HoverTip>
-                    )}
-                  </span>
-                  <span className="skills-card__blurb">
-                    {skill.description || "No when-to-use yet."}
-                  </span>
-                </ListTile>
-              );
-            })
-          )}
-        </div>
-      </aside>
-      <section className="skills-editor">
-        <header className="skills-editor__head">
-          <div className="skills-editor__title">
-            <h1>{name.trim() || "New skill"}</h1>
-            <div className="skills-editor__actions">
-              {badge.tone === "draft" ? (
-                <HoverTip label="Not live yet. Agents cannot use this until you publish.">
+                      ) : (
+                        <HoverTip label="Not live yet. Agents cannot use this until you publish.">
+                          <span className="skills-pill skills-pill--draft">
+                            Draft
+                          </span>
+                        </HoverTip>
+                      )}
+                    </span>
+                    <span className="skills-card__blurb">
+                      {skill.description || "No when-to-use yet."}
+                    </span>
+                  </ListTile>
+                );
+              })
+            )}
+          </div>
+        </aside>
+        <section className="skills-editor">
+          <header className="skills-editor__head">
+            <div className="skills-editor__title">
+              <h1>{name.trim() || "New skill"}</h1>
+              <div className="skills-editor__actions">
+                {badge.tone === "draft" ? (
+                  <HoverTip label="Not live yet. Agents cannot use this until you publish.">
+                    <span className={`skills-pill skills-pill--${badge.tone}`}>
+                      {badge.label}
+                    </span>
+                  </HoverTip>
+                ) : (
                   <span className={`skills-pill skills-pill--${badge.tone}`}>
                     {badge.label}
                   </span>
-                </HoverTip>
-              ) : (
-                <span className={`skills-pill skills-pill--${badge.tone}`}>
-                  {badge.label}
-                </span>
-              )}
-              {inherited ? (
-                <HoverTip
-                  label="Duplicate"
-                  detail="Copy this skill into Yours as a draft"
-                >
-                  <IconButton
-                    label="Duplicate"
-                    title=""
-                    variant="secondary"
-                    disabled={!selected}
-                    onClick={() => void duplicate()}
-                  >
-                    <Copy size={14} aria-hidden />
-                  </IconButton>
-                </HoverTip>
-              ) : publishedLocked ? (
-                <>
-                  <HoverTip
-                    label="Edit"
-                    detail="Open this published skill for editing"
-                  >
-                    <IconButton
-                      label="Edit"
-                      title=""
-                      variant="secondary"
-                      disabled={generateBusy}
-                      onClick={() => {
-                        setEditingPublished(true);
-                        setWorkflowMode("edit");
-                      }}
-                    >
-                      <Pencil size={14} aria-hidden />
-                    </IconButton>
-                  </HoverTip>
+                )}
+                {inherited ? (
                   <HoverTip
                     label="Duplicate"
-                    detail="Create a new draft with the same content"
+                    detail="Copy this skill into Yours as a draft"
                   >
                     <IconButton
                       label="Duplicate"
                       title=""
                       variant="secondary"
-                      disabled={!selected || generateBusy}
+                      disabled={!selected}
                       onClick={() => void duplicate()}
                     >
                       <Copy size={14} aria-hidden />
                     </IconButton>
                   </HoverTip>
-                </>
-              ) : (
-                <>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    icon={<Sparkles size={14} aria-hidden />}
-                    disabled={!name.trim() || generateBusy}
-                    loading={generateBusy}
-                    onClick={() => {
-                      cancelledGenerateName.current = undefined;
-                      setCancelPending(false);
-                      setWorkflowMode("preview");
-                      props.onGenerate({
-                        title: `Skill: ${name.trim()}`,
-                        playbook: SKILL_PLAYBOOK,
-                        prd: [
-                          "Write a complete Prism skill (SKILL.md) from this draft.",
-                          "Store nothing in the repository — skills live in the user's global Prism library.",
-                          `Name: ${name.trim()}`,
-                          `When to use: ${description.trim()}`,
-                          "",
-                          body.trim(),
-                          "",
-                          "Return markdown the Console can publish. Do not edit the user's repository.",
-                        ].join("\n"),
-                        workspace: props.repos[0]?.path,
-                      });
-                    }}
-                  >
-                    Generate skill
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    disabled={!name.trim() || generateBusy}
-                    onClick={() => void save("published")}
-                  >
-                    Publish
-                  </Button>
-                  {selected ? (
+                ) : publishedLocked ? (
+                  <>
+                    <HoverTip
+                      label="Edit"
+                      detail="Open this published skill for editing"
+                    >
+                      <IconButton
+                        label="Edit"
+                        title=""
+                        variant="secondary"
+                        disabled={generateBusy}
+                        onClick={() => {
+                          setEditingPublished(true);
+                          setWorkflowMode("edit");
+                        }}
+                      >
+                        <Pencil size={14} aria-hidden />
+                      </IconButton>
+                    </HoverTip>
                     <HoverTip
                       label="Duplicate"
                       detail="Create a new draft with the same content"
@@ -789,63 +796,132 @@ export function SkillsView(props: {
                         label="Duplicate"
                         title=""
                         variant="secondary"
-                        disabled={generateBusy}
+                        disabled={!selected || generateBusy}
                         onClick={() => void duplicate()}
                       >
                         <Copy size={14} aria-hidden />
                       </IconButton>
                     </HoverTip>
-                  ) : null}
-                </>
-              )}
-              {selected && !inherited ? (
-                confirmDelete ? (
-                  <span className="skills-editor__confirm">
-                    <span>{`Delete ${selected}?`}</span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setConfirmDelete(false)}
-                    >
-                      Cancel
-                    </Button>
                     <HoverTip
-                      label="Delete"
-                      detail={`Delete ${selected} for good`}
+                      label="History"
+                      detail="View, revert, or compare versions"
                     >
                       <IconButton
+                        label="Version history"
+                        title=""
+                        variant="secondary"
+                        disabled={!selected || generateBusy}
+                        onClick={() => setHistoryOpen(true)}
+                      >
+                        <History size={14} aria-hidden />
+                      </IconButton>
+                    </HoverTip>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      icon={<Sparkles size={14} aria-hidden />}
+                      disabled={!name.trim() || generateBusy}
+                      loading={generateBusy}
+                      onClick={() => startSkillJob(skillUpdate)}
+                    >
+                      {generateBusy
+                        ? "Generating.."
+                        : skillUpdate
+                          ? "Update skill"
+                          : "Generate skill"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      disabled={!name.trim() || generateBusy}
+                      onClick={() => void save("published")}
+                    >
+                      Publish
+                    </Button>
+                    {selected ? (
+                      <>
+                        <HoverTip
+                          label="History"
+                          detail="View, revert, or compare versions"
+                        >
+                          <IconButton
+                            label="Version history"
+                            title=""
+                            variant="secondary"
+                            disabled={generateBusy}
+                            onClick={() => setHistoryOpen(true)}
+                          >
+                            <History size={14} aria-hidden />
+                          </IconButton>
+                        </HoverTip>
+                        <HoverTip
+                          label="Duplicate"
+                          detail="Create a new draft with the same content"
+                        >
+                          <IconButton
+                            label="Duplicate"
+                            title=""
+                            variant="secondary"
+                            disabled={generateBusy}
+                            onClick={() => void duplicate()}
+                          >
+                            <Copy size={14} aria-hidden />
+                          </IconButton>
+                        </HoverTip>
+                      </>
+                    ) : null}
+                  </>
+                )}
+                {selected && !inherited ? (
+                  confirmDelete ? (
+                    <span className="skills-editor__confirm">
+                      <span>{`Delete ${selected}?`}</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setConfirmDelete(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <HoverTip
                         label="Delete"
+                        detail={`Delete ${selected} for good`}
+                      >
+                        <IconButton
+                          label="Delete"
+                          title=""
+                          variant="danger"
+                          disabled={generateBusy}
+                          onClick={() => void remove()}
+                        >
+                          <Trash2 size={14} aria-hidden />
+                        </IconButton>
+                      </HoverTip>
+                    </span>
+                  ) : (
+                    <HoverTip
+                      label="Delete skill"
+                      detail="Remove this skill from Prism"
+                    >
+                      <IconButton
+                        label="Delete skill"
                         title=""
                         variant="danger"
+                        className="skills-editor__delete"
                         disabled={generateBusy}
-                        onClick={() => void remove()}
+                        onClick={() => setConfirmDelete(true)}
                       >
                         <Trash2 size={14} aria-hidden />
                       </IconButton>
                     </HoverTip>
-                  </span>
-                ) : (
-                  <HoverTip
-                    label="Delete skill"
-                    detail="Remove this skill from Prism"
-                  >
-                    <IconButton
-                      label="Delete skill"
-                      title=""
-                      variant="danger"
-                      className="skills-editor__delete"
-                      disabled={generateBusy}
-                      onClick={() => setConfirmDelete(true)}
-                    >
-                      <Trash2 size={14} aria-hidden />
-                    </IconButton>
-                  </HoverTip>
-                )
-              ) : null}
+                  )
+                ) : null}
+              </div>
             </div>
-          </div>
-          {generating ? (
-            <div className="skills-generate-stack">
+            {generating ? (
               <div className="skills-generate">
                 <span>Generating · {generating.stage}</span>
                 <GenerateFlow stage={generating.stage} />
@@ -857,140 +933,168 @@ export function SkillsView(props: {
                     nowMs,
                   )}
                 </span>
-                {props.onWatchJob && generateJob ? (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="skills-generate__watch"
-                    icon={<Eye size={14} aria-hidden />}
-                    onClick={() => props.onWatchJob?.(generateJob.id)}
-                  >
-                    Watch live
-                  </Button>
-                ) : null}
-              </div>
-              {generateJob && props.jobActions ? (
-                <LabeledJobBar
-                  job={generateJob}
-                  {...props.jobActions}
-                  onCancel={(job) => {
-                    cancelledGenerateName.current = name.trim();
-                    setArmedName(undefined);
-                    setPendingSince(undefined);
-                    setDismissedGenerateIds((prev) => {
-                      const next = new Set(prev);
-                      next.add(job.id);
-                      return next;
-                    });
-                    props.jobActions?.onCancel?.(job);
-                    props.onCloseCompose?.();
-                  }}
-                />
-              ) : pendingGenerate || armed || cancelPending ? (
-                <div className="job-action-bar job-action-bar--icons">
-                  <HoverTip label="Cancel" detail="Stop this generate">
-                    <IconButton
-                      label="Cancel"
-                      title=""
-                      variant="danger"
-                      onClick={() => {
+                <div className="skills-generate__actions">
+                  {props.onWatchJob && generateJob ? (
+                    <HoverTip label="Watch live" detail="Open this run">
+                      <IconButton
+                        label="Watch live"
+                        title=""
+                        variant="secondary"
+                        className="skills-generate__watch"
+                        onClick={() => props.onWatchJob?.(generateJob.id)}
+                      >
+                        <Eye size={14} aria-hidden />
+                      </IconButton>
+                    </HoverTip>
+                  ) : null}
+                  {generateJob && props.jobActions ? (
+                    <LabeledJobBar
+                      job={generateJob}
+                      {...props.jobActions}
+                      onCancel={(job) => {
                         cancelledGenerateName.current = name.trim();
-                        setCancelPending(true);
                         setArmedName(undefined);
                         setPendingSince(undefined);
+                        setDismissedGenerateIds((prev) => {
+                          const next = new Set(prev);
+                          next.add(job.id);
+                          return next;
+                        });
+                        props.jobActions?.onCancel?.(job);
                         props.onCloseCompose?.();
                       }}
-                    >
-                      <X size={14} aria-hidden />
-                    </IconButton>
-                  </HoverTip>
+                    />
+                  ) : pendingGenerate || armed || cancelPending ? (
+                    <HoverTip label="Cancel" detail="Stop this generate">
+                      <IconButton
+                        label="Cancel"
+                        title=""
+                        variant="danger"
+                        onClick={() => {
+                          cancelledGenerateName.current = name.trim();
+                          setCancelPending(true);
+                          setArmedName(undefined);
+                          setPendingSince(undefined);
+                          props.onCloseCompose?.();
+                        }}
+                      >
+                        <X size={14} aria-hidden />
+                      </IconButton>
+                    </HoverTip>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+          </header>
+          <div className="skills-editor__body">
+            <label className="skills-field">
+              <span className="prism-field__label prism-field__label--mono">
+                Name
+              </span>
+              <Input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                disabled={!canEdit}
+                placeholder="commitpush"
+                aria-label="Skill name"
+                className="skills-input--name"
+              />
+            </label>
+            <label className="skills-field">
+              <span className="prism-field__label prism-field__label--mono">
+                When to use
+              </span>
+              <Textarea
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                disabled={!canEdit}
+                placeholder="Describe when the agent should use this skill."
+                aria-label="When to use this skill"
+                rows={4}
+              />
+            </label>
+            <div className="skills-field skills-field--workflow">
+              <div className="skills-workflow-head">
+                <span className="prism-field__label prism-field__label--mono">
+                  Workflow
+                </span>
+                <Tabs
+                  aria-label="Workflow view"
+                  value={workflowTab}
+                  onChange={(id) => {
+                    if (!canEdit) return;
+                    setWorkflowMode(id as "edit" | "preview");
+                  }}
+                  options={[
+                    { id: "edit", label: "Edit", disabled: !canEdit },
+                    { id: "preview", label: "Preview" },
+                  ]}
+                />
+              </div>
+              {generateJob || pendingGenerate || armed ? (
+                <div className="skills-generating-hint">
+                  <p>// Generating workflow steps…</p>
+                  {generateActivity ? (
+                    <p className="skills-generating-step">
+                      <span
+                        className="skills-generating-step__prompt"
+                        aria-hidden
+                      >
+                        $
+                      </span>
+                      <span>{generateActivity}</span>
+                      {generateAgo ? (
+                        <span className="skills-generating-step__ago">
+                          {generateAgo}
+                        </span>
+                      ) : null}
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
+              {workflowTab === "preview" ? (
+                <div className="skills-workflow-preview">
+                  {body.trim() ? (
+                    <MarkdownDoc text={body} />
+                  ) : (
+                    <p className="skills-workflow-empty">
+                      Nothing to preview yet.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <Textarea
+                  className="skills-workflow"
+                  value={body}
+                  disabled={!canEdit || generateBusy}
+                  onChange={(event) => setBody(event.target.value)}
+                  aria-label="Skill workflow"
+                />
+              )}
             </div>
-          ) : null}
-        </header>
-        <div className="skills-editor__body">
-          <label className="skills-field">
-            <span className="prism-field__label prism-field__label--mono">
-              Name
-            </span>
-            <Input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              disabled={!canEdit}
-              placeholder="commitpush"
-              aria-label="Skill name"
-              className="skills-input--name"
-            />
-          </label>
-          <label className="skills-field">
-            <span className="prism-field__label prism-field__label--mono">
-              When to use
-            </span>
-            <Textarea
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              disabled={!canEdit}
-              placeholder="Describe when the agent should use this skill."
-              aria-label="When to use this skill"
-              rows={4}
-            />
-          </label>
-          <div className="skills-field skills-field--workflow">
-            <div className="skills-workflow-head">
-              <span className="prism-field__label prism-field__label--mono">
-                Workflow
-              </span>
-              <Tabs
-                aria-label="Workflow view"
-                value={workflowTab}
-                onChange={(id) => {
-                  if (!canEdit) return;
-                  setWorkflowMode(id as "edit" | "preview");
-                }}
-                options={[
-                  { id: "edit", label: "Edit", disabled: !canEdit },
-                  { id: "preview", label: "Preview" },
-                ]}
-              />
-            </div>
-            {generateJob || pendingGenerate || armed ? (
-              <p className="skills-generating-hint">
-                // Generating workflow steps…
-              </p>
-            ) : null}
-            {workflowTab === "preview" ? (
-              <div className="skills-workflow-preview">
-                {body.trim() ? (
-                  <MarkdownDoc text={body} />
-                ) : (
-                  <p className="skills-workflow-empty">
-                    Nothing to preview yet.
-                  </p>
-                )}
-              </div>
-            ) : (
-              <Textarea
-                className="skills-workflow"
-                value={body}
-                disabled={!canEdit || generateBusy}
-                onChange={(event) => setBody(event.target.value)}
-                aria-label="Skill workflow"
-              />
-            )}
+            <p className="skills-editor__note">
+              A Prism skill. In chat: <code>{`prism use ${useName}`}</code>
+            </p>
+            <p className="skills-editor__hint">
+              {inherited
+                ? "Inherited skills are read-only. Duplicate to edit a copy in Yours."
+                : publishedLocked
+                  ? "Published skills are read-only. Edit to change, or Duplicate to start a new draft."
+                  : "Drafts autosave in Prism. Publish to make it live."}
+            </p>
           </div>
-          <p className="skills-editor__note">
-            A Prism skill. In chat: <code>{`prism use ${useName}`}</code>
-          </p>
-          <p className="skills-editor__hint">
-            {inherited
-              ? "Inherited skills are read-only. Duplicate to edit a copy in Yours."
-              : publishedLocked
-                ? "Published skills are read-only. Edit to change, or Duplicate to start a new draft."
-                : "Drafts autosave in Prism. Publish to make it live."}
-          </p>
-        </div>
-      </section>
-    </div>
+        </section>
+      </div>
+      {historyOpen && selected && !inherited ? (
+        <SkillHistoryDrawer
+          token={props.token}
+          skillName={selected}
+          onClose={() => setHistoryOpen(false)}
+          onReverted={(keep) => {
+            void load(keep);
+          }}
+        />
+      ) : null}
+    </>
   );
 }

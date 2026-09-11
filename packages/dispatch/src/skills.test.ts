@@ -3,12 +3,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  CURRENT_SKILL_VERSION,
   applyGeneratedSkill,
   deleteSkill,
+  deleteSkillVersion,
   duplicateSkill,
+  listSkillVersions,
   listSkills,
   nameForDuplicate,
   readSkill,
+  revertSkillVersion,
   skillDraftFromMarkdown,
   skillNameFromJobTitle,
   unwrapSkillMarkdown,
@@ -118,6 +122,60 @@ describe("Prism skills library", () => {
     expect("error" in renamed).toBe(false);
     expect(await readSkill("alpha", env)).toBeUndefined();
     expect((await readSkill("beta", env))?.name).toBe("beta");
+  });
+
+  it("snapshots each change and can revert or delete a version", async () => {
+    const home = await mkdtemp(join(tmpdir(), "prism-skills-hist-"));
+    temps.push(home);
+    const env = { PRISM_HOME: home };
+    await writeSkill(
+      {
+        name: "commitpush",
+        description: "first",
+        body: "step one",
+        status: "draft",
+      },
+      env,
+    );
+    await writeSkill(
+      {
+        name: "commitpush",
+        description: "second",
+        body: "step two",
+        status: "published",
+      },
+      env,
+    );
+    const listed = await listSkillVersions("commitpush", env);
+    expect("error" in listed).toBe(false);
+    if ("error" in listed) return;
+    expect(listed[0]).toMatchObject({
+      id: CURRENT_SKILL_VERSION,
+      current: true,
+      body: "step two",
+    });
+    expect(listed[1]?.body).toBe("step one");
+    const historicId = listed[1]?.id;
+    expect(historicId).toBeTruthy();
+    if (!historicId) return;
+    const reverted = await revertSkillVersion("commitpush", historicId, env);
+    expect("error" in reverted).toBe(false);
+    expect((await readSkill("commitpush", env))?.body).toBe("step one");
+    const afterRevert = await listSkillVersions("commitpush", env);
+    expect("error" in afterRevert).toBe(false);
+    if ("error" in afterRevert) return;
+    const extra = afterRevert.find((row) => row.body === "step two");
+    expect(extra?.current).toBe(false);
+    if (!extra) return;
+    const removed = await deleteSkillVersion("commitpush", extra.id, env);
+    expect(removed.ok).toBe(true);
+    const remaining = await listSkillVersions("commitpush", env);
+    expect("error" in remaining).toBe(false);
+    if ("error" in remaining) return;
+    expect(remaining.some((row) => row.id === extra.id)).toBe(false);
+    expect(
+      (await deleteSkillVersion("commitpush", CURRENT_SKILL_VERSION, env)).ok,
+    ).toBe(false);
   });
 });
 

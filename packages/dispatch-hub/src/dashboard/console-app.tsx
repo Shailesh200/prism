@@ -55,6 +55,8 @@ import {
   jobsInRange,
   jobsOutsideRange,
   parseFleetView,
+  parseJobTypeFilter,
+  matchesJobType,
   selectedRangeWindow,
   SKILL_PLAYBOOK,
   type FleetRange,
@@ -132,6 +134,7 @@ export function ConsoleApp(): ReactElement {
     view,
     go,
     repo: repoFilter,
+    type: typeQuery,
     job: jobId,
     note: notePath,
   } = useHashRoute();
@@ -139,6 +142,7 @@ export function ConsoleApp(): ReactElement {
   const { workspaces, selectedPath } = useWorkspaces(token, feed);
   const spectrumRoot =
     repoFilter && repoFilter !== "all" ? repoFilter : selectedPath;
+  const typeFilter = parseJobTypeFilter(typeQuery);
   const [version, setVersion] = useState<string | undefined>();
   const [playgroundUrl, setPlaygroundUrl] = useState(`${PLAYGROUND_DEFAULT}/`);
   const [update, setUpdate] = useState<{
@@ -173,6 +177,13 @@ export function ConsoleApp(): ReactElement {
         readonly prd?: string;
         readonly playbook?: string;
         readonly finding?: JobSummary;
+        readonly skillName?: string;
+        readonly skillUpdate?: boolean;
+        readonly skillDraft?: {
+          readonly name: string;
+          readonly description: string;
+          readonly body: string;
+        };
         readonly workspace?: string;
         readonly placement?: "checkout" | "worktree";
         readonly branch?: string;
@@ -313,22 +324,30 @@ export function ConsoleApp(): ReactElement {
     () =>
       feed.summaries.filter(
         (job) =>
-          !repoFilter ||
-          repoFilter === "all" ||
-          job.workspacePath === repoFilter,
+          matchesJobType(job, typeFilter) &&
+          (!repoFilter ||
+            repoFilter === "all" ||
+            job.workspacePath === repoFilter),
       ),
-    [feed.summaries, repoFilter],
+    [feed.summaries, repoFilter, typeFilter],
   );
   const outsideCount = jobsOutsideRange(scopedJobs, timeWindow, nowMs);
   const showAllTime = useCallback(() => {
     setRange("all");
     setCustomWindow(undefined);
   }, []);
-  const repos = useVisibleRepos(rangedJobs, workspaces, filter, repoFilter);
+  const repos = useVisibleRepos(
+    rangedJobs,
+    workspaces,
+    filter,
+    repoFilter,
+    typeFilter,
+  );
   const listJobs = useMemo(
     () =>
       rangedJobs.filter(
         (job) =>
+          matchesJobType(job, typeFilter) &&
           (!repoFilter ||
             repoFilter === "all" ||
             job.workspacePath === repoFilter) &&
@@ -338,7 +357,7 @@ export function ConsoleApp(): ReactElement {
               .toLowerCase()
               .includes(filter.toLowerCase())),
       ),
-    [rangedJobs, filter, repoFilter],
+    [rangedJobs, filter, repoFilter, typeFilter],
   );
 
   const openFinding = useCallback(
@@ -428,7 +447,8 @@ export function ConsoleApp(): ReactElement {
     },
     [feed, go, repoFilter, token],
   );
-  const firstRun = workspaces.length === 0 && !feed.loading;
+  const firstRun =
+    workspaces.length === 0 && feed.summaries.length === 0 && !feed.loading;
 
   return (
     <div className="console">
@@ -633,7 +653,19 @@ export function ConsoleApp(): ReactElement {
                     repos={workspaces}
                     repoFilter={repoFilter ?? "all"}
                     onRepoFilter={(path) =>
-                      go("dashboard", path === "all" ? {} : { repo: path })
+                      go("dashboard", {
+                        ...(path === "all" ? {} : { repo: path }),
+                        ...(typeFilter !== "all" ? { type: typeFilter } : {}),
+                      })
+                    }
+                    typeFilter={typeFilter}
+                    onTypeFilter={(id) =>
+                      go("dashboard", {
+                        ...(repoFilter && repoFilter !== "all"
+                          ? { repo: repoFilter }
+                          : {}),
+                        ...(id === "all" ? {} : { type: id }),
+                      })
                     }
                   />
                   {mode === "timeline" ? (
@@ -648,7 +680,12 @@ export function ConsoleApp(): ReactElement {
                         setInstructJob(undefined);
                         setCompose({ open: true });
                       }}
-                      onOpenRepo={(path) => go("dashboard", { repo: path })}
+                      onOpenRepo={(path) =>
+                        go("dashboard", {
+                          repo: path,
+                          ...(typeFilter !== "all" ? { type: typeFilter } : {}),
+                        })
+                      }
                       {...fleetActions}
                     />
                   ) : null}
@@ -657,7 +694,7 @@ export function ConsoleApp(): ReactElement {
                       repos={repos}
                       range={timeWindow}
                       nowMs={nowMs}
-                      jobs={rangedJobs}
+                      jobs={listJobs}
                       loading={feed.loading}
                       {...(feed.fatal ? { jobsError: feed.fatal } : {})}
                       showSummary={tiles.summary}
@@ -765,8 +802,13 @@ export function ConsoleApp(): ReactElement {
                   setCompose({
                     open: true,
                     title: input.title,
-                    prd: input.prd,
+                    ...(input.prd ? { prd: input.prd } : {}),
                     playbook: input.playbook ?? SKILL_PLAYBOOK,
+                    ...(input.skillName ? { skillName: input.skillName } : {}),
+                    ...(input.skillUpdate ? { skillUpdate: true } : {}),
+                    ...(input.skillDraft
+                      ? { skillDraft: input.skillDraft }
+                      : {}),
                     ...(input.workspace ? { workspace: input.workspace } : {}),
                   });
                 }}
@@ -910,7 +952,7 @@ export function ConsoleApp(): ReactElement {
 
         {compose.open ? (
           <ComposeDrawer
-            key={`${compose.title ?? ""}:${compose.playbook ?? ""}:${compose.placement ?? ""}:${compose.worktreePath ?? ""}:${compose.branch ?? ""}`}
+            key={`${compose.title ?? ""}:${compose.playbook ?? ""}:${compose.skillName ?? ""}:${compose.skillUpdate ? "update" : ""}:${compose.placement ?? ""}:${compose.worktreePath ?? ""}:${compose.branch ?? ""}`}
             token={token}
             workspaces={workspaces}
             jobs={feed.summaries}
@@ -922,6 +964,7 @@ export function ConsoleApp(): ReactElement {
             {...(compose.title ||
             compose.prd ||
             compose.finding ||
+            compose.skillName ||
             compose.placement ||
             compose.worktreePath ||
             compose.branch
@@ -931,6 +974,13 @@ export function ConsoleApp(): ReactElement {
                     prd: compose.prd ?? "",
                     ...(compose.playbook ? { playbook: compose.playbook } : {}),
                     ...(compose.finding ? { finding: compose.finding } : {}),
+                    ...(compose.skillName
+                      ? { skillName: compose.skillName }
+                      : {}),
+                    ...(compose.skillUpdate ? { skillUpdate: true } : {}),
+                    ...(compose.skillDraft
+                      ? { skillDraft: compose.skillDraft }
+                      : {}),
                     ...(compose.placement
                       ? { placement: compose.placement }
                       : {}),

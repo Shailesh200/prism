@@ -40,6 +40,11 @@ import {
   pulseSections,
   repoInitials,
   waitWorkMeter,
+  floorMeterPercents,
+  meterStepFloor,
+  meterEndBadgeTone,
+  meterEndKind,
+  jobMeterBadgeTone,
   canInstructJob,
   canStartFromJob,
   reposWithJobsInRange,
@@ -55,9 +60,15 @@ import {
   visibleFleetRepos,
   PLAYBOOKS,
   SKILL_PLAYBOOK,
+  CUSTOM_JOB_TYPE,
+  CHILD_JOB_TYPE,
+  jobTypeFilterOptions,
+  matchesJobType,
+  parseJobTypeFilter,
   playbookHint,
   compactJobPrd,
   composeQueuedPrd,
+  skillPlaybookPrd,
   reviewTargetOf,
   preferredWorkspace,
 } from "./fleet.js";
@@ -376,7 +387,8 @@ describe("waitWorkMeter", () => {
     expect(meter.workVerb).toBe("working");
     expect(meter.waited).toBe("0s");
     expect(meter.worked).toBe("1h");
-    expect(meter.workPct).toBeGreaterThan(0);
+    expect(meter.waitPct).toBe(10);
+    expect(meter.workPct).toBe(90);
   });
 
   it("uses the working lifecycle stamp when startedAt is missing", () => {
@@ -431,8 +443,162 @@ describe("waitWorkMeter", () => {
     expect(meter.waitVerb).toBe("waited");
     expect(meter.workVerb).toBe("worked");
     expect(meter.worked).toBe("1h");
-    expect(meter.waitPct).toBe(0);
-    expect(meter.workPct).toBe(100);
+    expect(meter.waitPct).toBe(10);
+    expect(meter.workPct).toBe(90);
+  });
+
+  it("adds a paused step beside wait and work", () => {
+    const now = Date.parse("2026-09-04T11:00:30.000Z");
+    const paused = job({
+      id: "paused",
+      status: "paused",
+      createdAt: "2026-09-04T11:00:00.000Z",
+      queuedAt: "2026-09-04T11:00:00.000Z",
+      startedAt: "2026-09-04T11:00:00.000Z",
+      updatedAt: "2026-09-04T11:00:22.000Z",
+      lastHeartbeat: "2026-09-04T11:00:22.000Z",
+      lifecycle: [
+        { kind: "queued", at: "2026-09-04T11:00:00.000Z" },
+        { kind: "working", at: "2026-09-04T11:00:00.000Z" },
+        {
+          kind: "queued",
+          at: "2026-09-04T11:00:22.000Z",
+          by: "user",
+          note: "paused",
+        },
+      ],
+    });
+    const meter = waitWorkMeter(paused, now);
+    expect(meter.paused).toBe("8s");
+    expect(meter.pausePct).toBeGreaterThanOrEqual(10);
+    expect(meter.waitPct).toBeGreaterThanOrEqual(10);
+    expect(meter.workPct).toBeGreaterThan(meter.pausePct);
+    expect(meter.waitPct + meter.workPct + meter.pausePct).toBeCloseTo(100);
+    expect(meter.steps.at(-1)).toMatchObject({ kind: "pause", live: true });
+    expect(meterEndKind(meter.steps)).toBe("pause");
+    expect(meterEndBadgeTone("pause")).toBe("amber");
+    expect(jobMeterBadgeTone(paused, now)).toBe("amber");
+  });
+
+  it("drops the paused step once the job is running again", () => {
+    const now = Date.parse("2026-09-04T12:00:00.000Z");
+    const meter = waitWorkMeter(
+      job({
+        id: "resumed",
+        status: "running",
+        createdAt: "2026-09-04T11:00:00.000Z",
+        queuedAt: "2026-09-04T11:00:00.000Z",
+        startedAt: "2026-09-04T11:00:00.000Z",
+        updatedAt: "2026-09-04T12:00:00.000Z",
+      }),
+      now,
+    );
+    expect(meter.pausePct).toBe(0);
+    expect(meter.paused).toBeUndefined();
+    expect(meter.workVerb).toBe("working");
+  });
+
+  it("keeps earlier pauses on a running bar as a solid pause step", () => {
+    const now = Date.parse("2026-09-04T11:00:40.000Z");
+    const resumed = job({
+      id: "resumed-pause",
+      status: "running",
+      createdAt: "2026-09-04T11:00:00.000Z",
+      queuedAt: "2026-09-04T11:00:00.000Z",
+      startedAt: "2026-09-04T11:00:00.000Z",
+      updatedAt: "2026-09-04T11:00:30.000Z",
+      lifecycle: [
+        { kind: "queued", at: "2026-09-04T11:00:00.000Z" },
+        { kind: "working", at: "2026-09-04T11:00:00.000Z" },
+        {
+          kind: "queued",
+          at: "2026-09-04T11:00:22.000Z",
+          by: "user",
+          note: "paused",
+        },
+        {
+          kind: "working",
+          at: "2026-09-04T11:00:30.000Z",
+          note: "resumed",
+        },
+      ],
+    });
+    const meter = waitWorkMeter(resumed, now);
+    expect(meter.pausePct).toBeGreaterThan(0);
+    expect(meter.paused).toBe("8s");
+    expect(meter.steps.map((step) => step.kind)).toEqual([
+      "wait",
+      "work",
+      "pause",
+      "work",
+    ]);
+    expect(meter.steps.find((step) => step.kind === "pause")?.live).toBe(false);
+    expect(meter.steps.at(-1)).toMatchObject({ kind: "work", live: true });
+    expect(meterEndKind(meter.steps)).toBe("work");
+    expect(meterEndBadgeTone("pause")).toBe("amber");
+    expect(meterEndBadgeTone("work")).toBe("accent");
+    expect(jobMeterBadgeTone(resumed, now)).toBe("accent");
+  });
+
+  it("does not count paused time as worked", () => {
+    const now = Date.parse("2026-09-04T11:00:50.000Z");
+    const meter = waitWorkMeter(
+      job({
+        id: "paused-then-failed",
+        status: "error",
+        createdAt: "2026-09-04T11:00:00.000Z",
+        queuedAt: "2026-09-04T11:00:00.000Z",
+        startedAt: "2026-09-04T11:00:00.000Z",
+        finishedAt: "2026-09-04T11:00:50.000Z",
+        lifecycle: [
+          { kind: "queued", at: "2026-09-04T11:00:00.000Z" },
+          { kind: "working", at: "2026-09-04T11:00:00.000Z" },
+          {
+            kind: "queued",
+            at: "2026-09-04T11:00:10.000Z",
+            by: "user",
+            note: "paused",
+          },
+          {
+            kind: "working",
+            at: "2026-09-04T11:00:40.000Z",
+            note: "resumed",
+          },
+          { kind: "failed", at: "2026-09-04T11:00:50.000Z" },
+        ],
+      }),
+      now,
+    );
+    expect(meter.paused).toBe("30s");
+    expect(meter.worked).toBe("20s");
+    expect(meter.waited).toBe("0s");
+  });
+});
+
+describe("floorMeterPercents", () => {
+  it("keeps a 10% floor until more than ten steps would overflow", () => {
+    expect(meterStepFloor(2)).toBe(10);
+    expect(meterStepFloor(10)).toBe(10);
+    expect(meterStepFloor(12)).toBeCloseTo(100 / 12);
+    expect(meterStepFloor(15)).toBeCloseTo(100 / 15);
+  });
+
+  it("gives a zero-weight step the floor and spends the rest on duration", () => {
+    expect(floorMeterPercents([0, 22_000])).toEqual([10, 90]);
+  });
+
+  it("splits leftover equally when every step has zero weight", () => {
+    expect(floorMeterPercents([0])).toEqual([100]);
+    for (const part of floorMeterPercents([0, 0, 0])) {
+      expect(part).toBeCloseTo(100 / 3);
+    }
+  });
+
+  it("shrinks the floor so fifteen steps still fit", () => {
+    const parts = floorMeterPercents(Array.from({ length: 15 }, () => 1));
+    expect(parts).toHaveLength(15);
+    expect(parts[0]).toBeCloseTo(100 / 15);
+    expect(parts.reduce((sum, value) => sum + value, 0)).toBeCloseTo(100);
   });
 });
 
@@ -459,6 +625,23 @@ describe("groupRepos", () => {
       "/fixture",
       "/prism",
     ]);
+  });
+
+  it("keeps jobs with no repository on a Prism group", () => {
+    const groups = groupRepos(
+      [
+        job({
+          id: "skill",
+          status: "done",
+          playbook: "skill",
+          workspacePath: "",
+          workspaceLabel: undefined,
+        }),
+      ],
+      [],
+    );
+    expect(groups.map((row) => row.label)).toEqual(["Prism"]);
+    expect(groups[0]?.jobs.map((row) => row.id)).toEqual(["skill"]);
   });
 });
 
@@ -520,6 +703,31 @@ describe("visibleFleetRepos", () => {
       "all",
     );
     expect(rows.map((row) => row.path).sort()).toEqual(["/fixture", "/prism"]);
+  });
+
+  it("hides empty repos when a type filter is on", () => {
+    const rows = visibleFleetRepos(
+      [
+        job({
+          id: "skill",
+          status: "done",
+          playbook: "skill",
+          title: "Skill: commitpush",
+          queuedAt: "2026-09-04T11:00:00.000Z",
+          startedAt: "2026-09-04T11:10:00.000Z",
+          finishedAt: "2026-09-04T11:40:00.000Z",
+        }),
+      ],
+      [
+        { path: "/prism", label: "prism" },
+        { path: "/fixture", label: "m012-features" },
+      ],
+      "",
+      "all",
+      "skill",
+    );
+    expect(rows.map((row) => row.path)).toEqual(["/prism"]);
+    expect(rows[0]?.jobs.map((row) => row.id)).toEqual(["skill"]);
   });
 });
 
@@ -1420,6 +1628,83 @@ describe("PLAYBOOKS", () => {
     expect(compactJobPrd("Short.")).toBe("Short.");
     expect(compactJobPrd("word ".repeat(80)).endsWith("…")).toBe(true);
     expect(compactJobPrd("word ".repeat(80)).length).toBeLessThanOrEqual(160);
+  });
+
+  it("builds a skill playbook brief from the selected skill and instruction", () => {
+    expect(
+      skillPlaybookPrd({
+        name: "commitpush",
+        description: "When they ask to commit.",
+        body: "Never git add -A.",
+        instruction: "Add a dry-run step.",
+        mode: "update",
+      }),
+    ).toContain("Requested changes:\nAdd a dry-run step.");
+    expect(
+      composeQueuedPrd({
+        prd: "ignored",
+        skill: {
+          name: "commitpush",
+          description: "When they ask to commit.",
+          body: "Never git add -A.",
+        },
+      }),
+    ).toContain("Name: commitpush");
+    expect(
+      composeQueuedPrd({
+        prd: "ignored",
+        skill: {
+          name: "commitpush",
+          description: "When they ask to commit.",
+          body: "Never git add -A.",
+        },
+      }),
+    ).not.toContain("ignored");
+  });
+});
+
+describe("job type filter", () => {
+  it("names custom jobs instead of a blank/normal type", () => {
+    const labels = jobTypeFilterOptions().map((row) => row.label);
+    expect(labels).toContain("Custom job");
+    expect(labels).toContain("Child job");
+    expect(labels).toContain("Skills");
+    expect(labels).toContain("From a finding");
+    expect(labels).not.toContain("Blank brief");
+    expect(parseJobTypeFilter("nope")).toBe("all");
+  });
+
+  it("matches skill, finding, child, and custom jobs", () => {
+    expect(
+      matchesJobType(
+        job({ id: "a", status: "done", playbook: "skill", title: "Skill: x" }),
+        "skill",
+      ),
+    ).toBe(true);
+    expect(
+      matchesJobType(
+        job({ id: "b", status: "done", playbook: "console" }),
+        CUSTOM_JOB_TYPE,
+      ),
+    ).toBe(true);
+    expect(
+      matchesJobType(
+        job({ id: "c", status: "done", parentJobId: "parent" }),
+        CHILD_JOB_TYPE,
+      ),
+    ).toBe(true);
+    expect(
+      matchesJobType(
+        job({ id: "d", status: "done", origin: "finding" }),
+        "finding",
+      ),
+    ).toBe(true);
+    expect(
+      matchesJobType(
+        job({ id: "e", status: "done", playbook: "skill" }),
+        "finding",
+      ),
+    ).toBe(false);
   });
 });
 

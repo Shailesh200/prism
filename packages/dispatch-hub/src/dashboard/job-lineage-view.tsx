@@ -1,6 +1,5 @@
 import {
   jobBadgePulse,
-  jobBadgeTone,
   jobDisplayLabel,
   jobOriginLabel,
   type JobSummary,
@@ -8,6 +7,7 @@ import {
 import { Badge } from "@repo-prism/ui";
 import { AlertTriangle, Check, X } from "lucide-react";
 import { type ReactElement } from "react";
+import { jobMeterBadgeTone } from "./fleet.js";
 import {
   jobsRelatedTo,
   lineageDotKind,
@@ -54,7 +54,7 @@ function LineageList(props: {
   const job = props.node.job;
   const current = job.id === props.currentId;
   const origin = jobOriginLabel(job.origin);
-  const tone = jobBadgeTone(job.status, job.nextStep);
+  const tone = jobMeterBadgeTone(job, Date.now());
   const kind = lineageDotKind(job.status);
   const label = lineageSummary(job);
   const body = (

@@ -857,8 +857,10 @@ export function groupRepos(
     );
   }
   for (const [path, list] of byPath) {
-    if (!path || workspaces.some((row) => row.path === path)) continue;
-    rows.push(repoFleet(path, list[0]?.workspaceLabel ?? path, list));
+    if (workspaces.some((row) => row.path === path)) continue;
+    rows.push(
+      repoFleet(path, list[0]?.workspaceLabel ?? (path || "Prism"), list),
+    );
   }
   return rows;
 }
@@ -904,10 +906,12 @@ export function visibleFleetRepos(
   }[],
   filter: string,
   repoFilter: string | undefined,
+  typeFilter?: string,
 ): readonly RepoFleet[] {
   const visible = jobs.filter(
     (job) =>
       matchesFilter(job, filter) &&
+      matchesJobType(job, typeFilter) &&
       (!repoFilter || repoFilter === "all" || job.workspacePath === repoFilter),
   );
   const scoped =
@@ -915,8 +919,12 @@ export function visibleFleetRepos(
       ? workspaces.filter((row) => row.path === repoFilter)
       : workspaces;
   const groups = groupRepos(visible, scoped);
-  if (!filter.trim()) return groups;
-  return groups.filter(
+  const typed =
+    typeFilter && typeFilter !== "all"
+      ? groups.filter((repo) => repo.jobs.length > 0)
+      : groups;
+  if (!filter.trim()) return typed;
+  return typed.filter(
     (repo) =>
       repo.label.toLowerCase().includes(filter.trim().toLowerCase()) ||
       repo.jobs.length > 0,
@@ -1054,10 +1062,15 @@ export function waitedWorkedLabel(
     },
     nowMs,
   );
+  const intervals = meterIntervals(job, nowMs);
+  const hasWorkStep = intervals.some((row) => row.kind === "work");
+  const workMs = intervals
+    .filter((row) => row.kind === "work")
+    .reduce((sum, row) => sum + row.ms, 0);
   const waitingNow = job.status === "queued" || job.status === "needs_confirm";
   return {
     waited: formatDuration(d.queued) ?? "—",
-    worked: formatDuration(d.working) ?? "—",
+    worked: formatDuration(hasWorkStep ? workMs : d.working) ?? "—",
     waitVerb: waitingNow ? "waiting" : "waited",
     workVerb: isWorkingJob(job.status) ? "working" : "worked",
   };
@@ -1135,7 +1148,7 @@ export function groupJobsByRepo(
       index.set(path, groups.length);
       groups.push({
         path,
-        label: job.workspaceLabel ?? "Repo",
+        label: job.workspaceLabel ?? (path ? "Repo" : "Prism"),
         jobs: [job],
       });
       continue;
@@ -1183,6 +1196,244 @@ export function repoInitials(label: string): string {
   return letters.slice(0, 2).toUpperCase() || "?";
 }
 
+/** Preferred floor for one Pulse meter step (wait / work / outcome). */
+export const METER_STEP_MIN_PCT = 10;
+
+/**
+ * Floor each visible step at 10%, or `100 / n` when more than ten steps
+ * would overflow the bar.
+ */
+export function meterStepFloor(
+  stepCount: number,
+  preferredPct = METER_STEP_MIN_PCT,
+): number {
+  if (stepCount <= 0) return preferredPct;
+  return Math.min(preferredPct, 100 / stepCount);
+}
+
+/** Lift tiny weights to the step floor, then spend the rest on duration. */
+export function floorMeterPercents(
+  weights: readonly number[],
+  preferredPct = METER_STEP_MIN_PCT,
+): number[] {
+  const n = weights.length;
+  if (n === 0) return [];
+  const floor = meterStepFloor(n, preferredPct);
+  const total = weights.reduce((sum, value) => sum + Math.max(0, value), 0);
+  const remaining = Math.max(0, 100 - floor * n);
+  if (total <= 0) {
+    const extra = remaining / n;
+    return weights.map(() => floor + extra);
+  }
+  return weights.map(
+    (value) => floor + (Math.max(0, value) / total) * remaining,
+  );
+}
+
+export type PulseMeterKind = "wait" | "work" | "pause" | "error" | "cancelled";
+
+export type PulseMeterStep = {
+  readonly kind: PulseMeterKind;
+  readonly pct: number;
+  readonly live: boolean;
+  readonly ms: number;
+  readonly label: string;
+};
+
+type LifecycleHop = NonNullable<JobSummary["lifecycle"]>[number];
+
+function eventMs(at: string | undefined): number | undefined {
+  if (!at) return undefined;
+  const value = Date.parse(at);
+  return Number.isFinite(value) ? value : undefined;
+}
+
+function hopKind(
+  hop: Pick<LifecycleHop, "kind" | "note">,
+): "wait" | "work" | "pause" | "end" | "skip" {
+  if (hop.kind === "accepted") return "skip";
+  if (hop.kind === "queued" && hop.note === "paused") return "pause";
+  if (hop.kind === "queued" || hop.kind === "waiting") return "wait";
+  if (hop.kind === "working") return "work";
+  if (
+    hop.kind === "failed" ||
+    hop.kind === "cancelled" ||
+    hop.kind === "finished" ||
+    hop.kind === "review"
+  ) {
+    return "end";
+  }
+  return "skip";
+}
+
+function synthesizeMeterHops(job: JobSummary): LifecycleHop[] {
+  const hops: LifecycleHop[] = [];
+  if (job.createdAt) hops.push({ kind: "accepted", at: job.createdAt });
+  if (job.queuedAt) hops.push({ kind: "queued", at: job.queuedAt });
+  else if (job.createdAt) hops.push({ kind: "queued", at: job.createdAt });
+  if (job.startedAt) hops.push({ kind: "working", at: job.startedAt });
+  const at =
+    job.updatedAt ?? job.finishedAt ?? job.startedAt ?? job.createdAt ?? "";
+  if (!at) return hops;
+  if (job.status === "paused") {
+    hops.push({ kind: "queued", at, by: "user", note: "paused" });
+  } else if (job.status === "error") {
+    hops.push({ kind: "failed", at: job.finishedAt ?? at });
+  } else if (job.status === "cancelled") {
+    hops.push({ kind: "cancelled", at: job.finishedAt ?? at });
+  } else if (job.status === "done" || job.status === "needs_review") {
+    hops.push({ kind: "finished", at: job.finishedAt ?? at });
+  }
+  return hops;
+}
+
+function meterHops(job: JobSummary, nowMs: number): LifecycleHop[] {
+  const hops: LifecycleHop[] = job.lifecycle?.length
+    ? [...job.lifecycle]
+    : synthesizeMeterHops(job);
+  if (!hops.some((hop) => hop.kind === "working")) {
+    const start = jobWorkStartedAt(job);
+    if (start) {
+      const working: LifecycleHop = { kind: "working", at: start };
+      const endAt = hops.findIndex((hop) => hopKind(hop) === "end");
+      if (endAt < 0) hops.push(working);
+      else hops.splice(endAt, 0, working);
+    }
+  }
+  const last = hops.at(-1);
+  if (
+    isWorkingJob(job.status) &&
+    last?.note === "paused" &&
+    last.kind === "queued"
+  ) {
+    hops.push({
+      kind: "working",
+      at: job.updatedAt ?? job.lastHeartbeat ?? new Date(nowMs).toISOString(),
+      note: "resumed",
+    });
+  }
+  return hops;
+}
+
+type OpenMeter = {
+  kind: "wait" | "work" | "pause";
+  from: number;
+};
+
+function closeOpen(
+  segs: { kind: PulseMeterKind; from: number; to: number; ms: number }[],
+  open: OpenMeter | undefined,
+  to: number,
+): void {
+  if (!open) return;
+  const end = Math.max(to, open.from);
+  const last = segs.at(-1);
+  if (last && last.kind === open.kind) {
+    last.to = end;
+    last.ms = Math.max(0, end - last.from);
+    return;
+  }
+  segs.push({
+    kind: open.kind,
+    from: open.from,
+    to: end,
+    ms: Math.max(0, end - open.from),
+  });
+}
+
+function meterIntervals(
+  job: JobSummary,
+  nowMs: number,
+): { kind: PulseMeterKind; from: number; to: number; ms: number }[] {
+  const hops = meterHops(job, nowMs);
+  const segs: {
+    kind: PulseMeterKind;
+    from: number;
+    to: number;
+    ms: number;
+  }[] = [];
+  let open: OpenMeter | undefined;
+  for (const hop of hops) {
+    const at = eventMs(hop.at);
+    if (at === undefined) continue;
+    const kind = hopKind(hop);
+    if (kind === "skip") continue;
+    if (kind === "end") {
+      closeOpen(segs, open, at);
+      open = undefined;
+      continue;
+    }
+    if (open?.kind === kind) continue;
+    closeOpen(segs, open, at);
+    open = { kind, from: at };
+  }
+  const stillOpen =
+    job.status === "paused" ||
+    isWorkingJob(job.status) ||
+    job.status === "queued" ||
+    job.status === "needs_confirm";
+  if (open) {
+    closeOpen(
+      segs,
+      open,
+      stillOpen ? nowMs : (eventMs(job.finishedAt) ?? nowMs),
+    );
+  }
+  return segs;
+}
+
+function stepLabel(kind: PulseMeterKind, ms: number, live: boolean): string {
+  const duration = formatDuration(ms) ?? "0s";
+  if (kind === "pause") return `Paused ${duration}`;
+  if (kind === "error") return "Failed";
+  if (kind === "cancelled") return "Cancelled";
+  if (kind === "wait") return `${live ? "Waiting" : "Waited"} ${duration}`;
+  return `${live ? "Working" : "Worked"} ${duration}`;
+}
+
+export function meterEndKind(
+  steps: readonly PulseMeterStep[],
+): PulseMeterKind | undefined {
+  for (let i = steps.length - 1; i >= 0; i--) {
+    const step = steps[i];
+    if (step && step.pct > 0) return step.kind;
+  }
+  return undefined;
+}
+
+/** Badge / notch colour follows the last painted meter step. */
+export function meterEndBadgeTone(
+  kind: PulseMeterKind | undefined,
+): "neutral" | "brand" | "accent" | "amber" | "rose" {
+  if (kind === "wait") return "brand";
+  if (kind === "work") return "accent";
+  if (kind === "pause") return "amber";
+  if (kind === "error") return "rose";
+  return "neutral";
+}
+
+/** Status pill colour: last meter step, else the status default. */
+export function jobMeterBadgeTone(
+  job: JobSummary,
+  nowMs: number,
+): "neutral" | "brand" | "accent" | "emerald" | "amber" | "rose" | "violet" {
+  const kind = meterEndKind(waitWorkMeter(job, nowMs).steps);
+  return kind
+    ? meterEndBadgeTone(kind)
+    : jobBadgeTone(job.status, job.nextStep);
+}
+
+/** When the user paused this job, if it is still paused. */
+export function jobPauseStartedAt(job: JobSummary): string | undefined {
+  if (job.status !== "paused") return undefined;
+  const events = job.lifecycle ?? [];
+  for (let i = events.length - 1; i >= 0; i--) {
+    const event = events[i];
+    if (event?.note === "paused") return event.at;
+  }
+  return job.updatedAt ?? job.lastHeartbeat;
+}
+
 export function waitWorkMeter(
   job: JobSummary,
   nowMs: number,
@@ -1193,50 +1444,93 @@ export function waitWorkMeter(
   readonly workVerb: "working" | "worked";
   readonly waitPct: number;
   readonly workPct: number;
+  readonly pausePct: number;
+  readonly paused?: string;
   readonly outcomePct: number;
   readonly outcome?: "error" | "cancelled";
+  readonly steps: readonly PulseMeterStep[];
 } {
   const label = waitedWorkedLabel(job, nowMs);
-  const startedAt = jobWorkStartedAt(job);
-  const d = jobDurations(
-    {
-      createdAt:
-        job.createdAt ?? job.updatedAt ?? new Date(nowMs).toISOString(),
-      queuedAt: job.queuedAt,
-      startedAt,
-      finishedAt: job.finishedAt,
-      updatedAt: job.updatedAt,
-      lastHeartbeat: job.lastHeartbeat,
-      status: job.status,
-    },
-    nowMs,
-  );
-  const wait = d.queued ?? 0;
-  const work = d.working ?? 0;
-  const total = wait + work;
   const outcome =
     job.status === "error"
       ? ("error" as const)
       : job.status === "cancelled"
         ? ("cancelled" as const)
         : undefined;
-  const outcomePct = outcome ? 10 : 0;
-  if (total <= 0) {
-    return {
-      ...label,
-      waitPct: 0,
-      workPct: 0,
-      outcomePct: outcome ? 100 : 0,
-      ...(outcome ? { outcome } : {}),
-    };
+  const intervals = meterIntervals(job, nowMs);
+  const pauseMs = intervals
+    .filter((row) => row.kind === "pause")
+    .reduce((sum, row) => sum + row.ms, 0);
+  const hasWorkMs = intervals.some((row) => row.kind === "work" && row.ms > 0);
+  const hasPause = intervals.some((row) => row.kind === "pause");
+  const includeWait =
+    label.waitVerb === "waiting" ||
+    intervals.some((row) => row.kind === "wait" && row.ms > 0) ||
+    (label.waited !== "—" && (hasWorkMs || hasPause));
+  const includeWork =
+    label.workVerb === "working" ||
+    intervals.some((row) => row.kind === "work" && row.ms > 0);
+  const raw: { kind: PulseMeterKind; ms: number; live: boolean }[] = [];
+  for (const row of intervals) {
+    if (row.kind === "wait" && !includeWait) continue;
+    if (row.kind === "work" && !includeWork) continue;
+    if (
+      row.kind === "wait" &&
+      row.ms <= 0 &&
+      label.waitVerb !== "waiting" &&
+      !hasWorkMs &&
+      !hasPause
+    ) {
+      continue;
+    }
+    if (row.kind === "work" && row.ms <= 0 && label.workVerb !== "working") {
+      continue;
+    }
+    raw.push({ kind: row.kind, ms: row.ms, live: false });
   }
-  const scale = (100 - outcomePct) / 100;
+  if (includeWait && !raw.some((row) => row.kind === "wait")) {
+    raw.unshift({ kind: "wait", ms: 0, live: false });
+  }
+  if (outcome) raw.push({ kind: outcome, ms: 0, live: false });
+  if (job.status === "paused") {
+    const lastPause = [...raw]
+      .map((row, i) => ({ row, i }))
+      .reverse()
+      .find((entry) => entry.row.kind === "pause");
+    if (lastPause) raw[lastPause.i] = { ...lastPause.row, live: true };
+  }
+  if (isWorkingJob(job.status)) {
+    const lastWork = [...raw]
+      .map((row, i) => ({ row, i }))
+      .reverse()
+      .find((entry) => entry.row.kind === "work");
+    if (lastWork) raw[lastWork.i] = { ...lastWork.row, live: true };
+  }
+  const floored = floorMeterPercents(raw.map((row) => row.ms));
+  const steps: PulseMeterStep[] = raw.map((row, i) => ({
+    kind: row.kind,
+    pct: floored[i] ?? 0,
+    live: row.live,
+    ms: row.ms,
+    label: stepLabel(row.kind, row.ms, row.live),
+  }));
+  const pctOf = (kind: PulseMeterKind): number =>
+    steps
+      .filter((step) => step.kind === kind)
+      .reduce((sum, step) => sum + step.pct, 0);
+  const paused =
+    pauseMs > 0 || steps.some((step) => step.kind === "pause")
+      ? (formatDuration(pauseMs) ?? "0s")
+      : undefined;
   return {
     ...label,
-    waitPct: (wait / total) * 100 * scale,
-    workPct: (work / total) * 100 * scale,
-    outcomePct,
+    waitPct: pctOf("wait"),
+    workPct: pctOf("work"),
+    pausePct: pctOf("pause"),
+    ...(paused ? { paused } : {}),
+    outcomePct: pctOf("error") + pctOf("cancelled"),
     ...(outcome ? { outcome } : {}),
+    steps,
   };
 }
 
@@ -1366,13 +1660,67 @@ export function reviewTargetOf(id: string): ReviewTarget | undefined {
   return REVIEW_TARGETS.find((row) => row.id === id);
 }
 
-/** Build the queued brief: user prompt plus optional review/finding context. */
+export const CUSTOM_JOB_TYPE = "custom";
+export const CHILD_JOB_TYPE = "child";
+
+export type JobTypeFilter = {
+  readonly id: string;
+  readonly label: string;
+};
+
+export function jobTypeFilterOptions(): readonly JobTypeFilter[] {
+  return [
+    { id: "all", label: "All types" },
+    { id: CUSTOM_JOB_TYPE, label: "Custom job" },
+    { id: CHILD_JOB_TYPE, label: "Child job" },
+    ...PLAYBOOKS.filter((row) => row.id !== "console").map((row) => ({
+      id: row.id,
+      label: row.label,
+    })),
+  ];
+}
+
+export function parseJobTypeFilter(raw: string | undefined): string {
+  const id = raw?.trim() ?? "";
+  if (!id || id === "all") return "all";
+  if (jobTypeFilterOptions().some((row) => row.id === id)) return id;
+  return "all";
+}
+
+export function matchesJobType(
+  job: Pick<JobSummary, "playbook" | "origin" | "parentJobId" | "title">,
+  type: string | undefined,
+): boolean {
+  const want = parseJobTypeFilter(type);
+  if (want === "all") return true;
+  if (want === CHILD_JOB_TYPE) return Boolean(job.parentJobId?.trim());
+  if (want === CUSTOM_JOB_TYPE) {
+    const id = job.playbook?.trim();
+    return !id || id === "ticket" || id === "console";
+  }
+  if (want === "finding") {
+    return job.playbook === "finding" || job.origin === "finding";
+  }
+  if (want === SKILL_PLAYBOOK) {
+    return (
+      job.playbook === SKILL_PLAYBOOK || /^skill:\s/i.test(job.title.trim())
+    );
+  }
+  return job.playbook === want;
+}
+
+/** Build the queued brief: user prompt plus optional review/finding/skill context. */
 export function composeQueuedPrd(input: {
   readonly prd: string;
   readonly reviewSeed?: string;
   readonly finding?: { readonly title: string; readonly text: string };
+  readonly skill?: SkillPlaybookSeed;
 }): string {
   const parts: string[] = [];
+  if (input.skill) {
+    parts.push(skillPlaybookPrd(input.skill));
+    return parts.join("\n\n");
+  }
   if (input.reviewSeed?.trim()) parts.push(input.reviewSeed.trim());
   if (input.finding?.text.trim()) {
     parts.push(
@@ -1381,4 +1729,37 @@ export function composeQueuedPrd(input: {
   }
   if (input.prd.trim()) parts.push(input.prd.trim());
   return parts.join("\n\n");
+}
+
+export type SkillPlaybookSeed = {
+  readonly name: string;
+  readonly description: string;
+  readonly body: string;
+  readonly instruction?: string;
+  readonly mode?: "generate" | "update";
+};
+
+export function skillPlaybookPrd(seed: SkillPlaybookSeed): string {
+  const header =
+    seed.mode === "update"
+      ? `Update the Prism skill ${seed.name} in the user's global library. Do not edit the repository.`
+      : [
+          "Write a complete Prism skill (SKILL.md) from this draft.",
+          "Store nothing in the repository — skills live in the user's global Prism library.",
+        ].join("\n");
+  const instruction = seed.instruction?.trim();
+  return [
+    header,
+    `Name: ${seed.name}`,
+    `When to use: ${seed.description.trim() || "(none)"}`,
+    seed.body.trim() ? `Current workflow:\n${seed.body.trim()}` : "",
+    instruction
+      ? seed.mode === "update"
+        ? `Requested changes:\n${instruction}`
+        : instruction
+      : "",
+    "Return markdown the Console can publish. Do not edit the user's repository.",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }

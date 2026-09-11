@@ -23,6 +23,8 @@ export function GenerateFlow(props: {
   readonly stage?: SkillGenerateStage;
   /** Pulse live cards pass this without a skill stage. */
   readonly moving?: boolean;
+  /** Fit the 6px Pulse meter used for every job status. */
+  readonly compact?: boolean;
   readonly className?: string;
 }): ReactElement {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -48,7 +50,7 @@ export function GenerateFlow(props: {
 
   useLayoutEffect(() => {
     const root = rootRef.current;
-    if (!root || width < 16) return;
+    if (!root || width < (props.compact ? 8 : 16)) return;
     const g = ensureMotionPath();
     const wire = root.querySelector<SVGPathElement>("[data-wire]");
     const packet = root.querySelector<SVGGElement>("[data-packet]");
@@ -88,11 +90,13 @@ export function GenerateFlow(props: {
       flight.kill();
       g.set(packet, { clearProps: "all" });
     };
-  }, [props.moving, props.stage, settled, width]);
+  }, [props.moving, props.stage, props.compact, settled, width]);
 
-  const w = Math.max(width, 80);
-  const y = 8;
-  const pad = 8;
+  const compact = Boolean(props.compact);
+  const h = compact ? 6 : 16;
+  const w = Math.max(width, compact ? 24 : 80);
+  const y = h / 2;
+  const pad = compact ? 4 : 8;
 
   return (
     <div
@@ -112,27 +116,30 @@ export function GenerateFlow(props: {
       {width > 0 ? (
         <svg
           className="skills-generate__flow-svg"
-          viewBox={`0 0 ${w} 16`}
+          viewBox={`0 0 ${w} ${h}`}
           fill="none"
         >
           <path
             data-wire
             d={`M ${pad} ${y} H ${w - pad}`}
             stroke="currentColor"
-            strokeWidth="1.25"
+            strokeWidth={compact ? "1" : "1.25"}
             strokeOpacity="0.55"
             strokeLinecap="round"
           />
           <circle
             cx={pad}
             cy={y}
-            r="2.5"
+            r={compact ? "1.25" : "2.5"}
             fill="currentColor"
             fillOpacity="0.4"
           />
           <g data-packet>
-            <circle r="3.5" fill="currentColor" />
-            <circle r="2" className="skills-generate__packet-core" />
+            <circle r={compact ? "2" : "3.5"} fill="currentColor" />
+            <circle
+              r={compact ? "1" : "2"}
+              className="skills-generate__packet-core"
+            />
           </g>
         </svg>
       ) : null}
