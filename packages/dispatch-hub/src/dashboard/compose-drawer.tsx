@@ -28,6 +28,7 @@ import {
   preferredWorkspace,
   reviewTargetOf,
 } from "./fleet.js";
+import { skillJobTitle } from "./skill-generate.js";
 import { RepoSelect } from "./repo-select.js";
 import { getJson, postJson } from "./session.js";
 
@@ -46,9 +47,11 @@ type WorkerModelsResponse = {
   }[];
 };
 
-type NoteFile = {
-  readonly path?: string;
-  readonly text?: string;
+type SkillChoice = {
+  readonly name: string;
+  readonly description: string;
+  readonly body: string;
+  readonly inherited?: boolean;
 };
 
 function modelOptionsFromAgent(
@@ -74,6 +77,9 @@ export function ComposeDrawer(props: {
     readonly prd: string;
     readonly playbook?: string;
     readonly finding?: JobSummary;
+    readonly skillName?: string;
+    readonly skillUpdate?: boolean;
+    readonly skillDraft?: SkillChoice;
     readonly placement?: "checkout" | "worktree";
     readonly branch?: string;
     readonly worktreePath?: string;
@@ -108,6 +114,9 @@ export function ComposeDrawer(props: {
   );
   const [findingId, setFindingId] = useState(seedFinding?.id ?? "");
   const findingRepoRef = useRef(findingRepo);
+  const [skillName, setSkillName] = useState(props.preset?.skillName ?? "");
+  const [skillInstruction, setSkillInstruction] = useState("");
+  const [skills, setSkills] = useState<readonly SkillChoice[]>([]);
   const [reviewTarget, setReviewTarget] = useState("pr");
   const [findingText, setFindingText] = useState("");
   const [placement, setPlacement] = useState<"checkout" | "worktree">(
@@ -152,6 +161,19 @@ export function ComposeDrawer(props: {
     );
   }, [props.jobs, findingRepo, seedFinding]);
   const selectedFinding = repoFindings.find((job) => job.id === findingId);
+  const skillUpdate = Boolean(props.preset?.skillUpdate);
+  const skillChoices = useMemo(() => {
+    const draft = props.preset?.skillDraft;
+    const listed = skills.filter((row) => row.name);
+    if (draft && !listed.some((row) => row.name === draft.name)) {
+      return [draft, ...listed];
+    }
+    return listed;
+  }, [skills, props.preset?.skillDraft]);
+  const selectedSkill =
+    (props.preset?.skillDraft && skillName === props.preset.skillDraft.name
+      ? props.preset.skillDraft
+      : undefined) ?? skillChoices.find((row) => row.name === skillName);
 
   useEffect(() => {
     if (findingRepoRef.current === findingRepo) return;
@@ -165,6 +187,32 @@ export function ComposeDrawer(props: {
       setFindingId("");
     }
   }, [findingId, repoFindings]);
+
+  useEffect(() => {
+    if (playbook !== SKILL_PLAYBOOK) return;
+    let cancelled = false;
+    void getJson<{ skills?: readonly SkillChoice[] }>(
+      "/api/skills",
+      props.token,
+    )
+      .then((body) => {
+        if (cancelled) return;
+        setSkills(
+          (body.skills ?? []).filter(
+            (row) =>
+              typeof row.name === "string" &&
+              row.name.trim() !== "" &&
+              row.inherited !== true,
+          ),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setSkills([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [playbook, props.token]);
 
   useEffect(() => {
     let cancelled = false;
@@ -245,11 +293,23 @@ export function ComposeDrawer(props: {
       setError("Add a repository first");
       return;
     }
+    if (playbook === SKILL_PLAYBOOK && !selectedSkill) {
+      setError("Pick a skill");
+      return;
+    }
+    if (
+      playbook === SKILL_PLAYBOOK &&
+      skillUpdate &&
+      !skillInstruction.trim()
+    ) {
+      setError("Describe what should change");
+      return;
+    }
     setBusy(true);
     setError(undefined);
     try {
       const queuedPrd = composeQueuedPrd({
-        prd,
+        prd: playbook === SKILL_PLAYBOOK ? "" : prd,
         ...(playbook === "prism-review-pr"
           ? { reviewSeed: reviewTargetOf(reviewTarget)?.seed }
           : {}),
@@ -258,6 +318,21 @@ export function ComposeDrawer(props: {
               finding: {
                 title: selectedFinding.title,
                 text: findingText,
+              },
+            }
+          : {}),
+        ...(playbook === SKILL_PLAYBOOK && selectedSkill
+          ? {
+              skill: {
+                name: selectedSkill.name,
+                description: selectedSkill.description,
+                body: selectedSkill.body,
+                mode: skillUpdate ? "update" : "generate",
+                ...(skillUpdate
+                  ? { instruction: skillInstruction }
+                  : prd.trim()
+                    ? { instruction: prd }
+                    : {}),
               },
             }
           : {}),
@@ -301,7 +376,7 @@ export function ComposeDrawer(props: {
 
   return (
     <Drawer
-      title="New job"
+      title={skillUpdate ? "Update skill" : "New job"}
       onClose={props.onClose}
       onPrimaryAction={() => void submit()}
       footer={
@@ -356,6 +431,7 @@ export function ComposeDrawer(props: {
                 setTargetWorktree("");
               }
             }}
+            disabled={skillUpdate}
             options={PLAYBOOKS.map((row) => ({
               value: row.id,
               label: row.label,
@@ -405,6 +481,40 @@ export function ComposeDrawer(props: {
                 ]}
               />
             </div>
+          ) : null}
+          {playbook === SKILL_PLAYBOOK ? (
+            <Select
+              label="Skill"
+              hint={
+                skillChoices.length === 0
+                  ? "No skills in your library yet."
+                  : selectedSkill
+                    ? skillUpdate
+                      ? `Will update ${selectedSkill.name}.`
+                      : `Will generate ${selectedSkill.name}.`
+                    : "Pick a skill to generate or update."
+              }
+              value={skillName}
+              disabled={skillUpdate}
+              onChange={(id) => {
+                const previous = skillName ? skillJobTitle(skillName) : "";
+                setSkillName(id);
+                const next = skillChoices.find((row) => row.name === id);
+                if (!next) return;
+                setTitle((current) =>
+                  !current.trim() || current === previous
+                    ? skillJobTitle(next.name)
+                    : current,
+                );
+              }}
+              options={[
+                { value: "", label: "Choose a skill" },
+                ...skillChoices.map((row) => ({
+                  value: row.name,
+                  label: row.name,
+                })),
+              ]}
+            />
           ) : null}
           {playbook === "prism-review-pr" ? (
             <Select
@@ -479,13 +589,43 @@ export function ComposeDrawer(props: {
           ]}
         />
         <div className="compose__brief">
-          <Textarea
-            label="What should the teammate do?"
-            placeholder="Write prompt here"
-            rows={8}
-            value={prd}
-            onChange={(event) => setPrd(event.target.value)}
-          />
+          {skillUpdate ? (
+            <>
+              <Textarea
+                label="Brief"
+                rows={6}
+                value={
+                  selectedSkill
+                    ? [
+                        `Name: ${selectedSkill.name}`,
+                        `When to use: ${selectedSkill.description.trim() || "(none)"}`,
+                        selectedSkill.body.trim(),
+                      ]
+                        .filter(Boolean)
+                        .join("\n")
+                    : ""
+                }
+                disabled
+                onChange={() => undefined}
+              />
+              <Textarea
+                label="Teammate instructions"
+                hint="What should change in this skill."
+                placeholder="Describe the new behaviour, steps, or knowledge to add."
+                rows={8}
+                value={skillInstruction}
+                onChange={(event) => setSkillInstruction(event.target.value)}
+              />
+            </>
+          ) : (
+            <Textarea
+              label="What should the teammate do?"
+              placeholder="Write prompt here"
+              rows={8}
+              value={prd}
+              onChange={(event) => setPrd(event.target.value)}
+            />
+          )}
         </div>
         {error ? (
           <p className="compose__error" role="alert">

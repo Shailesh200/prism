@@ -33,6 +33,7 @@ export type RouteQuery = {
   readonly repo?: string;
   readonly job?: string;
   readonly note?: string;
+  readonly type?: string;
 };
 
 export function parseView(hash: string): ConsoleView {
@@ -58,6 +59,10 @@ export function parseRepoFilter(hash: string): string | undefined {
   return queryParam(hash, "repo");
 }
 
+export function parseTypeQuery(hash: string): string | undefined {
+  return queryParam(hash, "type");
+}
+
 export function parseJobId(hash: string): string | undefined {
   return queryParam(hash, "job");
 }
@@ -66,9 +71,12 @@ export function parseNotePath(hash: string): string | undefined {
   return queryParam(hash, "note");
 }
 
-export function dashboardHash(repo?: string): string {
-  if (!repo || repo === "all") return "#/dashboard";
-  return `#/dashboard?repo=${encodeURIComponent(repo)}`;
+export function dashboardHash(repo?: string, type?: string): string {
+  const params = new URLSearchParams();
+  if (repo && repo !== "all") params.set("repo", repo);
+  if (type && type !== "all") params.set("type", type);
+  const q = params.toString();
+  return q ? `#/dashboard?${q}` : "#/dashboard";
 }
 
 export function jobsHash(repo?: string): string {
@@ -85,7 +93,7 @@ export function findingsHash(query?: RouteQuery): string {
 }
 
 export function viewHash(view: ConsoleView, query?: RouteQuery): string {
-  if (view === "dashboard") return dashboardHash(query?.repo);
+  if (view === "dashboard") return dashboardHash(query?.repo, query?.type);
   if (view === "findings") return findingsHash(query);
   if (view === "whats-new") return "#/whats-new";
   if (view === "wake") return "#/wake";
@@ -96,12 +104,14 @@ export function useHashRoute(): {
   readonly view: ConsoleView;
   readonly go: (next: ConsoleView, query?: RouteQuery) => void;
   readonly repo: string | undefined;
+  readonly type: string | undefined;
   readonly job: string | undefined;
   readonly note: string | undefined;
 } {
   const read = () => ({
     view: parseView(window.location.hash),
     repo: parseRepoFilter(window.location.hash),
+    type: parseTypeQuery(window.location.hash),
     job: parseJobId(window.location.hash),
     note: parseNotePath(window.location.hash),
   });
@@ -118,6 +128,7 @@ export function useHashRoute(): {
       setRoute({
         view: next,
         repo: query?.repo,
+        type: query?.type,
         job: query?.job,
         note: query?.note,
       });

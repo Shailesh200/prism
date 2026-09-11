@@ -3,10 +3,12 @@ import {
   CONSOLE_VIEWS,
   parseJobId,
   parseRepoFilter,
+  parseTypeQuery,
   parseView,
   findingsHash,
   jobsHash,
   viewHash,
+  dashboardHash,
 } from "./router.js";
 import {
   ConsoleRequestError,
@@ -78,6 +80,11 @@ describe("parseView", () => {
     expect(jobsHash("/Users/me/Prism")).toBe(
       "#/dashboard?repo=%2FUsers%2Fme%2FPrism",
     );
+    expect(dashboardHash("/Users/me/Prism", "skill")).toBe(
+      "#/dashboard?repo=%2FUsers%2Fme%2FPrism&type=skill",
+    );
+    expect(dashboardHash(undefined, "custom")).toBe("#/dashboard?type=custom");
+    expect(parseTypeQuery("#/dashboard?type=skill")).toBe("skill");
   });
 
   it("reads a findings job and note from the hash", () => {

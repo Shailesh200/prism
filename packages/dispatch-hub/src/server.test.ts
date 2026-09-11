@@ -812,6 +812,67 @@ describe("hub HTTP", () => {
     });
     expect(saved.status).toBe(200);
 
+    const rewritten = await fetch(`http://127.0.0.1:${port}/api/skills`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "save",
+        name: "commitpush",
+        description: "Commit the job files.",
+        body: "Commit only the job's files, then push. Add a dry-run.",
+        status: "draft",
+      }),
+    });
+    expect(rewritten.status).toBe(200);
+
+    const versions = (await (
+      await fetch(`http://127.0.0.1:${port}/api/skills`, {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "versions", name: "commitpush" }),
+      })
+    ).json()) as {
+      versions?: { id: string; current?: boolean; body?: string }[];
+    };
+    expect(versions.versions?.[0]?.current).toBe(true);
+    const historic = versions.versions?.find((row) => !row.current);
+    expect(historic?.body).toContain("Commit only the job's files, then push.");
+
+    const reverted = await fetch(`http://127.0.0.1:${port}/api/skills`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "revert_version",
+        name: "commitpush",
+        versionId: historic?.id,
+      }),
+    });
+    expect(reverted.status).toBe(200);
+
+    const leftover = (await (
+      await fetch(`http://127.0.0.1:${port}/api/skills`, {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "versions", name: "commitpush" }),
+      })
+    ).json()) as {
+      versions?: { id: string; current?: boolean; body?: string }[];
+    };
+    const extra = leftover.versions?.find((row) =>
+      (row.body ?? "").includes("Add a dry-run"),
+    );
+    expect(extra?.current).toBe(false);
+    const removed = await fetch(`http://127.0.0.1:${port}/api/skills`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "delete_version",
+        name: "commitpush",
+        versionId: extra?.id,
+      }),
+    });
+    expect(removed.status).toBe(200);
+
     const duplicated = await fetch(`http://127.0.0.1:${port}/api/skills`, {
       method: "POST",
       headers: { ...auth, "Content-Type": "application/json" },

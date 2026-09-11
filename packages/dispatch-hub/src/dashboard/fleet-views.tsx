@@ -1,7 +1,6 @@
 import {
   formatPrismDate,
   isLiveJob,
-  jobBadgeTone,
   jobBadgePulse,
   jobDisplayLabel,
   jobUsageFigures,
@@ -22,6 +21,7 @@ import {
   Table,
   ToggleGroup,
   Truncate,
+  Select,
   isActivateTarget,
   listCursorDelta,
   pageShortcutBlocked,
@@ -50,7 +50,9 @@ import {
   timelineRepoStatus,
   verifyTag,
   visibleFleetRepos,
+  jobTypeFilterOptions,
   waitedWorkedLabel,
+  jobMeterBadgeTone,
   type FleetRange,
   type FleetTimeRange,
   type FleetViewMode,
@@ -74,6 +76,8 @@ export function DashboardToolbar(props: {
   readonly repos?: readonly JobWorkspaceChip[];
   readonly repoFilter?: string;
   readonly onRepoFilter?: (path: string) => void;
+  readonly typeFilter?: string;
+  readonly onTypeFilter?: (id: string) => void;
 }): ReactElement {
   return (
     <div className="fleet-toolbar">
@@ -127,6 +131,18 @@ export function DashboardToolbar(props: {
             onChange={props.onRepoFilter}
             includeAll
             repos={props.repos}
+          />
+        ) : null}
+        {props.onTypeFilter ? (
+          <Select
+            aria-label="Filter by type"
+            className="fleet-toolbar__type-select"
+            value={props.typeFilter ?? "all"}
+            onChange={props.onTypeFilter}
+            options={jobTypeFilterOptions().map((row) => ({
+              value: row.id,
+              label: row.label,
+            }))}
           />
         ) : null}
       </div>
@@ -209,7 +225,7 @@ export function JobListDrawer(props: {
                           </span>
                           <Badge
                             className="fleet-job-list__tag"
-                            tone={jobBadgeTone(job.status, job.nextStep)}
+                            tone={jobMeterBadgeTone(job, Date.now())}
                           >
                             {jobDisplayLabel(job)}
                           </Badge>
@@ -457,7 +473,7 @@ export function ListView(
       sortValue: (job) => jobDisplayLabel(job),
       render: (job) => (
         <Badge
-          tone={jobBadgeTone(job.status, job.nextStep)}
+          tone={jobMeterBadgeTone(job, props.nowMs)}
           pulse={jobBadgePulse(job.status)}
         >
           {jobDisplayLabel(job)}
@@ -689,9 +705,10 @@ export function useVisibleRepos(
   workspaces: readonly JobWorkspaceChip[],
   filter: string,
   repoFilter: string | undefined,
+  typeFilter?: string,
 ): readonly RepoFleet[] {
   return useMemo(
-    () => visibleFleetRepos(jobs, workspaces, filter, repoFilter),
-    [jobs, workspaces, filter, repoFilter],
+    () => visibleFleetRepos(jobs, workspaces, filter, repoFilter, typeFilter),
+    [jobs, workspaces, filter, repoFilter, typeFilter],
   );
 }

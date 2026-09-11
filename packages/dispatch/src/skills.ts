@@ -1,4 +1,11 @@
-import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  copyFile,
+  mkdir,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { join } from "node:path";
 import { prismHome } from "./paths.js";
 
@@ -12,7 +19,20 @@ export type PrismSkill = {
   readonly inherited: boolean;
 };
 
+export type SkillVersion = {
+  readonly id: string;
+  readonly createdAt: string;
+  readonly name: string;
+  readonly description: string;
+  readonly body: string;
+  readonly status: SkillStatus;
+  readonly current: boolean;
+};
+
 const NAME_RE = /^[a-z][a-z0-9-]{1,62}$/;
+const VERSION_ID_RE = /^v[a-z0-9-]+$/i;
+const MAX_SKILL_VERSIONS = 40;
+export const CURRENT_SKILL_VERSION = "current";
 
 export const INHERITED_SKILLS: readonly PrismSkill[] = [
   {
@@ -81,43 +101,114 @@ function skillFile(name: string, env?: NodeJS.ProcessEnv): string {
   return join(skillsDir(env), name, "SKILL.md");
 }
 
+function versionsDir(name: string, env?: NodeJS.ProcessEnv): string {
+  return join(skillsDir(env), name, "versions");
+}
+
+function versionFile(
+  name: string,
+  id: string,
+  env?: NodeJS.ProcessEnv,
+): string {
+  return join(versionsDir(name, env), `${id}.md`);
+}
+
+export function skillVersionId(at: Date = new Date()): string {
+  return `v${at
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d+Z$/, "Z")
+    .toLowerCase()}`;
+}
+
+function parseFrontmatter(raw: string): {
+  readonly fields: Readonly<Record<string, string>>;
+  readonly body: string;
+} {
+  const fence = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  if (!fence) return { fields: {}, body: raw };
+  const fields: Record<string, string> = {};
+  for (const line of (fence[1] ?? "").split("\n")) {
+    const match = line.match(/^([a-zA-Z]+)\s*:\s*(.*)$/);
+    if (!match) continue;
+    const key = match[1]?.toLowerCase();
+    if (!key) continue;
+    fields[key] = match[2]?.trim().replace(/^["']|["']$/g, "") ?? "";
+  }
+  return { fields, body: (fence[2] ?? "").trim() };
+}
+
 export function parseSkill(
   name: string,
   raw: string,
   inherited: boolean,
 ): PrismSkill {
-  let description = "";
-  let status: SkillStatus = "draft";
-  let body = raw;
-  const fence = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
-  if (fence) {
-    const front = fence[1] ?? "";
-    body = (fence[2] ?? "").trim();
-    for (const line of front.split("\n")) {
-      const match = line.match(/^(description|status)\s*:\s*(.*)$/i);
-      if (!match) continue;
-      const key = match[1]?.toLowerCase();
-      const value = match[2]?.trim().replace(/^["']|["']$/g, "") ?? "";
-      if (key === "description") description = value;
-      if (key === "status" && (value === "draft" || value === "published")) {
-        status = value;
-      }
-    }
-  }
-  return { name, description, body, status, inherited };
+  const parsed = parseFrontmatter(raw);
+  const status = parsed.fields.status;
+  return {
+    name,
+    description: parsed.fields.description ?? "",
+    body: parsed.body,
+    status: status === "published" || status === "draft" ? status : "draft",
+    inherited,
+  };
 }
 
-function serializeSkill(skill: PrismSkill): string {
+function serializeSkill(
+  skill: Pick<PrismSkill, "name" | "description" | "body" | "status">,
+  extra?: { readonly createdAt?: string },
+): string {
   return [
     "---",
     `name: ${skill.name}`,
     `description: ${JSON.stringify(skill.description)}`,
     `status: ${skill.status}`,
+    ...(extra?.createdAt ? [`createdAt: ${extra.createdAt}`] : []),
     "---",
     "",
     skill.body.trim(),
     "",
   ].join("\n");
+}
+
+function skillContentKey(
+  skill: Pick<PrismSkill, "description" | "body" | "status">,
+): string {
+  return JSON.stringify({
+    description: skill.description,
+    body: skill.body,
+    status: skill.status,
+  });
+}
+
+export function parseSkillVersion(
+  name: string,
+  id: string,
+  raw: string,
+): SkillVersion {
+  const parsed = parseSkill(name, raw, false);
+  const createdAt = parseFrontmatter(raw).fields.createdat ?? "";
+  return {
+    id,
+    createdAt: createdAt || new Date(0).toISOString(),
+    name: parsed.name,
+    description: parsed.description,
+    body: parsed.body,
+    status: parsed.status,
+    current: false,
+  };
+}
+
+function asCurrentVersion(skill: PrismSkill): SkillVersion {
+  return {
+    id: CURRENT_SKILL_VERSION,
+    createdAt: "",
+    name: skill.name,
+    description: skill.description,
+    body: skill.body,
+    status: skill.status,
+    current: true,
+  };
 }
 
 export async function listSkills(
@@ -158,6 +249,161 @@ export async function readSkill(
   }
 }
 
+async function copySkillVersions(
+  from: string,
+  to: string,
+  env: NodeJS.ProcessEnv,
+): Promise<void> {
+  if (from === to) return;
+  try {
+    const names = await readdir(versionsDir(from, env));
+    await mkdir(versionsDir(to, env), { recursive: true });
+    for (const file of names) {
+      if (!file.endsWith(".md")) continue;
+      await copyFile(
+        join(versionsDir(from, env), file),
+        join(versionsDir(to, env), file),
+      );
+    }
+  } catch {
+    /* no prior versions */
+  }
+}
+
+async function snapshotSkillVersion(
+  skill: PrismSkill,
+  env: NodeJS.ProcessEnv,
+): Promise<void> {
+  if (skill.inherited) return;
+  const createdAt = new Date().toISOString();
+  let id = skillVersionId(new Date(createdAt));
+  await mkdir(versionsDir(skill.name, env), { recursive: true });
+  try {
+    await readFile(versionFile(skill.name, id, env), "utf8");
+    id = `${id}-${Math.random().toString(36).slice(2, 6)}`;
+  } catch {
+    /* unique */
+  }
+  await writeFile(
+    versionFile(skill.name, id, env),
+    serializeSkill(skill, { createdAt }),
+    "utf8",
+  );
+  const listed = await listHistoricSkillVersions(skill.name, env);
+  const extra = listed.slice(MAX_SKILL_VERSIONS);
+  await Promise.all(
+    extra.map((row) =>
+      rm(versionFile(skill.name, row.id, env), { force: true }),
+    ),
+  );
+}
+
+async function listHistoricSkillVersions(
+  name: string,
+  env: NodeJS.ProcessEnv,
+): Promise<SkillVersion[]> {
+  const id = normalizeSkillName(name);
+  if (!id) return [];
+  try {
+    const names = await readdir(versionsDir(id, env));
+    const rows: SkillVersion[] = [];
+    for (const file of names) {
+      if (!file.endsWith(".md")) continue;
+      const versionId = file.replace(/\.md$/i, "");
+      if (!VERSION_ID_RE.test(versionId)) continue;
+      try {
+        const raw = await readFile(versionFile(id, versionId, env), "utf8");
+        rows.push(parseSkillVersion(id, versionId, raw));
+      } catch {
+        /* skip broken snapshots */
+      }
+    }
+    rows.sort((a, b) => {
+      const byTime = Date.parse(b.createdAt) - Date.parse(a.createdAt);
+      if (Number.isFinite(byTime) && byTime !== 0) return byTime;
+      return b.id.localeCompare(a.id);
+    });
+    return rows;
+  } catch {
+    return [];
+  }
+}
+
+export async function listSkillVersions(
+  name: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<readonly SkillVersion[] | { readonly error: string }> {
+  const skill = await readSkill(name, env);
+  if (!skill) return { error: "Skill not found." };
+  if (skill.inherited) return { error: "Inherited skills have no history." };
+  const historic = await listHistoricSkillVersions(skill.name, env);
+  return [asCurrentVersion(skill), ...historic];
+}
+
+export async function readSkillVersion(
+  name: string,
+  versionId: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<SkillVersion | { readonly error: string }> {
+  const skill = await readSkill(name, env);
+  if (!skill) return { error: "Skill not found." };
+  if (skill.inherited) return { error: "Inherited skills have no history." };
+  if (versionId === CURRENT_SKILL_VERSION) return asCurrentVersion(skill);
+  const id = normalizeSkillName(name);
+  if (!id || !VERSION_ID_RE.test(versionId)) {
+    return { error: "Version not found." };
+  }
+  try {
+    const raw = await readFile(versionFile(id, versionId, env), "utf8");
+    return parseSkillVersion(id, versionId, raw);
+  } catch {
+    return { error: "Version not found." };
+  }
+}
+
+export async function revertSkillVersion(
+  name: string,
+  versionId: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<PrismSkill | { readonly error: string }> {
+  const version = await readSkillVersion(name, versionId, env);
+  if ("error" in version) return version;
+  if (version.current) return { error: "That is already the current skill." };
+  return writeSkill(
+    {
+      name: version.name,
+      description: version.description,
+      body: version.body,
+      status: version.status,
+    },
+    env,
+  );
+}
+
+export async function deleteSkillVersion(
+  name: string,
+  versionId: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<{ readonly ok: boolean; readonly detail: string }> {
+  const skill = await readSkill(name, env);
+  if (!skill || skill.inherited) {
+    return { ok: false, detail: "Could not delete that version." };
+  }
+  if (versionId === CURRENT_SKILL_VERSION) {
+    return { ok: false, detail: "The current skill cannot be deleted." };
+  }
+  const id = normalizeSkillName(name);
+  if (!id || !VERSION_ID_RE.test(versionId)) {
+    return { ok: false, detail: "Version not found." };
+  }
+  try {
+    await rm(versionFile(id, versionId, env), { force: false });
+    return { ok: true, detail: "Deleted." };
+  } catch {
+    return { ok: false, detail: "Version not found." };
+  }
+}
+
 export async function writeSkill(
   input: {
     readonly name: string;
@@ -175,6 +421,12 @@ export async function writeSkill(
   if (INHERITED_SKILLS.some((skill) => skill.name === name)) {
     return { error: "That name ships with Prism and cannot be overwritten." };
   }
+  const previous = input.previousName
+    ? normalizeSkillName(input.previousName)
+    : undefined;
+  const prior = previous
+    ? await readSkill(previous, env)
+    : await readSkill(name, env);
   const skill: PrismSkill = {
     name,
     description: input.description.trim(),
@@ -182,12 +434,21 @@ export async function writeSkill(
     status: input.status,
     inherited: false,
   };
-  const dir = join(skillsDir(env), name);
-  await mkdir(dir, { recursive: true });
+  await mkdir(join(skillsDir(env), name), { recursive: true });
+  if (previous && previous !== name) {
+    await copySkillVersions(previous, name, env);
+  }
+  if (
+    prior &&
+    !prior.inherited &&
+    skillContentKey(prior) !== skillContentKey(skill)
+  ) {
+    await snapshotSkillVersion(
+      previous && previous !== name ? { ...prior, name } : prior,
+      env,
+    );
+  }
   await writeFile(skillFile(name, env), serializeSkill(skill), "utf8");
-  const previous = input.previousName
-    ? normalizeSkillName(input.previousName)
-    : undefined;
   if (previous && previous !== name) {
     await deleteSkill(previous, env);
   }

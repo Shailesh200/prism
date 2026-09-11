@@ -31,6 +31,10 @@ import {
   writeSkill,
   deleteSkill,
   duplicateSkill,
+  listSkillVersions,
+  readSkillVersion,
+  revertSkillVersion,
+  deleteSkillVersion,
   listStoredWorkspaceRoots,
   runWithJobsEnv,
   type DispatchConfig,
@@ -898,6 +902,53 @@ export async function startHub(
             return;
           }
           json(res, 200, copied);
+          return;
+        }
+        if (action === "versions") {
+          const listed = await listSkillVersions(
+            String(body.name ?? ""),
+            env as NodeJS.ProcessEnv,
+          );
+          if ("error" in listed) {
+            json(res, 400, listed);
+            return;
+          }
+          json(res, 200, { versions: listed });
+          return;
+        }
+        if (action === "version") {
+          const version = await readSkillVersion(
+            String(body.name ?? ""),
+            String(body.versionId ?? ""),
+            env as NodeJS.ProcessEnv,
+          );
+          if ("error" in version) {
+            json(res, 400, version);
+            return;
+          }
+          json(res, 200, version);
+          return;
+        }
+        if (action === "revert_version") {
+          const reverted = await revertSkillVersion(
+            String(body.name ?? ""),
+            String(body.versionId ?? ""),
+            env as NodeJS.ProcessEnv,
+          );
+          if ("error" in reverted) {
+            json(res, 400, reverted);
+            return;
+          }
+          json(res, 200, reverted);
+          return;
+        }
+        if (action === "delete_version") {
+          const result = await deleteSkillVersion(
+            String(body.name ?? ""),
+            String(body.versionId ?? ""),
+            env as NodeJS.ProcessEnv,
+          );
+          json(res, result.ok ? 200 : 400, result);
           return;
         }
         const saved = await writeSkill(
