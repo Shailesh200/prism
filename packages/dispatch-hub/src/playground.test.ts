@@ -10,6 +10,7 @@ import {
   playgroundPort,
   playgroundUrl,
   playgroundViteEnabled,
+  resolvePlaygroundNode,
 } from "./playground.js";
 
 const temps: string[] = [];
@@ -50,5 +51,13 @@ describe("playground helpers", () => {
     expect(await findPlaygroundApp(root)).toBe(
       join(root, "apps", "playground"),
     );
+  });
+
+  it("uses PRISM_NODE when that binary exists", async () => {
+    const root = await mkdtemp(join(tmpdir(), "prism-node-"));
+    temps.push(root);
+    const fake = join(root, "node");
+    await writeFile(fake, "");
+    expect(resolvePlaygroundNode({ env: { PRISM_NODE: fake } })).toBe(fake);
   });
 });

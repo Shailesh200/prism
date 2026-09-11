@@ -12,5 +12,9 @@ export default defineConfig({
     // every settings-backed component silently takes its fallback path.
     environmentOptions: { jsdom: { url: "http://localhost/" } },
     setupFiles: ["./vitest.setup.ts"],
+    // jsdom screens take a few seconds each. At the 5s default they passed
+    // alone and timed out under parallel load with Core fixture indexing.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
   },
 });

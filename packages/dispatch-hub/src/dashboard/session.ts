@@ -114,21 +114,34 @@ async function readJsonBody(response: Response): Promise<unknown> {
   }
 }
 
-export async function getJson<T>(path: string, token: string): Promise<T> {
-  let response: Response;
+const FETCH_MS = 35_000;
+
+async function fetchConsole(
+  input: string,
+  init: RequestInit,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_MS);
   try {
-    response = await fetch(path, {
-      headers: authHeaders(token),
-      cache: "no-store",
-    });
+    return await fetch(input, { ...init, signal: controller.signal });
   } catch {
-    // A dead daemon and a rejected request are different problems with
-    // different fixes, so they must not share one message.
+    if (controller.signal.aborted) {
+      throw new ConsoleRequestError(0, "The Console took too long to answer.");
+    }
     throw new ConsoleRequestError(
       0,
       "Could not reach Prism Dispatch. It may have shut down — run a Prism command to start it again.",
     );
+  } finally {
+    clearTimeout(timer);
   }
+}
+
+export async function getJson<T>(path: string, token: string): Promise<T> {
+  const response = await fetchConsole(path, {
+    headers: authHeaders(token),
+    cache: "no-store",
+  });
   const body = await readJsonBody(response);
   if (!response.ok) {
     throw new ConsoleRequestError(
@@ -161,19 +174,11 @@ async function sendJson<T>(
   body: unknown,
   method: "POST" | "PATCH",
 ): Promise<T> {
-  let response: Response;
-  try {
-    response = await fetch(path, {
-      method,
-      headers: { ...authHeaders(token), "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-  } catch {
-    throw new ConsoleRequestError(
-      0,
-      "Could not reach Prism Dispatch. It may have shut down — run a Prism command to start it again.",
-    );
-  }
+  const response = await fetchConsole(path, {
+    method,
+    headers: { ...authHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
   const parsed = await readJsonBody(response);
   if (!response.ok) {
     throw new ConsoleRequestError(

@@ -19,6 +19,7 @@ export type WorkspaceEntry = {
 
 export type WorkspaceRegistry = {
   readonly workspaces: readonly WorkspaceEntry[];
+  readonly selectedPath?: string;
 };
 
 export type JobSnapshot = {

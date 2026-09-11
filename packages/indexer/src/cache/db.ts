@@ -16,15 +16,74 @@ import { indexSqlitePath, prismCacheDir } from "./paths.js";
 type SqliteDatabase = BetterSqlite3.Database;
 type SqliteConstructor = typeof import("better-sqlite3");
 
-/** Lazy-load native binding so extension activate can register commands first. */
-function loadSqlite(): SqliteConstructor {
-  // Kept inside the function so the extension host does not dlopen
-  // better-sqlite3 until an index cache is actually opened. `require` exists in
-  // the CJS extension bundle; ESM consumers (CLI, MCP server, vitest) need
-  // createRequire, which is why the plain call is not enough on its own.
-  const load =
-    typeof require === "function" ? require : createRequire(import.meta.url);
-  return load("better-sqlite3") as SqliteConstructor;
+type BunSqliteModule = {
+  Database: new (
+    filename: string,
+    options?: { readonly create?: boolean },
+  ) => SqliteDatabase;
+};
+
+function isBunRuntime(): boolean {
+  return typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
+}
+
+/**
+ * Resolve a native module from this package. Prefer `createRequire(import.meta.url)`
+ * so Bun's global `require` (scoped to the playground Vite config) cannot miss
+ * `better-sqlite3`. The CJS extension bundle still has a working `require`.
+ */
+function nativeRequire(specifier: string): unknown {
+  if (typeof import.meta.url === "string") {
+    try {
+      return createRequire(import.meta.url)(specifier);
+    } catch {
+      /* CJS host / bun builtins fall through. */
+    }
+  }
+  if (typeof require === "function") {
+    return require(specifier);
+  }
+  throw new Error(`Cannot load ${specifier}`);
+}
+
+/**
+ * better-sqlite3 exposes `db.pragma("journal_mode = WAL")`. bun:sqlite does
+ * not — it is otherwise the same prepare/exec/transaction/close surface.
+ */
+function attachPragma(db: SqliteDatabase): SqliteDatabase {
+  if (typeof db.pragma === "function") return db;
+  Object.defineProperty(db, "pragma", {
+    configurable: true,
+    value(source: string): unknown {
+      const sql = /^\s*pragma\b/i.test(source) ? source : `PRAGMA ${source}`;
+      return db.prepare(sql).all();
+    },
+  });
+  return db;
+}
+
+function openBunSqlite(path: string): SqliteDatabase {
+  const mod = nativeRequire("bun:sqlite") as BunSqliteModule;
+  const db =
+    path === ":memory:"
+      ? new mod.Database(path)
+      : new mod.Database(path, { create: true });
+  return attachPragma(db);
+}
+
+/**
+ * Open SQLite. Node / the extension host use better-sqlite3 (ADR-0003).
+ * Bun cannot dlopen that addon, so Bun-hosted hosts (playground Vite, MCP)
+ * fall back to `bun:sqlite` — same file, same schema.
+ */
+export function openSqliteDatabase(path = ":memory:"): SqliteDatabase {
+  try {
+    const Database = nativeRequire("better-sqlite3") as SqliteConstructor;
+    return attachPragma(new Database(path));
+  } catch (cause) {
+    if (!isBunRuntime()) throw cause;
+    return openBunSqlite(path);
+  }
 }
 
 export type IndexCacheDb = {
@@ -95,8 +154,7 @@ export async function openIndexCache(
 
   const tryOpen = (rebuild: boolean): Result<IndexCacheDb, PrismError> => {
     try {
-      const Database = loadSqlite();
-      const db = new Database(dbPath);
+      const db = openSqliteDatabase(dbPath);
       db.pragma("journal_mode = WAL");
       if (!isHealthy(db)) {
         db.close();

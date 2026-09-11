@@ -831,23 +831,31 @@ export type ListedWorktree = {
   head: string;
 };
 
-export async function listGitWorktrees(
+export async function gitToplevel(
   workspaceRoot: string,
   run: GitRunner = defaultGitRunner,
-): Promise<ListedWorktree[]> {
-  const result = await run(workspaceRoot, ["worktree", "list", "--porcelain"]);
-  if (!result.ok) return [];
+): Promise<string | undefined> {
+  const result = await run(workspaceRoot, ["rev-parse", "--show-toplevel"]);
+  if (!result.ok) return undefined;
+  const path = result.stdout.trim();
+  return path.length > 0 ? path : undefined;
+}
+
+function parsePorcelainWorktrees(stdout: string): ListedWorktree[] {
   const trees: ListedWorktree[] = [];
   let current: Partial<ListedWorktree> = {};
-  for (const line of result.stdout.split("\n")) {
+  const flush = (): void => {
+    if (!current.path) return;
+    trees.push({
+      path: current.path,
+      branch: current.branch ?? "",
+      head: current.head ?? "",
+    });
+    current = {};
+  };
+  for (const line of stdout.split("\n")) {
     if (line.startsWith("worktree ")) {
-      if (current.path) {
-        trees.push({
-          path: current.path,
-          branch: current.branch ?? "",
-          head: current.head ?? "",
-        });
-      }
+      flush();
       current = { path: line.slice("worktree ".length).trim() };
     } else if (line.startsWith("HEAD ")) {
       current.head = line.slice("HEAD ".length).trim();
@@ -857,24 +865,42 @@ export async function listGitWorktrees(
         .replace(/^refs\/heads\//, "")
         .trim();
     } else if (line.trim() === "") {
-      if (current.path) {
-        trees.push({
-          path: current.path,
-          branch: current.branch ?? "",
-          head: current.head ?? "",
-        });
-        current = {};
-      }
+      flush();
     }
   }
-  if (current.path) {
+  flush();
+  return trees;
+}
+
+/** `git worktree list` without --porcelain: `/path  abc1234 [branch]`. */
+export function parseWorktreeList(stdout: string): ListedWorktree[] {
+  const trees: ListedWorktree[] = [];
+  for (const line of stdout.split("\n")) {
+    const match = line.match(/^(\S+)\s+([0-9a-f]{7,40})(?:\s+\[([^\]]+)\])?/i);
+    if (!match?.[1]) continue;
     trees.push({
-      path: current.path,
-      branch: current.branch ?? "",
-      head: current.head ?? "",
+      path: match[1],
+      head: match[2] ?? "",
+      branch: (match[3] ?? "").replace(/^refs\/heads\//, "").trim(),
     });
   }
   return trees;
+}
+
+export async function listGitWorktrees(
+  workspaceRoot: string,
+  run: GitRunner = defaultGitRunner,
+): Promise<ListedWorktree[]> {
+  const root = (await gitToplevel(workspaceRoot, run)) ?? workspaceRoot;
+  const porcelain = await run(root, ["worktree", "list", "--porcelain"]);
+  if (porcelain.ok) {
+    const listed = parsePorcelainWorktrees(porcelain.stdout);
+    if (listed.length > 0) return listed;
+  }
+  const plain = await run(root, ["worktree", "list"]);
+  if (!plain.ok)
+    return porcelain.ok ? parsePorcelainWorktrees(porcelain.stdout) : [];
+  return parseWorktreeList(plain.stdout);
 }
 
 /**

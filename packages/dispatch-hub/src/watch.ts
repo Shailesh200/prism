@@ -1,8 +1,16 @@
 import { access } from "node:fs/promises";
 import { watch, type FSWatcher } from "node:fs";
-import { join } from "node:path";
-import { reapJobs } from "@repo-prism/dispatch";
+import { dirname, join } from "node:path";
+import {
+  jobsPath,
+  listStoredWorkspaceRoots,
+  reapJobs,
+  runWithJobsEnv,
+  useGlobalJobStore,
+} from "@repo-prism/dispatch";
 import { formatJobFinishedNotice } from "./notice.js";
+import { mergeHubEnv } from "./paths.js";
+import { mergeWorkspaceEntries } from "./registry.js";
 import { finishedKey, snapshotKey, toSnapshot } from "./snapshot.js";
 import {
   IN_FLIGHT_STATUSES,
@@ -62,12 +70,17 @@ export function isTerminal(job: JobSnapshot): boolean {
  */
 export async function collectJobs(
   workspaces: readonly WorkspaceEntry[],
+  env: NodeJS.ProcessEnv = process.env,
 ): Promise<CollectResult> {
+  const listed = mergeWorkspaceEntries(
+    workspaces,
+    await listStoredWorkspaceRoots(env),
+  );
   const jobs: JobSnapshot[] = [];
   const errors: WorkspaceError[] = [];
-  for (const entry of workspaces) {
+  for (const entry of listed) {
     try {
-      const records = await reapJobs(entry.path);
+      const records = await runWithJobsEnv(env, () => reapJobs(entry.path));
       for (const record of records) {
         jobs.push(toSnapshot(record, entry.path));
       }
@@ -106,7 +119,7 @@ export function diffJobs(
     } else if (snapshotKey(before) !== snapshotKey(job)) {
       events.push({ type: "job.updated", job });
     }
-    if (isTerminal(job) && (!before || !isTerminal(before))) {
+    if (isTerminal(job) && before && !isTerminal(before)) {
       const finish = finishedKey(job);
       if (!seenFinished.has(finish)) {
         seenFinished.add(finish);
@@ -133,24 +146,43 @@ export function watchWorkspaces(
   options: {
     readonly debounceMs?: number | undefined;
     readonly pollMs?: number | undefined;
+    readonly env?: NodeJS.ProcessEnv | undefined;
     /** Advance the job queue for one workspace before reading it (ADR-0047). */
     readonly drain?: ((workspacePath: string) => Promise<void>) | undefined;
   } = {},
 ): WorkspaceWatch {
   const debounceMs = options.debounceMs ?? DEBOUNCE_MS;
   const pollMs = options.pollMs ?? POLL_MS;
+  const env = mergeHubEnv(options.env);
   let snapshots: JobSnapshot[] = [];
   let workspaceErrors: WorkspaceError[] = [];
   let asOf = new Date().toISOString();
   const seenFinished = new Set<string>();
   const watchers = new Map<string, FSWatcher[]>();
+  let extraPaths: string[] = [];
   let timer: ReturnType<typeof setTimeout> | undefined;
   let poll: ReturnType<typeof setInterval> | undefined;
   let closed = false;
 
+  const listed = (): readonly WorkspaceEntry[] =>
+    mergeWorkspaceEntries(getWorkspaces(), extraPaths);
+
   const applySnapshot = async (): Promise<void> => {
     if (closed) return;
-    const { jobs: next, errors } = await collectJobs(getWorkspaces());
+    extraPaths = await listStoredWorkspaceRoots(env);
+    const { jobs: collected, errors } = await collectJobs(getWorkspaces(), env);
+    const failed = new Set(errors.map((row) => row.workspacePath));
+    const next = [
+      ...collected,
+      ...snapshots.filter(
+        (job) =>
+          failed.has(job.workspacePath) &&
+          !collected.some(
+            (row) =>
+              row.id === job.id && row.workspacePath === job.workspacePath,
+          ),
+      ),
+    ];
     const events = diffJobs(snapshots, next, seenFinished);
     const errorsChanged =
       errors.length !== workspaceErrors.length ||
@@ -166,7 +198,7 @@ export function watchWorkspaces(
 
   const runDrain = async (): Promise<void> => {
     if (!options.drain) return;
-    for (const entry of getWorkspaces()) {
+    for (const entry of listed()) {
       if (closed) return;
       await options.drain(entry.path).catch(() => {
         /* a failed drain leaves the job queued; the next tick retries */
@@ -201,7 +233,7 @@ export function watchWorkspaces(
   };
 
   const syncWatchers = (): void => {
-    const live = new Set(getWorkspaces().map((entry) => entry.path));
+    const live = new Set(listed().map((entry) => entry.path));
     for (const [path, group] of watchers) {
       if (live.has(path)) continue;
       for (const watcher of group) watcher.close();
@@ -212,7 +244,11 @@ export function watchWorkspaces(
       const group: FSWatcher[] = [];
       const dispatch = join(path, ".prism", "dispatch");
       const runs = join(dispatch, "runs");
-      for (const target of [dispatch, runs]) {
+      const targets = [dispatch, runs];
+      if (useGlobalJobStore(env)) {
+        targets.push(dirname(jobsPath(path, env)));
+      }
+      for (const target of targets) {
         try {
           const watcher = watch(target, { persistent: false }, () =>
             schedule(),
@@ -230,7 +266,8 @@ export function watchWorkspaces(
   };
 
   void (async () => {
-    const initial = await collectJobs(getWorkspaces());
+    extraPaths = await listStoredWorkspaceRoots(env);
+    const initial = await collectJobs(getWorkspaces(), env);
     snapshots = initial.jobs;
     workspaceErrors = initial.errors;
     asOf = new Date().toISOString();

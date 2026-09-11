@@ -22,6 +22,7 @@ import { findingWhenIso, findingsIndex, findingsInView } from "./findings.js";
 import {
   FLEET_RANGE_PRESETS,
   FLEET_RANGES,
+  earliestJobStartMs,
   selectedRangeWindow,
   type FleetRange,
   type TimeWindow,
@@ -52,6 +53,7 @@ export function FindingsView(props: {
   const [cursor, setCursor] = useState(0);
   const filterRef = useRef<HTMLInputElement | null>(null);
   const timeWindow = customWindow ?? selectedRangeWindow(range, nowMs);
+  const firstJobMs = earliestJobStartMs(props.jobs, nowMs);
   const rangeValue: DateRangeValue = {
     preset: customWindow ? CUSTOM_RANGE_PRESET : range,
     startMs: timeWindow.startMs,
@@ -140,6 +142,7 @@ export function FindingsView(props: {
               presets={FLEET_RANGE_PRESETS}
               value={rangeValue}
               nowMs={nowMs}
+              {...(firstJobMs !== undefined ? { minMs: firstJobMs } : {})}
               presetWindow={(id, now) =>
                 selectedRangeWindow(
                   (FLEET_RANGES.includes(id as FleetRange)

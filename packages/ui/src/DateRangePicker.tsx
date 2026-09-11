@@ -1,16 +1,15 @@
 import { useEffect, useState, type ReactElement } from "react";
 import { Button } from "./Button.js";
+import { DateTimePicker } from "./DateTimePicker.js";
 import {
   CUSTOM_RANGE_PRESET,
   formatRangeAbs,
-  fromDatetimeLocalValue,
   presetLabel,
-  toDatetimeLocalValue,
   type DateRangePreset,
   type DateRangeValue,
   type DateRangeWindow,
 } from "./date-range.js";
-import { Input } from "./Input.js";
+import { dateRangeCanApply } from "./datetime-picker.js";
 import { Popover } from "./Popover.js";
 
 export type DateRangePickerProps = {
@@ -20,9 +19,17 @@ export type DateRangePickerProps = {
   /** Resolve a preset id into an absolute window (All is unbounded). */
   readonly presetWindow: (presetId: string, nowMs: number) => DateRangeWindow;
   readonly nowMs?: number;
+  /** Earliest selectable instant (first job). */
+  readonly minMs?: number;
   readonly "aria-label"?: string;
   readonly className?: string;
 };
+
+function finiteBound(ms: number | undefined): number | undefined {
+  if (ms === undefined || !Number.isFinite(ms)) return undefined;
+  if (ms <= Number.MIN_SAFE_INTEGER / 2) return undefined;
+  return ms;
+}
 
 /**
  * Grafana-style range: absolute from/to on the left of the trigger and in the
@@ -30,27 +37,47 @@ export type DateRangePickerProps = {
  */
 export function DateRangePicker(props: DateRangePickerProps): ReactElement {
   const nowMs = props.nowMs ?? Date.now();
+  const minMs = finiteBound(props.minMs);
   const [open, setOpen] = useState(false);
-  const [from, setFrom] = useState(() =>
-    toDatetimeLocalValue(props.value.startMs),
+  const [fromMs, setFromMs] = useState(() => finiteBound(props.value.startMs));
+  const [toMs, setToMs] = useState(
+    () => finiteBound(props.value.endMs) ?? nowMs,
   );
-  const [to, setTo] = useState(() => toDatetimeLocalValue(props.value.endMs));
+  const [fromOk, setFromOk] = useState(true);
+  const [toOk, setToOk] = useState(true);
 
   useEffect(() => {
     if (!open) return;
-    setFrom(toDatetimeLocalValue(props.value.startMs));
-    setTo(toDatetimeLocalValue(props.value.endMs || nowMs));
+    setFromMs(finiteBound(props.value.startMs));
+    setToMs(finiteBound(props.value.endMs) ?? nowMs);
+    setFromOk(true);
+    setToOk(true);
   }, [open, props.value.startMs, props.value.endMs, nowMs]);
 
   const applyCustom = (): void => {
-    const startMs = fromDatetimeLocalValue(from);
-    const endMs = fromDatetimeLocalValue(to);
-    if (startMs === undefined || endMs === undefined || startMs >= endMs) {
+    if (
+      !dateRangeCanApply(fromMs, toMs, minMs) ||
+      fromMs === undefined ||
+      toMs === undefined
+    ) {
       return;
     }
-    props.onChange({ preset: CUSTOM_RANGE_PRESET, startMs, endMs });
+    props.onChange({
+      preset: CUSTOM_RANGE_PRESET,
+      startMs: fromMs,
+      endMs: toMs,
+    });
     setOpen(false);
   };
+
+  const toMin =
+    fromMs !== undefined && minMs !== undefined
+      ? Math.max(fromMs, minMs)
+      : (fromMs ?? minMs);
+  const toMinMessage =
+    fromMs !== undefined && (minMs === undefined || fromMs > minMs)
+      ? "Can't be before the start."
+      : "Can't be before the first job.";
 
   const triggerClass = props.className
     ? `prism-range-trigger ${props.className}`
@@ -80,28 +107,29 @@ export function DateRangePicker(props: DateRangePickerProps): ReactElement {
       }
     >
       <div className="prism-range-pop__abs">
-        <Input
+        <DateTimePicker
           label="From"
-          type="datetime-local"
-          value={from}
-          onChange={(event) => setFrom(event.target.value)}
+          value={fromMs}
+          minMessage="Can't be before the first job."
+          maxMessage="Can't be after the end."
+          onChange={setFromMs}
+          onValidityChange={setFromOk}
+          {...(minMs !== undefined ? { minMs } : {})}
+          {...(toMs !== undefined ? { maxMs: toMs } : {})}
         />
-        <Input
+        <DateTimePicker
           label="To"
-          type="datetime-local"
-          value={to}
-          onChange={(event) => setTo(event.target.value)}
+          value={toMs}
+          minMessage={toMinMessage}
+          onChange={setToMs}
+          onValidityChange={setToOk}
+          {...(toMin !== undefined ? { minMs: toMin } : {})}
         />
         <Button
           variant="primary"
           size="sm"
           onClick={applyCustom}
-          disabled={
-            fromDatetimeLocalValue(from) === undefined ||
-            fromDatetimeLocalValue(to) === undefined ||
-            (fromDatetimeLocalValue(from) ?? 0) >=
-              (fromDatetimeLocalValue(to) ?? 0)
-          }
+          disabled={!fromOk || !toOk || !dateRangeCanApply(fromMs, toMs, minMs)}
         >
           Apply time range
         </Button>

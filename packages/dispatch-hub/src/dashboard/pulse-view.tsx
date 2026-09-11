@@ -1,4 +1,5 @@
 import {
+  heartbeatAge,
   jobBadgePulse,
   jobBadgeTone,
   jobDisplayLabel,
@@ -12,21 +13,23 @@ import {
   HoverTip,
   Truncate,
   Accordion,
-  formatPrismDate,
+  ScreenSkeleton,
+  relativePrismTime,
 } from "@repo-prism/ui";
+import { CircleAlert, Inbox, Pause } from "lucide-react";
 import { type ReactElement, type ReactNode } from "react";
 import {
   isWorkingJob,
-  jobPlaybookNotch,
   groupJobsByRepo,
   jobWorkStartedAt,
+  pulseCtaShowsCancel,
   pulseIdleRepos,
   pulseSections,
+  repoInitials,
   waitWorkMeter,
   type FleetTimeRange,
   type RepoFleet,
 } from "./fleet.js";
-import { GenerateFlow } from "./generate-line.js";
 import {
   JobActions,
   jobActionHandlers,
@@ -41,6 +44,7 @@ export function PulseView(
     readonly loading: boolean;
     readonly outsideCount?: number;
     readonly onShowAllTime?: () => void;
+    readonly onStartJob?: () => void;
     readonly onOpenJob: (job: JobSummary) => void;
     readonly onOpenRepo: (path: string) => void;
   } & JobActionHandlers,
@@ -48,7 +52,9 @@ export function PulseView(
   const jobs = props.repos.flatMap((repo) => repo.jobs);
   const sections = pulseSections(jobs, props.range, props.nowMs);
   const idle = pulseIdleRepos(props.repos, props.range, props.nowMs);
-  if (props.loading) return <div className="fleet-scan" aria-hidden />;
+  if (props.loading) {
+    return <ScreenSkeleton label="Loading jobs…" rows={4} className="pulse" />;
+  }
   const empty =
     sections.live.length === 0 &&
     sections.needsYou.length === 0 &&
@@ -59,19 +65,37 @@ export function PulseView(
     <div className="pulse">
       {empty ? (
         <div className="pulse-empty">
-          <p className="console__lede">
+          <span className="pulse-empty__icon" aria-hidden>
+            <Inbox size={16} />
+          </span>
+          <p className="pulse-empty__copy">
             {outside > 0
               ? `${outside} job${outside === 1 ? "" : "s"} sit outside this range.`
               : "No jobs in this range. Start one, or widen All."}
           </p>
-          {outside > 0 && props.onShowAllTime ? (
-            <Button size="sm" variant="secondary" onClick={props.onShowAllTime}>
-              Show all time
-            </Button>
-          ) : null}
+          <div className="pulse-empty__actions">
+            {props.onStartJob ? (
+              <Button size="sm" variant="primary" onClick={props.onStartJob}>
+                Start one
+              </Button>
+            ) : null}
+            {props.onShowAllTime ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={props.onShowAllTime}
+              >
+                Widen to All
+              </Button>
+            ) : null}
+          </div>
         </div>
       ) : null}
-      <PulseSection label="Live" hidden={sections.live.length === 0}>
+      <PulseSection
+        kind="live"
+        hidden={sections.live.length === 0}
+        count={sections.live.length}
+      >
         <PulseRepoGroups
           jobs={sections.live}
           kind="live"
@@ -81,7 +105,11 @@ export function PulseView(
           {...actions}
         />
       </PulseSection>
-      <PulseSection label="Needs you" hidden={sections.needsYou.length === 0}>
+      <PulseSection
+        kind="needsYou"
+        hidden={sections.needsYou.length === 0}
+        count={sections.needsYou.length}
+      >
         <PulseRepoGroups
           jobs={sections.needsYou}
           kind="needsYou"
@@ -91,7 +119,11 @@ export function PulseView(
           {...actions}
         />
       </PulseSection>
-      <PulseSection label="Settled" hidden={sections.settled.length === 0}>
+      <PulseSection
+        kind="settled"
+        hidden={sections.settled.length === 0}
+        count={sections.settled.length}
+      >
         <PulseRepoGroups
           jobs={sections.settled}
           kind="settled"
@@ -101,19 +133,38 @@ export function PulseView(
         />
       </PulseSection>
       {idle.length > 0 ? (
-        <div className="pulse-idle">
-          <span className="pulse-idle__label">Idle</span>
-          {idle.map((repo) => (
-            <Button
-              key={repo.path}
-              size="sm"
-              variant="ghost"
-              onClick={() => props.onOpenRepo(repo.path)}
-            >
-              {repo.label}
-            </Button>
-          ))}
-        </div>
+        <section className="pulse-idle" aria-label="Idle repositories">
+          <div className="pulse-idle__head">
+            <span className="pulse-idle__label">
+              Idle Repositories (No active dispatch)
+            </span>
+            <span className="pulse-idle__count">
+              {idle.length} {idle.length === 1 ? "repository" : "repositories"}{" "}
+              dormant
+            </span>
+          </div>
+          <div className="pulse-idle__chips">
+            {idle.map((repo) => {
+              const since = idleSince(repo, props.nowMs);
+              return (
+                <button
+                  key={repo.path}
+                  type="button"
+                  className="pulse-idle__chip"
+                  onClick={() => props.onOpenRepo(repo.path)}
+                >
+                  <span className="pulse-mark pulse-mark--idle" aria-hidden>
+                    {repoInitials(repo.label)}
+                  </span>
+                  <span>{repo.label}</span>
+                  {since ? (
+                    <span className="pulse-idle__since">· {since}</span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        </section>
       ) : null}
     </div>
   );
@@ -134,21 +185,16 @@ function PulseRepoGroups(
       {groups.map((group, index) => (
         <Accordion
           key={`${props.kind}:${group.path || group.label}`}
-          className="pulse-group"
+          className={`pulse-group pulse-group--${props.kind}`}
           defaultOpen={Boolean(props.defaultOpen) || index === 0}
           summary={
             <span className="repo-group-summary">
-              <span className="fleet-mark" aria-hidden>
-                {group.label.slice(0, 1).toUpperCase()}
+              <span className="pulse-mark" aria-hidden>
+                {repoInitials(group.label)}
               </span>
               <strong>{group.label}</strong>
-              <span className="repo-group-summary__meta">
-                {group.jobs.length}{" "}
-                {props.kind === "live"
-                  ? "live"
-                  : props.kind === "needsYou"
-                    ? "need you"
-                    : "settled"}
+              <span className="repo-group-summary__chip">
+                {groupChipLabel(props.kind, group.jobs)}
               </span>
             </span>
           }
@@ -171,17 +217,59 @@ function PulseRepoGroups(
 }
 
 function PulseSection(props: {
-  readonly label: string;
+  readonly kind: "live" | "needsYou" | "settled";
   readonly hidden: boolean;
+  readonly count: number;
   readonly children: ReactNode;
 }): ReactElement | null {
   if (props.hidden) return null;
+  const label =
+    props.kind === "live"
+      ? "Live"
+      : props.kind === "needsYou"
+        ? "Needs you"
+        : "Settled";
   return (
-    <section className="pulse-section" aria-label={props.label}>
-      <h2 className="pulse-section__label">{props.label}</h2>
+    <section className="pulse-section" aria-label={label}>
+      <div className="pulse-section__head">
+        <h2 className="pulse-section__label">
+          <span
+            className={`pulse-section__pip pulse-section__pip--${props.kind}`}
+            aria-hidden
+          />
+          {label}
+        </h2>
+        <span
+          className={`pulse-section__count pulse-section__count--${props.kind}`}
+        >
+          {sectionCountLabel(props.kind, props.count)}
+        </span>
+      </div>
       <div className="pulse-section__list">{props.children}</div>
     </section>
   );
+}
+
+function sectionCountLabel(
+  kind: "live" | "needsYou" | "settled",
+  count: number,
+): string {
+  if (kind === "live") return `${count} in progress`;
+  if (kind === "needsYou") return `${count} waiting on action`;
+  return `${count} recent in window`;
+}
+
+function groupChipLabel(
+  kind: "live" | "needsYou" | "settled",
+  jobs: readonly JobSummary[],
+): string {
+  if (kind === "live") return `${jobs.length} live`;
+  if (kind === "settled") return `${jobs.length} finished`;
+  const paused = jobs.filter((job) => job.status === "paused").length;
+  if (paused === jobs.length) {
+    return `${paused} paused`;
+  }
+  return `${jobs.length} needs you`;
 }
 
 function compactLine(
@@ -210,6 +298,10 @@ function pulseMessage(
   return compactLine(text);
 }
 
+function titleVerb(verb: string): string {
+  return verb.length === 0 ? verb : `${verb[0]!.toUpperCase()}${verb.slice(1)}`;
+}
+
 function PulseCard(
   props: {
     readonly job: JobSummary;
@@ -223,20 +315,23 @@ function PulseCard(
   const meter = waitWorkMeter(job, props.nowMs);
   const liveMeter = props.kind === "live" && jobBadgePulse(job.status);
   const message = pulseMessage(job, props.kind);
-  const mark = (job.workspaceLabel ?? "?").slice(0, 1).toUpperCase();
+  const mark = repoInitials(job.workspaceLabel ?? "?");
   const next = props.kind === "needsYou" ? jobNextAction(job) : undefined;
+  const showCancel = Boolean(next) && pulseCtaShowsCancel(job);
+  const ask = next ? pulseAsk(job, next.copy) : undefined;
+  const ago = heartbeatAge(job, props.nowMs);
+  const pulse = jobBadgePulse(job.status);
   return (
     <article
       className={`pulse-card pulse-card--${props.kind}`}
-      data-notch={jobPlaybookNotch(job.playbook)}
       data-status={job.status}
       onClick={() => props.onOpenJob(job)}
     >
       <header className="pulse-card__head">
-        <span className="fleet-mark" aria-hidden>
-          {mark}
-        </span>
-        <div className="pulse-card__identity">
+        <div className="pulse-card__lead">
+          <span className="pulse-mark" aria-hidden>
+            {mark}
+          </span>
           <HoverTip label={job.title}>
             <strong className="pulse-card__title">
               <Truncate title={job.title}>{job.title}</Truncate>
@@ -245,27 +340,31 @@ function PulseCard(
           {props.hideRepo ? null : (
             <span className="pulse-card__repo">{job.workspaceLabel}</span>
           )}
+          <Badge
+            className="pulse-card__badge"
+            tone={jobBadgeTone(job.status, job.nextStep)}
+            pulse={pulse}
+          >
+            {pulse ? (
+              <span className="pulse-card__live-pip" aria-hidden />
+            ) : null}
+            {jobDisplayLabel(job)}
+          </Badge>
         </div>
-        <Badge
-          tone={jobBadgeTone(job.status, job.nextStep)}
-          pulse={jobBadgePulse(job.status)}
-        >
-          {jobDisplayLabel(job)}
-        </Badge>
         <div
-          className="pulse-card__actions"
+          className="pulse-card__meta"
           onClick={(event) => event.stopPropagation()}
         >
-          <JobActions
-            job={job}
-            onOpenJob={props.onOpenJob}
-            {...jobActionHandlers(props)}
-          />
+          <span className="pulse-card__id">#{job.id}</span>
+          <div className="pulse-card__actions">
+            <JobActions
+              job={job}
+              onOpenJob={props.onOpenJob}
+              {...jobActionHandlers(props)}
+            />
+          </div>
         </div>
       </header>
-      {isWorkingJob(job.status) ? (
-        <GenerateFlow moving className="pulse-card__flow" />
-      ) : null}
       {meter.waitPct + meter.workPct + meter.outcomePct > 0 ||
       isWorkingJob(job.status) ? (
         <div className="pulse-meter-wrap">
@@ -282,7 +381,7 @@ function PulseCard(
                   style={{ flexGrow: meter.waitPct, flexBasis: 0 }}
                 >
                   <HoverTip
-                    label={`${meter.waitVerb === "waiting" ? "Waiting" : "Waited"} ${meter.waited}`}
+                    label={`${titleVerb(meter.waitVerb)} ${meter.waited}`}
                     {...(meterWaitDetail(job)
                       ? { detail: meterWaitDetail(job) }
                       : {})}
@@ -297,7 +396,7 @@ function PulseCard(
                   style={{ flexGrow: meter.workPct, flexBasis: 0 }}
                 >
                   <HoverTip
-                    label={`${meter.workVerb === "working" ? "Working" : "Worked"} ${meter.worked}`}
+                    label={`${titleVerb(meter.workVerb)} ${meter.worked}`}
                     {...(meterWorkDetail(job)
                       ? { detail: meterWorkDetail(job) }
                       : {})}
@@ -330,37 +429,108 @@ function PulseCard(
             </div>
           ) : null}
           <div className="pulse-meter__legend">
-            <span className="pulse-meter__legend-wait">
-              {meter.waitVerb} {meter.waited}
-            </span>
-            <span className="pulse-meter__legend-work">
-              {meter.workVerb} {meter.worked}
-            </span>
+            {meter.waitPct > 0 || meter.waited !== "—" ? (
+              <div className="pulse-meter__legend-col pulse-meter__legend-wait">
+                <span className="pulse-meter__legend-line">
+                  <span className="pulse-meter__swatch pulse-meter__swatch--wait" />
+                  {titleVerb(meter.waitVerb)} {meter.waited}
+                </span>
+                {meterWaitDetail(job) ? (
+                  <span className="pulse-meter__legend-time">
+                    {meterWaitDetail(job)}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+            {meter.workPct > 0 || meter.worked !== "—" ? (
+              <div className="pulse-meter__legend-col pulse-meter__legend-work">
+                <span className="pulse-meter__legend-line">
+                  <span className="pulse-meter__swatch pulse-meter__swatch--work" />
+                  {titleVerb(meter.workVerb)} {meter.worked}
+                  {liveMeter ? (
+                    <span className="pulse-meter__now">(now)</span>
+                  ) : null}
+                </span>
+                {meterWorkDetail(job) ? (
+                  <span className="pulse-meter__legend-time">
+                    {meterWorkDetail(job)}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
             {meter.outcome ? (
-              <span
+              <div
                 className={
                   meter.outcome === "error"
-                    ? "pulse-meter__legend-fail"
-                    : "pulse-meter__legend-cancel"
+                    ? "pulse-meter__legend-col pulse-meter__legend-fail"
+                    : "pulse-meter__legend-col pulse-meter__legend-cancel"
                 }
               >
-                {meter.outcome === "error" ? "failed" : "cancelled"}
-              </span>
+                <span className="pulse-meter__legend-line">
+                  <span
+                    className={
+                      meter.outcome === "error"
+                        ? "pulse-meter__swatch pulse-meter__swatch--fail"
+                        : "pulse-meter__swatch pulse-meter__swatch--cancel"
+                    }
+                  />
+                  {meter.outcome === "error" ? "Failed" : "Cancelled"}
+                </span>
+                {meterOutcomeDetail(job) ? (
+                  <span className="pulse-meter__legend-time">
+                    {meterOutcomeDetail(job)}
+                  </span>
+                ) : null}
+              </div>
             ) : null}
           </div>
         </div>
       ) : null}
       {message && props.kind === "live" ? (
-        <code className="pulse-card__cmd">{message}</code>
+        <div className="pulse-card__cmd">
+          <span className="pulse-card__cmd-line">
+            <span className="pulse-card__prompt" aria-hidden>
+              $
+            </span>
+            <span className="pulse-card__cmd-text">{message}</span>
+          </span>
+          {ago ? <span className="pulse-card__ago">{ago}</span> : null}
+        </div>
       ) : null}
-      {message && props.kind !== "live" ? (
-        <p className="pulse-card__copy">{message}</p>
+      {ask && props.kind === "needsYou" ? (
+        <div
+          className={
+            ask.tone === "pause"
+              ? "pulse-card__ask pulse-card__ask--pause"
+              : "pulse-card__ask"
+          }
+        >
+          {ask.tone === "pause" ? (
+            <Pause size={16} aria-hidden />
+          ) : (
+            <CircleAlert size={16} aria-hidden />
+          )}
+          <div className="pulse-card__ask-copy">
+            <p className="pulse-card__ask-title">{ask.title}</p>
+            {ask.sub ? <p className="pulse-card__ask-sub">{ask.sub}</p> : null}
+          </div>
+        </div>
       ) : null}
       {next ? (
         <div
           className="pulse-card__cta"
           onClick={(event) => event.stopPropagation()}
         >
+          {showCancel ? (
+            <Button
+              size="sm"
+              variant="danger"
+              disabled={!props.onCancel}
+              onClick={() => props.onCancel?.(job)}
+            >
+              Cancel
+            </Button>
+          ) : null}
           {next.action === "keep" ? (
             <Button
               size="sm"
@@ -397,12 +567,46 @@ function PulseCard(
   );
 }
 
+function pulseAsk(
+  job: JobSummary,
+  copy: string,
+): {
+  readonly title: string;
+  readonly sub?: string;
+  readonly tone: "warn" | "pause";
+} {
+  if (job.status === "paused") {
+    return { title: copy, tone: "pause" };
+  }
+  const dirty = job.confirm?.dirtyPaths?.length;
+  if (dirty && dirty > 0) {
+    return {
+      title: copy,
+      sub: `${dirty} modified ${dirty === 1 ? "file" : "files"} in the checkout.`,
+      tone: "warn",
+    };
+  }
+  return { title: copy, tone: "warn" };
+}
+
+function pulseClock(iso: string | undefined): string | undefined {
+  if (!iso) return undefined;
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return undefined;
+  return new Date(t).toLocaleString(undefined, {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
 function stampLine(
   iso: string | undefined,
   prefix: string,
 ): string | undefined {
-  if (!iso) return undefined;
-  const label = formatPrismDate(iso, "datetime");
+  const label = pulseClock(iso);
   return label ? `${prefix} ${label}` : undefined;
 }
 
@@ -419,4 +623,14 @@ function meterWorkDetail(job: JobSummary): string | undefined {
 
 function meterOutcomeDetail(job: JobSummary): string | undefined {
   return stampLine(job.finishedAt, "Finished");
+}
+
+function idleSince(repo: RepoFleet, nowMs: number): string | undefined {
+  const iso =
+    repo.last?.finishedAt ?? repo.last?.updatedAt ?? repo.last?.createdAt;
+  if (!iso) return undefined;
+  const rel = relativePrismTime(iso, nowMs);
+  if (!rel) return undefined;
+  if (rel === "just now") return "just now";
+  return `${rel.replace(/ ago$/, "")} idle`;
 }

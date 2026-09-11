@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import {
   commitJobWork,
   defaultGitRunner,
@@ -95,11 +96,30 @@ function isSkillTreeJob(job: TreeJob): boolean {
   return /^\s*skill:\s/i.test(job.title);
 }
 
-export async function collectRepoTrees(input: {
-  readonly workspacePath: string;
-  readonly label: string;
-  readonly jobs: readonly TreeJob[];
-}): Promise<RepoTrees> {
+const TREE_CACHE_TTL_MS = 45_000;
+const treeCache = new Map<string, { at: number; value: RepoTrees }>();
+
+export function invalidateRepoTrees(workspacePath?: string): void {
+  if (!workspacePath) {
+    treeCache.clear();
+    return;
+  }
+  treeCache.delete(resolve(workspacePath));
+}
+
+export async function collectRepoTrees(
+  input: {
+    readonly workspacePath: string;
+    readonly label: string;
+    readonly jobs: readonly TreeJob[];
+  },
+  opts?: { readonly force?: boolean },
+): Promise<RepoTrees> {
+  const key = resolve(input.workspacePath);
+  const hit = treeCache.get(key);
+  if (!opts?.force && hit && Date.now() - hit.at < TREE_CACHE_TTL_MS) {
+    return hit.value;
+  }
   const discovered = await discoverWorktrees(input.workspacePath);
   const listed =
     discovered.length > 0
@@ -111,12 +131,15 @@ export async function collectRepoTrees(input: {
             source: "git" as const,
           },
         ];
+  const dirtyLists = await Promise.all(
+    listed.map((tree) => gitDirtyPaths(tree.path).catch(() => [] as string[])),
+  );
   const trees: RepoTree[] = [];
-  for (const tree of listed) {
+  listed.forEach((tree, index) => {
     const kind: TreeKind = samePath(tree.path, input.workspacePath)
       ? "primary"
       : "linked";
-    const files = await gitDirtyPaths(tree.path).catch(() => [] as string[]);
+    const files = dirtyLists[index] ?? [];
     const matches = input.jobs.filter((row) => {
       if (isSkillTreeJob(row)) return false;
       if (row.worktreePath) return samePath(row.worktreePath, tree.path);
@@ -156,13 +179,15 @@ export async function collectRepoTrees(input: {
           }
         : {}),
     });
-  }
+  });
   trees.sort((a, b) => {
     const rank = treeSortRank(a) - treeSortRank(b);
     if (rank !== 0) return rank;
     return a.branch.localeCompare(b.branch);
   });
-  return { path: input.workspacePath, label: input.label, trees };
+  const value = { path: input.workspacePath, label: input.label, trees };
+  treeCache.set(key, { at: Date.now(), value });
+  return value;
 }
 
 export async function runTreeAction(input: {

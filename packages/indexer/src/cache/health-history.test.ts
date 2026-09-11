@@ -1,5 +1,5 @@
-import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
+import { openSqliteDatabase } from "./db.js";
 import { migrate } from "./migrations.js";
 import {
   appendHealthHistory,
@@ -33,7 +33,7 @@ function samplePayload(
 
 describe("health_history store", () => {
   it("appends and lists chronological points", () => {
-    const db = new Database(":memory:");
+    const db = openSqliteDatabase(":memory:");
     migrate(db);
 
     expect(

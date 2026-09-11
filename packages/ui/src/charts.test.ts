@@ -38,12 +38,18 @@ describe("niceTicks / integerTicks / pickAxisIndices", () => {
     expect(integerTicks(100).at(-1)).toBe(100);
     expect(integerTicks(11).at(-1)).toBe(11);
     expect(integerTicks(11)).not.toContain(12);
+    expect(integerTicks(11)).toEqual([0, 2, 4, 6, 8, 11]);
+    expect(integerTicks(13)).toEqual([0, 2, 4, 6, 8, 10, 13]);
   });
 
   it("always includes first and last indices", () => {
     expect(pickAxisIndices(2)).toEqual([0, 1]);
     expect(pickAxisIndices(20, 5)[0]).toBe(0);
     expect(pickAxisIndices(20, 5).at(-1)).toBe(19);
+  });
+
+  it("labels every day in a 7-day window", () => {
+    expect(pickAxisIndices(7)).toEqual([0, 1, 2, 3, 4, 5, 6]);
   });
 });
 

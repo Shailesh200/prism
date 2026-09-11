@@ -27,6 +27,7 @@ export {
 export { createIndexerEngine, type IndexerEngine } from "./default-port.js";
 export {
   openIndexCache,
+  openSqliteDatabase,
   wipePrismCache,
   type IndexCacheDb,
 } from "./cache/db.js";

@@ -32,7 +32,7 @@ Prism parses source into a local index and derives views from that one store:
 | **VS Code / Cursor** | Day-to-day visual reading |
 | **CLI** | Scripts, CI, terminal workflows |
 | **MCP server** | Giving an AI agent real structural knowledge |
-| **Playground** | Trying Prism in a browser without an extension |
+| **Spectrum** | Trying Prism in a browser without an extension |
 
 ## Is it for you?
 

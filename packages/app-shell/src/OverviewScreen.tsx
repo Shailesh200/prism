@@ -10,7 +10,6 @@ import {
   AreaChart,
   CardIcon,
   CartesianFrame,
-  Gauge,
   pickAxisIndices,
   relativeTime,
 } from "@repo-prism/ui";
@@ -59,6 +58,7 @@ import {
   deriveMostConnected,
   deriveRegions,
   domainDisplayName,
+  formatDayKey,
   parseDayMs,
   presetBounds,
   reportFilename,
@@ -68,7 +68,7 @@ import {
 
 /** Epoch-ms → `YYYY-MM-DD` for `<input type="date">` values. */
 function toDayInput(ms: number): string {
-  return new Date(ms).toISOString().slice(0, 10);
+  return formatDayKey(ms);
 }
 
 /** Best-effort path from a commit subject when it names a repo file. */
@@ -1328,25 +1328,58 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
   );
 }
 
-/** Circular health gauge (SVG donut). */
 /**
- * `score` is null while health is unknown. It previously defaulted to 0, which
- * rendered a full red ring reading 0/100 — a failing grade for a repository
- * Prism had simply not scored yet (ADR-0029).
+ * Circular health donut. `score` is null while health is unknown — never
+ * default to 0, which used to paint a failing red ring (ADR-0029).
  */
 function HealthRing(props: { score: number | null }): ReactElement {
   const known = props.score !== null;
+  const score = known ? Math.max(0, Math.min(100, props.score!)) : 0;
   const color = known ? scoreColor(props.score!) : "var(--prism-ink-4)";
+  const size = 56;
+  const center = size / 2;
+  const stroke = 5;
+  const radius = 20;
+  const circumference = 2 * Math.PI * radius;
+  const dashOffset = circumference - (score / 100) * circumference;
   return (
-    <div className="ov-ring" data-no-data={!known}>
-      {!known ? (
-        <span className="ov-sr">Health score not computed yet</span>
-      ) : null}
-      {known ? (
-        <Gauge score={props.score!} label={`Health ${props.score}`} />
-      ) : (
-        <Gauge score={0} label="Health not computed yet" />
-      )}
+    <div
+      className="ov-ring"
+      data-no-data={!known}
+      aria-label={
+        known ? `Health ${props.score}` : "Health score not computed yet"
+      }
+    >
+      <svg
+        className="ov-ring__svg"
+        viewBox={`0 0 ${size} ${size}`}
+        width={size}
+        height={size}
+        aria-hidden
+      >
+        <circle
+          cx={center}
+          cy={center}
+          r={radius}
+          fill="none"
+          stroke="var(--prism-line, #2a334a)"
+          strokeWidth={stroke}
+        />
+        {known ? (
+          <circle
+            cx={center}
+            cy={center}
+            r={radius}
+            fill="none"
+            stroke={color}
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={dashOffset}
+            transform={`rotate(-90 ${center} ${center})`}
+          />
+        ) : null}
+      </svg>
       <span className="ov-ring__label" style={{ color }}>
         {known ? props.score : "—"}
       </span>
@@ -1354,12 +1387,11 @@ function HealthRing(props: { score: number | null }): ReactElement {
   );
 }
 
-/** Format a bucket start (UTC epoch-ms) for the hover tooltip. */
+/** Format a bucket start (local calendar day) for the hover tooltip. */
 function bucketLabel(ms: number, granularity: "day" | "week"): string {
   const d = new Date(ms).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
-    timeZone: "UTC",
   });
   return granularity === "week" ? `Week of ${d}` : d;
 }
@@ -1368,7 +1400,6 @@ function axisDateLabel(ms: number): string {
   return new Date(ms).toLocaleDateString(undefined, {
     day: "numeric",
     month: "short",
-    timeZone: "UTC",
   });
 }
 

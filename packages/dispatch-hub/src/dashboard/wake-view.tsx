@@ -1,64 +1,78 @@
-import { Button } from "@repo-prism/ui";
-import type { JobWorkspaceChip } from "@repo-prism/app-shell";
+import {
+  PrismWakeScreen,
+  probeSurfaceAwake,
+  type JobWorkspaceChip,
+} from "@repo-prism/app-shell";
+import { FolderOpen } from "lucide-react";
+import { useEffect, useState, type ReactElement } from "react";
 import { RepoSelect } from "./repo-select.js";
-import type { ReactElement } from "react";
+import { getJson } from "./session.js";
 
 export function WakeView(props: {
   readonly token: string;
   readonly repos: readonly JobWorkspaceChip[];
   readonly repoFilter?: string;
-  readonly consoleUrl: string;
   readonly playgroundUrl: string;
   readonly onRepoFilter: (path: string) => void;
-  readonly onOpenConsole: () => void;
+  readonly onOpenDispatch: () => void;
+  readonly onClose: () => void;
 }): ReactElement {
+  const value = props.repoFilter ?? props.repos[0]?.path ?? "all";
+  const selected =
+    props.repos.find((repo) => repo.path === value)?.label ??
+    (value !== "all" ? value : null);
+  const spectrumBlurb = selected
+    ? `Maps, DNA, blast radius for ${selected}.`
+    : "Maps, DNA, blast radius for the repo you pick.";
+  const [spectrumLive, setSpectrumLive] = useState<boolean | undefined>();
+
+  useEffect(() => {
+    let alive = true;
+    const probe = async (): Promise<void> => {
+      const fromHealth = await getJson<{
+        playground?: { url?: string; live?: boolean };
+      }>("/api/healthz", props.token)
+        .then((body) => body.playground)
+        .catch(() => undefined);
+      let live = fromHealth?.live;
+      if (live === undefined) {
+        live = await probeSurfaceAwake(fromHealth?.url ?? props.playgroundUrl);
+      }
+      if (alive) setSpectrumLive(live);
+    };
+    void probe();
+    const id = window.setInterval(() => void probe(), 4000);
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+    };
+  }, [props.playgroundUrl, props.token]);
+
   return (
-    <div className="wake-layout">
-      <h1>Prism is awake</h1>
-      <p className="console__lede">
-        Console and Playground are on this machine. The repo you pick retargets
-        both.
-      </p>
+    <PrismWakeScreen
+      here="dispatch"
+      dispatchLive={true}
+      spectrumLive={spectrumLive}
+      spectrumBlurb={spectrumBlurb}
+      onOpenDispatch={props.onOpenDispatch}
+      onOpenSpectrum={() => window.open(props.playgroundUrl, "_blank")}
+      onClose={props.onClose}
+    >
       {props.repos.length > 0 ? (
-        <RepoSelect
-          token={props.token}
-          aria-label="Repository"
-          value={props.repoFilter ?? props.repos[0]?.path ?? "all"}
-          onChange={props.onRepoFilter}
-          repos={props.repos}
-          includeAll
-          jobsOnly={false}
-        />
+        <div className="wake-repo">
+          <RepoSelect
+            token={props.token}
+            label="Active repository"
+            aria-label="Repository"
+            value={value}
+            onChange={props.onRepoFilter}
+            repos={props.repos}
+            includeAll
+            jobsOnly={false}
+            icon={<FolderOpen size={18} aria-hidden />}
+          />
+        </div>
       ) : null}
-      <div className="wake-doors">
-        <article className="wake-door">
-          <h2>Console</h2>
-          <p>Dispatch jobs</p>
-          <code>{props.consoleUrl}</code>
-          <div className="wake-door__actions">
-            <Button variant="primary" onClick={props.onOpenConsole}>
-              Open Console
-            </Button>
-          </div>
-        </article>
-        <article className="wake-door">
-          <h2>Playground</h2>
-          <p>Maps, DNA, blast radius for the selected repo</p>
-          <code>{props.playgroundUrl}</code>
-          <div className="wake-door__actions">
-            <Button
-              variant="primary"
-              onClick={() => window.open(props.playgroundUrl, "_blank")}
-            >
-              Open Playground
-            </Button>
-          </div>
-        </article>
-      </div>
-      <p className="console__lede">
-        Playground follows the repo you pick here. Sleep parks both; wake starts
-        both.
-      </p>
-    </div>
+    </PrismWakeScreen>
   );
 }

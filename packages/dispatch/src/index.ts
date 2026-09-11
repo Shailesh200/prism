@@ -41,6 +41,7 @@ export {
   kindForStatus,
   seedLifecycle,
   withLifecycleEvents,
+  repairLifecycle,
   type JobLifecycleEvent,
   type JobLifecycleKind,
 } from "./lifecycle.js";
@@ -196,7 +197,17 @@ export {
   queuedJobs,
   claimQueuedJob,
   updateJobs,
+  listStoredWorkspaceRoots,
+  runWithJobsEnv,
 } from "./jobs.js";
+export {
+  dispatchDir,
+  jobsPath,
+  legacyJobsPath,
+  useGlobalJobStore,
+  prismHome,
+  globalWorkspacesDir,
+} from "./paths.js";
 export {
   drainWorkspace,
   kickDrain,
@@ -310,6 +321,8 @@ export {
   restoreCheckoutPaths,
   removeGitWorktree,
   listGitWorktrees,
+  gitToplevel,
+  parseWorktreeList,
   defaultGitRunner,
   gitChildEnv,
   isMissingGitRepoMessage,

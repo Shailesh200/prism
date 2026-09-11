@@ -198,20 +198,20 @@ async function postPlayground(
         enabled: true,
         detail:
           body.detail ??
-          (action === "wake" ? "Playground is up." : "Playground is down."),
+          (action === "wake" ? "Spectrum is up." : "Spectrum is down."),
         url,
         port: typeof body.port === "number" ? body.port : PLAYGROUND_PORT,
       };
     }
     return {
       enabled: false,
-      detail: body.detail ?? "Playground did not start.",
+      detail: body.detail ?? "Spectrum did not start.",
       url,
     };
   } catch {
     return {
       enabled: false,
-      detail: "Playground did not start.",
+      detail: "Spectrum did not start.",
       url: fallbackUrl,
     };
   }

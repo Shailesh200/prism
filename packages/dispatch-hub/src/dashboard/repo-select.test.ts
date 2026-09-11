@@ -8,14 +8,19 @@ const repos = [
 ];
 
 describe("repoSelectOptions", () => {
-  it("lists only repos that have jobs, plus Select repository", () => {
+  it("lists every registered repo so switching after the first pick still works", () => {
     const options = repoSelectOptions(repos, "/b");
-    expect(options.map((row) => row.value)).toEqual(["/b", PICK_REPO]);
+    expect(options.map((row) => row.value)).toEqual([
+      "/a",
+      "/b",
+      "/c",
+      PICK_REPO,
+    ]);
     expect(options.at(-1)?.label).toBe("Select repository…");
   });
 
-  it("keeps the current value even when it has no jobs", () => {
-    const options = repoSelectOptions(repos, "/a");
+  it("can keep a jobs-only list when asked", () => {
+    const options = repoSelectOptions(repos, "/a", { jobsOnly: true });
     expect(options.map((row) => row.value)).toEqual(["/b", "/a", PICK_REPO]);
   });
 

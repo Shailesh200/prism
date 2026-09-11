@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { deleteJob, upsertJob } from "@repo-prism/dispatch";
 import { createIntelligencePlane } from "./intelligence.js";
 import { startHub } from "./server.js";
 import type { JobSnapshot } from "./types.js";
@@ -27,28 +28,24 @@ async function writeJob(
   root: string,
   status: "running" | "done",
 ): Promise<void> {
-  const dispatch = join(root, ".prism", "dispatch");
-  await mkdir(join(dispatch, "runs"), { recursive: true });
   const now = new Date().toISOString();
-  await writeFile(
-    join(dispatch, "jobs.json"),
-    `${JSON.stringify({
-      jobs: [
-        {
-          id: "news-tab",
-          title: "news-tab",
-          branch: "dispatch/news-tab",
-          worktreePath: join(root, ".prism/dispatch/worktrees/news-tab"),
-          source: "prism",
-          status,
-          lastActivity: status === "done" ? "Done" : "Editing files",
-          resultSummary: status === "done" ? "Checks passed." : undefined,
-          createdAt: now,
-          updatedAt: now,
-        },
-      ],
-    })}\n`,
-  );
+  await upsertJob(root, {
+    id: "news-tab",
+    title: "news-tab",
+    playbook: "ticket",
+    prd: "",
+    branch: "dispatch/news-tab",
+    worktreePath: join(root, ".prism/dispatch/worktrees/news-tab"),
+    source: "prism",
+    status,
+    lastActivity: status === "done" ? "Done" : "Editing files",
+    resultSummary: status === "done" ? "Checks passed." : undefined,
+    lastStep: "",
+    nextStep: "",
+    waitingOn: "",
+    createdAt: now,
+    updatedAt: now,
+  });
 }
 
 describe("hub HTTP", () => {
@@ -247,10 +244,7 @@ describe("hub HTTP", () => {
       pollMs: 200,
       control: async (workspace, _jobId, action) => {
         if (action === "delete") {
-          await writeFile(
-            join(workspace, ".prism", "dispatch", "jobs.json"),
-            `${JSON.stringify({ jobs: [] })}\n`,
-          );
+          await deleteJob(workspace, "news-tab");
           return { deleted: true };
         }
         return { ok: true };
@@ -284,10 +278,12 @@ describe("hub HTTP", () => {
     );
     expect(deleted.status).toBe(200);
     expect(await deleted.json()).toMatchObject({ deleted: true });
-    const list = (await (
-      await fetch(`http://127.0.0.1:${port}/api/jobs`, { headers: auth })
-    ).json()) as { jobs: JobSnapshot[] };
-    expect(list.jobs).toEqual([]);
+    await waitFor(async () => {
+      const list = (await (
+        await fetch(`http://127.0.0.1:${port}/api/jobs`, { headers: auth })
+      ).json()) as { jobs: JobSnapshot[] };
+      return list.jobs.length === 0;
+    });
   });
 
   it("forwards attach_context text to job_control", async () => {
@@ -717,10 +713,11 @@ describe("hub HTTP", () => {
     ).json()) as {
       asleep: boolean;
       ok: boolean;
-      playground?: { port: number; url: string };
+      playground?: { port: number; url: string; live?: boolean };
     };
     expect(health.ok).toBe(true);
     expect(health.asleep).toBe(true);
+    expect(health.playground?.live).toBe(false);
     expect(health.playground?.url).toMatch(
       /^http:\/\/prismhq\.localhost:\d+\/$/,
     );

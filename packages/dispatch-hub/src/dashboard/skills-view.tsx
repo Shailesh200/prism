@@ -10,6 +10,7 @@ import {
   IconButton,
   Input,
   ListTile,
+  ScreenSkeleton,
   Tabs,
   Textarea,
 } from "@repo-prism/ui";
@@ -127,6 +128,7 @@ export function SkillsView(props: {
 }): ReactElement {
   const [skills, setSkills] = useState<readonly PrismSkill[]>([]);
   const [ready, setReady] = useState(false);
+  const [loadError, setLoadError] = useState<string | undefined>();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string | undefined>();
   const [name, setName] = useState("");
@@ -157,6 +159,7 @@ export function SkillsView(props: {
   const snapshotRef = useRef("");
   const deletingRef = useRef(false);
   const selectedRef = useRef<string | undefined>(undefined);
+  const flushDraftRef = useRef<() => void>(() => undefined);
   const formRef = useRef({
     name: "",
     description: "",
@@ -226,6 +229,9 @@ export function SkillsView(props: {
         description: input.description,
         body: input.body,
         status: input.status,
+        ...(selectedRef.current && selectedRef.current !== input.name.trim()
+          ? { previousName: selectedRef.current }
+          : {}),
       },
     );
     if ("error" in saved) {
@@ -254,6 +260,7 @@ export function SkillsView(props: {
         props.token,
       );
       setSkills(listed.skills);
+      setLoadError(undefined);
       const target = keep ?? selectedRef.current;
       if (keep) {
         const next = listed.skills.find((row) => row.name === keep);
@@ -278,6 +285,10 @@ export function SkillsView(props: {
         return;
       }
       apply(listed.skills.find((row) => !row.inherited) ?? listed.skills[0]);
+    } catch (cause) {
+      setLoadError(
+        cause instanceof Error ? cause.message : "Could not load skills.",
+      );
     } finally {
       setReady(true);
     }
@@ -321,29 +332,6 @@ export function SkillsView(props: {
     generateJob || pendingGenerate || armed || applying || cancelPending,
   );
 
-  useEffect(() => {
-    if (deletingRef.current) return;
-    if (generateBusy) return;
-    if (inherited || status !== "draft" || !name.trim()) return;
-    const snap = snapshotOf({ name, description, body, status });
-    if (snap === snapshotRef.current) return;
-    const timer = window.setTimeout(() => {
-      if (deletingRef.current) return;
-      void persist(
-        { name, description, body, status: "draft" },
-        { toast: false },
-      ).then(async (saved) => {
-        if (!saved) return;
-        const listed = await getJson<{ skills: PrismSkill[] }>(
-          "/api/skills",
-          props.token,
-        );
-        setSkills(listed.skills);
-      });
-    }, 800);
-    return () => window.clearTimeout(timer);
-  }, [name, description, body, inherited, status, props.token, generateBusy]);
-
   const yours = useMemo(
     () => skills.filter((skill) => !skill.inherited),
     [skills],
@@ -366,6 +354,7 @@ export function SkillsView(props: {
   useEffect(() => {
     if (!selected) return;
     if (listed.some((skill) => skill.name === selected)) return;
+    flushDraftRef.current();
     apply(listed[0], { tab });
   }, [listed, selected, tab]);
 
@@ -498,6 +487,7 @@ export function SkillsView(props: {
         : undefined;
 
   const flushDraft = (): void => {
+    if (deletingRef.current) return;
     const prev = formRef.current;
     if (prev.inherited || prev.status !== "draft" || !prev.name.trim()) return;
     const snap = snapshotOf(prev);
@@ -511,6 +501,13 @@ export function SkillsView(props: {
       setSkills(listedSkills.skills);
     });
   };
+  flushDraftRef.current = flushDraft;
+
+  useEffect(() => {
+    return () => {
+      flushDraftRef.current();
+    };
+  }, []);
 
   const save = async (nextStatus: SkillStatus): Promise<void> => {
     const saved = await persist(
@@ -620,7 +617,14 @@ export function SkillsView(props: {
         </div>
         <div className="skills-library__list">
           {!ready ? (
-            <EmptyState>Loading skills…</EmptyState>
+            <ScreenSkeleton label="Loading skills…" rows={5} />
+          ) : loadError ? (
+            <>
+              <EmptyState>{loadError}</EmptyState>
+              <Button size="sm" variant="secondary" onClick={() => void load()}>
+                Try again
+              </Button>
+            </>
           ) : listed.length === 0 ? (
             <EmptyState>
               {query.trim()
@@ -744,6 +748,7 @@ export function SkillsView(props: {
                     variant="secondary"
                     icon={<Sparkles size={14} aria-hidden />}
                     disabled={!name.trim() || generateBusy}
+                    loading={generateBusy}
                     onClick={() => {
                       cancelledGenerateName.current = undefined;
                       setCancelPending(false);

@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Prism Repository Map playground",
   "scripts": {
-    "dev": "vite",
+    "dev": "node ./scripts/run-vite.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",

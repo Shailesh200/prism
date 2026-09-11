@@ -17,7 +17,7 @@ Dispatch is the `@prism` teammate: standup, jobs, and connectors on the same
 | that request plus "do it now" | no job — the agent edits inline |
 | "prism init" | `init` — worker sign-in, without starting a job |
 | "prism sleep" | `sleep` — Console down; queue waits (confirms if jobs are running) |
-| "prism wake" | `wake` — Console and playground back |
+| "prism wake" | `wake` — Console and Spectrum back |
 | "prism use …" | `use_skill` |
 | "where are we" | `list_jobs` — live activity, then results or errors |
 | "what is it doing" / "show me the logs" | `job_logs` — that job's console |

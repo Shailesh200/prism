@@ -1,6 +1,6 @@
 {
   "name": "@repo-prism/indexer",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "description": "Repository walk, hash, and index orchestration",
   "exports": {

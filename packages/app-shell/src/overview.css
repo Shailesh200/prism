@@ -429,6 +429,9 @@
 }
 
 .ov-stat__k {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 0.75rem;
   color: #94a3b8;
 }
@@ -473,17 +476,20 @@
   border-radius: 99px;
 }
 
-/* Health ring */
+/* Health ring — circular donut sized to the 56px slot (not the 80×52 Gauge). */
 .ov-ring {
   position: relative;
   width: 56px;
   height: 56px;
   flex-shrink: 0;
+  overflow: visible;
 }
 
 .ov-ring__svg {
-  width: 100%;
-  height: 100%;
+  display: block;
+  width: 56px;
+  height: 56px;
+  overflow: visible;
 }
 
 .ov-ring__label {
@@ -492,8 +498,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
 }
 
 /* ---- Cards / grid ---- */
@@ -528,6 +536,14 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 16px;
+}
+
+.ov-card:has(.prism-chart) {
+  padding-top: 12px;
+}
+
+.ov-card:has(.prism-chart) > .ov-card__head {
+  margin-bottom: 8px;
 }
 
 .ov-card__title {
@@ -693,7 +709,10 @@
 .ov-chart {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .ov-chart__plot {
@@ -705,12 +724,16 @@
 }
 
 .prism-chart__body > .ov-chart__plot {
-  height: 180px;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: auto;
+  min-height: 0;
 }
 
 .ov-chart__svg {
   width: 100%;
-  height: 180px;
+  height: 100%;
   display: block;
 }
 
@@ -4140,12 +4163,12 @@
   display: grid;
   grid-template-columns: 1.6fr 1fr;
   gap: 16px;
-  min-height: 280px;
+  min-height: 340px;
 }
 
 .tr-grid-charts--secondary {
   grid-template-columns: 1fr 1fr;
-  min-height: 280px;
+  min-height: 320px;
   min-width: 0;
 }
 
@@ -4157,7 +4180,7 @@
 }
 
 .tr-panel {
-  padding: 14px 16px;
+  padding: 10px 16px 12px;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -4166,7 +4189,7 @@
 }
 
 .tr-panel--wide {
-  min-height: 280px;
+  min-height: 340px;
 }
 
 .tr-legend {
@@ -4183,13 +4206,24 @@
   gap: 6px;
 }
 
+.tr-chart {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.tr-chart .prism-chart {
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-rows: minmax(180px, 1fr) 22px;
+}
+
 .tr-chart .ov-chart__plot {
-  height: 200px;
-  min-height: 200px;
+  height: auto;
+  min-height: 0;
 }
 
 .tr-chart .ov-chart__svg {
-  height: 200px;
+  height: 100%;
 }
 
 .tr-empty {

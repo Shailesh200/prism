@@ -27,6 +27,7 @@ import {
   Plus,
   ScrollText,
   Settings,
+  Hexagon,
 } from "lucide-react";
 import {
   useCallback,
@@ -37,7 +38,11 @@ import {
   type ReactElement,
 } from "react";
 import { ComposeDrawer, InstructionDrawer } from "./compose-drawer.js";
-import { ConsoleFooter, PLAYGROUND_DEFAULT } from "./console-footer.js";
+import {
+  ConsoleFooter,
+  PLAYGROUND_DEFAULT,
+  spectrumUrl,
+} from "./console-footer.js";
 import { ConsoleToastHost, showConsoleToast } from "./console-toast.js";
 import { FindingsView } from "./findings-view.js";
 import {
@@ -45,6 +50,7 @@ import {
   FLEET_RANGES,
   TILES_STORAGE_KEY,
   VIEW_STORAGE_KEY,
+  earliestJobStartMs,
   hydrateJobs,
   jobsInRange,
   jobsOutsideRange,
@@ -106,7 +112,11 @@ type RepoRow = {
   readonly error?: string;
 };
 
-type ReposResponse = { readonly repos: RepoRow[]; readonly asOf: string };
+type ReposResponse = {
+  readonly repos: RepoRow[];
+  readonly asOf: string;
+  readonly selectedPath?: string;
+};
 
 type HostTelemetry = {
   readonly cpu?: number;
@@ -126,7 +136,9 @@ export function ConsoleApp(): ReactElement {
     note: notePath,
   } = useHashRoute();
   const feed = useJobsFeed(token);
-  const workspaces = useWorkspaces(token, feed);
+  const { workspaces, selectedPath } = useWorkspaces(token, feed);
+  const spectrumRoot =
+    repoFilter && repoFilter !== "all" ? repoFilter : selectedPath;
   const [version, setVersion] = useState<string | undefined>();
   const [playgroundUrl, setPlaygroundUrl] = useState(`${PLAYGROUND_DEFAULT}/`);
   const [update, setUpdate] = useState<{
@@ -206,6 +218,7 @@ export function ConsoleApp(): ReactElement {
     : "";
   useJobRailMotion(graphHostRef, graphSig);
   const timeWindow = customWindow ?? selectedRangeWindow(range, nowMs);
+  const firstJobMs = earliestJobStartMs(feed.summaries, nowMs);
   const rangeValue: DateRangeValue = {
     preset: customWindow ? CUSTOM_RANGE_PRESET : range,
     startMs: timeWindow.startMs,
@@ -491,23 +504,43 @@ export function ConsoleApp(): ReactElement {
               <PanelLeftClose size={16} aria-hidden />
             )}
           </Button>
-          {CONSOLE_VIEWS.map((id) => (
-            <Button
-              key={id}
-              type="button"
-              variant="tertiary"
-              className={
-                view === id
-                  ? "console-rail__item console-rail__item--on"
-                  : "console-rail__item"
-              }
-              aria-current={view === id ? "page" : undefined}
-              onClick={() => go(id)}
-            >
-              {RAIL_ICONS[id]}
-              <span>{VIEW_LABELS[id]}</span>
-            </Button>
-          ))}
+          {CONSOLE_VIEWS.flatMap((id) => {
+            const item = (
+              <Button
+                key={id}
+                type="button"
+                variant="tertiary"
+                className={
+                  view === id
+                    ? "console-rail__item console-rail__item--on"
+                    : "console-rail__item"
+                }
+                aria-current={view === id ? "page" : undefined}
+                onClick={() => go(id)}
+              >
+                {RAIL_ICONS[id]}
+                <span>{VIEW_LABELS[id]}</span>
+              </Button>
+            );
+            if (id !== "settings") return [item];
+            return [
+              <a
+                key="spectrum"
+                className="console-rail__item console-rail__item--spectrum"
+                href={spectrumUrl(
+                  playgroundUrl,
+                  spectrumRoot ? { root: spectrumRoot } : undefined,
+                )}
+                target="_blank"
+                rel="noreferrer"
+                title="Open Spectrum"
+              >
+                <Hexagon size={16} aria-hidden />
+                <span>Spectrum</span>
+              </a>,
+              item,
+            ];
+          })}
         </nav>
 
         <div className="console__column">
@@ -596,6 +629,7 @@ export function ConsoleApp(): ReactElement {
                     nowMs={nowMs}
                     mode={mode}
                     onMode={setModePersist}
+                    {...(firstJobMs !== undefined ? { minMs: firstJobMs } : {})}
                     repos={workspaces}
                     repoFilter={repoFilter ?? "all"}
                     onRepoFilter={(path) =>
@@ -610,6 +644,10 @@ export function ConsoleApp(): ReactElement {
                       loading={feed.loading}
                       outsideCount={outsideCount}
                       onShowAllTime={showAllTime}
+                      onStartJob={() => {
+                        setInstructJob(undefined);
+                        setCompose({ open: true });
+                      }}
                       onOpenRepo={(path) => go("dashboard", { repo: path })}
                       {...fleetActions}
                     />
@@ -742,12 +780,17 @@ export function ConsoleApp(): ReactElement {
                 token={token}
                 repos={workspaces}
                 {...(repoFilter ? { repoFilter } : {})}
-                consoleUrl={`${window.location.protocol}//${window.location.host}/`}
-                playgroundUrl={playgroundUrl}
+                playgroundUrl={spectrumUrl(
+                  playgroundUrl,
+                  spectrumRoot ? { root: spectrumRoot } : undefined,
+                )}
                 onRepoFilter={(path) =>
                   go("wake", path === "all" ? {} : { repo: path })
                 }
-                onOpenConsole={() =>
+                onOpenDispatch={() =>
+                  go("dashboard", repoFilter ? { repo: repoFilter } : {})
+                }
+                onClose={() =>
                   go("dashboard", repoFilter ? { repo: repoFilter } : {})
                 }
               />
@@ -768,6 +811,41 @@ export function ConsoleApp(): ReactElement {
           <ConsoleFooter
             {...(version ? { version } : {})}
             playgroundUrl={playgroundUrl}
+            {...(spectrumRoot ? { repoRoot: spectrumRoot } : {})}
+            onCheckUpdates={() => {
+              void getJson<{
+                current: string;
+                latest?: string;
+                stale: boolean;
+                hop?: "current" | "reload" | "local";
+                localCheckout?: boolean;
+              }>("/api/update", token)
+                .then((body) => {
+                  setUpdate(body);
+                  if (body.stale) {
+                    setUpdateDismissed(false);
+                    showConsoleToast(
+                      body.latest
+                        ? `Prism ${body.latest} is on npm.`
+                        : "A newer Prism is available.",
+                      "info",
+                    );
+                  } else {
+                    showConsoleToast(
+                      `This Console is ${body.current} — up to date.`,
+                      "ok",
+                    );
+                  }
+                })
+                .catch((cause) =>
+                  showConsoleToast(
+                    cause instanceof Error
+                      ? cause.message
+                      : "Could not check for updates.",
+                    "error",
+                  ),
+                );
+            }}
           />
         </div>
 
@@ -1013,14 +1091,17 @@ function useWorkspaces(
   feed: {
     readonly jobs: readonly { workspacePath: string; workspaceLabel: string }[];
   },
-): JobWorkspaceChip[] {
+): { workspaces: JobWorkspaceChip[]; selectedPath?: string } {
   const [repos, setRepos] = useState<RepoRow[]>([]);
+  const [selectedPath, setSelectedPath] = useState<string | undefined>();
   useEffect(() => {
     let alive = true;
     const load = (): void => {
       void getJson<ReposResponse>("/api/repos", token)
         .then((body) => {
-          if (alive) setRepos(body.repos ?? []);
+          if (!alive) return;
+          setRepos(body.repos ?? []);
+          setSelectedPath(body.selectedPath?.trim() || undefined);
         })
         .catch(() => undefined);
     };
@@ -1031,7 +1112,7 @@ function useWorkspaces(
       window.removeEventListener(WORKSPACES_CHANGED, load);
     };
   }, [token, feed.jobs.length]);
-  return useMemo(() => {
+  const workspaces = useMemo(() => {
     const counts = new Map<string, number>();
     for (const job of feed.jobs) {
       counts.set(job.workspacePath, (counts.get(job.workspacePath) ?? 0) + 1);
@@ -1052,4 +1133,5 @@ function useWorkspaces(
       jobCount,
     }));
   }, [feed.jobs, repos]);
+  return { workspaces, ...(selectedPath ? { selectedPath } : {}) };
 }

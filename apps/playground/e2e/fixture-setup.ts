@@ -56,3 +56,10 @@ export function createSmokeFixture(): string {
 
   return root;
 }
+
+/** Empty hub home so Spectrum does not pick the developer's Dispatch selection. */
+export function createSmokeHub(): string {
+  const home = join(tmpdir(), `prism-playground-hub-${process.pid}`);
+  mkdirSync(home, { recursive: true });
+  return home;
+}

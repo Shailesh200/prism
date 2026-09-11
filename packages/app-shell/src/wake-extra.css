@@ -1,0 +1,269 @@
+/* Wake doors — shared by Dispatch Console and Spectrum. */
+
+.wake-page {
+  height: 100%;
+  overflow: auto;
+  background: var(--prism-canvas, #0a0e1a);
+}
+
+.wake-layout {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 48px 24px;
+}
+
+.wake-layout__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  margin: 0 0 24px;
+}
+
+.wake-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-self: flex-start;
+  gap: 8px;
+  margin: 0;
+}
+
+.wake-close.prism-btn--icon {
+  flex-shrink: 0;
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+.wake-close.prism-btn--icon:hover:not(:disabled) {
+  color: var(--prism-ink, #fff);
+}
+
+.wake-pips-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.wake-pill {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 12px;
+  border: 1px solid var(--prism-line, #2a334a);
+  border-radius: 999px;
+  background: var(--prism-tile, #1e2433);
+  color: var(--prism-ink-muted, #94a3b8);
+  font-family: var(--prism-font-mono, "JetBrains Mono", ui-monospace, monospace);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  box-shadow: none;
+}
+
+.wake-pill--down {
+  color: var(--prism-rose, #f43f5e);
+}
+
+.wake-pill__pip,
+.wake-pill .prism-pip {
+  flex-shrink: 0;
+}
+
+.wake-layout h1 {
+  margin: 0 0 20px;
+  font-size: 54px;
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--prism-ink, #fff);
+}
+
+.wake-layout h1::selection {
+  background: var(--prism-brand, #00c2c2);
+  color: var(--prism-canvas, #0a0e1a);
+}
+
+.wake-lede {
+  margin: 0 0 40px;
+  max-width: 62ch;
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.625;
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+.wake-doors {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  width: 100%;
+  margin: 0;
+}
+
+.wake-door {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--prism-line, #2a334a);
+  border-radius: 8px;
+  background: var(--prism-tile, #1e2433);
+  transition: border-color 150ms ease;
+}
+
+.wake-door:hover {
+  border-color: color-mix(in srgb, var(--prism-brand, #00c2c2) 40%, transparent);
+}
+
+.wake-door--down {
+  opacity: 0.88;
+}
+
+.wake-door__art {
+  height: 176px;
+  overflow: hidden;
+  user-select: none;
+  border-bottom: 1px solid var(--prism-line, #2a334a);
+  background: var(--prism-canvas, #0a0e1a);
+}
+
+.wake-door__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.wake-door__body {
+  padding: 20px 24px 12px;
+}
+
+.wake-door__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.wake-door h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  color: var(--prism-ink, #fff);
+}
+
+.wake-door__live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-family: var(--prism-font-mono, "JetBrains Mono", ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--prism-brand, #00c2c2);
+}
+
+.wake-door__live--down {
+  color: var(--prism-rose, #f43f5e);
+}
+
+.wake-door__blurb {
+  margin: 6px 0 0;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+.wake-door__actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 24px 24px;
+}
+
+.wake-door__actions .prism-btn--primary {
+  height: auto;
+  padding: 10px 20px;
+  gap: 8px;
+  border-radius: 8px;
+  background: var(--prism-brand, #00c2c2);
+  color: var(--prism-canvas, #0a0e1a);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.wake-door__actions .prism-btn--primary:hover:not(:disabled) {
+  background: var(--prism-brand-hover, #00d6d6);
+}
+
+.wake-door__actions .prism-btn--primary:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--prism-tile, #1e2433),
+    0 0 0 4px var(--prism-brand, #00c2c2);
+}
+
+.wake-door__arrow {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.wake-foot {
+  width: 100%;
+  margin: 48px 0 0;
+  padding-top: 24px;
+  border-top: 1px solid var(--prism-line, #2a334a);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+.wake-layout .playground-open--boot {
+  margin: 0 0 40px;
+  padding: 0;
+  justify-content: flex-start;
+}
+
+@media (min-width: 640px) {
+  .wake-layout {
+    padding-left: 48px;
+    padding-right: 48px;
+  }
+
+  .wake-layout h1 {
+    font-size: 68px;
+  }
+}
+
+@media (min-width: 768px) {
+  .wake-layout {
+    padding-top: 64px;
+    padding-bottom: 64px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .wake-layout h1 {
+    font-size: 72px;
+  }
+}
+
+@media (max-width: 767px) {
+  .wake-doors {
+    grid-template-columns: 1fr;
+  }
+}

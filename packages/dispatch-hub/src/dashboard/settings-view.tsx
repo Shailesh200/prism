@@ -5,6 +5,7 @@ import {
   Button,
   Textarea,
   Input,
+  ScreenSkeleton,
   isPrimaryActionKey,
 } from "@repo-prism/ui";
 import type { DispatchConfig } from "@repo-prism/dispatch";
@@ -242,7 +243,7 @@ export function SettingsView(props: {
   ];
 
   if (!config && !error) {
-    return <p className="console__loading">Loading Dispatch settings…</p>;
+    return <ScreenSkeleton label="Loading Dispatch settings…" rows={4} />;
   }
 
   return (

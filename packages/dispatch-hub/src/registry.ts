@@ -41,21 +41,93 @@ export function pruneHubWorkspaces(
   );
 }
 
-export async function loadRegistry(
+export function mergeWorkspaceEntries(
+  primary: readonly WorkspaceEntry[],
+  extraPaths: readonly string[],
+  now: string = new Date().toISOString(),
+): WorkspaceEntry[] {
+  const seen = new Set(primary.map((entry) => resolvedPath(entry.path)));
+  const rows = [...primary];
+  for (const path of extraPaths) {
+    const root = resolvedPath(path.trim());
+    if (!root || seen.has(root)) continue;
+    seen.add(root);
+    rows.push({
+      path: root,
+      label: workspaceLabel(root),
+      lastSeenAt: now,
+    });
+  }
+  return rows;
+}
+
+export async function loadRegistryFile(
   env: HubEnv = process.env,
-): Promise<WorkspaceEntry[]> {
+): Promise<WorkspaceRegistry> {
   const file = await readJsonFile<WorkspaceRegistry>(
     hubRegistryPath(hubHome(env)),
     { workspaces: [] },
   );
-  return [...(file.workspaces ?? [])];
+  return {
+    workspaces: [...(file.workspaces ?? [])],
+    ...(file.selectedPath?.trim()
+      ? { selectedPath: resolvedPath(file.selectedPath) }
+      : {}),
+  };
+}
+
+export async function loadRegistry(
+  env: HubEnv = process.env,
+): Promise<WorkspaceEntry[]> {
+  return [...(await loadRegistryFile(env)).workspaces];
+}
+
+export async function selectedWorkspace(
+  env: HubEnv = process.env,
+): Promise<string | undefined> {
+  const file = await loadRegistryFile(env);
+  const selected = file.selectedPath?.trim();
+  if (
+    selected &&
+    file.workspaces.some((row) => resolvedPath(row.path) === selected)
+  ) {
+    return selected;
+  }
+  return file.workspaces[0]?.path;
 }
 
 export async function saveRegistry(
   workspaces: readonly WorkspaceEntry[],
   env: HubEnv = process.env,
+  selectedPath?: string,
 ): Promise<void> {
-  await writeJsonFile(hubRegistryPath(hubHome(env)), { workspaces });
+  const current = await loadRegistryFile(env);
+  const selected =
+    selectedPath?.trim() ||
+    (current.selectedPath &&
+    workspaces.some(
+      (row) => resolvedPath(row.path) === resolvedPath(current.selectedPath!),
+    )
+      ? current.selectedPath
+      : workspaces[0]?.path);
+  await writeJsonFile(hubRegistryPath(hubHome(env)), {
+    workspaces,
+    ...(selected ? { selectedPath: resolvedPath(selected) } : {}),
+  });
+}
+
+export async function setSelectedWorkspace(
+  path: string,
+  env: HubEnv = process.env,
+): Promise<WorkspaceEntry[]> {
+  const current = await loadRegistry(env);
+  const root = resolvedPath(path.trim());
+  if (!root) return current;
+  if (!current.some((entry) => resolvedPath(entry.path) === root)) {
+    return current;
+  }
+  await saveRegistry(current, env, root);
+  return current;
 }
 
 export async function registerWorkspace(
@@ -63,7 +135,7 @@ export async function registerWorkspace(
   env: HubEnv = process.env,
   now: () => string = () => new Date().toISOString(),
 ): Promise<WorkspaceEntry[]> {
-  const root = path.trim();
+  const root = resolvedPath(path.trim());
   if (!root) return loadRegistry(env);
   const current = await loadRegistry(env);
   if (isFixtureWorkspacePath(root)) {
@@ -72,14 +144,14 @@ export async function registerWorkspace(
     return kept;
   }
   const next: WorkspaceEntry[] = pruneHubWorkspaces([
-    ...current.filter((entry) => entry.path !== root),
+    ...current.filter((entry) => resolvedPath(entry.path) !== root),
     {
       path: root,
       label: workspaceLabel(root),
       lastSeenAt: now(),
     },
   ]);
-  await saveRegistry(next, env);
+  await saveRegistry(next, env, root);
   return next;
 }
 

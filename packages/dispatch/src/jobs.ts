@@ -1,38 +1,69 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { mkdir, open, unlink } from "node:fs/promises";
-import { dirname } from "node:path";
+import {
+  mkdir,
+  open,
+  readdir,
+  readFile,
+  rename,
+  stat,
+  unlink,
+} from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import { withLifecycleEvents } from "./lifecycle.js";
+import { listGitWorktrees } from "./git.js";
 import {
   JobRecordSchema,
   isClockStoppedStatus,
   type JobRecord,
 } from "./types.js";
-import { jobsPath } from "./paths.js";
+import {
+  globalWorkspacesDir,
+  jobsMetaPath,
+  jobsPath,
+  legacyJobsPath,
+  useGlobalJobStore,
+} from "./paths.js";
 import { readJsonFile, writeJsonFile } from "./json-file.js";
 
 type JobsFile = { jobs: JobRecord[] };
 
+type JobsMeta = {
+  readonly path: string;
+  readonly migratedAt?: string;
+};
+
 const LOCK_WAIT_MS = 5_000;
 const LOCK_RETRY_MS = 15;
+const QUEUE_WAIT_MS = 8_000;
 
 /** Nested `updateJobs` on the same async chain may reenter; siblings must not. */
 const lockOwner = new AsyncLocalStorage<string>();
 /** Serialises concurrent claims inside one process (MCP kick + hub drain). */
 const inProcessTail = new Map<string, Promise<void>>();
+/** Tests inject PRISM_HOME without mutating process.env for other files. */
+const jobsEnvStore = new AsyncLocalStorage<NodeJS.ProcessEnv>();
+
+function jobsEnv(): NodeJS.ProcessEnv {
+  return jobsEnvStore.getStore() ?? process.env;
+}
+
+export function runWithJobsEnv<T>(env: NodeJS.ProcessEnv, fn: () => T): T {
+  return jobsEnvStore.run(env, fn);
+}
 
 async function withJobsLock<T>(
   workspaceRoot: string,
   fn: () => Promise<T>,
 ): Promise<T> {
-  const lockPath = `${jobsPath(workspaceRoot)}.lock`;
+  const lockPath = `${jobsPath(workspaceRoot, jobsEnv())}.lock`;
   if (lockOwner.getStore() === lockPath) {
     return await fn();
   }
 
   const prev = inProcessTail.get(lockPath) ?? Promise.resolve();
   let releaseQueue: () => void = () => undefined;
-  const held = new Promise<void>((resolve) => {
-    releaseQueue = resolve;
+  const held = new Promise<void>((releaseHeld) => {
+    releaseQueue = releaseHeld;
   });
   inProcessTail.set(
     lockPath,
@@ -41,7 +72,12 @@ async function withJobsLock<T>(
       () => held,
     ),
   );
-  await prev.catch(() => undefined);
+  await Promise.race([
+    prev.catch(() => undefined),
+    new Promise<void>((finishWait) => {
+      setTimeout(finishWait, QUEUE_WAIT_MS);
+    }),
+  ]);
 
   try {
     await mkdir(dirname(lockPath), { recursive: true });
@@ -58,10 +94,19 @@ async function withJobsLock<T>(
       } catch (cause) {
         const code = (cause as NodeJS.ErrnoException).code;
         if (code !== "EEXIST" && code !== "EPERM") throw cause;
-        if (Date.now() - started >= LOCK_WAIT_MS) {
-          throw new Error("Prism could not update the job list (busy).");
+        const stale = await stat(lockPath).catch(() => undefined);
+        if (stale && Date.now() - stale.mtimeMs >= LOCK_WAIT_MS) {
+          await unlink(lockPath).catch(() => undefined);
+          continue;
         }
-        await new Promise((resolve) => setTimeout(resolve, LOCK_RETRY_MS));
+        if (Date.now() - started >= LOCK_WAIT_MS) {
+          throw new Error("Prism could not update the job list (busy).", {
+            cause,
+          });
+        }
+        await new Promise<void>((retryWait) => {
+          setTimeout(retryWait, LOCK_RETRY_MS);
+        });
       }
     }
   } finally {
@@ -69,25 +114,200 @@ async function withJobsLock<T>(
   }
 }
 
-async function readJobsFile(workspaceRoot: string): Promise<JobRecord[]> {
-  const file = await readJsonFile<JobsFile>(jobsPath(workspaceRoot), {
-    jobs: [],
-  });
-  return (file.jobs ?? []).flatMap((job) => {
+function parseJobRecords(jobs: unknown): JobRecord[] {
+  if (!Array.isArray(jobs)) return [];
+  return jobs.flatMap((job) => {
     const parsed = JobRecordSchema.safeParse(job);
     return parsed.success ? [parsed.data] : [];
   });
+}
+
+function mergeJobLists(
+  primary: readonly JobRecord[],
+  extra: readonly JobRecord[],
+  opts?: { readonly preferExtraOnTie?: boolean },
+): JobRecord[] {
+  const byId = new Map(primary.map((job) => [job.id, job]));
+  for (const job of extra) {
+    const existing = byId.get(job.id);
+    if (!existing) {
+      byId.set(job.id, job);
+      continue;
+    }
+    const existingAt = Date.parse(existing.updatedAt);
+    const nextAt = Date.parse(job.updatedAt);
+    const baseline = Number.isFinite(existingAt) ? existingAt : 0;
+    if (
+      Number.isFinite(nextAt) &&
+      (nextAt > baseline || (opts?.preferExtraOnTie && nextAt === baseline))
+    ) {
+      byId.set(job.id, job);
+    }
+  }
+  return [...byId.values()];
+}
+
+async function retireLegacyJobsFile(path: string): Promise<void> {
+  const retired = `${path}.migrated`;
+  try {
+    await rename(path, retired);
+    return;
+  } catch (cause) {
+    const code = (cause as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") return;
+  }
+  await unlink(retired).catch(() => undefined);
+  try {
+    await rename(path, retired);
+  } catch {
+    // Keep the live file. The global store is already the source of truth.
+  }
+}
+
+type JobsRead = { readonly present: boolean; readonly jobs: JobRecord[] };
+
+async function readJobsIfPresent(path: string): Promise<JobsRead> {
+  let raw: string;
+  try {
+    raw = await readFile(path, "utf8");
+  } catch (cause) {
+    if ((cause as NodeJS.ErrnoException).code === "ENOENT") {
+      return { present: false, jobs: [] };
+    }
+    throw cause;
+  }
+  if (!raw.trim()) {
+    throw new Error("jobs.json is empty");
+  }
+  const parsed = JSON.parse(raw) as JobsFile;
+  return { present: true, jobs: parseJobRecords(parsed.jobs) };
+}
+
+async function readJobRecordsFromPath(path: string): Promise<JobRecord[]> {
+  return (await readJobsIfPresent(path)).jobs;
+}
+
+async function readLegacyJobs(root: string): Promise<JobRecord[]> {
+  try {
+    return await readJobRecordsFromPath(legacyJobsPath(root));
+  } catch {
+    return [];
+  }
+}
+
+async function readRetiredJobs(root: string): Promise<JobRecord[]> {
+  try {
+    return await readJobRecordsFromPath(`${legacyJobsPath(root)}.migrated`);
+  } catch {
+    return [];
+  }
+}
+
+async function workspaceJobCandidates(
+  workspaceRoot: string,
+): Promise<string[]> {
+  const candidates = [workspaceRoot];
+  const trees = await listGitWorktrees(workspaceRoot).catch(() => []);
+  for (const tree of trees) {
+    if (tree.path && !candidates.includes(tree.path)) {
+      candidates.push(tree.path);
+    }
+  }
+  return candidates;
+}
+
+/**
+ * Lift `{repo}/.prism/dispatch/jobs.json` (and worktree copies) into
+ * `~/.prism/dispatch/workspaces/`. Persist the global file before retiring
+ * leftovers so a crash cannot leave jobs only in `.migrated`.
+ */
+async function migrateLegacyJobs(workspaceRoot: string): Promise<void> {
+  const env = jobsEnv();
+  if (!useGlobalJobStore(env)) return;
+  const dest = jobsPath(workspaceRoot, env);
+  const metaPath = jobsMetaPath(workspaceRoot, env);
+  const meta = await readJsonFile<JobsMeta>(metaPath, {
+    path: resolve(workspaceRoot),
+  });
+  const destRead = await readJobsIfPresent(dest);
+  let merged = destRead.jobs;
+  const candidates = await workspaceJobCandidates(workspaceRoot);
+  let recovered = false;
+  if (!destRead.present) {
+    for (const root of candidates) {
+      const retired = await readRetiredJobs(root);
+      if (retired.length === 0) continue;
+      merged = mergeJobLists(merged, retired, { preferExtraOnTie: true });
+      recovered = true;
+    }
+  }
+  const livePaths: string[] = [];
+  for (const root of candidates) {
+    const legacy = await readLegacyJobs(root);
+    if (legacy.length === 0) continue;
+    merged = mergeJobLists(merged, legacy, { preferExtraOnTie: true });
+    livePaths.push(legacyJobsPath(root));
+  }
+  if (
+    livePaths.length > 0 ||
+    recovered ||
+    (destRead.present && !meta.migratedAt)
+  ) {
+    await writeJsonFile(dest, { jobs: merged });
+    await writeJsonFile(metaPath, {
+      path: resolve(workspaceRoot),
+      migratedAt: new Date().toISOString(),
+    });
+    for (const path of livePaths) {
+      await retireLegacyJobsFile(path);
+    }
+  }
+}
+
+async function readJobsFile(workspaceRoot: string): Promise<JobRecord[]> {
+  return await readJobRecordsFromPath(jobsPath(workspaceRoot, jobsEnv()));
 }
 
 async function writeJobsFile(
   workspaceRoot: string,
   jobs: readonly JobRecord[],
 ): Promise<void> {
-  await writeJsonFile(jobsPath(workspaceRoot), { jobs });
+  const env = jobsEnv();
+  await writeJsonFile(jobsPath(workspaceRoot, env), { jobs });
+  if (useGlobalJobStore(env)) {
+    await writeJsonFile(jobsMetaPath(workspaceRoot, env), {
+      path: resolve(workspaceRoot),
+      migratedAt: new Date().toISOString(),
+    });
+  }
 }
 
 export async function loadJobs(workspaceRoot: string): Promise<JobRecord[]> {
-  return await readJobsFile(workspaceRoot);
+  return await withJobsLock(workspaceRoot, async () => {
+    await migrateLegacyJobs(workspaceRoot);
+    return await readJobsFile(workspaceRoot);
+  });
+}
+
+/** Workspace roots that already have a global jobs file (ADR-0054). */
+export async function listStoredWorkspaceRoots(
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<string[]> {
+  if (!useGlobalJobStore(env)) return [];
+  try {
+    const names = await readdir(globalWorkspacesDir(env));
+    const paths: string[] = [];
+    for (const name of names) {
+      const meta = await readJsonFile<JobsMeta>(
+        join(globalWorkspacesDir(env), name, "meta.json"),
+        { path: "" },
+      );
+      if (meta.path.trim()) paths.push(meta.path);
+    }
+    return paths;
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -103,6 +323,7 @@ export async function updateJobs<T>(
     | Promise<{ jobs: JobRecord[]; result: T }>,
 ): Promise<T> {
   return await withJobsLock(workspaceRoot, async () => {
+    await migrateLegacyJobs(workspaceRoot);
     const jobs = await readJobsFile(workspaceRoot);
     const next = await mutator(jobs);
     await writeJobsFile(workspaceRoot, next.jobs);

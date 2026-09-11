@@ -79,6 +79,25 @@ export { resolveRenameToPath, rewritePathReferences } from "./apply-rename.js";
 
 export { PrismErrorBoundary } from "./ErrorBoundary.js";
 export type { PrismErrorBoundaryProps } from "./ErrorBoundary.js";
+export {
+  PrismBootScreen,
+  PRISM_BOOT_INDEX_STAGES,
+  PRISM_BOOT_LOOKUP_STAGES,
+} from "./PrismBootScreen.js";
+export type { PrismBootScreenProps } from "./PrismBootScreen.js";
+export {
+  PrismSurfacePips,
+  PrismWakeScreen,
+  type PrismWakeHere,
+  type PrismWakeScreenProps,
+} from "./PrismWakeScreen.js";
+export {
+  probeSurfaceAwake,
+  surfaceLiveLabel,
+  wakeHeadline,
+  wakeLede,
+  type SurfaceLive,
+} from "./surface-status.js";
 export { OverviewScreen } from "./OverviewScreen.js";
 export type { GitStatus, OverviewScreenProps } from "./OverviewScreen.js";
 export { DnaScreen } from "./DnaScreen.js";

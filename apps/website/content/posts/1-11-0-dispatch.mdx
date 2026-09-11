@@ -1,0 +1,14 @@
+---
+title: "1.11.0 — Global jobs, Wake, and Spectrum"
+description: "Jobs live under ~/.prism. Wake names Dispatch and Spectrum. Spectrum keeps the repo you picked."
+version: "1.11.0"
+---
+
+Dispatch keeps every job in one global store. Wake and Spectrum share the same status screen.
+
+- **Jobs** live under `~/.prism` (ADR-0054). Switching checkouts no longer drops rows. A leftover `{repo}/.prism/dispatch/jobs.json` is lifted after the global file is written.
+- **Wake** shows Dispatch and Spectrum separately. Close or Escape leaves the page without re-indexing.
+- **Spectrum** follows the repository in the URL. A background poll cannot snap you off a checkout you picked.
+- Footer DNA/Health links pass that repo. `prism wake` / `prism sleep` speak Spectrum, not Playground.
+
+Keep `@latest`. Reload MCP after this publish. See [Prism Dispatch](/docs/guides/dispatch).

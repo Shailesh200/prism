@@ -184,60 +184,131 @@ export function floorToUtcDay(ms: number): number {
   return Math.floor(ms / DAY_MS) * DAY_MS;
 }
 
-/** Parse a `YYYY-MM-DD` key to UTC-midnight epoch-ms; NaN when unparseable. */
-export function parseDayMs(date: string): number {
-  return Date.parse(`${date.slice(0, 10)}T00:00:00Z`);
+/** Floor an epoch-ms to local midnight. DST-safe (does not use 864e5 steps). */
+export function floorToLocalDay(ms: number): number {
+  const d = new Date(ms);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
 
-/** Inclusive UTC-day bounds for an N-day window ending today. */
+/** Shift a local-midnight timestamp by whole calendar days. */
+export function addLocalDays(ms: number, days: number): number {
+  const d = new Date(ms);
+  d.setDate(d.getDate() + days);
+  return d.getTime();
+}
+
+/** Local calendar `YYYY-MM-DD` for an epoch-ms (for date inputs and git day keys). */
+export function formatDayKey(ms: number): string {
+  const d = new Date(ms);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Parse a `YYYY-MM-DD` key to local-midnight epoch-ms; NaN when unparseable.
+ * Git day buckets use the author-date ISO prefix (`%aI`.slice(0, 10)), which
+ * is the author's calendar day — matching local midnight, not UTC.
+ */
+export function parseDayMs(date: string): number {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date.trim().slice(0, 10));
+  if (!match) return Number.NaN;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsed = new Date(year, month - 1, day);
+  if (
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
+  ) {
+    return Number.NaN;
+  }
+  return parsed.getTime();
+}
+
+/** Inclusive local-day bounds for an N-day window ending today. */
 export function presetBounds(
   days: number,
   nowMs: number = Date.now(),
 ): { startMs: number; endMs: number } {
-  const endMs = floorToUtcDay(nowMs);
-  return { startMs: endMs - (days - 1) * DAY_MS, endMs };
+  const endMs = floorToLocalDay(nowMs);
+  return {
+    startMs: addLocalDays(endMs, -(Math.max(1, days) - 1)),
+    endMs,
+  };
 }
 
 /** Above this span the sparkline rolls up weekly so it stays readable. */
 const DAILY_SPAN_LIMIT_DAYS = 56;
+const MAX_WINDOW_DAYS = 4000;
+
+function enumerateLocalDays(startMs: number, endMs: number): number[] {
+  const start = floorToLocalDay(startMs);
+  const end = floorToLocalDay(endMs);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
+    return [];
+  }
+  const out: number[] = [];
+  let cursor = start;
+  while (cursor <= end && out.length < MAX_WINDOW_DAYS) {
+    out.push(cursor);
+    cursor = addLocalDays(cursor, 1);
+  }
+  return out;
+}
 
 /**
  * Bucket a daily commit histogram into the inclusive `[startMs, endMs]`
  * window, zero-filled so gaps read as quiet days rather than missing data.
+ * Windows are local calendar days so "1W inclusive of today" matches the
+ * git author-date keys and the labels on the chart.
  */
 export function bucketActivity(
   days: readonly GitDayBucket[],
   startMs: number,
   endMs: number,
 ): OverviewActivity {
-  const start = floorToUtcDay(startMs);
-  const end = floorToUtcDay(endMs);
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
+  const dayStarts = enumerateLocalDays(startMs, endMs);
+  if (dayStarts.length === 0) {
     return { buckets: [], starts: [], total: 0, granularity: "day" };
   }
 
-  const spanDays = Math.round((end - start) / DAY_MS) + 1;
+  const spanDays = dayStarts.length;
   const granularity = spanDays <= DAILY_SPAN_LIMIT_DAYS ? "day" : "week";
-  const unitMs = (granularity === "day" ? 1 : 7) * DAY_MS;
-  let count = Math.max(1, Math.ceil(spanDays / (unitMs / DAY_MS)));
+  const indexByKey = new Map(
+    dayStarts.map((ms, index) => [formatDayKey(ms), index] as const),
+  );
+
+  if (granularity === "day") {
+    const buckets = Array.from({ length: spanDays }, () => 0);
+    let total = 0;
+    for (const day of days) {
+      const idx = indexByKey.get(day.date.slice(0, 10));
+      if (idx === undefined) continue;
+      buckets[idx] = (buckets[idx] ?? 0) + day.commits;
+      total += day.commits;
+    }
+    return { buckets, starts: dayStarts, total, granularity };
+  }
 
   // Weekly windows rarely divide into whole weeks. A tail bucket covering
   // fewer days than its siblings undercounts commits and renders as a fake
   // drop at the right edge, so fold those days into the previous bucket
-  // (which then spans up to two weeks). The index clamp below lands the tail
-  // days in that merged bucket.
-  if (granularity === "week" && count > 1 && spanDays % 7 !== 0) {
+  // (which then spans up to two weeks).
+  let count = Math.max(1, Math.ceil(spanDays / 7));
+  if (count > 1 && spanDays % 7 !== 0) {
     count -= 1;
   }
 
+  const starts = Array.from({ length: count }, (_, i) => dayStarts[i * 7]!);
   const buckets = Array.from({ length: count }, () => 0);
-  const starts = Array.from({ length: count }, (_, i) => start + i * unitMs);
   let total = 0;
-
   for (const day of days) {
-    const ms = parseDayMs(day.date);
-    if (Number.isNaN(ms) || ms < start || ms > end) continue;
-    const idx = Math.min(count - 1, Math.floor((ms - start) / unitMs));
+    const dayIndex = indexByKey.get(day.date.slice(0, 10));
+    if (dayIndex === undefined) continue;
+    const idx = Math.min(count - 1, Math.floor(dayIndex / 7));
     buckets[idx] = (buckets[idx] ?? 0) + day.commits;
     total += day.commits;
   }

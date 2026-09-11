@@ -9,6 +9,7 @@ import {
   deriveMostConnected,
   deriveRegions,
   floorToUtcDay,
+  formatDayKey,
   parseDayMs,
   presetBounds,
 } from "./overview-model.js";
@@ -261,21 +262,26 @@ describe("deriveMostConnected", () => {
 });
 
 describe("activity windows", () => {
-  const day = (d: string) => Date.parse(`${d}T00:00:00Z`);
+  const utcDay = (d: string) => Date.parse(`${d}T00:00:00Z`);
+  const day = (d: string) => parseDayMs(d);
 
   it("floors to UTC midnight", () => {
-    expect(floorToUtcDay(day("2026-08-05") + 3600_000)).toBe(day("2026-08-05"));
+    expect(floorToUtcDay(utcDay("2026-08-05") + 3600_000)).toBe(
+      utcDay("2026-08-05"),
+    );
   });
 
-  it("parses a day key and rejects nonsense", () => {
-    expect(parseDayMs("2026-08-05")).toBe(day("2026-08-05"));
+  it("parses a day key as local midnight and rejects nonsense", () => {
+    expect(formatDayKey(parseDayMs("2026-08-05"))).toBe("2026-08-05");
     expect(Number.isNaN(parseDayMs("not-a-date"))).toBe(true);
+    expect(Number.isNaN(parseDayMs("2026-02-30"))).toBe(true);
   });
 
-  it("builds an inclusive window ending today", () => {
-    const { startMs, endMs } = presetBounds(7, day("2026-08-05"));
-    expect(endMs).toBe(day("2026-08-05"));
-    expect(startMs).toBe(day("2026-07-30"));
+  it("builds an inclusive window ending on the local calendar day", () => {
+    const now = new Date(2026, 7, 5, 18, 45).getTime();
+    const { startMs, endMs } = presetBounds(7, now);
+    expect(formatDayKey(endMs)).toBe("2026-08-05");
+    expect(formatDayKey(startMs)).toBe("2026-07-30");
   });
 
   it("zero-fills quiet days so gaps do not read as missing data", () => {
@@ -304,9 +310,9 @@ describe("activity windows", () => {
 
   it("stays daily at exactly eight weeks", () => {
     const start = day("2026-06-11");
-    const end = start + 55 * 86_400_000;
+    const end = day("2026-08-05");
     expect(bucketActivity([], start, end).granularity).toBe("day");
-    expect(bucketActivity([], start, end + 86_400_000).granularity).toBe(
+    expect(bucketActivity([], start, day("2026-08-06")).granularity).toBe(
       "week",
     );
   });
@@ -337,10 +343,10 @@ describe("activity windows", () => {
 
   it("labels every bucket with its start", () => {
     const result = bucketActivity([], day("2026-08-01"), day("2026-08-03"));
-    expect(result.starts).toEqual([
-      day("2026-08-01"),
-      day("2026-08-02"),
-      day("2026-08-03"),
+    expect(result.starts.map(formatDayKey)).toEqual([
+      "2026-08-01",
+      "2026-08-02",
+      "2026-08-03",
     ]);
   });
 
@@ -367,7 +373,7 @@ describe("activity windows", () => {
 
   it("keeps exact weekly windows unmerged", () => {
     const start = day("2026-06-10");
-    const end = start + 62 * 86_400_000; // 63 days = 9 exact weeks
+    const end = day("2026-08-11"); // 63 days inclusive = 9 exact weeks
     const result = bucketActivity([], start, end);
     expect(result.granularity).toBe("week");
     expect(result.buckets).toHaveLength(9);

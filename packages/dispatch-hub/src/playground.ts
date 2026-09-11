@@ -8,10 +8,12 @@
  */
 
 import { execFile, spawn } from "node:child_process";
-import { promisify } from "node:util";
+import { existsSync, readFileSync } from "node:fs";
 import { access } from "node:fs/promises";
-import { join } from "node:path";
+import { homedir } from "node:os";
+import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { consoleHost, hubHome, type HubEnv } from "./paths.js";
 import { readJsonFile, writeJsonFile } from "./json-file.js";
 
@@ -57,6 +59,61 @@ export function playgroundViteEnabled(env: HubEnv = process.env): boolean {
     return false;
   }
   return true;
+}
+
+const DEFAULT_NODE_VERSION = "26.5.0";
+
+function readNvmrcVersion(dir: string | undefined): string | undefined {
+  if (!dir) return undefined;
+  try {
+    const raw = readFileSync(join(dir, ".nvmrc"), "utf8").trim();
+    return raw.replace(/^v/, "") || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function nodeBinaryName(): string {
+  return process.platform === "win32" ? "node.exe" : "node";
+}
+
+/**
+ * Node that can dlopen `better-sqlite3` (ABI must match the compiled addon).
+ * PATH `node` is often Cursor's helper (different ABI), so we prefer nvm/proto
+ * matching `.nvmrc` / `engines.node`.
+ */
+export function resolvePlaygroundNode(
+  input: {
+    readonly workspaceRoot?: string;
+    readonly playgroundApp?: string;
+    readonly env?: HubEnv;
+  } = {},
+): string {
+  const env = input.env ?? process.env;
+  const override = env.PRISM_NODE?.trim();
+  if (override && existsSync(override)) return override;
+
+  const version =
+    env.PRISM_NODE_VERSION?.trim() ||
+    readNvmrcVersion(input.workspaceRoot) ||
+    readNvmrcVersion(
+      input.playgroundApp ? join(input.playgroundApp, "..", "..") : undefined,
+    ) ||
+    DEFAULT_NODE_VERSION;
+  const exe = nodeBinaryName();
+  const nvmDir = env.NVM_DIR?.trim() || join(homedir(), ".nvm");
+  const candidates = [
+    join(nvmDir, "versions", "node", `v${version}`, "bin", exe),
+    join(homedir(), ".proto", "tools", "node", version, "bin", exe),
+  ];
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return exe;
+}
+
+export function playgroundViteEntry(app: string): string {
+  return join(app, "node_modules", "vite", "bin", "vite.js");
 }
 
 export function playgroundRecordPath(env: HubEnv = process.env): string {
@@ -199,18 +256,15 @@ export async function spawnPlaygroundVite(input: {
     env,
   );
   if (!app) return undefined;
+  const nodeBin = resolvePlaygroundNode({
+    workspaceRoot: input.workspaceRoot,
+    playgroundApp: app,
+    env,
+  });
+  const vite = playgroundViteEntry(app);
   const child = spawn(
-    "bun",
-    [
-      "run",
-      "dev",
-      "--",
-      "--port",
-      String(port),
-      "--strictPort",
-      "--host",
-      "127.0.0.1",
-    ],
+    nodeBin,
+    [vite, "--port", String(port), "--strictPort", "--host", "127.0.0.1"],
     {
       cwd: app,
       detached: true,
@@ -218,6 +272,7 @@ export async function spawnPlaygroundVite(input: {
       env: {
         ...process.env,
         ...(input.env as NodeJS.ProcessEnv),
+        PATH: `${dirname(nodeBin)}${delimiter}${process.env.PATH ?? ""}`,
         PRISM_PLAYGROUND_ROOT: input.workspaceRoot,
         PRISM_PLAYGROUND_PORT: String(port),
       },

@@ -20,6 +20,8 @@
   /* Brand + accents (UXPilot) */
   --prism-brand: #00c2c2;
   --prism-brand-strong: #00dcd4;
+  /* Stitch primary-button hover on Wake / Console CTAs. */
+  --prism-brand-hover: #00d6d6;
   /* Primary button label — always white for contrast on teal (Design.md on-primary). */
   --prism-on-brand: #ffffff;
   --prism-violet: #6c63ff;

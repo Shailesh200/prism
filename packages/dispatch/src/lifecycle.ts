@@ -57,7 +57,10 @@ export function seedLifecycle(job: JobRecord): JobLifecycleEvent[] {
   if (job.startedAt) {
     events.push({ kind: "working", at: job.startedAt });
   }
-  return appendStatusEvent(events, job, job.updatedAt || job.createdAt);
+  return repairLifecycle(
+    appendStatusEvent(events, job, job.updatedAt || job.createdAt),
+    job,
+  );
 }
 
 function extraFor(status: JobStatus): Pick<JobLifecycleEvent, "by" | "note"> {
@@ -124,7 +127,35 @@ export function withLifecycleEvents(
       ? seedLifecycle(prev)
       : seedLifecycle(next);
   if (!prev) {
-    return { ...next, lifecycle: prior };
+    return { ...next, lifecycle: repairLifecycle(prior, next) };
   }
-  return { ...next, lifecycle: appendStatusEvent(prior, next, now) };
+  return {
+    ...next,
+    lifecycle: repairLifecycle(appendStatusEvent(prior, next, now), next),
+  };
+}
+
+/**
+ * Keep Working on the rail after the job ends.
+ *
+ * A finish upsert that never saw `startedAt` at seed time would otherwise
+ * jump Accepted → Finished and Pulse would count the whole run as waiting.
+ */
+export function repairLifecycle(
+  events: readonly JobLifecycleEvent[],
+  job: Pick<JobRecord, "status" | "startedAt" | "lastHeartbeat">,
+): JobLifecycleEvent[] {
+  if (events.some((event) => event.kind === "working")) return [...events];
+  const startedAt = job.startedAt?.trim();
+  if (!startedAt) return [...events];
+  const working: JobLifecycleEvent = { kind: "working", at: startedAt };
+  const terminal = events.findIndex(
+    (event) =>
+      event.kind === "finished" ||
+      event.kind === "failed" ||
+      event.kind === "cancelled" ||
+      event.kind === "review",
+  );
+  if (terminal < 0) return [...events, working];
+  return [...events.slice(0, terminal), working, ...events.slice(terminal)];
 }

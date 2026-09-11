@@ -439,6 +439,18 @@ export function useJobsFeed(token: string): JobsFeed {
               result.message?.trim() || "Instruction queued.",
               "ok",
             );
+            return;
+          }
+          const controlCopy: Record<string, string> = {
+            cancel: "Cancelled.",
+            confirm: "Starting anyway.",
+            pause: "Paused.",
+            resume: "Resumed.",
+            accept_all: "Kept all changes.",
+          };
+          const fallback = controlCopy[action];
+          if (fallback) {
+            showConsoleToast(result.message?.trim() || fallback, "ok");
           }
         } catch (cause) {
           if (action === "delete") {
@@ -450,7 +462,12 @@ export function useJobsFeed(token: string): JobsFeed {
           if (
             action === "retry" ||
             action === "reverify" ||
-            action === "delete"
+            action === "delete" ||
+            action === "cancel" ||
+            action === "confirm" ||
+            action === "pause" ||
+            action === "resume" ||
+            action === "accept_all"
           ) {
             showConsoleToast(
               cause instanceof Error ? cause.message : String(cause),

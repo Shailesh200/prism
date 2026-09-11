@@ -5,6 +5,7 @@ import {
   EmptyState,
   HoverTip,
   RepositoryMapView,
+  ScreenSkeleton,
   Tooltip,
   Truncate,
   formatPrismDate,
@@ -34,7 +35,6 @@ import {
   GitBranch,
   Inbox,
   Landmark,
-  LoaderCircle,
   Radio,
   RefreshCw,
   Shield,
@@ -45,7 +45,7 @@ import { RepoSelect } from "./repo-select.js";
 import { jobsHash } from "./router.js";
 import { getJson, postJson } from "./session.js";
 import { showConsoleToast } from "./console-toast.js";
-import { PLAYGROUND_DEFAULT } from "./console-footer.js";
+import { PLAYGROUND_DEFAULT, spectrumUrl } from "./console-footer.js";
 
 const IRIS_WORKSPACE_KEY = "prism.console.iris.workspace";
 
@@ -376,7 +376,7 @@ export function IntelligenceView(props: {
                     >
                       <strong>{repo.label}</strong>
                       <span>
-                        {repo.jobCount} job{repo.jobCount === 1 ? "" : "s"}
+                        {`${repo.jobCount} ${repo.jobCount === 1 ? "job" : "jobs"}`}
                       </span>
                       {repo.error ? (
                         <span className="intel-list__error">{repo.error}</span>
@@ -492,7 +492,7 @@ export function IntelligenceView(props: {
           </div>
         </dl>
       ) : !error ? (
-        <p className="console__loading">Loading…</p>
+        <ScreenSkeleton label="Loading…" rows={3} />
       ) : null}
 
       <div className="intel-analysis">
@@ -517,10 +517,9 @@ export function IntelligenceView(props: {
           <Button
             variant="secondary"
             disabled={loadingAnalysis || !workspace}
+            loading={loadingAnalysis}
             icon={
-              loadingAnalysis ? (
-                <LoaderCircle size={16} aria-hidden />
-              ) : analysis ? (
+              analysis ? (
                 <RefreshCw size={16} aria-hidden />
               ) : (
                 <Sparkles size={16} aria-hidden />
@@ -640,7 +639,10 @@ export function IntelligenceView(props: {
             }}
             onBlastRadius={() => {
               window.open(
-                `${PLAYGROUND_DEFAULT}/#/blast`,
+                spectrumUrl(PLAYGROUND_DEFAULT, {
+                  ...(workspace ? { root: workspace } : {}),
+                  hash: "#/blast",
+                }),
                 "_blank",
                 "noreferrer",
               );
