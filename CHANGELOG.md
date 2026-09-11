@@ -11,6 +11,26 @@ a supported configuration.
 
 ## Unreleased
 
+## 1.11.1 — Skills history and Pulse meter
+
+### Console
+
+- Published skills have version history (view, revert, delete, compare). Edit can **Update Skill** with teammate instructions.
+- Generate Skill shows Generating.. and Watch/Cancel on one line.
+- Dashboard Type filter lists Custom job, child jobs, and playbooks. Pulse shows jobs even when the checkout is not in the registry.
+- Pulse meter keeps pause as its own step. The status pill and notch match the last step. Running and paused bars are the same height as done, failed, and cancelled.
+- Worked time excludes paused time. Historical pauses stay solid amber; hatch only on the live pause.
+
+### Dispatch
+
+- Skill snapshots live under `~/.prism/dispatch/skills/<name>/versions/`.
+
+### MCP
+
+- Keep `@latest`. Reload MCP after this publish. Logs: `prism-mcp 1.11.1: workspace …`.
+
+Keep `@latest`. `@repo-prism/dispatch@1.11.1`, `@repo-prism/dispatch-hub@1.11.1`, `@repo-prism/mcp-server@1.11.1`, `@repo-prism/shared@1.2.2`, `@repo-prism/indexer@1.0.2`, `@repo-prism/core@1.0.2`, engine packages `@1.0.1` (analyzer, graph-engine, impact, navigation, intelligence, repository-map), and `@repo-prism/host-session@1.1.18`.
+
 ## 1.11.0 — Global jobs, Wake, and Spectrum
 
 ### Console
