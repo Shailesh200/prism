@@ -32,6 +32,9 @@ export {
   unregisterWorkspace,
   workspaceLabel,
   loadRegistry,
+  selectedWorkspace,
+  setSelectedWorkspace,
+  mergeWorkspaceEntries,
 } from "./registry.js";
 // Statusline is the `prism-hub statusline` CLI only. Re-exporting it here
 // pulled `formatDuration` into every MCP import of this package.

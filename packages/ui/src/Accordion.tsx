@@ -25,7 +25,18 @@ export function Accordion(props: AccordionProps): ReactElement {
         setOpen(event.currentTarget.open)
       }
     >
-      <summary className="prism-accordion__summary">{props.summary}</summary>
+      <summary className="prism-accordion__summary">
+        <svg
+          className="prism-accordion__chevron"
+          viewBox="0 0 20 20"
+          width={14}
+          height={14}
+          aria-hidden
+        >
+          <path fill="currentColor" d="M6 4l8 6-8 6V4z" />
+        </svg>
+        <span className="prism-accordion__summary-body">{props.summary}</span>
+      </summary>
       <div className="prism-accordion__body">{props.children}</div>
     </details>
   );

@@ -7,7 +7,11 @@ import {
   useState,
   type ReactElement,
 } from "react";
-import { RepositoryMapView } from "@repo-prism/ui";
+import {
+  PrismToastHost,
+  RepositoryMapView,
+  showPrismToast,
+} from "@repo-prism/ui";
 import type { ConsoleStatus } from "@repo-prism/shared";
 import {
   AppShellClientProvider,
@@ -685,6 +689,7 @@ function App(): ReactElement {
         fetchRegionMovers={fetchRegionMovers}
         startHealthHistoryBackfill={startHealthHistoryBackfill}
         fetchHealthHistoryBackfillStatus={fetchHealthHistoryBackfillStatus}
+        onNotify={showPrismToast}
       />
     );
   } else if (view === "integrations") {
@@ -852,6 +857,7 @@ function App(): ReactElement {
 
   return (
     <PrismErrorBoundary label="Prism">
+      <PrismToastHost />
       <AppShellClientProvider client={client}>
         <PrismErrorBoundary label={view} resetKey={view}>
           {body}

@@ -27,6 +27,7 @@ import {
   fleetAxisWindow,
   hoverTimeMs,
   jobWindow,
+  earliestJobStartMs,
   pointerPercent,
   axisTickMarks,
   axisLabelStyle,
@@ -34,8 +35,10 @@ import {
   visibleTimelineLanes,
   parseFleetView,
   pulseBucket,
+  pulseCtaShowsCancel,
   pulseIdleRepos,
   pulseSections,
+  repoInitials,
   waitWorkMeter,
   canInstructJob,
   canStartFromJob,
@@ -56,6 +59,7 @@ import {
   compactJobPrd,
   composeQueuedPrd,
   reviewTargetOf,
+  preferredWorkspace,
 } from "./fleet.js";
 
 const job = (
@@ -135,6 +139,18 @@ describe("pulseBucket", () => {
     expect(pulseBucket(job({ id: "g", status: "done" }))).toBe("settled");
     expect(pulseBucket(job({ id: "h", status: "error" }))).toBe("settled");
     expect(pulseBucket(job({ id: "i", status: "cancelled" }))).toBe("settled");
+  });
+
+  it("puts Cancel beside Start anyway and Resume", () => {
+    expect(
+      pulseCtaShowsCancel(job({ id: "gate", status: "needs_confirm" })),
+    ).toBe(true);
+    expect(pulseCtaShowsCancel(job({ id: "paused", status: "paused" }))).toBe(
+      true,
+    );
+    expect(pulseCtaShowsCancel(job({ id: "live", status: "running" }))).toBe(
+      false,
+    );
   });
 });
 
@@ -225,6 +241,15 @@ describe("jobsOutsideRange", () => {
     ];
     expect(jobsOutsideRange(rows, "1h", now)).toBe(1);
     expect(jobsOutsideRange(rows, "all", now)).toBe(0);
+  });
+});
+
+describe("repoInitials", () => {
+  it("takes the first letters of the last path segment", () => {
+    expect(repoInitials("prism/core-engine")).toBe("CE");
+    expect(repoInitials("prism/api-gateway")).toBe("AG");
+    expect(repoInitials("website")).toBe("WE");
+    expect(repoInitials("prism")).toBe("PR");
   });
 });
 
@@ -390,6 +415,25 @@ describe("waitWorkMeter", () => {
     expect(meter.worked).toBe("—");
     expect(meter.workVerb).toBe("worked");
   });
+
+  it("counts a finished job with activity as worked, not waiting", () => {
+    const now = Date.parse("2026-09-04T12:00:00.000Z");
+    const meter = waitWorkMeter(
+      job({
+        id: "done-no-start",
+        status: "done",
+        queuedAt: "2026-09-04T11:00:00.000Z",
+        finishedAt: "2026-09-04T12:00:00.000Z",
+        lastHeartbeat: "2026-09-04T11:50:00.000Z",
+      }),
+      now,
+    );
+    expect(meter.waitVerb).toBe("waited");
+    expect(meter.workVerb).toBe("worked");
+    expect(meter.worked).toBe("1h");
+    expect(meter.waitPct).toBe(0);
+    expect(meter.workPct).toBe(100);
+  });
 });
 
 describe("groupRepos", () => {
@@ -399,7 +443,7 @@ describe("groupRepos", () => {
     expect(groups[0]?.live).toBe(0);
   });
 
-  it("does not invent a repo from an unregistered job path", () => {
+  it("surfaces jobs whose workspace is not in the registry", () => {
     const groups = groupRepos(
       [
         job({
@@ -411,7 +455,24 @@ describe("groupRepos", () => {
       ],
       [{ path: "/prism", label: "prism" }],
     );
-    expect(groups.map((row) => row.path)).toEqual(["/prism"]);
+    expect(groups.map((row) => row.path).sort()).toEqual([
+      "/fixture",
+      "/prism",
+    ]);
+  });
+});
+
+describe("preferredWorkspace", () => {
+  it("does not prefer a repo just because it is named Prism", () => {
+    expect(
+      preferredWorkspace(
+        [
+          { path: "/a", label: "alpha" },
+          { path: "/p", label: "prism" },
+        ],
+        [],
+      ),
+    ).toBe("/a");
   });
 });
 
@@ -1115,6 +1176,33 @@ describe("jobWindow", () => {
       now,
     );
     expect(win.endMs - win.startMs).toBe(3 * 60 * 1000);
+  });
+});
+
+describe("earliestJobStartMs", () => {
+  it("returns the first queued job, not now", () => {
+    const now = Date.parse("2026-09-11T02:00:00.000Z");
+    expect(
+      earliestJobStartMs(
+        [
+          job({
+            id: "newer",
+            status: "done",
+            queuedAt: "2026-09-11T01:00:00.000Z",
+          }),
+          job({
+            id: "older",
+            status: "done",
+            queuedAt: "2026-09-10T08:00:00.000Z",
+          }),
+        ],
+        now,
+      ),
+    ).toBe(Date.parse("2026-09-10T08:00:00.000Z"));
+  });
+
+  it("is undefined when there are no jobs", () => {
+    expect(earliestJobStartMs([], Date.now())).toBeUndefined();
   });
 });
 

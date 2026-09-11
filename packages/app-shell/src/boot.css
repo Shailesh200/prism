@@ -4,7 +4,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 0;
   background:
     radial-gradient(90% 70% at 50% 28%, #131926 0%, transparent 58%),
     linear-gradient(165deg, #0a0e1a 0%, #0f1420 100%);
@@ -12,8 +12,20 @@
   font-family: "Inter", "Segoe UI", system-ui, sans-serif;
 }
 
+.prism-boot__mark {
+  position: relative;
+  width: 36px;
+  height: 36px;
+}
+
+.prism-boot__pip {
+  position: absolute;
+  right: -3px;
+  bottom: -2px;
+}
+
 .prism-boot__brand {
-  margin: 6px 0 0;
+  margin: 10px 0 0;
   font-size: 1.125rem;
   font-weight: 650;
   letter-spacing: -0.02em;
@@ -21,18 +33,98 @@
 
 .prism-boot__msg {
   margin: 10px 0 0;
-  font-size: 0.8125rem;
-  color: #94a3b8;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #cbd5e1;
+}
+
+.prism-boot__hint {
+  margin: 4px 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.prism-boot__meter {
+  width: min(280px, 72vw);
+  margin-top: 18px;
+  --prism-progress: 4px;
+}
+
+.prism-boot__stage {
+  margin: 14px 0 0;
+  font-size: 0.6875rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #00c2c2;
 }
 
 .prism-boot__detail {
-  margin: 4px 0 0;
+  margin: 12px 0 0;
   max-width: 420px;
   text-align: center;
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 0.7rem;
-  color: #94a3b8;
+  color: #64748b;
   line-height: 1.4;
+}
+
+.prism-boot__map {
+  position: relative;
+  width: min(320px, 86vw);
+  margin-top: 20px;
+  padding: 14px;
+  overflow: hidden;
+  border: 1px solid #2a334a;
+  border-radius: 12px;
+  background: #131926;
+}
+
+.prism-boot__map::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in srgb, #00c2c2 14%, transparent) 50%,
+    transparent 80%
+  );
+  background-size: 200% 100%;
+  animation: prism-boot-shimmer 1.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.prism-boot__map-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.prism-boot__cell {
+  aspect-ratio: 1;
+  border-radius: 5px;
+  background: #1a2233;
+}
+
+.prism-boot__cell[data-lit="true"] {
+  background: color-mix(in srgb, #00c2c2 30%, #1a2233);
+}
+
+@keyframes prism-boot-shimmer {
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -80% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prism-boot__map::after,
+  .prism-boot__pip {
+    animation: none;
+  }
 }
 
 .playground-shell {
@@ -84,6 +176,23 @@
   background: transparent;
 }
 
+.playground-open .wake-pips-link {
+  flex: 1 0 100%;
+  margin: 2px 0 0;
+  text-decoration: none;
+  color: inherit;
+}
+
+.playground-open .wake-pills {
+  margin: 0;
+  justify-content: flex-end;
+}
+
+.playground-open .wake-pill {
+  padding: 4px 10px;
+  font-size: 11px;
+}
+
 .playground-open__label {
   font-size: 0.6875rem;
   font-weight: 650;
@@ -131,6 +240,11 @@
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 0.7rem;
   color: #ffffff;
+}
+
+.playground-open .prism-select-wrap {
+  flex: 1;
+  min-width: 180px;
 }
 
 .playground-open__status {

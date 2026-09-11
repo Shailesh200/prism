@@ -21,6 +21,7 @@ export {
   couplingDensity,
   couplingDensityPct,
   floorToUtcDay,
+  formatDayKey,
   parseDayMs,
   presetBounds,
   type OverviewActivity as ActivityBuckets,

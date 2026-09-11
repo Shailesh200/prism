@@ -9,6 +9,41 @@ the `prism` CLI, the `prism-mcp` server, and the Core SDK they all call. They
 move as one because they are one build; a mismatch between them has never been
 a supported configuration.
 
+## Unreleased
+
+## 1.11.0 — Global jobs, Wake, and Spectrum
+
+### Console
+
+- Jobs live under `~/.prism` (ADR-0054). Legacy `{repo}/.prism/dispatch/jobs.json` files are migrated. The dashboard no longer drops jobs whose checkout left the registry.
+- First-load migrate writes the global store before retiring leftovers, and recovers from `jobs.json.migrated` if that write never landed.
+- Wake shows Dispatch and Spectrum separately, with Close and Escape back to Dashboard.
+- Select repository lists every registered checkout, so switching after the first pick works.
+- Skills drafts save when you leave the editor, not on every name keystroke.
+- Trees keeps a short cache so switching tabs does not re-scan git worktrees.
+- Pulse treats finished work as worked, not waiting, and the Focus rail keeps Working when a job actually ran.
+- Pulse cards (Stitch) show Waited / Worked / Failed / Cancelled with timestamps, accordion chevrons, and Cancel next to Start anyway or Resume.
+- Footer links open **Spectrum** (maps, DNA, health) for the selected repo, and match each other in type.
+- Trees, Skills, and Pulse show skeleton cards while loading, and buttons use a spinner while an action is in flight.
+
+### Spectrum
+
+- Indexes the Dispatch-selected repository. It no longer falls back to the Prism checkout.
+- The path field is the same repository dropdown as Dispatch. Console DNA/Health links pass `?root=`. A poll cannot snap you off a repo you picked.
+- Wake is the same screen as Console, with Close back to the page you were on.
+- Health charts label every day in a week-long window, and axis ticks use the product font. Build history shows a spinner and a toast.
+
+### Dispatch
+
+- `listStoredWorkspaceRoots` unions with the hub registry so a job stays findable after the checkout leaves the registered set.
+
+### MCP
+
+- `prism wake` / `prism sleep` speak **Spectrum**, not Playground.
+- Keep `@latest`. Reload MCP after this publish. Logs: `prism-mcp 1.11.0: workspace …`.
+
+Keep `@latest`. `@repo-prism/dispatch@1.11.0`, `@repo-prism/dispatch-hub@1.11.0`, `@repo-prism/mcp-server@1.11.0`, `@repo-prism/shared@1.2.2`, `@repo-prism/indexer@1.0.2`, `@repo-prism/core@1.0.2`, engine packages `@1.0.1` (analyzer, graph-engine, impact, navigation, intelligence, repository-map), and `@repo-prism/host-session@1.1.18`.
+
 ## 1.10.0 — Skills, trees, and Impact
 
 ### Console

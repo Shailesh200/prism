@@ -1,3 +1,4 @@
+import { Loader2 } from "lucide-react";
 import type { ButtonHTMLAttributes, ReactElement, ReactNode, Ref } from "react";
 
 export type ButtonVariant =
@@ -31,6 +32,7 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   readonly variant?: ButtonVariant;
   readonly size?: ButtonSize;
   readonly icon?: ReactNode;
+  readonly loading?: boolean;
   readonly ref?: Ref<HTMLButtonElement>;
 };
 
@@ -39,9 +41,11 @@ export function Button(props: ButtonProps): ReactElement {
     variant = "secondary",
     size = "md",
     icon,
+    loading = false,
     className,
     children,
     type = "button",
+    disabled,
     ref,
     ...rest
   } = props;
@@ -49,13 +53,25 @@ export function Button(props: ButtonProps): ReactElement {
     "prism-btn",
     `prism-btn--${buttonVariantClass(variant)}`,
     `prism-btn--${size}`,
+    loading ? "prism-btn--loading" : undefined,
     className,
   ]
     .filter(Boolean)
     .join(" ");
   return (
-    <button ref={ref} type={type} className={classes} {...rest}>
-      {icon}
+    <button
+      ref={ref}
+      type={type}
+      className={classes}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      {...rest}
+    >
+      {loading ? (
+        <Loader2 className="prism-spinner" size={14} aria-hidden />
+      ) : (
+        icon
+      )}
       {children}
     </button>
   );
@@ -64,6 +80,7 @@ export function Button(props: ButtonProps): ReactElement {
 export type IconButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   readonly label: string;
   readonly variant?: ButtonVariant;
+  readonly loading?: boolean;
   readonly ref?: Ref<HTMLButtonElement>;
 };
 
@@ -71,9 +88,11 @@ export function IconButton(props: IconButtonProps): ReactElement {
   const {
     label,
     variant = "ghost",
+    loading = false,
     className,
     children,
     type = "button",
+    disabled,
     ref,
     ...rest
   } = props;
@@ -81,6 +100,7 @@ export function IconButton(props: IconButtonProps): ReactElement {
     "prism-btn",
     "prism-btn--icon",
     `prism-btn--${buttonVariantClass(variant)}`,
+    loading ? "prism-btn--loading" : undefined,
     className,
   ]
     .filter(Boolean)
@@ -92,9 +112,15 @@ export function IconButton(props: IconButtonProps): ReactElement {
       className={classes}
       aria-label={label}
       title={label}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
       {...rest}
     >
-      {children}
+      {loading ? (
+        <Loader2 className="prism-spinner" size={14} aria-hidden />
+      ) : (
+        children
+      )}
     </button>
   );
 }

@@ -50,8 +50,9 @@ matters; neither metric alone identifies it.
 landmarks, health, findings, and memories. An aperture, not a persona — never
 first person, never an avatar. See the Console `#/iris` route.
 
-**Spectrum** — The visualization of Iris: `RepositoryMapView` in the Console
-and the website hero. The same artifact in both places.
+**Spectrum** — The browser intelligence app (formerly Playground) that indexes
+the Dispatch-selected repository. The same name is used for the Iris
+visualization (`RepositoryMapView`) in the Console and the website hero.
 
 **Knowledge graph** — Semantic relationships beyond imports: what a symbol is,
 what it relates to, what it belongs to. See [graphs](/docs/concepts/graphs).
@@ -75,7 +76,7 @@ Reported by safe delete. See [Delete safely](/docs/guides/delete-safely).
 [signal provenance](/docs/concepts/signal-provenance).
 
 **Surface** — A way of using Prism: the extension, the CLI, the MCP server, the
-playground. All of them consume the same engine and compute nothing themselves.
+Spectrum app. All of them consume the same engine and compute nothing themselves.
 
 **Unavailable** — Prism does not know this, and says so instead of showing zero.
 A repository with no coverage report and one with genuinely zero coverage are

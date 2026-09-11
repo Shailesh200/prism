@@ -3,6 +3,7 @@ import {
   isSettledJob,
   jobBadgeTone,
   jobDisplayLabel,
+  jobNextAction,
   type JobSummary,
 } from "@repo-prism/app-shell";
 import { formatDuration, jobDurations } from "@repo-prism/shared";
@@ -314,6 +315,19 @@ export function jobWindow(
     midMs: mid !== undefined && Number.isFinite(mid) ? mid : undefined,
     endMs: Number.isFinite(endRaw) ? endRaw : nowMs,
   };
+}
+
+/** First job's start on the board — the floor for a custom time range. */
+export function earliestJobStartMs(
+  jobs: readonly JobSummary[],
+  nowMs: number = Date.now(),
+): number | undefined {
+  let start = Number.POSITIVE_INFINITY;
+  for (const job of jobs) {
+    const win = jobWindow(job, nowMs);
+    if (Number.isFinite(win.startMs)) start = Math.min(start, win.startMs);
+  }
+  return Number.isFinite(start) ? start : undefined;
 }
 
 export type GanttBar = {
@@ -842,6 +856,10 @@ export function groupRepos(
       ),
     );
   }
+  for (const [path, list] of byPath) {
+    if (!path || workspaces.some((row) => row.path === path)) continue;
+    rows.push(repoFleet(path, list[0]?.workspaceLabel ?? path, list));
+  }
   return rows;
 }
 
@@ -918,9 +936,6 @@ export function preferredWorkspace(
   const ranked = [...workspaces].sort((a, b) => {
     const byJobs = (counts.get(b.path) ?? 0) - (counts.get(a.path) ?? 0);
     if (byJobs !== 0) return byJobs;
-    const prism =
-      Number(/^prism$/i.test(b.label)) - Number(/^prism$/i.test(a.label));
-    if (prism !== 0) return prism;
     return a.label.localeCompare(b.label);
   });
   return ranked[0]?.path ?? "";
@@ -1005,6 +1020,14 @@ export function jobWorkStartedAt(job: JobSummary): string | undefined {
     .find((event) => event.kind === "working")?.at;
   if (fromLifecycle) return fromLifecycle;
   if (isWorkingJob(job.status)) return job.queuedAt ?? job.createdAt;
+  if (
+    (job.status === "done" ||
+      job.status === "needs_review" ||
+      job.status === "error") &&
+    (job.lastHeartbeat || job.lastActivity)
+  ) {
+    return job.queuedAt ?? job.createdAt;
+  }
   return undefined;
 }
 
@@ -1055,6 +1078,12 @@ export function pulseBucket(job: Pick<JobSummary, "status">): PulseBucket {
   }
   if (isLiveJob(job.status)) return "live";
   return "settled";
+}
+
+/** Confirm and resume cards show Cancel beside the primary CTA. */
+export function pulseCtaShowsCancel(job: JobSummary): boolean {
+  const action = jobNextAction(job)?.action;
+  return action === "confirm" || action === "resume";
 }
 
 function byUpdatedDesc(a: JobSummary, b: JobSummary): number {
@@ -1141,6 +1170,17 @@ export function pulseIdleRepos(
   return repos.filter(
     (repo) => jobsInRange(repo.jobs, range, nowMs).length === 0,
   );
+}
+
+/** Two-letter mark from a repo label (`prism/core-engine` → `CE`). */
+export function repoInitials(label: string): string {
+  const last = (label.split(/[/\\]/).filter(Boolean).at(-1) ?? label).trim();
+  const parts = last.split(/[-_\s]+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
+  }
+  const letters = last.replace(/[^A-Za-z0-9]/g, "");
+  return letters.slice(0, 2).toUpperCase() || "?";
 }
 
 export function waitWorkMeter(

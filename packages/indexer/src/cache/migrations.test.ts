@@ -1,10 +1,10 @@
-import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
+import { openSqliteDatabase } from "./db.js";
 import { migrate, readSchemaVersion, SCHEMA_VERSION } from "./migrations.js";
 
 describe("SQLite migrations", () => {
   it("migrates v1 → v2 and exposes source column", () => {
-    const db = new Database(":memory:");
+    const db = openSqliteDatabase(":memory:");
     expect(migrate(db, { maxVersion: 1 })).toBe(1);
     expect(readSchemaVersion(db)).toBe(1);
 

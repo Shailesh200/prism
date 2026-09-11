@@ -114,11 +114,24 @@ export function integerTicks(max: number, count = 5): number[] {
   const last = unique[unique.length - 1] ?? 0;
   if (last > top) unique[unique.length - 1] = top;
   else if (last < top) unique.push(top);
-  return [...new Set(unique)];
+  const collapsed = [...new Set(unique)];
+  // Forcing the last tick to the exact max (11, not 12) can sit it one
+  // unit above the previous nice step (10). Drop the crowded neighbour so
+  // labels like "10" and "11" do not paint on top of each other.
+  if (collapsed.length >= 3) {
+    const hi = collapsed[collapsed.length - 1]!;
+    const prev = collapsed[collapsed.length - 2]!;
+    const prior = collapsed[collapsed.length - 3]!;
+    const typical = prev - prior;
+    if (typical > 0 && hi - prev < typical * 0.75) {
+      collapsed.splice(collapsed.length - 2, 1);
+    }
+  }
+  return collapsed;
 }
 
 /** Sparse indices for x-axis labels (always includes first and last). */
-export function pickAxisIndices(length: number, maxLabels = 6): number[] {
+export function pickAxisIndices(length: number, maxLabels = 8): number[] {
   if (length <= 0) return [];
   if (length <= maxLabels) {
     return Array.from({ length }, (_, i) => i);

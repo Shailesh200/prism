@@ -9,6 +9,7 @@ import {
   Checkbox,
   Drawer,
   DateRangePicker,
+  DateTimePicker,
   isActivateTarget,
   isDrawerOpen,
   isPrimaryActionKey,
@@ -35,6 +36,9 @@ import {
   ToggleGroup,
   Tooltip,
   Truncate,
+  ScreenSkeleton,
+  PrismToastHost,
+  showPrismToast,
 } from "./index.js";
 
 function isComponent(value: unknown): boolean {
@@ -94,6 +98,10 @@ describe("design-system primitives exports", () => {
     expect(typeof ProgressBar).toBe("function");
     expect(typeof Truncate).toBe("function");
     expect(typeof DateRangePicker).toBe("function");
+    expect(typeof DateTimePicker).toBe("function");
+    expect(typeof ScreenSkeleton).toBe("function");
+    expect(typeof PrismToastHost).toBe("function");
+    expect(typeof showPrismToast).toBe("function");
   });
 
   it("gives search a single stroke and no nested well", () => {

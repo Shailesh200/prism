@@ -13,6 +13,7 @@ import {
   domainDisplayName,
   parseDayMs,
   presetBounds,
+  formatDayKey,
   scoreColor,
 } from "./overview-model.js";
 
@@ -239,20 +240,18 @@ describe("couplingDensityPct", () => {
 });
 
 describe("presetBounds", () => {
-  it("produces an inclusive N-day window ending at 'now' (UTC day)", () => {
-    const now = Date.parse("2026-07-22T09:30:00Z");
+  it("produces an inclusive N-day window ending at 'now' (local day)", () => {
+    const now = new Date(2026, 6, 22, 15, 0).getTime();
     const { startMs, endMs } = presetBounds(30, now);
-    expect(new Date(endMs).toISOString()).toBe("2026-07-22T00:00:00.000Z");
-    // 30 days inclusive -> start is 29 days before end.
-    const spanDays = Math.round((endMs - startMs) / 86_400_000) + 1;
-    expect(spanDays).toBe(30);
+    expect(formatDayKey(endMs)).toBe("2026-07-22");
+    expect(bucketActivity([], startMs, endMs).starts).toHaveLength(30);
   });
 
   it("supports a 1-year window", () => {
-    const now = Date.parse("2026-07-22T00:00:00Z");
+    const now = new Date(2026, 6, 22, 9, 0).getTime();
     const { startMs, endMs } = presetBounds(365, now);
-    const spanDays = Math.round((endMs - startMs) / 86_400_000) + 1;
-    expect(spanDays).toBe(365);
+    expect(formatDayKey(endMs)).toBe("2026-07-22");
+    expect(formatDayKey(startMs)).toBe("2025-07-23");
   });
 });
 

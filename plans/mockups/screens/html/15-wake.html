@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Prism Dispatch Console — Wake</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "on-secondary-container": "#bbb8ff",
+            "surface-container-low": "#0d1323",
+            "secondary-container": "#2906c0",
+            "on-primary-container": "#003939",
+            "surface-container": "#12192c",
+            "on-surface": "#dfe4ff",
+            "on-primary-fixed": "#004747",
+            "secondary-fixed": "#e3dfff",
+            "error-dim": "#c54d4a",
+            "on-primary": "#004848",
+            "surface": "#0a0e1a",
+            "tertiary": "#d2ecff",
+            "secondary-dim": "#675df9",
+            "background": "#0a0e1a",
+            "primary": "#3fdbdb",
+            "surface-tint": "#3fdbdb",
+            "inverse-on-surface": "#515463",
+            "surface-dim": "#0a0e1a",
+            "on-background": "#dfe4ff",
+            "inverse-primary": "#006a6a",
+            "primary-fixed": "#65f8f7",
+            "outline-variant": "#3f4762",
+            "surface-bright": "#232b44",
+            "on-tertiary": "#2f5a72",
+            "on-tertiary-container": "#255169",
+            "secondary-fixed-dim": "#d3d0ff",
+            "error-container": "#871f21",
+            "error": "#fa746f",
+            "on-error-container": "#ff9993",
+            "tertiary-dim": "#a7d2ee",
+            "on-tertiary-fixed-variant": "#305b73",
+            "on-secondary": "#2e15c5",
+            "on-error": "#490006",
+            "on-secondary-fixed": "#2d13c4",
+            "outline": "#6c7592",
+            "on-secondary-fixed-variant": "#4c40df",
+            "inverse-surface": "#faf8ff",
+            "tertiary-fixed-dim": "#a7d2ee",
+            "surface-container-lowest": "#000000",
+            "surface-container-high": "#181f34",
+            "primary-fixed-dim": "#53e9e9",
+            "surface-variant": "#1c253e",
+            "tertiary-fixed": "#b5e0fd",
+            "tertiary-container": "#b5e0fd",
+            "on-primary-fixed-variant": "#006666",
+            "secondary": "#c4c0ff",
+            "on-tertiary-fixed": "#0c3e55",
+            "surface-container-highest": "#1c253e",
+            "primary-container": "#17c7c7",
+            "on-surface-variant": "#a2aac9",
+            "primary-dim": "#26cdcd"
+          },
+          borderRadius: {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          fontFamily: {
+            headline: ["Inter", "sans-serif"],
+            display: ["Inter", "sans-serif"],
+            body: ["Inter", "sans-serif"],
+            label: ["Inter", "sans-serif"],
+            mono: ["'JetBrains Mono'", "monospace"]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    body {
+      background-color: #0A0E1A;
+      color: #FFFFFF;
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+    .material-symbols-outlined {
+      font-size: 18px;
+      line-height: 1;
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+    }
+  </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex flex-col antialiased selection:bg-primary-container selection:text-surface-container-lowest">
+<!-- Top Web Header Component from Shared Anchor Specifications -->
+<header class="flex justify-between items-center h-14 px-6 w-full max-w-full bg-surface-container-low border-b border-outline-variant z-30 sticky top-0">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-2.5">
+<span class="w-2.5 h-2.5 rounded-sm bg-primary inline-block"></span>
+<span class="font-headline text-sm font-bold tracking-wider uppercase text-primary">Prism Dispatch</span>
+</div>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-primary border-b-2 border-primary font-medium py-4 text-xs tracking-wide" href="#dispatch">Dispatch</a>
+<a class="text-on-surface-variant hover:text-on-surface py-4 transition-colors text-xs tracking-wide" href="#spectrum">Spectrum</a>
+<a class="text-on-surface-variant hover:text-on-surface py-4 transition-colors text-xs tracking-wide" href="#findings">Findings</a>
+<a class="text-on-surface-variant hover:text-on-surface py-4 transition-colors text-xs tracking-wide" href="#iris">Iris</a>
+<a class="text-on-surface-variant hover:text-on-surface py-4 transition-colors text-xs tracking-wide" href="#trees">Trees</a>
+</nav>
+</div>
+<div class="flex items-center gap-3">
+<div class="hidden sm:flex items-center bg-surface-container border border-outline-variant rounded px-2.5 py-1.5 gap-2 text-xs font-mono text-on-surface-variant">
+<span class="material-symbols-outlined text-outline">terminal</span>
+<span>node://local.prism.ipc</span>
+</div>
+<button class="flex items-center gap-1.5 px-3 py-1.5 bg-surface-variant hover:bg-surface-bright text-primary border border-outline-variant rounded text-xs font-medium transition-colors" type="button">
+<span class="material-symbols-outlined text-primary">tune</span>
+<span>Connect Node</span>
+</button>
+<button aria-label="Help" class="p-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded transition-colors" type="button">
+<span class="material-symbols-outlined">help</span>
+</button>
+</div>
+</header>
+<!-- Main Workspace Canvas / Wake Pane -->
+<main class="flex-1 w-full max-w-[1080px] mx-auto px-6 sm:px-12 py-12 md:py-16 flex flex-col justify-start">
+<!-- 1. Status Pill -->
+<div class="mb-6">
+<div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#2A334A] bg-[#1E2433] text-[12px] text-[#94A3B8] font-mono tracking-tight shadow-none">
+<span class="w-[6px] h-[6px] rounded-full bg-[#00C2C2] flex-shrink-0"></span>
+<span>On this machine</span>
+</div>
+</div>
+<!-- 2. Large Instrument-Grade Headline -->
+<h1 class="text-[54px] sm:text-[68px] lg:text-[72px] font-semibold text-[#FFFFFF] tracking-[-0.03em] leading-[1.05] mb-5 selection:bg-[#00C2C2] selection:text-[#0A0E1A]">
+      Prism is awake.
+    </h1>
+<!-- 3. Lede Text -->
+<p class="text-[17px] leading-relaxed text-[#94A3B8] max-w-[62ch] font-normal mb-10">
+      Console and Spectrum are on this machine. The repo you pick retargets both.
+    </p>
+<!-- 4. Form Field Above Cards (Left-Aligned, not centered) -->
+<div class="w-full max-w-[320px] mb-10">
+<label class="block font-mono uppercase text-[11px] font-medium tracking-wider text-[#94A3B8] mb-2.5" for="repo-select-button">
+        ACTIVE REPOSITORY
+      </label>
+<div class="relative">
+<button aria-expanded="false" aria-haspopup="listbox" class="w-full h-[42px] bg-[#131926] border border-[#2A334A] rounded-lg px-3.5 flex items-center justify-between text-[#FFFFFF] text-sm font-medium hover:border-[#00C2C2]/50 focus:outline-none focus:ring-2 focus:ring-[#00C2C2] cursor-pointer transition-colors group" id="repo-select-button" type="button">
+<div class="flex items-center gap-2.5 truncate">
+<span class="material-symbols-outlined text-[#94A3B8] group-hover:text-[#00C2C2] transition-colors" data-icon="folder_open">folder_open</span>
+<span class="font-mono text-sm tracking-tight text-[#FFFFFF]">Prism</span>
+</div>
+<span class="material-symbols-outlined text-[#94A3B8] transition-transform duration-150" data-icon="expand_more">expand_more</span>
+</button>
+</div>
+</div>
+<!-- 5. Two Equal Door Cards in a 2-Column Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+<!-- Card 1: Console -->
+<section class="border border-[#2A334A] bg-[#1E2433] rounded-lg overflow-hidden flex flex-col justify-between hover:border-[#00C2C2]/40 transition-colors">
+<!-- TOP Cartographic Schematic Illustration (176px) -->
+<div class="h-[176px] w-full bg-[#0A0E1A] border-b border-[#2A334A] relative select-none overflow-hidden">
+<svg class="w-full h-full block" fill="none" viewbox="0 0 496 176" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<pattern height="20" id="console-grid" patternunits="userSpaceOnUse" width="20">
+<path d="M 20 0 L 0 0 0 20" fill="none" stroke="#2A334A" stroke-opacity="0.35" stroke-width="0.75"></path>
+</pattern>
+</defs>
+<!-- Background 20px grid -->
+<rect fill="url(#console-grid)" height="100%" width="100%"></rect>
+<!-- Subdued rail lanes -->
+<line stroke="#2A334A" stroke-dasharray="2 4" stroke-opacity="0.6" stroke-width="1" x1="16" x2="480" y1="42" y2="42"></line>
+<line stroke="#2A334A" stroke-dasharray="2 4" stroke-opacity="0.6" stroke-width="1" x1="16" x2="480" y1="82" y2="82"></line>
+<line stroke="#2A334A" stroke-dasharray="2 4" stroke-opacity="0.6" stroke-width="1" x1="16" x2="480" y1="122" y2="122"></line>
+<!-- Rail 1 Job segments -->
+<rect fill="#00C2C2" fill-opacity="0.80" height="16" rx="4" width="76" x="36" y="34"></rect>
+<rect fill="#00C2C2" fill-opacity="0.25" height="16" rx="4" width="134" x="120" y="34"></rect>
+<rect fill="#00C2C2" fill-opacity="0.60" height="16" rx="4" width="92" x="264" y="34"></rect>
+<rect fill="#00C2C2" fill-opacity="0.40" height="16" rx="4" width="84" x="366" y="34"></rect>
+<!-- Rail 2 Job segments -->
+<rect fill="#00C2C2" fill-opacity="0.40" height="16" rx="4" width="128" x="24" y="74"></rect>
+<rect fill="#00C2C2" fill-opacity="0.80" height="16" rx="4" width="60" x="160" y="74"></rect>
+<rect fill="#00C2C2" fill-opacity="0.25" height="16" rx="4" width="144" x="228" y="74"></rect>
+<rect fill="#00C2C2" fill-opacity="0.60" height="16" rx="4" width="72" x="382" y="74"></rect>
+<!-- Rail 3 Job segments -->
+<rect fill="#00C2C2" fill-opacity="0.60" height="16" rx="4" width="170" x="52" y="114"></rect>
+<rect fill="#00C2C2" fill-opacity="0.40" height="16" rx="4" width="86" x="230" y="114"></rect>
+<rect fill="#00C2C2" fill-opacity="0.80" height="16" rx="4" width="130" x="324" y="114"></rect>
+<!-- Vertical Teal Playhead Line with Timestamp marker -->
+<line stroke="#00C2C2" stroke-width="1.5" x1="214" x2="214" y1="12" y2="152"></line>
+<polygon fill="#00C2C2" points="210,14 218,14 214,20"></polygon>
+<!-- Playhead indicator badge -->
+<rect fill="#131926" height="14" rx="2" stroke="#00C2C2" stroke-width="0.75" width="56" x="186" y="6"></rect>
+<text fill="#00C2C2" font-family="'JetBrains Mono', monospace" font-size="8.5" font-weight="500" text-anchor="middle" x="214" y="16.5">t = 042ms</text>
+<!-- Bottom Ruler / Frame Demarcations in JetBrains Mono -->
+<line stroke="#2A334A" stroke-width="1" x1="0" x2="496" y1="152" y2="152"></line>
+<!-- Ticks and Millisecond Labels -->
+<g stroke="#2A334A" stroke-width="1">
+<line x1="40" x2="40" y1="152" y2="158"></line>
+<line x1="80" x2="80" y1="152" y2="155"></line>
+<line x1="120" x2="120" y1="152" y2="158"></line>
+<line x1="160" x2="160" y1="152" y2="155"></line>
+<line x1="200" x2="200" y1="152" y2="158"></line>
+<line x1="240" x2="240" y1="152" y2="155"></line>
+<line x1="280" x2="280" y1="152" y2="158"></line>
+<line x1="320" x2="320" y1="152" y2="155"></line>
+<line x1="360" x2="360" y1="152" y2="158"></line>
+<line x1="400" x2="400" y1="152" y2="155"></line>
+<line x1="440" x2="440" y1="152" y2="158"></line>
+</g>
+<g fill="#94A3B8" font-family="'JetBrains Mono', monospace" font-size="8" letter-spacing="0.02em">
+<text text-anchor="middle" x="40" y="168">00ms</text>
+<text text-anchor="middle" x="120" y="168">20ms</text>
+<text text-anchor="middle" x="200" y="168">40ms</text>
+<text text-anchor="middle" x="280" y="168">60ms</text>
+<text text-anchor="middle" x="360" y="168">80ms</text>
+<text text-anchor="middle" x="440" y="168">100ms</text>
+</g>
+</svg>
+</div>
+<!-- Card Body -->
+<div class="px-6 pt-5 pb-3 flex-1">
+<h2 class="text-[22px] font-semibold text-[#FFFFFF] tracking-tight">Console</h2>
+<p class="text-[15px] text-[#94A3B8] mt-1.5 font-normal">Dispatch jobs.</p>
+</div>
+<!-- Card Actions -->
+<div class="px-6 pb-6 pt-2 flex justify-end">
+<a class="inline-flex items-center gap-2 bg-[#00C2C2] hover:bg-[#00D6D6] text-[#0A0E1A] font-semibold text-sm px-5 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C2C2] focus:ring-offset-2 focus:ring-offset-[#1E2433] transition-colors" href="#open-console">
+<span>Open Console</span>
+<span aria-hidden="true" class="text-base font-bold">→</span>
+</a>
+</div>
+</section>
+<!-- Card 2: Spectrum -->
+<section class="border border-[#2A334A] bg-[#1E2433] rounded-lg overflow-hidden flex flex-col justify-between hover:border-[#00C2C2]/40 transition-colors">
+<!-- TOP Cartographic Schematic Illustration (176px) -->
+<div class="h-[176px] w-full bg-[#0A0E1A] border-b border-[#2A334A] relative select-none overflow-hidden">
+<svg class="w-full h-full block" fill="none" viewbox="0 0 496 176" xmlns="http://www.w3.org/2000/svg">
+<!-- Center Blast Radius Target Coordinates: (248, 88) -->
+<!-- Concentric dashed range rings -->
+<circle cx="248" cy="88" r="38" stroke="#00C2C2" stroke-dasharray="3 3" stroke-opacity="0.30" stroke-width="1"></circle>
+<circle cx="248" cy="88" r="74" stroke="#00C2C2" stroke-dasharray="4 4" stroke-opacity="0.20" stroke-width="1"></circle>
+<circle cx="248" cy="88" r="114" stroke="#00C2C2" stroke-dasharray="2 6" stroke-opacity="0.15" stroke-width="0.75"></circle>
+<!-- Thin Vector Link paths between key dependency cells -->
+<path d="M 248 88 L 188 54 M 248 88 L 308 54 M 248 88 L 248 156 M 248 88 L 128 88 M 248 88 L 368 88 M 188 54 L 128 88 M 308 54 L 368 88" stroke="#00C2C2" stroke-opacity="0.45" stroke-width="0.9"></path>
+<!-- Honeycomb Hexagonal Cell Definitions -->
+<g stroke="#2A334A" stroke-width="1">
+<!-- Center Hex Cell (Hot Center) -->
+<polygon fill="#131926" points="248,68 265,78 265,98 248,108 231,98 231,78" stroke="#00C2C2" stroke-width="1.2"></polygon>
+<!-- Ring 1 Neighbor Hexes -->
+<!-- Top-Left -->
+<polygon fill="#00C2C2" fill-opacity="0.35" points="188,34 205,44 205,64 188,74 171,64 171,44"></polygon>
+<!-- Top-Right -->
+<polygon fill="#00C2C2" fill-opacity="0.15" points="308,34 325,44 325,64 308,74 291,64 291,44"></polygon>
+<!-- Mid-Left -->
+<polygon fill="#00C2C2" fill-opacity="0.15" points="128,68 145,78 145,98 128,108 111,98 111,78"></polygon>
+<!-- Mid-Right -->
+<polygon fill="#00C2C2" fill-opacity="0.70" points="368,68 385,78 385,98 368,108 351,98 351,78"></polygon>
+<!-- Bottom-Center -->
+<polygon fill="#00C2C2" fill-opacity="0.35" points="248,136 265,146 265,166 248,176 231,166 231,146"></polygon>
+<!-- Top-Center -->
+<polygon fill="none" points="248,0 265,10 265,30 248,40 231,30 231,10" stroke-opacity="0.4"></polygon>
+<!-- Outer Hex Outlines -->
+<polygon fill="none" points="68,34 85,44 85,64 68,74 51,64 51,44" stroke-opacity="0.3"></polygon>
+<polygon fill="#00C2C2" fill-opacity="0.10" points="68,102 85,112 85,132 68,142 51,132 51,112" stroke-opacity="0.35"></polygon>
+<polygon fill="none" points="188,102 205,112 205,132 188,142 171,132 171,112" stroke-opacity="0.4"></polygon>
+<polygon fill="#00C2C2" fill-opacity="0.25" points="308,102 325,112 325,132 308,142 291,132 291,112" stroke-opacity="0.5"></polygon>
+<polygon fill="none" points="428,34 445,44 445,64 428,74 411,64 411,44" stroke-opacity="0.3"></polygon>
+<polygon fill="#00C2C2" fill-opacity="0.15" points="428,102 445,112 445,132 428,142 411,132 411,112" stroke-opacity="0.4"></polygon>
+</g>
+<!-- Center Core Focal Node & Crosshairs -->
+<circle cx="248" cy="88" fill="#00C2C2" r="4.5"></circle>
+<circle cx="248" cy="88" fill="#0A0E1A" r="1.5"></circle>
+<line stroke="#00C2C2" stroke-width="1.2" x1="248" x2="248" y1="62" y2="66"></line>
+<line stroke="#00C2C2" stroke-width="1.2" x1="248" x2="248" y1="110" y2="114"></line>
+<line stroke="#00C2C2" stroke-width="1.2" x1="222" x2="226" y1="88" y2="88"></line>
+<line stroke="#00C2C2" stroke-width="1.2" x1="270" x2="274" y1="88" y2="88"></line>
+<!-- Cartographic Coordinate Badges (JetBrains Mono) -->
+<text fill="#94A3B8" fill-opacity="0.7" font-family="'JetBrains Mono', monospace" font-size="8" x="16" y="24">RADIAL: 124μm</text>
+<text fill="#94A3B8" fill-opacity="0.7" font-family="'JetBrains Mono', monospace" font-size="8" x="16" y="36">INDEX : 0x7E2</text>
+<text fill="#00C2C2" fill-opacity="0.8" font-family="'JetBrains Mono', monospace" font-size="8" text-anchor="end" x="480" y="24">BLAST: 14 NODES</text>
+<text fill="#94A3B8" fill-opacity="0.7" font-family="'JetBrains Mono', monospace" font-size="8" text-anchor="end" x="480" y="36">MAP : STABLE</text>
+</svg>
+</div>
+<!-- Card Body -->
+<div class="px-6 pt-5 pb-3 flex-1">
+<h2 class="text-[22px] font-semibold text-[#FFFFFF] tracking-tight">Spectrum</h2>
+<p class="text-[15px] text-[#94A3B8] mt-1.5 font-normal">Maps, DNA, blast radius for Prism.</p>
+</div>
+<!-- Card Actions -->
+<div class="px-6 pb-6 pt-2 flex justify-end">
+<a class="inline-flex items-center gap-2 bg-[#00C2C2] hover:bg-[#00D6D6] text-[#0A0E1A] font-semibold text-sm px-5 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C2C2] focus:ring-offset-2 focus:ring-offset-[#1E2433] transition-colors" href="#open-spectrum">
+<span>Open Spectrum</span>
+<span aria-hidden="true" class="text-base font-bold">→</span>
+</a>
+</div>
+</section>
+</div>
+<!-- 6. Foot / Footer Note -->
+<footer class="mt-12 pt-6 border-t border-[#2A334A] w-full">
+<p class="text-[13px] text-[#94A3B8] font-normal leading-normal">
+        Spectrum follows the repo you pick. Sleep parks both; wake starts both.
+      </p>
+</footer>
+</main>
+</body></html>

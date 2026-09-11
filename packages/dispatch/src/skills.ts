@@ -164,6 +164,7 @@ export async function writeSkill(
     readonly description: string;
     readonly body: string;
     readonly status: SkillStatus;
+    readonly previousName?: string;
   },
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<PrismSkill | { readonly error: string }> {
@@ -184,6 +185,12 @@ export async function writeSkill(
   const dir = join(skillsDir(env), name);
   await mkdir(dir, { recursive: true });
   await writeFile(skillFile(name, env), serializeSkill(skill), "utf8");
+  const previous = input.previousName
+    ? normalizeSkillName(input.previousName)
+    : undefined;
+  if (previous && previous !== name) {
+    await deleteSkill(previous, env);
+  }
   return skill;
 }
 

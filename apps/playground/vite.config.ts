@@ -55,9 +55,14 @@ import {
   MapZoomLevelSchema,
   consentRequiredMessage,
 } from "@repo-prism/shared";
+import {
+  defaultPlaygroundRoot,
+  playgroundPresets,
+  playgroundSurfaces,
+  saveSelectedRoot,
+} from "./hub-registry.ts";
 
 const appRoot = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(appRoot, "../..");
 const fixtureRoot = resolve(
   appRoot,
   "../../packages/intelligence/fixtures/m012-features",
@@ -257,26 +262,6 @@ type Workspace = {
 };
 
 const workspaceCache = new Map<string, Promise<Workspace>>();
-
-type Preset = {
-  id: string;
-  label: string;
-  root: string;
-};
-
-function presets(): Preset[] {
-  return [];
-}
-
-/**
- * Auto-detect the workspace to index. Prefer an explicit env override, else the
- * repository the playground is running inside (this repo).
- */
-function defaultRoot(): string {
-  const fromEnv = process.env.PRISM_PLAYGROUND_ROOT?.trim();
-  if (fromEnv) return resolve(fromEnv);
-  return repoRoot;
-}
 
 async function assertReadableDir(root: string): Promise<void> {
   try {
@@ -790,7 +775,11 @@ function parseZoom(raw: string | null): MapZoomLevel {
 
 function resolveRequestedRoot(raw: string | null): string {
   if (raw && raw.trim().length > 0) return resolve(raw.trim());
-  return defaultRoot();
+  const fallback = defaultPlaygroundRoot();
+  if (fallback) return fallback;
+  throw new Error(
+    "Select a repository in Dispatch, or pass ?root= to Spectrum.",
+  );
 }
 
 function sendJson(
@@ -923,10 +912,21 @@ function prismMapApi(): Plugin {
             const parsed = new URL(url, "http://localhost");
 
             if (parsed.pathname === "/api/presets") {
-              sendJson(res, 200, {
-                defaultRoot: defaultRoot(),
-                presets: presets(),
-              });
+              sendJson(res, 200, playgroundPresets());
+              return;
+            }
+
+            if (
+              parsed.pathname === "/api/select-root" &&
+              req.method === "POST"
+            ) {
+              const body = (await readJsonBody(req)) as { root?: string };
+              const saved = saveSelectedRoot(String(body.root ?? ""));
+              if (!saved) {
+                sendJson(res, 400, { error: "Repository path required." });
+                return;
+              }
+              sendJson(res, 200, { root: saved, ...playgroundPresets() });
               return;
             }
 
@@ -943,6 +943,11 @@ function prismMapApi(): Plugin {
 
             if (parsed.pathname === "/api/console") {
               sendJson(res, 200, await playgroundConsoleStatus());
+              return;
+            }
+
+            if (parsed.pathname === "/api/surfaces") {
+              sendJson(res, 200, await playgroundSurfaces());
               return;
             }
 

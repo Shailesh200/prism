@@ -123,26 +123,23 @@ describe("appendStatusEvent", () => {
     ]);
   });
 
-  it("appends waiting after working when the job is stuck", () => {
-    const running = job({
-      status: "running",
+  it("inserts Working before Finished when startedAt exists on a durable list that skipped it", () => {
+    const done = job({
+      status: "done",
       startedAt: "2026-01-01T00:09:00.000Z",
+      finishedAt: "2026-01-01T00:20:00.000Z",
       lifecycle: [
         { kind: "accepted", at: "2026-01-01T00:00:00.000Z" },
         { kind: "queued", at: "2026-01-01T00:00:02.000Z" },
-        { kind: "working", at: "2026-01-01T00:09:00.000Z" },
+        { kind: "finished", at: "2026-01-01T00:20:00.000Z" },
       ],
     });
-    const stuck = withLifecycleEvents(
-      running,
-      { ...running, status: "blocked" },
-      "2026-01-01T00:14:00.000Z",
-    );
-    expect(stuck.lifecycle?.map((event) => event.kind)).toEqual([
+    const next = withLifecycleEvents(done, done, "2026-01-01T00:20:00.000Z");
+    expect(next.lifecycle?.map((event) => event.kind)).toEqual([
       "accepted",
       "queued",
       "working",
-      "waiting",
+      "finished",
     ]);
   });
 });

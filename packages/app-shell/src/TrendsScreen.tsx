@@ -16,7 +16,7 @@ import {
   InfoTip,
   pickAxisIndices,
 } from "@repo-prism/ui";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -35,6 +35,7 @@ import {
   activityGeometry,
   bucketActivity,
   DEFAULT_ACTIVITY_RANGE,
+  formatDayKey,
   parseDayMs,
   presetBounds,
   type ActivityRangeId,
@@ -58,6 +59,10 @@ export type TrendsScreenProps = {
   fetchRegionMovers?: () => Promise<RegionMoversReport>;
   startHealthHistoryBackfill?: () => Promise<void>;
   fetchHealthHistoryBackfillStatus?: () => Promise<HealthHistoryBackfillStatus>;
+  onNotify?: (
+    message: string,
+    tone?: "ok" | "error" | "info" | "warning",
+  ) => void;
 };
 
 type AuthorRow = {
@@ -70,7 +75,6 @@ function bucketLabel(ms: number, granularity: "day" | "week"): string {
   const d = new Date(ms).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
-    timeZone: "UTC",
   });
   return granularity === "week" ? `Week of ${d}` : d;
 }
@@ -79,7 +83,6 @@ function axisDateLabel(ms: number): string {
   return new Date(ms).toLocaleDateString(undefined, {
     day: "numeric",
     month: "short",
-    timeZone: "UTC",
   });
 }
 
@@ -239,7 +242,6 @@ function SeriesAreaChart(props: {
           month: "short",
           day: "numeric",
           year: "numeric",
-          timeZone: "UTC",
         })
       : bucketLabel(
           props.starts[idx] ?? 0,
@@ -472,6 +474,9 @@ function MoverList(props: {
               onClick={props.onSync}
               disabled={props.syncing}
             >
+              {props.syncing ? (
+                <Loader2 className="prism-spinner" size={14} aria-hidden />
+              ) : null}
               Build history
             </button>
           ) : null}
@@ -681,24 +686,23 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
         const status = await props.fetchHealthHistoryBackfillStatus!();
         if (cancelled) return;
         setBackfill(status);
-        if (status.status === "done" && props.fetchHealthHistory) {
-          const hist = await props.fetchHealthHistory();
-          if (!cancelled) {
-            setHistoryPoints(hist.points);
-            setSyncing(false);
-          }
-          if (props.fetchRegionMovers) {
-            const next = await props.fetchRegionMovers();
-            if (!cancelled) setMovers(next);
-          }
+        if (status.status === "done") {
+          await loadHistory();
+          if (!cancelled) setSyncing(false);
         }
         if (status.status === "error" || status.status === "done") {
-          setSyncing(false);
+          if (!cancelled) setSyncing(false);
+          if (status.status === "error") {
+            props.onNotify?.(status.message, "error");
+          } else if (status.message) {
+            props.onNotify?.(status.message, "ok");
+          }
         }
       } catch {
         if (!cancelled) setSyncing(false);
       }
     };
+    void tick();
     const id = window.setInterval(() => void tick(), 800);
     return () => {
       cancelled = true;
@@ -706,33 +710,53 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
     };
   }, [
     backfill?.status,
+    loadHistory,
     props.fetchHealthHistoryBackfillStatus,
-    props.fetchHealthHistory,
-    props.fetchRegionMovers,
+    props.onNotify,
   ]);
 
   const startBackfill = async (): Promise<void> => {
     if (!props.startHealthHistoryBackfill) {
       setHistoryError("History sync is not available in this host yet.");
+      props.onNotify?.(
+        "History sync is not available in this host yet.",
+        "error",
+      );
       return;
     }
     setSyncing(true);
     setHistoryError(null);
+    props.onNotify?.("Building health history from git…", "info");
     try {
       await props.startHealthHistoryBackfill();
-      if (props.fetchHealthHistoryBackfillStatus) {
-        const status = await props.fetchHealthHistoryBackfillStatus();
-        setBackfill(status);
-      } else {
+      if (!props.fetchHealthHistoryBackfillStatus) {
         setBackfill({
           status: "running",
           progress: 0,
           message: "History sync in progress…",
         });
+        props.onNotify?.("Health history is building.", "ok");
+        return;
       }
+      const status = await props.fetchHealthHistoryBackfillStatus();
+      setBackfill(status);
+      if (status.status === "error") {
+        setSyncing(false);
+        props.onNotify?.(status.message, "error");
+        return;
+      }
+      if (status.status === "done") {
+        setSyncing(false);
+        await loadHistory();
+        props.onNotify?.(status.message || "Health history is ready.", "ok");
+        return;
+      }
+      props.onNotify?.("Health history is building.", "ok");
     } catch (err) {
       setSyncing(false);
-      setHistoryError(err instanceof Error ? err.message : String(err));
+      const message = err instanceof Error ? err.message : String(err);
+      setHistoryError(message);
+      props.onNotify?.(message, "error");
     }
   };
 
@@ -877,23 +901,35 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
                 </div>
               ) : showBackfillCta ? (
                 <div className="tr-sync">
-                  {backfill?.status === "running" || syncing ? (
+                  {backfill?.status === "running" ||
+                  (syncing && backfill?.status !== "error") ? (
                     <p className="tr-sync__status">
                       History sync in progress… {backfillPct}%
                       {backfill?.message ? ` — ${backfill.message}` : ""}
                     </p>
                   ) : (
                     <>
-                      <p className="tr-empty__body">
-                        No historical health series for this range yet. Build
-                        history from local git to seed approximate scores.
-                      </p>
+                      {backfill?.status === "error" ? (
+                        <p className="ov-empty">{backfill.message}</p>
+                      ) : (
+                        <p className="tr-empty__body">
+                          No historical health series for this range yet. Build
+                          history from local git to seed approximate scores.
+                        </p>
+                      )}
                       <button
                         type="button"
                         className="tr-sync__btn"
                         onClick={() => void startBackfill()}
                         disabled={syncing}
                       >
+                        {syncing ? (
+                          <Loader2
+                            className="prism-spinner"
+                            size={14}
+                            aria-hidden
+                          />
+                        ) : null}
                         Build history
                       </button>
                     </>
@@ -1180,5 +1216,5 @@ function HotspotRow(props: { file: GitRecentFile }): ReactElement {
 }
 
 function toDayInput(ms: number): string {
-  return new Date(ms).toISOString().slice(0, 10);
+  return formatDayKey(ms);
 }

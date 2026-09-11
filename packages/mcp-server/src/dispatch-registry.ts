@@ -71,7 +71,7 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     name: "sleep",
     title: "Put Prism to sleep",
     description:
-      "Park Prism: the Console and playground show a down page and queued jobs stay queued until prism wake. Call this when the user says prism sleep, put Prism to sleep, or go to sleep. Speak only the tool message. If teammates are already running, the tool asks first — relay that and re-call with confirm=true only if the user agrees; that pauses them. Do not confuse this with init (worker sign-in).",
+      "Park Prism: the Console and Spectrum show a down page and queued jobs stay queued until prism wake. Call this when the user says prism sleep, put Prism to sleep, or go to sleep. Speak only the tool message. If teammates are already running, the tool asks first — relay that and re-call with confirm=true only if the user agrees; that pauses them. Do not confuse this with init (worker sign-in).",
     inputSchema: {
       confirm: z
         .boolean()
@@ -93,7 +93,7 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     name: "wake",
     title: "Wake Prism",
     description:
-      "Bring Prism back: the Console and playground return, and queued jobs (including any sleep paused) start on their own. Call this when the user says prism wake, wake Prism, or wake up — even if the Console is already up, this starts the playground too. Speak only the tool message, including the Console URL and the playground URL. If teammates are still running, the tool asks first — relay that and re-call with confirm=true. Do not confuse this with init.",
+      "Bring Prism back: the Console and Spectrum return, and queued jobs (including any sleep paused) start on their own. Call this when the user says prism wake, wake Prism, or wake up — even if the Console is already up, this starts Spectrum too. Speak only the tool message, including the Console URL and the Spectrum URL. If teammates are still running, the tool asks first — relay that and re-call with confirm=true. Do not confuse this with init.",
     inputSchema: {
       confirm: z
         .boolean()
@@ -598,13 +598,15 @@ async function decorateDispatchValue(
   ) {
     const playgroundLine =
       playgroundUrl && (name === "sleep" || name === "wake")
-        ? `\nPlayground at ${playgroundUrl}`
+        ? `Spectrum at ${playgroundUrl}`
         : "";
     return {
       ...record,
       dashboardUrl: board,
       ...(playgroundUrl ? { playgroundUrl } : {}),
-      message: `${record.message}\nWatch live at ${board}${playgroundLine}`,
+      message: [record.message, `Watch live at ${board}`, playgroundLine]
+        .filter((line) => line.length > 0)
+        .join("\n"),
     };
   }
   if (name === "dispatch_doctor") {

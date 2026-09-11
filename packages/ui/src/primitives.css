@@ -80,6 +80,12 @@
   white-space: nowrap;
 }
 
+.prism-select__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--prism-ink-muted);
+}
+
 .prism-select svg {
   flex-shrink: 0;
   color: var(--prism-ink-muted);
@@ -628,6 +634,17 @@
   cursor: not-allowed;
 }
 
+.prism-spinner {
+  flex: 0 0 auto;
+  animation: prism-spin 0.7s linear infinite;
+}
+
+@keyframes prism-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* —— Badge —— */
 .prism-badge {
   display: inline-flex;
@@ -883,6 +900,9 @@ fieldset.prism-field,
 }
 
 .prism-accordion__summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   cursor: pointer;
   list-style: none;
   padding: var(--prism-space-sm) var(--prism-space-md);
@@ -894,6 +914,25 @@ fieldset.prism-field,
 
 .prism-accordion__summary::-webkit-details-marker {
   display: none;
+}
+
+.prism-accordion__chevron {
+  flex: 0 0 auto;
+  display: block;
+  width: 14px;
+  height: 14px;
+  color: var(--prism-ink-muted);
+  transition: transform var(--prism-dur-1) var(--prism-ease);
+}
+
+.prism-accordion[open] > .prism-accordion__summary .prism-accordion__chevron {
+  transform: rotate(90deg);
+}
+
+.prism-accordion__summary-body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
 }
 
 .prism-accordion__body {
@@ -935,6 +974,7 @@ fieldset.prism-field,
   max-width: min(40rem, calc(100vw - 16px));
   padding: 0;
   gap: 0;
+  overflow: visible;
   grid-template-columns: minmax(16rem, 1fr) 12.5rem;
 }
 
@@ -977,6 +1017,8 @@ fieldset.prism-field,
 }
 
 .prism-range-pop__abs {
+  position: relative;
+  z-index: 1;
   padding: 12px;
   border-right: 1px solid var(--prism-line);
 }
@@ -995,6 +1037,250 @@ fieldset.prism-field,
 .prism-range-pop__presets .prism-btn[aria-pressed="true"] {
   color: var(--prism-brand);
   background: color-mix(in srgb, var(--prism-brand) 12%, transparent);
+}
+
+/* —— DateTimePicker —— */
+.prism-dt {
+  position: relative;
+}
+
+.prism-dt__control {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.prism-dt__input {
+  width: 100%;
+  padding: 4px 30px 4px 8px;
+  font-size: var(--prism-type-label);
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+}
+
+.prism-dt__control--open .prism-dt__input {
+  border-color: var(--prism-brand);
+  box-shadow: var(--prism-ring);
+}
+
+.prism-dt__control--error .prism-dt__input {
+  border-color: var(--prism-rose);
+}
+
+.prism-dt__cal {
+  position: absolute;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--prism-radius-sm, 6px);
+  background: transparent;
+  color: var(--prism-ink-muted);
+  cursor: pointer;
+}
+
+.prism-dt__cal:hover:not(:disabled) {
+  color: var(--prism-brand);
+}
+
+.prism-dt__cal:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.prism-dt__pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 8;
+  box-sizing: border-box;
+  width: max(17.5rem, 100%);
+  padding: 10px;
+  border: 1px solid var(--prism-line);
+  border-radius: var(--prism-radius-md);
+  background: var(--prism-tile);
+  color: var(--prism-ink);
+  box-shadow: var(--prism-shadow-3);
+}
+
+.prism-dt__head {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.prism-dt__month {
+  flex: 1;
+  margin: 0;
+  text-align: center;
+  font-size: var(--prism-type-body-sm);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.prism-dt__nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--prism-radius-sm, 6px);
+  background: transparent;
+  color: var(--prism-ink-muted);
+  cursor: pointer;
+}
+
+.prism-dt__nav:hover {
+  color: var(--prism-brand);
+  background: color-mix(in srgb, var(--prism-brand) 12%, transparent);
+}
+
+.prism-dt__week,
+.prism-dt__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  width: 100%;
+  gap: 2px;
+}
+
+.prism-dt__week {
+  margin-bottom: 4px;
+}
+
+.prism-dt__week span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 1.25rem;
+  overflow: hidden;
+  color: var(--prism-ink-muted);
+  font-family: var(--prism-font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.prism-dt__day {
+  width: 100%;
+  aspect-ratio: 1;
+  height: auto;
+  min-height: 1.75rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--prism-radius-md);
+  background: transparent;
+  color: var(--prism-ink);
+  font: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.prism-dt__day--muted {
+  color: var(--prism-ink-muted);
+  opacity: 0.55;
+}
+
+.prism-dt__day--today {
+  border-color: color-mix(in srgb, var(--prism-brand) 55%, transparent);
+}
+
+.prism-dt__day--on {
+  background: var(--prism-brand);
+  color: var(--prism-on-brand);
+  font-weight: 600;
+}
+
+.prism-dt__day:hover:not(:disabled):not(.prism-dt__day--on) {
+  background: color-mix(in srgb, var(--prism-brand) 12%, transparent);
+}
+
+.prism-dt__day:disabled {
+  color: var(--prism-ink-muted);
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.prism-dt__time {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--prism-line);
+}
+
+.prism-dt__time-label {
+  margin-right: auto;
+  color: var(--prism-ink-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.prism-dt__spin {
+  display: grid;
+  justify-items: center;
+  gap: 0;
+}
+
+.prism-dt__clock {
+  box-sizing: border-box;
+  width: 2.25rem;
+  padding: 2px 0;
+  border: 1px solid var(--prism-line);
+  border-radius: var(--prism-radius-sm, 6px);
+  background: var(--prism-panel);
+  color: var(--prism-ink);
+  font-family: var(--prism-font-mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  outline: none;
+}
+
+.prism-dt__clock:focus {
+  border-color: var(--prism-brand);
+  box-shadow: var(--prism-ring-strong);
+}
+
+.prism-dt__colon {
+  color: var(--prism-ink-muted);
+  font-weight: 600;
+}
+
+.prism-dt__ampm {
+  display: grid;
+  margin-left: 4px;
+  border: 1px solid var(--prism-line);
+  border-radius: var(--prism-radius-sm, 6px);
+  overflow: hidden;
+}
+
+.prism-dt__meridiem {
+  padding: 3px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--prism-ink-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.prism-dt__meridiem--on {
+  background: color-mix(in srgb, var(--prism-brand) 16%, transparent);
+  color: var(--prism-brand);
 }
 
 .prism-menu {
@@ -1357,18 +1643,28 @@ fieldset.prism-field,
   }
 }
 
-/* —— Cartesian chart frame (Playground Trends / Overview) —— */
+/* —— Cartesian chart frame (Playground Trends / Overview) ——
+   Plot + axes are one border box. `minmax(0, 1fr)` on the plot row made the
+   frame's min-height the 22px axis track, so flex/grid cards sized to the
+   series and the labels painted outside the card. */
 .prism-chart {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) 22px;
+  grid-template-columns: 40px minmax(0, 1fr);
+  grid-template-rows: 220px 22px;
+  grid-template-areas:
+    "y plot"
+    ". x";
   column-gap: 8px;
-  row-gap: 2px;
+  row-gap: 4px;
   width: 100%;
+  max-width: 100%;
   min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
 }
 
 .prism-chart__y {
+  grid-area: y;
   position: relative;
   min-height: 0;
 }
@@ -1377,8 +1673,8 @@ fieldset.prism-field,
   position: absolute;
   right: 0;
   transform: translateY(-50%);
-  font-family: var(--prism-mono, "JetBrains Mono", ui-monospace, monospace);
-  font-size: 10px;
+  font-family: var(--prism-font, "Inter", "Segoe UI", system-ui, sans-serif);
+  font-size: 11px;
   line-height: 1;
   color: var(--prism-ink-muted, #94a3b8);
   font-variant-numeric: tabular-nums;
@@ -1386,6 +1682,7 @@ fieldset.prism-field,
 }
 
 .prism-chart__body {
+  grid-area: plot;
   position: relative;
   min-width: 0;
   min-height: 0;
@@ -1403,17 +1700,19 @@ fieldset.prism-field,
 }
 
 .prism-chart__x {
-  grid-column: 2;
+  grid-area: x;
   position: relative;
   height: 22px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .prism-chart__x-tick {
   position: absolute;
   top: 4px;
   transform: translateX(-50%);
-  font-family: var(--prism-mono, "JetBrains Mono", ui-monospace, monospace);
-  font-size: 10px;
+  font-family: var(--prism-font, "Inter", "Segoe UI", system-ui, sans-serif);
+  font-size: 11px;
   line-height: 1;
   color: var(--prism-ink-muted, #94a3b8);
   white-space: nowrap;
@@ -1421,16 +1720,139 @@ fieldset.prism-field,
   z-index: 1;
 }
 
-.prism-chart__x-tick:first-child {
+.prism-chart__x-tick[data-edge="start"] {
+  left: 0;
   transform: none;
 }
 
-.prism-chart__x-tick:last-child {
+.prism-chart__x-tick[data-edge="end"] {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+.prism-skeleton {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.prism-skeleton__label {
+  margin: 0;
+  font-family: var(--prism-font);
+  font-size: var(--prism-type-label);
+  font-weight: 600;
+  letter-spacing: var(--prism-type-label-tracking);
+  text-transform: uppercase;
+  color: var(--prism-ink-muted);
+}
+
+.prism-skeleton__card {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--prism-line);
+  border-radius: var(--prism-radius-md);
+  background: var(--prism-tile, #1e2433);
+}
+
+.prism-skeleton__bar {
+  position: relative;
+  overflow: hidden;
+  display: block;
+  height: 10px;
+  border-radius: 4px;
+  background: var(--prism-panel);
+}
+
+.prism-skeleton__bar--title {
+  width: 46%;
+  height: 12px;
+}
+
+.prism-skeleton__bar--meter {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+}
+
+.prism-skeleton__bar--meta {
+  width: 28%;
+  height: 8px;
+}
+
+.prism-skeleton__bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
   transform: translateX(-100%);
+  background-image: linear-gradient(
+    90deg,
+    transparent 0,
+    color-mix(in srgb, var(--prism-ink) 6%, transparent) 50%,
+    transparent 100%
+  );
+  animation: prism-shimmer 1.8s linear infinite;
 }
 
-.prism-chart__x-tick:first-child:last-child {
-  transform: none;
+@keyframes prism-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.prism-toast,
+.console-toast {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 10px 14px;
+  border: 1px solid var(--prism-line);
+  border-radius: var(--prism-radius-md);
+  background: var(--prism-tile);
+  color: var(--prism-ink);
+  font-family: var(--prism-font);
+  font-size: var(--prism-type-body-sm);
+  box-shadow: var(--prism-shadow-3);
+}
+
+.prism-toast--error,
+.console-toast--error {
+  border-color: color-mix(in oklab, var(--prism-rose) 45%, transparent);
+  color: var(--prism-rose);
+}
+
+.prism-toast--warning {
+  border-color: color-mix(in oklab, var(--prism-amber) 45%, transparent);
+  color: var(--prism-amber);
+}
+
+.prism-toast--info {
+  border-color: color-mix(in oklab, var(--prism-accent) 45%, transparent);
+  color: var(--prism-accent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .prism-toast,
+  .console-toast {
+    animation: prism-toast-in 180ms ease-out;
+  }
+}
+
+@keyframes prism-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1445,7 +1867,9 @@ fieldset.prism-field,
   .prism-btn,
   .prism-tile,
   .prism-pip--pulse,
-  .prism-progress[data-indeterminate="true"] .prism-progress__fill {
+  .prism-progress[data-indeterminate="true"] .prism-progress__fill,
+  .prism-spinner,
+  .prism-skeleton__bar::after {
     transition: none;
     animation: none;
   }

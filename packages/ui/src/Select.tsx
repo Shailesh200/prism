@@ -6,6 +6,7 @@ import {
   useState,
   type CSSProperties,
   type ReactElement,
+  type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -24,6 +25,7 @@ export type SelectProps = {
   readonly id?: string;
   readonly className?: string;
   readonly name?: string;
+  readonly icon?: ReactNode;
   readonly "aria-label"?: string;
 };
 
@@ -46,6 +48,7 @@ export function Select(props: SelectProps): ReactElement {
     disabled,
     className,
     name,
+    icon,
     "aria-label": ariaLabel,
   } = props;
   const autoId = useId();
@@ -189,10 +192,11 @@ export function Select(props: SelectProps): ReactElement {
           }
         }}
       >
+        {icon ? <span className="prism-select__icon">{icon}</span> : null}
         <span className="prism-select__value" title={selected?.label ?? value}>
           {selected?.label ?? value}
         </span>
-        <ChevronDown size={14} aria-hidden />
+        <ChevronDown className="prism-select__chevron" size={14} aria-hidden />
       </button>
       {open && typeof document !== "undefined"
         ? createPortal(

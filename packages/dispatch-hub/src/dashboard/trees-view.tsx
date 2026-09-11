@@ -1,10 +1,12 @@
 import {
   Badge,
+  Button,
   EmptyState,
   HoverTip,
   IconButton,
   ListTile,
   Pip,
+  ScreenSkeleton,
   Truncate,
   type ButtonVariant,
 } from "@repo-prism/ui";
@@ -32,6 +34,16 @@ import {
 } from "react";
 import { showConsoleToast } from "./console-toast.js";
 import { getJson, postJson } from "./session.js";
+
+const TREE_CLIENT_TTL_MS = 45_000;
+
+type TreesSession = {
+  readonly token: string;
+  readonly repos: readonly RepoTrees[];
+  readonly at: number;
+};
+
+let treesSession: TreesSession | undefined;
 
 type TreeJobRow = {
   readonly id: string;
@@ -118,6 +130,7 @@ function TreeIconAction(props: {
   readonly detail: string;
   readonly variant?: ButtonVariant;
   readonly disabled?: boolean;
+  readonly loading?: boolean;
   readonly className?: string;
   readonly onClick: () => void;
   readonly children: ReactNode;
@@ -133,6 +146,7 @@ function TreeIconAction(props: {
         title=""
         variant={props.variant}
         disabled={props.disabled}
+        loading={props.loading}
         onClick={props.onClick}
       >
         {props.children}
@@ -154,21 +168,56 @@ export function TreesView(props: {
     readonly worktreePath?: string;
   }) => void;
 }): ReactElement {
-  const [ledger, setLedger] = useState<readonly RepoTrees[]>([]);
-  const [ready, setReady] = useState(false);
+  const [ledger, setLedger] = useState<readonly RepoTrees[]>(() =>
+    treesSession?.token === props.token ? treesSession.repos : [],
+  );
+  const [ready, setReady] = useState(() => treesSession?.token === props.token);
   const [selectedRepo, setSelectedRepo] = useState<string | undefined>(
     props.repoFilter,
   );
   const [selectedTree, setSelectedTree] = useState<string | undefined>();
   const [busy, setBusy] = useState<string | undefined>();
+  const [loadError, setLoadError] = useState<string | undefined>();
 
-  const load = async (): Promise<void> => {
+  const hasLive = ledger.some((row) =>
+    row.trees.some((tree) => isWorking(tree.jobStatus)),
+  );
+
+  const load = async (fresh = false): Promise<void> => {
     try {
+      if (
+        !fresh &&
+        !hasLive &&
+        treesSession?.token === props.token &&
+        Date.now() - treesSession.at < TREE_CLIENT_TTL_MS
+      ) {
+        setLedger(treesSession.repos);
+        setSelectedRepo((current) => {
+          if (
+            current &&
+            treesSession!.repos.some((row) => row.path === current)
+          ) {
+            return current;
+          }
+          return props.repoFilter &&
+            treesSession!.repos.some((row) => row.path === props.repoFilter)
+            ? props.repoFilter
+            : treesSession!.repos[0]?.path;
+        });
+        setReady(true);
+        return;
+      }
       const body = await getJson<{ repos: RepoTrees[] }>(
-        "/api/trees",
+        `/api/trees${fresh ? "?fresh=1" : ""}`,
         props.token,
       );
+      treesSession = {
+        token: props.token,
+        repos: body.repos,
+        at: Date.now(),
+      };
       setLedger(body.repos);
+      setLoadError(undefined);
       setSelectedRepo((current) => {
         if (current && body.repos.some((row) => row.path === current)) {
           return current;
@@ -178,14 +227,14 @@ export function TreesView(props: {
           ? props.repoFilter
           : body.repos[0]?.path;
       });
+    } catch (cause) {
+      setLoadError(
+        cause instanceof Error ? cause.message : "Could not read worktrees.",
+      );
     } finally {
       setReady(true);
     }
   };
-
-  const hasLive = ledger.some((row) =>
-    row.trees.some((tree) => isWorking(tree.jobStatus)),
-  );
 
   useEffect(() => {
     void load().catch(() => undefined);
@@ -257,7 +306,7 @@ export function TreesView(props: {
         },
       );
       showConsoleToast(result.detail, result.ok ? "ok" : "error");
-      await load();
+      await load(true);
     } catch (cause) {
       showConsoleToast(
         cause instanceof Error ? cause.message : "Tree action failed.",
@@ -291,7 +340,18 @@ export function TreesView(props: {
         </header>
         <div className="trees-repos__list">
           {!ready ? (
-            <EmptyState>Reading worktrees…</EmptyState>
+            <ScreenSkeleton label="Reading worktrees…" rows={4} />
+          ) : loadError ? (
+            <>
+              <EmptyState>{loadError}</EmptyState>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => void load(true)}
+              >
+                Try again
+              </Button>
+            </>
           ) : visible.length === 0 ? (
             <EmptyState>
               {ledger.length === 0
@@ -336,7 +396,18 @@ export function TreesView(props: {
       </aside>
       <section className="tree-map" aria-label="Worktree map">
         {!ready ? (
-          <EmptyState>Reading worktrees…</EmptyState>
+          <ScreenSkeleton label="Reading worktrees…" rows={3} />
+        ) : loadError ? (
+          <>
+            <EmptyState>{loadError}</EmptyState>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => void load(true)}
+            >
+              Try again
+            </Button>
+          </>
         ) : !active ? (
           <EmptyState>No checkout selected.</EmptyState>
         ) : (
@@ -569,6 +640,7 @@ export function TreesView(props: {
                 variant="danger"
                 className="tree-inspector__remove"
                 disabled={Boolean(busy) || isWorking(inspect.jobStatus)}
+                loading={busy === `${inspect.path}:remove`}
                 onClick={() => void act(inspect, "remove")}
               >
                 <Trash2 size={16} aria-hidden />
@@ -581,6 +653,7 @@ export function TreesView(props: {
                 label="Merge into checkout"
                 detail={`Merge ${inspect.branch || "this branch"} into the current checkout`}
                 disabled={Boolean(busy)}
+                loading={busy === `${inspect.path}:merge`}
                 onClick={() => void act(inspect, "merge")}
               >
                 <GitMerge size={16} aria-hidden />
@@ -590,6 +663,7 @@ export function TreesView(props: {
               label="Commit"
               detail="Commit dirty files on this tree"
               disabled={Boolean(busy)}
+              loading={busy === `${inspect.path}:commit`}
               onClick={() => void act(inspect, "commit")}
             >
               <GitCommit size={16} aria-hidden />
@@ -598,6 +672,7 @@ export function TreesView(props: {
               label="Push"
               detail="Push this branch"
               disabled={Boolean(busy)}
+              loading={busy === `${inspect.path}:push`}
               onClick={() => void act(inspect, "push")}
             >
               <Upload size={16} aria-hidden />

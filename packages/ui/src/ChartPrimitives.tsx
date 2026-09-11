@@ -239,15 +239,26 @@ export function CartesianFrame(props: CartesianFrameProps): ReactElement {
         {props.children}
       </div>
       <div className="prism-chart__x" aria-hidden>
-        {props.xLabels.map((item) => (
-          <span
-            key={`${item.fraction}-${item.label}`}
-            className="prism-chart__x-tick"
-            style={{ left: `${item.fraction * 100}%` }}
-          >
-            {item.label}
-          </span>
-        ))}
+        {props.xLabels.map((item, index, all) => {
+          const edge =
+            all.length === 1
+              ? "start"
+              : index === 0
+                ? "start"
+                : index === all.length - 1
+                  ? "end"
+                  : undefined;
+          return (
+            <span
+              key={`${item.fraction}-${item.label}`}
+              className="prism-chart__x-tick"
+              {...(edge ? { "data-edge": edge } : {})}
+              style={edge ? undefined : { left: `${item.fraction * 100}%` }}
+            >
+              {item.label}
+            </span>
+          );
+        })}
       </div>
     </div>
   );

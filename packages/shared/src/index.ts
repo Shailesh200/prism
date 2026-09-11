@@ -7,6 +7,13 @@ export {
   type HostConnectorInfo,
 } from "./console-status.js";
 export {
+  DEFAULT_DISPATCH_URL,
+  DEFAULT_SPECTRUM_URL,
+  htmlLooksAwake,
+  type PrismSurfaceState,
+  type PrismSurfacesStatus,
+} from "./surfaces.js";
+export {
   err,
   isErr,
   isOk,
@@ -133,6 +140,7 @@ export {
 } from "./prism-config.js";
 
 export {
+  addLocalDays,
   bucketActivity,
   couplingBand,
   couplingDensity,
@@ -140,7 +148,9 @@ export {
   couplingFor,
   deriveMostConnected,
   deriveRegions,
+  floorToLocalDay,
   floorToUtcDay,
+  formatDayKey,
   parseDayMs,
   presetBounds,
   type DeriveRegionsResult,

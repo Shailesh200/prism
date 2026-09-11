@@ -48,6 +48,18 @@ describe("job snapshot diff", () => {
     ).toBe(false);
   });
 
+  it("does not notify finished for jobs that appear already terminal", () => {
+    const seen = new Set<string>();
+    const done = job({
+      status: "done",
+      lastActivity: "Done",
+      resultSummary: "Checks passed.",
+    });
+    expect(
+      diffJobs([], [done], seen).some((event) => event.type === "job.finished"),
+    ).toBe(false);
+  });
+
   it("emits job.updated when activity changes", () => {
     const seen = new Set<string>();
     const events = diffJobs(

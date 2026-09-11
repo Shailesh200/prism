@@ -6,7 +6,11 @@ import { writeJsonFile } from "./json-file.js";
 import {
   dropMissingWorkspaces,
   loadRegistry,
+  loadRegistryFile,
+  mergeWorkspaceEntries,
   registerWorkspace,
+  selectedWorkspace,
+  setSelectedWorkspace,
   unregisterWorkspace,
   workspaceLabel,
 } from "./registry.js";
@@ -46,6 +50,21 @@ describe("workspace registry", () => {
 
   it("labels a path by its basename", () => {
     expect(workspaceLabel("/Users/me/Prism/")).toBe("Prism");
+  });
+
+  it("unions stored job roots onto the registry without dropping either", () => {
+    const listed = mergeWorkspaceEntries(
+      [
+        {
+          path: "/repos/alpha",
+          label: "alpha",
+          lastSeenAt: "t0",
+        },
+      ],
+      ["/repos/alpha/", "/repos/beta"],
+      "t1",
+    );
+    expect(listed.map((row) => row.label).sort()).toEqual(["alpha", "beta"]);
   });
 
   it("does not register intelligence fixtures", async () => {
@@ -104,5 +123,18 @@ describe("workspace registry", () => {
     const kept = await dropMissingWorkspaces(async () => true, env);
     expect(kept.map((row) => row.label)).toEqual(["Prism"]);
     expect(await loadRegistry(env)).toEqual(kept);
+  });
+
+  it("remembers the selected checkout across register", async () => {
+    const home = await mkdtemp(join(tmpdir(), "prism-hub-reg-"));
+    homes.push(home);
+    const env = { PRISM_HUB_HOME: home };
+    await registerWorkspace("/repos/alpha", env, () => "t1");
+    await registerWorkspace("/repos/beta", env, () => "t1");
+    await setSelectedWorkspace("/repos/beta", env);
+    expect(await selectedWorkspace(env)).toBe("/repos/beta");
+    expect((await loadRegistryFile(env)).selectedPath).toBe("/repos/beta");
+    await registerWorkspace("/repos/gamma", env, () => "t2");
+    expect(await selectedWorkspace(env)).toBe("/repos/gamma");
   });
 });

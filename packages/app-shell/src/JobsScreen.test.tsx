@@ -981,6 +981,34 @@ describe("job lifecycle rail", () => {
     expect(jobRailFill(stages)).toBe(1);
   });
 
+  it("inserts Working before Finished when startedAt exists but the durable list skipped it", () => {
+    const stages = jobStages(
+      {
+        ...base,
+        status: "done",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        queuedAt: "2026-01-01T00:00:02.000Z",
+        startedAt: "2026-01-01T00:01:00.000Z",
+        finishedAt: "2026-01-01T00:08:15.000Z",
+        lifecycle: [
+          { kind: "accepted", at: "2026-01-01T00:00:00.000Z" },
+          { kind: "queued", at: "2026-01-01T00:00:02.000Z" },
+          { kind: "finished", at: "2026-01-01T00:08:15.000Z" },
+        ],
+      },
+      Date.parse("2026-01-01T01:00:00.000Z"),
+    );
+    expect(stages.map((stage) => stage.kind)).toEqual([
+      "accepted",
+      "queued",
+      "working",
+      "finished",
+    ]);
+    expect(stages.find((stage) => stage.kind === "working")?.current).toBe(
+      false,
+    );
+  });
+
   it("appends Queued after Working on pause instead of rewinding", () => {
     const stages = jobStages(
       {

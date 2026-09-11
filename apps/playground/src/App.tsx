@@ -1,4 +1,9 @@
-import { RepositoryMapView } from "@repo-prism/ui";
+import {
+  PrismToastHost,
+  RepositoryMapView,
+  Select,
+  showPrismToast,
+} from "@repo-prism/ui";
 import {
   AppShellClientProvider,
   ConsoleJobsScreen,
@@ -9,7 +14,11 @@ import {
   DomainsScreen,
   IntegrationsScreen,
   OverviewScreen,
+  PrismBootScreen,
+  PRISM_BOOT_LOOKUP_STAGES,
   PrismErrorBoundary,
+  PrismSurfacePips,
+  PrismWakeScreen,
   SettingsScreen,
   TestingSecurityScreen,
   TrendsScreen,
@@ -41,7 +50,11 @@ import type {
   UtilityOverlayReport,
   BackendReport,
 } from "@repo-prism/shared";
-import { NO_CONSOLE_STATUS } from "@repo-prism/shared";
+import {
+  DEFAULT_DISPATCH_URL,
+  NO_CONSOLE_STATUS,
+  type PrismSurfacesStatus,
+} from "@repo-prism/shared";
 import {
   useCallback,
   useEffect,
@@ -95,7 +108,14 @@ import {
   startHealthHistoryBackfill,
   type PlaygroundPreset,
 } from "./map-client.js";
-import { parsePlaygroundView, playgroundHash } from "./hash-route.js";
+import {
+  parsePlaygroundView,
+  playgroundHash,
+  isWakeHash,
+  pickPlaygroundRoot,
+  rootFromSearch,
+  withRootSearch,
+} from "./hash-route.js";
 
 /** A cached domain analysis run so re-opening a domain doesn't re-analyze. */
 type DomainRun = {
@@ -127,9 +147,23 @@ function saveDomainRun(root: string, domainId: string, run: DomainRun): void {
   }
 }
 
+async function persistPlaygroundRoot(root: string): Promise<void> {
+  try {
+    await fetch("/api/select-root", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ root }),
+    });
+  } catch {
+    // Registry write is best-effort; indexing still proceeds.
+  }
+}
+
 export function App(): ReactElement {
   const [zoom, setZoom] = useState<MapZoomLevel>("package");
-  const [root, setRoot] = useState<string | null>(null);
+  const [root, setRoot] = useState<string | null>(() =>
+    rootFromSearch(window.location.search),
+  );
   const [draftRoot, setDraftRoot] = useState("");
   const [presets, setPresets] = useState<PlaygroundPreset[]>([]);
   const [defaultRoot, setDefaultRoot] = useState<string | null>(null);
@@ -146,8 +180,10 @@ export function App(): ReactElement {
   const [view, setViewState] = useState<AppView>(
     () => parsePlaygroundView(window.location.hash) ?? "map",
   );
+  const [wake, setWake] = useState(() => isWakeHash(window.location.hash));
   const setView = useCallback((v: AppView) => {
     setViewState(v);
+    setWake(false);
     const next = playgroundHash(v);
     if (window.location.hash !== next) {
       window.history.replaceState(
@@ -159,6 +195,7 @@ export function App(): ReactElement {
   }, []);
   useEffect(() => {
     const onHash = (): void => {
+      setWake(isWakeHash(window.location.hash));
       const next = parsePlaygroundView(window.location.hash);
       if (next) setViewState(next);
     };
@@ -197,6 +234,30 @@ export function App(): ReactElement {
   const [networkIntegrationsAllowed, setNetworkIntegrationsAllowed] = useState(
     () => loadSettings().allowNetworkIntegrations,
   );
+  const [dispatchLive, setDispatchLive] = useState<boolean | undefined>();
+  const [dispatchUrl, setDispatchUrl] = useState(DEFAULT_DISPATCH_URL);
+
+  useEffect(() => {
+    let alive = true;
+    const read = async (): Promise<void> => {
+      try {
+        const response = await fetch("/api/surfaces");
+        if (!response.ok) throw new Error("surfaces");
+        const body = (await response.json()) as PrismSurfacesStatus;
+        if (!alive) return;
+        setDispatchLive(Boolean(body.dispatch?.live));
+        if (body.dispatch?.url) setDispatchUrl(body.dispatch.url);
+      } catch {
+        if (alive) setDispatchLive(false);
+      }
+    };
+    void read();
+    const id = window.setInterval(() => void read(), 4000);
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+    };
+  }, []);
 
   useEffect(() => {
     const s = loadSettings();
@@ -354,15 +415,37 @@ export function App(): ReactElement {
 
   useEffect(() => {
     let cancelled = false;
+    const applyPresets = (
+      data: NonNullable<Awaited<ReturnType<typeof fetchPresets>>>,
+    ): void => {
+      setPresets(data.presets);
+      setDefaultRoot(data.defaultRoot || null);
+      const fromQuery = rootFromSearch(window.location.search);
+      setRoot((prev) =>
+        pickPlaygroundRoot({
+          prev,
+          fromQuery,
+          defaultRoot: data.defaultRoot || null,
+        }),
+      );
+      setDraftRoot((prev) => prev || fromQuery || data.defaultRoot || "");
+      if (!fromQuery && !data.defaultRoot) {
+        setLoading(false);
+      }
+    };
     void fetchPresets().then((data) => {
       if (cancelled || !data) return;
-      setPresets(data.presets);
-      setDefaultRoot(data.defaultRoot);
-      setRoot((prev) => prev ?? data.defaultRoot);
-      setDraftRoot((prev) => prev || data.defaultRoot);
+      applyPresets(data);
     });
+    const tick = window.setInterval(() => {
+      void fetchPresets().then((data) => {
+        if (cancelled || !data) return;
+        applyPresets(data);
+      });
+    }, 4_000);
     return () => {
       cancelled = true;
+      window.clearInterval(tick);
     };
   }, []);
 
@@ -491,6 +574,17 @@ export function App(): ReactElement {
     if (!trimmed) return;
     setDraftRoot(trimmed);
     setRoot(trimmed);
+    window.history.replaceState(
+      null,
+      "",
+      withRootSearch(
+        window.location.pathname,
+        window.location.search,
+        window.location.hash,
+        trimmed,
+      ),
+    );
+    void persistPlaygroundRoot(trimmed);
     setZoom("package");
     setBookmarks([]);
     setMap(null);
@@ -524,14 +618,118 @@ export function App(): ReactElement {
     root?.split("/").filter(Boolean).pop() ??
     "Repository";
 
+  useEffect(() => {
+    if (!root) return;
+    setDraftRoot(root);
+    if (rootFromSearch(window.location.search) !== root) {
+      window.history.replaceState(
+        null,
+        "",
+        withRootSearch(
+          window.location.pathname,
+          window.location.search,
+          window.location.hash,
+          root,
+        ),
+      );
+    }
+  }, [root]);
+
+  const repoOptions = [
+    ...presets.map((row) => ({ value: row.root, label: row.label })),
+    ...(root && !presets.some((row) => row.root === root)
+      ? [{ value: root, label: rootLabel }]
+      : []),
+  ];
+  const selectValue =
+    (root && repoOptions.some((row) => row.value === root)
+      ? root
+      : repoOptions[0]?.value) ?? "";
+
+  const repoPicker = (boot: boolean): ReactElement => (
+    <form
+      className={
+        boot ? "playground-open playground-open--boot" : "playground-open"
+      }
+      onSubmit={onSubmitPath}
+    >
+      <label className="playground-open__label" htmlFor="playground-root">
+        Repository
+      </label>
+      {repoOptions.length > 0 ? (
+        <Select
+          id="playground-root"
+          aria-label="Repository"
+          className="playground-open__select"
+          value={selectValue}
+          options={repoOptions}
+          onChange={(next) => openRoot(next)}
+        />
+      ) : (
+        <input
+          id="playground-root"
+          value={draftRoot}
+          onChange={(e) => setDraftRoot(e.target.value)}
+          placeholder="Absolute path to repository"
+          aria-label="Absolute path to repository"
+          spellCheck={false}
+        />
+      )}
+      <button type="submit">Start Indexing</button>
+      {!boot ? (
+        loading ? (
+          <span className="playground-open__status">Indexing…</span>
+        ) : error ? (
+          <span className="playground-open__status playground-open__status--err">
+            {error}
+          </span>
+        ) : (
+          <span className="playground-open__status">{rootLabel}</span>
+        )
+      ) : null}
+      {!boot ? (
+        <PrismSurfacePips
+          dispatchLive={dispatchLive}
+          spectrumLive={true}
+          href="#/wake"
+        />
+      ) : null}
+    </form>
+  );
+
   const shell = (children: ReactElement): ReactElement => (
     <PrismErrorBoundary label="Prism">
+      <PrismToastHost />
       <AppShellClientProvider client={client}>
         <PrismErrorBoundary label={view} resetKey={view}>
           {children}
         </PrismErrorBoundary>
       </AppShellClientProvider>
     </PrismErrorBoundary>
+  );
+
+  const wakeScreen = (
+    <div className="wake-page prism-theme">
+      <PrismWakeScreen
+        here="spectrum"
+        dispatchLive={dispatchLive}
+        spectrumLive={true}
+        {...(root
+          ? { spectrumBlurb: `Maps, DNA, blast radius for ${rootLabel}.` }
+          : {})}
+        onOpenDispatch={() =>
+          window.open(dispatchUrl, "_blank", "noopener,noreferrer")
+        }
+        onOpenSpectrum={() => {
+          setWake(false);
+          if (selectValue) openRoot(selectValue);
+          setView("overview");
+        }}
+        onClose={() => setView(view)}
+      >
+        {repoPicker(true)}
+      </PrismWakeScreen>
+    </div>
   );
 
   if (error && !map) {
@@ -541,61 +739,41 @@ export function App(): ReactElement {
         <p className="prism-boot__brand">Prism</p>
         <p className="prism-boot__msg">Could not load map</p>
         <p className="prism-boot__detail">{error}</p>
-        <form
-          className="playground-open playground-open--boot"
-          onSubmit={onSubmitPath}
-        >
-          <input
-            value={draftRoot}
-            onChange={(e) => setDraftRoot(e.target.value)}
-            placeholder="Absolute path to repository"
-            aria-label="Absolute path to repository"
-            spellCheck={false}
-          />
-          <button type="submit">Start Indexing</button>
-        </form>
+        {repoPicker(true)}
       </div>,
     );
   }
 
-  if (!map || !root) {
+  if (wake) {
+    return shell(wakeScreen);
+  }
+
+  if (!root) {
     return shell(
-      <div className="prism-boot prism-theme">
-        <img src="/brand/prism-mark.png" alt="" width={28} height={28} />
-        <p className="prism-boot__brand">Prism</p>
-        <p className="prism-boot__msg">
-          {loading ? "Indexing repository…" : "Charting repository…"}
-        </p>
-        {root ? <p className="prism-boot__detail">{rootLabel}</p> : null}
-      </div>,
+      loading ? (
+        <PrismBootScreen
+          title="Looking up repository…"
+          hint="Local workspace · no network"
+          stages={PRISM_BOOT_LOOKUP_STAGES}
+        />
+      ) : (
+        wakeScreen
+      ),
+    );
+  }
+
+  if (!map) {
+    return shell(
+      <PrismBootScreen
+        title={loading ? "Indexing repository…" : "Charting repository…"}
+        detail={rootLabel}
+      />,
     );
   }
 
   return shell(
     <div className="playground-shell">
-      <form className="playground-open" onSubmit={onSubmitPath}>
-        <label className="playground-open__label" htmlFor="playground-root">
-          Repository path
-        </label>
-        <input
-          id="playground-root"
-          value={draftRoot}
-          onChange={(e) => setDraftRoot(e.target.value)}
-          placeholder="Absolute path to repository (auto-detected)"
-          spellCheck={false}
-          title={root}
-        />
-        <button type="submit">Start Indexing</button>
-        {loading ? (
-          <span className="playground-open__status">Indexing…</span>
-        ) : error ? (
-          <span className="playground-open__status playground-open__status--err">
-            {error}
-          </span>
-        ) : (
-          <span className="playground-open__status">{rootLabel}</span>
-        )}
-      </form>
+      {repoPicker(false)}
 
       <div className="playground-shell__map">
         {view === "overview" ? (
@@ -727,6 +905,7 @@ export function App(): ReactElement {
             fetchHealthHistoryBackfillStatus={() =>
               fetchHealthHistoryBackfillStatus(root)
             }
+            onNotify={showPrismToast}
           />
         ) : view === "integrations" ? (
           <IntegrationsScreen

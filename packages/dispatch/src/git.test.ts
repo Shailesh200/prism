@@ -9,6 +9,7 @@ import {
   gitChildEnv,
   isMissingGitRepoMessage,
   mergeJobBranch,
+  parseWorktreeList,
 } from "./git.js";
 
 describe("git runner isolation", () => {
@@ -229,4 +230,21 @@ describe("addGitWorktree branch base", () => {
     ]);
     expect(listed.stdout).toMatch(/branch refs\/heads\/dispatch\/fresh/);
   }, 30_000);
+});
+
+describe("parseWorktreeList", () => {
+  it("reads the human git worktree list", () => {
+    const listed = parseWorktreeList(
+      [
+        "/Users/me/app  abcdef0 [main]",
+        "/Users/me/app-feat  1234567 [feat/x]",
+        "",
+      ].join("\n"),
+    );
+    expect(listed.map((row) => row.path)).toEqual([
+      "/Users/me/app",
+      "/Users/me/app-feat",
+    ]);
+    expect(listed[1]?.branch).toBe("feat/x");
+  });
 });

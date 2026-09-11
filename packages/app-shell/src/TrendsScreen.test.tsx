@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { HealthHistoryPoint } from "@repo-prism/shared";
 import { AppShellClientProvider } from "./client-context.js";
@@ -14,6 +15,14 @@ import { TrendsScreen, type TrendsScreenProps } from "./TrendsScreen.js";
  *   "measured" markers. They now get the same hollow/dashed treatment and
  *   legend accounting as estimated points.
  */
+
+function localDayKey(ms: number): string {
+  const d = new Date(ms);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 function stubClient(): AppShellClient {
   return {} as unknown as AppShellClient;
@@ -72,11 +81,11 @@ describe("TrendsScreen health chart", () => {
         available: true,
         days: [
           {
-            date: new Date(Date.now() - 86_400_000).toISOString().slice(0, 10),
+            date: localDayKey(Date.now() - 86_400_000),
             commits: 4,
           },
           {
-            date: new Date().toISOString().slice(0, 10),
+            date: localDayKey(Date.now()),
             commits: 7,
           },
         ],
@@ -121,11 +130,11 @@ describe("TrendsScreen health chart", () => {
         available: true,
         days: [
           {
-            date: new Date(Date.now() - 86_400_000).toISOString().slice(0, 10),
+            date: localDayKey(Date.now() - 86_400_000),
             commits: 50,
           },
           {
-            date: new Date().toISOString().slice(0, 10),
+            date: localDayKey(Date.now()),
             commits: 100,
           },
         ],
@@ -142,6 +151,17 @@ describe("TrendsScreen health chart", () => {
     const pts = polyline?.getAttribute("points") ?? "";
     expect(pts.endsWith("590,10")).toBe(true);
     expect(pts).toContain(",100 ");
+    const today = new Date().toLocaleDateString(undefined, {
+      day: "numeric",
+      month: "short",
+    });
+    const xTicks = [
+      ...(polyline
+        ?.closest(".ov-chart")
+        ?.querySelectorAll(".prism-chart__x-tick") ?? []),
+    ].map((el) => el.textContent);
+    expect(xTicks).toHaveLength(7);
+    expect(xTicks.at(-1)).toBe(today);
   });
 
   it("counts heuristic points alongside estimated ones in the legend", () => {
@@ -166,5 +186,73 @@ describe("TrendsScreen health chart", () => {
     });
     expect(screen.queryByText(/estimated/)).toBeNull();
     expect(screen.queryByText(/heuristic/)).toBeNull();
+  });
+
+  it("plots the series when Build history finishes before polling starts", async () => {
+    const user = userEvent.setup();
+    let started = false;
+    const fetchHealthHistory = vi.fn().mockImplementation(async () => ({
+      points: started ? [point(0, 71, "estimated")] : [],
+    }));
+    const fetchStatus = vi.fn().mockImplementation(async () =>
+      started
+        ? {
+            status: "done" as const,
+            progress: 1,
+            message: "Backfilled 4 approximate history points",
+          }
+        : { status: "idle" as const, progress: 0, message: "" },
+    );
+    renderTrends({
+      fetchHealthHistory,
+      fetchHealthHistoryBackfillStatus: fetchStatus,
+      startHealthHistoryBackfill: vi.fn().mockImplementation(async () => {
+        started = true;
+      }),
+    });
+    await waitFor(() => expect(fetchHealthHistory).toHaveBeenCalled());
+    const [button] = await screen.findAllByRole("button", {
+      name: "Build history",
+    });
+    await user.click(button!);
+    await waitFor(() => {
+      expect(screen.getByRole("img", { name: "1 points" })).toBeTruthy();
+    });
+    expect(screen.queryByText(/History sync in progress/)).toBeNull();
+  });
+
+  it("returns Build history after a failed sync instead of staying in progress", async () => {
+    const user = userEvent.setup();
+    let started = false;
+    const fetchHealthHistory = vi.fn().mockResolvedValue({ points: [] });
+    const fetchStatus = vi.fn().mockImplementation(async () =>
+      started
+        ? {
+            status: "error" as const,
+            progress: 0,
+            message:
+              "Failed to open SQLite cache: /repo/.prism/cache/index.sqlite",
+          }
+        : { status: "idle" as const, progress: 0, message: "" },
+    );
+    renderTrends({
+      fetchHealthHistory,
+      fetchHealthHistoryBackfillStatus: fetchStatus,
+      startHealthHistoryBackfill: vi.fn().mockImplementation(async () => {
+        started = true;
+      }),
+    });
+    await waitFor(() => expect(fetchHealthHistory).toHaveBeenCalled());
+    const [button] = await screen.findAllByRole("button", {
+      name: "Build history",
+    });
+    await user.click(button!);
+    await waitFor(() => {
+      expect(screen.getByText(/Failed to open SQLite cache/)).toBeTruthy();
+    });
+    expect(screen.queryByText(/History sync in progress/)).toBeNull();
+    expect(
+      screen.getAllByRole("button", { name: "Build history" }).length,
+    ).toBeGreaterThan(0);
   });
 });

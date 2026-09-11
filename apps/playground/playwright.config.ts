@@ -1,7 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
-import { createSmokeFixture } from "./e2e/fixture-setup.js";
+import { createSmokeFixture, createSmokeHub } from "./e2e/fixture-setup.js";
 
 const smokeRoot = createSmokeFixture();
+const smokeHub = createSmokeHub();
 
 /**
  * Playground UI smoke (M-037 Phase 4).
@@ -38,7 +39,10 @@ export default defineConfig({
     // exists to avoid.
     reuseExistingServer: false,
     timeout: 180_000,
-    env: { PRISM_PLAYGROUND_ROOT: smokeRoot },
+    env: {
+      PRISM_PLAYGROUND_ROOT: smokeRoot,
+      PRISM_HUB_HOME: smokeHub,
+    },
     stdout: "ignore",
     stderr: "pipe",
   },

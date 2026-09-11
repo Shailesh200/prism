@@ -132,8 +132,10 @@ describe("jobActionItems", () => {
       job: job({ id: "gate", status: "needs_confirm" }),
       onDelete: () => undefined,
       onConfirm: () => undefined,
+      onCancel: () => undefined,
     }).map((item) => item.id);
     expect(gate).toContain("confirm");
+    expect(gate).toContain("cancel");
     expect(gate).not.toContain("delete");
   });
 

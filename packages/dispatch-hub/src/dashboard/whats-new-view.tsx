@@ -3,19 +3,19 @@ import type { ReactElement } from "react";
 
 const HIGHLIGHTS = [
   {
-    kicker: "Console",
-    title: "Skills and Trees",
-    body: "Skills is a grouped view in ~/.prism, not the repo. Trees shows checkout versus linked worktrees.",
+    kicker: "Jobs",
+    title: "One store",
+    body: "Jobs live under ~/.prism. Switching checkouts no longer drops rows. Old repo files are lifted, not deleted first.",
   },
   {
-    kicker: "Impact",
-    title: "One workspace",
-    body: "Explain, Blast radius, and Review changes share a target. Use dirty files on every tab.",
+    kicker: "Wake",
+    title: "Dispatch and Spectrum",
+    body: "Wake shows each surface. Close or Escape leaves the page. Spectrum follows the repo you pick.",
   },
   {
-    kicker: "Dispatch",
-    title: "Orientation and overlap",
-    body: "Teammates start with repo context. Concurrent jobs cannot silently stack on the same paths.",
+    kicker: "Spectrum",
+    title: "The repo you chose",
+    body: "DNA, Health, and the map stay on the checkout in the URL. A background poll cannot snap you back.",
   },
 ] as const;
 
@@ -26,10 +26,12 @@ export function WhatsNewView(props: {
   return (
     <section className="console__panel ship-log">
       <p className="console__eyebrow">What's new</p>
-      <h1 className="console__title">1.10.0 — Skills, trees, and Impact</h1>
+      <h1 className="console__title">
+        1.11.0 — Global jobs, Wake, and Spectrum
+      </h1>
       <p className="console__lede">
-        Skills and Trees in the Console. Impact is one workspace. Teammates
-        start oriented and do not overlap in silence.
+        Jobs survive repo switches. Wake names Dispatch and Spectrum. Spectrum
+        keeps the repository you picked.
       </p>
       <ul className="ship-log__feats">
         {HIGHLIGHTS.map((row) => (

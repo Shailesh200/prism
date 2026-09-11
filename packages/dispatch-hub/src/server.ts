@@ -31,6 +31,8 @@ import {
   writeSkill,
   deleteSkill,
   duplicateSkill,
+  listStoredWorkspaceRoots,
+  runWithJobsEnv,
   type DispatchConfig,
   type WorkerBackend,
   type WorkerModelOption,
@@ -57,7 +59,7 @@ import { formatJobFinishedNotice } from "./notice.js";
 import { listJobNotes, readJobNote } from "./notes.js";
 import { createOsNotifier, type NotifyFn } from "./notify.js";
 import { readHostTelemetry } from "./host-telemetry.js";
-import { dashboardUrl, hubPort, type HubEnv } from "./paths.js";
+import { dashboardUrl, hubPort, mergeHubEnv, type HubEnv } from "./paths.js";
 import {
   PLAYGROUND_PORT,
   effectivePlaygroundPort,
@@ -70,13 +72,20 @@ import {
   waitForPlaygroundLive,
   writePlaygroundRecord,
 } from "./playground.js";
-import { collectRepoTrees, runTreeAction } from "./trees.js";
+import {
+  collectRepoTrees,
+  invalidateRepoTrees,
+  runTreeAction,
+} from "./trees.js";
 import { mcpUpdateStatus, applyMcpUpdate } from "./update.js";
 import { HUB_ERROR, publicCaughtError } from "./api-errors.js";
 import { pickLocalFolder } from "./pick-folder.js";
 import {
   dropMissingWorkspaces,
+  mergeWorkspaceEntries,
   registerWorkspace,
+  selectedWorkspace,
+  setSelectedWorkspace,
   unregisterWorkspace,
   workspaceLabel,
 } from "./registry.js";
@@ -217,11 +226,19 @@ async function defaultDrain(
 export async function startHub(
   options: HubOptions = {},
 ): Promise<StartedHub | { alreadyRunning: true }> {
-  const env = options.env ?? process.env;
+  const env = mergeHubEnv(options.env);
   const notify = options.notify ?? createOsNotifier();
   const assetsDir = options.assetsDir ?? defaultAssetsDir();
-  const control = options.control ?? defaultControl;
-  const startJob = options.startJob ?? defaultStartJob;
+  const control =
+    options.control ??
+    ((workspacePath, jobId, action, extra) =>
+      runWithJobsEnv(env, () =>
+        defaultControl(workspacePath, jobId, action, extra),
+      ));
+  const startJob =
+    options.startJob ??
+    ((workspacePath, args) =>
+      runWithJobsEnv(env, () => defaultStartJob(workspacePath, args)));
   const version = options.version ?? packageVersion();
   const intelligence = options.intelligence ?? createIntelligencePlane();
   const pickFolder = options.pickFolder ?? pickLocalFolder;
@@ -398,7 +415,7 @@ export async function startHub(
     const url = playgroundUrl(port);
     if (await playgroundIsLive(port)) {
       await writePlaygroundRecord(env, { port, mode: "vite" });
-      return { ok: true, port, url, detail: "Playground is up." };
+      return { ok: true, port, url, detail: "Spectrum is up." };
     }
     const extraRoots = workspaces.map((row) => row.path);
     const app = await resolvePlaygroundApp(workspaceRoot, extraRoots, env);
@@ -407,7 +424,7 @@ export async function startHub(
         ok: false,
         port,
         url,
-        detail: "This repo has no playground app.",
+        detail: "This machine has no Spectrum app.",
       };
     }
     const spawned = await spawnPlayground(workspaceRoot);
@@ -419,13 +436,13 @@ export async function startHub(
         mode: "vite",
         ...(typeof playgroundPid === "number" ? { pid: playgroundPid } : {}),
       });
-      return { ok: true, port, url, detail: "Playground is up." };
+      return { ok: true, port, url, detail: "Spectrum is up." };
     }
     return {
       ok: Boolean(spawned),
       port,
       url,
-      detail: spawned ? "Playground is starting." : "Playground did not start.",
+      detail: spawned ? "Spectrum is starting." : "Spectrum did not start.",
     };
   };
 
@@ -434,6 +451,7 @@ export async function startHub(
   // left `queued`, and re-checks jobs parked behind the concurrency cap.
   const watcher = watchWorkspaces(() => workspaces, onEvent, {
     pollMs: options.pollMs,
+    env: env as NodeJS.ProcessEnv,
     // Vitest must not spawn a worker drain: it races GET /api/jobs and can
     // keep `.prism/dispatch` open so afterEach cannot remove the fixture.
     drain:
@@ -520,7 +538,7 @@ export async function startHub(
       /* spawn still lists if this misses */
     });
   }
-  const initial = await collectJobs(workspaces);
+  const initial = await collectJobs(workspaces, env as NodeJS.ProcessEnv);
   broadcast({
     type: "snapshot",
     jobs: initial.jobs,
@@ -558,6 +576,9 @@ export async function startHub(
           url: playgroundUrl(
             playgroundBoundPort || wantedPlaygroundPort || PLAYGROUND_PORT,
           ),
+          live: await playgroundIsLive(
+            playgroundBoundPort || wantedPlaygroundPort || PLAYGROUND_PORT,
+          ),
         },
         // Whether the Intelligence plane has actually loaded Core, and on
         // what. A reader can tell an idle Console from a busy one.
@@ -577,14 +598,17 @@ export async function startHub(
       const body = await readBody(req);
       const action = String(body.action ?? "").trim();
       const workspace =
-        String(body.workspace ?? "").trim() || workspaces[0]?.path || "";
+        String(body.workspace ?? "").trim() ||
+        (await selectedWorkspace(env)) ||
+        workspaces[0]?.path ||
+        "";
       try {
         if (action === "sleep") {
           const parked = await parkPlaygroundPort();
           json(res, 200, {
             ok: true,
             ...parked,
-            detail: "Playground is down.",
+            detail: "Spectrum is down.",
           });
           return;
         }
@@ -725,15 +749,19 @@ export async function startHub(
         return;
       }
       try {
-        const current = await getJob(workspace, jobId);
+        const current = await runWithJobsEnv(env, () =>
+          getJob(workspace, jobId),
+        );
         if (!current) {
           json(res, 404, { error: HUB_ERROR.jobMissing });
           return;
         }
-        const next = await upsertJob(workspace, {
-          ...current,
-          prd: String(body.prd ?? ""),
-        });
+        const next = await runWithJobsEnv(env, () =>
+          upsertJob(workspace, {
+            ...current,
+            prd: String(body.prd ?? ""),
+          }),
+        );
         await watcher.refresh({ drain: false });
         json(res, 200, {
           job: toSnapshot(next, workspace),
@@ -746,7 +774,16 @@ export async function startHub(
     }
 
     if (req.method === "GET" && url.pathname === "/api/jobs") {
-      await watcher.refresh({ drain: false });
+      try {
+        await Promise.race([
+          watcher.refresh({ drain: false }),
+          new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error("jobs refresh timeout")), 8_000);
+          }),
+        ]);
+      } catch {
+        /* last good snapshot still answers the board */
+      }
       json(res, 200, {
         jobs: [...watcher.jobs()],
         asOf: watcher.asOf(),
@@ -756,20 +793,34 @@ export async function startHub(
     }
 
     if (req.method === "GET" && url.pathname === "/api/trees") {
-      const filter = url.searchParams.get("workspace")?.trim();
-      const listed = filter
-        ? workspaces.filter((entry) => entry.path === filter)
-        : workspaces;
-      const repos = await Promise.all(
-        listed.map((entry) =>
-          collectRepoTrees({
-            workspacePath: entry.path,
-            label: entry.label,
-            jobs: jobs.filter((job) => job.workspacePath === entry.path),
-          }),
-        ),
-      );
-      json(res, 200, { repos });
+      try {
+        const filter = url.searchParams.get("workspace")?.trim();
+        const force = url.searchParams.get("fresh") === "1";
+        const listed = filter
+          ? mergeWorkspaceEntries(workspaces, [
+              ...jobs.map((job) => job.workspacePath),
+              ...(await listStoredWorkspaceRoots(env as NodeJS.ProcessEnv)),
+            ]).filter((entry) => entry.path === filter)
+          : mergeWorkspaceEntries(workspaces, [
+              ...jobs.map((job) => job.workspacePath),
+              ...(await listStoredWorkspaceRoots(env as NodeJS.ProcessEnv)),
+            ]);
+        const repos = await Promise.all(
+          listed.map((entry) =>
+            collectRepoTrees(
+              {
+                workspacePath: entry.path,
+                label: entry.label,
+                jobs: jobs.filter((job) => job.workspacePath === entry.path),
+              },
+              { force },
+            ),
+          ),
+        );
+        json(res, 200, { repos });
+      } catch (cause) {
+        json(res, 500, { error: publicCaughtError(cause) });
+      }
       return;
     }
 
@@ -805,6 +856,7 @@ export async function startHub(
             ? { title: String(body.title).trim() }
             : {}),
         });
+        invalidateRepoTrees(workspace);
         json(res, result.ok ? 200 : 400, result);
       } catch (cause) {
         json(res, 500, { error: publicCaughtError(cause) });
@@ -813,7 +865,11 @@ export async function startHub(
     }
 
     if (req.method === "GET" && url.pathname === "/api/skills") {
-      json(res, 200, { skills: await listSkills(env as NodeJS.ProcessEnv) });
+      try {
+        json(res, 200, { skills: await listSkills(env as NodeJS.ProcessEnv) });
+      } catch (cause) {
+        json(res, 500, { error: publicCaughtError(cause) });
+      }
       return;
     }
 
@@ -850,6 +906,9 @@ export async function startHub(
             description: String(body.description ?? ""),
             body: String(body.body ?? ""),
             status: body.status === "published" ? "published" : "draft",
+            ...(String(body.previousName ?? "").trim()
+              ? { previousName: String(body.previousName).trim() }
+              : {}),
           },
           env as NodeJS.ProcessEnv,
         );
@@ -901,8 +960,12 @@ export async function startHub(
     // "registered, but no jobs" — two very different things the old board
     // rendered as one empty sentence (ADR-0048).
     if (req.method === "GET" && url.pathname === "/api/repos") {
+      const listed = mergeWorkspaceEntries(workspaces, [
+        ...jobs.map((job) => job.workspacePath),
+        ...(await listStoredWorkspaceRoots(env as NodeJS.ProcessEnv)),
+      ]);
       json(res, 200, {
-        repos: workspaces.map((entry) => ({
+        repos: listed.map((entry) => ({
           path: entry.path,
           label: entry.label,
           lastSeenAt: entry.lastSeenAt,
@@ -911,6 +974,7 @@ export async function startHub(
           error: workspaceErrors.find((row) => row.workspacePath === entry.path)
             ?.detail,
         })),
+        selectedPath: (await selectedWorkspace(env)) ?? listed[0]?.path,
         asOf,
       });
       return;
@@ -1045,6 +1109,18 @@ export async function startHub(
       }
       void watcher.refresh();
       json(res, 200, { workspaces });
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/workspaces/select") {
+      const body = await readBody(req);
+      const path = String(body.path ?? "").trim();
+      if (!path || path === "all") {
+        json(res, 400, { error: HUB_ERROR.pathRequired });
+        return;
+      }
+      workspaces = await setSelectedWorkspace(path, env);
+      json(res, 200, { path, workspaces });
       return;
     }
 

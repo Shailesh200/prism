@@ -18,6 +18,23 @@ export type HubEnv = {
   readonly [key: string]: string | undefined;
 };
 
+/**
+ * Overlay hub overrides on `process.env`.
+ *
+ * Tests pass a sparse object (`PRISM_HUB_HOME`, `PRISM_HUB_PORT`). If that
+ * replaced the process env, `VITEST` vanished and the job store treated the
+ * developer's real `~/.prism` as live (ADR-0054). A shell `PRISM_HOME` is
+ * blanked in Vitest unless the overlay set one, so fixtures stay local.
+ */
+export function mergeHubEnv(env?: HubEnv): NodeJS.ProcessEnv {
+  const merged: NodeJS.ProcessEnv = { ...process.env, ...env };
+  if (process.env.VITEST === "true" && !env?.PRISM_HOME?.trim()) {
+    merged.VITEST = "true";
+    merged.PRISM_HOME = "";
+  }
+  return merged;
+}
+
 export function hubHome(env: HubEnv = process.env): string {
   const override = env.PRISM_HUB_HOME?.trim();
   if (override) return override;

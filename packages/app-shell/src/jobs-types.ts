@@ -1102,6 +1102,18 @@ function seedLifecycleEvents(job: JobSummary): JobLifecycleEvent[] {
     job.lifecycle && job.lifecycle.length > 0
       ? [...job.lifecycle]
       : stampLifecycleEvents(job);
+  if (job.startedAt && !events.some((event) => event.kind === "working")) {
+    const terminal = events.findIndex(
+      (event) =>
+        event.kind === "finished" ||
+        event.kind === "failed" ||
+        event.kind === "cancelled" ||
+        event.kind === "review",
+    );
+    const working = { kind: "working" as const, at: job.startedAt };
+    if (terminal < 0) events.push(working);
+    else events.splice(terminal, 0, working);
+  }
   const last = events.at(-1);
   // Resume must not rewind onto the previous Working node. If the durable
   // list still ends on pause/queue but the job is running, append Working.

@@ -1,5 +1,6 @@
 import { Select } from "@repo-prism/ui";
-import { useMemo, useState, type ReactElement } from "react";
+import { useMemo, useState, type ReactElement, type ReactNode } from "react";
+import { showConsoleToast } from "./console-toast.js";
 import { notifyWorkspacesChanged, postJson } from "./session.js";
 
 export const PICK_REPO = "__pick__";
@@ -15,7 +16,7 @@ export function repoSelectOptions(
   value: string,
   opts?: { readonly includeAll?: boolean; readonly jobsOnly?: boolean },
 ): { readonly value: string; readonly label: string }[] {
-  const jobsOnly = opts?.jobsOnly !== false;
+  const jobsOnly = opts?.jobsOnly === true;
   const withJobs = jobsOnly
     ? repos.filter((repo) => (repo.jobCount ?? 0) > 0)
     : [...repos];
@@ -45,6 +46,7 @@ export function RepoSelect(props: {
   readonly jobsOnly?: boolean;
   readonly className?: string;
   readonly disabled?: boolean;
+  readonly icon?: ReactNode;
   readonly "aria-label"?: string;
 }): ReactElement {
   const [picking, setPicking] = useState(false);
@@ -52,7 +54,7 @@ export function RepoSelect(props: {
     () =>
       repoSelectOptions(props.repos, props.value, {
         ...(props.includeAll ? { includeAll: true } : {}),
-        ...(props.jobsOnly === false ? { jobsOnly: false } : {}),
+        ...(props.jobsOnly ? { jobsOnly: true } : {}),
       }),
     [props.repos, props.value, props.includeAll, props.jobsOnly],
   );
@@ -62,6 +64,7 @@ export function RepoSelect(props: {
       {...(props.label ? { label: props.label } : {})}
       {...(props.hint ? { hint: props.hint } : {})}
       {...(props.className ? { className: props.className } : {})}
+      {...(props.icon ? { icon: props.icon } : {})}
       {...(props["aria-label"] ? { "aria-label": props["aria-label"] } : {})}
       value={props.value}
       disabled={props.disabled || picking}
@@ -72,6 +75,11 @@ export function RepoSelect(props: {
       }
       onChange={(next) => {
         if (next !== PICK_REPO) {
+          if (next && next !== "all") {
+            void postJson("/api/workspaces/select", props.token, {
+              path: next,
+            }).catch(() => undefined);
+          }
           props.onChange(next);
           return;
         }
@@ -84,7 +92,17 @@ export function RepoSelect(props: {
           .then((result) => {
             if (result.path) {
               notifyWorkspacesChanged();
+              void postJson("/api/workspaces/select", props.token, {
+                path: result.path,
+              }).catch(() => undefined);
               props.onChange(result.path);
+              return;
+            }
+            if (!result.cancelled) {
+              showConsoleToast(
+                "Could not open the folder picker on this machine.",
+                "error",
+              );
             }
           })
           .finally(() => setPicking(false));

@@ -56,7 +56,7 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toContain("sleep");
     expect(SERVER_INSTRUCTIONS).toMatch(/prism wake/);
     expect(SERVER_INSTRUCTIONS).toContain("wake");
-    expect(SERVER_INSTRUCTIONS).toMatch(/playground/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/Spectrum/);
     expect(SERVER_INSTRUCTIONS).toMatch(/confirm=true/);
   });
 
@@ -193,6 +193,7 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/Watch live at/);
     expect(SERVER_INSTRUCTIONS).toMatch(/token query/);
     expect(SERVER_INSTRUCTIONS).toMatch(/waitFor/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/Spectrum at/);
   });
 
   // The Google consent-screen guidance went with Prism's own OAuth apps

@@ -104,7 +104,7 @@ const REQUIRED_EXPORTS = [
 
 describe("Core API surface contract (M-025)", () => {
   it("advertises freeze version and api level", () => {
-    expect(Core.PRISM_CORE_VERSION).toBe("1.0.1");
+    expect(Core.PRISM_CORE_VERSION).toBe("1.0.2");
     expect(Core.PRISM_API_LEVEL).toBe(1);
   });
 

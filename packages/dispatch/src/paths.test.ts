@@ -1,13 +1,35 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { agentStoreDir, dispatchDir, runsDir } from "./paths.js";
+import {
+  agentStoreDir,
+  dispatchDir,
+  jobsPath,
+  legacyJobsPath,
+  runsDir,
+  useGlobalJobStore,
+} from "./paths.js";
 
 describe("Dispatch paths", () => {
-  it("keeps job records and console logs per-repo", () => {
+  it("keeps git worktrees and console logs per-repo", () => {
     const root = "/Users/me/app";
     expect(dispatchDir(root)).toBe(join(root, ".prism", "dispatch"));
     expect(runsDir(root)).toBe(join(root, ".prism", "dispatch", "runs"));
+    expect(legacyJobsPath(root)).toBe(
+      join(root, ".prism", "dispatch", "jobs.json"),
+    );
+  });
+
+  it("stores job records globally unless tests opt into a fixture repo", () => {
+    const root = "/Users/me/app";
+    expect(useGlobalJobStore({ VITEST: "true" })).toBe(false);
+    expect(jobsPath(root, { VITEST: "true" })).toBe(legacyJobsPath(root));
+    const env = { PRISM_HOME: "/tmp/prism-home" };
+    expect(useGlobalJobStore(env)).toBe(true);
+    expect(jobsPath(root, env)).toContain(
+      join("/tmp/prism-home", "dispatch", "workspaces"),
+    );
+    expect(jobsPath(root, env)).not.toBe(legacyJobsPath(root));
   });
 
   it("puts the Cursor agent catalog in ~/.prism, not the repo", () => {

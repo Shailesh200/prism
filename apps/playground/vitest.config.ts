@@ -1,4 +1,7 @@
 import { defineConfig } from "vitest/config";
 export default defineConfig({
-  test: { name: "@repo-prism/playground", include: ["src/**/*.test.ts"] },
+  test: {
+    name: "@repo-prism/playground",
+    include: ["src/**/*.test.ts", "hub-registry.test.ts"],
+  },
 });

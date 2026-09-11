@@ -17,6 +17,7 @@ import {
   DateRangePicker,
   Drawer,
   Popover,
+  ScreenSkeleton,
   Sparkline,
   Table,
   ToggleGroup,
@@ -42,6 +43,7 @@ import {
   jobsChronological,
   jobsInRange,
   overflowMoreLabel,
+  repoInitials,
   selectedRangeWindow,
   sparklineValues,
   stackVisible,
@@ -68,6 +70,7 @@ export function DashboardToolbar(props: {
   readonly nowMs: number;
   readonly mode: FleetViewMode;
   readonly onMode: (mode: FleetViewMode) => void;
+  readonly minMs?: number;
   readonly repos?: readonly JobWorkspaceChip[];
   readonly repoFilter?: string;
   readonly onRepoFilter?: (path: string) => void;
@@ -104,6 +107,7 @@ export function DashboardToolbar(props: {
           presets={FLEET_RANGE_PRESETS}
           value={props.rangeValue}
           nowMs={props.nowMs}
+          {...(props.minMs !== undefined ? { minMs: props.minMs } : {})}
           presetWindow={(id, nowMs) =>
             selectedRangeWindow(
               (FLEET_RANGE_PRESETS.some((row) => row.id === id)
@@ -255,7 +259,7 @@ export function BoardView(props: {
   const waitingJobs = attentionJobs(rangedJobs);
   const blockedJobs = rangedJobs.filter((job) => job.status === "blocked");
 
-  if (props.loading) return <div className="fleet-scan" aria-hidden />;
+  if (props.loading) return <ScreenSkeleton label="Loading jobs…" rows={4} />;
 
   return (
     <div className="fleet-board">
@@ -316,7 +320,7 @@ export function BoardView(props: {
                 >
                   <header>
                     <span className="fleet-mark" aria-hidden>
-                      {repo.label.slice(0, 1).toUpperCase()}
+                      {repoInitials(repo.label)}
                     </span>
                     <strong>
                       <Truncate title={repo.label}>{repo.label}</Truncate>
@@ -615,7 +619,7 @@ export function ListView(
     return () => window.removeEventListener("keydown", onKey);
   }, [cursor, props, rows]);
 
-  if (props.loading) return <div className="fleet-scan" aria-hidden />;
+  if (props.loading) return <ScreenSkeleton label="Loading jobs…" rows={5} />;
   const groups = groupJobsByRepo(rows);
   const outside = props.outsideCount ?? 0;
   const filtered = Boolean(props.filter?.trim());
@@ -647,7 +651,7 @@ export function ListView(
               summary={
                 <span className="repo-group-summary">
                   <span className="fleet-mark" aria-hidden>
-                    {group.label.slice(0, 1).toUpperCase()}
+                    {repoInitials(group.label)}
                   </span>
                   <strong>{group.label}</strong>
                   <span className="repo-group-summary__meta">

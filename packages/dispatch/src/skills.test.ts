@@ -91,6 +91,34 @@ describe("Prism skills library", () => {
     );
     expect(result).toMatchObject({ error: expect.any(String) });
   });
+
+  it("renames a draft instead of leaving the old name on disk", async () => {
+    const home = await mkdtemp(join(tmpdir(), "prism-skills-rename-"));
+    temps.push(home);
+    const env = { PRISM_HOME: home };
+    await writeSkill(
+      {
+        name: "alpha",
+        description: "first",
+        body: "body",
+        status: "draft",
+      },
+      env,
+    );
+    const renamed = await writeSkill(
+      {
+        name: "beta",
+        description: "first",
+        body: "body",
+        status: "draft",
+        previousName: "alpha",
+      },
+      env,
+    );
+    expect("error" in renamed).toBe(false);
+    expect(await readSkill("alpha", env)).toBeUndefined();
+    expect((await readSkill("beta", env))?.name).toBe("beta");
+  });
 });
 
 describe("use_skill tool", () => {
