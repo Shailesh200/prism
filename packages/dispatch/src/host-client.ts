@@ -7,10 +7,25 @@
  * (ADR-0044), and the fill contract's wording depends on which connectors the
  * host has.
  *
- * The MCP client name is the only signal available, so this is a substring
- * match by design. It is a hint used to choose a default, never a security
- * boundary.
+ * Envelope prefers the MCP handshake name. When that is empty (Cursor often
+ * omits it), the editor process env is a second hint — never a security
+ * boundary, and never a reason to invent ChatGPT or Codex.
  */
+
+export type EnvelopeHostSource = "mcp" | "env" | "worker";
+
+export type EnvelopeClientVersion = {
+  readonly name?: string;
+  readonly version?: string;
+};
+
+/** Fields written onto an Envelope ledger line when a host can be named. */
+export type EnvelopeHostProbe = {
+  readonly host?: string;
+  readonly clientName?: string;
+  readonly clientVersion?: string;
+  readonly hostSource?: EnvelopeHostSource;
+};
 
 export function clientLooksLikeCursor(name: string | undefined): boolean {
   return (name ?? "").toLowerCase().includes("cursor");
@@ -18,4 +33,137 @@ export function clientLooksLikeCursor(name: string | undefined): boolean {
 
 export function clientLooksLikeClaude(name: string | undefined): boolean {
   return (name ?? "").toLowerCase().includes("claude");
+}
+
+function clipMeta(value: string | undefined, max: number): string | undefined {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed) return undefined;
+  return trimmed.slice(0, max);
+}
+
+/**
+ * Stable Envelope host id written on each ledger line.
+ *
+ * Substring match, same family as {@link hostClientLabel} in app-shell — kept
+ * here so Dispatch never imports presentation. Unknown names are slugified.
+ * Empty / missing client info is omitted from the ledger, not stored as
+ * `"unknown"`.
+ */
+export function envelopeHostFromClient(
+  name: string | undefined,
+): string | undefined {
+  const lower = (name ?? "").trim().toLowerCase();
+  if (!lower) return undefined;
+  if (lower.includes("cursor")) return "cursor";
+  if (lower.includes("claude")) return "claude";
+  if (
+    lower.includes("visual studio") ||
+    lower === "vscode" ||
+    lower.includes("vs code") ||
+    lower.includes("code-oss") ||
+    lower.includes("code - oss")
+  ) {
+    return "vscode";
+  }
+  if (lower.includes("kilo")) return "kilo";
+  if (lower.includes("roo")) return "roo";
+  if (lower.includes("codex") || lower.includes("openai")) return "codex";
+  if (lower.includes("windsurf") || lower.includes("cascade")) {
+    return "windsurf";
+  }
+  if (lower.includes("continue")) return "continue";
+  if (lower.includes("aider")) return "aider";
+  if (lower.includes("cline")) return "cline";
+  if (lower.includes("gemini")) return "gemini";
+  if (lower.includes("zed")) return "zed";
+  if (lower === "console" || lower.includes("dispatch-hub")) return "console";
+  const slug = lower.replace(/[^a-z0-9._-]+/g, "-").replace(/^-|-$/g, "");
+  return slug ? slug.slice(0, 40) : undefined;
+}
+
+function envFlag(env: NodeJS.ProcessEnv, key: string): boolean {
+  const value = (env[key] ?? "").trim();
+  return value.length > 0 && value !== "0" && value.toLowerCase() !== "false";
+}
+
+function ipcLooksLikeCursor(env: NodeJS.ProcessEnv): boolean {
+  const hook =
+    `${env.VSCODE_IPC_HOOK ?? ""}\n${env.VSCODE_IPC_HOOK_CLI ?? ""}`.toLowerCase();
+  return hook.includes("cursor");
+}
+
+/**
+ * Editor fingerprint from the MCP process env. Values are never stored —
+ * only a host id. Claude wins when both fingerprints are present (a Claude
+ * CLI nested under Cursor).
+ */
+export function envelopeHostFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  if (
+    envFlag(env, "CLAUDECODE") ||
+    envFlag(env, "CLAUDE_CODE") ||
+    envFlag(env, "CLAUDE_CODE_ENTRYPOINT")
+  ) {
+    return "claude";
+  }
+  if (
+    envFlag(env, "CURSOR_TRACE_ID") ||
+    envFlag(env, "CURSOR_AGENT") ||
+    envFlag(env, "CURSOR_WORKSPACE") ||
+    ipcLooksLikeCursor(env)
+  ) {
+    return "cursor";
+  }
+  if (
+    envFlag(env, "VSCODE_IPC_HOOK") ||
+    envFlag(env, "VSCODE_PID") ||
+    (env.TERM_PROGRAM ?? "").trim().toLowerCase() === "vscode"
+  ) {
+    return "vscode";
+  }
+  return undefined;
+}
+
+function clientOf(client: EnvelopeClientVersion | string | undefined): {
+  name?: string;
+  version?: string;
+} {
+  if (typeof client === "string") return { name: client };
+  if (!client) return {};
+  return { name: client.name, version: client.version };
+}
+
+/**
+ * Host + raw client meta for one Envelope write.
+ *
+ * Order: MCP handshake name, then a Dispatch worker backend, then the
+ * process env. Raw `clientName` / `clientVersion` are stored whenever the
+ * handshake sent them, even if the canonical host is still missing.
+ */
+export function envelopeHostProbe(input: {
+  readonly client?: EnvelopeClientVersion | string | undefined;
+  readonly env?: NodeJS.ProcessEnv;
+  readonly workerHost?: string;
+}): EnvelopeHostProbe {
+  const { name, version } = clientOf(input.client);
+  const clientName = clipMeta(name, 80);
+  const clientVersion = clipMeta(version, 40);
+  const meta = {
+    ...(clientName ? { clientName } : {}),
+    ...(clientVersion ? { clientVersion } : {}),
+  };
+  const fromMcp = envelopeHostFromClient(name);
+  if (fromMcp) {
+    return { host: fromMcp, hostSource: "mcp", ...meta };
+  }
+  const worker = input.workerHost?.trim().toLowerCase().slice(0, 40);
+  if (worker) {
+    return { host: worker, hostSource: "worker", ...meta };
+  }
+  const fromEnv = envelopeHostFromEnv(input.env ?? process.env);
+  if (fromEnv) {
+    return { host: fromEnv, hostSource: "env", ...meta };
+  }
+  return meta;
 }

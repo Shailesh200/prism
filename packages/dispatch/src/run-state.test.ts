@@ -167,6 +167,7 @@ describe("applyRunToJob", () => {
     });
     expect(next.status).toBe("done");
     expect(next.resultSummary).toMatch(/lighthouse/);
+    expect(next.finishedAt).toBe("t");
   });
 
   it("copies notes and cited-missing paths from a finished sidecar", () => {
@@ -446,6 +447,9 @@ describe("worker MCP env", () => {
     expect(workerMcpEnv("/host/repo")).toEqual({
       PRISM_DISPATCH_ROLE: "worker",
       PRISM_WORKSPACE: "/host/repo",
+    });
+    expect(workerMcpEnv("/host/repo", "review-the-issues")).toMatchObject({
+      PRISM_JOB_ID: "review-the-issues",
     });
     expect(mcpArgsWithWorkspace(["/bin/prism-mcp"], "/host/repo")).toEqual([
       "/bin/prism-mcp",

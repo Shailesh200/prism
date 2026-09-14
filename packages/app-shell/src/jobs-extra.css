@@ -518,6 +518,9 @@
 }
 
 .job-card__facts dt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;

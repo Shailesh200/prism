@@ -6,7 +6,7 @@ import {
   jobNextAction,
   type JobSummary,
 } from "@repo-prism/app-shell";
-import { formatDuration, jobDurations } from "@repo-prism/shared";
+import { endOfLifeFor, formatDuration, jobDurations } from "@repo-prism/shared";
 import { formatPrismDate, ganttSegmentPercents } from "@repo-prism/ui";
 
 export const RANGE_MS = {
@@ -622,7 +622,7 @@ export function timelineBarTip(
       : job.verification === "failed"
         ? "verify failed"
         : job.verification === "skipped"
-          ? "verify NA"
+          ? "verify —"
           : "";
   const startIso = job.queuedAt ?? job.createdAt ?? job.updatedAt ?? "";
   const startMs = Date.parse(startIso);
@@ -787,12 +787,12 @@ export function jobsChronological(jobs: readonly JobSummary[]): JobSummary[] {
 export function verifyTag(
   verification: JobSummary["verification"] | undefined,
 ): {
-  readonly label: "Success" | "Failure" | "NA";
+  readonly label: "Success" | "Failure" | "—";
   readonly tone: "emerald" | "rose" | "neutral";
 } {
   if (verification === "passed") return { label: "Success", tone: "emerald" };
   if (verification === "failed") return { label: "Failure", tone: "rose" };
-  return { label: "NA", tone: "neutral" };
+  return { label: "—", tone: "neutral" };
 }
 
 export type RepoFleet = {
@@ -947,6 +947,22 @@ export function preferredWorkspace(
     return a.label.localeCompare(b.label);
   });
   return ranked[0]?.path ?? "";
+}
+
+/** Iris defaults to the editor's current repo, not the one with the most jobs. */
+export function irisDefaultWorkspace(
+  workspaces: readonly { readonly path: string }[],
+  selectedPath: string | undefined,
+  stored: string | null | undefined,
+  jobs: readonly JobSummary[],
+): string {
+  if (selectedPath && workspaces.some((row) => row.path === selectedPath)) {
+    return selectedPath;
+  }
+  if (stored && workspaces.some((row) => row.path === stored)) {
+    return stored;
+  }
+  return preferredWorkspace(workspaces, jobs);
 }
 
 function repoFleet(
@@ -1238,7 +1254,76 @@ export type PulseMeterStep = {
   readonly live: boolean;
   readonly ms: number;
   readonly label: string;
+  readonly from?: number;
+  readonly to?: number;
 };
+
+export type MeterCaptionPlace = "below" | "on" | "skip";
+
+/** 11px caption, latin figures — used to decide below vs on-bar. */
+export const METER_CAPTION_CHAR_PX = 6.6;
+/** Narrowest slice that can still hold an on-bar label with ellipsis. */
+export const METER_CAPTION_ON_MIN_PX = 28;
+const METER_CAPTION_ASSUMED_BAR_PX = 720;
+
+function captionTextPx(label: string): number {
+  return label.length * METER_CAPTION_CHAR_PX;
+}
+
+function segmentPx(pct: number, barWidthPx: number): number {
+  return (Math.max(0, pct) / 100) * barWidthPx;
+}
+
+function fitCaption(
+  step: PulseMeterStep,
+  barWidthPx: number,
+): MeterCaptionPlace {
+  const width = segmentPx(step.pct, barWidthPx);
+  if (width >= captionTextPx(step.label) + 4) return "below";
+  if (width >= METER_CAPTION_ON_MIN_PX) return "on";
+  return "skip";
+}
+
+/**
+ * Where each meter caption goes.
+ * Prefer under the segment; if that column is too tight, sit on the bar.
+ * Skip only after trying every-other (always keep the last) when a slice
+ * still cannot hold an on-bar label.
+ */
+export function meterCaptionPlaces(
+  steps: readonly PulseMeterStep[],
+  barWidthPx: number,
+): MeterCaptionPlace[] {
+  const width = barWidthPx > 0 ? barWidthPx : METER_CAPTION_ASSUMED_BAR_PX;
+  const first = steps.map((step) =>
+    step.pct <= 0 ? ("skip" as const) : fitCaption(step, width),
+  );
+  const hasTightPainted = steps.some(
+    (step, index) => step.pct > 0 && first[index] === "skip",
+  );
+  if (!hasTightPainted) return first;
+
+  const painted = steps
+    .map((step, index) => (step.pct > 0 ? index : -1))
+    .filter((index) => index >= 0);
+  const last = painted.at(-1);
+  return steps.map((step, index) => {
+    if (step.pct <= 0) return "skip";
+    const placed = first[index];
+    if (placed === "below" || placed === "on") return placed;
+    const keep = index === last || painted.indexOf(index) % 2 === 0;
+    if (!keep) return "skip";
+    return "on";
+  });
+}
+
+/** True when the step still gets a caption (below or on the bar). */
+export function meterCaptionVisible(
+  steps: readonly PulseMeterStep[],
+  barWidthPx = METER_CAPTION_ASSUMED_BAR_PX,
+): boolean[] {
+  return meterCaptionPlaces(steps, barWidthPx).map((place) => place !== "skip");
+}
 
 type LifecycleHop = NonNullable<JobSummary["lifecycle"]>[number];
 
@@ -1246,6 +1331,38 @@ function eventMs(at: string | undefined): number | undefined {
   if (!at) return undefined;
   const value = Date.parse(at);
   return Number.isFinite(value) ? value : undefined;
+}
+
+function meterClockEndMs(job: JobSummary, nowMs: number): number {
+  const stillOpen =
+    job.status === "paused" ||
+    isWorkingJob(job.status) ||
+    job.status === "queued" ||
+    job.status === "needs_confirm";
+  if (stillOpen) return nowMs;
+  const createdAt =
+    job.createdAt ?? job.updatedAt ?? new Date(nowMs).toISOString();
+  const end = endOfLifeFor(
+    {
+      createdAt,
+      queuedAt: job.queuedAt,
+      startedAt: job.startedAt,
+      finishedAt: job.finishedAt,
+      updatedAt: job.updatedAt,
+      lastHeartbeat: job.lastHeartbeat,
+      status: job.status,
+    },
+    nowMs,
+  );
+  if (typeof end === "number") return end;
+  const parsed = typeof end === "string" ? eventMs(end) : undefined;
+  if (parsed !== undefined) return parsed;
+  return (
+    eventMs(job.startedAt) ??
+    eventMs(job.queuedAt) ??
+    eventMs(job.createdAt) ??
+    nowMs
+  );
 }
 
 function hopKind(
@@ -1266,7 +1383,7 @@ function hopKind(
   return "skip";
 }
 
-function synthesizeMeterHops(job: JobSummary): LifecycleHop[] {
+function synthesizeMeterHops(job: JobSummary, nowMs: number): LifecycleHop[] {
   const hops: LifecycleHop[] = [];
   if (job.createdAt) hops.push({ kind: "accepted", at: job.createdAt });
   if (job.queuedAt) hops.push({ kind: "queued", at: job.queuedAt });
@@ -1275,14 +1392,15 @@ function synthesizeMeterHops(job: JobSummary): LifecycleHop[] {
   const at =
     job.updatedAt ?? job.finishedAt ?? job.startedAt ?? job.createdAt ?? "";
   if (!at) return hops;
+  const freeze = new Date(meterClockEndMs(job, nowMs)).toISOString();
   if (job.status === "paused") {
     hops.push({ kind: "queued", at, by: "user", note: "paused" });
   } else if (job.status === "error") {
-    hops.push({ kind: "failed", at: job.finishedAt ?? at });
+    hops.push({ kind: "failed", at: freeze });
   } else if (job.status === "cancelled") {
-    hops.push({ kind: "cancelled", at: job.finishedAt ?? at });
+    hops.push({ kind: "cancelled", at: freeze });
   } else if (job.status === "done" || job.status === "needs_review") {
-    hops.push({ kind: "finished", at: job.finishedAt ?? at });
+    hops.push({ kind: "finished", at: freeze });
   }
   return hops;
 }
@@ -1290,7 +1408,7 @@ function synthesizeMeterHops(job: JobSummary): LifecycleHop[] {
 function meterHops(job: JobSummary, nowMs: number): LifecycleHop[] {
   const hops: LifecycleHop[] = job.lifecycle?.length
     ? [...job.lifecycle]
-    : synthesizeMeterHops(job);
+    : synthesizeMeterHops(job, nowMs);
   if (!hops.some((hop) => hop.kind === "working")) {
     const start = jobWorkStartedAt(job);
     if (start) {
@@ -1310,6 +1428,22 @@ function meterHops(job: JobSummary, nowMs: number): LifecycleHop[] {
       kind: "working",
       at: job.updatedAt ?? job.lastHeartbeat ?? new Date(nowMs).toISOString(),
       note: "resumed",
+    });
+  }
+  const settled =
+    job.status === "done" ||
+    job.status === "needs_review" ||
+    job.status === "error" ||
+    job.status === "cancelled";
+  if (settled && !hops.some((hop) => hopKind(hop) === "end")) {
+    hops.push({
+      kind:
+        job.status === "error"
+          ? "failed"
+          : job.status === "cancelled"
+            ? "cancelled"
+            : "finished",
+      at: new Date(meterClockEndMs(job, nowMs)).toISOString(),
     });
   }
   return hops;
@@ -1367,28 +1501,47 @@ function meterIntervals(
     closeOpen(segs, open, at);
     open = { kind, from: at };
   }
-  const stillOpen =
-    job.status === "paused" ||
-    isWorkingJob(job.status) ||
-    job.status === "queued" ||
-    job.status === "needs_confirm";
   if (open) {
-    closeOpen(
-      segs,
-      open,
-      stillOpen ? nowMs : (eventMs(job.finishedAt) ?? nowMs),
-    );
+    closeOpen(segs, open, meterClockEndMs(job, nowMs));
   }
   return segs;
 }
 
 function stepLabel(kind: PulseMeterKind, ms: number, live: boolean): string {
-  const duration = formatDuration(ms) ?? "0s";
-  if (kind === "pause") return `Paused ${duration}`;
   if (kind === "error") return "Failed";
   if (kind === "cancelled") return "Cancelled";
-  if (kind === "wait") return `${live ? "Waiting" : "Waited"} ${duration}`;
-  return `${live ? "Working" : "Worked"} ${duration}`;
+  return formatDuration(ms) ?? (live ? "0s" : "0s");
+}
+
+/**
+ * Clock under a Grafana-style hairline on a Pulse meter.
+ * `percent` is 0–100 along the painted bar, not raw duration.
+ */
+export function meterHoverAt(
+  steps: readonly PulseMeterStep[],
+  percent: number,
+): { readonly atMs: number } | undefined {
+  const painted = steps.filter((step) => step.pct > 0);
+  if (painted.length === 0) return undefined;
+  const pct = Math.max(0, Math.min(100, percent));
+  let acc = 0;
+  for (let i = 0; i < painted.length; i++) {
+    const step = painted[i];
+    if (!step) continue;
+    const next = acc + step.pct;
+    const last = i === painted.length - 1;
+    if (pct > next && !last) {
+      acc = next;
+      continue;
+    }
+    const span = Math.max(0, (step.to ?? step.from ?? 0) - (step.from ?? 0));
+    const inner =
+      step.pct <= 0 ? 1 : Math.max(0, Math.min(1, (pct - acc) / step.pct));
+    const origin = step.from ?? step.to ?? 0;
+    return { atMs: origin + inner * span };
+  }
+  const last = painted.at(-1);
+  return last ? { atMs: last.to ?? last.from ?? 0 } : undefined;
 }
 
 export function meterEndKind(
@@ -1470,7 +1623,13 @@ export function waitWorkMeter(
   const includeWork =
     label.workVerb === "working" ||
     intervals.some((row) => row.kind === "work" && row.ms > 0);
-  const raw: { kind: PulseMeterKind; ms: number; live: boolean }[] = [];
+  const raw: {
+    kind: PulseMeterKind;
+    ms: number;
+    live: boolean;
+    from: number;
+    to: number;
+  }[] = [];
   for (const row of intervals) {
     if (row.kind === "wait" && !includeWait) continue;
     if (row.kind === "work" && !includeWork) continue;
@@ -1486,12 +1645,28 @@ export function waitWorkMeter(
     if (row.kind === "work" && row.ms <= 0 && label.workVerb !== "working") {
       continue;
     }
-    raw.push({ kind: row.kind, ms: row.ms, live: false });
+    raw.push({
+      kind: row.kind,
+      ms: row.ms,
+      live: false,
+      from: row.from,
+      to: row.to,
+    });
   }
   if (includeWait && !raw.some((row) => row.kind === "wait")) {
-    raw.unshift({ kind: "wait", ms: 0, live: false });
+    const created = eventMs(job.createdAt) ?? nowMs;
+    raw.unshift({
+      kind: "wait",
+      ms: 0,
+      live: false,
+      from: created,
+      to: created,
+    });
   }
-  if (outcome) raw.push({ kind: outcome, ms: 0, live: false });
+  if (outcome) {
+    const end = eventMs(job.finishedAt) ?? raw.at(-1)?.to ?? nowMs;
+    raw.push({ kind: outcome, ms: 0, live: false, from: end, to: end });
+  }
   if (job.status === "paused") {
     const lastPause = [...raw]
       .map((row, i) => ({ row, i }))
@@ -1513,6 +1688,8 @@ export function waitWorkMeter(
     live: row.live,
     ms: row.ms,
     label: stepLabel(row.kind, row.ms, row.live),
+    from: row.from,
+    to: row.to,
   }));
   const pctOf = (kind: PulseMeterKind): number =>
     steps

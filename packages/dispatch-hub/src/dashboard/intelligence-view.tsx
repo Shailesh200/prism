@@ -1,62 +1,57 @@
-import { useEffect, useMemo, useState, type ReactElement } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import {
   Button,
   CardIcon,
   EmptyState,
   HoverTip,
-  RepositoryMapView,
-  ScreenSkeleton,
   Tooltip,
   Truncate,
   formatPrismDate,
 } from "@repo-prism/ui";
-import type {
-  GitRecentFile,
-  MapZoomLevel,
-  RepositoryMap,
-} from "@repo-prism/shared";
+import type { GitRecentFile } from "@repo-prism/shared";
 import {
-  isLiveJob,
-  isWaitingOnYou,
+  IRIS_BYTES_KEPT_TIP,
+  IRIS_CUT_SHORT_TIP,
+  IRIS_DUMP_NOT_SERVED_TIP,
+  IRIS_FOLLOW_THROUGH_TIP,
+  IRIS_HABIT_TIP,
+  IRIS_SOURCE_TIP,
   type JobSummary,
   type JobWorkspaceChip,
 } from "@repo-prism/app-shell";
+import type { EnvelopeMetrics } from "@repo-prism/dispatch";
 import {
   Activity,
   ArrowRight,
   Boxes,
   Calendar,
-  CircleAlert,
-  CircleCheck,
+  CalendarCheck,
   Compass,
-  FileCheck,
+  FileMinus,
+  Filter,
   FlaskConical,
   FolderGit2,
   GitBranch,
-  Inbox,
+  GitFork,
   Landmark,
-  Radio,
+  PieChart,
   RefreshCw,
+  Scissors,
   Shield,
   Sparkles,
 } from "lucide-react";
-import { preferredWorkspace } from "./fleet.js";
+import { irisDefaultWorkspace } from "./fleet.js";
 import { RepoSelect } from "./repo-select.js";
-import { jobsHash } from "./router.js";
 import { getJson, postJson } from "./session.js";
-import { showConsoleToast } from "./console-toast.js";
-import { PLAYGROUND_DEFAULT, spectrumUrl } from "./console-footer.js";
+import {
+  EnvelopeCards,
+  formatEnvelopeBytes,
+  formatEnvelopeDeltaPp,
+  formatEnvelopePercent,
+  formatEnvelopeTokens,
+} from "./envelope-cards.js";
 
 const IRIS_WORKSPACE_KEY = "prism.console.iris.workspace";
-
-type HealthResponse = {
-  readonly version: string;
-  readonly workspaces: number;
-  readonly intelligence: {
-    readonly loaded: boolean;
-    readonly workspace: string | null;
-  };
-};
 
 type ConnectorRow = {
   readonly id: string;
@@ -94,27 +89,12 @@ type DashboardOk = {
   };
 };
 
+type EnvelopeResponse = EnvelopeMetrics;
+
 type IrisCache = {
   readonly analysis: DashboardOk["data"];
-  readonly spectrum?: RepositoryMap;
-  readonly recentChanges?: readonly GitRecentFile[];
   readonly at: string;
 };
-
-type MapOk = {
-  readonly ok: true;
-  readonly method: "map";
-  readonly data: {
-    readonly map: RepositoryMap;
-    readonly recentChanges?: GitRecentFile[];
-  };
-};
-
-type SpectrumMaps = Partial<Record<MapZoomLevel, RepositoryMap>>;
-
-function mapsFromCachedSpectrum(map: RepositoryMap | undefined): SpectrumMaps {
-  return map ? { [map.zoom]: map } : {};
-}
 
 function irisCacheKey(path: string): string {
   return `prism.console.iris.cache:${path}`;
@@ -140,60 +120,50 @@ function asNumber(value: unknown): number | undefined {
     : undefined;
 }
 
-function openInEditor(workspace: string, relative: string): void {
-  const abs = `${workspace.replace(/\/$/, "")}/${relative.replace(/^\//, "")}`;
-  window.location.href = `cursor://file${abs}`;
-}
-
 export function IntelligenceView(props: {
   readonly token: string;
   readonly jobs: readonly JobSummary[];
   readonly workspaces: readonly JobWorkspaceChip[];
+  readonly selectedPath?: string;
+  readonly onMoreDetails?: () => void;
 }): ReactElement {
   const irisRepos = props.workspaces;
-  const [health, setHealth] = useState<HealthResponse | undefined>();
+  const userPicked = useRef(false);
   const [connectors, setConnectors] = useState<
     ConnectorsResponse | undefined
   >();
   const [error, setError] = useState<string | undefined>();
-  const [workspace, setWorkspace] = useState(() => {
-    const stored =
-      typeof localStorage === "undefined"
-        ? null
-        : localStorage.getItem(IRIS_WORKSPACE_KEY);
-    if (stored) return stored;
-    return preferredWorkspace(irisRepos, props.jobs);
-  });
+  const [workspace, setWorkspace] = useState("");
   const cached = workspace ? readCache(workspace) : undefined;
   const [analysis, setAnalysis] = useState<DashboardOk["data"] | undefined>(
     cached?.analysis,
   );
   const [analysisError, setAnalysisError] = useState<string | undefined>();
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
-  const [mapsByZoom, setMapsByZoom] = useState<SpectrumMaps>(() =>
-    mapsFromCachedSpectrum(cached?.spectrum),
-  );
-  const [spectrumZoom, setSpectrumZoom] = useState<MapZoomLevel>(
-    cached?.spectrum?.zoom ?? "package",
-  );
-  const [recentChanges, setRecentChanges] = useState<
-    readonly GitRecentFile[] | undefined
-  >(cached?.recentChanges);
-  const [spectrumError, setSpectrumError] = useState<string | undefined>();
   const [analyzedAt, setAnalyzedAt] = useState<string | undefined>(cached?.at);
+  const [envelope, setEnvelope] = useState<EnvelopeResponse | undefined>();
+  const [envelopeError, setEnvelopeError] = useState<string | undefined>();
 
-  const spectrum =
-    mapsByZoom[spectrumZoom] ?? mapsByZoom.package ?? mapsByZoom.file;
+  useEffect(() => {
+    if (userPicked.current) return;
+    const stored =
+      typeof localStorage === "undefined"
+        ? null
+        : localStorage.getItem(IRIS_WORKSPACE_KEY);
+    const next = irisDefaultWorkspace(
+      irisRepos,
+      props.selectedPath,
+      stored,
+      props.jobs,
+    );
+    if (next) setWorkspace(next);
+  }, [irisRepos, props.selectedPath, props.jobs]);
 
   useEffect(() => {
     let alive = true;
-    void Promise.all([
-      getJson<HealthResponse>("/api/healthz", props.token),
-      getJson<ConnectorsResponse>("/api/connectors", props.token),
-    ])
-      .then(([nextHealth, nextConnectors]) => {
+    void getJson<ConnectorsResponse>("/api/connectors", props.token)
+      .then((nextConnectors) => {
         if (!alive) return;
-        setHealth(nextHealth);
         setConnectors(nextConnectors);
       })
       .catch((cause: unknown) => {
@@ -211,87 +181,36 @@ export function IntelligenceView(props: {
     localStorage.setItem(IRIS_WORKSPACE_KEY, workspace);
     const next = readCache(workspace);
     setAnalysis(next?.analysis);
-    setMapsByZoom(mapsFromCachedSpectrum(next?.spectrum));
-    setSpectrumZoom(next?.spectrum?.zoom ?? "package");
-    setRecentChanges(next?.recentChanges);
     setAnalyzedAt(next?.at);
     setAnalysisError(undefined);
-    setSpectrumError(undefined);
   }, [workspace]);
 
   useEffect(() => {
-    if (workspace || irisRepos.length === 0) return;
-    setWorkspace(preferredWorkspace(irisRepos, props.jobs));
-  }, [irisRepos, props.jobs, workspace]);
-
-  const stats = useMemo(() => {
-    const scoped = props.jobs.filter(
-      (job) => !workspace || job.workspacePath === workspace,
-    );
-    const live = scoped.filter((job) => isLiveJob(job.status)).length;
-    const waiting = scoped.filter((job) => isWaitingOnYou(job.status)).length;
-    const review = scoped.filter((job) => job.status === "needs_review").length;
-    const done = scoped.filter((job) => job.status === "done").length;
-    const failed = scoped.filter((job) => job.status === "error").length;
-    return { live, waiting, review, done, failed, total: scoped.length };
-  }, [props.jobs, workspace]);
-
-  const rememberMap = (map: RepositoryMap): void => {
-    setMapsByZoom((prev) => ({ ...prev, [map.zoom]: map }));
-  };
-
-  const fetchSpectrum = async (
-    zoom: MapZoomLevel,
-    opts?: {
-      readonly persistPackage?: boolean;
-      readonly analysisData?: DashboardOk["data"];
-      readonly at?: string;
-    },
-  ): Promise<RepositoryMap | undefined> => {
-    if (!workspace) return undefined;
-    const mapAnswer = await postJson<MapOk | { ok: false; error?: string }>(
-      "/api/host",
-      props.token,
-      {
-        id: `spectrum-${zoom}`,
-        method: "map",
-        zoom,
-        workspace,
-      },
-    );
-    if (!mapAnswer.ok) {
-      setSpectrumError(mapAnswer.error ?? "Could not load Spectrum.");
-      return undefined;
-    }
-    rememberMap(mapAnswer.data.map);
-    if (mapAnswer.data.recentChanges) {
-      setRecentChanges(mapAnswer.data.recentChanges);
-    }
-    setSpectrumError(undefined);
-    if (opts?.persistPackage && zoom === "package" && opts.analysisData) {
-      writeCache(workspace, {
-        analysis: opts.analysisData,
-        spectrum: mapAnswer.data.map,
-        recentChanges: mapAnswer.data.recentChanges,
-        at: opts.at ?? new Date().toISOString(),
-      });
-    }
-    return mapAnswer.data.map;
-  };
-
-  const onSpectrumZoomChange = (zoom: MapZoomLevel): void => {
-    if (mapsByZoom[zoom]) {
-      setSpectrumZoom(zoom);
-      setSpectrumError(undefined);
+    if (!workspace) {
+      setEnvelope(undefined);
       return;
     }
-    setSpectrumZoom(zoom);
-    void fetchSpectrum(zoom).then((map) => {
-      if (!map) {
-        setSpectrumZoom("package");
-      }
-    });
-  };
+    let alive = true;
+    setEnvelope(undefined);
+    setEnvelopeError(undefined);
+    void getJson<EnvelopeResponse>(
+      `/api/envelope?workspace=${encodeURIComponent(workspace)}`,
+      props.token,
+    )
+      .then((next) => {
+        if (alive) setEnvelope(next);
+      })
+      .catch((cause: unknown) => {
+        if (!alive) return;
+        setEnvelope(undefined);
+        setEnvelopeError(
+          cause instanceof Error ? cause.message : String(cause),
+        );
+      });
+    return () => {
+      alive = false;
+    };
+  }, [workspace, props.token]);
 
   const loadAnalysis = async (): Promise<void> => {
     if (!workspace) {
@@ -315,20 +234,7 @@ export function IntelligenceView(props: {
       const at = new Date().toISOString();
       setAnalysis(answer.data);
       setAnalyzedAt(at);
-      const packageMap = await fetchSpectrum("package", {
-        persistPackage: true,
-        analysisData: answer.data,
-        at,
-      });
-      if (packageMap) {
-        setMapsByZoom({ [packageMap.zoom]: packageMap });
-        setSpectrumZoom("package");
-        // Prefetch file altitude so package drill-in has children ready.
-        void fetchSpectrum("file");
-      } else {
-        setMapsByZoom({});
-        writeCache(workspace, { analysis: answer.data, at });
-      }
+      writeCache(workspace, { analysis: answer.data, at });
     } catch (cause) {
       setAnalysisError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -350,150 +256,22 @@ export function IntelligenceView(props: {
       <h1 className="console__title">Iris</h1>
       <p className="console__lede">
         Iris is the accumulated knowledge of a workspace — the index, graphs,
-        landmarks, and health. Pick a repository, then load analysis. Spectrum
-        stays on that repo across reloads.
+        landmarks, and health. Pick a repository, then load analysis. Envelope
+        metrics are for that repo only, on this machine, never uploaded.
       </p>
       {error ? <EmptyState>{error}</EmptyState> : null}
 
-      <div className="intel-context">
-        <div>
-          <h2 className="intel-heading">Repositories</h2>
-          {irisRepos.filter((repo) => repo.jobCount > 0).length === 0 ? (
-            <p className="console__lede">
-              None with jobs yet. Run a job, then Iris can keep that repo.
-            </p>
-          ) : (
-            <ul className="intel-list">
-              {irisRepos
-                .filter((repo) => repo.jobCount > 0)
-                .map((repo) => (
-                  <li key={repo.path} className="intel-list__repo">
-                    <Button
-                      type="button"
-                      variant="tertiary"
-                      className="intel-list__copy"
-                      onClick={() => setWorkspace(repo.path)}
-                    >
-                      <strong>{repo.label}</strong>
-                      <span>
-                        {`${repo.jobCount} ${repo.jobCount === 1 ? "job" : "jobs"}`}
-                      </span>
-                      {repo.error ? (
-                        <span className="intel-list__error">{repo.error}</span>
-                      ) : null}
-                    </Button>
-                    <a
-                      className="intel-list__go"
-                      href={jobsHash(repo.path)}
-                      aria-label={`Open jobs for ${repo.label}`}
-                    >
-                      <ArrowRight size={16} aria-hidden />
-                    </a>
-                  </li>
-                ))}
-            </ul>
-          )}
-        </div>
-        <div>
-          <h2 className="intel-heading intel-heading--tip">
-            Host connectors
-            <Tooltip label="Host connectors">
-              Plugins already signed in for this agent window (Cursor or Claude
-              Code). A download in the plugin cache, or a plugin still waiting
-              on mcp_auth, is not a connection. Prism holds no vendor
-              credentials and never talks to Slack, Linear or GitHub itself.
-            </Tooltip>
-          </h2>
-          {connectors && connectors.connectors.length > 0 ? (
-            <ul className="intel-chips">
-              {connectors.connectors.map((row) => (
-                <li key={`${row.id}:${row.source}`}>{row.label}</li>
-              ))}
-            </ul>
-          ) : (
-            <p className="console__lede">
-              None signed in for this agent window. Install Slack, Linear,
-              GitHub or Calendar from the editor&apos;s own plugin settings and
-              complete sign-in there.
-            </p>
-          )}
-          {connectors?.unreadable.length ? (
-            <p className="console__lede">
-              {connectors.unreadable.length} connector path
-              {connectors.unreadable.length === 1 ? " was" : "s were"}{" "}
-              unreadable.
-            </p>
-          ) : null}
-        </div>
-      </div>
-
       <RepoSelect
         token={props.token}
-        label="Repository"
+        label="Repos"
+        className="fleet-toolbar__repo-select"
         value={workspace}
-        onChange={setWorkspace}
+        onChange={(path) => {
+          userPicked.current = true;
+          setWorkspace(path);
+        }}
         repos={irisRepos}
       />
-
-      <dl className="intel-stats">
-        <div data-tone="brand">
-          <dt>
-            <CardIcon icon={Activity} /> Jobs
-          </dt>
-          <dd>{stats.total}</dd>
-        </div>
-        <div data-tone="brand">
-          <dt>
-            <CardIcon icon={Radio} /> Live
-          </dt>
-          <dd>{stats.live}</dd>
-        </div>
-        <div data-tone="amber">
-          <dt>
-            <CardIcon icon={Inbox} tone="amber" /> Awaiting approval
-          </dt>
-          <dd>{stats.waiting}</dd>
-        </div>
-        <div data-tone="amber">
-          <dt>
-            <CardIcon icon={FileCheck} tone="amber" /> Ready for review
-          </dt>
-          <dd>{stats.review}</dd>
-        </div>
-        <div data-tone="emerald">
-          <dt>
-            <CardIcon icon={CircleCheck} tone="emerald" /> Done
-          </dt>
-          <dd>{stats.done}</dd>
-        </div>
-        <div data-tone="rose">
-          <dt>
-            <CardIcon icon={CircleAlert} tone="rose" /> Failed
-          </dt>
-          <dd>{stats.failed}</dd>
-        </div>
-      </dl>
-
-      {health ? (
-        <dl className="console__facts">
-          <div>
-            <dt>Dispatch version</dt>
-            <dd>{health.version}</dd>
-          </div>
-          <div>
-            <dt>Repositories watched</dt>
-            <dd>{health.workspaces}</dd>
-          </div>
-          <div>
-            <dt>Analysis engine</dt>
-            <dd>
-              {health.intelligence.loaded ? "Loaded" : "Idle until asked"}
-            </dd>
-          </div>
-        </dl>
-      ) : !error ? (
-        <ScreenSkeleton label="Loading…" rows={3} />
-      ) : null}
 
       <div className="intel-analysis">
         <div className="intel-analysis__copy">
@@ -535,6 +313,7 @@ export function IntelligenceView(props: {
           </Button>
         </div>
       </div>
+
       {analysisError ? <EmptyState>{analysisError}</EmptyState> : null}
       {analysis ? (
         <dl className="console__facts">
@@ -611,47 +390,172 @@ export function IntelligenceView(props: {
           ) : null}
         </dl>
       ) : null}
-      <div className="intel-analysis">
-        <div className="intel-analysis__copy">
-          <h2 className="intel-heading">Spectrum</h2>
-          <p className="console__lede">
-            The repository map Iris already computed. Double-click a package to
-            open files; use the Package breadcrumb to go back. Open sends the
-            file to Cursor.
-          </p>
+
+      <div className="envelope">
+        <div className="envelope__head">
+          <div className="envelope__head-copy">
+            <h2 className="intel-heading">Envelope</h2>
+            <p className="console__lede">
+              Pipe · True Refs · Honest Edges · Context Pack · Reuse First.
+            </p>
+          </div>
+          {props.onMoreDetails ? (
+            <button
+              type="button"
+              className="envelope__more"
+              onClick={props.onMoreDetails}
+            >
+              <span>More details</span>
+              <ArrowRight size={16} aria-hidden />
+            </button>
+          ) : null}
         </div>
+        {envelopeError ? (
+          <p className="envelope__empty">{envelopeError}</p>
+        ) : envelope === undefined ? (
+          <p className="envelope__empty">Loading Envelope…</p>
+        ) : envelope.available ? (
+          <>
+            <EnvelopeCards
+              density="iris"
+              cards={[
+                {
+                  id: "bytes",
+                  label: "Sent %",
+                  tip: IRIS_BYTES_KEPT_TIP,
+                  value: formatEnvelopePercent(envelope.bytesKeptRatio),
+                  unit: "of the full list",
+                  sub:
+                    envelope.bytesKeptDeltaPp !== null
+                      ? `${formatEnvelopeDeltaPp(envelope.bytesKeptDeltaPp)} vs last`
+                      : undefined,
+                  subTone:
+                    envelope.bytesKeptDeltaPp !== null &&
+                    envelope.bytesKeptDeltaPp < 0
+                      ? "safe"
+                      : "muted",
+                  icon: PieChart,
+                  tone: "brand",
+                },
+                {
+                  id: "cut",
+                  label: "Partial",
+                  tip: IRIS_CUT_SHORT_TIP,
+                  value: formatEnvelopePercent(envelope.cutShortRate, 0),
+                  unit: "of list calls",
+                  sub:
+                    envelope.truncatedCalls !== null &&
+                    envelope.listCalls !== null
+                      ? `${envelope.truncatedCalls} of ${envelope.listCalls} partial`
+                      : undefined,
+                  icon: Scissors,
+                  tone: "violet",
+                },
+                {
+                  id: "follow",
+                  label: "Then focused",
+                  tip: IRIS_FOLLOW_THROUGH_TIP,
+                  value: formatEnvelopePercent(envelope.followThrough, 0),
+                  unit: "after a partial",
+                  sub: "heuristic",
+                  icon: Filter,
+                  tone: "brand",
+                },
+                {
+                  id: "dump",
+                  label: "Not sent",
+                  tip: IRIS_DUMP_NOT_SERVED_TIP,
+                  value: formatEnvelopeBytes(envelope.dumpNotServedBytes),
+                  unit: formatEnvelopeTokens(envelope.dumpNotServedTokens)
+                    ? `· ${formatEnvelopeTokens(envelope.dumpNotServedTokens)}`
+                    : undefined,
+                  sub: "held back",
+                  icon: FileMinus,
+                  tone: "emerald",
+                },
+                {
+                  id: "habit",
+                  label: "≤5-call days",
+                  tip: IRIS_HABIT_TIP,
+                  value:
+                    envelope.habitDays === null
+                      ? "—"
+                      : `${envelope.habitDays} / ${envelope.habitDenom ?? 7}`,
+                  unit: "days",
+                  sub:
+                    envelope.habitDelta !== null
+                      ? `${envelope.habitDelta > 0 ? "+" : ""}${envelope.habitDelta} day${Math.abs(envelope.habitDelta) === 1 ? "" : "s"} vs prev`
+                      : undefined,
+                  subTone:
+                    envelope.habitDelta !== null && envelope.habitDelta > 0
+                      ? "safe"
+                      : "muted",
+                  icon: CalendarCheck,
+                  tone: "amber",
+                },
+                {
+                  id: "source",
+                  label: "Source",
+                  tip: IRIS_SOURCE_TIP,
+                  value:
+                    envelope.chatCalls === null
+                      ? "—"
+                      : String(envelope.chatCalls),
+                  unit:
+                    envelope.jobCalls !== null
+                      ? `chat · ${envelope.jobCalls} jobs`
+                      : "chat",
+                  sub: "Chat vs jobs",
+                  icon: GitFork,
+                  tone: "violet",
+                },
+              ]}
+            />
+            <p className="envelope-note">
+              Lower Sent % means Prism sent a smaller slice of the list. Not
+              Pulse job tokens.
+            </p>
+          </>
+        ) : (
+          <EmptyState>
+            No list calls recorded this week for this repo. Envelope fills when
+            this chat or a teammate uses list tools — not from the job&apos;s
+            billed tokens. A job that never used those tools leaves this board
+            unchanged.
+          </EmptyState>
+        )}
       </div>
-      {spectrumError ? <EmptyState>{spectrumError}</EmptyState> : null}
-      {spectrum ? (
-        <div className="spectrum" aria-label="Spectrum">
-          <RepositoryMapView
-            map={spectrum}
-            showBrand={false}
-            {...(recentChanges ? { recentChanges } : {})}
-            {...(analysis?.branch ? { branch: analysis.branch } : {})}
-            onZoomChange={onSpectrumZoomChange}
-            onOpenPath={(path) => {
-              if (workspace) openInEditor(workspace, path);
-            }}
-            onShare={() => {
-              void navigator.clipboard.writeText(window.location.href);
-              showConsoleToast("Link copied");
-            }}
-            onBlastRadius={() => {
-              window.open(
-                spectrumUrl(PLAYGROUND_DEFAULT, {
-                  ...(workspace ? { root: workspace } : {}),
-                  hash: "#/blast",
-                }),
-                "_blank",
-                "noreferrer",
-              );
-            }}
-          />
-        </div>
-      ) : analysis && !spectrumError ? (
-        <p className="console__lede">Spectrum loads with analysis.</p>
-      ) : null}
+
+      <div>
+        <h2 className="intel-heading intel-heading--tip">
+          Host connectors
+          <Tooltip label="Host connectors">
+            Plugins already signed in for this agent window (Cursor or Claude
+            Code). A download in the plugin cache, or a plugin still waiting on
+            mcp_auth, is not a connection. Prism holds no vendor credentials and
+            never talks to Slack, Linear or GitHub itself.
+          </Tooltip>
+        </h2>
+        {connectors && connectors.connectors.length > 0 ? (
+          <ul className="intel-chips">
+            {connectors.connectors.map((row) => (
+              <li key={`${row.id}:${row.source}`}>{row.label}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="console__lede">
+            None signed in for this agent window. Install Slack, Linear, GitHub
+            or Calendar from the editor&apos;s own plugin settings and complete
+            sign-in there.
+          </p>
+        )}
+        {connectors?.unreadable.length ? (
+          <p className="console__lede">
+            {connectors.unreadable.length} connector path
+            {connectors.unreadable.length === 1 ? " was" : "s were"} unreadable.
+          </p>
+        ) : null}
+      </div>
     </section>
   );
 }

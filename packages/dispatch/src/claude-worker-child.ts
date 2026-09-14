@@ -108,9 +108,11 @@ async function main(): Promise<void> {
     ...(payload.branch ? { branch: payload.branch } : {}),
     ...(payload.verify !== undefined ? { verify: payload.verify } : {}),
     ...(payload.placement ? { placement: payload.placement } : {}),
-    ...(payload.preExistingChanges
-      ? { preExistingChanges: payload.preExistingChanges }
-      : {}),
+    ...(payload.placement === "checkout"
+      ? { preExistingChanges: payload.preExistingChanges ?? [] }
+      : payload.preExistingChanges
+        ? { preExistingChanges: payload.preExistingChanges }
+        : {}),
     ...(payload.playbook ? { playbook: payload.playbook } : {}),
   };
   const finish = {
@@ -128,6 +130,7 @@ async function main(): Promise<void> {
     mcpCommand: payload.mcpCommand,
     mcpArgs: payload.mcpArgs,
     workspaceRoot: payload.workspaceRoot,
+    jobId: payload.jobId,
   });
   /** Optional flags this CLI rejected; dropped on the retry. */
   const omitFlags: string[] = [];

@@ -90,11 +90,13 @@ describe("buildKnowledgeGraph", () => {
     expect(syms).toHaveLength(1);
     expect(syms[0]?.path).toBe("helper.ts");
 
-    expect(searchSymbols(kg, { pattern: "ad" }).map((s) => s.name)).toEqual([
-      "add",
-    ]);
     expect(
-      searchSymbols(kg, { pattern: "^a", regex: true }).map((s) => s.name),
+      searchSymbols(kg, { pattern: "ad" }).items.map((s) => s.name),
+    ).toEqual(["add"]);
+    expect(
+      searchSymbols(kg, { pattern: "^a", regex: true }).items.map(
+        (s) => s.name,
+      ),
     ).toEqual(["add"]);
 
     const refs = findReferences(kg, { name: "add", path: "helper.ts" });
@@ -249,5 +251,58 @@ describe("buildKnowledgeGraph", () => {
     const edge = kg.graph.edges.find((e) => e.kind === "extends");
     expect(edge?.from).toContain("Child");
     expect(edge?.to).toContain("Base");
+    expect(edge?.provenance).toBe("measured");
+  });
+
+  it("reports totalCount before the 50-hit slice (M-069 S1)", () => {
+    const root = mkdtempSync(join(tmpdir(), "prism-m069-search-"));
+    const symbols = Array.from({ length: 60 }, (_, i) => ({
+      name: `item${i}`,
+      kind: "function" as const,
+      start: i * 10,
+      end: i * 10 + 4,
+      exported: true,
+    }));
+    const snap = snapshot(root, [analyzed("many.ts", { symbols })]);
+    const found = searchSymbols(buildKnowledgeGraph(snap), {
+      pattern: "e",
+      limit: 50,
+    });
+    expect(found.items).toHaveLength(50);
+    expect(found.totalCount).toBe(60);
+  });
+
+  it("tags a parsed call edge measured (M-069 S3)", () => {
+    const root = mkdtempSync(join(tmpdir(), "prism-m069-edge-"));
+    const snap = snapshot(root, [
+      analyzed("helper.ts", {
+        symbols: [
+          {
+            name: "add",
+            kind: "function",
+            start: 0,
+            end: 40,
+            exported: true,
+          },
+        ],
+        exports: [{ name: "add", kind: "name" }],
+      }),
+      analyzed("main.ts", {
+        symbols: [
+          {
+            name: "run",
+            kind: "function",
+            start: 50,
+            end: 90,
+            exported: true,
+          },
+        ],
+        imports: [{ source: "./helper.ts", specifiers: ["add"] }],
+        references: [{ name: "add", kind: "call", start: 70, end: 73 }],
+      }),
+    ]);
+    const kg = buildKnowledgeGraph(snap);
+    const call = kg.graph.edges.find((e) => e.kind === "references");
+    expect(call?.provenance).toBe("measured");
   });
 });

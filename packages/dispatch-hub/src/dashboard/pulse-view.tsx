@@ -17,18 +17,25 @@ import {
   relativePrismTime,
 } from "@repo-prism/ui";
 import { CircleAlert, Inbox, Pause } from "lucide-react";
-import { type ReactElement, type ReactNode } from "react";
-import { GenerateFlow } from "./generate-line.js";
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import {
   isWorkingJob,
   groupJobsByRepo,
-  jobWorkStartedAt,
-  jobPauseStartedAt,
   pulseCtaShowsCancel,
   pulseIdleRepos,
   pulseSections,
   repoInitials,
   waitWorkMeter,
+  meterCaptionPlaces,
+  meterHoverAt,
+  pointerPercent,
   meterEndBadgeTone,
   meterEndKind,
   type FleetTimeRange,
@@ -302,8 +309,22 @@ function pulseMessage(
   return compactLine(text);
 }
 
-function titleVerb(verb: string): string {
-  return verb.length === 0 ? verb : `${verb[0]!.toUpperCase()}${verb.slice(1)}`;
+function useMeterWidth(): {
+  readonly ref: RefObject<HTMLDivElement | null>;
+  readonly width: number;
+} {
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const read = () => setWidth(el.getBoundingClientRect().width);
+    const observer = new ResizeObserver(read);
+    observer.observe(el);
+    read();
+    return () => observer.disconnect();
+  }, []);
+  return { ref, width };
 }
 
 function PulseCard(
@@ -318,13 +339,22 @@ function PulseCard(
   const job = props.job;
   const meter = waitWorkMeter(job, props.nowMs);
   const liveMeter = props.kind === "live" && jobBadgePulse(job.status);
-  const pausedMeter = job.status === "paused";
   const meterEnd = meterEndKind(meter.steps);
   const badgeTone = meterEnd
     ? meterEndBadgeTone(meterEnd)
     : jobBadgeTone(job.status, job.nextStep);
   const meterTotal =
     meter.waitPct + meter.workPct + meter.pausePct + meter.outcomePct;
+  const paintedSteps = meter.steps.filter((step) => step.pct > 0);
+  const meterBox = useMeterWidth();
+  const places = meterCaptionPlaces(paintedSteps, meterBox.width);
+  const hasBelow = places.some((place) => place === "below");
+  const hasOn = places.some((place) => place === "on");
+  const [hoverUi, setHoverUi] = useState<
+    { readonly pct: number; readonly leftPx: number } | undefined
+  >();
+  const hover =
+    hoverUi != null ? meterHoverAt(paintedSteps, hoverUi.pct) : undefined;
   const message = pulseMessage(job, props.kind);
   const mark = repoInitials(job.workspaceLabel ?? "?");
   const next = props.kind === "needsYou" ? jobNextAction(job) : undefined;
@@ -375,113 +405,91 @@ function PulseCard(
       </header>
       {meterTotal > 0 || isWorkingJob(job.status) ? (
         <div className="pulse-meter-wrap">
-          {meterTotal > 0 ? (
-            <div
-              className={["pulse-meter", liveMeter ? "pulse-meter--live" : ""]
-                .filter(Boolean)
-                .join(" ")}
-              aria-hidden
-            >
-              {meter.steps
-                .filter((step) => step.pct > 0)
-                .map((step, index) => (
+          <div
+            className="pulse-meter-track"
+            onMouseMove={(event) => {
+              if (meterTotal <= 0) return;
+              const bar = meterBox.ref.current;
+              if (!bar) return;
+              const barRect = bar.getBoundingClientRect();
+              const trackRect = event.currentTarget.getBoundingClientRect();
+              const pct = pointerPercent(event.clientX, barRect);
+              setHoverUi({
+                pct,
+                leftPx:
+                  barRect.left - trackRect.left + (pct / 100) * barRect.width,
+              });
+            }}
+            onMouseLeave={() => setHoverUi(undefined)}
+          >
+            {hover && hoverUi ? (
+              <span
+                className={
+                  hoverUi.pct > 82
+                    ? "pulse-card__hover pulse-card__hover--end"
+                    : "pulse-card__hover"
+                }
+                style={{ left: hoverUi.leftPx }}
+              >
+                <span className="pulse-card__hover-stamp">
+                  {pulseHoverStamp(hover.atMs)}
+                </span>
+              </span>
+            ) : null}
+            {meterTotal > 0 ? (
+              <div
+                ref={meterBox.ref}
+                className={["pulse-meter", liveMeter ? "pulse-meter--live" : ""]
+                  .filter(Boolean)
+                  .join(" ")}
+                aria-hidden
+              >
+                {paintedSteps.map((step, index) => (
                   <span
                     key={`${step.kind}:${index}`}
                     className="pulse-meter__seg"
                     style={{ flexGrow: step.pct, flexBasis: 0 }}
                   >
-                    <HoverTip
-                      label={step.label}
-                      {...(meterStepDetail(job, step.kind)
-                        ? { detail: meterStepDetail(job, step.kind) }
-                        : {})}
-                    >
-                      <span className={meterFillClass(step.kind, step.live)}>
-                        {liveMeter && step.kind === "work" && step.live ? (
-                          <GenerateFlow
-                            moving
-                            compact
-                            className="pulse-meter__flow"
-                          />
-                        ) : null}
-                      </span>
-                    </HoverTip>
+                    <span className={meterFillClass(step.kind, step.live)}>
+                      {liveMeter && step.kind === "work" && step.live ? (
+                        <span className="pulse-meter__pip" />
+                      ) : null}
+                    </span>
                   </span>
                 ))}
-            </div>
-          ) : null}
-          <div className="pulse-meter__legend">
-            {meter.waitPct > 0 || meter.waited !== "—" ? (
-              <div className="pulse-meter__legend-col pulse-meter__legend-wait">
-                <span className="pulse-meter__legend-line">
-                  <span className="pulse-meter__swatch pulse-meter__swatch--wait" />
-                  {titleVerb(meter.waitVerb)} {meter.waited}
-                </span>
-                {meterWaitDetail(job) ? (
-                  <span className="pulse-meter__legend-time">
-                    {meterWaitDetail(job)}
-                  </span>
-                ) : null}
               </div>
             ) : null}
-            {meter.workPct > 0 || meter.worked !== "—" ? (
-              <div className="pulse-meter__legend-col pulse-meter__legend-work">
-                <span className="pulse-meter__legend-line">
-                  <span className="pulse-meter__swatch pulse-meter__swatch--work" />
-                  {titleVerb(meter.workVerb)} {meter.worked}
-                  {liveMeter && meter.workVerb === "working" ? (
-                    <span className="pulse-meter__now">(now)</span>
-                  ) : null}
-                </span>
-                {meterWorkDetail(job) ? (
-                  <span className="pulse-meter__legend-time">
-                    {meterWorkDetail(job)}
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
-            {meter.pausePct > 0 ? (
-              <div className="pulse-meter__legend-col pulse-meter__legend-pause">
-                <span className="pulse-meter__legend-line">
-                  <span className="pulse-meter__swatch pulse-meter__swatch--pause" />
-                  Paused {meter.paused ?? ""}
-                  {pausedMeter ? (
-                    <span className="pulse-meter__now">(now)</span>
-                  ) : null}
-                </span>
-                {meterPauseDetail(job) ? (
-                  <span className="pulse-meter__legend-time">
-                    {meterPauseDetail(job)}
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
-            {meter.outcome ? (
-              <div
-                className={
-                  meter.outcome === "error"
-                    ? "pulse-meter__legend-col pulse-meter__legend-fail"
-                    : "pulse-meter__legend-col pulse-meter__legend-cancel"
-                }
-              >
-                <span className="pulse-meter__legend-line">
+            {meterTotal > 0 && hasOn ? (
+              <div className="pulse-meter__overlays" aria-hidden>
+                {paintedSteps.map((step, index) => (
                   <span
-                    className={
-                      meter.outcome === "error"
-                        ? "pulse-meter__swatch pulse-meter__swatch--fail"
-                        : "pulse-meter__swatch pulse-meter__swatch--cancel"
-                    }
-                  />
-                  {meter.outcome === "error" ? "Failed" : "Cancelled"}
-                </span>
-                {meterOutcomeDetail(job) ? (
-                  <span className="pulse-meter__legend-time">
-                    {meterOutcomeDetail(job)}
+                    key={`${step.kind}:on:${index}`}
+                    className={`pulse-meter__on-slot pulse-meter__on-slot--${step.kind}`}
+                    style={{ flexGrow: step.pct, flexBasis: 0 }}
+                  >
+                    {places[index] === "on" ? (
+                      <span className="pulse-meter__on">{step.label}</span>
+                    ) : null}
                   </span>
-                ) : null}
+                ))}
               </div>
             ) : null}
           </div>
+          {meterTotal > 0 && hasBelow ? (
+            <div className="pulse-meter__captions" aria-hidden>
+              {paintedSteps.map((step, index) => (
+                <span
+                  key={`${step.kind}:cap:${index}`}
+                  className="pulse-meter__cap"
+                  style={{ flexGrow: step.pct, flexBasis: 0 }}
+                >
+                  {places[index] === "below" ? (
+                    <span className="pulse-meter__cap-label">{step.label}</span>
+                  ) : null}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
       {message && props.kind === "live" ? (
@@ -524,7 +532,11 @@ function PulseCard(
               size="sm"
               variant="danger"
               disabled={!props.onCancel}
-              onClick={() => props.onCancel?.(job)}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                props.onCancel?.(job);
+              }}
             >
               Cancel
             </Button>
@@ -534,7 +546,11 @@ function PulseCard(
               size="sm"
               variant="primary"
               disabled={!props.onKeepAll}
-              onClick={() => props.onKeepAll?.(job)}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                props.onKeepAll?.(job);
+              }}
             >
               Keep all
             </Button>
@@ -543,8 +559,20 @@ function PulseCard(
             <Button
               size="sm"
               variant="primary"
-              disabled={!props.onResume}
-              onClick={() => props.onResume?.(job)}
+              disabled={
+                !props.onResume ||
+                (props.pending?.jobId === job.id &&
+                  props.pending.action === "resume")
+              }
+              loading={
+                props.pending?.jobId === job.id &&
+                props.pending.action === "resume"
+              }
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                props.onResume?.(job);
+              }}
             >
               Resume
             </Button>
@@ -553,8 +581,20 @@ function PulseCard(
             <Button
               size="sm"
               variant="primary"
-              disabled={!props.onConfirm}
-              onClick={() => props.onConfirm?.(job)}
+              disabled={
+                !props.onConfirm ||
+                (props.pending?.jobId === job.id &&
+                  props.pending.action === "confirm")
+              }
+              loading={
+                props.pending?.jobId === job.id &&
+                props.pending.action === "confirm"
+              }
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                props.onConfirm?.(job);
+              }}
             >
               Start anyway
             </Button>
@@ -587,27 +627,6 @@ function pulseAsk(
   return { title: copy, tone: "warn" };
 }
 
-function pulseClock(iso: string | undefined): string | undefined {
-  if (!iso) return undefined;
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return undefined;
-  return new Date(t).toLocaleString(undefined, {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-}
-
-function stampLine(
-  iso: string | undefined,
-  prefix: string,
-): string | undefined {
-  const label = pulseClock(iso);
-  return label ? `${prefix} ${label}` : undefined;
-}
-
 function meterFillClass(
   kind: "wait" | "work" | "pause" | "error" | "cancelled",
   live: boolean,
@@ -627,41 +646,15 @@ function meterFillClass(
   return "pulse-meter__cancel";
 }
 
-function meterWaitDetail(job: JobSummary): string | undefined {
-  return stampLine(job.queuedAt ?? job.createdAt, "Queued");
-}
-
-function meterWorkDetail(job: JobSummary): string | undefined {
-  const started = stampLine(jobWorkStartedAt(job), "Started");
-  const finished =
-    job.status === "paused" ||
-    isWorkingJob(job.status) ||
-    job.status === "queued"
-      ? undefined
-      : stampLine(job.finishedAt, "Finished");
-  const parts = [started, finished].filter(Boolean);
-  return parts.length > 0 ? parts.join(" · ") : undefined;
-}
-
-function meterPauseDetail(job: JobSummary): string | undefined {
-  const fromLifecycle = [...(job.lifecycle ?? [])]
-    .reverse()
-    .find((event) => event.note === "paused")?.at;
-  return stampLine(fromLifecycle ?? jobPauseStartedAt(job), "Paused");
-}
-
-function meterStepDetail(
-  job: JobSummary,
-  kind: "wait" | "work" | "pause" | "error" | "cancelled",
-): string | undefined {
-  if (kind === "wait") return meterWaitDetail(job);
-  if (kind === "work") return meterWorkDetail(job);
-  if (kind === "pause") return meterPauseDetail(job);
-  return meterOutcomeDetail(job);
-}
-
-function meterOutcomeDetail(job: JobSummary): string | undefined {
-  return stampLine(job.finishedAt, "Finished");
+function pulseHoverStamp(atMs: number): string {
+  return new Date(atMs).toLocaleString(undefined, {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
 }
 
 function idleSince(repo: RepoFleet, nowMs: number): string | undefined {

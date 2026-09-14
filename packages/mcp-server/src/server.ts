@@ -180,7 +180,13 @@ export function createPrismMcpServer(
       () => undefined,
     );
   } else {
-    registerTools(server, session, TOOLS, () => binding.current());
+    registerTools(
+      server,
+      session,
+      TOOLS,
+      () => binding.current(),
+      options.env ?? process.env,
+    );
     registerPrompts(server);
     registerResources(server, session);
   }

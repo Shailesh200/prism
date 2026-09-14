@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { formatMemoriesForPrompt, memoriesForJob } from "./memory.js";
+import { resolveVerifyPlan } from "./job-verify.js";
 import {
   cancelWorkerRun,
   launchWorkerChild,
@@ -7,7 +8,7 @@ import {
 } from "./worker-spawn.js";
 import { isSkillPlaybook } from "./playbook.js";
 import { loadWorkerOrientation } from "./worker-orientation.js";
-import type { JobRecord, MemoryItem } from "./types.js";
+import type { JobRecord, MemoryItem, VerifyPlan } from "./types.js";
 
 export type WorkerStartInput = {
   readonly jobId: string;
@@ -127,6 +128,21 @@ export type CursorSdk = {
   };
 };
 
+function checksRunLine(plan: VerifyPlan | undefined): string {
+  if (plan === undefined) {
+    return "Prism runs this repository's checks after you stop.";
+  }
+  const names = plan.steps.map((step) => step.name);
+  if (names.length === 0) {
+    return "Prism found no checks — it will not fail the job for that.";
+  }
+  if (names.length === 1) return `Prism runs ${names[0]} after you stop.`;
+  if (names.length === 2) {
+    return `Prism runs ${names[0]} and ${names[1]} after you stop.`;
+  }
+  return `Prism runs ${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]} after you stop.`;
+}
+
 export function workerPrompt(input: {
   readonly job: JobRecord;
   readonly memories: readonly MemoryItem[];
@@ -136,6 +152,7 @@ export function workerPrompt(input: {
   readonly placement?: "checkout" | "worktree";
   /** Standing how-to from Dispatch Settings; injected on every job. */
   readonly jobInstructions?: string;
+  readonly verifyPlan?: VerifyPlan;
 }): string {
   const remembered = formatMemoriesForPrompt(
     memoriesForJob(input.memories, input.job.id),
@@ -143,6 +160,7 @@ export function workerPrompt(input: {
   const checkout = input.placement === "checkout";
   const standing = input.jobInstructions?.trim() ?? "";
   const skillJob = isSkillPlaybook(input.job.playbook);
+  const checks = checksRunLine(input.verifyPlan);
   return [
     `You are a Prism Dispatch worker for ${input.job.title} (${input.job.id}).`,
     skillJob
@@ -153,7 +171,7 @@ export function workerPrompt(input: {
     "Do not install dependencies (no bun install, npm install, or yarn). node_modules is already linked from the host repo.",
     skillJob
       ? "You have no shell. Do not run prism, git, bun, npm, or any CLI. Do not create, edit, or delete any files in this checkout. Uncommitted files here belong to the user and are unrelated to this job."
-      : "You have no shell. Do not run prism, git, bun, npm, or any CLI. Edit existing source with the file tools only. A package map is in this prompt when known — use it. Call semSearch or find_symbol before you read files. grep for a name in the brief. Do not walk the tree. Open only the files the brief named. Extra reads burn the user's tokens.",
+      : "You have no shell. Do not run prism, git, bun, npm, or any CLI. Edit existing source with the file tools only. A package map is in this prompt when known — use it. Before you read files, call Prism MCP list_packages, find_symbol, explain_area, or blast_radius (and rename_impact, safe_delete, or test_impact when the brief needs them). Call semSearch or grep for a name in the brief. Do not walk the tree. Open only the files the brief named. Extra reads burn the user's tokens.",
     input.subagents
       ? "For multi-part work, split it with the task tool and run subagents in parallel. They share your sandbox: file tools only, no shell."
       : "",
@@ -169,10 +187,10 @@ export function workerPrompt(input: {
     // uncommitted in the user's tree. The Skills playbook skips both the
     // dirty-tree gate and those checks — the job does not change repo code.
     skillJob
-      ? "Prism skips dirty-tree confirmation and does not run typecheck or tests after this job. Do not claim you committed, ran tests, or verified anything."
+      ? "Prism skips dirty-tree confirmation and does not run checks after this job. Do not claim you committed, ran tests, or verified anything."
       : checkout
-        ? "Prism never commits here: your edits stay uncommitted in the user's working tree. Prism runs typecheck and tests after you stop. Do not claim you committed, ran tests, or verified anything."
-        : "Prism commits your work on the job branch and runs typecheck and tests after you stop. Do not claim you committed, ran tests, or verified anything.",
+        ? `Prism never commits here: your edits stay uncommitted in the user's working tree. ${checks} Do not claim you committed, ran tests, or verified anything.`
+        : `Prism commits your work on the job branch. ${checks} Do not claim you committed, ran tests, or verified anything.`,
     skillJob
       ? "Do not write a finding into the repository. Answer in your last message only."
       : checkout
@@ -204,18 +222,31 @@ export async function composeWorkerPrompt(
   if (isSkillPlaybook(input.job.playbook)) {
     return workerPrompt(input);
   }
-  const orientation = await loadWorkerOrientation(input.workspaceRoot);
+  const [orientation, verifyPlan] = await Promise.all([
+    loadWorkerOrientation(input.workspaceRoot),
+    input.verifyPlan
+      ? Promise.resolve(input.verifyPlan)
+      : resolveVerifyPlan(input.workspaceRoot),
+  ]);
   return workerPrompt({
     ...input,
+    verifyPlan,
     extra: [input.extra, orientation].filter(Boolean).join("\n\n"),
   });
 }
 
 /** Brief injected when Retry verification has to fix a failed check, not just re-run it. */
-export function verificationFixExtra(detail: string): string {
+export function verificationFixExtra(
+  detail: string,
+  checkNames?: readonly string[],
+): string {
   const failure = detail.trim() || "Checks failed.";
+  const names =
+    checkNames && checkNames.length > 0
+      ? checkNames.join(", ")
+      : "these checks";
   return [
-    "Supervisor checks failed after this job finished. Your only job is to make typecheck and tests pass.",
+    `Supervisor checks failed after this job finished. Your only job is to make these checks pass: ${names}.`,
     `Failure:\n${failure}`,
     "Do not reopen the original brief except where those edits are required to make checks pass.",
   ].join("\n\n");

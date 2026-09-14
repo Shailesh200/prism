@@ -450,6 +450,40 @@ describe("JobsScreen", () => {
     expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy();
   });
 
+  it("offers Start anyway on the focus rail and calls confirm", async () => {
+    const user = userEvent.setup();
+    const control = vi.fn(async () => {});
+    render(
+      <JobsScreen
+        repoLabel="repo"
+        chrome="focus"
+        {...board(
+          [
+            {
+              id: "gate-job",
+              title: "Ship it",
+              status: "needs_confirm",
+              branch: "",
+              createdAt: new Date().toISOString(),
+              confirm: {
+                kind: "dirty-checkout",
+                question: "You have uncommitted work. Start anyway?",
+              },
+            },
+          ],
+          { control },
+        )}
+      />,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Start anyway" }),
+    );
+    await waitFor(() =>
+      expect(control).toHaveBeenCalledWith("confirm", "gate-job"),
+    );
+  });
+
   it("offers Delete on a finished job and removes it via the host", async () => {
     const user = userEvent.setup();
     const control = vi.fn(async () => {});
@@ -1212,6 +1246,31 @@ describe("jobReviewPending", () => {
       }),
     ).toBe(false);
   });
+
+  it("is not pending when the write-up said the teammate made no edits", () => {
+    expect(
+      jobReviewPending({
+        status: "needs_review",
+        resultSummary:
+          "50 file(s) in your working tree, +4445 -896, uncommitted\n\nNo files changed.\nStopped with no edits, as the brief required.",
+        review: {
+          files: [
+            {
+              path: "src/a.ts",
+              added: 1,
+              removed: 0,
+              change: "modified",
+            },
+          ],
+          totalAdded: 1,
+          totalRemoved: 0,
+          truncated: false,
+          committed: false,
+          merged: false,
+        },
+      }),
+    ).toBe(false);
+  });
 });
 
 describe("formatWorkerModel", () => {
@@ -1288,6 +1347,63 @@ describe("job token usage in Focus", () => {
     expect(screen.getByText("Tokens")).toBeTruthy();
     expect(screen.getByLabelText("In 26k, out 1.9k")).toBeTruthy();
     expect(screen.queryByText("in 26k · out 1.9k")).toBeNull();
+  });
+
+  it("shows Envelope savings in Focus when the teammate used Prism Intelligence", () => {
+    render(
+      <JobsScreen
+        repoLabel="prism"
+        chrome="focus"
+        defaultOpenId="verify"
+        heading="verify-typecheck-and-tests"
+        eyebrow="Focus"
+        {...board([
+          {
+            id: "verify",
+            title: "verify-typecheck-and-tests",
+            status: "done",
+            branch: "dispatch/verify",
+            createdAt: "2026-09-07T00:00:00.000Z",
+            envelopeUsage: {
+              bytesKeptRatio: 0.4,
+              tokensSaved: 12_000,
+              calls: 3,
+            },
+          },
+        ])}
+      />,
+    );
+    expect(screen.getByText("Envelope")).toBeTruthy();
+    expect(screen.getByText("40% sent · ~12k not sent")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("How Envelope is calculated"));
+    expect(screen.getByRole("tooltip").textContent).toContain(
+      "Dump is the Intelligence JSON",
+    );
+    expect(screen.getByRole("tooltip").textContent).toContain(
+      "Not Context or Tokens",
+    );
+  });
+
+  it("says no Prism calls when this teammate never used Intelligence", () => {
+    render(
+      <JobsScreen
+        repoLabel="prism"
+        chrome="focus"
+        defaultOpenId="quiet"
+        heading="quiet"
+        eyebrow="Focus"
+        {...board([
+          {
+            id: "quiet",
+            title: "envelope-demo",
+            status: "done",
+            branch: "dispatch/quiet",
+            createdAt: "2026-09-11T00:00:00.000Z",
+          },
+        ])}
+      />,
+    );
+    expect(screen.getByText("no Prism calls")).toBeTruthy();
   });
 
   it("keeps the Context and Tokens slots when usage is unknown", () => {

@@ -52,9 +52,19 @@ describe("DTO schemas round-trip", () => {
     const raw = {
       id: "g1",
       nodes: [{ id: "a", kind: "file", label: "a.ts" }],
-      edges: [{ id: "e1", kind: "imports", from: "a", to: "a" }],
+      edges: [
+        {
+          id: "e1",
+          kind: "imports",
+          from: "a",
+          to: "a",
+          provenance: "measured",
+        },
+      ],
     };
-    expect(GraphSnapshotDtoSchema.parse(raw).nodes[0]?.id).toBe("a");
+    expect(GraphSnapshotDtoSchema.parse(raw).edges[0]?.provenance).toBe(
+      "measured",
+    );
   });
 
   it("IndexSnapshotSchema", () => {

@@ -28,7 +28,7 @@ import { publicRunFailure } from "./job-voice.js";
 import { composeJobResult, type RunState } from "./run-state.js";
 import { isSkillPlaybook } from "./playbook.js";
 import { applyGeneratedSkill } from "./skills.js";
-import type { JobPlacement } from "./types.js";
+import type { JobPlacement, JobReview, VerifyPlan } from "./types.js";
 
 export type WorkerFinishInput = {
   readonly jobId: string;
@@ -129,6 +129,7 @@ async function completeWorktreeRun(
 
   let verification: "passed" | "failed" | "skipped" = "skipped";
   let verificationDetail = "";
+  let verifyPlan: VerifyPlan | undefined;
   if (commit.committed) {
     await deps.patch({ lastActivity: "Running checks" });
     const checked = await verifyJobWork(input.cwd, {
@@ -136,6 +137,7 @@ async function completeWorktreeRun(
     });
     verification = checked.status;
     verificationDetail = checked.detail;
+    verifyPlan = checked.plan;
   }
 
   const baseRef = input.baseRef ?? "HEAD~1";
@@ -168,6 +170,7 @@ async function completeWorktreeRun(
       review,
       verification,
       verificationDetail,
+      ...(verifyPlan ? { verifyPlan } : {}),
       ...(commit.sha ? { commitSha: commit.sha } : {}),
       resultSummary: composeJobResult({
         gitSummary: commit.summary,
@@ -186,6 +189,40 @@ async function completeWorktreeRun(
   );
 }
 
+/** Closing text that means the teammate did not touch the tree. */
+export function assistantClaimsNoEdits(text: string): boolean {
+  return /stopped with no edits|produced no reviewable change|no files changed/i.test(
+    text,
+  );
+}
+
+/** Write-up said no edits, but the review still lists files — those are the user's. */
+export function jobReviewIsForeign(job: {
+  readonly resultSummary?: string;
+  readonly review?: Pick<JobReview, "files">;
+}): boolean {
+  return (
+    assistantClaimsNoEdits(job.resultSummary ?? "") &&
+    (job.review?.files.length ?? 0) > 0
+  );
+}
+
+function emptyCheckoutReview(review: JobReview): JobReview {
+  return {
+    ...review,
+    files: [],
+    totalAdded: 0,
+    totalRemoved: 0,
+    truncated: false,
+    mixedPaths: [
+      ...new Set([
+        ...review.mixedPaths,
+        ...review.files.map((file) => file.path),
+      ]),
+    ].sort(),
+  };
+}
+
 /**
  * The agent stopped normally, checkout placement (ADR-0045 §2). No commit:
  * the edits stay uncommitted in the user's tree. The review is the diff
@@ -198,22 +235,30 @@ async function completeCheckoutRun(
 ): Promise<void> {
   await maybeApplyGeneratedSkill(input, assistant, deps);
   const preExisting = input.preExistingChanges ?? [];
-
-  await deps.patch({ lastActivity: "Running checks" });
-  const checked = await verifyJobWork(input.cwd, {
-    enabled: input.verify !== false,
-  });
-  // Checks ran against the live tree; say so when the user's own uncommitted
-  // work was in it, so a failure is not misattributed to the job (§7).
-  const verificationDetail =
-    preExisting.length > 0 && checked.status !== "skipped"
-      ? `${checked.detail} (your uncommitted changes were present)`.trim()
-      : checked.detail;
-
-  const review = await gitCheckoutReview(input.cwd, {
+  let review = await gitCheckoutReview(input.cwd, {
     preExisting,
     ...(input.branch ? { branch: input.branch } : {}),
   });
+  if (assistantClaimsNoEdits(assistant) && review.files.length > 0) {
+    review = emptyCheckoutReview(review);
+  }
+
+  const changed = review.files.length > 0;
+  let verification: "passed" | "failed" | "skipped" = "skipped";
+  let verificationDetail = "";
+  let verifyPlan: VerifyPlan | undefined;
+  if (changed) {
+    await deps.patch({ lastActivity: "Running checks" });
+    const checked = await verifyJobWork(input.cwd, {
+      enabled: input.verify !== false,
+    });
+    verification = checked.status;
+    verificationDetail =
+      preExisting.length > 0 && checked.status !== "skipped"
+        ? `${checked.detail} (your uncommitted changes were present)`.trim()
+        : checked.detail;
+    verifyPlan = checked.plan;
+  }
 
   const committedPaths = review.files.map((file) => file.path);
   const audit = await auditCitedPaths({
@@ -222,7 +267,6 @@ async function completeCheckoutRun(
     committedPaths,
   });
 
-  const changed = review.files.length > 0;
   const gitSummary = changed
     ? `${review.files.length} file(s) in your working tree, +${review.totalAdded} -${review.totalRemoved}, uncommitted`
     : "";
@@ -237,13 +281,14 @@ async function completeCheckoutRun(
       phase: "done",
       gitSummary,
       review,
-      verification: checked.status,
+      verification,
       verificationDetail,
+      ...(verifyPlan ? { verifyPlan } : {}),
       resultSummary: composeJobResult({
         gitSummary,
         assistant,
         committed: false,
-        verification: checked.status,
+        verification,
         verificationDetail,
         fabricationNote: fabricationNote(audit),
         omitEmptyTree: isSkillPlaybook(input.playbook),

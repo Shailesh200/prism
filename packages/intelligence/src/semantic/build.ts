@@ -110,6 +110,12 @@ export type FindReferencesResult = {
 /** Hard ceiling for {@link searchSymbols} — agents must not dump whole indexes. */
 export const SEARCH_SYMBOLS_MAX = 50;
 
+/** Honest search envelope: `items` are capped; `totalCount` is not. */
+export type SymbolSearchResult = {
+  readonly items: readonly SymbolHit[];
+  readonly totalCount: number;
+};
+
 export type KnowledgeGraphResult = {
   readonly graph: GraphSnapshotDto;
   readonly stats: KnowledgeGraphStats;
@@ -304,6 +310,7 @@ function addEdge(
   from: string,
   to: string,
   attrs?: GraphEdgeDto["attrs"],
+  provenance?: GraphEdgeDto["provenance"],
 ): void {
   const id = edgeId(kind, from, to);
   if (edges.has(id)) return;
@@ -313,6 +320,7 @@ function addEdge(
     from: unsafeNodeId(from),
     to: unsafeNodeId(to),
     ...(attrs === undefined ? {} : { attrs }),
+    ...(provenance === undefined ? {} : { provenance }),
   });
 }
 
@@ -355,10 +363,17 @@ export function buildKnowledgeGraph(
   const references: ReferenceHit[] = [];
 
   for (const s of symbols) {
-    addEdge(edges, "defines", fileNodeId(s.path), s.id, {
-      name: s.name,
-    });
-    addEdge(edges, "contains", fileNodeId(s.path), s.id);
+    addEdge(
+      edges,
+      "defines",
+      fileNodeId(s.path),
+      s.id,
+      {
+        name: s.name,
+      },
+      "measured",
+    );
+    addEdge(edges, "contains", fileNodeId(s.path), s.id, undefined, "measured");
   }
 
   for (const file of analyzed) {
@@ -395,11 +410,18 @@ export function buildKnowledgeGraph(
           enclosingSymbol(fileSymbols, ref.start) ??
           fileSymbols.find((s) => s.kind === "class" || s.kind === "interface");
         if (fromSym && fromSym.id !== target.id) {
-          addEdge(edges, ref.kind, fromSym.id, target.id, {
-            path: file.path,
-            start: ref.start,
-            end: ref.end,
-          });
+          addEdge(
+            edges,
+            ref.kind,
+            fromSym.id,
+            target.id,
+            {
+              path: file.path,
+              start: ref.start,
+              end: ref.end,
+            },
+            "measured",
+          );
         }
         continue;
       }
@@ -408,14 +430,21 @@ export function buildKnowledgeGraph(
       const fromSym = enclosingSymbol(fileSymbols, ref.start);
       const fromId = fromSym?.id ?? fileNodeId(file.path);
       if (fromId !== target.id) {
-        addEdge(edges, "references", fromId, target.id, {
-          refKind: ref.kind,
-          path: file.path,
-          start: ref.start,
-          end: ref.end,
-          name: ref.name,
-          ...(memberVia ? { via: "member", confidence: "low" } : {}),
-        });
+        addEdge(
+          edges,
+          "references",
+          fromId,
+          target.id,
+          {
+            refKind: ref.kind,
+            path: file.path,
+            start: ref.start,
+            end: ref.end,
+            name: ref.name,
+            ...(memberVia ? { via: "member", confidence: "low" } : {}),
+          },
+          memberVia ? "heuristic" : "measured",
+        );
       }
     }
 
@@ -429,9 +458,16 @@ export function buildKnowledgeGraph(
           aliases,
         );
         if (!targetPath || targetPath === file.path) continue;
-        addEdge(edges, "tests", fileNodeId(file.path), fileNodeId(targetPath), {
-          source: imp.source,
-        });
+        addEdge(
+          edges,
+          "tests",
+          fileNodeId(file.path),
+          fileNodeId(targetPath),
+          {
+            source: imp.source,
+          },
+          "measured",
+        );
       }
     }
   }
@@ -494,7 +530,7 @@ export function findSymbol(
 export function searchSymbols(
   result: KnowledgeGraphResult,
   query: SearchSymbolsQuery,
-): SymbolHit[] {
+): SymbolSearchResult {
   const limit = Math.min(
     Math.max(query.limit ?? SEARCH_SYMBOLS_MAX, 1),
     SEARCH_SYMBOLS_MAX,
@@ -509,15 +545,18 @@ export function searchSymbols(
         return (name: string): boolean => name.toLowerCase().includes(needle);
       })();
 
-  return result.symbols
+  const matches = result.symbols
     .filter((s) => {
       if (!matcher(s.name)) return false;
       if (query.path !== undefined && s.path !== query.path) return false;
       if (query.kind !== undefined && s.kind !== query.kind) return false;
       return true;
     })
-    .sort((a, b) => a.id.localeCompare(b.id))
-    .slice(0, limit);
+    .sort((a, b) => a.id.localeCompare(b.id));
+  return {
+    items: matches.slice(0, limit),
+    totalCount: matches.length,
+  };
 }
 
 export function findReferences(

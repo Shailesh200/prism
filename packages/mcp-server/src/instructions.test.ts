@@ -111,11 +111,16 @@ describe("server instructions (agent auto-use)", () => {
   });
 
   it("tells agents a finished job is checked and never landed silently", () => {
-    expect(SERVER_INSTRUCTIONS).toMatch(/typecheck and tests/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/this repository’s checks/);
     expect(SERVER_INSTRUCTIONS).toMatch(/no reviewable change/);
     // ADR-0045: checkout jobs stay uncommitted; worktree jobs get a commit.
     expect(SERVER_INSTRUCTIONS).toMatch(/uncommitted/);
     expect(SERVER_INSTRUCTIONS).toMatch(/job branch/);
+  });
+
+  it("treats inferred graph edges as not load-bearing", () => {
+    expect(SERVER_INSTRUCTIONS).toMatch(/inferred edges/i);
+    expect(SERVER_INSTRUCTIONS).toMatch(/not load-bearing/i);
   });
 
   it("recognises code changes by intent, not the phrase start working on", () => {

@@ -59,6 +59,7 @@ type FileEdge = {
   specifiers?: readonly string[];
   /** True for edges originating in `.d.ts` (M-059 / P-E7). */
   typeOnly?: boolean;
+  provenance: "measured" | "heuristic";
 };
 
 function fileNodeId(path: string): string {
@@ -133,6 +134,7 @@ function collectFileEdges(
             toPath: hit,
             kind: edgeKind,
             source: imp.source,
+            provenance: "heuristic",
             ...(imp.specifiers.length > 0
               ? { specifiers: imp.specifiers }
               : {}),
@@ -172,6 +174,7 @@ function collectFileEdges(
             toPath: asDir,
             kind: edgeKind,
             source: imp.source,
+            provenance: "heuristic",
             ...(imp.specifiers.length > 0
               ? { specifiers: imp.specifiers }
               : {}),
@@ -192,6 +195,7 @@ function collectFileEdges(
         toPath: target,
         kind: edgeKind,
         source: imp.source,
+        provenance: "measured",
         ...(imp.specifiers.length > 0 ? { specifiers: imp.specifiers } : {}),
         ...(fromDts ? { typeOnly: true } : {}),
       });
@@ -214,6 +218,7 @@ function collectFileEdges(
             toPath: hit,
             kind: "re-export",
             source: exp.source,
+            provenance: "heuristic",
             ...(fromDts ? { typeOnly: true } : {}),
           });
           continue;
@@ -242,6 +247,7 @@ function collectFileEdges(
             toPath: asDir,
             kind: "re-export",
             source: exp.source,
+            provenance: "heuristic",
             ...(fromDts ? { typeOnly: true } : {}),
           });
           continue;
@@ -259,6 +265,7 @@ function collectFileEdges(
         toPath: target,
         kind: "re-export",
         source: exp.source,
+        provenance: "measured",
         ...(fromDts ? { typeOnly: true } : {}),
       });
     }
@@ -312,6 +319,7 @@ function buildFileGraph(
     kind: e.kind,
     from: fileNodeId(e.fromPath),
     to: fileNodeId(e.toPath),
+    provenance: e.provenance,
     attrs: {
       source: e.source,
       ...(e.specifiers && e.specifiers.length > 0
@@ -366,6 +374,7 @@ function buildPackageGraph(
     fromId: string,
     toId: string,
     attrs: Record<string, unknown>,
+    provenance?: GraphEdgeDto["provenance"],
   ) => {
     const id = edgeId(kind, fromId, toId);
     if (edgeMap.has(id)) return;
@@ -375,6 +384,7 @@ function buildPackageGraph(
       from: unsafeNodeId(fromId),
       to: unsafeNodeId(toId),
       attrs: attrs as GraphEdgeDto["attrs"],
+      ...(provenance === undefined ? {} : { provenance }),
     });
   };
 
@@ -383,10 +393,16 @@ function buildPackageGraph(
     const toPkg = packageForFile(e.toPath, packages);
     if (!fromPkg || !toPkg) continue;
     if (fromPkg.name === toPkg.name) continue; // intra-package
-    addEdge(e.kind, packageNodeId(fromPkg.name), packageNodeId(toPkg.name), {
-      via: `${e.fromPath}->${e.toPath}`,
-      source: e.source,
-    });
+    addEdge(
+      e.kind,
+      packageNodeId(fromPkg.name),
+      packageNodeId(toPkg.name),
+      {
+        via: `${e.fromPath}->${e.toPath}`,
+        source: e.source,
+      },
+      e.provenance,
+    );
   }
 
   // Bare imports → external package nodes (no registry fetch).
@@ -399,17 +415,29 @@ function buildPackageGraph(
     const local = packages.find((p) => p.name === name);
     if (local) {
       ensurePkg(name, { rootDir: local.rootDir, local: true });
-      addEdge("import", packageNodeId(fromPkg.name), packageNodeId(name), {
-        source: u.source,
-        unresolvedEntry: true,
-      });
+      addEdge(
+        "import",
+        packageNodeId(fromPkg.name),
+        packageNodeId(name),
+        {
+          source: u.source,
+          unresolvedEntry: true,
+        },
+        "heuristic",
+      );
       continue;
     }
     ensurePkg(name, { local: false });
-    addEdge("import", packageNodeId(fromPkg.name), packageNodeId(name), {
-      source: u.source,
-      external: true,
-    });
+    addEdge(
+      "import",
+      packageNodeId(fromPkg.name),
+      packageNodeId(name),
+      {
+        source: u.source,
+        external: true,
+      },
+      "heuristic",
+    );
   }
 
   const nodes = [...nodeMap.values()].sort((a, b) => a.id.localeCompare(b.id));

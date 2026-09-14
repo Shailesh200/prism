@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diffJobs } from "./watch.js";
+import { collectJobs, diffJobs } from "./watch.js";
 import type { JobSnapshot } from "./types.js";
 
 function job(patch: Partial<JobSnapshot>): JobSnapshot {
@@ -74,5 +74,22 @@ describe("job snapshot diff", () => {
     const seen = new Set<string>();
     const events = diffJobs([job({})], [], seen);
     expect(events.some((event) => event.type === "job.removed")).toBe(true);
+  });
+});
+
+describe("collectJobs", () => {
+  it("skips a registered workspace whose checkout is gone", async () => {
+    const result = await collectJobs(
+      [
+        {
+          path: "/definitely/missing/prism-vanished-checkout",
+          label: "gone",
+          lastSeenAt: "2026-09-12T00:00:00.000Z",
+        },
+      ],
+      { BUN_TEST: "1", VITEST: "true", PRISM_HOME: "" },
+    );
+    expect(result.jobs).toEqual([]);
+    expect(result.errors).toEqual([]);
   });
 });

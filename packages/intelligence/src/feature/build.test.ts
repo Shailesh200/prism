@@ -130,6 +130,11 @@ describe("buildFeatureGraph", () => {
         (e) => e.kind === "contains" && e.from === "feature:checkout",
       ),
     ).toBe(true);
+    expect(
+      result.graph.edges
+        .filter((e) => e.kind === "contains")
+        .every((e) => e.provenance === "inferred"),
+    ).toBe(true);
 
     // dashboard → auth via import
     expect(

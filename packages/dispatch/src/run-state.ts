@@ -522,6 +522,9 @@ export function applyRunToJob(
         : (liveRun.verificationDetail ?? job.verificationDetail);
     return {
       ...base,
+      // Reap writes through updateJobs, not upsertJob, so finishedAt must
+      // land here — otherwise Pulse treats work as startedAt→now.
+      finishedAt: job.finishedAt ?? liveRun.completedAt ?? liveRun.updatedAt,
       // The supervisor commits so the work survives worktree pruning
       // (ADR-0042 §1), but landing it is the human's decision — a branch with
       // commits is a review, not a closed job. Files the user already Kept
@@ -547,6 +550,7 @@ export function applyRunToJob(
     return {
       ...base,
       status: "error",
+      finishedAt: job.finishedAt ?? liveRun.completedAt ?? liveRun.updatedAt,
       errorMessage:
         liveRun.errorMessage ||
         job.errorMessage ||
@@ -560,7 +564,12 @@ export function applyRunToJob(
       return { ...base, status: "paused" };
     }
     if (job.status === "cancelled") return base;
-    return { ...base, status: "cancelled", nextStep: "" };
+    return {
+      ...base,
+      status: "cancelled",
+      finishedAt: job.finishedAt ?? liveRun.completedAt ?? liveRun.updatedAt,
+      nextStep: "",
+    };
   }
 
   const inFlight =
@@ -635,6 +644,7 @@ function jobChanged(a: JobRecord, b: JobRecord): boolean {
     a.errorMessage !== b.errorMessage ||
     a.workerPid !== b.workerPid ||
     a.lastHeartbeat !== b.lastHeartbeat ||
+    a.finishedAt !== b.finishedAt ||
     a.cursorAgentId !== b.cursorAgentId ||
     a.runId !== b.runId ||
     a.nextStep !== b.nextStep ||
@@ -644,16 +654,19 @@ function jobChanged(a: JobRecord, b: JobRecord): boolean {
 }
 
 export async function reapJobs(workspaceRoot: string): Promise<JobRecord[]> {
-  return await updateJobs(workspaceRoot, async (jobs) => {
-    const next: JobRecord[] = [];
-    let changed = false;
-    for (const job of jobs) {
-      const run = await readRunState(workspaceRoot, job.id);
-      const merged = applyRunToJob(job, run);
-      if (jobChanged(job, merged)) changed = true;
-      next.push(merged);
-    }
-    return { jobs: changed ? next : jobs, result: changed ? next : jobs };
+  const jobs = await loadJobs(workspaceRoot);
+  const runs = new Map<string, RunState | undefined>();
+  for (const job of jobs) {
+    runs.set(job.id, await readRunState(workspaceRoot, job.id));
+  }
+  const preview = jobs.map((job) => applyRunToJob(job, runs.get(job.id)));
+  if (!jobs.some((job, index) => jobChanged(job, preview[index]!))) {
+    return jobs;
+  }
+  return await updateJobs(workspaceRoot, async (current) => {
+    const next = current.map((job) => applyRunToJob(job, runs.get(job.id)));
+    const changed = current.some((job, index) => jobChanged(job, next[index]!));
+    return { jobs: changed ? next : current, result: changed ? next : current };
   });
 }
 

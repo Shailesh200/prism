@@ -18,7 +18,6 @@ import { z } from "zod";
 import {
   boundGraph,
   boundList,
-  clampLimit,
   limitInput,
   topDegreeNodes,
 } from "../limits.js";
@@ -305,14 +304,14 @@ export const searchSymbols = defineTool({
       limit,
     });
     if (!result.ok) return result;
-    // Core already hard-caps; envelope still reports totals honestly.
+    const items = result.value.items;
     return {
       ok: true as const,
       value: {
-        items: result.value,
-        totalCount: result.value.length,
-        truncated: false,
-        limit: clampLimit(limit),
+        items,
+        totalCount: result.value.totalCount,
+        truncated: items.length < result.value.totalCount,
+        limit,
       },
     };
   },

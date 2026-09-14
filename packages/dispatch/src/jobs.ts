@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import {
+  access,
   mkdir,
   open,
   readdir,
@@ -49,6 +50,26 @@ function jobsEnv(): NodeJS.ProcessEnv {
 
 export function runWithJobsEnv<T>(env: NodeJS.ProcessEnv, fn: () => T): T {
   return jobsEnvStore.run(env, fn);
+}
+
+/** True when `root` is on disk. Times out so a stale mount cannot hang the hub. */
+export async function workspaceRootPresent(
+  root: string,
+  timeoutMs = 400,
+): Promise<boolean> {
+  try {
+    return await Promise.race([
+      access(root).then(
+        () => true,
+        () => false,
+      ),
+      new Promise<boolean>((resolve) => {
+        setTimeout(() => resolve(false), timeoutMs);
+      }),
+    ]);
+  } catch {
+    return false;
+  }
 }
 
 async function withJobsLock<T>(
@@ -224,6 +245,9 @@ async function workspaceJobCandidates(
 async function migrateLegacyJobs(workspaceRoot: string): Promise<void> {
   const env = jobsEnv();
   if (!useGlobalJobStore(env)) return;
+  // Git worktree listing against a vanished checkout is what froze Resume:
+  // the hub reaps every stored workspace after each control click.
+  if (!(await workspaceRootPresent(workspaceRoot))) return;
   const dest = jobsPath(workspaceRoot, env);
   const metaPath = jobsMetaPath(workspaceRoot, env);
   const meta = await readJsonFile<JobsMeta>(metaPath, {
@@ -283,6 +307,9 @@ async function writeJobsFile(
 }
 
 export async function loadJobs(workspaceRoot: string): Promise<JobRecord[]> {
+  const path = jobsPath(workspaceRoot, jobsEnv());
+  const existing = await readJobsIfPresent(path);
+  if (existing.present) return existing.jobs;
   return await withJobsLock(workspaceRoot, async () => {
     await migrateLegacyJobs(workspaceRoot);
     return await readJobsFile(workspaceRoot);
@@ -296,15 +323,20 @@ export async function listStoredWorkspaceRoots(
   if (!useGlobalJobStore(env)) return [];
   try {
     const names = await readdir(globalWorkspacesDir(env));
-    const paths: string[] = [];
-    for (const name of names) {
-      const meta = await readJsonFile<JobsMeta>(
-        join(globalWorkspacesDir(env), name, "meta.json"),
-        { path: "" },
-      );
-      if (meta.path.trim()) paths.push(meta.path);
-    }
-    return paths;
+    const found = await Promise.all(
+      names.map(async (name) => {
+        const meta = await readJsonFile<JobsMeta>(
+          join(globalWorkspacesDir(env), name, "meta.json"),
+          { path: "" },
+        );
+        const root = meta.path.trim();
+        if (!root) return null;
+        // Vanished checkouts (temp test trees, deleted folders) must not
+        // stay on the Console — Resume against them hangs the hub.
+        return (await workspaceRootPresent(root)) ? root : null;
+      }),
+    );
+    return found.filter((root): root is string => Boolean(root));
   } catch {
     return [];
   }

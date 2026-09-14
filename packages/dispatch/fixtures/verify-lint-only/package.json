@@ -1,0 +1,7 @@
+{
+  "name": "verify-lint-only",
+  "private": true,
+  "scripts": {
+    "lint": "echo lint-ok"
+  }
+}

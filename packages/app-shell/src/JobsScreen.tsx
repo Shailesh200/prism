@@ -3,6 +3,7 @@ import {
   Button,
   EmptyState,
   IconButton,
+  InfoTip,
   Textarea,
   isPrimaryActionKey,
 } from "@repo-prism/ui";
@@ -43,6 +44,8 @@ import {
   jobAgentLabel,
   hostClientLabel,
   jobUsageFigures,
+  jobEnvelopeLabel,
+  JOB_ENVELOPE_TIP,
   jobBadgeTone,
   jobBadgePulse,
   jobDisplayLabel,
@@ -53,6 +56,7 @@ import {
   jobStages,
   jobNextAction,
   jobReviewPending,
+  jobReviewLooksForeign,
   jobStatusTone,
   jobTimeBreakdown,
   mergeConsoleEntries,
@@ -358,6 +362,7 @@ function JobTimeline(props: {
   outcome?: "error" | "cancelled";
   nextAction?: ReturnType<typeof jobNextAction>;
   onResume?: () => void;
+  onConfirm?: () => void;
   onCancel?: () => void;
   onKeepAll?: () => void;
 }): ReactElement {
@@ -370,12 +375,9 @@ function JobTimeline(props: {
   ]
     .filter(Boolean)
     .join(" ");
-  const current = props.stages.find((stage) => stage.current);
-  const showCta =
-    Boolean(props.nextAction) &&
-    (current?.kind === "waiting" ||
-      current?.kind === "queued" ||
-      current?.kind === "review");
+  // A gated job sits on Accepted, not Waiting — hiding the CTA there made
+  // "Start anyway" look like dead copy in the Focus drawer.
+  const showCta = Boolean(props.nextAction);
   return (
     <div className={railClass}>
       <ol className="job-rail__steps">
@@ -446,10 +448,20 @@ function JobTimeline(props: {
               >
                 Keep all
               </Button>
-            ) : props.nextAction.action === "confirm" ? null : (
+            ) : props.nextAction.action === "confirm" ? (
               <Button
                 size="sm"
                 variant="primary"
+                disabled={!props.onConfirm}
+                onClick={() => props.onConfirm?.()}
+              >
+                Start anyway
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={!props.onResume}
                 onClick={() => props.onResume?.()}
               >
                 Resume
@@ -717,6 +729,7 @@ function JobFacts(props: {
   job: JobSummary;
   now: number;
   onResume?: () => void;
+  onConfirm?: () => void;
   onCancel?: () => void;
   onKeepAll?: () => void;
 }): ReactElement | null {
@@ -737,6 +750,7 @@ function JobFacts(props: {
             : {})}
           {...(nextAction ? { nextAction } : {})}
           {...(props.onResume ? { onResume: props.onResume } : {})}
+          {...(props.onConfirm ? { onConfirm: props.onConfirm } : {})}
           {...(props.onCancel ? { onCancel: props.onCancel } : {})}
           {...(props.onKeepAll ? { onKeepAll: props.onKeepAll } : {})}
         />
@@ -1639,7 +1653,9 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
                         )}
                       </dd>
                     </div>
-                    {job.review && job.review.files.length > 0 ? (
+                    {job.review &&
+                    job.review.files.length > 0 &&
+                    !jobReviewLooksForeign(job) ? (
                       <div>
                         <dt>Changes</dt>
                         <dd>{reviewFileTotals(job.review)}</dd>
@@ -1660,14 +1676,36 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
                       </dd>
                     </div>
                     <div>
-                      <dt>Context</dt>
+                      <dt>
+                        Context
+                        <InfoTip label="Context">
+                          Occupancy of this teammate&apos;s last prompt this run
+                          — the LLM window, not Envelope. Not the chat that
+                          queued the job.
+                        </InfoTip>
+                      </dt>
                       <dd>{usage.context}</dd>
                     </div>
                     <div>
-                      <dt>Tokens</dt>
+                      <dt>
+                        Tokens
+                        <InfoTip label="Tokens">
+                          Input and output billed for this teammate&apos;s LLM
+                          run. Envelope below is Prism lists, not this bill.
+                        </InfoTip>
+                      </dt>
                       <dd>
                         <JobTokenIo usage={job.tokenUsage} />
                       </dd>
+                    </div>
+                    <div>
+                      <dt>
+                        Envelope
+                        <InfoTip label="Envelope" wide>
+                          {JOB_ENVELOPE_TIP}
+                        </InfoTip>
+                      </dt>
+                      <dd>{jobEnvelopeLabel(job.envelopeUsage)}</dd>
                     </div>
                   </dl>
                   <JobFacts
@@ -1676,6 +1714,7 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
                     {...(props.port.control
                       ? {
                           onResume: () => void control("resume", job),
+                          onConfirm: () => void control("confirm", job),
                           onCancel: () => void control("cancel", job),
                           onKeepAll: () => void control("accept_all", job),
                         }
@@ -1698,7 +1737,7 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
                         : {})}
                     />
                   ) : null}
-                  {job.verification ? (
+                  {job.verification && !jobReviewLooksForeign(job) ? (
                     <p className={`job-verify job-verify--${job.verification}`}>
                       <strong>Checks {job.verification}</strong>
                       {job.verificationDetail
@@ -1706,7 +1745,9 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
                         : ""}
                     </p>
                   ) : null}
-                  {job.review && job.review.files.length > 0 ? (
+                  {job.review &&
+                  job.review.files.length > 0 &&
+                  !jobReviewLooksForeign(job) ? (
                     <ReviewSummary
                       review={job.review}
                       canDecide={Boolean(props.port.control) && reviewing}

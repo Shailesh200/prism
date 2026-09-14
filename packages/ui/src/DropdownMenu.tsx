@@ -1,5 +1,5 @@
 import * as RadixDropdown from "@radix-ui/react-dropdown-menu";
-import type { ReactElement, ReactNode } from "react";
+import { useRef, type ReactElement, type ReactNode } from "react";
 
 export type DropdownMenuItem = {
   readonly id: string;
@@ -19,6 +19,39 @@ export type DropdownMenuProps = {
   readonly modal?: boolean;
 };
 
+function DropdownMenuEntry(props: {
+  readonly item: DropdownMenuItem;
+}): ReactElement {
+  const item = props.item;
+  const last = useRef(0);
+  const run = (): void => {
+    const now = Date.now();
+    if (now - last.current < 200) return;
+    last.current = now;
+    item.onSelect();
+  };
+  return (
+    <RadixDropdown.Item
+      className={[
+        "prism-menu__item",
+        item.danger ? "prism-menu__item--danger" : "",
+        item.tone === "amber" ? "prism-menu__item--amber" : "",
+        item.tone === "brand" ? "prism-menu__item--brand" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      onPointerDown={(event) => {
+        // modal={false} can close the portal before click/onSelect.
+        if (event.button === 0) run();
+      }}
+      onSelect={() => run()}
+    >
+      {item.icon}
+      {item.label}
+    </RadixDropdown.Item>
+  );
+}
+
 /**
  * Action menu on Prism tokens. Built on Radix Dropdown Menu with
  * `modal={false}` so List/Board action menus do not steal the page.
@@ -36,21 +69,7 @@ export function DropdownMenu(props: DropdownMenuProps): ReactElement {
           collisionPadding={8}
         >
           {props.items.map((item) => (
-            <RadixDropdown.Item
-              key={item.id}
-              className={[
-                "prism-menu__item",
-                item.danger ? "prism-menu__item--danger" : "",
-                item.tone === "amber" ? "prism-menu__item--amber" : "",
-                item.tone === "brand" ? "prism-menu__item--brand" : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              onSelect={() => item.onSelect()}
-            >
-              {item.icon}
-              {item.label}
-            </RadixDropdown.Item>
+            <DropdownMenuEntry key={item.id} item={item} />
           ))}
         </RadixDropdown.Content>
       </RadixDropdown.Portal>

@@ -149,8 +149,15 @@ export {
 } from "./DropdownMenu.js";
 export {
   Table,
+  TableNumber,
+  TableTimestamp,
   sortRows,
+  tableColumnClassName,
+  tableColumnStyle,
+  tableColumnType,
+  TABLE_COLUMN_TYPES,
   type TableColumn,
+  type TableColumnType,
   type TableProps,
   type TableSort,
 } from "./Table.js";
@@ -176,6 +183,12 @@ export {
   type TooltipAlign,
 } from "./Tooltip.js";
 export { CardIcon, type CardIconProps, type CardIconTone } from "./CardIcon.js";
+export {
+  MetricCard,
+  type MetricCardDensity,
+  type MetricCardProps,
+  type MetricCardVariant,
+} from "./MetricCard.js";
 export { EmptyState, type EmptyStateProps } from "./EmptyState.js";
 export {
   AreaChart,

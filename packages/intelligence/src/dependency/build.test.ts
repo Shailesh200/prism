@@ -87,6 +87,7 @@ describe("buildDependencyGraph", () => {
     expect(
       result.graph.edges.map((e) => `${e.from}->${e.to}:${e.kind}`),
     ).toEqual(["file:main.js->file:util.js:require"]);
+    expect(result.graph.edges[0]?.provenance).toBe("measured");
   });
 
   it("marks .d.ts importer edges typeOnly (P-E7)", () => {

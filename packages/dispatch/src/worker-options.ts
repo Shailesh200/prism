@@ -21,6 +21,7 @@ export type CursorAgentOptionsInput = {
   readonly mcpCommand: string;
   readonly mcpArgs: readonly string[];
   readonly workspaceRoot: string;
+  readonly jobId?: string;
   /** Allow the worker to spawn in-process subagents (ADR-0042 §4). */
   readonly subagents?: boolean;
   /** Portable agent catalog when Node has no `node:sqlite`. */
@@ -31,10 +32,13 @@ export type CursorAgentOptionsInput = {
 
 export function workerMcpEnv(
   hostWorkspaceRoot: string,
+  jobId?: string,
 ): Record<string, string> {
+  const id = jobId?.trim();
   return {
     PRISM_DISPATCH_ROLE: "worker",
     PRISM_WORKSPACE: hostWorkspaceRoot,
+    ...(id ? { PRISM_JOB_ID: id } : {}),
   };
 }
 
@@ -123,12 +127,13 @@ export function workerMcpServers(input: {
   readonly mcpCommand: string;
   readonly mcpArgs: readonly string[];
   readonly workspaceRoot: string;
+  readonly jobId?: string;
 }): Record<string, unknown> {
   return {
     prism: {
       command: input.mcpCommand,
       args: mcpArgsWithWorkspace(input.mcpArgs, input.workspaceRoot),
-      env: workerMcpEnv(input.workspaceRoot),
+      env: workerMcpEnv(input.workspaceRoot, input.jobId),
     },
   };
 }
@@ -146,6 +151,7 @@ export async function writeWorkerMcpConfig(input: {
   readonly mcpCommand: string;
   readonly mcpArgs: readonly string[];
   readonly workspaceRoot: string;
+  readonly jobId?: string;
 }): Promise<string | undefined> {
   if (!input.mcpCommand) return undefined;
   try {

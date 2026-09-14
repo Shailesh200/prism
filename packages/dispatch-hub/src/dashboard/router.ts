@@ -40,12 +40,35 @@ export function parseView(hash: string): ConsoleView {
   const raw = hash.replace(/^#\/?/, "").split("?")[0] ?? "";
   if (raw === "jobs" || raw === "repos") return "dashboard";
   if (raw === "workflows" || raw === "attention") return "dashboard";
-  if (raw === "intelligence") return "iris";
+  if (raw === "intelligence" || raw === "iris" || raw.startsWith("iris/")) {
+    return "iris";
+  }
   if (raw === "whats-new") return "whats-new";
   if (raw === "wake") return "wake";
   return (CONSOLE_VIEWS as readonly string[]).includes(raw)
     ? (raw as ConsoleView)
     : "dashboard";
+}
+
+/** Envelope details live under Iris (`#/iris/envelope`). */
+export function parseIrisPane(hash: string): "envelope" | undefined {
+  const raw = hash.replace(/^#\/?/, "").split("?")[0] ?? "";
+  if (raw === "iris/envelope" || raw === "envelope") return "envelope";
+  return undefined;
+}
+
+export function irisHash(repo?: string): string {
+  const params = new URLSearchParams();
+  if (repo && repo !== "all") params.set("repo", repo);
+  const q = params.toString();
+  return q ? `#/iris?${q}` : "#/iris";
+}
+
+export function envelopeHash(repo?: string): string {
+  const params = new URLSearchParams();
+  if (repo && repo !== "all") params.set("repo", repo);
+  const q = params.toString();
+  return q ? `#/iris/envelope?${q}` : "#/iris/envelope";
 }
 
 function queryParam(hash: string, key: string): string | undefined {
@@ -97,11 +120,13 @@ export function viewHash(view: ConsoleView, query?: RouteQuery): string {
   if (view === "findings") return findingsHash(query);
   if (view === "whats-new") return "#/whats-new";
   if (view === "wake") return "#/wake";
+  if (view === "iris") return irisHash(query?.repo);
   return `#/${view}`;
 }
 
 export function useHashRoute(): {
   readonly view: ConsoleView;
+  readonly pane: "envelope" | undefined;
   readonly go: (next: ConsoleView, query?: RouteQuery) => void;
   readonly repo: string | undefined;
   readonly type: string | undefined;
@@ -110,6 +135,7 @@ export function useHashRoute(): {
 } {
   const read = () => ({
     view: parseView(window.location.hash),
+    pane: parseIrisPane(window.location.hash),
     repo: parseRepoFilter(window.location.hash),
     type: parseTypeQuery(window.location.hash),
     job: parseJobId(window.location.hash),
@@ -127,6 +153,7 @@ export function useHashRoute(): {
       window.location.hash = viewHash(next, query);
       setRoute({
         view: next,
+        pane: undefined,
         repo: query?.repo,
         type: query?.type,
         job: query?.job,

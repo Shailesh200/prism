@@ -615,4 +615,88 @@ describe("completeWorkerRun checkout finish", { timeout: 30_000 }, () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
+
+  it("does not review the user's dirty tree when the teammate made no edits", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "prism-checkout-noedits-"));
+    try {
+      const run = defaultGitRunner;
+      await run(dir, ["init", "-b", "main"]);
+      await run(dir, ["config", "user.email", "t@example.com"]);
+      await run(dir, ["config", "user.name", "Test"]);
+      await writeFile(join(dir, "mine.ts"), "mine\n");
+      await run(dir, ["add", "-A"]);
+      await run(dir, ["commit", "-m", "seed"]);
+      await writeFile(join(dir, "mine.ts"), "mine, still the user's\n");
+
+      const patches: Partial<RunState>[] = [];
+      await completeWorkerRun(
+        {
+          jobId: "no-edits",
+          cwd: dir,
+          workspaceRoot: dir,
+          title: "look around",
+          placement: "checkout",
+          verify: true,
+        },
+        "No files changed.\nStopped with no edits, as the brief required.",
+        {
+          patch: async (partial) => {
+            patches.push(partial);
+          },
+          logLine: async () => {},
+        },
+      );
+
+      const done = [...patches].reverse().find((p) => p.phase === "done");
+      expect(done?.review?.files).toEqual([]);
+      expect(done?.verification).toBe("skipped");
+      expect(done?.gitSummary).toBe("");
+      expect(done?.resultSummary).toMatch(/no reviewable change/i);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("Keep all on a no-edits write-up does not claim the user's files", async () => {
+    root = await tempRoot();
+    await upsertJob(
+      root,
+      baseJob({
+        id: "foreign-review",
+        placement: "checkout",
+        status: "needs_review",
+        resultSummary:
+          "50 file(s) in your working tree, +4445 -896, uncommitted\n\nNo files changed.\nStopped with no edits, as the brief required.",
+        review: {
+          files: [
+            {
+              path: "src/a.ts",
+              added: 1,
+              removed: 0,
+              change: "modified",
+            },
+          ],
+          totalAdded: 1,
+          totalRemoved: 0,
+          truncated: false,
+          committed: false,
+          merged: false,
+          keptPaths: [],
+          mixedPaths: [],
+        },
+      }),
+    );
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git: makeGit(),
+      env: {},
+    });
+    const result = (await runtime.handle("job_control", {
+      jobId: "foreign-review",
+      action: "accept_all",
+    })) as { job: JobRecord; message: string };
+    expect(result.job.status).toBe("done");
+    expect(result.job.review?.files).toEqual([]);
+    expect(result.message).toMatch(/did not change files/i);
+  });
 });

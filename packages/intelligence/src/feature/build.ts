@@ -44,6 +44,7 @@ function addEdge(
   from: string,
   to: string,
   attrs?: GraphEdgeDto["attrs"],
+  provenance?: GraphEdgeDto["provenance"],
 ): void {
   const id = edgeId(kind, from, to);
   if (edges.has(id)) return;
@@ -53,6 +54,7 @@ function addEdge(
     from: unsafeNodeId(from),
     to: unsafeNodeId(to),
     ...(attrs === undefined ? {} : { attrs }),
+    ...(provenance === undefined ? {} : { provenance }),
   });
 }
 
@@ -113,7 +115,7 @@ export function buildFeatureGraph(snapshot: IndexSnapshot): FeatureGraphResult {
   const edges = new Map<string, GraphEdgeDto>();
   for (const f of features) {
     for (const path of f.memberFiles) {
-      addEdge(edges, "contains", f.id, fileNodeId(path));
+      addEdge(edges, "contains", f.id, fileNodeId(path), undefined, "inferred");
     }
   }
 
@@ -146,9 +148,16 @@ export function buildFeatureGraph(snapshot: IndexSnapshot): FeatureGraphResult {
       if (!target) continue;
       const toFeature = owners.get(target);
       if (!toFeature || toFeature === fromFeature) continue;
-      addEdge(edges, "related", fromFeature, toFeature, {
-        via: `${file.path}->${target}`,
-      });
+      addEdge(
+        edges,
+        "related",
+        fromFeature,
+        toFeature,
+        {
+          via: `${file.path}->${target}`,
+        },
+        isRelativeSpecifier(imp.source) ? "measured" : "heuristic",
+      );
     }
   }
 

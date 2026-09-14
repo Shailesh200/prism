@@ -47,7 +47,7 @@ it is not done.
 | Agent avatar | **Repo mark** — first letter in a 28px tile, teal hairline. No face. | `DESIGN_SYSTEM.md` forbids avatars |
 | Run / Autonomy toggles | **Pause / Resume** on a live job; Board tile has no fake autonomy switch | We do not have unattended loops yet |
 | Org zones + reporting arrows | **Not built** | Repos do not report to each other |
-| Brain Orb | **Spectrum** on `#/iris` — `RepositoryMapView`, not a 3D toy | Same artifact as the website hero |
+| Brain Orb | **Not on Console Iris.** Owner 2026-09-11: `#/iris` is Repository analysis + Envelope rows. Spectrum stays on website / playground / IDE Map. | Program agent-native Iris §0; amends P-C8 |
 
 ---
 
@@ -89,6 +89,7 @@ to clear this bar. A missing item here is a defect, not polish-later.
 
 | Craft | Production rule |
 |---|---|
+| **Approved Stitch is pixel-perfect** | When a Stitch frame is owner-approved, the matching route is implemented **against that PNG**, not “in the spirit of”. Tokens, type, spacing, shell widths, and chrome must match. Extra or missing columns/filters/panels are defects. Screenshot DoD is side-by-side with the approved frame at 1440 and 1280. See §2b. |
 | **Screenshot test** | Dashboard (Pulse and Board), Attention, Iris, and compose must each be homepage-safe: no debug strings, no raw `job-<hex>`, no worktree paths, no `TODO`, no lorem, no overflow, no clipped labels. ADR-0039 voice applies to the UI the same way it applies to chat. |
 | **One type system** | Display / title / body / meta / mono only — the `tokens.css` scale. No one-off `13.5px` or `font-weight: 550`. Titles align across routes (Dashboard “Jobs” and Iris “Iris” are the same size and weight). |
 | **One spacing rhythm** | `xs/sm/md/lg/xl` only. Toolbar, tile padding, row height and inspector padding are specified in §3–§8 and must match, not “look close”. |
@@ -108,6 +109,25 @@ to clear this bar. A missing item here is a defect, not polish-later.
 
 Owner review of M-068 is a **visual review**, not a feature checklist. The
 P-C9 report includes screenshots of the four homepage-safe surfaces.
+
+### 2b. Approved Stitch → pixel-perfect implementation
+
+Owner-approved Stitch frames are the visual source of truth for that route.
+When the matching milestone is approved to code, implementation is
+**pixel-perfect against the approved PNG + HTML**, not a reinterpretation.
+
+| Rule | Detail |
+|---|---|
+| Tokens | `packages/ui/src/tokens.css` only. No invented hex. |
+| Type | Inter for UI, JetBrains Mono for numbers/paths. Display / title / body / meta / mono only. No `13.5px` or `font-weight: 550`. |
+| Spacing | `4 / 8 / 16 / 24 / 32` only. |
+| Shell | 224px rail, 48px top bar, 288px inspector only if the frame has one. |
+| Chrome | Hairline `#2A334A`. No glow, glass, avatars, or chat. Do not add or omit columns, filters, or panels vs the approved frame. |
+| Screenshot DoD | Side-by-side with the approved Stitch PNG at **1440** and **1280**. Overflow, clipped labels, and extra chrome are defects. |
+
+This bar applies to **every** owner-approved screen, not only Envelope. The
+live list lives in [`STITCH_AGENT_NATIVE.md`](./STITCH_AGENT_NATIVE.md)
+(shipping-lock tables). Unapproved frames are exploration; do not implement them.
 
 ---
 
@@ -494,24 +514,77 @@ Replaces today's Intelligence tab.
 
 ```
 Iris
-Last refreshed  4m ago · 14,204 symbols · 1 workspace
+Last refreshed  4m ago · 14,204 symbols · 2 workspaces indexed
+Iris has indexed ledger · main
 
-[ Load analysis ]
+[ Load analysis ]     Repos ▾  ledger · main
 
 Health  72 (B)     Testing  64     Security  80
 Landmarks  18      Clusters  6     Domain  frontend
 
-[ Open Spectrum ]
+Envelope · agentic experience
+Pipe · True Refs · Honest Edges · Context Pack · Reuse First
+This machine only · never uploaded · not Pulse (job tokens)
+
+Envelope (filtered repo — no REPO column)
+BYTES KEPT     FOLLOW-THROUGH    ≤5-CALL HABIT     THIS WEEK
+2.1% of dump   81% narrowed     4 / 7 days        28 list calls
+−1.4pp vs last  +6pp             +1 day            12 truncated
+
+last prepare_change  “add caching to fetchUser”
+Context Pack   8 files · ~3.2k map tokens · truncated false · tests 3
+  packages/api/src/users.ts     why: feature membership · fetchUser
+  packages/shared/src/cache.ts  why: reuse + 1-hop
+  …  (paths + why only, no bodies)
+Reuse First    LruCache  packages/shared/src/cache.ts  evidence: similar export
+               (empty list if none — do not invent)
+True Refs      resolved fetchUser @ packages/api/src/users.ts
+               (if ambiguous: candidates, no silent pick)
+Honest Edges    pack links  11 measured · 2 heuristic · 0 inferred
 ```
 
 Numbers only after a successful host read. Button label stays **Load
-analysis** until then — do not show `0` as a score (M-056).
+analysis** until then — do not show `0` as a score (M-056). Missing ledger
+= “no Envelope sessions this week”, not `0%`.
 
-**Spectrum** is `RepositoryMapView` in a full-bleed pane under the numbers, or
-behind **Open Spectrum** if the map payload is large enough that mounting it
-on first paint janks. Same component as the website hero. No 3D orb. No
-avatar. Copy talks about Iris the way ADR-0052 requires: “Iris has indexed…”,
-never “I found…”.
+**Repo filter.** Same control as Dashboard (`Repos ▾`, indexed
+workspaces). It sits in the Iris canvas toolbar, **above** Envelope metrics.
+Default is the current workspace. Facts, pipe scoreboard, and
+pack / reuse / refs / edges all belong to that one repo. There is **no REPO
+column** and no fleet table of every indexed repo. Switching the filter swaps
+the page. Empty-week copy is the empty state of the *filtered* repo, not a
+third row.
+
+**Iris Envelope metrics (pipe scoreboard, filtered repo)**
+
+| Metric | Meaning | Good |
+|---|---|---|
+| **Bytes kept vs dump** | MCP JSON bytes served ÷ bytes if `totalCount` had been sent unbounded | Down |
+| **Δ vs last week** | Percentage-point change on that ratio | Down or stable while still shipping |
+| **Follow-through** | Share of `truncated: true` calls whose *next* call was narrower (`path`, tighter pattern, `find_symbol`) not `limit: 500` | Up. Truncation is a win |
+| **≤5-call habit** | Days in the last 7 whose median Intelligence *list* calls in a session stretch stayed ≤ 5 | Up |
+| **List calls / truncated** | Volume this week (supporting, not the grade) | Context only |
+
+**Selected-repo Envelope query (not Pulse)**
+
+| Block | Shows |
+|---|---|
+| **Context Pack** | Last `prepare_change` task, files + why, tests, `tokenEstimate`, envelope `truncated` |
+| **Reuse First** | Ranked hits or empty (`provenance: unavailable`) |
+| **True Refs** | Resolved symbol or `ambiguous` candidates |
+| **Honest Edges** | Counts of measured / heuristic / inferred on pack edges |
+
+**No Spectrum on this route.** Owner 2026-09-11: Console `#/iris` does not
+mount `RepositoryMapView`. The map stays on the website hero, playground, and
+IDE Map webview. Pulse stays job LLM spend. Finding Loop is a sibling (Findings /
+Spectrum layer), not this strip.
+
+No 3D orb. No avatar. Copy talks about Iris the way ADR-0052 requires:
+“Iris has indexed…”, never “I found…”.
+
+Amends the P-C8 “Spectrum on `#/iris`” lock; see
+[`PROGRAM_agent-native-iris.md`](../milestones/PROGRAM_agent-native-iris.md)
+§0, Envelope capabilities, and M-069 S6.
 
 ---
 
@@ -604,7 +677,7 @@ half-width IDE webview usable.
 - [x] Attention matches §9
 - [x] First-run matches §10
 - [x] Findings have **Hand to a teammate**
-- [x] `#/iris` matches §11 and ADR-0052 voice
+- [x] `#/iris` matches §11 and ADR-0052 voice. **Superseded 2026-09-11:** no Spectrum; **Repos ▾** + Envelope for the filtered repo, no REPO column (program M-069 S6). Pixel-perfect vs approved Stitch (§2b). M-068 still shipped the map.
 - [x] Tokens: no new raw hex; `--prism-accent` defined
 - [x] Reduced motion: scanline and pulses off
 - [x] Hands-on: opened the Console, switched Pulse / Board / List, opened

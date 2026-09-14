@@ -1,4 +1,11 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  access,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -204,6 +211,16 @@ describe("hub HTTP", () => {
     ).json()) as { repos: { path: string; jobCount: number }[] };
     expect(repos.repos.map((row) => row.path)).toContain(repo);
     expect(repos.repos.find((row) => row.path === repo)?.jobCount).toBe(1);
+
+    const envelope = (await (
+      await fetch(
+        `http://127.0.0.1:${port}/api/envelope?workspace=${encodeURIComponent(repo)}`,
+        { headers: auth },
+      )
+    ).json()) as { available: boolean; workspace: string; days: unknown[] };
+    expect(envelope.workspace).toBe(repo);
+    expect(envelope.available).toBe(false);
+    expect(envelope.days).toEqual([]);
 
     // An unknown method is refused at the edge rather than cast and dispatched.
     const bogus = await fetch(`http://127.0.0.1:${port}/api/host`, {
@@ -937,6 +954,58 @@ describe("hub HTTP", () => {
     ).json()) as { ok: boolean; message: string };
     expect(applied.ok).toBe(true);
     expect(applied.message).toBeTruthy();
+  });
+
+  it("wipes the Prism library after a typed confirm", async () => {
+    const lib = await mkdtemp(join(tmpdir(), "prism-wipe-lib-"));
+    const hubHome = await mkdtemp(join(tmpdir(), "prism-wipe-hub-"));
+    const repo = await mkdtemp(join(tmpdir(), "prism-wipe-repo-"));
+    temps.push(lib, hubHome, repo);
+    await mkdir(join(repo, ".prism"), { recursive: true });
+    await writeFile(join(repo, ".prism", "cache.txt"), "index");
+    const started = await startHub({
+      env: {
+        PRISM_HOME: lib,
+        PRISM_HUB_HOME: hubHome,
+        PRISM_HUB_PORT: "0",
+        PRISM_HUB: "1",
+      },
+      idleMs: 60_000,
+      pollMs: 5_000,
+    });
+    if ("alreadyRunning" in started) throw new Error("expected a fresh hub");
+    closers.push(started.close);
+    const port = started.record.port;
+    const token = started.record.token;
+    const auth = {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    };
+    await fetch(`http://127.0.0.1:${port}/api/workspaces`, {
+      method: "POST",
+      headers: auth,
+      body: JSON.stringify({ path: repo }),
+    });
+    const refused = await fetch(`http://127.0.0.1:${port}/api/wipe`, {
+      method: "POST",
+      headers: auth,
+      body: JSON.stringify({ confirm: "no" }),
+    });
+    expect(refused.status).toBe(400);
+    const wiped = await fetch(`http://127.0.0.1:${port}/api/wipe`, {
+      method: "POST",
+      headers: auth,
+      body: JSON.stringify({ confirm: "wipe" }),
+    });
+    expect(wiped.status).toBe(200);
+    const body = (await wiped.json()) as { ok: boolean; message: string };
+    expect(body.ok).toBe(true);
+    expect(body.message).toMatch(/Reload the Prism MCP server/i);
+    await expect(access(join(repo, ".prism"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+    await expect(access(lib)).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(access(hubHome)).rejects.toMatchObject({ code: "ENOENT" });
   });
 });
 

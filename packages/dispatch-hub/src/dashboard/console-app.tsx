@@ -71,16 +71,22 @@ import {
   useVisibleRepos,
 } from "./fleet-views.js";
 import { PulseView } from "./pulse-view.js";
-import { FocusJobBar, jobActionHandlers } from "./job-actions.js";
+import {
+  FocusJobBar,
+  jobActionHandlers,
+  type FleetPendingControl,
+} from "./job-actions.js";
 import { JobLineage } from "./job-lineage-view.js";
 import { IntelligenceView } from "./intelligence-view.js";
 import { useJobRailMotion } from "./job-rail-motion.js";
 import {
   CONSOLE_VIEWS,
+  envelopeHash,
   useHashRoute,
   VIEW_LABELS,
   type RailView,
 } from "./router.js";
+import { EnvelopeDetailsView } from "./envelope-details-view.js";
 import {
   getJson,
   notifyWorkspacesChanged,
@@ -132,6 +138,7 @@ export function ConsoleApp(): ReactElement {
   const token = useMemo(() => readToken(), []);
   const {
     view,
+    pane,
     go,
     repo: repoFilter,
     type: typeQuery,
@@ -216,10 +223,7 @@ export function ConsoleApp(): ReactElement {
   });
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [addPath, setAddPath] = useState("");
-  const [pending, setPending] = useState<{
-    readonly jobId: string;
-    readonly action: "retry" | "reverify";
-  }>();
+  const [pending, setPending] = useState<FleetPendingControl>();
   const pendingRef = useRef(false);
   const filterRef = useRef<HTMLInputElement | null>(null);
   const graphHostRef = useRef<HTMLDivElement>(null);
@@ -372,12 +376,14 @@ export function ConsoleApp(): ReactElement {
     [go],
   );
   const runJobControl = useCallback(
-    async (action: "retry" | "reverify", job: JobSummary) => {
+    async (action: FleetPendingControl["action"], job: JobSummary) => {
       if (pendingRef.current) {
         showConsoleToast(
           action === "reverify"
             ? "Checks already running…"
-            : "Retry already running…",
+            : action === "retry"
+              ? "Retry already running…"
+              : "That action is already running…",
         );
         return;
       }
@@ -402,8 +408,8 @@ export function ConsoleApp(): ReactElement {
     onOpenFinding: openFinding,
     onPause: (job: JobSummary) => void feed.port.control?.("pause", job.id),
     onCancel: (job: JobSummary) => void feed.port.control?.("cancel", job.id),
-    onConfirm: (job: JobSummary) => void feed.port.control?.("confirm", job.id),
-    onResume: (job: JobSummary) => void feed.port.control?.("resume", job.id),
+    onConfirm: (job: JobSummary) => void runJobControl("confirm", job),
+    onResume: (job: JobSummary) => void runJobControl("resume", job),
     onKeepAll: (job: JobSummary) =>
       void feed.port.control?.("accept_all", job.id),
     onRetry: (job: JobSummary) => void runJobControl("retry", job),
@@ -524,43 +530,52 @@ export function ConsoleApp(): ReactElement {
               <PanelLeftClose size={16} aria-hidden />
             )}
           </Button>
-          {CONSOLE_VIEWS.flatMap((id) => {
-            const item = (
-              <Button
-                key={id}
-                type="button"
-                variant="tertiary"
-                className={
-                  view === id
-                    ? "console-rail__item console-rail__item--on"
-                    : "console-rail__item"
-                }
-                aria-current={view === id ? "page" : undefined}
-                onClick={() => go(id)}
-              >
-                {RAIL_ICONS[id]}
-                <span>{VIEW_LABELS[id]}</span>
-              </Button>
-            );
-            if (id !== "settings") return [item];
-            return [
-              <a
-                key="spectrum"
-                className="console-rail__item console-rail__item--spectrum"
-                href={spectrumUrl(
-                  playgroundUrl,
-                  spectrumRoot ? { root: spectrumRoot } : undefined,
-                )}
-                target="_blank"
-                rel="noreferrer"
-                title="Open Spectrum"
-              >
-                <Hexagon size={16} aria-hidden />
-                <span>Spectrum</span>
-              </a>,
-              item,
-            ];
-          })}
+          {CONSOLE_VIEWS.filter((id) => id !== "settings").map((id) => (
+            <Button
+              key={id}
+              type="button"
+              variant="tertiary"
+              className={
+                view === id
+                  ? "console-rail__item console-rail__item--on"
+                  : "console-rail__item"
+              }
+              aria-current={view === id ? "page" : undefined}
+              onClick={() => go(id)}
+            >
+              {RAIL_ICONS[id]}
+              <span>{VIEW_LABELS[id]}</span>
+            </Button>
+          ))}
+          <a
+            className="console-rail__item console-rail__item--spectrum"
+            href={spectrumUrl(
+              playgroundUrl,
+              spectrumRoot ? { root: spectrumRoot } : undefined,
+            )}
+            target="_blank"
+            rel="noreferrer"
+            title="Open Spectrum"
+          >
+            <Hexagon size={16} aria-hidden />
+            <span>Spectrum</span>
+          </a>
+          <div className="console-rail__foot">
+            <Button
+              type="button"
+              variant="tertiary"
+              className={
+                view === "settings"
+                  ? "console-rail__item console-rail__item--on"
+                  : "console-rail__item"
+              }
+              aria-current={view === "settings" ? "page" : undefined}
+              onClick={() => go("settings")}
+            >
+              {RAIL_ICONS.settings}
+              <span>{VIEW_LABELS.settings}</span>
+            </Button>
+          </div>
         </nav>
 
         <div className="console__column">
@@ -745,11 +760,24 @@ export function ConsoleApp(): ReactElement {
               />
             ) : null}
 
-            {view === "iris" ? (
+            {view === "iris" && pane === "envelope" ? (
+              <EnvelopeDetailsView
+                token={token}
+                jobs={feed.summaries}
+                workspaces={workspaces}
+                {...(selectedPath ? { selectedPath } : {})}
+                onBack={() => go("iris")}
+                onOpenJob={(job) => setFocusId(job.id)}
+              />
+            ) : view === "iris" ? (
               <IntelligenceView
                 token={token}
                 jobs={feed.summaries}
                 workspaces={workspaces}
+                {...(selectedPath ? { selectedPath } : {})}
+                onMoreDetails={() => {
+                  window.location.hash = envelopeHash();
+                }}
               />
             ) : null}
             {view === "trees" ? (

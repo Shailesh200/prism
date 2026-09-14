@@ -204,4 +204,30 @@ describe("mergeTokenUsage", () => {
     expect(afterTurns?.inputTokens).toBe(10);
     expect(tokenUsageEqual(afterTurns, afterTurns)).toBe(true);
   });
+
+  it("does not add the same turn snapshot twice", () => {
+    const once = applyParsedUsage(undefined, {
+      type: "usage",
+      usage: {
+        inputTokens: 55_000,
+        outputTokens: 3_000,
+        cacheReadTokens: 40_000,
+        cacheWriteTokens: 0,
+        totalTokens: 58_000,
+      },
+    });
+    const twice = applyParsedUsage(once, {
+      type: "usage",
+      usage: {
+        inputTokens: 55_000,
+        outputTokens: 3_000,
+        cacheReadTokens: 40_000,
+        cacheWriteTokens: 0,
+        totalTokens: 58_000,
+      },
+    });
+    expect(twice?.inputTokens).toBe(55_000);
+    expect(twice?.outputTokens).toBe(3_000);
+    expect(twice?.contextTokens).toBe(95_000);
+  });
 });

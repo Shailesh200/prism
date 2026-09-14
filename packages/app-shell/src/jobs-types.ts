@@ -164,6 +164,8 @@ export type JobSummary = {
   readonly origin?: "retry" | "reverify" | "finding" | "instruct";
   /** Live then final token usage the worker reported. */
   readonly tokenUsage?: JobTokenUsage;
+  /** Prism Intelligence this teammate kept vs a full dump, when measured. */
+  readonly envelopeUsage?: JobEnvelopeUsage;
 };
 
 export type JobTokenUsage = {
@@ -174,6 +176,12 @@ export type JobTokenUsage = {
   readonly totalTokens?: number;
   readonly contextTokens?: number;
   readonly contextWindow?: number;
+};
+
+export type JobEnvelopeUsage = {
+  readonly bytesKeptRatio: number | null;
+  readonly tokensSaved: number | null;
+  readonly calls: number;
 };
 
 export type JobConsolePage = {
@@ -312,13 +320,30 @@ export function matchesBoardLane(job: JobSummary, lane: JobBoardLane): boolean {
 
 /** True while Keep / Restore still have files to decide. */
 export function jobReviewPending(
-  job: Pick<JobSummary, "status" | "review">,
+  job: Pick<JobSummary, "status" | "review" | "resultSummary">,
 ): boolean {
   if (job.status !== "needs_review") return false;
+  if (jobReviewLooksForeign(job)) return false;
   const files = job.review?.files ?? [];
   if (files.length === 0) return false;
   const kept = new Set(job.review?.keptPaths ?? []);
   return files.some((file) => !kept.has(file.path));
+}
+
+/** The teammate's write-up said it made no edits — don't treat the user's tree as its review. */
+export function jobReviewLooksForeign(
+  job: Pick<JobSummary, "resultSummary" | "review">,
+): boolean {
+  const text = job.resultSummary?.trim() ?? "";
+  if (!text) return false;
+  if (
+    !/stopped with no edits|produced no reviewable change|no files changed/i.test(
+      text,
+    )
+  ) {
+    return false;
+  }
+  return (job.review?.files.length ?? 0) > 0;
 }
 
 const SETTLED_STATUSES = new Set<JobStatus>([
@@ -459,6 +484,150 @@ export function jobUsageLine(
   const tokens = jobTokensLabel(usage);
   if (context && tokens) return `${context} · ${tokens}`;
   return context ?? tokens;
+}
+
+/**
+ * Sent vs not sent — shared by Focus and Iris so both surfaces mean the same thing.
+ *
+ * Sent = the list Prism actually gave the agent.
+ * Not sent = the rest of the matches Prism held back.
+ */
+export const ENVELOPE_DUMP_KEPT_TIP =
+  "Sent is the list Prism actually gave the agent. Not sent is the rest of the matches Prism held back.\n\nSent % is sent ÷ the full list. The leftover is only the list tail, not the job's billed tokens.";
+
+/** Focus drawer InfoTip — Envelope is not the LLM context window. */
+export const JOB_ENVELOPE_TIP = `${ENVELOPE_DUMP_KEPT_TIP}
+
+Context and Tokens above are this teammate's LLM run. Envelope only counts Prism list tools, and stays empty until those run.`;
+
+/** Iris “Sent %” InfoTip. */
+export const IRIS_BYTES_KEPT_TIP =
+  "How much of the full list actually reached the agent this week. Lower means Prism sent a smaller slice. Not Pulse job tokens.";
+
+export const IRIS_CUT_SHORT_TIP =
+  "Share of list calls that were partial — Prism sent some matches, not every one.";
+
+export const IRIS_FOLLOW_THROUGH_TIP =
+  "After a partial list, how often the next call in the same burst asked a smaller question — a specific symbol, or a tighter limit — instead of asking for the rest.";
+
+export const IRIS_DUMP_NOT_SERVED_TIP =
+  "JSON Prism did not send in this window. Not Pulse job tokens.";
+
+export const IRIS_HABIT_TIP =
+  "Days in this window when a typical burst used five or fewer list calls. A burst is a clump of calls with no more than 30 minutes of quiet.";
+
+export const IRIS_SOURCE_TIP =
+  "Chat is this conversation. Teammates are jobs that called Prism list tools. A job that never used those tools is left out.";
+
+export const ENVELOPE_OVER_TIME_TIP =
+  "Each bar is a day, week, month, or the whole window. Empty days are a tick, not 0%.";
+
+export const ENVELOPE_AGENTIC_TIP =
+  "Editors where Prism actually ran. Unknown is real: those calls have no editor name. We only show Cursor or Claude when we can name them.";
+
+export const ENVELOPE_SESSION_TIP =
+  "A burst is a clump of list calls with no more than 30 minutes of quiet, split by this chat vs a job. Not a chat thread id.";
+
+export const ENVELOPE_PEAK_DUMP_TIP =
+  "The one list call in this window where Prism held back the most. A size, not a price.";
+
+export const ENVELOPE_SESSIONS_TIP =
+  "How many bursts ran in this window. Chat vs teammate is the same split as Source.";
+
+export const ENVELOPE_TOOL_TIPS: Readonly<Record<string, string>> = {
+  find_symbol: "Look up one named symbol — a function, type, or constant.",
+  search_symbols:
+    "Search symbol names. Broad queries are often partial on purpose.",
+  find_references: "Who calls or imports this symbol.",
+  list_packages: "List packages in the workspace.",
+  blast_radius: "What depends on this file or symbol if it changes.",
+  explain_area: "What this folder or file is for.",
+  test_impact: "Which tests to run after this change.",
+  safe_delete: "Whether this symbol looks safe to delete.",
+  rename_impact: "What a rename would touch.",
+  list_features: "List product features the index knows.",
+  dependency_graph: "Import graph for packages or files.",
+  knowledge_graph: "How concepts in the repo connect.",
+  repository_map: "A compact map of the workspace.",
+  repository_health: "Engineering health for this repo.",
+};
+
+export function envelopeToolTip(tool: string): string {
+  return (
+    ENVELOPE_TOOL_TIPS[tool] ??
+    "A Prism list tool. The journal stores counts, not the full answer."
+  );
+}
+
+export const ENVELOPE_TOOL_TONES = [
+  "brand",
+  "violet",
+  "emerald",
+  "amber",
+  "rose",
+  "accent",
+] as const;
+
+export type EnvelopeToolTone = (typeof ENVELOPE_TOOL_TONES)[number];
+
+const ENVELOPE_TOOL_TONE_BY_NAME: Readonly<Record<string, EnvelopeToolTone>> = {
+  find_symbol: "brand",
+  search_symbols: "brand",
+  find_references: "brand",
+  list_packages: "emerald",
+  explain_area: "emerald",
+  explore_code: "emerald",
+  blast_radius: "amber",
+  test_impact: "amber",
+  rename_impact: "amber",
+  breaking_change_hints: "amber",
+  safe_delete: "rose",
+  list_features: "violet",
+  dependency_graph: "violet",
+  knowledge_graph: "violet",
+  feature_graph: "violet",
+  repository_map: "violet",
+  repository_health: "accent",
+  repository_overview: "accent",
+  repository_dna: "accent",
+};
+
+/** Stable chip colour per Intelligence tool so journal, mix, and inspector match. */
+export function envelopeToolTone(tool: string): EnvelopeToolTone {
+  const named = ENVELOPE_TOOL_TONE_BY_NAME[tool];
+  if (named) return named;
+  if (tool.startsWith("find_") || tool.startsWith("search_")) return "brand";
+  if (
+    tool.includes("impact") ||
+    tool.startsWith("blast_") ||
+    tool.startsWith("safe_")
+  ) {
+    return "amber";
+  }
+  if (tool.includes("graph") || tool.startsWith("list_")) return "violet";
+  if (tool.startsWith("explain") || tool.startsWith("explore"))
+    return "emerald";
+  let hash = 0;
+  for (let i = 0; i < tool.length; i += 1) {
+    hash = (hash * 33 + tool.charCodeAt(i)) >>> 0;
+  }
+  return ENVELOPE_TOOL_TONES[hash % ENVELOPE_TOOL_TONES.length];
+}
+
+/** Focus drawer: how much of the list this teammate actually received. */
+export function jobEnvelopeLabel(usage: JobEnvelopeUsage | undefined): string {
+  if (!usage || usage.calls <= 0) return "no Prism calls";
+  const parts: string[] = [];
+  if (usage.bytesKeptRatio != null) {
+    parts.push(`${Math.round(usage.bytesKeptRatio * 100)}% sent`);
+  }
+  if (usage.tokensSaved != null && usage.tokensSaved > 0) {
+    parts.push(`~${formatTokenCount(usage.tokensSaved)} not sent`);
+  }
+  if (parts.length === 0) {
+    return `${usage.calls} Prism call${usage.calls === 1 ? "" : "s"}`;
+  }
+  return parts.join(" · ");
 }
 
 /** Labeled figures for List / Focus — "—" when the worker never reported. */

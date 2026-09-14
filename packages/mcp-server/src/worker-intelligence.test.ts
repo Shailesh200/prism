@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -250,13 +250,18 @@ describe("registration", () => {
     const call = consoleCaller({ port: 1, token: "t" }, "/repo", fetchImpl);
     const rows = await listed?.run(call, {});
     expect(sent[0]?.method).toBe("listPackages");
-    expect(rows).toEqual([
-      {
-        id: "dispatch",
-        name: "@repo-prism/dispatch",
-        rootDir: "packages/dispatch",
-      },
-    ]);
+    expect(rows).toEqual({
+      items: [
+        {
+          id: "dispatch",
+          name: "@repo-prism/dispatch",
+          rootDir: "packages/dispatch",
+        },
+      ],
+      totalCount: 1,
+      truncated: false,
+      limit: 40,
+    });
     expect(JSON.stringify(rows)).not.toContain("\n");
   });
 
@@ -274,12 +279,48 @@ describe("registration", () => {
     const call = consoleCaller({ port: 1, token: "t" }, "/repo", fetchImpl);
     const rows = await listed?.run(call, { query: "waitedWorkedLabel" });
     expect(sent[0]?.method).toBe("symbols");
-    expect(rows).toEqual([
-      {
-        name: "waitedWorkedLabel",
-        kind: "function",
-        path: "packages/dispatch-hub/src/dashboard/fleet.ts",
+    expect(rows).toEqual({
+      items: [
+        {
+          name: "waitedWorkedLabel",
+          kind: "function",
+          path: "packages/dispatch-hub/src/dashboard/fleet.ts",
+        },
+      ],
+      totalCount: 1,
+      truncated: false,
+      limit: 12,
+    });
+  });
+
+  it("tags Envelope ledger lines with the job id", async () => {
+    const repo = await mkdtemp(join(tmpdir(), "prism-env-"));
+    const home = await mkdtemp(join(tmpdir(), "prism-env-home-"));
+    const bundle = {
+      ok: true,
+      value: {
+        blast: { risk: "low" },
+        testImpact: { suites: ["a"] },
       },
-    ]);
+    };
+    const { fetchImpl } = console_(bundle);
+    const server = { registerTool: vi.fn() };
+    await registerWorkerIntelligence(server as never, {
+      workspaceRoot: repo,
+      link: { port: 17330, token: "tok" },
+      fetchImpl,
+      env: { PRISM_JOB_ID: "review-the-issues", PRISM_HOME: home },
+    });
+    const handler = server.registerTool.mock.calls[0]?.[2] as (
+      args: Record<string, unknown>,
+    ) => Promise<{ content: { type: string; text: string }[] }>;
+    await handler({ kind: "file", id: "a.ts" });
+    const parsed = JSON.parse(
+      (await readFile(join(home, "envelope-ledger.jsonl"), "utf8")).trim(),
+    ) as Record<string, unknown>;
+    expect(parsed.jobId).toBe("review-the-issues");
+    expect(parsed.tool).toBe("blast_radius");
+    expect(parsed.host).toBe("cursor");
+    expect(parsed.workspace).toBe(repo);
   });
 });

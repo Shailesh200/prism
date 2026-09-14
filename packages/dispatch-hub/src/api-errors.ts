@@ -14,6 +14,8 @@ export const HUB_ERROR = {
   prdRequired: "Write a brief before sending it.",
   jobMissing: "That job is not on this Console.",
   workspaceRequired: "Pick a repository first.",
+  wipeConfirm:
+    "Type wipe to confirm you want every Prism library and .prism cache gone.",
   pathRequired: "Say which folder to add.",
   noteMissing: "That write-up is not on this Console.",
   actionRequired: "Say which repository and which action.",

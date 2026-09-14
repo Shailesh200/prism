@@ -11,7 +11,7 @@ import { dispatchAndDrain, drain } from "./drain-harness.js";
 import type { GitRunner } from "./git.js";
 import type { WorkerPort } from "./worker.js";
 import type { CursorAuthPort } from "./cursor-auth.js";
-import { loadJobs, upsertJob } from "./jobs.js";
+import { loadJobs, runWithJobsEnv, upsertJob } from "./jobs.js";
 import type { JobRecord } from "./types.js";
 import { appendRunLog, lifecycleLogEntry } from "./run-log.js";
 import { reapJobs, writeRunState } from "./run-state.js";
@@ -982,6 +982,160 @@ describe("live status and completion inbox", () => {
     expect(result.job.waitingOn).toBe("");
   });
 
+  it("resume kills a leftover paused worker then respawns", async () => {
+    root = await tempRoot();
+    let cancelled = false;
+    let resumed = false;
+    const pauseWorker: WorkerPort = {
+      async start() {
+        return { agentId: "agent-new", pid: 4242 };
+      },
+      async resume() {
+        resumed = true;
+        return { pid: 4242 };
+      },
+      async cancel() {
+        cancelled = true;
+      },
+      async status() {
+        return { status: "running", detail: "agent-test" };
+      },
+    };
+    await upsertJob(root, {
+      id: "paused-job",
+      title: "Paused job",
+      playbook: "ticket",
+      prd: "",
+      branch: "dispatch/paused-job",
+      worktreePath: root,
+      source: "prism",
+      status: "paused",
+      lastStep: "",
+      nextStep: "paused — say resume to continue",
+      waitingOn: "",
+      workerPid: process.pid,
+      cursorAgentId: "agent-paused",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker: pauseWorker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    const result = (await runtime.handle("job_control", {
+      jobId: "paused-job",
+      action: "resume",
+    })) as { job: { status: string }; message: string };
+    expect(cancelled).toBe(true);
+    expect(resumed).toBe(true);
+    expect(result.job.status).toBe("running");
+    expect(result.message).not.toMatch(/already running/i);
+  });
+
+  it("resume on an error job with a leftover pid respawns instead of already-running", async () => {
+    root = await tempRoot();
+    let cancelled = false;
+    let resumed = false;
+    const errorWorker: WorkerPort = {
+      async start() {
+        return { agentId: "agent-new", pid: 4242 };
+      },
+      async resume() {
+        resumed = true;
+        return { pid: 4242 };
+      },
+      async cancel() {
+        cancelled = true;
+      },
+      async status() {
+        return { status: "failed", detail: "stopped" };
+      },
+    };
+    await upsertJob(root, {
+      id: "error-job",
+      title: "Failed job",
+      playbook: "ticket",
+      prd: "",
+      branch: "dispatch/error-job",
+      worktreePath: root,
+      source: "prism",
+      status: "error",
+      lastStep: "",
+      nextStep: "",
+      waitingOn: "",
+      lastActivity: "The teammate stopped without reporting a result.",
+      workerPid: process.pid,
+      cursorAgentId: "agent-error",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker: errorWorker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    const result = (await runtime.handle("job_control", {
+      jobId: "error-job",
+      action: "resume",
+    })) as { job: { status: string }; message: string };
+    expect(cancelled).toBe(true);
+    expect(resumed).toBe(true);
+    expect(result.job.status).toBe("running");
+    expect(result.message).not.toMatch(/already running/i);
+  });
+
+  it("resume returns immediately when the checkout is gone", async () => {
+    const home = await mkdtemp(join(tmpdir(), "prism-dispatch-home-"));
+    root = await tempRoot();
+    const env = { ...process.env, PRISM_HOME: home };
+    let spawned = false;
+    await runWithJobsEnv(env, () =>
+      upsertJob(root, {
+        id: "ghost",
+        title: "Ghost checkout",
+        playbook: "ticket",
+        prd: "",
+        branch: "dispatch/ghost",
+        worktreePath: root,
+        source: "prism",
+        status: "paused",
+        lastStep: "",
+        nextStep: "paused — say resume to continue",
+        waitingOn: "",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }),
+    );
+    await rmTree(root);
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker: {
+        async start() {
+          spawned = true;
+          return { agentId: "agent-ghost" };
+        },
+        async resume() {
+          spawned = true;
+        },
+        async cancel() {},
+        async status() {
+          return { status: "idle", detail: "" };
+        },
+      },
+      env: { ...env, CURSOR_API_KEY: "test-key" },
+    });
+    const result = (await runWithJobsEnv(env, () =>
+      runtime.handle("job_control", { jobId: "ghost", action: "resume" }),
+    )) as { message: string };
+    expect(spawned).toBe(false);
+    expect(result.message).toMatch(/checkout is gone/i);
+    await rmTree(home);
+  });
+
   it("resume on a live non-stalled job says already running", async () => {
     root = await tempRoot();
     let cancelled = false;
@@ -1750,7 +1904,7 @@ describe("retry and reverify", () => {
     );
   });
 
-  it("reverify on a finished job without package.json records NA", async () => {
+  it("reverify on a finished job without package.json records skipped, not Failure", async () => {
     root = await tempRoot();
     await upsertJob(root, {
       id: "done-job",
@@ -1799,7 +1953,9 @@ describe("retry and reverify", () => {
     expect(started).toBe(false);
     expect(result.job.parentJobId).toBe("done-job");
     expect(result.job.verification).toBe("skipped");
-    expect(result.message).toMatch(/package\.json/i);
+    expect(result.job.verificationDetail).toBe("No checks to run.");
+    expect(result.message).toMatch(/No checks to run/);
+    expect(result.message).not.toMatch(/fail/i);
   });
 
   it("reverify actually runs checks again and survives a later reap", async () => {
@@ -2012,9 +2168,7 @@ describe("retry and reverify", () => {
     expect(result.job.status).toBe("running");
     expect(result.job.verification).toBeUndefined();
     expect(result.message).toMatch(/teammate is fixing/i);
-    expect(prompt).toContain(
-      "Your only job is to make typecheck and tests pass",
-    );
+    expect(prompt).toContain("Your only job is to make these checks pass");
     expect(prompt).toContain("typecheck failed — error TS2345");
     expect(prompt.indexOf("typecheck failed")).toBeLessThan(
       prompt.indexOf("Original brief about auth"),

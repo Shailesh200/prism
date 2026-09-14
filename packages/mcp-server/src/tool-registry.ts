@@ -10,6 +10,11 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { PrismWorkspace } from "@repo-prism/core";
+import {
+  appendEnvelopeLedger,
+  envelopeFromToolResult,
+  envelopeHostProbe,
+} from "@repo-prism/dispatch";
 import type { PrismError, Result } from "@repo-prism/shared";
 import type { ZodRawShape, z } from "zod";
 import { toMcpError, toMcpErrorFromThrown } from "./errors.js";
@@ -61,6 +66,7 @@ export function registerTools(
   session: WorkspaceSession,
   tools: readonly ToolDefinition<never>[],
   workspaceRoot: string | (() => string),
+  env: NodeJS.ProcessEnv = process.env,
 ): void {
   for (const tool of tools as readonly ToolDefinition[]) {
     server.registerTool(
@@ -80,8 +86,9 @@ export function registerTools(
         if (!ready.ok) throw toMcpError(ready.error);
 
         let result: Result<unknown, PrismError>;
+        let root = "";
         try {
-          const root =
+          root =
             typeof workspaceRoot === "function"
               ? workspaceRoot()
               : workspaceRoot;
@@ -94,10 +101,30 @@ export function registerTools(
         }
 
         if (!result.ok) throw toMcpError(result.error);
+        const text = serialiseForMcp(result.value);
+        const envelope = envelopeFromToolResult(result.value);
+        const probe = envelopeHostProbe({
+          client: server.server.getClientVersion?.(),
+          env,
+        });
+        await appendEnvelopeLedger(
+          root,
+          {
+            ts: new Date().toISOString(),
+            tool: tool.name,
+            itemCount: envelope.itemCount,
+            totalCount: envelope.totalCount,
+            truncated: envelope.truncated,
+            limit: envelope.limit,
+            jsonBytes: Buffer.byteLength(text, "utf8"),
+            ...probe,
+          },
+          env,
+        ).catch(() => {
+          /* ledger is best-effort; never fail the tool */
+        });
         return {
-          content: [
-            { type: "text" as const, text: serialiseForMcp(result.value) },
-          ],
+          content: [{ type: "text" as const, text }],
         };
       },
     );

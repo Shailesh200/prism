@@ -25,7 +25,6 @@ import {
   MessageSquarePlus,
   MoreVertical,
   Pause,
-  Play,
   RotateCcw,
   Trash2,
   X,
@@ -73,7 +72,7 @@ function copyJobLink(job: JobSummary): void {
 
 export type FleetPendingControl = {
   readonly jobId: string;
-  readonly action: "retry" | "reverify";
+  readonly action: "retry" | "reverify" | "resume" | "confirm";
 };
 
 export type JobActionHandlers = {
@@ -147,6 +146,14 @@ export function jobActionItems(
     Boolean(job) &&
     props.pending?.jobId === job?.id &&
     props.pending.action === "retry";
+  const resuming =
+    Boolean(job) &&
+    props.pending?.jobId === job?.id &&
+    props.pending.action === "resume";
+  const confirming =
+    Boolean(job) &&
+    props.pending?.jobId === job?.id &&
+    props.pending.action === "confirm";
   const reverifying =
     Boolean(checkJob) &&
     (jobChecksRunning(checkJob) ||
@@ -216,10 +223,12 @@ export function jobActionItems(
       ? [
           {
             id: "confirm",
-            label: "Start anyway",
-            icon: <Play size={14} aria-hidden />,
+            label: confirming ? "Starting…" : "Start anyway",
+            icon: retryGlyph(confirming),
             tone: "brand" as const,
-            onSelect: () => props.onConfirm?.(job),
+            onSelect: () => {
+              if (!confirming) props.onConfirm?.(job);
+            },
           },
         ]
       : []),
@@ -232,10 +241,12 @@ export function jobActionItems(
       ? [
           {
             id: "resume",
-            label: "Resume",
-            icon: <Play size={14} aria-hidden />,
+            label: resuming ? "Resuming…" : "Resume",
+            icon: retryGlyph(resuming),
             tone: "brand" as const,
-            onSelect: () => props.onResume?.(job),
+            onSelect: () => {
+              if (!resuming) props.onResume?.(job);
+            },
           },
         ]
       : []),
@@ -481,7 +492,11 @@ export function LabeledJobBar(
               label={meta.label}
               title=""
               variant={item.danger ? "danger" : meta.variant}
-              onClick={() => item.onSelect()}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                item.onSelect();
+              }}
             >
               {item.icon}
             </IconButton>
@@ -512,7 +527,11 @@ export function FocusJobBar(
               {...(item.id === "retry"
                 ? { className: "focus-job-bar__retry" }
                 : {})}
-              onClick={() => item.onSelect()}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                item.onSelect();
+              }}
             >
               {item.icon}
             </IconButton>

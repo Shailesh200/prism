@@ -27,6 +27,7 @@ export function useGlobalJobStore(
 ): boolean {
   if (env.PRISM_JOBS_LOCAL === "1") return false;
   if (env.VITEST === "true" && !env.PRISM_HOME?.trim()) return false;
+  if (env.BUN_TEST === "1" && !env.PRISM_HOME?.trim()) return false;
   return true;
 }
 

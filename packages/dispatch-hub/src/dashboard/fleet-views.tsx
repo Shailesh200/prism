@@ -26,6 +26,7 @@ import {
   listCursorDelta,
   pageShortcutBlocked,
   sortRows,
+  TableTimestamp,
   type DateRangeValue,
   type TableColumn,
   type TableSort,
@@ -468,6 +469,7 @@ export function ListView(
     {
       id: "status",
       header: "Status",
+      type: "tag",
       className: "fleet-list__status",
       sortable: true,
       sortValue: (job) => jobDisplayLabel(job),
@@ -483,6 +485,7 @@ export function ListView(
     {
       id: "title",
       header: "Title",
+      type: "text",
       className: "fleet-list__title",
       sortable: true,
       sortValue: (job) => job.title,
@@ -502,6 +505,7 @@ export function ListView(
     {
       id: "tree",
       header: "Tree",
+      type: "text",
       className: "fleet-list__repo",
       sortable: true,
       sortValue: (job) => jobTreeLabel(job).label,
@@ -519,6 +523,7 @@ export function ListView(
     {
       id: "waited",
       header: "Waited",
+      type: "number",
       className: "fleet-list__metric",
       sortable: true,
       sortValue: (job) => waitedWorkedLabel(job, props.nowMs).waited,
@@ -527,6 +532,7 @@ export function ListView(
     {
       id: "worked",
       header: "Worked",
+      type: "number",
       className: "fleet-list__metric",
       sortable: true,
       sortValue: (job) => waitedWorkedLabel(job, props.nowMs).worked,
@@ -535,6 +541,7 @@ export function ListView(
     {
       id: "tokens",
       header: "Tokens",
+      type: "text",
       className: "fleet-list__tokens",
       sortable: true,
       sortValue: (job) =>
@@ -557,6 +564,7 @@ export function ListView(
     {
       id: "verify",
       header: "Verify",
+      type: "tag",
       className: "fleet-list__verify",
       sortable: true,
       sortValue: (job) => verifyTag(job.verification).label,
@@ -586,19 +594,21 @@ export function ListView(
     {
       id: "when",
       header: "When",
+      type: "timestamp",
       className: "fleet-list__when",
       sortable: true,
       sortValue: (job) =>
         Date.parse(job.finishedAt ?? job.startedAt ?? job.createdAt ?? "") || 0,
-      render: (job) =>
-        formatPrismDate(
-          job.finishedAt ?? job.startedAt ?? job.createdAt ?? "",
-          "datetime",
-        ),
+      render: (job) => (
+        <TableTimestamp
+          iso={job.finishedAt ?? job.startedAt ?? job.createdAt ?? ""}
+        />
+      ),
     },
     {
       id: "actions",
       header: "",
+      type: "action",
       className: "fleet-list__actions",
       render: (job) => (
         <JobActions

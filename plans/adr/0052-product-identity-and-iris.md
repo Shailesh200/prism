@@ -4,7 +4,7 @@
 |---|---|
 | Status | Accepted |
 | Date | 2026-09-04 |
-| Milestone | M-068 (P-C1, P-C8) |
+| Milestone | M-068 (P-C1, P-C8); amended M-069 (Console Iris) |
 | Amends | [ADR-0014](./0014-uxpilot-dark-product-ui.md), [ADR-0039](./0039-dispatch-chat-voice.md) |
 | Research | [`notes/COMPETITIVE_LANDSCAPE_2026-09.md`](../notes/COMPETITIVE_LANDSCAPE_2026-09.md) |
 
@@ -117,6 +117,13 @@ decorative graphic that resembles one.
 A hero that only resembles the product is a claim we cannot defend, which puts
 it in the same category M-056 and ADR-0029 already legislate against. The
 honest version is also the more impressive one.
+
+**Console Iris exception (M-069).** Owner override 2026-09-11: Dispatch
+Console `#/iris` does **not** mount `RepositoryMapView`. Spectrum stays on the
+website hero, the playground, and the IDE Map webview. Console Iris is
+Repository analysis plus Envelope rows for the filtered repo (Repos ▾, no
+REPO column). The “same artifact” rule still holds for every surface that
+shows a map.
 
 ### 5. The naming budget is exactly two names
 

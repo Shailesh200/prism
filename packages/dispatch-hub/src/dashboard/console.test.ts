@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CONSOLE_VIEWS,
+  parseIrisPane,
   parseJobId,
   parseRepoFilter,
   parseTypeQuery,
@@ -9,6 +10,7 @@ import {
   jobsHash,
   viewHash,
   dashboardHash,
+  envelopeHash,
 } from "./router.js";
 import {
   ConsoleRequestError,
@@ -65,6 +67,10 @@ describe("parseView", () => {
   it("ignores a query string after the view", () => {
     expect(parseView("#/intelligence?token=abc")).toBe("iris");
     expect(parseView("#/iris?load=1")).toBe("iris");
+    expect(parseView("#/iris/envelope")).toBe("iris");
+    expect(parseIrisPane("#/iris/envelope")).toBe("envelope");
+    expect(parseIrisPane("#/iris")).toBeUndefined();
+    expect(envelopeHash()).toBe("#/iris/envelope");
   });
 
   it("reads a repo filter from the jobs hash", () => {
@@ -217,6 +223,19 @@ describe("toJobSummary", () => {
     });
     expect(summary.tokenUsage?.inputTokens).toBe(1_200);
     expect(summary.tokenUsage?.outputTokens).toBe(80);
+  });
+
+  it("passes Envelope usage through", () => {
+    const summary = toJobSummary({
+      ...base,
+      envelopeUsage: {
+        bytesKeptRatio: 0.5,
+        tokensSaved: 400,
+        calls: 2,
+      },
+    });
+    expect(summary.envelopeUsage?.tokensSaved).toBe(400);
+    expect(summary.envelopeUsage?.calls).toBe(2);
   });
 });
 
@@ -382,6 +401,12 @@ describe("controlFinishToast", () => {
       message: "Verification failed",
       tone: "error",
     });
+    expect(controlFinishToast("reverify", { verification: "skipped" })).toEqual(
+      {
+        message: "Checks: —",
+        tone: "ok",
+      },
+    );
     expect(controlFinishToast("reverify")).toEqual({
       message: "Verification finished",
       tone: "ok",

@@ -45,6 +45,9 @@ export function controlFinishToast(
   if (options.verification === "failed") {
     return { message: "Verification failed", tone: "error" };
   }
+  if (options.verification === "skipped") {
+    return { message: "Checks: —", tone: "ok" };
+  }
   return { message: "Verification finished", tone: "ok" };
 }
 

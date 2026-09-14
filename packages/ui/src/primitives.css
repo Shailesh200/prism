@@ -444,6 +444,11 @@
 .prism-tooltip__pop[data-open="true"] {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* Hover labels must not sit on Resume / Start anyway. InfoTips with a
+   footer keep pointer-events so their actions stay clickable. */
+.prism-tooltip__pop[data-interactive="true"][data-open="true"] {
   pointer-events: auto;
 }
 
@@ -453,10 +458,15 @@
   color: var(--prism-ink);
 }
 
+.prism-tooltip__pop[data-wide="true"] {
+  width: 320px;
+}
+
 .prism-tooltip__body {
   font-size: var(--prism-type-label);
   line-height: var(--prism-leading-body);
   color: var(--prism-ink-muted);
+  white-space: pre-wrap;
 }
 
 /* Compact HoverTip: keep long briefs (job PRDs) to a few scannable lines. */
@@ -1464,6 +1474,8 @@ fieldset.prism-field,
   text-align: left;
   border-bottom: 1px solid var(--prism-line);
   vertical-align: middle;
+  overflow: hidden;
+  display: table-cell;
 }
 
 .prism-table th {
@@ -1473,6 +1485,8 @@ fieldset.prism-field,
   letter-spacing: var(--prism-type-label-tracking);
   text-transform: uppercase;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .prism-table tbody tr {
@@ -1485,7 +1499,7 @@ fieldset.prism-field,
 }
 
 .prism-table__sort {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 4px;
   margin: 0;
@@ -1497,6 +1511,8 @@ fieldset.prism-field,
   letter-spacing: inherit;
   text-transform: inherit;
   cursor: pointer;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .prism-table__sort:focus-visible {
@@ -1505,12 +1521,170 @@ fieldset.prism-field,
   border-radius: var(--prism-radius-sm);
 }
 
-/* —— Truncate / empty —— */
-.prism-hovertip,
-.prism-truncate-wrap {
-  display: inline-flex;
+.prism-table__col--timestamp {
+  width: 7.25rem;
+  min-width: 7.25rem;
+  max-width: 7.25rem;
+}
+
+.prism-table__col--number {
+  width: 5.25rem;
+  max-width: 5.25rem;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+.prism-table__col--tag {
+  width: 5.5rem;
+  min-width: 5.5rem;
+  max-width: 10rem;
+  white-space: nowrap;
+}
+
+.prism-table__col--nowrap {
+  white-space: nowrap;
+}
+
+.prism-table__col--action {
+  width: 1.75rem;
+  max-width: 1.75rem;
+  text-align: left;
+}
+
+.prism-table th.prism-table__col--timestamp,
+.prism-table th.prism-table__col--number,
+.prism-table th.prism-table__col--tag,
+.prism-table th.prism-table__col--action {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
+  word-break: keep-all;
+  hyphens: none;
+}
+
+.prism-table td.prism-table__col--timestamp,
+.prism-table td.prism-table__col--number,
+.prism-table td.prism-table__col--tag,
+.prism-table td.prism-table__col--action,
+.prism-table td.prism-table__col--nowrap {
+  overflow: hidden;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+.prism-table__cell {
   min-width: 0;
   max-width: 100%;
+  overflow: hidden;
+}
+
+.prism-table__cell--text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.prism-table__col--nowrap .prism-table__cell--text,
+.prism-table__cell--nowrap,
+.envelope-table .prism-table__cell--text {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+.prism-table__cell--timestamp {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  overflow: hidden;
+}
+
+.prism-table__when {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  font-family: var(--prism-mono, ui-monospace, monospace);
+  line-height: 1.25;
+}
+
+.prism-table__when-day,
+.prism-table__when-time {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.prism-table__when-day {
+  font-size: 10px;
+  color: var(--prism-ink-muted);
+}
+
+.prism-table__when-time {
+  font-variant-numeric: tabular-nums;
+}
+
+.prism-table__cell--number,
+.prism-table__num {
+  display: block;
+  overflow: hidden;
+  font-family: var(--prism-mono, ui-monospace, monospace);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.prism-table td.prism-table__col--number .prism-table__cell--number {
+  text-align: left;
+}
+
+.prism-table__cell--tag {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.prism-table__cell--tag .prism-badge,
+.prism-table__cell--tag .envelope-pill,
+.prism-table__cell--tag .envelope-tool {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prism-table__cell--action {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* —— Truncate / empty —— */
+.prism-table .prism-hovertip,
+.prism-table .prism-truncate-wrap,
+.prism-table .prism-truncate {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .prism-truncate {
@@ -1853,6 +2027,213 @@ fieldset.prism-field,
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* —— Metric card (Iris / Envelope / Pulse KPI tiles) —— */
+.prism-metric-card {
+  --metric-wash: var(--prism-brand);
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 64px;
+  padding: 12px 28px 12px 12px;
+  border: 1px solid var(--prism-line);
+  border-radius: var(--prism-radius-md, 8px);
+  background: var(--prism-panel);
+}
+
+.prism-metric-card[data-variant="wash"] {
+  background:
+    radial-gradient(
+      circle at 10% 20%,
+      color-mix(in oklab, var(--metric-wash) 14%, transparent) 0%,
+      var(--prism-panel) 70%
+    );
+}
+
+.prism-metric-card[data-variant="panel"] {
+  background: var(--prism-panel);
+}
+
+.prism-metric-card[data-variant="muted"] {
+  background: var(--prism-tile, var(--prism-panel-2));
+}
+
+.prism-metric-card[data-variant="brand"] {
+  background: color-mix(in oklab, var(--metric-wash) 16%, var(--prism-panel));
+}
+
+.prism-metric-card[data-tone="brand"] {
+  --metric-wash: var(--prism-brand);
+}
+
+.prism-metric-card[data-tone="violet"] {
+  --metric-wash: var(--prism-violet);
+}
+
+.prism-metric-card[data-tone="emerald"] {
+  --metric-wash: var(--prism-emerald);
+}
+
+.prism-metric-card[data-tone="amber"] {
+  --metric-wash: var(--prism-amber);
+}
+
+.prism-metric-card[data-tone="rose"] {
+  --metric-wash: var(--prism-rose);
+}
+
+.prism-metric-card[data-tone="ink"] {
+  --metric-wash: var(--prism-ink-3);
+}
+
+.prism-metric-card[data-tip="false"] {
+  padding-right: 12px;
+}
+
+.prism-metric-card[data-density="compact"] {
+  min-height: 56px;
+  padding: 8px 26px 8px 10px;
+  gap: 8px;
+}
+
+.prism-metric-card[data-density="compact"][data-tip="false"] {
+  padding-right: 10px;
+}
+
+.prism-metric-card__tip {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+}
+
+.prism-metric-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--prism-line);
+  border-radius: 6px;
+  background: var(--prism-tile, var(--prism-panel-2));
+  color: var(--metric-wash);
+}
+
+.prism-metric-card[data-density="compact"] .prism-metric-card__icon {
+  width: 22px;
+  height: 22px;
+}
+
+.prism-metric-card__copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.prism-metric-card__label {
+  overflow: hidden;
+  min-width: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--prism-ink-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prism-metric-card[data-density="compact"] .prism-metric-card__label,
+.prism-metric-card[data-density="regular"] .prism-metric-card__label {
+  padding-right: 4px;
+}
+
+.prism-metric-card[data-density="regular"] .prism-metric-card__label {
+  font-size: 10px;
+  font-family: var(--prism-mono);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
+
+.prism-metric-card__sub {
+  overflow: hidden;
+  font-family: var(--prism-mono);
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--prism-ink-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prism-metric-card[data-density="compact"] .prism-metric-card__sub {
+  font-size: 10px;
+}
+
+.prism-metric-card[data-density="regular"] .prism-metric-card__sub {
+  font-size: 10px;
+}
+
+.prism-metric-card__sub[data-tone="safe"] {
+  color: var(--prism-safe);
+}
+
+.prism-metric-card__sub[data-tone="brand"] {
+  color: var(--prism-brand);
+}
+
+.prism-metric-card__metric {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  margin-left: auto;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.prism-metric-card__value {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 4px;
+  font-family: var(--prism-mono);
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--prism-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.prism-metric-card[data-density="compact"] .prism-metric-card__value {
+  font-size: 16px;
+}
+
+.prism-metric-card[data-density="regular"] .prism-metric-card__value {
+  font-size: 18px;
+}
+
+.prism-metric-card__value[data-tone="brand"] > span:first-child {
+  color: var(--prism-brand);
+}
+
+.prism-metric-card__unit {
+  font-family: var(--prism-font);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--prism-ink-muted);
+}
+
+.prism-metric-card[data-density="compact"] .prism-metric-card__unit,
+.prism-metric-card[data-density="regular"] .prism-metric-card__unit {
+  font-size: 10px;
 }
 
 @media (prefers-reduced-motion: reduce) {

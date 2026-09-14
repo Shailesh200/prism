@@ -96,6 +96,9 @@ export function SettingsView(props: {
   const [config, setConfig] = useState<DispatchConfig | undefined>();
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
+  const [wipeText, setWipeText] = useState("");
+  const [wiping, setWiping] = useState(false);
+  const [wiped, setWiped] = useState(false);
   const [vendors, setVendors] = useState<
     Record<VendorId, boolean> | undefined
   >();
@@ -214,6 +217,38 @@ export function SettingsView(props: {
     setConfig({ ...config, ...next });
   };
 
+  const wipeAll = async (): Promise<void> => {
+    if (wipeText.trim().toLowerCase() !== "wipe") return;
+    setWiping(true);
+    try {
+      const body = await postJson<{ ok?: boolean; message?: string }>(
+        "/api/wipe",
+        props.token,
+        { confirm: wipeText },
+      );
+      try {
+        const keys: string[] = [];
+        for (let i = 0; i < localStorage.length; i += 1) {
+          const key = localStorage.key(i);
+          if (key?.startsWith("prism")) keys.push(key);
+        }
+        for (const key of keys) localStorage.removeItem(key);
+        sessionStorage.clear();
+      } catch {
+        /* private mode */
+      }
+      setWiped(true);
+      showConsoleToast(body.message ?? "Prism data is gone.");
+    } catch (cause) {
+      showConsoleToast(
+        cause instanceof Error ? cause.message : String(cause),
+        "error",
+      );
+    } finally {
+      setWiping(false);
+    }
+  };
+
   const sectionOn = (id: SectionId): boolean =>
     !config?.sectionsOff.includes(id);
 
@@ -241,6 +276,18 @@ export function SettingsView(props: {
     ...(has("linear") ? [{ value: "linear", label: "Linear" }] : []),
     ...(has("jira") ? [{ value: "jira", label: "Jira" }] : []),
   ];
+
+  if (wiped) {
+    return (
+      <section className="console__panel">
+        <h1 className="console__title">Dispatch Settings</h1>
+        <EmptyState>
+          <strong>Prism data is gone.</strong> Reload the Prism MCP server, then
+          open the Console again. It will look like a fresh install.
+        </EmptyState>
+      </section>
+    );
+  }
 
   if (!config && !error) {
     return <ScreenSkeleton label="Loading Dispatch settings…" rows={4} />;
@@ -411,7 +458,7 @@ export function SettingsView(props: {
               onChange={(checked) => patch({ verifyJobs: checked })}
               hint="Prism runs these after the teammate stops, not during the job."
             >
-              Run typecheck and tests after a teammate stops
+              Run this repository's checks after a teammate stops
             </ToggleCheck>
             <ToggleCheck
               checked={config.subagents}
@@ -561,6 +608,32 @@ export function SettingsView(props: {
           </div>
         </form>
       ) : null}
+      <div className="dispatch-settings">
+        <fieldset className="dispatch-settings__group dispatch-settings__danger">
+          <legend>Wipe all Prism data</legend>
+          <p className="dispatch-settings__lede">
+            Removes Prism&apos;s library on this machine (<code>~/.prism</code>)
+            and the <code>.prism</code> folder in every registered repository:
+            jobs, memories, skills, Console session, index, and Envelope. Source
+            code and git history stay. After this, Prism looks like a newly
+            installed MCP.
+          </p>
+          <Input
+            label="Type wipe to confirm"
+            value={wipeText}
+            placeholder="wipe"
+            onChange={(event) => setWipeText(event.target.value)}
+          />
+          <Button
+            type="button"
+            variant="danger"
+            disabled={wiping || wipeText.trim().toLowerCase() !== "wipe"}
+            onClick={() => void wipeAll()}
+          >
+            {wiping ? "Wiping…" : "Wipe all Prism data"}
+          </Button>
+        </fieldset>
+      </div>
     </section>
   );
 }

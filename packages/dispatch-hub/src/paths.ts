@@ -32,6 +32,10 @@ export function mergeHubEnv(env?: HubEnv): NodeJS.ProcessEnv {
     merged.VITEST = "true";
     merged.PRISM_HOME = "";
   }
+  if (process.env.BUN_TEST === "1" && !env?.PRISM_HOME?.trim()) {
+    merged.BUN_TEST = "1";
+    merged.PRISM_HOME = "";
+  }
   return merged;
 }
 

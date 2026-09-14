@@ -14,6 +14,11 @@ import {
   jobTokensLabel,
   jobUsageLine,
   jobUsageFigures,
+  jobEnvelopeLabel,
+  JOB_ENVELOPE_TIP,
+  IRIS_BYTES_KEPT_TIP,
+  envelopeToolTone,
+  ENVELOPE_TOOL_TONES,
 } from "./jobs-types.js";
 
 describe("jobStatusLabel", () => {
@@ -184,5 +189,38 @@ describe("token usage labels", () => {
       input: "—",
       output: "—",
     });
+  });
+
+  it("names Envelope savings this teammate kept back", () => {
+    expect(jobEnvelopeLabel(undefined)).toBe("no Prism calls");
+    expect(
+      jobEnvelopeLabel({
+        bytesKeptRatio: 0.4,
+        tokensSaved: 12_000,
+        calls: 3,
+      }),
+    ).toBe("40% sent · ~12k not sent");
+  });
+
+  it("explains sent vs not sent in the Envelope glossary", () => {
+    expect(JOB_ENVELOPE_TIP).toMatch(/Sent is the list Prism actually gave/);
+    expect(JOB_ENVELOPE_TIP).toMatch(/Not sent is the rest/);
+    expect(JOB_ENVELOPE_TIP).toContain("Sent % is sent ÷ the full list");
+    expect(JOB_ENVELOPE_TIP).toContain("Context and Tokens above");
+    expect(IRIS_BYTES_KEPT_TIP).toContain(
+      "How much of the full list actually reached the agent this week",
+    );
+  });
+});
+
+describe("envelopeToolTone", () => {
+  it("gives Intelligence tools a stable chip colour, never grey", () => {
+    expect(envelopeToolTone("find_symbol")).toBe("brand");
+    expect(envelopeToolTone("blast_radius")).toBe("amber");
+    expect(envelopeToolTone("safe_delete")).toBe("rose");
+    expect(envelopeToolTone("dependency_graph")).toBe("violet");
+    expect(envelopeToolTone("explain_area")).toBe("emerald");
+    expect(ENVELOPE_TOOL_TONES).not.toContain("neutral");
+    expect(envelopeToolTone("some_new_list_tool")).toBe("violet");
   });
 });

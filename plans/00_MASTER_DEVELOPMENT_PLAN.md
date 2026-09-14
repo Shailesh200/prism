@@ -521,6 +521,7 @@ flowchart TD
 | M-066 | Checkout-first Jobs + Claude Presence | Surfaces | M-065 | Yes |
 | M-067 | Shippable Product | Surfaces | M-066 | Yes |
 | M-068 | Trinity-grade Console | Surfaces | M-067 | Yes |
+| M-069 | Agent substrate (Envelope pipe, Honest Edges, verify-plan, Console Iris) | Surfaces | M-068 | In Progress |
 
 **Critical path (must stay green):** M-001 → M-005 → M-040 → M-014 → **M-041 Gate A** (P0 + P1 + Mono-v1) → M-017 → M-018 → M-025 → surfaces (M-026/M-028/M-030) → M-039.  
 **M-041 continued:** phases P2–P7 + Mono-v2 may run after Gate A (Map unblocked); still tracked as M-041 until epic complete.

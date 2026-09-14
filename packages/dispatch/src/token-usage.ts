@@ -245,6 +245,17 @@ export function parseTokenUsage(value: unknown): ParsedUsage | undefined {
   return undefined;
 }
 
+function billedEqual(a: TokenUsage, b: TokenUsage): boolean {
+  return (
+    a.inputTokens === b.inputTokens &&
+    a.outputTokens === b.outputTokens &&
+    (a.cacheReadTokens ?? 0) === (b.cacheReadTokens ?? 0) &&
+    (a.cacheWriteTokens ?? 0) === (b.cacheWriteTokens ?? 0) &&
+    (a.totalTokens ?? a.inputTokens + a.outputTokens) ===
+      (b.totalTokens ?? b.inputTokens + b.outputTokens)
+  );
+}
+
 export function mergeTokenUsage(
   prev: TokenUsage | undefined,
   parsed: ParsedUsage,
@@ -276,6 +287,21 @@ export function mergeTokenUsage(
         : {}),
       contextTokens: next.contextTokens ?? prev?.contextTokens,
       contextWindow: next.contextWindow ?? prev?.contextWindow,
+    });
+  }
+  if (parsed.source === "turn" && prev && billedEqual(prev, next)) {
+    return canonicalTokenUsage({
+      inputTokens: prev.inputTokens,
+      outputTokens: prev.outputTokens,
+      ...(prev.cacheReadTokens != null
+        ? { cacheReadTokens: prev.cacheReadTokens }
+        : {}),
+      ...(prev.cacheWriteTokens != null
+        ? { cacheWriteTokens: prev.cacheWriteTokens }
+        : {}),
+      ...(prev.totalTokens != null ? { totalTokens: prev.totalTokens } : {}),
+      contextTokens: next.contextTokens ?? prev.contextTokens,
+      contextWindow: next.contextWindow ?? prev.contextWindow,
     });
   }
   const inputTokens = (prev?.inputTokens ?? 0) + next.inputTokens;

@@ -987,12 +987,22 @@ export const GraphNodeDtoSchema = z.object({
 
 export type GraphNodeDto = z.infer<typeof GraphNodeDtoSchema>;
 
+/** How sure an import/call/membership edge is (M-069 Honest Edges). */
+export const EdgeProvenanceSchema = z.enum([
+  "measured",
+  "heuristic",
+  "inferred",
+]);
+export type EdgeProvenance = z.infer<typeof EdgeProvenanceSchema>;
+
 export const GraphEdgeDtoSchema = z.object({
   id: z.string().min(1),
   kind: z.string().min(1),
   from: z.string().min(1),
   to: z.string().min(1),
   attrs: z.record(z.string(), JsonValueSchema).optional(),
+  /** Absent on edges that predate M-069. */
+  provenance: EdgeProvenanceSchema.optional(),
 });
 
 export type GraphEdgeDto = z.infer<typeof GraphEdgeDtoSchema>;

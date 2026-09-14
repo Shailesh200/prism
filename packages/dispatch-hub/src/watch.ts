@@ -1,12 +1,14 @@
-import { access } from "node:fs/promises";
 import { watch, type FSWatcher } from "node:fs";
 import { dirname, join } from "node:path";
 import {
   jobsPath,
   listStoredWorkspaceRoots,
+  readEnvelopeLedger,
   reapJobs,
   runWithJobsEnv,
+  summarizeJobEnvelope,
   useGlobalJobStore,
+  workspaceRootPresent,
 } from "@repo-prism/dispatch";
 import { formatJobFinishedNotice } from "./notice.js";
 import { mergeHubEnv } from "./paths.js";
@@ -43,12 +45,7 @@ export type WorkspaceWatch = {
 };
 
 async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
+  return workspaceRootPresent(path);
 }
 
 export function isInFlight(job: JobSnapshot): boolean {
@@ -79,10 +76,25 @@ export async function collectJobs(
   const jobs: JobSnapshot[] = [];
   const errors: WorkspaceError[] = [];
   for (const entry of listed) {
+    if (!(await pathExists(entry.path))) continue;
     try {
       const records = await runWithJobsEnv(env, () => reapJobs(entry.path));
+      const ledger = await readEnvelopeLedger(entry.path, env);
       for (const record of records) {
-        jobs.push(toSnapshot(record, entry.path));
+        const envelope = summarizeJobEnvelope(ledger, record.id);
+        jobs.push(
+          toSnapshot(
+            record,
+            entry.path,
+            envelope.available
+              ? {
+                  bytesKeptRatio: envelope.bytesKeptRatio,
+                  tokensSaved: envelope.tokensSaved,
+                  calls: envelope.calls,
+                }
+              : undefined,
+          ),
+        );
       }
     } catch (cause) {
       errors.push({

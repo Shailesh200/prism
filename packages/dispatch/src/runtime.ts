@@ -44,7 +44,13 @@ import {
   alreadyAwakeSpeak,
   listJobsAsleepSpeak,
 } from "./job-voice.js";
-import { activeJobCount, deleteJob, loadJobs, upsertJob } from "./jobs.js";
+import {
+  activeJobCount,
+  deleteJob,
+  loadJobs,
+  upsertJob,
+  workspaceRootPresent,
+} from "./jobs.js";
 import { kickDrain, requeueAuthBlocked, type DrainDeps } from "./queue.js";
 import {
   isInProcessJobStatus,
@@ -99,6 +105,7 @@ import {
   type WorkerAuthInspect,
   type WorkerBackend,
 } from "./worker-backend.js";
+import { jobReviewIsForeign } from "./worker-finish.js";
 import { pruneOrphanWorktrees } from "./worktrees.js";
 import {
   admissionMessage,
@@ -144,6 +151,44 @@ export function visibleDispatchTools(
   return DISPATCH_TOOL_NAMES.filter(
     (name) => !WORKER_HIDDEN_TOOLS.includes(name),
   );
+}
+
+async function dismissForeignJobReview(
+  workspaceRoot: string,
+  job: JobRecord,
+): Promise<{ job: JobRecord; message: string }> {
+  const review = job.review;
+  if (!review) {
+    return {
+      job,
+      message: `${jobRef(job)} is not waiting on a review.`,
+    };
+  }
+  const next = await upsertJob(workspaceRoot, {
+    ...job,
+    review: {
+      ...review,
+      files: [],
+      totalAdded: 0,
+      totalRemoved: 0,
+      truncated: false,
+      keptPaths: [],
+      mixedPaths: [
+        ...new Set([
+          ...(review.mixedPaths ?? []),
+          ...review.files.map((file) => file.path),
+        ]),
+      ].sort(),
+    },
+    status: "done",
+    nextStep: "",
+    waitingOn: "",
+  });
+  return {
+    job: next,
+    message:
+      "That teammate did not change files. Your working tree is untouched.",
+  };
 }
 
 export type DispatchToolContext = {
@@ -481,7 +526,10 @@ async function launchVerificationFix(
       prompt: await composeWorkerPrompt({
         job,
         memories,
-        extra: verificationFixExtra(failureDetail),
+        extra: verificationFixExtra(
+          failureDetail,
+          job.verifyPlan?.steps.map((step) => step.name),
+        ),
         subagents: config.subagents,
         placement: jobPlacement,
         jobInstructions: config.jobInstructions,
@@ -1047,6 +1095,21 @@ async function jobControl(
   const job = resolved.job;
   const launch = resolveMcpLaunch(env);
 
+  const needsCheckout =
+    action === "resume" ||
+    action === "retry" ||
+    action === "confirm" ||
+    action === "attach_context" ||
+    action === "reverify";
+  if (needsCheckout) {
+    if (!(await workspaceRootPresent(options.workspaceRoot, 2_000))) {
+      return {
+        job,
+        message: `${jobRef(job)} cannot ${action === "confirm" ? "start" : action} — that checkout is gone.`,
+      };
+    }
+  }
+
   if (action === "cancel" || action === "pause" || action === "delete") {
     const cancelWorker =
       workerForBackend(options, job.workerBackend ?? "cursor") ??
@@ -1122,17 +1185,23 @@ async function jobControl(
       readonly message: string;
     }> => {
       const lastActivity =
-        checked.status === "passed" ? "Checks passed" : "Checks failed";
+        checked.status === "passed"
+          ? "Checks passed"
+          : checked.status === "skipped"
+            ? "Checks: —"
+            : "Checks failed";
       await patchSidecarIfPresent(options.workspaceRoot, running.id, {
         verification: checked.status,
         verificationDetail: checked.detail,
         lastActivity,
+        ...(checked.plan ? { verifyPlan: checked.plan } : {}),
       });
       const next = await upsertJob(options.workspaceRoot, {
         ...running,
         verification: checked.status,
         verificationDetail: checked.detail,
         lastActivity,
+        ...(checked.plan ? { verifyPlan: checked.plan } : {}),
       });
       return {
         job: next,
@@ -1244,12 +1313,12 @@ async function jobControl(
           message: `Noted for ${jobRef(next)}. The teammate is still working — say “where are we” for live status.`,
         };
       }
-      // Stalled resume and retry both need a new teammate. A leftover pid on
-      // a failed/cancelled job must not look "already running" — that used to
-      // skip spawn, and the cancelled sidecar then reaped the row back.
-      const stalled =
-        job.waitingOn === "stalled" || job.status === "waiting_on_you";
-      if (action !== "retry" && !(action === "resume" && stalled)) {
+      // Resume on a job that is not actually working must spawn again.
+      // A leftover pid on paused/error/stuck used to look "already running",
+      // so the Console Resume button returned without starting anyone.
+      const resumeNeedsNewWorker =
+        action === "resume" && !isWorkingJobStatus(job.status);
+      if (action !== "retry" && !resumeNeedsNewWorker) {
         return { job, message: alreadyRunningSpeak(job) };
       }
       const cancelWorker =
@@ -1439,6 +1508,9 @@ async function jobControl(
         message: `${jobRef(job)} is not waiting on a review.`,
       };
     }
+    if (jobReviewIsForeign(job)) {
+      return dismissForeignJobReview(options.workspaceRoot, job);
+    }
     const cwd = job.worktreePath || options.workspaceRoot;
     const paths =
       action === "reject_all"
@@ -1498,6 +1570,9 @@ async function jobControl(
         job,
         message: `${jobRef(job)} is not waiting on a review.`,
       };
+    }
+    if (jobReviewIsForeign(job)) {
+      return dismissForeignJobReview(options.workspaceRoot, job);
     }
     const kept = new Set(job.review.keptPaths ?? []);
     if (action === "accept_all") {

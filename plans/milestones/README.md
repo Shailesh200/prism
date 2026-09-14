@@ -33,3 +33,6 @@ Critical-path milestones have full specs here. Summaries for other milestones li
 | M-064 | [M-064_agent-dashboard.md](./M-064_agent-dashboard.md) — jobs hub daemon, OS/IDE toasts, MCP App widget |
 | M-067 | [M-067_shippable-product.md](./M-067_shippable-product.md) — queue + honest clock, Console, host-delegated integrations, plugin pack |
 | M-068 | [M-068_trinity-console.md](./M-068_trinity-console.md) — Trinity-grade Console (design lock: [`CONSOLE_FLEET.md`](../mockups/CONSOLE_FLEET.md)) |
+| M-069 | [M-069_agent-substrate.md](./M-069_agent-substrate.md) — Envelope pipe, Honest Edges, verify-plan, Console Iris without Spectrum |
+| PROGRAM | [PROGRAM_agent-native-iris.md](./PROGRAM_agent-native-iris.md) — Cut 1 approved 2026-09-11. First engineering milestone: [M-069](./M-069_agent-substrate.md). |
+| 3 prompts | [PROGRAM_agent-native-3-PHASES.md](./PROGRAM_agent-native-3-PHASES.md) — Phase 1 started (`go ahead with phase 1`). |

@@ -1,0 +1,38 @@
+{
+  "tag": "M-069",
+  "capturedAt": "2026-09-11T18:46:02.483Z",
+  "workspace": "/Users/shaileshjha/Prism",
+  "pipe": {
+    "items": 50,
+    "totalCount": 60,
+    "truncated": true,
+    "limit": 50
+  },
+  "verify": {
+    "thisRepo": {
+      "source": "package.json",
+      "steps": [
+        "typecheck",
+        "lint",
+        "test"
+      ]
+    },
+    "lintOnly": [
+      "lint"
+    ],
+    "none": []
+  },
+  "capabilities": {
+    "prepare_change": false,
+    "guard_session": false,
+    "queue_finding": false,
+    "working_set": false,
+    "agents_md": false,
+    "work_order": false
+  },
+  "irisChecklist": [
+    "#/iris has no RepositoryMapView",
+    "Repos filter above Envelope",
+    "empty ledger copy is not 0%"
+  ]
+}

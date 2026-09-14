@@ -75,6 +75,7 @@
 | M-066 Checkout-first Jobs + Claude Presence | `milestone/M-066-checkout-first-jobs` | Verified | ✅ | ✅ | Checkout-first placement, no-commit default (ADR-0045); statusLine, subagent tree, configure preferences. `claude --bg` spike deferred to owner's machine (ADR-0046 follows) |
 | M-067 Shippable Product | `milestone/M-067-shippable-product` | Verified | ✅ | ✅ | Owner verified 2026-09-04 (merged on main). Queue + Console + host connectors; website/docs match the shipped product. npm `1.1.17`. |
 | M-068 Trinity-grade Console | `milestone/M-068-trinity-console` | Verified | ✅ | ✅ | Owner verified 2026-09-07 (merged on main). Fleet Console (Pulse/Board/List), website theaters, Iris/Spectrum. npm `1.8.0` (dispatch / dispatch-hub / mcp-server). |
+| M-069 Agent substrate | `milestone/M-069-agent-substrate` | In Progress | ☐ | ☐ | Cut 1 first slice: honest pipe, Envelope ledger, Honest Edges, verify-plan, Console Iris without Spectrum. |
 
 ## Legend
 

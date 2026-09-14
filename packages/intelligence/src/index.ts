@@ -72,6 +72,7 @@ export {
   type FindReferencesResult,
   type FindSymbolQuery,
   type SearchSymbolsQuery,
+  type SymbolSearchResult,
   type KnowledgeGraphResult,
   type KnowledgeGraphStats,
   type ReferenceHit,

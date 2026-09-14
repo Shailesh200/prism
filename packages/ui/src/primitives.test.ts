@@ -19,6 +19,7 @@ import {
   DropdownMenu,
   EmptyState,
   HoverTip,
+  MetricCard,
   ListTile,
   Pip,
   Popover,
@@ -93,6 +94,7 @@ describe("design-system primitives exports", () => {
     expect(typeof DropdownMenu).toBe("function");
     expect(typeof Table).toBe("function");
     expect(typeof HoverTip).toBe("function");
+    expect(typeof MetricCard).toBe("function");
     expect(typeof ListTile).toBe("function");
     expect(typeof Pip).toBe("function");
     expect(typeof ProgressBar).toBe("function");
@@ -102,6 +104,30 @@ describe("design-system primitives exports", () => {
     expect(typeof ScreenSkeleton).toBe("function");
     expect(typeof PrismToastHost).toBe("function");
     expect(typeof showPrismToast).toBe("function");
+  });
+
+  it("keeps timestamp columns stacked so date and time never share a line", () => {
+    const css = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "primitives.css"),
+      "utf8",
+    );
+    expect(css).toMatch(/\.prism-table__when \{[^}]*flex-direction: column;/s);
+    expect(css).toMatch(
+      /\.prism-table__when-day,\s*\.prism-table__when-time \{[^}]*white-space: nowrap;/s,
+    );
+    expect(css).toMatch(/\.prism-table__col--timestamp \{/);
+    expect(css).toMatch(/\.prism-table__col--tag \{/);
+    expect(css).toMatch(/\.prism-table__col--number \{/);
+  });
+
+  it("pins metric-card info tips to the top-right corner", () => {
+    const css = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "primitives.css"),
+      "utf8",
+    );
+    expect(css).toMatch(
+      /\.prism-metric-card__tip \{[^}]*position: absolute;[^}]*top: 8px;[^}]*right: 8px;/s,
+    );
   });
 
   it("gives search a single stroke and no nested well", () => {

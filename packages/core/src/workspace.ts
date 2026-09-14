@@ -37,6 +37,7 @@ import {
   type SearchSymbolsQuery,
   type StartUtilityJobInput,
   type SymbolHit,
+  type SymbolSearchResult,
   type UtilitiesSession,
 } from "@repo-prism/intelligence";
 import {
@@ -380,9 +381,11 @@ export type PrismWorkspace = {
   findSymbol(query: FindSymbolQuery): Result<SymbolHit[], PrismError>;
   /**
    * Substring or regex search over indexed symbol names (M-058 / P-C10).
-   * Hard-capped at 50 hits.
+   * Hard-capped at 50 hits; `totalCount` is the match count before the slice.
    */
-  searchSymbols(query: SearchSymbolsQuery): Result<SymbolHit[], PrismError>;
+  searchSymbols(
+    query: SearchSymbolsQuery,
+  ): Result<SymbolSearchResult, PrismError>;
   /**
    * Find resolved references to a symbol. When multiple same-named symbols
    * match and `path`/`start` are omitted, returns `{ ambiguous: true, candidates }`

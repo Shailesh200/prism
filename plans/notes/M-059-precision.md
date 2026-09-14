@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| Date | 2026-08-09 |
-| Branch work | Implemented on `milestone/M-053-presentation-consolidation` (owner asked to stay on this branch) |
+| Date | 2026-08-09; re-verified on `main` 2026-09-11 (M-069 S2) |
+| Branch work | Merged via M-053; goldens live under `packages/intelligence/fixtures/m059-*` |
 | Deep-TS | **Rejected** — [ADR-0034](../adr/0034-deep-typescript-spike.md), [spike note](./M-059-deep-ts-spike.md) |
 
 ## Method
@@ -59,4 +59,6 @@ integration is deferred per ADR-0034.
 | `@repo-prism/core` `reference-precision` + `knowledge-graph` | 8/8 pass |
 | Typecheck (shared/analyzer/intelligence/impact/core) | green |
 
-No commit (owner request). Remains uncommitted on `milestone/M-053-presentation-consolidation`.
+No commit (owner request at the time). **M-069 S2 (2026-09-11):** goldens are
+on `main` and stay on `milestone/M-069-agent-substrate`. Deep-TS remains
+rejected.

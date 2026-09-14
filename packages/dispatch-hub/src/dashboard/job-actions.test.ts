@@ -83,6 +83,35 @@ describe("jobActionItems", () => {
     expect(ids).toContain("keep-all");
   });
 
+  it("hides Keep all when the write-up said the teammate made no edits", () => {
+    const ids = jobActionItems({
+      job: job({
+        id: "review",
+        status: "needs_review",
+        resultSummary:
+          "No files changed.\nStopped with no edits, as the brief required.",
+        review: {
+          files: [
+            {
+              path: "src/a.ts",
+              added: 1,
+              removed: 0,
+              change: "modified",
+            },
+          ],
+          totalAdded: 1,
+          totalRemoved: 0,
+          truncated: false,
+          committed: false,
+          merged: false,
+          keptPaths: [],
+        },
+      }),
+      onKeepAll: () => undefined,
+    }).map((item) => item.id);
+    expect(ids).not.toContain("keep-all");
+  });
+
   it("keeps retry and reverify on Failed jobs", () => {
     const ids = jobActionItems({
       job: job({
@@ -119,6 +148,21 @@ describe("jobActionItems", () => {
     ).toEqual(
       expect.arrayContaining(["details", "start-from", "delete", "copy-link"]),
     );
+  });
+
+  it("does not fire Start anyway twice while a confirm is already in flight", () => {
+    let calls = 0;
+    const items = jobActionItems({
+      job: job({ id: "gate", status: "needs_confirm" }),
+      onConfirm: () => {
+        calls += 1;
+      },
+      pending: { jobId: "gate", action: "confirm" },
+    });
+    const confirm = items.find((item) => item.id === "confirm");
+    expect(confirm?.label).toBe("Starting…");
+    confirm?.onSelect();
+    expect(calls).toBe(0);
   });
 
   it("does not delete a live job or a gate", () => {

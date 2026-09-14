@@ -88,6 +88,11 @@ export type JobSnapshot = {
   readonly origin?: "retry" | "reverify" | "finding" | "instruct";
   /** Live then final token usage the worker reported. */
   readonly tokenUsage?: JobRecord["tokenUsage"];
+  readonly envelopeUsage?: {
+    readonly bytesKeptRatio: number | null;
+    readonly tokensSaved: number | null;
+    readonly calls: number;
+  };
 };
 
 /** A workspace the Console could not read, and why. */

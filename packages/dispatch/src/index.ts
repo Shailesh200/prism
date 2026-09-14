@@ -27,6 +27,8 @@ export {
   JobConfirmSchema,
   JobStatusSchema,
   TokenUsageSchema,
+  VerifyPlanSchema,
+  VerifyStepSchema,
   TERMINAL_JOB_STATUSES,
   CLOCK_STOPPED_JOB_STATUSES,
   isTerminalJobStatus,
@@ -36,6 +38,8 @@ export {
   type JobStatus,
   type ReviewFile,
   type TokenUsage,
+  type VerifyPlan,
+  type VerifyStep,
 } from "./types.js";
 export {
   kindForStatus,
@@ -150,10 +154,12 @@ export {
   formatWorkerOrientation,
   loadWorkerOrientation,
   packagesFromManifests,
+  MAX_ORIENTATION_PACKAGES,
   type PackageMapRow,
 } from "./worker-orientation.js";
 export {
   verifyJobWork,
+  resolveVerifyPlan,
   firstFailureLine,
   isCheckInterrupted,
   bunCliPath,
@@ -161,7 +167,41 @@ export {
   VERIFY_STEPS,
   type VerificationResult,
   type VerificationStatus,
+  type VerifyRunner,
 } from "./job-verify.js";
+export {
+  WIPE_CONFIRM,
+  assertWipeHome,
+  confirmWipePhrase,
+  wipePrismData,
+} from "./wipe.js";
+export {
+  ENVELOPE_KNOWN_HOSTS,
+  ENVELOPE_LEDGER_NAME,
+  ENVELOPE_LEDGER_REL,
+  ENVELOPE_SESSION_GAP_MS,
+  appendEnvelopeLedger,
+  envelopeLedgerPath,
+  dumpBytes,
+  envelopeFromToolResult,
+  estimateTokensFromBytes,
+  readEnvelopeLedger,
+  summarizeEnvelopeLedger,
+  summarizeJobEnvelope,
+  type EnvelopeBucket,
+  type EnvelopeDayCut,
+  type EnvelopeGrain,
+  type EnvelopeHostShare,
+  type EnvelopeLedgerEntry,
+  type EnvelopeMetrics,
+  type EnvelopePeakDump,
+  type EnvelopeRecentCall,
+  type EnvelopeSessionCall,
+  type EnvelopeSessionRow,
+  type EnvelopeSummarizeOptions,
+  type EnvelopeToolMix,
+  type JobEnvelopeMetrics,
+} from "./envelope-ledger.js";
 export {
   auditCitedPaths,
   citedPaths,
@@ -199,6 +239,7 @@ export {
   updateJobs,
   listStoredWorkspaceRoots,
   runWithJobsEnv,
+  workspaceRootPresent,
 } from "./jobs.js";
 export {
   dispatchDir,
@@ -352,7 +393,16 @@ export {
   withoutClaudeFlag,
 } from "./claude-cli.js";
 // Host detection outlived the connect flow it shipped with (ADR-0049).
-export { clientLooksLikeClaude, clientLooksLikeCursor } from "./host-client.js";
+export {
+  clientLooksLikeClaude,
+  clientLooksLikeCursor,
+  envelopeHostFromClient,
+  envelopeHostFromEnv,
+  envelopeHostProbe,
+  type EnvelopeClientVersion,
+  type EnvelopeHostProbe,
+  type EnvelopeHostSource,
+} from "./host-client.js";
 export {
   discoverHostConnectors,
   connectorCovers,

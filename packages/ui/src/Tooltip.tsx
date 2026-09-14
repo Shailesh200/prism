@@ -19,6 +19,8 @@ export type TooltipProps = {
   readonly children: ReactNode;
   /** Horizontal alignment of the popover relative to the trigger. */
   readonly align?: TooltipAlign;
+  /** Wider popover for glossary copy that needs dump vs kept on one card. */
+  readonly wide?: boolean;
   /**
    * Optional interactive footer (e.g. action button). When set, the popover
    * stays open while the pointer is over the popover so the action is clickable.
@@ -44,7 +46,7 @@ type Position = { readonly top: number; readonly left: number };
  * runs off-screen near a window edge.
  */
 export function Tooltip(props: TooltipProps): ReactElement {
-  const { label, children, align = "center", actions } = props;
+  const { label, children, align = "center", wide = false, actions } = props;
   const id = useId();
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<Position | null>(null);
@@ -145,6 +147,7 @@ export function Tooltip(props: TooltipProps): ReactElement {
             role="tooltip"
             className="prism-tooltip__pop"
             data-open={pos ? "true" : "false"}
+            data-wide={wide ? "true" : undefined}
             data-interactive={interactive ? "true" : undefined}
             style={style}
             onMouseEnter={interactive ? openNow : undefined}

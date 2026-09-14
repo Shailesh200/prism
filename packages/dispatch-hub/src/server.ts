@@ -4,7 +4,7 @@ import {
   type Server,
   type ServerResponse,
 } from "node:http";
-import { access } from "node:fs/promises";
+import { access, rm } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -37,6 +37,11 @@ import {
   deleteSkillVersion,
   listStoredWorkspaceRoots,
   runWithJobsEnv,
+  readEnvelopeLedger,
+  summarizeEnvelopeLedger,
+  assertWipeHome,
+  confirmWipePhrase,
+  wipePrismData,
   type DispatchConfig,
   type WorkerBackend,
   type WorkerModelOption,
@@ -63,7 +68,13 @@ import { formatJobFinishedNotice } from "./notice.js";
 import { listJobNotes, readJobNote } from "./notes.js";
 import { createOsNotifier, type NotifyFn } from "./notify.js";
 import { readHostTelemetry } from "./host-telemetry.js";
-import { dashboardUrl, hubPort, mergeHubEnv, type HubEnv } from "./paths.js";
+import {
+  dashboardUrl,
+  hubHome,
+  hubPort,
+  mergeHubEnv,
+  type HubEnv,
+} from "./paths.js";
 import {
   PLAYGROUND_PORT,
   effectivePlaygroundPort,
@@ -1049,6 +1060,40 @@ export async function startHub(
       return;
     }
 
+    if (req.method === "GET" && url.pathname === "/api/envelope") {
+      const workspace =
+        url.searchParams.get("workspace")?.trim() || workspaces[0]?.path;
+      if (!workspace) {
+        json(res, 400, { error: HUB_ERROR.workspaceRequired });
+        return;
+      }
+      const grainRaw = url.searchParams.get("grain")?.trim();
+      const grain =
+        grainRaw === "daily" ||
+        grainRaw === "weekly" ||
+        grainRaw === "monthly" ||
+        grainRaw === "overall"
+          ? grainRaw
+          : undefined;
+      const fromMs = parseEnvelopeBound(url.searchParams.get("from"), false);
+      const toMs = parseEnvelopeBound(url.searchParams.get("to"), true);
+      const metrics = summarizeEnvelopeLedger(
+        await readEnvelopeLedger(workspace, env as NodeJS.ProcessEnv),
+        Date.now(),
+        {
+          ...(grain ? { grain } : {}),
+          ...(fromMs !== undefined ? { fromMs } : {}),
+          ...(toMs !== undefined ? { toMs } : {}),
+        },
+      );
+      json(res, 200, {
+        workspace,
+        ...metrics,
+        asOf: new Date().toISOString(),
+      });
+      return;
+    }
+
     // Per-job console for the board's expander (M-066 P-P6).
     const logsMatch = /^\/api\/jobs\/([^/]+)\/logs$/.exec(url.pathname);
     if (req.method === "GET" && logsMatch) {
@@ -1299,6 +1344,48 @@ export async function startHub(
       return;
     }
 
+    if (req.method === "POST" && url.pathname === "/api/wipe") {
+      const body = await readBody(req);
+      if (!confirmWipePhrase(String(body.confirm ?? ""))) {
+        json(res, 400, { error: HUB_ERROR.wipeConfirm });
+        return;
+      }
+      try {
+        assertWipeHome(env as NodeJS.ProcessEnv);
+      } catch (cause) {
+        json(res, 500, { error: publicCaughtError(cause) });
+        return;
+      }
+      // Stop writers first so they cannot recreate ~/.prism after the delete.
+      idle.stop();
+      watcher.close();
+      intelligence.close();
+      try {
+        const result = await wipePrismData(
+          workspaces.map((row) => row.path),
+          env as NodeJS.ProcessEnv,
+        );
+        await rm(hubHome(env), { recursive: true, force: true });
+        json(res, 200, {
+          ok: true,
+          repos: result.repos.length,
+          message:
+            "Prism data is gone. Reload the Prism MCP server, then open the Console again.",
+        });
+        const testing = env.VITEST === "true" || env.BUN_TEST === "1";
+        if (!testing) {
+          setTimeout(() => {
+            void close().finally(() => {
+              process.exit(0);
+            });
+          }, 250);
+        }
+      } catch (cause) {
+        json(res, 500, { error: publicCaughtError(cause) });
+      }
+      return;
+    }
+
     if (
       req.method === "GET" &&
       (url.pathname === "/" || url.pathname === "/index.html")
@@ -1336,6 +1423,25 @@ export async function startHub(
     url: dashboardUrl(liveRecord.port, liveRecord.token),
     close,
   };
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function parseEnvelopeBound(
+  raw: string | null,
+  endOfDay: boolean,
+): number | undefined {
+  const value = raw?.trim();
+  if (!value) return undefined;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split("-").map(Number);
+    if (!year || !month || !day) return undefined;
+    const start = Date.UTC(year, month - 1, day);
+    return endOfDay ? start + DAY_MS : start;
+  }
+  // ISO datetimes are already instants — do not add a calendar day.
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? ms : undefined;
 }
 
 function json(res: ServerResponse, status: number, body: unknown): void {

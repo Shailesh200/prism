@@ -255,8 +255,8 @@ describe("verifyJobWork", { timeout: GIT_TIMEOUT_MS }, () => {
 
     const result = await verifyJobWork(dir, {
       steps,
-      run: async (_cwd, script) => {
-        seen.push(script);
+      run: async (_cwd, step) => {
+        seen.push(step.kind === "package-script" ? step.script : step.argv[0]!);
         return { ok: false, output: "src/a.ts(3,1): error TS2345: nope" };
       },
     });
@@ -273,8 +273,8 @@ describe("verifyJobWork", { timeout: GIT_TIMEOUT_MS }, () => {
 
     const result = await verifyJobWork(dir, {
       steps,
-      run: async (_cwd, script) => {
-        seen.push(script);
+      run: async (_cwd, step) => {
+        seen.push(step.kind === "package-script" ? step.script : step.argv[0]!);
         return {
           ok: false,
           output: [
@@ -362,7 +362,7 @@ describe("verifyRunFailure", () => {
 
   it("reports a missing bun and a real timeout distinctly", () => {
     expect(verifyRunFailure({ code: "ENOENT" }).output).toMatch(
-      /bun is not available/,
+      /not available/,
     );
     expect(verifyRunFailure({ timedOut: true }).output).toBe(
       `timed out after ${VERIFY_TIMEOUT_MS}ms`,

@@ -40,6 +40,8 @@ import {
   pulseSections,
   repoInitials,
   waitWorkMeter,
+  meterCaptionPlaces,
+  meterHoverAt,
   floorMeterPercents,
   meterStepFloor,
   meterEndBadgeTone,
@@ -71,6 +73,7 @@ import {
   skillPlaybookPrd,
   reviewTargetOf,
   preferredWorkspace,
+  irisDefaultWorkspace,
 } from "./fleet.js";
 
 const job = (
@@ -313,6 +316,7 @@ describe("waitWorkMeter", () => {
     expect(meter.workPct).toBe(50);
     expect(meter.outcomePct).toBe(0);
     expect(meter.outcome).toBeUndefined();
+    expect(meter.steps.map((step) => step.label)).toEqual(["30m", "30m"]);
   });
 
   it("keeps wait and work colours and adds a failed cap", () => {
@@ -447,6 +451,32 @@ describe("waitWorkMeter", () => {
     expect(meter.workPct).toBe(90);
   });
 
+  it("freezes worked time on a done job that never got finishedAt", () => {
+    const now = Date.parse("2026-09-12T06:14:00.000Z");
+    const meter = waitWorkMeter(
+      job({
+        id: "envelope-live",
+        status: "done",
+        createdAt: "2026-09-12T05:11:47.053Z",
+        queuedAt: "2026-09-12T05:12:21.308Z",
+        startedAt: "2026-09-12T05:12:21.695Z",
+        updatedAt: "2026-09-12T05:12:21.695Z",
+        lastHeartbeat: "2026-09-12T05:24:33.950Z",
+        lastActivity: "Done",
+        lifecycle: [
+          { kind: "accepted", at: "2026-09-12T05:11:47.053Z" },
+          { kind: "queued", at: "2026-09-12T05:11:47.053Z" },
+          { kind: "working", at: "2026-09-12T05:12:21.638Z" },
+        ],
+      }),
+      now,
+    );
+    const work = meter.steps.find((step) => step.kind === "work");
+    expect(meter.steps.some((step) => step.label === "1h 2m")).toBe(false);
+    expect(work?.label).toBe("12m 12s");
+    expect(work?.ms).toBeLessThan(15 * 60 * 1000);
+  });
+
   it("adds a paused step beside wait and work", () => {
     const now = Date.parse("2026-09-04T11:00:30.000Z");
     const paused = job({
@@ -575,6 +605,122 @@ describe("waitWorkMeter", () => {
   });
 });
 
+describe("meterHoverAt", () => {
+  it("maps a pointer percent onto the painted bar's clock", () => {
+    const from = Date.parse("2026-09-04T11:00:00.000Z");
+    const mid = Date.parse("2026-09-04T11:30:00.000Z");
+    const to = Date.parse("2026-09-04T12:00:00.000Z");
+    expect(
+      meterHoverAt(
+        [
+          {
+            kind: "wait",
+            pct: 50,
+            live: false,
+            ms: 1_800_000,
+            label: "30m",
+            from,
+            to: mid,
+          },
+          {
+            kind: "work",
+            pct: 50,
+            live: false,
+            ms: 1_800_000,
+            label: "30m",
+            from: mid,
+            to,
+          },
+        ],
+        25,
+      )?.atMs,
+    ).toBe(Date.parse("2026-09-04T11:15:00.000Z"));
+    expect(
+      meterHoverAt(
+        [
+          {
+            kind: "wait",
+            pct: 50,
+            live: false,
+            ms: 1_800_000,
+            label: "30m",
+            from,
+            to: mid,
+          },
+          {
+            kind: "work",
+            pct: 50,
+            live: false,
+            ms: 1_800_000,
+            label: "30m",
+            from: mid,
+            to,
+          },
+        ],
+        75,
+      )?.atMs,
+    ).toBe(Date.parse("2026-09-04T11:45:00.000Z"));
+  });
+});
+
+describe("meterCaptionPlaces", () => {
+  const step = (
+    pct: number,
+    label: string,
+    kind: "wait" | "work" | "pause" | "error" | "cancelled" = "work",
+  ) => ({ kind, pct, live: false, ms: 1, label });
+
+  it("puts every caption under the bar when each slice is wide enough", () => {
+    expect(
+      meterCaptionPlaces(
+        [
+          step(10, "Waited 1s", "wait"),
+          step(80, "Worked 8s"),
+          step(10, "Failed", "error"),
+        ],
+        800,
+      ),
+    ).toEqual(["below", "below", "below"]);
+  });
+
+  it("sits on the bar instead of skipping when a slice is too tight to label below", () => {
+    const steps = [12, 13, 12, 13, 12, 13, 13].map((pct, i) =>
+      step(
+        pct,
+        i === 6 ? "Cancelled" : `Worked ${i}s`,
+        i === 6 ? "cancelled" : "work",
+      ),
+    );
+    expect(meterCaptionPlaces(steps, 480)).toEqual([
+      "on",
+      "on",
+      "on",
+      "on",
+      "on",
+      "on",
+      "on",
+    ]);
+  });
+
+  it("skips every other tight slice only when even an on-bar label cannot fit, keeping the last", () => {
+    const steps = Array.from({ length: 10 }, (_, i) =>
+      step(10, `Worked ${i}s`),
+    );
+    expect(meterCaptionPlaces(steps, 200)).toEqual([
+      "on",
+      "skip",
+      "on",
+      "skip",
+      "on",
+      "skip",
+      "on",
+      "skip",
+      "on",
+      "on",
+    ]);
+  });
+});
+
 describe("floorMeterPercents", () => {
   it("keeps a 10% floor until more than ten steps would overflow", () => {
     expect(meterStepFloor(2)).toBe(10);
@@ -656,6 +802,24 @@ describe("preferredWorkspace", () => {
         [],
       ),
     ).toBe("/a");
+  });
+
+  it("defaults Iris to the selected workspace, not the busiest jobs board", () => {
+    expect(
+      irisDefaultWorkspace(
+        [{ path: "/prism" }, { path: "/other" }],
+        "/prism",
+        "/other",
+        [
+          job({
+            id: "busy",
+            status: "error",
+            workspacePath: "/other",
+            workspaceLabel: "other",
+          }),
+        ],
+      ),
+    ).toBe("/prism");
   });
 });
 
@@ -1183,10 +1347,11 @@ describe("jobsChronological", () => {
 });
 
 describe("verifyTag", () => {
-  it("maps passed/failed/missing onto Success/Failure/NA", () => {
+  it("maps passed/failed/missing onto Success/Failure/—", () => {
     expect(verifyTag("passed")).toEqual({ label: "Success", tone: "emerald" });
     expect(verifyTag("failed")).toEqual({ label: "Failure", tone: "rose" });
-    expect(verifyTag(undefined)).toEqual({ label: "NA", tone: "neutral" });
+    expect(verifyTag("skipped")).toEqual({ label: "—", tone: "neutral" });
+    expect(verifyTag(undefined)).toEqual({ label: "—", tone: "neutral" });
   });
 });
 

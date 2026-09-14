@@ -73,6 +73,19 @@ describe("global job store", () => {
     );
   });
 
+  it("does not list a stored workspace whose checkout is gone", async () => {
+    const home = await mkdtemp(join(tmpdir(), "prism-jobs-home-"));
+    const repo = await mkdtemp(join(tmpdir(), "prism-jobs-repo-"));
+    temps.push(home);
+    const env = { PRISM_HOME: home };
+    await runWithJobsEnv(env, () =>
+      upsertJob(repo, job({ id: "ghost", title: "Ghost" })),
+    );
+    expect(await listStoredWorkspaceRoots(env)).toContain(repo);
+    await rm(repo, { recursive: true, force: true });
+    expect(await listStoredWorkspaceRoots(env)).not.toContain(repo);
+  });
+
   it("lifts a leftover repo jobs.json after the first migrate", async () => {
     const home = await mkdtemp(join(tmpdir(), "prism-jobs-home-"));
     const repo = await mkdtemp(join(tmpdir(), "prism-jobs-repo-"));
@@ -125,6 +138,18 @@ describe("global job store", () => {
     await writeFile(globalFile, "{\n");
     await expect(runWithJobsEnv(env, () => loadJobs(repo))).rejects.toThrow();
     expect(await readFile(globalFile, "utf8")).toBe("{\n");
+  });
+
+  it("reads the job list while a lock file is held", async () => {
+    const home = await mkdtemp(join(tmpdir(), "prism-jobs-home-"));
+    const repo = await mkdtemp(join(tmpdir(), "prism-jobs-repo-"));
+    temps.push(home, repo);
+    const env = { PRISM_HOME: home };
+    await runWithJobsEnv(env, () => upsertJob(repo, job({})));
+    const lock = `${jobsPath(repo, env)}.lock`;
+    await writeFile(lock, "held");
+    const listed = await runWithJobsEnv(env, () => loadJobs(repo));
+    expect(listed[0]?.id).toBe("news-tab");
   });
 
   it("clears a leftover jobs lock file", async () => {

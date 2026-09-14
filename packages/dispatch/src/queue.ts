@@ -424,9 +424,7 @@ async function placeJob(
     ...(placementNote ? { lastStep: placementNote } : {}),
     ...(tree.cursorAgentId ? { cursorAgentId: tree.cursorAgentId } : {}),
     ...(tree.claudeSession ? { claudeSession: tree.claudeSession } : {}),
-    ...(placement === "checkout" && preExistingChanges.length > 0
-      ? { preExistingChanges }
-      : {}),
+    ...(placement === "checkout" ? { preExistingChanges } : {}),
   });
 }
 
@@ -487,8 +485,8 @@ async function spawnWorker(
       verify: config.verify && !isSkillPlaybook(job.playbook),
       placement: job.placement ?? "checkout",
       ...(job.playbook ? { playbook: job.playbook } : {}),
-      ...(job.preExistingChanges
-        ? { preExistingChanges: job.preExistingChanges }
+      ...(job.placement === "checkout"
+        ? { preExistingChanges: job.preExistingChanges ?? [] }
         : {}),
       ...(spawnModel ? { model: spawnModel } : {}),
     });

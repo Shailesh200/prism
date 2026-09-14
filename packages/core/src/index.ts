@@ -35,6 +35,7 @@ export type {
   FindSymbolQuery,
   ReferenceHit,
   SearchSymbolsQuery,
+  SymbolSearchResult,
   StartUtilityJobInput,
   SymbolHit,
 } from "@repo-prism/intelligence";

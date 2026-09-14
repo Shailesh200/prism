@@ -69,6 +69,8 @@ describe("worker prompt", () => {
     expect(text).toContain("Finish as soon as the brief is done");
     expect(text).toContain("package map");
     expect(text).toContain("semSearch");
+    expect(text).toContain("list_packages");
+    expect(text).toContain("find_symbol");
     expect(text).toContain("Do not start new Dispatch jobs");
     expect(text).toContain("change nothing");
     expect(text).toContain("Prefer existing auth helpers");
@@ -123,7 +125,7 @@ describe("worker prompt", () => {
       memories: [],
       extra: verificationFixExtra("typecheck failed — error TS2345"),
     });
-    expect(text).toContain("Your only job is to make typecheck and tests pass");
+    expect(text).toContain("Your only job is to make these checks pass");
     expect(text).toContain("typecheck failed — error TS2345");
     expect(text.indexOf("typecheck failed")).toBeLessThan(
       text.indexOf("Do not leak tokens"),

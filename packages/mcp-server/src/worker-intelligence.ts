@@ -27,6 +27,11 @@ import { readHubRecord } from "@repo-prism/dispatch-hub";
 import {
   WORKER_INTELLIGENCE_TOOLS,
   compactPackageRows,
+  MAX_ORIENTATION_PACKAGES,
+  appendEnvelopeLedger,
+  envelopeFromToolResult,
+  envelopeHostProbe,
+  resolveWorkerBackend,
   type WorkerIntelligenceTool,
 } from "@repo-prism/dispatch";
 
@@ -163,6 +168,8 @@ const target = {
  * here, or the reverse, is a compile error rather than a tool that never
  * resolves.
  */
+const FIND_SYMBOL_LIMIT = 12;
+
 const WORKER_TOOL_BODIES: Record<WorkerIntelligenceTool, WorkerToolBody> = {
   blast_radius: {
     title: "Blast radius",
@@ -210,7 +217,7 @@ const WORKER_TOOL_BODIES: Record<WorkerIntelligenceTool, WorkerToolBody> = {
     async run(call, args) {
       const rows = await call("symbols", { query: String(args.query ?? "") });
       if (!Array.isArray(rows)) return rows;
-      return rows.slice(0, 12).map((row) => {
+      const items = rows.slice(0, FIND_SYMBOL_LIMIT).map((row) => {
         const hit = row as {
           name?: unknown;
           kind?: unknown;
@@ -222,6 +229,12 @@ const WORKER_TOOL_BODIES: Record<WorkerIntelligenceTool, WorkerToolBody> = {
           ...(typeof hit.path === "string" ? { path: hit.path } : {}),
         };
       });
+      return {
+        items,
+        totalCount: rows.length,
+        truncated: rows.length > items.length,
+        limit: FIND_SYMBOL_LIMIT,
+      };
     },
   },
   explain_area: {
@@ -239,7 +252,13 @@ const WORKER_TOOL_BODIES: Record<WorkerIntelligenceTool, WorkerToolBody> = {
     async run(call) {
       const rows = await call("listPackages", {});
       if (!Array.isArray(rows)) return rows;
-      return compactPackageRows(rows);
+      const items = compactPackageRows(rows);
+      return {
+        items,
+        totalCount: rows.length,
+        truncated: items.length < rows.length,
+        limit: MAX_ORIENTATION_PACKAGES,
+      };
     },
   },
 };
@@ -286,6 +305,8 @@ export async function registerWorkerIntelligence(
   if (!link) return 0;
 
   const call = consoleCaller(link, options.workspaceRoot, fetchImpl);
+  const env = options.env ?? process.env;
+  const jobId = env.PRISM_JOB_ID?.trim();
   for (const tool of WORKER_TOOLS) {
     server.registerTool(
       tool.name,
@@ -297,12 +318,40 @@ export async function registerWorkerIntelligence(
       async (args: Record<string, unknown>) => {
         try {
           const data = await tool.run(call, args);
+          const text = JSON.stringify(data);
+          const envelope = envelopeFromToolResult(data);
+          const client = server.server?.getClientVersion?.();
+          const probe = envelopeHostProbe({
+            client,
+            env,
+            workerHost: resolveWorkerBackend({
+              env,
+              clientName: client?.name,
+            }),
+          });
+          await appendEnvelopeLedger(
+            options.workspaceRoot,
+            {
+              ts: new Date().toISOString(),
+              tool: tool.name,
+              itemCount: envelope.itemCount,
+              totalCount: envelope.totalCount,
+              truncated: envelope.truncated,
+              limit: envelope.limit,
+              jsonBytes: Buffer.byteLength(text, "utf8"),
+              ...probe,
+              ...(jobId ? { jobId } : {}),
+            },
+            env,
+          ).catch(() => {
+            /* ledger is best-effort; never fail the tool */
+          });
           return {
             content: [
               {
                 type: "text" as const,
                 // Compact JSON: pretty-print was burning tokens on every hop.
-                text: JSON.stringify(data),
+                text,
               },
             ],
           };

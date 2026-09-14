@@ -15,7 +15,11 @@ import type { JobSnapshot } from "./types.js";
  * Shipping the raw timestamps and letting each client tick locally through
  * `jobDurations` in `@repo-prism/shared` removes all three at once.
  */
-export function toSnapshot(job: JobRecord, workspacePath: string): JobSnapshot {
+export function toSnapshot(
+  job: JobRecord,
+  workspacePath: string,
+  envelopeUsage?: JobSnapshot["envelopeUsage"],
+): JobSnapshot {
   return {
     id: job.id,
     title: job.title,
@@ -63,6 +67,7 @@ export function toSnapshot(job: JobRecord, workspacePath: string): JobSnapshot {
     ...(job.parentJobId ? { parentJobId: job.parentJobId } : {}),
     ...(job.origin ? { origin: job.origin } : {}),
     ...(job.tokenUsage ? { tokenUsage: job.tokenUsage } : {}),
+    ...(envelopeUsage && envelopeUsage.calls > 0 ? { envelopeUsage } : {}),
   };
 }
 
@@ -88,6 +93,9 @@ export function snapshotKey(job: JobSnapshot): string {
     job.lifecycle?.length ? String(job.lifecycle.length) : "",
     job.tokenUsage
       ? `${job.tokenUsage.inputTokens}:${job.tokenUsage.outputTokens}:${job.tokenUsage.contextTokens ?? ""}`
+      : "",
+    job.envelopeUsage
+      ? `${job.envelopeUsage.calls}:${job.envelopeUsage.tokensSaved ?? ""}`
       : "",
   ].join(":");
 }

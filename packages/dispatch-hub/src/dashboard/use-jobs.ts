@@ -73,6 +73,7 @@ export function toJobSummary(job: JobSnapshot): JobSummary {
     ...(job.parentJobId ? { parentJobId: job.parentJobId } : {}),
     ...(job.origin ? { origin: job.origin } : {}),
     ...(job.tokenUsage ? { tokenUsage: job.tokenUsage } : {}),
+    ...(job.envelopeUsage ? { envelopeUsage: job.envelopeUsage } : {}),
     ...(job.nextStep ? { nextStep: job.nextStep } : {}),
     ...(job.resultSummary ? { resultSummary: job.resultSummary } : {}),
     ...(job.errorMessage ? { errorMessage: job.errorMessage } : {}),
