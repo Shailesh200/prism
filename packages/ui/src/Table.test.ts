@@ -7,7 +7,15 @@ import {
   tableColumnClassName,
   tableColumnStyle,
   tableColumnType,
+  type TableProps,
 } from "./Table.js";
+
+function renderTable<Row>(props: TableProps<Row>): string {
+  const TypedTable = Table as (props: TableProps<Row>) => ReturnType<
+    typeof Table
+  >;
+  return renderToStaticMarkup(createElement(TypedTable, props));
+}
 
 describe("Table column types", () => {
   it("defaults to text and stamps type classes on the column", () => {
@@ -23,42 +31,40 @@ describe("Table column types", () => {
   });
 
   it("renders timestamp, tag, text, and number cells from the type prop", () => {
-    const html = renderToStaticMarkup(
-      createElement(Table, {
-        rowKey: (row: { id: string }) => row.id,
-        rows: [{ id: "1" }],
-        columns: [
-          {
-            id: "when",
-            header: "Started",
-            type: "timestamp",
-            render: () =>
-              createElement(TableTimestamp, {
-                iso: "2026-09-12T11:48:16.000Z",
-                seconds: true,
-              }),
-          },
-          {
-            id: "kind",
-            header: "Kind",
-            type: "tag",
-            render: () => "Chat",
-          },
-          {
-            id: "title",
-            header: "Title",
-            type: "text",
-            render: () => "this chat",
-          },
-          {
-            id: "lists",
-            header: "Lists",
-            type: "number",
-            render: () => "2",
-          },
-        ],
-      }),
-    );
+    const html = renderTable({
+      rowKey: (row) => row.id,
+      rows: [{ id: "1" }],
+      columns: [
+        {
+          id: "when",
+          header: "Started",
+          type: "timestamp",
+          render: () =>
+            createElement(TableTimestamp, {
+              iso: "2026-09-12T11:48:16.000Z",
+              seconds: true,
+            }),
+        },
+        {
+          id: "kind",
+          header: "Kind",
+          type: "tag",
+          render: () => "Chat",
+        },
+        {
+          id: "title",
+          header: "Title",
+          type: "text",
+          render: () => "this chat",
+        },
+        {
+          id: "lists",
+          header: "Lists",
+          type: "number",
+          render: () => "2",
+        },
+      ],
+    });
     expect(html).toContain('data-type="timestamp"');
     expect(html).toContain("prism-table__col--timestamp");
     expect(html).toContain("prism-table__cell--timestamp");
@@ -74,22 +80,20 @@ describe("Table column types", () => {
       maxWidth: "5.5rem",
     });
     expect(tableColumnStyle({ width: "38%" })).toEqual({ width: "38%" });
-    const html = renderToStaticMarkup(
-      createElement(Table, {
-        rowKey: (row: { id: string }) => row.id,
-        rows: [{ id: "1", title: "CLI SARIF root-object contract" }],
-        columns: [
-          {
-            id: "title",
-            header: "Then focused",
-            type: "text",
-            width: "5.5rem",
-            tip: (row: { title: string }) => row.title,
-            render: (row: { title: string }) => row.title,
-          },
-        ],
-      }),
-    );
+    const html = renderTable({
+      rowKey: (row) => row.id,
+      rows: [{ id: "1", title: "CLI SARIF root-object contract" }],
+      columns: [
+        {
+          id: "title",
+          header: "Then focused",
+          type: "text",
+          width: "5.5rem",
+          tip: (row) => row.title,
+          render: (row) => row.title,
+        },
+      ],
+    });
     expect(html).toContain("prism-truncate");
     expect(html).toContain("CLI SARIF root-object contract");
     expect(html).toContain("Then focused");
