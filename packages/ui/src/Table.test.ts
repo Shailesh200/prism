@@ -11,9 +11,9 @@ import {
 } from "./Table.js";
 
 function renderTable<Row>(props: TableProps<Row>): string {
-  const TypedTable = Table as (props: TableProps<Row>) => ReturnType<
-    typeof Table
-  >;
+  const TypedTable = Table as (
+    props: TableProps<Row>,
+  ) => ReturnType<typeof Table>;
   return renderToStaticMarkup(createElement(TypedTable, props));
 }
 

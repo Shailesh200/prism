@@ -276,6 +276,7 @@ function parseLedgerText(raw: string): EnvelopeLedgerEntry[] {
       if (typeof row.ts !== "string" || typeof row.tool !== "string") {
         continue;
       }
+      const hostSource = sanitizeHostSource(row.hostSource);
       out.push(
         sanitize({
           ts: row.ts,
@@ -293,14 +294,10 @@ function parseLedgerText(raw: string): EnvelopeLedgerEntry[] {
           ...(typeof row.clientVersion === "string"
             ? { clientVersion: row.clientVersion }
             : {}),
-          ...(typeof row.hostSource === "string"
-            ? {
-                hostSource: row.hostSource as EnvelopeLedgerEntry["hostSource"],
-              }
-            : {}),
           ...(typeof row.workspace === "string"
             ? { workspace: row.workspace }
             : {}),
+          ...(hostSource ? { hostSource } : {}),
         }),
       );
     } catch {

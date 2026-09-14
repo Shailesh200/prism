@@ -681,6 +681,8 @@ describe("completeWorkerRun checkout finish", { timeout: 30_000 }, () => {
           truncated: false,
           committed: false,
           merged: false,
+          branch: "",
+          baseRef: "",
           keptPaths: [],
           mixedPaths: [],
         },

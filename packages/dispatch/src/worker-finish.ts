@@ -198,8 +198,8 @@ export function assistantClaimsNoEdits(text: string): boolean {
 
 /** Write-up said no edits, but the review still lists files — those are the user's. */
 export function jobReviewIsForeign(job: {
-  readonly resultSummary?: string;
-  readonly review?: Pick<JobReview, "files">;
+  readonly resultSummary?: string | undefined;
+  readonly review?: Pick<JobReview, "files"> | undefined;
 }): boolean {
   return (
     assistantClaimsNoEdits(job.resultSummary ?? "") &&

@@ -604,14 +604,14 @@ export function envelopeToolTone(tool: string): EnvelopeToolTone {
   ) {
     return "amber";
   }
-  if (tool.includes("graph") || tool.startsWith("list_")) return "violet";
+  if (tool.includes("graph") || tool.includes("list")) return "violet";
   if (tool.startsWith("explain") || tool.startsWith("explore"))
     return "emerald";
   let hash = 0;
   for (let i = 0; i < tool.length; i += 1) {
     hash = (hash * 33 + tool.charCodeAt(i)) >>> 0;
   }
-  return ENVELOPE_TOOL_TONES[hash % ENVELOPE_TOOL_TONES.length];
+  return ENVELOPE_TOOL_TONES[hash % ENVELOPE_TOOL_TONES.length] ?? "brand";
 }
 
 /** Focus drawer: how much of the list this teammate actually received. */

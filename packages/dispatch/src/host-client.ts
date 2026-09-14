@@ -131,7 +131,10 @@ function clientOf(client: EnvelopeClientVersion | string | undefined): {
 } {
   if (typeof client === "string") return { name: client };
   if (!client) return {};
-  return { name: client.name, version: client.version };
+  return {
+    ...(client.name ? { name: client.name } : {}),
+    ...(client.version ? { version: client.version } : {}),
+  };
 }
 
 /**

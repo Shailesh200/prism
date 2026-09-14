@@ -309,7 +309,12 @@ async function writeJobsFile(
 export async function loadJobs(workspaceRoot: string): Promise<JobRecord[]> {
   const path = jobsPath(workspaceRoot, jobsEnv());
   const existing = await readJobsIfPresent(path);
-  if (existing.present) return existing.jobs;
+  if (existing.present) {
+    // A held lock must not stall Console reads. Still lift a leftover
+    // `{repo}/.prism/dispatch/jobs.json` written after the first migrate.
+    const leftover = await readLegacyJobs(workspaceRoot);
+    if (leftover.length === 0) return existing.jobs;
+  }
   return await withJobsLock(workspaceRoot, async () => {
     await migrateLegacyJobs(workspaceRoot);
     return await readJobsFile(workspaceRoot);

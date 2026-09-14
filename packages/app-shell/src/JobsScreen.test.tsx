@@ -1377,10 +1377,10 @@ describe("job token usage in Focus", () => {
     expect(screen.getByText("40% sent · ~12k not sent")).toBeTruthy();
     fireEvent.click(screen.getByLabelText("How Envelope is calculated"));
     expect(screen.getByRole("tooltip").textContent).toContain(
-      "Dump is the Intelligence JSON",
+      "Sent is the list Prism actually gave the agent",
     );
     expect(screen.getByRole("tooltip").textContent).toContain(
-      "Not Context or Tokens",
+      "Context and Tokens above",
     );
   });
 
