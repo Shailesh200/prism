@@ -1,0 +1,8 @@
+{
+  "name": "m070-envelope",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "express": "^4.19.0"
+  }
+}

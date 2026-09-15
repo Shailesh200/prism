@@ -1180,39 +1180,37 @@
 }
 
 .job-rail__step--accepted,
-.job-rail__step--created {
-  --job-rail-phase: var(--prism-violet);
-}
-
+.job-rail__step--created,
 .job-rail__step--queued {
-  --job-rail-phase: var(--prism-amber);
+  --job-rail-phase: var(--prism-step-wait, var(--prism-brand, #00c2c2));
 }
 
 .job-rail__step--working,
 .job-rail__step--started {
-  --job-rail-phase: var(--prism-brand, #00c2c2);
+  --job-rail-phase: var(--prism-step-work, var(--prism-accent, #38bdf8));
 }
 
 .job-rail__step--waiting,
-.job-rail__step--review {
-  --job-rail-phase: var(--prism-amber);
+.job-rail__step--review,
+.job-rail__step--pause {
+  --job-rail-phase: var(--prism-step-pause, var(--prism-amber, #f59e0b));
 }
 
 .job-rail__step--finished {
-  --job-rail-phase: var(--prism-emerald);
+  --job-rail-phase: var(--prism-step-done, var(--prism-emerald));
 }
 
 .job-rail__step--failed {
-  --job-rail-phase: var(--prism-rose);
+  --job-rail-phase: var(--prism-step-error, var(--prism-rose));
 }
 
 .job-rail--failed .job-rail__step--finished {
-  --job-rail-phase: var(--prism-rose);
+  --job-rail-phase: var(--prism-step-error, var(--prism-rose));
 }
 
 .job-rail--cancelled .job-rail__step--finished,
 .job-rail__step--cancelled {
-  --job-rail-phase: var(--prism-ink-3, #94a3b8);
+  --job-rail-phase: var(--prism-step-cancel, var(--prism-ink-3, #94a3b8));
 }
 
 .job-rail__steps {

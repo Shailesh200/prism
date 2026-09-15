@@ -5,7 +5,13 @@
  * a pipeline. Everything here reports; nothing here writes to the repository.
  */
 
-import { ok, riskBandDescriptor } from "@repo-prism/shared";
+import {
+  err,
+  ok,
+  prismError,
+  PrismErrorCode,
+  riskBandDescriptor,
+} from "@repo-prism/shared";
 import { paint, renderFields, renderHeading } from "../output.js";
 import type { CommandHandler, CommandContext } from "../runtime.js";
 import { bandStyle, plural, renderTable, scoreCell, wrap } from "../table.js";
@@ -440,6 +446,92 @@ export const testImpactCommand: CommandHandler = async (context) => {
 
       const note = truncationNote(tests, "tests");
       if (note) lines.push(paint(note, "dim", color));
+      return lines.join("\n");
+    },
+  });
+};
+
+export const prepareCommand: CommandHandler = async (context) => {
+  const task = context.args.positionals.join(" ").trim();
+  if (!task) {
+    return err(
+      prismError(
+        PrismErrorCode.VALIDATION,
+        'prism prepare needs a task, e.g. prism prepare --json "add caching to fetchUser"',
+      ),
+    );
+  }
+  const budgetRaw = context.args.option("budget");
+  const budget =
+    budgetRaw === undefined ? undefined : Number.parseInt(budgetRaw, 10);
+  if (budget !== undefined && (!Number.isFinite(budget) || budget < 200)) {
+    return err(
+      prismError(
+        PrismErrorCode.VALIDATION,
+        "--budget must be an integer ≥ 200",
+      ),
+    );
+  }
+
+  const opened = await context.open();
+  if (!opened.ok) return opened;
+
+  const report = await opened.value.prepareChange({
+    task,
+    ...(budget !== undefined ? { budget } : {}),
+  });
+  if (!report.ok) return report;
+  const prep = report.value;
+
+  return ok({
+    data: prep,
+    human({ color, width }) {
+      const lines = [
+        renderHeading(`Prepare: ${prep.pack.task}`, color),
+        "",
+        renderFields(
+          [
+            ["Files", String(prep.pack.files.length)],
+            ["Tests", String(prep.pack.tests.length)],
+            ["Reuse", String(prep.reuse.length)],
+            ["Truncated", prep.pack.truncated ? "yes" : "no"],
+          ],
+          color,
+          width,
+        ),
+        "",
+        renderTable({
+          columns: [{ header: "PATH" }, { header: "WHY", flex: true }],
+          rows: prep.pack.files.map((file) => [
+            { text: file.path },
+            { text: file.why.join("; ") },
+          ]),
+          color,
+          width,
+        }),
+      ];
+      if (prep.reuse.length > 0) {
+        lines.push("", paint("Reuse", "dim", color));
+        for (const hit of prep.reuse) {
+          lines.push(`  ${hit.symbol}  ${hit.path}`);
+        }
+      }
+      if ((prep.conventions ?? []).length > 0) {
+        lines.push("", paint("House Style", "dim", color));
+        for (const row of prep.conventions ?? []) {
+          lines.push(`  ${row.patternId}  ${row.path}`);
+        }
+      }
+      if (prep.ambiguous) {
+        lines.push(
+          "",
+          paint(
+            `Ambiguous ${prep.ambiguous.query} — do not pick silently`,
+            "dim",
+            color,
+          ),
+        );
+      }
       return lines.join("\n");
     },
   });

@@ -312,6 +312,7 @@ export {
   workerPrompt,
   composeWorkerPrompt,
   verificationFixExtra,
+  type PrepareChangeLookup,
   type WorkerPort,
 } from "./worker.js";
 export {
@@ -417,6 +418,12 @@ export {
   type HostVendor,
   type HostKind,
 } from "./host-connectors.js";
+export {
+  writeLastPrepareChange,
+  readLastPrepareChange,
+  summarizePrepareChange,
+  type LastPrepareSummary,
+} from "./prepare-last.js";
 export {
   buildFillContract,
   fillSectionsFromConfig,

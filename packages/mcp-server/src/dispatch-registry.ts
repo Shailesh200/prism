@@ -17,6 +17,7 @@ import {
   startJobNoticeWatcher,
   visibleDispatchTools,
   type DispatchRuntime,
+  type DispatchRuntimeOptions,
   type DispatchToolName,
 } from "@repo-prism/dispatch";
 import {
@@ -410,6 +411,7 @@ export function createDefaultDispatchRuntime(
   env: NodeJS.ProcessEnv = process.env,
   getWorkspaceRoot?: () => string,
   getClientName?: () => string | undefined,
+  prepareChange?: DispatchRuntimeOptions["prepareChange"],
 ): DispatchRuntime {
   return createDispatchRuntime({
     workspaceRoot,
@@ -418,6 +420,7 @@ export function createDefaultDispatchRuntime(
     claudeWorker: createClaudeWorkerPort(),
     ...(getWorkspaceRoot ? { getWorkspaceRoot } : {}),
     ...(getClientName ? { getClientName } : {}),
+    ...(prepareChange ? { prepareChange } : {}),
   });
 }
 
@@ -430,6 +433,7 @@ export function registerDispatchTools(
     readonly getWorkspaceRoot?: () => string;
     readonly applyWorkspaceHint?: (path: string) => boolean;
     readonly beforeCall?: () => Promise<void>;
+    readonly prepareChange?: DispatchRuntimeOptions["prepareChange"];
   } = {},
 ): void {
   const env = options.env ?? process.env;
@@ -441,6 +445,7 @@ export function registerDispatchTools(
       env,
       getRoot,
       () => server.server.getClientVersion()?.name,
+      options.prepareChange,
     );
   const allowed = new Set(visibleDispatchTools(env));
 

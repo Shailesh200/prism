@@ -19,7 +19,7 @@ import {
   type JobSummary,
   type JobWorkspaceChip,
 } from "@repo-prism/app-shell";
-import type { EnvelopeMetrics } from "@repo-prism/dispatch";
+import type { EnvelopeMetrics, LastPrepareSummary } from "@repo-prism/dispatch";
 import {
   Activity,
   ArrowRight,
@@ -34,6 +34,7 @@ import {
   GitBranch,
   GitFork,
   Landmark,
+  Layers,
   PieChart,
   RefreshCw,
   Scissors,
@@ -143,6 +144,9 @@ export function IntelligenceView(props: {
   const [analyzedAt, setAnalyzedAt] = useState<string | undefined>(cached?.at);
   const [envelope, setEnvelope] = useState<EnvelopeResponse | undefined>();
   const [envelopeError, setEnvelopeError] = useState<string | undefined>();
+  const [prepareLast, setPrepareLast] = useState<
+    LastPrepareSummary | null | undefined
+  >();
 
   useEffect(() => {
     if (userPicked.current) return;
@@ -206,6 +210,28 @@ export function IntelligenceView(props: {
         setEnvelopeError(
           cause instanceof Error ? cause.message : String(cause),
         );
+      });
+    return () => {
+      alive = false;
+    };
+  }, [workspace, props.token]);
+
+  useEffect(() => {
+    if (!workspace) {
+      setPrepareLast(undefined);
+      return;
+    }
+    let alive = true;
+    setPrepareLast(undefined);
+    void getJson<{ last: LastPrepareSummary | null }>(
+      `/api/prepare-last?workspace=${encodeURIComponent(workspace)}`,
+      props.token,
+    )
+      .then((next) => {
+        if (alive) setPrepareLast(next.last ?? null);
+      })
+      .catch(() => {
+        if (alive) setPrepareLast(null);
       });
     return () => {
       alive = false;
@@ -390,6 +416,87 @@ export function IntelligenceView(props: {
           ) : null}
         </dl>
       ) : null}
+
+      <div className="prepare-last">
+        <h2 className="intel-heading">Last prepare</h2>
+        <p className="console__lede">
+          Pack, reuse, and House Style from the last prepare_change on this
+          repo. Paths and why only — not a map.
+        </p>
+        {!workspace ? (
+          <p className="envelope__empty">Select a repository first.</p>
+        ) : prepareLast === undefined ? (
+          <p className="envelope__empty">Loading last prepare…</p>
+        ) : prepareLast === null ? (
+          <EmptyState>
+            No prepare_change yet for this repo. Call it before you edit, or
+            start a teammate after Iris has indexed.
+          </EmptyState>
+        ) : (
+          <>
+            <dl className="console__facts">
+              <div>
+                <dt>
+                  <CardIcon icon={Layers} /> Task
+                </dt>
+                <dd>{prepareLast.task}</dd>
+              </div>
+              <div>
+                <dt>Pack files</dt>
+                <dd>
+                  {prepareLast.packFiles.length}
+                  {prepareLast.truncated
+                    ? ` of ${prepareLast.totalCount} (truncated)`
+                    : ""}
+                </dd>
+              </div>
+              <div>
+                <dt>Reuse</dt>
+                <dd>
+                  {prepareLast.reuse.length === 0
+                    ? "none (unavailable)"
+                    : String(prepareLast.reuse.length)}
+                </dd>
+              </div>
+              {prepareLast.ambiguous ? (
+                <div>
+                  <dt>Ambiguous</dt>
+                  <dd>
+                    {prepareLast.ambiguous.query}:{" "}
+                    {prepareLast.ambiguous.candidates
+                      .map((c) => c.path)
+                      .join("; ")}
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
+            {prepareLast.packFiles.length > 0 ? (
+              <ul className="prepare-last__files">
+                {prepareLast.packFiles.map((file) => (
+                  <li key={file.path}>
+                    <code>{file.path}</code>
+                    {file.why.length > 0 ? (
+                      <span className="prepare-last__why">
+                        {file.why.join("; ")}
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {prepareLast.reuse.length > 0 ? (
+              <ul className="prepare-last__files">
+                {prepareLast.reuse.map((hit) => (
+                  <li key={`${hit.path}:${hit.symbol}`}>
+                    <code>{hit.symbol}</code>
+                    <span className="prepare-last__why">{hit.path}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </>
+        )}
+      </div>
 
       <div className="envelope">
         <div className="envelope__head">

@@ -5,7 +5,7 @@
 
 **`prism-mcp`** — give any MCP-capable agent structural answers about the repo
 you have open, plus Dispatch (start my day, jobs, connect). Same engine as the
-CLI and IDE extension. Local analysis. 44 tools.
+CLI and IDE extension. Local analysis. 45 tools.
 
 **Website:** [https://www.prismhq.in](https://www.prismhq.in) · **Docs:** [https://www.prismhq.in/docs/start/install](https://www.prismhq.in/docs/start/install)
 
@@ -117,7 +117,7 @@ waiting for an MCP **client**. Configure the client; it starts the process.
 |---|---|
 | “What is this repo?” / “Orient me” | `repository_dna`, landmarks / overview |
 | “Is this codebase healthy?” | `repository_health` |
-| “What breaks if I edit `src/…`?” | `blast_radius`, `test_impact` |
+| “What breaks if I edit `src/…`?” | `prepare_change`, then `blast_radius`, `test_impact` |
 | “Can I delete this?” | `safe_delete` |
 | “Review my changes” | `review_changes` (omit paths to auto-discover) |
 | “What changed?” | `changed_paths` |
@@ -231,6 +231,7 @@ credentials — connectors belong to the agent window (ADR-0049).
 
 | Tool | Answers | Arguments |
 |---|---|---|
+| `prepare_change` | Pack, reuse, and House Style for a task — never file bodies | `task`, `budget` |
 | `blast_radius` | What depends on this, and how risky is changing it | `kind`, `id`, `path`, `intent`, `limit` |
 | `safe_delete` | Can this be deleted? Blockers and files left orphaned | `kind`, `id`, `path` |
 | `rename_impact` | Every edit site a rename would touch | `kind`, `id`, `path`, `newName` |

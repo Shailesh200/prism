@@ -86,6 +86,7 @@ import {
   resolveMcpLaunch,
   composeWorkerPrompt,
   verificationFixExtra,
+  type PrepareChangeLookup,
   type WorkerPort,
 } from "./worker.js";
 import {
@@ -236,6 +237,11 @@ export type DispatchRuntimeOptions = BriefingDeps & {
    * stuck behind a multi-minute typecheck. Tests leave this unset and wait.
    */
   readonly deferVerify?: boolean;
+  /**
+   * When Iris is already indexed, inject pack + reuse + House Style into the
+   * worker prompt. Never indexes. MCP wires this; the hub omits it.
+   */
+  readonly prepareChange?: PrepareChangeLookup;
 };
 
 function ramGate(options: DispatchRuntimeOptions): string | undefined {
@@ -534,6 +540,9 @@ async function launchVerificationFix(
         placement: jobPlacement,
         jobInstructions: config.jobInstructions,
         workspaceRoot: options.workspaceRoot,
+        ...(options.prepareChange
+          ? { prepareChange: options.prepareChange }
+          : {}),
       }),
       title: job.title,
       baseRef: await defaultBaseRef(options),
@@ -656,6 +665,9 @@ async function retryAsChildJob(
         placement: jobPlacement,
         jobInstructions: standing,
         workspaceRoot: options.workspaceRoot,
+        ...(options.prepareChange
+          ? { prepareChange: options.prepareChange }
+          : {}),
       }),
     });
     agentId = started.agentId;
@@ -736,6 +748,7 @@ function drainDepsFor(
     ramGate: () => ramGate(options),
     admissionGate: (activeCount, maxJobs) =>
       admissionGate(options, activeCount, maxJobs),
+    ...(options.prepareChange ? { prepareChange: options.prepareChange } : {}),
   };
 }
 
@@ -1382,6 +1395,9 @@ async function jobControl(
       jobInstructions: configRow.jobInstructions,
       subagents: configRow.subagents,
       workspaceRoot: options.workspaceRoot,
+      ...(options.prepareChange
+        ? { prepareChange: options.prepareChange }
+        : {}),
     } as const;
     const placementFields = {
       placement: jobPlacement,

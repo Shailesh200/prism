@@ -166,6 +166,16 @@ export function createPrismMcpServer(
     getWorkspaceRoot: () => binding.current(),
     applyWorkspaceHint: (path) => binding.applyHints([path]),
     beforeCall: applyClientRootsIfWeak,
+    prepareChange: async (input) => {
+      if (!session.isOpen()) return null;
+      const ready = await session.ready();
+      if (!ready.ok) return null;
+      const result = await ready.value.prepareChange({
+        task: input.task,
+        ...(input.budget !== undefined ? { budget: input.budget } : {}),
+      });
+      return result.ok ? result.value : null;
+    },
   });
   let toolsReady = Promise.resolve();
   if (isWorkerRole(options.env ?? process.env)) {

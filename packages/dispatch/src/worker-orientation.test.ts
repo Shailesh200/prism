@@ -127,4 +127,46 @@ describe("composeWorkerPrompt", () => {
     });
     expect(text).not.toContain("Indexed packages");
   });
+
+  it("injects a prepare_change pack when the port returns one", async () => {
+    const root = await mkdtemp(join(tmpdir(), "prism-prep-prompt-"));
+    await writeFile(
+      join(root, "package.json"),
+      JSON.stringify({ name: "app" }),
+    );
+    const text = await composeWorkerPrompt({
+      job: job(),
+      memories: [],
+      workspaceRoot: root,
+      prepareChange: async () => ({
+        pack: {
+          task: "Fix pulse clocks",
+          files: [
+            {
+              path: "src/users/fetchUser.ts",
+              symbols: ["fetchUser"],
+              why: ["seed file"],
+              tokenWeight: 8,
+              provenance: "heuristic",
+            },
+          ],
+          tokenEstimate: 8,
+          tests: [],
+          truncated: false,
+          totalCount: 1,
+        },
+        reuse: [],
+        conventions: [],
+        order: null,
+        workingSet: null,
+        generatedAt: "2026-09-14T00:00:00.000Z",
+        indexIndexedAt: "2026-09-14T00:00:00.000Z",
+        reuseProvenance: "unavailable",
+        conventionsProvenance: "unavailable",
+        ambiguous: null,
+      }),
+    });
+    expect(text).toContain("src/users/fetchUser.ts");
+    expect(text).not.toContain("UNIQUE_M070_FILE_BODY_TOKEN");
+  });
 });

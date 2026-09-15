@@ -75,6 +75,13 @@
   --prism-amber: #f59e0b;
   --prism-rose: #f43f5e;
   --prism-emerald: #10b981;
+  /* Pulse meter + job-rail steps — same tokens on both surfaces. */
+  --prism-step-wait: var(--prism-brand);
+  --prism-step-work: var(--prism-accent);
+  --prism-step-pause: var(--prism-amber);
+  --prism-step-error: var(--prism-rose);
+  --prism-step-cancel: var(--prism-ink-3);
+  --prism-step-done: var(--prism-emerald);
 
   /* Tooltip / instrument chrome */
   --prism-dark-chrome: #1e2433;

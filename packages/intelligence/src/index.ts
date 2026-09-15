@@ -264,3 +264,8 @@ export {
   type GithubWorkflowRun,
   type GithubWorkflowSummary,
 } from "./utilities/github-ci.js";
+export {
+  buildPrepareChange,
+  tokenizeTask,
+  type BuildPrepareChangeInput,
+} from "./prepare/pack.js";

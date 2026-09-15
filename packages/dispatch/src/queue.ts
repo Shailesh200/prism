@@ -49,6 +49,7 @@ import { diskBudgetMessage } from "./worker-budget.js";
 import {
   resolveMcpLaunch,
   composeWorkerPrompt,
+  type PrepareChangeLookup,
   type WorkerPort,
 } from "./worker.js";
 import { adoptOrCreateWorktree, discoverWorktrees } from "./worktrees.js";
@@ -82,6 +83,7 @@ export type DrainDeps = {
     activeCount: number,
     maxJobs: number,
   ) => string | undefined;
+  readonly prepareChange?: PrepareChangeLookup;
 };
 
 /** Why a queued job did not start on this pass. */
@@ -475,6 +477,7 @@ async function spawnWorker(
         placement: job.placement ?? "checkout",
         jobInstructions: config.jobInstructions,
         workspaceRoot: deps.workspaceRoot,
+        ...(deps.prepareChange ? { prepareChange: deps.prepareChange } : {}),
       }),
       mcpCommand: launch.command,
       mcpArgs: launch.args,

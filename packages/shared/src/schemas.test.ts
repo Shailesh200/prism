@@ -14,6 +14,8 @@ import {
   RegionMoversReportSchema,
   TestingReportSchema,
   SecurityReportSchema,
+  PrepareChangeSchema,
+  formatPrepareChangePrompt,
   parseDto,
 } from "./schemas.js";
 import { PrismErrorCode } from "./errors.js";
@@ -339,5 +341,42 @@ describe("DTO schemas round-trip", () => {
     const parsed = SecurityReportSchema.parse(raw);
     expect(parsed.tools.filter((t) => t.present)).toHaveLength(1);
     expect(parsed.checks[0]?.status).toBe("pass");
+  });
+
+  it("PrepareChangeSchema freezes pack + reuse + null order", () => {
+    const raw = {
+      pack: {
+        task: "add caching to fetchUser",
+        files: [
+          {
+            path: "src/users/fetchUser.ts",
+            symbols: ["fetchUser"],
+            why: ["feature users"],
+            tokenWeight: 12,
+            provenance: "heuristic",
+          },
+        ],
+        tokenEstimate: 12,
+        tests: ["src/users/fetchUser.test.ts"],
+        truncated: false,
+        totalCount: 1,
+      },
+      reuse: [],
+      conventions: [],
+      order: null,
+      workingSet: null,
+      generatedAt: "2026-09-14T00:00:00.000Z",
+      indexIndexedAt: "2026-09-14T00:00:00.000Z",
+      reuseProvenance: "unavailable",
+      conventionsProvenance: "unavailable",
+      ambiguous: null,
+    };
+    const parsed = PrepareChangeSchema.parse(raw);
+    expect(parsed.order).toBeNull();
+    expect(parsed.workingSet).toBeNull();
+    expect(formatPrepareChangePrompt(parsed)).toContain(
+      "src/users/fetchUser.ts",
+    );
+    expect(formatPrepareChangePrompt(parsed)).not.toContain("UNIQUE_BODY");
   });
 });

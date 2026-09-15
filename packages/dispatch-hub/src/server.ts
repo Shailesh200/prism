@@ -39,6 +39,7 @@ import {
   runWithJobsEnv,
   readEnvelopeLedger,
   summarizeEnvelopeLedger,
+  readLastPrepareChange,
   assertWipeHome,
   confirmWipePhrase,
   wipePrismData,
@@ -1089,6 +1090,25 @@ export async function startHub(
       json(res, 200, {
         workspace,
         ...metrics,
+        asOf: new Date().toISOString(),
+      });
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/prepare-last") {
+      const workspace =
+        url.searchParams.get("workspace")?.trim() || workspaces[0]?.path;
+      if (!workspace) {
+        json(res, 400, { error: HUB_ERROR.workspaceRequired });
+        return;
+      }
+      const last = await readLastPrepareChange(
+        workspace,
+        env as NodeJS.ProcessEnv,
+      );
+      json(res, 200, {
+        workspace,
+        last: last ?? null,
         asOf: new Date().toISOString(),
       });
       return;

@@ -20,6 +20,7 @@ import {
   findReferences as queryReferences,
   findSymbol as querySymbols,
   searchSymbols as querySearchSymbols,
+  buildPrepareChange,
   getCwvReport as loadCwvReport,
   getBundleWeightReport as loadBundleWeightReport,
   detectBundleAnalyzeCapability as detectBundleAnalyzeCapabilityImpl,
@@ -95,6 +96,7 @@ import {
   type FeatureInfo,
   type GitActivity,
   type GitCommitRef,
+  type PrepareChange,
   type DependencyGraphDto,
   type GraphSnapshotDto,
   type HealthHistoryBackfillStatus,
@@ -386,6 +388,14 @@ export type PrismWorkspace = {
   searchSymbols(
     query: SearchSymbolsQuery,
   ): Result<SymbolSearchResult, PrismError>;
+  /**
+   * Pack + reuse + House Style for a change (M-070). Never includes file bodies.
+   * `order` and `workingSet` are null in this build.
+   */
+  prepareChange(input: {
+    readonly task: string;
+    readonly budget?: number;
+  }): Promise<Result<PrepareChange, PrismError>>;
   /**
    * Find resolved references to a symbol. When multiple same-named symbols
    * match and `path`/`start` are omitted, returns `{ ambiguous: true, candidates }`
@@ -2299,6 +2309,47 @@ export function createWorkspace(options: {
         );
       }
       return ok(report);
+    },
+    async prepareChange(input) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      const task = input.task.trim();
+      if (!task) {
+        return err(
+          prismError(
+            PrismErrorCode.VALIDATION,
+            "prepareChange requires a task",
+          ),
+        );
+      }
+      if (!gitCache || gitCache.at !== lastIndexedAt) {
+        const keepPaths = new Set(lastSnapshot.files.map((f) => f.path));
+        gitCache = {
+          at: lastIndexedAt,
+          value: readGitSignals(lastSnapshot.rootPath, { keepPaths }),
+        };
+      }
+      const git = gitCache.value;
+      const gitFiles = git ? [...git.signals.values()] : undefined;
+      const dna = await this.getDna();
+      const frameworks = dna.ok ? dna.value.frameworks : [];
+      return ok(
+        buildPrepareChange({
+          snapshot: lastSnapshot,
+          task,
+          ...(input.budget !== undefined ? { budget: input.budget } : {}),
+          ...(gitFiles && gitFiles.length > 0 ? { gitFiles } : {}),
+          ...(frameworks.length > 0 ? { frameworks } : {}),
+        }),
+      );
     },
     findRoute(query) {
       const gate = ensureOpen();

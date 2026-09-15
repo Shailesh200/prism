@@ -9,7 +9,11 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { deleteJob, upsertJob } from "@repo-prism/dispatch";
+import {
+  deleteJob,
+  upsertJob,
+  writeLastPrepareChange,
+} from "@repo-prism/dispatch";
 import { createIntelligencePlane } from "./intelligence.js";
 import { startHub } from "./server.js";
 import type { JobSnapshot } from "./types.js";
@@ -222,6 +226,15 @@ describe("hub HTTP", () => {
     expect(envelope.available).toBe(false);
     expect(envelope.days).toEqual([]);
 
+    const lastPrep = (await (
+      await fetch(
+        `http://127.0.0.1:${port}/api/prepare-last?workspace=${encodeURIComponent(repo)}`,
+        { headers: auth },
+      )
+    ).json()) as { workspace: string; last: unknown };
+    expect(lastPrep.workspace).toBe(repo);
+    expect(lastPrep.last).toBeNull();
+
     // An unknown method is refused at the edge rather than cast and dispatched.
     const bogus = await fetch(`http://127.0.0.1:${port}/api/host`, {
       method: "POST",
@@ -246,6 +259,69 @@ describe("hub HTTP", () => {
     expect(warm.intelligence.loaded).toBe(true);
     expect(warm.intelligence.workspace).toBe(repo);
   }, 15_000);
+
+  it("serves the last prepare_change facts for a workspace", async () => {
+    const home = await mkdtemp(join(tmpdir(), "prism-hub-prep-"));
+    const repo = await mkdtemp(join(tmpdir(), "prism-hub-prep-repo-"));
+    temps.push(home, repo);
+    await writeLastPrepareChange(
+      repo,
+      {
+        pack: {
+          task: "add caching to fetchUser",
+          files: [
+            {
+              path: "src/users/fetchUser.ts",
+              symbols: ["fetchUser"],
+              why: ["feature users"],
+              tokenWeight: 8,
+              provenance: "heuristic",
+            },
+          ],
+          tokenEstimate: 8,
+          tests: [],
+          truncated: false,
+          totalCount: 1,
+        },
+        reuse: [],
+        conventions: [],
+        order: null,
+        workingSet: null,
+        generatedAt: "2026-09-14T00:00:00.000Z",
+        indexIndexedAt: "2026-09-14T00:00:00.000Z",
+        reuseProvenance: "unavailable",
+        conventionsProvenance: "unavailable",
+        ambiguous: null,
+      },
+      { PRISM_HOME: home },
+    );
+    const started = await startHub({
+      env: {
+        PRISM_HUB_HOME: home,
+        PRISM_HUB_PORT: "0",
+        PRISM_HUB: "1",
+        PRISM_HOME: home,
+      },
+      idleMs: 60_000,
+      pollMs: 5_000,
+    });
+    if ("alreadyRunning" in started) throw new Error("expected a fresh hub");
+    closers.push(started.close);
+    const { port, token } = started.record;
+    const auth = { Authorization: `Bearer ${token}` };
+    const body = (await (
+      await fetch(
+        `http://127.0.0.1:${port}/api/prepare-last?workspace=${encodeURIComponent(repo)}`,
+        { headers: auth },
+      )
+    ).json()) as {
+      workspace: string;
+      last: { task: string; packFiles: { path: string }[] } | null;
+    };
+    expect(body.workspace).toBe(repo);
+    expect(body.last?.task).toBe("add caching to fetchUser");
+    expect(body.last?.packFiles[0]?.path).toBe("src/users/fetchUser.ts");
+  });
 
   it("removes a job from GET /api/jobs after delete", async () => {
     const home = await mkdtemp(join(tmpdir(), "prism-hub-home-"));

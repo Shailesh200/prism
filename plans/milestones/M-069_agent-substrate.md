@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Progress** |
+| Status | **Verified** (merged to `main` 2026-09-14) |
 | Branch | `milestone/M-069-agent-substrate` (from latest `main`) |
 | Depends on | M-068 Verified |
 | Unlocks | M-070 `prepare_change` |
