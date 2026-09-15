@@ -393,6 +393,7 @@ function JobTimeline(props: {
               className={[
                 "job-rail__step",
                 `job-rail__step--${stage.kind}`,
+                stage.note === "paused" ? "job-rail__step--pause" : "",
                 stage.reached ? "job-rail__step--reached" : "",
                 stage.current ? "job-rail__step--current" : "",
               ]

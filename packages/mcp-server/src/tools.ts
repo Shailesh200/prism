@@ -20,8 +20,10 @@ import { GRAPH_TOOLS } from "./tools/graphs.js";
 import { IMPACT_TOOLS } from "./tools/impact.js";
 import { ORIENTATION_TOOLS } from "./tools/orientation.js";
 import { REPORT_TOOLS } from "./tools/reports.js";
+import { prepareChange } from "./tools/prepare.js";
 
 export const TOOLS: readonly ToolDefinition<never>[] = [
+  prepareChange,
   ...ORIENTATION_TOOLS,
   ...GRAPH_TOOLS,
   ...IMPACT_TOOLS,

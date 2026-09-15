@@ -74,6 +74,7 @@ const WORKSPACE_METHODS = [
   "listWorkspaceTests",
   "navigateFeature",
   "notifyWatchPaths",
+  "prepareChange",
   "reindex",
   "removeBookmark",
   "renameImpact",

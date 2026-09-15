@@ -209,6 +209,10 @@ describe("local-only analysis makes no network calls (M-036 Phase 3)", () => {
       "testImpact",
       () => workspace.testImpact({ kind: "file", id: "src/features/cart.ts" }),
     ],
+    [
+      "prepareChange",
+      () => workspace.prepareChange({ task: "add caching to fetchUser" }),
+    ],
   ];
 
   it.each(surfaces)(
@@ -275,12 +279,16 @@ describe("Core DTOs carry no credentials (M-036 Phase 3.4)", () => {
 
     // Field *declarations* only: prose and `apiKeyUrl`-style documentation
     // links are not credentials, and matching them would train everyone to
-    // ignore this test.
+    // ignore this test. Map-token weights on prepare_change (M-070) are
+    // counts of path+symbol+why characters, not secrets.
+    const ALLOWED = new Set(["tokenWeight", "tokenEstimate"]);
     const offenders = [
       ...schemas.matchAll(
         /^\s*(\w*(?:token|secret|password|credential|apiKey)\w*)\s*:/gim,
       ),
-    ].map((match) => match[1]);
+    ]
+      .map((match) => match[1])
+      .filter((name) => !ALLOWED.has(name ?? ""));
 
     expect(offenders).toEqual([]);
   });

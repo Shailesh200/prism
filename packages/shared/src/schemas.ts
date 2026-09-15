@@ -2381,6 +2381,131 @@ export const CodeExplorerReportSchema = z.object({
 
 export type CodeExplorerReport = z.infer<typeof CodeExplorerReportSchema>;
 
+/** One file in a `prepare_change` pack (paths + names + why, never a body). */
+export const ContextFileSchema = z.object({
+  path: z.string().min(1),
+  symbols: z.array(z.string()),
+  why: z.array(z.string()),
+  tokenWeight: z.number().int().nonnegative(),
+  provenance: SignalProvenanceSchema,
+});
+export type ContextFile = z.infer<typeof ContextFileSchema>;
+
+export const ContextPackSchema = z.object({
+  task: z.string(),
+  files: z.array(ContextFileSchema),
+  tokenEstimate: z.number().int().nonnegative(),
+  tests: z.array(z.string()),
+  truncated: z.boolean(),
+  totalCount: z.number().int().nonnegative(),
+});
+export type ContextPack = z.infer<typeof ContextPackSchema>;
+
+export const ReuseHitSchema = z.object({
+  path: z.string().min(1),
+  symbol: z.string().min(1),
+  kind: z.string().min(1),
+  score: z.number().min(0).max(1),
+  evidence: z.string(),
+  provenance: SignalProvenanceSchema,
+});
+export type ReuseHit = z.infer<typeof ReuseHitSchema>;
+
+export const HOUSE_STYLE_PATTERN_IDS = [
+  "route-handler",
+  "screen",
+  "colocated-test",
+  "worker",
+] as const;
+export type HouseStylePatternId = (typeof HOUSE_STYLE_PATTERN_IDS)[number];
+export const HouseStylePatternIdSchema = z.enum(HOUSE_STYLE_PATTERN_IDS);
+
+export const ExemplarSchema = z.object({
+  path: z.string().min(1),
+  symbol: z.string().min(1),
+  patternId: HouseStylePatternIdSchema,
+  whyCanonical: z.string().min(1),
+});
+export type Exemplar = z.infer<typeof ExemplarSchema>;
+
+export const PrepareAmbiguousCandidateSchema = z.object({
+  path: z.string().min(1),
+  symbol: z.string().min(1),
+  kind: z.string().min(1).optional(),
+});
+export type PrepareAmbiguousCandidate = z.infer<
+  typeof PrepareAmbiguousCandidateSchema
+>;
+
+export const PrepareAmbiguousSchema = z.object({
+  query: z.string().min(1),
+  candidates: z.array(PrepareAmbiguousCandidateSchema),
+});
+export type PrepareAmbiguous = z.infer<typeof PrepareAmbiguousSchema>;
+
+/**
+ * One Envelope query: pack + reuse + House Style. `order` / `workingSet` are
+ * present and null until later cuts (M-075 / M-076).
+ */
+export const PrepareChangeSchema = z.object({
+  pack: ContextPackSchema,
+  reuse: z.array(ReuseHitSchema),
+  conventions: z.array(ExemplarSchema).nullable(),
+  order: z.null(),
+  workingSet: z.null(),
+  generatedAt: z.string().datetime(),
+  indexIndexedAt: z.string(),
+  reuseProvenance: SignalProvenanceSchema,
+  conventionsProvenance: SignalProvenanceSchema,
+  ambiguous: PrepareAmbiguousSchema.nullable(),
+});
+export type PrepareChange = z.infer<typeof PrepareChangeSchema>;
+
+export const DEFAULT_PREPARE_BUDGET = 4000;
+
+/** Map tokens for path + symbol names + why — never a file body. */
+export function prepareMapTokenWeight(
+  path: string,
+  symbols: readonly string[],
+  why: readonly string[],
+): number {
+  const chars = [path, ...symbols, ...why].join(" ").length;
+  return Math.max(1, Math.ceil(chars / 4));
+}
+
+/** Worker-prompt block. Omits file bodies by construction. */
+export function formatPrepareChangePrompt(prep: PrepareChange): string {
+  const files = prep.pack.files
+    .map(
+      (file) =>
+        `- ${file.path}${file.why.length ? ` — ${file.why.join("; ")}` : ""}`,
+    )
+    .join("\n");
+  const reuse =
+    prep.reuse.length === 0
+      ? "- none (unavailable — do not invent a helper)"
+      : prep.reuse
+          .map((hit) => `- ${hit.symbol} in ${hit.path} (${hit.evidence})`)
+          .join("\n");
+  const conventions = (prep.conventions ?? []).map(
+    (row) => `- ${row.patternId}: ${row.path} (${row.whyCanonical})`,
+  );
+  const ambiguous = prep.ambiguous
+    ? `Ambiguous “${prep.ambiguous.query}”: ${prep.ambiguous.candidates
+        .map((c) => `${c.symbol} in ${c.path}`)
+        .join("; ")}. Do not pick silently.`
+    : "";
+  return [
+    `Context pack for: ${prep.pack.task}`,
+    files ? `Pack files:\n${files}` : "",
+    `Reuse:\n${reuse}`,
+    conventions.length > 0 ? `House Style:\n${conventions.join("\n")}` : "",
+    ambiguous,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 /** Parse unknown JSON into a DTO; returns Zod issues as message. */
 export function parseDto<Schema extends z.ZodTypeAny>(
   schema: Schema,

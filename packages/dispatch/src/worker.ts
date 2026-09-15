@@ -1,4 +1,8 @@
 import { fileURLToPath } from "node:url";
+import {
+  formatPrepareChangePrompt,
+  type PrepareChange,
+} from "@repo-prism/shared";
 import { formatMemoriesForPrompt, memoriesForJob } from "./memory.js";
 import { resolveVerifyPlan } from "./job-verify.js";
 import {
@@ -8,7 +12,14 @@ import {
 } from "./worker-spawn.js";
 import { isSkillPlaybook } from "./playbook.js";
 import { loadWorkerOrientation } from "./worker-orientation.js";
+import { writeLastPrepareChange } from "./prepare-last.js";
 import type { JobRecord, MemoryItem, VerifyPlan } from "./types.js";
+
+/** Optional Core port. Dispatch must not import Core; MCP injects this. */
+export type PrepareChangeLookup = (input: {
+  readonly task: string;
+  readonly budget?: number;
+}) => Promise<PrepareChange | null>;
 
 export type WorkerStartInput = {
   readonly jobId: string;
@@ -217,22 +228,45 @@ export function workerPrompt(input: {
 export async function composeWorkerPrompt(
   input: Parameters<typeof workerPrompt>[0] & {
     readonly workspaceRoot: string;
+    readonly prepareChange?: PrepareChangeLookup;
   },
 ): Promise<string> {
   if (isSkillPlaybook(input.job.playbook)) {
     return workerPrompt(input);
   }
-  const [orientation, verifyPlan] = await Promise.all([
+  const [orientation, verifyPlan, packBlock] = await Promise.all([
     loadWorkerOrientation(input.workspaceRoot),
     input.verifyPlan
       ? Promise.resolve(input.verifyPlan)
       : resolveVerifyPlan(input.workspaceRoot),
+    loadPrepareBlock(input),
   ]);
   return workerPrompt({
     ...input,
     verifyPlan,
-    extra: [input.extra, orientation].filter(Boolean).join("\n\n"),
+    extra: [packBlock, input.extra, orientation].filter(Boolean).join("\n\n"),
   });
+}
+
+async function loadPrepareBlock(input: {
+  readonly job: JobRecord;
+  readonly workspaceRoot: string;
+  readonly prepareChange?: PrepareChangeLookup;
+}): Promise<string> {
+  if (!input.prepareChange) return "";
+  const task = [input.job.title, input.job.prd]
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+  if (!task) return "";
+  try {
+    const prep = await input.prepareChange({ task });
+    if (!prep) return "";
+    await writeLastPrepareChange(input.workspaceRoot, prep);
+    return formatPrepareChangePrompt(prep);
+  } catch {
+    return "";
+  }
 }
 
 /** Brief injected when Retry verification has to fix a failed check, not just re-run it. */

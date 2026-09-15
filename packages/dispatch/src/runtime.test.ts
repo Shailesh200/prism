@@ -683,6 +683,62 @@ describe("jobs, worktrees, overlap, cap", () => {
     expect(prompt).toContain("Prefer small diffs.");
   });
 
+  it("injects prepare_change pack paths into the worker prompt", async () => {
+    root = await tempRoot();
+    await saveConfig(root, { placement: "worktree" });
+    let prompt = "";
+    const capturing: WorkerPort = {
+      async start(input) {
+        prompt = input.prompt;
+        return { agentId: "agent-prep" };
+      },
+      async resume() {},
+      async cancel() {},
+      async status() {
+        return { status: "running", detail: "" };
+      },
+    };
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker: capturing,
+      env: { CURSOR_API_KEY: "test-key" },
+      prepareChange: async () => ({
+        pack: {
+          task: "add caching to fetchUser",
+          files: [
+            {
+              path: "src/users/fetchUser.ts",
+              symbols: ["fetchUser"],
+              why: ["feature users"],
+              tokenWeight: 12,
+              provenance: "heuristic",
+            },
+          ],
+          tokenEstimate: 12,
+          tests: ["src/users/fetchUser.test.ts"],
+          truncated: false,
+          totalCount: 1,
+        },
+        reuse: [],
+        conventions: [],
+        order: null,
+        workingSet: null,
+        generatedAt: "2026-09-14T00:00:00.000Z",
+        indexIndexedAt: "2026-09-14T00:00:00.000Z",
+        reuseProvenance: "unavailable",
+        conventionsProvenance: "unavailable",
+        ambiguous: null,
+      }),
+    });
+    await dispatchAndDrain(runtime, {
+      title: "add caching to fetchUser",
+      prd: "Reuse lruCache.",
+    });
+    expect(prompt).toContain("src/users/fetchUser.ts");
+    expect(prompt).not.toContain("UNIQUE_M070_FILE_BODY_TOKEN");
+  });
+
   it("honors compose checkout when settings prefer an isolated worktree", async () => {
     root = await tempRoot();
     await saveConfig(root, { placement: "worktree" });

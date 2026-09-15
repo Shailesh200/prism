@@ -19,7 +19,7 @@ Core analysis APIs stay ungated from MCP. See
 Tools that return a list accept `limit` and answer with `totalCount` and
 `truncated`, so an agent can tell the first 20 of 340 from all 20 there are.
 
-Prism exposes **44 tools**. Every count elsewhere in the docs is
+Prism exposes **45 tools**. Every count elsewhere in the docs is
 checked against this one, so the number cannot drift into prose.
 
 | Tool | What it answers |
@@ -49,6 +49,7 @@ checked against this one, so the number cannot drift into prose.
 | [`list_features`](#list_features) | Inferred features with their member files and a confidence score |
 | [`list_jobs`](#list_jobs) | Where are we |
 | [`list_packages`](#list_packages) | List the packages in a monorepo with their roots |
+| [`prepare_change`](#prepare_change) | One call before you edit |
 | [`remember`](#remember) | Save, list, or forget scoped memories that Dispatch injects into the next start_job prompt |
 | [`rename_impact`](#rename_impact) | Every edit site a rename would touch, plus breaking-change hints for public surface |
 | [`repository_dna`](#repository_dna) | Identify what a repository *is* |
@@ -218,6 +219,12 @@ Arguments: `waitFor`, `timeoutMs`.
 List the packages in a monorepo with their roots. Call this first in a monorepo so later tools can be scoped with packageId instead of returning the whole workspace.
 
 Arguments: `limit`.
+
+## `prepare_change`
+
+One call before you edit: the files to open for this task (pack), existing helpers to reuse, and three House Style exemplars. Returns paths, symbol names and why — never file bodies. Call this instead of dumping search_symbols or knowledge_graph. Ambiguous names come back as candidates; do not pick silently. order and workingSet are null in this build.
+
+Arguments: `task`, `budget`.
 
 ## `remember`
 

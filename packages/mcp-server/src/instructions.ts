@@ -45,10 +45,10 @@ Intelligence (read-only, indexes on first call):
 - New / unfamiliar repo, “what is this?”, onboarding → repository_dna, then repository_overview or landmarks
 - “find issues / audit this repo / how healthy” → repository_health (deep dive → engineering_health, security_report, testing_report). Do not start_job for a repo-wide scan — that starts a second Cursor agent and will exhaust RAM. start_job is for changing code, not for surveying it.
 - Layout, architecture, map, packages, features → repository_map, list_packages, list_features, stack_profile
+- BEFORE editing unfamiliar code → prepare_change (pack + reuse + House Style, no file bodies), then blast_radius; before deleting → safe_delete; before renaming → rename_impact; which tests to run → test_impact. Required habit. (Full procedure: the prism-safe-change skill.)
 - “What is this file/folder for?”, ownership → explain_area or explore_code
 - Find a symbol / who calls it / how A reaches B → find_symbol or search_symbols, find_references, dependency_route
 - Cycles, coupling, import graph → dependency_cycles, dependency_graph (prefer summaryOnly / limit). Graph edges carry provenance (measured / heuristic / inferred). Inferred edges are not load-bearing without opening the file.
-- BEFORE editing unfamiliar code → blast_radius; before deleting → safe_delete; before renaming → rename_impact; which tests to run → test_impact. Required habit. (Full procedure: the prism-safe-change skill.)
 - Reviewing a diff / PR / branch / “what did I break?” → review_changes (omit paths to auto-discover). Never review from a raw git diff alone: the patch says what changed, not what depends on it. Lead with the blast radius, test impact and breaking-change hints it already carries, and blast_radius anything it flags as risky. Never invent dependents the tools did not report. (Full procedure: the prism-review-pr skill.)
 - Backend / testing / security posture → backend_report, testing_report, security_report
 - Session readiness / “is indexing done?” → workspace_status; what is unavailable vs unsupported → capabilities

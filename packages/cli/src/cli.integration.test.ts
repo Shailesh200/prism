@@ -249,6 +249,7 @@ const OTHER = "src/features/dashboard/widgets.ts";
 const ARGUMENTS: Record<string, readonly string[]> = {
   explain: ["src/features/dashboard"],
   explore: [TARGET],
+  prepare: ["add caching"],
   blast: [TARGET],
   "safe-delete": [TARGET],
   rename: [TARGET, "Home.ts"],

@@ -1133,6 +1133,31 @@ body,
   color: var(--prism-ink-muted);
 }
 
+.prepare-last {
+  margin-top: 24px;
+  display: grid;
+  gap: 12px;
+}
+
+.prepare-last__files {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.prepare-last__files li {
+  display: grid;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.prepare-last__why {
+  color: var(--prism-ink-muted, #94a3b8);
+  font-size: 12px;
+}
+
 .envelope-note,
 .envelope-foot {
   display: flex;
@@ -3872,7 +3897,7 @@ body,
 }
 
 .pulse-card--settled[data-status="done"] {
-  --pulse-notch: var(--prism-emerald, #10b981);
+  --pulse-notch: var(--prism-step-done, var(--prism-emerald, #10b981));
 }
 
 .pulse-card--settled[data-status="error"] {
@@ -3908,23 +3933,23 @@ body,
 }
 
 .pulse-card[data-meter-end="wait"] {
-  --pulse-notch: var(--prism-brand, #00c2c2);
+  --pulse-notch: var(--prism-step-wait, var(--prism-brand, #00c2c2));
 }
 
 .pulse-card[data-meter-end="work"] {
-  --pulse-notch: var(--prism-accent, #38bdf8);
+  --pulse-notch: var(--prism-step-work, var(--prism-accent, #38bdf8));
 }
 
 .pulse-card[data-meter-end="pause"] {
-  --pulse-notch: var(--prism-amber, #f59e0b);
+  --pulse-notch: var(--prism-step-pause, var(--prism-amber, #f59e0b));
 }
 
 .pulse-card[data-meter-end="error"] {
-  --pulse-notch: var(--prism-rose, #f43f5e);
+  --pulse-notch: var(--prism-step-error, var(--prism-rose, #f43f5e));
 }
 
 .pulse-card[data-meter-end="cancelled"] {
-  --pulse-notch: var(--prism-ink-3);
+  --pulse-notch: var(--prism-step-cancel, var(--prism-ink-3));
 }
 
 .pulse-card[data-meter-end="wait"]:hover {
@@ -4170,20 +4195,20 @@ body,
 }
 
 .pulse-meter__wait {
-  background: var(--prism-brand, #00c2c2);
+  background: var(--prism-step-wait, var(--prism-brand, #00c2c2));
 }
 
 .pulse-meter__work {
   position: relative;
-  background: var(--prism-accent, #38bdf8);
+  background: var(--prism-step-work, var(--prism-accent, #38bdf8));
 }
 
 .pulse-meter__fail {
-  background: var(--prism-rose);
+  background: var(--prism-step-error, var(--prism-rose));
 }
 
 .pulse-meter__cancel {
-  background: var(--prism-ink-3);
+  background: var(--prism-step-cancel, var(--prism-ink-3));
 }
 
 .pulse-meter--live {
@@ -4191,13 +4216,13 @@ body,
 }
 
 .pulse-meter--live .pulse-meter__wait {
-  background: var(--prism-brand, #00c2c2);
+  background: var(--prism-step-wait, var(--prism-brand, #00c2c2));
 }
 
 .pulse-meter--live .pulse-meter__work--live {
   position: relative;
   overflow: hidden;
-  background: var(--prism-accent, #38bdf8);
+  background: var(--prism-step-work, var(--prism-accent, #38bdf8));
 }
 
 .pulse-meter__pip {
@@ -4249,7 +4274,7 @@ body,
 }
 
 .pulse-meter__pause {
-  background-color: var(--prism-amber, #f59e0b);
+  background-color: var(--prism-step-pause, var(--prism-amber, #f59e0b));
 }
 
 .pulse-meter--live .pulse-meter__pause:not(.pulse-meter__pause--live) {

@@ -1207,6 +1207,8 @@ export type JobStage = {
   readonly current: boolean;
   readonly span?: string;
   readonly elapsedMs?: number;
+  /** Lifecycle note — pause hops stay `queued` with note "paused". */
+  readonly note?: string;
 };
 
 const STAGE_LABEL: Record<JobLifecycleKind, string> = {
@@ -1374,6 +1376,7 @@ export function jobStages(job: JobSummary, now: number): readonly JobStage[] {
       current,
       ...(span ? { span } : {}),
       ...(elapsed !== undefined ? { elapsedMs: elapsed } : {}),
+      ...(stage.note ? { note: stage.note } : {}),
     };
   });
 }

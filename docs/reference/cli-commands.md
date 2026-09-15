@@ -123,6 +123,22 @@ prism packages
 
 ## Assess a change
 
+### `prism prepare <task...>`
+
+Files, reuse, and House Style for a task — never file bodies
+
+| Argument | Meaning |
+|---|---|
+| `<task...>` | What you are about to change, in plain language |
+
+| Option | Meaning |
+|---|---|
+| `--budget <n>` | Map-token budget for the pack (default 4000) |
+
+```bash
+prism prepare --json "add caching to fetchUser"
+```
+
 ### `prism blast <target>`
 
 What breaks if this file or symbol changes

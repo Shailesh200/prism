@@ -19,6 +19,7 @@ export const CLI_COMMAND_NAMES = [
   "features",
   "landmarks",
   "packages",
+  "prepare",
   "blast",
   "review",
   "safe-delete",

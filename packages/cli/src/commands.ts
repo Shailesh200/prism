@@ -9,6 +9,7 @@
 import { MAP_ZOOM_LEVELS } from "@repo-prism/shared";
 import {
   blastCommand,
+  prepareCommand,
   renameCommand,
   reviewCommand,
   safeDeleteCommand,
@@ -173,6 +174,25 @@ export const COMMANDS: readonly CommandSpec[] = [
     examples: ["prism packages"],
   },
 
+  {
+    name: "prepare",
+    group: "Assess a change",
+    summary: "Files, reuse, and House Style for a task — never file bodies",
+    handler: prepareCommand,
+    arguments: [
+      {
+        syntax: "<task...>",
+        description: "What you are about to change, in plain language",
+      },
+    ],
+    options: [
+      {
+        flags: "--budget <n>",
+        description: "Map-token budget for the pack (default 4000)",
+      },
+    ],
+    examples: ['prism prepare --json "add caching to fetchUser"'],
+  },
   {
     name: "blast",
     group: "Assess a change",

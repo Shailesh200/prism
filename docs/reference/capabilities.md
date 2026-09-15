@@ -30,6 +30,7 @@ use this page when you need the exhaustive index.
 | `prism landmarks` | landmarks |
 | `prism map` | map |
 | `prism packages` | packages |
+| `prism prepare` | prepare |
 | `prism refs` | refs |
 | `prism rename` | rename |
 | `prism review` | review |
@@ -70,6 +71,7 @@ use this page when you need the exhaustive index.
 | `list_features` | Inferred features with their member files and a confidence score |
 | `list_jobs` | Where are we |
 | `list_packages` | List the packages in a monorepo with their roots |
+| `prepare_change` | One call before you edit |
 | `remember` | Save, list, or forget scoped memories that Dispatch injects into the next start_job prompt |
 | `rename_impact` | Every edit site a rename would touch, plus breaking-change hints for public surface |
 | `repository_dna` | Identify what a repository *is* |

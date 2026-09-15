@@ -1065,6 +1065,7 @@ describe("job lifecycle rail", () => {
     ]);
     expect(stages[3]!.current).toBe(true);
     expect(stages[3]!.historyLabel).toBe("Paused by you");
+    expect(stages[3]!.note).toBe("paused");
     expect(stages.at(-1)?.reached).toBe(false);
   });
 
@@ -1192,6 +1193,7 @@ describe("job lifecycle rail", () => {
     expect(rail).toBeTruthy();
     const current = rail!.querySelector(".job-rail__step--current");
     expect(current).toBeTruthy();
+    expect(current!.className).toContain("job-rail__step--pause");
     expect(current!.querySelector(".job-rail__seg")).toBeNull();
     expect(rail!.querySelectorAll(".job-rail__seg")).toHaveLength(3);
     expect(rail!.querySelector(".job-rail__seg--crawl")).toBeNull();

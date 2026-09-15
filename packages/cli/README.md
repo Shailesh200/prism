@@ -94,6 +94,7 @@ Use **1** vs **2** carefully in CI: a typo must not look like a real finding.
 
 | Command | Purpose |
 |---|---|
+| `prism prepare <task>` | Pack, reuse, and House Style (never file bodies) |
 | `prism blast <target>` | Blast radius |
 | `prism review [paths…]` | Change review (`--format sarif` for code scanning) |
 | `prism safe-delete <target>` | Safe to delete? |
