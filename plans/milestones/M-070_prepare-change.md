@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Progress** |
+| Status | **Verified** |
 | Branch | `milestone/M-070-prepare-change` (from latest `main`, M-069 merged) |
 | Depends on | M-069 Verified |
 | Unlocks | M-071 Finding Loop |
@@ -36,4 +36,4 @@ Finding Loop, Guard, Living AGENTS.md, work-order `order`, compaction
 - [x] Mocked `start_job` worker prompt contains pack paths
 - [x] MCP JSON has no fixture file-body token
 - [x] `bun run verify:milestone` green
-- [ ] Owner review before commit
+- [x] Owner review before commit
