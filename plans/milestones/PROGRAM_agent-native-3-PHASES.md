@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **Phase 1 started** — owner said **go ahead with phase 1** |
+| Status | **Phase 1 complete** — M-069→M-072 merged, T1 proof gate passed 2026-09-16. Awaiting **go ahead with phase 2**. |
 | Date | 2026-09-11 |
 | Product contract | [`PROGRAM_agent-native-iris.md`](./PROGRAM_agent-native-iris.md) (what we are building) |
 | This file | How to build it in **three owner prompts**, with verify-plan, proof, and smoke |
@@ -227,6 +227,8 @@ T0 numbers are already in [`AGENT_NATIVE_PROOF_T0.md`](../notes/AGENT_NATIVE_PRO
 | Working set | missing | — | files+neighbors after fake compaction | same |
 | Job cost Pulse | per-job tokens only | same | aggregate chart | same |
 | Work order | null | `order: null` reason | same | filled, advisory |
+
+**T1 confirmed 2026-09-16** — `bun scripts/agent-native-proof.ts --tag T1 --expect-honest` exits 0. Measured (`plans/notes/proof/T1.json`): `search_symbols "e"` → `items: 50`, `totalCount: 60`, `truncated: true`; verify-plan on this repo → `[typecheck, lint, test]`, on the lint-only fixture → `[lint]`, on the none fixture → `[]` (—); `TOOL_NAMES` includes `prepare_change`, `guard_session`, `queue_finding` (all `true`) while `working_set` / `agents_md` / `work_order` are still `false` (Phase 2/3, not yet built — correctly absent). `#/iris`'s `intelligence-view.tsx` has zero `RepositoryMapView` references (map is gone). Owner still needs to eyeball `#/iris`, Guard, and Findings live per the smoke script in §8.
 
 ### 3.4 What we are optimizing (the hype demo)
 
