@@ -134,6 +134,10 @@ export {
   type RunPhase,
 } from "./run-state.js";
 export {
+  reconcileFindingResolutions,
+  type FindingStillOpen,
+} from "./finding-resolve.js";
+export {
   workerMcpEnv,
   cursorAgentOptions,
   cursorModelId,

@@ -213,6 +213,11 @@ describe("local-only analysis makes no network calls (M-036 Phase 3)", () => {
       "prepareChange",
       () => workspace.prepareChange({ task: "add caching to fetchUser" }),
     ],
+    ["listFindings", () => Promise.resolve(workspace.listFindings())],
+    [
+      "resolveFinding",
+      () => workspace.resolveFinding({ fingerprint: "does-not-exist" }),
+    ],
   ];
 
   it.each(surfaces)(

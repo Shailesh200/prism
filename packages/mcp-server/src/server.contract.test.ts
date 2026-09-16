@@ -195,6 +195,7 @@ describe("MCP server contract (M-026)", () => {
         "list_jobs",
         "list_packages",
         "prepare_change",
+        "queue_finding",
         "remember",
         "rename_impact",
         "repository_dna",
@@ -496,6 +497,7 @@ describe("MCP server contract (M-026)", () => {
     const { tools } = await client.listTools();
     const skipped = new Set([
       "start_job",
+      "queue_finding",
       "job_control",
       "init",
       "sleep",

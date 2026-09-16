@@ -2506,6 +2506,57 @@ export function formatPrepareChangePrompt(prep: PrepareChange): string {
     .join("\n\n");
 }
 
+/**
+ * A queueable, re-scannable finding from a report (M-071 Finding Loop).
+ * `fingerprint` is stable across re-scans of the same underlying issue, so
+ * the loop can tell "job done" from "issue actually gone" (P-Q3).
+ */
+export const FindingRefSchema = z.object({
+  id: z.string().min(1),
+  source: z.string().min(1),
+  title: z.string().min(1),
+  path: z.string().min(1).optional(),
+  fingerprint: z.string().min(1),
+});
+export type FindingRef = z.infer<typeof FindingRefSchema>;
+
+/** `start_job` args a `queue_finding` call builds — Console and MCP share this. */
+export type QueueFindingArgs = {
+  readonly title: string;
+  readonly prd: string;
+  readonly origin: "finding";
+  readonly parentFindingId: string;
+  readonly findingFingerprint: string;
+  readonly findingSource: string;
+};
+
+/**
+ * The one place a finding becomes a job brief. Every entry point that queues
+ * a finding — MCP `queue_finding`, Console Findings, Console Spectrum —
+ * must call this instead of building its own payload, so they queue the
+ * same job for the same finding (M-071 L2/L6).
+ */
+export function queueFindingArgs(
+  finding: FindingRef,
+  instructions?: string,
+): QueueFindingArgs {
+  const prd = [
+    `Fix this finding only: ${finding.title}`,
+    finding.path ? `File: ${finding.path}` : "",
+    instructions?.trim() ?? "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+  return {
+    title: `Fix: ${finding.title}`,
+    prd,
+    origin: "finding",
+    parentFindingId: finding.id,
+    findingFingerprint: finding.fingerprint,
+    findingSource: finding.source,
+  };
+}
+
 /** Parse unknown JSON into a DTO; returns Zod issues as message. */
 export function parseDto<Schema extends z.ZodTypeAny>(
   schema: Schema,

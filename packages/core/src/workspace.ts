@@ -21,6 +21,8 @@ import {
   findSymbol as querySymbols,
   searchSymbols as querySearchSymbols,
   buildPrepareChange,
+  listFindings as queryFindings,
+  findingStillOpen,
   getCwvReport as loadCwvReport,
   getBundleWeightReport as loadBundleWeightReport,
   detectBundleAnalyzeCapability as detectBundleAnalyzeCapabilityImpl,
@@ -97,6 +99,7 @@ import {
   type GitActivity,
   type GitCommitRef,
   type PrepareChange,
+  type FindingRef,
   type DependencyGraphDto,
   type GraphSnapshotDto,
   type HealthHistoryBackfillStatus,
@@ -396,6 +399,16 @@ export type PrismWorkspace = {
     readonly task: string;
     readonly budget?: number;
   }): Promise<Result<PrepareChange, PrismError>>;
+  /** Queueable findings from the last index (M-071 L1). */
+  listFindings(): Result<{ findings: readonly FindingRef[] }, PrismError>;
+  /**
+   * Re-index and re-run the originating report (M-071 L3): `resolved: false`
+   * when the fingerprint is still present, `true` once it is gone. Never
+   * infers resolution from a job's status alone.
+   */
+  resolveFinding(input: {
+    readonly fingerprint: string;
+  }): Promise<Result<{ resolved: boolean }, PrismError>>;
   /**
    * Find resolved references to a symbol. When multiple same-named symbols
    * match and `path`/`start` are omitted, returns `{ ambiguous: true, candidates }`
@@ -2350,6 +2363,44 @@ export function createWorkspace(options: {
           ...(frameworks.length > 0 ? { frameworks } : {}),
         }),
       );
+    },
+    listFindings() {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      return ok({ findings: queryFindings(lastSnapshot) });
+    },
+    async resolveFinding(input) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      const fingerprint = input.fingerprint.trim();
+      if (!fingerprint) {
+        return err(
+          prismError(
+            PrismErrorCode.VALIDATION,
+            "resolveFinding requires a fingerprint",
+          ),
+        );
+      }
+      const reindexed = await this.reindex();
+      if (!reindexed.ok) return reindexed;
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      const open = findingStillOpen(lastSnapshot, fingerprint);
+      return ok({ resolved: !open });
     },
     findRoute(query) {
       const gate = ensureOpen();

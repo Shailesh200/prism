@@ -176,6 +176,15 @@ export function createPrismMcpServer(
       });
       return result.ok ? result.value : null;
     },
+    // Never resolves a finding without an open, indexed session — "unknown"
+    // must read as still open, not silently fixed (M-071 L3).
+    resolveFinding: async ({ fingerprint }) => {
+      if (!session.isOpen()) return true;
+      const ready = await session.ready();
+      if (!ready.ok) return true;
+      const result = await ready.value.resolveFinding({ fingerprint });
+      return result.ok ? !result.value.resolved : true;
+    },
   });
   let toolsReady = Promise.resolve();
   if (isWorkerRole(options.env ?? process.env)) {

@@ -16,6 +16,8 @@ import {
   SecurityReportSchema,
   PrepareChangeSchema,
   formatPrepareChangePrompt,
+  FindingRefSchema,
+  queueFindingArgs,
   parseDto,
 } from "./schemas.js";
 import { PrismErrorCode } from "./errors.js";
@@ -378,5 +380,35 @@ describe("DTO schemas round-trip", () => {
       "src/users/fetchUser.ts",
     );
     expect(formatPrepareChangePrompt(parsed)).not.toContain("UNIQUE_BODY");
+  });
+
+  it("FindingRefSchema round-trips", () => {
+    const raw = {
+      id: "symbol:src/users/lruCache.ts:lruCache:0",
+      source: "unused_export",
+      title: 'Unused export "lruCache" in src/users/lruCache.ts',
+      path: "src/users/lruCache.ts",
+      fingerprint: "abc123",
+    };
+    expect(FindingRefSchema.parse(raw)).toEqual(raw);
+  });
+
+  it("queueFindingArgs builds the same job payload every entry point must use", () => {
+    const finding = {
+      id: "symbol:src/users/lruCache.ts:lruCache:0",
+      source: "unused_export",
+      title: 'Unused export "lruCache" in src/users/lruCache.ts',
+      path: "src/users/lruCache.ts",
+      fingerprint: "abc123",
+    };
+    const fromMcp = queueFindingArgs(finding);
+    const fromConsole = queueFindingArgs(finding);
+    expect(fromMcp).toEqual(fromConsole);
+    expect(fromMcp.origin).toBe("finding");
+    expect(fromMcp.parentFindingId).toBe(finding.id);
+    expect(fromMcp.findingFingerprint).toBe(finding.fingerprint);
+    expect(fromMcp.findingSource).toBe("unused_export");
+    expect(fromMcp.prd).toContain("Fix this finding only");
+    expect(fromMcp.prd).toContain(finding.path);
   });
 });

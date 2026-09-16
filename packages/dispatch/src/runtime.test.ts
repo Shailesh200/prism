@@ -756,6 +756,54 @@ describe("jobs, worktrees, overlap, cap", () => {
     expect(result.job.placement).toBe("checkout");
   });
 
+  it("queue_finding builds the job from the finding, not free text (M-071 L2)", async () => {
+    root = await tempRoot();
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    const result = (await runtime.handle("queue_finding", {
+      finding: {
+        id: "symbol:src/x.ts:foo:0",
+        source: "unused_export",
+        title: 'Unused export "foo" in src/x.ts',
+        path: "src/x.ts",
+        fingerprint: "fp-123",
+      },
+    })) as {
+      job: {
+        origin?: string;
+        parentFindingId?: string;
+        findingFingerprint?: string;
+        findingSource?: string;
+        prd: string;
+        title: string;
+      };
+    };
+    expect(result.job.origin).toBe("finding");
+    expect(result.job.parentFindingId).toBe("symbol:src/x.ts:foo:0");
+    expect(result.job.findingFingerprint).toBe("fp-123");
+    expect(result.job.findingSource).toBe("unused_export");
+    expect(result.job.prd).toContain("Fix this finding only");
+    expect(result.job.prd).toContain("src/x.ts");
+  });
+
+  it("queue_finding refuses a finding missing required fields", async () => {
+    root = await tempRoot();
+    const runtime = createDispatchRuntime({
+      workspaceRoot: root,
+      git,
+      worker,
+      env: { CURSOR_API_KEY: "test-key" },
+    });
+    const result = (await runtime.handle("queue_finding", {
+      finding: { title: "a made-up finding" },
+    })) as { message: string };
+    expect(result.message).toMatch(/do not invent/i);
+  });
+
   it("starts a worker from a stored Cursor SDK login without CURSOR_API_KEY", async () => {
     root = await tempRoot();
     await saveConfig(root, { placement: "worktree" });

@@ -1,4 +1,5 @@
 import { access } from "node:fs/promises";
+import { FindingRefSchema, queueFindingArgs } from "@repo-prism/shared";
 import { buildDayBriefing, type BriefingDeps } from "./briefing.js";
 import { discoverHostConnectors } from "./host-connectors.js";
 import { loadConfig, saveConfig } from "./config.js";
@@ -122,6 +123,7 @@ export const DISPATCH_TOOL_NAMES = [
   "sleep",
   "wake",
   "start_job",
+  "queue_finding",
   "list_jobs",
   "job_logs",
   "job_control",
@@ -139,6 +141,7 @@ export const WORKER_HIDDEN_TOOLS: readonly DispatchToolName[] = [
   "sleep",
   "wake",
   "start_job",
+  "queue_finding",
 ];
 
 export function isWorkerRole(env: NodeJS.ProcessEnv = process.env): boolean {
@@ -297,6 +300,7 @@ export function createDispatchRuntime(
         isWorkerRole(env) &&
         (name === "start_my_day" ||
           name === "start_job" ||
+          name === "queue_finding" ||
           name === "init" ||
           name === "sleep" ||
           name === "wake")
@@ -318,6 +322,8 @@ export function createDispatchRuntime(
           return wakeTool(options, args, env, context);
         case "start_job":
           return startJob(options, args, env, context);
+        case "queue_finding":
+          return queueFinding(options, args, env, context);
         case "list_jobs":
           return listJobs(options, args, env);
         case "job_logs":
@@ -910,6 +916,15 @@ async function startJob(
       : parentJobId
         ? { origin: "finding" as const }
         : {}),
+    ...(String(args.parentFindingId ?? "").trim()
+      ? { parentFindingId: String(args.parentFindingId).trim() }
+      : {}),
+    ...(String(args.findingFingerprint ?? "").trim()
+      ? { findingFingerprint: String(args.findingFingerprint).trim() }
+      : {}),
+    ...(String(args.findingSource ?? "").trim()
+      ? { findingSource: String(args.findingSource).trim() }
+      : {}),
     ...(hostClientOf(options, args)
       ? { hostClient: hostClientOf(options, args) }
       : {}),
@@ -958,6 +973,44 @@ async function startJob(
     job: saved,
     message: queuedJobSpeak(saved),
   };
+}
+
+/**
+ * Turn a `FindingRef` from a report tool into a `start_job` call (M-071 L2).
+ * The brief is always "fix this finding only" — never the finding's whole
+ * report — and the fingerprint travels with the job so verification passing
+ * can trigger a re-scan instead of trusting the job's own `done` status.
+ */
+async function queueFinding(
+  options: DispatchRuntimeOptions,
+  args: Record<string, unknown>,
+  env: NodeJS.ProcessEnv,
+  context?: DispatchToolContext,
+): Promise<unknown> {
+  const parsed = FindingRefSchema.safeParse(args.finding);
+  if (!parsed.success) {
+    return {
+      message:
+        "queue_finding needs a finding with id, source, title, and fingerprint from a report tool — do not invent one.",
+    };
+  }
+  const instructions =
+    typeof args.instructions === "string" ? args.instructions : undefined;
+  const built = queueFindingArgs(parsed.data, instructions);
+  return startJob(
+    options,
+    {
+      ...args,
+      title: built.title,
+      prd: built.prd,
+      origin: built.origin,
+      parentFindingId: built.parentFindingId,
+      findingFingerprint: built.findingFingerprint,
+      findingSource: built.findingSource,
+    },
+    env,
+    context,
+  );
 }
 
 /**

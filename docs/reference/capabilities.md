@@ -72,6 +72,7 @@ use this page when you need the exhaustive index.
 | `list_jobs` | Where are we |
 | `list_packages` | List the packages in a monorepo with their roots |
 | `prepare_change` | One call before you edit |
+| `queue_finding` | Hand one finding from a report tool (engineering_health, security_report, testing_report, or another Intelligence report) to a background teammate |
 | `remember` | Save, list, or forget scoped memories that Dispatch injects into the next start_job prompt |
 | `rename_impact` | Every edit site a rename would touch, plus breaking-change hints for public surface |
 | `repository_dna` | Identify what a repository *is* |

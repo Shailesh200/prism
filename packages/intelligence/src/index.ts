@@ -269,3 +269,11 @@ export {
   tokenizeTask,
   type BuildPrepareChangeInput,
 } from "./prepare/pack.js";
+export {
+  listFindings,
+  findingStillOpen,
+  listUnusedExportFindings,
+  UNUSED_EXPORT_SOURCE,
+  computeFindingFingerprint,
+  normalizeFindingTitle,
+} from "./findings/index.js";
