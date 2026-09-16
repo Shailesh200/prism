@@ -14,11 +14,13 @@ import {
   gitFailureSpeak,
   isMissingGitRepoMessage,
   isWorkerRole,
+  reconcileFindingResolutions,
   startJobNoticeWatcher,
   visibleDispatchTools,
   type DispatchRuntime,
   type DispatchRuntimeOptions,
   type DispatchToolName,
+  type FindingStillOpen,
 } from "@repo-prism/dispatch";
 import {
   ensureHub,
@@ -27,6 +29,7 @@ import {
   peekHub,
   type HubHandle,
 } from "@repo-prism/dispatch-hub";
+import { FindingRefSchema } from "@repo-prism/shared";
 import type { ZodRawShape } from "zod";
 import { z } from "zod";
 import { toMcpErrorFromThrown } from "./errors.js";
@@ -180,6 +183,47 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
         .optional()
         .describe(
           "Why this job is a child of parentJobId. Default finding when parentJobId is set.",
+        ),
+    },
+    readOnly: false,
+    openWorld: false,
+  },
+  {
+    name: "queue_finding",
+    title: "Queue a finding",
+    description:
+      "Hand one finding from a report tool (engineering_health, security_report, testing_report, or another Intelligence report) to a background teammate. Pass the finding exactly as that tool returned it — id, source, title, and fingerprint — never invent or paraphrase these fields. The brief is always to fix that finding only, not the whole report. Same rules as start_job for dispatchMode, placement, and speaking the result: offer teammate vs inline under dispatchMode=ask and wait; call without asking under dispatchMode=auto. Once the job's checks pass, Prism re-runs the report and only then calls the finding resolved — a finished job is not enough on its own, so do not tell the user it is fixed until list_jobs or the originating report confirms it.",
+    inputSchema: {
+      finding: FindingRefSchema.describe(
+        "The exact finding object a report tool returned: { id, source, title, path?, fingerprint }",
+      ),
+      instructions: z
+        .string()
+        .optional()
+        .describe("Extra brief text beyond the finding's own title"),
+      workspace: z
+        .string()
+        .optional()
+        .describe(
+          "Absolute path of the git repository the user has open. Pass the folder that contains .git when you know it — do not ask the user.",
+        ),
+      placement: z
+        .enum(["checkout", "worktree"])
+        .optional()
+        .describe(
+          "Where the teammate works. Default checkout (the user's tree, uncommitted edits).",
+        ),
+      confirmDirty: z
+        .boolean()
+        .optional()
+        .describe(
+          "Set true only after the user agrees a checkout job may work alongside their uncommitted changes",
+        ),
+      workerModel: z
+        .string()
+        .optional()
+        .describe(
+          "Model id from the selected agent's own list. Omit to use that agent's default.",
         ),
     },
     readOnly: false,
@@ -434,6 +478,8 @@ export function registerDispatchTools(
     readonly applyWorkspaceHint?: (path: string) => boolean;
     readonly beforeCall?: () => Promise<void>;
     readonly prepareChange?: DispatchRuntimeOptions["prepareChange"];
+    /** Re-scan a finding's originating report (M-071 L3). list_jobs only. */
+    readonly resolveFinding?: FindingStillOpen;
   } = {},
 ): void {
   const env = options.env ?? process.env;
@@ -487,6 +533,12 @@ export function registerDispatchTools(
           const record = (args ?? {}) as Record<string, unknown>;
           if (typeof record.workspace === "string") {
             options.applyWorkspaceHint?.(record.workspace);
+          }
+          if (tool.name === "list_jobs" && options.resolveFinding) {
+            await reconcileFindingResolutions(
+              getRoot(),
+              options.resolveFinding,
+            ).catch(() => undefined);
           }
           const value = await runtime.handle(tool.name, record, {
             signal: extra.signal,
@@ -557,6 +609,7 @@ async function decorateDispatchValue(
     name !== "list_jobs" &&
     name !== "dispatch_doctor" &&
     name !== "start_job" &&
+    name !== "queue_finding" &&
     name !== "sleep" &&
     name !== "wake"
   )
@@ -564,6 +617,7 @@ async function decorateDispatchValue(
   const hub: HubHandle =
     name === "list_jobs" ||
     name === "start_job" ||
+    name === "queue_finding" ||
     name === "sleep" ||
     name === "wake"
       ? await ensureHub({ workspaceRoot: getRoot(), env }).catch(() => ({
@@ -597,6 +651,7 @@ async function decorateDispatchValue(
   if (
     (name === "list_jobs" ||
       name === "start_job" ||
+      name === "queue_finding" ||
       name === "sleep" ||
       name === "wake") &&
     board

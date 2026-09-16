@@ -191,6 +191,7 @@ credentials — connectors belong to the agent window (ADR-0049).
 | `wake` | Bring the Console back and start queued jobs | `confirm` |
 | `use_skill` | Load a Prism skill (`prism use <name>`) | `name` |
 | `start_job` | Start a named teammate in its own worktree; returns immediately | `title`, `prd`, `jobId`, `branch`, `confirmOverlap` |
+| `queue_finding` | Fix one finding from a report tool; re-scans the report once checks pass instead of trusting job status (M-071) | `finding`, `instructions` |
 | `list_jobs` | Live activity plus finished results (“where are we”); names the jobs board | — |
 | `job_logs` | One job's console: activity lines (subagent lines marked) plus the review awaiting you | `jobId`, `limit`, `since` |
 | `job_control` | pause / resume / cancel / attach_context / commit (checkout jobs) | `jobId`, `action`, `context` |

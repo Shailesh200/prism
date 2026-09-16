@@ -106,6 +106,7 @@ Default `Prism.create()` enables all of the above when default ports are wired.
 | `explainArea` | M-048 Phase 5 — deterministic path summary (domain overlap + dep degree + git ownership); **M-049** optional `fileRole` |
 | `prepareChange` | **M-070** — pack + reuse + House Style for a task. Paths/symbols/why only; never file bodies. `order` and `workingSet` are `null`. |
 | `listBookmarks` / `saveBookmark` / `removeBookmark` | M-048 Phase 6 — bookmarks persisted at `.prism/bookmarks.json` |
+| `listFindings` / `resolveFinding` | **M-071** — queueable findings from the last index (`FindingRef`, fingerprinted). `resolveFinding` re-indexes and re-runs the finding sources; never infers resolution from a job's status. |
 
 ### Top-level functions (not on `PrismWorkspace`) — experimental
 

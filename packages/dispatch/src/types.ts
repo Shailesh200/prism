@@ -292,6 +292,19 @@ export const JobRecordSchema = z.object({
   /** Parent job when this row is a retry, reverify, finding, or instruct child. */
   parentJobId: z.string().optional(),
   origin: z.enum(["retry", "reverify", "finding", "instruct"]).optional(),
+  /** Source report finding this job was queued to fix (M-071 Finding Loop). */
+  parentFindingId: z.string().optional(),
+  /** Stable fingerprint of the finding; re-scanned once verification passes. */
+  findingFingerprint: z.string().optional(),
+  /** Finding source id (e.g. `unused_export`), for the originating report. */
+  findingSource: z.string().optional(),
+  /**
+   * Set once verification has passed and the originating report has been
+   * re-run: `resolved` if the fingerprint is gone, `open` if still present.
+   * Absent while verification has not passed yet — a `done` job is never
+   * enough on its own (M-071 L3).
+   */
+  findingResolution: z.enum(["resolved", "open"]).optional(),
   /**
    * Where this job works (ADR-0045). Absent on pre-M-066 records = worktree
    * (every job was isolated then).

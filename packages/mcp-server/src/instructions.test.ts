@@ -19,7 +19,20 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toContain("sleep");
     expect(SERVER_INSTRUCTIONS).toContain("wake");
     expect(SERVER_INSTRUCTIONS).toContain("use_skill");
+    expect(SERVER_INSTRUCTIONS).toContain("queue_finding");
     expect(SERVER_INSTRUCTIONS).not.toMatch(/prism_blast_radius/);
+  });
+
+  it("keeps a finding open until a re-scan, not job status (M-071 L7)", () => {
+    expect(SERVER_INSTRUCTIONS).toMatch(
+      /stays open until Prism re-runs that report/,
+    );
+    expect(SERVER_INSTRUCTIONS).toMatch(
+      /do not call a finding resolved from job status alone/,
+    );
+    expect(SERVER_INSTRUCTIONS).toMatch(
+      /Offer queue_finding only if the user asks to fix it/,
+    );
   });
 
   // ADR-0049: connecting is something the user does in their editor. The

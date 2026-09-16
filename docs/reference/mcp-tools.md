@@ -19,7 +19,7 @@ Core analysis APIs stay ungated from MCP. See
 Tools that return a list accept `limit` and answer with `totalCount` and
 `truncated`, so an agent can tell the first 20 of 340 from all 20 there are.
 
-Prism exposes **45 tools**. Every count elsewhere in the docs is
+Prism exposes **46 tools**. Every count elsewhere in the docs is
 checked against this one, so the number cannot drift into prose.
 
 | Tool | What it answers |
@@ -50,6 +50,7 @@ checked against this one, so the number cannot drift into prose.
 | [`list_jobs`](#list_jobs) | Where are we |
 | [`list_packages`](#list_packages) | List the packages in a monorepo with their roots |
 | [`prepare_change`](#prepare_change) | One call before you edit |
+| [`queue_finding`](#queue_finding) | Hand one finding from a report tool (engineering_health, security_report, testing_report, or another Intelligence report) to a background teammate |
 | [`remember`](#remember) | Save, list, or forget scoped memories that Dispatch injects into the next start_job prompt |
 | [`rename_impact`](#rename_impact) | Every edit site a rename would touch, plus breaking-change hints for public surface |
 | [`repository_dna`](#repository_dna) | Identify what a repository *is* |
@@ -225,6 +226,12 @@ Arguments: `limit`.
 One call before you edit: the files to open for this task (pack), existing helpers to reuse, and three House Style exemplars. Returns paths, symbol names and why — never file bodies. Call this instead of dumping search_symbols or knowledge_graph. Ambiguous names come back as candidates; do not pick silently. order and workingSet are null in this build.
 
 Arguments: `task`, `budget`.
+
+## `queue_finding`
+
+Hand one finding from a report tool (engineering_health, security_report, testing_report, or another Intelligence report) to a background teammate. Pass the finding exactly as that tool returned it — id, source, title, and fingerprint — never invent or paraphrase these fields. The brief is always to fix that finding only, not the whole report. Same rules as start_job for dispatchMode, placement, and speaking the result: offer teammate vs inline under dispatchMode=ask and wait; call without asking under dispatchMode=auto. Once the job's checks pass, Prism re-runs the report and only then calls the finding resolved — a finished job is not enough on its own, so do not tell the user it is fixed until list_jobs or the originating report confirms it.
+
+Arguments: `finding`, `instructions`, `workspace`, `placement`, `confirmDirty`, `workerModel`.
 
 ## `remember`
 
