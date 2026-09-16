@@ -77,7 +77,8 @@
 | M-068 Trinity-grade Console | `milestone/M-068-trinity-console` | Verified | ✅ | ✅ | Owner verified 2026-09-07 (merged on main). Fleet Console (Pulse/Board/List), website theaters, Iris/Spectrum. npm `1.8.0` (dispatch / dispatch-hub / mcp-server). |
 | M-069 Agent substrate | `milestone/M-069-agent-substrate` | Verified | ✅ | ✅ | Owner verified 2026-09-14 (merged on main). Honest pipe, Envelope ledger, Honest Edges, verify-plan, Console Iris without Spectrum. |
 | M-070 prepare_change | `milestone/M-070-prepare-change` | Verified | ✅ | ✅ | Owner verified 2026-09-15 (merged on main). Cut 1: pack + reuse + House Style in one `prepare_change`; no file bodies. |
-| M-071 Finding Loop | `milestone/M-071-finding-loop` | In Progress | ☐ | ☐ | Cut 1: `FindingRef` fingerprinting, `queue_finding`, verification-gated re-scan resolution. Pulse sparkline + Spectrum dots deferred (need dedicated UI design). |
+| M-071 Finding Loop | `milestone/M-071-finding-loop` | Verified | ✅ | ✅ | Owner verified 2026-09-16 (merged on main). Cut 1: `FindingRef` fingerprinting, `queue_finding`, verification-gated re-scan resolution. Pulse sparkline + Spectrum dots deferred (need dedicated UI design). Live dogfooding fixed a lock-contention bug in the resolver and surfaced an unrelated pre-existing worktree-isolation bug (reported separately, not in scope). |
+| M-072 Prism Guard | `milestone/M-072-prism-guard` | In Progress | ☐ | ☐ | Cut 1: session-diff ranking (duplicate/orphan/boundary/blast checks), MCP `guard_session`. |
 
 ## Legend
 

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Progress** |
+| Status | **Verified** |
 | Branch | `milestone/M-071-finding-loop` (from latest `main`, M-070 merged) |
 | Depends on | M-070 Verified |
 | Unlocks | M-072 Prism Guard |
@@ -67,4 +67,4 @@ report and checking that the finding's fingerprint is gone.
       `queue_finding` on the user asking to fix it
       (`packages/mcp-server/src/instructions.test.ts`)
 - [x] `bun run verify:milestone` green
-- [ ] Owner review before commit
+- [x] Owner review before commit

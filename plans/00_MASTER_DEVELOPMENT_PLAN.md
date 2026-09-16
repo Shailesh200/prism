@@ -524,6 +524,7 @@ flowchart TD
 | M-069 | Agent substrate (Envelope pipe, Honest Edges, verify-plan, Console Iris) | Surfaces | M-068 | Yes |
 | M-070 | prepare_change (pack + reuse + House Style) | Surfaces | M-069 | Yes |
 | M-071 | Finding Loop (queue_finding, fingerprinted re-scan) | Surfaces | M-070 | Yes |
+| M-072 | Prism Guard (duplicate/orphan/boundary/blast session ranking) | Surfaces | M-070 | In Progress |
 
 **Critical path (must stay green):** M-001 → M-005 → M-040 → M-014 → **M-041 Gate A** (P0 + P1 + Mono-v1) → M-017 → M-018 → M-025 → surfaces (M-026/M-028/M-030) → M-039.  
 **M-041 continued:** phases P2–P7 + Mono-v2 may run after Gate A (Map unblocked); still tracked as M-041 until epic complete.
