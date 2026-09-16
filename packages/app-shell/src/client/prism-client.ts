@@ -22,6 +22,7 @@ import type {
   ExplainAreaSummary,
   GitActivity,
   GraphSnapshotDto,
+  GuardSession,
   HealthHistoryBackfillStatus,
   HealthHistoryReport,
   MapBookmark,
@@ -1024,6 +1025,39 @@ export function createPrismClient(
           return {
             status: "success",
             output: `domains=${data.domains.join(",") || "none"} in=${data.dependencyDegree.in} out=${data.dependencyDegree.out}`,
+          };
+        },
+      );
+    },
+
+    async fetchGuardSession(
+      preExistingChanges?: readonly string[],
+    ): Promise<GuardSession | null> {
+      return withAudit(
+        {
+          category: "analysis",
+          operation: "Guarded session",
+          target: `excluding=${preExistingChanges?.length ?? 0}`,
+          command: transport.command(
+            "guardSession",
+            `excluding=${preExistingChanges?.length ?? 0}`,
+          ),
+        },
+        async () => {
+          const res = await transport.invoke<GuardSession | null>(
+            "guardSession",
+            preExistingChanges
+              ? { preExistingChanges: [...preExistingChanges] }
+              : {},
+          );
+          return must(res);
+        },
+        (data) => {
+          if (!data)
+            return { status: "error", output: "guardSession unavailable." };
+          return {
+            status: "success",
+            output: `files=${data.files.length} truncated=${data.truncated}`,
           };
         },
       );

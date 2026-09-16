@@ -11,6 +11,7 @@ import {
   Monitor,
   Plug,
   Settings,
+  ShieldAlert,
   TrendingUp,
   Zap,
 } from "lucide-react";
@@ -34,7 +35,8 @@ export type AppView =
   | "jobs"
   | "settings"
   | "review"
-  | "explain";
+  | "explain"
+  | "guard";
 
 export type AppSidebarUser = {
   readonly author: string;
@@ -320,6 +322,18 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
         >
           <Zap size={16} aria-hidden />
           <span className="appnav__reveal">Impact</span>
+        </button>
+        <button
+          type="button"
+          className="appnav__item"
+          title="Guard"
+          aria-label="Guard"
+          data-prism-tour="guard"
+          data-active={props.active === "guard" ? "true" : "false"}
+          onClick={() => props.onNavigate("guard")}
+        >
+          <ShieldAlert size={16} aria-hidden />
+          <span className="appnav__reveal">Guard</span>
         </button>
         <button
           type="button"

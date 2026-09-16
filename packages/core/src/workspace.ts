@@ -23,6 +23,7 @@ import {
   buildPrepareChange,
   listFindings as queryFindings,
   findingStillOpen,
+  checkGuardSession,
   getCwvReport as loadCwvReport,
   getBundleWeightReport as loadBundleWeightReport,
   detectBundleAnalyzeCapability as detectBundleAnalyzeCapabilityImpl,
@@ -100,6 +101,7 @@ import {
   type GitCommitRef,
   type PrepareChange,
   type FindingRef,
+  type GuardSession,
   type DependencyGraphDto,
   type GraphSnapshotDto,
   type HealthHistoryBackfillStatus,
@@ -721,6 +723,15 @@ export type PrismWorkspace = {
    * `index()`.
    */
   explainArea(path: string): Promise<Result<ExplainAreaSummary, PrismError>>;
+  /**
+   * Prism Guard (M-072): the current session — working-tree dirty files
+   * minus `preExistingChanges` (ADR-0045 §3 / ADR-0055 G1) — ranked by blast
+   * risk, each flagged for a likely duplicate, an orphaned new file, or a
+   * package/domain boundary crossing. Requires `index()`.
+   */
+  guardSession(input?: {
+    readonly preExistingChanges?: readonly string[];
+  }): Promise<Result<GuardSession, PrismError>>;
   /** Bookmarks persisted at `.prism/bookmarks.json` (M-048 Phase 6). */
   listBookmarks(): Promise<Result<MapBookmark[], PrismError>>;
   /** Upsert a bookmark (by `id` when set) and return the updated list. */
@@ -2767,6 +2778,56 @@ export function createWorkspace(options: {
         summary,
         fileRole: role,
       } satisfies ExplainAreaSummary);
+    },
+    async guardSession(input) {
+      const gate = ensureImpact();
+      if (!gate.ok) return gate;
+      const snapshot = gate.value;
+      const changed = readChangedPaths(rootPath, {});
+      if (changed === null) {
+        return err(
+          prismError(
+            PrismErrorCode.UNSUPPORTED,
+            "Cannot rank a session: not a git work tree, or git is unavailable",
+          ),
+        );
+      }
+      const preExisting = new Set(input?.preExistingChanges ?? []);
+      const sessionPaths = changed.paths.filter((p) => !preExisting.has(p));
+      const excludedPreExisting = changed.paths.filter((p) =>
+        preExisting.has(p),
+      );
+
+      const dependencyGraph = buildDependencyGraph(snapshot).graph;
+      const flagsByPath = checkGuardSession({
+        snapshot,
+        sessionPaths,
+        dependencyGraph,
+      });
+      const context = impactContextFor(snapshot, false, softImpactCache);
+      const files: GuardSession["files"] = [];
+      for (const path of sessionPaths) {
+        const blast = computeBlastRadius(
+          { kind: "file", id: path, path },
+          context,
+        );
+        if (!blast.ok) return blast;
+        files.push({
+          path,
+          risk: blast.value.risk,
+          band: riskToBand(blast.value.risk),
+          flags: flagsByPath.get(path) ?? [],
+        });
+      }
+      files.sort((a, b) => b.risk - a.risk);
+      const cap = 50;
+      return ok({
+        generatedAt: new Date().toISOString(),
+        files: files.slice(0, cap),
+        excludedPreExisting,
+        totalDirty: changed.paths.length,
+        truncated: files.length > cap,
+      } satisfies GuardSession);
     },
     async listBookmarks() {
       const gate = ensureOpen();

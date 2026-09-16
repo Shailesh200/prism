@@ -218,6 +218,7 @@ describe("local-only analysis makes no network calls (M-036 Phase 3)", () => {
       "resolveFinding",
       () => workspace.resolveFinding({ fingerprint: "does-not-exist" }),
     ],
+    ["guardSession", () => workspace.guardSession()],
   ];
 
   it.each(surfaces)(

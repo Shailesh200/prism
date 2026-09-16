@@ -18,6 +18,7 @@ import type {
   GitActivity,
   GitRecentFile,
   GraphSnapshotDto,
+  GuardSession,
   HealthHistoryBackfillStatus,
   HealthHistoryReport,
   HealthScore,
@@ -75,7 +76,8 @@ export type AppView =
   | "jobs"
   | "settings"
   | "review"
-  | "explain";
+  | "explain"
+  | "guard";
 
 export type DashboardPayload = {
   root: string;
@@ -250,6 +252,11 @@ export type HostRequest =
   | { id: string; method: "reviewChanges"; paths: string[]; base?: string }
   | { id: string; method: "changedPaths"; base?: string }
   | { id: string; method: "explainArea"; path: string }
+  | {
+      id: string;
+      method: "guardSession";
+      preExistingChanges?: string[];
+    }
   | { id: string; method: "listBookmarks" }
   | { id: string; method: "saveBookmark"; input: SaveBookmarkInput }
   | { id: string; method: "removeBookmark"; bookmarkId: string }
@@ -457,6 +464,12 @@ export type HostResponse =
       ok: true;
       method: "explainArea";
       data: ExplainAreaSummary | null;
+    }
+  | {
+      id: string;
+      ok: true;
+      method: "guardSession";
+      data: GuardSession | null;
     }
   | { id: string; ok: true; method: "listBookmarks"; data: MapBookmark[] }
   | { id: string; ok: true; method: "saveBookmark"; data: MapBookmark[] }

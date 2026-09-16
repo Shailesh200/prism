@@ -31,6 +31,7 @@ export const HOST_REQUEST_METHODS = [
   "frontendRoutes",
   "gitFetch",
   "graph",
+  "guardSession",
   "healthHistory",
   "healthHistoryBackfill",
   "healthHistoryBackfillStatus",

@@ -79,6 +79,23 @@ describe("host requests reach Core and come back shaped", () => {
     expect(data?.metrics.length).toBeGreaterThan(0);
   });
 
+  it("answers guardSession from the same session Core would rank directly", async () => {
+    const response = expectOk(await send({ method: "guardSession" }));
+    const direct = await session.guardSession();
+
+    expect(direct.ok).toBe(true);
+    if (!direct.ok) throw new Error("guardSession unavailable for the fixture");
+
+    const data = (
+      response as {
+        data: { files: { path: string }[]; totalDirty: number } | null;
+      }
+    ).data;
+    expect(data?.files.map((f) => f.path)).toEqual(
+      direct.value?.files.map((f) => f.path) ?? [],
+    );
+  });
+
   it("reports a missing file as a refusal the webview can render", async () => {
     // Two failure channels exist on purpose. Transport failure means the host
     // could not answer at all; an in-band `{ ok: false }` means it answered and

@@ -14,6 +14,7 @@ import type {
   ExplainAreaSummary,
   GitActivity,
   GitRecentFile,
+  GuardSession,
   DependencyGraphDto,
   HealthHistoryBackfillStatus,
   HealthHistoryReport,
@@ -519,6 +520,18 @@ export class PrismSession {
     const ws = this.requireWs();
     if (!ws.ok) return ws;
     const result = await ws.value.explainArea(path);
+    if (!result.ok) return ok(null);
+    return ok(result.value);
+  }
+
+  async guardSession(
+    preExistingChanges?: readonly string[],
+  ): Promise<Result<GuardSession | null, PrismError>> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    const result = await ws.value.guardSession(
+      preExistingChanges ? { preExistingChanges } : undefined,
+    );
     if (!result.ok) return ok(null);
     return ok(result.value);
   }

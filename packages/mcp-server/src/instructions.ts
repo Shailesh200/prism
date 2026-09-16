@@ -50,6 +50,7 @@ Intelligence (read-only, indexes on first call):
 - Find a symbol / who calls it / how A reaches B → find_symbol or search_symbols, find_references, dependency_route
 - Cycles, coupling, import graph → dependency_cycles, dependency_graph (prefer summaryOnly / limit). Graph edges carry provenance (measured / heuristic / inferred). Inferred edges are not load-bearing without opening the file.
 - Reviewing a diff / PR / branch / “what did I break?” → review_changes (omit paths to auto-discover). Never review from a raw git diff alone: the patch says what changed, not what depends on it. Lead with the blast radius, test impact and breaking-change hints it already carries, and blast_radius anything it flags as risky. Never invent dependents the tools did not report. (Full procedure: the prism-review-pr skill.) A finding a report lists stays open until Prism re-runs that report and the fingerprint is gone — a fix job reaching done is not enough on its own, so do not call a finding resolved from job status alone. Offer queue_finding only if the user asks to fix it; reviewing or reporting never queues one on its own.
+- Before landing uncommitted work / “what should I read first in this diff?” → guard_session (dirty files ranked by blast risk, flagged duplicate/orphan/boundary). Pass preExistingChanges when ranking one job's session, not the user's whole tree.
 - Backend / testing / security posture → backend_report, testing_report, security_report
 - Session readiness / “is indexing done?” → workspace_status; what is unavailable vs unsupported → capabilities
 

@@ -82,6 +82,11 @@
         "category": "Prism"
       },
       {
+        "command": "prism.guardSession",
+        "title": "Prism: Guard: Rank Current Session",
+        "category": "Prism"
+      },
+      {
         "command": "prism.reviewChanges",
         "title": "Prism: Review Changes",
         "category": "Prism"

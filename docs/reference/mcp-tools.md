@@ -19,7 +19,7 @@ Core analysis APIs stay ungated from MCP. See
 Tools that return a list accept `limit` and answer with `totalCount` and
 `truncated`, so an agent can tell the first 20 of 340 from all 20 there are.
 
-Prism exposes **46 tools**. Every count elsewhere in the docs is
+Prism exposes **47 tools**. Every count elsewhere in the docs is
 checked against this one, so the number cannot drift into prose.
 
 | Tool | What it answers |
@@ -40,6 +40,7 @@ checked against this one, so the number cannot drift into prose.
 | [`feature_graph`](#feature_graph) | Inferred features and how they depend on each other |
 | [`find_references`](#find_references) | Find resolved references to a symbol — who actually calls or imports it |
 | [`find_symbol`](#find_symbol) | Find indexed symbols by exact name, optionally narrowed by file or kind |
+| [`guard_session`](#guard_session) | Rank the current dirty session — working-tree changes minus preExistingChanges, when you have that list from a job — by blast risk, so a human reads the highest-risk file first |
 | [`health_history`](#health_history) | Health score over time from stored index snapshots and optional git backfill |
 | [`init`](#init) | One-time worker sign-in so Prism can run local job teammates |
 | [`job_control`](#job_control) | Pause, resume, retry, reverify, cancel, delete, confirm, add context to, commit, keep, or restore files for a Dispatch job |
@@ -166,6 +167,12 @@ Arguments: `name`, `path`, `start`, `limit`.
 Find indexed symbols by exact name, optionally narrowed by file or kind. Use to locate a definition before asking about its impact. For substring or regex search use search_symbols.
 
 Arguments: `name`, `path`, `kind`, `limit`.
+
+## `guard_session`
+
+Rank the current dirty session — working-tree changes minus preExistingChanges, when you have that list from a job — by blast risk, so a human reads the highest-risk file first. Each file may carry duplicate (looks like an existing symbol), orphan (a new file nothing imports yet), or boundary (crosses into a package this session otherwise doesn't touch) flags. Call this before landing a session, not as a substitute for review_changes' test-impact and breaking-change view.
+
+Arguments: `preExistingChanges`.
 
 ## `health_history`
 
