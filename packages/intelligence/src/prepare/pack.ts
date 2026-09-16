@@ -248,7 +248,7 @@ function resolveSeeds(
   return { seeds: [...seeds], ambiguous };
 }
 
-function scoreReuse(
+export function scoreReuse(
   snapshot: IndexSnapshot,
   taskTokens: readonly string[],
   seedFiles: readonly string[],

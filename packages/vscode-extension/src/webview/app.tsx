@@ -17,6 +17,7 @@ import {
   AppShellClientProvider,
   AppSidebar,
   BlastRadiusScreen,
+  GuardScreen,
   DnaScreen,
   DomainScreen,
   DomainsScreen,
@@ -72,6 +73,7 @@ import {
   fetchPackages,
   applyRename,
   explainArea,
+  fetchGuardSession,
   fetchOverlay,
   fetchRegionMovers,
   fetchReindex,
@@ -280,6 +282,8 @@ function App(): ReactElement {
       fetchChangeReview: (paths, base) => reviewChanges(paths, base),
       fetchChangedPaths,
       fetchExplainArea: (path) => explainArea(path),
+      fetchGuardSession: (preExistingChanges) =>
+        fetchGuardSession(preExistingChanges),
       fetchBookmarks,
       saveBookmark,
       removeBookmark,
@@ -670,6 +674,17 @@ function App(): ReactElement {
               : "blast"
         }
         initialPaths={targetPaths}
+        onNavigate={onNavigate}
+        onOpenPath={openFile}
+      />
+    );
+  } else if (view === "guard") {
+    body = (
+      <GuardScreen
+        key="guard"
+        repoLabel={repoLabel}
+        branch={branch}
+        user={user}
         onNavigate={onNavigate}
         onOpenPath={openFile}
       />

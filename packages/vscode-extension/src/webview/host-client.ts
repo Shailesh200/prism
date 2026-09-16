@@ -173,6 +173,10 @@ export const explainArea = (
   ...args: Parameters<NonNullable<PrismClient["fetchExplainArea"]>>
 ): ReturnType<NonNullable<PrismClient["fetchExplainArea"]>> =>
   client.fetchExplainArea!(...args);
+export const fetchGuardSession = (
+  ...args: Parameters<NonNullable<PrismClient["fetchGuardSession"]>>
+): ReturnType<NonNullable<PrismClient["fetchGuardSession"]>> =>
+  client.fetchGuardSession!(...args);
 export const fetchBookmarks = (): ReturnType<
   NonNullable<PrismClient["fetchBookmarks"]>
 > => client.fetchBookmarks!();

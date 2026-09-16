@@ -808,6 +808,13 @@ export function activate(context: vscode.ExtensionContext): void {
     },
   );
 
+  const guardSession = vscode.commands.registerCommand(
+    "prism.guardSession",
+    async () => {
+      await openPanel("guard");
+    },
+  );
+
   const revealOnMap = vscode.commands.registerCommand(
     "prism.revealOnMap",
     async (arg: unknown) => {
@@ -934,6 +941,7 @@ export function activate(context: vscode.ExtensionContext): void {
     safeDelete,
     exploreOwnership,
     explainArea,
+    guardSession,
     revealOnMap,
     reviewChanges,
     reviewAllChanges,

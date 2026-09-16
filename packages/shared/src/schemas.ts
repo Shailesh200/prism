@@ -797,6 +797,41 @@ export const ChangeReviewReportSchema = z.object({
 
 export type ChangeReviewReport = z.infer<typeof ChangeReviewReportSchema>;
 
+/** What a Guard flag is warning about (M-072). */
+export const GUARD_CHECK_KINDS = ["duplicate", "orphan", "boundary"] as const;
+export type GuardCheckKind = (typeof GUARD_CHECK_KINDS)[number];
+export const GuardCheckKindSchema = z.enum(GUARD_CHECK_KINDS);
+
+export const GuardFlagSchema = z.object({
+  kind: GuardCheckKindSchema,
+  detail: z.string().min(1),
+  provenance: SignalProvenanceSchema,
+});
+export type GuardFlag = z.infer<typeof GuardFlagSchema>;
+
+export const GuardFileSchema = z.object({
+  path: RepoRelativePathSchema,
+  risk: z.number().min(0).max(100),
+  band: RiskBandSchema.optional(),
+  flags: z.array(GuardFlagSchema),
+});
+export type GuardFile = z.infer<typeof GuardFileSchema>;
+
+/**
+ * Prism Guard (M-072): the current session — dirty files minus whatever was
+ * already dirty before a job started (ADR-0045 §3 subtract, ADR-0055 G1) —
+ * ranked by blast risk, each carrying duplicate/orphan/boundary flags.
+ * `files` is sorted highest risk first: "read this one first."
+ */
+export const GuardSessionSchema = z.object({
+  generatedAt: z.string().datetime(),
+  files: z.array(GuardFileSchema),
+  excludedPreExisting: z.array(RepoRelativePathSchema),
+  totalDirty: z.number().int().nonnegative(),
+  truncated: z.boolean(),
+});
+export type GuardSession = z.infer<typeof GuardSessionSchema>;
+
 /** Deterministic module/folder summary card (M-048 Phase 5). */
 export const ExplainAreaSummarySchema = z.object({
   path: RepoRelativePathSchema,

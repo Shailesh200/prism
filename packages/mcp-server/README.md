@@ -239,6 +239,7 @@ credentials — connectors belong to the agent window (ADR-0049).
 | `test_impact` | Which tests cover this change target | `kind`, `id`, `path`, `limit` |
 | `breaking_change_hints` | Deprecated — included in `blast_radius` | `kind`, `id`, `path` |
 | `changed_paths` | Working-tree or base-ref changed paths | `base` |
+| `guard_session` | Rank the current dirty session by blast risk, flagged for duplicate/orphan/boundary (M-072) | `preExistingChanges` |
 | `review_changes` | Rolled-up review; omit `paths` to auto-discover | `paths?`, `base` |
 
 ### Reports

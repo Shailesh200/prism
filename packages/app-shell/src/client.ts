@@ -19,6 +19,7 @@ import type {
   DomainReport,
   EngineeringHealthReport,
   GraphSnapshotDto,
+  GuardSession,
   HealthHistoryBackfillStatus,
   HealthHistoryReport,
   MapLayerId,
@@ -266,6 +267,13 @@ export type AppShellClient = {
    * dependency degree + local git ownership.
    */
   fetchExplainArea?(path: string): Promise<ExplainAreaSummary | null>;
+  /**
+   * Prism Guard (M-072): the current session ranked by blast risk, each
+   * flagged for a likely duplicate, an orphaned file, or a boundary crossing.
+   */
+  fetchGuardSession?(
+    preExistingChanges?: readonly string[],
+  ): Promise<GuardSession | null>;
   /** Bookmarks persisted at `.prism/bookmarks.json` (M-048 Phase 6). */
   fetchBookmarks?(): Promise<MapBookmark[]>;
   saveBookmark?(input: SaveBookmarkInput): Promise<MapBookmark[]>;

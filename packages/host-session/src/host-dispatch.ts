@@ -421,6 +421,17 @@ export async function dispatchHostRequest(
         data: result.value,
       };
     }
+    case "guardSession": {
+      const result = await session.guardSession(req.preExistingChanges);
+      if (!result.ok)
+        return { id: req.id, ok: false, error: result.error.message };
+      return {
+        id: req.id,
+        ok: true,
+        method: "guardSession",
+        data: result.value,
+      };
+    }
     case "listBookmarks": {
       const result = await session.listBookmarks();
       if (!result.ok)

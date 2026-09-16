@@ -62,6 +62,7 @@ use this page when you need the exhaustive index.
 | `feature_graph` | Inferred features and how they depend on each other |
 | `find_references` | Find resolved references to a symbol — who actually calls or imports it |
 | `find_symbol` | Find indexed symbols by exact name, optionally narrowed by file or kind |
+| `guard_session` | Rank the current dirty session — working-tree changes minus preExistingChanges, when you have that list from a job — by blast risk, so a human reads the highest-risk file first |
 | `health_history` | Health score over time from stored index snapshots and optional git backfill |
 | `init` | One-time worker sign-in so Prism can run local job teammates |
 | `job_control` | Pause, resume, retry, reverify, cancel, delete, confirm, add context to, commit, keep, or restore files for a Dispatch job |

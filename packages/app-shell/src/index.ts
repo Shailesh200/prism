@@ -114,6 +114,8 @@ export { ChangeReviewScreen } from "./ChangeReviewScreen.js";
 export type { ChangeReviewScreenProps } from "./ChangeReviewScreen.js";
 export { ExplainAreaScreen } from "./ExplainAreaScreen.js";
 export type { ExplainAreaScreenProps } from "./ExplainAreaScreen.js";
+export { GuardScreen } from "./GuardScreen.js";
+export type { GuardScreenProps } from "./GuardScreen.js";
 export { SettingsScreen } from "./SettingsScreen.js";
 export type {
   SettingsScreenProps,

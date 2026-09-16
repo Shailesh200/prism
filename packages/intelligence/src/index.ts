@@ -52,6 +52,7 @@ export {
 export {
   discoverLocalPackages,
   resolveLocalPackageSpecifier,
+  packageForFile,
   type LocalPackage,
 } from "./dependency/packages.js";
 export { findCycles } from "./dependency/cycles.js";
@@ -267,8 +268,10 @@ export {
 export {
   buildPrepareChange,
   tokenizeTask,
+  scoreReuse,
   type BuildPrepareChangeInput,
 } from "./prepare/pack.js";
+export { checkGuardSession, type GuardCheckInput } from "./guard/session.js";
 export {
   listFindings,
   findingStillOpen,

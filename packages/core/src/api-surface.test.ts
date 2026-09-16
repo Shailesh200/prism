@@ -60,6 +60,7 @@ const WORKSPACE_METHODS = [
   "getTestingReport",
   "getUtilityJob",
   "getUtilityOverlay",
+  "guardSession",
   "index",
   "ingestCoverageFromWorkspace",
   "intelligence",
