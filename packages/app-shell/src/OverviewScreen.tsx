@@ -141,6 +141,7 @@ export type OverviewScreenProps = {
   readonly onOpenSettings?: () => void;
   readonly onOpenReview?: () => void;
   readonly onOpenExplain?: () => void;
+  readonly onOpenGuard?: () => void;
   /** Open a repo-relative path in the host editor when a path is known. */
   readonly onOpenPath?: (path: string) => void;
   readonly onRefresh: () => void;
@@ -436,6 +437,7 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
           else if (view === "settings") props.onOpenSettings?.();
           else if (view === "review") props.onOpenReview?.();
           else if (view === "explain") props.onOpenExplain?.();
+          else if (view === "guard") props.onOpenGuard?.();
         }}
       />
 

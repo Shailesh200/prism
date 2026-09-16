@@ -371,6 +371,15 @@ export async function fetchExplainArea(
   return fn(path);
 }
 
+export async function fetchGuardSession(
+  preExistingChanges: readonly string[] | undefined,
+  root: string | null,
+): Promise<import("@repo-prism/shared").GuardSession | null> {
+  const fn = client(root).fetchGuardSession;
+  if (!fn) return null;
+  return fn(preExistingChanges);
+}
+
 export async function applyRename(
   input: ApplyRenameInput,
   root: string | null,

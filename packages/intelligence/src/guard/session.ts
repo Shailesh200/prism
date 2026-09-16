@@ -54,24 +54,58 @@ function checkOrphans(input: GuardCheckInput): Map<string, GuardFlag[]> {
   return out;
 }
 
+/**
+ * `scoreReuse` scans every exported symbol in the repo per call — fine once,
+ * ruinous per session symbol on a large monorepo with a big dirty session
+ * (a 47-file session against this repo's own ~10k-symbol graph took 40+
+ * blocking seconds before this cap existed). Guard is heuristic advice, not
+ * an exhaustive audit, so a bounded sample is the right tradeoff: check the
+ * first N exported symbols across the session and stop.
+ */
+const MAX_DUPLICATE_CHECKS = 40;
+
+/**
+ * `scoreReuse`'s 0.7 threshold is meant for "consider reusing this" — a
+ * single shared word (e.g. both named `fetchSomething`) plus being a
+ * function already clears it, which floods a large, conventionally-named
+ * codebase with false positives when reused as a "this looks duplicated"
+ * warning. Guard also requires one name to contain the other, matching its
+ * own framing ("looks like an existing one") rather than "shares a word
+ * with something".
+ */
+function looksLikeSameSymbol(a: string, b: string): boolean {
+  const left = a.toLowerCase();
+  const right = b.toLowerCase();
+  return left.includes(right) || right.includes(left);
+}
+
 function checkDuplicates(input: GuardCheckInput): Map<string, GuardFlag[]> {
   const out = new Map<string, GuardFlag[]>();
   const kg = buildKnowledgeGraph(input.snapshot);
   const features = buildFeatureGraph(input.snapshot).features;
   const sessionSet = new Set(input.sessionPaths);
+  let checked = 0;
   for (const path of input.sessionPaths) {
+    if (checked >= MAX_DUPLICATE_CHECKS) break;
     if (isTestPath(path)) continue;
     const exportedHere = kg.symbols.filter(
       (s) => s.path === path && s.exported,
     );
     for (const symbol of exportedHere) {
+      if (checked >= MAX_DUPLICATE_CHECKS) break;
+      checked += 1;
       const hits = scoreReuse(
         input.snapshot,
         tokenizeTask(symbol.name),
         [path],
         features,
+        kg,
       );
-      const top = hits.find((hit) => !sessionSet.has(hit.path));
+      const top = hits.find(
+        (hit) =>
+          !sessionSet.has(hit.path) &&
+          looksLikeSameSymbol(symbol.name, hit.symbol),
+      );
       if (!top || top.score < DUPLICATE_THRESHOLD) continue;
       const flags = out.get(path) ?? [];
       flags.push({

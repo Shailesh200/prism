@@ -593,6 +593,7 @@ function App(): ReactElement {
         onOpenSettings={() => setView("settings")}
         onOpenReview={() => setView("review")}
         onOpenExplain={() => setView("explain")}
+        onOpenGuard={() => setView("guard")}
         onOpenPath={openFile}
         onRefresh={() => {
           void refreshGit();

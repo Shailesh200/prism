@@ -1,6 +1,18 @@
-import type { GuardCheckKind, GuardSession } from "@repo-prism/shared";
+import type {
+  GuardCheckKind,
+  GuardFlag,
+  GuardSession,
+} from "@repo-prism/shared";
 import { RISK_BANDS } from "@repo-prism/shared";
-import { Copy, RefreshCw, ShieldAlert, ShieldOff, Split } from "lucide-react";
+import {
+  ChevronRight,
+  Copy,
+  ExternalLink,
+  RefreshCw,
+  ShieldAlert,
+  ShieldOff,
+  Split,
+} from "lucide-react";
 import { useCallback, useEffect, useState, type ReactElement } from "react";
 import { AppSidebar, type AppSidebarUser, type AppView } from "./AppSidebar.js";
 import { shellNavVariant, shellRootClass } from "./shell-layout.js";
@@ -35,16 +47,67 @@ const FLAG_LABEL: Record<GuardCheckKind, string> = {
   boundary: "Boundary",
 };
 
+const FLAG_EXPLAINER: Record<GuardCheckKind, string> = {
+  duplicate: "an exported symbol here looks like one that already exists",
+  orphan: "a new file nothing in the index imports yet",
+  boundary: "crosses into a package this session otherwise doesn't touch",
+};
+
+/** One badge per flag kind present, with a count — not one chip per flag. */
+function groupFlags(
+  flags: readonly GuardFlag[],
+): { kind: GuardCheckKind; count: number; items: GuardFlag[] }[] {
+  const byKind = new Map<GuardCheckKind, GuardFlag[]>();
+  for (const flag of flags) {
+    byKind.set(flag.kind, [...(byKind.get(flag.kind) ?? []), flag]);
+  }
+  return [...byKind.entries()].map(([kind, items]) => ({
+    kind,
+    count: items.length,
+    items,
+  }));
+}
+
+/**
+ * Guard costs a real analysis pass (session diff + blast rank + duplicate
+ * scan). Switching tabs away and back must not re-run it — only the
+ * Refresh button should. A module-level cache survives the screen's own
+ * unmount/remount; it's cleared whenever the workspace label changes so a
+ * stale session from a different repo never shows.
+ */
+let cachedSession: { repoLabel: string; session: GuardSession } | null = null;
+
+/** Test-only: the cache is module-level and outlives any one render. */
+export function __resetGuardSessionCacheForTests(): void {
+  cachedSession = null;
+}
+
 export function GuardScreen(props: GuardScreenProps): ReactElement {
   const client = useAppShellClient();
-  const [status, setStatus] = useState<Status>("loading");
+  const cacheHit =
+    cachedSession && cachedSession.repoLabel === props.repoLabel
+      ? cachedSession.session
+      : null;
+  const [status, setStatus] = useState<Status>(cacheHit ? "ready" : "loading");
   const [error, setError] = useState<string | null>(null);
-  const [session, setSession] = useState<GuardSession | null>(null);
+  const [session, setSession] = useState<GuardSession | null>(cacheHit);
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+
+  const toggleExpanded = useCallback((path: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }, []);
 
   const load = useCallback(async () => {
     if (!client.fetchGuardSession) {
       setStatus("error");
-      setError("Guard is not supported on this surface.");
+      setError(
+        "Guard is only available in the Prism VS Code / Cursor extension for now.",
+      );
       return;
     }
     setStatus("loading");
@@ -52,6 +115,9 @@ export function GuardScreen(props: GuardScreenProps): ReactElement {
     const started = Date.now();
     try {
       const data = await client.fetchGuardSession();
+      cachedSession = data
+        ? { repoLabel: props.repoLabel, session: data }
+        : null;
       setSession(data);
       setStatus("ready");
       recordAudit({
@@ -70,9 +136,10 @@ export function GuardScreen(props: GuardScreenProps): ReactElement {
       setStatus("error");
       setError(msg);
     }
-  }, [client]);
+  }, [client, props.repoLabel]);
 
   useEffect(() => {
+    if (cacheHit) return;
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -92,8 +159,11 @@ export function GuardScreen(props: GuardScreenProps): ReactElement {
           <div>
             <div className="ov-top__title">Prism Guard</div>
             <div className="ov-top__sub">
-              {[props.repoLabel, props.branch].filter(Boolean).join(" · ") ||
-                "The current session, ranked by blast risk"}
+              {[props.repoLabel, props.branch].filter(Boolean).join(" · ")}
+              {props.repoLabel || props.branch ? " · " : ""}
+              Your uncommitted files, ranked by how much would break if you
+              changed them — highest risk first. Click a file to see why it's
+              flagged.
             </div>
           </div>
           <button
@@ -132,43 +202,120 @@ export function GuardScreen(props: GuardScreenProps): ReactElement {
                   dirty before this session started.
                 </p>
               ) : null}
-              <ul className="guard-list">
-                {session.files.map((file) => {
-                  const band = RISK_BANDS[file.band ?? "low"];
-                  return (
-                    <li key={file.path} className="guard-list__row">
-                      <span
-                        className="guard-list__band"
-                        style={{
-                          backgroundColor: RISK_BAND_COLOR[band.id],
-                        }}
-                        title={band.label}
+              <div className="guard-table">
+                <div className="guard-table__head" aria-hidden>
+                  <span />
+                  <span>Risk</span>
+                  <span>File</span>
+                  <span>Flags</span>
+                </div>
+                <ul className="guard-rows">
+                  {session.files.map((file) => {
+                    const band = RISK_BANDS[file.band ?? "low"];
+                    const groups = groupFlags(file.flags);
+                    const isExpanded = expanded.has(file.path);
+                    return (
+                      <li
+                        key={file.path}
+                        className="guard-row"
+                        data-open={isExpanded ? "true" : "false"}
                       >
-                        {file.risk}
-                      </span>
-                      <button
-                        type="button"
-                        className="guard-list__path"
-                        onClick={() => props.onOpenPath?.(file.path)}
-                      >
-                        {file.path}
-                      </button>
-                      <span className="ea-chips">
-                        {file.flags.map((flag, index) => (
+                        <div
+                          className="guard-row__main"
+                          role="button"
+                          tabIndex={0}
+                          aria-expanded={isExpanded}
+                          data-testid={`guard-row-${file.path}`}
+                          onClick={() => toggleExpanded(file.path)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              toggleExpanded(file.path);
+                            }
+                          }}
+                        >
+                          {groups.length > 0 ? (
+                            <ChevronRight
+                              size={14}
+                              aria-hidden
+                              className="guard-row__chev"
+                              data-open={isExpanded ? "true" : "false"}
+                            />
+                          ) : (
+                            <span className="guard-row__chev-spacer" />
+                          )}
                           <span
-                            key={`${flag.kind}-${index}`}
-                            className="ea-chip"
-                            title={flag.detail}
+                            className="guard-row__band"
+                            style={{
+                              backgroundColor: RISK_BAND_COLOR[band.id],
+                            }}
+                            title={`${band.label} blast risk`}
                           >
-                            {FLAG_ICON[flag.kind]}
-                            {FLAG_LABEL[flag.kind]}
+                            {file.risk}
                           </span>
-                        ))}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
+                          <span className="guard-row__file">
+                            <span className="guard-row__path ov-mono">
+                              {file.path}
+                            </span>
+                            {props.onOpenPath ? (
+                              <button
+                                type="button"
+                                className="guard-row__open"
+                                title="Open file"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  props.onOpenPath?.(file.path);
+                                }}
+                              >
+                                <ExternalLink size={12} aria-hidden />
+                              </button>
+                            ) : null}
+                          </span>
+                          <span className="guard-row__flags">
+                            {groups.map((group) => (
+                              <span
+                                key={group.kind}
+                                className="guard-flag"
+                                data-kind={group.kind}
+                                title={FLAG_EXPLAINER[group.kind]}
+                              >
+                                {FLAG_ICON[group.kind]}
+                                {group.count > 1
+                                  ? `${group.count} ${FLAG_LABEL[group.kind]}`
+                                  : FLAG_LABEL[group.kind]}
+                              </span>
+                            ))}
+                          </span>
+                        </div>
+                        {isExpanded && groups.length > 0 ? (
+                          <div className="guard-detail">
+                            {groups.flatMap((group) =>
+                              group.items.map((flag, index) => (
+                                <div
+                                  key={`${group.kind}-${index}`}
+                                  className="guard-detail__row"
+                                >
+                                  <span
+                                    className="guard-detail__icon"
+                                    data-kind={flag.kind}
+                                  >
+                                    {FLAG_ICON[flag.kind]}
+                                  </span>
+                                  <span className="guard-detail__text">
+                                    <strong>{FLAG_LABEL[flag.kind]}</strong>
+                                    {" — "}
+                                    {flag.detail}
+                                  </span>
+                                </div>
+                              )),
+                            )}
+                          </div>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
               {session.truncated ? (
                 <p className="ea-summary">
                   <ShieldAlert

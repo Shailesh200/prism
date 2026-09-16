@@ -22,7 +22,10 @@ import {
 } from "@repo-prism/shared";
 import { buildDependencyGraph } from "../dependency/build.js";
 import { buildFeatureGraph } from "../feature/build.js";
-import { buildKnowledgeGraph } from "../semantic/build.js";
+import {
+  buildKnowledgeGraph,
+  type KnowledgeGraphResult,
+} from "../semantic/build.js";
 
 const STOP = new Set([
   "add",
@@ -253,8 +256,14 @@ export function scoreReuse(
   taskTokens: readonly string[],
   seedFiles: readonly string[],
   features: readonly FeatureInfo[],
+  /**
+   * Pass the caller's own knowledge graph when it already built one —
+   * rebuilding it per call is fine once per request, but ruinous in a loop
+   * (Prism Guard's per-symbol duplicate check learned this the hard way).
+   */
+  knowledgeGraph?: KnowledgeGraphResult,
 ): ReuseHit[] {
-  const kg = buildKnowledgeGraph(snapshot);
+  const kg = knowledgeGraph ?? buildKnowledgeGraph(snapshot);
   const seedFeatureIds = new Set(
     features
       .filter((f) => seedFiles.some((p) => f.memberFiles.includes(p)))

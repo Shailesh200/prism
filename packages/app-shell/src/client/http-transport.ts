@@ -22,6 +22,7 @@ import {
   ExplainAreaSummarySchema,
   GitActivitySchema,
   GraphSnapshotDtoSchema,
+  GuardSessionSchema,
   HealthHistoryBackfillStatusSchema,
   HealthHistoryReportSchema,
   HealthScoreSchema,
@@ -1017,6 +1018,33 @@ export function createHttpTransport(
           return parsed.success
             ? { ok: true, data: parsed.data as T }
             : { ok: false, error: "Invalid explain area payload" };
+        }
+
+        case "guardSession": {
+          const qs = new URLSearchParams();
+          rootParam(qs);
+          const preExistingChanges = params.preExistingChanges;
+          if (
+            Array.isArray(preExistingChanges) &&
+            preExistingChanges.length > 0
+          ) {
+            qs.set("preExistingChanges", preExistingChanges.join(","));
+          }
+          const { ok, json } = await getJson(`/api/guard?${qs}`);
+          if (!ok || json === null) {
+            const message =
+              json &&
+              typeof json === "object" &&
+              "error" in json &&
+              typeof json.error === "string"
+                ? json.error
+                : "guardSession failed";
+            return { ok: false, error: message };
+          }
+          const parsed = GuardSessionSchema.safeParse(json);
+          return parsed.success
+            ? { ok: true, data: parsed.data as T }
+            : { ok: false, error: "Invalid guard session payload" };
         }
         case "listBookmarks":
         case "saveBookmark":

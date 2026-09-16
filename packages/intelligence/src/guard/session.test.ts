@@ -133,6 +133,124 @@ describe("checkGuardSession > duplicate", () => {
     ).toBe(true);
   });
 
+  it("stops checking after a bounded number of session symbols (perf regression guard)", () => {
+    // A 47-file session against this repo's own knowledge graph once blocked
+    // the whole process for 40+ seconds (M-073 live incident): scoreReuse
+    // rescans every exported symbol in the repo, once per session symbol
+    // checked, with nothing bounding how many session symbols get checked.
+    // This proves the fix behaviourally — checking stops after
+    // MAX_DUPLICATE_CHECKS symbols — rather than by wall clock, which is
+    // exactly the kind of assertion that flakes under a loaded CI runner.
+    const NOISE_COUNT = 40; // exhausts the cap before any of these can match
+    const PAST_CAP_COUNT = 5; // positioned after the cap; must be unreachable
+    const files = [
+      ...Array.from({ length: NOISE_COUNT }, (_, i) =>
+        file(`src/users/noise${i}.ts`, {
+          symbols: [
+            {
+              name: `noiseSymbol${i}`,
+              kind: "function",
+              start: 0,
+              end: 20,
+              exported: true,
+            },
+          ],
+          exports: [{ name: `noiseSymbol${i}`, kind: "name" }],
+        }),
+      ),
+      ...Array.from({ length: PAST_CAP_COUNT }, (_, i) => [
+        file(`src/lib/pastCapSource${i}.ts`, {
+          symbols: [
+            {
+              name: `pastCapMarker${i}`,
+              kind: "function",
+              start: 0,
+              end: 20,
+              exported: true,
+            },
+          ],
+          exports: [{ name: `pastCapMarker${i}`, kind: "name" }],
+        }),
+        file(`src/users/pastCap${i}.ts`, {
+          symbols: [
+            {
+              name: `pastCapMarker${i}Duplicate`,
+              kind: "function",
+              start: 0,
+              end: 20,
+              exported: true,
+            },
+          ],
+          exports: [{ name: `pastCapMarker${i}Duplicate`, kind: "name" }],
+        }),
+      ]).flat(),
+    ];
+    const snap = snapshot(files);
+    // Noise first, then the obvious-duplicate files — so the cap exhausts
+    // on noise before the checker ever reaches a file that should match.
+    const sessionPaths = [
+      ...Array.from(
+        { length: NOISE_COUNT },
+        (_, i) => `src/users/noise${i}.ts`,
+      ),
+      ...Array.from(
+        { length: PAST_CAP_COUNT },
+        (_, i) => `src/users/pastCap${i}.ts`,
+      ),
+    ];
+    const flags = checkGuardSession({
+      snapshot: snap,
+      sessionPaths,
+      dependencyGraph: buildDependencyGraph(snap).graph,
+    });
+    for (let i = 0; i < PAST_CAP_COUNT; i += 1) {
+      expect(
+        flags
+          .get(`src/users/pastCap${i}.ts`)
+          ?.some((f) => f.kind === "duplicate"),
+      ).toBe(false);
+    }
+  });
+
+  it("does not flag two symbols that only share a generic word (live false-positive: fetchDna/fetchHealth)", () => {
+    const snap = snapshot([
+      file("src/client/fetch-dna.ts", {
+        symbols: [
+          {
+            name: "fetchDna",
+            kind: "function",
+            start: 0,
+            end: 10,
+            exported: true,
+          },
+        ],
+        exports: [{ name: "fetchDna", kind: "name" }],
+      }),
+      file("src/client/fetch-health.ts", {
+        symbols: [
+          {
+            name: "fetchHealth",
+            kind: "function",
+            start: 0,
+            end: 10,
+            exported: true,
+          },
+        ],
+        exports: [{ name: "fetchHealth", kind: "name" }],
+      }),
+    ]);
+    const flags = checkGuardSession({
+      snapshot: snap,
+      sessionPaths: ["src/client/fetch-health.ts"],
+      dependencyGraph: buildDependencyGraph(snap).graph,
+    });
+    expect(
+      flags
+        .get("src/client/fetch-health.ts")
+        ?.some((f) => f.kind === "duplicate"),
+    ).toBe(false);
+  });
+
   it("does not flag two unrelated symbol names", () => {
     const snap = snapshot([
       file("src/a.ts", {

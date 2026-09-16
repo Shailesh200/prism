@@ -12,6 +12,7 @@ import {
   DnaScreen,
   DomainScreen,
   DomainsScreen,
+  GuardScreen,
   IntegrationsScreen,
   OverviewScreen,
   PrismBootScreen,
@@ -75,6 +76,7 @@ import {
   fetchChangeReview,
   fetchChangedPaths,
   fetchExplainArea,
+  fetchGuardSession,
   fetchHealth,
   fetchHealthHistory,
   fetchHealthHistoryBackfillStatus,
@@ -310,6 +312,8 @@ export function App(): ReactElement {
         fetchChangeReview(paths, target, base),
       fetchChangedPaths: (base) => fetchChangedPaths(target, base),
       fetchExplainArea: (path) => fetchExplainArea(path, target),
+      fetchGuardSession: (preExistingChanges) =>
+        fetchGuardSession(preExistingChanges, target),
       applyRename: (input) => applyRename(input, target),
       fetchSymbolHits: (query) => fetchSymbolHits(query, target),
       fetchGitActivity: () => fetchGitActivity(target),
@@ -801,6 +805,7 @@ export function App(): ReactElement {
             onOpenIntegrations={() => setView("integrations")}
             onOpenReview={() => setView("review")}
             onOpenExplain={() => setView("explain")}
+            onOpenGuard={() => setView("guard")}
             onOpenSettings={() => {
               setSettingsSection("general");
               setView("settings");
@@ -878,6 +883,13 @@ export function App(): ReactElement {
               // Playground has no editor host — surface the path for copy/debug.
               console.info(`[playground] open path: ${path}`);
             }}
+          />
+        ) : view === "guard" ? (
+          <GuardScreen
+            repoLabel={rootLabel}
+            branch={gitActivity?.summary?.branch}
+            user={gitActivity?.recentCommits[0] ?? null}
+            onNavigate={navigate}
           />
         ) : view === "jobs" ? (
           <ConsoleJobsScreen
