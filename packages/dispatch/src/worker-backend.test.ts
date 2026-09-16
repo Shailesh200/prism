@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { resolveWorkerBackend, workerBackendLabel } from "./worker-backend.js";
+import { AgentRegistry } from "./agent-registry.js";
+import {
+  resolveWorkerBackend,
+  workerBackendLabel,
+  isBuiltinBackend,
+} from "./worker-backend.js";
+import type { AgentsConfig } from "./agent-registry.js";
 
 describe("resolveWorkerBackend", () => {
   it("defaults to cursor when nothing says otherwise", () => {
@@ -61,9 +67,130 @@ describe("resolveWorkerBackend", () => {
   });
 });
 
+describe("resolveWorkerBackend with registry", () => {
+  const customAgents: AgentsConfig = {
+    opencode: {
+      name: "opencode",
+      label: "OpenCode",
+      cli: "opencode",
+      flags: { prompt: "-p", extra: [] },
+      outputFormat: "plain-text",
+      builtin: false,
+    },
+    kilo: {
+      name: "kilo",
+      label: "Kilo Code",
+      cli: "kilo-cli",
+      flags: { prompt: "--prompt", extra: [] },
+      outputFormat: "plain-text",
+      builtin: false,
+    },
+  };
+  const registry = new AgentRegistry(customAgents);
+
+  it("resolves custom agent from clientInfo via registry lookup", () => {
+    expect(
+      resolveWorkerBackend({
+        clientName: "opencode",
+        registry,
+      }),
+    ).toBe("opencode");
+  });
+
+  it("resolves custom agent via substring match", () => {
+    expect(
+      resolveWorkerBackend({
+        clientName: "kilo-code-2.0",
+        registry,
+      }),
+    ).toBe("kilo");
+  });
+
+  it("config override still works with registry", () => {
+    expect(
+      resolveWorkerBackend({
+        config: { workerBackend: "opencode" },
+        clientName: "kilo",
+        registry,
+      }),
+    ).toBe("opencode");
+  });
+
+  it("PRISM_WORKER with registry agent name works", () => {
+    expect(
+      resolveWorkerBackend({
+        env: { PRISM_WORKER: "opencode" },
+        registry,
+      }),
+    ).toBe("opencode");
+  });
+
+  it("falls back to cursor for unknown agent without registry", () => {
+    expect(
+      resolveWorkerBackend({
+        clientName: "unknown-agent",
+      }),
+    ).toBe("cursor");
+  });
+
+  it("unknown agent with registry falls back to cursor", () => {
+    expect(
+      resolveWorkerBackend({
+        clientName: "unknown-agent",
+        registry,
+      }),
+    ).toBe("cursor");
+  });
+});
+
 describe("workerBackendLabel", () => {
   it("names the backend for doctor output", () => {
     expect(workerBackendLabel("cursor")).toBe("Cursor");
     expect(workerBackendLabel("claude")).toBe("Claude Code");
+  });
+
+  it("uses registry label for custom agents", () => {
+    const customAgents: AgentsConfig = {
+      opencode: {
+        name: "opencode",
+        label: "OpenCode",
+        cli: "opencode",
+        flags: { prompt: "-p", extra: [] },
+        outputFormat: "plain-text",
+        builtin: false,
+      },
+    };
+    const registry = new AgentRegistry(customAgents);
+    expect(workerBackendLabel("opencode", registry)).toBe("OpenCode");
+  });
+
+  it("falls back to raw name for unknown agents", () => {
+    expect(workerBackendLabel("unknown")).toBe("unknown");
+  });
+});
+
+describe("isBuiltinBackend", () => {
+  it("cursor and claude are builtin", () => {
+    expect(isBuiltinBackend("cursor")).toBe(true);
+    expect(isBuiltinBackend("claude")).toBe(true);
+  });
+
+  it("custom agent is not builtin", () => {
+    const customAgents: AgentsConfig = {
+      opencode: {
+        name: "opencode",
+        label: "OpenCode",
+        cli: "opencode",
+        flags: { prompt: "-p", extra: [] },
+        outputFormat: "plain-text",
+        builtin: false,
+      },
+    };
+    const registry = new AgentRegistry(customAgents);
+    expect(isBuiltinBackend("opencode", registry)).toBe(false);
+  });
+
+  it("unknown agent is not builtin", () => {
+    expect(isBuiltinBackend("unknown")).toBe(false);
   });
 });

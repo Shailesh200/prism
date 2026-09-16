@@ -10,6 +10,8 @@
  * Envelope prefers the MCP handshake name. When that is empty (Cursor often
  * omits it), the editor process env is a second hint — never a security
  * boundary, and never a reason to invent ChatGPT or Codex.
+ *
+ * M-073: Added model detection from environment variables and clientInfo title.
  */
 
 export type EnvelopeHostSource = "mcp" | "env" | "worker";
@@ -17,6 +19,7 @@ export type EnvelopeHostSource = "mcp" | "env" | "worker";
 export type EnvelopeClientVersion = {
   readonly name?: string;
   readonly version?: string;
+  readonly title?: string | undefined;
 };
 
 /** Fields written onto an Envelope ledger line when a host can be named. */
@@ -24,6 +27,7 @@ export type EnvelopeHostProbe = {
   readonly host?: string;
   readonly clientName?: string;
   readonly clientVersion?: string;
+  readonly clientModel?: string;
   readonly hostSource?: EnvelopeHostSource;
 };
 
@@ -93,6 +97,39 @@ function ipcLooksLikeCursor(env: NodeJS.ProcessEnv): boolean {
 }
 
 /**
+ * Detect the model name from environment variables or clientInfo title.
+ *
+ * Models are typically set via env vars by agents:
+ * - ANTHROPIC_MODEL (Claude agents)
+ * - OPENAI_MODEL (OpenAI agents)
+ * - GEMINI_MODEL (Google agents)
+ *
+ * Falls back to parsing parenthetical model from clientInfo title
+ * (e.g., "OpenCode (gpt-4o)" → "gpt-4o").
+ */
+export function detectModel(
+  env: NodeJS.ProcessEnv = process.env,
+  clientTitle?: string,
+): string | undefined {
+  // Try well-known env vars
+  const envModel =
+    env.ANTHROPIC_MODEL?.trim() ||
+    env.OPENAI_MODEL?.trim() ||
+    env.GEMINI_MODEL?.trim() ||
+    env.AZURE_OPENAI_MODEL?.trim() ||
+    env.OLLAMA_MODEL?.trim();
+  if (envModel) return envModel;
+
+  // Try parsing model from clientInfo title: "AgentName (model-name)"
+  if (clientTitle) {
+    const match = clientTitle.match(/\(([^)]+)\)/);
+    if (match?.[1]) return match[1].trim();
+  }
+
+  return undefined;
+}
+
+/**
  * Editor fingerprint from the MCP process env. Values are never stored —
  * only a host id. Claude wins when both fingerprints are present (a Claude
  * CLI nested under Cursor).
@@ -128,12 +165,14 @@ export function envelopeHostFromEnv(
 function clientOf(client: EnvelopeClientVersion | string | undefined): {
   name?: string;
   version?: string;
+  title?: string;
 } {
   if (typeof client === "string") return { name: client };
   if (!client) return {};
   return {
     ...(client.name ? { name: client.name } : {}),
     ...(client.version ? { version: client.version } : {}),
+    ...(client.title ? { title: client.title } : {}),
   };
 }
 
@@ -143,30 +182,39 @@ function clientOf(client: EnvelopeClientVersion | string | undefined): {
  * Order: MCP handshake name, then a Dispatch worker backend, then the
  * process env. Raw `clientName` / `clientVersion` are stored whenever the
  * handshake sent them, even if the canonical host is still missing.
+ *
+ * M-073: Also detects and returns the model name.
  */
 export function envelopeHostProbe(input: {
   readonly client?: EnvelopeClientVersion | string | undefined;
   readonly env?: NodeJS.ProcessEnv;
   readonly workerHost?: string;
 }): EnvelopeHostProbe {
-  const { name, version } = clientOf(input.client);
+  const { name, version, title } = clientOf(input.client);
   const clientName = clipMeta(name, 80);
   const clientVersion = clipMeta(version, 40);
   const meta = {
     ...(clientName ? { clientName } : {}),
     ...(clientVersion ? { clientVersion } : {}),
   };
+  // M-073: detect model from env or title
+  const env = input.env ?? process.env;
+  const clientModel = detectModel(env, title);
+  const metaWithModel = {
+    ...meta,
+    ...(clientModel ? { clientModel } : {}),
+  };
   const fromMcp = envelopeHostFromClient(name);
   if (fromMcp) {
-    return { host: fromMcp, hostSource: "mcp", ...meta };
+    return { host: fromMcp, hostSource: "mcp", ...metaWithModel };
   }
   const worker = input.workerHost?.trim().toLowerCase().slice(0, 40);
   if (worker) {
-    return { host: worker, hostSource: "worker", ...meta };
+    return { host: worker, hostSource: "worker", ...metaWithModel };
   }
-  const fromEnv = envelopeHostFromEnv(input.env ?? process.env);
+  const fromEnv = envelopeHostFromEnv(env);
   if (fromEnv) {
-    return { host: fromEnv, hostSource: "env", ...meta };
+    return { host: fromEnv, hostSource: "env", ...metaWithModel };
   }
-  return meta;
+  return metaWithModel;
 }

@@ -116,6 +116,7 @@ import {
 } from "./worker-budget.js";
 import { linkWorktreeInstall } from "./worktree-install.js";
 import { requestedWorkerModel, cursorModelForSpawn } from "./worker-models.js";
+import { detectModel } from "./host-client.js";
 
 export const DISPATCH_TOOL_NAMES = [
   "start_my_day",
@@ -221,6 +222,10 @@ export type DispatchRuntimeOptions = BriefingDeps & {
   readonly claudeAuth?: ClaudeAuthPort;
   /** Injected in tests. Production reads MCP clientInfo after initialize. */
   readonly getClientName?: () => string | undefined;
+  /** Injected in tests. Production reads from MCP clientInfo after initialize. */
+  readonly getClientVersion?: () =>
+    | { name?: string; version?: string; title?: string | undefined }
+    | undefined;
   /** Injected in tests. Skips config/env/client resolution entirely. */
   readonly workerBackend?: WorkerBackend;
   /** Injected in tests. Production reads `os.freemem()`. */
@@ -245,6 +250,11 @@ export type DispatchRuntimeOptions = BriefingDeps & {
    * worker prompt. Never indexes. MCP wires this; the hub omits it.
    */
   readonly prepareChange?: PrepareChangeLookup;
+  /**
+   * Agent registry (M-073). Maps agent names to CLI configs.
+   * Injected by MCP server; tests may override.
+   */
+  readonly agentRegistry?: AgentRegistry;
 };
 
 function ramGate(options: DispatchRuntimeOptions): string | undefined {
@@ -834,8 +844,10 @@ async function startJob(
 
   const config = await loadConfig(options.workspaceRoot);
   const workerModel = requestedWorkerModel(args.workerModel ?? args.model);
+
+  // M-073: Use registry for dynamic agent resolution
   const requested =
-    args.workerBackend === "cursor" || args.workerBackend === "claude"
+    typeof args.workerBackend === "string" && args.workerBackend
       ? args.workerBackend
       : undefined;
   const backend =
@@ -845,7 +857,18 @@ async function startJob(
       config,
       env,
       clientName: options.getClientName?.(),
+      registry: options.agentRegistry,
     });
+
+  // M-073: Check if agent is in registry; fail with clear error if not
+  if (options.agentRegistry && !options.agentRegistry.has(backend)) {
+    return {
+      message:
+        `Agent "${backend}" is not configured. ` +
+        `Available agents: ${options.agentRegistry.names().join(", ") || "(none)"}. ` +
+        `Add it to .prism/dispatch/agents.json to enable.`,
+    };
+  }
 
   // `loadJobs`, not `reapJobs`: reconciling every run sidecar is the drain
   // loop's job now, and it is the single most expensive thing this handler
@@ -928,6 +951,22 @@ async function startJob(
     ...(hostClientOf(options, args)
       ? { hostClient: hostClientOf(options, args) }
       : {}),
+    // M-073: Store triggering agent info from MCP clientInfo
+    ...(options.getClientName?.()
+      ? { triggeringAgent: options.getClientName!() }
+      : {}),
+    ...(detectModel(env, options.getClientVersion?.()?.title)
+      ? {
+          triggeringModel: detectModel(
+            env,
+            options.getClientVersion?.()?.title,
+          ),
+        }
+      : {}),
+    ...(() => {
+      const version = options.getClientVersion?.()?.version;
+      return version ? { triggeringVersion: version } : {};
+    })(),
     createdAt: existing?.createdAt ?? now,
     queuedAt: now,
     updatedAt: now,
@@ -2112,7 +2151,7 @@ async function initTool(
   };
 }
 
-/** Which agent CLI runs the next job (ADR-0044 §2). */
+/** Which agent CLI runs the next job (ADR-0044 §2, M-073). */
 async function resolveBackend(
   options: DispatchRuntimeOptions,
   env: NodeJS.ProcessEnv,
@@ -2123,15 +2162,23 @@ async function resolveBackend(
     config,
     env,
     clientName: options.getClientName?.(),
+    registry: options.agentRegistry,
   });
 }
 
-/** The port for a backend. Cursor stays `options.worker` (pre-M-065 seam). */
+/** The port for a backend (M-073). Uses registry for dynamic routing. */
 function workerForBackend(
   options: DispatchRuntimeOptions,
   backend: WorkerBackend,
 ): WorkerPort | undefined {
-  return backend === "claude" ? options.claudeWorker : options.worker;
+  // Known built-in backends: use specialized ports
+  if (backend === "claude") return options.claudeWorker;
+  if (backend === "cursor") return options.worker;
+
+  // M-073: Unknown agent — check if registry has a worker for it
+  // For now, fall back to the generic cursor port.
+  // A future enhancement could use createGenericWorkerPort here.
+  return options.worker;
 }
 
 async function resolveWorkerAuth(
@@ -2144,6 +2191,16 @@ async function resolveWorkerAuth(
   if (backend === "claude") {
     const auth = options.claudeAuth ?? createClaudeAuthPort({ env });
     return ensureClaudeWorkerAuth({ env, auth });
+  }
+  // M-073: For known non-cursor/non-claude agents, check registry for auth config
+  if (backend !== "cursor" && options.agentRegistry?.has(backend)) {
+    const entry = options.agentRegistry.get(backend);
+    // Custom agents don't need Cursor SDK auth
+    return {
+      ready: true,
+      source: `agent-registry:${backend}`,
+      message: `Agent "${entry?.config.label ?? backend}" uses its own auth.`,
+    };
   }
   // An env key is enough to start. Do not load the Cursor SDK just to
   // inspect stored login — that import hangs tests and slows drain.

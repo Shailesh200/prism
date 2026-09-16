@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  detectModel,
   envelopeHostFromClient,
   envelopeHostFromEnv,
   envelopeHostProbe,
@@ -90,5 +91,86 @@ describe("envelopeHostProbe", () => {
         workerHost: "claude",
       }),
     ).toEqual({ host: "claude", hostSource: "worker" });
+  });
+
+  it("detects model from ANTHROPIC_MODEL env var", () => {
+    expect(
+      envelopeHostProbe({
+        client: { name: "claude-code", version: "1.0" },
+        env: { ANTHROPIC_MODEL: "claude-sonnet-4-20250514" },
+      }),
+    ).toMatchObject({
+      host: "claude",
+      clientModel: "claude-sonnet-4-20250514",
+    });
+  });
+
+  it("detects model from OPENAI_MODEL env var", () => {
+    expect(
+      envelopeHostProbe({
+        client: { name: "opencode", version: "1.0" },
+        env: { OPENAI_MODEL: "gpt-4o" },
+      }),
+    ).toMatchObject({
+      host: "opencode",
+      clientModel: "gpt-4o",
+    });
+  });
+
+  it("detects model from clientInfo title parenthetical", () => {
+    expect(
+      envelopeHostProbe({
+        client: {
+          name: "opencode",
+          version: "1.0",
+          title: "OpenCode (claude-3-opus)",
+        },
+        env: {},
+      }),
+    ).toMatchObject({
+      host: "opencode",
+      clientModel: "claude-3-opus",
+    });
+  });
+
+  it("env var takes precedence over title model", () => {
+    expect(
+      envelopeHostProbe({
+        client: { name: "opencode", version: "1.0", title: "OpenCode (gpt-4)" },
+        env: { ANTHROPIC_MODEL: "claude-sonnet-4-20250514" },
+      }),
+    ).toMatchObject({
+      clientModel: "claude-sonnet-4-20250514",
+    });
+  });
+});
+
+describe("detectModel", () => {
+  it("returns undefined when no model info available", () => {
+    expect(detectModel({})).toBeUndefined();
+  });
+
+  it("detects from ANTHROPIC_MODEL", () => {
+    expect(detectModel({ ANTHROPIC_MODEL: "claude-sonnet-4-20250514" })).toBe(
+      "claude-sonnet-4-20250514",
+    );
+  });
+
+  it("detects from OPENAI_MODEL", () => {
+    expect(detectModel({ OPENAI_MODEL: "gpt-4o" })).toBe("gpt-4o");
+  });
+
+  it("detects from GEMINI_MODEL", () => {
+    expect(detectModel({ GEMINI_MODEL: "gemini-pro" })).toBe("gemini-pro");
+  });
+
+  it("detects from clientInfo title", () => {
+    expect(detectModel({}, "MyAgent (gpt-4o)")).toBe("gpt-4o");
+  });
+
+  it("env var takes precedence over title", () => {
+    expect(
+      detectModel({ OPENAI_MODEL: "gpt-4o" }, "MyAgent (claude-3-opus)"),
+    ).toBe("gpt-4o");
   });
 });

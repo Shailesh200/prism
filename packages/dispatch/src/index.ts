@@ -322,6 +322,7 @@ export {
 export {
   resolveWorkerBackend,
   workerBackendLabel,
+  isBuiltinBackend,
   type WorkerAuthInspect,
 } from "./worker-backend.js";
 export {
@@ -443,3 +444,19 @@ export {
   type CursorAuthInspect,
   type CursorAuthPort,
 } from "./cursor-auth.js";
+// M-073: Agent-agnostic dispatch
+export {
+  AgentConfigSchema,
+  AgentCliFlagsSchema,
+  AgentOutputFormatSchema,
+  AgentsConfigSchema,
+  AgentRegistry,
+  createAgentRegistry,
+  loadAgentsConfig,
+  type AgentConfig,
+  type AgentCliFlags,
+  type AgentOutputFormat,
+  type AgentsConfig,
+  type AgentRegistryEntry,
+} from "./agent-registry.js";
+export { createGenericWorkerPort } from "./generic-worker.js";

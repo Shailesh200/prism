@@ -11,6 +11,8 @@ import {
   createClaudeWorkerPort,
   createCursorWorkerPort,
   createDispatchRuntime,
+  createAgentRegistry,
+  dispatchDir,
   gitFailureSpeak,
   isMissingGitRepoMessage,
   isWorkerRole,
@@ -456,7 +458,13 @@ export function createDefaultDispatchRuntime(
   getWorkspaceRoot?: () => string,
   getClientName?: () => string | undefined,
   prepareChange?: DispatchRuntimeOptions["prepareChange"],
+  getClientVersion?: () =>
+    | { name?: string; version?: string; title?: string | undefined }
+    | undefined,
 ): DispatchRuntime {
+  // M-073: Create agent registry from .prism/dispatch/agents.json
+  const registry = createAgentRegistry(dispatchDir(workspaceRoot));
+
   return createDispatchRuntime({
     workspaceRoot,
     env,
@@ -464,7 +472,9 @@ export function createDefaultDispatchRuntime(
     claudeWorker: createClaudeWorkerPort(),
     ...(getWorkspaceRoot ? { getWorkspaceRoot } : {}),
     ...(getClientName ? { getClientName } : {}),
+    ...(getClientVersion ? { getClientVersion } : {}),
     ...(prepareChange ? { prepareChange } : {}),
+    agentRegistry: registry,
   });
 }
 
@@ -492,6 +502,13 @@ export function registerDispatchTools(
       getRoot,
       () => server.server.getClientVersion()?.name,
       options.prepareChange,
+      // M-073: Pass full clientInfo for model detection
+      () => {
+        const cv = server.server.getClientVersion();
+        return cv
+          ? { name: cv.name, version: cv.version, title: cv.title ?? undefined }
+          : undefined;
+      },
     );
   const allowed = new Set(visibleDispatchTools(env));
 

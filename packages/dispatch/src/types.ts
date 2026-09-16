@@ -58,12 +58,15 @@ export const DEFAULT_SECTION_ORDER: readonly BriefingSectionId[] = [
 export const TicketHostSchema = z.enum(["linear", "jira"]);
 export type TicketHost = z.infer<typeof TicketHostSchema>;
 
-/** Agent CLI that runs a Dispatch job's worker child (ADR-0044). */
-export const WorkerBackendSchema = z.enum(["cursor", "claude"]);
+/**
+ * Agent CLI that runs a Dispatch job's worker child (ADR-0044).
+ * Any agent name from the registry — not just cursor/claude.
+ */
+export const WorkerBackendSchema = z.string();
 export type WorkerBackend = z.infer<typeof WorkerBackendSchema>;
 
-/** Config setting: explicit backend, or "auto" to match the MCP host. */
-export const WorkerBackendSettingSchema = z.enum(["auto", "cursor", "claude"]);
+/** Config setting: explicit backend name, or "auto" to match the MCP host. */
+export const WorkerBackendSettingSchema = z.string();
 export type WorkerBackendSetting = z.infer<typeof WorkerBackendSettingSchema>;
 
 /**
@@ -141,6 +144,21 @@ export const DispatchConfigSchema = z.object({
    * Job-behavior rules belong in `jobInstructions` or `remember`.
    */
   preferences: z.array(z.string()).default([]),
+  /**
+   * Tracking of agents that have connected via MCP (M-073).
+   * Updated on each MCP connection. Stores where Prism is installed.
+   */
+  installedAgents: z
+    .array(
+      z.object({
+        name: z.string(),
+        model: z.string().optional(),
+        version: z.string().optional(),
+        lastSeen: z.string(),
+        where: z.string(),
+      }),
+    )
+    .default([]),
 });
 export type DispatchConfig = z.infer<typeof DispatchConfigSchema>;
 
@@ -289,6 +307,16 @@ export const JobRecordSchema = z.object({
    * `vscode`, `console`, `kilo-code`, …). Display with `hostClientLabel`.
    */
   hostClient: z.string().optional(),
+  /**
+   * Agent that triggered this job (M-073). Canonical name from the registry
+   * (e.g., "opencode", "kilo-code", "kiro"). May differ from workerBackend
+   * if the triggering agent has no worker backend.
+   */
+  triggeringAgent: z.string().optional(),
+  /** Model used by the triggering agent (M-073). Detected from env or clientInfo. */
+  triggeringModel: z.string().optional(),
+  /** Version of the triggering agent (M-073). From MCP clientInfo. */
+  triggeringVersion: z.string().optional(),
   /** Parent job when this row is a retry, reverify, finding, or instruct child. */
   parentJobId: z.string().optional(),
   origin: z.enum(["retry", "reverify", "finding", "instruct"]).optional(),
