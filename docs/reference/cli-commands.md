@@ -390,6 +390,22 @@ Bundle weight from an ingested stats artifact
 prism bundle --artifact <id>
 ```
 
+### `prism agents-md <action>`
+
+Generate or verify the Living AGENTS.md (never written to the repo)
+
+| Argument | Meaning |
+|---|---|
+| `<action>` | generate or check |
+
+```bash
+prism agents-md generate
+```
+
+```bash
+prism agents-md check
+```
+
 ## Diagnostics
 
 ### `prism doctor`

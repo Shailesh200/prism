@@ -22,10 +22,12 @@ import { ORIENTATION_TOOLS } from "./tools/orientation.js";
 import { REPORT_TOOLS } from "./tools/reports.js";
 import { prepareChange } from "./tools/prepare.js";
 import { guardSession } from "./tools/guard.js";
+import { agentsMd } from "./tools/agents-md.js";
 
 export const TOOLS: readonly ToolDefinition<never>[] = [
   prepareChange,
   guardSession,
+  agentsMd,
   ...ORIENTATION_TOOLS,
   ...GRAPH_TOOLS,
   ...IMPACT_TOOLS,

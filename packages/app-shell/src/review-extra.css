@@ -350,29 +350,86 @@
   color: var(--prism-ink-soft, #64748b);
 }
 
-.guard-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+/*
+ * Guard's rows match Audit Logs' row/detail pattern (al-row / al-detail in
+ * this file's sibling `overview.css`) — same dark surfaces, same
+ * chevron-rotate expand, rather than a bespoke light-on-dark mismatch.
+ */
+
+.guard-table {
+  border: 1px solid #2a334a;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #131926;
+}
+
+.guard-table__head,
+.guard-row__main {
+  display: grid;
+  grid-template-columns: 22px 40px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.guard-table__head {
+  padding: 8px 12px;
+  background: #0f1420;
+  border-bottom: 1px solid #2a334a;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.guard-table__head > span:last-child {
+  text-align: right;
+}
+
+.guard-rows {
+  list-style: none;
   margin: 0;
   padding: 0;
-  list-style: none;
 }
 
-.guard-list__row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 4px;
-  border-bottom: 1px solid var(--prism-border-soft, #e2e8f0);
+.guard-row {
+  border-bottom: 1px solid color-mix(in srgb, #2a334a 75%, transparent);
 }
 
-.guard-list__row:last-child {
-  border-bottom: none;
+.guard-row:last-child {
+  border-bottom: 0;
 }
 
-.guard-list__band {
-  flex: 0 0 auto;
+.guard-row__main {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 8px 12px;
+}
+
+.guard-row__main:hover {
+  background: #1e2433;
+}
+
+.guard-row__chev {
+  width: 14px;
+  color: #94a3b8;
+  transition: transform 0.15s ease;
+}
+
+.guard-row__chev[data-open="true"] {
+  transform: rotate(90deg);
+}
+
+.guard-row__chev-spacer {
+  width: 14px;
+}
+
+.guard-row__band {
   min-width: 26px;
   padding: 2px 6px;
   border-radius: 6px;
@@ -380,25 +437,118 @@
   font-weight: 700;
   color: #fff;
   text-align: center;
+  justify-self: start;
 }
 
-.guard-list__path {
-  flex: 1;
+.guard-row__file {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.guard-row__path {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  background: none;
-  border: none;
-  padding: 0;
-  font: inherit;
-  font-family: var(--prism-font-mono, monospace);
   font-size: 12.5px;
-  color: var(--prism-ink, #0f172a);
+  color: #e6f0f2;
   text-align: left;
+}
+
+.guard-row__open {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: #94a3b8;
   cursor: pointer;
 }
 
-.guard-list__path:hover {
-  text-decoration: underline;
+.guard-row__open:hover {
+  background: #2a334a;
+  color: #e6f0f2;
+}
+
+.guard-row__flags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.guard-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid #2a334a;
+  white-space: nowrap;
+}
+
+.guard-flag[data-kind="duplicate"] {
+  color: #f59e0b;
+  background: color-mix(in srgb, #f59e0b 12%, transparent);
+  border-color: color-mix(in srgb, #f59e0b 30%, #2a334a);
+}
+
+.guard-flag[data-kind="orphan"] {
+  color: #94a3b8;
+  background: color-mix(in srgb, #94a3b8 12%, transparent);
+  border-color: #2a334a;
+}
+
+.guard-flag[data-kind="boundary"] {
+  color: #38bdf8;
+  background: color-mix(in srgb, #38bdf8 12%, transparent);
+  border-color: color-mix(in srgb, #38bdf8 30%, #2a334a);
+}
+
+.guard-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px 16px 34px;
+  background: #0f1420;
+  border-top: 1px solid color-mix(in srgb, #2a334a 60%, transparent);
+}
+
+.guard-detail__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #94a3b8;
+}
+
+.guard-detail__icon {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.guard-detail__icon[data-kind="duplicate"] {
+  color: #f59e0b;
+}
+
+.guard-detail__icon[data-kind="orphan"] {
+  color: #94a3b8;
+}
+
+.guard-detail__icon[data-kind="boundary"] {
+  color: #38bdf8;
+}
+
+.guard-detail__row strong {
+  color: #e6f0f2;
 }

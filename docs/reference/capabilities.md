@@ -13,6 +13,7 @@ use this page when you need the exhaustive index.
 
 | Command | What it answers |
 |---|---|
+| `prism agents-md` | agents-md |
 | `prism backend` | backend |
 | `prism blast` | blast |
 | `prism bundle` | bundle |
@@ -46,6 +47,7 @@ use this page when you need the exhaustive index.
 
 | Tool | What it answers |
 |---|---|
+| `agents_md` | Generate or verify the Living AGENTS.md |
 | `backend_report` | Route-granular backend intelligence |
 | `blast_radius` | What depends on a file or symbol, and how risky changing it is |
 | `breaking_change_hints` | Deprecated |
@@ -92,4 +94,5 @@ use this page when you need the exhaustive index.
 | `testing_report` | Test structure and, when coverage artifacts are already on disk, coverage |
 | `use_skill` | Load a Prism skill from the user's Prism-only library (~/.prism/dispatch/skills), or an inherited skill that ships with Prism |
 | `wake` | Bring Prism back |
+| `working_set` | Get or patch the accumulated files, symbols, decisions and neighbors for a job (M-073), so a resume does not rediscover context it already has |
 | `workspace_status` | Compact workspace readiness |

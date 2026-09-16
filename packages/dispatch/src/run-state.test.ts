@@ -188,6 +188,37 @@ describe("applyRunToJob", () => {
     expect(next.citedMissing).toEqual(["lib/gsap.ts", "src/x.ts"]);
   });
 
+  it("merges the sidecar's working set onto whatever the job already had (M-073 W1)", () => {
+    const withPriorSet = {
+      ...job(),
+      workingSet: {
+        files: ["src/a.ts"],
+        symbols: [],
+        decisions: ["prefer composition"],
+        neighbors: [],
+      },
+    };
+    const next = applyRunToJob(withPriorSet, {
+      jobId: "audit-issues",
+      phase: "done",
+      lastActivity: "Done",
+      resultSummary: "done",
+      errorMessage: "",
+      gitSummary: "",
+      workingSet: {
+        files: ["src/b.ts"],
+        symbols: [],
+        decisions: [],
+        neighbors: [],
+      },
+      startedAt: "t",
+      updatedAt: "t",
+      completedAt: "t",
+    });
+    expect(next.workingSet?.files).toEqual(["src/a.ts", "src/b.ts"]);
+    expect(next.workingSet?.decisions).toEqual(["prefer composition"]);
+  });
+
   it("does not reap a newly queued job from a leftover cancelled sidecar", () => {
     const next = applyRunToJob(
       job({

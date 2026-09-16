@@ -69,4 +69,4 @@ orphaned new file, or a package boundary crossing. Available as an MCP tool
       `cursor-extension` manifests
 - [x] `bun run verify:milestone` green
 - [x] Owner review before commit
-- [ ] Owner smoke: open Guard on a real dirty tree in VS Code / Cursor
+- [x] Owner smoke: open Guard on a real dirty tree in VS Code / Cursor

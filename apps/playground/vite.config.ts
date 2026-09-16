@@ -35,6 +35,7 @@ import type {
   EngineeringHealthReport,
   GitActivity,
   GraphSnapshotDto,
+  GuardSession,
   HealthHistoryBackfillStatus,
   HealthHistoryReport,
   HealthScore,
@@ -169,6 +170,12 @@ type Workspace = {
     path?: string;
   }) => Promise<
     | { ok: true; value: SafeDeleteReport }
+    | { ok: false; error: { message: string } }
+  >;
+  guardSession: (input?: {
+    preExistingChanges?: readonly string[];
+  }) => Promise<
+    | { ok: true; value: GuardSession }
     | { ok: false; error: { message: string } }
   >;
   renameImpact: (input: {
@@ -1646,6 +1653,27 @@ function prismMapApi(): Plugin {
                 base: changed.value.base,
                 paths: [...changed.value.paths],
               });
+              return;
+            }
+
+            if (parsed.pathname === "/api/guard") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const preExistingParam =
+                parsed.searchParams.get("preExistingChanges");
+              const preExistingChanges = preExistingParam
+                ? preExistingParam.split(",").filter((p) => p.trim() !== "")
+                : undefined;
+              const ws = await getIndexedWorkspace(root);
+              const guard = await ws.guardSession(
+                preExistingChanges ? { preExistingChanges } : undefined,
+              );
+              if (!guard.ok) {
+                sendJson(res, 400, { error: guard.error.message });
+                return;
+              }
+              sendJson(res, 200, guard.value);
               return;
             }
 

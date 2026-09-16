@@ -96,6 +96,13 @@ describe("analysis routes answer from a real index", () => {
     );
   }, 120_000);
 
+  it("ranks the current session by blast risk (M-073 Spectrum wiring)", async () => {
+    const { status, body } = await get("/api/guard");
+
+    expect(status).toBe(200);
+    expect(Array.isArray((body as { files?: unknown[] }).files)).toBe(true);
+  }, 120_000);
+
   it("returns JSON, not an HTML error page, for an unknown api route", async () => {
     // Vite's catch-all would otherwise serve index.html with a 200, and the
     // client would try to JSON.parse a document.

@@ -26,7 +26,7 @@ describe("worker tool filter", () => {
   });
 
   it("exposes the full pack on the host", () => {
-    expect(visibleDispatchTools({}).length).toBe(13);
+    expect(visibleDispatchTools({}).length).toBe(14);
     expect(visibleDispatchTools({})).toContain("use_skill");
     expect(visibleDispatchTools({})).toContain("queue_finding");
   });

@@ -169,6 +169,7 @@ describe("MCP server contract (M-026)", () => {
     // vanish from the docs. This list is the contract.
     expect(names).toEqual(
       [
+        "agents_md",
         "backend_report",
         "blast_radius",
         "breaking_change_hints",
@@ -215,6 +216,7 @@ describe("MCP server contract (M-026)", () => {
         "testing_report",
         "use_skill",
         "wake",
+        "working_set",
         "workspace_status",
       ].sort(),
     );
@@ -305,6 +307,7 @@ describe("MCP server contract (M-026)", () => {
     const { resources } = await client.listResources();
     expect(resources.map((r) => r.uri).sort()).toEqual(
       [
+        "prism://agents-md",
         "prism://dna",
         "prism://health",
         "prism://landmarks",
@@ -439,6 +442,7 @@ describe("MCP server contract (M-026)", () => {
       ["landmarks", {}],
       ["explain_area", { path: filePath }],
       ["guard_session", {}],
+      ["agents_md", { action: "generate" }],
       ["workspace_status", {}],
       ["capabilities", {}],
       ["dependency_graph", { packageAggregation: true, limit: 10 }],
@@ -476,6 +480,7 @@ describe("MCP server contract (M-026)", () => {
       ["use_skill", {}],
       ["configure", { action: "get" }],
       ["dispatch_doctor", {}],
+      ["working_set", { action: "get" }],
     ];
 
     const failures: string[] = [];

@@ -19,11 +19,12 @@ Core analysis APIs stay ungated from MCP. See
 Tools that return a list accept `limit` and answer with `totalCount` and
 `truncated`, so an agent can tell the first 20 of 340 from all 20 there are.
 
-Prism exposes **47 tools**. Every count elsewhere in the docs is
+Prism exposes **49 tools**. Every count elsewhere in the docs is
 checked against this one, so the number cannot drift into prose.
 
 | Tool | What it answers |
 |---|---|
+| [`agents_md`](#agents_md) | Generate or verify the Living AGENTS.md |
 | [`backend_report`](#backend_report) | Route-granular backend intelligence |
 | [`blast_radius`](#blast_radius) | What depends on a file or symbol, and how risky changing it is |
 | [`breaking_change_hints`](#breaking_change_hints) | Deprecated |
@@ -70,7 +71,14 @@ checked against this one, so the number cannot drift into prose.
 | [`testing_report`](#testing_report) | Test structure and, when coverage artifacts are already on disk, coverage |
 | [`use_skill`](#use_skill) | Load a Prism skill from the user's Prism-only library (~/.prism/dispatch/skills), or an inherited skill that ships with Prism |
 | [`wake`](#wake) | Bring Prism back |
+| [`working_set`](#working_set) | Get or patch the accumulated files, symbols, decisions and neighbors for a job (M-073), so a resume does not rediscover context it already has |
 | [`workspace_status`](#workspace_status) | Compact workspace readiness |
+
+## `agents_md`
+
+Generate or verify the Living AGENTS.md: features, import cycles, test locations, and git ownership, composed straight from the index — no LLM prose. `generate` writes it to `~/.prism/workspaces/<key>/agents.md`, never into this repo, so it never needs its own commit. `check` re-verifies the claims it made against a fresh index and reports drift. Read `prism://agents-md` for the current content without regenerating.
+
+Arguments: `action`.
 
 ## `backend_report`
 
@@ -347,6 +355,12 @@ Arguments: `name`.
 Bring Prism back: the Console and Spectrum return, and queued jobs (including any sleep paused) start on their own. Call this when the user says prism wake, wake Prism, or wake up — even if the Console is already up, this starts Spectrum too. Speak only the tool message, including the Console URL and the Spectrum URL. If teammates are still running, the tool asks first — relay that and re-call with confirm=true. Do not confuse this with init.
 
 Arguments: `confirm`, `workspace`.
+
+## `working_set`
+
+Get or patch the accumulated files, symbols, decisions and neighbors for a job (M-073), so a resume does not rediscover context it already has. Pass jobId to read or extend that job's own set (also what its next resume prompt injects); omit it to use the standalone, per-workspace set for an inline chat session with no job. action=set merges arrays in (dedup, capped) — it never replaces the whole set.
+
+Arguments: `action`, `jobId`, `files`, `symbols`, `decisions`, `neighbors`.
 
 ## `workspace_status`
 

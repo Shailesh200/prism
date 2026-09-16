@@ -128,6 +128,32 @@ describe("composeWorkerPrompt", () => {
     expect(text).not.toContain("Indexed packages");
   });
 
+  it("injects the job's working set into a resume prompt (M-073 W3)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "prism-working-set-prompt-"));
+    await writeFile(
+      join(root, "package.json"),
+      JSON.stringify({ name: "app" }),
+    );
+    const text = await composeWorkerPrompt({
+      job: {
+        ...job(),
+        workingSet: {
+          files: ["src/pulse.ts"],
+          symbols: ["PulseClock"],
+          decisions: ["Use a monotonic clock, not Date.now()"],
+          neighbors: ["src/pulse-view.ts"],
+        },
+      },
+      memories: [],
+      workspaceRoot: root,
+    });
+    expect(text).toContain("Working set from prior progress on this job");
+    expect(text).toContain("src/pulse.ts");
+    expect(text).toContain("PulseClock");
+    expect(text).toContain("Use a monotonic clock, not Date.now()");
+    expect(text).toContain("src/pulse-view.ts");
+  });
+
   it("injects a prepare_change pack when the port returns one", async () => {
     const root = await mkdtemp(join(tmpdir(), "prism-prep-prompt-"));
     await writeFile(

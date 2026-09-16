@@ -1,8 +1,9 @@
 import { spawn } from "node:child_process";
-import { rm } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { COMMANDS } from "./commands.js";
 
 /**
@@ -264,26 +265,35 @@ const ARGUMENTS: Record<string, readonly string[]> = {
   // nothing to point it at in a fixture that has never been built.
   bundle: [],
   completions: ["bash"],
+  "agents-md": ["generate"],
 };
 
 /** Commands that cannot succeed on a fixture without extra setup. */
 const EXPECT_FAILURE = new Set(["bundle"]);
 
 describe("every command (M-029)", () => {
+  let agentsMdHome: string;
+
+  beforeAll(async () => {
+    agentsMdHome = await mkdtemp(join(tmpdir(), "prism-cli-every-command-"));
+  });
+
   afterAll(async () => {
     await rm(join(fixture, ".prism"), { recursive: true, force: true });
+    await rm(agentsMdHome, { recursive: true, force: true });
   });
+
+  /** Never lets `agents-md` write into the real developer `~/.prism`. */
+  const envFor = (name: string): NodeJS.ProcessEnv =>
+    name === "agents-md" ? { PRISM_HOME: agentsMdHome } : {};
 
   it.each(COMMANDS.map((command) => command.name))(
     "%s produces a valid JSON envelope and nothing else on stdout",
     async (name) => {
-      const result = await runCli([
-        name,
-        ...(ARGUMENTS[name] ?? []),
-        "--workspace",
-        fixture,
-        "--json",
-      ]);
+      const result = await runCli(
+        [name, ...(ARGUMENTS[name] ?? []), "--workspace", fixture, "--json"],
+        envFor(name),
+      );
 
       const parsed = JSON.parse(result.stdout) as { ok: boolean };
       expect(typeof parsed.ok).toBe("boolean");
@@ -309,7 +319,7 @@ describe("every command (M-029)", () => {
 
       const result = await runCli(
         [name, ...(ARGUMENTS[name] ?? []), "--workspace", fixture, "--quiet"],
-        { COLUMNS: "80" },
+        { COLUMNS: "80", ...envFor(name) },
       );
 
       const tooWide = result.stdout
@@ -549,5 +559,49 @@ describe("deps unresolved imports (M-056 / P-A1)", () => {
     expect(result.code).toBe(0);
     expect(result.stdout).toMatch(/Unresolved imports:\s*\d+/i);
     expect(result.stdout).toContain("no-such-module");
+  }, 120_000);
+});
+
+describe("prism agents-md (M-073 Living AGENTS.md)", () => {
+  it("generates under PRISM_HOME and passes its own check, never touching the repo", async () => {
+    const home = await mkdtemp(join(tmpdir(), "prism-cli-home-"));
+    try {
+      const generated = await runCli(
+        ["agents-md", "generate", "--workspace", fixture, "--json"],
+        { PRISM_HOME: home },
+      );
+      expect(generated.code).toBe(0);
+      const generatedPayload = JSON.parse(generated.stdout) as {
+        ok: boolean;
+        data: { path: string; content: string };
+      };
+      expect(generatedPayload.ok).toBe(true);
+      expect(generatedPayload.data.path.startsWith(home)).toBe(true);
+      expect(generatedPayload.data.content).toContain("AGENTS.md");
+
+      const checked = await runCli(
+        ["agents-md", "check", "--workspace", fixture, "--json"],
+        { PRISM_HOME: home },
+      );
+      expect(checked.code).toBe(0);
+      const checkedPayload = JSON.parse(checked.stdout) as {
+        ok: boolean;
+        data: { ok: boolean; issues: unknown[] };
+      };
+      expect(checkedPayload.data.ok).toBe(true);
+      expect(checkedPayload.data.issues).toEqual([]);
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  }, 120_000);
+
+  it("fails usage-style (exit 2) for an unknown action", async () => {
+    const result = await runCli([
+      "agents-md",
+      "not-a-real-action",
+      "--workspace",
+      fixture,
+    ]);
+    expect(result.code).toBe(2);
   }, 120_000);
 });

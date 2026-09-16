@@ -108,6 +108,7 @@ Default `Prism.create()` enables all of the above when default ports are wired.
 | `listBookmarks` / `saveBookmark` / `removeBookmark` | M-048 Phase 6 — bookmarks persisted at `.prism/bookmarks.json` |
 | `listFindings` / `resolveFinding` | **M-071** — queueable findings from the last index (`FindingRef`, fingerprinted). `resolveFinding` re-indexes and re-runs the finding sources; never infers resolution from a job's status. |
 | `guardSession` | **M-072** — the current session (dirty files minus `preExistingChanges`, ADR-0055 G1) ranked by blast risk, each flagged for a likely duplicate, an orphaned new file, or a package boundary crossing. |
+| `generateAgentsMd` / `checkAgentsMd` | **M-073** — deterministic AGENTS.md (features, import cycles, test locations, git ownership) written only to `~/.prism/workspaces/<key>/agents.md`, never the repo. `check` re-verifies the claims block against a fresh `listFeatures()` / `getCycles()`. |
 
 ### Top-level functions (not on `PrismWorkspace`) — experimental
 

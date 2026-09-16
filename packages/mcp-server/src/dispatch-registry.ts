@@ -446,6 +446,28 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     readOnly: true,
     openWorld: false,
   },
+  {
+    name: "working_set",
+    title: "Job working set",
+    description:
+      "Get or patch the accumulated files, symbols, decisions and neighbors for a job (M-073), so a resume does not rediscover context it already has. Pass jobId to read or extend that job's own set (also what its next resume prompt injects); omit it to use the standalone, per-workspace set for an inline chat session with no job. action=set merges arrays in (dedup, capped) — it never replaces the whole set.",
+    inputSchema: {
+      action: z
+        .enum(["get", "set"])
+        .optional()
+        .describe("get (default) or set"),
+      jobId: z
+        .string()
+        .optional()
+        .describe("Omit for the standalone, inline-session working set"),
+      files: z.array(z.string()).optional(),
+      symbols: z.array(z.string()).optional(),
+      decisions: z.array(z.string()).optional(),
+      neighbors: z.array(z.string()).optional(),
+    },
+    readOnly: false,
+    openWorld: false,
+  },
 ];
 
 export const DISPATCH_TOOL_NAMES: readonly string[] = DISPATCH_TOOLS.map(

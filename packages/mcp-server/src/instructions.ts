@@ -51,6 +51,7 @@ Intelligence (read-only, indexes on first call):
 - Cycles, coupling, import graph → dependency_cycles, dependency_graph (prefer summaryOnly / limit). Graph edges carry provenance (measured / heuristic / inferred). Inferred edges are not load-bearing without opening the file.
 - Reviewing a diff / PR / branch / “what did I break?” → review_changes (omit paths to auto-discover). Never review from a raw git diff alone: the patch says what changed, not what depends on it. Lead with the blast radius, test impact and breaking-change hints it already carries, and blast_radius anything it flags as risky. Never invent dependents the tools did not report. (Full procedure: the prism-review-pr skill.) A finding a report lists stays open until Prism re-runs that report and the fingerprint is gone — a fix job reaching done is not enough on its own, so do not call a finding resolved from job status alone. Offer queue_finding only if the user asks to fix it; reviewing or reporting never queues one on its own.
 - Before landing uncommitted work / “what should I read first in this diff?” → guard_session (dirty files ranked by blast risk, flagged duplicate/orphan/boundary). Pass preExistingChanges when ranking one job's session, not the user's whole tree.
+- “generate/update AGENTS.md” / “what should a new contributor or agent know about this repo?” → agents_md with action=generate (or read prism://agents-md for the current content without regenerating). It writes only to ~/.prism, never into this repository — do not copy its content into a repo file or offer to commit it. To confirm it still matches the code, agents_md with action=check.
 - Backend / testing / security posture → backend_report, testing_report, security_report
 - Session readiness / “is indexing done?” → workspace_status; what is unavailable vs unsupported → capabilities
 
@@ -72,6 +73,7 @@ Dispatch (teammate: jobs, standup — does not index):
 - “what can we connect” / “is Slack connected” → Prism does not run its own OAuth and has no connect flow. Call dispatch_doctor and read its host_connectors check, which lists what this agent window already has. To add one, tell the user to install it from their editor's own plugin or MCP settings. Never ask them for an OAuth client id or secret, and never call mcp_auth for Prism — Prism is local stdio.
 - “configure Dispatch” / standup layout / Slack channels / Linear vs Jira → configure
 - Dispatch setup problems → dispatch_doctor. Speak only the tool message. If workers are unsigned, call init rather than asking for an API key.
+- Resuming or continuing a job's context across a compaction, or saving what an inline (non-job) session has learned so a later chat can pick it up → working_set. Pass jobId to read or extend a specific job's set (also what its next resume prompt injects automatically); omit it for the standalone, per-workspace set. action=set merges in new files/symbols/decisions/neighbors, it never replaces what is already there.
 
 Rules:
 - Intelligence tools are read-only. Call them freely; no user confirmation needed.

@@ -99,6 +99,31 @@ export function registerResources(
   );
 
   server.registerResource(
+    "agents-md",
+    "prism://agents-md",
+    {
+      description:
+        "Living AGENTS.md — features, import cycles, test locations, git ownership, composed from the index (same content as `prism agents-md generate`). Regenerates the file on each read.",
+      mimeType: "text/markdown",
+    },
+    async (uri) => {
+      const ready = await session.ready();
+      if (!ready.ok) throw toMcpError(ready.error);
+      const generated = await ready.value.generateAgentsMd();
+      if (!generated.ok) throw toMcpError(generated.error);
+      return {
+        contents: [
+          {
+            uri: uri.href,
+            mimeType: "text/markdown",
+            text: generated.value.content,
+          },
+        ],
+      };
+    },
+  );
+
+  server.registerResource(
     "jobs",
     JOBS_APP_URI,
     {
