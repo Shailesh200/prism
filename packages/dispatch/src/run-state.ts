@@ -1,12 +1,14 @@
 import { execFileSync, spawn } from "node:child_process";
 import { readdir, unlink } from "node:fs/promises";
 import { z } from "zod";
+import { WorkingSetSchema } from "@repo-prism/shared";
 import { clip, textFromUnknown, toolNameFrom } from "./event-text.js";
 import { readJsonFile, writeJsonFile } from "./json-file.js";
 import { loadJobs, updateJobs } from "./jobs.js";
 import { jobRef, unexpectedStopSpeak } from "./job-voice.js";
 import { runStatePath, runsDir, spawnPayloadPath } from "./paths.js";
 import { RunPhaseSchema, type RunPhase } from "./run-phase.js";
+import { mergeWorkingSet } from "./working-set.js";
 import {
   JobReviewSchema,
   TokenUsageSchema,
@@ -36,6 +38,8 @@ export const RunStateSchema = z.object({
   gitSummary: z.string().default(""),
   notes: z.array(z.string()).optional(),
   citedMissing: z.array(z.string()).optional(),
+  /** Files this run touched, to fold into `JobRecord.workingSet` (M-073). */
+  workingSet: WorkingSetSchema.optional(),
   /** What the job branch carries, for the human to review before it lands. */
   review: JobReviewSchema.optional(),
   /** Supervisor-run checks after the agent stopped (ADR-0042 §3). */
@@ -538,6 +542,9 @@ export function applyRunToJob(
       ...(liveRun.notes?.length ? { notes: liveRun.notes } : {}),
       ...(liveRun.citedMissing?.length
         ? { citedMissing: liveRun.citedMissing }
+        : {}),
+      ...(liveRun.workingSet
+        ? { workingSet: mergeWorkingSet(job.workingSet, liveRun.workingSet) }
         : {}),
       nextStep: pending ? "review the changes" : jobNewer ? job.nextStep : "",
       waitingOn: "",

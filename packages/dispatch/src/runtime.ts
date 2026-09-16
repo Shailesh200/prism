@@ -48,10 +48,17 @@ import {
 import {
   activeJobCount,
   deleteJob,
+  getJob,
   loadJobs,
+  updateJobs,
   upsertJob,
   workspaceRootPresent,
 } from "./jobs.js";
+import {
+  mergeWorkingSet,
+  readStandaloneWorkingSet,
+  writeStandaloneWorkingSet,
+} from "./working-set.js";
 import { kickDrain, requeueAuthBlocked, type DrainDeps } from "./queue.js";
 import {
   isInProcessJobStatus,
@@ -115,6 +122,7 @@ import {
   ramBudgetMessage,
 } from "./worker-budget.js";
 import { linkWorktreeInstall } from "./worktree-install.js";
+import type { AgentRegistry } from "./agent-registry.js";
 import { requestedWorkerModel, cursorModelForSpawn } from "./worker-models.js";
 import { detectModel } from "./host-client.js";
 
@@ -132,6 +140,7 @@ export const DISPATCH_TOOL_NAMES = [
   "use_skill",
   "configure",
   "dispatch_doctor",
+  "working_set",
 ] as const;
 
 export type DispatchToolName = (typeof DISPATCH_TOOL_NAMES)[number];
@@ -348,6 +357,8 @@ export function createDispatchRuntime(
           return configureTool(options.workspaceRoot, args);
         case "dispatch_doctor":
           return doctorTool(options, env);
+        case "working_set":
+          return workingSetTool(options.workspaceRoot, args, env);
       }
     },
   };
@@ -1982,6 +1993,62 @@ async function rememberTool(
     ...(typeof args.jobId === "string" ? { jobId: args.jobId } : {}),
   });
   return { item, message: `Remembered (${item.scope}): ${item.text}` };
+}
+
+/**
+ * Get or patch a working set (M-073 W1/W2). With `jobId`, reads/merges onto
+ * that job's own accumulated set (also what `start_job`/resume injects).
+ * Without it, reads/merges the standalone set for an inline session with no
+ * job at all — one per workspace, mirroring `prepare-last.ts`.
+ */
+async function workingSetTool(
+  workspaceRoot: string,
+  args: Record<string, unknown>,
+  env: NodeJS.ProcessEnv,
+): Promise<unknown> {
+  const action = String(args.action ?? "get").trim();
+  const jobId = typeof args.jobId === "string" ? args.jobId : undefined;
+  const patch = {
+    ...(Array.isArray(args.files) ? { files: args.files as string[] } : {}),
+    ...(Array.isArray(args.symbols)
+      ? { symbols: args.symbols as string[] }
+      : {}),
+    ...(Array.isArray(args.decisions)
+      ? { decisions: args.decisions as string[] }
+      : {}),
+    ...(Array.isArray(args.neighbors)
+      ? { neighbors: args.neighbors as string[] }
+      : {}),
+  };
+
+  if (action === "get") {
+    if (jobId) {
+      const job = await getJob(workspaceRoot, jobId);
+      if (!job) return { message: `No job found for ${jobId}.` };
+      return { workingSet: job.workingSet ?? null };
+    }
+    return { workingSet: await readStandaloneWorkingSet(workspaceRoot, env) };
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return {
+      message: "working_set set needs files, symbols, decisions, or neighbors.",
+    };
+  }
+  if (jobId) {
+    const workingSet = await updateJobs(workspaceRoot, (jobs) => {
+      const index = jobs.findIndex((job) => job.id === jobId);
+      if (index === -1) return { jobs, result: undefined };
+      const merged = mergeWorkingSet(jobs[index]?.workingSet, patch);
+      const next = [...jobs];
+      next[index] = { ...jobs[index], workingSet: merged } as JobRecord;
+      return { jobs: next, result: merged };
+    });
+    if (!workingSet) return { message: `No job found for ${jobId}.` };
+    return { workingSet, message: "Working set updated." };
+  }
+  const workingSet = await writeStandaloneWorkingSet(workspaceRoot, patch, env);
+  return { workingSet, message: "Working set updated." };
 }
 
 function looksLikeCodeRule(text: string): boolean {

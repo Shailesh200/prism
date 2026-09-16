@@ -120,6 +120,7 @@ Use **1** vs **2** carefully in CI: a typo must not look like a real finding.
 | `prism security` | Left-shift checklist |
 | `prism backend` | Routes, data, env, jobs |
 | `prism bundle` | Bundle weight (ingested stats) |
+| `prism agents-md` | Generate/verify Living AGENTS.md (writes only `~/.prism`) |
 
 ## Related
 

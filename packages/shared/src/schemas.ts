@@ -2592,6 +2592,54 @@ export function queueFindingArgs(
   };
 }
 
+/**
+ * The machine-checkable claims embedded in a generated AGENTS.md (M-073).
+ * `--check` recomputes `list_features` / `dependency_cycles` and compares
+ * against this snapshot rather than re-parsing prose.
+ */
+export const AgentsMdClaimsSchema = z.object({
+  generatedAt: z.string().datetime(),
+  featureSlugs: z.array(z.string()),
+  cycles: z.array(z.array(z.string())),
+});
+export type AgentsMdClaims = z.infer<typeof AgentsMdClaimsSchema>;
+
+export const AgentsMdIssueSchema = z.object({
+  kind: z.enum(["missing", "stale-feature", "stale-cycle", "unparsable"]),
+  detail: z.string().min(1),
+});
+export type AgentsMdIssue = z.infer<typeof AgentsMdIssueSchema>;
+
+export const AgentsMdCheckResultSchema = z.object({
+  ok: z.boolean(),
+  path: z.string(),
+  checkedAt: z.string().datetime(),
+  issues: z.array(AgentsMdIssueSchema),
+});
+export type AgentsMdCheckResult = z.infer<typeof AgentsMdCheckResultSchema>;
+
+export const AgentsMdGenerateResultSchema = z.object({
+  path: z.string(),
+  content: z.string(),
+});
+export type AgentsMdGenerateResult = z.infer<
+  typeof AgentsMdGenerateResultSchema
+>;
+
+/**
+ * A job's accumulated context across resumes (M-073 W1/W2). `jobId` is
+ * absent for the standalone, workspace-keyed working set used by inline
+ * (non-dispatch) sessions.
+ */
+export const WorkingSetSchema = z.object({
+  jobId: z.string().optional(),
+  files: z.array(z.string()).default([]),
+  symbols: z.array(z.string()).default([]),
+  decisions: z.array(z.string()).default([]),
+  neighbors: z.array(z.string()).default([]),
+});
+export type WorkingSet = z.infer<typeof WorkingSetSchema>;
+
 /** Parse unknown JSON into a DTO; returns Zod issues as message. */
 export function parseDto<Schema extends z.ZodTypeAny>(
   schema: Schema,

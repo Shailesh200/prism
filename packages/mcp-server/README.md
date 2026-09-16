@@ -198,6 +198,7 @@ credentials — connectors belong to the agent window (ADR-0049).
 | `remember` | Save, list, or forget memories for the next job | `action`, `text`, `scope`, `confirm` |
 | `configure` | Standup settings or export a non-secret template | `action`, Slack channels, `maxJobs`, `ticketHost` |
 | `dispatch_doctor` | Worker backend + sign-in, role, job cap | — |
+| `working_set` | Get/patch a job's (or an inline session's) accumulated files, symbols, decisions, neighbors (M-073) | `action`, `jobId`, `files`, `symbols`, `decisions`, `neighbors` |
 
 ### Orientation — what is this, and how is it laid out?
 
@@ -241,6 +242,7 @@ credentials — connectors belong to the agent window (ADR-0049).
 | `changed_paths` | Working-tree or base-ref changed paths | `base` |
 | `guard_session` | Rank the current dirty session by blast risk, flagged for duplicate/orphan/boundary (M-072) | `preExistingChanges` |
 | `review_changes` | Rolled-up review; omit `paths` to auto-discover | `paths?`, `base` |
+| `agents_md` | Generate/verify the Living AGENTS.md — features, cycles, tests, owners; writes only `~/.prism`, never the repo (M-073) | `action` |
 
 ### Reports
 

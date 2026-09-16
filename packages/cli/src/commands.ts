@@ -7,6 +7,7 @@
  */
 
 import { MAP_ZOOM_LEVELS } from "@repo-prism/shared";
+import { agentsMdCommand } from "./commands/agents-md.js";
 import {
   blastCommand,
   prepareCommand,
@@ -375,6 +376,20 @@ export const COMMANDS: readonly CommandSpec[] = [
       LIMIT_OPTION,
     ],
     examples: ["prism bundle --artifact <id>"],
+  },
+  {
+    name: "agents-md",
+    group: "Reports",
+    summary:
+      "Generate or verify the Living AGENTS.md (never written to the repo)",
+    handler: agentsMdCommand,
+    arguments: [
+      {
+        syntax: "<action>",
+        description: "generate or check",
+      },
+    ],
+    examples: ["prism agents-md generate", "prism agents-md check"],
   },
 ];
 

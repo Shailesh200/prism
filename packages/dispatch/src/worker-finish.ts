@@ -28,6 +28,7 @@ import { publicRunFailure } from "./job-voice.js";
 import { composeJobResult, type RunState } from "./run-state.js";
 import { isSkillPlaybook } from "./playbook.js";
 import { applyGeneratedSkill } from "./skills.js";
+import type { WorkingSet } from "@repo-prism/shared";
 import type { JobPlacement, JobReview, VerifyPlan } from "./types.js";
 
 export type WorkerFinishInput = {
@@ -65,6 +66,22 @@ function auditSidecar(audit: PathAudit): {
     ...(notes.length > 0 ? { notes } : {}),
     ...(audit.missing.length > 0 ? { citedMissing: audit.missing } : {}),
   };
+}
+
+/** What this run delivered, to fold into `JobRecord.workingSet` (M-073 W1). */
+function workingSetSidecar(audit: PathAudit): {
+  readonly workingSet?: WorkingSet;
+} {
+  return audit.delivered.length > 0
+    ? {
+        workingSet: {
+          files: audit.delivered,
+          symbols: [],
+          decisions: [],
+          neighbors: [],
+        },
+      }
+    : {};
 }
 
 /** The agent reported failure: capture what the tree holds, then say so. */
@@ -184,6 +201,7 @@ async function completeWorktreeRun(
       lastActivity: "Done",
       completedAt: new Date().toISOString(),
       ...auditSidecar(audit),
+      ...workingSetSidecar(audit),
     },
     { immediate: true },
   );
@@ -296,6 +314,7 @@ async function completeCheckoutRun(
       lastActivity: "Done",
       completedAt: new Date().toISOString(),
       ...auditSidecar(audit),
+      ...workingSetSidecar(audit),
     },
     { immediate: true },
   );

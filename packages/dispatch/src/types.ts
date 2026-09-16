@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { WorkingSetSchema } from "@repo-prism/shared";
 
 export const DISPATCH_DIR = ".prism/dispatch";
 
@@ -343,6 +344,12 @@ export const JobRecordSchema = z.object({
    * review and any later commit subtract them (ADR-0045 §3).
    */
   preExistingChanges: z.array(z.string()).optional(),
+  /**
+   * Files, symbols, decisions and neighbors this job has accumulated across
+   * runs (M-073 W1). Merged in from the run sidecar at reap time; injected
+   * into the next `start_job` / resume prompt (W3).
+   */
+  workingSet: WorkingSetSchema.optional(),
   workerPid: z.number().int().optional(),
   runId: z.string().optional(),
   lastActivity: z.string().optional(),

@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import {
   formatPrepareChangePrompt,
   type PrepareChange,
+  type WorkingSet,
 } from "@repo-prism/shared";
 import { formatMemoriesForPrompt, memoriesForJob } from "./memory.js";
 import { resolveVerifyPlan } from "./job-verify.js";
@@ -223,6 +224,31 @@ export function workerPrompt(input: {
 }
 
 /**
+ * What this job (or a job it resumed from) already accumulated (M-073 W3) —
+ * so a resume does not re-discover files and decisions it already has.
+ */
+function workingSetBlock(workingSet: WorkingSet | undefined): string {
+  if (!workingSet) return "";
+  const lines: string[] = [];
+  if (workingSet.files.length > 0) {
+    lines.push(`Files touched so far: ${workingSet.files.join(", ")}`);
+  }
+  if (workingSet.symbols.length > 0) {
+    lines.push(`Symbols in play: ${workingSet.symbols.join(", ")}`);
+  }
+  if (workingSet.decisions.length > 0) {
+    lines.push(
+      `Decisions already made:\n${workingSet.decisions.map((d) => `- ${d}`).join("\n")}`,
+    );
+  }
+  if (workingSet.neighbors.length > 0) {
+    lines.push(`Related files (1-hop): ${workingSet.neighbors.join(", ")}`);
+  }
+  if (lines.length === 0) return "";
+  return `Working set from prior progress on this job:\n${lines.join("\n")}`;
+}
+
+/**
  * Spawn prompt plus a one-shot package map / repo guide (not for Skills jobs).
  */
 export async function composeWorkerPrompt(
@@ -244,7 +270,14 @@ export async function composeWorkerPrompt(
   return workerPrompt({
     ...input,
     verifyPlan,
-    extra: [packBlock, input.extra, orientation].filter(Boolean).join("\n\n"),
+    extra: [
+      packBlock,
+      workingSetBlock(input.job.workingSet),
+      input.extra,
+      orientation,
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
   });
 }
 

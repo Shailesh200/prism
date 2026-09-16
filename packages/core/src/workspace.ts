@@ -78,6 +78,9 @@ import {
   CodeExplorerTargetSchema,
   classifyFileRole,
   fileRoleLabel,
+  isTestPath,
+  type AgentsMdCheckResult,
+  type AgentsMdGenerateResult,
   type BlastRadiusReport,
   type BreakingChangeHint,
   type BackendReport,
@@ -177,8 +180,10 @@ import {
   unsafeRepoId,
 } from "@repo-prism/shared";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import type { PrismCapabilities } from "./capabilities.js";
+import { buildAgentsMdContent, parseAgentsMdClaims } from "./agents-md.js";
+import { agentsMdPath } from "./prism-home.js";
 import { loadPrismConfigSync } from "./prism-config-load.js";
 import { readChangedPaths, type ChangedPaths } from "./git/changed-paths.js";
 import {
@@ -732,6 +737,20 @@ export type PrismWorkspace = {
   guardSession(input?: {
     readonly preExistingChanges?: readonly string[];
   }): Promise<Result<GuardSession, PrismError>>;
+  /**
+   * Living AGENTS.md (M-073 C1/C3): composes features, import cycles, test
+   * locations, and git ownership into deterministic markdown and writes it
+   * to `~/.prism/workspaces/<key>/agents.md` — never into this repo.
+   * Requires `index()`.
+   */
+  generateAgentsMd(): Promise<Result<AgentsMdGenerateResult, PrismError>>;
+  /**
+   * Re-verifies the claims embedded in the last `generateAgentsMd()` output
+   * against a fresh `listFeatures()` / `getCycles()` read (M-073 C2).
+   * Fails (`ok: false`, non-empty `issues`) on drift; errors only when no
+   * AGENTS.md has been generated yet or the claims block is unparsable.
+   */
+  checkAgentsMd(): Promise<Result<AgentsMdCheckResult, PrismError>>;
   /** Bookmarks persisted at `.prism/bookmarks.json` (M-048 Phase 6). */
   listBookmarks(): Promise<Result<MapBookmark[], PrismError>>;
   /** Upsert a bookmark (by `id` when set) and return the updated list. */
@@ -2828,6 +2847,130 @@ export function createWorkspace(options: {
         totalDirty: changed.paths.length,
         truncated: files.length > cap,
       } satisfies GuardSession);
+    },
+    async generateAgentsMd() {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      const snapshot = lastSnapshot;
+      const features = buildFeatureGraph(snapshot).features;
+      const cycles = buildDependencyGraph(snapshot).cycles.map((c) => [...c]);
+      const testFiles = snapshot.files
+        .filter((f) => isTestPath(f.path))
+        .map((f) => f.path);
+
+      if (!gitCache || gitCache.at !== lastIndexedAt) {
+        const keepPaths = new Set(snapshot.files.map((f) => f.path));
+        gitCache = {
+          at: lastIndexedAt,
+          value: readGitSignals(snapshot.rootPath, { keepPaths }),
+        };
+      }
+      const ownersByFeature = new Map<string, readonly string[]>();
+      for (const feature of features) {
+        const counts = new Map<string, number>();
+        for (const path of feature.memberFiles) {
+          const signal = gitCache.value?.signals.get(path);
+          for (const contributor of signal?.contributors ?? []) {
+            counts.set(
+              contributor.author,
+              (counts.get(contributor.author) ?? 0) + contributor.commits,
+            );
+          }
+        }
+        const ranked = [...counts.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([author]) => author);
+        ownersByFeature.set(feature.slug, ranked);
+      }
+
+      const generatedAt = new Date().toISOString();
+      const content = buildAgentsMdContent({
+        generatedAt,
+        features,
+        cycles,
+        testFiles,
+        ownersByFeature,
+      });
+      const path = agentsMdPath(rootPath);
+      await mkdir(dirname(path), { recursive: true });
+      await writeFile(path, content, "utf8");
+      return ok({ path, content } satisfies AgentsMdGenerateResult);
+    },
+    async checkAgentsMd() {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      if (!lastSnapshot) {
+        return err(
+          prismError(
+            PrismErrorCode.INDEX_REQUIRED,
+            "No index snapshot yet — call workspace.index() first",
+          ),
+        );
+      }
+      const path = agentsMdPath(rootPath);
+      const checkedAt = new Date().toISOString();
+      let content: string;
+      try {
+        content = await readFile(path, "utf8");
+      } catch {
+        return err(
+          prismError(
+            PrismErrorCode.NOT_FOUND,
+            `No AGENTS.md generated yet — run \`prism agents-md generate\` first (expected at ${path})`,
+          ),
+        );
+      }
+      const claims = parseAgentsMdClaims(content);
+      if (!claims) {
+        return err(
+          prismError(
+            PrismErrorCode.VALIDATION,
+            `AGENTS.md at ${path} has no readable claims block — regenerate it`,
+          ),
+        );
+      }
+      const issues: AgentsMdCheckResult["issues"] = [];
+      const currentFeatureSlugs = buildFeatureGraph(lastSnapshot)
+        .features.map((f) => f.slug)
+        .sort();
+      const claimedFeatureSlugs = [...claims.featureSlugs].sort();
+      if (
+        JSON.stringify(currentFeatureSlugs) !==
+        JSON.stringify(claimedFeatureSlugs)
+      ) {
+        issues.push({
+          kind: "stale-feature",
+          detail: `Claimed features [${claimedFeatureSlugs.join(", ")}] no longer match current [${currentFeatureSlugs.join(", ")}]`,
+        });
+      }
+      const currentCycles = buildDependencyGraph(lastSnapshot)
+        .cycles.map((c) => [...c].sort())
+        .sort((a, b) => a.join("\0").localeCompare(b.join("\0")));
+      const claimedCycles = claims.cycles
+        .map((c) => [...c].sort())
+        .sort((a, b) => a.join("\0").localeCompare(b.join("\0")));
+      if (JSON.stringify(currentCycles) !== JSON.stringify(claimedCycles)) {
+        issues.push({
+          kind: "stale-cycle",
+          detail: `Claimed ${claimedCycles.length} import cycle(s), current index has ${currentCycles.length}`,
+        });
+      }
+      const result: AgentsMdCheckResult = {
+        ok: issues.length === 0,
+        path,
+        checkedAt,
+        issues,
+      };
+      return ok(result);
     },
     async listBookmarks() {
       const gate = ensureOpen();
