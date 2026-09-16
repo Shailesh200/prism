@@ -78,7 +78,7 @@
 | M-069 Agent substrate | `milestone/M-069-agent-substrate` | Verified | ✅ | ✅ | Owner verified 2026-09-14 (merged on main). Honest pipe, Envelope ledger, Honest Edges, verify-plan, Console Iris without Spectrum. |
 | M-070 prepare_change | `milestone/M-070-prepare-change` | Verified | ✅ | ✅ | Owner verified 2026-09-15 (merged on main). Cut 1: pack + reuse + House Style in one `prepare_change`; no file bodies. |
 | M-071 Finding Loop | `milestone/M-071-finding-loop` | Verified | ✅ | ✅ | Owner verified 2026-09-16 (merged on main). Cut 1: `FindingRef` fingerprinting, `queue_finding`, verification-gated re-scan resolution. Pulse sparkline + Spectrum dots deferred (need dedicated UI design). Live dogfooding fixed a lock-contention bug in the resolver and surfaced an unrelated pre-existing worktree-isolation bug (reported separately, not in scope). |
-| M-072 Prism Guard | `milestone/M-072-prism-guard` | In Progress | ☐ | ☐ | Cut 1: session-diff ranking (duplicate/orphan/boundary/blast checks), MCP `guard_session`. |
+| M-072 Prism Guard | `milestone/M-072-prism-guard` | Verified | ✅ | ✅ | Owner verified 2026-09-16 (merged on main). Cut 1: session-diff ranking (duplicate/orphan/boundary/blast checks), MCP `guard_session`, live Guard panel in vscode-extension + cursor-extension. Phase 1 (M-069→M-072) complete; T1 proof gate next. |
 
 ## Legend
 

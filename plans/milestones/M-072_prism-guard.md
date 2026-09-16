@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Progress** |
+| Status | **Verified** |
 | Branch | `milestone/M-072-prism-guard` (from latest `main`, M-071 merged) |
 | Depends on | M-070 Verified (blast, similar/reuse, pack) |
 | Unlocks | Phase 1 T1 proof gate |
@@ -68,5 +68,5 @@ orphaned new file, or a package boundary crossing. Available as an MCP tool
 - [x] `prism.guardSession` command registered in both `vscode-extension` and
       `cursor-extension` manifests
 - [x] `bun run verify:milestone` green
-- [ ] Owner review before commit
+- [x] Owner review before commit
 - [ ] Owner smoke: open Guard on a real dirty tree in VS Code / Cursor
