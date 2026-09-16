@@ -1,3 +1,4 @@
+<!-- smoke-test: dispatch token telemetry -->
 # Prism
 
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen)](https://nodejs.org)
