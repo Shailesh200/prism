@@ -266,6 +266,7 @@ const ARGUMENTS: Record<string, readonly string[]> = {
   bundle: [],
   completions: ["bash"],
   "agents-md": ["generate"],
+  findings: ["list"],
 };
 
 /** Commands that cannot succeed on a fixture without extra setup. */
@@ -598,6 +599,83 @@ describe("prism agents-md (M-073 Living AGENTS.md)", () => {
   it("fails usage-style (exit 2) for an unknown action", async () => {
     const result = await runCli([
       "agents-md",
+      "not-a-real-action",
+      "--workspace",
+      fixture,
+    ]);
+    expect(result.code).toBe(2);
+  }, 120_000);
+});
+
+describe("prism findings (M-074 Bloat)", () => {
+  afterAll(async () => {
+    await rm(join(fixture, ".prism", "finding-mutes.json"), { force: true });
+  });
+
+  it("lists findings, then mutes and unmutes one by fingerprint", async () => {
+    const listed = await runCli([
+      "findings",
+      "list",
+      "--workspace",
+      fixture,
+      "--json",
+    ]);
+    expect(listed.code).toBe(0);
+    const listedPayload = JSON.parse(listed.stdout) as {
+      ok: boolean;
+      data: { findings: { fingerprint: string }[] };
+    };
+    expect(listedPayload.ok).toBe(true);
+    const fingerprint = listedPayload.data.findings[0]?.fingerprint;
+    expect(fingerprint).toBeTruthy();
+    if (!fingerprint) return;
+
+    const muted = await runCli([
+      "findings",
+      "mute",
+      fingerprint,
+      "--workspace",
+      fixture,
+      "--json",
+    ]);
+    expect(muted.code).toBe(0);
+    const mutedPayload = JSON.parse(muted.stdout) as {
+      data: { muted: string[] };
+    };
+    expect(mutedPayload.data.muted).toContain(fingerprint);
+
+    const afterMute = await runCli([
+      "findings",
+      "list",
+      "--workspace",
+      fixture,
+      "--json",
+    ]);
+    const afterMutePayload = JSON.parse(afterMute.stdout) as {
+      data: { findings: { fingerprint: string }[] };
+    };
+    expect(
+      afterMutePayload.data.findings.some((f) => f.fingerprint === fingerprint),
+    ).toBe(false);
+
+    const unmuted = await runCli([
+      "findings",
+      "unmute",
+      fingerprint,
+      "--workspace",
+      fixture,
+      "--json",
+    ]);
+    expect(unmuted.code).toBe(0);
+    const unmutedPayload = JSON.parse(unmuted.stdout) as {
+      data: { muted: string[] };
+    };
+    expect(unmutedPayload.data.muted).not.toContain(fingerprint);
+  }, 120_000);
+
+  it("fails usage-style (exit 2) for an unknown action", async () => {
+    const result = await runCli([
+      "findings",
       "not-a-real-action",
       "--workspace",
       fixture,

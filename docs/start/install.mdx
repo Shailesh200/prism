@@ -101,7 +101,7 @@ every project):
 }
 ```
 
-Then **Settings → MCP** → enable **prism** and wait for 49 tools.
+Then **Settings → MCP** → enable **prism** and wait for 50 tools.
 
 **Claude Code** — from your project directory:
 
@@ -148,20 +148,24 @@ More: [Agent usage](/docs/usage) · [Dispatch](/docs/guides/dispatch)
 
 Something off? [Troubleshooting](/docs/help/troubleshooting).
 
-## What Prism writes in your project
+## What Prism writes
+
+Nothing goes into your checkout. Per-repo state lives in the machine-wide
+library, keyed by repo:
 
 ```
-your-repo/
-  .prism/
+~/.prism/
+  workspaces/<key>/
     cache/           index + health history
     consent.json     optional network feature decisions
     bookmarks.json   map bookmarks
     ingest/          artifacts you asked Prism to read
     tools/           tools you consented to install
-    dispatch/        Dispatch jobs, memories, and notes (gitignored)
+    dispatch/        Dispatch jobs, memories, and notes
+  dispatch/          machine-wide skills and agent catalog
 ```
 
-Let Prism add `.prism/` to `.gitignore` when offered — it is derived output.
+An older `<repo>/.prism` folder is copied here on first open, then removed.
 
 ## Next
 

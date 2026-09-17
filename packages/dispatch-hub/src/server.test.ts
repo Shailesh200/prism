@@ -323,6 +323,66 @@ describe("hub HTTP", () => {
     expect(body.last?.packFiles[0]?.path).toBe("src/users/fetchUser.ts");
   });
 
+  it("serves every prepare_change run for a workspace, newest first (M-074 Console polish)", async () => {
+    const home = await mkdtemp(join(tmpdir(), "prism-hub-prep-hist-"));
+    const repo = await mkdtemp(join(tmpdir(), "prism-hub-prep-hist-repo-"));
+    temps.push(home, repo);
+    const prep = {
+      pack: {
+        task: "first task",
+        files: [],
+        tokenEstimate: 0,
+        tests: [],
+        truncated: false,
+        totalCount: 0,
+      },
+      reuse: [],
+      conventions: [],
+      order: null,
+      workingSet: null,
+      generatedAt: "2026-09-14T00:00:00.000Z",
+      indexIndexedAt: "2026-09-14T00:00:00.000Z",
+      reuseProvenance: "unavailable" as const,
+      conventionsProvenance: "unavailable" as const,
+      ambiguous: null,
+    };
+    await writeLastPrepareChange(repo, prep, { PRISM_HOME: home });
+    await writeLastPrepareChange(
+      repo,
+      {
+        ...prep,
+        pack: { ...prep.pack, task: "second task" },
+        generatedAt: "2026-09-15T00:00:00.000Z",
+      },
+      { PRISM_HOME: home },
+    );
+    const started = await startHub({
+      env: {
+        PRISM_HUB_HOME: home,
+        PRISM_HUB_PORT: "0",
+        PRISM_HUB: "1",
+        PRISM_HOME: home,
+      },
+      idleMs: 60_000,
+      pollMs: 5_000,
+    });
+    if ("alreadyRunning" in started) throw new Error("expected a fresh hub");
+    closers.push(started.close);
+    const { port, token } = started.record;
+    const auth = { Authorization: `Bearer ${token}` };
+    const body = (await (
+      await fetch(
+        `http://127.0.0.1:${port}/api/prepare-history?workspace=${encodeURIComponent(repo)}`,
+        { headers: auth },
+      )
+    ).json()) as { workspace: string; runs: { task: string }[] };
+    expect(body.workspace).toBe(repo);
+    expect(body.runs.map((run) => run.task)).toEqual([
+      "second task",
+      "first task",
+    ]);
+  });
+
   it("removes a job from GET /api/jobs after delete", async () => {
     const home = await mkdtemp(join(tmpdir(), "prism-hub-home-"));
     const repo = await mkdtemp(join(tmpdir(), "prism-hub-repo-"));

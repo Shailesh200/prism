@@ -1,10 +1,21 @@
-import { createHash } from "node:crypto";
-import { homedir } from "node:os";
-import { join, resolve } from "node:path";
-import { DISPATCH_DIR } from "./types.js";
+import {
+  ensureWorkspacePrism,
+  legacyGlobalJobsDir,
+  legacyRepoPrismDir,
+  prismHomeDir,
+  removeLeftoverRepoPrism,
+  useLocalPrismStore,
+  workspaceDispatchDir,
+  workspaceKey,
+  workspacePrismDir,
+} from "@repo-prism/shared/prism-home";
+import { join } from "node:path";
 
-export function dispatchDir(workspaceRoot: string): string {
-  return join(workspaceRoot, DISPATCH_DIR);
+export function dispatchDir(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return workspaceDispatchDir(workspaceRoot, env);
 }
 
 export function configPath(workspaceRoot: string): string {
@@ -13,69 +24,69 @@ export function configPath(workspaceRoot: string): string {
 
 /** Pre-ADR-0054 location: `{repo}/.prism/dispatch/jobs.json`. */
 export function legacyJobsPath(workspaceRoot: string): string {
-  return join(dispatchDir(workspaceRoot), "jobs.json");
+  return join(legacyRepoPrismDir(workspaceRoot), "dispatch", "jobs.json");
 }
 
 /**
- * Job records live under `~/.prism/dispatch/workspaces/<key>/` (ADR-0054).
- *
- * Vitest fixtures keep writing into the temp repo unless they set
- * `PRISM_HOME`, so the suite does not touch the developer's real library.
+ * Job records live under `~/.prism/workspaces/<key>/dispatch/`.
+ * Vitest fixtures without `PRISM_HOME` still write `{repo}/.prism`.
  */
 export function useGlobalJobStore(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  if (env.PRISM_JOBS_LOCAL === "1") return false;
-  if (env.VITEST === "true" && !env.PRISM_HOME?.trim()) return false;
-  if (env.BUN_TEST === "1" && !env.PRISM_HOME?.trim()) return false;
-  return true;
+  return !useLocalPrismStore(env);
 }
 
 export function workspaceJobKey(workspaceRoot: string): string {
-  return createHash("sha256")
-    .update(resolve(workspaceRoot))
-    .digest("hex")
-    .slice(0, 24);
+  return workspaceKey(workspaceRoot);
 }
 
 export function globalWorkspacesDir(
   env: NodeJS.ProcessEnv = process.env,
 ): string {
-  return join(prismHome(env), "dispatch", "workspaces");
+  return join(prismHome(env), "workspaces");
 }
 
 export function globalWorkspaceDir(
   workspaceRoot: string,
   env: NodeJS.ProcessEnv = process.env,
 ): string {
-  return join(globalWorkspacesDir(env), workspaceJobKey(workspaceRoot));
+  return workspacePrismDir(workspaceRoot, env);
 }
 
 export function jobsPath(
   workspaceRoot: string,
   env: NodeJS.ProcessEnv = process.env,
 ): string {
-  if (!useGlobalJobStore(env)) return legacyJobsPath(workspaceRoot);
-  return join(globalWorkspaceDir(workspaceRoot, env), "jobs.json");
+  return join(workspaceDispatchDir(workspaceRoot, env), "jobs.json");
 }
 
 export function jobsMetaPath(
   workspaceRoot: string,
   env: NodeJS.ProcessEnv = process.env,
 ): string {
-  return join(globalWorkspaceDir(workspaceRoot, env), "meta.json");
+  return join(workspaceDispatchDir(workspaceRoot, env), "meta.json");
 }
 
-export function memoryPath(workspaceRoot: string): string {
-  return join(dispatchDir(workspaceRoot), "memory.json");
+export function memoryPath(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return join(dispatchDir(workspaceRoot, env), "memory.json");
 }
 
-export function worktreesDir(workspaceRoot: string): string {
-  return join(dispatchDir(workspaceRoot), "worktrees");
+export function worktreesDir(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return join(dispatchDir(workspaceRoot, env), "worktrees");
 }
 
-export function runsDir(workspaceRoot: string): string {
-  return join(dispatchDir(workspaceRoot), "runs");
+export function runsDir(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return join(dispatchDir(workspaceRoot, env), "runs");
 }
 
 export function runFileId(jobId: string): string {
@@ -114,23 +125,26 @@ export function rotatedRunLogPath(logPath: string): string {
   return `${logPath}.1`;
 }
 
-export function consentPath(workspaceRoot: string): string {
-  return join(workspaceRoot, ".prism", "consent.json");
+export function consentPath(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return join(workspacePrismDir(workspaceRoot, env), "consent.json");
 }
 
 /**
  * Machine-wide Prism dir (`~/.prism`). Override with `PRISM_HOME`.
  *
- * Job records live here under `dispatch/workspaces/` (ADR-0054). Git
- * worktrees, run logs and notes stay in the repo (ADR-0043 / ADR-0053). The
- * Cursor SDK agent catalog is not a repo artifact — it belongs here so a
- * Dispatch run does not write hundreds of megabytes into the tree.
+ * Per-repo state (jobs, cache, consent, run logs, worktrees) lives under
+ * `workspaces/<key>/`. The Cursor SDK agent catalog stays in
+ * `dispatch/agent-store` so a run does not write hundreds of megabytes
+ * into a checkout.
  */
 export function prismHome(env: NodeJS.ProcessEnv = process.env): string {
-  const override = env.PRISM_HOME?.trim();
-  if (override) return override;
-  return join(homedir(), ".prism");
+  return prismHomeDir(env);
 }
+
+export { ensureWorkspacePrism, legacyGlobalJobsDir, removeLeftoverRepoPrism };
 
 /** Cursor SDK `JsonlLocalAgentStore` root — never `<repo>/.prism/dispatch`. */
 export function agentStoreDir(env: NodeJS.ProcessEnv = process.env): string {

@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
+import { workspaceConsentPath } from "@repo-prism/shared/prism-home";
 import {
   CONSENT_PURPOSE_IDS,
   ConsentRecordSchema,
@@ -58,8 +59,7 @@ export function createConsentStore(options: {
   readonly consentPath?: string;
 }): ConsentStore {
   const filePath =
-    options.consentPath ??
-    join(options.workspaceRoot, ".prism", "consent.json");
+    options.consentPath ?? workspaceConsentPath(options.workspaceRoot);
 
   return {
     async list() {

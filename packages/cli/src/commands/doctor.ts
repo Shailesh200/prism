@@ -11,6 +11,7 @@ import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { PRISM_API_LEVEL, PRISM_CORE_VERSION } from "@repo-prism/core";
 import { ok } from "@repo-prism/shared";
+import { workspaceCacheDir } from "@repo-prism/shared/prism-home";
 import { paint, renderFields, renderHeading, type Style } from "../output.js";
 import { wrap } from "../table.js";
 import type { CommandHandler } from "../runtime.js";
@@ -95,7 +96,7 @@ export const doctorCommand: CommandHandler = async (context) => {
     }
   }
 
-  const cacheDir = join(context.workspace.path, ".prism", "cache");
+  const cacheDir = workspaceCacheDir(context.workspace.path);
   const hasCache = existsSync(cacheDir);
   checks.push({
     label: "Index cache",

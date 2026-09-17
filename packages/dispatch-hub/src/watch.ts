@@ -1,6 +1,7 @@
 import { watch, type FSWatcher } from "node:fs";
 import { dirname, join } from "node:path";
 import {
+  dispatchDir,
   jobsPath,
   listStoredWorkspaceRoots,
   readEnvelopeLedger,
@@ -254,7 +255,7 @@ export function watchWorkspaces(
     for (const path of live) {
       if (watchers.has(path)) continue;
       const group: FSWatcher[] = [];
-      const dispatch = join(path, ".prism", "dispatch");
+      const dispatch = dispatchDir(path, env);
       const runs = join(dispatch, "runs");
       const targets = [dispatch, runs];
       if (useGlobalJobStore(env)) {

@@ -131,4 +131,35 @@ describe("workspace guardSession (M-072 Prism Guard)", () => {
       await fixture.cleanup();
     }
   });
+
+  it("still ranks source files when git also lists node_modules", async () => {
+    const fixture = await createFixture({ name: "m072-guard-modules" });
+    try {
+      await fixture.write(
+        "package.json",
+        JSON.stringify({ name: "guard-modules", version: "0.0.0" }),
+      );
+      await fixture.write(
+        "src/hub.ts",
+        "export function hub(): number { return 1; }\n",
+      );
+      fixture.commit("initial");
+      await fixture.write("src/leaf.ts", 'import { hub } from "./hub.js";\n');
+
+      const opened = Prism.create().openRepository(fixture.root);
+      expect(opened.ok).toBe(true);
+      if (!opened.ok) return;
+      const indexed = await opened.value.index();
+      expect(indexed.ok).toBe(true);
+      if (!indexed.ok) return;
+
+      await fixture.write("node_modules/pkg/index.js", "module.exports = 1;\n");
+      const result = await opened.value.guardSession();
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.files.map((f) => f.path)).toEqual(["src/leaf.ts"]);
+    } finally {
+      await fixture.cleanup();
+    }
+  });
 });

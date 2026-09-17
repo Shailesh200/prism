@@ -426,7 +426,9 @@ export {
 export {
   writeLastPrepareChange,
   readLastPrepareChange,
+  readPrepareHistory,
   summarizePrepareChange,
+  PREPARE_HISTORY_LIMIT,
   type LastPrepareSummary,
 } from "./prepare-last.js";
 export {

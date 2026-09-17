@@ -27,8 +27,9 @@ describe("Dispatch paths", () => {
     const env = { PRISM_HOME: "/tmp/prism-home" };
     expect(useGlobalJobStore(env)).toBe(true);
     expect(jobsPath(root, env)).toContain(
-      join("/tmp/prism-home", "dispatch", "workspaces"),
+      join("/tmp/prism-home", "workspaces"),
     );
+    expect(jobsPath(root, env)).toContain(join("dispatch", "jobs.json"));
     expect(jobsPath(root, env)).not.toBe(legacyJobsPath(root));
   });
 

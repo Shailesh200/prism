@@ -7,6 +7,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./prism-home": {
+      "types": "./dist/prism-home.d.ts",
+      "import": "./dist/prism-home.js"
     }
   },
   "files": [

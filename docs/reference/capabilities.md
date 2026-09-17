@@ -26,6 +26,7 @@ use this page when you need the exhaustive index.
 | `prism explain` | explain |
 | `prism explore` | explore |
 | `prism features` | features |
+| `prism findings` | findings |
 | `prism health` | health |
 | `prism index` | index |
 | `prism landmarks` | landmarks |
@@ -72,6 +73,7 @@ use this page when you need the exhaustive index.
 | `knowledge_graph` | The symbol-level graph — declarations and the references between them — with summary stats |
 | `landmarks` | Named entrypoints, package roots and feature anchors — the places a human would open first |
 | `list_features` | Inferred features with their member files and a confidence score |
+| `list_findings` | Queueable findings from the last index |
 | `list_jobs` | Where are we |
 | `list_packages` | List the packages in a monorepo with their roots |
 | `prepare_change` | One call before you edit |

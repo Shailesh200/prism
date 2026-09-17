@@ -1,4 +1,8 @@
-/** @repo-prism/shared — contracts, errors, IDs, paths, Zod DTOs */
+/**
+ * @repo-prism/shared — contracts, errors, IDs, Zod DTOs.
+ * Node-only filesystem helpers live at `@repo-prism/shared/prism-home`
+ * so Spectrum / Console never pull `node:crypto` into the browser.
+ */
 
 export { PRISM_TOOL_COUNT } from "./generated/tool-count.js";
 export {
@@ -398,6 +402,8 @@ export {
   formatPrepareChangePrompt,
   prepareMapTokenWeight,
   FindingRefSchema,
+  FindingMuteSchema,
+  FindingMuteStoreSchema,
   queueFindingArgs,
   AgentsMdClaimsSchema,
   AgentsMdIssueSchema,
@@ -406,6 +412,8 @@ export {
   WorkingSetSchema,
   parseDto,
   type FindingRef,
+  type FindingMute,
+  type FindingMuteStore,
   type QueueFindingArgs,
   type AgentsMdClaims,
   type AgentsMdIssue,

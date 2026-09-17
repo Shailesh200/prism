@@ -42,6 +42,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { irisDefaultWorkspace } from "./fleet.js";
+import { PrepareHistoryDrawer, prepareTotalsCards } from "./prepare-history.js";
 import { RepoSelect } from "./repo-select.js";
 import { getJson, postJson } from "./session.js";
 import {
@@ -53,6 +54,12 @@ import {
 } from "./envelope-cards.js";
 
 const IRIS_WORKSPACE_KEY = "prism.console.iris.workspace";
+
+const ENVELOPE_SECTION_TIP =
+  "Envelope tracks Prism's list tools — search, references, blast radius, and the rest. Each metric compares what Prism found to what it actually sent the agent: how much got through, how often it was cut short, and how often the agent followed up with a smaller question instead of asking for the rest.";
+
+const PREPARE_SECTION_TIP =
+  "Before a teammate edits this repo, prepare_change builds a context pack: the files it thinks matter and why, code it found reusable, and any House Style conventions to follow. Click a run below for its full file list, or View all runs to see every past run.";
 
 type ConnectorRow = {
   readonly id: string;
@@ -144,8 +151,11 @@ export function IntelligenceView(props: {
   const [analyzedAt, setAnalyzedAt] = useState<string | undefined>(cached?.at);
   const [envelope, setEnvelope] = useState<EnvelopeResponse | undefined>();
   const [envelopeError, setEnvelopeError] = useState<string | undefined>();
-  const [prepareLast, setPrepareLast] = useState<
-    LastPrepareSummary | null | undefined
+  const [prepareHistory, setPrepareHistory] = useState<
+    readonly LastPrepareSummary[] | undefined
+  >();
+  const [prepareDrawer, setPrepareDrawer] = useState<
+    { readonly initialRun?: string } | undefined
   >();
 
   useEffect(() => {
@@ -218,20 +228,20 @@ export function IntelligenceView(props: {
 
   useEffect(() => {
     if (!workspace) {
-      setPrepareLast(undefined);
+      setPrepareHistory(undefined);
       return;
     }
     let alive = true;
-    setPrepareLast(undefined);
-    void getJson<{ last: LastPrepareSummary | null }>(
-      `/api/prepare-last?workspace=${encodeURIComponent(workspace)}`,
+    setPrepareHistory(undefined);
+    void getJson<{ runs: LastPrepareSummary[] }>(
+      `/api/prepare-history?workspace=${encodeURIComponent(workspace)}`,
       props.token,
     )
       .then((next) => {
-        if (alive) setPrepareLast(next.last ?? null);
+        if (alive) setPrepareHistory(next.runs);
       })
       .catch(() => {
-        if (alive) setPrepareLast(null);
+        if (alive) setPrepareHistory([]);
       });
     return () => {
       alive = false;
@@ -283,7 +293,7 @@ export function IntelligenceView(props: {
       <p className="console__lede">
         Iris is the accumulated knowledge of a workspace — the index, graphs,
         landmarks, and health. Pick a repository, then load analysis. Envelope
-        metrics are for that repo only, on this machine, never uploaded.
+        metrics stay local to that repo, on this machine.
       </p>
       {error ? <EmptyState>{error}</EmptyState> : null}
 
@@ -417,93 +427,15 @@ export function IntelligenceView(props: {
         </dl>
       ) : null}
 
-      <div className="prepare-last">
-        <h2 className="intel-heading">Last prepare</h2>
-        <p className="console__lede">
-          Pack, reuse, and House Style from the last prepare_change on this
-          repo. Paths and why only — not a map.
-        </p>
-        {!workspace ? (
-          <p className="envelope__empty">Select a repository first.</p>
-        ) : prepareLast === undefined ? (
-          <p className="envelope__empty">Loading last prepare…</p>
-        ) : prepareLast === null ? (
-          <EmptyState>
-            No prepare_change yet for this repo. Call it before you edit, or
-            start a teammate after Iris has indexed.
-          </EmptyState>
-        ) : (
-          <>
-            <dl className="console__facts">
-              <div>
-                <dt>
-                  <CardIcon icon={Layers} /> Task
-                </dt>
-                <dd>{prepareLast.task}</dd>
-              </div>
-              <div>
-                <dt>Pack files</dt>
-                <dd>
-                  {prepareLast.packFiles.length}
-                  {prepareLast.truncated
-                    ? ` of ${prepareLast.totalCount} (truncated)`
-                    : ""}
-                </dd>
-              </div>
-              <div>
-                <dt>Reuse</dt>
-                <dd>
-                  {prepareLast.reuse.length === 0
-                    ? "none (unavailable)"
-                    : String(prepareLast.reuse.length)}
-                </dd>
-              </div>
-              {prepareLast.ambiguous ? (
-                <div>
-                  <dt>Ambiguous</dt>
-                  <dd>
-                    {prepareLast.ambiguous.query}:{" "}
-                    {prepareLast.ambiguous.candidates
-                      .map((c) => c.path)
-                      .join("; ")}
-                  </dd>
-                </div>
-              ) : null}
-            </dl>
-            {prepareLast.packFiles.length > 0 ? (
-              <ul className="prepare-last__files">
-                {prepareLast.packFiles.map((file) => (
-                  <li key={file.path}>
-                    <code>{file.path}</code>
-                    {file.why.length > 0 ? (
-                      <span className="prepare-last__why">
-                        {file.why.join("; ")}
-                      </span>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-            {prepareLast.reuse.length > 0 ? (
-              <ul className="prepare-last__files">
-                {prepareLast.reuse.map((hit) => (
-                  <li key={`${hit.path}:${hit.symbol}`}>
-                    <code>{hit.symbol}</code>
-                    <span className="prepare-last__why">{hit.path}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </>
-        )}
-      </div>
-
       <div className="envelope">
         <div className="envelope__head">
           <div className="envelope__head-copy">
-            <h2 className="intel-heading">Envelope</h2>
+            <h2 className="intel-heading intel-heading--tip">
+              Envelope
+              <Tooltip label="Envelope">{ENVELOPE_SECTION_TIP}</Tooltip>
+            </h2>
             <p className="console__lede">
-              Pipe · True Refs · Honest Edges · Context Pack · Reuse First.
+              How much of what Prism found actually reached the agent this week.
             </p>
           </div>
           {props.onMoreDetails ? (
@@ -619,17 +551,79 @@ export function IntelligenceView(props: {
               ]}
             />
             <p className="envelope-note">
-              Lower Sent % means Prism sent a smaller slice of the list. Not
-              Pulse job tokens.
+              Lower Sent % means Prism sent a smaller slice of the list.
             </p>
           </>
         ) : (
           <EmptyState>
-            No list calls recorded this week for this repo. Envelope fills when
-            this chat or a teammate uses list tools — not from the job&apos;s
-            billed tokens. A job that never used those tools leaves this board
-            unchanged.
+            No list calls recorded this week for this repo. Envelope fills in
+            once this chat or a teammate uses a Prism list tool.
           </EmptyState>
+        )}
+      </div>
+
+      <div className="prepare">
+        <div className="envelope__head">
+          <div className="envelope__head-copy">
+            <h2 className="intel-heading intel-heading--tip">
+              Prepare
+              <Tooltip label="Prepare">{PREPARE_SECTION_TIP}</Tooltip>
+            </h2>
+            <p className="console__lede">
+              The context pack Prism built for each prepare_change on this repo.
+            </p>
+          </div>
+          {prepareHistory && prepareHistory.length > 3 ? (
+            <button
+              type="button"
+              className="envelope__more"
+              onClick={() => setPrepareDrawer({})}
+            >
+              <span>View all runs</span>
+              <ArrowRight size={16} aria-hidden />
+            </button>
+          ) : null}
+        </div>
+        {!workspace ? (
+          <p className="envelope__empty">Select a repository first.</p>
+        ) : prepareHistory === undefined ? (
+          <p className="envelope__empty">Loading prepare history…</p>
+        ) : prepareHistory.length === 0 ? (
+          <EmptyState>
+            No prepare_change yet for this repo. Call it before you edit, or
+            start a teammate after Iris has indexed.
+          </EmptyState>
+        ) : (
+          <>
+            <EnvelopeCards
+              density="iris"
+              cards={prepareTotalsCards(prepareHistory)}
+            />
+            <ul className="prepare-runs">
+              {prepareHistory.slice(0, 3).map((run) => (
+                <li key={run.generatedAt}>
+                  <button
+                    type="button"
+                    className="prepare-runs__row"
+                    onClick={() =>
+                      setPrepareDrawer({ initialRun: run.generatedAt })
+                    }
+                  >
+                    <CardIcon icon={Layers} />
+                    <span className="prepare-runs__copy">
+                      <span className="prepare-runs__task">{run.task}</span>
+                      <span className="prepare-runs__meta">
+                        {formatPrismDate(run.generatedAt, "datetime")} ·{" "}
+                        {run.packFiles.length} pack file
+                        {run.packFiles.length === 1 ? "" : "s"} ·{" "}
+                        {run.reuse.length} reuse
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </div>
 
@@ -637,10 +631,11 @@ export function IntelligenceView(props: {
         <h2 className="intel-heading intel-heading--tip">
           Host connectors
           <Tooltip label="Host connectors">
-            Plugins already signed in for this agent window (Cursor or Claude
-            Code). A download in the plugin cache, or a plugin still waiting on
-            mcp_auth, is not a connection. Prism holds no vendor credentials and
-            never talks to Slack, Linear or GitHub itself.
+            Plugins signed in for this agent window (Cursor or Claude Code). A
+            connection means a plugin has completed mcp_auth — a download
+            sitting in the plugin cache doesn't count yet. The plugin itself
+            talks to Slack, Linear, or GitHub; Prism only reads local sign-in
+            state here.
           </Tooltip>
         </h2>
         {connectors && connectors.connectors.length > 0 ? (
@@ -663,6 +658,17 @@ export function IntelligenceView(props: {
           </p>
         ) : null}
       </div>
+      {prepareDrawer && workspace ? (
+        <PrepareHistoryDrawer
+          token={props.token}
+          workspace={workspace}
+          {...(selectedLabel ? { workspaceLabel: selectedLabel } : {})}
+          {...(prepareDrawer.initialRun
+            ? { initialRun: prepareDrawer.initialRun }
+            : {})}
+          onClose={() => setPrepareDrawer(undefined)}
+        />
+      ) : null}
     </section>
   );
 }

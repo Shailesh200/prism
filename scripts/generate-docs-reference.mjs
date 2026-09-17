@@ -140,7 +140,7 @@ async function mcpToolsPage() {
     "the server is built from.",
     "",
     "Intelligence tools are read-only Core adapters. Dispatch tools (jobs, memory,",
-    "configure) write gitignored state under `.prism/dispatch/` and do not index.",
+    "configure) write state under `~/.prism/workspaces/<key>/dispatch/` and do not index.",
     "Prism holds no third-party credentials: connectors belong to the agent window,",
     "and Prism composes with whatever it already has (ADR-0049).",
     "Core analysis APIs stay ungated from MCP. See",

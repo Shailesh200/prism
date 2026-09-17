@@ -46,7 +46,10 @@ import {
   meterStepFloor,
   meterEndBadgeTone,
   meterEndKind,
+  effectiveMeterEndKind,
   jobMeterBadgeTone,
+  pulseCostDays,
+  pulseCostRangeNote,
   canInstructJob,
   canStartFromJob,
   reposWithJobsInRange,
@@ -566,8 +569,20 @@ describe("waitWorkMeter", () => {
     expect(meter.steps.at(-1)).toMatchObject({ kind: "work", live: true });
     expect(meterEndKind(meter.steps)).toBe("work");
     expect(meterEndBadgeTone("pause")).toBe("amber");
+    expect(meterEndBadgeTone("wait")).toBe("amber");
     expect(meterEndBadgeTone("work")).toBe("accent");
     expect(jobMeterBadgeTone(resumed, now)).toBe("accent");
+  });
+
+  it("does not let a stale pause tail paint a re-queued job amber like needs_review (Pulse color fix)", () => {
+    const steps = [
+      { kind: "wait" as const, pct: 30, live: false, ms: 0, label: "30s" },
+      { kind: "work" as const, pct: 40, live: false, ms: 0, label: "40s" },
+      { kind: "pause" as const, pct: 30, live: false, ms: 0, label: "30s" },
+    ];
+    expect(effectiveMeterEndKind(steps, "queued")).toBeUndefined();
+    expect(effectiveMeterEndKind(steps, "paused")).toBe("pause");
+    expect(effectiveMeterEndKind(steps, "running")).toBeUndefined();
   });
 
   it("does not count paused time as worked", () => {
@@ -660,6 +675,82 @@ describe("meterHoverAt", () => {
         75,
       )?.atMs,
     ).toBe(Date.parse("2026-09-04T11:45:00.000Z"));
+  });
+
+  it("reports which step the pointer landed on, for a status-labelled tooltip", () => {
+    const from = Date.parse("2026-09-04T11:00:00.000Z");
+    const mid = Date.parse("2026-09-04T11:30:00.000Z");
+    const to = Date.parse("2026-09-04T12:00:00.000Z");
+    const steps = [
+      {
+        kind: "wait" as const,
+        pct: 50,
+        live: false,
+        ms: 1,
+        label: "",
+        from,
+        to: mid,
+      },
+      {
+        kind: "work" as const,
+        pct: 50,
+        live: false,
+        ms: 1,
+        label: "",
+        from: mid,
+        to,
+      },
+    ];
+    expect(meterHoverAt(steps, 25)?.kind).toBe("wait");
+    expect(meterHoverAt(steps, 75)?.kind).toBe("work");
+  });
+});
+
+describe("pulseCostDays (Pulse cost chart heading matches the range)", () => {
+  const NOW = Date.parse("2026-09-17T12:00:00.000Z");
+
+  it("matches the fleet's own preset range", () => {
+    expect(pulseCostDays("24h", NOW)).toBe(1);
+    expect(pulseCostDays("7d", NOW)).toBe(7);
+  });
+
+  it("clamps sub-day presets to at least one day", () => {
+    expect(pulseCostDays("30m", NOW)).toBe(1);
+    expect(pulseCostDays("1h", NOW)).toBe(1);
+  });
+
+  it("clamps 'all' and any custom window past the cap", () => {
+    expect(pulseCostDays("all", NOW)).toBe(30);
+    expect(
+      pulseCostDays({ startMs: NOW - 90 * 86_400_000, endMs: NOW }, NOW),
+    ).toBe(30);
+  });
+
+  it("matches a custom date-range window exactly, under the cap", () => {
+    expect(
+      pulseCostDays({ startMs: NOW - 5 * 86_400_000, endMs: NOW }, NOW),
+    ).toBe(5);
+  });
+});
+
+describe("pulseCostRangeNote", () => {
+  const NOW = Date.parse("2026-09-17T12:00:00.000Z");
+
+  it("flags the real 'all' shape Pulse actually passes: an unbounded TimeWindow", () => {
+    expect(
+      pulseCostRangeNote({ startMs: Number.NEGATIVE_INFINITY, endMs: NOW }),
+    ).toBe("All time");
+  });
+
+  it("flags the bare 'all' string too, for any other caller", () => {
+    expect(pulseCostRangeNote("all")).toBe("All time");
+  });
+
+  it("says nothing for a real, bounded window under the cap", () => {
+    expect(
+      pulseCostRangeNote({ startMs: NOW - 5 * 86_400_000, endMs: NOW }),
+    ).toBeUndefined();
+    expect(pulseCostRangeNote("7d")).toBeUndefined();
   });
 });
 

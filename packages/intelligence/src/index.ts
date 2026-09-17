@@ -277,6 +277,10 @@ export {
   findingStillOpen,
   listUnusedExportFindings,
   UNUSED_EXPORT_SOURCE,
+  listDuplicateImplementationFindings,
+  DUPLICATE_IMPLEMENTATION_SOURCE,
+  listWrapperOverExistingFindings,
+  WRAPPER_OVER_EXISTING_SOURCE,
   computeFindingFingerprint,
   normalizeFindingTitle,
 } from "./findings/index.js";

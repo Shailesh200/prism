@@ -164,11 +164,9 @@ export default function InstallPage() {
 
               <WizardStep n="05" title="What Prism writes">
                 <p className="mb-3 text-sm text-fd-muted-foreground">
-                  Derived cache. Let Prism add{" "}
-                  <code className="text-fd-primary">.prism/</code> to{" "}
-                  <code className="text-fd-primary">.gitignore</code> when
-                  offered — including{" "}
-                  <code className="text-fd-primary">dispatch/</code>.
+                  Per-repo cache, consent, and jobs live under{" "}
+                  <code className="text-fd-primary">~/.prism/workspaces/</code>—
+                  nothing is written into your checkout.
                 </p>
                 <CopyCommand
                   command="npx -y @repo-prism/cli doctor"

@@ -1,3 +1,4 @@
+<!-- smoke-test: dispatch token telemetry -->
 # Prism
 
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen)](https://nodejs.org)
@@ -293,7 +294,7 @@ Markdown sources also live in [`docs/`](./docs/) in this repo. Local preview: `b
 
 ## Privacy
 
-Core analysis makes **no network requests** (proven by a trap test suite). Optional features (GitHub, PageSpeed, Gravatar, …) are **off by default** and gated per purpose in `.prism/consent.json`. Agents cannot grant consent.
+Core analysis makes **no network requests** (proven by a trap test suite). Optional features (GitHub, PageSpeed, Gravatar, …) are **off by default** and gated per purpose in `~/.prism/workspaces/<key>/consent.json`. Agents cannot grant consent.
 
 → [`PRIVACY.md`](./PRIVACY.md) · [`SECURITY.md`](./SECURITY.md)
 

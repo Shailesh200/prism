@@ -493,7 +493,7 @@ export function jobUsageLine(
  * Not sent = the rest of the matches Prism held back.
  */
 export const ENVELOPE_DUMP_KEPT_TIP =
-  "Sent is the list Prism actually gave the agent. Not sent is the rest of the matches Prism held back.\n\nSent % is sent ÷ the full list. The leftover is only the list tail, not the job's billed tokens.";
+  "Sent is the list Prism actually gave the agent. Not sent is the rest of the matches Prism held back.\n\nSent % is sent ÷ the full list — a measure of the list tail, separate from the job's billed tokens.";
 
 /** Focus drawer InfoTip — Envelope is not the LLM context window. */
 export const JOB_ENVELOPE_TIP = `${ENVELOPE_DUMP_KEPT_TIP}
@@ -502,7 +502,7 @@ Context and Tokens above are this teammate's LLM run. Envelope only counts Prism
 
 /** Iris “Sent %” InfoTip. */
 export const IRIS_BYTES_KEPT_TIP =
-  "How much of the full list actually reached the agent this week. Lower means Prism sent a smaller slice. Not Pulse job tokens.";
+  "How much of the full list actually reached the agent this week. Lower means Prism sent a smaller slice.";
 
 export const IRIS_CUT_SHORT_TIP =
   "Share of list calls that were partial — Prism sent some matches, not every one.";
@@ -511,7 +511,7 @@ export const IRIS_FOLLOW_THROUGH_TIP =
   "After a partial list, how often the next call in the same burst asked a smaller question — a specific symbol, or a tighter limit — instead of asking for the rest.";
 
 export const IRIS_DUMP_NOT_SERVED_TIP =
-  "JSON Prism did not send in this window. Not Pulse job tokens.";
+  "The list JSON Prism held back in this window — a size, separate from Pulse job tokens.";
 
 export const IRIS_HABIT_TIP =
   "Days in this window when a typical burst used five or fewer list calls. A burst is a clump of calls with no more than 30 minutes of quiet.";
@@ -526,10 +526,10 @@ export const ENVELOPE_AGENTIC_TIP =
   "Editors where Prism actually ran. Unknown is real: those calls have no editor name. We only show Cursor or Claude when we can name them.";
 
 export const ENVELOPE_SESSION_TIP =
-  "A burst is a clump of list calls with no more than 30 minutes of quiet, split by this chat vs a job. Not a chat thread id.";
+  "A burst is a clump of list calls with no more than 30 minutes of quiet, split by this chat vs a job.";
 
 export const ENVELOPE_PEAK_DUMP_TIP =
-  "The one list call in this window where Prism held back the most. A size, not a price.";
+  "The one list call in this window where Prism held back the most, measured in size.";
 
 export const ENVELOPE_SESSIONS_TIP =
   "How many bursts ran in this window. Chat vs teammate is the same split as Source.";
@@ -555,7 +555,7 @@ export const ENVELOPE_TOOL_TIPS: Readonly<Record<string, string>> = {
 export function envelopeToolTip(tool: string): string {
   return (
     ENVELOPE_TOOL_TIPS[tool] ??
-    "A Prism list tool. The journal stores counts, not the full answer."
+    "A Prism list tool. The journal stores call counts."
   );
 }
 
@@ -1053,7 +1053,7 @@ export function jobBadgeTone(
     case "ready":
       return "accent";
     case "queued":
-      return "brand";
+      return "amber";
     case "waiting_on_you":
     case "blocked":
     case "needs_confirm":
@@ -1087,8 +1087,8 @@ export function jobStatusTone(
     case "running":
     case "booting":
     case "ready":
-    case "queued":
       return "live";
+    case "queued":
     case "waiting_on_you":
     case "blocked":
     case "needs_review":

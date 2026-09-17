@@ -103,6 +103,38 @@ export function selectedRangeWindow(
   };
 }
 
+const DAY_MS = 86_400_000;
+const PULSE_COST_MAX_DAYS = 30;
+
+/**
+ * Days for the Pulse token-cost chart, matching the fleet's own time filter
+ * so the "last N days" heading is never a lie about what's plotted.
+ * `all` and any range past {@link PULSE_COST_MAX_DAYS} clamp to it — an
+ * unbounded chart isn't more honest, just less readable.
+ */
+export function pulseCostDays(range: FleetTimeRange, _nowMs: number): number {
+  const ms = isTimeWindow(range)
+    ? Math.max(0, range.endMs - range.startMs)
+    : range === "all"
+      ? PULSE_COST_MAX_DAYS * DAY_MS
+      : RANGE_MS[range];
+  return Math.max(1, Math.min(PULSE_COST_MAX_DAYS, Math.ceil(ms / DAY_MS)));
+}
+
+/**
+ * When `pulseCostDays` clamped to a display cap rather than the actual
+ * selected range, say so — the caller always hands this a {@link TimeWindow}
+ * (`selectedRangeWindow` turns even the `all` preset into `{startMs: -Infinity}`
+ * before it reaches Pulse), so a plain `range === "all"` string check here
+ * never matches in real usage and silently drops the note.
+ */
+export function pulseCostRangeNote(range: FleetTimeRange): string | undefined {
+  if (isTimeWindow(range)) {
+    return Number.isFinite(range.startMs) ? undefined : "All time";
+  }
+  return range === "all" ? "All time" : undefined;
+}
+
 /**
  * Crop a repo's axis to the jobs that actually sit in the selected range.
  *
@@ -1520,7 +1552,7 @@ function stepLabel(kind: PulseMeterKind, ms: number, live: boolean): string {
 export function meterHoverAt(
   steps: readonly PulseMeterStep[],
   percent: number,
-): { readonly atMs: number } | undefined {
+): { readonly atMs: number; readonly kind: PulseMeterKind } | undefined {
   const painted = steps.filter((step) => step.pct > 0);
   if (painted.length === 0) return undefined;
   const pct = Math.max(0, Math.min(100, percent));
@@ -1538,10 +1570,12 @@ export function meterHoverAt(
     const inner =
       step.pct <= 0 ? 1 : Math.max(0, Math.min(1, (pct - acc) / step.pct));
     const origin = step.from ?? step.to ?? 0;
-    return { atMs: origin + inner * span };
+    return { atMs: origin + inner * span, kind: step.kind };
   }
   const last = painted.at(-1);
-  return last ? { atMs: last.to ?? last.from ?? 0 } : undefined;
+  return last
+    ? { atMs: last.to ?? last.from ?? 0, kind: last.kind }
+    : undefined;
 }
 
 export function meterEndKind(
@@ -1554,23 +1588,42 @@ export function meterEndKind(
   return undefined;
 }
 
+/**
+ * `meterEndKind` reflects the last segment that ever painted, including a
+ * pause the job has since resumed from. Once the job is back to queued (or
+ * running again), that stale "pause" tail must not keep painting the badge
+ * and card notch amber — the same amber as `needs_review` made a re-queued
+ * job unreadable from one that actually needed the user.
+ */
+export function effectiveMeterEndKind(
+  steps: readonly PulseMeterStep[],
+  status: JobSummary["status"],
+): PulseMeterKind | undefined {
+  const kind = meterEndKind(steps);
+  if (kind === "pause" && status !== "paused") return undefined;
+  return kind;
+}
+
 /** Badge / notch colour follows the last painted meter step. */
 export function meterEndBadgeTone(
   kind: PulseMeterKind | undefined,
 ): "neutral" | "brand" | "accent" | "amber" | "rose" {
-  if (kind === "wait") return "brand";
+  if (kind === "wait") return "amber";
   if (kind === "work") return "accent";
   if (kind === "pause") return "amber";
   if (kind === "error") return "rose";
   return "neutral";
 }
 
-/** Status pill colour: last meter step, else the status default. */
+/** Status pill colour: last meter step (unless stale), else the status default. */
 export function jobMeterBadgeTone(
   job: JobSummary,
   nowMs: number,
 ): "neutral" | "brand" | "accent" | "emerald" | "amber" | "rose" | "violet" {
-  const kind = meterEndKind(waitWorkMeter(job, nowMs).steps);
+  const kind = effectiveMeterEndKind(
+    waitWorkMeter(job, nowMs).steps,
+    job.status,
+  );
   return kind
     ? meterEndBadgeTone(kind)
     : jobBadgeTone(job.status, job.nextStep);

@@ -16,6 +16,8 @@ export type DrawerProps = {
   readonly footer?: ReactNode;
   /** `xl` is 75vw Focus; `lg` is 50vw; `md` is a narrow list overlay. */
   readonly size?: DrawerSize;
+  /** Extra class on the panel — e.g. a one-off width between the fixed sizes. */
+  readonly className?: string;
 };
 
 export type KeyChord = {
@@ -174,7 +176,14 @@ export function Drawer(props: DrawerProps): ReactElement {
       />
       <aside
         ref={panelRef}
-        className={`prism-drawer prism-drawer--${side} prism-drawer--${size}`}
+        className={[
+          "prism-drawer",
+          `prism-drawer--${side}`,
+          `prism-drawer--${size}`,
+          props.className,
+        ]
+          .filter(Boolean)
+          .join(" ")}
         role="dialog"
         aria-modal="true"
         aria-label={props.label ?? props.title}

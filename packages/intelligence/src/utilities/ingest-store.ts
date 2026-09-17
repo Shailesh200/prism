@@ -1,5 +1,6 @@
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { workspaceIngestDir } from "@repo-prism/shared/prism-home";
 import {
   IngestArtifactMetaSchema,
   IngestArtifactSchema,
@@ -52,7 +53,7 @@ export function createIngestStore(options: {
   readonly ingestRoot?: string;
 }): IngestStore {
   const rootDir =
-    options.ingestRoot ?? join(options.workspaceRoot, ".prism", "ingest");
+    options.ingestRoot ?? workspaceIngestDir(options.workspaceRoot);
 
   return {
     rootDir,

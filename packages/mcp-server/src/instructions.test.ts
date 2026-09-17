@@ -22,6 +22,7 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toContain("queue_finding");
     expect(SERVER_INSTRUCTIONS).toContain("guard_session");
     expect(SERVER_INSTRUCTIONS).toContain("agents_md");
+    expect(SERVER_INSTRUCTIONS).toContain("list_findings");
     expect(SERVER_INSTRUCTIONS).not.toMatch(/prism_blast_radius/);
   });
 

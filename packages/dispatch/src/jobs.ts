@@ -18,10 +18,13 @@ import {
   type JobRecord,
 } from "./types.js";
 import {
+  ensureWorkspacePrism,
   globalWorkspacesDir,
   jobsMetaPath,
   jobsPath,
   legacyJobsPath,
+  prismHome,
+  removeLeftoverRepoPrism,
   useGlobalJobStore,
 } from "./paths.js";
 import { readJsonFile, writeJsonFile } from "./json-file.js";
@@ -238,9 +241,10 @@ async function workspaceJobCandidates(
 }
 
 /**
- * Lift `{repo}/.prism/dispatch/jobs.json` (and worktree copies) into
- * `~/.prism/dispatch/workspaces/`. Persist the global file before retiring
- * leftovers so a crash cannot leave jobs only in `.migrated`.
+ * Lift leftover `{repo}/.prism/dispatch/jobs.json` (and worktree copies)
+ * into `~/.prism/workspaces/<key>/dispatch/`. Persist the global file
+ * before retiring leftovers so a crash cannot leave jobs only in
+ * `.migrated`.
  */
 async function migrateLegacyJobs(workspaceRoot: string): Promise<void> {
   const env = jobsEnv();
@@ -286,6 +290,7 @@ async function migrateLegacyJobs(workspaceRoot: string): Promise<void> {
       await retireLegacyJobsFile(path);
     }
   }
+  await removeLeftoverRepoPrism(workspaceRoot, env);
 }
 
 async function readJobsFile(workspaceRoot: string): Promise<JobRecord[]> {
@@ -307,13 +312,17 @@ async function writeJobsFile(
 }
 
 export async function loadJobs(workspaceRoot: string): Promise<JobRecord[]> {
+  await ensureWorkspacePrism(workspaceRoot, jobsEnv());
   const path = jobsPath(workspaceRoot, jobsEnv());
   const existing = await readJobsIfPresent(path);
   if (existing.present) {
     // A held lock must not stall Console reads. Still lift a leftover
     // `{repo}/.prism/dispatch/jobs.json` written after the first migrate.
     const leftover = await readLegacyJobs(workspaceRoot);
-    if (leftover.length === 0) return existing.jobs;
+    if (leftover.length === 0) {
+      await removeLeftoverRepoPrism(workspaceRoot, jobsEnv());
+      return existing.jobs;
+    }
   }
   return await withJobsLock(workspaceRoot, async () => {
     await migrateLegacyJobs(workspaceRoot);
@@ -330,14 +339,35 @@ export async function listStoredWorkspaceRoots(
     const names = await readdir(globalWorkspacesDir(env));
     const found = await Promise.all(
       names.map(async (name) => {
+        const dir = join(globalWorkspacesDir(env), name);
         const meta = await readJsonFile<JobsMeta>(
-          join(globalWorkspacesDir(env), name, "meta.json"),
+          join(dir, "dispatch", "meta.json"),
+          { path: "" },
+        );
+        const fallback = await readJsonFile<JobsMeta>(join(dir, "meta.json"), {
+          path: "",
+        });
+        const root = (meta.path || fallback.path).trim();
+        if (!root) return null;
+        return (await workspaceRootPresent(root)) ? root : null;
+      }),
+    );
+    const current = found.filter((root): root is string => Boolean(root));
+    if (current.length > 0) return current;
+  } catch {
+    /* fall through to the ADR-0054 folder */
+  }
+  try {
+    const legacyRoot = join(prismHome(env), "dispatch", "workspaces");
+    const names = await readdir(legacyRoot);
+    const found = await Promise.all(
+      names.map(async (name) => {
+        const meta = await readJsonFile<JobsMeta>(
+          join(legacyRoot, name, "meta.json"),
           { path: "" },
         );
         const root = meta.path.trim();
         if (!root) return null;
-        // Vanished checkouts (temp test trees, deleted folders) must not
-        // stay on the Console — Resume against them hangs the hub.
         return (await workspaceRootPresent(root)) ? root : null;
       }),
     );
@@ -360,6 +390,7 @@ export async function updateJobs<T>(
     | Promise<{ jobs: JobRecord[]; result: T }>,
 ): Promise<T> {
   return await withJobsLock(workspaceRoot, async () => {
+    await ensureWorkspacePrism(workspaceRoot, jobsEnv());
     await migrateLegacyJobs(workspaceRoot);
     const jobs = await readJobsFile(workspaceRoot);
     const next = await mutator(jobs);

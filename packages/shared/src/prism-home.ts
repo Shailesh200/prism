@@ -1,0 +1,461 @@
+/**
+ * Machine-wide Prism library (`~/.prism`) and the per-repo folder under it.
+ *
+ * Production never writes `<repo>/.prism`. Per-checkout state lives at
+ * `~/.prism/workspaces/<key>/` (same 24-char key as ADR-0054). Vitest
+ * fixtures without `PRISM_HOME` still use the temp tree's `.prism` so the
+ * suite does not touch the developer's library.
+ *
+ * Import from `@repo-prism/shared/prism-home`, never the package barrel —
+ * this file uses `node:crypto` / `node:fs` and will crash Spectrum.
+ */
+
+import { createHash } from "node:crypto";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+} from "node:fs";
+import { cp, mkdir, readdir, rename, rm, stat } from "node:fs/promises";
+import { homedir } from "node:os";
+import { basename, join, resolve } from "node:path";
+
+export function prismHomeDir(env: NodeJS.ProcessEnv = process.env): string {
+  const override = env.PRISM_HOME?.trim();
+  if (override) return override;
+  return join(homedir(), ".prism");
+}
+
+/** True when tests should keep writing into the fixture tree. */
+export function useLocalPrismStore(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  if (env.PRISM_JOBS_LOCAL === "1") return true;
+  if (env.VITEST === "true" && !env.PRISM_HOME?.trim()) return true;
+  if (env.BUN_TEST === "1" && !env.PRISM_HOME?.trim()) return true;
+  return false;
+}
+
+/** Stable, filesystem-safe key for a workspace root (ADR-0054). */
+export function workspaceKey(workspaceRoot: string): string {
+  return createHash("sha256")
+    .update(resolve(workspaceRoot))
+    .digest("hex")
+    .slice(0, 24);
+}
+
+/** Pre-migration location: `{repo}/.prism`. */
+export function legacyRepoPrismDir(workspaceRoot: string): string {
+  return join(resolve(workspaceRoot), ".prism");
+}
+
+/** Pre-unification jobs folder: `~/.prism/dispatch/workspaces/<key>`. */
+export function legacyGlobalJobsDir(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return join(
+    prismHomeDir(env),
+    "dispatch",
+    "workspaces",
+    workspaceKey(workspaceRoot),
+  );
+}
+
+/**
+ * Per-repo Prism state. Tests without `PRISM_HOME` keep `{repo}/.prism`;
+ * everything else uses `~/.prism/workspaces/<key>`.
+ */
+export function workspacePrismDir(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  if (useLocalPrismStore(env)) return legacyRepoPrismDir(workspaceRoot);
+  return join(prismHomeDir(env), "workspaces", workspaceKey(workspaceRoot));
+}
+
+export function workspaceDispatchDir(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return join(workspacePrismDir(workspaceRoot, env), "dispatch");
+}
+
+export function workspaceCacheDir(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return join(workspacePrismDir(workspaceRoot, env), "cache");
+}
+
+export function workspaceConsentPath(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return join(workspacePrismDir(workspaceRoot, env), "consent.json");
+}
+
+export function workspaceIngestDir(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return join(workspacePrismDir(workspaceRoot, env), "ingest");
+}
+
+export function workspaceConfigPath(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return join(workspacePrismDir(workspaceRoot, env), "config.json");
+}
+
+export function workspaceBookmarksPath(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return join(workspacePrismDir(workspaceRoot, env), "bookmarks.json");
+}
+
+export function workspaceFindingMutesPath(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return join(workspacePrismDir(workspaceRoot, env), "finding-mutes.json");
+}
+
+export function workspaceLighthouseToolsDir(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return join(workspacePrismDir(workspaceRoot, env), "tools", "lighthouse");
+}
+
+export function workspaceNotesDir(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return join(workspaceDispatchDir(workspaceRoot, env), "notes");
+}
+
+export function workspaceRemoteCiDir(
+  workspaceRoot: string,
+  owner: string,
+  repo: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return join(workspacePrismDir(workspaceRoot, env), "remote-ci", owner, repo);
+}
+
+/** Stats output for a package — never `<package>/.prism`. */
+export function workspaceBundleAnalyzeDir(
+  workspaceRoot: string,
+  packageAbs: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const rel = resolve(packageAbs).startsWith(`${resolve(workspaceRoot)}/`)
+    ? resolve(packageAbs).slice(resolve(workspaceRoot).length + 1)
+    : "";
+  return rel
+    ? join(workspacePrismDir(workspaceRoot, env), "bundle-analyze", rel)
+    : join(workspacePrismDir(workspaceRoot, env), "bundle-analyze");
+}
+
+export function agentsMdPath(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return join(workspacePrismDir(workspaceRoot, env), "agents.md");
+}
+
+function skipName(name: string): boolean {
+  return name === "." || name === "..";
+}
+
+function isPendingWorktrees(src: string, name: string): boolean {
+  return name === "worktrees" && basename(src) === "dispatch";
+}
+
+/** Job migrator still reads these leftover files after the rest is copied. */
+const PENDING_JOB_FILES = new Set(["jobs.json", "jobs.json.migrated"]);
+const PENDING_DISPATCH_DIRS = new Set(["worktrees"]);
+
+function copyMissingSync(src: string, dest: string): void {
+  mkdirSync(dest, { recursive: true });
+  for (const name of readdirSync(src)) {
+    if (skipName(name) || isPendingWorktrees(src, name)) continue;
+    const from = join(src, name);
+    const to = join(dest, name);
+    const st = statSync(from);
+    if (st.isDirectory()) {
+      copyMissingSync(from, to);
+      continue;
+    }
+    if (!existsSync(to)) {
+      mkdirSync(dest, { recursive: true });
+      cpSync(from, to);
+    }
+  }
+}
+
+async function copyMissing(src: string, dest: string): Promise<void> {
+  await mkdir(dest, { recursive: true });
+  for (const name of await readdir(src)) {
+    if (skipName(name) || isPendingWorktrees(src, name)) continue;
+    const from = join(src, name);
+    const to = join(dest, name);
+    const st = await stat(from);
+    if (st.isDirectory()) {
+      await copyMissing(from, to);
+      continue;
+    }
+    try {
+      await stat(to);
+    } catch {
+      await cp(from, to);
+    }
+  }
+}
+
+function removeCopiedLeftoverSync(leftover: string): void {
+  if (!existsSync(leftover)) return;
+  for (const name of readdirSync(leftover)) {
+    if (skipName(name)) continue;
+    const from = join(leftover, name);
+    if (name === "dispatch" && statSync(from).isDirectory()) {
+      for (const inner of readdirSync(from)) {
+        if (PENDING_JOB_FILES.has(inner) || PENDING_DISPATCH_DIRS.has(inner)) {
+          continue;
+        }
+        rmSync(join(from, inner), { recursive: true, force: true });
+      }
+      const left = readdirSync(from).filter((inner) => !skipName(inner));
+      if (left.length === 0) rmSync(from, { recursive: true, force: true });
+      continue;
+    }
+    rmSync(from, { recursive: true, force: true });
+  }
+  const left = readdirSync(leftover).filter((name) => !skipName(name));
+  if (left.length === 0) rmSync(leftover, { recursive: true, force: true });
+}
+
+async function removeCopiedLeftover(leftover: string): Promise<void> {
+  try {
+    await stat(leftover);
+  } catch {
+    return;
+  }
+  for (const name of await readdir(leftover)) {
+    if (skipName(name)) continue;
+    const from = join(leftover, name);
+    const st = await stat(from).catch(() => undefined);
+    if (name === "dispatch" && st?.isDirectory()) {
+      for (const inner of await readdir(from)) {
+        if (PENDING_JOB_FILES.has(inner) || PENDING_DISPATCH_DIRS.has(inner)) {
+          continue;
+        }
+        await rm(join(from, inner), { recursive: true, force: true }).catch(
+          () => undefined,
+        );
+      }
+      const left = (await readdir(from).catch(() => [])).filter(
+        (inner) => !skipName(inner),
+      );
+      if (left.length === 0) {
+        await rm(from, { recursive: true, force: true }).catch(() => undefined);
+      }
+      continue;
+    }
+    await rm(from, { recursive: true, force: true }).catch(() => undefined);
+  }
+  const left = (await readdir(leftover).catch(() => [])).filter(
+    (name) => !skipName(name),
+  );
+  if (left.length === 0) {
+    await rm(leftover, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
+function liftLegacyJobsSync(
+  workspaceRoot: string,
+  dest: string,
+  env: NodeJS.ProcessEnv,
+): void {
+  const from = join(legacyGlobalJobsDir(workspaceRoot, env), "jobs.json");
+  const to = join(dest, "dispatch", "jobs.json");
+  if (!existsSync(from) || existsSync(to)) return;
+  mkdirSync(join(dest, "dispatch"), { recursive: true });
+  cpSync(from, to);
+  const metaFrom = join(legacyGlobalJobsDir(workspaceRoot, env), "meta.json");
+  const metaTo = join(dest, "dispatch", "meta.json");
+  if (existsSync(metaFrom) && !existsSync(metaTo)) cpSync(metaFrom, metaTo);
+}
+
+async function liftLegacyJobs(
+  workspaceRoot: string,
+  dest: string,
+  env: NodeJS.ProcessEnv,
+): Promise<void> {
+  const from = join(legacyGlobalJobsDir(workspaceRoot, env), "jobs.json");
+  const to = join(dest, "dispatch", "jobs.json");
+  try {
+    await stat(from);
+  } catch {
+    return;
+  }
+  try {
+    await stat(to);
+    return;
+  } catch {
+    /* dest jobs missing */
+  }
+  await mkdir(join(dest, "dispatch"), { recursive: true });
+  await cp(from, to);
+  const metaFrom = join(legacyGlobalJobsDir(workspaceRoot, env), "meta.json");
+  const metaTo = join(dest, "dispatch", "meta.json");
+  try {
+    await stat(metaFrom);
+    try {
+      await stat(metaTo);
+    } catch {
+      await cp(metaFrom, metaTo);
+    }
+  } catch {
+    /* no meta */
+  }
+}
+
+/**
+ * Lift `{repo}/.prism` and the ADR-0054 jobs folder into
+ * `~/.prism/workspaces/<key>/`, then remove the checkout copy.
+ */
+export function ensureWorkspacePrismSync(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const dest = workspacePrismDir(workspaceRoot, env);
+  if (useLocalPrismStore(env)) {
+    mkdirSync(dest, { recursive: true });
+    return dest;
+  }
+  mkdirSync(dest, { recursive: true });
+  const leftover = legacyRepoPrismDir(workspaceRoot);
+  if (existsSync(leftover) && resolve(leftover) !== resolve(dest)) {
+    copyMissingSync(leftover, dest);
+    removeCopiedLeftoverSync(leftover);
+  }
+  liftLegacyJobsSync(workspaceRoot, dest, env);
+  return dest;
+}
+
+export async function ensureWorkspacePrism(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<string> {
+  const dest = workspacePrismDir(workspaceRoot, env);
+  if (useLocalPrismStore(env)) {
+    await mkdir(dest, { recursive: true });
+    return dest;
+  }
+  await mkdir(dest, { recursive: true });
+  const leftover = legacyRepoPrismDir(workspaceRoot);
+  try {
+    await stat(leftover);
+    if (resolve(leftover) !== resolve(dest)) {
+      await copyMissing(leftover, dest);
+      await relocatePrismWorktrees(workspaceRoot, env);
+      await removeCopiedLeftover(leftover);
+    }
+  } catch {
+    /* no checkout .prism */
+  }
+  await liftLegacyJobs(workspaceRoot, dest, env);
+  return dest;
+}
+
+/** Best-effort `git worktree move` after files were copied into dest. */
+export async function relocatePrismWorktrees(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<void> {
+  if (useLocalPrismStore(env)) return;
+  const destTrees = join(workspaceDispatchDir(workspaceRoot, env), "worktrees");
+  const leftoverTrees = join(
+    legacyRepoPrismDir(workspaceRoot),
+    "dispatch",
+    "worktrees",
+  );
+  try {
+    await stat(leftoverTrees);
+  } catch {
+    return;
+  }
+  await mkdir(destTrees, { recursive: true });
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const run = promisify(execFile);
+  for (const name of await readdir(leftoverTrees)) {
+    if (skipName(name)) continue;
+    const from = join(leftoverTrees, name);
+    const to = join(destTrees, name);
+    try {
+      await stat(to);
+      continue;
+    } catch {
+      /* dest missing */
+    }
+    try {
+      await run("git", ["worktree", "move", from, to], {
+        cwd: workspaceRoot,
+      });
+    } catch {
+      try {
+        await rename(from, to);
+      } catch {
+        /* leave in place */
+      }
+    }
+  }
+}
+
+/** Drop leftover `<repo>/.prism` after job files have been merged. */
+export async function removeLeftoverRepoPrism(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<void> {
+  if (useLocalPrismStore(env)) return;
+  const leftover = legacyRepoPrismDir(workspaceRoot);
+  if (resolve(leftover) === resolve(workspacePrismDir(workspaceRoot, env))) {
+    return;
+  }
+  const liveJobs = join(leftover, "dispatch", "jobs.json");
+  try {
+    await stat(liveJobs);
+    return;
+  } catch {
+    /* merged */
+  }
+  const leftoverTrees = join(leftover, "dispatch", "worktrees");
+  try {
+    const names = (await readdir(leftoverTrees)).filter(
+      (name) => !skipName(name),
+    );
+    if (names.length > 0) return;
+  } catch {
+    /* no leftover worktrees */
+  }
+  await rm(leftover, { recursive: true, force: true }).catch(() => undefined);
+}
+
+export function renameIfMissing(from: string, to: string): void {
+  if (!existsSync(from) || existsSync(to)) return;
+  mkdirSync(join(to, ".."), { recursive: true });
+  try {
+    renameSync(from, to);
+  } catch {
+    /* ignore */
+  }
+}

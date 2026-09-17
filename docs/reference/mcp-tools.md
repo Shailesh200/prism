@@ -9,7 +9,7 @@ Every tool the Prism MCP server exposes, generated from the tool registry
 the server is built from.
 
 Intelligence tools are read-only Core adapters. Dispatch tools (jobs, memory,
-configure) write gitignored state under `.prism/dispatch/` and do not index.
+configure) write state under `~/.prism/workspaces/<key>/dispatch/` and do not index.
 Prism holds no third-party credentials: connectors belong to the agent window,
 and Prism composes with whatever it already has (ADR-0049).
 Core analysis APIs stay ungated from MCP. See
@@ -19,7 +19,7 @@ Core analysis APIs stay ungated from MCP. See
 Tools that return a list accept `limit` and answer with `totalCount` and
 `truncated`, so an agent can tell the first 20 of 340 from all 20 there are.
 
-Prism exposes **49 tools**. Every count elsewhere in the docs is
+Prism exposes **50 tools**. Every count elsewhere in the docs is
 checked against this one, so the number cannot drift into prose.
 
 | Tool | What it answers |
@@ -49,6 +49,7 @@ checked against this one, so the number cannot drift into prose.
 | [`knowledge_graph`](#knowledge_graph) | The symbol-level graph — declarations and the references between them — with summary stats |
 | [`landmarks`](#landmarks) | Named entrypoints, package roots and feature anchors — the places a human would open first |
 | [`list_features`](#list_features) | Inferred features with their member files and a confidence score |
+| [`list_findings`](#list_findings) | Queueable findings from the last index |
 | [`list_jobs`](#list_jobs) | Where are we |
 | [`list_packages`](#list_packages) | List the packages in a monorepo with their roots |
 | [`prepare_change`](#prepare_change) | One call before you edit |
@@ -224,6 +225,12 @@ Inferred features with their member files and a confidence score. Cheaper than f
 
 Arguments: `limit`.
 
+## `list_findings`
+
+Queueable findings from the last index: unused exports, duplicate implementations (two files exporting the exact same name), and wrapper functions (a function whose whole body is one call to another export). Excludes findings the user has muted, unless includeMuted is set. Pass one straight to queue_finding to fix it — never invent or paraphrase its fields.
+
+Arguments: `limit`, `includeMuted`.
+
 ## `list_jobs`
 
 Where are we: every Dispatch job with title, canonical id, live activity, and a result, verification outcome, or error when a teammate finishes. Speak only the tool message — titles, what they are doing, and what changed, not worktree paths or job-<hex> ids. A finished job that produced work reports as ready for your review. Where the work sits depends on placement: a checkout job left its edits uncommitted in the user's own tree, so offer job_control commit or let them commit; a worktree job holds them on its own branch, so name the branch and commit and ask whether to merge, leave, or drop it. Either way nothing was merged into the user's branch for them — do not describe a checkout job as living on a branch. A job reporting no activity for N minutes is stalled; call job_logs to see why. Report a failed check as a failure, and say so plainly when a job produced no reviewable change. Also prunes worktrees whose job is gone, keeping any that still hold unmerged commits. Call when the user asks where we are, what's running, how a job is going, or whether a teammate finished. After start_job, call again with waitFor set to that job's id so the chat learns the result without the user asking. Mention the jobs dashboard URL from the message so they can watch live.
@@ -364,6 +371,6 @@ Arguments: `action`, `jobId`, `files`, `symbols`, `decisions`, `neighbors`.
 
 ## `workspace_status`
 
-Compact workspace readiness: path, whether an index is loaded, indexedAt, freshness, git availability, whether a .prism/cache directory exists, and dependency-graph node/edge counts. Call this when a previous tool failed or to confirm the session is ready before a review.
+Compact workspace readiness: path, whether an index is loaded, indexedAt, freshness, git availability, whether a Prism cache directory exists, and dependency-graph node/edge counts. Call this when a previous tool failed or to confirm the session is ready before a review.
 
 Takes no arguments.

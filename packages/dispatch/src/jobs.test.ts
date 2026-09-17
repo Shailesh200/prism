@@ -1,4 +1,5 @@
 import {
+  access,
   mkdir,
   mkdtemp,
   readFile,
@@ -61,9 +62,10 @@ describe("global job store", () => {
     const listed = await runWithJobsEnv(env, () => loadJobs(repo));
     expect(listed).toHaveLength(1);
     expect(listed[0]?.prd).toBe("Make the news tab highlight.");
-    expect(jobsPath(repo, env)).toContain(join(home, "dispatch", "workspaces"));
-    const retired = await readFile(`${legacyJobsPath(repo)}.migrated`, "utf8");
-    expect(retired).toContain("news-tab");
+    expect(jobsPath(repo, env)).toContain(join(home, "workspaces"));
+    await expect(access(join(repo, ".prism"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
     expect(await listStoredWorkspaceRoots(env)).toContain(repo);
     await runWithJobsEnv(env, () =>
       upsertJob(repo, job({ title: "Fix highlight again" })),

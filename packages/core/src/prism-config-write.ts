@@ -4,7 +4,6 @@
 
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import {
   PRISM_CONFIG_RELATIVE_PATH,
   PrismErrorCode,
@@ -16,6 +15,10 @@ import {
   type PrismError,
   type Result,
 } from "@repo-prism/shared";
+import {
+  workspaceConfigPath,
+  workspacePrismDir,
+} from "@repo-prism/shared/prism-home";
 import { loadPrismConfig } from "./prism-config-load.js";
 
 export type WritePrismConfigOptions = {
@@ -36,12 +39,12 @@ export async function writePrismConfig(
   const validated = parsePrismConfig(config);
   if (!validated.ok) return validated;
 
-  const path = join(rootPath, PRISM_CONFIG_RELATIVE_PATH);
+  const path = workspaceConfigPath(rootPath);
   if (options?.ifAbsent && existsSync(path)) {
     return loadPrismConfig(rootPath);
   }
 
-  const dir = join(rootPath, ".prism");
+  const dir = workspacePrismDir(rootPath);
   try {
     await mkdir(dir, { recursive: true });
     await writeFile(

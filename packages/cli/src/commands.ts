@@ -8,6 +8,7 @@
 
 import { MAP_ZOOM_LEVELS } from "@repo-prism/shared";
 import { agentsMdCommand } from "./commands/agents-md.js";
+import { findingsCommand } from "./commands/findings.js";
 import {
   blastCommand,
   prepareCommand,
@@ -390,6 +391,26 @@ export const COMMANDS: readonly CommandSpec[] = [
       },
     ],
     examples: ["prism agents-md generate", "prism agents-md check"],
+  },
+  {
+    name: "findings",
+    group: "Reports",
+    summary: "Unused exports, duplicate implementations, wrapper functions",
+    handler: findingsCommand,
+    arguments: [
+      { syntax: "<action>", description: "list, mute, or unmute" },
+      {
+        syntax: "[fingerprint]",
+        description: "Required for mute/unmute — a finding's fingerprint field",
+      },
+    ],
+    options: [
+      {
+        flags: "--all",
+        description: "list: include findings already muted",
+      },
+    ],
+    examples: ["prism findings list", "prism findings mute a3f8c5f0c392dbeb"],
   },
 ];
 

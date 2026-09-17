@@ -98,6 +98,26 @@ describe("readChangedPaths", () => {
     expect(readChangedPaths(root, { base: "no-such-ref" })).toBeNull();
   });
 
+  it("drops node_modules and .prism even when git lists them", async () => {
+    await write("node_modules/pkg/index.js", "module.exports = 1;\n");
+    await write(".prism/cache.txt", "x");
+    await write("src/b.ts", "export const b = 1;\n");
+    expect(readChangedPaths(root)?.paths).toEqual(["src/b.ts"]);
+  });
+
+  it("drops a deleted node_modules entry", async () => {
+    await write("node_modules/pkg/index.js", "module.exports = 1;\n");
+    git("add", "-f", "node_modules/pkg/index.js");
+    git("commit", "-m", "tracked modules");
+    git("rm", "-rf", "node_modules");
+    expect(readChangedPaths(root)?.paths ?? []).not.toContain("node_modules");
+    expect(
+      (readChangedPaths(root)?.paths ?? []).some((p) =>
+        p.startsWith("node_modules/"),
+      ),
+    ).toBe(false);
+  });
+
   describe("a workspace nested inside a larger repository", () => {
     it("reports only what changed inside it, relative to it", async () => {
       // A fixture or a single package opened on its own. Git answers for the

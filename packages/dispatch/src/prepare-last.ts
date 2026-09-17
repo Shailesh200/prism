@@ -1,7 +1,10 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import type { PrepareChange } from "@repo-prism/shared";
+import type { PrepareChange, SignalProvenance } from "@repo-prism/shared";
 import { prismHome } from "./paths.js";
+
+/** Runs kept per workspace (newest first) — enough for real history, not unbounded disk growth. */
+export const PREPARE_HISTORY_LIMIT = 20;
 
 export type LastPrepareSummary = {
   readonly workspace: string;
@@ -9,11 +12,18 @@ export type LastPrepareSummary = {
   readonly generatedAt: string;
   readonly packFiles: readonly {
     readonly path: string;
+    readonly symbols: readonly string[];
     readonly why: readonly string[];
+    readonly tokenWeight: number;
+    readonly provenance: SignalProvenance;
   }[];
   readonly reuse: readonly {
     readonly symbol: string;
     readonly path: string;
+    readonly kind: string;
+    readonly score: number;
+    readonly evidence: string;
+    readonly provenance: SignalProvenance;
   }[];
   readonly conventions: readonly {
     readonly path: string;
@@ -31,8 +41,8 @@ export type LastPrepareSummary = {
   readonly totalCount: number;
 };
 
-function lastPreparePath(env: NodeJS.ProcessEnv = process.env): string {
-  return join(prismHome(env), "prepare-last.json");
+function prepareHistoryPath(env: NodeJS.ProcessEnv = process.env): string {
+  return join(prismHome(env), "prepare-history.json");
 }
 
 function skipPersist(env: NodeJS.ProcessEnv): boolean {
@@ -48,8 +58,21 @@ export function summarizePrepareChange(
     workspace,
     task: prep.pack.task,
     generatedAt: prep.generatedAt,
-    packFiles: prep.pack.files.map((f) => ({ path: f.path, why: f.why })),
-    reuse: prep.reuse.map((r) => ({ symbol: r.symbol, path: r.path })),
+    packFiles: prep.pack.files.map((f) => ({
+      path: f.path,
+      symbols: f.symbols,
+      why: f.why,
+      tokenWeight: f.tokenWeight,
+      provenance: f.provenance,
+    })),
+    reuse: prep.reuse.map((r) => ({
+      symbol: r.symbol,
+      path: r.path,
+      kind: r.kind,
+      score: r.score,
+      evidence: r.evidence,
+      provenance: r.provenance,
+    })),
     conventions: (prep.conventions ?? []).map((c) => ({
       path: c.path,
       patternId: c.patternId,
@@ -69,37 +92,55 @@ export function summarizePrepareChange(
   };
 }
 
+async function readHistoryFile(
+  env: NodeJS.ProcessEnv,
+): Promise<Record<string, LastPrepareSummary[]>> {
+  try {
+    return JSON.parse(
+      await readFile(prepareHistoryPath(env), "utf8"),
+    ) as Record<string, LastPrepareSummary[]>;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Appends this run to the workspace's history (newest first), capped at
+ * {@link PREPARE_HISTORY_LIMIT}. Each `prepare_change` call used to overwrite
+ * a single record — every prior pack, reuse hit, and House Style call was
+ * lost the moment the next one ran.
+ */
 export async function writeLastPrepareChange(
   workspaceRoot: string,
   prep: PrepareChange,
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<void> {
   if (skipPersist(env)) return;
-  const path = lastPreparePath(env);
+  const path = prepareHistoryPath(env);
   await mkdir(dirname(path), { recursive: true });
-  let all: Record<string, LastPrepareSummary> = {};
-  try {
-    all = JSON.parse(await readFile(path, "utf8")) as Record<
-      string,
-      LastPrepareSummary
-    >;
-  } catch {
-    all = {};
-  }
-  all[workspaceRoot] = summarizePrepareChange(workspaceRoot, prep);
+  const all = await readHistoryFile(env);
+  const existing = all[workspaceRoot] ?? [];
+  all[workspaceRoot] = [
+    summarizePrepareChange(workspaceRoot, prep),
+    ...existing,
+  ].slice(0, PREPARE_HISTORY_LIMIT);
   await writeFile(path, `${JSON.stringify(all)}\n`, "utf8");
 }
 
+/** Every persisted run for this workspace, newest first. */
+export async function readPrepareHistory(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<readonly LastPrepareSummary[]> {
+  const all = await readHistoryFile(env);
+  return all[workspaceRoot] ?? [];
+}
+
+/** The most recent run only — back-compat for callers that don't need history. */
 export async function readLastPrepareChange(
   workspaceRoot: string,
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<LastPrepareSummary | undefined> {
-  try {
-    const all = JSON.parse(
-      await readFile(lastPreparePath(env), "utf8"),
-    ) as Record<string, LastPrepareSummary>;
-    return all[workspaceRoot];
-  } catch {
-    return undefined;
-  }
+  const history = await readPrepareHistory(workspaceRoot, env);
+  return history[0];
 }
