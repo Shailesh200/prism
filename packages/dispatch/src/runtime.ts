@@ -1991,6 +1991,8 @@ async function rememberTool(
     text,
     scope: (String(args.scope ?? "repo") as MemoryScope) || "repo",
     ...(typeof args.jobId === "string" ? { jobId: args.jobId } : {}),
+    ...(typeof args.symbol === "string" ? { symbol: args.symbol } : {}),
+    ...(typeof args.path === "string" ? { path: args.path } : {}),
   });
   return { item, message: `Remembered (${item.scope}): ${item.text}` };
 }

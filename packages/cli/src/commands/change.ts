@@ -522,6 +522,14 @@ export const prepareCommand: CommandHandler = async (context) => {
           lines.push(`  ${row.patternId}  ${row.path}`);
         }
       }
+      if ((prep.notes ?? []).length > 0) {
+        lines.push("", paint("Notes", "dim", color));
+        for (const note of prep.notes ?? []) {
+          lines.push(
+            `  ${note.source}  ${note.path}${note.rationaleFor ? ` ← ${note.rationaleFor}` : ""}  ${note.text}`,
+          );
+        }
+      }
       if (prep.ambiguous) {
         lines.push(
           "",

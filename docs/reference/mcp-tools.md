@@ -245,7 +245,7 @@ Arguments: `limit`.
 
 ## `prepare_change`
 
-One call before you edit: the files to open for this task (pack), existing helpers to reuse, and three House Style exemplars. Returns paths, symbol names and why — never file bodies. Call this instead of dumping search_symbols or knowledge_graph. Ambiguous names come back as candidates; do not pick silently. order and workingSet are null in this build.
+One call before you edit: the files to open for this task (pack), existing helpers to reuse, three House Style exemplars, and notes (remembered symbol/path facts plus ADR/WHY rationale_for hits). Returns paths, symbol names and why — never file bodies. Call this instead of dumping search_symbols or knowledge_graph. Ambiguous names come back as candidates; do not pick silently. order and workingSet are null until a later build.
 
 Arguments: `task`, `budget`.
 
@@ -259,7 +259,7 @@ Arguments: `finding`, `instructions`, `workspace`, `placement`, `confirmDirty`, 
 
 Save, list, or forget scoped memories that Dispatch injects into the next start_job prompt. Scope is job, repo, or user. Does not auto-save code-changing rules; those need confirm=true. Call when the user says remember this, forget that, or list memories.
 
-Arguments: `action`, `text`, `id`, `scope`, `jobId`, `confirm`.
+Arguments: `action`, `text`, `id`, `scope`, `jobId`, `confirm`, `symbol`, `path`.
 
 ## `rename_impact`
 

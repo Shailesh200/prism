@@ -20,9 +20,32 @@ import {
   rmSync,
   statSync,
 } from "node:fs";
-import { cp, mkdir, readdir, rename, rm, stat } from "node:fs/promises";
+import {
+  cp,
+  mkdir,
+  readFile,
+  readdir,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
+import {
+  rewriteMemoryAnchors,
+  type MemoryAnchorChange,
+} from "./memory-anchors.js";
+
+export type { MemoryAnchorChange } from "./memory-anchors.js";
+
+export type WorkspaceMemory = {
+  readonly id?: string;
+  readonly text: string;
+  readonly symbol?: string;
+  readonly path?: string;
+  readonly scope?: string;
+};
 
 export function prismHomeDir(env: NodeJS.ProcessEnv = process.env): string {
   const override = env.PRISM_HOME?.trim();
@@ -448,6 +471,102 @@ export async function removeLeftoverRepoPrism(
     /* no leftover worktrees */
   }
   await rm(leftover, { recursive: true, force: true }).catch(() => undefined);
+}
+
+export function workspaceMemoryPath(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return join(workspaceDispatchDir(workspaceRoot, env), "memory.json");
+}
+
+function parseMemoryFile(raw: string): WorkspaceMemory[] {
+  try {
+    const parsed = JSON.parse(raw) as { items?: unknown };
+    if (!Array.isArray(parsed.items)) return [];
+    return parsed.items.flatMap((row) => {
+      if (!row || typeof row !== "object") return [];
+      const rec = row as Record<string, unknown>;
+      const text = typeof rec.text === "string" ? rec.text.trim() : "";
+      if (!text) return [];
+      return [
+        {
+          ...(typeof rec.id === "string" ? { id: rec.id } : {}),
+          text,
+          ...(typeof rec.symbol === "string" ? { symbol: rec.symbol } : {}),
+          ...(typeof rec.path === "string" ? { path: rec.path } : {}),
+          ...(typeof rec.scope === "string" ? { scope: rec.scope } : {}),
+        },
+      ];
+    });
+  } catch {
+    return [];
+  }
+}
+
+/** Memories Dispatch stored for this workspace (M-075). Missing file → []. */
+export async function loadWorkspaceMemories(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<WorkspaceMemory[]> {
+  try {
+    const raw = await readFile(workspaceMemoryPath(workspaceRoot, env), "utf8");
+    return parseMemoryFile(raw);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Rewrite stored `symbol` / `path` anchors after a rename is applied.
+ * Returns how many items changed. Missing file → 0.
+ */
+export async function migrateWorkspaceMemories(
+  workspaceRoot: string,
+  change: MemoryAnchorChange,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<number> {
+  const path = workspaceMemoryPath(workspaceRoot, env);
+  let raw: string;
+  try {
+    raw = await readFile(path, "utf8");
+  } catch {
+    return 0;
+  }
+  let parsed: { items?: unknown };
+  try {
+    parsed = JSON.parse(raw) as { items?: unknown };
+  } catch {
+    return 0;
+  }
+  if (!Array.isArray(parsed.items)) return 0;
+  const items = parsed.items.filter(
+    (row): row is Record<string, unknown> =>
+      Boolean(row) && typeof row === "object",
+  );
+  const next = rewriteMemoryAnchors(
+    items.map((row) => ({
+      ...row,
+      ...(typeof row.symbol === "string" ? { symbol: row.symbol } : {}),
+      ...(typeof row.path === "string" ? { path: row.path } : {}),
+    })),
+    change,
+  );
+  let changed = 0;
+  for (let i = 0; i < items.length; i += 1) {
+    const before = items[i]!;
+    const after = next[i]!;
+    if (before.symbol !== after.symbol || before.path !== after.path) {
+      changed += 1;
+    }
+  }
+  if (changed === 0) return 0;
+  await writeFile(
+    path,
+    `${JSON.stringify({ items: next }, null, 2)}\n`,
+    "utf8",
+  );
+  return changed;
 }
 
 export function renameIfMissing(from: string, to: string): void {

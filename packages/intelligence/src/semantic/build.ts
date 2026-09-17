@@ -25,6 +25,7 @@ import {
   resolveAliasSpecifier,
   type PathAliasMap,
 } from "../dependency/aliases.js";
+import { collectRationale } from "./rationale.js";
 
 function resolveModuleTarget(
   fromFile: string,
@@ -472,8 +473,13 @@ export function buildKnowledgeGraph(
     }
   }
 
-  const nodes = [...fileNodes, ...symbolNodes].sort((a, b) =>
-    a.id.localeCompare(b.id),
+  const rationale = collectRationale(snapshot);
+  for (const edge of rationale.edges) {
+    if (!edges.has(edge.id)) edges.set(edge.id, edge);
+  }
+
+  const nodes = [...fileNodes, ...symbolNodes, ...rationale.nodes].sort(
+    (a, b) => a.id.localeCompare(b.id),
   );
   const edgeList = [...edges.values()].sort((a, b) => a.id.localeCompare(b.id));
   references.sort((a, b) =>

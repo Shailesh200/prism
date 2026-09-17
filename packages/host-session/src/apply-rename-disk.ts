@@ -1,5 +1,6 @@
 import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { migrateWorkspaceMemories } from "@repo-prism/shared/prism-home";
 import type {
   ApplyRenameInput,
   ApplyRenameResult,
@@ -158,6 +159,12 @@ export async function applyRenameOnDisk(
       error: `Rename failed after editing ${editedFiles.length} file(s): ${message}`,
     };
   }
+
+  await migrateWorkspaceMemories(root, {
+    kind: "file",
+    from: fromPath,
+    to: toPath,
+  }).catch(() => 0);
 
   return { ok: true, fromPath, toPath, editedFiles };
 }

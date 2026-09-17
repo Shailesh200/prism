@@ -1,11 +1,23 @@
 import { randomUUID } from "node:crypto";
 import {
+  migrateWorkspaceMemories,
+  type MemoryAnchorChange,
+} from "@repo-prism/shared/prism-home";
+import {
   MemoryItemSchema,
   type MemoryItem,
   type MemoryScope,
 } from "./types.js";
 import { memoryPath } from "./paths.js";
 import { readJsonFile, writeJsonFile } from "./json-file.js";
+
+export async function migrateMemoriesOnRename(
+  workspaceRoot: string,
+  change: MemoryAnchorChange,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<number> {
+  return migrateWorkspaceMemories(workspaceRoot, change, env);
+}
 
 type MemoryFile = { items: MemoryItem[] };
 
@@ -34,6 +46,8 @@ export async function remember(input: {
   readonly scope: MemoryScope;
   readonly jobId?: string;
   readonly source?: string;
+  readonly symbol?: string;
+  readonly path?: string;
 }): Promise<MemoryItem> {
   const item: MemoryItem = {
     id: randomUUID(),
@@ -42,6 +56,8 @@ export async function remember(input: {
     source: input.source ?? "user",
     createdAt: new Date().toISOString(),
     ...(input.jobId ? { jobId: input.jobId } : {}),
+    ...(input.symbol?.trim() ? { symbol: input.symbol.trim() } : {}),
+    ...(input.path?.trim() ? { path: input.path.trim() } : {}),
   };
   const items = await loadMemories(input.workspaceRoot);
   items.push(item);
@@ -77,5 +93,10 @@ export function memoriesForJob(
 
 export function formatMemoriesForPrompt(items: readonly MemoryItem[]): string {
   if (items.length === 0) return "";
-  return items.map((item) => `- (${item.scope}) ${item.text}`).join("\n");
+  return items
+    .map((item) => {
+      const anchor = [item.symbol, item.path].filter(Boolean).join(" ");
+      return `- (${item.scope}${anchor ? ` ${anchor}` : ""}) ${item.text}`;
+    })
+    .join("\n");
 }

@@ -39,5 +39,6 @@ Critical-path milestones have full specs here. Summaries for other milestones li
 | M-072 | [M-072_prism-guard.md](./M-072_prism-guard.md) — `guard_session` + VS Code/Cursor panel |
 | M-073 | [M-073_agents-md-working-set.md](./M-073_agents-md-working-set.md) — Living AGENTS.md (`~/.prism` only) + Working Set on `JobRecord` |
 | M-074 | [M-074_bloat-job-cost.md](./M-074_bloat-job-cost.md) — `duplicate_implementation` + `wrapper_over_existing` findings, mute list, `list_findings`, Pulse token-cost chart |
+| M-075 | [M-075_symbol-memory-adr.md](./M-075_symbol-memory-adr.md) — symbol-anchored `remember`, ADR/`WHY:` `rationale_for` edges, `prepare_change.notes` |
 | PROGRAM | [PROGRAM_agent-native-iris.md](./PROGRAM_agent-native-iris.md) — Cut 1 approved 2026-09-11. First engineering milestone: [M-069](./M-069_agent-substrate.md). |
 | 3 prompts | [PROGRAM_agent-native-3-PHASES.md](./PROGRAM_agent-native-3-PHASES.md) — Phase 1 started (`go ahead with phase 1`). |

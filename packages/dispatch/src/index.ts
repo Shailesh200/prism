@@ -69,6 +69,7 @@ export {
   forgetMemory,
   memoriesForJob,
   formatMemoriesForPrompt,
+  migrateMemoriesOnRename,
 } from "./memory.js";
 export {
   allocateJobId,

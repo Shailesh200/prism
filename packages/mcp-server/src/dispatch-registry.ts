@@ -358,6 +358,14 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
         .boolean()
         .optional()
         .describe("Required when the text looks like a code-changing rule"),
+      symbol: z
+        .string()
+        .optional()
+        .describe("Optional symbol name this memory is about (M-075)"),
+      path: z
+        .string()
+        .optional()
+        .describe("Optional workspace-relative file this memory is about"),
     },
     readOnly: false,
     openWorld: false,

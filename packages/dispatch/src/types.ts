@@ -173,6 +173,9 @@ export const MemoryItemSchema = z.object({
   source: z.string().default("user"),
   jobId: z.string().optional(),
   createdAt: z.string(),
+  /** Optional graph anchor so a rename can move this note (M-075). */
+  symbol: z.string().min(1).optional(),
+  path: z.string().min(1).optional(),
 });
 export type MemoryItem = z.infer<typeof MemoryItemSchema>;
 

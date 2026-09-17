@@ -270,7 +270,9 @@ export {
   tokenizeTask,
   scoreReuse,
   type BuildPrepareChangeInput,
+  type PrepareMemory,
 } from "./prepare/pack.js";
+export { collectRationale } from "./semantic/rationale.js";
 export { checkGuardSession, type GuardCheckInput } from "./guard/session.js";
 export {
   listFindings,
