@@ -4,6 +4,11 @@
  * so Spectrum / Console never pull `node:crypto` into the browser.
  */
 
+export {
+  rewriteMemoryAnchors,
+  type MemoryAnchor,
+  type MemoryAnchorChange,
+} from "./memory-anchors.js";
 export { PRISM_TOOL_COUNT } from "./generated/tool-count.js";
 export {
   NO_CONSOLE_STATUS,
@@ -397,6 +402,7 @@ export {
   ExemplarSchema,
   PrepareAmbiguousCandidateSchema,
   PrepareAmbiguousSchema,
+  PrepareNoteSchema,
   PrepareChangeSchema,
   DEFAULT_PREPARE_BUDGET,
   formatPrepareChangePrompt,
@@ -570,6 +576,7 @@ export {
   type Exemplar,
   type PrepareAmbiguousCandidate,
   type PrepareAmbiguous,
+  type PrepareNote,
   type PrepareChange,
   type MapBookmarkStore,
   type MapCluster,

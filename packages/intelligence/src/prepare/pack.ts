@@ -17,6 +17,7 @@ import {
   type Exemplar,
   type ContextFile,
   type HouseStylePatternId,
+  type PrepareNote,
   type SignalProvenance,
   DEFAULT_PREPARE_BUDGET,
 } from "@repo-prism/shared";
@@ -26,6 +27,13 @@ import {
   buildKnowledgeGraph,
   type KnowledgeGraphResult,
 } from "../semantic/build.js";
+import { collectRationale } from "../semantic/rationale.js";
+
+export type PrepareMemory = {
+  readonly text: string;
+  readonly path?: string;
+  readonly symbol?: string;
+};
 
 const STOP = new Set([
   "add",
@@ -60,6 +68,8 @@ export type BuildPrepareChangeInput = {
   readonly gitFiles?: readonly GitFileSignal[];
   readonly frameworks?: readonly string[];
   readonly now?: Date;
+  /** Dispatch memories to attach when they match a pack file (M-075). */
+  readonly memories?: readonly PrepareMemory[];
 };
 
 export function tokenizeTask(task: string): string[] {
@@ -415,6 +425,56 @@ function houseStyle(
   return { exemplars: exemplars.slice(0, 3), provenance: "heuristic" };
 }
 
+function notesForPack(
+  snapshot: IndexSnapshot,
+  packed: readonly ContextFile[],
+  memories: readonly PrepareMemory[] | undefined,
+): PrepareNote[] {
+  const packPaths = new Set(packed.map((f) => f.path));
+  const packSymbols = new Set(packed.flatMap((f) => f.symbols));
+  const notes: PrepareNote[] = [];
+  const seen = new Set<string>();
+  const push = (note: PrepareNote) => {
+    const key = `${note.source}\0${note.path}\0${note.symbol ?? ""}\0${note.text}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    notes.push(note);
+  };
+  for (const memory of memories ?? []) {
+    const pathHit = memory.path !== undefined && packPaths.has(memory.path);
+    const symbolHit =
+      memory.symbol !== undefined && packSymbols.has(memory.symbol);
+    if (!pathHit && !symbolHit) continue;
+    const path =
+      memory.path && packPaths.has(memory.path)
+        ? memory.path
+        : (packed.find((f) => f.symbols.includes(memory.symbol ?? ""))?.path ??
+          memory.path);
+    if (!path) continue;
+    push({
+      path,
+      text: memory.text,
+      source: "memory",
+      ...(memory.symbol ? { symbol: memory.symbol } : {}),
+    });
+  }
+  for (const hit of collectRationale(snapshot).hits) {
+    if (!packPaths.has(hit.toPath)) continue;
+    push({
+      path: hit.toPath,
+      text: hit.text,
+      source: "rationale",
+      rationaleFor: hit.adrPath,
+    });
+  }
+  return notes.sort(
+    (a, b) =>
+      a.path.localeCompare(b.path) ||
+      a.source.localeCompare(b.source) ||
+      a.text.localeCompare(b.text),
+  );
+}
+
 export function buildPrepareChange(
   input: BuildPrepareChangeInput,
 ): PrepareChange {
@@ -509,6 +569,7 @@ export function buildPrepareChange(
   const truncated = packed.length < ranked.length;
   const reuse = scoreReuse(snapshot, tokens, seeds, features);
   const style = houseStyle(snapshot, input.frameworks, git);
+  const notes = notesForPack(snapshot, packed, input.memories);
 
   return {
     pack: {
@@ -521,6 +582,7 @@ export function buildPrepareChange(
     },
     reuse,
     conventions: style.exemplars.length > 0 ? style.exemplars : [],
+    notes,
     order: null,
     workingSet: null,
     generatedAt: now.toISOString(),

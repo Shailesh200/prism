@@ -191,6 +191,7 @@ import {
   workspaceBookmarksPath,
   workspaceFindingMutesPath,
   workspacePrismDir,
+  loadWorkspaceMemories,
 } from "./prism-home.js";
 import { loadPrismConfigSync } from "./prism-config-load.js";
 import { readChangedPaths, type ChangedPaths } from "./git/changed-paths.js";
@@ -408,7 +409,8 @@ export type PrismWorkspace = {
   ): Result<SymbolSearchResult, PrismError>;
   /**
    * Pack + reuse + House Style for a change (M-070). Never includes file bodies.
-   * `order` and `workingSet` are null in this build.
+   * `notes` carry matching memories and `rationale_for` hits (M-075).
+   * `order` and `workingSet` stay null until M-076.
    */
   prepareChange(input: {
     readonly task: string;
@@ -2473,6 +2475,7 @@ export function createWorkspace(options: {
       const gitFiles = git ? [...git.signals.values()] : undefined;
       const dna = await this.getDna();
       const frameworks = dna.ok ? dna.value.frameworks : [];
+      const memories = await loadWorkspaceMemories(lastSnapshot.rootPath);
       return ok(
         buildPrepareChange({
           snapshot: lastSnapshot,
@@ -2480,6 +2483,7 @@ export function createWorkspace(options: {
           ...(input.budget !== undefined ? { budget: input.budget } : {}),
           ...(gitFiles && gitFiles.length > 0 ? { gitFiles } : {}),
           ...(frameworks.length > 0 ? { frameworks } : {}),
+          ...(memories.length > 0 ? { memories } : {}),
         }),
       );
     },

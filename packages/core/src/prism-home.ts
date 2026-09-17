@@ -7,6 +7,8 @@ export {
   agentsMdPath,
   ensureWorkspacePrism,
   ensureWorkspacePrismSync,
+  loadWorkspaceMemories,
+  migrateWorkspaceMemories,
   prismHomeDir,
   useLocalPrismStore,
   workspaceBookmarksPath,

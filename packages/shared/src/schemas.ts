@@ -2478,14 +2478,26 @@ export const PrepareAmbiguousSchema = z.object({
 });
 export type PrepareAmbiguous = z.infer<typeof PrepareAmbiguousSchema>;
 
+/** A memory or ADR/`WHY:` hit for a pack file (M-075). Never a file body. */
+export const PrepareNoteSchema = z.object({
+  path: z.string().min(1),
+  text: z.string().min(1),
+  source: z.enum(["memory", "rationale"]),
+  symbol: z.string().min(1).optional(),
+  /** ADR or comment file the agent should open. */
+  rationaleFor: z.string().min(1).optional(),
+});
+export type PrepareNote = z.infer<typeof PrepareNoteSchema>;
+
 /**
- * One Envelope query: pack + reuse + House Style. `order` / `workingSet` are
- * present and null until later cuts (M-075 / M-076).
+ * One Envelope query: pack + reuse + House Style. `order` / `workingSet` stay
+ * null until M-076. `notes` is M-075 (memories + rationale_for).
  */
 export const PrepareChangeSchema = z.object({
   pack: ContextPackSchema,
   reuse: z.array(ReuseHitSchema),
   conventions: z.array(ExemplarSchema).nullable(),
+  notes: z.array(PrepareNoteSchema).optional(),
   order: z.null(),
   workingSet: z.null(),
   generatedAt: z.string().datetime(),
@@ -2525,6 +2537,11 @@ export function formatPrepareChangePrompt(prep: PrepareChange): string {
   const conventions = (prep.conventions ?? []).map(
     (row) => `- ${row.patternId}: ${row.path} (${row.whyCanonical})`,
   );
+  const notes = (prep.notes ?? []).map((note) => {
+    const where = note.rationaleFor ?? note.path;
+    const sym = note.symbol ? ` ${note.symbol}` : "";
+    return `- ${note.source}:${sym} ${note.text} (${where})`;
+  });
   const ambiguous = prep.ambiguous
     ? `Ambiguous “${prep.ambiguous.query}”: ${prep.ambiguous.candidates
         .map((c) => `${c.symbol} in ${c.path}`)
@@ -2535,6 +2552,7 @@ export function formatPrepareChangePrompt(prep: PrepareChange): string {
     files ? `Pack files:\n${files}` : "",
     `Reuse:\n${reuse}`,
     conventions.length > 0 ? `House Style:\n${conventions.join("\n")}` : "",
+    notes.length > 0 ? `Notes:\n${notes.join("\n")}` : "",
     ambiguous,
   ]
     .filter(Boolean)

@@ -1,5 +1,6 @@
 import { dirname, join } from "node:path";
 import type * as vscode from "vscode";
+import { migrateWorkspaceMemories } from "@repo-prism/shared/prism-home";
 import {
   rewritePathReferences,
   type ApplyRenameInput,
@@ -101,6 +102,12 @@ export async function applyWorkspaceRename(
       error: `Rename failed after editing ${editedFiles.length} file(s): ${message}`,
     };
   }
+
+  await migrateWorkspaceMemories(root, {
+    kind: "file",
+    from: fromPath,
+    to: toPath,
+  }).catch(() => 0);
 
   return { ok: true, fromPath, toPath, editedFiles };
 }

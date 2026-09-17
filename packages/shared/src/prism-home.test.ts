@@ -11,8 +11,11 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   ensureWorkspacePrism,
+  loadWorkspaceMemories,
+  migrateWorkspaceMemories,
   useLocalPrismStore,
   workspaceKey,
+  workspaceMemoryPath,
   workspacePrismDir,
 } from "./prism-home.js";
 
@@ -55,5 +58,30 @@ describe("workspace prism home", () => {
     await expect(access(join(repo, ".prism"))).rejects.toMatchObject({
       code: "ENOENT",
     });
+  });
+
+  it("migrates symbol-anchored memories on rename (M-075)", async () => {
+    const repo = await mkdtemp(join(tmpdir(), "prism-mem-"));
+    temps.push(repo);
+    const env = { VITEST: "true" };
+    await mkdir(join(repo, ".prism", "dispatch"), { recursive: true });
+    await writeFile(
+      workspaceMemoryPath(repo, env),
+      JSON.stringify({
+        items: [
+          { id: "1", text: "keep cache-free", symbol: "fetchUser" },
+          { id: "2", text: "other", symbol: "lruCache" },
+        ],
+      }),
+    );
+    const moved = await migrateWorkspaceMemories(
+      repo,
+      { kind: "symbol", from: "fetchUser", to: "loadUser" },
+      env,
+    );
+    expect(moved).toBe(1);
+    const items = await loadWorkspaceMemories(repo, env);
+    expect(items.find((i) => i.id === "1")?.symbol).toBe("loadUser");
+    expect(items.find((i) => i.id === "2")?.symbol).toBe("lruCache");
   });
 });

@@ -45,7 +45,7 @@ Intelligence (read-only, indexes on first call):
 - New / unfamiliar repo, “what is this?”, onboarding → repository_dna, then repository_overview or landmarks
 - “find issues / audit this repo / how healthy” → repository_health (deep dive → engineering_health, security_report, testing_report). Do not start_job for a repo-wide scan — that starts a second Cursor agent and will exhaust RAM. start_job is for changing code, not for surveying it.
 - Layout, architecture, map, packages, features → repository_map, list_packages, list_features, stack_profile
-- BEFORE editing unfamiliar code → prepare_change (pack + reuse + House Style, no file bodies), then blast_radius; before deleting → safe_delete; before renaming → rename_impact; which tests to run → test_impact. Required habit. (Full procedure: the prism-safe-change skill.)
+- BEFORE editing unfamiliar code → prepare_change (pack + reuse + House Style + notes, no file bodies), then blast_radius; before deleting → safe_delete; before renaming → rename_impact; which tests to run → test_impact. Required habit. (Full procedure: the prism-safe-change skill.) Notes include remember-anchored facts and ADR/WHY rationale_for hits — open the ADR path when one is listed.
 - “What is this file/folder for?”, ownership → explain_area or explore_code
 - Find a symbol / who calls it / how A reaches B → find_symbol or search_symbols, find_references, dependency_route
 - Cycles, coupling, import graph → dependency_cycles, dependency_graph (prefer summaryOnly / limit). Graph edges carry provenance (measured / heuristic / inferred). Inferred edges are not load-bearing without opening the file.
@@ -69,7 +69,7 @@ Dispatch (teammate: jobs, standup — does not index):
 - A job that reports no activity for N minutes is stalled, not working. Say so, offer resume or cancel, and call job_logs for the last thing it actually did. Do not describe a stalled job as making progress.
 - pause / resume / retry / reverify / cancel / delete / add context to a job → job_control (canonical id or title). retry restarts a failed or cancelled job; reverify re-runs checks on Verify Failure or —, and if they still fail a teammate fixes those errors. cancel stops work but keeps the job on the board; delete removes it.
 - “prism use …” / use a skill → use_skill. Speak the tool message (the skill body). Omit the name to list Prism skills. Skills live in Prism (~/.prism), not in Cursor or Claude skill folders.
-- “remember …” / forget / list memories → remember
+- “remember …” / forget / list memories → remember. Pass symbol and/or path when the fact is about a specific export or file so a later rename can move it.
 - “what can we connect” / “is Slack connected” → Prism does not run its own OAuth and has no connect flow. Call dispatch_doctor and read its host_connectors check, which lists what this agent window already has. To add one, tell the user to install it from their editor's own plugin or MCP settings. Never ask them for an OAuth client id or secret, and never call mcp_auth for Prism — Prism is local stdio.
 - “configure Dispatch” / standup layout / Slack channels / Linear vs Jira → configure
 - Dispatch setup problems → dispatch_doctor. Speak only the tool message. If workers are unsigned, call init rather than asking for an API key.

@@ -382,6 +382,48 @@ describe("DTO schemas round-trip", () => {
     expect(formatPrepareChangePrompt(parsed)).not.toContain("UNIQUE_BODY");
   });
 
+  it("PrepareChangeSchema notes appear in the prompt without bodies (M-075)", () => {
+    const parsed = PrepareChangeSchema.parse({
+      pack: {
+        task: "add caching",
+        files: [
+          {
+            path: "src/users/fetchUser.ts",
+            symbols: ["fetchUser"],
+            why: ["seed"],
+            tokenWeight: 4,
+            provenance: "heuristic",
+          },
+        ],
+        tokenEstimate: 4,
+        tests: [],
+        truncated: false,
+        totalCount: 1,
+      },
+      reuse: [],
+      conventions: [],
+      notes: [
+        {
+          path: "src/users/fetchUser.ts",
+          text: "keep cache-free",
+          source: "rationale",
+          rationaleFor: "plans/adr/0001-fetch-user.md",
+        },
+      ],
+      order: null,
+      workingSet: null,
+      generatedAt: "2026-09-17T00:00:00.000Z",
+      indexIndexedAt: "2026-09-17T00:00:00.000Z",
+      reuseProvenance: "unavailable",
+      conventionsProvenance: "unavailable",
+      ambiguous: null,
+    });
+    const prompt = formatPrepareChangePrompt(parsed);
+    expect(prompt).toContain("plans/adr/0001-fetch-user.md");
+    expect(prompt).toContain("keep cache-free");
+    expect(prompt).not.toContain("UNIQUE_BODY");
+  });
+
   it("FindingRefSchema round-trips", () => {
     const raw = {
       id: "symbol:src/users/lruCache.ts:lruCache:0",
