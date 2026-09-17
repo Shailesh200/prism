@@ -2,14 +2,14 @@
 
 | Field | Value |
 |---|---|
-| Status | **Phase 3 complete** — M-076 merged 2026-09-17. T2/T3 proof still to run. |
-| Date | 2026-09-11 |
+| Status | **Cuts 1–3 done** — M-069–M-076 Verified. T1/T2/T3 proofs recorded 2026-09-17. **Cut 4 set aside** (cloud / paid — not in this program). |
+| Date | 2026-09-17 (Cuts 1–3 closed; Cut 4 set aside) |
 | Product contract | [`PROGRAM_agent-native-iris.md`](./PROGRAM_agent-native-iris.md) (what we are building) |
 | This file | How to build it in **three owner prompts**, with verify-plan, proof, and smoke |
 | T0 proof | [`../notes/AGENT_NATIVE_PROOF_T0.md`](../notes/AGENT_NATIVE_PROOF_T0.md) |
 | Does **not** | Reopen Q-009, write a cloud ADR, stack branches, commit without owner, edit `PROGRESS.md` until the first engineering milestone is opened |
 
-**How you use this:** say `go ahead with phase 1`, then later `go ahead with phase 2`, then `go ahead with phase 3`. After the third, every planned local feature is live. Cut 4 (cloud / paid) stays discussion.
+**How you use this:** say `go ahead with phase 1`, then later `go ahead with phase 2`, then `go ahead with phase 3`. After the third, every planned local feature is live. **Cut 4 (cloud / paid) is set aside** — not scheduled.
 
 **How engineering uses this:** each phase is several git milestones. **One branch at a time** from latest `main`. `bun run verify:milestone` before every owner review. Do not implement the whole phase on one branch.
 
@@ -216,19 +216,25 @@ T0 numbers are already in [`AGENT_NATIVE_PROOF_T0.md`](../notes/AGENT_NATIVE_PRO
 
 | Probe | T0 | T1 (phase 1) | T2 | T3 |
 |---|---|---|---|---|
-| `search_symbols` `"e"` truncated | `false` (lie) | `true` + real `totalCount` | same | same |
-| Verify lint-only | would **Fail** | lint ran / Success | same | same |
-| Verify none | would **Fail** if package.json `{}` | **—** | same | same |
-| `prepare_change` | missing | pack+reuse+exemplars, no bodies | + workingSet maybe null | + order |
-| `#/iris` map | **mounted** | gone; Repos ▾; Envelope rows | + AGENTS preview optional | + rationale on pack |
-| Finding resolve | job-done ≠ graph | re-scan required | + bloat types | same |
-| Guard | missing | session ranked hunks | same | same |
-| Living AGENTS.md | missing | — | `~/.prism/.../agents.md` | same |
-| Working set | missing | — | files+neighbors after fake compaction | same |
-| Job cost Pulse | per-job tokens only | same | aggregate chart | same |
-| Work order | null | `order: null` reason | same | filled, advisory |
+| `search_symbols` `"e"` truncated | `false` (lie) | `true` + real `totalCount` | **done** — same 50/60 | **done** — same |
+| Verify lint-only | would **Fail** | lint ran / Success | **done** — `[lint]` | **done** |
+| Verify none | would **Fail** if package.json `{}` | **—** | **done** — `[]` | **done** |
+| `prepare_change` | missing | pack+reuse+exemplars, no bodies | **done** — workingSet still null (Dispatch) | **done** — `order` filled |
+| `#/iris` map | **mounted** | gone; Repos ▾; Envelope rows | **done** — no `RepositoryMapView` | **done** — rationale on pack |
+| Finding resolve | job-done ≠ graph | re-scan required | **done** — bloat types | **done** |
+| Guard | missing | session ranked hunks | **done** | **done** |
+| Living AGENTS.md | missing | — | **done** — `~/.prism/.../agents.md` | **done** |
+| Working set | missing | — | **done** — MCP `working_set` | **done** |
+| Job cost Pulse | per-job tokens only | same | **done** — 14-day token chart | **done** |
+| Work order | null | `order: null` reason | `order` still null (Cut 3) | **done** — filled, advisory |
 
-**T1 confirmed 2026-09-16** — `bun scripts/agent-native-proof.ts --tag T1 --expect-honest` exits 0. Measured (`plans/notes/proof/T1.json`): `search_symbols "e"` → `items: 50`, `totalCount: 60`, `truncated: true`; verify-plan on this repo → `[typecheck, lint, test]`, on the lint-only fixture → `[lint]`, on the none fixture → `[]` (—); `TOOL_NAMES` includes `prepare_change`, `guard_session`, `queue_finding` (all `true`) while `working_set` / `agents_md` / `work_order` are still `false` (Phase 2/3, not yet built — correctly absent). `#/iris`'s `intelligence-view.tsx` has zero `RepositoryMapView` references (map is gone). Owner still needs to eyeball `#/iris`, Guard, and Findings live per the smoke script in §8.
+**T1 confirmed 2026-09-16** — `plans/notes/proof/T1.json`. `--expect-honest` exits 0.
+
+**T2 confirmed 2026-09-17** — `plans/notes/proof/T2.json`. `--expect-honest` exits 0. `working_set` + `agents_md` present; AGENTS.md path is `~/.prism`; bloat sources `duplicate_implementation` / `wrapper_over_existing`; `#/iris` has no `RepositoryMapView`.
+
+**T3 confirmed 2026-09-17** — `plans/notes/proof/T3.json`. `--expect-honest` exits 0. `work_order` present; m076 `order.offLimits` includes `vendor/legacy.ts` + `src/generated/types.ts`; hook `veto: false` unless armed; no file bodies; m075 rationale `plans/adr/0001-fetch-user.md`.
+
+Owner closed §8 smoke 2026-09-17 (Cuts 1–3). **Cut 4 remains set aside.**
 
 ### 3.4 What we are optimizing (the hype demo)
 
@@ -507,7 +513,7 @@ MCP `guard_session`. IDE panel in `vscode-extension` + `cursor-extension` (host-
 
 **Smoke:** dirty the fixture, open Guard, confirm pre-existing junk is absent.
 
-**Phase 1 gate:** run `bun scripts/agent-native-proof.ts --tag T1 --expect-honest`. Fill T1 column. Screenshot `#/iris` + Guard + Findings.
+**Phase 1 gate:** **done** 2026-09-16 — `--tag T1 --expect-honest` (`plans/notes/proof/T1.json`). Owner closed §8 smoke 2026-09-17.
 
 **Stop.** Phase 1 is **not** “keep coding M-073”.
 
@@ -560,7 +566,7 @@ WorkingSet { jobId?, files[], symbols[], decisions[], neighbors[] }
 
 **Tests:** mute suppresses; Pulse tokens without price table are not `$0`.
 
-**Phase 2 gate:** `--tag T2`. Living AGENTS.md path global. Working set after compaction. Bloat finding queues. Pulse cost series.
+**Phase 2 gate:** **done** 2026-09-17 — `--tag T2 --expect-honest` (`plans/notes/proof/T2.json`). Living AGENTS.md under `~/.prism`; `working_set`; bloat types; Pulse token chart.
 
 ---
 
@@ -588,9 +594,9 @@ WorkingSet { jobId?, files[], symbols[], decisions[], neighbors[] }
 | O3 | **ADR required** before IDE hook that vetoes writes. Default this milestone: **advisory only** (`needsSignOff` never blocks if ADR not accepted). |
 | O4 | Stitch states allowed / blocked / needs sign-off — implement UI copy even if hook is advisory (blocked state documented as “not armed”). |
 
-**Out of scope:** sandboxing, OS permissions, remote workers, Cut 4.
+**Out of scope:** sandboxing, OS permissions, remote workers. **Cut 4 set aside.**
 
-**Phase 3 gate:** `--tag T3`. `prepare_change.order` non-null on fixture with vendor path. Hook does not veto unless ADR accepted.
+**Phase 3 gate:** **done** 2026-09-17 — `--tag T3 --expect-honest` (`plans/notes/proof/T3.json`). `order` non-null on m076 (vendor + generated off-limits). Hook does not veto unless ADR accepted.
 
 ---
 
@@ -613,34 +619,36 @@ Copy this into the milestone PR / owner review:
 
 ## 8. Owner smoke scripts (end of each phase)
 
+Owner closed these 2026-09-17 (Cuts 1–3 done; Cut 4 set aside).
+
 ### Phase 1 (after M-072)
 
-1. `search_symbols` `{ pattern: "e" }` → `truncated: true`, `totalCount > 50`.
-2. Lint-only fixture: verify **not** Failure; none: **—**.
-3. `prepare_change` “add caching to fetchUser” on envelope fixture — paths + why, reuse or empty, 3 exemplars or unavailable, **no bodies**.
-4. `#/iris`: no map, Repos ▾, empty week is not `0%`.
-5. Guard on a dirty fixture: pre-existing files excluded; high-blast first.
-6. Finding: queue → (pass + re-scan) resolved **or** still open with evidence.
-7. Optional: Dispatch job **on the fixture repo** with `placement=worktree` so the product checkout stays clean.
+1. [x] `search_symbols` `{ pattern: "e" }` → `truncated: true`, `totalCount > 50`.
+2. [x] Lint-only fixture: verify **not** Failure; none: **—**.
+3. [x] `prepare_change` “add caching to fetchUser” on envelope fixture — paths + why, reuse or empty, 3 exemplars or unavailable, **no bodies**.
+4. [x] `#/iris`: no map, Repos ▾, empty week is not `0%`.
+5. [x] Guard on a dirty fixture: pre-existing files excluded; high-blast first.
+6. [x] Finding: queue → (pass + re-scan) resolved **or** still open with evidence.
+7. [x] Optional: Dispatch job **on the fixture repo** with `placement=worktree` so the product checkout stays clean.
 
 ### Phase 2
 
-1. `prism agents-md generate` → file only under `~/.prism`; `git status` clean of markdown.
-2. `--check` fails on inverted cycle fixture.
-3. Working set after simulated compaction.
-4. Mute a bloat finding; Pulse tokens (no invented $).
+1. [x] `prism agents-md generate` → file only under `~/.prism`; `git status` clean of markdown.
+2. [x] `--check` fails on inverted cycle fixture.
+3. [x] Working set after simulated compaction.
+4. [x] Mute a bloat finding; Pulse tokens (no invented $).
 
 ### Phase 3
 
-1. `prepare_change` includes a `remember` note and an ADR hit if the fixture has one.
-2. `order.offLimits` includes the vendor/generated path.
-3. Network unplugged: S-A–S-I still work (S-J).
+1. [x] `prepare_change` includes a `remember` note and an ADR hit if the fixture has one.
+2. [x] `order.offLimits` includes the vendor/generated path.
+3. [x] Network unplugged: S-A–S-I still work (S-J).
 
 ---
 
 ## 9. Explicitly not in the three prompts
 
-- Cut 4 cloud / paid / Stripe / accounts
+- **Cut 4 set aside** — cloud / paid / Stripe / accounts (not scheduled)
 - Reopening Q-009
 - AgentsView JSONL parsers, Ponytail personality, hosted Graphify
 - LSP-in-Core, vector search as default
@@ -652,6 +660,8 @@ Copy this into the milestone PR / owner review:
 ---
 
 ## 10. Agent instruction when the owner says go ahead
+
+**Cuts 1–3 are done.** Do not open M-069–M-076 again. Cut 4 stays set aside.
 
 When the user says **go ahead with phase 1** (and not before):
 

@@ -1,0 +1,47 @@
+{
+  "tag": "T3",
+  "capturedAt": "2026-09-17T17:08:37.955Z",
+  "workspace": "/Users/shaileshjha/Prism",
+  "expectHonest": 0,
+  "pipe": {
+    "items": 50,
+    "totalCount": 60,
+    "truncated": true,
+    "limit": 50
+  },
+  "verify": {
+    "thisRepo": {
+      "source": "package.json",
+      "steps": ["typecheck", "lint", "test"]
+    },
+    "lintOnly": ["lint"],
+    "none": []
+  },
+  "capabilities": {
+    "prepare_change": true,
+    "guard_session": true,
+    "queue_finding": true,
+    "working_set": true,
+    "agents_md": true,
+    "work_order": true
+  },
+  "phase3": {
+    "prepareChangeOrderNonNull": true,
+    "offLimits": [
+      { "path": "src/generated/types.ts", "reason": "generated" },
+      { "path": "vendor/legacy.ts", "reason": "vendor" }
+    ],
+    "hookArmed": false,
+    "advisory": true,
+    "unarmedVeto": false,
+    "armedVeto": true,
+    "reuseHasLruCache": true,
+    "fileBodiesInPack": false,
+    "rationaleFor": "plans/adr/0001-fetch-user.md"
+  },
+  "irisChecklist": [
+    "#/iris has no RepositoryMapView",
+    "Repos filter above Envelope",
+    "empty ledger copy is not 0%"
+  ]
+}

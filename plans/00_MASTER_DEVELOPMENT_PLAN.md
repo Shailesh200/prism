@@ -2,7 +2,7 @@
 
 > **Status:** APPROVED  
 > **Version:** 0.1.0  
-> **Last updated:** 2026-09-04  
+> **Last updated:** 2026-09-17  
 > **Approved:** 2026-07-20 (owner)  
 > **Supersedes working name:** RepoPulse  
 > **Single source of truth** for product architecture, milestones, and engineering workflow.
@@ -525,6 +525,12 @@ flowchart TD
 | M-070 | prepare_change (pack + reuse + House Style) | Surfaces | M-069 | Yes |
 | M-071 | Finding Loop (queue_finding, fingerprinted re-scan) | Surfaces | M-070 | Yes |
 | M-072 | Prism Guard (duplicate/orphan/boundary/blast session ranking) | Surfaces | M-070 | Yes |
+| M-073 | Living AGENTS.md + Working Set | Surfaces | M-072 | Yes |
+| M-074 | Bloat + Job Cost | Surfaces | M-073 | Yes |
+| M-075 | Symbol memory + ADR nodes | Surfaces | M-074 | Yes |
+| M-076 | Work orders + hook (advisory) | Surfaces | M-075 | Yes |
+
+Agent-native Cuts 1–3 (M-069–M-076) are **done**. T1/T2/T3 proofs recorded. **Cut 4 (cloud / paid) is set aside.**
 
 **Critical path (must stay green):** M-001 → M-005 → M-040 → M-014 → **M-041 Gate A** (P0 + P1 + Mono-v1) → M-017 → M-018 → M-025 → surfaces (M-026/M-028/M-030) → M-039.  
 **M-041 continued:** phases P2–P7 + Mono-v2 may run after Gate A (Map unblocked); still tracked as M-041 until epic complete.

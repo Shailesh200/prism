@@ -1,0 +1,41 @@
+{
+  "tag": "T2",
+  "capturedAt": "2026-09-17T17:08:37.870Z",
+  "workspace": "/Users/shaileshjha/Prism",
+  "expectHonest": 0,
+  "pipe": {
+    "items": 50,
+    "totalCount": 60,
+    "truncated": true,
+    "limit": 50
+  },
+  "verify": {
+    "thisRepo": {
+      "source": "package.json",
+      "steps": ["typecheck", "lint", "test"]
+    },
+    "lintOnly": ["lint"],
+    "none": []
+  },
+  "capabilities": {
+    "prepare_change": true,
+    "guard_session": true,
+    "queue_finding": true,
+    "working_set": true,
+    "agents_md": true,
+    "work_order": true
+  },
+  "phase2": {
+    "agentsMdPathIsPrismHome": true,
+    "bloatSources": [
+      "duplicate_implementation",
+      "wrapper_over_existing"
+    ],
+    "irisNoRepositoryMapView": true
+  },
+  "irisChecklist": [
+    "#/iris has no RepositoryMapView",
+    "Repos filter above Envelope",
+    "empty ledger copy is not 0%"
+  ]
+}

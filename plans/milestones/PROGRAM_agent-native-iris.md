@@ -2,15 +2,15 @@
 
 | Field | Value |
 |---|---|
-| Status | **Cut 1 approved** 2026-09-11 — implement M-069 then stop for commit |
+| Status | **Cuts 1–3 done** 2026-09-17 — M-069–M-076 Verified. T1/T2/T3 proofs recorded. **Cut 4 set aside.** |
 | Date | 2026-09-11 |
 | Owner session | Feature catalog + confirmations (cloud/paid = discussion only; no Q-009 ADR yet) |
 | Stitch | Google Stitch `10137496421656524676` — historical 15×3 mocks; product is Envelope + siblings |
 | Does **not** | Reopen [Q-009](../OPEN_QUESTIONS.md), write a cloud ADR, mark any milestone `In Progress`, or commit |
 | Engineering rule | One git milestone branch at a time, from latest `main`, after this draft is approved |
-| Owner launch | Three prompts: [`PROGRAM_agent-native-3-PHASES.md`](./PROGRAM_agent-native-3-PHASES.md). Say **go ahead with phase 1** (then 2, then 3). T0 proof: [`../notes/AGENT_NATIVE_PROOF_T0.md`](../notes/AGENT_NATIVE_PROOF_T0.md). |
+| Owner launch | Three prompts **done**. [`PROGRAM_agent-native-3-PHASES.md`](./PROGRAM_agent-native-3-PHASES.md). T0–T3: [`../notes/AGENT_NATIVE_PROOF_T0.md`](../notes/AGENT_NATIVE_PROOF_T0.md). Cut 4 set aside. |
 
-This is the end-to-end plan for the **agent-native** product. **Envelope** is the agentic experience (Graphify-class query of Iris, without a dump). Other named products (Finding Loop, Guard, …) stay outside Envelope. It is a **program of three product cuts**, each cut split into sequenced engineering milestones so the repo rule (one `In Progress` milestone) still holds. A fourth cut is **plan-only discussion** for Prism Cloud and paid plans.
+This is the end-to-end plan for the **agent-native** product. **Envelope** is the agentic experience (Graphify-class query of Iris, without a dump). Other named products (Finding Loop, Guard, …) stay outside Envelope. Cuts 1–3 are **done**. A fourth cut is **set aside** (plan-only discussion for Prism Cloud and paid plans — not scheduled).
 
 Companion catalog: the [feature catalog canvas](file:///Users/shaileshjha/.cursor/projects/Users-shaileshjha-Prism/canvases/agentic-feature-catalog.canvas.tsx) (what / how / fits / impact). This file is the **product** contract. Execution, verify-plan, smoke, and T0–T3 proof: [`PROGRAM_agent-native-3-PHASES.md`](./PROGRAM_agent-native-3-PHASES.md).
 
@@ -47,7 +47,7 @@ One product. Agents that already use Prism get all of it: Iris is indexed with p
 | **Context Pack** | Right files for this task, token budget, no bodies. | Query (`prepare_change`) | M-070 P1, P3–P7 |
 | **Reuse First** | Call what already exists; empty list if none. | Same `prepare_change` | M-070 P2 |
 
-House Style (exemplars) fills `PrepareChange.conventions` in **Cut 1** (same `prepare_change` call). Work Order still fills `order` in Cut 3 (`null` until then). House Style and Guard are **not** Envelope.
+House Style (exemplars) fills `PrepareChange.conventions` in **Cut 1** (same `prepare_change` call). Work Order fills `order` (Cut 3, done). House Style and Guard are **not** Envelope.
 
 **Iris tab scoreboard** (local ledger, gitignored `.prism/`): see [CONSOLE_FLEET.md](../mockups/CONSOLE_FLEET.md) §11. **Repos ▾** scopes the page; pipe metrics and pack / reuse / refs / edges are for that repo. No REPO column. Finding Loop and `prism-review-pr` are not this tab.
 
@@ -186,7 +186,7 @@ Existing tools stay. `review_changes`, `blast_radius`, `test_impact`, `repositor
 
 ---
 
-## 5. Cut 1 — Highest impact
+## 5. Cut 1 — Highest impact — **done** 2026-09-16
 
 **Product outcome:** Envelope is live (precise graph, bounded answers, pack + reuse + House Style on one `prepare_change`); Guard ranks the session; a finding can become a verified job whose count falls.
 
@@ -295,7 +295,7 @@ House Style tells the teammate how to write. Guard tells the **human** what to r
 
 ---
 
-## 6. Cut 2 — Medium impact
+## 6. Cut 2 — Medium impact — **done** 2026-09-17
 
 **Product outcome:** instructions stay true, the teammate resumes after compaction, bloat is a finding, Pulse shows spend.
 
@@ -328,7 +328,7 @@ House Style tells the teammate how to write. Guard tells the **human** what to r
 
 ---
 
-## 7. Cut 3 — Good to have
+## 7. Cut 3 — Good to have — **done** 2026-09-17
 
 **Product outcome:** why-notes and ADRs live on the graph; a work order can declare off-limits files; optional IDE veto.
 
@@ -354,9 +354,9 @@ House Style tells the teammate how to write. Guard tells the **human** what to r
 
 ---
 
-## 8. Cut 4 — Discussion needed (not an engineering milestone)
+## 8. Cut 4 — **Set aside** (discussion only, not scheduled)
 
-**Owner instruction:** plan only. Do not reopen Q-009. Do not write an ADR. Do not implement.
+**Owner instruction 2026-09-17:** set aside. Plan only. Do not reopen Q-009. Do not write an ADR. Do not implement.
 
 This section is a **discussion agenda**, not a design.
 
@@ -485,20 +485,22 @@ Owner picks one variant per feature (or one global variant) before implementatio
 
 ## 12. Sequence after owner approval
 
-1. Owner picks Stitch variants (or “inspector everywhere”).
-2. Owner approves this program (or marks edits).
-3. **Do not** update `PROGRESS.md` until the first engineering milestone is opened.
-4. First branch: `milestone/M-069-agent-substrate` from latest `main` (or finish M-058/M-059 first if the audit says they are open).
-5. Then M-070 (pack + reuse + House Style), M-071 Finding Loop, M-072 Guard — still Cut 1, one branch at a time.
-6. Each later milestone: merge to `main`, then cut the next. No stacking.
+**Done** 2026-09-17. M-069–M-076 Verified on `main`. T1/T2/T3 proofs recorded. Cut 4 set aside.
+
+1. [x] Owner picks Stitch variants (or “inspector everywhere”).
+2. [x] Owner approves this program (or marks edits).
+3. [x] First engineering milestone opened; `PROGRESS.md` updated per merge.
+4. [x] `milestone/M-069-agent-substrate` from latest `main`.
+5. [x] M-070 (pack + reuse + House Style), M-071 Finding Loop, M-072 Guard — Cut 1, one branch at a time.
+6. [x] Later milestones merged to `main`, then the next. No stacking. Phase 2 = M-073–M-074. Phase 3 = M-075–M-076.
 
 ---
 
-## 13. Open questions still inside Cuts 1–3
+## 13. Open questions inside Cuts 1–3 — **resolved**
 
-These are small enough to resolve in the first engineering milestone, not Cut 4:
+Defaults shipped. Cut 4 stays set aside.
 
-| ID | Question | Default if unanswered |
+| ID | Question | Resolution |
 |---|---|---|
 | P-Q1 | Token budget default for `prepare_change`? | 4000 map tokens |
 | P-Q2 | Is `prepare_change` one tool or pack + reuse as two? | **One tool** (composition rule) |

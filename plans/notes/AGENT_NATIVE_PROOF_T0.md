@@ -97,3 +97,17 @@ Same workspace, after the phase merges:
 3. MCP `prepare_change` `{ task: "add caching to fetchUser" }` on the Envelope fixture (Phase 1+).
 4. Screenshot `#/iris` — no map; Repos ▾; dash not `0` when ledger empty.
 5. Append a T1/T2/T3 section (do not edit T0 numbers).
+
+---
+
+## T1 confirmed 2026-09-16
+
+`plans/notes/proof/T1.json` — `bun scripts/agent-native-proof.ts --tag T1 --expect-honest` exits 0.
+
+## T2 confirmed 2026-09-17
+
+`plans/notes/proof/T2.json` — `--tag T2 --expect-honest` exits 0. `working_set` + `agents_md`; AGENTS.md under `~/.prism`; bloat sources present; `#/iris` has no `RepositoryMapView`.
+
+## T3 confirmed 2026-09-17
+
+`plans/notes/proof/T3.json` — `--tag T3 --expect-honest` exits 0. `work_order` present; m076 `order.offLimits` vendor + generated; hook advisory unless armed. **Cut 4 set aside.** Agent-native Cuts 1–3 closed.
