@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **Phase 2 milestones complete** — M-073→M-074 merged 2026-09-17. T1 passed 2026-09-16; T2 proof still to run. Awaiting **go ahead with phase 3**. |
+| Status | **Phase 3 in progress** — M-075 merged 2026-09-17. Next: M-076 work orders. T2/T3 proof still to run. |
 | Date | 2026-09-11 |
 | Product contract | [`PROGRAM_agent-native-iris.md`](./PROGRAM_agent-native-iris.md) (what we are building) |
 | This file | How to build it in **three owner prompts**, with verify-plan, proof, and smoke |

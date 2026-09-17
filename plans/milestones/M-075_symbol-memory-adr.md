@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Review** |
+| Status | **Verified** |
 | Branch | `milestone/M-075-symbol-memory-adr` (from latest `main`, M-074 merged) |
 | Depends on | M-070 (`prepare_change`), M-073 (`remember` store) |
 | Packages | `shared`, `dispatch`, `intelligence`, `core`, `mcp-server`, `cli`, `host-session` |
