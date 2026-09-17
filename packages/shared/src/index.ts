@@ -138,6 +138,28 @@ export {
 } from "./file-role.js";
 
 export {
+  EMPTY_WORK_ORDER,
+  WORK_ORDER_STATES,
+  WorkOrderEvaluationSchema,
+  WorkOrderOffLimitSchema,
+  WorkOrderSchema,
+  WorkOrderStateSchema,
+  appendWorkOrderToPrd,
+  evaluateWorkOrderWrite,
+  formatWorkOrderForPrd,
+  formatWorkOrderPrompt,
+  isAcceptedWorkOrderVetoAdr,
+  isWorkOrderOffLimitPath,
+  offLimitReason,
+  workOrderStateCopy,
+  workOrderStateForPath,
+  type WorkOrder,
+  type WorkOrderEvaluation,
+  type WorkOrderOffLimit,
+  type WorkOrderState,
+} from "./work-order.js";
+
+export {
   PRISM_CONFIG_FILENAME,
   PRISM_CONFIG_RELATIVE_PATH,
   PrismConfigSchema,

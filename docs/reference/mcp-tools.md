@@ -19,7 +19,7 @@ Core analysis APIs stay ungated from MCP. See
 Tools that return a list accept `limit` and answer with `totalCount` and
 `truncated`, so an agent can tell the first 20 of 340 from all 20 there are.
 
-Prism exposes **50 tools**. Every count elsewhere in the docs is
+Prism exposes **51 tools**. Every count elsewhere in the docs is
 checked against this one, so the number cannot drift into prose.
 
 | Tool | What it answers |
@@ -72,6 +72,7 @@ checked against this one, so the number cannot drift into prose.
 | [`testing_report`](#testing_report) | Test structure and, when coverage artifacts are already on disk, coverage |
 | [`use_skill`](#use_skill) | Load a Prism skill from the user's Prism-only library (~/.prism/dispatch/skills), or an inherited skill that ships with Prism |
 | [`wake`](#wake) | Bring Prism back |
+| [`work_order`](#work_order) | The work order for a task |
 | [`working_set`](#working_set) | Get or patch the accumulated files, symbols, decisions and neighbors for a job (M-073), so a resume does not rediscover context it already has |
 | [`workspace_status`](#workspace_status) | Compact workspace readiness |
 
@@ -245,7 +246,7 @@ Arguments: `limit`.
 
 ## `prepare_change`
 
-One call before you edit: the files to open for this task (pack), existing helpers to reuse, three House Style exemplars, and notes (remembered symbol/path facts plus ADR/WHY rationale_for hits). Returns paths, symbol names and why — never file bodies. Call this instead of dumping search_symbols or knowledge_graph. Ambiguous names come back as candidates; do not pick silently. order and workingSet are null until a later build.
+One call before you edit: the files to open for this task (pack), existing helpers to reuse, three House Style exemplars, notes (remembered symbol/path facts plus ADR/WHY rationale_for hits), and a work order (in-scope, off-limits generated/vendor, needs sign-off). Returns paths, symbol names and why — never file bodies. Call this instead of dumping search_symbols or knowledge_graph. Ambiguous names come back as candidates; do not pick silently. workingSet stays null.
 
 Arguments: `task`, `budget`.
 
@@ -362,6 +363,12 @@ Arguments: `name`.
 Bring Prism back: the Console and Spectrum return, and queued jobs (including any sleep paused) start on their own. Call this when the user says prism wake, wake Prism, or wake up — even if the Console is already up, this starts Spectrum too. Speak only the tool message, including the Console URL and the Spectrum URL. If teammates are still running, the tool asks first — relay that and re-call with confirm=true. Do not confuse this with init.
 
 Arguments: `confirm`, `workspace`.
+
+## `work_order`
+
+The work order for a task: in-scope files, off-limits (generated or vendor), and paths that need sign-off (high blast or shared ownership). Same compute as prepare_change.order. Optional path evaluates the advisory hook for that write — veto is false unless an Accepted ADR has armed the hook. Never file bodies.
+
+Arguments: `task`, `path`.
 
 ## `working_set`
 

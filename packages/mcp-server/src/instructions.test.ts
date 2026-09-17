@@ -10,6 +10,7 @@ describe("server instructions (agent auto-use)", () => {
     expect(SERVER_INSTRUCTIONS).toContain("repository_health");
     expect(SERVER_INSTRUCTIONS).toContain("repository_dna");
     expect(SERVER_INSTRUCTIONS).toContain("prepare_change");
+    expect(SERVER_INSTRUCTIONS).toContain("work_order");
     expect(SERVER_INSTRUCTIONS).toContain("blast_radius");
     expect(SERVER_INSTRUCTIONS).toContain("safe_delete");
     expect(SERVER_INSTRUCTIONS).toContain("review_changes");

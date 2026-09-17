@@ -50,9 +50,9 @@ beforeAll(async () => {
 }, 180_000);
 
 afterAll(async () => {
-  workspace?.close();
-  mcp?.session.close();
   await client?.close();
+  mcp?.session.close();
+  workspace?.close();
   await fixture?.cleanup();
 });
 

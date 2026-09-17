@@ -530,6 +530,31 @@ export const prepareCommand: CommandHandler = async (context) => {
           );
         }
       }
+      const order = prep.order;
+      lines.push(
+        "",
+        paint(
+          order.hookArmed ? "Work order (hook armed)" : "Work order (advisory)",
+          "dim",
+          color,
+        ),
+      );
+      for (const row of order.offLimits) {
+        lines.push(`  blocked (not armed)  ${row.path}  ${row.reason}`);
+      }
+      for (const path of order.needsSignOff) {
+        lines.push(`  needs sign-off (not armed)  ${path}`);
+      }
+      for (const path of order.inScope) {
+        lines.push(`  allowed  ${path}`);
+      }
+      if (
+        order.offLimits.length === 0 &&
+        order.needsSignOff.length === 0 &&
+        order.inScope.length === 0
+      ) {
+        lines.push("  (empty)");
+      }
       if (prep.ambiguous) {
         lines.push(
           "",

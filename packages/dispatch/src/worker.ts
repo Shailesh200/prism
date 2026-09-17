@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  appendWorkOrderToPrd,
   formatPrepareChangePrompt,
   type PrepareChange,
   type WorkingSet,
@@ -268,7 +269,7 @@ export async function composeWorkerPrompt(
   if (isSkillPlaybook(input.job.playbook)) {
     return workerPrompt(input);
   }
-  const [orientation, verifyPlan, packBlock] = await Promise.all([
+  const [orientation, verifyPlan, pack] = await Promise.all([
     loadWorkerOrientation(input.workspaceRoot),
     input.verifyPlan
       ? Promise.resolve(input.verifyPlan)
@@ -277,9 +278,10 @@ export async function composeWorkerPrompt(
   ]);
   return workerPrompt({
     ...input,
+    job: { ...input.job, prd: pack.prd },
     verifyPlan,
     extra: [
-      packBlock,
+      pack.text,
       workingSetBlock(input.job.workingSet),
       input.extra,
       orientation,
@@ -293,20 +295,24 @@ async function loadPrepareBlock(input: {
   readonly job: JobRecord;
   readonly workspaceRoot: string;
   readonly prepareChange?: PrepareChangeLookup;
-}): Promise<string> {
-  if (!input.prepareChange) return "";
+}): Promise<{ readonly text: string; readonly prd: string }> {
+  const prd = input.job.prd;
+  if (!input.prepareChange) return { text: "", prd };
   const task = [input.job.title, input.job.prd]
     .filter(Boolean)
     .join("\n")
     .trim();
-  if (!task) return "";
+  if (!task) return { text: "", prd };
   try {
     const prep = await input.prepareChange({ task });
-    if (!prep) return "";
+    if (!prep) return { text: "", prd };
     await writeLastPrepareChange(input.workspaceRoot, prep);
-    return formatPrepareChangePrompt(prep);
+    return {
+      text: formatPrepareChangePrompt(prep),
+      prd: appendWorkOrderToPrd(prd, prep.order),
+    };
   } catch {
-    return "";
+    return { text: "", prd };
   }
 }
 

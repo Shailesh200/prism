@@ -21,6 +21,7 @@ import {
   parseDto,
 } from "./schemas.js";
 import { PrismErrorCode } from "./errors.js";
+import { EMPTY_WORK_ORDER } from "./work-order.js";
 
 describe("DTO schemas round-trip", () => {
   it("PrismErrorSchema", () => {
@@ -345,7 +346,7 @@ describe("DTO schemas round-trip", () => {
     expect(parsed.checks[0]?.status).toBe("pass");
   });
 
-  it("PrepareChangeSchema freezes pack + reuse + null order", () => {
+  it("PrepareChangeSchema freezes pack + reuse + a work order (M-076)", () => {
     const raw = {
       pack: {
         task: "add caching to fetchUser",
@@ -365,7 +366,7 @@ describe("DTO schemas round-trip", () => {
       },
       reuse: [],
       conventions: [],
-      order: null,
+      order: EMPTY_WORK_ORDER,
       workingSet: null,
       generatedAt: "2026-09-14T00:00:00.000Z",
       indexIndexedAt: "2026-09-14T00:00:00.000Z",
@@ -374,11 +375,13 @@ describe("DTO schemas round-trip", () => {
       ambiguous: null,
     };
     const parsed = PrepareChangeSchema.parse(raw);
-    expect(parsed.order).toBeNull();
+    expect(parsed.order.advisory).toBe(true);
+    expect(parsed.order.hookArmed).toBe(false);
     expect(parsed.workingSet).toBeNull();
     expect(formatPrepareChangePrompt(parsed)).toContain(
       "src/users/fetchUser.ts",
     );
+    expect(formatPrepareChangePrompt(parsed)).toContain("Work order:");
     expect(formatPrepareChangePrompt(parsed)).not.toContain("UNIQUE_BODY");
   });
 
@@ -410,7 +413,7 @@ describe("DTO schemas round-trip", () => {
           rationaleFor: "plans/adr/0001-fetch-user.md",
         },
       ],
-      order: null,
+      order: EMPTY_WORK_ORDER,
       workingSet: null,
       generatedAt: "2026-09-17T00:00:00.000Z",
       indexIndexedAt: "2026-09-17T00:00:00.000Z",

@@ -272,6 +272,7 @@ export {
   type BuildPrepareChangeInput,
   type PrepareMemory,
 } from "./prepare/pack.js";
+export { buildWorkOrder, isWorkOrderHookArmed } from "./prepare/work-order.js";
 export { collectRationale } from "./semantic/rationale.js";
 export { checkGuardSession, type GuardCheckInput } from "./guard/session.js";
 export {

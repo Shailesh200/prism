@@ -12,6 +12,15 @@ const fixture = join(
   "m070-envelope",
 );
 
+const m076 = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "intelligence",
+  "fixtures",
+  "m076-work-order",
+);
+
 const BODY = "UNIQUE_M070_FILE_BODY_TOKEN";
 
 describe("workspace prepareChange (M-070)", () => {
@@ -29,7 +38,7 @@ describe("workspace prepareChange (M-070)", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     const prep = result.value;
-    expect(prep.order).toBeNull();
+    expect(prep.order.advisory).toBe(true);
     expect(prep.workingSet).toBeNull();
     const paths = prep.pack.files.map((f) => f.path);
     expect(paths.some((p) => p.includes("src/users/"))).toBe(true);
@@ -52,5 +61,28 @@ describe("workspace prepareChange (M-070)", () => {
     expect(result.value.conventions?.[0]?.whyCanonical).toMatch(
       /handlers next to the route/,
     );
+  });
+
+  it("fills order with vendor off-limits on the M-076 fixture", async () => {
+    const opened = Prism.create().openRepository(m076);
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) return;
+    const indexed = await opened.value.index();
+    expect(indexed.ok).toBe(true);
+    if (!indexed.ok) return;
+
+    const result = await opened.value.prepareChange({
+      task: "add caching to fetchUser",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const order = result.value.order;
+    expect(order).toBeTruthy();
+    expect(order.offLimits.map((r) => r.path)).toContain("vendor/legacy.ts");
+    expect(order.offLimits.map((r) => r.path)).toContain(
+      "src/generated/types.ts",
+    );
+    expect(order.hookArmed).toBe(false);
+    expect(order.advisory).toBe(true);
   });
 });

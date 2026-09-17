@@ -24,6 +24,10 @@ import {
   sameWorkspace,
   type HubListener,
 } from "./hub-client.js";
+import {
+  registerWorkOrderSaveHook,
+  type WorkOrderHookWorkspace,
+} from "./work-order-hook.js";
 
 export const PACKAGE_NAME = "@repo-prism/vscode-extension" as const;
 
@@ -946,6 +950,11 @@ export function activate(context: vscode.ExtensionContext): void {
     reviewChanges,
     reviewAllChanges,
     openWalkthrough,
+    registerWorkOrderSaveHook(
+      vscode.workspace as WorkOrderHookWorkspace,
+      vscode.window,
+      () => undefined,
+    ),
     statusBarMenu,
     openAgentDashboardCmd,
     switchWorkspaceFolder,

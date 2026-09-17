@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { PrepareChange } from "@repo-prism/shared";
+import { EMPTY_WORK_ORDER, type PrepareChange } from "@repo-prism/shared";
 import {
   PREPARE_HISTORY_LIMIT,
   readLastPrepareChange,
@@ -54,7 +54,7 @@ function sample(): PrepareChange {
       },
     ],
     conventions: [],
-    order: null,
+    order: EMPTY_WORK_ORDER,
     workingSet: null,
     generatedAt: "2026-09-14T00:00:00.000Z",
     indexIndexedAt: "2026-09-14T00:00:00.000Z",

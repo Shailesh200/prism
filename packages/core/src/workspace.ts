@@ -410,7 +410,7 @@ export type PrismWorkspace = {
   /**
    * Pack + reuse + House Style for a change (M-070). Never includes file bodies.
    * `notes` carry matching memories and `rationale_for` hits (M-075).
-   * `order` and `workingSet` stay null until M-076.
+   * `order` is the work order (M-076). `workingSet` stays null.
    */
   prepareChange(input: {
     readonly task: string;

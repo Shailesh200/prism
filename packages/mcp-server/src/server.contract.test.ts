@@ -218,6 +218,7 @@ describe("MCP server contract (M-026)", () => {
         "use_skill",
         "wake",
         "working_set",
+        "work_order",
         "workspace_status",
       ].sort(),
     );
@@ -369,6 +370,7 @@ describe("MCP server contract (M-026)", () => {
       "stack_profile",
       "test_impact",
       "testing_report",
+      "work_order",
       "workspace_status",
     ]);
     const { tools } = await client.listTools();
@@ -440,6 +442,7 @@ describe("MCP server contract (M-026)", () => {
       ["repository_overview", {}],
       ["list_packages", {}],
       ["prepare_change", { task: "add caching" }],
+      ["work_order", { task: "add caching" }],
       ["stack_profile", {}],
       ["landmarks", {}],
       ["explain_area", { path: filePath }],
