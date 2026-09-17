@@ -36,4 +36,5 @@ export const CLI_COMMAND_NAMES = [
   "backend",
   "bundle",
   "agents-md",
+  "findings",
 ] as const;

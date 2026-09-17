@@ -1,6 +1,7 @@
 /**
  * Stage DevOps signals from a foreign GitHub repo into
- * `.prism/remote-ci/<owner>/<repo>/` (M-046). No full Core index — only
+ * `remote-ci/<owner>/<repo>/` under the workspace Prism folder (M-046).
+ * No full Core index — only
  * selected workflow / deploy / k8s paths via the Contents + Tree API.
  */
 
@@ -11,6 +12,7 @@ import {
   createConsentStore,
 } from "@repo-prism/intelligence";
 import type { StackProfile, UtilityOverlayReport } from "@repo-prism/shared";
+import { workspaceRemoteCiDir } from "@repo-prism/shared/prism-home";
 
 export type StageDevopsRemoteInput = {
   readonly workspaceRoot: string;
@@ -104,7 +106,7 @@ function parseWorkflowName(text: string, fallback: string): string {
 
 /**
  * Fetch DevOps-related files from GitHub into
- * `.prism/remote-ci/<owner>/<repo>/` and optionally build an IaC overlay.
+ * `remote-ci/<owner>/<repo>/` and optionally build an IaC overlay.
  */
 export async function stageDevopsRemote(
   input: StageDevopsRemoteInput,
@@ -160,7 +162,7 @@ export async function stageDevopsRemote(
     .slice(0, 200);
 
   const relativeRoot = `.prism/remote-ci/${owner}/${repo}`;
-  const absRoot = join(input.workspaceRoot, relativeRoot);
+  const absRoot = workspaceRemoteCiDir(input.workspaceRoot, owner, repo);
   const paths: string[] = [];
   const workflows: StagedWorkflowSummary[] = [];
 

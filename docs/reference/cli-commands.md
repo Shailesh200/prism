@@ -406,6 +406,27 @@ prism agents-md generate
 prism agents-md check
 ```
 
+### `prism findings <action> [fingerprint]`
+
+Unused exports, duplicate implementations, wrapper functions
+
+| Argument | Meaning |
+|---|---|
+| `<action>` | list, mute, or unmute |
+| `[fingerprint]` | Required for mute/unmute — a finding's fingerprint field |
+
+| Option | Meaning |
+|---|---|
+| `--all` | list: include findings already muted |
+
+```bash
+prism findings list
+```
+
+```bash
+prism findings mute a3f8c5f0c392dbeb
+```
+
 ## Diagnostics
 
 ### `prism doctor`

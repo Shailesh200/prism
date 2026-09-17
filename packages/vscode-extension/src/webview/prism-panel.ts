@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { loadPrismConfig, writePrismConfig } from "@repo-prism/core";
+import { workspacePrismDir } from "@repo-prism/shared/prism-home";
 import type * as vscode from "vscode";
 import { openPlaygroundInBrowser } from "../open-playground.js";
 import { applyWorkspaceRename } from "../apply-rename.js";
@@ -265,10 +266,10 @@ export class PrismPanel {
 
   /**
    * Clear all locally persisted Prism state for this workspace: on-disk
-   * `.prism/cache`, `.prism/remote-ci`, `.prism/tools`, the panel's
-   * `workspaceState`, then re-index so the UI reflects a fresh snapshot. The
-   * webview clears its own audit log, settings, and integrations before posting
-   * `clearData`.
+   * cache, remote-ci, and tools under the global workspace folder, the
+   * panel's `workspaceState`, then re-index so the UI reflects a fresh
+   * snapshot. The webview clears its own audit log, settings, and
+   * integrations before posting `clearData`.
    */
   private async clearWorkspaceData(): Promise<void> {
     this.log.info("Clear Data requested from Settings");
@@ -280,16 +281,17 @@ export class PrismPanel {
     let cacheCleared = false;
     if (root) {
       const prismDirs = ["cache", "remote-ci", "tools"] as const;
+      const prismRoot = workspacePrismDir(root);
       for (const dir of prismDirs) {
         try {
-          await rm(join(root, ".prism", dir), {
+          await rm(join(prismRoot, dir), {
             recursive: true,
             force: true,
           });
           if (dir === "cache") cacheCleared = true;
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
-          this.log.error(`Clear Data: failed to remove .prism/${dir} — ${msg}`);
+          this.log.error(`Clear Data: failed to remove ${dir} — ${msg}`);
         }
       }
     }

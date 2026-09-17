@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   jobBadgeTone,
   jobStatusLabel,
+  jobStatusTone,
   canRetryJob,
   canRetryVerification,
   jobBadgePulse,
@@ -37,8 +38,9 @@ describe("jobBadgeTone", () => {
     expect(jobBadgeTone("running")).toBe("accent");
     expect(jobBadgePulse("running")).toBe(true);
     expect(jobBadgePulse("done")).toBe(false);
-    expect(jobBadgeTone("queued")).toBe("brand");
+    expect(jobBadgeTone("queued")).toBe("amber");
     expect(jobBadgeTone("queued", "low on memory")).toBe("amber");
+    expect(jobStatusTone("queued")).toBe("attention");
     expect(jobBadgeTone("needs_confirm")).toBe("amber");
     expect(jobBadgeTone("waiting_on_you")).toBe("amber");
     expect(jobBadgeTone("blocked")).toBe("amber");

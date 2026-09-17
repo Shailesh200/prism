@@ -52,6 +52,40 @@ describe("workspace listFindings / resolveFinding (M-071 Finding Loop)", () => {
     }
   });
 
+  it("flags a duplicate implementation across two files (M-074 B1)", async () => {
+    const fixture = await createFixture({ name: "m074-duplicate" });
+    try {
+      await fixture.write(
+        "src/lib/formatDate.ts",
+        "export function formatDate(d: Date): string { return d.toISOString(); }\n",
+      );
+      await fixture.write(
+        "src/utils/formatDate.ts",
+        "export function formatDate(d: Date): string { return d.toISOString(); }\n",
+      );
+      fixture.commit("initial");
+
+      const opened = Prism.create().openRepository(fixture.root);
+      expect(opened.ok).toBe(true);
+      if (!opened.ok) return;
+      const workspace = opened.value;
+      const indexed = await workspace.index();
+      expect(indexed.ok).toBe(true);
+      if (!indexed.ok) return;
+
+      const found = workspace.listFindings();
+      expect(found.ok).toBe(true);
+      if (!found.ok) return;
+      const dup = found.value.findings.find(
+        (f) => f.source === "duplicate_implementation",
+      );
+      expect(dup).toBeDefined();
+      expect(dup?.path).toBe("src/utils/formatDate.ts");
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
   it("rejects an empty fingerprint instead of silently resolving", async () => {
     const fixture = await createFixture({ name: "m071-finding-validation" });
     try {

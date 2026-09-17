@@ -1,9 +1,11 @@
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   formatPrepareChangePrompt,
   type PrepareChange,
   type WorkingSet,
 } from "@repo-prism/shared";
+import { dispatchDir } from "./paths.js";
 import { formatMemoriesForPrompt, memoriesForJob } from "./memory.js";
 import { resolveVerifyPlan } from "./job-verify.js";
 import {
@@ -155,6 +157,13 @@ function checksRunLine(plan: VerifyPlan | undefined): string {
   return `Prism runs ${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]} after you stop.`;
 }
 
+function notesLine(workspaceRoot?: string): string {
+  const dest = workspaceRoot
+    ? join(dispatchDir(workspaceRoot), "notes")
+    : "Prism's notes folder (outside the repository)";
+  return `Write any write-up under ${dest} and mention it as \`.prism/dispatch/notes/<name>.md\`. Do not create a .prism folder in the repository.`;
+}
+
 export function workerPrompt(input: {
   readonly job: JobRecord;
   readonly memories: readonly MemoryItem[];
@@ -165,6 +174,7 @@ export function workerPrompt(input: {
   /** Standing how-to from Dispatch Settings; injected on every job. */
   readonly jobInstructions?: string;
   readonly verifyPlan?: VerifyPlan;
+  readonly workspaceRoot?: string;
 }): string {
   const remembered = formatMemoriesForPrompt(
     memoriesForJob(input.memories, input.job.id),
@@ -205,9 +215,7 @@ export function workerPrompt(input: {
         : `Prism commits your work on the job branch. ${checks} Do not claim you committed, ran tests, or verified anything.`,
     skillJob
       ? "Do not write a finding into the repository. Answer in your last message only."
-      : checkout
-        ? "Write any write-up to .prism/dispatch/notes/ — the one .prism/ path included if the user later asks for a commit. Everything else there is ignored."
-        : "Write any write-up to .prism/dispatch/notes/ — that is the one path under .prism/ that ships with the commit. Everything else there is ignored and will be lost.",
+      : notesLine(input.workspaceRoot),
     skillJob
       ? ""
       : "If the brief says to change nothing, print something and stop, or otherwise avoid edits: do not create, edit, or delete any files. Answer in your last message only.",

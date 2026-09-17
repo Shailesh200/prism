@@ -1,8 +1,9 @@
 import { join } from "node:path";
+import { workspaceCacheDir } from "@repo-prism/shared/prism-home";
 
-/** Workspace-local cache directory (ADR-0010). */
+/** Per-repo cache — `~/.prism/workspaces/<key>/cache` outside tests. */
 export function prismCacheDir(workspaceRoot: string): string {
-  return join(workspaceRoot, ".prism", "cache");
+  return workspaceCacheDir(workspaceRoot);
 }
 
 /** Default SQLite index database path. */

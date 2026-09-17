@@ -72,10 +72,12 @@ const WORKSPACE_METHODS = [
   "listFindings",
   "listIngestArtifacts",
   "listLandmarks",
+  "listMutedFindings",
   "listPackages",
   "listUtilityJobs",
   "listUtilityOverlayKinds",
   "listWorkspaceTests",
+  "muteFinding",
   "navigateFeature",
   "notifyWatchPaths",
   "prepareChange",
@@ -96,6 +98,7 @@ const WORKSPACE_METHODS = [
   "status",
   "stopWatch",
   "testImpact",
+  "unmuteFinding",
 ] as const;
 
 const REQUIRED_EXPORTS = [

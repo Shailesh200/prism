@@ -23,11 +23,13 @@ import { REPORT_TOOLS } from "./tools/reports.js";
 import { prepareChange } from "./tools/prepare.js";
 import { guardSession } from "./tools/guard.js";
 import { agentsMd } from "./tools/agents-md.js";
+import { listFindings } from "./tools/findings.js";
 
 export const TOOLS: readonly ToolDefinition<never>[] = [
   prepareChange,
   guardSession,
   agentsMd,
+  listFindings,
   ...ORIENTATION_TOOLS,
   ...GRAPH_TOOLS,
   ...IMPACT_TOOLS,

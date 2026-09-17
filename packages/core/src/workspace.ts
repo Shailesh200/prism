@@ -120,6 +120,8 @@ import {
   type Landmark,
   type MapBookmark,
   type MapBookmarkStore,
+  FindingMuteStoreSchema,
+  type FindingMuteStore,
   type MapZoomLevel,
   type NavigationRouteResult,
   type OverviewModel,
@@ -180,10 +182,16 @@ import {
   unsafeRepoId,
 } from "@repo-prism/shared";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 import type { PrismCapabilities } from "./capabilities.js";
 import { buildAgentsMdContent, parseAgentsMdClaims } from "./agents-md.js";
-import { agentsMdPath } from "./prism-home.js";
+import {
+  agentsMdPath,
+  ensureWorkspacePrismSync,
+  workspaceBookmarksPath,
+  workspaceFindingMutesPath,
+  workspacePrismDir,
+} from "./prism-home.js";
 import { loadPrismConfigSync } from "./prism-config-load.js";
 import { readChangedPaths, type ChangedPaths } from "./git/changed-paths.js";
 import {
@@ -416,6 +424,19 @@ export type PrismWorkspace = {
   resolveFinding(input: {
     readonly fingerprint: string;
   }): Promise<Result<{ resolved: boolean }, PrismError>>;
+  /**
+   * Fingerprints of findings the user has muted (M-074 B1), persisted at
+   * `.prism/finding-mutes.json` — gitignored, never committed.
+   */
+  listMutedFindings(): Promise<Result<readonly string[], PrismError>>;
+  /** Mute a finding by fingerprint; idempotent. Returns the updated list. */
+  muteFinding(
+    fingerprint: string,
+  ): Promise<Result<readonly string[], PrismError>>;
+  /** Unmute a finding by fingerprint; idempotent. Returns the updated list. */
+  unmuteFinding(
+    fingerprint: string,
+  ): Promise<Result<readonly string[], PrismError>>;
   /**
    * Find resolved references to a symbol. When multiple same-named symbols
    * match and `path`/`start` are omitted, returns `{ ambiguous: true, candidates }`
@@ -827,6 +848,7 @@ export function createWorkspace(options: {
   apiLevel: number;
 }): PrismWorkspace {
   const rootPath = options.rootPath;
+  ensureWorkspacePrismSync(rootPath);
   const repoId = unsafeRepoId(`repo:${rootPath}`);
   // M-057 P-B6 — `.prism/config.json` (missing → empty). Invalid file fails soft
   // with empty config so open still works; index warnings can surface later.
@@ -939,8 +961,7 @@ export function createWorkspace(options: {
     }, delayMs ?? watchDebounceMs);
   };
 
-  const bookmarksFilePath = (): string =>
-    join(rootPath, ".prism", "bookmarks.json");
+  const bookmarksFilePath = (): string => workspaceBookmarksPath(rootPath);
 
   /**
    * A missing bookmarks file is normal and yields an empty store. A file that
@@ -996,7 +1017,7 @@ export function createWorkspace(options: {
     store: MapBookmarkStore,
   ): Promise<Result<void, PrismError>> => {
     try {
-      await mkdir(join(rootPath, ".prism"), { recursive: true });
+      await mkdir(workspacePrismDir(rootPath), { recursive: true });
       await writeFile(
         bookmarksFilePath(),
         `${JSON.stringify(store, null, 2)}\n`,
@@ -1008,6 +1029,74 @@ export function createWorkspace(options: {
         prismError(
           PrismErrorCode.IO_ERROR,
           `Could not write ${bookmarksFilePath()}: ${
+            error instanceof Error ? error.message : "unknown error"
+          }`,
+        ),
+      );
+    }
+  };
+
+  const mutesFilePath = (): string => workspaceFindingMutesPath(rootPath);
+
+  /** Same missing-file-is-empty, corrupt-file-is-an-error contract as bookmarks. */
+  const readMuteStore = async (): Promise<
+    Result<FindingMuteStore, PrismError>
+  > => {
+    let raw: string;
+    try {
+      raw = await readFile(mutesFilePath(), "utf8");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
+        return ok({ version: 1, mutes: [] });
+      }
+      return err(
+        prismError(
+          PrismErrorCode.IO_ERROR,
+          `Could not read ${mutesFilePath()}: ${
+            error instanceof Error ? error.message : "unknown error"
+          }`,
+        ),
+      );
+    }
+    let json: unknown;
+    try {
+      json = JSON.parse(raw);
+    } catch {
+      return err(
+        prismError(
+          PrismErrorCode.VALIDATION,
+          `${mutesFilePath()} is not valid JSON. Fix or delete the file to continue.`,
+        ),
+      );
+    }
+    const parsed = FindingMuteStoreSchema.safeParse(json);
+    if (!parsed.success) {
+      return err(
+        prismError(
+          PrismErrorCode.VALIDATION,
+          `${mutesFilePath()} is not a valid mute store. Fix or delete the file to continue.`,
+        ),
+      );
+    }
+    return ok(parsed.data);
+  };
+
+  const writeMuteStore = async (
+    store: FindingMuteStore,
+  ): Promise<Result<void, PrismError>> => {
+    try {
+      await mkdir(workspacePrismDir(rootPath), { recursive: true });
+      await writeFile(
+        mutesFilePath(),
+        `${JSON.stringify(store, null, 2)}\n`,
+        "utf8",
+      );
+      return ok(undefined);
+    } catch (error) {
+      return err(
+        prismError(
+          PrismErrorCode.IO_ERROR,
+          `Could not write ${mutesFilePath()}: ${
             error instanceof Error ? error.message : "unknown error"
           }`,
         ),
@@ -2432,6 +2521,48 @@ export function createWorkspace(options: {
       const open = findingStillOpen(lastSnapshot, fingerprint);
       return ok({ resolved: !open });
     },
+    async listMutedFindings() {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      const store = await readMuteStore();
+      if (!store.ok) return store;
+      return ok(store.value.mutes.map((m) => m.fingerprint));
+    },
+    async muteFinding(fingerprint) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      const trimmed = fingerprint.trim();
+      if (!trimmed) {
+        return err(
+          prismError(
+            PrismErrorCode.VALIDATION,
+            "muteFinding requires a fingerprint",
+          ),
+        );
+      }
+      const store = await readMuteStore();
+      if (!store.ok) return store;
+      const mutes = store.value.mutes.some((m) => m.fingerprint === trimmed)
+        ? store.value.mutes
+        : [
+            ...store.value.mutes,
+            { fingerprint: trimmed, mutedAt: new Date().toISOString() },
+          ];
+      const written = await writeMuteStore({ version: 1, mutes });
+      if (!written.ok) return written;
+      return ok(mutes.map((m) => m.fingerprint));
+    },
+    async unmuteFinding(fingerprint) {
+      const gate = ensureOpen();
+      if (!gate.ok) return gate;
+      const trimmed = fingerprint.trim();
+      const store = await readMuteStore();
+      if (!store.ok) return store;
+      const mutes = store.value.mutes.filter((m) => m.fingerprint !== trimmed);
+      const written = await writeMuteStore({ version: 1, mutes });
+      if (!written.ok) return written;
+      return ok(mutes.map((m) => m.fingerprint));
+    },
     findRoute(query) {
       const gate = ensureOpen();
       if (!gate.ok) return gate;
@@ -2830,7 +2961,10 @@ export function createWorkspace(options: {
           { kind: "file", id: path, path },
           context,
         );
-        if (!blast.ok) return blast;
+        if (!blast.ok) {
+          if (blast.error.code === PrismErrorCode.NOT_FOUND) continue;
+          return blast;
+        }
         files.push({
           path,
           risk: blast.value.risk,

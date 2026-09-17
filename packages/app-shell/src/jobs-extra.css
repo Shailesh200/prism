@@ -1182,7 +1182,7 @@
 .job-rail__step--accepted,
 .job-rail__step--created,
 .job-rail__step--queued {
-  --job-rail-phase: var(--prism-step-wait, var(--prism-brand, #00c2c2));
+  --job-rail-phase: var(--prism-step-wait, var(--prism-amber, #f59e0b));
 }
 
 .job-rail__step--working,

@@ -5,7 +5,6 @@
 
 import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import {
   PRISM_CONFIG_RELATIVE_PATH,
   PrismErrorCode,
@@ -17,6 +16,7 @@ import {
   type PrismError,
   type Result,
 } from "@repo-prism/shared";
+import { workspaceConfigPath } from "@repo-prism/shared/prism-home";
 
 function parseConfigText(raw: string): Result<PrismConfig, PrismError> {
   let json: unknown;
@@ -36,7 +36,7 @@ function parseConfigText(raw: string): Result<PrismConfig, PrismError> {
 export async function loadPrismConfig(
   rootPath: string,
 ): Promise<Result<PrismConfig, PrismError>> {
-  const path = join(rootPath, PRISM_CONFIG_RELATIVE_PATH);
+  const path = workspaceConfigPath(rootPath);
   try {
     return parseConfigText(await readFile(path, "utf8"));
   } catch (error) {
@@ -58,7 +58,7 @@ export async function loadPrismConfig(
 export function loadPrismConfigSync(
   rootPath: string,
 ): Result<PrismConfig, PrismError> {
-  const path = join(rootPath, PRISM_CONFIG_RELATIVE_PATH);
+  const path = workspaceConfigPath(rootPath);
   try {
     return parseConfigText(readFileSync(path, "utf8"));
   } catch (error) {

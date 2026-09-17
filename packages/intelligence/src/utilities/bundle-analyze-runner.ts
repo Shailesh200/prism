@@ -8,6 +8,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { delimiter, join } from "node:path";
 import type { BundleAnalyzeCapability, JsonValue } from "@repo-prism/shared";
+import { workspaceBundleAnalyzeDir } from "@repo-prism/shared/prism-home";
 import {
   detectBundleAnalyzeCapability,
   discoverFreshBundleStatsFiles,
@@ -273,9 +274,10 @@ function resolvePackageAbs(workspaceRoot: string, packagePath: string): string {
 }
 
 /**
- * Prism-managed: write webpack/vite stats to `.prism/bundle-analyze/stats.json`
- * via env-driven one-shot when the project has a build script.
- * For Next with @next/bundle-analyzer we still prefer project scripts.
+ * Prism-managed: write webpack/vite stats under the workspace Prism
+ * `bundle-analyze/` folder via env-driven one-shot when the project has a
+ * build script. For Next with @next/bundle-analyzer we still prefer project
+ * scripts.
  */
 async function runPrismManagedAnalyze(options: {
   readonly workspaceRoot: string;
@@ -290,7 +292,10 @@ async function runPrismManagedAnalyze(options: {
   statsPath?: string;
   parsed?: ParsedBundleStats;
 }> {
-  const outDir = join(options.packageAbs, ".prism", "bundle-analyze");
+  const outDir = workspaceBundleAnalyzeDir(
+    options.workspaceRoot,
+    options.packageAbs,
+  );
   mkdirSync(outDir, { recursive: true });
   const statsPath = join(outDir, "stats.json");
   const runner = detectRunner(options.packageAbs, options.workspaceRoot);

@@ -80,22 +80,26 @@ export function readChangedPaths(
   return {
     base: options.base ?? "working tree",
     paths: scopeToWorkspace(normalize(raw), toplevel, rootPath).filter(
-      (path) => !isPrismOwned(path),
+      (path) => !isIndexExcluded(path),
     ),
   };
 }
 
 /**
- * Prism's own working directory, which it writes to on every index.
- *
- * A repository that has not added `.prism/` to its `.gitignore` — which is most
- * of them on first run — otherwise sees its cache, consent file and bookmarks
- * listed as changes the moment Prism starts. `prism review` with no arguments
- * would then review Prism's own SQLite file, and the change-review screen would
- * open on three files the user did not touch.
+ * Paths the indexer never sees. Git still reports them when they are
+ * tracked, deleted, or not gitignored — a leftover `node_modules` entry
+ * would otherwise take down Guard with "File not found in index".
  */
-function isPrismOwned(path: string): boolean {
-  return path === ".prism" || path.startsWith(".prism/");
+const EXCLUDED_SEGMENTS = new Set([
+  ".git",
+  ".prism",
+  "node_modules",
+  "dist",
+  "coverage",
+]);
+
+function isIndexExcluded(path: string): boolean {
+  return path.split("/").some((segment) => EXCLUDED_SEGMENTS.has(segment));
 }
 
 /**

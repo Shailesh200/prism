@@ -1,7 +1,8 @@
 /**
  * Dispatch tools are a second registration path on the same `prism` MCP server.
  *
- * They write `.prism/dispatch/*`, run OAuth, and spawn local Cursor agents.
+ * They write `~/.prism/workspaces/<key>/dispatch/*` and spawn local Cursor
+ * agents.
  * They must not go through `registerTools` — that wrapper opens the workspace
  * and indexes, which start-my-day does not need (ADR-0035).
  */

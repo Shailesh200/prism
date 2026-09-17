@@ -40,6 +40,7 @@ import {
   readEnvelopeLedger,
   summarizeEnvelopeLedger,
   readLastPrepareChange,
+  readPrepareHistory,
   assertWipeHome,
   confirmWipePhrase,
   wipePrismData,
@@ -1109,6 +1110,25 @@ export async function startHub(
       json(res, 200, {
         workspace,
         last: last ?? null,
+        asOf: new Date().toISOString(),
+      });
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/prepare-history") {
+      const workspace =
+        url.searchParams.get("workspace")?.trim() || workspaces[0]?.path;
+      if (!workspace) {
+        json(res, 400, { error: HUB_ERROR.workspaceRequired });
+        return;
+      }
+      const runs = await readPrepareHistory(
+        workspace,
+        env as NodeJS.ProcessEnv,
+      );
+      json(res, 200, {
+        workspace,
+        runs,
         asOf: new Date().toISOString(),
       });
       return;

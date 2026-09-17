@@ -1,6 +1,5 @@
-import { Select, Tooltip } from "@repo-prism/ui";
+import { Select } from "@repo-prism/ui";
 import {
-  AlertTriangle,
   Compass,
   Dna,
   ExternalLink,
@@ -20,7 +19,7 @@ import type { AppShellClient } from "./client.js";
 import { useAppShellClient } from "./client-context.js";
 import { isBrowserShell } from "./is-browser.js";
 import { Avatar } from "./Avatar.js";
-import type { PrismGitignoreStatus, WorkspacePackageInfo } from "./types.js";
+import type { WorkspacePackageInfo } from "./types.js";
 
 export type AppView =
   | "overview"
@@ -53,53 +52,6 @@ export type AppSidebarProps = {
   /** Brand mark URL (webview asWebviewUri). Falls back to /brand path. */
   readonly brandMarkSrc?: string;
 };
-
-/**
- * Session cache so the `.prism` gitignore status is fetched once per host,
- * not on every sidebar remount as the user navigates between screens.
- */
-let gitignoreStatusPromise: Promise<PrismGitignoreStatus> | null = null;
-
-function usePrismGitignoreStatus(client: AppShellClient): {
-  status: PrismGitignoreStatus | null;
-  addToGitignore: (() => Promise<void>) | null;
-} {
-  const [status, setStatus] = useState<PrismGitignoreStatus | null>(null);
-  const [adding, setAdding] = useState(false);
-
-  useEffect(() => {
-    if (!client.fetchPrismGitignoreStatus) return;
-    let cancelled = false;
-    if (!gitignoreStatusPromise) {
-      gitignoreStatusPromise = client
-        .fetchPrismGitignoreStatus()
-        .catch<PrismGitignoreStatus>(() => ({ ignored: null }));
-    }
-    void gitignoreStatusPromise.then((next) => {
-      if (!cancelled) setStatus(next);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [client]);
-
-  const addToGitignore =
-    client.addPrismGitignore && !adding
-      ? async (): Promise<void> => {
-          if (!client.addPrismGitignore) return;
-          setAdding(true);
-          try {
-            const next = await client.addPrismGitignore();
-            gitignoreStatusPromise = Promise.resolve(next);
-            setStatus(next);
-          } finally {
-            setAdding(false);
-          }
-        }
-      : null;
-
-  return { status, addToGitignore };
-}
 
 const DISPATCH_FALLBACK = "http://prismhq.localhost:17330/";
 
@@ -158,25 +110,15 @@ function usePackagePicker(client: AppShellClient): {
  */
 export function AppSidebar(props: AppSidebarProps): ReactElement {
   const client = useAppShellClient();
-  const { status: gitignoreStatus, addToGitignore } =
-    usePrismGitignoreStatus(client);
   const {
     packages,
     selectedId: selectedPackageId,
     select: selectPackageId,
   } = usePackagePicker(client);
-  const [gitignoreBusy, setGitignoreBusy] = useState(false);
-  const showGitignoreWarning = gitignoreStatus?.ignored === false;
   const brandSrc =
     props.brandMarkSrc ??
     document.body.getAttribute("data-brand") ??
     "/brand/prism-mark.png";
-
-  const onAddGitignore = (): void => {
-    if (!addToGitignore || gitignoreBusy) return;
-    setGitignoreBusy(true);
-    void addToGitignore().finally(() => setGitignoreBusy(false));
-  };
 
   return (
     <aside
@@ -373,44 +315,6 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
           <span className="appnav__reveal">Settings</span>
         </button>
       </nav>
-
-      {showGitignoreWarning ? (
-        <div className="appnav__warn" role="status">
-          <span className="appnav__warn-chip">
-            <AlertTriangle size={13} aria-hidden />
-            <span className="appnav__warn-text appnav__reveal">
-              .prism not gitignored
-            </span>
-            <span className="appnav__warn-tip appnav__reveal">
-              <Tooltip
-                label=".prism is tracked by git"
-                align="start"
-                actions={
-                  addToGitignore ? (
-                    <button
-                      type="button"
-                      className="prism-tooltip__action"
-                      disabled={gitignoreBusy}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        onAddGitignore();
-                      }}
-                    >
-                      {gitignoreBusy ? "Adding…" : "Add to .gitignore"}
-                    </button>
-                  ) : null
-                }
-              >
-                Prism writes its local cache to <code>.prism/</code>. Add{" "}
-                <code>.prism/</code> to your <code>.gitignore</code> so the
-                cache isn&apos;t committed.
-                {gitignoreStatus?.detail ? ` (${gitignoreStatus.detail})` : ""}
-              </Tooltip>
-            </span>
-          </span>
-        </div>
-      ) : null}
 
       <div className="appnav__user">
         {props.user ? (

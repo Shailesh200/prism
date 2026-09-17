@@ -81,6 +81,8 @@
 | M-072 Prism Guard | `milestone/M-072-prism-guard` | Verified | ✅ | ✅ | Owner verified 2026-09-16 (merged on main). Cut 1: session-diff ranking (duplicate/orphan/boundary/blast checks), MCP `guard_session`, live Guard panel in vscode-extension + cursor-extension. Phase 1 (M-069→M-072) complete, T1 proof gate passed. |
 | M-073 Living AGENTS.md + Working Set | `milestone/M-073-agents-md-working-set` | Verified | ✅ | ✅ | Owner verified 2026-09-16 (merged on main). Phase 2 Cut 1: `prism agents-md generate/--check` (writes only `~/.prism`, never the repo), MCP `agents_md` + `prism://agents-md` resource, `WorkingSet` on `JobRecord` injected into next `start_job`/resume. Live dogfooding on this branch also fixed a browser-crash bug in `@repo-prism/shared` (Node-only code shipped to browser bundles) and a set of Prism Guard bugs surfaced for the first time against this real, large monorepo: an O(session × repo) duplicate-check blowup, a too-loose duplicate heuristic, missing Spectrum wiring, a broken Overview nav case, and a GuardScreen visual/caching/click redesign. |
 
+| M-074 Bloat + Job Cost | `milestone/M-074-bloat-job-cost` | In Review | ✅ | ☐ | Owner approved 2026-09-17, pending merge. Phase 2 Cut 2: `duplicate_implementation` / `wrapper_over_existing` + CLI mute list + MCP `list_findings`; Pulse 14-day token chart from existing `JobRecord.tokenUsage`. Also moved every per-repo Prism store under `~/.prism/workspaces/<key>/` (checkout `.prism` migrated then removed). |
+
 ## Legend
 
 `Not Started` · `Planned` · `In Progress` · `In Review` · `Blocked` · `Verified` · `Deferred`

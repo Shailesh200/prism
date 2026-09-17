@@ -17,6 +17,10 @@ import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { homedir } from "node:os";
 import { delimiter, join } from "node:path";
+import {
+  workspaceIngestDir,
+  workspaceLighthouseToolsDir,
+} from "@repo-prism/shared/prism-home";
 import { createConsentStore } from "./consent.js";
 
 export type ResolveChromeResult =
@@ -139,7 +143,7 @@ export async function resolveSystemChrome(): Promise<ResolveChromeResult> {
     // (bundlers rewrite it to an absolute build-machine path).
     const candidates = [
       join(process.cwd(), "package.json"),
-      join(process.cwd(), ".prism", "tools", "lighthouse", "package.json"),
+      join(workspaceLighthouseToolsDir(process.cwd()), "package.json"),
     ];
     let chromePath: string | undefined;
     for (const from of candidates) {
@@ -266,7 +270,7 @@ function lighthouseBin(prefix: string): string {
 }
 
 function toolsRoot(workspaceRoot: string): string {
-  return join(workspaceRoot, ".prism", "tools", "lighthouse");
+  return workspaceLighthouseToolsDir(workspaceRoot);
 }
 
 /**
@@ -599,7 +603,7 @@ export async function runLighthouseCli(options: {
     return { ok: false, message: probe.message };
   }
 
-  const ingestDir = join(options.workspaceRoot, ".prism", "ingest");
+  const ingestDir = workspaceIngestDir(options.workspaceRoot);
   await mkdir(ingestDir, { recursive: true });
   const stamp = Date.now().toString(36);
   const reportPath = join(ingestDir, `lighthouse-raw-${stamp}.json`);

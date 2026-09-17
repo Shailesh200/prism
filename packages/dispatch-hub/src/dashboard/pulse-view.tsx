@@ -8,6 +8,7 @@ import {
   type JobSummary,
 } from "@repo-prism/app-shell";
 import {
+  AreaChart,
   Badge,
   Button,
   HoverTip,
@@ -15,6 +16,7 @@ import {
   Accordion,
   ScreenSkeleton,
   relativePrismTime,
+  seriesGeometry,
 } from "@repo-prism/ui";
 import { CircleAlert, Inbox, Pause } from "lucide-react";
 import {
@@ -37,8 +39,11 @@ import {
   meterHoverAt,
   pointerPercent,
   meterEndBadgeTone,
-  meterEndKind,
+  effectiveMeterEndKind,
+  pulseCostDays,
+  pulseCostRangeNote,
   type FleetTimeRange,
+  type PulseMeterKind,
   type RepoFleet,
 } from "./fleet.js";
 import {
@@ -46,6 +51,12 @@ import {
   jobActionHandlers,
   type JobActionHandlers,
 } from "./job-actions.js";
+import {
+  aggregateTokensByDay,
+  extremeJobsByTokens,
+  formatTokenCount,
+  type DayTokenBucket,
+} from "./job-cost.js";
 
 export function PulseView(
   props: {
@@ -63,6 +74,10 @@ export function PulseView(
   const jobs = props.repos.flatMap((repo) => repo.jobs);
   const sections = pulseSections(jobs, props.range, props.nowMs);
   const idle = pulseIdleRepos(props.repos, props.range, props.nowMs);
+  const costDays = pulseCostDays(props.range, props.nowMs);
+  const costBuckets = aggregateTokensByDay(jobs, costDays, props.nowMs);
+  const costTotal = costBuckets.reduce((sum, b) => sum + b.totalTokens, 0);
+  const costJobs = costBuckets.reduce((sum, b) => sum + b.jobCount, 0);
   if (props.loading) {
     return <ScreenSkeleton label="Loading jobs…" rows={4} className="pulse" />;
   }
@@ -101,6 +116,19 @@ export function PulseView(
             ) : null}
           </div>
         </div>
+      ) : null}
+      {costTotal > 0 ? (
+        <TokenCostChart
+          buckets={costBuckets}
+          jobs={jobs}
+          days={costDays}
+          total={costTotal}
+          jobCount={costJobs}
+          nowMs={props.nowMs}
+          {...(pulseCostRangeNote(props.range)
+            ? { rangeNote: pulseCostRangeNote(props.range) }
+            : {})}
+        />
       ) : null}
       <PulseSection
         kind="live"
@@ -178,6 +206,140 @@ export function PulseView(
         </section>
       ) : null}
     </div>
+  );
+}
+
+function costDayLabel(dayKey: string): string {
+  const parts = dayKey.split("-").map(Number);
+  const y = parts[0];
+  const m = parts[1];
+  const d = parts[2];
+  if (!y || !m || !d) return dayKey;
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+  });
+}
+
+function TokenCostChart(props: {
+  readonly buckets: readonly DayTokenBucket[];
+  readonly jobs: readonly JobSummary[];
+  readonly days: number;
+  readonly total: number;
+  readonly jobCount: number;
+  readonly nowMs: number;
+  /** Set when `days` is a display cap, not the actual selected range (e.g. "All time"). */
+  readonly rangeNote?: string;
+}): ReactElement {
+  const width = 600;
+  const height = 56;
+  const pad = 4;
+  const values = props.buckets.map((b) => b.totalTokens);
+  const geo = seriesGeometry(values, width, height, pad);
+  const plotRef = useRef<HTMLDivElement>(null);
+  const [hoverIndex, setHoverIndex] = useState<number | undefined>();
+
+  const extremes = extremeJobsByTokens(props.jobs, props.days, props.nowMs);
+  const peakIndex = extremes.most
+    ? props.buckets.findIndex((b) => b.dayKey === extremes.most?.dayKey)
+    : -1;
+  const lowIndex = extremes.least
+    ? props.buckets.findIndex((b) => b.dayKey === extremes.least?.dayKey)
+    : -1;
+
+  function indexFromClientX(clientX: number): number | undefined {
+    const el = plotRef.current;
+    if (!el || props.buckets.length === 0) return undefined;
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0) return undefined;
+    const fraction = Math.max(
+      0,
+      Math.min(1, (clientX - rect.left) / rect.width),
+    );
+    return Math.round(fraction * (props.buckets.length - 1));
+  }
+
+  const hoverBucket =
+    hoverIndex != null ? props.buckets[hoverIndex] : undefined;
+  const hoverPoint = hoverIndex != null ? geo.points[hoverIndex] : undefined;
+  const nearEnd = hoverIndex != null && hoverIndex >= props.buckets.length - 3;
+
+  return (
+    <Accordion
+      className="pulse-cost"
+      summary={
+        <span className="pulse-cost__head">
+          <span className="pulse-cost__label">
+            Token usage · last {props.days} day{props.days === 1 ? "" : "s"}
+            {props.rangeNote ? ` (${props.rangeNote})` : ""}
+          </span>
+          <span className="pulse-cost__total">
+            {formatTokenCount(props.total)} tokens · {props.jobCount} job
+            {props.jobCount === 1 ? "" : "s"}
+          </span>
+        </span>
+      }
+    >
+      <div
+        ref={plotRef}
+        className="pulse-cost__plot"
+        onMouseMove={(event) => setHoverIndex(indexFromClientX(event.clientX))}
+        onMouseLeave={() => setHoverIndex(undefined)}
+      >
+        <AreaChart
+          values={values}
+          width={width}
+          height={height}
+          pad={pad}
+          className="pulse-cost__chart"
+          label={`Daily token usage over the last ${props.days} day${props.days === 1 ? "" : "s"}${props.rangeNote ? ` (${props.rangeNote})` : ""}`}
+        />
+        {peakIndex >= 0 && geo.points[peakIndex] && extremes.most ? (
+          <span
+            className="pulse-cost__mark pulse-cost__mark--peak"
+            style={{
+              left: `${(geo.points[peakIndex][0] / width) * 100}%`,
+              top: `${(geo.points[peakIndex][1] / height) * 100}%`,
+            }}
+            title={`Most tokens: "${extremes.most.job.title}" · ${formatTokenCount(extremes.most.tokens)} on ${costDayLabel(extremes.most.dayKey)}`}
+          />
+        ) : null}
+        {lowIndex >= 0 && geo.points[lowIndex] && extremes.least ? (
+          <span
+            className="pulse-cost__mark pulse-cost__mark--low"
+            style={{
+              left: `${(geo.points[lowIndex][0] / width) * 100}%`,
+              top: `${(geo.points[lowIndex][1] / height) * 100}%`,
+            }}
+            title={`Least tokens: "${extremes.least.job.title}" · ${formatTokenCount(extremes.least.tokens)} on ${costDayLabel(extremes.least.dayKey)}`}
+          />
+        ) : null}
+        {hoverBucket && hoverPoint ? (
+          <>
+            <span
+              className="pulse-cost__crosshair"
+              style={{ left: `${(hoverPoint[0] / width) * 100}%` }}
+              aria-hidden
+            />
+            <span
+              className={
+                nearEnd
+                  ? "pulse-cost__tooltip pulse-cost__tooltip--end"
+                  : "pulse-cost__tooltip"
+              }
+              style={{ left: `${(hoverPoint[0] / width) * 100}%` }}
+            >
+              <strong>{costDayLabel(hoverBucket.dayKey)}</strong>
+              <span>
+                {formatTokenCount(hoverBucket.totalTokens)} tokens ·{" "}
+                {hoverBucket.jobCount} job
+                {hoverBucket.jobCount === 1 ? "" : "s"}
+              </span>
+            </span>
+          </>
+        ) : null}
+      </div>
+    </Accordion>
   );
 }
 
@@ -339,7 +501,7 @@ function PulseCard(
   const job = props.job;
   const meter = waitWorkMeter(job, props.nowMs);
   const liveMeter = props.kind === "live" && jobBadgePulse(job.status);
-  const meterEnd = meterEndKind(meter.steps);
+  const meterEnd = effectiveMeterEndKind(meter.steps, job.status);
   const badgeTone = meterEnd
     ? meterEndBadgeTone(meterEnd)
     : jobBadgeTone(job.status, job.nextStep);
@@ -422,20 +584,6 @@ function PulseCard(
             }}
             onMouseLeave={() => setHoverUi(undefined)}
           >
-            {hover && hoverUi ? (
-              <span
-                className={
-                  hoverUi.pct > 82
-                    ? "pulse-card__hover pulse-card__hover--end"
-                    : "pulse-card__hover"
-                }
-                style={{ left: hoverUi.leftPx }}
-              >
-                <span className="pulse-card__hover-stamp">
-                  {pulseHoverStamp(hover.atMs)}
-                </span>
-              </span>
-            ) : null}
             {meterTotal > 0 ? (
               <div
                 ref={meterBox.ref}
@@ -475,6 +623,18 @@ function PulseCard(
               </div>
             ) : null}
           </div>
+          {hover && hoverUi ? (
+            <span
+              className={
+                hoverUi.pct > 82
+                  ? "pulse-card__hover-stamp pulse-card__hover-stamp--end"
+                  : "pulse-card__hover-stamp"
+              }
+              style={{ left: hoverUi.leftPx }}
+            >
+              {meterStepStatusLabel(hover.kind)} · {pulseHoverStamp(hover.atMs)}
+            </span>
+          ) : null}
           {meterTotal > 0 && hasBelow ? (
             <div className="pulse-meter__captions" aria-hidden>
               {paintedSteps.map((step, index) => (
@@ -644,6 +804,23 @@ function meterFillClass(
   }
   if (kind === "error") return "pulse-meter__fail";
   return "pulse-meter__cancel";
+}
+
+function meterStepStatusLabel(kind: PulseMeterKind): string {
+  switch (kind) {
+    case "wait":
+      return "Waited";
+    case "work":
+      return "Worked";
+    case "pause":
+      return "Paused";
+    case "error":
+      return "Failed";
+    case "cancelled":
+      return "Cancelled";
+    default:
+      return "";
+  }
 }
 
 function pulseHoverStamp(atMs: number): string {

@@ -19,7 +19,7 @@ describe("UXPilot dark tokens (ADR-0014)", () => {
   });
 
   it("shares Pulse and job-rail step colours", () => {
-    expect(tokens).toContain("--prism-step-wait: var(--prism-brand)");
+    expect(tokens).toContain("--prism-step-wait: var(--prism-amber)");
     expect(tokens).toContain("--prism-step-work: var(--prism-accent)");
     expect(tokens).toContain("--prism-step-pause: var(--prism-amber)");
     expect(tokens).toContain("--prism-step-error: var(--prism-rose)");

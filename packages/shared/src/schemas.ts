@@ -2555,6 +2555,20 @@ export const FindingRefSchema = z.object({
 });
 export type FindingRef = z.infer<typeof FindingRefSchema>;
 
+/** One muted finding, by fingerprint (M-074 B1). */
+export const FindingMuteSchema = z.object({
+  fingerprint: z.string().min(1),
+  mutedAt: z.string().datetime(),
+});
+export type FindingMute = z.infer<typeof FindingMuteSchema>;
+
+/** `.prism/finding-mutes.json` — gitignored, per-checkout (M-074 B1). */
+export const FindingMuteStoreSchema = z.object({
+  version: z.literal(1),
+  mutes: z.array(FindingMuteSchema).default([]),
+});
+export type FindingMuteStore = z.infer<typeof FindingMuteStoreSchema>;
+
 /** `start_job` args a `queue_finding` call builds — Console and MCP share this. */
 export type QueueFindingArgs = {
   readonly title: string;

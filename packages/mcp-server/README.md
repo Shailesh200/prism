@@ -177,9 +177,10 @@ Manifest prepared for owner submission: [`server.json`](./server.json) ·
 
 ## Tools
 
-Intelligence tools are read-only. Dispatch tools write gitignored state under
-`.prism/dispatch/`. Dispatch makes no network calls and holds no third-party
-credentials — connectors belong to the agent window (ADR-0049).
+Intelligence tools are read-only. Dispatch tools write state under
+`~/.prism/workspaces/<key>/dispatch/`. Dispatch makes no network calls and
+holds no third-party credentials — connectors belong to the agent window
+(ADR-0049).
 
 ### Dispatch
 
@@ -243,6 +244,7 @@ credentials — connectors belong to the agent window (ADR-0049).
 | `guard_session` | Rank the current dirty session by blast risk, flagged for duplicate/orphan/boundary (M-072) | `preExistingChanges` |
 | `review_changes` | Rolled-up review; omit `paths` to auto-discover | `paths?`, `base` |
 | `agents_md` | Generate/verify the Living AGENTS.md — features, cycles, tests, owners; writes only `~/.prism`, never the repo (M-073) | `action` |
+| `list_findings` | Unused exports, duplicate implementations, wrapper functions; excludes muted findings by default (M-074) | `limit`, `includeMuted` |
 
 ### Reports
 

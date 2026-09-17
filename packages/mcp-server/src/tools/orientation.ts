@@ -4,8 +4,8 @@
  */
 
 import { access } from "node:fs/promises";
-import { join } from "node:path";
 import { CONSENT_PURPOSES, MAP_ZOOM_LEVELS, ok } from "@repo-prism/shared";
+import { workspaceCacheDir } from "@repo-prism/shared/prism-home";
 import { z } from "zod";
 import { boundList, limitInput } from "../limits.js";
 import { toWorkspaceRelative } from "../paths.js";
@@ -151,7 +151,7 @@ export const workspaceStatus = defineTool({
   name: "workspace_status",
   title: "Workspace status",
   description:
-    "Compact workspace readiness: path, whether an index is loaded, indexedAt, freshness, git availability, whether a .prism/cache directory exists, and dependency-graph node/edge counts. Call this when a previous tool failed or to confirm the session is ready before a review.",
+    "Compact workspace readiness: path, whether an index is loaded, indexedAt, freshness, git availability, whether a Prism cache directory exists, and dependency-graph node/edge counts. Call this when a previous tool failed or to confirm the session is ready before a review.",
   inputSchema: {},
   async call({ workspace, workspaceRoot }) {
     const status = workspace.status();
@@ -161,7 +161,7 @@ export const workspaceStatus = defineTool({
 
     let cachePresent = false;
     try {
-      await access(join(workspaceRoot, ".prism"));
+      await access(workspaceCacheDir(workspaceRoot));
       cachePresent = true;
     } catch {
       cachePresent = false;

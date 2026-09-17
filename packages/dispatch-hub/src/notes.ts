@@ -6,8 +6,13 @@
  * browser never reads the filesystem itself.
  */
 
+import { existsSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
+import {
+  legacyRepoPrismDir,
+  workspaceNotesDir,
+} from "@repo-prism/shared/prism-home";
 
 const NOTES_DIR = ".prism/dispatch/notes";
 const MAX_NOTE_BYTES = 256 * 1024;
@@ -68,6 +73,37 @@ function candidateRoots(
   return [workspace];
 }
 
+function noteFileName(rel: string): string {
+  return rel
+    .replace(/\\/g, "/")
+    .replace(/^\.\//, "")
+    .slice(NOTES_DIR.length + 1);
+}
+
+function notesDirsFor(root: string): string[] {
+  const dest = workspaceNotesDir(root);
+  const leftover = join(legacyRepoPrismDir(root), "dispatch", "notes");
+  return dest === leftover ? [dest] : [dest, leftover];
+}
+
+function noteAbsCandidates(
+  workspace: string,
+  rel: string,
+  worktreePath?: string,
+): string[] {
+  const name = noteFileName(rel);
+  const out: string[] = [];
+  for (const root of candidateRoots(workspace, worktreePath)) {
+    for (const dir of notesDirsFor(root)) {
+      const abs = join(dir, name);
+      if (containedIn(dir, abs) || resolve(abs) === resolve(dir)) {
+        out.push(abs);
+      }
+    }
+  }
+  return out;
+}
+
 /** Resolve a notes path against the job's workspace (and worktree, if any). */
 export function resolveJobNotePath(
   workspace: string,
@@ -75,27 +111,25 @@ export function resolveJobNotePath(
   worktreePath?: string,
 ): string | undefined {
   if (!isDispatchNotePath(rel)) return undefined;
-  const n = rel.replace(/\\/g, "/").replace(/^\.\//, "");
-  for (const root of candidateRoots(workspace, worktreePath)) {
-    const abs = join(root, n);
-    const notesRoot = join(root, NOTES_DIR);
-    if (containedIn(notesRoot, abs) || resolve(abs) === resolve(notesRoot)) {
-      return abs;
-    }
-  }
-  return undefined;
+  const candidates = noteAbsCandidates(workspace, rel, worktreePath);
+  return candidates.find((abs) => existsSync(abs)) ?? candidates[0];
 }
 
 async function filesInNotesDir(root: string): Promise<string[]> {
-  const dir = join(root, NOTES_DIR);
-  try {
-    const entries = await readdir(dir, { withFileTypes: true });
-    return entries
-      .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
-      .map((entry) => `${NOTES_DIR}/${entry.name}`);
-  } catch {
-    return [];
+  const found = new Set<string>();
+  for (const dir of notesDirsFor(root)) {
+    try {
+      const entries = await readdir(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isFile() && entry.name.endsWith(".md")) {
+          found.add(`${NOTES_DIR}/${entry.name}`);
+        }
+      }
+    } catch {
+      /* missing notes dir */
+    }
   }
+  return [...found];
 }
 
 export async function listJobNotes(input: {
@@ -129,25 +163,27 @@ export async function readJobNote(input: {
   readonly rel: string;
   readonly worktreePath?: string;
 }): Promise<JobNoteFile | undefined> {
-  const abs = resolveJobNotePath(
+  if (!isDispatchNotePath(input.rel)) return undefined;
+  const path = input.rel.replace(/\\/g, "/").replace(/^\.\//, "");
+  for (const abs of noteAbsCandidates(
     input.workspace,
     input.rel,
     input.worktreePath,
-  );
-  if (!abs) return undefined;
-  try {
-    const info = await stat(abs);
-    if (!info.isFile()) return undefined;
-    const raw = await readFile(abs);
-    const truncated = raw.byteLength > MAX_NOTE_BYTES;
-    const slice = truncated ? raw.subarray(0, MAX_NOTE_BYTES) : raw;
-    const path = input.rel.replace(/\\/g, "/").replace(/^\.\//, "");
-    return {
-      path,
-      text: slice.toString("utf8"),
-      truncated,
-    };
-  } catch {
-    return undefined;
+  )) {
+    try {
+      const info = await stat(abs);
+      if (!info.isFile()) continue;
+      const raw = await readFile(abs);
+      const truncated = raw.byteLength > MAX_NOTE_BYTES;
+      const slice = truncated ? raw.subarray(0, MAX_NOTE_BYTES) : raw;
+      return {
+        path,
+        text: slice.toString("utf8"),
+        truncated,
+      };
+    } catch {
+      /* try leftover / worktree copy */
+    }
   }
+  return undefined;
 }
