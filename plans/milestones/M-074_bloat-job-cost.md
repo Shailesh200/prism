@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Review** |
+| Status | **Verified** |
 | Branch | `milestone/M-074-bloat-job-cost` (from latest `main`, M-073 merged) |
 | Depends on | M-071 (finding loop), M-072 (Guard's `scoreReuse`/duplicate fix) |
 | Packages | `shared`, `intelligence`, `core`, `cli`, `mcp-server`, `dispatch-hub` |
