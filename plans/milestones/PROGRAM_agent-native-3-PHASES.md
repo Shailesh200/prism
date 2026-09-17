@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **Phase 3 in progress** — M-076 In Progress (work orders + advisory hook). T2/T3 proof still to run. |
+| Status | **Phase 3 complete** — M-076 merged 2026-09-17. T2/T3 proof still to run. |
 | Date | 2026-09-11 |
 | Product contract | [`PROGRAM_agent-native-iris.md`](./PROGRAM_agent-native-iris.md) (what we are building) |
 | This file | How to build it in **three owner prompts**, with verify-plan, proof, and smoke |

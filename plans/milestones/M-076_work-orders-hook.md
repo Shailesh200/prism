@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Progress** |
+| Status | **Verified** |
 | Branch | `milestone/M-076-work-orders-hook` (from latest `main`, M-075 merged) |
 | Depends on | M-070 (`prepare_change`), M-075 (notes; `order` still null) |
 | Packages | `shared`, `intelligence`, `core`, `mcp-server`, `dispatch`, `cli`, `vscode-extension`, `dispatch-hub` |
