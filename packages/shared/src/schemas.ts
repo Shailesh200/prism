@@ -3,6 +3,7 @@ import { ConsentPurposeIdSchema } from "./consent-purposes.js";
 import { PrismErrorCode } from "./errors.js";
 import { SignalProvenanceSchema } from "./provenance.js";
 import { RiskBandSchema } from "./risk-bands.js";
+import { WorkOrderSchema, formatWorkOrderPrompt } from "./work-order.js";
 
 /** JSON-serializable primitive / structure convention for MCP & CLI. */
 export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
@@ -2490,15 +2491,15 @@ export const PrepareNoteSchema = z.object({
 export type PrepareNote = z.infer<typeof PrepareNoteSchema>;
 
 /**
- * One Envelope query: pack + reuse + House Style. `order` / `workingSet` stay
- * null until M-076. `notes` is M-075 (memories + rationale_for).
+ * One Envelope query: pack + reuse + House Style. `order` is M-076 (work
+ * order). `workingSet` stays null. `notes` is M-075 (memories + rationale_for).
  */
 export const PrepareChangeSchema = z.object({
   pack: ContextPackSchema,
   reuse: z.array(ReuseHitSchema),
   conventions: z.array(ExemplarSchema).nullable(),
   notes: z.array(PrepareNoteSchema).optional(),
-  order: z.null(),
+  order: WorkOrderSchema,
   workingSet: z.null(),
   generatedAt: z.string().datetime(),
   indexIndexedAt: z.string(),
@@ -2553,6 +2554,7 @@ export function formatPrepareChangePrompt(prep: PrepareChange): string {
     `Reuse:\n${reuse}`,
     conventions.length > 0 ? `House Style:\n${conventions.join("\n")}` : "",
     notes.length > 0 ? `Notes:\n${notes.join("\n")}` : "",
+    formatWorkOrderPrompt(prep.order),
     ambiguous,
   ]
     .filter(Boolean)

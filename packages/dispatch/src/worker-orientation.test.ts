@@ -183,7 +183,13 @@ describe("composeWorkerPrompt", () => {
         },
         reuse: [],
         conventions: [],
-        order: null,
+        order: {
+          inScope: ["src/users/fetchUser.ts"],
+          offLimits: [{ path: "vendor/legacy.ts", reason: "vendor" }],
+          needsSignOff: [],
+          advisory: true,
+          hookArmed: false,
+        },
         workingSet: null,
         generatedAt: "2026-09-14T00:00:00.000Z",
         indexIndexedAt: "2026-09-14T00:00:00.000Z",
@@ -193,6 +199,8 @@ describe("composeWorkerPrompt", () => {
       }),
     });
     expect(text).toContain("src/users/fetchUser.ts");
+    expect(text).toContain("vendor/legacy.ts");
+    expect(text).toContain("## Work order");
     expect(text).not.toContain("UNIQUE_M070_FILE_BODY_TOKEN");
   });
 });

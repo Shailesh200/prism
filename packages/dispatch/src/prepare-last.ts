@@ -1,6 +1,10 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import type { PrepareChange, SignalProvenance } from "@repo-prism/shared";
+import type {
+  PrepareChange,
+  SignalProvenance,
+  WorkOrder,
+} from "@repo-prism/shared";
 import { prismHome } from "./paths.js";
 
 /** Runs kept per workspace (newest first) — enough for real history, not unbounded disk growth. */
@@ -39,6 +43,7 @@ export type LastPrepareSummary = {
   } | null;
   readonly truncated: boolean;
   readonly totalCount: number;
+  readonly order?: WorkOrder | null;
 };
 
 function prepareHistoryPath(env: NodeJS.ProcessEnv = process.env): string {
@@ -89,6 +94,7 @@ export function summarizePrepareChange(
       : null,
     truncated: prep.pack.truncated,
     totalCount: prep.pack.totalCount,
+    order: prep.order,
   };
 }
 

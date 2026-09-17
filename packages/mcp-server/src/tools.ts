@@ -21,12 +21,14 @@ import { IMPACT_TOOLS } from "./tools/impact.js";
 import { ORIENTATION_TOOLS } from "./tools/orientation.js";
 import { REPORT_TOOLS } from "./tools/reports.js";
 import { prepareChange } from "./tools/prepare.js";
+import { workOrder } from "./tools/work-order.js";
 import { guardSession } from "./tools/guard.js";
 import { agentsMd } from "./tools/agents-md.js";
 import { listFindings } from "./tools/findings.js";
 
 export const TOOLS: readonly ToolDefinition<never>[] = [
   prepareChange,
+  workOrder,
   guardSession,
   agentsMd,
   listFindings,

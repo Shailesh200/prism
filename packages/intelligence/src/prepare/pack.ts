@@ -21,6 +21,7 @@ import {
   type SignalProvenance,
   DEFAULT_PREPARE_BUDGET,
 } from "@repo-prism/shared";
+import { buildWorkOrder } from "./work-order.js";
 import { buildDependencyGraph } from "../dependency/build.js";
 import { buildFeatureGraph } from "../feature/build.js";
 import {
@@ -570,6 +571,11 @@ export function buildPrepareChange(
   const reuse = scoreReuse(snapshot, tokens, seeds, features);
   const style = houseStyle(snapshot, input.frameworks, git);
   const notes = notesForPack(snapshot, packed, input.memories);
+  const order = buildWorkOrder({
+    snapshot,
+    packPaths: packed.map((f) => f.path),
+    ...(git && git.length > 0 ? { gitFiles: git } : {}),
+  });
 
   return {
     pack: {
@@ -583,7 +589,7 @@ export function buildPrepareChange(
     reuse,
     conventions: style.exemplars.length > 0 ? style.exemplars : [],
     notes,
-    order: null,
+    order,
     workingSet: null,
     generatedAt: now.toISOString(),
     indexIndexedAt: snapshot.indexedAt,

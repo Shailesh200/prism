@@ -117,7 +117,7 @@ waiting for an MCP **client**. Configure the client; it starts the process.
 |---|---|
 | “What is this repo?” / “Orient me” | `repository_dna`, landmarks / overview |
 | “Is this codebase healthy?” | `repository_health` |
-| “What breaks if I edit `src/…`?” | `prepare_change`, then `blast_radius`, `test_impact` |
+| “What breaks if I edit `src/…`?” | `prepare_change` / `work_order`, then `blast_radius`, `test_impact` |
 | “Can I delete this?” | `safe_delete` |
 | “Review my changes” | `review_changes` (omit paths to auto-discover) |
 | “What changed?” | `changed_paths` |
@@ -234,7 +234,8 @@ holds no third-party credentials — connectors belong to the agent window
 
 | Tool | Answers | Arguments |
 |---|---|---|
-| `prepare_change` | Pack, reuse, and House Style for a task — never file bodies | `task`, `budget` |
+| `prepare_change` | Pack, reuse, House Style, notes, and a work order for a task — never file bodies | `task`, `budget` |
+| `work_order` | In-scope, off-limits (generated/vendor), and needs-sign-off paths; optional path evaluates the advisory hook (M-076) | `task`, `path` |
 | `blast_radius` | What depends on this, and how risky is changing it | `kind`, `id`, `path`, `intent`, `limit` |
 | `safe_delete` | Can this be deleted? Blockers and files left orphaned | `kind`, `id`, `path` |
 | `rename_impact` | Every edit site a rename would touch | `kind`, `id`, `path`, `newName` |

@@ -83,6 +83,7 @@
 
 | M-074 Bloat + Job Cost | `milestone/M-074-bloat-job-cost` | Verified | ✅ | ✅ | Owner verified 2026-09-17 (merged on main). Phase 2 Cut 2: `duplicate_implementation` / `wrapper_over_existing` + CLI mute list + MCP `list_findings`; Pulse 14-day token chart from existing `JobRecord.tokenUsage`. Per-repo Prism store now lives under `~/.prism/workspaces/<key>/` (checkout `.prism` migrated then removed). Phase 2 milestones (M-073→M-074) complete; T2 proof still to run. |
 | M-075 Symbol memory + ADR nodes | `milestone/M-075-symbol-memory-adr` | Verified | ✅ | ✅ | Owner verified 2026-09-17 (merged on main). Phase 3 Cut 3: `remember` optional `symbol`/`path`, rewrite on rename; `rationale_for` edges from ADRs and `WHY:`/`NOTE:` comments; `prepare_change.notes` for pack files. |
+| M-076 Work orders + hook | `milestone/M-076-work-orders-hook` | In Progress | ☐ | ☐ | Phase 3 Cut 3: fill `PrepareChange.order`, MCP `work_order`, Dispatch copies off-limits into the PRD, advisory IDE hook (no veto unless an Accepted ADR arms it). |
 
 ## Legend
 

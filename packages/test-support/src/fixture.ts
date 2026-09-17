@@ -96,7 +96,12 @@ export async function createFixture(
     },
 
     async cleanup() {
-      await rm(root, { recursive: true, force: true });
+      await rm(root, {
+        recursive: true,
+        force: true,
+        maxRetries: 8,
+        retryDelay: 40,
+      });
     },
   };
 

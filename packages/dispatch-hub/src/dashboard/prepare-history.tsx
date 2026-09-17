@@ -29,6 +29,9 @@ const REUSE_HITS_TIP =
 const HOUSE_STYLE_TIP =
   "The exemplar file for each convention this repo already follows (how a route handler, screen, or worker is normally structured) — so new code matches the pattern instead of inventing another one.";
 
+const WORK_ORDER_TIP =
+  "In-scope files, off-limits (generated or vendor), and paths that need sign-off. Blocked is not armed until an Accepted ADR turns on the write veto.";
+
 type NumberTone = "good" | "warn" | "bad" | "neutral";
 
 function toneColor(tone: NumberTone): string | undefined {
@@ -340,6 +343,51 @@ function PrepareRunDetail(props: {
         <p className="envelope__empty">
           No House Style conventions matched this task.
         </p>
+      )}
+
+      <h3 className="intel-heading intel-heading--tip">
+        Work order
+        <Tooltip label="Work order">{WORK_ORDER_TIP}</Tooltip>
+      </h3>
+      {run.order ? (
+        <dl className="console__facts">
+          <div>
+            <dt>Hook</dt>
+            <dd>
+              {run.order.hookArmed
+                ? "Armed — blocked and needs-sign-off veto writes"
+                : "Advisory (not armed) — blocked does not veto writes"}
+            </dd>
+          </div>
+          <div>
+            <dt>Off-limits</dt>
+            <dd>
+              {run.order.offLimits.length > 0
+                ? run.order.offLimits
+                    .map((row) => `${row.path} (${row.reason})`)
+                    .join("; ")
+                : "—"}
+            </dd>
+          </div>
+          <div>
+            <dt>Needs sign-off</dt>
+            <dd>
+              {run.order.needsSignOff.length > 0
+                ? run.order.needsSignOff.join("; ")
+                : "—"}
+            </dd>
+          </div>
+          <div>
+            <dt>In scope</dt>
+            <dd>
+              {run.order.inScope.length > 0
+                ? run.order.inScope.join("; ")
+                : "—"}
+            </dd>
+          </div>
+        </dl>
+      ) : (
+        <p className="envelope__empty">No work order on this run.</p>
       )}
     </div>
   );

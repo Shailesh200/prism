@@ -223,13 +223,92 @@ describe("buildPrepareChange", () => {
     expect(prep.pack.totalCount).toBeGreaterThan(prep.pack.files.length);
   });
 
-  it("leaves order and workingSet null", () => {
+  it("fills a work order and leaves workingSet null (M-076)", () => {
     const prep = buildPrepareChange({
       snapshot: users,
       task: "add caching to fetchUser",
     });
-    expect(prep.order).toBeNull();
+    expect(prep.order).not.toBeNull();
+    expect(prep.order.advisory).toBe(true);
+    expect(prep.order.hookArmed).toBe(false);
     expect(prep.workingSet).toBeNull();
+  });
+
+  it("marks vendor and generated paths off-limits (M-076 O1)", () => {
+    const snap = snapshot([
+      file("src/users/fetchUser.ts", {
+        symbols: [
+          {
+            name: "fetchUser",
+            kind: "function",
+            start: 0,
+            end: 40,
+            exported: true,
+          },
+        ],
+        exports: [{ name: "fetchUser", kind: "name" }],
+      }),
+      file("vendor/legacy.ts", {
+        symbols: [
+          {
+            name: "legacy",
+            kind: "function",
+            start: 0,
+            end: 20,
+            exported: true,
+          },
+        ],
+        exports: [{ name: "legacy", kind: "name" }],
+      }),
+      file("src/generated/types.ts"),
+    ]);
+    const prep = buildPrepareChange({
+      snapshot: snap,
+      task: "add caching to fetchUser",
+    });
+    expect(prep.order.offLimits.map((r) => r.path).sort()).toEqual(
+      ["src/generated/types.ts", "vendor/legacy.ts"].sort(),
+    );
+    expect(
+      prep.order.offLimits.find((r) => r.path === "vendor/legacy.ts")?.reason,
+    ).toBe("vendor");
+    expect(
+      prep.order.offLimits.find((r) => r.path.startsWith("src/generated"))
+        ?.reason,
+    ).toBe("generated");
+  });
+
+  it("needs sign-off on high blast fan-in or many owners (M-076 O1)", () => {
+    const prep = buildPrepareChange({
+      snapshot: users,
+      task: "add caching to fetchUser",
+      gitFiles: [
+        {
+          path: "src/users/fetchUser.ts",
+          lastCommit: {
+            sha: "abc",
+            author: "a",
+            date: "2026-09-14T00:00:00.000Z",
+            message: "x",
+          },
+          commits: 12,
+          additions: 0,
+          deletions: 0,
+          lastAdditions: 0,
+          lastDeletions: 0,
+          contributors: [
+            { author: "a", commits: 4, additions: 0, deletions: 0 },
+            { author: "b", commits: 4, additions: 0, deletions: 0 },
+            { author: "c", commits: 4, additions: 0, deletions: 0 },
+          ],
+          recent: [],
+          weeks: [],
+          recency: 0,
+        },
+      ],
+    });
+    expect(prep.order.needsSignOff).toContain("src/users/fetchUser.ts");
+    expect(prep.order.inScope).not.toContain("src/users/fetchUser.ts");
   });
 
   it("includes a matching memory note for a pack path (M-075 M2)", () => {

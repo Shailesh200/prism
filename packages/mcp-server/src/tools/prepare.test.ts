@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import type { PrepareChange } from "@repo-prism/shared";
+import { EMPTY_WORK_ORDER, type PrepareChange } from "@repo-prism/shared";
 import { serialiseForMcp } from "../tool-registry.js";
 
 const fixtureFile = join(
@@ -48,7 +48,7 @@ const pack: PrepareChange = {
     },
   ],
   conventions: [],
-  order: null,
+  order: EMPTY_WORK_ORDER,
   workingSet: null,
   generatedAt: "2026-09-14T00:00:00.000Z",
   indexIndexedAt: "2026-09-14T00:00:00.000Z",
