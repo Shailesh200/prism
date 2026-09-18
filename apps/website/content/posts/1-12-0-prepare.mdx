@@ -1,0 +1,31 @@
+---
+title: "1.12.0 — Prepare: ask what to open"
+description: "One call before you edit: pack, reuse, House Style, notes, and a work order. Paths only — never file bodies."
+version: "1.12.0"
+---
+
+The habit before an edit is no longer “dump the repo into the chat.”
+
+**`prepare_change`** (CLI: `prism prepare`) returns:
+
+- a **pack** of files — path, symbols, why, map-token weight
+- **reuse** — helpers that already do the thing you described
+- **House Style** — three exemplars (canonical, recent, older) for
+  route-handler, screen, colocated-test, or worker
+- **notes** — a `remember` you saved, an ADR, a `WHY:` comment
+- a **work order** — in-scope, off-limits (generated/vendor), needs-sign-off
+
+Paths and names only. A unique string that exists only inside a fixture file
+body must not appear in the JSON.
+
+If two symbols share a name, Prepare returns candidates. It does not pick.
+If nothing to reuse exists, the list is empty — do not invent a helper.
+If the stack is unknown, House Style is empty — do not invent a style.
+
+The work order is **advisory**. The IDE hook that can veto a write stays off
+until an Accepted ADR arms it.
+
+When Iris has an index, a Dispatch job gets that pack in its prompt. The
+worker still has no shell and still does not get file bodies.
+
+See [Prepare a change](/docs/guides/prepare-a-change).

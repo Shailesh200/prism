@@ -61,15 +61,26 @@ risk is high.
 prism explain src/some/directory
 ```
 
-## 7. Optional — give an agent the same data
+## 7. Prepare before you edit
+
+```bash
+prism prepare "add caching to fetchUser"
+```
+
+Paths, reuse, and House Style — never file bodies. See
+[Prepare a change](/docs/guides/prepare-a-change).
+
+## 8. Optional — give an agent the same data
 
 Follow [MCP install](/docs/start/install), then ask in plain language — you never
-type tool names.
+type tool names. The first habit for a change is “prepare this,” not “dump
+the repo.”
 
 ## Next
 
 | You want | Go to |
 |---|---|
 | Task recipes | [Guides](/docs/guides/understand-a-repo) |
+| Prepare / Envelope / Guard | [Prepare](/docs/guides/prepare-a-change) · [Envelope](/docs/guides/envelope-and-iris) · [Guard](/docs/guides/guard-a-session) |
 | Every command | [CLI reference](/docs/reference/cli-commands) |
 | Something looks wrong | [Troubleshooting](/docs/help/troubleshooting) |

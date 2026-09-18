@@ -1,14 +1,10 @@
-import { DispatchTheater } from "@/components/dispatch-theater";
+import { EnvelopeTheater } from "@/components/envelope-theater";
 
-/** Magazine plate — current Dispatch Console Pulse, not a stale screenshot. */
+/** Magazine plate — Iris Envelope scoreboard for the 1.12.0 ship. */
 export function WhatsNewStill() {
   return (
-    <figure className="wn-plate wn-plate--console">
-      <DispatchTheater variant="magazine" />
-      <figcaption className="wn-plate__cap">
-        Console · Pulse · New job
-        <span>prismhq.localhost:17330</span>
-      </figcaption>
-    </figure>
+    <div className="wn-still">
+      <EnvelopeTheater />
+    </div>
   );
 }

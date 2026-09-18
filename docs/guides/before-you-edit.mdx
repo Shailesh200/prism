@@ -4,6 +4,8 @@ description: "Check blast radius and test impact before changing unfamiliar code
 ---
 
 > Know what depends on a file — and which tests cover it — before you touch it.
+> For a whole task (pack, reuse, House Style), start with
+> [Prepare a change](/docs/guides/prepare-a-change).
 
 <Tabs groupId="surface" items={['CLI', 'VS Code', 'AI agent']} persist>
   <Tab value="CLI">
@@ -26,6 +28,9 @@ shows blast above the first line when enabled.
 
 Ask the agent: "I'm about to edit `src/auth/session.ts` — what depends on it,
 what's the risk band, and which tests cover it?"
+
+For a task in plain language, ask it to **prepare the change** first
+(`prepare_change`) so the chat gets paths and why, not file bodies.
 
 Optional prompt: `before_edit` (calls `blast_radius` and `test_impact`).
 
@@ -52,5 +57,6 @@ runtime DI are invisible.
 
 ## Related
 
-[Delete safely](/docs/guides/delete-safely) · [Review a PR](/docs/guides/review-a-pr) ·
-[Graphs](/docs/concepts/graphs)
+[Prepare a change](/docs/guides/prepare-a-change) ·
+[Guard a session](/docs/guides/guard-a-session) ·
+[Delete safely](/docs/guides/delete-safely) · [Review a PR](/docs/guides/review-a-pr)

@@ -41,6 +41,21 @@ export function baseOptions(): BaseLayoutProps {
             description: "DNA, blast radius, and stack domains.",
           },
           {
+            text: "Envelope",
+            url: "/products#envelope",
+            description: "Receipts for Intelligence calls. Never source.",
+          },
+          {
+            text: "Prepare",
+            url: "/products#prepare",
+            description: "Pack, reuse, House Style — no file bodies.",
+          },
+          {
+            text: "Guard",
+            url: "/products#guard",
+            description: "Read the dirty files that can actually hurt.",
+          },
+          {
             text: "Dispatch",
             url: "/products#dispatch",
             description: "Hand a change to a teammate.",

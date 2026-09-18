@@ -1,0 +1,125 @@
+---
+title: Prepare a change
+description: "One call before you edit: the files to open, helpers to reuse, House Style, notes, and a work order — never file bodies."
+---
+
+> Ask Prism what to open. Do not dump the repo into the chat.
+
+`prepare_change` (CLI: `prism prepare`) is the habit before an edit. One call
+returns a **pack** of files, **reuse** hits, three **House Style** exemplars,
+**notes** Prism already knows, and a **work order**. Paths and symbol names
+only — never the contents of those files.
+
+<Tabs groupId="surface" items={['CLI', 'VS Code', 'AI agent']} persist>
+  <Tab value="CLI">
+
+```bash
+prism prepare "add caching to fetchUser"
+prism prepare --json "add caching to fetchUser"
+prism prepare --budget 4000 "add an Express route for users"
+```
+
+`--budget` is **map tokens** (path + symbol names + why), default 4000. It is
+not the size of the source files.
+
+  </Tab>
+  <Tab value="VS Code">
+
+Command Palette → **Prism: Prepare change**, or ask the agent in chat. The
+Console Iris screen shows the last pack for the selected repo after a call.
+
+  </Tab>
+  <Tab value="AI agent">
+
+Ask: “I’m about to add caching to fetchUser — what should I open, what
+already exists, and how does this repo do this?”
+
+The agent should call `prepare_change` once. It should not open every file or
+call `search_symbols` with a one-letter pattern first.
+
+  </Tab>
+</Tabs>
+
+## What comes back
+
+### Pack
+
+A ranked list of files for this task, each with:
+
+- **path** and **symbols** to look at
+- **why** — feature member, import distance, colocated test, ownership, churn
+- **tokenWeight** — cost of the *map* of that file, not its body
+- **provenance** — measured, heuristic, or inferred
+
+If the list does not fit the budget, `truncated` is true and `totalCount` is
+how many files scored high enough. Tests for those files are listed separately.
+
+If two symbols share a name, Prepare returns **candidates** and does not pick
+silently.
+
+### Reuse
+
+Existing helpers that already do the thing you described — a cache function,
+a fetch wrapper, a route helper. Empty means “none found,” not “invent one.”
+
+Hits come from name overlap, the same feature, or a close synonym. Vendor and
+generated files are not recommended.
+
+### House Style
+
+Three exemplars for how *this* repo already does a pattern:
+
+| Pattern | Example |
+|---|---|
+| `route-handler` | Express or Next handler next to the route |
+| `screen` | UI screen next to its feature |
+| `colocated-test` | test file next to the implementation |
+| `worker` | job / queue worker |
+
+The three are **canonical** (most used), **recent** (newest git), and
+**older**. If the stack is unknown, the list is empty — Prism will not invent
+a style.
+
+### Notes
+
+Facts Prism already has about those files: a `remember` you saved on a symbol,
+an ADR path, or a `WHY:` / `NOTE:` comment. Empty when there are none.
+
+### Work order
+
+Same compute as the [`work_order`](/docs/reference/mcp-tools#work_order) tool:
+
+| Field | Meaning |
+|---|---|
+| **inScope** | Files the task is allowed to touch |
+| **offLimits** | Generated or vendor paths |
+| **needsSignOff** | High blast or shared ownership |
+| **advisory** | True — this does not block writes by default |
+
+The IDE hook that can **veto** a write stays off until an Accepted ADR arms
+it. Until then, the order is advice.
+
+## A simple loop
+
+1. **Prepare** — one call, no file bodies.
+2. **Edit** — you or a [Dispatch](/docs/guides/dispatch) teammate.
+3. **Verify** — Prism runs *this repo’s* checks (lint and/or test and/or
+   typecheck, or Go / Python equivalents). No checks found → **—**, not Failure.
+4. **Guard** — read the few dirty files that can actually hurt.
+   See [Guard a session](/docs/guides/guard-a-session).
+
+## When this is wrong
+
+- The pack is a map. Open the files yourself. Inferred feature membership is
+  a guess until you read them.
+- Budget is map tokens (`ceil(chars/4)`), not LLM context and not file size.
+- A missing reuse list means “do not invent a helper,” not “the repo has none
+  you could write.”
+- Work order off-limits is advisory unless the write-veto ADR is accepted.
+
+## Related
+
+[Before you edit](/docs/guides/before-you-edit) ·
+[Guard a session](/docs/guides/guard-a-session) ·
+[Envelope and Iris](/docs/guides/envelope-and-iris) ·
+[Remember context](/docs/guides/remember-context)

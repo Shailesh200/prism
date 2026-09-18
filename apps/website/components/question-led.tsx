@@ -11,16 +11,34 @@ const QUESTIONS = [
     cta: "Understand a repo",
   },
   {
+    q: "What should I open for this task?",
+    a: "Prepare returns a pack, reuse, and House Style — paths only, never file bodies.",
+    href: "/docs/guides/prepare-a-change",
+    cta: "Prepare a change",
+  },
+  {
     q: "What breaks if I change this?",
     a: "Blast radius traces dependents, tests, and features before you edit.",
     href: "/docs/guides/before-you-edit",
     cta: "Before you edit",
   },
   {
+    q: "What should I read first after a messy session?",
+    a: "Guard ranks this session’s dirty files by blast. Pre-existing dirt stays out.",
+    href: "/docs/guides/guard-a-session",
+    cta: "Guard a session",
+  },
+  {
+    q: "Did the agent dump the repo?",
+    a: "Envelope is the receipt: bytes kept vs dump, truncated lists that admitted it.",
+    href: "/docs/guides/envelope-and-iris",
+    cta: "Envelope and Iris",
+  },
+  {
     q: "Is the codebase getting healthier?",
-    a: "Engineering health and trends show drift, debt, and hotspots over time.",
-    href: "/docs/guides/track-health",
-    cta: "Track health",
+    a: "Findings stay open until a re-scan drops the fingerprint. Health tracks the rest.",
+    href: "/docs/guides/findings",
+    cta: "Findings",
   },
 ];
 
@@ -30,14 +48,14 @@ export function QuestionLed() {
       <Reveal>
         <div className="mb-10 space-y-3">
           <p className="font-mono text-xs tracking-widest text-fd-primary">
-            Nº06
+            Nº09
           </p>
           <h2 className="max-w-xl font-display text-3xl font-semibold tracking-tight text-fd-foreground md:text-4xl">
-            Three questions Prism answers
+            Questions Prism answers
           </h2>
         </div>
       </Reveal>
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {QUESTIONS.map((item, i) => (
           <Reveal key={item.href} delay={i * 0.08} y={16}>
             <Link

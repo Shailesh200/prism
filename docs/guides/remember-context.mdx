@@ -1,0 +1,83 @@
+---
+title: Remember context
+description: "Working set, Living AGENTS.md, and symbol notes — so a compacted chat does not rediscover the neighborhood."
+---
+
+> Prism can hold the files you already decided matter. It will not write an
+> AGENTS.md into your git tree.
+
+Three small stores sit next to Prepare. They are local. They are not a second
+model.
+
+## Working set
+
+After a long chat or a job that compacted, you should not have to find the
+same files again.
+
+`working_set` holds:
+
+```text
+files[] · symbols[] · decisions[] · neighbors[]
+```
+
+Neighbors are one hop on the knowledge graph from those files.
+
+| You say | What happens |
+|---|---|
+| “Remember we decided to keep the cache in lruCache” | `working_set` action=set, plus `remember` if it is a standing fact |
+| “Where were we on that job?” | `working_set` with that job id |
+
+Pass a job id to read or extend that job’s set (the next resume prompt
+injects it). Omit the id for the standalone, per-workspace set. `set` **merges**;
+it never wipes what is already there.
+
+Working set is distinct from [`remember`](/docs/reference/mcp-tools#remember).
+`remember` is a standing fact. Working set is “what this session already
+opened.”
+
+## Living AGENTS.md
+
+`agents_md` writes a contributor sheet from the index: features, import
+cycles, test locations, owners. **No LLM prose.**
+
+```bash
+prism agents-md generate
+prism agents-md check
+```
+
+The file lives only at:
+
+```text
+~/.prism/workspaces/<key>/agents.md
+```
+
+It is **never** written into the repository, never into `{repo}/.prism/*.md`,
+and never copied to `CLAUDE.md`. If this repo already has an `AGENTS.md`,
+generate may *read* it as input. It will not overwrite it.
+
+`check` compares the claims to a fresh index (`dependency_cycles`,
+`list_features`). CI can fail when a claim went stale.
+
+MCP: `agents_md` with `action=generate` or `check`. Read
+`prism://agents-md` for the current text without regenerating.
+
+## Symbol notes
+
+`remember` can attach a fact to a **symbol** or **path**. If you later rename
+that symbol, Prism rewrites the stored id so the note moves with it.
+
+`prepare_change` includes those notes, plus ADR / `WHY:` / `NOTE:` hits, on
+the pack. See [Prepare a change](/docs/guides/prepare-a-change).
+
+## When this is wrong
+
+- Do not copy `~/.prism/.../agents.md` into the repo or offer to commit it.
+- Working set is not a dump of the tree. It is the neighborhood you already
+  named.
+- Notes that are not attached to a symbol/path will not move on rename.
+
+## Related
+
+[Prepare a change](/docs/guides/prepare-a-change) ·
+[Dispatch](/docs/guides/dispatch) ·
+[Consent and privacy](/docs/concepts/consent-and-privacy)

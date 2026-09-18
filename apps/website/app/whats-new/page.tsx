@@ -11,7 +11,7 @@ import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import Link from "next/link";
 import { pageMetadata } from "@/lib/seo";
-import { Globe, LayoutDashboard, UsersRound } from "lucide-react";
+import { Inbox, FolderOpen, Shield } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { PageEnter } from "@/components/motion/PageEnter";
 import { Reveal } from "@/components/motion/Reveal";
@@ -39,9 +39,9 @@ const FEATURE_CARDS: Array<{
   kicker: string;
   Icon: LucideIcon;
 }> = [
-  { slug: "1-8-0-console", kicker: "FEAT_01 · Console", Icon: LayoutDashboard },
-  { slug: "1-8-0-website", kicker: "FEAT_02 · Website", Icon: Globe },
-  { slug: "1-8-0-mcp", kicker: "FEAT_03 · MCP", Icon: UsersRound },
+  { slug: "1-12-0-envelope", kicker: "FEAT_01 · Envelope", Icon: Inbox },
+  { slug: "1-12-0-prepare", kicker: "FEAT_02 · Prepare", Icon: FolderOpen },
+  { slug: "1-12-0-guard", kicker: "FEAT_03 · Guard", Icon: Shield },
 ];
 
 async function loadPosts(): Promise<PostMeta[]> {

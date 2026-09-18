@@ -20,6 +20,11 @@ fiction.
 | **Derived** | Computed from the index by a deterministic rule |
 | **Estimated** | Inferred from indirect evidence — directionally useful |
 | **Unavailable** | Prism does not know, and will not pretend to |
+| **Heuristic** | A useful rule (follow-through, reuse score) that is not a parse |
+| **Inferred** | Feature membership or similar-by-name — not load-bearing until you open the file |
+
+Graph edges on Intelligence tools carry `measured` | `heuristic` | `inferred`.
+The Envelope byte ratio is measured. Iris follow-through is heuristic.
 
 Surfaces show this: markers in the extension, fields in `--json`, labels in the
 CLI. Estimated figures are labelled; unavailable ones are absent rather than

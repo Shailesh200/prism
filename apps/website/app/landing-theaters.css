@@ -1121,6 +1121,101 @@ html[data-theme="light"] .lt-gantt__track {
   }
 }
 
+/* ── Envelope / Prepare / Guard stacks ───────────────────────────── */
+
+.lt-stack {
+  display: grid;
+  gap: 12px;
+  padding: 14px 14px 12px;
+}
+
+.lt-stack__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.lt-stack__head .lt-pulse__label {
+  margin: 0;
+}
+
+.lt-stack__dek {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--prism-ink-muted);
+}
+
+.lt-stack__rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.lt-stack__row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--prism-line);
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--prism-panel) 88%, transparent);
+  font-size: 12px;
+}
+
+.lt-stack__row span {
+  color: var(--color-fd-foreground);
+}
+
+.lt-stack__row strong {
+  font-size: 12px;
+  color: var(--prism-brand);
+  justify-self: end;
+}
+
+.lt-stack__row em {
+  grid-column: 1 / -1;
+  font-style: normal;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--prism-ink-muted);
+}
+
+.lt-stack__path {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lt-stack__row--ranked {
+  grid-template-columns: auto 1fr;
+}
+
+.lt-stack__row--ranked strong {
+  justify-self: start;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--prism-ink-muted);
+}
+
+.lt-stack__row--wait {
+  border-left: 3px solid #f59e0b;
+}
+
+.lt-stack__row--done {
+  border-left: 3px solid var(--prism-line);
+}
+
+.lt-stack .lt-log {
+  height: auto;
+  grid-template-rows: none;
+}
+
 /* ── Intelligence (Playground DNA / Blast / Domains) ─────────────── */
 
 .lt-intel {

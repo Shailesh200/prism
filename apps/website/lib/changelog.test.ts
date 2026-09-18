@@ -78,6 +78,23 @@ describe("parseChangelog", () => {
     expect(releaseDek(release!)).toBe("Queue a teammate from chat.");
   });
 
+  it("tags Envelope / Prepare / Guard as Intelligence", () => {
+    const [release] = parseChangelog(`# Changelog
+
+## 1.12.0 — Agent-native
+
+### Intelligence
+
+- Envelope receipts and prepare_change packs.
+
+### MCP
+
+- prepare_change and guard_session.
+`);
+    expect(releaseTags(release!)).toEqual(["Intelligence", "MCP"]);
+    expect(releaseChips(release!)).toEqual(["Intelligence", "MCP"]);
+  });
+
   it("does not treat Cursor/MCP boilerplate as an MCP chip", () => {
     const [release] = parseChangelog(`# Changelog
 

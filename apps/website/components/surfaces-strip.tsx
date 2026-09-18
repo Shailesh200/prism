@@ -17,7 +17,22 @@ const SURFACES = [
   {
     href: "/docs/start/install",
     title: "AI agents (MCP)",
-    body: "41 structural tools for agents — plus Dispatch for the changes you hand off.",
+    body: "Prepare, Guard, Envelope, findings, and the rest of the Intelligence tools — plus Dispatch for the changes you hand off.",
+  },
+  {
+    href: "/docs/guides/envelope-and-iris",
+    title: "Envelope + Iris",
+    body: "The local index, plus a receipt for every Intelligence call. Never source.",
+  },
+  {
+    href: "/docs/guides/prepare-a-change",
+    title: "Prepare",
+    body: "One call before you edit: pack, reuse, House Style, work order.",
+  },
+  {
+    href: "/docs/guides/guard-a-session",
+    title: "Guard",
+    body: "Rank this session’s dirty files so you read the high-blast ones first.",
   },
   {
     href: "/docs/guides/dispatch",
@@ -38,7 +53,7 @@ export function SurfacesStrip() {
         <Reveal>
           <div className="space-y-3">
             <p className="font-mono text-xs tracking-widest text-fd-primary">
-              Nº07
+              Nº10
             </p>
             <h2 className="font-display text-2xl font-semibold tracking-tight text-fd-foreground md:text-3xl">
               One engine, every surface

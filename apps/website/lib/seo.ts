@@ -15,7 +15,7 @@ export const SITE_NAME = "Prism";
 export const SITE_DEFAULT_TITLE = "Prism — local-first software intelligence";
 
 export const SITE_DESCRIPTION =
-  "Local-first software intelligence — a teammate for every agent. Maps, graphs, impact, health, and Dispatch on your machine. Not a coding model.";
+  "Local-first software intelligence — a teammate for every agent. Maps, Prepare, Envelope, Guard, findings, and Dispatch on your machine. Not a coding model.";
 
 export const MARKETING_ROUTES: Array<{
   path: string;
@@ -252,6 +252,10 @@ export function websiteJsonLd(): Record<string, unknown> {
           "Local-first software intelligence engine. Repository maps, dependency graphs, blast radius, and health — exposed as a CLI, IDE extensions, and an MCP server for AI agents. Analysis makes no network calls.",
         featureList: [
           "Repository map and DNA",
+          "Prepare a change — pack, reuse, House Style, never file bodies",
+          "Envelope ledger — receipts for Intelligence calls, never source",
+          "Guard — rank a dirty session by blast risk",
+          "Findings loop — resolved only after a re-scan",
           "Blast radius and impact analysis",
           "Engineering health tracking",
           `MCP server with ${PRISM_TOOL_COUNT} tools for AI agents`,
@@ -293,6 +297,22 @@ export function faqJsonLd(): Record<string, unknown> {
         acceptedAnswer: {
           "@type": "Answer",
           text: "TypeScript and JavaScript are fully analysed — imports, symbols, references, graphs, the lot. Other languages are indexed for structure, size and churn, so file-level and git-derived signals work everywhere. Symbol-level analysis does not.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "What is Envelope?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "A local receipt for every Intelligence tool call — tool name, item counts, whether the list was cut short, and JSON bytes. No prompts, no paths, no source. Iris shows bytes kept vs dump for the selected repo.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "What is prepare_change?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "One call before you edit. It returns the files to open, helpers to reuse, three House Style exemplars, notes, and a work order — paths and names only, never file bodies.",
         },
       },
       {

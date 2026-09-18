@@ -94,9 +94,9 @@ export function HomeHero() {
           data-hero-sub
           className="mt-6 max-w-2xl text-base text-fd-muted-foreground md:text-lg"
         >
-          Not a coding model. Local software intelligence — maps, blast radius,
-          and health for the repo on your machine. Dispatch is the teammate: it
-          runs in the agent you already have, on any MCP host.
+          Not a coding model. Local software intelligence — maps, Prepare,
+          Envelope, Guard, and health for the repo on your machine. Dispatch is
+          the teammate: it runs in the agent you already have, on any MCP host.
         </p>
         <div
           data-hero-actions
