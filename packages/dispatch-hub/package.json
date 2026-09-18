@@ -1,6 +1,6 @@
 {
   "name": "@repo-prism/dispatch-hub",
-  "version": "1.11.1",
+  "version": "1.12.0",
   "type": "module",
   "description": "Prism Hub — loopback dashboard and OS notifications for Dispatch jobs",
   "exports": {
@@ -12,7 +12,9 @@
   "bin": {
     "prism-hub": "./dist/bin.js"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json && bun run scripts/build-dashboard.ts && bun run scripts/build-notify.ts",
     "start": "node dist/bin.js",

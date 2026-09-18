@@ -1,6 +1,6 @@
 {
   "name": "@repo-prism/core",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "type": "module",
   "description": "Public Core SDK façade — only supported integration surface",
   "exports": {

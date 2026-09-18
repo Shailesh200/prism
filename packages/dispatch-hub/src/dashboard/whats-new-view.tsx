@@ -3,19 +3,19 @@ import type { ReactElement } from "react";
 
 const HIGHLIGHTS = [
   {
-    kicker: "Skills",
-    title: "Version history",
-    body: "Published skills keep snapshots. Revert, delete, or compare. Edit can Update Skill with teammate instructions.",
+    kicker: "Prepare",
+    title: "Ask what to open",
+    body: "One call before you edit: pack, reuse, House Style, and a work order. Paths only — never file bodies.",
   },
   {
-    kicker: "Pulse",
-    title: "Pause is its own step",
-    body: "The status pill matches the last meter step. Worked time excludes pause. Running and paused bars match done height.",
+    kicker: "Envelope",
+    title: "A receipt, not a dump",
+    body: "Iris shows bytes kept vs dump for Intelligence calls. No source. An empty week is no sessions, never 0%.",
   },
   {
-    kicker: "Dashboard",
-    title: "Every job, by type",
-    body: "Filter Custom job, child jobs, and playbooks. Pulse shows jobs even when the checkout is not in the registry.",
+    kicker: "Guard",
+    title: "Read the 3% that can hurt",
+    body: "Rank this session’s dirty files by blast. Findings stay open until a re-scan drops the fingerprint.",
   },
 ] as const;
 
@@ -26,12 +26,10 @@ export function WhatsNewView(props: {
   return (
     <section className="console__panel ship-log">
       <p className="console__eyebrow">What's new</p>
-      <h1 className="console__title">
-        1.11.1 — Skills history and Pulse meter
-      </h1>
+      <h1 className="console__title">1.12.0 — Envelope, Prepare, Guard</h1>
       <p className="console__lede">
-        Published skills keep versions. Pulse wait, work, and pause match
-        last-step status, and Worked no longer includes pause.
+        Prepare before you edit. Envelope proves the chat stayed lean. Guard
+        ranks the dirty files that can actually hurt.
       </p>
       <ul className="ship-log__feats">
         {HIGHLIGHTS.map((row) => (

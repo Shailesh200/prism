@@ -2,7 +2,7 @@
   "name": "@repo-prism/cursor-extension",
   "displayName": "Prism for Cursor",
   "description": "Prism — local-first Software Intelligence for Cursor: Repository Map, Overview, Blast Radius, and Health. Same Core as the VS Code package; designed to coexist with Prism MCP.",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "private": true,
   "publisher": "prismhq",
   "type": "module",

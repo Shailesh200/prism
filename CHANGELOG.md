@@ -50,6 +50,8 @@ Cuts 1–3 of the agent-native program. One loop: prepare, edit, this repo’s c
 
 - `prism prepare`, `prism agents-md generate|check`, `prism findings list|mute`.
 
+Keep `@latest`. `@repo-prism/dispatch@1.12.0`, `@repo-prism/dispatch-hub@1.12.0`, `@repo-prism/mcp-server@1.12.0`, `@repo-prism/shared@1.3.0`, `@repo-prism/indexer@1.0.3`, `@repo-prism/intelligence@1.1.0`, `@repo-prism/core@1.1.0`, `@repo-prism/host-session@1.2.0`, `@repo-prism/cli@1.1.0`, and Prism extension `1.1.0`. Engine packages that did not change stay `@1.0.1` (analyzer, graph-engine, impact, navigation, repository-map).
+
 See docs: Envelope and Iris, Prepare a change, Guard a session, Findings.
 
 ## 1.11.1 — Skills history and Pulse meter

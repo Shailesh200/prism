@@ -106,7 +106,7 @@
     },
     "packages/cli": {
       "name": "@repo-prism/cli",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "bin": {
         "prism": "./dist/cli.js",
       },
@@ -122,7 +122,7 @@
     },
     "packages/core": {
       "name": "@repo-prism/core",
-      "version": "1.0.2",
+      "version": "1.1.0",
       "dependencies": {
         "@repo-prism/analyzer": "workspace:*",
         "@repo-prism/impact": "workspace:*",
@@ -138,7 +138,7 @@
     },
     "packages/cursor-extension": {
       "name": "@repo-prism/cursor-extension",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "dependencies": {
         "@repo-prism/vscode-extension": "workspace:*",
       },
@@ -148,7 +148,7 @@
     },
     "packages/dispatch": {
       "name": "@repo-prism/dispatch",
-      "version": "1.11.1",
+      "version": "1.12.0",
       "dependencies": {
         "@cursor/sdk": "^1.0.28",
         "@repo-prism/shared": "workspace:*",
@@ -157,7 +157,7 @@
     },
     "packages/dispatch-hub": {
       "name": "@repo-prism/dispatch-hub",
-      "version": "1.11.1",
+      "version": "1.12.0",
       "bin": {
         "prism-hub": "./dist/bin.js",
       },
@@ -188,7 +188,7 @@
     },
     "packages/host-session": {
       "name": "@repo-prism/host-session",
-      "version": "1.1.18",
+      "version": "1.2.0",
       "dependencies": {
         "@repo-prism/core": "workspace:*",
         "@repo-prism/shared": "workspace:*",
@@ -206,7 +206,7 @@
     },
     "packages/indexer": {
       "name": "@repo-prism/indexer",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "dependencies": {
         "@repo-prism/analyzer": "workspace:*",
         "@repo-prism/shared": "workspace:*",
@@ -219,7 +219,7 @@
     },
     "packages/intelligence": {
       "name": "@repo-prism/intelligence",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "dependencies": {
         "@repo-prism/graph-engine": "workspace:*",
         "@repo-prism/shared": "workspace:*",
@@ -227,7 +227,7 @@
     },
     "packages/mcp-server": {
       "name": "@repo-prism/mcp-server",
-      "version": "1.11.1",
+      "version": "1.12.0",
       "bin": {
         "prism-mcp": "./dist/bin.js",
       },
@@ -264,7 +264,7 @@
     },
     "packages/shared": {
       "name": "@repo-prism/shared",
-      "version": "1.2.2",
+      "version": "1.3.0",
       "dependencies": {
         "zod": "^3.25.0",
       },
@@ -301,7 +301,7 @@
     },
     "packages/vscode-extension": {
       "name": "@repo-prism/vscode-extension",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "dependencies": {
         "@repo-prism/app-shell": "workspace:*",
         "@repo-prism/core": "workspace:*",

@@ -1,6 +1,6 @@
 {
   "name": "@repo-prism/intelligence",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "type": "module",
   "description": "Stack detection SPI, DNA, health, insights",
   "exports": {
