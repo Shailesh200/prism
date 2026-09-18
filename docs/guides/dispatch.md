@@ -56,18 +56,14 @@ subagents**. Audits are `repository_health`. Admission is on **free memory**.
 
 ### How work comes back
 
-When a teammate stops, **Prism** runs **this repository’s checks** — never the
-teammate — so what you read carries a real pass/fail. It looks at
-`package.json` (typecheck / lint / test, first script that exists in each
-family), or `go test` / `cargo test` / `pytest` when those manifests are
-what the repo has. No checks found → status **—**, not Failure. If checks
-fail, **Retry verification** runs them again; if they still fail, a teammate
-fixes the errors and Prism verifies once more. A checkout job's edits stay **uncommitted in your
-tree**; the review lists only what the job touched, and **“commit it”** commits
-just those files. A worktree job gets a commit on its own branch. Finish does
-not merge or push; **Keep all** merges that branch onto the one you are on. A
-run that changed nothing says **“produced no reviewable change”**. Write-ups
-belong in `.prism/dispatch/notes/`, the one `.prism/` path a commit includes.
+When a teammate stops, **Prism** runs **this repository’s checks** — never
+the teammate. It uses the typecheck / lint / test scripts that exist, or
+`go test` / `cargo test` / `pytest`. None → **—**, not Failure. Failed
+checks can **Retry verification**, then a teammate fix. Checkout edits stay
+**uncommitted**; **“commit it”** commits only those files. A worktree job
+commits on its branch; **Keep all** merges it. Finish does not push. Empty
+runs say **“produced no reviewable change”**. Notes go in
+`.prism/dispatch/notes/`.
 
 Summaries are checked against the tree, so a teammate cannot claim a file it
 never wrote. A quiet job says **no activity for N minutes**; `job_logs` gives
@@ -87,14 +83,10 @@ State is gitignored under `.prism/dispatch/`.
 
 ## Before the teammate starts
 
-When Iris has an index, `start_job` injects the last
-[Prepare](/docs/guides/prepare-a-change) pack, reuse hits, and House Style
-into the worker prompt. The worker still has **no shell** and **no file
-bodies**. Off-limits paths from the work order are copied into the brief.
-
-A finding you queue (`queue_finding` / Findings → Fix with teammate) is the
-same loop, with origin `finding`. It is resolved only after a re-scan drops
-the fingerprint — see [Findings](/docs/guides/findings).
+When Iris is indexed, `start_job` injects the last
+[Prepare](/docs/guides/prepare-a-change) pack. No file bodies. A finding job
+(`queue_finding`) resolves only after a re-scan — see
+[Findings](/docs/guides/findings).
 
 ## Related
 

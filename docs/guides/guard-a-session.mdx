@@ -14,9 +14,12 @@ package-boundary crossings.
 <Tabs groupId="surface" items={['CLI', 'VS Code', 'AI agent']} persist>
   <Tab value="CLI">
 
-Guard is an MCP / IDE panel first. From chat, ask the agent to run it. From
-a script, `review_changes` still rolls up a diff; Guard is the “read this
-first” ranking of the live dirty set.
+Guard is an MCP / IDE panel. From a script, roll up the dirty tree with
+review; then ask the agent for Guard’s read-first ranking.
+
+```bash
+prism review
+```
 
   </Tab>
   <Tab value="VS Code">
