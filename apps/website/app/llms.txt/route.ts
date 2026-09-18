@@ -24,14 +24,15 @@ export async function GET() {
   const body = `# Prism
 
 > Local-first software intelligence for repositories — maps, graphs, blast
-> radius, and health, analysed on your machine. Exposed as a CLI, VS Code /
-> Cursor extensions, and an MCP server (${PRISM_TOOL_COUNT} tools) for AI agents. Dispatch adds
-> background teammates that edit your checkout while Prism runs the checks.
+> radius, health, Prepare, Envelope, and Guard — analysed on your machine.
+> Exposed as a CLI, VS Code / Cursor extensions, and an MCP server
+> (${PRISM_TOOL_COUNT} tools) for AI agents. Dispatch adds background
+> teammates that edit your checkout while Prism runs this repository's checks.
 
 ## Product
 
 - [Install](${site}/install): Node 26+, pick a surface, confirm it works
-- [Products](${site}/products): Playground, Intelligence, and Dispatch
+- [Products](${site}/products): Spectrum, Intelligence, Envelope, Prepare, Guard, Dispatch
 - [Benchmarks](${site}/benchmarks): task-led features plus measured orientation savings
 - [What's new](${site}/whats-new): release timeline
 - [Privacy](${site}/privacy): no account, no telemetry, consent-gated network
@@ -49,7 +50,11 @@ ${pages}
 - TypeScript/JavaScript get symbol-level analysis; other languages get
   structure, size, and churn.
 - Task guides under /docs/guides answer "how do I …" faster than the
-  concept pages.
+  concept pages. Before an edit, agents should call prepare_change
+  (pack + reuse + House Style, no file bodies) instead of dumping the repo.
+- Envelope is a local ledger of Intelligence calls (counts and bytes, never
+  source). Guard ranks a dirty session by blast. Findings stay open until
+  a re-scan drops the fingerprint.
 `;
 
   return new Response(body, {

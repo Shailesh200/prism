@@ -24,6 +24,10 @@ Prism parses source into a local index and derives views from that one store:
 | **Repository DNA** | What is this built from, and which domains does it span? |
 | **Health score** | Where is risk concentrated, and why? |
 | **Blast radius** | If I change this file, what else is affected? |
+| **Prepare** | What should I open for this task, and what already exists? |
+| **Envelope** | How much did agents take from the index, without dumping source? |
+| **Guard** | Of everything I just dirtied, what should I read first? |
+| **Findings** | What unused or duplicated code can become a job? |
 
 ## Where you use it
 
@@ -33,6 +37,7 @@ Prism parses source into a local index and derives views from that one store:
 | **CLI** | Scripts, CI, terminal workflows |
 | **MCP server** | Giving an AI agent real structural knowledge |
 | **Spectrum** | Trying Prism in a browser without an extension |
+| **Console Iris** | Index facts plus the Envelope ledger for the selected repo |
 
 ## Is it for you?
 
@@ -46,7 +51,8 @@ written in a language Prism does not parse deeply. See
 Prism itself never writes code — the analysis has no model behind it. When you
 do want a change made, [Dispatch](/docs/guides/dispatch) hands it to your editor's
 own agent (Cursor or Claude Code, under your sign-in) and Prism runs the
-checks afterwards.
+checks afterwards. Before that edit, [Prepare a change](/docs/guides/prepare-a-change)
+returns the files to open — never the file bodies.
 
 ## Cost
 

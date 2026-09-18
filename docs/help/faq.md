@@ -99,7 +99,8 @@ absent. An agent cannot give informed consent on your behalf.
 
 Your own editor's agent — a Cursor agent in Cursor, a Claude Code agent in
 Claude Code — signed in with your existing session. Prism writes the brief,
-watches the run, and runs typecheck and tests when the worker stops. Dispatch
+watches the run, and runs this repository’s checks when the worker stops
+(lint and/or test and/or typecheck — or **—** if none exist). Dispatch
 itself makes no network calls and holds no third-party tokens; connectors
 (Slack, Linear, GitHub, Calendar) belong to your agent window, not to Prism.
 See [Dispatch](/docs/guides/dispatch).
@@ -128,6 +129,31 @@ asked it to, and leaves the edits uncommitted until you say so.
 The only thing Prism writes on its own is `.prism/`. The one execution path is
 explicit: with `run.local-build` consent, Prism runs your repository's own
 build script to measure bundle weight.
+
+## What is Envelope?
+
+A local receipt for every Intelligence tool call — tool name, item counts,
+whether the list was cut short, and JSON bytes. No prompts, no paths, no
+source. Iris shows bytes kept vs dump for the selected repo. See
+[Envelope and Iris](/docs/guides/envelope-and-iris).
+
+## What is prepare_change?
+
+One call before you edit. It returns the files to open, helpers to reuse,
+three House Style exemplars, notes, and a work order — paths and names only,
+never file bodies. CLI: `prism prepare`. See
+[Prepare a change](/docs/guides/prepare-a-change).
+
+## When is a finding “fixed”?
+
+When a **re-scan** drops its fingerprint. A Dispatch job reaching `done` is
+not enough. See [Findings](/docs/guides/findings).
+
+## Does Prism write AGENTS.md into my repo?
+
+No. `prism agents-md generate` writes only
+`~/.prism/workspaces/<key>/agents.md`. Do not copy it into git. See
+[Remember context](/docs/guides/remember-context).
 
 ## Is there a hosted version?
 

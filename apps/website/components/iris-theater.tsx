@@ -121,7 +121,7 @@ export function IrisTheater() {
               <em>health</em> grade A · drift −0.4 this week
             </p>
             <p>
-              <em>spectrum</em> map ready · local, no network
+              <em>envelope</em> 18% bytes vs dump · no source
             </p>
           </div>
         </div>

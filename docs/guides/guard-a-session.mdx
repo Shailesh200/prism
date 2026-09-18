@@ -1,0 +1,75 @@
+---
+title: Guard a session
+description: "Rank the dirty files that can actually hurt, so you read the 3% first."
+---
+
+> After a vibecode session, do not read twenty files in git order. Read the
+> two that can break the most.
+
+`guard_session` looks at **this session’s** dirty files — the working tree
+minus anything you already had dirty when the work started — and ranks them
+by blast risk. High-blast hunks first. Flags on duplicates, orphans, and
+package-boundary crossings.
+
+<Tabs groupId="surface" items={['CLI', 'VS Code', 'AI agent']} persist>
+  <Tab value="CLI">
+
+Guard is an MCP / IDE panel first. From chat, ask the agent to run it. From
+a script, `review_changes` still rolls up a diff; Guard is the “read this
+first” ranking of the live dirty set.
+
+  </Tab>
+  <Tab value="VS Code">
+
+Open the **Guard** panel after a messy session. Pre-existing dirty files stay
+out of the list. The top rows are the ones with the largest blast radius.
+
+  </Tab>
+  <Tab value="AI agent">
+
+Ask: “I just finished a messy session — what should I read first?”
+
+The agent calls `guard_session`. For a job’s own files only, it passes
+`preExistingChanges` so your leftover edits are not mixed in.
+
+  </Tab>
+</Tabs>
+
+## What you get back
+
+| Check | Meaning |
+|---|---|
+| **Blast rank** | Changed paths sorted so the highest-risk file is first |
+| **Duplicate** | A new symbol that looks like one that already exists |
+| **Orphan** | A new file nothing imports yet |
+| **Boundary** | A change that crossed a package or DNA boundary |
+
+The session is:
+
+```text
+git dirty paths − preExistingChanges
+```
+
+That subtract is why a teammate’s review does not drown in files you already
+had open.
+
+## When to use it
+
+- After you (or a teammate) touched many files and you do not know where to
+  start reading.
+- Before you land uncommitted work — pair with
+  [Review a PR](/docs/guides/review-a-pr).
+- After a finding job: Guard the job’s files, not the whole dirty tree.
+
+## When this is wrong
+
+- Guard does not say the edit is *correct*. It says which files can hurt.
+- Files you pass as `preExistingChanges` are excluded on purpose.
+- Blast is a floor: dynamic imports and runtime DI are invisible. See
+  [Before you edit](/docs/guides/before-you-edit).
+
+## Related
+
+[Prepare a change](/docs/guides/prepare-a-change) ·
+[Review a PR](/docs/guides/review-a-pr) ·
+[Findings](/docs/guides/findings)

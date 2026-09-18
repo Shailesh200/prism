@@ -238,6 +238,27 @@ export default function InstallPage() {
                 Usage
               </Link>
               {" · "}
+              <Link
+                href="/docs/guides/prepare-a-change"
+                className="text-fd-primary"
+              >
+                Prepare
+              </Link>
+              {" · "}
+              <Link
+                href="/docs/guides/envelope-and-iris"
+                className="text-fd-primary"
+              >
+                Envelope
+              </Link>
+              {" · "}
+              <Link
+                href="/docs/guides/guard-a-session"
+                className="text-fd-primary"
+              >
+                Guard
+              </Link>
+              {" · "}
               <Link href="/docs/guides/dispatch" className="text-fd-primary">
                 Dispatch
               </Link>

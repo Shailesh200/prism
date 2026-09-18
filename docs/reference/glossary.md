@@ -31,6 +31,10 @@ conventions. Determines which domain screens appear. See
 infrastructure. Detected, not configured. See
 [Investigate a domain](/docs/guides/investigate-domain).
 
+**Envelope** — A local JSONL ledger of Intelligence calls: tool, counts,
+truncated, bytes. Never source. Shown on Console Iris. See
+[Envelope](/docs/concepts/envelope).
+
 **Estimated** — Inferred rather than measured. Directionally useful; not precise.
 Marked as such wherever it appears. See
 [signal provenance](/docs/concepts/signal-provenance).
@@ -38,6 +42,17 @@ Marked as such wherever it appears. See
 **Feature** — A group of files that appear to implement one capability, inferred
 from imports, naming and structure. Repositories do not declare these. See
 [graphs](/docs/concepts/graphs).
+
+**Finding** — A queueable issue (unused export, duplicate implementation,
+wrapper) identified by a fingerprint. Resolved only when a re-scan drops that
+fingerprint. See [Findings](/docs/guides/findings).
+
+**Guard** — Rank of this session’s dirty files by blast risk, minus
+pre-existing dirt. See [Guard a session](/docs/guides/guard-a-session).
+
+**House Style** — Three exemplars (canonical, recent, older) for how this
+repo already does a pattern — route-handler, screen, colocated-test, worker.
+Returned by Prepare. See [Prepare a change](/docs/guides/prepare-a-change).
 
 **Hotspot** — High churn crossed with high complexity. The intersection is what
 matters; neither metric alone identifies it.
@@ -47,12 +62,14 @@ matters; neither metric alone identifies it.
 [the repository index](/docs/concepts/repository-index).
 
 **Iris** — The accumulated knowledge of a workspace: the index, graphs, DNA,
-landmarks, health, findings, and memories. An aperture, not a persona — never
-first person, never an avatar. See the Console `#/iris` route.
+landmarks, health, findings, and memories. Console `#/iris` shows facts plus
+the Envelope scoreboard — not the repository map. An aperture, not a persona
+— never first person, never an avatar. See
+[Envelope and Iris](/docs/guides/envelope-and-iris).
 
 **Spectrum** — The browser intelligence app (formerly Playground) that indexes
-the Dispatch-selected repository. The same name is used for the Iris
-visualization (`RepositoryMapView`) in the Console and the website hero.
+the Dispatch-selected repository. The same map appears in the IDE. Console
+Iris no longer mounts that map — it shows facts and Envelope instead.
 
 **Knowledge graph** — Semantic relationships beyond imports: what a symbol is,
 what it relates to, what it belongs to. See [graphs](/docs/concepts/graphs).
@@ -63,6 +80,10 @@ boundary. What you would point at while explaining the codebase to someone new.
 **Layer** — An overlay on the map that colours structure by one dimension:
 coupling, churn, tests, risk, ownership, features.
 
+**Living AGENTS.md** — A contributor sheet generated from the index into
+`~/.prism/workspaces/<key>/agents.md` only. Never written into git. See
+[Remember context](/docs/guides/remember-context).
+
 **Measured** — Read from real output rather than inferred. The counterpart to
 estimated.
 
@@ -70,7 +91,16 @@ estimated.
 external tools. Prism ships an MCP server. See [using MCP](/docs/usage).
 
 **Orphan** — A file left dead because the only thing reaching it was deleted.
-Reported by safe delete. See [Delete safely](/docs/guides/delete-safely).
+Reported by safe delete. Guard also flags a *new* file with no inbound
+imports. See [Delete safely](/docs/guides/delete-safely).
+
+**Pack** — The ranked file list from `prepare_change`: paths, symbols, why,
+map-token weights. Not file bodies. See
+[Prepare a change](/docs/guides/prepare-a-change).
+
+**Prepare** — One call before an edit: pack + reuse + House Style + notes +
+work order. CLI `prism prepare`. See
+[Prepare a change](/docs/guides/prepare-a-change).
 
 **Provenance** — Whether a value was measured, estimated, or is unknown. See
 [signal provenance](/docs/concepts/signal-provenance).
@@ -81,6 +111,14 @@ Spectrum app. All of them consume the same engine and compute nothing themselves
 **Unavailable** — Prism does not know this, and says so instead of showing zero.
 A repository with no coverage report and one with genuinely zero coverage are
 not the same repository.
+
+**Work order** — In-scope, off-limits (generated/vendor), and needs-sign-off
+paths for a task. Advisory unless an Accepted ADR arms the write veto. See
+[Prepare a change](/docs/guides/prepare-a-change).
+
+**Working set** — Files, symbols, decisions, and graph neighbors kept so a
+compacted chat or job resume does not rediscover context. See
+[Remember context](/docs/guides/remember-context).
 
 **Workspace** — The repository Prism is analysing, and the boundary it will not
 read outside of.

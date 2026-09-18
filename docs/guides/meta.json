@@ -2,8 +2,13 @@
   "title": "Intelligence",
   "pages": [
     "understand-a-repo",
+    "prepare-a-change",
     "before-you-edit",
+    "guard-a-session",
     "review-a-pr",
+    "findings",
+    "envelope-and-iris",
+    "remember-context",
     "delete-safely",
     "track-health",
     "investigate-domain",

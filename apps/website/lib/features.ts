@@ -7,9 +7,29 @@ export const FEATURES = [
     body: "DNA, map, landmarks, and stack profile.",
   },
   {
+    href: "/docs/guides/prepare-a-change",
+    title: "Prepare a change",
+    body: "Pack, reuse, House Style, and a work order — never file bodies.",
+  },
+  {
     href: "/docs/guides/before-you-edit",
     title: "Blast before you edit",
     body: "See dependents, tests, and features in the blast radius.",
+  },
+  {
+    href: "/docs/guides/guard-a-session",
+    title: "Guard a session",
+    body: "Rank this session’s dirty files. Read the high-blast ones first.",
+  },
+  {
+    href: "/docs/guides/envelope-and-iris",
+    title: "Envelope and Iris",
+    body: "Index facts plus a receipt for every Intelligence call.",
+  },
+  {
+    href: "/docs/guides/findings",
+    title: "Queue a finding",
+    body: "Unused, duplicate, wrapper — resolved only after a re-scan.",
   },
   {
     href: "/docs/guides/review-a-pr",

@@ -150,7 +150,10 @@ instructions teach the agent which tools to call, so you never type a tool name.
 | "What is this repo?" / "Orient me" | `repository_dna`, landmarks / overview |
 | "Is this codebase healthy?" | `repository_health` |
 | "Where does checkout live?" | landmarks / features / `find_symbol` |
+| "I'm about to add caching to fetchUser" | `prepare_change` first — pack, reuse, House Style, no bodies |
 | "I'm about to edit `src/…` — what breaks?" | `blast_radius`, `test_impact` |
+| "What should I read first in this dirty tree?" | `guard_session` |
+| "What's unused or duplicated?" | `list_findings` — queue only if asked to fix |
 | "Can I delete this file?" | `safe_delete` |
 | "Review my current changes" | `review_changes` |
 | "Start my day" | `start_my_day` |
@@ -167,7 +170,8 @@ prompt picker.
 2. The first **Intelligence** call may take seconds while the index builds.
    `start_my_day` does not wait on the index.
 3. stdio only — diagnostics on stderr and logging notifications.
-4. Lists are bounded (`totalCount` / `truncated`).
+4. Lists are bounded (`totalCount` / `truncated`). A cut list must say so —
+   that honesty is the [Envelope](/docs/guides/envelope-and-iris).
 5. Paths outside the workspace are refused.
 6. Intelligence tools are read-only. Dispatch tools write gitignored state
    under `.prism/dispatch/`, make no network calls, and hold no third-party
@@ -201,6 +205,7 @@ All tools: [MCP reference](/docs/reference/mcp-tools).
 
 ## Related
 
-[Install](/docs/start/install) · [Dispatch](/docs/guides/dispatch) ·
+[Install](/docs/start/install) · [Prepare a change](/docs/guides/prepare-a-change) ·
+[Dispatch](/docs/guides/dispatch) ·
 [Wire into CI](/docs/guides/wire-into-ci) ·
 [Troubleshooting](/docs/help/troubleshooting)

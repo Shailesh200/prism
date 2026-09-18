@@ -3,8 +3,11 @@ import { baseOptions } from "@/lib/layout.shared";
 import { HomeHero } from "@/components/home-hero";
 import { LandingChapter } from "@/components/landing-chapter";
 import { DispatchTheater } from "@/components/dispatch-theater";
+import { EnvelopeTheater } from "@/components/envelope-theater";
+import { GuardTheater } from "@/components/guard-theater";
 import { IntelligenceTheater } from "@/components/intelligence-theater";
 import { IrisTheater } from "@/components/iris-theater";
+import { PrepareTheater } from "@/components/prepare-theater";
 import { SpectrumTheater } from "@/components/spectrum-theater";
 import { SurfaceTicker } from "@/components/surface-ticker";
 import { QuestionLed } from "@/components/question-led";
@@ -51,21 +54,53 @@ export default function HomePage() {
         <LandingChapter
           index="Nº04 · Iris"
           title="Iris is the aperture"
-          body="Iris is the index, the graphs, DNA, landmarks, health, and memories. It speaks like infrastructure — never first person, never an avatar. Spectrum is the map it already has."
-          href="/docs"
-          cta="How the index works"
+          body="Iris is the index, the graphs, DNA, landmarks, health, and memories. Console Iris shows those facts plus Envelope — not the map. It speaks like infrastructure — never first person, never an avatar."
+          href="/docs/guides/envelope-and-iris"
+          cta="Envelope and Iris"
           className="bg-[color-mix(in_oklab,var(--prism-canvas)_80%,var(--prism-panel))]"
         >
           <IrisTheater />
         </LandingChapter>
 
         <LandingChapter
-          index="Nº05 · Spectrum"
+          index="Nº05 · Envelope"
+          title="Every call leaves a receipt"
+          body="Envelope is a local ledger of Intelligence calls: tool, counts, truncated, bytes. No prompts. No source. Never uploaded. Iris shows bytes kept vs dump — an empty week is “no sessions,” never 0%."
+          href="/docs/guides/envelope-and-iris"
+          cta="Envelope docs"
+          reverse
+        >
+          <EnvelopeTheater />
+        </LandingChapter>
+
+        <LandingChapter
+          index="Nº06 · Prepare"
+          title="Ask what to open. Do not dump the repo."
+          body="One call before you edit: the files to open, helpers to reuse, three House Style exemplars, notes, and a work order. Paths and names only — never file bodies."
+          href="/docs/guides/prepare-a-change"
+          cta="Prepare a change"
+        >
+          <PrepareTheater />
+        </LandingChapter>
+
+        <LandingChapter
+          index="Nº07 · Guard"
+          title="Read the 3% that can hurt"
+          body="After a messy session, Guard ranks this session’s dirty files by blast risk. Pre-existing dirt stays out. Duplicates, orphans, and boundary crossings are flagged."
+          href="/docs/guides/guard-a-session"
+          cta="Guard a session"
+          reverse
+          className="bg-[color-mix(in_oklab,var(--prism-canvas)_80%,var(--prism-panel))]"
+        >
+          <GuardTheater />
+        </LandingChapter>
+
+        <LandingChapter
+          index="Nº08 · Spectrum"
           title="The map Iris already has"
-          body="Spectrum is the repository map — Playground, Console, and the IDE share the same artifact. Packages, clusters, blast. Local. Zero network calls."
+          body="Spectrum is the repository map — Playground, Console, and the IDE share the same artifact. Packages, clusters, blast. Local. Zero network calls. Console Iris no longer mounts this map."
           href="/docs/start/playground"
           cta="Playground docs"
-          reverse
         >
           <SpectrumTheater />
         </LandingChapter>

@@ -11,6 +11,47 @@ a supported configuration.
 
 ## Unreleased
 
+## 1.12.0 — Agent-native: Envelope, Prepare, Guard
+
+Cuts 1–3 of the agent-native program. One loop: prepare, edit, this repo’s checks, Guard, findings that stay open until a re-scan. Still local. No Prism account. Not an LLM product.
+
+### Intelligence
+
+- **Envelope** — every Intelligence call writes a local receipt (`tool`, counts, `truncated`, bytes) to `~/.prism/envelope-ledger.jsonl`. No prompts, paths, or source. Console Iris shows bytes kept vs dump. An empty week is “no sessions,” never `0%`.
+- **Honest lists** — `search_symbols` and other list tools return a real `totalCount`. A cut list sets `truncated: true`.
+- **Honest edges** — import / call / feature edges carry `measured` | `heuristic` | `inferred`. Inferred is not load-bearing until you open the file.
+- **True refs** — two symbols with the same name stay `ambiguous`. They are not merged.
+- **`prepare_change`** — one call before you edit: pack, reuse, House Style, notes, work order. Paths and names only — never file bodies. CLI: `prism prepare`.
+- **`guard_session`** — rank this session’s dirty files (working tree minus `preExistingChanges`) by blast. Flags duplicates, orphans, boundary crossings.
+- **Findings loop** — unused export, duplicate implementation, wrapper. `queue_finding` starts a job. Resolved only when a re-scan drops the fingerprint.
+- **Living AGENTS.md** — `prism agents-md generate` writes only `~/.prism/workspaces/<key>/agents.md`. `--check` fails stale claims. Never written into git.
+- **Working set** — files, symbols, decisions, neighbors so a compacted chat or job resume does not rediscover context.
+- **Work order** — in-scope, off-limits (generated/vendor), needs-sign-off. Advisory unless an Accepted ADR arms the write veto.
+- **`remember`** can attach a fact to a symbol or path; a rename moves it.
+
+### Console
+
+- **Iris** (`#/iris`) no longer mounts the repository map. Facts + Envelope scoreboard + last Prepare for the selected repo.
+- Findings **Fix with teammate** uses the same payload as `queue_finding`.
+- Pulse finding count is the open count from health history, not finished jobs.
+- Verify chip is **—** when this repo has no checks — never Failure from a missing `typecheck`.
+
+### Dispatch
+
+- After a teammate stops, Prism runs **this repository’s checks** (typecheck / lint / test families that exist, or Go / Cargo / pytest). Empty plan → skipped / **—**.
+- `start_job` injects the Prepare pack, reuse, House Style, and work-order off-limits when Iris is indexed. Still no file bodies. Worker still has no shell.
+
+### MCP
+
+- New tools: `prepare_change`, `guard_session`, `queue_finding`, `list_findings`, `agents_md`, `working_set`, `work_order`.
+- Keep `@latest`. Reload MCP after this publish.
+
+### CLI
+
+- `prism prepare`, `prism agents-md generate|check`, `prism findings list|mute`.
+
+See docs: Envelope and Iris, Prepare a change, Guard a session, Findings.
+
 ## 1.11.1 — Skills history and Pulse meter
 
 ### Console

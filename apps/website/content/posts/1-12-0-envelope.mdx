@@ -1,0 +1,31 @@
+---
+title: "1.12.0 — Envelope: a receipt, not a dump"
+description: "Every Intelligence call leaves a local receipt. Iris shows bytes kept vs dump. No source. Never uploaded."
+version: "1.12.0"
+---
+
+Agents are greedy. A search for the letter `e` can match hundreds of names. If
+the tool pretends the list is complete, the agent believes it saw everything.
+If it dumps the graph, the chat fills with noise.
+
+**Envelope** is the fix, and it is boring on purpose.
+
+Each successful Intelligence call appends one JSON line under
+`~/.prism/envelope-ledger.jsonl`: which tool, how many items, whether the list
+was cut short, how many JSON bytes that answer used.
+
+Never in the line: prompts, paths, file bodies, or source code. Never
+uploaded.
+
+Console **Iris** (`#/iris`) reads that ledger for the repo you picked. You
+see bytes kept vs a full dump, change vs last week, and how often a truncated
+list was followed by a tighter call. An empty week is “no sessions” or **—**.
+It is never `0%`. Zero would mean “we measured nothing and called it nothing.”
+
+Iris no longer mounts the repository map. Facts stay. The map lives in
+Spectrum and the IDE.
+
+Lists elsewhere tell the same truth: fifty items of sixty is
+`truncated: true` plus a real `totalCount`.
+
+See [Envelope and Iris](/docs/guides/envelope-and-iris).

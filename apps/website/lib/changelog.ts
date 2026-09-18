@@ -76,7 +76,7 @@ export function releaseTags(release: ChangelogRelease): ShipTag[] {
     tags.add("Dispatch");
   }
   if (
-    /\b(intelligence|codebase dna|blast radius|repository map|health score)\b/i.test(
+    /\b(intelligence|codebase dna|blast radius|repository map|health score|envelope|prepare_change|prepare a change|house style|guard_session|work order|working set)\b/i.test(
       hay,
     )
   ) {

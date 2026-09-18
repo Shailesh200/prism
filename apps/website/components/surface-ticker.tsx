@@ -9,6 +9,9 @@ const ITEMS = [
   "Playground",
   "Dispatch Console",
   "Iris",
+  "Envelope",
+  "Prepare",
+  "Guard",
   "Spectrum",
 ] as const;
 

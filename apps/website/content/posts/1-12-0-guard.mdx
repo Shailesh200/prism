@@ -1,0 +1,30 @@
+---
+title: "1.12.0 — Guard: read the 3% that can hurt"
+description: "After a messy session, rank this session’s dirty files by blast. Pre-existing dirt stays out."
+version: "1.12.0"
+---
+
+A vibecode session dirties twenty files. Git order is not the order you
+should read them.
+
+**`guard_session`** takes this session — dirty paths minus
+`preExistingChanges` — and ranks it by blast risk. High-blast hunks first.
+It also flags:
+
+- a new symbol that looks like one that already exists
+- a new file nothing imports yet
+- a change that crossed a package or DNA boundary
+
+That subtract is why a teammate’s review does not drown in files you already
+had open.
+
+Guard does not say the edit is correct. It says which files can hurt. Pair
+it with [Review a PR](/docs/guides/review-a-pr) before you land work.
+
+Findings (unused export, duplicate implementation, wrapper) are a different
+loop: queue one, let a teammate fix it, then **re-scan**. A job that says
+`done` is not resolved. Pulse’s finding count is the open count from health
+history.
+
+See [Guard a session](/docs/guides/guard-a-session) and
+[Findings](/docs/guides/findings).
