@@ -2,14 +2,16 @@
 
 > **Status:** APPROVED  
 > **Version:** 0.1.0  
-> **Last updated:** 2026-09-17  
+> **Last updated:** 2026-09-19  
 > **Approved:** 2026-07-20 (owner)  
 > **Supersedes working name:** RepoPulse  
 > **Single source of truth** for product architecture, milestones, and engineering workflow.
 
-**Master Plan approved.** Core, the map, impact analysis and the VS Code /
-Cursor extensions have shipped; MCP and CLI are the remaining surfaces. Current
-milestone status lives in [`PROGRESS.md`](./PROGRESS.md).
+**Master Plan approved.** Prism is **one Intelligence product** (ADR-0057).
+Core, impact, Envelope, Prepare, MCP, CLI, and the IDE extensions have shipped.
+The next program ([`PROGRAM_prism-2.0.md`](./milestones/PROGRAM_prism-2.0.md))
+sanitizes the Dashboard into one rail and collapses packages without rewriting
+engines. Current milestone status lives in [`PROGRESS.md`](./PROGRESS.md).
 
 ---
 
@@ -32,9 +34,11 @@ This plan defines a **milestone-driven** roadmap. Each milestone is independentl
 
 ## 2. Product Vision
 
-> **Google Maps + Engineering Intelligence + MCP Tools for Software**
+> **Local repository intelligence for agents — and one Dashboard for the humans who watch them**
 
-Prism makes a repository spatially navigable and analytically queryable—offline, private, and AI-agnostic.
+Prism tells an agent (and a human) what a repository is, what to open, what
+already exists, what will break, and how much of an answer reached the model.
+Offline, private, AI-agnostic. Not an LLM product. Not three apps.
 
 ### Product Principles
 
@@ -56,34 +60,48 @@ Prism makes a repository spatially navigable and analytically queryable—offlin
 
 ## 3. Product Deliverables
 
-### 3.1 Prism Core
+**One product:** **Prismate**. Surfaces are hosts, not SKUs. Dispatch is
+the job runtime (UI: Jobs). Spectrum / Repository Map and Domains are not
+products. See ADR-0057 and
+[`PROGRAM_prism-2.0.md`](./milestones/PROGRAM_prism-2.0.md).
 
-Shared intelligence engine:
+### 3.1 Prism Intelligence (Core + engine)
+
+Shared local engine. Public SDK remains `@repo-prism/core`. Internals collapse
+toward `packages/engine` folders in M-083 (no algorithm rewrite):
 
 - Repository indexing (full + incremental)
 - Static / AST analysis
-- Semantic Knowledge Graph
-- Feature Graph
-- Dependency Graph
-- Repository Intelligence (DNA, detection, health)
-- Change Impact Analysis
+- Graphs (dependency, semantic, feature) — taught via overview + verbs, not as extra products
+- Repository Intelligence (DNA, detection, health, Prepare, Envelope, findings)
+- Change Impact Analysis + Guard
 - Engineering Health metrics
 
-### 3.2 VS Code Extension
+Jobs runtime is **not** inside Core (ADR-0035).
 
-Human IDE surface: Repository Map, Explorer, Blast Radius, Health, Code Explorer, Smart Navigation, Insights, overlays.
+### 3.2 Prism Dashboard (one rail, three hosts)
 
-### 3.3 Cursor Extension
+Overview · Iris · Jobs · Skills · DNA Analysis · Trends · Impact & Guard ·
+Integrations · Settings
 
-Native Cursor experience sharing the same Core (and preferably the same extension package where API parity allows).
+Hosts: loopback daemon, IDE webview, public `/demo` (read-only fixture). Same
+bundle. Live job steer is TUI / editor chat (Live Relay). Dashboard Jobs is
+history / land / Findings — no Pause/Cancel/Resume.
 
-### 3.4 MCP Server
+### 3.3 MCP Server + CLI
 
-Expose Prism intelligence to Cursor Agents, Claude Code, Gemini CLI, Codex CLI, and any MCP client.
+Same information architecture as the rail. Agents: one orientation
+(`repository_overview`) plus expansions and verbs. CLI groups like the rail;
+Advertised MCP add is
+`claude mcp add --transport http prism https://app.prismate.io/mcp/`.
+Published npm: `@prismate/mcp`, `cli`, `core`. IDE is Marketplace-only.
+Site **`prismate.io`**, app **`app.prismate.io`**.
+GitHub org **`prismate`**.
 
-### 3.5 CLI
+### 3.4 IDE extensions
 
-Local analysis for scripting and CI (`prism analyze`, `prism health`, `prism blast-radius`, …).
+VS Code and Cursor load the same Dashboard webview (host-session). Not a
+second map app. Packaging overlay (ADR-0020) stays until M-084.
 
 ---
 
@@ -529,8 +547,21 @@ flowchart TD
 | M-074 | Bloat + Job Cost | Surfaces | M-073 | Yes |
 | M-075 | Symbol memory + ADR nodes | Surfaces | M-074 | Yes |
 | M-076 | Work orders + hook (advisory) | Surfaces | M-075 | Yes |
+| M-077 | Prism 2.0 (product contract) | Plan | M-076 | Yes |
+| — | Land `fix/mcp-console-dashboard-sanity` on `main` | Surfaces | M-077 | — |
+| M-078 | Dashboard shell (one rail, sanitize) | Surfaces | Sanity on main | Yes |
+| M-079 | Jobs Live Relay | Surfaces | M-078 | Yes |
+| M-080 | Agent + CLI IA (loopback HTTP `/mcp`) | Surfaces | M-079 | Yes |
+| M-081 | Marketplace publisher rename | Surfaces | M-080 | Yes |
+| M-082 | One Dashboard package | Surfaces | M-081 | Yes |
+| M-083 | Engine package merge | Core | M-082 | Yes |
+| M-084 | Surfaces + IDE merge | Surfaces | M-083 | Yes |
+| M-085 | Docs trim | Docs | M-084 | Yes |
+| M-086 | Website + `/demo` + identity cutover | Surfaces | M-085 | Yes |
 
 Agent-native Cuts 1–3 (M-069–M-076) are **done**. T1/T2/T3 proofs recorded. **Cut 4 (cloud / paid) is set aside.**
+
+**Prism 2.0 (M-077–M-086):** one product, one Dashboard, fewer packages. Live Relay is M-079 (after the Dashboard shell). Demo + domain / `app.` / GitHub / npm org cutover is **last** (M-086). Sanity already on local `main`. Every row uses §8.1 + §9 + §10. See [`PROGRAM_prism-2.0.md`](./milestones/PROGRAM_prism-2.0.md).
 
 **Critical path (must stay green):** M-001 → M-005 → M-040 → M-014 → **M-041 Gate A** (P0 + P1 + Mono-v1) → M-017 → M-018 → M-025 → surfaces (M-026/M-028/M-030) → M-039.  
 **M-041 continued:** phases P2–P7 + Mono-v2 may run after Gate A (Map unblocked); still tracked as M-041 until epic complete.
@@ -541,7 +572,10 @@ Agent-native Cuts 1–3 (M-069–M-076) are **done**. T1/T2/T3 proofs recorded. 
 
 | Feature / Module | Primary milestones | Notes |
 |---|---|---|
-| Repository Map (interactive) | M-017, M-018, M-019, M-031 | Hero feature; data then UI then IDE |
+| Repository Map (engine) | M-017, M-018, M-019, M-031 | Shipped; **unmounted from the product** in M-078 (ADR-0057). `getRepositoryMap` stays |
+| Jobs Live Relay | M-079 | TUI + editor chat cockpit; Dashboard Jobs stays archive |
+| Marketplace publisher | M-081 | `prismhq.repo-prism` → `prismate` |
+| Public demo + identity cutover | M-086 | `/demo/<fixture>`, domain, `app.`, GitHub org, npm org |
 | Zoom levels / layers | M-017, M-019 | Architecture, deps, activity, ownership, debt, risk, perf, coverage |
 | Feature-first navigation | M-012, M-016, M-019 | |
 | Search / bookmarks / landmarks | M-017, M-019, M-031 | |

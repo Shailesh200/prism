@@ -84,6 +84,16 @@
 | M-074 Bloat + Job Cost | `milestone/M-074-bloat-job-cost` | Verified | ✅ | ✅ | Owner verified 2026-09-17 (merged on main). Phase 2 Cut 2: `duplicate_implementation` / `wrapper_over_existing` + CLI mute list + MCP `list_findings`; Pulse 14-day token chart from existing `JobRecord.tokenUsage`. Per-repo Prism store now lives under `~/.prism/workspaces/<key>/` (checkout `.prism` migrated then removed). Phase 2 complete. T2 proof recorded (`plans/notes/proof/T2.json`). |
 | M-075 Symbol memory + ADR nodes | `milestone/M-075-symbol-memory-adr` | Verified | ✅ | ✅ | Owner verified 2026-09-17 (merged on main). Phase 3 Cut 3: `remember` optional `symbol`/`path`, rewrite on rename; `rationale_for` edges from ADRs and `WHY:`/`NOTE:` comments; `prepare_change.notes` for pack files. |
 | M-076 Work orders + hook | `milestone/M-076-work-orders-hook` | Verified | ✅ | ✅ | Owner verified 2026-09-17 (merged on main). Phase 3 Cut 3: `PrepareChange.order` from generated/vendor + blast/ownership; MCP `work_order`; Dispatch copies off-limits into the PRD; advisory IDE hook (no veto unless an Accepted ADR arms it). Agent-native Cuts 1–3 done (M-069–M-076). T1/T2/T3 proofs recorded. **Cut 4 set aside.** |
+| M-077 Prism 2.0 | `milestone/M-077-prism-2.0` | In Progress | ✅ | ☐ | Owner **locked** the plan 2026-09-19 (identity + hero copy + rail + sequence). Docs/plan only. Sanity already on local `main` (`92fa6b5`). Next after this merge: M-078 Dashboard shell. |
+| M-078 Dashboard shell | `milestone/M-078-dashboard-shell` | Planned | ☐ | ☐ | First code. Depends on sanity branch on `main`. |
+| M-079 Jobs Live Relay | `milestone/M-079-jobs-live-relay` | Planned | ☐ | ☐ | After Dashboard shell. TUI + editor chat cockpit. |
+| M-080 Agent + CLI IA | `milestone/M-080-agent-cli-ia` | Planned | ☐ | ☐ | Loopback Streamable HTTP `/mcp`; teach `app.` URL. |
+| M-081 Marketplace publisher | `milestone/M-081-marketplace-publisher` | Planned | ☐ | ☐ | `prismhq.repo-prism` → `prismate`. Not npm. |
+| M-082 One Dashboard package | `milestone/M-082-dashboard-package` | Planned | ☐ | ☐ | `packages/dashboard` merge. |
+| M-083 Engine package merge | `milestone/M-083-engine-merge` | Planned | ☐ | ☐ | Folder moves + shims. No algorithm rewrite. |
+| M-084 Surfaces + IDE merge | `milestone/M-084-surfaces-ide` | Planned | ☐ | ☐ | VSIX, not npm ide. Remote cutover waits for M-086. |
+| M-085 Docs trim | `milestone/M-085-docs-trim` | Planned | ☐ | ☐ | Public nav shrink. `plans/` stays. |
+| M-086 Website + demo + identity | `milestone/M-086-website-demo-identity` | Planned | ☐ | ☐ | Last. Domain, `app.`, GitHub org, npm org, `/demo/<fixture>`. |
 
 ## Legend
 

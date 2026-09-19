@@ -27,5 +27,9 @@ Resolve these with the owner before or during the indicated milestone. Record an
 | Q-021 | Multi-domain monorepo: single stack winner vs per-package? | M-041 / M-013 | **Resolved:** per-package profiles + workspace rollup; package-scoped utilities; additive domains ([ADR-0008](./adr/0008-stack-aware-measurement-utilities.md) D5) |
 | Q-022 | Soft blast signals: do medium-confidence config/CI hits **block** Safe Delete, or only warn? | M-049 | **Decided (ADR-0027):** medium+ blocks; low = warn only |
 | Q-023 | Blast vs Change Review risk band thresholds (60/20 vs 70/35) — unify to which? | M-049 | **Decided (ADR-0027):** unify to Blast **60/20** (High ≥60, Mid ≥20) everywhere. **Enforced in code M-051:** single `riskToBand` / `riskBandDescriptor` in `@repo-prism/shared`; the duplicated per-screen thresholds are gone |
+| Q-024 | Which public repo is the `/demo/<fixture>` canned index? | M-086 | **Owner will name later.** Do not invent a fixture in the plan. |
+| Q-025 | `/demo` v1 = precomputed snapshot vs live browser index? | M-086 | **Discuss later.** Recommended default remains a frozen snapshot (ADR-0057). |
+| Q-026 | Public identity: domain / GitHub / npm? | M-077 / M-086 | **Locked 2026-09-19 (relocked):** `prismate.io`, GitHub org `prismate`, npm `@prismate`. Cutover steps run in M-086. Q-003 (`@repo-prism`) is the old publish scope (one major of shims). |
+| Q-027 | Public tagline / hero copy? | M-077 / M-086 | **Locked 2026-09-19:** PROGRAM §0.1. Kicker `this/self · Local First · No account`. Hero: “A teammate meant for you. / Intelligent enough for all you want to do.” Teammate name in copy is Prism. It/it’s, not he/him. |
 
 Update this file when questions are decided; link ADRs.
