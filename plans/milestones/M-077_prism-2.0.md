@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Progress** |
+| Status | **Verified** |
 | Branch | `milestone/M-077-prism-2.0` (from latest `main`) |
 | Depends on | M-076 Verified |
 | Packages | none (docs / plan only) |
@@ -39,7 +39,7 @@ Lock **Prism 2.0**: one intelligence product, one Dashboard, fewer packages — 
 - [x] Owner locked the plan (2026-09-19)
 - [x] Owner approved commit (2026-09-19)
 - [x] Docs gates green (`docs:check`, `check-plan-progress`); full `verify:milestone` flakes on pre-existing `health-history` in parallel
-- [ ] Master Plan §8.1 ritual: local merge when asked → Verified → what-changed snippet
+- [x] Master Plan §8.1 ritual: merged to local `main` 2026-09-19 → Verified
 
 ## 5. After merge
 
