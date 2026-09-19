@@ -130,6 +130,19 @@ describe("design-system primitives exports", () => {
     );
   });
 
+  it("lets hover tooltips hug their copy instead of a fixed width", () => {
+    const css = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "primitives.css"),
+      "utf8",
+    );
+    expect(css).toMatch(/\.prism-tooltip__pop \{[^}]*max-width:/s);
+    expect(css).toMatch(/\.prism-tooltip__pop \{[^}]*min-width:\s*0;/s);
+    expect(css).not.toMatch(/\.prism-tooltip__pop \{[^}]*width: max-content;/s);
+    expect(css).toMatch(
+      /\.prism-tooltip__pop--hover \{[^}]*max-width: min\(40rem/s,
+    );
+  });
+
   it("gives search a single stroke and no nested well", () => {
     const css = readFileSync(
       join(dirname(fileURLToPath(import.meta.url)), "primitives.css"),

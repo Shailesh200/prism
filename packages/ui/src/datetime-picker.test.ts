@@ -12,6 +12,7 @@ import {
   parseDatetimeInput,
   shiftMonth,
   to12h,
+  visibleDatetimeError,
   weekStartsOn,
   weekdayLabels,
 } from "./datetime-picker.js";
@@ -110,6 +111,16 @@ describe("datetime picker validation", () => {
         { min: "Can't be before the start." },
       ),
     ).toBe("Can't be before the start.");
+  });
+
+  it("hides the hint until the field is dirty", () => {
+    expect(
+      visibleDatetimeError(false, "Enter a date and time."),
+    ).toBeUndefined();
+    expect(visibleDatetimeError(true, "Enter a date and time.")).toBe(
+      "Enter a date and time.",
+    );
+    expect(visibleDatetimeError(true, undefined)).toBeUndefined();
   });
 
   it("refuses apply when the window is inverted or empty", () => {

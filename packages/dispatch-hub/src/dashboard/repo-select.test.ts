@@ -16,7 +16,7 @@ describe("repoSelectOptions", () => {
       "/c",
       PICK_REPO,
     ]);
-    expect(options.at(-1)?.label).toBe("Select repository…");
+    expect(options.at(-1)?.label).toBe("+ New Repository");
   });
 
   it("can keep a jobs-only list when asked", () => {

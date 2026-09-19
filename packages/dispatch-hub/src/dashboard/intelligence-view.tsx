@@ -289,25 +289,26 @@ export function IntelligenceView(props: {
 
   return (
     <section className="console__panel">
-      <h1 className="console__title">Iris</h1>
+      <div className="intel-head">
+        <h1 className="console__title">Iris</h1>
+        <RepoSelect
+          token={props.token}
+          aria-label="Repos"
+          className="fleet-toolbar__repo-select"
+          value={workspace}
+          onChange={(path) => {
+            userPicked.current = true;
+            setWorkspace(path);
+          }}
+          repos={irisRepos}
+        />
+      </div>
       <p className="console__lede">
         Iris is the accumulated knowledge of a workspace — the index, graphs,
         landmarks, and health. Pick a repository, then load analysis. Envelope
         metrics stay local to that repo, on this machine.
       </p>
       {error ? <EmptyState>{error}</EmptyState> : null}
-
-      <RepoSelect
-        token={props.token}
-        label="Repos"
-        className="fleet-toolbar__repo-select"
-        value={workspace}
-        onChange={(path) => {
-          userPicked.current = true;
-          setWorkspace(path);
-        }}
-        repos={irisRepos}
-      />
 
       <div className="intel-analysis">
         <div className="intel-analysis__copy">
@@ -427,237 +428,249 @@ export function IntelligenceView(props: {
         </dl>
       ) : null}
 
-      <div className="envelope">
-        <div className="envelope__head">
-          <div className="envelope__head-copy">
-            <h2 className="intel-heading intel-heading--tip">
-              Envelope
-              <Tooltip label="Envelope">{ENVELOPE_SECTION_TIP}</Tooltip>
-            </h2>
-            <p className="console__lede">
-              How much of what Prism found actually reached the agent this week.
-            </p>
-          </div>
-          {props.onMoreDetails ? (
-            <button
-              type="button"
-              className="envelope__more"
-              onClick={props.onMoreDetails}
-            >
-              <span>More details</span>
-              <ArrowRight size={16} aria-hidden />
-            </button>
-          ) : null}
-        </div>
-        {envelopeError ? (
-          <p className="envelope__empty">{envelopeError}</p>
-        ) : envelope === undefined ? (
-          <p className="envelope__empty">Loading Envelope…</p>
-        ) : envelope.available ? (
-          <>
-            <EnvelopeCards
-              density="iris"
-              cards={[
-                {
-                  id: "bytes",
-                  label: "Sent %",
-                  tip: IRIS_BYTES_KEPT_TIP,
-                  value: formatEnvelopePercent(envelope.bytesKeptRatio),
-                  unit: "of the full list",
-                  sub:
-                    envelope.bytesKeptDeltaPp !== null
-                      ? `${formatEnvelopeDeltaPp(envelope.bytesKeptDeltaPp)} vs last`
+      {!analysis ? (
+        <EmptyState className="pulse-empty" title="No data found">
+          This repository has not been indexed yet. Load analysis to see
+          Envelope, Prepare, and Host connectors.
+        </EmptyState>
+      ) : (
+        <>
+          <div className="envelope">
+            <div className="envelope__head">
+              <div className="envelope__head-copy">
+                <h3 className="intel-heading intel-heading--tip">
+                  Envelope
+                  <Tooltip label="Envelope">{ENVELOPE_SECTION_TIP}</Tooltip>
+                </h3>
+                <p className="console__lede">
+                  How much of what Prism found actually reached the agent this
+                  week.
+                </p>
+                <p className="envelope__hint">
+                  Lower Sent % means Prism sent a smaller slice of the list.
+                </p>
+              </div>
+              {props.onMoreDetails ? (
+                <button
+                  type="button"
+                  className="envelope__more"
+                  onClick={props.onMoreDetails}
+                >
+                  <span>More details</span>
+                  <ArrowRight size={16} aria-hidden />
+                </button>
+              ) : null}
+            </div>
+            {envelopeError ? (
+              <p className="envelope__empty">{envelopeError}</p>
+            ) : envelope === undefined ? (
+              <p className="envelope__empty">Loading Envelope…</p>
+            ) : envelope.available ? (
+              <EnvelopeCards
+                density="iris"
+                cards={[
+                  {
+                    id: "bytes",
+                    label: "Sent %",
+                    tip: IRIS_BYTES_KEPT_TIP,
+                    value: formatEnvelopePercent(envelope.bytesKeptRatio),
+                    unit: "of the full list",
+                    sub:
+                      envelope.bytesKeptDeltaPp !== null
+                        ? `${formatEnvelopeDeltaPp(envelope.bytesKeptDeltaPp)} vs last`
+                        : undefined,
+                    subTone:
+                      envelope.bytesKeptDeltaPp !== null &&
+                      envelope.bytesKeptDeltaPp < 0
+                        ? "safe"
+                        : "muted",
+                    icon: PieChart,
+                    tone: "brand",
+                  },
+                  {
+                    id: "cut",
+                    label: "Partial",
+                    tip: IRIS_CUT_SHORT_TIP,
+                    value: formatEnvelopePercent(envelope.cutShortRate, 0),
+                    unit: "of list calls",
+                    sub:
+                      envelope.truncatedCalls !== null &&
+                      envelope.listCalls !== null
+                        ? `${envelope.truncatedCalls} of ${envelope.listCalls} partial`
+                        : undefined,
+                    icon: Scissors,
+                    tone: "violet",
+                  },
+                  {
+                    id: "follow",
+                    label: "Then focused",
+                    tip: IRIS_FOLLOW_THROUGH_TIP,
+                    value: formatEnvelopePercent(envelope.followThrough, 0),
+                    unit: "after a partial",
+                    sub: "heuristic",
+                    icon: Filter,
+                    tone: "brand",
+                  },
+                  {
+                    id: "dump",
+                    label: "Not sent",
+                    tip: IRIS_DUMP_NOT_SERVED_TIP,
+                    value: formatEnvelopeBytes(envelope.dumpNotServedBytes),
+                    unit: formatEnvelopeTokens(envelope.dumpNotServedTokens)
+                      ? `· ${formatEnvelopeTokens(envelope.dumpNotServedTokens)}`
                       : undefined,
-                  subTone:
-                    envelope.bytesKeptDeltaPp !== null &&
-                    envelope.bytesKeptDeltaPp < 0
-                      ? "safe"
-                      : "muted",
-                  icon: PieChart,
-                  tone: "brand",
-                },
-                {
-                  id: "cut",
-                  label: "Partial",
-                  tip: IRIS_CUT_SHORT_TIP,
-                  value: formatEnvelopePercent(envelope.cutShortRate, 0),
-                  unit: "of list calls",
-                  sub:
-                    envelope.truncatedCalls !== null &&
-                    envelope.listCalls !== null
-                      ? `${envelope.truncatedCalls} of ${envelope.listCalls} partial`
-                      : undefined,
-                  icon: Scissors,
-                  tone: "violet",
-                },
-                {
-                  id: "follow",
-                  label: "Then focused",
-                  tip: IRIS_FOLLOW_THROUGH_TIP,
-                  value: formatEnvelopePercent(envelope.followThrough, 0),
-                  unit: "after a partial",
-                  sub: "heuristic",
-                  icon: Filter,
-                  tone: "brand",
-                },
-                {
-                  id: "dump",
-                  label: "Not sent",
-                  tip: IRIS_DUMP_NOT_SERVED_TIP,
-                  value: formatEnvelopeBytes(envelope.dumpNotServedBytes),
-                  unit: formatEnvelopeTokens(envelope.dumpNotServedTokens)
-                    ? `· ${formatEnvelopeTokens(envelope.dumpNotServedTokens)}`
-                    : undefined,
-                  sub: "held back",
-                  icon: FileMinus,
-                  tone: "emerald",
-                },
-                {
-                  id: "habit",
-                  label: "≤5-call days",
-                  tip: IRIS_HABIT_TIP,
-                  value:
-                    envelope.habitDays === null
-                      ? "—"
-                      : `${envelope.habitDays} / ${envelope.habitDenom ?? 7}`,
-                  unit: "days",
-                  sub:
-                    envelope.habitDelta !== null
-                      ? `${envelope.habitDelta > 0 ? "+" : ""}${envelope.habitDelta} day${Math.abs(envelope.habitDelta) === 1 ? "" : "s"} vs prev`
-                      : undefined,
-                  subTone:
-                    envelope.habitDelta !== null && envelope.habitDelta > 0
-                      ? "safe"
-                      : "muted",
-                  icon: CalendarCheck,
-                  tone: "amber",
-                },
-                {
-                  id: "source",
-                  label: "Source",
-                  tip: IRIS_SOURCE_TIP,
-                  value:
-                    envelope.chatCalls === null
-                      ? "—"
-                      : String(envelope.chatCalls),
-                  unit:
-                    envelope.jobCalls !== null
-                      ? `chat · ${envelope.jobCalls} jobs`
-                      : "chat",
-                  sub: "Chat vs jobs",
-                  icon: GitFork,
-                  tone: "violet",
-                },
-              ]}
-            />
-            <p className="envelope-note">
-              Lower Sent % means Prism sent a smaller slice of the list.
-            </p>
-          </>
-        ) : (
-          <EmptyState>
-            No list calls recorded this week for this repo. Envelope fills in
-            once this chat or a teammate uses a Prism list tool.
-          </EmptyState>
-        )}
-      </div>
+                    sub: "held back",
+                    icon: FileMinus,
+                    tone: "emerald",
+                  },
+                  {
+                    id: "habit",
+                    label: "≤5-call days",
+                    tip: IRIS_HABIT_TIP,
+                    value:
+                      envelope.habitDays === null
+                        ? "—"
+                        : `${envelope.habitDays} / ${envelope.habitDenom ?? 7}`,
+                    unit: "days",
+                    sub:
+                      envelope.habitDelta !== null
+                        ? `${envelope.habitDelta > 0 ? "+" : ""}${envelope.habitDelta} day${Math.abs(envelope.habitDelta) === 1 ? "" : "s"} vs prev`
+                        : undefined,
+                    subTone:
+                      envelope.habitDelta !== null && envelope.habitDelta > 0
+                        ? "safe"
+                        : "muted",
+                    icon: CalendarCheck,
+                    tone: "amber",
+                  },
+                  {
+                    id: "source",
+                    label: "Source",
+                    tip: IRIS_SOURCE_TIP,
+                    value:
+                      envelope.chatCalls === null
+                        ? "—"
+                        : String(envelope.chatCalls),
+                    unit:
+                      envelope.jobCalls !== null
+                        ? `chat · ${envelope.jobCalls} jobs`
+                        : "chat",
+                    sub: "Chat vs jobs",
+                    icon: GitFork,
+                    tone: "violet",
+                  },
+                ]}
+              />
+            ) : (
+              <EmptyState className="pulse-empty" title="No data found">
+                No list calls recorded this week for this repo. Envelope fills
+                in once this session or a teammate uses a Prism list tool.
+              </EmptyState>
+            )}
 
-      <div className="prepare">
-        <div className="envelope__head">
-          <div className="envelope__head-copy">
-            <h2 className="intel-heading intel-heading--tip">
-              Prepare
-              <Tooltip label="Prepare">{PREPARE_SECTION_TIP}</Tooltip>
-            </h2>
-            <p className="console__lede">
-              The context pack Prism built for each prepare_change on this repo.
-            </p>
-          </div>
-          {prepareHistory && prepareHistory.length > 3 ? (
-            <button
-              type="button"
-              className="envelope__more"
-              onClick={() => setPrepareDrawer({})}
-            >
-              <span>View all runs</span>
-              <ArrowRight size={16} aria-hidden />
-            </button>
-          ) : null}
-        </div>
-        {!workspace ? (
-          <p className="envelope__empty">Select a repository first.</p>
-        ) : prepareHistory === undefined ? (
-          <p className="envelope__empty">Loading prepare history…</p>
-        ) : prepareHistory.length === 0 ? (
-          <EmptyState>
-            No prepare_change yet for this repo. Call it before you edit, or
-            start a teammate after Iris has indexed.
-          </EmptyState>
-        ) : (
-          <>
-            <EnvelopeCards
-              density="iris"
-              cards={prepareTotalsCards(prepareHistory)}
-            />
-            <ul className="prepare-runs">
-              {prepareHistory.slice(0, 3).map((run) => (
-                <li key={run.generatedAt}>
+            <div className="prepare">
+              <div className="envelope__head">
+                <div className="envelope__head-copy">
+                  <h4 className="intel-heading intel-heading--tip">
+                    Prepare
+                    <Tooltip label="Prepare">{PREPARE_SECTION_TIP}</Tooltip>
+                  </h4>
+                  <p className="console__lede">
+                    The context pack Prism built for each prepare_change on this
+                    repo.
+                  </p>
+                </div>
+                {prepareHistory && prepareHistory.length > 3 ? (
                   <button
                     type="button"
-                    className="prepare-runs__row"
-                    onClick={() =>
-                      setPrepareDrawer({ initialRun: run.generatedAt })
-                    }
+                    className="envelope__more"
+                    onClick={() => setPrepareDrawer({})}
                   >
-                    <CardIcon icon={Layers} />
-                    <span className="prepare-runs__copy">
-                      <span className="prepare-runs__task">{run.task}</span>
-                      <span className="prepare-runs__meta">
-                        {formatPrismDate(run.generatedAt, "datetime")} ·{" "}
-                        {run.packFiles.length} pack file
-                        {run.packFiles.length === 1 ? "" : "s"} ·{" "}
-                        {run.reuse.length} reuse
-                      </span>
-                    </span>
+                    <span>View all runs</span>
+                    <ArrowRight size={16} aria-hidden />
                   </button>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </div>
+                ) : null}
+              </div>
+              {!workspace ? (
+                <p className="envelope__empty">Select a repository first.</p>
+              ) : prepareHistory === undefined ? (
+                <p className="envelope__empty">Loading prepare history…</p>
+              ) : prepareHistory.length === 0 ? (
+                <EmptyState className="pulse-empty" title="No data found">
+                  No prepare_change yet for this repo. Call it before you edit,
+                  or start a teammate after Iris has indexed.
+                </EmptyState>
+              ) : (
+                <>
+                  <EnvelopeCards
+                    density="iris"
+                    cards={prepareTotalsCards(prepareHistory)}
+                  />
+                  <ul className="prepare-runs">
+                    {prepareHistory.slice(0, 3).map((run) => (
+                      <li key={run.generatedAt}>
+                        <button
+                          type="button"
+                          className="prepare-runs__row"
+                          onClick={() =>
+                            setPrepareDrawer({ initialRun: run.generatedAt })
+                          }
+                        >
+                          <CardIcon icon={Layers} />
+                          <span className="prepare-runs__copy">
+                            <span className="prepare-runs__task">
+                              {run.task}
+                            </span>
+                            <span className="prepare-runs__meta">
+                              {formatPrismDate(run.generatedAt, "datetime")} ·{" "}
+                              {run.packFiles.length} pack file
+                              {run.packFiles.length === 1 ? "" : "s"} ·{" "}
+                              {run.reuse.length} reuse
+                            </span>
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          </div>
 
-      <div>
-        <h2 className="intel-heading intel-heading--tip">
-          Host connectors
-          <Tooltip label="Host connectors">
-            Plugins signed in for this agent window (Cursor or Claude Code). A
-            connection means a plugin has completed mcp_auth — a download
-            sitting in the plugin cache doesn't count yet. The plugin itself
-            talks to Slack, Linear, or GitHub; Prism only reads local sign-in
-            state here.
-          </Tooltip>
-        </h2>
-        {connectors && connectors.connectors.length > 0 ? (
-          <ul className="intel-chips">
-            {connectors.connectors.map((row) => (
-              <li key={`${row.id}:${row.source}`}>{row.label}</li>
-            ))}
-          </ul>
-        ) : (
-          <p className="console__lede">
-            None signed in for this agent window. Install Slack, Linear, GitHub
-            or Calendar from the editor&apos;s own plugin settings and complete
-            sign-in there.
-          </p>
-        )}
-        {connectors?.unreadable.length ? (
-          <p className="console__lede">
-            {connectors.unreadable.length} connector path
-            {connectors.unreadable.length === 1 ? " was" : "s were"} unreadable.
-          </p>
-        ) : null}
-      </div>
+          <div>
+            <h3 className="intel-heading intel-heading--tip">
+              Host connectors
+              <Tooltip label="Host connectors">
+                Plugins signed in for this agent window (Cursor or Claude Code).
+                A connection means a plugin has completed mcp_auth — a download
+                sitting in the plugin cache doesn't count yet. The plugin itself
+                talks to Slack, Linear, or GitHub; Prism only reads local
+                sign-in state here.
+              </Tooltip>
+            </h3>
+            {connectors && connectors.connectors.length > 0 ? (
+              <ul className="intel-chips">
+                {connectors.connectors.map((row) => (
+                  <li key={`${row.id}:${row.source}`}>{row.label}</li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState className="pulse-empty" title="No data found">
+                None signed in for this agent window. Install Slack, Linear,
+                GitHub or Calendar from the editor&apos;s own plugin settings
+                and complete sign-in there.
+              </EmptyState>
+            )}
+            {connectors?.unreadable.length ? (
+              <p className="console__lede">
+                {connectors.unreadable.length} connector path
+                {connectors.unreadable.length === 1 ? " was" : "s were"}{" "}
+                unreadable.
+              </p>
+            ) : null}
+          </div>
+        </>
+      )}
       {prepareDrawer && workspace ? (
         <PrepareHistoryDrawer
           token={props.token}

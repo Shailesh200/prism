@@ -15,13 +15,13 @@ import {
   Checkbox,
   DateRangePicker,
   Drawer,
+  EmptyState,
   Popover,
   ScreenSkeleton,
   Sparkline,
   Table,
   ToggleGroup,
   Truncate,
-  Select,
   isActivateTarget,
   listCursorDelta,
   pageShortcutBlocked,
@@ -51,7 +51,7 @@ import {
   timelineRepoStatus,
   verifyTag,
   visibleFleetRepos,
-  jobTypeFilterOptions,
+  showWidenToAll,
   waitedWorkedLabel,
   jobMeterBadgeTone,
   type FleetRange,
@@ -64,7 +64,7 @@ import {
   jobActionHandlers,
   type JobActionHandlers,
 } from "./job-actions.js";
-import { RepoSelect } from "./repo-select.js";
+import { FleetFilter } from "./fleet-filter.js";
 
 export function DashboardToolbar(props: {
   readonly token: string;
@@ -123,27 +123,14 @@ export function DashboardToolbar(props: {
           }
           onChange={props.onRangeValue}
         />
-        {props.repos && props.onRepoFilter ? (
-          <RepoSelect
+        {props.repos && props.onRepoFilter && props.onTypeFilter ? (
+          <FleetFilter
             token={props.token}
-            aria-label="Filter by repository"
-            className="fleet-toolbar__repo-select"
-            value={props.repoFilter ?? "all"}
-            onChange={props.onRepoFilter}
-            includeAll
             repos={props.repos}
-          />
-        ) : null}
-        {props.onTypeFilter ? (
-          <Select
-            aria-label="Filter by type"
-            className="fleet-toolbar__type-select"
-            value={props.typeFilter ?? "all"}
-            onChange={props.onTypeFilter}
-            options={jobTypeFilterOptions().map((row) => ({
-              value: row.id,
-              label: row.label,
-            }))}
+            repoFilter={props.repoFilter ?? "all"}
+            onRepoFilter={props.onRepoFilter}
+            typeFilter={props.typeFilter ?? "all"}
+            onTypeFilter={props.onTypeFilter}
           />
         ) : null}
       </div>
@@ -327,7 +314,7 @@ export function BoardView(props: {
                     live: inRange.filter((job) => isLiveJob(job.status)).length,
                     last: inRange[0],
                   })
-                : { label: "NA", tone: "neutral" as const };
+                : undefined;
             return (
               <div key={repo.path} className="fleet-tile-shell">
                 <button
@@ -342,13 +329,15 @@ export function BoardView(props: {
                     <strong>
                       <Truncate title={repo.label}>{repo.label}</Truncate>
                     </strong>
-                    <Badge
-                      className="fleet-tile__last-status"
-                      tone={status.tone}
-                      pulse={status.label === "Running"}
-                    >
-                      {status.label}
-                    </Badge>
+                    {status ? (
+                      <Badge
+                        className="fleet-tile__last-status"
+                        tone={status.tone}
+                        pulse={status.label === "Running"}
+                      >
+                        {status.label}
+                      </Badge>
+                    ) : null}
                   </header>
                   <p>
                     {inRange.filter((job) => isLiveJob(job.status)).length}{" "}
@@ -459,6 +448,7 @@ export function ListView(
     readonly onOpenJob: (job: JobSummary) => void;
     readonly loading: boolean;
     readonly outsideCount?: number;
+    readonly range?: FleetTimeRange;
     readonly filter?: string;
     readonly onShowAllTime?: () => void;
   } & JobActionHandlers,
@@ -652,20 +642,29 @@ export function ListView(
   return (
     <div className="fleet-list-wrap">
       {groups.length === 0 ? (
-        <div className="pulse-empty">
-          <p className="console__lede">
-            {outside > 0 && !filtered
-              ? `${outside} job${outside === 1 ? "" : "s"} sit outside this range.`
-              : filtered
-                ? "No jobs match this filter."
-                : "No jobs in this range. Start one, or widen All."}
-          </p>
-          {outside > 0 && !filtered && props.onShowAllTime ? (
-            <Button size="sm" variant="secondary" onClick={props.onShowAllTime}>
-              Show all time
-            </Button>
-          ) : null}
-        </div>
+        <EmptyState
+          className="pulse-empty"
+          title="No data found"
+          actions={
+            showWidenToAll(outside, props.range) &&
+            !filtered &&
+            props.onShowAllTime ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={props.onShowAllTime}
+              >
+                Widen to All
+              </Button>
+            ) : undefined
+          }
+        >
+          {outside > 0 && !filtered
+            ? `${outside} job${outside === 1 ? "" : "s"} sit outside this range.`
+            : filtered
+              ? "No jobs match this filter."
+              : "No jobs in this range. Start one."}
+        </EmptyState>
       ) : (
         groups.map((group, index) => {
           const live = group.jobs.some((job) => isLiveJob(job.status));

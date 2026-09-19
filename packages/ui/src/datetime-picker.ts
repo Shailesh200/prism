@@ -216,6 +216,14 @@ export function parseDatetimeInput(
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+/** Hint copy is withheld until the field has been edited. */
+export function visibleDatetimeError(
+  dirty: boolean,
+  error: string | undefined,
+): string | undefined {
+  return dirty ? error : undefined;
+}
+
 export function datetimePickerError(
   raw: string,
   parsed: number | undefined,

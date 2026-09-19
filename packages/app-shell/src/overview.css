@@ -1130,7 +1130,8 @@
   z-index: 60;
   top: calc(100% + 8px);
   left: 50%;
-  width: 240px;
+  width: fit-content;
+  max-width: min(24rem, calc(100vw - 16px));
   transform: translate(-50%, -4px);
   display: flex;
   flex-direction: column;

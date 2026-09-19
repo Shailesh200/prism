@@ -26,6 +26,7 @@ import {
   parseDatetimeInput,
   shiftMonth,
   to12h,
+  visibleDatetimeError,
   weekStartsOn,
   weekdayLabels,
 } from "./datetime-picker.js";
@@ -67,6 +68,7 @@ export function DateTimePicker(props: DateTimePickerProps): ReactElement {
   const rootRef = useRef<HTMLDivElement>(null);
   const focusedRef = useRef(false);
   const [open, setOpen] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [text, setText] = useState(() =>
     finiteTime(props.value) !== undefined
       ? formatDatetimeField(props.value as number, locale)
@@ -89,6 +91,7 @@ export function DateTimePicker(props: DateTimePickerProps): ReactElement {
       ...(props.maxMessage ? { max: props.maxMessage } : {}),
     },
   );
+  const shownError = visibleDatetimeError(dirty, error);
   const selectedMs = parsed ?? valueMs;
   const selected = selectedMs !== undefined ? new Date(selectedMs) : new Date();
   const [view, setView] = useState(() => ({
@@ -103,6 +106,7 @@ export function DateTimePicker(props: DateTimePickerProps): ReactElement {
         ? formatDatetimeField(props.value as number, locale)
         : "",
     );
+    setDirty(false);
   }, [props.value, locale]);
 
   useLayoutEffect(() => {
@@ -174,7 +178,7 @@ export function DateTimePicker(props: DateTimePickerProps): ReactElement {
   const controlClass = [
     "prism-dt__control",
     open ? "prism-dt__control--open" : "",
-    error ? "prism-dt__control--error" : "",
+    shownError ? "prism-dt__control--error" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -193,12 +197,11 @@ export function DateTimePicker(props: DateTimePickerProps): ReactElement {
           aria-label={props["aria-label"]}
           aria-haspopup="dialog"
           aria-expanded={open}
-          aria-invalid={error !== undefined}
-          aria-describedby={error ? `${id}-hint` : undefined}
+          aria-invalid={shownError !== undefined}
+          aria-describedby={shownError ? `${id}-hint` : undefined}
           onFocus={() => {
             focusedRef.current = true;
           }}
-          onClick={() => setOpen(true)}
           onKeyDown={(event) => {
             if (
               event.key === "ArrowDown" ||
@@ -216,6 +219,7 @@ export function DateTimePicker(props: DateTimePickerProps): ReactElement {
           }}
           onChange={(event) => {
             const next = event.target.value;
+            setDirty(true);
             setText(next);
             const ms = parseDatetimeInput(next, {
               ...(locale ? { locale } : {}),
@@ -241,6 +245,14 @@ export function DateTimePicker(props: DateTimePickerProps): ReactElement {
           <Calendar size={14} aria-hidden />
         </button>
       </div>
+      {shownError ? (
+        <span
+          className="prism-field__hint prism-field__hint--error"
+          id={`${id}-hint`}
+        >
+          {shownError}
+        </span>
+      ) : null}
       {open ? (
         <div
           className="prism-dt__pop"
@@ -423,11 +435,6 @@ export function DateTimePicker(props: DateTimePickerProps): ReactElement {
             ) : null}
           </div>
         </div>
-      ) : null}
-      {error ? (
-        <span className="prism-field__hint" id={`${id}-hint`}>
-          {error}
-        </span>
       ) : null}
     </div>
   );

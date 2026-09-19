@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { hugTooltipPopWidth } from "./tooltip-layout.js";
 
 export type HoverTipProps = {
   /** Short heading, or the sole tip text when `detail` is omitted. */
@@ -46,7 +47,8 @@ export function HoverTip(props: HoverTipProps): ReactElement {
     const pop = popRef.current;
     if (!trigger) return;
     const rect = trigger.getBoundingClientRect();
-    const popW = pop?.offsetWidth ?? 240;
+    if (pop) hugTooltipPopWidth(pop);
+    const popW = pop?.offsetWidth ?? 0;
     const popH = pop?.offsetHeight ?? 0;
     const left = Math.min(
       Math.max(VIEWPORT_MARGIN, rect.left),
@@ -84,6 +86,7 @@ export function HoverTip(props: HoverTipProps): ReactElement {
   const hasDetail = Boolean(detail?.trim());
   const body = hasDetail ? detail!.trim() : label;
   const showTitle = hasDetail;
+  const clamp = Boolean(hasDetail && !unclamp);
 
   const popover =
     open && typeof document !== "undefined"
@@ -106,9 +109,9 @@ export function HoverTip(props: HoverTipProps): ReactElement {
             ) : null}
             <span
               className={
-                unclamp
-                  ? "prism-tooltip__body"
-                  : "prism-tooltip__body prism-tooltip__body--clamp"
+                clamp
+                  ? "prism-tooltip__body prism-tooltip__body--clamp"
+                  : "prism-tooltip__body"
               }
             >
               {body}

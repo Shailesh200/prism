@@ -130,6 +130,7 @@ export {
 export {
   CUSTOM_RANGE_PRESET,
   formatRangeAbs,
+  rangeTriggerShowsAbs,
   fromDatetimeLocalValue,
   presetLabel,
   toDatetimeLocalValue,

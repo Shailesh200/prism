@@ -6,6 +6,7 @@ import {
 } from "@repo-prism/app-shell";
 import {
   Button,
+  IconButton,
   CUSTOM_RANGE_PRESET,
   Drawer,
   Input,
@@ -57,6 +58,9 @@ import {
   parseFleetView,
   parseJobTypeFilter,
   matchesJobType,
+  matchesRepoFilter,
+  parseFilterIds,
+  FILTER_ALL,
   selectedRangeWindow,
   SKILL_PLAYBOOK,
   type FleetRange,
@@ -147,9 +151,11 @@ export function ConsoleApp(): ReactElement {
   } = useHashRoute();
   const feed = useJobsFeed(token);
   const { workspaces, selectedPath } = useWorkspaces(token, feed);
-  const spectrumRoot =
-    repoFilter && repoFilter !== "all" ? repoFilter : selectedPath;
   const typeFilter = parseJobTypeFilter(typeQuery);
+  const repoIds = parseFilterIds(repoFilter);
+  const singleRepo =
+    repoIds.length === 1 && repoIds[0] !== FILTER_ALL ? repoIds[0] : undefined;
+  const spectrumRoot = singleRepo ?? selectedPath;
   const [version, setVersion] = useState<string | undefined>();
   const [playgroundUrl, setPlaygroundUrl] = useState(`${PLAYGROUND_DEFAULT}/`);
   const [update, setUpdate] = useState<{
@@ -328,10 +334,7 @@ export function ConsoleApp(): ReactElement {
     () =>
       feed.summaries.filter(
         (job) =>
-          matchesJobType(job, typeFilter) &&
-          (!repoFilter ||
-            repoFilter === "all" ||
-            job.workspacePath === repoFilter),
+          matchesJobType(job, typeFilter) && matchesRepoFilter(job, repoFilter),
       ),
     [feed.summaries, repoFilter, typeFilter],
   );
@@ -352,9 +355,7 @@ export function ConsoleApp(): ReactElement {
       rangedJobs.filter(
         (job) =>
           matchesJobType(job, typeFilter) &&
-          (!repoFilter ||
-            repoFilter === "all" ||
-            job.workspacePath === repoFilter) &&
+          matchesRepoFilter(job, repoFilter) &&
           (filter.trim() === "" ||
             job.title.toLowerCase().includes(filter.toLowerCase()) ||
             (job.workspaceLabel ?? "")
@@ -438,7 +439,7 @@ export function ConsoleApp(): ReactElement {
       void postJson("/api/workspaces/remove", token, { path })
         .then(() => {
           notifyWorkspacesChanged();
-          if (repoFilter === path) go("dashboard", {});
+          if (parseFilterIds(repoFilter).includes(path)) go("dashboard", {});
           showConsoleToast(
             `Removed ${label} from this Console. The checkout is unchanged.`,
           );
@@ -507,14 +508,11 @@ export function ConsoleApp(): ReactElement {
           }
           aria-label="Console"
         >
-          <Button
+          <IconButton
             type="button"
-            variant="tertiary"
-            className="console-rail__item console-rail__toggle"
-            aria-label={
-              railCollapsed ? "Expand navigation" : "Collapse navigation"
-            }
-            title={railCollapsed ? "Expand navigation" : "Collapse navigation"}
+            variant="secondary"
+            className="console-rail__toggle"
+            label={railCollapsed ? "Expand navigation" : "Collapse navigation"}
             onClick={() => {
               const next = !railCollapsed;
               setRailCollapsed(next);
@@ -525,11 +523,11 @@ export function ConsoleApp(): ReactElement {
             }}
           >
             {railCollapsed ? (
-              <PanelLeft size={16} aria-hidden />
+              <PanelLeft size={14} aria-hidden />
             ) : (
-              <PanelLeftClose size={16} aria-hidden />
+              <PanelLeftClose size={14} aria-hidden />
             )}
-          </Button>
+          </IconButton>
           {CONSOLE_VIEWS.filter((id) => id !== "settings").map((id) => (
             <Button
               key={id}
@@ -547,20 +545,20 @@ export function ConsoleApp(): ReactElement {
               <span>{VIEW_LABELS[id]}</span>
             </Button>
           ))}
-          <a
-            className="console-rail__item console-rail__item--spectrum"
-            href={spectrumUrl(
-              playgroundUrl,
-              spectrumRoot ? { root: spectrumRoot } : undefined,
-            )}
-            target="_blank"
-            rel="noreferrer"
-            title="Open Spectrum"
-          >
-            <Hexagon size={16} aria-hidden />
-            <span>Spectrum</span>
-          </a>
           <div className="console-rail__foot">
+            <a
+              className="console-rail__item console-rail__item--spectrum"
+              href={spectrumUrl(
+                playgroundUrl,
+                spectrumRoot ? { root: spectrumRoot } : undefined,
+              )}
+              target="_blank"
+              rel="noreferrer"
+              title="Open Spectrum"
+            >
+              <Hexagon size={16} aria-hidden />
+              <span>Spectrum</span>
+            </a>
             <Button
               type="button"
               variant="tertiary"
@@ -585,7 +583,7 @@ export function ConsoleApp(): ReactElement {
                 {updateMessage ??
                   (update.hop === "local"
                     ? `Prism ${update.latest} is on npm. This Console is a local ${update.current} build — reload will not hop until you publish or run the npx install.`
-                    : `Prism ${update.latest} is on npm. This Console is ${update.current}. Cache it here, then reload Prism MCP in this chat to hop.`)}
+                    : `Prism ${update.latest} is on npm. This Console is ${update.current}. Cache it here, then reload Prism MCP in this session to hop.`)}
               </p>
               <div className="console-banner__actions">
                 {update.hop !== "local" && !updateMessage ? (
@@ -669,17 +667,19 @@ export function ConsoleApp(): ReactElement {
                     repoFilter={repoFilter ?? "all"}
                     onRepoFilter={(path) =>
                       go("dashboard", {
-                        ...(path === "all" ? {} : { repo: path }),
-                        ...(typeFilter !== "all" ? { type: typeFilter } : {}),
+                        ...(path === FILTER_ALL ? {} : { repo: path }),
+                        ...(typeFilter !== FILTER_ALL
+                          ? { type: typeFilter }
+                          : {}),
                       })
                     }
                     typeFilter={typeFilter}
                     onTypeFilter={(id) =>
                       go("dashboard", {
-                        ...(repoFilter && repoFilter !== "all"
+                        ...(repoFilter && repoFilter !== FILTER_ALL
                           ? { repo: repoFilter }
                           : {}),
-                        ...(id === "all" ? {} : { type: id }),
+                        ...(id === FILTER_ALL ? {} : { type: id }),
                       })
                     }
                   />
@@ -731,6 +731,7 @@ export function ConsoleApp(): ReactElement {
                       nowMs={nowMs}
                       loading={feed.loading}
                       outsideCount={outsideCount}
+                      range={timeWindow}
                       filter={filter}
                       onShowAllTime={showAllTime}
                       {...(focusId ? { selectedId: focusId } : {})}
@@ -785,7 +786,7 @@ export function ConsoleApp(): ReactElement {
                 token={token}
                 repos={workspaces}
                 filter={filter}
-                {...(repoFilter ? { repoFilter } : {})}
+                {...(singleRepo ? { repoFilter: singleRepo } : {})}
                 onOpenJob={(id) => {
                   setFocusId(id);
                   go("dashboard");
@@ -849,7 +850,7 @@ export function ConsoleApp(): ReactElement {
               <WakeView
                 token={token}
                 repos={workspaces}
-                {...(repoFilter ? { repoFilter } : {})}
+                {...(singleRepo ? { repoFilter: singleRepo } : {})}
                 playgroundUrl={spectrumUrl(
                   playgroundUrl,
                   spectrumRoot ? { root: spectrumRoot } : undefined,
@@ -986,8 +987,8 @@ export function ConsoleApp(): ReactElement {
             jobs={feed.summaries}
             {...(compose.workspace
               ? { defaultWorkspace: compose.workspace }
-              : repoFilter
-                ? { defaultWorkspace: repoFilter }
+              : singleRepo
+                ? { defaultWorkspace: singleRepo }
                 : {})}
             {...(compose.title ||
             compose.prd ||

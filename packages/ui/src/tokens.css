@@ -22,8 +22,10 @@
   --prism-brand-strong: #00dcd4;
   /* Stitch primary-button hover on Wake / Console CTAs. */
   --prism-brand-hover: #00d6d6;
-  /* Primary button label — always white for contrast on teal (Design.md on-primary). */
+  /* Text on brand fills (map nodes, badges). */
   --prism-on-brand: #ffffff;
+  /* Primary button label — black on teal. */
+  --prism-on-primary: #000000;
   --prism-violet: #6c63ff;
   /* Sky accent — live rail, running cap (ADR-0053 / M-068). */
   --prism-accent: #38bdf8;
@@ -106,8 +108,12 @@
   --prism-type-brand-size: 1.125rem;
   --prism-type-brand-weight: 650;
   --prism-type-brand-tracking: -0.02em;
+  --prism-type-h1-size: 1.5rem;
+  --prism-type-h1-weight: 650;
   --prism-type-h2-size: 1.15rem;
   --prism-type-h2-weight: 600;
+  --prism-type-h3-size: 0.95rem;
+  --prism-type-h3-weight: 600;
   --prism-type-body: 0.9375rem;
   --prism-type-body-sm: 0.8125rem;
   --prism-type-label: 0.75rem;
@@ -240,6 +246,7 @@ html[data-theme="light"] .prism-theme {
   --prism-brand: #005c55;
   --prism-brand-strong: #0f766e;
   --prism-on-brand: #ffffff;
+  --prism-on-primary: #000000;
   --prism-accent: #0284c7;
   --prism-ink-1: #191c1d;
   --prism-ink-2: #191c1d;
@@ -303,6 +310,7 @@ html[data-theme="light"] .prism-theme {
     --prism-surface-3: var(--prism-tile);
     --prism-surface-4: var(--prism-elev);
     --prism-on-brand: #ffffff;
+    --prism-on-primary: #000000;
     --prism-node-fill: #ffffff;
     --prism-node-fill-selected: color-mix(in srgb, #005c55 12%, #ffffff);
     --prism-edge: color-mix(in srgb, #005c55 40%, #c5d0d8);

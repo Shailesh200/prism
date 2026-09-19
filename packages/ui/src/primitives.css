@@ -105,6 +105,10 @@
   font-size: var(--prism-type-label);
 }
 
+.prism-field__hint--error {
+  color: var(--prism-rose);
+}
+
 .prism-select__list {
   box-sizing: border-box;
   z-index: 50;
@@ -418,11 +422,14 @@
 .prism-tooltip__pop {
   position: fixed;
   z-index: 9999;
-  width: 240px;
-  max-width: calc(100vw - 16px);
+  box-sizing: border-box;
+  width: fit-content;
+  min-width: 0;
+  max-width: min(24rem, calc(100vw - 16px));
   display: flex;
   flex-direction: column;
   gap: var(--prism-space-xs);
+  overflow-wrap: break-word;
   padding: var(--prism-space-sm) var(--prism-space-md);
   border-radius: var(--prism-radius-md);
   border: 1px solid var(--prism-line);
@@ -453,25 +460,32 @@
 }
 
 .prism-tooltip__title {
+  min-width: 0;
+  max-width: 100%;
   font-size: var(--prism-type-label);
   font-weight: 600;
   color: var(--prism-ink);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
 }
 
 .prism-tooltip__pop[data-wide="true"] {
-  width: 320px;
+  max-width: min(32rem, calc(100vw - 16px));
 }
 
 .prism-tooltip__body {
+  min-width: 0;
+  max-width: 100%;
   font-size: var(--prism-type-label);
   line-height: var(--prism-leading-body);
   color: var(--prism-ink-muted);
   white-space: pre-wrap;
+  overflow-wrap: break-word;
 }
 
 /* Compact HoverTip: keep long briefs (job PRDs) to a few scannable lines. */
 .prism-tooltip__pop--hover {
-  width: min(280px, calc(100vw - 16px));
+  max-width: min(40rem, calc(100vw - 16px));
 }
 
 .prism-tooltip__body--clamp {
@@ -479,7 +493,7 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 4;
   overflow: hidden;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   white-space: pre-wrap;
 }
 
@@ -551,7 +565,7 @@
 
 .prism-btn--primary {
   background: var(--prism-brand);
-  color: var(--prism-on-brand, var(--prism-canvas));
+  color: var(--prism-on-primary, #000000);
 }
 
 .prism-btn--primary:hover:not(:disabled) {
@@ -991,10 +1005,15 @@ fieldset.prism-field,
 .prism-range-trigger {
   display: inline-flex;
   align-items: stretch;
-  min-width: 16rem;
+  width: auto;
+  min-width: 0;
   max-width: min(36rem, 100%);
   padding: 0;
   overflow: hidden;
+}
+
+.prism-range-trigger--custom {
+  min-width: 16rem;
 }
 
 .prism-range-trigger__abs,
@@ -1019,10 +1038,15 @@ fieldset.prism-field,
   color: var(--prism-ink-muted);
 }
 
+.prism-range-trigger--preset .prism-range-trigger__preset {
+  color: inherit;
+}
+
 .prism-range-pop__abs,
 .prism-range-pop__presets {
-  display: grid;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
+  align-content: stretch;
   gap: 8px;
 }
 
@@ -1031,6 +1055,11 @@ fieldset.prism-field,
   z-index: 1;
   padding: 12px;
   border-right: 1px solid var(--prism-line);
+}
+
+.prism-range-pop__apply {
+  margin-top: auto;
+  width: 100%;
 }
 
 .prism-range-pop__presets {
@@ -1052,6 +1081,8 @@ fieldset.prism-field,
 /* —— DateTimePicker —— */
 .prism-dt {
   position: relative;
+  display: grid;
+  gap: 4px;
 }
 
 .prism-dt__control {
@@ -1697,13 +1728,15 @@ fieldset.prism-field,
 
 .prism-empty {
   display: grid;
-  justify-items: start;
+  width: 100%;
+  justify-items: center;
+  justify-content: center;
+  align-content: center;
+  text-align: center;
   gap: var(--prism-space-sm);
 }
 
 .prism-empty--page {
-  justify-items: center;
-  text-align: center;
   padding: 48px 16px;
 }
 
@@ -1714,6 +1747,15 @@ fieldset.prism-field,
 .prism-empty__title {
   margin: 0;
   font-size: var(--prism-type-body);
+  font-weight: 600;
+}
+
+.prism-empty__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .prism-pip {

@@ -5,6 +5,7 @@ import {
   CUSTOM_RANGE_PRESET,
   formatRangeAbs,
   presetLabel,
+  rangeTriggerShowsAbs,
   type DateRangePreset,
   type DateRangeValue,
   type DateRangeWindow,
@@ -32,8 +33,8 @@ function finiteBound(ms: number | undefined): number | undefined {
 }
 
 /**
- * Grafana-style range: absolute from/to on the left of the trigger and in the
- * dropdown, preset list on the right.
+ * Grafana-style range: presets on the right of the dropdown. The trigger
+ * shows only the preset label unless the user applied a custom window.
  */
 export function DateRangePicker(props: DateRangePickerProps): ReactElement {
   const nowMs = props.nowMs ?? Date.now();
@@ -79,9 +80,14 @@ export function DateRangePicker(props: DateRangePickerProps): ReactElement {
       ? "Can't be before the start."
       : "Can't be before the first job.";
 
-  const triggerClass = props.className
-    ? `prism-range-trigger ${props.className}`
-    : "prism-range-trigger";
+  const showAbs = rangeTriggerShowsAbs(props.value.preset);
+  const triggerClass = [
+    "prism-range-trigger",
+    showAbs ? "prism-range-trigger--custom" : "prism-range-trigger--preset",
+    props.className,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <Popover
@@ -97,12 +103,15 @@ export function DateRangePicker(props: DateRangePickerProps): ReactElement {
           aria-label={props["aria-label"] ?? "Time range"}
           aria-expanded={open}
         >
-          <span className="prism-range-trigger__abs">
-            {formatRangeAbs(props.value, nowMs)}
-          </span>
-          <span className="prism-range-trigger__preset">
-            {presetLabel(props.presets, props.value.preset)}
-          </span>
+          {showAbs ? (
+            <span className="prism-range-trigger__abs">
+              {formatRangeAbs(props.value, nowMs)}
+            </span>
+          ) : (
+            <span className="prism-range-trigger__preset">
+              {presetLabel(props.presets, props.value.preset)}
+            </span>
+          )}
         </Button>
       }
     >
@@ -128,6 +137,7 @@ export function DateRangePicker(props: DateRangePickerProps): ReactElement {
         <Button
           variant="primary"
           size="sm"
+          className="prism-range-pop__apply"
           onClick={applyCustom}
           disabled={!fromOk || !toOk || !dateRangeCanApply(fromMs, toMs, minMs)}
         >

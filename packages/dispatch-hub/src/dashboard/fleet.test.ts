@@ -69,7 +69,14 @@ import {
   CHILD_JOB_TYPE,
   jobTypeFilterOptions,
   matchesJobType,
+  matchesRepoFilter,
+  parseFilterIds,
   parseJobTypeFilter,
+  showWidenToAll,
+  isAllTimeRange,
+  toggleFilterId,
+  FILTER_ALL,
+  FILTER_NONE,
   playbookHint,
   compactJobPrd,
   composeQueuedPrd,
@@ -234,6 +241,25 @@ describe("pulseSections", () => {
         now,
       ).map((row) => row.id),
     ).toEqual(["old", "recent"]);
+  });
+});
+
+describe("showWidenToAll", () => {
+  it("hides the control when nothing sits outside the window", () => {
+    expect(showWidenToAll(0)).toBe(false);
+    expect(showWidenToAll(2)).toBe(true);
+  });
+
+  it("hides on All time even if a leftover outside count is passed", () => {
+    expect(isAllTimeRange("all")).toBe(true);
+    expect(
+      isAllTimeRange({
+        startMs: Number.NEGATIVE_INFINITY,
+        endMs: 1,
+      }),
+    ).toBe(true);
+    expect(showWidenToAll(3, "all")).toBe(false);
+    expect(showWidenToAll(3, "1h")).toBe(true);
   });
 });
 
@@ -983,6 +1009,50 @@ describe("visibleFleetRepos", () => {
     );
     expect(rows.map((row) => row.path)).toEqual(["/prism"]);
     expect(rows[0]?.jobs.map((row) => row.id)).toEqual(["skill"]);
+  });
+
+  it("keeps only the selected repositories when several are checked", () => {
+    const rows = visibleFleetRepos(
+      [
+        job({
+          id: "a",
+          status: "done",
+          workspacePath: "/prism",
+          workspaceLabel: "prism",
+        }),
+        job({
+          id: "b",
+          status: "done",
+          workspacePath: "/fixture",
+          workspaceLabel: "m012-features",
+        }),
+      ],
+      [
+        { path: "/prism", label: "prism" },
+        { path: "/fixture", label: "m012-features" },
+      ],
+      "",
+      "/prism,/fixture",
+    );
+    expect(rows.map((row) => row.path).sort()).toEqual(["/fixture", "/prism"]);
+    expect(
+      visibleFleetRepos(
+        [
+          job({
+            id: "a",
+            status: "done",
+            workspacePath: "/prism",
+            workspaceLabel: "prism",
+          }),
+        ],
+        [
+          { path: "/prism", label: "prism" },
+          { path: "/fixture", label: "m012-features" },
+        ],
+        "",
+        "/prism",
+      ).map((row) => row.path),
+    ).toEqual(["/prism"]);
   });
 });
 
@@ -1919,6 +1989,33 @@ describe("PLAYBOOKS", () => {
   });
 });
 
+describe("multi-select filters", () => {
+  const catalog = ["/a", "/b", "/c"];
+
+  it("treats missing or all as every id", () => {
+    expect(parseFilterIds(undefined)).toEqual([FILTER_ALL]);
+    expect(parseFilterIds("")).toEqual([FILTER_ALL]);
+    expect(parseFilterIds(FILTER_NONE)).toEqual([]);
+    expect(parseFilterIds("/a,/b")).toEqual(["/a", "/b"]);
+  });
+
+  it("toggles All and individuals", () => {
+    expect(toggleFilterId(FILTER_ALL, FILTER_ALL, catalog)).toBe(FILTER_NONE);
+    expect(toggleFilterId(FILTER_NONE, FILTER_ALL, catalog)).toBe(FILTER_ALL);
+    expect(toggleFilterId(FILTER_ALL, "/a", catalog)).toBe("/b,/c");
+    expect(toggleFilterId("/a", "/a", catalog)).toBe(FILTER_NONE);
+    expect(toggleFilterId("/b,/c", "/a", catalog)).toBe(FILTER_ALL);
+  });
+
+  it("matches jobs against one or many repos", () => {
+    const row = job({ id: "a", status: "done", workspacePath: "/a" });
+    expect(matchesRepoFilter(row, FILTER_ALL)).toBe(true);
+    expect(matchesRepoFilter(row, "/a,/b")).toBe(true);
+    expect(matchesRepoFilter(row, "/b")).toBe(false);
+    expect(matchesRepoFilter(row, FILTER_NONE)).toBe(false);
+  });
+});
+
 describe("job type filter", () => {
   it("names custom jobs instead of a blank/normal type", () => {
     const labels = jobTypeFilterOptions().map((row) => row.label);
@@ -1928,6 +2025,7 @@ describe("job type filter", () => {
     expect(labels).toContain("From a finding");
     expect(labels).not.toContain("Blank brief");
     expect(parseJobTypeFilter("nope")).toBe("all");
+    expect(parseJobTypeFilter("custom,child")).toBe("custom,child");
   });
 
   it("matches skill, finding, child, and custom jobs", () => {
@@ -1961,6 +2059,15 @@ describe("job type filter", () => {
         "finding",
       ),
     ).toBe(false);
+    expect(
+      matchesJobType(
+        job({ id: "f", status: "done", playbook: "skill" }),
+        "custom,skill",
+      ),
+    ).toBe(true);
+    expect(matchesJobType(job({ id: "g", status: "done" }), FILTER_NONE)).toBe(
+      false,
+    );
   });
 });
 

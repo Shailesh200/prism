@@ -918,6 +918,20 @@ export function jobsOutsideRange(
   return Math.max(0, jobs.length - jobsInRange(jobs, range, nowMs).length);
 }
 
+export function isAllTimeRange(range: FleetTimeRange): boolean {
+  if (isTimeWindow(range)) return !Number.isFinite(range.startMs);
+  return range === "all";
+}
+
+/** Widen-to-All only helps when jobs sit outside the current window. */
+export function showWidenToAll(
+  outsideCount: number,
+  range?: FleetTimeRange,
+): boolean {
+  if (range !== undefined && isAllTimeRange(range)) return false;
+  return outsideCount > 0;
+}
+
 export function reposWithJobsInRange(
   repos: readonly RepoFleet[],
   range: FleetTimeRange,
@@ -944,17 +958,16 @@ export function visibleFleetRepos(
     (job) =>
       matchesFilter(job, filter) &&
       matchesJobType(job, typeFilter) &&
-      (!repoFilter || repoFilter === "all" || job.workspacePath === repoFilter),
+      matchesRepoFilter(job, repoFilter),
   );
-  const scoped =
-    repoFilter && repoFilter !== "all"
-      ? workspaces.filter((row) => row.path === repoFilter)
-      : workspaces;
+  const repoIds = parseFilterIds(repoFilter);
+  const scoped = repoIds.includes(FILTER_ALL)
+    ? workspaces
+    : workspaces.filter((row) => repoIds.includes(row.path));
   const groups = groupRepos(visible, scoped);
-  const typed =
-    typeFilter && typeFilter !== "all"
-      ? groups.filter((repo) => repo.jobs.length > 0)
-      : groups;
+  const typed = isAllFilter(typeFilter)
+    ? groups
+    : groups.filter((repo) => repo.jobs.length > 0);
   if (!filter.trim()) return typed;
   return typed.filter(
     (repo) =>
@@ -1892,6 +1905,73 @@ export function reviewTargetOf(id: string): ReviewTarget | undefined {
 
 export const CUSTOM_JOB_TYPE = "custom";
 export const CHILD_JOB_TYPE = "child";
+export const FILTER_ALL = "all";
+/** Encoded empty multi-select (Clear with nothing checked). */
+export const FILTER_NONE = "__none__";
+
+export function parseFilterIds(raw: string | undefined): readonly string[] {
+  const value = raw?.trim() ?? "";
+  if (!value || value === FILTER_ALL) return [FILTER_ALL];
+  if (value === FILTER_NONE) return [];
+  return [
+    ...new Set(
+      value
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean),
+    ),
+  ];
+}
+
+export function encodeFilterIds(ids: readonly string[]): string {
+  const unique = [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
+  if (unique.length === 0) return FILTER_NONE;
+  if (unique.includes(FILTER_ALL)) return FILTER_ALL;
+  return unique.join(",");
+}
+
+export function isAllFilter(raw: string | undefined): boolean {
+  const ids = parseFilterIds(raw);
+  return ids.length === 1 && ids[0] === FILTER_ALL;
+}
+
+export function isAllSelected(
+  ids: readonly string[],
+  catalog: readonly string[],
+): boolean {
+  if (ids.includes(FILTER_ALL)) return true;
+  return catalog.length > 0 && catalog.every((id) => ids.includes(id));
+}
+
+export function toggleFilterId(
+  raw: string | undefined,
+  id: string,
+  catalog: readonly string[],
+): string {
+  const current = parseFilterIds(raw);
+  const allOn = isAllSelected(current, catalog);
+  if (id === FILTER_ALL) return allOn ? FILTER_NONE : FILTER_ALL;
+  const selected = new Set(
+    allOn ? catalog : current.filter((item) => item !== FILTER_ALL),
+  );
+  if (selected.has(id)) selected.delete(id);
+  else selected.add(id);
+  if (selected.size === 0) return FILTER_NONE;
+  if (catalog.length > 0 && catalog.every((item) => selected.has(item))) {
+    return FILTER_ALL;
+  }
+  return encodeFilterIds([...selected]);
+}
+
+export function matchesRepoFilter(
+  job: Pick<JobSummary, "workspacePath">,
+  repoFilter: string | undefined,
+): boolean {
+  const ids = parseFilterIds(repoFilter);
+  if (ids.length === 0) return false;
+  if (ids.includes(FILTER_ALL)) return true;
+  return Boolean(job.workspacePath && ids.includes(job.workspacePath));
+}
 
 export type JobTypeFilter = {
   readonly id: string;
@@ -1911,18 +1991,22 @@ export function jobTypeFilterOptions(): readonly JobTypeFilter[] {
 }
 
 export function parseJobTypeFilter(raw: string | undefined): string {
-  const id = raw?.trim() ?? "";
-  if (!id || id === "all") return "all";
-  if (jobTypeFilterOptions().some((row) => row.id === id)) return id;
-  return "all";
+  const value = raw?.trim() ?? "";
+  if (!value || value === FILTER_ALL) return FILTER_ALL;
+  if (value === FILTER_NONE) return FILTER_NONE;
+  const known = new Set(jobTypeFilterOptions().map((row) => row.id));
+  const ids = value
+    .split(",")
+    .map((part) => part.trim())
+    .filter((id) => id && id !== FILTER_ALL && known.has(id));
+  if (ids.length === 0) return FILTER_ALL;
+  return encodeFilterIds(ids);
 }
 
-export function matchesJobType(
+function matchesSingleJobType(
   job: Pick<JobSummary, "playbook" | "origin" | "parentJobId" | "title">,
-  type: string | undefined,
+  want: string,
 ): boolean {
-  const want = parseJobTypeFilter(type);
-  if (want === "all") return true;
   if (want === CHILD_JOB_TYPE) return Boolean(job.parentJobId?.trim());
   if (want === CUSTOM_JOB_TYPE) {
     const id = job.playbook?.trim();
@@ -1937,6 +2021,16 @@ export function matchesJobType(
     );
   }
   return job.playbook === want;
+}
+
+export function matchesJobType(
+  job: Pick<JobSummary, "playbook" | "origin" | "parentJobId" | "title">,
+  type: string | undefined,
+): boolean {
+  const want = parseJobTypeFilter(type);
+  if (want === FILTER_ALL) return true;
+  if (want === FILTER_NONE) return false;
+  return want.split(",").some((id) => matchesSingleJobType(job, id));
 }
 
 /** Build the queued brief: user prompt plus optional review/finding/skill context. */

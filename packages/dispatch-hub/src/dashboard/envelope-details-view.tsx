@@ -707,10 +707,10 @@ function recentColumns(jobs: readonly JobSummary[]): TableColumn<RecentView>[] {
       id: "source",
       header: "Source",
       type: "text",
-      tip: (row) => (row.jobId ? jobLabel(row.jobId, jobs) : "this chat"),
+      tip: (row) => (row.jobId ? jobLabel(row.jobId, jobs) : "This session"),
       render: (row) => (
         <span className="envelope-title">
-          {row.jobId ? jobLabel(row.jobId, jobs) : "this chat"}
+          {row.jobId ? jobLabel(row.jobId, jobs) : "This session"}
         </span>
       ),
     },
@@ -723,7 +723,7 @@ function sessionWho(
 ): string {
   return row.kind === "job" && row.jobId
     ? jobLabel(row.jobId, jobs)
-    : "this chat";
+    : "This session";
 }
 
 function sessionColumns(
@@ -856,7 +856,7 @@ function SessionInspector(props: {
   const who =
     session.kind === "job" && session.jobId
       ? jobLabel(session.jobId, props.jobs)
-      : "this chat";
+      : "This session";
   return (
     <aside className="envelope-inspector">
       <div className="envelope-inspector__head">
@@ -1172,7 +1172,7 @@ export function EnvelopeDetailsView(props: {
       ) : null}
       {envelope && !envelope.available ? (
         <EmptyState>
-          No list calls in this window. Envelope fills when this chat or a
+          No list calls in this window. Envelope fills when this session or a
           teammate uses list tools — not from the job&apos;s billed tokens.
         </EmptyState>
       ) : null}
@@ -1180,19 +1180,38 @@ export function EnvelopeDetailsView(props: {
       {envelope?.available && mode === "over-time" ? (
         <>
           <EnvelopeCards density="detail" cards={overTimeCards(envelope)} />
+          <EnvelopeBarChart
+            title={
+              grain === "weekly"
+                ? "Weekly list calls"
+                : grain === "monthly"
+                  ? "Monthly list calls"
+                  : grain === "overall"
+                    ? "List calls"
+                    : "Daily list calls"
+            }
+            buckets={chartBuckets}
+          />
           <div className="envelope-split">
-            <EnvelopeBarChart
-              title={
-                grain === "weekly"
-                  ? "Weekly list calls"
-                  : grain === "monthly"
-                    ? "Monthly list calls"
-                    : grain === "overall"
-                      ? "List calls"
-                      : "Daily list calls"
-              }
-              buckets={chartBuckets}
-            />
+            <div className="envelope-journal">
+              <h2 className="envelope-chart__title">Envelope journal</h2>
+              <Table
+                className="envelope-table"
+                rowKey={(row) => `${row.ts}:${row.tool}:${row.jobId ?? ""}`}
+                empty="No calls in this window."
+                rows={journalRows}
+                columns={recentColumns(repoJobs)}
+              />
+              <Pager
+                page={journalPage}
+                pageSize={JOURNAL_PAGE_SIZE}
+                total={envelope.recent.length}
+                onPage={setJournalPage}
+              />
+              <EnvelopeHelp>
+                Every list call in this window. No prompts or file bodies.
+              </EnvelopeHelp>
+            </div>
             <div className="envelope-mix">
               <h2 className="envelope-chart__title">Tool mix</h2>
               <Table
@@ -1242,32 +1261,13 @@ export function EnvelopeDetailsView(props: {
               </EnvelopeHelp>
             </div>
           </div>
-          <div className="envelope-journal">
-            <h2 className="envelope-chart__title">Envelope journal</h2>
-            <Table
-              className="envelope-table"
-              rowKey={(row) => `${row.ts}:${row.tool}:${row.jobId ?? ""}`}
-              empty="No calls in this window."
-              rows={journalRows}
-              columns={recentColumns(repoJobs)}
-            />
-            <Pager
-              page={journalPage}
-              pageSize={JOURNAL_PAGE_SIZE}
-              total={envelope.recent.length}
-              onPage={setJournalPage}
-            />
-            <EnvelopeHelp>
-              Every list call in this window. No prompts or file bodies.
-            </EnvelopeHelp>
-          </div>
         </>
       ) : null}
 
       {envelope?.available && mode === "agentic" ? (
         hosts.length === 0 ? (
           <EmptyState>
-            No list calls in this window. Envelope fills when this chat or a
+            No list calls in this window. Envelope fills when this session or a
             teammate uses list tools.
           </EmptyState>
         ) : (
@@ -1359,7 +1359,7 @@ export function EnvelopeDetailsView(props: {
               />
               <EnvelopeHelp>
                 Bursts of list calls with no more than 30 minutes of quiet,
-                split by this chat versus a teammate.
+                split by this session versus a teammate.
               </EnvelopeHelp>
             </div>
             {activeSession ? (

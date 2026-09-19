@@ -70,3 +70,8 @@ export function presetLabel(
   const row = presets.find((item) => item.id === preset);
   return row?.shortLabel ?? row?.label ?? preset;
 }
+
+/** Absolute from/to belongs on the trigger only for a custom window. */
+export function rangeTriggerShowsAbs(preset: string): boolean {
+  return preset === CUSTOM_RANGE_PRESET;
+}

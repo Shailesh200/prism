@@ -51,6 +51,9 @@ describe("UXPilot dark tokens (ADR-0014)", () => {
     expect(tokens).toContain('data-theme="light"');
     expect(tokens).toContain("--prism-ink: #191c1d");
     expect(tokens).toContain("--prism-on-brand: #ffffff");
+    expect(tokens).toContain("--prism-on-primary: #000000");
+    expect(tokens).toContain("--prism-type-h1-size: 1.5rem");
+    expect(tokens).toContain("--prism-type-h3-size: 0.95rem");
     expect(tokens).toContain("--prism-panel: #ffffff");
     expect(tokens).toContain("@media (prefers-color-scheme: light)");
     expect(tokens).toContain('data-theme="system"');

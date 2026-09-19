@@ -4,6 +4,7 @@ import {
   formatRangeAbs,
   fromDatetimeLocalValue,
   presetLabel,
+  rangeTriggerShowsAbs,
   toDatetimeLocalValue,
 } from "./date-range.js";
 
@@ -42,5 +43,11 @@ describe("date-range helpers", () => {
       "Last 1 hour",
     );
     expect(presetLabel([], CUSTOM_RANGE_PRESET)).toBe("Custom");
+  });
+
+  it("keeps absolute from/to off the trigger for named presets", () => {
+    expect(rangeTriggerShowsAbs("1h")).toBe(false);
+    expect(rangeTriggerShowsAbs("all")).toBe(false);
+    expect(rangeTriggerShowsAbs(CUSTOM_RANGE_PRESET)).toBe(true);
   });
 });

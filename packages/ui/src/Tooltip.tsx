@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { hugTooltipPopWidth } from "./tooltip-layout.js";
 
 export type TooltipAlign = "start" | "center" | "end";
 
@@ -89,7 +90,8 @@ export function Tooltip(props: TooltipProps): ReactElement {
     const rect = trigger.getBoundingClientRect();
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    const popW = popRef.current?.offsetWidth ?? 240;
+    if (popRef.current) hugTooltipPopWidth(popRef.current);
+    const popW = popRef.current?.offsetWidth ?? 0;
     const popH = popRef.current?.offsetHeight ?? 0;
 
     let left: number;

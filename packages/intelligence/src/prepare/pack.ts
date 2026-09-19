@@ -7,10 +7,12 @@
 
 import {
   isTestPath,
+  offLimitReason,
   prepareMapTokenWeight,
   type FeatureInfo,
   type GitFileSignal,
   type IndexSnapshot,
+  type IndexedFile,
   type PrepareChange,
   type PrepareAmbiguous,
   type ReuseHit,
@@ -58,8 +60,56 @@ const STOP = new Set([
   "a",
 ]);
 
+/** Path/token pieces that match too many files to be a unique seed. */
+const WEAK_SEED = new Set([
+  "src",
+  "lib",
+  "app",
+  "pkg",
+  "packages",
+  "dist",
+  "build",
+  "test",
+  "tests",
+  "tmp",
+  "node",
+  "index",
+  "main",
+  "code",
+  "file",
+  "tsx",
+  "jsx",
+  "css",
+  "mjs",
+  "cjs",
+]);
+
+const SUPPORT_HINTS = new Set([
+  "screen",
+  "layout",
+  "tooltip",
+  "css",
+  "style",
+  "styles",
+  "styling",
+  "stylesheet",
+  "readme",
+  "docs",
+  "doc",
+  "ui",
+  "view",
+  "page",
+  "theme",
+  "config",
+]);
+
+const SUPPORT_FILE = /\.(css|scss|sass|less|md|mdx|json|ya?ml)$/i;
+const FRAMEWORK_IMPORT = /^(express|next)(\/|$)/;
+const HTTP_HANDLER =
+  /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|handler|default)$/;
+
 const SCORE_THRESHOLD = 0.12;
-const REUSE_THRESHOLD = 0.55;
+const REUSE_THRESHOLD = 0.25;
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 
 export type BuildPrepareChangeInput = {
@@ -73,6 +123,31 @@ export type BuildPrepareChangeInput = {
   readonly memories?: readonly PrepareMemory[];
 };
 
+function stemWord(token: string): string {
+  const t = token.toLowerCase();
+  if (t.length < 4) return t;
+  if (t.endsWith("ies") && t.length > 4) return `${t.slice(0, -3)}y`;
+  if (t.endsWith("ses") && t.length > 4) return t.slice(0, -2);
+  if (
+    t.endsWith("s") &&
+    !t.endsWith("ss") &&
+    !t.endsWith("us") &&
+    !t.endsWith("is")
+  ) {
+    return t.slice(0, -1);
+  }
+  return t;
+}
+
+function tokensOverlap(
+  left: readonly string[],
+  right: readonly string[],
+): boolean {
+  if (left.length === 0 || right.length === 0) return false;
+  const rightSet = new Set(right);
+  return left.some((t) => rightSet.has(t));
+}
+
 export function tokenizeTask(task: string): string[] {
   const out = new Set<string>();
   const parts = task.split(/[^A-Za-z0-9_]+/).filter(Boolean);
@@ -82,6 +157,8 @@ export function tokenizeTask(task: string): string[] {
       const lower = piece.toLowerCase();
       if (lower.length < 3 || STOP.has(lower)) continue;
       out.add(lower);
+      const stemmed = stemWord(lower);
+      if (stemmed.length >= 3 && !STOP.has(stemmed)) out.add(stemmed);
       if (lower.endsWith("ing") && lower.length > 5) {
         out.add(`${lower.slice(0, -3)}e`);
         out.add(lower.slice(0, -3));
@@ -96,6 +173,46 @@ function splitIdent(value: string): string[] {
   return camel.length > 1 ? [value, ...camel] : [value];
 }
 
+function basename(path: string): string {
+  const i = path.lastIndexOf("/");
+  return i === -1 ? path : path.slice(i + 1);
+}
+
+function dirname(path: string): string {
+  const i = path.lastIndexOf("/");
+  return i === -1 ? "" : path.slice(0, i);
+}
+
+function fileStemKey(path: string): string {
+  const base = basename(path)
+    .replace(/\.(test|spec)\.(tsx?|jsx?|mts|cts|mjs|cjs)$/i, "")
+    .replace(/\.[^.]+$/, "");
+  return base.replace(/[^A-Za-z0-9]+/g, "").toLowerCase();
+}
+
+function pathTokens(path: string): string[] {
+  const segs = path.replace(/\\/g, "/").split("/").filter(Boolean);
+  const out = new Set<string>();
+  for (const seg of segs) {
+    const noExt = seg.replace(/\.[A-Za-z][A-Za-z0-9.]*$/, "");
+    for (const piece of tokenizeTask(noExt)) out.add(piece);
+  }
+  return [...out];
+}
+
+function isSupportAsset(path: string): boolean {
+  const name = basename(path);
+  if (/^readme(?:\.[^./]+)?$/i.test(name)) return true;
+  if (/(?:^|\/)(?:docs|config)\//i.test(path)) return true;
+  return SUPPORT_FILE.test(path);
+}
+
+function taskImpliesSupport(tokens: readonly string[]): boolean {
+  return tokens.some(
+    (t) => SUPPORT_HINTS.has(t) || SUPPORT_HINTS.has(stemWord(t)),
+  );
+}
+
 function featureMembership(
   file: string,
   features: readonly FeatureInfo[],
@@ -105,7 +222,7 @@ function featureMembership(
   for (const feature of features) {
     if (!feature.memberFiles.includes(file)) continue;
     const nameTokens = tokenizeTask(feature.name);
-    const overlap = nameTokens.some((t) => tokens.includes(t));
+    const overlap = tokensOverlap(nameTokens, tokens);
     if (!overlap && !tokens.some((t) => feature.slug.includes(t))) continue;
     if (!best || feature.confidence > best.confidence) best = feature;
   }
@@ -196,6 +313,60 @@ function exportedSymbols(snapshot: IndexSnapshot, path: string): string[] {
   return file.symbols.filter((s) => s.exported).map((s) => s.name);
 }
 
+function importCovers(source: string, implPath: string): boolean {
+  const implBase = basename(implPath).replace(/\.[^.]+$/, "");
+  const trimmed = source.replace(/\\/g, "/").replace(/\.[^.]+$/, "");
+  return trimmed === implBase || trimmed.endsWith(`/${implBase}`);
+}
+
+function samePackagePrefix(a: string, b: string): boolean {
+  const as = a.split("/");
+  const bs = b.split("/");
+  if (as[0] === "packages" && bs[0] === "packages") {
+    return as[1] !== undefined && as[1] === bs[1];
+  }
+  return as[0] === bs[0];
+}
+
+function nearbyTestDir(impl: string, test: string): boolean {
+  const implDir = dirname(impl);
+  const testDir = dirname(test);
+  if (testDir === implDir) return true;
+  if (
+    implDir &&
+    (test.startsWith(`${implDir}/`) || impl.startsWith(`${testDir}/`))
+  ) {
+    return true;
+  }
+  const implParent = dirname(implDir);
+  if (
+    implParent &&
+    (testDir === implParent || testDir.startsWith(`${implParent}/`))
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function stemsCover(impl: string, test: string): boolean {
+  const implKey = fileStemKey(impl);
+  const testKey = fileStemKey(test);
+  if (!implKey || !testKey) return false;
+  if (implKey === testKey) return true;
+  if (
+    implKey.length >= 6 &&
+    testKey.length >= 6 &&
+    (implKey.includes(testKey) || testKey.includes(implKey))
+  ) {
+    return true;
+  }
+  const implTok = new Set(pathTokens(impl));
+  const overlap = pathTokens(test).filter(
+    (t) => implTok.has(t) && t.length >= 3,
+  );
+  return overlap.length >= 2;
+}
+
 function testsFor(snapshot: IndexSnapshot, paths: readonly string[]): string[] {
   const kg = buildKnowledgeGraph(snapshot);
   const out = new Set<string>();
@@ -207,6 +378,13 @@ function testsFor(snapshot: IndexSnapshot, paths: readonly string[]): string[] {
     if (paths.some((p) => file.path.startsWith(p.replace(/\/[^/]+$/, "/")))) {
       out.add(file.path);
     }
+    const covers = paths.some(
+      (p) =>
+        file.imports.some((imp) => importCovers(imp.source, p)) ||
+        ((nearbyTestDir(p, file.path) || samePackagePrefix(p, file.path)) &&
+          stemsCover(p, file.path)),
+    );
+    if (covers) out.add(file.path);
   }
   for (const edge of kg.graph.edges) {
     if (edge.kind !== "tests") continue;
@@ -233,9 +411,63 @@ function identifiers(task: string): string[] {
   return [...new Set(out)];
 }
 
+function pastedPaths(task: string): string[] {
+  const out: string[] = [];
+  const re =
+    /(?:^|[\s`"'(])((?:[A-Za-z0-9._-]+\/)+[A-Za-z0-9._-]+\.[A-Za-z][A-Za-z0-9.]*)/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(task))) {
+    const raw = match[1]!.replace(/^\.?\//, "");
+    if (raw && !raw.startsWith("/")) out.push(raw);
+  }
+  return [...new Set(out)];
+}
+
+function resolvePastedPath(
+  snapshot: IndexSnapshot,
+  pasted: string,
+): string | undefined {
+  const exact = snapshot.files.find((f) => f.path === pasted);
+  if (exact) return exact.path;
+  const ends = snapshot.files.filter(
+    (f) => f.path.endsWith(`/${pasted}`) || f.path === pasted,
+  );
+  return ends.length === 1 ? ends[0]!.path : undefined;
+}
+
+function filenameTokens(path: string): string[] {
+  const base = basename(path).replace(/\.[^.]+$/, "");
+  return tokenizeTask(base);
+}
+
+function exactFilenameToken(path: string, token: string): boolean {
+  const base = basename(path)
+    .replace(/\.[^.]+$/, "")
+    .toLowerCase();
+  return (
+    base === token ||
+    stemWord(base) === token ||
+    fileStemKey(path) === token ||
+    fileStemKey(path) === token.replace(/[^a-z0-9]/g, "")
+  );
+}
+
+function exactSymbolFiles(snapshot: IndexSnapshot, token: string): string[] {
+  const files = new Set<string>();
+  for (const file of snapshot.files) {
+    if (file.status !== "analyzed") continue;
+    for (const symbol of file.symbols) {
+      const lower = symbol.name.toLowerCase();
+      if (lower === token || stemWord(lower) === token) files.add(file.path);
+    }
+  }
+  return [...files];
+}
+
 function resolveSeeds(
   snapshot: IndexSnapshot,
   task: string,
+  tokens: readonly string[],
 ): {
   seeds: string[];
   ambiguous: PrepareAmbiguous | null;
@@ -243,6 +475,12 @@ function resolveSeeds(
   const kg = buildKnowledgeGraph(snapshot);
   let ambiguous: PrepareAmbiguous | null = null;
   const seeds = new Set<string>();
+
+  for (const pasted of pastedPaths(task)) {
+    const hit = resolvePastedPath(snapshot, pasted);
+    if (hit) seeds.add(hit);
+  }
+
   for (const name of identifiers(task)) {
     const hits = kg.symbols.filter((s) => s.name === name);
     const files = [...new Set(hits.map((h) => h.path))];
@@ -259,7 +497,68 @@ function resolveSeeds(
     }
     if (files[0]) seeds.add(files[0]);
   }
+
+  const blocked = new Set(ambiguous?.candidates.map((c) => c.path) ?? []);
+  for (const token of tokens) {
+    if (WEAK_SEED.has(token) || STOP.has(token)) continue;
+    const files = exactSymbolFiles(snapshot, token).filter(
+      (p) => !blocked.has(p),
+    );
+    if (files.length === 1 && files[0]) seeds.add(files[0]);
+  }
+
+  for (const token of tokens) {
+    if (WEAK_SEED.has(token) || STOP.has(token)) continue;
+    const files = snapshot.files
+      .filter((f) => !blocked.has(f.path) && exactFilenameToken(f.path, token))
+      .map((f) => f.path);
+    if (files.length === 1 && files[0]) seeds.add(files[0]);
+  }
+
+  // Two-token filename overlap ("list" + "users" → listUsers.ts) is a reuse
+  // name hit, not a change-target seed. Only promote when nothing else seeded.
+  if (seeds.size === 0) {
+    const strongPath: string[] = [];
+    for (const file of snapshot.files) {
+      if (blocked.has(file.path)) continue;
+      const overlap = filenameTokens(file.path).filter((t) =>
+        tokens.includes(t),
+      );
+      if (overlap.length >= 2) strongPath.push(file.path);
+    }
+    if (strongPath.length === 1 && strongPath[0]) seeds.add(strongPath[0]);
+  }
+
   return { seeds: [...seeds], ambiguous };
+}
+
+function fileHousesTaskToken(
+  file: IndexedFile,
+  tokens: readonly string[],
+): boolean {
+  if (pathTokens(file.path).some((t) => tokens.includes(t))) return true;
+  return file.symbols.some((s) => tokensOverlap(tokenizeTask(s.name), tokens));
+}
+
+function isolatedHomonym(
+  file: IndexedFile,
+  snapshot: IndexSnapshot,
+  tokens: readonly string[],
+  seeds: readonly string[],
+  dist: number | null,
+): boolean {
+  if (seeds.includes(file.path) || dist !== null) return false;
+  for (const symbol of file.symbols) {
+    if (!tokensOverlap(tokenizeTask(symbol.name), tokens)) continue;
+    const others = snapshot.files.some(
+      (f) =>
+        f.path !== file.path &&
+        f.status === "analyzed" &&
+        f.symbols.some((s) => s.name === symbol.name),
+    );
+    if (others) return true;
+  }
+  return false;
 }
 
 export function scoreReuse(
@@ -291,17 +590,16 @@ export function scoreReuse(
   for (const symbol of kg.symbols) {
     if (!symbol.exported) continue;
     if (seedFiles.includes(symbol.path)) continue;
+    if (offLimitReason(symbol.path)) continue;
     const nameTokens = tokenizeTask(symbol.name);
     let score = 0;
     const reasons: string[] = [];
-    if (nameTokens.some((t) => taskTokens.includes(t))) {
+    const nameHit = tokensOverlap(nameTokens, taskTokens);
+    if (nameHit) {
       score += 0.55;
       reasons.push(`name overlaps task (${symbol.name})`);
     }
-    if (
-      score >= 0.55 &&
-      (symbol.kind === "function" || symbol.kind === "class")
-    ) {
+    if (nameHit && (symbol.kind === "function" || symbol.kind === "class")) {
       score += 0.15;
       reasons.push(`kind ${symbol.kind}`);
     }
@@ -309,7 +607,7 @@ export function scoreReuse(
       (f) =>
         f.memberFiles.includes(symbol.path) &&
         (seedFeatureIds.has(f.id) ||
-          tokenizeTask(f.name).some((t) => taskTokens.includes(t))),
+          tokensOverlap(tokenizeTask(f.name), taskTokens)),
     );
     if (shared.length > 0) {
       score += 0.25;
@@ -319,6 +617,7 @@ export function scoreReuse(
       score += 0.05;
       reasons.push("already imported in a seed file");
     }
+    if (!nameHit && shared.length === 0) continue;
     if (score < REUSE_THRESHOLD) continue;
     out.push({
       path: symbol.path,
@@ -354,33 +653,123 @@ function pickSymbol(snapshot: IndexSnapshot, path: string): string {
   return exported[0] ?? path.split("/").pop() ?? path;
 }
 
-function houseStyle(
-  snapshot: IndexSnapshot,
+function isNextRouteFile(path: string): boolean {
+  return (
+    /(?:^|\/)app\/(?:.+\/)?route\.(t|j)sx?$/.test(path) ||
+    /(?:^|\/)pages\/api\/.+\.(t|j)sx?$/.test(path)
+  );
+}
+
+function isRouteHandlerFile(
+  file: IndexedFile,
   frameworks: readonly string[] | undefined,
+): boolean {
+  if (isTestPath(file.path)) return false;
+  if (/(?:^|\/)routes\//.test(file.path)) return true;
+  if (isNextRouteFile(file.path)) return true;
+  if (
+    file.imports.some(
+      (imp) => imp.source === "express" || imp.source.startsWith("express/"),
+    )
+  ) {
+    return true;
+  }
+  if (
+    frameworks?.some((f) => /express/i.test(f)) &&
+    /handler/i.test(file.path)
+  ) {
+    return true;
+  }
+  const nextImport = file.imports.some(
+    (imp) => imp.source === "next" || imp.source.startsWith("next/"),
+  );
+  if (nextImport && file.symbols.some((s) => HTTP_HANDLER.test(s.name))) {
+    return true;
+  }
+  return false;
+}
+
+function isScreenFile(file: IndexedFile): boolean {
+  if (isTestPath(file.path) || isNextRouteFile(file.path)) return false;
+  if (/(?:^|\/)routes\//.test(file.path)) return false;
+  if (/(?:^|\/)[^/]*(?:view|screen|page)\.(t|j)sx?$/i.test(file.path)) {
+    return true;
+  }
+  if (
+    /(?:^|\/)(?:views|screens|pages|dashboard)\//i.test(file.path) &&
+    /\.(t|j)sx$/.test(file.path)
+  ) {
+    return true;
+  }
+  if (/(?:^|\/)app\/.+\/page\.(t|j)sx?$/.test(file.path)) return true;
+  return file.symbols.some((s) => /(?:Screen|View|Page)$/.test(s.name));
+}
+
+function implBesideTest(impl: string, test: string): boolean {
+  if (dirname(impl) !== dirname(test)) return false;
+  const implBase = basename(impl)
+    .replace(/\.[^.]+$/, "")
+    .toLowerCase();
+  const testBase = basename(test)
+    .replace(/\.(test|spec)\.[^.]+$/i, "")
+    .toLowerCase();
+  return implBase === testBase;
+}
+
+function isColocatedTestFile(
+  file: IndexedFile,
+  snapshot: IndexSnapshot,
+): boolean {
+  if (!isTestPath(file.path)) return false;
+  return snapshot.files.some(
+    (other) =>
+      other.path !== file.path &&
+      !isTestPath(other.path) &&
+      implBesideTest(other.path, file.path),
+  );
+}
+
+function isWorkerFile(file: IndexedFile): boolean {
+  if (isTestPath(file.path)) return false;
+  if (/(?:^|\/)(?:workers?|jobs?|queues?)\//i.test(file.path)) return true;
+  if (
+    /(?:^|\/)[^/]*(?:worker|queue-handler|job-handler)\.[tj]sx?$/i.test(
+      file.path,
+    )
+  ) {
+    return true;
+  }
+  return file.symbols.some((s) =>
+    /(?:Worker|QueueHandler|JobHandler|process\w*Job|handle\w*Job)$/.test(
+      s.name,
+    ),
+  );
+}
+
+function rankPatternFiles(
+  files: readonly IndexedFile[],
+  snapshot: IndexSnapshot,
   gitFiles: readonly GitFileSignal[] | undefined,
-): { exemplars: Exemplar[]; provenance: SignalProvenance } {
-  if (!looksLikeExpress(snapshot, frameworks)) {
-    return { exemplars: [], provenance: "unavailable" };
-  }
-  const handlers = snapshot.files.filter((f) => {
-    const route = /(?:^|\/)routes\//.test(f.path);
-    const express = f.imports.some((imp) => imp.source === "express");
-    return route || express;
-  });
-  if (handlers.length === 0) {
-    return { exemplars: [], provenance: "unavailable" };
-  }
-  const ranked = [...handlers].sort((a, b) => {
+  pattern: HouseStylePatternId,
+  copy: {
+    canonical: string;
+    recent: string;
+    older: string;
+    extra: string;
+  },
+): Exemplar[] {
+  if (files.length === 0) return [];
+  const ranked = [...files].sort((a, b) => {
     const inbound =
       inboundCount(snapshot, b.path) - inboundCount(snapshot, a.path);
     if (inbound !== 0) return inbound;
     const local =
-      b.imports.filter((imp) => imp.source !== "express").length -
-      a.imports.filter((imp) => imp.source !== "express").length;
+      b.imports.filter((imp) => !FRAMEWORK_IMPORT.test(imp.source)).length -
+      a.imports.filter((imp) => !FRAMEWORK_IMPORT.test(imp.source)).length;
     if (local !== 0) return local;
     return a.path.localeCompare(b.path);
   });
-  const byGit = [...handlers].sort((a, b) => {
+  const byGit = [...files].sort((a, b) => {
     const da = gitFiles?.find((g) => g.path === a.path)?.lastCommit.date ?? "";
     const db = gitFiles?.find((g) => g.path === b.path)?.lastCommit.date ?? "";
     return db.localeCompare(da);
@@ -388,13 +777,12 @@ function houseStyle(
   const canonical = ranked[0]!;
   const recent = byGit[0] ?? ranked[0]!;
   const older = byGit[byGit.length - 1] ?? ranked[ranked.length - 1]!;
-  const pattern: HouseStylePatternId = "route-handler";
   const exemplars: Exemplar[] = [
     {
       path: canonical.path,
       symbol: pickSymbol(snapshot, canonical.path),
       patternId: pattern,
-      whyCanonical: "handlers next to the route",
+      whyCanonical: copy.canonical,
     },
   ];
   if (recent.path !== canonical.path) {
@@ -402,7 +790,7 @@ function houseStyle(
       path: recent.path,
       symbol: pickSymbol(snapshot, recent.path),
       patternId: pattern,
-      whyCanonical: "most recently touched handler",
+      whyCanonical: copy.recent,
     });
   }
   if (older.path !== canonical.path && older.path !== recent.path) {
@@ -410,7 +798,7 @@ function houseStyle(
       path: older.path,
       symbol: pickSymbol(snapshot, older.path),
       patternId: pattern,
-      whyCanonical: "older handler in the same layout",
+      whyCanonical: copy.older,
     });
   }
   while (exemplars.length < 3 && ranked[exemplars.length]) {
@@ -420,10 +808,60 @@ function houseStyle(
       path: extra.path,
       symbol: pickSymbol(snapshot, extra.path),
       patternId: pattern,
-      whyCanonical: "same Express route layout",
+      whyCanonical: copy.extra,
     });
   }
-  return { exemplars: exemplars.slice(0, 3), provenance: "heuristic" };
+  return exemplars.slice(0, 3);
+}
+
+function houseStyle(
+  snapshot: IndexSnapshot,
+  frameworks: readonly string[] | undefined,
+  gitFiles: readonly GitFileSignal[] | undefined,
+): { exemplars: Exemplar[]; provenance: SignalProvenance } {
+  const handlers = snapshot.files.filter((f) =>
+    isRouteHandlerFile(f, frameworks),
+  );
+  const screens = snapshot.files.filter((f) => isScreenFile(f));
+  const colocated = snapshot.files.filter((f) =>
+    isColocatedTestFile(f, snapshot),
+  );
+  const workers = snapshot.files.filter((f) => isWorkerFile(f));
+
+  const express = looksLikeExpress(snapshot, frameworks);
+  const exemplars: Exemplar[] = [
+    ...rankPatternFiles(handlers, snapshot, gitFiles, "route-handler", {
+      canonical: "handlers next to the route",
+      recent: "most recently touched handler",
+      older: "older handler in the same layout",
+      extra: express
+        ? "same Express route layout"
+        : "same route-handler layout",
+    }),
+    ...rankPatternFiles(screens, snapshot, gitFiles, "screen", {
+      canonical: "UI screen next to its feature",
+      recent: "most recently touched screen",
+      older: "older screen in the same layout",
+      extra: "same screen layout",
+    }),
+    ...rankPatternFiles(colocated, snapshot, gitFiles, "colocated-test", {
+      canonical: "test file next to the implementation",
+      recent: "most recently touched colocated test",
+      older: "older colocated test",
+      extra: "same colocated-test layout",
+    }),
+    ...rankPatternFiles(workers, snapshot, gitFiles, "worker", {
+      canonical: "job / queue worker in this repo",
+      recent: "most recently touched worker",
+      older: "older worker in the same layout",
+      extra: "same worker layout",
+    }),
+  ];
+
+  if (exemplars.length === 0) {
+    return { exemplars: [], provenance: "unavailable" };
+  }
+  return { exemplars, provenance: "heuristic" };
 }
 
 function notesForPack(
@@ -485,9 +923,10 @@ export function buildPrepareChange(
   const now = input.now ?? new Date();
   const tokens = tokenizeTask(task);
   const features = buildFeatureGraph(snapshot).features;
-  const { seeds, ambiguous } = resolveSeeds(snapshot, task);
+  const { seeds, ambiguous } = resolveSeeds(snapshot, task, tokens);
   const adj = importNeighbors(snapshot);
   const git = input.gitFiles;
+  const wantSupport = taskImpliesSupport(tokens);
 
   type Ranked = {
     path: string;
@@ -497,7 +936,9 @@ export function buildPrepareChange(
   };
   const ranked: Ranked[] = [];
   for (const file of snapshot.files) {
-    if (file.status !== "analyzed") continue;
+    const support =
+      wantSupport && isSupportAsset(file.path) && file.status !== "failed";
+    if (file.status !== "analyzed" && !support) continue;
     const why: string[] = [];
     let score = 0;
     const feature = featureMembership(file.path, features, tokens);
@@ -510,8 +951,28 @@ export function buildPrepareChange(
       score += 0.25 * (1 - Math.min(dist, 6) / 6);
       why.push(dist === 0 ? "seed file" : `import distance ${dist}`);
     }
+    const pathHit = pathTokens(file.path).some((t) => tokens.includes(t));
+    const symbolHit = file.symbols.some((s) =>
+      tokensOverlap(tokenizeTask(s.name), tokens),
+    );
+    if (pathHit || symbolHit) {
+      const homonym = isolatedHomonym(file, snapshot, tokens, seeds, dist);
+      score += homonym ? 0.08 : 0.22;
+      why.push(pathHit ? "path matches task" : "name matches task");
+    }
+    if (
+      support &&
+      (pathHit || seeds.some((s) => dirname(s) === dirname(file.path)))
+    ) {
+      score += 0.2;
+      why.push("ui/docs/config");
+    }
     const testsHit = isTestPath(file.path)
-      ? seeds.some((s) => file.path.includes(s.replace(/\/[^/]+$/, "/")))
+      ? seeds.some(
+          (s) =>
+            file.path.startsWith(s.replace(/\/[^/]+$/, "/")) ||
+            stemsCover(s, file.path),
+        )
       : false;
     if (isTestPath(file.path) && (feature.hit || testsHit)) {
       score += 0.15;
@@ -527,6 +988,22 @@ export function buildPrepareChange(
       score += 0.15 * churn;
       why.push("recent churn");
     }
+    if (
+      own > 0 &&
+      score < SCORE_THRESHOLD &&
+      (seeds.includes(file.path) ||
+        seeds.some(
+          (s) => dirname(s) === dirname(file.path) && dirname(file.path) !== "",
+        ) ||
+        fileHousesTaskToken(file, tokens))
+    ) {
+      score = SCORE_THRESHOLD;
+      why.push("owned seed home");
+    }
+    if (seeds.includes(file.path) && score < SCORE_THRESHOLD) {
+      score = SCORE_THRESHOLD;
+      if (!why.includes("seed file")) why.push("seed file");
+    }
     if (score < SCORE_THRESHOLD) continue;
     const provenance: SignalProvenance = feature.hit
       ? feature.provenance
@@ -534,6 +1011,20 @@ export function buildPrepareChange(
         ? "measured"
         : "heuristic";
     ranked.push({ path: file.path, score, why, provenance });
+  }
+  for (const seed of seeds) {
+    if (ranked.some((r) => r.path === seed)) continue;
+    const file = snapshot.files.find((f) => f.path === seed);
+    if (!file) continue;
+    const support =
+      wantSupport && isSupportAsset(file.path) && file.status !== "failed";
+    if (file.status !== "analyzed" && !support) continue;
+    ranked.push({
+      path: seed,
+      score: 0.25,
+      why: ["seed file"],
+      provenance: "measured",
+    });
   }
   ranked.sort((a, b) => b.score - a.score || a.path.localeCompare(b.path));
 

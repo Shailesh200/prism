@@ -5,6 +5,30 @@ import { notifyWorkspacesChanged, postJson } from "./session.js";
 
 export const PICK_REPO = "__pick__";
 
+export async function pickNewRepository(
+  token: string,
+): Promise<string | undefined> {
+  const result = await postJson<{ path?: string; cancelled?: boolean }>(
+    "/api/workspaces/pick",
+    token,
+    {},
+  );
+  if (result.path) {
+    notifyWorkspacesChanged();
+    void postJson("/api/workspaces/select", token, {
+      path: result.path,
+    }).catch(() => undefined);
+    return result.path;
+  }
+  if (!result.cancelled) {
+    showConsoleToast(
+      "Could not open the folder picker on this machine.",
+      "error",
+    );
+  }
+  return undefined;
+}
+
 export type RepoSelectRow = {
   readonly path: string;
   readonly label: string;
@@ -25,14 +49,18 @@ export function repoSelectOptions(
     selected && !withJobs.some((repo) => repo.path === selected.path)
       ? [...withJobs, selected]
       : withJobs;
-  return [
+  const pick = { value: PICK_REPO, label: "+ New Repository" };
+  const listed = [
     ...(opts?.includeAll ? [{ value: "all", label: "All repos" }] : []),
     ...list.map((repo) => ({
       value: repo.path,
       label: repo.label,
     })),
-    { value: PICK_REPO, label: "Select repository…" },
   ];
+  if (!value && !opts?.includeAll) {
+    return [pick, ...listed];
+  }
+  return [...listed, pick];
 }
 
 export function RepoSelect(props: {
@@ -84,26 +112,9 @@ export function RepoSelect(props: {
           return;
         }
         setPicking(true);
-        void postJson<{ path?: string; cancelled?: boolean }>(
-          "/api/workspaces/pick",
-          props.token,
-          {},
-        )
-          .then((result) => {
-            if (result.path) {
-              notifyWorkspacesChanged();
-              void postJson("/api/workspaces/select", props.token, {
-                path: result.path,
-              }).catch(() => undefined);
-              props.onChange(result.path);
-              return;
-            }
-            if (!result.cancelled) {
-              showConsoleToast(
-                "Could not open the folder picker on this machine.",
-                "error",
-              );
-            }
+        void pickNewRepository(props.token)
+          .then((path) => {
+            if (path) props.onChange(path);
           })
           .finally(() => setPicking(false));
       }}

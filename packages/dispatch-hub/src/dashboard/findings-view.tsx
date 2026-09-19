@@ -179,9 +179,13 @@ export function FindingsView(props: {
           </div>
         </div>
         {allFindings.length === 0 ? (
-          <EmptyState>No job has left a write-up yet.</EmptyState>
+          <EmptyState className="pulse-empty" title="No data found">
+            No job has left a write-up yet.
+          </EmptyState>
         ) : listed.length === 0 ? (
-          <EmptyState>No findings match these filters.</EmptyState>
+          <EmptyState className="pulse-empty" title="No data found">
+            No findings match these filters.
+          </EmptyState>
         ) : (
           <ul className="findings-index">
             {listed.map((row, index) => {
@@ -280,7 +284,9 @@ export function FindingsView(props: {
           path={active}
         />
       ) : (
-        <EmptyState>This job did not leave a notes file.</EmptyState>
+        <EmptyState className="pulse-empty" title="No data found">
+          This job did not leave a notes file.
+        </EmptyState>
       )}
     </section>
   );

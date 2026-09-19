@@ -14,6 +14,7 @@ import {
   HoverTip,
   Truncate,
   Accordion,
+  EmptyState,
   ScreenSkeleton,
   relativePrismTime,
   seriesGeometry,
@@ -42,6 +43,7 @@ import {
   effectiveMeterEndKind,
   pulseCostDays,
   pulseCostRangeNote,
+  showWidenToAll,
   type FleetTimeRange,
   type PulseMeterKind,
   type RepoFleet,
@@ -90,32 +92,33 @@ export function PulseView(
   return (
     <div className="pulse">
       {empty ? (
-        <div className="pulse-empty">
-          <span className="pulse-empty__icon" aria-hidden>
-            <Inbox size={16} />
-          </span>
-          <p className="pulse-empty__copy">
-            {outside > 0
-              ? `${outside} job${outside === 1 ? "" : "s"} sit outside this range.`
-              : "No jobs in this range. Start one, or widen All."}
-          </p>
-          <div className="pulse-empty__actions">
-            {props.onStartJob ? (
-              <Button size="sm" variant="primary" onClick={props.onStartJob}>
-                Start one
-              </Button>
-            ) : null}
-            {props.onShowAllTime ? (
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={props.onShowAllTime}
-              >
-                Widen to All
-              </Button>
-            ) : null}
-          </div>
-        </div>
+        <EmptyState
+          className="pulse-empty"
+          icon={Inbox}
+          title="No data found"
+          actions={
+            <>
+              {props.onStartJob ? (
+                <Button size="sm" variant="primary" onClick={props.onStartJob}>
+                  Start one
+                </Button>
+              ) : null}
+              {showWidenToAll(outside, props.range) && props.onShowAllTime ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={props.onShowAllTime}
+                >
+                  Widen to All
+                </Button>
+              ) : null}
+            </>
+          }
+        >
+          {outside > 0
+            ? `${outside} job${outside === 1 ? "" : "s"} sit outside this range.`
+            : "No jobs in this range. Start one."}
+        </EmptyState>
       ) : null}
       {costTotal > 0 ? (
         <TokenCostChart
@@ -174,9 +177,7 @@ export function PulseView(
       {idle.length > 0 ? (
         <section className="pulse-idle" aria-label="Idle repositories">
           <div className="pulse-idle__head">
-            <span className="pulse-idle__label">
-              Idle Repositories (No active dispatch)
-            </span>
+            <span className="pulse-idle__label">Idle Repositories</span>
             <span className="pulse-idle__count">
               {idle.length} {idle.length === 1 ? "repository" : "repositories"}{" "}
               dormant
