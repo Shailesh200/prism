@@ -41,6 +41,13 @@ body,
   overflow: hidden;
 }
 
+/* Hosted inside the one Dashboard rail at :17331 — hide the second chrome. */
+.console--embed > .console__bar,
+.console--embed .console-rail,
+.console--embed .console-footer {
+  display: none;
+}
+
 .console__bar {
   position: sticky;
   top: 0;
@@ -1241,9 +1248,110 @@ h4.intel-heading {
 .prepare-runs__task {
   font-size: 13px;
   font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.prepare-job-title {
+  display: grid;
+  gap: 4px;
+}
+
+.prepare-job-title h3 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+.prepare-job-title p {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.35;
+  color: var(--prism-ink, #fff);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.prepare-cards {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.prepare-card {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--prism-line, #2a334a);
+  border-radius: 10px;
+  background: var(--prism-panel-2, #0d1220);
+}
+
+.prepare-card--row {
+  width: 100%;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.prepare-card--row:hover {
+  border-color: color-mix(in srgb, var(--prism-brand, #00c2c2) 50%, transparent);
+}
+
+.prepare-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.prepare-card__title {
+  font-size: 13px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.prepare-card__why {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+.prepare-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  font-size: 11px;
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+.prepare-card__badge {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--prism-line, #2a334a) 70%, transparent);
+}
+
+.prepare-card__badge[data-tone="good"] {
+  color: var(--prism-emerald);
+}
+
+.prepare-card__badge[data-tone="warn"] {
+  color: var(--prism-amber);
+}
+
+.prepare-card__badge[data-tone="bad"] {
+  color: var(--prism-rose);
 }
 
 .prepare-runs__meta {
@@ -1508,6 +1616,11 @@ h4.intel-heading {
 
 .envelope-split--session {
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.1fr);
+}
+
+.envelope-split--agentic {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
 }
 
 .envelope-chart,
@@ -1991,9 +2104,8 @@ h4.intel-heading {
 .envelope-title,
 .envelope-cell-text {
   display: block;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .envelope-tool {

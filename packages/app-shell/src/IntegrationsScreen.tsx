@@ -24,7 +24,13 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import { CardIcon, InfoTip, Input, type CardIconTone } from "@repo-prism/ui";
+import {
+  CardIcon,
+  InfoTip,
+  Input,
+  type CardIconTone,
+  Text,
+} from "@repo-prism/ui";
 import {
   NO_CONSOLE_STATUS,
   PRISM_TOOL_COUNT,
@@ -326,6 +332,10 @@ export function IntegrationsScreen(
   const hideEditorCards = isExtensionWebview();
   const visibleIntegrations = INTEGRATIONS.filter(
     (item) =>
+      (item.id === "mcp" ||
+        item.id === "cli" ||
+        item.id === "vscode" ||
+        item.id === "cursor") &&
       !(hideEditorCards && (item.id === "vscode" || item.id === "cursor")),
   )
     // Coming-soon cards always render last.
@@ -469,11 +479,13 @@ export function IntegrationsScreen(
       <div className="ov-main">
         <header className="ov-top">
           <div>
-            <div className="ov-top__title">Integrations</div>
-            <div className="ov-top__sub">
+            <Text variant="page" as="div" className="ov-top__title">
+              Integrations
+            </Text>
+            <Text variant="caption" as="div" className="ov-top__sub">
               {[props.repoLabel, props.branch].filter(Boolean).join(" · ") ||
                 subtitle}
-            </div>
+            </Text>
           </div>
         </header>
 
@@ -494,8 +506,6 @@ export function IntegrationsScreen(
                 : ". Network connectors stay locked until Settings → Allow network integrations."}
             </p>
           </div>
-
-          <HostConnectors status={consoleStatus} onRefresh={refreshConsole} />
 
           <div className="int-grid">
             {visibleIntegrations.map((item) => {
@@ -963,94 +973,6 @@ function McpRuntimePanel(props: {
         </button>
       </p>
     </div>
-  );
-}
-
-/**
- * What the agent window already has connected (ADR-0049).
- *
- * Prism holds no third-party credentials, so this is the screen where "every
- * org has different connections" stops being an abstraction: it lists what is
- * actually installed in Cursor or Claude Code on this machine, and Prism's
- * skills compose with whatever is here.
- */
-function HostConnectors(props: {
-  status: ConsoleStatus | undefined;
-  onRefresh: () => void;
-}): ReactElement | null {
-  const { status } = props;
-
-  // Nothing to say until the Console answers, and nothing useful to say when
-  // it is not running — the MCP card already explains that case once.
-  if (!status || !status.console) return null;
-
-  return (
-    <section className="int-hosts" aria-labelledby="int-hosts-title">
-      <div className="int-hosts__head">
-        <div>
-          <h2 className="int-hosts__title" id="int-hosts-title">
-            Host connectors
-          </h2>
-          <p className="int-hosts__sub">
-            Prism runs no OAuth and holds no tokens. These are your editor’s
-            connectors — Prism’s skills compose with whichever you have.
-          </p>
-        </div>
-        <button
-          type="button"
-          className="int-runtime__refresh"
-          onClick={props.onRefresh}
-        >
-          Rescan
-        </button>
-      </div>
-
-      {status.connectors.length === 0 ? (
-        <p className="int-hosts__empty">
-          None found. Connect Slack, Linear, Notion or Google Calendar in
-          Cursor’s or Claude Code’s own settings and rescan.
-        </p>
-      ) : (
-        <ul className="int-hosts__list">
-          {status.connectors.map((connector) => (
-            <li key={connector.id} className="int-hosts__item">
-              <div className="int-hosts__row">
-                <span className="int-hosts__name">{connector.label}</span>
-                {connector.hosts.map((host) => (
-                  <span key={host} className="int-hosts__pill">
-                    {host === "cursor" ? "Cursor" : "Claude Code"}
-                  </span>
-                ))}
-                {connector.transport ? (
-                  <span className="int-hosts__pill int-hosts__pill--muted">
-                    {connector.transport}
-                  </span>
-                ) : null}
-              </div>
-              {connector.description ? (
-                <p className="int-hosts__desc">{connector.description}</p>
-              ) : null}
-              {connector.skills.length > 0 ? (
-                <p className="int-hosts__skills">
-                  {connector.skills.length} skill
-                  {connector.skills.length === 1 ? "" : "s"}:{" "}
-                  {connector.skills.slice(0, 4).join(", ")}
-                  {connector.skills.length > 4 ? "…" : ""}
-                </p>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {status.unreadable.length > 0 ? (
-        <p className="int-hosts__warn">
-          {status.unreadable.length} location
-          {status.unreadable.length === 1 ? "" : "s"} could not be read, so this
-          list may be incomplete.
-        </p>
-      ) : null}
-    </section>
   );
 }
 

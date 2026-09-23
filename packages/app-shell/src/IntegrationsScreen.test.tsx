@@ -78,44 +78,17 @@ describe("IntegrationsScreen — MCP runtime", () => {
   });
 });
 
-describe("IntegrationsScreen — host connectors", () => {
-  it("lists what the agent window has connected", async () => {
+describe("IntegrationsScreen — four cards (M-078)", () => {
+  it("shows MCP, CLI, and the IDE extensions only", async () => {
     renderScreen(LIVE);
-    expect(await screen.findByText("Host connectors")).toBeTruthy();
-    expect(screen.getByText("Slack")).toBeTruthy();
-    expect(screen.getByText("Cursor")).toBeTruthy();
-    expect(screen.getByText(/2 skills/)).toBeTruthy();
-  });
-
-  it("says none found rather than hiding the section", async () => {
-    renderScreen({ ...LIVE, connectors: [] });
-    expect(await screen.findByText(/None found/)).toBeTruthy();
-  });
-
-  it("admits when a location could not be read", async () => {
-    renderScreen({
-      ...LIVE,
-      unreadable: [{ path: "~/.claude.json", detail: "bad json" }],
-    });
-    // A partial list presented as complete is the failure worth catching:
-    // "no Slack" and "could not tell" are different answers.
-    expect(await screen.findByText(/may be incomplete/)).toBeTruthy();
-  });
-
-  it("stays hidden while the Console is unknown", () => {
-    const client = {
-      fetchConsoleStatus: vi.fn(() => new Promise<ConsoleStatus>(() => {})),
-    } as unknown as AppShellClient;
-    render(
-      <AppShellClientProvider client={client}>
-        <IntegrationsScreen
-          repoLabel="prism"
-          networkIntegrationsAllowed={false}
-          onNavigate={vi.fn()}
-        />
-      </AppShellClientProvider>,
-    );
+    expect(await screen.findByText("MCP Server")).toBeTruthy();
+    expect(screen.getByText("CLI")).toBeTruthy();
+    expect(screen.getByText("VS Code Extension")).toBeTruthy();
+    expect(screen.getByText("Cursor Extension")).toBeTruthy();
     expect(screen.queryByText("Host connectors")).toBeNull();
+    expect(screen.queryByText("PageSpeed Insights")).toBeNull();
+    expect(screen.queryByText("GitHub Actions / metadata")).toBeNull();
+    expect(screen.queryByText("Remote Git")).toBeNull();
   });
 });
 

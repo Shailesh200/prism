@@ -27,10 +27,15 @@ export function PrismSurfacePips(props: {
   readonly spectrumLive: SurfaceLive;
   readonly href?: string;
 }): ReactElement {
+  const live =
+    props.spectrumLive === true || props.dispatchLive === true
+      ? true
+      : props.spectrumLive === false && props.dispatchLive === false
+        ? false
+        : undefined;
   const chips = (
-    <div className="wake-pills" aria-label="Dispatch and Spectrum">
-      <SurfacePip label="Dispatch" live={props.dispatchLive} />
-      <SurfacePip label="Spectrum" live={props.spectrumLive} />
+    <div className="wake-pills" aria-label="Prism Dashboard">
+      <SurfacePip label="Dashboard" live={live} />
     </div>
   );
   if (!props.href) return chips;
@@ -76,28 +81,31 @@ export function PrismWakeScreen(props: PrismWakeScreenProps): ReactElement {
         {wakeLede(props.dispatchLive, props.spectrumLive)}
       </p>
       {props.children}
-      <section className="wake-doors" aria-label="Open a tool">
+      <section className="wake-doors" aria-label="Open the Dashboard">
         <SurfaceDoor
-          here={props.here === "dispatch"}
-          live={props.dispatchLive}
-          title="Dispatch"
-          blurb="Dispatch jobs."
-          action="Open Dispatch"
-          onOpen={props.onOpenDispatch}
-          art={<WakeJobRailArt />}
-        />
-        <SurfaceDoor
-          here={props.here === "spectrum"}
-          live={props.spectrumLive}
-          title="Spectrum"
+          here
+          live={
+            props.spectrumLive === true || props.dispatchLive === true
+              ? true
+              : props.spectrumLive === false && props.dispatchLive === false
+                ? false
+                : undefined
+          }
+          title="Dashboard"
           blurb={spectrumBlurb}
-          action="Open Spectrum"
-          onOpen={props.onOpenSpectrum}
-          art={<WakeHexMapArt />}
+          action="Open Dashboard"
+          onOpen={
+            props.here === "dispatch"
+              ? props.onOpenDispatch
+              : props.onOpenSpectrum
+          }
+          art={
+            props.here === "dispatch" ? <WakeJobRailArt /> : <WakeHexMapArt />
+          }
         />
       </section>
       <p className="wake-foot">
-        Spectrum follows the repo you pick. Sleep parks both; wake starts both.
+        One Dashboard. Sleep parks it; wake starts it.
       </p>
     </div>
   );

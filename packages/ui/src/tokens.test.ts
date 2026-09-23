@@ -47,6 +47,14 @@ describe("UXPilot dark tokens (ADR-0014)", () => {
     expect(tokens).toContain("--prism-space-xs: 2px");
   });
 
+  it("uses readable off-white ink, not bold white", () => {
+    expect(tokens).toContain("--prism-ink: #c5ceda");
+    expect(tokens).toContain("--prism-ink-heading: #ffffff");
+    expect(tokens).toContain("--prism-ink-muted: #a3b0c0");
+    expect(tokens).toContain("--prism-type-h1-weight: 550");
+    expect(tokens).toContain("--prism-type-h3-weight: 500");
+  });
+
   it("defines light theme overrides and system prefers-color-scheme", () => {
     expect(tokens).toContain('data-theme="light"');
     expect(tokens).toContain("--prism-ink: #191c1d");

@@ -9,6 +9,7 @@
     "types": ["react", "react-dom"]
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["src/hub/**/*.test.ts", "src/hub/**/*.test.tsx"],
   "references": [
     { "path": "../shared" },
     { "path": "../ui" },

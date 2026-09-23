@@ -8,7 +8,7 @@
   background:
     radial-gradient(90% 70% at 50% 28%, #131926 0%, transparent 58%),
     linear-gradient(165deg, #0a0e1a 0%, #0f1420 100%);
-  color: #ffffff;
+  color: var(--prism-ink);
   font-family: "Inter", "Segoe UI", system-ui, sans-serif;
 }
 
@@ -144,6 +144,47 @@
   width: 100%;
 }
 
+.console-hub,
+.console-hub__main {
+  min-height: 0;
+  min-width: 0;
+  height: 100%;
+}
+
+.console-hub__main {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+
+.console-hub__main > .jobs-screen,
+.console-hub__main > .console__panel,
+.console-hub__main > .prepare-page {
+  flex: 1;
+  min-height: 0;
+}
+
+.console-hub .skills-host {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.console-hub .skills-host > .skills-layout {
+  flex: 1;
+  min-height: 0;
+}
+
+.console-hub__frame {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+}
+
 /* Map view: hover-expanding nav rail overlays the map's left gutter. */
 .playground-map-wrap {
   position: relative;
@@ -193,12 +234,28 @@
   font-size: 11px;
 }
 
+.playground-open__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 8px;
+  font-size: 0.875rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--prism-ink);
+}
+
+.playground-open__brand img {
+  display: block;
+  border-radius: 5px;
+}
+
 .playground-open__label {
   font-size: 0.6875rem;
   font-weight: 650;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #94a3b8;
+  color: var(--prism-ink-muted);
 }
 
 .playground-open__presets {
@@ -210,7 +267,7 @@
 .playground-open > button[type="submit"] {
   border: 1px solid #2a334a;
   background: #131926;
-  color: #ffffff;
+  color: var(--prism-ink);
   font: inherit;
   font-size: 0.75rem;
   font-weight: 600;
@@ -239,7 +296,7 @@
   padding: 6px 10px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 0.7rem;
-  color: #ffffff;
+  color: var(--prism-ink);
 }
 
 .playground-open .prism-select-wrap {
@@ -249,7 +306,7 @@
 
 .playground-open__status {
   font-size: 0.6875rem;
-  color: #94a3b8;
+  color: var(--prism-ink-muted);
   max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;

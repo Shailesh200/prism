@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
+import type { JobSummary } from "./jobs-types.js";
 import {
+  matchesBoardLane,
   jobBadgeTone,
   jobStatusLabel,
   jobStatusTone,
   canRetryJob,
   canRetryVerification,
+  jobValidationLabel,
+  jobValidationTone,
+  jobValidationTooltip,
   jobBadgePulse,
   jobMessage,
   compactJobError,
@@ -21,6 +26,39 @@ import {
   envelopeToolTone,
   ENVELOPE_TOOL_TONES,
 } from "./jobs-types.js";
+
+describe("matchesBoardLane", () => {
+  it("splits finished success from failed", () => {
+    expect(
+      matchesBoardLane(
+        { id: "a", title: "ok", status: "done", branch: "main" } as JobSummary,
+        "finished",
+      ),
+    ).toBe(true);
+    expect(
+      matchesBoardLane(
+        {
+          id: "b",
+          title: "bad",
+          status: "error",
+          branch: "main",
+        } as JobSummary,
+        "failed",
+      ),
+    ).toBe(true);
+    expect(
+      matchesBoardLane(
+        {
+          id: "b",
+          title: "bad",
+          status: "error",
+          branch: "main",
+        } as JobSummary,
+        "finished",
+      ),
+    ).toBe(false);
+  });
+});
 
 describe("jobStatusLabel", () => {
   it("names the confirm gate Awaiting approval", () => {
@@ -57,6 +95,45 @@ describe("canRetryJob", () => {
     expect(canRetryJob({ status: "done" })).toBe(false);
     expect(canRetryJob({ status: "running" })).toBe(false);
     expect(canRetryJob({ status: "paused" })).toBe(false);
+  });
+});
+
+describe("jobValidationLabel", () => {
+  it("names the supervisor result, including a live re-check", () => {
+    expect(jobValidationLabel({ verification: "passed" })).toBe("Passed");
+    expect(jobValidationLabel({ verification: "failed" })).toBe("Failed");
+    expect(jobValidationLabel({ verification: "skipped" })).toBe("Skipped");
+    expect(jobValidationLabel({})).toBe("—");
+    expect(jobValidationLabel({ lastActivity: "Running checks…" })).toBe(
+      "Running",
+    );
+  });
+});
+
+describe("jobValidationTone", () => {
+  it("colours passed, failed, and running differently", () => {
+    expect(jobValidationTone({ verification: "passed" })).toBe("emerald");
+    expect(jobValidationTone({ verification: "failed" })).toBe("rose");
+    expect(jobValidationTone({ verification: "skipped" })).toBe("neutral");
+    expect(jobValidationTone({})).toBe("neutral");
+    expect(jobValidationTone({ lastActivity: "Running checks…" })).toBe(
+      "amber",
+    );
+  });
+});
+
+describe("jobValidationTooltip", () => {
+  it("keeps the script and error on the tooltip", () => {
+    expect(
+      jobValidationTooltip({
+        verification: "failed",
+        verificationDetail: "typecheck failed — error TS2345",
+      }),
+    ).toBe("typecheck failed — error TS2345");
+    expect(jobValidationTooltip({ lastActivity: "Running checks…" })).toMatch(
+      /running/i,
+    );
+    expect(jobValidationTooltip({})).toMatch(/No validation recorded/);
   });
 });
 
@@ -128,7 +205,7 @@ describe("jobShareUrl", () => {
         "abc-token",
       ),
     ).toBe(
-      "http://prismhq.localhost:17330/?token=abc-token#/dashboard?repo=%2FUsers%2Fme%2FPrism&job=attention-cards",
+      "http://prismhq.localhost:17330/?token=abc-token#/jobs?repo=%2FUsers%2Fme%2FPrism&job=attention-cards",
     );
   });
 });
@@ -205,7 +282,9 @@ describe("token usage labels", () => {
   });
 
   it("explains sent vs not sent in the Envelope glossary", () => {
-    expect(JOB_ENVELOPE_TIP).toMatch(/Sent is the list Prism actually gave/);
+    expect(JOB_ENVELOPE_TIP).toMatch(
+      /Sent is the list your Prismate actually gave/,
+    );
     expect(JOB_ENVELOPE_TIP).toMatch(/Not sent is the rest/);
     expect(JOB_ENVELOPE_TIP).toContain("Sent % is sent ÷ the full list");
     expect(JOB_ENVELOPE_TIP).toContain("Context and Tokens above");

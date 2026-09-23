@@ -7,18 +7,22 @@ export function surfaceLiveLabel(live: SurfaceLive): string {
   return live ? "Awake" : "Down";
 }
 
+/** One Dashboard — jobs and maps share the same page. */
+export function dashboardLive(
+  dispatchLive: SurfaceLive,
+  spectrumLive: SurfaceLive,
+): SurfaceLive {
+  if (dispatchLive === true || spectrumLive === true) return true;
+  if (dispatchLive === false && spectrumLive === false) return false;
+  return undefined;
+}
+
 export function wakeHeadline(
   dispatchLive: SurfaceLive,
   spectrumLive: SurfaceLive,
 ): string {
-  if (dispatchLive === true && spectrumLive === true) return "Prism is awake.";
-  if (dispatchLive === true && spectrumLive === false) {
-    return "Dispatch is awake.";
-  }
-  if (spectrumLive === true && dispatchLive === false) {
-    return "Spectrum is awake.";
-  }
-  if (dispatchLive === false && spectrumLive === false) return "Prism is down.";
+  const live = dashboardLive(dispatchLive, spectrumLive);
+  if (live === false) return "Prism is down.";
   return "Prism is awake.";
 }
 
@@ -26,16 +30,11 @@ export function wakeLede(
   dispatchLive: SurfaceLive,
   spectrumLive: SurfaceLive,
 ): string {
-  if (dispatchLive === true && spectrumLive === false) {
-    return "Dispatch is on this machine. Spectrum is down — wake it, or open the door to retry.";
+  const live = dashboardLive(dispatchLive, spectrumLive);
+  if (live === false) {
+    return "The Dashboard is not answering. Say prism wake in chat.";
   }
-  if (spectrumLive === true && dispatchLive === false) {
-    return "Spectrum is on this machine. Dispatch is down — jobs stay queued until it is awake.";
-  }
-  if (dispatchLive === false && spectrumLive === false) {
-    return "Neither Dispatch nor Spectrum is answering on this machine.";
-  }
-  return "Dispatch and Spectrum are on this machine. The repo you pick retargets both.";
+  return "This is the Prism Dashboard. Say prism wake anytime to bring it back.";
 }
 
 export async function probeSurfaceAwake(url: string): Promise<boolean> {

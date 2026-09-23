@@ -35,9 +35,8 @@ const uiDist = join(root, "../ui/dist");
 const tokens = readIfPresent(join(uiDist, "tokens.css"));
 const primitives = readIfPresent(join(uiDist, "primitives.css"));
 const mapCss = readIfPresent(join(uiDist, "map.css"));
-// The Console mounts `JobsScreen` from app-shell (ADR-0048), so it needs
-// app-shell's stylesheet — the job card, console and review rules live there,
-// not here. Without it the board renders as unstyled markup.
+// Iris/Skills embeds still mount app-shell screens, so they need that
+// stylesheet — job cards, drawer and review rules live there, not here.
 // Primitives come after map.css so Badge tones cannot be flattened by a
 // later inspector rule of equal specificity (Failed was painting like Done).
 const appShell = readIfPresent(join(root, "../app-shell/dist/styles.css"));
@@ -55,7 +54,7 @@ writeFileSync(
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Prism Dispatch</title>
+  <title>Prism Dashboard</title>
   <link rel="icon" href="/assets/prism-mark.png" />
   <link rel="stylesheet" href="/assets/hub.css?v=${stamp}" />
 </head>

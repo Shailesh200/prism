@@ -7,41 +7,29 @@ import {
   useState,
   type ReactElement,
 } from "react";
-import {
-  PrismToastHost,
-  RepositoryMapView,
-  showPrismToast,
-} from "@repo-prism/ui";
+import { EmptyState, PrismToastHost, showPrismToast } from "@repo-prism/ui";
 import type { ConsoleStatus } from "@repo-prism/shared";
 import {
   AppShellClientProvider,
-  AppSidebar,
   BlastRadiusScreen,
-  GuardScreen,
   DnaScreen,
-  DomainScreen,
-  DomainsScreen,
+  ConsoleHubScreen,
   ConsoleJobsScreen,
   IntegrationsScreen,
   OverviewScreen,
   PrismErrorBoundary,
   PrismTour,
   SettingsScreen,
-  TestingSecurityScreen,
   TrendsScreen,
   applyAppearance,
+  resolveAppView,
   autoReindexIntervalMs,
   parseExcludeGlobs,
-  clearAuditLog,
-  clearIntegrationsState,
-  clearTourCompleted,
   isTourCompleted,
   loadSettings,
   recordAudit,
   saveSettings,
-  SETTINGS_STORAGE_KEY,
   type AppShellClient,
-  type DomainOverlayStatus,
   type GitStatus,
   type MaxFileSizeOption,
   type SettingsSection,
@@ -51,14 +39,9 @@ import {
   maxFileSizeOptionToBytes,
 } from "@repo-prism/shared";
 import type {
-  BackendReport,
-  DomainReport,
-  GraphSnapshotDto,
-  MapBookmark,
   MapLayerId,
   MapZoomLevel,
   RepositoryMap,
-  UtilityOverlayReport,
 } from "@repo-prism/shared";
 import type { AppView, HostToWebview } from "@repo-prism/host-session";
 import {
@@ -116,14 +99,6 @@ import {
   type DashboardPayload,
 } from "./host-client.js";
 
-type DomainRun = {
-  overlay: UtilityOverlayReport;
-  security: UtilityOverlayReport | null;
-  qa: UtilityOverlayReport | null;
-  depGraph: GraphSnapshotDto | null;
-  backendReport: BackendReport | null;
-};
-
 function Status({
   message,
   kind,
@@ -152,7 +127,6 @@ function Status({
 }
 
 function App(): ReactElement {
-  const brand = document.body.getAttribute("data-brand") ?? undefined;
   const [view, setView] = useState<AppView>("overview");
   const [settingsSection, setSettingsSection] =
     useState<SettingsSection>("general");
@@ -168,23 +142,7 @@ function App(): ReactElement {
     "dependency",
   ]);
   const [map, setMap] = useState<RepositoryMap | null>(null);
-  const [bookmarks, setBookmarks] = useState<MapBookmark[]>([]);
   const [indexing, setIndexing] = useState(false);
-  const [activeDomain, setActiveDomain] = useState("backend");
-  const [overlay, setOverlay] = useState<UtilityOverlayReport | null>(null);
-  const [overlayStatus, setOverlayStatus] =
-    useState<DomainOverlayStatus>("idle");
-  const [securityOverlay, setSecurityOverlay] =
-    useState<UtilityOverlayReport | null>(null);
-  const [qaOverlay, setQaOverlay] = useState<UtilityOverlayReport | null>(null);
-  const [depGraph, setDepGraph] = useState<GraphSnapshotDto | null>(null);
-  const [backendReport, setBackendReport] = useState<BackendReport | null>(
-    null,
-  );
-  const [domainReport, setDomainReport] = useState<DomainReport | null>(null);
-  const domainRuns = useRef<Map<string, DomainRun>>(new Map());
-  /** Generation guard for the in-flight domain Analyze run (cancel/stale). */
-  const overlayRunId = useRef(0);
   const [displayName, setDisplayName] = useState(
     () => loadSettings().displayName,
   );
@@ -192,8 +150,6 @@ function App(): ReactElement {
     () => loadSettings().allowNetworkIntegrations,
   );
   // Deep-link targets from host `navigate` messages (M-048 Phase 2/3/4/5).
-  const [focusPath, setFocusPath] = useState<string | null>(null);
-  const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
   const [targetPath, setTargetPath] = useState<string | null>(null);
   const [targetPaths, setTargetPaths] = useState<string[] | null>(null);
   const [blastIntent, setBlastIntent] = useState<"edit" | "delete" | null>(
@@ -337,9 +293,6 @@ function App(): ReactElement {
       }
       if ("type" in msg && msg.type === "navigate") {
         setView(msg.view);
-        if (msg.domainId) setActiveDomain(msg.domainId);
-        setFocusPath(msg.focusPath ?? null);
-        setFocusNodeId(msg.focusNodeId ?? null);
         setTargetPath(msg.targetPath ?? null);
         setTargetPaths(msg.targetPaths ?? null);
         setBlastIntent(msg.intent ?? null);
@@ -384,11 +337,6 @@ function App(): ReactElement {
     window.addEventListener("pagehide", onUnload);
     postToHost({ type: "ready", view: "overview" });
     void loadDashboard();
-    void fetchBookmarks()
-      .then(setBookmarks)
-      .catch(() => {
-        /* bookmarks are optional — keep empty on failure */
-      });
     return () => {
       window.removeEventListener("message", onMessage);
       window.removeEventListener("pagehide", onUnload);
@@ -419,87 +367,6 @@ function App(): ReactElement {
     await loadDashboard();
   }, [loadDashboard]);
 
-  const runOverlay = useCallback(
-    (kind: string) => {
-      if (!dashboard) return;
-      const enrichBackend = activeDomain === "backend";
-      const enrichMobile = activeDomain === "mobile";
-      const enrichDesktop = activeDomain === "desktop";
-      const runId = ++overlayRunId.current;
-      setOverlayStatus("loading");
-      void Promise.all([
-        fetchOverlay(kind),
-        enrichBackend
-          ? fetchOverlay("security-surface")
-          : Promise.resolve(null),
-        enrichBackend || enrichMobile
-          ? fetchOverlay("qa-test-gaps")
-          : Promise.resolve(null),
-        enrichBackend || enrichMobile || enrichDesktop
-          ? fetchDependencyGraph()
-          : Promise.resolve(null),
-        enrichBackend ? fetchBackendReport() : Promise.resolve(null),
-      ])
-        .then(([main, security, qa, graph, backend]) => {
-          if (overlayRunId.current !== runId) return;
-          setOverlay(main);
-          setSecurityOverlay(security);
-          setQaOverlay(qa);
-          setDepGraph(graph);
-          setBackendReport(backend);
-          setOverlayStatus(main ? "ready" : "error");
-          if (main) {
-            domainRuns.current.set(activeDomain, {
-              overlay: main,
-              security,
-              qa,
-              depGraph: graph,
-              backendReport: backend,
-            });
-          }
-        })
-        .catch(() => {
-          // A rejected leg (host timeout, dropped message) must not strand the
-          // screen on the skeleton — surface the error/Retry state instead.
-          if (overlayRunId.current !== runId) return;
-          setOverlayStatus("error");
-        });
-    },
-    [dashboard, activeDomain],
-  );
-
-  const cancelOverlay = useCallback(() => {
-    // Invalidate the in-flight run so its late results are ignored; the domain
-    // falls back to its cached snapshot or the Analyze card.
-    overlayRunId.current += 1;
-    setOverlayStatus("idle");
-  }, []);
-
-  const openDomain = useCallback((domainId: string) => {
-    setActiveDomain(domainId);
-    const cached = domainRuns.current.get(domainId);
-    if (cached) {
-      setOverlay(cached.overlay);
-      setSecurityOverlay(cached.security);
-      setQaOverlay(cached.qa);
-      setDepGraph(cached.depGraph);
-      setBackendReport(cached.backendReport);
-      setOverlayStatus("ready");
-    } else {
-      setOverlay(null);
-      setSecurityOverlay(null);
-      setQaOverlay(null);
-      setDepGraph(null);
-      setBackendReport(null);
-      setOverlayStatus("idle");
-    }
-    void fetchDomainReport({
-      domain: domainId as DomainReport["domain"],
-      loadLatestCwvArtifact: domainId === "frontend",
-    }).then(setDomainReport);
-    setView("domain");
-  }, []);
-
   // Fetched here rather than inside each screen: Integrations, Jobs and
   // Workflows all need it, and three independent pollers would ask the same
   // loopback port the same question three times.
@@ -522,9 +389,15 @@ function App(): ReactElement {
   );
 
   const onNavigate = useCallback((next: AppView) => {
-    // M-062: Profile merged into DNA — keep deep-links working.
-    setView(next === "profile" ? "dna" : next);
-    if (next !== "settings") setSettingsSection("general");
+    const resolved =
+      next === "review" ||
+      next === "explain" ||
+      next === "blast" ||
+      next === "guard"
+        ? next
+        : resolveAppView(next);
+    setView(resolved);
+    if (resolved !== "settings") setSettingsSection("general");
   }, []);
 
   // First successful load → in-app tour (unless already completed / skipped).
@@ -575,18 +448,16 @@ function App(): ReactElement {
         dna={dna}
         testingScore={dashboard?.testingScore ?? null}
         securityScore={dashboard?.securityScore ?? null}
-        onOpenMap={() => setView("map")}
+        workspacePath={root}
+        onNavigate={onNavigate}
+        onOpenEnvelope={() => setView("iris")}
         onOpenDna={() => setView("dna")}
-        onOpenDomains={() => setView("domains")}
-        onOpenDomain={openDomain}
-        onOpenTesting={() => setView("testing")}
         onOpenBlast={(seedPath) => {
           setTargetPath(seedPath ?? null);
           setView("blast");
         }}
-        onFocusMapNode={(nodeId) => {
-          setFocusNodeId(nodeId);
-          setView("map");
+        onFocusMapNode={() => {
+          setView("impact");
         }}
         onOpenTrends={() => setView("trends")}
         onOpenIntegrations={() => setView("integrations")}
@@ -611,53 +482,38 @@ function App(): ReactElement {
         health={health}
         map={activeMap}
         onNavigate={onNavigate}
-        onOpenDomain={openDomain}
+        onOpenBlast={(seedPath) => {
+          setTargetPath(seedPath ?? null);
+          setView("blast");
+        }}
         onOpenAuditLogs={openAuditLogs}
+        trees={
+          <EmptyState variant="page" title="Trees">
+            Trees run on the Dashboard daemon for this workspace.
+          </EmptyState>
+        }
       />
     );
-  } else if (view === "domains") {
+  } else if (view === "iris" || view === "skills") {
     body = (
-      <DomainsScreen
+      <ConsoleHubScreen
+        view={view}
         repoLabel={repoLabel}
+        workspacePath={root}
         branch={branch}
         user={user}
-        dna={dna}
-        onNavigate={onNavigate}
-        onOpenDomain={openDomain}
-      />
-    );
-  } else if (view === "testing") {
-    body = (
-      <TestingSecurityScreen
-        repoLabel={repoLabel}
-        branch={branch}
-        user={user}
-        dna={dna}
+        status={consoleStatus}
+        onRetry={refreshConsoleStatus}
         onNavigate={onNavigate}
       />
     );
-  } else if (view === "domain") {
-    body = (
-      <DomainScreen
-        domainId={activeDomain}
-        repoLabel={repoLabel}
-        branch={branch}
-        user={user}
-        overlay={overlay}
-        status={overlayStatus}
-        security={securityOverlay}
-        qa={qaOverlay}
-        depGraph={depGraph}
-        backendReport={backendReport}
-        domainReport={domainReport}
-        gitActivity={gitActivity}
-        dna={dna}
-        onRun={runOverlay}
-        onCancel={cancelOverlay}
-        onNavigate={onNavigate}
-      />
-    );
-  } else if (view === "blast" || view === "review" || view === "explain") {
+  } else if (
+    view === "impact" ||
+    view === "blast" ||
+    view === "review" ||
+    view === "explain" ||
+    view === "guard"
+  ) {
     body = (
       <BlastRadiusScreen
         key="impact"
@@ -672,20 +528,11 @@ function App(): ReactElement {
             ? "explain"
             : view === "review"
               ? "review"
-              : "blast"
+              : view === "guard"
+                ? "guard"
+                : "blast"
         }
         initialPaths={targetPaths}
-        onNavigate={onNavigate}
-        onOpenPath={openFile}
-      />
-    );
-  } else if (view === "guard") {
-    body = (
-      <GuardScreen
-        key="guard"
-        repoLabel={repoLabel}
-        branch={branch}
-        user={user}
         onNavigate={onNavigate}
         onOpenPath={openFile}
       />
@@ -700,6 +547,7 @@ function App(): ReactElement {
         gitActivity={gitActivity}
         gitStatus={gitStatus}
         health={health}
+        workspacePath={root}
         onNavigate={onNavigate}
         fetchHealthHistory={fetchHealthHistory}
         fetchRegionMovers={fetchRegionMovers}
@@ -722,6 +570,7 @@ function App(): ReactElement {
     body = (
       <ConsoleJobsScreen
         repoLabel={repoLabel}
+        workspacePath={root}
         branch={branch}
         user={user}
         status={consoleStatus}
@@ -745,6 +594,7 @@ function App(): ReactElement {
         layers={layers}
         indexing={indexing}
         initialSection={settingsSection}
+        {...(consoleStatus ? { consoleStatus } : {})}
         {...(auditCategory ? { initialAuditCategory: auditCategory } : {})}
         onZoomChange={setZoom}
         onLayersChange={(next) => setLayers([...next])}
@@ -782,92 +632,39 @@ function App(): ReactElement {
         onOpenWalkthrough={() => {
           setTourOpen(true);
         }}
-        onClearData={() => {
-          domainRuns.current.clear();
-          clearAuditLog();
-          clearIntegrationsState();
-          clearTourCompleted();
-          setTourOpen(true);
-          try {
-            const keys: string[] = [];
-            for (let i = 0; i < localStorage.length; i++) {
-              const k = localStorage.key(i);
-              if (k?.startsWith("prism.domain-run.")) keys.push(k);
-            }
-            for (const k of keys) localStorage.removeItem(k);
-            localStorage.removeItem(SETTINGS_STORAGE_KEY);
-          } catch {
-            /* ignore */
-          }
-          setDisplayName("");
-          setNetworkIntegrationsAllowed(false);
-          const fresh = loadSettings();
-          applyAppearance({
-            theme: fresh.theme,
-            density: fresh.density,
-            monoFont: fresh.monoFont,
-            sansFont: fresh.sansFont,
-          });
-          postToHost({ type: "clearData" });
-        }}
         onNavigate={onNavigate}
       />
     );
   } else {
     body = (
-      <div className="playground-shell playground-shell--ext">
-        <div className="playground-shell__map">
-          <div className="playground-map-wrap">
-            <div className="playground-map-inner">
-              <RepositoryMapView
-                map={activeMap}
-                bookmarks={bookmarks}
-                focusPath={focusPath}
-                focusNodeId={focusNodeId}
-                {...(brand ? { brandMarkSrc: brand } : {})}
-                showBrand={false}
-                branch={branch}
-                recentChanges={
-                  gitActivity?.available ? gitActivity.recentFiles : []
-                }
-                onZoomChange={(z) => {
-                  setZoom(z);
-                  postToHost({ type: "zoom", zoom: z });
-                }}
-                onLayersChange={(next) => {
-                  setLayers([...next]);
-                  postToHost({ type: "layers", layers: [...next] });
-                }}
-                onAddBookmark={(label, nodeId) => {
-                  void saveBookmark({ label, nodeId, zoom })
-                    .then(setBookmarks)
-                    .catch(() => {
-                      // Fall back to a local-only bookmark if persistence fails.
-                      setBookmarks((prev) => [
-                        ...prev,
-                        {
-                          id: `bookmark:${nodeId}:${Date.now()}`,
-                          label,
-                          nodeId,
-                          zoom,
-                          createdAt: new Date().toISOString(),
-                        },
-                      ]);
-                    });
-                }}
-                onOpenPath={(path) => openFile(path)}
-              />
-            </div>
-            <AppSidebar
-              variant="rail"
-              active="map"
-              repoLabel={repoLabel}
-              user={user}
-              onNavigate={onNavigate}
-            />
-          </div>
-        </div>
-      </div>
+      <OverviewScreen
+        map={activeMap}
+        repoLabel={repoLabel}
+        gitActivity={gitActivity}
+        gitStatus={gitStatus}
+        health={health}
+        dna={dna}
+        testingScore={dashboard?.testingScore ?? null}
+        securityScore={dashboard?.securityScore ?? null}
+        workspacePath={root}
+        onNavigate={onNavigate}
+        onOpenEnvelope={() => setView("iris")}
+        onOpenDna={() => setView("dna")}
+        onOpenBlast={(seedPath) => {
+          setTargetPath(seedPath ?? null);
+          setView("impact");
+        }}
+        onOpenTrends={() => setView("trends")}
+        onOpenIntegrations={() => setView("integrations")}
+        onOpenReview={() => setView("review")}
+        onOpenExplain={() => setView("explain")}
+        onOpenGuard={() => setView("guard")}
+        onOpenSettings={() => setView("settings")}
+        onRefresh={() => {
+          void loadDashboard();
+        }}
+        onSyncGit={syncGit}
+      />
     );
   }
 

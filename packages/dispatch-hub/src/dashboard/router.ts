@@ -1,17 +1,18 @@
 import { useEffect, useState } from "react";
 
 /**
- * Console routes (M-068).
- *
- * Legacy hashes keep working: `#/jobs` → dashboard, `#/intelligence` → iris,
- * `#/workflows` and `#/attention` → dashboard (Needs you lives on Pulse).
+ * Console routes (M-078). Same nine tabs as `dashboard-views.ts` /
+ * AppSidebar. Kept local so hub tests do not need an app-shell rebuild.
  */
 export const CONSOLE_VIEWS = [
-  "dashboard",
-  "findings",
+  "overview",
   "iris",
-  "trees",
+  "jobs",
   "skills",
+  "dna",
+  "trends",
+  "impact",
+  "integrations",
   "settings",
 ] as const;
 
@@ -19,35 +20,80 @@ export type RailView = (typeof CONSOLE_VIEWS)[number];
 export type ConsoleView = RailView | "whats-new" | "wake";
 
 export const VIEW_LABELS: Record<ConsoleView, string> = {
-  dashboard: "Dashboard",
-  findings: "Findings",
+  overview: "Overview",
   iris: "Iris",
-  trees: "Trees",
+  jobs: "Jobs",
   skills: "Skills",
+  dna: "DNA Analysis",
+  trends: "Trends",
+  impact: "Impact & Guard",
+  integrations: "Integrations",
   settings: "Settings",
   "whats-new": "What's new",
   wake: "Wake",
 };
+
+const ALIAS: Record<string, RailView> = {
+  map: "impact",
+  domains: "overview",
+  domain: "overview",
+  testing: "overview",
+  blast: "impact",
+  review: "impact",
+  explain: "impact",
+  guard: "impact",
+  health: "overview",
+  profile: "dna",
+  dashboard: "jobs",
+  findings: "jobs",
+  trees: "dna",
+  intelligence: "iris",
+  pulse: "jobs",
+  board: "jobs",
+  list: "jobs",
+  repos: "jobs",
+  workflows: "jobs",
+  attention: "jobs",
+};
+
+function resolveRail(raw: string): RailView {
+  if ((CONSOLE_VIEWS as readonly string[]).includes(raw)) {
+    return raw as RailView;
+  }
+  return ALIAS[raw] ?? "overview";
+}
 
 export type RouteQuery = {
   readonly repo?: string;
   readonly job?: string;
   readonly note?: string;
   readonly type?: string;
+  readonly mode?: string;
 };
+
+export function isEmbedSearch(search: string): boolean {
+  const raw = search.startsWith("?") ? search.slice(1) : search;
+  return new URLSearchParams(raw).get("embed") === "1";
+}
 
 export function parseView(hash: string): ConsoleView {
   const raw = hash.replace(/^#\/?/, "").split("?")[0] ?? "";
-  if (raw === "jobs" || raw === "repos") return "dashboard";
-  if (raw === "workflows" || raw === "attention") return "dashboard";
-  if (raw === "intelligence" || raw === "iris" || raw.startsWith("iris/")) {
-    return "iris";
-  }
   if (raw === "whats-new") return "whats-new";
   if (raw === "wake") return "wake";
-  return (CONSOLE_VIEWS as readonly string[]).includes(raw)
-    ? (raw as ConsoleView)
-    : "dashboard";
+  if (
+    raw === "iris/envelope" ||
+    raw === "envelope" ||
+    raw.startsWith("iris/")
+  ) {
+    return "iris";
+  }
+  return resolveRail(raw || "overview");
+}
+
+export function parseJobsMode(hash: string): "findings" | undefined {
+  const raw = hash.replace(/^#\/?/, "").split("?")[0] ?? "";
+  if (raw === "findings") return "findings";
+  return queryParam(hash, "mode") === "findings" ? "findings" : undefined;
 }
 
 /** Envelope details live under Iris (`#/iris/envelope`). */
@@ -95,15 +141,15 @@ export function parseNotePath(hash: string): string | undefined {
 }
 
 export function dashboardHash(repo?: string, type?: string): string {
+  return jobsHash(repo, type);
+}
+
+export function jobsHash(repo?: string, type?: string): string {
   const params = new URLSearchParams();
   if (repo && repo !== "all") params.set("repo", repo);
   if (type && type !== "all") params.set("type", type);
   const q = params.toString();
-  return q ? `#/dashboard?${q}` : "#/dashboard";
-}
-
-export function jobsHash(repo?: string): string {
-  return dashboardHash(repo);
+  return q ? `#/jobs?${q}` : "#/jobs";
 }
 
 export function findingsHash(query?: RouteQuery): string {
@@ -116,8 +162,8 @@ export function findingsHash(query?: RouteQuery): string {
 }
 
 export function viewHash(view: ConsoleView, query?: RouteQuery): string {
-  if (view === "dashboard") return dashboardHash(query?.repo, query?.type);
-  if (view === "findings") return findingsHash(query);
+  if (view === "jobs" && query?.mode === "findings") return findingsHash(query);
+  if (view === "jobs") return jobsHash(query?.repo, query?.type);
   if (view === "whats-new") return "#/whats-new";
   if (view === "wake") return "#/wake";
   if (view === "iris") return irisHash(query?.repo);
@@ -127,6 +173,7 @@ export function viewHash(view: ConsoleView, query?: RouteQuery): string {
 export function useHashRoute(): {
   readonly view: ConsoleView;
   readonly pane: "envelope" | undefined;
+  readonly jobsMode: "findings" | undefined;
   readonly go: (next: ConsoleView, query?: RouteQuery) => void;
   readonly repo: string | undefined;
   readonly type: string | undefined;
@@ -136,6 +183,7 @@ export function useHashRoute(): {
   const read = () => ({
     view: parseView(window.location.hash),
     pane: parseIrisPane(window.location.hash),
+    jobsMode: parseJobsMode(window.location.hash),
     repo: parseRepoFilter(window.location.hash),
     type: parseTypeQuery(window.location.hash),
     job: parseJobId(window.location.hash),
@@ -154,6 +202,7 @@ export function useHashRoute(): {
       setRoute({
         view: next,
         pane: undefined,
+        jobsMode: query?.mode === "findings" ? "findings" : undefined,
         repo: query?.repo,
         type: query?.type,
         job: query?.job,

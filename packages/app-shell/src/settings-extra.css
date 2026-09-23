@@ -201,7 +201,7 @@
   margin: 0;
   font-size: 0.9375rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--prism-ink-heading, #ffffff);
 }
 
 .set-modal__close {
@@ -213,13 +213,13 @@
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: #94a3b8;
+  color: var(--prism-ink-muted);
   cursor: pointer;
 }
 
 .set-modal__close:hover {
   background: rgba(255, 255, 255, 0.06);
-  color: #fff;
+  color: var(--prism-ink);
 }
 
 .set-modal__body {
@@ -298,4 +298,107 @@
 .al-row__date {
   color: #cbd5e1;
   font-weight: 600;
+}
+
+.set-prismate {
+  display: grid;
+  gap: 16px;
+}
+
+.set-prismate__toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.set-prismate__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Settings fields hug the right — no full-bleed empty chrome. */
+.set-row__control .prism-select-wrap,
+.set-row__control .prism-field {
+  width: max-content;
+  max-width: 100%;
+}
+
+.set-row__control .prism-select {
+  width: max-content;
+  min-width: 0;
+  max-width: 100%;
+  padding: 6px 10px;
+}
+
+.set-row__control .prism-input[type="number"],
+.set-input--compact {
+  width: 4.5rem;
+  min-width: 0;
+  max-width: 4.5rem;
+  padding: 6px 8px;
+  text-align: center;
+}
+
+.set-row__control .prism-textarea {
+  width: min(100%, 22rem);
+}
+
+.set-wipe {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 16px;
+}
+
+.set-wipe__help,
+.set-wipe__status {
+  margin: 0;
+  max-width: none;
+  width: 100%;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--prism-ink-muted);
+}
+
+.set-wipe__confirm {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 16px;
+  row-gap: 6px;
+  width: 100%;
+}
+
+.set-wipe__copy {
+  min-width: 0;
+}
+
+.set-wipe__label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.set-wipe__row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.set-wipe__input.prism-input,
+input.set-wipe__input {
+  width: 10rem;
+  min-width: 8rem;
+  max-width: 12rem;
+  flex: 0 0 auto;
+}
+
+.set-wipe__hint {
+  margin: 4px 0 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--prism-ink-muted);
 }

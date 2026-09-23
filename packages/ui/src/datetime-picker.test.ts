@@ -5,6 +5,7 @@ import {
   combineDateAndTime,
   dateRangeCanApply,
   datetimePickerError,
+  datetimePopOpensAbove,
   formatDatetimeField,
   from12h,
   localeDateOrder,
@@ -156,9 +157,19 @@ describe("calendar grid", () => {
     expect(eleventh?.disabled).toBe(false);
   });
 
+  it("opens the calendar above when it cannot fit below", () => {
+    expect(datetimePopOpensAbove(40, 400, 280)).toBe(true);
+    expect(datetimePopOpensAbove(400, 40, 280)).toBe(false);
+    expect(datetimePopOpensAbove(300, 300, 280)).toBe(false);
+  });
+
   it("lists weekdays from the week start", () => {
-    expect(weekdayLabels("en-GB", 1)[0]?.startsWith("Mon")).toBe(true);
-    expect(weekdayLabels("en-US", 0)[0]?.startsWith("Sun")).toBe(true);
+    expect(weekdayLabels("en-GB", 1)[0]?.toLowerCase().startsWith("m")).toBe(
+      true,
+    );
+    expect(weekdayLabels("en-US", 0)[0]?.toLowerCase().startsWith("s")).toBe(
+      true,
+    );
   });
 
   it("shifts months across years", () => {

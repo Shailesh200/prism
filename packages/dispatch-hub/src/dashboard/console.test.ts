@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CONSOLE_VIEWS,
+  isEmbedSearch,
   parseIrisPane,
   parseJobId,
   parseRepoFilter,
@@ -44,24 +45,33 @@ describe("parseView", () => {
     }
   });
 
-  it("falls back to dashboard for an empty or unknown hash", () => {
-    expect(parseView("")).toBe("dashboard");
-    expect(parseView("#")).toBe("dashboard");
-    expect(parseView("#/nonsense")).toBe("dashboard");
+  it("falls back to overview for an empty or unknown hash", () => {
+    expect(parseView("")).toBe("overview");
+    expect(parseView("#")).toBe("overview");
+    expect(parseView("#/nonsense")).toBe("overview");
   });
 
   it("redirects retired hashes to the new IA", () => {
-    expect(parseView("#/jobs")).toBe("dashboard");
-    expect(parseView("#/repos")).toBe("dashboard");
-    expect(parseView("#/workflows")).toBe("dashboard");
-    expect(parseView("#/attention")).toBe("dashboard");
+    expect(parseView("#/jobs")).toBe("jobs");
+    expect(parseView("#/dashboard")).toBe("jobs");
+    expect(parseView("#/repos")).toBe("jobs");
+    expect(parseView("#/workflows")).toBe("jobs");
+    expect(parseView("#/attention")).toBe("jobs");
     expect(parseView("#/intelligence")).toBe("iris");
     expect(parseView("#/whats-new")).toBe("whats-new");
     expect(viewHash("whats-new")).toBe("#/whats-new");
     expect(parseView("#/wake")).toBe("wake");
     expect(viewHash("wake")).toBe("#/wake");
-    expect(parseView("#/trees")).toBe("trees");
+    expect(parseView("#/trees")).toBe("dna");
     expect(parseView("#/skills")).toBe("skills");
+    expect(parseView("#/map")).toBe("impact");
+    expect(parseView("#/domains")).toBe("overview");
+  });
+
+  it("reads embed=1 so the Dashboard host can hide Console chrome", () => {
+    expect(isEmbedSearch("?token=abc&embed=1")).toBe(true);
+    expect(isEmbedSearch("?token=abc")).toBe(false);
+    expect(isEmbedSearch("")).toBe(false);
   });
 
   it("ignores a query string after the view", () => {
@@ -81,20 +91,20 @@ describe("parseView", () => {
     expect(parseJobId("#/jobs?job=attention-cards")).toBe("attention-cards");
   });
 
-  it("builds a dashboard hash that keeps an optional repo filter", () => {
-    expect(jobsHash()).toBe("#/dashboard");
+  it("builds a jobs hash that keeps an optional repo filter", () => {
+    expect(jobsHash()).toBe("#/jobs");
     expect(jobsHash("/Users/me/Prism")).toBe(
-      "#/dashboard?repo=%2FUsers%2Fme%2FPrism",
+      "#/jobs?repo=%2FUsers%2Fme%2FPrism",
     );
     expect(dashboardHash("/Users/me/Prism", "skill")).toBe(
-      "#/dashboard?repo=%2FUsers%2Fme%2FPrism&type=skill",
+      "#/jobs?repo=%2FUsers%2Fme%2FPrism&type=skill",
     );
-    expect(dashboardHash(undefined, "custom")).toBe("#/dashboard?type=custom");
-    expect(parseTypeQuery("#/dashboard?type=skill")).toBe("skill");
+    expect(dashboardHash(undefined, "custom")).toBe("#/jobs?type=custom");
+    expect(parseTypeQuery("#/jobs?type=skill")).toBe("skill");
   });
 
   it("reads a findings job and note from the hash", () => {
-    expect(parseView("#/findings")).toBe("findings");
+    expect(parseView("#/findings")).toBe("jobs");
     expect(
       parseJobId(
         "#/findings?job=audit-gsap&note=.prism%2Fdispatch%2Fnotes%2Fa.md",
@@ -298,7 +308,7 @@ describe("consoleJobShareUrl", () => {
         "http://prismhq.localhost:17330/?token=old#/jobs",
       ),
     ).toBe(
-      "http://prismhq.localhost:17330/?token=abc-token#/dashboard?repo=%2FUsers%2Fme%2FPrism&job=attention-cards",
+      "http://prismhq.localhost:17330/?token=abc-token#/jobs?repo=%2FUsers%2Fme%2FPrism&job=attention-cards",
     );
   });
 
@@ -309,7 +319,7 @@ describe("consoleJobShareUrl", () => {
         "fresh",
         "http://127.0.0.1:17330/#/jobs",
       ),
-    ).toBe("http://127.0.0.1:17330/?token=fresh#/dashboard?job=job-1");
+    ).toBe("http://127.0.0.1:17330/?token=fresh#/jobs?job=job-1");
   });
 });
 
@@ -376,7 +386,7 @@ describe("getJson / postJson", () => {
       );
       await expect(getJson("/api/jobs", "tok")).rejects.toMatchObject({
         status: 0,
-        message: expect.stringMatching(/Could not reach Prism Dispatch/),
+        message: expect.stringMatching(/Could not reach Prism Dashboard/),
       });
     } finally {
       globalThis.fetch = orig;

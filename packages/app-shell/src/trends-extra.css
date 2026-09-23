@@ -51,7 +51,7 @@
 
 .tr-pager__count {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--prism-ink-muted);
 }
 
 /* Region movers empty state that keeps the sync call-to-action. */

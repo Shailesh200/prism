@@ -1,35 +1,68 @@
-import type { AppView } from "@repo-prism/app-shell";
+import type { AppView, DashboardView } from "@repo-prism/app-shell";
 
-const HASH_VIEWS = new Set<string>([
+const CANONICAL = new Set<string>([
   "overview",
-  "map",
-  "dna",
-  "domains",
-  "domain",
-  "testing",
-  "blast",
-  "trends",
-  "integrations",
+  "iris",
   "jobs",
+  "skills",
+  "dna",
+  "trends",
+  "impact",
+  "integrations",
   "settings",
-  "review",
-  "explain",
 ]);
 
-const ALIAS: Record<string, AppView> = {
+const ALIAS: Record<string, DashboardView> = {
   health: "overview",
-  impact: "blast",
+  map: "impact",
+  domains: "overview",
+  domain: "overview",
+  testing: "overview",
+  findings: "jobs",
+  trees: "dna",
+  intelligence: "iris",
+  dashboard: "jobs",
+  profile: "dna",
 };
 
+const TAB_HASHES = new Set(["review", "explain", "blast", "guard"]);
+
+/**
+ * Playground hashes. Known aliases resolve to the nine-tab rail. Empty /
+ * unknown stay undefined so the host can pick the default (Overview).
+ */
 export function parsePlaygroundView(hash: string): AppView | undefined {
   const raw = hash.replace(/^#\/?/, "").split("?")[0]?.trim() ?? "";
   if (!raw) return undefined;
+  if (raw === "iris/envelope" || raw.startsWith("iris/")) return "iris";
+  if (TAB_HASHES.has(raw)) return raw as AppView;
+  if (CANONICAL.has(raw)) return raw as DashboardView;
   if (raw in ALIAS) return ALIAS[raw];
-  return HASH_VIEWS.has(raw) ? (raw as AppView) : undefined;
+  return undefined;
+}
+
+export type IrisPane = "envelope" | "prepare";
+
+/** Envelope / Prepare pages live under Iris (`#/iris/envelope`, `#/iris/prepare`). */
+export function parseIrisPane(hash: string): IrisPane | undefined {
+  const raw = hash.replace(/^#\/?/, "").split("?")[0]?.trim() ?? "";
+  if (raw === "iris/envelope" || raw === "envelope") return "envelope";
+  if (raw === "iris/prepare" || raw === "prepare") return "prepare";
+  return undefined;
+}
+
+export function irisPaneHash(pane: IrisPane | undefined): string {
+  return pane ? `#/iris/${pane}` : "#/iris";
 }
 
 export function playgroundHash(view: AppView): string {
-  return `#/${view}`;
+  if (CANONICAL.has(view)) return `#/${view}`;
+  if (TAB_HASHES.has(view)) {
+    return view === "blast" || view === "review" || view === "explain"
+      ? "#/impact"
+      : "#/impact";
+  }
+  return `#/${ALIAS[view] ?? "overview"}`;
 }
 
 export function isWakeHash(hash: string): boolean {

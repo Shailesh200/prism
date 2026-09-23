@@ -19,7 +19,7 @@ describe("Dispatch MCP registration", () => {
     }
   });
 
-  it("speaks the tokenised Console URL so a first visit is authorised", () => {
+  it("speaks the tokenised Dashboard URL so a first visit is authorised", () => {
     expect(
       speakableBoardUrl({
         enabled: true,
@@ -27,13 +27,13 @@ describe("Dispatch MCP registration", () => {
         url: "http://prismhq.localhost:17330/",
         dashboardUrl: "http://prismhq.localhost:17330/?token=session-token",
       }),
-    ).toBe("http://prismhq.localhost:17330/?token=session-token");
+    ).toBe("http://prismhq.localhost:17331/?token=session-token");
   });
 
-  it("falls back to prismhq.localhost", () => {
+  it("falls back to the one Dashboard host", () => {
     expect(
       speakableBoardUrl({ enabled: true, detail: "Jobs board is up." }),
-    ).toBe("http://prismhq.localhost:17330/");
+    ).toBe("http://prismhq.localhost:17331/");
   });
 
   it("omits the board link when the hub is explicitly off", () => {

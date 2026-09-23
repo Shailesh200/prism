@@ -1,14 +1,15 @@
 /**
- * Playground Vite on :17331 (next to the Console on :17330), parked with the
- * same down page as the Console. 5173 is Vite’s default and collides with
- * other local apps; override with `PRISM_PLAYGROUND_PORT` when needed.
+ * Dashboard Vite on :17331. The hub daemon on :17330 keeps APIs and Iris/Skills
+ * embeds; GET / on the daemon redirects here. Parked with the same down page.
+ * 5173 is Vite’s default and collides with other local apps; override with
+ * `PRISM_PLAYGROUND_PORT` when needed.
  *
  * Sleep frees the port (kills whatever is listening) and the hub serves
  * “Prism is down”. Wake starts `apps/playground` again when this repo has one.
  */
 
-import { execFile, spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { execFile, spawn, spawnSync } from "node:child_process";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { access } from "node:fs/promises";
 import { homedir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
@@ -82,6 +83,28 @@ function nodeBinaryName(): string {
  * PATH `node` is often Cursor's helper (different ABI), so we prefer nvm/proto
  * matching `.nvmrc` / `engines.node`.
  */
+function canDlopenSqlite(
+  nodeBin: string,
+  repoRoot: string | undefined,
+): boolean {
+  if (!repoRoot) return false;
+  const indexerPkg = join(repoRoot, "packages/indexer/package.json");
+  if (!existsSync(indexerPkg)) return false;
+  const script = `
+    import { createRequire } from "node:module";
+    import { pathToFileURL } from "node:url";
+    const req = createRequire(pathToFileURL(${JSON.stringify(indexerPkg)}).href);
+    const Database = req("better-sqlite3");
+    const db = new Database(":memory:");
+    db.close();
+  `;
+  const result = spawnSync(nodeBin, ["--input-type=module", "-e", script], {
+    encoding: "utf8",
+    timeout: 8000,
+  });
+  return result.status === 0;
+}
+
 export function resolvePlaygroundNode(
   input: {
     readonly workspaceRoot?: string;
@@ -93,22 +116,35 @@ export function resolvePlaygroundNode(
   const override = env.PRISM_NODE?.trim();
   if (override && existsSync(override)) return override;
 
+  const repoRoot =
+    input.workspaceRoot ??
+    (input.playgroundApp ? join(input.playgroundApp, "..", "..") : undefined);
   const version =
     env.PRISM_NODE_VERSION?.trim() ||
-    readNvmrcVersion(input.workspaceRoot) ||
-    readNvmrcVersion(
-      input.playgroundApp ? join(input.playgroundApp, "..", "..") : undefined,
-    ) ||
+    readNvmrcVersion(repoRoot) ||
     DEFAULT_NODE_VERSION;
   const exe = nodeBinaryName();
   const nvmDir = env.NVM_DIR?.trim() || join(homedir(), ".nvm");
-  const candidates = [
-    join(nvmDir, "versions", "node", `v${version}`, "bin", exe),
-    join(homedir(), ".proto", "tools", "node", version, "bin", exe),
-  ];
-  for (const candidate of candidates) {
-    if (existsSync(candidate)) return candidate;
+  const pinned = join(nvmDir, "versions", "node", `v${version}`, "bin", exe);
+  if (existsSync(pinned) && canDlopenSqlite(pinned, repoRoot)) return pinned;
+
+  const versions = new Set<string>([version]);
+  try {
+    for (const name of readdirSync(join(nvmDir, "versions", "node"))) {
+      versions.add(name.replace(/^v/, ""));
+    }
+  } catch {
+    /* no nvm */
   }
+  for (const ver of versions) {
+    const candidate = join(nvmDir, "versions", "node", `v${ver}`, "bin", exe);
+    if (existsSync(candidate) && canDlopenSqlite(candidate, repoRoot)) {
+      return candidate;
+    }
+    const proto = join(homedir(), ".proto", "tools", "node", ver, "bin", exe);
+    if (existsSync(proto) && canDlopenSqlite(proto, repoRoot)) return proto;
+  }
+  if (existsSync(pinned)) return pinned;
   return exe;
 }
 

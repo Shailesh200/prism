@@ -432,7 +432,7 @@ export async function startHub(
     const url = playgroundUrl(port);
     if (await playgroundIsLive(port)) {
       await writePlaygroundRecord(env, { port, mode: "vite" });
-      return { ok: true, port, url, detail: "Spectrum is up." };
+      return { ok: true, port, url, detail: "Dashboard is up." };
     }
     const extraRoots = workspaces.map((row) => row.path);
     const app = await resolvePlaygroundApp(workspaceRoot, extraRoots, env);
@@ -441,7 +441,7 @@ export async function startHub(
         ok: false,
         port,
         url,
-        detail: "This machine has no Spectrum app.",
+        detail: "This machine has no Dashboard app.",
       };
     }
     const spawned = await spawnPlayground(workspaceRoot);
@@ -453,13 +453,13 @@ export async function startHub(
         mode: "vite",
         ...(typeof playgroundPid === "number" ? { pid: playgroundPid } : {}),
       });
-      return { ok: true, port, url, detail: "Spectrum is up." };
+      return { ok: true, port, url, detail: "Dashboard is up." };
     }
     return {
       ok: Boolean(spawned),
       port,
       url,
-      detail: spawned ? "Spectrum is starting." : "Spectrum did not start.",
+      detail: spawned ? "Dashboard is starting." : "Dashboard did not start.",
     };
   };
 
@@ -577,6 +577,25 @@ export async function startHub(
       json(res, 403, { error: HUB_ERROR.origin });
       return;
     }
+    const requestOrigin = req.headers.origin;
+    if (requestOrigin && originAllowed(requestOrigin)) {
+      res.setHeader("Access-Control-Allow-Origin", requestOrigin);
+      res.setHeader("Vary", "Origin");
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+      res.setHeader(
+        "Access-Control-Allow-Headers",
+        "Authorization, Content-Type",
+      );
+      res.setHeader(
+        "Access-Control-Allow-Methods",
+        "GET, POST, PATCH, OPTIONS",
+      );
+    }
+    if (req.method === "OPTIONS") {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
 
     const asleep = await isPrismAsleep(env);
 
@@ -625,7 +644,7 @@ export async function startHub(
           json(res, 200, {
             ok: true,
             ...parked,
-            detail: "Spectrum is down.",
+            detail: "Dashboard is down.",
           });
           return;
         }
@@ -1431,13 +1450,18 @@ export async function startHub(
       (url.pathname === "/" || url.pathname === "/index.html")
     ) {
       const headers: Record<string, string> = {
-        "Content-Type": "text/html; charset=utf-8",
         "Cache-Control": "no-store",
       };
-      if (tokensMatch(liveRecord.token, tokenFromRequest(req, url))) {
+      const requestToken = tokenFromRequest(req, url);
+      if (tokensMatch(liveRecord.token, requestToken)) {
         headers["Set-Cookie"] = hubCookieHeader(liveRecord.token);
       }
-      await serveFile(res, join(assetsDir, "index.html"), headers);
+      const dest = new URL(
+        playgroundUrl(wantedPlaygroundPort || PLAYGROUND_PORT),
+      );
+      if (requestToken) dest.searchParams.set("token", requestToken);
+      res.writeHead(302, { Location: dest.toString(), ...headers });
+      res.end();
       return;
     }
 

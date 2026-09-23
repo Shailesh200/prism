@@ -38,6 +38,25 @@ const CLOSE_DELAY_MS = 180;
 
 type Position = { readonly top: number; readonly left: number };
 
+/** Turn "Label: value" lines into bold keys so dump tooltips stay scannable. */
+export function formatTooltipBody(text: string): ReactNode {
+  return text.split("\n").map((line, index) => {
+    const match = /^([^:]{1,48}):\s*(.*)$/.exec(line);
+    if (match) {
+      return (
+        <span key={index} className="prism-tooltip__line">
+          <strong className="prism-tooltip__k">{match[1]}:</strong> {match[2]}
+        </span>
+      );
+    }
+    return (
+      <span key={index} className="prism-tooltip__line">
+        {line.length === 0 ? "\u00a0" : line}
+      </span>
+    );
+  });
+}
+
 /**
  * Small accessible "how is this calculated" affordance.
  * Shows a popover on hover, focus, or click; explains the underlying formula.
@@ -156,7 +175,11 @@ export function Tooltip(props: TooltipProps): ReactElement {
             onMouseLeave={interactive ? scheduleClose : undefined}
           >
             <span className="prism-tooltip__title">{label}</span>
-            <span className="prism-tooltip__body">{children}</span>
+            <span className="prism-tooltip__body">
+              {typeof children === "string"
+                ? formatTooltipBody(children)
+                : children}
+            </span>
             {actions ? (
               <span className="prism-tooltip__actions">{actions}</span>
             ) : null}

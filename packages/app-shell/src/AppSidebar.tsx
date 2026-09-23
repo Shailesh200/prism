@@ -1,16 +1,14 @@
 import { Select } from "@repo-prism/ui";
 import {
-  Compass,
+  Aperture,
+  BookOpen,
   Dna,
   ExternalLink,
-  FlaskConical,
   GitBranch,
   LayoutGrid,
-  Map as MapIcon,
-  Monitor,
+  ListTodo,
   Plug,
   Settings,
-  ShieldAlert,
   TrendingUp,
   Zap,
 } from "lucide-react";
@@ -19,23 +17,15 @@ import type { AppShellClient } from "./client.js";
 import { useAppShellClient } from "./client-context.js";
 import { isBrowserShell } from "./is-browser.js";
 import { Avatar } from "./Avatar.js";
+import {
+  DASHBOARD_VIEW_LABELS,
+  resolveAppView,
+  type AppView,
+  type DashboardView,
+} from "./dashboard-views.js";
 import type { WorkspacePackageInfo } from "./types.js";
 
-export type AppView =
-  | "overview"
-  | "map"
-  | "dna"
-  | "domains"
-  | "domain"
-  | "testing"
-  | "blast"
-  | "trends"
-  | "integrations"
-  | "jobs"
-  | "settings"
-  | "review"
-  | "explain"
-  | "guard";
+export type { AppView, DashboardView } from "./dashboard-views.js";
 
 export type AppSidebarUser = {
   readonly author: string;
@@ -53,17 +43,52 @@ export type AppSidebarProps = {
   readonly brandMarkSrc?: string;
 };
 
-const DISPATCH_FALLBACK = "http://prismhq.localhost:17330/";
+const NAV_ICONS: Record<DashboardView, ReactElement> = {
+  overview: <LayoutGrid size={16} aria-hidden />,
+  iris: <Aperture size={16} aria-hidden />,
+  jobs: <ListTodo size={16} aria-hidden />,
+  skills: <BookOpen size={16} aria-hidden />,
+  dna: <Dna size={16} aria-hidden />,
+  trends: <TrendingUp size={16} aria-hidden />,
+  impact: <Zap size={16} aria-hidden />,
+  integrations: <Plug size={16} aria-hidden />,
+  settings: <Settings size={16} aria-hidden />,
+};
 
-async function openDispatchConsole(client: AppShellClient): Promise<void> {
-  let href = DISPATCH_FALLBACK;
-  try {
-    const status = await client.fetchConsoleStatus?.();
-    if (status?.console?.url) href = status.console.url;
-  } catch {
-    /* keep the loopback default */
-  }
-  window.open(href, "_blank", "noopener,noreferrer");
+const WORKSPACE_VIEWS: readonly DashboardView[] = [
+  "overview",
+  "iris",
+  "jobs",
+  "skills",
+  "dna",
+  "trends",
+];
+
+const TOOL_VIEWS: readonly DashboardView[] = ["impact"];
+
+const SETTINGS_VIEWS: readonly DashboardView[] = ["integrations", "settings"];
+
+function NavItem(props: {
+  readonly id: DashboardView;
+  readonly active: AppView;
+  readonly onNavigate: (view: AppView) => void;
+}): ReactElement {
+  const label = DASHBOARD_VIEW_LABELS[props.id];
+  const current = resolveAppView(props.active) === props.id;
+  return (
+    <button
+      type="button"
+      className="appnav__item"
+      title={label}
+      aria-label={label}
+      data-prism-tour={props.id}
+      data-active={current ? "true" : "false"}
+      onClick={() => props.onNavigate(props.id)}
+    >
+      {NAV_ICONS[props.id]}
+      <span className="appnav__reveal">{label}</span>
+    </button>
+  );
 }
 
 /**
@@ -125,10 +150,12 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
       className={`appnav appnav--${props.variant}`}
       aria-label="Primary navigation"
     >
-      <div className="appnav__logo" data-prism-tour="welcome">
-        <img src={brandSrc} alt="" width={22} height={22} />
-        <span className="appnav__reveal">Prism</span>
-      </div>
+      {isBrowserShell() ? null : (
+        <div className="appnav__logo" data-prism-tour="welcome">
+          <img src={brandSrc} alt="" width={22} height={22} />
+          <span className="appnav__reveal">Prism</span>
+        </div>
+      )}
       {!isBrowserShell() && client.postToHost ? (
         <button
           type="button"
@@ -169,151 +196,36 @@ export function AppSidebar(props: AppSidebarProps): ReactElement {
 
       <nav className="appnav__nav">
         <p className="appnav__group appnav__reveal">Workspace</p>
-        <button
-          type="button"
-          className="appnav__item"
-          title="Overview"
-          aria-label="Overview"
-          data-prism-tour="overview"
-          data-active={props.active === "overview" ? "true" : "false"}
-          onClick={() => props.onNavigate("overview")}
-        >
-          <LayoutGrid size={16} aria-hidden />
-          <span className="appnav__reveal">Overview</span>
-        </button>
-        <button
-          type="button"
-          className="appnav__item"
-          title="Repository Map"
-          aria-label="Repository Map"
-          data-prism-tour="map"
-          data-active={props.active === "map" ? "true" : "false"}
-          onClick={() => props.onNavigate("map")}
-        >
-          <MapIcon size={16} aria-hidden />
-          <span className="appnav__reveal">Repository Map</span>
-        </button>
-        <button
-          type="button"
-          className="appnav__item"
-          title="Domains"
-          aria-label="Domains"
-          data-prism-tour="domains"
-          data-active={
-            props.active === "domains" || props.active === "domain"
-              ? "true"
-              : "false"
-          }
-          onClick={() => props.onNavigate("domains")}
-        >
-          <Compass size={16} aria-hidden />
-          <span className="appnav__reveal">Domains</span>
-        </button>
-        <button
-          type="button"
-          className="appnav__item"
-          title="Testing & Security"
-          aria-label="Testing and Security"
-          data-prism-tour="testing"
-          data-active={props.active === "testing" ? "true" : "false"}
-          onClick={() => props.onNavigate("testing")}
-        >
-          <FlaskConical size={16} aria-hidden />
-          <span className="appnav__reveal">Testing &amp; Security</span>
-        </button>
-        <button
-          type="button"
-          className="appnav__item"
-          title="DNA Analysis"
-          aria-label="DNA Analysis"
-          data-prism-tour="dna"
-          data-active={props.active === "dna" ? "true" : "false"}
-          onClick={() => props.onNavigate("dna")}
-        >
-          <Dna size={16} aria-hidden />
-          <span className="appnav__reveal">DNA Analysis</span>
-        </button>
-        <button
-          type="button"
-          className="appnav__item"
-          title="Trends"
-          aria-label="Trends"
-          data-prism-tour="trends"
-          data-active={props.active === "trends" ? "true" : "false"}
-          onClick={() => props.onNavigate("trends")}
-        >
-          <TrendingUp size={16} aria-hidden />
-          <span className="appnav__reveal">Trends</span>
-        </button>
+        {WORKSPACE_VIEWS.map((id) => (
+          <NavItem
+            key={id}
+            id={id}
+            active={props.active}
+            onNavigate={props.onNavigate}
+          />
+        ))}
 
+        <span className="appnav__rule" aria-hidden />
         <p className="appnav__group appnav__reveal">Tools</p>
-        <button
-          type="button"
-          className="appnav__item"
-          title="Impact"
-          aria-label="Impact"
-          data-prism-tour="impact"
-          data-active={
-            props.active === "blast" ||
-            props.active === "review" ||
-            props.active === "explain"
-              ? "true"
-              : "false"
-          }
-          onClick={() => props.onNavigate("blast")}
-        >
-          <Zap size={16} aria-hidden />
-          <span className="appnav__reveal">Impact</span>
-        </button>
-        <button
-          type="button"
-          className="appnav__item"
-          title="Guard"
-          aria-label="Guard"
-          data-prism-tour="guard"
-          data-active={props.active === "guard" ? "true" : "false"}
-          onClick={() => props.onNavigate("guard")}
-        >
-          <ShieldAlert size={16} aria-hidden />
-          <span className="appnav__reveal">Guard</span>
-        </button>
-        <button
-          type="button"
-          className="appnav__item appnav__item--external"
-          title="Open Dispatch in a new tab"
-          aria-label="Open Dispatch console"
-          onClick={() => void openDispatchConsole(client)}
-        >
-          <Monitor size={16} aria-hidden />
-          <span className="appnav__reveal">Dispatch</span>
-          <ExternalLink size={12} aria-hidden className="appnav__ext" />
-        </button>
+        {TOOL_VIEWS.map((id) => (
+          <NavItem
+            key={id}
+            id={id}
+            active={props.active}
+            onNavigate={props.onNavigate}
+          />
+        ))}
 
+        <span className="appnav__rule" aria-hidden />
         <p className="appnav__group appnav__reveal">Settings</p>
-        <button
-          type="button"
-          className="appnav__item"
-          title="Integrations"
-          aria-label="Integrations"
-          data-prism-tour="integrations"
-          data-active={props.active === "integrations" ? "true" : "false"}
-          onClick={() => props.onNavigate("integrations")}
-        >
-          <Plug size={16} aria-hidden />
-          <span className="appnav__reveal">Integrations</span>
-        </button>
-        <button
-          type="button"
-          className="appnav__item"
-          title="Settings"
-          aria-label="Settings"
-          data-prism-tour="settings"
-          data-active={props.active === "settings" ? "true" : "false"}
-          onClick={() => props.onNavigate("settings")}
-        >
-          <Settings size={16} aria-hidden />
-          <span className="appnav__reveal">Settings</span>
-        </button>
+        {SETTINGS_VIEWS.map((id) => (
+          <NavItem
+            key={id}
+            id={id}
+            active={props.active}
+            onNavigate={props.onNavigate}
+          />
+        ))}
       </nav>
 
       <div className="appnav__user">

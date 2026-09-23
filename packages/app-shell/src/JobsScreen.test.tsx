@@ -19,6 +19,7 @@ import {
   jobStages,
   jobRailFill,
   jobReviewPending,
+  jobReviewAccepted,
   formatWorkerModel,
   jobModelLabel,
   splitJobSummary,
@@ -106,6 +107,9 @@ describe("JobsScreen", () => {
     expect(screen.getByText("1 live")).toBeTruthy();
     expect(screen.getByText("1h 4m")).toBeTruthy();
     expect(screen.getByText("dispatch/rms-pagination-100k-cap")).toBeTruthy();
+    expect(screen.getAllByRole("heading", { name: "Jobs" })).toHaveLength(1);
+    expect(screen.getByLabelText("Job summary")).toBeTruthy();
+    expect(screen.getByText("Total")).toBeTruthy();
   });
 
   it("opens a console and shows the tailed lines", async () => {
@@ -187,7 +191,7 @@ describe("JobsScreen", () => {
       />,
     );
 
-    expect(await screen.findByText("Ready for review")).toBeTruthy();
+    expect(await screen.findByText("Files modified")).toBeTruthy();
     expect(screen.getByText("1 to review")).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: /Fix pagination/ }));
@@ -198,7 +202,35 @@ describe("JobsScreen", () => {
     ).toBeTruthy();
   });
 
-  it("hides Ready for review when the job left no files", async () => {
+  it("marks the files card accepted after every file is kept", async () => {
+    const user = userEvent.setup();
+    render(
+      <JobsScreen
+        repoLabel="repo"
+        {...board([
+          {
+            id: "job-1",
+            title: "Fix pagination",
+            status: "done",
+            branch: "main",
+            review: {
+              ...review,
+              committed: false,
+              merged: false,
+              keptPaths: review.files.map((file) => file.path),
+            },
+          },
+        ])}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /Fix pagination/ }));
+    expect(
+      await screen.findByText("These changes were accepted."),
+    ).toBeTruthy();
+    expect(document.querySelector(".job-review--accepted")).toBeTruthy();
+  });
+
+  it("hides Files modified when the job left no files", async () => {
     const user = userEvent.setup();
     render(
       <JobsScreen
@@ -225,7 +257,7 @@ describe("JobsScreen", () => {
       />,
     );
 
-    expect(screen.queryByText("Ready for review")).toBeNull();
+    expect(screen.queryByText("Files modified")).toBeNull();
     await user.click(
       screen.getByRole("button", { name: /audit gsap components/ }),
     );
@@ -317,7 +349,8 @@ describe("JobsScreen", () => {
     );
   });
 
-  it("colors retry verification as a warning action", async () => {
+  it("shows validation status on a fact card instead of retry verification", async () => {
+    const user = userEvent.setup();
     render(
       <JobsScreen
         chrome="inspector"
@@ -330,6 +363,8 @@ describe("JobsScreen", () => {
               status: "done",
               verification: "failed",
               lastActivity: "Checks failed",
+              verificationDetail:
+                'test failed — app-shell:build | $ bun -e "concat"',
               branch: "dispatch/audit-t",
             },
           ],
@@ -337,10 +372,26 @@ describe("JobsScreen", () => {
         )}
       />,
     );
-    const retry = await screen.findByRole("button", {
-      name: "Retry verification",
-    });
-    expect(retry.className).toMatch(/prism-btn--warning/);
+    await user.click(screen.getByRole("button", { name: /Audit test cases/ }));
+    expect(
+      screen.queryByRole("button", { name: "Retry verification" }),
+    ).toBeNull();
+    expect(screen.getByText("Validation Status")).toBeTruthy();
+    const validation = Array.from(document.querySelectorAll(".job-fact")).find(
+      (el) => el.textContent?.includes("Validation Status"),
+    );
+    const tag = validation?.querySelector(".prism-badge");
+    expect(tag?.textContent).toBe("Failed");
+    expect(tag?.className).toMatch(/prism-badge--rose/);
+    expect(
+      screen.getAllByRole("button", { name: "Copy branch" }).length,
+    ).toBeGreaterThan(0);
+    fireEvent.click(
+      screen.getByLabelText("How Validation Status is calculated"),
+    );
+    expect(screen.getByRole("tooltip").textContent).toContain(
+      "app-shell:build",
+    );
     expect(screen.getByRole("button", { name: "Delete" }).className).toMatch(
       /danger/,
     );
@@ -403,7 +454,7 @@ describe("JobsScreen", () => {
             {
               id: "job-1",
               title: "Fix pagination",
-              status: "running",
+              status: "done",
               branch: "dispatch/job-1",
             },
           ],
@@ -412,15 +463,13 @@ describe("JobsScreen", () => {
       />,
     );
 
-    await user.click(await screen.findByRole("button", { name: "Cancel" }));
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
     await waitFor(() =>
-      expect(control).toHaveBeenCalledWith("cancel", "job-1"),
+      expect(control).toHaveBeenCalledWith("delete", "job-1"),
     );
   });
 
-  it("offers Resume next to an unexpected-stop message and calls the host", async () => {
-    const user = userEvent.setup();
-    const control = vi.fn(async () => {});
+  it("does not offer Resume or Cancel after an unexpected stop", async () => {
     render(
       <JobsScreen
         repoLabel="repo"
@@ -435,7 +484,7 @@ describe("JobsScreen", () => {
                 "The teammate stopped without reporting a result. Say resume to try again.",
             },
           ],
-          { control },
+          { control: async () => {} },
         )}
       />,
     );
@@ -443,16 +492,12 @@ describe("JobsScreen", () => {
     expect(
       screen.getByText(/stopped without reporting a result/i),
     ).toBeTruthy();
-    await user.click(await screen.findByRole("button", { name: "Resume" }));
-    await waitFor(() =>
-      expect(control).toHaveBeenCalledWith("resume", "attention-cards"),
-    );
-    expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Resume" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Pause" })).toBeNull();
   });
 
-  it("offers Start anyway on the focus rail and calls confirm", async () => {
-    const user = userEvent.setup();
-    const control = vi.fn(async () => {});
+  it("does not offer Start anyway on the focus rail", async () => {
     render(
       <JobsScreen
         repoLabel="repo"
@@ -471,17 +516,14 @@ describe("JobsScreen", () => {
               },
             },
           ],
-          { control },
+          { control: async () => {} },
         )}
       />,
     );
 
-    await user.click(
-      await screen.findByRole("button", { name: "Start anyway" }),
-    );
-    await waitFor(() =>
-      expect(control).toHaveBeenCalledWith("confirm", "gate-job"),
-    );
+    expect(await screen.findByText("Ship it")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Start anyway" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
   });
 
   it("offers Delete on a finished job and removes it via the host", async () => {
@@ -512,15 +554,11 @@ describe("JobsScreen", () => {
     expect(screen.queryByText("Latency check")).toBeNull();
   });
 
-  it("filters the board by repository when more than one is present", async () => {
-    const user = userEvent.setup();
+  it("scopes the board to the global repository selection", async () => {
     render(
       <JobsScreen
-        repoLabel="all repos"
-        workspaces={[
-          { path: "/a", label: "alpha", jobCount: 1 },
-          { path: "/b", label: "beta", jobCount: 1 },
-        ]}
+        repoLabel="alpha"
+        repoFilter="/a"
         {...board([
           {
             id: "one",
@@ -542,35 +580,70 @@ describe("JobsScreen", () => {
       />,
     );
     expect(await screen.findByText("Alpha job")).toBeTruthy();
-    expect(screen.getByText("Beta job")).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "alpha repository" }));
-    expect(screen.getByText("Alpha job")).toBeTruthy();
     expect(screen.queryByText("Beta job")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Repository" })).toBeNull();
   });
 
-  it("shows a repository filter even when only one repo is registered", async () => {
+  it("filters Live, Waiting, Finished, and Failed with a toggle group", async () => {
+    const user = userEvent.setup();
     render(
       <JobsScreen
         repoLabel="prism"
-        workspaces={[{ path: "/prism", label: "prism", jobCount: 1 }]}
         {...board([
           {
-            id: "one",
-            title: "Solo job",
+            id: "live",
+            title: "Live job",
+            status: "running",
+            branch: "main",
+          },
+          {
+            id: "done",
+            title: "Finished job",
             status: "done",
             branch: "main",
-            workspacePath: "/prism",
-            workspaceLabel: "prism",
+          },
+          {
+            id: "bad",
+            title: "Failed job",
+            status: "error",
+            branch: "main",
           },
         ])}
       />,
     );
-    expect(
-      await screen.findByRole("button", { name: "All repos" }),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole("button", { name: "prism repository" }),
-    ).toBeTruthy();
+    expect(await screen.findByText("Live job")).toBeTruthy();
+    await user.click(screen.getByRole("radio", { name: "Failed" }));
+    expect(screen.getByText("Failed job")).toBeTruthy();
+    expect(screen.queryByText("Live job")).toBeNull();
+    expect(screen.queryByText("Finished job")).toBeNull();
+    await user.click(screen.getByRole("radio", { name: "Finished" }));
+    expect(screen.getByText("Finished job")).toBeTruthy();
+    expect(screen.queryByText("Failed job")).toBeNull();
+  });
+
+  it("shares the same all-time date range as Envelope by default", async () => {
+    const user = userEvent.setup();
+    render(
+      <JobsScreen
+        repoLabel="prism"
+        {...board([
+          {
+            id: "old",
+            title: "January job",
+            status: "done",
+            branch: "main",
+            createdAt: "2026-01-01T00:00:00.000Z",
+            finishedAt: "2026-01-01T00:05:00.000Z",
+          },
+        ])}
+      />,
+    );
+    expect(await screen.findByText("January job")).toBeTruthy();
+    const trigger = screen.getByRole("button", { name: "Time range" });
+    expect(trigger.textContent).toMatch(/All/i);
+    await user.click(trigger);
+    await user.click(screen.getByRole("option", { name: "Last 1 hour" }));
+    expect(screen.queryByText("January job")).toBeNull();
   });
 
   it("surfaces a list failure instead of rendering an empty board", async () => {
@@ -1188,7 +1261,7 @@ describe("job lifecycle rail", () => {
         ])}
       />,
     );
-    expect(await screen.findByText("Resume")).toBeTruthy();
+    expect((await screen.findAllByText("Paused")).length).toBeGreaterThan(0);
     const rail = document.querySelector(".job-rail");
     expect(rail).toBeTruthy();
     const current = rail!.querySelector(".job-rail__step--current");
@@ -1197,6 +1270,32 @@ describe("job lifecycle rail", () => {
     expect(current!.querySelector(".job-rail__seg")).toBeNull();
     expect(rail!.querySelectorAll(".job-rail__seg")).toHaveLength(3);
     expect(rail!.querySelector(".job-rail__seg--crawl")).toBeNull();
+  });
+});
+
+describe("jobReviewAccepted", () => {
+  it("is true when every file is kept or the branch was merged", () => {
+    const files = [
+      {
+        path: "src/a.ts",
+        added: 1,
+        removed: 0,
+        change: "modified" as const,
+      },
+    ];
+    expect(
+      jobReviewAccepted({
+        files,
+        keptPaths: ["src/a.ts"],
+        merged: false,
+      }),
+    ).toBe(true);
+    expect(jobReviewAccepted({ files, keptPaths: [], merged: true })).toBe(
+      true,
+    );
+    expect(jobReviewAccepted({ files, keptPaths: [], merged: false })).toBe(
+      false,
+    );
   });
 });
 
@@ -1379,7 +1478,7 @@ describe("job token usage in Focus", () => {
     expect(screen.getByText("40% sent · ~12k not sent")).toBeTruthy();
     fireEvent.click(screen.getByLabelText("How Envelope is calculated"));
     expect(screen.getByRole("tooltip").textContent).toContain(
-      "Sent is the list Prism actually gave the agent",
+      "Sent is the list your Prismate actually gave the agent",
     );
     expect(screen.getByRole("tooltip").textContent).toContain(
       "Context and Tokens above",

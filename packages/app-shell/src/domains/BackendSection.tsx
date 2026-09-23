@@ -6,7 +6,13 @@ import {
   rankChurnHotspots,
   rankMostDepended,
 } from "@repo-prism/shared";
-import { CardIcon, EmptyState, InfoTip, SearchableInput } from "@repo-prism/ui";
+import {
+  CardIcon,
+  EmptyState,
+  InfoTip,
+  SearchableInput,
+  Text,
+} from "@repo-prism/ui";
 import type { LucideIcon } from "lucide-react";
 import {
   Database,
@@ -184,14 +190,14 @@ export function BackendSection(props: DomainScreenProps): ReactElement {
   const backendRoutesCard = (
     <article className="ov-card">
       <div className="ov-card__head">
-        <span className="ov-card__title">
+        <Text variant="card" as="span" className="ov-card__title">
           <Server size={14} className="ov-card__icon" aria-hidden />
           Routes
           <InfoTip label="Routes">
             HTTP endpoints from Core&apos;s backend report (Express / Nest /
             Fastify). Handler prefers function name when extractable.
           </InfoTip>
-        </span>
+        </Text>
         <SearchableInput
           className="dm-filter-search"
           value={routeFilter}
@@ -300,7 +306,7 @@ export function BackendSection(props: DomainScreenProps): ReactElement {
               <>
                 <article className="ov-card">
                   <div className="ov-card__head">
-                    <span className="ov-card__title">
+                    <Text variant="card" as="span" className="ov-card__title">
                       <FlaskConical
                         size={14}
                         className="ov-card__icon"
@@ -311,7 +317,7 @@ export function BackendSection(props: DomainScreenProps): ReactElement {
                         Untested routes from Core&apos;s backend report — stem
                         match plus import edges when an index is available.
                       </InfoTip>
-                    </span>
+                    </Text>
                     <SearchableInput
                       className="dm-filter-search"
                       value={coverageFilter}
@@ -370,14 +376,14 @@ export function BackendSection(props: DomainScreenProps): ReactElement {
 
                 <article className="ov-card">
                   <div className="ov-card__head">
-                    <span className="ov-card__title">
+                    <Text variant="card" as="span" className="ov-card__title">
                       <CardIcon icon={Database} tone="brand" size={14} />
                       Data Layer
                       <InfoTip label="Data Layer">
                         Models, migrations, SQL, and DB clients detected in the
                         workspace.
                       </InfoTip>
-                    </span>
+                    </Text>
                     <span className="ov-card__meta">
                       {activeBackendReport?.dataLayer.length ?? 0}
                     </span>
@@ -417,14 +423,14 @@ export function BackendSection(props: DomainScreenProps): ReactElement {
 
                 <article className="ov-card">
                   <div className="ov-card__head">
-                    <span className="ov-card__title">
+                    <Text variant="card" as="span" className="ov-card__title">
                       <Plug size={14} className="ov-card__icon" aria-hidden />
                       Env &amp; Integrations
                       <InfoTip label="Env & Integrations">
                         Environment variables and third-party SDK usage detected
                         in source.
                       </InfoTip>
-                    </span>
+                    </Text>
                   </div>
                   {(activeBackendReport?.envVars.length ?? 0) > 0 ||
                   (activeBackendReport?.integrations.length ?? 0) > 0 ? (
@@ -501,14 +507,14 @@ export function BackendSection(props: DomainScreenProps): ReactElement {
                 {(activeBackendReport?.background.length ?? 0) > 0 ? (
                   <article className="ov-card">
                     <div className="ov-card__head">
-                      <span className="ov-card__title">
+                      <Text variant="card" as="span" className="ov-card__title">
                         <Workflow
                           size={14}
                           className="ov-card__icon"
                           aria-hidden
                         />
                         Background Work
-                      </span>
+                      </Text>
                       <span className="ov-card__meta">
                         {activeBackendReport!.background.length}
                       </span>
@@ -532,10 +538,10 @@ export function BackendSection(props: DomainScreenProps): ReactElement {
 
                 <article className="ov-card">
                   <div className="ov-card__head">
-                    <span className="ov-card__title">
+                    <Text variant="card" as="span" className="ov-card__title">
                       <Flame size={14} className="ov-card__icon" aria-hidden />
                       Churn Hotspots
-                    </span>
+                    </Text>
                   </div>
                   {churn.length > 0 ? (
                     <div className="dm-rank">
@@ -562,14 +568,14 @@ export function BackendSection(props: DomainScreenProps): ReactElement {
 
                 <article className="ov-card">
                   <div className="ov-card__head">
-                    <span className="ov-card__title">
+                    <Text variant="card" as="span" className="ov-card__title">
                       <ShieldCheck
                         size={14}
                         className="ov-card__icon"
                         aria-hidden
                       />
                       Security Surface
-                    </span>
+                    </Text>
                     <span className="ov-card__meta">
                       {securityNodes.length} files
                     </span>
@@ -630,14 +636,14 @@ export function BackendSection(props: DomainScreenProps): ReactElement {
 
                 <article className="ov-card">
                   <div className="ov-card__head">
-                    <span className="ov-card__title">
+                    <Text variant="card" as="span" className="ov-card__title">
                       <Network
                         size={14}
                         className="ov-card__icon"
                         aria-hidden
                       />
                       Most Depended-on
-                    </span>
+                    </Text>
                   </div>
                   {mostDepended.length > 0 ? (
                     <div className="dm-rank">

@@ -157,3 +157,83 @@ export function valueToY(
   const frac = Math.max(0, Math.min(1, (value - min) / span));
   return height - pad - frac * (height - pad * 2);
 }
+
+/** One OHLC sample for {@link candleGeometry}. */
+export type Candle = {
+  readonly open: number;
+  readonly high: number;
+  readonly low: number;
+  readonly close: number;
+};
+
+export type CandleBar = {
+  readonly x: number;
+  readonly bodyWidth: number;
+  readonly highY: number;
+  readonly lowY: number;
+  readonly bodyTop: number;
+  readonly bodyBottom: number;
+  readonly up: boolean;
+};
+
+/**
+ * Slot each candle across the plot. High/low are wicks; open/close is the body.
+ * A flat day still gets a 1px body so the slot stays visible.
+ */
+export function candleGeometry(
+  candles: readonly Candle[],
+  width: number,
+  height: number,
+  pad: number,
+  domain?: { readonly min?: number; readonly max?: number },
+): {
+  readonly min: number;
+  readonly max: number;
+  readonly bars: readonly CandleBar[];
+} {
+  const highs = candles.map((c) => c.high);
+  const min = domain?.min ?? 0;
+  const max = domain?.max ?? Math.max(1, min, ...highs);
+  const n = candles.length;
+  const inner = Math.max(1, width - pad * 2);
+  const slot = n > 0 ? inner / n : inner;
+  const bodyWidth = Math.max(2, Math.min(14, slot * 0.55));
+  const bars = candles.map((c, i) => {
+    const x = pad + slot * i + slot / 2;
+    const openY = valueToY(c.open, height, pad, min, max);
+    const closeY = valueToY(c.close, height, pad, min, max);
+    const bodyTop = Math.min(openY, closeY);
+    const bodyBottom = Math.max(openY, closeY);
+    return {
+      x,
+      bodyWidth,
+      highY: valueToY(c.high, height, pad, min, max),
+      lowY: valueToY(c.low, height, pad, min, max),
+      bodyTop,
+      bodyBottom: Math.max(bodyBottom, bodyTop + 1),
+      up: c.close >= c.open,
+    };
+  });
+  return { min, max, bars };
+}
+
+/** Hover tip alignment so an edge point does not clip the card. */
+export function chartTipEdge(fraction: number): "start" | "end" | undefined {
+  if (!Number.isFinite(fraction)) return undefined;
+  if (fraction >= 0.78) return "end";
+  if (fraction <= 0.22) return "start";
+  return undefined;
+}
+
+/** Axis / tooltip compact counts: `950`, `1.2K`, `3M`, `1.4B`. */
+export function formatCompactCount(n: number): string {
+  const abs = Math.abs(n);
+  if (abs < 1000) return String(Math.round(n));
+  if (abs < 1_000_000) {
+    return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}K`;
+  }
+  if (abs < 1_000_000_000) {
+    return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  }
+  return `${(n / 1_000_000_000).toFixed(1).replace(/\.0$/, "")}B`;
+}

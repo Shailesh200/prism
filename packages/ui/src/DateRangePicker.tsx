@@ -130,19 +130,28 @@ export function DateRangePicker(props: DateRangePickerProps): ReactElement {
           label="To"
           value={toMs}
           minMessage={toMinMessage}
+          maxMessage="Can't be in the future."
           onChange={setToMs}
           onValidityChange={setToOk}
           {...(toMin !== undefined ? { minMs: toMin } : {})}
+          maxMs={nowMs}
         />
-        <Button
-          variant="primary"
-          size="sm"
-          className="prism-range-pop__apply"
-          onClick={applyCustom}
-          disabled={!fromOk || !toOk || !dateRangeCanApply(fromMs, toMs, minMs)}
-        >
-          Apply time range
-        </Button>
+        <div className="prism-range-pop__actions">
+          <Button variant="tertiary" size="sm" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            className="prism-range-pop__apply"
+            onClick={applyCustom}
+            disabled={
+              !fromOk || !toOk || !dateRangeCanApply(fromMs, toMs, minMs)
+            }
+          >
+            Done
+          </Button>
+        </div>
       </div>
       <div
         className="prism-range-pop__presets"

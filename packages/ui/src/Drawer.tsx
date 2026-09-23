@@ -6,7 +6,7 @@ import { IconButton } from "./Button.js";
 export type DrawerSize = "md" | "lg" | "xl";
 
 export type DrawerProps = {
-  readonly title: string;
+  readonly title: ReactNode;
   readonly onClose: () => void;
   /** Cmd/Ctrl+Enter on the topmost drawer. */
   readonly onPrimaryAction?: () => void;
@@ -186,7 +186,10 @@ export function Drawer(props: DrawerProps): ReactElement {
           .join(" ")}
         role="dialog"
         aria-modal="true"
-        aria-label={props.label ?? props.title}
+        aria-label={
+          props.label ??
+          (typeof props.title === "string" ? props.title : "Drawer")
+        }
       >
         <header className="prism-drawer__head">
           <h2 className="prism-drawer__title">{props.title}</h2>

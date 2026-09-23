@@ -140,7 +140,7 @@ export function asleepPageHtml(): string {
     <h1>Prism is down</h1>
     <p>Queued jobs are sleeping. In chat, say</p>
     <p><code>prism wake</code></p>
-    <p>to bring the Console back.</p>
+    <p>to bring the Dashboard back.</p>
   </main>
 </body>
 </html>

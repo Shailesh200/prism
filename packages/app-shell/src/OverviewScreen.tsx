@@ -10,23 +10,26 @@ import {
   AreaChart,
   CardIcon,
   CartesianFrame,
+  DateRangePicker,
+  chartTipEdge,
+  formatCompactCount,
   pickAxisIndices,
   relativeTime,
+  type DateRangeValue,
+  Text,
 } from "@repo-prism/ui";
 import {
   Activity,
   ArrowRight,
   Boxes,
   Clock,
-  Compass,
+  Coins,
   Dna,
   Download,
   FlaskConical,
   Layers,
-  Map as MapIcon,
   RefreshCw,
   Shield,
-  Zap,
 } from "lucide-react";
 import {
   useEffect,
@@ -38,7 +41,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import { AppSidebar } from "./AppSidebar.js";
+import { AppSidebar, type AppView } from "./AppSidebar.js";
 import { shellNavVariant, shellRootClass } from "./shell-layout.js";
 import { Avatar } from "./Avatar.js";
 import { useAppShellClient } from "./client-context.js";
@@ -46,30 +49,27 @@ import { DOMAIN_CATALOG } from "./domain-catalog.js";
 import { InfoTip } from "@repo-prism/ui";
 import { isGitIntegrationEnabled } from "./integrations-store.js";
 import { recordAudit } from "./audit-log.js";
+import type { JobSummary } from "./jobs-types.js";
 import {
-  ACTIVITY_RANGES,
+  DEFAULT_JOB_RANGE,
+  JOB_RANGE_PRESETS,
+  jobMatchesRepo,
+  jobRangeWindow,
+} from "./jobs-range.js";
+import {
   bucketActivity,
   buildReportMarkdown,
-  connectedNodeLabel,
   couplingBadge as couplingBadgeFor,
   couplingDensity,
   couplingDensityPct,
-  DEFAULT_ACTIVITY_RANGE,
   deriveMostConnected,
   deriveRegions,
   domainDisplayName,
-  formatDayKey,
-  parseDayMs,
-  presetBounds,
   reportFilename,
   scoreColor,
-  type ActivityRangeId,
+  activityGeometry,
 } from "./overview-model.js";
-
-/** Epoch-ms → `YYYY-MM-DD` for `<input type="date">` values. */
-function toDayInput(ms: number): string {
-  return formatDayKey(ms);
-}
+import { tokenUsageInRange } from "./token-activity.js";
 
 /** Best-effort path from a commit subject when it names a repo file. */
 function guessPathFromCommitMessage(
@@ -107,6 +107,43 @@ const FACTOR_COLORS: Record<string, string> = {
 
 const RECENT_PAGE_SIZE = 10;
 
+function unboundedStart(ms: number): boolean {
+  return !Number.isFinite(ms) || ms < -1e15;
+}
+
+function activityWindowStart(
+  days: readonly { date: string }[],
+  startMs: number,
+  endMs: number,
+): number {
+  if (!unboundedStart(startMs)) return startMs;
+  const first = days[0]?.date;
+  if (!first) return endMs;
+  const ms = Date.parse(first.length === 10 ? `${first}T00:00:00` : first);
+  return Number.isFinite(ms) ? ms : endMs;
+}
+
+function tokenDayStartMs(dayKey: string): number {
+  const parts = dayKey.split("-").map(Number);
+  const y = parts[0];
+  const m = parts[1];
+  const d = parts[2];
+  if (!y || !m || !d) return 0;
+  return new Date(y, m - 1, d).getTime();
+}
+
+type CachedCoreReports = {
+  readonly testing: TestingReport | null;
+  readonly security: SecurityReport | null;
+};
+
+/** Survive Overview remounts when the rail changes tabs. */
+const coreReportCache = new Map<string, CachedCoreReports>();
+
+function coreReportKey(rootPath: string, generatedAt: string): string {
+  return `${rootPath}::${generatedAt}`;
+}
+
 /** Whether git data is still loading, present, absent, or failed to read. */
 export type GitStatus = "loading" | "ready" | "unavailable" | "error";
 
@@ -125,16 +162,20 @@ export type OverviewScreenProps = {
   /** Optional preloaded scores from dashboard payload. */
   readonly testingScore?: number | null;
   readonly securityScore?: number | null;
-  readonly onOpenMap: () => void;
+  /** Archive jobs — drives the Overview token spark for the same date range. */
+  readonly jobs?: readonly JobSummary[];
+  /** Top-bar workspace. Token usage and other job rollups stay in this repo. */
+  readonly workspacePath?: string;
+  readonly onOpenMap?: () => void;
   readonly onOpenDna: () => void;
   /** @deprecated M-062 — Profile merged into DNA; prefer onOpenDna. */
   readonly onOpenProfile?: () => void;
   readonly onOpenDomains?: () => void;
-  /** Open a specific domain screen from an Overview chip. */
+  /** @deprecated M-078 — Domains UI unmounted; chips no longer navigate. */
   readonly onOpenDomain?: (domainId: string) => void;
   readonly onOpenTesting?: () => void;
   readonly onOpenBlast?: (seedPath?: string) => void;
-  /** Focus a map node/region when opening the Repository Map. */
+  /** @deprecated M-078 — map unmounted; region rows stay display-only. */
   readonly onFocusMapNode?: (nodeId: string) => void;
   readonly onOpenTrends?: () => void;
   readonly onOpenIntegrations?: () => void;
@@ -142,12 +183,43 @@ export type OverviewScreenProps = {
   readonly onOpenReview?: () => void;
   readonly onOpenExplain?: () => void;
   readonly onOpenGuard?: () => void;
+  /** Iris, Jobs, Skills, and any other rail id not handled above. */
+  readonly onNavigate?: (view: AppView) => void;
+  /** Indexed card opens Envelope details when the host can embed it. */
+  readonly onOpenEnvelope?: () => void;
   /** Open a repo-relative path in the host editor when a path is known. */
   readonly onOpenPath?: (path: string) => void;
   readonly onRefresh: () => void;
   /** Fetch remote git (and refresh local activity). */
   readonly onSyncGit?: () => Promise<void>;
 };
+
+/** Rail clicks Overview used to drop (iris / jobs / skills) go through `onNavigate`. */
+export function routeOverviewNav(
+  view: AppView,
+  props: Pick<
+    OverviewScreenProps,
+    | "onOpenDna"
+    | "onOpenBlast"
+    | "onOpenTrends"
+    | "onOpenIntegrations"
+    | "onOpenSettings"
+    | "onOpenReview"
+    | "onOpenExplain"
+    | "onOpenGuard"
+    | "onNavigate"
+  >,
+): void {
+  if (view === "dna") props.onOpenDna();
+  else if (view === "blast" || view === "impact") props.onOpenBlast?.();
+  else if (view === "trends") props.onOpenTrends?.();
+  else if (view === "integrations") props.onOpenIntegrations?.();
+  else if (view === "settings") props.onOpenSettings?.();
+  else if (view === "review") props.onOpenReview?.();
+  else if (view === "explain") props.onOpenExplain?.();
+  else if (view === "guard") props.onOpenGuard?.();
+  else props.onNavigate?.(view);
+}
 
 /** Accent palette for the compact language-composition bar. */
 const PROFILE_LANG_COLORS = [
@@ -185,14 +257,23 @@ function kpiKeyActivate(e: ReactKeyboardEvent, action: () => void): void {
 export function OverviewScreen(props: OverviewScreenProps): ReactElement {
   const { map, gitActivity, health, dna } = props;
   const client = useAppShellClient();
+  const cachedReports = coreReportCache.get(
+    coreReportKey(map.rootPath, map.generatedAt),
+  );
   const [testingReport, setTestingReport] = useState<TestingReport | null>(
-    null,
+    () => cachedReports?.testing ?? null,
   );
   const [securityReport, setSecurityReport] = useState<SecurityReport | null>(
-    null,
+    () => cachedReports?.security ?? null,
   );
 
   useEffect(() => {
+    const key = coreReportKey(map.rootPath, map.generatedAt);
+    const hit = coreReportCache.get(key);
+    if (hit) {
+      setTestingReport(hit.testing);
+      setSecurityReport(hit.security);
+    }
     let cancelled = false;
     void (async () => {
       try {
@@ -203,8 +284,9 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
         if (cancelled) return;
         setTestingReport(t);
         setSecurityReport(s);
+        coreReportCache.set(key, { testing: t, security: s });
       } catch {
-        /* keep nulls — dual-stat falls back to props / health factor */
+        /* keep cache / props — dual-stat falls back to health factor */
       }
     })();
     return () => {
@@ -243,15 +325,13 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
     [map.graph],
   );
 
+  const density = couplingDensity(map.graph);
   const regionResult = useMemo(() => deriveRegions(map.graph), [map.graph]);
   const regions = regionResult.regions;
   const connected = useMemo(
     () => deriveMostConnected(map.graph, 5),
     [map.graph],
   );
-  const maxDegree = Math.max(1, ...connected.map((r) => r.degree));
-
-  const density = couplingDensity(map.graph);
   const factorById = useMemo(() => {
     const m = new Map<string, HealthScore["factors"][number]>();
     for (const f of health?.factors ?? []) m.set(f.id, f);
@@ -303,30 +383,47 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
   const gitUser = gitActivity?.recentCommits[0];
   const days = gitActivity?.days ?? [];
 
-  const [rangeId, setRangeId] = useState<ActivityRangeId>(
-    DEFAULT_ACTIVITY_RANGE,
-  );
-  const [customStart, setCustomStart] = useState(() =>
-    toDayInput(presetBounds(90).startMs),
-  );
-  const [customEnd, setCustomEnd] = useState(() =>
-    toDayInput(presetBounds(90).endMs),
-  );
+  const [nowMs] = useState(() => Date.now());
+  const [range, setRange] = useState<DateRangeValue>(() => {
+    const window = jobRangeWindow(DEFAULT_JOB_RANGE, Date.now());
+    return {
+      preset: DEFAULT_JOB_RANGE,
+      startMs: window.startMs,
+      endMs: window.endMs,
+    };
+  });
+  const [tokenRange, setTokenRange] = useState<DateRangeValue>(() => {
+    const window = jobRangeWindow(DEFAULT_JOB_RANGE, Date.now());
+    return {
+      preset: DEFAULT_JOB_RANGE,
+      startMs: window.startMs,
+      endMs: window.endMs,
+    };
+  });
 
-  const activity = useMemo(() => {
-    if (rangeId === "custom") {
-      return bucketActivity(
+  const activity = useMemo(
+    () =>
+      bucketActivity(
         days,
-        parseDayMs(customStart),
-        parseDayMs(customEnd),
-      );
-    }
-    const preset =
-      ACTIVITY_RANGES.find((r) => r.id === rangeId) ??
-      ACTIVITY_RANGES.find((r) => r.id === DEFAULT_ACTIVITY_RANGE)!;
-    const { startMs, endMs } = presetBounds(preset.days);
-    return bucketActivity(days, startMs, endMs);
-  }, [days, rangeId, customStart, customEnd]);
+        activityWindowStart(days, range.startMs, range.endMs),
+        range.endMs,
+      ),
+    [days, range.startMs, range.endMs],
+  );
+  const repoJobs = useMemo(
+    () =>
+      (props.jobs ?? []).filter((job) =>
+        jobMatchesRepo(job, props.workspacePath),
+      ),
+    [props.jobs, props.workspacePath],
+  );
+  const tokenUsage = useMemo(
+    () =>
+      repoJobs.length > 0
+        ? tokenUsageInRange(repoJobs, tokenRange.startMs, tokenRange.endMs)
+        : undefined,
+    [repoJobs, tokenRange.startMs, tokenRange.endMs],
+  );
 
   const couplingBadge = couplingBadgeFor(density);
 
@@ -426,29 +523,19 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
         active="overview"
         repoLabel={props.repoLabel}
         user={gitUser ?? null}
-        onNavigate={(view) => {
-          if (view === "map") props.onOpenMap();
-          else if (view === "dna") props.onOpenDna();
-          else if (view === "domains") props.onOpenDomains?.();
-          else if (view === "testing") props.onOpenTesting?.();
-          else if (view === "blast") props.onOpenBlast?.();
-          else if (view === "trends") props.onOpenTrends?.();
-          else if (view === "integrations") props.onOpenIntegrations?.();
-          else if (view === "settings") props.onOpenSettings?.();
-          else if (view === "review") props.onOpenReview?.();
-          else if (view === "explain") props.onOpenExplain?.();
-          else if (view === "guard") props.onOpenGuard?.();
-        }}
+        onNavigate={(view) => routeOverviewNav(view, props)}
       />
 
       {/* ---- Main ---- */}
       <div className="ov-main">
         <header className="ov-top">
           <div>
-            <div className="ov-top__title">Overview</div>
-            <div className="ov-top__sub">
+            <Text variant="page" as="div" className="ov-top__title">
+              Overview
+            </Text>
+            <Text variant="caption" as="div" className="ov-top__sub">
               {props.repoLabel} · {branch} · {lastIndexedLabel}
-            </div>
+            </Text>
           </div>
           <div className="ov-top__actions">
             <div className="ov-top__sync">
@@ -477,14 +564,6 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
             >
               <Download size={13} aria-hidden />
               Download report
-            </button>
-            <button
-              type="button"
-              className="ov-btn ov-btn--primary"
-              onClick={props.onOpenMap}
-            >
-              <MapIcon size={13} aria-hidden />
-              Open Map
             </button>
           </div>
         </header>
@@ -541,15 +620,24 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
                   Coupling Density
                   <TipGuard>
                     <InfoTip label="Coupling Density">
-                      Use this to judge whether modules are tightly coupled
-                      before a refactor — lower density means looser coupling
-                      and a smaller blast radius. Computed as{" "}
-                      <span className="ov-mono">edges ÷ nodes</span> on the
-                      dependency graph for analyzed TypeScript/JavaScript files
-                      at the current map zoom (not every file in the inventory).
-                      Target &lt; 0.50. Distinct from the DNA{" "}
-                      <em>TS/JS import coupling</em> factor, which scores import{" "}
-                      <em>cycles</em>.
+                      <p>
+                        Use this to judge whether modules are tightly coupled
+                        before a refactor — lower density means looser coupling
+                        and a smaller blast radius.
+                      </p>
+                      <p>
+                        <strong>Computed as:</strong> edges ÷ nodes on the
+                        dependency graph for analyzed TypeScript/JavaScript
+                        files at the current map zoom (not every file in the
+                        inventory).
+                      </p>
+                      <p>
+                        <strong>Target:</strong> &lt; 0.50
+                      </p>
+                      <p>
+                        Distinct from the DNA TS/JS import coupling factor,
+                        which scores import cycles.
+                      </p>
                     </InfoTip>
                   </TipGuard>
                 </span>
@@ -570,24 +658,15 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
               <div className="ov-stat__note">Target: &lt; 0.50</div>
             </article>
 
-            <article
-              className="ov-stat ov-stat--clickable ov-stat--dual"
-              role="button"
-              tabIndex={0}
-              onClick={() => props.onOpenTesting?.()}
-              onKeyDown={(e) =>
-                kpiKeyActivate(e, () => props.onOpenTesting?.())
-              }
-              aria-label="Open Testing and Security"
-            >
+            <article className="ov-stat ov-stat--dual">
               <div className="ov-stat__head">
                 <span className="ov-stat__k">
                   Testing &amp; Security
                   <TipGuard>
                     <InfoTip label="Testing & Security">
-                      Dual scores from Core testing and security reports.
-                      Testing covers suite diversity and coverage; Security
-                      covers left-shift tools and fundamental checks.
+                      Health-factor headlines from Core testing and security
+                      reports. Testing covers suite diversity and coverage;
+                      Security covers left-shift tools and fundamental checks.
                     </InfoTip>
                   </TipGuard>
                 </span>
@@ -622,41 +701,51 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
             </article>
 
             <article
-              className="ov-stat ov-stat--clickable"
+              className="ov-stat ov-stat--clickable ov-stat--envelope"
               role="button"
               tabIndex={0}
-              onClick={props.onOpenMap}
-              onKeyDown={(e) => kpiKeyActivate(e, props.onOpenMap)}
-              aria-label="Open Repository Map from Graph Size"
+              onClick={() =>
+                props.onOpenEnvelope?.() ?? props.onNavigate?.("iris")
+              }
+              onKeyDown={(e) =>
+                kpiKeyActivate(
+                  e,
+                  () => props.onOpenEnvelope?.() ?? props.onNavigate?.("iris"),
+                )
+              }
+              aria-label="Open Envelope from indexed coverage"
             >
               <div className="ov-stat__head">
                 <span className="ov-stat__k">
                   <CardIcon icon={Boxes} tone="brand" size={14} />
-                  Graph Size
+                  Indexed
                   <TipGuard>
-                    <InfoTip label="Graph Size">
-                      Node and edge counts of the repository dependency graph,
-                      plus the number of derived regions (feature/package/folder
-                      groupings).
+                    <InfoTip label="Indexed">
+                      Share of inventory files your Prismate has analysed and
+                      understood. Click to open Envelope.
                     </InfoTip>
                   </TipGuard>
                 </span>
               </div>
-              <div className="ov-stat__v">{nodes.toLocaleString()}</div>
+              <div className="ov-stat__v">
+                {health?.graphCoveragePct !== undefined
+                  ? `${Math.round(health.graphCoveragePct)}`
+                  : "—"}
+                {health?.graphCoveragePct !== undefined ? (
+                  <span className="ov-stat__unit">%</span>
+                ) : null}
+              </div>
               <div className="ov-stat__note">
-                {edges.toLocaleString()} dependencies ·{" "}
-                {regionResult.truncated
-                  ? `showing ${regions.length} of ${regionResult.totalCount} regions`
-                  : `${regions.length} regions`}
+                of files analysed · open Envelope
               </div>
             </article>
           </section>
 
           {/* Middle: DNA + Activity */}
-          <section className="ov-grid ov-grid--2">
+          <section className="ov-grid ov-grid--2 ov-grid--match">
             <article className="ov-card">
               <div className="ov-card__head">
-                <span className="ov-card__title">
+                <Text variant="card" as="span" className="ov-card__title">
                   <Dna size={14} className="ov-card__icon" aria-hidden />
                   DNA Analysis
                   <InfoTip label="DNA Analysis">
@@ -664,7 +753,7 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
                     to do next. Bars match Health Score (
                     <em>TS/JS import coupling</em> scores import cycles).
                   </InfoTip>
-                </span>
+                </Text>
                 <button
                   type="button"
                   className="ov-card__open"
@@ -725,61 +814,22 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
               )}
             </article>
 
-            <article className="ov-card">
+            <article className="ov-card ov-card--activity">
               <div className="ov-card__head">
-                <span className="ov-card__title">
+                <Text variant="card" as="span" className="ov-card__title">
                   <Activity size={14} className="ov-card__icon" aria-hidden />
                   Commit Activity
-                </span>
-                <div
-                  className="ov-seg"
-                  role="group"
-                  aria-label="Commit activity range"
-                >
-                  {ACTIVITY_RANGES.map((r) => (
-                    <button
-                      key={r.id}
-                      type="button"
-                      className="ov-seg__btn"
-                      data-active={rangeId === r.id ? "true" : "false"}
-                      onClick={() => setRangeId(r.id)}
-                    >
-                      {r.label}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    className="ov-seg__btn"
-                    data-active={rangeId === "custom" ? "true" : "false"}
-                    onClick={() => setRangeId("custom")}
-                  >
-                    Custom
-                  </button>
-                </div>
+                </Text>
+                <DateRangePicker
+                  aria-label="Time range"
+                  className="jobs-screen__range"
+                  presets={JOB_RANGE_PRESETS}
+                  value={range}
+                  nowMs={nowMs}
+                  presetWindow={jobRangeWindow}
+                  onChange={setRange}
+                />
               </div>
-
-              {rangeId === "custom" ? (
-                <div className="ov-daterange">
-                  <label className="ov-daterange__field">
-                    <span>From</span>
-                    <input
-                      type="date"
-                      value={customStart}
-                      max={customEnd}
-                      onChange={(e) => setCustomStart(e.target.value)}
-                    />
-                  </label>
-                  <label className="ov-daterange__field">
-                    <span>To</span>
-                    <input
-                      type="date"
-                      value={customEnd}
-                      min={customStart}
-                      onChange={(e) => setCustomEnd(e.target.value)}
-                    />
-                  </label>
-                </div>
-              ) : null}
 
               {activity.buckets.length > 0 && activity.total > 0 ? (
                 <ActivityChart
@@ -788,6 +838,8 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
                   granularity={activity.granularity}
                   total={activity.total}
                 />
+              ) : gitStatus === "loading" && days.length === 0 ? (
+                <ChartSkeleton label="Loading commit history" />
               ) : (
                 <p className="ov-empty">
                   {days.length > 0
@@ -803,38 +855,53 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
                   {gitHistoryNote}
                 </p>
               ) : null}
-              <p className="ov-card__foot-note">
-                {props.onOpenTrends ? (
-                  <>
-                    View health history over time in{" "}
-                    <button
-                      type="button"
-                      className="dm-linkbtn"
-                      onClick={props.onOpenTrends}
-                    >
-                      Trends
-                    </button>
-                    .
-                  </>
-                ) : (
-                  "Open Trends for health history over time."
-                )}
-              </p>
             </article>
           </section>
 
-          {/* Bottom: Profile + Region health + Connected + Recent */}
-          <section className="card-masonry">
+          <article className="ov-card ov-card--token">
+            <div className="ov-card__head">
+              <Text variant="card" as="span" className="ov-card__title">
+                <Coins size={14} className="ov-card__icon" aria-hidden />
+                Token usage
+              </Text>
+              <DateRangePicker
+                aria-label="Token usage range"
+                className="jobs-screen__range"
+                presets={JOB_RANGE_PRESETS}
+                value={tokenRange}
+                nowMs={nowMs}
+                presetWindow={jobRangeWindow}
+                onChange={setTokenRange}
+              />
+            </div>
+            {tokenUsage && tokenUsage.total > 0 ? (
+              <ActivityChart
+                values={tokenUsage.buckets.map((b) => b.totalTokens)}
+                starts={tokenUsage.buckets.map((b) =>
+                  tokenDayStartMs(b.dayKey),
+                )}
+                granularity="day"
+                total={tokenUsage.total}
+                noun="token"
+                formatValue={formatCompactCount}
+              />
+            ) : (
+              <p className="ov-empty">No token usage in this range.</p>
+            )}
+          </article>
+
+          {/* Bottom: Profile + Recent */}
+          <section className="ov-grid ov-grid--2">
             <article className="ov-card">
               <div className="ov-card__head">
-                <span className="ov-card__title">
+                <Text variant="card" as="span" className="ov-card__title">
                   <Boxes size={14} className="ov-card__icon" aria-hidden />
                   Codebase Profile
                   <InfoTip label="Codebase Profile">
                     Quick stack snapshot. Open DNA Analysis for the full profile
                     — frameworks, packages, signals, and personas.
                   </InfoTip>
-                </span>
+                </Text>
                 <button
                   type="button"
                   className="ov-card__open"
@@ -917,264 +984,10 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
 
             <article className="ov-card">
               <div className="ov-card__head">
-                <span className="ov-card__title">
-                  <Compass size={14} className="ov-card__icon" aria-hidden />
-                  Explore Domains
-                  <InfoTip label="Explore Domains">
-                    Stack domains detected in this repository (Frontend,
-                    Backend, DevOps, Mobile, Desktop, Data/ML). Open the Domains
-                    tab to browse them and launch each domain&apos;s analysis
-                    screen.
-                  </InfoTip>
-                </span>
-                {props.onOpenDomains ? (
-                  <button
-                    type="button"
-                    className="ov-card__open"
-                    onClick={props.onOpenDomains}
-                    aria-label="Open Domains"
-                  >
-                    <ArrowRight size={15} aria-hidden />
-                  </button>
-                ) : null}
-              </div>
-              {dna ? (
-                <>
-                  <div className="ov-domains">
-                    {detectedDomainChips.length > 0 ? (
-                      detectedDomainChips.map((d) => {
-                        const Icon = d.icon;
-                        const open = (): void => {
-                          if (props.onOpenDomain) props.onOpenDomain(d.id);
-                          else props.onOpenDomains?.();
-                        };
-                        const clickable = Boolean(
-                          props.onOpenDomain || props.onOpenDomains,
-                        );
-                        if (!clickable) {
-                          return (
-                            <span
-                              key={d.id}
-                              className="ov-domains__chip"
-                              data-on="true"
-                              title={`${d.shortLabel} detected`}
-                            >
-                              <Icon size={12} aria-hidden />
-                              {d.shortLabel}
-                            </span>
-                          );
-                        }
-                        return (
-                          <button
-                            key={d.id}
-                            type="button"
-                            className="ov-domains__chip ov-domains__chip--btn"
-                            data-on="true"
-                            title={`Open ${d.shortLabel} domain`}
-                            onClick={open}
-                          >
-                            <Icon size={12} aria-hidden />
-                            {d.shortLabel}
-                          </button>
-                        );
-                      })
-                    ) : (
-                      <p className="ov-empty">No stack domains detected yet.</p>
-                    )}
-                  </div>
-                  <p className="ov-domains__note">
-                    {detectedDomainIds.size} detected · open to explore
-                  </p>
-                </>
-              ) : (
-                <p className="ov-empty">Detecting domains…</p>
-              )}
-            </article>
-
-            <article className="ov-card">
-              <div className="ov-card__head">
-                <span className="ov-card__title">
-                  <Layers size={14} className="ov-card__icon" aria-hidden />
-                  Region Health
-                  <InfoTip label="Region Health">
-                    Click a region to focus it on the map. Lower scores mean
-                    heavier dependency load — start decoupling there first.
-                  </InfoTip>
-                </span>
-              </div>
-              <div className="ov-table">
-                <div className="ov-table__head">
-                  <span>Region</span>
-                  <span className="ov-table__num">Files</span>
-                  <span className="ov-table__num">Score</span>
-                </div>
-                {regions.map((r) => {
-                  const openRegion = (): void => {
-                    props.onFocusMapNode?.(r.id);
-                    props.onOpenMap();
-                  };
-                  const clickable = Boolean(props.onFocusMapNode);
-                  return (
-                    <div
-                      key={r.id}
-                      className={
-                        clickable
-                          ? "ov-table__row ov-table__row--clickable"
-                          : "ov-table__row"
-                      }
-                      role={clickable ? "button" : undefined}
-                      tabIndex={clickable ? 0 : undefined}
-                      onClick={clickable ? openRegion : undefined}
-                      onKeyDown={
-                        clickable
-                          ? (e) => kpiKeyActivate(e, openRegion)
-                          : undefined
-                      }
-                    >
-                      <span className="ov-table__region">
-                        <span
-                          className="ov-dot"
-                          style={{ background: r.color }}
-                        />
-                        <span className="ov-mono ov-ellipsis" title={r.label}>
-                          {r.label}
-                        </span>
-                      </span>
-                      <span className="ov-table__num ov-mono">{r.files}</span>
-                      <span
-                        className="ov-table__num ov-mono"
-                        style={{
-                          color:
-                            r.score === null ? undefined : scoreColor(r.score),
-                        }}
-                      >
-                        {r.score ?? "—"}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-              {regionResult.truncated ? (
-                <p className="ov-stat__note" style={{ marginTop: 8 }}>
-                  Showing {regions.length} of {regionResult.totalCount} regions
-                </p>
-              ) : null}
-            </article>
-
-            <article className="ov-card">
-              <div className="ov-card__head">
-                <span className="ov-card__title">
-                  <Zap size={14} className="ov-card__icon" aria-hidden />
-                  Most Connected
-                  <InfoTip label="Most Connected">
-                    Click a node to open Blast Radius for that seed — high
-                    degree means a wider change surface.
-                  </InfoTip>
-                </span>
-                {props.onOpenBlast ? (
-                  <button
-                    type="button"
-                    className="ov-card__open"
-                    onClick={() => props.onOpenBlast?.()}
-                    aria-label="Open Blast Radius"
-                  >
-                    <ArrowRight size={15} aria-hidden />
-                  </button>
-                ) : null}
-              </div>
-              {connected.length > 0 ? (
-                <>
-                  <div className="ov-bars">
-                    {connected.slice(0, 3).map((r) => {
-                      const seed =
-                        r.kind === "file"
-                          ? r.id.startsWith("file:")
-                            ? r.id.slice("file:".length)
-                            : r.label
-                          : undefined;
-                      const open = (): void => {
-                        props.onOpenBlast?.(seed);
-                      };
-                      return (
-                        <button
-                          key={r.id}
-                          type="button"
-                          className="ov-bars__col ov-bars__col--btn"
-                          onClick={open}
-                          disabled={!props.onOpenBlast}
-                          title={`Open blast radius for ${connectedNodeLabel(r)}`}
-                        >
-                          <div className="ov-bars__track">
-                            <span
-                              className="ov-bars__fill"
-                              style={{
-                                height: `${(r.degree / maxDegree) * 100}%`,
-                                background: r.color,
-                              }}
-                            />
-                          </div>
-                          <div
-                            className="ov-bars__x ov-ellipsis"
-                            title={connectedNodeLabel(r)}
-                          >
-                            {connectedNodeLabel(r)}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="ov-list">
-                    {connected.map((r) => {
-                      const seed =
-                        r.kind === "file"
-                          ? r.id.startsWith("file:")
-                            ? r.id.slice("file:".length)
-                            : r.label
-                          : undefined;
-                      const open = (): void => {
-                        props.onOpenBlast?.(seed);
-                      };
-                      return (
-                        <button
-                          key={r.id}
-                          type="button"
-                          className="ov-list__row ov-list__row--btn"
-                          onClick={open}
-                          disabled={!props.onOpenBlast}
-                          title={`Open blast radius for ${connectedNodeLabel(r)}`}
-                        >
-                          <span
-                            className="ov-dot"
-                            style={{ background: r.color }}
-                          />
-                          <span
-                            className="ov-mono ov-ellipsis"
-                            title={connectedNodeLabel(r)}
-                          >
-                            {connectedNodeLabel(r)}
-                          </span>
-                          <span className="ov-list__badge">
-                            {r.degree} links
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
-              ) : (
-                <p className="ov-empty">
-                  No dependency edges in the current map zoom — try opening the
-                  Repository Map.
-                </p>
-              )}
-            </article>
-
-            <article className="ov-card">
-              <div className="ov-card__head">
-                <span className="ov-card__title">
+                <Text variant="card" as="span" className="ov-card__title">
                   <Clock size={14} className="ov-card__icon" aria-hidden />
                   Recent Activity
-                </span>
+                </Text>
                 {pageCommits.length > 0 ? (
                   <span
                     className="ov-sync"
@@ -1405,25 +1218,53 @@ function axisDateLabel(ms: number): string {
   });
 }
 
+/** Chart-shaped shimmer while git history is still loading. */
+function ChartSkeleton(props: { label: string }): ReactElement {
+  return (
+    <div className="ov-chart ov-chart-skel" role="status" aria-busy="true">
+      <span className="ov-sr">{props.label}</span>
+      <div className="ov-chart-skel__frame" aria-hidden>
+        <div className="ov-chart-skel__y">
+          <span className="sk ov-chart-skel__tick" />
+          <span className="sk ov-chart-skel__tick" />
+          <span className="sk ov-chart-skel__tick" />
+        </div>
+        <span className="sk ov-chart-skel__area" />
+      </div>
+      <div className="ov-chart-skel__x" aria-hidden>
+        <span className="sk ov-chart-skel__tick" />
+        <span className="sk ov-chart-skel__tick" />
+        <span className="sk ov-chart-skel__tick" />
+        <span className="sk ov-chart-skel__tick" />
+      </div>
+      <span
+        className="sk sk-line sk-line--sm ov-chart-skel__legend"
+        aria-hidden
+      />
+    </div>
+  );
+}
+
 /** Real commit-activity area chart derived from git day/week buckets. */
 function ActivityChart(props: {
   values: number[];
   starts: number[];
   granularity: "day" | "week";
   total: number;
+  noun?: string;
+  formatValue?: (n: number) => string;
 }): ReactElement {
   const w = 600;
   const h = 180;
   const pad = 8;
   const unit = props.granularity === "day" ? "day" : "week";
+  const noun = props.noun ?? "commit";
+  const shown = props.formatValue ?? String;
 
   const n = props.values.length;
   const max = Math.max(1, ...props.values);
-  const stepX = n > 1 ? (w - pad * 2) / (n - 1) : 0;
-  const points = props.values.map((v, i) => ({
-    x: pad + i * stepX,
-    y: h - pad - (v / max) * (h - pad * 2),
-  }));
+  const geo = activityGeometry(props.values, w, h, pad, { min: 0, max });
+  const points = geo.points.map(([x, y]) => ({ x, y }));
   const xLabels = pickAxisIndices(n).map((i) => ({
     fraction: (points[i]?.x ?? 0) / w,
     label: axisDateLabel(props.starts[i] ?? 0),
@@ -1464,6 +1305,7 @@ function ActivityChart(props: {
   const idx = Math.max(0, Math.min(hover ?? lastIndex, n - 1));
   const hp = points[idx];
   const leftPct = hp ? (hp.x / w) * 100 : 0;
+  const tipEdge = chartTipEdge(leftPct / 100);
   const visible = hover !== null && hp !== undefined;
 
   return (
@@ -1476,13 +1318,14 @@ function ActivityChart(props: {
         max={max}
         integerY
         xLabels={xLabels}
+        {...(props.formatValue ? { yFormat: props.formatValue } : {})}
       >
         <div
           ref={plotRef}
           className="ov-chart__plot"
           tabIndex={0}
           role="img"
-          aria-label={`${props.total} commits`}
+          aria-label={`${shown(props.total)} ${noun}${props.total === 1 ? "" : "s"}`}
           onMouseMove={onMove}
           onMouseLeave={() => setHover(null)}
           onBlur={() => setHover(null)}
@@ -1493,7 +1336,10 @@ function ActivityChart(props: {
             width={w}
             height={h}
             pad={pad}
-            label={`${props.total} commits`}
+            minValue={0}
+            maxValue={max}
+            className="ov-chart__svg"
+            label={`${shown(props.total)} ${noun}${props.total === 1 ? "" : "s"}`}
           />
 
           {hp ? (
@@ -1516,14 +1362,15 @@ function ActivityChart(props: {
               <div
                 className="ov-chart__tip"
                 data-visible={visible ? "true" : "false"}
+                {...(tipEdge ? { "data-edge": tipEdge } : {})}
                 style={{
                   left: `${leftPct}%`,
                   top: `${(hp.y / h) * 100}%`,
                 }}
                 role="status"
               >
-                <strong>{props.values[idx]}</strong> commit
-                {props.values[idx] === 1 ? "" : "s"}
+                <strong>{shown(props.values[idx] ?? 0)}</strong> {noun}
+                {(props.values[idx] ?? 0) === 1 ? "" : "s"}
                 <span className="ov-chart__tip-date">
                   {bucketLabel(props.starts[idx] ?? 0, props.granularity)}
                 </span>
@@ -1534,10 +1381,13 @@ function ActivityChart(props: {
       </CartesianFrame>
       <div className="ov-chart__legend">
         <span>
-          <span className="ov-dot" style={{ background: "#00C2C2" }} /> Commits
-          / {unit}
+          <span className="ov-dot" style={{ background: "#00C2C2" }} />{" "}
+          {noun === "commit" ? "Commits" : "Tokens"} / {unit}
         </span>
-        <span className="ov-chart__total">{props.total} commits in window</span>
+        <span className="ov-chart__total">
+          {shown(props.total)} {noun}
+          {props.total === 1 ? "" : "s"} in window
+        </span>
       </div>
     </div>
   );

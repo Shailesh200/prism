@@ -55,6 +55,26 @@ describe("design-system controls", () => {
     expect(primitives).toMatch(/\.prism-select__option--on\b/);
   });
 
+  it("keeps Select on the same type as other dropdowns", () => {
+    const primitives = readFileSync(join(here, "primitives.css"), "utf8");
+    const trigger =
+      primitives.match(
+        /\.prism-select \{\n(?:.*\n){0,16}?  font-size:[^;]+;/,
+      )?.[0] ?? "";
+    const list =
+      primitives.match(
+        /\.prism-select__list \{[^}]*font-size:\s*var\(--prism-type-body-sm\)/,
+      )?.[0] ?? "";
+    const option =
+      primitives.match(
+        /\.prism-select__option \{[^}]*font-size:\s*var\(--prism-type-body-sm\)/,
+      )?.[0] ?? "";
+    expect(primitives).not.toMatch(/\.prism-select \{[^}]*\bfont:\s*inherit/);
+    expect(list.length).toBeGreaterThan(0);
+    expect(option.length).toBeGreaterThan(0);
+    expect(trigger).toMatch(/--prism-type-body-sm|--prism-font/);
+  });
+
   it("keeps Select labels on one line with ellipsis", () => {
     const primitives = readFileSync(join(here, "primitives.css"), "utf8");
     const value =

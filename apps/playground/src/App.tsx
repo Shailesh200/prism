@@ -1,66 +1,49 @@
-import {
-  PrismToastHost,
-  RepositoryMapView,
-  Select,
-  showPrismToast,
-} from "@repo-prism/ui";
+import { PrismToastHost, Select, showPrismToast } from "@repo-prism/ui";
 import {
   AppShellClientProvider,
-  ConsoleJobsScreen,
-  AppSidebar,
+  ConsoleHubScreen,
   BlastRadiusScreen,
   DnaScreen,
-  DomainScreen,
-  DomainsScreen,
-  GuardScreen,
   IntegrationsScreen,
   OverviewScreen,
+  resolveAppView,
   PrismBootScreen,
   PRISM_BOOT_LOOKUP_STAGES,
   PrismErrorBoundary,
-  PrismSurfacePips,
   PrismWakeScreen,
   SettingsScreen,
-  TestingSecurityScreen,
   TrendsScreen,
+  TreesView,
   applyAppearance,
-  clearAuditLog,
-  clearIntegrationsState,
   loadSettings,
   saveSettings,
   withAudit,
-  SETTINGS_STORAGE_KEY,
   type AppShellClient,
   type AppView,
-  type DomainOverlayStatus,
   type ImpactTarget,
+  type JobSummary,
   type MapPayload,
   type PrismGitignoreStatus,
   type SettingsSection,
 } from "@repo-prism/app-shell";
 import type {
   DnaReport,
-  DomainReport,
   GitActivity,
-  GraphSnapshotDto,
   HealthScore,
-  MapBookmark,
   MapLayerId,
   MapZoomLevel,
   RepositoryMap,
-  UtilityOverlayReport,
-  BackendReport,
 } from "@repo-prism/shared";
 import {
   DEFAULT_DISPATCH_URL,
   NO_CONSOLE_STATUS,
+  type ConsoleStatus,
   type PrismSurfacesStatus,
 } from "@repo-prism/shared";
 import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type FormEvent,
   type ReactElement,
@@ -111,6 +94,8 @@ import {
   type PlaygroundPreset,
 } from "./map-client.js";
 import {
+  irisPaneHash,
+  parseIrisPane,
   parsePlaygroundView,
   playgroundHash,
   isWakeHash,
@@ -118,36 +103,6 @@ import {
   rootFromSearch,
   withRootSearch,
 } from "./hash-route.js";
-
-/** A cached domain analysis run so re-opening a domain doesn't re-analyze. */
-type DomainRun = {
-  overlay: UtilityOverlayReport;
-  security: UtilityOverlayReport | null;
-  qa: UtilityOverlayReport | null;
-  depGraph: GraphSnapshotDto | null;
-  backendReport: BackendReport | null;
-};
-
-function domainRunKey(root: string, domainId: string): string {
-  return `prism.domain-run.${root}.${domainId}`;
-}
-
-function loadDomainRun(root: string, domainId: string): DomainRun | null {
-  try {
-    const raw = localStorage.getItem(domainRunKey(root, domainId));
-    return raw ? (JSON.parse(raw) as DomainRun) : null;
-  } catch {
-    return null;
-  }
-}
-
-function saveDomainRun(root: string, domainId: string, run: DomainRun): void {
-  try {
-    localStorage.setItem(domainRunKey(root, domainId), JSON.stringify(run));
-  } catch {
-    // Ignore quota / serialization failures — cache is best-effort.
-  }
-}
 
 async function persistPlaygroundRoot(root: string): Promise<void> {
   try {
@@ -170,7 +125,6 @@ export function App(): ReactElement {
   const [presets, setPresets] = useState<PlaygroundPreset[]>([]);
   const [defaultRoot, setDefaultRoot] = useState<string | null>(null);
   const [map, setMap] = useState<RepositoryMap | null>(null);
-  const [bookmarks, setBookmarks] = useState<MapBookmark[]>([]);
   const [layers, setLayers] = useState<MapLayerId[]>([
     "architecture",
     "dependency",
@@ -180,13 +134,21 @@ export function App(): ReactElement {
   /** Bumped on Start Indexing so a same-path reindex still refetches. */
   const [indexNonce, setIndexNonce] = useState(0);
   const [view, setViewState] = useState<AppView>(
-    () => parsePlaygroundView(window.location.hash) ?? "map",
+    () => parsePlaygroundView(window.location.hash) ?? "overview",
   );
   const [wake, setWake] = useState(() => isWakeHash(window.location.hash));
+  const [irisPane, setIrisPane] = useState<"envelope" | "prepare" | undefined>(
+    () => parseIrisPane(window.location.hash),
+  );
   const setView = useCallback((v: AppView) => {
-    setViewState(v);
+    const nextView =
+      v === "review" || v === "explain" || v === "blast" || v === "guard"
+        ? v
+        : resolveAppView(v);
+    setViewState(nextView);
+    setIrisPane(undefined);
     setWake(false);
-    const next = playgroundHash(v);
+    const next = playgroundHash(nextView);
     if (window.location.hash !== next) {
       window.history.replaceState(
         null,
@@ -200,11 +162,11 @@ export function App(): ReactElement {
       setWake(isWakeHash(window.location.hash));
       const next = parsePlaygroundView(window.location.hash);
       if (next) setViewState(next);
+      setIrisPane(parseIrisPane(window.location.hash));
     };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
-  const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
   const [blastSeedPath, setBlastSeedPath] = useState<string | null>(null);
   const [settingsSection, setSettingsSection] =
     useState<SettingsSection>("general");
@@ -215,21 +177,6 @@ export function App(): ReactElement {
   const [gitStatus, setGitStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
-  const [activeDomain, setActiveDomain] = useState<string>("backend");
-  const [overlay, setOverlay] = useState<UtilityOverlayReport | null>(null);
-  const [overlayStatus, setOverlayStatus] =
-    useState<DomainOverlayStatus>("idle");
-  const [securityOverlay, setSecurityOverlay] =
-    useState<UtilityOverlayReport | null>(null);
-  const [qaOverlay, setQaOverlay] = useState<UtilityOverlayReport | null>(null);
-  const [depGraph, setDepGraph] = useState<GraphSnapshotDto | null>(null);
-  const [backendReport, setBackendReport] = useState<BackendReport | null>(
-    null,
-  );
-  const [domainReport, setDomainReport] = useState<DomainReport | null>(null);
-  const domainRuns = useRef<Map<string, DomainRun>>(new Map());
-  /** Generation guard for the in-flight domain Analyze run (cancel/stale). */
-  const overlayRunId = useRef(0);
   const [displayName, setDisplayName] = useState(
     () => loadSettings().displayName,
   );
@@ -238,6 +185,25 @@ export function App(): ReactElement {
   );
   const [dispatchLive, setDispatchLive] = useState<boolean | undefined>();
   const [dispatchUrl, setDispatchUrl] = useState(DEFAULT_DISPATCH_URL);
+  const [consoleStatus, setConsoleStatus] = useState<
+    ConsoleStatus | undefined
+  >();
+  const [consoleNonce, setConsoleNonce] = useState(0);
+  const [archiveJobs, setArchiveJobs] = useState<readonly JobSummary[]>([]);
+
+  const openIrisPane = useCallback((pane: "envelope" | "prepare") => {
+    setViewState("iris");
+    setIrisPane(pane);
+    setWake(false);
+    const next = irisPaneHash(pane);
+    if (window.location.hash !== next) {
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}${next}`,
+      );
+    }
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -260,6 +226,55 @@ export function App(): ReactElement {
       window.clearInterval(id);
     };
   }, []);
+
+  useEffect(() => {
+    let alive = true;
+    const read = async (): Promise<void> => {
+      try {
+        const response = await fetch("/api/console");
+        if (!response.ok) throw new Error("console");
+        const body = (await response.json()) as ConsoleStatus;
+        if (!alive) return;
+        setConsoleStatus(body);
+      } catch {
+        if (alive) setConsoleStatus(NO_CONSOLE_STATUS);
+      }
+    };
+    void read();
+    return () => {
+      alive = false;
+    };
+  }, [consoleNonce]);
+  const refreshConsoleStatus = useCallback(
+    () => setConsoleNonce((n) => n + 1),
+    [],
+  );
+
+  useEffect(() => {
+    const url = consoleStatus?.console?.url;
+    if (!url) {
+      setArchiveJobs([]);
+      return;
+    }
+    let alive = true;
+    const read = async (): Promise<void> => {
+      try {
+        const token = new URL(url).searchParams.get("token") ?? "";
+        const res = await fetch(`/api/jobs?token=${encodeURIComponent(token)}`);
+        if (!res.ok) throw new Error("jobs");
+        const body = (await res.json()) as {
+          readonly jobs?: readonly JobSummary[];
+        };
+        if (alive) setArchiveJobs(body.jobs ?? []);
+      } catch {
+        if (alive) setArchiveJobs([]);
+      }
+    };
+    void read();
+    return () => {
+      alive = false;
+    };
+  }, [consoleStatus?.console?.url]);
 
   useEffect(() => {
     const s = loadSettings();
@@ -480,99 +495,6 @@ export function App(): ReactElement {
     refreshGit(root);
   }, [root, refreshGit]);
 
-  const runOverlay = useCallback(
-    (kind: string) => {
-      if (!root) return;
-      const enrichBackend = activeDomain === "backend";
-      const enrichMobile = activeDomain === "mobile";
-      const enrichDesktop = activeDomain === "desktop";
-      const runId = ++overlayRunId.current;
-      setOverlayStatus("loading");
-      void Promise.all([
-        fetchOverlay(kind, root),
-        enrichBackend
-          ? fetchOverlay("security-surface", root)
-          : Promise.resolve(null),
-        enrichBackend || enrichMobile
-          ? fetchOverlay("qa-test-gaps", root)
-          : Promise.resolve(null),
-        enrichBackend || enrichMobile || enrichDesktop
-          ? fetchDependencyGraph(root)
-          : Promise.resolve(null),
-        enrichBackend ? fetchBackendReport(root) : Promise.resolve(null),
-      ])
-        .then(([main, security, qa, graph, backend]) => {
-          if (overlayRunId.current !== runId) return;
-          setOverlay(main);
-          setSecurityOverlay(security);
-          setQaOverlay(qa);
-          setDepGraph(graph);
-          setBackendReport(backend);
-          setOverlayStatus(main ? "ready" : "error");
-          if (main) {
-            const run: DomainRun = {
-              overlay: main,
-              security,
-              qa,
-              depGraph: graph,
-              backendReport: backend,
-            };
-            domainRuns.current.set(domainRunKey(root, activeDomain), run);
-            saveDomainRun(root, activeDomain, run);
-          }
-        })
-        .catch(() => {
-          // A rejected leg (transport down, host timeout) must not strand the
-          // screen on the skeleton — surface the error/Retry state instead.
-          if (overlayRunId.current !== runId) return;
-          setOverlayStatus("error");
-        });
-    },
-    [root, activeDomain],
-  );
-
-  const cancelOverlay = useCallback(() => {
-    // Invalidate the in-flight run so its late results are ignored; the domain
-    // falls back to its cached snapshot or the Analyze card.
-    overlayRunId.current += 1;
-    setOverlayStatus("idle");
-  }, []);
-
-  const openDomain = useCallback(
-    (domainId: string) => {
-      setActiveDomain(domainId);
-      const cached = root
-        ? (domainRuns.current.get(domainRunKey(root, domainId)) ??
-          loadDomainRun(root, domainId))
-        : null;
-      if (cached && (domainId !== "backend" || "backendReport" in cached)) {
-        setOverlay(cached.overlay);
-        setSecurityOverlay(cached.security);
-        setQaOverlay(cached.qa);
-        setDepGraph(cached.depGraph);
-        setBackendReport(cached.backendReport ?? null);
-        setOverlayStatus("ready");
-      } else {
-        setOverlay(null);
-        setSecurityOverlay(null);
-        setQaOverlay(null);
-        setDepGraph(null);
-        setBackendReport(null);
-        setOverlayStatus("idle");
-      }
-      if (root) {
-        void fetchDomainReport(root, {
-          domain: domainId as DomainReport["domain"],
-          loadLatestCwvArtifact: domainId === "frontend",
-        }).then(setDomainReport);
-      } else {
-        setDomainReport(null);
-      }
-      setView("domain");
-    },
-    [root],
-  );
-
   const openRoot = (next: string) => {
     const trimmed = next.trim();
     if (!trimmed) return;
@@ -590,19 +512,12 @@ export function App(): ReactElement {
     );
     void persistPlaygroundRoot(trimmed);
     setZoom("package");
-    setBookmarks([]);
     setMap(null);
     setLoading(true);
     setIndexNonce((n) => n + 1);
     setGitActivity(null);
     setHealth(null);
     setDna(null);
-    setOverlay(null);
-    setSecurityOverlay(null);
-    setQaOverlay(null);
-    setDepGraph(null);
-    setBackendReport(null);
-    setOverlayStatus("idle");
     refreshGit(trimmed);
   };
 
@@ -657,6 +572,10 @@ export function App(): ReactElement {
       }
       onSubmit={onSubmitPath}
     >
+      <div className="playground-open__brand">
+        <img src="/brand/prism-mark.png" alt="" width={22} height={22} />
+        <span>Prism</span>
+      </div>
       <label className="playground-open__label" htmlFor="playground-root">
         Repository
       </label>
@@ -679,7 +598,7 @@ export function App(): ReactElement {
           spellCheck={false}
         />
       )}
-      <button type="submit">Start Indexing</button>
+      <button type="submit">{boot ? "Start Indexing" : "Re-Index"}</button>
       {!boot ? (
         loading ? (
           <span className="playground-open__status">Indexing…</span>
@@ -688,15 +607,12 @@ export function App(): ReactElement {
             {error}
           </span>
         ) : (
-          <span className="playground-open__status">{rootLabel}</span>
+          <span className="playground-open__status">
+            {map?.generatedAt
+              ? `Last indexed ${new Date(map.generatedAt).toLocaleString()}`
+              : rootLabel}
+          </span>
         )
-      ) : null}
-      {!boot ? (
-        <PrismSurfacePips
-          dispatchLive={dispatchLive}
-          spectrumLive={true}
-          href="#/wake"
-        />
       ) : null}
     </form>
   );
@@ -788,18 +704,14 @@ export function App(): ReactElement {
             gitStatus={gitStatus}
             health={health}
             dna={dna}
-            onOpenMap={() => setView("map")}
+            jobs={archiveJobs}
+            workspacePath={root}
+            onNavigate={navigate}
+            onOpenEnvelope={() => openIrisPane("envelope")}
             onOpenDna={() => setView("dna")}
-            onOpenDomains={() => setView("domains")}
-            onOpenDomain={openDomain}
-            onOpenTesting={() => setView("testing")}
             onOpenBlast={(seedPath) => {
               setBlastSeedPath(seedPath ?? null);
               setView("blast");
-            }}
-            onFocusMapNode={(nodeId) => {
-              setFocusNodeId(nodeId);
-              setView("map");
             }}
             onOpenTrends={() => setView("trends")}
             onOpenIntegrations={() => setView("integrations")}
@@ -824,46 +736,40 @@ export function App(): ReactElement {
             health={health}
             map={map}
             onNavigate={navigate}
-            onOpenDomain={openDomain}
+            onOpenBlast={(seedPath) => {
+              setBlastSeedPath(seedPath ?? null);
+              setView("impact");
+            }}
             onOpenAuditLogs={openAuditLogs}
+            trees={
+              <TreesView
+                workspacePath={root}
+                repoLabel={rootLabel}
+                onOpenJob={() => setView("jobs")}
+              />
+            }
           />
-        ) : view === "domains" ? (
-          <DomainsScreen
+        ) : view === "iris" || view === "jobs" || view === "skills" ? (
+          <ConsoleHubScreen
+            view={view}
+            {...(view === "iris" && irisPane ? { irisPane } : {})}
             repoLabel={rootLabel}
+            workspacePath={root}
             branch={gitActivity?.summary?.branch}
             user={gitActivity?.recentCommits[0] ?? null}
-            dna={dna}
+            status={consoleStatus}
+            onRetry={refreshConsoleStatus}
             onNavigate={navigate}
-            onOpenDomain={openDomain}
+            onIrisPane={(pane) => {
+              if (pane) openIrisPane(pane);
+              else setView("iris");
+            }}
           />
-        ) : view === "testing" ? (
-          <TestingSecurityScreen
-            repoLabel={rootLabel}
-            branch={gitActivity?.summary?.branch}
-            user={gitActivity?.recentCommits[0] ?? null}
-            dna={dna}
-            onNavigate={navigate}
-          />
-        ) : view === "domain" ? (
-          <DomainScreen
-            domainId={activeDomain}
-            repoLabel={rootLabel}
-            branch={gitActivity?.summary?.branch}
-            user={gitActivity?.recentCommits[0] ?? null}
-            overlay={overlay}
-            status={overlayStatus}
-            security={securityOverlay}
-            qa={qaOverlay}
-            depGraph={depGraph}
-            backendReport={backendReport}
-            domainReport={domainReport}
-            gitActivity={gitActivity}
-            dna={dna}
-            onRun={runOverlay}
-            onCancel={cancelOverlay}
-            onNavigate={navigate}
-          />
-        ) : view === "blast" || view === "review" || view === "explain" ? (
+        ) : view === "impact" ||
+          view === "blast" ||
+          view === "review" ||
+          view === "explain" ||
+          view === "guard" ? (
           <BlastRadiusScreen
             key="impact"
             root={root}
@@ -876,30 +782,15 @@ export function App(): ReactElement {
                 ? "explain"
                 : view === "review"
                   ? "review"
-                  : "blast"
+                  : view === "guard"
+                    ? "guard"
+                    : "blast"
             }
             onNavigate={navigate}
             onOpenPath={(path) => {
               // Playground has no editor host — surface the path for copy/debug.
               console.info(`[playground] open path: ${path}`);
             }}
-          />
-        ) : view === "guard" ? (
-          <GuardScreen
-            repoLabel={rootLabel}
-            branch={gitActivity?.summary?.branch}
-            user={gitActivity?.recentCommits[0] ?? null}
-            onNavigate={navigate}
-          />
-        ) : view === "jobs" ? (
-          <ConsoleJobsScreen
-            repoLabel={rootLabel}
-            // The playground builds its client by hand and has no Console
-            // link, so this renders the "not running" state. Honest: the
-            // playground genuinely cannot see Dispatch jobs.
-            status={NO_CONSOLE_STATUS}
-            onRetry={() => undefined}
-            onNavigate={navigate}
           />
         ) : view === "trends" ? (
           <TrendsScreen
@@ -910,6 +801,8 @@ export function App(): ReactElement {
             gitActivity={gitActivity}
             gitStatus={gitStatus}
             health={health}
+            jobs={archiveJobs}
+            workspacePath={root}
             onNavigate={navigate}
             fetchHealthHistory={() => fetchHealthHistory(root)}
             fetchRegionMovers={() => fetchRegionMovers(root)}
@@ -942,6 +835,7 @@ export function App(): ReactElement {
             layers={layers}
             indexing={loading}
             initialSection={settingsSection}
+            {...(consoleStatus ? { consoleStatus } : {})}
             {...(auditCategory ? { initialAuditCategory: auditCategory } : {})}
             onZoomChange={setZoom}
             onLayersChange={(next) => setLayers([...next])}
@@ -955,66 +849,39 @@ export function App(): ReactElement {
             }}
             allowNetworkIntegrations={networkIntegrationsAllowed}
             onNetworkIntegrationsChange={onNetworkIntegrationsChange}
-            onClearData={() => {
-              domainRuns.current.clear();
-              clearAuditLog();
-              clearIntegrationsState();
-              try {
-                const keys: string[] = [];
-                for (let i = 0; i < localStorage.length; i++) {
-                  const k = localStorage.key(i);
-                  if (k?.startsWith("prism.domain-run.")) keys.push(k);
-                }
-                for (const k of keys) localStorage.removeItem(k);
-                localStorage.removeItem(SETTINGS_STORAGE_KEY);
-              } catch {
-                /* ignore */
-              }
-              setDisplayName("");
-              setNetworkIntegrationsAllowed(false);
-              const fresh = loadSettings();
-              applyAppearance({
-                theme: fresh.theme,
-                density: fresh.density,
-                monoFont: fresh.monoFont,
-                sansFont: fresh.sansFont,
-              });
-            }}
             onNavigate={navigate}
           />
         ) : (
-          <div className="playground-map-wrap">
-            <div className="playground-map-inner">
-              <RepositoryMapView
-                map={map}
-                bookmarks={bookmarks}
-                focusNodeId={focusNodeId}
-                brandMarkSrc="/brand/prism-mark.png"
-                showBrand={false}
-                branch={gitActivity?.summary?.branch ?? undefined}
-                recentChanges={gitActivity?.recentFiles ?? []}
-                onZoomChange={setZoom}
-                onLayersChange={(next) => setLayers([...next])}
-                onAddBookmark={(label, nodeId) => {
-                  const bookmark: MapBookmark = {
-                    id: `bookmark:${nodeId}:${Date.now()}`,
-                    label,
-                    nodeId,
-                    zoom,
-                    createdAt: new Date().toISOString(),
-                  };
-                  setBookmarks((prev) => [...prev, bookmark]);
-                }}
-              />
-            </div>
-            <AppSidebar
-              variant="rail"
-              active="map"
-              repoLabel={rootLabel}
-              user={gitActivity?.recentCommits[0] ?? null}
-              onNavigate={navigate}
-            />
-          </div>
+          <OverviewScreen
+            map={map}
+            repoLabel={rootLabel}
+            gitActivity={gitActivity}
+            gitStatus={gitStatus}
+            health={health}
+            dna={dna}
+            jobs={archiveJobs}
+            workspacePath={root}
+            onNavigate={navigate}
+            onOpenEnvelope={() => openIrisPane("envelope")}
+            onOpenDna={() => setView("dna")}
+            onOpenBlast={(seedPath) => {
+              setBlastSeedPath(seedPath ?? null);
+              setView("impact");
+            }}
+            onOpenTrends={() => setView("trends")}
+            onOpenIntegrations={() => setView("integrations")}
+            onOpenReview={() => setView("review")}
+            onOpenExplain={() => setView("explain")}
+            onOpenGuard={() => setView("guard")}
+            onOpenSettings={() => {
+              setSettingsSection("general");
+              setView("settings");
+            }}
+            onRefresh={() => {
+              void refreshGit(root);
+            }}
+            onSyncGit={() => refreshGit(root)}
+          />
         )}
       </div>
     </div>,

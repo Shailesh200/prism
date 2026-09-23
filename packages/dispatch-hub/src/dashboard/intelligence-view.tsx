@@ -5,7 +5,6 @@ import {
   EmptyState,
   HoverTip,
   Tooltip,
-  Truncate,
   formatPrismDate,
 } from "@repo-prism/ui";
 import type { GitRecentFile } from "@repo-prism/shared";
@@ -15,35 +14,24 @@ import {
   IRIS_DUMP_NOT_SERVED_TIP,
   IRIS_FOLLOW_THROUGH_TIP,
   IRIS_HABIT_TIP,
-  IRIS_SOURCE_TIP,
   type JobSummary,
   type JobWorkspaceChip,
 } from "@repo-prism/app-shell";
 import type { EnvelopeMetrics, LastPrepareSummary } from "@repo-prism/dispatch";
 import {
-  Activity,
   ArrowRight,
-  Boxes,
   Calendar,
   CalendarCheck,
-  Compass,
   FileMinus,
   Filter,
-  FlaskConical,
-  FolderGit2,
-  GitBranch,
-  GitFork,
-  Landmark,
   Layers,
   PieChart,
   RefreshCw,
   Scissors,
-  Shield,
   Sparkles,
 } from "lucide-react";
 import { irisDefaultWorkspace } from "./fleet.js";
 import { PrepareHistoryDrawer, prepareTotalsCards } from "./prepare-history.js";
-import { RepoSelect } from "./repo-select.js";
 import { getJson, postJson } from "./session.js";
 import {
   EnvelopeCards,
@@ -120,12 +108,6 @@ function readCache(path: string): IrisCache | undefined {
 
 function writeCache(path: string, cache: IrisCache): void {
   localStorage.setItem(irisCacheKey(path), JSON.stringify(cache));
-}
-
-function asNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value)
-    ? value
-    : undefined;
 }
 
 export function IntelligenceView(props: {
@@ -278,11 +260,6 @@ export function IntelligenceView(props: {
     }
   };
 
-  const healthScore = asNumber(analysis?.health?.score);
-  const testingScore = asNumber(analysis?.testingScore);
-  const securityScore = asNumber(analysis?.securityScore);
-  const landmarkCount = analysis?.map?.landmarks?.length;
-  const clusterCount = analysis?.map?.clusters?.length;
   const selectedLabel =
     irisRepos.find((repo) => repo.path === workspace)?.label ??
     analysis?.repoLabel;
@@ -291,22 +268,10 @@ export function IntelligenceView(props: {
     <section className="console__panel">
       <div className="intel-head">
         <h1 className="console__title">Iris</h1>
-        <RepoSelect
-          token={props.token}
-          aria-label="Repos"
-          className="fleet-toolbar__repo-select"
-          value={workspace}
-          onChange={(path) => {
-            userPicked.current = true;
-            setWorkspace(path);
-          }}
-          repos={irisRepos}
-        />
       </div>
       <p className="console__lede">
-        Iris is the accumulated knowledge of a workspace — the index, graphs,
-        landmarks, and health. Pick a repository, then load analysis. Envelope
-        metrics stay local to that repo, on this machine.
+        Iris is the accumulated knowledge of this workspace — the index, graphs,
+        landmarks, and health.
       </p>
       {error ? <EmptyState>{error}</EmptyState> : null}
 
@@ -352,81 +317,6 @@ export function IntelligenceView(props: {
       </div>
 
       {analysisError ? <EmptyState>{analysisError}</EmptyState> : null}
-      {analysis ? (
-        <dl className="console__facts">
-          {analysis.repoLabel ? (
-            <div>
-              <dt>
-                <CardIcon icon={FolderGit2} /> Repository
-              </dt>
-              <dd>{analysis.repoLabel}</dd>
-            </div>
-          ) : null}
-          {analysis.branch ? (
-            <div>
-              <dt>
-                <CardIcon icon={GitBranch} /> Branch
-              </dt>
-              <dd>
-                <Truncate title={analysis.branch}>
-                  <code>{analysis.branch}</code>
-                </Truncate>
-              </dd>
-            </div>
-          ) : null}
-          {healthScore !== undefined ? (
-            <div>
-              <dt>
-                <CardIcon icon={Activity} tone="emerald" /> Health
-              </dt>
-              <dd>
-                {Math.round(healthScore)}
-                {analysis.health?.grade ? ` (${analysis.health.grade})` : ""}
-              </dd>
-            </div>
-          ) : null}
-          {testingScore !== undefined ? (
-            <div>
-              <dt>
-                <CardIcon icon={FlaskConical} tone="violet" /> Testing
-              </dt>
-              <dd>{Math.round(testingScore)}</dd>
-            </div>
-          ) : null}
-          {securityScore !== undefined ? (
-            <div>
-              <dt>
-                <CardIcon icon={Shield} tone="violet" /> Security
-              </dt>
-              <dd>{Math.round(securityScore)}</dd>
-            </div>
-          ) : null}
-          {landmarkCount !== undefined ? (
-            <div>
-              <dt>
-                <CardIcon icon={Landmark} tone="amber" /> Landmarks
-              </dt>
-              <dd>{landmarkCount}</dd>
-            </div>
-          ) : null}
-          {clusterCount !== undefined ? (
-            <div>
-              <dt>
-                <CardIcon icon={Boxes} tone="amber" /> Clusters
-              </dt>
-              <dd>{clusterCount}</dd>
-            </div>
-          ) : null}
-          {analysis.dna?.primaryDomain ? (
-            <div>
-              <dt>
-                <CardIcon icon={Compass} /> Primary domain
-              </dt>
-              <dd>{analysis.dna.primaryDomain}</dd>
-            </div>
-          ) : null}
-        </dl>
-      ) : null}
 
       {!analysis ? (
         <EmptyState className="pulse-empty" title="No data found">
@@ -435,6 +325,39 @@ export function IntelligenceView(props: {
         </EmptyState>
       ) : (
         <>
+          <div>
+            <h3 className="intel-heading intel-heading--tip">
+              Host connectors
+              <Tooltip label="Host connectors">
+                Plugins signed in for this agent window (Cursor or Claude Code).
+                A connection means a plugin has completed mcp_auth — a download
+                sitting in the plugin cache doesn't count yet. The plugin itself
+                talks to Slack, Linear, or GitHub; Prism only reads local
+                sign-in state here.
+              </Tooltip>
+            </h3>
+            {connectors && connectors.connectors.length > 0 ? (
+              <ul className="intel-chips">
+                {connectors.connectors.map((row) => (
+                  <li key={`${row.id}:${row.source}`}>{row.label}</li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState className="pulse-empty" title="No data found">
+                None signed in for this agent window. Install Slack, Linear,
+                GitHub or Calendar from the editor&apos;s own plugin settings
+                and complete sign-in there.
+              </EmptyState>
+            )}
+            {connectors?.unreadable.length ? (
+              <p className="console__lede">
+                {connectors.unreadable.length} connector path
+                {connectors.unreadable.length === 1 ? " was" : "s were"}{" "}
+                unreadable.
+              </p>
+            ) : null}
+          </div>
+
           <div className="envelope">
             <div className="envelope__head">
               <div className="envelope__head-copy">
@@ -543,22 +466,6 @@ export function IntelligenceView(props: {
                     icon: CalendarCheck,
                     tone: "amber",
                   },
-                  {
-                    id: "source",
-                    label: "Source",
-                    tip: IRIS_SOURCE_TIP,
-                    value:
-                      envelope.chatCalls === null
-                        ? "—"
-                        : String(envelope.chatCalls),
-                    unit:
-                      envelope.jobCalls !== null
-                        ? `chat · ${envelope.jobCalls} jobs`
-                        : "chat",
-                    sub: "Chat vs jobs",
-                    icon: GitFork,
-                    tone: "violet",
-                  },
                 ]}
               />
             ) : (
@@ -635,39 +542,6 @@ export function IntelligenceView(props: {
                 </>
               )}
             </div>
-          </div>
-
-          <div>
-            <h3 className="intel-heading intel-heading--tip">
-              Host connectors
-              <Tooltip label="Host connectors">
-                Plugins signed in for this agent window (Cursor or Claude Code).
-                A connection means a plugin has completed mcp_auth — a download
-                sitting in the plugin cache doesn't count yet. The plugin itself
-                talks to Slack, Linear, or GitHub; Prism only reads local
-                sign-in state here.
-              </Tooltip>
-            </h3>
-            {connectors && connectors.connectors.length > 0 ? (
-              <ul className="intel-chips">
-                {connectors.connectors.map((row) => (
-                  <li key={`${row.id}:${row.source}`}>{row.label}</li>
-                ))}
-              </ul>
-            ) : (
-              <EmptyState className="pulse-empty" title="No data found">
-                None signed in for this agent window. Install Slack, Linear,
-                GitHub or Calendar from the editor&apos;s own plugin settings
-                and complete sign-in there.
-              </EmptyState>
-            )}
-            {connectors?.unreadable.length ? (
-              <p className="console__lede">
-                {connectors.unreadable.length} connector path
-                {connectors.unreadable.length === 1 ? " was" : "s were"}{" "}
-                unreadable.
-              </p>
-            ) : null}
           </div>
         </>
       )}

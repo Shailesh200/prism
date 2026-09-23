@@ -249,7 +249,7 @@ export function wakeConfirmSpeak(
 ): string {
   const n = jobs.length;
   const who = n === 1 ? "1 teammate is" : `${n} teammates are`;
-  return `Prism is still running ${who} (${inProcessNames(jobs)}). Wake anyway? That brings the Console back; those jobs keep going. Call wake again with confirm=true.`;
+  return `Prism is still running ${who} (${inProcessNames(jobs)}). Wake anyway? That brings the Dashboard back; those jobs keep going. Call wake again with confirm=true.`;
 }
 
 export function wakeSpeak(resumed: number): string {

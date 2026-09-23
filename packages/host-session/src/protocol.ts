@@ -63,21 +63,35 @@ export type {
 
 export type AppView =
   | "overview"
-  | "map"
+  | "iris"
+  | "jobs"
+  | "skills"
   | "dna"
+  | "trends"
+  | "impact"
+  | "integrations"
+  | "settings"
+  | "map"
   /** @deprecated M-062 — aliased to dna (Profile merged into DNA). */
   | "profile"
   | "domains"
   | "domain"
   | "testing"
   | "blast"
-  | "trends"
-  | "integrations"
-  | "jobs"
-  | "settings"
   | "review"
   | "explain"
-  | "guard";
+  | "guard"
+  | "health"
+  | "findings"
+  | "trees"
+  | "intelligence"
+  | "dashboard"
+  | "pulse"
+  | "board"
+  | "list"
+  | "repos"
+  | "workflows"
+  | "attention";
 
 export type DashboardPayload = {
   root: string;

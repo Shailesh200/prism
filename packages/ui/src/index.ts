@@ -180,6 +180,7 @@ export { Tabs, type TabsOption, type TabsProps } from "./Tabs.js";
 export {
   Tooltip,
   InfoTip,
+  formatTooltipBody,
   type TooltipProps,
   type TooltipAlign,
 } from "./Tooltip.js";
@@ -192,12 +193,20 @@ export {
 } from "./MetricCard.js";
 export { EmptyState, type EmptyStateProps } from "./EmptyState.js";
 export {
+  Text,
+  TEXT_VARIANTS,
+  type TextProps,
+  type TextVariant,
+} from "./Text.js";
+export {
   AreaChart,
+  CandleChart,
   CartesianFrame,
   Gauge,
   GanttRow,
   Sparkline,
   type AreaChartProps,
+  type CandleChartProps,
   type CartesianFrameProps,
   type ChartXLabel,
   type GaugeProps,
@@ -205,6 +214,9 @@ export {
   type SparklineProps,
 } from "./ChartPrimitives.js";
 export {
+  candleGeometry,
+  chartTipEdge,
+  formatCompactCount,
   ganttSegmentPercents,
   gaugeArc,
   integerTicks,
@@ -212,9 +224,18 @@ export {
   pickAxisIndices,
   seriesGeometry,
   valueToY,
+  type Candle,
+  type CandleBar,
   type GanttSegment,
   type SeriesGeometry,
 } from "./charts.js";
+export {
+  TokenCostChart,
+  formatTokenCount,
+  type TokenCostChartProps,
+  type TokenCostMark,
+  type TokenDayBucket,
+} from "./TokenCostChart.js";
 
 export {
   PRISM_DURATION,

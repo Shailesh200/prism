@@ -12,12 +12,12 @@ import { expect, test, type ConsoleMessage, type Page } from "@playwright/test";
 
 const SCREENS = [
   "Overview",
-  "Repository Map",
-  "Codebase Profile",
-  "Domains",
+  "Iris",
+  "Jobs",
+  "Skills",
   "DNA Analysis",
-  "Blast Radius",
   "Trends",
+  "Impact & Guard",
   "Integrations",
   "Settings",
 ] as const;
@@ -93,6 +93,25 @@ test.describe("every screen", () => {
       ).toEqual([]);
     });
   }
+});
+
+test.describe("Jobs board stylesheet", () => {
+  test("applies jobs-extra.css, not a raw definition list", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await openScreen(page, "Jobs");
+
+    const title = page.locator(".jobs-screen__title");
+    await expect(title).toHaveCount(1);
+    await expect(title).toBeVisible();
+    await expect(page.getByLabel("Job summary")).toBeVisible();
+
+    const rail = page.locator(".job-rail__steps");
+    if ((await rail.count()) > 0) {
+      await expect(rail.first()).toHaveCSS("list-style-type", "none");
+    }
+  });
 });
 
 test.describe("navigating between screens", () => {

@@ -1,3 +1,4 @@
+import { Text } from "@repo-prism/ui";
 import type {
   ChangeReviewItem,
   ChangeReviewReport,
@@ -141,11 +142,13 @@ export function ChangeReviewScreen(
         <div className="cr-tour-spotlight" data-prism-tour="review">
           <header className="ov-top">
             <div>
-              <div className="ov-top__title">Review Changes</div>
-              <div className="ov-top__sub">
+              <Text variant="page" as="div" className="ov-top__title">
+                Review Changes
+              </Text>
+              <Text variant="caption" as="div" className="ov-top__sub">
                 {[props.repoLabel, props.branch].filter(Boolean).join(" · ") ||
                   "Multi-path blast radius + test impact + breaking changes"}
-              </div>
+              </Text>
             </div>
           </header>
 

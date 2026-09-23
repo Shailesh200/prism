@@ -30,6 +30,8 @@ import {
   ensurePlayground,
   parkPlayground,
   peekHub,
+  PLAYGROUND_PORT,
+  playgroundUrl,
   type HubHandle,
 } from "@repo-prism/dispatch-hub";
 import { FindingRefSchema } from "@repo-prism/shared";
@@ -78,7 +80,7 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     name: "sleep",
     title: "Put Prism to sleep",
     description:
-      "Park Prism: the Console and Spectrum show a down page and queued jobs stay queued until prism wake. Call this when the user says prism sleep, put Prism to sleep, or go to sleep. Speak only the tool message. If teammates are already running, the tool asks first — relay that and re-call with confirm=true only if the user agrees; that pauses them. Do not confuse this with init (worker sign-in).",
+      "Park Prism: the Dashboard shows a down page and queued jobs stay queued until prism wake. Call this when the user says prism sleep, put Prism to sleep, or go to sleep. Speak only the tool message. If teammates are already running, the tool asks first — relay that and re-call with confirm=true only if the user agrees; that pauses them. Do not confuse this with init (worker sign-in).",
     inputSchema: {
       confirm: z
         .boolean()
@@ -100,7 +102,7 @@ export const DISPATCH_TOOLS: readonly DispatchToolDefinition[] = [
     name: "wake",
     title: "Wake Prism",
     description:
-      "Bring Prism back: the Console and Spectrum return, and queued jobs (including any sleep paused) start on their own. Call this when the user says prism wake, wake Prism, or wake up — even if the Console is already up, this starts Spectrum too. Speak only the tool message, including the Console URL and the Spectrum URL. If teammates are still running, the tool asks first — relay that and re-call with confirm=true. Do not confuse this with init.",
+      "Bring Prism back: the Dashboard returns, and queued jobs (including any sleep paused) start on their own. Call this when the user says prism wake, wake Prism, or wake up — even if the Dashboard is already up. Speak only the tool message, which is one line: Prism woke up at <url>. If teammates are still running, the tool asks first — relay that and re-call with confirm=true. Do not confuse this with init.",
     inputSchema: {
       confirm: z
         .boolean()
@@ -633,18 +635,29 @@ export function registerDispatchTools(
 }
 
 /**
- * URL agents must speak in chat.
+ * URL agents must speak in chat — the one Prism Dashboard.
  *
- * Prefer the tokenised Console URL. A first visit without `?token=` is an
+ * Prefer the tokenised Dashboard URL. A first visit without `?token=` is an
  * unauthorised page (ADR-0048) — that is why the link in a queued-job
- * message has to carry the session, not just the hostname. Fall back to the
- * public host, then to the canonical `prismhq.localhost` address, so a queued
- * job never ships without a place to watch it. Only skip the link when the
- * hub is explicitly off (`PRISM_HUB=0`).
+ * message has to carry the session, not just the hostname. Always the
+ * playground Dashboard (:17331), never the hub bind address. Only skip the
+ * link when the hub is explicitly off (`PRISM_HUB=0`).
  */
 export function speakableBoardUrl(hub: HubHandle): string | undefined {
   if (/jobs board is off/i.test(hub.detail)) return undefined;
-  return hub.dashboardUrl ?? hub.url ?? "http://prismhq.localhost:17330/";
+  const token = hub.dashboardUrl
+    ? tokenFromSpokenUrl(hub.dashboardUrl)
+    : undefined;
+  const base = playgroundUrl(PLAYGROUND_PORT);
+  return token ? `${base}?token=${encodeURIComponent(token)}` : base;
+}
+
+function tokenFromSpokenUrl(raw: string): string | undefined {
+  try {
+    return new URL(raw).searchParams.get("token") ?? undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 async function decorateDispatchValue(
@@ -693,26 +706,30 @@ async function decorateDispatchValue(
     }).catch(() => undefined);
     playgroundUrl = woken?.url;
   }
-  // The dispatch moment must name the watch surface. Agents paraphrase; put
-  // the URL on its own line so dropping it — or stripping `?token=` — is an
-  // obvious omission.
+  // Wake speaks one Dashboard URL. Job tools still name the watch surface
+  // on its own line so dropping it — or stripping `?token=` — is obvious.
+  if (name === "wake" && !skippedConfirm) {
+    const url = playgroundUrl ?? board;
+    if (!url) return value;
+    return {
+      ...record,
+      dashboardUrl: url,
+      ...(playgroundUrl ? { playgroundUrl } : {}),
+      message: `Prism woke up at ${url}`,
+    };
+  }
   if (
     (name === "list_jobs" ||
       name === "start_job" ||
       name === "queue_finding" ||
-      name === "sleep" ||
-      name === "wake") &&
+      name === "sleep") &&
     board
   ) {
-    const playgroundLine =
-      playgroundUrl && (name === "sleep" || name === "wake")
-        ? `Spectrum at ${playgroundUrl}`
-        : "";
     return {
       ...record,
       dashboardUrl: board,
       ...(playgroundUrl ? { playgroundUrl } : {}),
-      message: [record.message, `Watch live at ${board}`, playgroundLine]
+      message: [record.message, `Watch live at ${board}`]
         .filter((line) => line.length > 0)
         .join("\n"),
     };

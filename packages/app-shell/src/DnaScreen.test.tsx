@@ -84,6 +84,24 @@ describe("test_presence breakdown formula", () => {
   });
 });
 
+describe("trees placement", () => {
+  it("renders Trees after the analysis KPIs once DNA is loaded", () => {
+    const { container } = renderDna({
+      health: healthWithTestPresence([]),
+      trees: <div>Trees widget</div>,
+    });
+    const trees = container.querySelector('[aria-label="Trees"]');
+    expect(trees).toBeTruthy();
+    expect(trees?.textContent).toContain("Trees widget");
+    const scroll = container.querySelector(".ov-scroll");
+    const html = scroll?.innerHTML ?? "";
+    expect(html.indexOf("dna-analysis-kpis")).toBeGreaterThanOrEqual(0);
+    expect(html.indexOf("dna-analysis-kpis")).toBeLessThan(
+      html.indexOf('aria-label="Trees"'),
+    );
+  });
+});
+
 describe("coupling density meter", () => {
   it("uses the shared scale — density 0.5 fills half the meter", () => {
     const map = {

@@ -267,7 +267,7 @@ export function weekdayLabels(
   locale: string | undefined,
   start: 0 | 1,
 ): string[] {
-  const fmt = new Intl.DateTimeFormat(locale, { weekday: "short" });
+  const fmt = new Intl.DateTimeFormat(locale, { weekday: "narrow" });
   const sunday = new Date(2026, 0, 4);
   return Array.from({ length: 7 }, (_, i) => {
     const day = new Date(sunday);
@@ -331,6 +331,17 @@ export function shiftMonth(
 ): { readonly year: number; readonly month: number } {
   const d = new Date(year, month + delta, 1);
   return { year: d.getFullYear(), month: d.getMonth() };
+}
+
+/** Flip the calendar above the field when it does not fit below. */
+export function datetimePopOpensAbove(
+  spaceBelow: number,
+  spaceAbove: number,
+  popH: number,
+): boolean {
+  if (popH <= 0) return false;
+  if (popH <= spaceBelow) return false;
+  return spaceAbove > spaceBelow;
 }
 
 export function dateRangeCanApply(

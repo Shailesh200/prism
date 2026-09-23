@@ -9,6 +9,7 @@ import {
   InfoTip,
   relativeTime,
   SearchableInput,
+  Text,
 } from "@repo-prism/ui";
 import { FileWarning, Flame, Layers, ShieldAlert } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
@@ -71,13 +72,13 @@ export function OverlayComposition(props: {
   return (
     <article className="ov-card">
       <div className="ov-card__head">
-        <span className="ov-card__title">
+        <Text variant="card" as="span" className="ov-card__title">
           <Layers size={14} className="ov-card__icon" aria-hidden />
           Composition
           <InfoTip label="Composition">
             Breakdown of detected node kinds in this overlay run.
           </InfoTip>
-        </span>
+        </Text>
       </div>
       {props.compCounts.length > 0 ? (
         <div className="dm-comp">
@@ -118,7 +119,7 @@ export function OverlayFindings(props: {
   return (
     <article className="ov-card">
       <div className="ov-card__head">
-        <span className="ov-card__title">
+        <Text variant="card" as="span" className="ov-card__title">
           <FileWarning size={14} className="ov-card__icon" aria-hidden />
           Findings
           <InfoTip label="Findings">
@@ -126,7 +127,7 @@ export function OverlayFindings(props: {
             concurrency or permissions). Empty means no automated findings — not
             a deep audit pass.
           </InfoTip>
-        </span>
+        </Text>
         {props.findings.length > 0 ? (
           <span className="ov-card__meta">{props.findings.length}</span>
         ) : null}
@@ -225,14 +226,14 @@ export function OverlaySurfaceCard(props: {
   return (
     <article className="ov-card">
       <div className="ov-card__head">
-        <span className="ov-card__title">
+        <Text variant="card" as="span" className="ov-card__title">
           <Layers size={14} className="ov-card__icon" aria-hidden />
           {props.def.surfaceLabel}
           <InfoTip label={props.def.surfaceLabel}>
             Nodes detected by the {props.def.kind ?? "domain"} overlay from{" "}
             {props.def.sources}.
           </InfoTip>
-        </span>
+        </Text>
         <SearchableInput
           className="dm-filter-search"
           value={props.filter}

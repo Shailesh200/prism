@@ -1101,7 +1101,7 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #94a3b8;
+  color: var(--prism-ink-muted);
   background: #1a2236;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   white-space: nowrap;
@@ -1174,7 +1174,7 @@
 
 .dm-pipe-table__event {
   font-size: 0.7rem;
-  color: #94a3b8;
+  color: var(--prism-ink-muted);
 }
 
 .dm-pipe-table__actor-h,
@@ -1229,7 +1229,7 @@
 }
 
 .dm-run-tag--cancel {
-  color: #94a3b8;
+  color: var(--prism-ink-muted);
   border-color: rgba(148, 163, 184, 0.35);
   background: rgba(148, 163, 184, 0.1);
 }
@@ -1241,7 +1241,7 @@
 }
 
 .dm-run-tag--neutral {
-  color: #94a3b8;
+  color: var(--prism-ink-muted);
   border-color: rgba(148, 163, 184, 0.28);
   background: rgba(148, 163, 184, 0.08);
 }

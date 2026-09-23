@@ -7,6 +7,15 @@ import {
   SKILL_GENERATE_BAR_IDS,
 } from "./job-actions.js";
 
+const LIVE_IDS = [
+  "pause",
+  "cancel",
+  "resume",
+  "instruct",
+  "confirm",
+  "retry",
+] as const;
+
 const job = (
   patch: Partial<JobSummary> & Pick<JobSummary, "id" | "status">,
 ): JobSummary => ({
@@ -34,26 +43,33 @@ describe("jobActionItems", () => {
       );
       expect(ids, status).toContain("copy-link");
       expect(ids, status).toContain("export-logs");
+      for (const live of LIVE_IDS) {
+        expect(ids, status).not.toContain(live);
+      }
     }
   });
 
-  it("offers Resume after an unexpected stop", () => {
+  it("does not offer live controls after an unexpected stop", () => {
     const ids = jobActionItems({
       job: job({ id: "stopped", status: "error" }),
       onResume: () => undefined,
+      onCancel: () => undefined,
+      onRetry: () => undefined,
     }).map((item) => item.id);
-    expect(ids).toContain("resume");
     expect(ids).toContain("copy-link");
+    for (const live of LIVE_IDS) {
+      expect(ids).not.toContain(live);
+    }
   });
 
-  it("offers Resume when a job is stuck", () => {
+  it("does not offer Resume or Cancel when a job is stuck", () => {
     const ids = jobActionItems({
       job: job({ id: "stuck", status: "blocked" }),
       onResume: () => undefined,
       onCancel: () => undefined,
     }).map((item) => item.id);
-    expect(ids).toContain("resume");
-    expect(ids).toContain("cancel");
+    expect(ids).not.toContain("resume");
+    expect(ids).not.toContain("cancel");
   });
 
   it("offers Keep all while files are waiting for review", () => {
@@ -112,7 +128,7 @@ describe("jobActionItems", () => {
     expect(ids).not.toContain("keep-all");
   });
 
-  it("keeps retry and reverify on Failed jobs", () => {
+  it("keeps reverify on Failed jobs and strips Retry", () => {
     const ids = jobActionItems({
       job: job({
         id: "failed",
@@ -122,12 +138,12 @@ describe("jobActionItems", () => {
       onRetry: () => undefined,
       onReverify: () => undefined,
     }).map((item) => item.id);
-    expect(ids).toContain("retry");
+    expect(ids).not.toContain("retry");
     expect(ids).toContain("reverify");
     expect(ids).toContain("copy-link");
   });
 
-  it("offers instruct on a live run and start-from on a settled job", () => {
+  it("strips instruct and live ids on a run; keeps start-from on a settled job", () => {
     expect(
       jobActionItems({
         job: job({ id: "live", status: "running" }),
@@ -135,9 +151,15 @@ describe("jobActionItems", () => {
         onPause: () => undefined,
         onCancel: () => undefined,
       }).map((item) => item.id),
-    ).toEqual(
-      expect.arrayContaining(["instruct", "pause", "cancel", "copy-link"]),
-    );
+    ).toEqual(expect.arrayContaining(["copy-link"]));
+    expect(
+      jobActionItems({
+        job: job({ id: "live", status: "running" }),
+        onAddInstruction: () => undefined,
+        onPause: () => undefined,
+        onCancel: () => undefined,
+      }).map((item) => item.id),
+    ).not.toEqual(expect.arrayContaining(["instruct", "pause", "cancel"]));
     expect(
       jobActionItems({
         job: job({ id: "done", status: "done" }),
@@ -150,19 +172,13 @@ describe("jobActionItems", () => {
     );
   });
 
-  it("does not fire Start anyway twice while a confirm is already in flight", () => {
-    let calls = 0;
+  it("does not offer Start anyway on a dirty-confirm gate", () => {
     const items = jobActionItems({
       job: job({ id: "gate", status: "needs_confirm" }),
-      onConfirm: () => {
-        calls += 1;
-      },
+      onConfirm: () => undefined,
       pending: { jobId: "gate", action: "confirm" },
     });
-    const confirm = items.find((item) => item.id === "confirm");
-    expect(confirm?.label).toBe("Starting…");
-    confirm?.onSelect();
-    expect(calls).toBe(0);
+    expect(items.find((item) => item.id === "confirm")).toBeUndefined();
   });
 
   it("does not delete a live job or a gate", () => {
@@ -178,8 +194,8 @@ describe("jobActionItems", () => {
       onConfirm: () => undefined,
       onCancel: () => undefined,
     }).map((item) => item.id);
-    expect(gate).toContain("confirm");
-    expect(gate).toContain("cancel");
+    expect(gate).not.toContain("confirm");
+    expect(gate).not.toContain("cancel");
     expect(gate).not.toContain("delete");
   });
 
@@ -207,9 +223,7 @@ describe("focusBarMeta", () => {
       label: "Copy",
       variant: "tertiary",
     });
-    expect(focusBarMeta("retry", "Retry job").label).toBe("Job");
     expect(focusBarMeta("delete", "Delete").variant).toBe("danger");
-    expect(focusBarMeta("resume", "Resume").variant).toBe("primary");
     expect(focusBarMeta("keep-all", "Keep all")).toMatchObject({
       label: "Keep all",
       variant: "primary",
@@ -218,18 +232,14 @@ describe("focusBarMeta", () => {
 });
 
 describe("SKILL_GENERATE_BAR_IDS", () => {
-  it("keeps Resume, Pause, Cancel, and Retry on the chip", () => {
-    expect([...SKILL_GENERATE_BAR_IDS]).toEqual([
-      "resume",
-      "pause",
-      "cancel",
-      "retry",
-    ]);
+  it("does not surface live ids on Dashboard rows", () => {
     const ids = jobActionItems({
       job: job({ id: "live", status: "running" }),
       onPause: () => undefined,
       onCancel: () => undefined,
+      onResume: () => undefined,
+      onRetry: () => undefined,
     }).filter((item) => SKILL_GENERATE_BAR_IDS.has(item.id));
-    expect(ids.map((item) => item.id)).toEqual(["pause", "cancel"]);
+    expect(ids.map((item) => item.id)).toEqual([]);
   });
 });

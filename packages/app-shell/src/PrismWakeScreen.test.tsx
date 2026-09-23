@@ -9,37 +9,38 @@ afterEach(() => {
 });
 
 describe("wakeHeadline", () => {
-  it("names the surface that is actually up", () => {
+  it("names the one Dashboard", () => {
     expect(wakeHeadline(true, true)).toBe("Prism is awake.");
-    expect(wakeHeadline(true, false)).toBe("Dispatch is awake.");
-    expect(wakeHeadline(false, true)).toBe("Spectrum is awake.");
+    expect(wakeHeadline(true, false)).toBe("Prism is awake.");
+    expect(wakeHeadline(false, true)).toBe("Prism is awake.");
+    expect(wakeHeadline(false, false)).toBe("Prism is down.");
   });
 });
 
 describe("wakeLede", () => {
-  it("does not pretend Spectrum is up when it is down", () => {
-    expect(wakeLede(true, false)).toMatch(/Spectrum is down/);
-    expect(wakeLede(true, true)).toMatch(/Dispatch and Spectrum/);
+  it("does not name Dispatch or Spectrum", () => {
+    expect(wakeLede(true, true)).toMatch(/Prism Dashboard/);
+    expect(wakeLede(true, false)).not.toMatch(/Spectrum|Dispatch/);
+    expect(wakeLede(false, false)).toMatch(/prism wake/i);
   });
 });
 
 describe("PrismWakeScreen", () => {
-  it("labels the jobs door Dispatch, not Console, and shows per-surface status", () => {
+  it("offers one Dashboard door", () => {
     render(
       <PrismWakeScreen
-        here="dispatch"
+        here="spectrum"
         dispatchLive={true}
-        spectrumLive={false}
+        spectrumLive={true}
         onOpenDispatch={() => undefined}
         onOpenSpectrum={() => undefined}
       />,
     );
-    expect(screen.getByRole("heading", { name: "Dispatch" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Open Dispatch" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Dashboard" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Open Dashboard" })).toBeTruthy();
     expect(screen.queryByText("Console")).toBeNull();
-    expect(screen.getAllByText("Awake").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Down").length).toBeGreaterThan(0);
-    expect(screen.getByText(/Spectrum is down/)).toBeTruthy();
+    expect(screen.queryByText("Spectrum")).toBeNull();
+    expect(screen.queryByText("Dispatch")).toBeNull();
   });
 
   it("closes on the Close control and Escape", () => {
@@ -64,9 +65,10 @@ describe("PrismWakeScreen", () => {
 });
 
 describe("PrismSurfacePips", () => {
-  it("shows Dispatch and Spectrum as separate chips", () => {
+  it("shows one Dashboard chip", () => {
     render(<PrismSurfacePips dispatchLive={true} spectrumLive={false} />);
-    expect(screen.getByText(/Dispatch · awake/)).toBeTruthy();
-    expect(screen.getByText(/Spectrum · down/)).toBeTruthy();
+    expect(screen.getByText(/Dashboard · awake/)).toBeTruthy();
+    expect(screen.queryByText(/Dispatch/)).toBeNull();
+    expect(screen.queryByText(/Spectrum/)).toBeNull();
   });
 });

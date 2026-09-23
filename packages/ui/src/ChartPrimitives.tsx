@@ -1,10 +1,19 @@
-import { useId, type ReactElement, type ReactNode } from "react";
 import {
+  useId,
+  useState,
+  type CSSProperties,
+  type ReactElement,
+  type ReactNode,
+} from "react";
+import {
+  candleGeometry,
+  chartTipEdge,
   gaugeArc,
   integerTicks,
   niceTicks,
   seriesGeometry,
   valueToY,
+  type Candle,
 } from "./charts.js";
 
 export type SparklineProps = {
@@ -177,8 +186,12 @@ export function CartesianFrame(props: CartesianFrameProps): ReactElement {
     ? `prism-chart ${props.className}`
     : "prism-chart";
 
+  const frameStyle = {
+    "--prism-chart-plot-h": `${props.height}px`,
+  } as CSSProperties;
+
   return (
-    <div className={gridClass}>
+    <div className={gridClass} style={frameStyle}>
       <div className="prism-chart__y" aria-hidden>
         {ticks.map((tick) => {
           const y = valueToY(tick, props.height, props.pad, min, max);
@@ -260,6 +273,128 @@ export function CartesianFrame(props: CartesianFrameProps): ReactElement {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+export type CandleChartProps = {
+  readonly candles: readonly Candle[];
+  readonly xLabels: readonly ChartXLabel[];
+  readonly width?: number;
+  readonly height?: number;
+  readonly pad?: number;
+  readonly label?: string;
+  readonly formatValue?: (value: number) => string;
+  readonly tip?: (index: number) => ReactNode;
+};
+
+/** OHLC candles on a cartesian frame. Hover a slot for the optional tip. */
+export function CandleChart(props: CandleChartProps): ReactElement {
+  const width = props.width ?? 600;
+  const height = props.height ?? 200;
+  const pad = props.pad ?? 10;
+  const geo = candleGeometry(props.candles, width, height, pad);
+  const [hover, setHover] = useState<number | null>(null);
+  const format = props.formatValue ?? ((value: number) => String(value));
+  const hovered = hover === null ? null : props.candles[hover];
+  const hoveredBar = hover === null ? null : geo.bars[hover];
+  const tipEdge = hoveredBar ? chartTipEdge(hoveredBar.x / width) : undefined;
+
+  if (props.candles.length === 0) {
+    return <p className="prism-chart__empty">No candles in this range.</p>;
+  }
+
+  return (
+    <div className="ov-chart prism-candle">
+      <CartesianFrame
+        width={width}
+        height={height}
+        pad={pad}
+        min={geo.min}
+        max={geo.max}
+        {...(geo.max <= 8 ? { integerY: true } : {})}
+        xLabels={props.xLabels}
+        yFormat={format}
+      >
+        <div
+          className="prism-candle__plot"
+          role="img"
+          aria-label={props.label ?? "Token candles"}
+          onMouseLeave={() => setHover(null)}
+        >
+          <svg
+            className="prism-candle__svg"
+            viewBox={`0 0 ${width} ${height}`}
+            preserveAspectRatio="none"
+            aria-hidden
+          >
+            {geo.bars.map((bar, i) => (
+              <g
+                key={i}
+                className={
+                  bar.up
+                    ? "prism-candle__bar prism-candle__bar--up"
+                    : "prism-candle__bar prism-candle__bar--down"
+                }
+              >
+                <line
+                  x1={bar.x}
+                  x2={bar.x}
+                  y1={bar.highY}
+                  y2={bar.lowY}
+                  vectorEffect="non-scaling-stroke"
+                />
+                <rect
+                  x={bar.x - bar.bodyWidth / 2}
+                  y={bar.bodyTop}
+                  width={bar.bodyWidth}
+                  height={Math.max(1, bar.bodyBottom - bar.bodyTop)}
+                />
+              </g>
+            ))}
+          </svg>
+          {geo.bars.map((bar, i) => (
+            <button
+              key={i}
+              type="button"
+              className="prism-candle__hit"
+              style={{
+                left: `${((bar.x - bar.bodyWidth) / width) * 100}%`,
+                width: `${((bar.bodyWidth * 2) / width) * 100}%`,
+              }}
+              data-active={hover === i ? "true" : "false"}
+              aria-label={props.xLabels[i]?.label ?? `Candle ${i + 1}`}
+              onMouseEnter={() => setHover(i)}
+              onFocus={() => setHover(i)}
+              onBlur={() => setHover(null)}
+            />
+          ))}
+          {hovered && hoveredBar ? (
+            <div
+              className="prism-candle__tip"
+              data-visible="true"
+              {...(tipEdge ? { "data-edge": tipEdge } : {})}
+              style={{
+                left: `${(hoveredBar.x / width) * 100}%`,
+                top: `${(hoveredBar.highY / height) * 100}%`,
+              }}
+              role="status"
+            >
+              {props.tip ? (
+                props.tip(hover ?? 0)
+              ) : (
+                <>
+                  <strong>{format(hovered.close)}</strong>
+                  <span>
+                    O {format(hovered.open)} · H {format(hovered.high)} · L{" "}
+                    {format(hovered.low)}
+                  </span>
+                </>
+              )}
+            </div>
+          ) : null}
+        </div>
+      </CartesianFrame>
     </div>
   );
 }

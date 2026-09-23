@@ -5,6 +5,7 @@ describe("loopback auth", () => {
   it("allows missing origin and loopback origins", () => {
     expect(originAllowed(undefined)).toBe(true);
     expect(originAllowed("http://127.0.0.1:17330")).toBe(true);
+    expect(originAllowed("http://127.0.0.1:17331")).toBe(true);
     expect(originAllowed("http://localhost:17330")).toBe(true);
     expect(originAllowed("http://prism.localhost:17330")).toBe(true);
     expect(originAllowed("http://prismhq.localhost:17330")).toBe(true);

@@ -1,5 +1,4 @@
 import {
-  canRetryJob,
   canRetryVerification,
   isLiveJob,
   jobNotePaths,
@@ -22,15 +21,12 @@ import {
   Download,
   Link2,
   Loader2,
-  MessageSquarePlus,
   MoreVertical,
-  Pause,
   RotateCcw,
   Trash2,
-  X,
 } from "lucide-react";
 import { type ReactElement } from "react";
-import { canInstructJob, canStartFromJob, jobChecksRunning } from "./fleet.js";
+import { canStartFromJob, jobChecksRunning } from "./fleet.js";
 import { showConsoleToast } from "./console-toast.js";
 import { exportJobLogs } from "./job-export.js";
 import { consoleJobShareUrl, readToken } from "./session.js";
@@ -142,18 +138,6 @@ export function jobActionItems(
   const job = props.job;
   const notes = job ? jobNotePaths(job) : [];
   const checkJob = props.reverifyJob ?? job;
-  const retrying =
-    Boolean(job) &&
-    props.pending?.jobId === job?.id &&
-    props.pending.action === "retry";
-  const resuming =
-    Boolean(job) &&
-    props.pending?.jobId === job?.id &&
-    props.pending.action === "resume";
-  const confirming =
-    Boolean(job) &&
-    props.pending?.jobId === job?.id &&
-    props.pending.action === "confirm";
   const reverifying =
     Boolean(checkJob) &&
     (jobChecksRunning(checkJob) ||
@@ -188,17 +172,6 @@ export function jobActionItems(
           },
         ]
       : []),
-    ...(job && canInstructJob(job.status) && props.onAddInstruction
-      ? [
-          {
-            id: "instruct",
-            label: "Add instruction",
-            icon: <MessageSquarePlus size={14} aria-hidden />,
-            tone: "brand" as const,
-            onSelect: () => props.onAddInstruction?.(job),
-          },
-        ]
-      : []),
     ...(job && canStartFromJob(job.status) && props.onStartFromJob
       ? [
           {
@@ -219,37 +192,6 @@ export function jobActionItems(
           },
         ]
       : []),
-    ...(job && job.status === "needs_confirm" && props.onConfirm
-      ? [
-          {
-            id: "confirm",
-            label: confirming ? "Starting…" : "Start anyway",
-            icon: retryGlyph(confirming),
-            tone: "brand" as const,
-            onSelect: () => {
-              if (!confirming) props.onConfirm?.(job);
-            },
-          },
-        ]
-      : []),
-    ...(job &&
-    (job.status === "paused" ||
-      job.status === "waiting_on_you" ||
-      job.status === "blocked" ||
-      job.status === "error") &&
-    props.onResume
-      ? [
-          {
-            id: "resume",
-            label: resuming ? "Resuming…" : "Resume",
-            icon: retryGlyph(resuming),
-            tone: "brand" as const,
-            onSelect: () => {
-              if (!resuming) props.onResume?.(job);
-            },
-          },
-        ]
-      : []),
     ...(job && jobReviewPending(job) && props.onKeepAll
       ? [
           {
@@ -258,43 +200,6 @@ export function jobActionItems(
             icon: <Check size={14} aria-hidden />,
             tone: "brand" as const,
             onSelect: () => props.onKeepAll?.(job),
-          },
-        ]
-      : []),
-    ...(job && isLiveJob(job.status) && props.onPause
-      ? [
-          {
-            id: "pause",
-            label: "Pause",
-            icon: <Pause size={14} aria-hidden />,
-            tone: "amber" as const,
-            onSelect: () => props.onPause?.(job),
-          },
-        ]
-      : []),
-    ...(job &&
-    (isLiveJob(job.status) || job.status === "paused") &&
-    props.onCancel
-      ? [
-          {
-            id: "cancel",
-            label: "Cancel",
-            icon: <X size={14} aria-hidden />,
-            danger: true,
-            onSelect: () => props.onCancel?.(job),
-          },
-        ]
-      : []),
-    ...(job && canRetryJob(job) && props.onRetry
-      ? [
-          {
-            id: "retry",
-            label: retrying ? "Retrying…" : "Retry job",
-            icon: retryGlyph(retrying),
-            tone: "brand" as const,
-            onSelect: () => {
-              if (!retrying) props.onRetry?.(job);
-            },
           },
         ]
       : []),
@@ -358,35 +263,14 @@ export function JobActions(props: JobActionsProps): ReactElement {
   );
 }
 
-const FOCUS_BAR_IDS = new Set([
-  "copy-link",
-  "export-logs",
-  "confirm",
-  "resume",
-  "keep-all",
-  "pause",
-  "cancel",
-  "retry",
-  "reverify",
-  "start-from",
-  "finding",
-  "delete",
-]);
-
 function focusBarVariant(id: string): ButtonVariant {
   switch (id) {
-    case "resume":
-    case "confirm":
     case "keep-all":
       return "primary";
     case "start-from":
       return "secondary";
-    case "retry":
-      return "ghost";
     case "reverify":
-    case "pause":
       return "warning";
-    case "cancel":
     case "delete":
       return "danger";
     default:
@@ -406,12 +290,8 @@ function focusBarLabel(id: string, fallback: string): string {
       return "Findings";
     case "reverify":
       return "Verification";
-    case "retry":
-      return "Job";
     case "delete":
       return "Delete";
-    case "resume":
-      return "Resume";
     case "keep-all":
       return "Keep all";
     default:
@@ -431,20 +311,10 @@ function focusBarDetail(id: string): string {
       return "Open the write-up this job left";
     case "reverify":
       return "Retry supervisor checks";
-    case "retry":
-      return "Retry this job";
     case "delete":
       return "Delete this job";
-    case "resume":
-      return "Resume this job";
     case "keep-all":
       return "Keep every file this job changed";
-    case "pause":
-      return "Pause this job";
-    case "cancel":
-      return "Cancel this job";
-    case "confirm":
-      return "Start this job anyway";
     default:
       return focusBarLabel(id, "");
   }
@@ -492,41 +362,6 @@ export function LabeledJobBar(
               label={meta.label}
               title=""
               variant={item.danger ? "danger" : meta.variant}
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={(event) => {
-                event.stopPropagation();
-                item.onSelect();
-              }}
-            >
-              {item.icon}
-            </IconButton>
-          </HoverTip>
-        );
-      })}
-    </div>
-  );
-}
-
-export function FocusJobBar(
-  props: JobActionsProps & { readonly job: JobSummary },
-): ReactElement | null {
-  const items = jobActionItems(props).filter((item) =>
-    FOCUS_BAR_IDS.has(item.id),
-  );
-  if (items.length === 0) return null;
-  return (
-    <div className="focus-job-bar">
-      {items.map((item) => {
-        const meta = focusBarMeta(item.id, item.label);
-        return (
-          <HoverTip key={item.id} label={meta.label} detail={meta.detail}>
-            <IconButton
-              label={meta.label}
-              title=""
-              variant={meta.variant}
-              {...(item.id === "retry"
-                ? { className: "focus-job-bar__retry" }
-                : {})}
               onPointerDown={(event) => event.stopPropagation()}
               onClick={(event) => {
                 event.stopPropagation();

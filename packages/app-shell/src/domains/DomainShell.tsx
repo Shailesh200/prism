@@ -1,3 +1,4 @@
+import { Text } from "@repo-prism/ui";
 import { ArrowLeft, Loader2, Play, RefreshCw } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
 import type { UtilityOverlayReport } from "@repo-prism/shared";
@@ -38,8 +39,12 @@ export function DomainShell(props: DomainShellProps): ReactElement {
       <div className="ov-main">
         <header className="ov-top">
           <div>
-            <div className="ov-top__title">{props.title}</div>
-            <div className="ov-top__sub">{props.subtitle}</div>
+            <Text variant="page" as="div" className="ov-top__title">
+              {props.title}
+            </Text>
+            <Text variant="caption" as="div" className="ov-top__sub">
+              {props.subtitle}
+            </Text>
           </div>
           <div className="ov-top__actions">
             <button

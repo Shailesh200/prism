@@ -1,8 +1,2 @@
-import { createRoot } from "react-dom/client";
-import { ConsoleApp } from "./console-app.js";
-import "./styles.css";
-
-const root = document.getElementById("root");
-if (root) {
-  createRoot(root).render(<ConsoleApp />);
-}
+/** The daemon is APIs only. The one Dashboard lives on :17331. */
+document.getElementById("root")?.replaceChildren();

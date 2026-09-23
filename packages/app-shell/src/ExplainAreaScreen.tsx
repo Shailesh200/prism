@@ -1,3 +1,4 @@
+import { Text } from "@repo-prism/ui";
 import type { ExplainAreaSummary } from "@repo-prism/shared";
 import {
   ArrowDownToLine,
@@ -94,11 +95,13 @@ export function ExplainAreaScreen(props: ExplainAreaScreenProps): ReactElement {
         <div className="cr-tour-spotlight" data-prism-tour="explain">
           <header className="ov-top">
             <div>
-              <div className="ov-top__title">Explain This Area</div>
-              <div className="ov-top__sub">
+              <Text variant="page" as="div" className="ov-top__title">
+                Explain This Area
+              </Text>
+              <Text variant="caption" as="div" className="ov-top__sub">
                 {[props.repoLabel, props.branch].filter(Boolean).join(" · ") ||
                   "Domain overlap, dependency degree, and local ownership"}
-              </div>
+              </Text>
             </div>
           </header>
 

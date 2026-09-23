@@ -220,6 +220,13 @@ describe("activityGeometry", () => {
     expect(g.line).toBe("10,100 590,100");
   });
 
+  it("pins a zero to the baseline so it matches the Y-axis 0 tick", () => {
+    const g = activityGeometry([4_300_000, 0, 0], 600, 180, 8);
+    expect(g.points[0]?.[1]).toBe(8);
+    expect(g.points[1]?.[1]).toBe(172);
+    expect(g.points[2]?.[1]).toBe(172);
+  });
+
   it("defaults to the series max for unbounded counts", () => {
     const g = activityGeometry([50, 100], 600, 200, 10);
     expect(g.points.map(([, y]) => y)).toEqual([100, 10]);

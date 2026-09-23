@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  irisPaneHash,
   isWakeHash,
+  parseIrisPane,
   parsePlaygroundView,
   pickPlaygroundRoot,
   playgroundHash,
@@ -15,7 +17,19 @@ describe("parsePlaygroundView", () => {
     expect(parsePlaygroundView("#/health")).toBe("overview");
     expect(parsePlaygroundView("#/review")).toBe("review");
     expect(parsePlaygroundView("#/explain")).toBe("explain");
-    expect(parsePlaygroundView("#/impact")).toBe("blast");
+    expect(parsePlaygroundView("#/impact")).toBe("impact");
+    expect(parsePlaygroundView("#/map")).toBe("impact");
+    expect(parsePlaygroundView("#/iris")).toBe("iris");
+    expect(parsePlaygroundView("#/iris/prepare")).toBe("iris");
+    expect(parsePlaygroundView("#/jobs")).toBe("jobs");
+  });
+
+  it("keeps Envelope and Prepare as Iris panes, not extra tabs", () => {
+    expect(parseIrisPane("#/iris")).toBeUndefined();
+    expect(parseIrisPane("#/iris/envelope")).toBe("envelope");
+    expect(parseIrisPane("#/iris/prepare")).toBe("prepare");
+    expect(irisPaneHash("prepare")).toBe("#/iris/prepare");
+    expect(irisPaneHash(undefined)).toBe("#/iris");
   });
 
   it("ignores an empty or unknown hash", () => {

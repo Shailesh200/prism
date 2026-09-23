@@ -304,18 +304,30 @@ export function jobBoardKey(
   return `${job.workspacePath ?? ""}::${job.id}`;
 }
 
-export type JobBoardLane = "all" | "live" | "waiting" | "finished";
+export type JobBoardLane = "all" | "live" | "waiting" | "finished" | "failed";
 
 export function matchesBoardLane(job: JobSummary, lane: JobBoardLane): boolean {
   if (lane === "all") return true;
   if (lane === "waiting") return isWaitingOnYou(job.status);
   if (lane === "live") return isLiveJob(job.status);
+  if (lane === "failed") return job.status === "error";
   return (
     job.status === "done" ||
-    job.status === "error" ||
     job.status === "cancelled" ||
     job.status === "needs_review"
   );
+}
+
+/** True once every review file was kept or Keep all merged the branch. */
+export function jobReviewAccepted(
+  review: Pick<JobReview, "files" | "keptPaths" | "merged"> | undefined,
+): boolean {
+  if (!review) return false;
+  if (review.merged) return true;
+  const files = review.files;
+  if (files.length === 0) return false;
+  const kept = new Set(review.keptPaths ?? []);
+  return files.every((file) => kept.has(file.path));
 }
 
 /** True while Keep / Restore still have files to decide. */
@@ -371,6 +383,47 @@ export function canRetryVerification(
   job: Pick<JobSummary, "status" | "verification">,
 ): boolean {
   return isSettledJob(job.status) && job.verification !== "passed";
+}
+
+/** Short label for the Validation Status fact card. */
+export function jobValidationLabel(
+  job: Pick<JobSummary, "verification" | "lastActivity">,
+): string {
+  if (job.lastActivity === "Running checks…") return "Running";
+  if (job.verification === "passed") return "Passed";
+  if (job.verification === "failed") return "Failed";
+  if (job.verification === "skipped") return "Skipped";
+  return "—";
+}
+
+/** Badge tone for Validation Status. Failed ≠ Passed. */
+export function jobValidationTone(
+  job: Pick<JobSummary, "verification" | "lastActivity">,
+): "neutral" | "emerald" | "amber" | "rose" {
+  if (job.lastActivity === "Running checks…") return "amber";
+  if (job.verification === "passed") return "emerald";
+  if (job.verification === "failed") return "rose";
+  return "neutral";
+}
+
+/**
+ * Script + error (or skip/pass reason) from the supervisor. The card shows
+ * the short label; this is the tooltip.
+ */
+export function jobValidationTooltip(
+  job: Pick<JobSummary, "verification" | "verificationDetail" | "lastActivity">,
+): string {
+  if (job.lastActivity === "Running checks…") {
+    return "Supervisor checks are running.";
+  }
+  const detail = job.verificationDetail?.trim();
+  if (detail) return detail;
+  if (job.verification === "passed") return "Checks passed.";
+  if (job.verification === "failed") {
+    return "Checks failed. The script and error were not recorded on this job.";
+  }
+  if (job.verification === "skipped") return "No checks to run.";
+  return "No validation recorded yet.";
 }
 
 export function jobAgentLabel(
@@ -493,12 +546,12 @@ export function jobUsageLine(
  * Not sent = the rest of the matches Prism held back.
  */
 export const ENVELOPE_DUMP_KEPT_TIP =
-  "Sent is the list Prism actually gave the agent. Not sent is the rest of the matches Prism held back.\n\nSent % is sent ÷ the full list — a measure of the list tail, separate from the job's billed tokens.";
+  "Sent is the list your Prismate actually gave the agent. Not sent is the rest of the matches it held back.\n\nSent % is sent ÷ the full list — a measure of the list tail, separate from the job's billed tokens.";
 
 /** Focus drawer InfoTip — Envelope is not the LLM context window. */
 export const JOB_ENVELOPE_TIP = `${ENVELOPE_DUMP_KEPT_TIP}
 
-Context and Tokens above are this teammate's LLM run. Envelope only counts Prism list tools, and stays empty until those run.`;
+Context and Tokens above are this teammate's LLM run. Envelope only counts Prismate list tools, and stays empty until those run.`;
 
 /** Iris “Sent %” InfoTip. */
 export const IRIS_BYTES_KEPT_TIP =
@@ -921,7 +974,7 @@ export function jobStatusLabel(status: JobStatus): string {
     case "waiting_on_you":
       return "Needs you";
     case "needs_review":
-      return "Ready for review";
+      return "Files modified";
     case "blocked":
       return "Stuck";
     case "error":
@@ -1027,7 +1080,7 @@ export function jobShareUrl(
   const hash = new URLSearchParams();
   if (job.workspacePath) hash.set("repo", job.workspacePath);
   hash.set("job", job.id);
-  url.hash = `/dashboard?${hash.toString()}`;
+  url.hash = `/jobs?${hash.toString()}`;
   return url.toString();
 }
 
@@ -1225,7 +1278,7 @@ const STAGE_LABEL: Record<JobLifecycleKind, string> = {
 function historyLabelOf(event: JobLifecycleEvent): string {
   if (event.note === "paused" || event.by === "user") return "Paused by you";
   if (event.note === "stuck") return "Waiting (stuck)";
-  if (event.kind === "review") return "Ready for review";
+  if (event.kind === "review") return "Files modified";
   return STAGE_LABEL[event.kind];
 }
 

@@ -9,7 +9,7 @@ import {
   rankChurnHotspots,
   rankMostDepended,
 } from "@repo-prism/shared";
-import { EmptyState, InfoTip } from "@repo-prism/ui";
+import { EmptyState, InfoTip, Text } from "@repo-prism/ui";
 import { AppWindow, Flame, Network, Sparkles } from "lucide-react";
 import { useMemo, useState, type ReactElement } from "react";
 import { OverlayDomainFrame } from "./DomainShell.js";
@@ -142,7 +142,7 @@ export function DesktopSection(props: DomainScreenProps): ReactElement {
               <>
                 <article className="ov-card">
                   <div className="ov-card__head">
-                    <span className="ov-card__title">
+                    <Text variant="card" as="span" className="ov-card__title">
                       <Sparkles
                         size={14}
                         className="ov-card__icon"
@@ -153,7 +153,7 @@ export function DesktopSection(props: DomainScreenProps): ReactElement {
                         Electron / Tauri frameworks and stack DNA signals for
                         this workspace.
                       </InfoTip>
-                    </span>
+                    </Text>
                     {desktopStack?.detected ? (
                       <span className="ov-card__meta">Detected</span>
                     ) : null}
@@ -207,7 +207,7 @@ export function DesktopSection(props: DomainScreenProps): ReactElement {
 
                 <article className="ov-card">
                   <div className="ov-card__head">
-                    <span className="ov-card__title">
+                    <Text variant="card" as="span" className="ov-card__title">
                       <Network
                         size={14}
                         className="ov-card__icon"
@@ -218,7 +218,7 @@ export function DesktopSection(props: DomainScreenProps): ReactElement {
                         Structural edges from desktop-boundary (ipc / exposes /
                         loads) between main, preload, and renderer.
                       </InfoTip>
-                    </span>
+                    </Text>
                     <span className="ov-card__meta">
                       {desktopBoundaryLinks.length}
                     </span>
@@ -256,7 +256,7 @@ export function DesktopSection(props: DomainScreenProps): ReactElement {
 
                 <article className="ov-card">
                   <div className="ov-card__head">
-                    <span className="ov-card__title">
+                    <Text variant="card" as="span" className="ov-card__title">
                       <AppWindow
                         size={14}
                         className="ov-card__icon"
@@ -268,7 +268,7 @@ export function DesktopSection(props: DomainScreenProps): ReactElement {
                         contextBridge.exposeInMainWorld. Preload exposure is
                         risk medium.
                       </InfoTip>
-                    </span>
+                    </Text>
                     <span className="ov-card__meta">
                       {desktopIpcChannels.length}
                     </span>
@@ -308,13 +308,13 @@ export function DesktopSection(props: DomainScreenProps): ReactElement {
 
                 <article className="ov-card">
                   <div className="ov-card__head">
-                    <span className="ov-card__title">
+                    <Text variant="card" as="span" className="ov-card__title">
                       <Flame size={14} className="ov-card__icon" aria-hidden />
                       Process Churn Hotspots
                       <InfoTip label="Process Churn Hotspots">
                         Desktop boundary files with the most recent git commits.
                       </InfoTip>
-                    </span>
+                    </Text>
                   </div>
                   {desktopChurn.length > 0 ? (
                     <div className="dm-rank">
@@ -343,7 +343,7 @@ export function DesktopSection(props: DomainScreenProps): ReactElement {
 
                 <article className="ov-card">
                   <div className="ov-card__head">
-                    <span className="ov-card__title">
+                    <Text variant="card" as="span" className="ov-card__title">
                       <Network
                         size={14}
                         className="ov-card__icon"
@@ -354,7 +354,7 @@ export function DesktopSection(props: DomainScreenProps): ReactElement {
                         Process / IPC files with highest inbound dependency
                         edges.
                       </InfoTip>
-                    </span>
+                    </Text>
                   </div>
                   {desktopMostDepended.length > 0 ? (
                     <div className="dm-rank">

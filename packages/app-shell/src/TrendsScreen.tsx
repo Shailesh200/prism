@@ -12,9 +12,17 @@ import type {
 import { DEFAULT_PROVENANCE } from "@repo-prism/shared";
 import {
   AreaChart,
+  CandleChart,
   CartesianFrame,
+  DateRangePicker,
+  EmptyState,
   InfoTip,
+  chartTipEdge,
+  formatCompactCount,
   pickAxisIndices,
+  type DateRangeValue,
+  type TokenCostChartProps,
+  Text,
 } from "@repo-prism/ui";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import {
@@ -35,12 +43,16 @@ import {
   activityGeometry,
   bucketActivity,
   DEFAULT_ACTIVITY_RANGE,
-  formatDayKey,
-  parseDayMs,
   presetBounds,
-  type ActivityRangeId,
 } from "./overview-model.js";
 import type { GitStatus } from "./OverviewScreen.js";
+import type { JobSummary } from "./jobs-types.js";
+import { jobMatchesRepo } from "./jobs-range.js";
+import {
+  tokenAnalysisFromChart,
+  tokenAnalysisInRange,
+  type TokenAnalysis,
+} from "./token-activity.js";
 
 export type TrendsScreenProps = {
   map: RepositoryMap | null;
@@ -49,7 +61,7 @@ export type TrendsScreenProps = {
   user?: AppSidebarUser | null;
   gitActivity: GitActivity | null;
   gitStatus?: GitStatus;
-  /** Live health score from Core (preferred for Current Health Score KPI). */
+  /** Live health score from Core (Overview still shows it). */
   health?: HealthScore | null;
   /** Optional preloaded health history; otherwise fetched via client props. */
   healthHistory?: { points: HealthHistoryPoint[] } | null;
@@ -63,6 +75,11 @@ export type TrendsScreenProps = {
     message: string,
     tone?: "ok" | "error" | "info" | "warning",
   ) => void;
+  /** Pulse token rollup. Omit when this host cannot see Jobs. */
+  tokenUsage?: TokenCostChartProps;
+  /** Archive jobs — rolled up for this workspace when `tokenUsage` is omitted. */
+  readonly jobs?: readonly JobSummary[];
+  readonly workspacePath?: string;
 };
 
 type AuthorRow = {
@@ -84,6 +101,14 @@ function axisDateLabel(ms: number): string {
     day: "numeric",
     month: "short",
   });
+}
+
+function tokenDayStartMs(dayKey: string): number {
+  const parts = dayKey.split("-").map(Number);
+  const y = parts[0] ?? 1970;
+  const m = parts[1] ?? 1;
+  const d = parts[2] ?? 1;
+  return new Date(y, m - 1, d).getTime();
 }
 
 function churnWidths(adds: number, dels: number): { add: number; del: number } {
@@ -152,6 +177,8 @@ function SeriesAreaChart(props: {
   valueSuffix?: string;
   emptyMessage: string;
   gradientId: string;
+  /** When false, stay at the frame height instead of flex-filling the page. */
+  fill?: boolean;
   /**
    * Per-point origin, parallel to `values`. Estimated points are drawn hollow
    * and labelled in the tooltip so a backfilled score is never mistaken for one
@@ -226,6 +253,7 @@ function SeriesAreaChart(props: {
     props.pointProvenance?.filter((p) => p === "heuristic").length ?? 0;
   // Center the guide/point/tip when there is only one point (no line to trace).
   const leftPct = n === 1 ? 50 : hp ? (hp.x / w) * 100 : 0;
+  const tipEdge = chartTipEdge(leftPct / 100);
   const visible = hover !== null && hp !== undefined;
 
   if (n === 0) {
@@ -249,7 +277,7 @@ function SeriesAreaChart(props: {
         );
 
   return (
-    <div className="ov-chart tr-chart">
+    <div className={props.fill === false ? "ov-chart" : "ov-chart tr-chart"}>
       <CartesianFrame
         width={w}
         height={h}
@@ -312,6 +340,7 @@ function SeriesAreaChart(props: {
               <div
                 className="ov-chart__tip"
                 data-visible={visible ? "true" : "false"}
+                {...(tipEdge ? { "data-edge": tipEdge } : {})}
                 style={{
                   left: `${leftPct}%`,
                   top: `${(hp.y / h) * 100}%`,
@@ -386,6 +415,9 @@ function CommitBarChart(props: {
     };
   });
   const hovered = hover === null ? null : shown[hover];
+  const hoverFrac =
+    shown.length > 0 ? ((hover ?? 0) + 0.5) / shown.length : 0.5;
+  const tipEdge = chartTipEdge(hoverFrac);
 
   if (n === 0) {
     return <p className="ov-empty">No commit volume in this range.</p>;
@@ -432,8 +464,9 @@ function CommitBarChart(props: {
             <div
               className="ov-chart__tip"
               data-visible="true"
+              {...(tipEdge ? { "data-edge": tipEdge } : {})}
               style={{
-                left: `${(((hover ?? 0) + 0.5) / shown.length) * 100}%`,
+                left: `${hoverFrac * 100}%`,
                 top: `${100 - Math.max(2, Math.round((hovered.v / max) * 100))}%`,
               }}
               role="status"
@@ -518,15 +551,33 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
   const gitStatus = props.gitStatus ?? "loading";
   const days = props.gitActivity?.days ?? [];
 
-  const [rangeId, setRangeId] = useState<ActivityRangeId>(
-    DEFAULT_ACTIVITY_RANGE,
+  const [nowMs] = useState(() => Date.now());
+  const [range, setRange] = useState<DateRangeValue>(() => {
+    const preset =
+      ACTIVITY_RANGES.find((r) => r.id === DEFAULT_ACTIVITY_RANGE) ??
+      ACTIVITY_RANGES[0]!;
+    const bounds = presetBounds(preset.days, Date.now());
+    return {
+      preset: preset.id,
+      startMs: bounds.startMs,
+      endMs: bounds.endMs,
+    };
+  });
+
+  const repoJobs = useMemo(
+    () =>
+      (props.jobs ?? []).filter((job) =>
+        jobMatchesRepo(job, props.workspacePath),
+      ),
+    [props.jobs, props.workspacePath],
   );
-  const [customStart, setCustomStart] = useState(() =>
-    toDayInput(presetBounds(7).startMs),
-  );
-  const [customEnd, setCustomEnd] = useState(() =>
-    toDayInput(presetBounds(7).endMs),
-  );
+  const tokenAnalysis = useMemo(() => {
+    if (repoJobs.length > 0) {
+      return tokenAnalysisInRange(repoJobs, range.startMs, range.endMs);
+    }
+    if (props.tokenUsage) return tokenAnalysisFromChart(props.tokenUsage);
+    return undefined;
+  }, [props.tokenUsage, repoJobs, range.startMs, range.endMs]);
 
   const [historyPoints, setHistoryPoints] = useState<HealthHistoryPoint[]>(
     () => props.healthHistory?.points ?? [],
@@ -540,18 +591,10 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
 
-  const windowBounds = useMemo(() => {
-    if (rangeId === "custom") {
-      return {
-        startMs: parseDayMs(customStart),
-        endMs: parseDayMs(customEnd),
-      };
-    }
-    const preset =
-      ACTIVITY_RANGES.find((r) => r.id === rangeId) ??
-      ACTIVITY_RANGES.find((r) => r.id === DEFAULT_ACTIVITY_RANGE)!;
-    return presetBounds(preset.days);
-  }, [rangeId, customStart, customEnd]);
+  const windowBounds = useMemo(
+    () => ({ startMs: range.startMs, endMs: range.endMs }),
+    [range.startMs, range.endMs],
+  );
 
   const activity = useMemo(
     () => bucketActivity(days, windowBounds.startMs, windowBounds.endMs),
@@ -603,12 +646,6 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
     gitStatus === "unavailable" ||
     (props.gitActivity !== null && !props.gitActivity.available);
 
-  const gitSummary = props.gitActivity?.summary;
-  const gitHistoryNote =
-    gitSummary?.historyTruncated === true
-      ? `Scanned latest ${gitSummary.windowCommits.toLocaleString()} of ${gitSummary.totalCommits.toLocaleString()} commits`
-      : null;
-
   const rangedHealth = useMemo(
     () =>
       filterHealthPoints(
@@ -626,18 +663,6 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
   const healthProvenance: SignalProvenance[] = rangedHealth.map(
     (p) => p.provenance ?? DEFAULT_PROVENANCE,
   );
-
-  const currentHealthScore = useMemo(() => {
-    if (typeof props.health?.score === "number") {
-      return Math.round(props.health.score);
-    }
-    if (historyPoints.length === 0) return null;
-    let latest = historyPoints[0]!;
-    for (const p of historyPoints) {
-      if (Date.parse(p.at) >= Date.parse(latest.at)) latest = p;
-    }
-    return Math.round(latest.score);
-  }, [props.health?.score, historyPoints]);
 
   const loadHistory = useCallback(async (): Promise<void> => {
     try {
@@ -778,222 +803,152 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
       <div className="ov-main">
         <header className="ov-top">
           <div>
-            <div className="ov-top__title">Trends</div>
-            <div className="ov-top__sub">{subtitle || "Local repository"}</div>
+            <Text variant="page" as="div" className="ov-top__title">
+              Trends
+            </Text>
+            <Text variant="caption" as="div" className="ov-top__sub">
+              {subtitle || "Local repository"}
+            </Text>
           </div>
           <div className="ov-top__actions">
-            <div className="ov-seg" role="group" aria-label="Time range">
-              {ACTIVITY_RANGES.map((r) => (
-                <button
-                  key={r.id}
-                  type="button"
-                  className="ov-seg__btn"
-                  data-active={rangeId === r.id ? "true" : "false"}
-                  onClick={() => setRangeId(r.id)}
-                >
-                  {r.label}
-                </button>
-              ))}
-              <button
-                type="button"
-                className="ov-seg__btn"
-                data-active={rangeId === "custom" ? "true" : "false"}
-                onClick={() => setRangeId("custom")}
-              >
-                Custom
-              </button>
-            </div>
-            {rangeId === "custom" ? (
-              <div className="tr-custom">
-                <input
-                  type="date"
-                  className="tr-custom__input"
-                  value={customStart}
-                  onChange={(e) => setCustomStart(e.target.value)}
-                  aria-label="Range start"
-                />
-                <span className="tr-custom__sep">→</span>
-                <input
-                  type="date"
-                  className="tr-custom__input"
-                  value={customEnd}
-                  onChange={(e) => setCustomEnd(e.target.value)}
-                  aria-label="Range end"
-                />
-              </div>
-            ) : null}
+            <DateRangePicker
+              aria-label="Time range"
+              className="ov-range"
+              presets={ACTIVITY_RANGES.map((r) => ({
+                id: r.id,
+                label: r.label,
+                shortLabel: r.label,
+              }))}
+              value={range}
+              nowMs={nowMs}
+              presetWindow={(id, at) => {
+                const preset =
+                  ACTIVITY_RANGES.find((row) => row.id === id) ??
+                  ACTIVITY_RANGES[0]!;
+                return presetBounds(preset.days, at);
+              }}
+              onChange={setRange}
+            />
           </div>
         </header>
 
         <div className="ov-scroll tr-scroll">
-          <section className="tr-kpis" aria-label="Current metrics">
-            <div className="ov-card tr-kpi">
-              <div className="tr-kpi__label">
-                <span>Current Health Score</span>
-                <InfoTip label="Current Health Score">
-                  Live Core health score when available; otherwise the latest
-                  health-history snapshot.
+          <section
+            className="ov-card tr-panel tr-token"
+            aria-label="Token usage"
+          >
+            <div className="ov-card__head">
+              <Text variant="card" as="h2" className="ov-card__title">
+                Token usage
+                <InfoTip label="Token usage">
+                  Billed tokens this workspace reported on jobs in the selected
+                  range. Candles open at the previous day's close and close on
+                  that day's billed total. Context is the highest prompt
+                  occupancy a job reported, not the bill.
                 </InfoTip>
-              </div>
-              <div className="tr-kpi__row">
-                <span className="tr-kpi__value">
-                  {currentHealthScore === null
-                    ? "—"
-                    : currentHealthScore.toLocaleString()}
-                </span>
-                {props.health?.grade ? (
-                  <span className="tr-kpi__note">
-                    Grade {props.health.grade}
-                  </span>
-                ) : null}
-              </div>
+              </Text>
             </div>
-            <div className="ov-card tr-kpi">
-              <div className="tr-kpi__label">
-                <span>Commits</span>
-                <InfoTip label="Commits">
-                  Distinct commits in the selected window from local git day
-                  buckets
-                  {gitHistoryNote ? `. ${gitHistoryNote}.` : "."}
-                </InfoTip>
-              </div>
-              <div className="tr-kpi__row">
-                <span className="tr-kpi__value">
-                  {gitUnavailable ? "—" : activity.total.toLocaleString()}
-                </span>
-              </div>
-              {gitHistoryNote && !gitUnavailable ? (
-                <span className="tr-kpi__note">{gitHistoryNote}</span>
-              ) : null}
-            </div>
+            {tokenAnalysis && tokenAnalysis.total > 0 ? (
+              <TokenAnalysisBody analysis={tokenAnalysis} />
+            ) : (
+              <EmptyState variant="page" title="Token usage">
+                {tokenAnalysis
+                  ? "No job tokens in this range."
+                  : "Token usage runs on the Dashboard daemon for this workspace."}
+              </EmptyState>
+            )}
           </section>
 
-          <div className="tr-grid-charts">
-            <section className="ov-card tr-panel tr-panel--wide">
-              <div className="ov-card__head">
-                <h2 className="ov-card__title">
-                  Health over time
-                  <InfoTip label="Health over time">
-                    Historical health scores from Prism snapshots and optional
-                    git commit backfill.
-                  </InfoTip>
-                </h2>
-                <div className="tr-legend">
-                  <span>
-                    <span
-                      className="ov-dot"
-                      style={{ background: "#00C2C2" }}
-                    />{" "}
-                    Overall
-                  </span>
-                </div>
+          <section className="ov-card tr-panel tr-panel--wide">
+            <div className="ov-card__head">
+              <Text variant="card" as="h2" className="ov-card__title">
+                Health over time
+                <InfoTip label="Health over time">
+                  Historical health scores from Prism snapshots and optional git
+                  commit backfill.
+                </InfoTip>
+              </Text>
+              <div className="tr-legend">
+                <span>
+                  <span className="ov-dot" style={{ background: "#00C2C2" }} />{" "}
+                  Overall
+                </span>
               </div>
-              {historyError ? (
-                <div>
-                  <p className="ov-empty">{historyError}</p>
-                  <button
-                    type="button"
-                    className="ov-btn ov-btn--primary"
-                    onClick={() => void loadHistory()}
-                  >
-                    Try again
-                  </button>
-                </div>
-              ) : showBackfillCta ? (
-                <div className="tr-sync">
-                  {backfill?.status === "running" ||
-                  (syncing && backfill?.status !== "error") ? (
-                    <p className="tr-sync__status">
-                      History sync in progress… {backfillPct}%
-                      {backfill?.message ? ` — ${backfill.message}` : ""}
-                    </p>
-                  ) : (
-                    <>
-                      {backfill?.status === "error" ? (
-                        <p className="ov-empty">{backfill.message}</p>
-                      ) : (
-                        <p className="tr-empty__body">
-                          No historical health series for this range yet. Build
-                          history from local git to seed approximate scores.
-                        </p>
-                      )}
-                      <button
-                        type="button"
-                        className="tr-sync__btn"
-                        onClick={() => void startBackfill()}
-                        disabled={syncing}
-                      >
-                        {syncing ? (
-                          <Loader2
-                            className="prism-spinner"
-                            size={14}
-                            aria-hidden
-                          />
-                        ) : null}
-                        Build history
-                      </button>
-                    </>
-                  )}
-                </div>
-              ) : (
-                <SeriesAreaChart
-                  values={healthValues}
-                  starts={healthStarts}
-                  granularity="point"
-                  unitLabel="Health score"
-                  totalLabel={`${rangedHealth.length} points`}
-                  valueSuffix="/100"
-                  emptyMessage="No health points in this range."
-                  gradientId="tr-health-spark"
-                  pointProvenance={healthProvenance}
-                  minValue={0}
-                  maxValue={100}
-                />
-              )}
-            </section>
-
-            <section className="ov-card tr-panel">
-              <div className="ov-card__head">
-                <h2 className="ov-card__title">
-                  Commit activity
-                  <InfoTip label="Commit activity">
-                    Commits per day or week from local git day buckets in the
-                    selected range.
-                  </InfoTip>
-                </h2>
+            </div>
+            {historyError ? (
+              <div>
+                <p className="ov-empty">{historyError}</p>
+                <button
+                  type="button"
+                  className="ov-btn ov-btn--primary"
+                  onClick={() => void loadHistory()}
+                >
+                  Try again
+                </button>
               </div>
-              {gitUnavailable ? (
-                <p className="ov-empty">
-                  {gitStatus === "error"
-                    ? "Couldn't read local git activity."
-                    : "Not a git work tree — commit trends unavailable."}
-                </p>
-              ) : gitStatus === "loading" && !props.gitActivity ? (
-                <p className="ov-empty">Loading git activity…</p>
-              ) : (
-                <SeriesAreaChart
-                  values={activity.buckets}
-                  starts={activity.starts}
-                  granularity={activity.granularity}
-                  unitLabel={`Commits / ${activity.granularity === "day" ? "day" : "week"}`}
-                  totalLabel={`${activity.total} in window`}
-                  emptyMessage="No commit buckets in this range."
-                  gradientId="tr-spark"
-                />
-              )}
-            </section>
-          </div>
+            ) : showBackfillCta ? (
+              <div className="tr-sync">
+                {backfill?.status === "running" ||
+                (syncing && backfill?.status !== "error") ? (
+                  <p className="tr-sync__status">
+                    History sync in progress… {backfillPct}%
+                    {backfill?.message ? ` — ${backfill.message}` : ""}
+                  </p>
+                ) : (
+                  <>
+                    {backfill?.status === "error" ? (
+                      <p className="ov-empty">{backfill.message}</p>
+                    ) : (
+                      <p className="tr-empty__body">
+                        No historical health series for this range yet. Build
+                        history from local git to seed approximate scores.
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      className="tr-sync__btn"
+                      onClick={() => void startBackfill()}
+                      disabled={syncing}
+                    >
+                      {syncing ? (
+                        <Loader2
+                          className="prism-spinner"
+                          size={14}
+                          aria-hidden
+                        />
+                      ) : null}
+                      Build history
+                    </button>
+                  </>
+                )}
+              </div>
+            ) : (
+              <SeriesAreaChart
+                values={healthValues}
+                starts={healthStarts}
+                granularity="point"
+                unitLabel="Health score"
+                totalLabel={`${rangedHealth.length} points`}
+                valueSuffix="/100"
+                emptyMessage="No health points in this range."
+                gradientId="tr-health-spark"
+                pointProvenance={healthProvenance}
+                minValue={0}
+                maxValue={100}
+              />
+            )}
+          </section>
 
           <div className="tr-grid-charts tr-grid-charts--secondary">
             <section className="ov-card tr-panel">
               <div className="ov-card__head">
-                <h2 className="ov-card__title">
+                <Text variant="card" as="h2" className="ov-card__title">
                   Commit volume
                   <InfoTip label="Commit volume">
-                    Same commit buckets as activity, shown as a bar chart for
-                    the selected range.
+                    Commits per day or week from local git day buckets in the
+                    selected range.
                   </InfoTip>
-                </h2>
+                </Text>
               </div>
               {gitUnavailable || activity.buckets.length === 0 ? (
                 <p className="ov-empty">No volume data for this range.</p>
@@ -1008,13 +963,13 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
 
             <section className="ov-card tr-panel">
               <div className="ov-card__head">
-                <h2 className="ov-card__title">
+                <Text variant="card" as="h2" className="ov-card__title">
                   Authors
                   <InfoTip label="Authors">
                     Full author census from local git history, ranked by
                     commits.
                   </InfoTip>
-                </h2>
+                </Text>
               </div>
               {authors.length === 0 ? (
                 <p className="ov-empty">No authors for this repository.</p>
@@ -1086,14 +1041,14 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
           <div className="tr-grid-bottom">
             <section className="ov-card tr-panel">
               <div className="ov-card__head">
-                <h2 className="ov-card__title">
+                <Text variant="card" as="h2" className="ov-card__title">
                   Churn hotspots
                   <InfoTip label="Churn hotspots">
                     Top files by commit count from recent git activity.
                     +Adds/−Dels bars show line churn of the most recent commit
                     that touched each file (not cumulative window churn).
                   </InfoTip>
-                </h2>
+                </Text>
               </div>
               {hotspots.length === 0 ? (
                 <p className="ov-empty">No recent file churn available.</p>
@@ -1121,13 +1076,13 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
             <div className="tr-movers">
               <section className="ov-card tr-panel">
                 <div className="ov-card__head">
-                  <h2 className="ov-card__title">
+                  <Text variant="card" as="h2" className="ov-card__title">
                     Improving regions
                     <InfoTip label="Improving regions">
                       Regions whose health score rose between the oldest and
                       newest history snapshots.
                     </InfoTip>
-                  </h2>
+                  </Text>
                 </div>
                 <MoverList
                   items={movers?.improving ?? []}
@@ -1143,13 +1098,13 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
               </section>
               <section className="ov-card tr-panel">
                 <div className="ov-card__head">
-                  <h2 className="ov-card__title">
+                  <Text variant="card" as="h2" className="ov-card__title">
                     Regressing regions
                     <InfoTip label="Regressing regions">
                       Regions whose health score fell between the oldest and
                       newest history snapshots.
                     </InfoTip>
-                  </h2>
+                  </Text>
                 </div>
                 <MoverList
                   items={movers?.regressing ?? []}
@@ -1174,6 +1129,138 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
           </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function occupancyPct(tokens: number, window: number): number | undefined {
+  if (window <= 0 || tokens <= 0) return undefined;
+  return Math.min(100, Math.round((tokens / window) * 100));
+}
+
+function TokenAnalysisBody(props: { analysis: TokenAnalysis }): ReactElement {
+  const { analysis } = props;
+  const candles = analysis.daysAnalyzed.map((row) => row.candle);
+  const starts = analysis.daysAnalyzed.map((row) =>
+    tokenDayStartMs(row.dayKey),
+  );
+  const xLabels = pickAxisIndices(candles.length).map((i) => ({
+    fraction:
+      candles.length > 1 ? (10 + (i / (candles.length - 1)) * 580) / 600 : 0.5,
+    label: axisDateLabel(starts[i] ?? 0),
+  }));
+  const contextValues = analysis.daysAnalyzed.map((row) => {
+    const pct = occupancyPct(row.contextTokens, row.contextWindow);
+    return pct ?? row.contextTokens;
+  });
+  const hasContext = contextValues.some((v) => v > 0);
+  const contextIsPct = analysis.daysAnalyzed.some(
+    (row) => occupancyPct(row.contextTokens, row.contextWindow) != null,
+  );
+  const cache = analysis.cacheReadTokens + analysis.cacheWriteTokens;
+  const peakOcc = occupancyPct(analysis.contextTokens, analysis.contextWindow);
+
+  return (
+    <div className="tr-token__body">
+      <dl className="tr-token__kpis">
+        <div className="tr-token__kpi">
+          <dt>Billed</dt>
+          <dd>{formatCompactCount(analysis.total)}</dd>
+        </div>
+        <div className="tr-token__kpi">
+          <dt>Input</dt>
+          <dd>{formatCompactCount(analysis.inputTokens)}</dd>
+        </div>
+        <div className="tr-token__kpi">
+          <dt>Output</dt>
+          <dd>{formatCompactCount(analysis.outputTokens)}</dd>
+        </div>
+        <div className="tr-token__kpi">
+          <dt>Cache</dt>
+          <dd>{cache > 0 ? formatCompactCount(cache) : "—"}</dd>
+        </div>
+        <div className="tr-token__kpi">
+          <dt>Context</dt>
+          <dd>
+            {analysis.contextTokens > 0
+              ? peakOcc != null
+                ? `${peakOcc}%`
+                : formatCompactCount(analysis.contextTokens)
+              : "—"}
+          </dd>
+        </div>
+        <div className="tr-token__kpi">
+          <dt>Jobs</dt>
+          <dd>{analysis.jobCount.toLocaleString()}</dd>
+        </div>
+      </dl>
+      <div className="tr-token__chart">
+        <h3 className="tr-token__sub">Billed tokens</h3>
+        <CandleChart
+          candles={candles}
+          xLabels={xLabels}
+          label="Billed token candles"
+          formatValue={formatCompactCount}
+          tip={(index) => {
+            const row = analysis.daysAnalyzed[index];
+            if (!row) return null;
+            return (
+              <>
+                <strong>{formatCompactCount(row.candle.close)}</strong>
+                <span className="ov-chart__tip-date">
+                  {axisDateLabel(starts[index] ?? 0)} · O{" "}
+                  {formatCompactCount(row.candle.open)} · H{" "}
+                  {formatCompactCount(row.candle.high)} · L{" "}
+                  {formatCompactCount(row.candle.low)}
+                </span>
+                <span className="ov-chart__tip-date">
+                  in {formatCompactCount(row.inputTokens)} · out{" "}
+                  {formatCompactCount(row.outputTokens)} · {row.jobCount} job
+                  {row.jobCount === 1 ? "" : "s"}
+                </span>
+              </>
+            );
+          }}
+        />
+      </div>
+      <div className="tr-token__chart">
+        <h3 className="tr-token__sub">
+          Context {contextIsPct ? "occupancy" : "tokens"}
+        </h3>
+        {hasContext ? (
+          <SeriesAreaChart
+            values={contextValues}
+            starts={starts}
+            granularity="day"
+            unitLabel={contextIsPct ? "Context occupancy" : "Context tokens"}
+            totalLabel={
+              peakOcc != null
+                ? `Peak ${peakOcc}% of window`
+                : `Peak ${formatCompactCount(analysis.contextTokens)}`
+            }
+            emptyMessage="No context occupancy in this range."
+            gradientId="tr-context-spark"
+            minValue={0}
+            fill={false}
+            {...(contextIsPct ? { valueSuffix: "%", maxValue: 100 } : {})}
+          />
+        ) : (
+          <p className="ov-empty">
+            No context occupancy reported on jobs in this range.
+          </p>
+        )}
+      </div>
+      {analysis.peak || analysis.low ? (
+        <p className="tr-token__notes">
+          {analysis.peak
+            ? `Heaviest job: ${analysis.peak.title} (${formatCompactCount(analysis.peak.tokens)}).`
+            : ""}
+          {analysis.peak && analysis.low ? " " : ""}
+          {analysis.low
+            ? `Lightest job: ${analysis.low.title} (${formatCompactCount(analysis.low.tokens)}).`
+            : ""}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -1213,8 +1300,4 @@ function HotspotRow(props: { file: GitRecentFile }): ReactElement {
       </td>
     </tr>
   );
-}
-
-function toDayInput(ms: number): string {
-  return formatDayKey(ms);
 }

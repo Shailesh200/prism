@@ -69,7 +69,10 @@
   min-width: 0;
   text-align: left;
   cursor: pointer;
-  font: inherit;
+  font-family: var(--prism-font);
+  font-size: var(--prism-type-body-sm);
+  font-weight: 400;
+  line-height: var(--prism-leading-body);
 }
 
 .prism-select__value {
@@ -122,6 +125,10 @@
   max-height: min(280px, 50vh);
   overflow: auto;
   overscroll-behavior: contain;
+  font-family: var(--prism-font);
+  font-size: var(--prism-type-body-sm);
+  font-weight: 400;
+  line-height: var(--prism-leading-body);
 }
 
 .prism-select__option {
@@ -136,8 +143,10 @@
   border-radius: var(--prism-radius-sm, 6px);
   background: transparent;
   color: var(--prism-ink);
-  font: inherit;
+  font-family: var(--prism-font);
   font-size: var(--prism-type-body-sm);
+  font-weight: 400;
+  line-height: var(--prism-leading-body);
   text-align: left;
   cursor: pointer;
 }
@@ -429,7 +438,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--prism-space-xs);
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   padding: var(--prism-space-sm) var(--prism-space-md);
   border-radius: var(--prism-radius-md);
   border: 1px solid var(--prism-line);
@@ -466,7 +476,8 @@
   font-weight: 600;
   color: var(--prism-ink);
   white-space: pre-wrap;
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .prism-tooltip__pop[data-wide="true"] {
@@ -480,7 +491,34 @@
   line-height: var(--prism-leading-body);
   color: var(--prism-ink-muted);
   white-space: pre-wrap;
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.prism-tooltip__line {
+  display: block;
+}
+
+.prism-tooltip__k {
+  font-weight: 650;
+  color: var(--prism-ink, #fff);
+}
+
+.prism-range-pop__actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 10px;
+  background: var(--prism-panel);
+}
+
+.prism-range-pop__actions .prism-btn {
+  flex: 0 0 auto;
+  width: auto;
 }
 
 /* Compact HoverTip: keep long briefs (job PRDs) to a few scannable lines. */
@@ -1005,7 +1043,7 @@ fieldset.prism-field,
 .prism-range-trigger {
   display: inline-flex;
   align-items: stretch;
-  width: auto;
+  width: fit-content;
   min-width: 0;
   max-width: min(36rem, 100%);
   padding: 0;
@@ -1013,21 +1051,24 @@ fieldset.prism-field,
 }
 
 .prism-range-trigger--custom {
-  min-width: 16rem;
+  min-width: 0;
 }
 
 .prism-range-trigger__abs,
 .prism-range-trigger__preset {
   display: flex;
   align-items: center;
+  width: max-content;
   min-width: 0;
   padding: 5px 10px;
   font-size: var(--prism-type-label);
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .prism-range-trigger__abs {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
+  width: max-content;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   border-right: 1px solid var(--prism-line);
@@ -1058,8 +1099,7 @@ fieldset.prism-field,
 }
 
 .prism-range-pop__apply {
-  margin-top: auto;
-  width: 100%;
+  width: auto;
 }
 
 .prism-range-pop__presets {
@@ -1083,6 +1123,10 @@ fieldset.prism-field,
   position: relative;
   display: grid;
   gap: 4px;
+}
+
+.prism-dt:has(.prism-dt__control--open) {
+  z-index: 12;
 }
 
 .prism-dt__control {
@@ -1137,10 +1181,13 @@ fieldset.prism-field,
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
-  z-index: 8;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
   box-sizing: border-box;
-  width: max(17.5rem, 100%);
-  padding: 10px;
+  width: max-content;
+  min-width: 0;
+  padding: 8px 8px 0;
   border: 1px solid var(--prism-line);
   border-radius: var(--prism-radius-md);
   background: var(--prism-tile);
@@ -1148,11 +1195,16 @@ fieldset.prism-field,
   box-shadow: var(--prism-shadow-3);
 }
 
+.prism-dt__pop--above {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
 .prism-dt__head {
   display: flex;
   align-items: center;
   gap: 2px;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .prism-dt__month {
@@ -1186,13 +1238,14 @@ fieldset.prism-field,
 .prism-dt__week,
 .prism-dt__grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  width: 100%;
-  gap: 2px;
+  grid-template-columns: repeat(7, 1.55rem);
+  width: max-content;
+  margin-inline: auto;
+  gap: 0;
 }
 
 .prism-dt__week {
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .prism-dt__week span {
@@ -1200,7 +1253,7 @@ fieldset.prism-field,
   align-items: center;
   justify-content: center;
   min-width: 0;
-  height: 1.25rem;
+  height: 1rem;
   overflow: hidden;
   color: var(--prism-ink-muted);
   font-family: var(--prism-font-mono);
@@ -1211,17 +1264,16 @@ fieldset.prism-field,
 }
 
 .prism-dt__day {
-  width: 100%;
-  aspect-ratio: 1;
-  height: auto;
-  min-height: 1.75rem;
+  width: 1.55rem;
+  height: 1.5rem;
+  min-height: 0;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: var(--prism-radius-md);
+  border-radius: var(--prism-radius-sm, 6px);
   background: transparent;
   color: var(--prism-ink);
   font: inherit;
-  font-size: 12px;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
 }
@@ -1255,18 +1307,50 @@ fieldset.prism-field,
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 10px;
-  padding-top: 8px;
+  margin-top: 6px;
+  padding-top: 6px;
   border-top: 1px solid var(--prism-line);
 }
 
-.prism-dt__time-label {
+.prism-dt__time-copy {
+  display: grid;
+  gap: 2px;
   margin-right: auto;
+}
+
+.prism-dt__time-label {
   color: var(--prism-ink-muted);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.prism-dt__time-sub {
+  color: var(--prism-ink-muted);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+.prism-dt__actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin: 8px -8px 0;
+  padding: 8px;
+  border-top: 1px solid var(--prism-line);
+  background: var(--prism-tile);
+  border-radius: 0 0 var(--prism-radius-md) var(--prism-radius-md);
+}
+
+.prism-dt__actions .prism-btn {
+  flex: 0 0 auto;
+  width: auto;
 }
 
 .prism-dt__spin {
@@ -1339,7 +1423,10 @@ fieldset.prism-field,
   border-radius: var(--prism-radius-sm, 6px);
   background: transparent;
   color: inherit;
-  font: inherit;
+  font-family: var(--prism-font);
+  font-size: var(--prism-type-body-sm);
+  font-weight: 400;
+  line-height: var(--prism-leading-body);
   text-align: left;
   cursor: pointer;
   outline: none;
@@ -1404,6 +1491,7 @@ fieldset.prism-field,
   min-height: 0;
   flex-shrink: 0;
   overflow: hidden;
+  color: var(--prism-ink);
   background: var(--prism-surface-2);
   box-shadow: var(--prism-shadow-3);
 }
@@ -1866,7 +1954,7 @@ fieldset.prism-field,
 .prism-chart {
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr);
-  grid-template-rows: 220px 22px;
+  grid-template-rows: var(--prism-chart-plot-h, 220px) 22px;
   grid-template-areas:
     "y plot"
     ". x";
@@ -1915,6 +2003,17 @@ fieldset.prism-field,
   z-index: 0;
 }
 
+/* Series SVG must fill the same box as the grid / hover overlay. A fixed
+   height attribute (180) inside a taller plot row left 0-values floating
+   above the Y-axis 0 tick. */
+.prism-chart__body > svg:not(.prism-chart__grid) {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
 .prism-chart__x {
   grid-area: x;
   position: relative;
@@ -1945,6 +2044,101 @@ fieldset.prism-field,
   left: auto;
   right: 0;
   transform: none;
+}
+
+.prism-chart__empty {
+  margin: 0;
+  font-size: var(--prism-type-body-sm);
+  color: var(--prism-ink-muted);
+}
+
+.prism-candle {
+  min-width: 0;
+  width: 100%;
+}
+
+.prism-candle .prism-chart {
+  grid-template-rows: 200px 22px;
+}
+
+.prism-candle__plot {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+}
+
+.prism-candle__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.prism-candle__bar {
+  stroke-width: 1.25;
+}
+
+.prism-candle__bar--up {
+  stroke: #10b981;
+  fill: #10b981;
+}
+
+.prism-candle__bar--down {
+  stroke: #f43f5e;
+  fill: #f43f5e;
+}
+
+.prism-candle__hit {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.prism-candle__hit:focus-visible {
+  outline: 2px solid var(--prism-brand, #00c2c2);
+  outline-offset: 1px;
+}
+
+.prism-candle__tip {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 8px));
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: max-content;
+  max-width: none;
+  padding: 6px 9px;
+  border: 1px solid var(--prism-line);
+  border-radius: 8px;
+  background: var(--prism-surface-2, #1a2230);
+  color: var(--prism-ink);
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+  pointer-events: none;
+}
+
+.prism-candle__tip[data-edge="end"] {
+  transform: translate(-100%, calc(-100% - 8px));
+}
+
+.prism-candle__tip[data-edge="start"] {
+  transform: translate(0, calc(-100% - 8px));
+}
+
+.prism-candle__tip strong {
+  color: var(--prism-brand, #00c2c2);
 }
 
 .prism-skeleton {
@@ -2024,9 +2218,10 @@ fieldset.prism-field,
   right: 16px;
   z-index: 80;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   max-width: min(420px, calc(100vw - 32px));
+  min-width: 0;
   padding: 10px 14px;
   border: 1px solid var(--prism-line);
   border-radius: var(--prism-radius-md);
@@ -2035,6 +2230,21 @@ fieldset.prism-field,
   font-family: var(--prism-font);
   font-size: var(--prism-type-body-sm);
   box-shadow: var(--prism-shadow-3);
+  white-space: normal;
+}
+
+.prism-toast > svg,
+.console-toast > svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.prism-toast__msg {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: pre-wrap;
 }
 
 .prism-toast--error,
@@ -2276,6 +2486,239 @@ fieldset.prism-field,
 .prism-metric-card[data-density="compact"] .prism-metric-card__unit,
 .prism-metric-card[data-density="regular"] .prism-metric-card__unit {
   font-size: 10px;
+}
+
+.prism-token-cost {
+  background: var(--prism-panel, #131926);
+}
+
+.prism-token-cost--plain {
+  display: grid;
+  gap: 8px;
+}
+
+.prism-token-cost__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.prism-token-cost__label {
+  font-size: var(--prism-type-body-sm);
+  font-weight: 600;
+  color: var(--prism-ink-2, #cbd5e1);
+}
+
+.prism-token-cost__total {
+  font-size: var(--prism-type-body-sm);
+  color: var(--prism-ink-muted, #94a3b8);
+  font-variant-numeric: tabular-nums;
+}
+
+.prism-token-cost__chart {
+  width: 100%;
+  height: 56px;
+  display: block;
+}
+
+.prism-token-cost__plot {
+  position: relative;
+  isolation: isolate;
+}
+
+.prism-token-cost__crosshair {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  transition:
+    left 100ms ease,
+    opacity 100ms ease;
+  width: 1px;
+  margin-left: -0.5px;
+  z-index: 6;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--prism-ink) 70%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--prism-canvas) 60%, transparent);
+}
+
+.prism-token-cost__tooltip {
+  position: absolute;
+  top: -6px;
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: max-content;
+  max-width: none;
+  padding: 4px 8px;
+  border: 1px solid var(--prism-line);
+  border-radius: 6px;
+  background: var(--prism-surface-2, #1a2230);
+  color: var(--prism-ink);
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  box-shadow: 0 4px 12px color-mix(in oklab, black 25%, transparent);
+  transition: left 100ms ease;
+}
+
+.prism-token-cost__tooltip strong {
+  font-size: 11px;
+  color: var(--prism-ink);
+}
+
+.prism-token-cost__tooltip span {
+  color: var(--prism-ink-muted, #94a3b8);
+}
+
+.prism-token-cost__tooltip--end {
+  transform: translate(-100%, -100%);
+}
+
+.prism-token-cost__tooltip--start {
+  transform: translate(0, -100%);
+}
+
+.prism-token-cost__mark {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 999px;
+  border: 2px solid var(--prism-canvas, #0b0f17);
+  z-index: 5;
+  cursor: default;
+}
+
+.prism-token-cost__mark--peak {
+  background: var(--prism-rose, #f43f5e);
+}
+
+.prism-token-cost__mark--low {
+  background: var(--prism-emerald, #10b981);
+}
+
+/* —— Typography. Two classes so these beat one-class screen leftovers. —— */
+.prism-type {
+  font-family: var(--prism-font);
+  font-weight: var(--prism-type-body-weight, 400);
+  letter-spacing: normal;
+  line-height: var(--prism-leading-body, 1.5);
+  color: var(--prism-ink);
+  text-transform: none;
+}
+
+.prism-type.prism-type--title {
+  font-size: var(--prism-type-h1-size, 1.5rem);
+  font-weight: var(--prism-type-h1-weight, 550);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  color: var(--prism-ink-heading, #ffffff);
+}
+
+.prism-type.prism-type--page {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--prism-ink-heading, #ffffff);
+}
+
+.prism-type.prism-type--headline {
+  font-size: 1rem;
+  font-weight: var(--prism-type-h2-weight, 500);
+  line-height: 1.45;
+  color: var(--prism-ink-heading, #ffffff);
+}
+
+.prism-type.prism-type--heading {
+  font-size: var(--prism-type-h2-size, 1.15rem);
+  font-weight: var(--prism-type-h2-weight, 500);
+  line-height: 1.3;
+  color: var(--prism-ink-heading, #ffffff);
+}
+
+.prism-type.prism-type--subheading {
+  font-size: var(--prism-type-h3-size, 0.95rem);
+  font-weight: var(--prism-type-h3-weight, 500);
+  line-height: 1.35;
+  color: var(--prism-ink-heading, #ffffff);
+}
+
+.prism-type.prism-type--card {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--prism-ink-heading, #ffffff);
+}
+
+.prism-type.prism-type--section {
+  font-family: var(--prism-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  line-height: 1.3;
+  text-transform: uppercase;
+  color: var(--prism-ink-heading, #ffffff);
+}
+
+.prism-type.prism-type--lede {
+  font-size: var(--prism-type-body-sm, 0.8125rem);
+  font-weight: 400;
+  color: var(--prism-ink-muted);
+}
+
+.prism-type.prism-type--body {
+  font-size: var(--prism-type-body, 0.9375rem);
+  font-weight: 400;
+  color: var(--prism-ink);
+}
+
+.prism-type.prism-type--caption {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--prism-ink-muted);
+}
+
+.prism-type.prism-type--label {
+  font-family: var(--prism-mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  line-height: 1.3;
+  text-transform: uppercase;
+  color: var(--prism-ink-muted);
+}
+
+.prism-type.prism-type--eyebrow {
+  font-family: var(--prism-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+  text-transform: uppercase;
+  color: var(--prism-brand, #00c2c2);
+}
+
+.prism-type.prism-type--code {
+  font-family: var(--prism-mono);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--prism-ink);
+}
+
+.prism-type.prism-type--metric {
+  font-family: var(--prism-mono);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--prism-ink-heading, #ffffff);
 }
 
 @media (prefers-reduced-motion: reduce) {

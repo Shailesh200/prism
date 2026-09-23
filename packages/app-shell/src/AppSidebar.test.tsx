@@ -1,62 +1,47 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from "@testing-library/react";
-import { userEvent } from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { AppShellClientProvider } from "./client-context.js";
 import type { AppShellClient } from "./client.js";
 import { AppSidebar } from "./AppSidebar.js";
+import { DASHBOARD_VIEW_LABELS, DASHBOARD_VIEWS } from "./dashboard-views.js";
 
 afterEach(() => {
   cleanup();
-  vi.unstubAllGlobals();
 });
 
 function renderNav() {
-  const client = {
-    fetchConsoleStatus: vi.fn().mockResolvedValue({
-      console: {
-        url: "http://prismhq.localhost:17330/?token=abc",
-        port: 17330,
-      },
-      connectors: [],
-      unreadable: [],
-    }),
-  } as unknown as AppShellClient;
+  const client = {} as AppShellClient;
   render(
     <AppShellClientProvider client={client}>
       <AppSidebar
         variant="full"
-        active="testing"
+        active="overview"
         repoLabel="prism"
-        onNavigate={vi.fn()}
+        onNavigate={() => undefined}
       />
     </AppShellClientProvider>,
   );
-  return client;
 }
 
 describe("AppSidebar", () => {
-  it("keeps Impact under Tools and opens Dispatch in a new tab", async () => {
-    const open = vi.fn();
-    vi.stubGlobal("open", open);
-    const client = renderNav();
+  it("shows the nine Dashboard tabs and no retired products", () => {
+    renderNav();
 
-    expect(screen.queryByRole("button", { name: "Jobs" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Change Review" })).toBeNull();
+    for (const id of DASHBOARD_VIEWS) {
+      expect(
+        screen.getByRole("button", { name: DASHBOARD_VIEW_LABELS[id] }),
+      ).toBeTruthy();
+    }
+
+    expect(screen.queryByRole("button", { name: "Repository Map" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Domains" })).toBeNull();
     expect(
-      screen.queryByRole("button", { name: "Explain This Area" }),
+      screen.queryByRole("button", { name: "Testing and Security" }),
     ).toBeNull();
-    expect(screen.queryByRole("button", { name: "Blast Radius" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Impact" })).toBeTruthy();
-
-    await userEvent.click(
-      screen.getByRole("button", { name: "Open Dispatch console" }),
-    );
-    expect(client.fetchConsoleStatus).toHaveBeenCalled();
-    expect(open).toHaveBeenCalledWith(
-      "http://prismhq.localhost:17330/?token=abc",
-      "_blank",
-      "noopener,noreferrer",
-    );
+    expect(
+      screen.queryByRole("button", { name: "Open Dispatch console" }),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Guard" })).toBeNull();
   });
 });

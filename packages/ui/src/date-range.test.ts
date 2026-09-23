@@ -45,7 +45,7 @@ describe("date-range helpers", () => {
     expect(presetLabel([], CUSTOM_RANGE_PRESET)).toBe("Custom");
   });
 
-  it("keeps absolute from/to off the trigger for named presets", () => {
+  it("keeps absolute from/to off the custom class for named presets", () => {
     expect(rangeTriggerShowsAbs("1h")).toBe(false);
     expect(rangeTriggerShowsAbs("all")).toBe(false);
     expect(rangeTriggerShowsAbs(CUSTOM_RANGE_PRESET)).toBe(true);

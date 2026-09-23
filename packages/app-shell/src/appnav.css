@@ -81,7 +81,7 @@ html[data-prism-tour-active] .appnav--rail .appnav__reveal {
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   font-size: 0.875rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--prism-ink);
   flex-shrink: 0;
   /* Keep brand row a clean spotlight target (icon + wordmark). */
   border-radius: 0;
@@ -166,7 +166,7 @@ html[data-prism-tour-active] .appnav__logo {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--prism-ink-muted);
   padding: 0 12px 6px;
   margin: 0;
   height: 0.75rem;
@@ -175,6 +175,41 @@ html[data-prism-tour-active] .appnav__logo {
 .appnav__group:not(:first-of-type) {
   padding-top: 16px;
   height: auto;
+}
+
+.appnav__rule {
+  display: none;
+}
+
+.appnav--rail:not(:hover):not(:focus-within) .appnav__group {
+  height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.appnav--rail:not(:hover):not(:focus-within) .appnav__rule {
+  display: block;
+  width: 20px;
+  height: 1px;
+  margin: 8px auto;
+  background: rgba(255, 255, 255, 0.14);
+  flex-shrink: 0;
+}
+
+html[data-prism-tour-active] .appnav--rail .appnav__group {
+  height: 0.75rem;
+  padding: 0 12px 6px;
+  overflow: visible;
+}
+
+html[data-prism-tour-active] .appnav--rail .appnav__group:not(:first-of-type) {
+  height: auto;
+  padding-top: 16px;
+}
+
+html[data-prism-tour-active] .appnav--rail .appnav__rule {
+  display: none;
 }
 
 .appnav__item {
@@ -186,7 +221,7 @@ html[data-prism-tour-active] .appnav__logo {
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: #94a3b8;
+  color: var(--prism-ink-muted);
   font: inherit;
   font-size: 0.8125rem;
   text-align: left;
@@ -200,7 +235,7 @@ html[data-prism-tour-active] .appnav__logo {
 
 .appnav__item:not(.appnav__item--soon):hover {
   background: rgba(255, 255, 255, 0.05);
-  color: #fff;
+  color: var(--prism-ink);
 }
 
 .appnav__item[data-active="true"] {
@@ -214,7 +249,7 @@ html[data-prism-tour-active] .appnav__logo {
 }
 
 .appnav__item--external {
-  color: #94a3b8;
+  color: var(--prism-ink-muted);
 }
 
 .appnav__item--external:hover {
@@ -249,7 +284,7 @@ html[data-prism-tour-active] .appnav__logo {
   padding: 2px 6px;
   border-radius: 99px;
   background: rgba(148, 163, 184, 0.12);
-  color: #94a3b8;
+  color: var(--prism-ink-muted);
 }
 
 /* Warning highlight shown above the user block when .prism is not gitignored. */
@@ -311,14 +346,14 @@ html[data-prism-tour-active] .appnav__logo {
 .appnav__user-name {
   font-size: 0.75rem;
   font-weight: 500;
-  color: #fff;
+  color: var(--prism-ink);
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .appnav__user-sub {
   font-size: 0.625rem;
-  color: #94a3b8;
+  color: var(--prism-ink-muted);
   overflow: hidden;
   text-overflow: ellipsis;
 }

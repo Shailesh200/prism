@@ -2244,7 +2244,12 @@ export function createWorkspace(options: {
       const gate = ensureOpen();
       if (!gate.ok) return gate;
       const cache = await openIndexCache(rootPath);
-      if (!cache.ok) return cache;
+      if (!cache.ok) {
+        return ok({
+          improving: [],
+          regressing: [],
+        } satisfies RegionMoversReport);
+      }
       try {
         const rows = listHealthHistory(cache.value.db, rootPath);
         const regionPoints = rows.map((r) => r.regions);

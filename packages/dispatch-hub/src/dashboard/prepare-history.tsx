@@ -1,24 +1,16 @@
-import { useEffect, useState, type ReactElement, type ReactNode } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import {
   Button,
   Drawer,
   EmptyState,
-  Table,
-  TableNumber,
-  TableTimestamp,
   Tooltip,
   formatPrismDate,
-  type TableColumn,
 } from "@repo-prism/ui";
 import type { LastPrepareSummary } from "@repo-prism/dispatch";
 import { ChevronLeft, FileText, Layers, Palette, Recycle } from "lucide-react";
 import type { EnvelopeMetricCard } from "./envelope-cards.js";
 import { Pager, pageSlice } from "./pager.js";
 import { getJson } from "./session.js";
-
-type PackFileRow = LastPrepareSummary["packFiles"][number];
-type ReuseRow = LastPrepareSummary["reuse"][number];
-type ConventionRow = LastPrepareSummary["conventions"][number];
 
 const PACK_FILES_TIP =
   "The files prepare_change picked for this task, with why each one was included (ownership, feature match, or a name overlap) and what it cost against the pack's token budget.";
@@ -34,30 +26,6 @@ const WORK_ORDER_TIP =
 
 type NumberTone = "good" | "warn" | "bad" | "neutral";
 
-function toneColor(tone: NumberTone): string | undefined {
-  switch (tone) {
-    case "good":
-      return "var(--prism-emerald)";
-    case "warn":
-      return "var(--prism-amber)";
-    case "bad":
-      return "var(--prism-rose)";
-    default:
-      return undefined;
-  }
-}
-
-function ToneNumber(props: {
-  readonly tone: NumberTone;
-  readonly children: ReactNode;
-}): ReactElement {
-  return (
-    <TableNumber>
-      <span style={{ color: toneColor(props.tone) }}>{props.children}</span>
-    </TableNumber>
-  );
-}
-
 /** Lower is better — a heavier file eats more of the pack's token budget. */
 function weightTone(weight: number): NumberTone {
   if (weight <= 30) return "good";
@@ -70,11 +38,6 @@ function matchTone(score: number): NumberTone {
   if (score >= 0.8) return "good";
   if (score >= 0.5) return "warn";
   return "bad";
-}
-
-/** More is better — reuse found, or a convention actually matched. */
-function presenceTone(count: number): NumberTone {
-  return count > 0 ? "good" : "neutral";
 }
 
 /** How a file or reuse hit was found — "measured/heuristic/…" straight from the pack. */
@@ -112,132 +75,13 @@ function PrepareRunDetail(props: {
   const [packPage, setPackPage] = useState(0);
   const [reusePage, setReusePage] = useState(0);
   const [conventionPage, setConventionPage] = useState(0);
-  const packColumns: readonly TableColumn<PackFileRow>[] = [
-    {
-      id: "path",
-      header: "File",
-      width: "220px",
-      nowrap: true,
-      render: (row) => <code>{row.path}</code>,
-      tip: (row) => row.path,
-    },
-    {
-      id: "symbols",
-      header: "Symbols",
-      width: "160px",
-      nowrap: true,
-      render: (row) => (row.symbols.length > 0 ? row.symbols.join(", ") : "—"),
-      tip: (row) => row.symbols.join(", "),
-    },
-    {
-      id: "why",
-      header: "Why it's here",
-      width: "200px",
-      nowrap: true,
-      render: (row) => (row.why.length > 0 ? row.why.join("; ") : "—"),
-      tip: (row) => row.why.join("; "),
-    },
-    {
-      id: "provenance",
-      header: "Source",
-      width: "150px",
-      nowrap: true,
-      render: (row) => provenanceLabel(row.provenance),
-    },
-    {
-      id: "weight",
-      header: "Weight",
-      type: "number",
-      width: "80px",
-      render: (row) => (
-        <ToneNumber tone={weightTone(row.tokenWeight)}>
-          {row.tokenWeight}
-        </ToneNumber>
-      ),
-      sortValue: (row) => row.tokenWeight,
-    },
-  ];
-
-  const reuseColumns: readonly TableColumn<ReuseRow>[] = [
-    {
-      id: "symbol",
-      header: "Symbol",
-      width: "150px",
-      nowrap: true,
-      render: (row) => <code>{row.symbol}</code>,
-    },
-    {
-      id: "path",
-      header: "File",
-      width: "200px",
-      nowrap: true,
-      render: (row) => row.path,
-      tip: (row) => row.path,
-    },
-    {
-      id: "kind",
-      header: "Kind",
-      width: "90px",
-      nowrap: true,
-      render: (row) => row.kind,
-    },
-    {
-      id: "score",
-      header: "Match",
-      type: "number",
-      width: "70px",
-      render: (row) => (
-        <ToneNumber tone={matchTone(row.score)}>
-          {Math.round(row.score * 100)}%
-        </ToneNumber>
-      ),
-      sortValue: (row) => row.score,
-    },
-    {
-      id: "provenance",
-      header: "Source",
-      width: "150px",
-      nowrap: true,
-      render: (row) => provenanceLabel(row.provenance),
-    },
-    {
-      id: "evidence",
-      header: "Evidence",
-      width: "220px",
-      nowrap: true,
-      render: (row) => row.evidence || "—",
-      tip: (row) => row.evidence,
-    },
-  ];
-
-  const conventionColumns: readonly TableColumn<ConventionRow>[] = [
-    {
-      id: "path",
-      header: "Exemplar file",
-      width: "260px",
-      nowrap: true,
-      render: (row) => <code>{row.path}</code>,
-      tip: (row) => row.path,
-    },
-    {
-      id: "pattern",
-      header: "Pattern",
-      width: "150px",
-      nowrap: true,
-      render: (row) => patternLabel(row.patternId),
-    },
-    {
-      id: "why",
-      header: "Why this one is canonical",
-      width: "260px",
-      nowrap: true,
-      render: (row) => row.whyCanonical,
-      tip: (row) => row.whyCanonical,
-    },
-  ];
 
   return (
     <div className="prepare-run">
+      <div className="prepare-job-title">
+        <h3>Job title</h3>
+        <p>{run.task}</p>
+      </div>
       <dl className="console__facts">
         <div>
           <dt>Ran</dt>
@@ -262,9 +106,10 @@ function PrepareRunDetail(props: {
 
       {run.ambiguous ? (
         <EmptyState>
-          &quot;{run.ambiguous.query}&quot; matched more than one symbol:{" "}
-          {run.ambiguous.candidates.map((c) => c.path).join(", ")}. House Style
-          picked the canonical one; the rest are listed here for reference.
+          Your Prismate matched &quot;{run.ambiguous.query}&quot; to more than
+          one symbol: {run.ambiguous.candidates.map((c) => c.path).join(", ")}.
+          House Style picked the canonical one; the rest are listed here for
+          reference.
         </EmptyState>
       ) : null}
 
@@ -274,12 +119,34 @@ function PrepareRunDetail(props: {
       </h3>
       {run.packFiles.length > 0 ? (
         <>
-          <Table
-            className="prepare-run-table"
-            rowKey={(row) => row.path}
-            rows={pageSlice(run.packFiles, packPage, PACK_FILES_PAGE_SIZE)}
-            columns={packColumns}
-          />
+          <ul className="prepare-cards">
+            {pageSlice(run.packFiles, packPage, PACK_FILES_PAGE_SIZE).map(
+              (row) => (
+                <li key={row.path} className="prepare-card">
+                  <div className="prepare-card__head">
+                    <code className="prepare-card__title">{row.path}</code>
+                    <span
+                      className="prepare-card__badge"
+                      data-tone={weightTone(row.tokenWeight)}
+                    >
+                      {row.tokenWeight} wt
+                    </span>
+                  </div>
+                  <p className="prepare-card__why">
+                    {row.why.length > 0
+                      ? row.why.join(" · ")
+                      : "Packed for this task."}
+                  </p>
+                  <div className="prepare-card__meta">
+                    <span>{provenanceLabel(row.provenance)}</span>
+                    {row.symbols.length > 0 ? (
+                      <span>{row.symbols.join(", ")}</span>
+                    ) : null}
+                  </div>
+                </li>
+              ),
+            )}
+          </ul>
           <Pager
             page={packPage}
             pageSize={PACK_FILES_PAGE_SIZE}
@@ -297,12 +164,29 @@ function PrepareRunDetail(props: {
       </h3>
       {run.reuse.length > 0 ? (
         <>
-          <Table
-            className="prepare-run-table"
-            rowKey={(row) => `${row.path}:${row.symbol}`}
-            rows={pageSlice(run.reuse, reusePage, REUSE_HITS_PAGE_SIZE)}
-            columns={reuseColumns}
-          />
+          <ul className="prepare-cards">
+            {pageSlice(run.reuse, reusePage, REUSE_HITS_PAGE_SIZE).map(
+              (row) => (
+                <li key={`${row.path}:${row.symbol}`} className="prepare-card">
+                  <div className="prepare-card__head">
+                    <code className="prepare-card__title">{row.symbol}</code>
+                    <span
+                      className="prepare-card__badge"
+                      data-tone={matchTone(row.score)}
+                    >
+                      {Math.round(row.score * 100)}%
+                    </span>
+                  </div>
+                  <p className="prepare-card__why">{row.path}</p>
+                  <div className="prepare-card__meta">
+                    <span>{row.kind}</span>
+                    <span>{provenanceLabel(row.provenance)}</span>
+                    {row.evidence ? <span>{row.evidence}</span> : null}
+                  </div>
+                </li>
+              ),
+            )}
+          </ul>
           <Pager
             page={reusePage}
             pageSize={REUSE_HITS_PAGE_SIZE}
@@ -322,16 +206,25 @@ function PrepareRunDetail(props: {
       </h3>
       {run.conventions.length > 0 ? (
         <>
-          <Table
-            className="prepare-run-table"
-            rowKey={(row) => `${row.path}:${row.patternId}`}
-            rows={pageSlice(
+          <ul className="prepare-cards">
+            {pageSlice(
               run.conventions,
               conventionPage,
               HOUSE_STYLE_PAGE_SIZE,
-            )}
-            columns={conventionColumns}
-          />
+            ).map((row) => (
+              <li key={`${row.path}:${row.patternId}`} className="prepare-card">
+                <div className="prepare-card__head">
+                  <span className="prepare-card__title">
+                    {patternLabel(row.patternId)}
+                  </span>
+                </div>
+                <p className="prepare-card__why">{row.whyCanonical}</p>
+                <div className="prepare-card__meta">
+                  <code>{row.path}</code>
+                </div>
+              </li>
+            ))}
+          </ul>
           <Pager
             page={conventionPage}
             pageSize={HOUSE_STYLE_PAGE_SIZE}
@@ -402,7 +295,7 @@ export function prepareTotalsCards(
   return [
     {
       id: "runs",
-      label: "Runs",
+      label: "Total Runs",
       tip: "Every prepare_change call recorded for this repo.",
       value: String(history.length),
       icon: Layers,
@@ -410,7 +303,7 @@ export function prepareTotalsCards(
     },
     {
       id: "pack",
-      label: "Pack files",
+      label: "Total Packed files",
       tip: "Total files packed across every run.",
       value: String(packFiles),
       icon: FileText,
@@ -418,7 +311,7 @@ export function prepareTotalsCards(
     },
     {
       id: "reuse",
-      label: "Reuse hits",
+      label: "Total Reuse hits",
       tip: "Total existing code found reusable across every run.",
       value: String(reuse),
       icon: Recycle,
@@ -480,62 +373,6 @@ export function PrepareHistoryDrawer(props: {
     ? history?.find((row) => row.generatedAt === viewId)
     : undefined;
 
-  const runColumns: readonly TableColumn<LastPrepareSummary>[] = [
-    {
-      id: "when",
-      header: "When",
-      type: "timestamp",
-      width: "110px",
-      render: (row) => <TableTimestamp iso={row.generatedAt} />,
-      sortValue: (row) => Date.parse(row.generatedAt),
-    },
-    {
-      id: "task",
-      header: "Task",
-      width: "260px",
-      nowrap: true,
-      render: (row) => row.task,
-      tip: (row) => row.task,
-    },
-    {
-      id: "pack",
-      header: "Pack files",
-      type: "number",
-      width: "90px",
-      render: (row) => (
-        <ToneNumber tone={row.truncated ? "warn" : "neutral"}>
-          {row.packFiles.length}
-          {row.truncated ? ` of ${row.totalCount}` : ""}
-        </ToneNumber>
-      ),
-      sortValue: (row) => row.packFiles.length,
-    },
-    {
-      id: "reuse",
-      header: "Reuse",
-      type: "number",
-      width: "80px",
-      render: (row) => (
-        <ToneNumber tone={presenceTone(row.reuse.length)}>
-          {row.reuse.length}
-        </ToneNumber>
-      ),
-      sortValue: (row) => row.reuse.length,
-    },
-    {
-      id: "conventions",
-      header: "Conventions",
-      type: "number",
-      width: "100px",
-      render: (row) => (
-        <ToneNumber tone={presenceTone(row.conventions.length)}>
-          {row.conventions.length}
-        </ToneNumber>
-      ),
-      sortValue: (row) => row.conventions.length,
-    },
-  ];
-
   return (
     <Drawer
       title={
@@ -557,7 +394,6 @@ export function PrepareHistoryDrawer(props: {
           >
             All runs
           </Button>
-          <p className="console__lede">{viewing.task}</p>
           <PrepareRunDetail key={viewing.generatedAt} run={viewing} />
         </>
       ) : error ? (
@@ -570,13 +406,27 @@ export function PrepareHistoryDrawer(props: {
           teammate edits, or start one after Iris has indexed.
         </EmptyState>
       ) : (
-        <Table
-          className="prepare-runs-table"
-          rowKey={(row) => row.generatedAt}
-          rows={history}
-          onRowClick={(row) => setViewId(row.generatedAt)}
-          columns={runColumns}
-        />
+        <ul className="prepare-cards prepare-cards--history">
+          {history.map((row) => (
+            <li key={row.generatedAt}>
+              <button
+                type="button"
+                className="prepare-card prepare-card--row"
+                onClick={() => setViewId(row.generatedAt)}
+              >
+                <div className="prepare-job-title">
+                  <h3>Job title</h3>
+                  <p>{row.task}</p>
+                </div>
+                <p className="prepare-card__why">
+                  {formatPrismDate(row.generatedAt, "datetime")} ·{" "}
+                  {row.packFiles.length} packed · {row.reuse.length} reuse ·{" "}
+                  {row.conventions.length} house style
+                </p>
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
     </Drawer>
   );

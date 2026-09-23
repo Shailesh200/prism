@@ -5,7 +5,13 @@ import type {
   HealthScore,
   RepositoryMap,
 } from "@repo-prism/shared";
-import { CardIcon, type CardIconTone, InfoTip, Input } from "@repo-prism/ui";
+import {
+  CardIcon,
+  type CardIconTone,
+  InfoTip,
+  Input,
+  Text,
+} from "@repo-prism/ui";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
@@ -34,6 +40,7 @@ import type {
   CSSProperties,
   FormEvent,
   ReactElement,
+  ReactNode,
 } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import { AppSidebar, type AppSidebarUser, type AppView } from "./AppSidebar.js";
@@ -41,6 +48,7 @@ import { shellNavVariant, shellRootClass } from "./shell-layout.js";
 import { useModalFocus } from "./modal-focus.js";
 import { useAppShellClient } from "./client-context.js";
 import { DOMAIN_CATALOG } from "./domain-catalog.js";
+import { GraphInsightCards } from "./graph-insight-cards.js";
 import {
   couplingBadge,
   couplingDensity,
@@ -233,7 +241,8 @@ export type DnaScreenProps = {
   readonly user?: AppSidebarUser | null;
   readonly dna: DnaReport | null;
   readonly onNavigate: (view: AppView) => void;
-  readonly onOpenDomain: (domainId: string) => void;
+  /** @deprecated M-078 — Domains UI unmounted; DNA no longer opens a domain. */
+  readonly onOpenDomain?: (domainId: string) => void;
   /**
    * Open Settings → Audit Logs (falls back to Settings if omitted). Accepts an
    * optional audit category so callers can deep-link to a filtered view
@@ -241,6 +250,10 @@ export type DnaScreenProps = {
    * unfiltered ("All") panel — backwards compatible with `() => void`.
    */
   readonly onOpenAuditLogs?: (category?: string) => void;
+  /** Region / Most connected cards open Blast Radius when provided. */
+  readonly onOpenBlast?: (seedPath?: string) => void;
+  /** Trees widget (daemon). Hosts without `/api/trees` pass EmptyState. */
+  readonly trees?: ReactNode;
 };
 
 type BreakdownFactor = {
@@ -505,8 +518,12 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
       <div className="ov-main">
         <header className="ov-top">
           <div>
-            <div className="ov-top__title">{title}</div>
-            <div className="ov-top__sub">{subtitle}</div>
+            <Text variant="page" as="div" className="ov-top__title">
+              {title}
+            </Text>
+            <Text variant="caption" as="div" className="ov-top__sub">
+              {subtitle}
+            </Text>
           </div>
           <div className="ov-top__actions">
             <button
@@ -530,13 +547,6 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                 Explore code
               </button>
             ) : null}
-            <button
-              type="button"
-              className="ov-btn ov-btn--primary"
-              onClick={() => props.onNavigate("map")}
-            >
-              Open Map
-            </button>
           </div>
         </header>
 
@@ -583,6 +593,12 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                 />
               ) : null}
 
+              {props.trees ? (
+                <section className="ov-card dna-trees" aria-label="Trees">
+                  {props.trees}
+                </section>
+              ) : null}
+
               {dna ? (
                 <>
                   {/* Profile hero tiles (M-062 D-9: merged into DNA) */}
@@ -612,10 +628,6 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                       const tech = primaryDomainId
                         ? domainSignals(primaryDomainId)
                         : [];
-                      const openPrimary = (): void => {
-                        if (primaryDomainId)
-                          props.onOpenDomain(primaryDomainId);
-                      };
                       return (
                         <article className="ov-stat dna-primary">
                           <div className="ov-stat__head">
@@ -629,20 +641,9 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                               <InfoTip label="Primary Domain" align="start">
                                 Highest-confidence stack domain (e.g. Frontend,
                                 Backend, Devops). Tech chips match Frameworks
-                                &amp; Libs (icon + name). Use → to open the
-                                Domains tab.
+                                &amp; Libs (icon + name).
                               </InfoTip>
                             </span>
-                            {primaryDomainId ? (
-                              <button
-                                type="button"
-                                className="ov-card__open dna-primary__go"
-                                aria-label={`Open ${domainDisplayName(primaryDomainId)} domain`}
-                                onClick={openPrimary}
-                              >
-                                <ArrowRight size={15} aria-hidden />
-                              </button>
-                            ) : null}
                           </div>
                           {tech.length > 0 ? (
                             <PrimaryTechStack signals={tech} />
@@ -667,12 +668,18 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                         <span className="ov-stat__k">
                           <CardIcon icon={Package} tone="amber" size={14} />
                           Frameworks &amp; Libs
-                          <InfoTip label="Frameworks & Libs">
-                            Frameworks and libraries detected from manifests and
-                            import signals. Layout matches Primary Domain (icon
-                            + name chips).
-                          </InfoTip>
+                          {frameworks.length > 0 ? (
+                            <span className="dna-tag dna-tag--brand">
+                              {frameworks.length} framework
+                              {frameworks.length === 1 ? "" : "s"}
+                            </span>
+                          ) : null}
                         </span>
+                        <InfoTip label="Frameworks & Libs" align="end">
+                          Frameworks and libraries detected from manifests and
+                          import signals. Layout matches Primary Domain (icon +
+                          name chips).
+                        </InfoTip>
                       </div>
                       {frameworks.length > 0 ? (
                         <div
@@ -703,12 +710,6 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                       ) : (
                         <div className="ov-stat__v ov-stat__v--sm">—</div>
                       )}
-                      <div className="dna-primary__tags">
-                        <span className="dna-tag dna-tag--brand">
-                          {frameworks.length} framework
-                          {frameworks.length === 1 ? "" : "s"}
-                        </span>
-                      </div>
                       <div className="ov-stat__note">
                         {frameworks.length > 0
                           ? "from manifests & imports"
@@ -995,7 +996,11 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                   <div className="card-masonry">
                     <article className="ov-card">
                       <div className="ov-card__head">
-                        <span className="ov-card__title">
+                        <Text
+                          variant="card"
+                          as="span"
+                          className="ov-card__title"
+                        >
                           <ArrowRight
                             size={14}
                             className="ov-card__icon"
@@ -1006,7 +1011,7 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                             Patterns to keep in mind when navigating — monorepo,
                             layered layout, and similar structural cues.
                           </InfoTip>
-                        </span>
+                        </Text>
                         {hints.length > 0 ? (
                           <span className="ov-card__meta">
                             {hints.length} hints
@@ -1028,7 +1033,11 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
 
                     <article className="ov-card">
                       <div className="ov-card__head">
-                        <span className="ov-card__title">
+                        <Text
+                          variant="card"
+                          as="span"
+                          className="ov-card__title"
+                        >
                           <Users
                             size={14}
                             className="ov-card__icon"
@@ -1039,7 +1048,7 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                             Suggested engineer personas based on detected stack
                             domains and tooling.
                           </InfoTip>
-                        </span>
+                        </Text>
                       </div>
                       {personas.length > 0 ? (
                         <div className="dna-personas">
@@ -1061,7 +1070,11 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
 
                     <article className="ov-card">
                       <div className="ov-card__head">
-                        <span className="ov-card__title">
+                        <Text
+                          variant="card"
+                          as="span"
+                          className="ov-card__title"
+                        >
                           <Layers
                             size={14}
                             className="ov-card__icon"
@@ -1071,7 +1084,7 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                           <InfoTip label="Language Composition">
                             Share of indexed source files by language.
                           </InfoTip>
-                        </span>
+                        </Text>
                         {languages.length > 0 ? (
                           <span className="ov-card__meta">
                             {languages.length} languages
@@ -1121,7 +1134,11 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
 
                     <article className="ov-card">
                       <div className="ov-card__head">
-                        <span className="ov-card__title">
+                        <Text
+                          variant="card"
+                          as="span"
+                          className="ov-card__title"
+                        >
                           <Package
                             size={14}
                             className="ov-card__icon"
@@ -1132,7 +1149,7 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                             Libraries and frameworks surfaced by the stack
                             detector.
                           </InfoTip>
-                        </span>
+                        </Text>
                         <span className="ov-card__meta">
                           {frameworks.length} detected
                         </span>
@@ -1177,7 +1194,11 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                     {packages.length > 0 ? (
                       <article className="ov-card">
                         <div className="ov-card__head">
-                          <span className="ov-card__title">
+                          <Text
+                            variant="card"
+                            as="span"
+                            className="ov-card__title"
+                          >
                             <Boxes
                               size={14}
                               className="ov-card__icon"
@@ -1188,7 +1209,7 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                               Workspace packages and the stack domains detected
                               in each.
                             </InfoTip>
-                          </span>
+                          </Text>
                           <span className="ov-card__meta">
                             {packages.length} in workspace
                           </span>
@@ -1227,7 +1248,11 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
 
                     <article className="ov-card">
                       <div className="ov-card__head">
-                        <span className="ov-card__title">
+                        <Text
+                          variant="card"
+                          as="span"
+                          className="ov-card__title"
+                        >
                           <Sparkles
                             size={14}
                             className="ov-card__icon"
@@ -1235,10 +1260,10 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                           />
                           Stack Domains
                           <InfoTip label="Stack Domains">
-                            Detected product domains with confidence and tech
+                            Detected stack identity with confidence and the tech
                             signals that triggered them.
                           </InfoTip>
-                        </span>
+                        </Text>
                       </div>
                       <div className="dna-domains">
                         {DOMAIN_CATALOG.map((d) => {
@@ -1272,17 +1297,6 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                                       —
                                     </span>
                                   )}
-                                  {detected ? (
-                                    <button
-                                      type="button"
-                                      className="dna-domain__open"
-                                      onClick={() => props.onOpenDomain(d.id)}
-                                      aria-label={`Open ${domainDisplayName(d.id)} domain`}
-                                      title={`Open ${domainDisplayName(d.id)} domain`}
-                                    >
-                                      <ArrowRight size={14} aria-hidden />
-                                    </button>
-                                  ) : null}
                                 </span>
                               </div>
                               {detected && tech.length > 0 ? (
@@ -1312,7 +1326,11 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
 
                     <article className="ov-card">
                       <div className="ov-card__head">
-                        <span className="ov-card__title">
+                        <Text
+                          variant="card"
+                          as="span"
+                          className="ov-card__title"
+                        >
                           <FlaskConical
                             size={14}
                             className="ov-card__icon"
@@ -1323,7 +1341,7 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                             % is the stack detector confidence (0–100) for that
                             signal.
                           </InfoTip>
-                        </span>
+                        </Text>
                         <span className="ov-card__meta">
                           {sortedSignals.length} signals
                         </span>
@@ -1379,6 +1397,14 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
                   </div>
                 </section>
               ) : null}
+              {props.map ? (
+                <GraphInsightCards
+                  map={props.map}
+                  {...(props.onOpenBlast
+                    ? { onOpenBlast: props.onOpenBlast }
+                    : {})}
+                />
+              ) : null}
             </>
           )}
         </div>
@@ -1399,9 +1425,14 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="dna-modal__head">
-              <h2 id={breakdownTitleId} className="dna-modal__title">
+              <Text
+                variant="page"
+                as="h2"
+                id={breakdownTitleId}
+                className="dna-modal__title"
+              >
                 {breakdownFactor.label} breakdown
-              </h2>
+              </Text>
               <button
                 type="button"
                 className="dna-modal__close"
@@ -1479,9 +1510,14 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="dna-modal__head">
-              <h2 id={checkLogsTitleId} className="dna-modal__title">
+              <Text
+                variant="page"
+                as="h2"
+                id={checkLogsTitleId}
+                className="dna-modal__title"
+              >
                 {checkLogsTarget.title} — logs
-              </h2>
+              </Text>
               <button
                 type="button"
                 className="dna-modal__close"
@@ -1558,9 +1594,14 @@ export function DnaScreen(props: DnaScreenProps): ReactElement {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="dna-modal__head">
-              <h2 id={explorerTitleId} className="dna-modal__title">
+              <Text
+                variant="page"
+                as="h2"
+                id={explorerTitleId}
+                className="dna-modal__title"
+              >
                 Code Explorer
-              </h2>
+              </Text>
               <button
                 type="button"
                 className="dna-modal__close"
@@ -1733,14 +1774,14 @@ function EngHealthCard(props: {
   return (
     <article className="ov-card dna-eng">
       <div className="ov-card__head">
-        <span className="ov-card__title">
+        <Text variant="card" as="span" className="ov-card__title">
           <Activity size={14} className="ov-card__icon" aria-hidden />
           Engineering Health
           <InfoTip label="Engineering Health">
             Complementary to Health Score — entropy, architecture drift, and
             technical debt from Prism&apos;s engineering-health analysis.
           </InfoTip>
-        </span>
+        </Text>
         {props.onExplore ? (
           <button
             type="button"

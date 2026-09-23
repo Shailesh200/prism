@@ -36,6 +36,7 @@ import {
   Textarea,
   ToggleGroup,
   Tooltip,
+  formatTooltipBody,
   Truncate,
   ScreenSkeleton,
   PrismToastHost,
@@ -58,6 +59,7 @@ describe("design-system primitives exports", () => {
     expect(typeof ToggleGroup).toBe("function");
     expect(typeof Tabs).toBe("function");
     expect(typeof Tooltip).toBe("function");
+    expect(typeof formatTooltipBody).toBe("function");
     expect(InfoTip).toBe(Tooltip);
     expect(typeof EmptyState).toBe("function");
     expect(typeof isPrimaryActionKey).toBe("function");
@@ -166,11 +168,43 @@ describe("design-system primitives exports", () => {
     expect(css).not.toMatch(/\* \{[^}]*scrollbar-width:\s*none/s);
   });
 
+  it("puts Select and Cancel under the datetime calendar, with 24h copy", () => {
+    const css = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "primitives.css"),
+      "utf8",
+    );
+    expect(css).toMatch(
+      /\.prism-dt__actions \{[^}]*position: sticky;[^}]*bottom: 0;/s,
+    );
+    expect(css).toMatch(
+      /\.prism-range-pop__actions \{[^}]*justify-content: space-between;/s,
+    );
+    expect(css).toMatch(
+      /\.prism-dt__actions \{[^}]*justify-content: space-between;/s,
+    );
+    expect(css).toMatch(/\.prism-range-pop__apply \{[^}]*width: auto;/s);
+    expect(css).toMatch(/\.prism-dt__time-sub \{/);
+    expect(css).toMatch(/\.prism-dt__day \{[^}]*width: 1\.55rem;/s);
+    expect(css).toMatch(/\.prism-dt__day \{[^}]*height: 1\.5rem;/s);
+    expect(css).not.toMatch(/\.prism-dt__day \{[^}]*aspect-ratio:/s);
+    expect(css).toMatch(/\.prism-dt__pop \{[^}]*width: max-content;/s);
+    expect(css).toMatch(
+      /\.prism-dt__pop--above \{[^}]*bottom: calc\(100% \+ 6px\);/s,
+    );
+    expect(css).toMatch(
+      /\.prism-dt:has\(\.prism-dt__control--open\) \{[^}]*z-index: 12;/s,
+    );
+    expect(css).toMatch(
+      /\.prism-range-trigger__abs \{[^}]*flex: 0 0 auto;[^}]*width: max-content;/s,
+    );
+  });
+
   it("stretches drawers with top/bottom instead of percentage height", () => {
     const css = readFileSync(
       join(dirname(fileURLToPath(import.meta.url)), "primitives.css"),
       "utf8",
     );
+    expect(css).toMatch(/\.prism-drawer \{[^}]*color: var\(--prism-ink\);/s);
     expect(css).toMatch(/\.prism-drawer \{[^}]*height: auto;/s);
     expect(css).toContain("max-height: 100dvh");
     expect(css).not.toMatch(/\.prism-drawer \{[^}]*height: 100%;/s);

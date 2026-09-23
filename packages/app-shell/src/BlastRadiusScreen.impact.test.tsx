@@ -69,15 +69,16 @@ function renderImpact(
 }
 
 describe("Impact workspace", () => {
-  it("shows one Impact chrome with Explain / Blast / Review tabs", () => {
+  it("shows one Impact chrome with Explain / Blast / Review / Guard tabs", () => {
     renderImpact(mockClient());
-    expect(screen.getByRole("button", { name: "Impact" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Impact & Guard" })).toBeTruthy();
     expect(document.querySelector(".ov-top__title")?.textContent).toBe(
       "Impact",
     );
     expect(screen.getByRole("tab", { name: "Explain" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Blast radius" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Review changes" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Guard" })).toBeTruthy();
     expect(
       screen.getByRole("button", { name: "Use dirty files" }),
     ).toBeTruthy();
@@ -170,5 +171,30 @@ describe("Impact workspace", () => {
     expect(screen.getByRole("button", { name: "Show less" })).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Clear all" }));
     expect(screen.queryByText("20 paths")).toBeNull();
+  });
+
+  it("hosts Guard inside Impact without a second rail", async () => {
+    renderImpact(
+      mockClient({
+        fetchGuardSession: vi.fn().mockResolvedValue({
+          generatedAt: new Date().toISOString(),
+          files: [],
+          excludedPreExisting: [],
+          totalDirty: 0,
+          truncated: false,
+        }),
+      }),
+      { initialTab: "guard" },
+    );
+    expect(screen.getByRole("tab", { name: "Guard" })).toBeTruthy();
+    expect(
+      await screen.findByText(
+        /Uncommitted files, ranked by how much would break/,
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText("Pick a file to inspect")).toBeNull();
+    expect(
+      screen.getAllByRole("button", { name: "Impact & Guard" }),
+    ).toHaveLength(1);
   });
 });

@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  candleGeometry,
+  chartTipEdge,
+  formatCompactCount,
   gaugeArc,
   ganttSegmentPercents,
   integerTicks,
   niceTicks,
   pickAxisIndices,
   seriesGeometry,
+  valueToY,
 } from "./charts.js";
 
 describe("seriesGeometry", () => {
@@ -17,6 +21,11 @@ describe("seriesGeometry", () => {
     const geo = seriesGeometry([50, 50], 600, 200, 10, { min: 0, max: 100 });
     expect(geo.line).toBe("10,100 590,100");
     expect(geo.area).toBe("10,190 10,100 590,100 590,190");
+  });
+
+  it("maps 0 onto the baseline (height - pad)", () => {
+    expect(valueToY(0, 180, 8, 0, 4_300_000)).toBe(172);
+    expect(valueToY(4_300_000, 180, 8, 0, 4_300_000)).toBe(8);
   });
 
   it("places a single point and a closed area", () => {
@@ -40,6 +49,14 @@ describe("niceTicks / integerTicks / pickAxisIndices", () => {
     expect(integerTicks(11)).not.toContain(12);
     expect(integerTicks(11)).toEqual([0, 2, 4, 6, 8, 11]);
     expect(integerTicks(13)).toEqual([0, 2, 4, 6, 8, 10, 13]);
+  });
+
+  it("labels large counts as K M B", () => {
+    expect(formatCompactCount(950)).toBe("950");
+    expect(formatCompactCount(1_200)).toBe("1.2K");
+    expect(formatCompactCount(12_000)).toBe("12K");
+    expect(formatCompactCount(3_400_000)).toBe("3.4M");
+    expect(formatCompactCount(1_400_000_000)).toBe("1.4B");
   });
 
   it("always includes first and last indices", () => {
@@ -67,5 +84,31 @@ describe("ganttSegmentPercents", () => {
 describe("gaugeArc", () => {
   it("draws a path for a mid score", () => {
     expect(gaugeArc(50).startsWith("M ")).toBe(true);
+  });
+});
+
+describe("chartTipEdge", () => {
+  it("anchors the last slot left and the first slot right", () => {
+    expect(chartTipEdge(0.95)).toBe("end");
+    expect(chartTipEdge(0.05)).toBe("start");
+    expect(chartTipEdge(0.5)).toBeUndefined();
+  });
+});
+
+describe("candleGeometry", () => {
+  it("slots an up day and a down day across the plot", () => {
+    const geo = candleGeometry(
+      [
+        { open: 0, high: 100, low: 0, close: 100 },
+        { open: 100, high: 100, low: 40, close: 40 },
+      ],
+      200,
+      100,
+      10,
+    );
+    expect(geo.bars).toHaveLength(2);
+    expect(geo.bars[0]?.up).toBe(true);
+    expect(geo.bars[1]?.up).toBe(false);
+    expect(geo.bars[0]?.x).toBeLessThan(geo.bars[1]?.x ?? 0);
   });
 });

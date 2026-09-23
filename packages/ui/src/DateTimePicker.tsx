@@ -15,17 +15,17 @@ import {
   useState,
   type ReactElement,
 } from "react";
+import { Button } from "./Button.js";
 import {
   calendarWeeks,
   clampDatetime,
   combineDateAndTime,
   datetimePickerError,
+  datetimePopOpensAbove,
+  startOfLocalDay,
   formatDatetimeField,
-  from12h,
-  localeUses12h,
   parseDatetimeInput,
   shiftMonth,
-  to12h,
   visibleDatetimeError,
   weekStartsOn,
   weekdayLabels,
@@ -61,14 +61,17 @@ function wrap(value: number, min: number, max: number): number {
 export function DateTimePicker(props: DateTimePickerProps): ReactElement {
   const locale = props.locale;
   const onValidityChange = props.onValidityChange;
-  const uses12h = localeUses12h(locale);
   const weekStart = weekStartsOn(locale);
   const autoId = useId();
   const id = props.id ?? autoId;
   const rootRef = useRef<HTMLDivElement>(null);
+  const controlRef = useRef<HTMLDivElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
   const focusedRef = useRef(false);
+  const [above, setAbove] = useState(false);
   const [open, setOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [draftMs, setDraftMs] = useState<number | undefined>(undefined);
   const [text, setText] = useState(() =>
     finiteTime(props.value) !== undefined
       ? formatDatetimeField(props.value as number, locale)
@@ -93,7 +96,8 @@ export function DateTimePicker(props: DateTimePickerProps): ReactElement {
   );
   const shownError = visibleDatetimeError(dirty, error);
   const selectedMs = parsed ?? valueMs;
-  const selected = selectedMs !== undefined ? new Date(selectedMs) : new Date();
+  const previewMs = open && draftMs !== undefined ? draftMs : selectedMs;
+  const selected = previewMs !== undefined ? new Date(previewMs) : new Date();
   const [view, setView] = useState(() => ({
     year: selected.getFullYear(),
     month: selected.getMonth(),
@@ -118,6 +122,40 @@ export function DateTimePicker(props: DateTimePickerProps): ReactElement {
     const next = new Date(parsed);
     setView({ year: next.getFullYear(), month: next.getMonth() });
   }, [open, parsed]);
+
+  useEffect(() => {
+    if (!open) {
+      setDraftMs(undefined);
+      return;
+    }
+    setDraftMs(valueMs ?? Date.now());
+  }, [open, valueMs]);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setAbove(false);
+      return;
+    }
+    const place = (): void => {
+      const control = controlRef.current;
+      const pop = popRef.current;
+      if (!control || !pop) return;
+      const rect = control.getBoundingClientRect();
+      const gap = 6;
+      const margin = 8;
+      const vh = window.innerHeight;
+      const spaceBelow = vh - margin - (rect.bottom + gap);
+      const spaceAbove = rect.top - gap - margin;
+      setAbove(datetimePopOpensAbove(spaceBelow, spaceAbove, pop.offsetHeight));
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -149,9 +187,18 @@ export function DateTimePicker(props: DateTimePickerProps): ReactElement {
     setText(formatDatetimeField(next, locale));
     onValidityChange?.(true);
   };
+  const preview = (ms: number): void => {
+    const next = clampDatetime(ms, bounds);
+    setDraftMs(next);
+    setText(formatDatetimeField(next, locale));
+    setDirty(true);
+  };
+  const applyDraft = (): void => {
+    if (draftMs !== undefined) commit(draftMs);
+    setOpen(false);
+  };
   const hours = selected.getHours();
   const minutes = selected.getMinutes();
-  const clock12 = to12h(hours);
   const weeks = calendarWeeks(view.year, view.month, {
     weekStartsOn: weekStart,
     ...bounds,
@@ -169,10 +216,10 @@ export function DateTimePicker(props: DateTimePickerProps): ReactElement {
   ).getTime();
 
   const setHour24 = (hour: number): void => {
-    commit(combineDateAndTime(selectedMs ?? Date.now(), hour, minutes, bounds));
+    preview(combineDateAndTime(previewMs ?? Date.now(), hour, minutes, bounds));
   };
   const setMinute = (minute: number): void => {
-    commit(combineDateAndTime(selectedMs ?? Date.now(), hours, minute, bounds));
+    preview(combineDateAndTime(previewMs ?? Date.now(), hours, minute, bounds));
   };
 
   const controlClass = [
@@ -185,7 +232,7 @@ export function DateTimePicker(props: DateTimePickerProps): ReactElement {
 
   const field = (
     <div className="prism-dt" ref={rootRef}>
-      <div className={controlClass}>
+      <div className={controlClass} ref={controlRef}>
         <input
           id={id}
           className="prism-input prism-dt__input"
@@ -255,7 +302,10 @@ export function DateTimePicker(props: DateTimePickerProps): ReactElement {
       ) : null}
       {open ? (
         <div
-          className="prism-dt__pop"
+          ref={popRef}
+          className={
+            above ? "prism-dt__pop prism-dt__pop--above" : "prism-dt__pop"
+          }
           role="dialog"
           aria-label="Choose date and time"
         >
@@ -302,13 +352,8 @@ export function DateTimePicker(props: DateTimePickerProps): ReactElement {
           <div className="prism-dt__grid">
             {weeks.flat().map((cell) => {
               const selectedDay =
-                selectedMs !== undefined &&
-                cell.startMs ===
-                  new Date(
-                    selected.getFullYear(),
-                    selected.getMonth(),
-                    selected.getDate(),
-                  ).getTime();
+                previewMs !== undefined &&
+                cell.startMs === startOfLocalDay(previewMs);
               const isToday = cell.startMs === todayStart;
               return (
                 <button
@@ -325,11 +370,16 @@ export function DateTimePicker(props: DateTimePickerProps): ReactElement {
                   disabled={cell.disabled}
                   aria-current={isToday ? "date" : undefined}
                   aria-pressed={selectedDay}
-                  onClick={() =>
-                    commit(
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                  }}
+                  onClick={() => {
+                    preview(
                       combineDateAndTime(cell.startMs, hours, minutes, bounds),
-                    )
-                  }
+                    );
+                    setView({ year: cell.year, month: cell.month });
+                  }}
                 >
                   {cell.day}
                 </button>
@@ -337,7 +387,10 @@ export function DateTimePicker(props: DateTimePickerProps): ReactElement {
             })}
           </div>
           <div className="prism-dt__time">
-            <span className="prism-dt__time-label">Time</span>
+            <span className="prism-dt__time-copy">
+              <span className="prism-dt__time-label">Time</span>
+              <span className="prism-dt__time-sub">24h format</span>
+            </span>
             <div className="prism-dt__spin">
               <button
                 type="button"
@@ -351,16 +404,10 @@ export function DateTimePicker(props: DateTimePickerProps): ReactElement {
                 className="prism-dt__clock"
                 inputMode="numeric"
                 aria-label="Hour"
-                value={uses12h ? padClock(clock12.hour) : padClock(hours)}
+                value={padClock(hours)}
                 onChange={(event) => {
                   const n = Number(event.target.value);
-                  if (!Number.isFinite(n)) return;
-                  if (uses12h) {
-                    if (n < 1 || n > 12) return;
-                    setHour24(from12h(n, clock12.meridiem));
-                    return;
-                  }
-                  if (n < 0 || n > 23) return;
+                  if (!Number.isFinite(n) || n < 0 || n > 23) return;
                   setHour24(n);
                 }}
               />
@@ -405,34 +452,14 @@ export function DateTimePicker(props: DateTimePickerProps): ReactElement {
                 <ChevronDown size={14} aria-hidden />
               </button>
             </div>
-            {uses12h ? (
-              <div className="prism-dt__ampm">
-                <button
-                  type="button"
-                  className={
-                    clock12.meridiem === "AM"
-                      ? "prism-dt__meridiem prism-dt__meridiem--on"
-                      : "prism-dt__meridiem"
-                  }
-                  aria-pressed={clock12.meridiem === "AM"}
-                  onClick={() => setHour24(from12h(clock12.hour, "AM"))}
-                >
-                  AM
-                </button>
-                <button
-                  type="button"
-                  className={
-                    clock12.meridiem === "PM"
-                      ? "prism-dt__meridiem prism-dt__meridiem--on"
-                      : "prism-dt__meridiem"
-                  }
-                  aria-pressed={clock12.meridiem === "PM"}
-                  onClick={() => setHour24(from12h(clock12.hour, "PM"))}
-                >
-                  PM
-                </button>
-              </div>
-            ) : null}
+          </div>
+          <div className="prism-dt__actions">
+            <Button variant="tertiary" size="sm" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" size="sm" onClick={applyDraft}>
+              Select
+            </Button>
           </div>
         </div>
       ) : null}

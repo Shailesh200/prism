@@ -7,7 +7,7 @@ import {
   buildDevopsTiles,
   kindCountOf,
 } from "@repo-prism/shared";
-import { EmptyState, InfoTip, Input, ToggleGroup } from "@repo-prism/ui";
+import { EmptyState, InfoTip, Input, ToggleGroup, Text } from "@repo-prism/ui";
 import {
   Activity,
   AlertTriangle,
@@ -620,9 +620,14 @@ export function DevopsSection(props: DomainScreenProps): ReactElement {
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="dna-modal__head">
-                  <h2 id="dm-add-repo-title" className="dna-modal__title">
+                  <Text
+                    variant="page"
+                    as="h2"
+                    id="dm-add-repo-title"
+                    className="dna-modal__title"
+                  >
                     Add Workflow from different Repo
-                  </h2>
+                  </Text>
                   <button
                     type="button"
                     className="dna-modal__close"
@@ -687,10 +692,15 @@ export function DevopsSection(props: DomainScreenProps): ReactElement {
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="dna-modal__head">
-                  <h2 id="dm-remove-repo-title" className="dna-modal__title">
+                  <Text
+                    variant="page"
+                    as="h2"
+                    id="dm-remove-repo-title"
+                    className="dna-modal__title"
+                  >
                     <AlertTriangle size={16} aria-hidden />
                     Remove {removeConfirm.owner}/{removeConfirm.repo}?
-                  </h2>
+                  </Text>
                   <button
                     type="button"
                     className="dna-modal__close"
@@ -784,7 +794,7 @@ export function DevopsSection(props: DomainScreenProps): ReactElement {
               <>
                 <article className="ov-card card-span-all dm-ci-board">
                   <div className="ov-card__head">
-                    <span className="ov-card__title">
+                    <Text variant="card" as="span" className="ov-card__title">
                       <Workflow
                         size={14}
                         className="ov-card__icon"
@@ -795,7 +805,7 @@ export function DevopsSection(props: DomainScreenProps): ReactElement {
                         Each accordion is one GitHub repo: Active Pipelines
                         (live runs) plus CI/CD workflows and triggers.
                       </InfoTip>
-                    </span>
+                    </Text>
                     <span className="ov-card__meta">
                       {1 +
                         extraRepos.filter(

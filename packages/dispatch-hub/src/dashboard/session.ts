@@ -73,7 +73,7 @@ export function consoleJobShareUrl(
   const hash = new URLSearchParams();
   if (job.workspacePath) hash.set("repo", job.workspacePath);
   hash.set("job", job.id);
-  url.hash = `/dashboard?${hash.toString()}`;
+  url.hash = `/jobs?${hash.toString()}`;
   return url.toString();
 }
 
@@ -130,7 +130,7 @@ async function fetchConsole(
     }
     throw new ConsoleRequestError(
       0,
-      "Could not reach Prism Dispatch. It may have shut down — run a Prism command to start it again.",
+      "Could not reach Prism Dashboard. It may have shut down — run a Prism command to start it again.",
     );
   } finally {
     clearTimeout(timer);

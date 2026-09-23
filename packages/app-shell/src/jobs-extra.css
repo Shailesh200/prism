@@ -24,12 +24,12 @@
 }
 
 .jobs-screen__title {
-  margin: 4px 0 0;
-  font-family: var(--prism-font);
-  font-size: 30px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  color: var(--prism-ink, #fff);
+  margin: 0;
+}
+
+.jobs-screen__lede {
+  margin: 8px 0 0;
+  max-width: 52rem;
 }
 
 .jobs-screen__repo {
@@ -37,6 +37,16 @@
   font-family: var(--prism-mono, "JetBrains Mono", ui-monospace, monospace);
   font-size: var(--prism-type-mono, 12px);
   color: var(--prism-ink-muted, #94a3b8);
+}
+
+.jobs-screen__kpis {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ov-scroll > .jobs-screen {
+  padding: 0;
 }
 
 .jobs-screen__meta {
@@ -145,8 +155,32 @@
 
 .jobs-screen__filters {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.jobs-screen__status {
+  background: var(--prism-canvas, #0a0e1a);
+}
+
+.jobs-screen__status .prism-toggle-group__btn {
+  font-size: 12px;
+}
+
+.jobs-screen__status .prism-toggle-group__btn[data-active="true"] {
+  background: var(--prism-brand, #00c2c2);
+  color: var(--prism-on-brand, #0a0e1a);
+  box-shadow: none;
+}
+
+.jobs-screen__range.prism-range-trigger {
+  width: fit-content;
+  min-width: 0;
+  max-width: 100%;
+  height: auto;
+  flex: 0 0 auto;
 }
 
 .jobs-screen__lanes,
@@ -501,41 +535,74 @@
 }
 
 .job-card__facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 22px;
-  margin: 12px 0 0 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
+  gap: 8px;
+  margin: 12px 0 0;
 }
 
 .job-card__panel .job-card__facts {
   margin-left: 0;
 }
 
-.job-card__facts div {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+.job-fact {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--prism-line, #2a334a);
+  border-radius: 10px;
+  background: var(--prism-panel-2, #0d1220);
 }
 
-.job-card__facts dt {
+.job-fact__title {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.job-fact__title h3 {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
-  letter-spacing: 0.12em;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--prism-ink-muted, #94a3b8);
 }
 
-.job-card__facts dd {
-  margin: 0;
-  font-size: 12px;
-  color: var(--prism-ink, #fff);
+.job-fact__body {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
 }
 
-.job-card__facts code {
-  font-family: var(--prism-font-mono, ui-monospace, monospace);
-  font-size: 12px;
+.job-fact__value {
+  margin: 0;
+  min-width: 0;
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--prism-ink, #fff);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.job-fact__copy {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  margin-top: -2px;
+}
+
+@media (max-width: 1100px) {
+  .jobs-screen__kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .job-card__warn {
@@ -579,6 +646,15 @@
     color-mix(in oklab, var(--prism-amber) 35%, var(--prism-line, #2a334a));
   background: color-mix(in oklab, var(--prism-amber) 7%, transparent);
   padding: 14px 16px;
+}
+
+.job-review--accepted {
+  border-color: color-mix(
+    in oklab,
+    var(--prism-brand, #00c2c2) 45%,
+    var(--prism-line, #2a334a)
+  );
+  background: color-mix(in oklab, var(--prism-brand, #00c2c2) 10%, transparent);
 }
 
 .job-review__head {
@@ -721,6 +797,10 @@
 
 .job-review__note--strong {
   color: var(--prism-amber);
+}
+
+.job-review--accepted .job-review__note--strong {
+  color: var(--prism-brand, #00c2c2);
 }
 
 /* ---- Console ---- */
@@ -1624,6 +1704,38 @@
 .job-brief {
   display: grid;
   gap: 10px;
+  padding: 12px 16px 16px;
+  min-width: 0;
+}
+
+.job-brief__scroll {
+  min-width: 0;
+  max-height: 18rem;
+  overflow: auto;
+}
+
+.job-outcome--brief > .job-brief__scroll {
+  padding: 12px 16px 16px;
+}
+
+.job-brief__scroll .job-outcome__prose {
+  padding: 0;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.job-brief__field.prism-textarea,
+.job-brief .prism-textarea {
+  max-height: none;
+  min-height: 8rem;
+  height: auto;
+  resize: none;
+  overflow: visible;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
 }
 
 .job-brief__actions {

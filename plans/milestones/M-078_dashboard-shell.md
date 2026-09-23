@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **Planned** |
+| Status | **In Progress** |
 | Branch | `milestone/M-078-dashboard-shell` (from latest `main` **after** sanity lands) |
 | Depends on | M-077 Verified **and** `fix/mcp-console-dashboard-sanity` on `main` |
 | Packages | `app-shell`, `dispatch-hub`, `ui`, `vscode-extension`, playground |

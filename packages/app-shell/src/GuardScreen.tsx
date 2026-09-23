@@ -1,3 +1,4 @@
+import { Text } from "@repo-prism/ui";
 import type {
   GuardCheckKind,
   GuardFlag,
@@ -25,6 +26,8 @@ export type GuardScreenProps = {
   user?: AppSidebarUser | null;
   onNavigate: (view: AppView) => void;
   onOpenPath?: (path: string) => void;
+  /** Render the panel only — Impact hosts the rail (M-078). */
+  embedded?: boolean;
 };
 
 type Status = "loading" | "ready" | "error";
@@ -144,193 +147,204 @@ export function GuardScreen(props: GuardScreenProps): ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const panel = (
+    <>
+      <header className={props.embedded ? "ov-top ov-top--embedded" : "ov-top"}>
+        <div>
+          {props.embedded ? null : (
+            <Text variant="page" as="div" className="ov-top__title">
+              Prism Guard
+            </Text>
+          )}
+          <Text variant="caption" as="div" className="ov-top__sub">
+            {props.embedded
+              ? "Uncommitted files, ranked by how much would break if you changed them — highest risk first."
+              : `${[props.repoLabel, props.branch].filter(Boolean).join(" · ")}${
+                  props.repoLabel || props.branch ? " · " : ""
+                }Your uncommitted files, ranked by how much would break if you changed them — highest risk first. Click a file to see why it's flagged.`}
+          </Text>
+        </div>
+        <button
+          type="button"
+          className="ov-btn ov-btn--primary"
+          disabled={status === "loading"}
+          onClick={() => void load()}
+        >
+          <RefreshCw
+            size={14}
+            aria-hidden
+            className={status === "loading" ? "cr-spin" : undefined}
+          />
+          {status === "loading" ? "Ranking…" : "Refresh"}
+        </button>
+      </header>
+
+      <div className="ov-scroll ea-scroll">
+        {status === "error" && error ? (
+          <div className="ov-card cr-error" role="alert">
+            {error}
+          </div>
+        ) : null}
+
+        {status === "ready" && session && session.files.length === 0 ? (
+          <div className="ov-empty">
+            Nothing dirty right now — Guard ranks uncommitted changes.
+          </div>
+        ) : null}
+
+        {session && session.files.length > 0 ? (
+          <div className="ov-card ea-card">
+            {session.excludedPreExisting.length > 0 ? (
+              <p className="ea-summary">
+                Excluded {session.excludedPreExisting.length} file(s) already
+                dirty before this session started.
+              </p>
+            ) : null}
+            <div className="guard-table">
+              <div className="guard-table__head" aria-hidden>
+                <span />
+                <span>Risk</span>
+                <span>File</span>
+                <span>Flags</span>
+              </div>
+              <ul className="guard-rows">
+                {session.files.map((file) => {
+                  const band = RISK_BANDS[file.band ?? "low"];
+                  const groups = groupFlags(file.flags);
+                  const isExpanded = expanded.has(file.path);
+                  return (
+                    <li
+                      key={file.path}
+                      className="guard-row"
+                      data-open={isExpanded ? "true" : "false"}
+                    >
+                      <div
+                        className="guard-row__main"
+                        role="button"
+                        tabIndex={0}
+                        aria-expanded={isExpanded}
+                        data-testid={`guard-row-${file.path}`}
+                        onClick={() => toggleExpanded(file.path)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            toggleExpanded(file.path);
+                          }
+                        }}
+                      >
+                        {groups.length > 0 ? (
+                          <ChevronRight
+                            size={14}
+                            aria-hidden
+                            className="guard-row__chev"
+                            data-open={isExpanded ? "true" : "false"}
+                          />
+                        ) : (
+                          <span className="guard-row__chev-spacer" />
+                        )}
+                        <span
+                          className="guard-row__band"
+                          style={{
+                            backgroundColor: RISK_BAND_COLOR[band.id],
+                          }}
+                          title={`${band.label} blast risk`}
+                        >
+                          {file.risk}
+                        </span>
+                        <span className="guard-row__file">
+                          <span className="guard-row__path ov-mono">
+                            {file.path}
+                          </span>
+                          {props.onOpenPath ? (
+                            <button
+                              type="button"
+                              className="guard-row__open"
+                              title="Open file"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                props.onOpenPath?.(file.path);
+                              }}
+                            >
+                              <ExternalLink size={12} aria-hidden />
+                            </button>
+                          ) : null}
+                        </span>
+                        <span className="guard-row__flags">
+                          {groups.map((group) => (
+                            <span
+                              key={group.kind}
+                              className="guard-flag"
+                              data-kind={group.kind}
+                              title={FLAG_EXPLAINER[group.kind]}
+                            >
+                              {FLAG_ICON[group.kind]}
+                              {group.count > 1
+                                ? `${group.count} ${FLAG_LABEL[group.kind]}`
+                                : FLAG_LABEL[group.kind]}
+                            </span>
+                          ))}
+                        </span>
+                      </div>
+                      {isExpanded && groups.length > 0 ? (
+                        <div className="guard-detail">
+                          {groups.flatMap((group) =>
+                            group.items.map((flag, index) => (
+                              <div
+                                key={`${group.kind}-${index}`}
+                                className="guard-detail__row"
+                              >
+                                <span
+                                  className="guard-detail__icon"
+                                  data-kind={flag.kind}
+                                >
+                                  {FLAG_ICON[flag.kind]}
+                                </span>
+                                <span className="guard-detail__text">
+                                  <strong>{FLAG_LABEL[flag.kind]}</strong>
+                                  {" — "}
+                                  {flag.detail}
+                                </span>
+                              </div>
+                            )),
+                          )}
+                        </div>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+            {session.truncated ? (
+              <p className="ea-summary">
+                <ShieldAlert
+                  size={12}
+                  aria-hidden
+                  style={{ verticalAlign: -2, marginRight: 4 }}
+                />
+                Showing the highest-risk files — the session is larger than this
+                list.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </>
+  );
+
+  if (props.embedded) {
+    return <div className="guard-embed">{panel}</div>;
+  }
+
   return (
     <div className={shellRootClass()}>
       <AppSidebar
         variant={shellNavVariant()}
-        active="guard"
+        active="impact"
         repoLabel={props.repoLabel}
         user={props.user ?? null}
         onNavigate={props.onNavigate}
       />
-
-      <div className="ov-main">
-        <header className="ov-top">
-          <div>
-            <div className="ov-top__title">Prism Guard</div>
-            <div className="ov-top__sub">
-              {[props.repoLabel, props.branch].filter(Boolean).join(" · ")}
-              {props.repoLabel || props.branch ? " · " : ""}
-              Your uncommitted files, ranked by how much would break if you
-              changed them — highest risk first. Click a file to see why it's
-              flagged.
-            </div>
-          </div>
-          <button
-            type="button"
-            className="ov-btn ov-btn--primary"
-            disabled={status === "loading"}
-            onClick={() => void load()}
-          >
-            <RefreshCw
-              size={14}
-              aria-hidden
-              className={status === "loading" ? "cr-spin" : undefined}
-            />
-            {status === "loading" ? "Ranking…" : "Refresh"}
-          </button>
-        </header>
-
-        <div className="ov-scroll ea-scroll">
-          {status === "error" && error ? (
-            <div className="ov-card cr-error" role="alert">
-              {error}
-            </div>
-          ) : null}
-
-          {status === "ready" && session && session.files.length === 0 ? (
-            <div className="ov-empty">
-              Nothing dirty right now — Guard ranks uncommitted changes.
-            </div>
-          ) : null}
-
-          {session && session.files.length > 0 ? (
-            <div className="ov-card ea-card">
-              {session.excludedPreExisting.length > 0 ? (
-                <p className="ea-summary">
-                  Excluded {session.excludedPreExisting.length} file(s) already
-                  dirty before this session started.
-                </p>
-              ) : null}
-              <div className="guard-table">
-                <div className="guard-table__head" aria-hidden>
-                  <span />
-                  <span>Risk</span>
-                  <span>File</span>
-                  <span>Flags</span>
-                </div>
-                <ul className="guard-rows">
-                  {session.files.map((file) => {
-                    const band = RISK_BANDS[file.band ?? "low"];
-                    const groups = groupFlags(file.flags);
-                    const isExpanded = expanded.has(file.path);
-                    return (
-                      <li
-                        key={file.path}
-                        className="guard-row"
-                        data-open={isExpanded ? "true" : "false"}
-                      >
-                        <div
-                          className="guard-row__main"
-                          role="button"
-                          tabIndex={0}
-                          aria-expanded={isExpanded}
-                          data-testid={`guard-row-${file.path}`}
-                          onClick={() => toggleExpanded(file.path)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              toggleExpanded(file.path);
-                            }
-                          }}
-                        >
-                          {groups.length > 0 ? (
-                            <ChevronRight
-                              size={14}
-                              aria-hidden
-                              className="guard-row__chev"
-                              data-open={isExpanded ? "true" : "false"}
-                            />
-                          ) : (
-                            <span className="guard-row__chev-spacer" />
-                          )}
-                          <span
-                            className="guard-row__band"
-                            style={{
-                              backgroundColor: RISK_BAND_COLOR[band.id],
-                            }}
-                            title={`${band.label} blast risk`}
-                          >
-                            {file.risk}
-                          </span>
-                          <span className="guard-row__file">
-                            <span className="guard-row__path ov-mono">
-                              {file.path}
-                            </span>
-                            {props.onOpenPath ? (
-                              <button
-                                type="button"
-                                className="guard-row__open"
-                                title="Open file"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  props.onOpenPath?.(file.path);
-                                }}
-                              >
-                                <ExternalLink size={12} aria-hidden />
-                              </button>
-                            ) : null}
-                          </span>
-                          <span className="guard-row__flags">
-                            {groups.map((group) => (
-                              <span
-                                key={group.kind}
-                                className="guard-flag"
-                                data-kind={group.kind}
-                                title={FLAG_EXPLAINER[group.kind]}
-                              >
-                                {FLAG_ICON[group.kind]}
-                                {group.count > 1
-                                  ? `${group.count} ${FLAG_LABEL[group.kind]}`
-                                  : FLAG_LABEL[group.kind]}
-                              </span>
-                            ))}
-                          </span>
-                        </div>
-                        {isExpanded && groups.length > 0 ? (
-                          <div className="guard-detail">
-                            {groups.flatMap((group) =>
-                              group.items.map((flag, index) => (
-                                <div
-                                  key={`${group.kind}-${index}`}
-                                  className="guard-detail__row"
-                                >
-                                  <span
-                                    className="guard-detail__icon"
-                                    data-kind={flag.kind}
-                                  >
-                                    {FLAG_ICON[flag.kind]}
-                                  </span>
-                                  <span className="guard-detail__text">
-                                    <strong>{FLAG_LABEL[flag.kind]}</strong>
-                                    {" — "}
-                                    {flag.detail}
-                                  </span>
-                                </div>
-                              )),
-                            )}
-                          </div>
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-              {session.truncated ? (
-                <p className="ea-summary">
-                  <ShieldAlert
-                    size={12}
-                    aria-hidden
-                    style={{ verticalAlign: -2, marginRight: 4 }}
-                  />
-                  Showing the highest-risk files — the session is larger than
-                  this list.
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      </div>
+      <div className="ov-main">{panel}</div>
     </div>
   );
 }

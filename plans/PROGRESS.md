@@ -85,7 +85,7 @@
 | M-075 Symbol memory + ADR nodes | `milestone/M-075-symbol-memory-adr` | Verified | ✅ | ✅ | Owner verified 2026-09-17 (merged on main). Phase 3 Cut 3: `remember` optional `symbol`/`path`, rewrite on rename; `rationale_for` edges from ADRs and `WHY:`/`NOTE:` comments; `prepare_change.notes` for pack files. |
 | M-076 Work orders + hook | `milestone/M-076-work-orders-hook` | Verified | ✅ | ✅ | Owner verified 2026-09-17 (merged on main). Phase 3 Cut 3: `PrepareChange.order` from generated/vendor + blast/ownership; MCP `work_order`; Dispatch copies off-limits into the PRD; advisory IDE hook (no veto unless an Accepted ADR arms it). Agent-native Cuts 1–3 done (M-069–M-076). T1/T2/T3 proofs recorded. **Cut 4 set aside.** |
 | M-077 Prism 2.0 | `milestone/M-077-prism-2.0` | Verified | ✅ | ✅ | Owner verified 2026-09-19 (merged on local main). Prism 2.0 contract locked: one product (Prismate), one Dashboard, prismate.io identity, hero copy, sequence M-078–M-086. Docs/plan only. Next: M-078 from this main. |
-| M-078 Dashboard shell | `milestone/M-078-dashboard-shell` | Planned | ☐ | ☐ | First code. Depends on sanity branch on `main`. |
+| M-078 Dashboard shell | `milestone/M-078-dashboard-shell` | In Progress | ☐ | ☐ | First code. One rail, sanitize face. Branch from main after M-077 Verified. |
 | M-079 Jobs Live Relay | `milestone/M-079-jobs-live-relay` | Planned | ☐ | ☐ | After Dashboard shell. TUI + editor chat cockpit. |
 | M-080 Agent + CLI IA | `milestone/M-080-agent-cli-ia` | Planned | ☐ | ☐ | Loopback Streamable HTTP `/mcp`; teach `app.` URL. |
 | M-081 Marketplace publisher | `milestone/M-081-marketplace-publisher` | Planned | ☐ | ☐ | `prismhq.repo-prism` → `prismate`. Not npm. |

@@ -588,9 +588,18 @@ describe("hub HTTP", () => {
     expect(second.record.token).toBe(token);
     const page = await fetch(
       `http://127.0.0.1:${second.record.port}/?token=${encodeURIComponent(token)}`,
+      { redirect: "manual" },
     );
-    expect(page.status).toBe(200);
+    expect(page.status).toBe(302);
+    expect(page.headers.get("location") ?? "").toMatch(
+      /prismhq\.localhost:17331/,
+    );
     expect(page.headers.get("set-cookie") ?? "").toMatch(/prism_hub=/);
+    const embed = await fetch(
+      `http://127.0.0.1:${second.record.port}/?token=${encodeURIComponent(token)}&embed=1`,
+      { redirect: "manual" },
+    );
+    expect(embed.status).toBe(302);
   });
 
   it("serves a job notes file and rejects path traversal", async () => {

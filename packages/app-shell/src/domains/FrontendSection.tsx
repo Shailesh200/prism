@@ -19,6 +19,7 @@ import {
   InfoTip,
   relativeTime,
   Select,
+  Text,
 } from "@repo-prism/ui";
 import {
   Activity,
@@ -1171,7 +1172,7 @@ export function FrontendSection(props: DomainScreenProps): ReactElement {
                 lastRunAt === null ? (
                   <article className="ov-card">
                     <div className="ov-card__head">
-                      <span className="ov-card__title">
+                      <Text variant="card" as="span" className="ov-card__title">
                         <CardIcon icon={FlaskConical} tone="brand" size={14} />
                         Local lab &amp; import
                         <InfoTip label="Local lab & import">
@@ -1181,7 +1182,7 @@ export function FrontendSection(props: DomainScreenProps): ReactElement {
                           steps to enable it, or you can import a Lighthouse /
                           PageSpeed JSON report / use PageSpeed Insights.
                         </InfoTip>
-                      </span>
+                      </Text>
                     </div>
                     <p className="dm-idle__desc" style={{ marginTop: 0 }}>
                       {def.description}
@@ -1209,14 +1210,14 @@ export function FrontendSection(props: DomainScreenProps): ReactElement {
                 {cwvSource === "pagespeed" ? (
                   <article className="ov-card">
                     <div className="ov-card__head">
-                      <span className="ov-card__title">
+                      <Text variant="card" as="span" className="ov-card__title">
                         <CardIcon icon={Monitor} tone="violet" size={14} />
                         PageSpeed Insights
                         <InfoTip label="PageSpeed Insights">
                           Opt-in network fetch when Integrations · PageSpeed has
                           an API key and Settings allows network integrations.
                         </InfoTip>
-                      </span>
+                      </Text>
                       <span className="ov-card__meta">
                         {pagespeedEnabled ? "Connected" : "Off"}
                       </span>

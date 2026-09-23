@@ -128,6 +128,11 @@
   background: color-mix(in srgb, var(--prism-brand, #00c2c2) 12%, transparent);
 }
 
+.ov-stat__k .dna-tag {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 /* Frameworks & Libs hero: framework names + icons in the helper text. */
 .dna-fw-note {
   display: flex;
@@ -278,6 +283,298 @@
   flex: none;
   margin-top: 2px;
   color: var(--prism-emerald, #10b981);
+}
+
+.dna-trees {
+  margin-top: 12px;
+}
+
+.dna-trees-widget__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.dna-trees-widget__body:has(.dna-trees-widget__graph) {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.dna-trees-widget__graph {
+  position: relative;
+  z-index: 2;
+  min-width: 36px;
+  padding: 4px 0 4px 2px;
+  overflow: visible;
+}
+
+.dna-git-graph-wrap {
+  position: relative;
+  overflow: visible;
+}
+
+.dna-git-graph {
+  display: block;
+  overflow: visible;
+}
+
+.dna-git-graph__line {
+  pointer-events: none;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: dna-git-draw 0.85s ease-out 0.08s both;
+}
+
+.dna-git-graph__hit {
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.dna-git-graph__hitbox {
+  pointer-events: all;
+}
+
+.dna-git-graph__hit:focus {
+  outline: none;
+}
+
+.dna-git-graph__hit:focus-visible .dna-git-graph__dot {
+  filter: drop-shadow(0 0 4px currentColor);
+}
+
+.dna-git-tip {
+  position: absolute;
+  z-index: 4;
+  min-width: 324px;
+  max-width: 432px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--prism-line, rgba(255, 255, 255, 0.1));
+  border-left: 3px solid var(--dna-git-tip-color, var(--prism-brand, #00c2c2));
+  background: color-mix(in srgb, var(--prism-panel, #1a2030) 94%, #000);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.dna-git-tip::before {
+  content: "";
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  border: 6px solid transparent;
+  border-right-color: var(--dna-git-tip-color, var(--prism-brand, #00c2c2));
+  transform: translateY(-50%);
+}
+
+.dna-git-tip__sha {
+  font-family: var(--prism-font-mono, "JetBrains Mono", ui-monospace, monospace);
+  font-size: 0.6875rem;
+  color: var(--prism-brand-strong, #00dcd4);
+}
+
+.dna-git-tip__subject {
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1.35;
+  color: var(--prism-text, #e8eef2);
+  overflow-wrap: anywhere;
+}
+
+.dna-git-tip__when,
+.dna-git-tip__refs {
+  font-size: 0.6875rem;
+  color: var(--prism-text-dim, #8aa0aa);
+}
+
+.dna-git-graph__grow {
+  transform-origin: top center;
+  transform-box: fill-box;
+  animation: dna-git-grow 0.9s ease-out both;
+}
+
+.dna-git-graph__dot {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: dna-git-dot 0.45s ease-out 0.2s both;
+}
+
+@keyframes dna-git-grow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes dna-git-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes dna-git-dot {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dna-git-graph__grow,
+  .dna-git-graph__line,
+  .dna-git-graph__dot {
+    animation: none;
+  }
+}
+
+.dna-trees-widget__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.dna-trees-widget__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.dna-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px 14px 12px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--prism-line, rgba(255, 255, 255, 0.07));
+  border-left-width: 3px;
+  border-left-color: var(--dna-tree-color, var(--prism-brand, #00c2c2));
+  background: color-mix(in srgb, var(--prism-surface, #0c161c) 70%, transparent);
+}
+
+.dna-tree[data-focus="true"] {
+  box-shadow: inset 0 0 0 1px var(--dna-tree-color, var(--prism-brand, #00c2c2));
+}
+
+.dna-tree__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.dna-tree__identity {
+  min-width: 0;
+}
+
+.dna-tree__kicker {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--prism-text-dim, #8aa0aa);
+}
+
+.dna-tree__branch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 650;
+  line-height: 1.35;
+  color: var(--prism-text, #e8eef2);
+}
+
+.dna-tree__branch svg {
+  flex: none;
+  color: var(--dna-tree-color, var(--prism-brand, #00c2c2));
+}
+
+.dna-tree__branch span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dna-tree__path {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  font-family: var(--prism-font-mono, "JetBrains Mono", ui-monospace, monospace);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--prism-text-dim, #8aa0aa);
+}
+
+.dna-tree__path svg {
+  flex: none;
+}
+
+.dna-tree__path span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dna-tree__facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  min-width: 0;
+}
+
+.dna-tree__job {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--prism-brand-strong, #00dcd4);
+  font: inherit;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dna-tree__job:hover,
+.dna-tree__job:focus-visible {
+  text-decoration: underline;
+}
+
+.dna-tree__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--prism-line, rgba(255, 255, 255, 0.07));
 }
 
 /* Breakdown modal: footer holding the "Open audit logs" deep-link. */

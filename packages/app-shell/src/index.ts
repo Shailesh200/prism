@@ -100,6 +100,11 @@ export {
 } from "./surface-status.js";
 export { OverviewScreen } from "./OverviewScreen.js";
 export type { GitStatus, OverviewScreenProps } from "./OverviewScreen.js";
+export {
+  tokenAnalysisFromChart,
+  tokenAnalysisInRange,
+  tokenUsageInRange,
+} from "./token-activity.js";
 export { DnaScreen } from "./DnaScreen.js";
 export type { DnaScreenProps } from "./DnaScreen.js";
 export { DomainsScreen } from "./DomainsScreen.js";
@@ -193,10 +198,25 @@ export { TestingSecurityScreen } from "./TestingSecurityScreen.js";
 export type { TestingSecurityScreenProps } from "./TestingSecurityScreen.js";
 export { AppSidebar } from "./AppSidebar.js";
 export type { AppSidebarProps, AppSidebarUser, AppView } from "./AppSidebar.js";
+export {
+  DASHBOARD_VIEWS,
+  DASHBOARD_VIEW_LABELS,
+  isDashboardView,
+  isImpactView,
+  parseDashboardHash,
+  resolveAppView,
+} from "./dashboard-views.js";
+export type { DashboardView, AppViewAlias } from "./dashboard-views.js";
 export { JobsScreen } from "./JobsScreen.js";
 export { JobTokenIo } from "./JobTokenIo.js";
 export { ConsoleJobsScreen } from "./ConsoleJobsScreen.js";
 export type { ConsoleJobsScreenProps } from "./ConsoleJobsScreen.js";
+export { ConsoleHubScreen } from "./ConsoleHubScreen.js";
+export type { ConsoleHubScreenProps } from "./ConsoleHubScreen.js";
+export { TreesView } from "./hub/trees-view.js";
+export { embedDashboardUrl } from "./console-hub.js";
+export type { HubEmbedView } from "./console-hub.js";
+export { dashboardLink } from "./hub-link.js";
 export type { JobsScreenProps } from "./JobsScreen.js";
 export { consoleNote, JobConsole } from "./JobConsole.js";
 export { MarkdownDoc } from "./MarkdownDoc.js";
@@ -288,6 +308,16 @@ export {
   type JobWorkspaceChip,
   type JobsPort,
 } from "./jobs-types.js";
+export {
+  DEFAULT_JOB_RANGE,
+  JOB_RANGE_PRESETS,
+  JOB_RANGES,
+  jobInRange,
+  jobMatchesRepo,
+  jobRangeWindow,
+  jobStampMs,
+  type JobRange,
+} from "./jobs-range.js";
 export { AuditLogsPanel } from "./AuditLogsPanel.js";
 export { Avatar } from "./Avatar.js";
 export { DOMAIN_CATALOG, type DomainCatalogEntry } from "./domain-catalog.js";

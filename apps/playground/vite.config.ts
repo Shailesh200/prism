@@ -10,7 +10,6 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import type { IncomingMessage } from "node:http";
 import { defineConfig, type Plugin } from "vite";
@@ -56,8 +55,10 @@ import {
   MapZoomLevelSchema,
   consentRequiredMessage,
 } from "@repo-prism/shared";
+import { isDashboardDataPath, serveDashboardData } from "./dashboard-apis.ts";
 import {
   defaultPlaygroundRoot,
+  hubHome,
   playgroundPresets,
   playgroundSurfaces,
   saveSelectedRoot,
@@ -73,28 +74,107 @@ const appShellSrc = resolve(appRoot, "../../packages/app-shell/src");
 
 const ZOOM_LEVELS = MapZoomLevelSchema.options;
 
-async function playgroundConsoleStatus(): Promise<ConsoleStatus> {
+async function readHubPort(): Promise<number | undefined> {
   try {
-    const raw = await readFile(join(homedir(), ".prism/hub/hub.json"), "utf8");
-    const rec = JSON.parse(raw) as {
-      port?: number;
-      token?: string;
-    };
-    if (typeof rec.port !== "number") {
-      return { console: null, connectors: [], unreadable: [] };
-    }
-    const token = typeof rec.token === "string" ? rec.token : "";
-    const url = token
-      ? `http://prismhq.localhost:${rec.port}/?token=${encodeURIComponent(token)}`
-      : `http://prismhq.localhost:${rec.port}/`;
-    return {
-      console: { url, port: rec.port },
-      connectors: [],
-      unreadable: [],
-    };
+    const raw = await readFile(join(hubHome(), "hub.json"), "utf8");
+    const rec = JSON.parse(raw) as { port?: number };
+    return typeof rec.port === "number" ? rec.port : undefined;
   } catch {
-    return { console: null, connectors: [], unreadable: [] };
+    return undefined;
   }
+}
+
+async function playgroundConsoleStatus(
+  hostHeader?: string,
+): Promise<ConsoleStatus> {
+  const host = (hostHeader ?? "127.0.0.1:17331").replace(/\/$/, "");
+  const hostPort = Number.parseInt(host.split(":").at(-1) ?? "", 10);
+  const port = Number.isInteger(hostPort) ? hostPort : 17331;
+  let token = "";
+  try {
+    const raw = await readFile(join(hubHome(), "hub.json"), "utf8");
+    const rec = JSON.parse(raw) as { token?: string };
+    if (typeof rec.token === "string") token = rec.token;
+  } catch {
+    /* Hub optional — this page is the Dashboard. */
+  }
+  const url = token
+    ? `http://${host}/?token=${encodeURIComponent(token)}`
+    : `http://${host}/`;
+  return {
+    console: { url, port },
+    connectors: [],
+    unreadable: [],
+  };
+}
+
+async function proxyHubApi(
+  req: IncomingMessage,
+  res: {
+    statusCode: number;
+    setHeader: (k: string, v: string) => void;
+    end: (body: string) => void;
+  },
+  pathname: string,
+  search: string,
+): Promise<boolean> {
+  if (
+    pathname !== "/api/jobs" &&
+    !pathname.startsWith("/api/jobs/") &&
+    pathname !== "/api/settings" &&
+    pathname !== "/api/connectors" &&
+    pathname !== "/api/wipe" &&
+    pathname !== "/api/envelope" &&
+    pathname !== "/api/prepare-history" &&
+    pathname !== "/api/prepare-last" &&
+    pathname !== "/api/host" &&
+    pathname !== "/api/skills" &&
+    pathname !== "/api/trees" &&
+    pathname !== "/api/git-graph" &&
+    pathname !== "/api/repos" &&
+    pathname !== "/api/worker-models" &&
+    pathname !== "/api/workspaces" &&
+    !pathname.startsWith("/api/workspaces/")
+  ) {
+    return false;
+  }
+  if (isDashboardDataPath(pathname, req.method ?? "GET")) {
+    return serveDashboardData(req, res, pathname, search, readJsonBody);
+  }
+  const port = await readHubPort();
+  if (port === undefined) {
+    sendJson(res, 503, { error: "Job service is not available" });
+    return true;
+  }
+  const headers = new Headers();
+  if (typeof req.headers.authorization === "string") {
+    headers.set("authorization", req.headers.authorization);
+  }
+  if (typeof req.headers.cookie === "string") {
+    headers.set("cookie", req.headers.cookie);
+  }
+  if (typeof req.headers["content-type"] === "string") {
+    headers.set("content-type", req.headers["content-type"]);
+  }
+  const init: RequestInit = { method: req.method ?? "GET", headers };
+  if (req.method === "POST" || req.method === "PATCH") {
+    init.body = JSON.stringify(await readJsonBody(req));
+  }
+  try {
+    const upstream = await fetch(
+      `http://127.0.0.1:${port}${pathname}${search}`,
+      init,
+    );
+    res.statusCode = upstream.status;
+    res.setHeader(
+      "Content-Type",
+      upstream.headers.get("content-type") ?? "application/json",
+    );
+    res.end(await upstream.text());
+  } catch {
+    sendJson(res, 503, { error: "Job service is not available" });
+  }
+  return true;
 }
 
 type Workspace = {
@@ -784,9 +864,7 @@ function resolveRequestedRoot(raw: string | null): string {
   if (raw && raw.trim().length > 0) return resolve(raw.trim());
   const fallback = defaultPlaygroundRoot();
   if (fallback) return fallback;
-  throw new Error(
-    "Select a repository in Dispatch, or pass ?root= to Spectrum.",
-  );
+  throw new Error("Select a repository on the Dashboard, or pass ?root=.");
 }
 
 function sendJson(
@@ -918,6 +996,10 @@ function prismMapApi(): Plugin {
           try {
             const parsed = new URL(url, "http://localhost");
 
+            if (await proxyHubApi(req, res, parsed.pathname, parsed.search)) {
+              return;
+            }
+
             if (parsed.pathname === "/api/presets") {
               sendJson(res, 200, playgroundPresets());
               return;
@@ -949,7 +1031,11 @@ function prismMapApi(): Plugin {
             }
 
             if (parsed.pathname === "/api/console") {
-              sendJson(res, 200, await playgroundConsoleStatus());
+              sendJson(
+                res,
+                200,
+                await playgroundConsoleStatus(req.headers.host),
+              );
               return;
             }
 

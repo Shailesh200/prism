@@ -1,16 +1,12 @@
 /**
- * Jobs inside the editor, fed by the Prism Console.
- *
- * The extension holds no Dispatch dependency: everything here is HTTP to a
- * loopback port the Console already runs (ADR-0048), authenticated with the
- * token the host hands over via `consoleStatus`. That keeps one job store on
- * the machine — the alternative was a second reader of `.prism/dispatch/`,
- * which is how the board and the statusline used to disagree.
+ * Jobs on the one Dashboard. The playground serves GET /api/jobs from disk;
+ * the IDE webview uses the same path on the hub token the host already has.
  */
 
 import { useCallback, useEffect, useState, type ReactElement } from "react";
 import type { ConsoleStatus } from "@repo-prism/shared";
 import { AppSidebar, type AppSidebarUser, type AppView } from "./AppSidebar.js";
+import { dashboardLink } from "./hub-link.js";
 import { JobsScreen } from "./JobsScreen.js";
 import type {
   JobConsolePage,
@@ -24,6 +20,7 @@ const POLL_MS = 2_000;
 
 export type ConsoleJobsScreenProps = {
   readonly repoLabel: string;
+  readonly workspacePath?: string;
   readonly branch?: string | undefined;
   readonly user?: AppSidebarUser | null;
   readonly onNavigate: (view: AppView) => void;
@@ -41,17 +38,6 @@ type JobsResponse = {
   }[];
 };
 
-function consoleBase(status: ConsoleStatus): {
-  readonly base: string;
-  readonly token: string;
-} {
-  const url = new URL(status.console?.url ?? "http://127.0.0.1");
-  return {
-    base: `${url.protocol}//${url.host}`,
-    token: url.searchParams.get("token") ?? "",
-  };
-}
-
 export function ConsoleJobsScreen(props: ConsoleJobsScreenProps): ReactElement {
   const { status } = props;
   const [jobs, setJobs] = useState<readonly JobSummary[]>([]);
@@ -63,7 +49,7 @@ export function ConsoleJobsScreen(props: ConsoleJobsScreenProps): ReactElement {
   >([]);
   const [nonce, setNonce] = useState(0);
 
-  const link = status?.console ? consoleBase(status) : undefined;
+  const link = dashboardLink(status);
 
   useEffect(() => {
     if (!link) {
@@ -74,10 +60,18 @@ export function ConsoleJobsScreen(props: ConsoleJobsScreenProps): ReactElement {
 
     const read = async (): Promise<void> => {
       try {
-        const res = await fetch(
-          `${link.base}/api/jobs?token=${encodeURIComponent(link.token)}`,
-        );
-        if (!res.ok) throw new Error(`Console returned ${res.status}`);
+        const query = new URLSearchParams();
+        if (link.token) query.set("token", link.token);
+        if (props.workspacePath) query.set("workspace", props.workspacePath);
+        const res = await fetch(`${link.base}/api/jobs?${query}`);
+        if (!res.ok) {
+          const body = (await res.json().catch(() => undefined)) as
+            | { error?: string }
+            | undefined;
+          throw new Error(
+            body?.error?.trim() || `Could not load jobs (HTTP ${res.status})`,
+          );
+        }
         const body = (await res.json()) as JobsResponse;
         if (!live) return;
         setJobs(body.jobs ?? []);
@@ -105,7 +99,7 @@ export function ConsoleJobsScreen(props: ConsoleJobsScreenProps): ReactElement {
       live = false;
       clearInterval(timer);
     };
-  }, [link?.base, link?.token, nonce]);
+  }, [link?.base, link?.token, nonce, props.workspacePath]);
 
   const refresh = useCallback(() => setNonce((n) => n + 1), []);
 
@@ -152,15 +146,6 @@ export function ConsoleJobsScreen(props: ConsoleJobsScreenProps): ReactElement {
       />
 
       <div className="ov-main">
-        <header className="ov-top">
-          <div>
-            <div className="ov-top__title">Jobs</div>
-            <div className="ov-top__sub">
-              {[props.repoLabel, props.branch].filter(Boolean).join(" · ")}
-            </div>
-          </div>
-        </header>
-
         <div className="ov-scroll">
           {status && !status.console ? (
             <div className="int-runtime int-runtime--idle" role="status">
@@ -170,7 +155,7 @@ export function ConsoleJobsScreen(props: ConsoleJobsScreenProps): ReactElement {
                   data-tone="idle"
                   aria-hidden
                 />
-                Prism Dispatch is not running
+                Job list is not available yet
               </p>
               <p className="int-connect__hint">
                 It starts itself the first time an agent calls a Prism tool. Ask
@@ -192,6 +177,9 @@ export function ConsoleJobsScreen(props: ConsoleJobsScreenProps): ReactElement {
               loading={loading || !status}
               onRefresh={refresh}
               workspaceErrors={workspaceErrors}
+              {...(props.workspacePath
+                ? { repoFilter: props.workspacePath }
+                : {})}
               {...(listError ? { listError } : {})}
               {...(asOf ? { asOf } : {})}
             />

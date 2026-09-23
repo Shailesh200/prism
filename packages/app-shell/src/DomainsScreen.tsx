@@ -1,3 +1,4 @@
+import { Text } from "@repo-prism/ui";
 import type { DnaReport } from "@repo-prism/shared";
 import { ArrowLeft, ArrowRight, Compass } from "lucide-react";
 import type { ReactElement } from "react";
@@ -49,8 +50,12 @@ export function DomainsScreen(props: DomainsScreenProps): ReactElement {
       <div className="ov-main">
         <header className="ov-top">
           <div>
-            <div className="ov-top__title">Domains</div>
-            <div className="ov-top__sub">{subtitle}</div>
+            <Text variant="page" as="div" className="ov-top__title">
+              Domains
+            </Text>
+            <Text variant="caption" as="div" className="ov-top__sub">
+              {subtitle}
+            </Text>
           </div>
           <div className="ov-top__actions">
             <button

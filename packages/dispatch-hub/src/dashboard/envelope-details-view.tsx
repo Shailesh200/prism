@@ -32,6 +32,9 @@ import {
   envelopeToolTip,
   envelopeToolTone,
   hostClientLabel,
+  DEFAULT_JOB_RANGE,
+  JOB_RANGE_PRESETS,
+  jobRangeWindow,
   type JobSummary,
   type JobWorkspaceChip,
 } from "@repo-prism/app-shell";
@@ -57,14 +60,8 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import {
-  FLEET_RANGE_PRESETS,
-  irisDefaultWorkspace,
-  selectedRangeWindow,
-  type FleetRange,
-} from "./fleet.js";
+import { irisDefaultWorkspace } from "./fleet.js";
 import { Pager, pageSlice } from "./pager.js";
-import { RepoSelect } from "./repo-select.js";
 import { getJson } from "./session.js";
 import {
   ENVELOPE_DASH,
@@ -76,10 +73,9 @@ import {
 
 const IRIS_WORKSPACE_KEY = "prism.console.iris.workspace";
 const JOURNAL_PAGE_SIZE = 20;
-const SESSION_PAGE_SIZE = 10;
+const SESSION_PAGE_SIZE = 15;
 
 type EnvelopeViewMode = "over-time" | "agentic" | "session";
-type SessionKind = "all" | "inline" | "job";
 
 type EnvelopeResponse = EnvelopeMetrics & {
   readonly workspace?: string;
@@ -113,8 +109,12 @@ const GRAINS: readonly { id: EnvelopeGrain; label: string }[] = [
 ];
 
 function defaultEnvelopeRange(nowMs: number): DateRangeValue {
-  const window = selectedRangeWindow("7d", nowMs);
-  return { preset: "7d", startMs: window.startMs, endMs: window.endMs };
+  const window = jobRangeWindow(DEFAULT_JOB_RANGE, nowMs);
+  return {
+    preset: DEFAULT_JOB_RANGE,
+    startMs: window.startMs,
+    endMs: window.endMs,
+  };
 }
 
 function envelopeRangeQuery(range: DateRangeValue): {
@@ -623,7 +623,7 @@ function sessionCards(metrics: EnvelopeMetrics): EnvelopeMetricCard[] {
   ];
 }
 
-function recentColumns(jobs: readonly JobSummary[]): TableColumn<RecentView>[] {
+function recentColumns(): TableColumn<RecentView>[] {
   return [
     {
       id: "ts",
@@ -635,7 +635,7 @@ function recentColumns(jobs: readonly JobSummary[]): TableColumn<RecentView>[] {
       id: "tool",
       header: "Tool",
       type: "tag",
-      width: "10rem",
+      width: "8rem",
       render: (row) => <ToolName name={row.tool} />,
     },
     {
@@ -703,17 +703,6 @@ function recentColumns(jobs: readonly JobSummary[]): TableColumn<RecentView>[] {
         );
       },
     },
-    {
-      id: "source",
-      header: "Source",
-      type: "text",
-      tip: (row) => (row.jobId ? jobLabel(row.jobId, jobs) : "This session"),
-      render: (row) => (
-        <span className="envelope-title">
-          {row.jobId ? jobLabel(row.jobId, jobs) : "This session"}
-        </span>
-      ),
-    },
   ];
 }
 
@@ -721,9 +710,7 @@ function sessionWho(
   row: EnvelopeSessionRow,
   jobs: readonly JobSummary[],
 ): string {
-  return row.kind === "job" && row.jobId
-    ? jobLabel(row.jobId, jobs)
-    : "This session";
+  return row.kind === "job" && row.jobId ? jobLabel(row.jobId, jobs) : "Chat";
 }
 
 function sessionColumns(
@@ -856,11 +843,11 @@ function SessionInspector(props: {
   const who =
     session.kind === "job" && session.jobId
       ? jobLabel(session.jobId, props.jobs)
-      : "This session";
+      : "Chat";
   return (
     <aside className="envelope-inspector">
       <div className="envelope-inspector__head">
-        <h2 className="envelope-chart__title">This burst</h2>
+        <h2 className="envelope-chart__title">{who}</h2>
         {job && props.onOpenJob ? (
           <Button
             size="sm"
@@ -911,7 +898,6 @@ export function EnvelopeDetailsView(props: {
     defaultEnvelopeRange(Date.now()),
   );
   const [hostFilter, setHostFilter] = useState("all");
-  const [sessionKind, setSessionKind] = useState<SessionKind>("all");
   const [selectedSession, setSelectedSession] = useState<string | undefined>();
   const [journalPage, setJournalPage] = useState(0);
   const [sessionPage, setSessionPage] = useState(0);
@@ -979,9 +965,7 @@ export function EnvelopeDetailsView(props: {
     hostFilter === "all"
       ? hosts
       : hosts.filter((row) => row.host === hostFilter);
-  const sessions = (envelope?.sessions ?? []).filter((row) =>
-    sessionKind === "all" ? true : row.kind === sessionKind,
-  );
+  const sessions = envelope?.sessions ?? [];
   const pagedSessions = pageSlice(sessions, sessionPage, SESSION_PAGE_SIZE);
   const activeSession =
     pagedSessions.find((row) => row.id === selectedSession) ?? pagedSessions[0];
@@ -1024,18 +1008,6 @@ export function EnvelopeDetailsView(props: {
             <p className="console__lede">On this machine. Not job tokens.</p>
           </div>
         </div>
-        <RepoSelect
-          token={props.token}
-          label="Repos"
-          className="fleet-toolbar__repo-select"
-          value={workspace}
-          onChange={(path) => {
-            userPicked.current = true;
-            setWorkspace(path);
-            localStorage.setItem(IRIS_WORKSPACE_KEY, path);
-          }}
-          repos={props.workspaces}
-        />
       </div>
 
       <div className="envelope-toolbar envelope-toolbar--views">
@@ -1078,18 +1050,11 @@ export function EnvelopeDetailsView(props: {
           ) : null}
           <DateRangePicker
             aria-label="Time range"
-            className="fleet-toolbar__range-select envelope-toolbar__range-float"
-            presets={FLEET_RANGE_PRESETS}
+            className="fleet-toolbar__range-select"
+            presets={JOB_RANGE_PRESETS}
             value={range}
             nowMs={nowMs}
-            presetWindow={(id, at) =>
-              selectedRangeWindow(
-                (FLEET_RANGE_PRESETS.some((row) => row.id === id)
-                  ? id
-                  : "7d") as FleetRange,
-                at,
-              )
-            }
+            presetWindow={jobRangeWindow}
             onChange={setRange}
           />
         </div>
@@ -1132,40 +1097,6 @@ export function EnvelopeDetailsView(props: {
           </div>
         </div>
       ) : null}
-      {mode === "session" ? (
-        <div className="envelope-toolbar envelope-toolbar--filters">
-          <div
-            className="envelope-chips"
-            role="radiogroup"
-            aria-label="Burst kind"
-          >
-            <span className="envelope-chips__label">Filter</span>
-            {(
-              [
-                ["all", "All"],
-                ["inline", "Chats"],
-                ["job", "Teammate jobs"],
-              ] as const
-            ).map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                role="radio"
-                className="envelope-chip"
-                aria-checked={sessionKind === id}
-                data-active={sessionKind === id ? "true" : "false"}
-                onClick={() => {
-                  setSessionKind(id);
-                  setSessionPage(0);
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
       {error ? <EmptyState>{error}</EmptyState> : null}
       {envelope === undefined && !error ? (
         <p className="envelope__empty">Loading Envelope…</p>
@@ -1200,7 +1131,7 @@ export function EnvelopeDetailsView(props: {
                 rowKey={(row) => `${row.ts}:${row.tool}:${row.jobId ?? ""}`}
                 empty="No calls in this window."
                 rows={journalRows}
-                columns={recentColumns(repoJobs)}
+                columns={recentColumns()}
               />
               <Pager
                 page={journalPage}
@@ -1272,56 +1203,61 @@ export function EnvelopeDetailsView(props: {
           </EmptyState>
         ) : (
           <>
-            <ul className="envelope-hosts">
-              {filteredHosts.map((row) => {
-                const title = hostTitle(row.host);
-                const meta = hostMetaLines(row, journalRecent);
-                return (
-                  <li
-                    key={row.host}
-                    className="envelope-host"
-                    data-host={row.host}
-                  >
-                    <span className="envelope-host__icon" data-host={row.host}>
-                      <HostGlyph host={row.host} />
-                    </span>
-                    <div className="envelope-host__copy">
-                      <h3>
-                        <HoverTip
-                          label={title}
-                          detail={hostHoverDetail(row, journalRecent)}
-                          unclamp
-                        >
-                          {title}
-                        </HoverTip>
-                      </h3>
-                      <p>
-                        {row.listCalls} list calls · {row.truncatedCalls}{" "}
-                        partial · {row.chatCalls} chat / {row.jobCalls} jobs
-                      </p>
-                      {meta.length > 0 ? (
-                        <p className="envelope-host__meta">
-                          {meta.map((line) => (
-                            <span key={line}>{line}</span>
-                          ))}
+            <div className="envelope-split envelope-split--agentic">
+              <ul className="envelope-hosts">
+                {filteredHosts.map((row) => {
+                  const title = hostTitle(row.host);
+                  const meta = hostMetaLines(row, journalRecent);
+                  return (
+                    <li
+                      key={row.host}
+                      className="envelope-host"
+                      data-host={row.host}
+                    >
+                      <span
+                        className="envelope-host__icon"
+                        data-host={row.host}
+                      >
+                        <HostGlyph host={row.host} />
+                      </span>
+                      <div className="envelope-host__copy">
+                        <h3>
+                          <HoverTip
+                            label={title}
+                            detail={hostHoverDetail(row, journalRecent)}
+                            unclamp
+                          >
+                            {title}
+                          </HoverTip>
+                        </h3>
+                        <p>
+                          {row.listCalls} list calls · {row.truncatedCalls}{" "}
+                          partial · {row.chatCalls} chat / {row.jobCalls} jobs
                         </p>
-                      ) : null}
-                    </div>
-                    <p className="envelope-host__share">
-                      {hostTotal > 0
-                        ? formatEnvelopePercent(row.listCalls / hostTotal, 0)
-                        : ENVELOPE_DASH}
-                      <span>of list calls</span>
-                    </p>
-                  </li>
-                );
-              })}
-            </ul>
-            <EnvelopeBarChart
-              title="List calls by editor"
-              buckets={chartBuckets}
-              grouped
-            />
+                        {meta.length > 0 ? (
+                          <p className="envelope-host__meta">
+                            {meta.map((line) => (
+                              <span key={line}>{line}</span>
+                            ))}
+                          </p>
+                        ) : null}
+                      </div>
+                      <p className="envelope-host__share">
+                        {hostTotal > 0
+                          ? formatEnvelopePercent(row.listCalls / hostTotal, 0)
+                          : ENVELOPE_DASH}
+                        <span>of list calls</span>
+                      </p>
+                    </li>
+                  );
+                })}
+              </ul>
+              <EnvelopeBarChart
+                title="List calls by editor"
+                buckets={chartBuckets}
+                grouped
+              />
+            </div>
             {filteredHosts.some((row) => row.host === "unknown") ? (
               <EnvelopeHelp>
                 Unknown means those calls have no editor name. Cursor and Claude

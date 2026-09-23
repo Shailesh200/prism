@@ -64,7 +64,7 @@ export function PrismToastHost(): ReactElement | null {
   return createPortal(
     <p className={`prism-toast prism-toast--${toast.tone}`} role="status">
       <Icon size={16} aria-hidden />
-      {toast.message}
+      <span className="prism-toast__msg">{toast.message}</span>
     </p>,
     document.body,
   );

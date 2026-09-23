@@ -12,6 +12,7 @@ import {
   formatPrismDate,
   InfoTip,
   SearchableInput,
+  Text,
 } from "@repo-prism/ui";
 import {
   ArrowLeft,
@@ -484,8 +485,12 @@ export function TestingSecurityScreen(
       <div className="ov-main">
         <header className="ov-top">
           <div>
-            <div className="ov-top__title">Testing &amp; Security</div>
-            <div className="ov-top__sub">{subtitle}</div>
+            <Text variant="page" as="div" className="ov-top__title">
+              Testing &amp; Security
+            </Text>
+            <Text variant="caption" as="div" className="ov-top__sub">
+              {subtitle}
+            </Text>
           </div>
           <div className="ov-top__actions">
             <button

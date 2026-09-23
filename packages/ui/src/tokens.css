@@ -30,15 +30,16 @@
   /* Sky accent — live rail, running cap (ADR-0053 / M-068). */
   --prism-accent: #38bdf8;
 
-  /* Text */
-  --prism-ink: #ffffff;
-  --prism-ink-1: #ffffff;
-  --prism-ink-2: #e6f0f2;
-  --prism-ink-3: #94a3b8;
-  --prism-ink-4: color-mix(in srgb, #94a3b8 70%, #0a0e1a);
-  --prism-ink-muted: #94a3b8;
-  --prism-text: #e6f0f2;
-  --prism-text-faint: #94a3b8;
+  /* Text — off-white + mid slate, not #fff / washed gray */
+  --prism-ink: #c5ceda;
+  --prism-ink-heading: #ffffff;
+  --prism-ink-1: #c5ceda;
+  --prism-ink-2: #b4becb;
+  --prism-ink-3: #a3b0c0;
+  --prism-ink-4: color-mix(in srgb, #a3b0c0 70%, #0a0e1a);
+  --prism-ink-muted: #a3b0c0;
+  --prism-text: #c5ceda;
+  --prism-text-faint: #a3b0c0;
   --prism-surface: #131926;
   --prism-border: #2a334a;
 
@@ -87,7 +88,7 @@
 
   /* Tooltip / instrument chrome */
   --prism-dark-chrome: #1e2433;
-  --prism-dark-ink: #e8eef2;
+  --prism-dark-ink: #c5ceda;
 
   /* Aliases */
   --bg-canvas: var(--prism-canvas);
@@ -106,20 +107,21 @@
   --prism-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
   --prism-font-mono: var(--prism-mono);
   --prism-type-brand-size: 1.125rem;
-  --prism-type-brand-weight: 650;
-  --prism-type-brand-tracking: -0.02em;
+  --prism-type-brand-weight: 550;
+  --prism-type-brand-tracking: -0.01em;
   --prism-type-h1-size: 1.5rem;
-  --prism-type-h1-weight: 650;
+  --prism-type-h1-weight: 550;
   --prism-type-h2-size: 1.15rem;
-  --prism-type-h2-weight: 600;
+  --prism-type-h2-weight: 500;
   --prism-type-h3-size: 0.95rem;
-  --prism-type-h3-weight: 600;
+  --prism-type-h3-weight: 500;
   --prism-type-body: 0.9375rem;
   --prism-type-body-sm: 0.8125rem;
+  --prism-type-body-weight: 400;
   --prism-type-label: 0.75rem;
-  --prism-type-label-tracking: 0.04em;
+  --prism-type-label-tracking: 0.03em;
   --prism-type-mono: 0.75rem;
-  --prism-leading-body: 1.45;
+  --prism-leading-body: 1.5;
 
   /* Shape + space */
   --prism-radius-sm: 6px;
@@ -235,6 +237,7 @@ html[data-theme="light"] body,
 html[data-theme="light"] .prism-theme {
   /* Signal Chart / Design.md light atmospheric palette */
   --prism-ink: #191c1d;
+  --prism-ink-heading: #191c1d;
   --prism-ink-muted: #5a6b76;
   --prism-line: #c5d0d8;
   --prism-panel: #ffffff;
@@ -290,6 +293,7 @@ html[data-theme="light"] .prism-theme {
   :root[data-theme="system"] .prism-theme,
   html[data-theme="system"] .prism-theme {
     --prism-ink: #191c1d;
+    --prism-ink-heading: #191c1d;
     --prism-ink-muted: #5a6b76;
     --prism-line: #c5d0d8;
     --prism-panel: #ffffff;

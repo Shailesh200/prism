@@ -22,6 +22,7 @@ import {
   Select,
   Tabs,
   ToggleGroup,
+  Text,
 } from "@repo-prism/ui";
 import {
   ArrowLeft,
@@ -30,7 +31,6 @@ import {
   FileWarning,
   FlaskConical,
   Pencil,
-  Play,
   Plus,
   ShieldAlert,
   Trash2,
@@ -45,6 +45,7 @@ import { recordAudit } from "./audit-log.js";
 import { resolveRenameToPath } from "./apply-rename.js";
 import { useModalFocus } from "./modal-focus.js";
 import { ExplainPanel } from "./ExplainPanel.js";
+import { GuardScreen } from "./GuardScreen.js";
 import { ReviewPanel } from "./ReviewPanel.js";
 import type { ImpactBundle, ImpactTarget, SymbolSearchHit } from "./types.js";
 
@@ -123,7 +124,7 @@ export type BlastRadiusScreenProps = {
 type Mode = "file" | "symbol";
 type ImpactIntent = "edit" | "delete";
 type Status = "idle" | "loading" | "ready" | "error";
-export type ImpactTab = "explain" | "blast" | "review";
+export type ImpactTab = "explain" | "blast" | "review" | "guard";
 
 /** Compact chip label: `parent/file` when the path is nested. */
 function chipFileLabel(path: string): string {
@@ -954,8 +955,11 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
         : `${symbolLabel ?? target.id}${target.path ? ` · ${target.path}` : ""}`;
 
   const showSymbolPicker =
-    mode === "symbol" && (!target || symbolHits.length > 0);
+    impactTab !== "guard" &&
+    mode === "symbol" &&
+    (!target || symbolHits.length > 0);
   const showFileLanding =
+    impactTab !== "guard" &&
     mode === "file" &&
     !target &&
     (impactTab !== "review" ||
@@ -965,18 +969,20 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
         reviewStatus !== "error"));
   const helperText =
     dirtyError ??
-    (impactTab === "explain"
-      ? "A brief on this file or folder — domains, dependency degree, local ownership."
-      : impactTab === "review"
-        ? "Aggregate blast radius, tests, and breaking hints across selected or dirty files."
-        : "Pick a file or symbol, or load dirty files from the working tree.");
+    (impactTab === "guard"
+      ? "Rank uncommitted files by blast risk before you land the change."
+      : impactTab === "explain"
+        ? "A brief on this file or folder — domains, dependency degree, local ownership."
+        : impactTab === "review"
+          ? "Aggregate blast radius, tests, and breaking hints across selected or dirty files."
+          : "Pick a file or symbol, or load dirty files from the working tree.");
   const reviewCount = reviewPaths.length || (reviewDraft.trim() ? 1 : 0);
 
   return (
     <div className={shellRootClass()}>
       <AppSidebar
         variant={shellNavVariant()}
-        active={impactTab}
+        active="impact"
         repoLabel={props.repoLabel}
         user={props.user ?? null}
         onNavigate={props.onNavigate}
@@ -985,8 +991,12 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
       <div className="ov-main">
         <header className="ov-top" data-prism-tour="impact">
           <div>
-            <div className="ov-top__title">Impact</div>
-            <div className="ov-top__sub">{subtitle}</div>
+            <Text variant="page" as="div" className="ov-top__title">
+              Impact
+            </Text>
+            <Text variant="caption" as="div" className="ov-top__sub">
+              {subtitle}
+            </Text>
           </div>
           {returnView ? (
             <div className="ov-top__actions">
@@ -1007,209 +1017,213 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
         </header>
 
         <div className="ov-scroll">
-          <div className="ov-card imp-target">
-            <div className="imp-target__kicker">
-              <span>Target</span>
-              {reviewPaths.length > 0 ? (
-                <span className="imp-target__count">
-                  {reviewPaths.length} path
-                  {reviewPaths.length === 1 ? "" : "s"}
-                </span>
-              ) : null}
-            </div>
-            <div className="imp-chips-wrap">
-              {reviewPaths.length > 0 ? (
-                <div
-                  className={
-                    reviewChipsOpen && reviewPaths.length > REVIEW_CHIP_PREVIEW
-                      ? "imp-chips imp-chips--scroll"
-                      : "imp-chips"
-                  }
-                >
-                  {(reviewChipsOpen || reviewPaths.length <= REVIEW_CHIP_PREVIEW
-                    ? reviewPaths
-                    : reviewPaths.slice(0, REVIEW_CHIP_PREVIEW)
-                  ).map((path) => (
-                    <span
-                      key={path}
-                      className="br-chip"
-                      data-active={targetPath === path ? "true" : "false"}
-                    >
-                      <button
-                        type="button"
-                        className="br-chip__pick"
-                        title={path}
-                        onClick={() => selectFilePath(path)}
+          {impactTab === "guard" ? null : (
+            <div className="ov-card imp-target">
+              <div className="imp-target__kicker">
+                <span>Target</span>
+                {reviewPaths.length > 0 ? (
+                  <span className="imp-target__count">
+                    {reviewPaths.length} path
+                    {reviewPaths.length === 1 ? "" : "s"}
+                  </span>
+                ) : null}
+              </div>
+              <div className="imp-chips-wrap">
+                {reviewPaths.length > 0 ? (
+                  <div
+                    className={
+                      reviewChipsOpen &&
+                      reviewPaths.length > REVIEW_CHIP_PREVIEW
+                        ? "imp-chips imp-chips--scroll"
+                        : "imp-chips"
+                    }
+                  >
+                    {(reviewChipsOpen ||
+                    reviewPaths.length <= REVIEW_CHIP_PREVIEW
+                      ? reviewPaths
+                      : reviewPaths.slice(0, REVIEW_CHIP_PREVIEW)
+                    ).map((path) => (
+                      <span
+                        key={path}
+                        className="br-chip"
+                        data-active={targetPath === path ? "true" : "false"}
                       >
+                        <button
+                          type="button"
+                          className="br-chip__pick"
+                          title={path}
+                          onClick={() => selectFilePath(path)}
+                        >
+                          <FileCode2 size={14} aria-hidden />
+                          <span className="ov-mono ov-ellipsis">
+                            {chipFileLabel(path)}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          className="br-chip__clear"
+                          aria-label={`Remove ${path}`}
+                          onClick={() => removeReviewPath(path)}
+                        >
+                          <X size={14} aria-hidden />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : target && chipLabel ? (
+                  <div className="imp-chips">
+                    <div className="br-chip">
+                      {target.kind === "file" ? (
                         <FileCode2 size={14} aria-hidden />
-                        <span className="ov-mono ov-ellipsis">
-                          {chipFileLabel(path)}
-                        </span>
-                      </button>
+                      ) : (
+                        <Code2 size={14} aria-hidden />
+                      )}
+                      <span className="ov-mono ov-ellipsis" title={chipLabel}>
+                        {chipLabel}
+                      </span>
                       <button
                         type="button"
                         className="br-chip__clear"
-                        aria-label={`Remove ${path}`}
-                        onClick={() => removeReviewPath(path)}
+                        aria-label="Clear target"
+                        onClick={clearTarget}
                       >
                         <X size={14} aria-hidden />
                       </button>
-                    </span>
-                  ))}
-                </div>
-              ) : target && chipLabel ? (
-                <div className="imp-chips">
-                  <div className="br-chip">
-                    {target.kind === "file" ? (
-                      <FileCode2 size={14} aria-hidden />
-                    ) : (
-                      <Code2 size={14} aria-hidden />
-                    )}
-                    <span className="ov-mono ov-ellipsis" title={chipLabel}>
-                      {chipLabel}
-                    </span>
+                    </div>
+                  </div>
+                ) : null}
+                <div className="imp-chips imp-chips--actions">
+                  {reviewPaths.length > REVIEW_CHIP_PREVIEW ? (
                     <button
                       type="button"
-                      className="br-chip__clear"
-                      aria-label="Clear target"
-                      onClick={clearTarget}
+                      className="ov-btn ov-btn--ghost"
+                      onClick={() => setReviewChipsOpen((open) => !open)}
                     >
-                      <X size={14} aria-hidden />
+                      {reviewChipsOpen
+                        ? "Show less"
+                        : `Show ${reviewPaths.length - REVIEW_CHIP_PREVIEW} more`}
                     </button>
-                  </div>
-                </div>
-              ) : null}
-              <div className="imp-chips imp-chips--actions">
-                {reviewPaths.length > REVIEW_CHIP_PREVIEW ? (
-                  <button
-                    type="button"
-                    className="ov-btn ov-btn--ghost"
-                    onClick={() => setReviewChipsOpen((open) => !open)}
-                  >
-                    {reviewChipsOpen
-                      ? "Show less"
-                      : `Show ${reviewPaths.length - REVIEW_CHIP_PREVIEW} more`}
-                  </button>
-                ) : null}
-                {impactTab === "review" ? (
-                  <button
-                    type="button"
-                    className="ov-btn ov-btn--ghost"
-                    onClick={() => {
-                      const next = reviewDraft.trim();
-                      if (!next) return;
-                      setReviewPaths((prev) =>
-                        prev.includes(next) ? prev : [...prev, next],
-                      );
-                      setReviewDraft("");
-                    }}
-                  >
-                    <Plus size={14} aria-hidden />
-                    Add path
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  className="ov-btn ov-btn--ghost"
-                  disabled={dirtyBusy || reviewStatus === "loading"}
-                  onClick={() => loadDirtyFiles()}
-                >
-                  Use dirty files
-                </button>
-                {reviewPaths.length > 0 ? (
-                  <button
-                    type="button"
-                    className="ov-btn ov-btn--ghost"
-                    onClick={() => {
-                      setReviewPaths([]);
-                      setReviewChipsOpen(false);
-                      setDirtyError(null);
-                      if (impactTab !== "review") clearTarget();
-                    }}
-                  >
-                    Clear all
-                  </button>
-                ) : null}
-              </div>
-            </div>
-            <div className="br-target__controls">
-              <SearchableInput
-                className="br-target__search"
-                value={impactTab === "review" ? reviewDraft : query}
-                onChange={impactTab === "review" ? setReviewDraft : setQuery}
-                placeholder={
-                  impactTab === "review"
-                    ? "Add another path…"
-                    : mode === "file"
-                      ? "Search files or paste a path…"
-                      : "Search symbols…"
-                }
-                aria-label={
-                  impactTab === "review"
-                    ? "Add review path"
-                    : "Search blast targets"
-                }
-                spellCheck={false}
-              />
-              {impactTab === "review" ? (
-                <>
-                  <button
-                    type="button"
-                    className="ov-btn ov-btn--primary"
-                    disabled={
-                      reviewStatus === "loading" ||
-                      (reviewPaths.length === 0 && !reviewDraft.trim())
-                    }
-                    onClick={() => {
-                      const extra = reviewDraft.trim();
-                      const paths = extra
-                        ? reviewPaths.includes(extra)
-                          ? reviewPaths
-                          : [...reviewPaths, extra]
-                        : reviewPaths;
-                      if (extra) {
-                        setReviewPaths(paths);
-                        setReviewDraft("");
-                      }
-                      runReview(paths);
-                    }}
-                  >
-                    Review{" "}
-                    {reviewCount === 1 ? "1 path" : `${reviewCount} paths`}
-                  </button>
-                </>
-              ) : (
-                <>
-                  <ToggleGroup
-                    aria-label="Target mode"
-                    options={[
-                      { id: "file", label: "File" },
-                      { id: "symbol", label: "Symbol" },
-                    ]}
-                    value={mode}
-                    onChange={(id) => changeMode(id as Mode)}
-                  />
-                  {impactTab === "blast" && target ? (
-                    <ToggleGroup
-                      aria-label="Change intent"
-                      options={[
-                        { id: "edit", label: "Edit" },
-                        { id: "delete", label: "Delete" },
-                      ]}
-                      value={impactIntent}
-                      onChange={(id) => setImpactIntent(id as ImpactIntent)}
-                    />
                   ) : null}
-                </>
-              )}
+                  {impactTab === "review" ? (
+                    <button
+                      type="button"
+                      className="ov-btn ov-btn--ghost"
+                      onClick={() => {
+                        const next = reviewDraft.trim();
+                        if (!next) return;
+                        setReviewPaths((prev) =>
+                          prev.includes(next) ? prev : [...prev, next],
+                        );
+                        setReviewDraft("");
+                      }}
+                    >
+                      <Plus size={14} aria-hidden />
+                      Add path
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="ov-btn ov-btn--ghost"
+                    disabled={dirtyBusy || reviewStatus === "loading"}
+                    onClick={() => loadDirtyFiles()}
+                  >
+                    Use dirty files
+                  </button>
+                  {reviewPaths.length > 0 ? (
+                    <button
+                      type="button"
+                      className="ov-btn ov-btn--ghost"
+                      onClick={() => {
+                        setReviewPaths([]);
+                        setReviewChipsOpen(false);
+                        setDirtyError(null);
+                        if (impactTab !== "review") clearTarget();
+                      }}
+                    >
+                      Clear all
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+              <div className="br-target__controls">
+                <SearchableInput
+                  className="br-target__search"
+                  value={impactTab === "review" ? reviewDraft : query}
+                  onChange={impactTab === "review" ? setReviewDraft : setQuery}
+                  placeholder={
+                    impactTab === "review"
+                      ? "Add another path…"
+                      : mode === "file"
+                        ? "Search files or paste a path…"
+                        : "Search symbols…"
+                  }
+                  aria-label={
+                    impactTab === "review"
+                      ? "Add review path"
+                      : "Search blast targets"
+                  }
+                  spellCheck={false}
+                />
+                {impactTab === "review" ? (
+                  <>
+                    <button
+                      type="button"
+                      className="ov-btn ov-btn--primary"
+                      disabled={
+                        reviewStatus === "loading" ||
+                        (reviewPaths.length === 0 && !reviewDraft.trim())
+                      }
+                      onClick={() => {
+                        const extra = reviewDraft.trim();
+                        const paths = extra
+                          ? reviewPaths.includes(extra)
+                            ? reviewPaths
+                            : [...reviewPaths, extra]
+                          : reviewPaths;
+                        if (extra) {
+                          setReviewPaths(paths);
+                          setReviewDraft("");
+                        }
+                        runReview(paths);
+                      }}
+                    >
+                      Review{" "}
+                      {reviewCount === 1 ? "1 path" : `${reviewCount} paths`}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <ToggleGroup
+                      aria-label="Target mode"
+                      options={[
+                        { id: "file", label: "File" },
+                        { id: "symbol", label: "Symbol" },
+                      ]}
+                      value={mode}
+                      onChange={(id) => changeMode(id as Mode)}
+                    />
+                    {impactTab === "blast" && target ? (
+                      <ToggleGroup
+                        aria-label="Change intent"
+                        options={[
+                          { id: "edit", label: "Edit" },
+                          { id: "delete", label: "Delete" },
+                        ]}
+                        value={impactIntent}
+                        onChange={(id) => setImpactIntent(id as ImpactIntent)}
+                      />
+                    ) : null}
+                  </>
+                )}
+              </div>
+              <p
+                className="imp-target__help"
+                data-error={dirtyError ? "true" : "false"}
+              >
+                {helperText}
+              </p>
             </div>
-            <p
-              className="imp-target__help"
-              data-error={dirtyError ? "true" : "false"}
-            >
-              {helperText}
-            </p>
-          </div>
+          )}
 
           <Tabs
             aria-label="Impact mode"
@@ -1220,8 +1234,20 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
               { id: "explain", label: "Explain" },
               { id: "blast", label: "Blast radius" },
               { id: "review", label: "Review changes" },
+              { id: "guard", label: "Guard" },
             ]}
           />
+
+          {impactTab === "guard" ? (
+            <GuardScreen
+              repoLabel={props.repoLabel}
+              branch={props.branch}
+              user={props.user ?? null}
+              onNavigate={props.onNavigate}
+              {...(props.onOpenPath ? { onOpenPath: props.onOpenPath } : {})}
+              embedded
+            />
+          ) : null}
 
           {showFileLanding ? (
             <div className="imp-split">
@@ -1481,10 +1507,10 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
 
               <article className="ov-card br-down">
                 <div className="ov-card__head">
-                  <span className="ov-card__title">
+                  <Text variant="card" as="span" className="ov-card__title">
                     <CardIcon icon={Zap} tone="violet" size={14} />
                     Downstream Impact
-                  </span>
+                  </Text>
                   <span className="ov-card__meta">
                     {blast.affectedFiles.length}
                   </span>
@@ -1610,10 +1636,10 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
               {(blast.forwardDependencies?.length ?? 0) > 0 ? (
                 <article className="ov-card br-forward">
                   <div className="ov-card__head">
-                    <span className="ov-card__title">
+                    <Text variant="card" as="span" className="ov-card__title">
                       <CardIcon icon={ArrowLeft} tone="violet" size={14} />
                       This file depends on…
-                    </span>
+                    </Text>
                     <span className="ov-card__meta">
                       {blast.forwardDependenciesTruncated &&
                       blast.forwardDependenciesTotalCount !== undefined
@@ -1657,7 +1683,9 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
               {(blast.coverageLimitations?.length ?? 0) > 0 ? (
                 <article className="ov-card br-coverage">
                   <div className="ov-card__head">
-                    <span className="ov-card__title">Coverage limitations</span>
+                    <Text variant="card" as="span" className="ov-card__title">
+                      Coverage limitations
+                    </Text>
                     <InfoTip label="Coverage limitations">
                       Blast radius follows import and soft-analysis lanes. These
                       dependency classes are invisible to the graph.
@@ -1674,10 +1702,10 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
               {(blast.scenarioChecklist?.length ?? 0) > 0 ? (
                 <article className="ov-card br-scenario">
                   <div className="ov-card__head">
-                    <span className="ov-card__title">
+                    <Text variant="card" as="span" className="ov-card__title">
                       <CardIcon icon={FlaskConical} tone="violet" size={14} />
                       Checklist
-                    </span>
+                    </Text>
                     <InfoTip label="Scenario checklist">
                       Composed from blast and test-impact signals — tests to
                       run, configs and CI that touch this path, and package
@@ -1709,10 +1737,10 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
               <div className="br-safety-grid">
                 <article className="ov-card br-safety">
                   <div className="ov-card__head">
-                    <span className="ov-card__title">
+                    <Text variant="card" as="span" className="ov-card__title">
                       <CardIcon icon={Pencil} tone="violet" size={14} />
                       Rename Impact
-                    </span>
+                    </Text>
                     {renameRefreshing ? (
                       <span className="ov-card__meta">Updating…</span>
                     ) : null}
@@ -1802,12 +1830,12 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
 
                 <article className="ov-card br-safety">
                   <div className="ov-card__head">
-                    <span className="ov-card__title">
+                    <Text variant="card" as="span" className="ov-card__title">
                       <CardIcon icon={Trash2} tone="amber" size={14} />
                       {impactIntent === "delete"
                         ? "Delete findings"
                         : "Delete impact"}
-                    </span>
+                    </Text>
                   </div>
                   <div className="br-safety__body">
                     {deleteFindings ? (
@@ -1928,10 +1956,10 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
 
               <article className="ov-card">
                 <div className="ov-card__head">
-                  <span className="ov-card__title">
+                  <Text variant="card" as="span" className="ov-card__title">
                     <CardIcon icon={FlaskConical} tone="emerald" size={14} />
                     Tests Affected
-                  </span>
+                  </Text>
                   <span className="ov-card__meta">
                     {bundle.testImpact.tests.length}
                   </span>
@@ -1988,18 +2016,8 @@ export function BlastRadiusScreen(props: BlastRadiusScreenProps): ReactElement {
                 ) : (
                   <p className="ov-empty">No tests in the impact radius.</p>
                 )}
-                <button
-                  type="button"
-                  className="ov-btn ov-btn--ghost br-run"
-                  onClick={() => props.onNavigate("testing")}
-                  title="Open Testing & Security to run these suites"
-                >
-                  <Play size={13} aria-hidden />
-                  Run these tests
-                </button>
                 <p className="dm-note">
-                  Test impact from Core — paths, reason, and depth. Open Testing
-                  &amp; Security to run suites from the discovered tree.
+                  Test impact from Core — paths, reason, and depth.
                 </p>
               </article>
             </div>

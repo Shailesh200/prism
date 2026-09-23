@@ -121,47 +121,38 @@ describe("TrendsScreen health chart", () => {
     expect(area?.getAttribute("points")).toBe("10,190 10,100 590,100 590,190");
   });
 
-  it("still stretches unbounded commit counts to the series max", () => {
+  it("does not render Current Health Score or Commit activity", () => {
+    renderTrends();
+    expect(screen.queryByText("Current Health Score")).toBeNull();
+    expect(screen.queryByText("Commit activity")).toBeNull();
+  });
+
+  it("plots billed token candles from workspace jobs", () => {
     const { container } = renderTrends({
-      gitStatus: "ready",
-      gitActivity: {
-        root: "/repo",
-        generatedAt: new Date().toISOString(),
-        available: true,
-        days: [
-          {
-            date: localDayKey(Date.now() - 86_400_000),
-            commits: 50,
+      workspacePath: "/repo",
+      jobs: [
+        {
+          id: "a",
+          title: "Fix login",
+          status: "done",
+          branch: "main",
+          workspacePath: "/repo",
+          finishedAt: new Date().toISOString(),
+          tokenUsage: {
+            inputTokens: 1000,
+            outputTokens: 200,
+            contextTokens: 8_000,
+            contextWindow: 200_000,
           },
-          {
-            date: localDayKey(Date.now()),
-            commits: 100,
-          },
-        ],
-        authors: [],
-        weeks: [],
-        recentCommits: [],
-        recentFiles: [],
-      },
+        },
+      ],
     });
-    // Commit activity chart keeps the default 0..max domain. The 1W window is
-    // seven daily buckets [0,0,0,0,0,50,100]: 50 lands at mid-height (y=100)
-    // and 100 at the top (y=10).
-    const polyline = container.querySelector(".ov-chart__svg polyline");
-    const pts = polyline?.getAttribute("points") ?? "";
-    expect(pts.endsWith("590,10")).toBe(true);
-    expect(pts).toContain(",100 ");
-    const today = new Date().toLocaleDateString(undefined, {
-      day: "numeric",
-      month: "short",
-    });
-    const xTicks = [
-      ...(polyline
-        ?.closest(".ov-chart")
-        ?.querySelectorAll(".prism-chart__x-tick") ?? []),
-    ].map((el) => el.textContent);
-    expect(xTicks).toHaveLength(7);
-    expect(xTicks.at(-1)).toBe(today);
+    expect(
+      screen.getByRole("img", { name: "Billed token candles" }),
+    ).toBeTruthy();
+    expect(container.querySelector(".prism-candle")).toBeTruthy();
+    expect(screen.getByText("Billed")).toBeTruthy();
+    expect(screen.getAllByText("Context occupancy").length).toBeGreaterThan(0);
   });
 
   it("counts heuristic points alongside estimated ones in the legend", () => {
@@ -250,6 +241,8 @@ describe("TrendsScreen health chart", () => {
     await waitFor(() => {
       expect(screen.getByText(/Failed to open SQLite cache/)).toBeTruthy();
     });
+    const error = screen.getByText(/Failed to open SQLite cache/);
+    expect(error.className).toMatch(/ov-empty/);
     expect(screen.queryByText(/History sync in progress/)).toBeNull();
     expect(
       screen.getAllByRole("button", { name: "Build history" }).length,

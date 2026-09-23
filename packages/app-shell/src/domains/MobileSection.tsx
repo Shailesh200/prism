@@ -7,7 +7,7 @@ import {
   rankChurnHotspots,
   rankMostDepended,
 } from "@repo-prism/shared";
-import { EmptyState, InfoTip } from "@repo-prism/ui";
+import { EmptyState, InfoTip, Text } from "@repo-prism/ui";
 import { Flame, Network, Smartphone, Sparkles } from "lucide-react";
 import { useMemo, useState, type ReactElement } from "react";
 import { OverlayDomainFrame } from "./DomainShell.js";
@@ -164,7 +164,7 @@ export function MobileSection(props: DomainScreenProps): ReactElement {
               <>
                 <article className="ov-card">
                   <div className="ov-card__head">
-                    <span className="ov-card__title">
+                    <Text variant="card" as="span" className="ov-card__title">
                       <Smartphone
                         size={14}
                         className="ov-card__icon"
@@ -175,7 +175,7 @@ export function MobileSection(props: DomainScreenProps): ReactElement {
                         Navigator/Router files that compose screens (Expo
                         _layout, React Navigation Navigator.*).
                       </InfoTip>
-                    </span>
+                    </Text>
                     <span className="ov-card__meta">
                       {navigatorNodes.length}
                     </span>
@@ -204,14 +204,14 @@ export function MobileSection(props: DomainScreenProps): ReactElement {
 
                 <article className="ov-card">
                   <div className="ov-card__head">
-                    <span className="ov-card__title">
+                    <Text variant="card" as="span" className="ov-card__title">
                       <Sparkles
                         size={14}
                         className="ov-card__icon"
                         aria-hidden
                       />
                       Mobile Stack
-                    </span>
+                    </Text>
                     {mobileStack?.detected ? (
                       <span className="ov-card__meta">Detected</span>
                     ) : null}
@@ -265,10 +265,10 @@ export function MobileSection(props: DomainScreenProps): ReactElement {
 
                 <article className="ov-card">
                   <div className="ov-card__head">
-                    <span className="ov-card__title">
+                    <Text variant="card" as="span" className="ov-card__title">
                       <Flame size={14} className="ov-card__icon" aria-hidden />
                       Screen Churn Hotspots
-                    </span>
+                    </Text>
                   </div>
                   {screenChurn.length > 0 ? (
                     <div className="dm-rank">
@@ -297,7 +297,7 @@ export function MobileSection(props: DomainScreenProps): ReactElement {
 
                 <article className="ov-card">
                   <div className="ov-card__head">
-                    <span className="ov-card__title">
+                    <Text variant="card" as="span" className="ov-card__title">
                       <Network
                         size={14}
                         className="ov-card__icon"
@@ -308,7 +308,7 @@ export function MobileSection(props: DomainScreenProps): ReactElement {
                         Screens with highest inbound dependency edges from the
                         file graph.
                       </InfoTip>
-                    </span>
+                    </Text>
                   </div>
                   {screenMostDepended.length > 0 ? (
                     <div className="dm-rank">
@@ -340,7 +340,7 @@ export function MobileSection(props: DomainScreenProps): ReactElement {
 
                 <article className="ov-card">
                   <div className="ov-card__head">
-                    <span className="ov-card__title">
+                    <Text variant="card" as="span" className="ov-card__title">
                       <Network
                         size={14}
                         className="ov-card__icon"
@@ -352,7 +352,7 @@ export function MobileSection(props: DomainScreenProps): ReactElement {
                         parsing, or screens that share a navigator parent folder
                         when explicit links are limited.
                       </InfoTip>
-                    </span>
+                    </Text>
                     <span className="ov-card__meta">
                       {mobileNavLinks.length}
                     </span>

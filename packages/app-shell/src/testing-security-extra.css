@@ -108,7 +108,7 @@
 .ts-summary {
   margin: 0 0 16px;
   font-size: 0.8125rem;
-  color: #94a3b8;
+  color: var(--prism-ink-muted);
   line-height: 1.5;
 }
 
@@ -122,7 +122,7 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #94a3b8;
+  color: var(--prism-ink-muted);
 }
 
 .ts-section-label--flush {
@@ -234,7 +234,7 @@
 
 .ts-tree__toggle:hover {
   background: rgba(255, 255, 255, 0.04);
-  color: #fff;
+  color: var(--prism-ink);
 }
 
 .ts-tree__label {
@@ -262,7 +262,7 @@
   min-width: 0;
   padding: 4px 6px;
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--prism-ink-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -291,7 +291,7 @@
     var(--prism-brand, #00c2c2) 45%,
     transparent
   );
-  color: #fff;
+  color: var(--prism-ink);
 }
 
 .ts-tree__run:disabled {
@@ -547,7 +547,7 @@
 
 .ts-tstat--skipped,
 .ts-tstat--unknown {
-  color: #94a3b8;
+  color: var(--prism-ink-muted);
   background: rgba(255, 255, 255, 0.06);
 }
 
@@ -583,7 +583,7 @@
 }
 
 .ts-check-icon--skip {
-  color: #94a3b8;
+  color: var(--prism-ink-muted);
   background: rgba(255, 255, 255, 0.06);
 }
 
@@ -603,7 +603,7 @@
 }
 
 .ts-present--no {
-  color: #94a3b8;
+  color: var(--prism-ink-muted);
   background: rgba(255, 255, 255, 0.06);
 }
 
@@ -635,7 +635,7 @@
   padding: 0 6px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.06);
-  color: #94a3b8;
+  color: var(--prism-ink-muted);
   font-size: 0.625rem;
   font-weight: 700;
 }

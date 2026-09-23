@@ -1,25 +1,33 @@
 import {
   Badge,
   Button,
+  DateRangePicker,
   EmptyState,
   IconButton,
-  InfoTip,
+  MetricCard,
+  ToggleGroup,
   Textarea,
+  Tooltip,
   isPrimaryActionKey,
+  type DateRangeValue,
+  Text,
 } from "@repo-prism/ui";
 import {
+  Activity,
   AlertTriangle,
   Check,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
+  Clock,
   Copy,
   FileDiff,
-  Pause,
+  ListTodo,
   RefreshCw,
   RotateCcw,
-  Loader2,
   Terminal,
   Trash2,
+  XCircle,
   X,
 } from "lucide-react";
 import {
@@ -37,8 +45,6 @@ import {
   GATE_PATH_SAMPLE,
   gateOverflowNote,
   isLiveJob,
-  canRetryJob,
-  canRetryVerification,
   jobElapsed,
   heartbeatAge,
   jobAgentLabel,
@@ -49,6 +55,9 @@ import {
   jobBadgeTone,
   jobBadgePulse,
   jobDisplayLabel,
+  jobValidationLabel,
+  jobValidationTone,
+  jobValidationTooltip,
   jobMessage,
   compactJobError,
   jobModelLabel,
@@ -56,6 +65,7 @@ import {
   jobStages,
   jobNextAction,
   jobReviewPending,
+  jobReviewAccepted,
   jobReviewLooksForeign,
   jobStatusTone,
   jobTimeBreakdown,
@@ -76,10 +86,17 @@ import {
   type JobsPort,
   jobBoardKey,
   matchesBoardLane,
-  workspaceChipsForBoard,
   type JobBoardLane,
   type JobWorkspaceChip,
 } from "./jobs-types.js";
+import {
+  DEFAULT_JOB_RANGE,
+  JOB_RANGE_PRESETS,
+  jobInRange,
+  jobMatchesRepo,
+  jobRangeWindow,
+  jobStampMs,
+} from "./jobs-range.js";
 
 export type JobsScreenProps = {
   readonly repoLabel: string;
@@ -127,13 +144,12 @@ export type JobsScreenProps = {
   readonly emptyTitle?: string;
   readonly emptyBody?: string;
   /**
-   * Repositories the Console is watching. The board always offers a filter
-   * so a mixed list can be scoped to one checkout.
+   * Repositories the Console is watching. Repo scoping uses the global
+   * top-bar selection (`repoFilter`), not an in-page dropdown.
    */
   readonly workspaces?: readonly JobWorkspaceChip[];
-  /** Workspace path to pre-select from `#/jobs?repo=`. */
+  /** Global workspace path from the top-bar repo picker. */
   readonly repoFilter?: string;
-  readonly onRepoFilterChange?: (path: string) => void;
   /** Open the job's write-up on the Findings page. */
   readonly onOpenFindings?: (job: JobSummary, notePath?: string) => void;
   /** Hide the board chrome when this screen is the Focus inspector. */
@@ -227,12 +243,15 @@ function ReviewSummary(props: {
   const mixed = new Set(review.mixedPaths ?? []);
   const kept = new Set(review.keptPaths ?? []);
   const pending = review.files.filter((file) => !kept.has(file.path));
+  const accepted = jobReviewAccepted(review);
   const showActions = Boolean(props.canDecide && props.onDecide);
   return (
-    <div className="job-review">
+    <div
+      className={accepted ? "job-review job-review--accepted" : "job-review"}
+    >
       <div className="job-review__head">
         <FileDiff size={14} aria-hidden />
-        <strong>Ready for review</strong>
+        <strong>Files modified</strong>
         <span className="job-review__totals">{reviewFileTotals(review)}</span>
         {showActions && pending.length > 0 ? (
           <div className="job-review__bulk">
@@ -342,9 +361,11 @@ function ReviewSummary(props: {
         </p>
       ) : null}
       <p className="job-review__note job-review__note--strong">
-        {review.committed
-          ? "This work is on its own branch. Nothing has been merged into the branch you are on — review the diff, then merge or drop it yourself."
-          : "These edits are uncommitted in your working tree. Keep a file to accept it, restore it to undo the job, or commit just these files."}
+        {accepted
+          ? "These changes were accepted."
+          : review.committed
+            ? "This work is on its own branch. Nothing has been merged into the branch you are on — review the diff, then merge or drop it yourself."
+            : "These edits are uncommitted in your working tree. Keep a file to accept it, restore it to undo the job, or commit just these files."}
       </p>
     </div>
   );
@@ -361,9 +382,6 @@ function JobTimeline(props: {
   stages: readonly JobStage[];
   outcome?: "error" | "cancelled";
   nextAction?: ReturnType<typeof jobNextAction>;
-  onResume?: () => void;
-  onConfirm?: () => void;
-  onCancel?: () => void;
   onKeepAll?: () => void;
 }): ReactElement {
   const complete = props.stages.at(-1)?.reached ?? false;
@@ -377,7 +395,7 @@ function JobTimeline(props: {
     .join(" ");
   // A gated job sits on Accepted, not Waiting — hiding the CTA there made
   // "Start anyway" look like dead copy in the Focus drawer.
-  const showCta = Boolean(props.nextAction);
+  const showCta = props.nextAction?.action === "keep";
   return (
     <div className={railClass}>
       <ol className="job-rail__steps">
@@ -441,42 +459,13 @@ function JobTimeline(props: {
         <div className="job-rail__cta">
           <p className="job-rail__cta-copy">{props.nextAction.copy}</p>
           <div className="job-rail__cta-actions">
-            {props.nextAction.action === "keep" ? (
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={() => props.onKeepAll?.()}
-              >
-                Keep all
-              </Button>
-            ) : props.nextAction.action === "confirm" ? (
-              <Button
-                size="sm"
-                variant="primary"
-                disabled={!props.onConfirm}
-                onClick={() => props.onConfirm?.()}
-              >
-                Start anyway
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                variant="primary"
-                disabled={!props.onResume}
-                onClick={() => props.onResume?.()}
-              >
-                Resume
-              </Button>
-            )}
-            {props.nextAction.action !== "keep" ? (
-              <Button
-                size="sm"
-                variant="danger"
-                onClick={() => props.onCancel?.()}
-              >
-                Cancel
-              </Button>
-            ) : null}
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() => props.onKeepAll?.()}
+            >
+              Keep all
+            </Button>
           </div>
         </div>
       ) : null}
@@ -719,6 +708,33 @@ function JobOutcome(props: {
   );
 }
 
+/** Prepare-drawer row: stacked label + wrapping value, not a cramped KPI tile. */
+function JobFactCard(props: {
+  readonly label: string;
+  readonly value: ReactNode;
+  readonly tooltip?: string;
+  readonly action?: ReactNode;
+}): ReactElement {
+  return (
+    <article className="job-fact">
+      <div className="job-fact__title">
+        <h3>
+          {props.label}
+          {props.tooltip ? (
+            <Tooltip label={props.label} wide align="end">
+              {props.tooltip}
+            </Tooltip>
+          ) : null}
+        </h3>
+        <div className="job-fact__body">
+          <div className="job-fact__value">{props.value}</div>
+          {props.action}
+        </div>
+      </div>
+    </article>
+  );
+}
+
 /**
  * The absolute times behind the card's one relative number.
  *
@@ -729,9 +745,6 @@ function JobOutcome(props: {
 function JobFacts(props: {
   job: JobSummary;
   now: number;
-  onResume?: () => void;
-  onConfirm?: () => void;
-  onCancel?: () => void;
   onKeepAll?: () => void;
 }): ReactElement | null {
   const { job } = props;
@@ -750,9 +763,6 @@ function JobFacts(props: {
             ? { outcome: job.status }
             : {})}
           {...(nextAction ? { nextAction } : {})}
-          {...(props.onResume ? { onResume: props.onResume } : {})}
-          {...(props.onConfirm ? { onConfirm: props.onConfirm } : {})}
-          {...(props.onCancel ? { onCancel: props.onCancel } : {})}
           {...(props.onKeepAll ? { onKeepAll: props.onKeepAll } : {})}
         />
       ) : null}
@@ -808,47 +818,58 @@ function JobBrief(props: {
   };
 
   return (
-    <div className="job-brief">
-      <Textarea
-        id={`job-brief-${props.job.id}`}
-        label="Teammate instructions"
-        aria-label="Teammate instructions"
-        placeholder="Write prompt here"
-        rows={6}
-        value={value}
-        readOnly={!props.onStartChild}
-        onChange={(event) => {
-          setValue(event.target.value);
-        }}
-        onKeyDown={(event) => {
-          if (isPrimaryActionKey(event)) {
-            event.preventDefault();
-            void startChild();
-          }
-        }}
-      />
-      {error ? (
-        <p className="job-brief__error" role="alert">
-          {error}
-        </p>
-      ) : null}
+    <div className="job-outcome job-outcome--brief">
+      <div className="job-outcome__head">
+        <p className="job-outcome__kicker">Teammate instructions</p>
+      </div>
       {props.onStartChild ? (
-        <div className="job-brief__actions">
-          <p className="job-brief__hint">
-            Update the instruction and start a child job. Esc to close · ⌘↵ to
-            start
-          </p>
-          <Button
-            size="sm"
-            variant="primary"
-            disabled={busy || !canStart}
-            aria-keyshortcuts="Meta+Enter Control+Enter"
-            onClick={() => void startChild()}
-          >
-            Start child job
-          </Button>
+        <div className="job-brief">
+          <div className="job-brief__scroll">
+            <Textarea
+              id={`job-brief-${props.job.id}`}
+              className="job-brief__field"
+              label="Teammate instructions"
+              aria-label="Teammate instructions"
+              placeholder="Write prompt here"
+              rows={6}
+              value={value}
+              onChange={(event) => {
+                setValue(event.target.value);
+              }}
+              onKeyDown={(event) => {
+                if (isPrimaryActionKey(event)) {
+                  event.preventDefault();
+                  void startChild();
+                }
+              }}
+            />
+          </div>
+          {error ? (
+            <p className="job-brief__error" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <div className="job-brief__actions">
+            <p className="job-brief__hint">
+              Update the instruction and start a child job. Esc to close · ⌘↵ to
+              start
+            </p>
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={busy || !canStart}
+              aria-keyshortcuts="Meta+Enter Control+Enter"
+              onClick={() => void startChild()}
+            >
+              Start child job
+            </Button>
+          </div>
         </div>
-      ) : null}
+      ) : (
+        <div className="job-brief__scroll">
+          <SummaryRichText text={value} />
+        </div>
+      )}
     </div>
   );
 }
@@ -858,30 +879,38 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
   const nowFn = props.now ?? Date.now;
 
   const [lane, setLane] = useState<JobBoardLane>("all");
-  const [repoFilter, setRepoFilter] = useState<string>(
-    () => props.repoFilter ?? "all",
-  );
+  const [range, setRange] = useState<DateRangeValue>(() => {
+    const window = jobRangeWindow(DEFAULT_JOB_RANGE, nowFn());
+    return {
+      preset: DEFAULT_JOB_RANGE,
+      startMs: window.startMs,
+      endMs: window.endMs,
+    };
+  });
+  const repoFilter = props.repoFilter ?? "all";
   const [hiddenKeys, setHiddenKeys] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
   const [controlError, setControlError] = useState<string | undefined>();
-
-  const workspaces = useMemo(
-    () => workspaceChipsForBoard(props.jobs, props.workspaces),
-    [props.jobs, props.workspaces],
-  );
-
-  useEffect(() => {
-    if (props.repoFilter) setRepoFilter(props.repoFilter);
-  }, [props.repoFilter]);
-
-  const selectRepo = useCallback(
-    (path: string) => {
-      setRepoFilter(path);
-      props.onRepoFilterChange?.(path);
-    },
-    [props.onRepoFilterChange],
-  );
+  const [tick, setTick] = useState(() => nowFn());
+  const rangeValue = useMemo((): DateRangeValue => {
+    if (range.preset === "custom") return range;
+    const window = jobRangeWindow(range.preset, tick);
+    return {
+      preset: range.preset,
+      startMs: window.startMs,
+      endMs: window.endMs,
+    };
+  }, [range, tick]);
+  const rangeMinMs = useMemo(() => {
+    let min: number | undefined;
+    for (const job of props.jobs) {
+      const at = jobStampMs(job);
+      if (at === undefined) continue;
+      if (min === undefined || at < min) min = at;
+    }
+    return min;
+  }, [props.jobs]);
 
   const jobs = useMemo(() => {
     const ranked = props.approvalsOnly
@@ -889,22 +918,33 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
       : orderJobsForBoard(props.jobs);
     return ranked.filter((job) => {
       if (hiddenKeys.has(jobBoardKey(job))) return false;
-      if (repoFilter !== "all" && job.workspacePath !== repoFilter) {
-        return false;
-      }
+      if (!jobInRange(job, rangeValue.startMs, rangeValue.endMs)) return false;
+      if (!jobMatchesRepo(job, repoFilter)) return false;
       return matchesBoardLane(job, lane);
     });
-  }, [props.approvalsOnly, props.jobs, hiddenKeys, lane, repoFilter]);
+  }, [
+    props.approvalsOnly,
+    props.jobs,
+    hiddenKeys,
+    lane,
+    repoFilter,
+    rangeValue.startMs,
+    rangeValue.endMs,
+  ]);
 
   const scopedJobs = useMemo(() => {
     return props.jobs.filter((job) => {
       if (hiddenKeys.has(jobBoardKey(job))) return false;
-      if (repoFilter !== "all" && job.workspacePath !== repoFilter) {
-        return false;
-      }
-      return true;
+      if (!jobInRange(job, rangeValue.startMs, rangeValue.endMs)) return false;
+      return jobMatchesRepo(job, repoFilter);
     });
-  }, [props.jobs, hiddenKeys, repoFilter]);
+  }, [
+    props.jobs,
+    hiddenKeys,
+    repoFilter,
+    rangeValue.startMs,
+    rangeValue.endMs,
+  ]);
   const listError = props.listError;
   const loaded = !props.loading;
   const [openId, setOpenId] = useState<string | null>(
@@ -914,9 +954,7 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
     if (props.defaultOpenId) setOpenId(props.defaultOpenId);
   }, [props.defaultOpenId]);
   const [consoles, setConsoles] = useState<Record<string, ConsoleState>>({});
-  const [tick, setTick] = useState(() => nowFn());
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [busyAction, setBusyAction] = useState<JobControlAction | null>(null);
 
   const portRef = useRef(props.port);
   portRef.current = props.port;
@@ -1045,7 +1083,6 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
       if (!portRef.current.control) return;
       const key = jobBoardKey(job);
       setBusyId(job.id);
-      setBusyAction(action);
       setControlError(undefined);
       if (action === "delete") {
         setHiddenKeys((current) => new Set([...current, key]));
@@ -1073,7 +1110,6 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
         setControlError(cause instanceof Error ? cause.message : String(cause));
       } finally {
         setBusyId(null);
-        setBusyAction(null);
       }
     },
     [props],
@@ -1081,10 +1117,16 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
 
   const liveCount = scopedJobs.filter((job) => isLiveJob(job.status)).length;
   const reviewCount = scopedJobs.filter(jobReviewPending).length;
+  const finishedCount = scopedJobs.filter((job) =>
+    matchesBoardLane(job, "finished"),
+  ).length;
+  const failedCount = scopedJobs.filter((job) =>
+    matchesBoardLane(job, "failed"),
+  ).length;
   const waiting = useMemo(() => jobsWaitingOnYou(scopedJobs), [scopedJobs]);
   const waitingCount = waiting.length;
   const heading = props.heading ?? "Jobs";
-  const eyebrow = props.eyebrow ?? "Prism Dispatch";
+  const compact = props.chrome === "inspector" || props.chrome === "focus";
 
   return (
     <section
@@ -1097,41 +1139,80 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
     >
       <header className="jobs-screen__head">
         <div>
-          <p className="jobs-screen__eyebrow">{eyebrow}</p>
-          <h1 id="jobs-title" className="jobs-screen__title">
+          <Text
+            variant="title"
+            as="h1"
+            id="jobs-title"
+            className="jobs-screen__title"
+          >
             {heading}
-          </h1>
-          <p className="jobs-screen__repo">{props.repoLabel}</p>
-        </div>
-        <div className="jobs-screen__meta">
-          {waitingCount > 0 ? (
-            <span className="jobs-screen__count jobs-screen__count--waiting">
-              {waitingCount} awaiting approval
-            </span>
-          ) : null}
-          {liveCount > 0 ? (
-            <span className="jobs-screen__count jobs-screen__count--live">
-              {liveCount} live
-            </span>
-          ) : null}
-          {reviewCount > 0 ? (
-            <span className="jobs-screen__count jobs-screen__count--review">
-              {reviewCount} to review
-            </span>
-          ) : null}
-          {props.chrome === "inspector" || props.chrome === "focus" ? null : (
-            <Button
-              size="sm"
-              variant="tertiary"
-              className="jobs-screen__refresh"
-              icon={<RefreshCw size={14} aria-hidden />}
-              onClick={() => props.onRefresh?.()}
-            >
-              Refresh
-            </Button>
+          </Text>
+          {compact ? (
+            <p className="jobs-screen__repo">{props.repoLabel}</p>
+          ) : (
+            <Text variant="lede" as="p" className="jobs-screen__lede">
+              Archive of Dispatch jobs for this workspace — live teammates,
+              waiting approvals, and finished work.
+            </Text>
           )}
         </div>
+        {compact ? null : (
+          <Button
+            size="sm"
+            variant="tertiary"
+            className="jobs-screen__refresh"
+            icon={<RefreshCw size={14} aria-hidden />}
+            onClick={() => props.onRefresh?.()}
+          >
+            Refresh
+          </Button>
+        )}
       </header>
+
+      {compact ? null : (
+        <section className="jobs-screen__kpis" aria-label="Job summary">
+          <MetricCard
+            label="Total"
+            value={scopedJobs.length}
+            icon={ListTodo}
+            tone="brand"
+            tooltip="Jobs in the selected time range for this workspace."
+          />
+          <MetricCard
+            label="Live"
+            value={liveCount}
+            icon={Activity}
+            tone="brand"
+            tooltip="Running or starting teammates."
+            {...(liveCount > 0 ? { sub: `${liveCount} live` } : {})}
+          />
+          <MetricCard
+            label="Waiting"
+            value={waitingCount}
+            icon={Clock}
+            tone="amber"
+            tooltip="Jobs parked until you approve them."
+            {...(waitingCount > 0
+              ? { sub: `${waitingCount} awaiting approval` }
+              : {})}
+          />
+          <MetricCard
+            label="Finished"
+            value={finishedCount}
+            icon={CheckCircle2}
+            tone="emerald"
+            tooltip="Done, cancelled, or waiting on your review."
+            {...(reviewCount > 0 ? { sub: `${reviewCount} to review` } : {})}
+          />
+          <MetricCard
+            label="Failed"
+            value={failedCount}
+            icon={XCircle}
+            tone="rose"
+            tooltip="Jobs that ended in error."
+          />
+        </section>
+      )}
 
       {listError ? (
         <p className="jobs-screen__error" role="alert">
@@ -1169,75 +1250,29 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
           role="toolbar"
           aria-label="Filter jobs"
         >
-          <div className="jobs-screen__lanes">
-            {(
-              [
-                ["all", "All", scopedJobs.length],
-                [
-                  "live",
-                  "Live",
-                  scopedJobs.filter((job) => isLiveJob(job.status)).length,
-                ],
-                ["waiting", "Waiting", waitingCount],
-                [
-                  "finished",
-                  "Finished",
-                  scopedJobs.filter((job) => matchesBoardLane(job, "finished"))
-                    .length,
-                ],
-              ] as const
-            ).map(([id, label, count]) => (
-              <Button
-                key={id}
-                type="button"
-                variant="tertiary"
-                className="jobs-screen__chip"
-                aria-pressed={lane === id}
-                onClick={() => setLane(id)}
-              >
-                {label}
-                <span className="jobs-screen__chip-count">{count}</span>
-              </Button>
-            ))}
-          </div>
-          {workspaces.length > 0 ? (
-            <div
-              className="jobs-screen__repos"
-              role="group"
-              aria-label="Repository"
-            >
-              <Button
-                type="button"
-                variant="tertiary"
-                className="jobs-screen__chip"
-                aria-pressed={repoFilter === "all"}
-                onClick={() => selectRepo("all")}
-              >
-                All repos
-              </Button>
-              {workspaces.map((repo) => (
-                <Button
-                  key={repo.path}
-                  type="button"
-                  variant="tertiary"
-                  className="jobs-screen__chip"
-                  aria-pressed={repoFilter === repo.path}
-                  title={
-                    repo.error ? `Could not read: ${repo.error}` : repo.path
-                  }
-                  aria-label={`${repo.label} repository`}
-                  onClick={() => selectRepo(repo.path)}
-                >
-                  {repo.label}
-                  {typeof repo.jobCount === "number" ? (
-                    <span className="jobs-screen__chip-count">
-                      {repo.jobCount}
-                    </span>
-                  ) : null}
-                </Button>
-              ))}
-            </div>
-          ) : null}
+          <ToggleGroup
+            aria-label="Status"
+            className="jobs-screen__status"
+            value={lane}
+            onChange={(id) => setLane(id as JobBoardLane)}
+            options={[
+              { id: "all", label: "All" },
+              { id: "live", label: "Live" },
+              { id: "waiting", label: "Waiting" },
+              { id: "finished", label: "Finished" },
+              { id: "failed", label: "Failed" },
+            ]}
+          />
+          <DateRangePicker
+            aria-label="Time range"
+            className="jobs-screen__range"
+            presets={JOB_RANGE_PRESETS}
+            value={rangeValue}
+            nowMs={tick}
+            {...(rangeMinMs !== undefined ? { minMs: rangeMinMs } : {})}
+            presetWindow={jobRangeWindow}
+            onChange={setRange}
+          />
         </div>
       ) : null}
 
@@ -1309,8 +1344,6 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
           const reviewing = jobReviewPending(job);
           const checksRunning = job.lastActivity === "Running checks…";
           const cardBusy = busyId === job.id || checksRunning;
-          const reverifying =
-            checksRunning || (busyId === job.id && busyAction === "reverify");
           const activityRaw = reviewing
             ? (job.resultSummary ?? "Finished — review the changes.")
             : (jobMessage(job) ?? "");
@@ -1321,6 +1354,7 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
               ? activityRaw
               : "";
           const usage = jobUsageFigures(job.tokenUsage);
+          const timeTip = jobTimeBreakdown(job, tick);
           return (
             <li
               key={jobBoardKey(job)}
@@ -1424,7 +1458,7 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
               {stalled ? (
                 <p className="job-card__warn">
                   <AlertTriangle size={13} aria-hidden />
-                  No recent output. Resume to nudge it, or cancel.
+                  No recent output.
                 </p>
               ) : null}
 
@@ -1467,23 +1501,6 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
                     <div className="job-card__controls">
                       <Button
                         size="sm"
-                        variant="secondary"
-                        disabled={cardBusy}
-                        onClick={() => void control("confirm", job)}
-                      >
-                        Yes, start it
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        disabled={cardBusy}
-                        icon={<X size={13} aria-hidden />}
-                        onClick={() => void control("cancel", job)}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        size="sm"
                         variant="danger"
                         disabled={cardBusy}
                         icon={<Trash2 size={13} aria-hidden />}
@@ -1496,112 +1513,6 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
                 </div>
               ) : null}
 
-              {props.chrome !== "focus" &&
-              props.port.control &&
-              !gated &&
-              job.status === "error" ? (
-                <div className="job-card__controls">
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    disabled={cardBusy}
-                    onClick={() => void control("resume", job)}
-                  >
-                    Resume
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="danger"
-                    disabled={cardBusy}
-                    icon={<X size={13} aria-hidden />}
-                    onClick={() => void control("cancel", job)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              ) : null}
-
-              {props.chrome !== "focus" &&
-              props.port.control &&
-              !gated &&
-              (live || job.status === "paused") ? (
-                <div className="job-card__controls">
-                  {job.status === "paused" || stalled ? (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={cardBusy}
-                      onClick={() => void control("resume", job)}
-                    >
-                      Resume
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="warning"
-                      disabled={cardBusy}
-                      icon={<Pause size={13} aria-hidden />}
-                      onClick={() => void control("pause", job)}
-                    >
-                      Pause
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="danger"
-                    disabled={cardBusy}
-                    icon={<X size={13} aria-hidden />}
-                    onClick={() => void control("cancel", job)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              ) : null}
-
-              {props.chrome !== "focus" &&
-              props.port.control &&
-              !gated &&
-              (canRetryJob(job) || canRetryVerification(job)) ? (
-                <div className="job-card__controls">
-                  {canRetryJob(job) ? (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={cardBusy}
-                      icon={
-                        busyId === job.id && busyAction === "retry" ? (
-                          <Loader2 size={13} className="cr-spin" aria-hidden />
-                        ) : (
-                          <RotateCcw size={13} aria-hidden />
-                        )
-                      }
-                      onClick={() => void control("retry", job)}
-                    >
-                      {busyId === job.id && busyAction === "retry"
-                        ? "Retrying…"
-                        : "Retry job"}
-                    </Button>
-                  ) : null}
-                  {canRetryVerification(job) ? (
-                    <Button
-                      size="sm"
-                      variant="warning"
-                      disabled={cardBusy}
-                      icon={
-                        reverifying ? (
-                          <Loader2 size={13} className="cr-spin" aria-hidden />
-                        ) : (
-                          <RotateCcw size={13} aria-hidden />
-                        )
-                      }
-                      onClick={() => void control("reverify", job)}
-                    >
-                      {reverifying ? "Running checks…" : "Retry verification"}
-                    </Button>
-                  ) : null}
-                </div>
-              ) : null}
-
               {open ? (
                 <div className="job-card__panel">
                   {activity ? (
@@ -1609,114 +1520,94 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
                       {activity}
                     </p>
                   ) : null}
-                  <dl className="job-card__facts">
-                    <div>
-                      <dt>Status</dt>
-                      <dd>{jobDisplayLabel(job)}</dd>
-                    </div>
-                    <div>
-                      <dt>Triggered</dt>
-                      <dd>{jobStamp(job) || "—"}</dd>
-                    </div>
-                    <div>
-                      <dt>Platform</dt>
-                      <dd>{hostClientLabel(job.hostClient)}</dd>
-                    </div>
-                    <div>
-                      <dt>Time</dt>
-                      <dd title={jobTimeBreakdown(job, tick) ?? undefined}>
-                        {jobElapsed(job, tick) || "—"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Branch</dt>
-                      <dd>
-                        {job.branch ? (
-                          <span className="job-card__branch-wrap">
-                            <code>{job.branch}</code>
-                            <IconButton
-                              variant="tertiary"
-                              className="job-card__icon-btn"
-                              label="Copy branch"
-                              onClick={() =>
-                                void navigator.clipboard.writeText(
-                                  job.branch ?? "",
-                                )
-                              }
-                            >
-                              <Copy size={13} aria-hidden />
-                            </IconButton>
-                          </span>
-                        ) : (
-                          <span className="job-card__unknown">
-                            not placed yet
-                          </span>
-                        )}
-                      </dd>
-                    </div>
+                  <div className="job-card__facts">
+                    <JobFactCard label="Status" value={jobDisplayLabel(job)} />
+                    <JobFactCard
+                      label="Triggered"
+                      value={jobStamp(job) || "—"}
+                    />
+                    <JobFactCard
+                      label="Platform"
+                      value={hostClientLabel(job.hostClient)}
+                    />
+                    <JobFactCard
+                      label="Time"
+                      value={jobElapsed(job, tick) || "—"}
+                      {...(timeTip ? { tooltip: timeTip } : {})}
+                    />
+                    <JobFactCard
+                      label="Branch"
+                      value={job.branch ?? "not placed yet"}
+                      {...(job.branch
+                        ? {
+                            action: (
+                              <IconButton
+                                variant="tertiary"
+                                className="job-fact__copy"
+                                label="Copy branch"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  void navigator.clipboard.writeText(
+                                    job.branch ?? "",
+                                  );
+                                }}
+                              >
+                                <Copy size={13} aria-hidden />
+                              </IconButton>
+                            ),
+                          }
+                        : {})}
+                    />
                     {job.review &&
                     job.review.files.length > 0 &&
                     !jobReviewLooksForeign(job) ? (
-                      <div>
-                        <dt>Changes</dt>
-                        <dd>{reviewFileTotals(job.review)}</dd>
-                      </div>
+                      <JobFactCard
+                        label="Changes"
+                        value={reviewFileTotals(job.review)}
+                      />
                     ) : null}
-                    <div>
-                      <dt>Agent</dt>
-                      <dd>{jobAgentLabel(job.workerBackend)}</dd>
-                    </div>
-                    <div>
-                      <dt>Model</dt>
-                      <dd>
-                        {jobModelLabel(
-                          job.workerBackend,
-                          job.workerModel,
-                          job.workerThinking,
-                        )}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>
-                        Context
-                        <InfoTip label="Context">
-                          Occupancy of this teammate&apos;s last prompt this run
-                          — the LLM window, not Envelope. Not the chat that
-                          queued the job.
-                        </InfoTip>
-                      </dt>
-                      <dd>{usage.context}</dd>
-                    </div>
-                    <div>
-                      <dt>
-                        Tokens
-                        <InfoTip label="Tokens">
-                          Input and output billed for this teammate&apos;s LLM
-                          run. Envelope below is Prism lists, not this bill.
-                        </InfoTip>
-                      </dt>
-                      <dd>
-                        <JobTokenIo usage={job.tokenUsage} />
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>
-                        Envelope
-                        <InfoTip label="Envelope" wide>
-                          {JOB_ENVELOPE_TIP}
-                        </InfoTip>
-                      </dt>
-                      <dd>{jobEnvelopeLabel(job.envelopeUsage)}</dd>
-                    </div>
-                  </dl>
+                    <JobFactCard
+                      label="Agent"
+                      value={jobAgentLabel(job.workerBackend)}
+                    />
+                    <JobFactCard
+                      label="Model"
+                      value={jobModelLabel(
+                        job.workerBackend,
+                        job.workerModel,
+                        job.workerThinking,
+                      )}
+                    />
+                    <JobFactCard
+                      label="Context"
+                      value={usage.context}
+                      tooltip="Occupancy of this teammate's last prompt this run — the LLM window."
+                    />
+                    <JobFactCard
+                      label="Tokens"
+                      value={<JobTokenIo usage={job.tokenUsage} />}
+                      tooltip="Input and output billed for this teammate's LLM run. Envelope is Prismate lists, not this bill."
+                    />
+                    <JobFactCard
+                      label="Envelope"
+                      value={jobEnvelopeLabel(job.envelopeUsage)}
+                      tooltip={JOB_ENVELOPE_TIP}
+                    />
+                    <JobFactCard
+                      label="Validation Status"
+                      value={
+                        <Badge tone={jobValidationTone(job)}>
+                          {jobValidationLabel(job)}
+                        </Badge>
+                      }
+                      tooltip={jobValidationTooltip(job)}
+                    />
+                  </div>
                   <JobFacts
                     job={job}
                     now={tick}
                     {...(props.port.control
                       ? {
-                          onResume: () => void control("resume", job),
-                          onConfirm: () => void control("confirm", job),
-                          onCancel: () => void control("cancel", job),
                           onKeepAll: () => void control("accept_all", job),
                         }
                       : {})}
@@ -1737,14 +1628,6 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
                         ? { onOpenFindings: props.onOpenFindings }
                         : {})}
                     />
-                  ) : null}
-                  {job.verification && !jobReviewLooksForeign(job) ? (
-                    <p className={`job-verify job-verify--${job.verification}`}>
-                      <strong>Checks {job.verification}</strong>
-                      {job.verificationDetail
-                        ? ` — ${job.verificationDetail}`
-                        : ""}
-                    </p>
                   ) : null}
                   {job.review &&
                   job.review.files.length > 0 &&

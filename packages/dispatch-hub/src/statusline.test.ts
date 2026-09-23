@@ -65,8 +65,17 @@ describe("formatStatusline", () => {
   it("shows the freshest live job with its activity", () => {
     const line = formatStatusline(
       [
-        job({ title: "fix login", lastActivity: "Editing files" }),
-        job({ id: "j2", title: "audit", status: "booting" }),
+        job({
+          title: "fix login",
+          lastActivity: "Editing files",
+          updatedAt: "2026-01-01T00:00:02.000Z",
+        }),
+        job({
+          id: "j2",
+          title: "audit",
+          status: "booting",
+          updatedAt: "2026-01-01T00:00:01.000Z",
+        }),
       ],
       [],
     );

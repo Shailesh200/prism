@@ -1,5 +1,6 @@
 import type {
   ConsentState,
+  ConsoleStatus,
   MapLayerId,
   MapZoomLevel,
   RepositoryMap,
@@ -10,6 +11,7 @@ import {
   Select,
   Textarea,
   ToggleGroup,
+  Text,
 } from "@repo-prism/ui";
 import {
   AlertTriangle,
@@ -20,6 +22,7 @@ import {
   ScrollText,
   Settings2,
   Shield,
+  Sparkles,
   X,
 } from "lucide-react";
 import {
@@ -54,12 +57,14 @@ import {
   type PrismSansFont,
   type PrismTheme,
 } from "./settings-store.js";
+import { PrismateSettings, WipePrismDataCard } from "./PrismateSettings.js";
 
 /** Which host is rendering the shell. Controls surface-specific affordances. */
 export type SettingsSurface = "extension" | "browser" | "playground";
 
 export type SettingsSection =
   | "general"
+  | "prismate"
   | "indexing"
   | "appearance"
   | "privacy"
@@ -93,8 +98,6 @@ export type SettingsScreenProps = {
   onLayersChange: (layers: MapLayerId[]) => void;
   onApplyWorkspace: (path: string) => void;
   onReindex: () => void;
-  /** Clears domain cache, audit log, and requests host clear. */
-  onClearData?: () => void;
   /**
    * Notify host to start/stop workspace file watcher (extension). The optional
    * `intervalMs` carries the chosen debounce window.
@@ -121,6 +124,8 @@ export type SettingsScreenProps = {
   /** Extension-only: open the in-app Getting Started tour. */
   onOpenWalkthrough?: () => void;
   onNavigate: (view: AppView) => void;
+  /** Dashboard daemon — Prismate settings load from the same store as configure. */
+  consoleStatus?: ConsoleStatus;
 };
 
 const ZOOM_OPTIONS: readonly { value: MapZoomLevel; label: string }[] = [
@@ -148,14 +153,12 @@ const SECTIONS: readonly {
   icon: typeof Settings2;
 }[] = [
   { id: "general", label: "General", icon: Settings2 },
+  { id: "prismate", label: "Prismate", icon: Sparkles },
   { id: "indexing", label: "Indexing", icon: FileSearch },
   { id: "appearance", label: "Appearance", icon: Eye },
   { id: "privacy", label: "Privacy", icon: Shield },
   { id: "audit", label: "Audit Logs", icon: ScrollText },
 ];
-
-const CLEAR_DATA_WARNING =
-  "This erases all local Prism data for this workspace — the cache database, .prism/remote-ci and .prism/tools, the audit log, stored settings, integrations, and domain-run cache. This cannot be undone.";
 
 /** Modal shape for the confirmation dialog. */
 type PendingModal = {
@@ -332,21 +335,6 @@ export function SettingsScreen(props: SettingsScreenProps): ReactElement {
     });
   };
 
-  const onClearData = () => {
-    if (!props.onClearData) return;
-    setModal({
-      title: "Clear all Prism data?",
-      body: CLEAR_DATA_WARNING,
-      confirmLabel: "Clear Data",
-      tone: "danger",
-      onConfirm: () => {
-        props.onClearData?.();
-        // Reflect the wipe locally so the UI resets to defaults immediately.
-        setStored(loadSettings());
-      },
-    });
-  };
-
   const sidebarLabel = props.displayName.trim() || props.repoLabel;
   const subtitle = [sidebarLabel, props.branch].filter(Boolean).join(" · ");
 
@@ -367,10 +355,12 @@ export function SettingsScreen(props: SettingsScreenProps): ReactElement {
       <div className="ov-main">
         <header className="ov-top">
           <div>
-            <div className="ov-top__title">Settings</div>
-            <div className="ov-top__sub">
+            <Text variant="page" as="div" className="ov-top__title">
+              Settings
+            </Text>
+            <Text variant="caption" as="div" className="ov-top__sub">
               {subtitle || "Workspace preferences"}
-            </div>
+            </Text>
           </div>
         </header>
 
@@ -399,112 +389,117 @@ export function SettingsScreen(props: SettingsScreenProps): ReactElement {
 
             <div className="set-panel">
               {section === "general" ? (
-                <SettingsCard title="Workspace">
-                  {showRepoRoot ? (
+                <>
+                  <SettingsCard title="Workspace">
+                    {showRepoRoot ? (
+                      <SettingsRow
+                        label="Repository root"
+                        help="Absolute path Prism indexes. Change to switch workspaces."
+                      >
+                        {editingPath ? (
+                          <form className="set-path" onSubmit={onSubmitPath}>
+                            <Input
+                              id={pathId}
+                              className="set-path__input"
+                              value={draftPath}
+                              onChange={(e) => setDraftPath(e.target.value)}
+                              spellCheck={false}
+                              aria-label="Repository path"
+                              autoFocus
+                            />
+                            <button type="submit" className="ov-btn">
+                              Apply
+                            </button>
+                            <button
+                              type="button"
+                              className="ov-btn ov-btn--ghost"
+                              onClick={() => {
+                                setDraftPath(props.root);
+                                setEditingPath(false);
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </form>
+                        ) : (
+                          <div className="set-path-view">
+                            <code
+                              className="ov-mono set-path-view__mono"
+                              title={props.root}
+                            >
+                              {props.root}
+                            </code>
+                            {props.autoDetected ? (
+                              <span className="set-badge">Auto-detected</span>
+                            ) : null}
+                            <button
+                              type="button"
+                              className="ov-btn ov-btn--ghost"
+                              onClick={() => setEditingPath(true)}
+                            >
+                              Change workspace
+                            </button>
+                          </div>
+                        )}
+                      </SettingsRow>
+                    ) : null}
                     <SettingsRow
-                      label="Repository root"
-                      help="Absolute path Prism indexes. Change to switch workspaces."
+                      label="Display name"
+                      help="Short label shown in the sidebar. Leave blank to use the path-derived name."
                     >
-                      {editingPath ? (
-                        <form className="set-path" onSubmit={onSubmitPath}>
-                          <Input
-                            id={pathId}
-                            className="set-path__input"
-                            value={draftPath}
-                            onChange={(e) => setDraftPath(e.target.value)}
-                            spellCheck={false}
-                            aria-label="Repository path"
-                            autoFocus
-                          />
-                          <button type="submit" className="ov-btn">
-                            Apply
-                          </button>
-                          <button
-                            type="button"
-                            className="ov-btn ov-btn--ghost"
-                            onClick={() => {
-                              setDraftPath(props.root);
-                              setEditingPath(false);
-                            }}
-                          >
-                            Cancel
-                          </button>
-                        </form>
-                      ) : (
-                        <div className="set-path-view">
-                          <code
-                            className="ov-mono set-path-view__mono"
-                            title={props.root}
-                          >
-                            {props.root}
-                          </code>
-                          {props.autoDetected ? (
-                            <span className="set-badge">Auto-detected</span>
-                          ) : null}
-                          <button
-                            type="button"
-                            className="ov-btn ov-btn--ghost"
-                            onClick={() => setEditingPath(true)}
-                          >
-                            Change workspace
-                          </button>
-                        </div>
-                      )}
-                    </SettingsRow>
-                  ) : null}
-                  <SettingsRow
-                    label="Display name"
-                    help="Short label shown in the sidebar. Leave blank to use the path-derived name."
-                  >
-                    <Input
-                      className="set-input"
-                      value={props.displayName}
-                      onChange={(e) =>
-                        props.onDisplayNameChange(e.target.value)
-                      }
-                      placeholder={props.repoLabel}
-                      spellCheck={false}
-                      aria-label="Display name"
-                    />
-                  </SettingsRow>
-                  {props.onCodeLensChange ? (
-                    <SettingsRow
-                      label="CodeLens"
-                      help="Show Blast Radius, Ownership, and Reveal on Map actions above the first line of each file in the editor."
-                    >
-                      <Toggle
-                        checked={Boolean(props.codeLensEnabled)}
-                        label={props.codeLensEnabled ? "On" : "Off"}
-                        onChange={props.onCodeLensChange}
+                      <Input
+                        className="set-input"
+                        value={props.displayName}
+                        onChange={(e) =>
+                          props.onDisplayNameChange(e.target.value)
+                        }
+                        placeholder={props.repoLabel}
+                        spellCheck={false}
+                        aria-label="Display name"
                       />
                     </SettingsRow>
-                  ) : null}
-                  {props.onOpenWalkthrough ? (
-                    <SettingsRow
-                      label="Getting Started"
-                      help="Replay the in-app Prism tour (Next / Previous / Skip)."
-                    >
-                      <button
-                        type="button"
-                        className="ov-btn ov-btn--ghost"
-                        onClick={props.onOpenWalkthrough}
+                    {props.onCodeLensChange ? (
+                      <SettingsRow
+                        label="CodeLens"
+                        help="Show Blast Radius, Ownership, and Reveal on Map actions above the first line of each file in the editor."
                       >
-                        Open tour
-                      </button>
-                    </SettingsRow>
-                  ) : null}
-                  {props.onClearData ? (
-                    <SettingsRow label="Clear Data" help={CLEAR_DATA_WARNING}>
-                      <button
-                        type="button"
-                        className="ov-btn ov-btn--danger"
-                        onClick={onClearData}
+                        <Toggle
+                          checked={Boolean(props.codeLensEnabled)}
+                          label={props.codeLensEnabled ? "On" : "Off"}
+                          onChange={props.onCodeLensChange}
+                        />
+                      </SettingsRow>
+                    ) : null}
+                    {props.onOpenWalkthrough ? (
+                      <SettingsRow
+                        label="Getting Started"
+                        help="Replay the in-app Prism tour (Next / Previous / Skip)."
                       >
-                        Clear Data
-                      </button>
-                    </SettingsRow>
-                  ) : null}
-                </SettingsCard>
+                        <button
+                          type="button"
+                          className="ov-btn ov-btn--ghost"
+                          onClick={props.onOpenWalkthrough}
+                        >
+                          Open tour
+                        </button>
+                      </SettingsRow>
+                    ) : null}
+                  </SettingsCard>
+                  <WipePrismDataCard
+                    {...(props.consoleStatus
+                      ? { consoleStatus: props.consoleStatus }
+                      : {})}
+                  />
+                </>
+              ) : null}
+
+              {section === "prismate" ? (
+                <PrismateSettings
+                  workspacePath={props.root}
+                  {...(props.consoleStatus
+                    ? { consoleStatus: props.consoleStatus }
+                    : {})}
+                />
               ) : null}
 
               {section === "indexing" ? (
@@ -931,7 +926,9 @@ function WarningModal(props: {
           <span className="set-modal__icon" data-tone={modal.tone}>
             <AlertTriangle size={18} aria-hidden />
           </span>
-          <h3 className="set-modal__title">{modal.title}</h3>
+          <Text variant="heading" as="h3" className="set-modal__title">
+            {modal.title}
+          </Text>
           <button
             type="button"
             className="set-modal__close"
@@ -972,7 +969,9 @@ function SettingsCard(props: {
 }): ReactElement {
   return (
     <section className="ov-card set-card">
-      <h2 className="set-card__title">{props.title}</h2>
+      <Text variant="card" as="h2" className="set-card__title">
+        {props.title}
+      </Text>
       <div className="set-card__body">{props.children}</div>
     </section>
   );
