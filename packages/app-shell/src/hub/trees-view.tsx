@@ -94,8 +94,8 @@ function TreeAction(props: {
     <HoverTip label={props.label} detail={props.detail}>
       <IconButton
         label={props.label}
-        disabled={props.disabled}
-        loading={props.loading}
+        {...(props.disabled !== undefined ? { disabled: props.disabled } : {})}
+        {...(props.loading !== undefined ? { loading: props.loading } : {})}
         {...(props.danger ? { variant: "danger" as const } : {})}
         {...(props.primary ? { variant: "primary" as const } : {})}
         onClick={props.onClick}
