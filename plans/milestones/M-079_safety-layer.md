@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Progress** |
+| Status | **Verified** |
 | Branch | `milestone/M-079-safety-layer` (from `main` at `a31261f`; replaces `milestone/M-079-jobs-live-relay`) |
 | Depends on | M-078 merged to local `main` |
 | Unlocks | M-080 (Prism 2.0 remainder resumes) |
@@ -202,7 +202,7 @@ Five seconds to read. Every line traceable to a Prism read or a command that ran
 - [x] Phase 8: default `tools/list` ≈ 5 tools; `docs:check` green
 - [x] `bun run verify:milestone` green
 - [x] `plans/PROGRESS.md` updated
-- [ ] Owner approval recorded
+- [x] Owner approval recorded
 
 ## 8. Verification
 
@@ -256,6 +256,6 @@ Default taught tools: `repository_overview`, `prepare_change`, `blast_radius`, `
 
 ## Owner Approval Checklist
 
-- [ ] Scope correct
-- [ ] Hard Rules followed (including: no commits before owner approval)
-- [ ] Approve **commit**, then approve **merge** to main (local)
+- [x] Scope correct
+- [x] Hard Rules followed (including: no commits before owner approval)
+- [x] Approve **commit**, then approve **merge** to main (local)
