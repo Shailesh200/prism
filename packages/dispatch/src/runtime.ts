@@ -785,6 +785,8 @@ async function kickDrainIfAwake(
   context?: DispatchToolContext,
   workspaceRoot = options.workspaceRoot,
 ): Promise<void> {
+  // Jobs are off unless PRISM_JOBS=1 (ADR-0058): nothing may start a worker.
+  if (env.PRISM_JOBS !== "1") return;
   if (await isPrismAsleep(env)) return;
   kickDrain(
     drainDepsFor(
@@ -1891,6 +1893,10 @@ async function wakeTool(
     };
   }
   const slept = await wakePrism(env);
+  if (env.PRISM_JOBS !== "1") {
+    // Jobs are off (ADR-0058): waking only brings the Dashboard back.
+    return { asleep: false, resumed: 0, message: "Prism is up." };
+  }
   let resumed = 0;
   const drainRoots = new Set<string>();
   for (const row of slept) {

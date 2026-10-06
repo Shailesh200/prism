@@ -14,8 +14,8 @@ import {
   BlastRadiusScreen,
   DnaScreen,
   ConsoleHubScreen,
-  ConsoleJobsScreen,
   IntegrationsScreen,
+  LensesScreen,
   OverviewScreen,
   PrismErrorBoundary,
   PrismTour,
@@ -57,6 +57,7 @@ import {
   applyRename,
   explainArea,
   fetchGuardSession,
+  fetchLenses,
   fetchOverlay,
   fetchRegionMovers,
   fetchReindex,
@@ -240,6 +241,7 @@ function App(): ReactElement {
       fetchExplainArea: (path) => explainArea(path),
       fetchGuardSession: (preExistingChanges) =>
         fetchGuardSession(preExistingChanges),
+      fetchLenses,
       fetchBookmarks,
       saveBookmark,
       removeBookmark,
@@ -494,6 +496,15 @@ function App(): ReactElement {
         }
       />
     );
+  } else if (view === "lenses") {
+    body = (
+      <LensesScreen
+        repoLabel={repoLabel}
+        branch={branch}
+        user={user}
+        onNavigate={onNavigate}
+      />
+    );
   } else if (view === "iris" || view === "skills") {
     body = (
       <ConsoleHubScreen
@@ -509,6 +520,8 @@ function App(): ReactElement {
     );
   } else if (
     view === "impact" ||
+    view === "jobs" ||
+    view === "findings" ||
     view === "blast" ||
     view === "review" ||
     view === "explain" ||
@@ -563,18 +576,6 @@ function App(): ReactElement {
         branch={branch}
         user={user}
         networkIntegrationsAllowed={networkIntegrationsAllowed}
-        onNavigate={onNavigate}
-      />
-    );
-  } else if (view === "jobs") {
-    body = (
-      <ConsoleJobsScreen
-        repoLabel={repoLabel}
-        workspacePath={root}
-        branch={branch}
-        user={user}
-        status={consoleStatus}
-        onRetry={refreshConsoleStatus}
         onNavigate={onNavigate}
       />
     );

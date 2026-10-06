@@ -22,6 +22,7 @@ import type {
   HealthHistoryBackfillStatus,
   HealthHistoryReport,
   HealthScore,
+  LensView,
   MapBookmark,
   MapLayerId,
   MapZoomLevel,
@@ -64,6 +65,7 @@ export type {
 export type AppView =
   | "overview"
   | "iris"
+  | "lenses"
   | "jobs"
   | "skills"
   | "dna"
@@ -272,6 +274,7 @@ export type HostRequest =
       preExistingChanges?: string[];
     }
   | { id: string; method: "listBookmarks" }
+  | { id: string; method: "listLenses" }
   | { id: string; method: "saveBookmark"; input: SaveBookmarkInput }
   | { id: string; method: "removeBookmark"; bookmarkId: string }
   | { id: string; method: "listPackages" }
@@ -486,6 +489,7 @@ export type HostResponse =
       data: GuardSession | null;
     }
   | { id: string; ok: true; method: "listBookmarks"; data: MapBookmark[] }
+  | { id: string; ok: true; method: "listLenses"; data: LensView[] }
   | { id: string; ok: true; method: "saveBookmark"; data: MapBookmark[] }
   | { id: string; ok: true; method: "removeBookmark"; data: MapBookmark[] }
   | {

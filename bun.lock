@@ -105,6 +105,13 @@
         "react-dom": "^19.0.0",
       },
     },
+    "packages/checks": {
+      "name": "@repo-prism/checks",
+      "version": "1.12.0",
+      "dependencies": {
+        "zod": "^3.25.0",
+      },
+    },
     "packages/cli": {
       "name": "@repo-prism/cli",
       "version": "1.1.0",
@@ -152,6 +159,7 @@
       "version": "1.12.0",
       "dependencies": {
         "@cursor/sdk": "^1.0.28",
+        "@repo-prism/checks": "workspace:*",
         "@repo-prism/shared": "workspace:*",
         "zod": "^3.25.0",
       },
@@ -234,6 +242,7 @@
       },
       "dependencies": {
         "@modelcontextprotocol/sdk": "^1.30.0",
+        "@repo-prism/checks": "workspace:*",
         "@repo-prism/core": "workspace:*",
         "@repo-prism/dispatch": "workspace:*",
         "@repo-prism/dispatch-hub": "workspace:*",
@@ -814,6 +823,8 @@
     "@repo-prism/analyzer": ["@repo-prism/analyzer@workspace:packages/analyzer"],
 
     "@repo-prism/app-shell": ["@repo-prism/app-shell@workspace:packages/app-shell"],
+
+    "@repo-prism/checks": ["@repo-prism/checks@workspace:packages/checks"],
 
     "@repo-prism/cli": ["@repo-prism/cli@workspace:packages/cli"],
 

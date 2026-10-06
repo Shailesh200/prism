@@ -65,6 +65,14 @@ the job runtime (UI: Jobs). Spectrum / Repository Map and Domains are not
 products. See ADR-0057 and
 [`PROGRAM_prism-2.0.md`](./milestones/PROGRAM_prism-2.0.md).
 
+> **Redirect in progress (M-079, 2026-10-06; ADR-0058 + ADR-0059 Accepted).** Prism stops
+> running agents ([ADR-0058](./adr/0058-prism-does-not-run-agents.md)). It
+> becomes the safety layer host agents run through: hooks, a change receipt,
+> and **Lenses** (Architect / QA / Dev review lenses thought by the host's
+> model — [ADR-0059](./adr/0059-lenses.md)). Jobs leaves the product as
+> M-079 phase 2 lands. See
+> [`M-079_safety-layer.md`](./milestones/M-079_safety-layer.md).
+
 ### 3.1 Prism Intelligence (Core + engine)
 
 Shared local engine. Public SDK remains `@repo-prism/core`. Internals collapse
@@ -85,8 +93,10 @@ Overview · Iris · Jobs · Skills · DNA Analysis · Trends · Impact & Guard �
 Integrations · Settings
 
 Hosts: loopback daemon, IDE webview, public `/demo` (read-only fixture). Same
-bundle. Live job steer is TUI / editor chat (Live Relay). Dashboard Jobs is
-history / land / Findings — no Pause/Cancel/Resume.
+bundle. Dashboard Jobs is history / land / Findings — no Pause/Cancel/Resume.
+Live Relay is superseded (M-079 redirect); under ADR-0058 the Jobs tab is
+removed in M-079 phase 2, Findings move to Impact & Guard, and a Lenses view
+lands in M-079 phase 7.
 
 ### 3.3 MCP Server + CLI
 
@@ -550,7 +560,7 @@ flowchart TD
 | M-077 | Prism 2.0 (product contract) | Plan | M-076 | Yes |
 | — | Land `fix/mcp-console-dashboard-sanity` on `main` | Surfaces | M-077 | — |
 | M-078 | Dashboard shell (one rail, sanitize) | Surfaces | Sanity on main | Yes |
-| M-079 | Jobs Live Relay | Surfaces | M-078 | Yes |
+| M-079 | Safety layer + Lenses (replaces Jobs Live Relay; phases 0–8) | Surfaces | M-078 | Yes |
 | M-080 | Agent + CLI IA (loopback HTTP `/mcp`) | Surfaces | M-079 | Yes |
 | M-081 | Marketplace publisher rename | Surfaces | M-080 | Yes |
 | M-082 | One Dashboard package | Surfaces | M-081 | Yes |
@@ -561,7 +571,9 @@ flowchart TD
 
 Agent-native Cuts 1–3 (M-069–M-076) are **done**. T1/T2/T3 proofs recorded. **Cut 4 (cloud / paid) is set aside.**
 
-**Prism 2.0 (M-077–M-086):** one product, one Dashboard, fewer packages. Live Relay is M-079 (after the Dashboard shell). Demo + domain / `app.` / GitHub / npm org cutover is **last** (M-086). Sanity already on local `main`. Every row uses §8.1 + §9 + §10. See [`PROGRAM_prism-2.0.md`](./milestones/PROGRAM_prism-2.0.md).
+**Safety layer (M-079):** Prism stops running agents; hooks + change receipt + Lenses in one phased milestone, gated by a replay benchmark (phase 1) and a kill test (end of phase 5). See [`M-079_safety-layer.md`](./milestones/M-079_safety-layer.md). Prism 2.0 resumes at M-080 afterwards.
+
+**Prism 2.0 (M-077–M-086):** one product, one Dashboard, fewer packages. Live Relay (old M-079) is superseded by the safety layer. Demo + domain / `app.` / GitHub / npm org cutover is **last** (M-086). Sanity already on local `main`. Every row uses §8.1 + §9 + §10. See [`PROGRAM_prism-2.0.md`](./milestones/PROGRAM_prism-2.0.md).
 
 **Critical path (must stay green):** M-001 → M-005 → M-040 → M-014 → **M-041 Gate A** (P0 + P1 + Mono-v1) → M-017 → M-018 → M-025 → surfaces (M-026/M-028/M-030) → M-039.  
 **M-041 continued:** phases P2–P7 + Mono-v2 may run after Gate A (Map unblocked); still tracked as M-041 until epic complete.
@@ -573,7 +585,8 @@ Agent-native Cuts 1–3 (M-069–M-076) are **done**. T1/T2/T3 proofs recorded. 
 | Feature / Module | Primary milestones | Notes |
 |---|---|---|
 | Repository Map (engine) | M-017, M-018, M-019, M-031 | Shipped; **unmounted from the product** in M-078 (ADR-0057). `getRepositoryMap` stays |
-| Jobs Live Relay | M-079 | TUI + editor chat cockpit; Dashboard Jobs stays archive |
+| Safety layer (hooks, change receipt) | M-079 phases 1–3, 5, 6, 8 | Replaces Jobs Live Relay; ADR-0058 |
+| Lenses (Architect / QA / Dev review) | M-079 phases 4, 5, 7 | ADR-0059; host model thinks, stored under `~/.prism` |
 | Marketplace publisher | M-081 | `prismhq.repo-prism` → `prismate` |
 | Public demo + identity cutover | M-086 | `/demo/<fixture>`, domain, `app.`, GitHub org, npm org |
 | Zoom levels / layers | M-017, M-019 | Architecture, deps, activity, ownership, debt, risk, perf, coverage |

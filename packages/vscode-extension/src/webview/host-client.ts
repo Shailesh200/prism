@@ -177,6 +177,9 @@ export const fetchGuardSession = (
   ...args: Parameters<NonNullable<PrismClient["fetchGuardSession"]>>
 ): ReturnType<NonNullable<PrismClient["fetchGuardSession"]>> =>
   client.fetchGuardSession!(...args);
+export const fetchLenses = (): ReturnType<
+  NonNullable<PrismClient["fetchLenses"]>
+> => client.fetchLenses!();
 export const fetchBookmarks = (): ReturnType<
   NonNullable<PrismClient["fetchBookmarks"]>
 > => client.fetchBookmarks!();

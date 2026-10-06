@@ -23,13 +23,45 @@ import { REPORT_TOOLS } from "./tools/reports.js";
 import { prepareChange } from "./tools/prepare.js";
 import { workOrder } from "./tools/work-order.js";
 import { guardSession } from "./tools/guard.js";
+import { lensTool, reviewWith } from "./tools/lenses.js";
 import { agentsMd } from "./tools/agents-md.js";
 import { listFindings } from "./tools/findings.js";
+
+/**
+ * The tools the instructions teach first (M-079 phase 8). A subset of the
+ * default surface, not the whole of it.
+ */
+export const HERO_TOOL_NAMES = [
+  "repository_overview",
+  "prepare_change",
+  "blast_radius",
+  "review_with",
+  "guard_session",
+] as const;
+
+/**
+ * Registered by default: the hero tools plus every tool the shipped skills,
+ * commands, prompts, and instructions call. A test fails when one of those
+ * names a tool that is not here, so a workflow can never point at a tool the
+ * agent cannot see. `PRISM_MCP_FULL=1` registers the rest (reports, graphs).
+ */
+/** Default `tools/list`. The rest of the pack stays behind `PRISM_MCP_FULL=1`. */
+export const DEFAULT_TOOL_NAMES = [...HERO_TOOL_NAMES] as const;
+
+export function visibleIntelligenceTools(
+  env: NodeJS.ProcessEnv = process.env,
+): readonly ToolDefinition<never>[] {
+  if (env.PRISM_MCP_FULL === "1") return TOOLS;
+  const visible = new Set<string>(DEFAULT_TOOL_NAMES);
+  return TOOLS.filter((tool) => visible.has(tool.name));
+}
 
 export const TOOLS: readonly ToolDefinition<never>[] = [
   prepareChange,
   workOrder,
   guardSession,
+  reviewWith,
+  lensTool,
   agentsMd,
   listFindings,
   ...ORIENTATION_TOOLS,

@@ -62,6 +62,10 @@ export {
   type DispatchToolName,
 } from "./runtime.js";
 export { buildDayBriefing, formatBriefing } from "./briefing.js";
+export {
+  readStandaloneWorkingSet,
+  writeStandaloneWorkingSet,
+} from "./working-set.js";
 export { loadConfig, saveConfig, standupNotesText } from "./config.js";
 export {
   loadMemories,

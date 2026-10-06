@@ -2,22 +2,22 @@ import { describe, expect, it } from "vitest";
 import {
   clearLocalPrismUi,
   dashboardLink,
-  explainPrismateError,
-} from "./PrismateSettings.js";
+  explainDashboardApiError,
+} from "./WipePrismDataCard.js";
 
-describe("explainPrismateError", () => {
+describe("explainDashboardApiError", () => {
   it("rewrites a dead-hub fetch as a wake hint", () => {
-    expect(explainPrismateError("fetch failed")).toMatch(/prism wake/i);
-    expect(explainPrismateError("Prism Dashboard is not running")).toMatch(
+    expect(explainDashboardApiError("fetch failed")).toMatch(/prism wake/i);
+    expect(explainDashboardApiError("Prism Dashboard is not running")).toMatch(
       /prism wake/i,
     );
-    expect(explainPrismateError("fetch failed")).not.toMatch(
+    expect(explainDashboardApiError("fetch failed")).not.toMatch(
       /Dashboard is not running/,
     );
   });
 
   it("leaves a real API error alone", () => {
-    expect(explainPrismateError("workspace is required")).toBe(
+    expect(explainDashboardApiError("workspace is required")).toBe(
       "workspace is required",
     );
   });

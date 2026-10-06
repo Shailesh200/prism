@@ -411,6 +411,8 @@ Do not rename MCP tools or Core methods in this program. Do not personify Iris.
 
 ## 8. Jobs — Live Relay (chosen)
 
+> **Superseded (2026-10-06, ADR-0058 Accepted).** Prism stops running agents; Live Relay is frozen and the old M-079 is replaced by *Safety layer + Lenses*. See [`M-079_safety-layer.md`](./M-079_safety-layer.md). This section is kept as history.
+
 Owner decision 2026-09-19. Stitch reference: [Prism MCP — Jobs in TUI & agentic chat](https://stitch.withgoogle.com/projects/4762229733476728219) (Option 3 screens).
 
 **Chosen:** Live Relay. The detached worker stays (checkout / worktree, no shell, Prism verifies and lands). This host conversation is the live view and the steer. No “Watch live at Console.”

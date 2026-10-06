@@ -77,6 +77,9 @@ describe("stdout discipline", () => {
     const offenders: string[] = [];
     for (const file of await sourceFiles()) {
       if (file.endsWith(".test.ts")) continue;
+      // The hook process exits before the MCP server starts. Its stdout is
+      // the Claude Code hook JSON, not the MCP frame stream.
+      if (file.endsWith(join("safety", "hook-command.ts"))) continue;
       const text = await readFile(file, "utf8");
       if (/console\.(log|info|debug|warn|error)\s*\(/.test(text)) {
         offenders.push(`${file}: console.*`);

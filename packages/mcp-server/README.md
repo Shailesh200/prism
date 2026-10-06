@@ -136,8 +136,7 @@ waiting for an MCP **client**. Configure the client; it starts the process.
 | “Configure Dispatch” | `configure` |
 
 Optional MCP **prompts** (picker / slash in some clients): `orient`,
-`before_edit`, `review_diff`, `start_my_day`, `start_work`, `where_are_we`,
-`connect`, `configure`, `init`, `sleep`, `wake`.
+`before_edit`, `review_diff`, `review_lenses`.
 
 Say **prism init** to set up local workers. The worker matches your host:
 Cursor signs in via a browser page; Claude Code reuses the `claude` CLI
@@ -243,6 +242,8 @@ holds no third-party credentials — connectors belong to the agent window
 | `breaking_change_hints` | Deprecated — included in `blast_radius` | `kind`, `id`, `path` |
 | `changed_paths` | Working-tree or base-ref changed paths | `base` |
 | `guard_session` | Rank the current dirty session by blast risk, flagged for duplicate/orphan/boundary (M-072) | `preExistingChanges` |
+| `review_with` | Briefs and recorded verdicts for Architect, QA, and Dev lenses. Prism does not call a model | `action`, `lenses`, `task`, `verdicts` |
+| `lens` | List, show, or overrule a lens. Facts stay under `~/.prism`, never in the repo | `action`, `id`, `reviewId`, `note` |
 | `review_changes` | Rolled-up review; omit `paths` to auto-discover | `paths?`, `base` |
 | `agents_md` | Generate/verify the Living AGENTS.md — features, cycles, tests, owners; writes only `~/.prism`, never the repo (M-073) | `action` |
 | `list_findings` | Unused exports, duplicate implementations, wrapper functions; excludes muted findings by default (M-074) | `limit`, `includeMuted` |

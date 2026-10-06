@@ -12,16 +12,12 @@ import type {
 import { DEFAULT_PROVENANCE } from "@repo-prism/shared";
 import {
   AreaChart,
-  CandleChart,
   CartesianFrame,
   DateRangePicker,
-  EmptyState,
   InfoTip,
   chartTipEdge,
-  formatCompactCount,
   pickAxisIndices,
   type DateRangeValue,
-  type TokenCostChartProps,
   Text,
 } from "@repo-prism/ui";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
@@ -46,13 +42,6 @@ import {
   presetBounds,
 } from "./overview-model.js";
 import type { GitStatus } from "./OverviewScreen.js";
-import type { JobSummary } from "./jobs-types.js";
-import { jobMatchesRepo } from "./jobs-range.js";
-import {
-  tokenAnalysisFromChart,
-  tokenAnalysisInRange,
-  type TokenAnalysis,
-} from "./token-activity.js";
 
 export type TrendsScreenProps = {
   map: RepositoryMap | null;
@@ -75,10 +64,6 @@ export type TrendsScreenProps = {
     message: string,
     tone?: "ok" | "error" | "info" | "warning",
   ) => void;
-  /** Pulse token rollup. Omit when this host cannot see Jobs. */
-  tokenUsage?: TokenCostChartProps;
-  /** Archive jobs — rolled up for this workspace when `tokenUsage` is omitted. */
-  readonly jobs?: readonly JobSummary[];
   readonly workspacePath?: string;
 };
 
@@ -101,14 +86,6 @@ function axisDateLabel(ms: number): string {
     day: "numeric",
     month: "short",
   });
-}
-
-function tokenDayStartMs(dayKey: string): number {
-  const parts = dayKey.split("-").map(Number);
-  const y = parts[0] ?? 1970;
-  const m = parts[1] ?? 1;
-  const d = parts[2] ?? 1;
-  return new Date(y, m - 1, d).getTime();
 }
 
 function churnWidths(adds: number, dels: number): { add: number; del: number } {
@@ -564,21 +541,6 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
     };
   });
 
-  const repoJobs = useMemo(
-    () =>
-      (props.jobs ?? []).filter((job) =>
-        jobMatchesRepo(job, props.workspacePath),
-      ),
-    [props.jobs, props.workspacePath],
-  );
-  const tokenAnalysis = useMemo(() => {
-    if (repoJobs.length > 0) {
-      return tokenAnalysisInRange(repoJobs, range.startMs, range.endMs);
-    }
-    if (props.tokenUsage) return tokenAnalysisFromChart(props.tokenUsage);
-    return undefined;
-  }, [props.tokenUsage, repoJobs, range.startMs, range.endMs]);
-
   const [historyPoints, setHistoryPoints] = useState<HealthHistoryPoint[]>(
     () => props.healthHistory?.points ?? [],
   );
@@ -833,32 +795,6 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
         </header>
 
         <div className="ov-scroll tr-scroll">
-          <section
-            className="ov-card tr-panel tr-token"
-            aria-label="Token usage"
-          >
-            <div className="ov-card__head">
-              <Text variant="card" as="h2" className="ov-card__title">
-                Token usage
-                <InfoTip label="Token usage">
-                  Billed tokens this workspace reported on jobs in the selected
-                  range. Candles open at the previous day's close and close on
-                  that day's billed total. Context is the highest prompt
-                  occupancy a job reported, not the bill.
-                </InfoTip>
-              </Text>
-            </div>
-            {tokenAnalysis && tokenAnalysis.total > 0 ? (
-              <TokenAnalysisBody analysis={tokenAnalysis} />
-            ) : (
-              <EmptyState variant="page" title="Token usage">
-                {tokenAnalysis
-                  ? "No job tokens in this range."
-                  : "Token usage runs on the Dashboard daemon for this workspace."}
-              </EmptyState>
-            )}
-          </section>
-
           <section className="ov-card tr-panel tr-panel--wide">
             <div className="ov-card__head">
               <Text variant="card" as="h2" className="ov-card__title">
@@ -1129,138 +1065,6 @@ export function TrendsScreen(props: TrendsScreenProps): ReactElement {
           </p>
         </div>
       </div>
-    </div>
-  );
-}
-
-function occupancyPct(tokens: number, window: number): number | undefined {
-  if (window <= 0 || tokens <= 0) return undefined;
-  return Math.min(100, Math.round((tokens / window) * 100));
-}
-
-function TokenAnalysisBody(props: { analysis: TokenAnalysis }): ReactElement {
-  const { analysis } = props;
-  const candles = analysis.daysAnalyzed.map((row) => row.candle);
-  const starts = analysis.daysAnalyzed.map((row) =>
-    tokenDayStartMs(row.dayKey),
-  );
-  const xLabels = pickAxisIndices(candles.length).map((i) => ({
-    fraction:
-      candles.length > 1 ? (10 + (i / (candles.length - 1)) * 580) / 600 : 0.5,
-    label: axisDateLabel(starts[i] ?? 0),
-  }));
-  const contextValues = analysis.daysAnalyzed.map((row) => {
-    const pct = occupancyPct(row.contextTokens, row.contextWindow);
-    return pct ?? row.contextTokens;
-  });
-  const hasContext = contextValues.some((v) => v > 0);
-  const contextIsPct = analysis.daysAnalyzed.some(
-    (row) => occupancyPct(row.contextTokens, row.contextWindow) != null,
-  );
-  const cache = analysis.cacheReadTokens + analysis.cacheWriteTokens;
-  const peakOcc = occupancyPct(analysis.contextTokens, analysis.contextWindow);
-
-  return (
-    <div className="tr-token__body">
-      <dl className="tr-token__kpis">
-        <div className="tr-token__kpi">
-          <dt>Billed</dt>
-          <dd>{formatCompactCount(analysis.total)}</dd>
-        </div>
-        <div className="tr-token__kpi">
-          <dt>Input</dt>
-          <dd>{formatCompactCount(analysis.inputTokens)}</dd>
-        </div>
-        <div className="tr-token__kpi">
-          <dt>Output</dt>
-          <dd>{formatCompactCount(analysis.outputTokens)}</dd>
-        </div>
-        <div className="tr-token__kpi">
-          <dt>Cache</dt>
-          <dd>{cache > 0 ? formatCompactCount(cache) : "—"}</dd>
-        </div>
-        <div className="tr-token__kpi">
-          <dt>Context</dt>
-          <dd>
-            {analysis.contextTokens > 0
-              ? peakOcc != null
-                ? `${peakOcc}%`
-                : formatCompactCount(analysis.contextTokens)
-              : "—"}
-          </dd>
-        </div>
-        <div className="tr-token__kpi">
-          <dt>Jobs</dt>
-          <dd>{analysis.jobCount.toLocaleString()}</dd>
-        </div>
-      </dl>
-      <div className="tr-token__chart">
-        <h3 className="tr-token__sub">Billed tokens</h3>
-        <CandleChart
-          candles={candles}
-          xLabels={xLabels}
-          label="Billed token candles"
-          formatValue={formatCompactCount}
-          tip={(index) => {
-            const row = analysis.daysAnalyzed[index];
-            if (!row) return null;
-            return (
-              <>
-                <strong>{formatCompactCount(row.candle.close)}</strong>
-                <span className="ov-chart__tip-date">
-                  {axisDateLabel(starts[index] ?? 0)} · O{" "}
-                  {formatCompactCount(row.candle.open)} · H{" "}
-                  {formatCompactCount(row.candle.high)} · L{" "}
-                  {formatCompactCount(row.candle.low)}
-                </span>
-                <span className="ov-chart__tip-date">
-                  in {formatCompactCount(row.inputTokens)} · out{" "}
-                  {formatCompactCount(row.outputTokens)} · {row.jobCount} job
-                  {row.jobCount === 1 ? "" : "s"}
-                </span>
-              </>
-            );
-          }}
-        />
-      </div>
-      <div className="tr-token__chart">
-        <h3 className="tr-token__sub">
-          Context {contextIsPct ? "occupancy" : "tokens"}
-        </h3>
-        {hasContext ? (
-          <SeriesAreaChart
-            values={contextValues}
-            starts={starts}
-            granularity="day"
-            unitLabel={contextIsPct ? "Context occupancy" : "Context tokens"}
-            totalLabel={
-              peakOcc != null
-                ? `Peak ${peakOcc}% of window`
-                : `Peak ${formatCompactCount(analysis.contextTokens)}`
-            }
-            emptyMessage="No context occupancy in this range."
-            gradientId="tr-context-spark"
-            minValue={0}
-            fill={false}
-            {...(contextIsPct ? { valueSuffix: "%", maxValue: 100 } : {})}
-          />
-        ) : (
-          <p className="ov-empty">
-            No context occupancy reported on jobs in this range.
-          </p>
-        )}
-      </div>
-      {analysis.peak || analysis.low ? (
-        <p className="tr-token__notes">
-          {analysis.peak
-            ? `Heaviest job: ${analysis.peak.title} (${formatCompactCount(analysis.peak.tokens)}).`
-            : ""}
-          {analysis.peak && analysis.low ? " " : ""}
-          {analysis.low
-            ? `Lightest job: ${analysis.low.title} (${formatCompactCount(analysis.low.tokens)}).`
-            : ""}
-        </p>
-      ) : null}
     </div>
   );
 }

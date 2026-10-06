@@ -127,32 +127,9 @@ describe("TrendsScreen health chart", () => {
     expect(screen.queryByText("Commit activity")).toBeNull();
   });
 
-  it("plots billed token candles from workspace jobs", () => {
-    const { container } = renderTrends({
-      workspacePath: "/repo",
-      jobs: [
-        {
-          id: "a",
-          title: "Fix login",
-          status: "done",
-          branch: "main",
-          workspacePath: "/repo",
-          finishedAt: new Date().toISOString(),
-          tokenUsage: {
-            inputTokens: 1000,
-            outputTokens: 200,
-            contextTokens: 8_000,
-            contextWindow: 200_000,
-          },
-        },
-      ],
-    });
-    expect(
-      screen.getByRole("img", { name: "Billed token candles" }),
-    ).toBeTruthy();
-    expect(container.querySelector(".prism-candle")).toBeTruthy();
-    expect(screen.getByText("Billed")).toBeTruthy();
-    expect(screen.getAllByText("Context occupancy").length).toBeGreaterThan(0);
+  it("has no token usage panel now that Prism runs no jobs", () => {
+    renderTrends({ workspacePath: "/repo" });
+    expect(screen.queryByRole("region", { name: "Token usage" })).toBeNull();
   });
 
   it("counts heuristic points alongside estimated ones in the legend", () => {

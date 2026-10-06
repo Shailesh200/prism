@@ -184,6 +184,7 @@ describe("start_job workspace hint", () => {
     const built = createPrismMcpServer({
       workspaceRoot: launch,
       workspaceSource: "cwd",
+      env: { ...process.env, PRISM_JOBS: "1" },
     });
     const client = new Client({ name: "hint-test", version: "0.0.0" });
     const [clientTransport, serverTransport] =
@@ -220,7 +221,10 @@ describe("queue_finding (M-071 L2)", () => {
     // (same spoken message and dashboard decoration as start_job) rather than
     // being rejected by queue_finding's own validation.
     const launch = await mkdtemp(join(tmpdir(), "prism-queue-finding-"));
-    const built = createPrismMcpServer({ workspaceRoot: launch });
+    const built = createPrismMcpServer({
+      workspaceRoot: launch,
+      env: { ...process.env, PRISM_JOBS: "1" },
+    });
     const client = new Client({ name: "finding-test", version: "0.0.0" });
     const [clientTransport, serverTransport] =
       InMemoryTransport.createLinkedPair();
@@ -279,7 +283,10 @@ describe("queue_finding (M-071 L2)", () => {
 describe("start_job without a git repository", () => {
   it("returns a spoken error instead of a JSON-RPC throw", async () => {
     const root = await mkdtemp(join(tmpdir(), "prism-dispatch-nogit-"));
-    const built = createPrismMcpServer({ workspaceRoot: root });
+    const built = createPrismMcpServer({
+      workspaceRoot: root,
+      env: { ...process.env, PRISM_JOBS: "1" },
+    });
     const client = new Client({ name: "nogit-test", version: "0.0.0" });
     const [clientTransport, serverTransport] =
       InMemoryTransport.createLinkedPair();

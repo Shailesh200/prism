@@ -263,6 +263,142 @@ export async function stopPlaygroundListeners(
   for (const pid of pids) stopPid(pid);
 }
 
+/**
+ * The Dashboard binds one port. Anything else — a recorded listener on a
+ * different port, or a canonical port that is not already this Dashboard —
+ * is closed so a second server cannot stay up.
+ */
+export function dashboardPortsToClose(input: {
+  readonly canonical: number;
+  readonly recorded?: number | undefined;
+  readonly canonicalLive: boolean;
+}): readonly number[] {
+  const ports = new Set<number>();
+  if (
+    typeof input.recorded === "number" &&
+    input.recorded > 0 &&
+    input.recorded !== input.canonical
+  ) {
+    ports.add(input.recorded);
+  }
+  if (input.canonical > 0 && !input.canonicalLive) {
+    ports.add(input.canonical);
+  }
+  return [...ports];
+}
+
+/** `lsof -F pcPn` records: pid, command name, then each listen address. */
+export function parseLsofListenFields(
+  stdout: string,
+): { readonly pid: number; readonly command: string; readonly port: number }[] {
+  const rows: {
+    pid: number;
+    command: string;
+    port: number;
+  }[] = [];
+  let pid = 0;
+  let command = "";
+  for (const line of stdout.split("\n")) {
+    if (line.startsWith("p")) {
+      pid = Number.parseInt(line.slice(1), 10);
+      command = "";
+    } else if (line.startsWith("c")) {
+      command = line.slice(1);
+    } else if (line.startsWith("n") && Number.isInteger(pid) && pid > 0) {
+      const match = /:(\d+)$/.exec(line.slice(1));
+      if (!match) continue;
+      const port = Number.parseInt(match[1] ?? "", 10);
+      if (port > 0) rows.push({ pid, command, port });
+    }
+  }
+  return rows;
+}
+
+/** A Vite playground on any port other than the one Dashboard port. */
+export function isStrayPlaygroundListener(
+  command: string,
+  port: number,
+  canonical: number,
+): boolean {
+  if (port <= 0 || port === canonical) return false;
+  return /vite/i.test(command) && /playground/i.test(command);
+}
+
+async function listenFieldStdout(): Promise<string> {
+  try {
+    const { stdout } = await execFileAsync(
+      "lsof",
+      ["-nP", "-iTCP", "-sTCP:LISTEN", "-F", "pcPn"],
+      { timeout: 2000 },
+    );
+    return stdout;
+  } catch (cause) {
+    const stdout = (cause as { stdout?: string }).stdout;
+    return typeof stdout === "string" ? stdout : "";
+  }
+}
+
+async function processArgs(pid: number): Promise<string> {
+  try {
+    const { stdout } = await execFileAsync(
+      "ps",
+      ["-p", String(pid), "-o", "args="],
+      { timeout: 1500 },
+    );
+    return stdout.trim();
+  } catch {
+    return "";
+  }
+}
+
+/** Playground Vite processes listening somewhere other than `canonical`. */
+export async function strayPlaygroundPorts(
+  canonical: number,
+): Promise<number[]> {
+  const ports = new Set<number>();
+  for (const row of parseLsofListenFields(await listenFieldStdout())) {
+    if (!/^(node|bun)$/.test(row.command)) continue;
+    const args = await processArgs(row.pid);
+    if (isStrayPlaygroundListener(args, row.port, canonical))
+      ports.add(row.port);
+  }
+  return [...ports];
+}
+
+/**
+ * Free every Dashboard listener that is not the live server on `canonical`.
+ * The live server on that port is left alone.
+ */
+export async function releaseDashboardPort(
+  canonical: number,
+  env: HubEnv = process.env,
+): Promise<void> {
+  // The suite binds ephemeral ports. It must not close the user's Dashboard.
+  if (env.VITEST === "true" || process.env.VITEST === "true") return;
+  if (canonical <= 0) return;
+  const record = await readPlaygroundRecord(env);
+  const canonicalLive = await playgroundIsLive(canonical);
+  const ports = new Set(
+    dashboardPortsToClose({
+      canonical,
+      recorded: record?.port,
+      canonicalLive,
+    }),
+  );
+  for (const port of await strayPlaygroundPorts(canonical)) ports.add(port);
+  for (const port of ports) {
+    await stopPlaygroundListeners(
+      port,
+      record?.port === port ? record.pid : undefined,
+    );
+  }
+  if (ports.size > 0) {
+    await new Promise((resolve) => {
+      setTimeout(resolve, 80).unref?.();
+    });
+  }
+}
+
 function stopPid(pid: number): void {
   if (!Number.isInteger(pid) || pid <= 0 || pid === process.pid) return;
   try {

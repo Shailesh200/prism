@@ -2,7 +2,7 @@
   "name": "@repo-prism/dispatch",
   "version": "1.12.0",
   "type": "module",
-  "description": "Prism Dispatch — jobs, memory, drivers, and start-my-day briefings for agents",
+  "description": "Prism Dispatch \u2014 jobs, memory, drivers, and start-my-day briefings for agents",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@cursor/sdk": "^1.0.28",
+    "@repo-prism/checks": "workspace:*",
     "@repo-prism/shared": "workspace:*",
     "zod": "^3.25.0"
   },

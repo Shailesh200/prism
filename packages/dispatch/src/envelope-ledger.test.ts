@@ -413,3 +413,40 @@ describe("summarizeEnvelopeLedger all-time window", () => {
     expect(metrics.buckets.some((row) => row.listCalls > 0)).toBe(true);
   });
 });
+
+describe("envelope ledger sanitization", () => {
+  it("writes only the allowlisted fields", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "prism-ledger-ws-"));
+    const home = await mkdtemp(join(tmpdir(), "prism-ledger-home-"));
+    const env = { PRISM_HOME: home };
+    await appendEnvelopeLedger(
+      dir,
+      {
+        ts: "2026-09-11T00:00:00.000Z",
+        tool: "search_symbols",
+        itemCount: 50,
+        totalCount: 80,
+        truncated: true,
+        limit: 50,
+        jsonBytes: 1200,
+      },
+      env,
+    );
+    const line = (await readFile(envelopeLedgerPath(env), "utf8")).trim();
+    const parsed = JSON.parse(line) as Record<string, unknown>;
+    expect(Object.keys(parsed).sort()).toEqual([
+      "itemCount",
+      "jsonBytes",
+      "limit",
+      "tool",
+      "totalCount",
+      "truncated",
+      "ts",
+      "workspace",
+    ]);
+    expect(parsed.workspace).toBe(dir);
+    expect(JSON.stringify(parsed)).not.toMatch(/prompt|path|body/i);
+    await rm(dir, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true });
+  });
+});

@@ -11,6 +11,10 @@
     "./prism-home": {
       "types": "./dist/prism-home.d.ts",
       "import": "./dist/prism-home.js"
+    },
+    "./lens-store": {
+      "types": "./dist/lens-store.d.ts",
+      "import": "./dist/lens-store.js"
     }
   },
   "files": [

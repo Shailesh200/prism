@@ -41,7 +41,9 @@ type Position = { readonly top: number; readonly left: number };
 /** Turn "Label: value" lines into bold keys so dump tooltips stay scannable. */
 export function formatTooltipBody(text: string): ReactNode {
   return text.split("\n").map((line, index) => {
-    const match = /^([^:]{1,48}):\s*(.*)$/.exec(line);
+    // Require a space after the colon. Moon task ids (`app-shell:build`) and
+    // URLs stay one token; only "Label: value" lines become a bold key.
+    const match = /^([^:]{1,48}):\s+(.*)$/.exec(line);
     if (match) {
       return (
         <span key={index} className="prism-tooltip__line">

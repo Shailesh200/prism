@@ -12,7 +12,6 @@ import {
   CartesianFrame,
   DateRangePicker,
   chartTipEdge,
-  formatCompactCount,
   pickAxisIndices,
   relativeTime,
   type DateRangeValue,
@@ -23,7 +22,6 @@ import {
   ArrowRight,
   Boxes,
   Clock,
-  Coins,
   Dna,
   Download,
   FlaskConical,
@@ -49,11 +47,9 @@ import { DOMAIN_CATALOG } from "./domain-catalog.js";
 import { InfoTip } from "@repo-prism/ui";
 import { isGitIntegrationEnabled } from "./integrations-store.js";
 import { recordAudit } from "./audit-log.js";
-import type { JobSummary } from "./jobs-types.js";
 import {
   DEFAULT_JOB_RANGE,
   JOB_RANGE_PRESETS,
-  jobMatchesRepo,
   jobRangeWindow,
 } from "./jobs-range.js";
 import {
@@ -69,7 +65,6 @@ import {
   scoreColor,
   activityGeometry,
 } from "./overview-model.js";
-import { tokenUsageInRange } from "./token-activity.js";
 
 /** Best-effort path from a commit subject when it names a repo file. */
 function guessPathFromCommitMessage(
@@ -123,15 +118,6 @@ function activityWindowStart(
   return Number.isFinite(ms) ? ms : endMs;
 }
 
-function tokenDayStartMs(dayKey: string): number {
-  const parts = dayKey.split("-").map(Number);
-  const y = parts[0];
-  const m = parts[1];
-  const d = parts[2];
-  if (!y || !m || !d) return 0;
-  return new Date(y, m - 1, d).getTime();
-}
-
 type CachedCoreReports = {
   readonly testing: TestingReport | null;
   readonly security: SecurityReport | null;
@@ -162,9 +148,7 @@ export type OverviewScreenProps = {
   /** Optional preloaded scores from dashboard payload. */
   readonly testingScore?: number | null;
   readonly securityScore?: number | null;
-  /** Archive jobs — drives the Overview token spark for the same date range. */
-  readonly jobs?: readonly JobSummary[];
-  /** Top-bar workspace. Token usage and other job rollups stay in this repo. */
+  /** Top-bar workspace. */
   readonly workspacePath?: string;
   readonly onOpenMap?: () => void;
   readonly onOpenDna: () => void;
@@ -392,14 +376,6 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
       endMs: window.endMs,
     };
   });
-  const [tokenRange, setTokenRange] = useState<DateRangeValue>(() => {
-    const window = jobRangeWindow(DEFAULT_JOB_RANGE, Date.now());
-    return {
-      preset: DEFAULT_JOB_RANGE,
-      startMs: window.startMs,
-      endMs: window.endMs,
-    };
-  });
 
   const activity = useMemo(
     () =>
@@ -409,20 +385,6 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
         range.endMs,
       ),
     [days, range.startMs, range.endMs],
-  );
-  const repoJobs = useMemo(
-    () =>
-      (props.jobs ?? []).filter((job) =>
-        jobMatchesRepo(job, props.workspacePath),
-      ),
-    [props.jobs, props.workspacePath],
-  );
-  const tokenUsage = useMemo(
-    () =>
-      repoJobs.length > 0
-        ? tokenUsageInRange(repoJobs, tokenRange.startMs, tokenRange.endMs)
-        : undefined,
-    [repoJobs, tokenRange.startMs, tokenRange.endMs],
   );
 
   const couplingBadge = couplingBadgeFor(density);
@@ -857,38 +819,6 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
               ) : null}
             </article>
           </section>
-
-          <article className="ov-card ov-card--token">
-            <div className="ov-card__head">
-              <Text variant="card" as="span" className="ov-card__title">
-                <Coins size={14} className="ov-card__icon" aria-hidden />
-                Token usage
-              </Text>
-              <DateRangePicker
-                aria-label="Token usage range"
-                className="jobs-screen__range"
-                presets={JOB_RANGE_PRESETS}
-                value={tokenRange}
-                nowMs={nowMs}
-                presetWindow={jobRangeWindow}
-                onChange={setTokenRange}
-              />
-            </div>
-            {tokenUsage && tokenUsage.total > 0 ? (
-              <ActivityChart
-                values={tokenUsage.buckets.map((b) => b.totalTokens)}
-                starts={tokenUsage.buckets.map((b) =>
-                  tokenDayStartMs(b.dayKey),
-                )}
-                granularity="day"
-                total={tokenUsage.total}
-                noun="token"
-                formatValue={formatCompactCount}
-              />
-            ) : (
-              <p className="ov-empty">No token usage in this range.</p>
-            )}
-          </article>
 
           {/* Bottom: Profile + Recent */}
           <section className="ov-grid ov-grid--2">

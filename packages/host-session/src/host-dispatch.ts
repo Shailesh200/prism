@@ -443,6 +443,17 @@ export async function dispatchHostRequest(
         data: result.value,
       };
     }
+    case "listLenses": {
+      const result = await session.listLenses();
+      if (!result.ok)
+        return { id: req.id, ok: false, error: result.error.message };
+      return {
+        id: req.id,
+        ok: true,
+        method: "listLenses",
+        data: result.value,
+      };
+    }
     case "saveBookmark": {
       const result = await session.saveBookmark(req.input);
       if (!result.ok)

@@ -27,25 +27,19 @@ describe("routeOverviewNav", () => {
     expect(onNavigate).not.toHaveBeenCalled();
   });
 
-  it("keeps token usage in its own card, not inside Commit Activity", () => {
+  it("keeps Commit Activity on its own card, without a jobs token rollup", () => {
     const source = readFileSync(
       join(dirname(fileURLToPath(import.meta.url)), "OverviewScreen.tsx"),
       "utf8",
     );
     const commit = source.indexOf("Commit Activity");
-    const tokenCard = source.indexOf("ov-card--token");
-    const commitArticleEnd = source.indexOf("</article>", commit);
     expect(commit).toBeGreaterThan(-1);
-    expect(tokenCard).toBeGreaterThan(commitArticleEnd);
+    expect(source.indexOf("</article>", commit)).toBeGreaterThan(commit);
+    expect(source).not.toContain("ov-card--token");
     expect(source).not.toContain("TokenCostChart");
-    expect(source.indexOf('noun="token"')).toBeGreaterThan(tokenCard);
-    expect(source.indexOf('aria-label="Token usage range"')).toBeGreaterThan(
-      tokenCard,
-    );
-    expect(source).toContain("formatCompactCount");
+    expect(source).not.toContain("tokenUsageInRange");
     expect(source).toContain('section className="ov-grid ov-grid--2"');
     expect(source).toContain("JOB_RANGE_PRESETS");
-    expect(source).toContain("jobMatchesRepo");
   });
 
   it("uses a chart skeleton instead of loading copy while git history loads", () => {

@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 export const CONSOLE_VIEWS = [
   "overview",
   "iris",
-  "jobs",
+  "lenses",
   "skills",
   "dna",
   "trends",
@@ -22,7 +22,7 @@ export type ConsoleView = RailView | "whats-new" | "wake";
 export const VIEW_LABELS: Record<ConsoleView, string> = {
   overview: "Overview",
   iris: "Iris",
-  jobs: "Jobs",
+  lenses: "Lenses",
   skills: "Skills",
   dna: "DNA Analysis",
   trends: "Trends",
@@ -44,16 +44,17 @@ const ALIAS: Record<string, RailView> = {
   guard: "impact",
   health: "overview",
   profile: "dna",
-  dashboard: "jobs",
-  findings: "jobs",
+  dashboard: "impact",
+  findings: "impact",
+  jobs: "impact",
   trees: "dna",
   intelligence: "iris",
-  pulse: "jobs",
-  board: "jobs",
-  list: "jobs",
-  repos: "jobs",
-  workflows: "jobs",
-  attention: "jobs",
+  pulse: "impact",
+  board: "impact",
+  list: "impact",
+  repos: "impact",
+  workflows: "impact",
+  attention: "impact",
 };
 
 function resolveRail(raw: string): RailView {
@@ -162,8 +163,8 @@ export function findingsHash(query?: RouteQuery): string {
 }
 
 export function viewHash(view: ConsoleView, query?: RouteQuery): string {
-  if (view === "jobs" && query?.mode === "findings") return findingsHash(query);
-  if (view === "jobs") return jobsHash(query?.repo, query?.type);
+  if (view === "impact" && query?.mode === "findings")
+    return findingsHash(query);
   if (view === "whats-new") return "#/whats-new";
   if (view === "wake") return "#/wake";
   if (view === "iris") return irisHash(query?.repo);

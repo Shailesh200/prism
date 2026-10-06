@@ -380,6 +380,54 @@ export async function fetchGuardSession(
   return fn(preExistingChanges);
 }
 
+export async function fetchLenses(
+  root: string | null,
+): Promise<readonly import("@repo-prism/shared").LensView[]> {
+  const fn = client(root).fetchLenses;
+  if (!fn) throw new Error("Lenses are not supported on this surface.");
+  return fn();
+}
+
+export async function updateLens(
+  id: string,
+  draft: Parameters<NonNullable<ReturnType<typeof client>["updateLens"]>>[1],
+  root: string | null,
+): Promise<readonly import("@repo-prism/shared").LensView[]> {
+  const fn = client(root).updateLens;
+  if (!fn) throw new Error("This surface cannot edit a lens.");
+  return fn(id, draft);
+}
+
+export async function removeLens(
+  id: string,
+  root: string | null,
+): Promise<readonly import("@repo-prism/shared").LensView[]> {
+  const fn = client(root).removeLens;
+  if (!fn) throw new Error("This surface cannot remove a lens.");
+  return fn(id);
+}
+
+export async function overrideLensReview(
+  reviewId: string,
+  note: string,
+  root: string | null,
+): Promise<readonly import("@repo-prism/shared").LensView[]> {
+  const fn = client(root).overrideLensReview;
+  if (!fn) throw new Error("This surface cannot overrule a review.");
+  return fn(reviewId, note);
+}
+
+export async function saveCustomLens(
+  draft: Parameters<
+    NonNullable<ReturnType<typeof client>["saveCustomLens"]>
+  >[0],
+  root: string | null,
+): Promise<readonly import("@repo-prism/shared").LensView[]> {
+  const fn = client(root).saveCustomLens;
+  if (!fn) throw new Error("This surface cannot save a lens.");
+  return fn(draft);
+}
+
 export async function applyRename(
   input: ApplyRenameInput,
   root: string | null,

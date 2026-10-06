@@ -40,7 +40,44 @@ export {
   type PrismErrorCode as PrismErrorCodeType,
 } from "./errors.js";
 
-export { isTestPath, isTypeDeclarationPath } from "./test-paths.js";
+export {
+  isFixturePath,
+  isTestPath,
+  isTypeDeclarationPath,
+} from "./test-paths.js";
+
+export {
+  ChangeReceiptSchema,
+  RECEIPT_FLAG_KINDS,
+  ReceiptCheckSchema,
+  ReceiptFlagSchema,
+  ReceiptLensLineSchema,
+  type ChangeReceipt,
+  type ReceiptCheck,
+  type ReceiptFlag,
+  type ReceiptLensLine,
+} from "./receipt.js";
+
+export {
+  LENS_EVIDENCE,
+  LENS_FACT_ORIGINS,
+  LENS_ID,
+  LensDefinitionSchema,
+  LensEvidenceSchema,
+  LensFactOriginSchema,
+  LensFactSchema,
+  LensIdSchema,
+  LensReviewRecordSchema,
+  LensVerdictValueSchema,
+  LensViewSchema,
+  type LensDefinition,
+  type LensEvidence,
+  type LensFact,
+  type LensFactOrigin,
+  type LensReviewRecord,
+  type LensVerdictValue,
+  type LensView,
+} from "./lenses.js";
 
 export {
   CLOCK_STOPPED_STATUSES,

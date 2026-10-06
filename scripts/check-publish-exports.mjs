@@ -39,6 +39,7 @@ export const PUBLISH_ORDER = [
   "intelligence",
   "repository-map",
   "core",
+  "checks",
   "dispatch",
   "host-session",
   "dispatch-hub",

@@ -14,6 +14,11 @@ import { resolveWorkspaceFromProcess, startStdioServer } from "./server.js";
 trustSystemCertificateAuthorities();
 
 async function main(): Promise<void> {
+  if (process.argv.includes("--hook")) {
+    const { runMcpHook } = await import("./safety/hook-command.js");
+    await runMcpHook(process.argv);
+    return;
+  }
   const currentVersion = readPackageVersion();
   const update = await maybeReexecLatest({
     currentVersion,

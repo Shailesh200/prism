@@ -110,6 +110,36 @@ export function claudeManifest(def: PluginDefinition): Record<string, unknown> {
  * and the documented fix does not match what they have. A test asserts they
  * stay equal.
  */
+/** Claude Code lifecycle hooks (ADR-0058). One script, four events. */
+export function claudeHooks(): Record<string, unknown> {
+  const command = (name: string, timeout: number) => ({
+    type: "command",
+    command: "node",
+    args: ["${CLAUDE_PLUGIN_ROOT}/hooks/prism-hook.mjs", name],
+    timeout,
+  });
+  return {
+    description:
+      "Prism warns before risky edits and prints a change receipt when the agent stops.",
+    hooks: {
+      SessionStart: [{ hooks: [command("session", 5)] }],
+      PreToolUse: [
+        {
+          matcher: "Write|Edit|NotebookEdit",
+          hooks: [command("before-edit", 5)],
+        },
+      ],
+      PostToolUse: [
+        {
+          matcher: "Write|Edit|NotebookEdit",
+          hooks: [command("after-edit", 5)],
+        },
+      ],
+      Stop: [{ hooks: [command("stop", 120)] }],
+    },
+  };
+}
+
 export function mcpConfig(): Record<string, unknown> {
   return {
     mcpServers: {

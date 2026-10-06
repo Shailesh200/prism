@@ -19,7 +19,7 @@ Core analysis APIs stay ungated from MCP. See
 Tools that return a list accept `limit` and answer with `totalCount` and
 `truncated`, so an agent can tell the first 20 of 340 from all 20 there are.
 
-Prism exposes **51 tools**. Every count elsewhere in the docs is
+Prism exposes **53 tools**. Every count elsewhere in the docs is
 checked against this one, so the number cannot drift into prose.
 
 | Tool | What it answers |
@@ -48,6 +48,7 @@ checked against this one, so the number cannot drift into prose.
 | [`job_logs`](#job_logs) | The console for one Dispatch job |
 | [`knowledge_graph`](#knowledge_graph) | The symbol-level graph — declarations and the references between them — with summary stats |
 | [`landmarks`](#landmarks) | Named entrypoints, package roots and feature anchors — the places a human would open first |
+| [`lens`](#lens) | List, show, edit, remove, re-seed, or overrule a review lens |
 | [`list_features`](#list_features) | Inferred features with their member files and a confidence score |
 | [`list_findings`](#list_findings) | Queueable findings from the last index |
 | [`list_jobs`](#list_jobs) | Where are we |
@@ -61,6 +62,7 @@ checked against this one, so the number cannot drift into prose.
 | [`repository_map`](#repository_map) | Return the repository's structural map at a zoom level |
 | [`repository_overview`](#repository_overview) | The dashboard summary in one call |
 | [`review_changes`](#review_changes) | Review changed paths in one call |
+| [`review_with`](#review_with) | Review a task or the current change through one or more lenses (Architect, QA, Dev by default) |
 | [`safe_delete`](#safe_delete) | Whether a file or symbol can be deleted safely |
 | [`search_symbols`](#search_symbols) | Substring or regex search over indexed symbol names (unlike find_symbol, which is exact-match only) |
 | [`security_report`](#security_report) | Left-shift security posture |
@@ -220,6 +222,12 @@ Named entrypoints, package roots and feature anchors — the places a human woul
 
 Arguments: `limit`.
 
+## `lens`
+
+List, show, edit, remove, re-seed, or overrule a review lens. Lenses are Architect, QA, and Dev by default. Their repo facts are re-read from the index each time; everything is stored under ~/.prism, never in the repo. An override is remembered on that lens so the same false alarm does not return. action=list (default); show needs id; edit needs id plus the definition; remove needs id (custom lenses only); seed re-reads repo facts; override needs reviewId and note.
+
+Arguments: `action`, `id`, `name`, `role`, `focus`, `tone`, `checklist`, `evidence`, `reviewId`, `note`.
+
 ## `list_features`
 
 Inferred features with their member files and a confidence score. Cheaper than feature_graph when you only need the list. Low confidence means the grouping is a guess.
@@ -298,6 +306,12 @@ Review changed paths in one call: blast radius, test impact and breaking-change 
 
 Arguments: `paths`, `base`.
 
+## `review_with`
+
+Review a task or the current change through one or more lenses (Architect, QA, Dev by default). action=brief returns one brief per lens — its checklist, memory, and evidence from the current change — for you to run as independent subagents. action=record stores the verdicts they return, with the evidence each lens was given. Prism does not call a model. Use when the user wants a second opinion from a role, or before treating a change as done.
+
+Arguments: `action`, `lenses`, `task`, `verdicts`.
+
 ## `safe_delete`
 
 Whether a file or symbol can be deleted safely: blockers that still depend on it, and files that would be orphaned if it went. A report only — Prism never deletes anything. Prefer this over blast_radius when the question is specifically about removal.
@@ -318,7 +332,7 @@ Takes no arguments.
 
 ## `sleep`
 
-Park Prism: the Console and Spectrum show a down page and queued jobs stay queued until prism wake. Call this when the user says prism sleep, put Prism to sleep, or go to sleep. Speak only the tool message. If teammates are already running, the tool asks first — relay that and re-call with confirm=true only if the user agrees; that pauses them. Do not confuse this with init (worker sign-in).
+Park Prism: the Dashboard shows a down page and queued jobs stay queued until prism wake. Call this when the user says prism sleep, put Prism to sleep, or go to sleep. Speak only the tool message. If teammates are already running, the tool asks first — relay that and re-call with confirm=true only if the user agrees; that pauses them. Do not confuse this with init (worker sign-in).
 
 Arguments: `confirm`, `workspace`.
 
@@ -360,7 +374,7 @@ Arguments: `name`.
 
 ## `wake`
 
-Bring Prism back: the Console and Spectrum return, and queued jobs (including any sleep paused) start on their own. Call this when the user says prism wake, wake Prism, or wake up — even if the Console is already up, this starts Spectrum too. Speak only the tool message, including the Console URL and the Spectrum URL. If teammates are still running, the tool asks first — relay that and re-call with confirm=true. Do not confuse this with init.
+Bring Prism back: the Dashboard returns, and queued jobs (including any sleep paused) start on their own. Call this when the user says prism wake, wake Prism, or wake up — even if the Dashboard is already up. Speak only the tool message, which is one line: Prism woke up at <url>. If teammates are still running, the tool asks first — relay that and re-call with confirm=true. Do not confuse this with init.
 
 Arguments: `confirm`, `workspace`.
 

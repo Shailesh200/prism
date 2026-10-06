@@ -22,7 +22,6 @@ import {
   ScrollText,
   Settings2,
   Shield,
-  Sparkles,
   X,
 } from "lucide-react";
 import {
@@ -57,14 +56,13 @@ import {
   type PrismSansFont,
   type PrismTheme,
 } from "./settings-store.js";
-import { PrismateSettings, WipePrismDataCard } from "./PrismateSettings.js";
+import { WipePrismDataCard } from "./WipePrismDataCard.js";
 
 /** Which host is rendering the shell. Controls surface-specific affordances. */
 export type SettingsSurface = "extension" | "browser" | "playground";
 
 export type SettingsSection =
   | "general"
-  | "prismate"
   | "indexing"
   | "appearance"
   | "privacy"
@@ -124,7 +122,7 @@ export type SettingsScreenProps = {
   /** Extension-only: open the in-app Getting Started tour. */
   onOpenWalkthrough?: () => void;
   onNavigate: (view: AppView) => void;
-  /** Dashboard daemon — Prismate settings load from the same store as configure. */
+  /** Dashboard daemon — the wipe card goes through its API. */
   consoleStatus?: ConsoleStatus;
 };
 
@@ -153,7 +151,6 @@ const SECTIONS: readonly {
   icon: typeof Settings2;
 }[] = [
   { id: "general", label: "General", icon: Settings2 },
-  { id: "prismate", label: "Prismate", icon: Sparkles },
   { id: "indexing", label: "Indexing", icon: FileSearch },
   { id: "appearance", label: "Appearance", icon: Eye },
   { id: "privacy", label: "Privacy", icon: Shield },
@@ -491,15 +488,6 @@ export function SettingsScreen(props: SettingsScreenProps): ReactElement {
                       : {})}
                   />
                 </>
-              ) : null}
-
-              {section === "prismate" ? (
-                <PrismateSettings
-                  workspacePath={props.root}
-                  {...(props.consoleStatus
-                    ? { consoleStatus: props.consoleStatus }
-                    : {})}
-                />
               ) : null}
 
               {section === "indexing" ? (

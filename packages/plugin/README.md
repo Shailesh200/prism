@@ -32,6 +32,10 @@ server, or the `gh` CLI.
 
 Two skills need no connector at all: `prism-safe-change` and `prism-onboard`.
 
+## Hooks
+
+Claude Code runs `hooks/prism-hook.mjs` on session start, before an edit, after an edit, and when the agent stops. Set `PRISM_HOOKS=0` to turn every hook off. The hook writes one line per run to `~/.prism/hook-log`.
+
 ## Build
 
 ```bash

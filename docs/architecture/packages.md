@@ -148,6 +148,10 @@ The `prism-mcp` binary. Intelligence tools over Core, plus Dispatch tools over
 stay read-only. Dispatch tools are a second path (ADR-0035): jobs, OAuth, and
 local workers, never an index.
 
+### `@repo-prism/checks`
+
+Detects the repo's own typecheck, lint, and test scripts and runs the ones a change reaches. Used by the change receipt and the stop hook. Not Core, and not the job runner.
+
 ### `@repo-prism/dispatch`
 
 Chat-native jobs, memories, OAuth drivers, worktree adopt/create, and local

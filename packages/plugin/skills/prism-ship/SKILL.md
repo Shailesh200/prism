@@ -11,17 +11,17 @@ is for.
 
 ## The procedure
 
-**1. Check the work is complete.** `review_changes` with no paths. If it flags
-something, raise it with the user before opening a PR — better to ask now than
-to have a reviewer find it.
+**1. Check the work is complete.** `guard_session`. If it flags something, raise
+it with the user before opening a PR — better to ask now than to have a
+reviewer find it.
 
 **2. Describe the impact.** `blast_radius` on the primary changed paths. What
 this produces is the part of the description that a reviewer cannot get by
 reading the diff: which areas are affected, and how far the change reaches.
 
-**3. Name the verification.** `test_impact` on the changed paths. State which
-suites cover the change and — if you ran them in this session — that they
-passed. Do not claim a run you did not see.
+**3. Name the verification.** `guard_session` says which changed files have no
+test covering them. State what was run and — if you ran it in this session —
+that it passed. Do not claim a run you did not see.
 
 **4. Write the description.** Structure it as:
 

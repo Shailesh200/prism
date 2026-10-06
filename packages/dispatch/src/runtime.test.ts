@@ -2562,14 +2562,18 @@ describe("sleep and wake", () => {
     };
   }
 
-  async function runtimeWithHub() {
+  async function runtimeWithHub(jobs = true) {
     root = await tempRoot();
     hub = await mkdtemp(join(tmpdir(), "prism-hub-sleep-"));
     const cancelled: string[] = [];
     const runtime = createDispatchRuntime({
       workspaceRoot: root,
       git,
-      env: { PRISM_HUB_HOME: hub, CURSOR_API_KEY: "k" },
+      env: {
+        PRISM_HUB_HOME: hub,
+        CURSOR_API_KEY: "k",
+        ...(jobs ? { PRISM_JOBS: "1" } : {}),
+      },
       worker: {
         async start() {
           return { pid: process.pid };
@@ -2632,6 +2636,24 @@ describe("sleep and wake", () => {
     expect(woke.resumed).toBe(1);
     const jobs = await loadJobs(root);
     expect(jobs[0]?.status).toBe("queued");
+  });
+
+  it("with jobs off, wake only brings Prism back and leaves paused jobs alone", async () => {
+    const { runtime } = await runtimeWithHub(false);
+    await upsertJob(root, runningJob());
+    await runtime.handle("sleep", { confirm: true });
+    const woke = (await runtime.handle("wake", {})) as {
+      asleep: boolean;
+      resumed: number;
+      message: string;
+    };
+    expect(woke).toEqual({
+      asleep: false,
+      resumed: 0,
+      message: "Prism is up.",
+    });
+    const jobs = await loadJobs(root);
+    expect(jobs[0]?.status).toBe("paused");
   });
 
   it("wake is a no-op when already up", async () => {

@@ -28,7 +28,7 @@ import { isWorkerRole } from "@repo-prism/dispatch";
 import { registerDispatchTools } from "./dispatch-registry.js";
 import { registerTools } from "./tool-registry.js";
 import { registerWorkerIntelligence } from "./worker-intelligence.js";
-import { TOOLS } from "./tools.js";
+import { visibleIntelligenceTools } from "./tools.js";
 import {
   createWorkspaceBinding,
   type WorkspaceBinding,
@@ -202,7 +202,7 @@ export function createPrismMcpServer(
     registerTools(
       server,
       session,
-      TOOLS,
+      visibleIntelligenceTools(options.env ?? process.env),
       () => binding.current(),
       options.env ?? process.env,
     );

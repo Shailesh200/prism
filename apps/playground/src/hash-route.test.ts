@@ -21,7 +21,8 @@ describe("parsePlaygroundView", () => {
     expect(parsePlaygroundView("#/map")).toBe("impact");
     expect(parsePlaygroundView("#/iris")).toBe("iris");
     expect(parsePlaygroundView("#/iris/prepare")).toBe("iris");
-    expect(parsePlaygroundView("#/jobs")).toBe("jobs");
+    expect(parsePlaygroundView("#/lenses")).toBe("lenses");
+    expect(parsePlaygroundView("#/jobs")).toBe("impact");
   });
 
   it("keeps Envelope and Prepare as Iris panes, not extra tabs", () => {

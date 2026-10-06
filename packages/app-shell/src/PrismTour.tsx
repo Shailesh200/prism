@@ -62,11 +62,11 @@ const DEFAULT_STEPS: readonly TourStep[] = [
     navigateTo: "iris",
   },
   {
-    id: "jobs",
-    title: "Jobs",
-    body: "History, verify, and land. Live Pause and Cancel stay in chat.",
-    target: '[data-prism-tour="jobs"]',
-    navigateTo: "jobs",
+    id: "lenses",
+    title: "Lenses",
+    body: "Architect, QA, and Dev review a change from their own angle. You can read what each one stores.",
+    target: '[data-prism-tour="lenses"]',
+    navigateTo: "lenses",
   },
   {
     id: "skills",

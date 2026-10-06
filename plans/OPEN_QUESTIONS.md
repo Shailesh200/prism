@@ -32,4 +32,6 @@ Resolve these with the owner before or during the indicated milestone. Record an
 | Q-026 | Public identity: domain / GitHub / npm? | M-077 / M-086 | **Locked 2026-09-19 (relocked):** `prismate.io`, GitHub org `prismate`, npm `@prismate`. Cutover steps run in M-086. Q-003 (`@repo-prism`) is the old publish scope (one major of shims). |
 | Q-027 | Public tagline / hero copy? | M-077 / M-086 | **Locked 2026-09-19:** PROGRAM §0.1. Kicker `this/self · Local First · No account`. Hero: “A teammate meant for you. / Intelligent enough for all you want to do.” Teammate name in copy is Prism. It/it’s, not he/him. |
 
+| Q-028 | Which three public TypeScript repos does the M-079 replay benchmark use? | M-079 | **Open.** Owner may name them; otherwise pick by the criteria in [M-079](./milestones/M-079_safety-layer.md) (public, TS, offline tests < ~5 min, ≥ 500 files, history with reverts/fix-ups). |
+
 Update this file when questions are decided; link ADRs.

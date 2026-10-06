@@ -24,6 +24,7 @@ const ORDER = [
   "intelligence",
   "repository-map",
   "core",
+  "checks",
   "dispatch",
   "host-session",
   "dispatch-hub",

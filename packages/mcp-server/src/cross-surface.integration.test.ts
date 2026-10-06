@@ -39,7 +39,10 @@ beforeAll(async () => {
   const indexed = await workspace.index();
   if (!indexed.ok) throw new Error(`index: ${indexed.error.message}`);
 
-  mcp = createPrismMcpServer({ workspaceRoot: fixture.root });
+  mcp = createPrismMcpServer({
+    workspaceRoot: fixture.root,
+    env: { ...process.env, PRISM_MCP_FULL: "1" },
+  });
   client = new Client({ name: "cross-surface", version: "0.0.0" });
   const [clientTransport, serverTransport] =
     InMemoryTransport.createLinkedPair();

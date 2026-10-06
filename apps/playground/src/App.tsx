@@ -5,6 +5,7 @@ import {
   BlastRadiusScreen,
   DnaScreen,
   IntegrationsScreen,
+  LensesScreen,
   OverviewScreen,
   resolveAppView,
   PrismBootScreen,
@@ -21,7 +22,6 @@ import {
   type AppShellClient,
   type AppView,
   type ImpactTarget,
-  type JobSummary,
   type MapPayload,
   type PrismGitignoreStatus,
   type SettingsSection,
@@ -60,6 +60,11 @@ import {
   fetchChangedPaths,
   fetchExplainArea,
   fetchGuardSession,
+  fetchLenses,
+  overrideLensReview,
+  removeLens,
+  saveCustomLens,
+  updateLens,
   fetchHealth,
   fetchHealthHistory,
   fetchHealthHistoryBackfillStatus,
@@ -189,7 +194,6 @@ export function App(): ReactElement {
     ConsoleStatus | undefined
   >();
   const [consoleNonce, setConsoleNonce] = useState(0);
-  const [archiveJobs, setArchiveJobs] = useState<readonly JobSummary[]>([]);
 
   const openIrisPane = useCallback((pane: "envelope" | "prepare") => {
     setViewState("iris");
@@ -251,32 +255,6 @@ export function App(): ReactElement {
   );
 
   useEffect(() => {
-    const url = consoleStatus?.console?.url;
-    if (!url) {
-      setArchiveJobs([]);
-      return;
-    }
-    let alive = true;
-    const read = async (): Promise<void> => {
-      try {
-        const token = new URL(url).searchParams.get("token") ?? "";
-        const res = await fetch(`/api/jobs?token=${encodeURIComponent(token)}`);
-        if (!res.ok) throw new Error("jobs");
-        const body = (await res.json()) as {
-          readonly jobs?: readonly JobSummary[];
-        };
-        if (alive) setArchiveJobs(body.jobs ?? []);
-      } catch {
-        if (alive) setArchiveJobs([]);
-      }
-    };
-    void read();
-    return () => {
-      alive = false;
-    };
-  }, [consoleStatus?.console?.url]);
-
-  useEffect(() => {
     const s = loadSettings();
     applyAppearance({
       theme: s.theme,
@@ -329,6 +307,12 @@ export function App(): ReactElement {
       fetchExplainArea: (path) => fetchExplainArea(path, target),
       fetchGuardSession: (preExistingChanges) =>
         fetchGuardSession(preExistingChanges, target),
+      fetchLenses: () => fetchLenses(target),
+      saveCustomLens: (draft) => saveCustomLens(draft, target),
+      updateLens: (id, draft) => updateLens(id, draft, target),
+      removeLens: (id) => removeLens(id, target),
+      overrideLensReview: (reviewId, note) =>
+        overrideLensReview(reviewId, note, target),
       applyRename: (input) => applyRename(input, target),
       fetchSymbolHits: (query) => fetchSymbolHits(query, target),
       fetchGitActivity: () => fetchGitActivity(target),
@@ -704,7 +688,6 @@ export function App(): ReactElement {
             gitStatus={gitStatus}
             health={health}
             dna={dna}
-            jobs={archiveJobs}
             workspacePath={root}
             onNavigate={navigate}
             onOpenEnvelope={() => openIrisPane("envelope")}
@@ -741,15 +724,16 @@ export function App(): ReactElement {
               setView("impact");
             }}
             onOpenAuditLogs={openAuditLogs}
-            trees={
-              <TreesView
-                workspacePath={root}
-                repoLabel={rootLabel}
-                onOpenJob={() => setView("jobs")}
-              />
-            }
+            trees={<TreesView workspacePath={root} repoLabel={rootLabel} />}
           />
-        ) : view === "iris" || view === "jobs" || view === "skills" ? (
+        ) : view === "lenses" ? (
+          <LensesScreen
+            repoLabel={rootLabel}
+            branch={gitActivity?.summary?.branch}
+            user={gitActivity?.recentCommits[0] ?? null}
+            onNavigate={navigate}
+          />
+        ) : view === "iris" || view === "skills" ? (
           <ConsoleHubScreen
             view={view}
             {...(view === "iris" && irisPane ? { irisPane } : {})}
@@ -801,7 +785,6 @@ export function App(): ReactElement {
             gitActivity={gitActivity}
             gitStatus={gitStatus}
             health={health}
-            jobs={archiveJobs}
             workspacePath={root}
             onNavigate={navigate}
             fetchHealthHistory={() => fetchHealthHistory(root)}
@@ -859,7 +842,6 @@ export function App(): ReactElement {
             gitStatus={gitStatus}
             health={health}
             dna={dna}
-            jobs={archiveJobs}
             workspacePath={root}
             onNavigate={navigate}
             onOpenEnvelope={() => openIrisPane("envelope")}

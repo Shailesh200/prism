@@ -209,6 +209,8 @@ export {
 export type { DashboardView, AppViewAlias } from "./dashboard-views.js";
 export { JobsScreen } from "./JobsScreen.js";
 export { JobTokenIo } from "./JobTokenIo.js";
+export { LensesScreen } from "./LensesScreen.js";
+export type { LensesScreenProps } from "./LensesScreen.js";
 export { ConsoleJobsScreen } from "./ConsoleJobsScreen.js";
 export type { ConsoleJobsScreenProps } from "./ConsoleJobsScreen.js";
 export { ConsoleHubScreen } from "./ConsoleHubScreen.js";

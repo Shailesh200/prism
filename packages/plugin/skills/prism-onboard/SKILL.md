@@ -12,35 +12,18 @@ at.
 
 ## The procedure
 
-**1. `repository_dna`.** One call, and the fastest way to know what this project
-is: languages, frameworks, size, how it is organised. Start here on any repo you
-have not seen this session.
+**1. `repository_overview`.** One call. It says what this project is, how
+healthy it is, and where to start reading. Start here on any repo you have not
+seen this session.
 
-**2. Then follow the question.**
-
-- Layout and architecture → `repository_map`
-- Monorepo, or you saw multiple packages → `list_packages`
-- Where the important code lives → `landmarks`
-- Frameworks and versions in detail → `stack_profile`
-- What this directory is for → `explain_area`
-- Product surfaces rather than folders → `list_features`, `feature_graph`
-- General health, before proposing changes → `repository_health`
-
-Two or three calls is usually enough. The point is to stop guessing, not to
-inventory everything before answering.
-
-**3. Answer in your own words.** Summarise what you found. Do not paste tool
+**2. Answer in your own words.** Summarise what you found. Do not paste tool
 output at the user — they asked a question, not for a report.
-
-## When the question is about a symbol, not the repository
-
-Skip straight to `find_symbol` or `search_symbols`, then `find_references`.
-Orientation is for structural questions; a specific lookup does not need it.
 
 ## Before you edit anything here
 
 Orientation tells you where things are. It does not tell you what breaks if you
-change them — use `blast_radius` for that, per the `prism-safe-change` skill.
+change them — use `prepare_change`, then `blast_radius`, per the
+`prism-safe-change` skill.
 
 ## Note on timing
 

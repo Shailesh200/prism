@@ -4,9 +4,9 @@ import {
   BookOpen,
   Dna,
   ExternalLink,
+  Focus,
   GitBranch,
   LayoutGrid,
-  ListTodo,
   Plug,
   Settings,
   TrendingUp,
@@ -46,7 +46,7 @@ export type AppSidebarProps = {
 const NAV_ICONS: Record<DashboardView, ReactElement> = {
   overview: <LayoutGrid size={16} aria-hidden />,
   iris: <Aperture size={16} aria-hidden />,
-  jobs: <ListTodo size={16} aria-hidden />,
+  lenses: <Focus size={16} aria-hidden />,
   skills: <BookOpen size={16} aria-hidden />,
   dna: <Dna size={16} aria-hidden />,
   trends: <TrendingUp size={16} aria-hidden />,
@@ -58,7 +58,7 @@ const NAV_ICONS: Record<DashboardView, ReactElement> = {
 const WORKSPACE_VIEWS: readonly DashboardView[] = [
   "overview",
   "iris",
-  "jobs",
+  "lenses",
   "skills",
   "dna",
   "trends",

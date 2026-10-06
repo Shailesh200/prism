@@ -72,6 +72,7 @@ use this page when you need the exhaustive index.
 | `job_logs` | The console for one Dispatch job |
 | `knowledge_graph` | The symbol-level graph — declarations and the references between them — with summary stats |
 | `landmarks` | Named entrypoints, package roots and feature anchors — the places a human would open first |
+| `lens` | List, show, edit, remove, re-seed, or overrule a review lens |
 | `list_features` | Inferred features with their member files and a confidence score |
 | `list_findings` | Queueable findings from the last index |
 | `list_jobs` | Where are we |
@@ -85,6 +86,7 @@ use this page when you need the exhaustive index.
 | `repository_map` | Return the repository's structural map at a zoom level |
 | `repository_overview` | The dashboard summary in one call |
 | `review_changes` | Review changed paths in one call |
+| `review_with` | Review a task or the current change through one or more lenses (Architect, QA, Dev by default) |
 | `safe_delete` | Whether a file or symbol can be deleted safely |
 | `search_symbols` | Substring or regex search over indexed symbol names (unlike find_symbol, which is exact-match only) |
 | `security_report` | Left-shift security posture |

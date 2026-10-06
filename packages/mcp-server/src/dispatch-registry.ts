@@ -511,6 +511,28 @@ export function createDefaultDispatchRuntime(
   });
 }
 
+/**
+ * Job runner stays registered, and answers this unless `PRISM_JOBS=1`
+ * (ADR-0058). `sleep` and `wake` are not here: they park and start the
+ * Dashboard, and only their job half is gated.
+ */
+export const JOB_RUNNER_TOOLS = [
+  "start_my_day",
+  "init",
+  "start_job",
+  "list_jobs",
+  "job_control",
+  "job_logs",
+  "dispatch_doctor",
+] as const;
+
+export function jobsRunnerEnabled(env: NodeJS.ProcessEnv): boolean {
+  return env.PRISM_JOBS === "1";
+}
+
+export const JOBS_OFF_MESSAGE =
+  "Prism no longer runs background jobs. Do this in this chat. Set PRISM_JOBS=1 to restore the job runner for this version.";
+
 export function registerDispatchTools(
   server: McpServer,
   workspaceRoot: string,
@@ -581,6 +603,33 @@ export function registerDispatchTools(
         try {
           await options.beforeCall?.();
           const record = (args ?? {}) as Record<string, unknown>;
+          if (
+            !jobsRunnerEnabled(env) &&
+            (JOB_RUNNER_TOOLS as readonly string[]).includes(tool.name)
+          ) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: serialiseForMcp({ message: JOBS_OFF_MESSAGE }),
+                },
+              ],
+            };
+          }
+          if (!jobsRunnerEnabled(env) && tool.name === "queue_finding") {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: serialiseForMcp({
+                    message:
+                      "Fix this finding in this chat. It stays open until a fresh report no longer contains its fingerprint.",
+                    finding: record.finding ?? null,
+                  }),
+                },
+              ],
+            };
+          }
           if (typeof record.workspace === "string") {
             options.applyWorkspaceHint?.(record.workspace);
           }

@@ -52,11 +52,11 @@ describe("parseView", () => {
   });
 
   it("redirects retired hashes to the new IA", () => {
-    expect(parseView("#/jobs")).toBe("jobs");
-    expect(parseView("#/dashboard")).toBe("jobs");
-    expect(parseView("#/repos")).toBe("jobs");
-    expect(parseView("#/workflows")).toBe("jobs");
-    expect(parseView("#/attention")).toBe("jobs");
+    expect(parseView("#/jobs")).toBe("impact");
+    expect(parseView("#/dashboard")).toBe("impact");
+    expect(parseView("#/repos")).toBe("impact");
+    expect(parseView("#/workflows")).toBe("impact");
+    expect(parseView("#/attention")).toBe("impact");
     expect(parseView("#/intelligence")).toBe("iris");
     expect(parseView("#/whats-new")).toBe("whats-new");
     expect(viewHash("whats-new")).toBe("#/whats-new");
@@ -104,7 +104,7 @@ describe("parseView", () => {
   });
 
   it("reads a findings job and note from the hash", () => {
-    expect(parseView("#/findings")).toBe("jobs");
+    expect(parseView("#/findings")).toBe("impact");
     expect(
       parseJobId(
         "#/findings?job=audit-gsap&note=.prism%2Fdispatch%2Fnotes%2Fa.md",

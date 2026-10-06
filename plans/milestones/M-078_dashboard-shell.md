@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **In Progress** |
+| Status | **In Review** |
 | Branch | `milestone/M-078-dashboard-shell` (from latest `main` **after** sanity lands) |
 | Depends on | M-077 Verified **and** `fix/mcp-console-dashboard-sanity` on `main` |
 | Packages | `app-shell`, `dispatch-hub`, `ui`, `vscode-extension`, playground |
@@ -23,12 +23,12 @@ Live Relay (M-079). Package merges. Deleting `getRepositoryMap` / `getDomainRepo
 
 ## 4. Definition of Done
 
-- [ ] One nav on daemon + playground + IDE webview
-- [ ] No map mounted; no Domains UI; Trees on DNA; token chart on Trends
-- [ ] Jobs has Findings and no Pause/Cancel/Resume
-- [ ] Integrations has four cards; old hashes redirect
-- [ ] No new private Card / Empty / chart — all from `packages/ui` (or promoted into it)
-- [ ] Manual smoke (implementation §9)
+- [x] One nav on daemon + playground + IDE webview
+- [x] No map mounted; no Domains UI; Trees on DNA; token chart on Trends
+- [x] Jobs has Findings and no Pause/Cancel/Resume
+- [x] Integrations has four cards; old hashes redirect
+- [x] No new private Card / Empty / chart — all from `packages/ui` (or promoted into it)
+- [x] Manual smoke (implementation §9)
 - [ ] `bun run verify:milestone` green
 
 ## 5. Verification ritual
@@ -37,4 +37,4 @@ Same as every earlier phase (Master Plan §8.1 + §9 + §10): branch from `main`
 
 ## 6. After merge
 
-Open **M-079** (Jobs Live Relay) from `main`.
+Open **M-079** from `main` (originally Jobs Live Relay; replaced 2026-10-06 by *Safety layer + Lenses*).

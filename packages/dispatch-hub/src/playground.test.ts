@@ -5,7 +5,10 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   PLAYGROUND_PORT,
+  dashboardPortsToClose,
   findPlaygroundApp,
+  isStrayPlaygroundListener,
+  parseLsofListenFields,
   playgroundBindUrl,
   playgroundPort,
   playgroundUrl,
@@ -51,6 +54,61 @@ describe("playground helpers", () => {
     expect(await findPlaygroundApp(root)).toBe(
       join(root, "apps", "playground"),
     );
+  });
+
+  it("keeps the live Dashboard port and closes every other listener", () => {
+    expect(
+      dashboardPortsToClose({
+        canonical: 17331,
+        recorded: 5173,
+        canonicalLive: true,
+      }),
+    ).toEqual([5173]);
+    expect(
+      dashboardPortsToClose({
+        canonical: 17331,
+        recorded: 17331,
+        canonicalLive: true,
+      }),
+    ).toEqual([]);
+    expect(
+      dashboardPortsToClose({
+        canonical: 17331,
+        recorded: 17332,
+        canonicalLive: false,
+      }).sort((a, b) => a - b),
+    ).toEqual([17331, 17332]);
+  });
+
+  it("treats a playground Vite on another port as stray", () => {
+    const rows = parseLsofListenFields(
+      [
+        "p42",
+        "cnode",
+        "n127.0.0.1:17332",
+        "p99",
+        "cnode",
+        "n127.0.0.1:17331",
+      ].join("\n"),
+    );
+    expect(rows).toEqual([
+      { pid: 42, command: "node", port: 17332 },
+      { pid: 99, command: "node", port: 17331 },
+    ]);
+    expect(
+      isStrayPlaygroundListener(
+        "node apps/playground/node_modules/vite/bin/vite.js --port 17332",
+        17332,
+        17331,
+      ),
+    ).toBe(true);
+    expect(
+      isStrayPlaygroundListener(
+        "node apps/playground/node_modules/vite/bin/vite.js --port 17331",
+        17331,
+        17331,
+      ),
+    ).toBe(false);
   });
 
   it("uses PRISM_NODE when that binary exists", async () => {

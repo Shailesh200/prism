@@ -19,6 +19,7 @@ import type {
   HealthHistoryBackfillStatus,
   HealthHistoryReport,
   HealthScore,
+  LensView,
   MapBookmark,
   MapLayerId,
   MapZoomLevel,
@@ -30,6 +31,7 @@ import type {
   TestingReport,
   UtilityOverlayReport,
 } from "@repo-prism/shared";
+import { loadLenses } from "@repo-prism/shared/lens-store";
 import {
   Prism,
   PrismErrorCode,
@@ -540,6 +542,13 @@ export class PrismSession {
     const ws = this.requireWs();
     if (!ws.ok) return ws;
     return ws.value.listBookmarks();
+  }
+
+  /** Lenses for this workspace; seeded from the index the first time (ADR-0059). */
+  async listLenses(): Promise<Result<LensView[], PrismError>> {
+    const ws = this.requireWs();
+    if (!ws.ok) return ws;
+    return ok(await loadLenses(ws.value));
   }
 
   async saveBookmark(

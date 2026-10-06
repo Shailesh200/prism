@@ -26,6 +26,7 @@ import {
   HealthHistoryBackfillStatusSchema,
   HealthHistoryReportSchema,
   HealthScoreSchema,
+  LensViewSchema,
   NO_CONSOLE_STATUS,
   RegionMoversReportSchema,
   RenameImpactReportSchema,
@@ -1045,6 +1046,58 @@ export function createHttpTransport(
           return parsed.success
             ? { ok: true, data: parsed.data as T }
             : { ok: false, error: "Invalid guard session payload" };
+        }
+        case "listLenses": {
+          const qs = new URLSearchParams();
+          rootParam(qs);
+          const { ok, json } = await getJson(`/api/lenses?${qs}`);
+          if (!ok || json === null) {
+            const message =
+              json &&
+              typeof json === "object" &&
+              "error" in json &&
+              typeof json.error === "string"
+                ? json.error
+                : "Could not load lenses";
+            return { ok: false, error: message };
+          }
+          const parsed = LensViewSchema.array().safeParse(json);
+          return parsed.success
+            ? { ok: true, data: parsed.data as T }
+            : {
+                ok: false,
+                error: "The lens store returned an unreadable payload",
+              };
+        }
+        case "saveLens":
+        case "updateLens":
+        case "removeLens":
+        case "overrideLensReview": {
+          const qs = new URLSearchParams();
+          rootParam(qs);
+          const res = await fetchImpl(`/api/lenses?${qs}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(params),
+          });
+          const json: unknown = await res.json().catch(() => null);
+          if (!res.ok || json === null) {
+            const message =
+              json &&
+              typeof json === "object" &&
+              "error" in json &&
+              typeof json.error === "string"
+                ? json.error
+                : "Could not save that lens";
+            return { ok: false, error: message };
+          }
+          const parsed = LensViewSchema.array().safeParse(json);
+          return parsed.success
+            ? { ok: true, data: parsed.data as T }
+            : {
+                ok: false,
+                error: "The lens store returned an unreadable payload",
+              };
         }
         case "listBookmarks":
         case "saveBookmark":

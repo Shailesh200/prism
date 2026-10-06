@@ -82,6 +82,10 @@ export function createWorkspaceSession(
     }
 
     workspace = opened.value;
+    const { writeHookSnapshot } = await import("./safety/snapshot.js");
+    await writeHookSnapshot(opened.value).catch(() => undefined);
+    const { seedLenses } = await import("@repo-prism/shared/lens-store");
+    await seedLenses(opened.value).catch(() => undefined);
     return ok(opened.value);
   }
 

@@ -300,22 +300,6 @@
   font-weight: 600;
 }
 
-.set-prismate {
-  display: grid;
-  gap: 16px;
-}
-
-.set-prismate__toggles {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.set-prismate__actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
 /* Settings fields hug the right — no full-bleed empty chrome. */
 .set-row__control .prism-select-wrap,
 .set-row__control .prism-field {

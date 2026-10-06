@@ -82,6 +82,8 @@ Public `docs/` shrinks to start, product loop, Dashboard, Jobs, MCP/CLI referenc
 
 ### 6. Naming budget (ADR-0052) still holds
 
+> **Amended by [ADR-0058](./0058-prism-does-not-run-agents.md) and [ADR-0059](./0059-lenses.md) (2026-10-06).** Jobs leaves the user-facing vocabulary; **Lenses** takes its slot. Budget: Prism, Iris, Envelope, Lenses.
+
 Iris remains the only extra name. Spectrum / Repository Map / Domains leave the user-facing vocabulary. File options live on Impact & Guard. No new product nouns (no “Prism OS”, no worker persona).
 
 ### 7. Install is Voqalize-shaped on `app.prismate.io`

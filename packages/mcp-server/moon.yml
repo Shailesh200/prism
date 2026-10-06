@@ -3,6 +3,7 @@ language: "typescript"
 layer: "library"
 dependsOn:
   - "shared"
+  - "checks"
   - "core"
   - "dispatch"
   - "dispatch-hub"

@@ -62,7 +62,6 @@ import {
   GitFork,
   HelpCircle,
   SquareTerminal,
-  Users,
   Zap,
 } from "lucide-react";
 import { irisDefaultWorkspace } from "./fleet.js";
@@ -527,10 +526,6 @@ function overTimeCards(metrics: EnvelopeMetrics): EnvelopeMetricCard[] {
           ? ENVELOPE_DASH
           : String(metrics.sessionCount),
       unit: "bursts",
-      sub:
-        metrics.inlineSessions !== null && metrics.jobSessions !== null
-          ? `${metrics.inlineSessions} chat · ${metrics.jobSessions} job`
-          : undefined,
       icon: Clock,
       tone: "brand",
     },
@@ -607,21 +602,6 @@ function sessionCards(metrics: {
           : undefined,
       icon: GitFork,
       tone: "brand",
-    },
-    {
-      id: "jobs",
-      label: "Teammate jobs",
-      tip: IRIS_SOURCE_TIP,
-      value:
-        metrics.jobSessions === null
-          ? ENVELOPE_DASH
-          : String(metrics.jobSessions),
-      sub:
-        metrics.jobCalls !== null
-          ? `${metrics.jobCalls} calls total`
-          : "jobs with Prism calls",
-      icon: Users,
-      tone: "violet",
     },
     {
       id: "median",

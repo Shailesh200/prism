@@ -4,11 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { rm } from "node:fs/promises";
-import {
-  resolveVerifyPlan,
-  verifyJobWork,
-  type VerifyStep,
-} from "./job-verify.js";
+import { resolveVerifyPlan, verifyJobWork, type VerifyStep } from "./verify.js";
 
 const FIXTURES = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -164,39 +160,24 @@ describe("verifyJobWork", () => {
   });
 });
 
-describe("envelope ledger sanitization", () => {
-  it("writes only the allowlisted fields", async () => {
-    const { appendEnvelopeLedger, envelopeLedgerPath } =
-      await import("./envelope-ledger.js");
-    const dir = await scratch({});
-    const home = await scratch({});
-    const env = { PRISM_HOME: home };
-    await appendEnvelopeLedger(
-      dir,
-      {
-        ts: "2026-09-11T00:00:00.000Z",
-        tool: "search_symbols",
-        itemCount: 50,
-        totalCount: 80,
-        truncated: true,
-        limit: 50,
-        jsonBytes: 1200,
-      },
-      env,
+describe("package manager resolution", () => {
+  it("runs Yarn Berry's yarnPath with node, from a workspace package", async () => {
+    const dir = await scratch({
+      "yarn.lock": "",
+      ".yarnrc.yml": "yarnPath: .yarn/releases/yarn.cjs\n",
+      "packages/lib/package.json": JSON.stringify({
+        scripts: { test: 'node -e "process.exit(0)"' },
+      }),
+    });
+    const marker = join(dir, "ran.json");
+    await mkdir(join(dir, ".yarn/releases"), { recursive: true });
+    await writeFile(
+      join(dir, ".yarn/releases/yarn.cjs"),
+      `const { writeFileSync } = require("node:fs");\nwriteFileSync(${JSON.stringify(marker)}, JSON.stringify(process.argv.slice(1)));\n`,
     );
-    const line = (await readFile(envelopeLedgerPath(env), "utf8")).trim();
-    const parsed = JSON.parse(line) as Record<string, unknown>;
-    expect(Object.keys(parsed).sort()).toEqual([
-      "itemCount",
-      "jsonBytes",
-      "limit",
-      "tool",
-      "totalCount",
-      "truncated",
-      "ts",
-      "workspace",
-    ]);
-    expect(parsed.workspace).toBe(dir);
-    expect(JSON.stringify(parsed)).not.toMatch(/prompt|path|body/i);
+    const result = await verifyJobWork(join(dir, "packages/lib"));
+    expect(result.status).toBe("passed");
+    const argv = JSON.parse(await readFile(marker, "utf8")) as string[];
+    expect(argv.slice(-2)).toEqual(["run", "test"]);
   });
 });

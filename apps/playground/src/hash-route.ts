@@ -3,7 +3,7 @@ import type { AppView, DashboardView } from "@repo-prism/app-shell";
 const CANONICAL = new Set<string>([
   "overview",
   "iris",
-  "jobs",
+  "lenses",
   "skills",
   "dna",
   "trends",
@@ -18,10 +18,11 @@ const ALIAS: Record<string, DashboardView> = {
   domains: "overview",
   domain: "overview",
   testing: "overview",
-  findings: "jobs",
+  findings: "impact",
+  jobs: "impact",
   trees: "dna",
   intelligence: "iris",
-  dashboard: "jobs",
+  dashboard: "impact",
   profile: "dna",
 };
 

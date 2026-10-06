@@ -18,6 +18,7 @@ import {
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  claudeHooks,
   claudeManifest,
   cursorManifest,
   mcpConfig,
@@ -77,6 +78,12 @@ writeFileSync(
 
 cpSync(join(root, "skills"), join(out, "skills"), { recursive: true });
 cpSync(join(root, "commands"), join(out, "commands"), { recursive: true });
+mkdirSync(join(out, "hooks"), { recursive: true });
+cpSync(
+  join(root, "hooks", "prism-hook.mjs"),
+  join(out, "hooks", "prism-hook.mjs"),
+);
+writeFileSync(join(out, "hooks", "hooks.json"), json(claudeHooks()));
 
 console.log(
   `plugin: pack built — ${def.skills.length} skills, ${def.commands.length} commands, v${def.version}`,

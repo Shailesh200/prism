@@ -40,6 +40,7 @@ export const HOST_REQUEST_METHODS = [
   "lighthouseLab",
   "listBookmarks",
   "listConsent",
+  "listLenses",
   "listPackages",
   "listTests",
   "map",

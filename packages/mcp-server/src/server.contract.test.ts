@@ -30,7 +30,10 @@ async function connect(workspaceRoot: string): Promise<{
   client: Client;
   instance: PrismMcpServer;
 }> {
-  const built = createPrismMcpServer({ workspaceRoot });
+  const built = createPrismMcpServer({
+    workspaceRoot,
+    env: { ...process.env, PRISM_MCP_FULL: "1", PRISM_JOBS: "1" },
+  });
   const connected = new Client({ name: "contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] =
     InMemoryTransport.createLinkedPair();
@@ -122,19 +125,7 @@ describe("MCP server contract (M-026)", () => {
   it("lists workflow prompts for clients that expose a picker", async () => {
     const { prompts } = await client.listPrompts();
     expect(prompts.map((prompt) => prompt.name).sort()).toEqual(
-      [
-        "before_edit",
-        "configure",
-        "connect",
-        "init",
-        "orient",
-        "review_diff",
-        "sleep",
-        "start_my_day",
-        "start_work",
-        "wake",
-        "where_are_we",
-      ].sort(),
+      ["before_edit", "orient", "review_diff", "review_lenses"].sort(),
     );
   });
 
@@ -143,12 +134,11 @@ describe("MCP server contract (M-026)", () => {
     const text = result.messages[0]?.content;
     expect(text).toMatchObject({ type: "text" });
     if (text && text.type === "text") {
-      expect(text.text).toContain("repository_dna");
-      expect(text.text).toContain("repository_health");
+      expect(text.text).toContain("repository_overview");
     }
   });
 
-  it("expands review_diff to the auto-discover review_changes flow (M-058 / P-C1)", async () => {
+  it("expands review_diff to guard_session and blast_radius", async () => {
     const result = await client.getPrompt({
       name: "review_diff",
       arguments: {},
@@ -156,8 +146,8 @@ describe("MCP server contract (M-026)", () => {
     const text = result.messages[0]?.content;
     expect(text).toMatchObject({ type: "text" });
     if (text && text.type === "text") {
-      expect(text.text).toMatch(/auto-discover/i);
-      expect(text.text).toContain("review_changes");
+      expect(text.text).toContain("guard_session");
+      expect(text.text).toContain("blast_radius");
     }
   });
 
@@ -193,6 +183,7 @@ describe("MCP server contract (M-026)", () => {
         "knowledge_graph",
         "job_logs",
         "landmarks",
+        "lens",
         "list_features",
         "list_findings",
         "list_jobs",
@@ -206,6 +197,7 @@ describe("MCP server contract (M-026)", () => {
         "repository_map",
         "repository_overview",
         "review_changes",
+        "review_with",
         "safe_delete",
         "search_symbols",
         "security_report",
@@ -473,6 +465,8 @@ describe("MCP server contract (M-026)", () => {
       ["breaking_change_hints", target],
       ["changed_paths", {}],
       ["review_changes", { paths: [filePath] }],
+      ["review_with", { task: "review the change" }],
+      ["lens", { action: "list" }],
       ["engineering_health", {}],
       ["health_history", {}],
       ["explore_code", { kind: "file", path: filePath }],

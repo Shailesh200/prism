@@ -22,6 +22,8 @@ import type {
   GuardSession,
   HealthHistoryBackfillStatus,
   HealthHistoryReport,
+  LensEvidence,
+  LensView,
   MapLayerId,
   MapZoomLevel,
   RegionMoversReport,
@@ -274,6 +276,42 @@ export type AppShellClient = {
   fetchGuardSession?(
     preExistingChanges?: readonly string[],
   ): Promise<GuardSession | null>;
+  /**
+   * Lenses for this workspace (ADR-0059), seeded from the index the first
+   * time. Throws with the host's message when the store cannot be read.
+   */
+  fetchLenses?(): Promise<readonly LensView[]>;
+  /**
+   * Save an owner-written lens beside the inherited Architect / QA / Dev
+   * lenses. Returns the full list.
+   */
+  saveCustomLens?(draft: {
+    readonly name: string;
+    readonly role: string;
+    readonly focus: string;
+    readonly tone?: string;
+    readonly checklist: readonly string[];
+    readonly evidence: readonly LensEvidence[];
+  }): Promise<readonly LensView[]>;
+  /** Rename or rewrite a lens. The id stays, so its memory stays with it. */
+  updateLens?(
+    id: string,
+    draft: {
+      readonly name: string;
+      readonly role: string;
+      readonly focus: string;
+      readonly tone?: string;
+      readonly checklist: readonly string[];
+      readonly evidence: readonly LensEvidence[];
+    },
+  ): Promise<readonly LensView[]>;
+  /** Delete a custom lens. Inherited lenses cannot be removed. */
+  removeLens?(id: string): Promise<readonly LensView[]>;
+  /** Overrule a verdict. The note is remembered as a learned fact. */
+  overrideLensReview?(
+    reviewId: string,
+    note: string,
+  ): Promise<readonly LensView[]>;
   /** Bookmarks persisted at `.prism/bookmarks.json` (M-048 Phase 6). */
   fetchBookmarks?(): Promise<MapBookmark[]>;
   saveBookmark?(input: SaveBookmarkInput): Promise<MapBookmark[]>;

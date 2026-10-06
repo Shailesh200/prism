@@ -83,6 +83,7 @@ import {
   playgroundIsLive,
   playgroundUrl,
   playgroundViteEnabled,
+  releaseDashboardPort,
   resolvePlaygroundApp,
   spawnPlaygroundVite,
   stopPlaygroundListeners,
@@ -406,6 +407,15 @@ export async function startHub(
             address && typeof address === "object"
               ? address.port
               : wantedPlaygroundPort;
+          if (wantedPlaygroundPort > 0 && port !== wantedPlaygroundPort) {
+            srv.close();
+            reject(
+              new Error(
+                `prism-hub: dashboard bound ${port}; it only listens on ${wantedPlaygroundPort}`,
+              ),
+            );
+            return;
+          }
           resolve({ server: srv, port });
         });
       },
@@ -430,6 +440,7 @@ export async function startHub(
     await stopPlaygroundPort();
     const port = wantedPlaygroundPort || PLAYGROUND_PORT;
     const url = playgroundUrl(port);
+    await releaseDashboardPort(port, env);
     if (await playgroundIsLive(port)) {
       await writePlaygroundRecord(env, { port, mode: "vite" });
       return { ok: true, port, url, detail: "Dashboard is up." };
@@ -471,9 +482,11 @@ export async function startHub(
     env: env as NodeJS.ProcessEnv,
     // Vitest must not spawn a worker drain: it races GET /api/jobs and can
     // keep `.prism/dispatch` open so afterEach cannot remove the fixture.
+    // Jobs are off unless PRISM_JOBS=1 (ADR-0058): a job left queued from an
+    // older version must not start a worker on its own.
     drain:
       options.drain ??
-      (process.env.VITEST === "true"
+      (process.env.VITEST === "true" || env.PRISM_JOBS !== "1"
         ? undefined
         : (workspace) => defaultDrain(workspace, env)),
   });
@@ -521,23 +534,66 @@ export async function startHub(
     });
   };
 
+  const bindHub = (
+    http: Server,
+    port: number,
+  ): Promise<{ ok: true; port: number } | { ok: false; code: string }> =>
+    new Promise((resolve) => {
+      http.once("error", (error: NodeJS.ErrnoException) => {
+        resolve({ ok: false, code: error.code ?? "ERROR" });
+      });
+      http.listen(port, "127.0.0.1", () => {
+        const address = http.address();
+        const bound =
+          address && typeof address === "object" ? address.port : port;
+        if (port > 0 && bound !== port) {
+          http.close();
+          resolve({ ok: false, code: "EADDRNOTAVAIL" });
+          return;
+        }
+        resolve({ ok: true, port: bound });
+      });
+    });
+
   server = createServer((req, res) => {
     void handleRequest(req, res);
   });
 
-  const listen = await new Promise<
-    { ok: true; port: number } | { ok: false; code: string }
-  >((resolve) => {
-    server!.once("error", (error: NodeJS.ErrnoException) => {
-      resolve({ ok: false, code: error.code ?? "ERROR" });
+  let listen = await bindHub(server, wantedPort);
+  // One hub port. A healthy listener stays; anything else on that port is
+  // closed and this process takes it. Never bind a second port.
+  if (
+    !listen.ok &&
+    listen.code === "EADDRINUSE" &&
+    wantedPort > 0 &&
+    process.env.VITEST !== "true"
+  ) {
+    let healthy = false;
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:${wantedPort}/api/healthz`,
+        { signal: AbortSignal.timeout(500) },
+      );
+      healthy = response.ok;
+    } catch {
+      healthy = false;
+    }
+    if (healthy) {
+      server.close();
+      watcher.close();
+      idle.stop();
+      return { alreadyRunning: true };
+    }
+    server.close();
+    await stopPlaygroundListeners(wantedPort);
+    await new Promise((resolve) => {
+      setTimeout(resolve, 80).unref?.();
     });
-    server!.listen(wantedPort, "127.0.0.1", () => {
-      const address = server!.address();
-      const port =
-        address && typeof address === "object" ? address.port : wantedPort;
-      resolve({ ok: true, port });
+    server = createServer((req, res) => {
+      void handleRequest(req, res);
     });
-  });
+    listen = await bindHub(server, wantedPort);
+  }
 
   if (!listen.ok) {
     watcher.close();
@@ -546,6 +602,11 @@ export async function startHub(
       return { alreadyRunning: true };
     }
     throw new Error(`prism-hub: listen failed (${listen.code})`);
+  }
+
+  if (process.env.VITEST !== "true") {
+    const dashboardPort = wantedPlaygroundPort || PLAYGROUND_PORT;
+    await releaseDashboardPort(dashboardPort, env).catch(() => undefined);
   }
 
   liveRecord = { ...liveRecord, port: listen.port };

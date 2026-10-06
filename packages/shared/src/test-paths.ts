@@ -30,6 +30,14 @@ export function isTestPath(path: string): boolean {
   );
 }
 
+/** Test data checked into the repo: not part of the code it describes. */
+const FIXTURE_DIRECTORY =
+  /(^|\/)(fixtures?|__fixtures__|testdata|test-data)\//i;
+
+export function isFixturePath(path: string): boolean {
+  return FIXTURE_DIRECTORY.test(path.replace(/\\/g, "/"));
+}
+
 /** A TypeScript declaration file — contributes types, not runtime behaviour. */
 export function isTypeDeclarationPath(path: string): boolean {
   return /\.d\.[cm]?ts$/i.test(path);

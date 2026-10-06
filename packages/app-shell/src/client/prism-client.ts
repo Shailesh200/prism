@@ -25,6 +25,8 @@ import type {
   GuardSession,
   HealthHistoryBackfillStatus,
   HealthHistoryReport,
+  LensEvidence,
+  LensView,
   MapBookmark,
   MapLayerId,
   MapZoomLevel,
@@ -1066,6 +1068,78 @@ export function createPrismClient(
     async fetchBookmarks(): Promise<MapBookmark[]> {
       const res = await transport.invoke<MapBookmark[]>("listBookmarks");
       return res.ok ? res.data : [];
+    },
+
+    async fetchLenses(): Promise<LensView[]> {
+      return must(await transport.invoke<LensView[]>("listLenses"));
+    },
+
+    async saveCustomLens(draft: {
+      readonly name: string;
+      readonly role: string;
+      readonly focus: string;
+      readonly tone?: string;
+      readonly checklist: readonly string[];
+      readonly evidence: readonly LensEvidence[];
+    }): Promise<LensView[]> {
+      return must(
+        await transport.invoke<LensView[]>("saveLens", {
+          action: "add",
+          name: draft.name,
+          role: draft.role,
+          focus: draft.focus,
+          ...(draft.tone ? { tone: draft.tone } : {}),
+          checklist: [...draft.checklist],
+          evidence: [...draft.evidence],
+        }),
+      );
+    },
+
+    async updateLens(
+      id: string,
+      draft: {
+        readonly name: string;
+        readonly role: string;
+        readonly focus: string;
+        readonly tone?: string;
+        readonly checklist: readonly string[];
+        readonly evidence: readonly LensEvidence[];
+      },
+    ): Promise<LensView[]> {
+      return must(
+        await transport.invoke<LensView[]>("updateLens", {
+          action: "update",
+          id,
+          name: draft.name,
+          role: draft.role,
+          focus: draft.focus,
+          ...(draft.tone ? { tone: draft.tone } : {}),
+          checklist: [...draft.checklist],
+          evidence: [...draft.evidence],
+        }),
+      );
+    },
+
+    async removeLens(id: string): Promise<LensView[]> {
+      return must(
+        await transport.invoke<LensView[]>("removeLens", {
+          action: "remove",
+          id,
+        }),
+      );
+    },
+
+    async overrideLensReview(
+      reviewId: string,
+      note: string,
+    ): Promise<LensView[]> {
+      return must(
+        await transport.invoke<LensView[]>("overrideLensReview", {
+          action: "override",
+          reviewId,
+          note,
+        }),
+      );
     },
 
     async saveBookmark(input: SaveBookmarkInput): Promise<MapBookmark[]> {

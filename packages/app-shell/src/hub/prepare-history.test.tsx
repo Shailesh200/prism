@@ -38,9 +38,14 @@ describe("PrepareRunRow", () => {
 
     expect(screen.queryByText(/job title/i)).toBeNull();
     expect(screen.getByText(run.task)).toBeTruthy();
-    expect(screen.getByText("1 file")).toBeTruthy();
-    expect(screen.getByText("0 reuse")).toBeTruthy();
-    expect(screen.getByText("1 style")).toBeTruthy();
+    const pill = (className: string) =>
+      document
+        .querySelector(`.${className}`)
+        ?.textContent?.replace(/\s+/g, " ")
+        .trim();
+    expect(pill("prepare-pill--files")).toBe("1 file");
+    expect(pill("prepare-pill--reuse")).toBe("0 reuse");
+    expect(pill("prepare-pill--style")).toBe("1 style");
 
     await user.click(screen.getByRole("button"));
     expect(onOpen).toHaveBeenCalledTimes(1);

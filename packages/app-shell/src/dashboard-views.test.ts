@@ -18,11 +18,12 @@ describe("resolveAppView", () => {
     expect(resolveAppView("testing")).toBe("overview");
     expect(resolveAppView("blast")).toBe("impact");
     expect(resolveAppView("guard")).toBe("impact");
-    expect(resolveAppView("findings")).toBe("jobs");
+    expect(resolveAppView("findings")).toBe("impact");
     expect(resolveAppView("trees")).toBe("dna");
-    expect(resolveAppView("dashboard")).toBe("jobs");
+    expect(resolveAppView("dashboard")).toBe("impact");
+    expect(resolveAppView("jobs")).toBe("impact");
     expect(resolveAppView("intelligence")).toBe("iris");
-    expect(resolveAppView("pulse")).toBe("jobs");
+    expect(resolveAppView("pulse")).toBe("impact");
   });
 });
 

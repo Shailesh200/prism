@@ -9,7 +9,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveVerifyPlan } from "../packages/dispatch/src/job-verify.ts";
+import { resolveVerifyPlan } from "../packages/checks/src/verify.ts";
 import {
   buildKnowledgeGraph,
   searchSymbols,
@@ -20,7 +20,7 @@ import { TOOL_NAMES } from "../packages/mcp-server/src/tools.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..");
-const fixtures = join(repoRoot, "packages/dispatch/fixtures");
+const fixtures = join(repoRoot, "packages/checks/fixtures");
 
 function arg(flag: string, fallback: string): string {
   const i = process.argv.indexOf(flag);

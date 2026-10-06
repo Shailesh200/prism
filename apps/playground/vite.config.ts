@@ -1763,6 +1763,100 @@ function prismMapApi(): Plugin {
               return;
             }
 
+            if (parsed.pathname === "/api/lenses") {
+              const {
+                addCustomLens,
+                loadLenses,
+                overrideLensReview,
+                removeLens,
+                updateLens,
+              } = await import("@repo-prism/shared/lens-store");
+              if (req.method === "POST") {
+                const body = (await readJsonBody(req)) as {
+                  action?: string;
+                  root?: string;
+                  id?: string;
+                  reviewId?: string;
+                  note?: string;
+                  name?: string;
+                  role?: string;
+                  focus?: string;
+                  tone?: string;
+                  checklist?: unknown;
+                  evidence?: unknown;
+                };
+                const root = resolveRequestedRoot(
+                  body.root ?? parsed.searchParams.get("root"),
+                );
+                const checklist = Array.isArray(body.checklist)
+                  ? body.checklist.filter(
+                      (item): item is string => typeof item === "string",
+                    )
+                  : [];
+                const evidence = (
+                  Array.isArray(body.evidence)
+                    ? body.evidence.filter(
+                        (item): item is string => typeof item === "string",
+                      )
+                    : []
+                ) as import("@repo-prism/shared").LensEvidence[];
+                const draft = {
+                  name: body.name ?? "",
+                  role: body.role ?? "",
+                  focus: body.focus ?? "",
+                  ...(typeof body.tone === "string" ? { tone: body.tone } : {}),
+                  checklist,
+                  evidence,
+                };
+                try {
+                  const action = body.action ?? "add";
+                  if (action === "remove") {
+                    sendJson(res, 200, await removeLens(root, body.id ?? ""));
+                    return;
+                  }
+                  if (action === "update") {
+                    sendJson(
+                      res,
+                      200,
+                      await updateLens(root, body.id ?? "", draft),
+                    );
+                    return;
+                  }
+                  if (action === "override") {
+                    const learned = await overrideLensReview(
+                      root,
+                      body.reviewId ?? "",
+                      body.note ?? "",
+                    );
+                    if (!learned) {
+                      sendJson(res, 400, {
+                        error: `No review with id ${body.reviewId ?? ""}.`,
+                      });
+                      return;
+                    }
+                    const ws = await getIndexedWorkspace(root);
+                    sendJson(res, 200, await loadLenses(ws));
+                    return;
+                  }
+                  sendJson(res, 200, await addCustomLens(root, draft));
+                } catch (cause) {
+                  sendJson(res, 400, {
+                    error:
+                      cause instanceof Error
+                        ? cause.message
+                        : "Could not save that lens",
+                  });
+                }
+                return;
+              }
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const ws = await getIndexedWorkspace(root);
+              sendJson(res, 200, await loadLenses(ws));
+              return;
+            }
+
             if (parsed.pathname === "/api/review" && req.method === "POST") {
               const body = (await readJsonBody(req)) as {
                 root?: string;

@@ -43,5 +43,7 @@ describe("AppSidebar", () => {
       screen.queryByRole("button", { name: "Open Dispatch console" }),
     ).toBeNull();
     expect(screen.queryByRole("button", { name: "Guard" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Jobs" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Lenses" })).toBeTruthy();
   });
 });

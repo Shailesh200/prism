@@ -65,8 +65,8 @@
 | M-056 Number Integrity | `milestone/M-056-number-integrity` | Verified | ☑ | ☑ | Truncation honesty: unresolved imports, git cap, blast limits, polyglot coverage, coverage limitations. Fast-tracked: scope landed via M-053 merge, audit confirmed |
 | M-057 Daily Loop | `milestone/M-057-daily-loop` | Verified | ☑ | ☑ | IDE hero: watcher, blast Quick Pick, shared config, completions, Node ≥22. Completed 2026-08-09: if-absent config migration + file→UI hydration; warm-index extraction; P-B2/B3/B9 test gaps filled |
 | M-058 Agent Surface v2 | `milestone/M-058-agent-surface` | Planned | ☐ | ☐ | MCP hero: bounded tools, resources, capabilities, compact JSON |
-| M-059 Reference Precision | `milestone/M-059-reference-precision` | Planned | ☐ | ☐ | Moat: homonyms, member calls, barrels, tsconfig, require(); deep-TS spike |
-| M-060 CI and PR Integration | `milestone/M-060-ci-pr` | Planned | ☐ | ☐ | GitHub Action, SARIF, PR comment, cold-start caching |
+| M-059 Reference Precision | `milestone/M-059-reference-precision` | Planned | ☐ | ☐ | Moat: homonyms, member calls, barrels, tsconfig, require(); deep-TS spike. Homonym `ambiguous` on `main`; remainder absorbed by M-079 phase 6 |
+| M-060 CI and PR Integration | `milestone/M-060-ci-pr` | Planned | ☐ | ☐ | GitHub Action, SARIF, PR comment, cold-start caching. Deferred until the change receipt (M-079 phase 5) proves itself locally |
 | M-061 Detection Quality | `milestone/M-061-detection-quality` | Planned | ☐ | ☐ | Multi-signal detectors, feature inference fallback, backend extractors |
 | M-062 UI Actionability | `milestone/M-062-ui-actionability` | Planned | ☐ | ☐ | D-9 IA merge, DomainScreen split, dead-end fixes, shared table primitives |
 | M-063 Distribution and Proof | `milestone/M-063-distribution` | Planned | ☐ | ☐ | Benchmarks, one-click MCP install, URL updates, killer demo, CHANGELOG |
@@ -85,9 +85,9 @@
 | M-075 Symbol memory + ADR nodes | `milestone/M-075-symbol-memory-adr` | Verified | ✅ | ✅ | Owner verified 2026-09-17 (merged on main). Phase 3 Cut 3: `remember` optional `symbol`/`path`, rewrite on rename; `rationale_for` edges from ADRs and `WHY:`/`NOTE:` comments; `prepare_change.notes` for pack files. |
 | M-076 Work orders + hook | `milestone/M-076-work-orders-hook` | Verified | ✅ | ✅ | Owner verified 2026-09-17 (merged on main). Phase 3 Cut 3: `PrepareChange.order` from generated/vendor + blast/ownership; MCP `work_order`; Dispatch copies off-limits into the PRD; advisory IDE hook (no veto unless an Accepted ADR arms it). Agent-native Cuts 1–3 done (M-069–M-076). T1/T2/T3 proofs recorded. **Cut 4 set aside.** |
 | M-077 Prism 2.0 | `milestone/M-077-prism-2.0` | Verified | ✅ | ✅ | Owner verified 2026-09-19 (merged on local main). Prism 2.0 contract locked: one product (Prismate), one Dashboard, prismate.io identity, hero copy, sequence M-078–M-086. Docs/plan only. Next: M-078 from this main. |
-| M-078 Dashboard shell | `milestone/M-078-dashboard-shell` | In Progress | ☐ | ☐ | First code. One rail, sanitize face. Branch from main after M-077 Verified. |
-| M-079 Jobs Live Relay | `milestone/M-079-jobs-live-relay` | Planned | ☐ | ☐ | After Dashboard shell. TUI + editor chat cockpit. |
-| M-080 Agent + CLI IA | `milestone/M-080-agent-cli-ia` | Planned | ☐ | ☐ | Loopback Streamable HTTP `/mcp`; teach `app.` URL. |
+| M-078 Dashboard shell | `milestone/M-078-dashboard-shell` | In Review | ✅ | ☐ | Owner approved 2026-09-24 and merged to local main. Suite is red in this environment: better-sqlite3 is built for Node 23 while the runner wants Node 26. |
+| M-079 Safety layer + Lenses | `milestone/M-079-safety-layer` | In Review | ✅ | ☐ | Owner approved commit and local merge 2026-10-06. `verify:milestone` green (Node 26.5.0). Phases 0–8 recorded. Independent lens verdicts: Architect pass, QA fail (three checks fixtures with no reaching test), Dev pass. |
+| M-080 Agent + CLI IA | `milestone/M-080-agent-cli-ia` | Planned | ☐ | ☐ | Loopback Streamable HTTP `/mcp`; teach `app.` URL. After M-079; instructions part done in M-079 phase 8. |
 | M-081 Marketplace publisher | `milestone/M-081-marketplace-publisher` | Planned | ☐ | ☐ | `prismhq.repo-prism` → `prismate`. Not npm. |
 | M-082 One Dashboard package | `milestone/M-082-dashboard-package` | Planned | ☐ | ☐ | `packages/dashboard` merge. |
 | M-083 Engine package merge | `milestone/M-083-engine-merge` | Planned | ☐ | ☐ | Folder moves + shims. No algorithm rewrite. |

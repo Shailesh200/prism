@@ -5,7 +5,7 @@
 export const DASHBOARD_VIEWS = [
   "overview",
   "iris",
-  "jobs",
+  "lenses",
   "skills",
   "dna",
   "trends",
@@ -37,14 +37,15 @@ export type AppViewAlias =
   | "list"
   | "repos"
   | "workflows"
-  | "attention";
+  | "attention"
+  | "jobs";
 
 export type AppView = DashboardView | AppViewAlias;
 
 export const DASHBOARD_VIEW_LABELS: Record<DashboardView, string> = {
   overview: "Overview",
   iris: "Iris",
-  jobs: "Jobs",
+  lenses: "Lenses",
   skills: "Skills",
   dna: "DNA Analysis",
   trends: "Trends",
@@ -64,16 +65,17 @@ const ALIAS_TO_VIEW: Record<AppViewAlias, DashboardView> = {
   guard: "impact",
   health: "overview",
   profile: "dna",
-  dashboard: "jobs",
-  findings: "jobs",
+  dashboard: "impact",
+  findings: "impact",
   trees: "dna",
   intelligence: "iris",
-  pulse: "jobs",
-  board: "jobs",
-  list: "jobs",
-  repos: "jobs",
-  workflows: "jobs",
-  attention: "jobs",
+  pulse: "impact",
+  board: "impact",
+  list: "impact",
+  repos: "impact",
+  workflows: "impact",
+  attention: "impact",
+  jobs: "impact",
 };
 
 export function isDashboardView(value: string): value is DashboardView {
