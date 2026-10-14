@@ -830,7 +830,7 @@ OS {ubuntu-latest, macos-latest, windows-latest (required)} × Node {24 LTS, lat
 | S-INS-5 | Reinstall a newer local build with a running session: the old daemon is stopped, the new one started, no duplicate daemons, hooks work after the next prompt |
 
 ### 9.3 Golden benchmark
-- **Repos** at pinned shas: hono, preact, es-toolkit, rentmaadi, and the Prism repo (mono) at `GOLDEN_MONO_SHA`. Unsupported-language fixtures are only for LANG rows.
+- **Repos** at pinned shas: hono, preact, es-toolkit, rentmaadi (**local-only**, decision 22), and the Prism repo (mono) at `GOLDEN_MONO_SHA`. Unsupported-language fixtures are only for LANG rows.
 - **Tasks:** 40 per TS/JS repo (4 × 40) + 30 for mono = **190**. **20% held out** (38 tasks; sealed, rotated each release, never used for tuning).
 - **Labels:** the file a developer opened first, the expected tests, the expected blast set.
 - **Metrics:** Prepare top-1/top-3 hit rate, test-impact precision/recall, blast precision/recall, hook p50/p95, receipt p50/p95, cold-index time, tokens per Prepare.
@@ -859,13 +859,14 @@ OS {ubuntu-latest, macos-latest, windows-latest (required)} × Node {24 LTS, lat
 | B4 | Golden benchmark (§9.3, **new**) | top-3, test-impact P/R, blast P/R | capture in Phase 0 | T7–T9 | §4, §5.1 | 190 tasks, 38 held out |
 | B5 | Daemon freshness, `scripts/bench/daemon-freshness.mjs` | edit→index p95; symbol answer after edit p95; auto-Prepare p95; first Prepare warm | **268 ms; 2.3 s; 1.7 s; 786 ms p50 at 10k** / 53 ms auto-Prepare at 1k (`PROGRESS.md:106`, `M-095:35`) | ≤ 300 ms; ≤ 1.0 s; ≤ 1.0 s at 10k, ≤ 300 ms at 1k; ≤ 500 ms | watcher ignores + batching §2.4, daemon owns Prepare §2.1, budget cap | 1k and 10k generated fixtures (`generate-fixture.mjs`) |
 | B6 | Real-agent A/B, `scripts/bench/agent-ab.ts` (Claude Code + opencode; Codex CLI if detected) | success, tokens, seconds, USD (B − A, 95% CI) | **success 97% → 100% (+3.0 pp, CI 0–9.1); tokens +28,571 (CI −1,983…57,273), Prism arm uses MORE; seconds −50 (CI −162…13); USD +0.03** (`benchmark-real-agents.md`, 33 runs/arm, 2026-10-11) | tokens B − A ≤ 0 with the CI upper bound < +5%; seconds B − A < 0 with CI excluding 0; success not lower | hook injection replacing tool calls §5.8, Prepare budget, tool cut (smaller tool list in context), receipt dedupe | rerun 11 tasks + 10 new, 3 runs each, per client, with Prism wired to the **local build** (absolute bin paths, §3.0; DEV-3). Clients: CC and OC always. CX only if `codex` is on PATH and `codex login status` succeeds; otherwise it's skipped and `ab.skip codex not configured` is logged in the report. No cost cap. If a provider returns a quota or credit error, the run stops, completed runs are kept, and the report says "stopped: quota/credits exhausted at run N" for the user |
-| B7 | Prompt classifier corpus (§5.11, **new**) | change recall, question false-positive rate | capture in Phase 0 (current `CHANGE_VERB` regex, `prism-hook.mjs:368`) | recall ≥ 0.95, FP ≤ 0.05 | §5.11 classifier | 400 English + 40 non-English |
+| B7 | Prompt classifier corpus (§5.11, **new**; owner prompts stored outside the repo, decision 23; CI uses a synthetic public subset) | change recall, question false-positive rate | capture in Phase 0 (current `CHANGE_VERB` regex, `prism-hook.mjs:368`) | recall ≥ 0.95, FP ≤ 0.05 | §5.11 classifier | 400 English + 40 non-English |
 | B8 | Hook latency (**new**, from `events.jsonl` in harness runs) | prompt/edit/stop p95 | capture in Phase 0 (current hook timings via a wrapper) | T2–T4 | §2.1, §2.2, §5.8 | harness runs, all 4 clients |
 | B9 | Performance budgets, `scripts/bench/run.mjs` + `budgets.json` (`bench.yml`) | ms per operation at small/medium | ceilings in `budgets.json` (e.g. small: index_cold 3,500, blast_radius 150) | no budget raised; new ops added (C-14) | everything | existing `bench:check` |
 | B10 | Install matrix (§9.2) | cell pass rate | capture in Phase 0 (expected to fail: A1) | T1 | §2.2, §3 | CI |
 
 ### 9.7 Regression gate on every PR (CI)
 A required `prism-gate` workflow on every PR to the 2.0 branch and `main`:
+0. **Private repo rule:** CI jobs never clone `rentmaadi`. Rows that use it are tagged `local-only` and run by `bun run bench:local` on the owner's machine (nightly local runner). A PR touching ranking or blast must attach the local run's JSON, or the gate stays pending.
 1. Fast gates (every PR, ≤ 15 min): unit + contract tests (including `coverage-matrix.contract`, Appendix A.4); B7 classifier; B9 budgets (small); B2 on a 40-commit fixed subset; B3 on the fast subset; B4 non-held-out TS subset (hono, es-toolkit). Compared to the **last green main** numbers stored in `plans/notes/benchmark/main-latest.json`.
 2. **Fail the PR if:** top-3 or recall@pack drops > 1 pt; test-impact precision or recall drops > 2 pts; catch rate drops at all or false-alarm rate rises; any p95 latency (B5, B8) rises > 15%; any `budgets.json` ceiling is exceeded; B1 tokens rise > 5%.
 3. **Cross-guard:** every PR runs both the accuracy gates and the latency gates, whichever area it touches. A reliability fix can't lower accuracy, and an accuracy fix can't raise latency or break the hooks (contract tests run on every PR).
@@ -895,6 +896,7 @@ A required `prism-gate` workflow on every PR to the 2.0 branch and `main`:
 12. Bug bash (Appendix C on macOS + Windows + Linux): 0 open P0/P1.
 13. `plan-refs.contract`: every path, function and row ID cited in this plan exists.
 14. Owner sign-off.
+15. The final change report (decision 24) is complete and reviewed by the owner.
 ---
 ## 10. Implementation order (by dependency)
 **Phase 0, checkpoint and baseline.** §0.5 Step 0 commit (with owner approval); build the missing benchmarks (B2 `prepare-eval.ts`, B4 golden, B7 classifier, B8 hook timing); capture B1–B10 into `baseline-2.0/`; set up the §9.7 gate with those numbers. C-1, C-6 (E0), C-14.
@@ -948,7 +950,7 @@ A required `prism-gate` workflow on every PR to the 2.0 branch and `main`:
 - `doctor --fix`, `prism stats`.
 - Docs.
 
-**Release 2.0.0 (single final step, only after every item of §9.5 passes and the owner approves):** push the branch, merge, tag `v2.0.0`; `npm publish` all packages at 2.0.0 in the order of `publish-npm.mjs`; move the Action `v2` tag; publish the Claude plugin to the marketplace; re-enable the publish workflows. Then run S-INS-1…5 once against the **published** packages as a post-release smoke test, and remove dev-mode `no-published-refs`. Nothing in this step happens earlier.
+**Release 2.0.0 (single final step, only after every item of §9.5 passes and the owner explicitly confirms each push, tag and publish; decision 25):** push the branch, merge, tag `v2.0.0`; `npm publish` all packages at 2.0.0 in the order of `publish-npm.mjs`; move the Action `v2` tag; publish the Claude plugin to the marketplace; re-enable the publish workflows. Then run S-INS-1…5 once against the **published** packages as a post-release smoke test, and remove dev-mode `no-published-refs`. Nothing in this step happens earlier.
 
 Phases 2–3 and 4 can be built in parallel once Phase 1 lands. Phase 5 needs Phases 3 and 4. Close-out items are folded in: C-2/C-3/C-12 in Phase 1, C-6 in Phase 3, C-5/C-8 in Phase 4, C-4/C-7/C-9 in Phase 6, C-2 (editors) in Phase 7, C-10/C-11/C-13 in Phase 8. Every phase merges only through the §9.7 gate.
 
@@ -1004,8 +1006,20 @@ Phases 2–3 and 4 can be built in parallel once Phase 1 lands. Phase 5 needs Ph
 
 20. **Readiness:** the three-pass review (Appendix D) is applied; residual risk is bounded by D.4 gates; the git-hook writer in `prism graph` is deleted.
 
+21. **Checkpoint:** done as local commit `2480b92` on `milestone/M-087-focus-reset-plan` (not pushed). Phase 0 baselines run on this commit.
+22. **rentmaadi is private:** its golden, benchmark, harness and smoke rows run **locally only**, against the owner's checkout. There's no deploy key and no CI access. CI runs every other golden repo. The release gate takes the rentmaadi results from a local run on the release-candidate commit, recorded in `plans/notes/benchmark/` (numbers only, no source).
+23. **Classifier corpus:** may use the owner's own past prompts. They're collected locally, stored **outside the repo** (`~/.prism-dev/classifier-corpus/`, path set by `PRISM_DEV_CORPUS`), and never committed or published. Only aggregate metrics (recall, FP rate) are committed.
+24. **Final change report:** a required deliverable when implementation ends: `plans/notes/prism-2.0-change-report.md`. Contents:
+    - every change, grouped by phase and area, with files changed, the reason (plan item IDs) and the tests added (row IDs)
+    - before/after numbers for B1–B10 against the Phase 0 baseline
+    - every deletion (package, tool, command, flag, env var, file, doc) with line counts
+    - known residual risks and limitations (from D.4)
+
+    It's generated as far as possible from the git log (plan IDs in commit messages), the benchmark JSONs and `deleted-names.contract`. It's checked by `plan-refs.contract`, and it's release-gate item 15.
+25. **Pushes and deployments need explicit owner confirmation:** no `git push`, tag, publish, deployment, Action tag or external upload happens without the owner's explicit confirmation for that specific action, including in the final Release 2.0.0 step (each sub-step is confirmed). Local commits follow AGENTS.md (owner approval).
+
 ### Open questions
-None. Blockers are listed in D.5.
+None.
 
 ---
 ## Appendix A. Coverage matrix (every user-facing item in 2.0)
