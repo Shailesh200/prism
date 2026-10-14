@@ -10,6 +10,12 @@ import { agentsMdCommand } from "./commands/agents-md.js";
 import { dataCommand } from "./commands/data-prune.js";
 import { envelopeCommand } from "./commands/envelope.js";
 import { graphCommand } from "./commands/graph.js";
+import { lensCommand } from "./commands/lens.js";
+import {
+  installCommand,
+  uninstallCommand,
+  upgradeCommand,
+} from "./commands/install.js";
 import { receiptsCommand } from "./commands/receipts.js";
 import {
   forgetCommand,
@@ -27,6 +33,7 @@ import {
 } from "./commands/change.js";
 import { overviewCommand } from "./commands/overview.js";
 import { doctorCommand } from "./commands/doctor.js";
+import { statsCommand } from "./commands/stats.js";
 import { indexCommand } from "./commands/index-command.js";
 import {
   cyclesCommand,
@@ -49,10 +56,71 @@ import {
 
 export const COMMANDS: readonly CommandSpec[] = [
   {
+    name: "install",
+    group: "Set up",
+    summary:
+      "Connect Prism to Claude Code, Cursor, Codex or opencode (MCP server, hooks, skills, rule line)",
+    handler: installCommand,
+    arguments: [
+      {
+        syntax: "<client>",
+        description: "claude, cursor, codex, opencode, or all",
+      },
+    ],
+    options: [
+      {
+        flags: "--project",
+        description: "Write the configs into this repository",
+      },
+      {
+        flags: "--user",
+        description: "Write the configs into your home (default)",
+      },
+      {
+        flags: "--local <checkout>",
+        description:
+          "Built Prism checkout to link (default: the one this CLI runs from)",
+      },
+    ],
+    examples: [
+      "prism install claude",
+      "prism install cursor --project",
+      "prism install all --local ~/Prism",
+    ],
+  },
+  {
+    name: "uninstall",
+    group: "Set up",
+    summary:
+      "Remove everything prism install added; --purge also deletes Prism data",
+    handler: uninstallCommand,
+    options: [
+      {
+        flags: "--purge",
+        description: "Also delete ~/.prism and this repository's .prism",
+      },
+    ],
+    examples: ["prism uninstall", "prism uninstall --purge"],
+  },
+  {
+    name: "upgrade",
+    group: "Set up",
+    summary:
+      "Re-link the recorded clients to the current build and restart the daemon",
+    handler: upgradeCommand,
+    examples: ["prism upgrade"],
+  },
+  {
     name: "doctor",
     group: "Diagnostics",
     summary: "Check the environment, workspace and index",
     handler: doctorCommand,
+    arguments: [
+      {
+        syntax: "[topic]",
+        description: "skills: check user skills that name Prism tools",
+      },
+    ],
     options: [
       {
         flags: "--ci",
@@ -64,8 +132,32 @@ export const COMMANDS: readonly CommandSpec[] = [
         description:
           "Show which Prism each editor launches. Fails inside this repo if any of them is the published package.",
       },
+      {
+        flags: "--fix",
+        description:
+          "Stop the daemon and rewrite editor configs to the recorded local build",
+      },
     ],
-    examples: ["prism doctor", "prism doctor --ci", "prism doctor --surfaces"],
+    examples: [
+      "prism doctor",
+      "prism doctor --ci",
+      "prism doctor --surfaces",
+      "prism doctor skills",
+      "prism doctor --fix",
+    ],
+  },
+  {
+    name: "stats",
+    group: "Diagnostics",
+    summary: "Hook and tool timings and outcomes from events.jsonl",
+    handler: statsCommand,
+    options: [
+      {
+        flags: "--since <duration>",
+        description: "Only events newer than this, e.g. 1d, 6h (default: all)",
+      },
+    ],
+    examples: ["prism stats", "prism stats --since 1d"],
   },
   {
     name: "data",
@@ -369,8 +461,16 @@ export const COMMANDS: readonly CommandSpec[] = [
     handler: envelopeCommand,
     options: [
       { flags: "--days <n>", description: "Window to report (default 7)" },
+      {
+        flags: "--session <id>",
+        description: "One agent session; `latest` for the newest",
+      },
     ],
-    examples: ["prism envelope", "prism envelope --days 30 --json"],
+    examples: [
+      "prism envelope",
+      "prism envelope --days 30 --json",
+      "prism envelope --session latest",
+    ],
   },
   {
     name: "receipts",
@@ -383,11 +483,68 @@ export const COMMANDS: readonly CommandSpec[] = [
     ],
     options: [
       { flags: "--as <format>", description: "show: text, markdown, or svg" },
+      { flags: "--last", description: "Show the newest receipt" },
       LIMIT_OPTION,
     ],
     examples: [
       "prism receipts",
+      "prism receipts --last",
       "prism receipts show 1 --as markdown > receipt.md",
+    ],
+  },
+  {
+    name: "lens",
+    group: "Assess a change",
+    summary:
+      "List, add or remove review lenses (shared by every repository), or overrule a lens check",
+    handler: lensCommand,
+    arguments: [
+      {
+        syntax: "[action]",
+        description: "list (default), add, remove, or override",
+      },
+      {
+        syntax: "[target]",
+        description: "add: the lens name; remove/override: the lens id",
+      },
+    ],
+    options: [
+      {
+        flags: "--name <text>",
+        description: "add: display name (default: the id)",
+      },
+      { flags: "--role <text>", description: "add: what the lens is" },
+      { flags: "--focus <text>", description: "add: how it judges" },
+      {
+        flags: "--checklist <item>",
+        description: "add: a checklist item (repeatable)",
+        repeatable: true,
+      },
+      {
+        flags: "--checks <ids>",
+        description: "add: data-backed checks, comma-separated (repeatable)",
+        repeatable: true,
+      },
+      {
+        flags: "--evidence <ids>",
+        description: "add: Prism reads it uses, comma-separated (repeatable)",
+        repeatable: true,
+      },
+      {
+        flags: "--trigger <phrase>",
+        description: "add: a phrase that chooses this lens (repeatable)",
+        repeatable: true,
+      },
+      { flags: "--check <id>", description: "override: the check to overrule" },
+      {
+        flags: "--path <file>",
+        description: "override: the file the finding names",
+      },
+      { flags: "--note <text>", description: "override: why it is fine" },
+    ],
+    examples: [
+      'prism lens add perf --role "Checks hot paths" --focus "No new N+1" --checklist "No query in a loop" --trigger "slow query"',
+      'prism lens override dev --check reuse_missed --path src/utils/formatDueDate.ts --note "intentionally differs"',
     ],
   },
   {

@@ -9,14 +9,18 @@ describe("server instructions (M-091)", () => {
     );
   });
 
-  it("routes a change through prepare, blast, guard and the receipt", () => {
+  it("routes a change through prepare, blast, guard and the stop verdict", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/users never name these tools/i);
     expect(SERVER_INSTRUCTIONS).toContain("prepare_change");
     expect(SERVER_INSTRUCTIONS).toMatch(/Before editing/);
     expect(SERVER_INSTRUCTIONS).toContain("blast_radius");
     expect(SERVER_INSTRUCTIONS).toContain("guard_session");
     expect(SERVER_INSTRUCTIONS).toMatch(/do not invent dependents/i);
-    expect(SERVER_INSTRUCTIONS).toMatch(/receipt: proven, unproven or failed/);
+    // Plan §5.7 verdicts. The bare word "receipt" is a tool name (opt-in), so
+    // the default instructions describe the verdict without naming it.
+    expect(SERVER_INSTRUCTIONS).toMatch(
+      /verdict on your change: proven, not proven \(with the reason\) or failed/,
+    );
     expect(SERVER_INSTRUCTIONS).toMatch(/inferred edges are hints/i);
     expect(SERVER_INSTRUCTIONS).toMatch(/Never call mcp_auth for Prism/);
   });

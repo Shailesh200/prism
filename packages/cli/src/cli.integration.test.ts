@@ -271,13 +271,21 @@ const ARGUMENTS: Record<string, readonly string[]> = {
   data: ["prune"],
   remember: ["the fixture keeps widgets in one file"],
   forget: ["no-such-memory"],
+  // Never a real client here: install writes editor configs under the real
+  // home. An unknown client exercises the envelope without writing anything.
+  install: ["no-such-client"],
 };
 
 /** Commands that write under `~/.prism` and so get a throwaway home. */
 const ISOLATED_HOME = new Set(["agents-md", "data", "remember", "forget"]);
 
 /** Commands that cannot succeed on a fixture without extra setup. */
-const EXPECT_FAILURE = new Set<string>([]);
+const EXPECT_FAILURE = new Set<string>([
+  // Unknown client: a usage error, nothing written.
+  "install",
+  // No install record in the test home: "not installed".
+  "upgrade",
+]);
 
 describe("every command (M-029)", () => {
   let agentsMdHome: string;

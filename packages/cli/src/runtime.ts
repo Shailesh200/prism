@@ -55,6 +55,8 @@ export type CommandArgs = {
   option(name: string): string | undefined;
   /** A boolean `--flag`. */
   flag(name: string): boolean;
+  /** Every value of a repeatable `--flag <value>`, in order; empty when unset. */
+  values(name: string): readonly string[];
 };
 
 export type CommandContext = {
@@ -106,6 +108,7 @@ const NO_ARGS: CommandArgs = {
   positionals: [],
   option: () => undefined,
   flag: () => false,
+  values: () => [],
 };
 
 /**

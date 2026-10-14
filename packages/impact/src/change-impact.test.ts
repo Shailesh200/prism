@@ -163,6 +163,46 @@ describe("computeSafeDelete", () => {
   });
 });
 
+describe("computeSafeDelete entry roles (plan §4.4)", () => {
+  // main.ts ─▶ app.ts ─▶ helper.ts, route.tsx ; public/sw.js has no importers
+  const graph = graphOf([
+    edge("app.ts", "helper.ts"),
+    edge("app.ts", "route.tsx"),
+    edge("app.ts", "app.config.ts"),
+    edge("main.ts", "app.ts"),
+  ]);
+  const analyzed = [
+    "main.ts",
+    "app.ts",
+    "helper.ts",
+    "route.tsx",
+    "app.config.ts",
+    "public/sw.js",
+  ];
+  const ctx = {
+    dependencyGraph: graph,
+    analyzedPaths: analyzed,
+    entryRoles: new Map([
+      ["public/sw.js", "literal-path"],
+      ["route.tsx", "route"],
+    ]),
+    isOrphanEligible: (p: string) => !p.includes(".config."),
+  };
+
+  it("SD-ENTRY-1 a file with no importers but an entry role is not safe", () => {
+    const res = computeSafeDelete({ kind: "file", id: "public/sw.js" }, ctx);
+    if (!res.ok) throw new Error(res.error.message);
+    expect(res.value.safe).toBe(false);
+    expect(res.value.entryRole).toBe("literal-path");
+  });
+
+  it("SD-ENTRY-2 entry-role and non-source files are never orphaned", () => {
+    const res = computeSafeDelete({ kind: "file", id: "app.ts" }, ctx);
+    if (!res.ok) throw new Error(res.error.message);
+    expect(res.value.orphans).toEqual(["helper.ts"]);
+  });
+});
+
 describe("computeTestImpact", () => {
   const graph = graphOf([
     edge("app.ts", "util.ts"),
@@ -185,6 +225,59 @@ describe("computeTestImpact", () => {
         category: "test",
       },
     ]);
+  });
+});
+
+describe("computeTestImpact symbol walk (plan §4.3)", () => {
+  const named = (from: string, to: string, imported: string[]) => ({
+    ...edge(from, to),
+    attrs: { imported },
+  });
+  const graph = graphOf([
+    {
+      ...edge("index.ts", "debounce.ts", "re-export"),
+      attrs: { reexports: [{ from: "*", as: "*" }] },
+    },
+    {
+      ...edge("index.ts", "nth.ts", "re-export"),
+      attrs: { reexports: [{ from: "*", as: "*" }] },
+    },
+    named("debounce.spec.ts", "index.ts", ["debounce"]),
+    named("nth.spec.ts", "index.ts", ["nth"]),
+  ]);
+  const ctx = {
+    dependencyGraph: graph,
+    analyzedPaths: [
+      "index.ts",
+      "debounce.ts",
+      "nth.ts",
+      "debounce.spec.ts",
+      "nth.spec.ts",
+    ],
+    fileExports: new Map([
+      ["debounce.ts", ["debounce"]],
+      ["nth.ts", ["nth"]],
+    ]),
+  };
+
+  it("TI-SYM-1 only tests that bind the changed symbol, with viaSymbol", () => {
+    const res = computeTestImpact({ kind: "file", id: "debounce.ts" }, ctx);
+    if (!res.ok) throw new Error(res.error.message);
+    expect(res.value.tests.map((t) => [t.path, t.viaSymbol])).toEqual([
+      ["debounce.spec.ts", "debounce"],
+    ]);
+    expect(res.value.unknownRunner).toBe(true);
+    expect(res.value.runCommand).toBeUndefined();
+  });
+
+  it("TI-SYM-2 runCommand runs exactly the reached tests when the runner is known", () => {
+    const res = computeTestImpact(
+      { kind: "file", id: "debounce.ts" },
+      { ...ctx, testRunner: "vitest" },
+    );
+    if (!res.ok) throw new Error(res.error.message);
+    expect(res.value.runner).toBe("vitest");
+    expect(res.value.runCommand).toBe("npx vitest run debounce.spec.ts");
   });
 });
 

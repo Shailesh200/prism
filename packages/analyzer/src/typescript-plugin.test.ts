@@ -141,6 +141,72 @@ describe("createTypescriptPlugin", () => {
     expect(result.value.imports.map((i) => i.source)).toContain("./mod.ts");
   });
 
+  it("marks type-only imports and re-exports (plan §4.1)", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "prism-typeonly-"));
+    const path = join(dir, "mix.ts");
+    await writeFile(
+      path,
+      [
+        'import type { A } from "./a";',
+        'import { type B, c } from "./b";',
+        'import { type D } from "./d";',
+        'import "./e";',
+        'export type { X } from "./x";',
+        'export { y } from "./y";',
+      ].join("\n"),
+      "utf8",
+    );
+    const host = createAnalyzerHost({ plugins: [createTypescriptPlugin()] });
+    const result = await host.analyzeFile(path);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const typeOnly = Object.fromEntries(
+      result.value.imports.map((i) => [i.source, i.typeOnly === true]),
+    );
+    expect(typeOnly).toEqual({
+      "./a": true,
+      "./b": false,
+      "./d": true,
+      "./e": false,
+    });
+    const reexports = Object.fromEntries(
+      result.value.exports
+        .filter((e) => e.source)
+        .map((e) => [e.source, e.typeOnly === true]),
+    );
+    expect(reexports).toEqual({ "./x": true, "./y": false });
+  });
+
+  it("narrows namespace imports to the members read (NS-1)", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "prism-ns-"));
+    const path = join(dir, "ns.ts");
+    await writeFile(
+      path,
+      [
+        'import * as lo from "./lo";',
+        'import * as esc from "./esc";',
+        'import * as ty from "./ty";',
+        "lo.debounce(1);",
+        'lo["nth"](2);',
+        "use(esc);",
+        "let t: ty.Opts;",
+      ].join("\n"),
+      "utf8",
+    );
+    const host = createAnalyzerHost({ plugins: [createTypescriptPlugin()] });
+    const result = await host.analyzeFile(path);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const imported = Object.fromEntries(
+      result.value.imports.map((i) => [i.source, i.imported]),
+    );
+    expect(imported).toEqual({
+      "./lo": ["debounce", "nth"],
+      "./esc": ["*"],
+      "./ty": ["Opts"],
+    });
+  });
+
   it("extracts MemberExpression / optional call refs with via:member (P-A4)", async () => {
     const dir = await mkdtemp(join(tmpdir(), "prism-member-"));
     const path = join(dir, "svc.ts");

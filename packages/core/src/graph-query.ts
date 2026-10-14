@@ -21,6 +21,9 @@ import {
   ok,
   prismError,
 } from "@repo-prism/shared";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { dedupeDeclarations, lineAt } from "./find-dedupe.js";
 import type { GraphReads } from "./graph-reads.js";
 
 const FILE = "file:";
@@ -136,17 +139,58 @@ async function find(
   }
   const index = workspace.getIndex();
   if (!index.ok) return index;
+  // Re-export edges are only needed to fold `export` rows into their
+  // declarations. Building the dependency graph costs ~0.5 s at 10k files
+  // right after an edit, so a find with no re-export rows skips it (B5).
+  let reexportsOf: Map<string, string[]> | undefined;
+  if (symbols.some((s) => s.kind === "export")) {
+    const deps = workspace.getDependencyGraph();
+    if (!deps.ok) return deps;
+    reexportsOf = new Map<string, string[]>();
+    for (const edge of deps.value.edges) {
+      if (edge.kind !== "re-export") continue;
+      const from = String(edge.from).replace(/^file:/, "");
+      const list = reexportsOf.get(from) ?? [];
+      list.push(String(edge.to).replace(/^file:/, ""));
+      reexportsOf.set(from, list);
+    }
+  }
+  const rows = dedupeDeclarations(
+    symbols.map((s) => ({
+      name: s.name,
+      kind: s.kind,
+      path: s.path,
+      start: s.start ?? 0,
+    })),
+    (p) => reexportsOf?.get(p) ?? [],
+  );
+  const texts = new Map<string, string | null>();
+  const lineOf = (path: string, start: number): number | undefined => {
+    if (!texts.has(path)) {
+      const abs = join(workspace.rootPath, path);
+      texts.set(path, existsSync(abs) ? readFileSync(abs, "utf8") : null);
+    }
+    const text = texts.get(path);
+    return text == null ? undefined : lineAt(text, start);
+  };
   const needle = query.name.toLowerCase();
   const files = index.value.files
     .filter((file) => file.path.toLowerCase().includes(needle))
     .map((file) => file.path);
   const nodes: GraphNode[] = [
-    ...symbols.map((hit) => ({
-      kind: "symbol" as const,
-      path: hit.path,
-      name: hit.name,
-      symbolKind: hit.kind,
-    })),
+    ...rows.map((row) => {
+      const line = lineOf(row.path, row.start);
+      return {
+        kind: "symbol" as const,
+        path: row.path,
+        name: row.name,
+        symbolKind: row.kind,
+        ...(line === undefined ? {} : { line }),
+        ...(row.reexportedBy.length > 0
+          ? { reexportedBy: row.reexportedBy }
+          : {}),
+      };
+    }),
     ...files.map((path) => ({ kind: "file" as const, path })),
   ];
   const declaringFiles = new Set(

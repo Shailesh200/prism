@@ -12,8 +12,8 @@ counts, whether the list was truncated, the limit, and the JSON byte size.
 It does **not** record prompts, paths, or file bodies. It is never uploaded.
 See [privacy](/privacy).
 
-The Iris screen in the IDE extension reads that file for the open repository
-and shows bytes kept vs a full dump. A missing file is “no
+`prism envelope --session latest` reads that file and shows bytes kept vs a
+full dump. A missing file is “no
 sessions,” not `0%`.
 
 Lists elsewhere in Prism follow the same honesty: `items`, `totalCount`,
@@ -22,5 +22,5 @@ so.
 
 ## Related
 
-[Envelope and Iris](/docs/guides/envelope) ·
+[Envelope](/docs/guides/envelope) ·
 [Signal provenance](/docs/concepts/signal-provenance)

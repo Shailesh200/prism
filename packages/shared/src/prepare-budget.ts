@@ -55,6 +55,15 @@ function counts(prep: PrepareChange): Counts {
   };
 }
 
+/**
+ * Reserved shares of the budget (plan §5.1): reuse 15%, house style 10%,
+ * work order 10%. A reserved section is first trimmed to its share; the file
+ * list is then cut before anything that fits its reserve.
+ */
+export const PREPARE_RESERVES: Readonly<
+  Record<"reuse" | "conventions" | "order", number>
+> = { reuse: 0.15, conventions: 0.1, order: 0.1 };
+
 /** The pack keeps at least one file; everything else can go to zero. */
 const FLOOR: Counts = {
   conventions: 0,
@@ -64,6 +73,26 @@ const FLOOR: Counts = {
   tests: 0,
   pack: 1,
 };
+
+function sectionTokens(
+  prep: PrepareChange,
+  section: PrepareTrimSection,
+): number {
+  switch (section) {
+    case "conventions":
+      return prepareResponseTokens(prep.conventions ?? []);
+    case "notes":
+      return prepareResponseTokens(prep.notes ?? []);
+    case "order":
+      return prepareResponseTokens(prep.order);
+    case "reuse":
+      return prepareResponseTokens(prep.reuse);
+    case "tests":
+      return prepareResponseTokens(prep.pack.tests);
+    case "pack":
+      return prepareResponseTokens(prep.pack.files);
+  }
+}
 
 function shrink(
   prep: PrepareChange,
@@ -111,8 +140,13 @@ function shrink(
 }
 
 /**
- * Fit `prep` into `budget` tokens. Returns it unchanged when it already
- * fits; otherwise trims in section order and adds `trimmed`.
+ * Fit `prep` into `budget` tokens (a hard cap: the result, including its own
+ * `trimmed` block, never exceeds the budget). Lists are ranked best-first,
+ * so trimming drops from the end and each section keeps its best item first.
+ *
+ * Order: reserved sections down to their share → pack files (to 1) → tests →
+ * notes → reserved sections to one item → everything to its floor of zero
+ * (the pack keeps one file) → the last pack file's `why` list.
  */
 export function fitPrepareToBudget(
   prep: PrepareChange,
@@ -121,38 +155,118 @@ export function fitPrepareToBudget(
   const limit = clampPrepareBudget(budget);
   if (prepareResponseTokens(prep) <= limit) return prep;
   const before = counts(prep);
-  // Room for the `trimmed` block itself.
-  const target = limit - 90;
   let out = prep;
-  for (const section of PREPARE_TRIM_SECTIONS) {
+  const withTrimmed = (value: PrepareChange): PrepareChange => {
+    const after = counts(value);
+    const cut = PREPARE_TRIM_SECTIONS.filter((s) => after[s] < before[s]).map(
+      (section) => ({
+        section,
+        kept: after[section],
+        total: before[section],
+      }),
+    );
+    const trimmed: PrepareTrimmed = {
+      budgetTokens: limit,
+      tokens: 0,
+      cut,
+      hint:
+        limit < PREPARE_RESPONSE_CEILING
+          ? `Trimmed to ${limit} tokens. Ask again with a larger budget (up to ${PREPARE_RESPONSE_CEILING}), or call blast_radius / graph on a specific file.`
+          : "Trimmed to the ceiling. Call blast_radius / graph on a specific file for the rest.",
+    };
+    // The count is part of what it counts: settle on a true number.
+    let result: PrepareChange = { ...value, trimmed };
+    for (let i = 0; i < 4; i += 1) {
+      const tokens = prepareResponseTokens(result);
+      if (result.trimmed?.tokens === tokens) break;
+      result = { ...value, trimmed: { ...trimmed, tokens } };
+    }
+    return result;
+  };
+  const fits = (value: PrepareChange) =>
+    prepareResponseTokens(withTrimmed(value)) <= limit;
+
+  const reserved = ["reuse", "conventions", "order"] as const;
+  // 1. Reserved sections down to their share.
+  for (const section of reserved) {
+    const share = Math.floor(limit * PREPARE_RESERVES[section]);
     while (
-      prepareResponseTokens(out) > target &&
-      counts(out)[section] > FLOOR[section]
+      !fits(out) &&
+      counts(out)[section] > 1 &&
+      sectionTokens(out, section) > share
     ) {
       out = shrink(out, section);
     }
-    if (prepareResponseTokens(out) <= target) break;
   }
-  const after = counts(out);
-  const cut = PREPARE_TRIM_SECTIONS.filter((s) => after[s] < before[s]).map(
-    (section) => ({ section, kept: after[section], total: before[section] }),
-  );
-  const trimmed: PrepareTrimmed = {
-    budgetTokens: limit,
-    tokens: 0,
-    cut,
-    hint:
-      limit < PREPARE_RESPONSE_CEILING
-        ? `Trimmed to ${limit} tokens. Ask again with a larger budget (up to ${PREPARE_RESPONSE_CEILING}), or call blast_radius / graph on a specific file.`
-        : "Trimmed to the ceiling. Call blast_radius / graph on a specific file for the rest.",
+  // 2. The file list first, then tests, notes; then reserved sections to one
+  //    item; then everything to its floor.
+  const steps: ReadonlyArray<readonly [PrepareTrimSection, number]> = [
+    ["pack", 1],
+    ["tests", 0],
+    ["notes", 0],
+    ["reuse", 1],
+    ["conventions", 1],
+    ["order", 1],
+    ["reuse", 0],
+    ["conventions", 0],
+    ["order", 0],
+  ];
+  for (const [section, floor] of steps) {
+    while (
+      !fits(out) &&
+      counts(out)[section] > Math.max(floor, FLOOR[section])
+    ) {
+      out = shrink(out, section);
+    }
+  }
+  // 3. Last resort: shorten the remaining file's reasons and symbols.
+  while (!fits(out)) {
+    const file = out.pack.files[0];
+    if (!file) break;
+    if (file.why.length > 1) {
+      out = {
+        ...out,
+        pack: { ...out.pack, files: [{ ...file, why: file.why.slice(0, -1) }] },
+      };
+    } else if (file.symbols.length > 0) {
+      out = {
+        ...out,
+        pack: {
+          ...out.pack,
+          files: [{ ...file, symbols: file.symbols.slice(0, -1) }],
+        },
+      };
+    } else break;
+  }
+  const result = withTrimmed(out);
+  if (prepareResponseTokens(result) <= limit) return result;
+  // 4. Tiny budgets: the `trimmed` block and an echoed long task are the
+  //    only things left. Keep a terse block and cut the echoed task.
+  const terse = (value: PrepareChange): PrepareChange => {
+    const trimmed: PrepareTrimmed = {
+      budgetTokens: limit,
+      tokens: 0,
+      cut: [],
+      hint: "Trimmed; ask with a larger budget.",
+    };
+    let r: PrepareChange = { ...value, trimmed };
+    for (let i = 0; i < 4; i += 1) {
+      const tokens = prepareResponseTokens(r);
+      if (r.trimmed?.tokens === tokens) break;
+      r = { ...value, trimmed: { ...trimmed, tokens } };
+    }
+    return r;
   };
-  // The count is part of what it counts: writing it can add a digit, so
-  // settle on a number that is true once written.
-  let result: PrepareChange = { ...out, trimmed };
-  for (let i = 0; i < 4; i += 1) {
-    const tokens = prepareResponseTokens(result);
-    if (result.trimmed?.tokens === tokens) break;
-    result = { ...out, trimmed: { ...trimmed, tokens } };
+  let tight = terse(out);
+  while (prepareResponseTokens(tight) > limit && out.pack.task.length > 16) {
+    out = {
+      ...out,
+      pack: {
+        ...out.pack,
+        task: `${out.pack.task.slice(0, Math.floor(out.pack.task.length / 2))}…`,
+      },
+    };
+    tight = terse(out);
   }
-  return result;
+  return tight;
 }

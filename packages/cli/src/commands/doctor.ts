@@ -12,6 +12,10 @@ import { join } from "node:path";
 import { PRISM_API_LEVEL, PRISM_CORE_VERSION } from "@repo-prism/core";
 import { ok } from "@repo-prism/shared";
 import { workspaceCacheDir } from "@repo-prism/shared/prism-home";
+import { readInstallRecord } from "@repo-prism/shared/prism-bin";
+import { stopDaemon } from "@repo-prism/daemon";
+import { INSTALL_HOSTS, type InstallHost } from "../install/hosts.js";
+import { runInstall, sourceLayout } from "./install.js";
 import { paint, renderFields, renderHeading, type Style } from "../output.js";
 import {
   isPrismSourceRepo,
@@ -19,6 +23,7 @@ import {
   surfaceProblems,
 } from "./surfaces.js";
 import { wrap } from "../table.js";
+import { checkSkills } from "./doctor-skills.js";
 import type { CommandHandler } from "../runtime.js";
 
 /** Detect a shallow clone (M-057 P-B11). Exported for unit tests. */
@@ -101,6 +106,8 @@ export const doctorCommand: CommandHandler = async (context) => {
     }
   }
 
+  checks.push(...(await installChecks(context.args.flag("fix"))));
+
   const cacheDir = workspaceCacheDir(context.workspace.path);
   const hasCache = existsSync(cacheDir);
   checks.push({
@@ -139,6 +146,27 @@ export const doctorCommand: CommandHandler = async (context) => {
         label: "Index",
         status: "fail",
         detail: opened.error.message,
+      });
+    }
+  }
+
+  if (context.args.positionals[0] === "skills") {
+    const skills = checkSkills(context.workspace.path);
+    if (skills.length === 0) {
+      checks.push({
+        label: "Skills",
+        status: "ok",
+        detail: "no user skill names a Prism tool",
+      });
+    }
+    for (const skill of skills) {
+      checks.push({
+        label: "Skill",
+        status: skill.status,
+        detail:
+          skill.status === "ok"
+            ? `${skill.file}: ${skill.tools.join(", ")} registered`
+            : `${skill.file}: ${skill.problems.join("; ")}`,
       });
     }
   }
@@ -219,3 +247,94 @@ export const doctorCommand: CommandHandler = async (context) => {
     },
   });
 };
+
+const published = () =>
+  scanSurfaces().filter((hit) => hit.kind === "published-npm");
+
+/**
+ * The install record, the bin it names, and (for a local build) the
+ * `no-published-refs` check over every editor config (§3.0, DEV-1).
+ * `--fix` stops the daemon (the next client starts the current build) and
+ * rewrites the recorded editors' configs to the local build.
+ */
+async function installChecks(fix: boolean): Promise<Check[]> {
+  const read = readInstallRecord(process.env);
+  if (read.kind !== "ok")
+    return [
+      {
+        label: "Install",
+        status: "warn",
+        detail:
+          read.kind === "invalid"
+            ? `install.json is invalid (${read.reason}). Run \`prism install <editor> --local <checkout>\`.`
+            : "not installed. Run `prism install <editor> --local <checkout>`.",
+      },
+    ];
+  const record = read.record;
+  const broken = !existsSync(record.bin) || published().length > 0;
+  const fixed: Check[] = [];
+  if (fix) {
+    await stopDaemon({ env: process.env });
+    fixed.push({
+      label: "Daemon",
+      status: "ok",
+      detail: "stopped; the next client starts the current build",
+    });
+    const layout = record.source
+      ? sourceLayout(record.source)
+      : "no local source recorded";
+    if (broken && typeof layout !== "string") {
+      const hosts = record.hosts.filter((host): host is InstallHost =>
+        (INSTALL_HOSTS as readonly string[]).includes(host),
+      );
+      await runInstall({
+        hosts,
+        scope: record.scope ?? "user",
+        root: record.root ?? process.cwd(),
+        layout,
+        env: process.env,
+      });
+      fixed.push({
+        label: "Fix",
+        status: "ok",
+        detail: `rewrote ${hosts.join(", ")} to the local build ${layout.bin}`,
+      });
+    } else if (broken) {
+      fixed.push({
+        label: "Fix",
+        status: "fail",
+        detail: `cannot rewrite configs: ${layout}`,
+      });
+    }
+  }
+  const after = readInstallRecord(process.env);
+  const current = after.kind === "ok" ? after.record : record;
+  const checks: Check[] = [
+    {
+      label: "Install",
+      status: existsSync(current.bin) ? "ok" : "fail",
+      detail: existsSync(current.bin)
+        ? `${current.version} for ${current.hosts.join(", ")}; server ${current.bin}`
+        : `server ${current.bin} is missing. Fix: prism doctor --fix, or prism install <editor> --local <checkout>.`,
+    },
+  ];
+  if (current.source) {
+    const hits = published();
+    checks.push(
+      hits.length === 0
+        ? {
+            label: "Published",
+            status: "ok",
+            detail: "no published package referenced (local build only)",
+          }
+        : {
+            label: "Published",
+            status: "fail",
+            detail: `published package referenced during development: ${hits
+              .map((hit) => `${hit.host} (${hit.where})`)
+              .join(", ")}. Fix: prism doctor --fix.`,
+          },
+    );
+  }
+  return [...fixed, ...checks];
+}

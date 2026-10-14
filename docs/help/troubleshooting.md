@@ -1,6 +1,6 @@
 ---
 title: Troubleshooting
-description: "Doctor first — then wrong workspace, slow indexing, unavailable signals, MCP issues."
+description: "Doctor first — then install, wrong workspace, slow indexing, unavailable signals, MCP issues, error codes."
 ---
 
 ## Start here
@@ -9,10 +9,20 @@ description: "Doctor first — then wrong workspace, slow indexing, unavailable 
 prism doctor
 ```
 
-It reports the engine version, which workspace was chosen and which rule chose
-it, whether an index exists and how old it is, and what is available in the
-environment. Most of what follows is faster to confirm with `doctor` than to
-guess at.
+It reports the engine version, the install and the server it pins, whether any
+editor still launches a published package, which workspace was chosen and which
+rule chose it, and whether an index exists and how old it is. Most of what
+follows is faster to confirm with `doctor` than to guess at.
+
+`prism doctor --fix` stops the daemon (the next client starts the current
+build) and rewrites the editors recorded in `~/.prism/install.json` to that
+build. `prism stats --since 1d` shows hook and tool timings and outcomes.
+
+## Doctor says "server … is missing" or "published package referenced"
+
+The editor configs point at a server that is not there, or at `npx`/`@latest`.
+Run `prism doctor --fix`, or `prism install <editor>` again. Install never
+writes `npx` into a config.
 
 ## Prism is analysing the wrong repository
 
@@ -32,20 +42,18 @@ prism overview --workspace ./packages/api
 Almost always a file count problem, and almost always generated output.
 
 Check the count in `prism doctor`, then exclude what should not be there — build
-output, vendored dependencies, generated clients, fixtures. In the extension:
-Settings → Indexing → Exclude globs.
+output, vendored dependencies, generated clients, fixtures.
 
 The other cause is a few enormous files. The max file size setting skips them;
 a 40,000-line generated client contributes nothing you would look at.
 
 ## Indexing looks stuck, not just slow
 
-Slow is linear progress through many files; stuck is no progress at all. The
-extension status bar shows which file is being indexed — if it has not moved
-in minutes, one enormous generated file is the usual cause (exclude it, or
-raise `--max-file-bytes`). If the index itself is wedged, delete `.prism/` and
-reindex — it is a derived cache and rebuilds from scratch. Nothing else is
-lost.
+Slow is linear progress through many files; stuck is no progress at all.
+`prism graph status` shows the daemon and its workspaces. One enormous
+generated file is the usual cause (exclude it, or raise `--max-file-bytes`).
+If the index itself is wedged, run `prism index`; a corrupt index is moved
+aside and rebuilt. It is a derived cache, so nothing else is lost.
 
 ## An unfamiliar file count
 
@@ -53,15 +61,15 @@ If it is far higher than expected, something generated is being indexed. If far
 lower, an exclude pattern is too broad — a `**/dist/**` that also matches
 `src/district/`, for example.
 
-## The map is empty
+## The index has no files
 
 Either no index, or the index found nothing.
 
 `prism doctor` distinguishes them. No index means indexing failed or never ran;
-zero files means everything was excluded or nothing is in a language Prism
-parses.
+zero files means everything was excluded or nothing is TypeScript or
+JavaScript, the only languages Prism 2.0 analyses.
 
-## A screen says a signal is unavailable
+## A result says a signal is unavailable
 
 That is the intended behaviour, not a failure. Prism marks what it does not know
 rather than showing a zero — see
@@ -76,12 +84,6 @@ Common causes:
 
 Shallow clones are the surprising one. `git clone --depth 1` in CI leaves no
 history to compute churn from.
-
-## Health history looks flat before a certain date
-
-Points before you installed Prism are backfilled from git history and marked
-**estimated**. They are directionally useful and not precise. Measured points
-start when Prism did.
 
 ## A CLI command exits 1 and I expected 0
 
@@ -150,12 +152,32 @@ The server registers nine tools by default. The others (graphs, findings,
 
 ## A tool from an older Prism is gone
 
-Earlier versions shipped job tools (Dispatch: start my day, jobs, sleep, wake,
-remember, and others). Dispatch was removed by ADR-0064. Memories moved to the
-CLI: `prism remember`, `prism forget`, and `prism memories`. To fix a finding,
-ask your agent in chat. `prism data prune` lists empty workspace folders,
-caches of deleted checkouts, and untracked worktrees. `prism data prune --yes`
-removes them.
+Prism 2.0 has nine default tools; older tool names were removed with no
+aliases, and an old name gets the standard unknown-tool error. See
+[MCP tools](/docs/reference/mcp-tools). Installing 2.0 over 1.x wipes the 1.x
+data once and keeps your lenses. `prism data prune` lists empty workspace
+folders, caches of deleted checkouts, and untracked worktrees;
+`prism data prune --yes` removes them.
+
+## Error codes
+
+Every error reads `PRISM_X: what happened. What to do.`
+
+| Code | Meaning | What to do |
+|---|---|---|
+| `PRISM_VALIDATION` | An argument or option is wrong | Read the usage line in the message |
+| `PRISM_NOT_FOUND` | A file, symbol, receipt or server bin does not exist | Check the path; for the server, `prism doctor --fix` |
+| `PRISM_INVALID_PATH` | A path is outside the workspace or not allowed | Use a path inside the repository |
+| `PRISM_INVALID_ID` | An id is malformed | Copy it again from the output that gave it |
+| `PRISM_WORKSPACE_NOT_OPEN` | No workspace could be chosen | Run inside a git repository, or pass `--workspace` |
+| `PRISM_INDEX_REQUIRED` | The answer needs an index | `prism index` |
+| `PRISM_INDEX_FAILED` | Indexing failed | `prism doctor`; then `prism index` |
+| `PRISM_ANALYZER_FAILED` | Analysis of a file failed | Usually a parse error in that file; the rest still works |
+| `PRISM_GRAPH_ERROR` | The graph query could not run | Rerun; if it repeats, `prism index` |
+| `PRISM_IO_ERROR` | A file could not be read or written | Check permissions and free disk space |
+| `PRISM_UNSUPPORTED` | Not supported in 2.0 (e.g. a language other than TS/JS) | See [known limitations](/docs/help/known-limitations) |
+| `PRISM_CANCELLED` | The operation was cancelled | Rerun it |
+| `PRISM_UNKNOWN` | An unexpected failure | Open an issue with `prism doctor` output |
 
 ## The editors launch different Prism builds
 

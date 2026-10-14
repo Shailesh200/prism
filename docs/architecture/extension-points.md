@@ -23,7 +23,7 @@ implements, and the host refuses one it does not understand rather than calling
 it and hoping. A plugin that throws is contained: the file is recorded as failed
 to parse, and the rest of the index proceeds.
 
-That containment is what makes parse health a useful health factor. A repository
+That containment is what makes the parsed share a useful signal. A repository
 where a third of files failed to parse is legible as exactly that, rather than
 as a crash or as a repository that mysteriously has fewer files than it does.
 

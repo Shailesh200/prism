@@ -13,7 +13,6 @@ export function firstRunLine(files: number, elapsedMs: number): string {
 }
 
 export const firstRunCommand: CommandHandler = async (context) => {
-  context.progress("Indexing…");
   const started = performance.now();
   const opened = await context.open();
   if (!opened.ok) return opened;

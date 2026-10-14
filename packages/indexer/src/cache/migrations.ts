@@ -7,6 +7,19 @@ import type Database from "better-sqlite3";
  */
 export const SCHEMA_VERSION = 1;
 
+/**
+ * Version of what the analyzer extracts into `payload_json`. Bump it whenever
+ * the analyzer's output changes meaning (a new field such as `typeOnly`, a
+ * different symbol rule): cached rows are reused by content hash alone, so
+ * without this a stale extraction would survive every re-index. A mismatch
+ * clears the derived rows; the schema itself is unchanged.
+ *
+ * 2 — imports/re-exports carry `typeOnly` (plan §4.1).
+ * 3 — imports carry `imported`, re-exports `importedName` (plan §4.2).
+ * 4 — namespace imports narrowed to the members read (plan §4.2/§4.3).
+ */
+export const EXTRACTION_VERSION = 4;
+
 /** Marks a cache written by Prism 2.x. A cache without it is 1.x data. */
 export const SCHEMA_GENERATION = "2";
 
@@ -110,7 +123,29 @@ export type MigrateOptions = {
   readonly maxVersion?: number;
   /** Called once when a 1.x cache was dropped so the caller can log it. */
   readonly onLegacyReset?: () => void;
+  /** Called when cached extractions were cleared for an EXTRACTION_VERSION change. */
+  readonly onExtractionReset?: (from: string | null) => void;
 };
+
+/** Clear derived rows written by a different analyzer extraction version. */
+function resetStaleExtraction(
+  db: Database.Database,
+  options: MigrateOptions,
+): void {
+  const row = db
+    .prepare(`SELECT value FROM schema_meta WHERE key = 'extraction'`)
+    .get() as { value: string } | undefined;
+  const stored = row?.value ?? null;
+  if (stored === String(EXTRACTION_VERSION)) return;
+  db.transaction(() => {
+    db.exec(`DELETE FROM indexed_files; DELETE FROM index_meta;`);
+    db.prepare(
+      `INSERT INTO schema_meta (key, value) VALUES ('extraction', ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    ).run(String(EXTRACTION_VERSION));
+  })();
+  if (stored !== null) options.onExtractionReset?.(stored);
+}
 
 /** Apply pending migrations in order (optionally stop at `maxVersion`). */
 export function migrate(
@@ -130,5 +165,6 @@ export function migrate(
     db.transaction(() => migration.up(db))();
     current = migration.version;
   }
+  if (current >= 1) resetStaleExtraction(db, options);
   return current;
 }

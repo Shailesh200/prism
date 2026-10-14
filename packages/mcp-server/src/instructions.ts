@@ -10,7 +10,7 @@ export const SERVER_INSTRUCTIONS = `Prism maps this repository locally and check
 - Before deleting, renaming or changing an export, call blast_radius on it. Do not invent dependents it did not report.
 - Structural questions (where is X, what uses it, how A reaches B, what a folder is for): graph. Unfamiliar repository: repository_overview.
 - Which tests to run: test_impact. Before you finish or review a diff: guard_session.
-- When you stop, a hook prints a receipt: proven, unproven or failed. If it failed because of your change, fix it before you say you are done.
+- When you stop, a hook prints a verdict on your change: proven, not proven (with the reason) or failed. If it failed because of your change, fix it before you say you are done.
 - Inferred edges are hints; open the file before relying on one.
 - Tools are read-only. If you see PRISM_INDEX_REQUIRED, retry in a few seconds. Use real workspace paths.
 - Prism holds no credentials. Never call mcp_auth for Prism.`;

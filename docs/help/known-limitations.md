@@ -11,10 +11,10 @@ cannot calibrate against.
 TypeScript and JavaScript are fully analysed: imports, symbols, references,
 graphs.
 
-Everything else is indexed for structure, size and churn only. In a Python or Go
-repository you get the map, file-level metrics and git-derived signals, but not
-symbol-level analysis. Prism is a JavaScript-ecosystem tool that does not fall
-over on other languages.
+Prism 2.0 analyses nothing else. In a Python, Go or Rust repository the tools
+answer `PRISM_UNSUPPORTED` ("language not supported in 2.0"), the prompt hook
+adds one note instead of a pack, and the receipt lists such files as
+`unsupported_language`. Mixed repositories are analysed for their TS/JS files.
 
 ## Static analysis, and what that misses
 
@@ -30,16 +30,9 @@ Repositories do not declare their features. Conventional layouts group well;
 unusual ones group worse. Low confidence means treat the grouping as a
 suggestion. See [graphs](/docs/concepts/graphs).
 
-## Health scores are heuristics
-
-The health score has no ground truth to be validated against. It correlates with
-maintenance cost in the repositories it was designed on; it is not a
-measurement. It cannot see correctness, performance, or whether the software
-does anything useful. Read the factors. See [Understand a repo](/docs/guides/understand-a-repo).
-
 ## Git is required for several signals
 
-Churn, ownership, activity, health history backfill and change review all read
+Churn, ownership, activity and change review all read
 git history. Without git — or with a shallow clone — those signals are
 unavailable rather than zero.
 
@@ -50,9 +43,8 @@ No coverage report means coverage is unavailable, which is not the same as zero.
 
 ## Large repositories
 
-Indexing is linear in file count. The map becomes hard to read at file level in
-a repository of tens of thousands of files — package and feature zoom exist for
-that reason. Excluding generated output is the highest-leverage fix.
+Indexing is linear in file count. Excluding generated output is the
+highest-leverage fix.
 
 ## Monorepo boundaries
 
@@ -73,7 +65,7 @@ By design. There is no account, no sync and no server.
 - **Write code itself.** Analysis has no model and generates nothing. Your
   agent makes the edit. The receipt runs this repository’s checks when the
   agent stops (or shows **—** if none exist).
-- **Run background agents.** Dispatch and its jobs were removed (ADR-0064).
+- **Run background agents.** Background jobs were removed (ADR-0064).
 - **Dump file bodies from Prepare.** `prepare_change` returns paths, symbols,
   and why — never source. Open the files yourself.
 - **Upload the Envelope.** The ledger is local JSONL. It never holds source

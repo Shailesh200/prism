@@ -1,0 +1,8 @@
+{
+  "GOLDEN_MONO_SHA": "f45ccb73f764dd17806ab118897bf1236254ec0f",
+  "repos": {
+    "mono": { "sha": "f45ccb73f764dd17806ab118897bf1236254ec0f", "note": "this repo after the 2.0 deletions (plan §12 decision 3/13)" },
+    "portpilot": { "url": "https://github.com/Shailesh200/PortPilot", "sha": "bf153b83" },
+    "rentmaadi": { "local": "~/Desktop/rentmaadi", "sha": "b22f5ebf", "private": true }
+  }
+}

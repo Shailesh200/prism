@@ -3,14 +3,19 @@ import type { ChangeReceipt } from "./receipt.js";
 import {
   receiptFeedback,
   receiptHeadline,
+  receiptSummaryLine,
   renderReceipt,
   renderReceiptMarkdown,
   renderReceiptSvg,
 } from "./receipt-render.js";
 
 const base: ChangeReceipt = {
+  id: "0123456789abcdef",
+  diffHash: "d1ff",
   generatedAt: "2026-10-10T00:00:00.000Z",
   verdict: "failed",
+  checksState: "done",
+  unsupported: [],
   touched: {
     files: ["src/a.ts"],
     totalFiles: 1,
@@ -74,5 +79,44 @@ describe("receipt renderers", () => {
     expect(svg).toContain("Prism · failed (1 check)");
     expect(svg).toContain("src/&lt;x&gt;.ts");
     expect(svg).not.toMatch(/https?:\/\/(?!www\.w3\.org)/);
+  });
+});
+
+describe("receipt summary line (SMK-8)", () => {
+  it("reads changed files, dependents, reaching tests and the verdict", () => {
+    const proven: ChangeReceipt = {
+      ...base,
+      verdict: "proven",
+      checks: [{ name: "test", status: "passed", detail: "", durationMs: 1 }],
+      touched: { ...base.touched, dependents: 3 },
+      testFiles: ["src/a.test.ts", "src/b.test.ts"],
+    };
+    expect(receiptSummaryLine(proven)).toBe(
+      "Prism receipt: changed 1 file, 3 dependents, 2 tests reach it — proven",
+    );
+    const missing: ChangeReceipt = {
+      ...proven,
+      verdict: "not_proven",
+      reason: "no_node_modules",
+      checks: [],
+      checksState: "skipped",
+    };
+    expect(receiptSummaryLine(missing)).toMatch(
+      /— not_proven\(no_node_modules\)$/,
+    );
+    expect(receiptHeadline(missing)).toBe(
+      "Prism · not_proven(no_node_modules)",
+    );
+  });
+
+  it("says checks are still running while they run", () => {
+    const pending: ChangeReceipt = {
+      ...base,
+      verdict: "not_proven",
+      reason: "still_running",
+      checksState: "pending",
+      checks: [],
+    };
+    expect(renderReceipt(pending)).toMatch(/checks still running/);
   });
 });

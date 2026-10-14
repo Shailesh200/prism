@@ -5,7 +5,7 @@ description: "Find blockers and orphans before removing a file or symbol."
 
 > Ask what would break — and what would be left dead — if a target went away.
 
-<Tabs groupId="surface" items={['CLI', 'VS Code', 'AI agent']} persist>
+<Tabs groupId="surface" items={['CLI', 'AI agent']} persist>
   <Tab value="CLI">
 
 ```bash
@@ -14,12 +14,6 @@ prism blast src/legacy/adapter.ts --delete
 ```
 
 `safe-delete` never deletes anything. It only reports.
-
-  </Tab>
-  <Tab value="VS Code">
-
-Right-click → **Safe Delete Check** (opens Impact in delete mode). Read blockers
-and orphans before you remove the file.
 
   </Tab>
   <Tab value="AI agent">

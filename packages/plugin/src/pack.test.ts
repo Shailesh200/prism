@@ -109,6 +109,49 @@ describe("the pack on disk", () => {
   });
 });
 
+describe("skills-tools contract (plan §10 Phase 1)", () => {
+  const reference = readFileSync(
+    join(root, "../../docs/reference/mcp-tools.md"),
+    "utf8",
+  );
+  const shipped = new Set(
+    [...reference.matchAll(/^\| \[`([a-z_]+)`\]/gm)].map((row) => row[1]),
+  );
+  const deleted: string[] = JSON.parse(
+    readFileSync(join(root, "../../scripts/deleted-names.json"), "utf8"),
+  ).names.filter((name: string) => /^[a-z]+(?:_[a-z]+)+$/.test(name));
+  const hook = readFileSync(join(root, "hooks", "prism-hook.mjs"), "utf8");
+
+  it("hooks, skills and commands never name a deleted tool", () => {
+    expect(deleted.length).toBeGreaterThan(0);
+    const texts = [
+      ["hooks/prism-hook.mjs", hook],
+      ...[...skills, ...commands].map((e) => [e.id, e.body]),
+    ];
+    for (const [id, text] of texts) {
+      for (const name of deleted) {
+        expect(
+          new RegExp(`\\b${name}\\b`).test(text),
+          `${id} names deleted tool \`${name}\``,
+        ).toBe(false);
+      }
+    }
+  });
+
+  it("every tool the hook tells the agent about is shipped", () => {
+    const told = [...hook.matchAll(/additionalContext: `([^`]*)`/g)].flatMap(
+      ([, text]) =>
+        [...text.matchAll(/\b([a-z]+(?:_[a-z]+)+)\b/g)].map((m) => m[1]),
+    );
+    expect(told.length).toBeGreaterThan(0);
+    for (const name of told) {
+      expect(shipped.has(name), `hook tells the agent about \`${name}\``).toBe(
+        true,
+      );
+    }
+  });
+});
+
 describe("manifests", () => {
   it("gives Cursor directory strings and Claude an explicit file list", () => {
     expect(cursorManifest(def).skills).toBe("./skills/");

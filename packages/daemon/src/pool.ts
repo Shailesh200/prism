@@ -4,10 +4,11 @@
  * what an MCP process no longer has to build for itself.
  */
 
-import { existsSync, type FSWatcher, watch } from "node:fs";
+import { existsSync, type FSWatcher, statSync, watch } from "node:fs";
 import { stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { Prism, type PrismWorkspace } from "@repo-prism/core";
+import { Prism, readChangedPaths, type PrismWorkspace } from "@repo-prism/core";
+import { readGitHead } from "@repo-prism/shared/git-head";
 import {
   type PrismError,
   PrismErrorCode,
@@ -40,6 +41,36 @@ export function isIgnoredPath(relativePath: string): boolean {
   return parts.some((part) => IGNORED_SEGMENTS.has(part));
 }
 
+/**
+ * A file event that means the checkout moved (branch switch, reset, pull):
+ * `.git/HEAD`, a branch ref or the HEAD reflog. One batched reindex follows
+ * and the burst of file events behind it is dropped (plan §2.4).
+ */
+export function isCheckoutEvent(relativePath: string): boolean {
+  const rel = relativePath.replace(/\\/g, "/");
+  return (
+    rel === ".git/HEAD" ||
+    rel === ".git/logs/HEAD" ||
+    rel.startsWith(".git/refs/heads/")
+  );
+}
+
+/** Watcher errors that mean "too many files to watch": switch to polling. */
+export function needsPollingFallback(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException | undefined)?.code;
+  return (
+    code === "EMFILE" ||
+    code === "ENOSPC" ||
+    code === "ENFILE" ||
+    code === "ERR_FEATURE_UNAVAILABLE_ON_PLATFORM"
+  );
+}
+
+/** How often the polling fallback asks git what changed. */
+export const POLL_INTERVAL_MS = 2_000;
+/** Quiet time after a checkout event before the one batched reindex. */
+export const CHECKOUT_SETTLE_MS = 300;
+
 export type PoolOptions = {
   readonly debounceMs: number;
   readonly maxWorkspaces: number;
@@ -47,13 +78,25 @@ export type PoolOptions = {
   readonly onIndexed?: (workspace: PrismWorkspace) => Promise<void>;
   readonly openWorkspace?: (root: string) => Result<PrismWorkspace, PrismError>;
   readonly log?: (line: string) => void;
+  /** Injectable for tests: `fs.watch` and the git status poll. */
+  readonly watch?: typeof watch;
+  readonly changedPaths?: (root: string) => readonly string[] | null;
+  readonly pollIntervalMs?: number;
+  readonly checkoutSettleMs?: number;
 };
 
 type Entry = {
   readonly root: string;
   ready: Promise<Result<PrismWorkspace, PrismError>>;
   workspace?: PrismWorkspace;
-  watcher?: FSWatcher;
+  watcher?: FSWatcher | undefined;
+  /** Set when the watcher failed and git status is polled instead. */
+  poller?: ReturnType<typeof setInterval>;
+  /** Paths (with mtimes) the last poll saw changed. */
+  polled?: Map<string, number>;
+  /** Pending batched reindex after a checkout; events are dropped meanwhile. */
+  checkout?: ReturnType<typeof setTimeout> | undefined;
+  switching: boolean;
   lastUsed: number;
   failed?: string;
   reindexStartedAt: number | null;
@@ -75,6 +118,15 @@ export type WorkspacePool = {
   closeAll(): void;
 };
 
+function mtimeOf(path: string): number {
+  try {
+    return statSync(path).mtimeMs;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return -1;
+    throw error;
+  }
+}
+
 function defaultOpen(root: string): Result<PrismWorkspace, PrismError> {
   return Prism.create().openRepository(root);
 }
@@ -85,22 +137,119 @@ export function createWorkspacePool(options: PoolOptions): WorkspacePool {
   const entries = new Map<string, Entry>();
   let paused = false;
 
+  const watchFn = options.watch ?? watch;
+  const changedPathsOf =
+    options.changedPaths ??
+    ((root: string) => readChangedPaths(root, {})?.paths ?? null);
+
+  const notify = (
+    entry: Entry,
+    workspace: PrismWorkspace,
+    rel: string,
+  ): void => {
+    const gone = !existsSync(join(entry.root, rel));
+    if (paused) {
+      (gone ? entry.heldDeleted : entry.heldChanged).add(rel);
+      (gone ? entry.heldChanged : entry.heldDeleted).delete(rel);
+      return;
+    }
+    if (entry.reindexStartedAt === null) entry.reindexStartedAt = Date.now();
+    workspace.notifyWatchPaths(
+      gone ? { deletedPaths: [rel] } : { changedPaths: [rel] },
+    );
+  };
+
+  /** One full reindex for a checkout, however many files it rewrote. */
+  const scheduleCheckout = (entry: Entry, workspace: PrismWorkspace): void => {
+    entry.switching = true;
+    if (entry.checkout) clearTimeout(entry.checkout);
+    entry.checkout = setTimeout(() => {
+      entry.checkout = undefined;
+      const begun = Date.now();
+      void workspace
+        .reindex()
+        .then(async (result) => {
+          if (!result.ok) throw new Error(result.error.message);
+          entry.lastReindexMs = Date.now() - begun;
+          recordEvent({
+            event: "watch.checkout",
+            outcome: "ok",
+            workspace: entry.root,
+            durationMs: entry.lastReindexMs,
+          });
+          await options.onIndexed?.(workspace);
+        })
+        .catch((error: unknown) => indexedHookFailed(entry.root, error))
+        .finally(() => {
+          entry.switching = false;
+        });
+    }, options.checkoutSettleMs ?? CHECKOUT_SETTLE_MS);
+    entry.checkout.unref?.();
+  };
+
   const route = (entry: Entry, workspace: PrismWorkspace) => {
     return (_event: string, filename: string | Buffer | null): void => {
       if (!filename) return;
       const rel = String(filename).replace(/\\/g, "/");
-      if (!rel || isIgnoredPath(rel)) return;
-      const gone = !existsSync(join(entry.root, rel));
-      if (paused) {
-        (gone ? entry.heldDeleted : entry.heldChanged).add(rel);
-        (gone ? entry.heldChanged : entry.heldDeleted).delete(rel);
+      if (!rel) return;
+      if (isCheckoutEvent(rel)) {
+        if (!paused) scheduleCheckout(entry, workspace);
         return;
       }
-      if (entry.reindexStartedAt === null) entry.reindexStartedAt = Date.now();
-      workspace.notifyWatchPaths(
-        gone ? { deletedPaths: [rel] } : { changedPaths: [rel] },
-      );
+      if (isIgnoredPath(rel) || entry.switching) return;
+      notify(entry, workspace, rel);
     };
+  };
+
+  /**
+   * Watcher fallback (plan §2.4): ask git what changed every 2 s and feed
+   * the difference to the index. A change of HEAD is a checkout.
+   */
+  const startPolling = (
+    entry: Entry,
+    workspace: PrismWorkspace,
+    reason: string,
+  ): void => {
+    if (entry.poller) return;
+    entry.watcher?.close();
+    entry.watcher = undefined;
+    log(`watching ${entry.root} by polling: ${reason}`);
+    recordEvent({
+      event: "watch.fallback",
+      outcome: "degraded",
+      reason,
+      workspace: entry.root,
+    });
+    let head = readGitHead(entry.root)?.sha ?? null;
+    entry.polled = new Map();
+    const poll = (): void => {
+      const now = readGitHead(entry.root)?.sha ?? null;
+      if (now !== head) {
+        head = now;
+        if (!paused) scheduleCheckout(entry, workspace);
+        return;
+      }
+      if (entry.switching) return;
+      const paths = changedPathsOf(entry.root);
+      if (paths === null) return;
+      const next = new Map<string, number>();
+      for (const rel of paths) {
+        if (isIgnoredPath(rel)) continue;
+        const mtime = mtimeOf(join(entry.root, rel));
+        next.set(rel, mtime);
+        if (entry.polled?.get(rel) !== mtime) notify(entry, workspace, rel);
+      }
+      // A path that was dirty and is not any more was reverted or committed.
+      for (const rel of entry.polled?.keys() ?? []) {
+        if (!next.has(rel)) notify(entry, workspace, rel);
+      }
+      entry.polled = next;
+    };
+    entry.poller = setInterval(
+      poll,
+      options.pollIntervalMs ?? POLL_INTERVAL_MS,
+    );
+    entry.poller.unref?.();
   };
 
   const indexedHookFailed = (root: string, error: unknown): void => {
@@ -133,16 +282,20 @@ export function createWorkspacePool(options: PoolOptions): WorkspacePool {
       return;
     }
     try {
-      entry.watcher = watch(
+      entry.watcher = watchFn(
         entry.root,
         { recursive: true, persistent: false },
         route(entry, workspace),
       );
       entry.watcher.on("error", (error) => {
         log(`watcher error for ${entry.root}: ${String(error)}`);
+        startPolling(entry, workspace, `watcher error: ${String(error)}`);
       });
     } catch (error) {
-      log(`fs.watch unavailable for ${entry.root}: ${String(error)}`);
+      if (!needsPollingFallback(error)) {
+        log(`fs.watch unavailable for ${entry.root}: ${String(error)}`);
+      }
+      startPolling(entry, workspace, `fs.watch unavailable: ${String(error)}`);
     }
   };
 
@@ -179,6 +332,8 @@ export function createWorkspacePool(options: PoolOptions): WorkspacePool {
 
   const closeEntry = (entry: Entry): void => {
     entry.watcher?.close();
+    if (entry.poller) clearInterval(entry.poller);
+    if (entry.checkout) clearTimeout(entry.checkout);
     entry.workspace?.close();
     entries.delete(entry.root);
     log(`closed ${entry.root}`);
@@ -215,6 +370,7 @@ export function createWorkspacePool(options: PoolOptions): WorkspacePool {
       lastUsed: Date.now(),
       reindexStartedAt: null,
       lastReindexMs: null,
+      switching: false,
       heldChanged: new Set(),
       heldDeleted: new Set(),
     };

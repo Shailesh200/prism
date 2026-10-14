@@ -1,6 +1,6 @@
 ---
 title: Configuration
-description: "Ignore rules, environment variables, CLI, MCP, and extension settings."
+description: "Ignore rules, environment variables, CLI and MCP settings."
 ---
 
 There is very little to configure, which is deliberate. Everything below has a
@@ -89,8 +89,9 @@ workspace variable:
 ```
 
 Canonical copy:
-[`packages/mcp-server/mcp-install.json`](https://github.com/Shailesh200/prism/blob/main/packages/mcp-server/mcp-install.json) —
-keep `@latest` so the server can hop to the newest publish.
+[`packages/mcp-server/mcp-install.json`](https://github.com/Shailesh200/prism/blob/main/packages/mcp-server/mcp-install.json).
+`prism install <editor>` writes this entry for you with absolute paths
+(`node …/mcp-server/dist/bin.js`); it never uses `npx` or `@latest`.
 
 Resolution: `--workspace` → `PRISM_WORKSPACE` → host `WORKSPACE_FOLDER_PATHS`
 → `CURSOR_WORKSPACE` → nearest git root → cwd. When that lands on a directory

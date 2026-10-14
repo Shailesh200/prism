@@ -14,8 +14,7 @@ is exactly one definition of the boundaries, and every surface uses it.
 | **Moderate** | 20–59 | Moderate Impact |
 | **High** | 60–100 | High Impact Potential |
 
-Higher means more risk. Quality scores (health, testing) run the other way —
-higher is better — but colour always puts green at the good end.
+Higher means more risk.
 
 ## Why bands
 
@@ -24,7 +23,7 @@ careful". Underlying factors beat the composite when you need finer distinctions
 
 ## One definition, everywhere
 
-Extension Blast Radius, CLI `--fail-on`, MCP responses, and change review all
+CLI `--fail-on`, MCP responses, the GitHub Action and change review all
 call the same `riskToBand` helper. A CLI test fails the build if a threshold
 literal appears in command code.
 

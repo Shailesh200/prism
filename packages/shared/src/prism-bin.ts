@@ -28,6 +28,37 @@ export const InstallRecordSchema = z
     installedAt: z.string().min(1),
     /** Agent hosts `prism install` wrote configs for. */
     hosts: z.array(z.string().min(1)),
+    /** `user` or `project` (plan §2.1). */
+    scope: z.enum(["user", "project"]).optional(),
+    /** Repository the project-scope files went into. */
+    root: z.string().min(1).optional(),
+    /** `--local` checkout the binaries come from (local builds only). */
+    source: z.string().min(1).optional(),
+    /** Everything install wrote, so uninstall removes exactly that. */
+    files: z
+      .array(
+        z.union([
+          z
+            .object({
+              kind: z.literal("json-key"),
+              path: z.string(),
+              key: z.array(z.string()),
+            })
+            .strict(),
+          z
+            .object({ kind: z.literal("claude-hooks"), path: z.string() })
+            .strict(),
+          z
+            .object({
+              kind: z.literal("block"),
+              path: z.string(),
+              marker: z.enum(["md", "toml"]),
+            })
+            .strict(),
+          z.object({ kind: z.literal("file"), path: z.string() }).strict(),
+        ]),
+      )
+      .optional(),
   })
   .strict();
 export type InstallRecord = z.infer<typeof InstallRecordSchema>;

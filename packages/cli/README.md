@@ -7,10 +7,10 @@
 
 **Website:** [https://www.prismhq.in](https://www.prismhq.in) · **Docs:** [https://www.prismhq.in/docs/start/install](https://www.prismhq.in/docs/start/install)
 
-Same engine as the VS Code / Cursor extension and the MCP server. Runs on your
+Same engine as the MCP server. Runs on your
 machine. Nothing is uploaded.
 
-> Requires **Node.js 26**.
+> Requires **Node.js 24**.
 
 ## Setup — step by step
 
@@ -67,11 +67,20 @@ Use **1** vs **2** carefully in CI: a typo must not look like a real finding.
 
 ## Commands
 
+### Set up
+
+| Command | Purpose |
+|---|---|
+| `prism install <claude\|cursor\|codex\|opencode\|all>` | Connect Prism to an agent: MCP server, hooks, skills, and the prepare/receipt rule (`--project`, `--user`, `--local <checkout>`). Clears 1.x data in `~/.prism` once, keeping valid custom lenses |
+| `prism uninstall` | Remove everything `prism install` added (`--purge` also deletes `~/.prism` and this repository's `.prism`) |
+| `prism upgrade` | Re-link the recorded agents to the current build and restart the daemon |
+
 ### Diagnostics
 
 | Command | Purpose |
 |---|---|
-| `prism doctor` | Check Node, workspace resolution, git, index (`--ci` warns on shallow clones; `--surfaces` shows which Prism each editor launches) |
+| `prism doctor` | Check Node, the install and the server it pins, published-package references, workspace, git and index (`--ci` warns on shallow clones; `--surfaces` shows which Prism each editor launches; `--fix` stops the daemon and rewrites editor configs to the recorded local build) |
+| `prism stats` | p50/p95 per hook and tool, outcome counts and top reasons from `~/.prism/events.jsonl` (`--since 1d`) |
 | `prism data prune` | List empty workspace folders, caches of deleted checkouts, and untracked worktrees under `~/.prism` (`--yes` removes them) |
 | `prism index` | Build or refresh the repository index |
 | `prism graph` | The background daemon that keeps each repository's graph fresh: `status`, `serve`, `stop`, `refresh`, `export [--out <dir>]` (`graph.json`) |
@@ -96,6 +105,7 @@ Use **1** vs **2** carefully in CI: a typo must not look like a real finding.
 | `prism rename <target> <newName>` | Rename edit sites |
 | `prism test-impact <target>` | Related tests |
 | `prism envelope` | What Prism put into agents' context, by tool, with calls over budget (`--days`) |
+| `prism lens` | Review lenses shared by every repository: `list`, `add <name>`, `remove <id>`, `override <id> --check … --path … --note …` |
 | `prism receipts` | Change receipts the stop hook wrote; `show <n> --as markdown\|svg` for a PR comment or a card |
 
 ### Structure

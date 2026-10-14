@@ -11,7 +11,7 @@ minus anything you already had dirty when the work started — and ranks them
 by blast risk. High-blast hunks first. Flags on duplicates, orphans, and
 package-boundary crossings.
 
-<Tabs groupId="surface" items={['CLI', 'VS Code', 'AI agent']} persist>
+<Tabs groupId="surface" items={['CLI', 'AI agent']} persist>
   <Tab value="CLI">
 
 Guard is an MCP / IDE panel. From a script, roll up the dirty tree with
@@ -20,12 +20,6 @@ review; then ask the agent for Guard’s read-first ranking.
 ```bash
 prism review
 ```
-
-  </Tab>
-  <Tab value="VS Code">
-
-Open the **Guard** panel after a messy session. Pre-existing dirty files stay
-out of the list. The top rows are the ones with the largest blast radius.
 
   </Tab>
   <Tab value="AI agent">

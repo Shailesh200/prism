@@ -14,7 +14,7 @@ network call or holds a credential.
 Tools that return a list accept `limit` and answer with `totalCount` and
 `truncated`, so an agent can tell the first 20 of 340 from all 20 there are.
 
-An agent sees **9 default tools**. The other 11 are opt-in:
+An agent sees **9 default tools**. The other 12 are opt-in:
 list them in `extraTools` in `~/.prism/config.json`. Every count elsewhere in
 the docs is checked against these, so the numbers cannot drift into prose.
 
@@ -33,12 +33,13 @@ the docs is checked against these, so the numbers cannot drift into prose.
 | [`list_findings`](#list_findings) | opt-in | Queueable findings from the last index |
 | [`list_packages`](#list_packages) | opt-in | List the packages in a monorepo with their roots |
 | [`prepare_change`](#prepare_change) | yes | One call before you edit |
+| [`receipt`](#receipt) | opt-in | What this session changed and whether it is proven |
 | [`rename_impact`](#rename_impact) | yes | Every edit site a rename would touch, plus breaking-change hints for public surface |
 | [`repository_overview`](#repository_overview) | yes | What this repository is, in one bounded call |
 | [`review_changes`](#review_changes) | yes | Review changed paths in one call |
 | [`review_with`](#review_with) | opt-in | Review a task or the current change through a lens |
 | [`safe_delete`](#safe_delete) | yes | Whether a file or symbol can be deleted safely |
-| [`test_impact`](#test_impact) | yes | Which test files transitively cover a change target — the tests worth running after touching it |
+| [`test_impact`](#test_impact) | yes | Which tests import the changed symbol, or a symbol that reaches it — the tests worth running after touching a target |
 | [`workspace_status`](#workspace_status) | opt-in | Compact workspace readiness |
 
 ## `agents_md`
@@ -119,6 +120,12 @@ One call before you edit: the files to open for this task (pack), existing helpe
 
 Arguments: `task`, `budget`.
 
+## `receipt`
+
+What this session changed and whether it is proven: changed files, dependents, the tests that reach them, and a verdict — proven, not_proven(reason) or failed. Checks run in the background; calling again with the same edits returns the same receipt id, with the check results once they finish. Call this before saying a coding task is done and quote the verdict in one line.
+
+Arguments: `sessionId`.
+
 ## `rename_impact`
 
 Every edit site a rename would touch, plus breaking-change hints for public surface. Use before renaming an exported symbol or moving a file. A report only — Prism never edits.
@@ -135,7 +142,7 @@ Arguments: `packageId`, `limit`.
 
 Review changed paths in one call: blast radius, test impact and breaking-change hints per path, rolled up with an overall risk band. Omit paths to auto-discover via git; pass base to compare against a ref. Use for 'review my branch' rather than calling the per-file tools repeatedly.
 
-Arguments: `paths`, `base`.
+Arguments: `paths`, `base`, `lens`, `format`.
 
 ## `review_with`
 
@@ -151,7 +158,7 @@ Arguments: `kind`, `id`, `path`.
 
 ## `test_impact`
 
-Which test files transitively cover a change target — the tests worth running after touching it. Prism reports which tests are relevant; it does not run them. The tests list is bounded (default 50).
+Which tests import the changed symbol, or a symbol that reaches it — the tests worth running after touching a target. Each test carries reason and viaSymbol; runCommand (when the runner is known: vitest, jest, bun, node:test, mocha) runs exactly those tests. Prism never runs them. The tests list is bounded (default 50).
 
 Arguments: `kind`, `id`, `path`, `limit`.
 

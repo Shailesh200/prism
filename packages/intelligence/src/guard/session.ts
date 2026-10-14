@@ -5,13 +5,13 @@
  * and local package layout, all of which are already intelligence-level
  * concerns.
  */
-
 import {
   isTestPath,
   type GuardFlag,
   type GraphSnapshotDto,
   type IndexSnapshot,
 } from "@repo-prism/shared";
+import { isOrphanEligibleSource } from "../dependency/entry-points.js";
 import { buildFeatureGraph } from "../feature/build.js";
 import {
   packageForFile,
@@ -26,6 +26,8 @@ export type GuardCheckInput = {
   readonly snapshot: IndexSnapshot;
   readonly sessionPaths: readonly string[];
   readonly dependencyGraph: GraphSnapshotDto;
+  /** Entry roles (plan §4.4): an entry point is never an orphan. */
+  readonly entryRoles?: ReadonlyMap<string, string>;
 };
 
 function checkOrphans(input: GuardCheckInput): Map<string, GuardFlag[]> {
@@ -41,6 +43,7 @@ function checkOrphans(input: GuardCheckInput): Map<string, GuardFlag[]> {
   );
   for (const path of input.sessionPaths) {
     if (!analyzed.has(path) || isTestPath(path)) continue;
+    if (input.entryRoles?.has(path) || !isOrphanEligibleSource(path)) continue;
     const nodeId = `file:${path}`;
     if ((inbound.get(nodeId) ?? 0) > 0) continue;
     out.set(path, [
@@ -79,6 +82,44 @@ function looksLikeSameSymbol(a: string, b: string): boolean {
   return left.includes(right) || right.includes(left);
 }
 
+/**
+ * Files on `path`'s own re-export chain: the barrels that re-export it
+ * (transitively) and the sources it re-exports from (transitively). A symbol
+ * re-exported through a barrel is the same declaration, never a duplicate of
+ * itself. The two directions are walked separately: two siblings that share
+ * a barrel are different declarations, so they stay comparable (B3 fix).
+ */
+export function reexportFamily(
+  graph: GraphSnapshotDto,
+  path: string,
+): ReadonlySet<string> {
+  const sources = new Map<string, string[]>();
+  const barrels = new Map<string, string[]>();
+  for (const edge of graph.edges) {
+    if (edge.kind !== "re-export") continue;
+    const from = String(edge.from).replace(/^file:/, "");
+    const to = String(edge.to).replace(/^file:/, "");
+    sources.set(from, [...(sources.get(from) ?? []), to]);
+    barrels.set(to, [...(barrels.get(to) ?? []), from]);
+  }
+  const family = new Set<string>();
+  for (const next of [sources, barrels]) {
+    const seen = new Set<string>([path]);
+    const queue = [path];
+    while (queue.length > 0) {
+      const current = queue.pop() as string;
+      for (const other of next.get(current) ?? []) {
+        if (seen.has(other)) continue;
+        seen.add(other);
+        family.add(other);
+        queue.push(other);
+      }
+    }
+  }
+  family.delete(path);
+  return family;
+}
+
 function checkDuplicates(input: GuardCheckInput): Map<string, GuardFlag[]> {
   const out = new Map<string, GuardFlag[]>();
   const kg = buildKnowledgeGraph(input.snapshot);
@@ -91,6 +132,7 @@ function checkDuplicates(input: GuardCheckInput): Map<string, GuardFlag[]> {
     const exportedHere = kg.symbols.filter(
       (s) => s.path === path && s.exported,
     );
+    const family = reexportFamily(input.dependencyGraph, path);
     for (const symbol of exportedHere) {
       if (checked >= MAX_DUPLICATE_CHECKS) break;
       checked += 1;
@@ -104,6 +146,7 @@ function checkDuplicates(input: GuardCheckInput): Map<string, GuardFlag[]> {
       const top = hits.find(
         (hit) =>
           !sessionSet.has(hit.path) &&
+          !family.has(hit.path) &&
           looksLikeSameSymbol(symbol.name, hit.symbol),
       );
       if (!top || top.score < DUPLICATE_THRESHOLD) continue;
@@ -125,9 +168,27 @@ function checkBoundaries(input: GuardCheckInput): Map<string, GuardFlag[]> {
   const packages = discoverLocalPackages(input.snapshot.rootPath, indexedPaths);
   if (packages.length <= 1) return out;
 
+  // Only analysed source files place a session (docs and assets do not), and
+  // only a package other packages import is a boundary worth a warning: a
+  // leaf package (benchmarks, docs, examples) cannot break anyone else.
+  const analyzed = new Set(
+    input.snapshot.files
+      .filter((f) => f.status === "analyzed")
+      .map((f) => f.path),
+  );
+  const imported = new Set<string>();
+  for (const edge of input.dependencyGraph.edges) {
+    const from = packageForFile(
+      String(edge.from).replace(/^file:/, ""),
+      packages,
+    );
+    const to = packageForFile(String(edge.to).replace(/^file:/, ""), packages);
+    if (from && to && from.name !== to.name) imported.add(to.name);
+  }
   const counts = new Map<string, number>();
   const packageByPath = new Map<string, ReturnType<typeof packageForFile>>();
   for (const path of input.sessionPaths) {
+    if (!analyzed.has(path)) continue;
     const pkg = packageForFile(path, packages);
     packageByPath.set(path, pkg);
     if (pkg) counts.set(pkg.name, (counts.get(pkg.name) ?? 0) + 1);
@@ -144,7 +205,7 @@ function checkBoundaries(input: GuardCheckInput): Map<string, GuardFlag[]> {
   if (!dominant) return out;
   for (const path of input.sessionPaths) {
     const pkg = packageByPath.get(path);
-    if (!pkg || pkg.name === dominant) continue;
+    if (!pkg || pkg.name === dominant || !imported.has(pkg.name)) continue;
     out.set(path, [
       {
         kind: "boundary",

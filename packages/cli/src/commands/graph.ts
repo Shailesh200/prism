@@ -5,7 +5,7 @@
  * were deleted in 2.0 (§0.4 #35, #37).
  */
 
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -17,29 +17,31 @@ import {
   warmDaemonWorkspace,
 } from "@repo-prism/daemon";
 import { PrismErrorCode, err, ok, prismError } from "@repo-prism/shared";
+import { isNodeScript, resolvePrismBin } from "@repo-prism/shared/prism-bin";
 import { workspacePrismDir } from "@repo-prism/shared/prism-home";
 import { paint, renderHeading } from "../output.js";
 import type { CommandHandler } from "../runtime.js";
 
-/** `prism-mcp --daemon` from the nearest build, else the published server. */
-export function daemonLaunch(env: NodeJS.ProcessEnv = process.env): {
-  command: string;
-  args: string[];
-} {
-  const explicit = env.PRISM_MCP_BIN?.trim();
-  if (explicit)
-    return { command: process.execPath, args: [explicit, "--daemon"] };
+/**
+ * `prism-mcp --daemon` from the resolved server bin (§2.1): PRISM_MCP_BIN,
+ * install.json, PATH, then the build next to this CLI. Never npx.
+ */
+export function daemonLaunch(
+  env: NodeJS.ProcessEnv = process.env,
+): { command: string; args: string[] } | string {
   const here = dirname(fileURLToPath(import.meta.url));
-  for (const rel of [
-    "../../../mcp-server/dist/bin.js",
-    "../../mcp-server/dist/bin.js",
-  ]) {
-    const bin = resolve(here, rel);
-    if (existsSync(bin)) {
-      return { command: process.execPath, args: [bin, "--daemon"] };
-    }
-  }
-  return { command: "npx", args: ["-y", "@repo-prism/mcp-server", "--daemon"] };
+  const resolved = resolvePrismBin({
+    env,
+    packCandidates: [
+      resolve(here, "../../../mcp-server/dist/bin.js"),
+      resolve(here, "../../mcp-server/dist/bin.js"),
+    ],
+  });
+  if (!resolved.ok)
+    return `no Prism server found (${resolved.tried.join("; ")}). Run \`prism install <editor> --local <checkout>\``;
+  return isNodeScript(resolved.bin)
+    ? { command: process.execPath, args: [resolved.bin, "--daemon"] }
+    : { command: resolved.bin, args: ["--daemon"] };
 }
 
 function renderStatus(status: DaemonStatus | null, reason: string | null) {
@@ -125,6 +127,8 @@ export const graphCommand: CommandHandler = async (context) => {
       );
     }
     const launch = daemonLaunch(env);
+    if (typeof launch === "string")
+      return err(prismError(PrismErrorCode.NOT_FOUND, launch));
     context.progress("Starting the graph daemon…");
     const started = await ensureDaemon({
       ...launch,

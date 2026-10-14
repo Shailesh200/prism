@@ -12,7 +12,32 @@ export type FailureSignature = {
   readonly files: readonly string[];
   /** Failing tests or reported errors, when the output says how many. */
   readonly count: number;
+  /**
+   * The output with what varies between runs removed (colour, timings,
+   * numbers, temp paths). Compared only when no failing file was parsed, so
+   * an unrecognised runner that fails the same way before and after a change
+   * is not blamed on the change.
+   */
+  readonly text?: string;
 };
+
+const VOLATILE = [
+  /\b\d+(?:\.\d+)?\s?(?:ms|s|m)\b/g, // durations
+  /\d{4}-\d{2}-\d{2}[T ][\d:.]+Z?/g, // timestamps
+  /(?:\/private)?\/(?:tmp|var\/folders)\/[^\s'"]+/g, // temp paths
+  /\d+/g, // remaining counts and line numbers
+];
+
+function normalisedText(clean: string): string {
+  let text = clean;
+  for (const pattern of VOLATILE) text = text.replace(pattern, "#");
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(-80)
+    .join("\n");
+}
 
 // oxlint-disable-next-line no-control-regex -- terminal colour codes are the point
 const ANSI = /\u001b\[[0-9;]*m/g;
@@ -55,7 +80,9 @@ export function failureSignature(output: string): FailureSignature {
     : foundErrors
       ? Number(foundErrors[1])
       : errors || files.size;
-  return { files: [...files].sort(), count };
+  return files.size > 0
+    ? { files: [...files].sort(), count }
+    : { files: [], count, text: normalisedText(clean) };
 }
 
 /**
@@ -67,7 +94,10 @@ export function failureIsPreexisting(
   before: FailureSignature,
   now: FailureSignature,
 ): boolean {
-  if (now.files.length === 0 && before.files.length === 0) return false;
+  if (now.files.length === 0 && before.files.length === 0) {
+    // Nothing parsed: the same failure only if the output is the same.
+    return Boolean(before.text) && before.text === now.text;
+  }
   const known = new Set(before.files);
   if (now.files.some((file) => !known.has(file))) return false;
   return now.count <= before.count;

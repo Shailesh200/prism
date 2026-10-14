@@ -42,6 +42,7 @@ import {
   resolve,
 } from "node:path";
 import { fileURLToPath } from "node:url";
+import { NON_ENGLISH_NOTE, classifyPrompt } from "./classify-prompt.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const event = process.argv[2] ?? "";
@@ -215,7 +216,26 @@ function readSnapshot(root = cwd) {
   try {
     data = JSON.parse(text);
   } catch (error) {
-    return { missing: `snapshot is not JSON: ${message(error)}` };
+    // Plan §2.4: a corrupt snapshot is moved aside, never read again; the
+    // daemon writes a fresh one after its next index.
+    const reason = `snapshot is not JSON: ${message(error)}`;
+    try {
+      renameSync(path, `${path}.corrupt-${Date.now()}`);
+      recordEvent({
+        event: "index.corrupt",
+        outcome: "degraded",
+        reason,
+        workspace: root,
+      });
+    } catch (moveError) {
+      recordEvent({
+        event: "index.corrupt",
+        outcome: "error",
+        reason: `${reason}; could not move it aside: ${message(moveError)}`,
+        workspace: root,
+      });
+    }
+    return { missing: reason };
   }
   if (
     data?.version !== SNAPSHOT_VERSION ||
@@ -282,13 +302,36 @@ function match(rel, rows) {
   return null;
 }
 
-/** Files in the last Prepare pack for this workspace, if it is recent. */
+/** Where this session's Prepare pack is kept (R-C5: packs are per session). */
+function sessionPackPath(id) {
+  const key = createHash("sha256").update(id).digest("hex").slice(0, 24);
+  return join(
+    home(),
+    "workspaces",
+    workspaceKey(cwd),
+    "hooks",
+    "packs",
+    `${key}.json`,
+  );
+}
+
+/**
+ * Files in this session's Prepare pack, if it is recent. Another session's
+ * pack is never used; with no session id, the workspace's last pack is.
+ */
 function lastPackFiles() {
-  let all;
+  const id = typeof input.session_id === "string" ? input.session_id : "";
+  let last;
   try {
-    const text = readFileOrNull(join(home(), "prepare-history.json"));
-    if (text === null) return null;
-    all = JSON.parse(text);
+    if (id) {
+      const text = readFileOrNull(sessionPackPath(id));
+      if (text === null) return null;
+      last = JSON.parse(text);
+    } else {
+      const text = readFileOrNull(join(home(), "prepare-history.json"));
+      if (text === null) return null;
+      last = JSON.parse(text)?.[cwd]?.[0];
+    }
   } catch (error) {
     recordEvent({
       event: "hook.prepare_history",
@@ -298,58 +341,58 @@ function lastPackFiles() {
     });
     return null;
   }
-  const last = all?.[cwd]?.[0];
   if (!last || !Array.isArray(last.packFiles)) return null;
   const age = Date.now() - Date.parse(last.generatedAt ?? "");
   if (!(age >= 0 && age < 2 * 60 * 60 * 1000)) return null;
   return new Set(last.packFiles.map((f) => f?.path).filter(Boolean));
 }
 
+/**
+ * Before an edit (plan §5.8 H-PRE-EDIT): a generated or vendored file is
+ * denied with the reason; a high-blast file only ever gets a warning (R-C6);
+ * a file outside this session's pack gets a one-line note.
+ */
 function beforeEdit(snap) {
   const rel = editedPath();
   if (!rel) return emit({}, "no path");
   const blocked = match(rel, snap.offLimits);
-  const signOff = match(rel, snap.needsSignOff);
-  const row = blocked ?? signOff;
-  if (!row) {
-    const pack = lastPackFiles();
-    if (pack && pack.size > 0 && !pack.has(rel)) {
-      return emit(
-        {
-          hookSpecificOutput: {
-            hookEventName: "PreToolUse",
-            additionalContext: `Prism — ${rel} is not in Prism's pack for this task; check blast_radius before changing it.`,
-          },
-        },
-        `outside pack ${rel}`,
-      );
-    }
-    return emit({}, "clear");
-  }
-  const reason = blocked
-    ? `${rel} is ${row.reason}. Do not edit generated or vendored files.`
-    : `${rel} needs sign-off: ${row.reason}.`;
-  if (snap.hookArmed) {
+  if (blocked) {
     return emit(
       {
         hookSpecificOutput: {
           hookEventName: "PreToolUse",
           permissionDecision: "deny",
-          permissionDecisionReason: reason,
+          permissionDecisionReason: `${rel} is ${blocked.reason}. Do not edit generated or vendored files.`,
         },
       },
       `deny ${rel}`,
     );
   }
-  return emit(
-    {
-      hookSpecificOutput: {
-        hookEventName: "PreToolUse",
-        additionalContext: `Prism warning — ${reason}`,
+  const signOff = match(rel, snap.needsSignOff);
+  if (signOff) {
+    return emit(
+      {
+        hookSpecificOutput: {
+          hookEventName: "PreToolUse",
+          additionalContext: `Prism warning — ${rel} needs sign-off: ${signOff.reason}.`,
+        },
       },
-    },
-    `warn ${rel}`,
-  );
+      `warn ${rel}`,
+    );
+  }
+  const pack = lastPackFiles();
+  if (pack && pack.size > 0 && !pack.has(rel)) {
+    return emit(
+      {
+        hookSpecificOutput: {
+          hookEventName: "PreToolUse",
+          additionalContext: `Prism — ${rel} is not in Prism's pack; check blast_radius.`,
+        },
+      },
+      `outside pack ${rel}`,
+    );
+  }
+  return emit({}, "clear");
 }
 
 function afterEdit(snap) {
@@ -360,7 +403,7 @@ function afterEdit(snap) {
     {
       hookSpecificOutput: {
         hookEventName: "PostToolUse",
-        additionalContext: `Prism — ${rel} is high-blast (${row.reason}). The stop receipt will say whether a test reaches it.`,
+        additionalContext: `Prism — ${rel} is high-blast (${row.reason}); the receipt will say whether a test reaches it.`,
       },
     },
     `blast ${rel}`,
@@ -439,6 +482,15 @@ function missingBin() {
   });
 }
 
+/** The stop hook's hard budget (plan §5.7). */
+const STOP_BUDGET_MS = 10_000;
+
+/**
+ * The receipt comes from `prism-mcp --hook stop`, which asks the daemon and
+ * falls back in-process. Past the budget, or with no answer, the agent is
+ * told nothing and the reason goes to the event log (R-C4): raw stderr never
+ * reaches the agent.
+ */
 function stop() {
   if (input.stop_hook_active === true) return emit({}, "already continuing");
   const bin = resolveBin();
@@ -449,24 +501,27 @@ function stop() {
   const [cmd, args] = binCommand(bin, ["--hook", "stop"]);
   const child = spawnSync(cmd, args, {
     cwd,
+    input: JSON.stringify(input),
     encoding: "utf8",
-    timeout: 110_000,
+    timeout: STOP_BUDGET_MS,
     env: process.env,
   });
+  if (child.error?.code === "ETIMEDOUT" || child.signal === "SIGTERM") {
+    recordEvent({
+      event: "receipt.timeout",
+      outcome: "skipped",
+      reason: `no receipt within ${STOP_BUDGET_MS}ms`,
+      workspace: cwd,
+      durationMs: Date.now() - started,
+    });
+    return emit({}, "receipt timed out", "skipped");
+  }
   const out = (child.stdout ?? "").trim();
-  if (!out) {
+  if (!out || out === "{}") {
     const detail =
-      (child.stderr ?? "").trim().slice(0, 200) || "the receipt did not run";
-    return emit(
-      {
-        hookSpecificOutput: {
-          hookEventName: "Stop",
-          additionalContext: `Prism could not build a change receipt (${detail}).`,
-        },
-      },
-      "receipt failed",
-      "degraded",
-    );
+      (child.stderr ?? "").trim().split("\n").pop()?.slice(0, 200) ||
+      "the receipt did not run";
+    return emit({}, `no receipt: ${detail}`, "degraded");
   }
   log("receipt");
   process.stdout.write(out.endsWith("\n") ? out : `${out}\n`);
@@ -488,50 +543,71 @@ async function daemonAnswers(record) {
   }
 }
 
-async function startDaemon() {
-  const flag = process.env.PRISM_DAEMON;
-  if (flag === "0") return;
-  if (flag !== "1" && (process.env.VITEST || process.env.BUN_TEST)) return;
-  const bin = resolveBin();
-  if (!bin) return missingBin();
-  const dir = join(home(), "daemon");
-  let record = null;
+/** The daemon record, if one was written and parses. */
+function readDaemonRecordFile() {
   try {
-    const text = readFileOrNull(join(dir, "daemon.json"));
-    record = text === null ? null : JSON.parse(text);
+    const text = readFileOrNull(join(home(), "daemon", "daemon.json"));
+    return text === null ? null : JSON.parse(text);
   } catch (error) {
     recordEvent({
       event: "hook.daemon_record",
       outcome: "degraded",
       reason: message(error),
     });
+    return null;
   }
-  // A token-checked health answer, not a pid probe, says a daemon is alive.
+}
+
+/** POST to the daemon; the parsed `{ok, value}` body, or null. */
+async function daemonPost(record, path, body, timeoutMs) {
+  try {
+    const res = await fetch(`http://127.0.0.1:${record.port}${path}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${record.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    return res.status === 200 ? await res.json() : null;
+  } catch (error) {
+    recordEvent({
+      event: `hook.daemon${path.replace(/^\/v1\//, "_")}`,
+      outcome: "degraded",
+      reason: message(error),
+      workspace: cwd,
+    });
+    return null;
+  }
+}
+
+/** A running daemon that answers with its token, or null (plan §2.1). */
+async function liveDaemon() {
+  const flag = process.env.PRISM_DAEMON;
+  if (flag === "0") return null;
+  const record = readDaemonRecordFile();
   if (
     record &&
     typeof record.port === "number" &&
     (await daemonAnswers(record))
   ) {
-    try {
-      await fetch(`http://127.0.0.1:${record.port}/v1/workspaces`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${record.token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ root: cwd }),
-        signal: AbortSignal.timeout(300),
-      });
-    } catch (error) {
-      recordEvent({
-        event: "hook.daemon_warm",
-        outcome: "degraded",
-        reason: message(error),
-        workspace: cwd,
-      });
-    }
+    return record;
+  }
+  return null;
+}
+
+async function startDaemon(record) {
+  const flag = process.env.PRISM_DAEMON;
+  if (flag === "0") return;
+  if (flag !== "1" && (process.env.VITEST || process.env.BUN_TEST)) return;
+  if (record) {
+    await daemonPost(record, "/v1/workspaces", { root: cwd }, 300);
     return;
   }
+  const bin = resolveBin();
+  if (!bin) return missingBin();
+  const dir = join(home(), "daemon");
   try {
     mkdirSync(dir, { recursive: true, mode: 0o700 });
     const out = openSync(join(dir, "daemon.log"), "a", 0o600);
@@ -551,6 +627,24 @@ async function startDaemon() {
       workspace: cwd,
     });
   }
+}
+
+/**
+ * Session baseline (plan §5.8 H-SESSION): the daemon records it with no git
+ * time limit. With no daemon answering yet, the hook records it itself.
+ */
+async function recordSessionBaseline(record) {
+  const id = typeof input.session_id === "string" ? input.session_id : "";
+  if (record) {
+    const answer = await daemonPost(
+      record,
+      "/v1/session",
+      { root: cwd, ...(id ? { sessionId: id } : {}) },
+      700,
+    );
+    if (answer?.ok) return;
+  }
+  recordSession();
 }
 
 function gitLines(args) {
@@ -614,29 +708,117 @@ function recordSession() {
   }
 }
 
-/** Same rule as `looksLikeChangeRequest`, loose: the MCP side decides. */
-const CHANGE_VERB =
-  /\b(fix|add|rename|refactor|implement|remove|delete|drop|migrate|port|update|change|replace|introduce|extract|move|wire|support|create|build|write|rewrite|convert|split|merge|handle|make)\b/i;
+/** Hard cap on the prompt hook (plan §5.8 H-PROMPT). */
+const PROMPT_CAP_MS = 4000;
 
-/** Prompt submit (ADR-0065): a compact Prepare pack for change requests. */
+/** Show a one-line note at most once per session (HK-4). */
+function onceForSession(kind) {
+  const id = typeof input.session_id === "string" ? input.session_id : "";
+  if (!id) return true;
+  const path = join(
+    home(),
+    "workspaces",
+    workspaceKey(cwd),
+    "hooks",
+    "notes.json",
+  );
+  let seen = {};
+  try {
+    const text = readFileOrNull(path);
+    seen = text === null ? {} : JSON.parse(text);
+  } catch (error) {
+    recordEvent({
+      event: "hook.notes",
+      outcome: "degraded",
+      reason: message(error),
+      workspace: cwd,
+    });
+    seen = {};
+  }
+  const key = `${kind}:${id}`;
+  if (seen[key]) return false;
+  try {
+    mkdirSync(dirname(path), { recursive: true });
+    const keys = Object.keys(seen).slice(-200);
+    writeFileSync(
+      path,
+      JSON.stringify({
+        ...Object.fromEntries(keys.map((k) => [k, true])),
+        [key]: true,
+      }),
+    );
+  } catch (error) {
+    recordEvent({
+      event: "hook.notes",
+      outcome: "degraded",
+      reason: message(error),
+      workspace: cwd,
+    });
+  }
+  return true;
+}
+
+/**
+ * Prompt submit (plan §5.8 H-PROMPT): classify locally; only a change
+ * request goes to Prepare, which waits up to 3 s for the daemon. A
+ * non-English prompt gets one note per session and no pack. Questions and
+ * review requests get nothing.
+ */
 function prompt() {
-  if (process.env.PRISM_AUTOPREPARE === "0") return emit({}, "autoprepare off");
+  const mode = process.env.PRISM_AUTOPREPARE;
+  if (mode === "0" || mode === "off") return emit({}, "autoprepare off");
   const text = typeof input.prompt === "string" ? input.prompt : "";
-  if (!CHANGE_VERB.test(text)) return emit({}, "not a change request");
+  const verdict = classifyPrompt(text);
+  if (verdict.kind === "non_english") {
+    recordEvent({
+      event: "prompt.non_english",
+      outcome: "skipped",
+      reason: "not English",
+      workspace: cwd,
+    });
+    if (!onceForSession("non_english"))
+      return emit({}, "non-English (noted already)", "skipped");
+    return emit(
+      {
+        hookSpecificOutput: {
+          hookEventName: "UserPromptSubmit",
+          additionalContext: NON_ENGLISH_NOTE,
+        },
+      },
+      "non-English note",
+    );
+  }
+  if (verdict.kind !== "change") {
+    recordEvent({
+      event: `prompt.${verdict.kind}`,
+      outcome: "skipped",
+      reason: verdict.rule,
+      workspace: cwd,
+    });
+    return emit({}, `not a change request (${verdict.kind})`, "skipped");
+  }
   const bin = resolveBin();
   if (!bin) {
     missingBin();
     return emit({}, "no binary for auto-prepare", "error");
   }
-  const limit = Number(process.env.PRISM_AUTOPREPARE_MS ?? 4000);
   const [cmd, args] = binCommand(bin, ["--hook", "prompt"]);
   const child = spawnSync(cmd, args, {
     cwd,
     input: JSON.stringify(input),
     encoding: "utf8",
-    timeout: limit + 1500,
+    timeout: PROMPT_CAP_MS,
     env: process.env,
   });
+  if (child.error?.code === "ETIMEDOUT" || child.signal === "SIGTERM") {
+    recordEvent({
+      event: "prompt.not_ready",
+      outcome: "skipped",
+      reason: `no pack within ${PROMPT_CAP_MS}ms`,
+      workspace: cwd,
+    });
+    return emit({}, "auto-prepare timed out", "skipped");
+  }
   const out = (child.stdout ?? "").trim();
   const why = (child.stderr ?? "").trim().split("\n").pop() ?? "";
   if (!out || out === "{}")
@@ -671,8 +853,9 @@ function chooseWorkspace() {
 const snap = chooseWorkspace();
 
 if (event === "session") {
-  recordSession();
-  await startDaemon();
+  const record = await liveDaemon();
+  await recordSessionBaseline(record);
+  await startDaemon(record);
   if (!snap) {
     emit({}, missingReason, "skipped");
   } else {

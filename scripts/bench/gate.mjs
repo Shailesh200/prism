@@ -111,6 +111,43 @@ check(
   anyRise,
 );
 
+// C-14 absolute budgets (owner-approved 2026-10-14): ceilings on the current
+// run, independent of the baseline.
+const ceiling = (id, file, pick, max, unit) => {
+  const c = load(curDir, file);
+  const after = c ? pick(c) : undefined;
+  if (after == null)
+    return results.push({ id, status: "skipped", why: "metric absent" });
+  results.push({
+    id,
+    status: after > max ? "fail" : "pass",
+    before: `≤ ${max}${unit}`,
+    after,
+    rule: "C-14 ceiling",
+  });
+};
+ceiling(
+  "C14.prompt.p95",
+  "B8-hook-latency.json",
+  (r) => r.events?.prompt?.p95,
+  4500,
+  " ms",
+);
+ceiling(
+  "C14.stop.p95",
+  "B8-hook-latency.json",
+  (r) => r.events?.stop?.p95,
+  2500,
+  " ms",
+);
+ceiling(
+  "C14.mediumRss",
+  "B9-budgets.json",
+  (r) => r.peakRssBytes,
+  1717986918,
+  " B",
+);
+
 for (const r of results) {
   const detail =
     r.status === "skipped" ? r.why : `${r.before} → ${r.after} (${r.rule})`;

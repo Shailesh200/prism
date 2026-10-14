@@ -8,9 +8,8 @@ description: "Privacy, languages, git, CI, agents, and what Prism will not do."
 No. Analysis makes zero network calls, enforced by a test that runs the whole
 analysis surface with the socket layer trapped.
 
-A few optional features do reach out — GitHub metadata, Core Web Vitals,
-avatars — and each is off until you turn it on individually. None of them send
-source code. See [privacy](/privacy).
+Prism 2.0 has no optional network features. Nothing it does sends source
+code anywhere. See [privacy](/privacy).
 
 ## Does Prism write code?
 
@@ -45,17 +44,19 @@ If it is slow, something generated is probably being indexed. See
 
 ## What is stored, and where?
 
-`.prism/` inside your repository: the index (SQLite), your consent decisions,
-health history, and bookmarks. Nothing outside it. No credential is ever
+`~/.prism/` (or `PRISM_HOME`): one folder per workspace with the index
+(SQLite), memories, receipts and the Envelope ledger; your lenses in
+`~/.prism/lenses/`; `install.json` and `events.jsonl`. No credential is ever
 written there.
 
-You can delete `.prism/` at any time; the next run rebuilds it.
+Workspace folders are derived caches; delete one at any time and the next run
+rebuilds it. `prism uninstall --purge` removes everything.
 
 ## Should I commit `.prism/`?
 
 No. Add it to `.gitignore`. It is a derived cache and it is machine-specific.
 
-## Do the CLI and the extension ever disagree?
+## Do the CLI and the MCP server ever disagree?
 
 They cannot. Both call the same engine, and shared values — risk bands, in
 particular — come from one function in `@repo-prism/shared` that both use.
@@ -67,8 +68,8 @@ Numbers imply a precision the underlying signals do not have. See
 
 ## Why does something say "estimated"?
 
-Because it was inferred rather than measured — health history backfilled from
-git before Prism was installed, most commonly. See
+Because it was inferred rather than measured — ownership or churn from a
+shallow clone, most commonly. See
 [signal provenance](/docs/concepts/signal-provenance).
 
 ## Why did a feature get grouped oddly?
@@ -99,11 +100,10 @@ this repository’s own lint, test, and typecheck scripts, or **—** if none
 exist — and prints whether the change is proven, unproven, or failed. It comes
 with the Prism plugin pack. Prism never commits or pushes.
 
-## Where did Dispatch, jobs, and the Console go?
+## Where did the background jobs go?
 
-Dispatch was removed by ADR-0064, with its background jobs, standups, the
-Console, and Live Relay. Your agent now makes every edit in your own chat.
-Memories moved to the CLI — see [Remember context](/docs/guides/remember-context).
+They were removed (ADR-0064). Your agent makes every edit in your own chat.
+Memories live in the CLI — see [Remember context](/docs/guides/remember-context).
 `prism data prune` lists leftover local folders; `--yes` removes them.
 
 ## Does Prism modify my code?

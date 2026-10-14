@@ -1,15 +1,12 @@
 /**
  * `prism receipts` (M-092): the change receipts the stop hook wrote.
  *
- * `prism receipts` lists the newest first. `prism receipts show [n]` prints
- * one (1 = newest) as text, or `--as markdown` / `--as svg` for a PR comment
- * or a card to share. Older rows kept only the text, so they print as text.
+ * `prism receipts` lists the newest first. `prism receipts show [n]` (or
+ * `--last`) prints one (1 = newest) as text, or `--as markdown` / `--as svg`
+ * for a PR comment or a card to share.
  */
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import {
-  ChangeReceiptSchema,
   err,
   ok,
   PrismErrorCode,
@@ -19,7 +16,7 @@ import {
   renderReceiptSvg,
   type ChangeReceipt,
 } from "@repo-prism/shared";
-import { workspacePrismDir } from "@repo-prism/shared/prism-home";
+import { listStoredReceipts } from "@repo-prism/shared/receipt-store";
 import { renderHeading } from "../output.js";
 import type { CommandHandler } from "../runtime.js";
 
@@ -32,49 +29,26 @@ export type ReceiptRow = {
   readonly receipt?: ChangeReceipt;
 };
 
+/** Stored receipts (plan §5.7), newest first, with checks once they finish. */
 export function readReceiptHistory(root: string): ReceiptRow[] {
-  let raw = "";
-  try {
-    raw = readFileSync(
-      join(workspacePrismDir(root), "receipts", "history.jsonl"),
-      "utf8",
-    );
-  } catch {
-    return [];
-  }
-  const rows: ReceiptRow[] = [];
-  for (const line of raw.split("\n")) {
-    if (!line.trim()) continue;
-    try {
-      const row = JSON.parse(line) as Record<string, unknown>;
-      const text = typeof row.text === "string" ? row.text : "";
-      const parsed = ChangeReceiptSchema.safeParse(row.receipt);
-      const verdict =
-        typeof row.verdict === "string"
-          ? row.verdict
-          : (/^Prism · (proven|unproven|failed)/.exec(text)?.[1] ?? "unknown");
-      rows.push({
-        at: typeof row.at === "string" ? row.at : "",
-        verdict,
-        ...(typeof row.durationMs === "number"
-          ? { durationMs: row.durationMs }
-          : {}),
-        ...(typeof row.sessionId === "string"
-          ? { sessionId: row.sessionId }
-          : {}),
-        text,
-        ...(parsed.success ? { receipt: parsed.data } : {}),
-      });
-    } catch {
-      /* skip a torn line */
-    }
-  }
-  return rows.reverse();
+  return listStoredReceipts(root).map((receipt) => ({
+    at: receipt.generatedAt,
+    verdict:
+      receipt.verdict === "not_proven"
+        ? `not_proven(${receipt.reason ?? "untested"})`
+        : receipt.verdict,
+    durationMs: receipt.durationMs,
+    ...(receipt.sessionId ? { sessionId: receipt.sessionId } : {}),
+    text: renderReceipt(receipt),
+    receipt,
+  }));
 }
 
 export const receiptsCommand: CommandHandler = async (context) => {
   const rows = readReceiptHistory(context.workspace.path);
-  const action = context.args.positionals[0] ?? "list";
+  const action = context.args.flag("last")
+    ? "show"
+    : (context.args.positionals[0] ?? "list");
 
   if (action === "show") {
     const n = Number(context.args.positionals[1] ?? "1");
@@ -105,7 +79,7 @@ export const receiptsCommand: CommandHandler = async (context) => {
     return err(
       prismError(
         PrismErrorCode.VALIDATION,
-        "Usage: prism receipts [list|show [n]] [--as text|markdown|svg]",
+        "Usage: prism receipts [list|show [n]|--last] [--as text|markdown|svg]",
       ),
     );
   }

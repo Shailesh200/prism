@@ -17,16 +17,33 @@ function plural(n: number, one: string, many = `${one}s`): string {
 
 /** The first line of every rendering: the verdict. */
 export function receiptHeadline(receipt: ChangeReceipt): string {
+  if (nothingChanged(receipt)) return "Prism · nothing changed";
   switch (receipt.verdict) {
-    case "clean":
-      return "Prism · nothing changed";
     case "failed":
       return `Prism · failed (${plural(blockingChecks(receipt).length, "check")})`;
-    case "unproven":
-      return `Prism · unproven (${plural(receipt.notProven.length, "file")})`;
+    case "not_proven":
+      return `Prism · not_proven(${receipt.reason ?? "untested"})`;
     default:
       return "Prism · proven";
   }
+}
+
+/** A clean tree: `proven` with nothing to show. */
+export function nothingChanged(receipt: ChangeReceipt): boolean {
+  return receipt.touched.totalFiles === 0 && receipt.unsupported.length === 0;
+}
+
+/**
+ * The one line the plan's smoke test reads (Appendix C SMK-8):
+ * `Prism receipt: changed 1 file, 3 dependents, N tests reach it — proven`.
+ */
+export function receiptSummaryLine(receipt: ChangeReceipt): string {
+  const verdict =
+    receipt.verdict === "not_proven"
+      ? `not_proven(${receipt.reason ?? "untested"})`
+      : receipt.verdict;
+  const changed = receipt.touched.totalFiles + receipt.unsupported.length;
+  return `Prism receipt: changed ${plural(changed, "file")}, ${plural(receipt.touched.dependents, "dependent")}, ${plural(receipt.testFiles.length, "test")} reach it — ${verdict}`;
 }
 
 function touchedLine(receipt: ChangeReceipt): string {
@@ -41,7 +58,8 @@ function provenParts(receipt: ChangeReceipt): string[] {
   if (receipt.testMode === "scoped" && receipt.testFiles.length > 0) {
     parts.unshift(plural(receipt.testFiles.length, "scoped test file"));
   }
-  if (receipt.testMode === "skipped") parts.push("checks not run");
+  if (receipt.checksState === "pending") parts.push("checks still running");
+  else if (receipt.testMode === "skipped") parts.push("checks not run");
   return parts;
 }
 
@@ -52,9 +70,9 @@ export function renderReceipt(
   receipt: ChangeReceipt,
   lenses: readonly ReceiptLensLine[] = receipt.lenses ?? [],
 ): string {
-  if (receipt.verdict === "clean") return receiptHeadline(receipt);
+  if (nothingChanged(receipt)) return receiptHeadline(receipt);
   const pad = (label: string): string => label.padEnd(15, " ");
-  const lines = [receiptHeadline(receipt)];
+  const lines = [receiptHeadline(receipt), receiptSummaryLine(receipt)];
   lines.push(`${pad("Touched")} ${touchedLine(receipt)}`);
   const proven = provenParts(receipt);
   if (proven.length > 0) lines.push(`${pad("Proven")} ${proven.join(" · ")}`);
@@ -67,8 +85,16 @@ export function renderReceipt(
   for (const check of preexistingFailures(receipt)) {
     lines.push(`${pad("Already failing")} ${check.name} — ${check.detail}`);
   }
+  for (const check of receipt.checks.filter((c) => c.status === "timeout")) {
+    lines.push(`${pad("Timed out")} ${check.name} — ${check.detail}`);
+  }
   for (const item of receipt.notProven.slice(0, 5)) {
     lines.push(`${pad("Not proven")} ${item.path} — ${item.reason}`);
+  }
+  if (receipt.unsupported.length > 0) {
+    lines.push(
+      `${pad("Not analysed")} ${receipt.unsupported.slice(0, 5).join(", ")}${receipt.unsupported.length > 5 ? ", …" : ""} (TypeScript and JavaScript only in 2.0)`,
+    );
   }
   if (receipt.notProven.length > 5) {
     lines.push(`${pad("")} …and ${receipt.notProven.length - 5} more`);
@@ -97,7 +123,7 @@ function cell(text: string): string {
 /** For a PR comment. GitHub-flavoured markdown, no HTML. */
 export function renderReceiptMarkdown(receipt: ChangeReceipt): string {
   const lines = [`### ${receiptHeadline(receipt)}`, ""];
-  if (receipt.verdict === "clean") return lines.join("\n").trimEnd();
+  if (nothingChanged(receipt)) return lines.join("\n").trimEnd();
   lines.push("| | |", "|---|---|", `| Touched | ${touchedLine(receipt)} |`);
   const proven = provenParts(receipt);
   if (proven.length > 0) lines.push(`| Proven | ${cell(proven.join(" · "))} |`);
@@ -138,16 +164,15 @@ function escapeXml(text: string): string {
 }
 
 const VERDICT_COLOR: Record<ChangeReceipt["verdict"], string> = {
-  clean: "#6b7280",
   proven: "#16a34a",
-  unproven: "#d97706",
+  not_proven: "#d97706",
   failed: "#dc2626",
 };
 
 /** A 600px-wide card for sharing. Self-contained SVG, system fonts only. */
 export function renderReceiptSvg(receipt: ChangeReceipt): string {
   const rows: [string, string][] = [];
-  if (receipt.verdict !== "clean") {
+  if (!nothingChanged(receipt)) {
     rows.push(["Touched", touchedLine(receipt)]);
     const proven = provenParts(receipt);
     if (proven.length > 0) rows.push(["Proven", proven.join(" · ")]);
@@ -174,7 +199,7 @@ export function renderReceiptSvg(receipt: ChangeReceipt): string {
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="${height}" viewBox="0 0 600 ${height}" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif">`,
     `<rect width="600" height="${height}" rx="12" fill="#ffffff" stroke="#e5e7eb"/>`,
-    `<rect width="8" height="${height}" rx="4" fill="${VERDICT_COLOR[receipt.verdict]}"/>`,
+    `<rect width="8" height="${height}" rx="4" fill="${nothingChanged(receipt) ? "#6b7280" : VERDICT_COLOR[receipt.verdict]}"/>`,
     `<text x="24" y="52" fill="#111827" font-size="22" font-weight="600">${escapeXml(receiptHeadline(receipt))}</text>`,
     body,
     `</svg>`,

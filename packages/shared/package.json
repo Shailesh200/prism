@@ -1,6 +1,6 @@
 {
   "name": "@repo-prism/shared",
-  "version": "1.3.0",
+  "version": "2.0.0",
   "type": "module",
   "description": "Shared contracts, DTOs, errors, Zod schemas",
   "exports": {
@@ -31,6 +31,10 @@
     "./git-head": {
       "types": "./dist/git-head.d.ts",
       "import": "./dist/git-head.js"
+    },
+    "./receipt-store": {
+      "types": "./dist/receipt-store.d.ts",
+      "import": "./dist/receipt-store.js"
     }
   },
   "files": [

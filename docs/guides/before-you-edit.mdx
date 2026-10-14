@@ -7,7 +7,7 @@ description: "Check blast radius and test impact before changing unfamiliar code
 > For a whole task (pack, reuse, House Style), start with
 > [Prepare a change](/docs/guides/prepare-a-change).
 
-<Tabs groupId="surface" items={['CLI', 'VS Code', 'AI agent']} persist>
+<Tabs groupId="surface" items={['CLI', 'AI agent']} persist>
   <Tab value="CLI">
 
 ```bash
@@ -15,13 +15,6 @@ prism blast src/auth/session.ts
 prism test-impact src/auth/session.ts
 prism blast src/auth/session.ts --fail-on high
 ```
-
-  </Tab>
-  <Tab value="VS Code">
-
-Right-click a file → **Blast Radius**, or open Impact and enter a path. Check
-direct/transitive dependents, risk band, and affected tests. Optional CodeLens
-shows blast above the first line when enabled.
 
   </Tab>
   <Tab value="AI agent">

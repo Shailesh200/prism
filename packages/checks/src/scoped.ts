@@ -176,7 +176,7 @@ export async function resolveScopedPlan(
 
 export type CheckStepResult = {
   readonly name: string;
-  readonly status: "passed" | "failed" | "absent" | "interrupted";
+  readonly status: "passed" | "failed" | "absent" | "interrupted" | "timeout";
   /** One chat-safe line for failures. */
   readonly detail: string;
   readonly durationMs: number;
@@ -207,6 +207,13 @@ export async function runCheckSteps(
         name: step.name,
         status: "passed",
         detail: "",
+        durationMs,
+      });
+    } else if (result.timedOut) {
+      results.push({
+        name: step.name,
+        status: "timeout",
+        detail: result.output,
         durationMs,
       });
     } else if (result.absent) {

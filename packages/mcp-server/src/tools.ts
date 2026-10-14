@@ -24,43 +24,14 @@ import { guardSession } from "./tools/guard.js";
 import { reviewWith } from "./tools/lenses.js";
 import { agentsMd } from "./tools/agents-md.js";
 import { listFindings } from "./tools/findings.js";
+import { receipt } from "./tools/receipt.js";
 
-/** The tools the instructions teach first. */
-export const HERO_TOOL_NAMES = [
-  "prepare_change",
-  "blast_radius",
-  "guard_session",
-] as const;
-
-/**
- * Default `tools/list` (plan §0.3): exactly nine tools. Every tool a shipped
- * skill, command, prompt, hook or instruction names must be here
- * (`skills-tools` contract test).
- */
-export const DEFAULT_TOOL_NAMES = [
-  ...HERO_TOOL_NAMES,
-  "test_impact",
-  "review_changes",
-  "safe_delete",
-  "rename_impact",
-  "repository_overview",
-  "graph",
-] as const;
-
-/** Opt-in tools, enabled by name in `~/.prism/config.json` `extraTools[]`. */
-export const OPT_IN_TOOL_NAMES = [
-  "dependency_graph",
-  "knowledge_graph",
-  "dependency_cycles",
-  "list_packages",
-  "explain_area",
-  "explore_code",
-  "list_findings",
-  "agents_md",
-  "workspace_status",
-  "capabilities",
-  "review_with",
-] as const;
+export {
+  DEFAULT_TOOL_NAMES,
+  HERO_TOOL_NAMES,
+  OPT_IN_TOOL_NAMES,
+} from "@repo-prism/shared";
+import { DEFAULT_TOOL_NAMES, OPT_IN_TOOL_NAMES } from "@repo-prism/shared";
 
 export type ToolSelection = {
   readonly tools: readonly ToolDefinition<never>[];
@@ -90,6 +61,7 @@ export const TOOLS: readonly ToolDefinition<never>[] = [
   reviewWith,
   agentsMd,
   listFindings,
+  receipt,
   ...ORIENTATION_TOOLS,
   ...GRAPH_TOOLS,
   ...IMPACT_TOOLS,

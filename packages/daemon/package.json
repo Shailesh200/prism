@@ -1,6 +1,6 @@
 {
   "name": "@repo-prism/daemon",
-  "version": "1.12.0",
+  "version": "2.0.0",
   "type": "module",
   "description": "Prism daemon — one local process that keeps each repository's graph indexed and fresh, and answers over loopback",
   "exports": {

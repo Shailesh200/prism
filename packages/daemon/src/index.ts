@@ -2,8 +2,12 @@ export const PACKAGE_NAME = "@repo-prism/daemon" as const;
 
 export {
   BUILD_HEADER,
+  callDaemonRoute,
   callDaemonTool,
+  compareBuildIds,
+  compareVersions,
   daemonHealth,
+  daemonReady,
   daemonStatus,
   type DaemonHealth,
   ensureDaemon,

@@ -1,5 +1,11 @@
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -58,9 +64,14 @@ function lastEvent(home: string): Record<string, unknown> {
 function isolatedHook(home: string): string {
   const dir = join(home, "pack", "a", "b");
   mkdirSync(dir, { recursive: true });
-  const copy = join(dir, "prism-hook.mjs");
-  writeFileSync(copy, readFileSync(hook, "utf8"));
-  return copy;
+  // The hook imports its classifier as a sibling, as the built pack ships it.
+  for (const file of ["prism-hook.mjs", "classify-prompt.mjs"]) {
+    writeFileSync(
+      join(dir, file),
+      readFileSync(join(dirname(hook), file), "utf8"),
+    );
+  }
+  return join(dir, "prism-hook.mjs");
 }
 
 describe("prism-hook", () => {
@@ -184,19 +195,93 @@ describe("prism-hook", () => {
     ]);
   });
 
-  it("warns on a vendor path and does not block while the hook is unarmed", () => {
+  it("HK-8 denies an edit to a generated or vendored file, with the reason", () => {
     const { home, cwd } = layout({
       orientation: "x",
       offLimits: [{ path: "vendor/", reason: "vendor" }],
       needsSignOff: [],
-      hookArmed: false,
     });
     const out = run("before-edit", home, {
       cwd,
       tool_input: { file_path: join(cwd, "vendor/legacy.ts") },
     });
-    expect(out.hookSpecificOutput?.additionalContext).toMatch(/vendor/);
+    expect(out.hookSpecificOutput?.permissionDecision).toBe("deny");
+  });
+
+  it("HK-9 a high-blast file only warns; the edit goes through (never deny)", () => {
+    const { home, cwd } = layout({
+      orientation: "x",
+      offLimits: [],
+      needsSignOff: [{ path: "src/shared/util.ts", reason: "40 dependents" }],
+      hookArmed: true,
+    });
+    const out = run("before-edit", home, {
+      cwd,
+      tool_input: { file_path: join(cwd, "src/shared/util.ts") },
+    });
+    expect(out.hookSpecificOutput?.additionalContext).toMatch(/needs sign-off/);
     expect(out.hookSpecificOutput?.permissionDecision).toBeUndefined();
+  });
+
+  it("HK-11 the outside-pack note uses this session's own pack", () => {
+    const { home, cwd } = layout({
+      orientation: "x",
+      offLimits: [],
+      needsSignOff: [],
+    });
+    const key = createHash("sha256")
+      .update(resolve(cwd))
+      .digest("hex")
+      .slice(0, 24);
+    const packs = join(home, "workspaces", key, "hooks", "packs");
+    mkdirSync(packs, { recursive: true });
+    const write = (id: string, path: string) =>
+      writeFileSync(
+        join(
+          packs,
+          `${createHash("sha256").update(id).digest("hex").slice(0, 24)}.json`,
+        ),
+        JSON.stringify({
+          generatedAt: new Date().toISOString(),
+          packFiles: [{ path }],
+        }),
+      );
+    write("A", "src/a.ts");
+    write("B", "src/b.ts");
+    const edit = (session: string, file: string) =>
+      run("before-edit", home, {
+        cwd,
+        session_id: session,
+        tool_input: { file_path: join(cwd, file) },
+      }).hookSpecificOutput?.additionalContext;
+    expect(edit("B", "src/b.ts")).toBeUndefined();
+    expect(edit("B", "src/a.ts")).toMatch(/not in Prism's pack/);
+    expect(edit("A", "src/a.ts")).toBeUndefined();
+  });
+
+  it("HK-2/HK-4 questions get nothing; a non-English prompt gets one note per session", () => {
+    const { home, cwd } = layout({
+      orientation: "x",
+      offLimits: [],
+      needsSignOff: [],
+    });
+    expect(
+      run("prompt", home, {
+        cwd,
+        prompt: "how does src/hono.ts reach src/compose.ts?",
+      }),
+    ).toEqual({});
+    const hindi = "डैशबोर्ड पर due date गलत दिख रही है, ठीक करो";
+    expect(
+      run("prompt", home, { cwd, session_id: "s", prompt: hindi })
+        .hookSpecificOutput?.additionalContext,
+    ).toBe("Prism understands English prompts only in 2.0; no pack added.");
+    expect(
+      run("prompt", home, { cwd, session_id: "s", prompt: hindi }),
+    ).toEqual({});
+    const events = readFileSync(join(home, "events.jsonl"), "utf8");
+    expect(events).toMatch(/"event":"prompt\.question"/);
+    expect(events).toMatch(/"event":"prompt\.non_english"/);
   });
 
   it("uses workspace_roots when cwd is not the repository", () => {
@@ -224,6 +309,47 @@ describe("prism-hook", () => {
       event: "hook.session",
       outcome: "skipped",
       reason: "no snapshot yet",
+    });
+  });
+
+  it("moves a corrupt snapshot aside, answers {} and logs index.corrupt (plan §2.4)", () => {
+    const { home, cwd } = layout({});
+    const key = createHash("sha256")
+      .update(resolve(cwd))
+      .digest("hex")
+      .slice(0, 24);
+    const dir = join(home, "workspaces", key, "hooks");
+    writeFileSync(join(dir, "snapshot.json"), "{torn");
+    expect(
+      run("before-edit", home, { cwd, tool_input: { file_path: "a.ts" } }),
+    ).toEqual({});
+    expect(
+      readdirSync(dir).some((name) =>
+        /^snapshot\.json\.corrupt-\d+$/.test(name),
+      ),
+    ).toBe(true);
+    const events = readFileSync(join(home, "events.jsonl"), "utf8");
+    expect(events).toMatch(/"event":"index\.corrupt"/);
+  });
+
+  it("HOOK-STOP-1 stop past its 10 s budget or with no answer says nothing to the agent", () => {
+    const home = mkdtempSync(join(tmpdir(), "prism-hook-stop-"));
+    const cwd = mkdtempSync(join(tmpdir(), "prism-hook-stop-repo-"));
+    const bin = join(home, "fake-bin.mjs");
+    writeFileSync(
+      bin,
+      "process.stderr.write('Error: secret stack trace');process.exit(1);\n",
+    );
+    const result = spawnSync(process.execPath, [isolatedHook(home), "stop"], {
+      input: JSON.stringify({ cwd }),
+      encoding: "utf8",
+      env: { ...process.env, PRISM_HOME: home, PRISM_MCP_BIN: bin },
+    });
+    expect(result.stdout.trim()).toBe("{}");
+    expect(result.stdout).not.toMatch(/secret stack trace/);
+    expect(lastEvent(home)).toMatchObject({
+      event: "hook.stop",
+      outcome: "degraded",
     });
   });
 

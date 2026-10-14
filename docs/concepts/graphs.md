@@ -21,8 +21,8 @@ prism cycles
 ```
 
 Cycles are not always bugs, but they reliably mean a boundary is not where
-someone thought. Blast radius, safe delete, the map layout, and coupling health
-all walk this graph.
+someone thought. Blast radius, safe delete, rename impact and Prepare all walk
+this graph.
 
 ## Knowledge graph
 

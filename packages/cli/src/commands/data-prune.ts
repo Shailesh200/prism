@@ -119,6 +119,25 @@ export function planPrune(home: string): PruneItem[] {
         });
       }
     }
+    // Stored receipts (plan §5.7): one `<id>.json` each; keep the newest 20.
+    const receiptDir = join(dir, "receipts");
+    if (existsSync(receiptDir)) {
+      const stored = readdirSync(receiptDir)
+        .filter((name) => /^[a-f0-9]{8,64}\.json$/.test(name))
+        .map((name) => {
+          const path = join(receiptDir, name);
+          const info = statSync(path);
+          return { path, mtime: info.mtimeMs, bytes: info.size };
+        })
+        .sort((a, b) => b.mtime - a.mtime);
+      for (const old of stored.slice(RECEIPTS_KEPT)) {
+        items.push({
+          path: old.path,
+          reason: "receipts beyond the last 20",
+          bytes: old.bytes,
+        });
+      }
+    }
   }
   return items;
 }

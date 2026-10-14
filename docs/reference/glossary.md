@@ -43,7 +43,7 @@ fingerprint. See [Findings](/docs/guides/findings).
 pre-existing dirt. See [Guard a session](/docs/guides/guard-a-session).
 
 **House Style** — Three exemplars (canonical, recent, older) for how this
-repo already does a pattern — route-handler, screen, colocated-test, worker.
+repo already does a pattern — route-handler, component, colocated-test, worker.
 Returned by Prepare. See [Prepare a change](/docs/guides/prepare-a-change).
 
 **Hotspot** — High churn crossed with high complexity. The intersection is what
@@ -53,24 +53,11 @@ matters; neither metric alone identifies it.
 `.prism/cache/index.sqlite`. Every answer derives from it. See
 [the repository index](/docs/concepts/repository-index).
 
-**Iris** — The accumulated knowledge of a workspace: the index, graphs, DNA,
-landmarks, health, findings, and memories. The Iris screen in the IDE shows
-facts plus the Envelope scoreboard — not the repository map. An aperture, not a persona
-— never first person, never an avatar. See
-[Envelope and Iris](/docs/guides/envelope).
-
-**Spectrum** — The browser app (formerly Playground) that indexes a local
-repository. The same map appears in the IDE. The Iris screen does not mount
-that map — it shows facts and Envelope instead.
-
 **Knowledge graph** — Semantic relationships beyond imports: what a symbol is,
 what it relates to, what it belongs to. See [graphs](/docs/concepts/graphs).
 
 **Landmark** — A notable place in a repository — an entry point, a hub, a
 boundary. What you would point at while explaining the codebase to someone new.
-
-**Layer** — An overlay on the map that colours structure by one dimension:
-coupling, churn, tests, risk, ownership, features.
 
 **Living AGENTS.md** — A contributor sheet generated from the index into
 `~/.prism/workspaces/<key>/agents.md` only. Never written into git. See
@@ -91,7 +78,7 @@ Reported by safe delete. Guard also flags a *new* file with no inbound
 imports. See [Delete safely](/docs/guides/delete-safely).
 
 **Pack** — The ranked file list from `prepare_change`: paths, symbols, why,
-map-token weights. Not file bodies. See
+token weights. Not file bodies. See
 [Prepare a change](/docs/guides/prepare-a-change).
 
 **Prepare** — One call before an edit: pack + reuse + House Style + notes +
@@ -104,8 +91,8 @@ work order. CLI `prism prepare`. See
 **Receipt** — What the stop hook prints when the agent stops: the checks the
 change reached, and whether it is proven, unproven, or failed.
 
-**Surface** — A way of using Prism: the extension, the CLI, the MCP server, the
-Spectrum app. All of them consume the same engine and compute nothing themselves.
+**Surface** — A way of using Prism: the MCP server and hooks, the CLI, the GitHub
+Action. All of them consume the same engine and compute nothing themselves.
 
 **Unavailable** — Prism does not know this, and says so instead of showing zero.
 A repository with no coverage report and one with genuinely zero coverage are
@@ -117,6 +104,3 @@ paths for a task. Advisory unless an Accepted ADR arms the write veto. See
 
 **Workspace** — The repository Prism is analysing, and the boundary it will not
 read outside of.
-
-**Zoom level** — Where the map is aggregated: repository, package, feature, file
-or symbol. Each level re-aggregates rather than rescaling.

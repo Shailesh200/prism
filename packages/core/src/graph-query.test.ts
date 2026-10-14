@@ -48,12 +48,15 @@ async function ask(...args: Parameters<PrismWorkspace["graph"]>) {
 describe("workspace.graph (M-096)", () => {
   it("finds a symbol by exact name, then by substring", async () => {
     const exact = await ask({ mode: "find", name: "renderDashboard" });
-    expect(exact.nodes).toContainEqual({
-      kind: "symbol",
-      path: DASHBOARD,
-      name: "renderDashboard",
-      symbolKind: "function",
-    });
+    expect(exact.nodes).toContainEqual(
+      expect.objectContaining({
+        kind: "symbol",
+        path: DASHBOARD,
+        name: "renderDashboard",
+        symbolKind: "function",
+        line: expect.any(Number),
+      }),
+    );
     const fuzzy = await ask({ mode: "find", name: "Dashboard" });
     expect(fuzzy.nodes.some((node) => node.path === DASHBOARD)).toBe(true);
   });

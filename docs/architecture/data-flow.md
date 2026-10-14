@@ -26,7 +26,7 @@ symbols · imports · diagnostics
 dependency · knowledge · feature graphs
     │  derive
     ▼
-DNA · health · blast radius · map · reports
+stack · blast radius · test impact · Prepare · review
     │  DTO from @repo-prism/shared
     ▼
 CLI table · MCP tool result · a screen
@@ -64,7 +64,7 @@ The result goes to SQLite in `.prism/cache/`. Facts about your code, not your
 code.
 
 Everything downstream reads from here rather than from disk, which is the
-mechanism behind the guarantee that the map and the blast radius cannot
+mechanism behind the guarantee that Prepare and the blast radius cannot
 disagree: there is only one thing for them to disagree about.
 
 ## Building graphs
@@ -79,9 +79,9 @@ Three graphs, all over the same store:
 
 ## Deriving
 
-Reports are computed from the graphs and the index — never by re-reading the
-repository. A report that needed to re-read files would be a report that could
-disagree with the one next to it.
+Answers are computed from the graphs and the index — never by re-reading the
+repository. An answer that needed to re-read files could disagree with the one
+next to it.
 
 Each derived value carries its
 [provenance](../concepts/signal-provenance.md): measured, estimated, or

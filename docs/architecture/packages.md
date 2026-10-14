@@ -38,8 +38,7 @@ symbols, imports and diagnostics — Oxc for TypeScript and JavaScript.
 ### `@repo-prism/indexer`
 
 Walks the repository, hashes file contents, and persists the result to SQLite in
-`.prism/cache/`. Owns incremental invalidation and watch mode, plus the health
-history table.
+`.prism/cache/`. Owns incremental invalidation and watch mode.
 
 **Must never** re-parse what has not changed. The hash is the whole point.
 
@@ -54,9 +53,8 @@ knowledge graph and the feature graph share one implementation.
 ### `@repo-prism/intelligence`
 
 The largest internal package, and the one that turns structure into judgement:
-stack detection, repository DNA, health scoring, engineering, testing and
-security reports, backend and frontend analysis, feature inference, the consent
-store, and the utility job runner.
+stack detection, entry points, lens routing, guard and session analysis, and
+the facts Prepare and review read.
 
 **Must never** make a network call without a consent purpose gating it.
 
@@ -88,8 +86,7 @@ returns an engine-internal type. See [the Core SDK](./core-sdk.md).
 
 ### `@repo-prism/ui`
 
-Lower-level shared React components: the map canvas, the explorer, and the
-primitives the screens are built from.
+Design tokens and motion helpers the website imports. Private; not published.
 
 
 ### `@repo-prism/daemon`

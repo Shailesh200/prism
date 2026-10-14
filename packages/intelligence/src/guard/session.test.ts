@@ -1,7 +1,7 @@
 import type { IndexSnapshot, IndexedFile } from "@repo-prism/shared";
 import { describe, expect, it } from "vitest";
 import { buildDependencyGraph } from "../dependency/build.js";
-import { checkGuardSession } from "./session.js";
+import { checkGuardSession, reexportFamily } from "./session.js";
 
 function snapshot(files: IndexedFile[]): IndexSnapshot {
   return {
@@ -96,6 +96,90 @@ describe("checkGuardSession > orphan", () => {
 });
 
 describe("checkGuardSession > duplicate", () => {
+  it("does not flag a barrel re-export as a duplicate of its own source (B3 false alarm)", () => {
+    const snap = snapshot([
+      file("src/predicate/isBlob.ts", {
+        symbols: [
+          {
+            name: "isBlob",
+            kind: "function",
+            start: 0,
+            end: 20,
+            exported: true,
+          },
+        ],
+        exports: [{ name: "isBlob", kind: "name" }],
+      }),
+      file("src/predicate/index.ts", {
+        symbols: [
+          {
+            name: "isBlob",
+            kind: "function",
+            start: 0,
+            end: 20,
+            exported: true,
+          },
+        ],
+        exports: [{ name: "isBlob", kind: "name", source: "./isBlob.ts" }],
+      }),
+    ]);
+    const graph = buildDependencyGraph(snap).graph;
+    expect(
+      reexportFamily(graph, "src/predicate/index.ts").has(
+        "src/predicate/isBlob.ts",
+      ),
+    ).toBe(true);
+    const flags = checkGuardSession({
+      snapshot: snap,
+      sessionPaths: ["src/predicate/index.ts"],
+      dependencyGraph: graph,
+    });
+    expect(
+      flags
+        .get("src/predicate/index.ts")
+        ?.some((f) => f.kind === "duplicate") ?? false,
+    ).toBe(false);
+  });
+
+  it("keeps siblings behind one barrel comparable (re-export family is directional)", () => {
+    const sym = (name: string) => ({
+      name,
+      kind: "function" as const,
+      start: 0,
+      end: 20,
+      exported: true,
+    });
+    const snap = snapshot([
+      file("src/array/dropRightWhile.ts", {
+        symbols: [sym("dropRightWhile")],
+        exports: [{ name: "dropRightWhile", kind: "name" }],
+      }),
+      file("src/compat/dropRightWhile.ts", {
+        symbols: [sym("dropRightWhile")],
+        exports: [{ name: "dropRightWhile", kind: "name" }],
+      }),
+      file("src/index.ts", {
+        symbols: [],
+        exports: [
+          {
+            name: "dropRightWhile",
+            kind: "name",
+            source: "./array/dropRightWhile.ts",
+          },
+          {
+            name: "compatDropRightWhile",
+            kind: "name",
+            source: "./compat/dropRightWhile.ts",
+          },
+        ],
+      }),
+    ]);
+    const graph = buildDependencyGraph(snap).graph;
+    const family = reexportFamily(graph, "src/compat/dropRightWhile.ts");
+    expect(family.has("src/index.ts")).toBe(true);
+    expect(family.has("src/array/dropRightWhile.ts")).toBe(false);
+  });
+
   it("flags a new export that looks like an existing one elsewhere", () => {
     const snap = snapshot([
       file("src/cache/lruCache.ts", {

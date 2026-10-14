@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { openSqliteDatabase } from "./db.js";
 import {
+  EXTRACTION_VERSION,
   isLegacySchema,
   migrate,
   readSchemaVersion,
@@ -41,6 +42,37 @@ describe("SQLite schema (2.0 fresh v1)", () => {
     expect(health).toBeUndefined();
     expect(migrate(db, { onLegacyReset: () => resets++ })).toBe(1);
     expect(resets).toBe(1);
+    db.close();
+  });
+
+  it("EXT-1 clears cached extractions written by another analyzer version", () => {
+    const db = openSqliteDatabase(":memory:");
+    migrate(db);
+    db.prepare(
+      `INSERT INTO indexed_files (root_path, path, content_hash, plugin_id, status, payload_json)
+       VALUES ('/r', 'a.ts', 'h', 'typescript', 'analyzed', '{}')`,
+    ).run();
+    // Same version: rows survive a reopen.
+    migrate(db);
+    const count = () =>
+      (
+        db.prepare(`SELECT COUNT(*) AS n FROM indexed_files`).get() as {
+          n: number;
+        }
+      ).n;
+    expect(count()).toBe(1);
+    // Older extraction recorded: rows are cleared once, and reported.
+    db.prepare(
+      `UPDATE schema_meta SET value = '1' WHERE key = 'extraction'`,
+    ).run();
+    const seen: (string | null)[] = [];
+    migrate(db, { onExtractionReset: (from) => seen.push(from) });
+    expect(count()).toBe(0);
+    expect(seen).toEqual(["1"]);
+    const stored = db
+      .prepare(`SELECT value FROM schema_meta WHERE key = 'extraction'`)
+      .get() as { value: string };
+    expect(stored.value).toBe(String(EXTRACTION_VERSION));
     db.close();
   });
 });

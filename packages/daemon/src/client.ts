@@ -204,6 +204,93 @@ export async function stopDaemon(
   return outcome;
 }
 
+function parseVersion(version: string): {
+  readonly core: readonly number[];
+  readonly pre: readonly string[];
+} {
+  const [main = "", pre] = version.split("-", 2);
+  return {
+    core: main.split(".").map((part) => Number.parseInt(part, 10) || 0),
+    pre: pre ? pre.split(".") : [],
+  };
+}
+
+/** Semver order, prerelease below release (`2.0.0-rc.1 < 2.0.0`). */
+export function compareVersions(a: string, b: string): number {
+  const left = parseVersion(a);
+  const right = parseVersion(b);
+  for (let i = 0; i < 3; i += 1) {
+    const diff = (left.core[i] ?? 0) - (right.core[i] ?? 0);
+    if (diff !== 0) return Math.sign(diff);
+  }
+  if (left.pre.length === 0 || right.pre.length === 0) {
+    return Math.sign(right.pre.length - left.pre.length);
+  }
+  for (let i = 0; i < Math.max(left.pre.length, right.pre.length); i += 1) {
+    const x = left.pre[i];
+    const y = right.pre[i];
+    if (x === undefined) return -1;
+    if (y === undefined) return 1;
+    const nx = /^\d+$/.test(x) ? Number(x) : null;
+    const ny = /^\d+$/.test(y) ? Number(y) : null;
+    if (nx !== null && ny !== null && nx !== ny) return Math.sign(nx - ny);
+    if (nx !== null && ny === null) return -1;
+    if (nx === null && ny !== null) return 1;
+    if (x !== y) return x < y ? -1 : 1;
+  }
+  return 0;
+}
+
+/**
+ * Order of two build ids (`<version>+<build stamp>`): by version, then by
+ * stamp. Positive when `a` is newer.
+ */
+export function compareBuildIds(a: string, b: string): number {
+  const [va = "", sa = "0"] = a.split("+", 2);
+  const [vb = "", sb = "0"] = b.split("+", 2);
+  const byVersion = compareVersions(va, vb);
+  if (byVersion !== 0) return byVersion;
+  return Math.sign((Number(sa) || 0) - (Number(sb) || 0));
+}
+
+/** Wait up to `waitMs` (max 3 s) for `root` to be indexed. */
+export async function daemonReady(
+  input: { readonly root: string; readonly waitMs: number } & ClientOptions,
+): Promise<DaemonOutcome<{ readonly ready: boolean; readonly state: string }>> {
+  const env = input.env ?? process.env;
+  const record = await liveRecord(env);
+  if (typeof record === "string")
+    return { kind: "unavailable", reason: record };
+  return request(
+    record,
+    "POST",
+    "/v1/ready",
+    { root: input.root, waitMs: input.waitMs },
+    { ...input, timeoutMs: input.waitMs + 1_000 },
+  );
+}
+
+/** Call an internal route (`/v1/session`, `/v1/receipt`). */
+export async function callDaemonRoute<T = unknown>(
+  input: {
+    readonly path: "/v1/session" | "/v1/receipt";
+    readonly root: string;
+    readonly args?: Readonly<Record<string, unknown>>;
+  } & ClientOptions,
+): Promise<DaemonOutcome<T>> {
+  const env = input.env ?? process.env;
+  const record = await liveRecord(env);
+  if (typeof record === "string")
+    return { kind: "unavailable", reason: record };
+  return request<T>(
+    record,
+    "POST",
+    input.path,
+    { ...input.args, root: input.root },
+    input,
+  );
+}
+
 export type EnsureDaemonInput = {
   /** The executable and arguments that start a daemon in the foreground. */
   readonly command: string;
@@ -235,6 +322,14 @@ export async function ensureDaemon(
   if (current.kind === "ok") {
     if (!input.buildId || current.value.buildId === input.buildId) {
       return { kind: "ok", value: { started: false } };
+    }
+    // Two installs side by side must not take turns killing each other:
+    // only a newer client replaces the daemon; an older one runs in-process.
+    if (compareBuildIds(current.value.buildId, input.buildId) > 0) {
+      return {
+        kind: "unavailable",
+        reason: `daemon is from a newer build (${current.value.buildId})`,
+      };
     }
     await stopDaemon({ env });
     const deadline = Date.now() + 3_000;

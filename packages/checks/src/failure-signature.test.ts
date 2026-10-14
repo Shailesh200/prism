@@ -57,8 +57,18 @@ describe("failureIsPreexisting", () => {
     ).toBe(false);
   });
 
-  it("never matches two unreadable outputs", () => {
-    const empty = failureSignature("something broke");
+  it("matches an unreadable output only when it is the same failure, timings aside", () => {
+    // B3 replay: hono `lint` and an es-toolkit PnP error print no file, and
+    // fail identically on the clean parent. That is already failing, not caused.
+    const before = failureSignature("lint failed after 1.2s\nexit code 1");
+    const same = failureSignature("lint failed after 3.4s\nexit code 1");
+    const other = failureSignature("Cannot find module 'x'\nexit code 1");
+    expect(failureIsPreexisting(before, same)).toBe(true);
+    expect(failureIsPreexisting(before, other)).toBe(false);
+  });
+
+  it("never matches two empty outputs", () => {
+    const empty = failureSignature("");
     expect(failureIsPreexisting(empty, empty)).toBe(false);
   });
 });

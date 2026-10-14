@@ -117,6 +117,46 @@ export function scanSurfaces(home = homedir()): SurfaceHit[] {
     pushLaunch(hits, "cursor", cursorMcp, `${name} ${launchText(entry)}`);
   }
 
+  const claudeJson = join(home, ".claude.json");
+  for (const [name, entry] of Object.entries(
+    mcpServers(readJson(claudeJson)),
+  )) {
+    if (!/prism/i.test(name) && !/prism/i.test(launchText(entry))) continue;
+    pushLaunch(hits, "claude", claudeJson, `${name} ${launchText(entry)}`);
+  }
+
+  const opencodeJson = join(home, ".config", "opencode", "opencode.json");
+  const opencode = readJson(opencodeJson) as {
+    mcp?: Record<string, { command?: unknown; environment?: unknown }>;
+  } | null;
+  for (const [name, entry] of Object.entries(opencode?.mcp ?? {})) {
+    const command = Array.isArray(entry.command)
+      ? entry.command.map(String)
+      : [];
+    const text = launchText({
+      command: command[0],
+      args: command.slice(1),
+      env: entry.environment,
+    });
+    if (!/prism/i.test(name) && !/prism/i.test(text)) continue;
+    pushLaunch(hits, "opencode", opencodeJson, `${name} ${text}`);
+  }
+
+  const codexToml = join(home, ".codex", "config.toml");
+  if (existsSync(codexToml)) {
+    const section =
+      /^\[mcp_servers\.prism\]\s*$([\s\S]*?)(?=^\[|(?![\s\S]))/m.exec(
+        readFileSync(codexToml, "utf8"),
+      );
+    if (section?.[1])
+      pushLaunch(
+        hits,
+        "codex",
+        codexToml,
+        `prism ${section[1].replace(/\s+/g, " ").trim()}`,
+      );
+  }
+
   const claudeSettings = join(home, ".claude", "settings.json");
   walkHooks(readJson(claudeSettings), hits, claudeSettings);
 

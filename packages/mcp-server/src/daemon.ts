@@ -7,7 +7,7 @@
 
 import { isAbsolute } from "node:path";
 import type { PrismWorkspace } from "@repo-prism/core";
-import type { DaemonTool } from "@repo-prism/daemon/server";
+import type { DaemonRootRoute, DaemonTool } from "@repo-prism/daemon/server";
 import { PrismErrorCode, err, ok, prismError } from "@repo-prism/shared";
 import { z } from "zod";
 import { daemonBuildId } from "./daemon-attach.js";
@@ -44,6 +44,65 @@ export function daemonTools(): Map<string, DaemonTool> {
       daemonToolFor(tool),
     ]),
   );
+}
+
+const SessionArgs = z.object({ sessionId: z.string().min(1).optional() });
+const ReceiptArgs = z.object({
+  sessionId: z.string().min(1).optional(),
+  waitMs: z.number().int().min(0).max(10_000).optional(),
+});
+
+function parseWith<T>(schema: z.ZodType<T>, raw: unknown) {
+  const parsed = schema.safeParse(raw ?? {});
+  return parsed.success
+    ? ok(parsed.data)
+    : err(
+        prismError(
+          PrismErrorCode.VALIDATION,
+          parsed.error.issues
+            .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+            .join("; "),
+        ),
+      );
+}
+
+/** `/v1/receipt` (plan §5.7): the receipt, from the daemon's own service. */
+export async function daemonRoutes(): Promise<Map<string, DaemonTool>> {
+  const { receiptService } = await import("./tools/receipt.js");
+  return new Map<string, DaemonTool>([
+    [
+      "/v1/receipt",
+      {
+        parseArgs: (raw) => parseWith(ReceiptArgs, raw),
+        call: ({ workspace }, args) => {
+          const { sessionId, waitMs } = args as z.infer<typeof ReceiptArgs>;
+          return receiptService().receipt(workspace, {
+            ...(sessionId ? { sessionId } : {}),
+            ...(waitMs ? { waitMs } : {}),
+          });
+        },
+      },
+    ],
+  ]);
+}
+
+/** `/v1/session`: record the session baseline without waiting for an index. */
+export async function daemonRootRoutes(): Promise<
+  Map<string, DaemonRootRoute>
+> {
+  const { recordSessionBaseline } = await import("./safety/receipt-service.js");
+  return new Map<string, DaemonRootRoute>([
+    [
+      "/v1/session",
+      {
+        parseArgs: (raw) => parseWith(SessionArgs, raw),
+        call: async (root, args) => {
+          const { sessionId } = args as z.infer<typeof SessionArgs>;
+          return recordSessionBaseline(root, sessionId);
+        },
+      },
+    ],
+  ]);
 }
 
 /**
@@ -117,6 +176,8 @@ export async function runDaemon(): Promise<void> {
   const started = await startDaemon({
     buildId: daemonBuildId(),
     tools: daemonTools(),
+    routes: await daemonRoutes(),
+    rootRoutes: await daemonRootRoutes(),
     onIndexed: await daemonOnIndexed(),
   });
   if (started.kind === "already-running") {

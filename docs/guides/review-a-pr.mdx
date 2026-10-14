@@ -5,7 +5,7 @@ description: "Roll up change risk for a working tree or branch before you merge.
 
 > Aggregate blast radius, safe-delete hints, and test impact across a diff.
 
-<Tabs groupId="surface" items={['CLI', 'VS Code', 'AI agent']} persist>
+<Tabs groupId="surface" items={['CLI', 'AI agent']} persist>
   <Tab value="CLI">
 
 ```bash
@@ -16,12 +16,6 @@ prism review --base origin/main --fail-on high
 
 With no arguments, `review` covers the working tree (including untracked files).
 In CI, always pass `--base`.
-
-  </Tab>
-  <Tab value="VS Code">
-
-SCM / source control right-click → **Review Changes**, or open the Change Review
-screen. Same roll-up as the CLI against your pending edits.
 
   </Tab>
   <Tab value="AI agent">

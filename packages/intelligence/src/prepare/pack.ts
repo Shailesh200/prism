@@ -25,6 +25,7 @@ import {
   fitPrepareToBudget,
 } from "@repo-prism/shared";
 import { buildWorkOrder } from "./work-order.js";
+import { rankFiles } from "./rank.js";
 import {
   cachedDependencyGraph,
   cachedFeatureGraph,
@@ -85,31 +86,10 @@ const WEAK_SEED = new Set([
   "cjs",
 ]);
 
-const SUPPORT_HINTS = new Set([
-  "screen",
-  "layout",
-  "tooltip",
-  "css",
-  "style",
-  "styles",
-  "styling",
-  "stylesheet",
-  "readme",
-  "docs",
-  "doc",
-  "ui",
-  "view",
-  "page",
-  "theme",
-  "config",
-]);
-
-const SUPPORT_FILE = /\.(css|scss|sass|less|md|mdx|json|ya?ml)$/i;
 const FRAMEWORK_IMPORT = /^(express|next)(\/|$)/;
 const HTTP_HANDLER =
   /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|handler|default)$/;
 
-const SCORE_THRESHOLD = 0.12;
 const REUSE_THRESHOLD = 0.25;
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 
@@ -218,19 +198,6 @@ function offLimit(path: string): ReturnType<typeof offLimitReason> {
   return remember(offLimitCache, path, offLimitReason(path));
 }
 
-function isSupportAsset(path: string): boolean {
-  const name = basename(path);
-  if (/^readme(?:\.[^./]+)?$/i.test(name)) return true;
-  if (/(?:^|\/)(?:docs|config)\//i.test(path)) return true;
-  return SUPPORT_FILE.test(path);
-}
-
-function taskImpliesSupport(tokens: readonly string[]): boolean {
-  return tokens.some(
-    (t) => SUPPORT_HINTS.has(t) || SUPPORT_HINTS.has(stemWord(t)),
-  );
-}
-
 /*
  * Prepare scores every file in the snapshot. The lookups below were linear
  * scans per file, which made one call quadratic: 11s at 10k files (M-095).
@@ -259,23 +226,6 @@ function featuresByFile(
   return map;
 }
 
-/** How many analyzed files declare each symbol name. */
-const declarerCountCache = new WeakMap<IndexSnapshot, Map<string, number>>();
-
-function declarerCounts(snapshot: IndexSnapshot): Map<string, number> {
-  const hit = declarerCountCache.get(snapshot);
-  if (hit) return hit;
-  const counts = new Map<string, number>();
-  for (const file of snapshot.files) {
-    if (file.status !== "analyzed") continue;
-    for (const name of new Set(file.symbols.map((s) => s.name))) {
-      counts.set(name, (counts.get(name) ?? 0) + 1);
-    }
-  }
-  declarerCountCache.set(snapshot, counts);
-  return counts;
-}
-
 /** Identifier names repeat across files; tokenize each distinct one once. */
 const nameTokenCache = new Map<string, string[]>();
 
@@ -284,29 +234,6 @@ function nameTokens(name: string): string[] {
     nameTokenCache.get(name) ??
     remember(nameTokenCache, name, tokenizeTask(name))
   );
-}
-
-function featureMembership(
-  file: string,
-  features: readonly FeatureInfo[],
-  tokens: readonly string[],
-): { hit: boolean; name?: string; provenance: SignalProvenance } {
-  let best: FeatureInfo | undefined;
-  for (const feature of featuresByFile(features).get(file) ?? []) {
-    const overlap = tokensOverlap(nameTokens(feature.name), tokens);
-    if (!overlap && !tokens.some((t) => feature.slug.includes(t))) continue;
-    if (!best || feature.confidence > best.confidence) best = feature;
-  }
-  if (!best) {
-    return { hit: false, provenance: "unavailable" };
-  }
-  const provenance: SignalProvenance =
-    best.provenance === "inferred" ||
-    best.provenance === "measured" ||
-    best.provenance === "heuristic"
-      ? best.provenance
-      : "inferred";
-  return { hit: true, name: best.name, provenance };
 }
 
 function importNeighbors(snapshot: IndexSnapshot): Map<string, Set<string>> {
@@ -327,27 +254,6 @@ function importNeighbors(snapshot: IndexSnapshot): Map<string, Set<string>> {
     add(to, from);
   }
   return adj;
-}
-
-/** Import distance from the nearest seed, up to six hops. One BFS per call. */
-function seedDistances(
-  seeds: readonly string[],
-  adj: Map<string, Set<string>>,
-): Map<string, number> {
-  const dist = new Map<string, number>(seeds.map((s) => [s, 0]));
-  let frontier = [...seeds];
-  for (let d = 1; frontier.length > 0 && d <= 6; d += 1) {
-    const next: string[] = [];
-    for (const node of frontier) {
-      for (const n of adj.get(node) ?? []) {
-        if (dist.has(n)) continue;
-        dist.set(n, d);
-        next.push(n);
-      }
-    }
-    frontier = next;
-  }
-  return dist;
 }
 
 const gitByPathCache = new WeakMap<
@@ -626,31 +532,6 @@ function resolveSeeds(
   }
 
   return { seeds: [...seeds], strong, ambiguous };
-}
-
-function fileHousesTaskToken(
-  file: IndexedFile,
-  tokens: readonly string[],
-): boolean {
-  if (pathTokens(file.path).some((t) => tokens.includes(t))) return true;
-  return file.symbols.some((s) => tokensOverlap(nameTokens(s.name), tokens));
-}
-
-function isolatedHomonym(
-  file: IndexedFile,
-  snapshot: IndexSnapshot,
-  tokens: readonly string[],
-  seeds: readonly string[],
-  dist: number | null,
-): boolean {
-  if (seeds.includes(file.path) || dist !== null) return false;
-  const counts = declarerCounts(snapshot);
-  const self = file.status === "analyzed" ? 1 : 0;
-  for (const symbol of file.symbols) {
-    if (!tokensOverlap(nameTokens(symbol.name), tokens)) continue;
-    if ((counts.get(symbol.name) ?? 0) - self > 0) return true;
-  }
-  return false;
 }
 
 export function scoreReuse(
@@ -1038,123 +919,32 @@ export function buildPrepareChange(
   const now = input.now ?? new Date();
   const tokens = tokenizeTask(task);
   const features = cachedFeatureGraph(snapshot).features;
+  // Named seeds (pasted path, declared identifier, unique exact name) anchor
+  // reuse; the ranker adds IDF seeds of its own for the file list.
   const { seeds, strong, ambiguous } = resolveSeeds(snapshot, task, tokens);
   const adj = importNeighbors(snapshot);
-  const distances = seedDistances(seeds, adj);
   const git = input.gitFiles;
-  const wantSupport = taskImpliesSupport(tokens);
 
-  type Ranked = {
-    path: string;
-    score: number;
-    why: string[];
-    provenance: SignalProvenance;
-  };
-  const ranked: Ranked[] = [];
-  for (const file of snapshot.files) {
-    const support =
-      wantSupport && isSupportAsset(file.path) && file.status !== "failed";
-    if (file.status !== "analyzed" && !support) continue;
-    const why: string[] = [];
-    let score = 0;
-    const feature = featureMembership(file.path, features, tokens);
-    if (feature.hit) {
-      score += 0.35;
-      why.push(`feature ${feature.name}`);
-    }
-    const dist = distances.get(file.path) ?? null;
-    if (dist !== null) {
-      score += 0.25 * (1 - Math.min(dist, 6) / 6);
-      why.push(dist === 0 ? "seed file" : `import distance ${dist}`);
-    }
-    if (strong.has(file.path)) {
-      // The task named this file or a symbol it declares: it outranks any word match.
-      score += 0.6;
-      why.push("named in task");
-    }
-    const pathHit = pathTokens(file.path).some((t) => tokens.includes(t));
-    const symbolHit = file.symbols.some((s) =>
-      tokensOverlap(nameTokens(s.name), tokens),
-    );
-    if (pathHit || symbolHit) {
-      const homonym = isolatedHomonym(file, snapshot, tokens, seeds, dist);
-      score += homonym ? 0.08 : 0.22;
-      why.push(pathHit ? "path matches task" : "name matches task");
-    }
-    if (
-      support &&
-      (pathHit || seeds.some((s) => dirname(s) === dirname(file.path)))
-    ) {
-      score += 0.2;
-      why.push("ui/docs/config");
-    }
-    const testsHit = isTestPath(file.path)
-      ? seeds.some(
-          (s) =>
-            file.path.startsWith(s.replace(/\/[^/]+$/, "/")) ||
-            stemsCover(s, file.path),
-        )
-      : false;
-    if (isTestPath(file.path) && (feature.hit || testsHit)) {
-      score += 0.15;
-      why.push("colocated test");
-    }
-    const own = ownershipHot(file.path, git);
-    if (own > 0) {
-      score += 0.1 * own;
-      why.push("ownership hot");
-    }
-    const churn = recentChurn(file.path, git, now);
-    if (churn > 0) {
-      score += 0.15 * churn;
-      why.push("recent churn");
-    }
-    if (
-      own > 0 &&
-      score < SCORE_THRESHOLD &&
-      (seeds.includes(file.path) ||
-        seeds.some(
-          (s) => dirname(s) === dirname(file.path) && dirname(file.path) !== "",
-        ) ||
-        fileHousesTaskToken(file, tokens))
-    ) {
-      score = SCORE_THRESHOLD;
-      why.push("owned seed home");
-    }
-    if (seeds.includes(file.path) && score < SCORE_THRESHOLD) {
-      score = SCORE_THRESHOLD;
-      if (!why.includes("seed file")) why.push("seed file");
-    }
-    if (score < SCORE_THRESHOLD) continue;
-    const provenance: SignalProvenance = feature.hit
-      ? feature.provenance
-      : dist !== null
-        ? "measured"
-        : "heuristic";
-    ranked.push({ path: file.path, score, why, provenance });
-  }
-  for (const seed of seeds) {
-    if (ranked.some((r) => r.path === seed)) continue;
-    const file = snapshot.files.find((f) => f.path === seed);
-    if (!file) continue;
-    const support =
-      wantSupport && isSupportAsset(file.path) && file.status !== "failed";
-    if (file.status !== "analyzed" && !support) continue;
-    ranked.push({
-      path: seed,
-      score: 0.25,
-      why: ["seed file"],
-      provenance: "measured",
-    });
-  }
-  ranked.sort((a, b) => b.score - a.score || a.path.localeCompare(b.path));
+  // Plan §5.1: IDF seeds + import distance; tests and off-limits excluded;
+  // recency/ownership only break ties.
+  const { ranked } = rankFiles({
+    snapshot,
+    task,
+    strong,
+    neighbors: adj,
+    tieBreak: (path) =>
+      Math.max(ownershipHot(path, git), recentChurn(path, git, now)),
+  });
 
+  // Files and tests share what the reserves (reuse 15%, house style 10%,
+  // work order 10%) leave; fitPrepareToBudget enforces the hard cap.
+  const fileBudget = Math.floor(budget * 0.65);
   const packed: ContextFile[] = [];
   let tokenEstimate = 0;
   for (const row of ranked) {
     const symbols = exportedSymbols(snapshot, row.path);
     const tokenWeight = prepareMapTokenWeight(row.path, symbols, row.why);
-    if (packed.length > 0 && tokenEstimate + tokenWeight > budget) break;
+    if (packed.length > 0 && tokenEstimate + tokenWeight > fileBudget) break;
     packed.push({
       path: row.path,
       symbols,
@@ -1172,7 +962,10 @@ export function buildPrepareChange(
   const testsInBudget: string[] = [];
   for (const path of tests) {
     const w = prepareMapTokenWeight(path, [], ["test"]);
-    if (tokenEstimate + testsWeight + w > budget && testsInBudget.length > 0) {
+    if (
+      tokenEstimate + testsWeight + w > fileBudget &&
+      testsInBudget.length > 0
+    ) {
       break;
     }
     testsInBudget.push(path);

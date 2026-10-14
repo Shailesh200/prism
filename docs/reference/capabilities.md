@@ -27,6 +27,8 @@ use this page when you need the exhaustive index.
 | `prism forget` | forget |
 | `prism graph` | graph |
 | `prism index` | index |
+| `prism install` | install |
+| `prism lens` | lens |
 | `prism memories` | memories |
 | `prism overview` | overview |
 | `prism packages` | packages |
@@ -38,8 +40,11 @@ use this page when you need the exhaustive index.
 | `prism review` | review |
 | `prism route` | route |
 | `prism safe-delete` | safe-delete |
+| `prism stats` | stats |
 | `prism symbol` | symbol |
 | `prism test-impact` | test-impact |
+| `prism uninstall` | uninstall |
+| `prism upgrade` | upgrade |
 
 ## MCP tools
 
@@ -58,10 +63,11 @@ use this page when you need the exhaustive index.
 | `list_findings` | Queueable findings from the last index |
 | `list_packages` | List the packages in a monorepo with their roots |
 | `prepare_change` | One call before you edit |
+| `receipt` | What this session changed and whether it is proven |
 | `rename_impact` | Every edit site a rename would touch, plus breaking-change hints for public surface |
 | `repository_overview` | What this repository is, in one bounded call |
 | `review_changes` | Review changed paths in one call |
 | `review_with` | Review a task or the current change through a lens |
 | `safe_delete` | Whether a file or symbol can be deleted safely |
-| `test_impact` | Which test files transitively cover a change target — the tests worth running after touching it |
+| `test_impact` | Which tests import the changed symbol, or a symbol that reaches it — the tests worth running after touching a target |
 | `workspace_status` | Compact workspace readiness |

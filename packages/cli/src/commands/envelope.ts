@@ -19,19 +19,40 @@ export const envelopeCommand: CommandHandler = async (context) => {
   const days = Number(context.args.option("days") ?? "7");
   const window = Number.isFinite(days) && days > 0 ? days : 7;
   const since = Date.now() - window * 24 * 3600_000;
-  const ledger = await readEnvelopeLedger(context.workspace.path);
+  const all = await readEnvelopeLedger(context.workspace.path);
+  // EN-1/EN-5: `--session <id>` narrows to one agent session; `--session`
+  // with no id ("latest") takes the session of the newest row.
+  const sessionArg = context.args.option("session");
+  const latest = [...all].reverse().find((row) => row.sessionId)?.sessionId;
+  const session =
+    sessionArg === undefined
+      ? undefined
+      : sessionArg === "latest" || sessionArg === ""
+        ? latest
+        : sessionArg;
+  const ledger =
+    sessionArg === undefined
+      ? all
+      : all.filter((row) => row.sessionId === session);
   const report = envelopeReport(ledger, { since });
   const today = envelopeReport(ledger, {
     since: new Date(new Date().toDateString()).getTime(),
   });
   return ok({
-    data: { days: window, today, report },
+    data: { days: window, ...(session ? { session } : {}), today, report },
     human({ color }) {
       if (report.calls === 0) {
-        return `No Prism calls recorded in the last ${window} days for this repository.`;
+        return sessionArg !== undefined
+          ? `No Prism calls recorded for session ${session ?? "(none recorded)"}.`
+          : `No Prism calls recorded in the last ${window} days for this repository.`;
       }
       const lines = [
-        renderHeading(`Envelope — last ${window} days`, color),
+        renderHeading(
+          session
+            ? `Envelope — session ${session}`
+            : `Envelope — last ${window} days`,
+          color,
+        ),
         "",
         `Today        ${today.calls} calls · ${compact(today.tokens)} tokens in`,
         `${window}-day total  ${report.calls} calls · ${compact(report.tokens)} tokens in · ${report.fromHooks} from hooks · ${report.overBudget} over budget`,

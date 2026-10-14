@@ -26,6 +26,7 @@
  */
 
 import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -285,6 +286,36 @@ function install(cwd: string): void {
   }
 }
 
+const LOCK_FILES = [
+  "package.json",
+  "yarn.lock",
+  "pnpm-lock.yaml",
+  "package-lock.json",
+  "bun.lock",
+  "bun.lockb",
+];
+const installedFor = new Map<string, string>();
+
+/**
+ * Old commits pin different dependencies than HEAD. Checks run against a
+ * stale install fail for environmental reasons ("eslint: command not found",
+ * a package missing from the PnP map) on both the change and its parent, so
+ * every check reads as already failing and no check can ever catch anything.
+ * Reinstall whenever the manifest or lockfile differs from the last install.
+ */
+function ensureInstalled(cwd: string): void {
+  const hash = createHash("sha256");
+  for (const name of LOCK_FILES) {
+    const path = join(cwd, name);
+    hash.update(`${name}\0`);
+    if (existsSync(path)) hash.update(readFileSync(path));
+  }
+  const key = hash.digest("hex");
+  if (installedFor.get(cwd) === key) return;
+  install(cwd);
+  installedFor.set(cwd, key);
+}
+
 function resetTo(cwd: string, sha: string): void {
   git(cwd, ["checkout", "-q", "-f", "--detach", sha]);
   git(cwd, ["clean", "-fdq", "-e", "node_modules", "-e", "**/node_modules"]);
@@ -355,6 +386,8 @@ async function main(): Promise<void> {
 
     const wt = join(work, "wt", name);
     if (!existsSync(wt)) {
+      // A run that was stopped can leave the worktree registered but gone.
+      git(clone, ["worktree", "prune"]);
       git(clone, ["worktree", "add", "-q", "--detach", wt, "HEAD"]);
     }
     if (!existsSync(join(wt, "node_modules"))) {
@@ -431,6 +464,7 @@ async function main(): Promise<void> {
       };
       try {
         applyAsDirty(wt, item.sha);
+        ensureInstalled(wt);
         const opened = Prism.create().openRepository(wt);
         if (!opened.ok) throw new Error(opened.error.message);
         const started = Date.now();
@@ -451,6 +485,7 @@ async function main(): Promise<void> {
 
         // Same steps on the clean parent: what failed before the change is noise.
         resetTo(wt, `${item.sha}^`);
+        ensureInstalled(wt);
         const groups = new Map<string, string[]>();
         for (const p of r.touched.files) {
           const pkg = packageRootFor(wt, p);

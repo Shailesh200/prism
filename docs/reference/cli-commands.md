@@ -12,6 +12,58 @@ they are the options it accepts.
 See [Usage](../usage.mdx) for global options, exit codes, and how
 `--fail-on` behaves in CI.
 
+## Set up
+
+### `prism install <client>`
+
+Connect Prism to Claude Code, Cursor, Codex or opencode (MCP server, hooks, skills, rule line)
+
+| Argument | Meaning |
+|---|---|
+| `<client>` | claude, cursor, codex, opencode, or all |
+
+| Option | Meaning |
+|---|---|
+| `--project` | Write the configs into this repository |
+| `--user` | Write the configs into your home (default) |
+| `--local <checkout>` | Built Prism checkout to link (default: the one this CLI runs from) |
+
+```bash
+prism install claude
+```
+
+```bash
+prism install cursor --project
+```
+
+```bash
+prism install all --local ~/Prism
+```
+
+### `prism uninstall`
+
+Remove everything prism install added; --purge also deletes Prism data
+
+| Option | Meaning |
+|---|---|
+| `--purge` | Also delete ~/.prism and this repository's .prism |
+
+```bash
+prism uninstall
+```
+
+```bash
+prism uninstall --purge
+```
+
+### `prism upgrade`
+
+Re-link the recorded clients to the current build and restart the daemon
+
+```bash
+prism upgrade
+```
+
 ## Understand a repository
 
 ### `prism overview`
@@ -229,6 +281,7 @@ What Prism put into agents' context here, by tool, and what ran over budget
 | Option | Meaning |
 |---|---|
 | `--days <n>` | Window to report (default 7) |
+| `--session <id>` | One agent session; `latest` for the newest |
 
 ```bash
 prism envelope
@@ -236,6 +289,10 @@ prism envelope
 
 ```bash
 prism envelope --days 30 --json
+```
+
+```bash
+prism envelope --session latest
 ```
 
 ### `prism receipts [action] [n]`
@@ -250,6 +307,7 @@ List the change receipts the stop hook wrote, or show one
 | Option | Meaning |
 |---|---|
 | `--as <format>` | show: text, markdown, or svg |
+| `--last` | Show the newest receipt |
 | `--limit <n>` | Maximum rows to print (default 50) |
 
 ```bash
@@ -257,7 +315,41 @@ prism receipts
 ```
 
 ```bash
+prism receipts --last
+```
+
+```bash
 prism receipts show 1 --as markdown > receipt.md
+```
+
+### `prism lens [action] [target]`
+
+List, add or remove review lenses (shared by every repository), or overrule a lens check
+
+| Argument | Meaning |
+|---|---|
+| `[action]` | list (default), add, remove, or override |
+| `[target]` | add: the lens name; remove/override: the lens id |
+
+| Option | Meaning |
+|---|---|
+| `--name <text>` | add: display name (default: the id) |
+| `--role <text>` | add: what the lens is |
+| `--focus <text>` | add: how it judges |
+| `--checklist <item>` | add: a checklist item (repeatable) |
+| `--checks <ids>` | add: data-backed checks, comma-separated (repeatable) |
+| `--evidence <ids>` | add: Prism reads it uses, comma-separated (repeatable) |
+| `--trigger <phrase>` | add: a phrase that chooses this lens (repeatable) |
+| `--check <id>` | override: the check to overrule |
+| `--path <file>` | override: the file the finding names |
+| `--note <text>` | override: why it is fine |
+
+```bash
+prism lens add perf --role "Checks hot paths" --focus "No new N+1" --checklist "No query in a loop" --trigger "slow query"
+```
+
+```bash
+prism lens override dev --check reuse_missed --path src/utils/formatDueDate.ts --note "intentionally differs"
 ```
 
 ## Inspect structure
@@ -395,14 +487,19 @@ prism memories --json
 
 ## Diagnostics
 
-### `prism doctor`
+### `prism doctor [topic]`
 
 Check the environment, workspace and index
+
+| Argument | Meaning |
+|---|---|
+| `[topic]` | skills: check user skills that name Prism tools |
 
 | Option | Meaning |
 |---|---|
 | `--ci` | Extra CI checks (e.g. warn on shallow clones that truncate history) |
 | `--surfaces` | Show which Prism each editor launches. Fails inside this repo if any of them is the published package. |
+| `--fix` | Stop the daemon and rewrite editor configs to the recorded local build |
 
 ```bash
 prism doctor
@@ -414,6 +511,30 @@ prism doctor --ci
 
 ```bash
 prism doctor --surfaces
+```
+
+```bash
+prism doctor skills
+```
+
+```bash
+prism doctor --fix
+```
+
+### `prism stats`
+
+Hook and tool timings and outcomes from events.jsonl
+
+| Option | Meaning |
+|---|---|
+| `--since <duration>` | Only events newer than this, e.g. 1d, 6h (default: all) |
+
+```bash
+prism stats
+```
+
+```bash
+prism stats --since 1d
 ```
 
 ### `prism data prune`

@@ -1,18 +1,26 @@
 /**
- * The lens store (ADR-0059): definitions, memory, and review history, private
- * under `~/.prism/workspaces/<key>/lenses/store.json`. Never in the repo.
+ * The lens store (ADR-0059, plan §5.3 "Storage"). Two files, never in a repo:
+ *
+ * - Lens definitions (built-in and custom) are global, per user:
+ *   `~/.prism/lenses/lenses.json`. A lens added in one repository is there
+ *   in every other one.
+ * - Facts and review history are about one repository, so they stay in
+ *   `~/.prism/workspaces/<key>/lenses/store.json`.
  *
  * Node-only. Import from `@repo-prism/shared/lens-store`, never the barrel.
- * MCP, the Dashboard dev server, and the IDE host all read the same file.
  */
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { z } from "zod";
 import type { PrismError } from "./errors.js";
+import { recordEvent } from "./events.js";
 import {
+  LENS_CHECK_IDS,
   LENS_EVIDENCE,
+  LensCheckIdSchema,
   LensDefinitionSchema,
   LensFactSchema,
   LensReviewRecordSchema,
@@ -23,7 +31,8 @@ import {
   type LensVerdictValue,
   type LensView,
 } from "./lenses.js";
-import { workspacePrismDir } from "./prism-home.js";
+import { invalidTrigger } from "./lens-route.js";
+import { prismHomeDir, workspacePrismDir } from "./prism-home.js";
 import type { Result } from "./result.js";
 import { isFixturePath, isTestPath } from "./test-paths.js";
 import { offLimitReason } from "./work-order.js";
@@ -35,8 +44,13 @@ const StoreSchema = z.object({
 });
 export type LensStore = z.infer<typeof StoreSchema>;
 
-const EMPTY: LensStore = { lenses: [], facts: [], reviews: [] };
+const DefinitionsSchema = z.object({ lenses: z.array(LensDefinitionSchema) });
+const WorkspaceSchema = z.object({
+  facts: z.array(LensFactSchema).default([]),
+  reviews: z.array(LensReviewRecordSchema).default([]),
+});
 
+/** Per-repository facts and reviews. */
 export function lensStorePath(
   workspaceRoot: string,
   env: NodeJS.ProcessEnv = process.env,
@@ -44,19 +58,99 @@ export function lensStorePath(
   return join(workspacePrismDir(workspaceRoot, env), "lenses", "store.json");
 }
 
-/** A missing or unreadable store is empty, never an error. */
+/** Global lens definitions, shared by every repository (plan §5.3). */
+export function lensDefinitionsPath(
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return join(prismHomeDir(env), "lenses", "lenses.json");
+}
+
+type Loaded<T> = { readonly value: T | null };
+
+/**
+ * A missing file is empty. An unreadable or invalid one is also read as
+ * empty, but it is moved aside and logged first, so the next write cannot
+ * overwrite the owner's lenses without a trace.
+ */
+async function readJson<T>(
+  path: string,
+  schema: z.ZodType<T, z.ZodTypeDef, unknown>,
+  env: NodeJS.ProcessEnv,
+): Promise<Loaded<T>> {
+  let text: string;
+  try {
+    text = await readFile(path, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT")
+      return { value: null };
+    throw error;
+  }
+  let parsed: z.SafeParseReturnType<unknown, T> | null = null;
+  try {
+    parsed = schema.safeParse(JSON.parse(text));
+  } catch (error) {
+    await quarantine(
+      path,
+      error instanceof Error ? error.message : String(error),
+      env,
+    );
+    return { value: null };
+  }
+  if (!parsed.success) {
+    await quarantine(path, parsed.error.message.slice(0, 200), env);
+    return { value: null };
+  }
+  return { value: parsed.data };
+}
+
+async function quarantine(
+  path: string,
+  reason: string,
+  env: NodeJS.ProcessEnv,
+): Promise<void> {
+  const aside = `${path}.corrupt-${Date.now()}`;
+  await rename(path, aside);
+  recordEvent(
+    {
+      event: "lens.store_corrupt",
+      outcome: "degraded",
+      reason,
+      detail: { path, aside },
+    },
+    { env },
+  );
+}
+
 export async function readLensStore(
   workspaceRoot: string,
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<LensStore> {
-  try {
-    const parsed = StoreSchema.safeParse(
-      JSON.parse(await readFile(lensStorePath(workspaceRoot, env), "utf8")),
-    );
-    return parsed.success ? parsed.data : EMPTY;
-  } catch {
-    return EMPTY;
-  }
+  const [definitions, workspace] = await Promise.all([
+    readJson(lensDefinitionsPath(env), DefinitionsSchema, env),
+    readJson(
+      lensStorePath(workspaceRoot, env),
+      StoreSchema.partial().passthrough(),
+      env,
+    ),
+  ]);
+  const local = WorkspaceSchema.parse({
+    facts: workspace.value?.facts ?? [],
+    reviews: workspace.value?.reviews ?? [],
+  });
+  // 1.x kept definitions per workspace. They are never read in 2.0 (§3.1a):
+  // definitions come only from the global file.
+  return {
+    lenses: definitions.value?.lenses ?? [],
+    facts: local.facts,
+    reviews: local.reviews,
+  };
+}
+
+async function atomicWrite(path: string, value: unknown): Promise<void> {
+  await mkdir(dirname(path), { recursive: true });
+  const tmp = `${path}.${process.pid}.${randomUUID().slice(0, 8)}.tmp`;
+  await writeFile(tmp, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  await rename(tmp, path);
 }
 
 async function writeLensStore(
@@ -64,11 +158,11 @@ async function writeLensStore(
   store: LensStore,
   env: NodeJS.ProcessEnv,
 ): Promise<void> {
-  const path = lensStorePath(workspaceRoot, env);
-  await mkdir(dirname(path), { recursive: true });
-  const tmp = `${path}.${process.pid}.tmp`;
-  await writeFile(tmp, `${JSON.stringify(store, null, 2)}\n`, "utf8");
-  await rename(tmp, path);
+  await atomicWrite(lensDefinitionsPath(env), { lenses: store.lenses });
+  await atomicWrite(lensStorePath(workspaceRoot, env), {
+    facts: store.facts,
+    reviews: store.reviews,
+  });
 }
 
 const ARCHITECT_PROCEDURE = `You are the Architect lens: the senior pass on structure. Use it for a new feature, a plan, or a pull request. Read the repo's shape before you propose anything.
@@ -155,6 +249,9 @@ export const DEFAULT_LENSES: readonly LensDefinition[] = [
     evidence: ["boundaries", "cycles", "rationale", "off-limits"],
     enabled: true,
     seededDefault: true,
+    triggers: [],
+    checks: ["new_cross_package_edge", "new_value_cycle", "off_limits_touched"],
+    overrules: [],
     procedure: ARCHITECT_PROCEDURE,
   },
   {
@@ -172,6 +269,13 @@ export const DEFAULT_LENSES: readonly LensDefinition[] = [
     evidence: ["test-impact", "verify-plan", "test-layout", "blast"],
     enabled: true,
     seededDefault: true,
+    triggers: [],
+    checks: [
+      "untested_changed_symbol",
+      "dependents_not_in_diff",
+      "test_reaches_but_not_run",
+    ],
+    overrules: [],
     procedure: QA_PROCEDURE,
   },
   {
@@ -189,6 +293,9 @@ export const DEFAULT_LENSES: readonly LensDefinition[] = [
     evidence: ["reuse", "house-style", "duplicates"],
     enabled: true,
     seededDefault: true,
+    triggers: [],
+    checks: ["reuse_missed", "new_dependency_added", "untested_new_branch"],
+    overrules: [],
     procedure: DEV_PROCEDURE,
   },
 ];
@@ -213,14 +320,28 @@ export function applyDefaultProcedures(
     const fresh = DEFAULT_LENSES.find((row) => row.id === lens.id);
     if (!fresh || !lens.seededDefault) return lens;
     const previous = PREVIOUS_DEFAULTS.find((row) => row.id === lens.id);
+    // Plan §5.3 upgrade safety: replace the shipped text only when the owner
+    // changed nothing, including the name. Otherwise keep their words and
+    // only fill what is empty.
     const untouched =
       previous !== undefined &&
+      lens.name === fresh.name &&
       lens.role === previous.role &&
       lens.focus === previous.focus &&
       sameChecklist(lens.checklist, previous.checklist);
-    if (untouched) return { ...fresh, enabled: lens.enabled };
-    if (!lens.procedure.trim()) return { ...lens, procedure: fresh.procedure };
-    return lens;
+    if (untouched) {
+      return {
+        ...fresh,
+        enabled: lens.enabled,
+        triggers: lens.triggers,
+        overrules: lens.overrules,
+      };
+    }
+    return {
+      ...lens,
+      procedure: lens.procedure.trim() ? lens.procedure : fresh.procedure,
+      checks: lens.checks.length > 0 ? lens.checks : fresh.checks,
+    };
   });
 }
 
@@ -506,6 +627,9 @@ export type CustomLensDraft = {
   readonly tone?: string | undefined;
   readonly checklist: readonly string[];
   readonly evidence: readonly LensEvidence[];
+  readonly triggers?: readonly string[] | undefined;
+  /** Data-backed checks this lens runs (plan §5.3); ids from LENS_CHECK_IDS. */
+  readonly checks?: readonly string[] | undefined;
 };
 
 const CustomLensDraftSchema = z.object({
@@ -515,7 +639,18 @@ const CustomLensDraftSchema = z.object({
   tone: z.string().trim().max(200).optional(),
   checklist: z.array(z.string().trim().min(1).max(300)).min(1).max(20),
   evidence: z.array(z.enum(LENS_EVIDENCE)).min(1),
+  triggers: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
+  checks: z.array(z.string().trim().min(1)).max(20).optional(),
 });
+
+/** CL-5: an unknown check id is refused with the list of valid ones. */
+export function unknownLensChecks(checks: readonly string[]): string | null {
+  const valid = new Set<string>(LENS_CHECK_IDS);
+  const unknown = checks.filter((id) => !valid.has(id));
+  return unknown.length === 0
+    ? null
+    : `Unknown check ${unknown.join(", ")}. Valid checks: ${LENS_CHECK_IDS.join(", ")}.`;
+}
 
 /** Stable id from a display name, avoiding ids already in the store. */
 export function lensIdFromName(
@@ -555,6 +690,12 @@ export async function addCustomLens(
     );
   }
   const input = parsed.data;
+  for (const phrase of input.triggers ?? []) {
+    const refused = invalidTrigger(phrase);
+    if (refused) throw new Error(`Trigger refused: ${refused}.`);
+  }
+  const unknownChecks = unknownLensChecks(input.checks ?? []);
+  if (unknownChecks) throw new Error(unknownChecks);
   const store = await readLensStore(workspaceRoot, env);
   const lenses =
     store.lenses.length > 0 ? [...store.lenses] : [...DEFAULT_LENSES];
@@ -573,6 +714,9 @@ export async function addCustomLens(
     evidence: input.evidence,
     enabled: true,
     seededDefault: false,
+    triggers: input.triggers ?? [],
+    checks: input.checks ?? [],
+    updatedAt: new Date().toISOString(),
   });
   const next: LensStore = { ...store, lenses: [...lenses, definition] };
   await writeLensStore(workspaceRoot, next, env);
@@ -673,4 +817,76 @@ export async function overrideLensReview(
     env,
   );
   return learned;
+}
+
+/** Content hash an overrule is pinned to (CL-2); null when the file is gone. */
+export function contentFingerprint(root: string, path: string): string | null {
+  const abs = join(root, path);
+  if (!existsSync(abs)) return null;
+  return createHash("sha256")
+    .update(readFileSync(abs))
+    .digest("hex")
+    .slice(0, 16);
+}
+
+/** The fingerprint string an overrule stores for a path. */
+export function pathFingerprint(path: string, hash: string): string {
+  return `path:${path}:${hash}`;
+}
+
+/**
+ * `prism lens override` (CL-2): remember that the owner overruled `check`
+ * on `path` as it is now. The same finding on the same content reads
+ * `overruled` with the note; any edit to the file re-opens it (CL-3).
+ */
+export async function addLensOverrule(
+  workspaceRoot: string,
+  input: {
+    readonly lens: string;
+    readonly check: string;
+    readonly path: string;
+    readonly note: string;
+  },
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<LensDefinition> {
+  const check = LensCheckIdSchema.safeParse(input.check);
+  if (!check.success) {
+    throw new Error(
+      `Unknown check ${input.check}. Valid checks: ${LENS_CHECK_IDS.join(", ")}.`,
+    );
+  }
+  const note = input.note.trim();
+  if (!note) throw new Error("An overrule needs a note saying why.");
+  const hash = contentFingerprint(workspaceRoot, input.path);
+  if (!hash) throw new Error(`No file at ${input.path}.`);
+  const store = await readLensStore(workspaceRoot, env);
+  const lenses = applyDefaultProcedures(
+    store.lenses.length > 0 ? store.lenses : DEFAULT_LENSES,
+  );
+  const index = lenses.findIndex((row) => row.id === input.lens);
+  if (index < 0) throw new Error(`No lens named ${input.lens}.`);
+  const current = lenses[index]!;
+  const fingerprint = pathFingerprint(input.path, hash);
+  const updated = LensDefinitionSchema.parse({
+    ...current,
+    overrules: [
+      ...current.overrules.filter(
+        (row) =>
+          !(
+            row.check === check.data &&
+            row.fingerprint.startsWith(`path:${input.path}:`)
+          ),
+      ),
+      {
+        check: check.data,
+        fingerprint,
+        note: note.slice(0, 500),
+        at: new Date().toISOString(),
+      },
+    ].slice(-200),
+    updatedAt: new Date().toISOString(),
+  });
+  lenses[index] = updated;
+  await writeLensStore(workspaceRoot, { ...store, lenses }, env);
+  return updated;
 }

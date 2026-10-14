@@ -462,6 +462,11 @@ export const SafeDeleteReportSchema = z.object({
   testsLikelyAffected: z.array(RepoRelativePathSchema),
   /** True when origin is tooling-critical (never safe from empty import graph). */
   toolingCritical: z.boolean().optional(),
+  /**
+   * Entry role of the target (plan §4.4): package-main, package-bin,
+   * package-export, route, literal-path, test. Present ⇒ not safe.
+   */
+  entryRole: z.string().min(1).optional(),
 });
 
 export type SafeDeleteReport = z.infer<typeof SafeDeleteReportSchema>;
@@ -477,10 +482,34 @@ export const RenameImpactReportSchema = z.object({
 
 export type RenameImpactReport = z.infer<typeof RenameImpactReportSchema>;
 
+/** Test runners Prism can build a run command for (plan §4.3). */
+export const TestRunnerSchema = z.enum([
+  "vitest",
+  "jest",
+  "bun",
+  "node:test",
+  "mocha",
+]);
+
+export type TestRunner = z.infer<typeof TestRunnerSchema>;
+
+/** One test reached by the symbol walk: why, and through which changed name. */
+export const TestImpactItemSchema = BlastRadiusItemSchema.extend({
+  /** Changed export the test (or its chain) binds, when known by name. */
+  viaSymbol: z.string().min(1).optional(),
+});
+
+export type TestImpactItem = z.infer<typeof TestImpactItemSchema>;
+
 export const TestImpactReportSchema = z.object({
   origin: ChangeOriginSchema,
-  /** Test files transitively reachable from the change. */
-  tests: z.array(BlastRadiusItemSchema),
+  /** Test files that import the changed symbol or a symbol that reaches it. */
+  tests: z.array(TestImpactItemSchema),
+  /** Detected runner; absent when unknown (then `unknownRunner` is true). */
+  runner: TestRunnerSchema.optional(),
+  /** Command that runs exactly `tests` (never executed by Prism). */
+  runCommand: z.string().min(1).optional(),
+  unknownRunner: z.literal(true).optional(),
 });
 
 export type TestImpactReport = z.infer<typeof TestImpactReportSchema>;
@@ -516,9 +545,27 @@ export const ChangeReviewReportSchema = z.object({
   totalAffectedFiles: z.number().int().nonnegative(),
   totalTestsAffected: z.number().int().nonnegative(),
   totalBreakingChanges: z.number().int().nonnegative(),
+  /** Paths in unsupported languages (plan §4.6): listed, not analysed. */
+  unsupported: z
+    .array(z.object({ path: RepoRelativePathSchema, message: z.string() }))
+    .optional(),
+  /** Above 300 paths only the riskiest 100 are analysed (plan §5.1 RC-3). */
+  truncated: z
+    .object({
+      total: z.number().int().nonnegative(),
+      analysed: z.number().int().nonnegative(),
+    })
+    .optional(),
+  /** Plain-language note, e.g. "nothing changed" on a clean tree (RC-4). */
+  message: z.string().optional(),
 });
 
 export type ChangeReviewReport = z.infer<typeof ChangeReviewReportSchema>;
+
+/** Above this many changed paths, `review_changes` analyses only the top ones. */
+export const REVIEW_LARGE_DIFF = 300;
+/** How many paths a large diff analyses, riskiest first. */
+export const REVIEW_ANALYSED_CAP = 100;
 
 /** What a Guard flag is warning about (M-072). */
 export const GUARD_CHECK_KINDS = ["duplicate", "orphan", "boundary"] as const;
@@ -550,6 +597,12 @@ export const GuardSessionSchema = z.object({
   generatedAt: z.string().datetime(),
   files: z.array(GuardFileSchema),
   excludedPreExisting: z.array(RepoRelativePathSchema),
+  /**
+   * Every path this session changed (dirty minus pre-existing), including
+   * files the index does not hold (unsupported languages, deletions). The
+   * receipt hashes these for its dedupe key.
+   */
+  sessionPaths: z.array(RepoRelativePathSchema),
   totalDirty: z.number().int().nonnegative(),
   truncated: z.boolean(),
 });
@@ -569,6 +622,12 @@ export const ExplainAreaSummarySchema = z.object({
   summary: z.string().min(1),
   /** Coarse file role when path is a file (M-049). */
   fileRole: FileRoleSchema.optional(),
+  /** Folder aggregation (plan §4.1): the folder's source files (≤ 50). */
+  files: z.array(RepoRelativePathSchema).optional(),
+  /** Folder aggregation: tests inside the folder or importing it (≤ 50). */
+  tests: z.array(RepoRelativePathSchema).optional(),
+  /** "folder" when `path` is a directory and the answer aggregates its files. */
+  kind: z.enum(["file", "folder"]).optional(),
 });
 
 export type ExplainAreaSummary = z.infer<typeof ExplainAreaSummarySchema>;
@@ -648,6 +707,10 @@ export const IndexedImportSchema = z.object({
    * `require` when set.
    */
   kind: z.enum(["import", "require"]).optional(),
+  /** Every binding is a type; such edges are excluded from value cycles (plan §4.1). */
+  typeOnly: z.boolean().optional(),
+  /** Names bound from the target as it exports them (`default`, `*`). §4.2 */
+  imported: z.array(z.string()).optional(),
 });
 
 export type IndexedImport = z.infer<typeof IndexedImportSchema>;
@@ -658,6 +721,10 @@ export const IndexedExportSchema = z.object({
   start: z.number().int().nonnegative().optional(),
   end: z.number().int().nonnegative().optional(),
   source: z.string().min(1).optional(),
+  /** `export type { X } from …` (plan §4.1). */
+  typeOnly: z.boolean().optional(),
+  /** Re-exports: the source module's name for this export (`*` for `export *`). */
+  importedName: z.string().min(1).optional(),
 });
 
 export type IndexedExport = z.infer<typeof IndexedExportSchema>;

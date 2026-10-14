@@ -1,4 +1,5 @@
 import {
+  type TestRunner,
   PrismErrorCode,
   classifyToolingRoot,
   err,
@@ -20,7 +21,8 @@ export type { BlastImpactCategory, ToolingCriticality };
 export { classifyToolingRoot, isRepoCriticalPath };
 
 export const FILE_PREFIX = "file:";
-export const DEFAULT_BLAST_MAX_DEPTH = 6;
+/** Dependency hops (plan §4.2: default 3). Re-export hops do not count. */
+export const DEFAULT_BLAST_MAX_DEPTH = 3;
 /** References/imports at or above this count flag a `widely-used` change. */
 export const WIDELY_USED_THRESHOLD = 3;
 /** Extra risk points for foundational config/build files (clamped with a High floor). */
@@ -81,7 +83,7 @@ export type ImpactContext = {
   readonly softEdges?: readonly SoftImpactEdge[];
   readonly softTruncated?: boolean;
   readonly coverageNote?: string;
-  /** Max reverse-dependency depth to traverse (default 6). */
+  /** Max dependency hops to traverse (default 3; re-export hops are free). */
   readonly maxDepth?: number;
   /** Edit vs delete scoring/copy emphasis (default edit). */
   readonly intent?: "edit" | "delete";
@@ -89,6 +91,18 @@ export type ImpactContext = {
   readonly symbols?: readonly ImpactSymbol[];
   /** Knowledge-graph references (required for `kind: "symbol"`). */
   readonly references?: readonly ImpactReference[];
+  /**
+   * Export names per file (from the index). When a whole file is reached, its
+   * dependents are matched against these names, so a barrel forwards only
+   * what the file really exports. Absent: every export is assumed (coarse).
+   */
+  readonly fileExports?: ReadonlyMap<string, readonly string[]>;
+  /** Workspace test runner (from package.json), for `runCommand`. */
+  readonly testRunner?: TestRunner;
+  /** Entry role per file (plan §4.4): package main/bin/exports, route, literal path, test. */
+  readonly entryRoles?: ReadonlyMap<string, string>;
+  /** Whether a path is source that may be reported as an orphan (plan §4.4). */
+  readonly isOrphanEligible?: (path: string) => boolean;
 };
 
 export function stripFilePrefix(idOrPath: string): string {
@@ -147,7 +161,72 @@ export type ReverseEdge = {
   readonly source?: string;
   /** Named bindings when present on the edge. */
   readonly specifiers?: readonly string[];
+  /** Import edges: target export names bound (`*` = all). Undefined = unknown. */
+  readonly imported?: readonly string[];
+  /** Re-export edges: `{from (name in target), as (name exported here)}`. */
+  readonly reexports?: readonly {
+    readonly from: string;
+    readonly as: string;
+  }[];
 };
+
+/** Export names under which a file is reached; `null` means every export. */
+export type ReachedNames = ReadonlySet<string> | null;
+
+/**
+ * Does an import that binds `imported` see a change to `names`? Unknown
+ * bindings (dynamic import, require, side-effect import) and namespace
+ * imports always do; a named import does only when it binds a changed name.
+ * This is what keeps a barrel import of `nth` out of `debounce`'s blast
+ * radius (plan §4.2).
+ */
+export function importBindsChanged(
+  imported: readonly string[] | undefined,
+  names: ReachedNames,
+): boolean {
+  if (names === null || imported === undefined || imported.length === 0) {
+    return true;
+  }
+  return imported.some((name) => name === "*" || names.has(name));
+}
+
+/**
+ * The first changed name an import binds, when both sides are known by name.
+ * Undefined for namespace/side-effect imports or unknown name sets.
+ */
+export function boundChangedName(
+  imported: readonly string[] | undefined,
+  names: ReachedNames,
+): string | undefined {
+  if (names === null || imported === undefined) return undefined;
+  return [...imported].sort().find((n) => n !== "*" && names.has(n));
+}
+
+/**
+ * Names a re-exporting module passes on when `names` changed in its source.
+ * `export *` forwards the same names; `export * as ns` exposes `ns`;
+ * `export { a as b }` exposes `b` when `a` changed. Empty set = not reached.
+ */
+export function reexportedNames(
+  reexports:
+    | readonly { readonly from: string; readonly as: string }[]
+    | undefined,
+  names: ReachedNames,
+): ReachedNames {
+  if (reexports === undefined || reexports.length === 0) return names;
+  const out = new Set<string>();
+  for (const { from, as } of reexports) {
+    if (as === "*") {
+      if (names === null) return null;
+      for (const n of names) if (n !== "default") out.add(n);
+    } else if (from === "*") {
+      if (names === null || names.size > 0) out.add(as);
+    } else if (names === null || names.has(from)) {
+      out.add(as);
+    }
+  }
+  return out;
+}
 
 /** `importedPath -> [{ importerPath, edgeKind }]` (who depends on a file). */
 export function buildReverseAdjacency(
@@ -175,12 +254,30 @@ export function buildReverseAdjacency(
     const specifiers = Array.isArray(rawSpecs)
       ? rawSpecs.filter((s): s is string => typeof s === "string")
       : undefined;
+    const rawImported = edge.attrs?.["imported"];
+    const imported = Array.isArray(rawImported)
+      ? rawImported.filter((s): s is string => typeof s === "string")
+      : undefined;
+    const rawRe = edge.attrs?.["reexports"];
+    const reexports = Array.isArray(rawRe)
+      ? rawRe.flatMap((r) =>
+          r &&
+          typeof r === "object" &&
+          !Array.isArray(r) &&
+          typeof r["from"] === "string" &&
+          typeof r["as"] === "string"
+            ? [{ from: r["from"], as: r["as"] }]
+            : [],
+        )
+      : undefined;
     const entry: ReverseEdge = {
       fromPath: stripFilePrefix(edge.from),
       kind: edge.kind,
       ...(typeOnly ? { typeOnly: true } : {}),
       ...(source ? { source } : {}),
       ...(specifiers && specifiers.length > 0 ? { specifiers } : {}),
+      ...(imported ? { imported } : {}),
+      ...(reexports && reexports.length > 0 ? { reexports } : {}),
     };
     const list = reverse.get(toPath);
     if (list) list.push(entry);
@@ -299,6 +396,8 @@ export type Affected = {
   readonly confidence?: ImpactConfidence;
   readonly evidence?: readonly string[];
   readonly typeOnly?: boolean;
+  /** Changed export name this file binds (import edges with named bindings). */
+  readonly viaSymbol?: string;
 };
 
 export type AffectedSet = {
@@ -338,27 +437,63 @@ export function computeAffected(
   const { originPath, symbol, resolutionNote } = resolved.value;
 
   const affected = new Map<string, Affected>();
-  const seen = new Set<string>([originPath]);
-  const queue: Array<{ path: string; depth: number }> = [];
+  // Names under which each file has been reached so far (null = all exports).
+  const reached = new Map<string, ReachedNames>();
+  const queue: Array<{
+    path: string;
+    depth: number;
+    hops: number;
+    names: ReachedNames;
+  }> = [];
   let truncated = false;
 
+  /**
+   * Record that `path` is reached under `names`. Re-queues a file when it is
+   * reached under names it was not reached under before, so a barrel seen
+   * first for one export still forwards a second one.
+   */
+  const reach = (
+    path: string,
+    names: ReachedNames,
+    depth: number,
+    hops: number,
+    reason: string,
+    edgeKind?: string,
+    extras?: Partial<Affected>,
+  ) => {
+    const prior = reached.get(path);
+    let merged: ReachedNames;
+    if (prior === undefined) merged = names;
+    else if (prior === null || names === null) merged = null;
+    else merged = new Set([...prior, ...names]);
+    const grew =
+      prior === undefined ||
+      (prior !== null &&
+        (merged === null || (merged as ReadonlySet<string>).size > prior.size));
+    if (!grew) return;
+    reached.set(path, merged);
+    if (path !== originPath && !affected.has(path)) {
+      affected.set(path, {
+        depth,
+        reason,
+        ...(edgeKind === undefined ? {} : { edgeKind }),
+        ...extras,
+      });
+    }
+    queue.push({ path, depth, hops, names: merged });
+  };
+  /** Every export of `path`, or null (all) when exports are unknown. */
+  const allExportsOf = (path: string): ReachedNames => {
+    const names = context.fileExports?.get(path);
+    return names ? new Set(names) : null;
+  };
   const enqueue = (
     path: string,
     depth: number,
     reason: string,
     edgeKind?: string,
     extras?: Partial<Affected>,
-  ) => {
-    if (seen.has(path)) return;
-    seen.add(path);
-    affected.set(path, {
-      depth,
-      reason,
-      ...(edgeKind === undefined ? {} : { edgeKind }),
-      ...extras,
-    });
-    queue.push({ path, depth });
-  };
+  ) => reach(path, allExportsOf(path), depth, depth, reason, edgeKind, extras);
 
   if (origin.kind === "symbol" && resolutionNote && !symbol) {
     // Ambiguous homonym — do not seed from name-matched references.
@@ -377,10 +512,17 @@ export function computeAffected(
       if (ref.path !== originPath) refPaths.add(ref.path);
     }
     for (const path of [...refPaths].sort()) {
-      enqueue(path, 1, `references ${symbol.name}`);
+      enqueue(path, 1, `references ${symbol.name}`, undefined, {
+        viaSymbol: symbol.name,
+      });
+    }
+    // Importers that bind the symbol by name (or through a barrel) are
+    // dependents even when the knowledge graph missed the reference.
+    if (symbol.exported !== false) {
+      reach(originPath, new Set([symbol.name]), 0, 0, "origin");
     }
   } else {
-    queue.push({ path: originPath, depth: 0 });
+    reach(originPath, allExportsOf(originPath), 0, 0, "origin");
     // Export-usage seed: files that reference symbols exported from this file
     // (covers package/barrel consumers when KG resolved the import).
     seedExportUsages(originPath, context, enqueue);
@@ -390,16 +532,35 @@ export function computeAffected(
     const current = queue.shift();
     if (!current) break;
     const neighbors = reverse.get(current.path) ?? [];
-    if (current.depth >= maxDepth) {
-      if (neighbors.some((n) => !seen.has(n.fromPath))) truncated = true;
-      continue;
-    }
     for (const neighbor of neighbors) {
+      const reexport = isReexportEdge(neighbor.kind);
+      let nextNames: ReachedNames;
+      if (reexport) {
+        nextNames = reexportedNames(neighbor.reexports, current.names);
+        // A barrel that forwards none of the changed names is not reached.
+        if (nextNames !== null && nextNames.size === 0) continue;
+      } else {
+        if (!importBindsChanged(neighbor.imported, current.names)) continue;
+        // The importer is affected; what it passes on is its own exports
+        // (possibly none — a test or an entry file still counts).
+        nextNames = allExportsOf(neighbor.fromPath);
+      }
+      // A barrel only forwards names; it is not a dependency hop.
+      const hops = reexport ? current.hops : current.hops + 1;
+      if (hops > maxDepth) {
+        truncated = true;
+        continue;
+      }
       const typeOnly = neighbor.typeOnly === true;
       const evidence = evidenceForReverseEdge(neighbor);
-      enqueue(
+      const viaSymbol = reexport
+        ? undefined
+        : boundChangedName(neighbor.imported, current.names);
+      reach(
         neighbor.fromPath,
+        nextNames,
         current.depth + 1,
+        hops,
         `${neighbor.kind}s ${current.path}`,
         neighbor.kind,
         {
@@ -409,10 +570,11 @@ export function computeAffected(
                 typeOnly: true,
                 lane: "type" as const,
               }
-            : isReexportEdge(neighbor.kind)
+            : reexport
               ? { confidence: "high" as const, lane: "reexport" as const }
               : { confidence: "high" as const }),
           ...(evidence ? { evidence } : {}),
+          ...(viaSymbol ? { viaSymbol } : {}),
         },
       );
     }
@@ -472,6 +634,7 @@ function seedExportUsages(
     const names = (hits.get(path) ?? []).sort();
     enqueue(path, 1, `uses exports of ${originPath}`, "import", {
       confidence: "high",
+      ...(names[0] ? { viaSymbol: names[0] } : {}),
       evidence: names.map((n) => `references export ${n} from ${originPath}`),
     });
   }

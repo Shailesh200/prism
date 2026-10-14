@@ -22,33 +22,40 @@ import {
   type ImpactContext,
   type ResolvedSymbol,
 } from "./internal.js";
+import { runCommandFor } from "./test-runner.js";
 
 /** Rename target — a change origin plus the proposed new name. */
 export type RenameTarget = BlastRadiusOrigin & { readonly newName?: string };
 
 /**
- * Files that become unreachable once `originPath` is removed. Fixpoint: a file
- * whose every importer is already in the removed set becomes an orphan too.
- * Files with no importers are roots/entrypoints and are never orphaned.
+ * Files that become unreachable once `originPath` is removed (plan §4.4).
+ * Fixpoint: a file whose every importer is already removed becomes an orphan
+ * too — unless it has an entry role (something outside the import graph
+ * loads it) or is not source (config, vendored, declarations). Files with no
+ * importers at all are roots and are never orphaned by a delete.
  */
 function computeOrphans(originPath: string, context: ImpactContext): string[] {
   const reverse = buildReverseAdjacency(context.dependencyGraph);
   const removed = new Set<string>([originPath]);
+  const orphans = new Set<string>();
+  const keeps = (file: string) =>
+    context.entryRoles?.has(file) === true ||
+    (context.isOrphanEligible !== undefined && !context.isOrphanEligible(file));
   let changed = true;
   while (changed) {
     changed = false;
     for (const file of context.analyzedPaths) {
-      if (removed.has(file)) continue;
+      if (removed.has(file) || keeps(file)) continue;
       const importers = reverse.get(file) ?? [];
       if (importers.length === 0) continue;
       if (importers.every((e) => removed.has(e.fromPath))) {
         removed.add(file);
+        orphans.add(file);
         changed = true;
       }
     }
   }
-  removed.delete(originPath);
-  return [...removed].sort((a, b) => a.localeCompare(b));
+  return [...orphans].sort((a, b) => a.localeCompare(b));
 }
 
 function foundationalConfigHint(originPath: string): BreakingChangeHint | null {
@@ -189,8 +196,16 @@ export function computeSafeDelete(
   const orphans =
     origin.kind === "file" ? computeOrphans(originPath, context) : [];
 
+  // An entry point is loaded from outside the import graph (a route, a
+  // package bin, "/sw.js"): no importers does not make it safe to delete.
+  const entryRole =
+    origin.kind === "file" ? context.entryRoles?.get(originPath) : undefined;
+
   const safe =
-    hardBlockers.length === 0 && !toolingCritical && softBlockers.length === 0;
+    hardBlockers.length === 0 &&
+    !toolingCritical &&
+    softBlockers.length === 0 &&
+    entryRole === undefined;
 
   return ok({
     origin: { kind: origin.kind, id: origin.id, path: originPath },
@@ -200,6 +215,7 @@ export function computeSafeDelete(
     orphans,
     testsLikelyAffected,
     ...(toolingCritical ? { toolingCritical: true } : {}),
+    ...(entryRole ? { entryRole } : {}),
   });
 }
 
@@ -258,23 +274,37 @@ export function computeRenameImpact(
   });
 }
 
-/** Test files transitively reachable from the change (hard ∪ soft). */
+/**
+ * Tests reached by the symbol walk (plan §4.3): a test counts only when it
+ * imports the changed symbol, or a symbol that reaches it. Filename/glob
+ * (soft) matches are not evidence and are excluded. Adds `runCommand` when
+ * the runner is known; never runs anything.
+ */
 export function computeTestImpact(
   origin: BlastRadiusOrigin,
   context: ImpactContext,
 ): Result<TestImpactReport, PrismError> {
   const result = computeAffected(origin, context);
   if (!result.ok) return result;
-  const { originPath, affected: hardMap } = result.value;
-  const { softOnly } = mergeSoftAffected(
-    originPath,
-    hardMap,
-    context.softEdges,
-  );
-  const merged = new Map([...hardMap, ...softOnly]);
+  const { originPath, affected } = result.value;
+  const tests = affectedItems(affected)
+    .filter((i) => isTestPath(i.path))
+    .map((item) => {
+      const via = affected.get(item.path)?.viaSymbol;
+      return via ? { ...item, viaSymbol: via } : item;
+    });
+  const runner = context.testRunner;
+  const runCommand = runner
+    ? runCommandFor(
+        runner,
+        tests.map((t) => t.path),
+      )
+    : undefined;
   return ok({
     origin: { kind: origin.kind, id: origin.id, path: originPath },
-    tests: affectedItems(merged).filter((i) => isTestPath(i.path)),
+    tests,
+    ...(runner ? { runner } : { unknownRunner: true as const }),
+    ...(runCommand ? { runCommand } : {}),
   });
 }
 

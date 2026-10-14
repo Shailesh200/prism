@@ -27,6 +27,8 @@ export {
 export { createDefaultDetectorPacks } from "./stack/packs.js";
 export {
   assembleDnaReport,
+  FRAMEWORK_IMPORT_PACKAGES,
+  packageRootOf,
   enrichStackProfile,
   primaryDomain,
   rankDomainsByConfidence,
@@ -56,6 +58,13 @@ export {
   type LocalPackage,
 } from "./dependency/packages.js";
 export { findCycles } from "./dependency/cycles.js";
+export {
+  computeEntryPoints,
+  isOrphanEligibleSource,
+  type EntryPoints,
+  type EntryPointsInput,
+  type EntryRole,
+} from "./dependency/entry-points.js";
 export {
   loadTsconfigPathAliases,
   resolveAliasSpecifier,

@@ -17,7 +17,7 @@ import {
 } from "node:http";
 import type { AddressInfo } from "node:net";
 import { setPriority } from "node:os";
-import { isAbsolute, join } from "node:path";
+import { isAbsolute, join, resolve as resolvePath } from "node:path";
 import type { PrismWorkspace } from "@repo-prism/core";
 import {
   type PrismError,
@@ -54,9 +54,26 @@ export type DaemonTool = {
   ): Promise<Result<unknown, PrismError>>;
 };
 
+export type DaemonRootRoute = {
+  parseArgs(raw: unknown): Result<unknown, PrismError>;
+  call(root: string, args: unknown): Promise<Result<unknown, PrismError>>;
+};
+
 export type StartDaemonOptions = {
   readonly buildId: string;
   readonly tools: ReadonlyMap<string, DaemonTool>;
+  /**
+   * Internal POST routes that are not MCP tools, keyed by path (e.g.
+   * `/v1/receipt`). Each takes `{root, ...args}` and runs against the warm
+   * workspace, like `/v1/call`.
+   */
+  readonly routes?: ReadonlyMap<string, DaemonTool>;
+  /**
+   * Internal POST routes that must not wait for an index (e.g.
+   * `/v1/session`, which records a baseline at session start). The
+   * workspace is warmed in the background.
+   */
+  readonly rootRoutes?: ReadonlyMap<string, DaemonRootRoute>;
   readonly onIndexed?: (workspace: PrismWorkspace) => Promise<void>;
   readonly env?: NodeJS.ProcessEnv;
   readonly config?: Partial<DaemonConfig>;
@@ -80,6 +97,8 @@ export type DaemonStartOutcome =
   | { readonly kind: "already-running"; readonly record: DaemonRecord };
 
 const MAX_BODY_BYTES = 1024 * 1024;
+/** Longest a readiness request may wait (plan §5.8 H-PROMPT). */
+export const MAX_READY_WAIT_MS = 3_000;
 
 function send(res: ServerResponse, status: number, payload: unknown): void {
   const body = JSON.stringify(payload);
@@ -317,11 +336,64 @@ export async function startDaemon(
       );
     }
 
-    if (path === "/v1/call") {
+    if (path === "/v1/ready") {
+      // Readiness (plan §10 Phase 4): wait up to 3 s for the workspace's
+      // first index, then answer either way. Never an error for "not yet".
+      const waitMs = Math.min(
+        MAX_READY_WAIT_MS,
+        Math.max(0, Number(body.waitMs ?? 0) || 0),
+      );
+      const entry = pool.get(root);
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const outcome = await Promise.race([
+        entry.then((r) => (r.ok ? "ready" : "failed")),
+        new Promise<"waiting">((resolve) => {
+          timer = setTimeout(() => resolve("waiting"), waitMs);
+        }),
+      ]);
+      clearTimeout(timer);
+      const row = pool.status().find((w) => w.root === resolvePath(root));
+      return send(res, 200, {
+        ok: true,
+        value: {
+          ready: outcome === "ready",
+          state: row?.state ?? (outcome === "failed" ? "failed" : "indexing"),
+          ...(row?.error ? { error: row.error } : {}),
+        },
+      });
+    }
+
+    const rootRoute = options.rootRoutes?.get(path);
+    if (rootRoute) {
+      const args = rootRoute.parseArgs(body);
+      if (!args.ok) return send(res, 400, { ok: false, error: args.error });
+      pool.warm(root);
+      try {
+        const result = await rootRoute.call(resolvePath(root), args.value);
+        return send(
+          res,
+          200,
+          result.ok
+            ? { ok: true, value: result.value ?? null }
+            : { ok: false, error: result.error },
+        );
+      } catch (error) {
+        return fail(
+          res,
+          500,
+          PrismErrorCode.UNKNOWN,
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+    }
+
+    const internal = options.routes?.get(path);
+    if (path === "/v1/call" || internal) {
       const tool =
-        typeof body.tool === "string"
+        internal ??
+        (typeof body.tool === "string"
           ? options.tools.get(body.tool)
-          : undefined;
+          : undefined);
       if (!tool) {
         return fail(
           res,
@@ -330,7 +402,7 @@ export async function startDaemon(
           `unknown tool ${String(body.tool)}`,
         );
       }
-      const args = tool.parseArgs(body.args ?? {});
+      const args = tool.parseArgs(internal ? body : (body.args ?? {}));
       if (!args.ok) return send(res, 400, { ok: false, error: args.error });
       const ready = await pool.get(root);
       if (!ready.ok) return send(res, 200, { ok: false, error: ready.error });

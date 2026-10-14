@@ -9,7 +9,7 @@ import { z } from "zod";
 export const PREPARE_RESPONSE_BUDGET = 2000;
 export const PREPARE_RESPONSE_CEILING = 6000;
 /** What the prompt-submit hook asks for (ADR-0065). */
-export const AUTO_PREPARE_BUDGET = 800;
+export const AUTO_PREPARE_BUDGET = 1200;
 
 export const PREPARE_TRIM_SECTIONS = [
   "conventions",

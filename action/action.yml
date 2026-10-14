@@ -20,9 +20,11 @@ inputs:
     required: false
     default: ""
   version:
-    description: npm version (or dist-tag) of @repo-prism/cli to install
+    description: >
+      Version of @repo-prism/cli to install. Defaults to this Action's own
+      major (`v2` installs major 2 of the CLI).
     required: false
-    default: latest
+    default: "2"
   prism-command:
     description: >
       Override the prism binary invocation (for dogfooding a workspace build).
@@ -42,9 +44,9 @@ inputs:
     required: false
     default: "."
   node-version:
-    description: Node.js version for setup-node (Prism requires >=22)
+    description: Node.js version for setup-node (Prism 2 requires Node 24)
     required: false
-    default: "22"
+    default: "24"
 
 outputs:
   review-path:
@@ -57,44 +59,10 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Require full git history
+    - name: Prism home in the runner temp dir
       shell: bash
-      working-directory: ${{ inputs.working-directory }}
-      run: |
-        if [ "$(git rev-parse --is-shallow-repository 2>/dev/null || echo true)" = "true" ]; then
-          echo "::error::Prism review needs a full clone. Set fetch-depth: 0 on actions/checkout."
-          exit 1
-        fi
-
-    - name: Setup Node.js
-      if: ${{ inputs.prism-command == '' }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ inputs.node-version }}
-        cache: npm
-
-    - name: Cache npm
-      if: ${{ inputs.prism-command == '' }}
-      uses: actions/cache@v4
-      with:
-        path: ~/.npm
-        key: prism-npm-${{ runner.os }}-${{ inputs.version }}-${{ hashFiles('**/package-lock.json', '**/npm-shrinkwrap.json') }}
-        restore-keys: |
-          prism-npm-${{ runner.os }}-${{ inputs.version }}-
-          prism-npm-${{ runner.os }}-
-
-    - name: Cache Prism index
-      uses: actions/cache@v4
-      with:
-        path: ${{ inputs.working-directory }}/.prism
-        key: prism-index-${{ runner.os }}-${{ hashFiles('**/package.json', '**/bun.lock', '**/package-lock.json') }}
-        restore-keys: |
-          prism-index-${{ runner.os }}-
-
-    - name: Install Prism CLI
-      if: ${{ inputs.prism-command == '' }}
-      shell: bash
-      run: npm install -g "@repo-prism/cli@${{ inputs.version }}"
+      # The index lives in PRISM_HOME, not ./.prism, so this is what gets cached.
+      run: echo "PRISM_HOME=${RUNNER_TEMP}/prism" >> "$GITHUB_ENV"
 
     - name: Resolve base revision
       id: base
@@ -108,6 +76,47 @@ runs:
           echo "ref=origin/main" >> "$GITHUB_OUTPUT"
         fi
 
+    - name: Deepen a shallow clone
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        BASE_REF: ${{ steps.base.outputs.ref }}
+      run: |
+        if [ "$(git rev-parse --is-shallow-repository 2>/dev/null || echo true)" = "true" ]; then
+          git fetch --no-tags --deepen=200 origin || true
+          git fetch --no-tags --depth=200 origin "${BASE_REF#origin/}" || true
+        fi
+        if ! git merge-base HEAD "${BASE_REF}" > /dev/null 2>&1; then
+          echo "::error::PRISM_SHALLOW: the base ${BASE_REF} is not reachable from HEAD after deepening. Set fetch-depth: 0 on actions/checkout."
+          exit 1
+        fi
+
+    - name: Setup Node.js
+      if: ${{ inputs.prism-command == '' }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Cache npm
+      if: ${{ inputs.prism-command == '' }}
+      uses: actions/cache@v4
+      with:
+        path: ~/.npm
+        key: prism-npm-${{ runner.os }}-${{ inputs.version }}
+
+    - name: Cache Prism index
+      uses: actions/cache@v4
+      with:
+        path: ${{ runner.temp }}/prism
+        key: prism-index-${{ runner.os }}-${{ github.sha }}
+        restore-keys: |
+          prism-index-${{ runner.os }}-
+
+    - name: Install Prism CLI
+      if: ${{ inputs.prism-command == '' }}
+      shell: bash
+      run: npm install -g "@repo-prism/cli@${{ inputs.version }}"
+
     - name: Run prism review
       id: review
       shell: bash
@@ -118,8 +127,8 @@ runs:
         BASE_REF: ${{ steps.base.outputs.ref }}
       run: |
         set -euo pipefail
-        mkdir -p "${RUNNER_TEMP}/prism"
-        REVIEW_PATH="${RUNNER_TEMP}/prism/review.json"
+        mkdir -p "${RUNNER_TEMP}/prism-out"
+        REVIEW_PATH="${RUNNER_TEMP}/prism-out/review.json"
         run_prism() {
           if [ -n "${PRISM_BIN}" ]; then
             # Caller-supplied invocation, e.g. `node packages/cli/dist/cli.js`.
@@ -149,30 +158,38 @@ runs:
         path: ${{ steps.review.outputs.review-path }}
         if-no-files-found: error
 
+    - name: Skip the comment on fork pull requests
+      if: ${{ inputs.comment == 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+      shell: bash
+      run: |
+        echo "::notice::Prism skipped the PR comment: a fork pull request has no write token. The review JSON artifact was still uploaded."
+
     - name: Render sticky comment
-      if: ${{ inputs.comment == 'true' && github.event_name == 'pull_request' }}
+      if: ${{ inputs.comment == 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       env:
         REVIEW_PATH: ${{ steps.review.outputs.review-path }}
         PRISM_BIN: ${{ inputs.prism-command }}
       run: |
-        RECEIPT="${RUNNER_TEMP}/prism/receipt.md"
+        # CI has no agent session, so normally there is no receipt and the block
+        # is omitted. A stored one (dogfood) renders with the CLI's renderer.
+        RECEIPT="${RUNNER_TEMP}/prism-out/receipt.md"
         if [ -n "${PRISM_BIN}" ]; then
-          ${PRISM_BIN} receipts show 1 --as markdown > "${RECEIPT}" || true
+          ${PRISM_BIN} receipts show 1 --as markdown > "${RECEIPT}" 2> /dev/null || : > "${RECEIPT}"
         else
-          prism receipts show 1 --as markdown > "${RECEIPT}" || true
+          prism receipts show 1 --as markdown > "${RECEIPT}" 2> /dev/null || : > "${RECEIPT}"
         fi
-        node "${{ github.action_path }}/render-comment.mjs" "${REVIEW_PATH}" "${RECEIPT}" > "${RUNNER_TEMP}/prism/comment.md"
+        node "${{ github.action_path }}/render-comment.mjs" "${REVIEW_PATH}" "${RECEIPT}" > "${RUNNER_TEMP}/prism-out/comment.md"
 
     - name: Post sticky PR comment
-      if: ${{ inputs.comment == 'true' && github.event_name == 'pull_request' }}
+      if: ${{ inputs.comment == 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
       uses: actions/github-script@v7
       with:
         script: |
           const fs = require('fs');
           const marker = '<!-- prism-review-sticky -->';
-          const body = fs.readFileSync(`${process.env.RUNNER_TEMP}/prism/comment.md`, 'utf8');
+          const body = fs.readFileSync(`${process.env.RUNNER_TEMP}/prism-out/comment.md`, 'utf8');
           const { owner, repo } = context.repo;
           const issue_number = context.issue.number;
           const { data: comments } = await github.rest.issues.listComments({
@@ -216,7 +233,7 @@ runs:
             prism "$@"
           fi
         }
-        SARIF_PATH="${RUNNER_TEMP}/prism/review.sarif"
+        SARIF_PATH="${RUNNER_TEMP}/prism-out/review.sarif"
         run_prism review --base "${BASE_REF}" --format sarif > "${SARIF_PATH}" || true
         echo "sarif-path=${SARIF_PATH}" >> "$GITHUB_OUTPUT"
 

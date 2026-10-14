@@ -8,7 +8,23 @@ import type { PrepareChange } from "./schemas.js";
 const clip = (text: string, max: number): string =>
   text.length > max ? `${text.slice(0, max - 1)}…` : text;
 
-export function renderPrepareContext(prep: PrepareChange): string {
+/** What the prompt hook adds beside the pack (plan §5.8 H-PROMPT). */
+export type PrepareContextExtras = {
+  /** The lens for this task, injected once with its procedure (§5.3). */
+  readonly lens?: {
+    readonly id: string;
+    readonly name: string;
+    readonly procedure: string;
+    readonly conflict?: readonly string[];
+  };
+  /** One line: how far a change to the top file reaches. */
+  readonly blast?: string;
+};
+
+export function renderPrepareContext(
+  prep: PrepareChange,
+  extras: PrepareContextExtras = {},
+): string {
   const lines = [`Prism · prepare (auto) for "${clip(prep.pack.task, 120)}"`];
   if (prep.ambiguous) {
     lines.push(
@@ -20,7 +36,7 @@ export function renderPrepareContext(prep: PrepareChange): string {
   }
   if (prep.pack.files.length > 0) {
     lines.push("Open first:");
-    for (const file of prep.pack.files.slice(0, 8)) {
+    for (const file of prep.pack.files.slice(0, 5)) {
       lines.push(
         `- ${file.path}${file.why.length ? ` — ${file.why.slice(0, 2).join(", ")}` : ""}`,
       );
@@ -32,7 +48,7 @@ export function renderPrepareContext(prep: PrepareChange): string {
   if (prep.reuse.length > 0) {
     lines.push(
       `Reuse before writing new code: ${prep.reuse
-        .slice(0, 4)
+        .slice(0, 2)
         .map((r) => `${r.symbol} (${r.path})`)
         .join("; ")}`,
     );
@@ -50,8 +66,19 @@ export function renderPrepareContext(prep: PrepareChange): string {
       `Ask before editing (high blast): ${prep.order.needsSignOff.slice(0, 4).join(", ")}`,
     );
   }
+  if (extras.blast) lines.push(`Blast: ${extras.blast}`);
   for (const note of (prep.notes ?? []).slice(0, 3)) {
     lines.push(`Note (${note.path}): ${clip(note.text, 160)}`);
+  }
+  if (extras.lens) {
+    const conflict =
+      extras.lens.conflict && extras.lens.conflict.length > 1
+        ? ` (lensConflict: ${extras.lens.conflict.join(", ")}; name one to choose)`
+        : "";
+    lines.push(`Lens: ${extras.lens.id} (${extras.lens.name})${conflict}`);
+    if (extras.lens.procedure.trim()) {
+      lines.push(clip(extras.lens.procedure.trim(), 1400));
+    }
   }
   lines.push(
     "Paths and names only, no file bodies. Before editing a file not listed here, call blast_radius on it.",

@@ -1,3 +1,4 @@
+import { readdirSync, readFileSync } from "node:fs";
 import { cp, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -7,10 +8,14 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { Prism, type PrismWorkspace } from "@repo-prism/core";
 import { startDaemon } from "@repo-prism/daemon/server";
 import type { PrismError, Result } from "@repo-prism/shared";
+import { workspacePrismDir } from "@repo-prism/shared/prism-home";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { daemonBuildId } from "./daemon-attach.js";
 import { daemonTools, debouncePerKey } from "./daemon.js";
-import { autoPrepare } from "./safety/hook-command.js";
+import {
+  autoPrepare,
+  UNSUPPORTED_LANGUAGE_NOTE,
+} from "./safety/hook-command.js";
 import { createPrismMcpServer } from "./server.js";
 
 const FIXTURE = join(
@@ -160,6 +165,71 @@ describe("auto-Prepare through the daemon", () => {
       output.hookSpecificOutput as { additionalContext?: string } | undefined
     )?.additionalContext;
     expect(context).toContain("src/features/dashboard/Dashboard.ts");
+  });
+
+  it("HK-7: says nothing when the index is not ready within the wait", async () => {
+    const env = { ...process.env, PRISM_HOME: home, PRISM_DAEMON: "1" };
+    let waited = -1;
+    const output = await autoPrepare(
+      { prompt: "fix renderDashboard so it shows the widget count" },
+      {
+        root: repo,
+        env,
+        attach: async () => {
+          throw new Error("must not attach when not ready");
+        },
+        ready: async (_root, waitMs) => {
+          waited = waitMs;
+          return { kind: "ok", value: { ready: false, state: "indexing" } };
+        },
+      },
+    );
+    expect(output).toEqual({});
+    expect(waited).toBe(3000);
+  });
+
+  it("writes this session's pack for the pre-edit hook", async () => {
+    const env = { ...process.env, PRISM_HOME: home, PRISM_DAEMON: "1" };
+    await startTestDaemon(env);
+    await autoPrepare(
+      {
+        prompt: "fix renderDashboard so it shows the widget count",
+        session_id: "sess-pack-1",
+      },
+      { root: repo, env },
+    );
+    const packsDir = join(workspacePrismDir(repo, env), "hooks", "packs");
+    const files = readdirSync(packsDir);
+    expect(files).toHaveLength(1);
+    const pack = JSON.parse(readFileSync(join(packsDir, files[0]!), "utf8"));
+    expect(pack.sessionId).toBe("sess-pack-1");
+    expect(pack.packFiles.map((f: { path: string }) => f.path)).toContain(
+      "src/features/dashboard/Dashboard.ts",
+    );
+  });
+
+  it("passes the unsupported-language note through as one line", async () => {
+    const env = { ...process.env, PRISM_HOME: home };
+    const output = await autoPrepare(
+      { prompt: "fix the parser so it handles tabs" },
+      {
+        root: repo,
+        env,
+        ready: null,
+        attach: async () => ({
+          kind: "error",
+          error: {
+            code: "UNSUPPORTED",
+            message: "Prism 2.0 supports TypeScript and JavaScript only.",
+            details: { reason: "language", language: "python" },
+          } as never,
+        }),
+      },
+    );
+    const context = (
+      output.hookSpecificOutput as { additionalContext?: string } | undefined
+    )?.additionalContext;
+    expect(context).toBe(UNSUPPORTED_LANGUAGE_NOTE);
   });
 });
 

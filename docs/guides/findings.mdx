@@ -14,7 +14,7 @@ To fix one, ask your agent in chat. Prism does **not** mark it resolved because
 something was edited. It re-runs the report. If the fingerprint is still there,
 the finding stays open.
 
-<Tabs groupId="surface" items={['CLI', 'VS Code', 'AI agent']} persist>
+<Tabs groupId="surface" items={['CLI', 'AI agent']} persist>
   <Tab value="CLI">
 
 ```bash
@@ -24,12 +24,6 @@ prism findings mute a3f8c5f0c392dbeb
 
 Mute lives in gitignored `{repo}/.prism/`. It is not a markdown file and it
 is not committed.
-
-  </Tab>
-  <Tab value="VS Code">
-
-The **Findings** screen lists open findings. Pulse’s finding count is the open
-count from health history.
 
   </Tab>
   <Tab value="AI agent">
@@ -64,8 +58,8 @@ list_findings → your agent edits → this repo’s checks
 | Verify | The stop hook runs the checks this repo actually has. None → **—**, not Failure. |
 | Resolve | Only a re-scan that drops the fingerprint. An edit is not resolve. |
 
-Pulse’s sparkline is the **open finding count**, measured from health
-history. It does not move because a file was edited.
+The open finding count does not move because a file was edited; only a
+re-scan changes it.
 
 ## Kinds
 

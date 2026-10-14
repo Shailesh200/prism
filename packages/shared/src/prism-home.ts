@@ -3,11 +3,12 @@
  *
  * Production never writes `<repo>/.prism`. Per-checkout state lives at
  * `~/.prism/workspaces/<key>/` (same 24-char key as ADR-0054). Vitest
- * fixtures without `PRISM_HOME` still use the temp tree's `.prism` so the
- * suite does not touch the developer's library.
+ * fixtures without `PRISM_HOME` still use the temp tree's `.prism`, and the
+ * machine-wide files (events, lenses, install.json) go to a per-process temp
+ * home, so the suite never touches the developer's library.
  *
  * Import from `@repo-prism/shared/prism-home`, never the package barrel —
- * this file uses `node:crypto` / `node:fs` and will crash Spectrum.
+ * this file uses `node:crypto` / `node:fs`.
  */
 
 import { createHash } from "node:crypto";
@@ -30,7 +31,7 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import {
   rewriteMemoryAnchors,
@@ -50,6 +51,8 @@ export type WorkspaceMemory = {
 export function prismHomeDir(env: NodeJS.ProcessEnv = process.env): string {
   const override = env.PRISM_HOME?.trim();
   if (override) return override;
+  if (useLocalPrismStore(env))
+    return join(tmpdir(), `prism-test-home-${process.pid}`);
   return join(homedir(), ".prism");
 }
 

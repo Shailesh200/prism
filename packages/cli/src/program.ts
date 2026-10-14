@@ -85,7 +85,16 @@ function buildProgram(): Command {
       command.argument(argument.syntax, argument.description);
     }
     for (const option of spec.options ?? []) {
-      command.option(option.flags, option.description);
+      if (option.repeatable) {
+        command.option(
+          option.flags,
+          option.description,
+          collectValues,
+          [] as string[],
+        );
+      } else {
+        command.option(option.flags, option.description);
+      }
     }
     // Repeating the globals on each subcommand is what makes them work in
     // either position; Commander does not inherit them otherwise.
@@ -176,6 +185,7 @@ export async function run(
       {
         positionals: [],
         option: () => undefined,
+        values: () => [],
         flag: () => false,
       },
     );
@@ -232,6 +242,7 @@ export async function run(
       {
         positionals: [],
         option: () => undefined,
+        values: () => [],
         flag: () => false,
       },
     );
@@ -302,6 +313,11 @@ export async function run(
     },
     flag(name) {
       return subOptions[name] === true;
+    },
+    values(name) {
+      const value = subOptions[name];
+      if (Array.isArray(value)) return value.map(String);
+      return typeof value === "string" ? [value] : [];
     },
   };
 
@@ -378,4 +394,9 @@ export async function main(
     isTty: process.stdout.isTTY === true,
     ...(process.stdout.columns ? { columns: process.stdout.columns } : {}),
   });
+}
+
+/** Commander parser for a repeatable option. */
+function collectValues(value: string, previous: string[]): string[] {
+  return [...previous, value];
 }

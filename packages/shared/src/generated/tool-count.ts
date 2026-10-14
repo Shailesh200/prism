@@ -3,4 +3,4 @@
 /** How many tools an agent sees by default (plan §0.3). */
 export const PRISM_TOOL_COUNT = 9;
 /** Default plus opt-in tools (`extraTools` in ~/.prism/config.json). */
-export const PRISM_ALL_TOOL_COUNT = 20;
+export const PRISM_ALL_TOOL_COUNT = 21;

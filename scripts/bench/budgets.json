@@ -38,7 +38,7 @@
       }
     },
     "medium": {
-      "peakRssBytes": 2415919104,
+      "peakRssBytes": 1717986918,
       "operations": {
         "index_cold": 36000,
         "index_warm": 7000,

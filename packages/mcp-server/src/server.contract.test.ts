@@ -312,6 +312,7 @@ describe("MCP server contract (M-026)", () => {
       ["test_impact", target],
       ["review_changes", { paths: [filePath] }],
       ["review_with", { task: "review the change" }],
+      ["receipt", {}],
       ["explore_code", { kind: "file", path: filePath }],
     ];
 

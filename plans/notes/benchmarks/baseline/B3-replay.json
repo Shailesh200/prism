@@ -3,17 +3,19 @@
   "method": "SZZ-lite replay. A catch is a typecheck/test failure absent on the clean parent, or a Guard/blast flag on a file the later fix touched. The same flag on a control is a false alarm.",
   "totals": {
     "regressions": 9,
-    "caught": 6,
-    "missed": 2,
+    "caught": 5,
+    "missed": 3,
     "regressionsUnrunnable": 1,
     "controls": 8,
     "falseAlarms": 4,
     "quiet": 4,
     "controlsUnrunnable": 0,
-    "catchRate": 0.75,
+    "catchRate": 0.625,
     "falseAlarmRate": 0.5,
     "flaggedRegressions": 6,
-    "medianReceiptMs": 4153
+    "medianReceiptMs": 4153,
+    "catchRateOriginal": 0.75,
+    "catchRateNote": "Corrected 2026-10-14 (owner-approved): 1.x 'catch' on hono 2159deb4 was a false orphan flag on src/middleware/etag/index.ts, a public package entry ('./etag' in package.json exports and jsr.json). True 1.x catches: 5/8."
   },
   "cases": [
     {
@@ -1080,7 +1082,8 @@
       ],
       "notProven": 1,
       "receiptMs": 1574,
-      "outcome": "caught"
+      "outcome": "missed",
+      "outcomeNote": "was \"caught\" by a false orphan flag on a package entry point"
     },
     {
       "repo": "hono",
@@ -1792,7 +1795,7 @@
         {
           "name": "test",
           "status": "failed",
-          "detail": "⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯",
+          "detail": "\u23af\u23af\u23af\u23af\u23af\u23af\u23af Failed Tests 3 \u23af\u23af\u23af\u23af\u23af\u23af\u23af",
           "durationMs": 5441,
           "cause": "already-failing"
         }
@@ -1811,7 +1814,7 @@
         {
           "name": "test",
           "status": "failed",
-          "detail": "⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯",
+          "detail": "\u23af\u23af\u23af\u23af\u23af\u23af\u23af Failed Tests 3 \u23af\u23af\u23af\u23af\u23af\u23af\u23af",
           "durationMs": 4909,
           "signature": {
             "files": [
@@ -2016,7 +2019,7 @@
         {
           "name": "test",
           "status": "failed",
-          "detail": "⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯",
+          "detail": "\u23af\u23af\u23af\u23af\u23af\u23af Failed Suites 1 \u23af\u23af\u23af\u23af\u23af\u23af\u23af",
           "durationMs": 4803,
           "cause": "already-failing"
         }
@@ -2035,7 +2038,7 @@
         {
           "name": "test",
           "status": "failed",
-          "detail": "⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯",
+          "detail": "\u23af\u23af\u23af\u23af\u23af\u23af Failed Suites 1 \u23af\u23af\u23af\u23af\u23af\u23af\u23af",
           "durationMs": 4986,
           "signature": {
             "files": [
@@ -2377,7 +2380,7 @@
         {
           "name": "test",
           "status": "failed",
-          "detail": "⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯",
+          "detail": "\u23af\u23af\u23af\u23af\u23af\u23af Failed Suites 1 \u23af\u23af\u23af\u23af\u23af\u23af\u23af",
           "durationMs": 1493,
           "cause": "already-failing"
         }
@@ -2396,7 +2399,7 @@
         {
           "name": "test",
           "status": "failed",
-          "detail": "⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯",
+          "detail": "\u23af\u23af\u23af\u23af\u23af\u23af Failed Suites 1 \u23af\u23af\u23af\u23af\u23af\u23af\u23af",
           "durationMs": 1295,
           "signature": {
             "files": [

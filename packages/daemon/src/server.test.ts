@@ -13,15 +13,25 @@ import {
 } from "@repo-prism/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  callDaemonRoute,
   callDaemonTool,
+  compareBuildIds,
+  compareVersions,
   daemonHealth,
+  daemonReady,
+  ensureDaemon,
   daemonStatus,
   stopDaemon,
   warmDaemonWorkspace,
 } from "./client.js";
 import { daemonRecordPath } from "./paths.js";
 import { readDaemonRecord, writeDaemonRecord } from "./record.js";
-import { type DaemonTool, startDaemon } from "./server.js";
+import {
+  type DaemonRootRoute,
+  type DaemonTool,
+  MAX_READY_WAIT_MS,
+  startDaemon,
+} from "./server.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const FIXTURE = join(
@@ -69,10 +79,26 @@ function countingOpen(root: string): Result<PrismWorkspace, PrismError> {
   return Prism.create().openRepository(root);
 }
 
+const echoRoute: DaemonTool = {
+  parseArgs: (raw) => ok(raw),
+  async call({ workspaceRoot }, args) {
+    return ok({ workspaceRoot, args });
+  },
+};
+
+const rootRoute: DaemonRootRoute = {
+  parseArgs: (raw) => ok(raw),
+  async call(root) {
+    return ok({ root, at: "session" });
+  },
+};
+
 async function start(buildId = "test-build") {
   const started = await startDaemon({
     buildId,
     tools: TOOLS,
+    routes: new Map([["/v1/receipt", echoRoute]]),
+    rootRoutes: new Map([["/v1/session", rootRoute]]),
     env,
     openWorkspace: countingOpen,
     timers: false,
@@ -270,5 +296,102 @@ describe("prism daemon (M-095)", () => {
       env,
     });
     expect(after.kind).toBe("unavailable");
+  });
+
+  it("readiness waits for the first index, at most 3 s", async () => {
+    await start();
+    const ready = await daemonReady({ root: repo, waitMs: 2_500, env });
+    expect(ready).toEqual({
+      kind: "ok",
+      value: expect.objectContaining({ ready: true, state: "fresh" }),
+    });
+    expect(MAX_READY_WAIT_MS).toBe(3_000);
+  });
+
+  it("readiness answers not-ready, never an error, when the index is still building", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const started = await startDaemon({
+      buildId: "slow",
+      tools: TOOLS,
+      env,
+      timers: false,
+      log: () => undefined,
+      openWorkspace: (root) => {
+        const opened = Prism.create().openRepository(root);
+        if (!opened.ok) return opened;
+        const workspace = opened.value;
+        const index = workspace.index.bind(workspace);
+        workspace.index = async (...args) => {
+          await gate;
+          return index(...args);
+        };
+        return ok(workspace);
+      },
+    });
+    if (started.kind === "started") close = started.close;
+    const ready = await daemonReady({ root: repo, waitMs: 100, env });
+    expect(ready).toEqual({
+      kind: "ok",
+      value: expect.objectContaining({ ready: false, state: "indexing" }),
+    });
+    release();
+  });
+
+  it("serves internal routes: workspace routes after the index, root routes at once", async () => {
+    await start();
+    const receipt = await callDaemonRoute({
+      path: "/v1/receipt",
+      root: repo,
+      args: { sessionId: "s" },
+      env,
+    });
+    expect(receipt).toEqual({
+      kind: "ok",
+      value: { workspaceRoot: repo, args: { sessionId: "s", root: repo } },
+    });
+    const session = await callDaemonRoute({
+      path: "/v1/session",
+      root: repo,
+      env,
+    });
+    expect(session).toEqual({
+      kind: "ok",
+      value: { root: repo, at: "session" },
+    });
+  });
+});
+
+describe("build skew (plan §10 Phase 4)", () => {
+  it("orders versions by semver with prereleases below the release", () => {
+    expect(compareVersions("2.0.0", "1.9.9")).toBe(1);
+    expect(compareVersions("2.0.0-rc.1", "2.0.0")).toBe(-1);
+    expect(compareVersions("2.0.0-rc.2", "2.0.0-rc.10")).toBe(-1);
+    expect(compareVersions("2.0.0", "2.0.0")).toBe(0);
+  });
+
+  it("orders build ids by version, then by build stamp", () => {
+    expect(compareBuildIds("2.0.0+200", "2.0.0+100")).toBe(1);
+    expect(compareBuildIds("1.9.0+999", "2.0.0+1")).toBe(-1);
+    expect(compareBuildIds("2.0.0+5", "2.0.0+5")).toBe(0);
+  });
+
+  it("an older client leaves a newer daemon running and falls back", async () => {
+    await start("2.0.0+200");
+    const outcome = await ensureDaemon({
+      command: process.execPath,
+      args: ["-e", "process.exit(1)"],
+      env,
+      buildId: "2.0.0+100",
+      waitMs: 0,
+    });
+    expect(outcome).toEqual({
+      kind: "unavailable",
+      reason: "daemon is from a newer build (2.0.0+200)",
+    });
+    const health = await daemonHealth({ env });
+    expect(health.kind === "ok" && health.value.buildId).toBe("2.0.0+200");
   });
 });

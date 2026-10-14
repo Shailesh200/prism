@@ -67,6 +67,10 @@ export type GraphNode = {
   readonly path: string;
   readonly name?: string;
   readonly symbolKind?: string;
+  /** 1-based declaration line (find mode). */
+  readonly line?: number;
+  /** Barrels that re-export this declaration (find mode, plan §4.5). */
+  readonly reexportedBy?: readonly string[];
 };
 
 export type GraphEdgeKind =

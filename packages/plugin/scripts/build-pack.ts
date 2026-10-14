@@ -10,8 +10,10 @@
 
 import {
   cpSync,
+  existsSync,
   mkdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -63,19 +65,22 @@ if (missing.length > 0 || unlisted.length > 0) {
   process.exit(1);
 }
 
-rmSync(out, { recursive: true, force: true });
-mkdirSync(join(out, ".cursor-plugin"), { recursive: true });
-mkdirSync(join(out, ".claude-plugin"), { recursive: true });
+// Atomic: build beside the pack, then swap, so hooks that an editor runs from
+// dist/pack never see a half-written pack during a rebuild (§10 Phase 7).
+const staging = `${out}.staging-${process.pid}`;
+rmSync(staging, { recursive: true, force: true });
+mkdirSync(join(staging, ".cursor-plugin"), { recursive: true });
+mkdirSync(join(staging, ".claude-plugin"), { recursive: true });
 
 const json = (value: unknown): string =>
   `${JSON.stringify(value, undefined, 2)}\n`;
 
 writeFileSync(
-  join(out, ".cursor-plugin", "plugin.json"),
+  join(staging, ".cursor-plugin", "plugin.json"),
   json(cursorManifest(def)),
 );
 writeFileSync(
-  join(out, ".claude-plugin", "plugin.json"),
+  join(staging, ".claude-plugin", "plugin.json"),
   json(claudeManifest(def)),
 );
 const devNode = process.env.PRISM_DEV_NODE?.trim() ?? "";
@@ -90,25 +95,30 @@ const devTarget =
   process.env.PRISM_DEV_PACK === "1" ? { node: devNode, mcpBin: devBin } : null;
 
 writeFileSync(
-  join(out, "mcp.json"),
+  join(staging, "mcp.json"),
   json(devTarget ? devMcpConfig(devTarget) : mcpConfig()),
 );
 writeFileSync(
-  join(out, "README.md"),
+  join(staging, "README.md"),
   readFileSync(join(root, "README.md"), "utf8"),
 );
 
-cpSync(join(root, "skills"), join(out, "skills"), { recursive: true });
-cpSync(join(root, "commands"), join(out, "commands"), { recursive: true });
-mkdirSync(join(out, "hooks"), { recursive: true });
-cpSync(
-  join(root, "hooks", "prism-hook.mjs"),
-  join(out, "hooks", "prism-hook.mjs"),
-);
+cpSync(join(root, "skills"), join(staging, "skills"), { recursive: true });
+cpSync(join(root, "commands"), join(staging, "commands"), { recursive: true });
+mkdirSync(join(staging, "hooks"), { recursive: true });
+// The hook imports its prompt classifier as a sibling module.
+for (const file of ["prism-hook.mjs", "classify-prompt.mjs"]) {
+  cpSync(join(root, "hooks", file), join(staging, "hooks", file));
+}
 writeFileSync(
-  join(out, "hooks", "hooks.json"),
+  join(staging, "hooks", "hooks.json"),
   json(devTarget ? devClaudeHooks(devTarget) : claudeHooks()),
 );
+
+const previous = `${out}.old-${process.pid}`;
+if (existsSync(out)) renameSync(out, previous);
+renameSync(staging, out);
+rmSync(previous, { recursive: true, force: true });
 
 console.log(
   `plugin: pack built — ${def.skills.length} skills, ${def.commands.length} commands, v${def.version}`,

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { applyDefaultProcedures, DEFAULT_LENSES } from "./lens-store.js";
-import { chooseLens } from "./lens-route.js";
+import {
+  chooseLens,
+  chooseLensDetailed,
+  invalidTrigger,
+} from "./lens-route.js";
 import type { LensDefinition } from "./lenses.js";
 
 const custom: LensDefinition = {
@@ -14,6 +18,9 @@ const custom: LensDefinition = {
   enabled: true,
   seededDefault: false,
   procedure: "",
+  triggers: [],
+  checks: [],
+  overrules: [],
 };
 
 const lenses = [...DEFAULT_LENSES, custom];
@@ -105,5 +112,92 @@ describe("chooseLens", () => {
       lens.id === "dev" ? { ...lens, enabled: false } : lens,
     );
     expect(chooseLens("fix the typo", off)?.id).not.toBe("dev");
+  });
+});
+
+describe("plan §5.3 routing rows", () => {
+  const perf: LensDefinition = {
+    ...custom,
+    id: "perf",
+    name: "Perf",
+    triggers: ["slow query", "performance regression"],
+    updatedAt: "2026-10-01T00:00:00.000Z",
+  };
+  const db: LensDefinition = {
+    ...custom,
+    id: "db",
+    name: "Database",
+    triggers: ["slow query on postgres"],
+    updatedAt: "2026-09-01T00:00:00.000Z",
+  };
+  const all = [...DEFAULT_LENSES, custom, perf, db];
+  const pick = (task: string, set = all) => chooseLensDetailed(task, set);
+
+  it("LN-1/LN-2/LN-4/LN-5/LN-11: built-in routing", () => {
+    expect(pick("review this PR")?.lens.id).toBe("architect");
+    expect(
+      pick("review the uncommitted change before I open a PR")?.lens.id,
+    ).toBe("architect");
+    expect(pick("find bugs in this PR")?.lens.id).toBe("qa");
+    expect(pick("why does checkout fail on empty carts")?.lens.id).toBe("qa");
+    expect(pick("fix the due date bug")?.lens.id).toBe("dev");
+    expect(
+      pick("Ask the architect lens to look at this refactor")?.lens.id,
+    ).toBe("architect");
+  });
+
+  it("CL-6/CL-12: a trigger wins over built-in routing", () => {
+    expect(pick("the tenant list has a slow query, fix it")?.lens.id).toBe(
+      "perf",
+    );
+    expect(pick("find bugs causing the performance regression")?.lens.id).toBe(
+      "perf",
+    );
+  });
+
+  it("CL-8: a trigger inside a code block or quote does not fire", () => {
+    expect(pick("fix this:\n```\n// slow query\n```")?.lens.id).toBe("dev");
+    expect(pick('the log says "slow query" — tidy the logger')?.lens.id).toBe(
+      "dev",
+    );
+  });
+
+  it("CL-9: the longest phrase wins and the conflict is reported", () => {
+    const choice = pick("fix the slow query on postgres in reports");
+    expect(choice?.lens.id).toBe("db");
+    expect(choice?.conflict).toEqual(["db", "perf"]);
+  });
+
+  it("CL-10: on a tie the most recently edited lens wins", () => {
+    const a = {
+      ...perf,
+      id: "pay-a",
+      name: "Pay A",
+      triggers: ["payment flow"],
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+    const b = {
+      ...perf,
+      id: "pay-b",
+      name: "Pay B",
+      triggers: ["payment flow"],
+      updatedAt: "2026-02-01T00:00:00.000Z",
+    };
+    const choice = pick("tidy the payment flow", [...DEFAULT_LENSES, a, b]);
+    expect(choice?.lens.id).toBe("pay-b");
+    expect(choice?.conflict).toEqual(["pay-b", "pay-a"]);
+  });
+
+  it("CL-11: a named lens beats a trigger", () => {
+    expect(
+      pick("use the security lens; there is a slow query too")?.lens.id,
+    ).toBe("security");
+  });
+
+  it("CL-13: refuses short triggers and built-in routing words", () => {
+    expect(invalidTrigger("fix")).toMatch(/too short/);
+    expect(invalidTrigger("review")).toMatch(/built-in lens routing/);
+    expect(invalidTrigger("payment flow")).toBeNull();
+    expect(invalidTrigger("latency")).toBeNull();
   });
 });

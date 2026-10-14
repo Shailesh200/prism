@@ -8,7 +8,7 @@ derived from it, which is why they all agree with each other.
 
 ## What it holds
 
-When you run `prism index` — or open a repository in the extension — Prism walks
+When you run `prism index` — or an agent first asks — Prism walks
 your files, parses the ones it understands, and records:
 
 | | |
@@ -24,7 +24,7 @@ The result lives in `.prism/cache/index.sqlite`.
 ## Why one index matters
 
 If two features each read the repository their own way, they will eventually
-disagree. One index means one answer. When the map and impact analysis disagree,
+disagree. One index means one answer. When Prepare and impact analysis disagree,
 it is a bug in one derivation — not two opinions.
 
 ## Incremental updates

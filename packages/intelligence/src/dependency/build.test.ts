@@ -30,8 +30,14 @@ function analyzed(
     source: string;
     specifiers?: string[];
     kind?: "import" | "require";
+    typeOnly?: boolean;
   }> = [],
-  exports: Array<{ name: string; kind?: string; source?: string }> = [],
+  exports: Array<{
+    name: string;
+    kind?: string;
+    source?: string;
+    typeOnly?: boolean;
+  }> = [],
 ): IndexSnapshot["files"][number] {
   return {
     path,
@@ -43,11 +49,13 @@ function analyzed(
       source: i.source,
       specifiers: i.specifiers ?? [],
       ...(i.kind === undefined ? {} : { kind: i.kind }),
+      ...(i.typeOnly ? { typeOnly: true } : {}),
     })),
     exports: exports.map((e) => ({
       name: e.name,
       kind: e.kind ?? "re-export",
       ...(e.source === undefined ? {} : { source: e.source }),
+      ...(e.typeOnly ? { typeOnly: true } : {}),
     })),
     references: [],
     diagnostics: [],
@@ -299,5 +307,54 @@ describe("buildDependencyGraph — memoisation", () => {
     expect(buildDependencyGraph(snap, { packageAggregation: true })).toBe(
       packages,
     );
+  });
+});
+
+describe("value-only cycles (plan §4.1, RES-CYC)", () => {
+  it("RES-CYC-1 a loop held together by `import type` is not a cycle", () => {
+    const root = mkdtempSync(join(tmpdir(), "prism-cyc-"));
+    const snap = snapshot(root, [
+      analyzed("types.ts", [{ source: "./context.ts", typeOnly: true }]),
+      analyzed("context.ts", [{ source: "./types.ts", typeOnly: true }]),
+    ]);
+    const result = buildDependencyGraph(snap);
+    expect(result.cycles).toEqual([]);
+    expect(result.graph.edges.every((e) => e.attrs?.typeOnly === true)).toBe(
+      true,
+    );
+  });
+
+  it("RES-CYC-2 includeTypes reports the type loop", () => {
+    const root = mkdtempSync(join(tmpdir(), "prism-cyc-"));
+    const snap = snapshot(root, [
+      analyzed("types.ts", [{ source: "./context.ts", typeOnly: true }]),
+      analyzed("context.ts", [{ source: "./types.ts", typeOnly: true }]),
+    ]);
+    expect(
+      buildDependencyGraph(snap, { includeTypes: true }).cycles,
+    ).toHaveLength(1);
+  });
+
+  it("RES-CYC-3 one value import between the same files makes it a value edge", () => {
+    const root = mkdtempSync(join(tmpdir(), "prism-cyc-"));
+    const snap = snapshot(root, [
+      analyzed("a.ts", [
+        { source: "./b.ts", typeOnly: true },
+        { source: "./b.ts" },
+      ]),
+      analyzed("b.ts", [{ source: "./a.ts" }]),
+    ]);
+    const result = buildDependencyGraph(snap);
+    expect(result.cycles).toHaveLength(1);
+    expect(result.graph.edges.some((e) => e.attrs?.typeOnly)).toBe(false);
+  });
+
+  it("RES-CYC-4 `export type … from` re-exports are type edges", () => {
+    const root = mkdtempSync(join(tmpdir(), "prism-cyc-"));
+    const snap = snapshot(root, [
+      analyzed("a.ts", [], [{ name: "B", source: "./b.ts", typeOnly: true }]),
+      analyzed("b.ts", [{ source: "./a.ts" }]),
+    ]);
+    expect(buildDependencyGraph(snap).cycles).toEqual([]);
   });
 });

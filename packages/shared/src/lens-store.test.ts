@@ -1,9 +1,14 @@
+import { execFileSync } from "node:child_process";
+import { existsSync, readdirSync, writeFileSync, mkdirSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   addCustomLens,
+  lensDefinitionsPath,
+  applyDefaultProcedures,
+  DEFAULT_LENSES,
   lensIdFromName,
   removeLens,
   updateLens,
@@ -265,5 +270,89 @@ describe("lens store", () => {
       "qa",
       "dev",
     ]);
+  });
+
+  it("CL-14: a lens added inside a repo is stored only under ~/.prism/lenses and is global", async () => {
+    const { source, env } = await setup();
+    execFileSync("git", ["init", "-q"], { cwd: source.rootPath });
+    await seedLenses(source, env);
+    await addCustomLens(
+      source.rootPath,
+      {
+        name: "Perf",
+        role: "Checks hot paths.",
+        focus: "No new N+1 query.",
+        checklist: ["No query in a loop."],
+        evidence: ["blast"],
+        triggers: ["slow query"],
+      },
+      env,
+    );
+    const status = execFileSync("git", ["status", "--porcelain"], {
+      cwd: source.rootPath,
+      encoding: "utf8",
+    });
+    expect(status).toBe("");
+    expect(existsSync(lensDefinitionsPath(env))).toBe(true);
+    const other = await mkdtemp(join(tmpdir(), "prism-lens-other-"));
+    dirs.push(other);
+    const store = await readLensStore(other, env);
+    expect(store.lenses.map((lens) => lens.id)).toContain("perf");
+  });
+
+  it("moves an unreadable definitions file aside instead of overwriting it", async () => {
+    const { source, env } = await setup();
+    const path = lensDefinitionsPath(env);
+    mkdirSync(join(path, ".."), { recursive: true });
+    writeFileSync(path, "{torn");
+    const store = await readLensStore(source.rootPath, env);
+    expect(store.lenses).toEqual([]);
+    const names = readdirSync(join(path, ".."));
+    expect(names.some((name) => /^lenses\.json\.corrupt-\d+$/.test(name))).toBe(
+      true,
+    );
+  });
+
+  it("LN-10: an upgrade keeps a renamed lens's name and fills only what is empty", () => {
+    const architect = DEFAULT_LENSES.find((lens) => lens.id === "architect")!;
+    const renamed = {
+      ...architect,
+      name: "Prism Architect",
+      role: "Checks structure: package boundaries, import cycles, and decisions already recorded.",
+      focus:
+        "A change should not add a new dependency between packages, a new cycle, or contradict an accepted ADR.",
+      checklist: [
+        "The change adds no import edge into a package it did not already depend on.",
+        "The change adds no import cycle.",
+        "Generated and vendor paths are untouched.",
+      ],
+      procedure: "",
+      checks: [],
+    };
+    const [upgraded] = applyDefaultProcedures([renamed]);
+    expect(upgraded!.name).toBe("Prism Architect");
+    expect(upgraded!.procedure).toBe(architect.procedure);
+    expect(upgraded!.checks).toEqual(architect.checks);
+    expect(upgraded!.role).toBe(renamed.role);
+  });
+
+  it("CL-5: refuses an unknown check id and lists the valid ones", async () => {
+    const { source, env } = await setup();
+    await expect(
+      addCustomLens(
+        source.rootPath,
+        {
+          name: "Security",
+          role: "r",
+          focus: "f",
+          checklist: ["c"],
+          evidence: ["blast"],
+          checks: ["no_such_check"],
+        },
+        env,
+      ),
+    ).rejects.toThrow(
+      /Unknown check no_such_check\. Valid checks: new_cross_package_edge/,
+    );
   });
 });

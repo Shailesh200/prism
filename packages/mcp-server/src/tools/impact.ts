@@ -18,6 +18,10 @@ import { z } from "zod";
 import { boundList, limitInput } from "../limits.js";
 import { allWorkspaceRelative, toWorkspaceRelative } from "../paths.js";
 import { defineTool, type ToolContext } from "../tool-registry.js";
+import {
+  prDescriptionFor,
+  reviewLensFindings,
+} from "../safety/review-extras.js";
 
 /** Every impact tool names its target the same way. */
 const target = {
@@ -149,7 +153,7 @@ export const testImpact = defineTool({
   name: "test_impact",
   title: "Test impact",
   description:
-    "Which test files transitively cover a change target — the tests worth running after touching it. Prism reports which tests are relevant; it does not run them. The tests list is bounded (default 50).",
+    "Which tests import the changed symbol, or a symbol that reaches it — the tests worth running after touching a target. Each test carries reason and viaSymbol; runCommand (when the runner is known: vitest, jest, bun, node:test, mocha) runs exactly those tests. Prism never runs them. The tests list is bounded (default 50).",
   inputSchema: {
     ...target,
     limit: limitInput,
@@ -188,6 +192,19 @@ export const reviewChanges = defineTool({
       .describe(
         "Git base ref for auto-discover, or a display label when paths are provided explicitly.",
       ),
+    lens: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        "Lens whose data-backed checks to run (architect, dev, qa, or a custom lens id). Omit to run every enabled lens.",
+      ),
+    format: z
+      .enum(["json", "prDescription"])
+      .optional()
+      .describe(
+        "prDescription adds the measured facts for a PR description: what changed, impact, and verification (never a test run Prism did not see).",
+      ),
   },
   async call({ workspace, workspaceRoot }, args) {
     let paths: readonly string[];
@@ -204,19 +221,45 @@ export const reviewChanges = defineTool({
       if (!changed.ok) return changed;
       paths = changed.value.paths;
       base = base ?? changed.value.base;
-      if (paths.length === 0) {
-        return err(
-          prismError(
-            PrismErrorCode.VALIDATION,
-            "No changed paths to review (working tree clean, or nothing under this workspace)",
-          ),
-        );
-      }
     }
 
-    return workspace.reviewChanges({
+    const report = await workspace.reviewChanges({
       paths,
       ...(base ? { base } : {}),
+    });
+    if (!report.ok) return report;
+    if (paths.length === 0) {
+      // RC-4: a clean tree is an answer, not an error.
+      return ok({ ...report.value, paths: [], lensFindings: [] });
+    }
+    const analysed = report.value.items.map((item) => item.path);
+    const lens = await reviewLensFindings(
+      workspace,
+      report.value,
+      analysed,
+      args.lens,
+    );
+    if (lens.unknownLens) {
+      return err(
+        prismError(
+          PrismErrorCode.VALIDATION,
+          `No lens named ${lens.unknownLens}. Run \`prism lens list\` to see them.`,
+        ),
+      );
+    }
+    return ok({
+      ...report.value,
+      paths,
+      lensFindings: lens.findings,
+      ...(args.format === "prDescription"
+        ? {
+            prDescription: prDescriptionFor(
+              workspaceRoot,
+              report.value,
+              analysed,
+            ),
+          }
+        : {}),
     });
   },
 });

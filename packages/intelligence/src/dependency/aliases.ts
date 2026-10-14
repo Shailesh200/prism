@@ -6,6 +6,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { parseJsonc } from "./soft-impact-utils.js";
 
 export type PathAliasRule = {
   /** Prefix pattern without trailing `*` (e.g. `@/` or `@lib`). */
@@ -28,6 +29,11 @@ export type PathAliasMap = {
   readonly rules: readonly PathAliasRule[];
   /** Per-tsconfig scopes for nearest-file resolution (M-059). */
   readonly configs: readonly TsconfigAliasConfig[];
+  /** Config files that exist but failed to parse (path + parser message). */
+  readonly errors?: readonly {
+    readonly path: string;
+    readonly message: string;
+  }[];
 };
 
 function dirnamePosix(path: string): string {
@@ -42,15 +48,26 @@ function joinPosix(base: string, rel: string): string {
   return `${base}/${cleaned}`.replace(/\/{2,}/g, "/");
 }
 
-function readJsonc(root: string, rel: string): unknown | null {
+/**
+ * Config files that exist but could not be read or parsed. Reported on the
+ * alias map so a broken tsconfig shows up as a reason, never as "no aliases".
+ */
+type ConfigErrorSink = { path: string; message: string }[];
+
+function readJsonc(
+  root: string,
+  rel: string,
+  errors: ConfigErrorSink,
+): unknown | null {
   const abs = join(root, rel);
   if (!existsSync(abs)) return null;
   try {
-    const raw = readFileSync(abs, "utf8")
-      .replace(/\/\*[\s\S]*?\*\//g, "")
-      .replace(/^\s*\/\/.*$/gm, "");
-    return JSON.parse(raw) as unknown;
-  } catch {
+    return parseJsonc(readFileSync(abs, "utf8"));
+  } catch (cause) {
+    errors.push({
+      path: rel,
+      message: cause instanceof Error ? cause.message : String(cause),
+    });
     return null;
   }
 }
@@ -60,6 +77,15 @@ type RawTsconfig = {
   compilerOptions?: {
     baseUrl?: string;
     paths?: Record<string, string[]>;
+    /**
+     * Repo-relative baseUrl, resolved against the config that declared it.
+     * TypeScript resolves `baseUrl` (and `paths` without one) relative to the
+     * declaring file, not the file that extends it; these keep that origin
+     * through the extends merge.
+     */
+    resolvedBaseUrl?: string;
+    /** Directory of the config that declared `paths` (used when no baseUrl). */
+    pathsDir?: string;
   };
 };
 
@@ -68,15 +94,41 @@ const MAX_EXTENDS_DEPTH = 8;
 
 /**
  * Resolve a tsconfig `extends` specifier to a repo-relative path.
- * Supports relative paths and skips bare npm package extends (out of scope).
+ * Relative paths resolve against the config's directory. A package specifier
+ * (`@acme/config/tsconfig.base.json`) resolves the way TypeScript does —
+ * through `node_modules` in the config's directory or any ancestor — and,
+ * when dependencies are not installed, through the workspace package with
+ * that name. Returns null when neither exists.
  */
 function resolveExtendsPath(
+  workspaceRoot: string,
   fromConfigPath: string,
   spec: string,
+  workspacePackages: ReadonlyMap<string, string>,
 ): string | null {
   if (!spec.startsWith(".") && !spec.startsWith("/")) {
-    // npm package extends (e.g. "@tsconfig/strict") — not resolved here
-    return null;
+    const withJson = spec.endsWith(".json") ? spec : `${spec}.json`;
+    let dir = dirnamePosix(fromConfigPath);
+    while (true) {
+      for (const candidate of [withJson, `${spec}/tsconfig.json`]) {
+        const rel = joinPosix(
+          dir ? `${dir}/node_modules` : "node_modules",
+          candidate,
+        );
+        if (existsSync(join(workspaceRoot, rel))) return rel;
+      }
+      if (!dir) break;
+      dir = dirnamePosix(dir);
+    }
+    const parts = spec.split("/");
+    const nameLen = spec.startsWith("@") ? 2 : 1;
+    const pkgDir = workspacePackages.get(parts.slice(0, nameLen).join("/"));
+    if (pkgDir === undefined) return null;
+    const rest = parts.slice(nameLen).join("/");
+    const rel = rest
+      ? joinPosix(pkgDir, rest.endsWith(".json") ? rest : `${rest}.json`)
+      : joinPosix(pkgDir, "tsconfig.json");
+    return existsSync(join(workspaceRoot, rel)) ? rel : null;
   }
   const fromDir = dirnamePosix(fromConfigPath);
   let joined = joinPosix(fromDir, spec);
@@ -105,6 +157,8 @@ function mergeCompilerOptions(
 function loadMergedCompilerOptions(
   workspaceRoot: string,
   configPath: string,
+  errors: ConfigErrorSink,
+  workspacePackages: ReadonlyMap<string, string>,
   seen: Set<string> = new Set(),
   depth = 0,
 ): NonNullable<RawTsconfig["compilerOptions"]> | null {
@@ -113,7 +167,7 @@ function loadMergedCompilerOptions(
   if (seen.has(norm)) return null;
   seen.add(norm);
 
-  const json = readJsonc(workspaceRoot, norm) as RawTsconfig | null;
+  const json = readJsonc(workspaceRoot, norm, errors) as RawTsconfig | null;
   if (!json) return null;
 
   let merged: NonNullable<RawTsconfig["compilerOptions"]> = {};
@@ -123,18 +177,31 @@ function loadMergedCompilerOptions(
       : [json.extends]
     : [];
   for (const ext of extendsList) {
-    const parentPath = resolveExtendsPath(norm, ext);
+    const parentPath = resolveExtendsPath(
+      workspaceRoot,
+      norm,
+      ext,
+      workspacePackages,
+    );
     if (!parentPath) continue;
     const parent = loadMergedCompilerOptions(
       workspaceRoot,
       parentPath,
+      errors,
+      workspacePackages,
       seen,
       depth + 1,
     );
     if (parent) merged = mergeCompilerOptions(merged, parent);
   }
   if (json.compilerOptions) {
-    merged = mergeCompilerOptions(merged, json.compilerOptions);
+    const own = { ...json.compilerOptions };
+    const dir = dirnamePosix(norm);
+    if (typeof own.baseUrl === "string" && own.baseUrl.length > 0) {
+      own.resolvedBaseUrl = normalizeBaseUrl(dir, own.baseUrl);
+    }
+    if (own.paths !== undefined) own.pathsDir = dir;
+    merged = mergeCompilerOptions(merged, own);
   }
   return merged;
 }
@@ -150,10 +217,11 @@ function rulesFromCompilerOptions(
   opts: NonNullable<RawTsconfig["compilerOptions"]>,
 ): { baseUrl?: string; rules: PathAliasRule[] } {
   const baseUrlRel =
-    typeof opts.baseUrl === "string" && opts.baseUrl.length > 0
+    opts.resolvedBaseUrl ??
+    (typeof opts.baseUrl === "string" && opts.baseUrl.length > 0
       ? normalizeBaseUrl(configDir, opts.baseUrl)
-      : undefined;
-  const resolveRoot = baseUrlRel ?? configDir;
+      : undefined);
+  const resolveRoot = baseUrlRel ?? opts.pathsDir ?? configDir;
   const rules: PathAliasRule[] = [];
   if (!opts.paths)
     return {
@@ -225,7 +293,21 @@ export function loadTsconfigPathAliases(
 ): PathAliasMap {
   const rules: PathAliasRule[] = [];
   const configs: TsconfigAliasConfig[] = [];
+  const errors: ConfigErrorSink = [];
   const seen = new Set<string>();
+
+  // Workspace package name → directory, for `extends` of an uninstalled
+  // workspace config package and for nothing else.
+  const manifests = new Map<string, unknown>();
+  const workspacePackages = new Map<string, string>();
+  for (const path of filePaths) {
+    if ((path.split("/").pop() ?? "") !== "package.json") continue;
+    const json = readJsonc(workspaceRoot, path, errors);
+    manifests.set(path, json);
+    const name = (json as { name?: unknown } | null)?.name;
+    if (typeof name === "string")
+      workspacePackages.set(name, dirnamePosix(path));
+  }
 
   const pushRule = (prefix: string, targets: string[]) => {
     const key = `${prefix}\0${targets.join("|")}`;
@@ -235,7 +317,12 @@ export function loadTsconfigPathAliases(
   };
 
   for (const configPath of collectTsconfigPaths(workspaceRoot, filePaths)) {
-    const opts = loadMergedCompilerOptions(workspaceRoot, configPath);
+    const opts = loadMergedCompilerOptions(
+      workspaceRoot,
+      configPath,
+      errors,
+      workspacePackages,
+    );
     if (!opts) continue;
     const dir = dirnamePosix(configPath);
     const { baseUrl, rules: localRules } = rulesFromCompilerOptions(dir, opts);
@@ -248,23 +335,15 @@ export function loadTsconfigPathAliases(
     for (const r of localRules) pushRule(r.prefix, [...r.targets]);
   }
 
-  for (const path of filePaths) {
-    if ((path.split("/").pop() ?? "") !== "package.json") continue;
-    const json = readJsonc(workspaceRoot, path) as {
-      imports?: Record<string, string | { default?: string }>;
-    } | null;
+  for (const [path, manifest] of manifests) {
+    const json = manifest as { imports?: Record<string, unknown> } | null;
     if (!json?.imports) continue;
     const dir = dirnamePosix(path);
     for (const [pattern, target] of Object.entries(json.imports)) {
       if (!pattern.startsWith("#")) continue;
       const prefix = pattern.replace(/\*$/, "");
-      const raw =
-        typeof target === "string"
-          ? target
-          : typeof target === "object" && target && "default" in target
-            ? (target.default ?? "")
-            : "";
-      if (!raw || typeof raw !== "string") continue;
+      const raw = pickConditionalTarget(target);
+      if (!raw) continue;
       pushRule(prefix, [
         joinPosix(dir, raw.replace(/\*$/, "").replace(/^\.\//, "")),
       ]);
@@ -275,7 +354,33 @@ export function loadTsconfigPathAliases(
   rules.sort((a, b) => b.prefix.length - a.prefix.length);
   // Longer dir first so nearest config wins in lookup
   configs.sort((a, b) => b.dir.length - a.dir.length);
-  return { rules, configs };
+  return { rules, configs, ...(errors.length > 0 ? { errors } : {}) };
+}
+
+/**
+ * Pick a source target from a package `imports`/`exports` value. Conditions
+ * are tried in plan §4.1 order — `types`, `import`, `require`, `default` —
+ * recursing into nested condition objects; arrays take the first usable entry.
+ */
+export function pickConditionalTarget(target: unknown): string | null {
+  if (typeof target === "string") return target.length > 0 ? target : null;
+  if (Array.isArray(target)) {
+    for (const entry of target) {
+      const hit = pickConditionalTarget(entry);
+      if (hit) return hit;
+    }
+    return null;
+  }
+  if (target && typeof target === "object") {
+    const record = target as Record<string, unknown>;
+    for (const condition of ["types", "import", "require", "default"]) {
+      if (condition in record) {
+        const hit = pickConditionalTarget(record[condition]);
+        if (hit) return hit;
+      }
+    }
+  }
+  return null;
 }
 
 function nearestConfig(

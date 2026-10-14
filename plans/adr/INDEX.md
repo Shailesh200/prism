@@ -70,3 +70,4 @@ One row per Architecture Decision Record. Status is the one written in the ADR h
 | 0064 | [Dispatch is removed from the product, the MCP surface and the code](./0064-dispatch-removed.md) | Accepted | — |
 | 0065 | [Prepare is injected on prompt submit](./0065-auto-prepare.md) | Accepted | — |
 | 0066 | [Envelope is a product surface](./0066-envelope-product-surface.md) | Accepted | — |
+| 0067 | [Prism 2.0 reliability and precision decisions](./0067-prism-2-reliability-and-precision.md) | Accepted | — |

@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
-import { mkdir, rm, unlink } from "node:fs/promises";
+import { mkdir, rename, rm } from "node:fs/promises";
+import { recordEvent } from "@repo-prism/shared/events";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -188,10 +189,30 @@ function isHealthy(db: SqliteDatabase): boolean {
   }
 }
 
-async function removeDbFiles(dbPath: string): Promise<void> {
-  await unlink(dbPath).catch(() => undefined);
-  await unlink(`${dbPath}-wal`).catch(() => undefined);
-  await unlink(`${dbPath}-shm`).catch(() => undefined);
+/**
+ * Move a corrupt database (and its WAL/SHM side files) aside as
+ * `*.corrupt-<ts>` so it is never read again but can still be inspected
+ * (plan §2.4), and log `index.corrupt`. A file that is not there is skipped.
+ */
+export async function quarantineDbFiles(
+  dbPath: string,
+  reason: string,
+  now: number = Date.now(),
+): Promise<readonly string[]> {
+  const moved: string[] = [];
+  for (const path of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) {
+    if (!existsSync(path)) continue;
+    const target = `${path}.corrupt-${now}`;
+    await rename(path, target);
+    moved.push(target);
+  }
+  recordEvent({
+    event: "index.corrupt",
+    outcome: "degraded",
+    reason,
+    detail: { path: dbPath, moved: moved.length },
+  });
+  return moved;
 }
 
 /**
@@ -256,11 +277,11 @@ export async function openIndexCache(
       return opened;
     }
     try {
-      await removeDbFiles(dbPath);
-    } catch (removeCause) {
+      await quarantineDbFiles(dbPath, String(details?.cause ?? "open failed"));
+    } catch (moveCause) {
       return err(
-        ioError(`Failed to remove corrupt SQLite cache: ${dbPath}`, {
-          cause: String(removeCause),
+        ioError(`Failed to move aside corrupt SQLite cache: ${dbPath}`, {
+          cause: String(moveCause),
         }),
       );
     }

@@ -468,12 +468,12 @@ describe("buildPrepareChange", () => {
       task: "fix the tooltip",
     });
     expect(prep.pack.files.map((f) => f.path)).toContain("src/tooltip.ts");
-    expect(prep.pack.files[0]?.why.some((w) => /path matches/.test(w))).toBe(
+    expect(prep.pack.files[0]?.why.some((w) => /matches tooltip/.test(w))).toBe(
       true,
     );
   });
 
-  it("packs an ownership-only sibling of a seed that has no name hit", () => {
+  it("ownership alone does not pack an unrelated sibling (plan §5.1)", () => {
     const snap = snapshot([
       file("app/login-form.ts", {
         symbols: [
@@ -528,12 +528,7 @@ describe("buildPrepareChange", () => {
     });
     const paths = prep.pack.files.map((f) => f.path);
     expect(paths).toContain("app/login-form.ts");
-    expect(paths).toContain("app/session-store.ts");
-    expect(
-      prep.pack.files
-        .find((f) => f.path === "app/session-store.ts")
-        ?.why.includes("owned seed home"),
-    ).toBe(true);
+    expect(paths).not.toContain("app/session-store.ts");
   });
 
   it("packs the owned home for a seed when ownership alone sits under the threshold", () => {
@@ -590,11 +585,13 @@ describe("buildPrepareChange", () => {
       ],
     });
     const paths = prep.pack.files.map((f) => f.path);
-    expect(paths).toContain("src/auth/login.ts");
-    expect(paths).not.toContain("src/copy/login.ts");
+    // Plan §5.1: equal IDF evidence; ownership only breaks the tie.
+    expect(paths.indexOf("src/auth/login.ts")).toBeLessThan(
+      paths.indexOf("src/copy/login.ts"),
+    );
   });
 
-  it("ranks CSS, config, and docs when the task implies UI or styling", () => {
+  it("files are source only: CSS and docs never enter the pack (plan §5.1)", () => {
     const snap = snapshot([
       file("src/login/LoginScreen.tsx", {
         symbols: [
@@ -622,9 +619,7 @@ describe("buildPrepareChange", () => {
       task: "fix login screen layout",
     });
     const paths = prep.pack.files.map((f) => f.path);
-    expect(paths).toContain("src/login/LoginScreen.tsx");
-    expect(paths).toContain("src/login/login.css");
-    expect(paths).toContain("src/login/README.md");
+    expect(paths).toEqual(["src/login/LoginScreen.tsx"]);
   });
 
   it("discovers a nearby stem-matched test outside the colocated folder", () => {

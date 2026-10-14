@@ -18,6 +18,10 @@ import {
   type SearchSymbolsQuery,
   type SymbolHit,
   type SymbolSearchResult,
+  computeEntryPoints,
+  isOrphanEligibleSource,
+  packageRootOf,
+  type EntryPoints,
 } from "@repo-prism/intelligence";
 import { DEFAULT_MAX_FILE_BYTES } from "@repo-prism/indexer";
 import {
@@ -26,7 +30,10 @@ import {
   computeRenameImpact,
   computeSafeDelete,
   computeTestImpact,
+  detectTestRunner,
+  type PackageManifest,
 } from "@repo-prism/impact";
+import { languageGate, type TestRunner } from "@repo-prism/shared";
 import {
   findPaths,
   listLandmarks as collectLandmarks,
@@ -76,13 +83,16 @@ import {
   err,
   ok,
   prismError,
+  REVIEW_ANALYSED_CAP,
+  REVIEW_LARGE_DIFF,
   riskToBand,
   unsafeRepoId,
   type GraphAnswer,
   type GraphQuery,
 } from "@repo-prism/shared";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { dirname, join as joinPath } from "node:path";
 import type { PrismCapabilities } from "./capabilities.js";
 import {
   exportWorkspaceGraph,
@@ -439,6 +449,64 @@ function toSummary(snapshot: IndexSnapshot): IndexSummary {
 }
 
 /**
+ * Package roots imported by app source (plan §4.1): the DNA only names a JS
+ * framework when app code imports it. Tests, benchmarks, examples, demos,
+ * fixtures and docs are not app code (hono's JSX benchmark imports React;
+ * hono is not a React project).
+ */
+const NON_APP_SEGMENT =
+  /(?:^|\/)(?:benchmarks?|bench|examples?|demos?|fixtures?|__fixtures__|docs?|stories|e2e|playground)\//i;
+
+function importedPackageRoots(snapshot: IndexSnapshot): Set<string> {
+  const out = new Set<string>();
+  for (const f of snapshot.files) {
+    if (f.status !== "analyzed" || isTestPath(f.path)) continue;
+    if (NON_APP_SEGMENT.test(f.path)) continue;
+    for (const imp of f.imports ?? []) {
+      const root = packageRootOf(imp.source);
+      if (root) out.add(root);
+    }
+  }
+  return out;
+}
+
+/** Entry points per snapshot identity (plan §4.4); recomputed on re-index. */
+const entryPointsCache = new WeakMap<IndexSnapshot, EntryPoints>();
+
+function entryPointsFor(snapshot: IndexSnapshot): EntryPoints {
+  const cached = entryPointsCache.get(snapshot);
+  if (cached) return cached;
+  const value = computeEntryPoints({
+    workspaceRoot: snapshot.rootPath,
+    inventoryPaths: snapshot.files.map((f) => f.path),
+    analyzedPaths: snapshot.files
+      .filter((f) => f.status === "analyzed")
+      .map((f) => f.path),
+  });
+  entryPointsCache.set(snapshot, value);
+  return value;
+}
+
+/**
+ * Test runner from the workspace root package.json (plan §4.3). A missing or
+ * unparseable manifest means "unknown runner" — the report says so via
+ * `unknownRunner`; it is an answer, not a failure.
+ */
+function workspaceTestRunner(rootPath: string): TestRunner | undefined {
+  const manifestPath = joinPath(rootPath, "package.json");
+  if (!existsSync(manifestPath)) return undefined;
+  let manifest: unknown;
+  try {
+    manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  } catch (error) {
+    if (error instanceof SyntaxError) return undefined;
+    throw error;
+  }
+  if (typeof manifest !== "object" || manifest === null) return undefined;
+  return detectTestRunner(manifest as PackageManifest);
+}
+
+/**
  * Assemble the `@repo-prism/impact` context from an index snapshot. Symbol-level
  * queries also need the knowledge graph (symbols + references). Soft index is
  * cached per snapshot identity and invalidated when the index refreshes.
@@ -456,7 +524,18 @@ function impactContextFor(
     .filter((f) => f.status === "analyzed")
     .map((f) => f.path);
   const inventoryPaths = snapshot.files.map((f) => f.path);
+  // Export names per analyzed file: lets blast forward only real names
+  // through `export *` barrels and importers (plan §4.2 symbol-level blast).
+  const fileExports = new Map<string, readonly string[]>();
+  for (const f of snapshot.files) {
+    if (f.status !== "analyzed" || !f.exports) continue;
+    fileExports.set(
+      f.path,
+      f.exports.map((e) => e.name),
+    );
+  }
   const dependencyGraph = buildDependencyGraph(snapshot).graph;
+  const testRunner = workspaceTestRunner(snapshot.rootPath);
   const softKey = `${snapshot.rootPath}\0${snapshot.indexedAt}\0${inventoryPaths.length}`;
   if (softCache.key !== softKey || !softCache.value) {
     softCache.key = softKey;
@@ -471,6 +550,10 @@ function impactContextFor(
     dependencyGraph,
     analyzedPaths,
     inventoryPaths,
+    fileExports,
+    ...(testRunner ? { testRunner } : {}),
+    entryRoles: entryPointsFor(snapshot).roles,
+    isOrphanEligible: isOrphanEligibleSource,
     softEdges,
     ...(soft.truncated ? { softTruncated: true as const } : {}),
     ...(soft.coverageNote ? { coverageNote: soft.coverageNote } : {}),
@@ -700,6 +783,26 @@ export function createWorkspace(options: {
       );
     }
     return ok(lastSnapshot);
+  };
+  /**
+   * Impact gate plus the plan §4.6 language gate for a target: an
+   * unsupported-language target, or a repo under 20% TS/JS, is
+   * `PRISM_UNSUPPORTED (reason: language)` — never a guessed answer.
+   */
+  const ensureSupported = (target?: {
+    kind: string;
+    id: string;
+    path?: string;
+  }): Result<IndexSnapshot, PrismError> => {
+    const gate = ensureImpact();
+    if (!gate.ok) return gate;
+    const targetPath =
+      target?.path ?? (target?.kind === "file" ? target.id : undefined);
+    const refusal = languageGate(
+      gate.value.files.map((f) => f.path),
+      targetPath,
+    );
+    return refusal ? err(refusal) : gate;
   };
 
   const ensureStack = (): Result<
@@ -1046,6 +1149,9 @@ export function createWorkspace(options: {
         assembleDnaReport({
           profile: profile.value,
           ...(filePaths === undefined ? {} : { filePaths }),
+          ...(lastSnapshot
+            ? { importedPackages: importedPackageRoots(lastSnapshot) }
+            : {}),
         }),
       );
     },
@@ -1156,6 +1262,10 @@ export function createWorkspace(options: {
           ),
         );
       }
+      const languageRefusal = languageGate(
+        lastSnapshot.files.map((f) => f.path),
+      );
+      if (languageRefusal) return err(languageRefusal);
       const task = input.task.trim();
       if (!task) {
         return err(
@@ -1415,7 +1525,7 @@ export function createWorkspace(options: {
       });
     },
     async blastRadius(input) {
-      const gate = ensureImpact();
+      const gate = ensureSupported(input);
       if (!gate.ok) return gate;
       return computeBlastRadius(
         input,
@@ -1428,7 +1538,7 @@ export function createWorkspace(options: {
       );
     },
     async safeDelete(input) {
-      const gate = ensureImpact();
+      const gate = ensureSupported(input);
       if (!gate.ok) return gate;
       return computeSafeDelete(
         input,
@@ -1436,7 +1546,7 @@ export function createWorkspace(options: {
       );
     },
     async renameImpact(input) {
-      const gate = ensureImpact();
+      const gate = ensureSupported(input);
       if (!gate.ok) return gate;
       return computeRenameImpact(
         input,
@@ -1444,7 +1554,7 @@ export function createWorkspace(options: {
       );
     },
     async testImpact(input) {
-      const gate = ensureImpact();
+      const gate = ensureSupported(input);
       if (!gate.ok) return gate;
       return computeTestImpact(
         input,
@@ -1452,16 +1562,40 @@ export function createWorkspace(options: {
       );
     },
     async reviewChanges(input) {
-      const gate = ensureImpact();
+      const gate = ensureSupported();
       if (!gate.ok) return gate;
       const context = impactContextFor(gate.value, false, softImpactCache);
+      const inventory = gate.value.files.map((f) => f.path);
+      const unsupported: { path: string; message: string }[] = [];
       const paths = [
         ...new Set(
           input.paths.map((p) => p.replace(/\\/g, "/").replace(/^\.\//, "")),
         ),
-      ];
+      ].filter((path) => {
+        // Plan §4.6 / RC-6: unsupported-language paths are listed, not analysed.
+        const refusal = languageGate(inventory, path);
+        if (refusal) unsupported.push({ path, message: refusal.message });
+        return refusal === null;
+      });
+      // RC-3: a huge diff (codemod) analyses the 100 paths with the most
+      // importers, the cheapest proxy for risk, and says so.
+      let analysed = paths;
+      if (paths.length > REVIEW_LARGE_DIFF) {
+        const importers = new Map<string, number>();
+        for (const edge of buildDependencyGraph(gate.value).graph.edges) {
+          const to = edge.to.replace(/^file:/, "");
+          importers.set(to, (importers.get(to) ?? 0) + 1);
+        }
+        analysed = [...paths]
+          .sort(
+            (a, b) =>
+              (importers.get(b) ?? 0) - (importers.get(a) ?? 0) ||
+              a.localeCompare(b),
+          )
+          .slice(0, REVIEW_ANALYSED_CAP);
+      }
       const items: ChangeReviewItem[] = [];
-      for (const path of paths) {
+      for (const path of analysed) {
         const origin = { kind: "file" as const, id: path, path };
         const blast = computeBlastRadius(origin, context);
         if (!blast.ok) return blast;
@@ -1504,6 +1638,11 @@ export function createWorkspace(options: {
         totalAffectedFiles,
         totalTestsAffected,
         totalBreakingChanges,
+        ...(unsupported.length > 0 ? { unsupported } : {}),
+        ...(analysed.length < paths.length
+          ? { truncated: { total: paths.length, analysed: analysed.length } }
+          : {}),
+        ...(input.paths.length === 0 ? { message: "nothing changed" } : {}),
       } satisfies ChangeReviewReport);
     },
     graph(query, budget) {
@@ -1519,15 +1658,47 @@ export function createWorkspace(options: {
       const norm = path.replace(/\\/g, "/").replace(/^\.\//, "");
 
       const dep = buildDependencyGraph(snapshot).graph;
-      const nodeId = `file:${norm}`;
-      const inDeg = dep.edges.filter((e) => e.to === nodeId).length;
-      const outDeg = dep.edges.filter((e) => e.from === nodeId).length;
+      // Plan §4.1: a folder aggregates its files' edges. Edges inside the
+      // folder are internal and not counted; in/out cross its boundary.
+      const prefix = norm.replace(/\/+$/, "");
+      const folderFiles = snapshot.files
+        .map((f) => f.path)
+        .filter((p) => p.startsWith(`${prefix}/`))
+        .sort();
+      const isFolder =
+        prefix.length > 0 &&
+        folderFiles.length > 0 &&
+        !snapshot.files.some((f) => f.path === prefix);
+      const members = new Set(
+        (isFolder ? folderFiles : [norm]).map((p) => `file:${p}`),
+      );
+      const inEdges = dep.edges.filter(
+        (e) => members.has(e.to) && !members.has(e.from),
+      );
+      const inDeg = inEdges.length;
+      const outDeg = dep.edges.filter(
+        (e) => members.has(e.from) && !members.has(e.to),
+      ).length;
+      const folderTests = isFolder
+        ? [
+            ...new Set([
+              ...folderFiles.filter((p) => isTestPath(p)),
+              ...inEdges
+                .map((e) => String(e.from).replace(/^file:/, ""))
+                .filter((p) => isTestPath(p)),
+            ]),
+          ]
+            .sort()
+            .slice(0, 50)
+        : [];
+      const folderSources = folderFiles.filter((p) => !isTestPath(p));
 
       const rollup = await loadWorkspaceRollup();
       const dna = rollup.ok
         ? assembleDnaReport({
             profile: rollup.value,
             filePaths: snapshot.files.map((f) => f.path),
+            importedPackages: importedPackageRoots(snapshot),
           })
         : null;
       const domains = matchDomainsForPath(
@@ -1542,10 +1713,19 @@ export function createWorkspace(options: {
           value: readGitSignals(snapshot.rootPath, { keepPaths }),
         };
       }
-      const fileSignal = gitCache.value?.signals.get(norm);
-      const owners = fileSignal
-        ? fileSignal.contributors.slice(0, 3).map((c) => c.author)
-        : [];
+      const ownerCounts = new Map<string, number>();
+      for (const p of isFolder ? folderFiles : [norm]) {
+        const signal = gitCache.value?.signals.get(p);
+        for (const c of signal?.contributors ?? [])
+          ownerCounts.set(
+            c.author,
+            (ownerCounts.get(c.author) ?? 0) + c.commits,
+          );
+      }
+      const owners = [...ownerCounts.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, 3)
+        .map(([author]) => author);
 
       const role = classifyFileRole(norm);
 
@@ -1553,7 +1733,13 @@ export function createWorkspace(options: {
         domains.length > 0
           ? `Likely ${domains.join("/")} area`
           : "Domain not confidently classified",
-        `file role: ${fileRoleLabel(role)}`,
+        isFolder
+          ? `folder of ${folderSources.length} source file(s)${
+              folderSources.length > 0
+                ? ` (${folderSources.slice(0, 5).join(", ")}${folderSources.length > 5 ? ", …" : ""})`
+                : ""
+            }; tests: ${folderTests.length > 0 ? folderTests.slice(0, 5).join(", ") : "none found"}`
+          : `file role: ${fileRoleLabel(role)}`,
         `${inDeg} incoming and ${outDeg} outgoing dependency edge(s)`,
         owners.length > 0
           ? `top contributor(s): ${owners.join(", ")}`
@@ -1566,7 +1752,13 @@ export function createWorkspace(options: {
         dependencyDegree: { in: inDeg, out: outDeg },
         owners,
         summary,
-        fileRole: role,
+        ...(isFolder
+          ? {
+              kind: "folder" as const,
+              files: folderSources.slice(0, 50),
+              tests: folderTests,
+            }
+          : { kind: "file" as const, fileRole: role }),
       } satisfies ExplainAreaSummary);
     },
     async guardSession(input) {
@@ -1593,6 +1785,7 @@ export function createWorkspace(options: {
         snapshot,
         sessionPaths,
         dependencyGraph,
+        entryRoles: entryPointsFor(snapshot).roles,
       });
       const context = impactContextFor(snapshot, false, softImpactCache);
       const files: GuardSession["files"] = [];
@@ -1618,6 +1811,7 @@ export function createWorkspace(options: {
         generatedAt: new Date().toISOString(),
         files: files.slice(0, cap),
         excludedPreExisting,
+        sessionPaths,
         totalDirty: changed.paths.length,
         truncated: files.length > cap,
       } satisfies GuardSession);

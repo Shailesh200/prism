@@ -66,6 +66,7 @@ An unknown name is reported on stderr and by `prism doctor`.
 | `agents_md` | Generate or verify the Living AGENTS.md (cycles, tests); writes only under `~/.prism` | `action` |
 | `workspace_status` | Index readiness, freshness, git and cache presence | — |
 | `capabilities` | Core capabilities with availability reasons | — |
+| `receipt` | What this session changed and its verdict: proven, not_proven(reason) or failed; checks run in the background, same edits give the same receipt id | `sessionId` |
 | `review_with` | Lens briefs and recorded verdicts. Prism does not call a model | `action`, `lenses`, `task`, `verdicts` |
 
 MCP **resources**: `prism://dna`, `prism://landmarks`, `prism://agents-md`.

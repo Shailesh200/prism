@@ -4,6 +4,9 @@ export default defineConfig({
   test: {
     name: "@repo-prism/shared",
     include: ["src/**/*.test.ts"],
+    // Tests spawn git and build fixture repos.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
     coverage: {
       provider: "v8",
       include: [

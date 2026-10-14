@@ -14,6 +14,11 @@ export {
   PRISM_TOOL_COUNT,
 } from "./generated/tool-count.js";
 export {
+  DEFAULT_TOOL_NAMES,
+  HERO_TOOL_NAMES,
+  OPT_IN_TOOL_NAMES,
+} from "./tool-names.js";
+export {
   err,
   isErr,
   isOk,
@@ -39,6 +44,8 @@ export {
 
 export {
   ChangeReceiptSchema,
+  NOT_PROVEN_REASONS,
+  NotProvenReasonSchema,
   RECEIPT_FLAG_KINDS,
   ReceiptCheckSchema,
   ReceiptFlagSchema,
@@ -46,19 +53,29 @@ export {
   blockingChecks,
   preexistingFailures,
   type ChangeReceipt,
+  type NotProvenReason,
   type ReceiptCheck,
   type ReceiptFlag,
   type ReceiptLensLine,
 } from "./receipt.js";
 export {
   receiptFeedback,
+  nothingChanged,
   receiptHeadline,
+  receiptSummaryLine,
   renderReceipt,
   renderReceiptMarkdown,
   renderReceiptSvg,
 } from "./receipt-render.js";
 
 export {
+  LENS_CHECK_IDS,
+  LensCheckIdSchema,
+  LensCheckStatusSchema,
+  LensFindingSchema,
+  type LensCheckId,
+  type LensCheckStatus,
+  type LensFinding,
   LENS_EVIDENCE,
   LENS_FACT_ORIGINS,
   LENS_ID,
@@ -78,7 +95,14 @@ export {
   type LensVerdictValue,
   type LensView,
 } from "./lenses.js";
-export { chooseLens } from "./lens-route.js";
+export {
+  RESERVED_TRIGGER_WORDS,
+  chooseLens,
+  chooseLensDetailed,
+  invalidTrigger,
+  routableText,
+  type LensChoice,
+} from "./lens-route.js";
 
 export {
   CLOCK_STOPPED_STATUSES,
@@ -177,7 +201,18 @@ export {
   type WorkOrderState,
 } from "./work-order.js";
 export { looksLikeChangeRequest } from "./change-request.js";
-export { prepareIsAnchored, renderPrepareContext } from "./prepare-context.js";
+export {
+  NON_ENGLISH_NOTE,
+  classifyPrompt,
+  isNonEnglish,
+  type PromptClass,
+  type PromptKind,
+} from "./classify-prompt.js";
+export {
+  prepareIsAnchored,
+  renderPrepareContext,
+  type PrepareContextExtras,
+} from "./prepare-context.js";
 export {
   AUTO_PREPARE_BUDGET,
   PREPARE_RESPONSE_BUDGET,
@@ -186,6 +221,7 @@ export {
   PrepareTrimmedSchema,
   clampPrepareBudget,
   fitPrepareToBudget,
+  PREPARE_RESERVES,
   prepareResponseTokens,
   type PrepareTrimSection,
   type PrepareTrimmed,
@@ -243,8 +279,12 @@ export {
   SafeDeleteReportSchema,
   RenameImpactReportSchema,
   TestImpactReportSchema,
+  TestImpactItemSchema,
+  TestRunnerSchema,
   ChangeReviewItemSchema,
   ChangeReviewReportSchema,
+  REVIEW_ANALYSED_CAP,
+  REVIEW_LARGE_DIFF,
   GuardCheckKindSchema,
   GUARD_CHECK_KINDS,
   GuardFlagSchema,
@@ -399,6 +439,8 @@ export {
   type SafeDeleteReport,
   type RenameImpactReport,
   type TestImpactReport,
+  type TestImpactItem,
+  type TestRunner,
   type ChangeReviewItem,
   type ChangeReviewReport,
   type GuardCheckKind,
@@ -480,3 +522,14 @@ export {
   type WellKnownDeveloperPersona,
   type WellKnownStackDomain,
 } from "./stack.js";
+export {
+  isSupportedSourcePath,
+  languageGate,
+  MIN_SUPPORTED_SOURCE_SHARE,
+  repoLanguageSupport,
+  sourceLanguageOf,
+  SUPPORTED_SOURCE_EXT,
+  UNSUPPORTED_LANGUAGE_PREFIX,
+  unsupportedLanguageError,
+  type RepoLanguageSupport,
+} from "./language-support.js";

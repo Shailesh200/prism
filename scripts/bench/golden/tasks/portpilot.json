@@ -260,6 +260,428 @@
         "src/renderer/src/components/CommandPalette.tsx"
       ],
       "heldOut": false
+    },
+    {
+      "id": "portpilot-hl-001",
+      "repo": "portpilot",
+      "commit": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "parent": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "task": "the compact segmented control in the text tools should collapse back when focus leaves it",
+      "firstFile": "src/renderer/src/modules/text/tools/toolUi.tsx",
+      "files": [
+        "src/renderer/src/modules/text/tools/toolUi.tsx",
+        "src/renderer/src/modules/database/DatabaseModule.tsx",
+        "src/renderer/src/modules/text/tools/CombinedDiff.tsx",
+        "src/renderer/src/modules/text/tools/EncodeDecode.tsx"
+      ],
+      "tests": [],
+      "blast": [
+        "src/renderer/src/modules/database/DatabaseModule.tsx",
+        "src/renderer/src/modules/text/tools/CombinedDiff.tsx",
+        "src/renderer/src/modules/text/tools/EncodeDecode.tsx",
+        "src/renderer/src/modules/text/tools/FormatConverter.tsx",
+        "src/renderer/src/modules/text/tools/JsonDiff.tsx",
+        "src/renderer/src/modules/text/tools/JsonFormatter.tsx"
+      ],
+      "heldOut": true,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "portpilot-hl-002",
+      "repo": "portpilot",
+      "commit": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "parent": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "task": "Redis key browsing should use SCAN with a page size of 500 instead of 200",
+      "firstFile": "src/main/modules/database/db-service.ts",
+      "files": [
+        "src/main/modules/database/db-service.ts",
+        "src/main/modules/workbench-ipc.ts"
+      ],
+      "tests": [],
+      "blast": [
+        "src/main/modules/workbench-ipc.ts"
+      ],
+      "heldOut": false,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "portpilot-hl-003",
+      "repo": "portpilot",
+      "commit": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "parent": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "task": "the preload event subscribe helper should warn when the same listener is registered twice",
+      "firstFile": "src/preload/ipc-bridge.ts",
+      "files": [
+        "src/preload/ipc-bridge.ts",
+        "src/preload/index.ts"
+      ],
+      "tests": [],
+      "blast": [
+        "src/preload/index.ts"
+      ],
+      "heldOut": false,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "portpilot-hl-004",
+      "repo": "portpilot",
+      "commit": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "parent": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "task": "fullscreen tool shell should close on Escape",
+      "firstFile": "src/renderer/src/modules/text/tools/ToolWorkspaceExtras.tsx",
+      "files": [
+        "src/renderer/src/modules/text/tools/ToolWorkspaceExtras.tsx",
+        "src/renderer/src/modules/text/tools/EncodeDecode.tsx",
+        "src/renderer/src/modules/text/tools/FormatConverter.tsx",
+        "src/renderer/src/modules/text/tools/JsonDiff.tsx"
+      ],
+      "tests": [],
+      "blast": [
+        "src/renderer/src/modules/text/tools/EncodeDecode.tsx",
+        "src/renderer/src/modules/text/tools/FormatConverter.tsx",
+        "src/renderer/src/modules/text/tools/JsonDiff.tsx",
+        "src/renderer/src/modules/text/tools/JsonFormatter.tsx",
+        "src/renderer/src/modules/text/tools/JwtInspector.tsx",
+        "src/renderer/src/modules/text/tools/RegexPlayground.tsx"
+      ],
+      "heldOut": false,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "portpilot-hl-005",
+      "repo": "portpilot",
+      "commit": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "parent": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "task": "detect Mac App Store builds also when running under the sandbox env var",
+      "firstFile": "src/main/os/paths.ts",
+      "files": [
+        "src/main/os/paths.ts",
+        "src/main/os/app-review.ts",
+        "src/main/os/index.ts"
+      ],
+      "tests": [],
+      "blast": [
+        "src/main/os/app-review.ts",
+        "src/main/os/index.ts"
+      ],
+      "heldOut": true,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "portpilot-hl-006",
+      "repo": "portpilot",
+      "commit": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "parent": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "task": "text snapshots list should be sorted newest first",
+      "firstFile": "src/main/modules/text/text-snapshots-service.ts",
+      "files": [
+        "src/main/modules/text/text-snapshots-service.ts",
+        "src/main/modules/workbench-ipc.ts"
+      ],
+      "tests": [],
+      "blast": [
+        "src/main/modules/workbench-ipc.ts"
+      ],
+      "heldOut": false,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "portpilot-hl-007",
+      "repo": "portpilot",
+      "commit": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "parent": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "task": "relative time formatting should say 'just now' for under 10 seconds",
+      "firstFile": "src/shared/time-convert.ts",
+      "files": [
+        "src/shared/time-convert.ts",
+        "src/renderer/src/modules/text/tools/JwtInspector.tsx"
+      ],
+      "tests": [],
+      "blast": [
+        "src/renderer/src/modules/text/tools/JwtInspector.tsx"
+      ],
+      "heldOut": false,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "portpilot-hl-008",
+      "repo": "portpilot",
+      "commit": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "parent": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "task": "dummy row generator for a table schema should produce ISO dates for timestamp columns",
+      "firstFile": "src/renderer/src/modules/database/schemaDummy.ts",
+      "files": [
+        "src/renderer/src/modules/database/schemaDummy.ts",
+        "src/renderer/src/modules/database/DatabaseModule.tsx"
+      ],
+      "tests": [],
+      "blast": [
+        "src/renderer/src/modules/database/DatabaseModule.tsx"
+      ],
+      "heldOut": false,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "portpilot-hl-009",
+      "repo": "portpilot",
+      "commit": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "parent": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "task": "legacy .doc detection should be case-insensitive on the file extension",
+      "firstFile": "src/renderer/src/modules/text/tools/formatConvertCore.ts",
+      "files": [
+        "src/renderer/src/modules/text/tools/formatConvertCore.ts",
+        "src/renderer/src/modules/text/tools/FormatConverter.tsx"
+      ],
+      "tests": [],
+      "blast": [
+        "src/renderer/src/modules/text/tools/FormatConverter.tsx"
+      ],
+      "heldOut": false,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "portpilot-hl-010",
+      "repo": "portpilot",
+      "commit": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "parent": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "task": "open in browser for a port should use https when the port is 443 or 8443",
+      "firstFile": "src/main/services/process-manager.ts",
+      "files": [
+        "src/main/services/process-manager.ts",
+        "src/main/ipc.ts",
+        "src/main/services/port-alerts.ts",
+        "src/main/tray.ts"
+      ],
+      "tests": [],
+      "blast": [
+        "src/main/ipc.ts",
+        "src/main/services/port-alerts.ts",
+        "src/main/tray.ts",
+        "src/preload/index.ts",
+        "src/renderer/src/components/CommandPalette.tsx",
+        "src/renderer/src/components/PortTable.tsx"
+      ],
+      "heldOut": true,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "portpilot-hl-011",
+      "repo": "portpilot",
+      "commit": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "parent": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "task": "marking expected stops for a pid should also cover its child processes",
+      "firstFile": "src/main/services/expected-stops.ts",
+      "files": [
+        "src/main/services/expected-stops.ts",
+        "src/main/ipc.ts",
+        "src/main/tray.ts"
+      ],
+      "tests": [],
+      "blast": [
+        "src/main/ipc.ts",
+        "src/main/tray.ts"
+      ],
+      "heldOut": false,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "portpilot-hl-012",
+      "repo": "portpilot",
+      "commit": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "parent": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "task": "curl syntax highlighting should colour the URL separately from flags",
+      "firstFile": "src/renderer/src/lib/syntaxHighlight.tsx",
+      "files": [
+        "src/renderer/src/lib/syntaxHighlight.tsx",
+        "src/renderer/src/modules/text/tools/UrlCurlInspector.tsx"
+      ],
+      "tests": [],
+      "blast": [
+        "src/renderer/src/modules/text/tools/UrlCurlInspector.tsx"
+      ],
+      "heldOut": false,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "portpilot-hl-013",
+      "repo": "portpilot",
+      "commit": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "parent": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "task": "encode/decode auto-detection should recognise base64url strings",
+      "firstFile": "src/renderer/src/modules/text/tools/encodeDecodeCore.ts",
+      "files": [
+        "src/renderer/src/modules/text/tools/encodeDecodeCore.ts",
+        "src/renderer/src/modules/text/tools/EncodeDecode.tsx"
+      ],
+      "tests": [],
+      "blast": [
+        "src/renderer/src/modules/text/tools/EncodeDecode.tsx"
+      ],
+      "heldOut": false,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "portpilot-hl-014",
+      "repo": "portpilot",
+      "commit": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "parent": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "task": "JWT signature verification should support ES256",
+      "firstFile": "src/renderer/src/lib/jwtVerify.ts",
+      "files": [
+        "src/renderer/src/lib/jwtVerify.ts",
+        "src/renderer/src/modules/text/tools/JwtInspector.tsx"
+      ],
+      "tests": [],
+      "blast": [
+        "src/renderer/src/modules/text/tools/JwtInspector.tsx"
+      ],
+      "heldOut": false,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "portpilot-hl-015",
+      "repo": "portpilot",
+      "commit": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "parent": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "task": "the tray menu should show the number of listening ports in its tooltip",
+      "firstFile": "src/main/tray.ts",
+      "files": [
+        "src/main/tray.ts",
+        "src/main/index.ts"
+      ],
+      "tests": [],
+      "blast": [
+        "src/main/index.ts"
+      ],
+      "heldOut": true,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "portpilot-hl-016",
+      "repo": "portpilot",
+      "commit": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "parent": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "task": "atomic JSON write should fsync the temp file before rename",
+      "firstFile": "src/main/os/atomic-json.ts",
+      "files": [
+        "src/main/os/atomic-json.ts",
+        "src/main/modules/clipboard/clipboard-service.ts",
+        "src/main/modules/database/db-service.ts",
+        "src/main/modules/text/text-snapshots-service.ts"
+      ],
+      "tests": [],
+      "blast": [
+        "src/main/modules/clipboard/clipboard-service.ts",
+        "src/main/modules/database/db-service.ts",
+        "src/main/modules/text/text-snapshots-service.ts",
+        "src/main/os/app-review.ts",
+        "src/main/os/index.ts",
+        "src/main/profiles-persistence.ts"
+      ],
+      "heldOut": false,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "portpilot-hl-017",
+      "repo": "portpilot",
+      "commit": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "parent": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "task": "loading saved profiles should drop entries with an unknown schema version",
+      "firstFile": "src/main/profiles-persistence.ts",
+      "files": [
+        "src/main/profiles-persistence.ts",
+        "src/main/ipc.ts",
+        "src/main/tray.ts"
+      ],
+      "tests": [],
+      "blast": [
+        "src/main/ipc.ts",
+        "src/main/tray.ts"
+      ],
+      "heldOut": false,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "portpilot-hl-018",
+      "repo": "portpilot",
+      "commit": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "parent": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "task": "the safe execFile wrapper should time out after 10 seconds",
+      "firstFile": "src/main/os/exec-file-safe.ts",
+      "files": [
+        "src/main/os/exec-file-safe.ts",
+        "src/main/os/index.ts",
+        "src/main/services/port-scanner.ts",
+        "src/main/services/process-manager.ts"
+      ],
+      "tests": [],
+      "blast": [
+        "src/main/os/index.ts",
+        "src/main/services/port-scanner.ts",
+        "src/main/services/process-manager.ts"
+      ],
+      "heldOut": false,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "portpilot-hl-019",
+      "repo": "portpilot",
+      "commit": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "parent": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "task": "the save dialog should remember the last directory the user picked",
+      "firstFile": "src/main/os/dialogs.ts",
+      "files": [
+        "src/main/os/dialogs.ts",
+        "src/main/modules/workbench-ipc.ts",
+        "src/main/os/index.ts"
+      ],
+      "tests": [],
+      "blast": [
+        "src/main/modules/workbench-ipc.ts",
+        "src/main/os/index.ts"
+      ],
+      "heldOut": false,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "portpilot-hl-020",
+      "repo": "portpilot",
+      "commit": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "parent": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "task": "CSS pretty printer should keep comments on their own lines",
+      "firstFile": "src/renderer/src/lib/prettyPrint.ts",
+      "files": [
+        "src/renderer/src/lib/prettyPrint.ts",
+        "src/renderer/src/modules/text/tools/JsConsole.tsx",
+        "src/renderer/src/modules/text/tools/JsonFormatter.tsx"
+      ],
+      "tests": [],
+      "blast": [
+        "src/renderer/src/modules/text/tools/JsConsole.tsx",
+        "src/renderer/src/modules/text/tools/JsonFormatter.tsx"
+      ],
+      "heldOut": true,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "portpilot-hl-021",
+      "repo": "portpilot",
+      "commit": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "parent": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+      "task": "port uptime formatting should show days once uptime exceeds 24 hours",
+      "firstFile": "src/renderer/src/lib/portOccupancy.ts",
+      "files": [
+        "src/renderer/src/lib/portOccupancy.ts",
+        "src/renderer/src/components/PortTable.tsx",
+        "src/renderer/src/components/QuickPeek.tsx"
+      ],
+      "tests": [],
+      "blast": [
+        "src/renderer/src/components/PortTable.tsx",
+        "src/renderer/src/components/QuickPeek.tsx"
+      ],
+      "heldOut": false,
+      "label": "hand-labelled, owner-approved 2026-10-14"
     }
   ]
 }

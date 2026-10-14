@@ -56,7 +56,10 @@ async function loadClassifier(kind) {
   };
 }
 
-const kind = arg("classifier", "hook-regex");
+// Default: the classifier the shipped hook imports (plan §5.8). The 1.x
+// regex baseline stays available as `--classifier hook-regex` for the
+// before column, run against the 1.x hook.
+const kind = arg("classifier", "module");
 const classify = await loadClassifier(kind);
 const sets = { synthetic: readJsonl(join(here, "classifier/synthetic.jsonl")) };
 const privatePath =

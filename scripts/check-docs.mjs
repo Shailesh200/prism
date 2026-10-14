@@ -176,6 +176,10 @@ const NOT_TOOL_NAMES = new Set([
   "node_modules",
   "cache_db",
   "package_json",
+  // Receipt verdict reasons (not_proven(<reason>)), not tools.
+  "unsupported_language",
+  "no_node_modules",
+  "already_failing",
   // The MCP authorization tool other servers expose. Architecture notes
   // mention it to say Prism's discovery does not settle for it.
   "mcp_auth",
@@ -328,7 +332,6 @@ for (const file of files) {
   }
 }
 
-
 // 6. Every workspace package is described. A package nobody wrote down is a
 //    package a new contributor has to reverse-engineer.
 const packagesPage = await readFile(
@@ -409,23 +412,6 @@ for (const command of COMMANDS) {
   }
 }
 
-// 9. Iris / Spectrum stay named where the product identity is documented.
-const designSystem = await readFile(
-  join(repoRoot, "plans", "DESIGN_SYSTEM.md"),
-  "utf8",
-);
-const glossary = await readFile(
-  join(docsDir, "reference", "glossary.md"),
-  "utf8",
-);
-for (const word of ["Iris", "Spectrum"]) {
-  if (!designSystem.includes(word)) {
-    problems.push(`plans/DESIGN_SYSTEM.md: ${word} is missing (ADR-0052)`);
-  }
-  if (!glossary.includes(`**${word}**`)) {
-    problems.push(`docs/reference/glossary.md: ${word} is missing`);
-  }
-}
 if (problems.length > 0) {
   console.error("check-docs: the docs describe a Prism that does not exist\n");
   for (const problem of problems) console.error(`  ${problem}`);

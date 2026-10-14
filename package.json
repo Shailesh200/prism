@@ -25,7 +25,7 @@
   "scripts": {
     "build": "moon run :build",
     "typecheck": "moon run :typecheck",
-    "lint": "oxlint . && node scripts/check-no-silent-catch.mjs && node scripts/check-deleted-names.mjs",
+    "lint": "oxlint . && node scripts/check-no-silent-catch.mjs && node scripts/check-deleted-names.mjs && node scripts/check-lockstep.mjs && node scripts/check-no-published-refs.mjs",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "test": "moon run :test",

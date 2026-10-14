@@ -168,6 +168,8 @@ async function analyzeOne(
       ...(typeof i.start === "number" ? { start: i.start } : {}),
       ...(typeof i.end === "number" ? { end: i.end } : {}),
       ...(i.kind === undefined ? {} : { kind: i.kind }),
+      ...(i.typeOnly ? { typeOnly: true } : {}),
+      ...(i.imported === undefined ? {} : { imported: [...i.imported] }),
     })),
     exports: value.exports.map((e) => ({
       name: e.name,
@@ -175,6 +177,8 @@ async function analyzeOne(
       ...(typeof e.start === "number" ? { start: e.start } : {}),
       ...(typeof e.end === "number" ? { end: e.end } : {}),
       ...(e.source === undefined ? {} : { source: e.source }),
+      ...(e.typeOnly ? { typeOnly: true } : {}),
+      ...(e.importedName === undefined ? {} : { importedName: e.importedName }),
     })),
     references: value.references.map((r) => ({
       name: r.name,

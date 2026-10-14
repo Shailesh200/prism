@@ -19,10 +19,8 @@ Prism parses source into a local index and derives views from that one store:
 
 | View | Question |
 |---|---|
-| **Repository map** | What is in here, and how is it shaped? |
 | **Dependency / knowledge / feature graphs** | What imports what, what symbols mean, which files implement one capability? |
 | **Repository DNA** | What is this built from, and which domains does it span? |
-| **Health score** | Where is risk concentrated, and why? |
 | **Blast radius** | If I change this file, what else is affected? |
 | **Prepare** | What should I open for this task, and what already exists? |
 | **Envelope** | How much did agents take from the index, without dumping source? |
@@ -34,10 +32,9 @@ Prism parses source into a local index and derives views from that one store:
 
 | Surface | For |
 |---|---|
-| **VS Code / Cursor** | Day-to-day visual reading |
+| **MCP server and hooks** | Claude Code, Cursor, Codex and opencode: nine tools, a prompt-time pack and a stop-time receipt |
 | **CLI** | Scripts, CI, terminal workflows |
-| **MCP server** | Giving an AI agent real structural knowledge |
-| **Spectrum** | Trying Prism in a browser without an extension |
+| **GitHub Action** | A sticky PR comment with blast, tests and risk |
 
 ## Is it for you?
 

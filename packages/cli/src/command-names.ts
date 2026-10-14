@@ -7,7 +7,11 @@
  * command that forgets to land here fails the suite.
  */
 export const CLI_COMMAND_NAMES = [
+  "install",
+  "uninstall",
+  "upgrade",
   "doctor",
+  "stats",
   "data",
   "index",
   "graph",
@@ -31,6 +35,7 @@ export const CLI_COMMAND_NAMES = [
   "findings",
   "envelope",
   "receipts",
+  "lens",
   "remember",
   "forget",
   "memories",

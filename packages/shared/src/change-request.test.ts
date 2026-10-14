@@ -10,6 +10,8 @@ describe("looksLikeChangeRequest", () => {
     "can you add a --json flag to prism receipts in receipts.ts?",
     "make the stop hook work when cwd is missing in prism-hook.mjs",
     "remove the jobs_app resource",
+    // Vague, but a change: Prepare finds nothing anchored and stays quiet (HK-5).
+    "add some tests",
   ])("triggers on a change request: %s", (prompt) => {
     expect(looksLikeChangeRequest(prompt)).toBe(true);
   });
@@ -19,7 +21,6 @@ describe("looksLikeChangeRequest", () => {
     "explain how prepareChange ranks files",
     "why is guardSession slow",
     "how do I run the tests",
-    "add some tests",
     "thanks, looks good",
     "is renderReceipt used anywhere?",
   ])("stays quiet on a question or a vague ask: %s", (prompt) => {

@@ -16,3 +16,5 @@ Recorded 2026-10-14 (IST) on `8b46042` (`milestone/M-087-focus-reset-plan`; chec
 | B10 | B10-install-matrix.json | 0 cells pass: no `prism install`; R-A1 reproduced | T1 |
 
 Labels for B2/B4 are mined from commits (`scripts/bench/golden/mine-tasks.mjs`). The first file is the one with the most changed lines, the tests are the changed test files, and the blast set is the other changed source files. These are lower bounds, so precision figures understate the true values. rentmaadi task files live in `~/.prism-dev/golden/` (private), and only its numbers are recorded here. Gate: `node scripts/bench/gate.mjs --current <dir>`.
+
+**B3 baseline corrected (2026-10-14, owner-approved):** catch rate 0.75 → 0.625 (6/8 → 5/8). The 1.x "catch" on hono `2159deb4` was a false orphan flag on `src/middleware/etag/index.ts`, a public package entry (`"./etag"` in package.json exports and jsr.json). Original value kept as `catchRateOriginal` in `B3-replay.json`. False-alarm baseline unchanged.

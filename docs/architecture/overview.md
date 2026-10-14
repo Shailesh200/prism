@@ -8,8 +8,8 @@ description: "One engine, several surfaces — every surface asks Core."
 computes anything.**
 
 ```
-  extension    CLI    MCP server    playground
-       └────────┴─────────┴─────────────┘
+  CLI    MCP server + hooks    GitHub Action
+   └───────────┴──────────────────┘
                      │
                 @repo-prism/core          ← the only public API
                      │
@@ -27,14 +27,12 @@ internals it happens to need — produces four implementations of "what is the
 blast radius of this file" that drift apart, and then a support conversation
 about why the CLI and the editor disagree.
 
-Prism has already avoided that once: test-runner logic existed separately in the
-extension and the playground, drifted, and turned out to contain two different
-bugs. Consolidating it into Core removed both.
+Prism has already avoided that once: test-runner logic existed separately in two
+surfaces, drifted, and turned out to contain two different bugs. Consolidating
+it into Core removed both.
 
 The CLI and the MCP server each carry a boundary test: importing an internal
-package from those surfaces fails the build. The extension and the playground
-follow the same rule and currently hold to it, but are not yet pinned by an
-equivalent test.
+package from those surfaces fails the build.
 
 ## The layers
 
@@ -45,8 +43,8 @@ it runs in a browser webview unchanged.
 
 **Engine internals** — the analyzer parses (Oxc for TypeScript and JavaScript),
 the indexer persists to SQLite in `.prism/`, the graph engine builds and queries
-graphs, and the intelligence packages derive health, features, stack detection
-and reports.
+graphs, and the intelligence packages derive stack detection, entry points and
+the facts Prepare and review read.
 
 **`@repo-prism/core`** — the public SDK. `PrismWorkspace` is the whole surface: open a
 workspace, ask questions, get typed results. Every method returns

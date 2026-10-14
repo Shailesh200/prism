@@ -24,10 +24,9 @@ fiction.
 | **Inferred** | Feature membership or similar-by-name — not load-bearing until you open the file |
 
 Graph edges on Intelligence tools carry `measured` | `heuristic` | `inferred`.
-The Envelope byte ratio is measured. Iris follow-through is heuristic.
+The Envelope byte ratio is measured.
 
-Surfaces show this: markers in the extension, fields in `--json`, labels in the
-CLI. Estimated figures are labelled; unavailable ones are absent rather than
+Surfaces show this: fields in `--json` and MCP results, labels in the CLI. Estimated figures are labelled; unavailable ones are absent rather than
 zero.
 
 ## Unavailable is a real answer
@@ -38,9 +37,8 @@ things.
 
 ## Estimated is honest, not useless
 
-Health history on day one may backfill earlier points from git, marked
-estimated. As real snapshots accumulate, they replace estimates. Both appear,
-distinguished.
+Ownership and churn on a shallow clone are marked estimated or unavailable,
+never shown as zero.
 
 ## Related
 

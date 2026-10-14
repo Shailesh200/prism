@@ -1,6 +1,6 @@
 {
   "repo": "mono",
-  "pinnedSha": "8b46042199e4538674d1161984fd2ac0225419eb",
+  "pinnedSha": "f45ccb73f764dd17806ab118897bf1236254ec0f",
   "tasks": [
     {
       "id": "mono-001",
@@ -469,6 +469,227 @@
       "tests": [],
       "blast": [],
       "heldOut": true
+    },
+    {
+      "id": "mono-hl-001",
+      "repo": "mono",
+      "commit": "f45ccb73f764dd17806ab118897bf1236254ec0f",
+      "parent": "f45ccb73f764dd17806ab118897bf1236254ec0f",
+      "task": "make knowledge graph construction resolve references by import path before falling back to name matching",
+      "firstFile": "packages/intelligence/src/semantic/build.ts",
+      "files": [
+        "packages/intelligence/src/semantic/build.ts",
+        "packages/intelligence/src/explorer/report.ts",
+        "packages/intelligence/src/findings/duplicate-implementation.ts",
+        "packages/intelligence/src/findings/unused-exports.ts"
+      ],
+      "tests": [
+        "packages/intelligence/src/index.test.ts",
+        "packages/intelligence/src/semantic/build.test.ts",
+        "packages/intelligence/src/semantic/rationale.test.ts"
+      ],
+      "blast": [
+        "packages/intelligence/src/explorer/report.ts",
+        "packages/intelligence/src/findings/duplicate-implementation.ts",
+        "packages/intelligence/src/findings/unused-exports.ts",
+        "packages/intelligence/src/findings/wrapper-over-existing.ts",
+        "packages/intelligence/src/guard/session.ts",
+        "packages/intelligence/src/index.ts"
+      ],
+      "heldOut": false,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "mono-hl-002",
+      "repo": "mono",
+      "commit": "f45ccb73f764dd17806ab118897bf1236254ec0f",
+      "parent": "f45ccb73f764dd17806ab118897bf1236254ec0f",
+      "task": "the graph answer trimming drops nodes before edges; it should cut edges first so the answer still fits the budget",
+      "firstFile": "packages/shared/src/graph-query.ts",
+      "files": [
+        "packages/shared/src/graph-query.ts",
+        "packages/core/src/graph-query.ts",
+        "packages/shared/src/index.ts"
+      ],
+      "tests": [],
+      "blast": [
+        "packages/core/src/graph-query.ts",
+        "packages/shared/src/index.ts"
+      ],
+      "heldOut": false,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "mono-hl-003",
+      "repo": "mono",
+      "commit": "f45ccb73f764dd17806ab118897bf1236254ec0f",
+      "parent": "f45ccb73f764dd17806ab118897bf1236254ec0f",
+      "task": "measured provenance signals should reject NaN and infinite values",
+      "firstFile": "packages/shared/src/provenance.ts",
+      "files": [
+        "packages/shared/src/provenance.ts",
+        "packages/checks/src/scoped.ts",
+        "packages/checks/src/types.ts",
+        "packages/checks/src/verify.ts"
+      ],
+      "tests": [
+        "packages/checks/src/verify.test.ts",
+        "packages/core/src/envelope/envelope-ledger.test.ts",
+        "packages/core/src/graph-query.test.ts",
+        "packages/core/src/workspace.integration.test.ts"
+      ],
+      "blast": [
+        "packages/checks/src/scoped.ts",
+        "packages/checks/src/types.ts",
+        "packages/checks/src/verify.ts",
+        "packages/cli/src/table.ts",
+        "packages/core/src/envelope/envelope-ledger.ts",
+        "packages/core/src/graph-export.ts"
+      ],
+      "heldOut": false,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "mono-hl-004",
+      "repo": "mono",
+      "commit": "f45ccb73f764dd17806ab118897bf1236254ec0f",
+      "parent": "f45ccb73f764dd17806ab118897bf1236254ec0f",
+      "task": "saving a workspace memory should dedupe identical text instead of adding a second row",
+      "firstFile": "packages/shared/src/prism-home.ts",
+      "files": [
+        "packages/shared/src/prism-home.ts",
+        "packages/cli/src/commands/memory.ts"
+      ],
+      "tests": [
+        "packages/shared/src/prism-home.test.ts"
+      ],
+      "blast": [
+        "packages/cli/src/commands/memory.ts"
+      ],
+      "heldOut": true,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "mono-hl-005",
+      "repo": "mono",
+      "commit": "f45ccb73f764dd17806ab118897bf1236254ec0f",
+      "parent": "f45ccb73f764dd17806ab118897bf1236254ec0f",
+      "task": "clamp the prepare token budget to a minimum of 500 instead of 1000",
+      "firstFile": "packages/shared/src/prepare-budget.ts",
+      "files": [
+        "packages/shared/src/prepare-budget.ts",
+        "packages/intelligence/src/prepare/pack.ts",
+        "packages/shared/src/index.ts"
+      ],
+      "tests": [
+        "packages/shared/src/prepare-budget.test.ts"
+      ],
+      "blast": [
+        "packages/intelligence/src/prepare/pack.ts",
+        "packages/shared/src/index.ts"
+      ],
+      "heldOut": false,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "mono-hl-006",
+      "repo": "mono",
+      "commit": "f45ccb73f764dd17806ab118897bf1236254ec0f",
+      "parent": "f45ccb73f764dd17806ab118897bf1236254ec0f",
+      "task": "unused export findings should skip symbols re-exported from a package index",
+      "firstFile": "packages/intelligence/src/findings/unused-exports.ts",
+      "files": [
+        "packages/intelligence/src/findings/unused-exports.ts",
+        "packages/intelligence/src/findings/index.ts",
+        "packages/intelligence/src/index.ts"
+      ],
+      "tests": [
+        "packages/intelligence/src/findings/findings.test.ts"
+      ],
+      "blast": [
+        "packages/intelligence/src/findings/index.ts",
+        "packages/intelligence/src/index.ts"
+      ],
+      "heldOut": false,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "mono-hl-007",
+      "repo": "mono",
+      "commit": "f45ccb73f764dd17806ab118897bf1236254ec0f",
+      "parent": "f45ccb73f764dd17806ab118897bf1236254ec0f",
+      "task": "AGENTS.md generation should list import cycles sorted by length",
+      "firstFile": "packages/core/src/agents-md.ts",
+      "files": [
+        "packages/core/src/agents-md.ts",
+        "packages/core/src/workspace.ts"
+      ],
+      "tests": [
+        "packages/core/src/agents-md.test.ts"
+      ],
+      "blast": [
+        "packages/core/src/workspace.ts"
+      ],
+      "heldOut": false,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "mono-hl-008",
+      "repo": "mono",
+      "commit": "f45ccb73f764dd17806ab118897bf1236254ec0f",
+      "parent": "f45ccb73f764dd17806ab118897bf1236254ec0f",
+      "task": "index snapshot save should skip the write when the stored payload is byte-identical",
+      "firstFile": "packages/indexer/src/cache/store.ts",
+      "files": [
+        "packages/indexer/src/cache/store.ts",
+        "packages/indexer/src/index-job.ts"
+      ],
+      "tests": [
+        "packages/indexer/src/cache/store.test.ts"
+      ],
+      "blast": [
+        "packages/indexer/src/index-job.ts"
+      ],
+      "heldOut": false,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "mono-hl-009",
+      "repo": "mono",
+      "commit": "f45ccb73f764dd17806ab118897bf1236254ec0f",
+      "parent": "f45ccb73f764dd17806ab118897bf1236254ec0f",
+      "task": "verify plan detection should pick up a typecheck script named check:types",
+      "firstFile": "packages/checks/src/verify.ts",
+      "files": [
+        "packages/checks/src/verify.ts",
+        "packages/checks/src/scoped.ts"
+      ],
+      "tests": [
+        "packages/checks/src/scoped.test.ts",
+        "packages/checks/src/verify.test.ts"
+      ],
+      "blast": [
+        "packages/checks/src/scoped.ts"
+      ],
+      "heldOut": true,
+      "label": "hand-labelled, owner-approved 2026-10-14"
+    },
+    {
+      "id": "mono-hl-010",
+      "repo": "mono",
+      "commit": "f45ccb73f764dd17806ab118897bf1236254ec0f",
+      "parent": "f45ccb73f764dd17806ab118897bf1236254ec0f",
+      "task": "daemon file watcher should ignore changes under .nx cache directories",
+      "firstFile": "packages/daemon/src/pool.ts",
+      "files": [
+        "packages/daemon/src/pool.ts"
+      ],
+      "tests": [
+        "packages/daemon/src/limits.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false,
+      "label": "hand-labelled, owner-approved 2026-10-14"
     }
   ]
 }

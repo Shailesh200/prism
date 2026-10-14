@@ -49,6 +49,8 @@ export type VerifyRunResult = {
   readonly output: string;
   /** ENOENT / missing script — not a test failure. */
   readonly absent?: boolean;
+  /** Killed for running past its time limit (receipt reason `timeout`). */
+  readonly timedOut?: boolean;
 };
 
 export type VerifyRunner = (
@@ -374,6 +376,7 @@ export async function resolveVerifyPlan(cwd: string): Promise<VerifyPlan> {
  */
 export function verifyRunFailure(input: {
   readonly timedOut?: boolean;
+  readonly timeoutMs?: number;
   readonly code?: string | number | null;
   readonly stdout?: string;
   readonly stderr?: string;
@@ -387,7 +390,11 @@ export function verifyRunFailure(input: {
     };
   }
   if (input.timedOut) {
-    return { ok: false, output: `timed out after ${VERIFY_TIMEOUT_MS}ms` };
+    return {
+      ok: false,
+      timedOut: true,
+      output: `timed out after ${input.timeoutMs ?? VERIFY_TIMEOUT_MS}ms`,
+    };
   }
   return {
     ok: false,
@@ -401,6 +408,7 @@ export function verifyRunFailure(input: {
 function spawnArgv(
   cwd: string,
   argv: readonly string[],
+  timeoutMs: number = VERIFY_TIMEOUT_MS,
 ): Promise<VerifyRunResult> {
   return new Promise((resolve) => {
     let settled = false;
@@ -445,7 +453,7 @@ function spawnArgv(
         }
       }
       child.kill("SIGTERM");
-    }, VERIFY_TIMEOUT_MS);
+    }, timeoutMs);
 
     child.on("error", (error) => {
       clearTimeout(timer);
@@ -463,7 +471,7 @@ function spawnArgv(
     child.on("close", (code, signal) => {
       clearTimeout(timer);
       if (timedOut) {
-        finish(verifyRunFailure({ timedOut: true, stdout, stderr }));
+        finish(verifyRunFailure({ timedOut: true, timeoutMs, stdout, stderr }));
         return;
       }
       if (code === 0) {
@@ -494,13 +502,19 @@ function spawnArgv(
  * that happen to share the hub's group. Pipes stay attached so we still
  * read the failure.
  */
-export const defaultVerifyRunner: VerifyRunner = (cwd, step) => {
-  if (step.kind === "package-script") {
-    const { argv } = packageManagerArgv(cwd, step.script);
-    return spawnArgv(cwd, argv);
-  }
-  return spawnArgv(cwd, step.argv);
-};
+export const defaultVerifyRunner: VerifyRunner = (cwd, step) =>
+  verifyRunnerWithTimeout(VERIFY_TIMEOUT_MS)(cwd, step);
+
+/** The default runner with a per-command limit (the receipt uses 60 s). */
+export function verifyRunnerWithTimeout(timeoutMs: number): VerifyRunner {
+  return (cwd, step) => {
+    if (step.kind === "package-script") {
+      const { argv } = packageManagerArgv(cwd, step.script);
+      return spawnArgv(cwd, argv, timeoutMs);
+    }
+    return spawnArgv(cwd, step.argv, timeoutMs);
+  };
+}
 
 /** First failing line, so chat gets a reason rather than a wall of output. */
 export function firstFailureLine(output: string): string {

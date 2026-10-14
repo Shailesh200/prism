@@ -88,6 +88,15 @@ describe("workspace guardSession (M-072 Prism Guard)", () => {
         JSON.stringify({ name: "beta-pkg", version: "0.0.0" }),
       );
       await fixture.write("README.md", "# boundary fixture\n");
+      // alpha imports beta, so beta is a boundary other code depends on.
+      await fixture.write(
+        "packages/beta/src/lib.ts",
+        "export const lib = 1;\n",
+      );
+      await fixture.write(
+        "packages/alpha/src/use.ts",
+        'import { lib } from "../../beta/src/lib";\nexport const use = lib;\n',
+      );
       fixture.commit("initial");
 
       await fixture.write(
@@ -127,6 +136,49 @@ describe("workspace guardSession (M-072 Prism Guard)", () => {
       );
       expect(strayFile?.flags.some((f) => f.kind === "boundary")).toBe(true);
       expect(alphaFile?.flags.some((f) => f.kind === "boundary")).toBe(false);
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
+  it("does not flag a leaf package nothing imports, or docs (B3 false alarms)", async () => {
+    const fixture = await createFixture({ name: "m072-guard-boundary-leaf" });
+    try {
+      await fixture.write(
+        "package.json",
+        JSON.stringify({ name: "root-fixture", version: "0.0.0" }),
+      );
+      await fixture.write(
+        "docs/package.json",
+        JSON.stringify({ name: "docs", version: "0.0.0" }),
+      );
+      await fixture.write(
+        "benchmarks/package.json",
+        JSON.stringify({ name: "benchmarks", version: "0.0.0" }),
+      );
+      await fixture.write("src/base.ts", "export const base = 0;\n");
+      fixture.commit("initial");
+
+      await fixture.write("src/feature.ts", "export const feature = 1;\n");
+      await fixture.write(
+        "benchmarks/feature.bench.ts",
+        "export const b = 1;\n",
+      );
+      for (const lang of ["a", "b", "c", "d"]) {
+        await fixture.write(`docs/${lang}/feature.md`, "# feature\n");
+      }
+
+      const opened = Prism.create().openRepository(fixture.root);
+      expect(opened.ok).toBe(true);
+      if (!opened.ok) return;
+      const indexed = await opened.value.index();
+      expect(indexed.ok).toBe(true);
+      const result = await opened.value.guardSession();
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      for (const file of result.value.files) {
+        expect(file.flags.some((f) => f.kind === "boundary")).toBe(false);
+      }
     } finally {
       await fixture.cleanup();
     }

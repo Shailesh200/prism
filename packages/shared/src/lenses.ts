@@ -30,6 +30,43 @@ export const LENS_EVIDENCE = [
 export const LensEvidenceSchema = z.enum(LENS_EVIDENCE);
 export type LensEvidence = z.infer<typeof LensEvidenceSchema>;
 
+/**
+ * Data-backed lens checks (plan §5.3). Prism computes each from the index,
+ * the diff and the receipt; no model is called.
+ */
+export const LENS_CHECK_IDS = [
+  "new_cross_package_edge",
+  "new_value_cycle",
+  "off_limits_touched",
+  "reuse_missed",
+  "new_dependency_added",
+  "untested_new_branch",
+  "untested_changed_symbol",
+  "dependents_not_in_diff",
+  "test_reaches_but_not_run",
+] as const;
+export const LensCheckIdSchema = z.enum(LENS_CHECK_IDS);
+export type LensCheckId = z.infer<typeof LensCheckIdSchema>;
+
+export const LensCheckStatusSchema = z.enum([
+  "pass",
+  "concern",
+  "fail",
+  "overruled",
+]);
+export type LensCheckStatus = z.infer<typeof LensCheckStatusSchema>;
+
+/** One computed check result, with the evidence that decided it. */
+export const LensFindingSchema = z.object({
+  lens: z.string().min(1),
+  check: LensCheckIdSchema,
+  status: LensCheckStatusSchema,
+  evidence: z.array(z.string().min(1)).max(20),
+  /** Remembered overrule note, when `status` is `overruled` (CL-2). */
+  note: z.string().optional(),
+});
+export type LensFinding = z.infer<typeof LensFindingSchema>;
+
 export const LensFactSchema = z.object({
   id: z.string().min(1),
   /** The lens that holds this fact. */
@@ -59,6 +96,28 @@ export const LensDefinitionSchema = z.object({
   enabled: z.boolean().default(true),
   /** True for the Architect / QA / Dev defaults Prism seeded. */
   seededDefault: z.boolean().default(false),
+  /**
+   * Phrases that choose this lens when they appear in a prompt (plan §5.3,
+   * CL-6). Whole-phrase, case-insensitive; never inside code or quotes.
+   */
+  triggers: z.array(z.string().min(1).max(80)).max(20).default([]),
+  /** Data-backed checks this lens runs (plan §5.3). */
+  checks: z.array(LensCheckIdSchema).max(20).default([]),
+  /** Remembered overrules (CL-2): same check on the same fingerprint → overruled. */
+  overrules: z
+    .array(
+      z.object({
+        check: LensCheckIdSchema,
+        /** `path:<sha256 of content>` or `symbol:<name>:<signature hash>`. */
+        fingerprint: z.string().min(1),
+        note: z.string().min(1).max(500),
+        at: z.string().datetime(),
+      }),
+    )
+    .max(200)
+    .default([]),
+  /** Last edit, for breaking a trigger tie (CL-10). */
+  updatedAt: z.string().datetime().optional(),
 });
 export type LensDefinition = z.infer<typeof LensDefinitionSchema>;
 

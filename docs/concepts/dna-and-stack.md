@@ -44,7 +44,7 @@ prism packages
 | **Data** | ORMs, migrations, schemas, query builders |
 | **Infrastructure** | Containers, CI, deployment manifests |
 
-Domains drive which extension screens appear.
+Domains feed `repository_overview` and lens routing.
 
 ## When detection is wrong
 
