@@ -4,7 +4,20 @@ import { join } from "node:path";
 import { Prism, type PrismWorkspace } from "@repo-prism/core";
 import { createFixture, type Fixture } from "@repo-prism/test-support";
 import { afterEach, describe, expect, it } from "vitest";
-import { buildHookSnapshot } from "./snapshot.js";
+import { spawnSync, execFileSync } from "node:child_process";
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { buildHookSnapshot, writeHookSnapshot } from "./snapshot.js";
+
+const HOOK = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "..",
+  "plugin",
+  "hooks",
+  "prism-hook.mjs",
+);
 
 const fixtures: Fixture[] = [];
 const homes: string[] = [];
@@ -72,5 +85,48 @@ describe("hook snapshot", () => {
     expect(snap.orientation).toMatch(
       /Prism warns before you edit 1 generated or vendor path\./,
     );
+  });
+
+  it("SNAP-ID-1 carries the index identity, bumps generation, and the hook honours it", async () => {
+    const fixture = await createFixture({ name: "p1-identity" });
+    fixtures.push(fixture);
+    await fixture.write("src/a.ts", "export const a = 1;\n");
+    fixture.commit("initial");
+    const home = await mkdtemp(join(tmpdir(), "prism-snap-home-"));
+    homes.push(home);
+    const env = { ...process.env, PRISM_HOME: home };
+    const opened = Prism.create().openRepository(fixture.root);
+    if (!opened.ok) throw new Error(opened.error.message);
+    open.push(opened.value);
+    await opened.value.index();
+
+    const first = await writeHookSnapshot(opened.value, env);
+    const second = await writeHookSnapshot(opened.value, env);
+    const head = execFileSync("git", ["rev-parse", "HEAD"], {
+      cwd: fixture.root,
+      encoding: "utf8",
+    }).trim();
+    expect(first).toMatchObject({
+      schemaVersion: 2,
+      headSha: head,
+      generation: 1,
+    });
+    expect(second?.generation).toBe(2);
+    expect(typeof second?.buildId).toBe("string");
+    expect(typeof second?.indexedAt).toBe("string");
+
+    const runHook = () =>
+      spawnSync(process.execPath, [HOOK, "session"], {
+        input: JSON.stringify({ cwd: fixture.root }),
+        encoding: "utf8",
+        env: { ...env, PRISM_DAEMON: "0" },
+      }).stdout;
+    expect(JSON.parse(runHook()).hookSpecificOutput?.additionalContext).toMatch(
+      /^Prism · /,
+    );
+    // A new commit makes the snapshot stale; the hook goes quiet.
+    await fixture.write("src/b.ts", "export const b = 2;\n");
+    fixture.commit("second");
+    expect(JSON.parse(runHook())).toEqual({});
   });
 });

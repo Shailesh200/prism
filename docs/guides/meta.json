@@ -1,5 +1,5 @@
 {
-  "title": "Intelligence",
+  "title": "Guides",
   "pages": [
     "understand-a-repo",
     "prepare-a-change",
@@ -7,13 +7,11 @@
     "guard-a-session",
     "review-a-pr",
     "findings",
-    "envelope-and-iris",
+    "envelope",
     "graph",
     "receipt",
     "remember-context",
     "delete-safely",
-    "track-health",
-    "investigate-domain",
     "wire-into-ci"
   ]
 }

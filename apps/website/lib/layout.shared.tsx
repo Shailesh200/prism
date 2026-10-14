@@ -31,19 +31,9 @@ export function baseOptions(): BaseLayoutProps {
         url: "/products",
         items: [
           {
-            text: "Playground",
-            url: "/products#playground",
-            description: "Spectrum, DNA, blast, and domains — local.",
-          },
-          {
-            text: "Intelligence",
-            url: "/products#intelligence",
-            description: "DNA, blast radius, and stack domains.",
-          },
-          {
             text: "Envelope",
             url: "/products#envelope",
-            description: "Receipts for Intelligence calls. Never source.",
+            description: "Receipts for Prism tool calls. Never source.",
           },
           {
             text: "Prepare",
@@ -54,11 +44,6 @@ export function baseOptions(): BaseLayoutProps {
             text: "Guard",
             url: "/products#guard",
             description: "Read the dirty files that can actually hurt.",
-          },
-          {
-            text: "Dispatch",
-            url: "/products#dispatch",
-            description: "Hand a change to a teammate.",
           },
         ],
       },

@@ -23,19 +23,18 @@ export async function GET() {
 
   const body = `# Prism
 
-> Local-first software intelligence for repositories — maps, graphs, blast
-> radius, health, Prepare, Envelope, and Guard — analysed on your machine.
-> Exposed as a CLI, VS Code / Cursor extensions, and an MCP server
-> (${PRISM_TOOL_COUNT} tools) for AI agents. Dispatch adds background
-> teammates that edit your checkout while Prism runs this repository's checks.
+> Local-first structural answers for TypeScript and JavaScript repositories —
+> graphs, blast radius, test impact, Prepare, Guard and a stop receipt —
+> analysed on your machine. Exposed as a CLI and an MCP server
+> (${PRISM_TOOL_COUNT} tools) for AI agents, wired by \`prism install\`.
 
 ## Product
 
-- [Install](${site}/install): Node 26+, pick a surface, confirm it works
-- [Products](${site}/products): Spectrum, Intelligence, Envelope, Prepare, Guard, Dispatch
+- [Install](${site}/install): Node 24+, install the CLI, wire your agent
+- [Products](${site}/products): Envelope, Prepare, Guard
 - [Benchmarks](${site}/benchmarks): task-led features plus measured orientation savings
 - [What's new](${site}/whats-new): release timeline
-- [Privacy](${site}/privacy): no account, no telemetry, consent-gated network
+- [Privacy](${site}/privacy): no account, no telemetry, no network calls
 - [Security](${site}/security): reporting policy
 
 ## Documentation

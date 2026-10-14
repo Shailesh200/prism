@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "prism": {
-      "command": "npx",
-      "args": ["-y", "--prefer-online", "@repo-prism/mcp-server@latest"],
+      "command": "prism-mcp",
+      "args": [],
       "env": {
         "NODE_USE_SYSTEM_CA": "1"
       }

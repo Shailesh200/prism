@@ -15,26 +15,20 @@ import { pageMetadata } from "@/lib/seo";
 export const metadata = pageMetadata({
   title: "Install",
   description:
-    "Node 26+, pick a surface, confirm it works. prism init never asks for a key.",
+    "Node 24+, install the CLI, let prism install wire your agent, confirm it works.",
   path: "/install",
 });
 
 const SURFACES = [
   {
     title: "CLI",
-    install: "npx -y @repo-prism/cli doctor",
+    install: "npm install -g @repo-prism/cli",
     href: "/docs/start/install",
-    body: "Terminal and CI. Same Core as every other surface.",
-  },
-  {
-    title: "VS Code & Cursor",
-    install: "Marketplace: prismhq.repo-prism",
-    href: "/docs/start/install",
-    body: "Map, blast, health, and the Console inside the editor.",
+    body: "Terminal and CI. Ships prism-mcp; prism install wires your agent.",
   },
   {
     title: "MCP server",
-    install: "npx -y --prefer-online @repo-prism/mcp-server@latest",
+    install: "prism install claude   # or cursor, codex, opencode, all",
     href: "/docs/start/install",
     body: `${PRISM_TOOL_COUNT} structural tools for agents, local-first.`,
   },
@@ -55,11 +49,7 @@ const SURFACES = [
 const CONFIRM = [
   {
     surface: "CLI",
-    see: "doctor prints a workspace path; dna prints a report",
-  },
-  {
-    surface: "IDE",
-    see: "Prism panel opens after indexing",
+    see: "prism doctor lists each host it wired and reports no problems",
   },
   {
     surface: "MCP",
@@ -75,7 +65,7 @@ export default function InstallPage() {
           <SectionIntro
             index="Nº INSTALL"
             title="Install Prism"
-            description="About five minutes. One engine behind CLI, IDE, and MCP. You do not need to clone this repo."
+            description="About five minutes. One engine behind the CLI and the MCP server. You do not need to clone this repo."
           />
 
           <Reveal>
@@ -83,9 +73,9 @@ export default function InstallPage() {
               <WizardStep n="01" title="Prerequisites">
                 <ul className="space-y-3 text-sm text-fd-muted-foreground">
                   <li>
-                    <strong className="text-fd-foreground">Node.js 26+</strong>{" "}
-                    — <code className="text-fd-primary">node -v</code> should
-                    start with <code className="text-fd-primary">v26</code>.
+                    <strong className="text-fd-foreground">Node.js 24+</strong>{" "}
+                    — <code className="text-fd-primary">node -v</code> should be{" "}
+                    <code className="text-fd-primary">v24</code> or newer.
                   </li>
                   <li>
                     <strong className="text-fd-foreground">
@@ -96,43 +86,27 @@ export default function InstallPage() {
                   </li>
                   <li>
                     <strong className="text-fd-foreground">Git</strong> is
-                    recommended (Dispatch and worktrees) but not required for
-                    analysis.
+                    recommended (the stop receipt and test impact read it) but
+                    not required for analysis.
                   </li>
                 </ul>
               </WizardStep>
 
-              <WizardStep n="02" title="Pick a surface">
+              <WizardStep n="02" title="Install and wire your agent">
                 <p className="mb-4 text-sm text-fd-muted-foreground">
-                  Add the others later — they share the same local index.
+                  Wire more hosts later — they share the same local index.
                 </p>
                 <CopyInstall />
                 <div className="mt-6 space-y-3 text-sm text-fd-muted-foreground">
                   <p>
-                    IDE extension id{" "}
-                    <code className="text-fd-primary">prismhq.repo-prism</code>.
-                  </p>
-                  <p>
-                    MCP:{" "}
-                    <code className="text-fd-primary">
-                      npx -y --prefer-online @repo-prism/mcp-server@latest
-                    </code>
+                    MCP entry, if you wire a host by hand:{" "}
+                    <code className="text-fd-primary">prism-mcp</code> with no
+                    arguments.
                   </p>
                 </div>
               </WizardStep>
 
-              <WizardStep n="03" title="prism init">
-                <p className="text-sm leading-relaxed text-fd-muted-foreground">
-                  In chat, say{" "}
-                  <strong className="text-fd-foreground">prism init</strong>.
-                  The worker matches the host. It never asks you to paste an API
-                  key. If Cursor shows a card titled “Authenticating prism…”
-                  with Skip, that is host tool-approval — click Skip, then retry
-                  init.
-                </p>
-              </WizardStep>
-
-              <WizardStep n="04" title="Confirm it works">
+              <WizardStep n="03" title="Confirm it works">
                 <div className="overflow-x-auto rounded-lg border border-fd-border">
                   <table className="w-full text-left text-sm">
                     <thead className="border-b border-fd-border bg-fd-card">
@@ -162,16 +136,13 @@ export default function InstallPage() {
                 </div>
               </WizardStep>
 
-              <WizardStep n="05" title="What Prism writes">
+              <WizardStep n="04" title="What Prism writes">
                 <p className="mb-3 text-sm text-fd-muted-foreground">
-                  Per-repo cache, consent, and jobs live under{" "}
+                  Per-repo cache, snapshots, and receipts live under{" "}
                   <code className="text-fd-primary">~/.prism/workspaces/</code>—
                   nothing is written into your checkout.
                 </p>
-                <CopyCommand
-                  command="npx -y @repo-prism/cli doctor"
-                  trackTarget="cli"
-                />
+                <CopyCommand command="prism doctor" trackTarget="cli" />
               </WizardStep>
             </ol>
           </Reveal>
@@ -245,10 +216,7 @@ export default function InstallPage() {
                 Prepare
               </Link>
               {" · "}
-              <Link
-                href="/docs/guides/envelope-and-iris"
-                className="text-fd-primary"
-              >
+              <Link href="/docs/guides/envelope" className="text-fd-primary">
                 Envelope
               </Link>
               {" · "}
@@ -257,10 +225,6 @@ export default function InstallPage() {
                 className="text-fd-primary"
               >
                 Guard
-              </Link>
-              {" · "}
-              <Link href="/docs/guides/dispatch" className="text-fd-primary">
-                Dispatch
               </Link>
               {" · "}
               <Link href="/docs/start/install" className="text-fd-primary">

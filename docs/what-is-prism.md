@@ -58,7 +58,7 @@ change reaches and prints proven, unproven, or failed.
 
 Disk: an index in `.prism/` (tens of megabytes on a large monorepo). Time:
 seconds for the first index of a few thousand files, then incremental. Privacy:
-nothing by default — see [consent and privacy](/docs/concepts/consent-and-privacy).
+nothing by default — see [privacy](/privacy).
 
 ## Next
 

@@ -9,15 +9,14 @@ export const PRISM_MCP_SERVER_NAME = "prism";
 /**
  * The launch line, byte-identical to `packages/mcp-server/mcp-install.json`.
  *
- * No workspace variable: the server resolves the open folder from MCP roots
- * (retrying while unresolved, and following `roots/list_changed`), so the
- * config works as-is in clients that report roots. `NODE_USE_SYSTEM_CA` stays
- * — it is about the npm download trusting corporate proxy CAs, not the
- * workspace.
+ * Prism 2.0 launches the installed `prism-mcp` binary (plan §2.2), never a
+ * registry download: install the CLI once, then `prism install <host>`
+ * writes this entry for you. No workspace variable: the server resolves the
+ * open folder from MCP roots.
  */
 export const PRISM_MCP_TRANSPORT = {
-  command: "npx",
-  args: ["-y", "--prefer-online", "@repo-prism/mcp-server@latest"],
+  command: "prism-mcp",
+  args: [],
   env: {
     NODE_USE_SYSTEM_CA: "1",
   },
@@ -31,13 +30,16 @@ export const PRISM_MCP_JSON = {
 
 export const PRISM_MCP_JSON_STRING = `${JSON.stringify(PRISM_MCP_JSON, null, 2)}\n`;
 
-export const PRISM_CLAUDE_CODE_COMMAND =
-  "claude mcp add prism -- npx -y --prefer-online @repo-prism/mcp-server@latest";
+/** Installs the CLI (which ships `prism-mcp`) and wires Claude Code. */
+export const PRISM_INSTALL_COMMAND =
+  "npm install -g @repo-prism/cli && prism install claude";
+
+export const PRISM_CLAUDE_CODE_COMMAND = "claude mcp add prism -- prism-mcp";
 
 /** Codex reads TOML, so it cannot take the JSON block. */
 export const PRISM_CODEX_TOML = `[mcp_servers.prism]
-command = "npx"
-args = ["-y", "--prefer-online", "@repo-prism/mcp-server@latest"]
+command = "prism-mcp"
+args = []
 `;
 
 /**

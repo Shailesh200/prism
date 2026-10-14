@@ -9,8 +9,6 @@ build/
 .moon/cache/
 *.tsbuildinfo
 .cache/
-*.vsix
-packages/vscode-extension/.vsix-stage/
 
 # Docs site output
 docs/.vitepress/dist/

@@ -29,7 +29,6 @@ const ENGINES = [
   "@repo-prism/intelligence",
   "@repo-prism/impact",
   "@repo-prism/navigation",
-  "@repo-prism/repository-map",
 ];
 
 describe("package boundaries (ADR-0004)", () => {
@@ -40,36 +39,6 @@ describe("package boundaries (ADR-0004)", () => {
       for (const engine of ENGINES) {
         if (new RegExp(String.raw`from\s+"${engine}"`).test(text)) {
           offenders.push(`${file} → ${engine}`);
-        }
-      }
-    }
-    expect(offenders).toEqual([]);
-  });
-
-  it("reaches no consent-gated Core path without --yes", async () => {
-    // The CLI is analysis-only today, so the honest guard is that nothing
-    // touches a gated method at all. `--yes` exists for the day one does: it
-    // must be read explicitly, because a flag nobody checks is not consent
-    // (M-036 Phase 1.7).
-    const GATED = [
-      "stageDevopsRemote",
-      "fetchGithubWorkflows",
-      "fetchGithubWorkflowRuns",
-      "fetchGithubRepo",
-      "fetchGithubAuthenticatedLogin",
-      "testGithubRepoConnection",
-      "dispatchGithubWorkflow",
-      "fetchPagespeedMetrics",
-      "startUtilityJob",
-      "runWorkspaceTests",
-      "setConsent",
-    ];
-    const offenders: string[] = [];
-    for (const file of await sourceFiles(join(srcDir, "commands"))) {
-      const text = await readFile(file, "utf8");
-      for (const method of GATED) {
-        if (text.includes(`.${method}(`) && !text.includes(`flag("yes")`)) {
-          offenders.push(`${file} → ${method}`);
         }
       }
     }

@@ -28,7 +28,7 @@ const target = {
     .string()
     .min(1)
     .describe(
-      "Workspace-relative file path, or symbol name as returned by find_symbol.",
+      "Workspace-relative file path, or symbol name as returned by graph (mode find).",
     ),
   path: z
     .string()
@@ -168,45 +168,11 @@ export const testImpact = defineTool({
   },
 });
 
-export const breakingChangeHints = defineTool({
-  name: "breaking_change_hints",
-  title: "Breaking change hints",
-  description:
-    "Deprecated: breaking-change hints are included in blast_radius (and review_changes). Prefer those tools. Heuristic hints about what a change to this target could break for consumers — exported surface, widely imported modules, public entrypoints. Heuristic by design: treat as prompts to check, not as findings.",
-  inputSchema: target,
-  async call(context, args) {
-    const resolved = resolveTarget(context, args);
-    if (!resolved.ok) return resolved;
-    return context.workspace.breakingChangeHints(resolved.value);
-  },
-});
-
-export const changedPaths = defineTool({
-  name: "changed_paths",
-  title: "Changed paths",
-  description:
-    "List workspace-relative paths changed in the working tree, or against an optional git base ref. Use before review_changes when you need the path list alone, or let review_changes auto-discover by omitting paths. Fails when git is unavailable — that is not the same as an empty change set.",
-  inputSchema: {
-    base: z
-      .string()
-      .min(1)
-      .optional()
-      .describe(
-        "Optional git base ref (e.g. origin/main). Omit for the working tree (staged, unstaged, and untracked).",
-      ),
-  },
-  async call({ workspace }, args) {
-    return workspace.getChangedPaths(
-      args.base === undefined ? undefined : { base: args.base },
-    );
-  },
-});
-
 export const reviewChanges = defineTool({
   name: "review_changes",
   title: "Review changes",
   description:
-    "Review changed paths in one call: blast radius, test impact and breaking-change hints per path, rolled up with an overall risk band. Omit paths to auto-discover via git (same as changed_paths); pass base to compare against a ref. Use for 'review my branch' rather than calling the per-file tools repeatedly.",
+    "Review changed paths in one call: blast radius, test impact and breaking-change hints per path, rolled up with an overall risk band. Omit paths to auto-discover via git; pass base to compare against a ref. Use for 'review my branch' rather than calling the per-file tools repeatedly.",
   inputSchema: {
     paths: z
       .array(z.string().min(1))
@@ -260,7 +226,5 @@ export const IMPACT_TOOLS = [
   safeDelete,
   renameImpact,
   testImpact,
-  breakingChangeHints,
-  changedPaths,
   reviewChanges,
 ];

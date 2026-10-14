@@ -19,7 +19,7 @@ export function registerResources(
     "prism://dna",
     {
       description:
-        "Repository DNA — languages, frameworks, architecture hints (same as repository_dna).",
+        "Repository DNA — languages, frameworks, architecture hints (same as repository_overview).",
       mimeType: "application/json",
     },
     async (uri) => {
@@ -58,31 +58,6 @@ export function registerResources(
             uri: uri.href,
             mimeType: "application/json",
             text: serialiseForMcp(result.value),
-          },
-        ],
-      };
-    },
-  );
-
-  server.registerResource(
-    "health",
-    "prism://health",
-    {
-      description:
-        "Repository health score and factors (same as repository_health).",
-      mimeType: "application/json",
-    },
-    async (uri) => {
-      const ready = await session.ready();
-      if (!ready.ok) throw toMcpError(ready.error);
-      const health = await ready.value.getHealth();
-      if (!health.ok) throw toMcpError(health.error);
-      return {
-        contents: [
-          {
-            uri: uri.href,
-            mimeType: "application/json",
-            text: serialiseForMcp(health.value),
           },
         ],
       };

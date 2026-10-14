@@ -1,0 +1,2417 @@
+{
+  "generatedAt": "2026-10-14T07:55:28.385Z",
+  "method": "SZZ-lite replay. A catch is a typecheck/test failure absent on the clean parent, or a Guard/blast flag on a file the later fix touched. The same flag on a control is a false alarm.",
+  "totals": {
+    "regressions": 9,
+    "caught": 6,
+    "missed": 2,
+    "regressionsUnrunnable": 1,
+    "controls": 8,
+    "falseAlarms": 4,
+    "quiet": 4,
+    "controlsUnrunnable": 0,
+    "catchRate": 0.75,
+    "falseAlarmRate": 0.5,
+    "flaggedRegressions": 6,
+    "medianReceiptMs": 4153
+  },
+  "cases": [
+    {
+      "repo": "es-toolkit",
+      "kind": "regression",
+      "commit": "771444556d10c2429a86a9544407cfc8f9438711",
+      "subject": "refactor(compat/lastIndexOf): use internal toArray helper for array like conversion (#1957)",
+      "fixedBy": "5c59912351d798c46bb45f7da78ff86557e01832",
+      "fixSubject": "fix(compat/lastIndexOf): read holes in sparse arrays as `undefined` (#1977)",
+      "fixFiles": [
+        "src/compat/array/lastIndexOf.ts"
+      ],
+      "touched": [
+        "src/compat/array/lastIndexOf.ts",
+        "benchmarks/bundle-size/lastIndexOf.spec.ts"
+      ],
+      "testFiles": [
+        "benchmarks/bundle-size/lastIndexOf.spec.ts",
+        "src/compat/array/every.spec.ts",
+        "src/compat/array/findLast.spec.ts",
+        "src/compat/array/flatMap.spec.ts",
+        "src/compat/array/forEachRight.spec.ts",
+        "src/compat/array/groupBy.spec.ts",
+        "src/compat/array/head.spec.ts",
+        "src/compat/array/last.spec.ts",
+        "src/compat/array/lastIndexOf.spec.ts",
+        "src/compat/array/reduce.spec.ts",
+        "src/compat/array/reduceRight.spec.ts",
+        "src/compat/array/sampleSize.spec.ts",
+        "src/compat/array/tail.spec.ts",
+        "src/compat/array/takeRight.spec.ts",
+        "src/compat/array/uniq.spec.ts",
+        "src/compat/array/uniqWith.spec.ts",
+        "src/compat/array/zipWith.spec.ts",
+        "src/compat/function/memoize.spec.ts",
+        "src/compat/function/partial.spec.ts",
+        "src/compat/function/partialRight.spec.ts",
+        "src/compat/math/divide.spec.ts",
+        "src/compat/object/clone.spec.ts",
+        "src/compat/object/cloneWith.spec.ts",
+        "src/compat/object/defaults.spec.ts",
+        "src/compat/object/defaultsDeep.spec.ts",
+        "src/compat/object/pickBy.spec.ts",
+        "src/compat/object/result.spec.ts",
+        "src/compat/object/setWith.spec.ts",
+        "src/compat/object/toDefaulted.spec.ts",
+        "src/compat/object/toPairs.spec.ts",
+        "src/compat/object/toPairsIn.spec.ts",
+        "src/compat/object/transform.spec.ts",
+        "src/compat/object/values.spec.ts",
+        "src/compat/object/valuesIn.spec.ts",
+        "src/compat/predicate/isEqual.spec.ts",
+        "src/compat/predicate/isLength.spec.ts",
+        "src/compat/predicate/isMatchWith.spec.ts",
+        "src/compat/string/escape.spec.ts",
+        "src/compat/string/template.spec.ts",
+        "src/compat/util/cond.spec.ts",
+        "src/compat/util/constant.spec.ts",
+        "src/compat/util/iteratee.spec.ts",
+        "src/function/flow.spec.ts",
+        "src/function/flowRight.spec.ts",
+        "tests/__proto__.spec.ts",
+        "tests/types/compat.spec-d.ts"
+      ],
+      "testMode": "full-script",
+      "verdict": "failed",
+      "checks": [
+        {
+          "name": "typecheck",
+          "status": "failed",
+          "detail": "const err = new Error(message);",
+          "durationMs": 1087,
+          "cause": "caused"
+        },
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "Error: Your application tried to access debug, but it isn't declared in your dependencies; this makes the require call ambiguous and unsound.",
+          "durationMs": 1054,
+          "cause": "caused"
+        },
+        {
+          "name": "test",
+          "status": "failed",
+          "detail": "Error: Your application tried to access @vitest/utils, but it isn't declared in your dependencies; this makes the require call ambiguous and unsound.",
+          "durationMs": 1326,
+          "cause": "caused"
+        },
+        {
+          "name": "tests/types: test",
+          "status": "failed",
+          "detail": "Error: Your application tried to access @vitest/utils, but it isn't declared in your dependencies; this makes the require call ambiguous and unsound.",
+          "durationMs": 1102,
+          "cause": "caused"
+        }
+      ],
+      "baseline": [
+        {
+          "name": "typecheck",
+          "status": "failed",
+          "detail": "const err = new Error(message);",
+          "durationMs": 841,
+          "signature": {
+            "files": [],
+            "count": 0
+          }
+        },
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "Error: Your application tried to access debug, but it isn't declared in your dependencies; this makes the require call ambiguous and unsound.",
+          "durationMs": 648,
+          "signature": {
+            "files": [],
+            "count": 0
+          }
+        },
+        {
+          "name": "test",
+          "status": "failed",
+          "detail": "Error: Your application tried to access @vitest/utils, but it isn't declared in your dependencies; this makes the require call ambiguous and unsound.",
+          "durationMs": 784,
+          "signature": {
+            "files": [],
+            "count": 0
+          }
+        },
+        {
+          "name": "tests/types: test",
+          "status": "failed",
+          "detail": "Error: Your application tried to access @vitest/utils, but it isn't declared in your dependencies; this makes the require call ambiguous and unsound.",
+          "durationMs": 877,
+          "signature": {
+            "files": [],
+            "count": 0
+          }
+        }
+      ],
+      "attributable": [],
+      "flagsOnFixFiles": [
+        "duplicate:src/compat/array/lastIndexOf.ts",
+        "boundary:src/compat/array/lastIndexOf.ts"
+      ],
+      "flags": [
+        {
+          "path": "src/compat/array/lastIndexOf.ts",
+          "kind": "duplicate",
+          "detail": "\"lastIndexOf\" looks like \"indexOf\" in src/compat/array/indexOf.ts (name overlaps task (indexOf); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/array/lastIndexOf.ts",
+          "kind": "boundary",
+          "detail": "Touches es-toolkit; this session is mostly in benchmarks"
+        }
+      ],
+      "notProven": 0,
+      "receiptMs": 10638,
+      "outcome": "caught"
+    },
+    {
+      "repo": "es-toolkit",
+      "kind": "regression",
+      "commit": "6b1e88c25c832e74d7d811e41a050e72a32faa5a",
+      "subject": "refactor(compat/dropRightWhile): use toArray instead of Array.from (#1794)",
+      "fixedBy": "0553bc3a8a16061b0df7bfb1497ec4dcf5d68797",
+      "fixSubject": "fix(compat/dropRightWhile): align parameter names with overload signatures (#1791)",
+      "fixFiles": [
+        "src/compat/array/dropRightWhile.ts"
+      ],
+      "touched": [
+        "src/compat/array/dropRightWhile.ts"
+      ],
+      "testFiles": [
+        "src/compat/array/dropRightWhile.spec.ts",
+        "src/compat/array/findLast.spec.ts",
+        "src/compat/array/flatMap.spec.ts",
+        "src/compat/array/forEachRight.spec.ts",
+        "src/compat/array/groupBy.spec.ts",
+        "src/compat/array/head.spec.ts",
+        "src/compat/array/last.spec.ts",
+        "src/compat/array/reduce.spec.ts",
+        "src/compat/array/reduceRight.spec.ts",
+        "src/compat/array/sampleSize.spec.ts",
+        "src/compat/array/tail.spec.ts",
+        "src/compat/array/takeRight.spec.ts",
+        "src/compat/array/uniq.spec.ts",
+        "src/compat/array/uniqWith.spec.ts",
+        "src/compat/array/zipWith.spec.ts",
+        "src/compat/function/memoize.spec.ts",
+        "src/compat/function/partial.spec.ts",
+        "src/compat/function/partialRight.spec.ts",
+        "src/compat/math/divide.spec.ts",
+        "src/compat/object/clone.spec.ts",
+        "src/compat/object/cloneWith.spec.ts",
+        "src/compat/object/defaults.spec.ts",
+        "src/compat/object/defaultsDeep.spec.ts",
+        "src/compat/object/pickBy.spec.ts",
+        "src/compat/object/result.spec.ts",
+        "src/compat/object/setWith.spec.ts",
+        "src/compat/object/toDefaulted.spec.ts",
+        "src/compat/object/toPairs.spec.ts",
+        "src/compat/object/toPairsIn.spec.ts",
+        "src/compat/object/values.spec.ts",
+        "src/compat/object/valuesIn.spec.ts",
+        "src/compat/predicate/isEqual.spec.ts",
+        "src/compat/predicate/isLength.spec.ts",
+        "src/compat/predicate/isMatchWith.spec.ts",
+        "src/compat/string/escape.spec.ts",
+        "src/compat/string/template.spec.ts",
+        "src/compat/util/cond.spec.ts",
+        "src/compat/util/constant.spec.ts",
+        "src/compat/util/iteratee.spec.ts",
+        "src/function/flow.spec.ts",
+        "src/function/flowRight.spec.ts",
+        "tests/__proto__.spec.ts"
+      ],
+      "testMode": "full-script",
+      "verdict": "failed",
+      "checks": [
+        {
+          "name": "typecheck",
+          "status": "failed",
+          "detail": "Usage Error: Couldn't find vitest@npm:4.0.17 [53370] in the currently installed PnP map - running an install might help",
+          "durationMs": 396,
+          "cause": "caused"
+        },
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "Usage Error: Couldn't find vitest@npm:4.0.17 [53370] in the currently installed PnP map - running an install might help",
+          "durationMs": 341,
+          "cause": "caused"
+        },
+        {
+          "name": "test",
+          "status": "failed",
+          "detail": "Usage Error: Couldn't find vitest@npm:4.0.17 [53370] in the currently installed PnP map - running an install might help",
+          "durationMs": 276,
+          "cause": "caused"
+        }
+      ],
+      "baseline": [
+        {
+          "name": "typecheck",
+          "status": "failed",
+          "detail": "Usage Error: Couldn't find vitest@npm:4.0.17 [53370] in the currently installed PnP map - running an install might help",
+          "durationMs": 394,
+          "signature": {
+            "files": [],
+            "count": 0
+          }
+        },
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "Usage Error: Couldn't find vitest@npm:4.0.17 [53370] in the currently installed PnP map - running an install might help",
+          "durationMs": 277,
+          "signature": {
+            "files": [],
+            "count": 0
+          }
+        },
+        {
+          "name": "test",
+          "status": "failed",
+          "detail": "Usage Error: Couldn't find vitest@npm:4.0.17 [53370] in the currently installed PnP map - running an install might help",
+          "durationMs": 274,
+          "signature": {
+            "files": [],
+            "count": 0
+          }
+        }
+      ],
+      "attributable": [],
+      "flagsOnFixFiles": [
+        "duplicate:src/compat/array/dropRightWhile.ts"
+      ],
+      "flags": [
+        {
+          "path": "src/compat/array/dropRightWhile.ts",
+          "kind": "duplicate",
+          "detail": "\"dropRightWhile\" looks like \"drop\" in src/compat/array/drop.ts (name overlaps task (drop); kind function; feature Compat)"
+        }
+      ],
+      "notProven": 0,
+      "receiptMs": 3303,
+      "outcome": "caught"
+    },
+    {
+      "repo": "es-toolkit",
+      "kind": "control",
+      "commit": "50339c3245e9a8319dcec689ab3c0689becd088e",
+      "subject": "feat(predicate): add isEmptyObject function (#1584)",
+      "touched": [
+        "src/predicate/index.ts",
+        "src/predicate/isEmptyObject.ts",
+        "src/predicate/isEmptyObject.spec.ts",
+        "docs/ja/reference/predicate/isEmptyObject.md",
+        "docs/ko/reference/predicate/isEmptyObject.md",
+        "docs/reference/predicate/isEmptyObject.md",
+        "docs/zh_hans/reference/predicate/isEmptyObject.md"
+      ],
+      "testFiles": [
+        "src/compat/array/differenceWith.spec.ts",
+        "src/compat/array/findLast.spec.ts",
+        "src/compat/array/flatMap.spec.ts",
+        "src/compat/array/forEachRight.spec.ts",
+        "src/compat/array/groupBy.spec.ts",
+        "src/compat/array/head.spec.ts",
+        "src/compat/array/invokeMap.spec.ts",
+        "src/compat/array/last.spec.ts",
+        "src/compat/array/pullAllWith.spec.ts",
+        "src/compat/array/reduce.spec.ts",
+        "src/compat/array/reduceRight.spec.ts",
+        "src/compat/array/sampleSize.spec.ts",
+        "src/compat/array/tail.spec.ts",
+        "src/compat/array/takeRight.spec.ts",
+        "src/compat/array/unionWith.spec.ts",
+        "src/compat/array/uniq.spec.ts",
+        "src/compat/array/uniqWith.spec.ts",
+        "src/compat/array/unzipWith.spec.ts",
+        "src/compat/array/xorWith.spec.ts",
+        "src/compat/array/zipWith.spec.ts",
+        "src/compat/function/memoize.spec.ts",
+        "src/compat/function/partial.spec.ts",
+        "src/compat/function/partialRight.spec.ts",
+        "src/compat/math/divide.spec.ts",
+        "src/compat/object/clone.spec.ts",
+        "src/compat/object/cloneWith.spec.ts",
+        "src/compat/object/defaults.spec.ts",
+        "src/compat/object/defaultsDeep.spec.ts",
+        "src/compat/object/pickBy.spec.ts",
+        "src/compat/object/result.spec.ts",
+        "src/compat/object/setWith.spec.ts",
+        "src/compat/object/toDefaulted.spec.ts",
+        "src/compat/object/toPairs.spec.ts",
+        "src/compat/object/toPairsIn.spec.ts",
+        "src/compat/object/values.spec.ts",
+        "src/compat/object/valuesIn.spec.ts",
+        "src/compat/predicate/isEqual.spec.ts",
+        "src/compat/predicate/isLength.spec.ts",
+        "src/compat/predicate/isMatchWith.spec.ts",
+        "src/compat/string/escape.spec.ts",
+        "src/compat/string/template.spec.ts",
+        "src/compat/util/cond.spec.ts",
+        "src/compat/util/constant.spec.ts",
+        "src/compat/util/iteratee.spec.ts",
+        "src/function/flow.spec.ts",
+        "src/function/flowRight.spec.ts",
+        "src/predicate/isEmptyObject.spec.ts",
+        "tests/__proto__.spec.ts"
+      ],
+      "testMode": "full-script",
+      "verdict": "failed",
+      "checks": [
+        {
+          "name": "typecheck",
+          "status": "failed",
+          "detail": "Usage Error: Couldn't find @changesets/cli@npm:2.27.5 in the currently installed PnP map - running an install might help",
+          "durationMs": 435,
+          "cause": "caused"
+        },
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "Usage Error: Couldn't find @changesets/cli@npm:2.27.5 in the currently installed PnP map - running an install might help",
+          "durationMs": 325,
+          "cause": "caused"
+        },
+        {
+          "name": "test",
+          "status": "failed",
+          "detail": "Usage Error: Couldn't find @changesets/cli@npm:2.27.5 in the currently installed PnP map - running an install might help",
+          "durationMs": 355,
+          "cause": "caused"
+        }
+      ],
+      "baseline": [
+        {
+          "name": "typecheck",
+          "status": "failed",
+          "detail": "Usage Error: Couldn't find @changesets/cli@npm:2.27.5 in the currently installed PnP map - running an install might help",
+          "durationMs": 232,
+          "signature": {
+            "files": [],
+            "count": 0
+          }
+        },
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "Usage Error: Couldn't find @changesets/cli@npm:2.27.5 in the currently installed PnP map - running an install might help",
+          "durationMs": 289,
+          "signature": {
+            "files": [],
+            "count": 0
+          }
+        },
+        {
+          "name": "test",
+          "status": "failed",
+          "detail": "Usage Error: Couldn't find @changesets/cli@npm:2.27.5 in the currently installed PnP map - running an install might help",
+          "durationMs": 366,
+          "signature": {
+            "files": [],
+            "count": 0
+          }
+        }
+      ],
+      "attributable": [],
+      "flagsOnFixFiles": [],
+      "flags": [
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isArrayBuffer\" looks like \"isArrayBuffer\" in src/predicate/isArrayBuffer.ts (name overlaps task (isArrayBuffer); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isBlob\" looks like \"isBlob\" in src/predicate/isBlob.ts (name overlaps task (isBlob); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isBoolean\" looks like \"isBoolean\" in src/predicate/isBoolean.ts (name overlaps task (isBoolean); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isBrowser\" looks like \"isBrowser\" in src/predicate/isBrowser.ts (name overlaps task (isBrowser); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isBuffer\" looks like \"isBuffer\" in src/predicate/isBuffer.ts (name overlaps task (isBuffer); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isDate\" looks like \"isDate\" in src/predicate/isDate.ts (name overlaps task (isDate); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isEqual\" looks like \"isEqual\" in src/predicate/isEqual.ts (name overlaps task (isEqual); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isEqualWith\" looks like \"isEqual\" in src/predicate/isEqual.ts (name overlaps task (isEqual); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isError\" looks like \"isError\" in src/predicate/isError.ts (name overlaps task (isError); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isFile\" looks like \"isFile\" in src/predicate/isFile.ts (name overlaps task (isFile); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isFunction\" looks like \"isFunction\" in src/predicate/isFunction.ts (name overlaps task (isFunction); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isJSON\" looks like \"isJSON\" in src/predicate/isJSON.ts (name overlaps task (isJSON); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isJSONArray\" looks like \"isJSONArray\" in src/predicate/isJSONValue.ts (name overlaps task (isJSONArray); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isJSONObject\" looks like \"isJSONObject\" in src/predicate/isJSONValue.ts (name overlaps task (isJSONObject); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isJSONValue\" looks like \"isJSONValue\" in src/predicate/isJSONValue.ts (name overlaps task (isJSONValue); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isLength\" looks like \"isLength\" in src/predicate/isLength.ts (name overlaps task (isLength); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isMap\" looks like \"isMap\" in src/predicate/isMap.ts (name overlaps task (isMap); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isNil\" looks like \"isNil\" in src/predicate/isNil.ts (name overlaps task (isNil); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isNode\" looks like \"isNode\" in src/predicate/isNode.ts (name overlaps task (isNode); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isNotNil\" looks like \"isNotNil\" in src/predicate/isNotNil.ts (name overlaps task (isNotNil); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isNull\" looks like \"isNull\" in src/predicate/isNull.ts (name overlaps task (isNull); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isNumber\" looks like \"isNumber\" in src/predicate/isNumber.ts (name overlaps task (isNumber); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isPlainObject\" looks like \"isPlainObject\" in src/predicate/isPlainObject.ts (name overlaps task (isPlainObject); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isPrimitive\" looks like \"isPrimitive\" in src/predicate/isPrimitive.ts (name overlaps task (isPrimitive); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isPromise\" looks like \"isPromise\" in src/predicate/isPromise.ts (name overlaps task (isPromise); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isRegExp\" looks like \"isRegExp\" in src/predicate/isRegExp.ts (name overlaps task (isRegExp); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isSet\" looks like \"isSet\" in src/predicate/isSet.ts (name overlaps task (isSet); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isString\" looks like \"isString\" in src/predicate/isString.ts (name overlaps task (isString); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isSymbol\" looks like \"isSymbol\" in src/predicate/isSymbol.ts (name overlaps task (isSymbol); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isTypedArray\" looks like \"isTypedArray\" in src/predicate/isTypedArray.ts (name overlaps task (isTypedArray); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isUndefined\" looks like \"isUndefined\" in src/predicate/isUndefined.ts (name overlaps task (isUndefined); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isWeakMap\" looks like \"isWeakMap\" in src/predicate/isWeakMap.ts (name overlaps task (isWeakMap); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "duplicate",
+          "detail": "\"isWeakSet\" looks like \"isWeakSet\" in src/predicate/isWeakSet.ts (name overlaps task (isWeakSet); kind function; feature Predicate)"
+        },
+        {
+          "path": "src/predicate/index.ts",
+          "kind": "boundary",
+          "detail": "Touches es-toolkit; this session is mostly in docs"
+        },
+        {
+          "path": "src/predicate/isEmptyObject.ts",
+          "kind": "boundary",
+          "detail": "Touches es-toolkit; this session is mostly in docs"
+        },
+        {
+          "path": "src/predicate/isEmptyObject.spec.ts",
+          "kind": "boundary",
+          "detail": "Touches es-toolkit; this session is mostly in docs"
+        }
+      ],
+      "notProven": 0,
+      "receiptMs": 4153,
+      "outcome": "false-alarm"
+    },
+    {
+      "repo": "es-toolkit",
+      "kind": "control",
+      "commit": "f49fd5b427ddd6ba967d9505be98864fba86d741",
+      "subject": "feat(forOwnRight): Implement `compat/forOwnRight` (#1147)",
+      "touched": [
+        "src/compat/index.ts",
+        "src/compat/object/forOwnRight.ts",
+        "src/compat/object/forOwnRight.spec.ts",
+        "benchmarks/performance/forOwnRight.bench.ts",
+        "docs/ja/reference/compat/object/forOwnRight.md",
+        "docs/ko/reference/compat/object/forOwnRight.md",
+        "docs/reference/compat/object/forOwnRight.md",
+        "docs/zh_hans/reference/compat/object/forOwnRight.md"
+      ],
+      "testFiles": [
+        "src/compat/array/findLast.spec.ts",
+        "src/compat/array/head.spec.ts",
+        "src/compat/array/last.spec.ts",
+        "src/compat/array/reduce.spec.ts",
+        "src/compat/array/reduceRight.spec.ts",
+        "src/compat/array/tail.spec.ts",
+        "src/compat/array/takeRight.spec.ts",
+        "src/compat/array/uniq.spec.ts",
+        "src/compat/array/uniqWith.spec.ts",
+        "src/compat/math/divide.spec.ts",
+        "src/compat/object/defaults.spec.ts",
+        "src/compat/object/forOwnRight.spec.ts",
+        "src/compat/object/pickBy.spec.ts",
+        "src/compat/object/toDefaulted.spec.ts",
+        "src/compat/object/toPairs.spec.ts",
+        "src/compat/object/toPairsIn.spec.ts",
+        "src/compat/object/values.spec.ts",
+        "src/compat/object/valuesIn.spec.ts",
+        "src/compat/predicate/isEqual.spec.ts",
+        "src/compat/predicate/isLength.spec.ts",
+        "src/compat/string/escape.spec.ts",
+        "src/compat/string/template.spec.ts",
+        "src/compat/util/cond.spec.ts",
+        "src/compat/util/constant.spec.ts",
+        "src/compat/util/iteratee.spec.ts",
+        "src/function/flow.spec.ts",
+        "src/function/flowRight.spec.ts",
+        "src/object/toCamelCaseKeys.spec.ts",
+        "src/object/toSnakeCaseKeys.spec.ts"
+      ],
+      "testMode": "full-script",
+      "verdict": "failed",
+      "checks": [
+        {
+          "name": "typecheck",
+          "status": "failed",
+          "detail": "Usage Error: Couldn't find @changesets/cli@npm:2.27.5 in the currently installed PnP map - running an install might help",
+          "durationMs": 334,
+          "cause": "caused"
+        },
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "Usage Error: Couldn't find @changesets/cli@npm:2.27.5 in the currently installed PnP map - running an install might help",
+          "durationMs": 333,
+          "cause": "caused"
+        },
+        {
+          "name": "test",
+          "status": "failed",
+          "detail": "Usage Error: Couldn't find @changesets/cli@npm:2.27.5 in the currently installed PnP map - running an install might help",
+          "durationMs": 346,
+          "cause": "caused"
+        }
+      ],
+      "baseline": [
+        {
+          "name": "typecheck",
+          "status": "failed",
+          "detail": "Usage Error: Couldn't find @changesets/cli@npm:2.27.5 in the currently installed PnP map - running an install might help",
+          "durationMs": 333,
+          "signature": {
+            "files": [],
+            "count": 0
+          }
+        },
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "Usage Error: Couldn't find @changesets/cli@npm:2.27.5 in the currently installed PnP map - running an install might help",
+          "durationMs": 259,
+          "signature": {
+            "files": [],
+            "count": 0
+          }
+        },
+        {
+          "name": "test",
+          "status": "failed",
+          "detail": "Usage Error: Couldn't find @changesets/cli@npm:2.27.5 in the currently installed PnP map - running an install might help",
+          "durationMs": 288,
+          "signature": {
+            "files": [],
+            "count": 0
+          }
+        }
+      ],
+      "attributable": [],
+      "flagsOnFixFiles": [],
+      "flags": [
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"DebouncedFunc\" looks like \"DebouncedFunction\" in src/compat/function/debounce.ts (name overlaps task (DebouncedFunction); feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"DebouncedFunction\" looks like \"DebouncedFunction\" in src/compat/function/debounce.ts (name overlaps task (DebouncedFunction); feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"after\" looks like \"after\" in src/compat/function/after.ts (name overlaps task (after); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"ary\" looks like \"ary\" in src/compat/function/ary.ts (name overlaps task (ary); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"assign\" looks like \"assign\" in src/compat/object/assign.ts (name overlaps task (assign); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"assignIn\" looks like \"assign\" in src/compat/object/assign.ts (name overlaps task (assign); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"assignInWith\" looks like \"assign\" in src/compat/object/assign.ts (name overlaps task (assign); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"assignWith\" looks like \"assign\" in src/compat/object/assign.ts (name overlaps task (assign); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"attempt\" looks like \"attempt\" in src/compat/function/attempt.ts (name overlaps task (attempt); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"before\" looks like \"before\" in src/compat/function/before.ts (name overlaps task (before); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"bind\" looks like \"bind\" in src/compat/function/bind.ts (name overlaps task (bind); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"bindKey\" looks like \"bind\" in src/compat/function/bind.ts (name overlaps task (bind); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"camelCase\" looks like \"camelCase\" in src/compat/string/camelCase.ts (name overlaps task (camelCase); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"castArray\" looks like \"castArray\" in src/compat/array/castArray.ts (name overlaps task (castArray); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"ceil\" looks like \"ceil\" in src/compat/math/ceil.ts (name overlaps task (ceil); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"chunk\" looks like \"chunk\" in src/compat/array/chunk.ts (name overlaps task (chunk); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"clamp\" looks like \"clamp\" in src/compat/math/clamp.ts (name overlaps task (clamp); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"cloneDeep\" looks like \"cloneDeep\" in src/compat/object/cloneDeep.ts (name overlaps task (cloneDeep); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"cloneDeepWith\" looks like \"cloneDeep\" in src/compat/object/cloneDeep.ts (name overlaps task (cloneDeep); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"compact\" looks like \"compact\" in src/compat/array/compact.ts (name overlaps task (compact); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"concat\" looks like \"concat\" in src/compat/array/concat.ts (name overlaps task (concat); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"cond\" looks like \"cond\" in src/compat/util/cond.ts (name overlaps task (cond); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"conforms\" looks like \"conforms\" in src/compat/predicate/conforms.ts (name overlaps task (conforms); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"conformsTo\" looks like \"conforms\" in src/compat/predicate/conforms.ts (name overlaps task (conforms); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"constant\" looks like \"constant\" in src/compat/util/constant.ts (name overlaps task (constant); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"create\" looks like \"create\" in src/compat/object/create.ts (name overlaps task (create); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"curry\" looks like \"curry\" in src/compat/function/curry.ts (name overlaps task (curry); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"curryRight\" looks like \"curry\" in src/compat/function/curry.ts (name overlaps task (curry); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"debounce\" looks like \"debounce\" in src/compat/function/debounce.ts (name overlaps task (debounce); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"deburr\" looks like \"deburr\" in src/compat/string/deburr.ts (name overlaps task (deburr); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"defaultTo\" looks like \"defaultTo\" in src/compat/util/defaultTo.ts (name overlaps task (defaultTo); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"defaults\" looks like \"defaults\" in src/compat/object/defaults.ts (name overlaps task (defaults); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"defer\" looks like \"defer\" in src/compat/function/defer.ts (name overlaps task (defer); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"delay\" looks like \"delay\" in src/compat/function/delay.ts (name overlaps task (delay); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"difference\" looks like \"difference\" in src/compat/array/difference.ts (name overlaps task (difference); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"differenceBy\" looks like \"difference\" in src/compat/array/difference.ts (name overlaps task (difference); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"differenceWith\" looks like \"difference\" in src/compat/array/difference.ts (name overlaps task (difference); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "duplicate",
+          "detail": "\"divide\" looks like \"divide\" in src/compat/math/divide.ts (name overlaps task (divide); kind function; feature Compat)"
+        },
+        {
+          "path": "src/compat/index.ts",
+          "kind": "boundary",
+          "detail": "Touches es-toolkit; this session is mostly in docs"
+        },
+        {
+          "path": "src/compat/object/forOwnRight.ts",
+          "kind": "boundary",
+          "detail": "Touches es-toolkit; this session is mostly in docs"
+        },
+        {
+          "path": "src/compat/object/forOwnRight.spec.ts",
+          "kind": "boundary",
+          "detail": "Touches es-toolkit; this session is mostly in docs"
+        },
+        {
+          "path": "benchmarks/performance/forOwnRight.bench.ts",
+          "kind": "orphan",
+          "detail": "Nothing in the index imports this file yet"
+        },
+        {
+          "path": "benchmarks/performance/forOwnRight.bench.ts",
+          "kind": "boundary",
+          "detail": "Touches benchmarks; this session is mostly in docs"
+        }
+      ],
+      "notProven": 1,
+      "receiptMs": 3842,
+      "outcome": "false-alarm"
+    },
+    {
+      "repo": "zod",
+      "kind": "regression",
+      "commit": "install",
+      "subject": "install failed",
+      "touched": [],
+      "testFiles": [],
+      "testMode": "none",
+      "verdict": "clean",
+      "checks": [],
+      "baseline": [],
+      "attributable": [],
+      "flagsOnFixFiles": [],
+      "flags": [],
+      "notProven": 0,
+      "receiptMs": 0,
+      "outcome": "unrunnable",
+      "note": "Command failed: npm ci --no-audit --no-fund"
+    },
+    {
+      "repo": "hono",
+      "kind": "regression",
+      "commit": "8a5852d4c1d0c9bc46460d679e6f54a6d88575a1",
+      "subject": "fix(etag): resolve incorrect incremental hashing for chunked responses (#5199)",
+      "fixedBy": "7075369e1f6161e04a227eba37373469c09fc743",
+      "fixSubject": "Revert \" fix(etag): resolve incorrect incremental hashing for chunked responses (#5199)\"",
+      "fixFiles": [
+        "src/middleware/etag/digest.ts"
+      ],
+      "touched": [
+        "src/middleware/etag/digest.ts",
+        "src/middleware/etag/index.test.ts"
+      ],
+      "testFiles": [
+        "src/middleware/etag/index.test.ts"
+      ],
+      "testMode": "scoped",
+      "verdict": "failed",
+      "checks": [
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "lint failed",
+          "durationMs": 85,
+          "cause": "caused"
+        },
+        {
+          "name": "test",
+          "status": "passed",
+          "detail": "",
+          "durationMs": 2744
+        }
+      ],
+      "baseline": [
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "lint failed",
+          "durationMs": 111,
+          "signature": {
+            "files": [],
+            "count": 0
+          }
+        },
+        {
+          "name": "test",
+          "status": "passed",
+          "detail": "",
+          "durationMs": 1187
+        }
+      ],
+      "attributable": [],
+      "flagsOnFixFiles": [],
+      "flags": [],
+      "notProven": 1,
+      "receiptMs": 3730,
+      "outcome": "missed"
+    },
+    {
+      "repo": "hono",
+      "kind": "regression",
+      "commit": "2159deb4bdd087025e343326480bb803055c04b6",
+      "subject": "feat(etag): support conditional requests for the QUERY method (#5111)",
+      "fixedBy": "f6aa913c3f8915d0695b77ca3f78f6b8ecb248a0",
+      "fixSubject": "fix(etag): skip unsafe methods or error responses on non-* case (#5196)",
+      "fixFiles": [
+        "src/middleware/etag/index.ts"
+      ],
+      "touched": [
+        "src/middleware/etag/index.ts",
+        "src/middleware/etag/index.test.ts"
+      ],
+      "testFiles": [
+        "src/middleware/etag/index.test.ts"
+      ],
+      "testMode": "scoped",
+      "verdict": "failed",
+      "checks": [
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "lint failed",
+          "durationMs": 151,
+          "cause": "caused"
+        },
+        {
+          "name": "test",
+          "status": "passed",
+          "detail": "",
+          "durationMs": 927
+        }
+      ],
+      "baseline": [
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "lint failed",
+          "durationMs": 218,
+          "signature": {
+            "files": [],
+            "count": 0
+          }
+        },
+        {
+          "name": "test",
+          "status": "passed",
+          "detail": "",
+          "durationMs": 989
+        }
+      ],
+      "attributable": [],
+      "flagsOnFixFiles": [
+        "orphan:src/middleware/etag/index.ts"
+      ],
+      "flags": [
+        {
+          "path": "src/middleware/etag/index.ts",
+          "kind": "orphan",
+          "detail": "Nothing in the index imports this file yet"
+        }
+      ],
+      "notProven": 1,
+      "receiptMs": 1574,
+      "outcome": "caught"
+    },
+    {
+      "repo": "hono",
+      "kind": "regression",
+      "commit": "fab3b13639339cbd5ba1166a5b23d9ac30c5f64f",
+      "subject": "Merge commit from fork",
+      "fixedBy": "6735fea78db8ca72e8606001f57b10ee6a96b349",
+      "fixSubject": "fix(jsx): cast awaitedFallback through unknown to fix Deno type check (#5036)",
+      "fixFiles": [
+        "src/jsx/components.ts"
+      ],
+      "touched": [
+        "src/jsx/base.ts",
+        "src/jsx/context.ts",
+        "src/jsx/streaming.ts",
+        "src/jsx/components.ts",
+        "src/jsx/context-isolation.test.ts",
+        "src/jsx/components.test.tsx",
+        "src/jsx/index.test.tsx",
+        "src/jsx/streaming.test.tsx"
+      ],
+      "testFiles": [
+        "runtime-tests/bun/index.test.tsx",
+        "runtime-tests/deno-jsx/jsx.test.tsx",
+        "src/helper/css/common.case.test.tsx",
+        "src/helper/css/index.test.tsx",
+        "src/helper/streaming/sse.test.tsx",
+        "src/jsx/base.test.tsx",
+        "src/jsx/children.test.ts",
+        "src/jsx/components.test.tsx",
+        "src/jsx/context-isolation.test.ts",
+        "src/jsx/dom/client.test.tsx",
+        "src/jsx/dom/components.test.tsx",
+        "src/jsx/dom/css.test.tsx",
+        "src/jsx/dom/index.test.tsx",
+        "src/jsx/dom/intrinsic-element/components.test.tsx",
+        "src/jsx/dom/server.test.tsx",
+        "src/jsx/hooks/dom.test.tsx",
+        "src/jsx/index.test.tsx",
+        "src/jsx/intrinsic-element/components.test.tsx",
+        "src/jsx/jsx-runtime.test.tsx",
+        "src/jsx/streaming.test.tsx",
+        "src/middleware/jsx-renderer/index.test.tsx"
+      ],
+      "testMode": "scoped",
+      "verdict": "failed",
+      "checks": [
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "lint failed",
+          "durationMs": 108,
+          "cause": "caused"
+        },
+        {
+          "name": "test",
+          "status": "passed",
+          "detail": "",
+          "durationMs": 6117
+        }
+      ],
+      "baseline": [
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "lint failed",
+          "durationMs": 69,
+          "signature": {
+            "files": [],
+            "count": 0
+          }
+        },
+        {
+          "name": "test",
+          "status": "passed",
+          "detail": "",
+          "durationMs": 6179
+        }
+      ],
+      "attributable": [],
+      "flagsOnFixFiles": [
+        "duplicate:src/jsx/components.ts",
+        "duplicate:src/jsx/components.ts",
+        "duplicate:src/jsx/components.ts",
+        "duplicate:src/jsx/components.ts"
+      ],
+      "flags": [
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"Child\" looks like \"Child\" in src/jsx/types.ts (name overlaps task (Child); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"DOMAttributes\" looks like \"DOMAttributes\" in src/jsx/dom/index.ts (name overlaps task (DOMAttributes); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"Fragment\" looks like \"Fragment\" in src/jsx/dom/index.ts (name overlaps task (Fragment); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"JSXFragmentNode\" looks like \"Node\" in src/jsx/dom/render.ts (name overlaps task (Node); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"JSXNode\" looks like \"JSXNode\" in src/jsx/types.ts (name overlaps task (JSXNode); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"Props\" looks like \"PropsWithChildren\" in src/jsx/types.ts (name overlaps task (PropsWithChildren); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"children\" looks like \"Children\" in src/jsx/children.ts (name overlaps task (Children); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"cloneElement\" looks like \"cloneElement\" in src/jsx/dom/index.ts (name overlaps task (cloneElement); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"getNameSpaceContext\" looks like \"Context\" in src/jsx/dom/index.ts (name overlaps task (Context); feature jsx; already imported in a seed file)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"isValidElement\" looks like \"isValidElement\" in src/jsx/dom/index.ts (name overlaps task (isValidElement); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"jsx\" looks like \"jsxDEV\" in src/jsx/jsx-dev-runtime.ts (name overlaps task (jsxDEV); kind function; feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"jsxFn\" looks like \"jsx\" in src/jsx/dom/index.ts (name overlaps task (jsx); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"key\" looks like \"normalizeIntrinsicElementKey\" in src/jsx/utils.ts (name overlaps task (normalizeIntrinsicElementKey); feature jsx; already imported in a seed file)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"memo\" looks like \"memo\" in src/jsx/dom/index.ts (name overlaps task (memo); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"props\" looks like \"PropsWithChildren\" in src/jsx/types.ts (name overlaps task (PropsWithChildren); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"reactAPICompatVersion\" looks like \"version\" in src/jsx/dom/index.ts (name overlaps task (version); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"ref\" looks like \"createRef\" in src/jsx/dom/index.ts (name overlaps task (createRef); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"suspendedContext\" looks like \"Context\" in src/jsx/dom/index.ts (name overlaps task (Context); feature jsx; already imported in a seed file)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"tag\" looks like \"isValidTagName\" in src/jsx/utils.ts (name overlaps task (isValidTagName); feature jsx; already imported in a seed file)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"toString\" looks like \"RenderToStringOptions\" in src/jsx/dom/server.ts (name overlaps task (RenderToStringOptions); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"type\" looks like \"PendingType\" in src/jsx/dom/render.ts (name overlaps task (PendingType); feature jsx)"
+        },
+        {
+          "path": "src/jsx/context.ts",
+          "kind": "duplicate",
+          "detail": "\"Context\" looks like \"createContextProviderFunction\" in src/jsx/dom/context.ts (name overlaps task (createContextProviderFunction); feature jsx; already imported in a seed file)"
+        },
+        {
+          "path": "src/jsx/context.ts",
+          "kind": "duplicate",
+          "detail": "\"captureRenderContext\" looks like \"render\" in benchmarks/jsx/src/hono.ts (name overlaps task (render); feature jsx)"
+        },
+        {
+          "path": "src/jsx/context.ts",
+          "kind": "duplicate",
+          "detail": "\"createContext\" looks like \"createContextProviderFunction\" in src/jsx/dom/context.ts (name overlaps task (createContextProviderFunction); feature jsx; already imported in a seed file)"
+        },
+        {
+          "path": "src/jsx/context.ts",
+          "kind": "duplicate",
+          "detail": "\"globalContexts\" looks like \"Context\" in src/jsx/dom/index.ts (name overlaps task (Context); feature jsx)"
+        },
+        {
+          "path": "src/jsx/context.ts",
+          "kind": "duplicate",
+          "detail": "\"runWithRenderContext\" looks like \"render\" in benchmarks/jsx/src/hono.ts (name overlaps task (render); feature jsx)"
+        },
+        {
+          "path": "src/jsx/streaming.ts",
+          "kind": "duplicate",
+          "detail": "\"Suspense\" looks like \"Suspense\" in src/jsx/dom/components.ts (name overlaps task (Suspense); feature jsx)"
+        },
+        {
+          "path": "src/jsx/components.ts",
+          "kind": "duplicate",
+          "detail": "\"ErrorBoundary\" looks like \"ErrorBoundary\" in src/jsx/dom/components.ts (name overlaps task (ErrorBoundary); feature jsx)"
+        },
+        {
+          "path": "src/jsx/components.ts",
+          "kind": "duplicate",
+          "detail": "\"ErrorHandler\" looks like \"ErrorHandler\" in src/jsx/dom/render.ts (name overlaps task (ErrorHandler); feature jsx)"
+        },
+        {
+          "path": "src/jsx/components.ts",
+          "kind": "duplicate",
+          "detail": "\"FallbackRender\" looks like \"render\" in benchmarks/jsx/src/hono.ts (name overlaps task (render); feature jsx)"
+        },
+        {
+          "path": "src/jsx/components.ts",
+          "kind": "duplicate",
+          "detail": "\"childrenToString\" looks like \"Children\" in src/jsx/children.ts (name overlaps task (Children); feature jsx)"
+        }
+      ],
+      "notProven": 0,
+      "receiptMs": 6918,
+      "outcome": "caught"
+    },
+    {
+      "repo": "hono",
+      "kind": "regression",
+      "commit": "fa5f9bfcc25d65e08af85211cc2e5ecd0e0ea24b",
+      "subject": "Merge commit from fork",
+      "fixedBy": "e50df01453e71b071c3e6136b161b160b9fdf916",
+      "fixSubject": "fix(lambda-edge): satisfy Deno lib types for Content-Length body encoding (#5013)",
+      "fixFiles": [
+        "src/adapter/lambda-edge/handler.ts"
+      ],
+      "touched": [
+        "src/adapter/aws-lambda/handler.ts",
+        "src/adapter/lambda-edge/handler.ts",
+        "src/adapter/aws-lambda/handler.test.ts",
+        "src/adapter/lambda-edge/handler.test.ts"
+      ],
+      "testFiles": [
+        "runtime-tests/lambda-edge/index.test.ts",
+        "runtime-tests/lambda/index.test.ts",
+        "runtime-tests/lambda/stream.test.ts",
+        "src/adapter/aws-lambda/handler.test.ts",
+        "src/adapter/lambda-edge/conninfo.test.ts",
+        "src/adapter/lambda-edge/handler.test.ts"
+      ],
+      "testMode": "scoped",
+      "verdict": "failed",
+      "checks": [
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "lint failed",
+          "durationMs": 139,
+          "cause": "caused"
+        },
+        {
+          "name": "test",
+          "status": "passed",
+          "detail": "",
+          "durationMs": 1192
+        }
+      ],
+      "baseline": [
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "lint failed",
+          "durationMs": 240,
+          "signature": {
+            "files": [],
+            "count": 0
+          }
+        },
+        {
+          "name": "test",
+          "status": "passed",
+          "detail": "",
+          "durationMs": 1254
+        }
+      ],
+      "attributable": [],
+      "flagsOnFixFiles": [],
+      "flags": [
+        {
+          "path": "src/adapter/aws-lambda/handler.ts",
+          "kind": "duplicate",
+          "detail": "\"APIGatewayProxyResult\" looks like \"APIGatewayProxyResult\" in src/adapter/aws-lambda/index.ts (name overlaps task (APIGatewayProxyResult); feature Adapter)"
+        },
+        {
+          "path": "src/adapter/aws-lambda/handler.ts",
+          "kind": "duplicate",
+          "detail": "\"LambdaEvent\" looks like \"LambdaEvent\" in src/adapter/aws-lambda/index.ts (name overlaps task (LambdaEvent); feature Adapter)"
+        },
+        {
+          "path": "src/adapter/aws-lambda/handler.ts",
+          "kind": "duplicate",
+          "detail": "\"defaultIsContentTypeBinary\" looks like \"defaultIsContentTypeBinary\" in src/adapter/aws-lambda/index.ts (name overlaps task (defaultIsContentTypeBinary); feature Adapter)"
+        },
+        {
+          "path": "src/adapter/aws-lambda/handler.ts",
+          "kind": "duplicate",
+          "detail": "\"handle\" looks like \"handleMiddleware\" in src/adapter/cloudflare-pages/handler.ts (name overlaps task (handleMiddleware); kind function; feature Adapter)"
+        }
+      ],
+      "notProven": 0,
+      "receiptMs": 1912,
+      "outcome": "missed"
+    },
+    {
+      "repo": "hono",
+      "kind": "regression",
+      "commit": "6a0607a929d888893f0c91d92dce2fcfdb3662a3",
+      "subject": "Merge commit from fork",
+      "fixedBy": "80a9837904c346f264b57dbfd22822a46cc24b08",
+      "fixSubject": "fix(utils/url): specify the return type of `tryDecodeURI` (#4779)",
+      "fixFiles": [
+        "src/utils/url.ts"
+      ],
+      "touched": [
+        "src/utils/url.ts",
+        "src/middleware/serve-static/index.ts",
+        "src/middleware/serve-static/index.test.ts"
+      ],
+      "testFiles": [
+        "runtime-tests/bun/index.test.tsx",
+        "runtime-tests/deno/hono.test.ts",
+        "runtime-tests/deno/middleware.test.tsx",
+        "runtime-tests/deno/ssg.test.tsx",
+        "runtime-tests/deno/stream.test.ts",
+        "runtime-tests/fastly/index.test.ts",
+        "runtime-tests/lambda-edge/index.test.ts",
+        "runtime-tests/lambda/index.test.ts",
+        "runtime-tests/lambda/stream.test.ts",
+        "runtime-tests/node/index.test.ts",
+        "src/adapter/aws-lambda/conninfo.test.ts",
+        "src/adapter/aws-lambda/handler.test.ts",
+        "src/adapter/bun/conninfo.test.ts",
+        "src/adapter/bun/server.test.ts",
+        "src/adapter/bun/websocket.test.ts",
+        "src/adapter/cloudflare-pages/conninfo.test.ts",
+        "src/adapter/cloudflare-pages/handler.test.ts",
+        "src/adapter/cloudflare-workers/conninfo.test.ts",
+        "src/adapter/cloudflare-workers/serve-static.test.ts",
+        "src/adapter/cloudflare-workers/websocket.test.ts",
+        "src/adapter/deno/conninfo.test.ts",
+        "src/adapter/deno/websocket.test.ts",
+        "src/adapter/lambda-edge/conninfo.test.ts",
+        "src/adapter/lambda-edge/handler.test.ts",
+        "src/adapter/netlify/conninfo.test.ts",
+        "src/adapter/service-worker/handler.test.ts",
+        "src/adapter/vercel/conninfo.test.ts",
+        "src/adapter/vercel/handler.test.ts",
+        "src/client/client.test.ts",
+        "src/client/types.test.ts",
+        "src/client/utils.test.ts",
+        "src/compose.test.ts",
+        "src/context.test.ts",
+        "src/helper/accepts/accepts.test.ts",
+        "src/helper/adapter/index.test.ts",
+        "src/helper/cookie/index.test.ts",
+        "src/helper/css/index.test.tsx",
+        "src/helper/dev/index.test.ts",
+        "src/helper/factory/index.test.ts",
+        "src/helper/proxy/index.test.ts",
+        "src/helper/route/index.test.ts",
+        "src/helper/ssg/plugins.test.tsx",
+        "src/helper/ssg/ssg.test.tsx",
+        "src/helper/ssg/utils.test.ts",
+        "src/helper/streaming/sse.test.tsx",
+        "src/helper/streaming/stream.test.ts",
+        "src/helper/streaming/text.test.ts",
+        "src/helper/testing/index.test.ts",
+        "src/helper/websocket/index.test.ts",
+        "src/hono.test.ts",
+        "src/jsx/index.test.tsx",
+        "src/jsx/jsx-runtime.test.tsx",
+        "src/middleware/basic-auth/index.test.ts",
+        "src/middleware/bearer-auth/index.test.ts",
+        "src/middleware/body-limit/index.test.ts",
+        "src/middleware/cache/index.test.ts",
+        "src/middleware/combine/index.test.ts",
+        "src/middleware/compress/index.test.ts",
+        "src/middleware/context-storage/index.test.ts",
+        "src/middleware/cors/index.test.ts"
+      ],
+      "testMode": "scoped",
+      "verdict": "failed",
+      "checks": [
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "lint failed",
+          "durationMs": 74,
+          "cause": "caused"
+        },
+        {
+          "name": "test",
+          "status": "failed",
+          "detail": "ReferenceError: jsx is not defined",
+          "durationMs": 5683,
+          "cause": "already-failing"
+        }
+      ],
+      "baseline": [
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "lint failed",
+          "durationMs": 152,
+          "signature": {
+            "files": [],
+            "count": 0
+          }
+        },
+        {
+          "name": "test",
+          "status": "failed",
+          "detail": "ReferenceError: jsx is not defined",
+          "durationMs": 5582,
+          "signature": {
+            "files": [
+              "index.test.ts",
+              "src/helper/css/index.test.tsx",
+              "src/helper/dev/index.test.ts",
+              "src/helper/ssg/ssg.test.tsx",
+              "src/helper/streaming/sse.test.tsx",
+              "src/helper/websocket/index.test.ts",
+              "src/jsx/index.test.tsx"
+            ],
+            "count": 231
+          }
+        }
+      ],
+      "attributable": [],
+      "flagsOnFixFiles": [
+        "duplicate:src/utils/url.ts",
+        "high-blast:src/utils/url.ts"
+      ],
+      "flags": [
+        {
+          "path": "src/utils/url.ts",
+          "kind": "duplicate",
+          "detail": "\"Pattern\" looks like \"PatternRouter\" in src/router/pattern-router/router.ts (name overlaps task (PatternRouter); kind class)"
+        },
+        {
+          "path": "src/utils/url.ts",
+          "kind": "high-blast",
+          "detail": "blast risk 61"
+        }
+      ],
+      "notProven": 0,
+      "receiptMs": 11904,
+      "outcome": "caught"
+    },
+    {
+      "repo": "hono",
+      "kind": "regression",
+      "commit": "69f303e0c3a45c09e7ec56611973751208737857",
+      "subject": "feat(client): Add  `ApplyGlobalResponse` type helper for RPC Client (#4556)",
+      "fixedBy": "076823220335b2ef88360a5619c9e7fee3f568d2",
+      "fixSubject": "fix(client): preserve route schema in ApplyGlobalResponse (#4777)",
+      "fixFiles": [
+        "src/client/types.ts"
+      ],
+      "touched": [
+        "src/client/types.ts",
+        "src/client/client.test.ts"
+      ],
+      "testFiles": [
+        "runtime-tests/bun/index.test.tsx",
+        "runtime-tests/deno/middleware.test.tsx",
+        "runtime-tests/deno/ssg.test.tsx",
+        "runtime-tests/fastly/index.test.ts",
+        "runtime-tests/node/index.test.ts",
+        "src/adapter/bun/conninfo.test.ts",
+        "src/adapter/cloudflare-workers/websocket.test.ts",
+        "src/adapter/deno/websocket.test.ts",
+        "src/client/client.test.ts",
+        "src/client/types.test.ts",
+        "src/client/utils.test.ts",
+        "src/helper/accepts/accepts.test.ts",
+        "src/helper/css/index.test.tsx",
+        "src/helper/factory/index.test.ts",
+        "src/helper/ssg/ssg.test.tsx",
+        "src/hono.test.ts",
+        "src/types.test.ts"
+      ],
+      "testMode": "scoped",
+      "verdict": "failed",
+      "checks": [
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "lint failed",
+          "durationMs": 151,
+          "cause": "caused"
+        },
+        {
+          "name": "test",
+          "status": "failed",
+          "detail": "ReferenceError: jsx is not defined",
+          "durationMs": 2411,
+          "cause": "already-failing"
+        }
+      ],
+      "baseline": [
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "lint failed",
+          "durationMs": 72,
+          "signature": {
+            "files": [],
+            "count": 0
+          }
+        },
+        {
+          "name": "test",
+          "status": "failed",
+          "detail": "ReferenceError: jsx is not defined",
+          "durationMs": 1854,
+          "signature": {
+            "files": [
+              "index.test.ts",
+              "src/helper/css/index.test.tsx",
+              "src/helper/ssg/ssg.test.tsx"
+            ],
+            "count": 39
+          }
+        }
+      ],
+      "attributable": [],
+      "flagsOnFixFiles": [
+        "duplicate:src/client/types.ts",
+        "duplicate:src/client/types.ts",
+        "duplicate:src/client/types.ts",
+        "duplicate:src/client/types.ts",
+        "duplicate:src/client/types.ts",
+        "duplicate:src/client/types.ts",
+        "duplicate:src/client/types.ts",
+        "duplicate:src/client/types.ts",
+        "duplicate:src/client/types.ts",
+        "duplicate:src/client/types.ts"
+      ],
+      "flags": [
+        {
+          "path": "src/client/types.ts",
+          "kind": "duplicate",
+          "detail": "\"BuildSearchParamsFn\" looks like \"buildSearchParams\" in src/client/utils.ts (name overlaps task (buildSearchParams); feature Client)"
+        },
+        {
+          "path": "src/client/types.ts",
+          "kind": "duplicate",
+          "detail": "\"Client\" looks like \"ClientRequest\" in src/client/index.ts (name overlaps task (ClientRequest); feature Client)"
+        },
+        {
+          "path": "src/client/types.ts",
+          "kind": "duplicate",
+          "detail": "\"ClientRequest\" looks like \"ClientRequest\" in src/client/index.ts (name overlaps task (ClientRequest); feature Client)"
+        },
+        {
+          "path": "src/client/types.ts",
+          "kind": "duplicate",
+          "detail": "\"ClientRequestOptions\" looks like \"ClientRequest\" in src/client/index.ts (name overlaps task (ClientRequest); feature Client)"
+        },
+        {
+          "path": "src/client/types.ts",
+          "kind": "duplicate",
+          "detail": "\"ClientResponse\" looks like \"ClientResponse\" in src/client/index.ts (name overlaps task (ClientResponse); feature Client)"
+        },
+        {
+          "path": "src/client/types.ts",
+          "kind": "duplicate",
+          "detail": "\"Fetch\" looks like \"fetchRP\" in src/client/fetch-result-please.ts (name overlaps task (fetchRP); kind function; feature Client)"
+        },
+        {
+          "path": "src/client/types.ts",
+          "kind": "duplicate",
+          "detail": "\"FilterClientResponseByStatusCode\" looks like \"code\" in src/client/fetch-result-please.ts (name overlaps task (code); feature Client)"
+        },
+        {
+          "path": "src/client/types.ts",
+          "kind": "duplicate",
+          "detail": "\"InferRequestType\" looks like \"InferRequestType\" in src/client/index.ts (name overlaps task (InferRequestType); feature Client)"
+        },
+        {
+          "path": "src/client/types.ts",
+          "kind": "duplicate",
+          "detail": "\"InferResponseType\" looks like \"InferResponseType\" in src/client/index.ts (name overlaps task (InferResponseType); feature Client)"
+        },
+        {
+          "path": "src/client/types.ts",
+          "kind": "duplicate",
+          "detail": "\"Response\" looks like \"parseResponse\" in src/client/utils.ts (name overlaps task (parseResponse); kind function; feature Client)"
+        }
+      ],
+      "notProven": 0,
+      "receiptMs": 4922,
+      "outcome": "caught"
+    },
+    {
+      "repo": "hono",
+      "kind": "control",
+      "commit": "3098a3ab239ef461c1cfd05a288b67f272b6deee",
+      "subject": "perf(urls): refactor `tryDecodeURIComponent` (#5158)",
+      "touched": [
+        "src/utils/url.ts",
+        "src/request.ts",
+        "src/utils/cookie.ts"
+      ],
+      "testFiles": [
+        "runtime-tests/bun/index.test.tsx",
+        "runtime-tests/deno/hono.test.ts",
+        "runtime-tests/deno/middleware.test.tsx",
+        "runtime-tests/deno/ssg.test.tsx",
+        "runtime-tests/deno/stream.test.ts",
+        "runtime-tests/fastly/index.test.ts",
+        "runtime-tests/lambda-edge/index.test.ts",
+        "runtime-tests/lambda/index.test.ts",
+        "runtime-tests/lambda/stream.test.ts",
+        "runtime-tests/node/index.test.ts",
+        "src/adapter/aws-lambda/conninfo.test.ts",
+        "src/adapter/aws-lambda/handler.test.ts",
+        "src/adapter/bun/conninfo.test.ts",
+        "src/adapter/bun/server.test.ts",
+        "src/adapter/bun/websocket.test.ts",
+        "src/adapter/cloudflare-pages/conninfo.test.ts",
+        "src/adapter/cloudflare-pages/handler.test.ts",
+        "src/adapter/cloudflare-workers/conninfo.test.ts",
+        "src/adapter/cloudflare-workers/serve-static.test.ts",
+        "src/adapter/cloudflare-workers/websocket.test.ts",
+        "src/adapter/deno/conninfo.test.ts",
+        "src/adapter/deno/websocket.test.ts",
+        "src/adapter/lambda-edge/conninfo.test.ts",
+        "src/adapter/lambda-edge/handler.test.ts",
+        "src/adapter/netlify/conninfo.test.ts",
+        "src/adapter/service-worker/handler.test.ts",
+        "src/adapter/vercel/conninfo.test.ts",
+        "src/adapter/vercel/handler.test.ts",
+        "src/client/client.test.ts",
+        "src/client/types.test.ts",
+        "src/client/utils.test.ts",
+        "src/compose.test.ts",
+        "src/context.test.ts",
+        "src/helper/accepts/accepts.test.ts",
+        "src/helper/adapter/index.test.ts",
+        "src/helper/cookie/index.test.ts",
+        "src/helper/css/index.test.tsx",
+        "src/helper/dev/index.test.ts",
+        "src/helper/factory/index.test.ts",
+        "src/helper/proxy/index.test.ts",
+        "src/helper/route/index.test.ts",
+        "src/helper/ssg/plugins.test.tsx",
+        "src/helper/ssg/ssg.test.tsx",
+        "src/helper/ssg/utils.test.ts",
+        "src/helper/streaming/sse.test.tsx",
+        "src/helper/streaming/stream.test.ts",
+        "src/helper/streaming/text.test.ts",
+        "src/helper/testing/index.test.ts",
+        "src/helper/websocket/index.test.ts",
+        "src/hono.test.ts",
+        "src/jsx/index.test.tsx",
+        "src/jsx/jsx-runtime.test.tsx",
+        "src/middleware/basic-auth/index.test.ts",
+        "src/middleware/bearer-auth/index.test.ts",
+        "src/middleware/body-limit/index.test.ts",
+        "src/middleware/cache/index.test.ts",
+        "src/middleware/combine/index.test.ts",
+        "src/middleware/compress/index.test.ts",
+        "src/middleware/context-storage/index.test.ts",
+        "src/middleware/cors/index.test.ts"
+      ],
+      "testMode": "scoped",
+      "verdict": "failed",
+      "checks": [
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "lint failed",
+          "durationMs": 82,
+          "cause": "caused"
+        },
+        {
+          "name": "test",
+          "status": "failed",
+          "detail": "⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯",
+          "durationMs": 5441,
+          "cause": "already-failing"
+        }
+      ],
+      "baseline": [
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "lint failed",
+          "durationMs": 8,
+          "signature": {
+            "files": [],
+            "count": 0
+          }
+        },
+        {
+          "name": "test",
+          "status": "failed",
+          "detail": "⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯",
+          "durationMs": 4909,
+          "signature": {
+            "files": [
+              "src/helper/dev/index.test.ts",
+              "src/helper/websocket/index.test.ts"
+            ],
+            "count": 3
+          }
+        }
+      ],
+      "attributable": [],
+      "flagsOnFixFiles": [],
+      "flags": [
+        {
+          "path": "src/utils/url.ts",
+          "kind": "high-blast",
+          "detail": "blast risk 62"
+        },
+        {
+          "path": "src/request.ts",
+          "kind": "duplicate",
+          "detail": "\"HonoRequest\" looks like \"Hono\" in src/hono.ts (name overlaps task (Hono); kind class)"
+        },
+        {
+          "path": "src/request.ts",
+          "kind": "duplicate",
+          "detail": "\"header\" looks like \"detectFromHeader\" in src/middleware/language/language.ts (name overlaps task (detectFromHeader); kind function)"
+        },
+        {
+          "path": "src/request.ts",
+          "kind": "duplicate",
+          "detail": "\"header\" looks like \"detectFromHeader\" in src/middleware/language/language.ts (name overlaps task (detectFromHeader); kind function)"
+        },
+        {
+          "path": "src/request.ts",
+          "kind": "duplicate",
+          "detail": "\"header\" looks like \"detectFromHeader\" in src/middleware/language/language.ts (name overlaps task (detectFromHeader); kind function)"
+        },
+        {
+          "path": "src/request.ts",
+          "kind": "duplicate",
+          "detail": "\"header\" looks like \"detectFromHeader\" in src/middleware/language/language.ts (name overlaps task (detectFromHeader); kind function)"
+        },
+        {
+          "path": "src/request.ts",
+          "kind": "duplicate",
+          "detail": "\"path\" looks like \"detectFromPath\" in src/middleware/language/language.ts (name overlaps task (detectFromPath); kind function)"
+        }
+      ],
+      "notProven": 0,
+      "receiptMs": 11018,
+      "outcome": "false-alarm"
+    },
+    {
+      "repo": "hono",
+      "kind": "control",
+      "commit": "c285f9a498623fe0d2992b31c77b3738c0c0a54d",
+      "subject": "chore(benchmark): add app.fetch() overhead benchmark (#5117)",
+      "touched": [
+        "benchmarks/fetch/package.json",
+        "benchmarks/fetch/tsconfig.json",
+        "benchmarks/fetch/ts-resolve.mjs",
+        "benchmarks/fetch/bench.mts",
+        "benchmarks/fetch/summarize.mts",
+        "benchmarks/fetch/.gitignore",
+        "benchmarks/fetch/README.md",
+        "benchmarks/fetch/compare.sh"
+      ],
+      "testFiles": [],
+      "testMode": "none",
+      "verdict": "failed",
+      "checks": [
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "lint failed",
+          "durationMs": 145,
+          "cause": "caused"
+        }
+      ],
+      "baseline": [
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "lint failed",
+          "durationMs": 128,
+          "signature": {
+            "files": [],
+            "count": 0
+          }
+        }
+      ],
+      "attributable": [],
+      "flagsOnFixFiles": [],
+      "flags": [
+        {
+          "path": "benchmarks/fetch/package.json",
+          "kind": "high-blast",
+          "detail": "blast risk 70"
+        },
+        {
+          "path": "benchmarks/fetch/tsconfig.json",
+          "kind": "high-blast",
+          "detail": "blast risk 70"
+        },
+        {
+          "path": "benchmarks/fetch/bench.mts",
+          "kind": "orphan",
+          "detail": "Nothing in the index imports this file yet"
+        },
+        {
+          "path": "benchmarks/fetch/summarize.mts",
+          "kind": "orphan",
+          "detail": "Nothing in the index imports this file yet"
+        }
+      ],
+      "notProven": 3,
+      "receiptMs": 714,
+      "outcome": "false-alarm"
+    },
+    {
+      "repo": "hono",
+      "kind": "control",
+      "commit": "6cbb025ff87fca1a3d00d0ccca0eaf3a6385c3f1",
+      "subject": "Merge commit from fork",
+      "touched": [
+        "src/hono-base.ts",
+        "src/hono.test.ts"
+      ],
+      "testFiles": [
+        "runtime-tests/bun/index.test.tsx",
+        "runtime-tests/deno/hono.test.ts",
+        "runtime-tests/deno/middleware.test.tsx",
+        "runtime-tests/deno/ssg.test.tsx",
+        "runtime-tests/deno/stream.test.ts",
+        "runtime-tests/fastly/index.test.ts",
+        "runtime-tests/lambda-edge/index.test.ts",
+        "runtime-tests/lambda/index.test.ts",
+        "runtime-tests/lambda/stream.test.ts",
+        "runtime-tests/node/index.test.ts",
+        "src/adapter/aws-lambda/conninfo.test.ts",
+        "src/adapter/aws-lambda/handler.test.ts",
+        "src/adapter/bun/conninfo.test.ts",
+        "src/adapter/bun/server.test.ts",
+        "src/adapter/bun/websocket.test.ts",
+        "src/adapter/cloudflare-pages/conninfo.test.ts",
+        "src/adapter/cloudflare-pages/handler.test.ts",
+        "src/adapter/cloudflare-workers/conninfo.test.ts",
+        "src/adapter/cloudflare-workers/serve-static.test.ts",
+        "src/adapter/cloudflare-workers/websocket.test.ts",
+        "src/adapter/deno/conninfo.test.ts",
+        "src/adapter/deno/websocket.test.ts",
+        "src/adapter/lambda-edge/conninfo.test.ts",
+        "src/adapter/lambda-edge/handler.test.ts",
+        "src/adapter/netlify/conninfo.test.ts",
+        "src/adapter/service-worker/handler.test.ts",
+        "src/adapter/vercel/conninfo.test.ts",
+        "src/adapter/vercel/handler.test.ts",
+        "src/client/client.test.ts",
+        "src/client/types.test.ts",
+        "src/client/utils.test.ts",
+        "src/compose.test.ts",
+        "src/context.test.ts",
+        "src/helper/accepts/accepts.test.ts",
+        "src/helper/adapter/index.test.ts",
+        "src/helper/cookie/index.test.ts",
+        "src/helper/css/index.test.tsx",
+        "src/helper/dev/index.test.ts",
+        "src/helper/factory/index.test.ts",
+        "src/helper/proxy/index.test.ts",
+        "src/helper/route/index.test.ts",
+        "src/helper/ssg/plugins.test.tsx",
+        "src/helper/ssg/ssg.test.tsx",
+        "src/helper/ssg/utils.test.ts",
+        "src/helper/streaming/sse.test.tsx",
+        "src/helper/streaming/stream.test.ts",
+        "src/helper/streaming/text.test.ts",
+        "src/helper/testing/index.test.ts",
+        "src/helper/websocket/index.test.ts",
+        "src/hono.test.ts",
+        "src/jsx/index.test.tsx",
+        "src/jsx/jsx-runtime.test.tsx",
+        "src/middleware/basic-auth/index.test.ts",
+        "src/middleware/bearer-auth/index.test.ts",
+        "src/middleware/body-limit/index.test.ts",
+        "src/middleware/cache/index.test.ts",
+        "src/middleware/combine/index.test.ts",
+        "src/middleware/compress/index.test.ts",
+        "src/middleware/context-storage/index.test.ts",
+        "src/middleware/cors/index.test.ts"
+      ],
+      "testMode": "scoped",
+      "verdict": "failed",
+      "checks": [
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "lint failed",
+          "durationMs": 152,
+          "cause": "caused"
+        },
+        {
+          "name": "test",
+          "status": "failed",
+          "detail": "⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯",
+          "durationMs": 4803,
+          "cause": "already-failing"
+        }
+      ],
+      "baseline": [
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "lint failed",
+          "durationMs": 20,
+          "signature": {
+            "files": [],
+            "count": 0
+          }
+        },
+        {
+          "name": "test",
+          "status": "failed",
+          "detail": "⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯",
+          "durationMs": 4986,
+          "signature": {
+            "files": [
+              "index.test.ts",
+              "src/helper/dev/index.test.ts",
+              "src/helper/websocket/index.test.ts"
+            ],
+            "count": 3
+          }
+        }
+      ],
+      "attributable": [],
+      "flagsOnFixFiles": [],
+      "flags": [
+        {
+          "path": "src/hono-base.ts",
+          "kind": "duplicate",
+          "detail": "\"HonoBase\" looks like \"Hono\" in src/hono.ts (name overlaps task (Hono); kind class)"
+        },
+        {
+          "path": "src/hono-base.ts",
+          "kind": "duplicate",
+          "detail": "\"HonoOptions\" looks like \"Hono\" in src/hono.ts (name overlaps task (Hono); kind class)"
+        }
+      ],
+      "notProven": 0,
+      "receiptMs": 10055,
+      "outcome": "quiet"
+    },
+    {
+      "repo": "hono",
+      "kind": "control",
+      "commit": "66daa2edef8965544c04fcad82c596ab2acdb5ee",
+      "subject": "Merge commit from fork",
+      "touched": [
+        "src/jsx/base.ts",
+        "src/jsx/dom/render.ts",
+        "src/jsx/utils.ts",
+        "src/jsx/dom/index.test.tsx",
+        "src/jsx/index.test.tsx",
+        "src/jsx/jsx-runtime.test.tsx",
+        "src/jsx/utils.test.ts",
+        "src/jsx/jsx-runtime.ts"
+      ],
+      "testFiles": [
+        "runtime-tests/bun/index.test.tsx",
+        "runtime-tests/deno-jsx/jsx.test.tsx",
+        "src/helper/css/common.case.test.tsx",
+        "src/helper/css/index.test.tsx",
+        "src/helper/streaming/sse.test.tsx",
+        "src/jsx/base.test.tsx",
+        "src/jsx/children.test.ts",
+        "src/jsx/components.test.tsx",
+        "src/jsx/dom/client.test.tsx",
+        "src/jsx/dom/components.test.tsx",
+        "src/jsx/dom/css.test.tsx",
+        "src/jsx/dom/index.test.tsx",
+        "src/jsx/dom/intrinsic-element/components.test.tsx",
+        "src/jsx/dom/server.test.tsx",
+        "src/jsx/hooks/dom.test.tsx",
+        "src/jsx/index.test.tsx",
+        "src/jsx/intrinsic-element/components.test.tsx",
+        "src/jsx/jsx-runtime.test.tsx",
+        "src/jsx/streaming.test.tsx",
+        "src/jsx/utils.test.ts",
+        "src/middleware/jsx-renderer/index.test.tsx"
+      ],
+      "testMode": "scoped",
+      "verdict": "failed",
+      "checks": [
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "lint failed",
+          "durationMs": 30,
+          "cause": "caused"
+        },
+        {
+          "name": "test",
+          "status": "passed",
+          "detail": "",
+          "durationMs": 6260
+        }
+      ],
+      "baseline": [
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "lint failed",
+          "durationMs": 118,
+          "signature": {
+            "files": [],
+            "count": 0
+          }
+        },
+        {
+          "name": "test",
+          "status": "passed",
+          "detail": "",
+          "durationMs": 6413
+        }
+      ],
+      "attributable": [],
+      "flagsOnFixFiles": [],
+      "flags": [
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"Child\" looks like \"Child\" in src/jsx/types.ts (name overlaps task (Child); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"DOMAttributes\" looks like \"DOMAttributes\" in src/jsx/dom/index.ts (name overlaps task (DOMAttributes); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"Fragment\" looks like \"Fragment\" in src/jsx/dom/index.ts (name overlaps task (Fragment); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"JSXFragmentNode\" looks like \"Node\" in src/router/reg-exp-router/node.ts (name overlaps task (Node); kind class)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"JSXNode\" looks like \"JSXNode\" in src/jsx/types.ts (name overlaps task (JSXNode); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"Props\" looks like \"PropsWithChildren\" in src/jsx/types.ts (name overlaps task (PropsWithChildren); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"children\" looks like \"Children\" in src/jsx/children.ts (name overlaps task (Children); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"cloneElement\" looks like \"cloneElement\" in src/jsx/dom/index.ts (name overlaps task (cloneElement); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"getNameSpaceContext\" looks like \"Context\" in src/jsx/context.ts (name overlaps task (Context); feature jsx; already imported in a seed file)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"isValidElement\" looks like \"isValidElement\" in src/jsx/dom/index.ts (name overlaps task (isValidElement); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"jsx\" looks like \"jsxDEV\" in src/jsx/jsx-dev-runtime.ts (name overlaps task (jsxDEV); kind function; feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"jsxFn\" looks like \"jsx\" in src/jsx/dom/index.ts (name overlaps task (jsx); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"key\" looks like \"deDupeKeyMap\" in src/jsx/intrinsic-element/common.ts (name overlaps task (deDupeKeyMap); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"localContexts\" looks like \"Context\" in src/jsx/context.ts (name overlaps task (Context); feature jsx; already imported in a seed file)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"memo\" looks like \"memo\" in src/jsx/dom/index.ts (name overlaps task (memo); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"props\" looks like \"PropsWithChildren\" in src/jsx/types.ts (name overlaps task (PropsWithChildren); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"reactAPICompatVersion\" looks like \"version\" in src/jsx/dom/index.ts (name overlaps task (version); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"ref\" looks like \"createRef\" in src/jsx/dom/index.ts (name overlaps task (createRef); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"tag\" looks like \"setInternalTagFlag\" in src/jsx/dom/utils.ts (name overlaps task (setInternalTagFlag); feature jsx)"
+        },
+        {
+          "path": "src/jsx/base.ts",
+          "kind": "duplicate",
+          "detail": "\"toString\" looks like \"childrenToString\" in src/jsx/components.ts (name overlaps task (childrenToString); feature jsx)"
+        },
+        {
+          "path": "src/jsx/dom/render.ts",
+          "kind": "duplicate",
+          "detail": "\"Context\" looks like \"createContext\" in src/jsx/context.ts (name overlaps task (createContext); feature jsx; already imported in a seed file)"
+        },
+        {
+          "path": "src/jsx/dom/render.ts",
+          "kind": "duplicate",
+          "detail": "\"ErrorHandler\" looks like \"ErrorHandler\" in src/jsx/components.ts (name overlaps task (ErrorHandler); feature jsx)"
+        },
+        {
+          "path": "src/jsx/dom/render.ts",
+          "kind": "duplicate",
+          "detail": "\"HasRenderToDom\" looks like \"render\" in benchmarks/jsx/src/hono.ts (name overlaps task (render); feature jsx)"
+        },
+        {
+          "path": "src/jsx/dom/render.ts",
+          "kind": "duplicate",
+          "detail": "\"Node\" looks like \"ReactNode\" in src/jsx/types.ts (name overlaps task (ReactNode); feature jsx)"
+        },
+        {
+          "path": "src/jsx/dom/render.ts",
+          "kind": "duplicate",
+          "detail": "\"NodeObject\" looks like \"Node\" in src/router/reg-exp-router/node.ts (name overlaps task (Node); kind class)"
+        },
+        {
+          "path": "src/jsx/dom/render.ts",
+          "kind": "duplicate",
+          "detail": "\"PreserveNodeType\" looks like \"Node\" in src/router/reg-exp-router/node.ts (name overlaps task (Node); kind class)"
+        },
+        {
+          "path": "src/jsx/dom/render.ts",
+          "kind": "duplicate",
+          "detail": "\"build\" looks like \"buildPage\" in benchmarks/jsx/src/page-react.tsx (name overlaps task (buildPage); feature jsx)"
+        }
+      ],
+      "notProven": 0,
+      "receiptMs": 7008,
+      "outcome": "quiet"
+    },
+    {
+      "repo": "hono",
+      "kind": "control",
+      "commit": "58825a72f7cc0a36d08535fc11dc90934ba77aeb",
+      "subject": "feat(jsx-renderer): support function-based options (#4780)",
+      "touched": [
+        "src/middleware/jsx-renderer/index.ts",
+        "src/middleware/jsx-renderer/index.test.tsx"
+      ],
+      "testFiles": [
+        "src/middleware/jsx-renderer/index.test.tsx"
+      ],
+      "testMode": "scoped",
+      "verdict": "failed",
+      "checks": [
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "lint failed",
+          "durationMs": 175,
+          "cause": "caused"
+        },
+        {
+          "name": "test",
+          "status": "passed",
+          "detail": "",
+          "durationMs": 1296
+        }
+      ],
+      "baseline": [
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "lint failed",
+          "durationMs": 43,
+          "signature": {
+            "files": [],
+            "count": 0
+          }
+        },
+        {
+          "name": "test",
+          "status": "passed",
+          "detail": "",
+          "durationMs": 902
+        }
+      ],
+      "attributable": [],
+      "flagsOnFixFiles": [],
+      "flags": [
+        {
+          "path": "src/middleware/jsx-renderer/index.ts",
+          "kind": "duplicate",
+          "detail": "\"jsxRenderer\" looks like \"jsx\" in src/jsx/base.ts (name overlaps task (jsx); feature jsx; already imported in a seed file)"
+        },
+        {
+          "path": "src/middleware/jsx-renderer/index.ts",
+          "kind": "orphan",
+          "detail": "Nothing in the index imports this file yet"
+        }
+      ],
+      "notProven": 1,
+      "receiptMs": 2057,
+      "outcome": "quiet"
+    },
+    {
+      "repo": "hono",
+      "kind": "control",
+      "commit": "bf37828d6df56618bb90649c65c1c4deb2f9bcd6",
+      "subject": "feat(basic-auth): add context key and callback options (#4645)",
+      "touched": [
+        "src/middleware/basic-auth/index.ts",
+        "src/middleware/basic-auth/index.test.ts"
+      ],
+      "testFiles": [
+        "runtime-tests/bun/index.test.tsx",
+        "runtime-tests/deno/middleware.test.tsx",
+        "runtime-tests/fastly/index.test.ts",
+        "runtime-tests/lambda-edge/index.test.ts",
+        "runtime-tests/lambda/index.test.ts",
+        "runtime-tests/node/index.test.ts",
+        "src/middleware/basic-auth/index.test.ts"
+      ],
+      "testMode": "scoped",
+      "verdict": "failed",
+      "checks": [
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "lint failed",
+          "durationMs": 98,
+          "cause": "caused"
+        },
+        {
+          "name": "test",
+          "status": "failed",
+          "detail": "⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯",
+          "durationMs": 1493,
+          "cause": "already-failing"
+        }
+      ],
+      "baseline": [
+        {
+          "name": "lint",
+          "status": "failed",
+          "detail": "lint failed",
+          "durationMs": 147,
+          "signature": {
+            "files": [],
+            "count": 0
+          }
+        },
+        {
+          "name": "test",
+          "status": "failed",
+          "detail": "⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯",
+          "durationMs": 1295,
+          "signature": {
+            "files": [
+              "index.test.ts"
+            ],
+            "count": 1
+          }
+        }
+      ],
+      "attributable": [],
+      "flagsOnFixFiles": [],
+      "flags": [],
+      "notProven": 0,
+      "receiptMs": 3777,
+      "outcome": "quiet"
+    }
+  ]
+}

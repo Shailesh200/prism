@@ -12,9 +12,25 @@
       "types": "./dist/prism-home.d.ts",
       "import": "./dist/prism-home.js"
     },
+    "./user-config": {
+      "types": "./dist/user-config.d.ts",
+      "import": "./dist/user-config.js"
+    },
     "./lens-store": {
       "types": "./dist/lens-store.d.ts",
       "import": "./dist/lens-store.js"
+    },
+    "./events": {
+      "types": "./dist/events.d.ts",
+      "import": "./dist/events.js"
+    },
+    "./prism-bin": {
+      "types": "./dist/prism-bin.d.ts",
+      "import": "./dist/prism-bin.js"
+    },
+    "./git-head": {
+      "types": "./dist/git-head.d.ts",
+      "import": "./dist/git-head.js"
     }
   },
   "files": [

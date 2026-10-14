@@ -21,7 +21,18 @@ const plugin = join(
   "..",
   "plugin",
 );
-const KNOWN = new Set(TOOL_NAMES);
+/** Tool names deleted in 2.0 (§0.4), from the one list the repo-wide check uses. */
+const DELETED = deletedToolNames();
+function deletedToolNames(): string[] {
+  const list = JSON.parse(
+    readFileSync(
+      join(plugin, "..", "..", "scripts", "deleted-names.json"),
+      "utf8",
+    ),
+  ) as { names: string[] };
+  return list.names.filter((name) => /^[a-z]+(?:_[a-z]+)+$/.test(name));
+}
+const KNOWN = new Set([...TOOL_NAMES, ...DELETED]);
 
 function namedTools(text: string): string[] {
   return [...new Set(text.match(/\b[a-z][a-z_]{3,}\b/g) ?? [])].filter((word) =>
@@ -36,9 +47,11 @@ let registered = new Set<string>();
 
 beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), "prism-surface-"));
+  // An empty Prism home: no `extraTools[]`, so only the default nine.
+  const prismHome = await mkdtemp(join(tmpdir(), "prism-surface-home-"));
   instance = createPrismMcpServer({
     workspaceRoot: root,
-    env: { ...process.env, PRISM_MCP_FULL: "", PRISM_JOBS: "" },
+    env: { ...process.env, PRISM_HOME: prismHome },
   });
   client = new Client({ name: "surface-test", version: "0.0.0" });
   const [a, b] = InMemoryTransport.createLinkedPair();
@@ -57,7 +70,8 @@ describe("default MCP surface", () => {
     expect(registered.size).toBeLessThan(KNOWN.size);
   });
 
-  it("registers exactly the default set (M-091)", () => {
+  it("registers exactly the nine default tools (§0.3)", () => {
+    expect(registered.size).toBe(9);
     expect([...registered].sort()).toEqual([...DEFAULT_TOOL_NAMES].sort());
   });
 

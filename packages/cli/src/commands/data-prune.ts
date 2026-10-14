@@ -1,11 +1,12 @@
 /**
  * `prism data prune` (M-090).
  *
- * Dry run unless `--yes`. It only ever removes three kinds of thing under
- * `~/.prism/workspaces`: empty workspace folders, the index cache of a
- * workspace whose checkout is gone, and Dispatch worktree folders git no
- * longer tracks. The Envelope ledger, receipts, prepare history, the hook
- * snapshot and the index of a live checkout are never candidates.
+ * Dry run unless `--yes` (plan C-3, PRUNE-1…3). Under `~/.prism/workspaces`
+ * it only ever touches three kinds of thing: empty workspace folders, the
+ * index cache of a workspace whose checkout is gone, and receipt history
+ * beyond the last 20 receipts of a workspace. Lenses, config, the Envelope
+ * ledger, prepare history, the hook snapshot, the last 20 receipts and the
+ * index of a live checkout are never candidates.
  */
 
 import {
@@ -14,6 +15,7 @@ import {
   readFileSync,
   rmSync,
   statSync,
+  writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
 import { ok } from "@repo-prism/shared";
@@ -24,13 +26,18 @@ import type { CommandHandler } from "../runtime.js";
 export type PruneReason =
   | "empty workspace folder"
   | "checkout no longer on disk"
-  | "worktree git no longer tracks";
+  | "receipts beyond the last 20";
 
 export type PruneItem = {
   readonly path: string;
   readonly reason: PruneReason;
   readonly bytes: number;
+  /** For receipt history: how many of the newest lines to keep. */
+  readonly keepLastLines?: number;
 };
+
+/** Receipts kept per workspace (C-3). */
+export const RECEIPTS_KEPT = 20;
 
 function readJson(path: string): Record<string, unknown> | null {
   try {
@@ -47,7 +54,6 @@ function readJson(path: string): Record<string, unknown> | null {
 export function recordedRoot(dir: string): string | null {
   const sources: [string, string][] = [
     [join(dir, "hooks", "snapshot.json"), "workspace"],
-    [join(dir, "dispatch", "meta.json"), "path"],
   ];
   for (const [file, key] of sources) {
     const value = readJson(file)?.[key];
@@ -80,19 +86,6 @@ function isEmptyTree(path: string): boolean {
   }
 }
 
-/** A worktree folder whose `.git` pointer is missing or points nowhere. */
-function isOrphanWorktree(path: string): boolean {
-  const pointer = join(path, ".git");
-  if (!existsSync(pointer)) return true;
-  try {
-    if (statSync(pointer).isDirectory()) return false;
-    const match = /^gitdir:\s*(.+)$/m.exec(readFileSync(pointer, "utf8"));
-    return !match || !existsSync(match[1]!.trim());
-  } catch {
-    return true;
-  }
-}
-
 export function planPrune(home: string): PruneItem[] {
   const root = join(home, "workspaces");
   if (!existsSync(root)) return [];
@@ -113,23 +106,35 @@ export function planPrune(home: string): PruneItem[] {
         bytes: sizeOf(cache),
       });
     }
-    const trees = join(dir, "dispatch", "worktrees");
-    if (!existsSync(trees)) continue;
-    for (const name of readdirSync(trees).sort()) {
-      const tree = join(trees, name);
-      if (!statSync(tree).isDirectory() || !isOrphanWorktree(tree)) continue;
-      items.push({
-        path: tree,
-        reason: "worktree git no longer tracks",
-        bytes: sizeOf(tree),
-      });
+    const history = join(dir, "receipts", "history.jsonl");
+    if (existsSync(history)) {
+      const lines = readFileSync(history, "utf8").split("\n").filter(Boolean);
+      if (lines.length > RECEIPTS_KEPT) {
+        const dropped = lines.slice(0, lines.length - RECEIPTS_KEPT);
+        items.push({
+          path: history,
+          reason: "receipts beyond the last 20",
+          bytes: dropped.reduce((sum, line) => sum + line.length + 1, 0),
+          keepLastLines: RECEIPTS_KEPT,
+        });
+      }
     }
   }
   return items;
 }
 
 export function applyPrune(items: readonly PruneItem[]): void {
-  for (const item of items) rmSync(item.path, { recursive: true, force: true });
+  for (const item of items) {
+    if (item.keepLastLines !== undefined) {
+      const lines = readFileSync(item.path, "utf8").split("\n").filter(Boolean);
+      writeFileSync(
+        item.path,
+        `${lines.slice(-item.keepLastLines).join("\n")}\n`,
+      );
+      continue;
+    }
+    rmSync(item.path, { recursive: true, force: true });
+  }
 }
 
 function formatBytes(bytes: number): string {

@@ -14,17 +14,17 @@ import {
 describe("namedWorkspaceImports", () => {
   it("reads a multiline named import and ignores type-only imports", () => {
     const source = `
-import type { JobRecord } from "@repo-prism/dispatch";
+import type { JobRecord } from "@repo-prism/demo";
 import {
   formatDuration,
   primaryDurationMs,
 } from "@repo-prism/shared";
-export { ensureHub, type HubHandle } from "@repo-prism/dispatch-hub";
+export { ensureHub, type HubHandle } from "@repo-prism/demo-hub";
 `;
     assert.deepEqual(namedWorkspaceImports(source), [
       { name: "formatDuration", from: "@repo-prism/shared" },
       { name: "primaryDurationMs", from: "@repo-prism/shared" },
-      { name: "ensureHub", from: "@repo-prism/dispatch-hub" },
+      { name: "ensureHub", from: "@repo-prism/demo-hub" },
     ]);
   });
 
@@ -36,8 +36,8 @@ export { ensureHub, type HubHandle } from "@repo-prism/dispatch-hub";
 
   it("splits a subpath specifier", () => {
     assert.deepEqual(
-      parseWorkspaceSpecifier("@repo-prism/host-session/protocol"),
-      { folder: "host-session", subpath: "protocol" },
+      parseWorkspaceSpecifier("@repo-prism/shared/user-config"),
+      { folder: "shared", subpath: "user-config" },
     );
   });
 });
@@ -66,7 +66,7 @@ describe("skippedDepSkewProblems", () => {
     const packagesByFolder = new Map([
       [
         "dispatch-hub",
-        { name: "@repo-prism/dispatch-hub", version: "1.8.0", publish: true },
+        { name: "@repo-prism/demo-hub", version: "1.8.0", publish: true },
       ],
       [
         "shared",
@@ -96,7 +96,7 @@ describe("skippedDepSkewProblems", () => {
     const packagesByFolder = new Map([
       [
         "dispatch-hub",
-        { name: "@repo-prism/dispatch-hub", version: "1.8.1", publish: true },
+        { name: "@repo-prism/demo-hub", version: "1.8.1", publish: true },
       ],
       [
         "shared",

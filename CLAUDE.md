@@ -37,18 +37,18 @@ Read milestone doc → implement (no commits) → bun run verify:milestone → f
 |---|---|
 | shared | contracts |
 | analyzer / indexer / graph-engine | engine internals |
-| intelligence / impact / navigation / repository-map | domain engines |
-| dispatch | jobs, memories, local workers, host-connector discovery |
-| host-session | Core RPC shared by the IDE webview and the Console |
+| intelligence / impact / navigation | domain engines |
+| checks | receipt checks |
+| plugin | Claude Code plugin pack, skills and hooks |
 | daemon | one local process that keeps each repo's index fresh and answers over loopback (ADR-0063) |
 | core | **public SDK** (analysis) |
-| mcp-server / cli / vscode-extension / cursor-extension / ui | surfaces |
+| mcp-server / cli | surfaces |
+| ui | components for the docs website |
 
 ## MCP
 
-Intelligence tools call Core and return JSON-serializable DTOs from `@repo-prism/shared`.
-Dispatch tools call `@repo-prism/dispatch` on a second registration path and must
-not go through `session.ready()` / the Core `Result` wrapper (ADR-0035).
+Tools call Core and return JSON-serializable DTOs from `@repo-prism/shared`.
+Nine tools are registered by default; opt-in tools come from `~/.prism/config.json` `extraTools[]`.
 
 ## Verification
 

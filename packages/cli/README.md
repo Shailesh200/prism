@@ -28,15 +28,14 @@ machine. Nothing is uploaded.
      the index (or run `prism index` now).
 4. Run analyses:
    ```bash
-   npx -y @repo-prism/cli dna
-   npx -y @repo-prism/cli health
+   npx -y @repo-prism/cli overview
    npx -y @repo-prism/cli blast src/index.ts --fail-on high
    ```
 5. Optional — install globally:
    ```bash
    npm install -g @repo-prism/cli
    prism doctor
-   prism health --verbose   # workspace chosen + index timing
+   prism overview --verbose   # workspace chosen + index timing
    ```
 
 ## Global options
@@ -75,21 +74,15 @@ Use **1** vs **2** carefully in CI: a typo must not look like a real finding.
 | `prism doctor` | Check Node, workspace resolution, git, index (`--ci` warns on shallow clones; `--surfaces` shows which Prism each editor launches) |
 | `prism data prune` | List empty workspace folders, caches of deleted checkouts, and untracked worktrees under `~/.prism` (`--yes` removes them) |
 | `prism index` | Build or refresh the repository index |
-| `prism graph` | The background daemon that keeps each repository's graph fresh: `status`, `serve`, `stop`, `refresh`, `export [--out <dir>]` (`graph.json` + `GRAPH_REPORT.md`), `hooks install\|uninstall` |
+| `prism graph` | The background daemon that keeps each repository's graph fresh: `status`, `serve`, `stop`, `refresh`, `export [--out <dir>]` (`graph.json`) |
 | `prism completions <bash\|zsh\|fish>` | Print shell completion script |
 
 ### Understand a repository
 
 | Command | Purpose |
 |---|---|
-| `prism dna` | Languages, frameworks, domains, stack |
-| `prism health` | Overall health score and factors |
-| `prism map [--zoom <level>]` | Map clusters / landmarks / layers (`repo`, `package`, `feature`, `file`, `symbol`) |
 | `prism explain <path>` | What a file or folder is for, ownership |
 | `prism explore <target>` | Usages, ownership, similar code |
-| `prism stack` | Stack signals |
-| `prism features` | Inferred features |
-| `prism landmarks` | Entrypoints and anchors |
 | `prism packages` | Workspace packages |
 
 ### Assess a change
@@ -115,15 +108,11 @@ Use **1** vs **2** carefully in CI: a typo must not look like a real finding.
 | `prism refs <name>` | Find references |
 | `prism route <from> <to>` | Dependency path |
 
-### Reports
+### Understand a repository
 
 | Command | Purpose |
 |---|---|
-| `prism engineering` | Entropy, drift, debt, hotspots |
-| `prism testing` | Suites + on-disk coverage |
-| `prism security` | Left-shift checklist |
-| `prism backend` | Routes, data, env, jobs |
-| `prism bundle` | Bundle weight (ingested stats) |
+| `prism overview` | What this repository is: languages, frameworks, stack, and landmarks (`--limit`) |
 | `prism agents-md` | Generate/verify Living AGENTS.md (writes only `~/.prism`) |
 | `prism findings` | Unused exports, duplicates, wrappers; mute/unmute |
 

@@ -31,7 +31,7 @@ const QUESTIONS = [
   {
     q: "Did the agent dump the repo?",
     a: "Envelope is the receipt: bytes kept vs dump, truncated lists that admitted it.",
-    href: "/docs/guides/envelope-and-iris",
+    href: "/docs/guides/envelope",
     cta: "Envelope and Iris",
   },
   {

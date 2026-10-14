@@ -26,7 +26,8 @@ import {
   type WorkspaceSession,
 } from "./session.js";
 import { registerTools } from "./tool-registry.js";
-import { visibleIntelligenceTools } from "./tools.js";
+import { loadUserConfigSync } from "@repo-prism/shared/user-config";
+import { selectTools } from "./tools.js";
 import {
   createWorkspaceBinding,
   type WorkspaceBinding,
@@ -155,11 +156,28 @@ export function createPrismMcpServer(
     close: () => innerSession.close(),
   };
 
-  const daemon = daemonAttach(options.env ?? process.env);
+  const env = options.env ?? process.env;
+  const daemon = daemonAttach(env);
+  const userConfig = loadUserConfigSync(env);
+  if (!userConfig.ok) {
+    // Registered tools fall back to the default nine; `prism doctor` reports
+    // the same error with its code.
+    process.stderr.write(
+      `prism: ${userConfig.error.code}: ${userConfig.error.message}; using the default tools\n`,
+    );
+  }
+  const selection = selectTools(
+    userConfig.ok ? (userConfig.value.extraTools ?? []) : [],
+  );
+  if (selection.unknownExtraTools.length > 0) {
+    process.stderr.write(
+      `prism: unknown extraTools ignored: ${selection.unknownExtraTools.join(", ")}\n`,
+    );
+  }
   registerTools(
     server,
     session,
-    visibleIntelligenceTools(options.env ?? process.env),
+    selection.tools,
     () => binding.current(),
     options.env ?? process.env,
     daemon &&

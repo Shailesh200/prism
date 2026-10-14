@@ -26,7 +26,8 @@ import {
   prismError,
 } from "@repo-prism/shared";
 import { readBattery, shouldPauseForBattery } from "./battery.js";
-import { BUILD_HEADER, type DaemonStatus, daemonStatus } from "./client.js";
+import { recordEvent } from "@repo-prism/shared/events";
+import { BUILD_HEADER, type DaemonStatus, daemonHealth } from "./client.js";
 import { type DaemonConfig, readDaemonConfig } from "./config.js";
 import { daemonDir } from "./paths.js";
 import { createWorkspacePool, type WorkspacePool } from "./pool.js";
@@ -149,7 +150,11 @@ async function takeLock(
       const owner = Number(await readFile(path, "utf8").catch(() => ""));
       // A starter that has not begun answering within this window is taken
       // to be a reused pid, not a daemon still coming up.
-      const info = await stat(path).catch(() => null);
+      const info = await stat(path).catch((statError: unknown) => {
+        // The lock vanished between open and stat: treat it as infinitely old.
+        if ((statError as NodeJS.ErrnoException).code === "ENOENT") return null;
+        throw statError;
+      });
       const age = info ? Date.now() - info.mtimeMs : Number.POSITIVE_INFINITY;
       if (owner === process.pid) return null;
       if (isProcessAlive(owner) && age < 30_000) return null;
@@ -168,9 +173,9 @@ export async function startDaemon(
     ((line: string) => process.stderr.write(`prism-daemon: ${line}\n`));
 
   const existing = await readDaemonRecord(env);
-  if (existing && isProcessAlive(existing.pid)) {
-    // A live pid alone could be a reused one; only an answering daemon counts.
-    const answering = await daemonStatus({
+  if (existing) {
+    // Only a daemon that answers with the token counts as running.
+    const answering = await daemonHealth({
       env: { ...env, PRISM_DAEMON: "1" },
       timeoutMs: 1_000,
     });
@@ -191,8 +196,13 @@ export async function startDaemon(
   };
   try {
     setPriority(config.nice);
-  } catch {
-    /* lowering priority is best-effort */
+  } catch (error) {
+    // Lowering priority is best-effort; record that it did not happen.
+    recordEvent({
+      event: "daemon.nice",
+      outcome: "degraded",
+      reason: error instanceof Error ? error.message : String(error),
+    });
   }
 
   const pool = createWorkspacePool({
@@ -246,6 +256,14 @@ export async function startDaemon(
     lastRequest = Date.now();
     const path = new URL(req.url ?? "/", "http://127.0.0.1").pathname;
 
+    if (req.method === "GET" && path === "/v1/health") {
+      // The liveness probe (plan §10 P1): a token-checked answer replaces
+      // "is the pid alive", which a reused pid can fake.
+      return send(res, 200, {
+        ok: true,
+        value: { pid: process.pid, buildId: options.buildId, startedAt },
+      });
+    }
     if (req.method === "GET" && path === "/v1/status") {
       return send(res, 200, { ok: true, value: status() });
     }

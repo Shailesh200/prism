@@ -78,9 +78,9 @@ Found in the local repo, read-only. Delete the code, tests, docs, config, CI ste
 27. `--prefer-online @latest` in `packages/plugin/dist/pack/mcp.json`, plus the npx re-launch path in `mcp-server/src/auto-update.ts:99-116`
 28. Root `opencode.json` dev config with an absolute `/Users/shaileshjha/Prism` path (replaced by `prism install opencode`)
 
-**IDE extension and app remnants** (UI is out of scope; delete only what references deleted data)
-29. `packages/app-shell`: `JobsScreen.tsx`, `jobs-types.ts`, `hub/` (`fleet.ts`, `session.ts`), `hub-screens.css`, `hub-scoped.css`, `console-hub.ts`, `PrismWakeScreen.tsx`, `wake-art.tsx`, `BundleWeightPanel.tsx`, `domains/*Section.tsx`, the deprecated map/domain/profile props (`OverviewScreen.tsx:155-162`, `DnaScreen.tsx:237-250`), the legacy settings and consent migrations (`settings-store.ts:32`, `integrations-store.ts:117-120`, `consent-state.ts:84-113`)
-30. `packages/vscode-extension` / `packages/cursor-extension`: map and health commands and settings (`docs/reference/ide-settings.md` entries)
+**IDE extension and app packages** (deleted entirely — Decision 27)
+29. `packages/app-shell` and `apps/playground`: whole packages, with their workspace entries, build/moon tasks, tsconfig references, CI jobs, publish entries and docs (`start/playground`).
+30. `packages/vscode-extension` and `packages/cursor-extension`: whole packages, with `publish-extension.yml`, VSIX scripts, `docs/reference/ide-settings.md` and every "VS Code"/"Cursor extension" tab or step in docs. `packages/ui` keeps only the design tokens and motion helpers the website imports. `apps/website` stays, with every reference to deleted features removed.
 
 **Docs** (`docs/`)
 31. `guides/track-health.mdx`, `guides/investigate-domain.mdx`, the health parts of `guides/envelope-and-iris.mdx`, `concepts/dna-and-stack.md`, `concepts/risk-bands.md` (health parts), the Dispatch guide `guides/dispatch` (README link), `help/troubleshooting.md` health/map/feature sections (lines 56-62, 83-98, 170-182), README CLI "Reports" and map rows, and any "~40 tools" or "28 tools" counts
@@ -196,7 +196,7 @@ The workspace is the git root of, in order: the file being edited, then the host
 ## 3. Install, upgrade, uninstall
 
 ### 3.0 Local-build-only development (until 2.0.0)
-- **Nothing is pushed or published before 2.0.0:** no `npm publish`, no git tags, no Action tag, no `git push`. CI workflows that publish (`.github/workflows/publish-npm.yml`, `publish-extension.yml`) are disabled on the branch (`if: false`) until §10 "Release 2.0.0".
+- **Nothing is pushed or published before 2.0.0:** no `npm publish`, no git tags, no Action tag, no `git push`. CI workflows that publish (`.github/workflows/publish-npm.yml`; `publish-extension.yml` is deleted with the extensions, Decision 27) are disabled on the branch (`if: false`) until §10 "Release 2.0.0".
 - **Every install, test, A/B run, install-matrix cell and harness run uses the local build of `/Users/shaileshjha/Prism`:**
   - `prism install <editor> --local /Users/shaileshjha/Prism`, or `bun run dev:link` (M-089). Writes MCP configs with `command: node` and the absolute path `…/packages/mcp-server/dist/bin.js`, never `npx @repo-prism/...`.
   - Hook `bin` comes from `install.json` → that absolute path. The plugin is installed from `packages/plugin/dist/pack` by local path (Claude Code `--plugin-dir` / local marketplace).
@@ -1025,6 +1025,19 @@ Phases 2–3 and 4 can be built in parallel once Phase 1 lands. Phase 5 needs Ph
 25. **Pushes and deployments need explicit owner confirmation:** no `git push`, tag, publish, deployment, Action tag or external upload happens without the owner's explicit confirmation for that specific action, including in the final Release 2.0.0 step (each sub-step is confirmed). Local commits follow AGENTS.md (owner approval).
 
 26. **Golden repo paths:** rentmaadi is `~/Desktop/rentmaadi` (local-only). **PortPilot** (`~/Desktop/port-pilot`, `Shailesh200/PortPilot`, public TS/Electron) joins the golden set pinned at `bf153b8`, with 30 benchmark tasks (6 held out) and rows PP-1…6. As a public repo it may run in CI. Local runs use a clean worktree at the pinned SHA, because the local checkout has 2 uncommitted files and must never be modified by the harness.
+
+27. **IDE extensions and app UI (Decision B, 2026-10-14):** `packages/vscode-extension`, `packages/cursor-extension`, `packages/app-shell` and `apps/playground` are deleted entirely in 2.0, with their build, CI, publish and docs references and workspace entries (§0.4 #29–#30). `apps/website` stays, stripped of deleted features. Appendix A.2 had no UI rows (UI was already out of scope), so no matrix row is removed; no SMK step depended on an IDE surface, so Appendix C is unchanged except that no step may open an IDE panel.
+28. **Implementation calls made during Phase 1 (logged, consistent with this plan; owner may overrule):**
+    - `host-session` and the whole consent subsystem are deleted: with pagespeed/GitHub integrations gone, no consent-gated method remains; the no-network suite is the contract.
+    - Feature inference stays **internal** (feeds ranking in `prepare_change`/`blast_radius`); no tool, command or public SDK method exposes it. `agents_md` is generated without a features section.
+    - The pack `mcp.json` launches `prism-mcp` (resolved per §2.2); `PRISM_DEV_NODE` selects the node binary for local builds.
+    - Indexer starts at a fresh schema v1; an older cache is reset (derived data), never migrated.
+    - `packages/ui` is slimmed to tokens + motion; `graph-engine` `layoutGraph` is deleted with the map.
+    - `scripts/agent-native-proof.ts`, `scripts/spike-claude-bg.sh` and the verify `steps` option are deleted.
+    - Website blog posts (`apps/website/content/posts`) are history, like `CHANGELOG.md`, and are excluded from `deleted-names`.
+    - `PRISM_TOOL_COUNT` means the default (9) count; `PRISM_ALL_TOOL_COUNT` (20) includes opt-in tools.
+    - The root `opencode.json` (#28) is gitignored owner-local config; it is not edited by the implementation (hard rule) and is replaced by `prism install opencode` output in SMK-2.
+    - Docs may only name CLI commands that exist (`scripts/check-docs.mjs`); commands still to be built in later phases (`install`, `uninstall`, `upgrade`, `lens`, `stats`) are on an explicit planned list that must be empty at release.
 
 ### Open questions
 None.

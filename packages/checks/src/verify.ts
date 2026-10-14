@@ -56,8 +56,6 @@ export type VerifyRunner = (
   step: VerifyStep,
 ) => Promise<VerifyRunResult>;
 
-type LegacyVerifyStep = { readonly name: string; readonly script: string };
-
 const IGNORE_SCRIPT = /watch|fix|dev|start|install|prism/i;
 const TYPECHECK_SCRIPTS = ["typecheck", "types", "check:types"] as const;
 const LINT_SCRIPTS = ["lint", "lint:check", "oxlint"] as const;
@@ -370,19 +368,6 @@ export async function resolveVerifyPlan(cwd: string): Promise<VerifyPlan> {
   return emptyPlan("none", absent);
 }
 
-function planFromLegacySteps(steps: readonly LegacyVerifyStep[]): VerifyPlan {
-  return {
-    steps: steps.map((step) => ({
-      name: step.name,
-      kind: "package-script" as const,
-      script: step.script,
-    })),
-    absent: [],
-    source: "package.json",
-    provenance: "measured",
-  };
-}
-
 /**
  * Map a child exit into the chat-safe failure blob `firstFailureLine` reads.
  * A SIGTERM from moon cancelling a sibling task is not a timeout.
@@ -551,11 +536,6 @@ async function hasPackageJson(cwd: string): Promise<boolean> {
   }
 }
 
-function asVerifyStep(step: VerifyStep | LegacyVerifyStep): VerifyStep {
-  if ("kind" in step) return step;
-  return { name: step.name, kind: "package-script", script: step.script };
-}
-
 function joinPassed(names: readonly string[]): string {
   if (names.length === 0) return "Checks passed.";
   if (names.length === 1) return `${names[0]} passed.`;
@@ -564,14 +544,13 @@ function joinPassed(names: readonly string[]): string {
 }
 
 /**
- * Run the detected (or test-overridden) plan. Stops at the first real
+ * Run the detected plan. Stops at the first real
  * failure. Missing binaries and missing scripts are absent, not failed.
  */
 export async function verifyJobWork(
   cwd: string,
   options: {
     readonly run?: VerifyRunner;
-    readonly steps?: readonly LegacyVerifyStep[];
     readonly enabled?: boolean;
   } = {},
 ): Promise<VerificationResult> {
@@ -579,9 +558,7 @@ export async function verifyJobWork(
     return { status: "skipped", detail: "Checks are turned off." };
   }
 
-  const plan = options.steps
-    ? planFromLegacySteps(options.steps)
-    : await resolveVerifyPlan(cwd);
+  const plan = await resolveVerifyPlan(cwd);
 
   if (plan.steps.length === 0) {
     return { status: "skipped", detail: "No checks to run.", plan };
@@ -592,7 +569,7 @@ export async function verifyJobWork(
   const passed: string[] = [];
   const runtimeAbsent = [...plan.absent];
 
-  for (const step of plan.steps.map(asVerifyStep)) {
+  for (const step of plan.steps) {
     if (step.kind === "package-script" && !hasPkg && !options.run) {
       runtimeAbsent.push({ name: step.name, reason: "no package.json" });
       continue;

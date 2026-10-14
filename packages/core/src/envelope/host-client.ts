@@ -48,8 +48,7 @@ function clipMeta(value: string | undefined, max: number): string | undefined {
 /**
  * Stable Envelope host id written on each ledger line.
  *
- * Substring match, same family as {@link hostClientLabel} in app-shell — kept
- * here so Dispatch never imports presentation. Unknown names are slugified.
+ * Substring match on the MCP client name. Unknown names are slugified.
  * Empty / missing client info is omitted from the ledger, not stored as
  * `"unknown"`.
  */

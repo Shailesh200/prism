@@ -1,71 +1,75 @@
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { applyPrune, planPrune } from "./data-prune.js";
+import { applyPrune, planPrune, RECEIPTS_KEPT } from "./data-prune.js";
 
 function write(path: string, body: string): void {
   mkdirSync(join(path, ".."), { recursive: true });
   writeFileSync(path, body);
 }
 
+const receipts = (n: number): string =>
+  Array.from({ length: n }, (_, i) => JSON.stringify({ id: `r${i}` })).join(
+    "\n",
+  ) + "\n";
+
 function library() {
   const home = mkdtempSync(join(tmpdir(), "prism-prune-"));
   const live = mkdtempSync(join(tmpdir(), "prism-prune-repo-"));
   const ws = (key: string) => join(home, "workspaces", key);
 
-  // A live checkout: nothing in it may be touched.
+  // A live checkout with 25 receipts: the oldest 5 go, the rest stays.
   write(
     join(ws("live"), "hooks", "snapshot.json"),
     JSON.stringify({ workspace: live }),
   );
   write(join(ws("live"), "cache", "index.sqlite"), "index");
-  write(join(ws("live"), "receipts", "history.jsonl"), "{}\n");
-  mkdirSync(join(ws("live"), "dispatch", "worktrees", "tracked"), {
-    recursive: true,
-  });
-  const gitdir = join(live, ".git", "worktrees", "tracked");
-  mkdirSync(gitdir, { recursive: true });
-  write(
-    join(ws("live"), "dispatch", "worktrees", "tracked", ".git"),
-    `gitdir: ${gitdir}\n`,
-  );
-  write(join(ws("live"), "dispatch", "worktrees", "stale", "a.ts"), "x");
+  write(join(ws("live"), "receipts", "history.jsonl"), receipts(25));
 
   // A checkout that was deleted: its cache goes, its receipts stay.
   write(
-    join(ws("gone"), "dispatch", "meta.json"),
-    JSON.stringify({ path: join(live, "does-not-exist") }),
+    join(ws("gone"), "hooks", "snapshot.json"),
+    JSON.stringify({ workspace: join(live, "does-not-exist") }),
   );
   write(join(ws("gone"), "cache", "index.sqlite"), "old index");
-  write(join(ws("gone"), "receipts", "history.jsonl"), "{}\n");
+  write(join(ws("gone"), "receipts", "history.jsonl"), receipts(1));
 
   // An empty folder.
-  mkdirSync(join(ws("empty"), "dispatch"), { recursive: true });
+  mkdirSync(join(ws("empty"), "cache"), { recursive: true });
 
   // No recorded root: kept.
   write(join(ws("unknown"), "cache", "index.sqlite"), "?");
 
+  // Never candidates: lenses, config, ledger, prepare history.
+  write(join(home, "lenses", "security.md"), "# lens");
+  write(join(home, "config.json"), "{}");
   write(join(home, "envelope-ledger.jsonl"), "{}\n");
   write(join(home, "prepare-history.json"), "[]");
   return { home, ws };
 }
 
-describe("prism data prune", () => {
-  it("plans only empty folders, gone checkouts' caches, and untracked worktrees", () => {
+describe("prism data prune (C-3)", () => {
+  it("PRUNE-1: plans only empty folders, gone checkouts' caches, and receipts past the last 20", () => {
     const { home, ws } = library();
     const plan = planPrune(home).map((item) => [item.path, item.reason]);
     expect(plan).toEqual([
       [ws("empty"), "empty workspace folder"],
       [join(ws("gone"), "cache"), "checkout no longer on disk"],
       [
-        join(ws("live"), "dispatch", "worktrees", "stale"),
-        "worktree git no longer tracks",
+        join(ws("live"), "receipts", "history.jsonl"),
+        "receipts beyond the last 20",
       ],
     ]);
   });
 
-  it("removes exactly the plan and keeps the ledger, receipts, history and live index", () => {
+  it("PRUNE-2: --yes removes exactly the plan and keeps lenses, config, ledger and the last 20 receipts", () => {
     const { home, ws } = library();
     applyPrune(planPrune(home));
     expect(existsSync(ws("empty"))).toBe(false);
@@ -73,14 +77,29 @@ describe("prism data prune", () => {
     expect(existsSync(join(ws("gone"), "receipts", "history.jsonl"))).toBe(
       true,
     );
+    const kept = readFileSync(
+      join(ws("live"), "receipts", "history.jsonl"),
+      "utf8",
+    )
+      .split("\n")
+      .filter(Boolean);
+    expect(kept).toHaveLength(RECEIPTS_KEPT);
+    expect(JSON.parse(kept[0]!).id).toBe("r5");
     expect(existsSync(join(ws("live"), "cache", "index.sqlite"))).toBe(true);
-    expect(existsSync(join(ws("live"), "hooks", "snapshot.json"))).toBe(true);
-    expect(
-      existsSync(join(ws("live"), "dispatch", "worktrees", "tracked")),
-    ).toBe(true);
     expect(existsSync(join(ws("unknown"), "cache", "index.sqlite"))).toBe(true);
-    expect(existsSync(join(home, "envelope-ledger.jsonl"))).toBe(true);
-    expect(existsSync(join(home, "prepare-history.json"))).toBe(true);
+    for (const file of [
+      "lenses/security.md",
+      "config.json",
+      "envelope-ledger.jsonl",
+      "prepare-history.json",
+    ]) {
+      expect(existsSync(join(home, file)), file).toBe(true);
+    }
+  });
+
+  it("PRUNE-3: a second run after --yes plans nothing", () => {
+    const { home } = library();
+    applyPrune(planPrune(home));
     expect(planPrune(home)).toEqual([]);
   });
 });

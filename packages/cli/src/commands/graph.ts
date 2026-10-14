@@ -1,18 +1,12 @@
 /**
  * `prism graph` (M-095, ADR-0063): the daemon that keeps each repository's
- * graph fresh. `status` (default), `serve`, `stop`, `refresh`, and
- * `hooks install|uninstall` for the optional git hooks.
+ * graph fresh. `status` (default), `serve`, `stop`, `refresh`, and `export`
+ * (graph.json). The HTML page, the markdown report, `open` and the git-hook writer
+ * were deleted in 2.0 (§0.4 #35, #37).
  */
 
-import { spawn, spawnSync } from "node:child_process";
-import {
-  chmodSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   type DaemonStatus,
@@ -22,23 +16,10 @@ import {
   stopDaemon,
   warmDaemonWorkspace,
 } from "@repo-prism/daemon";
-import {
-  PrismErrorCode,
-  err,
-  ok,
-  prismError,
-  renderGraphHtml,
-  renderGraphReport,
-} from "@repo-prism/shared";
+import { PrismErrorCode, err, ok, prismError } from "@repo-prism/shared";
 import { workspacePrismDir } from "@repo-prism/shared/prism-home";
 import { paint, renderHeading } from "../output.js";
 import type { CommandHandler } from "../runtime.js";
-
-/** The git hooks that can rewrite many files at once. */
-export const GRAPH_GIT_HOOKS = ["post-checkout", "post-merge", "post-commit"];
-
-const BEGIN = "# >>> prism graph >>>";
-const END = "# <<< prism graph <<<";
 
 /** `prism-mcp --daemon` from the nearest build, else the published server. */
 export function daemonLaunch(env: NodeJS.ProcessEnv = process.env): {
@@ -59,36 +40,6 @@ export function daemonLaunch(env: NodeJS.ProcessEnv = process.env): {
     }
   }
   return { command: "npx", args: ["-y", "@repo-prism/mcp-server", "--daemon"] };
-}
-
-/** Replace or append Prism's block, leaving the rest of a hook untouched. */
-export function withGraphBlock(existing: string | null, line: string): string {
-  const block = `${BEGIN}\n${line}\n${END}\n`;
-  if (existing === null) return `#!/bin/sh\n${block}`;
-  const stripped = withoutGraphBlock(existing);
-  return `${stripped.endsWith("\n") || stripped === "" ? stripped : `${stripped}\n`}${block}`;
-}
-
-export function withoutGraphBlock(existing: string): string {
-  const start = existing.indexOf(BEGIN);
-  if (start < 0) return existing;
-  const end = existing.indexOf(END, start);
-  if (end < 0) return existing;
-  return existing.slice(0, start) + existing.slice(end + END.length + 1);
-}
-
-function gitHooksDir(root: string): string | null {
-  const out = spawnSync("git", ["rev-parse", "--git-path", "hooks"], {
-    cwd: root,
-    encoding: "utf8",
-  });
-  if (out.status !== 0) return null;
-  const path = out.stdout.trim();
-  return isAbsolute(path) ? path : join(root, path);
-}
-
-function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
 function renderStatus(status: DaemonStatus | null, reason: string | null) {
@@ -128,32 +79,11 @@ function renderStatus(status: DaemonStatus | null, reason: string | null) {
   };
 }
 
-export function writeGraphFiles(
-  out: string,
-  exported: {
-    graph: Parameters<typeof renderGraphHtml>[0];
-    report: Parameters<typeof renderGraphReport>[0];
-  },
-): { json: string; report: string; html: string } {
+export function writeGraphJson(out: string, graph: unknown): { json: string } {
   mkdirSync(out, { recursive: true });
   const json = join(out, "graph.json");
-  const report = join(out, "GRAPH_REPORT.md");
-  const html = join(out, "graph.html");
-  writeFileSync(json, `${JSON.stringify(exported.graph)}\n`);
-  writeFileSync(report, renderGraphReport(exported.report));
-  writeFileSync(html, renderGraphHtml(exported.graph));
-  return { json, report, html };
-}
-
-function openInBrowser(file: string): void {
-  const command =
-    process.platform === "darwin"
-      ? "open"
-      : process.platform === "win32"
-        ? "start"
-        : "xdg-open";
-  const child = spawn(command, [file], { detached: true, stdio: "ignore" });
-  child.unref();
+  writeFileSync(json, `${JSON.stringify(graph)}\n`);
+  return { json };
 }
 
 export const graphCommand: CommandHandler = async (context) => {
@@ -246,7 +176,7 @@ export const graphCommand: CommandHandler = async (context) => {
     });
   }
 
-  if (action === "export" || action === "open") {
+  if (action === "export") {
     const opened = await context.open();
     if (!opened.ok) return opened;
     const exported = await opened.value.exportGraph();
@@ -255,79 +185,22 @@ export const graphCommand: CommandHandler = async (context) => {
     const out = outOption
       ? resolve(context.cwd, outOption)
       : join(workspacePrismDir(root), "graph");
-    const files = writeGraphFiles(out, exported.value);
-    if (action === "open") openInBrowser(files.html);
+    const files = writeGraphJson(out, exported.value.graph);
     const { stats } = exported.value.graph;
     return ok({
-      data: { out, files: [files.json, files.report, files.html], stats },
+      data: { out, files: [files.json], stats },
       human: () =>
         [
           `Wrote ${files.json}`,
-          `Wrote ${files.report}`,
-          `Wrote ${files.html}`,
           `${stats.packages} packages · ${stats.files} files · ${stats.tests} tests · ${stats.symbols} exported symbols · ${stats.edges} edges`,
         ].join("\n"),
-    });
-  }
-
-  if (action === "hooks") {
-    const mode = context.args.positionals[1] ?? "install";
-    if (mode !== "install" && mode !== "uninstall") {
-      return err(
-        prismError(
-          PrismErrorCode.VALIDATION,
-          `Unknown hooks action "${mode}". Try: prism graph hooks install`,
-        ),
-      );
-    }
-    const dir = gitHooksDir(root);
-    if (!dir) {
-      return err(
-        prismError(
-          PrismErrorCode.UNSUPPORTED,
-          `${root} is not a git repository.`,
-        ),
-      );
-    }
-    const cli = process.argv[1] ? resolve(process.argv[1]) : null;
-    if (!cli) {
-      return err(
-        prismError(PrismErrorCode.UNSUPPORTED, "Cannot locate the prism CLI."),
-      );
-    }
-    const line = `${shellQuote(process.execPath)} ${shellQuote(cli)} graph refresh --workspace ${shellQuote(root)} --quiet >/dev/null 2>&1 &`;
-    const changed: string[] = [];
-    mkdirSync(dir, { recursive: true });
-    for (const name of GRAPH_GIT_HOOKS) {
-      const path = join(dir, name);
-      const existing = existsSync(path) ? readFileSync(path, "utf8") : null;
-      if (mode === "install") {
-        writeFileSync(path, withGraphBlock(existing, line));
-        chmodSync(path, 0o755);
-        changed.push(path);
-      } else if (existing !== null && existing.includes(BEGIN)) {
-        writeFileSync(path, withoutGraphBlock(existing));
-        changed.push(path);
-      }
-    }
-    return ok({
-      data: { action: mode, hooks: changed },
-      human: () =>
-        changed.length === 0
-          ? "No Prism git hooks to remove."
-          : [
-              mode === "install"
-                ? "Installed Prism's block in:"
-                : "Removed Prism's block from:",
-              ...changed.map((path) => `  ${path}`),
-            ].join("\n"),
     });
   }
 
   return err(
     prismError(
       PrismErrorCode.VALIDATION,
-      `Unknown action "${action}". Try: prism graph status | serve | stop | refresh | export | open | hooks install`,
+      `Unknown action "${action}". Try: prism graph status | serve | stop | refresh | export`,
     ),
   );
 };

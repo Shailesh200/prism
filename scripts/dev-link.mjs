@@ -22,7 +22,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
-const nodeBin = process.env.PRISM_NODE ?? process.execPath;
+const nodeBin = process.execPath;
 const mcpBin = join(repo, "packages", "mcp-server", "dist", "bin.js");
 const pack = join(repo, "packages", "plugin", "dist", "dev-pack");
 const stamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -89,7 +89,7 @@ if (probe.status !== 0) {
 run("bun", ["run", "--filter", "@repo-prism/mcp-server", "build"]);
 run("bun", ["run", "--filter", "@repo-prism/plugin", "build"], {
   PRISM_DEV_PACK: "1",
-  PRISM_NODE: nodeBin,
+  PRISM_DEV_NODE: nodeBin,
   PRISM_MCP_BIN: mcpBin,
 });
 

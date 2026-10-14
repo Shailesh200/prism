@@ -1,10 +1,8 @@
 /**
  * One duration vocabulary for every surface (M-067 P-S1).
  *
- * Before this module the jobs board, the Claude statusline and the app-shell
- * each carried their own formatter on a different basis, so one job could show
- * three different numbers in three places. Everything that renders a job
- * duration now goes through here.
+ * Every surface that renders a duration (CLI, receipts, envelope) goes
+ * through here so one value never shows as three different numbers.
  *
  * Two rules the audit forced:
  *
@@ -193,25 +191,4 @@ export function primaryDurationMs(
 ): number | undefined {
   const { queued, working } = jobDurations(job, now);
   return working ?? queued;
-}
-
-/**
- * The long form for a job detail: `"12m (waited 9m, worked 3m)"`.
- *
- * Collapses to the bare total when the split adds nothing — a job that started
- * immediately should not be padded with `waited 0s`.
- */
-export function formatJobDuration(
-  job: JobTimestamps,
-  now: number = Date.now(),
-): string | undefined {
-  const { queued, working, total } = jobDurations(job, now);
-  const totalLabel = formatDuration(total);
-  if (!totalLabel) return undefined;
-  const queuedLabel = formatDuration(queued);
-  const workingLabel = formatDuration(working);
-  if (!workingLabel || !queuedLabel) return totalLabel;
-  // A sub-second wait is noise, not information.
-  if ((queued ?? 0) < 1000) return totalLabel;
-  return `${totalLabel} (waited ${queuedLabel}, worked ${workingLabel})`;
 }

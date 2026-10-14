@@ -72,8 +72,6 @@ function buildProgram(): Command {
       collectExcludes,
       [] as string[],
     )
-    .option("--no-open", "First run: write graph.html without opening it")
-    .option("--badge", "First run: write .prism/health.svg")
     // Global flags are accepted after the subcommand too, because
     // `prism blast x --json` is what people type and refusing it would be
     // pedantry rather than help.
@@ -215,9 +213,7 @@ export async function run(
 
   const commandName = parsed.args[0];
   if (commandName === undefined) {
-    const root = parsed.opts<
-      RawGlobals & { open?: boolean; badge?: boolean }
-    >();
+    const root = parsed.opts<RawGlobals>();
     return runCommand(
       firstRunCommand,
       {
@@ -236,11 +232,7 @@ export async function run(
       {
         positionals: [],
         option: () => undefined,
-        flag(name) {
-          if (name === "noOpen") return root.open === false;
-          if (name === "badge") return root.badge === true;
-          return false;
-        },
+        flag: () => false,
       },
     );
   }

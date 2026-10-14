@@ -9,42 +9,21 @@ Every `prism` command, generated from the command table the binary is built
 from. If a command appears here, it exists; if its options are listed here,
 they are the options it accepts.
 
-See [Using the CLI](../cli/usage.md) for global options, exit codes, and how
+See [Usage](../usage.mdx) for global options, exit codes, and how
 `--fail-on` behaves in CI.
 
 ## Understand a repository
 
-### `prism dna`
+### `prism overview`
 
-Identify languages, frameworks, domains and stack
-
-```bash
-prism dna --json | jq '.data.frameworks'
-```
-
-### `prism health`
-
-Overall health score and the factors behind it
+What this repository is: DNA, stack and landmarks
 
 | Option | Meaning |
 |---|---|
-| `--fail-on <band>` | Exit 1 when the risk is at or above this band: low, mid, high |
-
-```bash
-prism health --fail-on high
-```
-
-### `prism map`
-
-Repository map: clusters, landmarks and layers
-
-| Option | Meaning |
-|---|---|
-| `--zoom <level>` | Zoom level to render: repo, package, feature, file, symbol |
 | `--limit <n>` | Maximum rows to print (default 50) |
 
 ```bash
-prism map --zoom package
+prism overview --json | jq '.data.dna.frameworks'
 ```
 
 ### `prism explain <path>`
@@ -77,38 +56,6 @@ Usages, ownership and similar code for a file or symbol
 prism explore src/index.ts
 ```
 
-### `prism stack`
-
-Detected stack signals, domains and personas
-
-```bash
-prism stack
-```
-
-### `prism features`
-
-Inferred features and their confidence
-
-| Option | Meaning |
-|---|---|
-| `--limit <n>` | Maximum rows to print (default 50) |
-
-```bash
-prism features --limit 10
-```
-
-### `prism landmarks`
-
-Entrypoints, package roots and feature anchors
-
-| Option | Meaning |
-|---|---|
-| `--limit <n>` | Maximum rows to print (default 50) |
-
-```bash
-prism landmarks
-```
-
 ### `prism packages`
 
 Every package in the workspace and where it lives
@@ -119,6 +66,43 @@ Every package in the workspace and where it lives
 
 ```bash
 prism packages
+```
+
+### `prism agents-md <action>`
+
+Generate or verify the Living AGENTS.md (never written to the repo)
+
+| Argument | Meaning |
+|---|---|
+| `<action>` | generate or check |
+
+```bash
+prism agents-md generate
+```
+
+```bash
+prism agents-md check
+```
+
+### `prism findings <action> [fingerprint]`
+
+Unused exports, duplicate implementations, wrapper functions
+
+| Argument | Meaning |
+|---|---|
+| `<action>` | list, mute, or unmute |
+| `[fingerprint]` | Required for mute/unmute — a finding's fingerprint field |
+
+| Option | Meaning |
+|---|---|
+| `--all` | list: include findings already muted |
+
+```bash
+prism findings list
+```
+
+```bash
+prism findings mute a3f8c5f0c392dbeb
 ```
 
 ## Assess a change
@@ -362,109 +346,6 @@ How one file reaches another through dependencies
 prism route src/cli.ts src/output.ts
 ```
 
-## Reports
-
-### `prism engineering`
-
-Entropy, drift, debt, churn and hotspots
-
-| Option | Meaning |
-|---|---|
-| `--fail-on <band>` | Exit 1 when the risk is at or above this band: low, mid, high |
-| `--limit <n>` | Maximum rows to print (default 50) |
-
-```bash
-prism engineering --fail-on high
-```
-
-### `prism testing`
-
-Test structure and on-disk coverage
-
-| Option | Meaning |
-|---|---|
-| `--fail-on <band>` | Exit 1 when the risk is at or above this band: low, mid, high |
-| `--limit <n>` | Maximum rows to print (default 50) |
-
-```bash
-prism testing
-```
-
-### `prism security`
-
-Left-shift tooling and configuration checklist
-
-| Option | Meaning |
-|---|---|
-| `--fail-on <band>` | Exit 1 when the risk is at or above this band: low, mid, high |
-| `--limit <n>` | Maximum rows to print (default 50) |
-
-```bash
-prism security --fail-on mid
-```
-
-### `prism backend`
-
-Routes, data layer, env vars and background jobs
-
-| Option | Meaning |
-|---|---|
-| `--limit <n>` | Maximum rows to print (default 50) |
-
-```bash
-prism backend
-```
-
-### `prism bundle`
-
-Bundle weight from an ingested stats artifact
-
-| Option | Meaning |
-|---|---|
-| `--artifact <id>` | Ingested stats artifact id |
-| `--limit <n>` | Maximum rows to print (default 50) |
-
-```bash
-prism bundle --artifact <id>
-```
-
-### `prism agents-md <action>`
-
-Generate or verify the Living AGENTS.md (never written to the repo)
-
-| Argument | Meaning |
-|---|---|
-| `<action>` | generate or check |
-
-```bash
-prism agents-md generate
-```
-
-```bash
-prism agents-md check
-```
-
-### `prism findings <action> [fingerprint]`
-
-Unused exports, duplicate implementations, wrapper functions
-
-| Argument | Meaning |
-|---|---|
-| `<action>` | list, mute, or unmute |
-| `[fingerprint]` | Required for mute/unmute — a finding's fingerprint field |
-
-| Option | Meaning |
-|---|---|
-| `--all` | list: include findings already muted |
-
-```bash
-prism findings list
-```
-
-```bash
-prism findings mute a3f8c5f0c392dbeb
-```
-
 ## Memory
 
 ### `prism remember <note...>`
@@ -559,18 +440,17 @@ Build or refresh the repository index
 prism index
 ```
 
-### `prism graph [action] [hooks-action]`
+### `prism graph [action]`
 
 The background daemon that keeps the graph fresh
 
 | Argument | Meaning |
 |---|---|
-| `[action]` | status (default), serve, stop, refresh, export, open, or hooks |
-| `[hooks-action]` | hooks: install (default) or uninstall |
+| `[action]` | status (default), serve, stop, refresh, or export |
 
 | Option | Meaning |
 |---|---|
-| `--out <dir>` | export and open: where to write graph.json, GRAPH_REPORT.md, and graph.html |
+| `--out <dir>` | export: where to write graph.json |
 
 ```bash
 prism graph
@@ -582,10 +462,6 @@ prism graph serve
 
 ```bash
 prism graph export --out .prism/graph
-```
-
-```bash
-prism graph hooks install
 ```
 
 ### `prism completions <shell>`

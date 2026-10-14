@@ -10,6 +10,7 @@
  */
 
 import { stat } from "node:fs/promises";
+import { recordEvent } from "@repo-prism/shared/events";
 import { Prism, type PrismWorkspace } from "@repo-prism/core";
 import {
   PrismErrorCode,
@@ -82,10 +83,17 @@ export function createWorkspaceSession(
     }
 
     workspace = opened.value;
-    const { writeHookSnapshot } = await import("./safety/snapshot.js");
-    await writeHookSnapshot(opened.value).catch(() => undefined);
+    const { refreshHookSnapshot } = await import("./safety/snapshot.js");
+    await refreshHookSnapshot(opened.value);
     const { seedLenses } = await import("@repo-prism/shared/lens-store");
-    await seedLenses(opened.value).catch(() => undefined);
+    await seedLenses(opened.value).catch((error: unknown) => {
+      recordEvent({
+        event: "session.seed_lenses",
+        outcome: "degraded",
+        reason: error instanceof Error ? error.message : String(error),
+        workspace: opened.value.rootPath,
+      });
+    });
     return ok(opened.value);
   }
 

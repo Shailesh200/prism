@@ -4,12 +4,9 @@ import { PageEnter } from "@/components/motion/PageEnter";
 import { SectionIntro } from "@/components/motion/SectionIntro";
 import { SiteFooter } from "@/components/site-footer";
 import { LandingChapter } from "@/components/landing-chapter";
-import { SpectrumTheater } from "@/components/spectrum-theater";
-import { IntelligenceTheater } from "@/components/intelligence-theater";
 import { EnvelopeTheater } from "@/components/envelope-theater";
 import { PrepareTheater } from "@/components/prepare-theater";
 import { GuardTheater } from "@/components/guard-theater";
-import { DispatchTheater } from "@/components/dispatch-theater";
 import Link from "next/link";
 import { Reveal } from "@/components/motion/Reveal";
 import { pageMetadata } from "@/lib/seo";
@@ -34,8 +31,7 @@ const ALSO = [
 
 export const metadata = pageMetadata({
   title: "Products",
-  description:
-    "Spectrum, Intelligence, Envelope, Prepare, Guard, and Dispatch — one local engine.",
+  description: "Envelope, Prepare, and Guard — one local engine.",
   path: "/products",
 });
 
@@ -48,53 +44,24 @@ export default function ProductsPage() {
             <SectionIntro
               index="Nº PRODUCTS"
               title="Products"
-              description="Spectrum is the map. Intelligence reads it. Envelope proves the chat stayed lean. Prepare says what to open. Guard says what to read. Dispatch is the teammate. Same engine. They cannot disagree."
+              description="Prepare says what to open. Guard says what to read. Envelope proves the chat stayed lean. Same engine. They cannot disagree."
             />
           </div>
 
           <LandingChapter
-            id="playground"
-            index="01 · Playground"
-            title="Spectrum"
-            body="Local, not hosted. Packages, clusters, blast on the repo you already have. The same map as the IDE — Console Iris no longer mounts it."
-            href="/docs/start/playground"
-            cta="Playground docs"
-            note={
-              <code className="block font-mono text-sm text-fd-primary">
-                bun run playground
-              </code>
-            }
-            className="bg-[color-mix(in_oklab,var(--prism-canvas)_80%,var(--prism-panel))]"
-          >
-            <SpectrumTheater />
-          </LandingChapter>
-
-          <LandingChapter
-            id="intelligence"
-            index="02 · Intelligence"
-            title="See the repo before you touch it"
-            body="DNA, blast radius, and stack domains — the same Playground tabs as the IDE. Frontend, backend, DevOps, and the rest of the catalog, scored locally."
-            href="/docs/guides/understand-a-repo"
-            cta="Understand a repo"
-            reverse
-          >
-            <IntelligenceTheater />
-          </LandingChapter>
-
-          <LandingChapter
             id="envelope"
-            index="03 · Envelope"
+            index="01 · Envelope"
             title="Every call leaves a receipt"
-            body="Iris no longer mounts the map. It shows index facts plus Envelope: bytes kept vs dump, follow-through, truncated lists. The ledger never holds source, and it is never uploaded."
-            href="/docs/guides/envelope-and-iris"
-            cta="Envelope and Iris"
+            body="A local ledger of every Prism tool call: bytes kept vs dump, follow-through, truncated lists. The ledger never holds source, and it is never uploaded."
+            href="/docs/guides/envelope"
+            cta="Envelope docs"
           >
             <EnvelopeTheater />
           </LandingChapter>
 
           <LandingChapter
             id="prepare"
-            index="04 · Prepare"
+            index="02 · Prepare"
             title="Ask what to open"
             body="prepare_change returns a pack, reuse hits, House Style, notes, and a work order — paths only. Ambiguous names come back as candidates. Vendor and generated paths stay off-limits."
             href="/docs/guides/prepare-a-change"
@@ -107,31 +74,13 @@ export default function ProductsPage() {
 
           <LandingChapter
             id="guard"
-            index="05 · Guard"
+            index="03 · Guard"
             title="Read the files that can hurt"
             body="guard_session ranks this session’s dirty files — working tree minus what you already had dirty. High blast first. Duplicates, orphans, boundary crossings flagged."
             href="/docs/guides/guard-a-session"
             cta="Guard a session"
           >
             <GuardTheater />
-          </LandingChapter>
-
-          <LandingChapter
-            id="dispatch"
-            index="06 · Dispatch"
-            title="Watch the teammate"
-            body="A local page at prismhq.localhost:17330. Checkout-first and uncommitted; a worktree when you ask. Prism runs this repository’s checks — or shows — if it has none. Finish is not land."
-            href="/docs/guides/dispatch"
-            cta="Dispatch docs"
-            reverse
-            note={
-              <p className="font-mono text-sm text-fd-primary">
-                prism init never asks for a key. No OAuth.
-              </p>
-            }
-            className="bg-[color-mix(in_oklab,var(--prism-canvas)_80%,var(--prism-panel))]"
-          >
-            <DispatchTheater />
           </LandingChapter>
 
           <section className="border-t border-fd-border px-6 py-20">

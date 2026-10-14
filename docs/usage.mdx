@@ -1,12 +1,12 @@
 ---
 title: Usage
-description: "Day-to-day use of the CLI, the IDE extension, and AI agents — one engine, three surfaces."
+description: "Day-to-day use of the CLI and AI agents — one engine, two surfaces."
 ---
 
-One engine, three ways to reach it. The numbers are identical whichever tab you
+One engine, two ways to reach it. The numbers are identical whichever tab you
 pick; only the presentation changes.
 
-<Tabs items={["CLI", "IDE extension", "AI agents (MCP)"]}>
+<Tabs items={["CLI", "AI agents (MCP)"]}>
 <Tab value="CLI">
 
 Real exit codes and clean JSON — what makes `prism` useful in a script. Full
@@ -50,7 +50,6 @@ Most explicit wins: `--workspace` → `PRISM_WORKSPACE` → nearest `.git` ances
 prism blast src/core/index.ts --fail-on high
 prism review --base origin/main --fail-on high
 prism cycles --fail-on any
-prism engineering --fail-on high
 ```
 
 `--fail-on` takes a [band](/docs/concepts/risk-bands) and fires at or above it.
@@ -58,7 +57,7 @@ prism engineering --fail-on high
 ### Scripting
 
 ```bash
-prism dna --json | jq '.data.rankedDomains'
+prism overview --json | jq '.data.dna.rankedDomains'
 ```
 
 Success and failure share one JSON envelope; in `--json` mode errors go to
@@ -72,63 +71,6 @@ Success and failure share one JSON envelope; in `--json` mode errors go to
 - `prism review` with no args reviews the working tree, including untracked
   files. Pass `--base` in CI.
 - `prism rename` and `prism safe-delete` never write — they only report.
-- `prism security` is a config checklist, not a vulnerability scanner.
-
-</Tab>
-<Tab value="IDE extension">
-
-The visual surface — same engine, arranged for reading. On first open Prism
-indexes the workspace; until the index exists, screens that need it say so
-rather than showing zeroes. An empty chart and an unbuilt index look identical
-otherwise and mean different things.
-
-### Screens
-
-| Screen | For |
-|---|---|
-| **Overview** | Health, DNA, activity, most-connected files |
-| **Map** | Structure laid out spatially, with layers |
-| **Domains** | Frontend / backend / data / infrastructure when DNA detects them |
-| **Impact** | Blast radius, safe delete, rename impact |
-| **Trends** | Health over time |
-| **Iris** | Index facts plus the [Envelope](/docs/guides/envelope-and-iris) ledger for this repository |
-| **Integrations** | MCP status and optional consented connectors |
-| **Settings** | Indexing, appearance, privacy |
-
-### Integrations
-
-**MCP Server** shows the server's version and how many tools it exposes.
-
-**Optional connectors** (Remote Git, PageSpeed) are Prism's own, each gated on
-Settings → Allow network integrations. Prism runs no OAuth and holds no
-third-party tokens (ADR-0049).
-
-### Reading the interface
-
-- **Provenance markers** — estimated vs unavailable; see
-  [signal provenance](/docs/concepts/signal-provenance).
-- **Risk colour** — green → amber → red maps to
-  [risk bands](/docs/concepts/risk-bands).
-- **Confidence** — on features and stack signals; low means look before you act.
-
-### Working in it
-
-- Impact → enter a path → blast radius, tests, features.
-- **Review All Changes** (SCM title bar, or `Cmd/Ctrl+Alt+R`) reviews every
-  dirty path from git.
-- **Blast Quick Pick** (`Cmd/Ctrl+Alt+B`) shows risk and top dependents without
-  opening the full panel.
-- Map zoom: repository → package → feature → file → symbol; layers overlay
-  coupling, churn, tests, risk.
-- Right-click: Blast Radius, Safe Delete, Explain, Reveal on Map.
-
-### Multi-root workspaces
-
-Prism indexes every workspace folder on activation — the first is active, the
-rest warm-index in the background. Status-bar menu → **Switch workspace
-folder…** changes which root Impact, Map, and Review use.
-
-All keys and toggles: [IDE settings](/docs/reference/ide-settings).
 
 </Tab>
 <Tab value="AI agents (MCP)">
@@ -139,20 +81,22 @@ Prism does not make the edit. Your agent does, in your chat.
 
 ### Default tools
 
-The server registers seven tools by default:
+The server registers nine tools by default:
 
 | Tool | For |
 |---|---|
 | `prepare_change` | Before an edit: files to open, helpers to reuse, House Style, no file bodies |
 | `blast_radius` | What depends on a file or symbol, and how risky a change is |
-| `test_impact` | Which tests cover a change |
 | `guard_session` | Which dirty files to read first |
+| `test_impact` | Which tests cover a change |
+| `review_changes` | Blast radius and test impact for every changed path, in one call |
+| `safe_delete` | Whether a file or symbol can go, with blockers and orphans |
+| `rename_impact` | Every reference a rename has to touch |
 | `repository_overview` | What this repository is and where to start |
-| `find_symbol` | Where a symbol is defined |
-| `explain_area` | What a module or folder does |
+| `graph` | Find a symbol or path, its neighbours, how A reaches B, what an area is for |
 
-Set `PRISM_MCP_FULL=1` in the server's `env` to register the rest of the
-Intelligence tools (reports, graphs, findings, `safe_delete`, and others).
+List more in `extraTools` in `~/.prism/config.json` to register opt-in tools
+(dependency and knowledge graphs, cycles, findings, `agents_md`, and others).
 Each is listed in the [MCP reference](/docs/reference/mcp-tools).
 
 ### How to talk
@@ -160,7 +104,7 @@ Each is listed in the [MCP reference](/docs/reference/mcp-tools).
 | You say | Agent should use |
 |---|---|
 | "What is this repo?" / "Orient me" | `repository_overview` |
-| "Where does checkout live?" | `find_symbol`, `explain_area` |
+| "Where does checkout live?" | `graph` (find, then explain) |
 | "I'm about to add caching to fetchUser" | `prepare_change` first — pack, reuse, House Style, no bodies |
 | "I'm about to edit `src/…` — what breaks?" | `blast_radius`, `test_impact` |
 | "What should I read first in this dirty tree?" | `guard_session` |
@@ -179,29 +123,29 @@ prompt picker.
 2. The first tool call may take seconds while the index builds.
 3. stdio only — diagnostics on stderr and logging notifications.
 4. Lists are bounded (`totalCount` / `truncated`). A cut list must say so —
-   that honesty is the [Envelope](/docs/guides/envelope-and-iris).
+   that honesty is the [Envelope](/docs/guides/envelope).
 5. Paths outside the workspace are refused.
 6. No tool edits your repository, makes a network call, or holds third-party
-   credentials — see [consent](/docs/concepts/consent-and-privacy).
+   credentials — see [privacy](/privacy).
 
 ### Force a specific repo path
 
 Only if auto-detection is wrong:
 
 ```bash
-npx -y @repo-prism/mcp-server --workspace /path/to/repo
+prism-mcp --workspace /path/to/repo
 # or
-PRISM_WORKSPACE=/path/to/repo npx -y @repo-prism/mcp-server
+PRISM_WORKSPACE=/path/to/repo prism-mcp
 ```
 
 Put the same into the client's `args` / `env` if needed.
 
 ### If something fails
 
-1. Run `npx -y @repo-prism/cli doctor` inside the same project.
+1. Run `prism doctor` inside the same project.
 2. Check the workspace (MCP roots / git root vs cwd). If a tool reports the
    wrong repository, reload prism with the git project open.
-3. Confirm Node 26+.
+3. Confirm Node 24+.
 4. Disable and re-enable **prism** in the client, or restart it.
 5. Set `PRISM_WORKSPACE` once and retry.
 

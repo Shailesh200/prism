@@ -51,13 +51,13 @@ describe("workspace prism home", () => {
     const env = { PRISM_HOME: home };
     await mkdir(join(repo, ".prism", "cache"), { recursive: true });
     await writeFile(join(repo, ".prism", "cache", "index.txt"), "idx");
-    await writeFile(join(repo, ".prism", "consent.json"), "{}");
+    await writeFile(join(repo, ".prism", "notes.json"), "{}");
     const dest = await ensureWorkspacePrism(repo, env);
     expect(dest).toBe(join(home, "workspaces", workspaceKey(repo)));
     expect(await readFile(join(dest, "cache", "index.txt"), "utf8")).toBe(
       "idx",
     );
-    expect(await readFile(join(dest, "consent.json"), "utf8")).toBe("{}");
+    expect(await readFile(join(dest, "notes.json"), "utf8")).toBe("{}");
     await expect(access(join(repo, ".prism"))).rejects.toMatchObject({
       code: "ENOENT",
     });

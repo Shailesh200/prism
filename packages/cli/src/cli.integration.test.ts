@@ -81,11 +81,12 @@ describe("prism binary (M-028)", () => {
     expect(result.stdout).toBe("");
   });
 
-  it("prints a report card when given no command", async () => {
+  it("prints one indexed line when given no command (SMK-5)", async () => {
     const result = await runCli([], {}, fixture);
     expect(result.code).toBe(0);
-    expect(result.stdout).toContain("Findings");
-    expect(result.stdout).toContain("prism graph open");
+    expect(result.stdout).toMatch(
+      /^Indexed \d+ files in [\d.]+ s\. Try: prism review\n$/,
+    );
   }, 60_000);
 
   it("suggests a nearby command name for typos", async () => {
@@ -109,15 +110,16 @@ describe("prism binary (M-028)", () => {
   }, 60_000);
 
   it("emits nothing but JSON on stdout", async () => {
-    const result = await runCli(["dna", "--workspace", fixture, "--json"]);
+    const result = await runCli(["overview", "--workspace", fixture, "--json"]);
     expect(result.code).toBe(0);
 
     const parsed = JSON.parse(result.stdout) as {
       ok: boolean;
-      data: { languages: unknown[] };
+      data: { dna: unknown; landmarks: unknown };
     };
     expect(parsed.ok).toBe(true);
-    expect(Array.isArray(parsed.data.languages)).toBe(true);
+    expect(parsed.data.dna).toBeTypeOf("object");
+    expect(parsed.data.landmarks).toBeTypeOf("object");
   }, 60_000);
 
   it("keeps progress off stdout in JSON mode", async () => {
@@ -159,7 +161,7 @@ describe("prism binary (M-028)", () => {
 
   it("reports a missing workspace as a usage error, in the envelope", async () => {
     const missing = join(fixture, "..", "not-a-real-directory-8fa2");
-    const result = await runCli(["dna", "--workspace", missing, "--json"]);
+    const result = await runCli(["overview", "--workspace", missing, "--json"]);
 
     expect(result.code).toBe(2);
     // In JSON mode even the failure belongs on stdout, so a script reading one
@@ -174,7 +176,7 @@ describe("prism binary (M-028)", () => {
 
   it("puts a human-mode failure on stderr and leaves stdout empty", async () => {
     const missing = join(fixture, "..", "not-a-real-directory-8fa2");
-    const result = await runCli(["dna", "--workspace", missing]);
+    const result = await runCli(["overview", "--workspace", missing]);
 
     expect(result.code).toBe(2);
     expect(result.stdout).toBe("");
@@ -189,7 +191,7 @@ describe("prism binary (M-028)", () => {
   });
 
   it("accepts a global flag after the subcommand, which is how people type", async () => {
-    const result = await runCli(["dna", "--workspace", fixture, "--json"]);
+    const result = await runCli(["overview", "--workspace", fixture, "--json"]);
     expect(result.code).toBe(0);
     expect(() => JSON.parse(result.stdout)).not.toThrow();
   }, 60_000);
@@ -206,9 +208,8 @@ describe("prism binary (M-028)", () => {
       ["missing the second required argument", ["route", "a.ts"]],
       ["given an argument the command does not take", ["deps", "a.ts"]],
       ["an unknown command", ["nope"]],
-      ["an unknown flag", ["dna", "--nope"]],
-      ["a bad --zoom value", ["map", "--zoom", "repository"]],
-      ["a bad --fail-on value", ["health", "--fail-on", "catastrophic"]],
+      ["an unknown flag", ["overview", "--nope"]],
+      ["a bad --fail-on value", ["blast", "a.ts", "--fail-on", "catastrophic"]],
       ["a bad --limit value", ["cycles", "--limit", "0"]],
     ];
 
@@ -222,22 +223,23 @@ describe("prism binary (M-028)", () => {
   });
 
   it("still exits 0 for help on a subcommand", async () => {
-    const result = await runCli(["map", "--help"]);
+    const result = await runCli(["blast", "--help"]);
     expect(result.code).toBe(0);
-    expect(result.stdout).toContain("--zoom");
+    expect(result.stdout).toContain("--fail-on");
   });
 
   it("names the valid values when a choice flag is wrong", async () => {
     // A rejection that does not say what would have worked leaves the user
     // guessing at a closed set the CLI already knows.
     const result = await runCli([
-      "map",
-      "--zoom",
-      "repository",
+      "blast",
+      "a.ts",
+      "--fail-on",
+      "catastrophic",
       "--workspace",
       fixture,
     ]);
-    expect(result.stderr).toContain("repo, package, feature, file, symbol");
+    expect(result.stderr).toMatch(/--fail-on expects one of /);
   }, 60_000);
 });
 
@@ -262,9 +264,6 @@ const ARGUMENTS: Record<string, readonly string[]> = {
   // Named explicitly: the fixture is not a git repository, and `review` with
   // no paths asks git what changed.
   review: [TARGET],
-  // Reads an ingested build artifact rather than the source tree, so there is
-  // nothing to point it at in a fixture that has never been built.
-  bundle: [],
   completions: ["bash"],
   "agents-md": ["generate"],
   findings: ["list"],
@@ -278,7 +277,7 @@ const ARGUMENTS: Record<string, readonly string[]> = {
 const ISOLATED_HOME = new Set(["agents-md", "data", "remember", "forget"]);
 
 /** Commands that cannot succeed on a fixture without extra setup. */
-const EXPECT_FAILURE = new Set(["bundle"]);
+const EXPECT_FAILURE = new Set<string>([]);
 
 describe("every command (M-029)", () => {
   let agentsMdHome: string;

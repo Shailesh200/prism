@@ -14,6 +14,7 @@ import {
   warmDaemonWorkspace,
 } from "@repo-prism/daemon";
 import { readPackageVersion } from "./branding.js";
+import { recordEvent } from "@repo-prism/shared/events";
 
 const here = fileURLToPath(import.meta.url);
 
@@ -28,8 +29,13 @@ export function daemonBuildId(): string {
   let stamp = "0";
   try {
     stamp = String(Math.trunc(statSync(here).mtimeMs));
-  } catch {
-    /* an unreadable stamp still yields a stable id for this process */
+  } catch (error) {
+    // An unreadable stamp still yields a stable id for this process.
+    recordEvent({
+      event: "daemon.build_stamp",
+      outcome: "degraded",
+      reason: error instanceof Error ? error.message : String(error),
+    });
   }
   cachedBuildId = `${readPackageVersion()}+${stamp}`;
   return cachedBuildId;

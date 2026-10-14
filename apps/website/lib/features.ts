@@ -4,7 +4,7 @@ export const FEATURES = [
   {
     href: "/docs/guides/understand-a-repo",
     title: "Orient in a new repo",
-    body: "DNA, map, landmarks, and stack profile.",
+    body: "DNA, landmarks, and stack profile in one overview.",
   },
   {
     href: "/docs/guides/prepare-a-change",
@@ -14,7 +14,7 @@ export const FEATURES = [
   {
     href: "/docs/guides/before-you-edit",
     title: "Blast before you edit",
-    body: "See dependents, tests, and features in the blast radius.",
+    body: "See dependents and tests in the blast radius.",
   },
   {
     href: "/docs/guides/guard-a-session",
@@ -22,9 +22,9 @@ export const FEATURES = [
     body: "Rank this session’s dirty files. Read the high-blast ones first.",
   },
   {
-    href: "/docs/guides/envelope-and-iris",
-    title: "Envelope and Iris",
-    body: "Index facts plus a receipt for every Intelligence call.",
+    href: "/docs/guides/envelope",
+    title: "Envelope",
+    body: "A receipt for every Prism tool call. Never source.",
   },
   {
     href: "/docs/guides/findings",
@@ -42,29 +42,9 @@ export const FEATURES = [
     body: "Check whether a symbol or file still has dependents.",
   },
   {
-    href: "/docs/guides/track-health",
-    title: "Track health",
-    body: "Engineering health scores and history.",
-  },
-  {
-    href: "/docs/guides/investigate-domain",
-    title: "Domain deep dives",
-    body: "Frontend, backend, testing, and security reports.",
-  },
-  {
     href: "/docs/guides/wire-into-ci",
     title: "CI gates",
-    body: "Run Prism in pipelines with fail-on thresholds.",
-  },
-  {
-    href: "/docs/guides/dispatch#local-workers",
-    title: "Dispatch a teammate",
-    body: "Hand a change to a background teammate in your editor; Prism runs the checks when it stops.",
-  },
-  {
-    href: "/docs/guides/dispatch#talk-in-chat",
-    title: "Start my day",
-    body: "A standup briefing: yesterday's jobs, what's waiting, suggested focus.",
+    body: "Run the change receipt in pipelines.",
   },
   {
     href: "/docs/reference/capabilities",

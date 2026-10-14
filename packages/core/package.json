@@ -28,7 +28,6 @@
     "@repo-prism/indexer": "workspace:*",
     "@repo-prism/intelligence": "workspace:*",
     "@repo-prism/navigation": "workspace:*",
-    "@repo-prism/repository-map": "workspace:*",
     "@repo-prism/shared": "workspace:*"
   },
   "engines": {

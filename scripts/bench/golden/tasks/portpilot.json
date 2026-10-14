@@ -1,0 +1,265 @@
+{
+  "repo": "portpilot",
+  "pinnedSha": "bf153b835315df94a6503f5b91b04c83dc36b8db",
+  "tasks": [
+    {
+      "id": "portpilot-001",
+      "repo": "portpilot",
+      "commit": "9910d743b34ff8410166c7a6afdef9ef72411bd8",
+      "parent": "4c89757604224a0d7565f25e7ecac8b2fb6012bb",
+      "task": "Unbreak MAS upload and send Mac users to the App Store.",
+      "firstFile": "src/main/ipc.ts",
+      "files": [
+        "src/main/ipc.ts",
+        "scripts/stamp-mas-version.cjs",
+        "src/main/tray.ts",
+        "src/main/os/paths.ts",
+        "src/main/os/index.ts"
+      ],
+      "tests": [],
+      "blast": [
+        "scripts/stamp-mas-version.cjs",
+        "src/main/tray.ts",
+        "src/main/os/paths.ts",
+        "src/main/os/index.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "portpilot-002",
+      "repo": "portpilot",
+      "commit": "ee9577c15c42a44a160257215546d210f6d1bffb",
+      "parent": "9a394197e3b396e4b912803278293a31e445752c",
+      "task": "Fix the macOS Dock icon looking like a sharp square.",
+      "firstFile": "src/main/index.ts",
+      "files": [
+        "src/main/index.ts"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "portpilot-003",
+      "repo": "portpilot",
+      "commit": "0fee9ad09a20be22278be12c81469badeaf6ea00",
+      "parent": "ecacb2286e013fe34020930cba2c025dffecc355",
+      "task": "Publish the App Store privacy policy and MAS packaging.",
+      "firstFile": "src/main/updater.ts",
+      "files": [
+        "src/main/updater.ts",
+        "src/main/modules/database/ssh-tunnel.ts",
+        "src/main/os/secrets-vault.ts"
+      ],
+      "tests": [],
+      "blast": [
+        "src/main/modules/database/ssh-tunnel.ts",
+        "src/main/os/secrets-vault.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "portpilot-004",
+      "repo": "portpilot",
+      "commit": "4547ccb68c9cd52a55294115eb379b8729b8c273",
+      "parent": "95e6f555dc8dc9e9509ddbef21d67ff023e7acfb",
+      "task": "Store DB passwords in the OS keychain and session memory instead of Electron safeStorage.",
+      "firstFile": "src/main/modules/database/db-service.ts",
+      "files": [
+        "src/main/modules/database/db-service.ts",
+        "src/main/os/secure-store.ts",
+        "src/renderer/src/modules/database/DatabaseModule.tsx",
+        "src/renderer/src/components/Settings.tsx",
+        "src/renderer/src/stores/uiStore.ts",
+        "src/main/os/index.ts",
+        "src/renderer/src/modules/database/dbUi.tsx",
+        "src/main/os/paths.ts",
+        "src/main/ipc.ts",
+        "src/shared/types.ts",
+        "src/renderer/src/App.tsx",
+        "src/shared/ipc.ts",
+        "src/preload/index.ts"
+      ],
+      "tests": [],
+      "blast": [
+        "src/main/os/secure-store.ts",
+        "src/renderer/src/modules/database/DatabaseModule.tsx",
+        "src/renderer/src/components/Settings.tsx",
+        "src/renderer/src/stores/uiStore.ts",
+        "src/main/os/index.ts",
+        "src/renderer/src/modules/database/dbUi.tsx",
+        "src/main/os/paths.ts",
+        "src/main/ipc.ts",
+        "src/shared/types.ts",
+        "src/renderer/src/App.tsx",
+        "src/shared/ipc.ts",
+        "src/preload/index.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "portpilot-005",
+      "repo": "portpilot",
+      "commit": "f022b6103c8c37a54931a4586aece0bdeb5e4892",
+      "parent": "8918d68840bf33dc657e5d10671c26396bcdfe18",
+      "task": "skip native rebuild on Windows pack so NSIS can finish",
+      "firstFile": "scripts/verify-asar.cjs",
+      "files": [
+        "scripts/verify-asar.cjs"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": true
+    },
+    {
+      "id": "portpilot-006",
+      "repo": "portpilot",
+      "commit": "31fdadb8086eab646b1bc2e7684c45094f9fcdc9",
+      "parent": "7d38023a84896645ed7127f5c1e76ff775b3c25f",
+      "task": "stop shipping a scrambled asar that crashes on launch",
+      "firstFile": "src/main/index.ts",
+      "files": [
+        "src/main/index.ts",
+        "src/renderer/src/components/TitleBar.tsx",
+        "src/main/os/resources.ts",
+        "src/main/os/index.ts",
+        "src/renderer/src/components/Settings.tsx"
+      ],
+      "tests": [],
+      "blast": [
+        "src/renderer/src/components/TitleBar.tsx",
+        "src/main/os/resources.ts",
+        "src/main/os/index.ts",
+        "src/renderer/src/components/Settings.tsx"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "portpilot-007",
+      "repo": "portpilot",
+      "commit": "08073dd7fd67577da279f99ac3ff38a8ca04b003",
+      "parent": "1d4e7aaa89c1ac2585d333ba6ae9c7b9f39273c4",
+      "task": "harden tray, IPC safety, process ops, and renderer bugs",
+      "firstFile": "src/main/services/process-manager.ts",
+      "files": [
+        "src/main/services/process-manager.ts",
+        "src/main/services/port-scanner.ts",
+        "src/main/tray.ts",
+        "src/main/index.ts",
+        "src/main/ipc.ts",
+        "src/renderer/src/App.tsx",
+        "src/renderer/src/components/CommandPalette.tsx",
+        "src/renderer/src/components/Settings.tsx",
+        "src/main/profiles-persistence.ts",
+        "src/renderer/src/stores/settingsStore.ts",
+        "src/preload/index.ts",
+        "src/main/updater.ts",
+        "src/renderer/src/components/PortTable.tsx",
+        "src/renderer/src/components/Dashboard.tsx",
+        "src/renderer/src/hooks/useKeyboardShortcuts.ts",
+        "src/shared/types.ts",
+        "src/renderer/src/components/QuickPeek.tsx",
+        "src/renderer/src/stores/uiStore.ts",
+        "src/renderer/src/stores/portStore.ts"
+      ],
+      "tests": [],
+      "blast": [
+        "src/main/services/port-scanner.ts",
+        "src/main/tray.ts",
+        "src/main/index.ts",
+        "src/main/ipc.ts",
+        "src/renderer/src/App.tsx",
+        "src/renderer/src/components/CommandPalette.tsx",
+        "src/renderer/src/components/Settings.tsx",
+        "src/main/profiles-persistence.ts",
+        "src/renderer/src/stores/settingsStore.ts",
+        "src/preload/index.ts",
+        "src/main/updater.ts",
+        "src/renderer/src/components/PortTable.tsx",
+        "src/renderer/src/components/Dashboard.tsx",
+        "src/renderer/src/hooks/useKeyboardShortcuts.ts",
+        "src/shared/types.ts",
+        "src/renderer/src/components/QuickPeek.tsx",
+        "src/renderer/src/stores/uiStore.ts",
+        "src/renderer/src/stores/portStore.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "portpilot-008",
+      "repo": "portpilot",
+      "commit": "83b5d7522182fd522faa2160bab2d3933e5045f1",
+      "parent": "f5f9a8a5f3813c5e0e99299af34d88a015c5131d",
+      "task": "profiles persistence, log insights, port sort, palette NLP, Warp fixes",
+      "firstFile": "src/main/services/process-manager.ts",
+      "files": [
+        "src/main/services/process-manager.ts",
+        "src/renderer/src/components/LogViewer.tsx",
+        "src/renderer/src/stores/settingsStore.ts",
+        "src/renderer/src/components/CommandPalette.tsx",
+        "src/renderer/src/stores/portStore.ts",
+        "src/renderer/src/components/Settings.tsx",
+        "src/main/ipc.ts",
+        "src/renderer/src/components/Heatmap.tsx",
+        "src/renderer/src/App.tsx",
+        "src/renderer/src/components/PortTable.tsx",
+        "src/main/tray.ts",
+        "src/preload/index.ts",
+        "src/shared/types.ts",
+        "src/renderer/src/hooks/useKeyboardShortcuts.ts"
+      ],
+      "tests": [],
+      "blast": [
+        "src/renderer/src/components/LogViewer.tsx",
+        "src/renderer/src/stores/settingsStore.ts",
+        "src/renderer/src/components/CommandPalette.tsx",
+        "src/renderer/src/stores/portStore.ts",
+        "src/renderer/src/components/Settings.tsx",
+        "src/main/ipc.ts",
+        "src/renderer/src/components/Heatmap.tsx",
+        "src/renderer/src/App.tsx",
+        "src/renderer/src/components/PortTable.tsx",
+        "src/main/tray.ts",
+        "src/preload/index.ts",
+        "src/shared/types.ts",
+        "src/renderer/src/hooks/useKeyboardShortcuts.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "portpilot-009",
+      "repo": "portpilot",
+      "commit": "099943e05bae3fe9a952c3ad4d0e0138ec5dd1c9",
+      "parent": "9cd664a4a2f2b47609c7379d5bbcb3278e10d035",
+      "task": "keyboard shortcuts, terminal apps, tray/dock menus",
+      "firstFile": "src/main/tray.ts",
+      "files": [
+        "src/main/tray.ts",
+        "src/renderer/src/hooks/useKeyboardShortcuts.ts",
+        "src/main/services/process-manager.ts",
+        "src/renderer/src/components/Heatmap.tsx",
+        "src/main/index.ts",
+        "src/renderer/src/components/PortTable.tsx",
+        "src/renderer/src/components/Settings.tsx",
+        "src/renderer/src/stores/portStore.ts",
+        "src/renderer/src/components/ConfirmDialog.tsx",
+        "src/renderer/src/components/QuickPeek.tsx",
+        "src/renderer/src/components/CommandPalette.tsx"
+      ],
+      "tests": [],
+      "blast": [
+        "src/renderer/src/hooks/useKeyboardShortcuts.ts",
+        "src/main/services/process-manager.ts",
+        "src/renderer/src/components/Heatmap.tsx",
+        "src/main/index.ts",
+        "src/renderer/src/components/PortTable.tsx",
+        "src/renderer/src/components/Settings.tsx",
+        "src/renderer/src/stores/portStore.ts",
+        "src/renderer/src/components/ConfirmDialog.tsx",
+        "src/renderer/src/components/QuickPeek.tsx",
+        "src/renderer/src/components/CommandPalette.tsx"
+      ],
+      "heldOut": false
+    }
+  ]
+}

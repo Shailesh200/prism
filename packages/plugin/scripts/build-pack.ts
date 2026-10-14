@@ -78,10 +78,12 @@ writeFileSync(
   join(out, ".claude-plugin", "plugin.json"),
   json(claudeManifest(def)),
 );
-const devNode = process.env.PRISM_NODE?.trim() ?? "";
+const devNode = process.env.PRISM_DEV_NODE?.trim() ?? "";
 const devBin = process.env.PRISM_MCP_BIN?.trim() ?? "";
 if (process.env.PRISM_DEV_PACK === "1" && (!devNode || !devBin)) {
-  console.error("plugin: PRISM_DEV_PACK=1 needs PRISM_NODE and PRISM_MCP_BIN");
+  console.error(
+    "plugin: PRISM_DEV_PACK=1 needs PRISM_DEV_NODE and PRISM_MCP_BIN",
+  );
   process.exit(1);
 }
 const devTarget =

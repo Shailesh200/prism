@@ -4,20 +4,13 @@ import {
   DnaReportSchema,
   FileInventorySchema,
   StackProfileSchema,
-  HealthHistoryReportSchema,
-  HealthScoreSchema,
   GraphSnapshotDtoSchema,
   IndexSnapshotSchema,
   IndexSummarySchema,
-  IntelligenceReportSchema,
   PrismErrorSchema,
-  RegionMoversReportSchema,
   TestingReportSchema,
-  SecurityReportSchema,
   PrepareChangeSchema,
-  formatPrepareChangePrompt,
   FindingRefSchema,
-  queueFindingArgs,
   parseDto,
 } from "./schemas.js";
 import { PrismErrorCode } from "./errors.js";
@@ -101,67 +94,6 @@ describe("DTO schemas round-trip", () => {
     expect(IndexSnapshotSchema.parse(raw).files[0]?.path).toBe("src/a.ts");
   });
 
-  it("HealthScoreSchema", () => {
-    const raw = {
-      score: 82,
-      grade: "B",
-      factors: [
-        {
-          id: "coupling",
-          label: "TS/JS import coupling",
-          score: 70,
-          note: "ok",
-          breakdown: [
-            { label: "Graph nodes", value: 4 },
-            { label: "Cycles", value: 1 },
-          ],
-        },
-      ],
-      graphCoveragePct: 40,
-    };
-    const parsed = HealthScoreSchema.parse(raw);
-    expect(parsed.grade).toBe("B");
-    expect(parsed.graphCoveragePct).toBe(40);
-    expect(parsed.factors[0]?.breakdown?.[0]?.label).toBe("Graph nodes");
-  });
-
-  it("HealthHistoryReportSchema + RegionMoversReportSchema", () => {
-    const history = HealthHistoryReportSchema.parse({
-      points: [
-        {
-          at: "2026-01-01T00:00:00.000Z",
-          commitSha: "abc123",
-          score: 70,
-          factors: [{ id: "coupling", score: 65 }],
-        },
-      ],
-    });
-    expect(history.points[0]?.commitSha).toBe("abc123");
-
-    const movers = RegionMoversReportSchema.parse({
-      improving: [
-        {
-          id: "feat:a",
-          label: "A",
-          fromScore: 40,
-          toScore: 70,
-          delta: 30,
-        },
-      ],
-      regressing: [
-        {
-          id: "feat:b",
-          label: "B",
-          fromScore: 80,
-          toScore: 50,
-          delta: -30,
-        },
-      ],
-    });
-    expect(movers.improving[0]?.delta).toBe(30);
-    expect(movers.regressing[0]?.delta).toBe(-30);
-  });
-
   it("BlastRadiusReportSchema", () => {
     const raw = {
       origin: { kind: "symbol", id: "sym:charge", path: "src/pay.ts" },
@@ -199,54 +131,6 @@ describe("DTO schemas round-trip", () => {
     expect(parsed.testRunners).toContain("vitest");
     expect(parsed.primaryDomain).toBe("frontend");
     expect(parsed.rankedDomains[0]?.id).toBe("frontend");
-  });
-
-  it("IntelligenceReportSchema", () => {
-    const raw = {
-      repoId: "repo:x",
-      rootPath: "/tmp/x",
-      generatedAt: "2026-07-20T12:00:00.000Z",
-      summary: {
-        repoId: "repo:x",
-        rootPath: "/tmp/x",
-        indexedAt: "2026-07-20T12:00:00.000Z",
-        stats: {
-          filesTotal: 1,
-          filesIndexed: 1,
-          filesSkipped: 0,
-          durationMs: 1,
-        },
-        warnings: [],
-      },
-      dna: {
-        languages: [],
-        frameworks: [],
-        summary: "Partial DNA: no stack signals detected",
-        architectureHints: [],
-        testRunners: [],
-      },
-      dependencyGraph: { id: "deps", nodes: [], edges: [] },
-      knowledgeGraph: { id: "kg", nodes: [], edges: [] },
-      knowledgeStats: {
-        nodes: 0,
-        edges: 0,
-        nodesByKind: {},
-        edgesByKind: {},
-      },
-      featureGraph: { id: "fg", nodes: [], edges: [] },
-      features: [],
-      consistency: { ok: true, issues: [] },
-      capabilities: {
-        indexing: true,
-        analysis: true,
-        graphs: true,
-        intelligence: true,
-        impact: false,
-        map: false,
-        navigation: false,
-      },
-    };
-    expect(IntelligenceReportSchema.parse(raw).consistency.ok).toBe(true);
   });
 
   it("FileInventorySchema", () => {
@@ -314,38 +198,6 @@ describe("DTO schemas round-trip", () => {
     expect(parsed.coverage?.linePct).toBe(81.5);
   });
 
-  it("SecurityReportSchema", () => {
-    const raw = {
-      score: 64,
-      tools: [
-        {
-          id: "dependabot",
-          name: "Dependabot",
-          present: true,
-          path: ".github/dependabot.yml",
-        },
-        { id: "snyk", name: "Snyk", present: false },
-      ],
-      checks: [
-        {
-          id: "no_env_committed",
-          status: "pass",
-          title: "No committed .env secrets file",
-        },
-        {
-          id: "lockfile_present",
-          status: "pass",
-          title: "Dependency lockfile present",
-          detail: "bun.lock",
-        },
-      ],
-      summary: "Dependabot present; 2/2 checks passed",
-    };
-    const parsed = SecurityReportSchema.parse(raw);
-    expect(parsed.tools.filter((t) => t.present)).toHaveLength(1);
-    expect(parsed.checks[0]?.status).toBe("pass");
-  });
-
   it("PrepareChangeSchema freezes pack + reuse + a work order (M-076)", () => {
     const raw = {
       pack: {
@@ -378,14 +230,10 @@ describe("DTO schemas round-trip", () => {
     expect(parsed.order.advisory).toBe(true);
     expect(parsed.order.hookArmed).toBe(false);
     expect(parsed.workingSet).toBeNull();
-    expect(formatPrepareChangePrompt(parsed)).toContain(
-      "src/users/fetchUser.ts",
-    );
-    expect(formatPrepareChangePrompt(parsed)).toContain("Work order:");
-    expect(formatPrepareChangePrompt(parsed)).not.toContain("UNIQUE_BODY");
+    expect(parsed.pack.files[0]?.path).toBe("src/users/fetchUser.ts");
   });
 
-  it("PrepareChangeSchema notes appear in the prompt without bodies (M-075)", () => {
+  it("PrepareChangeSchema keeps notes as paths and text only (M-075)", () => {
     const parsed = PrepareChangeSchema.parse({
       pack: {
         task: "add caching",
@@ -421,10 +269,14 @@ describe("DTO schemas round-trip", () => {
       conventionsProvenance: "unavailable",
       ambiguous: null,
     });
-    const prompt = formatPrepareChangePrompt(parsed);
-    expect(prompt).toContain("plans/adr/0001-fetch-user.md");
-    expect(prompt).toContain("keep cache-free");
-    expect(prompt).not.toContain("UNIQUE_BODY");
+    expect(parsed.notes).toEqual([
+      {
+        path: "src/users/fetchUser.ts",
+        text: "keep cache-free",
+        source: "rationale",
+        rationaleFor: "plans/adr/0001-fetch-user.md",
+      },
+    ]);
   });
 
   it("FindingRefSchema round-trips", () => {
@@ -436,24 +288,5 @@ describe("DTO schemas round-trip", () => {
       fingerprint: "abc123",
     };
     expect(FindingRefSchema.parse(raw)).toEqual(raw);
-  });
-
-  it("queueFindingArgs builds the same job payload every entry point must use", () => {
-    const finding = {
-      id: "symbol:src/users/lruCache.ts:lruCache:0",
-      source: "unused_export",
-      title: 'Unused export "lruCache" in src/users/lruCache.ts',
-      path: "src/users/lruCache.ts",
-      fingerprint: "abc123",
-    };
-    const fromMcp = queueFindingArgs(finding);
-    const fromConsole = queueFindingArgs(finding);
-    expect(fromMcp).toEqual(fromConsole);
-    expect(fromMcp.origin).toBe("finding");
-    expect(fromMcp.parentFindingId).toBe(finding.id);
-    expect(fromMcp.findingFingerprint).toBe(finding.fingerprint);
-    expect(fromMcp.findingSource).toBe("unused_export");
-    expect(fromMcp.prd).toContain("Fix this finding only");
-    expect(fromMcp.prd).toContain(finding.path);
   });
 });

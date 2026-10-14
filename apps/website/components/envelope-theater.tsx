@@ -43,7 +43,7 @@ export function EnvelopeTheater() {
           </ul>
           <div className="lt-log">
             <p>
-              <em>search_symbols</em> 50 of 60 · truncated
+              <em>graph</em> 50 of 60 · truncated
             </p>
             <p>
               <em>prepare_change</em> pack 8 · 1.9k map tokens

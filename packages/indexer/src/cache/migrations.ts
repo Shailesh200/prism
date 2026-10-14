@@ -1,7 +1,14 @@
 import type Database from "better-sqlite3";
 
-/** Current schema version after all migrations. */
-export const SCHEMA_VERSION = 3;
+/**
+ * Prism 2.0 index cache schema. 2.0 starts from a fresh schema v1 (plan §0.4
+ * #15): a 1.x cache is never migrated. It is dropped and rebuilt from source,
+ * because every row in it is derived data.
+ */
+export const SCHEMA_VERSION = 1;
+
+/** Marks a cache written by Prism 2.x. A cache without it is 1.x data. */
+export const SCHEMA_GENERATION = "2";
 
 type Migration = {
   readonly version: number;
@@ -23,7 +30,8 @@ const migrations: readonly Migration[] = [
           repo_id TEXT NOT NULL,
           indexed_at TEXT NOT NULL,
           stats_json TEXT NOT NULL,
-          warnings_json TEXT NOT NULL
+          warnings_json TEXT NOT NULL,
+          source TEXT NOT NULL DEFAULT 'local'
         );
 
         CREATE TABLE IF NOT EXISTS indexed_files (
@@ -39,83 +47,87 @@ const migrations: readonly Migration[] = [
         CREATE INDEX IF NOT EXISTS indexed_files_hash_idx
           ON indexed_files (root_path, content_hash);
       `);
-      db.prepare(
-        `INSERT INTO schema_meta (key, value) VALUES ('version', '1')
+      const set = db.prepare(
+        `INSERT INTO schema_meta (key, value) VALUES (?, ?)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-      ).run();
-    },
-  },
-  {
-    version: 2,
-    up(db) {
-      // Smoke migration target for M-008 DoD — provenance tag on meta rows.
-      db.exec(
-        `ALTER TABLE index_meta ADD COLUMN source TEXT NOT NULL DEFAULT 'local'`,
       );
-      db.prepare(
-        `INSERT INTO schema_meta (key, value) VALUES ('version', '2')
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-      ).run();
-    },
-  },
-  {
-    version: 3,
-    up(db) {
-      // Health / region history for Trends (M-046 / ADR-0023).
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS health_history (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          repo_root TEXT NOT NULL,
-          at TEXT NOT NULL,
-          commit_sha TEXT,
-          payload_json TEXT NOT NULL
-        );
-
-        CREATE INDEX IF NOT EXISTS health_history_root_at_idx
-          ON health_history (repo_root, at);
-
-        CREATE UNIQUE INDEX IF NOT EXISTS health_history_root_sha_idx
-          ON health_history (repo_root, commit_sha)
-          WHERE commit_sha IS NOT NULL;
-      `);
-      db.prepare(
-        `INSERT INTO schema_meta (key, value) VALUES ('version', '3')
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-      ).run();
+      set.run("version", "1");
+      set.run("generation", SCHEMA_GENERATION);
     },
   },
 ];
 
-export function readSchemaVersion(db: Database.Database): number {
+function hasSchemaMeta(db: Database.Database): boolean {
   const table = db
     .prepare(
       `SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'schema_meta'`,
     )
     .get() as { name: string } | undefined;
-  if (!table) return 0;
+  return table !== undefined;
+}
+
+function readMeta(db: Database.Database, key: string): string | undefined {
   const row = db
-    .prepare(`SELECT value FROM schema_meta WHERE key = 'version'`)
-    .get() as { value: string } | undefined;
-  if (!row) return 0;
-  const n = Number.parseInt(row.value, 10);
+    .prepare(`SELECT value FROM schema_meta WHERE key = ?`)
+    .get(key) as { value: string } | undefined;
+  return row?.value;
+}
+
+export function readSchemaVersion(db: Database.Database): number {
+  if (!hasSchemaMeta(db)) return 0;
+  if (readMeta(db, "generation") !== SCHEMA_GENERATION) return 0;
+  const n = Number.parseInt(readMeta(db, "version") ?? "", 10);
   return Number.isFinite(n) ? n : 0;
 }
+
+/**
+ * True when the database holds tables but no 2.x generation marker: a 1.x
+ * cache (or a foreign file) that must be rebuilt, never read.
+ */
+export function isLegacySchema(db: Database.Database): boolean {
+  const tables = db
+    .prepare(
+      `SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`,
+    )
+    .all() as { name: string }[];
+  if (tables.length === 0) return false;
+  if (!hasSchemaMeta(db)) return true;
+  return readMeta(db, "generation") !== SCHEMA_GENERATION;
+}
+
+function dropAllTables(db: Database.Database): void {
+  const tables = db
+    .prepare(
+      `SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`,
+    )
+    .all() as { name: string }[];
+  for (const { name } of tables) {
+    db.exec(`DROP TABLE IF EXISTS "${name.replace(/"/g, '""')}"`);
+  }
+}
+
+export type MigrateOptions = {
+  readonly maxVersion?: number;
+  /** Called once when a 1.x cache was dropped so the caller can log it. */
+  readonly onLegacyReset?: () => void;
+};
 
 /** Apply pending migrations in order (optionally stop at `maxVersion`). */
 export function migrate(
   db: Database.Database,
-  options: { readonly maxVersion?: number } = {},
+  options: MigrateOptions = {},
 ): number {
   const maxVersion = options.maxVersion ?? SCHEMA_VERSION;
   db.exec("PRAGMA foreign_keys = ON;");
+  if (isLegacySchema(db)) {
+    db.transaction(() => dropAllTables(db))();
+    options.onLegacyReset?.();
+  }
   let current = readSchemaVersion(db);
   for (const migration of migrations) {
     if (migration.version <= current) continue;
     if (migration.version > maxVersion) break;
-    const tx = db.transaction(() => {
-      migration.up(db);
-    });
-    tx();
+    db.transaction(() => migration.up(db))();
     current = migration.version;
   }
   return current;

@@ -1,0 +1,474 @@
+{
+  "repo": "mono",
+  "pinnedSha": "8b46042199e4538674d1161984fd2ac0225419eb",
+  "tasks": [
+    {
+      "id": "mono-001",
+      "repo": "mono",
+      "commit": "a31261f5bff4afa421db010b9daa20d3078009e7",
+      "parent": "c1e1e60074083a85cf7c406cf870a681da1cee96",
+      "task": "typecheck the dashboard shell",
+      "firstFile": "packages/app-shell/src/hub/trees-view.tsx",
+      "files": [
+        "packages/app-shell/src/hub/trees-view.tsx"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "mono-002",
+      "repo": "mono",
+      "commit": "92fa6b58d86a3f24ecd0a0f38e7bd913a0d9f723",
+      "parent": "d51cdcf789fbe2545763e1c596bee1a92cb79b57",
+      "task": "Console dashboard sanity and prepare pack reuse",
+      "firstFile": "packages/intelligence/src/prepare/pack.ts",
+      "files": [
+        "packages/intelligence/src/prepare/pack.ts",
+        "packages/dispatch-hub/src/dashboard/intelligence-view.tsx",
+        "packages/dispatch-hub/src/dashboard/fleet.ts",
+        "packages/dispatch-hub/src/dashboard/fleet-views.tsx",
+        "packages/dispatch-hub/src/dashboard/console-app.tsx",
+        "packages/dispatch-hub/src/dashboard/envelope-details-view.tsx",
+        "packages/dispatch-hub/src/dashboard/pulse-view.tsx",
+        "packages/dispatch-hub/src/dashboard/repo-select.tsx",
+        "packages/ui/src/EmptyState.tsx",
+        "packages/ui/src/DateRangePicker.tsx",
+        "packages/ui/src/DateTimePicker.tsx",
+        "packages/dispatch-hub/src/dashboard/findings-view.tsx",
+        "packages/ui/src/HoverTip.tsx",
+        "packages/ui/src/datetime-picker.ts",
+        "packages/ui/src/date-range.ts",
+        "packages/ui/src/Tooltip.tsx",
+        "packages/core/src/version.ts",
+        "packages/ui/src/index.ts"
+      ],
+      "tests": [
+        "packages/core/src/api-surface.test.ts",
+        "packages/core/src/index.test.ts",
+        "packages/dispatch-hub/src/dashboard/fleet.test.ts",
+        "packages/dispatch-hub/src/dashboard/repo-select.test.ts",
+        "packages/intelligence/src/prepare/pack.test.ts",
+        "packages/ui/src/date-range.test.ts",
+        "packages/ui/src/datetime-picker.test.ts",
+        "packages/ui/src/primitives.test.ts",
+        "packages/ui/src/tokens.test.ts"
+      ],
+      "blast": [
+        "packages/dispatch-hub/src/dashboard/intelligence-view.tsx",
+        "packages/dispatch-hub/src/dashboard/fleet.ts",
+        "packages/dispatch-hub/src/dashboard/fleet-views.tsx",
+        "packages/dispatch-hub/src/dashboard/console-app.tsx",
+        "packages/dispatch-hub/src/dashboard/envelope-details-view.tsx",
+        "packages/dispatch-hub/src/dashboard/pulse-view.tsx",
+        "packages/dispatch-hub/src/dashboard/repo-select.tsx",
+        "packages/ui/src/EmptyState.tsx",
+        "packages/ui/src/DateRangePicker.tsx",
+        "packages/ui/src/DateTimePicker.tsx",
+        "packages/dispatch-hub/src/dashboard/findings-view.tsx",
+        "packages/ui/src/HoverTip.tsx",
+        "packages/ui/src/datetime-picker.ts",
+        "packages/ui/src/date-range.ts",
+        "packages/ui/src/Tooltip.tsx",
+        "packages/core/src/version.ts",
+        "packages/ui/src/index.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "mono-003",
+      "repo": "mono",
+      "commit": "0e6ba0d08b39b8c22eebf08ef364b2d1e1638af3",
+      "parent": "cd46066f794a792fef8e2855fa0a71fc5bea0619",
+      "task": "agent-agnostic dispatch (M-073)",
+      "firstFile": "packages/dispatch/src/worker-backend.ts",
+      "files": [
+        "packages/dispatch/src/worker-backend.ts",
+        "packages/dispatch/src/runtime.ts",
+        "packages/dispatch/src/host-client.ts",
+        "packages/dispatch/src/types.ts",
+        "packages/dispatch/src/index.ts",
+        "packages/mcp-server/src/dispatch-registry.ts"
+      ],
+      "tests": [
+        "packages/dispatch/src/host-client.test.ts",
+        "packages/dispatch/src/worker-backend.test.ts"
+      ],
+      "blast": [
+        "packages/dispatch/src/runtime.ts",
+        "packages/dispatch/src/host-client.ts",
+        "packages/dispatch/src/types.ts",
+        "packages/dispatch/src/index.ts",
+        "packages/mcp-server/src/dispatch-registry.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "mono-004",
+      "repo": "mono",
+      "commit": "a87d06084a2911a23bab7835b69b76af05a81462",
+      "parent": "53a3ab404b9dff085bd7c492a329a1003b0dc347",
+      "task": "keep leftover job lift under exact-optional types",
+      "firstFile": "packages/dispatch/src/envelope-ledger.ts",
+      "files": [
+        "packages/dispatch/src/envelope-ledger.ts",
+        "packages/dispatch/src/jobs.ts",
+        "packages/dispatch/src/host-client.ts",
+        "packages/app-shell/src/jobs-types.ts",
+        "packages/dispatch/src/worker-finish.ts"
+      ],
+      "tests": [
+        "packages/app-shell/src/JobsScreen.test.tsx",
+        "packages/dispatch/src/placement.test.ts",
+        "packages/ui/src/Table.test.ts"
+      ],
+      "blast": [
+        "packages/dispatch/src/jobs.ts",
+        "packages/dispatch/src/host-client.ts",
+        "packages/app-shell/src/jobs-types.ts",
+        "packages/dispatch/src/worker-finish.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "mono-005",
+      "repo": "mono",
+      "commit": "995696d3b94fbd29cdefe09b9bd0e6645f2101d9",
+      "parent": "8e9cd65561cb26a26b12bdf7d8a9f21ba4345814",
+      "task": "Cut Dispatch MCP 1.1.15 for checkout-first jobs; M-066 Verified.",
+      "firstFile": "packages/dispatch-hub/src/hub-record.ts",
+      "files": [
+        "packages/dispatch-hub/src/hub-record.ts"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": true
+    },
+    {
+      "id": "mono-006",
+      "repo": "mono",
+      "commit": "b79996ebb16428060864b731130a6d12e0150af4",
+      "parent": "07d3883b5e30496192601e6c40f48eb9c335020a",
+      "task": "Cut Dispatch MCP 1.1.14 for Claude Code workers; M-065 Verified.",
+      "firstFile": "packages/dispatch-hub/src/hub-record.ts",
+      "files": [
+        "packages/dispatch-hub/src/hub-record.ts"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "mono-007",
+      "repo": "mono",
+      "commit": "6528ccfc7fa69cd256f056cfe7d4e7bc99ada7be",
+      "parent": "2735de7fec9d4d9b2b2178e2f4280c26cc49b431",
+      "task": "Cut Dispatch MCP 1.1.13 for the job console, stall detection, and review.",
+      "firstFile": "packages/dispatch-hub/src/hub-record.ts",
+      "files": [
+        "packages/dispatch-hub/src/hub-record.ts"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "mono-008",
+      "repo": "mono",
+      "commit": "38f6914a65347f1b65a6e77bd09b7abc742f5d1f",
+      "parent": "7a7826c009af7e8c9af1b81919b0dafd57d073c4",
+      "task": "make finished jobs reviewable and start work from intent.",
+      "firstFile": "packages/dispatch/src/git.ts",
+      "files": [
+        "packages/dispatch/src/git.ts",
+        "packages/dispatch/src/runtime.ts",
+        "packages/dispatch/src/worktrees.ts",
+        "packages/dispatch/src/worker-child.ts",
+        "packages/dispatch/src/run-state.ts",
+        "packages/dispatch/src/worker.ts",
+        "packages/dispatch/src/index.ts",
+        "packages/dispatch/src/worker-budget.ts",
+        "packages/dispatch/src/worker-options.ts",
+        "packages/mcp-server/src/auto-update.ts",
+        "packages/dispatch/src/types.ts",
+        "scripts/check-docs.mjs",
+        "packages/mcp-server/src/dispatch-registry.ts",
+        "packages/mcp-server/src/instructions.ts",
+        "packages/mcp-server/src/prompts.ts",
+        "packages/mcp-server/src/bin.ts"
+      ],
+      "tests": [
+        "packages/mcp-server/src/auto-update.test.ts",
+        "packages/mcp-server/src/instructions.test.ts"
+      ],
+      "blast": [
+        "packages/dispatch/src/runtime.ts",
+        "packages/dispatch/src/worktrees.ts",
+        "packages/dispatch/src/worker-child.ts",
+        "packages/dispatch/src/run-state.ts",
+        "packages/dispatch/src/worker.ts",
+        "packages/dispatch/src/index.ts",
+        "packages/dispatch/src/worker-budget.ts",
+        "packages/dispatch/src/worker-options.ts",
+        "packages/mcp-server/src/auto-update.ts",
+        "packages/dispatch/src/types.ts",
+        "scripts/check-docs.mjs",
+        "packages/mcp-server/src/dispatch-registry.ts",
+        "packages/mcp-server/src/instructions.ts",
+        "packages/mcp-server/src/prompts.ts",
+        "packages/mcp-server/src/bin.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "mono-009",
+      "repo": "mono",
+      "commit": "4d0d496541411030867dba03670a1f3fa482619f",
+      "parent": "4f644011fc15f402bb7db0c5e482350717a838ef",
+      "task": "renew Calendar tokens through Prism Auth.",
+      "firstFile": "packages/dispatch/src/oauth-providers.ts",
+      "files": [
+        "packages/dispatch/src/oauth-providers.ts",
+        "packages/dispatch/src/briefing.ts",
+        "packages/dispatch-auth/src/handlers.ts",
+        "packages/dispatch/src/broker.ts",
+        "packages/dispatch/src/runtime.ts",
+        "packages/dispatch/src/drivers.ts",
+        "packages/mcp-server/src/bin.ts",
+        "apps/website/lib/prism-auth.ts",
+        "packages/dispatch-auth/src/index.ts",
+        "packages/dispatch/src/index.ts",
+        "packages/dispatch/src/oauth.ts"
+      ],
+      "tests": [
+        "packages/dispatch-auth/src/handlers.test.ts",
+        "packages/dispatch/src/broker.test.ts",
+        "packages/dispatch/src/runtime.test.ts"
+      ],
+      "blast": [
+        "packages/dispatch/src/briefing.ts",
+        "packages/dispatch-auth/src/handlers.ts",
+        "packages/dispatch/src/broker.ts",
+        "packages/dispatch/src/runtime.ts",
+        "packages/dispatch/src/drivers.ts",
+        "packages/mcp-server/src/bin.ts",
+        "apps/website/lib/prism-auth.ts",
+        "packages/dispatch-auth/src/index.ts",
+        "packages/dispatch/src/index.ts",
+        "packages/dispatch/src/oauth.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "mono-010",
+      "repo": "mono",
+      "commit": "cdcc54c43d69e1e59f17085930d2f6358518cb12",
+      "parent": "8b3b24615240a1a165516833f2514749b45f6647",
+      "task": "make start-my-day a standup and load Linear OAuth issues.",
+      "firstFile": "packages/dispatch/src/briefing.ts",
+      "files": [
+        "packages/dispatch/src/briefing.ts",
+        "packages/dispatch/src/drivers.ts",
+        "packages/dispatch/src/git.ts",
+        "packages/mcp-server/src/prompts.ts",
+        "packages/dispatch/src/types.ts",
+        "packages/mcp-server/src/dispatch-registry.ts",
+        "packages/mcp-server/src/instructions.ts"
+      ],
+      "tests": [
+        "packages/dispatch/src/runtime.test.ts",
+        "packages/mcp-server/src/instructions.test.ts"
+      ],
+      "blast": [
+        "packages/dispatch/src/drivers.ts",
+        "packages/dispatch/src/git.ts",
+        "packages/mcp-server/src/prompts.ts",
+        "packages/dispatch/src/types.ts",
+        "packages/mcp-server/src/dispatch-registry.ts",
+        "packages/mcp-server/src/instructions.ts"
+      ],
+      "heldOut": true
+    },
+    {
+      "id": "mono-011",
+      "repo": "mono",
+      "commit": "8b3b24615240a1a165516833f2514749b45f6647",
+      "parent": "8a53a8926a30f30a1f19a9ab6cc7400331057947",
+      "task": "trust OS CAs so Prism Auth works behind corporate TLS.",
+      "firstFile": "packages/dispatch/src/broker.ts",
+      "files": [
+        "packages/dispatch/src/broker.ts",
+        "packages/dispatch/src/runtime.ts",
+        "apps/website/lib/mcp-install.ts",
+        "packages/app-shell/src/IntegrationsScreen.tsx",
+        "apps/website/components/copy-install.tsx",
+        "packages/mcp-server/src/bin.ts"
+      ],
+      "tests": [
+        "apps/website/lib/mcp-install.test.ts",
+        "packages/dispatch/src/broker.test.ts"
+      ],
+      "blast": [
+        "packages/dispatch/src/runtime.ts",
+        "apps/website/lib/mcp-install.ts",
+        "packages/app-shell/src/IntegrationsScreen.tsx",
+        "apps/website/components/copy-install.tsx",
+        "packages/mcp-server/src/bin.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "mono-012",
+      "repo": "mono",
+      "commit": "8a53a8926a30f30a1f19a9ab6cc7400331057947",
+      "parent": "75a34acbb057c3486b455e07059abd3ee71a3952",
+      "task": "accept undefined elicitation content under exactOptionalPropertyTypes.",
+      "firstFile": "packages/mcp-server/src/oauth-ui.ts",
+      "files": [
+        "packages/mcp-server/src/oauth-ui.ts"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "mono-013",
+      "repo": "mono",
+      "commit": "75a34acbb057c3486b455e07059abd3ee71a3952",
+      "parent": "06ec4ef8b8b563fd0f033e2bea2826cb253fbd65",
+      "task": "skip Cursor's Continue card so connect is not auto-cancelled.",
+      "firstFile": "packages/mcp-server/src/oauth-ui.ts",
+      "files": [
+        "packages/mcp-server/src/oauth-ui.ts"
+      ],
+      "tests": [
+        "packages/mcp-server/src/oauth-ui.test.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "mono-014",
+      "repo": "mono",
+      "commit": "90213481094ee7e9e564b646775df5007a63a498",
+      "parent": "ee05fdaaca0b53d6f65d021e5257ab6865d5e733",
+      "task": "export a static Next runtime on Prism Auth routes.",
+      "firstFile": "apps/website/app/oauth/callback/route.ts",
+      "files": [
+        "apps/website/app/oauth/callback/route.ts",
+        "apps/website/app/oauth/drivers/route.ts",
+        "apps/website/app/oauth/redeem/route.ts",
+        "apps/website/app/oauth/start/route.ts",
+        "apps/website/lib/prism-auth.ts"
+      ],
+      "tests": [],
+      "blast": [
+        "apps/website/app/oauth/drivers/route.ts",
+        "apps/website/app/oauth/redeem/route.ts",
+        "apps/website/app/oauth/start/route.ts",
+        "apps/website/lib/prism-auth.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "mono-015",
+      "repo": "mono",
+      "commit": "910d6156fafd01ee725dd006346b0049750dfbca",
+      "parent": "8dd877d6a6babb125244f2bb4fc6821c00b643c2",
+      "task": "rotate IDE/CLI/MCP install commands on the landing hero.",
+      "firstFile": "apps/website/components/copy-install.tsx",
+      "files": [
+        "apps/website/components/copy-install.tsx",
+        "apps/website/app/(home)/page.tsx"
+      ],
+      "tests": [],
+      "blast": [
+        "apps/website/app/(home)/page.tsx"
+      ],
+      "heldOut": true
+    },
+    {
+      "id": "mono-016",
+      "repo": "mono",
+      "commit": "4d6ee42dc8ae1493fc89828714367ddb1f3d9f34",
+      "parent": "915129dfb2578549c131352b44db4f0cfbdb7f00",
+      "task": "make Get started primary with install wizard.",
+      "firstFile": "apps/website/app/(home)/page.tsx",
+      "files": [
+        "apps/website/app/(home)/page.tsx",
+        "apps/website/components/mdx.tsx"
+      ],
+      "tests": [],
+      "blast": [
+        "apps/website/components/mdx.tsx"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "mono-017",
+      "repo": "mono",
+      "commit": "3a6c9aab64f986e9b244d83311985576bd6110d4",
+      "parent": "7f35d431e45a85ee248a7d1707635b58dbae8a7d",
+      "task": "auto-open Prism dashboard after successful index.",
+      "firstFile": "packages/vscode-extension/src/extension.ts",
+      "files": [
+        "packages/vscode-extension/src/extension.ts"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "mono-018",
+      "repo": "mono",
+      "commit": "e7275dcaf457900bc9108270dd546af6cbc51e45",
+      "parent": "ec91433ffcfc8bf2c57e9975fc67e55e949cb3eb",
+      "task": "ship oxc native bindings so Prism activates on install.",
+      "firstFile": "packages/vscode-extension/src/extension.ts",
+      "files": [
+        "packages/vscode-extension/src/extension.ts",
+        "packages/vscode-extension/scripts/build.ts",
+        "packages/indexer/src/cache/db.ts",
+        "packages/intelligence/src/utilities/lighthouse-runner.ts"
+      ],
+      "tests": [],
+      "blast": [
+        "packages/vscode-extension/scripts/build.ts",
+        "packages/indexer/src/cache/db.ts",
+        "packages/intelligence/src/utilities/lighthouse-runner.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "mono-019",
+      "repo": "mono",
+      "commit": "f1052e5cb28fc0f178e00b846e75262a7a0a2eee",
+      "parent": "6f9fdfb39f4a4999b98563b06d325a0f158656fc",
+      "task": "publish platform-specific VSIX for native sqlite.",
+      "firstFile": "packages/vscode-extension/scripts/package-vsix.ts",
+      "files": [
+        "packages/vscode-extension/scripts/package-vsix.ts",
+        "packages/vscode-extension/scripts/build.ts"
+      ],
+      "tests": [],
+      "blast": [
+        "packages/vscode-extension/scripts/build.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "mono-020",
+      "repo": "mono",
+      "commit": "ba94be50be0762a9befb94696e9d1e7e6a87634b",
+      "parent": "b6f490002e1b1a7bc7b90ec8f417c4113c4aa5bc",
+      "task": "M-047: Marketplace packaging, publish CI, and RepoPrism install docs.",
+      "firstFile": "packages/vscode-extension/scripts/build.ts",
+      "files": [
+        "packages/vscode-extension/scripts/build.ts"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": true
+    }
+  ]
+}

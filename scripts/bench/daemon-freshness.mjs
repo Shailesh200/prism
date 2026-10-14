@@ -84,7 +84,7 @@ const call = (tool, args) =>
   callDaemonTool({ root, tool, args, env, buildId: daemonBuildId() });
 
 const coldStart = performance.now();
-const first = await call("find_symbol", { name: "nothingHere" });
+const first = await call("graph", { mode: "find", name: "nothingHere" });
 if (first.kind !== "ok") throw new Error(JSON.stringify(first));
 const coldMs = performance.now() - coldStart;
 
@@ -110,8 +110,8 @@ for (let i = 0; i < edits; i += 1) {
   }
   indexed.push(performance.now() - editedAt);
   for (;;) {
-    const found = await call("find_symbol", { name });
-    if (found.kind === "ok" && found.value.items.length > 0) break;
+    const found = await call("graph", { mode: "find", name });
+    if (found.kind === "ok" && found.value.nodes.length > 0) break;
     if (performance.now() - editedAt > 30_000) {
       throw new Error(
         `edit ${i} (${relative(root, file)}) never became visible`,

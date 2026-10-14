@@ -53,7 +53,7 @@ type BenchReport = {
 const QUESTIONS: Array<{ id: string; tool: string; href: string }> = [
   {
     id: "orient",
-    tool: "repository_dna",
+    tool: "repository_overview",
     href: "/docs/guides/understand-a-repo",
   },
   {
@@ -61,12 +61,7 @@ const QUESTIONS: Array<{ id: string; tool: string; href: string }> = [
     tool: "blast_radius",
     href: "/docs/guides/before-you-edit",
   },
-  {
-    id: "health",
-    tool: "repository_health",
-    href: "/docs/guides/track-health",
-  },
-  { id: "find", tool: "find_symbol", href: "/docs/reference/mcp-tools" },
+  { id: "find", tool: "graph", href: "/docs/guides/graph" },
   {
     id: "test_impact",
     tool: "test_impact",
@@ -110,7 +105,7 @@ export default async function BenchmarksPage() {
           <SectionIntro
             index="Nº FEATURES + PROOF"
             title="Features & Benchmarks"
-            description="Task-led capabilities, then the hop-count proof: six questions, five fixture repos."
+            description="Task-led capabilities, then the hop-count proof: five questions, five fixture repos."
           />
 
           <StaggerGrid items="li">
@@ -144,7 +139,7 @@ export default async function BenchmarksPage() {
                 What we measure
               </h2>
               <p className="max-w-2xl leading-relaxed">
-                The same six questions an agent asks before it edits, on five
+                The same five questions an agent asks before it edits, on five
                 fixture repos. One side lists, greps, and skims. The other calls
                 Core — the same tools MCP exposes. We count discrete tool calls
                 — the hops an agent takes before it can answer.

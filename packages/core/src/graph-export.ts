@@ -1,7 +1,7 @@
 /**
- * `workspace.exportGraph()` (M-096, ADR-0062): the data behind `graph.json`
- * and `GRAPH_REPORT.md`. Built only from measured edges (imports, test reach,
- * declarations, ADR mentions), so the report has nothing to guess at.
+ * `workspace.exportGraph()` (M-096, ADR-0062): the data behind `graph.json`.
+ * Built only from measured edges (imports, test reach, declarations, ADR
+ * mentions).
  */
 
 import { basename } from "node:path";
@@ -10,7 +10,6 @@ import {
   type GraphExport,
   type GraphExportEdge,
   type GraphExportNode,
-  type GraphReportData,
   type PrismError,
   type Result,
   isTestPath,
@@ -19,17 +18,9 @@ import {
 import type { GraphReads } from "./graph-reads.js";
 
 const FILE = "file:";
-const SOURCE = /\.(?:[cm]?[jt]sx?)$/;
-
-/** Last path segment without its extension(s): `../a/b.test.ts` → `b.test`. */
-function stem(specifier: string): string {
-  const last = specifier.replace(/\\/g, "/").split("/").pop() ?? "";
-  return last.replace(/\.(?:d\.)?[cm]?[jt]sx?$/, "");
-}
 
 export type GraphExportResult = {
   readonly graph: GraphExport;
-  readonly report: GraphReportData;
 };
 
 function packageOf(
@@ -147,88 +138,6 @@ export async function exportWorkspaceGraph(
     }
   }
 
-  const sources = files
-    .map((f) => f.path)
-    .filter((p) => !isTestPath(p) && SOURCE.test(p) && !p.endsWith(".d.ts"));
-  const degree = (p: string) => ({
-    path: p,
-    importedBy: importsIn.get(p)?.size ?? 0,
-    imports: importsOut.get(p)?.size ?? 0,
-  });
-  const byInbound = sources
-    .map(degree)
-    .filter((row) => row.importedBy > 0)
-    .sort((a, b) => b.importedBy - a.importedBy || (a.path < b.path ? -1 : 1));
-  const connected = sources
-    .map(degree)
-    .filter((row) => row.importedBy + row.imports > 0)
-    .sort(
-      (a, b) =>
-        b.importedBy + b.imports - (a.importedBy + a.imports) ||
-        (a.path < b.path ? -1 : 1),
-    )
-    .slice(0, 5);
-
-  const untestedHotspots: { path: string; importedBy: number }[] = [];
-  for (const row of byInbound.slice(0, 15)) {
-    if (untestedHotspots.length >= 5) break;
-    const reach = await workspace.testImpact({ kind: "file", id: row.path });
-    if (reach.ok && reach.value.tests.length === 0) {
-      untestedHotspots.push({ path: row.path, importedBy: row.importedBy });
-    }
-  }
-
-  const pairs = new Map<string, { from: string; to: string; count: number }>();
-  for (const [from, targets] of importsOut) {
-    const fromPackage = packageOf(from, roots);
-    for (const to of targets) {
-      const toPackage = packageOf(to, roots);
-      if (fromPackage === toPackage) continue;
-      const key = `${fromPackage}\0${toPackage}`;
-      const pair = pairs.get(key);
-      pairs.set(key, { from, to, count: (pair?.count ?? 0) + 1 });
-    }
-  }
-  const loneCrossPackage = [...pairs.entries()]
-    .filter(([, pair]) => pair.count === 1)
-    .map(([key, pair]) => {
-      const [fromPackage = "", toPackage = ""] = key.split("\0");
-      return { from: pair.from, to: pair.to, fromPackage, toPackage };
-    })
-    .sort((a, b) => (a.from < b.from ? -1 : 1))
-    .slice(0, 5);
-
-  // Conservative on purpose: a report line must be true when someone checks it.
-  // "Imports nothing" counts npm imports and re-exports. A file whose name any
-  // import specifier ends with may be reached through an alias that did not
-  // resolve, so it is left out; so are entry barrels and config files, which
-  // are reached by tools rather than imports.
-  const specifierStems = new Set<string>();
-  for (const file of files) {
-    for (const imp of file.imports) specifierStems.add(stem(imp.source));
-    for (const exp of file.exports)
-      if (exp.source) specifierStems.add(stem(exp.source));
-  }
-  const byPath = new Map(files.map((f) => [f.path, f]));
-  const orphans = sources
-    .filter((p) => {
-      const file = byPath.get(p);
-      if (!file || importsIn.has(p)) return false;
-      if (file.imports.length > 0 || file.exports.some((e) => e.source))
-        return false;
-      const name = stem(p);
-      return (
-        name !== "index" &&
-        !name.endsWith(".config") &&
-        !specifierStems.has(name)
-      );
-    })
-    .slice(0, 10);
-
-  const cycles = workspace.getCycles();
-  const plain = (id: string) =>
-    id.startsWith(FILE) ? id.slice(FILE.length) : id;
-
   return ok({
     graph: {
       version: GRAPH_EXPORT_VERSION,
@@ -244,17 +153,6 @@ export async function exportWorkspaceGraph(
         symbols: symbolCount,
         edges: edges.length,
       },
-    },
-    report: {
-      repository,
-      indexedAt: index.value.indexedAt,
-      connected,
-      cycles: cycles.ok
-        ? cycles.value.slice(0, 5).map((cycle) => cycle.map(plain))
-        : [],
-      orphans,
-      untestedHotspots,
-      loneCrossPackage,
     },
   });
 }

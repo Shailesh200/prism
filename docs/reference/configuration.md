@@ -78,8 +78,8 @@ workspace variable:
 {
   "mcpServers": {
     "prism": {
-      "command": "npx",
-      "args": ["-y", "--prefer-online", "@repo-prism/mcp-server@latest"],
+      "command": "prism-mcp",
+      "args": [],
       "env": {
         "NODE_USE_SYSTEM_CA": "1"
       }
@@ -100,23 +100,13 @@ folders via MCP roots — retried until answered — and follows
 client cannot report roots. See
 [MCP install](/docs/start/install).
 
-## Extension settings
-
-See [IDE settings](/docs/reference/ide-settings). One VS Code setting lives in the editor:
-
-| Setting | Default | Effect |
-|---|---|---|
-| `prism.codeLens.enabled` | `true` | Blast Radius, Ownership and Map lenses above the first line of TS/JS files |
-
-Consent and privacy toggles are documented under
-[consent and privacy](/docs/concepts/consent-and-privacy).
-
 ## What is stored, and where
 
-Settings that belong to a repository — consent, bookmarks — live in `.prism/`
-alongside the index. Presentation settings belong to the client.
+Machine-wide settings live in `~/.prism/config.json` (`extraTools[]`, the
+opt-in MCP tools). Per-repository state lives under
+`~/.prism/workspaces/<key>/`, never in your checkout.
 
 ## Related
 
 [Troubleshooting](/docs/help/troubleshooting) · [CLI usage](/docs/usage) ·
-[Consent and privacy](/docs/concepts/consent-and-privacy)
+[privacy](/privacy)

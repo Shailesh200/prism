@@ -1,14 +1,9 @@
 import { z } from "zod";
 import { ok } from "@repo-prism/shared";
 import {
-  loadLenses,
-  overrideLensReview,
   readLensStore,
   recordLensReviews,
-  removeLens,
-  updateLens,
 } from "@repo-prism/shared/lens-store";
-import { LENS_EVIDENCE } from "@repo-prism/shared";
 import { briefsFor, evidenceFor } from "../safety/lenses.js";
 import { defineTool } from "../tool-registry.js";
 
@@ -76,91 +71,6 @@ export const reviewWith = defineTool({
         verdict: row.verdict,
       })),
       ...(unknown.length > 0 ? { unknownLenses: unknown } : {}),
-    });
-  },
-});
-
-export const lensTool = defineTool({
-  name: "lens",
-  title: "Lenses",
-  description:
-    "List, show, edit, remove, re-seed, or overrule a review lens. Lenses are Architect, QA, and Dev by default. Their repo facts are re-read from the index each time; everything is stored under ~/.prism, never in the repo. An override is remembered on that lens so the same false alarm does not return. action=list (default); show needs id; edit needs id plus the definition; remove needs id (custom lenses only); seed re-reads repo facts; override needs reviewId and note.",
-  inputSchema: {
-    action: z
-      .enum(["list", "show", "edit", "remove", "seed", "override"])
-      .optional(),
-    id: z.string().optional().describe("Lens id for show, edit, or remove."),
-    name: z.string().optional(),
-    role: z.string().optional(),
-    focus: z.string().optional(),
-    tone: z.string().optional(),
-    checklist: z.array(z.string()).optional(),
-    evidence: z.array(z.enum(LENS_EVIDENCE)).optional(),
-    reviewId: z.string().optional().describe("Review id for action=override."),
-    note: z.string().optional().describe("What the owner decided instead."),
-  },
-  async call({ workspace }, args) {
-    const action = args.action ?? "list";
-    if (action === "edit") {
-      if (!args.id) return ok({ message: "edit needs id." });
-      try {
-        const views = await updateLens(workspace.rootPath, args.id, {
-          name: args.name ?? "",
-          role: args.role ?? "",
-          focus: args.focus ?? "",
-          ...(args.tone ? { tone: args.tone } : {}),
-          checklist: args.checklist ?? [],
-          evidence: args.evidence ?? [],
-        });
-        const one = views.find((row) => row.definition.id === args.id);
-        return ok(one ?? { lenses: views.map((row) => row.definition.id) });
-      } catch (cause) {
-        return ok({
-          message: cause instanceof Error ? cause.message : String(cause),
-        });
-      }
-    }
-    if (action === "remove") {
-      if (!args.id) return ok({ message: "remove needs id." });
-      try {
-        const views = await removeLens(workspace.rootPath, args.id);
-        return ok({
-          lenses: views.map((row) => row.definition.id),
-        });
-      } catch (cause) {
-        return ok({
-          message: cause instanceof Error ? cause.message : String(cause),
-        });
-      }
-    }
-    if (action === "override") {
-      if (!args.reviewId || !args.note?.trim()) {
-        return ok({ message: "override needs reviewId and note." });
-      }
-      const learned = await overrideLensReview(
-        workspace.rootPath,
-        args.reviewId,
-        args.note,
-      );
-      return ok(
-        learned
-          ? { learned }
-          : { message: `No review with id ${args.reviewId}.` },
-      );
-    }
-    const lenses = await loadLenses(workspace);
-    if (action === "show") {
-      const one = lenses.find((row) => row.definition.id === args.id);
-      return ok(one ?? { message: `No lens named ${args.id ?? ""}.` });
-    }
-    return ok({
-      lenses: lenses.map((row) => ({
-        id: row.definition.id,
-        name: row.definition.name,
-        enabled: row.definition.enabled,
-        facts: row.facts.length,
-        reviews: row.history.length,
-      })),
     });
   },
 });

@@ -18,10 +18,11 @@ Otherwise:
 - Finding bugs: **QA**.
 - A daily fix, a rename, a small change: **Dev**.
 
-Call `review_with` with the task and no lens id. The brief that comes back is
-the lens to follow: its procedure, its checklist, and the evidence from this
-repo. Follow that procedure while you edit. When you finish, `review_with`
-with `action` record stores the verdict. Prism does not call a model.
+Prism picks the lens for you and injects it with your prompt, once per
+session: its id and its procedure. On a client without hooks, the installed
+rule does the same. Follow that procedure while you edit. When you finish,
+`review_changes` checks the change against the same lens. Prism does not call
+a model. Manage custom lenses with `prism lens` in a terminal.
 
 ## Architect
 

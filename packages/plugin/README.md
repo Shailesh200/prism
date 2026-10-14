@@ -15,7 +15,6 @@ skills say.
 |---|---|
 | `prism-review-pr` | Review a change with its blast radius, then post it with your GitHub and issue-tracker tools |
 | `prism-safe-change` | Check what depends on code before editing, renaming or deleting it |
-| `prism-ship` | Raise a PR whose description is grounded in real impact |
 | `prism-onboard` | Get oriented in an unfamiliar repository |
 
 Commands: `/prism-review`, `/prism-check`. Checking a change for regressions

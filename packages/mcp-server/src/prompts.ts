@@ -8,7 +8,7 @@
  *
  * Job-runner prompts (start_my_day, start_work, where_are_we, init, sleep,
  * wake, configure, connect) went with Jobs (ADR-0058). `review_lenses` went
- * behind `PRISM_MCP_FULL` with `review_with` (M-091).
+ * behind `extraTools[]` with `review_with` (M-091).
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";

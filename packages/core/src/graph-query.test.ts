@@ -2,7 +2,6 @@ import { cp, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { renderGraphReport } from "@repo-prism/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Prism } from "./prism.js";
 import type { PrismWorkspace } from "./workspace.js";
@@ -124,39 +123,5 @@ describe("workspace.graph (M-096)", () => {
     if (answer.totalCount > answer.nodes.length + answer.edges.length) {
       expect(answer.truncated).toBe(true);
     }
-  });
-
-  it("exports a versioned graph and a report built from measured edges", async () => {
-    const exported = await workspace.exportGraph();
-    if (!exported.ok) throw new Error(exported.error.message);
-    const { graph, report } = exported.value;
-    expect(graph.version).toBe(1);
-    expect(graph.nodes.some((n) => n.id === `file:${DASHBOARD}`)).toBe(true);
-    expect(graph.edges).toContainEqual({
-      kind: "imports",
-      from: `file:${DASHBOARD}`,
-      to: `file:${AUTH}`,
-      provenance: "measured",
-    });
-    expect(graph.edges.every((e) => e.provenance)).toBe(true);
-    expect(report.connected[0]?.path).toBeDefined();
-    // widgets.ts and cart.ts import nothing and nothing imports them.
-    expect(report.orphans).toEqual(
-      expect.arrayContaining([
-        "src/features/dashboard/widgets.ts",
-        "src/routes/checkout/cart.ts",
-      ]),
-    );
-    const markdown = renderGraphReport(report);
-    expect(markdown).toContain("# Prism graph report");
-    expect(markdown).toContain("`src/features/dashboard/widgets.ts`");
-  });
-
-  it("rejects a file that is not indexed", async () => {
-    const answer = await workspace.graph({
-      mode: "neighbors",
-      target: { path: "nope.ts" },
-    });
-    expect(answer.ok).toBe(false);
   });
 });

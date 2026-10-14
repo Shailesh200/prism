@@ -1,10 +1,13 @@
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createPrismMcpServer, type PrismMcpServer } from "./server.js";
+import { DEFAULT_TOOL_NAMES, OPT_IN_TOOL_NAMES } from "./tools.js";
 
 /**
  * The contract tests drive a *real* MCP client against a *real* server over a
@@ -22,16 +25,27 @@ const fixture = join(
   "m012-features",
 );
 
+/** A Prism home whose `config.json` opts into every extra tool (COV-19). */
+function prismHomeWith(extraTools: readonly string[]): string {
+  const home = mkdtempSync(join(tmpdir(), "prism-contract-home-"));
+  writeFileSync(join(home, "config.json"), JSON.stringify({ extraTools }));
+  return home;
+}
+const fullHome = prismHomeWith(OPT_IN_TOOL_NAMES);
+
 let instance: PrismMcpServer;
 let client: Client;
 
-async function connect(workspaceRoot: string): Promise<{
+async function connect(
+  workspaceRoot: string,
+  prismHome: string = fullHome,
+): Promise<{
   client: Client;
   instance: PrismMcpServer;
 }> {
   const built = createPrismMcpServer({
     workspaceRoot,
-    env: { ...process.env, PRISM_MCP_FULL: "1" },
+    env: { ...process.env, PRISM_HOME: prismHome },
   });
   const connected = new Client({ name: "contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] =
@@ -78,6 +92,15 @@ async function callJson(name: string, args: Record<string, unknown> = {}) {
   const text = response.content?.[0]?.text;
   expect(text, `${name} returned no text content`).toBeTypeOf("string");
   return JSON.parse(text as string) as Record<string, unknown>;
+}
+
+/** A source file from the fixture's dependency graph. */
+async function firstFixtureFile(): Promise<string> {
+  const graph = await callJson("dependency_graph", { limit: 50 });
+  const items = graph.items as { id: string; kind?: string }[];
+  const file = items.find((n) => n.id.startsWith("file:"));
+  expect(file, "fixture produced no file nodes").toBeDefined();
+  return (file as { id: string }).id.replace(/^file:/, "");
 }
 
 describe("MCP server contract (M-026)", () => {
@@ -150,50 +173,7 @@ describe("MCP server contract (M-026)", () => {
 
     // Adding a Core method must not silently add a tool, and a tool must not
     // vanish from the docs. This list is the contract.
-    expect(names).toEqual(
-      [
-        "agents_md",
-        "backend_report",
-        "blast_radius",
-        "breaking_change_hints",
-        "capabilities",
-        "changed_paths",
-        "dependency_cycles",
-        "dependency_graph",
-        "dependency_route",
-        "engineering_health",
-        "explain_area",
-        "explore_code",
-        "feature_graph",
-        "find_references",
-        "find_symbol",
-        "graph",
-        "guard_session",
-        "health_history",
-        "knowledge_graph",
-        "landmarks",
-        "lens",
-        "list_features",
-        "list_findings",
-        "list_packages",
-        "prepare_change",
-        "rename_impact",
-        "repository_dna",
-        "repository_health",
-        "repository_map",
-        "repository_overview",
-        "review_changes",
-        "review_with",
-        "safe_delete",
-        "search_symbols",
-        "security_report",
-        "stack_profile",
-        "test_impact",
-        "testing_report",
-        "work_order",
-        "workspace_status",
-      ].sort(),
-    );
+    expect(names).toEqual([...DEFAULT_TOOL_NAMES, ...OPT_IN_TOOL_NAMES].sort());
 
     for (const tool of tools) {
       expect(tool.inputSchema.type, tool.name).toBe("object");
@@ -215,9 +195,6 @@ describe("MCP server contract (M-026)", () => {
   it("gives every top-level list tool a limit and bounds its output", async () => {
     /** Required arguments for the list tools that need more than a limit. */
     const REQUIRED: Record<string, Record<string, unknown>> = {
-      find_symbol: { name: "a" },
-      find_references: { name: "a" },
-      search_symbols: { pattern: "a" },
       knowledge_graph: {},
     };
 
@@ -226,6 +203,7 @@ describe("MCP server contract (M-026)", () => {
       "blast_radius",
       "test_impact",
       "explore_code",
+      "repository_overview",
     ]);
 
     const { tools } = await client.listTools();
@@ -251,11 +229,6 @@ describe("MCP server contract (M-026)", () => {
     }
   }, 60_000);
 
-  it("defaults repository_map zoom to package (M-058 / P-C2)", async () => {
-    const map = await callJson("repository_map", {});
-    expect(map.zoom).toBe("package");
-  }, 60_000);
-
   it("requires path or limit on knowledge_graph (M-058 / P-C2)", async () => {
     expectToolError(
       await call(client, "knowledge_graph", {}),
@@ -264,70 +237,22 @@ describe("MCP server contract (M-026)", () => {
   });
 
   it("returns compact JSON by default (M-058 / P-C4)", async () => {
-    const response = await call(client, "landmarks", { limit: 1 });
+    const response = await call(client, "list_packages", { limit: 1 });
     const text = response.content?.[0]?.text ?? "";
     expect(text.includes("\n")).toBe(false);
   }, 60_000);
 
-  it("advertises DNA / landmarks / health resources (M-058 / P-C8)", async () => {
+  it("advertises DNA / landmarks resources (M-058 / P-C8)", async () => {
     const { resources } = await client.listResources();
     expect(resources.map((r) => r.uri).sort()).toEqual(
-      [
-        "prism://agents-md",
-        "prism://dna",
-        "prism://health",
-        "prism://landmarks",
-      ].sort(),
+      ["prism://agents-md", "prism://dna", "prism://landmarks"].sort(),
     );
   });
 
-  it("marks overlapping tools as deprecated in descriptions (M-058 / P-C9)", async () => {
-    const { tools } = await client.listTools();
-    const breaking = tools.find((t) => t.name === "breaking_change_hints");
-    const explain = tools.find((t) => t.name === "explain_area");
-    expect(breaking?.description).toMatch(/deprecated/i);
-    expect(breaking?.description).toMatch(/blast_radius/i);
-    expect(explain?.description).toMatch(/explore_code/);
-  });
-
   it("marks Intelligence tools read-only and closed-world", async () => {
-    const intelligence = new Set([
-      "backend_report",
-      "blast_radius",
-      "breaking_change_hints",
-      "capabilities",
-      "changed_paths",
-      "dependency_cycles",
-      "dependency_graph",
-      "dependency_route",
-      "engineering_health",
-      "explain_area",
-      "explore_code",
-      "feature_graph",
-      "find_references",
-      "find_symbol",
-      "graph",
-      "health_history",
-      "knowledge_graph",
-      "landmarks",
-      "list_features",
-      "list_findings",
-      "list_packages",
-      "prepare_change",
-      "rename_impact",
-      "repository_dna",
-      "repository_health",
-      "repository_map",
-      "repository_overview",
-      "review_changes",
-      "safe_delete",
-      "search_symbols",
-      "security_report",
-      "stack_profile",
-      "test_impact",
-      "testing_report",
-      "work_order",
-      "workspace_status",
+    const intelligence = new Set<string>([
+      ...DEFAULT_TOOL_NAMES,
+      ...OPT_IN_TOOL_NAMES.filter((name) => name !== "review_with"),
     ]);
     const { tools } = await client.listTools();
     for (const tool of tools) {
@@ -338,40 +263,18 @@ describe("MCP server contract (M-026)", () => {
   });
 
   it("returns real DNA for the fixture repository", async () => {
-    const dna = await callJson("repository_dna");
+    const overview = await callJson("repository_overview");
+    const dna = overview.dna as Record<string, unknown>;
     expect(Array.isArray(dna.languages)).toBe(true);
     expect(typeof dna.summary).toBe("string");
     expect(instance.session.isOpen()).toBe(true);
   }, 60_000);
 
-  it("returns a real health score", async () => {
-    const health = await callJson("repository_health");
-    expect(typeof health.score).toBe("number");
-    expect(health.score as number).toBeGreaterThanOrEqual(0);
-    expect(health.score as number).toBeLessThanOrEqual(100);
-    expect(typeof health.graphCoveragePct).toBe("number");
-    const factors = health.factors as { id: string; label: string }[];
-    expect(factors.find((f) => f.id === "coupling")?.label).toBe(
-      "TS/JS import coupling",
-    );
-  }, 60_000);
-
-  it("returns a real map with nodes and edges", async () => {
-    const map = await callJson("repository_map", { zoom: "package" });
-    const graph = map.graph as { nodes: unknown[]; edges: unknown[] };
-    expect(Array.isArray(graph.nodes)).toBe(true);
-    expect(Array.isArray(graph.edges)).toBe(true);
-  }, 60_000);
-
   it("returns a real blast radius for a file in the fixture", async () => {
-    const map = await callJson("repository_map", { zoom: "file" });
-    const graph = map.graph as { nodes: { id: string; kind: string }[] };
-    const file = graph.nodes.find((n) => n.kind === "file");
-    expect(file, "fixture produced no file nodes").toBeDefined();
-
+    const filePath = await firstFixtureFile();
     const report = await callJson("blast_radius", {
       kind: "file",
-      id: (file as { id: string }).id.replace(/^file:/, ""),
+      id: filePath,
     });
     expect(report).toHaveProperty("risk");
     expect(Array.isArray(report.coverageLimitations)).toBe(true);
@@ -383,24 +286,13 @@ describe("MCP server contract (M-026)", () => {
     // its cheapest valid input catches the adapter mistakes — wrong Core
     // method, wrong argument shape, a DTO that will not serialise — that a
     // schema check cannot.
-    const map = await callJson("repository_map", { zoom: "file" });
-    const nodes = (map.graph as { nodes: { id: string; kind: string }[] })
-      .nodes;
-    const file = nodes.find((n) => n.kind === "file");
-    const filePath = (file?.id ?? "").replace(/^file:/, "");
-    expect(filePath, "fixture produced no file nodes").not.toBe("");
+    const filePath = await firstFixtureFile();
 
     const target = { kind: "file", id: filePath };
     const calls: [string, Record<string, unknown>][] = [
-      ["repository_map", { zoom: "package" }],
-      ["repository_dna", {}],
-      ["repository_health", {}],
       ["repository_overview", {}],
       ["list_packages", {}],
       ["prepare_change", { task: "add caching" }],
-      ["work_order", { task: "add caching" }],
-      ["stack_profile", {}],
-      ["landmarks", {}],
       ["explain_area", { path: filePath }],
       ["guard_session", {}],
       ["agents_md", { action: "generate" }],
@@ -409,38 +301,18 @@ describe("MCP server contract (M-026)", () => {
       ["dependency_graph", { packageAggregation: true, limit: 10 }],
       ["dependency_cycles", {}],
       ["knowledge_graph", { limit: 10 }],
-      ["feature_graph", { limit: 10 }],
-      ["list_features", {}],
       ["list_findings", {}],
-      ["find_symbol", { name: "a" }],
       ["graph", { mode: "find", name: "renderDashboard" }],
       ["graph", { mode: "neighbors", target: { path: filePath } }],
       ["graph", { mode: "explain", path: filePath }],
       ["graph", { mode: "query", filter: "importers_of", of: filePath }],
-      ["search_symbols", { pattern: "a" }],
-      ["find_references", { name: "a" }],
-      [
-        "dependency_route",
-        {
-          from: { kind: "file", path: filePath },
-          to: { kind: "file", path: filePath },
-        },
-      ],
       ["blast_radius", target],
       ["safe_delete", target],
       ["rename_impact", target],
       ["test_impact", target],
-      ["breaking_change_hints", target],
-      ["changed_paths", {}],
       ["review_changes", { paths: [filePath] }],
       ["review_with", { task: "review the change" }],
-      ["lens", { action: "list" }],
-      ["engineering_health", {}],
-      ["health_history", {}],
       ["explore_code", { kind: "file", path: filePath }],
-      ["backend_report", {}],
-      ["testing_report", {}],
-      ["security_report", {}],
     ];
 
     const failures: string[] = [];
@@ -503,6 +375,23 @@ describe("MCP server contract (M-026)", () => {
   it("reports an unknown tool rather than answering it", async () => {
     expectToolError(await call(client, "prism_not_a_tool"), /not_a_tool/);
   });
+
+  it("treats every name deleted in 2.0 as an unknown tool (§0.3, decision 10)", async () => {
+    const list = JSON.parse(
+      readFileSync(
+        new URL("../../../scripts/deleted-names.json", import.meta.url),
+        "utf8",
+      ),
+    ) as { names: string[] };
+    const deleted = list.names.filter((name) =>
+      /^[a-z]+(?:_[a-z]+)+$/.test(name),
+    );
+    expect(deleted.length).toBeGreaterThan(10);
+    // Removed from the default surface too (they never shipped as their own tools).
+    for (const name of [...deleted, "landmarks", "lens"]) {
+      expectToolError(await call(client, name), new RegExp(name));
+    }
+  });
 });
 
 describe("MCP dependency_graph unresolved imports (M-056 / P-A1)", () => {
@@ -536,11 +425,39 @@ describe("MCP server against an unusable workspace (M-026)", () => {
     const { client: isolated, instance: built } = await connect(missing);
 
     expectToolError(
-      await call(isolated, "repository_dna"),
+      await call(isolated, "repository_overview"),
       /PRISM_INVALID_PATH/,
     );
 
     built.session.close();
     await isolated.close();
   }, 30_000);
+});
+
+describe("MCP default tool surface (§0.3, COV-19)", () => {
+  it("registers exactly the nine default tools with no extraTools", async () => {
+    const { client: isolated, instance: built } = await connect(
+      fixture,
+      prismHomeWith([]),
+    );
+    const { tools } = await isolated.listTools();
+    expect(tools.map((t) => t.name).sort()).toEqual(
+      [...DEFAULT_TOOL_NAMES].sort(),
+    );
+    expect(tools).toHaveLength(9);
+    built.session.close();
+    await isolated.close();
+  });
+
+  it("adds an opt-in tool named in extraTools and nothing else", async () => {
+    const { client: isolated, instance: built } = await connect(
+      fixture,
+      prismHomeWith(["dependency_graph", "not_a_real_tool"]),
+    );
+    const { tools } = await isolated.listTools();
+    expect(tools).toHaveLength(10);
+    expect(tools.map((t) => t.name)).toContain("dependency_graph");
+    built.session.close();
+    await isolated.close();
+  });
 });

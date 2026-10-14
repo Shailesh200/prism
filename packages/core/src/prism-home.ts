@@ -11,18 +11,13 @@ export {
   migrateWorkspaceMemories,
   prismHomeDir,
   useLocalPrismStore,
-  workspaceBookmarksPath,
-  workspaceBundleAnalyzeDir,
   workspaceCacheDir,
   workspaceConfigPath,
-  workspaceConsentPath,
   workspaceDispatchDir,
   workspaceFindingMutesPath,
-  workspaceIngestDir,
   workspaceKey,
   workspaceNotesDir,
   workspacePrismDir,
-  workspaceRemoteCiDir,
 } from "@repo-prism/shared/prism-home";
 
 export { workspacePrismDir as workspaceStateDir } from "@repo-prism/shared/prism-home";

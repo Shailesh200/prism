@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { runIndexJob } from "../index-job.js";
 import { openIndexCache } from "./db.js";
+import { SCHEMA_VERSION } from "./migrations.js";
 import { indexSqlitePath } from "./paths.js";
 
 const fixtureRoot = join(
@@ -61,7 +62,7 @@ describe("SQLite index cache", () => {
     const recovered = await openIndexCache(root);
     expect(recovered.ok).toBe(true);
     if (!recovered.ok) return;
-    expect(recovered.value.schemaVersion).toBe(3);
+    expect(recovered.value.schemaVersion).toBe(SCHEMA_VERSION);
     recovered.value.close();
   });
 

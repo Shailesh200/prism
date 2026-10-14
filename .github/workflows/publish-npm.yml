@@ -20,6 +20,8 @@ permissions:
 
 jobs:
   publish:
+    # Disabled until Release 2.0.0 (plan §3.0: local build only).
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -48,12 +50,10 @@ jobs:
         # fails in CI (`Cannot find module '@repo-prism/shared'`).
         #
         # This list is the build order and must stay a superset of the publish
-        # order in scripts/publish-npm.mjs. Omitting dispatch-hub is what broke
-        # 1.1.14 and 1.1.15; omitting host-session (and the UI packages it
-        # typechecks against) is what broke 1.1.17.
+        # order in scripts/publish-npm.mjs.
         run: |
           set -euo pipefail
-          for name in shared test-support analyzer graph-engine impact navigation indexer intelligence repository-map core ui app-shell host-session dispatch dispatch-hub mcp-server plugin; do
+          for name in shared test-support analyzer graph-engine impact navigation indexer intelligence core ui mcp-server plugin; do
             bun run --filter "@repo-prism/${name}" build
           done
 

@@ -3,8 +3,8 @@
  *
  * Session-start and before-edit hooks have a ~300 ms budget, which rules out
  * opening the index. They read this file instead: a few facts Prism wrote the
- * last time it indexed. A hook that finds no snapshot says “index warming”
- * once and gets out of the way — it never waits on an index.
+ * last time it indexed. A hook that finds no snapshot, or one whose `headSha`
+ * no longer matches the checkout, stays silent — it never waits on an index.
  *
  * The plugin's zero-dependency hook script (`packages/plugin/hooks`) reads the
  * same shape; a contract test runs that script against this writer.
@@ -19,9 +19,13 @@ import {
   isFixturePath,
   offLimitReason,
 } from "@repo-prism/shared";
+import { readGitHead } from "@repo-prism/shared/git-head";
+import { recordEvent } from "@repo-prism/shared/events";
 import { workspacePrismDir } from "@repo-prism/shared/prism-home";
+import { daemonBuildId } from "../daemon-attach.js";
 
-export const HOOK_SNAPSHOT_VERSION = 1;
+/** v2 adds the index identity (plan §2.4). A hook ignores any other version. */
+export const HOOK_SNAPSHOT_VERSION = 2;
 
 export type HookPathRow = { readonly path: string; readonly reason: string };
 
@@ -29,6 +33,17 @@ export type HookSnapshot = {
   readonly version: typeof HOOK_SNAPSHOT_VERSION;
   readonly workspace: string;
   readonly generatedAt: string;
+  /**
+   * Index identity (plan §2.4). A hook whose checkout HEAD differs from
+   * `headSha` treats the snapshot as stale and stays silent.
+   */
+  readonly schemaVersion: typeof HOOK_SNAPSHOT_VERSION;
+  readonly buildId: string;
+  readonly headSha: string | null;
+  readonly branch: string | null;
+  /** Increases by one on every write for this workspace. */
+  readonly generation: number;
+  readonly indexedAt: string;
   /** Injected at session start. Small by construction (see ORIENTATION_MAX). */
   readonly orientation: string;
   /** Generated or vendor files, plus `vendor/` directories (prefix match). */
@@ -61,12 +76,20 @@ function vendorDir(path: string): string | null {
 async function hookArmed(workspace: PrismWorkspace, paths: readonly string[]) {
   for (const path of paths) {
     if (!ADR_FILE.test(path)) continue;
+    let text: string;
     try {
-      const text = await readFile(join(workspace.rootPath, path), "utf8");
-      if (isAcceptedWorkOrderVetoAdr(text.slice(0, 256_000))) return true;
-    } catch {
-      /* unreadable ADR cannot arm anything */
+      text = await readFile(join(workspace.rootPath, path), "utf8");
+    } catch (error) {
+      // An unreadable ADR cannot arm anything, but the reason is kept.
+      recordEvent({
+        event: "snapshot.adr_unreadable",
+        outcome: "degraded",
+        reason: error instanceof Error ? error.message : String(error),
+        workspace: workspace.rootPath,
+      });
+      continue;
     }
+    if (isAcceptedWorkOrderVetoAdr(text.slice(0, 256_000))) return true;
   }
   return false;
 }
@@ -159,7 +182,18 @@ async function orientationText(
     lines.push(`Prism warns before you edit ${parts.join(" or ")}.`);
   }
   const last = await readLastPrepareChange(workspace.rootPath, env).catch(
-    () => undefined,
+    (error: unknown) => {
+      recordEvent(
+        {
+          event: "snapshot.last_prepare_unreadable",
+          outcome: "degraded",
+          reason: error instanceof Error ? error.message : String(error),
+          workspace: workspace.rootPath,
+        },
+        { env },
+      );
+      return undefined;
+    },
   );
   if (last && last.packFiles.length > 0) {
     lines.push(
@@ -173,6 +207,22 @@ async function orientationText(
     "When you stop, Prism runs the checks this change reaches and prints a receipt.",
   );
   return clip(lines.join("\n"), ORIENTATION_MAX);
+}
+
+async function previousGeneration(path: string): Promise<number> {
+  let text: string;
+  try {
+    text = await readFile(path, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return 0;
+    throw error;
+  }
+  try {
+    const value = (JSON.parse(text) as { generation?: unknown }).generation;
+    return typeof value === "number" && Number.isInteger(value) ? value : 0;
+  } catch {
+    return 0; // a torn or older file restarts the count; it is about to be replaced
+  }
 }
 
 export async function buildHookSnapshot(
@@ -206,10 +256,19 @@ export async function buildHookSnapshot(
   ].slice(0, OFF_LIMITS_CAP);
 
   const needsSignOff = await highBlastFiles(workspace);
+  const head = readGitHead(workspace.rootPath);
+  const generation =
+    (await previousGeneration(hookSnapshotPath(workspace.rootPath, env))) + 1;
   return {
     version: HOOK_SNAPSHOT_VERSION,
     workspace: workspace.rootPath,
     generatedAt: new Date().toISOString(),
+    schemaVersion: HOOK_SNAPSHOT_VERSION,
+    buildId: daemonBuildId(),
+    headSha: head?.sha ?? null,
+    branch: head?.branch ?? null,
+    generation,
+    indexedAt: index.value.indexedAt,
     orientation: await orientationText(
       workspace,
       paths,
@@ -221,6 +280,43 @@ export async function buildHookSnapshot(
     needsSignOff,
     hookArmed: await hookArmed(workspace, paths),
   };
+}
+
+/** Writes the snapshot and records the outcome; never throws. */
+export async function refreshHookSnapshot(
+  workspace: PrismWorkspace,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<void> {
+  const started = Date.now();
+  try {
+    const written = await writeHookSnapshot(workspace, env);
+    recordEvent(
+      written
+        ? {
+            event: "snapshot.write",
+            outcome: "ok",
+            workspace: workspace.rootPath,
+            durationMs: Date.now() - started,
+          }
+        : {
+            event: "snapshot.write",
+            outcome: "skipped",
+            reason: "no index",
+            workspace: workspace.rootPath,
+          },
+      { env },
+    );
+  } catch (error) {
+    recordEvent(
+      {
+        event: "snapshot.write",
+        outcome: "error",
+        reason: error instanceof Error ? error.message : String(error),
+        workspace: workspace.rootPath,
+      },
+      { env },
+    );
+  }
 }
 
 /** Atomic write so a hook never reads half a file. */

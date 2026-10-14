@@ -18,12 +18,10 @@ import type { ToolDefinition } from "./tool-registry.js";
 import { GRAPH_TOOLS } from "./tools/graphs.js";
 import { IMPACT_TOOLS } from "./tools/impact.js";
 import { ORIENTATION_TOOLS } from "./tools/orientation.js";
-import { REPORT_TOOLS } from "./tools/reports.js";
 import { prepareChange } from "./tools/prepare.js";
-import { workOrder } from "./tools/work-order.js";
 import { graph } from "./tools/graph.js";
 import { guardSession } from "./tools/guard.js";
-import { lensTool, reviewWith } from "./tools/lenses.js";
+import { reviewWith } from "./tools/lenses.js";
 import { agentsMd } from "./tools/agents-md.js";
 import { listFindings } from "./tools/findings.js";
 
@@ -35,39 +33,67 @@ export const HERO_TOOL_NAMES = [
 ] as const;
 
 /**
- * Default `tools/list` (M-091, ADR-0064). The hero tools, plus the tools the
- * shipped skills, commands and prompts call. A test fails when one of those
- * names a tool that is not here. `PRISM_MCP_FULL=1` registers the rest.
+ * Default `tools/list` (plan §0.3): exactly nine tools. Every tool a shipped
+ * skill, command, prompt, hook or instruction names must be here
+ * (`skills-tools` contract test).
  */
 export const DEFAULT_TOOL_NAMES = [
   ...HERO_TOOL_NAMES,
   "test_impact",
+  "review_changes",
+  "safe_delete",
+  "rename_impact",
   "repository_overview",
   "graph",
 ] as const;
 
-export function visibleIntelligenceTools(
-  env: NodeJS.ProcessEnv = process.env,
-): readonly ToolDefinition<never>[] {
-  if (env.PRISM_MCP_FULL === "1") return TOOLS;
+/** Opt-in tools, enabled by name in `~/.prism/config.json` `extraTools[]`. */
+export const OPT_IN_TOOL_NAMES = [
+  "dependency_graph",
+  "knowledge_graph",
+  "dependency_cycles",
+  "list_packages",
+  "explain_area",
+  "explore_code",
+  "list_findings",
+  "agents_md",
+  "workspace_status",
+  "capabilities",
+  "review_with",
+] as const;
+
+export type ToolSelection = {
+  readonly tools: readonly ToolDefinition<never>[];
+  /** `extraTools[]` entries that name no opt-in tool (reported by `doctor`). */
+  readonly unknownExtraTools: readonly string[];
+};
+
+/** The default nine plus any opt-in tools named in `extraTools`. */
+export function selectTools(extraTools: readonly string[] = []): ToolSelection {
+  const optIn = new Set<string>(OPT_IN_TOOL_NAMES);
   const visible = new Set<string>(DEFAULT_TOOL_NAMES);
-  return TOOLS.filter((tool) => visible.has(tool.name));
+  const unknownExtraTools: string[] = [];
+  for (const name of extraTools) {
+    if (optIn.has(name)) visible.add(name);
+    else if (!visible.has(name)) unknownExtraTools.push(name);
+  }
+  return {
+    tools: TOOLS.filter((tool) => visible.has(tool.name)),
+    unknownExtraTools,
+  };
 }
 
 export const TOOLS: readonly ToolDefinition<never>[] = [
   prepareChange,
   graph,
-  workOrder,
   guardSession,
   reviewWith,
-  lensTool,
   agentsMd,
   listFindings,
   ...ORIENTATION_TOOLS,
   ...GRAPH_TOOLS,
   ...IMPACT_TOOLS,
-  ...REPORT_TOOLS,
 ] as unknown as readonly ToolDefinition<never>[];
 
-/** Every tool `PRISM_MCP_FULL=1` registers. Prism has no Dispatch tools. */
+/** Every registered tool name: the default nine plus the opt-in tools. */
 export const TOOL_NAMES: readonly string[] = TOOLS.map((tool) => tool.name);

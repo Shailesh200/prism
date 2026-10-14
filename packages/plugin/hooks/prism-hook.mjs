@@ -6,21 +6,41 @@
  * wrote at index time, so they stay under the latency budget and never wait
  * on an index. Stop runs the change receipt, which does the real checks.
  *
- * Zero dependencies: this file is copied into the plugin pack as-is.
+ * No snapshot, or a snapshot for another HEAD (plan §2.4): the hook answers
+ * `{}` and records why. No binary (plan §2.2): `{}` plus `install.missing_bin`.
+ * Every outcome goes to `~/.prism/events.jsonl` (plan §2.5); nothing is
+ * swallowed silently. `npx` is never used.
+ *
+ * Zero dependencies: this file is copied into the plugin pack as-is. The
+ * binary order, git-HEAD reader and event line mirror
+ * `@repo-prism/shared/{prism-bin,git-head,events}`; contract tests hold them
+ * together.
  */
 
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
+  accessSync,
   appendFileSync,
+  constants,
   existsSync,
   mkdirSync,
   openSync,
   readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join, relative, resolve } from "node:path";
+import {
+  delimiter,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+} from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -33,13 +53,68 @@ if (process.env.PRISM_HOOKS === "0") {
   process.exit(0);
 }
 
-function readStdin() {
+const SNAPSHOT_VERSION = 2;
+const EVENTS_MAX_BYTES = 5 * 1024 * 1024;
+const EVENTS_GENERATIONS = 3;
+
+function home() {
+  const override = process.env.PRISM_HOME?.trim();
+  return override || join(homedir(), ".prism");
+}
+
+function message(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** Same line and rotation as `@repo-prism/shared/events`. */
+function recordEvent(entry) {
+  const path = join(home(), "events.jsonl");
   try {
-    const raw = readFileSync(0, "utf8");
-    if (!raw.trim()) return {};
+    mkdirSync(home(), { recursive: true, mode: 0o700 });
+    if (existsSync(path) && statSync(path).size >= EVENTS_MAX_BYTES) {
+      rmSync(`${path}.${EVENTS_GENERATIONS - 1}`, { force: true });
+      for (let n = EVENTS_GENERATIONS - 2; n >= 1; n -= 1) {
+        if (existsSync(`${path}.${n}`))
+          renameSync(`${path}.${n}`, `${path}.${n + 1}`);
+      }
+      renameSync(path, `${path}.1`);
+    }
+    appendFileSync(
+      path,
+      `${JSON.stringify({ ts: new Date().toISOString(), pid: process.pid, ...entry })}\n`,
+      { mode: 0o600 },
+    );
+  } catch (error) {
+    // The event log is the hook's only diary; if it cannot be written, say so
+    // on stderr (hosts show it in debug logs) and still answer the host.
+    process.stderr.write(
+      `prism-hook: events.jsonl not written: ${message(error)}\n`,
+    );
+  }
+}
+
+function readStdin() {
+  let raw;
+  try {
+    raw = readFileSync(0, "utf8");
+  } catch (error) {
+    recordEvent({
+      event: `hook.${event}`,
+      outcome: "degraded",
+      reason: `stdin unreadable: ${message(error)}`,
+    });
+    return {};
+  }
+  if (!raw.trim()) return {};
+  try {
     const parsed = JSON.parse(raw);
     return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
+  } catch (error) {
+    recordEvent({
+      event: `hook.${event}`,
+      outcome: "degraded",
+      reason: `stdin is not JSON: ${message(error)}`,
+    });
     return {};
   }
 }
@@ -76,15 +151,51 @@ function rootCandidates() {
 let cwd = resolve(process.cwd());
 let cwdSource = "process.cwd";
 
-function home() {
-  const override = process.env.PRISM_HOME?.trim();
-  return override || join(homedir(), ".prism");
-}
-
 function workspaceKey(root) {
   return createHash("sha256").update(resolve(root)).digest("hex").slice(0, 24);
 }
 
+function readFileOrNull(path) {
+  try {
+    return readFileSync(path, "utf8");
+  } catch (error) {
+    const code = error?.code;
+    if (code === "ENOENT" || code === "EISDIR" || code === "ENOTDIR")
+      return null;
+    throw error;
+  }
+}
+
+/** Same rules as `@repo-prism/shared/git-head`. */
+function readGitHead(root) {
+  let gitDir = join(root, ".git");
+  const dotGit = readFileOrNull(gitDir);
+  if (dotGit !== null) {
+    const m = /^gitdir:\s*(.+)\s*$/m.exec(dotGit);
+    if (!m?.[1]) return null;
+    gitDir = isAbsolute(m[1]) ? m[1] : resolve(root, m[1]);
+  }
+  const head = readFileOrNull(join(gitDir, "HEAD"));
+  if (head === null) return null;
+  const ref = /^ref:\s*(\S+)/.exec(head.trim());
+  if (!ref?.[1]) return { sha: head.trim() || null, branch: null };
+  const name = ref[1];
+  const branch = name.startsWith("refs/heads/") ? name.slice(11) : name;
+  const common = readFileOrNull(join(gitDir, "commondir"));
+  const refDir = common ? resolve(gitDir, common.trim()) : gitDir;
+  const loose =
+    readFileOrNull(join(gitDir, name)) ?? readFileOrNull(join(refDir, name));
+  if (loose) return { sha: loose.trim(), branch };
+  for (const line of (readFileOrNull(join(refDir, "packed-refs")) ?? "").split(
+    "\n",
+  )) {
+    const [sha, refName] = line.trim().split(" ");
+    if (refName === name && sha) return { sha, branch };
+  }
+  return { sha: null, branch };
+}
+
+/** The snapshot for `root`, or `{ missing: reason }`. */
 function readSnapshot(root = cwd) {
   const path = join(
     home(),
@@ -93,45 +204,59 @@ function readSnapshot(root = cwd) {
     "hooks",
     "snapshot.json",
   );
-  if (!existsSync(path)) return null;
+  let text;
   try {
-    const data = JSON.parse(readFileSync(path, "utf8"));
-    if (data?.version !== 1 || typeof data.workspace !== "string") return null;
-    if (resolve(data.workspace) !== resolve(root)) return null;
-    return data;
-  } catch {
-    return null;
+    text = readFileOrNull(path);
+  } catch (error) {
+    return { missing: `snapshot unreadable: ${message(error)}` };
   }
+  if (text === null) return { missing: "no snapshot yet" };
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (error) {
+    return { missing: `snapshot is not JSON: ${message(error)}` };
+  }
+  if (
+    data?.version !== SNAPSHOT_VERSION ||
+    typeof data.workspace !== "string"
+  ) {
+    return {
+      missing: `snapshot version ${data?.version}, want ${SNAPSHOT_VERSION}`,
+    };
+  }
+  if (resolve(data.workspace) !== resolve(root))
+    return { missing: "snapshot is for another root" };
+  let head;
+  try {
+    head = readGitHead(root);
+  } catch (error) {
+    return { missing: `git HEAD unreadable: ${message(error)}` };
+  }
+  if (head?.sha && data.headSha && head.sha !== data.headSha) {
+    return {
+      missing: `stale snapshot: indexed ${String(data.headSha).slice(0, 12)}, HEAD ${head.sha.slice(0, 12)}`,
+    };
+  }
+  return { snap: data };
 }
 
-function log(said) {
-  try {
-    const dir = home();
-    mkdirSync(dir, { recursive: true });
-    appendFileSync(
-      join(dir, "hook-log"),
-      `${JSON.stringify({
-        ts: new Date().toISOString(),
-        hook: event,
-        durationMs: Date.now() - started,
-        copy: here,
-        cwd,
-        cwdSource,
-        said: String(said).slice(0, 240),
-      })}\n`,
-    );
-  } catch {
-    /* a log failure must not fail the hook */
-  }
+/** `outcome` is ok unless the hook could not do its job; then `reason` says why. */
+function log(said, outcome = "ok") {
+  recordEvent({
+    event: `hook.${event}`,
+    outcome,
+    ...(outcome === "ok" ? {} : { reason: String(said).slice(0, 240) }),
+    workspace: cwd,
+    durationMs: Date.now() - started,
+    detail: { said: String(said).slice(0, 240), cwdSource, copy: here },
+  });
 }
 
-function emit(payload, said) {
-  log(said);
+function emit(payload, said, outcome = "ok") {
+  log(said, outcome);
   process.stdout.write(JSON.stringify(payload));
 }
-
-const WARMING =
-  "Prism is still indexing this repository. It will start checking edits once that finishes.";
 
 function relPath(file) {
   if (typeof file !== "string" || !file) return null;
@@ -159,18 +284,25 @@ function match(rel, rows) {
 
 /** Files in the last Prepare pack for this workspace, if it is recent. */
 function lastPackFiles() {
+  let all;
   try {
-    const all = JSON.parse(
-      readFileSync(join(home(), "prepare-history.json"), "utf8"),
-    );
-    const last = all?.[cwd]?.[0];
-    if (!last || !Array.isArray(last.packFiles)) return null;
-    const age = Date.now() - Date.parse(last.generatedAt ?? "");
-    if (!(age >= 0 && age < 2 * 60 * 60 * 1000)) return null;
-    return new Set(last.packFiles.map((f) => f?.path).filter(Boolean));
-  } catch {
+    const text = readFileOrNull(join(home(), "prepare-history.json"));
+    if (text === null) return null;
+    all = JSON.parse(text);
+  } catch (error) {
+    recordEvent({
+      event: "hook.prepare_history",
+      outcome: "degraded",
+      reason: message(error),
+      workspace: cwd,
+    });
     return null;
   }
+  const last = all?.[cwd]?.[0];
+  if (!last || !Array.isArray(last.packFiles)) return null;
+  const age = Date.now() - Date.parse(last.generatedAt ?? "");
+  if (!(age >= 0 && age < 2 * 60 * 60 * 1000)) return null;
+  return new Set(last.packFiles.map((f) => f?.path).filter(Boolean));
 }
 
 function beforeEdit(snap) {
@@ -235,25 +367,86 @@ function afterEdit(snap) {
   );
 }
 
-function mcpBin() {
-  if (process.env.PRISM_MCP_BIN) return process.env.PRISM_MCP_BIN;
+function isNodeScript(path) {
+  return /\.[cm]?js$/.test(path);
+}
+
+function executable(path) {
+  try {
+    accessSync(
+      path,
+      process.platform === "win32" || isNodeScript(path)
+        ? constants.F_OK
+        : constants.X_OK,
+    );
+    return true;
+  } catch {
+    return false; // not executable is the answer, not a failure
+  }
+}
+
+/**
+ * Plan §2.2, same order as `resolvePrismBin`: PRISM_MCP_BIN → install.json
+ * `bin` → `prism-mcp` on PATH → the dev build next to this pack. Never npx.
+ */
+function resolveBin() {
+  const env = process.env.PRISM_MCP_BIN?.trim();
+  if (env && executable(env)) return env;
+  let install = null;
+  try {
+    const text = readFileOrNull(join(home(), "install.json"));
+    install = text === null ? null : JSON.parse(text);
+  } catch (error) {
+    recordEvent({
+      event: "install.record_invalid",
+      outcome: "degraded",
+      reason: message(error),
+    });
+  }
+  if (typeof install?.bin === "string" && executable(install.bin))
+    return install.bin;
+  const exts =
+    process.platform === "win32"
+      ? (process.env.PATHEXT ?? ".EXE;.CMD;.BAT").split(";").filter(Boolean)
+      : [""];
+  for (const dir of (process.env.PATH ?? "").split(delimiter).filter(Boolean)) {
+    for (const ext of exts) {
+      const candidate = join(dir, `prism-mcp${ext.toLowerCase()}`);
+      if (executable(candidate)) return candidate;
+    }
+  }
   for (const rel of [
     "../../mcp-server/dist/bin.js",
     "../../../mcp-server/dist/bin.js",
   ]) {
     const path = join(here, rel);
-    if (existsSync(path)) return path;
+    if (executable(path)) return path;
   }
   return null;
 }
 
+/** argv for running the binary: `.js` dev builds go through this node. */
+function binCommand(bin, args) {
+  return isNodeScript(bin) ? [process.execPath, [bin, ...args]] : [bin, args];
+}
+
+function missingBin() {
+  recordEvent({
+    event: "install.missing_bin",
+    outcome: "error",
+    reason: "no prism-mcp: run `prism install`",
+    workspace: cwd,
+  });
+}
+
 function stop() {
   if (input.stop_hook_active === true) return emit({}, "already continuing");
-  const bin = mcpBin();
-  const args = bin
-    ? [bin, "--hook", "stop"]
-    : ["-y", "@repo-prism/mcp-server", "--hook", "stop"];
-  const cmd = bin ? process.execPath : "npx";
+  const bin = resolveBin();
+  if (!bin) {
+    missingBin();
+    return emit({}, "no binary for the receipt", "error");
+  }
+  const [cmd, args] = binCommand(bin, ["--hook", "stop"]);
   const child = spawnSync(cmd, args, {
     cwd,
     encoding: "utf8",
@@ -272,6 +465,7 @@ function stop() {
         },
       },
       "receipt failed",
+      "degraded",
     );
   }
   log("receipt");
@@ -282,40 +476,80 @@ function stop() {
  * Start the graph daemon with this repository warm, or ask a running one to
  * index it (ADR-0063). Never waits for an index.
  */
-function startDaemon() {
+async function daemonAnswers(record) {
+  try {
+    const res = await fetch(`http://127.0.0.1:${record.port}/v1/health`, {
+      headers: { Authorization: `Bearer ${record.token}` },
+      signal: AbortSignal.timeout(250),
+    });
+    return res.status === 200;
+  } catch {
+    return false; // unreachable is the answer: start a daemon
+  }
+}
+
+async function startDaemon() {
   const flag = process.env.PRISM_DAEMON;
   if (flag === "0") return;
   if (flag !== "1" && (process.env.VITEST || process.env.BUN_TEST)) return;
-  const bin = mcpBin();
-  if (!bin) return;
+  const bin = resolveBin();
+  if (!bin) return missingBin();
   const dir = join(home(), "daemon");
+  let record = null;
   try {
-    const record = JSON.parse(readFileSync(join(dir, "daemon.json"), "utf8"));
-    process.kill(record.pid, 0);
-    fetch(`http://127.0.0.1:${record.port}/v1/workspaces`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${record.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ root: cwd }),
-      signal: AbortSignal.timeout(300),
-    }).catch(() => undefined);
+    const text = readFileOrNull(join(dir, "daemon.json"));
+    record = text === null ? null : JSON.parse(text);
+  } catch (error) {
+    recordEvent({
+      event: "hook.daemon_record",
+      outcome: "degraded",
+      reason: message(error),
+    });
+  }
+  // A token-checked health answer, not a pid probe, says a daemon is alive.
+  if (
+    record &&
+    typeof record.port === "number" &&
+    (await daemonAnswers(record))
+  ) {
+    try {
+      await fetch(`http://127.0.0.1:${record.port}/v1/workspaces`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${record.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ root: cwd }),
+        signal: AbortSignal.timeout(300),
+      });
+    } catch (error) {
+      recordEvent({
+        event: "hook.daemon_warm",
+        outcome: "degraded",
+        reason: message(error),
+        workspace: cwd,
+      });
+    }
     return;
-  } catch {
-    /* no live daemon: start one below */
   }
   try {
     mkdirSync(dir, { recursive: true, mode: 0o700 });
     const out = openSync(join(dir, "daemon.log"), "a", 0o600);
-    const child = spawn(process.execPath, [bin, "--daemon", "--warm", cwd], {
+    const [cmd, args] = binCommand(bin, ["--daemon", "--warm", cwd]);
+    const child = spawn(cmd, args, {
       detached: true,
       stdio: ["ignore", out, out],
       env: { ...process.env, PRISM_DAEMON: "1" },
     });
     child.unref();
-  } catch {
-    /* the MCP server starts one on its first connection anyway */
+  } catch (error) {
+    // The MCP server starts one on its first connection anyway.
+    recordEvent({
+      event: "hook.daemon_start",
+      outcome: "degraded",
+      reason: message(error),
+      workspace: cwd,
+    });
   }
 }
 
@@ -348,8 +582,13 @@ function recordSession() {
       const prior = JSON.parse(readFileSync(path, "utf8"));
       if (prior?.sessionId === id) return;
     }
-  } catch {
-    /* rewrite a corrupt file */
+  } catch (error) {
+    recordEvent({
+      event: "hook.session_baseline",
+      outcome: "degraded",
+      reason: `rewriting corrupt session.json: ${message(error)}`,
+      workspace: cwd,
+    });
   }
   const changed = gitLines(["diff", "--name-only", "--relative", "HEAD"]);
   const untracked = gitLines(["ls-files", "--others", "--exclude-standard"]);
@@ -364,8 +603,14 @@ function recordSession() {
         dirty: [...new Set([...(changed ?? []), ...(untracked ?? [])])].sort(),
       }),
     );
-  } catch {
-    /* the receipt falls back to the whole working tree */
+  } catch (error) {
+    // The receipt falls back to the whole working tree.
+    recordEvent({
+      event: "hook.session_baseline",
+      outcome: "degraded",
+      reason: message(error),
+      workspace: cwd,
+    });
   }
 }
 
@@ -378,10 +623,14 @@ function prompt() {
   if (process.env.PRISM_AUTOPREPARE === "0") return emit({}, "autoprepare off");
   const text = typeof input.prompt === "string" ? input.prompt : "";
   if (!CHANGE_VERB.test(text)) return emit({}, "not a change request");
-  const bin = mcpBin();
-  if (!bin) return emit({}, "no local server for auto-prepare");
+  const bin = resolveBin();
+  if (!bin) {
+    missingBin();
+    return emit({}, "no binary for auto-prepare", "error");
+  }
   const limit = Number(process.env.PRISM_AUTOPREPARE_MS ?? 4000);
-  const child = spawnSync(process.execPath, [bin, "--hook", "prompt"], {
+  const [cmd, args] = binCommand(bin, ["--hook", "prompt"]);
+  const child = spawnSync(cmd, args, {
     cwd,
     input: JSON.stringify(input),
     encoding: "utf8",
@@ -390,25 +639,32 @@ function prompt() {
   });
   const out = (child.stdout ?? "").trim();
   const why = (child.stderr ?? "").trim().split("\n").pop() ?? "";
-  if (!out || out === "{}") return emit({}, why || "auto-prepare skipped");
+  if (!out || out === "{}")
+    return emit({}, why || "auto-prepare skipped", "skipped");
   log(why || "auto-prepare");
   process.stdout.write(out.endsWith("\n") ? out : `${out}\n`);
 }
 
+let missingReason = "no snapshot yet";
+
 function chooseWorkspace() {
   const candidates = rootCandidates();
+  let firstMiss = null;
   for (const candidate of candidates) {
-    if (readSnapshot(candidate.path)) {
+    const read = readSnapshot(candidate.path);
+    if (read.snap) {
       cwd = candidate.path;
       cwdSource = candidate.source;
-      return readSnapshot(candidate.path);
+      return read.snap;
     }
+    firstMiss ??= read.missing;
   }
   const first = candidates[0];
   if (first) {
     cwd = first.path;
     cwdSource = first.source;
   }
+  if (firstMiss) missingReason = firstMiss;
   return null;
 }
 
@@ -416,18 +672,9 @@ const snap = chooseWorkspace();
 
 if (event === "session") {
   recordSession();
-  startDaemon();
+  await startDaemon();
   if (!snap) {
-    emit(
-      {
-        systemMessage: WARMING,
-        hookSpecificOutput: {
-          hookEventName: "SessionStart",
-          additionalContext: WARMING,
-        },
-      },
-      "warming",
-    );
+    emit({}, missingReason, "skipped");
   } else {
     emit(
       {
@@ -440,24 +687,15 @@ if (event === "session") {
     );
   }
 } else if (event === "before-edit") {
-  if (!snap)
-    emit(
-      {
-        hookSpecificOutput: {
-          hookEventName: "PreToolUse",
-          additionalContext: WARMING,
-        },
-      },
-      "warming",
-    );
+  if (!snap) emit({}, missingReason, "skipped");
   else beforeEdit(snap);
 } else if (event === "after-edit") {
-  if (!snap) emit({}, "warming");
+  if (!snap) emit({}, missingReason, "skipped");
   else afterEdit(snap);
 } else if (event === "prompt") {
   prompt();
 } else if (event === "stop") {
   stop();
 } else {
-  emit({}, "unknown event");
+  emit({}, `unknown event ${event}`, "skipped");
 }

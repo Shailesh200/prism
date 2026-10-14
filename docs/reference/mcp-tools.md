@@ -8,62 +8,38 @@ description: "Every tool the Prism MCP server exposes, generated from the tool r
 Every tool the Prism MCP server exposes, generated from the tool registry
 the server is built from.
 
-Intelligence tools are read-only Core adapters. Dispatch tools (jobs, memory,
-configure) write state under `~/.prism/workspaces/<key>/dispatch/` and do not index.
-Prism holds no third-party credentials: connectors belong to the agent window,
-and Prism composes with whatever it already has (ADR-0049).
-Core analysis APIs stay ungated from MCP. See
-[Consent and privacy](../concepts/consent-and-privacy.md) and
-[Dispatch](../mcp/dispatch.md).
+All tools are read-only adapters over Prism's local index; none makes a
+network call or holds a credential.
 
 Tools that return a list accept `limit` and answer with `totalCount` and
 `truncated`, so an agent can tell the first 20 of 340 from all 20 there are.
 
-Prism exposes **40 tools**. Every count elsewhere in the docs is
-checked against this one, so the number cannot drift into prose.
+An agent sees **9 default tools**. The other 11 are opt-in:
+list them in `extraTools` in `~/.prism/config.json`. Every count elsewhere in
+the docs is checked against these, so the numbers cannot drift into prose.
 
-| Tool | What it answers |
-|---|---|
-| [`agents_md`](#agents_md) | Generate or verify the Living AGENTS.md |
-| [`backend_report`](#backend_report) | Route-granular backend intelligence |
-| [`blast_radius`](#blast_radius) | What depends on a file or symbol, and how risky changing it is |
-| [`breaking_change_hints`](#breaking_change_hints) | Deprecated |
-| [`capabilities`](#capabilities) | List every Core analysis capability and consent-gated integration with availability and a reason when unavailable |
-| [`changed_paths`](#changed_paths) | List workspace-relative paths changed in the working tree, or against an optional git base ref |
-| [`dependency_cycles`](#dependency_cycles) | Import and re-export cycles, each returned as the list of files forming the loop |
-| [`dependency_graph`](#dependency_graph) | The import/re-export dependency graph, at file level or aggregated to packages |
-| [`dependency_route`](#dependency_route) | Show how one file or symbol reaches another through the dependency graph, with alternative paths |
-| [`engineering_health`](#engineering_health) | The deep engineering view |
-| [`explain_area`](#explain_area) | Explain what a module or folder does |
-| [`explore_code`](#explore_code) | Everything about one file or symbol in a single call |
-| [`feature_graph`](#feature_graph) | Inferred features and how they depend on each other |
-| [`find_references`](#find_references) | Find resolved references to a symbol — who actually calls or imports it |
-| [`find_symbol`](#find_symbol) | Find indexed symbols by exact name, optionally narrowed by file or kind |
-| [`graph`](#graph) | One structural question about the repository, answered from Prism's local graph |
-| [`guard_session`](#guard_session) | Rank the current dirty session — working-tree changes minus preExistingChanges, when you have that list from a job — by blast risk, so a human reads the highest-risk file first |
-| [`health_history`](#health_history) | Health score over time from stored index snapshots and optional git backfill |
-| [`knowledge_graph`](#knowledge_graph) | The symbol-level graph — declarations and the references between them — with summary stats |
-| [`landmarks`](#landmarks) | Named entrypoints, package roots and feature anchors — the places a human would open first |
-| [`lens`](#lens) | List, show, edit, remove, re-seed, or overrule a review lens |
-| [`list_features`](#list_features) | Inferred features with their member files and a confidence score |
-| [`list_findings`](#list_findings) | Queueable findings from the last index |
-| [`list_packages`](#list_packages) | List the packages in a monorepo with their roots |
-| [`prepare_change`](#prepare_change) | One call before you edit |
-| [`rename_impact`](#rename_impact) | Every edit site a rename would touch, plus breaking-change hints for public surface |
-| [`repository_dna`](#repository_dna) | Identify what a repository *is* |
-| [`repository_health`](#repository_health) | Score overall repository health from 0-100 with the per-factor breakdown behind the score |
-| [`repository_map`](#repository_map) | Return the repository's structural map at a zoom level |
-| [`repository_overview`](#repository_overview) | The dashboard summary in one call |
-| [`review_changes`](#review_changes) | Review changed paths in one call |
-| [`review_with`](#review_with) | Review a task or the current change through one or more lenses (Architect, QA, Dev by default) |
-| [`safe_delete`](#safe_delete) | Whether a file or symbol can be deleted safely |
-| [`search_symbols`](#search_symbols) | Substring or regex search over indexed symbol names (unlike find_symbol, which is exact-match only) |
-| [`security_report`](#security_report) | Left-shift security posture |
-| [`stack_profile`](#stack_profile) | Detected stack for the workspace or a single package |
-| [`test_impact`](#test_impact) | Which test files transitively cover a change target — the tests worth running after touching it |
-| [`testing_report`](#testing_report) | Test structure and, when coverage artifacts are already on disk, coverage |
-| [`work_order`](#work_order) | The work order for a task |
-| [`workspace_status`](#workspace_status) | Compact workspace readiness |
+| Tool | Default | What it answers |
+|---|---|---|
+| [`agents_md`](#agents_md) | opt-in | Generate or verify the Living AGENTS.md |
+| [`blast_radius`](#blast_radius) | yes | What depends on a file or symbol, and how risky changing it is |
+| [`capabilities`](#capabilities) | opt-in | List every Core analysis capability with availability and a reason when unavailable |
+| [`dependency_cycles`](#dependency_cycles) | opt-in | Import and re-export cycles, each returned as the list of files forming the loop |
+| [`dependency_graph`](#dependency_graph) | opt-in | The import/re-export dependency graph, at file level or aggregated to packages |
+| [`explain_area`](#explain_area) | opt-in | Explain what a module or folder does |
+| [`explore_code`](#explore_code) | opt-in | Everything about one file or symbol in a single call |
+| [`graph`](#graph) | yes | One structural question about the repository, answered from Prism's local graph |
+| [`guard_session`](#guard_session) | yes | Rank the current dirty session — working-tree changes minus preExistingChanges, when you have that list from a job — by blast risk, so a human reads the highest-risk file first |
+| [`knowledge_graph`](#knowledge_graph) | opt-in | The symbol-level graph — declarations and the references between them — with summary stats |
+| [`list_findings`](#list_findings) | opt-in | Queueable findings from the last index |
+| [`list_packages`](#list_packages) | opt-in | List the packages in a monorepo with their roots |
+| [`prepare_change`](#prepare_change) | yes | One call before you edit |
+| [`rename_impact`](#rename_impact) | yes | Every edit site a rename would touch, plus breaking-change hints for public surface |
+| [`repository_overview`](#repository_overview) | yes | What this repository is, in one bounded call |
+| [`review_changes`](#review_changes) | yes | Review changed paths in one call |
+| [`review_with`](#review_with) | opt-in | Review a task or the current change through a lens |
+| [`safe_delete`](#safe_delete) | yes | Whether a file or symbol can be deleted safely |
+| [`test_impact`](#test_impact) | yes | Which test files transitively cover a change target — the tests worth running after touching it |
+| [`workspace_status`](#workspace_status) | opt-in | Compact workspace readiness |
 
 ## `agents_md`
 
@@ -71,35 +47,17 @@ Generate or verify the Living AGENTS.md: features, import cycles, test locations
 
 Arguments: `action`.
 
-## `backend_report`
-
-Route-granular backend intelligence: HTTP endpoints, auth posture, data layer, environment variables and background jobs. Use when the question is specifically about the server side. Static heuristics over Express, Nest and Fastify — nothing is executed.
-
-Arguments: `packageId`.
-
 ## `blast_radius`
 
 What depends on a file or symbol, and how risky changing it is: direct and transitive dependents, confidence lanes, evidence and a risk band. Results are import/soft-lane based — coverageLimitations lists classes it cannot see (DI containers, string-keyed registries, event buses, template/i18n refs, runtime-loaded config, generated-code consumers). Call this before editing or deleting code you did not write. Use intent 'delete' when removing rather than modifying. affectedFiles and testsLikelyAffected are bounded (default 50).
 
 Arguments: `kind`, `id`, `path`, `intent`, `limit`.
 
-## `breaking_change_hints`
-
-Deprecated: breaking-change hints are included in blast_radius (and review_changes). Prefer those tools. Heuristic hints about what a change to this target could break for consumers — exported surface, widely imported modules, public entrypoints. Heuristic by design: treat as prompts to check, not as findings.
-
-Arguments: `kind`, `id`, `path`.
-
 ## `capabilities`
 
-List every Core analysis capability and consent-gated integration with availability and a reason when unavailable. Use this to tell 'not supported by this build' apart from 'not consented / not exposed via MCP' — never guess why a network or build feature is missing.
+List every Core analysis capability with availability and a reason when unavailable. Use this to tell 'not supported by this build' apart from a real failure.
 
 Takes no arguments.
-
-## `changed_paths`
-
-List workspace-relative paths changed in the working tree, or against an optional git base ref. Use before review_changes when you need the path list alone, or let review_changes auto-discover by omitting paths. Fails when git is unavailable — that is not the same as an empty change set.
-
-Arguments: `base`.
 
 ## `dependency_cycles`
 
@@ -113,18 +71,6 @@ The import/re-export dependency graph, at file level or aggregated to packages. 
 
 Arguments: `packageAggregation`, `resolveAliases`, `limit`, `summaryOnly`.
 
-## `dependency_route`
-
-Show how one file or symbol reaches another through the dependency graph, with alternative paths. Use to answer 'how is this connected to that?' — an empty result means no path exists, which is itself an answer.
-
-Arguments: `from`, `to`, `maxAlternatives`, `maxHops`.
-
-## `engineering_health`
-
-The deep engineering view: hotspots, churn, complexity, ownership concentration, knowledge decay and debt indicators in one report. Use when asked to find what needs attention. Git-derived sections fail soft on repositories without history. For the single headline number use repository_health.
-
-Takes no arguments.
-
 ## `explain_area`
 
 Explain what a module or folder does: domain overlap, dependency in/out degree and local ownership. Use before editing an unfamiliar directory. For a single file target prefer explore_code (richer usages/ownership/timeline). Deterministic — derived from the index and local git, never generated prose.
@@ -136,24 +82,6 @@ Arguments: `path`.
 Everything about one file or symbol in a single call: usages, ownership, related and similar code, and a change timeline. Usages are bounded (default 50) via a nested envelope so large files do not drown the response. Use when asked to understand a specific thing rather than the repository as a whole.
 
 Arguments: `kind`, `path`, `name`, `start`, `limit`.
-
-## `feature_graph`
-
-Inferred features and how they depend on each other. Features are heuristic groupings of files, not a declared structure, so treat them as a starting point rather than ground truth. Bounded by default (limit 50 nodes); use summaryOnly for counts + top-degree nodes.
-
-Arguments: `limit`, `summaryOnly`.
-
-## `find_references`
-
-Find resolved references to a symbol — who actually calls or imports it. Pass path (and start when several symbols share a name) to disambiguate. Use before renaming or deleting anything.
-
-Arguments: `name`, `path`, `start`, `limit`.
-
-## `find_symbol`
-
-Find indexed symbols by exact name, optionally narrowed by file or kind. Use to locate a definition before asking about its impact. For substring or regex search use search_symbols.
-
-Arguments: `name`, `path`, `kind`, `limit`.
 
 ## `graph`
 
@@ -167,35 +95,11 @@ Rank the current dirty session — working-tree changes minus preExistingChanges
 
 Arguments: `preExistingChanges`.
 
-## `health_history`
-
-Health score over time from stored index snapshots and optional git backfill. Use to answer 'is this getting better or worse?'. Points carry provenance: backfilled points are estimated from history, not measured at the time, and say so.
-
-Arguments: `maxPoints`.
-
 ## `knowledge_graph`
 
-The symbol-level graph — declarations and the references between them — with summary stats. Requires path (scope to one file) or limit (bound nodes). Very large on a big repository. If you are looking for one symbol use find_symbol or search_symbols, and for its callers use find_references.
+The symbol-level graph — declarations and the references between them — with summary stats. Requires path (scope to one file) or limit (bound nodes). Very large on a big repository. If you are looking for one symbol use graph (mode find), and for its callers graph (mode neighbors, direction in).
 
 Arguments: `path`, `limit`.
-
-## `landmarks`
-
-Named entrypoints, package roots and feature anchors — the places a human would open first. Use to pick a starting file in an unfamiliar repository.
-
-Arguments: `limit`.
-
-## `lens`
-
-List, show, edit, remove, re-seed, or overrule a review lens. Lenses are Architect, QA, and Dev by default. Their repo facts are re-read from the index each time; everything is stored under ~/.prism, never in the repo. An override is remembered on that lens so the same false alarm does not return. action=list (default); show needs id; edit needs id plus the definition; remove needs id (custom lenses only); seed re-reads repo facts; override needs reviewId and note.
-
-Arguments: `action`, `id`, `name`, `role`, `focus`, `tone`, `checklist`, `evidence`, `reviewId`, `note`.
-
-## `list_features`
-
-Inferred features with their member files and a confidence score. Cheaper than feature_graph when you only need the list. Low confidence means the grouping is a guess.
-
-Arguments: `limit`.
 
 ## `list_findings`
 
@@ -221,39 +125,21 @@ Every edit site a rename would touch, plus breaking-change hints for public surf
 
 Arguments: `kind`, `id`, `path`, `newName`.
 
-## `repository_dna`
-
-Identify what a repository *is*: detected languages, frameworks, package manager, architecture hints, test runners and ranked domains, each with the evidence behind it. Start here when you know nothing about a codebase. Local index only; no network.
-
-Takes no arguments.
-
-## `repository_health`
-
-Score overall repository health from 0-100 with the per-factor breakdown behind the score. Includes graphCoveragePct (share of inventory files in the TS/JS dependency graph) and a 'TS/JS import coupling' factor. Use to judge whether a codebase is in good shape or to find which factor drags it down. For the deeper engineering view (hotspots, churn, ownership, debt) call engineering_health instead.
-
-Takes no arguments.
-
-## `repository_map`
-
-Return the repository's structural map at a zoom level: nodes, edges and regions. Use to orient yourself or to find where a concern lives. Defaults to 'package' zoom (bounded). 'file' and 'symbol' can be very large on a big repository, so prefer the coarsest zoom that answers your question.
-
-Arguments: `zoom`, `layers`.
-
 ## `repository_overview`
 
-The dashboard summary in one call: totals, coupling density and band, the largest regions with health scores, the most connected nodes (with map kind), and recent commit activity. Use when you want a single orienting snapshot rather than four separate calls. Region scores are null where there is no evidence — that means 'not measured', not 'zero'.
+What this repository is, in one bounded call: languages, frameworks, package manager, test runners and ranked domains (dna), the detected stack, and the landmarks a human would open first (entrypoints, package roots). Start here when you know nothing about a codebase. Local index only; no network.
 
-Arguments: `zoom`, `activityDays`.
+Arguments: `packageId`, `limit`.
 
 ## `review_changes`
 
-Review changed paths in one call: blast radius, test impact and breaking-change hints per path, rolled up with an overall risk band. Omit paths to auto-discover via git (same as changed_paths); pass base to compare against a ref. Use for 'review my branch' rather than calling the per-file tools repeatedly.
+Review changed paths in one call: blast radius, test impact and breaking-change hints per path, rolled up with an overall risk band. Omit paths to auto-discover via git; pass base to compare against a ref. Use for 'review my branch' rather than calling the per-file tools repeatedly.
 
 Arguments: `paths`, `base`.
 
 ## `review_with`
 
-Review a task or the current change through one or more lenses (Architect, QA, Dev by default). action=brief returns one brief per lens — its checklist, memory, and evidence from the current change — for you to run as independent subagents. action=record stores the verdicts they return, with the evidence each lens was given. Prism does not call a model. Use when the user wants a second opinion from a role, or before treating a change as done.
+Review a task or the current change through a lens. Architect, QA, and Dev are the defaults; the owner can add their own. Omit lenses and Prism picks one from the task: a plan, a new feature, or a pull request uses Architect; finding bugs uses QA; a daily fix uses Dev. Naming a lens uses that one, including a custom lens. action=brief returns that lens's procedure, checklist, memory, and evidence for you to follow. action=record stores the verdict. Prism does not call a model.
 
 Arguments: `action`, `lenses`, `task`, `verdicts`.
 
@@ -263,41 +149,11 @@ Whether a file or symbol can be deleted safely: blockers that still depend on it
 
 Arguments: `kind`, `id`, `path`.
 
-## `search_symbols`
-
-Substring or regex search over indexed symbol names (unlike find_symbol, which is exact-match only). Optional kind/path filters. Hard-capped at 50 hits.
-
-Arguments: `pattern`, `regex`, `path`, `kind`, `limit`.
-
-## `security_report`
-
-Left-shift security posture: which tooling is configured, which fundamental checks are present or missing. A checklist against local configuration, not a vulnerability scan — it will not find CVEs and does not claim to.
-
-Takes no arguments.
-
-## `stack_profile`
-
-Detected stack for the workspace or a single package: frameworks, runtimes, build tooling and the signals each was detected from. Use when you need to know what a package is built with before changing its configuration.
-
-Arguments: `packageId`.
-
 ## `test_impact`
 
 Which test files transitively cover a change target — the tests worth running after touching it. Prism reports which tests are relevant; it does not run them. The tests list is bounded (default 50).
 
 Arguments: `kind`, `id`, `path`, `limit`.
-
-## `testing_report`
-
-Test structure and, when coverage artifacts are already on disk, coverage. Use to judge how well tested an area is. Prism reads existing artifacts; it never runs your tests.
-
-Takes no arguments.
-
-## `work_order`
-
-The work order for a task: in-scope files, off-limits (generated or vendor), and paths that need sign-off (high blast or shared ownership). Same compute as prepare_change.order. Optional path evaluates the advisory hook for that write — veto is false unless an Accepted ADR has armed the hook. Never file bodies.
-
-Arguments: `task`, `path`.
 
 ## `workspace_status`
 

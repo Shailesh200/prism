@@ -14,12 +14,13 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   callDaemonTool,
+  daemonHealth,
   daemonStatus,
   stopDaemon,
   warmDaemonWorkspace,
 } from "./client.js";
 import { daemonRecordPath } from "./paths.js";
-import { readDaemonRecord } from "./record.js";
+import { readDaemonRecord, writeDaemonRecord } from "./record.js";
 import { type DaemonTool, startDaemon } from "./server.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -137,6 +138,23 @@ describe("prism daemon (M-095)", () => {
     if (status.kind !== "ok") return;
     expect(status.value.pid).toBe(process.pid);
     expect(status.value.workspaces.map((row) => row.root)).toEqual([repo]);
+  });
+
+  it("DH-1 answers a token-checked health probe; a stale record with a live pid is not running", async () => {
+    await start();
+    const health = await daemonHealth({ env });
+    expect(health).toMatchObject({
+      kind: "ok",
+      value: { pid: process.pid, buildId: "test-build" },
+    });
+    const record = await readDaemonRecord(env);
+    if (!record) throw new Error("no record");
+    const health401 = await fetch(`http://127.0.0.1:${record.port}/v1/health`);
+    expect(health401.status).toBe(401);
+    // Same live pid (this process), wrong token: the probe, not the pid, decides.
+    await writeDaemonRecord({ ...record, token: "wrong" }, env);
+    expect((await daemonHealth({ env })).kind).not.toBe("ok");
+    await writeDaemonRecord(record, env);
   });
 
   it("refuses a second daemon while the first answers", async () => {

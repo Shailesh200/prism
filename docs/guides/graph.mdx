@@ -11,9 +11,9 @@ Ask the `graph` tool when you want to know where something is, what uses it, or 
 
 ```bash
 prism graph export
-prism graph open
 ```
 
-`export` writes three files: `graph.json`, `GRAPH_REPORT.md`, and `graph.html`. `open` writes the same files and opens `graph.html`. The HTML file has no network requests. You can send it to someone else and they can open it without Prism installed.
-
-`GRAPH_REPORT.md` lists only what was measured: the most connected files, import cycles, heavily imported files no test reaches, and orphans.
+`export` writes `graph.json`: every node and edge with its provenance, for your
+own tools. Prism 2.0 no longer writes an HTML page or a markdown report; ask
+the `graph` tool, or run `prism cycles` and `prism deps`, for the measured
+findings.

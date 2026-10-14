@@ -7,24 +7,16 @@ import { prismhqEvents, trackProps } from "@/lib/pulse";
 
 const SLIDES = [
   {
-    id: "ide",
-    label: "IDE Extension",
-    command: "code --install-extension prismhq.repo-prism",
-    hint: "Or search Prism in VS Code / Cursor Extensions",
-    href: "/docs/start/install",
-  },
-  {
     id: "cli",
-    label: "CLI",
-    command: "npx -y @repo-prism/cli doctor",
-    hint: "Run inside your project — uses the git root",
+    label: "Install",
+    command: "npm install -g @repo-prism/cli && prism install claude",
+    hint: "Or: cursor, codex, opencode, all — then prism doctor",
     href: "/docs/start/install",
   },
   {
     id: "mcp",
     label: "MCP",
-    command:
-      "claude mcp add prism -- npx -y --prefer-online @repo-prism/mcp-server@latest",
+    command: "claude mcp add prism -- prism-mcp",
     hint: `Cursor: use Add to Cursor below · ${PRISM_TOOL_COUNT} tools`,
     href: "/docs/start/install",
   },

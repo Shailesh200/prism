@@ -93,19 +93,6 @@ describe("workspace change-safety APIs (M-021)", () => {
     expect(res.value).toEqual(readGolden("test-impact-helper.golden.json"));
   });
 
-  it("breakingChangeHints flags an exported symbol", async () => {
-    const ws = await openIndexed();
-    if (!ws) return;
-    const res = await ws.breakingChangeHints({
-      kind: "symbol",
-      id: "add",
-      path: "helper.ts",
-    });
-    expect(res.ok).toBe(true);
-    if (!res.ok) return;
-    expect(res.value.map((h) => h.kind)).toContain("exported-symbol");
-  });
-
   it("errors for an unknown symbol", async () => {
     const ws = await openIndexed();
     if (!ws) return;

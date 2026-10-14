@@ -16,23 +16,15 @@ without git, including in shallow clones.
 **Confidence** — How much evidence agreed on an inference, as a percentage. Used
 on features and stack detection. Low confidence means it is a guess.
 
-**Consent purpose** — One named permission for one optional network or execution
-capability, recorded in `.prism/consent.json`. There is no master switch. See
-[consent and privacy](/docs/concepts/consent-and-privacy).
-
 **Dependency graph** — Files as nodes, imports as edges. The structural spine
 that impact analysis is computed from. See [graphs](/docs/concepts/graphs).
 
 **DNA** — The identity of a repository: languages, frameworks, domains, and
-conventions. Determines which domain screens appear. See
+conventions. See
 [DNA and stack](/docs/concepts/dna-and-stack).
 
-**Domain** — A broad area of a repository: frontend, backend, data,
-infrastructure. Detected, not configured. See
-[Investigate a domain](/docs/guides/investigate-domain).
-
-**Envelope** — A local JSONL ledger of Intelligence calls: tool, counts,
-truncated, bytes. Never source. Shown on the Iris screen. See
+**Envelope** — A local JSONL ledger of Prism tool calls: tool, counts,
+truncated, bytes. Never source. Shown by `prism stats`. See
 [Envelope](/docs/concepts/envelope).
 
 **Estimated** — Inferred rather than measured. Directionally useful; not precise.
@@ -65,7 +57,7 @@ matters; neither metric alone identifies it.
 landmarks, health, findings, and memories. The Iris screen in the IDE shows
 facts plus the Envelope scoreboard — not the repository map. An aperture, not a persona
 — never first person, never an avatar. See
-[Envelope and Iris](/docs/guides/envelope-and-iris).
+[Envelope and Iris](/docs/guides/envelope).
 
 **Spectrum** — The browser app (formerly Playground) that indexes a local
 repository. The same map appears in the IDE. The Iris screen does not mount

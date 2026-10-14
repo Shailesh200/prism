@@ -5,7 +5,7 @@
  * silently talk to the published package.
  */
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -138,19 +138,6 @@ export function scanSurfaces(home = homedir()): SurfaceHit[] {
           `${name} ${launchText(entry)}`,
         );
       }
-    }
-  }
-
-  const extensions = join(home, ".cursor", "extensions");
-  if (existsSync(extensions)) {
-    for (const name of readdirSync(extensions)) {
-      if (!name.startsWith("prismhq.repo-prism")) continue;
-      hits.push({
-        host: "cursor-extension",
-        where: join(extensions, name),
-        kind: "marketplace-extension",
-        detail: name,
-      });
     }
   }
 

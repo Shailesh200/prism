@@ -6,7 +6,6 @@
  * cannot describe a command that does not exist.
  */
 
-import { MAP_ZOOM_LEVELS } from "@repo-prism/shared";
 import { agentsMdCommand } from "./commands/agents-md.js";
 import { dataCommand } from "./commands/data-prune.js";
 import { envelopeCommand } from "./commands/envelope.js";
@@ -26,33 +25,18 @@ import {
   safeDeleteCommand,
   testImpactCommand,
 } from "./commands/change.js";
-import { dnaCommand } from "./commands/dna.js";
+import { overviewCommand } from "./commands/overview.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { indexCommand } from "./commands/index-command.js";
-import {
-  backendCommand,
-  bundleCommand,
-  engineeringCommand,
-  packagesCommand,
-  securityCommand,
-  testingCommand,
-} from "./commands/reports.js";
 import {
   cyclesCommand,
   depsCommand,
   refsCommand,
   routeCommand,
+  packagesCommand,
   symbolCommand,
 } from "./commands/structure.js";
-import {
-  explainCommand,
-  exploreCommand,
-  featuresCommand,
-  healthCommand,
-  landmarksCommand,
-  mapCommand,
-  stackCommand,
-} from "./commands/understand.js";
+import { explainCommand, exploreCommand } from "./commands/understand.js";
 import {
   FAIL_ON_BAND_OPTION,
   FAIL_ON_COUNT_OPTION,
@@ -112,26 +96,19 @@ export const COMMANDS: readonly CommandSpec[] = [
     arguments: [
       {
         syntax: "[action]",
-        description:
-          "status (default), serve, stop, refresh, export, open, or hooks",
-      },
-      {
-        syntax: "[hooks-action]",
-        description: "hooks: install (default) or uninstall",
+        description: "status (default), serve, stop, refresh, or export",
       },
     ],
     options: [
       {
         flags: "--out <dir>",
-        description:
-          "export and open: where to write graph.json, GRAPH_REPORT.md, and graph.html",
+        description: "export: where to write graph.json",
       },
     ],
     examples: [
       "prism graph",
       "prism graph serve",
       "prism graph export --out .prism/graph",
-      "prism graph hooks install",
     ],
   },
   {
@@ -155,33 +132,12 @@ export const COMMANDS: readonly CommandSpec[] = [
   },
 
   {
-    name: "dna",
+    name: "overview",
     group: "Understand a repository",
-    summary: "Identify languages, frameworks, domains and stack",
-    handler: dnaCommand,
-    examples: ["prism dna --json | jq '.data.frameworks'"],
-  },
-  {
-    name: "health",
-    group: "Understand a repository",
-    summary: "Overall health score and the factors behind it",
-    handler: healthCommand,
-    options: [FAIL_ON_BAND_OPTION],
-    examples: ["prism health --fail-on high"],
-  },
-  {
-    name: "map",
-    group: "Understand a repository",
-    summary: "Repository map: clusters, landmarks and layers",
-    handler: mapCommand,
-    options: [
-      {
-        flags: "--zoom <level>",
-        description: `Zoom level to render: ${MAP_ZOOM_LEVELS.join(", ")}`,
-      },
-      LIMIT_OPTION,
-    ],
-    examples: ["prism map --zoom package"],
+    summary: "What this repository is: DNA, stack and landmarks",
+    handler: overviewCommand,
+    options: [LIMIT_OPTION],
+    examples: ["prism overview --json | jq '.data.dna.frameworks'"],
   },
   {
     name: "explain",
@@ -201,29 +157,6 @@ export const COMMANDS: readonly CommandSpec[] = [
     ],
     options: [...SYMBOL_OPTIONS, LIMIT_OPTION],
     examples: ["prism explore src/index.ts"],
-  },
-  {
-    name: "stack",
-    group: "Understand a repository",
-    summary: "Detected stack signals, domains and personas",
-    handler: stackCommand,
-    examples: ["prism stack"],
-  },
-  {
-    name: "features",
-    group: "Understand a repository",
-    summary: "Inferred features and their confidence",
-    handler: featuresCommand,
-    options: [LIMIT_OPTION],
-    examples: ["prism features --limit 10"],
-  },
-  {
-    name: "landmarks",
-    group: "Understand a repository",
-    summary: "Entrypoints, package roots and feature anchors",
-    handler: landmarksCommand,
-    options: [LIMIT_OPTION],
-    examples: ["prism landmarks"],
   },
   {
     name: "packages",
@@ -395,51 +328,8 @@ export const COMMANDS: readonly CommandSpec[] = [
   },
 
   {
-    name: "engineering",
-    group: "Reports",
-    summary: "Entropy, drift, debt, churn and hotspots",
-    handler: engineeringCommand,
-    options: [FAIL_ON_BAND_OPTION, LIMIT_OPTION],
-    examples: ["prism engineering --fail-on high"],
-  },
-  {
-    name: "testing",
-    group: "Reports",
-    summary: "Test structure and on-disk coverage",
-    handler: testingCommand,
-    options: [FAIL_ON_BAND_OPTION, LIMIT_OPTION],
-    examples: ["prism testing"],
-  },
-  {
-    name: "security",
-    group: "Reports",
-    summary: "Left-shift tooling and configuration checklist",
-    handler: securityCommand,
-    options: [FAIL_ON_BAND_OPTION, LIMIT_OPTION],
-    examples: ["prism security --fail-on mid"],
-  },
-  {
-    name: "backend",
-    group: "Reports",
-    summary: "Routes, data layer, env vars and background jobs",
-    handler: backendCommand,
-    options: [LIMIT_OPTION],
-    examples: ["prism backend"],
-  },
-  {
-    name: "bundle",
-    group: "Reports",
-    summary: "Bundle weight from an ingested stats artifact",
-    handler: bundleCommand,
-    options: [
-      { flags: "--artifact <id>", description: "Ingested stats artifact id" },
-      LIMIT_OPTION,
-    ],
-    examples: ["prism bundle --artifact <id>"],
-  },
-  {
     name: "agents-md",
-    group: "Reports",
+    group: "Understand a repository",
     summary:
       "Generate or verify the Living AGENTS.md (never written to the repo)",
     handler: agentsMdCommand,
@@ -453,7 +343,7 @@ export const COMMANDS: readonly CommandSpec[] = [
   },
   {
     name: "findings",
-    group: "Reports",
+    group: "Understand a repository",
     summary: "Unused exports, duplicate implementations, wrapper functions",
     handler: findingsCommand,
     arguments: [

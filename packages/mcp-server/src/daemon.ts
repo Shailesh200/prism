@@ -11,6 +11,7 @@ import type { DaemonTool } from "@repo-prism/daemon/server";
 import { PrismErrorCode, err, ok, prismError } from "@repo-prism/shared";
 import { z } from "zod";
 import { daemonBuildId } from "./daemon-attach.js";
+import { recordEvent } from "@repo-prism/shared/events";
 import type { ToolDefinition } from "./tool-registry.js";
 import { TOOLS } from "./tools.js";
 
@@ -35,7 +36,7 @@ export function daemonToolFor(tool: ToolDefinition): DaemonTool {
   };
 }
 
-/** Every tool, hidden ones included: a `PRISM_MCP_FULL=1` client attaches too. */
+/** Every tool, opt-in ones included: a client with `extraTools[]` attaches too. */
 export function daemonTools(): Map<string, DaemonTool> {
   return new Map(
     (TOOLS as readonly ToolDefinition[]).map((tool) => [
@@ -62,38 +63,51 @@ export function debouncePerKey(
     if (previous) clearTimeout(previous);
     const timer = setTimeout(() => {
       timers.delete(key);
-      void task().catch(() => undefined);
+      void task().catch((error: unknown) =>
+        degraded("daemon.debounced", error, key),
+      );
     }, quietMs);
     timer.unref?.();
     timers.set(key, timer);
   };
 }
 
+function degraded(event: string, error: unknown, workspace: string): void {
+  recordEvent({
+    event,
+    outcome: "degraded",
+    reason: error instanceof Error ? error.message : String(error),
+    workspace,
+  });
+}
+
 /** What the daemon does after each index: pre-warm, hook snapshot, lenses. */
 export async function daemonOnIndexed(): Promise<
   (workspace: PrismWorkspace) => Promise<void>
 > {
-  const { writeHookSnapshot } = await import("./safety/snapshot.js");
+  const { refreshHookSnapshot } = await import("./safety/snapshot.js");
   const { seedLenses } = await import("@repo-prism/shared/lens-store");
   const snapshots = debouncePerKey(SNAPSHOT_QUIET_MS);
   const seeded = new Set<string>();
   return async (workspace) => {
     if (seeded.has(workspace.rootPath)) {
-      snapshots(workspace.rootPath, () =>
-        writeHookSnapshot(workspace).then(() => undefined),
-      );
+      snapshots(workspace.rootPath, () => refreshHookSnapshot(workspace));
       return;
     }
     seeded.add(workspace.rootPath);
     // First index: hooks are waiting on this file ("still indexing").
-    await writeHookSnapshot(workspace).catch(() => undefined);
-    await seedLenses(workspace).catch(() => undefined);
+    await refreshHookSnapshot(workspace);
+    await seedLenses(workspace).catch((error: unknown) =>
+      degraded("daemon.seed_lenses", error, workspace.rootPath),
+    );
     // Once, after the first index: the session's first auto-Prepare should
     // not pay for building every graph. Not after each save — at 10k files
     // that blocked the daemon for seconds per edit (08_PERFORMANCE.md).
     await workspace
       .prepareChange({ task: "prewarm", budget: 200 })
-      .catch(() => undefined);
+      .catch((error: unknown) =>
+        degraded("daemon.prewarm", error, workspace.rootPath),
+      );
   };
 }
 

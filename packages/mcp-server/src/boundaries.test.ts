@@ -36,7 +36,6 @@ describe("package boundaries (ADR-0004)", () => {
     "@repo-prism/intelligence",
     "@repo-prism/impact",
     "@repo-prism/navigation",
-    "@repo-prism/repository-map",
   ];
 
   it("imports no engine package, in source or in tests", async () => {
@@ -91,41 +90,6 @@ describe("stdout discipline", () => {
   });
 });
 
-describe("consent (ADR-0024)", () => {
-  it("exposes no tool that could reach the network or spawn a build", () => {
-    // An agent cannot give informed consent on the user's behalf, so the
-    // consent-gated Core paths are simply not reachable from MCP. This test is
-    // the guard for M-027, where the temptation to add one will be real.
-    const CONSENT_GATED = [
-      "stageDevopsRemote",
-      "fetchGithubWorkflows",
-      "fetchGithubWorkflowRuns",
-      "fetchGithubRepo",
-      "fetchGithubAuthenticatedLogin",
-      "testGithubRepoConnection",
-      "dispatchGithubWorkflow",
-      "fetchPagespeedMetrics",
-      "startUtilityJob",
-      "runWorkspaceTests",
-      "detectBundleAnalyzeCapability",
-      "setConsent",
-    ];
-
-    const bodies = TOOLS.map((tool) => tool.call.toString());
-    const offenders = bodies.flatMap((body, i) =>
-      CONSENT_GATED.filter((method) => body.includes(method)).map(
-        (method) => `${TOOLS[i]?.name} → ${method}`,
-      ),
-    );
-
-    expect(offenders).toEqual([]);
-  });
-
-  it("declares every tool read-only", () => {
-    expect(TOOLS.every((tool) => tool.readOnly !== false)).toBe(true);
-  });
-});
-
 describe("pack coherence (M-027)", () => {
   it("has no duplicate tool names", () => {
     expect(new Set(TOOL_NAMES).size).toBe(TOOL_NAMES.length);
@@ -163,5 +127,11 @@ describe("pack coherence (M-027)", () => {
     const advertised = new Set(TOOL_NAMES);
     expect(claimed.length).toBeGreaterThan(0);
     expect(claimed.filter((name) => !advertised.has(name))).toEqual([]);
+  });
+});
+
+describe("tool surface", () => {
+  it("declares every tool read-only", () => {
+    expect(TOOLS.every((tool) => tool.readOnly !== false)).toBe(true);
   });
 });

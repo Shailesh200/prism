@@ -68,15 +68,6 @@ export type EnvelopeLedgerEntry = {
   readonly sessionId?: string;
 };
 
-/** Per-job Envelope rollup for the Focus drawer. */
-export type JobEnvelopeMetrics = {
-  readonly available: boolean;
-  readonly bytesKeptRatio: number | null;
-  readonly tokensSaved: number | null;
-  readonly calls: number;
-  readonly truncatedCalls: number | null;
-};
-
 /** One local calendar day in the Iris week strip. */
 export type EnvelopeDayCut = {
   readonly date: string;
@@ -462,35 +453,6 @@ function dumpNotServedBytesOf(entries: readonly EnvelopeLedgerEntry[]): number {
   return spared;
 }
 
-export function summarizeJobEnvelope(
-  entries: readonly EnvelopeLedgerEntry[],
-  jobId: string,
-): JobEnvelopeMetrics {
-  const mine = entries.filter((entry) => entry.jobId === jobId);
-  if (mine.length === 0) {
-    return {
-      available: false,
-      bytesKeptRatio: null,
-      tokensSaved: null,
-      calls: 0,
-      truncatedCalls: null,
-    };
-  }
-  let kept = 0;
-  let dump = 0;
-  for (const entry of mine) {
-    kept += entry.jsonBytes;
-    dump += dumpBytes(entry);
-  }
-  return {
-    available: true,
-    bytesKeptRatio: bytesRatio(mine),
-    tokensSaved: estimateTokensFromBytes(dump - kept),
-    calls: mine.length,
-    truncatedCalls: mine.filter((entry) => entry.truncated).length,
-  };
-}
-
 function followThroughShare(
   entries: readonly EnvelopeLedgerEntry[],
 ): number | null {
@@ -503,7 +465,7 @@ function followThroughShare(
       truncated += 1;
       const next = session[i + 1];
       if (!next) continue;
-      const narrowerTool = next.tool === "find_symbol";
+      const narrowerTool = next.tool === "graph";
       const smallerLimit =
         next.limit > 0 && next.limit < entry.limit && next.limit !== 500;
       if (narrowerTool || smallerLimit) followed += 1;

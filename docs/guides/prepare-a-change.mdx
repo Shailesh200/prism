@@ -35,7 +35,7 @@ Ask: “I’m about to add caching to fetchUser — what should I open, what
 already exists, and how does this repo do this?”
 
 The agent should call `prepare_change` once. It should not open every file or
-call `search_symbols` with a one-letter pattern first.
+search the graph with a one-letter pattern first.
 
   </Tab>
 </Tabs>
@@ -87,7 +87,7 @@ Facts Prism already has about those files: a note you saved with
 
 ### Work order
 
-Same compute as the [`work_order`](/docs/reference/mcp-tools#work_order) tool:
+Every `prepare_change` answer carries a work order:
 
 | Field | Meaning |
 |---|---|
@@ -121,5 +121,5 @@ it. Until then, the order is advice.
 
 [Before you edit](/docs/guides/before-you-edit) ·
 [Guard a session](/docs/guides/guard-a-session) ·
-[Envelope and Iris](/docs/guides/envelope-and-iris) ·
+[Envelope and Iris](/docs/guides/envelope) ·
 [Remember context](/docs/guides/remember-context)

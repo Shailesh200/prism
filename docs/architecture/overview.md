@@ -53,28 +53,10 @@ workspace, ask questions, get typed results. Every method returns
 `Result<T, PrismError>` rather than throwing, so a caller cannot forget that a
 call can fail.
 
-**Surfaces** — the extension, CLI, MCP server, and playground. Each is a
-presentation layer over the same answers.
+**Surfaces** — the CLI and the MCP server (with its hooks and plugin pack).
+Each is a presentation layer over the same answers.
 
-## Shared presentation
 
-The extension and the playground render the same screens, from `@repo-prism/app-shell`.
-Each host provides an `AppShellClient` implementation — the extension goes over
-webview RPC, the playground over HTTP — and the screens do not know which they
-are talking to.
-
-That is why the browser playground is a legitimate way to develop the editor
-extension: same components, better dev-tools loop.
-
-## Consent lives in the engine
-
-Network capability is gated by `.prism/consent.json`, read by Core itself.
-
-Callers cannot pass a "the user agreed" flag. An earlier design let them, and
-every caller passed `true` — the gate recorded consent instead of requiring it.
-Putting the decision inside the engine means every surface is bound by it and
-none can route around it. See
-[consent and privacy](../concepts/consent-and-privacy.md).
 
 ## Local-first
 

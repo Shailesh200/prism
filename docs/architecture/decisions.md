@@ -23,10 +23,9 @@ registered. The Envelope ledger and the last Prepare moved into Core, and
 memories moved to `prism remember`. The `dispatch` and `dispatch-hub` packages
 are deleted in a later milestone. Fixing a finding is the user's own chat.
 
-**The default MCP surface is small** (M-091). Seven tools by default:
-`prepare_change`, `blast_radius`, `guard_session`, `test_impact`,
-`repository_overview`, `find_symbol`, `explain_area`. `PRISM_MCP_FULL=1`
-registers the other Intelligence tools.
+**The default MCP surface is small** (M-091, Prism 2.0 plan §0.3). Nine tools
+by default; the rest are opt-in through `extraTools` in
+`~/.prism/config.json`.
 
 **The cache is local and lives in your repository** (ADR-0010). SQLite in
 `.prism/`. No cloud, no shared index, nothing to sign in to.
@@ -34,7 +33,7 @@ registers the other Intelligence tools.
 **Network integrations are opt-in, purpose by purpose** (ADR-0024). Every
 optional capability that leaves your machine is a separate decision, enforced by
 Core rather than by whoever calls it. See
-[consent and privacy](../concepts/consent-and-privacy.md).
+[privacy](/privacy).
 
 **Say what a number is made of** (ADR-0029). Every signal carries whether it was
 measured, inferred or is unknown, and the interface shows it. See
@@ -61,7 +60,7 @@ conservative beats a precise one that occasionally misses.
 
 **Health is weighted across five factors** (ADR-0012). The weights are written
 down so you can disagree with them precisely. See
-[Track health](../guides/track-health.mdx).
+[Understand a repo](/docs/guides/understand-a-repo).
 
 **Features are inferred, and confidence is shown** (ADR-0011). Repositories do
 not declare their features, so Prism guesses and says how sure it is.

@@ -61,14 +61,10 @@ surface with `fetch` and `net.Socket.prototype.connect` replaced by traps that
 record the attempt and throw. It also asserts the traps fire, so it cannot pass
 vacuously.
 
-If you add a Core path that needs the network:
-
-1. It needs a consent purpose in `packages/shared/src/consent-purposes.ts`,
-   with text saying what will happen and which host it reaches.
-2. Core reads the grant itself, from `.prism/consent.json`. **Never** accept a
-   "the user consented" argument from the caller — that mistake is exactly what
-   M-036 existed to undo.
-3. It stays out of the analysis surface the no-network suite covers.
+Prism 2.0 has no network path in Core at all; the consent subsystem was
+removed with the reports that needed it. A change that adds one needs an ADR
+first. The only network request Prism makes is the daily update check in
+`packages/mcp-server/src/update-check.ts`.
 
 See [ADR-0024](./plans/adr/0024-opt-in-network-integrations.md) and the
 [threat model](./plans/architecture/07_THREAT_MODEL.md).

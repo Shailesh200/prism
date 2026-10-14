@@ -56,7 +56,7 @@ async function liveRecord(
   if (!daemonEnabled(env)) return "daemon is off (PRISM_DAEMON=0)";
   const record = await readDaemonRecord(env);
   if (!record) return "daemon is not running";
-  if (!isProcessAlive(record.pid)) return "daemon is not running";
+  // Liveness is the token-checked request itself, not a pid probe.
   return record;
 }
 
@@ -99,6 +99,25 @@ async function request<T>(
         : "daemon is not reachable";
     return { kind: "unavailable", reason };
   }
+}
+
+export type DaemonHealth = {
+  readonly pid: number;
+  readonly buildId: string;
+  readonly startedAt: string;
+};
+
+/** Token-checked liveness probe (`GET /v1/health`). */
+export async function daemonHealth(
+  options: ClientOptions = {},
+): Promise<DaemonOutcome<DaemonHealth>> {
+  const record = await liveRecord(options.env ?? process.env);
+  if (typeof record === "string")
+    return { kind: "unavailable", reason: record };
+  return request<DaemonHealth>(record, "GET", "/v1/health", undefined, {
+    timeoutMs: 500,
+    ...options,
+  });
 }
 
 /** Run one tool against the daemon's warm workspace for `root`. */

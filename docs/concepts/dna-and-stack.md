@@ -31,8 +31,7 @@ Combining manifest + imports + config, and listing evidence, is what makes the
 answer actionable.
 
 ```bash
-prism dna
-prism stack
+prism overview
 prism packages
 ```
 

@@ -10,7 +10,7 @@ analysis surface with the socket layer trapped.
 
 A few optional features do reach out — GitHub metadata, Core Web Vitals,
 avatars — and each is off until you turn it on individually. None of them send
-source code. See [consent and privacy](/docs/concepts/consent-and-privacy).
+source code. See [privacy](/privacy).
 
 ## Does Prism write code?
 
@@ -108,19 +108,17 @@ Memories moved to the CLI — see [Remember context](/docs/guides/remember-conte
 
 ## Does Prism modify my code?
 
-No. The tools — `rename`, `safe-delete`, blast radius, the reports — report
+No. The tools — `rename`, `safe-delete`, blast radius, review — report
 what a change would touch; they never write. Your agent makes edits.
 
-The only thing Prism writes on its own is `.prism/`. The one execution path is
-explicit: with `run.local-build` consent, Prism runs your repository's own
-build script to measure bundle weight.
+The only thing Prism writes on its own is its data under `~/.prism/`.
 
 ## What is Envelope?
 
-A local receipt for every Intelligence tool call — tool name, item counts,
+A local receipt for every Prism tool call — tool name, item counts,
 whether the list was cut short, and JSON bytes. No prompts, no paths, no
-source. Iris shows bytes kept vs dump for the selected repo. See
-[Envelope and Iris](/docs/guides/envelope-and-iris).
+source. `prism envelope` prints it. See
+[Envelope](/docs/guides/envelope).
 
 ## What is prepare_change?
 
@@ -151,4 +149,4 @@ Nothing. See the repository for licence details.
 ## Related
 
 [Troubleshooting](/docs/help/troubleshooting) ·
-[Consent and privacy](/docs/concepts/consent-and-privacy)
+[privacy](/privacy)

@@ -35,7 +35,7 @@ suggestion. See [graphs](/docs/concepts/graphs).
 The health score has no ground truth to be validated against. It correlates with
 maintenance cost in the repositories it was designed on; it is not a
 measurement. It cannot see correctness, performance, or whether the software
-does anything useful. Read the factors. See [Track health](/docs/guides/track-health).
+does anything useful. Read the factors. See [Understand a repo](/docs/guides/understand-a-repo).
 
 ## Git is required for several signals
 
@@ -86,11 +86,11 @@ By design. There is no account, no sync and no server.
 - **Modify your repository unasked.** `rename` and `safe-delete` report; they
   never write. Besides the receipt's checks, the only path that executes
   anything is bundle measurement, behind explicit
-  [`run.local-build` consent](/docs/concepts/consent-and-privacy).
+  [privacy](/privacy).
 - **Scan for vulnerabilities.** The security report checks whether left-shift
   tooling exists.
 - **Send anything anywhere by default.** See
-  [consent and privacy](/docs/concepts/consent-and-privacy).
+  [privacy](/privacy).
 
 ## Related
 

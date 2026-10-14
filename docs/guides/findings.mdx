@@ -37,8 +37,8 @@ count from health history.
 Ask: “What unused or duplicated code should I look at?”
 
 The agent calls `list_findings` (muted ones hidden unless you ask).
-`list_findings` is registered only when the MCP server runs with
-`PRISM_MCP_FULL=1`. Without it, the agent can run `prism findings list`.
+`list_findings` is opt-in: list it in `extraTools` in `~/.prism/config.json`.
+Without it, the agent can run `prism findings list`.
 
 To fix one, say so in chat: “fix the unused export in `src/cache.ts`.” Your
 agent makes the edit. It must use the finding as reported — `id`, `source`,
@@ -86,5 +86,5 @@ Muted findings stay out of the default list. `includeMuted` shows them.
 
 ## Related
 
-[Track health](/docs/guides/track-health) ·
+[Understand a repo](/docs/guides/understand-a-repo) ·
 [Guard a session](/docs/guides/guard-a-session)

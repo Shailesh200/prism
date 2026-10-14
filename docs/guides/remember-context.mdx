@@ -66,8 +66,8 @@ generate may *read* it as input. It will not overwrite it.
 `check` compares the claims to a fresh index. CI can fail when a claim went
 stale.
 
-MCP: `agents_md` with `action=generate` or `check`, registered when the server
-runs with `PRISM_MCP_FULL=1`. Read `prism://agents-md` for the current text
+MCP: `agents_md` with `action=generate` or `check`, opt-in through
+`extraTools` in `~/.prism/config.json`. Read `prism://agents-md` for the current text
 without regenerating.
 
 ## When this is wrong
@@ -79,4 +79,4 @@ without regenerating.
 ## Related
 
 [Prepare a change](/docs/guides/prepare-a-change) ·
-[Consent and privacy](/docs/concepts/consent-and-privacy)
+[privacy](/privacy)

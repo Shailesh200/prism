@@ -24,7 +24,7 @@ repository you get the nested one.
 override:
 
 ```bash
-prism health --workspace ./packages/api
+prism overview --workspace ./packages/api
 ```
 
 ## Indexing is slow
@@ -73,9 +73,6 @@ Common causes:
 |---|---|
 | Churn, ownership, activity | Not a git repository, or shallow-cloned |
 | Coverage | No coverage output on disk |
-| Bundle weight | No stats artifact, and no `run.local-build` consent |
-| Web vitals | Not consented, or Lighthouse not installed |
-| CI and PR data | No `network.github` consent |
 
 Shallow clones are the surprising one. `git clone --depth 1` in CI leaves no
 history to compute churn from.
@@ -85,16 +82,6 @@ history to compute churn from.
 Points before you installed Prism are backfilled from git history and marked
 **estimated**. They are directionally useful and not precise. Measured points
 start when Prism did.
-
-## A feature grouping looks wrong
-
-Features are inferred from imports, naming and directory structure — the
-repository does not declare them. Confidence says how much evidence agreed; a
-low percentage means it is a guess.
-
-`prism features` shows the confidence, and `prism explain <path>` shows why a
-file was placed where it was. Unusual layouts genuinely produce worse groupings.
-See [graphs](/docs/concepts/graphs).
 
 ## A CLI command exits 1 and I expected 0
 
@@ -115,10 +102,10 @@ envelope, so a script reading one stream never misses a failure:
 ## The prism server does not appear, or no tools register
 
 The client never started the server, or started it and cached a failure. Toggle
-prism off/on in the client's MCP settings (or restart the client) with the
+the prism server off and on in the client's MCP settings (or restart the client) with the
 project folder open, then watch the client's MCP logs for the launch error.
 After an update, a running session cannot swap binaries mid-chat — restart the
-client once so the newer package loads. Confirm Node 26+ with `node -v`; an old
+client once so the newer package loads. Confirm Node 24+ with `node -v`; an old
 Node fails before any tool registers.
 
 ## An MCP tool says an index is required
@@ -141,17 +128,11 @@ worse than an error.
 
 Path arguments resolve from your current directory, not the repository root.
 
-## The extension will not open
-
-Reload the window first. If it persists, check the Output panel → Prism for the
-error, and confirm the folder is open as a workspace — Prism needs a folder, not
-a single file.
-
 ## An MCP tool answers about the wrong repository
 
 The MCP server resolved the wrong workspace — usually it started before the git
 project was the open folder. Reload the prism server (Settings → MCP → toggle
-prism off/on) with the project open, then retry. The agent passes the workspace
+the server off and on) with the project open, then retry. The agent passes the workspace
 path itself; never paste one into `mcp.json`. If it still resolves wrong, set
 `PRISM_WORKSPACE` once — see [install](/docs/start/install).
 
@@ -162,9 +143,9 @@ Click **Skip**, then retry what you asked for. It appears once per session.
 
 ## The agent asks for a tool that is not listed
 
-The server registers seven tools by default. The others (reports, graphs,
-findings, `safe_delete`, and more) appear only when the server runs with
-`PRISM_MCP_FULL=1` in its `env`. See [Usage](/docs/usage) and the
+The server registers nine tools by default. The others (graphs, findings,
+`agents_md`, and more) are opt-in: list them in `extraTools` in
+`~/.prism/config.json`. See [Usage](/docs/usage) and the
 [MCP reference](/docs/reference/mcp-tools).
 
 ## A tool from an older Prism is gone

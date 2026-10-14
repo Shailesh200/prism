@@ -95,98 +95,6 @@ describe("index freshness and watch", () => {
   });
 });
 
-describe("bookmarks", () => {
-  it("starts empty", async () => {
-    expect(unwrap(await workspace.listBookmarks())).toEqual([]);
-  });
-
-  it("round-trips a bookmark through disk", async () => {
-    const saved = unwrap(
-      await workspace.saveBookmark({
-        label: "Cart feature",
-        path: "src/features/cart.ts",
-        note: "where the money is",
-      }),
-    );
-
-    expect(saved).toHaveLength(1);
-    expect(saved[0]?.label).toBe("Cart feature");
-    expect(saved[0]?.id).toBeTruthy();
-
-    // A second workspace over the same directory must see it, or bookmarks are
-    // per-process state pretending to be persistent.
-    const reopened = Prism.create().openRepository(fixture.root);
-    expect(reopened.ok).toBe(true);
-    if (!reopened.ok) return;
-    expect(unwrap(await reopened.value.listBookmarks())).toHaveLength(1);
-    reopened.value.close();
-  });
-
-  it("removes by id and leaves the rest alone", async () => {
-    const both = unwrap(await workspace.saveBookmark({ label: "Second" }));
-    expect(both).toHaveLength(2);
-
-    const target = both.find((b) => b.label === "Second");
-    expect(target).toBeDefined();
-
-    const remaining = unwrap(await workspace.removeBookmark(target!.id));
-    expect(remaining.map((b) => b.label)).toEqual(["Cart feature"]);
-  });
-
-  it("removing an unknown id is not an error", async () => {
-    const before = unwrap(await workspace.listBookmarks());
-    const after = unwrap(await workspace.removeBookmark("does-not-exist"));
-    expect(after).toHaveLength(before.length);
-  });
-});
-
-describe("consent", () => {
-  it("reports every purpose as ungranted before anything is asked", async () => {
-    const state = unwrap(await workspace.listConsent());
-
-    expect(state.length).toBeGreaterThan(0);
-    for (const purpose of state) {
-      expect(purpose.granted).toBe(false);
-    }
-  });
-
-  it("records a grant and reads it back", async () => {
-    const record = unwrap(await workspace.setConsent("network.github", true));
-    expect(record.granted).toBe(true);
-
-    const read = unwrap(await workspace.getConsent("network.github"));
-    expect(read?.granted).toBe(true);
-  });
-
-  it("records a refusal distinctly from never having been asked", async () => {
-    unwrap(await workspace.setConsent("network.gravatar", false));
-
-    const refused = unwrap(await workspace.getConsent("network.gravatar"));
-    const unasked = unwrap(await workspace.getConsent("network.pagespeed"));
-
-    expect(refused?.granted).toBe(false);
-    expect(unasked).toBeNull();
-  });
-
-  it("persists across workspaces, because consent is not session state", async () => {
-    const reopened = Prism.create().openRepository(fixture.root);
-    expect(reopened.ok).toBe(true);
-    if (!reopened.ok) return;
-
-    const read = unwrap(await reopened.value.getConsent("network.github"));
-    expect(read?.granted).toBe(true);
-    reopened.value.close();
-  });
-
-  it("refuses an unknown purpose rather than inventing one", async () => {
-    const result = await workspace.setConsent(
-      "network.not-a-real-purpose",
-      true,
-    );
-    expect(result.ok).toBe(false);
-  });
-});
-
 describe("git-derived answers", () => {
   it("reads activity from real history", () => {
     const activity = unwrap(workspace.getGitActivity());
@@ -273,85 +181,6 @@ describe("reports over a real repository", () => {
       expect(result.error.code).toBeTruthy();
     }
   });
-
-  it("finds the test suite that exists", async () => {
-    const testing = unwrap(await workspace.getTestingReport());
-
-    expect(testing.runners).toContain("vitest");
-    expect(testing.suites.reduce((n, s) => n + s.fileCount, 0)).toBeGreaterThan(
-      0,
-    );
-  });
-
-  it("produces a security report without running anything remote", async () => {
-    const security = unwrap(await workspace.getSecurityReport());
-    expect(Array.isArray(security.tools)).toBe(true);
-  });
-
-  it("reports no coverage rather than zero coverage when none is present", async () => {
-    const ingested = unwrap(await workspace.ingestCoverageFromWorkspace());
-    // The fixture has tests but has never run them, so there is no coverage
-    // artifact. The honest answer is absence, not 0%.
-    expect(ingested.coverage?.present ?? false).toBe(false);
-    expect(ingested.coverage?.linePct).toBeUndefined();
-  });
-
-  it("discovers frontend routes, or none, without failing", () => {
-    const routes = unwrap(workspace.discoverFrontendRoutes());
-    expect(Array.isArray(routes)).toBe(true);
-  });
-
-  it("builds a frontend domain report without starting labs", async () => {
-    const report = unwrap(await workspace.getDomainReport("frontend"));
-    expect(report.domain).toBe("frontend");
-    if (report.domain !== "frontend") return;
-    expect(report.routes.length).toBeGreaterThan(0);
-    expect(report.routes[0]).toBe("/");
-    expect(report.cwv.preferredSource).toBe("local");
-    expect(report.routeBreakdown.length).toBe(report.routes.length);
-    expect(Array.isArray(report.componentBreakdown)).toBe(true);
-  });
-});
-
-describe("repository overview", () => {
-  it("echoes zoom, counts files from the index snapshot, and ranks connected nodes with kind", async () => {
-    const overview = unwrap(await workspace.getOverviewModel());
-    expect(overview.zoom).toBe("feature");
-    expect(overview.totals.files).toBeGreaterThan(0);
-    expect(overview.totals.files).toBeGreaterThanOrEqual(
-      overview.mostConnected.filter((n) => n.kind === "file").length,
-    );
-    for (const node of overview.mostConnected) {
-      expect(node.kind.length).toBeGreaterThan(0);
-    }
-  });
-
-  it("honours an explicit map zoom option", async () => {
-    const overview = unwrap(
-      await workspace.getOverviewModel({ zoom: "package" }),
-    );
-    expect(overview.zoom).toBe("package");
-  });
-});
-
-describe("utility jobs", () => {
-  it("lists no jobs before any are started", () => {
-    expect(unwrap(workspace.listUtilityJobs())).toEqual([]);
-  });
-
-  it("reports a not-found error for an unknown job id", () => {
-    const result = workspace.getUtilityJob("no-such-job");
-    expect(result.ok).toBe(false);
-  });
-
-  it("reports a not-found error for an unknown ingest artifact", async () => {
-    const result = await workspace.getIngestArtifact("no-such-artifact");
-    expect(result.ok).toBe(false);
-  });
-
-  it("lists no ingest artifacts in a fresh repository", async () => {
-    expect(unwrap(await workspace.listIngestArtifacts())).toEqual([]);
-  });
 });
 
 describe("a repository with no git history", () => {
@@ -393,11 +222,5 @@ describe("a repository with no git history", () => {
     const graph = unwrap(plainWorkspace.getDependencyGraph());
     expect(graph.nodes.length).toBeGreaterThan(0);
     expect(graph.edges.length).toBeGreaterThan(0);
-  });
-
-  it("scores health without git, and says so in the report", async () => {
-    const health = unwrap(await plainWorkspace.getHealth());
-    expect(health.score).toBeGreaterThanOrEqual(0);
-    expect(health.score).toBeLessThanOrEqual(100);
   });
 });

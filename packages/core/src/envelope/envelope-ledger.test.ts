@@ -7,7 +7,6 @@ import {
   envelopeLedgerPath,
   readEnvelopeLedger,
   summarizeEnvelopeLedger,
-  summarizeJobEnvelope,
   type EnvelopeLedgerEntry,
 } from "./envelope-ledger.js";
 
@@ -45,7 +44,7 @@ describe("summarizeEnvelopeLedger", () => {
       [
         entry({
           ts: "2026-09-11T11:00:00.000Z",
-          tool: "search_symbols",
+          tool: "knowledge_graph",
           itemCount: 50,
           totalCount: 100,
           truncated: true,
@@ -69,7 +68,7 @@ describe("summarizeEnvelopeLedger", () => {
       [
         entry({
           ts: "2026-09-10T12:00:00.000Z",
-          tool: "search_symbols",
+          tool: "knowledge_graph",
           itemCount: 50,
           totalCount: 200,
           truncated: true,
@@ -85,7 +84,7 @@ describe("summarizeEnvelopeLedger", () => {
         }),
         entry({
           ts: "2026-09-11T11:00:00.000Z",
-          tool: "find_symbol",
+          tool: "graph",
           jobId: "envelope-cli-sarif",
           itemCount: 1,
           totalCount: 1,
@@ -126,7 +125,7 @@ describe("summarizeEnvelopeLedger", () => {
       [
         entry({
           ts: "2026-09-11T11:00:00.000Z",
-          tool: "search_symbols",
+          tool: "knowledge_graph",
           itemCount: 50,
           totalCount: 100,
           truncated: true,
@@ -135,7 +134,7 @@ describe("summarizeEnvelopeLedger", () => {
         }),
         entry({
           ts: "2026-09-11T11:02:00.000Z",
-          tool: "find_symbol",
+          tool: "graph",
           jobId: "cli-sarif",
           host: "claude",
           itemCount: 1,
@@ -150,10 +149,10 @@ describe("summarizeEnvelopeLedger", () => {
       host: "cursor",
       firstTs: "2026-09-11T11:00:00.000Z",
       lastTs: "2026-09-11T11:00:00.000Z",
-      topTools: [{ tool: "search_symbols", calls: 1 }],
+      topTools: [{ tool: "knowledge_graph", calls: 1 }],
     });
     expect(withHost.peakDump).toMatchObject({
-      tool: "search_symbols",
+      tool: "knowledge_graph",
       itemCount: 50,
       totalCount: 100,
     });
@@ -171,7 +170,7 @@ describe("summarizeEnvelopeLedger", () => {
       [
         entry({
           ts: "2026-09-12T08:00:00.000Z",
-          tool: "find_symbol",
+          tool: "graph",
         }),
       ],
       Date.parse("2026-09-12T12:00:00.000Z"),
@@ -199,7 +198,7 @@ describe("summarizeEnvelopeLedger", () => {
       [
         entry({
           ts: new Date(2026, 8, 9, 12).toISOString(),
-          tool: "find_symbol",
+          tool: "graph",
         }),
       ],
       new Date(2026, 8, 9, 12).getTime(),
@@ -210,20 +209,20 @@ describe("summarizeEnvelopeLedger", () => {
     expect(metrics.buckets[0]?.toMs).toBe(new Date(2026, 8, 14).getTime());
   });
 
-  it("counts follow-through when the next call is find_symbol", () => {
+  it("counts follow-through when the next call is graph", () => {
     const now = Date.parse("2026-09-11T12:00:00Z");
     const metrics = summarizeEnvelopeLedger(
       [
         entry({
           ts: "2026-09-11T11:00:00.000Z",
-          tool: "search_symbols",
+          tool: "knowledge_graph",
           truncated: true,
           itemCount: 50,
           totalCount: 80,
         }),
         entry({
           ts: "2026-09-11T11:01:00.000Z",
-          tool: "find_symbol",
+          tool: "graph",
           itemCount: 1,
           totalCount: 1,
           truncated: false,
@@ -248,7 +247,7 @@ describe("summarizeEnvelopeLedger", () => {
         }),
         entry({
           ts: "2026-09-11T11:00:00.000Z",
-          tool: "find_symbol",
+          tool: "graph",
           itemCount: 1,
           totalCount: 1,
           clientName: "cursor-vscode",
@@ -269,51 +268,8 @@ describe("summarizeEnvelopeLedger", () => {
     });
     expect(metrics.hosts[0]?.topTools.map((row) => row.tool)).toEqual([
       "blast_radius",
-      "find_symbol",
+      "graph",
     ]);
-  });
-});
-
-describe("summarizeJobEnvelope", () => {
-  it("is unavailable when the job has no tagged Intelligence calls", () => {
-    expect(
-      summarizeJobEnvelope(
-        [
-          entry({
-            ts: "2026-09-11T11:00:00.000Z",
-            tool: "find_symbol",
-          }),
-        ],
-        "review-the-issues",
-      ),
-    ).toMatchObject({ available: false, calls: 0, tokensSaved: null });
-  });
-
-  it("estimates tokens not dumped from truncated list calls", () => {
-    const metrics = summarizeJobEnvelope(
-      [
-        entry({
-          ts: "2026-09-11T11:00:00.000Z",
-          tool: "search_symbols",
-          jobId: "review-the-issues",
-          itemCount: 50,
-          totalCount: 100,
-          truncated: true,
-          jsonBytes: 400,
-        }),
-        entry({
-          ts: "2026-09-11T11:01:00.000Z",
-          tool: "find_symbol",
-          jobId: "other-job",
-          jsonBytes: 800,
-        }),
-      ],
-      "review-the-issues",
-    );
-    expect(metrics.available).toBe(true);
-    expect(metrics.calls).toBe(1);
-    expect(metrics.bytesKeptRatio).toBeCloseTo(0.5);
-    expect(metrics.tokensSaved).toBe(100);
   });
 });
 
@@ -340,7 +296,7 @@ describe("envelope ledger files", () => {
       repo,
       {
         ts: "2026-09-12T00:00:00.000Z",
-        tool: "find_symbol",
+        tool: "graph",
         itemCount: 1,
         totalCount: 1,
         truncated: false,
@@ -357,7 +313,7 @@ describe("envelope ledger files", () => {
     expect(parsed.host).toBe("cursor");
     const rows = await readEnvelopeLedger(repo, env);
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.tool).toBe("find_symbol");
+    expect(rows[0]?.tool).toBe("graph");
   });
 
   it("filters global rows by workspace and still reads a legacy repo file", async () => {
@@ -383,7 +339,7 @@ describe("envelope ledger files", () => {
       join(repo, ".prism", "envelope-ledger.jsonl"),
       `${JSON.stringify({
         ts: "2026-09-11T00:00:00.000Z",
-        tool: "search_symbols",
+        tool: "knowledge_graph",
         itemCount: 50,
         totalCount: 80,
         truncated: true,
@@ -392,7 +348,7 @@ describe("envelope ledger files", () => {
       })}\n`,
     );
     const rows = await readEnvelopeLedger(repo, env);
-    expect(rows.map((row) => row.tool)).toEqual(["search_symbols"]);
+    expect(rows.map((row) => row.tool)).toEqual(["knowledge_graph"]);
   });
 });
 
@@ -402,7 +358,7 @@ describe("summarizeEnvelopeLedger all-time window", () => {
       [
         entry({
           ts: "2026-09-12T12:00:00.000Z",
-          tool: "find_symbol",
+          tool: "graph",
         }),
       ],
       Date.parse("2026-09-12T18:00:00Z"),
@@ -423,7 +379,7 @@ describe("envelope ledger sanitization", () => {
       dir,
       {
         ts: "2026-09-11T00:00:00.000Z",
-        tool: "search_symbols",
+        tool: "knowledge_graph",
         itemCount: 50,
         totalCount: 80,
         truncated: true,

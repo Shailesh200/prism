@@ -57,7 +57,6 @@ export function prismHomeDir(env: NodeJS.ProcessEnv = process.env): string {
 export function useLocalPrismStore(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  if (env.PRISM_JOBS_LOCAL === "1") return true;
   if (env.VITEST === "true" && !env.PRISM_HOME?.trim()) return true;
   if (env.BUN_TEST === "1" && !env.PRISM_HOME?.trim()) return true;
   return false;
@@ -115,32 +114,11 @@ export function workspaceCacheDir(
   return join(workspacePrismDir(workspaceRoot, env), "cache");
 }
 
-export function workspaceConsentPath(
-  workspaceRoot: string,
-  env: NodeJS.ProcessEnv = process.env,
-): string {
-  return join(workspacePrismDir(workspaceRoot, env), "consent.json");
-}
-
-export function workspaceIngestDir(
-  workspaceRoot: string,
-  env: NodeJS.ProcessEnv = process.env,
-): string {
-  return join(workspacePrismDir(workspaceRoot, env), "ingest");
-}
-
 export function workspaceConfigPath(
   workspaceRoot: string,
   env: NodeJS.ProcessEnv = process.env,
 ): string {
   return join(workspacePrismDir(workspaceRoot, env), "config.json");
-}
-
-export function workspaceBookmarksPath(
-  workspaceRoot: string,
-  env: NodeJS.ProcessEnv = process.env,
-): string {
-  return join(workspacePrismDir(workspaceRoot, env), "bookmarks.json");
 }
 
 export function workspaceFindingMutesPath(
@@ -150,41 +128,11 @@ export function workspaceFindingMutesPath(
   return join(workspacePrismDir(workspaceRoot, env), "finding-mutes.json");
 }
 
-export function workspaceLighthouseToolsDir(
-  workspaceRoot: string,
-  env: NodeJS.ProcessEnv = process.env,
-): string {
-  return join(workspacePrismDir(workspaceRoot, env), "tools", "lighthouse");
-}
-
 export function workspaceNotesDir(
   workspaceRoot: string,
   env: NodeJS.ProcessEnv = process.env,
 ): string {
   return join(workspaceDispatchDir(workspaceRoot, env), "notes");
-}
-
-export function workspaceRemoteCiDir(
-  workspaceRoot: string,
-  owner: string,
-  repo: string,
-  env: NodeJS.ProcessEnv = process.env,
-): string {
-  return join(workspacePrismDir(workspaceRoot, env), "remote-ci", owner, repo);
-}
-
-/** Stats output for a package — never `<package>/.prism`. */
-export function workspaceBundleAnalyzeDir(
-  workspaceRoot: string,
-  packageAbs: string,
-  env: NodeJS.ProcessEnv = process.env,
-): string {
-  const rel = resolve(packageAbs).startsWith(`${resolve(workspaceRoot)}/`)
-    ? resolve(packageAbs).slice(resolve(workspaceRoot).length + 1)
-    : "";
-  return rel
-    ? join(workspacePrismDir(workspaceRoot, env), "bundle-analyze", rel)
-    : join(workspacePrismDir(workspaceRoot, env), "bundle-analyze");
 }
 
 export function agentsMdPath(

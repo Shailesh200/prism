@@ -1,3 +1,4 @@
+import { SCHEMA_VERSION } from "./migrations.js";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -50,7 +51,7 @@ describe("openIndexCache", () => {
     const opened = await openIndexCache(root);
     expect(opened.ok).toBe(true);
     if (!opened.ok) return;
-    expect(opened.value.schemaVersion).toBeGreaterThanOrEqual(3);
+    expect(opened.value.schemaVersion).toBe(SCHEMA_VERSION);
     opened.value.close();
   });
 

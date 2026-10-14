@@ -11,7 +11,6 @@
 export type SkillId =
   | "prism-review-pr"
   | "prism-safe-change"
-  | "prism-ship"
   | "prism-onboard"
   | "prism-lens";
 
@@ -59,7 +58,6 @@ export function pluginDefinition(version: string): PluginDefinition {
     skills: [
       "prism-review-pr",
       "prism-safe-change",
-      "prism-ship",
       "prism-onboard",
       "prism-lens",
     ],
@@ -145,8 +143,8 @@ export function mcpConfig(): Record<string, unknown> {
   return {
     mcpServers: {
       prism: {
-        command: "npx",
-        args: ["-y", "--prefer-online", "@repo-prism/mcp-server@latest"],
+        command: "prism-mcp",
+        args: [],
         env: {
           NODE_USE_SYSTEM_CA: "1",
         },

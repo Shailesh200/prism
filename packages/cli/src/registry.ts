@@ -38,7 +38,6 @@ export const COMMAND_GROUPS = [
   "Understand a repository",
   "Assess a change",
   "Inspect structure",
-  "Reports",
   "Memory",
   "Diagnostics",
 ] as const;

@@ -1,6 +1,8 @@
 import { spawn } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { Prism } from "@repo-prism/core";
@@ -39,9 +41,14 @@ beforeAll(async () => {
   const indexed = await workspace.index();
   if (!indexed.ok) throw new Error(`index: ${indexed.error.message}`);
 
+  const prismHome = mkdtempSync(join(tmpdir(), "prism-cross-home-"));
+  writeFileSync(
+    join(prismHome, "config.json"),
+    JSON.stringify({ extraTools: ["dependency_cycles"] }),
+  );
   mcp = createPrismMcpServer({
     workspaceRoot: fixture.root,
-    env: { ...process.env, PRISM_MCP_FULL: "1" },
+    env: { ...process.env, PRISM_HOME: prismHome },
   });
   client = new Client({ name: "cross-surface", version: "0.0.0" });
   const [clientTransport, serverTransport] =
@@ -113,18 +120,6 @@ async function cliJson(
 }
 
 describe("Core, MCP and CLI agree", () => {
-  it("on the health score", async () => {
-    const core = await workspace.getHealth();
-    expect(core.ok).toBe(true);
-    if (!core.ok) return;
-
-    const mcpAnswer = await viaMcp("repository_health");
-    const cliAnswer = await cliJson(["health"]);
-
-    expect(mcpAnswer.score).toBe(core.value.score);
-    expect(cliAnswer.score).toBe(core.value.score);
-  });
-
   it("on dependency cycles", async () => {
     const core = workspace.getCycles();
     expect(core.ok).toBe(true);
@@ -179,8 +174,14 @@ describe("Core, MCP and CLI agree", () => {
     expect(core.ok).toBe(true);
     if (!core.ok) return;
 
-    const mcpAnswer = await viaMcp("repository_dna");
-    const cliAnswer = await cliJson(["dna"]);
+    const mcpAnswer = (await viaMcp("repository_overview")).dna as Record<
+      string,
+      unknown
+    >;
+    const cliAnswer = (await cliJson(["overview"])).dna as Record<
+      string,
+      unknown
+    >;
 
     const language = (answer: Record<string, unknown>): unknown =>
       (answer.languages as { id: string }[])[0]?.id;

@@ -44,4 +44,4 @@ distinguished.
 
 ## Related
 
-[Risk bands](/docs/concepts/risk-bands) · [Consent and privacy](/docs/concepts/consent-and-privacy)
+[Risk bands](/docs/concepts/risk-bands) · [privacy](/privacy)

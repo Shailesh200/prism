@@ -17,6 +17,7 @@ import {
   prismError,
 } from "@repo-prism/shared";
 import type { DaemonWorkspaceStatus } from "./client.js";
+import { recordEvent } from "@repo-prism/shared/events";
 
 /** Never worth a reindex: build output, dependencies, VCS and Prism's own state. */
 const IGNORED_SEGMENTS = new Set([
@@ -102,6 +103,17 @@ export function createWorkspacePool(options: PoolOptions): WorkspacePool {
     };
   };
 
+  const indexedHookFailed = (root: string, error: unknown): void => {
+    const reason = error instanceof Error ? error.message : String(error);
+    log(`after-index work failed for ${root}: ${reason}`);
+    recordEvent({
+      event: "daemon.on_indexed",
+      outcome: "degraded",
+      reason,
+      workspace: root,
+    });
+  };
+
   const startWatching = (entry: Entry, workspace: PrismWorkspace): void => {
     const started = workspace.startWatch({
       debounceMs: options.debounceMs,
@@ -111,7 +123,9 @@ export function createWorkspacePool(options: PoolOptions): WorkspacePool {
           entry.lastReindexMs = Date.now() - entry.reindexStartedAt;
           entry.reindexStartedAt = null;
         }
-        void options.onIndexed?.(workspace).catch(() => undefined);
+        void options
+          .onIndexed?.(workspace)
+          .catch((error: unknown) => indexedHookFailed(entry.root, error));
       },
     });
     if (!started.ok) {
@@ -156,7 +170,9 @@ export function createWorkspacePool(options: PoolOptions): WorkspacePool {
     }
     log(`indexed ${entry.root} in ${Date.now() - started}ms`);
     entry.workspace = opened.value;
-    await options.onIndexed?.(opened.value).catch(() => undefined);
+    await options
+      .onIndexed?.(opened.value)
+      .catch((error: unknown) => indexedHookFailed(entry.root, error));
     startWatching(entry, opened.value);
     return ok(opened.value);
   };

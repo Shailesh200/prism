@@ -1,22 +1,9 @@
 import {
   assembleDnaReport,
-  assembleIntelligenceReport,
   buildDependencyGraph,
-  buildFeatureGraph,
-  buildPersonaPresets,
   cachedKnowledgeGraph,
-  buildUtilityOverlay,
-  buildBackendReport,
   buildCodeExplorerReport,
-  buildHealthHistorySnapshot,
-  buildTestingReport,
-  buildSecurityReport,
   buildSoftImpactIndex,
-  computeEngineeringHealth,
-  computeHealthScore,
-  computeRegionMovers,
-  createUtilitiesSession,
-  discoverLocalPackages,
   findReferences as queryReferences,
   findSymbol as querySymbols,
   searchSymbols as querySearchSymbols,
@@ -24,33 +11,15 @@ import {
   listFindings as queryFindings,
   findingStillOpen,
   checkGuardSession,
-  getCwvReport as loadCwvReport,
-  getBundleWeightReport as loadBundleWeightReport,
-  detectBundleAnalyzeCapability as detectBundleAnalyzeCapabilityImpl,
-  discoverFrontendAppRoutes,
-  heuristicFrontendRoutes,
-  ingestCoverageFromWorkspace,
-  listUtilityOverlayKinds as catalogUtilityOverlayKinds,
-  parseUtilityOverlayKind,
-  pickRegionMoverWindow,
-  resolveLabAppRoot,
   type DependencyGraphOptions,
   type FindReferencesQuery,
   type FindReferencesResult,
   type FindSymbolQuery,
   type SearchSymbolsQuery,
-  type StartUtilityJobInput,
   type SymbolHit,
   type SymbolSearchResult,
-  type UtilitiesSession,
 } from "@repo-prism/intelligence";
-import {
-  appendHealthHistory,
-  DEFAULT_MAX_FILE_BYTES,
-  hasHealthHistorySha,
-  listHealthHistory,
-  openIndexCache,
-} from "@repo-prism/indexer";
+import { DEFAULT_MAX_FILE_BYTES } from "@repo-prism/indexer";
 import {
   computeBlastRadius,
   computeBreakingChangeHints,
@@ -61,19 +30,10 @@ import {
 import {
   findPaths,
   listLandmarks as collectLandmarks,
-  navigateFeature as routeBetweenFeatures,
   resolveEndpointNodeId,
   type RouteEndpoint,
 } from "@repo-prism/navigation";
 import {
-  buildRepositoryMap,
-  emptyBookmarkStore,
-  parseBookmarkStore,
-  sortBookmarks,
-  type MapPackageInfo,
-} from "@repo-prism/repository-map";
-import {
-  CONSENT_PURPOSES,
   PrismErrorCode,
   CodeExplorerTargetSchema,
   classifyFileRole,
@@ -82,24 +42,12 @@ import {
   type AgentsMdCheckResult,
   type AgentsMdGenerateResult,
   type BlastRadiusReport,
-  type BreakingChangeHint,
-  type BackendReport,
-  type BundleAnalyzeCapability,
-  type BundleWeightReport,
   type ChangeReviewItem,
   type ChangeReviewReport,
   type CodeExplorerReport,
   type CodeExplorerTarget,
-  type ConsentRecord,
-  type ConsentState,
-  type CwvPreferredSource,
-  type CwvReport,
-  type DomainReport,
-  type DomainReportDomain,
   type DnaReport,
-  type EngineeringHealthReport,
   type ExplainAreaSummary,
-  type FeatureInfo,
   type GitActivity,
   type GitCommitRef,
   type PrepareChange,
@@ -107,76 +55,26 @@ import {
   type GuardSession,
   type DependencyGraphDto,
   type GraphSnapshotDto,
-  type HealthHistoryBackfillStatus,
-  type HealthHistoryReport,
-  type HealthScore,
   type IndexProgressEvent,
   type IndexSnapshot,
   type IndexSummary,
-  type IngestArtifact,
-  type IngestArtifactMeta,
-  type IntelligenceReport,
   type KnowledgeGraphStats,
   type Landmark,
-  type MapBookmark,
-  type MapBookmarkStore,
   FindingMuteStoreSchema,
   type FindingMuteStore,
-  type MapZoomLevel,
   type NavigationRouteResult,
-  type OverviewModel,
-  type PersonaPresets,
   type PrismConfig,
   mergeIndexLimits,
-  backendHandlerNodes,
-  buildBackendCoverage,
-  buildDesktopBoundaryLinks,
-  buildDesktopIpcChannels,
-  buildDesktopTiles,
-  buildDevopsFindings,
-  buildDevopsTiles,
-  buildDomainStackSnapshot,
-  buildFrontendComponentBreakdown,
-  buildFrontendRouteBreakdown,
-  buildMobileNavLinks,
-  buildMobileScreenCoverage,
-  buildMobileTiles,
-  countDataLayerByKind,
-  countOverlayKinds,
-  desktopProcessNodes,
-  DomainReportDomainSchema,
-  mergeFrontendRoutes,
-  rankChurnHotspots,
-  rankMostDepended,
-  selectPrimaryCwv,
-  summarizeBackendDomainReport,
-  summarizeDataMlAiDomainReport,
-  summarizeDesktopDomainReport,
-  summarizeDevopsDomainReport,
-  summarizeFrontendDomainReport,
-  summarizeMobileDomainReport,
   type PrismError,
-  type RegionMoversReport,
   type RenameImpactReport,
   type RepoId,
-  type RepositoryMap,
   type Result,
   type SafeDeleteReport,
-  type SecurityReport,
   type TestImpactReport,
-  type TestingReport,
   type StackPackageProfile,
   type StackProfile,
-  type UtilityJob,
-  type UtilityOverlayKindInfo,
-  type UtilityOverlayReport,
-  bucketActivity,
-  couplingFor,
-  deriveMostConnected,
-  deriveRegions,
   err,
   ok,
-  presetBounds,
   prismError,
   riskToBand,
   unsafeRepoId,
@@ -195,7 +93,6 @@ import { buildAgentsMdContent, parseAgentsMdClaims } from "./agents-md.js";
 import {
   agentsMdPath,
   ensureWorkspacePrismSync,
-  workspaceBookmarksPath,
   workspaceFindingMutesPath,
   workspacePrismDir,
   loadWorkspaceMemories,
@@ -208,64 +105,7 @@ import {
   type PrismGitignoreStatus,
 } from "./git/prism-gitignore.js";
 import { readGitSignals, type GitSignals } from "./git/git-signals.js";
-import {
-  HEALTH_HISTORY_BACKFILL_DEFAULT_COMMITS,
-  readHeadCommitSha,
-  sampleGitCommits,
-} from "./git/history-sample.js";
 import type { IndexWorkspaceOptions, PrismEnginePorts } from "./ports.js";
-import {
-  listLocalWorkspaceTests,
-  runLocalWorkspaceTests,
-  type LocalRunTestsOptions,
-  type LocalTestListResult,
-} from "./testing/local-runners.js";
-
-/** Options for {@link PrismWorkspace.runWorkspaceTests} (M-052). */
-export type RunWorkspaceTestsOptions = LocalRunTestsOptions;
-
-/** Result of {@link PrismWorkspace.listWorkspaceTests} (M-052). */
-export type WorkspaceTestList = LocalTestListResult;
-
-/** Options for {@link PrismWorkspace.getOverviewModel} (M-052). */
-export type GetOverviewModelOptions = {
-  /**
-   * Commit-activity window in days, inclusive of today. Defaults to 7, the
-   * dashboard's default range.
-   */
-  readonly activityDays?: number;
-  /** How many nodes to rank in `mostConnected`. Defaults to 5. */
-  readonly connectedLimit?: number;
-  /**
-   * Map zoom for graph-derived fields. Defaults to `"feature"` (Core map
-   * default). The resolved zoom is always echoed on {@link OverviewModel}.
-   */
-  readonly zoom?: MapZoomLevel;
-};
-
-/** Options for {@link PrismWorkspace.getDomainReport} (M-053). */
-export type GetDomainReportOptions = {
-  readonly packageId?: string;
-  /** Local / lab CWV. When omitted and `loadLatestCwvArtifact`, Core may fill. */
-  readonly cwvLocal?: CwvReport | null;
-  readonly cwvPagespeed?: CwvReport | null;
-  /** Defaults to `"local"`. */
-  readonly cwvPreferredSource?: CwvPreferredSource;
-  /**
-   * When true and `cwvLocal` is omitted, load the newest `lighthouse-cwv`
-   * ingest artifact. Does not start Lighthouse / PageSpeed.
-   */
-  readonly loadLatestCwvArtifact?: boolean;
-  /**
-   * Include {@link detectBundleAnalyzeCapability} on the frontend report.
-   * Defaults to true.
-   */
-  readonly includeBundleCapability?: boolean;
-};
-
-const OVERVIEW_DEFAULT_ACTIVITY_DAYS = 7;
-const OVERVIEW_DEFAULT_CONNECTED_LIMIT = 5;
-const OVERVIEW_DEFAULT_ZOOM: MapZoomLevel = "feature";
 
 /**
  * Coarse path → domain keyword heuristics for `explainArea` (M-048 Phase 5).
@@ -295,20 +135,9 @@ export type FindRouteQuery = {
   readonly maxHops?: number;
 };
 
-export type GetRepositoryMapOptions = {
-  readonly zoom?: MapZoomLevel;
-  readonly layers?: readonly string[];
-  readonly bookmarks?: readonly MapBookmark[];
-};
-
 export type KnowledgeGraphView = {
   readonly graph: GraphSnapshotDto;
   readonly stats: KnowledgeGraphStats;
-};
-
-export type FeatureGraphView = {
-  readonly graph: GraphSnapshotDto;
-  readonly features: FeatureInfo[];
 };
 
 export type WorkspaceStatus = {
@@ -359,26 +188,11 @@ export type GetStackProfileOptions = {
   readonly packageId?: string | null;
 };
 
-export type GetUtilityOverlayOptions = {
-  readonly packageId?: string | null;
-};
-
 /** Multi-path change review input (M-048 Phase 4). */
 export type ReviewChangesInput = {
   readonly paths: readonly string[];
   /** Diff base label to stamp on the report (display only). */
   readonly base?: string;
-};
-
-/** Upsert input for `saveBookmark` — `id` omitted creates a new bookmark. */
-export type SaveBookmarkInput = {
-  readonly id?: string;
-  readonly label: string;
-  readonly path?: string;
-  readonly nodeId?: string;
-  readonly zoom?: MapZoomLevel;
-  readonly note?: string;
-  readonly createdAt?: string;
 };
 
 export type PrismWorkspace = {
@@ -454,18 +268,6 @@ export type PrismWorkspace = {
   findReferences(
     query: FindReferencesQuery,
   ): Result<FindReferencesResult, PrismError>;
-  /**
-   * Inferred feature graph (ADR-0011 heuristics) from the last index.
-   * `INDEX_REQUIRED` if none.
-   */
-  getFeatureGraph(): Result<FeatureGraphView, PrismError>;
-  /** List inferred features with member files and confidence. */
-  listFeatures(): Result<FeatureInfo[], PrismError>;
-  /**
-   * Aggregate Repository Intelligence report (DNA + graphs + consistency).
-   * Requires a prior `index()`. `INDEX_REQUIRED` if none.
-   */
-  intelligence(): Promise<Result<IntelligenceReport, PrismError>>;
   /** Lightweight summary (runs index when needed). */
   analyze(
     options?: IndexWorkspaceOptions,
@@ -484,11 +286,6 @@ export type PrismWorkspace = {
   getIndexFreshness(): Result<IndexFreshness, PrismError>;
   getDna(): Promise<Result<DnaReport, PrismError>>;
   /**
-   * Persona / domain Map+insights presets from the stack profile (M-041 P0).
-   * Honors selected package when set (Mono-v1).
-   */
-  getPersonaPresets(): Promise<Result<PersonaPresets, PrismError>>;
-  /**
    * Workspace stack rollup, or a single package profile when `packageId`
    * / session selection is set (M-041 Mono-v1).
    */
@@ -505,152 +302,6 @@ export type PrismWorkspace = {
   ): Promise<Result<string | null, PrismError>>;
   /** Current package selection (`null` = workspace). */
   getSelectedPackage(): Result<string | null, PrismError>;
-  /** Start an async utility job (echo-ingest in P0; Lighthouse in P1). */
-  startUtilityJob(
-    input: StartUtilityJobInput,
-  ): Promise<Result<UtilityJob, PrismError>>;
-  getUtilityJob(jobId: string): Result<UtilityJob, PrismError>;
-  listUtilityJobs(): Result<UtilityJob[], PrismError>;
-  listIngestArtifacts(filter?: {
-    kind?: string;
-    packageId?: string;
-  }): Promise<Result<IngestArtifactMeta[], PrismError>>;
-  getIngestArtifact(id: string): Promise<Result<IngestArtifact, PrismError>>;
-  /** Load a lighthouse-cwv ingest artifact as a typed CWV report (M-041 P1). */
-  getCwvReport(artifactId: string): Promise<Result<CwvReport, PrismError>>;
-  /**
-   * Detect analyze scripts / Next·Vite·Webpack stacks for Bundle Weight (M-050).
-   * Pure FS — no builds, no network.
-   */
-  detectBundleAnalyzeCapability(options?: {
-    packageId?: string;
-  }): Result<BundleAnalyzeCapability, PrismError>;
-  /** Load a bundle-stats ingest artifact as BundleWeightReport (M-050). */
-  getBundleWeightReport(
-    artifactId: string,
-  ): Promise<Result<BundleWeightReport, PrismError>>;
-  /**
-   * Discover frontend URL paths for lab Routes UI (Next pages + React Router /
-   * SEO path literals under the workspace).
-   */
-  discoverFrontendRoutes(): Result<string[], PrismError>;
-  /** Catalog of Map/MCP utility overlay kinds (M-041 P2–P7 / Mono-v2). */
-  listUtilityOverlayKinds(): Result<UtilityOverlayKindInfo[], PrismError>;
-  /**
-   * Build a domain utility overlay for Map layers (local FS / index heuristics).
-   */
-  getUtilityOverlay(
-    kind: string,
-    options?: GetUtilityOverlayOptions,
-  ): Promise<Result<UtilityOverlayReport, PrismError>>;
-  /**
-   * Route-granular backend intelligence (M-044 / ADR-0015). Local static
-   * heuristics (Express / Nest / Fastify + data/env/background facets).
-   */
-  getBackendReport(
-    options?: GetUtilityOverlayOptions,
-  ): Promise<Result<BackendReport, PrismError>>;
-  /**
-   * Testing structure + optional on-disk coverage (M-046 / ADR-0022).
-   * Does not require a prior index (walks the workspace tree).
-   */
-  getTestingReport(): Promise<Result<TestingReport, PrismError>>;
-  /**
-   * Left-shift tooling + fundamental security checklist (M-046 / ADR-0022).
-   */
-  getSecurityReport(): Promise<Result<SecurityReport, PrismError>>;
-  /**
-   * Re-read coverage artifacts after an external test run and return an
-   * updated TestingReport (M-046 / ADR-0022).
-   */
-  ingestCoverageFromWorkspace(): Promise<Result<TestingReport, PrismError>>;
-  /**
-   * Run the workspace's own test suite and fold the results into a
-   * TestingReport (M-052). Prefers package.json `scripts.test`, then
-   * vitest/jest. Optional `coverage` re-ingests coverage artifacts afterwards.
-   *
-   * Spawns subprocesses. Previously each surface assembled this itself, which
-   * is why the playground and the extension disagreed about `lastRunAt`.
-   */
-  runWorkspaceTests(
-    options?: RunWorkspaceTestsOptions,
-  ): Promise<Result<TestingReport, PrismError>>;
-  /**
-   * Discover test files and cases without running them, for a suite tree
-   * (M-052). Empty when no runner binary is available.
-   */
-  listWorkspaceTests(): Promise<Result<WorkspaceTestList, PrismError>>;
-  /**
-   * The Overview dashboard's derived facts: coupling, regions, the most
-   * connected nodes, and commit activity over a window (M-052).
-   *
-   * Requires a prior `index()`. `activity` is `null` when git is
-   * unavailable — which is not the same as a window with no commits.
-   */
-  getOverviewModel(
-    options?: GetOverviewModelOptions,
-  ): Promise<Result<OverviewModel, PrismError>>;
-  /**
-   * Per-domain aggregation for Domain screens (M-053). Frontend first:
-   * merged routes, CWV primary selection, route/component breakdowns.
-   * Does not start Lighthouse or PageSpeed.
-   */
-  getDomainReport(
-    domain: DomainReportDomain | string,
-    options?: GetDomainReportOptions,
-  ): Promise<Result<DomainReport, PrismError>>;
-  /**
-   * Record the user's answer for one purpose (M-036). `purpose` must be a
-   * known `ConsentPurposeId`; anything else is a validation error rather than
-   * a silently stored record.
-   */
-  setConsent(
-    purpose: string,
-    granted: boolean,
-  ): Promise<Result<ConsentRecord, PrismError>>;
-  getConsent(
-    purpose: string,
-  ): Promise<Result<ConsentRecord | null, PrismError>>;
-  /**
-   * Every purpose with the decision so far, so a surface can render the
-   * settings screen without hard-coding the catalogue (M-036 Phase 1.1). This
-   * is the single authority: the UI's old `localStorage` toggle is migrated
-   * into `.prism/consent.json` and then ignored.
-   */
-  listConsent(): Promise<Result<ConsentState[], PrismError>>;
-  getHealth(): Promise<Result<HealthScore, PrismError>>;
-  /**
-   * Persisted health-over-time points from index snapshots + optional git
-   * backfill (M-046 / ADR-0023). Requires prior `index()` for forward points;
-   * empty report when the cache has none.
-   */
-  getHealthHistory(options?: {
-    since?: string;
-    limit?: number;
-  }): Promise<Result<HealthHistoryReport, PrismError>>;
-  /**
-   * Improving / regressing regions between the latest two (or first/last)
-   * region snapshots in history.
-   */
-  getRegionMovers(): Promise<Result<RegionMoversReport, PrismError>>;
-  /**
-   * Start a background backfill that stamps current-index health at sampled
-   * historical commit dates (v1 approximation — see ADR-0023).
-   */
-  startHealthHistoryBackfill(options?: {
-    maxCommits?: number;
-  }): Promise<Result<HealthHistoryBackfillStatus, PrismError>>;
-  /** Current health-history backfill job status. */
-  getHealthHistoryBackfillStatus(): Result<
-    HealthHistoryBackfillStatus,
-    PrismError
-  >;
-  /**
-   * Engineering-health metrics (entropy, drift, debt, churn, conflict,
-   * knowledge decay + hotspots). Complementary to `getHealth` (ADR-0017).
-   * Requires prior `index()`. Git metrics fail soft when history is missing.
-   */
-  getEngineeringHealth(): Promise<Result<EngineeringHealthReport, PrismError>>;
   /**
    * Selection-scoped Code Explorer report (usages, ownership, related *,
    * similar, timeline). Requires prior `index()`. Git sections fail soft.
@@ -663,20 +314,8 @@ export type PrismWorkspace = {
    * Requires `index()`. Empty routes when no path exists.
    */
   findRoute(query: FindRouteQuery): Result<NavigationRouteResult, PrismError>;
-  /** Feature → feature routes via shared file dependencies (M-016). */
-  navigateFeature(
-    fromFeatureId: string,
-    toFeatureId: string,
-    options?: { maxAlternatives?: number; maxHops?: number },
-  ): Result<NavigationRouteResult, PrismError>;
-  /** Named entrypoints / package roots / feature anchors (M-016). */
+  /** Named entrypoints, package roots and config markers (M-016). */
   listLandmarks(): Result<Landmark[], PrismError>;
-  /**
-   * Repository Map model at a zoom level (M-017). Requires `index()`.
-   */
-  getRepositoryMap(
-    options?: GetRepositoryMapOptions,
-  ): Result<RepositoryMap, PrismError>;
   /**
    * Repo-wide local git activity (recent files/commits + summary) for
    * dashboards (M-042). Requires `index()`. `available: false` on non-git roots;
@@ -736,15 +375,6 @@ export type PrismWorkspace = {
     path?: string;
   }): Promise<Result<TestImpactReport, PrismError>>;
   /**
-   * Heuristic breaking-change hints for a change target (M-021).
-   * Requires `index()`.
-   */
-  breakingChangeHints(input: {
-    kind: "file" | "symbol";
-    id: string;
-    path?: string;
-  }): Promise<Result<BreakingChangeHint[], PrismError>>;
-  /**
    * Multi-path aggregate review (M-048 Phase 4): `blastRadius` + `testImpact`
    * + `breakingChangeHints` per path, rolled up into one report for SCM /
    * editor "Review Changes". Requires `index()`.
@@ -769,7 +399,7 @@ export type PrismWorkspace = {
   ): Promise<Result<GraphAnswer, PrismError>>;
   /**
    * The whole graph as versioned `graph.json` data, plus the measured facts
-   * for `GRAPH_REPORT.md` (M-096). Requires `index()`.
+   * for the graph export (M-096). Requires `index()`.
    */
   exportGraph(): Promise<Result<GraphExportResult, PrismError>>;
   /**
@@ -790,19 +420,11 @@ export type PrismWorkspace = {
   generateAgentsMd(): Promise<Result<AgentsMdGenerateResult, PrismError>>;
   /**
    * Re-verifies the claims embedded in the last `generateAgentsMd()` output
-   * against a fresh `listFeatures()` / `getCycles()` read (M-073 C2).
+   * against a fresh `getCycles()` read (M-073 C2).
    * Fails (`ok: false`, non-empty `issues`) on drift; errors only when no
    * AGENTS.md has been generated yet or the claims block is unparsable.
    */
   checkAgentsMd(): Promise<Result<AgentsMdCheckResult, PrismError>>;
-  /** Bookmarks persisted at `.prism/bookmarks.json` (M-048 Phase 6). */
-  listBookmarks(): Promise<Result<MapBookmark[], PrismError>>;
-  /** Upsert a bookmark (by `id` when set) and return the updated list. */
-  saveBookmark(
-    input: SaveBookmarkInput,
-  ): Promise<Result<MapBookmark[], PrismError>>;
-  /** Remove a bookmark by id and return the updated list. */
-  removeBookmark(id: string): Promise<Result<MapBookmark[], PrismError>>;
   close(): void;
 };
 
@@ -880,7 +502,6 @@ export function createWorkspace(options: {
   let open = true;
   let lastIndexedAt: string | null = null;
   let lastSnapshot: IndexSnapshot | null = null;
-  let utilities: UtilitiesSession | null = null;
   let selectedPackageId: string | null = null;
   let gitCache: { at: string | null; value: GitSignals | null } | null = null;
   let gitFilesCache: {
@@ -895,12 +516,6 @@ export function createWorkspace(options: {
     key: string | null;
     value: ReturnType<typeof buildSoftImpactIndex> | null;
   } = { key: null, value: null };
-  let backfillStatus: HealthHistoryBackfillStatus = {
-    status: "idle",
-    progress: 0,
-    message: "Not started",
-  };
-  let backfillRunning = false;
 
   // —— Incremental watch (M-048 / ADR-0026) ——
   let watching = false;
@@ -990,81 +605,6 @@ export function createWorkspace(options: {
       watchTimer = null;
       void flushWatch();
     }, delayMs ?? watchDebounceMs);
-  };
-
-  const bookmarksFilePath = (): string => workspaceBookmarksPath(rootPath);
-
-  /**
-   * A missing bookmarks file is normal and yields an empty store. A file that
-   * exists but cannot be read or parsed is an error: treating corruption as
-   * "no bookmarks" meant the next save overwrote the file and destroyed them
-   * (M-051 Phase 1).
-   */
-  const readBookmarkStore = async (): Promise<
-    Result<MapBookmarkStore, PrismError>
-  > => {
-    let raw: string;
-    try {
-      raw = await readFile(bookmarksFilePath(), "utf8");
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
-        return ok(emptyBookmarkStore());
-      }
-      return err(
-        prismError(
-          PrismErrorCode.IO_ERROR,
-          `Could not read ${bookmarksFilePath()}: ${
-            error instanceof Error ? error.message : "unknown error"
-          }`,
-        ),
-      );
-    }
-
-    let json: unknown;
-    try {
-      json = JSON.parse(raw);
-    } catch {
-      return err(
-        prismError(
-          PrismErrorCode.VALIDATION,
-          `${bookmarksFilePath()} is not valid JSON. Fix or delete the file to continue.`,
-        ),
-      );
-    }
-
-    const parsed = parseBookmarkStore(json);
-    if (!parsed.ok) {
-      return err(
-        prismError(
-          PrismErrorCode.VALIDATION,
-          `${bookmarksFilePath()} is not a valid bookmark store. Fix or delete the file to continue.`,
-        ),
-      );
-    }
-    return ok(parsed.value);
-  };
-
-  const writeBookmarkStore = async (
-    store: MapBookmarkStore,
-  ): Promise<Result<void, PrismError>> => {
-    try {
-      await mkdir(workspacePrismDir(rootPath), { recursive: true });
-      await writeFile(
-        bookmarksFilePath(),
-        `${JSON.stringify(store, null, 2)}\n`,
-        "utf8",
-      );
-      return ok(undefined);
-    } catch (error) {
-      return err(
-        prismError(
-          PrismErrorCode.IO_ERROR,
-          `Could not write ${bookmarksFilePath()}: ${
-            error instanceof Error ? error.message : "unknown error"
-          }`,
-        ),
-      );
-    }
   };
 
   const mutesFilePath = (): string => workspaceFindingMutesPath(rootPath);
@@ -1160,15 +700,6 @@ export function createWorkspace(options: {
       );
     }
     return ok(lastSnapshot);
-  };
-
-  const ensureUtilities = (): Result<UtilitiesSession, PrismError> => {
-    const gate = ensureOpen();
-    if (!gate.ok) return gate;
-    if (!utilities) {
-      utilities = createUtilitiesSession({ workspaceRoot: rootPath });
-    }
-    return ok(utilities);
   };
 
   const ensureStack = (): Result<
@@ -1288,26 +819,6 @@ export function createWorkspace(options: {
       ) {
         watchStatus = "fresh";
         watchLastError = null;
-      }
-      // Forward snapshot for Trends (ADR-0023) — fail soft on cache errors.
-      // Full runs only: a watcher reindex per save would score health on every
-      // keystroke-level edit and fill the trend with near-identical points.
-      try {
-        const cache = isFullRun
-          ? await openIndexCache(rootPath)
-          : ({ ok: false } as const);
-        if (cache.ok) {
-          const headSha = readHeadCommitSha(rootPath);
-          const payload = buildHealthHistorySnapshot({
-            snapshot: result.value,
-            at: result.value.indexedAt,
-            ...(headSha ? { commitSha: headSha } : {}),
-          });
-          appendHealthHistory(cache.value.db, rootPath, payload);
-          cache.value.close();
-        }
-      } catch {
-        /* history persistence is best-effort */
       }
     }
     return result;
@@ -1441,7 +952,7 @@ export function createWorkspace(options: {
           return err(
             prismError(
               PrismErrorCode.VALIDATION,
-              `Invalid search_symbols regex: ${cause.message}`,
+              `Invalid symbol search regex: ${cause.message}`,
             ),
           );
         }
@@ -1460,58 +971,6 @@ export function createWorkspace(options: {
         );
       }
       return ok(queryReferences(cachedKnowledgeGraph(lastSnapshot), query));
-    },
-    getFeatureGraph() {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-      if (!lastSnapshot) {
-        return err(
-          prismError(
-            PrismErrorCode.INDEX_REQUIRED,
-            "No index snapshot yet — call workspace.index() first",
-          ),
-        );
-      }
-      const fg = buildFeatureGraph(lastSnapshot);
-      return ok({ graph: fg.graph, features: fg.features });
-    },
-    listFeatures() {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-      if (!lastSnapshot) {
-        return err(
-          prismError(
-            PrismErrorCode.INDEX_REQUIRED,
-            "No index snapshot yet — call workspace.index() first",
-          ),
-        );
-      }
-      return ok(buildFeatureGraph(lastSnapshot).features);
-    },
-    async intelligence() {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-      if (!lastSnapshot) {
-        return err(
-          prismError(
-            PrismErrorCode.INDEX_REQUIRED,
-            "No index snapshot yet — call workspace.index() first",
-          ),
-        );
-      }
-      const profile = await loadWorkspaceRollup();
-      if (!profile.ok) return profile;
-      const dna = assembleDnaReport({
-        profile: profile.value,
-        filePaths: lastSnapshot.files.map((f) => f.path),
-      });
-      return ok(
-        assembleIntelligenceReport({
-          snapshot: lastSnapshot,
-          dna,
-          capabilities: options.capabilities,
-        }),
-      );
     },
     analyze: runAnalyze,
     reindex: runAnalyze,
@@ -1590,26 +1049,6 @@ export function createWorkspace(options: {
         }),
       );
     },
-    async getPersonaPresets() {
-      const profile = await loadWorkspaceRollup();
-      if (!profile.ok) return profile;
-      const packageId = selectedPackageId;
-      if (packageId === null) {
-        return ok(buildPersonaPresets(profile.value));
-      }
-      const entry = (profile.value.packages ?? []).find(
-        (p) => p.id === packageId,
-      );
-      if (!entry) {
-        return err(
-          prismError(
-            PrismErrorCode.VALIDATION,
-            `Unknown package id "${packageId}" — call listPackages() / selectPackage()`,
-          ),
-        );
-      }
-      return ok(buildPersonaPresets(packageAsStackProfile(entry)));
-    },
     async getStackProfile(profileOptions) {
       const rollup = await loadWorkspaceRollup();
       if (!rollup.ok) return rollup;
@@ -1661,780 +1100,6 @@ export function createWorkspace(options: {
       if (!gate.ok) return gate;
       return ok(selectedPackageId);
     },
-    async startUtilityJob(input) {
-      const session = ensureUtilities();
-      if (!session.ok) return session;
-      const packageId = input.packageId ?? selectedPackageId ?? undefined;
-      return session.value.jobs.start({
-        ...input,
-        ...(packageId === undefined ? {} : { packageId }),
-      });
-    },
-    getUtilityJob(jobId) {
-      const session = ensureUtilities();
-      if (!session.ok) return session;
-      return session.value.jobs.get(jobId);
-    },
-    listUtilityJobs() {
-      const session = ensureUtilities();
-      if (!session.ok) return session;
-      return session.value.jobs.list();
-    },
-    async listIngestArtifacts(filter) {
-      const session = ensureUtilities();
-      if (!session.ok) return session;
-      return session.value.ingest.list(filter);
-    },
-    async getIngestArtifact(id) {
-      const session = ensureUtilities();
-      if (!session.ok) return session;
-      return session.value.ingest.get(id);
-    },
-    async getCwvReport(artifactId) {
-      const session = ensureUtilities();
-      if (!session.ok) return session;
-      return loadCwvReport(session.value.ingest, artifactId);
-    },
-    detectBundleAnalyzeCapability(options) {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-      return ok(
-        detectBundleAnalyzeCapabilityImpl(
-          rootPath,
-          options?.packageId === undefined
-            ? undefined
-            : { packageId: options.packageId },
-        ),
-      );
-    },
-    async getBundleWeightReport(artifactId) {
-      const session = ensureUtilities();
-      if (!session.ok) return session;
-      return loadBundleWeightReport(session.value.ingest, artifactId);
-    },
-    discoverFrontendRoutes() {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-      // Scope to the app the lab would measure (the one Prism builds +
-      // previews) — workspace-wide discovery mixes sibling frontend routes
-      // that the measured origin does not serve.
-      return ok(
-        discoverFrontendAppRoutes(rootPath, resolveLabAppRoot(rootPath)),
-      );
-    },
-    listUtilityOverlayKinds() {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-      return ok(catalogUtilityOverlayKinds());
-    },
-    async getUtilityOverlay(kind, overlayOptions) {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-      const parsed = parseUtilityOverlayKind(kind);
-      if (!parsed) {
-        return err(
-          prismError(
-            PrismErrorCode.VALIDATION,
-            `Unknown utility overlay kind "${kind}"`,
-          ),
-        );
-      }
-      const info = catalogUtilityOverlayKinds().find((k) => k.kind === parsed);
-      if (info?.requiresIndex && !lastSnapshot) {
-        return err(
-          prismError(
-            PrismErrorCode.INDEX_REQUIRED,
-            `Overlay "${parsed}" requires workspace.index() first`,
-          ),
-        );
-      }
-
-      const rollup = await loadWorkspaceRollup();
-      if (!rollup.ok) return rollup;
-      const packageId = resolvePackageId(overlayOptions?.packageId);
-      let packageRootDir: string | undefined;
-      if (packageId !== null) {
-        const entry = (rollup.value.packages ?? []).find(
-          (p) => p.id === packageId,
-        );
-        if (!entry) {
-          return err(
-            prismError(
-              PrismErrorCode.VALIDATION,
-              `Unknown package id "${packageId}"`,
-            ),
-          );
-        }
-        packageRootDir = entry.rootDir;
-      }
-
-      return ok(
-        buildUtilityOverlay({
-          workspaceRoot: rootPath,
-          kind: parsed,
-          stack: rollup.value,
-          ...(packageId === null ? {} : { packageId }),
-          ...(packageRootDir === undefined ? {} : { packageRootDir }),
-          ...(lastSnapshot === null ? {} : { index: lastSnapshot }),
-        }),
-      );
-    },
-    async getBackendReport(overlayOptions) {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-
-      const rollup = await loadWorkspaceRollup();
-      if (!rollup.ok) return rollup;
-      const packageId = resolvePackageId(overlayOptions?.packageId);
-      let packageRootDir: string | undefined;
-      if (packageId !== null) {
-        const entry = (rollup.value.packages ?? []).find(
-          (p) => p.id === packageId,
-        );
-        if (!entry) {
-          return err(
-            prismError(
-              PrismErrorCode.VALIDATION,
-              `Unknown package id "${packageId}"`,
-            ),
-          );
-        }
-        packageRootDir = entry.rootDir;
-      }
-
-      return ok(
-        buildBackendReport({
-          workspaceRoot: rootPath,
-          ...(packageId === null ? {} : { packageId }),
-          ...(packageRootDir === undefined ? {} : { packageRootDir }),
-          ...(lastSnapshot === null ? {} : { index: lastSnapshot }),
-        }),
-      );
-    },
-    async getTestingReport() {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-      const files = lastSnapshot?.files.map((f) => f.path);
-      return ok(
-        buildTestingReport({
-          workspaceRoot: rootPath,
-          ...(files === undefined ? {} : { files }),
-        }),
-      );
-    },
-    async getSecurityReport() {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-      const files = lastSnapshot?.files.map((f) => f.path);
-      let hasBackendDomain = false;
-      const profile = await loadWorkspaceRollup();
-      if (profile.ok) {
-        hasBackendDomain = profile.value.domains?.includes("backend") === true;
-      }
-      return ok(
-        buildSecurityReport({
-          workspaceRoot: rootPath,
-          ...(files === undefined ? {} : { files }),
-          hasBackendDomain,
-        }),
-      );
-    },
-    async ingestCoverageFromWorkspace() {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-      const files = lastSnapshot?.files.map((f) => f.path);
-      return ok(
-        ingestCoverageFromWorkspace(
-          rootPath,
-          files === undefined ? undefined : files,
-        ),
-      );
-    },
-    async runWorkspaceTests(options = {}) {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-
-      const baseResult = await this.getTestingReport();
-      if (!baseResult.ok) return baseResult;
-      const base = baseResult.value;
-
-      const run = await runLocalWorkspaceTests(
-        rootPath,
-        base.runners ?? [],
-        options,
-      );
-
-      if (!run.ran) {
-        // No runner binary. Say so, and leave `lastRunAt` alone — it means
-        // "tests last ran at", and nothing ran.
-        return ok({
-          ...base,
-          results: [],
-          summary: `${base.summary} · No test runner binary found.`,
-        });
-      }
-
-      let report = base;
-      if (options.coverage === true) {
-        const ingested = await this.ingestCoverageFromWorkspace();
-        if (ingested.ok) report = ingested.value;
-      }
-
-      return ok({
-        ...report,
-        results: run.results,
-        lastRunAt: new Date().toISOString(),
-      });
-    },
-    async listWorkspaceTests() {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-      const baseResult = await this.getTestingReport();
-      if (!baseResult.ok) return baseResult;
-      return ok(
-        await listLocalWorkspaceTests(rootPath, baseResult.value.runners ?? []),
-      );
-    },
-    async getOverviewModel(options = {}) {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-
-      const zoom = options.zoom ?? OVERVIEW_DEFAULT_ZOOM;
-      const mapResult = await this.getRepositoryMap({ zoom });
-      if (!mapResult.ok) return mapResult;
-      const graph = mapResult.value.graph;
-
-      const activityDays = Math.max(
-        1,
-        Math.round(options.activityDays ?? OVERVIEW_DEFAULT_ACTIVITY_DAYS),
-      );
-      const connectedLimit = Math.max(
-        0,
-        Math.round(options.connectedLimit ?? OVERVIEW_DEFAULT_CONNECTED_LIMIT),
-      );
-
-      const regionResult = deriveRegions(graph);
-      const mostConnected = deriveMostConnected(graph, connectedLimit);
-
-      const gitResult = await this.getGitActivity();
-      let activity: OverviewModel["activity"] = null;
-      if (gitResult.ok && gitResult.value.available) {
-        const { startMs, endMs } = presetBounds(activityDays);
-        activity = bucketActivity(gitResult.value.days ?? [], startMs, endMs);
-      }
-
-      if (!lastSnapshot) {
-        return err(
-          prismError(
-            PrismErrorCode.INDEX_REQUIRED,
-            "No index snapshot yet — call workspace.index() first",
-          ),
-        );
-      }
-
-      return ok({
-        zoom,
-        totals: {
-          nodes: graph.nodes.length,
-          edges: graph.edges.length,
-          files: lastSnapshot.stats.filesIndexed,
-          regions: regionResult.totalCount,
-        },
-        coupling: couplingFor(graph),
-        regions: regionResult.regions,
-        ...(regionResult.truncated
-          ? { truncated: true, totalCount: regionResult.totalCount }
-          : regionResult.totalCount > 0
-            ? { truncated: false, totalCount: regionResult.totalCount }
-            : {}),
-        mostConnected,
-        activity,
-      });
-    },
-    async getDomainReport(domain, options = {}) {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-
-      const parsedDomain = DomainReportDomainSchema.safeParse(domain);
-      if (!parsedDomain.success) {
-        return err(
-          prismError(
-            PrismErrorCode.VALIDATION,
-            `Unknown domain "${domain}" for getDomainReport`,
-          ),
-        );
-      }
-      const domainId = parsedDomain.data;
-      const packageId = options.packageId ?? selectedPackageId ?? undefined;
-      const overlayOpts = packageId === undefined ? undefined : { packageId };
-      const generatedAt = new Date().toISOString();
-      const base = {
-        rootPath,
-        ...(packageId === undefined ? {} : { packageId }),
-        generatedAt,
-      };
-
-      const loadDepGraph = (): GraphSnapshotDto | null => {
-        const g = this.getDependencyGraph();
-        if (!g.ok) return null;
-        // Domain reports only need the graph snapshot (not honesty fields).
-        return {
-          id: g.value.id,
-          nodes: g.value.nodes,
-          edges: g.value.edges,
-        };
-      };
-      const loadGit = (): GitActivity | null => {
-        const g = this.getGitActivity();
-        return g.ok ? g.value : null;
-      };
-      const loadDna = async (): Promise<DnaReport | null> => {
-        const d = await this.getDna();
-        return d.ok ? d.value : null;
-      };
-      const loadOverlay = async (kind: string) => {
-        const o = await this.getUtilityOverlay(kind, overlayOpts);
-        return o.ok ? o.value : null;
-      };
-
-      if (domainId === "frontend") {
-        const preferredSource: CwvPreferredSource =
-          options.cwvPreferredSource ?? "local";
-
-        let cwvLocal: CwvReport | null =
-          options.cwvLocal === undefined ? null : (options.cwvLocal ?? null);
-        if (
-          options.cwvLocal === undefined &&
-          options.loadLatestCwvArtifact === true
-        ) {
-          const listed = await this.listIngestArtifacts({
-            kind: "lighthouse-cwv",
-            ...(packageId === undefined ? {} : { packageId }),
-          });
-          if (listed.ok && listed.value.length > 0) {
-            const newest = [...listed.value].sort((a, b) =>
-              b.storedAt.localeCompare(a.storedAt),
-            )[0]!;
-            const loaded = await this.getCwvReport(newest.id);
-            if (loaded.ok) cwvLocal = loaded.value;
-          }
-        }
-
-        const cwvPagespeed =
-          options.cwvPagespeed === undefined
-            ? null
-            : (options.cwvPagespeed ?? null);
-        const primary = selectPrimaryCwv(
-          preferredSource,
-          cwvLocal,
-          cwvPagespeed,
-        );
-
-        const discovered = discoverFrontendAppRoutes(
-          rootPath,
-          resolveLabAppRoot(rootPath),
-        );
-        const dnaResult = await this.getDna();
-        let heuristic: string[] = [];
-        if (dnaResult.ok) {
-          const stack = dnaResult.value.stack;
-          const signals = stack?.signals?.map((s) => s.id) ?? [];
-          const evidencePaths = [
-            ...(stack?.signals ?? []).flatMap((s) => s.evidence ?? []),
-            ...(stack?.packages ?? []).flatMap((p) =>
-              (p.profile.signals ?? []).flatMap((s) => s.evidence ?? []),
-            ),
-          ];
-          heuristic = heuristicFrontendRoutes(signals, evidencePaths);
-        } else {
-          heuristic = heuristicFrontendRoutes(undefined, undefined);
-        }
-
-        const routes = mergeFrontendRoutes(heuristic, discovered);
-        const routeBreakdown = buildFrontendRouteBreakdown(routes, primary);
-        const componentBreakdown = buildFrontendComponentBreakdown(primary);
-        const categoryScores = { ...primary?.categoryScores };
-        const summary = summarizeFrontendDomainReport({
-          routes,
-          routeBreakdown,
-          componentBreakdown,
-          hasPrimaryCwv: primary !== null,
-        });
-
-        const includeBundle = options.includeBundleCapability !== false;
-        let bundleCapability: BundleAnalyzeCapability | undefined;
-        if (includeBundle) {
-          const cap = this.detectBundleAnalyzeCapability(
-            packageId === undefined ? undefined : { packageId },
-          );
-          if (cap.ok) bundleCapability = cap.value;
-        }
-
-        return ok({
-          domain: "frontend" as const,
-          ...base,
-          summary,
-          routes,
-          cwv: {
-            preferredSource,
-            local: cwvLocal,
-            pagespeed: cwvPagespeed,
-            primary,
-          },
-          routeBreakdown,
-          componentBreakdown,
-          categoryScores,
-          ...(bundleCapability === undefined ? {} : { bundleCapability }),
-        });
-      }
-
-      if (domainId === "backend") {
-        const backendResult = await this.getBackendReport(overlayOpts);
-        if (!backendResult.ok) return backendResult;
-        const backend = backendResult.value;
-        const overlay = await loadOverlay("api-surface");
-        const nodes = overlay?.graph.nodes ?? [];
-        const handlers = backendHandlerNodes(nodes);
-        const depGraph = loadDepGraph();
-        const git = loadGit();
-        const coverage = buildBackendCoverage(backend);
-        const mostDepended = rankMostDepended(handlers, depGraph);
-        const churn = rankChurnHotspots(handlers, git);
-        const kindCounts = countOverlayKinds(nodes);
-        const dataLayerByKind = countDataLayerByKind(backend.dataLayer);
-        return ok({
-          domain: "backend" as const,
-          ...base,
-          summary: summarizeBackendDomainReport({
-            endpoints: backend.endpoints,
-            frameworks: backend.frameworksDetected,
-            untested: coverage.untested.length,
-          }),
-          backend,
-          coverage,
-          mostDepended,
-          churn,
-          kindCounts,
-          dataLayerByKind,
-        });
-      }
-
-      if (domainId === "devops_platform") {
-        const overlay = await loadOverlay("iac-resources");
-        const nodes = overlay?.graph.nodes ?? [];
-        const tiles = buildDevopsTiles(nodes);
-        const findings = buildDevopsFindings(overlay);
-        const kindCounts = countOverlayKinds(nodes);
-        return ok({
-          domain: "devops_platform" as const,
-          ...base,
-          summary: overlay?.summary ?? summarizeDevopsDomainReport(tiles),
-          overlaySummary: overlay?.summary ?? "",
-          kindCounts,
-          tiles,
-          findings,
-        });
-      }
-
-      if (domainId === "mobile") {
-        const overlay = await loadOverlay("mobile-nav");
-        const qa = await loadOverlay("qa-test-gaps");
-        const nodes = overlay?.graph.nodes ?? [];
-        const screenNodes = nodes.filter((n) => n.kind === "screen");
-        const depGraph = loadDepGraph();
-        const git = loadGit();
-        const dna = await loadDna();
-        const screenCoverage = buildMobileScreenCoverage(screenNodes, qa);
-        const tiles = buildMobileTiles(nodes, screenCoverage);
-        return ok({
-          domain: "mobile" as const,
-          ...base,
-          summary: summarizeMobileDomainReport(tiles),
-          tiles,
-          screenCoverage,
-          screenMostDepended: rankMostDepended(screenNodes, depGraph),
-          screenChurn: rankChurnHotspots(screenNodes, git),
-          stack: buildDomainStackSnapshot(dna, "mobile"),
-          navLinks: buildMobileNavLinks(overlay),
-          kindCounts: countOverlayKinds(nodes),
-        });
-      }
-
-      if (domainId === "desktop") {
-        const overlay = await loadOverlay("desktop-boundary");
-        const nodes = overlay?.graph.nodes ?? [];
-        const processNodes = desktopProcessNodes(nodes);
-        const depGraph = loadDepGraph();
-        const git = loadGit();
-        const dna = await loadDna();
-        const tiles = buildDesktopTiles(nodes);
-        return ok({
-          domain: "desktop" as const,
-          ...base,
-          summary: summarizeDesktopDomainReport(tiles),
-          tiles,
-          mostDepended: rankMostDepended(processNodes, depGraph),
-          churn: rankChurnHotspots(processNodes, git),
-          stack: buildDomainStackSnapshot(dna, "desktop"),
-          boundaryLinks: buildDesktopBoundaryLinks(overlay),
-          ipcChannels: buildDesktopIpcChannels(overlay),
-          kindCounts: countOverlayKinds(nodes),
-        });
-      }
-
-      // data_ml_ai
-      const overlay = await loadOverlay("data-pipeline-dag");
-      const nodes = overlay?.graph.nodes ?? [];
-      const kindCounts = countOverlayKinds(nodes);
-      const findings = [...(overlay?.findings ?? [])];
-      const dna = await loadDna();
-      return ok({
-        domain: "data_ml_ai" as const,
-        ...base,
-        summary: summarizeDataMlAiDomainReport({
-          nodeCount: nodes.length,
-          kindCounts,
-          findingCount: findings.length,
-        }),
-        overlaySummary: overlay?.summary ?? "",
-        nodeCount: nodes.length,
-        kindCounts,
-        findings,
-        stack: buildDomainStackSnapshot(dna, "data_ml_ai"),
-      });
-    },
-    async setConsent(purpose, granted) {
-      const session = ensureUtilities();
-      if (!session.ok) return session;
-      return session.value.consent.set(purpose, granted);
-    },
-    async getConsent(purpose) {
-      const session = ensureUtilities();
-      if (!session.ok) return session;
-      return session.value.consent.get(purpose);
-    },
-    async listConsent() {
-      const session = ensureUtilities();
-      if (!session.ok) return session;
-      const stored = await session.value.consent.list();
-      if (!stored.ok) return stored;
-      const byPurpose = new Map(stored.value.map((r) => [r.purpose, r]));
-      // Driven by the catalogue, not by the file: a purpose nobody has
-      // answered yet must still appear, as undecided, or the settings screen
-      // would silently omit whatever we added most recently.
-      return ok(
-        CONSENT_PURPOSES.map((purpose) => {
-          const record = byPurpose.get(purpose.id);
-          return {
-            purpose,
-            granted: record?.granted ?? false,
-            decidedAt: record?.decidedAt ?? null,
-          };
-        }),
-      );
-    },
-    async getHealth() {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-      if (!lastSnapshot) {
-        return err(
-          prismError(
-            PrismErrorCode.INDEX_REQUIRED,
-            "No index snapshot yet — call workspace.index() first",
-          ),
-        );
-      }
-      const testing = buildTestingReport({
-        workspaceRoot: rootPath,
-        files: lastSnapshot.files.map((f) => f.path),
-      });
-      return ok(computeHealthScore(lastSnapshot, { testingReport: testing }));
-    },
-    async getHealthHistory(historyOptions) {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-      const cache = await openIndexCache(rootPath);
-      // Cache is best-effort (same as index-time history append). An agent
-      // asking for history when SQLite cannot open should see "no points",
-      // not a native-module IO error (M-058 agent surface).
-      if (!cache.ok) {
-        return ok({ points: [] } satisfies HealthHistoryReport);
-      }
-      try {
-        const rows = listHealthHistory(cache.value.db, rootPath, {
-          ...(historyOptions?.since === undefined
-            ? {}
-            : { since: historyOptions.since }),
-          ...(historyOptions?.limit === undefined
-            ? {}
-            : { limit: historyOptions.limit }),
-        });
-        return ok({
-          points: rows.map((r) => r.health),
-        } satisfies HealthHistoryReport);
-      } finally {
-        cache.value.close();
-      }
-    },
-    async getRegionMovers() {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-      const cache = await openIndexCache(rootPath);
-      if (!cache.ok) {
-        return ok({
-          improving: [],
-          regressing: [],
-        } satisfies RegionMoversReport);
-      }
-      try {
-        const rows = listHealthHistory(cache.value.db, rootPath);
-        const regionPoints = rows.map((r) => r.regions);
-        const window = pickRegionMoverWindow(regionPoints);
-        if (!window) {
-          return ok({
-            improving: [],
-            regressing: [],
-          } satisfies RegionMoversReport);
-        }
-        return ok(computeRegionMovers(window.from, window.to));
-      } finally {
-        cache.value.close();
-      }
-    },
-    async startHealthHistoryBackfill(backfillOptions) {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-      if (!lastSnapshot) {
-        return err(
-          prismError(
-            PrismErrorCode.INDEX_REQUIRED,
-            "No index snapshot yet — call workspace.index() first",
-          ),
-        );
-      }
-      if (backfillRunning || backfillStatus.status === "running") {
-        return ok(backfillStatus);
-      }
-
-      const snapshot = lastSnapshot;
-      const maxCommits =
-        backfillOptions?.maxCommits ?? HEALTH_HISTORY_BACKFILL_DEFAULT_COMMITS;
-
-      backfillRunning = true;
-      backfillStatus = {
-        status: "running",
-        progress: 0,
-        message: "History sync in progress",
-      };
-
-      void (async () => {
-        try {
-          const commits = sampleGitCommits(rootPath, { maxCommits });
-          if (commits.length === 0) {
-            backfillStatus = {
-              status: "done",
-              progress: 1,
-              message: "No git history to backfill",
-            };
-            return;
-          }
-
-          const cache = await openIndexCache(rootPath);
-          if (!cache.ok) {
-            backfillStatus = {
-              status: "error",
-              progress: 0,
-              message: cache.error.message,
-            };
-            return;
-          }
-
-          try {
-            let written = 0;
-            for (let i = 0; i < commits.length; i++) {
-              const commit = commits[i]!;
-              if (hasHealthHistorySha(cache.value.db, rootPath, commit.sha)) {
-                backfillStatus = {
-                  status: "running",
-                  progress: (i + 1) / commits.length,
-                  message: `Skipping existing ${commit.sha.slice(0, 7)}`,
-                };
-                continue;
-              }
-              // v1: stamp current-index health at historical commit metadata.
-              // Marked estimated so the chart never presents it as a real
-              // measurement taken at that commit (ADR-0029).
-              const payload = buildHealthHistorySnapshot({
-                snapshot,
-                at: commit.at,
-                commitSha: commit.sha,
-                backfilled: true,
-              });
-              if (appendHealthHistory(cache.value.db, rootPath, payload)) {
-                written += 1;
-              }
-              backfillStatus = {
-                status: "running",
-                progress: (i + 1) / commits.length,
-                message: `Synced ${i + 1}/${commits.length} commits`,
-              };
-            }
-            backfillStatus = {
-              status: "done",
-              progress: 1,
-              message:
-                written > 0
-                  ? `Backfilled ${written} approximate history points`
-                  : "History already up to date",
-            };
-          } finally {
-            cache.value.close();
-          }
-        } catch (cause) {
-          backfillStatus = {
-            status: "error",
-            progress: backfillStatus.progress,
-            message: cause instanceof Error ? cause.message : String(cause),
-          };
-        } finally {
-          backfillRunning = false;
-        }
-      })();
-
-      return ok(backfillStatus);
-    },
-    getHealthHistoryBackfillStatus() {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-      return ok(backfillStatus);
-    },
-    async getEngineeringHealth() {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-      if (!lastSnapshot) {
-        return err(
-          prismError(
-            PrismErrorCode.INDEX_REQUIRED,
-            "No index snapshot yet — call workspace.index() first",
-          ),
-        );
-      }
-      if (!gitCache || gitCache.at !== lastIndexedAt) {
-        const keepPaths = new Set(lastSnapshot.files.map((f) => f.path));
-        gitCache = {
-          at: lastIndexedAt,
-          value: readGitSignals(lastSnapshot.rootPath, { keepPaths }),
-        };
-      }
-      const git = gitCache.value;
-      const gitFiles = git ? [...git.signals.values()] : undefined;
-      return ok(
-        computeEngineeringHealth({
-          snapshot: lastSnapshot,
-          ...(gitFiles && gitFiles.length > 0 ? { gitFiles } : {}),
-        }),
-      );
-    },
     async exploreCode(target) {
       const gate = ensureOpen();
       if (!gate.ok) return gate;
@@ -2465,14 +1130,9 @@ export function createWorkspace(options: {
       }
       const git = gitCache.value;
       const gitFiles = git ? [...git.signals.values()] : undefined;
-      const backend = buildBackendReport({
-        workspaceRoot: rootPath,
-        index: lastSnapshot,
-      });
       const report = buildCodeExplorerReport({
         snapshot: lastSnapshot,
         target: parsed.data,
-        endpoints: backend.endpoints,
         ...(gitFiles && gitFiles.length > 0 ? { gitFiles } : {}),
       });
       if (!report) {
@@ -2646,29 +1306,6 @@ export function createWorkspace(options: {
         }),
       );
     },
-    navigateFeature(fromFeatureId, toFeatureId, options) {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-      if (!lastSnapshot) {
-        return err(
-          prismError(
-            PrismErrorCode.INDEX_REQUIRED,
-            "No index snapshot yet — call workspace.index() first",
-          ),
-        );
-      }
-      const dep = buildDependencyGraph(lastSnapshot);
-      const features = buildFeatureGraph(lastSnapshot).features;
-      return ok(
-        routeBetweenFeatures(
-          dep.graph,
-          features,
-          fromFeatureId,
-          toFeatureId,
-          options,
-        ),
-      );
-    },
     listLandmarks() {
       const gate = ensureOpen();
       if (!gate.ok) return gate;
@@ -2680,58 +1317,7 @@ export function createWorkspace(options: {
           ),
         );
       }
-      const features = buildFeatureGraph(lastSnapshot).features;
-      return ok(collectLandmarks(lastSnapshot, features));
-    },
-    getRepositoryMap(mapOptions) {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-      if (!lastSnapshot) {
-        return err(
-          prismError(
-            PrismErrorCode.INDEX_REQUIRED,
-            "No index snapshot yet — call workspace.index() first",
-          ),
-        );
-      }
-      const dep = buildDependencyGraph(lastSnapshot);
-      const features = buildFeatureGraph(lastSnapshot).features;
-      const landmarks = collectLandmarks(lastSnapshot, features);
-      const packages: MapPackageInfo[] = discoverLocalPackages(
-        lastSnapshot.rootPath,
-        lastSnapshot.files.map((f) => f.path),
-      ).map((p) => ({ name: p.name, rootDir: p.rootDir }));
-      if (!gitCache || gitCache.at !== lastIndexedAt) {
-        const keepPaths = new Set(
-          lastSnapshot.files
-            .filter((f) => f.status === "analyzed")
-            .map((f) => f.path),
-        );
-        gitCache = {
-          at: lastIndexedAt,
-          value: readGitSignals(lastSnapshot.rootPath, { keepPaths }),
-        };
-      }
-      const git = gitCache.value;
-      return ok(
-        buildRepositoryMap({
-          snapshot: lastSnapshot,
-          dependencyGraph: dep.graph,
-          features,
-          landmarks,
-          packages,
-          ...(git === null
-            ? {}
-            : { gitSignals: git.signals, gitSummary: git.summary }),
-          ...(mapOptions?.zoom === undefined ? {} : { zoom: mapOptions.zoom }),
-          ...(mapOptions?.layers === undefined
-            ? {}
-            : { layers: mapOptions.layers }),
-          ...(mapOptions?.bookmarks === undefined
-            ? {}
-            : { bookmarks: mapOptions.bookmarks }),
-        }),
-      );
+      return ok(collectLandmarks(lastSnapshot));
     },
     getChangedPaths(changedOptions) {
       const gate = ensureOpen();
@@ -2861,14 +1447,6 @@ export function createWorkspace(options: {
       const gate = ensureImpact();
       if (!gate.ok) return gate;
       return computeTestImpact(
-        input,
-        impactContextFor(gate.value, input.kind === "symbol", softImpactCache),
-      );
-    },
-    async breakingChangeHints(input) {
-      const gate = ensureImpact();
-      if (!gate.ok) return gate;
-      return computeBreakingChangeHints(
         input,
         impactContextFor(gate.value, input.kind === "symbol", softImpactCache),
       );
@@ -3056,45 +1634,16 @@ export function createWorkspace(options: {
         );
       }
       const snapshot = lastSnapshot;
-      const features = buildFeatureGraph(snapshot).features;
       const cycles = buildDependencyGraph(snapshot).cycles.map((c) => [...c]);
       const testFiles = snapshot.files
         .filter((f) => isTestPath(f.path))
         .map((f) => f.path);
 
-      if (!gitCache || gitCache.at !== lastIndexedAt) {
-        const keepPaths = new Set(snapshot.files.map((f) => f.path));
-        gitCache = {
-          at: lastIndexedAt,
-          value: readGitSignals(snapshot.rootPath, { keepPaths }),
-        };
-      }
-      const ownersByFeature = new Map<string, readonly string[]>();
-      for (const feature of features) {
-        const counts = new Map<string, number>();
-        for (const path of feature.memberFiles) {
-          const signal = gitCache.value?.signals.get(path);
-          for (const contributor of signal?.contributors ?? []) {
-            counts.set(
-              contributor.author,
-              (counts.get(contributor.author) ?? 0) + contributor.commits,
-            );
-          }
-        }
-        const ranked = [...counts.entries()]
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 3)
-          .map(([author]) => author);
-        ownersByFeature.set(feature.slug, ranked);
-      }
-
       const generatedAt = new Date().toISOString();
       const content = buildAgentsMdContent({
         generatedAt,
-        features,
         cycles,
         testFiles,
-        ownersByFeature,
       });
       const path = agentsMdPath(rootPath);
       await mkdir(dirname(path), { recursive: true });
@@ -3135,19 +1684,6 @@ export function createWorkspace(options: {
         );
       }
       const issues: AgentsMdCheckResult["issues"] = [];
-      const currentFeatureSlugs = buildFeatureGraph(lastSnapshot)
-        .features.map((f) => f.slug)
-        .sort();
-      const claimedFeatureSlugs = [...claims.featureSlugs].sort();
-      if (
-        JSON.stringify(currentFeatureSlugs) !==
-        JSON.stringify(claimedFeatureSlugs)
-      ) {
-        issues.push({
-          kind: "stale-feature",
-          detail: `Claimed features [${claimedFeatureSlugs.join(", ")}] no longer match current [${currentFeatureSlugs.join(", ")}]`,
-        });
-      }
       const currentCycles = buildDependencyGraph(lastSnapshot)
         .cycles.map((c) => [...c].sort())
         .sort((a, b) => a.join("\0").localeCompare(b.join("\0")));
@@ -3167,50 +1703,6 @@ export function createWorkspace(options: {
         issues,
       };
       return ok(result);
-    },
-    async listBookmarks() {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-      const store = await readBookmarkStore();
-      if (!store.ok) return store;
-      return ok(sortBookmarks(store.value.bookmarks));
-    },
-    async saveBookmark(input) {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-      const store = await readBookmarkStore();
-      if (!store.ok) return store;
-      const id =
-        input.id ??
-        `bookmark:${input.nodeId ?? input.path ?? "note"}:${Date.now()}`;
-      const next: MapBookmark = {
-        id,
-        label: input.label,
-        createdAt: input.createdAt ?? new Date().toISOString(),
-        ...(input.path === undefined ? {} : { path: input.path }),
-        ...(input.nodeId === undefined ? {} : { nodeId: input.nodeId }),
-        ...(input.zoom === undefined ? {} : { zoom: input.zoom }),
-        ...(input.note === undefined ? {} : { note: input.note }),
-      };
-      const bookmarks = sortBookmarks([
-        ...store.value.bookmarks.filter((b) => b.id !== id),
-        next,
-      ]);
-      const written = await writeBookmarkStore({ version: 1, bookmarks });
-      if (!written.ok) return written;
-      return ok(bookmarks);
-    },
-    async removeBookmark(id) {
-      const gate = ensureOpen();
-      if (!gate.ok) return gate;
-      const store = await readBookmarkStore();
-      if (!store.ok) return store;
-      const bookmarks = sortBookmarks(
-        store.value.bookmarks.filter((b) => b.id !== id),
-      );
-      const written = await writeBookmarkStore({ version: 1, bookmarks });
-      if (!written.ok) return written;
-      return ok(bookmarks);
     },
     close() {
       watching = false;

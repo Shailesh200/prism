@@ -22,7 +22,7 @@ describe("envelopeReport", () => {
     const report = envelopeReport([
       row("prepare_change", 4000, { source: "hook", sessionId: "s" }),
       row("prepare_change", 30_800, { sessionId: "s" }),
-      row("list_features", 73_000),
+      row("dependency_graph", 73_000),
     ]);
     expect(report.calls).toBe(3);
     expect(report.tokens).toBe(1000 + 7700 + 18_250);
@@ -30,7 +30,7 @@ describe("envelopeReport", () => {
     expect(report.sessions).toBe(1);
     expect(report.overBudget).toBe(2);
     expect(report.byTool[0]).toMatchObject({
-      tool: "list_features",
+      tool: "dependency_graph",
       overBudget: 1,
     });
     expect(report.estimatedSaved).toBeNull();

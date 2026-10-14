@@ -1,7 +1,7 @@
 /**
  * The workspace reads `graph()` and `exportGraph()` use. A narrow interface
  * of its own so those modules do not import `workspace.ts`, which imports
- * them: that cycle showed up in the first `GRAPH_REPORT.md` of this repo.
+ * them: that cycle showed up in the first graph export of this repo.
  */
 
 import type {

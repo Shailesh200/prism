@@ -10,7 +10,7 @@ Each successful Intelligence MCP call appends one JSON line under
 counts, whether the list was truncated, the limit, and the JSON byte size.
 
 It does **not** record prompts, paths, or file bodies. It is never uploaded.
-See [consent and privacy](/docs/concepts/consent-and-privacy).
+See [privacy](/privacy).
 
 The Iris screen in the IDE extension reads that file for the open repository
 and shows bytes kept vs a full dump. A missing file is “no
@@ -22,5 +22,5 @@ so.
 
 ## Related
 
-[Envelope and Iris](/docs/guides/envelope-and-iris) ·
+[Envelope and Iris](/docs/guides/envelope) ·
 [Signal provenance](/docs/concepts/signal-provenance)

@@ -70,10 +70,6 @@ signals described in the decision record on blast radius.
 Feature and symbol navigation: find a symbol, find its references, find a route
 between two things.
 
-### `@repo-prism/repository-map`
-
-The map model — clusters, landmarks, layers, and the aggregation between zoom
-levels.
 
 ## The public API
 
@@ -89,39 +85,12 @@ returns an engine-internal type. See [the Core SDK](./core-sdk.md).
 
 ## Presentation
 
-### `@repo-prism/app-shell`
-
-Every product screen — Overview, Map, Domains, Impact, Trends, Integrations,
-Settings — as React components, plus the `AppShellClient` interface a host
-implements to serve them data.
-
-Shared by the extension webview and the playground, which is why a screen change
-lands in both at once.
-
-**Must never** import Node APIs. It runs in a browser.
 
 ### `@repo-prism/ui`
 
 Lower-level shared React components: the map canvas, the explorer, and the
 primitives the screens are built from.
 
-### `@repo-prism/host-session`
-
-The Core-backed request surface two hosts both need: the `HostRequest` /
-`HostResponse` protocol, its runtime guards, the `PrismSession` wrapper around
-Core, and the dispatcher that turns one into the other.
-
-Extracted from the IDE extension so a second host could answer the same RPC
-(ADR-0048) instead of the extension running a second, tokenless server on
-`:17321`. The filesystem-rename fallback lives here; the extension injects its
-own workspace-edit version.
-
-Import `@repo-prism/host-session/protocol` for the types and guards alone —
-that entry point does not reach Core, which is what lets a host validate a
-request before deciding to load the engine.
-
-**Must never** import `vscode`. It runs in the extension host *and* in a plain
-Node daemon.
 
 ### `@repo-prism/daemon`
 
@@ -155,14 +124,14 @@ boundary test.
 
 ### `@repo-prism/mcp-server`
 
-The `prism-mcp` binary: Intelligence tools over Core, on a stdio server named
-`prism`. Seven tools are registered by default (`prepare_change`,
-`blast_radius`, `guard_session`, `test_impact`, `repository_overview`,
-`find_symbol`, `explain_area`); `PRISM_MCP_FULL=1` registers the rest. No
-Dispatch tool is registered (ADR-0064).
+The `prism-mcp` binary: tools over Core, on a stdio server named `prism`. Nine
+tools are registered by default (`prepare_change`, `blast_radius`,
+`guard_session`, `test_impact`, `review_changes`, `safe_delete`,
+`rename_impact`, `repository_overview`, `graph`); the rest are opt-in through
+`extraTools` in `~/.prism/config.json`.
 
-**Must never** expose Core's consent-gated analysis APIs. It no longer depends
-on `@repo-prism/dispatch` or `@repo-prism/dispatch-hub`.
+**Must never** make a network call outside the daily update check, and never
+relaunches itself.
 
 ### `@repo-prism/checks`
 
@@ -187,23 +156,8 @@ definition and directories disagree.
 Depends on nothing. It ships text, not code, and importing it at runtime would
 mean the pack had become a second way to configure the server.
 
-### `@repo-prism/vscode-extension`
 
-The **Prism** IDE extension. Hosts the app-shell in a webview, bridges it to
-Core over RPC via `@repo-prism/host-session`, and owns the extension-side
-concerns: indexing lifecycle, file watching, and the content security policy.
-The `:17321` bridge was retired by ADR-0048.
 
-### `@repo-prism/cursor-extension`
-
-A packaging overlay on the VS Code extension rather than a second
-implementation. Same build output, different marketplace identity.
-
-### `@repo-prism/playground` (in `apps/`)
-
-A browser host for the same screens, served by Vite against a local repository.
-The dev-tools loop the extension webview does not have, which is why screen work
-usually happens here first.
 
 ### `@repo-prism/website` (in `apps/`)
 
@@ -211,22 +165,6 @@ Next.js + Fumadocs app that serves the public marketing site and documentation
 (and admin architecture docs). Replaces the VitePress docs app. Markdown source
 stays in `/docs` at the repository root.
 
-## Being removed
-
-Dispatch was removed from the product and from MCP by ADR-0064. Its two
-packages stay in the tree until a later milestone deletes them. No other
-workspace package lists them as a dependency, and no new code may.
-
-### `@repo-prism/dispatch`
-
-The removed job runner: background jobs, standups, workers, and the old memory
-store. Its Envelope ledger and last-Prepare code moved into
-`@repo-prism/core`, and memories moved to `prism remember`.
-
-### `@repo-prism/dispatch-hub`
-
-The removed Prism Console: the loopback jobs board and its notifications. It
-depends on `@repo-prism/dispatch`.
 
 ## Development only
 

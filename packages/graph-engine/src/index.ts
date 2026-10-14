@@ -8,7 +8,6 @@ export {
   type GraphStore,
   type NeighborOptions,
 } from "./store.js";
-export { layoutGraph, type LayoutOptions } from "./layout.js";
 export { nodesFromIndexSnapshot } from "./from-index.js";
 export {
   labelPropagationCommunities,

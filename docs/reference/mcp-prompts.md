@@ -13,7 +13,7 @@ Desktop, some Cursor builds).
 | `before_edit` | `prepare_change` and `blast_radius` for a path you are about to change |
 | `review_diff` | `guard_session` and `blast_radius` for the working tree or a base ref |
 
-Every prompt calls only default tools, so none needs `PRISM_MCP_FULL=1`.
+Every prompt calls only default tools, so none needs an `extraTools` entry.
 
 You do not need prompts if you already ask in plain language — see
 [Usage](/docs/usage).

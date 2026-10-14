@@ -27,9 +27,9 @@ and orphans before you remove the file.
 Ask the agent: "Can I safely delete `src/legacy/adapter.ts`? What are the
 blockers and orphans?"
 
-The agent should call `blast_radius` with delete intent. `safe_delete` gives
-the full blocker and orphan list when the server runs with `PRISM_MCP_FULL=1`;
-without it, the agent can run `prism safe-delete`.
+The agent should call `blast_radius` with delete intent. `safe_delete` (a
+default tool) gives the full blocker and orphan list; `prism safe-delete` gives
+the same answer in a terminal.
 
   </Tab>
 </Tabs>

@@ -1,4 +1,4 @@
-import type { FeatureInfo, IndexSnapshot, Landmark } from "@repo-prism/shared";
+import type { IndexSnapshot, Landmark } from "@repo-prism/shared";
 
 const ENTRY_RE =
   /(^|\/)(main|index|app|page|server|cli)\.(ts|tsx|js|jsx|mjs|cjs)$/i;
@@ -20,12 +20,9 @@ function landmark(
 }
 
 /**
- * Resolve named landmarks from an index snapshot (+ optional features).
+ * Resolve named landmarks from an index snapshot.
  */
-export function listLandmarks(
-  snapshot: IndexSnapshot,
-  features: readonly FeatureInfo[] = [],
-): Landmark[] {
+export function listLandmarks(snapshot: IndexSnapshot): Landmark[] {
   const out: Landmark[] = [];
   const seen = new Set<string>();
 
@@ -78,20 +75,6 @@ export function listLandmarks(
         ),
       );
     }
-  }
-
-  for (const feature of features) {
-    const root = feature.memberFiles[0];
-    if (!root) continue;
-    add(
-      landmark(
-        `landmark:feature:${feature.id}`,
-        feature.name,
-        root,
-        "feature",
-        `Feature ${feature.slug}`,
-      ),
-    );
   }
 
   return out.sort((a, b) => a.id.localeCompare(b.id));

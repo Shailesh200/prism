@@ -11,7 +11,6 @@ const withMDX = createMDX();
 const config = {
   reactStrictMode: true,
   outputFileTracingRoot: repoRoot,
-  transpilePackages: ["@repo-prism/dispatch"],
   async headers() {
     if (process.env.VERCEL_ENV && process.env.VERCEL_ENV !== "production") {
       return [
@@ -50,7 +49,7 @@ const config = {
       },
       {
         source: "/docs/mcp/dispatch",
-        destination: "/docs/guides/dispatch",
+        destination: "/docs/usage",
         permanent: true,
       },
       {
@@ -140,12 +139,12 @@ const config = {
       },
       {
         source: "/using/playground",
-        destination: "/docs/start/playground",
+        destination: "/docs/start/install",
         permanent: true,
       },
       {
         source: "/docs/using/playground",
-        destination: "/docs/start/playground",
+        destination: "/docs/start/install",
         permanent: true,
       },
       {
@@ -185,52 +184,78 @@ const config = {
       },
       {
         source: "/features/health",
-        destination: "/docs/guides/track-health",
+        destination: "/docs/guides/understand-a-repo",
         permanent: true,
       },
       {
         source: "/docs/features/health",
-        destination: "/docs/guides/track-health",
+        destination: "/docs/guides/understand-a-repo",
         permanent: true,
       },
       {
         source: "/features/trends",
-        destination: "/docs/guides/track-health",
+        destination: "/docs/guides/understand-a-repo",
         permanent: true,
       },
       {
         source: "/docs/features/trends",
-        destination: "/docs/guides/track-health",
+        destination: "/docs/guides/understand-a-repo",
         permanent: true,
       },
       {
         source: "/features/domains",
-        destination: "/docs/guides/investigate-domain",
+        destination: "/docs/guides/understand-a-repo",
         permanent: true,
       },
       {
         source: "/docs/features/domains",
-        destination: "/docs/guides/investigate-domain",
+        destination: "/docs/guides/understand-a-repo",
         permanent: true,
       },
       {
         source: "/features/bundle-weight",
-        destination: "/docs/guides/investigate-domain",
+        destination: "/docs/guides/understand-a-repo",
         permanent: true,
       },
       {
         source: "/docs/features/bundle-weight",
-        destination: "/docs/guides/investigate-domain",
+        destination: "/docs/guides/understand-a-repo",
         permanent: true,
       },
       {
         source: "/features/core-web-vitals",
-        destination: "/docs/guides/investigate-domain",
+        destination: "/docs/guides/understand-a-repo",
         permanent: true,
       },
       {
         source: "/docs/features/core-web-vitals",
-        destination: "/docs/guides/investigate-domain",
+        destination: "/docs/guides/understand-a-repo",
+        permanent: true,
+      },
+      // Prism 2.0 removed these pages; old links land on the closest living one.
+      {
+        source: "/docs/start/playground",
+        destination: "/docs/start/install",
+        permanent: true,
+      },
+      {
+        source: "/docs/guides/:page(track-health|investigate-domain)",
+        destination: "/docs/guides/understand-a-repo",
+        permanent: true,
+      },
+      {
+        source: "/docs/guides/envelope",
+        destination: "/docs/guides/envelope",
+        permanent: true,
+      },
+      {
+        source: "/docs/guides/dispatch",
+        destination: "/docs/usage",
+        permanent: true,
+      },
+      {
+        source: "/docs/concepts/consent-and-privacy",
+        destination: "/privacy",
         permanent: true,
       },
       {
@@ -320,12 +345,12 @@ const config = {
       },
       {
         source: "/concepts/health-score",
-        destination: "/docs/guides/track-health",
+        destination: "/docs/guides/understand-a-repo",
         permanent: true,
       },
       {
         source: "/docs/concepts/health-score",
-        destination: "/docs/guides/track-health",
+        destination: "/docs/guides/understand-a-repo",
         permanent: true,
       },
     ];

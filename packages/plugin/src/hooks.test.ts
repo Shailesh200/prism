@@ -27,7 +27,7 @@ function layout(snapshot: Record<string, unknown>): {
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, "snapshot.json"),
-    JSON.stringify({ version: 1, workspace: resolve(cwd), ...snapshot }),
+    JSON.stringify({ version: 2, workspace: resolve(cwd), ...snapshot }),
   );
   return { home, cwd };
 }
@@ -45,6 +45,22 @@ function run(event: string, home: string, input: Record<string, unknown>) {
       permissionDecision?: string;
     };
   };
+}
+
+function lastEvent(home: string): Record<string, unknown> {
+  const lines = readFileSync(join(home, "events.jsonl"), "utf8")
+    .trim()
+    .split("\n");
+  return JSON.parse(lines[lines.length - 1] ?? "{}");
+}
+
+/** A copy of the hook outside the repo, so the dev-build fallback cannot find a bin. */
+function isolatedHook(home: string): string {
+  const dir = join(home, "pack", "a", "b");
+  mkdirSync(dir, { recursive: true });
+  const copy = join(dir, "prism-hook.mjs");
+  writeFileSync(copy, readFileSync(hook, "utf8"));
+  return copy;
 }
 
 describe("prism-hook", () => {
@@ -200,12 +216,59 @@ describe("prism-hook", () => {
     );
   });
 
-  it("says the index is warming when there is no snapshot", () => {
+  it("HOOK-1 answers {} with no snapshot and records why", () => {
     const home = mkdtempSync(join(tmpdir(), "prism-hook-empty-"));
     const cwd = mkdtempSync(join(tmpdir(), "prism-hook-empty-repo-"));
-    const out = run("session", home, { cwd });
-    expect(out.hookSpecificOutput?.additionalContext).toMatch(
-      /still indexing/i,
+    expect(run("session", home, { cwd })).toEqual({});
+    expect(lastEvent(home)).toMatchObject({
+      event: "hook.session",
+      outcome: "skipped",
+      reason: "no snapshot yet",
+    });
+  });
+
+  it("HOOK-2 a snapshot for another HEAD is stale: {} and a reason", () => {
+    const { home, cwd } = layout({
+      orientation: "Prism · stale",
+      offLimits: [],
+      needsSignOff: [],
+      hookArmed: false,
+      headSha: "0".repeat(40),
+    });
+    const git = (...args: string[]) =>
+      spawnSync("git", args, { cwd, encoding: "utf8" });
+    git("init", "-q");
+    git(
+      "-c",
+      "user.email=t@t",
+      "-c",
+      "user.name=t",
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "x",
     );
+    expect(run("session", home, { cwd })).toEqual({});
+    expect(lastEvent(home).reason).toMatch(/^stale snapshot/);
+  });
+
+  it("HOOK-3 stop with no binary answers {} and logs install.missing_bin, never npx", () => {
+    const { home, cwd } = layout({
+      orientation: "x",
+      offLimits: [],
+      needsSignOff: [],
+      hookArmed: false,
+    });
+    const result = spawnSync(process.execPath, [isolatedHook(home), "stop"], {
+      input: JSON.stringify({ cwd }),
+      encoding: "utf8",
+      env: { PATH: "", PRISM_HOME: home, HOME: home },
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({});
+    const events = readFileSync(join(home, "events.jsonl"), "utf8");
+    expect(events).toContain('"install.missing_bin"');
+    expect(events).not.toContain("npx");
   });
 });

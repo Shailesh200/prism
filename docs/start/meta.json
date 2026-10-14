@@ -1,4 +1,7 @@
 {
   "title": "Get Started",
-  "pages": ["install", "quickstart", "playground"]
+  "pages": [
+    "install",
+    "quickstart"
+  ]
 }

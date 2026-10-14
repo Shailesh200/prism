@@ -2,17 +2,12 @@ import { PRISM_TOOL_COUNT } from "@/lib/mcp-install";
 
 const ITEMS = [
   "CLI",
-  "VS Code & Cursor",
   `MCP ${PRISM_TOOL_COUNT} tools`,
   "Plugin pack",
   "Core SDK",
-  "Playground",
-  "Dispatch Console",
-  "Iris",
   "Envelope",
   "Prepare",
   "Guard",
-  "Spectrum",
 ] as const;
 
 /** One shrink-wrapped pass of the surface names. Two of these make the loop. */

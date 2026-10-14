@@ -16,7 +16,6 @@ export const TOOL_TOKEN_BUDGETS: Readonly<Record<string, number>> = {
   guard_session: 2000,
   test_impact: 1500,
   repository_overview: 1500,
-  find_symbol: 1000,
   explain_area: 1500,
   graph: 1500,
 };

@@ -86,7 +86,16 @@ describe("the pack on disk", () => {
     const shipped = new Set(
       [...reference.matchAll(/^\| \[`([a-z_]+)`\]/gm)].map((row) => row[1]),
     );
-    expect(shipped.size).toBeGreaterThan(30);
+    // The reference lists every tool (default + opt-in); its count is generated.
+    const allCount = Number(
+      /PRISM_ALL_TOOL_COUNT = (\d+)/.exec(
+        readFileSync(
+          join(root, "..", "shared", "src", "generated", "tool-count.ts"),
+          "utf8",
+        ),
+      )?.[1],
+    );
+    expect(shipped.size).toBe(allCount);
     for (const entry of [...skills, ...commands]) {
       // Backticked snake_case is how these files spell a Prism tool.
       for (const [, name] of entry.body.matchAll(/`([a-z][a-z_]{4,})`/g)) {

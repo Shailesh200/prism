@@ -412,3 +412,47 @@ export const routeCommand: CommandHandler = async (context) => {
     },
   });
 };
+
+export const packagesCommand: CommandHandler = async (context) => {
+  const limit = parseLimit(context.args.option("limit"));
+  if (!limit.ok) return limit;
+
+  const opened = await context.open();
+  if (!opened.ok) return opened;
+
+  const result = await opened.value.listPackages();
+  if (!result.ok) return result;
+
+  const packages = bound(result.value, limit.value);
+
+  return ok({
+    data: {
+      packages: packages.items,
+      totalCount: packages.totalCount,
+      truncated: packages.truncated,
+    },
+    human({ color, width }) {
+      if (packages.items.length === 0) {
+        return "No packages found. This looks like a single-package repository.";
+      }
+
+      const lines = [
+        renderHeading(plural(packages.totalCount, "package"), color),
+        "",
+        renderTable({
+          columns: [{ header: "PACKAGE" }, { header: "ROOT", flex: true }],
+          rows: packages.items.map((pkg) => [
+            { text: pkg.name ?? pkg.id },
+            { text: pkg.rootDir === "" ? "." : pkg.rootDir },
+          ]),
+          color,
+          width,
+        }),
+      ];
+
+      const note = truncationNote(packages, "packages");
+      if (note) lines.push(paint(note, "dim", color));
+      return lines.join("\n");
+    },
+  });
+};

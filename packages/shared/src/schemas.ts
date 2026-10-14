@@ -3,11 +3,10 @@ import {
   PrepareTrimmedSchema,
 } from "./prepare-trimmed.js";
 import { z } from "zod";
-import { ConsentPurposeIdSchema } from "./consent-purposes.js";
 import { PrismErrorCode } from "./errors.js";
 import { SignalProvenanceSchema } from "./provenance.js";
 import { RiskBandSchema } from "./risk-bands.js";
-import { WorkOrderSchema, formatWorkOrderPrompt } from "./work-order.js";
+import { WorkOrderSchema } from "./work-order.js";
 
 /** JSON-serializable primitive / structure convention for MCP & CLI. */
 export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
@@ -78,115 +77,6 @@ export const IndexSummarySchema = z.object({
 
 export type IndexSummary = z.infer<typeof IndexSummarySchema>;
 
-/** Explainable input row for a health factor (M-046). */
-export const HealthFactorBreakdownItemSchema = z.object({
-  label: z.string().min(1),
-  value: z.union([z.string(), z.number()]),
-});
-
-export type HealthFactorBreakdownItem = z.infer<
-  typeof HealthFactorBreakdownItemSchema
->;
-
-export const HealthFactorSchema = z.object({
-  id: z.string().min(1),
-  label: z.string().min(1),
-  score: z.number().min(0).max(100),
-  note: z.string().optional(),
-  /** Optional explainable inputs (counts, ratios, etc.). */
-  breakdown: z.array(HealthFactorBreakdownItemSchema).optional(),
-});
-
-export type HealthFactor = z.infer<typeof HealthFactorSchema>;
-
-export const HealthScoreSchema = z.object({
-  score: z.number().min(0).max(100),
-  grade: z.enum(["A", "B", "C", "D", "F"]),
-  factors: z.array(HealthFactorSchema),
-  /**
-   * Share of inventory files that enter the dependency graph (analyzed
-   * TS/JS). Less than 100 on polyglot repos — graph metrics only cover this
-   * slice (M-056 / P-A6).
-   */
-  graphCoveragePct: z.number().min(0).max(100).optional(),
-});
-
-export type HealthScore = z.infer<typeof HealthScoreSchema>;
-
-/** Single point on the health-over-time chart (M-046 / ADR-0023). */
-export const HealthHistoryPointSchema = z.object({
-  at: z.string().min(1),
-  commitSha: z.string().min(1).optional(),
-  score: z.number().min(0).max(100),
-  factors: z
-    .array(
-      z.object({
-        id: z.string().min(1),
-        score: z.number().min(0).max(100),
-      }),
-    )
-    .optional(),
-  /**
-   * Backfilled points stamp a historical commit onto the *current* index's
-   * health, so the timestamp is real but the score was not computed at that
-   * commit. They are `"estimated"`; points sampled live are `"measured"`
-   * (ADR-0029). Absent reads as `"heuristic"` for older cached history.
-   */
-  provenance: SignalProvenanceSchema.optional(),
-});
-
-export type HealthHistoryPoint = z.infer<typeof HealthHistoryPointSchema>;
-
-/** Region scores captured alongside a health history point. */
-export const RegionHealthPointSchema = z.object({
-  at: z.string().min(1),
-  commitSha: z.string().min(1).optional(),
-  /** Inherited from the health history point this was captured alongside. */
-  provenance: SignalProvenanceSchema.optional(),
-  regions: z.array(
-    z.object({
-      id: z.string().min(1),
-      label: z.string().min(1),
-      score: z.number().min(0).max(100),
-      files: z.number().int().nonnegative(),
-    }),
-  ),
-});
-
-export type RegionHealthPoint = z.infer<typeof RegionHealthPointSchema>;
-
-export const HealthHistoryReportSchema = z.object({
-  points: z.array(HealthHistoryPointSchema),
-});
-
-export type HealthHistoryReport = z.infer<typeof HealthHistoryReportSchema>;
-
-const RegionMoverEntrySchema = z.object({
-  id: z.string().min(1),
-  label: z.string().min(1),
-  fromScore: z.number().min(0).max(100),
-  toScore: z.number().min(0).max(100),
-  delta: z.number(),
-});
-
-export const RegionMoversReportSchema = z.object({
-  improving: z.array(RegionMoverEntrySchema),
-  regressing: z.array(RegionMoverEntrySchema),
-});
-
-export type RegionMoversReport = z.infer<typeof RegionMoversReportSchema>;
-
-/** Async git-history backfill job status for Trends (ADR-0023). */
-export const HealthHistoryBackfillStatusSchema = z.object({
-  status: z.enum(["idle", "running", "done", "error"]),
-  progress: z.number().min(0).max(1),
-  message: z.string(),
-});
-
-export type HealthHistoryBackfillStatus = z.infer<
-  typeof HealthHistoryBackfillStatusSchema
->;
-
 /** Navigation hop list between graph nodes (M-016). */
 export const NavigationRouteSchema = z.object({
   from: z.string().min(1),
@@ -211,98 +101,11 @@ export const LandmarkSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
   path: z.string().min(1),
-  kind: z.enum(["entrypoint", "package-root", "feature", "config"]),
+  kind: z.enum(["entrypoint", "package-root", "config"]),
   note: z.string().optional(),
 });
 
 export type Landmark = z.infer<typeof LandmarkSchema>;
-
-/** Map zoom levels (repo → symbol). Design system ZoomRail. */
-export const MAP_ZOOM_LEVELS = [
-  "repo",
-  "package",
-  "feature",
-  "file",
-  "symbol",
-] as const;
-
-export const MapZoomLevelSchema = z.enum(MAP_ZOOM_LEVELS);
-
-export type MapZoomLevel = z.infer<typeof MapZoomLevelSchema>;
-
-/** Product Map layer ids (M-017); overlays may add more later. */
-export const MapLayerIdSchema = z.enum([
-  "architecture",
-  "dependency",
-  "activity",
-  "ownership",
-  "debt",
-  "risk",
-  "performance",
-  "coverage",
-]);
-
-export type MapLayerId = z.infer<typeof MapLayerIdSchema>;
-
-export const MapLayerDescriptorSchema = z.object({
-  id: MapLayerIdSchema,
-  label: z.string().min(1),
-  description: z.string().min(1),
-  /** True when layer has real data in this model build. */
-  available: z.boolean(),
-  /** Stub until later milestones (e.g. activity → M-022). */
-  stub: z.boolean().default(false),
-});
-
-export type MapLayerDescriptor = z.infer<typeof MapLayerDescriptorSchema>;
-
-export const MapClusterSchema = z.object({
-  id: z.string().min(1),
-  label: z.string().min(1),
-  zoom: MapZoomLevelSchema,
-  memberNodeIds: z.array(z.string().min(1)),
-  /** Child zoom level when drilling in. */
-  childZoom: MapZoomLevelSchema.optional(),
-});
-
-export type MapCluster = z.infer<typeof MapClusterSchema>;
-
-export const MapBookmarkSchema = z.object({
-  id: z.string().min(1),
-  label: z.string().min(1),
-  path: z.string().min(1).optional(),
-  nodeId: z.string().min(1).optional(),
-  zoom: MapZoomLevelSchema.optional(),
-  createdAt: z.string().datetime(),
-  note: z.string().optional(),
-});
-
-export type MapBookmark = z.infer<typeof MapBookmarkSchema>;
-
-export const MapBookmarkStoreSchema = z.object({
-  version: z.literal(1),
-  bookmarks: z.array(MapBookmarkSchema).default([]),
-});
-
-export type MapBookmarkStore = z.infer<typeof MapBookmarkStoreSchema>;
-
-export const MapSearchHitSchema = z.object({
-  id: z.string().min(1),
-  label: z.string().min(1),
-  kind: z.enum([
-    "node",
-    "cluster",
-    "landmark",
-    "bookmark",
-    "feature",
-    "file",
-    "symbol",
-  ]),
-  path: z.string().optional(),
-  zoom: MapZoomLevelSchema.optional(),
-});
-
-export type MapSearchHit = z.infer<typeof MapSearchHitSchema>;
 
 /** A single commit reference (local git, no network). */
 export const GitCommitRefSchema = z.object({
@@ -452,91 +255,6 @@ export const GitActivitySchema = z.object({
 });
 
 export type GitActivity = z.infer<typeof GitActivitySchema>;
-
-/* -------------------------------------------------------------------------
- * Overview dashboard model (M-052)
- *
- * These derivations lived in the app-shell React layer, which put Prism's
- * headline numbers out of reach of MCP, the CLI and any script. Colours and
- * chart geometry stayed behind in the surface — only the facts moved.
- * ---------------------------------------------------------------------- */
-
-/** Coupling density band. Target is `low` (density below 0.5). */
-export const OverviewCouplingBandSchema = z.enum(["low", "medium", "high"]);
-
-export type OverviewCouplingBand = z.infer<typeof OverviewCouplingBandSchema>;
-
-export const OverviewCouplingSchema = z.object({
-  /** Edges ÷ nodes; 0 for an empty graph. */
-  density: z.number().nonnegative(),
-  band: OverviewCouplingBandSchema,
-});
-
-export type OverviewCoupling = z.infer<typeof OverviewCouplingSchema>;
-
-export const OverviewRegionSchema = z.object({
-  id: z.string().min(1),
-  label: z.string(),
-  files: z.number().int().nonnegative(),
-  degree: z.number().int().nonnegative(),
-  /**
-   * Coupling-aware health, 0–100. `null` when the region has neither files
-   * nor edges — no evidence, so no score (ADR-0029).
-   */
-  score: z.number().min(0).max(100).nullable(),
-});
-
-export type OverviewRegion = z.infer<typeof OverviewRegionSchema>;
-
-export const OverviewConnectedNodeSchema = z.object({
-  id: z.string().min(1),
-  label: z.string(),
-  /** Map node kind (file, feature, package, folder, …). */
-  kind: z.string().min(1),
-  degree: z.number().int().nonnegative(),
-});
-
-export type OverviewConnectedNode = z.infer<typeof OverviewConnectedNodeSchema>;
-
-export const OverviewActivitySchema = z.object({
-  /** Commit counts per bucket, zero-filled across the whole window. */
-  buckets: z.array(z.number().int().nonnegative()),
-  /** UTC-midnight epoch-ms at the start of each bucket. */
-  starts: z.array(z.number()),
-  total: z.number().int().nonnegative(),
-  granularity: z.enum(["day", "week"]),
-});
-
-export type OverviewActivity = z.infer<typeof OverviewActivitySchema>;
-
-export const OverviewTotalsSchema = z.object({
-  nodes: z.number().int().nonnegative(),
-  edges: z.number().int().nonnegative(),
-  files: z.number().int().nonnegative(),
-  regions: z.number().int().nonnegative(),
-});
-
-export type OverviewTotals = z.infer<typeof OverviewTotalsSchema>;
-
-export const OverviewModelSchema = z.object({
-  /** Map zoom used to build coupling, regions and mostConnected. */
-  zoom: MapZoomLevelSchema,
-  totals: OverviewTotalsSchema,
-  coupling: OverviewCouplingSchema,
-  regions: z.array(OverviewRegionSchema),
-  /**
-   * True when more region nodes exist than `regions` shows (cap 8)
-   * (M-056 / P-A5).
-   */
-  truncated: z.boolean().optional(),
-  /** Total region-kind nodes before the display cap. */
-  totalCount: z.number().int().nonnegative().optional(),
-  mostConnected: z.array(OverviewConnectedNodeSchema),
-  /** `null` when git is unavailable — distinct from a window with no commits. */
-  activity: OverviewActivitySchema.nullable(),
-});
-
-export type OverviewModel = z.infer<typeof OverviewModelSchema>;
 
 /** Coarse classification of how an affected file is impacted (M-046 tweak). */
 export const BlastImpactCategorySchema = z.enum([
@@ -1075,47 +793,6 @@ export const DependencyGraphDtoSchema = GraphSnapshotDtoSchema.extend({
 
 export type DependencyGraphDto = z.infer<typeof DependencyGraphDtoSchema>;
 
-export const GraphLayoutPositionSchema = z.object({
-  x: z.number(),
-  y: z.number(),
-});
-
-export type GraphLayoutPosition = z.infer<typeof GraphLayoutPositionSchema>;
-
-export const GraphLayoutSchema = z.object({
-  positions: z.record(z.string(), GraphLayoutPositionSchema),
-});
-
-export type GraphLayout = z.infer<typeof GraphLayoutSchema>;
-
-/** Full Repository Map model for Playground / IDE (no React). */
-export const RepositoryMapSchema = z.object({
-  rootPath: z.string().min(1),
-  generatedAt: z.string().datetime(),
-  zoom: MapZoomLevelSchema,
-  layers: z.array(MapLayerDescriptorSchema),
-  activeLayerIds: z.array(MapLayerIdSchema),
-  graph: GraphSnapshotDtoSchema,
-  layout: GraphLayoutSchema.optional(),
-  clusters: z.array(MapClusterSchema).default([]),
-  landmarks: z.array(LandmarkSchema).default([]),
-  bookmarks: z.array(MapBookmarkSchema).default([]),
-  searchIndex: z.array(MapSearchHitSchema).default([]),
-  /** Aggregation rule notes for the current zoom. */
-  clusteringNote: z.string().min(1),
-  /** Repo-level local git summary (absent on non-git roots). */
-  git: GitRepoSummarySchema.optional(),
-  /**
-   * True when symbol zoom omitted symbols past the per-file cap (8)
-   * (M-056 / P-A5). Absent / false at other zooms.
-   */
-  truncated: z.boolean().optional(),
-  /** Total symbol count before the per-file display cap (symbol zoom). */
-  totalCount: z.number().int().nonnegative().optional(),
-});
-
-export type RepositoryMap = z.infer<typeof RepositoryMapSchema>;
-
 /** Open registry — well-known ids documented in `stack.ts` / ADR-0007. */
 export const StackSignalSchema = z.object({
   id: z.string().min(1),
@@ -1162,8 +839,6 @@ export const RankedDomainSchema = z.object({
   id: z.string().min(1),
   confidence: z.number().min(0).max(1),
 });
-
-export type RankedDomain = z.infer<typeof RankedDomainSchema>;
 
 export const DnaReportSchema = z.object({
   languages: z.array(
@@ -1220,154 +895,13 @@ export const PrismCapabilitiesDtoSchema = z.object({
   graphs: z.boolean(),
   intelligence: z.boolean(),
   impact: z.boolean(),
-  map: z.boolean(),
   navigation: z.boolean(),
 });
 
 export type PrismCapabilitiesDto = z.infer<typeof PrismCapabilitiesDtoSchema>;
 
-export const IntelligenceConsistencyIssueSchema = z.object({
-  code: z.literal("GRAPH_FILE_NOT_INDEXED"),
-  graph: z.enum(["dependency", "knowledge", "feature"]),
-  nodeId: z.string().min(1),
-  path: z.string().min(1),
-});
-
-export type IntelligenceConsistencyIssue = z.infer<
-  typeof IntelligenceConsistencyIssueSchema
->;
-
-export const IntelligenceConsistencySchema = z.object({
-  ok: z.boolean(),
-  issues: z.array(IntelligenceConsistencyIssueSchema),
-});
-
-export type IntelligenceConsistency = z.infer<
-  typeof IntelligenceConsistencySchema
->;
-
-/** Aggregate Repository Intelligence report (M-014). */
-export const IntelligenceReportSchema = z.object({
-  repoId: z.string().min(1),
-  rootPath: z.string().min(1),
-  generatedAt: z.string().datetime(),
-  summary: IndexSummarySchema,
-  dna: DnaReportSchema,
-  dependencyGraph: GraphSnapshotDtoSchema,
-  knowledgeGraph: GraphSnapshotDtoSchema,
-  knowledgeStats: KnowledgeGraphStatsSchema,
-  featureGraph: GraphSnapshotDtoSchema,
-  features: z.array(FeatureInfoSchema),
-  consistency: IntelligenceConsistencySchema,
-  capabilities: PrismCapabilitiesDtoSchema,
-});
-
-export type IntelligenceReport = z.infer<typeof IntelligenceReportSchema>;
-
-/** Measurement ingest kinds (extensible string registry). */
-export const IngestArtifactKindSchema = z.string().min(1);
-
-export type IngestArtifactKind = z.infer<typeof IngestArtifactKindSchema>;
-
-export const IngestArtifactMetaSchema = z.object({
-  id: z.string().min(1),
-  kind: IngestArtifactKindSchema,
-  storedAt: z.string().datetime(),
-  /** Repo-relative path under `.prism/ingest/` (or override root). */
-  relativePath: z.string().min(1),
-  sourceJobId: z.string().min(1).optional(),
-  packageId: z.string().min(1).optional(),
-  labels: z.array(z.string()).default([]),
-});
-
-export type IngestArtifactMeta = z.infer<typeof IngestArtifactMetaSchema>;
-
-export const IngestArtifactSchema = IngestArtifactMetaSchema.extend({
-  /** Parsed JSON payload (schema varies by kind). */
-  payload: JsonValueSchema,
-});
-
-export type IngestArtifact = z.infer<typeof IngestArtifactSchema>;
-
-export const UtilityJobStatusSchema = z.enum([
-  "queued",
-  "running",
-  "succeeded",
-  "failed",
-  "cancelled",
-]);
-
-export type UtilityJobStatus = z.infer<typeof UtilityJobStatusSchema>;
-
-export const UtilityJobProgressSchema = z.object({
-  phase: z.string().min(1),
-  percent: z.number().min(0).max(100).optional(),
-  message: z.string().optional(),
-  /**
-   * Optional structured payload (e.g. progressive CWV during multi-route lab).
-   * Shape is job-specific; consumers narrow via `detail.kind`.
-   */
-  detail: JsonValueSchema.optional(),
-});
-
-export type UtilityJobProgress = z.infer<typeof UtilityJobProgressSchema>;
-
-export const UtilityJobKindSchema = z.string().min(1);
-
-export type UtilityJobKind = z.infer<typeof UtilityJobKindSchema>;
-
-export const UtilityJobSchema = z.object({
-  id: z.string().min(1),
-  kind: UtilityJobKindSchema,
-  status: UtilityJobStatusSchema,
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
-  progress: UtilityJobProgressSchema.optional(),
-  /** Ingest artifact id when succeeded. */
-  resultArtifactId: z.string().min(1).optional(),
-  error: z
-    .object({
-      code: z.string().min(1),
-      message: z.string().min(1),
-    })
-    .optional(),
-  packageId: z.string().min(1).optional(),
-  /** True when the job requested network/consent-gated work. */
-  requiresConsent: z.boolean().default(false),
-  /**
-   * Which grant let this job run (M-036). Replaces the old `consentGranted`
-   * boolean, which the *caller* supplied and every host set to `true` — a
-   * field that recorded an assertion rather than a decision.
-   */
-  consentPurpose: ConsentPurposeIdSchema.optional(),
-});
-
-export type UtilityJob = z.infer<typeof UtilityJobSchema>;
-
-export const ConsentRecordSchema = z.object({
-  purpose: z.string().min(1),
-  granted: z.boolean(),
-  decidedAt: z.string().datetime(),
-});
-
-export type ConsentRecord = z.infer<typeof ConsentRecordSchema>;
-
-/** Persona-oriented UI/map defaults derived from stack (X-04). */
-export const PersonaPresetsSchema = z.object({
-  personas: z.array(z.string()),
-  domains: z.array(z.string()),
-  /** Suggested Map / insights emphasis ids. */
-  mapPresets: z.array(z.string()),
-  insightsPresets: z.array(z.string()),
-  summary: z.string().min(1),
-});
-
-export type PersonaPresets = z.infer<typeof PersonaPresetsSchema>;
-
 /** Core Web Vital ids (FE-02; extensible). */
 export const CwvMetricIdSchema = z.enum(["LCP", "CLS", "INP", "FCP", "TTFB"]);
-
-export type CwvMetricId = z.infer<typeof CwvMetricIdSchema>;
 
 export const CwvRatingSchema = z.enum([
   "good",
@@ -1376,8 +910,6 @@ export const CwvRatingSchema = z.enum([
   "unknown",
 ]);
 
-export type CwvRating = z.infer<typeof CwvRatingSchema>;
-
 export const CwvMetricSchema = z.object({
   id: CwvMetricIdSchema,
   value: z.number(),
@@ -1385,8 +917,6 @@ export const CwvMetricSchema = z.object({
   /** Omitted in ingest → treated as unknown (always present on parsed DTO). */
   rating: CwvRatingSchema.optional().transform((r) => r ?? "unknown"),
 });
-
-export type CwvMetric = z.infer<typeof CwvMetricSchema>;
 
 export const CwvAttributionSchema = z.object({
   app: z.string().optional(),
@@ -1398,16 +928,12 @@ export const CwvAttributionSchema = z.object({
   note: z.string().optional(),
 });
 
-export type CwvAttribution = z.infer<typeof CwvAttributionSchema>;
-
 export const CwvInsightSeveritySchema = z.enum([
   "pain",
   "improve",
   "good",
   "info",
 ]);
-
-export type CwvInsightSeverity = z.infer<typeof CwvInsightSeveritySchema>;
 
 /** Actionable lab finding from a Lighthouse audit (element / opportunity). */
 export const CwvInsightSchema = z.object({
@@ -1419,16 +945,12 @@ export const CwvInsightSchema = z.object({
   auditId: z.string().optional(),
 });
 
-export type CwvInsight = z.infer<typeof CwvInsightSchema>;
-
 export const CwvRollupBucketSchema = z.object({
   key: z.string().min(1),
   level: z.enum(["app", "route", "chunk", "component"]),
   metrics: z.array(CwvMetricSchema),
   sampleCount: z.number().int().nonnegative(),
 });
-
-export type CwvRollupBucket = z.infer<typeof CwvRollupBucketSchema>;
 
 export const CwvReportSchema = z.object({
   url: z.string().min(1),
@@ -1460,38 +982,6 @@ export const CwvReportSchema = z.object({
   warnings: z.array(z.string()).default([]),
 });
 
-export type CwvReport = z.infer<typeof CwvReportSchema>;
-
-/**
- * Progressive multi-route lab progress (`UtilityJobProgress.detail` when
- * `kind === "cwv-route-progress"`). Emitted after the primary route finishes
- * and after each subsequent route measurement.
- */
-export const CwvRouteLabProgressDetailSchema = z.object({
-  kind: z.literal("cwv-route-progress"),
-  measuringRoute: z.string().nullable(),
-  measuredRoutes: z.array(z.string().min(1)),
-  /** Present once at least the primary route has finished measuring. */
-  report: CwvReportSchema.optional(),
-});
-
-export type CwvRouteLabProgressDetail = z.infer<
-  typeof CwvRouteLabProgressDetailSchema
->;
-
-/** Frontend Bundle Weight (M-050 / FE-06) — real bundler stats only. */
-export const BundleBytesSchema = z.object({
-  raw: z.number().nonnegative(),
-  gzip: z.number().nonnegative().optional(),
-  brotli: z.number().nonnegative().optional(),
-});
-
-export type BundleBytes = z.infer<typeof BundleBytesSchema>;
-
-export const BundleLoadTypeSchema = z.enum(["initial", "async", "unknown"]);
-
-export type BundleLoadType = z.infer<typeof BundleLoadTypeSchema>;
-
 export const BundleBundlerSchema = z.enum([
   "webpack",
   "rollup",
@@ -1501,115 +991,11 @@ export const BundleBundlerSchema = z.enum([
   "unknown",
 ]);
 
-export type BundleBundler = z.infer<typeof BundleBundlerSchema>;
-
-export const BundleModuleSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  path: z.string().optional(),
-  /** Best-effort package name from node_modules path. */
-  packageName: z.string().optional(),
-  bytes: BundleBytesSchema,
-  percentOfChunk: z.number().min(0).max(100).optional(),
-});
-
-export type BundleModule = z.infer<typeof BundleModuleSchema>;
-
-export const BundleChunkSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  bytes: BundleBytesSchema,
-  percentOfTotal: z.number().min(0).max(100),
-  loadType: BundleLoadTypeSchema.default("unknown"),
-  moduleCount: z.number().int().nonnegative().default(0),
-  /** Top modules by size (capped); may be empty when stats lack module detail. */
-  modules: z.array(BundleModuleSchema).default([]),
-});
-
-export type BundleChunk = z.infer<typeof BundleChunkSchema>;
-
-export const BundlePackageRollupSchema = z.object({
-  name: z.string().min(1),
-  bytes: BundleBytesSchema,
-  percentOfTotal: z.number().min(0).max(100),
-  moduleCount: z.number().int().nonnegative(),
-});
-
-export type BundlePackageRollup = z.infer<typeof BundlePackageRollupSchema>;
-
-export const BundleHighlightSeveritySchema = z.enum(["heavy", "warn", "info"]);
-
-export type BundleHighlightSeverity = z.infer<
-  typeof BundleHighlightSeveritySchema
->;
-
-export const BundleHighlightSchema = z.object({
-  id: z.string().min(1),
-  severity: BundleHighlightSeveritySchema,
-  title: z.string().min(1),
-  detail: z.string().optional(),
-  chunkId: z.string().optional(),
-  moduleId: z.string().optional(),
-});
-
-export type BundleHighlight = z.infer<typeof BundleHighlightSchema>;
-
-export const BundleBuildLabelSchema = z.object({
-  packageName: z.string().optional(),
-  packageId: z.string().optional(),
-  bundler: BundleBundlerSchema.default("unknown"),
-  mode: z.enum(["production", "development", "unknown"]).default("unknown"),
-  timestamp: z.string().datetime(),
-  scriptName: z.string().optional(),
-});
-
-export type BundleBuildLabel = z.infer<typeof BundleBuildLabelSchema>;
-
-export const BundleWeightOverviewSchema = z.object({
-  totalRaw: z.number().nonnegative(),
-  totalGzip: z.number().nonnegative().optional(),
-  totalBrotli: z.number().nonnegative().optional(),
-  chunkCount: z.number().int().nonnegative(),
-  initialRaw: z.number().nonnegative().default(0),
-  asyncRaw: z.number().nonnegative().default(0),
-  largestChunkName: z.string().optional(),
-  largestChunkRaw: z.number().nonnegative().optional(),
-});
-
-export type BundleWeightOverview = z.infer<typeof BundleWeightOverviewSchema>;
-
-export const BundleWeightThresholdsSchema = z.object({
-  heavyChunkBytes: z.number().nonnegative(),
-  heavyModuleBytes: z.number().nonnegative(),
-});
-
-export type BundleWeightThresholds = z.infer<
-  typeof BundleWeightThresholdsSchema
->;
-
-export const BundleWeightReportSchema = z.object({
-  collectedAt: z.string().datetime(),
-  source: z.enum(["analyze-script", "prism-managed", "ingest", "discovered"]),
-  callout: z.string().min(1),
-  build: BundleBuildLabelSchema,
-  overview: BundleWeightOverviewSchema,
-  chunks: z.array(BundleChunkSchema).default([]),
-  packageRollups: z.array(BundlePackageRollupSchema).default([]),
-  highlights: z.array(BundleHighlightSchema).default([]),
-  thresholds: BundleWeightThresholdsSchema,
-  /** When stats could not be produced — never fabricate sizes instead. */
-  unsupportedReason: z.string().optional(),
-});
-
-export type BundleWeightReport = z.infer<typeof BundleWeightReportSchema>;
-
 export const BundleAnalyzeStrategySchema = z.enum([
   "project-script",
   "prism-managed",
   "none",
 ]);
-
-export type BundleAnalyzeStrategy = z.infer<typeof BundleAnalyzeStrategySchema>;
 
 export const BundleAnalyzeScriptInfoSchema = z.object({
   packageId: z.string().optional(),
@@ -1619,10 +1005,6 @@ export const BundleAnalyzeScriptInfoSchema = z.object({
   command: z.string().min(1),
 });
 
-export type BundleAnalyzeScriptInfo = z.infer<
-  typeof BundleAnalyzeScriptInfoSchema
->;
-
 export const BundleAnalyzePackageInfoSchema = z.object({
   packageId: z.string().min(1),
   packagePath: z.string().min(1),
@@ -1631,10 +1013,6 @@ export const BundleAnalyzePackageInfoSchema = z.object({
   bundler: BundleBundlerSchema.default("unknown"),
   analyzers: z.array(z.string()).default([]),
 });
-
-export type BundleAnalyzePackageInfo = z.infer<
-  typeof BundleAnalyzePackageInfoSchema
->;
 
 /** Detected capacity to run / parse frontend bundle analyze (M-050). */
 export const BundleAnalyzeCapabilitySchema = z.object({
@@ -1646,29 +1024,8 @@ export const BundleAnalyzeCapabilitySchema = z.object({
   packages: z.array(BundleAnalyzePackageInfoSchema).default([]),
 });
 
-export type BundleAnalyzeCapability = z.infer<
-  typeof BundleAnalyzeCapabilitySchema
->;
-
 /** Which CWV source DomainScreen / getDomainReport prefers (M-053). */
 export const CwvPreferredSourceSchema = z.enum(["local", "pagespeed"]);
-
-export type CwvPreferredSource = z.infer<typeof CwvPreferredSourceSchema>;
-
-/**
- * Domain ids for {@link DomainReportSchema} (M-053). Frontend is first;
- * other domains gain full report shapes as Phase 2 lands them.
- */
-export const DomainReportDomainSchema = z.enum([
-  "frontend",
-  "backend",
-  "devops_platform",
-  "mobile",
-  "desktop",
-  "data_ml_ai",
-]);
-
-export type DomainReportDomain = z.infer<typeof DomainReportDomainSchema>;
 
 export const FrontendRouteBreakdownRowSchema = z.object({
   route: z.string().min(1),
@@ -1681,10 +1038,6 @@ export const FrontendRouteBreakdownRowSchema = z.object({
   notes: z.array(z.string()),
 });
 
-export type FrontendRouteBreakdownRow = z.infer<
-  typeof FrontendRouteBreakdownRowSchema
->;
-
 export const FrontendComponentBreakdownRowSchema = z.object({
   key: z.string().min(1),
   sampleCount: z.number().int().nonnegative(),
@@ -1692,20 +1045,12 @@ export const FrontendComponentBreakdownRowSchema = z.object({
   metrics: z.array(CwvMetricSchema),
 });
 
-export type FrontendComponentBreakdownRow = z.infer<
-  typeof FrontendComponentBreakdownRowSchema
->;
-
 export const FrontendDomainCwvBundleSchema = z.object({
   preferredSource: CwvPreferredSourceSchema,
   local: CwvReportSchema.nullable(),
   pagespeed: CwvReportSchema.nullable(),
   primary: CwvReportSchema.nullable(),
 });
-
-export type FrontendDomainCwvBundle = z.infer<
-  typeof FrontendDomainCwvBundleSchema
->;
 
 /**
  * Frontend domain aggregation (M-053 T-08). Surfaces render this instead of
@@ -1726,8 +1071,6 @@ export const FrontendDomainReportSchema = z.object({
   bundleCapability: BundleAnalyzeCapabilitySchema.optional(),
 });
 
-export type FrontendDomainReport = z.infer<typeof FrontendDomainReportSchema>;
-
 /**
  * Shared ranking / link rows used across domain reports (M-053 T-10).
  * `DomainReportSchema` is declared after {@link BackendReportSchema}.
@@ -1738,8 +1081,6 @@ export const DomainKindCountSchema = z.object({
   count: z.number().int().nonnegative(),
 });
 
-export type DomainKindCount = z.infer<typeof DomainKindCountSchema>;
-
 export const DomainRankedNodeSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
@@ -1747,8 +1088,6 @@ export const DomainRankedNodeSchema = z.object({
   kind: z.string().min(1),
   deps: z.number().int().nonnegative(),
 });
-
-export type DomainRankedNode = z.infer<typeof DomainRankedNodeSchema>;
 
 export const DomainChurnRowSchema = z.object({
   id: z.string().min(1),
@@ -1760,15 +1099,11 @@ export const DomainChurnRowSchema = z.object({
   deletions: z.number().int().nonnegative().default(0),
 });
 
-export type DomainChurnRow = z.infer<typeof DomainChurnRowSchema>;
-
 export const DomainStackSnapshotSchema = z.object({
   frameworks: z.array(z.string()),
   signals: z.array(StackSignalSchema),
   detected: z.boolean(),
 });
-
-export type DomainStackSnapshot = z.infer<typeof DomainStackSnapshotSchema>;
 
 export const DomainOverlayLinkSchema = z.object({
   id: z.string().min(1),
@@ -1779,29 +1114,6 @@ export const DomainOverlayLinkSchema = z.object({
   toKind: z.string(),
 });
 
-export type DomainOverlayLink = z.infer<typeof DomainOverlayLinkSchema>;
-
-/**
- * Well-known utility overlay kinds for Map / MCP (M-041 Gate A + P2–P7 / Mono-v2).
- * Open string registry — consumers should tolerate unknown kinds.
- */
-export const UtilityOverlayKindSchema = z.enum([
-  "api-surface",
-  "mobile-nav",
-  "desktop-boundary",
-  "notebook-modules",
-  "data-pipeline-dag",
-  "iac-resources",
-  "embedded-regions",
-  "game-regions",
-  "qa-test-gaps",
-  "security-surface",
-  "cross-package-impact",
-  "domain-regions",
-]);
-
-export type UtilityOverlayKind = z.infer<typeof UtilityOverlayKindSchema>;
-
 export const UtilityOverlayFindingSchema = z.object({
   id: z.string().min(1),
   message: z.string().min(1),
@@ -1809,58 +1121,12 @@ export const UtilityOverlayFindingSchema = z.object({
   severity: z.enum(["info", "low", "medium", "high"]).default("info"),
 });
 
-export type UtilityOverlayFinding = z.infer<typeof UtilityOverlayFindingSchema>;
-
-/** Map-facing layer descriptor agreed for M-017. */
-export const UtilityMapLayerSchema = z.object({
-  id: z.string().min(1),
-  label: z.string().min(1),
-  /** Stable domain color hint (hex or token); Map may theme further. */
-  colorHint: z.string().min(1).optional(),
-  nodeKinds: z.array(z.string().min(1)).default([]),
-});
-
-export type UtilityMapLayer = z.infer<typeof UtilityMapLayerSchema>;
-
-/**
- * Domain utility overlay report — thin Map/MCP contract (ADR-0008).
- * `graph` is the drawable structure; `findings` are inspector callouts.
- */
-export const UtilityOverlayReportSchema = z.object({
-  kind: UtilityOverlayKindSchema,
-  domain: z.string().min(1),
-  rootPath: z.string().min(1),
-  packageId: z.string().min(1).optional(),
-  generatedAt: z.string().datetime(),
-  summary: z.string().min(1),
-  graph: GraphSnapshotDtoSchema,
-  mapLayer: UtilityMapLayerSchema,
-  findings: z.array(UtilityOverlayFindingSchema).default([]),
-});
-
-export type UtilityOverlayReport = z.infer<typeof UtilityOverlayReportSchema>;
-
-export const UtilityOverlayKindInfoSchema = z.object({
-  kind: UtilityOverlayKindSchema,
-  domain: z.string().min(1),
-  label: z.string().min(1),
-  backlogIds: z.array(z.string().min(1)).default([]),
-  /** When true, Core needs a prior `index()` (e.g. cross-package impact). */
-  requiresIndex: z.boolean().default(false),
-});
-
-export type UtilityOverlayKindInfo = z.infer<
-  typeof UtilityOverlayKindInfoSchema
->;
-
 /** Auth / exposure inference for a backend route (M-044 / ADR-0015). */
 export const BackendAuthExposureSchema = z.enum([
   "public",
   "authenticated",
   "unknown",
 ]);
-
-export type BackendAuthExposure = z.infer<typeof BackendAuthExposureSchema>;
 
 export const BackendFrameworkSchema = z.enum([
   "express",
@@ -1871,8 +1137,6 @@ export const BackendFrameworkSchema = z.enum([
   "grpc",
   "unknown",
 ]);
-
-export type BackendFramework = z.infer<typeof BackendFrameworkSchema>;
 
 /** Single HTTP endpoint extracted from source (route-granular). */
 export const BackendEndpointSchema = z.object({
@@ -1904,16 +1168,12 @@ export const BackendDataLayerItemSchema = z.object({
   evidence: z.array(z.string().min(1)).default([]),
 });
 
-export type BackendDataLayerItem = z.infer<typeof BackendDataLayerItemSchema>;
-
 export const BackendEnvVarSchema = z.object({
   name: z.string().min(1),
   path: z.string().min(1),
   confidence: z.number().min(0).max(1),
   evidence: z.array(z.string().min(1)).default([]),
 });
-
-export type BackendEnvVar = z.infer<typeof BackendEnvVarSchema>;
 
 export const BackendIntegrationSchema = z.object({
   id: z.string().min(1),
@@ -1923,8 +1183,6 @@ export const BackendIntegrationSchema = z.object({
   evidence: z.array(z.string().min(1)).default([]),
 });
 
-export type BackendIntegration = z.infer<typeof BackendIntegrationSchema>;
-
 export const BackendBackgroundJobSchema = z.object({
   id: z.string().min(1),
   kind: z.enum(["queue", "worker", "cron"]),
@@ -1932,8 +1190,6 @@ export const BackendBackgroundJobSchema = z.object({
   confidence: z.number().min(0).max(1),
   evidence: z.array(z.string().min(1)).default([]),
 });
-
-export type BackendBackgroundJob = z.infer<typeof BackendBackgroundJobSchema>;
 
 /**
  * Typed backend domain report (M-044 / ADR-0015 Option C).
@@ -1960,18 +1216,12 @@ export const BackendCoverageSchema = z.object({
   untested: z.array(BackendEndpointSchema),
 });
 
-export type BackendCoverage = z.infer<typeof BackendCoverageSchema>;
-
 export const BackendDataLayerCountsSchema = z.object({
   model: z.number().int().nonnegative(),
   migration: z.number().int().nonnegative(),
   sql: z.number().int().nonnegative(),
   client: z.number().int().nonnegative(),
 });
-
-export type BackendDataLayerCounts = z.infer<
-  typeof BackendDataLayerCountsSchema
->;
 
 /**
  * Backend domain aggregation (M-053 T-10). Wraps {@link BackendReport} plus
@@ -1991,16 +1241,12 @@ export const BackendDomainReportSchema = z.object({
   dataLayerByKind: BackendDataLayerCountsSchema,
 });
 
-export type BackendDomainReport = z.infer<typeof BackendDomainReportSchema>;
-
 export const DevopsTilesSchema = z.object({
   iacResources: z.number().int().nonnegative(),
   pipelines: z.number().int().nonnegative(),
   containers: z.number().int().nonnegative(),
   kubernetes: z.number().int().nonnegative(),
 });
-
-export type DevopsTiles = z.infer<typeof DevopsTilesSchema>;
 
 /**
  * DevOps domain aggregation (M-053 T-10). Local overlay + CI heuristic
@@ -2018,15 +1264,11 @@ export const DevopsDomainReportSchema = z.object({
   findings: z.array(UtilityOverlayFindingSchema),
 });
 
-export type DevopsDomainReport = z.infer<typeof DevopsDomainReportSchema>;
-
 export const MobileScreenCoverageSchema = z.object({
   total: z.number().int().nonnegative(),
   tested: z.number().int().nonnegative(),
   untestedIds: z.array(z.string().min(1)),
 });
-
-export type MobileScreenCoverage = z.infer<typeof MobileScreenCoverageSchema>;
 
 export const MobileTilesSchema = z.object({
   screens: z.number().int().nonnegative(),
@@ -2034,8 +1276,6 @@ export const MobileTilesSchema = z.object({
   expoRouter: z.number().int().nonnegative(),
   untested: z.number().int().nonnegative(),
 });
-
-export type MobileTiles = z.infer<typeof MobileTilesSchema>;
 
 /**
  * Mobile domain aggregation (M-053 T-10).
@@ -2055,16 +1295,12 @@ export const MobileDomainReportSchema = z.object({
   kindCounts: z.array(DomainKindCountSchema),
 });
 
-export type MobileDomainReport = z.infer<typeof MobileDomainReportSchema>;
-
 export const DesktopIpcChannelSchema = z.object({
   name: z.string().min(1),
   source: z.string().min(1),
   path: z.string(),
   risk: z.enum(["low", "medium"]),
 });
-
-export type DesktopIpcChannel = z.infer<typeof DesktopIpcChannelSchema>;
 
 export const DesktopTilesSchema = z.object({
   main: z.number().int().nonnegative(),
@@ -2073,8 +1309,6 @@ export const DesktopTilesSchema = z.object({
   preload: z.number().int().nonnegative(),
   tauriConfig: z.number().int().nonnegative(),
 });
-
-export type DesktopTiles = z.infer<typeof DesktopTilesSchema>;
 
 /**
  * Desktop domain aggregation (M-053 T-10).
@@ -2094,8 +1328,6 @@ export const DesktopDomainReportSchema = z.object({
   kindCounts: z.array(DomainKindCountSchema),
 });
 
-export type DesktopDomainReport = z.infer<typeof DesktopDomainReportSchema>;
-
 /**
  * Data / ML domain aggregation (M-053 T-10). Overlay kind counts + DNA stack.
  */
@@ -2112,8 +1344,6 @@ export const DataMlAiDomainReportSchema = z.object({
   stack: DomainStackSnapshotSchema.nullable(),
 });
 
-export type DataMlAiDomainReport = z.infer<typeof DataMlAiDomainReportSchema>;
-
 /**
  * Discriminated union of domain reports (M-053 Phase 2).
  */
@@ -2126,8 +1356,6 @@ export const DomainReportSchema = z.discriminatedUnion("domain", [
   DataMlAiDomainReportSchema,
 ]);
 
-export type DomainReport = z.infer<typeof DomainReportSchema>;
-
 /** Suite kind for TestingReport (M-046 / ADR-0022). */
 export const TestingSuiteKindSchema = z.enum([
   "unit",
@@ -2136,15 +1364,11 @@ export const TestingSuiteKindSchema = z.enum([
   "other",
 ]);
 
-export type TestingSuiteKind = z.infer<typeof TestingSuiteKindSchema>;
-
 export const TestingSuiteSchema = z.object({
   kind: TestingSuiteKindSchema,
   path: z.string().min(1),
   fileCount: z.number().int().nonnegative(),
 });
-
-export type TestingSuite = z.infer<typeof TestingSuiteSchema>;
 
 export const TestingCoverageSchema = z.object({
   present: z.boolean(),
@@ -2161,8 +1385,6 @@ export const TestingCoverageSchema = z.object({
   source: z.string().min(1),
 });
 
-export type TestingCoverage = z.infer<typeof TestingCoverageSchema>;
-
 /** Outcome of a single test after a `Run tests` invocation (M-046 tweak). */
 export const TestingTestStatusSchema = z.enum([
   "passing",
@@ -2170,8 +1392,6 @@ export const TestingTestStatusSchema = z.enum([
   "skipped",
   "unknown",
 ]);
-
-export type TestingTestStatus = z.infer<typeof TestingTestStatusSchema>;
 
 export const TestingTestResultSchema = z.object({
   id: z.string().min(1),
@@ -2181,8 +1401,6 @@ export const TestingTestResultSchema = z.object({
   status: TestingTestStatusSchema,
   durationMs: z.number().nonnegative().optional(),
 });
-
-export type TestingTestResult = z.infer<typeof TestingTestResultSchema>;
 
 /** Local testing structure + optional on-disk coverage (M-046 / ADR-0022). */
 export const TestingReportSchema = z.object({
@@ -2198,118 +1416,6 @@ export const TestingReportSchema = z.object({
 });
 
 export type TestingReport = z.infer<typeof TestingReportSchema>;
-
-export const SecurityToolSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  present: z.boolean(),
-  path: z.string().min(1).optional(),
-});
-
-export type SecurityTool = z.infer<typeof SecurityToolSchema>;
-
-export const SecurityCheckStatusSchema = z.enum([
-  "pass",
-  "fail",
-  "warn",
-  "skip",
-]);
-
-export type SecurityCheckStatus = z.infer<typeof SecurityCheckStatusSchema>;
-
-export const SecurityCheckSchema = z.object({
-  id: z.string().min(1),
-  domain: z.string().min(1).optional(),
-  status: SecurityCheckStatusSchema,
-  title: z.string().min(1),
-  detail: z.string().min(1).optional(),
-});
-
-export type SecurityCheck = z.infer<typeof SecurityCheckSchema>;
-
-/**
- * Left-shift tooling + fundamental checklist (M-046 / ADR-0022).
- * Not a full SAST product — local detection only.
- */
-export const SecurityReportSchema = z.object({
-  score: z.number().min(0).max(100),
-  tools: z.array(SecurityToolSchema).default([]),
-  checks: z.array(SecurityCheckSchema).default([]),
-  summary: z.string().min(1),
-});
-
-export type SecurityReport = z.infer<typeof SecurityReportSchema>;
-
-/** Stable engineering-health metric ids (M-022 / ADR-0017). */
-export const EngineeringHealthMetricIdSchema = z.enum([
-  "entropy",
-  "architecture_drift",
-  "technical_debt",
-  "code_churn",
-  "conflict_risk",
-  "knowledge_decay",
-]);
-
-export type EngineeringHealthMetricId = z.infer<
-  typeof EngineeringHealthMetricIdSchema
->;
-
-/**
- * Single engineering-health metric. Score is 0–100 where **higher = healthier**
- * (aligned with HealthScore factors).
- */
-export const EngineeringHealthMetricSchema = z.object({
-  id: EngineeringHealthMetricIdSchema,
-  label: z.string().min(1),
-  score: z.number().min(0).max(100),
-  severity: z.enum(["info", "low", "medium", "high"]).default("info"),
-  evidence: z.array(z.string().min(1)).default([]),
-  note: z.string().min(1).optional(),
-  /** False when the metric needs git and none was available. */
-  gitDependent: z.boolean().default(false),
-});
-
-export type EngineeringHealthMetric = z.infer<
-  typeof EngineeringHealthMetricSchema
->;
-
-export const EngineeringHotspotKindSchema = z.enum([
-  "churn",
-  "debt",
-  "coupling",
-  "ownership",
-  "stale",
-]);
-
-export type EngineeringHotspotKind = z.infer<
-  typeof EngineeringHotspotKindSchema
->;
-
-export const EngineeringHotspotSchema = z.object({
-  path: z.string().min(1),
-  score: z.number().min(0).max(100),
-  kinds: z.array(EngineeringHotspotKindSchema).min(1),
-  evidence: z.array(z.string().min(1)).default([]),
-});
-
-export type EngineeringHotspot = z.infer<typeof EngineeringHotspotSchema>;
-
-/**
- * Typed engineering-health report (M-022 / ADR-0017). Complementary to
- * `HealthScore` — does not reweight ADR-0012 factors.
- */
-export const EngineeringHealthReportSchema = z.object({
-  rootPath: z.string().min(1),
-  generatedAt: z.string().datetime(),
-  summary: z.string().min(1),
-  gitAvailable: z.boolean(),
-  metrics: z.array(EngineeringHealthMetricSchema).default([]),
-  hotspots: z.array(EngineeringHotspotSchema).default([]),
-});
-
-export type EngineeringHealthReport = z.infer<
-  typeof EngineeringHealthReportSchema
->;
 
 /** Code Explorer selection target (M-023 / ADR-0018). */
 export const CodeExplorerTargetSchema = z.discriminatedUnion("kind", [
@@ -2528,46 +1634,6 @@ export function prepareMapTokenWeight(
   return Math.max(1, Math.ceil(chars / 4));
 }
 
-/** Worker-prompt block. Omits file bodies by construction. */
-export function formatPrepareChangePrompt(prep: PrepareChange): string {
-  const files = prep.pack.files
-    .map(
-      (file) =>
-        `- ${file.path}${file.why.length ? ` — ${file.why.join("; ")}` : ""}`,
-    )
-    .join("\n");
-  const reuse =
-    prep.reuse.length === 0
-      ? "- none (unavailable — do not invent a helper)"
-      : prep.reuse
-          .map((hit) => `- ${hit.symbol} in ${hit.path} (${hit.evidence})`)
-          .join("\n");
-  const conventions = (prep.conventions ?? []).map(
-    (row) => `- ${row.patternId}: ${row.path} (${row.whyCanonical})`,
-  );
-  const notes = (prep.notes ?? []).map((note) => {
-    const where = note.rationaleFor ?? note.path;
-    const sym = note.symbol ? ` ${note.symbol}` : "";
-    return `- ${note.source}:${sym} ${note.text} (${where})`;
-  });
-  const ambiguous = prep.ambiguous
-    ? `Ambiguous “${prep.ambiguous.query}”: ${prep.ambiguous.candidates
-        .map((c) => `${c.symbol} in ${c.path}`)
-        .join("; ")}. Do not pick silently.`
-    : "";
-  return [
-    `Context pack for: ${prep.pack.task}`,
-    files ? `Pack files:\n${files}` : "",
-    `Reuse:\n${reuse}`,
-    conventions.length > 0 ? `House Style:\n${conventions.join("\n")}` : "",
-    notes.length > 0 ? `Notes:\n${notes.join("\n")}` : "",
-    formatWorkOrderPrompt(prep.order),
-    ambiguous,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-}
-
 /**
  * A queueable, re-scannable finding from a report (M-071 Finding Loop).
  * `fingerprint` is stable across re-scans of the same underlying issue, so
@@ -2596,57 +1662,19 @@ export const FindingMuteStoreSchema = z.object({
 });
 export type FindingMuteStore = z.infer<typeof FindingMuteStoreSchema>;
 
-/** `start_job` args a `queue_finding` call builds — Console and MCP share this. */
-export type QueueFindingArgs = {
-  readonly title: string;
-  readonly prd: string;
-  readonly origin: "finding";
-  readonly parentFindingId: string;
-  readonly findingFingerprint: string;
-  readonly findingSource: string;
-};
-
-/**
- * The one place a finding becomes a job brief. Every entry point that queues
- * a finding — MCP `queue_finding`, Console Findings, Console Spectrum —
- * must call this instead of building its own payload, so they queue the
- * same job for the same finding (M-071 L2/L6).
- */
-export function queueFindingArgs(
-  finding: FindingRef,
-  instructions?: string,
-): QueueFindingArgs {
-  const prd = [
-    `Fix this finding only: ${finding.title}`,
-    finding.path ? `File: ${finding.path}` : "",
-    instructions?.trim() ?? "",
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-  return {
-    title: `Fix: ${finding.title}`,
-    prd,
-    origin: "finding",
-    parentFindingId: finding.id,
-    findingFingerprint: finding.fingerprint,
-    findingSource: finding.source,
-  };
-}
-
 /**
  * The machine-checkable claims embedded in a generated AGENTS.md (M-073).
- * `--check` recomputes `list_features` / `dependency_cycles` and compares
+ * `--check` recomputes `dependency_cycles` and compares
  * against this snapshot rather than re-parsing prose.
  */
 export const AgentsMdClaimsSchema = z.object({
   generatedAt: z.string().datetime(),
-  featureSlugs: z.array(z.string()),
   cycles: z.array(z.array(z.string())),
 });
 export type AgentsMdClaims = z.infer<typeof AgentsMdClaimsSchema>;
 
 export const AgentsMdIssueSchema = z.object({
-  kind: z.enum(["missing", "stale-feature", "stale-cycle", "unparsable"]),
+  kind: z.enum(["missing", "stale-cycle", "unparsable"]),
   detail: z.string().min(1),
 });
 export type AgentsMdIssue = z.infer<typeof AgentsMdIssueSchema>;

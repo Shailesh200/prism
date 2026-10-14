@@ -10,29 +10,16 @@ describe("buildAgentsMdContent / parseAgentsMdClaims (pure)", () => {
   it("round-trips the claims block", () => {
     const content = buildAgentsMdContent({
       generatedAt: "2026-01-01T00:00:00.000Z",
-      features: [
-        {
-          id: "f1",
-          name: "Cart",
-          slug: "cart",
-          confidence: 0.8,
-          memberFiles: ["src/cart.ts"],
-          evidence: [],
-        },
-      ],
       cycles: [["a.ts", "b.ts"]],
       testFiles: ["src/cart.test.ts"],
-      ownersByFeature: new Map([["cart", ["ada"]]]),
     });
-    expect(content).toContain("**Cart**");
     expect(content).toContain("Cycle: a.ts → b.ts");
     expect(content).toContain("src/cart.test.ts");
-    expect(content).toContain("ada");
+    expect(content).not.toContain("## Features");
 
     const claims = parseAgentsMdClaims(content);
     expect(claims).toEqual({
       generatedAt: "2026-01-01T00:00:00.000Z",
-      featureSlugs: ["cart"],
       cycles: [["a.ts", "b.ts"]],
     });
   });

@@ -11,18 +11,13 @@ const SURFACES = [
   },
   {
     href: "/docs/start/install",
-    title: "IDE extension",
-    body: "VS Code and Cursor — same Map and blast UI.",
-  },
-  {
-    href: "/docs/start/install",
     title: "AI agents (MCP)",
-    body: "Prepare, Guard, Envelope, findings, and the rest of the Intelligence tools — plus Dispatch for the changes you hand off.",
+    body: "Prepare, Guard, the stop receipt, findings, and the graph — nine default tools.",
   },
   {
-    href: "/docs/guides/envelope-and-iris",
-    title: "Envelope + Iris",
-    body: "The local index, plus a receipt for every Intelligence call. Never source.",
+    href: "/docs/guides/envelope",
+    title: "Envelope",
+    body: "The local index, plus a receipt for every Prism tool call. Never source.",
   },
   {
     href: "/docs/guides/prepare-a-change",
@@ -33,16 +28,6 @@ const SURFACES = [
     href: "/docs/guides/guard-a-session",
     title: "Guard",
     body: "Rank this session’s dirty files so you read the high-blast ones first.",
-  },
-  {
-    href: "/docs/guides/dispatch",
-    title: "Dispatch",
-    body: "Hand work to a background teammate, watched from the local Console.",
-  },
-  {
-    href: "/docs/start/playground",
-    title: "Playground",
-    body: "Local web UI over the same Core SDK.",
   },
 ] as const;
 
