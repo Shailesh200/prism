@@ -307,7 +307,7 @@ One row per declaration, with its line. A re-export points to the defining file.
 ## 5. Feature contracts, acceptance criteria and test matrices
 
 ### 5.0 Conventions
-- **Golden repos:** `hono` (TS lib), `preact` (JS), `es-toolkit` (TS utils), `rentmaadi` (Next app with `@/` aliases), `mono` = **this Prism repo pinned to a commit after the 2.0 deletions (§0.4)** (`GOLDEN_MONO_SHA` in `scripts/e2e-agent/repos.json`; re-pinned once Phase 1 lands). Unsupported-language fixtures (not golden): `httpie/cli` (Python), `spf13/cobra` (Go), `BurntSushi/ripgrep` (Rust). They're used only for LANG rows.
+- **Golden repos:** `hono` (TS lib), `preact` (JS), `es-toolkit` (TS utils), `rentmaadi` (Next app with `@/` aliases), `portpilot` = `Shailesh200/PortPilot` (public, MIT; Electron 40 + electron-vite, React 19, zustand, Tailwind, bun; `src/main` / `src/renderer` / `src/shared` with IPC between them; three tsconfigs `tsconfig.json`/`.node.json`/`.web.json`), pinned to `bf153b8` (v1.0.28), `mono` = **this Prism repo pinned to a commit after the 2.0 deletions (§0.4)** (`GOLDEN_MONO_SHA` in `scripts/e2e-agent/repos.json`; re-pinned once Phase 1 lands). Unsupported-language fixtures (not golden): `httpie/cli` (Python), `spf13/cobra` (Go), `BurntSushi/ripgrep` (Rust). They're used only for LANG rows.
 - **Clients:** CC = Claude Code, CU = Cursor (IDE + `cursor-agent`), CX = Codex CLI, OC = opencode.
 - **"Verify"** means one of three checks against the transcript harness (§9.4): **[T]** the tool calls and arguments in the transcript, **[O]** the tool or hook output JSON, **[E]** events in `events.jsonl`.
 - **"All 4"** means the scenario runs once per client. A client with no hook API runs the rule-driven path, and "pass" is defined for that path.
@@ -343,6 +343,12 @@ One row per declaration, with its line. A re-export points to the defining file.
 | PC-9 | any | budget property: 200 random tasks | `tokenEstimate ≤ budget` in 200/200 | property test |
 | PC-10 | hono | "where should I add a new `timing` middleware? follow the existing style" | houseStyle has an existing middleware as the exemplar; reuse is not empty | [O] |
 | PC-11 | rentmaadi | (vendored or generated file) "fix the typo in the generated prisma client" | `order.offLimits` contains the generated path; the agent is told not to edit it | [O] |
+| PP-1 | portpilot | "the next free port suggestion skips ports that are actually free" | `src/shared/next-free-port.ts` top-1; its tests in `tests[]` | [O] |
+| PP-2 | portpilot | "add a new IPC call to rename a saved profile" | `src/shared/ipc.ts`, `src/main/ipc.ts`/`ipc-handle.ts`, `src/main/profiles-persistence.ts` in top-5; reuse names `atomic-json.ts` | [O] |
+| PP-3 | portpilot | "what breaks if I change the IpcChannel types in src/shared/ipc.ts?" | blast spans main **and** renderer importers, each resolved with its own tsconfig (`.node` vs `.web`) | [O] |
+| PP-4 | portpilot | "rename execFileSafe to runFileSafe" | `rename_impact` lists every main-process site; `bun run typecheck` passes after the edit | build |
+| PP-5 | portpilot | edit `src/main/os/secure-store.ts` → stop | receipt names the tests that reach it, or `not_proven(untested)` | [O] |
+| PP-6 | portpilot | `out/` and `build/` folders present | treated as generated/off-limits; never in a pack | [O] |
 | PC-12 | held-out | 20% hidden tasks per repo | top-3 ≥ T7 | benchmark |
 
 #### `blast_radius`
@@ -830,8 +836,8 @@ OS {ubuntu-latest, macos-latest, windows-latest (required)} × Node {24 LTS, lat
 | S-INS-5 | Reinstall a newer local build with a running session: the old daemon is stopped, the new one started, no duplicate daemons, hooks work after the next prompt |
 
 ### 9.3 Golden benchmark
-- **Repos** at pinned shas: hono, preact, es-toolkit, rentmaadi (**local-only**, decision 22), and the Prism repo (mono) at `GOLDEN_MONO_SHA`. Unsupported-language fixtures are only for LANG rows.
-- **Tasks:** 40 per TS/JS repo (4 × 40) + 30 for mono = **190**. **20% held out** (38 tasks; sealed, rotated each release, never used for tuning).
+- **Repos** at pinned shas: hono, preact, es-toolkit, rentmaadi (**local-only**, `~/Desktop/rentmaadi`, decision 22), portpilot (`bf153b8`; public, so CI clones it, and local runs use `~/Desktop/port-pilot` at that SHA in a clean worktree), and the Prism repo (mono) at `GOLDEN_MONO_SHA`. Unsupported-language fixtures are only for LANG rows.
+- **Tasks:** 40 per TS/JS repo (4 × 40) + 30 for mono + 30 for portpilot = **220**. **20% held out** (44 tasks, 6 of them portpilot; sealed, rotated each release, never used for tuning).
 - **Labels:** the file a developer opened first, the expected tests, the expected blast set.
 - **Metrics:** Prepare top-1/top-3 hit rate, test-impact precision/recall, blast precision/recall, hook p50/p95, receipt p50/p95, cold-index time, tokens per Prepare.
 - **Gate:** T4–T9 met. No metric regresses by more than 2 points vs the last release.
@@ -856,7 +862,7 @@ OS {ubuntu-latest, macos-latest, windows-latest (required)} × Node {24 LTS, lat
 | B1 | Orientation, `scripts/bench/agent-orientation.ts` (5 fixtures × 6 questions) | tokens returned with Prism vs without | **with 44,149 vs without 9,945 est. tokens; 70 vs 325 calls; 7,586 vs 43 ms** (`plans/notes/benchmarks-latest.json`, 2026-09-04). Prism currently returns **4.4× more** tokens | with-Prism tokens ≤ without-Prism tokens; calls ≤ 70; health question removed (5 questions) | §0.3 tool cut, Prepare budget §5.1, `repository_overview` merge, bounded `graph` | rerun the script; report per question |
 | B2 | Prepare replay eval, `scripts/bench/prepare-eval.ts` (**new**, M-093: about 200 commits from Prism, es-toolkit, hono, zod + rentmaadi) | recall@pack, top-1, top-3, tokens p50/p95 | capture in Phase 0 (E0) | top-3 ≥ 85% (T7); recall@pack ≥ E0 + 10 pts; tokens p95 ≤ 2,000 | resolver §4.1, IDF ranking + seeds + budget §5.1, symbol blast §4.2 | held-out 20% reported separately |
 | B3 | Replay (regression catch), `scripts/replay-benchmark.ts` | catch rate, false-alarm rate, median receipt time | **catch 5/7 = 71%; false alarms 1/6 = 17%; median receipt 3.4 s** (`plans/notes/benchmark/R0.md`, 2026-10-06; R1 unchanged) | catch ≥ 6/7 (or ≥ 80% on an enlarged set of ≥ 20 regressions); false alarms ≤ 5%; structural receipt median ≤ 1.5 s, p95 ≤ 3 s (T4) | baseline-aware verdict (M-092), symbol-level test impact §4.3, daemon receipt §5.7, value-only cycles | enlarge to ≥ 20 regressions + ≥ 20 controls in Phase 0, then rerun |
-| B4 | Golden benchmark (§9.3, **new**) | top-3, test-impact P/R, blast P/R | capture in Phase 0 | T7–T9 | §4, §5.1 | 190 tasks, 38 held out |
+| B4 | Golden benchmark (§9.3, **new**) | top-3, test-impact P/R, blast P/R | capture in Phase 0 | T7–T9 | §4, §5.1 | 220 tasks (incl. 30 portpilot), 44 held out; rentmaadi rows local-only |
 | B5 | Daemon freshness, `scripts/bench/daemon-freshness.mjs` | edit→index p95; symbol answer after edit p95; auto-Prepare p95; first Prepare warm | **268 ms; 2.3 s; 1.7 s; 786 ms p50 at 10k** / 53 ms auto-Prepare at 1k (`PROGRESS.md:106`, `M-095:35`) | ≤ 300 ms; ≤ 1.0 s; ≤ 1.0 s at 10k, ≤ 300 ms at 1k; ≤ 500 ms | watcher ignores + batching §2.4, daemon owns Prepare §2.1, budget cap | 1k and 10k generated fixtures (`generate-fixture.mjs`) |
 | B6 | Real-agent A/B, `scripts/bench/agent-ab.ts` (Claude Code + opencode; Codex CLI if detected) | success, tokens, seconds, USD (B − A, 95% CI) | **success 97% → 100% (+3.0 pp, CI 0–9.1); tokens +28,571 (CI −1,983…57,273), Prism arm uses MORE; seconds −50 (CI −162…13); USD +0.03** (`benchmark-real-agents.md`, 33 runs/arm, 2026-10-11) | tokens B − A ≤ 0 with the CI upper bound < +5%; seconds B − A < 0 with CI excluding 0; success not lower | hook injection replacing tool calls §5.8, Prepare budget, tool cut (smaller tool list in context), receipt dedupe | rerun 11 tasks + 10 new, 3 runs each, per client, with Prism wired to the **local build** (absolute bin paths, §3.0; DEV-3). Clients: CC and OC always. CX only if `codex` is on PATH and `codex login status` succeeds; otherwise it's skipped and `ab.skip codex not configured` is logged in the report. No cost cap. If a provider returns a quota or credit error, the run stops, completed runs are kept, and the report says "stopped: quota/credits exhausted at run N" for the user |
 | B7 | Prompt classifier corpus (§5.11, **new**; owner prompts stored outside the repo, decision 23; CI uses a synthetic public subset) | change recall, question false-positive rate | capture in Phase 0 (current `CHANGE_VERB` regex, `prism-hook.mjs:368`) | recall ≥ 0.95, FP ≤ 0.05 | §5.11 classifier | 400 English + 40 non-English |
@@ -1017,6 +1023,8 @@ Phases 2–3 and 4 can be built in parallel once Phase 1 lands. Phase 5 needs Ph
 
     It's generated as far as possible from the git log (plan IDs in commit messages), the benchmark JSONs and `deleted-names.contract`. It's checked by `plan-refs.contract`, and it's release-gate item 15.
 25. **Pushes and deployments need explicit owner confirmation:** no `git push`, tag, publish, deployment, Action tag or external upload happens without the owner's explicit confirmation for that specific action, including in the final Release 2.0.0 step (each sub-step is confirmed). Local commits follow AGENTS.md (owner approval).
+
+26. **Golden repo paths:** rentmaadi is `~/Desktop/rentmaadi` (local-only). **PortPilot** (`~/Desktop/port-pilot`, `Shailesh200/PortPilot`, public TS/Electron) joins the golden set pinned at `bf153b8`, with 30 benchmark tasks (6 held out) and rows PP-1…6. As a public repo it may run in CI. Local runs use a clean worktree at the pinned SHA, because the local checkout has 2 uncommitted files and must never be modified by the harness.
 
 ### Open questions
 None.
