@@ -154,8 +154,7 @@ export function GraphScreen(props: GraphScreenProps): ReactElement {
   );
   const selected =
     graph?.nodes.find((node) => node.id === selectedId) ?? focus ?? null;
-  const relations =
-    graph && selected ? relationsFor(graph, selected.id) : null;
+  const relations = graph && selected ? relationsFor(graph, selected.id) : null;
 
   const openNode = (node: GraphExportNode): void => {
     if (node.kind === "package") {
@@ -241,7 +240,9 @@ export function GraphScreen(props: GraphScreenProps): ReactElement {
                       key={pkg.id}
                       type="button"
                       className="pgraph__row"
-                      data-active={focusKey === packageKey(pkg) ? "true" : "false"}
+                      data-active={
+                        focusKey === packageKey(pkg) ? "true" : "false"
+                      }
                       title={pkg.label}
                       onClick={() => openNode(pkg)}
                     >
@@ -314,7 +315,9 @@ export function GraphScreen(props: GraphScreenProps): ReactElement {
                   )}
                 </>
               ) : (
-                <p className="pgraph__empty">This repository has no packages in the graph.</p>
+                <p className="pgraph__empty">
+                  This repository has no packages in the graph.
+                </p>
               )}
             </section>
             <aside className="pgraph__col pgraph__inspector">

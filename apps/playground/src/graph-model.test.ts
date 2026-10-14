@@ -71,9 +71,9 @@ describe("graph model", () => {
   });
 
   it("filters packages and files by the query without dropping the package", () => {
-    expect(visiblePackages(graph, "checkout").map((node) => node.label)).toEqual(
-      ["app"],
-    );
+    expect(
+      visiblePackages(graph, "checkout").map((node) => node.label),
+    ).toEqual(["app"]);
     expect(
       visibleFiles(graph, "app", "checkout").map((node) => node.label),
     ).toEqual(["checkout.ts"]);

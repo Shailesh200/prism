@@ -18,7 +18,8 @@ function escapeRegExp(value: string): string {
 
 /** Index of a whole-word mention, or -1. */
 function mentionAt(task: string, lens: LensDefinition): number {
-  const names = lens.name.toLowerCase() === lens.id ? [lens.id] : [lens.name, lens.id];
+  const names =
+    lens.name.toLowerCase() === lens.id ? [lens.id] : [lens.name, lens.id];
   let at = -1;
   for (const name of names) {
     if (name.length < 2) continue;

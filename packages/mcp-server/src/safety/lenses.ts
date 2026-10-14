@@ -169,8 +169,7 @@ export async function briefsFor(
 ): Promise<Result<LensBrief[], PrismError>> {
   const store = await storeFor(workspace, env);
   const enabled = store.lenses.filter((row) => row.enabled);
-  const picked =
-    ids === undefined ? chooseLens(task, enabled)?.id : undefined;
+  const picked = ids === undefined ? chooseLens(task, enabled)?.id : undefined;
   const wanted = new Set(ids ?? (picked ? [picked] : []));
   const briefs: LensBrief[] = [];
   for (const lens of enabled) {

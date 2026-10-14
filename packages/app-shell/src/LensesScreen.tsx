@@ -736,8 +736,8 @@ export function LensesScreen(props: LensesScreenProps): ReactElement {
               {[props.repoLabel, props.branch].filter(Boolean).join(" · ")}
               {props.repoLabel || props.branch ? " · " : ""}
               Prism picks one from the task. A plan or a pull request uses
-              Architect, a daily fix uses Dev, and finding bugs uses QA. Name
-              a lens, including one you add, to use that instead.
+              Architect, a daily fix uses Dev, and finding bugs uses QA. Name a
+              lens, including one you add, to use that instead.
             </Text>
           </div>
           <div className="lens-top__actions">
