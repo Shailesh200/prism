@@ -14,7 +14,8 @@ import {
   appendEnvelopeLedger,
   envelopeFromToolResult,
   envelopeHostProbe,
-} from "@repo-prism/dispatch";
+} from "@repo-prism/core/envelope";
+import type { DaemonOutcome } from "@repo-prism/daemon";
 import type { PrismError, Result } from "@repo-prism/shared";
 import type { ZodRawShape, z } from "zod";
 import { toMcpError, toMcpErrorFromThrown } from "./errors.js";
@@ -67,7 +68,11 @@ export function registerTools(
   tools: readonly ToolDefinition<never>[],
   workspaceRoot: string | (() => string),
   env: NodeJS.ProcessEnv = process.env,
+  /** Ask the daemon first (ADR-0063); `unavailable` falls through to `session`. */
+  attach?: (tool: string, args: unknown) => Promise<DaemonOutcome<unknown>>,
 ): void {
+  const resolveRoot = (): string =>
+    typeof workspaceRoot === "function" ? workspaceRoot() : workspaceRoot;
   for (const tool of tools as readonly ToolDefinition[]) {
     server.registerTool(
       tool.name,
@@ -82,22 +87,25 @@ export function registerTools(
       },
       // The SDK has already validated `args` against `inputSchema` by here.
       async (args: unknown) => {
-        const ready = await session.ready();
-        if (!ready.ok) throw toMcpError(ready.error);
-
+        const attached = await attach?.(tool.name, args);
         let result: Result<unknown, PrismError>;
-        let root = "";
-        try {
-          root =
-            typeof workspaceRoot === "function"
-              ? workspaceRoot()
-              : workspaceRoot;
-          result = await tool.call(
-            { workspace: ready.value, workspaceRoot: root },
-            args as Parameters<typeof tool.call>[1],
-          );
-        } catch (cause) {
-          throw toMcpErrorFromThrown(cause);
+        let root = resolveRoot();
+        if (attached?.kind === "ok") {
+          result = { ok: true, value: attached.value };
+        } else if (attached?.kind === "error") {
+          result = { ok: false, error: attached.error };
+        } else {
+          const ready = await session.ready();
+          if (!ready.ok) throw toMcpError(ready.error);
+          try {
+            root = resolveRoot();
+            result = await tool.call(
+              { workspace: ready.value, workspaceRoot: root },
+              args as Parameters<typeof tool.call>[1],
+            );
+          } catch (cause) {
+            throw toMcpErrorFromThrown(cause);
+          }
         }
 
         if (!result.ok) throw toMcpError(result.error);
@@ -117,6 +125,7 @@ export function registerTools(
             truncated: envelope.truncated,
             limit: envelope.limit,
             jsonBytes: Buffer.byteLength(text, "utf8"),
+            source: "mcp",
             ...probe,
           },
           env,

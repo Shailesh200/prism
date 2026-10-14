@@ -29,16 +29,18 @@ screen. Same roll-up as the CLI against your pending edits.
 Ask the agent: "Review my current changes before I merge — what's the aggregate
 risk?"
 
-The agent should call `review_changes` (omit paths to auto-discover). Lead
-with the blast radius, test impact, and breaking-change hints that tool
-already carries. A finding a report lists stays open until a re-scan drops
-its fingerprint — a finished fix job is not enough. See
-[Findings](/docs/guides/findings).
-
-For “what should I read first in this dirty tree?”, use
+The agent should call `guard_session` to rank the changed files, then
+`blast_radius` and `test_impact` on anything it flags. Lead with what those
+tools report, not with the raw diff. See
 [Guard a session](/docs/guides/guard-a-session).
 
-Optional prompt: `review_diff` (calls `review_changes`).
+`review_changes` gives the same roll-up as `prism review` in one call. It is
+registered only when the server runs with `PRISM_MCP_FULL=1`.
+
+A finding a report lists stays open until a re-scan drops its fingerprint — an
+edit is not enough. See [Findings](/docs/guides/findings).
+
+Optional prompt: `review_diff` (calls `guard_session`, then `blast_radius`).
 
   </Tab>
 </Tabs>

@@ -47,4 +47,16 @@ describe("action/render-comment.mjs (M-060)", () => {
     expect(md).toContain("### Tests to run");
     expect(md).toContain("packages/core/src/index.test.ts");
   });
+
+  it("appends a receipt when one is passed", async () => {
+    const { renderReviewComment } = await import(
+      pathToFileURL(actionModule).href
+    );
+    const md = renderReviewComment(
+      { ok: true, data: { overallRisk: 10, items: [] } },
+      "Prism · proven",
+    );
+    expect(md).toContain("### Receipt");
+    expect(md).toContain("Prism · proven");
+  });
 });

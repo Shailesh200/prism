@@ -72,8 +72,10 @@ Use **1** vs **2** carefully in CI: a typo must not look like a real finding.
 
 | Command | Purpose |
 |---|---|
-| `prism doctor` | Check Node, workspace resolution, git, index (`--ci` warns on shallow clones) |
+| `prism doctor` | Check Node, workspace resolution, git, index (`--ci` warns on shallow clones; `--surfaces` shows which Prism each editor launches) |
+| `prism data prune` | List empty workspace folders, caches of deleted checkouts, and untracked worktrees under `~/.prism` (`--yes` removes them) |
 | `prism index` | Build or refresh the repository index |
+| `prism graph` | The background daemon that keeps each repository's graph fresh: `status`, `serve`, `stop`, `refresh`, `export [--out <dir>]` (`graph.json` + `GRAPH_REPORT.md`), `hooks install\|uninstall` |
 | `prism completions <bash\|zsh\|fish>` | Print shell completion script |
 
 ### Understand a repository
@@ -100,6 +102,8 @@ Use **1** vs **2** carefully in CI: a typo must not look like a real finding.
 | `prism safe-delete <target>` | Safe to delete? |
 | `prism rename <target> <newName>` | Rename edit sites |
 | `prism test-impact <target>` | Related tests |
+| `prism envelope` | What Prism put into agents' context, by tool, with calls over budget (`--days`) |
+| `prism receipts` | Change receipts the stop hook wrote; `show <n> --as markdown\|svg` for a PR comment or a card |
 
 ### Structure
 
@@ -122,6 +126,16 @@ Use **1** vs **2** carefully in CI: a typo must not look like a real finding.
 | `prism bundle` | Bundle weight (ingested stats) |
 | `prism agents-md` | Generate/verify Living AGENTS.md (writes only `~/.prism`) |
 | `prism findings` | Unused exports, duplicates, wrappers; mute/unmute |
+
+### Memory
+
+Notes live in `~/.prism/workspaces/<key>/memory.json`, never in the repository.
+
+| Command | Purpose |
+|---|---|
+| `prism remember` | Save a note (`--symbol`, `--path` anchor it so a rename moves it) |
+| `prism forget` | Forget notes by id or matching text |
+| `prism memories` | List the notes for this repository |
 
 ## Related
 

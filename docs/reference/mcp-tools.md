@@ -19,7 +19,7 @@ Core analysis APIs stay ungated from MCP. See
 Tools that return a list accept `limit` and answer with `totalCount` and
 `truncated`, so an agent can tell the first 20 of 340 from all 20 there are.
 
-Prism exposes **53 tools**. Every count elsewhere in the docs is
+Prism exposes **40 tools**. Every count elsewhere in the docs is
 checked against this one, so the number cannot drift into prose.
 
 | Tool | What it answers |
@@ -30,32 +30,25 @@ checked against this one, so the number cannot drift into prose.
 | [`breaking_change_hints`](#breaking_change_hints) | Deprecated |
 | [`capabilities`](#capabilities) | List every Core analysis capability and consent-gated integration with availability and a reason when unavailable |
 | [`changed_paths`](#changed_paths) | List workspace-relative paths changed in the working tree, or against an optional git base ref |
-| [`configure`](#configure) | Read or update gitignored Dispatch settings |
 | [`dependency_cycles`](#dependency_cycles) | Import and re-export cycles, each returned as the list of files forming the loop |
 | [`dependency_graph`](#dependency_graph) | The import/re-export dependency graph, at file level or aggregated to packages |
 | [`dependency_route`](#dependency_route) | Show how one file or symbol reaches another through the dependency graph, with alternative paths |
-| [`dispatch_doctor`](#dispatch_doctor) | Check whether Dispatch can run local teammates |
 | [`engineering_health`](#engineering_health) | The deep engineering view |
 | [`explain_area`](#explain_area) | Explain what a module or folder does |
 | [`explore_code`](#explore_code) | Everything about one file or symbol in a single call |
 | [`feature_graph`](#feature_graph) | Inferred features and how they depend on each other |
 | [`find_references`](#find_references) | Find resolved references to a symbol — who actually calls or imports it |
 | [`find_symbol`](#find_symbol) | Find indexed symbols by exact name, optionally narrowed by file or kind |
+| [`graph`](#graph) | One structural question about the repository, answered from Prism's local graph |
 | [`guard_session`](#guard_session) | Rank the current dirty session — working-tree changes minus preExistingChanges, when you have that list from a job — by blast risk, so a human reads the highest-risk file first |
 | [`health_history`](#health_history) | Health score over time from stored index snapshots and optional git backfill |
-| [`init`](#init) | One-time worker sign-in so Prism can run local job teammates |
-| [`job_control`](#job_control) | Pause, resume, retry, reverify, cancel, delete, confirm, add context to, commit, keep, or restore files for a Dispatch job |
-| [`job_logs`](#job_logs) | The console for one Dispatch job |
 | [`knowledge_graph`](#knowledge_graph) | The symbol-level graph — declarations and the references between them — with summary stats |
 | [`landmarks`](#landmarks) | Named entrypoints, package roots and feature anchors — the places a human would open first |
 | [`lens`](#lens) | List, show, edit, remove, re-seed, or overrule a review lens |
 | [`list_features`](#list_features) | Inferred features with their member files and a confidence score |
 | [`list_findings`](#list_findings) | Queueable findings from the last index |
-| [`list_jobs`](#list_jobs) | Where are we |
 | [`list_packages`](#list_packages) | List the packages in a monorepo with their roots |
 | [`prepare_change`](#prepare_change) | One call before you edit |
-| [`queue_finding`](#queue_finding) | Hand one finding from a report tool (engineering_health, security_report, testing_report, or another Intelligence report) to a background teammate |
-| [`remember`](#remember) | Save, list, or forget scoped memories that Dispatch injects into the next start_job prompt |
 | [`rename_impact`](#rename_impact) | Every edit site a rename would touch, plus breaking-change hints for public surface |
 | [`repository_dna`](#repository_dna) | Identify what a repository *is* |
 | [`repository_health`](#repository_health) | Score overall repository health from 0-100 with the per-factor breakdown behind the score |
@@ -66,16 +59,10 @@ checked against this one, so the number cannot drift into prose.
 | [`safe_delete`](#safe_delete) | Whether a file or symbol can be deleted safely |
 | [`search_symbols`](#search_symbols) | Substring or regex search over indexed symbol names (unlike find_symbol, which is exact-match only) |
 | [`security_report`](#security_report) | Left-shift security posture |
-| [`sleep`](#sleep) | Park Prism |
 | [`stack_profile`](#stack_profile) | Detected stack for the workspace or a single package |
-| [`start_job`](#start_job) | Hand a code change to a background teammate |
-| [`start_my_day`](#start_my_day) | Standup briefing for this repository |
 | [`test_impact`](#test_impact) | Which test files transitively cover a change target — the tests worth running after touching it |
 | [`testing_report`](#testing_report) | Test structure and, when coverage artifacts are already on disk, coverage |
-| [`use_skill`](#use_skill) | Load a Prism skill from the user's Prism-only library (~/.prism/dispatch/skills), or an inherited skill that ships with Prism |
-| [`wake`](#wake) | Bring Prism back |
 | [`work_order`](#work_order) | The work order for a task |
-| [`working_set`](#working_set) | Get or patch the accumulated files, symbols, decisions and neighbors for a job (M-073), so a resume does not rediscover context it already has |
 | [`workspace_status`](#workspace_status) | Compact workspace readiness |
 
 ## `agents_md`
@@ -114,12 +101,6 @@ List workspace-relative paths changed in the working tree, or against an optiona
 
 Arguments: `base`.
 
-## `configure`
-
-Read or update gitignored Dispatch settings: section order, standup notes, standing job instructions, Slack tracked channel ids, mention window and caps, max parallel jobs (default 4, admitted on free memory), in-process subagents, host fan-out, post-job verification, worker backend (auto = match this host, cursor, or claude), placement (checkout = your tree uncommitted, worktree = separate branch + commit), dispatchMode (ask = offer teammate-or-inline in one line before changing code, the default; auto = dispatch without asking; inline = only dispatch when the user asks for a job), hint policy, and whether the tickets slot is Linear or Jira. Any other wish works too: pass preference="…" to add a standing preference (applied to standup presentation), removePreference="…" to drop one; an unknown setting key is kept as a preference and said so, never silently dropped. Standing how-the-teammate-should-work notes are jobInstructions (injected into every job prompt); one-off facts still belong to remember. action=export returns a non-secret template (no tokens) for sharing. The Prism Console Dispatch Settings tab edits the same file.
-
-Arguments: `action`, `maxJobs`, `subagents`, `fanout`, `verifyJobs`, `workerBackend`, `placement`, `dispatchMode`, `preference`, `removePreference`, `hints`, `ticketHost`, `standupTemplate`, `jobInstructions`, `slackTrackChannelIds`, `mentionWindowHours`, `mentionLimit`, `trackedMessageLimit`, `sectionsOff`, `includeMemories`.
-
 ## `dependency_cycles`
 
 Import and re-export cycles, each returned as the list of files forming the loop. Use when investigating build order, flaky module initialisation, or before extracting a package.
@@ -137,12 +118,6 @@ Arguments: `packageAggregation`, `resolveAliases`, `limit`, `summaryOnly`.
 Show how one file or symbol reaches another through the dependency graph, with alternative paths. Use to answer 'how is this connected to that?' — an empty result means no path exists, which is itself an answer.
 
 Arguments: `from`, `to`, `maxAlternatives`, `maxHops`.
-
-## `dispatch_doctor`
-
-Check whether Dispatch can run local teammates. Speak only the tool message — never mention API keys, mcp.json, host role, or connector counts. If sign-in is missing, call init. The message also says whether the jobs board is up.
-
-Takes no arguments.
 
 ## `engineering_health`
 
@@ -180,6 +155,12 @@ Find indexed symbols by exact name, optionally narrowed by file or kind. Use to 
 
 Arguments: `name`, `path`, `kind`, `limit`.
 
+## `graph`
+
+One structural question about the repository, answered from Prism's local graph. Modes: find (a symbol or path by name; candidates when ambiguous), neighbors (imports, importers and tests of a file; declaration and references of a symbol), path (how A reaches B through imports), explain (what a file or folder is for, its owners and tests), query (filter: tests_reaching, importers_of, imports_of, files_in_importing). Every edge says measured, heuristic or inferred; open the file before relying on an inferred one. Bounded by `budget` tokens (default 1500); `truncated` says when it was cut.
+
+Arguments: `mode`, `name`, `kind`, `target`, `direction`, `from`, `to`, `maxHops`, `path`, `filter`, `of`, `within`, `budget`.
+
 ## `guard_session`
 
 Rank the current dirty session — working-tree changes minus preExistingChanges, when you have that list from a job — by blast risk, so a human reads the highest-risk file first. Each file may carry duplicate (looks like an existing symbol), orphan (a new file nothing imports yet), or boundary (crosses into a package this session otherwise doesn't touch) flags. Call this before landing a session, not as a substitute for review_changes' test-impact and breaking-change view.
@@ -191,24 +172,6 @@ Arguments: `preExistingChanges`.
 Health score over time from stored index snapshots and optional git backfill. Use to answer 'is this getting better or worse?'. Points carry provenance: backfilled points are estimated from history, not measured at the time, and say so.
 
 Arguments: `maxPoints`.
-
-## `init`
-
-One-time worker sign-in so Prism can run local job teammates. The worker matches the host (ADR-0044): in Cursor a Cursor login page opens in the browser; in Claude Code this checks the claude CLI is installed and signed in, and the message says what to run when it is not. Speak only the tool message to the user — never mention API keys, mcp.json, host role, or connector counts. If Cursor shows “Authenticating prism…” with Skip, that is host tool-approval: tell the user to click Skip, then retry init.
-
-Takes no arguments.
-
-## `job_control`
-
-Pause, resume, retry, reverify, cancel, delete, confirm, add context to, commit, keep, or restore files for a Dispatch job. retry restarts a failed or cancelled job. reverify re-runs supervisor checks on a finished job whose Verify is Failure or —. If those checks still fail, a teammate fixes the errors and Prism verifies again. cancel stops a live job but keeps it on the board; delete removes it from the board entirely (and stops it first if it is still running). confirm answers a job sitting in needs_confirm (a dirty checkout or an overlap) and puts it back in the queue. commit is only for checkout jobs that finished with uncommitted edits — it stages exactly the job's files on the user's current branch, never anything else. accept_file / accept_all keep the job's files; on a worktree job, accept_all also merges the job branch onto the user's current branch. reject_file / reject_all restore them in a checkout (never mixed files the user already had dirty). Speak only the tool message, using the job title and canonical id. jobId may be a ticket, a slug like audit-issues, or the title.
-
-Arguments: `jobId`, `action`, `context`, `path`.
-
-## `job_logs`
-
-The console for one Dispatch job: recent activity lines (thinking, tool calls, edits, errors) plus the uncommitted review summary when it has finished. Call this when the user asks what a teammate is doing, why it is stuck, what went wrong, or wants to see logs/output — and when list_jobs shows no activity for a while. Omit jobId for the job that is still running. Pass since (an ISO timestamp from the last entry) to tail only new lines instead of re-reading everything. Speak the tool message; do not print worktree paths.
-
-Arguments: `jobId`, `limit`, `since`.
 
 ## `knowledge_graph`
 
@@ -240,12 +203,6 @@ Queueable findings from the last index: unused exports, duplicate implementation
 
 Arguments: `limit`, `includeMuted`.
 
-## `list_jobs`
-
-Where are we: every Dispatch job with title, canonical id, live activity, and a result, verification outcome, or error when a teammate finishes. Speak only the tool message — titles, what they are doing, and what changed, not worktree paths or job-<hex> ids. A finished job that produced work reports as ready for your review. Where the work sits depends on placement: a checkout job left its edits uncommitted in the user's own tree, so offer job_control commit or let them commit; a worktree job holds them on its own branch, so name the branch and commit and ask whether to merge, leave, or drop it. Either way nothing was merged into the user's branch for them — do not describe a checkout job as living on a branch. A job reporting no activity for N minutes is stalled; call job_logs to see why. Report a failed check as a failure, and say so plainly when a job produced no reviewable change. Also prunes worktrees whose job is gone, keeping any that still hold unmerged commits. Call when the user asks where we are, what's running, how a job is going, or whether a teammate finished. After start_job, call again with waitFor set to that job's id so the chat learns the result without the user asking. Mention the jobs dashboard URL from the message so they can watch live.
-
-Arguments: `waitFor`, `timeoutMs`.
-
 ## `list_packages`
 
 List the packages in a monorepo with their roots. Call this first in a monorepo so later tools can be scoped with packageId instead of returning the whole workspace.
@@ -254,21 +211,9 @@ Arguments: `limit`.
 
 ## `prepare_change`
 
-One call before you edit: the files to open for this task (pack), existing helpers to reuse, three House Style exemplars, notes (remembered symbol/path facts plus ADR/WHY rationale_for hits), and a work order (in-scope, off-limits generated/vendor, needs sign-off). Returns paths, symbol names and why — never file bodies. Call this instead of dumping search_symbols or knowledge_graph. Ambiguous names come back as candidates; do not pick silently. workingSet stays null.
+One call before you edit: the files to open for this task (pack), existing helpers to reuse, House Style exemplars, notes (remembered facts and ADR rationale), and a work order (in-scope, off-limits generated/vendor, needs sign-off). Paths, symbol names and why — never file bodies. The whole answer fits a token budget (default 2000); when it is cut, `trimmed` says what was dropped. Ambiguous names come back as candidates; do not pick silently.
 
 Arguments: `task`, `budget`.
-
-## `queue_finding`
-
-Hand one finding from a report tool (engineering_health, security_report, testing_report, or another Intelligence report) to a background teammate. Pass the finding exactly as that tool returned it — id, source, title, and fingerprint — never invent or paraphrase these fields. The brief is always to fix that finding only, not the whole report. Same rules as start_job for dispatchMode, placement, and speaking the result: offer teammate vs inline under dispatchMode=ask and wait; call without asking under dispatchMode=auto. Once the job's checks pass, Prism re-runs the report and only then calls the finding resolved — a finished job is not enough on its own, so do not tell the user it is fixed until list_jobs or the originating report confirms it.
-
-Arguments: `finding`, `instructions`, `workspace`, `placement`, `confirmDirty`, `workerModel`.
-
-## `remember`
-
-Save, list, or forget scoped memories that Dispatch injects into the next start_job prompt. Scope is job, repo, or user. Does not auto-save code-changing rules; those need confirm=true. Call when the user says remember this, forget that, or list memories.
-
-Arguments: `action`, `text`, `id`, `scope`, `jobId`, `confirm`, `symbol`, `path`.
 
 ## `rename_impact`
 
@@ -330,29 +275,11 @@ Left-shift security posture: which tooling is configured, which fundamental chec
 
 Takes no arguments.
 
-## `sleep`
-
-Park Prism: the Dashboard shows a down page and queued jobs stay queued until prism wake. Call this when the user says prism sleep, put Prism to sleep, or go to sleep. Speak only the tool message. If teammates are already running, the tool asks first — relay that and re-call with confirm=true only if the user agrees; that pauses them. Do not confuse this with init (worker sign-in).
-
-Arguments: `confirm`, `workspace`.
-
 ## `stack_profile`
 
 Detected stack for the workspace or a single package: frameworks, runtimes, build tooling and the signals each was detected from. Use when you need to know what a package is built with before changing its configuration.
 
 Arguments: `packageId`.
-
-## `start_job`
-
-Hand a code change to a background teammate. Under dispatchMode=ask (the default), do not call this until the user has chosen teammate over inline — offer that choice in one line and wait; never silently auto-dispatch. Under dispatchMode=auto, call without asking. Under dispatchMode=inline, only when they ask for a job. Once dispatch is chosen, call this for ANY request to change this repository — fix a bug or broken behaviour, implement, add, wire up, refactor, rename, migrate, or make one area behave like another. Intent is enough: it does not require the words “start working on”, a ticket id, or a PRD, so “the highlighting is not working in the news tab, fix that issue” qualifies. Derive title and prd yourself from the request plus the repo; do not interview the user. Say in one line what you are starting, then call it. An explicit request overrides every exclusion that follows: if the user asks for a background job in words (“start working on …”, “start a job”, “dispatch this”, “in the background”, “hand it off”), call this even when the task is read-only — “start working on reviewing the local changes” is a start_job, and answering it inline while explaining why you did not dispatch is wrong. Otherwise do NOT call this when the user wants it done inline now (“do it now”, “right here”, “yourself”, “quick fix”, “don't dispatch”), when they are asking a question rather than assigning work, for one trivial fully-specified edit, or for a repo-wide audit (repository_health). Always pass workspace as the absolute path of the git repository you are editing (the folder that contains .git). Starts a local teammate — a Cursor agent in Cursor, a Claude Code agent in Claude Code (no shell; no second Prism MCP; may use in-process subagents for multi-part work) — and returns immediately. By default the teammate works in the user's own checkout and leaves edits uncommitted (ADR-0045); pass placement=worktree when the user asks for a separate branch/worktree or wants their tree left alone. When the teammate stops, Prism runs typecheck and tests, so the result carries a real pass/fail; worktree jobs also get a commit on the job branch. Speak the tool message in full: job title, canonical id (ticket like AI-971 or slug like audit-issues), and the “Watch live at …” Console URL on its own line — never drop that URL, never strip its ?token= query (without it the Console is unauthorised), never paraphrase it away, never invent a different link. Never say job-<hex>, worktree paths, or API keys. Tell the user to say where are we for live status and the result when it finishes. Jobs are admitted on free memory, so a second teammate may be refused while one is running. If the tree has uncommitted changes, the tool asks first — relay that and re-call with confirmDirty=true only if the user agrees. If sign-in is needed, the message says what to do (Cursor: a login page opens; Claude Code: run claude once in a terminal). If Cursor shows “Authenticating prism…” with Skip, tell the user to click Skip and retry. If the tool says Prism does not see a git repository, retry once with workspace set to the open project path — do not throw PRISM_UNKNOWN at the user.
-
-Arguments: `title`, `prd`, `jobId`, `branch`, `placement`, `confirmDirty`, `workspace`, `playbook`, `workerModel`, `confirmOverlap`, `parentJobId`, `origin`.
-
-## `start_my_day`
-
-Standup briefing for this repository: greeting, what happened yesterday (git + finished jobs + completed Linear), then open items on Linear/GitHub/Slack/Calendar/Notion, leftover Dispatch jobs, and one suggested focus. Unconnected tools appear as named connect CTAs. Does not index the repo. Call this when the user says start my day, standup, or what's waiting on me. Return the message as written — do not omit a connected driver.
-
-Arguments: `workspace`.
 
 ## `test_impact`
 
@@ -366,29 +293,11 @@ Test structure and, when coverage artifacts are already on disk, coverage. Use t
 
 Takes no arguments.
 
-## `use_skill`
-
-Load a Prism skill from the user's Prism-only library (~/.prism/dispatch/skills), or an inherited skill that ships with Prism. Call this when the user says prism use <name> (or just prism use to list). Speak only the tool message — the skill body the agent should follow. Do not write Cursor or Claude skill folders; skills stay in Prism. Pass name to load one skill; omit name to list.
-
-Arguments: `name`.
-
-## `wake`
-
-Bring Prism back: the Dashboard returns, and queued jobs (including any sleep paused) start on their own. Call this when the user says prism wake, wake Prism, or wake up — even if the Dashboard is already up. Speak only the tool message, which is one line: Prism woke up at <url>. If teammates are still running, the tool asks first — relay that and re-call with confirm=true. Do not confuse this with init.
-
-Arguments: `confirm`, `workspace`.
-
 ## `work_order`
 
 The work order for a task: in-scope files, off-limits (generated or vendor), and paths that need sign-off (high blast or shared ownership). Same compute as prepare_change.order. Optional path evaluates the advisory hook for that write — veto is false unless an Accepted ADR has armed the hook. Never file bodies.
 
 Arguments: `task`, `path`.
-
-## `working_set`
-
-Get or patch the accumulated files, symbols, decisions and neighbors for a job (M-073), so a resume does not rediscover context it already has. Pass jobId to read or extend that job's own set (also what its next resume prompt injects); omit it to use the standalone, per-workspace set for an inline chat session with no job. action=set merges arrays in (dedup, capped) — it never replaces the whole set.
-
-Arguments: `action`, `jobId`, `files`, `symbols`, `decisions`, `neighbors`.
 
 ## `workspace_status`
 

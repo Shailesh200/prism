@@ -11,8 +11,11 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   ensureWorkspacePrism,
+  forgetWorkspaceMemory,
+  legacyWorkspaceMemoryPath,
   loadWorkspaceMemories,
   migrateWorkspaceMemories,
+  rememberWorkspaceMemory,
   useLocalPrismStore,
   workspaceKey,
   workspaceMemoryPath,
@@ -64,7 +67,7 @@ describe("workspace prism home", () => {
     const repo = await mkdtemp(join(tmpdir(), "prism-mem-"));
     temps.push(repo);
     const env = { VITEST: "true" };
-    await mkdir(join(repo, ".prism", "dispatch"), { recursive: true });
+    await mkdir(join(repo, ".prism"), { recursive: true });
     await writeFile(
       workspaceMemoryPath(repo, env),
       JSON.stringify({
@@ -83,5 +86,45 @@ describe("workspace prism home", () => {
     const items = await loadWorkspaceMemories(repo, env);
     expect(items.find((i) => i.id === "1")?.symbol).toBe("loadUser");
     expect(items.find((i) => i.id === "2")?.symbol).toBe("lruCache");
+  });
+
+  it("reads memories Dispatch wrote before M-091, then writes the new home", async () => {
+    const repo = await mkdtemp(join(tmpdir(), "prism-mem-legacy-"));
+    temps.push(repo);
+    const env = { VITEST: "true" };
+    await mkdir(join(repo, ".prism", "dispatch"), { recursive: true });
+    await writeFile(
+      legacyWorkspaceMemoryPath(repo, env),
+      JSON.stringify({
+        items: [
+          {
+            id: "old",
+            scope: "repo",
+            text: "use lruCache, never a Map",
+            source: "user",
+            createdAt: "2026-09-01T00:00:00.000Z",
+            symbol: "lruCache",
+          },
+        ],
+      }),
+    );
+    expect((await loadWorkspaceMemories(repo, env)).map((m) => m.id)).toEqual([
+      "old",
+    ]);
+    await expect(
+      access(legacyWorkspaceMemoryPath(repo, env)),
+    ).rejects.toMatchObject({ code: "ENOENT" });
+
+    const added = await rememberWorkspaceMemory(
+      repo,
+      { text: "tests live beside the source", path: "src" },
+      env,
+    );
+    expect((await loadWorkspaceMemories(repo, env)).map((m) => m.text)).toEqual(
+      ["use lruCache, never a Map", "tests live beside the source"],
+    );
+    expect(await forgetWorkspaceMemory(repo, added.id!, env)).toBe(1);
+    expect(await forgetWorkspaceMemory(repo, "LRUCACHE", env)).toBe(1);
+    expect(await loadWorkspaceMemories(repo, env)).toEqual([]);
   });
 });

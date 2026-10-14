@@ -4,7 +4,7 @@
 |---|---|
 | Status | **Accepted** (owner, 2026-10-06) |
 | Date | 2026-10-06 |
-| Milestone | [M-079 Safety layer + Lenses](../milestones/M-079_safety-layer.md) phases 4, 5, 7 |
+| Milestone | [M-079 Safety layer + Lenses](../archive/milestones/M-079_safety-layer.md) phases 4, 5, 7 |
 | Amends | [ADR-0052](./0052-product-identity-and-iris.md) §7 (“the worker is not named”), [ADR-0057](./0057-prism-intelligence-unified-product.md) §6 (“no worker persona”) |
 | Depends on | [ADR-0058](./0058-prism-does-not-run-agents.md) |
 

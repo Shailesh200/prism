@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   claudeManifest,
   cursorManifest,
+  devMcpConfig,
   mcpConfig,
   pluginDefinition,
 } from "./definition.js";
@@ -105,7 +106,7 @@ describe("manifests", () => {
     expect(claudeManifest(def).commands).toEqual([
       "./commands/prism-review.md",
       "./commands/prism-check.md",
-      "./commands/prism-onboard.md",
+      "./commands/prism-graph.md",
     ]);
   });
 
@@ -124,6 +125,12 @@ describe("manifests", () => {
       readFileSync(join(root, "../mcp-server/mcp-install.json"), "utf8"),
     );
     expect(mcpConfig()).toEqual(shipped);
+    const dev = devMcpConfig({
+      node: "/node",
+      mcpBin: "/repo/packages/mcp-server/dist/bin.js",
+    });
+    expect(JSON.stringify(dev)).not.toContain("@repo-prism/mcp-server");
+    expect(JSON.stringify(dev)).toContain("dist/bin.js");
   });
 
   it("tracks the MCP server's version rather than inventing a second one", () => {

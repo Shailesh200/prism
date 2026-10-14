@@ -71,6 +71,12 @@ export function isWakeHash(hash: string): boolean {
   return raw === "wake";
 }
 
+/** Playground-only graph canvas. Not a Dashboard tab. */
+export function isGraphHash(hash: string): boolean {
+  const raw = hash.replace(/^#\/?/, "").split("?")[0]?.trim() ?? "";
+  return raw === "graph";
+}
+
 /**
  * Spectrum may poll Dispatch's selected checkout, but a `?root=` deep link
  * or a repo the user already picked must not snap back to that default.

@@ -50,6 +50,12 @@ export type IndexJobOptions = {
   readonly changedPaths?: readonly string[];
   /** Repo-relative paths removed from the workspace. */
   readonly deletedPaths?: readonly string[];
+  /**
+   * Files of the snapshot this process already holds. A dirty run merges
+   * against these instead of re-reading and re-validating every cached row,
+   * which at 10k files was most of a single-file reindex (M-095).
+   */
+  readonly priorFiles?: readonly IndexedFile[];
 };
 
 function emit(
@@ -272,7 +278,10 @@ export async function runIndexJob(
     );
     if (opened.ok) {
       cacheDb = opened.value;
-      cachedFiles = loadCachedFiles(cacheDb.db, resolve(rootResult.value));
+      cachedFiles =
+        dirtyRequested && options.priorFiles && options.priorFiles.length > 0
+          ? new Map(options.priorFiles.map((file) => [file.path, file]))
+          : loadCachedFiles(cacheDb.db, resolve(rootResult.value));
     } else {
       warnings.push(`cache unavailable: ${opened.error.message}`);
     }

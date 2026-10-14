@@ -546,12 +546,12 @@ export function jobUsageLine(
  * Not sent = the rest of the matches Prism held back.
  */
 export const ENVELOPE_DUMP_KEPT_TIP =
-  "Sent is the list your Prismate actually gave the agent. Not sent is the rest of the matches it held back.\n\nSent % is sent ÷ the full list — a measure of the list tail, separate from the job's billed tokens.";
+  "Sent is the list Prism actually gave the agent. Not sent is the rest of the matches it held back.\n\nSent % is sent ÷ the full list — a measure of the list tail, separate from the run's billed tokens.";
 
 /** Focus drawer InfoTip — Envelope is not the LLM context window. */
 export const JOB_ENVELOPE_TIP = `${ENVELOPE_DUMP_KEPT_TIP}
 
-Context and Tokens above are this teammate's LLM run. Envelope only counts Prismate list tools, and stays empty until those run.`;
+Context and Tokens above are this run's model bill. Envelope only counts Prism list tools, and stays empty until those run.`;
 
 /** Iris “Sent %” InfoTip. */
 export const IRIS_BYTES_KEPT_TIP =

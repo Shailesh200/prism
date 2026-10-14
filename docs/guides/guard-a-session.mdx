@@ -32,8 +32,8 @@ out of the list. The top rows are the ones with the largest blast radius.
 
 Ask: “I just finished a messy session — what should I read first?”
 
-The agent calls `guard_session`. For a job’s own files only, it passes
-`preExistingChanges` so your leftover edits are not mixed in.
+The agent calls `guard_session`. It passes `preExistingChanges` — the files
+already dirty before this session — so your leftover edits are not mixed in.
 
   </Tab>
 </Tabs>
@@ -53,16 +53,17 @@ The session is:
 git dirty paths − preExistingChanges
 ```
 
-That subtract is why a teammate’s review does not drown in files you already
-had open.
+That subtract is why a review of this session does not drown in files you
+already had open.
 
 ## When to use it
 
-- After you (or a teammate) touched many files and you do not know where to
+- After you (or your agent) touched many files and you do not know where to
   start reading.
 - Before you land uncommitted work — pair with
   [Review a PR](/docs/guides/review-a-pr).
-- After a finding job: Guard the job’s files, not the whole dirty tree.
+- After fixing a finding: Guard the files that fix touched, not the whole dirty
+  tree.
 
 ## When this is wrong
 

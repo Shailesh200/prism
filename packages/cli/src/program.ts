@@ -12,6 +12,7 @@
 import { PRISM_API_LEVEL, PRISM_CORE_VERSION } from "@repo-prism/core";
 import { Command, CommanderError } from "commander";
 import { COMMANDS, COMMANDS_BY_NAME } from "./commands.js";
+import { firstRunCommand } from "./commands/first-run.js";
 import { ExitCode } from "./exit.js";
 import { COMMAND_GROUPS } from "./registry.js";
 import { shouldUseColor, type Writer } from "./output.js";
@@ -71,6 +72,8 @@ function buildProgram(): Command {
       collectExcludes,
       [] as string[],
     )
+    .option("--no-open", "First run: write graph.html without opening it")
+    .option("--badge", "First run: write .prism/health.svg")
     // Global flags are accepted after the subcommand too, because
     // `prism blast x --json` is what people type and refusing it would be
     // pedantry rather than help.
@@ -155,12 +158,29 @@ export async function run(
 ): Promise<ExitCode> {
   const program = buildProgram();
 
-  // Commander prints help and reports success for a bare invocation. We keep
-  // that behaviour: `prism` with no args is how people discover commands, so
-  // exit 0. Unknown commands and bad flags still exit 2 (usage error).
+  // A bare `prism` is the first-run card. Parse is skipped so Commander does
+  // not print help and exit. `--help` still has arguments and is handled below.
   if (argv.length === 0) {
-    options.writer.err(program.helpInformation());
-    return ExitCode.OK;
+    return runCommand(
+      firstRunCommand,
+      {
+        json: false,
+        color: shouldUseColor({
+          noColorFlag: false,
+          env: options.env,
+          isTty: options.isTty,
+        }),
+        quiet: false,
+        verbose: false,
+        yes: false,
+      },
+      options,
+      {
+        positionals: [],
+        option: () => undefined,
+        flag: () => false,
+      },
+    );
   }
 
   // Applied to subcommands as well as the root. Commander copies these
@@ -195,8 +215,34 @@ export async function run(
 
   const commandName = parsed.args[0];
   if (commandName === undefined) {
-    options.writer.err(program.helpInformation());
-    return ExitCode.OK;
+    const root = parsed.opts<
+      RawGlobals & { open?: boolean; badge?: boolean }
+    >();
+    return runCommand(
+      firstRunCommand,
+      {
+        workspace: root.workspace,
+        json: root.json === true,
+        color: shouldUseColor({
+          noColorFlag: root.color === false,
+          env: options.env,
+          isTty: options.isTty,
+        }),
+        quiet: root.quiet === true,
+        verbose: root.verbose === true,
+        yes: root.yes === true,
+      },
+      options,
+      {
+        positionals: [],
+        option: () => undefined,
+        flag(name) {
+          if (name === "noOpen") return root.open === false;
+          if (name === "badge") return root.badge === true;
+          return false;
+        },
+      },
+    );
   }
 
   const spec = COMMANDS_BY_NAME.get(commandName);

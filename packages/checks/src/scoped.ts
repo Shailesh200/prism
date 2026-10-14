@@ -17,6 +17,10 @@ import {
   type VerifyRunner,
 } from "./verify.js";
 import type { VerifyPlan, VerifyStep } from "./types.js";
+import {
+  failureSignature,
+  type FailureSignature,
+} from "./failure-signature.js";
 
 export type TestRunnerId = "vitest" | "jest" | "bun";
 
@@ -176,6 +180,8 @@ export type CheckStepResult = {
   /** One chat-safe line for failures. */
   readonly detail: string;
   readonly durationMs: number;
+  /** For failures: what failed, so a baseline run can be compared (M-092). */
+  readonly signature?: FailureSignature;
 };
 
 /**
@@ -223,6 +229,7 @@ export async function runCheckSteps(
         status: "failed",
         detail: firstFailureLine(result.output) || `${step.name} failed`,
         durationMs,
+        signature: failureSignature(result.output),
       });
     }
   }

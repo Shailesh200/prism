@@ -24,14 +24,14 @@ export const reviewWith = defineTool({
   name: "review_with",
   title: "Review with lenses",
   description:
-    "Review a task or the current change through one or more lenses (Architect, QA, Dev by default). action=brief returns one brief per lens — its checklist, memory, and evidence from the current change — for you to run as independent subagents. action=record stores the verdicts they return, with the evidence each lens was given. Prism does not call a model. Use when the user wants a second opinion from a role, or before treating a change as done.",
+    "Review a task or the current change through a lens. Architect, QA, and Dev are the defaults; the owner can add their own. Omit lenses and Prism picks one from the task: a plan, a new feature, or a pull request uses Architect; finding bugs uses QA; a daily fix uses Dev. Naming a lens uses that one, including a custom lens. action=brief returns that lens's procedure, checklist, memory, and evidence for you to follow. action=record stores the verdict. Prism does not call a model.",
   inputSchema: {
     action: z.enum(["brief", "record"]).optional().describe("Default brief."),
     lenses: z
       .array(z.string())
       .optional()
       .describe(
-        'Lens ids, e.g. ["architect", "qa"]. Omit for every enabled lens.',
+        'Lens ids, e.g. ["architect", "qa"]. Omit and Prism picks the one lens this task calls for.',
       ),
     task: z
       .string()

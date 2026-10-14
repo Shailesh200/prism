@@ -106,8 +106,8 @@ function PrepareRunDetail(props: {
 
       {run.ambiguous ? (
         <EmptyState>
-          Your Prismate matched &quot;{run.ambiguous.query}&quot; to more than
-          one symbol: {run.ambiguous.candidates.map((c) => c.path).join(", ")}.
+          Prism matched &quot;{run.ambiguous.query}&quot; to more than one
+          symbol: {run.ambiguous.candidates.map((c) => c.path).join(", ")}.
           House Style picked the canonical one; the rest are listed here for
           reference.
         </EmptyState>

@@ -176,29 +176,11 @@ Manifest prepared for owner submission: [`server.json`](./server.json) ·
 
 ## Tools
 
-Intelligence tools are read-only. Dispatch tools write state under
-`~/.prism/workspaces/<key>/dispatch/`. Dispatch makes no network calls and
-holds no third-party credentials — connectors belong to the agent window
-(ADR-0049).
+Every tool is read-only, makes no network call, and holds no credentials.
 
-### Dispatch
-
-| Tool | Answers | Arguments |
-|---|---|---|
-| `start_my_day` | Standup: jobs, git, connected drivers, connect CTAs | — |
-| `init` | One-time worker sign-in (Cursor browser login; Claude CLI check) | — |
-| `sleep` | Park the Console and hold queued jobs until wake | `confirm` |
-| `wake` | Bring the Console back and start queued jobs | `confirm` |
-| `use_skill` | Load a Prism skill (`prism use <name>`) | `name` |
-| `start_job` | Start a named teammate in its own worktree; returns immediately | `title`, `prd`, `jobId`, `branch`, `confirmOverlap` |
-| `queue_finding` | Fix one finding from a report tool; re-scans the report once checks pass instead of trusting job status (M-071) | `finding`, `instructions` |
-| `list_jobs` | Live activity plus finished results (“where are we”); names the jobs board | — |
-| `job_logs` | One job's console: activity lines (subagent lines marked) plus the review awaiting you | `jobId`, `limit`, `since` |
-| `job_control` | pause / resume / cancel / attach_context / commit (checkout jobs) | `jobId`, `action`, `context` |
-| `remember` | Save, list, or forget memories for the next job | `action`, `text`, `scope`, `confirm` |
-| `configure` | Standup settings or export a non-secret template | `action`, Slack channels, `maxJobs`, `ticketHost` |
-| `dispatch_doctor` | Worker backend + sign-in, role, job cap | — |
-| `working_set` | Get/patch a job's (or an inline session's) accumulated files, symbols, decisions, neighbors (M-073) | `action`, `jobId`, `files`, `symbols`, `decisions`, `neighbors` |
+By default the server registers six: `prepare_change`, `blast_radius`,
+`graph`, `guard_session`, `test_impact` and `repository_overview`. Set `PRISM_MCP_FULL=1` to register every tool below.
+Prism has no job tools (ADR-0064).
 
 ### Orientation — what is this, and how is it laid out?
 
@@ -211,6 +193,7 @@ holds no third-party credentials — connectors belong to the agent window
 | `list_packages` | Packages in a monorepo, with roots | `limit` |
 | `stack_profile` | Frameworks, runtimes and build tooling, with detection signals | `packageId` |
 | `landmarks` | Entrypoints, package roots and feature anchors — where to start reading | `limit` |
+| `graph` | One structural question: `find`, `neighbors`, `path`, `explain`, or `query` (`tests_reaching`, `importers_of`, `imports_of`, `files_in_importing`). Edges carry provenance; bounded by `budget` | `mode` + that mode's fields, `budget` |
 | `explain_area` | What a module or folder does: domains, degree, ownership | `path` |
 | `workspace_status` | Index readiness, freshness, git/cache presence, graph counts | — |
 | `capabilities` | Core + consent-gated capabilities with availability reasons | — |

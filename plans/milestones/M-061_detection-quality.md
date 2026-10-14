@@ -46,6 +46,6 @@ must cover the frameworks teams actually use.
 ## 5. References
 
 - Prism Completion Program (owner plan, 2026-08-08) — Phase 6
-- [M-051 Hardening](./M-051_hardening.md) §5 — detection quality deferred here
+- [M-051 Hardening](../archive/milestones/M-051_hardening.md) §5 — detection quality deferred here
 - [M-059 Reference Precision](./M-059_reference-precision.md) — alias/workspace imports for P-E2
 - [ADR-0029](../adr/0029-signal-provenance.md) signal provenance

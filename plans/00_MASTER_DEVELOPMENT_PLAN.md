@@ -71,7 +71,14 @@ products. See ADR-0057 and
 > and **Lenses** (Architect / QA / Dev review lenses thought by the host's
 > model — [ADR-0059](./adr/0059-lenses.md)). Jobs leaves the product as
 > M-079 phase 2 lands. See
-> [`M-079_safety-layer.md`](./milestones/M-079_safety-layer.md).
+> [`M-079_safety-layer.md`](./archive/milestones/M-079_safety-layer.md).
+
+> **Focus Reset approved (owner, 2026-10-10).** This section's Prismate identity is superseded by
+> [`PROGRAM_focus-reset.md`](./milestones/PROGRAM_focus-reset.md) and ADR-0060–0066: the product
+> stays **Prism**; the hero is **Prepare + Envelope** with the **Receipt** closing every change
+> and an always-fresh **Prism Graph** underneath; Dispatch is removed. Node pin is **24.18.1**.
+> Sequence M-088 → M-100, built on `milestone/M-087-focus-reset-plan`. The paragraphs below are
+> the previous contract and are kept until M-100 rewrites them.
 
 ### 3.1 Prism Intelligence (Core + engine)
 
@@ -146,11 +153,10 @@ Tooling/CI detail: [`TOOLING_AND_CI.md`](./TOOLING_AND_CI.md)
 ### 4.2 Bun + Node + moon notes
 
 - Contributors use **Bun** for install and scripts; **moon** for task orchestration (`moon run …`).
-- moon pins **Node 26** + Bun versions for reproducible local/CI toolchains.
+- moon pins **Node 24.18.1** + Bun versions for reproducible local/CI toolchains (relocked by ADR-0061, 2026-10-10; was Node 26).
 - **VS Code / Cursor extension host runs Node** — Core must stay Node-compatible (hence better-sqlite3, not Bun-only sqlite).
-- Pin: root `engines.node = ">=26.5.0 <27"` (a range — consumers need
-  compatibility, not an exact build), with the exact version in `.nvmrc` and
-  `.moon/toolchain.yml`. CI reads `.nvmrc` so the three cannot drift (M-051).
+- Pin: root `engines.node = ">=24.18.1 <25"`, with the exact version in `.nvmrc` and
+  `.moon/toolchain.yml`. CI reads `.nvmrc` so the three cannot drift (M-051, relocked M-089).
 
 ### 4.3 Parser strategy (speed vs semantics)
 
@@ -237,7 +243,7 @@ Before any monorepo / product code (M-001+), produce owner-reviewed docs under `
 | `05_DATA_FLOWS.md` | Index → cache → graphs → Core API → MCP/CLI/IDE sequences |
 | `06_PACKAGE_RESPONSIBILITIES.md` | What each `@repo-prism/*` owns / does not own |
 
-Full DoD: [`milestones/M-000_architecture-documentation.md`](./milestones/M-000_architecture-documentation.md).
+Full DoD: [`archive/milestones/M-000_architecture-documentation.md`](./archive/milestones/M-000_architecture-documentation.md).
 
 ---
 
@@ -568,10 +574,24 @@ flowchart TD
 | M-084 | Surfaces + IDE merge | Surfaces | M-083 | Yes |
 | M-085 | Docs trim | Docs | M-084 | Yes |
 | M-086 | Website + `/demo` + identity cutover | Surfaces | M-085 | Yes |
+| M-087 | Focus Reset Plan (docs) | Docs | — | Yes |
+| M-088 | Prism identity + hero copy | Docs / copy | M-087 | Yes |
+| M-089 | One build everywhere | Tooling | M-088 | Yes |
+| M-090 | Hygiene | Tooling | M-089 | Yes |
+| M-091 | Surface cut | Surfaces | M-090 | Yes |
+| M-092 | Receipt v2 | Safety | M-091 | Yes |
+| M-093 | Prepare v2 | Intelligence | M-092 | Yes |
+| M-094 | Envelope v2 | Intelligence | M-093 | Yes |
+| M-095 | Graph daemon | Core | M-094 | Yes |
+| M-096 | Graph model + artifact + `graph` tool | Graphs | M-095 | Yes |
+| M-097 | First run in 60s | Surfaces | M-096 | Yes |
+| M-098 | Proof with Claude Code | Proof | M-097 | Yes |
+| M-099 | Delete Dispatch + dead UI | Cleanup | M-098 | Yes |
+| M-100 | Relaunch | Distribution | M-099 | Yes |
 
 Agent-native Cuts 1–3 (M-069–M-076) are **done**. T1/T2/T3 proofs recorded. **Cut 4 (cloud / paid) is set aside.**
 
-**Safety layer (M-079):** Prism stops running agents; hooks + change receipt + Lenses in one phased milestone, gated by a replay benchmark (phase 1) and a kill test (end of phase 5). See [`M-079_safety-layer.md`](./milestones/M-079_safety-layer.md). Prism 2.0 resumes at M-080 afterwards.
+**Safety layer (M-079):** Prism stops running agents; hooks + change receipt + Lenses in one phased milestone, gated by a replay benchmark (phase 1) and a kill test (end of phase 5). See [`M-079_safety-layer.md`](./archive/milestones/M-079_safety-layer.md). Prism 2.0 resumes at M-080 afterwards.
 
 **Prism 2.0 (M-077–M-086):** one product, one Dashboard, fewer packages. Live Relay (old M-079) is superseded by the safety layer. Demo + domain / `app.` / GitHub / npm org cutover is **last** (M-086). Sanity already on local `main`. Every row uses §8.1 + §9 + §10. See [`PROGRAM_prism-2.0.md`](./milestones/PROGRAM_prism-2.0.md).
 
@@ -673,7 +693,7 @@ Critical-path milestones have full documents under `plans/milestones/`. Others a
 ### 15.1 Summaries (non-critical-path detail)
 
 #### M-015 — Repository Health Score v1
-- Full doc: [`milestones/M-015_health-score.md`](./milestones/M-015_health-score.md) · weighting: [ADR-0012](./adr/0012-health-score-weighting.md)
+- Full doc: [`archive/milestones/M-015_health-score.md`](./archive/milestones/M-015_health-score.md) · weighting: [ADR-0012](./adr/0012-health-score-weighting.md)
 - Inputs: parse health, test presence, coupling (cycles), modularity, diagnostics (local index/graphs; no git churn in v1)
 - Output: `HealthScore` with score 0–100 + grade + factors
 - DoD: deterministic scores; Core `getHealth()`; ADR-0012
@@ -718,20 +738,20 @@ Critical-path milestones have full documents under `plans/milestones/`. Others a
 
 #### M-047 — Extension Marketplace
 - Staged VSIX packaging for Marketplace / Open VSX ([ADR-0025](./adr/0025-marketplace-packaging.md))
-- Full doc: [`milestones/M-047_extension-marketplace.md`](./milestones/M-047_extension-marketplace.md)
+- Full doc: [`archive/milestones/M-047_extension-marketplace.md`](./archive/milestones/M-047_extension-marketplace.md)
 - DoD: packageable VSIX + PUBLISH.md; owner publishes with publisher PAT
 
 #### M-048 — Extension Product Epic
 - Polish + incremental watch (ADR-0026; supersedes M-033) + editor surfaces,
   trust/onboarding, change review, explain cards, bookmarks, package/multi-root,
   health alerts; Phase 8 blast depth **deferred to M-049**
-- Full doc: [`milestones/M-048_extension-polish.md`](./milestones/M-048_extension-polish.md)
+- Full doc: [`archive/milestones/M-048_extension-polish.md`](./archive/milestones/M-048_extension-polish.md)
 - DoD: Necessary + High-leverage extension loop before MCP (Phases 0–7 Verified)
 
 #### M-049 — Blast Radius Depth
 - **Verified** 2026-07-30 — ADR-0027 Option B
 - Soft multi-lane blast, barrel package resolution, findings UI, roles, edit/delete, soft cache
-- Full doc: [`milestones/M-049_blast-radius-depth.md`](./milestones/M-049_blast-radius-depth.md)
+- Full doc: [`archive/milestones/M-049_blast-radius-depth.md`](./archive/milestones/M-049_blast-radius-depth.md)
 
 #### M-033 — Incremental Indexing & Watch
 - **Deferred / superseded by M-048 Phase 1** (ADR-0026)

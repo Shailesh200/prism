@@ -14,9 +14,19 @@ The records themselves live in
 ## The ones that shape everything
 
 **Core is the only supported integration surface for analysis** (ADR-0004).
-Extensions, the CLI, and Intelligence MCP tools consume `@repo-prism/core`.
-Dispatch (ADR-0035) is a second façade on the same `prism` MCP server for jobs
-and OAuth — Core must not import it.
+Extensions, the CLI, and the MCP tools consume `@repo-prism/core`.
+
+**Dispatch is removed** (ADR-0064). Dispatch (ADR-0035) was a second façade on
+the `prism` MCP server for background jobs, standups, the Console, and Live
+Relay. ADR-0064 removed it from the product and from MCP: no Dispatch tool is
+registered. The Envelope ledger and the last Prepare moved into Core, and
+memories moved to `prism remember`. The `dispatch` and `dispatch-hub` packages
+are deleted in a later milestone. Fixing a finding is the user's own chat.
+
+**The default MCP surface is small** (M-091). Seven tools by default:
+`prepare_change`, `blast_radius`, `guard_session`, `test_impact`,
+`repository_overview`, `find_symbol`, `explain_area`. `PRISM_MCP_FULL=1`
+registers the other Intelligence tools.
 
 **The cache is local and lives in your repository** (ADR-0010). SQLite in
 `.prism/`. No cloud, no shared index, nothing to sign in to.
@@ -72,27 +82,20 @@ points are marked estimated so a reconstructed trend never looks measured.
 ## Surfaces
 
 **Connectors belong to the agent window** (ADR-0049). Prism runs no OAuth of
-its own: it learns which connectors are signed in — Cursor session MCP tools
-(not the plugin download cache, and not a plugin that still only exposes
-`mcp_auth`) plus Claude plugin installs and host MCP configs — names and
-capabilities only, never a token — and asks the
-host agent to fill the sections it cannot. This supersedes the Prism Auth
-broker (ADR-0036) and the per-host connect UX (ADR-0037), and retires
-`auth.prismhq.in`. Dispatch now makes no network calls at all.
-Local job workers still sign in via `Cursor.auth.login` (ADR-0038) —
-not by pasting `CURSOR_API_KEY` into mcp.json. Jobs use a ticket or title
-slug as the canonical id, never `job-<hex>` in chat (ADR-0039). Parallel
-local workers run in isolated processes and worktrees; live status and
-results come back through “where are we” (ADR-0040). Job agents do not
-attach Prism MCP and share the host `node_modules` (ADR-0041). When a job
-stops, Prism commits the branch and runs typecheck/test; in-process
-subagents are on, host fan-out is off (ADR-0042). Named local teammates can
-be watched in Cursor’s Agents window (Filter → Source → SDK). A loopback
-jobs board (ADR-0043) lists every teammate across repos and notifies the OS
-when one finishes — MCP cannot push into an idle chat.
+its own and holds no third-party token. This supersedes the Prism Auth broker
+(ADR-0036) and the per-host connect UX (ADR-0037), and retires
+`auth.prismhq.in`. Dispatch used to discover which connectors were signed in
+(names and capabilities, never a token); that discovery was removed with
+Dispatch (ADR-0064).
+
+The job-runner decisions that followed — worker sign-in (ADR-0038), job ids
+(ADR-0039), parallel local workers (ADR-0040, ADR-0041), verification after a
+job stopped (ADR-0042), and the jobs board (ADR-0043) — were superseded when
+ADR-0058 stopped Prism running agents and ADR-0064 removed Dispatch.
+Verification lives on in the receipt.
 
 **MCP speaks over stdio, indexes lazily, and refuses consent-gated work**
-(ADR-0030). See [using MCP](../mcp/usage.md).
+(ADR-0030). See [using MCP](../usage.mdx).
 
 **The product screens are one shared package** (ADR-0021). The extension and the
 playground render the same components.

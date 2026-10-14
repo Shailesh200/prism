@@ -5,7 +5,8 @@ description: "Iris is the local index. Envelope is the receipt for every Intelli
 
 > Iris remembers the repo. Envelope proves an agent did not dump it.
 
-Iris and Envelope are two sides of the same Console screen (`#/iris`).
+Iris and Envelope are two sides of the same screen: **Iris** in the Prism IDE
+extension.
 Iris is the **index** — maps, graphs, DNA, health, landmarks. Envelope is the
 **ledger** of what agents asked for, and how much they took.
 
@@ -22,8 +23,8 @@ prism prepare "add caching to fetchUser"
 
 Every time an Intelligence tool answers, Prism writes a tiny receipt: which
 tool, how many items came back, whether the list was cut short, and how many
-JSON bytes that answer used. Iris shows those receipts for the repo you have
-selected.
+JSON bytes that answer used. Iris shows those receipts for the open
+repository.
 
 ## Why this exists
 
@@ -41,8 +42,8 @@ Envelope does two honest things:
 
 ## What you see on Iris
 
-Open the Console at `http://prismhq.localhost:17330/#/iris` and pick a
-repository.
+Open Prism in the IDE (**Prism: Open Prism**) and pick **Iris** in the
+sidebar.
 
 | Block | What it means |
 |---|---|
@@ -81,7 +82,7 @@ You do not call Envelope. It records itself.
 | “Search symbols for user” | `search_symbols` — if there are more matches than the cap, `truncated` is true |
 | “Prepare a change to add caching to fetchUser” | `prepare_change` — Iris shows that pack under the repo |
 
-Ask “show me Envelope” or open `#/iris` when you want the scoreboard.
+Open the Iris screen when you want the scoreboard.
 
 ## When this is wrong
 

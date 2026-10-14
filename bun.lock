@@ -120,6 +120,7 @@
       },
       "dependencies": {
         "@repo-prism/core": "workspace:*",
+        "@repo-prism/daemon": "workspace:*",
         "@repo-prism/shared": "workspace:*",
         "commander": "^15.0.0",
       },
@@ -154,12 +155,21 @@
         "@types/vscode": "^1.90.0",
       },
     },
+    "packages/daemon": {
+      "name": "@repo-prism/daemon",
+      "version": "1.12.0",
+      "dependencies": {
+        "@repo-prism/core": "workspace:*",
+        "@repo-prism/shared": "workspace:*",
+      },
+    },
     "packages/dispatch": {
       "name": "@repo-prism/dispatch",
       "version": "1.12.0",
       "dependencies": {
         "@cursor/sdk": "^1.0.28",
         "@repo-prism/checks": "workspace:*",
+        "@repo-prism/core": "workspace:*",
         "@repo-prism/shared": "workspace:*",
         "zod": "^3.25.0",
       },
@@ -244,8 +254,7 @@
         "@modelcontextprotocol/sdk": "^1.30.0",
         "@repo-prism/checks": "workspace:*",
         "@repo-prism/core": "workspace:*",
-        "@repo-prism/dispatch": "workspace:*",
-        "@repo-prism/dispatch-hub": "workspace:*",
+        "@repo-prism/daemon": "workspace:*",
         "@repo-prism/shared": "workspace:*",
         "zod": "^3.25.0",
       },
@@ -831,6 +840,8 @@
     "@repo-prism/core": ["@repo-prism/core@workspace:packages/core"],
 
     "@repo-prism/cursor-extension": ["@repo-prism/cursor-extension@workspace:packages/cursor-extension"],
+
+    "@repo-prism/daemon": ["@repo-prism/daemon@workspace:packages/daemon"],
 
     "@repo-prism/dispatch": ["@repo-prism/dispatch@workspace:packages/dispatch"],
 

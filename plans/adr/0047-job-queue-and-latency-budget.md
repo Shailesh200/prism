@@ -5,7 +5,7 @@
 | Status | Accepted |
 | Date | 2026-09-02 |
 | Decision makers | Owner, Architect |
-| Related milestones | [M-067](../milestones/M-067_shippable-product.md) |
+| Related milestones | [M-067](../archive/milestones/M-067_shippable-product.md) |
 | Amends | [ADR-0040](./0040-dispatch-worker-supervisor.md), [ADR-0041](./0041-dispatch-worker-resource-budget.md), [ADR-0045](./0045-job-placement-checkout-first.md) |
 
 ## Context

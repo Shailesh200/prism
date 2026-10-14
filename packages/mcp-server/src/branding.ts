@@ -8,7 +8,7 @@ export const SERVER_TITLE = "Prism";
 export const SERVER_WEBSITE_URL = "https://www.prismhq.in";
 export const SERVER_ICON_HTTPS = `${SERVER_WEBSITE_URL}/brand/prism-mark.png`;
 export const SERVER_DESCRIPTION =
-  "Local-first Software Intelligence Engine — maps, impact, and Dispatch.";
+  "Local context and change checks for coding agents.";
 
 function packageJsonPath(): string {
   return join(dirname(fileURLToPath(import.meta.url)), "..", "package.json");

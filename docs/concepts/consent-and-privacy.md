@@ -45,20 +45,16 @@ Prism used to run its own OAuth for Slack, Linear, Jira, Notion, GitHub and
 Google Calendar. It no longer does, and the hosted broker at `auth.prismhq.in`
 is retired (ADR-0049).
 
-Dispatch now makes **no network calls at all**. When a standup or a workflow
-needs one of those services, Prism names the section and your agent window —
-Cursor or Claude Code — calls its own connector, with the grant you already
-gave it there. Prism never holds a third-party token, because the call never
-happens inside Prism.
-
-Prism does read your editor's plugin and MCP manifests to know *which*
-connectors exist. That is names and capabilities only: no tokens, no secrets,
-and no network access.
+When a task needs one of those services, your agent window — Cursor or Claude
+Code — calls its own connector, with the grant you already gave it there.
+Prism never holds a third-party token, because the call never happens inside
+Prism.
 
 ## What is stored
 
-Index, consent, and health history under `.prism/`. Dispatch job state under
-`.prism/dispatch/`, gitignored. No third-party credentials anywhere.
+Index, consent, health history, and the notes you save with `prism remember`,
+under `~/.prism/workspaces/<key>/`. The Envelope ledger records sizes and
+counts, never source. No third-party credentials anywhere.
 
 ## Related
 

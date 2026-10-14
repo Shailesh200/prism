@@ -11,7 +11,7 @@
  */
 
 import type { AgentRegistry } from "./agent-registry.js";
-import { clientLooksLikeClaude } from "./host-client.js";
+import { clientLooksLikeClaude } from "@repo-prism/core/envelope";
 import type { WorkerBackend, WorkerBackendSetting } from "./types.js";
 
 export type { WorkerBackend, WorkerBackendSetting };

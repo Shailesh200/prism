@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   irisPaneHash,
+  isGraphHash,
   isWakeHash,
   parseIrisPane,
   parsePlaygroundView,
@@ -48,6 +49,14 @@ describe("isWakeHash", () => {
   it("treats #/wake as the shared Wake screen", () => {
     expect(isWakeHash("#/wake")).toBe(true);
     expect(isWakeHash("#/overview")).toBe(false);
+  });
+});
+
+describe("isGraphHash", () => {
+  it("treats #/graph as the graph canvas and not a dashboard tab", () => {
+    expect(isGraphHash("#/graph")).toBe(true);
+    expect(isGraphHash("#/overview")).toBe(false);
+    expect(parsePlaygroundView("#/graph")).toBeUndefined();
   });
 });
 

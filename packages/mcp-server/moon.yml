@@ -5,8 +5,7 @@ dependsOn:
   - "shared"
   - "checks"
   - "core"
-  - "dispatch"
-  - "dispatch-hub"
+  - "daemon"
   - "test-support"
 tasks:
   build:

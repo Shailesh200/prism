@@ -1,3 +1,7 @@
+import {
+  PREPARE_RESPONSE_BUDGET,
+  PrepareTrimmedSchema,
+} from "./prepare-trimmed.js";
 import { z } from "zod";
 import { ConsentPurposeIdSchema } from "./consent-purposes.js";
 import { PrismErrorCode } from "./errors.js";
@@ -2506,10 +2510,13 @@ export const PrepareChangeSchema = z.object({
   reuseProvenance: SignalProvenanceSchema,
   conventionsProvenance: SignalProvenanceSchema,
   ambiguous: PrepareAmbiguousSchema.nullable(),
+  /** Present when the response was cut to fit its token budget (M-093). */
+  trimmed: PrepareTrimmedSchema.optional(),
 });
 export type PrepareChange = z.infer<typeof PrepareChangeSchema>;
 
-export const DEFAULT_PREPARE_BUDGET = 4000;
+/** Whole-response token budget (M-093). Was a 4,000 map-token pack budget. */
+export const DEFAULT_PREPARE_BUDGET = PREPARE_RESPONSE_BUDGET;
 
 /** Map tokens for path + symbol names + why — never a file body. */
 export function prepareMapTokenWeight(

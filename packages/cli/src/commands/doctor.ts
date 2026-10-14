@@ -13,6 +13,11 @@ import { PRISM_API_LEVEL, PRISM_CORE_VERSION } from "@repo-prism/core";
 import { ok } from "@repo-prism/shared";
 import { workspaceCacheDir } from "@repo-prism/shared/prism-home";
 import { paint, renderFields, renderHeading, type Style } from "../output.js";
+import {
+  isPrismSourceRepo,
+  scanSurfaces,
+  surfaceProblems,
+} from "./surfaces.js";
 import { wrap } from "../table.js";
 import type { CommandHandler } from "../runtime.js";
 
@@ -135,6 +140,33 @@ export const doctorCommand: CommandHandler = async (context) => {
         status: "fail",
         detail: opened.error.message,
       });
+    }
+  }
+
+  if (context.args.flag("surfaces")) {
+    const hits = scanSurfaces();
+    const problems = surfaceProblems(
+      hits,
+      isPrismSourceRepo(context.workspace.path),
+    );
+    if (hits.length === 0) {
+      checks.push({
+        label: "Surfaces",
+        status: "warn",
+        detail: "no Prism server, hook, or extension found in the home configs",
+      });
+    }
+    for (const hit of hits) {
+      const problem = problems.some((line) => line.includes(hit.where));
+      checks.push({
+        label: hit.host,
+        status: problem ? "fail" : "ok",
+        detail: `${hit.kind} — ${hit.detail}`,
+      });
+    }
+    for (const problem of problems) {
+      if (checks.some((check) => check.detail.includes(problem))) continue;
+      checks.push({ label: "Surfaces", status: "fail", detail: problem });
     }
   }
 

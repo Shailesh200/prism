@@ -51,6 +51,11 @@ export const LensDefinitionSchema = z.object({
   /** Each item must be provable from Prism data or a command. */
   checklist: z.array(z.string().min(1).max(300)).max(20),
   evidence: z.array(LensEvidenceSchema),
+  /**
+   * How the host should work while this lens is active. Empty on a custom
+   * lens that has not written one; the role and checklist still apply.
+   */
+  procedure: z.string().max(2500).default(""),
   enabled: z.boolean().default(true),
   /** True for the Architect / QA / Dev defaults Prism seeded. */
   seededDefault: z.boolean().default(false),

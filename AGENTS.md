@@ -1,6 +1,6 @@
 # AGENTS.md — Working on Prism
 
-This repository is **Prism**, a local-first Software Intelligence Engine (formerly working name RepoPulse).
+This repository is **Prism**: local context and change checks for coding agents (formerly working name RepoPulse).
 
 ## Source of truth
 

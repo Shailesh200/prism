@@ -16,7 +16,7 @@ import {
 } from "./worker-spawn.js";
 import { isSkillPlaybook } from "./playbook.js";
 import { loadWorkerOrientation } from "./worker-orientation.js";
-import { writeLastPrepareChange } from "./prepare-last.js";
+import { writeLastPrepareChange } from "@repo-prism/core/envelope";
 import type { JobRecord, MemoryItem, VerifyPlan } from "./types.js";
 
 /** Optional Core port. Dispatch must not import Core; MCP injects this. */

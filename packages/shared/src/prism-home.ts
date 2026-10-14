@@ -473,11 +473,31 @@ export async function removeLeftoverRepoPrism(
   await rm(leftover, { recursive: true, force: true }).catch(() => undefined);
 }
 
+/** Memories (M-091): `workspaces/<key>/memory.json`, no longer under Dispatch. */
 export function workspaceMemoryPath(
   workspaceRoot: string,
   env: NodeJS.ProcessEnv = process.env,
 ): string {
+  return join(workspacePrismDir(workspaceRoot, env), "memory.json");
+}
+
+/** Where Dispatch kept memories before M-091. */
+export function legacyWorkspaceMemoryPath(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
   return join(workspaceDispatchDir(workspaceRoot, env), "memory.json");
+}
+
+/** Move a pre-M-091 memory file to its new home once. Never overwrites. */
+export function migrateLegacyMemoryFile(
+  workspaceRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): void {
+  renameIfMissing(
+    legacyWorkspaceMemoryPath(workspaceRoot, env),
+    workspaceMemoryPath(workspaceRoot, env),
+  );
 }
 
 function parseMemoryFile(raw: string): WorkspaceMemory[] {
@@ -509,6 +529,7 @@ export async function loadWorkspaceMemories(
   workspaceRoot: string,
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<WorkspaceMemory[]> {
+  migrateLegacyMemoryFile(workspaceRoot, env);
   try {
     const raw = await readFile(workspaceMemoryPath(workspaceRoot, env), "utf8");
     return parseMemoryFile(raw);
@@ -526,6 +547,7 @@ export async function migrateWorkspaceMemories(
   change: MemoryAnchorChange,
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<number> {
+  migrateLegacyMemoryFile(workspaceRoot, env);
   const path = workspaceMemoryPath(workspaceRoot, env);
   let raw: string;
   try {
@@ -567,6 +589,85 @@ export async function migrateWorkspaceMemories(
     "utf8",
   );
   return changed;
+}
+
+async function readMemoryRows(
+  path: string,
+): Promise<Record<string, unknown>[]> {
+  try {
+    const parsed = JSON.parse(await readFile(path, "utf8")) as {
+      items?: unknown;
+    };
+    return Array.isArray(parsed.items)
+      ? parsed.items.filter(
+          (row): row is Record<string, unknown> =>
+            Boolean(row) && typeof row === "object",
+        )
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeMemoryRows(
+  path: string,
+  items: readonly Record<string, unknown>[],
+): Promise<void> {
+  await mkdir(join(path, ".."), { recursive: true });
+  await writeFile(path, `${JSON.stringify({ items }, null, 2)}\n`, "utf8");
+}
+
+/** Save one memory. Same row shape Dispatch wrote, so old files stay valid. */
+export async function rememberWorkspaceMemory(
+  workspaceRoot: string,
+  input: {
+    readonly text: string;
+    readonly scope?: string;
+    readonly symbol?: string;
+    readonly path?: string;
+    readonly source?: string;
+  },
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<WorkspaceMemory> {
+  migrateLegacyMemoryFile(workspaceRoot, env);
+  const path = workspaceMemoryPath(workspaceRoot, env);
+  const item = {
+    id: createHash("sha256")
+      .update(`${Date.now()}:${Math.random()}:${input.text}`)
+      .digest("hex")
+      .slice(0, 12),
+    scope: input.scope ?? "repo",
+    text: input.text.trim(),
+    source: input.source ?? "user",
+    createdAt: new Date().toISOString(),
+    ...(input.symbol?.trim() ? { symbol: input.symbol.trim() } : {}),
+    ...(input.path?.trim() ? { path: input.path.trim() } : {}),
+  };
+  await writeMemoryRows(path, [...(await readMemoryRows(path)), item]);
+  return item;
+}
+
+/** Forget memories by exact id, or by a case-insensitive text match. */
+export async function forgetWorkspaceMemory(
+  workspaceRoot: string,
+  idOrText: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<number> {
+  migrateLegacyMemoryFile(workspaceRoot, env);
+  const path = workspaceMemoryPath(workspaceRoot, env);
+  const needle = idOrText.trim().toLowerCase();
+  if (!needle) return 0;
+  const items = await readMemoryRows(path);
+  const next = items.filter(
+    (row) =>
+      row.id !== idOrText.trim() &&
+      !(
+        typeof row.text === "string" && row.text.toLowerCase().includes(needle)
+      ),
+  );
+  const removed = items.length - next.length;
+  if (removed > 0) await writeMemoryRows(path, next);
+  return removed;
 }
 
 export function renameIfMissing(from: string, to: string): void {

@@ -98,11 +98,13 @@ import {
   startHealthHistoryBackfill,
   type PlaygroundPreset,
 } from "./map-client.js";
+import { GraphScreen } from "./GraphScreen.js";
 import {
   irisPaneHash,
   parseIrisPane,
   parsePlaygroundView,
   playgroundHash,
+  isGraphHash,
   isWakeHash,
   pickPlaygroundRoot,
   rootFromSearch,
@@ -142,6 +144,9 @@ export function App(): ReactElement {
     () => parsePlaygroundView(window.location.hash) ?? "overview",
   );
   const [wake, setWake] = useState(() => isWakeHash(window.location.hash));
+  const [graphOn, setGraphOn] = useState(() =>
+    isGraphHash(window.location.hash),
+  );
   const [irisPane, setIrisPane] = useState<"envelope" | "prepare" | undefined>(
     () => parseIrisPane(window.location.hash),
   );
@@ -153,6 +158,7 @@ export function App(): ReactElement {
     setViewState(nextView);
     setIrisPane(undefined);
     setWake(false);
+    setGraphOn(false);
     const next = playgroundHash(nextView);
     if (window.location.hash !== next) {
       window.history.replaceState(
@@ -165,6 +171,7 @@ export function App(): ReactElement {
   useEffect(() => {
     const onHash = (): void => {
       setWake(isWakeHash(window.location.hash));
+      setGraphOn(isGraphHash(window.location.hash));
       const next = parsePlaygroundView(window.location.hash);
       if (next) setViewState(next);
       setIrisPane(parseIrisPane(window.location.hash));
@@ -195,10 +202,24 @@ export function App(): ReactElement {
   >();
   const [consoleNonce, setConsoleNonce] = useState(0);
 
+  const openGraph = useCallback(() => {
+    setGraphOn(true);
+    setWake(false);
+    const next = "#/graph";
+    if (window.location.hash !== next) {
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}${next}`,
+      );
+    }
+  }, []);
+
   const openIrisPane = useCallback((pane: "envelope" | "prepare") => {
     setViewState("iris");
     setIrisPane(pane);
     setWake(false);
+    setGraphOn(false);
     const next = irisPaneHash(pane);
     if (window.location.hash !== next) {
       window.history.replaceState(
@@ -584,6 +605,15 @@ export function App(): ReactElement {
       )}
       <button type="submit">{boot ? "Start Indexing" : "Re-Index"}</button>
       {!boot ? (
+        <button
+          type="button"
+          data-active={graphOn ? "true" : "false"}
+          onClick={openGraph}
+        >
+          Graph
+        </button>
+      ) : null}
+      {!boot ? (
         loading ? (
           <span className="playground-open__status">Indexing…</span>
         ) : error ? (
@@ -680,7 +710,15 @@ export function App(): ReactElement {
       {repoPicker(false)}
 
       <div className="playground-shell__map">
-        {view === "overview" ? (
+        {graphOn ? (
+          <GraphScreen
+            root={root}
+            repoLabel={rootLabel}
+            branch={gitActivity?.summary?.branch}
+            user={gitActivity?.recentCommits[0] ?? null}
+            onNavigate={navigate}
+          />
+        ) : view === "overview" ? (
           <OverviewScreen
             map={map}
             repoLabel={rootLabel}

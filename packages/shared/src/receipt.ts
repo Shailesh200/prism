@@ -11,6 +11,13 @@ export const ReceiptCheckSchema = z.object({
   status: z.enum(["passed", "failed", "absent", "interrupted"]),
   detail: z.string(),
   durationMs: z.number().int().nonnegative(),
+  /**
+   * For a failed check (M-092): `caused` — it passed with this session's
+   * edits put back; `already-failing` — it failed the same way without them;
+   * `unknown` — no baseline could be taken. Only `already-failing` is
+   * excused from the verdict.
+   */
+  cause: z.enum(["caused", "already-failing", "unknown"]).optional(),
 });
 export type ReceiptCheck = z.infer<typeof ReceiptCheckSchema>;
 
@@ -58,6 +65,24 @@ export const ChangeReceiptSchema = z.object({
   ),
   flags: z.array(ReceiptFlagSchema),
   lenses: z.array(ReceiptLensLineSchema).optional(),
+  /** The agent session this receipt closes, when the host gave one. */
+  sessionId: z.string().min(1).optional(),
+  /** What Prism put into context this session (M-094), as one line. */
+  envelope: z.string().min(1).optional(),
   durationMs: z.number().int().nonnegative(),
 });
 export type ChangeReceipt = z.infer<typeof ChangeReceiptSchema>;
+
+/** Failed checks that make the verdict `failed` and block the agent. */
+export function blockingChecks(receipt: ChangeReceipt): ReceiptCheck[] {
+  return receipt.checks.filter(
+    (c) => c.status === "failed" && c.cause !== "already-failing",
+  );
+}
+
+/** Failed checks that were failing before this session's edits. */
+export function preexistingFailures(receipt: ChangeReceipt): ReceiptCheck[] {
+  return receipt.checks.filter(
+    (c) => c.status === "failed" && c.cause === "already-failing",
+  );
+}

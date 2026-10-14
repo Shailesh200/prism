@@ -40,6 +40,7 @@ export const PUBLISH_ORDER = [
   "repository-map",
   "core",
   "checks",
+  "daemon",
   "dispatch",
   "host-session",
   "dispatch-hub",

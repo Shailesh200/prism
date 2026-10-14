@@ -4,7 +4,7 @@
 |---|---|
 | Status | **Accepted** (owner, 2026-10-06) |
 | Date | 2026-10-06 |
-| Milestone | [M-079 Safety layer + Lenses](../milestones/M-079_safety-layer.md) |
+| Milestone | [M-079 Safety layer + Lenses](../archive/milestones/M-079_safety-layer.md) |
 | Supersedes (job-runner parts) | [ADR-0035](./0035-dispatch-vertical.md), [ADR-0036](./0036-dispatch-auth-broker.md), [ADR-0038](./0038-cursor-worker-sdk-login.md), [ADR-0040](./0040-dispatch-worker-supervisor.md), [ADR-0041](./0041-dispatch-worker-resource-budget.md), [ADR-0042](./0042-dispatch-durable-handoff-and-subagents.md), [ADR-0044](./0044-dispatch-worker-backends.md), [ADR-0045](./0045-job-placement-checkout-first.md), [ADR-0046](./0046-claude-bg-worker-backend.md), [ADR-0047](./0047-job-queue-and-latency-budget.md), [ADR-0054](./0054-global-job-store.md) |
 | Amends | [ADR-0043](./0043-agent-dashboard-hub.md) (no jobs board), [ADR-0057](./0057-prism-intelligence-unified-product.md) §2 Jobs + §6 vocabulary, program [`PROGRAM_prism-2.0.md`](../milestones/PROGRAM_prism-2.0.md) §8 |
 | Keeps | [ADR-0004](./0004-core-only-integration-surface.md), [ADR-0049](./0049-host-delegated-integrations.md), [ADR-0050](./0050-prism-plugin-pack.md), [ADR-0055](./0055-guard-session-boundary.md), ADR-0056 (advisory edit hook) |

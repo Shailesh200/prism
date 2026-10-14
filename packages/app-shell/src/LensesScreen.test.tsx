@@ -31,6 +31,7 @@ const QA: LensView = {
     evidence: ["test-impact", "verify-plan"],
     enabled: true,
     seededDefault: true,
+    procedure: "",
   },
   facts: [
     {

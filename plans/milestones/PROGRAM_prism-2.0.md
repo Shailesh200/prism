@@ -7,7 +7,7 @@
 | Approved | 2026-09-19 (owner) |
 | Companion ADR | [`../adr/0057-prism-intelligence-unified-product.md`](../adr/0057-prism-intelligence-unified-product.md) **Accepted** |
 | Implementation | [`IMPLEMENTATION_prism-2.0.md`](./IMPLEMENTATION_prism-2.0.md) |
-| First milestone | [`M-077_prism-2.0.md`](./M-077_prism-2.0.md) (this branch) |
+| First milestone | [`M-077_prism-2.0.md`](../archive/milestones/M-077_prism-2.0.md) (this branch) |
 | Last milestone | [`M-086_website-demo-identity.md`](./M-086_website-demo-identity.md) (demo + domain / `app.` / GitHub / npm) |
 | Does **not** | Delete packages, rewrite engines, or implement Live Relay in M-077 |
 | Engineering rule | One git milestone at a time from latest `main`. **Land** `fix/mcp-console-dashboard-sanity` on `main` before M-078 (do not park). Every milestone uses Master Plan §8.1 + §9 + §10 (`bun run verify:milestone` → owner review → commit only when asked → local merge → Verified → what-changed snippet). |
@@ -411,7 +411,7 @@ Do not rename MCP tools or Core methods in this program. Do not personify Iris.
 
 ## 8. Jobs — Live Relay (chosen)
 
-> **Superseded (2026-10-06, ADR-0058 Accepted).** Prism stops running agents; Live Relay is frozen and the old M-079 is replaced by *Safety layer + Lenses*. See [`M-079_safety-layer.md`](./M-079_safety-layer.md). This section is kept as history.
+> **Superseded (2026-10-06, ADR-0058 Accepted).** Prism stops running agents; Live Relay is frozen and the old M-079 is replaced by *Safety layer + Lenses*. See [`M-079_safety-layer.md`](../archive/milestones/M-079_safety-layer.md). This section is kept as history.
 
 Owner decision 2026-09-19. Stitch reference: [Prism MCP — Jobs in TUI & agentic chat](https://stitch.withgoogle.com/projects/4762229733476728219) (Option 3 screens).
 

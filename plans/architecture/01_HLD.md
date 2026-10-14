@@ -10,7 +10,7 @@
 
 ## 1. What Prism is
 
-Prism is a **local-first Software Intelligence Engine**. It turns a repository into navigable terrain: maps, graphs, impact analysis, and health — for humans (IDE/CLI) and AI agents (MCP).
+Prism is **local context and change checks for coding agents**. It turns a repository into navigable terrain: maps, graphs, impact analysis, and health — for humans (IDE/CLI) and AI agents (MCP).
 
 **Prism is not** an AI coding assistant, chat product, or cloud SaaS. It does not ship or call an LLM in Core.
 

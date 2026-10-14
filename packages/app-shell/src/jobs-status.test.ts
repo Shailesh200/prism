@@ -282,9 +282,7 @@ describe("token usage labels", () => {
   });
 
   it("explains sent vs not sent in the Envelope glossary", () => {
-    expect(JOB_ENVELOPE_TIP).toMatch(
-      /Sent is the list your Prismate actually gave/,
-    );
+    expect(JOB_ENVELOPE_TIP).toMatch(/Sent is the list Prism actually gave/);
     expect(JOB_ENVELOPE_TIP).toMatch(/Not sent is the rest/);
     expect(JOB_ENVELOPE_TIP).toContain("Sent % is sent ÷ the full list");
     expect(JOB_ENVELOPE_TIP).toContain("Context and Tokens above");

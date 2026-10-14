@@ -9,13 +9,11 @@
 [![Open VSX](https://img.shields.io/open-vsx/v/prismhq/repo-prism)](https://open-vsx.org/extension/prismhq/repo-prism)
 [![License: MIT](https://img.shields.io/github/license/Shailesh200/prism)](./LICENSE)
 
-**Local-first Software Intelligence Engine** for humans and AI agents.
+**Faster agent sessions. Fewer broken builds.**
 
 **Website:** [https://www.prismhq.in](https://www.prismhq.in) · **Docs:** [https://www.prismhq.in/docs](https://www.prismhq.in/docs) · **Get started:** [https://www.prismhq.in/docs/start/get-started](https://www.prismhq.in/docs/start/get-started)
 
-Maps, graphs, blast radius, health — on your machine. No account. Nothing uploaded for core analysis.
-
-Prism is **not** an AI coding assistant. It is the intelligence layer behind an IDE extension, a CLI, and an MCP server that agents can call.
+Prism maps your repo on your machine and gives your coding agent the right files, the code that already exists, and what will break — before it edits. When it stops, Prism runs the checks that change reaches and tells you what's proven. Local-first. No account. Nothing uploaded for core analysis.
 
 ---
 
@@ -224,7 +222,7 @@ Exit codes: **0** ok · **1** gated finding (`--fail-on`) · **2** usage error �
 ```yaml
 - uses: actions/setup-node@v4
   with:
-    node-version: "26.5.0"
+    node-version: "24.18.1"
 - run: npx -y @repo-prism/cli review --base origin/main --fail-on high
 - run: npx -y @repo-prism/cli cycles --fail-on any
 ```
@@ -307,7 +305,7 @@ For contributors (not required to use CLI/MCP):
 ```bash
 git clone https://github.com/Shailesh200/prism
 cd prism
-nvm use          # Node 26.5.0
+nvm use          # Node 24.18.1
 bun install
 bun run build
 bun run verify:milestone

@@ -124,7 +124,7 @@ import {
 import { linkWorktreeInstall } from "./worktree-install.js";
 import type { AgentRegistry } from "./agent-registry.js";
 import { requestedWorkerModel, cursorModelForSpawn } from "./worker-models.js";
-import { detectModel } from "./host-client.js";
+import { detectModel } from "@repo-prism/core/envelope";
 
 export const DISPATCH_TOOL_NAMES = [
   "start_my_day",

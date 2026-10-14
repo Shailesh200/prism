@@ -6,8 +6,7 @@
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@repo-prism/checks": "workspace:*",
     "@repo-prism/core": "workspace:*",
-    "@repo-prism/dispatch": "workspace:*",
-    "@repo-prism/dispatch-hub": "workspace:*",
+    "@repo-prism/daemon": "workspace:*",
     "@repo-prism/shared": "workspace:*",
     "zod": "^3.25.0"
   },

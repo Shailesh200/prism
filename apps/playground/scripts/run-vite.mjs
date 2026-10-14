@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const app = join(scriptDir, "..");
 const repoRoot = join(app, "../..");
-const DEFAULT_NODE_VERSION = "26.5.0";
+const DEFAULT_NODE_VERSION = "24.18.1";
 const exe = process.platform === "win32" ? "node.exe" : "node";
 
 function nvmrcVersion(dir) {

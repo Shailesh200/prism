@@ -1,0 +1,213 @@
+{
+  "model": "claude-opus-5-5",
+  "tasks": [
+    {
+      "id": "es-toolkit-827b92f7",
+      "repo": "es-toolkit",
+      "fix": "827b92f7979cb53c397240e19249ce6dfb19bad8",
+      "parent": "323893f2a04de43a121ddf0773a6abaf656170e7",
+      "subject": "fix(compat/intersectionBy): support number, object, and nullish iteratee shorthands like lodash (#1993)",
+      "tests": [
+        "src/compat/array/intersectionBy.spec.ts"
+      ],
+      "testArgs": [
+        "exec",
+        "vitest",
+        "run",
+        "--coverage.enabled=false",
+        "src/compat/array/intersectionBy.spec.ts"
+      ],
+      "modules": "40695de3beec47fc"
+    },
+    {
+      "id": "es-toolkit-323893f2",
+      "repo": "es-toolkit",
+      "fix": "323893f2a04de43a121ddf0773a6abaf656170e7",
+      "parent": "99af186056df1f3c7dcbb1e8e13a8c2789c40b9e",
+      "subject": "fix(compat/orderBy): resolve unresolved deep paths and nullish elements to `undefined` like lodash (#2010)",
+      "tests": [
+        "src/compat/array/orderBy.spec.ts"
+      ],
+      "testArgs": [
+        "exec",
+        "vitest",
+        "run",
+        "--coverage.enabled=false",
+        "src/compat/array/orderBy.spec.ts"
+      ],
+      "modules": "40695de3beec47fc"
+    },
+    {
+      "id": "es-toolkit-99af1860",
+      "repo": "es-toolkit",
+      "fix": "99af186056df1f3c7dcbb1e8e13a8c2789c40b9e",
+      "parent": "2c4c047810492bf43facf2f1a85419bffb08ddbb",
+      "subject": "fix(compat/reverse): support array-like objects and `arguments` like lodash (#2008)",
+      "tests": [
+        "src/compat/array/reverse.spec.ts"
+      ],
+      "testArgs": [
+        "exec",
+        "vitest",
+        "run",
+        "--coverage.enabled=false",
+        "src/compat/array/reverse.spec.ts"
+      ],
+      "modules": "40695de3beec47fc"
+    },
+    {
+      "id": "es-toolkit-2c4c0478",
+      "repo": "es-toolkit",
+      "fix": "2c4c047810492bf43facf2f1a85419bffb08ddbb",
+      "parent": "d9574efdd25c4107c292b45f23d3c553fa0b5029",
+      "subject": "fix(compat/some, compat/template): gate guard handling with `isIterateeCall` like lodash (#2009)",
+      "tests": [
+        "src/compat/array/some.spec.ts",
+        "src/compat/string/template.spec.ts"
+      ],
+      "testArgs": [
+        "exec",
+        "vitest",
+        "run",
+        "--coverage.enabled=false",
+        "src/compat/array/some.spec.ts",
+        "src/compat/string/template.spec.ts"
+      ],
+      "modules": "40695de3beec47fc"
+    },
+    {
+      "id": "es-toolkit-d9574efd",
+      "repo": "es-toolkit",
+      "fix": "d9574efdd25c4107c292b45f23d3c553fa0b5029",
+      "parent": "a1cd37624088b7e738e9ed93ff2e4b5ae2480444",
+      "subject": "fix(compat/meanBy): skip undefined values when averaging to match lodash (#1978)",
+      "tests": [
+        "src/compat/math/meanBy.spec.ts"
+      ],
+      "testArgs": [
+        "exec",
+        "vitest",
+        "run",
+        "--coverage.enabled=false",
+        "src/compat/math/meanBy.spec.ts"
+      ],
+      "modules": "40695de3beec47fc"
+    },
+    {
+      "id": "es-toolkit-3433044c",
+      "repo": "es-toolkit",
+      "fix": "3433044c464b648faa35d129a5ddeb59028074d4",
+      "parent": "e62aa15f1e5c0c6f882187dea1b6c70cab057316",
+      "subject": "fix(compat/set): block constructor.prototype path to prevent prototype pollution (#1904)",
+      "tests": [
+        "benchmarks/bundle-size/zipObjectDeep.spec.ts",
+        "src/compat/object/updateWith.spec.ts",
+        "tests/__proto__.spec.ts"
+      ],
+      "testArgs": [
+        "exec",
+        "vitest",
+        "run",
+        "--coverage.enabled=false",
+        "benchmarks/bundle-size/zipObjectDeep.spec.ts",
+        "src/compat/object/updateWith.spec.ts",
+        "tests/__proto__.spec.ts"
+      ],
+      "modules": "40695de3beec47fc"
+    },
+    {
+      "id": "es-toolkit-e62aa15f",
+      "repo": "es-toolkit",
+      "fix": "e62aa15f1e5c0c6f882187dea1b6c70cab057316",
+      "parent": "b0b323930e262a034cc65218d12efad445e42a91",
+      "subject": "fix(compat/zipObject): treat null keys and values as empty arrays (#2005)",
+      "tests": [
+        "benchmarks/bundle-size/zipObject.spec.ts",
+        "src/compat/array/zipObject.spec.ts"
+      ],
+      "testArgs": [
+        "exec",
+        "vitest",
+        "run",
+        "--coverage.enabled=false",
+        "benchmarks/bundle-size/zipObject.spec.ts",
+        "src/compat/array/zipObject.spec.ts"
+      ],
+      "modules": "40695de3beec47fc"
+    },
+    {
+      "id": "es-toolkit-15043d8e",
+      "repo": "es-toolkit",
+      "fix": "15043d8e245176b3acbc45835c8d0e068dcb6c0a",
+      "parent": "341859af4d55752557c5de527e0d7aae1d1ec0f8",
+      "subject": "fix(compat/orderBy): exclude the `length` property from array-like values (#2002)",
+      "tests": [
+        "src/compat/array/orderBy.spec.ts",
+        "src/compat/array/sortBy.spec.ts"
+      ],
+      "testArgs": [
+        "exec",
+        "vitest",
+        "run",
+        "--coverage.enabled=false",
+        "src/compat/array/orderBy.spec.ts",
+        "src/compat/array/sortBy.spec.ts"
+      ],
+      "modules": "40695de3beec47fc"
+    },
+    {
+      "id": "hono-afb2068c",
+      "repo": "hono",
+      "fix": "afb2068c1c53a530528ac5f237e245793dd03c07",
+      "parent": "e5bb2062a3ddd645e3a16d1300bd76d6c9af33a5",
+      "subject": "fix(combine): return a Response from a short-circuiting middleware in some() (#5391)",
+      "tests": [
+        "src/middleware/combine/index.test.ts"
+      ],
+      "testArgs": [
+        "exec",
+        "vp",
+        "test",
+        "--run",
+        "src/middleware/combine/index.test.ts"
+      ],
+      "modules": "0ae4c42545469640"
+    },
+    {
+      "id": "hono-e5bb2062",
+      "repo": "hono",
+      "fix": "e5bb2062a3ddd645e3a16d1300bd76d6c9af33a5",
+      "parent": "c3053ccf14f1c4c70a0c2888eed6121b9f6c8f95",
+      "subject": "fix(jsx): add px to numeric gridGap, gridRowGap and gridColumnGap (#5487)",
+      "tests": [
+        "src/jsx/utils.test.ts"
+      ],
+      "testArgs": [
+        "exec",
+        "vp",
+        "test",
+        "--run",
+        "src/jsx/utils.test.ts"
+      ],
+      "modules": "0ae4c42545469640"
+    },
+    {
+      "id": "hono-c3053ccf",
+      "repo": "hono",
+      "fix": "c3053ccf14f1c4c70a0c2888eed6121b9f6c8f95",
+      "parent": "c437d7569219a21e45fa81797749e8f34fe19dcc",
+      "subject": "fix(etag): correctly match mixed-case header name in retainedHeader option (#5475)",
+      "tests": [
+        "src/middleware/etag/index.test.ts"
+      ],
+      "testArgs": [
+        "exec",
+        "vp",
+        "test",
+        "--run",
+        "src/middleware/etag/index.test.ts"
+      ],
+      "modules": "0ae4c42545469640"
+    }
+  ]
+}

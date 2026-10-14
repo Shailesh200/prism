@@ -3,7 +3,7 @@
 ## 1. First milestone (docs — not code)
 
 **M-000 — Architecture Documentation**  
-Doc: [`milestones/M-000_architecture-documentation.md`](./milestones/M-000_architecture-documentation.md)
+Doc: [`archive/milestones/M-000_architecture-documentation.md`](./archive/milestones/M-000_architecture-documentation.md)
 
 Produces HLD, LLD, tech-stack, folder structure, data flows, and package responsibilities under `plans/architecture/`.
 
@@ -15,7 +15,7 @@ Do **not** start **M-001** until M-000 is **Verified**.
 ## 2. Then: first code milestone
 
 **M-001 — Project Foundation & Monorepo**  
-Doc: [`milestones/M-001_project-foundation.md`](./milestones/M-001_project-foundation.md)
+Doc: [`archive/milestones/M-001_project-foundation.md`](./archive/milestones/M-001_project-foundation.md)
 
 ## 3. Git commands (local only)
 
@@ -46,8 +46,8 @@ git checkout -b milestone/M-002-shared-contracts
 
 ## 4. Definition of Done
 
-- **M-000:** see checklist in `milestones/M-000_architecture-documentation.md` (docs review; no Bun verify yet)
-- **M-001:** see checklist in `milestones/M-001_project-foundation.md` + `bun run verify:milestone`
+- **M-000:** see checklist in `archive/milestones/M-000_architecture-documentation.md` (docs review; no Bun verify yet)
+- **M-001:** see checklist in `archive/milestones/M-001_project-foundation.md` + `bun run verify:milestone`
 
 ## 5. Verification checklist (every code milestone, M-001+)
 

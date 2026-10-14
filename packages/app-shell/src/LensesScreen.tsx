@@ -107,6 +107,17 @@ function isInherited(lens: LensView): boolean {
   return lens.definition.seededDefault;
 }
 
+function whenUsed(definition: LensView["definition"]): string {
+  if (definition.id === "architect") {
+    return "Prism uses this for a new feature, a plan, or a pull request review.";
+  }
+  if (definition.id === "dev") return "Prism uses this for a daily fix.";
+  if (definition.id === "qa") {
+    return "Prism uses this when the task is to find bugs.";
+  }
+  return "Prism uses this when you name it in the task.";
+}
+
 function draftFrom(lens: LensView): Draft {
   const definition = lens.definition;
   return {
@@ -234,6 +245,7 @@ function LensRow(props: {
         )}
       </div>
       <p className="lens-row__lead">{definition.role}</p>
+      <p className="lens-row__character">{whenUsed(definition)}</p>
       <p className="lens-row__character">{definition.focus}</p>
 
       <section className="lens-row__block">
@@ -723,7 +735,9 @@ export function LensesScreen(props: LensesScreenProps): ReactElement {
             <Text variant="caption" as="div" className="ov-top__sub">
               {[props.repoLabel, props.branch].filter(Boolean).join(" · ")}
               {props.repoLabel || props.branch ? " · " : ""}
-              Each lens reviews a change from one angle.
+              Prism picks one from the task. A plan or a pull request uses
+              Architect, a daily fix uses Dev, and finding bugs uses QA. Name
+              a lens, including one you add, to use that instead.
             </Text>
           </div>
           <div className="lens-top__actions">

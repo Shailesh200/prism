@@ -60,6 +60,6 @@ set with dead ends.
 ## 5. References
 
 - Prism Completion Program (owner plan, 2026-08-08) — Phase 7; D-9 IA merge locked
-- [M-053 Presentation Consolidation](./M-053_presentation-consolidation.md) — T-12 primitives baseline
+- [M-053 Presentation Consolidation](../archive/milestones/M-053_presentation-consolidation.md) — T-12 primitives baseline
 - [ADR-0014](../adr/0014-uxpilot-dark-relock.md) dark tokens and layout
 - [ADR-0021](../adr/0021-app-shell-consolidation.md) app-shell consolidation

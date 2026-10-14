@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Milestone | [M-056](../milestones/M-056_number-integrity.md) |
+| Milestone | [M-056](../archive/milestones/M-056_number-integrity.md) |
 | Date | 2026-08-09 |
 | Branch | Working tree on `milestone/M-053-presentation-consolidation` (commit branch later) |
 | Rule | Additive contracts only ([ADR-0019](../adr/0019-core-sdk-versioning.md)). |

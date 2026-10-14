@@ -25,8 +25,8 @@ not the size of the source files.
   </Tab>
   <Tab value="VS Code">
 
-Command Palette → **Prism: Prepare change**, or ask the agent in chat. The
-Console Iris screen shows the last pack for the selected repo after a call.
+Ask the agent in chat. The Iris screen shows the last pack for this repo after
+a call.
 
   </Tab>
   <Tab value="AI agent">
@@ -82,8 +82,8 @@ a style.
 
 ### Notes
 
-Facts Prism already has about those files: a `remember` you saved on a symbol,
-an ADR path, or a `WHY:` / `NOTE:` comment. Empty when there are none.
+Facts Prism already has about those files: a note you saved with
+`prism remember` on a symbol or path, an ADR path, or a `WHY:` / `NOTE:` comment. Empty when there are none.
 
 ### Work order
 
@@ -102,8 +102,8 @@ it. Until then, the order is advice.
 ## A simple loop
 
 1. **Prepare** — one call, no file bodies.
-2. **Edit** — you or a [Dispatch](/docs/guides/dispatch) teammate.
-3. **Verify** — Prism runs *this repo’s* checks (lint and/or test and/or
+2. **Edit** — you or your agent, in your chat.
+3. **Verify** — the stop hook runs *this repo’s* checks (lint and/or test and/or
    typecheck, or Go / Python equivalents). No checks found → **—**, not Failure.
 4. **Guard** — read the few dirty files that can actually hurt.
    See [Guard a session](/docs/guides/guard-a-session).

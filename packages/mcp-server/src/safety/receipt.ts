@@ -6,8 +6,10 @@
  * replay benchmark both call this, so the benchmark measures the product.
  */
 
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import {
+  failureIsPreexisting,
   packageRootFor,
   resolveScopedPlan,
   runCheckSteps,
@@ -22,9 +24,9 @@ import {
   type ChangeReceipt,
   type PrismError,
   type ReceiptFlag,
-  type ReceiptLensLine,
   type Result,
 } from "@repo-prism/shared";
+import { withBaselineTree } from "./baseline.js";
 
 /** Dirty files a receipt looks at; the rest are counted, not analysed. */
 export const RECEIPT_FILE_CAP = 25;
@@ -44,6 +46,14 @@ export type BuildReceiptOptions = {
   readonly now?: () => number;
   /** Re-index first so working-tree edits are seen (default true). */
   readonly reindex?: boolean;
+  /**
+   * Re-run failed checks without the session's edits to tell caused from
+   * already-failing (default true, M-092). False marks every failure
+   * `unknown`, which still blocks.
+   */
+  readonly baseline?: boolean;
+  readonly sessionId?: string;
+  readonly env?: NodeJS.ProcessEnv;
 };
 
 export async function buildChangeReceipt(
@@ -116,7 +126,7 @@ export async function buildChangeReceipt(
   }
 
   const selectedTests = [...testFiles].sort().slice(0, RECEIPT_TEST_CAP);
-  let checks: CheckStepResult[] = [];
+  let checks: ChangeReceipt["checks"] = [];
   let testMode: ChangeReceipt["testMode"] = "skipped";
   if (options.runChecks !== false) {
     const run = await runPackageChecks(
@@ -126,29 +136,57 @@ export async function buildChangeReceipt(
       options,
       now,
     );
-    checks = run.checks;
+    const causes =
+      options.baseline === false
+        ? new Map<PackageCheck, Cause>()
+        : await classifyFailures(
+            workspace.rootPath,
+            guard.value.files.map((f) => f.path),
+            run.checks,
+            options,
+            now,
+          );
+    checks = run.checks.map((check) => {
+      const { signature: _signature, ...rest } = check.result;
+      const failedCheck = rest.status === "failed";
+      return {
+        ...rest,
+        durationMs: Math.round(rest.durationMs),
+        ...(failedCheck ? { cause: causes.get(check) ?? "unknown" } : {}),
+      };
+    });
     testMode = run.testMode;
   }
 
-  const failed = checks.some((c) => c.status === "failed");
+  const blocking = checks.some(
+    (c) => c.status === "failed" && c.cause !== "already-failing",
+  );
   const testsRan = checks.some(
     (c) => isTestCheck(c.name) && c.status === "passed",
+  );
+  const testsAlreadyFailing = checks.some(
+    (c) => isTestCheck(c.name) && c.cause === "already-failing",
   );
   const notProven = sourcesWithoutTests.map((path) => ({
     path,
     reason: "no test reaches it",
   }));
-  if (!testsRan && !failed && selectedTests.length > 0) {
+  if (!testsRan && !blocking && selectedTests.length > 0) {
     for (const path of files.map((f) => f.path)) {
       if (!isTestPath(path) && SOURCE_FILE.test(path)) {
         if (!sourcesWithoutTests.includes(path)) {
-          notProven.push({ path, reason: "its tests did not run" });
+          notProven.push({
+            path,
+            reason: testsAlreadyFailing
+              ? "its tests were already failing"
+              : "its tests did not run",
+          });
         }
       }
     }
   }
 
-  const verdict: ChangeReceipt["verdict"] = failed
+  const verdict: ChangeReceipt["verdict"] = blocking
     ? "failed"
     : notProven.length > 0
       ? "unproven"
@@ -164,11 +202,12 @@ export async function buildChangeReceipt(
       truncated:
         guard.value.truncated || guard.value.files.length > files.length,
     },
-    checks: checks.map((c) => ({ ...c, durationMs: Math.round(c.durationMs) })),
+    checks,
     testMode,
     testFiles: selectedTests,
     notProven,
     flags,
+    ...(options.sessionId ? { sessionId: options.sessionId } : {}),
     durationMs: Math.max(0, Math.round(now() - started)),
   });
 }
@@ -187,7 +226,7 @@ async function runPackageChecks(
   tests: readonly string[],
   options: BuildReceiptOptions,
   now: () => number,
-): Promise<{ checks: CheckStepResult[]; testMode: ChangeReceipt["testMode"] }> {
+): Promise<{ checks: PackageCheck[]; testMode: ChangeReceipt["testMode"] }> {
   const groups = new Map<string, string[]>();
   for (const path of touched) {
     const pkg = packageRootFor(root, path);
@@ -200,12 +239,13 @@ async function runPackageChecks(
     groups.set(pkg, list);
   }
 
-  const checks: CheckStepResult[] = [];
+  const checks: PackageCheck[] = [];
   const modes = new Set<ScopedPlan["testMode"]>();
   const keys = [...groups.keys()].sort();
   for (const pkg of keys.slice(0, RECEIPT_PACKAGE_CAP)) {
     const cwd = pkg ? join(root, pkg) : root;
-    const scoped = await resolveScopedPlan(cwd, groups.get(pkg) ?? []);
+    const tests = groups.get(pkg) ?? [];
+    const scoped = await resolveScopedPlan(cwd, tests);
     modes.add(scoped.testMode);
     const results = await runCheckSteps(
       cwd,
@@ -214,7 +254,13 @@ async function runPackageChecks(
       now,
     );
     for (const result of results) {
-      checks.push(pkg ? { ...result, name: `${pkg}: ${result.name}` } : result);
+      checks.push({
+        pkg,
+        cwd,
+        tests,
+        step: result.name,
+        result: pkg ? { ...result, name: `${pkg}: ${result.name}` } : result,
+      });
     }
   }
   const testMode: ChangeReceipt["testMode"] = modes.has("scoped")
@@ -225,76 +271,85 @@ async function runPackageChecks(
   return { checks, testMode };
 }
 
+type PackageCheck = {
+  readonly pkg: string;
+  readonly cwd: string;
+  /** Test files for this package, relative to `cwd`. */
+  readonly tests: readonly string[];
+  readonly step: string;
+  readonly result: CheckStepResult;
+};
+
+type Cause = NonNullable<ChangeReceipt["checks"][number]["cause"]>;
+
+/**
+ * Re-run each failed check with the session's edits put back, and say
+ * whether the change caused the failure (M-092). One baseline pass covers
+ * every failed package.
+ */
+async function classifyFailures(
+  root: string,
+  sessionPaths: readonly string[],
+  checks: readonly PackageCheck[],
+  options: BuildReceiptOptions,
+  now: () => number,
+): Promise<Map<PackageCheck, Cause>> {
+  const failed = checks.filter((c) => c.result.status === "failed");
+  const causes = new Map<PackageCheck, Cause>();
+  if (failed.length === 0) return causes;
+  const byPkg = new Map<string, PackageCheck[]>();
+  for (const check of failed) {
+    byPkg.set(check.pkg, [...(byPkg.get(check.pkg) ?? []), check]);
+  }
+  const baseline = await withBaselineTree(
+    root,
+    sessionPaths,
+    async () => {
+      const out = new Map<PackageCheck, CheckStepResult | "no-tests">();
+      for (const group of byPkg.values()) {
+        const { cwd, tests } = group[0]!;
+        const existing = tests.filter((t) => existsSync(join(cwd, t)));
+        const scoped = await resolveScopedPlan(cwd, existing);
+        const names = new Set(group.map((c) => c.step));
+        const steps = scoped.plan.steps.filter((s) => names.has(s.name));
+        const results = await runCheckSteps(cwd, steps, options.run, now);
+        for (const check of group) {
+          const hit = results.find((r) => r.name === check.step);
+          if (hit) out.set(check, hit);
+          else if (check.step === "test" && existing.length === 0) {
+            out.set(check, "no-tests");
+          }
+        }
+      }
+      return out;
+    },
+    options.env,
+  );
+  for (const check of failed) {
+    const before = baseline?.get(check);
+    if (before === "no-tests") causes.set(check, "caused");
+    else if (!before) causes.set(check, "unknown");
+    else if (before.status === "passed") causes.set(check, "caused");
+    else if (
+      before.status === "failed" &&
+      before.signature &&
+      check.result.signature &&
+      failureIsPreexisting(before.signature, check.result.signature)
+    ) {
+      causes.set(check, "already-failing");
+    } else if (before.status === "failed") causes.set(check, "caused");
+    else causes.set(check, "unknown");
+  }
+  return causes;
+}
+
 function isTestCheck(name: string): boolean {
   return name === "test" || name.endsWith(": test");
 }
 
-function plural(n: number, one: string, many = `${one}s`): string {
-  return `${n} ${n === 1 ? one : many}`;
-}
-
-/** Five seconds to read. Plain text, safe for a terminal and a chat. */
-export function renderReceipt(
-  receipt: ChangeReceipt,
-  lenses: readonly ReceiptLensLine[] = receipt.lenses ?? [],
-): string {
-  if (receipt.verdict === "clean") return "Prism · nothing changed";
-  const pad = (label: string): string => label.padEnd(11, " ");
-  const lines = ["Prism · change receipt"];
-  const more = receipt.touched.truncated ? "+" : "";
-  lines.push(
-    `${pad("Touched")} ${plural(receipt.touched.totalFiles, "file")}${more} · ${plural(receipt.touched.dependents, "dependent")}`,
-  );
-
-  const passed = receipt.checks.filter((c) => c.status === "passed");
-  const failed = receipt.checks.filter((c) => c.status === "failed");
-  const provenParts = passed.map((c) =>
-    isTestCheck(c.name) && receipt.testMode === "scoped"
-      ? `${plural(receipt.testFiles.length, "scoped test file")} ✓`
-      : `${c.name} ✓`,
-  );
-  if (receipt.testMode === "skipped") provenParts.push("checks not run");
-  if (provenParts.length > 0) {
-    lines.push(`${pad("Proven")} ${provenParts.join(" · ")}`);
-  }
-  for (const check of failed) {
-    lines.push(`${pad("Failed")} ${check.name} ✗ ${check.detail}`.trimEnd());
-  }
-  for (const item of receipt.notProven.slice(0, 5)) {
-    lines.push(`${pad("Not proven")} ${item.path} — ${item.reason}`);
-  }
-  if (receipt.notProven.length > 5) {
-    lines.push(`${pad("")} …and ${receipt.notProven.length - 5} more`);
-  }
-  for (const flag of receipt.flags.slice(0, 4)) {
-    lines.push(`${pad("Flag")} ${flag.kind}: ${flag.path} — ${flag.detail}`);
-  }
-  if (lenses.length > 0) {
-    const mark = { pass: "✓", concern: "△", fail: "✗" } as const;
-    lines.push(
-      `${pad("Lenses")} ${lenses
-        .map(
-          (l) =>
-            `${l.lens} ${mark[l.verdict]}${l.summary ? ` ${l.summary}` : ""}`,
-        )
-        .join(" · ")}`,
-    );
-  }
-  return lines.join("\n");
-}
-
-/** What the agent must act on, or null when there is nothing to fix. */
-export function receiptFeedback(receipt: ChangeReceipt): string | null {
-  const failed = receipt.checks.filter((c) => c.status === "failed");
-  if (failed.length === 0) return null;
-  const lines = [
-    "Prism ran the checks this change reaches and they failed. Fix these before finishing:",
-    ...failed.map((c) => `- ${c.name}: ${c.detail}`),
-  ];
-  if (receipt.testMode === "scoped" && receipt.testFiles.length > 0) {
-    lines.push(
-      `Scoped tests: ${receipt.testFiles.slice(0, 10).join(", ")}${receipt.testFiles.length > 10 ? ", …" : ""}`,
-    );
-  }
-  return lines.join("\n");
-}
+export {
+  receiptFeedback,
+  renderReceipt,
+  renderReceiptMarkdown,
+  renderReceiptSvg,
+} from "@repo-prism/shared";

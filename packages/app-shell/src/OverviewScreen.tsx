@@ -683,8 +683,8 @@ export function OverviewScreen(props: OverviewScreenProps): ReactElement {
                   Indexed
                   <TipGuard>
                     <InfoTip label="Indexed">
-                      Share of inventory files your Prismate has analysed and
-                      understood. Click to open Envelope.
+                      Share of inventory files Prism has analysed. Click to open
+                      Envelope.
                     </InfoTip>
                   </TipGuard>
                 </span>

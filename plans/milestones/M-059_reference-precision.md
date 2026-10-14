@@ -50,6 +50,6 @@ milestone is brand work that proves the moat is real.
 ## 5. References
 
 - Prism Completion Program (owner plan, 2026-08-08) — Phase 4
-- [M-049 Blast Radius Depth](./M-049_blast-radius-depth.md) — multi-lane blast baseline
+- [M-049 Blast Radius Depth](../archive/milestones/M-049_blast-radius-depth.md) — multi-lane blast baseline
 - [ADR-0009](../adr/0009-typescript-analyzer-plugin.md) TypeScript analyzer plugin
 - [ADR-0019](../adr/0019-core-sdk-versioning.md) SDK versioning

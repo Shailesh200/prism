@@ -70,24 +70,22 @@ By design. There is no account, no sync and no server.
 
 ## What Prism deliberately will not do
 
-- **Write code itself.** Analysis has no model and generates nothing. A
-  [Dispatch](/docs/guides/dispatch) job is executed by your editor's own agent —
-  Cursor or Claude Code, under your sign-in — while Prism writes the brief and
-  runs this repository’s checks when the worker stops (or shows **—** if
-  none exist).
+- **Write code itself.** Analysis has no model and generates nothing. Your
+  agent makes the edit. The receipt runs this repository’s checks when the
+  agent stops (or shows **—** if none exist).
+- **Run background agents.** Dispatch and its jobs were removed (ADR-0064).
 - **Dump file bodies from Prepare.** `prepare_change` returns paths, symbols,
   and why — never source. Open the files yourself.
 - **Upload the Envelope.** The ledger is local JSONL. It never holds source
   and it is never sent anywhere.
-- **Resolve a finding because a job finished.** Only a re-scan that drops the
-  fingerprint closes it.
+- **Resolve a finding because a file was edited.** Only a re-scan that drops
+  the fingerprint closes it.
 - **Write AGENTS.md into git.** Living AGENTS.md stays under `~/.prism`.
 - **Veto writes from a work order** unless an Accepted ADR has armed that
   hook. The order is advisory by default.
 - **Modify your repository unasked.** `rename` and `safe-delete` report; they
-  never write. A Dispatch job edits only because you asked for a change, and
-  leaves committing to you. The only other path that executes anything is
-  bundle measurement, behind explicit
+  never write. Besides the receipt's checks, the only path that executes
+  anything is bundle measurement, behind explicit
   [`run.local-build` consent](/docs/concepts/consent-and-privacy).
 - **Scan for vulnerabilities.** The security report checks whether left-shift
   tooling exists.

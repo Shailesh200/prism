@@ -52,11 +52,20 @@ export {
   ReceiptCheckSchema,
   ReceiptFlagSchema,
   ReceiptLensLineSchema,
+  blockingChecks,
+  preexistingFailures,
   type ChangeReceipt,
   type ReceiptCheck,
   type ReceiptFlag,
   type ReceiptLensLine,
 } from "./receipt.js";
+export {
+  receiptFeedback,
+  receiptHeadline,
+  renderReceipt,
+  renderReceiptMarkdown,
+  renderReceiptSvg,
+} from "./receipt-render.js";
 
 export {
   LENS_EVIDENCE,
@@ -78,6 +87,7 @@ export {
   type LensVerdictValue,
   type LensView,
 } from "./lenses.js";
+export { chooseLens } from "./lens-route.js";
 
 export {
   CLOCK_STOPPED_STATUSES,
@@ -195,6 +205,48 @@ export {
   type WorkOrderOffLimit,
   type WorkOrderState,
 } from "./work-order.js";
+export { looksLikeChangeRequest } from "./change-request.js";
+export { prepareIsAnchored, renderPrepareContext } from "./prepare-context.js";
+export {
+  AUTO_PREPARE_BUDGET,
+  PREPARE_RESPONSE_BUDGET,
+  PREPARE_RESPONSE_CEILING,
+  PREPARE_TRIM_SECTIONS,
+  PrepareTrimmedSchema,
+  clampPrepareBudget,
+  fitPrepareToBudget,
+  prepareResponseTokens,
+  type PrepareTrimSection,
+  type PrepareTrimmed,
+} from "./prepare-budget.js";
+
+export {
+  GRAPH_DEFAULT_BUDGET,
+  GRAPH_MAX_BUDGET,
+  GRAPH_MODES,
+  GRAPH_QUERY_FILTERS,
+  clampGraphBudget,
+  fitGraphAnswer,
+  type GraphAnswer,
+  type GraphEdge,
+  type GraphEdgeKind,
+  type GraphEndpoint,
+  type GraphMode,
+  type GraphNode,
+  type GraphProvenance,
+  type GraphQuery,
+  type GraphQueryFilter,
+} from "./graph-query.js";
+
+export {
+  GRAPH_EXPORT_VERSION,
+  renderGraphReport,
+  type GraphExport,
+  type GraphExportEdge,
+  type GraphExportNode,
+  type GraphReportData,
+} from "./graph-export.js";
+export { renderGraphHtml } from "./graph-html.js";
 
 export {
   PRISM_CONFIG_FILENAME,

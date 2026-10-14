@@ -101,7 +101,7 @@ every project):
 }
 ```
 
-Then **Settings → MCP** → enable **prism** and wait until the tool list matches the [MCP reference](/docs/reference/mcp-tools).
+Then **Settings → MCP** → enable **prism** and wait until its tools are listed.
 
 **Claude Code** — from your project directory:
 
@@ -133,7 +133,10 @@ Keep `@latest`; the server hops to a newer package itself. Canonical copy:
 Prism's tools compose. Install the **Prism** pack from your editor's own plugin
 settings; it calls the MCP server above.
 
-More: [Agent usage](/docs/usage) · [Dispatch](/docs/guides/dispatch)
+By default the server registers seven tools. Set `PRISM_MCP_FULL=1` in the
+server's `env` for the rest — see [Usage](/docs/usage).
+
+More: [Agent usage](/docs/usage)
 
 </Tab>
 </Tabs>
@@ -161,12 +164,13 @@ library, keyed by repo:
     bookmarks.json   map bookmarks
     ingest/          artifacts you asked Prism to read
     tools/           tools you consented to install
-    dispatch/        Dispatch jobs, memories, and notes
-  dispatch/          machine-wide skills and agent catalog
+    memory.json      notes saved with prism remember
   envelope-ledger.jsonl   Intelligence call receipts (never source)
 ```
 
 An older `<repo>/.prism` folder is copied here on first open, then removed.
+`prism data prune` lists empty workspace folders, caches of deleted checkouts,
+and untracked worktrees; `prism data prune --yes` removes them.
 
 ## Next
 

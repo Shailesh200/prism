@@ -21,7 +21,7 @@
   "reference": {
     "platform": "darwin",
     "arch": "arm64",
-    "node": "26.5.0",
+    "node": "24.18.1",
     "note": "Apple Silicon laptop, 2026-08-05. Absolute numbers are machine-dependent; the shape of the scaling is not."
   },
   "scales": {

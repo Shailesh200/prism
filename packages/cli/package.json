@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@repo-prism/core": "workspace:*",
+    "@repo-prism/daemon": "workspace:*",
     "@repo-prism/shared": "workspace:*",
     "commander": "^15.0.0"
   },

@@ -3,8 +3,8 @@ import {
   assembleIntelligenceReport,
   buildDependencyGraph,
   buildFeatureGraph,
-  buildKnowledgeGraph,
   buildPersonaPresets,
+  cachedKnowledgeGraph,
   buildUtilityOverlay,
   buildBackendReport,
   buildCodeExplorerReport,
@@ -180,10 +180,17 @@ import {
   prismError,
   riskToBand,
   unsafeRepoId,
+  type GraphAnswer,
+  type GraphQuery,
 } from "@repo-prism/shared";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { PrismCapabilities } from "./capabilities.js";
+import {
+  exportWorkspaceGraph,
+  type GraphExportResult,
+} from "./graph-export.js";
+import { runGraphQuery } from "./graph-query.js";
 import { buildAgentsMdContent, parseAgentsMdClaims } from "./agents-md.js";
 import {
   agentsMdPath,
@@ -752,6 +759,20 @@ export type PrismWorkspace = {
    */
   explainArea(path: string): Promise<Result<ExplainAreaSummary, PrismError>>;
   /**
+   * One bounded structural question (M-096): `find`, `neighbors`, `path`,
+   * `explain` or `query`. Every edge carries provenance; the answer fits
+   * `budget` tokens (default 1,500) and says when it was cut.
+   */
+  graph(
+    query: GraphQuery,
+    budget?: number,
+  ): Promise<Result<GraphAnswer, PrismError>>;
+  /**
+   * The whole graph as versioned `graph.json` data, plus the measured facts
+   * for `GRAPH_REPORT.md` (M-096). Requires `index()`.
+   */
+  exportGraph(): Promise<Result<GraphExportResult, PrismError>>;
+  /**
    * Prism Guard (M-072): the current session — working-tree dirty files
    * minus `preExistingChanges` (ADR-0045 §3 / ADR-0055 G1) — ranked by blast
    * risk, each flagged for a likely duplicate, an orphaned new file, or a
@@ -834,7 +855,7 @@ function impactContextFor(
     ...(intent ? { intent } : {}),
   };
   if (!withSymbols) return base;
-  const kg = buildKnowledgeGraph(snapshot);
+  const kg = cachedKnowledgeGraph(snapshot);
   return {
     ...base,
     symbols: kg.symbols,
@@ -862,6 +883,14 @@ export function createWorkspace(options: {
   let utilities: UtilitiesSession | null = null;
   let selectedPackageId: string | null = null;
   let gitCache: { at: string | null; value: GitSignals | null } | null = null;
+  let gitFilesCache: {
+    from: GitSignals;
+    files: GitSignals["signals"] extends Map<string, infer V> ? V[] : never;
+  } | null = null;
+  let frameworksCache: {
+    at: string | null;
+    value: readonly string[];
+  } | null = null;
   const softImpactCache: {
     key: string | null;
     value: ReturnType<typeof buildSoftImpactIndex> | null;
@@ -1231,6 +1260,7 @@ export function createWorkspace(options: {
       ...(limits.extraIgnorePatterns.length > 0
         ? { extraIgnorePatterns: limits.extraIgnorePatterns }
         : {}),
+      ...(!isFullRun && lastSnapshot ? { priorFiles: lastSnapshot.files } : {}),
     };
 
     const result = await options.ports.indexer.indexWorkspace(
@@ -1260,8 +1290,12 @@ export function createWorkspace(options: {
         watchLastError = null;
       }
       // Forward snapshot for Trends (ADR-0023) — fail soft on cache errors.
+      // Full runs only: a watcher reindex per save would score health on every
+      // keystroke-level edit and fill the trend with near-identical points.
       try {
-        const cache = await openIndexCache(rootPath);
+        const cache = isFullRun
+          ? await openIndexCache(rootPath)
+          : ({ ok: false } as const);
         if (cache.ok) {
           const headSha = readHeadCommitSha(rootPath);
           const payload = buildHealthHistorySnapshot({
@@ -1371,7 +1405,7 @@ export function createWorkspace(options: {
           ),
         );
       }
-      const kg = buildKnowledgeGraph(lastSnapshot);
+      const kg = cachedKnowledgeGraph(lastSnapshot);
       return ok({ graph: kg.graph, stats: kg.stats });
     },
     findSymbol(query) {
@@ -1385,7 +1419,7 @@ export function createWorkspace(options: {
           ),
         );
       }
-      return ok(querySymbols(buildKnowledgeGraph(lastSnapshot), query));
+      return ok(querySymbols(cachedKnowledgeGraph(lastSnapshot), query));
     },
     searchSymbols(query) {
       const gate = ensureOpen();
@@ -1399,7 +1433,9 @@ export function createWorkspace(options: {
         );
       }
       try {
-        return ok(querySearchSymbols(buildKnowledgeGraph(lastSnapshot), query));
+        return ok(
+          querySearchSymbols(cachedKnowledgeGraph(lastSnapshot), query),
+        );
       } catch (cause) {
         if (cause instanceof SyntaxError) {
           return err(
@@ -1423,7 +1459,7 @@ export function createWorkspace(options: {
           ),
         );
       }
-      return ok(queryReferences(buildKnowledgeGraph(lastSnapshot), query));
+      return ok(queryReferences(cachedKnowledgeGraph(lastSnapshot), query));
     },
     getFeatureGraph() {
       const gate = ensureOpen();
@@ -2477,9 +2513,20 @@ export function createWorkspace(options: {
         };
       }
       const git = gitCache.value;
-      const gitFiles = git ? [...git.signals.values()] : undefined;
-      const dna = await this.getDna();
-      const frameworks = dna.ok ? dna.value.frameworks : [];
+      if (git && gitFilesCache?.from !== git) {
+        gitFilesCache = { from: git, files: [...git.signals.values()] };
+      }
+      const gitFiles = git ? gitFilesCache?.files : undefined;
+      // Stack detection walks the tree; a manifest edit reindexes, which
+      // changes `lastIndexedAt` and so refreshes this.
+      if (!frameworksCache || frameworksCache.at !== lastIndexedAt) {
+        const dna = await this.getDna();
+        frameworksCache = {
+          at: lastIndexedAt,
+          value: dna.ok ? dna.value.frameworks : [],
+        };
+      }
+      const frameworks = frameworksCache.value;
       const memories = await loadWorkspaceMemories(lastSnapshot.rootPath);
       return ok(
         buildPrepareChange({
@@ -2880,6 +2927,12 @@ export function createWorkspace(options: {
         totalTestsAffected,
         totalBreakingChanges,
       } satisfies ChangeReviewReport);
+    },
+    graph(query, budget) {
+      return runGraphQuery(this, query, budget);
+    },
+    exportGraph() {
+      return exportWorkspaceGraph(this);
     },
     async explainArea(path) {
       const gate = ensureImpact();

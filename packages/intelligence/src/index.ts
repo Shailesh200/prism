@@ -63,6 +63,7 @@ export {
   type PathAliasRule,
   type TsconfigAliasConfig,
 } from "./dependency/aliases.js";
+export { cachedKnowledgeGraph } from "./prepare/graph-cache.js";
 export {
   buildKnowledgeGraph,
   findReferences,

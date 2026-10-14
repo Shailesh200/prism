@@ -1,43 +1,51 @@
 ---
 title: Remember context
-description: "Working set, Living AGENTS.md, and symbol notes — so a compacted chat does not rediscover the neighborhood."
+description: "Notes you save with prism remember, and Living AGENTS.md — so Prepare hands back what you already decided."
 ---
 
-> Prism can hold the files you already decided matter. It will not write an
-> AGENTS.md into your git tree.
+> Save a fact once. Prepare hands it back before the next edit. Prism will not
+> write an AGENTS.md into your git tree.
 
-Three small stores sit next to Prepare. They are local. They are not a second
-model.
+Two small stores sit next to Prepare. They are local. They are not a model.
 
-## Working set
+## Memories
 
-After a long chat or a job that compacted, you should not have to find the
-same files again.
+A memory is a short note about this repository: a decision, a rule, a warning.
+Save it from the terminal:
 
-`working_set` holds:
-
-```text
-files[] · symbols[] · decisions[] · neighbors[]
+```bash
+prism remember "use lruCache, never a bare Map" --symbol lruCache
+prism remember "generated clients live here; do not edit by hand" --path src/gen
+prism memories
+prism forget lruCache
 ```
 
-Neighbors are one hop on the knowledge graph from those files.
-
-| You say | What happens |
+| Command | What it does |
 |---|---|
-| “Remember we decided to keep the cache in lruCache” | `working_set` action=set, plus `remember` if it is a standing fact |
-| “Where were we on that job?” | `working_set` with that job id |
+| `prism remember "<note>"` | Saves a note. `--symbol` or `--path` anchors it. |
+| `prism memories` | Lists the notes for this repository, with their ids. |
+| `prism forget <id or text>` | Removes notes by id, or every note whose text matches. |
 
-Pass a job id to read or extend that job’s set (the next resume prompt
-injects it). Omit the id for the standalone, per-workspace set. `set` **merges**;
-it never wipes what is already there.
+Notes are stored in:
 
-Working set is distinct from [`remember`](/docs/reference/mcp-tools#remember).
-`remember` is a standing fact. Working set is “what this session already
-opened.”
+```text
+~/.prism/workspaces/<key>/memory.json
+```
+
+They are never written into the repository.
+
+`prepare_change` includes anchored notes for the files in its pack, next to
+ADR / `WHY:` / `NOTE:` hits. See [Prepare a change](/docs/guides/prepare-a-change).
+
+If you rename an anchored symbol with Prism's rename in the IDE, the note
+moves with it.
+
+There is no MCP tool for memories. To save one from chat, ask your agent to
+run `prism remember`.
 
 ## Living AGENTS.md
 
-`agents_md` writes a contributor sheet from the index: features, import
+`prism agents-md` writes a contributor sheet from the index: features, import
 cycles, test locations, owners. **No LLM prose.**
 
 ```bash
@@ -55,29 +63,20 @@ It is **never** written into the repository, never into `{repo}/.prism/*.md`,
 and never copied to `CLAUDE.md`. If this repo already has an `AGENTS.md`,
 generate may *read* it as input. It will not overwrite it.
 
-`check` compares the claims to a fresh index (`dependency_cycles`,
-`list_features`). CI can fail when a claim went stale.
+`check` compares the claims to a fresh index. CI can fail when a claim went
+stale.
 
-MCP: `agents_md` with `action=generate` or `check`. Read
-`prism://agents-md` for the current text without regenerating.
-
-## Symbol notes
-
-`remember` can attach a fact to a **symbol** or **path**. If you later rename
-that symbol, Prism rewrites the stored id so the note moves with it.
-
-`prepare_change` includes those notes, plus ADR / `WHY:` / `NOTE:` hits, on
-the pack. See [Prepare a change](/docs/guides/prepare-a-change).
+MCP: `agents_md` with `action=generate` or `check`, registered when the server
+runs with `PRISM_MCP_FULL=1`. Read `prism://agents-md` for the current text
+without regenerating.
 
 ## When this is wrong
 
 - Do not copy `~/.prism/.../agents.md` into the repo or offer to commit it.
-- Working set is not a dump of the tree. It is the neighborhood you already
-  named.
-- Notes that are not attached to a symbol/path will not move on rename.
+- A memory is a standing fact, not a log of the session. Keep it short.
+- Notes that are not anchored to a symbol or path will not move on rename.
 
 ## Related
 
 [Prepare a change](/docs/guides/prepare-a-change) ·
-[Dispatch](/docs/guides/dispatch) ·
 [Consent and privacy](/docs/concepts/consent-and-privacy)

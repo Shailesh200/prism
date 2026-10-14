@@ -150,3 +150,4 @@ export {
   type LocalRunTestsResult,
   type LocalTestListResult,
 } from "./testing/local-runners.js";
+export type { GraphExportResult } from "./graph-export.js";

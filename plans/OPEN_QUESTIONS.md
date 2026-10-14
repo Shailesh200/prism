@@ -32,6 +32,8 @@ Resolve these with the owner before or during the indicated milestone. Record an
 | Q-026 | Public identity: domain / GitHub / npm? | M-077 / M-086 | **Locked 2026-09-19 (relocked):** `prismate.io`, GitHub org `prismate`, npm `@prismate`. Cutover steps run in M-086. Q-003 (`@repo-prism`) is the old publish scope (one major of shims). |
 | Q-027 | Public tagline / hero copy? | M-077 / M-086 | **Locked 2026-09-19:** PROGRAM §0.1. Kicker `this/self · Local First · No account`. Hero: “A teammate meant for you. / Intelligent enough for all you want to do.” Teammate name in copy is Prism. It/it’s, not he/him. |
 
-| Q-028 | Which three public TypeScript repos does the M-079 replay benchmark use? | M-079 | **Open.** Owner may name them; otherwise pick by the criteria in [M-079](./milestones/M-079_safety-layer.md) (public, TS, offline tests < ~5 min, ≥ 500 files, history with reverts/fix-ups). |
+| Q-028 | Which three public TypeScript repos does the M-079 replay benchmark use? | M-079 | **Open.** Owner may name them; otherwise pick by the criteria in [M-079](./archive/milestones/M-079_safety-layer.md) (public, TS, offline tests < ~5 min, ≥ 500 files, history with reverts/fix-ups). |
+
+**2026-10-10 (owner, program Approved):** Q-026 and Q-027 are closed by [ADR-0060](./adr/0060-prism-keeps-its-name.md). Q-026: no rename; Prism stays on `@repo-prism/*`, `prismhq.repo-prism`, `prismhq.in`, GitHub `Shailesh200/prism`. Q-027: **"Faster agent sessions. Fewer broken builds."** Q-028 is closed by the repo list in [PROGRAM_focus-reset §15](./milestones/PROGRAM_focus-reset.md). Node pin is 24.18.1. Envelope moves into Core.
 
 Update this file when questions are decided; link ADRs.

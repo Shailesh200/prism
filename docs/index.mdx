@@ -3,9 +3,11 @@ title: Command Center
 description: "One engine. Pick a surface, a task, or a concept. Analysis stays on your machine."
 ---
 
-Prism reads a codebase and answers questions no single file can answer.
-Analysis has no model. Dispatch uses your editor's Cursor or Claude Code
-agent; Prism runs this repository’s checks; finish is not land.
+Prism gives coding agents local context before an edit and checks the change
+after it. Prepare says what to open. Envelope shows what Prism put into the
+agent's context and what it cost. The receipt runs the checks a change reaches
+and says whether it is proven, unproven, or failed. Analysis has no model, and
+your agent makes the edits.
 
 <Cards>
   <Card
@@ -33,11 +35,6 @@ agent; Prism runs this repository’s checks; finish is not land.
     href="/docs/guides/guard-a-session"
     description="Read the dirty files that can actually hurt."
   />
-  <Card
-    title="Dispatch"
-    href="/docs/guides/dispatch"
-    description="Hand a change to a teammate."
-  />
 </Cards>
 
 ## If you want to…
@@ -51,14 +48,12 @@ agent; Prism runs this repository’s checks; finish is not land.
 | Rank a messy dirty tree | [Guard a session](/docs/guides/guard-a-session) |
 | See unused or duplicated code | [Findings](/docs/guides/findings) |
 | Read Envelope / Iris | [Envelope and Iris](/docs/guides/envelope-and-iris) |
-| Restore context after a long chat | [Remember context](/docs/guides/remember-context) |
+| Save a note Prepare hands back | [Remember context](/docs/guides/remember-context) |
 | Review a PR or diff | [Review a PR](/docs/guides/review-a-pr) |
 | Delete something safely | [Delete safely](/docs/guides/delete-safely) |
 | Track health over time | [Track health](/docs/guides/track-health) |
 | Dig into one domain | [Investigate a domain](/docs/guides/investigate-domain) |
 | Wire Prism into CI | [Wire into CI](/docs/guides/wire-into-ci) |
-| Hand a change to a background teammate | [Dispatch](/docs/guides/dispatch) |
-| Start your day with a standup | [Dispatch](/docs/guides/dispatch) |
 | Open the local Playground | [Playground](/docs/start/playground) |
 
 ## Surfaces

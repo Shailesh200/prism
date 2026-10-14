@@ -34,7 +34,7 @@ Existing tools solve fragments (search, git blame, dependency linters, IDE outli
 
 > **Google Maps + Engineering Intelligence + MCP Tools for Software**
 
-Prism is a **local-first Software Intelligence Engine** that makes any repository:
+Prism is **local context and change checks for coding agents**. It makes any repository:
 
 1. **Spatially navigable** — Repository Map with zoom levels and features  
 2. **Analytically queryable** — graphs, DNA, health, impact, explorer  

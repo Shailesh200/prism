@@ -5,7 +5,7 @@
 | Status | Accepted |
 | Date | 2026-09-02 |
 | Decision makers | Owner, Architect |
-| Related milestones | [M-067](../milestones/M-067_shippable-product.md) |
+| Related milestones | [M-067](../archive/milestones/M-067_shippable-product.md) |
 | Supersedes | [ADR-0043](./0043-agent-dashboard-hub.md) (the two-port split only) |
 | Amends | [ADR-0029](./0029-signal-provenance.md) (extends provenance to jobs), [ADR-0039](./0039-dispatch-chat-voice.md) (scopes the worktree-path ban to spoken copy) |
 

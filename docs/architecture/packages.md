@@ -111,24 +111,38 @@ The Core-backed request surface two hosts both need: the `HostRequest` /
 `HostResponse` protocol, its runtime guards, the `PrismSession` wrapper around
 Core, and the dispatcher that turns one into the other.
 
-Extracted from the IDE extension so the Prism Console can answer the same RPC
+Extracted from the IDE extension so a second host could answer the same RPC
 (ADR-0048) instead of the extension running a second, tokenless server on
 `:17321`. The filesystem-rename fallback lives here; the extension injects its
 own workspace-edit version.
 
 Import `@repo-prism/host-session/protocol` for the types and guards alone —
-that entry point does not reach Core, which is what lets the Console validate
-a request before deciding to load the engine.
+that entry point does not reach Core, which is what lets a host validate a
+request before deciding to load the engine.
 
 **Must never** import `vscode`. It runs in the extension host *and* in a plain
 Node daemon.
 
+### `@repo-prism/daemon`
+
+The Prism graph daemon (ADR-0063): one local process per machine that keeps
+each open repository indexed and fresh from file-system events, and answers
+tool calls over loopback so MCP servers, the CLI and hooks share one index
+instead of building their own. Holds the single-instance lock, the 0600 record
+under `~/.prism/daemon`, the loopback server, the attach-first client, and the
+memory, priority and battery limits.
+
+The process itself is `prism-mcp --daemon`, because it serves the MCP tool
+definitions. `@repo-prism/daemon` is the reusable part; `./server` is a
+separate entry so a caller that only attaches never loads Core.
+
+**Must never** bind anything but loopback, edit a file, run a model, or run a
+job.
+
 ## Surfaces
 
 Each of these consumes `@repo-prism/core` for analysis and computes nothing
-itself. The MCP server additionally consumes `@repo-prism/dispatch` for the
-teammate workflow (ADR-0035) and `@repo-prism/dispatch-hub` for the jobs
-board (ADR-0043).
+itself.
 
 ### `@repo-prism/cli`
 
@@ -141,44 +155,18 @@ boundary test.
 
 ### `@repo-prism/mcp-server`
 
-The `prism-mcp` binary. Intelligence tools over Core, plus Dispatch tools over
-`@repo-prism/dispatch`, on the same stdio server named `prism`.
+The `prism-mcp` binary: Intelligence tools over Core, on a stdio server named
+`prism`. Seven tools are registered by default (`prepare_change`,
+`blast_radius`, `guard_session`, `test_impact`, `repository_overview`,
+`find_symbol`, `explain_area`); `PRISM_MCP_FULL=1` registers the rest. No
+Dispatch tool is registered (ADR-0064).
 
-**Must never** expose Core's consent-gated analysis APIs. Intelligence tools
-stay read-only. Dispatch tools are a second path (ADR-0035): jobs, OAuth, and
-local workers, never an index.
+**Must never** expose Core's consent-gated analysis APIs. It no longer depends
+on `@repo-prism/dispatch` or `@repo-prism/dispatch-hub`.
 
 ### `@repo-prism/checks`
 
-Detects the repo's own typecheck, lint, and test scripts and runs the ones a change reaches. Used by the change receipt and the stop hook. Not Core, and not the job runner.
-
-### `@repo-prism/dispatch`
-
-Chat-native jobs, memories, OAuth drivers, worktree adopt/create, and local
-workers on the host's own agent CLI — Cursor SDK in Cursor, Claude Code CLI in
-Claude Code (ADR-0044). Jobs are checkout-first (ADR-0045): edits land in the
-user's tree uncommitted, and a worktree + job branch is the explicit or
-parallel-collision path. Consumed by `@repo-prism/mcp-server` and
-`@repo-prism/dispatch-hub`. Makes no network calls and stores no third-party
-credentials: `host-connectors.ts` learns which connectors are signed in —
-Cursor session MCP tools (not the plugin download cache, and not a plugin
-that still only exposes `mcp_auth`) plus Claude plugin installs and host
-MCP configs — names and capabilities, never tokens — and
-`fill-contract.ts` turns that into the sections `start_my_day` asks the host
-agent to fill with its own tools (ADR-0049). Cursor workers sign in via a
-browser Cursor login (ADR-0038), not mcp.json; Claude workers reuse the
-machine's `claude` sign-in.
-Job ids are tickets or title slugs; chat never speaks `job-<hex>` (ADR-0039).
-Workers run out-of-process; live status and
-finished/failed results are reaped into `list_jobs` / start-my-day (ADR-0040).
-Job agents do not attach Prism MCP; Prism worktrees symlink the host
-`node_modules` (ADR-0041). Prism verifies after
-the agent stops and commits worktree placements; in-process subagents are on
-(ADR-0042). The jobs board is
-a separate package (`@repo-prism/dispatch-hub`, ADR-0043).
-
-**Must never** be imported by `@repo-prism/core`, any engine package, or the
-IDE extension. The extension talks to the hub over HTTP.
+Detects the repo's own typecheck, lint, and test scripts and runs the ones a change reaches. Used by the change receipt and the stop hook. Not Core.
 
 ### `@repo-prism/plugin`
 
@@ -199,35 +187,12 @@ definition and directories disagree.
 Depends on nothing. It ships text, not code, and importing it at runtime would
 mean the pack had become a second way to configure the server.
 
-### `@repo-prism/dispatch-hub`
-
-The **Prism Console**: a user-level loopback daemon on `prismhq.localhost:17330`
-(`127.0.0.1` keeps working) with two planes (ADR-0048).
-
-The Jobs plane is always on and Core-free — it watches every registered
-workspace's `.prism/dispatch/` tree, serves the dashboard over HTTP and SSE,
-drains the job queue (ADR-0047), and fires OS notifications when a teammate
-finishes. The Intelligence plane loads `@repo-prism/host-session` on the first
-`POST /api/host` and holds one Core session at a time, evicted when idle, so a
-user who only watches jobs never pays for the engine.
-
-Spawned by host `prism-mcp`. State lives in `~/.prism/hub/`. Every request
-needs the token from `~/.prism/hub/hub.json`. `PRISM_HUB=0` opts out.
-
-**Must never** be imported by Core or by the IDE extension (the extension uses
-HTTP, and finds the Console by reading the hub record). Workers never spawn it.
-**Must never** import Core statically — the lazy `import()` in
-`intelligence.ts` is the only path, and a static edge would put the engine back
-in the always-on process.
-
 ### `@repo-prism/vscode-extension`
 
 The **Prism** IDE extension. Hosts the app-shell in a webview, bridges it to
 Core over RPC via `@repo-prism/host-session`, and owns the extension-side
 concerns: indexing lifecycle, file watching, and the content security policy.
-
-*Open in Browser* opens the Prism Console rather than starting a server of its
-own; the `:17321` bridge was retired by ADR-0048.
+The `:17321` bridge was retired by ADR-0048.
 
 ### `@repo-prism/cursor-extension`
 
@@ -245,6 +210,23 @@ usually happens here first.
 Next.js + Fumadocs app that serves the public marketing site and documentation
 (and admin architecture docs). Replaces the VitePress docs app. Markdown source
 stays in `/docs` at the repository root.
+
+## Being removed
+
+Dispatch was removed from the product and from MCP by ADR-0064. Its two
+packages stay in the tree until a later milestone deletes them. No other
+workspace package lists them as a dependency, and no new code may.
+
+### `@repo-prism/dispatch`
+
+The removed job runner: background jobs, standups, workers, and the old memory
+store. Its Envelope ledger and last-Prepare code moved into
+`@repo-prism/core`, and memories moved to `prism remember`.
+
+### `@repo-prism/dispatch-hub`
+
+The removed Prism Console: the loopback jobs board and its notifications. It
+depends on `@repo-prism/dispatch`.
 
 ## Development only
 
@@ -264,8 +246,6 @@ for which fixture to reach for.
 
 ```
 surface  →  @repo-prism/core  →  engine internals  →  @repo-prism/shared
-mcp-server  →  @repo-prism/dispatch  (jobs only; ADR-0035)
-mcp-server  →  @repo-prism/dispatch-hub  (the Console; ADR-0048)
 ```
 
 Arrows point at what may be imported. There is no arrow from a surface to an

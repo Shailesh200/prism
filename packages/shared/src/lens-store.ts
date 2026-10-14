@@ -71,52 +71,158 @@ async function writeLensStore(
   await rename(tmp, path);
 }
 
-export const DEFAULT_LENSES: readonly LensDefinition[] = [
+const ARCHITECT_PROCEDURE = `You are the Architect lens: the senior pass on structure. Use it for a new feature, a plan, or a pull request. Read the repo's shape before you propose anything.
+
+1. A recorded decision (an ADR or a package boundary) already covers this? Follow it, and cite it.
+2. A package already owns this work? Put the change there. Do not open a new package or a parallel abstraction.
+3. The change would add a dependency between packages, or a cycle? Do not, unless the task requires it. Name the edge if you must add one.
+4. The smallest design that fits the layers this repo already has. No new framework.
+5. On a pull request, read the code the change touches, not only the diff. Say what breaks across packages, which decision it contradicts, and what to do instead.
+
+Never cut: an accepted decision, an off-limits path, or a boundary the repo already enforces.`;
+
+const QA_PROCEDURE = `You are the QA lens. Find bugs. Do not redesign the feature.
+
+1. Read the code the task names and the tests that reach it.
+2. State a concrete failure: the input, what the code does, what goes wrong, and who it hits.
+3. A bug with no test is still open. Name the test that should fail, or say that none reaches the file.
+4. Check the edges the change did not touch but that depend on it: empty, duplicate, the wrong type.
+5. Stop at findings. Each one cites a path. No new framework and no drive-by refactor.
+
+A green command on the wrong files is not proof.`;
+
+const DEV_PROCEDURE = `You are the Dev lens, for a daily fix. Finish the task with the smallest complete change.
+
+1. Does this need to exist? Skip options and flexibility nobody asked for, and name what you skipped.
+2. A helper, pattern, or type already in this codebase does it? Use that, the way the files beside it do.
+3. Can one line say it? One line.
+4. Otherwise the minimum that works, in the house style of the nearby files. No wrapper, config, or code for later.
+5. A bug fix: find the callers, then fix the root cause once in the shared code.
+6. New logic — a branch, a loop, money, or security — leaves one small test. A typo or a comment does not.
+
+Never cut: validation, error handling, security, or anything the user asked for.`;
+
+/** The three defaults as first shipped, so an unedited install can take the skill text. */
+const PREVIOUS_DEFAULTS: readonly Pick<
+  LensDefinition,
+  "id" | "role" | "focus" | "checklist"
+>[] = [
   {
     id: "architect",
-    name: "Architect",
     role: "Checks structure: package boundaries, import cycles, and decisions already recorded.",
     focus:
       "A change should not add a new dependency between packages, a new cycle, or contradict an accepted ADR.",
-    tone: "Direct. Cite a path.",
     checklist: [
       "The change adds no import edge into a package it did not already depend on.",
       "The change adds no import cycle.",
       "Generated and vendor paths are untouched.",
     ],
-    evidence: ["boundaries", "cycles", "rationale", "off-limits"],
-    enabled: true,
-    seededDefault: true,
   },
   {
     id: "qa",
-    name: "QA",
     role: "Checks proof: whether a test reaches the change and the repo's own checks pass.",
     focus: "A claim is true only if a test or a command shows it.",
-    tone: "Name the test file or the command.",
     checklist: [
       "Every changed source file is reached by at least one test.",
       "The repo's typecheck and test commands pass on the change.",
     ],
-    evidence: ["test-impact", "verify-plan", "test-layout", "blast"],
-    enabled: true,
-    seededDefault: true,
   },
   {
     id: "dev",
-    name: "Dev",
     role: "Checks fit: reuse of existing code and the house style of nearby files.",
     focus: "Prefer the helper that already exists over a second copy.",
-    tone: "Point to the existing symbol.",
     checklist: [
       "The change does not duplicate a helper that already exists.",
       "New code follows the patterns of the files beside it.",
     ],
+  },
+];
+
+export const DEFAULT_LENSES: readonly LensDefinition[] = [
+  {
+    id: "architect",
+    name: "Architect",
+    role: "Senior structure review for a new feature, a plan, or a pull request.",
+    focus:
+      "A change should land in the package that already owns it, add no new cycle, and follow a decision the repo already recorded.",
+    tone: "Direct. Cite a path or a decision.",
+    checklist: [
+      "The change adds no import edge into a package it did not already depend on.",
+      "The change adds no import cycle.",
+      "Generated and vendor paths are untouched.",
+      "The change does not contradict an accepted ADR.",
+    ],
+    evidence: ["boundaries", "cycles", "rationale", "off-limits"],
+    enabled: true,
+    seededDefault: true,
+    procedure: ARCHITECT_PROCEDURE,
+  },
+  {
+    id: "qa",
+    name: "QA",
+    role: "Senior bug hunt: a concrete failure, the path, and the test that should catch it.",
+    focus:
+      "A bug is real when you can name the input, the wrong result, and whether a test reaches it.",
+    tone: "Name the test file or say that none reaches it.",
+    checklist: [
+      "Every changed source file is reached by at least one test, or the gap is named.",
+      "A finding cites a path and a concrete failure.",
+      "The check named is one this repo already runs.",
+    ],
+    evidence: ["test-impact", "verify-plan", "test-layout", "blast"],
+    enabled: true,
+    seededDefault: true,
+    procedure: QA_PROCEDURE,
+  },
+  {
+    id: "dev",
+    name: "Dev",
+    role: "Daily changes: the smallest complete fix, using what the repo already has.",
+    focus:
+      "Prefer the helper that already exists. New logic leaves one small test; a typo does not.",
+    tone: "Point to the existing symbol.",
+    checklist: [
+      "The change does not duplicate a helper that already exists.",
+      "New code follows the patterns of the files beside it.",
+      "New non-trivial logic has one test, or the change is trivial.",
+    ],
     evidence: ["reuse", "house-style", "duplicates"],
     enabled: true,
     seededDefault: true,
+    procedure: DEV_PROCEDURE,
   },
 ];
+
+function sameChecklist(
+  left: readonly string[],
+  right: readonly string[],
+): boolean {
+  return (
+    left.length === right.length && left.every((item, i) => item === right[i])
+  );
+}
+
+/**
+ * Unedited Architect / QA / Dev pick up the skill text. A definition the owner
+ * changed keeps their words; a missing procedure is filled in either way.
+ */
+export function applyDefaultProcedures(
+  lenses: readonly LensDefinition[],
+): LensDefinition[] {
+  return lenses.map((lens) => {
+    const fresh = DEFAULT_LENSES.find((row) => row.id === lens.id);
+    if (!fresh || !lens.seededDefault) return lens;
+    const previous = PREVIOUS_DEFAULTS.find((row) => row.id === lens.id);
+    const untouched =
+      previous !== undefined &&
+      lens.role === previous.role &&
+      lens.focus === previous.focus &&
+      sameChecklist(lens.checklist, previous.checklist);
+    if (untouched) return { ...fresh, enabled: lens.enabled };
+    if (!lens.procedure.trim()) return { ...lens, procedure: fresh.procedure };
+    return lens;
+  });
+}
 
 /** What seeding reads. `PrismWorkspace` from Core satisfies this. */
 export type LensSeedSource = {
@@ -315,7 +421,9 @@ export async function seedLenses(
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<LensStore> {
   const store = await readLensStore(source.rootPath, env);
-  const lenses = store.lenses.length > 0 ? store.lenses : [...DEFAULT_LENSES];
+  const lenses = applyDefaultProcedures(
+    store.lenses.length > 0 ? store.lenses : [...DEFAULT_LENSES],
+  );
   const kept = store.facts.filter((row) => row.origin !== "seeded");
   const next: LensStore = {
     lenses,

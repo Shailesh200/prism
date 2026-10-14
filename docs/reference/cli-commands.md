@@ -133,7 +133,7 @@ Files, reuse, and House Style for a task — never file bodies
 
 | Option | Meaning |
 |---|---|
-| `--budget <n>` | Map-token budget for the pack (default 4000) |
+| `--budget <n>` | Token budget for the whole answer (default 2000, max 6000) |
 
 ```bash
 prism prepare --json "add caching to fetchUser"
@@ -236,6 +236,44 @@ Tests that a change can reach
 
 ```bash
 prism test-impact src/core/index.ts
+```
+
+### `prism envelope`
+
+What Prism put into agents' context here, by tool, and what ran over budget
+
+| Option | Meaning |
+|---|---|
+| `--days <n>` | Window to report (default 7) |
+
+```bash
+prism envelope
+```
+
+```bash
+prism envelope --days 30 --json
+```
+
+### `prism receipts [action] [n]`
+
+List the change receipts the stop hook wrote, or show one
+
+| Argument | Meaning |
+|---|---|
+| `[action]` | list (default) or show |
+| `[n]` | show: which receipt, 1 is the newest |
+
+| Option | Meaning |
+|---|---|
+| `--as <format>` | show: text, markdown, or svg |
+| `--limit <n>` | Maximum rows to print (default 50) |
+
+```bash
+prism receipts
+```
+
+```bash
+prism receipts show 1 --as markdown > receipt.md
 ```
 
 ## Inspect structure
@@ -427,6 +465,53 @@ prism findings list
 prism findings mute a3f8c5f0c392dbeb
 ```
 
+## Memory
+
+### `prism remember <note...>`
+
+Save a note about this repository for Prepare to hand back
+
+| Argument | Meaning |
+|---|---|
+| `<note...>` | The note, in plain language |
+
+| Option | Meaning |
+|---|---|
+| `--symbol <name>` | Anchor the note to a symbol |
+| `--path <path>` | Anchor the note to a path |
+
+```bash
+prism remember "use lruCache, never a bare Map" --symbol lruCache
+```
+
+### `prism forget <id-or-text...>`
+
+Forget memories by id or by matching text
+
+| Argument | Meaning |
+|---|---|
+| `<id-or-text...>` | A memory id or part of its text |
+
+```bash
+prism forget 3f9a2c1b7e04
+```
+
+```bash
+prism forget lruCache
+```
+
+### `prism memories`
+
+List the notes saved for this repository
+
+```bash
+prism memories
+```
+
+```bash
+prism memories --json
+```
+
 ## Diagnostics
 
 ### `prism doctor`
@@ -436,6 +521,7 @@ Check the environment, workspace and index
 | Option | Meaning |
 |---|---|
 | `--ci` | Extra CI checks (e.g. warn on shallow clones that truncate history) |
+| `--surfaces` | Show which Prism each editor launches. Fails inside this repo if any of them is the published package. |
 
 ```bash
 prism doctor
@@ -445,12 +531,61 @@ prism doctor
 prism doctor --ci
 ```
 
+```bash
+prism doctor --surfaces
+```
+
+### `prism data prune`
+
+Prune Prism's local library (dry run unless --yes)
+
+| Argument | Meaning |
+|---|---|
+| `prune` | List empty workspace folders, caches of deleted checkouts, and untracked worktrees |
+
+```bash
+prism data prune
+```
+
+```bash
+prism data prune --yes
+```
+
 ### `prism index`
 
 Build or refresh the repository index
 
 ```bash
 prism index
+```
+
+### `prism graph [action] [hooks-action]`
+
+The background daemon that keeps the graph fresh
+
+| Argument | Meaning |
+|---|---|
+| `[action]` | status (default), serve, stop, refresh, export, open, or hooks |
+| `[hooks-action]` | hooks: install (default) or uninstall |
+
+| Option | Meaning |
+|---|---|
+| `--out <dir>` | export and open: where to write graph.json, GRAPH_REPORT.md, and graph.html |
+
+```bash
+prism graph
+```
+
+```bash
+prism graph serve
+```
+
+```bash
+prism graph export --out .prism/graph
+```
+
+```bash
+prism graph hooks install
 ```
 
 ### `prism completions <shell>`

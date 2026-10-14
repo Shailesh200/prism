@@ -44,6 +44,8 @@ export type IndexWorkspaceOptions = {
   readonly maxFileBytes?: number;
   /** Extra gitignore-style patterns on top of builtin / .gitignore (M-057 P-B6). */
   readonly extraIgnorePatterns?: readonly string[];
+  /** The current snapshot's files, so a dirty run skips reloading the cache. */
+  readonly priorFiles?: IndexSnapshot["files"];
 };
 
 export type IndexerPort = {

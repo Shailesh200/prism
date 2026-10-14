@@ -14,7 +14,6 @@
  *   presentation lift, so there is nothing to adapt yet.
  */
 
-import { DISPATCH_TOOLS } from "./dispatch-registry.js";
 import type { ToolDefinition } from "./tool-registry.js";
 import { GRAPH_TOOLS } from "./tools/graphs.js";
 import { IMPACT_TOOLS } from "./tools/impact.js";
@@ -22,31 +21,30 @@ import { ORIENTATION_TOOLS } from "./tools/orientation.js";
 import { REPORT_TOOLS } from "./tools/reports.js";
 import { prepareChange } from "./tools/prepare.js";
 import { workOrder } from "./tools/work-order.js";
+import { graph } from "./tools/graph.js";
 import { guardSession } from "./tools/guard.js";
 import { lensTool, reviewWith } from "./tools/lenses.js";
 import { agentsMd } from "./tools/agents-md.js";
 import { listFindings } from "./tools/findings.js";
 
-/**
- * The tools the instructions teach first (M-079 phase 8). A subset of the
- * default surface, not the whole of it.
- */
+/** The tools the instructions teach first. */
 export const HERO_TOOL_NAMES = [
-  "repository_overview",
   "prepare_change",
   "blast_radius",
-  "review_with",
   "guard_session",
 ] as const;
 
 /**
- * Registered by default: the hero tools plus every tool the shipped skills,
- * commands, prompts, and instructions call. A test fails when one of those
- * names a tool that is not here, so a workflow can never point at a tool the
- * agent cannot see. `PRISM_MCP_FULL=1` registers the rest (reports, graphs).
+ * Default `tools/list` (M-091, ADR-0064). The hero tools, plus the tools the
+ * shipped skills, commands and prompts call. A test fails when one of those
+ * names a tool that is not here. `PRISM_MCP_FULL=1` registers the rest.
  */
-/** Default `tools/list`. The rest of the pack stays behind `PRISM_MCP_FULL=1`. */
-export const DEFAULT_TOOL_NAMES = [...HERO_TOOL_NAMES] as const;
+export const DEFAULT_TOOL_NAMES = [
+  ...HERO_TOOL_NAMES,
+  "test_impact",
+  "repository_overview",
+  "graph",
+] as const;
 
 export function visibleIntelligenceTools(
   env: NodeJS.ProcessEnv = process.env,
@@ -58,6 +56,7 @@ export function visibleIntelligenceTools(
 
 export const TOOLS: readonly ToolDefinition<never>[] = [
   prepareChange,
+  graph,
   workOrder,
   guardSession,
   reviewWith,
@@ -70,8 +69,5 @@ export const TOOLS: readonly ToolDefinition<never>[] = [
   ...REPORT_TOOLS,
 ] as unknown as readonly ToolDefinition<never>[];
 
-/** Intelligence tool names plus Dispatch names — the host MCP pack. */
-export const TOOL_NAMES: readonly string[] = [
-  ...TOOLS.map((tool) => tool.name),
-  ...DISPATCH_TOOLS.map((tool) => tool.name),
-];
+/** Every tool `PRISM_MCP_FULL=1` registers. Prism has no Dispatch tools. */
+export const TOOL_NAMES: readonly string[] = TOOLS.map((tool) => tool.name);

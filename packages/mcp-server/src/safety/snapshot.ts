@@ -13,7 +13,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import type { PrismWorkspace } from "@repo-prism/core";
-import { readStandaloneWorkingSet } from "@repo-prism/dispatch";
+import { readLastPrepareChange } from "@repo-prism/core/envelope";
 import {
   isAcceptedWorkOrderVetoAdr,
   isFixturePath,
@@ -158,16 +158,16 @@ async function orientationText(
     ].filter(Boolean);
     lines.push(`Prism warns before you edit ${parts.join(" or ")}.`);
   }
-  const set = await readStandaloneWorkingSet(workspace.rootPath, env).catch(
-    () => null,
+  const last = await readLastPrepareChange(workspace.rootPath, env).catch(
+    () => undefined,
   );
-  if (set && (set.files.length > 0 || set.decisions.length > 0)) {
-    if (set.files.length > 0) {
-      lines.push(`Last working set: ${set.files.slice(-8).join(", ")}.`);
-    }
-    for (const decision of set.decisions.slice(-3)) {
-      lines.push(`Decision: ${decision}`);
-    }
+  if (last && last.packFiles.length > 0) {
+    lines.push(
+      `Last Prepare (${clip(last.task, 80)}): ${last.packFiles
+        .slice(0, 8)
+        .map((file) => file.path)
+        .join(", ")}.`,
+    );
   }
   lines.push(
     "When you stop, Prism runs the checks this change reaches and prints a receipt.",

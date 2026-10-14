@@ -4,7 +4,7 @@
 
 ## Project
 
-**Prism** — local-first Software Intelligence Engine (maps, graphs, impact, health) exposed via Core, MCP, CLI, and IDE extensions.
+**Prism** — local context and change checks for coding agents, exposed via Core, MCP, CLI, and IDE extensions.
 
 ## Before writing code
 
@@ -40,6 +40,7 @@ Read milestone doc → implement (no commits) → bun run verify:milestone → f
 | intelligence / impact / navigation / repository-map | domain engines |
 | dispatch | jobs, memories, local workers, host-connector discovery |
 | host-session | Core RPC shared by the IDE webview and the Console |
+| daemon | one local process that keeps each repo's index fresh and answers over loopback (ADR-0063) |
 | core | **public SDK** (analysis) |
 | mcp-server / cli / vscode-extension / cursor-extension / ui | surfaces |
 

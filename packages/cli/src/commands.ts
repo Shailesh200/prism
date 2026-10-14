@@ -8,6 +8,15 @@
 
 import { MAP_ZOOM_LEVELS } from "@repo-prism/shared";
 import { agentsMdCommand } from "./commands/agents-md.js";
+import { dataCommand } from "./commands/data-prune.js";
+import { envelopeCommand } from "./commands/envelope.js";
+import { graphCommand } from "./commands/graph.js";
+import { receiptsCommand } from "./commands/receipts.js";
+import {
+  forgetCommand,
+  memoriesCommand,
+  rememberCommand,
+} from "./commands/memory.js";
 import { findingsCommand } from "./commands/findings.js";
 import {
   blastCommand,
@@ -66,8 +75,27 @@ export const COMMANDS: readonly CommandSpec[] = [
         description:
           "Extra CI checks (e.g. warn on shallow clones that truncate history)",
       },
+      {
+        flags: "--surfaces",
+        description:
+          "Show which Prism each editor launches. Fails inside this repo if any of them is the published package.",
+      },
     ],
-    examples: ["prism doctor", "prism doctor --ci"],
+    examples: ["prism doctor", "prism doctor --ci", "prism doctor --surfaces"],
+  },
+  {
+    name: "data",
+    group: "Diagnostics",
+    summary: "Prune Prism's local library (dry run unless --yes)",
+    handler: dataCommand,
+    arguments: [
+      {
+        syntax: "prune",
+        description:
+          "List empty workspace folders, caches of deleted checkouts, and untracked worktrees",
+      },
+    ],
+    examples: ["prism data prune", "prism data prune --yes"],
   },
   {
     name: "index",
@@ -75,6 +103,36 @@ export const COMMANDS: readonly CommandSpec[] = [
     summary: "Build or refresh the repository index",
     handler: indexCommand,
     examples: ["prism index"],
+  },
+  {
+    name: "graph",
+    group: "Diagnostics",
+    summary: "The background daemon that keeps the graph fresh",
+    handler: graphCommand,
+    arguments: [
+      {
+        syntax: "[action]",
+        description:
+          "status (default), serve, stop, refresh, export, open, or hooks",
+      },
+      {
+        syntax: "[hooks-action]",
+        description: "hooks: install (default) or uninstall",
+      },
+    ],
+    options: [
+      {
+        flags: "--out <dir>",
+        description:
+          "export and open: where to write graph.json, GRAPH_REPORT.md, and graph.html",
+      },
+    ],
+    examples: [
+      "prism graph",
+      "prism graph serve",
+      "prism graph export --out .prism/graph",
+      "prism graph hooks install",
+    ],
   },
   {
     name: "completions",
@@ -190,7 +248,8 @@ export const COMMANDS: readonly CommandSpec[] = [
     options: [
       {
         flags: "--budget <n>",
-        description: "Map-token budget for the pack (default 4000)",
+        description:
+          "Token budget for the whole answer (default 2000, max 6000)",
       },
     ],
     examples: ['prism prepare --json "add caching to fetchUser"'],
@@ -411,6 +470,71 @@ export const COMMANDS: readonly CommandSpec[] = [
       },
     ],
     examples: ["prism findings list", "prism findings mute a3f8c5f0c392dbeb"],
+  },
+  {
+    name: "envelope",
+    group: "Assess a change",
+    summary:
+      "What Prism put into agents' context here, by tool, and what ran over budget",
+    handler: envelopeCommand,
+    options: [
+      { flags: "--days <n>", description: "Window to report (default 7)" },
+    ],
+    examples: ["prism envelope", "prism envelope --days 30 --json"],
+  },
+  {
+    name: "receipts",
+    group: "Assess a change",
+    summary: "List the change receipts the stop hook wrote, or show one",
+    handler: receiptsCommand,
+    arguments: [
+      { syntax: "[action]", description: "list (default) or show" },
+      { syntax: "[n]", description: "show: which receipt, 1 is the newest" },
+    ],
+    options: [
+      { flags: "--as <format>", description: "show: text, markdown, or svg" },
+      LIMIT_OPTION,
+    ],
+    examples: [
+      "prism receipts",
+      "prism receipts show 1 --as markdown > receipt.md",
+    ],
+  },
+  {
+    name: "remember",
+    group: "Memory",
+    summary: "Save a note about this repository for Prepare to hand back",
+    handler: rememberCommand,
+    arguments: [
+      { syntax: "<note...>", description: "The note, in plain language" },
+    ],
+    options: [
+      { flags: "--symbol <name>", description: "Anchor the note to a symbol" },
+      { flags: "--path <path>", description: "Anchor the note to a path" },
+    ],
+    examples: [
+      'prism remember "use lruCache, never a bare Map" --symbol lruCache',
+    ],
+  },
+  {
+    name: "forget",
+    group: "Memory",
+    summary: "Forget memories by id or by matching text",
+    handler: forgetCommand,
+    arguments: [
+      {
+        syntax: "<id-or-text...>",
+        description: "A memory id or part of its text",
+      },
+    ],
+    examples: ["prism forget 3f9a2c1b7e04", "prism forget lruCache"],
+  },
+  {
+    name: "memories",
+    group: "Memory",
+    summary: "List the notes saved for this repository",
+    handler: memoriesCommand,
+    examples: ["prism memories", "prism memories --json"],
   },
 ];
 

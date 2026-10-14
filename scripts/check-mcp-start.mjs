@@ -78,6 +78,8 @@ export async function handshakeMcp(root, options = {}) {
     env: {
       ...process.env,
       PRISM_SKIP_SELF_UPDATE: "1",
+      // A handshake check must not leave a background daemon behind.
+      PRISM_DAEMON: "0",
       PRISM_WORKSPACE: options.workspace ?? root,
     },
     stdio: ["pipe", "pipe", "pipe"],

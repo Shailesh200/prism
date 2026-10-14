@@ -13,6 +13,7 @@ import {
   type PrismError,
   type Result,
 } from "@repo-prism/shared";
+import { chooseLens } from "@repo-prism/shared";
 import {
   readLensStore,
   seedLenses,
@@ -145,7 +146,12 @@ export type LensBrief = {
 };
 
 const BRIEF_INSTRUCTION =
-  'You are this lens. Judge only your checklist. Every failed item must cite a path or a command from the evidence. Reply with JSON {"verdict":"pass|concern|fail","summary":"one line","reasoning":"...","failedChecks":[]}.';
+  'Judge only this lens. Every failed item must cite a path or a command from the evidence. Reply with JSON {"verdict":"pass|concern|fail","summary":"one line","reasoning":"...","failedChecks":[]}.';
+
+function instructionFor(lens: LensDefinition): string {
+  const procedure = lens.procedure?.trim() ?? "";
+  return procedure ? `${procedure}\n\n${BRIEF_INSTRUCTION}` : BRIEF_INSTRUCTION;
+}
 
 async function storeFor(
   workspace: PrismWorkspace,
@@ -163,7 +169,9 @@ export async function briefsFor(
 ): Promise<Result<LensBrief[], PrismError>> {
   const store = await storeFor(workspace, env);
   const enabled = store.lenses.filter((row) => row.enabled);
-  const wanted = new Set(ids ?? enabled.map((row) => row.id));
+  const picked =
+    ids === undefined ? chooseLens(task, enabled)?.id : undefined;
+  const wanted = new Set(ids ?? (picked ? [picked] : []));
   const briefs: LensBrief[] = [];
   for (const lens of enabled) {
     if (!wanted.has(lens.id)) continue;
@@ -171,7 +179,7 @@ export async function briefsFor(
       lens,
       facts: store.facts.filter((row) => row.lens === lens.id),
       evidence: await evidenceFor(workspace, lens.evidence, task),
-      instruction: BRIEF_INSTRUCTION,
+      instruction: instructionFor(lens),
     });
   }
   return ok(briefs);

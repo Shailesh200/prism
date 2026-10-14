@@ -152,10 +152,18 @@ runs:
     - name: Render sticky comment
       if: ${{ inputs.comment == 'true' && github.event_name == 'pull_request' }}
       shell: bash
+      working-directory: ${{ inputs.working-directory }}
       env:
         REVIEW_PATH: ${{ steps.review.outputs.review-path }}
+        PRISM_BIN: ${{ inputs.prism-command }}
       run: |
-        node "${{ github.action_path }}/render-comment.mjs" "${REVIEW_PATH}" > "${RUNNER_TEMP}/prism/comment.md"
+        RECEIPT="${RUNNER_TEMP}/prism/receipt.md"
+        if [ -n "${PRISM_BIN}" ]; then
+          ${PRISM_BIN} receipts show 1 --as markdown > "${RECEIPT}" || true
+        else
+          prism receipts show 1 --as markdown > "${RECEIPT}" || true
+        fi
+        node "${{ github.action_path }}/render-comment.mjs" "${REVIEW_PATH}" "${RECEIPT}" > "${RUNNER_TEMP}/prism/comment.md"
 
     - name: Post sticky PR comment
       if: ${{ inputs.comment == 'true' && github.event_name == 'pull_request' }}

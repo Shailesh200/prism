@@ -21,16 +21,17 @@ import {
   type HouseStylePatternId,
   type PrepareNote,
   type SignalProvenance,
-  DEFAULT_PREPARE_BUDGET,
+  clampPrepareBudget,
+  fitPrepareToBudget,
 } from "@repo-prism/shared";
 import { buildWorkOrder } from "./work-order.js";
-import { buildDependencyGraph } from "../dependency/build.js";
-import { buildFeatureGraph } from "../feature/build.js";
 import {
-  buildKnowledgeGraph,
-  type KnowledgeGraphResult,
-} from "../semantic/build.js";
-import { collectRationale } from "../semantic/rationale.js";
+  cachedDependencyGraph,
+  cachedFeatureGraph,
+  cachedKnowledgeGraph,
+  cachedRationale,
+} from "./graph-cache.js";
+import type { KnowledgeGraphResult } from "../semantic/build.js";
 
 export type PrepareMemory = {
   readonly text: string;
@@ -190,14 +191,31 @@ function fileStemKey(path: string): string {
   return base.replace(/[^A-Za-z0-9]+/g, "").toLowerCase();
 }
 
+/** Pure functions of a path, asked once per file on every Prepare call. */
+const pathTokenCache = new Map<string, string[]>();
+const offLimitCache = new Map<string, ReturnType<typeof offLimitReason>>();
+
+function remember<V>(cache: Map<string, V>, key: string, value: V): V {
+  if (cache.size > 200_000) cache.clear();
+  cache.set(key, value);
+  return value;
+}
+
 function pathTokens(path: string): string[] {
+  const hit = pathTokenCache.get(path);
+  if (hit) return hit;
   const segs = path.replace(/\\/g, "/").split("/").filter(Boolean);
   const out = new Set<string>();
   for (const seg of segs) {
     const noExt = seg.replace(/\.[A-Za-z][A-Za-z0-9.]*$/, "");
     for (const piece of tokenizeTask(noExt)) out.add(piece);
   }
-  return [...out];
+  return remember(pathTokenCache, path, [...out]);
+}
+
+function offLimit(path: string): ReturnType<typeof offLimitReason> {
+  if (offLimitCache.has(path)) return offLimitCache.get(path);
+  return remember(offLimitCache, path, offLimitReason(path));
 }
 
 function isSupportAsset(path: string): boolean {
@@ -213,16 +231,69 @@ function taskImpliesSupport(tokens: readonly string[]): boolean {
   );
 }
 
+/*
+ * Prepare scores every file in the snapshot. The lookups below were linear
+ * scans per file, which made one call quadratic: 11s at 10k files (M-095).
+ * Each is built once per snapshot (or feature list) and dropped with it.
+ */
+
+const featuresByFileCache = new WeakMap<
+  readonly FeatureInfo[],
+  Map<string, FeatureInfo[]>
+>();
+
+function featuresByFile(
+  features: readonly FeatureInfo[],
+): Map<string, FeatureInfo[]> {
+  const hit = featuresByFileCache.get(features);
+  if (hit) return hit;
+  const map = new Map<string, FeatureInfo[]>();
+  for (const feature of features) {
+    for (const path of feature.memberFiles) {
+      const list = map.get(path) ?? [];
+      list.push(feature);
+      map.set(path, list);
+    }
+  }
+  featuresByFileCache.set(features, map);
+  return map;
+}
+
+/** How many analyzed files declare each symbol name. */
+const declarerCountCache = new WeakMap<IndexSnapshot, Map<string, number>>();
+
+function declarerCounts(snapshot: IndexSnapshot): Map<string, number> {
+  const hit = declarerCountCache.get(snapshot);
+  if (hit) return hit;
+  const counts = new Map<string, number>();
+  for (const file of snapshot.files) {
+    if (file.status !== "analyzed") continue;
+    for (const name of new Set(file.symbols.map((s) => s.name))) {
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+    }
+  }
+  declarerCountCache.set(snapshot, counts);
+  return counts;
+}
+
+/** Identifier names repeat across files; tokenize each distinct one once. */
+const nameTokenCache = new Map<string, string[]>();
+
+function nameTokens(name: string): string[] {
+  return (
+    nameTokenCache.get(name) ??
+    remember(nameTokenCache, name, tokenizeTask(name))
+  );
+}
+
 function featureMembership(
   file: string,
   features: readonly FeatureInfo[],
   tokens: readonly string[],
 ): { hit: boolean; name?: string; provenance: SignalProvenance } {
   let best: FeatureInfo | undefined;
-  for (const feature of features) {
-    if (!feature.memberFiles.includes(file)) continue;
-    const nameTokens = tokenizeTask(feature.name);
-    const overlap = tokensOverlap(nameTokens, tokens);
+  for (const feature of featuresByFile(features).get(file) ?? []) {
+    const overlap = tokensOverlap(nameTokens(feature.name), tokens);
     if (!overlap && !tokens.some((t) => feature.slug.includes(t))) continue;
     if (!best || feature.confidence > best.confidence) best = feature;
   }
@@ -239,7 +310,7 @@ function featureMembership(
 }
 
 function importNeighbors(snapshot: IndexSnapshot): Map<string, Set<string>> {
-  const graph = buildDependencyGraph(snapshot).graph;
+  const graph = cachedDependencyGraph(snapshot).graph;
   const adj = new Map<string, Set<string>>();
   const add = (a: string, b: string) => {
     const set = adj.get(a) ?? new Set<string>();
@@ -258,37 +329,50 @@ function importNeighbors(snapshot: IndexSnapshot): Map<string, Set<string>> {
   return adj;
 }
 
-function depDistance(
-  file: string,
+/** Import distance from the nearest seed, up to six hops. One BFS per call. */
+function seedDistances(
   seeds: readonly string[],
   adj: Map<string, Set<string>>,
-): number | null {
-  if (seeds.length === 0) return null;
-  if (seeds.includes(file)) return 0;
-  const seen = new Set<string>(seeds);
+): Map<string, number> {
+  const dist = new Map<string, number>(seeds.map((s) => [s, 0]));
   let frontier = [...seeds];
-  let dist = 0;
-  while (frontier.length > 0 && dist < 6) {
-    dist += 1;
+  for (let d = 1; frontier.length > 0 && d <= 6; d += 1) {
     const next: string[] = [];
     for (const node of frontier) {
       for (const n of adj.get(node) ?? []) {
-        if (seen.has(n)) continue;
-        if (n === file) return dist;
-        seen.add(n);
+        if (dist.has(n)) continue;
+        dist.set(n, d);
         next.push(n);
       }
     }
     frontier = next;
   }
-  return seen.has(file) ? dist : null;
+  return dist;
+}
+
+const gitByPathCache = new WeakMap<
+  readonly GitFileSignal[],
+  Map<string, GitFileSignal>
+>();
+
+function gitRow(
+  file: string,
+  gitFiles: readonly GitFileSignal[] | undefined,
+): GitFileSignal | undefined {
+  if (!gitFiles) return undefined;
+  let byPath = gitByPathCache.get(gitFiles);
+  if (!byPath) {
+    byPath = new Map(gitFiles.map((g) => [g.path, g]));
+    gitByPathCache.set(gitFiles, byPath);
+  }
+  return byPath.get(file);
 }
 
 function ownershipHot(
   file: string,
   gitFiles: readonly GitFileSignal[] | undefined,
 ): number {
-  const row = gitFiles?.find((g) => g.path === file);
+  const row = gitRow(file, gitFiles);
   if (!row || row.commits <= 0) return 0;
   const top = row.contributors.reduce((m, c) => Math.max(m, c.commits), 0);
   return Math.min(1, top / row.commits);
@@ -299,7 +383,7 @@ function recentChurn(
   gitFiles: readonly GitFileSignal[] | undefined,
   now: Date,
 ): number {
-  const row = gitFiles?.find((g) => g.path === file);
+  const row = gitRow(file, gitFiles);
   if (!row) return 0;
   if (typeof row.recency === "number" && row.recency > 0) return row.recency;
   const cutoff = now.getTime() - FOURTEEN_DAYS_MS;
@@ -368,7 +452,7 @@ function stemsCover(impl: string, test: string): boolean {
 }
 
 function testsFor(snapshot: IndexSnapshot, paths: readonly string[]): string[] {
-  const kg = buildKnowledgeGraph(snapshot);
+  const kg = cachedKnowledgeGraph(snapshot);
   const out = new Set<string>();
   for (const path of paths) {
     if (isTestPath(path)) out.add(path);
@@ -470,19 +554,28 @@ function resolveSeeds(
   tokens: readonly string[],
 ): {
   seeds: string[];
+  /** Seeds the task named outright: a pasted path or a declared identifier. */
+  strong: Set<string>;
   ambiguous: PrepareAmbiguous | null;
 } {
-  const kg = buildKnowledgeGraph(snapshot);
+  const kg = cachedKnowledgeGraph(snapshot);
   let ambiguous: PrepareAmbiguous | null = null;
   const seeds = new Set<string>();
+  const strong = new Set<string>();
 
   for (const pasted of pastedPaths(task)) {
     const hit = resolvePastedPath(snapshot, pasted);
-    if (hit) seeds.add(hit);
+    if (hit) {
+      seeds.add(hit);
+      strong.add(hit);
+    }
   }
 
   for (const name of identifiers(task)) {
-    const hits = kg.symbols.filter((s) => s.name === name);
+    const named = kg.symbols.filter((s) => s.name === name);
+    // `export { x } from` re-exports carry kind "export"; the declaration is the target.
+    const declared = named.filter((s) => s.kind !== "export");
+    const hits = declared.length > 0 ? declared : named;
     const files = [...new Set(hits.map((h) => h.path))];
     if (files.length > 1) {
       ambiguous = {
@@ -495,7 +588,10 @@ function resolveSeeds(
       };
       continue;
     }
-    if (files[0]) seeds.add(files[0]);
+    if (files[0]) {
+      seeds.add(files[0]);
+      strong.add(files[0]);
+    }
   }
 
   const blocked = new Set(ambiguous?.candidates.map((c) => c.path) ?? []);
@@ -529,7 +625,7 @@ function resolveSeeds(
     if (strongPath.length === 1 && strongPath[0]) seeds.add(strongPath[0]);
   }
 
-  return { seeds: [...seeds], ambiguous };
+  return { seeds: [...seeds], strong, ambiguous };
 }
 
 function fileHousesTaskToken(
@@ -537,7 +633,7 @@ function fileHousesTaskToken(
   tokens: readonly string[],
 ): boolean {
   if (pathTokens(file.path).some((t) => tokens.includes(t))) return true;
-  return file.symbols.some((s) => tokensOverlap(tokenizeTask(s.name), tokens));
+  return file.symbols.some((s) => tokensOverlap(nameTokens(s.name), tokens));
 }
 
 function isolatedHomonym(
@@ -548,15 +644,11 @@ function isolatedHomonym(
   dist: number | null,
 ): boolean {
   if (seeds.includes(file.path) || dist !== null) return false;
+  const counts = declarerCounts(snapshot);
+  const self = file.status === "analyzed" ? 1 : 0;
   for (const symbol of file.symbols) {
-    if (!tokensOverlap(tokenizeTask(symbol.name), tokens)) continue;
-    const others = snapshot.files.some(
-      (f) =>
-        f.path !== file.path &&
-        f.status === "analyzed" &&
-        f.symbols.some((s) => s.name === symbol.name),
-    );
-    if (others) return true;
+    if (!tokensOverlap(nameTokens(symbol.name), tokens)) continue;
+    if ((counts.get(symbol.name) ?? 0) - self > 0) return true;
   }
   return false;
 }
@@ -573,7 +665,7 @@ export function scoreReuse(
    */
   knowledgeGraph?: KnowledgeGraphResult,
 ): ReuseHit[] {
-  const kg = knowledgeGraph ?? buildKnowledgeGraph(snapshot);
+  const kg = knowledgeGraph ?? cachedKnowledgeGraph(snapshot);
   const seedFeatureIds = new Set(
     features
       .filter((f) => seedFiles.some((p) => f.memberFiles.includes(p)))
@@ -587,14 +679,15 @@ export function scoreReuse(
     }
   }
   const out: ReuseHit[] = [];
+  const byFile = featuresByFile(features);
+  const seedSet = new Set(seedFiles);
   for (const symbol of kg.symbols) {
     if (!symbol.exported) continue;
-    if (seedFiles.includes(symbol.path)) continue;
-    if (offLimitReason(symbol.path)) continue;
-    const nameTokens = tokenizeTask(symbol.name);
+    if (seedSet.has(symbol.path)) continue;
+    if (offLimit(symbol.path)) continue;
     let score = 0;
     const reasons: string[] = [];
-    const nameHit = tokensOverlap(nameTokens, taskTokens);
+    const nameHit = tokensOverlap(nameTokens(symbol.name), taskTokens);
     if (nameHit) {
       score += 0.55;
       reasons.push(`name overlaps task (${symbol.name})`);
@@ -603,11 +696,10 @@ export function scoreReuse(
       score += 0.15;
       reasons.push(`kind ${symbol.kind}`);
     }
-    const shared = features.filter(
+    const shared = (byFile.get(symbol.path) ?? []).filter(
       (f) =>
-        f.memberFiles.includes(symbol.path) &&
-        (seedFeatureIds.has(f.id) ||
-          tokensOverlap(tokenizeTask(f.name), taskTokens)),
+        seedFeatureIds.has(f.id) ||
+        tokensOverlap(nameTokens(f.name), taskTokens),
     );
     if (shared.length > 0) {
       score += 0.25;
@@ -642,7 +734,7 @@ function looksLikeExpress(
 }
 
 function inboundCount(snapshot: IndexSnapshot, path: string): number {
-  const graph = buildDependencyGraph(snapshot).graph;
+  const graph = cachedDependencyGraph(snapshot).graph;
   return graph.edges.filter(
     (e) => e.to === `file:${path}` && e.from.startsWith("file:"),
   ).length;
@@ -814,6 +906,29 @@ function rankPatternFiles(
   return exemplars.slice(0, 3);
 }
 
+const houseStyleCache = new WeakMap<
+  IndexSnapshot,
+  {
+    key: string;
+    git: readonly GitFileSignal[] | undefined;
+    value: ReturnType<typeof houseStyle>;
+  }
+>();
+
+/** House style does not depend on the task, only on the index and git. */
+function cachedHouseStyle(
+  snapshot: IndexSnapshot,
+  frameworks: readonly string[] | undefined,
+  gitFiles: readonly GitFileSignal[] | undefined,
+): ReturnType<typeof houseStyle> {
+  const key = (frameworks ?? []).join("\0");
+  const hit = houseStyleCache.get(snapshot);
+  if (hit && hit.key === key && hit.git === gitFiles) return hit.value;
+  const value = houseStyle(snapshot, frameworks, gitFiles);
+  houseStyleCache.set(snapshot, { key, git: gitFiles, value });
+  return value;
+}
+
 function houseStyle(
   snapshot: IndexSnapshot,
   frameworks: readonly string[] | undefined,
@@ -897,7 +1012,7 @@ function notesForPack(
       ...(memory.symbol ? { symbol: memory.symbol } : {}),
     });
   }
-  for (const hit of collectRationale(snapshot).hits) {
+  for (const hit of cachedRationale(snapshot).hits) {
     if (!packPaths.has(hit.toPath)) continue;
     push({
       path: hit.toPath,
@@ -919,12 +1034,13 @@ export function buildPrepareChange(
 ): PrepareChange {
   const snapshot = input.snapshot;
   const task = input.task.trim() || "change";
-  const budget = input.budget ?? DEFAULT_PREPARE_BUDGET;
+  const budget = clampPrepareBudget(input.budget);
   const now = input.now ?? new Date();
   const tokens = tokenizeTask(task);
-  const features = buildFeatureGraph(snapshot).features;
-  const { seeds, ambiguous } = resolveSeeds(snapshot, task, tokens);
+  const features = cachedFeatureGraph(snapshot).features;
+  const { seeds, strong, ambiguous } = resolveSeeds(snapshot, task, tokens);
   const adj = importNeighbors(snapshot);
+  const distances = seedDistances(seeds, adj);
   const git = input.gitFiles;
   const wantSupport = taskImpliesSupport(tokens);
 
@@ -946,14 +1062,19 @@ export function buildPrepareChange(
       score += 0.35;
       why.push(`feature ${feature.name}`);
     }
-    const dist = depDistance(file.path, seeds, adj);
+    const dist = distances.get(file.path) ?? null;
     if (dist !== null) {
       score += 0.25 * (1 - Math.min(dist, 6) / 6);
       why.push(dist === 0 ? "seed file" : `import distance ${dist}`);
     }
+    if (strong.has(file.path)) {
+      // The task named this file or a symbol it declares: it outranks any word match.
+      score += 0.6;
+      why.push("named in task");
+    }
     const pathHit = pathTokens(file.path).some((t) => tokens.includes(t));
     const symbolHit = file.symbols.some((s) =>
-      tokensOverlap(tokenizeTask(s.name), tokens),
+      tokensOverlap(nameTokens(s.name), tokens),
     );
     if (pathHit || symbolHit) {
       const homonym = isolatedHomonym(file, snapshot, tokens, seeds, dist);
@@ -1060,7 +1181,7 @@ export function buildPrepareChange(
   tokenEstimate += testsWeight;
   const truncated = packed.length < ranked.length;
   const reuse = scoreReuse(snapshot, tokens, seeds, features);
-  const style = houseStyle(snapshot, input.frameworks, git);
+  const style = cachedHouseStyle(snapshot, input.frameworks, git);
   const notes = notesForPack(snapshot, packed, input.memories);
   const order = buildWorkOrder({
     snapshot,
@@ -1068,24 +1189,27 @@ export function buildPrepareChange(
     ...(git && git.length > 0 ? { gitFiles: git } : {}),
   });
 
-  return {
-    pack: {
-      task,
-      files: packed,
-      tokenEstimate,
-      tests: testsInBudget,
-      truncated,
-      totalCount: ranked.length,
+  return fitPrepareToBudget(
+    {
+      pack: {
+        task,
+        files: packed,
+        tokenEstimate,
+        tests: testsInBudget,
+        truncated,
+        totalCount: ranked.length,
+      },
+      reuse,
+      conventions: style.exemplars.length > 0 ? style.exemplars : [],
+      notes,
+      order,
+      workingSet: null,
+      generatedAt: now.toISOString(),
+      indexIndexedAt: snapshot.indexedAt,
+      reuseProvenance: reuse.length > 0 ? "heuristic" : "unavailable",
+      conventionsProvenance: style.provenance,
+      ambiguous,
     },
-    reuse,
-    conventions: style.exemplars.length > 0 ? style.exemplars : [],
-    notes,
-    order,
-    workingSet: null,
-    generatedAt: now.toISOString(),
-    indexIndexedAt: snapshot.indexedAt,
-    reuseProvenance: reuse.length > 0 ? "heuristic" : "unavailable",
-    conventionsProvenance: style.provenance,
-    ambiguous,
-  };
+    budget,
+  );
 }

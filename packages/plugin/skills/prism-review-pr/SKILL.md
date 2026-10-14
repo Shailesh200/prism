@@ -28,9 +28,8 @@ flagged files and on any exported symbol the diff changed. This is the step that
 distinguishes this review from reading the diff: a two-line change to a widely
 imported module is a bigger event than a hundred lines in a leaf.
 
-**5. Ask the lenses.** `review_with` for architect, qa, and dev. Run each brief
-as its own subagent, then record the verdicts. You do the thinking; Prism
-supplies the evidence.
+**5. Check the tests.** Call `test_impact` on the risky paths. A risky path no
+test reaches is a finding in its own right.
 
 **6. Write the review.** Lead with the risk, not with a file-by-file walk.
 Every claim about impact should cite what produced it, so the author can check

@@ -1,0 +1,19 @@
+---
+title: Graph
+description: The local graph of your repository, and the file you can open and share.
+---
+
+> Open the graph of this repo. Do not grep for structure.
+
+Prism keeps a graph of packages, files, symbols, tests, and the imports between them. It is built on your machine. Nothing is uploaded.
+
+Ask the `graph` tool when you want to know where something is, what uses it, or how one file reaches another. Every edge says whether it was measured, guessed from a heuristic, or inferred. Open the file before you rely on an inferred edge.
+
+```bash
+prism graph export
+prism graph open
+```
+
+`export` writes three files: `graph.json`, `GRAPH_REPORT.md`, and `graph.html`. `open` writes the same files and opens `graph.html`. The HTML file has no network requests. You can send it to someone else and they can open it without Prism installed.
+
+`GRAPH_REPORT.md` lists only what was measured: the most connected files, import cycles, heavily imported files no test reaches, and orphans.

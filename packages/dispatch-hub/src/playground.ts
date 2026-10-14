@@ -62,7 +62,7 @@ export function playgroundViteEnabled(env: HubEnv = process.env): boolean {
   return true;
 }
 
-const DEFAULT_NODE_VERSION = "26.5.0";
+const DEFAULT_NODE_VERSION = "24.18.1";
 
 function readNvmrcVersion(dir: string | undefined): string | undefined {
   if (!dir) return undefined;

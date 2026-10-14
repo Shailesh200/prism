@@ -19,6 +19,11 @@ async function main(): Promise<void> {
     await runMcpHook(process.argv);
     return;
   }
+  if (process.argv.includes("--daemon")) {
+    const { runDaemon } = await import("./daemon.js");
+    await runDaemon();
+    return;
+  }
   const currentVersion = readPackageVersion();
   const update = await maybeReexecLatest({
     currentVersion,

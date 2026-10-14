@@ -7,7 +7,8 @@
  * workflow by name without typing tool identifiers.
  *
  * Job-runner prompts (start_my_day, start_work, where_are_we, init, sleep,
- * wake, configure, connect) went with Jobs (ADR-0058).
+ * wake, configure, connect) went with Jobs (ADR-0058). `review_lenses` went
+ * behind `PRISM_MCP_FULL` with `review_with` (M-091).
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -110,46 +111,6 @@ export function registerPrompts(server: McpServer): void {
                 "Judge the change against this repo's real conventions. Call blast_radius on anything the roll-up flags as risky.",
                 "Summarise risk, what could break, and which tests to run.",
                 "Separate what Prism reported from your own reading of the code, and do not invent dependents — use the tool results.",
-              ].join(" "),
-            },
-          },
-        ],
-      };
-    },
-  );
-
-  server.registerPrompt(
-    "review_lenses",
-    {
-      title: "Review with lenses",
-      description:
-        "Have the Architect, QA, and Dev lenses each review the current change.",
-      argsSchema: {
-        lenses: z
-          .string()
-          .optional()
-          .describe("Comma-separated ids, e.g. architect,qa. Omit for all."),
-      },
-    },
-    async (args) => {
-      const ids = (typeof args.lenses === "string" ? args.lenses : "")
-        .split(",")
-        .map((id) => id.trim())
-        .filter(Boolean);
-      const lensArg =
-        ids.length > 0 ? ` with lenses ${JSON.stringify(ids)}` : "";
-      return {
-        messages: [
-          {
-            role: "user" as const,
-            content: {
-              type: "text" as const,
-              text: [
-                `Review my current change with Prism's lenses. Call review_with${lensArg}.`,
-                "Run each brief it returns as its own subagent if you can, with only that brief as its context. If you cannot run subagents, run them one after another and set sequential: true.",
-                "Each subagent judges only that checklist and must cite a path or command from its evidence for every failed item.",
-                "Then call review_with with action record and the verdicts, so they are saved.",
-                "Tell me each verdict in one line, then the failed items.",
               ].join(" "),
             },
           },

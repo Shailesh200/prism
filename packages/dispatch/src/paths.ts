@@ -2,11 +2,13 @@ import {
   ensureWorkspacePrism,
   legacyGlobalJobsDir,
   legacyRepoPrismDir,
+  migrateLegacyMemoryFile,
   prismHomeDir,
   removeLeftoverRepoPrism,
   useLocalPrismStore,
   workspaceDispatchDir,
   workspaceKey,
+  workspaceMemoryPath,
   workspacePrismDir,
 } from "@repo-prism/shared/prism-home";
 import { join } from "node:path";
@@ -72,7 +74,8 @@ export function memoryPath(
   workspaceRoot: string,
   env: NodeJS.ProcessEnv = process.env,
 ): string {
-  return join(dispatchDir(workspaceRoot, env), "memory.json");
+  migrateLegacyMemoryFile(workspaceRoot, env);
+  return workspaceMemoryPath(workspaceRoot, env);
 }
 
 export function worktreesDir(

@@ -26,6 +26,9 @@ docs/.vitepress/cache/
 # Soft-impact fixture: a dummy .env the parser must see in CI.
 !packages/intelligence/fixtures/**/.env
 
+# Local OpenCode config. The global one points at this checkout.
+opencode.json
+
 # OS / editor
 .DS_Store
 Thumbs.db

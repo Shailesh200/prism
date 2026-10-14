@@ -121,8 +121,8 @@ async function cliCommandsPage() {
 }
 
 async function loadMcpTools() {
-  const { TOOLS, DISPATCH_TOOLS } = await loadBuilt("mcp-server");
-  return [...TOOLS, ...DISPATCH_TOOLS];
+  const { TOOLS } = await loadBuilt("mcp-server");
+  return [...TOOLS];
 }
 
 async function mcpToolsPage() {

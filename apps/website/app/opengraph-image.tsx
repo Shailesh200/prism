@@ -1,8 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "nodejs";
-export const alt =
-  "Prism — local-first software intelligence for your repository";
+export const alt = "Prism — faster agent sessions, fewer broken builds";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -25,7 +24,7 @@ export default function Image() {
           Prism
         </div>
         <div style={{ fontSize: 32, marginTop: 24, maxWidth: 800 }}>
-          Local-first software intelligence for your repository
+          Faster agent sessions. Fewer broken builds.
         </div>
       </div>
     ),

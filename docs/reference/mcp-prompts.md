@@ -12,10 +12,11 @@ Desktop, some Cursor builds).
 | `orient` | `repository_overview` — what this repo is and where to start |
 | `before_edit` | `prepare_change` and `blast_radius` for a path you are about to change |
 | `review_diff` | `guard_session` and `blast_radius` for the working tree or a base ref |
-| `review_lenses` | `review_with` for Architect, QA, and Dev |
+
+Every prompt calls only default tools, so none needs `PRISM_MCP_FULL=1`.
 
 You do not need prompts if you already ask in plain language — see
-[Usage](/docs/usage) and [Dispatch](/docs/guides/dispatch).
+[Usage](/docs/usage).
 
 ## Related
 

@@ -1,0 +1,74 @@
+/**
+ * The Prepare block the prompt-submit hook injects (ADR-0065). Plain text,
+ * because it lands in the model's context and JSON keys are tokens too.
+ */
+
+import type { PrepareChange } from "./schemas.js";
+
+const clip = (text: string, max: number): string =>
+  text.length > max ? `${text.slice(0, max - 1)}…` : text;
+
+export function renderPrepareContext(prep: PrepareChange): string {
+  const lines = [`Prism · prepare (auto) for "${clip(prep.pack.task, 120)}"`];
+  if (prep.ambiguous) {
+    lines.push(
+      `"${prep.ambiguous.query}" matches more than one symbol: ${prep.ambiguous.candidates
+        .slice(0, 4)
+        .map((c) => `${c.symbol} in ${c.path}`)
+        .join("; ")}. Ask which one before editing.`,
+    );
+  }
+  if (prep.pack.files.length > 0) {
+    lines.push("Open first:");
+    for (const file of prep.pack.files.slice(0, 8)) {
+      lines.push(
+        `- ${file.path}${file.why.length ? ` — ${file.why.slice(0, 2).join(", ")}` : ""}`,
+      );
+    }
+  }
+  if (prep.pack.tests.length > 0) {
+    lines.push(`Tests: ${prep.pack.tests.slice(0, 5).join(", ")}`);
+  }
+  if (prep.reuse.length > 0) {
+    lines.push(
+      `Reuse before writing new code: ${prep.reuse
+        .slice(0, 4)
+        .map((r) => `${r.symbol} (${r.path})`)
+        .join("; ")}`,
+    );
+  }
+  if (prep.order.offLimits.length > 0) {
+    lines.push(
+      `Off-limits (generated or vendor): ${prep.order.offLimits
+        .slice(0, 4)
+        .map((o) => o.path)
+        .join(", ")}`,
+    );
+  }
+  if (prep.order.needsSignOff.length > 0) {
+    lines.push(
+      `Ask before editing (high blast): ${prep.order.needsSignOff.slice(0, 4).join(", ")}`,
+    );
+  }
+  for (const note of (prep.notes ?? []).slice(0, 3)) {
+    lines.push(`Note (${note.path}): ${clip(note.text, 160)}`);
+  }
+  lines.push(
+    "Paths and names only, no file bodies. Before editing a file not listed here, call blast_radius on it.",
+  );
+  return lines.join("\n");
+}
+
+/** True when the pack is anchored on something the task named. */
+export function prepareIsAnchored(prep: PrepareChange): boolean {
+  return prep.pack.files.some((file) =>
+    file.why.some((why) =>
+      [
+        "named in task",
+        "seed file",
+        "path matches task",
+        "name matches task",
+      ].includes(why),
+    ),
+  );
+}

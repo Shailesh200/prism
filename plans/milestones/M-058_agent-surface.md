@@ -54,6 +54,6 @@ at most five bounded calls without drowning in pretty-printed JSON.
 ## 5. References
 
 - Prism Completion Program (owner plan, 2026-08-08) — Phase 3
-- [M-026 MCP Server Foundation](./M-026_mcp-server.md) · [M-027 MCP Tools Pack](./M-027_mcp-tools-pack.md)
+- [M-026 MCP Server Foundation](../archive/milestones/M-026_mcp-server.md) · [M-027 MCP Tools Pack](../archive/milestones/M-027_mcp-tools-pack.md)
 - [ADR-0030](../adr/0030-mcp-transport-and-lifecycle.md) MCP transport and lifecycle
 - [ADR-0024](../adr/0024-opt-in-network-integrations.md) consent

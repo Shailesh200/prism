@@ -147,7 +147,7 @@ Reload the window first. If it persists, check the Output panel → Prism for th
 error, and confirm the folder is open as a workspace — Prism needs a folder, not
 a single file.
 
-## Dispatch: start_job says it cannot see a git repository
+## An MCP tool answers about the wrong repository
 
 The MCP server resolved the wrong workspace — usually it started before the git
 project was the open folder. Reload the prism server (Settings → MCP → toggle
@@ -155,56 +155,30 @@ prism off/on) with the project open, then retry. The agent passes the workspace
 path itself; never paste one into `mcp.json`. If it still resolves wrong, set
 `PRISM_WORKSPACE` once — see [install](/docs/start/install).
 
-## Dispatch: the worker is not signed in
+## An "Authenticating prism…" card with a Skip button
 
-Say **prism init**. In Cursor a Cursor login page opens in your browser; in
-Claude Code, init checks the `claude` CLI — if told to, run `claude` once in a
-terminal and sign in. Do not paste API keys into `mcp.json`; sign-in lives in
-the host's own store. `dispatch_doctor` reports the same state as a check.
+That is the host approving Prism's MCP tools. Prism has no sign-in of its own.
+Click **Skip**, then retry what you asked for. It appears once per session.
 
-## Dispatch: an "Authenticating prism…" card with a Skip button
+## The agent asks for a tool that is not listed
 
-That is the host approving Prism's MCP tools, not worker sign-in. Click
-**Skip**, then retry what you asked for. It appears once per session.
+The server registers seven tools by default. The others (reports, graphs,
+findings, `safe_delete`, and more) appear only when the server runs with
+`PRISM_MCP_FULL=1` in its `env`. See [Usage](/docs/usage) and the
+[MCP reference](/docs/reference/mcp-tools).
 
-## Dispatch: start_job asks you to confirm a dirty tree
+## A tool from an older Prism is gone
 
-A checkout job edits your working tree, so uncommitted changes you already had
-would mix with the job's edits. The job pauses for confirmation instead of
-guessing — say it is fine and the agent re-runs with that confirmation, or
-commit/stash your work first. Ask for "a separate branch" and the job takes a
-worktree instead, leaving your tree untouched.
+Earlier versions shipped job tools (Dispatch: start my day, jobs, sleep, wake,
+remember, and others). Dispatch was removed by ADR-0064. Memories moved to the
+CLI: `prism remember`, `prism forget`, and `prism memories`. To fix a finding,
+ask your agent in chat. `prism data prune` lists empty workspace folders,
+caches of deleted checkouts, and untracked worktrees. `prism data prune --yes`
+removes them.
 
-## Dispatch: a job has gone quiet
+## The editors launch different Prism builds
 
-A job with no activity for several minutes is stalled, not thinking. Ask
-**where are we** or open `job_logs` for the last thing it actually did, then
-resume or cancel it (`job_control`). Do not wait on a stalled job.
-
-## Dispatch: a job was refused before it started
-
-Admission is gated on free memory (and a max-jobs cap), so a heavy machine
-postpones new teammates rather than thrashing. Close what you can and retry,
-or let a running job finish first.
-
-## Dispatch: the job finished but "produced no reviewable change"
-
-The worker stopped without landing an edit — the review lists only files the
-job actually touched, and there were none. Re-brief with a sharper PRD (what
-to change, where, and how you will tell it worked) and run it again.
-
-## Dispatch: the jobs board (Console) does not open
-
-Any Prism tool starts the local hub; open
-`http://prismhq.localhost:17330/`. If it stays unreachable, check the hub was
-not opted out with `PRISM_HUB=0`, and that nothing else holds port 17330.
-
-## Dispatch: the Console says the link is unauthorized
-
-Console URLs carry a per-session token in the query string. Open the full
-"Watch live at …" URL exactly as `start_job` or `list_jobs` returned it —
-stripping the query string is what produces this. A restarted hub mints a new
-token; ask **where are we** for a fresh link.
+`prism doctor --surfaces` shows which Prism each editor launches.
 
 ## Still stuck
 

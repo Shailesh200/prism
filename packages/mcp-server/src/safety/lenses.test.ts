@@ -2,7 +2,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Prism, type PrismWorkspace } from "@repo-prism/core";
-import { loadLenses } from "@repo-prism/shared/lens-store";
+import {
+  addCustomLens,
+  loadLenses,
+  readLensStore,
+  recordLensReviews,
+} from "@repo-prism/shared/lens-store";
 import { createFixture, type Fixture } from "@repo-prism/test-support";
 import { afterEach, describe, expect, it } from "vitest";
 import { briefsFor } from "./lenses.js";
@@ -62,9 +67,36 @@ async function indexedRepo(): Promise<{
 }
 
 describe("lens briefs", () => {
+  it("picks one lens from the task when none is named", async () => {
+    const { workspace, env } = await indexedRepo();
+    const plan = await briefsFor(workspace, undefined, "review this PR", env);
+    const bugs = await briefsFor(
+      workspace,
+      undefined,
+      "find bugs in money",
+      env,
+    );
+    const fix = await briefsFor(
+      workspace,
+      undefined,
+      "fix the null check in money",
+      env,
+    );
+    expect(plan.ok && plan.value.map((b) => b.lens.id)).toEqual(["architect"]);
+    expect(bugs.ok && bugs.value.map((b) => b.lens.id)).toEqual(["qa"]);
+    expect(fix.ok && fix.value.map((b) => b.lens.id)).toEqual(["dev"]);
+    if (!plan.ok) return;
+    expect(plan.value[0]!.instruction).toMatch(/Architect lens/);
+  });
+
   it("gives each lens only its own facts", async () => {
     const { workspace, env } = await indexedRepo();
-    const briefs = await briefsFor(workspace, undefined, "add a cache", env);
+    const briefs = await briefsFor(
+      workspace,
+      ["architect", "qa", "dev"],
+      "add a cache",
+      env,
+    );
     expect(briefs.ok).toBe(true);
     if (!briefs.ok) return;
     expect(briefs.value.map((b) => b.lens.id)).toEqual([
@@ -90,6 +122,58 @@ describe("lens briefs", () => {
     const evidence = briefs.value[0]!.evidence.join("\n");
     expect(evidence).toMatch(/Changed files \(1\): src\/lonely\.ts/);
     expect(evidence).toMatch(/tests: no test reaches src\/lonely\.ts/);
+  });
+
+  it("stores a custom lens and selects it when the task names it", async () => {
+    const { workspace, env } = await indexedRepo();
+    await loadLenses(workspace, env);
+    const views = await addCustomLens(
+      workspace.rootPath,
+      {
+        name: "Security",
+        role: "Checks secrets and trust boundaries.",
+        focus: "A credential in source is a failure.",
+        checklist: ["No new secret is committed."],
+        evidence: ["off-limits"],
+      },
+      env,
+    );
+    expect(views.map((view) => view.definition.id)).toEqual([
+      "architect",
+      "qa",
+      "dev",
+      "security",
+    ]);
+    const briefs = await briefsFor(
+      workspace,
+      undefined,
+      "run the Security lens on the diff",
+      env,
+    );
+    expect(briefs.ok).toBe(true);
+    if (!briefs.ok) return;
+    expect(briefs.value.map((brief) => brief.lens.id)).toEqual(["security"]);
+    expect(briefs.value[0]!.lens.checklist).toEqual([
+      "No new secret is committed.",
+    ]);
+    expect(briefs.value[0]!.lens.seededDefault).toBe(false);
+    const recorded = await recordLensReviews(
+      workspace.rootPath,
+      "run the Security lens on the diff",
+      briefs.value[0]!.evidence,
+      [
+        {
+          lens: "security",
+          verdict: "pass",
+          reasoning: "No secret in the fixture.",
+        },
+      ],
+      env,
+    );
+    expect(recorded).toHaveLength(1);
+    const store = await readLensStore(workspace.rootPath, env);
+    expect(store.reviews.some((row) => row.lens === "security")).toBe(true);
+    expect(store.lenses.some((row) => row.id === "architect")).toBe(true);
   });
 
   it("says plainly when there is no change to review", async () => {

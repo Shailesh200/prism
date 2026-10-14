@@ -42,8 +42,8 @@ export type TourStep = {
 const DEFAULT_STEPS: readonly TourStep[] = [
   {
     id: "welcome",
-    title: "Welcome to Prismate",
-    body: "Prismate is your personal teammate who stays with you — health, DNA, impact, and jobs, locally, without sending code to the cloud.",
+    title: "Welcome to Prism",
+    body: "Prism maps this repository locally — health, impact, and what a change reaches — without sending code anywhere.",
     target: '[data-prism-tour="welcome"]',
     navigateTo: "overview",
   },

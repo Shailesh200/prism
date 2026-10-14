@@ -8,7 +8,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { SERVER_INSTRUCTIONS } from "./instructions.js";
 import { createPrismMcpServer, type PrismMcpServer } from "./server.js";
-import { TOOL_NAMES } from "./tools.js";
+import { DEFAULT_TOOL_NAMES, TOOL_NAMES } from "./tools.js";
 
 /**
  * The default surface is smaller than the full pack. That is only safe if
@@ -55,6 +55,10 @@ afterAll(async () => {
 describe("default MCP surface", () => {
   it("is smaller than the full pack", () => {
     expect(registered.size).toBeLessThan(KNOWN.size);
+  });
+
+  it("registers exactly the default set (M-091)", () => {
+    expect([...registered].sort()).toEqual([...DEFAULT_TOOL_NAMES].sort());
   });
 
   it("registers every tool the instructions name", () => {

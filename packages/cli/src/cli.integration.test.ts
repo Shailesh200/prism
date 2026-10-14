@@ -81,11 +81,12 @@ describe("prism binary (M-028)", () => {
     expect(result.stdout).toBe("");
   });
 
-  it("exits 0 and prints help when given no command", async () => {
-    const result = await runCli([]);
+  it("prints a report card when given no command", async () => {
+    const result = await runCli([], {}, fixture);
     expect(result.code).toBe(0);
-    expect(result.stderr).toContain("Usage:");
-  });
+    expect(result.stdout).toContain("Findings");
+    expect(result.stdout).toContain("prism graph open");
+  }, 60_000);
 
   it("suggests a nearby command name for typos", async () => {
     const result = await runCli(["blsat"]);
@@ -267,7 +268,14 @@ const ARGUMENTS: Record<string, readonly string[]> = {
   completions: ["bash"],
   "agents-md": ["generate"],
   findings: ["list"],
+  // Dry run by default: lists what it would drop and deletes nothing.
+  data: ["prune"],
+  remember: ["the fixture keeps widgets in one file"],
+  forget: ["no-such-memory"],
 };
+
+/** Commands that write under `~/.prism` and so get a throwaway home. */
+const ISOLATED_HOME = new Set(["agents-md", "data", "remember", "forget"]);
 
 /** Commands that cannot succeed on a fixture without extra setup. */
 const EXPECT_FAILURE = new Set(["bundle"]);
@@ -284,9 +292,9 @@ describe("every command (M-029)", () => {
     await rm(agentsMdHome, { recursive: true, force: true });
   });
 
-  /** Never lets `agents-md` write into the real developer `~/.prism`. */
+  /** Never lets a command write into the real developer `~/.prism`. */
   const envFor = (name: string): NodeJS.ProcessEnv =>
-    name === "agents-md" ? { PRISM_HOME: agentsMdHome } : {};
+    ISOLATED_HOME.has(name) ? { PRISM_HOME: agentsMdHome } : {};
 
   it.each(COMMANDS.map((command) => command.name))(
     "%s produces a valid JSON envelope and nothing else on stdout",

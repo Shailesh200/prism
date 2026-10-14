@@ -51,6 +51,6 @@ that shows the wedge: structural intelligence before an edit.
 ## 5. References
 
 - Prism Completion Program (owner plan, 2026-08-08) — Phase 8
-- [M-054 Public Website](./M-054_website.md) · [M-055 Website Marketing Motion](./M-055_website-motion.md)
+- [M-054 Public Website](../archive/milestones/M-054_website.md) · [M-055 Website Marketing Motion](../archive/milestones/M-055_website-motion.md)
 - [apps/website/OWNER_HANDOFF.md](../../apps/website/OWNER_HANDOFF.md) — Vercel and domain handoff
 - [M-058 Agent Surface v2](./M-058_agent-surface.md) — MCP tool surface being marketed

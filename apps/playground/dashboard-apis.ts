@@ -168,7 +168,7 @@ async function serveSettings(
 async function serveJobs(res: ApiRes, search: string): Promise<void> {
   const { reapJobs } = await import("../../packages/dispatch/src/run-state.ts");
   const { readEnvelopeLedger, summarizeJobEnvelope } =
-    await import("../../packages/dispatch/src/envelope-ledger.ts");
+    await import("../../packages/core/src/envelope/envelope-ledger.ts");
   const { toSnapshot } =
     await import("../../packages/dispatch-hub/src/snapshot.ts");
   const jobs: unknown[] = [];
@@ -321,7 +321,7 @@ async function serveEnvelope(res: ApiRes, search: string): Promise<void> {
   const fromMs = parseBound(params.get("from"), false);
   const toMs = parseBound(params.get("to"), true);
   const { readEnvelopeLedger, summarizeEnvelopeLedger } =
-    await import("../../packages/dispatch/src/envelope-ledger.ts");
+    await import("../../packages/core/src/envelope/envelope-ledger.ts");
   const metrics = summarizeEnvelopeLedger(
     await readEnvelopeLedger(workspace),
     Date.now(),
@@ -349,7 +349,7 @@ async function servePrepare(
     return;
   }
   const { readLastPrepareChange, readPrepareHistory } =
-    await import("../../packages/dispatch/src/prepare-last.ts");
+    await import("../../packages/core/src/envelope/prepare-last.ts");
   if (pathname === "/api/prepare-last") {
     const last = await readLastPrepareChange(workspace);
     sendJson(res, 200, {

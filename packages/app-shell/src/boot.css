@@ -264,7 +264,8 @@
 }
 
 .playground-open__presets button,
-.playground-open > button[type="submit"] {
+.playground-open > button[type="submit"],
+.playground-open > button[type="button"] {
   border: 1px solid #2a334a;
   background: #131926;
   color: var(--prism-ink);
@@ -283,8 +284,23 @@
 }
 
 .playground-open__presets button:hover,
-.playground-open > button[type="submit"]:hover {
+.playground-open > button[type="submit"]:hover,
+.playground-open > button[type="button"]:hover {
   border-color: #00c2c2;
+}
+
+.playground-open > button[type="button"][data-active="true"] {
+  border-color: var(--prism-brand, #00c2c2);
+  color: var(--prism-on-primary, #000);
+  background: var(--prism-brand, #00c2c2);
+}
+
+.playground-graph {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  background: #0e1214;
 }
 
 .playground-open input {

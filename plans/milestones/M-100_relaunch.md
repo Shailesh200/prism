@@ -1,0 +1,42 @@
+# M-100 — Relaunch
+
+| Field | Value |
+|---|---|
+| Status | **Planned** |
+| Branch | `milestone/M-100-relaunch` (from latest `main`) |
+| Depends on | M-099 Verified |
+| Unlocks | next planning cycle |
+| Packages | `README.md`, `docs/`, `apps/website`, `packages/vscode-extension` / `cursor-extension` (Marketplace listing text and images), `CHANGELOG.md` |
+| Absorbs | M-063 distribution half, M-085 public docs, M-086 website + demo (identity part cancelled by ADR-0060) |
+
+## 1. Goal
+
+Prism presents as what it now is: faster agent sessions and fewer broken builds, with proof. Program §4.5 public docs, §1.1 claim rule.
+
+## 2. In scope
+
+| Item | Detail |
+|---|---|
+| Hero numbers | If M-098 supports them (CI excludes zero), add measured numbers to the sub-line. Otherwise revisit the hero with the owner before shipping |
+| README | One screen: hero, the 60-second first run, install, three images (receipt, graph, Envelope card) |
+| Docs | Seven pages: What Prism is, Install, Prepare, Envelope, Graph, Receipt, CLI reference. The rest archived |
+| Website | Home with the hero; `/benchmarks` from M-098; `/demo/<fixture>` static Graph + receipt + report card from one named open-source repo (Q-024: owner names it) |
+| Marketplace | `prismhq.repo-prism` listing text and screenshots updated (publisher unchanged) |
+| npm | Package READMEs aligned; version bump plan written. Publishing only on owner request |
+| CHANGELOG | One entry summarising M-088 → M-099 |
+
+## 3. Out of scope
+
+- Any rename (cancelled). Publishing or pushing without an explicit owner request.
+
+## 4. DoD
+
+- [ ] Copy test (banned words) green; claims only where M-098 supports them
+- [ ] `docs:check` and `docs:build` green with seven pages
+- [ ] Website builds; `/benchmarks` and `/demo/<fixture>` render offline-capable static content
+- [ ] `verify:milestone` green
+- [ ] Owner review → commit → merge → Verified → snippet
+
+## 5. Verification
+
+`bun run verify:milestone` · website build · manual review of README, home, `/benchmarks`, `/demo`.

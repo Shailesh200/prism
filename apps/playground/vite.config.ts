@@ -33,6 +33,7 @@ import type {
   DomainReport,
   EngineeringHealthReport,
   GitActivity,
+  GraphExport,
   GraphSnapshotDto,
   GuardSession,
   HealthHistoryBackfillStatus,
@@ -54,6 +55,7 @@ import {
   MapLayerIdSchema,
   MapZoomLevelSchema,
   consentRequiredMessage,
+  renderGraphHtml,
 } from "@repo-prism/shared";
 import { isDashboardDataPath, serveDashboardData } from "./dashboard-apis.ts";
 import {
@@ -235,6 +237,10 @@ type Workspace = {
   getDependencyGraph: () =>
     | { ok: true; value: GraphSnapshotDto }
     | { ok: false; error: { message: string } };
+  exportGraph: () => Promise<
+    | { ok: true; value: { graph: GraphExport } }
+    | { ok: false; error: { message: string } }
+  >;
   blastRadius: (input: {
     kind: "file" | "symbol";
     id: string;
@@ -1690,6 +1696,37 @@ function prismMapApi(): Plugin {
               );
               const graph = await loadGraph(root);
               sendJson(res, 200, graph);
+              return;
+            }
+
+            if (parsed.pathname === "/api/graph-export") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const ws = await getIndexedWorkspace(root);
+              const exported = await ws.exportGraph();
+              if (!exported.ok) {
+                sendJson(res, 500, { error: exported.error.message });
+                return;
+              }
+              sendJson(res, 200, exported.value.graph);
+              return;
+            }
+
+            if (parsed.pathname === "/api/graph-html") {
+              const root = resolveRequestedRoot(
+                parsed.searchParams.get("root"),
+              );
+              const ws = await getIndexedWorkspace(root);
+              const exported = await ws.exportGraph();
+              if (!exported.ok) {
+                sendJson(res, 500, { error: exported.error.message });
+                return;
+              }
+              res.statusCode = 200;
+              res.setHeader("Content-Type", "text/html; charset=utf-8");
+              res.setHeader("Cache-Control", "no-store");
+              res.end(renderGraphHtml(exported.value.graph));
               return;
             }
 

@@ -49,6 +49,15 @@ function resolveModuleTarget(
 
 export type { KnowledgeGraphStats };
 
+/**
+ * Locale-free ordering for ids. `localeCompare` runs ICU collation on every
+ * comparison, which was half of a 10k-file build (M-095), and its order could
+ * differ between machines with different locales.
+ */
+function byCodeUnit(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 export type SymbolHit = {
   readonly id: string;
   readonly name: string;
@@ -196,7 +205,7 @@ function buildSymbolIndex(files: readonly IndexedFile[]): {
     byPath.set(file.path, list);
   }
 
-  symbols.sort((a, b) => a.id.localeCompare(b.id));
+  symbols.sort((a, b) => byCodeUnit(a.id, b.id));
   return { symbols, byPath, byPathName };
 }
 
@@ -479,11 +488,12 @@ export function buildKnowledgeGraph(
   }
 
   const nodes = [...fileNodes, ...symbolNodes, ...rationale.nodes].sort(
-    (a, b) => a.id.localeCompare(b.id),
+    (a, b) => byCodeUnit(a.id, b.id),
   );
-  const edgeList = [...edges.values()].sort((a, b) => a.id.localeCompare(b.id));
+  const edgeList = [...edges.values()].sort((a, b) => byCodeUnit(a.id, b.id));
   references.sort((a, b) =>
-    `${a.path}\0${a.start}\0${a.name}`.localeCompare(
+    byCodeUnit(
+      `${a.path}\0${a.start}\0${a.name}`,
       `${b.path}\0${b.start}\0${b.name}`,
     ),
   );

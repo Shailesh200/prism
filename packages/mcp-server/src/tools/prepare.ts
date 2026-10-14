@@ -1,12 +1,16 @@
 import { z } from "zod";
-import { writeLastPrepareChange } from "@repo-prism/dispatch";
+import { writeLastPrepareChange } from "@repo-prism/core/envelope";
+import {
+  PREPARE_RESPONSE_BUDGET,
+  PREPARE_RESPONSE_CEILING,
+} from "@repo-prism/shared";
 import { defineTool } from "../tool-registry.js";
 
 export const prepareChange = defineTool({
   name: "prepare_change",
   title: "Prepare a change",
   description:
-    "One call before you edit: the files to open for this task (pack), existing helpers to reuse, three House Style exemplars, notes (remembered symbol/path facts plus ADR/WHY rationale_for hits), and a work order (in-scope, off-limits generated/vendor, needs sign-off). Returns paths, symbol names and why — never file bodies. Call this instead of dumping search_symbols or knowledge_graph. Ambiguous names come back as candidates; do not pick silently. workingSet stays null.",
+    "One call before you edit: the files to open for this task (pack), existing helpers to reuse, House Style exemplars, notes (remembered facts and ADR rationale), and a work order (in-scope, off-limits generated/vendor, needs sign-off). Paths, symbol names and why — never file bodies. The whole answer fits a token budget (default 2000); when it is cut, `trimmed` says what was dropped. Ambiguous names come back as candidates; do not pick silently.",
   inputSchema: {
     task: z
       .string()
@@ -16,10 +20,10 @@ export const prepareChange = defineTool({
       .number()
       .int()
       .min(200)
-      .max(20_000)
+      .max(PREPARE_RESPONSE_CEILING)
       .optional()
       .describe(
-        "Map-token budget for the pack (default 4000). Not source tokens.",
+        `Token budget for the whole response, bytes ÷ 4 (default ${PREPARE_RESPONSE_BUDGET}, max ${PREPARE_RESPONSE_CEILING}).`,
       ),
   },
   async call({ workspace, workspaceRoot }, args) {

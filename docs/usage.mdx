@@ -91,22 +91,17 @@ otherwise and mean different things.
 | **Domains** | Frontend / backend / data / infrastructure when DNA detects them |
 | **Impact** | Blast radius, safe delete, rename impact |
 | **Trends** | Health over time |
-| **Jobs** | [Dispatch](/docs/guides/dispatch) teammates — live, queued, waiting on you, finished — read from the local Console over loopback |
-| **Integrations** | MCP status, host connectors, optional consented connectors |
+| **Iris** | Index facts plus the [Envelope](/docs/guides/envelope-and-iris) ledger for this repository |
+| **Integrations** | MCP status and optional consented connectors |
 | **Settings** | Indexing, appearance, privacy |
 
 ### Integrations
 
-**MCP Server** shows whether the Console is running, on which port, its
-version, how many tools Prism exposes, and how many repositories it watches.
+**MCP Server** shows the server's version and how many tools it exposes.
 
-**Host connectors** lists what *your* agent window already has connected —
-Slack, Linear, Notion, Google Calendar — read from Cursor's and Claude Code's
-own plugin and MCP manifests. Prism runs no OAuth and holds no tokens
-(ADR-0049); it composes with whatever is there.
-
-**Optional connectors** (Remote Git, GitHub Actions, PageSpeed) are Prism's
-own, each gated on Settings → Allow network integrations.
+**Optional connectors** (Remote Git, PageSpeed) are Prism's own, each gated on
+Settings → Allow network integrations. Prism runs no OAuth and holds no
+third-party tokens (ADR-0049).
 
 ### Reading the interface
 
@@ -123,8 +118,6 @@ own, each gated on Settings → Allow network integrations.
   dirty path from git.
 - **Blast Quick Pick** (`Cmd/Ctrl+Alt+B`) shows risk and top dependents without
   opening the full panel.
-- **Open Agent Dashboard** opens the local Console — the jobs board across
-  every registered repository.
 - Map zoom: repository → package → feature → file → symbol; layers overlay
   coupling, churn, tests, risk.
 - Right-click: Blast Radius, Safe Delete, Explain, Reveal on Map.
@@ -142,24 +135,40 @@ All keys and toggles: [IDE settings](/docs/reference/ide-settings).
 
 You set Prism up once. After that, ask for what you want — the server's
 instructions teach the agent which tools to call, so you never type a tool name.
+Prism does not make the edit. Your agent does, in your chat.
+
+### Default tools
+
+The server registers seven tools by default:
+
+| Tool | For |
+|---|---|
+| `prepare_change` | Before an edit: files to open, helpers to reuse, House Style, no file bodies |
+| `blast_radius` | What depends on a file or symbol, and how risky a change is |
+| `test_impact` | Which tests cover a change |
+| `guard_session` | Which dirty files to read first |
+| `repository_overview` | What this repository is and where to start |
+| `find_symbol` | Where a symbol is defined |
+| `explain_area` | What a module or folder does |
+
+Set `PRISM_MCP_FULL=1` in the server's `env` to register the rest of the
+Intelligence tools (reports, graphs, findings, `safe_delete`, and others).
+Each is listed in the [MCP reference](/docs/reference/mcp-tools).
 
 ### How to talk
 
 | You say | Agent should use |
 |---|---|
-| "What is this repo?" / "Orient me" | `repository_dna`, landmarks / overview |
-| "Is this codebase healthy?" | `repository_health` |
-| "Where does checkout live?" | landmarks / features / `find_symbol` |
+| "What is this repo?" / "Orient me" | `repository_overview` |
+| "Where does checkout live?" | `find_symbol`, `explain_area` |
 | "I'm about to add caching to fetchUser" | `prepare_change` first — pack, reuse, House Style, no bodies |
 | "I'm about to edit `src/…` — what breaks?" | `blast_radius`, `test_impact` |
 | "What should I read first in this dirty tree?" | `guard_session` |
-| "What's unused or duplicated?" | `list_findings` — queue only if asked to fix |
-| "Can I delete this file?" | `safe_delete` |
-| "Review my current changes" | `review_changes` |
-| "Start my day" | `start_my_day` |
-| "Fix the broken highlighting in the news tab" | `start_job` — any request to change code dispatches a background teammate |
-| "Fix it now, right here" | no job — the agent edits inline in the chat |
-| "What is connected?" | `dispatch_doctor` — Prism runs no OAuth; connectors are your editor's |
+| "Review my current changes" | `guard_session`, then `blast_radius` on what it flags |
+
+With the Prism plugin pack installed, the stop hook runs the checks the
+change reaches when the agent stops, and prints a receipt: proven, unproven,
+or failed.
 
 Optional [prompts](/docs/reference/mcp-prompts) appear in clients that show a
 prompt picker.
@@ -167,14 +176,12 @@ prompt picker.
 ### How the server behaves
 
 1. Handshake is fast — connecting does not index.
-2. The first **Intelligence** call may take seconds while the index builds.
-   `start_my_day` does not wait on the index.
+2. The first tool call may take seconds while the index builds.
 3. stdio only — diagnostics on stderr and logging notifications.
 4. Lists are bounded (`totalCount` / `truncated`). A cut list must say so —
    that honesty is the [Envelope](/docs/guides/envelope-and-iris).
 5. Paths outside the workspace are refused.
-6. Intelligence tools are read-only. Dispatch tools write gitignored state
-   under `.prism/dispatch/`, make no network calls, and hold no third-party
+6. No tool edits your repository, makes a network call, or holds third-party
    credentials — see [consent](/docs/concepts/consent-and-privacy).
 
 ### Force a specific repo path
@@ -192,8 +199,8 @@ Put the same into the client's `args` / `env` if needed.
 ### If something fails
 
 1. Run `npx -y @repo-prism/cli doctor` inside the same project.
-2. Check the workspace (MCP roots / git root vs cwd). If Dispatch says it
-   cannot see a git repository, reload prism with the git project open.
+2. Check the workspace (MCP roots / git root vs cwd). If a tool reports the
+   wrong repository, reload prism with the git project open.
 3. Confirm Node 26+.
 4. Disable and re-enable **prism** in the client, or restart it.
 5. Set `PRISM_WORKSPACE` once and retry.
@@ -206,6 +213,5 @@ All tools: [MCP reference](/docs/reference/mcp-tools).
 ## Related
 
 [Install](/docs/start/install) · [Prepare a change](/docs/guides/prepare-a-change) ·
-[Dispatch](/docs/guides/dispatch) ·
 [Wire into CI](/docs/guides/wire-into-ci) ·
 [Troubleshooting](/docs/help/troubleshooting)

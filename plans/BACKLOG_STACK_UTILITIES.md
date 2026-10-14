@@ -3,7 +3,7 @@
 > **Status:** Backlog (owner-approved direction 2026-07-20)  
 > **Do not implement from this list until a milestone phase explicitly pulls items In Scope.**  
 > **Decisions:** [ADR-0008](./adr/0008-stack-aware-measurement-utilities.md)  
-> **SPI foundation:** M-040 · **DNA packs:** M-013 · **Utilities epic:** [M-041](./milestones/M-041_stack-utilities-foundation.md) (all domains + monorepo; Gate A before M-018)
+> **SPI foundation:** M-040 · **DNA packs:** M-013 · **Utilities epic:** [M-041](./archive/milestones/M-041_stack-utilities-foundation.md) (all domains + monorepo; Gate A before M-018)
 
 Artifacts stay **local**. Runners / remote APIs are **consent-based**. No Prism Cloud.
 

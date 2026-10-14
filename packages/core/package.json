@@ -7,6 +7,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./envelope": {
+      "types": "./dist/envelope/index.d.ts",
+      "import": "./dist/envelope/index.js"
     }
   },
   "files": [

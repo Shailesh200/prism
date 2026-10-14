@@ -1,0 +1,136 @@
+/**
+ * `prism receipts` (M-092): the change receipts the stop hook wrote.
+ *
+ * `prism receipts` lists the newest first. `prism receipts show [n]` prints
+ * one (1 = newest) as text, or `--as markdown` / `--as svg` for a PR comment
+ * or a card to share. Older rows kept only the text, so they print as text.
+ */
+
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import {
+  ChangeReceiptSchema,
+  err,
+  ok,
+  PrismErrorCode,
+  prismError,
+  renderReceipt,
+  renderReceiptMarkdown,
+  renderReceiptSvg,
+  type ChangeReceipt,
+} from "@repo-prism/shared";
+import { workspacePrismDir } from "@repo-prism/shared/prism-home";
+import { renderHeading } from "../output.js";
+import type { CommandHandler } from "../runtime.js";
+
+export type ReceiptRow = {
+  readonly at: string;
+  readonly verdict: string;
+  readonly durationMs?: number;
+  readonly sessionId?: string;
+  readonly text: string;
+  readonly receipt?: ChangeReceipt;
+};
+
+export function readReceiptHistory(root: string): ReceiptRow[] {
+  let raw = "";
+  try {
+    raw = readFileSync(
+      join(workspacePrismDir(root), "receipts", "history.jsonl"),
+      "utf8",
+    );
+  } catch {
+    return [];
+  }
+  const rows: ReceiptRow[] = [];
+  for (const line of raw.split("\n")) {
+    if (!line.trim()) continue;
+    try {
+      const row = JSON.parse(line) as Record<string, unknown>;
+      const text = typeof row.text === "string" ? row.text : "";
+      const parsed = ChangeReceiptSchema.safeParse(row.receipt);
+      const verdict =
+        typeof row.verdict === "string"
+          ? row.verdict
+          : (/^Prism · (proven|unproven|failed)/.exec(text)?.[1] ?? "unknown");
+      rows.push({
+        at: typeof row.at === "string" ? row.at : "",
+        verdict,
+        ...(typeof row.durationMs === "number"
+          ? { durationMs: row.durationMs }
+          : {}),
+        ...(typeof row.sessionId === "string"
+          ? { sessionId: row.sessionId }
+          : {}),
+        text,
+        ...(parsed.success ? { receipt: parsed.data } : {}),
+      });
+    } catch {
+      /* skip a torn line */
+    }
+  }
+  return rows.reverse();
+}
+
+export const receiptsCommand: CommandHandler = async (context) => {
+  const rows = readReceiptHistory(context.workspace.path);
+  const action = context.args.positionals[0] ?? "list";
+
+  if (action === "show") {
+    const n = Number(context.args.positionals[1] ?? "1");
+    const row = Number.isInteger(n) && n >= 1 ? rows[n - 1] : undefined;
+    if (!row) {
+      return err(
+        prismError(
+          PrismErrorCode.VALIDATION,
+          rows.length === 0
+            ? "No receipts yet. The stop hook writes one when an agent session with edits ends."
+            : `No receipt ${context.args.positionals[1]}. There are ${rows.length}; 1 is the newest.`,
+        ),
+      );
+    }
+    const as = context.args.option("as") ?? "text";
+    const body =
+      row.receipt && as === "markdown"
+        ? renderReceiptMarkdown(row.receipt)
+        : row.receipt && as === "svg"
+          ? renderReceiptSvg(row.receipt)
+          : row.receipt
+            ? renderReceipt(row.receipt)
+            : row.text;
+    return ok({ data: row, human: () => body });
+  }
+
+  if (action !== "list") {
+    return err(
+      prismError(
+        PrismErrorCode.VALIDATION,
+        "Usage: prism receipts [list|show [n]] [--as text|markdown|svg]",
+      ),
+    );
+  }
+
+  const limit = Number(context.args.option("limit") ?? "50");
+  const shown = rows.slice(0, Number.isFinite(limit) && limit > 0 ? limit : 50);
+  return ok({
+    data: { total: rows.length, items: shown },
+    human({ color }) {
+      if (rows.length === 0) {
+        return "No receipts yet. The stop hook writes one when an agent session with edits ends.";
+      }
+      return [
+        renderHeading(`Receipts (${shown.length} of ${rows.length})`, color),
+        "",
+        ...shown.map((row, i) => {
+          const secs =
+            row.durationMs !== undefined
+              ? ` · ${(row.durationMs / 1000).toFixed(1)}s`
+              : "";
+          return `${String(i + 1).padStart(3)}  ${row.at.slice(0, 16).replace("T", " ")}  ${row.verdict}${secs}`;
+        }),
+        "",
+        "Show one: prism receipts show <n>",
+      ].join("\n");
+    },
+  });
+};

@@ -81,22 +81,23 @@ export function HomeHero() {
           data-hero-kicker
           className="font-mono text-xs tracking-widest text-fd-primary"
         >
-          Local-first · No account · No model
+          Local-first · No account · Cursor · Claude Code · CLI
         </p>
         <h1
           data-hero-title
           className="mt-6 max-w-4xl text-balance font-display text-4xl font-semibold tracking-tight sm:text-6xl md:text-7xl"
         >
-          <span className="text-fd-foreground">Software intelligence.</span>{" "}
-          <span className="text-fd-primary">A teammate for every agent.</span>
+          <span className="text-fd-foreground">Faster agent sessions.</span>{" "}
+          <span className="text-fd-primary">Fewer broken builds.</span>
         </h1>
         <p
           data-hero-sub
           className="mt-6 max-w-2xl text-base text-fd-muted-foreground md:text-lg"
         >
-          Not a coding model. Local software intelligence — maps, Prepare,
-          Envelope, Guard, and health for the repo on your machine. Dispatch is
-          the teammate: it runs in the agent you already have, on any MCP host.
+          Prism maps your repo on your machine and gives your coding agent the
+          right files, the code that already exists, and what will break —
+          before it edits. When it stops, Prism runs the checks that change
+          reaches and tells you what&apos;s proven.
         </p>
         <div
           data-hero-actions

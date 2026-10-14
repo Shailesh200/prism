@@ -1,43 +1,21 @@
 /**
- * What every connected agent reads on `initialize` (M-026, rewritten M-079).
- *
- * Prism does not run agents (ADR-0058). It checks the agent's work and
- * reviews it through lenses (ADR-0059). Hooks do most of this without a tool
- * call; these instructions are the minimum for a client that has no hooks.
+ * What every connected agent reads on `initialize` (M-026, cut to the hero
+ * loop in M-091). Hooks do most of the work without a tool call; this is the
+ * minimum for a client that has none. `instructions.test.ts` caps the size.
  */
 
-export const SERVER_INSTRUCTIONS = `You have Prism MCP tools for this local repository.
+export const SERVER_INSTRUCTIONS = `Prism maps this repository locally and checks your changes. It never edits code and calls no model. Users never name these tools; call them when the request fits.
 
-CRITICAL — users never name tools and never say magic phrases. Infer intent from ordinary requests and call Prism yourself. Do not wait for “use Prism”, “call a health tool”, or “start working on”. Prefer a Prism tool over guessing from a few open files when the question is structural.
-
-Prism does not run a background agent. You do the work in this chat. Prism tells you what the repository is, what a change will break, and whether the change is proven. When you stop, a hook runs the checks this change reaches and prints a change receipt. Read it. If a check failed, fix it before you say you are done.
-
-The tools to call, in order:
-- Unfamiliar repo → repository_overview.
-- BEFORE editing unfamiliar code → prepare_change (files, tests, reuse, house style; no file bodies), then blast_radius.
-- Reviewing a diff → guard_session, then blast_radius on anything it flags. Never review from a raw git diff alone. Never invent dependents the tools did not report. (Full procedure: the prism-review-pr skill.)
-- Before landing → guard_session.
-- A second opinion → review_with with the lenses you need (architect, qa, dev). Run each brief as its own subagent, then record the verdicts. You do the thinking; Prism supplies the evidence.
-- A finding stays open until Prism re-runs that report and the fingerprint is gone; never call it fixed because you edited something. If the user asks to fix one, call queue_finding with that exact finding — it returns a brief for this chat.
-
-“prism wake” / “prism sleep” → wake / sleep: start or park the Prism Dashboard. Speak only the tool message.
-
-Job tools (start_job, list_jobs, job_control, job_logs, init, dispatch_doctor, start_my_day) answer with one line: do this in this chat. Do not offer a background teammate.
-
-Inferred graph edges are not load-bearing without opening the file.
-
-Rules:
-- Intelligence tools are read-only. Call them freely.
-- Prism holds no credentials and does not run its own OAuth. Never call mcp_auth for Prism.
-- First Intelligence call may take several seconds while the index builds. If you see PRISM_INDEX_REQUIRED, retry in a few seconds.
-- Use real paths from the workspace. If a path is wrong, fix it and retry — do not invent structure.`;
+- Before editing code you have not read in this session, call prepare_change with the task, unless a "Prism · prepare" block is already in context. It returns the files to open, helpers that already exist, house style and off-limits paths.
+- Before deleting, renaming or changing an export, call blast_radius on it. Do not invent dependents it did not report.
+- Structural questions (where is X, what uses it, how A reaches B, what a folder is for): graph. Unfamiliar repository: repository_overview.
+- Which tests to run: test_impact. Before you finish or review a diff: guard_session.
+- When you stop, a hook prints a receipt: proven, unproven or failed. If it failed because of your change, fix it before you say you are done.
+- Inferred edges are hints; open the file before relying on one.
+- Tools are read-only. If you see PRISM_INDEX_REQUIRED, retry in a few seconds. Use real workspace paths.
+- Prism holds no credentials. Never call mcp_auth for Prism.`;
 
 /** Prompt names exposed for slash-command / picker clients. */
-export const PROMPT_NAMES = [
-  "orient",
-  "before_edit",
-  "review_diff",
-  "review_lenses",
-] as const;
+export const PROMPT_NAMES = ["orient", "before_edit", "review_diff"] as const;
 
 export type PromptName = (typeof PROMPT_NAMES)[number];

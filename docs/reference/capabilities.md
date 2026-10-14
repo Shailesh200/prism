@@ -19,21 +19,28 @@ use this page when you need the exhaustive index.
 | `prism bundle` | bundle |
 | `prism completions` | completions |
 | `prism cycles` | cycles |
+| `prism data` | data |
 | `prism deps` | deps |
 | `prism dna` | dna |
 | `prism doctor` | doctor |
 | `prism engineering` | engineering |
+| `prism envelope` | envelope |
 | `prism explain` | explain |
 | `prism explore` | explore |
 | `prism features` | features |
 | `prism findings` | findings |
+| `prism forget` | forget |
+| `prism graph` | graph |
 | `prism health` | health |
 | `prism index` | index |
 | `prism landmarks` | landmarks |
 | `prism map` | map |
+| `prism memories` | memories |
 | `prism packages` | packages |
 | `prism prepare` | prepare |
+| `prism receipts` | receipts |
 | `prism refs` | refs |
+| `prism remember` | remember |
 | `prism rename` | rename |
 | `prism review` | review |
 | `prism route` | route |
@@ -54,32 +61,25 @@ use this page when you need the exhaustive index.
 | `breaking_change_hints` | Deprecated |
 | `capabilities` | List every Core analysis capability and consent-gated integration with availability and a reason when unavailable |
 | `changed_paths` | List workspace-relative paths changed in the working tree, or against an optional git base ref |
-| `configure` | Read or update gitignored Dispatch settings |
 | `dependency_cycles` | Import and re-export cycles, each returned as the list of files forming the loop |
 | `dependency_graph` | The import/re-export dependency graph, at file level or aggregated to packages |
 | `dependency_route` | Show how one file or symbol reaches another through the dependency graph, with alternative paths |
-| `dispatch_doctor` | Check whether Dispatch can run local teammates |
 | `engineering_health` | The deep engineering view |
 | `explain_area` | Explain what a module or folder does |
 | `explore_code` | Everything about one file or symbol in a single call |
 | `feature_graph` | Inferred features and how they depend on each other |
 | `find_references` | Find resolved references to a symbol — who actually calls or imports it |
 | `find_symbol` | Find indexed symbols by exact name, optionally narrowed by file or kind |
+| `graph` | One structural question about the repository, answered from Prism's local graph |
 | `guard_session` | Rank the current dirty session — working-tree changes minus preExistingChanges, when you have that list from a job — by blast risk, so a human reads the highest-risk file first |
 | `health_history` | Health score over time from stored index snapshots and optional git backfill |
-| `init` | One-time worker sign-in so Prism can run local job teammates |
-| `job_control` | Pause, resume, retry, reverify, cancel, delete, confirm, add context to, commit, keep, or restore files for a Dispatch job |
-| `job_logs` | The console for one Dispatch job |
 | `knowledge_graph` | The symbol-level graph — declarations and the references between them — with summary stats |
 | `landmarks` | Named entrypoints, package roots and feature anchors — the places a human would open first |
 | `lens` | List, show, edit, remove, re-seed, or overrule a review lens |
 | `list_features` | Inferred features with their member files and a confidence score |
 | `list_findings` | Queueable findings from the last index |
-| `list_jobs` | Where are we |
 | `list_packages` | List the packages in a monorepo with their roots |
 | `prepare_change` | One call before you edit |
-| `queue_finding` | Hand one finding from a report tool (engineering_health, security_report, testing_report, or another Intelligence report) to a background teammate |
-| `remember` | Save, list, or forget scoped memories that Dispatch injects into the next start_job prompt |
 | `rename_impact` | Every edit site a rename would touch, plus breaking-change hints for public surface |
 | `repository_dna` | Identify what a repository *is* |
 | `repository_health` | Score overall repository health from 0-100 with the per-factor breakdown behind the score |
@@ -90,14 +90,8 @@ use this page when you need the exhaustive index.
 | `safe_delete` | Whether a file or symbol can be deleted safely |
 | `search_symbols` | Substring or regex search over indexed symbol names (unlike find_symbol, which is exact-match only) |
 | `security_report` | Left-shift security posture |
-| `sleep` | Park Prism |
 | `stack_profile` | Detected stack for the workspace or a single package |
-| `start_job` | Hand a code change to a background teammate |
-| `start_my_day` | Standup briefing for this repository |
 | `test_impact` | Which test files transitively cover a change target — the tests worth running after touching it |
 | `testing_report` | Test structure and, when coverage artifacts are already on disk, coverage |
-| `use_skill` | Load a Prism skill from the user's Prism-only library (~/.prism/dispatch/skills), or an inherited skill that ships with Prism |
-| `wake` | Bring Prism back |
 | `work_order` | The work order for a task |
-| `working_set` | Get or patch the accumulated files, symbols, decisions and neighbors for a job (M-073), so a resume does not rediscover context it already has |
 | `workspace_status` | Compact workspace readiness |

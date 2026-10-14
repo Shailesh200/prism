@@ -32,7 +32,7 @@ infrastructure. Detected, not configured. See
 [Investigate a domain](/docs/guides/investigate-domain).
 
 **Envelope** — A local JSONL ledger of Intelligence calls: tool, counts,
-truncated, bytes. Never source. Shown on Console Iris. See
+truncated, bytes. Never source. Shown on the Iris screen. See
 [Envelope](/docs/concepts/envelope).
 
 **Estimated** — Inferred rather than measured. Directionally useful; not precise.
@@ -43,7 +43,7 @@ Marked as such wherever it appears. See
 from imports, naming and structure. Repositories do not declare these. See
 [graphs](/docs/concepts/graphs).
 
-**Finding** — A queueable issue (unused export, duplicate implementation,
+**Finding** — A concrete issue (unused export, duplicate implementation,
 wrapper) identified by a fingerprint. Resolved only when a re-scan drops that
 fingerprint. See [Findings](/docs/guides/findings).
 
@@ -62,14 +62,14 @@ matters; neither metric alone identifies it.
 [the repository index](/docs/concepts/repository-index).
 
 **Iris** — The accumulated knowledge of a workspace: the index, graphs, DNA,
-landmarks, health, findings, and memories. Console `#/iris` shows facts plus
-the Envelope scoreboard — not the repository map. An aperture, not a persona
+landmarks, health, findings, and memories. The Iris screen in the IDE shows
+facts plus the Envelope scoreboard — not the repository map. An aperture, not a persona
 — never first person, never an avatar. See
 [Envelope and Iris](/docs/guides/envelope-and-iris).
 
-**Spectrum** — The browser intelligence app (formerly Playground) that indexes
-the Dispatch-selected repository. The same map appears in the IDE. Console
-Iris no longer mounts that map — it shows facts and Envelope instead.
+**Spectrum** — The browser app (formerly Playground) that indexes a local
+repository. The same map appears in the IDE. The Iris screen does not mount
+that map — it shows facts and Envelope instead.
 
 **Knowledge graph** — Semantic relationships beyond imports: what a symbol is,
 what it relates to, what it belongs to. See [graphs](/docs/concepts/graphs).
@@ -86,6 +86,10 @@ coupling, churn, tests, risk, ownership, features.
 
 **Measured** — Read from real output rather than inferred. The counterpart to
 estimated.
+
+**Memory** — A note about the repository saved with `prism remember`, optionally
+anchored to a symbol or path. Prepare hands it back. See
+[Remember context](/docs/guides/remember-context).
 
 **MCP** — Model Context Protocol, the standard by which an AI client calls
 external tools. Prism ships an MCP server. See [using MCP](/docs/usage).
@@ -105,6 +109,9 @@ work order. CLI `prism prepare`. See
 **Provenance** — Whether a value was measured, estimated, or is unknown. See
 [signal provenance](/docs/concepts/signal-provenance).
 
+**Receipt** — What the stop hook prints when the agent stops: the checks the
+change reached, and whether it is proven, unproven, or failed.
+
 **Surface** — A way of using Prism: the extension, the CLI, the MCP server, the
 Spectrum app. All of them consume the same engine and compute nothing themselves.
 
@@ -115,10 +122,6 @@ not the same repository.
 **Work order** — In-scope, off-limits (generated/vendor), and needs-sign-off
 paths for a task. Advisory unless an Accepted ADR arms the write veto. See
 [Prepare a change](/docs/guides/prepare-a-change).
-
-**Working set** — Files, symbols, decisions, and graph neighbors kept so a
-compacted chat or job resume does not rediscover context. See
-[Remember context](/docs/guides/remember-context).
 
 **Workspace** — The repository Prism is analysing, and the boundary it will not
 read outside of.

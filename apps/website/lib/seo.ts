@@ -12,10 +12,11 @@ import { PRISM_TOOL_COUNT } from "@repo-prism/shared";
 
 export const SITE_NAME = "Prism";
 
-export const SITE_DEFAULT_TITLE = "Prism — local-first software intelligence";
+export const SITE_DEFAULT_TITLE =
+  "Prism — faster agent sessions, fewer broken builds";
 
 export const SITE_DESCRIPTION =
-  "Local-first software intelligence — a teammate for every agent. Maps, Prepare, Envelope, Guard, findings, and Dispatch on your machine. Not a coding model.";
+  "Local context and change checks for coding agents. Prism hands the agent the right files before it edits, and proves the change when it stops. On your machine. No account.";
 
 export const MARKETING_ROUTES: Array<{
   path: string;

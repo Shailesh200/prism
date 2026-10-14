@@ -210,7 +210,7 @@ export {
   type EnvelopeSummarizeOptions,
   type EnvelopeToolMix,
   type JobEnvelopeMetrics,
-} from "./envelope-ledger.js";
+} from "@repo-prism/core/envelope";
 export {
   auditCitedPaths,
   citedPaths,
@@ -413,7 +413,7 @@ export {
   type EnvelopeClientVersion,
   type EnvelopeHostProbe,
   type EnvelopeHostSource,
-} from "./host-client.js";
+} from "@repo-prism/core/envelope";
 export {
   discoverHostConnectors,
   connectorCovers,
@@ -435,7 +435,7 @@ export {
   summarizePrepareChange,
   PREPARE_HISTORY_LIMIT,
   type LastPrepareSummary,
-} from "./prepare-last.js";
+} from "@repo-prism/core/envelope";
 export {
   buildFillContract,
   fillSectionsFromConfig,

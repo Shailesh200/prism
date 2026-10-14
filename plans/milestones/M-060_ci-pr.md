@@ -48,4 +48,4 @@ mitigations so teams can adopt Prism in CI without friction.
 ## 5. References
 
 - Prism Completion Program (owner plan, 2026-08-08) — Phase 5
-- [M-028 CLI Foundation](./M-028_cli-foundation.md) · [M-029 CLI Commands](./M-029_cli-commands.md) — `prism review`, `--fail-on`, `--json`
+- [M-028 CLI Foundation](../archive/milestones/M-028_cli-foundation.md) · [M-029 CLI Commands](../archive/milestones/M-029_cli-commands.md) — `prism review`, `--fail-on`, `--json`

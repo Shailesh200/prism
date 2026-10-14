@@ -5,7 +5,7 @@ description: "Browser UI for trying Prism without installing an extension."
 
 Spectrum is the local browser version of the Prism interface — for trying it
 without an extension, and for developing Prism itself. It indexes the
-repository selected in Dispatch, not the Prism checkout.
+repository you select, not the Prism checkout.
 
 ## Running it
 
@@ -16,8 +16,8 @@ bun install
 bun run --filter '@repo-prism/playground' dev
 ```
 
-Open the URL it prints. Pick a repository from the same dropdown Dispatch uses,
-or pass `?root=` on the URL.
+Open the URL it prints. Pick a repository from the dropdown, or pass `?root=`
+on the URL.
 
 ## What it is for
 
@@ -33,7 +33,7 @@ browser DevTools loop the extension webview lacks.
 | | Spectrum | Extension |
 |---|---|---|
 | Open a file in an editor | No | Yes |
-| Workspace | Dispatch-selected repo, `?root=`, or environment | Editor folder |
+| Workspace | Selected repo, `?root=`, or environment | Editor folder |
 | Reindex on save | Manual | Automatic |
 
 The analysis is identical: same engine, same answers.

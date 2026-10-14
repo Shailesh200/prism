@@ -1581,12 +1581,12 @@ export function JobsScreen(props: JobsScreenProps): ReactElement {
                     <JobFactCard
                       label="Context"
                       value={usage.context}
-                      tooltip="Occupancy of this teammate's last prompt this run — the LLM window."
+                      tooltip="Occupancy of the last prompt this run — the model window."
                     />
                     <JobFactCard
                       label="Tokens"
                       value={<JobTokenIo usage={job.tokenUsage} />}
-                      tooltip="Input and output billed for this teammate's LLM run. Envelope is Prismate lists, not this bill."
+                      tooltip="Input and output billed for this run. Envelope counts Prism lists, not this bill."
                     />
                     <JobFactCard
                       label="Envelope"

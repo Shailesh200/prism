@@ -8,7 +8,9 @@
  */
 export const CLI_COMMAND_NAMES = [
   "doctor",
+  "data",
   "index",
+  "graph",
   "completions",
   "dna",
   "health",
@@ -37,4 +39,9 @@ export const CLI_COMMAND_NAMES = [
   "bundle",
   "agents-md",
   "findings",
+  "envelope",
+  "receipts",
+  "remember",
+  "forget",
+  "memories",
 ] as const;

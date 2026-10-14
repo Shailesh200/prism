@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { DISPATCH_TOOL_NAMES } from "@repo-prism/dispatch";
 import { createPrismMcpServer, type PrismMcpServer } from "./server.js";
 
 /**
@@ -32,7 +31,7 @@ async function connect(workspaceRoot: string): Promise<{
 }> {
   const built = createPrismMcpServer({
     workspaceRoot,
-    env: { ...process.env, PRISM_MCP_FULL: "1", PRISM_JOBS: "1" },
+    env: { ...process.env, PRISM_MCP_FULL: "1" },
   });
   const connected = new Client({ name: "contract-test", version: "0.0.0" });
   const [clientTransport, serverTransport] =
@@ -107,25 +106,19 @@ describe("MCP server contract (M-026)", () => {
     expect(client.getServerVersion()?.icons?.length).toBeGreaterThan(0);
   });
 
-  it("runs start_my_day without opening or indexing the workspace", async () => {
-    const briefing = await callJson("start_my_day");
-    expect(instance.session.isOpen()).toBe(false);
-    expect(briefing.message).toBeTypeOf("string");
-  });
-
   it("advertises instructions that teach agents to call tools without being asked", async () => {
     const instructions = client.getInstructions();
     expect(instructions).toBeTypeOf("string");
-    expect(instructions).toMatch(/users never name tools/i);
+    expect(instructions).toMatch(/users never name these tools/i);
     expect(instructions).toContain("blast_radius");
-    expect(instructions).toContain("start_my_day");
+    expect(instructions).not.toContain("start_my_day");
     expect(instructions).not.toMatch(/prism_blast_radius/);
   });
 
   it("lists workflow prompts for clients that expose a picker", async () => {
     const { prompts } = await client.listPrompts();
     expect(prompts.map((prompt) => prompt.name).sort()).toEqual(
-      ["before_edit", "orient", "review_diff", "review_lenses"].sort(),
+      ["before_edit", "orient", "review_diff"].sort(),
     );
   });
 
@@ -165,32 +158,25 @@ describe("MCP server contract (M-026)", () => {
         "breaking_change_hints",
         "capabilities",
         "changed_paths",
-        "configure",
         "dependency_cycles",
         "dependency_graph",
         "dependency_route",
-        "dispatch_doctor",
         "engineering_health",
         "explain_area",
         "explore_code",
         "feature_graph",
         "find_references",
         "find_symbol",
+        "graph",
         "guard_session",
         "health_history",
-        "init",
-        "job_control",
         "knowledge_graph",
-        "job_logs",
         "landmarks",
         "lens",
         "list_features",
         "list_findings",
-        "list_jobs",
         "list_packages",
         "prepare_change",
-        "queue_finding",
-        "remember",
         "rename_impact",
         "repository_dna",
         "repository_health",
@@ -201,15 +187,9 @@ describe("MCP server contract (M-026)", () => {
         "safe_delete",
         "search_symbols",
         "security_report",
-        "sleep",
         "stack_profile",
-        "start_job",
-        "start_my_day",
         "test_impact",
         "testing_report",
-        "use_skill",
-        "wake",
-        "working_set",
         "work_order",
         "workspace_status",
       ].sort(),
@@ -248,20 +228,12 @@ describe("MCP server contract (M-026)", () => {
       "explore_code",
     ]);
 
-    // Dispatch tools are not Intelligence lists: job_logs pages `entries` for a
-    // job that may not exist yet, so it has a limit without an items envelope.
-    const dispatchTools = new Set<string>(DISPATCH_TOOL_NAMES);
-
     const { tools } = await client.listTools();
     const listTools = tools.filter((tool) => {
       const props = tool.inputSchema.properties as
         | Record<string, unknown>
         | undefined;
-      return (
-        props?.limit !== undefined &&
-        !NESTED_LIMIT.has(tool.name) &&
-        !dispatchTools.has(tool.name)
-      );
+      return props?.limit !== undefined && !NESTED_LIMIT.has(tool.name);
     });
     // If this drops to zero the assertion below stops meaning anything.
     expect(listTools.length).toBeGreaterThanOrEqual(5);
@@ -305,17 +277,8 @@ describe("MCP server contract (M-026)", () => {
         "prism://dna",
         "prism://health",
         "prism://landmarks",
-        "ui://prism/jobs",
       ].sort(),
     );
-  });
-
-  it("binds list_jobs to the jobs MCP App (M-064)", async () => {
-    const { tools } = await client.listTools();
-    const listJobs = tools.find((tool) => tool.name === "list_jobs") as
-      | { _meta?: { ui?: { resourceUri?: string } } }
-      | undefined;
-    expect(listJobs?._meta?.ui?.resourceUri).toBe("ui://prism/jobs");
   });
 
   it("marks overlapping tools as deprecated in descriptions (M-058 / P-C9)", async () => {
@@ -343,6 +306,7 @@ describe("MCP server contract (M-026)", () => {
       "feature_graph",
       "find_references",
       "find_symbol",
+      "graph",
       "health_history",
       "knowledge_graph",
       "landmarks",
@@ -449,6 +413,10 @@ describe("MCP server contract (M-026)", () => {
       ["list_features", {}],
       ["list_findings", {}],
       ["find_symbol", { name: "a" }],
+      ["graph", { mode: "find", name: "renderDashboard" }],
+      ["graph", { mode: "neighbors", target: { path: filePath } }],
+      ["graph", { mode: "explain", path: filePath }],
+      ["graph", { mode: "query", filter: "importers_of", of: filePath }],
       ["search_symbols", { pattern: "a" }],
       ["find_references", { name: "a" }],
       [
@@ -473,14 +441,6 @@ describe("MCP server contract (M-026)", () => {
       ["backend_report", {}],
       ["testing_report", {}],
       ["security_report", {}],
-      ["start_my_day", {}],
-      ["list_jobs", {}],
-      ["job_logs", {}],
-      ["remember", { action: "list" }],
-      ["use_skill", {}],
-      ["configure", { action: "get" }],
-      ["dispatch_doctor", {}],
-      ["working_set", { action: "get" }],
     ];
 
     const failures: string[] = [];
@@ -499,22 +459,10 @@ describe("MCP server contract (M-026)", () => {
     }
 
     expect(failures).toEqual([]);
-    // Intelligence tools plus safe Dispatch tools. start_job / job_control /
-    // init mutate worktrees or start Cursor login and are covered by unit tests.
     const { tools } = await client.listTools();
-    const skipped = new Set([
-      "start_job",
-      "queue_finding",
-      "job_control",
-      "init",
-      "sleep",
-      "wake",
-    ]);
-    expect(calls.map(([name]) => name).sort()).toEqual(
-      tools
-        .map((t) => t.name)
-        .filter((name) => !skipped.has(name))
-        .sort(),
+    // `graph` is called once per mode; the set of names is what must match.
+    expect([...new Set(calls.map(([name]) => name))].sort()).toEqual(
+      tools.map((t) => t.name).sort(),
     );
   }, 120_000);
 
