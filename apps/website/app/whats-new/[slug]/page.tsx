@@ -1,9 +1,6 @@
-import { HomeLayout } from "fumadocs-ui/layouts/home";
-import { baseOptions } from "@/lib/layout.shared";
 import { notFound } from "next/navigation";
-import { PageEnter } from "@/components/motion/PageEnter";
-import { SiteFooter } from "@/components/site-footer";
 import { JsonLd } from "@/components/json-ld";
+import { Shell } from "@/components/paper/shell";
 import { posts } from "@/.source/server";
 import { getMDXComponents } from "@/components/mdx";
 import { articleJsonLd, pageMetadata, SITE_DESCRIPTION } from "@/lib/seo";
@@ -39,27 +36,24 @@ export default async function PostPage(props: Props) {
   const MDX = post.body;
 
   return (
-    <HomeLayout {...baseOptions()}>
-      <PageEnter>
-        <main className="mx-auto w-full max-w-3xl px-6 py-16">
-          <JsonLd
-            data={articleJsonLd({
-              title: post.title ?? slug,
-              description: post.description,
-              url: `/whats-new/${slug}`,
-            })}
-          />
-          <article className="space-y-6">
-            <h1 className="font-display text-4xl font-semibold tracking-tight">
-              {post.title ?? slug}
-            </h1>
-            <div className="prose max-w-none">
-              <MDX components={getMDXComponents()} />
-            </div>
-          </article>
-        </main>
-      </PageEnter>
-      <SiteFooter />
-    </HomeLayout>
+    <Shell>
+      <article
+        className="article"
+        style={{ maxWidth: 760, margin: "0 auto", padding: "64px 24px 80px" }}
+      >
+        <JsonLd
+          data={articleJsonLd({
+            title: post.title ?? slug,
+            description: post.description,
+            url: `/whats-new/${slug}`,
+          })}
+        />
+        <div className="crumb">
+          <a href="/changelog">Changelog</a>
+        </div>
+        <h1>{post.title ?? slug}</h1>
+        <MDX components={getMDXComponents()} />
+      </article>
+    </Shell>
   );
 }

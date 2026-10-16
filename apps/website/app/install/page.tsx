@@ -1,298 +1,81 @@
-import type { ReactNode } from "react";
-import { HomeLayout } from "fumadocs-ui/layouts/home";
-import { baseOptions } from "@/lib/layout.shared";
 import Link from "next/link";
-import { PageEnter } from "@/components/motion/PageEnter";
-import { Reveal } from "@/components/motion/Reveal";
-import { SectionIntro } from "@/components/motion/SectionIntro";
-import { CopyCommand } from "@/components/copy-command";
-import { CopyInstall } from "@/components/copy-install";
-import { McpInstallPanel } from "@/components/mcp-install-panel";
-import { SiteFooter } from "@/components/site-footer";
-import { PRISM_TOOL_COUNT } from "@/lib/mcp-install";
+import { CommandBar, InfoCallout } from "@/components/paper/blocks";
+import { DoctorExample } from "@/components/paper/examples";
+import { Shell } from "@/components/paper/shell";
+import {
+  CLIENTS,
+  DOCTOR_COMMAND,
+  NODE_REQUIREMENT,
+} from "@/lib/paper/install-facts";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
   title: "Install",
   description:
-    "Node 26+, pick a surface, confirm it works. prism init never asks for a key.",
+    "Connect Prism to Claude Code, Cursor, Codex or opencode, then check the repo with the CLI.",
   path: "/install",
 });
 
-const SURFACES = [
-  {
-    title: "CLI",
-    install: "npx -y @repo-prism/cli doctor",
-    href: "/docs/start/install",
-    body: "Terminal and CI. Same Core as every other surface.",
-  },
-  {
-    title: "VS Code & Cursor",
-    install: "Marketplace: prismhq.repo-prism",
-    href: "/docs/start/install",
-    body: "Map, blast, health, and the Console inside the editor.",
-  },
-  {
-    title: "MCP server",
-    install: "npx -y --prefer-online @repo-prism/mcp-server@latest",
-    href: "/docs/start/install",
-    body: `${PRISM_TOOL_COUNT} structural tools for agents, local-first.`,
-  },
-  {
-    title: "Plugin pack",
-    install: "Install “Prism” from your editor's plugins",
-    href: "/docs/start/install",
-    body: "Skills that compose Prism's tools with the connectors you already have.",
-  },
-  {
-    title: "Core SDK",
-    install: "npm install @repo-prism/core",
-    href: "/admin/docs/core-sdk",
-    body: "Programmatic access for custom surfaces.",
-  },
-];
-
-const CONFIRM = [
-  {
-    surface: "CLI",
-    see: "doctor prints a workspace path; dna prints a report",
-  },
-  {
-    surface: "IDE",
-    see: "Prism panel opens after indexing",
-  },
-  {
-    surface: "MCP",
-    see: `${PRISM_TOOL_COUNT} tools listed; the agent answers with repository structure`,
-  },
-];
-
 export default function InstallPage() {
   return (
-    <HomeLayout {...baseOptions()}>
-      <PageEnter>
-        <main className="mx-auto flex w-full max-w-3xl flex-col gap-16 px-6 py-16">
-          <SectionIntro
-            index="Nº INSTALL"
-            title="Install Prism"
-            description="About five minutes. One engine behind CLI, IDE, and MCP. You do not need to clone this repo."
-          />
-
-          <Reveal>
-            <ol className="relative space-y-12 border-l border-fd-border pl-8">
-              <WizardStep n="01" title="Prerequisites">
-                <ul className="space-y-3 text-sm text-fd-muted-foreground">
-                  <li>
-                    <strong className="text-fd-foreground">Node.js 26+</strong>{" "}
-                    — <code className="text-fd-primary">node -v</code> should
-                    start with <code className="text-fd-primary">v26</code>.
-                  </li>
-                  <li>
-                    <strong className="text-fd-foreground">
-                      A TypeScript / JavaScript folder
-                    </strong>{" "}
-                    — open or <code className="text-fd-primary">cd</code> into
-                    it.
-                  </li>
-                  <li>
-                    <strong className="text-fd-foreground">Git</strong> is
-                    recommended (Dispatch and worktrees) but not required for
-                    analysis.
-                  </li>
-                </ul>
-              </WizardStep>
-
-              <WizardStep n="02" title="Pick a surface">
-                <p className="mb-4 text-sm text-fd-muted-foreground">
-                  Add the others later — they share the same local index.
-                </p>
-                <CopyInstall />
-                <div className="mt-6 space-y-3 text-sm text-fd-muted-foreground">
-                  <p>
-                    IDE extension id{" "}
-                    <code className="text-fd-primary">prismhq.repo-prism</code>.
-                  </p>
-                  <p>
-                    MCP:{" "}
-                    <code className="text-fd-primary">
-                      npx -y --prefer-online @repo-prism/mcp-server@latest
-                    </code>
-                  </p>
-                </div>
-              </WizardStep>
-
-              <WizardStep n="03" title="prism init">
-                <p className="text-sm leading-relaxed text-fd-muted-foreground">
-                  In chat, say{" "}
-                  <strong className="text-fd-foreground">prism init</strong>.
-                  The worker matches the host. It never asks you to paste an API
-                  key. If Cursor shows a card titled “Authenticating prism…”
-                  with Skip, that is host tool-approval — click Skip, then retry
-                  init.
-                </p>
-              </WizardStep>
-
-              <WizardStep n="04" title="Confirm it works">
-                <div className="overflow-x-auto rounded-lg border border-fd-border">
-                  <table className="w-full text-left text-sm">
-                    <thead className="border-b border-fd-border bg-fd-card">
-                      <tr>
-                        <th className="px-4 py-3 font-medium">Surface</th>
-                        <th className="px-4 py-3 font-medium">
-                          You should see
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {CONFIRM.map((row) => (
-                        <tr
-                          key={row.surface}
-                          className="border-b border-fd-border last:border-0"
-                        >
-                          <td className="px-4 py-3 font-mono text-xs text-fd-primary">
-                            {row.surface}
-                          </td>
-                          <td className="px-4 py-3 text-fd-muted-foreground">
-                            {row.see}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </WizardStep>
-
-              <WizardStep n="05" title="What Prism writes">
-                <p className="mb-3 text-sm text-fd-muted-foreground">
-                  Per-repo cache, consent, and jobs live under{" "}
-                  <code className="text-fd-primary">~/.prism/workspaces/</code>—
-                  nothing is written into your checkout.
-                </p>
-                <CopyCommand
-                  command="npx -y @repo-prism/cli doctor"
-                  trackTarget="cli"
-                />
-              </WizardStep>
-            </ol>
-          </Reveal>
-
-          <Reveal>
-            <section className="space-y-6 border-t border-fd-border pt-12">
-              <h2 className="font-display text-xl font-medium text-fd-foreground">
-                Surfaces
-              </h2>
-              <p className="max-w-md text-sm text-fd-muted-foreground">
-                Compact install paths. Same engine.
-              </p>
-              <ul className="divide-y divide-fd-border border-y border-fd-border">
-                {SURFACES.map((p, i) => (
-                  <li
-                    key={p.title}
-                    className="flex flex-col gap-3 py-6 sm:flex-row sm:items-start sm:justify-between sm:gap-10"
-                  >
-                    <div className="space-y-2">
-                      <div className="flex items-baseline gap-4">
-                        <span className="font-mono text-xs text-fd-primary">
-                          {String(i + 1).padStart(2, "0")}
-                        </span>
-                        <h3 className="font-display text-xl font-medium text-fd-foreground">
-                          {p.title}
-                        </h3>
-                      </div>
-                      <p className="max-w-md pl-8 text-sm text-fd-muted-foreground">
-                        {p.body}
-                      </p>
-                      <code className="mt-1 block pl-8 font-mono text-sm text-fd-primary">
-                        {p.install}
-                      </code>
-                    </div>
-                    <Link
-                      href={p.href}
-                      className="shrink-0 pl-8 text-sm text-fd-primary sm:pl-0 sm:pt-1"
-                    >
-                      Guide →
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          </Reveal>
-
-          <Reveal>
-            <section className="space-y-6 border-t border-fd-border pt-12">
-              <h2 className="font-display text-xl font-medium text-fd-foreground">
-                MCP one-click
-              </h2>
-              <McpInstallPanel />
-            </section>
-          </Reveal>
-
-          <Reveal>
-            <p className="text-sm text-fd-muted-foreground">
-              Next:{" "}
-              <Link href="/docs/start/quickstart" className="text-fd-primary">
-                Quickstart
-              </Link>
-              {" · "}
-              <Link href="/docs/usage" className="text-fd-primary">
-                Usage
-              </Link>
-              {" · "}
-              <Link
-                href="/docs/guides/prepare-a-change"
-                className="text-fd-primary"
-              >
-                Prepare
-              </Link>
-              {" · "}
-              <Link
-                href="/docs/guides/envelope-and-iris"
-                className="text-fd-primary"
-              >
-                Envelope
-              </Link>
-              {" · "}
-              <Link
-                href="/docs/guides/guard-a-session"
-                className="text-fd-primary"
-              >
-                Guard
-              </Link>
-              {" · "}
-              <Link href="/docs/guides/dispatch" className="text-fd-primary">
-                Dispatch
-              </Link>
-              {" · "}
-              <Link href="/docs/start/install" className="text-fd-primary">
-                Full install guide
-              </Link>
+    <Shell>
+      <section style={{ padding: "80px 0 72px" }}>
+        <div className="wrap grid2">
+          <div>
+            <div className="eyebrow">Install</div>
+            <h1 className="d1" style={{ margin: "18px 0 20px" }}>
+              One check.
+            </h1>
+            <p className="lede">
+              Open a terminal in your repo and run doctor. Then add the MCP
+              server for the agent you use. {NODE_REQUIREMENT} There is no{" "}
+              <code>prism start</code> command and no agent picker.
             </p>
-          </Reveal>
-        </main>
-      </PageEnter>
-      <SiteFooter />
-    </HomeLayout>
-  );
-}
-
-function WizardStep({
-  n,
-  title,
-  children,
-}: {
-  n: string;
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <li className="relative">
-      <span className="absolute -left-8 top-0 flex size-6 -translate-x-1/2 items-center justify-center rounded-full border border-fd-border bg-fd-background font-mono text-[10px] text-fd-primary">
-        {n}
-      </span>
-      <h2 className="font-display text-xl font-medium text-fd-foreground">
-        {title}
-      </h2>
-      <div className="mt-4">{children}</div>
-    </li>
+            <div style={{ marginTop: 28 }}>
+              <CommandBar command={DOCTOR_COMMAND} />
+            </div>
+            <p className="src" style={{ marginTop: 12 }}>
+              Global install, if you prefer a <code>prism</code> binary:{" "}
+              <code>npm install -g @repo-prism/cli</code>, then{" "}
+              <code>prism doctor</code>.
+            </p>
+          </div>
+          <DoctorExample />
+        </div>
+      </section>
+      <section className="sec">
+        <div className="wrap">
+          <h2 className="d3" style={{ marginBottom: 10 }}>
+            Pick an agent
+          </h2>
+          <p className="muted" style={{ margin: "0 0 26px" }}>
+            Each page has the terminal command, the MCP config, and an Add to
+            Cursor button. The server entry is{" "}
+            <code>npx -y --prefer-online @repo-prism/mcp-server@latest</code>.
+          </p>
+          <div className="grid4">
+            {CLIENTS.map((client) => (
+              <Link
+                key={client.slug}
+                className="card fx"
+                href={`/install/${client.slug}`}
+              >
+                <h3 className="t">{client.name}</h3>
+                <p>{client.lede}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+      <section className="sec">
+        <div className="wrap" style={{ maxWidth: 860 }}>
+          <InfoCallout title="What this release installs">
+            The MCP config gives your agent the tools. It does not write hooks,
+            a skill file, or a rule for you. After the server is listed, run
+            doctor in the repo.
+          </InfoCallout>
+        </div>
+      </section>
+    </Shell>
   );
 }

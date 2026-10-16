@@ -2,8 +2,13 @@
 
 import { useRef, type ReactNode } from "react";
 import { useGSAP } from "@gsap/react";
-import { staggerStep } from "@repo-prism/ui";
 import { ensureGsap, prefersReducedMotion, safeSetVisible } from "@/lib/gsap";
+
+/** Same budget as `@repo-prism/ui` `staggerStep`, inlined so the site does not need that package built. */
+function staggerStep(count: number, budgetMs = 240): number {
+  if (count <= 1) return 0;
+  return Math.min(budgetMs / count, 60);
+}
 
 interface StaggerGridProps {
   children: ReactNode;

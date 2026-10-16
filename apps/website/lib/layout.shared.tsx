@@ -13,13 +13,11 @@ export function baseOptions(): BaseLayoutProps {
       title: (
         <>
           <Image
-            src="/brand/prism-mark.png"
-            alt=""
-            width={24}
-            height={24}
-            className="rounded-sm"
+            src="/brand/horizontal-light.svg"
+            alt="Prism"
+            width={112}
+            height={28}
           />
-          <span className="font-semibold tracking-tight">Prism</span>
         </>
       ),
       url: "/",

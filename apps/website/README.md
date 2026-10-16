@@ -1,7 +1,7 @@
 # @repo-prism/website
 
 Public Prism site: marketing pages, Fumadocs docs (lanes + guides), and a
-protected `/admin` dashboard.
+protected `/admin` area. Public docs are the Paper pages under `/docs`.
 
 **Live:** [https://www.prismhq.in](https://www.prismhq.in)
 

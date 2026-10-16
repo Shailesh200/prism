@@ -12,10 +12,10 @@ import { PRISM_TOOL_COUNT } from "@repo-prism/shared";
 
 export const SITE_NAME = "Prism";
 
-export const SITE_DEFAULT_TITLE = "Prism — local-first software intelligence";
+export const SITE_DEFAULT_TITLE = "Prism — help your AI agent get it right";
 
 export const SITE_DESCRIPTION =
-  "Local-first software intelligence — a teammate for every agent. Maps, Prepare, Envelope, Guard, findings, and Dispatch on your machine. Not a coding model.";
+  "Prism gives your coding agent the files, tests and code to reuse before it edits, then ranks the change. Open source and local.";
 
 export const MARKETING_ROUTES: Array<{
   path: string;
@@ -26,9 +26,24 @@ export const MARKETING_ROUTES: Array<{
 }> = [
   { path: "/", changeFrequency: "weekly", priority: 1 },
   { path: "/install", changeFrequency: "weekly", priority: 0.9 },
-  { path: "/products", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/install/claude-code", changeFrequency: "monthly", priority: 0.7 },
+  { path: "/install/cursor", changeFrequency: "monthly", priority: 0.7 },
+  { path: "/install/codex", changeFrequency: "monthly", priority: 0.7 },
+  { path: "/install/opencode", changeFrequency: "monthly", priority: 0.7 },
+  { path: "/how-it-works", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/product/prepare", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/product/blast-radius", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/product/guardrails", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/product/receipts", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/product/review", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/product/lenses", changeFrequency: "monthly", priority: 0.7 },
+  { path: "/product/habits", changeFrequency: "monthly", priority: 0.7 },
+  { path: "/product/cli", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/products", changeFrequency: "monthly", priority: 0.6 },
   { path: "/benchmarks", changeFrequency: "monthly", priority: 0.7 },
-  { path: "/whats-new", changeFrequency: "weekly", priority: 0.7 },
+  { path: "/changelog", changeFrequency: "weekly", priority: 0.7 },
+  { path: "/whats-new", changeFrequency: "weekly", priority: 0.5 },
+  { path: "/open-source", changeFrequency: "yearly", priority: 0.4 },
   { path: "/privacy", changeFrequency: "yearly", priority: 0.3 },
   { path: "/security", changeFrequency: "yearly", priority: 0.3 },
 ];
@@ -69,7 +84,11 @@ export function shouldIndexPath(path: string): boolean {
 
 export function docsPriority(path: string): number {
   if (path === "/docs" || path === "/docs/") return 0.9;
-  if (path === "/docs/start/install" || path === "/docs/what-is-prism") {
+  if (
+    path === "/docs/start/install" ||
+    path === "/docs/what-is-prism" ||
+    path === "/docs/quickstart"
+  ) {
     return 0.9;
   }
   if (path === "/docs/usage" || path.startsWith("/docs/start/")) return 0.8;
@@ -106,11 +125,20 @@ export function pageMetadata(opts: {
       locale: "en_US",
       title: ogTitle,
       description,
+      images: [
+        {
+          url: absoluteUrl("/og-light.png"),
+          width: 1200,
+          height: 630,
+          alt: "Prism",
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
       title: ogTitle,
       description,
+      images: [absoluteUrl("/twitter-card.png")],
     },
     robots: index
       ? {
@@ -150,6 +178,16 @@ export function rootMetadata(): Metadata {
         "application/rss+xml": absoluteUrl("/whats-new/rss.xml"),
       },
     },
+    icons: {
+      icon: [
+        { url: "/favicon.ico", sizes: "any" },
+        { url: "/favicon.svg", type: "image/svg+xml" },
+        { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+        { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      ],
+      apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+    },
+    manifest: "/site.webmanifest",
     openGraph: {
       type: "website",
       locale: "en_US",
@@ -157,11 +195,20 @@ export function rootMetadata(): Metadata {
       siteName: SITE_NAME,
       title: SITE_DEFAULT_TITLE,
       description: SITE_DESCRIPTION,
+      images: [
+        {
+          url: absoluteUrl("/og-light.png"),
+          width: 1200,
+          height: 630,
+          alt: "Prism",
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
       title: SITE_DEFAULT_TITLE,
       description: SITE_DESCRIPTION,
+      images: [absoluteUrl("/twitter-card.png")],
     },
     robots: {
       index: true,
