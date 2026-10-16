@@ -759,6 +759,6 @@ export function docSearch(query: string): DocPage[] {
   const needle = query.trim().toLowerCase();
   if (!needle) return DOCS.slice(0, 8);
   return DOCS.filter((page) => docHay(page).includes(needle))
-    .sort((a, b) => searchRank(a, needle) - searchRank(b, needle))
+    .toSorted((a, b) => searchRank(a, needle) - searchRank(b, needle))
     .slice(0, 12);
 }
