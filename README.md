@@ -1,4 +1,12 @@
 <!-- smoke-test: dispatch token telemetry -->
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./assets/readme-hero-dark-1280x320.png">
+    <source media="(prefers-color-scheme: light)" srcset="./assets/readme-hero-light-1280x320.png">
+    <img alt="Prism: help your AI agent get it right." src="./assets/readme-hero-light-1280x320.png" width="100%">
+  </picture>
+</p>
+
 # Prism
 
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen)](https://nodejs.org)
