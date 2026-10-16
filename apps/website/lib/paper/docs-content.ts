@@ -731,27 +731,34 @@ export function findDoc(slug: string | undefined): DocPage | undefined {
   return DOCS.find((page) => page.slug === key);
 }
 
+function docHay(page: DocPage): string {
+  return [
+    page.title,
+    page.description,
+    ...page.blocks.flatMap((block) => {
+      if (block.kind === "p" || block.kind === "h2" || block.kind === "note")
+        return [block.text];
+      if (block.kind === "commands") return block.commands;
+      if (block.kind === "ul" || block.kind === "ol") return block.items;
+      return [...block.headers, ...block.rows.flat()];
+    }),
+  ]
+    .join("\n")
+    .toLowerCase();
+}
+
+function searchRank(page: DocPage, needle: string): number {
+  const title = page.title.toLowerCase();
+  if (title === needle) return 0;
+  if (title.includes(needle)) return 1;
+  if (page.description.toLowerCase().includes(needle)) return 2;
+  return 3;
+}
+
 export function docSearch(query: string): DocPage[] {
   const needle = query.trim().toLowerCase();
   if (!needle) return DOCS.slice(0, 8);
-  return DOCS.filter((page) => {
-    const hay = [
-      page.title,
-      page.description,
-      ...page.blocks.flatMap((block) => {
-        if (block.kind === "p" || block.kind === "h2" || block.kind === "note")
-          return [block.text];
-        if (
-          block.kind === "ul" ||
-          block.kind === "ol" ||
-          block.kind === "commands"
-        )
-          return block.kind === "commands" ? block.commands : block.items;
-        return [...block.headers, ...block.rows.flat()];
-      }),
-    ]
-      .join("\n")
-      .toLowerCase();
-    return hay.includes(needle);
-  }).slice(0, 12);
+  return DOCS.filter((page) => docHay(page).includes(needle))
+    .sort((a, b) => searchRank(a, needle) - searchRank(b, needle))
+    .slice(0, 12);
 }

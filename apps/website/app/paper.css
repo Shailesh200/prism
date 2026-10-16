@@ -689,14 +689,16 @@ table.t {
 .pair .tabs {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 4px;
   margin: 0 0 10px;
   padding: 4px;
   background: var(--paper2);
   border: 1px solid var(--rule);
   border-radius: 999px;
-  width: max-content;
+  width: fit-content;
   max-width: 100%;
+  overflow-x: auto;
 }
 
 .pair .tabs button {

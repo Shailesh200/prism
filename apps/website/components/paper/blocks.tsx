@@ -242,6 +242,7 @@ export function ReviewCard() {
             display: "flex",
             gap: 8,
             alignItems: "center",
+            flexWrap: "wrap",
             color: "var(--cdim)",
             font: "12.5px var(--mono)",
             marginBottom: 8,
