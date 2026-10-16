@@ -2,8 +2,21 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
-import { DOC_GROUPS, DOCS, docHref, docSearch, type DocPage } from "@/lib/paper/docs-content";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import {
+  DOC_GROUPS,
+  DOCS,
+  docHref,
+  docSearch,
+  type DocPage,
+} from "@/lib/paper/docs-content";
 
 export function DocsChrome({ children }: { children: ReactNode }) {
   const path = usePathname();
@@ -28,7 +41,11 @@ export function DocsChrome({ children }: { children: ReactNode }) {
     <>
       <div className="docs">
         <aside className="side">
-          <button type="button" className="search" onClick={() => setOpen(true)}>
+          <button
+            type="button"
+            className="search"
+            onClick={() => setOpen(true)}
+          >
             <span aria-hidden="true">⌕</span>
             <span>Search docs</span>
             <kbd>⌘K</kbd>
@@ -40,7 +57,12 @@ export function DocsChrome({ children }: { children: ReactNode }) {
                 const href = docHref(page.slug);
                 const on = path === href;
                 return (
-                  <Link key={href} href={href} className={on ? "on" : undefined} aria-current={on ? "page" : undefined}>
+                  <Link
+                    key={href}
+                    href={href}
+                    className={on ? "on" : undefined}
+                    aria-current={on ? "page" : undefined}
+                  >
                     {page.title}
                   </Link>
                 );
@@ -86,7 +108,15 @@ function DocSearch({ onClose }: { onClose: () => void }) {
         aria-labelledby={titleId}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", borderBottom: "1px solid var(--rule)" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "14px 16px",
+            borderBottom: "1px solid var(--rule)",
+          }}
+        >
           <span id={titleId} className="sr-only">
             Search docs
           </span>
@@ -104,7 +134,9 @@ function DocSearch({ onClose }: { onClose: () => void }) {
                 onClose();
               } else if (event.key === "ArrowDown") {
                 event.preventDefault();
-                setActive((value) => Math.min(value + 1, Math.max(hits.length - 1, 0)));
+                setActive((value) =>
+                  Math.min(value + 1, Math.max(hits.length - 1, 0)),
+                );
               } else if (event.key === "ArrowUp") {
                 event.preventDefault();
                 setActive((value) => Math.max(value - 1, 0));
@@ -118,9 +150,16 @@ function DocSearch({ onClose }: { onClose: () => void }) {
             <kbd>esc</kbd>
           </button>
         </div>
-        <div id="doc-search-hits" role="listbox" aria-label="Search results" style={{ overflow: "auto", padding: 8 }}>
+        <div
+          id="doc-search-hits"
+          role="listbox"
+          aria-label="Search results"
+          style={{ overflow: "auto", padding: 8 }}
+        >
           {hits.length === 0 ? (
-            <p style={{ padding: "14px 18px", color: "var(--ink3)" }}>No matching pages.</p>
+            <p style={{ padding: "14px 18px", color: "var(--ink3)" }}>
+              No matching pages.
+            </p>
           ) : (
             hits.map((hit, index) => (
               <Link
@@ -132,7 +171,15 @@ function DocSearch({ onClose }: { onClose: () => void }) {
                 onMouseEnter={() => setActive(index)}
               >
                 <b>{hit.title}</b>
-                <span style={{ display: "block", color: "var(--ink3)", fontSize: 14 }}>{hit.description}</span>
+                <span
+                  style={{
+                    display: "block",
+                    color: "var(--ink3)",
+                    fontSize: 14,
+                  }}
+                >
+                  {hit.description}
+                </span>
               </Link>
             ))
           )}

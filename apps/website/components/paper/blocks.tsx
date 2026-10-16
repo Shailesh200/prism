@@ -2,7 +2,13 @@ import type { ReactNode } from "react";
 import { CopyButton } from "./copy-button";
 import { Rich } from "./rich";
 
-export function CommandBar({ command, note }: { command: string; note?: string }) {
+export function CommandBar({
+  command,
+  note,
+}: {
+  command: string;
+  note?: string;
+}) {
   return (
     <div className="cmd" role="group" aria-label="Command">
       <span className="p" aria-hidden="true">
@@ -10,7 +16,11 @@ export function CommandBar({ command, note }: { command: string; note?: string }
       </span>
       <span className="cmd-text">{command}</span>
       <CopyButton value={command} label="Copy command" />
-      {note ? <small style={{ color: "var(--cdim)", fontFamily: "var(--sans)" }}>{note}</small> : null}
+      {note ? (
+        <small style={{ color: "var(--cdim)", fontFamily: "var(--sans)" }}>
+          {note}
+        </small>
+      ) : null}
     </div>
   );
 }
@@ -74,7 +84,14 @@ export function Chat({ title, items }: { title: string; items: ChatItem[] }) {
     <Window title={title}>
       {items.map((item, index) => (
         <div className={`bub ${item.who}`} key={index}>
-          <span className="who">{item.label ?? (item.who === "you" ? "You" : item.who === "prism" ? "Prism" : "Agent")}</span>
+          <span className="who">
+            {item.label ??
+              (item.who === "you"
+                ? "You"
+                : item.who === "prism"
+                  ? "Prism"
+                  : "Agent")}
+          </span>
           {item.body}
         </div>
       ))}
@@ -105,18 +122,53 @@ export function ConfigBlock({
         <CopyButton value={code} label="Copy" className="copy" />
       </div>
       <pre>
-        <code style={{ background: "transparent", border: 0, padding: 0, whiteSpace: "pre", color: "inherit" }}>{code}</code>
+        <code
+          style={{
+            background: "transparent",
+            border: 0,
+            padding: 0,
+            whiteSpace: "pre",
+            color: "inherit",
+          }}
+        >
+          {code}
+        </code>
       </pre>
-      {note ? <div className="cfg-f" style={{ padding: "10px 20px 14px", borderTop: "1px solid #ffffff14", color: "var(--cdim)", font: "13.5px var(--sans)" }}>{note}</div> : null}
+      {note ? (
+        <div
+          className="cfg-f"
+          style={{
+            padding: "10px 20px 14px",
+            borderTop: "1px solid #ffffff14",
+            color: "var(--cdim)",
+            font: "13.5px var(--sans)",
+          }}
+        >
+          {note}
+        </div>
+      ) : null}
     </div>
   );
 }
 
-export function InfoCallout({ title, children }: { title: string; children: ReactNode }) {
+export function InfoCallout({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
   return (
     <div className="info">
       <div className="ii" aria-hidden="true">
-        <svg viewBox="0 0 20 20" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <svg
+          viewBox="0 0 20 20"
+          width="22"
+          height="22"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+        >
           <circle cx="10" cy="10" r="7.5" />
           <path d="M10 9v5M10 6.3v.2" />
         </svg>
@@ -129,7 +181,13 @@ export function InfoCallout({ title, children }: { title: string; children: Reac
   );
 }
 
-export function DataTable({ headers, rows }: { headers: string[]; rows: ReactNode[][] }) {
+export function DataTable({
+  headers,
+  rows,
+}: {
+  headers: string[];
+  rows: ReactNode[][];
+}) {
   return (
     <div className="table-scroll">
       <table className="t">
@@ -156,7 +214,11 @@ export function DataTable({ headers, rows }: { headers: string[]; rows: ReactNod
   );
 }
 
-export function PointGrid({ items }: { items: Array<{ title: string; text: string }> }) {
+export function PointGrid({
+  items,
+}: {
+  items: Array<{ title: string; text: string }>;
+}) {
   return (
     <div className="grid3">
       {items.map((item) => (
@@ -175,12 +237,24 @@ export function ReviewCard() {
   return (
     <Window title="Cursor · review">
       <div className="rvw">
-        <div style={{ display: "flex", gap: 8, alignItems: "center", color: "var(--cdim)", font: "12.5px var(--mono)", marginBottom: 8 }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            alignItems: "center",
+            color: "var(--cdim)",
+            font: "12.5px var(--mono)",
+            marginBottom: 8,
+          }}
+        >
           <ToolChip name="review_changes" />
           <span>working tree</span>
         </div>
         <div className="rv-risk">
-          <span className="d" style={{ font: "600 11px var(--mono)", letterSpacing: ".1em" }}>
+          <span
+            className="d"
+            style={{ font: "600 11px var(--mono)", letterSpacing: ".1em" }}
+          >
             RISK
           </span>
           <span className="meter" aria-hidden="true">
@@ -201,8 +275,9 @@ export function ReviewCard() {
           </span>
         </div>
         <p style={{ margin: "12px 0 0" }}>
-          <span className="y">totals.ts</span> is widely used. Read it before you push.{" "}
-          <span className="g">prism review --fail-on mid</span> exits 1 at or above this band.
+          <span className="y">totals.ts</span> is widely used. Read it before
+          you push. <span className="g">prism review --fail-on mid</span> exits
+          1 at or above this band.
         </p>
       </div>
     </Window>

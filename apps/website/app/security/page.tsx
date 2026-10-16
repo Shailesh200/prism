@@ -5,7 +5,8 @@ import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
   title: "Security",
-  description: "Report a Prism vulnerability with a private GitHub security advisory.",
+  description:
+    "Report a Prism vulnerability with a private GitHub security advisory.",
   path: "/security",
 });
 
@@ -21,7 +22,8 @@ export default function SecurityPage() {
             </h1>
           </div>
           <p className="lede">
-            Found a vulnerability? Report it privately with a GitHub security advisory. For bugs and ideas, open an issue on GitHub.
+            Found a vulnerability? Report it privately with a GitHub security
+            advisory. For bugs and ideas, open an issue on GitHub.
           </p>
         </div>
       </section>
@@ -30,14 +32,20 @@ export default function SecurityPage() {
           <a className="lnk" href={`${GITHUB_HREF}/security/advisories/new`}>
             <span>
               <b>Report a vulnerability</b>
-              <span>Private GitHub security advisory, as SECURITY.md asks. Please don’t open a public issue for it.</span>
+              <span>
+                Private GitHub security advisory, as SECURITY.md asks. Please
+                don’t open a public issue for it.
+              </span>
             </span>
             <span className="go">Open advisory →</span>
           </a>
           <a className="lnk" href={`${GITHUB_HREF}/issues`}>
             <span>
               <b>Raise an issue</b>
-              <span>Bugs, questions and feature requests: github.com/Shailesh200/prism/issues</span>
+              <span>
+                Bugs, questions and feature requests:
+                github.com/Shailesh200/prism/issues
+              </span>
             </span>
             <span className="go">Open issues →</span>
           </a>
@@ -45,7 +53,10 @@ export default function SecurityPage() {
         <div className="wrap" style={{ marginTop: 28 }}>
           <div style={{ maxWidth: 860 }}>
             <InfoCallout title="What to include in a report">
-              What you did, what happened, what you expected, and your Prism version from <code>prism --version</code>. A small reproduction helps most. Please leave out real source code, tokens and <code>~/.prism/</code> contents from a private repo.
+              What you did, what happened, what you expected, and your Prism
+              version from <code>prism --version</code>. A small reproduction
+              helps most. Please leave out real source code, tokens and{" "}
+              <code>~/.prism/</code> contents from a private repo.
             </InfoCallout>
           </div>
         </div>
@@ -70,7 +81,8 @@ export default function SecurityPage() {
             </div>
           </div>
           <p className="src" style={{ marginTop: 16 }}>
-            Targets from SECURITY.md. You are credited in the release notes unless you ask not to be.
+            Targets from SECURITY.md. You are credited in the release notes
+            unless you ask not to be.
           </p>
         </div>
       </section>
@@ -78,16 +90,24 @@ export default function SecurityPage() {
         <div className="wrap grid3">
           <div className="card">
             <h2 className="t">No account, no keys</h2>
-            <p>Nothing to sign in to. Prism holds no third-party credentials. Connectors stay with the agent.</p>
+            <p>
+              Nothing to sign in to. Prism holds no third-party credentials.
+              Connectors stay with the agent.
+            </p>
           </div>
           <div className="card">
             <h2 className="t">Workspace boundary</h2>
-            <p>Analysis reads the opened workspace. The library lives in <code>~/.prism</code>, outside the checkout.</p>
+            <p>
+              Analysis reads the opened workspace. The library lives in{" "}
+              <code>~/.prism</code>, outside the checkout.
+            </p>
           </div>
           <div className="card">
             <h2 className="t">Published server</h2>
             <p>
-              The documented install runs <code>npx</code> with <code>@repo-prism/mcp-server@latest</code>. Analysis of the repo makes no network calls.
+              The documented install runs <code>npx</code> with{" "}
+              <code>@repo-prism/mcp-server@latest</code>. Analysis of the repo
+              makes no network calls.
             </p>
           </div>
         </div>

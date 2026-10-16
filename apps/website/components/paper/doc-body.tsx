@@ -49,7 +49,10 @@ export function DocBlocks({ blocks }: { blocks: DocBlock[] }) {
         }
         if (block.kind === "commands") {
           return (
-            <div key={index} style={{ display: "grid", gap: 10, margin: "16px 0" }}>
+            <div
+              key={index}
+              style={{ display: "grid", gap: 10, margin: "16px 0" }}
+            >
               {block.commands.map((command) => (
                 <CommandBar key={command} command={command} />
               ))}
@@ -60,7 +63,9 @@ export function DocBlocks({ blocks }: { blocks: DocBlock[] }) {
           <DataTable
             key={index}
             headers={block.headers}
-            rows={block.rows.map((row) => row.map((cell) => <Rich key={cell} text={cell} />))}
+            rows={block.rows.map((row) =>
+              row.map((cell) => <Rich key={cell} text={cell} />),
+            )}
           />
         );
       })}

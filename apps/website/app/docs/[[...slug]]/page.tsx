@@ -42,7 +42,12 @@ export default async function DocsPage(props: Props) {
   return (
     <>
       <article className="article">
-        <JsonLd data={docsBreadcrumbJsonLd({ title: page.title, url: docHref(page.slug) })} />
+        <JsonLd
+          data={docsBreadcrumbJsonLd({
+            title: page.title,
+            url: docHref(page.slug),
+          })}
+        />
         {page.slug === "faq" ? <JsonLd data={faqJsonLd()} /> : null}
         <div className="crumb">Docs / {page.group}</div>
         <h1>{page.title}</h1>

@@ -8,7 +8,8 @@ import { PRISM_TOOL_COUNT } from "@repo-prism/shared";
 export function GET() {
   const site = siteOrigin();
   const pages = DOCS.map(
-    (page) => `- [${page.title}](${site}${docHref(page.slug)}): ${page.description}`,
+    (page) =>
+      `- [${page.title}](${site}${docHref(page.slug)}): ${page.description}`,
   ).join("\n");
 
   const body = `# Prism

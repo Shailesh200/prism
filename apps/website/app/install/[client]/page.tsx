@@ -10,7 +10,9 @@ export function generateStaticParams() {
   return CLIENTS.map((client) => ({ client: client.slug }));
 }
 
-export async function generateMetadata(props: { params: Promise<{ client: string }> }) {
+export async function generateMetadata(props: {
+  params: Promise<{ client: string }>;
+}) {
   const { client: slug } = await props.params;
   const client = CLIENTS.find((item) => item.slug === slug);
   if (!client) return {};
@@ -21,7 +23,9 @@ export async function generateMetadata(props: { params: Promise<{ client: string
   });
 }
 
-export default async function ClientInstallPage(props: { params: Promise<{ client: string }> }) {
+export default async function ClientInstallPage(props: {
+  params: Promise<{ client: string }>;
+}) {
   const { client: slug } = await props.params;
   const client = CLIENTS.find((item) => item.slug === slug);
   if (!client) notFound();
@@ -34,7 +38,11 @@ export default async function ClientInstallPage(props: { params: Promise<{ clien
             ← Install
           </Link>
           {CLIENTS.map((item) => (
-            <Link key={item.slug} href={`/install/${item.slug}`} className={item.slug === slug ? "on" : undefined}>
+            <Link
+              key={item.slug}
+              href={`/install/${item.slug}`}
+              className={item.slug === slug ? "on" : undefined}
+            >
               {item.name}
             </Link>
           ))}
@@ -68,7 +76,10 @@ export default async function ClientInstallPage(props: { params: Promise<{ clien
             <div className="card" style={{ padding: "8px 24px" }}>
               <DataTable
                 headers={["Where", "What"]}
-                rows={client.writes.map(([where, what]) => [<code key={where}>{where}</code>, what])}
+                rows={client.writes.map(([where, what]) => [
+                  <code key={where}>{where}</code>,
+                  what,
+                ])}
               />
             </div>
           </div>
@@ -76,7 +87,15 @@ export default async function ClientInstallPage(props: { params: Promise<{ clien
             <h2 className="d3" style={{ marginBottom: 20 }}>
               Then
             </h2>
-            <ol style={{ color: "var(--ink2)", fontSize: 17, lineHeight: 1.9, paddingLeft: 22, margin: 0 }}>
+            <ol
+              style={{
+                color: "var(--ink2)",
+                fontSize: 17,
+                lineHeight: 1.9,
+                paddingLeft: 22,
+                margin: 0,
+              }}
+            >
               <li>Save the config, or use Add to Cursor.</li>
               <li>Restart {client.name} and enable the prism server.</li>
               <li>

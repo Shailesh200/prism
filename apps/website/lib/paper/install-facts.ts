@@ -46,10 +46,14 @@ export const CLIENTS = [
     configPath: "~/.claude.json",
     configLang: "json",
     config: MCP_JSON,
-    configNote: "For one repo, put the same mcpServers.prism entry in .mcp.json at the repo root.",
+    configNote:
+      "For one repo, put the same mcpServers.prism entry in .mcp.json at the repo root.",
     writes: [
       ["~/.claude.json", "The Prism MCP server, under mcpServers.prism"],
-      ["Project .mcp.json", "The same entry, when you want it only in this repo"],
+      [
+        "Project .mcp.json",
+        "The same entry, when you want it only in this repo",
+      ],
     ],
   },
   {
@@ -76,8 +80,11 @@ export const CLIENTS = [
     configPath: "~/.codex/config.toml",
     configLang: "toml",
     config: CODEX_TOML.trimEnd(),
-    configNote: "NODE_USE_SYSTEM_CA lets the npm download trust a corporate proxy CA.",
-    writes: [["~/.codex/config.toml", "The Prism MCP server, as [mcp_servers.prism]"]],
+    configNote:
+      "NODE_USE_SYSTEM_CA lets the npm download trust a corporate proxy CA.",
+    writes: [
+      ["~/.codex/config.toml", "The Prism MCP server, as [mcp_servers.prism]"],
+    ],
   },
   {
     slug: "opencode",
@@ -88,7 +95,8 @@ export const CLIENTS = [
     configPath: "~/.config/opencode/opencode.json",
     configLang: "json",
     config: OPENCODE_JSON.trimEnd(),
-    configNote: "For one repo, the same mcp.prism object can live in opencode.json at the repo root.",
+    configNote:
+      "For one repo, the same mcp.prism object can live in opencode.json at the repo root.",
     writes: [
       ["~/.config/opencode/opencode.json", "User-level MCP entry"],
       ["opencode.json", "The same entry, for one repo"],

@@ -5,7 +5,8 @@ import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
   title: "Open source",
-  description: "Prism is MIT licensed. Read the code, build it, and send changes.",
+  description:
+    "Prism is MIT licensed. Read the code, build it, and send changes.",
   path: "/open-source",
 });
 
@@ -30,7 +31,8 @@ export default function OpenSourcePage() {
           </div>
           <div>
             <p className="lede">
-              Prism is open source under the MIT licence. Read the code, build it yourself, and send changes. A star helps others find it.
+              Prism is open source under the MIT licence. Read the code, build
+              it yourself, and send changes. A star helps others find it.
             </p>
             <div style={{ marginTop: 22 }}>
               <StarLink className="btn star" />
@@ -55,7 +57,15 @@ export default function OpenSourcePage() {
               Contribute
             </h2>
             <p className="lede" style={{ fontSize: 18 }}>
-              Open an issue or a pull request on GitHub. <a href={`${GITHUB_HREF}/blob/main/CONTRIBUTING.md`}><u>CONTRIBUTING.md</u></a> explains the setup. Report security issues privately (see <a href="/security"><u>Security</u></a>).
+              Open an issue or a pull request on GitHub.{" "}
+              <a href={`${GITHUB_HREF}/blob/main/CONTRIBUTING.md`}>
+                <u>CONTRIBUTING.md</u>
+              </a>{" "}
+              explains the setup. Report security issues privately (see{" "}
+              <a href="/security">
+                <u>Security</u>
+              </a>
+              ).
             </p>
           </div>
         </div>

@@ -8,7 +8,13 @@ import { FOOTER, GITHUB_HREF, PRODUCT_LINKS } from "@/lib/paper/nav";
 
 function GitHubIcon() {
   return (
-    <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
+    <svg
+      viewBox="0 0 16 16"
+      width="16"
+      height="16"
+      fill="currentColor"
+      aria-hidden="true"
+    >
       <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
     </svg>
   );
@@ -16,15 +22,30 @@ function GitHubIcon() {
 
 function StarIcon() {
   return (
-    <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true">
+    <svg
+      viewBox="0 0 16 16"
+      width="14"
+      height="14"
+      fill="currentColor"
+      aria-hidden="true"
+    >
       <path d="M8 .9l2.2 4.6 5 .7-3.6 3.5.9 5L8 12.3 3.5 14.7l.9-5L.8 6.2l5-.7z" />
     </svg>
   );
 }
 
-export function StarLink({ className = "btn star sm" }: { className?: string }) {
+export function StarLink({
+  className = "btn star sm",
+}: {
+  className?: string;
+}) {
   return (
-    <a className={className} href={GITHUB_HREF} target="_blank" rel="noreferrer">
+    <a
+      className={className}
+      href={GITHUB_HREF}
+      target="_blank"
+      rel="noreferrer"
+    >
       <GitHubIcon />
       <span>Star on GitHub</span>
       <span className="st">
@@ -83,9 +104,16 @@ export function SiteHeader() {
               Product ▾
             </button>
             {NAV.map((item) => {
-              const on = item.prefix ? path.startsWith(item.href) : path === item.href;
+              const on = item.prefix
+                ? path.startsWith(item.href)
+                : path === item.href;
               return (
-                <Link key={item.href} href={item.href} className={on ? "on" : undefined} aria-current={on ? "page" : undefined}>
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={on ? "on" : undefined}
+                  aria-current={on ? "page" : undefined}
+                >
                   {item.label}
                 </Link>
               );
@@ -104,7 +132,15 @@ export function SiteHeader() {
             aria-controls="mobile-nav"
             onClick={() => setMobile((value) => !value)}
           >
-            <span className="sr-only" style={{ position: "absolute", width: 1, height: 1, overflow: "hidden" }}>
+            <span
+              className="sr-only"
+              style={{
+                position: "absolute",
+                width: 1,
+                height: 1,
+                overflow: "hidden",
+              }}
+            >
               {mobile ? "Close menu" : "Open menu"}
             </span>
             {mobile ? (
@@ -133,7 +169,11 @@ export function SiteHeader() {
             </Link>
           </div>
         ) : null}
-        <div id="mobile-nav" className={`mobile-panel${mobile ? " open" : ""}`} hidden={!mobile}>
+        <div
+          id="mobile-nav"
+          className={`mobile-panel${mobile ? " open" : ""}`}
+          hidden={!mobile}
+        >
           <h2>Product</h2>
           {PRODUCT_LINKS.map((item) => (
             <Link key={item.href} className="big" href={item.href}>
@@ -166,7 +206,14 @@ export function SiteHeader() {
           <Link className="big" href="/security">
             Security
           </Link>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 22 }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+              marginTop: 22,
+            }}
+          >
             <Link className="btn dark" href="/install">
               Install Prism
             </Link>
@@ -188,7 +235,8 @@ export function SiteFooter() {
               <Logo />
             </Link>
             <p style={{ maxWidth: 300, margin: "14px 0 18px" }}>
-              Right context, accurate changes and a ranked review for your AI coding agent. Runs on your machine.
+              Right context, accurate changes and a ranked review for your AI
+              coding agent. Runs on your machine.
             </p>
             <StarLink />
           </div>
@@ -230,13 +278,23 @@ export function Shell({ children }: { children: ReactNode }) {
 export function Cta() {
   return (
     <section className="sec">
-      <div className="wrap" style={{ display: "flex", justifyContent: "space-between", gap: 24, flexWrap: "wrap", alignItems: "end" }}>
+      <div
+        className="wrap"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 24,
+          flexWrap: "wrap",
+          alignItems: "end",
+        }}
+      >
         <div>
           <h2 className="d2">
             Try it in <em>your repo.</em>
           </h2>
           <p className="lede" style={{ marginTop: 12 }}>
-            One command checks the setup. Connect your agent from the install guide.
+            One command checks the setup. Connect your agent from the install
+            guide.
           </p>
         </div>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>

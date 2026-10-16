@@ -5,7 +5,8 @@ import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
   title: "Benchmarks",
-  description: "Tool-call savings from Prism’s benchmark sample. No repository names.",
+  description:
+    "Tool-call savings from Prism’s benchmark sample. No repository names.",
   path: "/benchmarks",
 });
 
@@ -27,7 +28,10 @@ const QUESTIONS: Record<string, string> = {
 };
 
 function rows() {
-  const buckets = new Map<string, { label: string; without: number; withPrism: number }>();
+  const buckets = new Map<
+    string,
+    { label: string; without: number; withPrism: number }
+  >();
   for (const fixture of sample.fixtures as Array<{ scenarios: Scenario[] }>) {
     for (const scenario of fixture.scenarios) {
       const current = buckets.get(scenario.scenario) ?? {
@@ -41,7 +45,10 @@ function rows() {
     }
   }
   return [...buckets.entries()].map(([id, value]) => {
-    const saved = value.without === 0 ? 0 : Math.round(((value.without - value.withPrism) / value.without) * 100);
+    const saved =
+      value.without === 0
+        ? 0
+        : Math.round(((value.without - value.withPrism) / value.without) * 100);
     return { id, ...value, saved };
   });
 }
@@ -60,7 +67,9 @@ export default function BenchmarksPage() {
             What we measured, <em>in plain words.</em>
           </h1>
           <p className="lede">
-            The checked-in sample compares a simulated read-and-search pass with the same questions answered through Prism. The number that holds up is tool calls.
+            The checked-in sample compares a simulated read-and-search pass with
+            the same questions answered through Prism. The number that holds up
+            is tool calls.
           </p>
         </div>
       </section>
@@ -75,7 +84,10 @@ export default function BenchmarksPage() {
               <div className="num" style={{ marginTop: 14, fontSize: 52 }}>
                 {saved}%
               </div>
-              <p style={{ color: "var(--ink)" }}>Fewer tool calls with Prism than without, across the whole sample.</p>
+              <p style={{ color: "var(--ink)" }}>
+                Fewer tool calls with Prism than without, across the whole
+                sample.
+              </p>
             </div>
             <div className="card fx">
               <div className="eyebrow">Without</div>
@@ -102,11 +114,18 @@ export default function BenchmarksPage() {
         </div>
       </section>
       <section className="sec">
-        <div className="wrap grid2" style={{ alignItems: "start", gridTemplateColumns: "minmax(0,.62fr) minmax(0,1.38fr)" }}>
+        <div
+          className="wrap grid2"
+          style={{
+            alignItems: "start",
+            gridTemplateColumns: "minmax(0,.62fr) minmax(0,1.38fr)",
+          }}
+        >
           <div>
             <h2 className="d3">Every question</h2>
             <p className="lede" style={{ marginTop: 14, fontSize: 18 }}>
-              Tool calls only. Token and time totals in this sample are not a saving, so they are not shown as one.
+              Tool calls only. Token and time totals in this sample are not a
+              saving, so they are not shown as one.
             </p>
           </div>
           <div className="card" style={{ padding: "8px 24px" }}>
@@ -126,10 +145,21 @@ export default function BenchmarksPage() {
                         <b style={{ fontWeight: 600 }}>{row.label}</b>
                       </td>
                       <td>
-                        <span style={{ font: "500 16px var(--mono)", color: "var(--ink)", whiteSpace: "nowrap" }}>{row.saved}%</span>
+                        <span
+                          style={{
+                            font: "500 16px var(--mono)",
+                            color: "var(--ink)",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {row.saved}%
+                        </span>
                       </td>
                       <td>
-                        {row.withPrism} calls with Prism, {row.without} without. <span style={{ color: "var(--ink3)" }}>Your agent starts from an answer instead of a search.</span>
+                        {row.withPrism} calls with Prism, {row.without} without.{" "}
+                        <span style={{ color: "var(--ink3)" }}>
+                          Your agent starts from an answer instead of a search.
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -143,7 +173,11 @@ export default function BenchmarksPage() {
         <div className="wrap">
           <div style={{ maxWidth: 860 }}>
             <InfoCallout title="How to read these numbers">
-              They come from Prism’s own benchmark sample, included with the website, run on one macOS machine. They are not an independent audit. The sample does not name a repository on this page. Token and elapsed-time totals in the same file went up, not down, so this page does not quote them as savings.
+              They come from Prism’s own benchmark sample, included with the
+              website, run on one macOS machine. They are not an independent
+              audit. The sample does not name a repository on this page. Token
+              and elapsed-time totals in the same file went up, not down, so
+              this page does not quote them as savings.
             </InfoCallout>
           </div>
         </div>

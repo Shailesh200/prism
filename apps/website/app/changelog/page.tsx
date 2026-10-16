@@ -7,7 +7,8 @@ import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
   title: "Changelog",
-  description: "Changes to the Prism CLI and MCP server, from the repository changelog.",
+  description:
+    "Changes to the Prism CLI and MCP server, from the repository changelog.",
   path: "/changelog",
 });
 
@@ -17,7 +18,10 @@ function Md({ text }: { text: string }) {
 }
 
 export default async function ChangelogPage() {
-  const markdown = await readFile(path.join(process.cwd(), "../../CHANGELOG.md"), "utf8");
+  const markdown = await readFile(
+    path.join(process.cwd(), "../../CHANGELOG.md"),
+    "utf8",
+  );
   const releases = forPublicChangelog(parseChangelog(markdown));
 
   return (
@@ -28,7 +32,10 @@ export default async function ChangelogPage() {
           <h1 className="d1" style={{ margin: "18px 0" }}>
             What’s new.
           </h1>
-          <p className="lede">Changes to the CLI and the MCP server, taken from this repository’s changelog.</p>
+          <p className="lede">
+            Changes to the CLI and the MCP server, taken from this repository’s
+            changelog.
+          </p>
         </div>
       </section>
       <section style={{ paddingBottom: 80 }}>
@@ -45,28 +52,43 @@ export default async function ChangelogPage() {
                 {index === 0 ? <span className="pill ok">current</span> : null}
               </div>
               <div>
-                {release.sections.length > 0
-                  ? release.sections.map((section) => (
-                      <div key={section.title} style={{ padding: "8px 0 16px" }}>
-                        <h2 style={{ margin: "0 0 8px", font: "600 16px var(--sans)" }}>{section.title}</h2>
-                        <ul style={{ margin: 0, paddingLeft: 18, color: "var(--ink2)" }}>
-                          {section.bullets.map((bullet) => (
-                            <li key={bullet}>
-                              <Md text={bullet} />
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))
-                  : (
-                    <ul style={{ margin: 0, paddingLeft: 18, color: "var(--ink2)" }}>
-                      {release.bullets.map((bullet) => (
-                        <li key={bullet}>
-                          <Md text={bullet} />
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                {release.sections.length > 0 ? (
+                  release.sections.map((section) => (
+                    <div key={section.title} style={{ padding: "8px 0 16px" }}>
+                      <h2
+                        style={{
+                          margin: "0 0 8px",
+                          font: "600 16px var(--sans)",
+                        }}
+                      >
+                        {section.title}
+                      </h2>
+                      <ul
+                        style={{
+                          margin: 0,
+                          paddingLeft: 18,
+                          color: "var(--ink2)",
+                        }}
+                      >
+                        {section.bullets.map((bullet) => (
+                          <li key={bullet}>
+                            <Md text={bullet} />
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))
+                ) : (
+                  <ul
+                    style={{ margin: 0, paddingLeft: 18, color: "var(--ink2)" }}
+                  >
+                    {release.bullets.map((bullet) => (
+                      <li key={bullet}>
+                        <Md text={bullet} />
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
           ))}

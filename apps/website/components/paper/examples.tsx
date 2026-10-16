@@ -14,7 +14,8 @@ export function PrepareExample() {
               body: (
                 <>
                   <ToolChip name="prepare_change" />
-                  Files to open, helpers to reuse, House Style, notes, and a work order. Paths and names only — never file bodies.
+                  Files to open, helpers to reuse, House Style, notes, and a
+                  work order. Paths and names only — never file bodies.
                   <br />
                   pack · src/billing/totals.ts
                   <br />
@@ -24,7 +25,10 @@ export function PrepareExample() {
                 </>
               ),
             },
-            { who: "agent", body: "I'll start in totals.ts and extend the test that already covers it." },
+            {
+              who: "agent",
+              body: "I'll start in totals.ts and extend the test that already covers it.",
+            },
           ]}
         />
       }
@@ -67,11 +71,15 @@ export function RefsExample() {
               body: (
                 <>
                   <ToolChip name="find_references" />
-                  Resolved references to getUser. Two symbols with the same name stay ambiguous — they are not merged.
+                  Resolved references to getUser. Two symbols with the same name
+                  stay ambiguous — they are not merged.
                 </>
               ),
             },
-            { who: "agent", body: "Two call sites. I'll open those files before editing." },
+            {
+              who: "agent",
+              body: "Two call sites. I'll open those files before editing.",
+            },
           ]}
         />
       }
@@ -104,7 +112,8 @@ export function BlastExample() {
               body: (
                 <>
                   <ToolChip name="blast_radius" />
-                  Dependents, tests likely affected, and a risk band: low, mid, or high.
+                  Dependents, tests likely affected, and a risk band: low, mid,
+                  or high.
                 </>
               ),
             },
@@ -170,7 +179,9 @@ export function GuardExample() {
               body: (
                 <>
                   <ToolChip name="guard_session" />
-                  Dirty files ranked by blast. Off-limits paths are on the work order from prepare_change. The veto stays off unless an Accepted ADR arms it.
+                  Dirty files ranked by blast. Off-limits paths are on the work
+                  order from prepare_change. The veto stays off unless an
+                  Accepted ADR arms it.
                 </>
               ),
             },
@@ -205,7 +216,8 @@ export function RenameExample() {
               body: (
                 <>
                   <ToolChip name="rename_impact" />
-                  Every edit site a rename would touch. Prism does not write the rename.
+                  Every edit site a rename would touch. Prism does not write the
+                  rename.
                 </>
               ),
             },
@@ -235,7 +247,8 @@ export function SafeDeleteExample() {
               body: (
                 <>
                   <ToolChip name="safe_delete" />
-                  Blockers that still depend on it. A report only — Prism never deletes the file.
+                  Blockers that still depend on it. A report only — Prism never
+                  deletes the file.
                 </>
               ),
             },
@@ -285,7 +298,9 @@ export function EnvelopeExample() {
               body: (
                 <>
                   <ToolChip name="envelope" />
-                  One local line per Intelligence call: tool name, item counts, whether the list was cut, and JSON bytes. No prompts, paths, or source.
+                  One local line per Intelligence call: tool name, item counts,
+                  whether the list was cut, and JSON bytes. No prompts, paths,
+                  or source.
                 </>
               ),
             },
@@ -319,8 +334,9 @@ export function HabitExample() {
               who: "prism",
               body: (
                 <>
-                  <ToolChip name="start_my_day" />
-                  A standup for this repo: yesterday, open items, leftover jobs, and one suggested focus. Unconnected tools are named, not invented.
+                  <ToolChip name="start_my_day" />A standup for this repo:
+                  yesterday, open items, leftover jobs, and one suggested focus.
+                  Unconnected tools are named, not invented.
                 </>
               ),
             },
@@ -355,7 +371,8 @@ export function MapExample() {
               body: (
                 <>
                   <ToolChip name="repository_map" />
-                  Clusters, landmarks, and layers. <ToolChip name="repository_dna" /> names the stack.
+                  Clusters, landmarks, and layers.{" "}
+                  <ToolChip name="repository_dna" /> names the stack.
                 </>
               ),
             },

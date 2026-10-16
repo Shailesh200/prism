@@ -30,9 +30,19 @@ export function CopyButton({
       onClick={onCopy}
       aria-label={done ? "Copied" : label}
     >
-      {done ? "Copied" : label === "Copy" && className === "copy" ? (
+      {done ? (
+        "Copied"
+      ) : label === "Copy" && className === "copy" ? (
         <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
-          <rect x="5" y="5" width="8" height="8" rx="1.2" fill="none" stroke="currentColor" />
+          <rect
+            x="5"
+            y="5"
+            width="8"
+            height="8"
+            rx="1.2"
+            fill="none"
+            stroke="currentColor"
+          />
           <path d="M3 11V3h8" fill="none" stroke="currentColor" />
         </svg>
       ) : (

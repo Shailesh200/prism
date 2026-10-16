@@ -97,7 +97,9 @@ function scrubPublic(text: string): string {
 }
 
 /** Public changelog: drop dashboard and GitHub Action marketing. */
-export function forPublicChangelog(releases: ChangelogRelease[]): ChangelogRelease[] {
+export function forPublicChangelog(
+  releases: ChangelogRelease[],
+): ChangelogRelease[] {
   const out: ChangelogRelease[] = [];
   for (const release of releases) {
     if (HIDDEN_PUBLIC.test(release.title ?? "")) continue;
@@ -116,7 +118,12 @@ export function forPublicChangelog(releases: ChangelogRelease[]): ChangelogRelea
       }))
       .filter((section) => section.bullets.length > 0);
     if (bullets.length === 0 && sections.length === 0) continue;
-    out.push({ ...release, bullets, sections, title: release.title ? scrubPublic(release.title) : undefined });
+    out.push({
+      ...release,
+      bullets,
+      sections,
+      title: release.title ? scrubPublic(release.title) : undefined,
+    });
   }
   return out;
 }

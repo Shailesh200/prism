@@ -37,7 +37,10 @@ export default async function PostPage(props: Props) {
 
   return (
     <Shell>
-      <article className="article" style={{ maxWidth: 760, margin: "0 auto", padding: "64px 24px 80px" }}>
+      <article
+        className="article"
+        style={{ maxWidth: 760, margin: "0 auto", padding: "64px 24px 80px" }}
+      >
         <JsonLd
           data={articleJsonLd({
             title: post.title ?? slug,

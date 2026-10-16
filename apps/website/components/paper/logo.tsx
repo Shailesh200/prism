@@ -12,7 +12,11 @@ const SRC = {
 } as const;
 
 /** Prompt lockup. The SVG already contains the wordmark, so no extra text. */
-export function Logo({ variant = "lockup", height = 28, className }: LogoProps) {
+export function Logo({
+  variant = "lockup",
+  height = 28,
+  className,
+}: LogoProps) {
   const src = SRC[variant];
   const style: CSSProperties = { height, width: "auto" };
   return (

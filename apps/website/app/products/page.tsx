@@ -5,7 +5,8 @@ import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
   title: "Product",
-  description: "Prepare, blast radius, guardrails, receipts, review, and the CLI.",
+  description:
+    "Prepare, blast radius, guardrails, receipts, review, and the CLI.",
   path: "/products",
 });
 
@@ -20,7 +21,12 @@ export default function ProductsPage() {
           </h1>
           <div className="grid2">
             {PRODUCT_LINKS.map((item) => (
-              <Link key={item.href} href={item.href} className="card" style={{ display: "block" }}>
+              <Link
+                key={item.href}
+                href={item.href}
+                className="card"
+                style={{ display: "block" }}
+              >
                 <h2 className="t">{item.label}</h2>
                 <p>{item.text}</p>
               </Link>

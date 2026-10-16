@@ -44,7 +44,13 @@ export const PRODUCT_LINKS = [
 ] as const;
 
 export const FOOTER = [
-  { title: "Product", links: PRODUCT_LINKS.map((item) => ({ href: item.href, label: item.label })) },
+  {
+    title: "Product",
+    links: PRODUCT_LINKS.map((item) => ({
+      href: item.href,
+      label: item.label,
+    })),
+  },
   {
     title: "Get started",
     links: [

@@ -125,7 +125,14 @@ export function pageMetadata(opts: {
       locale: "en_US",
       title: ogTitle,
       description,
-      images: [{ url: absoluteUrl("/og-light.png"), width: 1200, height: 630, alt: "Prism" }],
+      images: [
+        {
+          url: absoluteUrl("/og-light.png"),
+          width: 1200,
+          height: 630,
+          alt: "Prism",
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
@@ -188,7 +195,14 @@ export function rootMetadata(): Metadata {
       siteName: SITE_NAME,
       title: SITE_DEFAULT_TITLE,
       description: SITE_DESCRIPTION,
-      images: [{ url: absoluteUrl("/og-light.png"), width: 1200, height: 630, alt: "Prism" }],
+      images: [
+        {
+          url: absoluteUrl("/og-light.png"),
+          width: 1200,
+          height: 630,
+          alt: "Prism",
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",

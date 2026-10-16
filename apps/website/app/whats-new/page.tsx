@@ -6,7 +6,8 @@ import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
   title: "What's new",
-  description: "Release notes live on the changelog. Highlight posts are listed here.",
+  description:
+    "Release notes live on the changelog. Highlight posts are listed here.",
   path: "/whats-new",
 });
 
@@ -30,7 +31,10 @@ async function loadPosts(): Promise<PostMeta[]> {
         .split("\n")
         .map((line) => line.split(":").map((part) => part.trim()))
         .filter((parts) => parts.length >= 2)
-        .map(([key, ...rest]) => [key, rest.join(":").replace(/^["']|["']$/g, "")]),
+        .map(([key, ...rest]) => [
+          key,
+          rest.join(":").replace(/^["']|["']$/g, ""),
+        ]),
     );
     posts.push({
       slug: file.replace(/\.mdx$/, ""),
@@ -40,7 +44,9 @@ async function loadPosts(): Promise<PostMeta[]> {
     });
   }
   return posts.toSorted(
-    (a, b) => (b.version ?? "").localeCompare(a.version ?? "") || a.slug.localeCompare(b.slug),
+    (a, b) =>
+      (b.version ?? "").localeCompare(a.version ?? "") ||
+      a.slug.localeCompare(b.slug),
   );
 }
 
@@ -55,11 +61,20 @@ export default async function WhatsNewPage() {
             Release notes.
           </h1>
           <p className="lede">
-            The full list is the <Link href="/changelog"><u>changelog</u></Link>. These posts expand a few releases.
+            The full list is the{" "}
+            <Link href="/changelog">
+              <u>changelog</u>
+            </Link>
+            . These posts expand a few releases.
           </p>
           <div className="grid2" style={{ marginTop: 36 }}>
             {posts.map((post) => (
-              <Link key={post.slug} href={`/whats-new/${post.slug}`} className="card" style={{ display: "block" }}>
+              <Link
+                key={post.slug}
+                href={`/whats-new/${post.slug}`}
+                className="card"
+                style={{ display: "block" }}
+              >
                 <h2 className="t">{post.title}</h2>
                 <p>{post.description}</p>
               </Link>

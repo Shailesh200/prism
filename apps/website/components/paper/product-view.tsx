@@ -22,7 +22,9 @@ export function ProductView({
   points: Array<{ title: string; text: string }>;
   children?: ReactNode;
 }) {
-  const current = PRODUCT_LINKS.find((item) => item.href === `/product/${slug}`);
+  const current = PRODUCT_LINKS.find(
+    (item) => item.href === `/product/${slug}`,
+  );
   return (
     <>
       <div className="subnav">
@@ -31,7 +33,11 @@ export function ProductView({
             Product
           </span>
           {PRODUCT_LINKS.map((item) => (
-            <Link key={item.href} href={item.href} className={item.href.endsWith(`/${slug}`) ? "on" : undefined}>
+            <Link
+              key={item.href}
+              href={item.href}
+              className={item.href.endsWith(`/${slug}`) ? "on" : undefined}
+            >
               {item.label}
             </Link>
           ))}
@@ -76,9 +82,16 @@ export function Split({
 }) {
   return (
     <section className="sec">
-      <div className="wrap grid2" style={{ gridTemplateColumns: "minmax(0,.8fr) minmax(0,1.2fr)" }}>
+      <div
+        className="wrap grid2"
+        style={{ gridTemplateColumns: "minmax(0,.8fr) minmax(0,1.2fr)" }}
+      >
         <div>
-          {eyebrow ? <div className="eyebrow" style={{ marginBottom: 12 }}>{eyebrow}</div> : null}
+          {eyebrow ? (
+            <div className="eyebrow" style={{ marginBottom: 12 }}>
+              {eyebrow}
+            </div>
+          ) : null}
           <h2 className="d3">
             <EmTitle text={title} />
           </h2>
