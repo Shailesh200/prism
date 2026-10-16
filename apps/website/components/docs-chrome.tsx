@@ -8,7 +8,7 @@ import {
 } from "fumadocs-ui/layouts/notebook/slots/sidebar";
 import { Sidebar } from "lucide-react";
 import type { ComponentProps } from "react";
-import { baseOptions } from "@/lib/layout.shared";
+import { BrandLockup, baseOptions } from "@/lib/layout.shared";
 
 function HostBar({ children }: ComponentProps<"main">) {
   return (
@@ -46,6 +46,7 @@ export function DocsHostHeader() {
       {...base}
       nav={{
         ...base.nav,
+        title: <BrandLockup variant="docs" height={22} />,
         children: <MobileDocsTrigger />,
       }}
       slots={{ container: HostBar }}

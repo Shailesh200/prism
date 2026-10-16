@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { GITHUB } from "@/lib/github";
+import { BrandLockup } from "@/lib/layout.shared";
 
 /**
  * Site footer for the marketing pages.
@@ -87,7 +88,8 @@ export function SiteFooter() {
           ))}
         </div>
         <div className="flex flex-col gap-2 border-t border-fd-border pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-fd-muted-foreground">
+          <p className="flex items-center gap-2 text-xs text-fd-muted-foreground">
+            <BrandLockup variant="mark" height={18} alt="" />
             Prism — local-first software intelligence.
           </p>
           <p className="font-mono text-xs text-fd-muted-foreground">

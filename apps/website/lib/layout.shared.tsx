@@ -7,21 +7,60 @@ import { prismhqEvents, trackProps } from "@/lib/pulse";
 
 export { GITHUB };
 
+/** Prompt lockup. The image already contains the wordmark. */
+export function BrandLockup({
+  variant = "horizontal",
+  height = 24,
+  alt = "Prism",
+}: {
+  variant?: "horizontal" | "docs" | "mark";
+  height?: number;
+  alt?: string;
+}) {
+  const spec = {
+    horizontal: {
+      dark: "/brand/horizontal-dark.png",
+      light: "/brand/horizontal-light.png",
+      width: Math.round((height * 150) / 32),
+    },
+    docs: {
+      dark: "/brand/docs-header-dark.png",
+      light: "/brand/docs-header-light.png",
+      width: Math.round((height * 224) / 28),
+    },
+    mark: {
+      dark: "/brand/mark-dark.png",
+      light: "/brand/mark-light.png",
+      width: height,
+    },
+  }[variant];
+
+  return (
+    <span className="inline-flex items-center">
+      <Image
+        src={spec.dark}
+        alt={alt}
+        width={spec.width}
+        height={height}
+        className="logo-on-dark h-auto w-auto"
+        style={{ height, width: "auto" }}
+      />
+      <Image
+        src={spec.light}
+        alt=""
+        width={spec.width}
+        height={height}
+        className="logo-on-light h-auto w-auto"
+        style={{ height, width: "auto" }}
+      />
+    </span>
+  );
+}
+
 export function baseOptions(): BaseLayoutProps {
   return {
     nav: {
-      title: (
-        <>
-          <Image
-            src="/brand/prism-mark.png"
-            alt=""
-            width={24}
-            height={24}
-            className="rounded-sm"
-          />
-          <span className="font-semibold tracking-tight">Prism</span>
-        </>
-      ),
+      title: <BrandLockup />,
       url: "/",
     },
     links: [

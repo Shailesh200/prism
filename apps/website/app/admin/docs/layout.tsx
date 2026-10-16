@@ -1,14 +1,19 @@
 import { DocsLayout } from "fumadocs-ui/layouts/docs";
 import type { ReactNode } from "react";
 import { adminSource } from "@/lib/source";
-import { GITHUB } from "@/lib/layout.shared";
+import { BrandLockup, GITHUB } from "@/lib/layout.shared";
 
 export default function AdminDocsLayout({ children }: { children: ReactNode }) {
   return (
     <DocsLayout
       tree={adminSource.getPageTree()}
       nav={{
-        title: "Prism Admin Docs",
+        title: (
+          <span className="inline-flex items-center gap-2">
+            <BrandLockup variant="mark" height={22} alt="" />
+            Prism Admin Docs
+          </span>
+        ),
         url: "/admin",
       }}
       githubUrl={GITHUB}

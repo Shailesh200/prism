@@ -203,6 +203,17 @@ html.prism-cursor-active * {
 
 /* Scrollbar chrome lives on the tokens import above (ADR-0051). */
 
+/* Prompt lockup swaps with the site theme. The dark asset is the default. */
+.logo-on-light {
+  display: none;
+}
+html.light .logo-on-dark {
+  display: none;
+}
+html.light .logo-on-light {
+  display: inline;
+}
+
 /* Cursor and loader are motion; the scrollbar is colour, so it stays. */
 @media (prefers-reduced-motion: reduce) {
   .prism-cursor-root,
