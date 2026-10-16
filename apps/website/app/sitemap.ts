@@ -1,11 +1,11 @@
 import { posts } from "@/.source/server";
-import { source } from "@/lib/source";
+import { DOCS, docHref } from "@/lib/paper/docs-content";
 import { buildSitemap } from "@/lib/seo";
 import type { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return buildSitemap({
-    docsUrls: source.getPages().map((page) => page.url),
+    docsUrls: DOCS.map((page) => docHref(page.slug)),
     postSlugs: posts.map((entry) => entry.info.path.replace(/\.mdx$/, "")),
   });
 }

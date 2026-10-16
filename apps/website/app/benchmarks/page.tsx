@@ -1,317 +1,153 @@
-import { HomeLayout } from "fumadocs-ui/layouts/home";
-import { baseOptions } from "@/lib/layout.shared";
-import Link from "next/link";
-import { PageEnter } from "@/components/motion/PageEnter";
-import { Reveal } from "@/components/motion/Reveal";
-import { StaggerGrid } from "@/components/motion/StaggerGrid";
-import { SectionIntro } from "@/components/motion/SectionIntro";
-import { McpInstallPanel } from "@/components/mcp-install-panel";
-import { Counter } from "@/components/motion/Counter";
-import { SiteFooter } from "@/components/site-footer";
-import { FEATURES } from "@/lib/features";
-import type { ReactNode } from "react";
-import sampleReport from "@/data/benchmarks-sample.json";
+import { InfoCallout } from "@/components/paper/blocks";
+import { Shell } from "@/components/paper/shell";
+import sample from "@/data/benchmarks-sample.json";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
-  title: "Features & Benchmarks",
-  description:
-    "What Prism can do, and the measured hop-count savings before an edit.",
+  title: "Benchmarks",
+  description: "Tool-call savings from Prism’s benchmark sample. No repository names.",
   path: "/benchmarks",
 });
 
-type RunSide = {
-  toolCalls: number;
-  estimatedTokens: number;
-  tokensPerCall?: number;
-  elapsedMs: number;
-};
-
-type ScenarioRow = {
+type Side = { toolCalls: number };
+type Scenario = {
   scenario: string;
   label: string;
-  withoutPrism: RunSide;
-  withPrism: RunSide;
-  savings: { toolCallsPct: number; tokensPct: number; timePct: number };
+  withoutPrism: Side;
+  withPrism: Side;
 };
 
-type BenchReport = {
-  recordedAt: string;
-  machine?: { platform: string; arch: string; node: string };
-  totals: {
-    withoutPrism: RunSide;
-    withPrism: RunSide;
-    savings: { toolCallsPct: number; tokensPct: number; timePct: number };
-  };
-  fixtures: Array<{
-    id: string;
-    editTarget: string;
-    scenarios: ScenarioRow[];
-  }>;
+const QUESTIONS: Record<string, string> = {
+  orient: "What is this repository?",
+  safe_edit: "Is this edit safe?",
+  health: "Is this codebase healthy?",
+  find: "Where is this symbol?",
+  test_impact: "Which tests reach this file?",
+  cycles: "Where are the cycles?",
 };
 
-const QUESTIONS: Array<{ id: string; tool: string; href: string }> = [
-  {
-    id: "orient",
-    tool: "repository_dna",
-    href: "/docs/guides/understand-a-repo",
-  },
-  {
-    id: "safe_edit",
-    tool: "blast_radius",
-    href: "/docs/guides/before-you-edit",
-  },
-  {
-    id: "health",
-    tool: "repository_health",
-    href: "/docs/guides/track-health",
-  },
-  { id: "find", tool: "find_symbol", href: "/docs/reference/mcp-tools" },
-  {
-    id: "test_impact",
-    tool: "test_impact",
-    href: "/docs/guides/before-you-edit",
-  },
-  {
-    id: "cycles",
-    tool: "dependency_cycles",
-    href: "/docs/concepts/graphs",
-  },
-];
-
-function questionStats(report: BenchReport, id: string) {
-  let without = 0;
-  let withPrism = 0;
-  let label = id;
-  for (const fixture of report.fixtures) {
+function rows() {
+  const buckets = new Map<string, { label: string; without: number; withPrism: number }>();
+  for (const fixture of sample.fixtures as Array<{ scenarios: Scenario[] }>) {
     for (const scenario of fixture.scenarios) {
-      if (scenario.scenario !== id) continue;
-      label = scenario.label;
-      without += scenario.withoutPrism.toolCalls;
-      withPrism += scenario.withPrism.toolCalls;
+      const current = buckets.get(scenario.scenario) ?? {
+        label: QUESTIONS[scenario.scenario] ?? scenario.label,
+        without: 0,
+        withPrism: 0,
+      };
+      current.without += scenario.withoutPrism.toolCalls;
+      current.withPrism += scenario.withPrism.toolCalls;
+      buckets.set(scenario.scenario, current);
     }
   }
-  const saved =
-    without === 0 ? 0 : Math.round(((without - withPrism) / without) * 100);
-  return { label, without, withPrism, saved };
+  return [...buckets.entries()].map(([id, value]) => {
+    const saved = value.without === 0 ? 0 : Math.round(((value.without - value.withPrism) / value.without) * 100);
+    return { id, ...value, saved };
+  });
 }
 
-async function loadLatestReport(): Promise<BenchReport | null> {
-  return sampleReport as BenchReport;
-}
-
-export default async function BenchmarksPage() {
-  const report = await loadLatestReport();
+export default function BenchmarksPage() {
+  const all = rows();
+  const totals = sample.totals;
+  const saved = totals.savings.toolCallsPct;
 
   return (
-    <HomeLayout {...baseOptions()}>
-      <PageEnter>
-        <main className="mx-auto flex w-full max-w-5xl flex-col gap-12 px-6 py-16">
-          <SectionIntro
-            index="Nº FEATURES + PROOF"
-            title="Features & Benchmarks"
-            description="Task-led capabilities, then the hop-count proof: six questions, five fixture repos."
-          />
-
-          <StaggerGrid items="li">
-            <ul className="divide-y divide-fd-border border-y border-fd-border">
-              {FEATURES.map((f, i) => (
-                <li key={f.href}>
-                  <Link
-                    href={f.href}
-                    className="group flex flex-col gap-2 py-5 transition sm:flex-row sm:items-baseline sm:justify-between sm:gap-8"
-                  >
-                    <div className="flex items-baseline gap-4">
-                      <span className="font-mono text-xs text-fd-primary">
-                        {String(i + 1).padStart(2, "0")}
-                      </span>
-                      <span className="font-display text-lg font-medium text-fd-foreground group-hover:text-fd-primary">
-                        {f.title}
-                      </span>
-                    </div>
-                    <p className="max-w-md text-sm text-fd-muted-foreground sm:text-right">
-                      {f.body}
-                    </p>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </StaggerGrid>
-
-          <Reveal>
-            <section className="space-y-3 text-fd-muted-foreground">
-              <h2 className="font-display text-xl font-medium text-fd-foreground">
-                What we measure
-              </h2>
-              <p className="max-w-2xl leading-relaxed">
-                The same six questions an agent asks before it edits, on five
-                fixture repos. One side lists, greps, and skims. The other calls
-                Core — the same tools MCP exposes. We count discrete tool calls
-                — the hops an agent takes before it can answer.
-              </p>
-            </section>
-          </Reveal>
-
-          {report ? (
-            <Reveal delay={0.05}>
-              <section className="space-y-6">
-                <h2 className="font-display text-xl font-medium text-fd-foreground">
-                  Latest run
-                </h2>
-                <p className="text-sm text-fd-muted-foreground">
-                  Recorded{" "}
-                  {new Date(report.recordedAt).toLocaleString("en-US", {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                    timeZone: "UTC",
-                  })}{" "}
-                  UTC
-                  {report.machine
-                    ? ` · ${report.machine.platform}/${report.machine.arch} · ${report.machine.node}`
-                    : null}
-                </p>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <Stat label="Tool calls saved">
-                    <Counter
-                      value={report.totals.savings.toolCallsPct}
-                      suffix="%"
-                    />
-                  </Stat>
-                  <Stat label="Naive steps → Prism">
-                    <Counter value={report.totals.withoutPrism.toolCalls} />
-                    {" → "}
-                    <Counter value={report.totals.withPrism.toolCalls} />
-                  </Stat>
-                  <Stat label="Questions on five fixtures">
-                    <Counter
-                      value={
-                        report.fixtures.length *
-                        (report.fixtures[0]?.scenarios.length ??
-                          QUESTIONS.length)
-                      }
-                    />
-                  </Stat>
-                </div>
-              </section>
-            </Reveal>
-          ) : (
-            <Reveal delay={0.05}>
-              <p className="text-sm text-fd-muted-foreground">
-                No committed sample yet. Run{" "}
-                <code className="text-fd-primary">
-                  bun run bench:orientation
-                </code>{" "}
-                after <code className="text-fd-primary">bun run build</code>.
-              </p>
-            </Reveal>
-          )}
-
-          {report ? (
-            <Reveal>
-              <section className="space-y-8">
-                <div className="space-y-3">
-                  <h3 className="font-display text-lg font-medium text-fd-foreground">
-                    By question
-                  </h3>
-                  <p className="max-w-2xl text-sm text-fd-muted-foreground">
-                    Summed across the five fixtures — list/grep on the left, a
-                    Prism tool on the right.
-                  </p>
-                  <div className="overflow-x-auto rounded-lg border border-fd-border">
-                    <table className="w-full text-left text-sm">
-                      <thead className="border-b border-fd-border bg-fd-card">
-                        <tr>
-                          <th className="px-4 py-3 font-medium">Question</th>
-                          <th className="px-4 py-3 font-medium">Without</th>
-                          <th className="px-4 py-3 font-medium">With Prism</th>
-                          <th className="px-4 py-3 font-medium">Calls saved</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {QUESTIONS.map((item) => {
-                          const stats = questionStats(report, item.id);
-                          return (
-                            <tr
-                              key={item.id}
-                              className="border-b border-fd-border last:border-0"
-                            >
-                              <td className="px-4 py-3">
-                                <Link
-                                  href={item.href}
-                                  className="hover:text-fd-primary"
-                                >
-                                  {stats.label}
-                                </Link>
-                                <div className="mt-0.5 font-mono text-xs text-fd-muted-foreground">
-                                  {item.tool}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 font-mono text-xs tabular-nums">
-                                {stats.without}
-                              </td>
-                              <td className="px-4 py-3 font-mono text-xs tabular-nums">
-                                {stats.withPrism}
-                              </td>
-                              <td className="px-4 py-3 tabular-nums text-fd-primary">
-                                −{stats.saved}%
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                <div className="space-y-3 text-sm leading-relaxed text-fd-muted-foreground">
-                  <h2 className="font-display text-xl font-medium text-fd-foreground">
-                    How to read this
-                  </h2>
-                  <p>
-                    The win is fewer round-trips and a complete structural
-                    answer. Naive grep grows with file count; Prism answers stay
-                    one or two calls. Wall time includes a cold index per
-                    question so the runs stay isolated; a real session pays that
-                    once.
-                  </p>
-                  <p>
-                    Re-run locally after{" "}
-                    <code className="text-fd-primary">bun run build</code>:{" "}
-                    <code className="text-fd-primary">
-                      bun run bench:orientation
-                    </code>
-                    .
-                  </p>
-                </div>
-              </section>
-            </Reveal>
-          ) : null}
-
-          <Reveal delay={0.1}>
-            <section className="space-y-4 border-t border-fd-border pt-10">
-              <h2 className="font-display text-xl font-medium text-fd-foreground">
-                One-click MCP install
-              </h2>
-              <p className="text-sm text-fd-muted-foreground">
-                Add Prism to your agent in one step, then ask in plain language.
-              </p>
-              <McpInstallPanel />
-            </section>
-          </Reveal>
-        </main>
-      </PageEnter>
-      <SiteFooter />
-    </HomeLayout>
-  );
-}
-
-function Stat({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="rounded-lg border border-fd-border bg-fd-card p-4">
-      <div className="font-display text-2xl font-semibold text-fd-primary">
-        {children}
-      </div>
-      <div className="mt-1 text-xs text-fd-muted-foreground">{label}</div>
-    </div>
+    <Shell>
+      <section style={{ padding: "80px 0 56px" }}>
+        <div className="wrap">
+          <div className="eyebrow">Benchmarks</div>
+          <h1 className="d1" style={{ margin: "18px 0 22px", maxWidth: 900 }}>
+            What we measured, <em>in plain words.</em>
+          </h1>
+          <p className="lede">
+            The checked-in sample compares a simulated read-and-search pass with the same questions answered through Prism. The number that holds up is tool calls.
+          </p>
+        </div>
+      </section>
+      <section className="sec">
+        <div className="wrap">
+          <h2 className="d3" style={{ marginBottom: 28 }}>
+            The headline numbers
+          </h2>
+          <div className="grid4">
+            <div className="card fx">
+              <div className="eyebrow">Tool calls</div>
+              <div className="num" style={{ marginTop: 14, fontSize: 52 }}>
+                {saved}%
+              </div>
+              <p style={{ color: "var(--ink)" }}>Fewer tool calls with Prism than without, across the whole sample.</p>
+            </div>
+            <div className="card fx">
+              <div className="eyebrow">Without</div>
+              <div className="num" style={{ marginTop: 14, fontSize: 52 }}>
+                {totals.withoutPrism.toolCalls}
+              </div>
+              <p>Tool calls in the simulated pass.</p>
+            </div>
+            <div className="card fx">
+              <div className="eyebrow">With Prism</div>
+              <div className="num" style={{ marginTop: 14, fontSize: 52 }}>
+                {totals.withPrism.toolCalls}
+              </div>
+              <p>Tool calls when the same questions go through Prism.</p>
+            </div>
+            <div className="card fx">
+              <div className="eyebrow">Questions</div>
+              <div className="num" style={{ marginTop: 14, fontSize: 52 }}>
+                {all.length}
+              </div>
+              <p>Question types in the sample, summed across every fixture.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section className="sec">
+        <div className="wrap grid2" style={{ alignItems: "start", gridTemplateColumns: "minmax(0,.62fr) minmax(0,1.38fr)" }}>
+          <div>
+            <h2 className="d3">Every question</h2>
+            <p className="lede" style={{ marginTop: 14, fontSize: 18 }}>
+              Tool calls only. Token and time totals in this sample are not a saving, so they are not shown as one.
+            </p>
+          </div>
+          <div className="card" style={{ padding: "8px 24px" }}>
+            <div className="table-scroll">
+              <table className="t">
+                <thead>
+                  <tr>
+                    <th>Question</th>
+                    <th>Fewer calls</th>
+                    <th>What it means</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {all.map((row) => (
+                    <tr key={row.id}>
+                      <td>
+                        <b style={{ fontWeight: 600 }}>{row.label}</b>
+                      </td>
+                      <td>
+                        <span style={{ font: "500 16px var(--mono)", color: "var(--ink)", whiteSpace: "nowrap" }}>{row.saved}%</span>
+                      </td>
+                      <td>
+                        {row.withPrism} calls with Prism, {row.without} without. <span style={{ color: "var(--ink3)" }}>Your agent starts from an answer instead of a search.</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section className="sec">
+        <div className="wrap">
+          <div style={{ maxWidth: 860 }}>
+            <InfoCallout title="How to read these numbers">
+              They come from Prism’s own benchmark sample, included with the website, run on one macOS machine. They are not an independent audit. The sample does not name a repository on this page. Token and elapsed-time totals in the same file went up, not down, so this page does not quote them as savings.
+            </InfoCallout>
+          </div>
+        </div>
+      </section>
+    </Shell>
   );
 }

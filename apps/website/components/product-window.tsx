@@ -23,7 +23,7 @@ export function ProductWindow({
         <div className="lt-window__brand">
           <Image
             className="lt-window__mark"
-            src="/brand/prism-mark.png"
+            src="/brand/mark-light.svg"
             width={16}
             height={16}
             alt=""

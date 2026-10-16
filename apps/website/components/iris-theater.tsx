@@ -70,7 +70,7 @@ export function IrisTheater() {
         meta="local index · 0 network calls"
         trailing={
           <div className="lt-pills" aria-hidden>
-            <span className="lt-pill">Dashboard</span>
+            <span className="lt-pill">Local</span>
             <span className="lt-pill">Attention</span>
             <span className="lt-pill lt-pill--on">Iris</span>
           </div>
@@ -194,7 +194,7 @@ function Aperture() {
       </svg>
       <Image
         className="lt-aperture__mark"
-        src="/brand/prism-mark.png"
+        src="/brand/mark-light.svg"
         width={28}
         height={28}
         alt=""

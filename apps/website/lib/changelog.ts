@@ -86,6 +86,41 @@ export function releaseTags(release: ChangelogRelease): ShipTag[] {
   return TAG_ORDER.filter((tag) => tags.has(tag));
 }
 
+const HIDDEN_PUBLIC = /dashboard|github action/i;
+
+function scrubPublic(text: string): string {
+  return text
+    .replace(/,?\s*CI\/GitHub Action/gi, "")
+    .replace(/CI\/GitHub Action,?\s*/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+/** Public changelog: drop dashboard and GitHub Action marketing. */
+export function forPublicChangelog(releases: ChangelogRelease[]): ChangelogRelease[] {
+  const out: ChangelogRelease[] = [];
+  for (const release of releases) {
+    if (HIDDEN_PUBLIC.test(release.title ?? "")) continue;
+    const bullets = release.bullets
+      .filter((bullet) => !HIDDEN_PUBLIC.test(bullet))
+      .map(scrubPublic)
+      .filter(Boolean);
+    const sections = release.sections
+      .filter((section) => !HIDDEN_PUBLIC.test(section.title))
+      .map((section) => ({
+        ...section,
+        bullets: section.bullets
+          .filter((bullet) => !HIDDEN_PUBLIC.test(bullet))
+          .map(scrubPublic)
+          .filter(Boolean),
+      }))
+      .filter((section) => section.bullets.length > 0);
+    if (bullets.length === 0 && sections.length === 0) continue;
+    out.push({ ...release, bullets, sections, title: release.title ? scrubPublic(release.title) : undefined });
+  }
+  return out;
+}
+
 export function parseChangelog(markdown: string): ChangelogRelease[] {
   const lines = markdown.split("\n");
   const releases: ChangelogRelease[] = [];

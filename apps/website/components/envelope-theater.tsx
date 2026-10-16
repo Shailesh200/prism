@@ -19,7 +19,7 @@ export function EnvelopeTheater() {
         meta="Envelope · local ledger"
         trailing={
           <div className="lt-pills" aria-hidden>
-            <span className="lt-pill">Dashboard</span>
+            <span className="lt-pill">Local</span>
             <span className="lt-pill lt-pill--on">Iris</span>
           </div>
         }

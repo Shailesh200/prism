@@ -1,41 +1,30 @@
-import { source } from "@/lib/source";
+import { DOCS, docHref } from "@/lib/paper/docs-content";
 import { siteOrigin } from "@/lib/seo";
 import { PRISM_TOOL_COUNT } from "@repo-prism/shared";
 
 /**
  * llms.txt — the curated map answer engines read first.
- *
- * Generated from the docs source at request time so a new page appears here
- * the moment it exists, with its own description, instead of waiting for
- * someone to remember this file. Marketing pages are listed by hand (there
- * are five; a collection would be theatre).
  */
-export async function GET() {
+export function GET() {
   const site = siteOrigin();
-
-  const pages = source
-    .getPages()
-    .map(
-      (page) =>
-        `- [${page.data.title}](${site}${page.url}): ${page.data.description ?? ""}`,
-    )
-    .join("\n");
+  const pages = DOCS.map(
+    (page) => `- [${page.title}](${site}${docHref(page.slug)}): ${page.description}`,
+  ).join("\n");
 
   const body = `# Prism
 
-> Local-first software intelligence for repositories — maps, graphs, blast
-> radius, health, Prepare, Envelope, and Guard — analysed on your machine.
-> Exposed as a CLI, VS Code / Cursor extensions, and an MCP server
-> (${PRISM_TOOL_COUNT} tools) for AI agents. Dispatch adds background
-> teammates that edit your checkout while Prism runs this repository's checks.
+> Local-first software intelligence for a TypeScript or JavaScript repository.
+> It gives a coding agent the files, tests and code to reuse before an edit,
+> then ranks the change. Analysis runs on your machine. Not a coding model.
+> MCP server with ${PRISM_TOOL_COUNT} tools, plus a CLI.
 
 ## Product
 
-- [Install](${site}/install): Node 26+, pick a surface, confirm it works
-- [Products](${site}/products): Spectrum, Intelligence, Envelope, Prepare, Guard, Dispatch
-- [Benchmarks](${site}/benchmarks): task-led features plus measured orientation savings
-- [What's new](${site}/whats-new): release timeline
-- [Privacy](${site}/privacy): no account, no telemetry, consent-gated network
+- [Install](${site}/install): Node.js 22+, connect Claude Code, Cursor, Codex or opencode, then \`npx -y @repo-prism/cli doctor\`
+- [How it works](${site}/how-it-works): map, prepare, guard, review
+- [Benchmarks](${site}/benchmarks): tool-call savings from the published sample
+- [Changelog](${site}/changelog): CLI and MCP server releases
+- [Privacy](${site}/privacy): no account, analysis stays local, library in ~/.prism
 - [Security](${site}/security): reporting policy
 
 ## Documentation
@@ -44,17 +33,13 @@ ${pages}
 
 ## Notes for agents
 
-- Core analysis makes no network calls; optional network features are
-  consent-gated and individually opt-in.
-- State lives in \`.prism/\` inside the repository; it is a derived cache.
-- TypeScript/JavaScript get symbol-level analysis; other languages get
-  structure, size, and churn.
-- Task guides under /docs/guides answer "how do I …" faster than the
-  concept pages. Before an edit, agents should call prepare_change
-  (pack + reuse + House Style, no file bodies) instead of dumping the repo.
-- Envelope is a local ledger of Intelligence calls (counts and bytes, never
-  source). Guard ranks a dirty session by blast. Findings stay open until
-  a re-scan drops the fingerprint.
+- Core analysis makes no network calls. Optional network features are consent-gated and individually opt-in. None send source.
+- Production state lives in \`~/.prism/workspaces/<key>/\`, not in a \`.prism/\` directory inside the checkout. \`PRISM_HOME\` moves the library.
+- TypeScript and JavaScript get symbol-level analysis. Other languages get structure, size and churn.
+- Before an edit, call \`prepare_change\` (pack, reuse, House Style, notes, work order — never file bodies).
+- \`review_changes\` is a separate tool from \`guard_session\`. Risk bands are low, mid and high.
+- The Envelope ledger at \`~/.prism/envelope-ledger.jsonl\` records tool name, counts, truncation and bytes. Never source.
+- There is no \`prism start\`, \`prism install <agent>\`, or SHIP / NOT PROVEN / NO-SHIP verdict in this release.
 `;
 
   return new Response(body, {

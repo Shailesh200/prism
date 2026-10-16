@@ -12,7 +12,7 @@ export default function AdminDocsLayout({ children }: { children: ReactNode }) {
         url: "/admin",
       }}
       githubUrl={GITHUB}
-      links={[{ text: "Dashboard", url: "/admin" }]}
+      links={[{ text: "Admin", url: "/admin" }]}
     >
       {children}
     </DocsLayout>
