@@ -6,14 +6,7 @@
  * bounded and every description says when the cheaper alternative is better.
  */
 
-import {
-  PrismErrorCode,
-  type PrismError,
-  type Result,
-  err,
-  ok,
-  prismError,
-} from "@repo-prism/shared";
+import { PrismErrorCode, err, ok, prismError } from "@repo-prism/shared";
 import { z } from "zod";
 import {
   boundGraph,
@@ -113,7 +106,7 @@ export const knowledgeGraph = defineTool({
   name: "knowledge_graph",
   title: "Knowledge graph",
   description:
-    "The symbol-level graph — declarations and the references between them — with summary stats. Requires path (scope to one file) or limit (bound nodes). Very large on a big repository. If you are looking for one symbol use find_symbol or search_symbols, and for its callers use find_references.",
+    "The symbol-level graph — declarations and the references between them — with summary stats. Requires path (scope to one file) or limit (bound nodes). Very large on a big repository. If you are looking for one symbol use graph (mode find), and for its callers graph (mode neighbors, direction in).",
   inputSchema: {
     path: z
       .string()
@@ -167,174 +160,29 @@ export const knowledgeGraph = defineTool({
   },
 });
 
-export const featureGraph = defineTool({
-  name: "feature_graph",
-  title: "Feature graph",
+export const exploreCode = defineTool({
+  name: "explore_code",
+  title: "Explore code",
   description:
-    "Inferred features and how they depend on each other. Features are heuristic groupings of files, not a declared structure, so treat them as a starting point rather than ground truth. Bounded by default (limit 50 nodes); use summaryOnly for counts + top-degree nodes.",
+    "Everything about one file or symbol in a single call: usages, ownership, related and similar code, and a change timeline. Usages are bounded (default 50) via a nested wrapper so large files do not drown the response. Use when asked to understand a specific thing rather than the repository as a whole.",
   inputSchema: {
-    limit: limitInput,
-    summaryOnly,
-  },
-  async call({ workspace }, args) {
-    const result = workspace.getFeatureGraph();
-    if (!result.ok) return result;
-    const { graph, features } = result.value;
-    if (args.summaryOnly) {
-      const top = topDegreeNodes(graph, args.limit);
-      return ok({
-        ...top,
-        summaryOnly: true as const,
-        id: graph.id,
-        nodeCount: graph.nodes.length,
-        edgeCount: graph.edges.length,
-        featureCount: features.length,
-      });
-    }
-    const bounded = boundGraph(graph.nodes, graph.edges, args.limit);
-    return ok({
-      items: bounded.items,
-      totalCount: bounded.totalCount,
-      truncated: bounded.truncated,
-      limit: bounded.limit,
-      summaryOnly: false as const,
-      id: graph.id,
-      edges: bounded.edges,
-      features,
-    });
-  },
-});
-
-export const listFeatures = defineTool({
-  name: "list_features",
-  title: "List features",
-  description:
-    "Inferred features with their member files and a confidence score. Cheaper than feature_graph when you only need the list. Low confidence means the grouping is a guess.",
-  inputSchema: { limit: limitInput },
-  async call({ workspace }, args) {
-    const result = workspace.listFeatures();
-    if (!result.ok) return result;
-    return { ok: true as const, value: boundList(result.value, args.limit) };
-  },
-});
-
-export const findSymbol = defineTool({
-  name: "find_symbol",
-  title: "Find symbol",
-  description:
-    "Find indexed symbols by exact name, optionally narrowed by file or kind. Use to locate a definition before asking about its impact. For substring or regex search use search_symbols.",
-  inputSchema: {
-    name: z.string().min(1).describe("Exact symbol name to search for."),
+    kind: z.enum(["file", "symbol"]).describe("What the target is."),
     path: z
       .string()
       .min(1)
       .optional()
-      .describe("Workspace-relative file to restrict the search to."),
-    kind: z
+      .describe("Workspace-relative path. Required when kind is 'file'."),
+    name: z
       .string()
       .min(1)
       .optional()
-      .describe("Symbol kind filter, e.g. 'function', 'class'."),
-    limit: limitInput,
-  },
-  async call({ workspace, workspaceRoot }, args) {
-    const path = args.path
-      ? toWorkspaceRelative(workspaceRoot, args.path)
-      : undefined;
-    if (path && !path.ok) return path;
-
-    const result = workspace.findSymbol({
-      name: args.name,
-      ...(path?.ok ? { path: path.value } : {}),
-      ...(args.kind ? { kind: args.kind } : {}),
-    });
-    if (!result.ok) return result;
-    return { ok: true as const, value: boundList(result.value, args.limit) };
-  },
-});
-
-export const searchSymbols = defineTool({
-  name: "search_symbols",
-  title: "Search symbols",
-  description:
-    "Substring or regex search over indexed symbol names (unlike find_symbol, which is exact-match only). Optional kind/path filters. Hard-capped at 50 hits.",
-  inputSchema: {
-    pattern: z
-      .string()
-      .min(1)
-      .describe(
-        "Substring to match (case-insensitive), or RegExp source when regex is true.",
-      ),
-    regex: z
-      .boolean()
-      .optional()
-      .describe(
-        "Treat pattern as a JavaScript RegExp source. Default false (substring).",
-      ),
-    path: z
-      .string()
-      .min(1)
-      .optional()
-      .describe("Workspace-relative file to restrict the search to."),
-    kind: z
-      .string()
-      .min(1)
-      .optional()
-      .describe("Symbol kind filter, e.g. 'function', 'class'."),
-    limit: z
-      .number()
-      .int()
-      .optional()
-      .describe("Maximum hits to return (default 50, hard max 50)."),
-  },
-  async call({ workspace, workspaceRoot }, args) {
-    const path = args.path
-      ? toWorkspaceRelative(workspaceRoot, args.path)
-      : undefined;
-    if (path && !path.ok) return path;
-
-    const limit =
-      args.limit === undefined ? 50 : Math.min(Math.max(args.limit, 1), 50);
-
-    const result = workspace.searchSymbols({
-      pattern: args.pattern,
-      ...(args.regex === undefined ? {} : { regex: args.regex }),
-      ...(path?.ok ? { path: path.value } : {}),
-      ...(args.kind ? { kind: args.kind } : {}),
-      limit,
-    });
-    if (!result.ok) return result;
-    const items = result.value.items;
-    return {
-      ok: true as const,
-      value: {
-        items,
-        totalCount: result.value.totalCount,
-        truncated: items.length < result.value.totalCount,
-        limit,
-      },
-    };
-  },
-});
-
-export const findReferences = defineTool({
-  name: "find_references",
-  title: "Find references",
-  description:
-    "Find resolved references to a symbol — who actually calls or imports it. Pass path (and start when several symbols share a name) to disambiguate. Use before renaming or deleting anything.",
-  inputSchema: {
-    name: z.string().min(1).describe("Symbol name."),
-    path: z
-      .string()
-      .min(1)
-      .optional()
-      .describe("Workspace-relative file declaring the symbol."),
+      .describe("Symbol name. Required when kind is 'symbol'."),
     start: z
       .number()
       .int()
       .nonnegative()
       .optional()
-      .describe("Declaration start offset, to disambiguate further."),
+      .describe("Declaration start offset, to disambiguate a symbol."),
     limit: limitInput,
   },
   async call({ workspace, workspaceRoot }, args) {
@@ -343,140 +191,43 @@ export const findReferences = defineTool({
       : undefined;
     if (path && !path.ok) return path;
 
-    const result = workspace.findReferences({
-      name: args.name,
-      ...(path?.ok ? { path: path.value } : {}),
-      ...(args.start === undefined ? {} : { start: args.start }),
-    });
-    if (!result.ok) return result;
-    if (result.value.ambiguous) {
-      const candidates = [...(result.value.candidates ?? [])];
-      const bounded = boundList(candidates, args.limit);
-      return {
-        ok: true as const,
-        value: {
-          ...bounded,
-          ambiguous: true,
-          candidates: bounded.items,
-          references: [],
-        },
-      };
-    }
-    return {
-      ok: true as const,
-      value: boundList([...result.value.references], args.limit),
-    };
-  },
-});
+    const report =
+      args.kind === "file"
+        ? !path?.ok
+          ? err(
+              prismError(
+                PrismErrorCode.VALIDATION,
+                "A 'file' target requires `path`",
+              ),
+            )
+          : await workspace.exploreCode({ kind: "file", path: path.value })
+        : !args.name
+          ? err(
+              prismError(
+                PrismErrorCode.VALIDATION,
+                "A 'symbol' target requires `name`",
+              ),
+            )
+          : await workspace.exploreCode({
+              kind: "symbol",
+              name: args.name,
+              ...(path?.ok ? { path: path.value } : {}),
+              ...(args.start === undefined ? {} : { start: args.start }),
+            });
 
-const endpoint = z.object({
-  kind: z.enum(["file", "symbol"]),
-  path: z
-    .string()
-    .min(1)
-    .optional()
-    .describe("Workspace-relative path. Required when kind is 'file'."),
-  name: z
-    .string()
-    .min(1)
-    .optional()
-    .describe("Symbol name. Required when kind is 'symbol'."),
-});
-
-export const dependencyRoute = defineTool({
-  name: "dependency_route",
-  title: "Dependency route",
-  description:
-    "Show how one file or symbol reaches another through the dependency graph, with alternative paths. Use to answer 'how is this connected to that?' — an empty result means no path exists, which is itself an answer.",
-  inputSchema: {
-    from: endpoint.describe("Starting point."),
-    to: endpoint.describe("Destination."),
-    maxAlternatives: z
-      .number()
-      .int()
-      .min(1)
-      .max(20)
-      .optional()
-      .describe("How many distinct routes to return."),
-    maxHops: z
-      .number()
-      .int()
-      .min(1)
-      .max(50)
-      .optional()
-      .describe("Maximum route length."),
-  },
-  async call({ workspace, workspaceRoot }, args) {
-    const from = resolveEndpoint(workspaceRoot, args.from);
-    if (!from.ok) return from;
-    const to = resolveEndpoint(workspaceRoot, args.to);
-    if (!to.ok) return to;
-
-    return workspace.findRoute({
-      from: from.value,
-      to: to.value,
-      ...(args.maxAlternatives === undefined
-        ? {}
-        : { maxAlternatives: args.maxAlternatives }),
-      ...(args.maxHops === undefined ? {} : { maxHops: args.maxHops }),
+    if (!report.ok) return report;
+    const usages = boundList(report.value.usages, args.limit);
+    return ok({
+      ...report.value,
+      usages: usages.items,
+      usagesEnvelope: usages,
     });
   },
 });
-
-type Endpoint =
-  | { readonly kind: "file"; readonly path: string }
-  | { readonly kind: "symbol"; readonly name: string; readonly path?: string };
-
-/**
- * The schema cannot express "path is required when kind is file" without a
- * discriminated union that reads badly as JSON Schema, so the check lands here
- * where the error message can say what was actually missing.
- */
-function resolveEndpoint(
-  workspaceRoot: string,
-  input: {
-    kind: "file" | "symbol";
-    path?: string | undefined;
-    name?: string | undefined;
-  },
-): Result<Endpoint, PrismError> {
-  if (input.kind === "file") {
-    if (!input.path) {
-      return err(
-        prismError(
-          PrismErrorCode.VALIDATION,
-          "A 'file' endpoint requires `path`",
-        ),
-      );
-    }
-    const relative = toWorkspaceRelative(workspaceRoot, input.path);
-    if (!relative.ok) return relative;
-    return ok({ kind: "file", path: relative.value });
-  }
-
-  if (!input.name) {
-    return err(
-      prismError(
-        PrismErrorCode.VALIDATION,
-        "A 'symbol' endpoint requires `name`",
-      ),
-    );
-  }
-  return ok({
-    kind: "symbol",
-    name: input.name,
-    ...(input.path ? { path: input.path } : {}),
-  });
-}
 
 export const GRAPH_TOOLS = [
+  exploreCode,
   dependencyGraph,
   dependencyCycles,
   knowledgeGraph,
-  featureGraph,
-  listFeatures,
-  findSymbol,
-  searchSymbols,
-  findReferences,
-  dependencyRoute,
 ];

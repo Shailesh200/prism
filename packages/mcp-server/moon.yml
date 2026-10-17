@@ -3,9 +3,9 @@ language: "typescript"
 layer: "library"
 dependsOn:
   - "shared"
+  - "checks"
   - "core"
-  - "dispatch"
-  - "dispatch-hub"
+  - "daemon"
   - "test-support"
 tasks:
   build:
@@ -35,11 +35,10 @@ tasks:
       - "vitest.config.ts"
   test-integration:
     command: "bun run test:integration"
-    # The cross-surface suite spawns the real `prism` binary, so the CLI has to
-    # be built before this runs — otherwise the test fails with a missing file
-    # and reads as a broken surface rather than a missing build step.
+    # The cross-surface suite, which needs the built CLI, lives in the cli
+    # package (round 4): depending on cli here made a cycle with cli → server.
     deps:
-      - "cli:build"
+      - "^:build"
       - "test-support:build"
     inputs:
       - "src/**/*"

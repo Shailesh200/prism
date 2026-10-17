@@ -14,32 +14,60 @@
  *   presentation lift, so there is nothing to adapt yet.
  */
 
-import { DISPATCH_TOOLS } from "./dispatch-registry.js";
 import type { ToolDefinition } from "./tool-registry.js";
 import { GRAPH_TOOLS } from "./tools/graphs.js";
 import { IMPACT_TOOLS } from "./tools/impact.js";
 import { ORIENTATION_TOOLS } from "./tools/orientation.js";
-import { REPORT_TOOLS } from "./tools/reports.js";
 import { prepareChange } from "./tools/prepare.js";
-import { workOrder } from "./tools/work-order.js";
+import { graph } from "./tools/graph.js";
 import { guardSession } from "./tools/guard.js";
+import { habits } from "./tools/habits.js";
+import { reviewWith } from "./tools/lenses.js";
 import { agentsMd } from "./tools/agents-md.js";
 import { listFindings } from "./tools/findings.js";
+import { receipt } from "./tools/receipt.js";
+
+export {
+  DEFAULT_TOOL_NAMES,
+  HERO_TOOL_NAMES,
+  OPT_IN_TOOL_NAMES,
+} from "@repo-prism/shared";
+import { DEFAULT_TOOL_NAMES, OPT_IN_TOOL_NAMES } from "@repo-prism/shared";
+
+export type ToolSelection = {
+  readonly tools: readonly ToolDefinition<never>[];
+  /** `extraTools[]` entries that name no opt-in tool (reported by `doctor`). */
+  readonly unknownExtraTools: readonly string[];
+};
+
+/** The default nine plus any opt-in tools named in `extraTools`. */
+export function selectTools(extraTools: readonly string[] = []): ToolSelection {
+  const optIn = new Set<string>(OPT_IN_TOOL_NAMES);
+  const visible = new Set<string>(DEFAULT_TOOL_NAMES);
+  const unknownExtraTools: string[] = [];
+  for (const name of extraTools) {
+    if (optIn.has(name)) visible.add(name);
+    else if (!visible.has(name)) unknownExtraTools.push(name);
+  }
+  return {
+    tools: TOOLS.filter((tool) => visible.has(tool.name)),
+    unknownExtraTools,
+  };
+}
 
 export const TOOLS: readonly ToolDefinition<never>[] = [
   prepareChange,
-  workOrder,
+  graph,
   guardSession,
+  habits,
+  reviewWith,
   agentsMd,
   listFindings,
+  receipt,
   ...ORIENTATION_TOOLS,
   ...GRAPH_TOOLS,
   ...IMPACT_TOOLS,
-  ...REPORT_TOOLS,
 ] as unknown as readonly ToolDefinition<never>[];
 
-/** Intelligence tool names plus Dispatch names — the host MCP pack. */
-export const TOOL_NAMES: readonly string[] = [
-  ...TOOLS.map((tool) => tool.name),
-  ...DISPATCH_TOOLS.map((tool) => tool.name),
-];
+/** Every registered tool name: the default nine plus the opt-in tools. */
+export const TOOL_NAMES: readonly string[] = TOOLS.map((tool) => tool.name);

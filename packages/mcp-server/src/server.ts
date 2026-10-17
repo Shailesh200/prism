@@ -14,6 +14,7 @@ import {
   ErrorCode,
   RootsListChangedNotificationSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import { daemonAttach, startDaemonFor } from "./daemon-attach.js";
 import { createIndexProgressReporter } from "./index-progress.js";
 import { SERVER_INSTRUCTIONS } from "./instructions.js";
 import { prismMcpImplementation } from "./branding.js";
@@ -24,11 +25,9 @@ import {
   type SessionOptions,
   type WorkspaceSession,
 } from "./session.js";
-import { isWorkerRole } from "@repo-prism/dispatch";
-import { registerDispatchTools } from "./dispatch-registry.js";
 import { registerTools } from "./tool-registry.js";
-import { registerWorkerIntelligence } from "./worker-intelligence.js";
-import { TOOLS } from "./tools.js";
+import { loadUserConfigSync } from "@repo-prism/shared/user-config";
+import { selectTools } from "./tools.js";
 import {
   createWorkspaceBinding,
   type WorkspaceBinding,
@@ -55,8 +54,6 @@ export type CreateServerOptions = {
    * client later reports a different root.
    */
   readonly workspaceLocked?: boolean;
-  /** Injectable for worker-intelligence tests (Console health + RPC). */
-  readonly fetchImpl?: typeof fetch;
 };
 
 export type PrismMcpServer = {
@@ -64,8 +61,6 @@ export type PrismMcpServer = {
   readonly session: WorkspaceSession;
   readonly binding: WorkspaceBinding;
   applyClientRoots(): Promise<void>;
-  /** Worker-role intelligence tools finish registering before this settles. */
-  readonly toolsReady: Promise<void>;
 };
 
 /**
@@ -161,56 +156,41 @@ export function createPrismMcpServer(
     close: () => innerSession.close(),
   };
 
-  registerDispatchTools(server, binding.current(), {
-    env: options.env ?? process.env,
-    getWorkspaceRoot: () => binding.current(),
-    applyWorkspaceHint: (path) => binding.applyHints([path]),
-    beforeCall: applyClientRootsIfWeak,
-    prepareChange: async (input) => {
-      if (!session.isOpen()) return null;
-      const ready = await session.ready();
-      if (!ready.ok) return null;
-      const result = await ready.value.prepareChange({
-        task: input.task,
-        ...(input.budget !== undefined ? { budget: input.budget } : {}),
-      });
-      return result.ok ? result.value : null;
-    },
-    // Never resolves a finding without an open, indexed session — "unknown"
-    // must read as still open, not silently fixed (M-071 L3).
-    resolveFinding: async ({ fingerprint }) => {
-      if (!session.isOpen()) return true;
-      const ready = await session.ready();
-      if (!ready.ok) return true;
-      const result = await ready.value.resolveFinding({ fingerprint });
-      return result.ok ? !result.value.resolved : true;
-    },
-  });
-  let toolsReady = Promise.resolve();
-  if (isWorkerRole(options.env ?? process.env)) {
-    // Awaited before stdio connect so Cursor lists blast_radius / list_packages
-    // on the first tools/list, not after the agent has already started walking.
-    toolsReady = registerWorkerIntelligence(server, {
-      workspaceRoot: binding.current(),
-      env: options.env ?? process.env,
-      ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
-    }).then(
-      () => undefined,
-      () => undefined,
+  const env = options.env ?? process.env;
+  const daemon = daemonAttach(env);
+  const userConfig = loadUserConfigSync(env);
+  if (!userConfig.ok) {
+    // Registered tools fall back to the default nine; `prism doctor` reports
+    // the same error with its code.
+    process.stderr.write(
+      `prism: ${userConfig.error.code}: ${userConfig.error.message}; using the default tools\n`,
     );
-  } else {
-    registerTools(
-      server,
-      session,
-      TOOLS,
-      () => binding.current(),
-      options.env ?? process.env,
-    );
-    registerPrompts(server);
-    registerResources(server, session);
   }
+  const selection = selectTools(
+    userConfig.ok ? (userConfig.value.extraTools ?? []) : [],
+  );
+  if (selection.unknownExtraTools.length > 0) {
+    process.stderr.write(
+      `prism: unknown extraTools ignored: ${selection.unknownExtraTools.join(", ")}\n`,
+    );
+  }
+  registerTools(
+    server,
+    session,
+    selection.tools,
+    () => binding.current(),
+    options.env ?? process.env,
+    daemon &&
+      (async (tool, args) => {
+        // Same root rules as the in-process path: settle client roots first.
+        if (!innerSession.isOpen()) await applyClientRootsIfWeak();
+        return daemon(tool, binding.current(), args);
+      }),
+  );
+  registerPrompts(server);
+  registerResources(server, session);
 
-  return { server, session, binding, applyClientRoots, toolsReady };
+  return { server, session, binding, applyClientRoots };
 }
 
 /**
@@ -259,7 +239,6 @@ export async function startStdioServer(
   options: CreateServerOptions,
 ): Promise<PrismMcpServer> {
   const instance = createPrismMcpServer(options);
-  await instance.toolsReady;
   const transport = new StdioServerTransport();
 
   let closed = false;
@@ -284,5 +263,9 @@ export async function startStdioServer(
 
   await instance.server.connect(transport);
   await instance.applyClientRoots();
+  // Never awaited: a daemon that cannot start leaves this server in-process.
+  void startDaemonFor(instance.binding.current(), options.env).catch(
+    () => undefined,
+  );
   return instance;
 }

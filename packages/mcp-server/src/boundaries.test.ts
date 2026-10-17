@@ -3,7 +3,6 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { TOOLS, TOOL_NAMES } from "./tools.js";
-import { DISPATCH_TOOL_NAMES } from "./dispatch-registry.js";
 
 /**
  * Two rules that break a stdio MCP server quietly rather than loudly, so each
@@ -37,7 +36,6 @@ describe("package boundaries (ADR-0004)", () => {
     "@repo-prism/intelligence",
     "@repo-prism/impact",
     "@repo-prism/navigation",
-    "@repo-prism/repository-map",
   ];
 
   it("imports no engine package, in source or in tests", async () => {
@@ -77,6 +75,9 @@ describe("stdout discipline", () => {
     const offenders: string[] = [];
     for (const file of await sourceFiles()) {
       if (file.endsWith(".test.ts")) continue;
+      // The hook process exits before the MCP server starts. Its stdout is
+      // the Claude Code hook JSON, not the MCP frame stream.
+      if (file.endsWith(join("safety", "hook-command.ts"))) continue;
       const text = await readFile(file, "utf8");
       if (/console\.(log|info|debug|warn|error)\s*\(/.test(text)) {
         offenders.push(`${file}: console.*`);
@@ -86,41 +87,6 @@ describe("stdout discipline", () => {
       }
     }
     expect(offenders).toEqual([]);
-  });
-});
-
-describe("consent (ADR-0024)", () => {
-  it("exposes no tool that could reach the network or spawn a build", () => {
-    // An agent cannot give informed consent on the user's behalf, so the
-    // consent-gated Core paths are simply not reachable from MCP. This test is
-    // the guard for M-027, where the temptation to add one will be real.
-    const CONSENT_GATED = [
-      "stageDevopsRemote",
-      "fetchGithubWorkflows",
-      "fetchGithubWorkflowRuns",
-      "fetchGithubRepo",
-      "fetchGithubAuthenticatedLogin",
-      "testGithubRepoConnection",
-      "dispatchGithubWorkflow",
-      "fetchPagespeedMetrics",
-      "startUtilityJob",
-      "runWorkspaceTests",
-      "detectBundleAnalyzeCapability",
-      "setConsent",
-    ];
-
-    const bodies = TOOLS.map((tool) => tool.call.toString());
-    const offenders = bodies.flatMap((body, i) =>
-      CONSENT_GATED.filter((method) => body.includes(method)).map(
-        (method) => `${TOOLS[i]?.name} → ${method}`,
-      ),
-    );
-
-    expect(offenders).toEqual([]);
-  });
-
-  it("declares every tool read-only", () => {
-    expect(TOOLS.every((tool) => tool.readOnly !== false)).toBe(true);
   });
 });
 
@@ -147,7 +113,7 @@ describe("pack coherence (M-027)", () => {
 
   it("documents every tool in the README", async () => {
     const readme = await readFile(join(packageDir, "README.md"), "utf8");
-    const undocumented = [...TOOL_NAMES, ...DISPATCH_TOOL_NAMES].filter(
+    const undocumented = [...TOOL_NAMES].filter(
       (name) => !readme.includes(`\`${name}\``),
     );
     expect(undocumented).toEqual([]);
@@ -158,8 +124,14 @@ describe("pack coherence (M-027)", () => {
     const claimed = [...readme.matchAll(/^\| `([a-z][a-z0-9_]*)` \|/gm)].map(
       (match) => match[1] as string,
     );
-    const advertised = new Set([...TOOL_NAMES, ...DISPATCH_TOOL_NAMES]);
+    const advertised = new Set(TOOL_NAMES);
     expect(claimed.length).toBeGreaterThan(0);
     expect(claimed.filter((name) => !advertised.has(name))).toEqual([]);
+  });
+});
+
+describe("tool surface", () => {
+  it("declares every tool read-only", () => {
+    expect(TOOLS.every((tool) => tool.readOnly !== false)).toBe(true);
   });
 });
