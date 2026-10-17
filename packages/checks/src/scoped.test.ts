@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   detectTestRunner,
+  isPlainRunnerScript,
   packageRootFor,
   resolveScopedPlan,
   runCheckSteps,
@@ -102,6 +103,68 @@ describe("resolveScopedPlan", () => {
     expect(scoped.plan.steps).toEqual([
       { name: "test", kind: "package-script", script: "test" },
     ]);
+  });
+
+  it("runs the whole test script when narrowing would drop a part of it (Hono)", async () => {
+    const dir = await repo(
+      {
+        scripts: { test: "tsc --noEmit && vitest --run" },
+        devDependencies: { vitest: "3" },
+      },
+      ["vitest"],
+    );
+    const scoped = await resolveScopedPlan(dir, ["src/a.test.ts"]);
+    expect(scoped.testMode).toBe("full-script");
+    expect(scoped.plan.steps).toEqual([
+      { name: "test", kind: "package-script", script: "test" },
+    ]);
+  });
+
+  it("checks the script the plan runs, not only `test`", async () => {
+    const dir = await repo(
+      {
+        scripts: { "test:unit": "vitest run && node check.js" },
+        devDependencies: { vitest: "3" },
+      },
+      ["vitest"],
+    );
+    const scoped = await resolveScopedPlan(dir, ["src/a.test.ts"]);
+    expect(scoped.testMode).toBe("full-script");
+    expect(scoped.plan.steps).toEqual([
+      { name: "test", kind: "package-script", script: "test:unit" },
+    ]);
+  });
+});
+
+describe("isPlainRunnerScript", () => {
+  it("accepts one runner command with its own flags", () => {
+    for (const body of [
+      "vitest",
+      "vitest run --coverage",
+      "  jest --ci ",
+      "bun test",
+    ]) {
+      expect(isPlainRunnerScript(body), body).toBe(true);
+    }
+  });
+
+  it("rejects anything narrowing would cut short", () => {
+    for (const body of [
+      "tsc --noEmit && vitest --run", // Hono: a step before the runner
+      "vitest run; node after.js", // a step after it
+      "vitest run || true", // exit code rewritten
+      "jest | tee out.txt", // pipe
+      "vitest run > out.txt", // redirect
+      "vitest $(cat files.txt)", // substitution
+      "TZ=UTC vitest run", // env prefix
+      "cross-env CI=1 jest", // wrapper
+      "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+      "npm run build && vitest",
+      "mocha",
+      "",
+    ]) {
+      expect(isPlainRunnerScript(body), body).toBe(false);
+    }
   });
 });
 

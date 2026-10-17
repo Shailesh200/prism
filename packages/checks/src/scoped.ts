@@ -96,6 +96,25 @@ export function detectTestRunner(cwd: string): DetectedTestRunner | null {
   return null;
 }
 
+/**
+ * True when `body` is one plain runner command (`vitest …`, `jest …`,
+ * `bun test …`), so swapping it for the runner over the reached files drops
+ * nothing but its own file selection. A chain, pipe, redirect, substitution
+ * or env prefix (Hono's `tsc --noEmit && vitest --run`) would lose a part of
+ * the script, so the caller runs the whole script instead.
+ */
+export function isPlainRunnerScript(body: string): boolean {
+  if (/[;&|<>`\n]|\$\(/.test(body)) return false;
+  return /^(?:vitest|jest|bun test)(?:\s|$)/.test(body.trim());
+}
+
+function scriptBody(cwd: string, name: string): string {
+  const scripts = readJson(join(cwd, "package.json"))?.scripts;
+  if (!scripts || typeof scripts !== "object") return "";
+  const body = (scripts as Record<string, unknown>)[name];
+  return typeof body === "string" ? body : "";
+}
+
 const CHECK_SCRIPT =
   /^(typecheck|types|check:types|lint|lint:check|oxlint|test|test:unit|test:ci)$/;
 
@@ -135,7 +154,9 @@ export type ScopedPlan = {
  * The detected plan with its `test` step narrowed to `testFiles`.
  *
  * - runner known + tests reached → runner over those files
- * - runner unknown + tests reached → the repo's own test script
+ * - runner unknown, or the test script is more than one runner command
+ *   (narrowing would drop a part of it) + tests reached → the repo's own
+ *   test script
  * - no tests reached → no test step (the receipt says "not proven")
  */
 export async function resolveScopedPlan(
@@ -149,7 +170,11 @@ export async function resolveScopedPlan(
   if (testFiles.length === 0) {
     return { plan: { ...plan, steps: others }, testFiles, testMode: "none" };
   }
-  const runner = detectTestRunner(cwd);
+  const script = plan.steps.find((step) => step.name === "test");
+  const narrowable =
+    script?.kind !== "package-script" ||
+    isPlainRunnerScript(scriptBody(cwd, script.script));
+  const runner = narrowable ? detectTestRunner(cwd) : null;
   if (runner) {
     const step: VerifyStep = {
       name: "test",
