@@ -86,7 +86,10 @@ describe("prism binary (M-028)", () => {
     const result = await runCli([], {}, fixture);
     expect(result.code).toBe(0);
     expect(result.stdout).toMatch(/^Indexed \d+ code files in [\d.]+ s\.\n/);
-    expect(result.stdout).toMatch(/Try: prism prepare .*prepare_change/);
+    expect(result.stdout).toContain(
+      "Try: ask your agent for a small change, then ask it for a receipt.",
+    );
+    expect(result.stdout).not.toMatch(/prism prepare|prepare_change/);
   }, 60_000);
 
   it("global flags with no command still give the first answer", async () => {
@@ -124,7 +127,9 @@ describe("prism binary (M-028)", () => {
         /installed for Claude Code, Cursor \(local build/,
       );
       expect(first.stdout).toMatch(/Indexed \d+ code files/);
-      expect(first.stdout).toMatch(/prepare_change/);
+      expect(first.stdout).toContain(
+        "Try: ask your agent for a small change, then ask it for a receipt.",
+      );
       const settings = await readFile(
         join(dir, ".claude", "settings.json"),
         "utf8",

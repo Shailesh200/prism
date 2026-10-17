@@ -50,7 +50,7 @@ export function firstAnswerCap(env: NodeJS.ProcessEnv = process.env): number {
 }
 
 export const TRY_LINE =
-  'Try: prism prepare "<task>", or ask your agent to call prepare_change before it edits.';
+  "Try: ask your agent for a small change, then ask it for a receipt.";
 
 export const PARTIAL_LINE =
   "Partial map (top packages first); the full index is finishing in the background.";

@@ -42,9 +42,11 @@ describe("prism start (P19)", () => {
       "",
       TRY_LINE,
     ]);
-    expect(text).toMatch(/prepare_change/);
-    // The agent does not call it on its own; the line must not promise that.
-    expect(text).not.toMatch(/it calls prepare_change/);
+    expect(TRY_LINE).toBe(
+      "Try: ask your agent for a small change, then ask it for a receipt.",
+    );
+    // 2.0.0 makes no Prepare claim: no `prism prepare`, no prepare_change.
+    expect(text).not.toMatch(/prism prepare|prepare_change/);
     expect(text).not.toMatch(/health/i);
   });
 
