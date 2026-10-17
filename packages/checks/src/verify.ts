@@ -433,7 +433,8 @@ function lowerPriority(pid: number | undefined): void {
  * workers still shared the performance cores. While the agent is working
  * (a prompt or session start reached the daemon) the checks drop to the
  * idlest class the platform has; the stop that asks for the next receipt
- * ends it. A missing tool only means the check keeps nice 19.
+ * ends it, and puts the checks still running back to normal check priority
+ * (nice 19). A missing tool only means the check keeps nice 19.
  */
 export const CHECK_YIELD_MS = 600_000;
 
@@ -448,11 +449,26 @@ export function yieldCommands(
     return [["/usr/sbin/taskpolicy", "-b", "-p", id]];
   }
   if (platform === "linux") {
-    // SCHED_IDLE for every thread, and idle I/O class.
-    return [
-      ["chrt", "-a", "-i", "-p", "0", id],
-      ["ionice", "-c", "3", "-p", id],
-    ];
+    // Idle I/O class. Not SCHED_IDLE: an unprivileged process cannot leave
+    // it again (EPERM), and nice 19 already gives the CPU to the agent.
+    return [["ionice", "-c", "3", "-p", id]];
+  }
+  return [];
+}
+
+/** Commands that put a yielded process back to normal check priority. */
+export function restoreCommands(
+  pid: number,
+  platform: NodeJS.Platform = process.platform,
+): string[][] {
+  const id = String(pid);
+  if (platform === "darwin") {
+    // Out of background QoS; nice 19 stays.
+    return [["/usr/sbin/taskpolicy", "-B", "-p", id]];
+  }
+  if (platform === "linux") {
+    // I/O class "none": priority follows nice again.
+    return [["ionice", "-c", "0", "-p", id]];
   }
   return [];
 }
@@ -471,13 +487,19 @@ const execTool: YieldExec = (argv) =>
 /** Process groups of checks still running (each check leads its own group). */
 const liveCheckGroups = new Set<number>();
 let yieldUntil = 0;
+let yieldExpiry: ReturnType<typeof setTimeout> | undefined;
 
 export function checksYielding(now: number = Date.now()): boolean {
   return now < yieldUntil;
 }
 
-async function demoteGroup(pgid: number, exec: YieldExec): Promise<void> {
-  if (yieldCommands(pgid).length === 0) return;
+/** Run `commandsFor` on every process of one check's group. */
+async function applyToGroup(
+  pgid: number,
+  commandsFor: (pid: number) => string[][],
+  exec: YieldExec,
+): Promise<void> {
+  if (commandsFor(pgid).length === 0) return;
   const listed = await exec(["pgrep", "-g", String(pgid)]);
   const pids = new Set([pgid]);
   for (const line of listed.split(/\s+/)) {
@@ -485,33 +507,86 @@ async function demoteGroup(pgid: number, exec: YieldExec): Promise<void> {
     if (Number.isInteger(pid) && pid > 0) pids.add(pid);
   }
   await Promise.all(
-    [...pids].flatMap((pid) => yieldCommands(pid).map((argv) => exec(argv))),
+    [...pids].flatMap((pid) => commandsFor(pid).map((argv) => exec(argv))),
   );
 }
 
 /**
  * On: running checks move to idle now and new ones start there, for at most
- * {@link CHECK_YIELD_MS}. Off: new checks start at normal check priority
- * (nice 19); a demoted process is not promoted back, the next stop's
- * checks supersede it.
+ * {@link CHECK_YIELD_MS}. Off (the stop, or that limit running out): every
+ * check still running goes back to normal check priority (nice 19), and new
+ * ones start there.
  */
 export async function setChecksYield(
   on: boolean,
   options: { readonly now?: number; readonly exec?: YieldExec } = {},
 ): Promise<void> {
+  const exec = options.exec ?? execTool;
+  clearTimeout(yieldExpiry);
+  yieldExpiry = undefined;
   if (!on) {
+    const wasYielding = yieldUntil > 0;
     yieldUntil = 0;
+    if (!wasYielding) return;
+    await Promise.all(
+      [...liveCheckGroups].map((g) => applyToGroup(g, restoreCommands, exec)),
+    );
     return;
   }
   yieldUntil = (options.now ?? Date.now()) + CHECK_YIELD_MS;
-  const exec = options.exec ?? execTool;
-  await Promise.all([...liveCheckGroups].map((g) => demoteGroup(g, exec)));
+  yieldExpiry = setTimeout(() => {
+    void setChecksYield(false, { exec });
+  }, CHECK_YIELD_MS);
+  yieldExpiry.unref?.();
+  await Promise.all(
+    [...liveCheckGroups].map((g) => applyToGroup(g, yieldCommands, exec)),
+  );
 }
 
 /** Test hook: track a fake running check. */
 export function trackCheckGroupForTest(pgid: number, live: boolean): void {
   if (live) liveCheckGroups.add(pgid);
   else liveCheckGroups.delete(pgid);
+}
+
+/** Nice value of {@link CHECK_PRIORITY} as `nice -n` takes it. */
+const CHECK_NICE = 19;
+
+/**
+ * Where `nice` lives, or null (Windows, or a system without it). Checked
+ * once per process.
+ */
+let nicePath: string | null | undefined;
+function findNice(): string | null {
+  if (nicePath === undefined) {
+    nicePath =
+      process.platform === "win32"
+        ? null
+        : (["/usr/bin/nice", "/bin/nice"].find((p) => existsSync(p)) ?? null);
+  }
+  return nicePath;
+}
+
+/**
+ * The argv a check is launched with. Through `nice -n 19` the check and every
+ * child start low, with no window: setting the priority after `spawn` left a
+ * child forked in the first instant at nice 0 (Linux setpriority covers one
+ * process). Without `nice`, the argv is unchanged and `lowerPriority` still
+ * applies.
+ */
+export function niceLaunch(
+  argv: readonly string[],
+  nice: string | null = findNice(),
+): readonly string[] {
+  return nice ? [nice, "-n", String(CHECK_NICE), ...argv] : argv;
+}
+
+/** `nice` could not find the check's binary (exit 127). */
+export function niceMissingBinary(
+  code: number | null,
+  stderr: string,
+): boolean {
+  return code === 127 && /^nice: .*: No such file or directory/m.test(stderr);
 }
 
 /** Output of a check stopped because a newer change superseded it. */
@@ -542,7 +617,9 @@ function spawnArgv(
       return;
     }
 
-    const child = spawn(bin, argv.slice(1), {
+    const launch = niceLaunch(argv);
+    const wrapped = launch !== argv;
+    const child = spawn(launch[0] ?? bin, launch.slice(1), {
       cwd,
       env: gitChildEnv(),
       stdio: ["ignore", "pipe", "pipe"],
@@ -619,6 +696,10 @@ function spawnArgv(
       }
       if (code === 0) {
         finish({ ok: true, output: stdout });
+        return;
+      }
+      if (wrapped && niceMissingBinary(code, stderr)) {
+        finish(verifyRunFailure({ code: "ENOENT", stdout, stderr }));
         return;
       }
       if (
