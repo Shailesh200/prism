@@ -221,6 +221,53 @@ export function buildLabel(source: string): string {
     : sha;
 }
 
+/**
+ * What an errno means, in words, and what to do about it (Muse, PR 10).
+ * Any other code is shown as-is with a plain "Then run the command again."
+ */
+export function failureReason(code: string): {
+  readonly reason: string;
+  readonly fix: string;
+} {
+  switch (code) {
+    case "EBUSY":
+      return {
+        reason: "the file is in use",
+        fix: "Close the app using it, then run the command again.",
+      };
+    case "EACCES":
+    case "EPERM":
+      return {
+        reason: "permission denied",
+        fix: "Check the file's permissions, then run the command again.",
+      };
+    case "ENOSPC":
+      return {
+        reason: "the disk is full",
+        fix: "Free some space, then run the command again.",
+      };
+    default:
+      return { reason: code, fix: "Then run the command again." };
+  }
+}
+
+/** The message for a failed install, after the rollback (J-15). */
+export function installFailureMessage(
+  where: string | undefined,
+  code: string,
+  kept: readonly string[],
+): string {
+  const { reason, fix } = failureReason(code);
+  const what = `${where ? `Prism couldn't write ${where}` : "Prism couldn't finish the install"} (${reason}).`;
+  return kept.length === 0
+    ? `${what} All agent configs are back as they were. ${fix}`
+    : [
+        `${what} These couldn't be put back:`,
+        ...kept,
+        "Run prism uninstall to remove Prism's changes from them, then run the command again.",
+      ].join("\n");
+}
+
 /** The friendly error for a failed install, after the rollback (J-15). */
 function installFailure(
   cause: unknown,
@@ -229,14 +276,15 @@ function installFailure(
   const error = cause as NodeJS.ErrnoException & { dest?: string };
   // The temp file is an implementation detail: name the user's config.
   const where = (error?.dest ?? error?.path)?.replace(/\.prism-\d+\.tmp$/, "");
-  const what = `${where ? `Prism couldn't write ${where}` : "Prism couldn't finish the install"} (${error?.code ?? (error instanceof Error ? error.message : String(cause))}).`;
-  const after =
-    undo.kept.length === 0
-      ? "Every agent config was put back as it was; nothing was changed."
-      : `These could not be put back: ${undo.kept.map((k) => `${k.path} (${k.reason})`).join(", ")}. They are in the install record, so \`prism uninstall\` removes them.`;
+  const code =
+    error?.code ?? (error instanceof Error ? error.message : String(cause));
   return prismError(
     PrismErrorCode.IO_ERROR,
-    `${what} ${after} Fix the file's permissions, then run the command again.`,
+    installFailureMessage(
+      where,
+      code,
+      undo.kept.map((k) => k.path),
+    ),
     {
       restored: undo.restored,
       kept: undo.kept,
@@ -522,7 +570,7 @@ async function upgrade(deps: UpdateDeps) {
         },
         human: () =>
           update.kind === "unknown"
-            ? `Prism ${before} is installed. Prism couldn't reach npm to check for a newer version. To update, run: ${UPDATE_COMMAND}`
+            ? `Prism ${before} is installed. Couldn't reach npm to check for updates. To update, run: ${UPDATE_COMMAND}`
             : `Prism is up to date (${before}).`,
       });
   }

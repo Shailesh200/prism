@@ -23,6 +23,7 @@ const inject = vi.hoisted(() => ({
   renameTo: null as RegExp | null,
   /** rmSync of a path matching this fails (a rollback that cannot finish). */
   rmPath: null as RegExp | null,
+  renameCode: "EBUSY",
 }));
 
 vi.mock("node:fs", async (importOriginal) => {
@@ -32,10 +33,8 @@ vi.mock("node:fs", async (importOriginal) => {
     renameSync: (from: string, to: string) => {
       if (inject.renameTo?.test(String(to))) {
         throw Object.assign(
-          new Error(
-            `EBUSY: resource busy or locked, rename '${from}' -> '${to}'`,
-          ),
-          { code: "EBUSY", syscall: "rename", path: from, dest: to },
+          new Error(`${inject.renameCode}: rename '${from}' -> '${to}'`),
+          { code: inject.renameCode, syscall: "rename", path: from, dest: to },
         );
       }
       return real.renameSync(from, to);
@@ -56,6 +55,8 @@ vi.mock("node:fs", async (importOriginal) => {
 });
 
 const { run } = await import("../program.js");
+const { failureReason, installFailureMessage } =
+  await import("../commands/install.js");
 
 // Set and restore keys in place: replacing `process.env` would detach it
 // from the real environment, and `os.homedir()` would stop seeing HOME.
@@ -78,6 +79,7 @@ beforeEach(() => {
 afterEach(() => {
   inject.renameTo = null;
   inject.rmPath = null;
+  inject.renameCode = "EBUSY";
   for (const key of KEYS) {
     if (saved[key] === undefined) delete process.env[key];
     else process.env[key] = saved[key];
@@ -221,8 +223,9 @@ describe("J-15: no half-written install", () => {
     const result = await prism(["install", "all"]);
     expect(result.code).not.toBe(0);
     expect(result.err).toContain("PRISM_IO_ERROR");
-    expect(result.err).toContain(".codex/config.toml (EBUSY)");
-    expect(result.err).toContain("Every agent config was put back as it was");
+    expect(result.err).toContain(
+      `Prism couldn't write ${join(home, ".codex/config.toml")} (the file is in use). All agent configs are back as they were. Close the app using it, then run the command again.`,
+    );
     expect(tempFiles()).toEqual([]);
     expect(snapshot()).toEqual(before);
     expect(existsSync(join(home, ".prism/install.json"))).toBe(false);
@@ -241,7 +244,13 @@ describe("J-15: no half-written install", () => {
     inject.rmPath = /\.claude\.json$/;
     const result = await prism(["install", "all"]);
     expect(result.code).not.toBe(0);
-    expect(result.err).toContain("could not be put back");
+    expect(result.err).toContain(
+      [
+        `Prism couldn't write ${join(home, ".codex/config.toml")} (the file is in use). These couldn't be put back:`,
+        join(home, ".claude.json"),
+        "Run prism uninstall to remove Prism's changes from them, then run the command again.",
+      ].join("\n"),
+    );
     expect(tempFiles()).toEqual([]);
     const record = JSON.parse(
       readFileSync(join(home, ".prism/install.json"), "utf8"),
@@ -273,6 +282,58 @@ describe("J-15: no half-written install", () => {
     );
     expect(readFileSync(join(home, ".codex/config.toml"), "utf8")).toBe(
       'model = "o3"\n',
+    );
+  });
+});
+
+describe("install failure wording (Muse, PR 10)", () => {
+  it.each([
+    [
+      "EBUSY",
+      "the file is in use",
+      "Close the app using it, then run the command again.",
+    ],
+    [
+      "EACCES",
+      "permission denied",
+      "Check the file's permissions, then run the command again.",
+    ],
+    [
+      "EPERM",
+      "permission denied",
+      "Check the file's permissions, then run the command again.",
+    ],
+    [
+      "ENOSPC",
+      "the disk is full",
+      "Free some space, then run the command again.",
+    ],
+    ["EROFS", "EROFS", "Then run the command again."],
+  ])("%s → (%s) + %s", async (code, reason, fix) => {
+    expect(failureReason(code)).toEqual({ reason, fix });
+    put(".codex/config.toml", 'model = "o3"\n');
+    inject.renameTo = /\.codex[/\\]config\.toml$/;
+    inject.renameCode = code;
+    const result = await prism(["install", "codex"]);
+    expect(result.code).not.toBe(0);
+    expect(result.err).toContain(
+      `Prism couldn't write ${join(home, ".codex/config.toml")} (${reason}). All agent configs are back as they were. ${fix}`,
+    );
+  });
+
+  it("something kept: each path on its own line, then the uninstall step", () => {
+    expect(
+      installFailureMessage("/h/.codex/config.toml", "ENOSPC", [
+        "/h/a.json",
+        "/h/b.json",
+      ]),
+    ).toBe(
+      [
+        "Prism couldn't write /h/.codex/config.toml (the disk is full). These couldn't be put back:",
+        "/h/a.json",
+        "/h/b.json",
+        "Run prism uninstall to remove Prism's changes from them, then run the command again.",
+      ].join("\n"),
     );
   });
 });

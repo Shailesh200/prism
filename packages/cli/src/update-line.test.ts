@@ -132,11 +132,11 @@ describe("prism upgrade says what is new (it downloads nothing)", () => {
   it("npm unreachable: says so and names the command", async () => {
     await installed();
     const result = await upgradeWith({ build: npm, check: offline })(context);
-    expect(result.ok && result.value.human({} as never)).toContain(
-      "couldn't reach npm",
-    );
-    expect(result.ok && result.value.human({} as never)).toContain(
-      "npm i -g @repo-prism/cli@latest",
+    const version = JSON.parse(
+      readFileSync(join(home, ".prism", "install.json"), "utf8"),
+    ).version as string;
+    expect(result.ok && result.value.human({} as never)).toBe(
+      `Prism ${version} is installed. Couldn't reach npm to check for updates. To update, run: npm i -g @repo-prism/cli@latest`,
     );
   });
 });
