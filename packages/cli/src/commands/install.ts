@@ -17,7 +17,13 @@ import { existsSync, readFileSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { err, ok, PrismErrorCode, prismError } from "@repo-prism/shared";
+import {
+  err,
+  ok,
+  PrismErrorCode,
+  prismError,
+  type PrismError,
+} from "@repo-prism/shared";
 import {
   readInstallRecord,
   writeInstallRecord,
@@ -32,15 +38,23 @@ import {
 } from "@repo-prism/shared/user-config";
 import { stopDaemon } from "@repo-prism/daemon";
 import {
+  annotateInstallFile,
   INSTALL_HOSTS,
   installHost,
   removeInstallFile,
+  rollBack,
   setJsonKey,
+  withJournal,
   type InstallFile,
   type InstallHost,
   type InstallScope,
 } from "../install/hosts.js";
 import { wipe1x } from "../install/wipe.js";
+import {
+  UPDATE_COMMAND,
+  updateLine,
+} from "@repo-prism/shared/update-check";
+import { checkCliUpdate, type UpdateDeps } from "../update-line.js";
 import type { CommandContext, CommandHandler } from "../runtime.js";
 import { wrap } from "../table.js";
 
@@ -210,6 +224,25 @@ export function buildLabel(source: string): string {
     : sha;
 }
 
+/** The friendly error for a failed install, after the rollback (J-15). */
+function installFailure(
+  cause: unknown,
+  undo: ReturnType<typeof rollBack>,
+): PrismError {
+  const error = cause as NodeJS.ErrnoException & { dest?: string };
+  // The temp file is an implementation detail: name the user's config.
+  const where = (error?.dest ?? error?.path)?.replace(/\.prism-\d+\.tmp$/, "");
+  const what = `${where ? `Prism couldn't write ${where}` : "Prism couldn't finish the install"} (${error?.code ?? (error instanceof Error ? error.message : String(cause))}).`;
+  const after =
+    undo.kept.length === 0
+      ? "Every agent config was put back as it was; nothing was changed."
+      : `These could not be put back: ${undo.kept.map((k) => `${k.path} (${k.reason})`).join(", ")}. They are in the install record, so \`prism uninstall\` removes them.`;
+  return prismError(PrismErrorCode.IO_ERROR, `${what} ${after} Fix the file's permissions, then run the command again.`, {
+    restored: undo.restored,
+    kept: undo.kept,
+  });
+}
+
 export async function runInstall(run: InstallRun) {
   const wipe = await wipe1x({
     env: run.env,
@@ -233,10 +266,48 @@ export async function runInstall(run: InstallRun) {
     bin: run.layout.bin,
     pack: run.layout.pack,
   };
-  for (const host of installed) {
-    const result = installHost({ ...target, host });
-    files.push(...result.files);
-    notes.push(...result.notes);
+  const key = (file: InstallFile) =>
+    `${file.kind}:${file.path}:${"key" in file ? file.key.join(".") : ""}`;
+  const earlier = new Map(kept.map((file) => [key(file), file]));
+  // Every config write is journaled with its old bytes. A failure part-way
+  // puts each written config back, removes the temp file, and still records
+  // anything that could not be put back, so `prism uninstall` finds it (J-15).
+  const run1 = withJournal(() => {
+    for (const host of installed) {
+      const result = installHost({ ...target, host });
+      files.push(...result.files);
+      notes.push(...result.notes);
+    }
+  });
+  if (run1.error !== undefined) {
+    const undo = rollBack(run1.journal);
+    const left = new Set(undo.kept.map((k) => k.path));
+    const stranded = files
+      .filter((file) => left.has(file.path))
+      .map((file) => annotateInstallFile(file, run1.journal, earlier.get(key(file))));
+    if (stranded.length > 0) {
+      const merged = new Map<string, InstallFile>();
+      for (const file of [...stillOnDisk(kept), ...stranded])
+        merged.set(key(file), file);
+      const now = new Date().toISOString();
+      writeInstallRecord(
+        {
+          version: run.layout.version,
+          bin: run.layout.bin,
+          installedAt: previous.kind === "ok" ? previous.record.installedAt : now,
+          updatedAt: now,
+          hosts: [...new Set([...(previous.kind === "ok" ? previous.record.hosts : []), ...installed])].sort(),
+          scope: run.scope,
+          root: run.root,
+          ...(run.layout.source ? { source: run.layout.source } : {}),
+          files: [...merged.values()].map((file) =>
+            file.kind === "json-key" ? { ...file, key: [...file.key] } : file,
+          ),
+        },
+        run.env,
+      );
+    }
+    throw installFailure(run1.error, undo);
   }
   if (
     installed.some((host) => RECEIPT_HOSTS.includes(host)) &&
@@ -245,11 +316,13 @@ export async function runInstall(run: InstallRun) {
     notes.push(
       "Enabled the `receipt` MCP tool (extraTools) for the Cursor/Codex/opencode rule path.",
     );
-  const key = (file: InstallFile) =>
-    `${file.kind}:${file.path}:${"key" in file ? file.key.join(".") : ""}`;
   const merged = new Map<string, InstallFile>();
-  for (const file of [...stillOnDisk(kept), ...files])
-    merged.set(key(file), file);
+  for (const file of stillOnDisk(kept)) merged.set(key(file), file);
+  for (const file of files)
+    merged.set(
+      key(file),
+      annotateInstallFile(file, run1.journal, earlier.get(key(file))),
+    );
   const hosts = new Set([
     ...(previous.kind === "ok" ? previous.record.hosts : []),
     ...installed,
@@ -382,8 +455,20 @@ export const uninstallCommand: CommandHandler = async (context) => {
   });
 };
 
-export const upgradeCommand: CommandHandler = async () => {
-  const env = process.env;
+/**
+ * `prism upgrade` downloads nothing: it re-links the agents to the Prism
+ * installed next to this CLI. So it first says when a newer Prism is on npm
+ * and names the command that gets it, and says "up to date" when the
+ * installed build is already the one the agents use (PR 10).
+ */
+export function upgradeWith(deps: UpdateDeps = {}): CommandHandler {
+  return async () => upgrade(deps);
+}
+
+export const upgradeCommand: CommandHandler = upgradeWith();
+
+async function upgrade(deps: UpdateDeps) {
+  const env = deps.env ?? process.env;
   const previous = readInstallRecord(env);
   if (previous.kind !== "ok")
     return err(
@@ -402,6 +487,36 @@ export const upgradeCommand: CommandHandler = async () => {
     INSTALL_HOSTS.includes(host as InstallHost),
   );
   const before = record.version;
+  // An npm install checks npm first; a checkout (`skipped`) re-links its
+  // fresh build as before.
+  const update = await checkCliUpdate({ ...deps, env });
+  if (update.kind !== "skipped") {
+    if (update.kind === "available")
+      return ok({
+        data: {
+          from: before,
+          installed: layout.version,
+          latest: update.latest,
+          command: UPDATE_COMMAND,
+          updated: false,
+        },
+        human: () => updateLine(update.latest),
+      });
+    if (before === layout.version)
+      return ok({
+        data: {
+          from: before,
+          to: before,
+          hosts,
+          updated: false,
+          ...(update.kind === "unknown" ? { checkFailed: update.reason } : {}),
+        },
+        human: () =>
+          update.kind === "unknown"
+            ? `Prism ${before} is installed. Prism couldn't reach npm to check for a newer version. To update, run: ${UPDATE_COMMAND}`
+            : `Prism is up to date (${before}).`,
+      });
+  }
   // The daemon restarts on next use with the new build (lockstep versions, §3.2).
   await stopDaemon({ env });
   const result = await runInstall({
@@ -428,4 +543,4 @@ export const upgradeCommand: CommandHandler = async () => {
     human: () =>
       `Prism ${before} → ${result.record.version} (${layout.source ? `local build from ${layout.source}` : `npm package ${dirname(dirname(layout.bin))}`}); re-linked ${hosts.join(", ")}. The daemon restarts on next use.`,
   });
-};
+}

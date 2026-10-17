@@ -669,6 +669,75 @@ function valueLineLite(value) {
  * back to `prism-mcp --hook stop` only when the daemon is off. Past the
  * budget, or with no answer, say nothing (R-C4).
  */
+/**
+ * PR 10: the update notice on the stop line, never a silent update. It reads
+ * only the daily npm check's cache (`~/.prism/update.json`, written by the
+ * MCP server, `prism start` and `prism doctor`), never the network, so the
+ * stop budget is untouched. Only an npm install (the hook under
+ * `node_modules/@repo-prism/plugin`) is compared; a checkout never is. At
+ * most once a day per version. Any error means no line.
+ */
+const UPDATE_COMMAND = "npm i -g @repo-prism/cli@latest";
+const UPDATE_NOTICE_EVERY_MS = 24 * 60 * 60 * 1000;
+
+function semverParts(raw) {
+  const m = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?/.exec(String(raw).trim());
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3]), m[4] ?? null] : null;
+}
+
+/** True when `latest` is a newer release than `current` (a pre-release is older). */
+function newerVersion(latest, current) {
+  const a = semverParts(latest);
+  const b = semverParts(current);
+  if (!a || !b) return false;
+  for (let i = 0; i < 3; i += 1) if (a[i] !== b[i]) return a[i] > b[i];
+  if (a[3] === b[3]) return false;
+  if (a[3] === null) return true;
+  if (b[3] === null) return false;
+  return a[3] > b[3];
+}
+
+function updateLine() {
+  try {
+    if (process.env.PRISM_SKIP_SELF_UPDATE === "1") return null;
+    const self = fileURLToPath(import.meta.url).replace(/\\/g, "/");
+    if (!self.includes("/node_modules/")) return null;
+    // <plugin>/dist/pack/hooks/prism-hook.mjs → <plugin>/package.json
+    const pkg = JSON.parse(
+      readFileSync(join(dirname(self), "..", "..", "..", "package.json"), "utf8"),
+    );
+    const cache = JSON.parse(readFileOrNull(join(home(), "update.json")) ?? "null");
+    const latest = cache?.latest;
+    if (typeof pkg?.version !== "string" || typeof latest !== "string") return null;
+    if (!newerVersion(latest, pkg.version)) return null;
+    const stampPath = join(home(), "update-notice.json");
+    const stamp = JSON.parse(readFileOrNull(stampPath) ?? "null");
+    if (
+      stamp?.version === latest &&
+      typeof stamp.at === "number" &&
+      Date.now() - stamp.at < UPDATE_NOTICE_EVERY_MS
+    )
+      return null;
+    writeFileSync(stampPath, JSON.stringify({ version: latest, at: Date.now() }));
+    return `Prism ${latest} is out. To update, run: ${UPDATE_COMMAND}`;
+  } catch (error) {
+    // No line is the answer; the stop itself goes on.
+    recordEvent({
+      event: "hook.update_notice",
+      outcome: "degraded",
+      reason: message(error),
+    });
+    return null;
+  }
+}
+
+/** The stop payload with the update line added to the user's message. */
+function withUpdate(payload) {
+  if (!payload || typeof payload.systemMessage !== "string") return payload;
+  const line = updateLine();
+  return line ? { ...payload, systemMessage: `${payload.systemMessage}\n${line}` } : payload;
+}
+
 async function stop() {
   if (input.stop_hook_active === true) return emit({}, "already continuing");
   const id = typeof input.session_id === "string" ? input.session_id : "";
@@ -689,7 +758,7 @@ async function stop() {
       if (id) rememberStop(id, answer.value);
       const text = renderReceiptLite(answer.value);
       // For the user only: Stop context makes the agent take another turn.
-      const payload = { systemMessage: text };
+      const payload = withUpdate({ systemMessage: text });
       log("receipt (daemon)");
       process.stdout.write(`${JSON.stringify(payload)}\n`);
       recordEvent({
@@ -747,7 +816,15 @@ async function stop() {
     return emit({}, `no receipt: ${detail}`, "degraded");
   }
   log("receipt");
-  process.stdout.write(out.endsWith("\n") ? out : `${out}\n`);
+  let shown = out;
+  try {
+    const parsed = JSON.parse(out);
+    const next = withUpdate(parsed);
+    if (next !== parsed) shown = JSON.stringify(next);
+  } catch {
+    shown = out; // Not JSON: pass it through as before.
+  }
+  process.stdout.write(shown.endsWith("\n") ? shown : `${shown}\n`);
 }
 
 /**

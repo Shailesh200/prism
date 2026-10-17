@@ -10,6 +10,7 @@
 import { stat } from "node:fs/promises";
 import { Prism, type PrismWorkspace } from "@repo-prism/core";
 import {
+  isPrismError,
   PrismErrorCode,
   type PrismError,
   type Result,
@@ -222,6 +223,11 @@ export async function runCommand(
 
     return result.value.findings ? ExitCode.FINDINGS : ExitCode.OK;
   } catch (cause) {
+    // A command may throw a PrismError it built (install's rollback, J-15).
+    if (!(cause instanceof Error) && isPrismError(cause)) {
+      emitError(cause, output, run.writer);
+      return exitCodeForError(cause);
+    }
     const error: PrismError = {
       code: "PRISM_UNKNOWN",
       message: cause instanceof Error ? cause.message : String(cause),

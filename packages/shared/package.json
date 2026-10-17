@@ -12,6 +12,10 @@
       "types": "./dist/prism-home.d.ts",
       "import": "./dist/prism-home.js"
     },
+    "./update-check": {
+      "types": "./dist/update-check.d.ts",
+      "import": "./dist/update-check.js"
+    },
     "./user-config": {
       "types": "./dist/user-config.d.ts",
       "import": "./dist/user-config.js"

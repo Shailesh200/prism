@@ -44,19 +44,36 @@ export function detectHosts(home: string): InstallHost[] {
   );
 }
 
+/**
+ * One thing install added. `created`: the file did not exist before Prism
+ * wrote it, so uninstall may delete it once nothing else is left in it.
+ * `existingDepth` (json-key): how many leading key segments were already
+ * there; uninstall never removes those, even when empty. `hadHooks`
+ * (claude-hooks): the settings already had a `hooks` key. Records from
+ * before these fields existed are treated as "the user's": only Prism's
+ * own entry goes.
+ */
 export type InstallFile =
   | {
       readonly kind: "json-key";
       readonly path: string;
       readonly key: readonly string[];
+      readonly created?: boolean | undefined;
+      readonly existingDepth?: number | undefined;
     }
-  | { readonly kind: "claude-hooks"; readonly path: string }
+  | {
+      readonly kind: "claude-hooks";
+      readonly path: string;
+      readonly created?: boolean | undefined;
+      readonly hadHooks?: boolean | undefined;
+    }
   | {
       readonly kind: "block";
       readonly path: string;
       readonly marker: "md" | "toml";
+      readonly created?: boolean | undefined;
     }
-  | { readonly kind: "file"; readonly path: string };
+  | { readonly kind: "file"; readonly path: string; readonly created?: boolean | undefined };
 
 export type InstallTarget = {
   readonly host: InstallHost;
@@ -89,13 +106,125 @@ const MD_END = "<!-- prism:end -->";
 const TOML_BEGIN = "# prism:begin (managed by `prism install`)";
 const TOML_END = "# prism:end";
 
+/** The file's text now, or undefined when it does not exist. */
+function textOnDisk(path: string): string | undefined {
+  return existsSync(path) ? readFileSync(path, "utf8") : undefined;
+}
+
+/**
+ * What a real install run changed, in order, with what was there before, so
+ * a failed run can be put back (J-15) and the record can tell Prism's files
+ * from the user's (J-16).
+ */
+export type JournalEntry =
+  | { readonly kind: "text"; readonly path: string; readonly before?: string }
+  | { readonly kind: "dir"; readonly path: string; readonly existed: boolean }
+  | { readonly kind: "mkdir"; readonly path: string };
+
+/** Open journals, outermost first; every write lands in each of them. */
+const journals: JournalEntry[][] = [];
+
+function record(entry: JournalEntry): void {
+  for (const list of journals) {
+    if (
+      entry.kind === "text" &&
+      list.some((e) => e.kind === "text" && e.path === entry.path)
+    )
+      continue;
+    list.push(entry);
+  }
+}
+
+function noteText(path: string): void {
+  if (journals.length === 0) return;
+  record(
+    existsSync(path)
+      ? { kind: "text", path, before: readFileSync(path, "utf8") }
+      : { kind: "text", path },
+  );
+}
+
+function makeDir(dir: string): void {
+  const first = mkdirSync(dir, { recursive: true });
+  if (first) record({ kind: "mkdir", path: first });
+}
+
+/** Run `fn` with every real write journaled; the journal is returned either way. */
+export function withJournal<T>(
+  fn: () => T,
+): { readonly journal: JournalEntry[]; readonly value?: T; readonly error?: unknown } {
+  const entries: JournalEntry[] = [];
+  journals.push(entries);
+  try {
+    return { journal: entries, value: fn() };
+  } catch (error) {
+    return { journal: entries, error };
+  } finally {
+    journals.pop();
+  }
+}
+
+/** Removes `dir` and the folders inside it when they hold no files. */
+function removeEmptyTree(dir: string): void {
+  if (!existsSync(dir)) return;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) removeEmptyTree(join(dir, entry.name));
+  }
+  if (readdirSync(dir).length === 0) rmdirSync(dir);
+}
+
+/**
+ * Undo a journal, newest first: files get their old bytes back, files Prism
+ * created are deleted, new folders go when empty. A replaced skill folder
+ * (Prism's own) cannot be put back and is reported in `kept`, as is any path
+ * that could not be restored.
+ */
+export function rollBack(entries: readonly JournalEntry[]): {
+  readonly restored: string[];
+  readonly kept: { readonly path: string; readonly reason: string }[];
+} {
+  const restored: string[] = [];
+  const kept: { path: string; reason: string }[] = [];
+  for (const entry of [...entries].reverse()) {
+    try {
+      if (entry.kind === "text") {
+        if (entry.before === undefined) rmSync(entry.path, { force: true });
+        else writeFileSync(entry.path, entry.before);
+        restored.push(entry.path);
+      } else if (entry.kind === "dir") {
+        if (entry.existed) {
+          kept.push({ path: entry.path, reason: "Prism's skill folder was replaced" });
+        } else {
+          rmSync(entry.path, { recursive: true, force: true });
+          restored.push(entry.path);
+        }
+      } else {
+        removeEmptyTree(entry.path);
+      }
+    } catch (error) {
+      kept.push({
+        path: entry.path,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+  return { restored, kept };
+}
+
 /** Writes only when the content differs, so a second install touches nothing. */
 export function atomicWrite(path: string, text: string): void {
-  if (existsSync(path) && readFileSync(path, "utf8") === text) return;
-  mkdirSync(dirname(path), { recursive: true });
+  if (textOnDisk(path) === text) return;
+  makeDir(dirname(path));
+  noteText(path);
   const tmp = `${path}.prism-${process.pid}.tmp`;
-  writeFileSync(tmp, text);
-  renameSync(tmp, path);
+  try {
+    writeFileSync(tmp, text);
+    renameSync(tmp, path);
+  } catch (error) {
+    // Never leave `<file>.prism-<pid>.tmp` beside the user's config (J-15).
+    rmSync(tmp, { force: true });
+    throw error;
+  }
 }
 
 function readJsonObject(path: string): Record<string, unknown> {
@@ -125,16 +254,47 @@ export function setJsonKey(
   // Same value already there: leave the user's file (and its formatting) alone.
   if (JSON.stringify(cursor[last]) === JSON.stringify(value)) return;
   cursor[last] = value;
-  atomicWrite(path, `${JSON.stringify(root, null, 2)}\n`);
+  atomicWrite(path, formatJsonLike(textOnDisk(path), root));
 }
 
-/** Writes the object back; deletes the file when nothing is left in it. */
-function writeOrDropJson(path: string, root: Record<string, unknown>): void {
-  if (Object.keys(root).length === 0) rmSync(path, { force: true });
-  else atomicWrite(path, `${JSON.stringify(root, null, 2)}\n`);
+/**
+ * The object back as text, in the file's own layout: compact stays compact,
+ * the indent and the final newline are kept (J-16/J-20: the user's file comes
+ * back as it was, minus Prism's entry).
+ */
+function formatJsonLike(previous: string | undefined, value: unknown): string {
+  const text = previous ?? "";
+  const newline = text === "" || text.endsWith("\n") ? "\n" : "";
+  if (text.trim() !== "" && !text.trim().includes("\n"))
+    return `${JSON.stringify(value)}${newline}`;
+  const indent = /\n([ \t]+)\S/.exec(text)?.[1] ?? 2;
+  return `${JSON.stringify(value, null, indent)}${newline}`;
 }
 
-export function deleteJsonKey(path: string, key: readonly string[]): boolean {
+/**
+ * Writes the object back. The file is deleted only when nothing is left in
+ * it and Prism created it (`dropEmptyFile`); a user's file stays, even `{}`.
+ */
+function writeOrDropJson(
+  path: string,
+  root: Record<string, unknown>,
+  dropEmptyFile = false,
+): void {
+  if (Object.keys(root).length === 0 && dropEmptyFile)
+    rmSync(path, { force: true });
+  else atomicWrite(path, formatJsonLike(textOnDisk(path), root));
+}
+
+/**
+ * Removes `key` and nothing else of the user's. Parents left empty are
+ * removed only below `keep` segments (the ones that existed before Prism);
+ * the default keeps every parent. The file goes only with `dropEmptyFile`.
+ */
+export function deleteJsonKey(
+  path: string,
+  key: readonly string[],
+  options: { readonly keep?: number; readonly dropEmptyFile?: boolean } = {},
+): boolean {
   if (!existsSync(path)) return false;
   const root = readJsonObject(path);
   const chain: Record<string, unknown>[] = [root];
@@ -147,12 +307,14 @@ export function deleteJsonKey(path: string, key: readonly string[]): boolean {
   const parent = chain[chain.length - 1]!;
   if (!(last in parent)) return false;
   delete parent[last];
-  // Drop the parents the key left empty (`mcpServers: {}`), deepest first.
+  // Drop the parents Prism made that the key left empty, deepest first; a
+  // parent the user had (`mcpServers: {}`) stays (J-16).
+  const keep = Math.max(0, options.keep ?? key.length - 1);
   for (let i = chain.length - 1; i > 0; i -= 1) {
-    if (Object.keys(chain[i]!).length > 0) break;
+    if (i - 1 < keep || Object.keys(chain[i]!).length > 0) break;
     delete chain[i - 1]![key[i - 1] as string];
   }
-  writeOrDropJson(path, root);
+  writeOrDropJson(path, root, options.dropEmptyFile === true);
   return true;
 }
 
@@ -195,8 +357,15 @@ export function writeBlock(
   atomicWrite(path, next);
 }
 
-/** Removes the block; deletes the file when nothing else is left. */
-export function removeBlock(path: string, kind: "md" | "toml"): boolean {
+/**
+ * Removes the block. The file is deleted when nothing else is left only if
+ * Prism created it (`dropEmptyFile`); otherwise what is left stays.
+ */
+export function removeBlock(
+  path: string,
+  kind: "md" | "toml",
+  dropEmptyFile = false,
+): boolean {
   if (!existsSync(path)) return false;
   const [begin, end] = markers(kind);
   const text = readFileSync(path, "utf8");
@@ -204,21 +373,29 @@ export function removeBlock(path: string, kind: "md" | "toml"): boolean {
   const stop = text.indexOf(end);
   if (start < 0 || stop < start) return false;
   const rest = `${text.slice(0, start).replace(/\n+$/, "\n")}${text.slice(stop + end.length).replace(/^\n+/, "")}`;
-  if (rest.trim() === "") rmSync(path, { force: true });
-  else atomicWrite(path, rest);
+  if (rest.trim() === "" && dropEmptyFile) rmSync(path, { force: true });
+  else atomicWrite(path, rest.trim() === "" ? "" : rest);
   return true;
 }
 
 const PRISM_HOOK = PRISM_HOOK_FILE;
 
-export function removeClaudeHooks(path: string): boolean {
+/**
+ * Removes Prism's hook entries. An empty `hooks` key goes only when Prism
+ * added it (`hadHooks === false`), the file only when Prism created it.
+ */
+export function removeClaudeHooks(
+  path: string,
+  options: { readonly hadHooks?: boolean | undefined; readonly dropEmptyFile?: boolean } = {},
+): boolean {
   if (!existsSync(path)) return false;
   const settings = readJsonObject(path);
   if (!settings.hooks) return false;
   const hooks = stripPrismHooks(settings.hooks);
-  if (Object.keys(hooks).length > 0) settings.hooks = hooks;
+  if (Object.keys(hooks).length > 0 || options.hadHooks !== false)
+    settings.hooks = hooks;
   else delete settings.hooks;
-  writeOrDropJson(path, settings);
+  writeOrDropJson(path, settings, options.dropEmptyFile === true);
   return true;
 }
 
@@ -279,8 +456,9 @@ function copySkills(target: InstallTarget, dest: string): InstallFile[] {
     const to = join(dest, name);
     files.push({ kind: "file", path: to });
     if (sameTree(join(source, name), to)) continue;
+    record({ kind: "dir", path: to, existed: existsSync(to) });
     rmSync(to, { recursive: true, force: true });
-    mkdirSync(dirname(to), { recursive: true });
+    makeDir(dirname(to));
     cpSync(join(source, name), to, { recursive: true });
   }
   return files;
@@ -306,7 +484,7 @@ function claude(target: InstallTarget): HostResult {
     `${quote(target.node)} ${quote(hook)}`,
   );
   settings.hooks = hooks;
-  atomicWrite(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
+  atomicWrite(settingsPath, formatJsonLike(textOnDisk(settingsPath), settings));
   return {
     files: [
       { kind: "json-key", path: mcpPath, key: ["mcpServers", "prism"] },
@@ -458,7 +636,66 @@ function opencode(target: InstallTarget): HostResult {
   };
 }
 
-export function installHost(target: InstallTarget): HostResult {
+function parseObject(text: string | undefined): Record<string, unknown> | null {
+  if (text === undefined || text.trim() === "") return {};
+  try {
+    const raw = JSON.parse(text) as unknown;
+    return raw && typeof raw === "object" && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * What uninstall may remove for `file`, from the journal of this run and the
+ * record of an earlier one. A path this run did not write keeps the earlier
+ * answer, or the safe one (it is the user's).
+ */
+export function annotateInstallFile(
+  file: InstallFile,
+  entries: readonly JournalEntry[],
+  previous?: InstallFile,
+): InstallFile {
+  const entry = entries.find((e) => e.path === file.path);
+  const written = entry !== undefined;
+  const before =
+    entry?.kind === "text" ? entry.before : entry?.kind === "dir" && entry.existed ? "" : undefined;
+  const createdNow = written && before === undefined;
+  const created = createdNow || previous?.created === true;
+  switch (file.kind) {
+    case "json-key": {
+      const prev = previous?.kind === "json-key" ? previous.existingDepth : undefined;
+      let depth = file.key.length - 1;
+      if (written) {
+        const root = parseObject(before);
+        if (root) {
+          depth = 0;
+          let cursor: unknown = root;
+          for (const part of file.key.slice(0, -1)) {
+            const next = (cursor as Record<string, unknown>)[part];
+            if (!next || typeof next !== "object" || Array.isArray(next)) break;
+            depth += 1;
+            cursor = next;
+          }
+        }
+      }
+      return { ...file, key: [...file.key], created, existingDepth: Math.min(depth, prev ?? depth) };
+    }
+    case "claude-hooks": {
+      const root = written ? parseObject(before) : null;
+      const now = root ? "hooks" in root : true;
+      const prev = previous?.kind === "claude-hooks" ? previous.hadHooks : undefined;
+      return { ...file, created, hadHooks: now && prev !== false };
+    }
+    case "block":
+    case "file":
+      return { ...file, created };
+  }
+}
+
+function writeHost(target: InstallTarget): HostResult {
   switch (target.host) {
     case "claude":
       return claude(target);
@@ -471,6 +708,21 @@ export function installHost(target: InstallTarget): HostResult {
   }
 }
 
+/**
+ * Writes one host's configs. Each recorded file says what of it was there
+ * before (`created`, `existingDepth`, `hadHooks`), so uninstall takes back
+ * only what Prism added (J-16).
+ */
+export function installHost(target: InstallTarget): HostResult {
+  const run = withJournal(() => writeHost(target));
+  if (run.error !== undefined) throw run.error;
+  const result = run.value!;
+  return {
+    ...result,
+    files: result.files.map((file) => annotateInstallFile(file, run.journal)),
+  };
+}
+
 /** Removes one recorded install file. Returns true when something changed. */
 export function removeInstallFile(file: InstallFile): boolean {
   const changed = removeOne(file);
@@ -479,13 +731,20 @@ export function removeInstallFile(file: InstallFile): boolean {
 }
 
 function removeOne(file: InstallFile): boolean {
+  const dropEmptyFile = file.created === true;
   switch (file.kind) {
     case "json-key":
-      return deleteJsonKey(file.path, file.key);
+      return deleteJsonKey(file.path, file.key, {
+        ...(file.existingDepth !== undefined ? { keep: file.existingDepth } : {}),
+        dropEmptyFile,
+      });
     case "claude-hooks":
-      return removeClaudeHooks(file.path);
+      return removeClaudeHooks(file.path, {
+        ...(file.hadHooks !== undefined ? { hadHooks: file.hadHooks } : {}),
+        dropEmptyFile,
+      });
     case "block":
-      return removeBlock(file.path, file.marker);
+      return removeBlock(file.path, file.marker, dropEmptyFile);
     case "file": {
       if (!existsSync(file.path)) return false;
       rmSync(file.path, { recursive: true, force: true });
