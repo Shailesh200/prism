@@ -235,7 +235,8 @@ describe("lens checks (plan §5.3)", () => {
         dependenciesAdded: ["package.json: left-pad"],
       }),
     );
-    expect(status(out, "off_limits_touched")?.status).toBe("fail");
+    // J-07: a generated file is a concern (a note), never a fail.
+    expect(status(out, "off_limits_touched")?.status).toBe("concern");
     expect(status(out, "new_dependency_added")?.status).toBe("concern");
     expect(status(out, "untested_new_branch")?.status).toBe("concern");
     expect(status(out, "untested_changed_symbol")?.status).toBe("concern");
@@ -256,5 +257,78 @@ describe("lens checks (plan §5.3)", () => {
     const row = status(out, "untested_changed_symbol")!;
     expect(row.evidence).toHaveLength(20);
     expect(row.evidence.at(-1)).toBe("+12 more");
+  });
+});
+
+describe("J-07: generated files never fail off_limits_touched", () => {
+  const all = [lens("architect"), lens("dev"), lens("qa")];
+  it("an edit under gen/ is a concern with the path as evidence", () => {
+    const out = evaluateLensChecks(
+      all,
+      receipt(),
+      signals({ changed: ["gen/api.ts", "src/b.gen.ts"] }),
+    );
+    const f = status(out, "off_limits_touched");
+    expect(f?.status).toBe("concern");
+    expect(f?.evidence).toEqual([
+      "gen/api.ts (generated)",
+      "src/b.gen.ts (generated)",
+    ]);
+  });
+  it("a vendored path still fails, listed before generated ones", () => {
+    const out = evaluateLensChecks(
+      all,
+      receipt(),
+      signals({ changed: ["gen/api.ts", "vendor/lib.ts"] }),
+    );
+    const f = status(out, "off_limits_touched");
+    expect(f?.status).toBe("fail");
+    expect(f?.evidence).toEqual([
+      "vendor/lib.ts (vendor)",
+      "gen/api.ts (generated)",
+    ]);
+  });
+});
+
+describe("J-07: the vendored-path check never fails a non-vendored path (Arc)", () => {
+  const all = [lens("architect"), lens("dev"), lens("qa")];
+  const offLimits = (changed: string[]) =>
+    status(
+      evaluateLensChecks(all, receipt(), signals({ changed })),
+      "off_limits_touched",
+    );
+
+  it("look-alike paths are not vendored", () => {
+    for (const path of [
+      "vendors/a.ts",
+      "src/vendored/a.ts",
+      "my-vendor/a.ts",
+      "src/vendor.ts",
+      "lib/vendor-utils.js",
+      "src/a.ts",
+    ]) {
+      expect(offLimits([path])?.status, path).toBe("pass");
+    }
+  });
+
+  it("generated paths alone never fail, however many", () => {
+    const changed = Array.from({ length: 30 }, (_, i) => `gen/f${i}.ts`);
+    const f = offLimits(changed);
+    expect(f?.status).toBe("concern");
+    expect(f?.evidence.at(-1)).toBe("+11 more (generated)");
+  });
+
+  it("one vendored path among many generated ones: the cut tail stays generated", () => {
+    const changed = [
+      ...Array.from({ length: 30 }, (_, i) => `gen/f${i}.ts`),
+      "vendor/lib.ts",
+    ];
+    const f = offLimits(changed);
+    expect(f?.status).toBe("fail");
+    expect(f?.evidence[0]).toBe("vendor/lib.ts (vendor)");
+    expect(f?.evidence.at(-1)).toBe("+12 more (generated)");
+    expect(f?.evidence.filter((e) => !e.endsWith(" (generated)"))).toEqual([
+      "vendor/lib.ts (vendor)",
+    ]);
   });
 });

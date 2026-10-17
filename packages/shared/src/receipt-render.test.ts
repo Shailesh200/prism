@@ -214,7 +214,7 @@ describe("terminal line per verdict (Muse v2.1)", () => {
           checks: passed,
           lensFindings: offLimits(2),
         },
-        "Prism · NO-SHIP (2 off-limits paths) — the agent is undoing those edits",
+        "Prism · NO-SHIP (2 off-limits paths) — ask the user before going on",
       ],
       [
         { ...base, lensFindings: offLimits(1) },
@@ -270,6 +270,14 @@ describe("terminal line per verdict (Muse v2.1)", () => {
           touched: { ...base.touched, files: [], totalFiles: 0 },
         },
         "Prism · nothing changed",
+      ],
+      [
+        {
+          ...notProven("committed_during_session"),
+          checksState: "skipped",
+          touched: { ...base.touched, files: [], totalFiles: 0 },
+        },
+        "Prism · NOT PROVEN (a commit was made during this session)",
       ],
     ];
     for (const [receipt, line] of rows) {
@@ -414,7 +422,7 @@ describe("who a failure is blamed on: the baseline decides (M-092, Arc)", () => 
       ],
     };
     expect(receiptTerminalLine(receipt)).toBe(
-      "Prism · NO-SHIP (1 off-limits path) — the agent is undoing those edits",
+      "Prism · NO-SHIP (1 off-limits path) — ask the user before going on",
     );
     expect(receiptFeedback(receipt)).toBeNull();
   });
@@ -518,5 +526,39 @@ describe("summary grammar: 1 test reaches it, N tests reach it", () => {
     expect(receiptSummaryLine(withTests(2))).toMatch(/, 2 tests reach it — /);
     expect(receiptSummaryLine(withTests(0))).toMatch(/, 0 tests reach it — /);
     expect(receiptSummaryLine(withTests(1))).not.toMatch(/1 test reach it/);
+  });
+});
+
+describe("J-08 interim: a commit during the session", () => {
+  const committed: ChangeReceipt = {
+    ...base,
+    verdict: "not_proven",
+    reason: "committed_during_session",
+    checksState: "skipped",
+    checks: [],
+    touched: { ...base.touched, files: [], totalFiles: 0 },
+  };
+
+  it("a clean tree after a commit is never 'nothing changed'", () => {
+    expect(receiptHeadline(committed)).toBe(
+      "Prism · NOT PROVEN (a commit was made during this session)",
+    );
+    expect(receiptSummaryLine(committed)).toBe(
+      "Prism receipt: changed 0 files, 4 dependents, 1 test reaches it — NOT PROVEN (a commit was made during this session)",
+    );
+    expect(renderReceipt(committed).split("\n")[1]).toBe(
+      receiptSummaryLine(committed),
+    );
+    expect(renderReceipt(committed)).not.toMatch(/nothing changed/);
+    expect(renderReceiptMarkdown(committed)).not.toMatch(/nothing changed/);
+  });
+
+  it("never SHIP, even with every check passed", () => {
+    const passedToo: ChangeReceipt = {
+      ...committed,
+      touched: base.touched,
+      checks: [{ name: "test", status: "passed", detail: "", durationMs: 1 }],
+    };
+    expect(receiptHeadline(passedToo)).not.toMatch(/SHIP/);
   });
 });

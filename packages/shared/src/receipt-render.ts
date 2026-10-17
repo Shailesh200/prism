@@ -6,6 +6,7 @@
 
 import {
   blockingChecks,
+  generatedNote,
   offLimitsTouched,
   preexistingFailures,
   shipVerdict,
@@ -74,15 +75,22 @@ export function receiptTerminalLine(receipt: ChangeReceipt): string {
   if (verdict === "NO-SHIP") {
     return blockingChecks(receipt).length > 0
       ? `${head} — the agent is fixing it`
-      : `${head} — the agent is undoing those edits`;
+      : `${head} — ask the user before going on`;
   }
   const action = TERMINAL_REASON[receipt.reason ?? "untested"];
   return action ? `${head} — ${action}` : head;
 }
 
-/** A clean tree: `proven` with nothing to show. */
+/**
+ * A clean tree: `proven` with nothing to show. Never when HEAD moved during
+ * the session: a commit can leave the tree clean with changes made (J-08).
+ */
 export function nothingChanged(receipt: ChangeReceipt): boolean {
-  return receipt.touched.totalFiles === 0 && receipt.unsupported.length === 0;
+  return (
+    receipt.reason !== "committed_during_session" &&
+    receipt.touched.totalFiles === 0 &&
+    receipt.unsupported.length === 0
+  );
 }
 
 /**
@@ -189,10 +197,12 @@ export function renderReceipt(
   if (nothingChanged(receipt))
     return [receiptHeadline(receipt), ...earlier].join("\n");
   // The summary line already says what was touched (files, dependents).
+  const note = generatedNote(receipt);
   const lines = [
     receiptHeadline(receipt),
     receiptSummaryLine(receipt),
     ...earlier,
+    ...(note ? [note] : []),
   ];
   const proven = provenParts(receipt);
   if (proven.length > 0) lines.push(`${pad("Proven")} ${proven.join(" · ")}`);
@@ -286,6 +296,8 @@ export function renderReceiptAtStop(
         "Prism · NOT PROVEN (daemon not running)",
         `${summary} — NOT PROVEN (daemon not running)`,
       ];
+  const note = generatedNote(receipt);
+  if (note) lines.push(note);
   if (receipt.earlier) lines.push(`Earlier change  ${receipt.earlier.summary}`);
   const value = receipt.value ? sessionValueLine(receipt.value) : null;
   if (value) lines.push(value);
@@ -301,6 +313,8 @@ export function renderReceiptMarkdown(receipt: ChangeReceipt): string {
   const lines = [`### ${receiptHeadline(receipt)}`, ""];
   if (nothingChanged(receipt)) return lines.join("\n").trimEnd();
   lines.push("| | |", "|---|---|", `| Touched | ${touchedLine(receipt)} |`);
+  const note = generatedNote(receipt);
+  if (note) lines.push(`| Note | ${cell(note.replace(/^Note: /, ""))} |`);
   const proven = provenParts(receipt);
   if (proven.length > 0) lines.push(`| Proven | ${cell(proven.join(" · "))} |`);
   for (const check of blockingChecks(receipt)) {

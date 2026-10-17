@@ -54,6 +54,8 @@ export {
   SessionValueSchema,
   blockingChecks,
   offLimitsTouched,
+  generatedFilesTouched,
+  generatedNote,
   preexistingFailures,
   unknownFailures,
   outsideChangeFailures,

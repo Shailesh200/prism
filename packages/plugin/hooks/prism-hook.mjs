@@ -620,6 +620,33 @@ const pluralLite = (n, one) => `${n} ${n === 1 ? one : `${one}s`}`;
 const reachItLite = (n) =>
   `${pluralLite(n, "test")} ${n === 1 ? "reaches" : "reach"} it`;
 
+/** The folder a generated file sits in: through its `gen/` segment. */
+function generatedFolderLite(path) {
+  const found = /^(.*?(?:^|\/)(?:generated|gen|\.generated)\/)/i.exec(
+    path.replace(/\\/g, "/"),
+  );
+  if (found) return found[1];
+  const slash = path.lastIndexOf("/");
+  return slash > 0 ? path.slice(0, slash + 1) : "";
+}
+
+/** Mirrors shared `generatedNote` (J-07, Muse): a note, never a verdict. */
+function generatedNoteLite(receipt) {
+  const files = (receipt?.lensFindings ?? [])
+    .filter((f) => f.check === "off_limits_touched")
+    .flatMap((f) => f.evidence ?? [])
+    .map(String)
+    .filter((e) => e.endsWith(" (generated)"))
+    .map((e) => e.slice(0, -" (generated)".length))
+    .filter((p) => !/^\+\d+ more$/.test(p));
+  if (files.length === 0) return null;
+  const folders = [...new Set(files.map(generatedFolderLite))];
+  const where = folders[0]
+    ? ` in ${folders[0]}${folders.length > 1 ? ` and ${folders.length - 1} other ${folders.length === 2 ? "folder" : "folders"}` : ""}`
+    : "";
+  return `Note: you edited generated files${where}. They may be overwritten on the next build.`;
+}
+
 /** Mirrors shared `REASON_LABEL`: words for every reason, never a raw code. */
 const REASON_LABEL = {
   untested: "no tests reach this change",
@@ -633,6 +660,7 @@ const REASON_LABEL = {
   outside_change: "failure is in files outside this change",
   unsupported_language: "unsupported language",
   superseded: "replaced by a newer change",
+  committed_during_session: "a commit was made during this session",
 };
 
 /**
@@ -646,15 +674,18 @@ function verdictLite(receipt) {
   const unsupported = Array.isArray(receipt?.unsupported)
     ? receipt.unsupported.length
     : 0;
-  const nothing = total === 0 && unsupported === 0;
+  const committed = receipt?.reason === "committed_during_session";
+  const nothing = !committed && total === 0 && unsupported === 0;
   // Mirrors shared `blockingChecks`: only a failure this change caused.
   const failed = (receipt?.checks ?? []).filter(
     (c) =>
       c.status === "failed" && (c.cause === undefined || c.cause === "caused"),
   ).length;
+  // Generated files never block (J-07): they get generatedNoteLite.
   const offLimits = (receipt?.lensFindings ?? [])
     .filter((f) => f.check === "off_limits_touched" && f.status === "fail")
-    .flatMap((f) => f.evidence ?? []).length;
+    .flatMap((f) => f.evidence ?? [])
+    .filter((e) => !String(e).endsWith(" (generated)")).length;
   const noShip = receipt?.verdict === "failed" || offLimits > 0;
   const reason = receipt?.reason ?? "untested";
   const label = noShip
@@ -708,7 +739,7 @@ function terminalLineLite(receipt) {
   if (v.noShip) {
     return v.failed > 0
       ? `${v.headline} — the agent is fixing it`
-      : `${v.headline} — the agent is undoing those edits`;
+      : `${v.headline} — ask the user before going on`;
   }
   if (v.label === "SHIP") {
     return `${v.headline} — the checks this change reaches passed`;
@@ -739,6 +770,8 @@ function renderReceiptLite(receipt, wakeFollows) {
         : "Prism · checking… verdict comes with your next receipt"
       : `Prism · NO-SHIP (${v.offLimitsPaths}) — checks still running; ${wakeFollows ? "the verdict follows" : "the verdict comes with your next receipt"}`;
   const lines = [first, interim ? v.summary : `${v.summary} — ${v.label}`];
+  const note = generatedNoteLite(receipt);
+  if (note) lines.push(note);
   // The previous change's checks, finished since its own stop (mirrors shared renderReceipt).
   if (receipt.earlier?.summary) {
     lines.push(`Earlier change  ${receipt.earlier.summary}`);
@@ -941,6 +974,8 @@ function stopWakeSkip(receipt) {
   if (receipt.reason === "superseded") {
     return "a newer change replaced this one";
   }
+  // A commit can leave the tree clean with changes made (J-08): wake.
+  if (receipt.reason === "committed_during_session") return null;
   const total = receipt.touched?.totalFiles ?? 0;
   const unsupported = Array.isArray(receipt.unsupported)
     ? receipt.unsupported.length
@@ -971,10 +1006,10 @@ function stopWakeText(receipt) {
   let action = "stop.";
   if (v.noShip && v.failed > 0 && v.offLimits > 0) {
     say = `Prism: NO-SHIP — ${v.failedChecks} failed, ${v.offLimitsPaths} edited.`;
-    action = "fix both.";
+    action = "fix them.";
   } else if (v.noShip && v.offLimits > 0) {
-    say = `Prism: NO-SHIP — ${v.offLimitsPaths} edited; undoing.`;
-    action = "undo those edits.";
+    say = `Prism: NO-SHIP — ${v.offLimitsPaths} edited.`;
+    action = "ask the user.";
   } else if (v.noShip) {
     say = `Prism: NO-SHIP — ${v.failedChecks} failed; fixing now.`;
     action = "fix them.";
@@ -991,12 +1026,22 @@ function stopWakeText(receipt) {
   } else if (v.reason === "outside_change") {
     say = "NOT PROVEN: the failure is in files outside this change.";
     action = "ask the user.";
+  } else if (v.reason === "committed_during_session") {
+    // J-08 interim: a commit hid the session's changes (Muse).
+    say = "NOT PROVEN: a commit was made during this session.";
+    action = "ask the user.";
   } else {
     say = `Prism: NOT PROVEN — ${SAY_REASON[v.reason] ?? REASON_LABEL[v.reason] ?? "no verdict yet"}.`;
   }
+  // After a commit the receipt line keeps its label (Muse): the counts
+  // alone read like a clean, checked tree.
+  const summary =
+    v.reason === "committed_during_session"
+      ? `${v.summary} — ${v.label}`
+      : v.summary;
   return [
     v.headline,
-    v.summary,
+    summary,
     `Prism · Say first: "${say}" Then ${action}`,
   ].join("\n");
 }
@@ -1176,6 +1221,22 @@ async function recordSessionBaseline(record) {
   recordSession();
 }
 
+/**
+ * HEAD at session start (J-08), mirroring the daemon's `readHeadSha`: the
+ * commit, "no-commits-yet" in a repo with none (so the first commit reads as
+ * HEAD moved, Arc), or undefined when git could not say.
+ */
+function headAtStart() {
+  const out = spawnSync(
+    "git",
+    ["--no-optional-locks", "rev-parse", "--verify", "-q", "HEAD"],
+    { cwd, encoding: "utf8", timeout: 2000 },
+  );
+  if (out.status === 1 && !(out.stdout ?? "").trim()) return "no-commits-yet";
+  const sha = out.status === 0 ? (out.stdout ?? "").trim() : "";
+  return /^[0-9a-f]{40,64}$/.test(sha) ? sha : undefined;
+}
+
 /** Read-only: never take `index.lock` from under the user's own git. */
 function gitLines(args) {
   const out = spawnSync("git", ["--no-optional-locks", ...args], {
@@ -1217,6 +1278,8 @@ function recordSession() {
   const changed = gitLines(["diff", "--name-only", "--relative", "HEAD"]);
   const untracked = gitLines(["ls-files", "--others", "--exclude-standard"]);
   if (changed === null && untracked === null) return;
+  // HEAD at session start (J-08): a stop after a commit is NOT PROVEN.
+  const headSha = headAtStart();
   try {
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(
@@ -1225,6 +1288,7 @@ function recordSession() {
         ...(id ? { sessionId: id } : {}),
         startedAt: new Date().toISOString(),
         dirty: [...new Set([...(changed ?? []), ...(untracked ?? [])])].sort(),
+        ...(headSha ? { headSha } : {}),
       }),
     );
   } catch (error) {
