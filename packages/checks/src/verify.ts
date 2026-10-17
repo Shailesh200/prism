@@ -473,19 +473,40 @@ export function restoreCommands(
   return [];
 }
 
-export type YieldExec = (argv: readonly string[]) => Promise<string>;
+/**
+ * One command for a whole process group, where the platform has one. Linux
+ * `ionice -P` sets every thread of every process in the group in one kernel
+ * call (`-p` sets a single thread: a forked child kept its normal I/O class,
+ * Scout round 5). macOS `taskpolicy` only takes pids: null, so the group is
+ * swept pid by pid.
+ */
+export function groupCommand(
+  mode: "yield" | "restore",
+  pgid: number,
+  platform: NodeJS.Platform = process.platform,
+): string[] | null {
+  if (platform !== "linux") return null;
+  return ["ionice", "-c", mode === "yield" ? "3" : "0", "-P", String(pgid)];
+}
+
+/** Runs a tool; resolves its stdout, or null when it failed or is missing. */
+export type YieldExec = (argv: readonly string[]) => Promise<string | null>;
 
 const execTool: YieldExec = (argv) =>
   new Promise((done) => {
     const [bin, ...args] = argv;
-    if (!bin) return done("");
+    if (!bin) return done(null);
     execFile(bin, args, { timeout: 2_000 }, (error, stdout) =>
-      done(error ? "" : String(stdout)),
+      done(error ? null : String(stdout)),
     );
   });
 
 /** Process groups of checks still running (each check leads its own group). */
 const liveCheckGroups = new Set<number>();
+/** Mode last applied to each live group; absent means normal. */
+const groupMode = new Map<number, "yield" | "restore">();
+/** Per-group queue, so a launch sweep and a stop cannot interleave. */
+const groupQueue = new Map<number, Promise<void>>();
 let yieldUntil = 0;
 let yieldExpiry: ReturnType<typeof setTimeout> | undefined;
 
@@ -493,22 +514,83 @@ export function checksYielding(now: number = Date.now()): boolean {
   return now < yieldUntil;
 }
 
-/** Run `commandsFor` on every process of one check's group. */
-async function applyToGroup(
+/** Passes before a sweep gives up on a group that keeps forking. */
+const SWEEP_PASSES = 5;
+
+/**
+ * Apply `mode` to every process of one check's group. Linux: one `ionice -P`
+ * (per-pid fallback if that fails). macOS: list the group, apply to each pid
+ * not done yet, and list again until a pass finds nothing new; a process
+ * forked after its parent was moved inherits the new class (checked on a
+ * real Mac), so a quiet pass leaves no process behind.
+ */
+async function sweepGroup(
   pgid: number,
-  commandsFor: (pid: number) => string[][],
+  mode: "yield" | "restore",
   exec: YieldExec,
+  platform: NodeJS.Platform = process.platform,
 ): Promise<void> {
-  if (commandsFor(pgid).length === 0) return;
-  const listed = await exec(["pgrep", "-g", String(pgid)]);
-  const pids = new Set([pgid]);
-  for (const line of listed.split(/\s+/)) {
-    const pid = Number(line);
-    if (Number.isInteger(pid) && pid > 0) pids.add(pid);
+  const perPid = (pid: number): string[][] =>
+    mode === "yield"
+      ? yieldCommands(pid, platform)
+      : restoreCommands(pid, platform);
+  if (perPid(pgid).length === 0) return;
+  const group = groupCommand(mode, pgid, platform);
+  if (group && (await exec(group)) !== null) return;
+  const done = new Set<number>();
+  for (let pass = 0; pass < SWEEP_PASSES; pass++) {
+    const listed = (await exec(["pgrep", "-g", String(pgid)])) ?? "";
+    const pids = new Set(pass === 0 ? [pgid] : []);
+    for (const line of listed.split(/\s+/)) {
+      const pid = Number(line);
+      if (Number.isInteger(pid) && pid > 0) pids.add(pid);
+    }
+    const fresh = [...pids].filter((pid) => !done.has(pid));
+    if (fresh.length === 0) return;
+    for (const pid of fresh) done.add(pid);
+    await Promise.all(
+      fresh.flatMap((pid) => perPid(pid).map((argv) => exec(argv))),
+    );
   }
-  await Promise.all(
-    [...pids].flatMap((pid) => commandsFor(pid).map((argv) => exec(argv))),
-  );
+}
+
+/**
+ * Bring one group to the current mode (yield while the agent works, normal
+ * otherwise). Queued per group and read when it runs, so the last state wins:
+ * a stop that lands during a launch's yield sweep still restores the group.
+ */
+function syncGroup(
+  pgid: number,
+  exec: YieldExec,
+  platform: NodeJS.Platform = process.platform,
+): Promise<void> {
+  const prev = groupQueue.get(pgid) ?? Promise.resolve();
+  const next = prev.then(async () => {
+    if (!liveCheckGroups.has(pgid)) return;
+    const want = checksYielding() ? "yield" : "restore";
+    if ((groupMode.get(pgid) ?? "restore") === want) return;
+    groupMode.set(pgid, want);
+    await sweepGroup(pgid, want, exec, platform);
+  });
+  const settled = next.catch(() => undefined);
+  groupQueue.set(pgid, settled);
+  return settled;
+}
+
+/** A check started: lower its whole group at once if the agent is working. */
+export function checkStarted(
+  pgid: number,
+  exec: YieldExec = execTool,
+  platform: NodeJS.Platform = process.platform,
+): Promise<void> {
+  liveCheckGroups.add(pgid);
+  return checksYielding() ? syncGroup(pgid, exec, platform) : Promise.resolve();
+}
+
+export function checkEnded(pgid: number): void {
+  liveCheckGroups.delete(pgid);
+  groupMode.delete(pgid);
+  groupQueue.delete(pgid);
 }
 
 /**
@@ -519,7 +601,11 @@ async function applyToGroup(
  */
 export async function setChecksYield(
   on: boolean,
-  options: { readonly now?: number; readonly exec?: YieldExec } = {},
+  options: {
+    readonly now?: number;
+    readonly exec?: YieldExec;
+    readonly platform?: NodeJS.Platform;
+  } = {},
 ): Promise<void> {
   const exec = options.exec ?? execTool;
   clearTimeout(yieldExpiry);
@@ -528,25 +614,22 @@ export async function setChecksYield(
     const wasYielding = yieldUntil > 0;
     yieldUntil = 0;
     if (!wasYielding) return;
-    await Promise.all(
-      [...liveCheckGroups].map((g) => applyToGroup(g, restoreCommands, exec)),
-    );
-    return;
+  } else {
+    yieldUntil = (options.now ?? Date.now()) + CHECK_YIELD_MS;
+    yieldExpiry = setTimeout(() => {
+      void setChecksYield(false, options);
+    }, CHECK_YIELD_MS);
+    yieldExpiry.unref?.();
   }
-  yieldUntil = (options.now ?? Date.now()) + CHECK_YIELD_MS;
-  yieldExpiry = setTimeout(() => {
-    void setChecksYield(false, { exec });
-  }, CHECK_YIELD_MS);
-  yieldExpiry.unref?.();
   await Promise.all(
-    [...liveCheckGroups].map((g) => applyToGroup(g, yieldCommands, exec)),
+    [...liveCheckGroups].map((g) => syncGroup(g, exec, options.platform)),
   );
 }
 
 /** Test hook: track a fake running check. */
 export function trackCheckGroupForTest(pgid: number, live: boolean): void {
   if (live) liveCheckGroups.add(pgid);
-  else liveCheckGroups.delete(pgid);
+  else checkEnded(pgid);
 }
 
 /** Nice value of {@link CHECK_PRIORITY} as `nice -n` takes it. */
@@ -627,14 +710,15 @@ function spawnArgv(
       windowsHide: true,
     });
 
-    lowerPriority(child.pid);
+    // Nice 19 exactly once: `nice -n` adds to the current value, so also
+    // calling setpriority could stack to 20 on macOS (Scout, round 5).
+    if (!wrapped) lowerPriority(child.pid);
     const group = child.pid;
     if (group !== undefined) {
-      liveCheckGroups.add(group);
-      child.once("close", () => liveCheckGroups.delete(group));
-      if (checksYielding()) {
-        for (const tool of yieldCommands(group)) void execTool(tool);
-      }
+      // Detached: the check leads its own group, so the yield sweep and the
+      // restore reach every process it forks.
+      void checkStarted(group);
+      child.once("close", () => checkEnded(group));
     }
 
     let stdout = "";
