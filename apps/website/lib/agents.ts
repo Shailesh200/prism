@@ -40,7 +40,7 @@ export const AGENTS: Agent[] = [
       ],
       ["~/.claude/skills", "The prism skill"],
     ],
-    after: "When the agent stops, the verdict appears in the chat.",
+    after: "Claude Code gets a verdict when the agent stops.",
   },
   {
     slug: "cursor",
@@ -61,7 +61,8 @@ export const AGENTS: Agent[] = [
       ],
       ["~/.prism/config.json", "Turns on the receipt tool"],
     ],
-    after: "Ask for a habit or a review by name, and Cursor asks Prism.",
+    after:
+      "In Cursor, Prism gives a receipt when the agent asks for one. The automatic verdict when the agent stops isn’t available in Cursor yet.",
   },
   {
     slug: "codex",
