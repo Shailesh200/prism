@@ -33,7 +33,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, userInfo } from "node:os";
 import {
   delimiter,
   dirname,
@@ -1119,7 +1119,10 @@ async function refreshHookConfig() {
   for (const file of files) {
     let result;
     try {
-      result = config.refreshClaudeHooks(file.path, { onlyHook: self });
+      result = config.refreshClaudeHooks(file.path, {
+        onlyHook: self,
+        realHome: claudeGuardHome(),
+      });
     } catch (error) {
       result = { kind: "manual", reason: message(error) };
     }
@@ -1151,6 +1154,22 @@ async function refreshHookConfig() {
     if (line) lines.push(line);
   }
   return lines;
+}
+
+/**
+ * Home the Claude guard compares against. `os.userInfo().homedir` follows
+ * USERPROFILE on Windows, so a test that points USERPROFILE at a fixture
+ * would look like the real profile and the guard would refuse the update.
+ * PRISM_REAL_HOME is read only under the test runner.
+ */
+function claudeGuardHome() {
+  const override = process.env.PRISM_REAL_HOME?.trim();
+  if (override && (process.env.VITEST || process.env.BUN_TEST)) return override;
+  try {
+    return userInfo().homedir;
+  } catch {
+    return homedir();
+  }
 }
 
 /** True the first time today a hook-config warning names `path`. */

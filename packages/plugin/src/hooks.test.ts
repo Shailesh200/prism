@@ -8,7 +8,7 @@ import {
   writeFileSync,
   realpathSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
+import { tmpdir, userInfo } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { createServer, type Server } from "node:http";
@@ -21,6 +21,32 @@ const hook = join(
   "hooks",
   "prism-hook.mjs",
 );
+/** Passwd home. Windows `userInfo()` follows USERPROFILE, so the child must be told this explicitly or the Claude guard treats the fixture as the real profile. */
+const realHome = userInfo().homedir;
+
+/** HOME and USERPROFILE together: Node reads USERPROFILE on Windows. */
+function hookEnv(
+  prismHome: string,
+  userHome: string = prismHome,
+  extra: NodeJS.ProcessEnv = {},
+): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    HOME: userHome,
+    USERPROFILE: userHome,
+    PRISM_HOME: prismHome,
+    PRISM_REAL_HOME: realHome,
+    ...extra,
+  };
+}
+
+/** Same key the hook uses (`realpathSync.native`). Plain `realpath` differs on Windows. */
+function workspaceHash(root: string): string {
+  return createHash("sha256")
+    .update(realpathSync.native(root))
+    .digest("hex")
+    .slice(0, 24);
+}
 /** The ruleset the session hook injects (plan P16). */
 const rules = readFileSync(
   join(dirname(hook), "prism-rules.md"),
@@ -33,11 +59,7 @@ function layout(snapshot: Record<string, unknown>): {
 } {
   const home = mkdtempSync(join(tmpdir(), "prism-hook-home-"));
   const cwd = mkdtempSync(join(tmpdir(), "prism-hook-repo-"));
-  const key = createHash("sha256")
-    .update(realpathSync(cwd))
-    .digest("hex")
-    .slice(0, 24);
-  const dir = join(home, "workspaces", key, "hooks");
+  const dir = join(home, "workspaces", workspaceHash(cwd), "hooks");
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, "snapshot.json"),
@@ -51,12 +73,7 @@ function run(event: string, home: string, input: Record<string, unknown>) {
     input: JSON.stringify(input),
     encoding: "utf8",
     // Not under Claude Code unless a test says so (it changes session rules).
-    env: {
-      ...process.env,
-      HOME: home,
-      PRISM_HOME: home,
-      CLAUDE_PROJECT_DIR: "",
-    },
+    env: hookEnv(home, home, { CLAUDE_PROJECT_DIR: "" }),
   });
   expect(result.status).toBe(0);
   return JSON.parse(result.stdout) as {
@@ -154,13 +171,10 @@ describe("prism-hook", () => {
     const result = spawnSync(process.execPath, [hook, "session"], {
       input: JSON.stringify({ cwd }),
       encoding: "utf8",
-      env: {
-        ...process.env,
-        HOME: home,
-        PRISM_HOME: home,
+      env: hookEnv(home, home, {
         PRISM_MCP_BIN: fakeBin,
         PRISM_DAEMON: "1",
-      },
+      }),
     });
     expect(result.status).toBe(0);
     const deadline = Date.now() + 5_000;
@@ -195,12 +209,7 @@ describe("prism-hook", () => {
     spawnSync(process.execPath, [hook, "session"], {
       input: JSON.stringify({ cwd }),
       encoding: "utf8",
-      env: {
-        ...process.env,
-        HOME: home,
-        PRISM_HOME: home,
-        PRISM_MCP_BIN: fakeBin,
-      },
+      env: hookEnv(home, home, { PRISM_MCP_BIN: fakeBin }),
     });
     expect(() => readFileSync(marker, "utf8")).toThrow();
   });
@@ -223,10 +232,7 @@ describe("prism-hook", () => {
     writeFileSync(join(cwd, "a.ts"), "2");
     writeFileSync(join(cwd, "new.ts"), "x");
     run("session", home, { cwd, session_id: "s-1" });
-    const key = createHash("sha256")
-      .update(realpathSync(cwd))
-      .digest("hex")
-      .slice(0, 24);
+    const key = workspaceHash(cwd);
     const path = join(home, "workspaces", key, "hooks", "session.json");
     const first = JSON.parse(readFileSync(path, "utf8"));
     expect(first).toMatchObject({
@@ -277,10 +283,7 @@ describe("prism-hook", () => {
       offLimits: [],
       needsSignOff: [],
     });
-    const key = createHash("sha256")
-      .update(realpathSync(cwd))
-      .digest("hex")
-      .slice(0, 24);
+    const key = workspaceHash(cwd);
     const packs = join(home, "workspaces", key, "hooks", "packs");
     mkdirSync(packs, { recursive: true });
     const write = (id: string, path: string) =>
@@ -500,10 +503,7 @@ describe("prism-hook", () => {
 
   it("moves a corrupt snapshot aside, answers {} and logs index.corrupt (plan §2.4)", () => {
     const { home, cwd } = layout({});
-    const key = createHash("sha256")
-      .update(realpathSync(cwd))
-      .digest("hex")
-      .slice(0, 24);
+    const key = workspaceHash(cwd);
     const dir = join(home, "workspaces", key, "hooks");
     writeFileSync(join(dir, "snapshot.json"), "{torn");
     expect(
@@ -529,7 +529,7 @@ describe("prism-hook", () => {
     const result = spawnSync(process.execPath, [isolatedHook(home), "stop"], {
       input: JSON.stringify({ cwd }),
       encoding: "utf8",
-      env: { ...process.env, HOME: home, PRISM_HOME: home, PRISM_MCP_BIN: bin },
+      env: hookEnv(home, home, { PRISM_MCP_BIN: bin }),
     });
     expect(result.stdout.trim()).toBe("{}");
     expect(result.stdout).not.toMatch(/secret stack trace/);
@@ -579,7 +579,13 @@ describe("prism-hook", () => {
     const result = spawnSync(process.execPath, [isolatedHook(home), "stop"], {
       input: JSON.stringify({ cwd }),
       encoding: "utf8",
-      env: { PATH: "", PRISM_HOME: home, HOME: home },
+      env: {
+        PATH: "",
+        PRISM_HOME: home,
+        HOME: home,
+        USERPROFILE: home,
+        PRISM_REAL_HOME: realHome,
+      },
     });
     expect(result.status).toBe(0);
     expect(JSON.parse(result.stdout)).toEqual({});
@@ -668,14 +674,11 @@ function runAsync(
   const t0 = Date.now();
   return new Promise((done, fail) => {
     const child = spawn(process.execPath, [hook, event], {
-      env: {
-        ...process.env,
-        HOME: home,
-        PRISM_HOME: home,
+      env: hookEnv(home, home, {
         PRISM_DAEMON: "1",
         CLAUDE_PROJECT_DIR: "",
         ...env,
-      },
+      }),
     });
     let stdout = "";
     child.stdout.on("data", (c) => (stdout += c));
@@ -768,13 +771,10 @@ function runRaw(
 ): Promise<{ code: number | null; stdout: string; stderr: string }> {
   return new Promise((done, fail) => {
     const child = spawn(process.execPath, [hook, event], {
-      env: {
-        ...process.env,
-        HOME: home,
-        PRISM_HOME: home,
+      env: hookEnv(home, home, {
         PRISM_DAEMON: "1",
         CLAUDE_PROJECT_DIR: "",
-      },
+      }),
     });
     let stdout = "";
     let stderr = "";
@@ -1058,10 +1058,7 @@ describe("prompt hook injects the prepare pack (token fixes 1, 2, 4)", () => {
     } finally {
       server.close();
     }
-    const key = createHash("sha256")
-      .update(realpathSync(cwd))
-      .digest("hex")
-      .slice(0, 24);
+    const key = workspaceHash(cwd);
     const packs = join(home, "workspaces", key, "hooks", "packs");
     mkdirSync(packs, { recursive: true });
     writeFileSync(
@@ -1104,8 +1101,10 @@ describe("prompt hook injects the prepare pack (token fixes 1, 2, 4)", () => {
         // time over 150 ms is added. Spawn-to-exit also includes process
         // teardown after the hook's own clock has stopped: CI measured 1002
         // and 1006 against a 1000 cap after the busy-index line was already
-        // returned. That slack is not room for the hook to wait on the daemon.
-        const exitSlackMs = 50;
+        // returned. Windows process exit measured 1123 against a 1064 limit
+        // after the same line. That slack is not room for the hook to wait
+        // on the daemon.
+        const exitSlackMs = process.platform === "win32" ? 250 : 50;
         expect(ms).toBeLessThan(1000 + Math.max(0, boot - 150) + exitSlackMs);
       } finally {
         server.closeAllConnections();
@@ -1119,12 +1118,7 @@ describe("prompt hook injects the prepare pack (token fixes 1, 2, 4)", () => {
     const result = spawnSync(process.execPath, [hook, "session"], {
       input: JSON.stringify({ cwd }),
       encoding: "utf8",
-      env: {
-        ...process.env,
-        HOME: home,
-        PRISM_HOME: home,
-        CLAUDE_PROJECT_DIR: cwd,
-      },
+      env: hookEnv(home, home, { CLAUDE_PROJECT_DIR: cwd }),
     });
     const text = JSON.parse(result.stdout).hookSpecificOutput
       ?.additionalContext;
@@ -1151,14 +1145,11 @@ describe("session hook upgrades an old Prism hook config (round 4)", () => {
     const result = spawnSync(process.execPath, [hook, "session"], {
       input: JSON.stringify({ cwd, session_id: "hc-1", source: "startup" }),
       encoding: "utf8",
-      env: {
-        ...process.env,
-        PRISM_HOME: prismHome,
-        HOME: userHome,
+      env: hookEnv(prismHome, userHome, {
         PRISM_HOOK_REFRESH: "1",
         PRISM_DAEMON: "0",
         CLAUDE_PROJECT_DIR: "",
-      },
+      }),
     });
     expect(result.status).toBe(0);
     return JSON.parse(result.stdout) as { systemMessage?: string };
