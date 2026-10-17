@@ -28,7 +28,9 @@ export function cliBuild(root = cliRoot()): {
 } {
   let version = "0.0.0";
   try {
-    const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
+    const pkg = JSON.parse(
+      readFileSync(join(root, "package.json"), "utf8"),
+    ) as {
       version?: unknown;
     };
     if (typeof pkg.version === "string") version = pkg.version;
@@ -65,7 +67,9 @@ export async function cliUpdateLine(
 ): Promise<string | undefined> {
   try {
     const outcome = await checkCliUpdate(deps);
-    return outcome.kind === "available" ? updateLine(outcome.latest) : undefined;
+    return outcome.kind === "available"
+      ? updateLine(outcome.latest)
+      : undefined;
   } catch {
     return undefined;
   }

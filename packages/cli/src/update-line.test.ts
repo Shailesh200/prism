@@ -10,10 +10,13 @@ import { run } from "./program.js";
 import type { CommandContext } from "./runtime.js";
 import { cliBuild, cliUpdateLine, withUpdateLine } from "./update-line.js";
 
-const LINE = "Prism 2.0.1 is out. To update, run: npm i -g @repo-prism/cli@latest";
+const LINE =
+  "Prism 2.0.1 is out. To update, run: npm i -g @repo-prism/cli@latest";
 const npm = { version: "2.0.0", fromNpm: true } as const;
 const answer =
-  (outcome: Awaited<ReturnType<typeof checkForUpdate>>): typeof checkForUpdate =>
+  (
+    outcome: Awaited<ReturnType<typeof checkForUpdate>>,
+  ): typeof checkForUpdate =>
   async () =>
     outcome;
 const available = answer({ kind: "available", latest: "2.0.1", cached: true });
@@ -40,21 +43,26 @@ afterEach(() => {
 
 const context = {} as CommandContext;
 const fake = withUpdateLine;
-const handler = async () => ok({ data: { a: 1 }, human: () => "Prism is set up." });
+const handler = async () =>
+  ok({ data: { a: 1 }, human: () => "Prism is set up." });
 const boom: typeof checkForUpdate = async () => {
   throw new Error("boom");
 };
 
 describe("start / doctor notice", () => {
   it("adds the line last when npm has a newer Prism; nothing otherwise", async () => {
-    const shown = await fake(handler, { build: npm, check: available })(context);
+    const shown = await fake(handler, { build: npm, check: available })(
+      context,
+    );
     expect(shown.ok && shown.value.human({ json: false } as never)).toBe(
       `Prism is set up.\n\n${LINE}`,
     );
     expect(shown.ok && shown.value.data).toEqual({ a: 1 });
     for (const check of [current, offline]) {
       const quiet = await fake(handler, { build: npm, check })(context);
-      expect(quiet.ok && quiet.value.human({} as never)).toBe("Prism is set up.");
+      expect(quiet.ok && quiet.value.human({} as never)).toBe(
+        "Prism is set up.",
+      );
     }
   });
 
@@ -65,7 +73,10 @@ describe("start / doctor notice", () => {
       return { kind: "available", latest: "9.0.0", cached: false };
     };
     expect(
-      await cliUpdateLine({ build: { version: "2.0.0", fromNpm: false }, check: spy }),
+      await cliUpdateLine({
+        build: { version: "2.0.0", fromNpm: false },
+        check: spy,
+      }),
     ).toBeUndefined();
     expect(called).toBe(false);
     expect(await cliUpdateLine({ build: npm, check: boom })).toBeUndefined();
@@ -94,9 +105,16 @@ describe("prism upgrade says what is new (it downloads nothing)", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.human({} as never)).toBe(LINE);
-    expect(result.value.data).toMatchObject({ latest: "2.0.1", updated: false });
-    expect(readFileSync(join(home, ".prism", "install.json"), "utf8")).toBe(record);
-    expect(readFileSync(join(home, ".cursor", "mcp.json"), "utf8")).toBe(config);
+    expect(result.value.data).toMatchObject({
+      latest: "2.0.1",
+      updated: false,
+    });
+    expect(readFileSync(join(home, ".prism", "install.json"), "utf8")).toBe(
+      record,
+    );
+    expect(readFileSync(join(home, ".cursor", "mcp.json"), "utf8")).toBe(
+      config,
+    );
   });
 
   it("nothing new: `Prism is up to date (<version>).`", async () => {
@@ -106,7 +124,9 @@ describe("prism upgrade says what is new (it downloads nothing)", () => {
     expect(result.ok && result.value.human({} as never)).toBe(
       `Prism is up to date (${version}).`,
     );
-    expect(readFileSync(join(home, ".prism", "install.json"), "utf8")).toBe(record);
+    expect(readFileSync(join(home, ".prism", "install.json"), "utf8")).toBe(
+      record,
+    );
   });
 
   it("npm unreachable: says so and names the command", async () => {

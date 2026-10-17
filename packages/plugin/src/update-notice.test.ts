@@ -16,10 +16,12 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 
 const hooks = join(dirname(fileURLToPath(import.meta.url)), "..", "hooks");
-const LINE = "Prism 2.0.1 is out. To update, run: npm i -g @repo-prism/cli@latest";
+const LINE =
+  "Prism 2.0.1 is out. To update, run: npm i -g @repo-prism/cli@latest";
 const dirs: string[] = [];
 afterEach(() => {
-  for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+  for (const dir of dirs.splice(0))
+    rmSync(dir, { recursive: true, force: true });
 });
 
 /** The hook as `npm i -g @repo-prism/cli` lays it out, plus a fake server bin. */
@@ -52,7 +54,10 @@ function npmLayout(version = "2.0.0", underNodeModules = true) {
   return { hook: join(dir, "prism-hook.mjs"), home, bin, cwd };
 }
 
-function stop(l: ReturnType<typeof npmLayout>, env: Record<string, string> = {}) {
+function stop(
+  l: ReturnType<typeof npmLayout>,
+  env: Record<string, string> = {},
+) {
   const started = Date.now();
   const result = spawnSync(process.execPath, [l.hook, "stop"], {
     input: JSON.stringify({ cwd: l.cwd }),
@@ -69,7 +74,8 @@ function stop(l: ReturnType<typeof npmLayout>, env: Record<string, string> = {})
   });
   expect(result.status).toBe(0);
   return {
-    message: (JSON.parse(result.stdout) as { systemMessage?: string }).systemMessage,
+    message: (JSON.parse(result.stdout) as { systemMessage?: string })
+      .systemMessage,
     ms: Date.now() - started,
   };
 }
@@ -99,7 +105,9 @@ describe("stop: update notice from the cache (PR 10)", () => {
     writeFileSync(join(l.home, "update.json"), "{not json");
     expect(stop(l).message).toBe("Prism · SHIP");
     cache(l.home, "2.0.2");
-    expect(stop(l, { PRISM_SKIP_SELF_UPDATE: "1" }).message).toBe("Prism · SHIP");
+    expect(stop(l, { PRISM_SKIP_SELF_UPDATE: "1" }).message).toBe(
+      "Prism · SHIP",
+    );
   });
 
   it("a checkout (not under node_modules) never shows it", () => {

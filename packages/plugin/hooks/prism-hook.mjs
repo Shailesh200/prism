@@ -681,7 +681,9 @@ const UPDATE_COMMAND = "npm i -g @repo-prism/cli@latest";
 const UPDATE_NOTICE_EVERY_MS = 24 * 60 * 60 * 1000;
 
 function semverParts(raw) {
-  const m = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?/.exec(String(raw).trim());
+  const m = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?/.exec(
+    String(raw).trim(),
+  );
   return m ? [Number(m[1]), Number(m[2]), Number(m[3]), m[4] ?? null] : null;
 }
 
@@ -704,11 +706,17 @@ function updateLine() {
     if (!self.includes("/node_modules/")) return null;
     // <plugin>/dist/pack/hooks/prism-hook.mjs → <plugin>/package.json
     const pkg = JSON.parse(
-      readFileSync(join(dirname(self), "..", "..", "..", "package.json"), "utf8"),
+      readFileSync(
+        join(dirname(self), "..", "..", "..", "package.json"),
+        "utf8",
+      ),
     );
-    const cache = JSON.parse(readFileOrNull(join(home(), "update.json")) ?? "null");
+    const cache = JSON.parse(
+      readFileOrNull(join(home(), "update.json")) ?? "null",
+    );
     const latest = cache?.latest;
-    if (typeof pkg?.version !== "string" || typeof latest !== "string") return null;
+    if (typeof pkg?.version !== "string" || typeof latest !== "string")
+      return null;
     if (!newerVersion(latest, pkg.version)) return null;
     const stampPath = join(home(), "update-notice.json");
     const stamp = JSON.parse(readFileOrNull(stampPath) ?? "null");
@@ -718,7 +726,10 @@ function updateLine() {
       Date.now() - stamp.at < UPDATE_NOTICE_EVERY_MS
     )
       return null;
-    writeFileSync(stampPath, JSON.stringify({ version: latest, at: Date.now() }));
+    writeFileSync(
+      stampPath,
+      JSON.stringify({ version: latest, at: Date.now() }),
+    );
     return `Prism ${latest} is out. To update, run: ${UPDATE_COMMAND}`;
   } catch (error) {
     // No line is the answer; the stop itself goes on.
@@ -735,7 +746,9 @@ function updateLine() {
 function withUpdate(payload) {
   if (!payload || typeof payload.systemMessage !== "string") return payload;
   const line = updateLine();
-  return line ? { ...payload, systemMessage: `${payload.systemMessage}\n${line}` } : payload;
+  return line
+    ? { ...payload, systemMessage: `${payload.systemMessage}\n${line}` }
+    : payload;
 }
 
 async function stop() {

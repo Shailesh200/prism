@@ -73,7 +73,11 @@ export type InstallFile =
       readonly marker: "md" | "toml";
       readonly created?: boolean | undefined;
     }
-  | { readonly kind: "file"; readonly path: string; readonly created?: boolean | undefined };
+  | {
+      readonly kind: "file";
+      readonly path: string;
+      readonly created?: boolean | undefined;
+    };
 
 export type InstallTarget = {
   readonly host: InstallHost;
@@ -150,9 +154,11 @@ function makeDir(dir: string): void {
 }
 
 /** Run `fn` with every real write journaled; the journal is returned either way. */
-export function withJournal<T>(
-  fn: () => T,
-): { readonly journal: JournalEntry[]; readonly value?: T; readonly error?: unknown } {
+export function withJournal<T>(fn: () => T): {
+  readonly journal: JournalEntry[];
+  readonly value?: T;
+  readonly error?: unknown;
+} {
   const entries: JournalEntry[] = [];
   journals.push(entries);
   try {
@@ -193,7 +199,10 @@ export function rollBack(entries: readonly JournalEntry[]): {
         restored.push(entry.path);
       } else if (entry.kind === "dir") {
         if (entry.existed) {
-          kept.push({ path: entry.path, reason: "Prism's skill folder was replaced" });
+          kept.push({
+            path: entry.path,
+            reason: "Prism's skill folder was replaced",
+          });
         } else {
           rmSync(entry.path, { recursive: true, force: true });
           restored.push(entry.path);
@@ -386,7 +395,10 @@ const PRISM_HOOK = PRISM_HOOK_FILE;
  */
 export function removeClaudeHooks(
   path: string,
-  options: { readonly hadHooks?: boolean | undefined; readonly dropEmptyFile?: boolean } = {},
+  options: {
+    readonly hadHooks?: boolean | undefined;
+    readonly dropEmptyFile?: boolean;
+  } = {},
 ): boolean {
   if (!existsSync(path)) return false;
   const settings = readJsonObject(path);
@@ -661,12 +673,17 @@ export function annotateInstallFile(
   const entry = entries.find((e) => e.path === file.path);
   const written = entry !== undefined;
   const before =
-    entry?.kind === "text" ? entry.before : entry?.kind === "dir" && entry.existed ? "" : undefined;
+    entry?.kind === "text"
+      ? entry.before
+      : entry?.kind === "dir" && entry.existed
+        ? ""
+        : undefined;
   const createdNow = written && before === undefined;
   const created = createdNow || previous?.created === true;
   switch (file.kind) {
     case "json-key": {
-      const prev = previous?.kind === "json-key" ? previous.existingDepth : undefined;
+      const prev =
+        previous?.kind === "json-key" ? previous.existingDepth : undefined;
       let depth = file.key.length - 1;
       if (written) {
         const root = parseObject(before);
@@ -681,12 +698,18 @@ export function annotateInstallFile(
           }
         }
       }
-      return { ...file, key: [...file.key], created, existingDepth: Math.min(depth, prev ?? depth) };
+      return {
+        ...file,
+        key: [...file.key],
+        created,
+        existingDepth: Math.min(depth, prev ?? depth),
+      };
     }
     case "claude-hooks": {
       const root = written ? parseObject(before) : null;
       const now = root ? "hooks" in root : true;
-      const prev = previous?.kind === "claude-hooks" ? previous.hadHooks : undefined;
+      const prev =
+        previous?.kind === "claude-hooks" ? previous.hadHooks : undefined;
       return { ...file, created, hadHooks: now && prev !== false };
     }
     case "block":
@@ -735,7 +758,9 @@ function removeOne(file: InstallFile): boolean {
   switch (file.kind) {
     case "json-key":
       return deleteJsonKey(file.path, file.key, {
-        ...(file.existingDepth !== undefined ? { keep: file.existingDepth } : {}),
+        ...(file.existingDepth !== undefined
+          ? { keep: file.existingDepth }
+          : {}),
         dropEmptyFile,
       });
     case "claude-hooks":

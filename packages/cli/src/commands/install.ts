@@ -50,10 +50,7 @@ import {
   type InstallScope,
 } from "../install/hosts.js";
 import { wipe1x } from "../install/wipe.js";
-import {
-  UPDATE_COMMAND,
-  updateLine,
-} from "@repo-prism/shared/update-check";
+import { UPDATE_COMMAND, updateLine } from "@repo-prism/shared/update-check";
 import { checkCliUpdate, type UpdateDeps } from "../update-line.js";
 import type { CommandContext, CommandHandler } from "../runtime.js";
 import { wrap } from "../table.js";
@@ -237,10 +234,14 @@ function installFailure(
     undo.kept.length === 0
       ? "Every agent config was put back as it was; nothing was changed."
       : `These could not be put back: ${undo.kept.map((k) => `${k.path} (${k.reason})`).join(", ")}. They are in the install record, so \`prism uninstall\` removes them.`;
-  return prismError(PrismErrorCode.IO_ERROR, `${what} ${after} Fix the file's permissions, then run the command again.`, {
-    restored: undo.restored,
-    kept: undo.kept,
-  });
+  return prismError(
+    PrismErrorCode.IO_ERROR,
+    `${what} ${after} Fix the file's permissions, then run the command again.`,
+    {
+      restored: undo.restored,
+      kept: undo.kept,
+    },
+  );
 }
 
 export async function runInstall(run: InstallRun) {
@@ -284,7 +285,9 @@ export async function runInstall(run: InstallRun) {
     const left = new Set(undo.kept.map((k) => k.path));
     const stranded = files
       .filter((file) => left.has(file.path))
-      .map((file) => annotateInstallFile(file, run1.journal, earlier.get(key(file))));
+      .map((file) =>
+        annotateInstallFile(file, run1.journal, earlier.get(key(file))),
+      );
     if (stranded.length > 0) {
       const merged = new Map<string, InstallFile>();
       for (const file of [...stillOnDisk(kept), ...stranded])
@@ -294,9 +297,15 @@ export async function runInstall(run: InstallRun) {
         {
           version: run.layout.version,
           bin: run.layout.bin,
-          installedAt: previous.kind === "ok" ? previous.record.installedAt : now,
+          installedAt:
+            previous.kind === "ok" ? previous.record.installedAt : now,
           updatedAt: now,
-          hosts: [...new Set([...(previous.kind === "ok" ? previous.record.hosts : []), ...installed])].sort(),
+          hosts: [
+            ...new Set([
+              ...(previous.kind === "ok" ? previous.record.hosts : []),
+              ...installed,
+            ]),
+          ].sort(),
           scope: run.scope,
           root: run.root,
           ...(run.layout.source ? { source: run.layout.source } : {}),
