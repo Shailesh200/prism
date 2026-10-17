@@ -92,7 +92,7 @@ Arguments: `mode`, `name`, `kind`, `target`, `direction`, `from`, `to`, `maxHops
 
 ## `guard_session`
 
-Check my changes. Ranks this session's changes (working-tree changes minus what was already changed when the session began, or minus preExistingChanges; only `paths` when given) by blast risk so the highest-risk file is read first; files may carry duplicate, orphan or boundary flags, and `findings` lists each as what/where/fix/riskIfSkipped. With review:true it also returns `review`: blast radius, test impact and breaking-change hints per changed path, an overall risk band and structured lens findings (paths/base/lens/format pick what to review; format prDescription adds PR-description facts). Call before landing a session or to review a branch.
+Check my changes. Ranks this session's changes (working-tree changes minus what was already changed when the session began, or minus preExistingChanges; only `paths` when given) by blast risk so the highest-risk file is read first; files may carry duplicate, orphan or boundary flags, and `findings` lists each as what/where/fix/riskIfSkipped. With review:true it also returns `review`: blast radius, test impact and breaking-change hints per changed path, an overall risk band and the results of the lens checks (paths/base/lens/format pick what to review; format prDescription adds PR-description facts). Call before landing a session or to review a branch.
 
 Arguments: `preExistingChanges`, `review`, `paths`, `base`, `lens`, `format`.
 

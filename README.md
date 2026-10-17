@@ -2,7 +2,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="./assets/readme-hero-dark-1280x320.png">
     <source media="(prefers-color-scheme: light)" srcset="./assets/readme-hero-light-1280x320.png">
-    <img alt="Prism: your agent’s second pair of eyes. Know before you ship." src="./assets/readme-hero-light-1280x320.png" width="100%">
+    <img alt="Prism: know before you ship." src="./assets/readme-hero-light-1280x320.png" width="100%">
   </picture>
 </p>
 
@@ -12,12 +12,12 @@
 [![npm @repo-prism/cli](https://img.shields.io/npm/v/@repo-prism/cli.svg?label=@repo-prism/cli)](https://www.npmjs.com/package/@repo-prism/cli)
 [![License: MIT](https://img.shields.io/github/license/Shailesh200/prism)](./LICENSE)
 
-**Your agent's second pair of eyes.** Know before you ship.
+**Know before you ship.**
 
-Local software intelligence that catches what the agent missed. Prism gives
-your coding agent the right files before it edits, then flags the code it
-skipped and the code no test covers. Free, MIT, and it runs on your machine:
-no account, and your code never leaves it.
+When Claude Code stops, Prism runs your checks on what changed and gives one
+verdict: SHIP, NOT PROVEN or NO-SHIP. It also works with Cursor, Codex and
+opencode. Free, MIT, and it runs on your machine: no account, and your code
+never leaves it.
 
 **Website:** [prismhq.in](https://www.prismhq.in) · **Docs:** [prismhq.in/docs](https://www.prismhq.in/docs)
 
@@ -49,8 +49,8 @@ Then ask your agent in plain language, for example "what breaks if I change
 
 - **Prepare, before the agent edits.** The files and tests that matter for
   the task, the helpers to reuse instead of rewriting, and your house style.
-- **Lens review, after.** Dev, Architect and QA lenses flag the callers the
-  change left behind and the code no test covers. Add your own with `prism lens`.
+- **Review, after.** Prism ranks the changes by risk, and the Dev, Architect
+  and QA lenses add their checks. Add your own with `prism lens`.
 - **The receipt, when the agent stops.** Prism runs the checks the change
   reaches and gives one verdict: `SHIP`, `NOT PROVEN` (with the cheapest check
   to prove it) or `NO-SHIP`.

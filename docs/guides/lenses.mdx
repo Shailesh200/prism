@@ -51,7 +51,7 @@ Lenses live in `~/.prism/lenses/lenses.json` and are shared by every repository.
 
 ## Lens review
 
-Ask for a review with a lens: “review it with the QA lens”. Your agent calls `guard_session` with `review: true` and `lens`, and gets that lens's findings, each with where, what, a fix and the risk if skipped. Every receipt also runs the lens checks on the change.
+Ask for a review with a lens: “review it with the QA lens”. Your agent calls `guard_session` with `review: true` and `lens`, and gets the results of that lens's checks: where each one looked, what it checked, the result and the risk. Every receipt also runs the lens checks on the change.
 
 In a terminal, `prism review --lens qa` prints the same checks under the change review: each check passes, or shows the evidence that it did not.
 

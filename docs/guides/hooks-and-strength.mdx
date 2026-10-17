@@ -24,6 +24,8 @@ source: packages/cli/src/install/hosts.ts; packages/cli/src/commands/strength.ts
 
 ## Cursor and Codex
 
+In Cursor, Prism gives a receipt when the agent asks for one. The automatic verdict when the agent stops isn't available in Cursor yet.
+
 `prism install cursor` writes `~/.cursor/mcp.json` and prints that the rule needs `prism install cursor --project` in each repository (`.cursor/rules/prism.mdc`).
 
 `prism install codex` writes the MCP block in `~/.codex/config.toml` and a rule in `~/.codex/AGENTS.md`. `--project` writes the rule into that repository’s `AGENTS.md` instead.
