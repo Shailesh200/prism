@@ -13,6 +13,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { assertPublishable } from "./check-publish-exports.mjs";
+import { missingEntryFiles } from "./publish-entries.mjs";
 
 const ORDER = [
   "shared",
@@ -136,6 +137,14 @@ for (const name of ORDER) {
   }
   if (!existsSync(join(dir, "dist"))) {
     fail(`${original.name} has no dist/ — run bun run build first`);
+  }
+  // dist/ can exist with no code in it (only tsconfig.tsbuildinfo after a
+  // build that emitted nothing), so check every file the package points at.
+  const missing = missingEntryFiles(dir, original);
+  if (missing.length > 0) {
+    fail(
+      `${original.name} is missing ${missing.join(", ")} (main/bin/exports) — run bun run build first`,
+    );
   }
 
   const published = forPublish(original, versions);
