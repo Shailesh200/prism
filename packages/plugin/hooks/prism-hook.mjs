@@ -1086,14 +1086,14 @@ function recordSession() {
 }
 
 /**
- * Round 4, hook upgrades: a Claude Code settings file whose Prism entries an
- * earlier release wrote gets this release's (new hooks such as `stop-wait`),
- * keeping its paths and the user's own hooks, after a backup. Only files whose
- * Prism hooks run this very script are touched. A config it cannot safely
- * change gets one line naming the command, at most once a day per file.
- * Claude Code reads hooks at session start, so changes apply next session.
+ * Round 4, hook upgrades; detection only since round 5 (Shailesh, Atlas,
+ * Arc: nothing writes to an agent config without asking). A Claude Code
+ * settings file whose Prism entries an earlier release wrote gets one line
+ * naming `prism doctor --fix`, which lists the change, asks and backs up.
+ * Only files whose Prism hooks run this very script count. At most one line
+ * per session, and each file is named at most once a day.
  */
-async function refreshHookConfig() {
+async function checkHookConfig() {
   const flag = process.env.PRISM_HOOK_REFRESH;
   if (flag === "0" || input.host === "opencode") return [];
   if (flag !== "1" && (process.env.VITEST || process.env.BUN_TEST)) return [];
@@ -1117,36 +1117,23 @@ async function refreshHookConfig() {
   ].filter((file, i, all) => all.findIndex((f) => f.path === file.path) === i);
   const lines = [];
   for (const file of files) {
+    if (lines.length > 0) break;
     let result;
     try {
-      result = config.refreshClaudeHooks(file.path, { onlyHook: self });
+      result = config.checkClaudeHooks(file.path, { onlyHook: self });
     } catch (error) {
       result = { kind: "manual", reason: message(error) };
     }
-    // The real user's ~/.claude is guarded: nothing read or written, and at
-    // most one quiet event a day (no line for the user).
-    if (result.kind === "guarded") {
-      if (firstWarningToday(file.path)) {
-        recordEvent({
-          event: "hook.config_refresh",
-          outcome: "skipped",
-          reason: "the real user's ~/.claude is not auto-updated",
-          workspace: cwd,
-          detail: { path: file.path, scope: file.scope },
-        });
-      }
-      continue;
-    }
-    if (result.kind === "updated" || result.kind === "manual") {
-      recordEvent({
-        event: "hook.config_refresh",
-        outcome: result.kind === "updated" ? "ok" : "skipped",
-        ...(result.kind === "manual" ? { reason: result.reason } : {}),
-        workspace: cwd,
-        detail: { path: file.path, scope: file.scope },
-      });
-    }
-    if (result.kind === "manual" && !firstWarningToday(file.path)) continue;
+    if (result.kind !== "outdated" && result.kind !== "manual") continue;
+    if (!firstWarningToday(file.path)) continue;
+    recordEvent({
+      event: "hook.config_refresh",
+      outcome: "skipped",
+      reason:
+        result.kind === "manual" ? result.reason : `outdated (${result.from})`,
+      workspace: cwd,
+      detail: { path: file.path, scope: file.scope },
+    });
     const line = config.hookRefreshLine(result, file.scope);
     if (line) lines.push(line);
   }
@@ -1448,7 +1435,7 @@ if (strength === "off") {
   await recordSessionBaseline(record);
   await startDaemon(record);
   // An old Prism hook config gets this release's entries, or one line on how.
-  const notice = await refreshHookConfig();
+  const notice = await checkHookConfig();
   const shown = notice.length > 0 ? { systemMessage: notice.join("\n") } : {};
   // Stable first (plan P16): the fixed ruleset, then the repository part.
   // Claude Code already shows the MCP server's instructions, which embed the

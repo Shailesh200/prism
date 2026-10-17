@@ -40,6 +40,26 @@ export type ToolSelection = {
   readonly unknownExtraTools: readonly string[];
 };
 
+/**
+ * `PRISM_EXTRA_TOOLS` (comma-separated, e.g. `receipt`), so an MCP entry can
+ * turn an opt-in tool on with no `config.json` (the website's "Add to
+ * Cursor" link, Arc). Blanks are dropped; names are checked by `selectTools`.
+ */
+export function extraToolsFromEnv(env: NodeJS.ProcessEnv): string[] {
+  return (env.PRISM_EXTRA_TOOLS ?? "")
+    .split(",")
+    .map((name) => name.trim())
+    .filter((name) => name.length > 0);
+}
+
+/** `config.json` `extraTools` and `PRISM_EXTRA_TOOLS`, merged, first seen first. */
+export function mergeExtraTools(
+  fromConfig: readonly string[],
+  env: NodeJS.ProcessEnv,
+): string[] {
+  return [...new Set([...fromConfig, ...extraToolsFromEnv(env)])];
+}
+
 /** The default nine plus any opt-in tools named in `extraTools`. */
 export function selectTools(extraTools: readonly string[] = []): ToolSelection {
   const optIn = new Set<string>(OPT_IN_TOOL_NAMES);

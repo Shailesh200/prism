@@ -182,7 +182,9 @@ export default async function AgentInstallPage({ params }: Props) {
                     Add to Cursor
                   </Button>
                   <p className="text-[15px] text-ink3">
-                    Opens Cursor and asks before it adds the server.
+                    Opens Cursor and asks before it adds the server, with the
+                    receipt tool on. For the full setup, run{" "}
+                    <code>prism install cursor</code>.
                   </p>
                 </div>
               ) : null}

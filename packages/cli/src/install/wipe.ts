@@ -1,9 +1,13 @@
 /**
  * Installing 2.0 over 1.x data in `~/.prism` (plan §3.1a, WIPE-1…8).
  *
- * 1.x is never migrated. Derived data is removed, valid custom lenses and
- * valid config keys are kept, invalid lenses go to `.removed-1x-<ts>/` with a
- * `REMOVED.txt`. `version.json {major:2}` makes the step idempotent.
+ * 1.x is never migrated. Nothing is deleted (round 5, consent): the whole
+ * 1.x `~/.prism` moves to `~/.prism-backups/<stamp>/1x/` in one rename (Arc
+ * review), and a 2.x `~/.prism`, built beside it first from what was read,
+ * takes its place: valid custom lenses and valid config keys. Invalid lens
+ * files stay in the backup only (`lenses-not-compatible/REMOVED.txt`).
+ * A failure at any step leaves the original `~/.prism` as it was.
+ * `version.json {major:2}` makes the step idempotent.
  */
 import {
   lstatSync,
@@ -12,12 +16,20 @@ import {
   readFileSync,
   renameSync,
   rmSync,
-  unlinkSync,
   writeFileSync,
   accessSync,
   constants,
 } from "node:fs";
 import { dirname, join } from "node:path";
+import {
+  backupDir,
+  moveInto,
+  moveWhole,
+  reserveBackupDir,
+  stamp,
+  tilde,
+} from "./backups.js";
+import { CONSENT_COPY } from "./consent-copy.js";
 import { LensDefinitionSchema, type LensDefinition } from "@repo-prism/shared";
 import { recordEvent } from "@repo-prism/shared/events";
 import { prismHomeDir } from "@repo-prism/shared/prism-home";
@@ -35,6 +47,8 @@ export type WipeOutcome =
       readonly keptLenses: number;
       readonly invalidLenses: number;
       readonly droppedConfigKeys: readonly string[];
+      /** Where the 1.x data went (`~/.prism-backups/<stamp>/1x`). */
+      readonly backupDir: string;
       readonly removedDir?: string;
     }
   | {
@@ -88,6 +102,9 @@ function firstUnwritable(home: string): string | undefined {
       return path; // not writable is the finding, reported to the caller
     }
   };
+  // The move renames `~/.prism` itself, which needs its parent writable.
+  const parent = check(dirname(home));
+  if (parent) return parent;
   const top = check(home);
   if (top) return top;
   for (const name of readdirSync(home)) {
@@ -184,15 +201,84 @@ function configKeep(home: string): {
   return { keep, dropped };
 }
 
-function stamp(now: Date): string {
-  return now.toISOString().replace(/[-:]/g, "").replace(/\..*$/, "");
+export { stamp };
+
+/**
+ * The 1.x config keys the 2.x home keeps (`prism start` plans against these:
+ * the 1.x `config.json` moves to the backup before any host is written).
+ */
+export function keptUserConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): Record<string, unknown> {
+  return configKeep(prismHomeDir(env)).keep ?? {};
 }
 
-function tildify(path: string, home: string): string {
-  const parent = dirname(home);
-  return path.startsWith(parent) && home.endsWith(".prism")
-    ? `~${path.slice(parent.length)}`
-    : path;
+/** What a wipe would do, read without changing anything. */
+type Analysis = {
+  readonly lenses: LensRead;
+  readonly config: ReturnType<typeof configKeep>;
+  readonly workspaces: number;
+  /** Top-level 1.x entries that move to the backup (lenses and config too). */
+  readonly entries: readonly string[];
+};
+
+function analyze(home: string): Analysis {
+  const lenses = readLensFiles(join(home, "lenses"));
+  const config = configKeep(home);
+  let workspaces = 0;
+  const wsInfo = stat(join(home, "workspaces"));
+  if (wsInfo?.isDirectory() && !wsInfo.isSymbolicLink())
+    workspaces = readdirSync(join(home, "workspaces")).length;
+  const entries = readdirSync(home)
+    .filter((name) => !name.startsWith(".removed-1x-"))
+    .sort();
+  return { lenses, config, workspaces, entries };
+}
+
+function customCount(lenses: LensRead): number {
+  return lenses.valid.filter((lens) => !lens.seededDefault).length;
+}
+
+function keepsConfig(config: Analysis["config"]): boolean {
+  return Boolean(config.keep && Object.keys(config.keep).length > 0);
+}
+
+/** The 1.x part of `prism start`'s consent list; null when there is no 1.x data. */
+export type WipePlan = {
+  readonly home: string;
+  /** `~/.prism-backups/<stamp>/1x`. */
+  readonly backupDir: string;
+  readonly entries: readonly string[];
+  readonly workspaces: number;
+  readonly daemon: boolean;
+  readonly hub: boolean;
+  readonly customLenses: number;
+  readonly keepsConfig: boolean;
+  readonly invalidLenses: number;
+  readonly droppedConfigKeys: readonly string[];
+};
+
+export function planWipe1x(
+  options: { readonly env?: NodeJS.ProcessEnv; readonly now?: Date } = {},
+): WipePlan | null {
+  const env = options.env ?? process.env;
+  const home = prismHomeDir(env);
+  if (!stat(home)) return null;
+  const major = versionMajor(home);
+  if (major !== undefined && major >= 2) return null;
+  const found = analyze(home);
+  return {
+    home,
+    backupDir: join(backupDir(env, options.now ?? new Date()), "1x"),
+    entries: found.entries,
+    workspaces: found.workspaces,
+    daemon: found.entries.includes("daemon"),
+    hub: found.entries.includes("hub"),
+    customLenses: customCount(found.lenses),
+    keepsConfig: keepsConfig(found.config),
+    invalidLenses: found.lenses.invalid.length,
+    droppedConfigKeys: found.config.dropped,
+  };
 }
 
 export type WipeOptions = {
@@ -200,6 +286,11 @@ export type WipeOptions = {
   readonly now?: Date;
   /** Stops a running 1.x daemon; returns what happened, for the summary. */
   readonly stopDaemon?: () => Promise<"stopped" | "not_running">;
+  /**
+   * `~/.prism-backups/<stamp>` already reserved for this run (`prism start`
+   * shares it with the config backups). Reserved here when absent.
+   */
+  readonly backupRoot?: string;
 };
 
 export async function wipe1x(options: WipeOptions = {}): Promise<WipeOutcome> {
@@ -228,87 +319,97 @@ export async function wipe1x(options: WipeOptions = {}): Promise<WipeOutcome> {
     : "not_running";
 
   // Lenses: 2.0 keeps `lenses/lenses.json` shape; 1.x might have other files.
-  const lensDir = join(home, "lenses");
-  const lenses = readLensFiles(lensDir);
-  const config = configKeep(home);
+  const { lenses, config, workspaces: workspaceCount, entries } = analyze(home);
+  const backup = join(
+    options.backupRoot ?? reserveBackupDir(backupDir(env, now)),
+    "1x",
+  );
+  const removed = entries.filter(
+    (name) => name !== "lenses" && name !== "config.json",
+  );
 
-  let workspaceCount = 0;
-  const workspaces = join(home, "workspaces");
-  const wsInfo = stat(workspaces);
-  if (wsInfo?.isDirectory() && !wsInfo.isSymbolicLink())
-    workspaceCount = readdirSync(workspaces).length;
+  // 1. The 2.x home, built beside the old one from what was read above.
+  const staging = `${home}.new-${process.pid}`;
+  rmSync(staging, { recursive: true, force: true });
+  try {
+    mkdirSync(staging, { mode: 0o700 });
+    if (lenses.valid.length > 0) {
+      mkdirSync(join(staging, "lenses"));
+      writeFileSync(
+        join(staging, "lenses", "lenses.json"),
+        `${JSON.stringify({ lenses: lenses.valid }, null, 2)}\n`,
+      );
+    }
+    if (config.keep) {
+      writeFileSync(
+        join(staging, "config.json"),
+        `${JSON.stringify(config.keep, null, 2)}\n`,
+      );
+    }
+    writeVersionFile(staging, now);
+  } catch (error) {
+    rmSync(staging, { recursive: true, force: true });
+    throw error;
+  }
 
+  // 2. The swap. The whole 1.x home moves in one rename (a symlink moves as
+  // the link, WIPE-6); if the new home cannot take its place, the old one
+  // moves back. Either way nothing is left half-moved.
+  try {
+    moveWhole(home, backup);
+  } catch (error) {
+    rmSync(staging, { recursive: true, force: true });
+    throw error;
+  }
+  try {
+    renameSync(staging, home);
+  } catch (error) {
+    try {
+      moveWhole(backup, home);
+    } catch {
+      // Both failed: nothing is lost, but say exactly where it all is.
+      throw new Error(
+        `Could not finish moving ${home}: your 1.x data is complete in ${backup}, and the new home is in ${staging}. Move ${backup} back to ${home} to undo.`,
+        { cause: error },
+      );
+    }
+    rmSync(staging, { recursive: true, force: true });
+    throw error;
+  }
+
+  // 3. Inside the backup only: invalid lens files, with the reason for each.
+  // The data is already safe, so a failure here is recorded, not thrown.
   let removedDir: string | undefined;
   if (lenses.invalid.length > 0) {
-    removedDir = join(home, `.removed-1x-${stamp(now)}`);
-    mkdirSync(removedDir, { recursive: true });
-    const notes: string[] = [];
-    for (const [index, item] of lenses.invalid.entries()) {
-      const target = join(
-        removedDir,
-        `${index}-${item.file.split(/[\\/]/).pop()}`,
+    removedDir = join(backup, "lenses-not-compatible");
+    try {
+      mkdirSync(removedDir, { recursive: true });
+      const notes: string[] = [];
+      for (const [index, item] of lenses.invalid.entries()) {
+        const name = item.file.split(/[\\/]/).pop() ?? "lens.json";
+        const target = join(removedDir, `${index}-${name}`);
+        moveInto(join(backup, "lenses", name), target);
+        notes.push(`${index}-${name}: ${item.reason}`);
+      }
+      writeFileSync(join(removedDir, "REMOVED.txt"), `${notes.join("\n")}\n`);
+    } catch (error) {
+      recordEvent(
+        {
+          event: "install.wipe_1x_sort_lenses",
+          outcome: "degraded",
+          reason: error instanceof Error ? error.message : String(error),
+        },
+        { env, now },
       );
-      renameSync(item.file, target);
-      notes.push(`${target.split(/[\\/]/).pop()}: ${item.reason}`);
     }
-    writeFileSync(join(removedDir, "REMOVED.txt"), `${notes.join("\n")}\n`);
   }
 
-  // Remove everything else except the kept-data holders and removed folders.
-  const removed: string[] = [];
-  for (const name of readdirSync(home)) {
-    if (name.startsWith(".removed-1x-")) continue;
-    if (name === "lenses" || name === "config.json") continue;
-    const path = join(home, name);
-    const info = stat(path);
-    if (!info) continue;
-    // A symlinked folder is unlinked, never followed (WIPE-6).
-    if (info.isSymbolicLink()) unlinkSync(path);
-    else rmSync(path, { recursive: true, force: true });
-    removed.push(name);
-  }
-
-  // Rewrite lenses: valid custom lenses only, byte-identical content.
-  const lensInfo = stat(lensDir);
-  if (lensInfo?.isSymbolicLink()) rmSync(lensDir, { force: true });
-  else if (lensInfo) rmSync(lensDir, { recursive: true, force: true });
-  if (lenses.valid.length > 0) {
-    mkdirSync(lensDir, { recursive: true });
-    writeFileSync(
-      join(lensDir, "lenses.json"),
-      `${JSON.stringify({ lenses: lenses.valid }, null, 2)}\n`,
-    );
-  }
-  if (config.keep) {
-    writeFileSync(
-      join(home, "config.json"),
-      `${JSON.stringify(config.keep, null, 2)}\n`,
-    );
-  } else if (config.dropped.length > 0) {
-    rmSync(join(home, "config.json"), { force: true });
-  }
-  writeVersionFile(home, now);
-
-  const custom = lenses.valid.filter((lens) => !lens.seededDefault).length;
-  const cleared = [
-    `${workspaceCount} workspace index${workspaceCount === 1 ? "" : "es"}`,
-    ...(daemon === "stopped" || removed.includes("daemon") ? ["daemon"] : []),
-    ...(removed.includes("hub") ? ["hub"] : []),
-  ];
-  const kept = [
-    `${custom} custom lens${custom === 1 ? "" : "es"}`,
-    ...(config.keep && Object.keys(config.keep).length > 0 ? ["config"] : []),
-  ];
-  const parts = [
-    `Prism 2.0: cleared 1.x data (${cleared.join(", ")}); kept ${kept.join(" and ")}`,
-  ];
-  if (config.dropped.length > 0)
-    parts.push(`dropped config keys ${config.dropped.join(", ")}`);
-  if (removedDir)
-    parts.push(
-      `${lenses.invalid.length} lens file${lenses.invalid.length === 1 ? "" : "s"} not 2.0-compatible moved to ${tildify(removedDir, home)}/`,
-    );
-  const line = `${parts.join("; ")}.`;
+  const line = CONSENT_COPY.wipeDone({
+    backupDir: `${tilde(backup, dirname(home))}/`,
+    customLenses: customCount(lenses),
+    keepsConfig: keepsConfig(config),
+    droppedConfigKeys: config.dropped,
+  });
   recordEvent(
     {
       event: "install.wipe_1x",
@@ -331,6 +432,7 @@ export async function wipe1x(options: WipeOptions = {}): Promise<WipeOutcome> {
     keptLenses: lenses.valid.length,
     invalidLenses: lenses.invalid.length,
     droppedConfigKeys: config.dropped,
+    backupDir: backup,
     ...(removedDir ? { removedDir } : {}),
   };
 }

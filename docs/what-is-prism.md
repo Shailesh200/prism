@@ -32,7 +32,7 @@ Prism parses source into a local index and derives views from that one store:
 
 | Surface | For |
 |---|---|
-| **MCP server and hooks** | Claude Code, Cursor, Codex and opencode: nine tools, a prompt-time pack and a stop-time receipt |
+| **MCP server and hooks** | Nine tools and a prompt-time pack. Prism sets up Claude Code, Codex, opencode and Cursor. Claude Code gets a verdict when the agent stops. In the others, the verdict comes with the next receipt. |
 | **CLI** | Scripts, CI, terminal workflows |
 
 ## Is it for you?

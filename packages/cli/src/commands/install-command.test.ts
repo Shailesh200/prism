@@ -48,12 +48,16 @@ describe("prism install: Codex only when ~/.codex exists", () => {
 
     const all = await prism(["install", "all"]);
     expect(all.out).toContain("Codex not found; skipped.");
-    expect(all.out).toContain("installed for Claude Code");
+    expect(all.out).toContain(
+      "Claude Code: set up. Verdict when the agent stops.",
+    );
     expect(existsSync(join(home, ".codex"))).toBe(false);
 
     mkdirSync(join(home, ".codex"));
     const again = await prism(["install", "codex"]);
-    expect(again.out).toContain("installed for Codex");
+    expect(again.out).toContain(
+      "Codex: set up. The verdict comes with your next receipt.",
+    );
     expect(existsSync(join(home, ".codex", "config.toml"))).toBe(true);
   });
 });

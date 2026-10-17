@@ -1,6 +1,7 @@
 import {
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -12,7 +13,6 @@ import {
   CLAUDE_HOOK_PLAN,
   claudeHookEntries,
   EARLIER_CLAUDE_HOOK_PLANS,
-  inspectClaudeHooks,
 } from "@repo-prism/shared/hook-config";
 import type { InstallRecord } from "@repo-prism/shared/prism-bin";
 import { afterEach, describe, expect, it } from "vitest";
@@ -75,15 +75,13 @@ describe("hook plan contract (round 4)", () => {
 });
 
 describe("prism doctor hook checks (round 4)", () => {
-  it("claude: current after install; an earlier plan warns, and --fix updates it", () => {
+  it("claude: current after install; an earlier plan warns with `prism doctor --fix` and nothing is written", () => {
     const t = target("claude");
     installHost(t);
     const settings = join(t.home, ".claude", "settings.json");
-    expect(
-      claudeHookCheck(settings, { fix: false, home: t.home }),
-    ).toMatchObject({
+    expect(claudeHookCheck(settings, { home: t.home })).toMatchObject({
       status: "ok",
-      detail: expect.stringContaining("match 2.0.0"),
+      detail: expect.stringContaining("are up to date"),
     });
 
     // What 2.0.0 wrote before the session-end verdict, beside a user hook.
@@ -94,35 +92,16 @@ describe("prism doctor hook checks (round 4)", () => {
     );
     old.Stop!.unshift({ hooks: [{ type: "command", command: "say done" }] });
     writeFileSync(settings, JSON.stringify({ hooks: old }));
-    const warned = claudeHookCheck(settings, { fix: false, home: t.home });
+    const before = readFileSync(settings, "utf8");
+    const warned = claudeHookCheck(settings, { home: t.home });
     expect(warned.status).toBe("warn");
     expect(warned.detail).toContain("prism doctor --fix");
-    expect(JSON.parse(readFileSync(settings, "utf8"))).toEqual({ hooks: old });
-
-    const fixed = claudeHookCheck(settings, { fix: true, home: t.home });
-    expect(fixed.status).toBe("ok");
-    expect(fixed.detail).toContain("Prism updated its Claude Code hooks");
-    const hooks = JSON.parse(readFileSync(settings, "utf8")).hooks;
-    expect(inspectClaudeHooks(hooks).state).toBe("current");
-    expect(hooks.Stop[0]).toEqual({
-      hooks: [{ type: "command", command: "say done" }],
-    });
-  });
-
-  it("claude: doctor --fix leaves the real user's ~/.claude alone", () => {
-    const t = target("claude");
-    installHost(t);
-    const settings = join(t.home, ".claude", "settings.json");
-    const before = readFileSync(settings, "utf8");
-    // This test's home stands in for the real OS user's home.
-    const check = claudeHookCheck(settings, {
-      fix: true,
-      home: t.home,
-      realHome: t.home,
-    });
-    expect(check.status).toBe("ok");
-    expect(check.detail).toContain("does not auto-update your own ~/.claude");
     expect(readFileSync(settings, "utf8")).toBe(before);
+    expect(
+      readdirSync(join(t.home, ".claude")).filter((n) =>
+        n.includes("prism-backup"),
+      ),
+    ).toEqual([]);
   });
 
   it("claude: a hand-edited entry is left alone and the warning names the command", () => {
@@ -133,12 +112,12 @@ describe("prism doctor hook checks (round 4)", () => {
     written.hooks.Stop[0].hooks[0].timeout = 30;
     writeFileSync(settings, JSON.stringify(written));
     const before = readFileSync(settings, "utf8");
-    const check = claudeHookCheck(settings, { fix: true, home: t.home });
+    const check = claudeHookCheck(settings, { home: t.home });
     expect(check).toMatchObject({ status: "warn" });
     expect(check.detail).toContain("Run `prism install claude`.");
     expect(readFileSync(settings, "utf8")).toBe(before);
     // A repository's settings file gets the --project command.
-    const project = claudeHookCheck(settings, { fix: false, home: temp() });
+    const project = claudeHookCheck(settings, { home: temp() });
     expect(project.detail).toContain("Run `prism install claude --project`.");
   });
 
@@ -171,7 +150,7 @@ describe("prism doctor hook checks (round 4)", () => {
       hosts: ["claude", "opencode"],
       files,
     } as InstallRecord;
-    const checks = hookConfigChecks(record, { fix: false, home: claude.home });
+    const checks = hookConfigChecks(record, { home: claude.home });
     expect(checks.map((c) => [c.label, c.status])).toEqual([
       ["Hooks", "ok"],
       ["Hooks", "ok"],

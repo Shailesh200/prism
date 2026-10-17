@@ -1,9 +1,19 @@
 import { spawn } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import {
+  lstat,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { stopDaemon } from "@repo-prism/daemon";
+import { DEFAULT_LENSES } from "@repo-prism/shared/lens-store";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { COMMANDS } from "./commands.js";
 
@@ -31,12 +41,14 @@ function runCli(
   args: readonly string[],
   env: NodeJS.ProcessEnv = {},
   cwd: string = packageDir,
+  input?: string,
 ): Promise<Run> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [binary, ...args], {
       env: { ...process.env, ...env },
       cwd,
     });
+    if (input !== undefined) child.stdin.end(input);
 
     let stdout = "";
     let stderr = "";
@@ -86,7 +98,9 @@ describe("prism binary (M-028)", () => {
     const result = await runCli([], {}, fixture);
     expect(result.code).toBe(0);
     expect(result.stdout).toMatch(/^Indexed \d+ code files in [\d.]+ s\.\n/);
-    expect(result.stdout).toMatch(/Try: prism prepare .*prepare_change/);
+    expect(result.stdout).toMatch(
+      /Try: prism prepare "<task>", or ask your agent for a change in plain words\./,
+    );
   }, 60_000);
 
   it("global flags with no command still give the first answer", async () => {
@@ -102,7 +116,7 @@ describe("prism binary (M-028)", () => {
     });
     afterAll(async () => {
       // `prism start` leaves a daemon running, as it should for a user.
-      for (const name of ["hosts", "none"]) {
+      for (const name of ["hosts", "none", "upgrade"]) {
         await stopDaemon({
           env: { ...process.env, ...env(join(home, name)), PRISM_DAEMON: "1" },
         });
@@ -120,18 +134,47 @@ describe("prism binary (M-028)", () => {
       const dir = join(home, "hosts");
       await mkdir(join(dir, ".claude"), { recursive: true });
       await mkdir(join(dir, ".cursor"), { recursive: true });
-      const first = await runCli(["start"], env(dir), fixture);
+      // No TTY here: without --yes, start changes nothing and exits 1.
+      const refused = await runCli(["start"], env(dir), fixture);
+      expect(refused.code).toBe(1);
+      expect(refused.stderr).toMatch(/--yes/);
+      await expect(
+        readFile(join(dir, ".cursor", "mcp.json"), "utf8"),
+      ).rejects.toThrow();
+      const json = await runCli(["start", "--json"], env(dir), fixture);
+      expect(json.code).toBe(1);
+      const refusal = JSON.parse(json.stdout);
+      expect(refusal.ok).toBe(false);
+      expect(refusal.error.code).toBe("PRISM_YES_REQUIRED");
+      // No TTY, no --yes: nothing written, and the message names --yes.
+      expect(refusal.error.message).toMatch(/--yes/);
+      await expect(
+        readFile(join(dir, ".cursor", "mcp.json"), "utf8"),
+      ).rejects.toThrow();
+      await expect(readdir(join(dir, ".prism-backups"))).rejects.toThrow();
+      expect(refusal.error.details.plan.writes.length).toBeGreaterThan(0);
+      const dry = await runCli(["start", "--dry-run"], env(dir), fixture);
+      expect(dry.code).toBe(0);
+      expect(dry.stdout).toMatch(/~\/\.cursor\/mcp\.json/);
+      const first = await runCli(["start", "--yes"], env(dir), fixture);
       expect(first.code).toBe(0);
-      expect(first.stdout).toMatch(
-        /installed for Claude Code, Cursor \(local build/,
+      // Piped output wraps at 80 columns (or $COLUMNS): compare the words,
+      // not where the lines break (Scout QA).
+      const words = first.stdout.replace(/\s+/g, " ");
+      expect(words).toContain(
+        "Claude Code: set up. Verdict when the agent stops.",
+      );
+      expect(words).toContain(
+        "Cursor: set up for receipts. There's no verdict when the agent stops yet. Ask it for a receipt.",
       );
       expect(first.stdout).toMatch(/Indexed \d+ code files/);
-      expect(first.stdout).toMatch(/prepare_change/);
+      expect(first.stdout).toMatch(/prism prepare/);
       const settings = await readFile(
         join(dir, ".claude", "settings.json"),
         "utf8",
       );
       const mcp = await readFile(join(dir, ".cursor", "mcp.json"), "utf8");
+      // Already set up: no question needed, even without a TTY.
       const again = await runCli(["start"], env(dir), fixture);
       expect(again.code).toBe(0);
       expect(
@@ -139,6 +182,105 @@ describe("prism binary (M-028)", () => {
       ).toBe(settings);
       expect(await readFile(join(dir, ".cursor", "mcp.json"), "utf8")).toBe(
         mcp,
+      );
+    }, 120_000);
+
+    it("piped y or n is not a yes: without a TTY nothing is written and it exits 1", async () => {
+      const dir = join(home, "piped");
+      await mkdir(join(dir, ".cursor"), { recursive: true });
+      for (const answer of ["y\n", "n\n"]) {
+        const run = await runCli(["start"], env(dir), fixture, answer);
+        expect(run.code).toBe(1);
+        expect(run.stderr.replace(/\s+/g, " ")).toContain(
+          "No terminal to confirm in. Run again with --yes to apply, or --dry-run to preview.",
+        );
+        expect(run.stdout).not.toMatch(/Continue\? \[y\/N\]/);
+        expect(await readdir(join(dir, ".cursor"))).toEqual([]);
+        await expect(readdir(join(dir, ".prism-backups"))).rejects.toThrow();
+      }
+    }, 60_000);
+
+    it("moves 1.x data in one step and keeps a symlinked config a link (Arc review)", async () => {
+      const dir = join(home, "upgrade");
+      const prism = join(dir, ".prism");
+      // A 1.x home: an index and a custom lens, no version.json.
+      await mkdir(join(prism, "workspaces", "old"), { recursive: true });
+      await writeFile(join(prism, "workspaces", "old", "index.db"), "1x");
+      await mkdir(join(prism, "lenses"), { recursive: true });
+      await writeFile(
+        join(prism, "lenses", "mine.json"),
+        JSON.stringify({
+          ...DEFAULT_LENSES[0],
+          id: "mine",
+          name: "Mine",
+          seededDefault: false,
+        }),
+      );
+      // Claude's config managed by a dotfiles tool: a symlink into a repo.
+      const target = join(dir, "dotfiles", "claude.json");
+      await mkdir(join(dir, "dotfiles"), { recursive: true });
+      await writeFile(target, '{"mine":true}\n');
+      await symlink(target, join(dir, ".claude.json"));
+      // A 1.x config with a key 2.x does not know (Scout QA: exit 3 before).
+      await writeFile(
+        join(prism, "config.json"),
+        JSON.stringify({ extraTools: ["foo"], telemetry: true }),
+      );
+      // An earlier backup folder that must not be touched.
+      const earlier = join(dir, ".prism-backups", "20000101T000000");
+      await mkdir(join(earlier, "configs"), { recursive: true });
+      await writeFile(join(earlier, "configs", "keep.txt"), "earlier");
+
+      // The plan shows before anything else: the dropped key, and both
+      // paths of the symlink (Muse).
+      const dry = await runCli(["start", "--dry-run"], env(dir), fixture);
+      expect(dry.code).toBe(0);
+      expect(dry.stdout).toMatch(/config key telemetry\s+→ dropped/);
+      expect(dry.stdout).toContain(
+        "~/.claude.json (symlink → ~/dotfiles/claude.json)",
+      );
+      expect(dry.stdout).toContain(
+        "These are symlinks, so Prism backs up and changes the files they point to: ~/dotfiles/claude.json.",
+      );
+
+      const run = await runCli(["start", "--yes"], env(dir), fixture);
+      expect(run.code).toBe(0);
+      const config = JSON.parse(
+        await readFile(join(prism, "config.json"), "utf8"),
+      );
+      expect(config).toEqual({ extraTools: ["foo", "receipt"] });
+      // 1.x moved whole; 2.x home written back with the custom lens.
+      const version = JSON.parse(
+        await readFile(join(prism, "version.json"), "utf8"),
+      );
+      expect(version.major).toBe(2);
+      const lenses = await readFile(
+        join(prism, "lenses", "lenses.json"),
+        "utf8",
+      );
+      expect(lenses).toContain('"mine"');
+      const backups = (await readdir(join(dir, ".prism-backups"))).filter(
+        (name) => name !== "20000101T000000",
+      );
+      expect(backups).toHaveLength(1);
+      const backup = join(dir, ".prism-backups", backups[0]!);
+      expect(
+        await readFile(
+          join(backup, "1x", "workspaces", "old", "index.db"),
+          "utf8",
+        ),
+      ).toBe("1x");
+      // The symlink is still a link; Prism wrote through to its target, and
+      // the target's old content is in the backup.
+      expect((await lstat(join(dir, ".claude.json"))).isSymbolicLink()).toBe(
+        true,
+      );
+      expect(await readFile(target, "utf8")).toMatch(/"prism"/);
+      expect(
+        await readFile(join(backup, "configs", ".claude.json"), "utf8"),
+      ).toBe('{"mine":true}\n');
+      expect(await readFile(join(earlier, "configs", "keep.txt"), "utf8")).toBe(
+        "earlier",
       );
     }, 120_000);
 

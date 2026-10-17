@@ -11,6 +11,8 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  readlinkSync,
+  realpathSync,
   renameSync,
   rmdirSync,
   rmSync,
@@ -18,7 +20,13 @@ import {
 } from "node:fs";
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import {
+  loadUserConfigSync,
+  userConfigPath,
+} from "@repo-prism/shared/user-config";
+import { lstatOrUndefined } from "./backups.js";
+import { keptUserConfig } from "./wipe.js";
 import {
   mergeClaudeHooks,
   PRISM_HOOK_FILE,
@@ -70,6 +78,18 @@ export type InstallTarget = {
   readonly bin: string;
   /** Built plugin pack (hooks + skills). */
   readonly pack: string;
+  /**
+   * Where Prism's own `config.json` lives (`PRISM_HOME`). Every host Prism
+   * sets up turns the `receipt` tool on there (Arc, PR 1). Omitted only by
+   * tests and benches that do not want it.
+   */
+  readonly env?: NodeJS.ProcessEnv;
+  /**
+   * Planning while a 1.x home is still to be moved first (`runInstall` runs
+   * `wipe1x` before any host): the receipt write is planned against the kept
+   * keys, never the 1.x `config.json` (Scout QA).
+   */
+  readonly afterWipe?: boolean;
 };
 
 export type HostResult = {
@@ -89,18 +109,96 @@ const MD_END = "<!-- prism:end -->";
 const TOML_BEGIN = "# prism:begin (managed by `prism install`)";
 const TOML_END = "# prism:end";
 
+/**
+ * One planned change from a dry pass of the host writers: a file whose
+ * content would change, or a skill folder that differs from the pack.
+ */
+export type PlannedWrite = {
+  readonly path: string;
+  readonly kind: "file" | "dir";
+  /** It exists now (a dangling link counts), so a real run backs it up first. */
+  readonly exists: boolean;
+  /** `path` is a symlink: the write goes through to this file (Arc review). */
+  readonly linkTo?: string;
+};
+
+/**
+ * Plan mode (`prism start` consent): while set, the writers below record what
+ * they would change instead of changing it, and later reads see the earlier
+ * planned text. Real code paths, no second copy of the per-host rules.
+ *
+ * A module global (Arc review): safe only while every writer is synchronous.
+ * `planWrites` throws if `fn` returns a promise, so a writer that turns async
+ * cannot write for real during a dry run once `planning` has been reset.
+ */
+let planning: Map<string, { text?: string; write: PlannedWrite }> | null = null;
+
+/** Run `fn` with every write recorded, not made; returns the changes. */
+export function planWrites(fn: () => void): PlannedWrite[] {
+  const previous = planning;
+  planning = new Map();
+  try {
+    const result: unknown = fn();
+    if (result && typeof (result as { then?: unknown }).then === "function")
+      throw new Error(
+        "planWrites needs synchronous writers (plan mode is a module global)",
+      );
+    return [...planning.values()].map((entry) => entry.write);
+  } finally {
+    planning = previous;
+  }
+}
+
+/** File text as the writers see it: planned text first, then the disk. */
+function currentText(path: string): string | undefined {
+  const planned = planning?.get(path);
+  if (planned?.text !== undefined) return planned.text;
+  return existsSync(path) ? readFileSync(path, "utf8") : undefined;
+}
+
+/**
+ * Where a write to `path` lands (Arc review). A symlinked config (stow,
+ * chezmoi) is written through to its target, so the link stays a link; a
+ * dangling link writes the file it points at. Otherwise `path` itself.
+ */
+export function writeTarget(path: string): string {
+  const info = lstatOrUndefined(path);
+  if (!info?.isSymbolicLink()) return path;
+  try {
+    return realpathSync(path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    return resolve(dirname(path), readlinkSync(path));
+  }
+}
+
 /** Writes only when the content differs, so a second install touches nothing. */
 export function atomicWrite(path: string, text: string): void {
-  if (existsSync(path) && readFileSync(path, "utf8") === text) return;
-  mkdirSync(dirname(path), { recursive: true });
-  const tmp = `${path}.prism-${process.pid}.tmp`;
+  if (currentText(path) === text) return;
+  if (planning) {
+    const exists = lstatOrUndefined(path) !== undefined;
+    const target = writeTarget(path);
+    planning.set(path, {
+      text,
+      write: {
+        path,
+        kind: "file",
+        exists,
+        ...(target !== path ? { linkTo: target } : {}),
+      },
+    });
+    return;
+  }
+  const target = writeTarget(path);
+  mkdirSync(dirname(target), { recursive: true });
+  const tmp = `${target}.prism-${process.pid}.tmp`;
   writeFileSync(tmp, text);
-  renameSync(tmp, path);
+  renameSync(tmp, target);
 }
 
 function readJsonObject(path: string): Record<string, unknown> {
-  if (!existsSync(path)) return {};
-  const text = readFileSync(path, "utf8");
+  const text = currentText(path);
+  if (text === undefined) return {};
   if (text.trim() === "") return {};
   const raw = JSON.parse(text) as unknown;
   if (!raw || typeof raw !== "object" || Array.isArray(raw))
@@ -185,7 +283,7 @@ export function writeBlock(
 ): void {
   const [begin, end] = markers(kind);
   const block = `${begin}\n${body.trim()}\n${end}`;
-  const text = existsSync(path) ? readFileSync(path, "utf8") : "";
+  const text = currentText(path) ?? "";
   const start = text.indexOf(begin);
   const stop = text.indexOf(end);
   const next =
@@ -272,13 +370,25 @@ function copySkills(target: InstallTarget, dest: string): InstallFile[] {
   const source = join(target.pack, "skills");
   if (!existsSync(source)) return [];
   for (const name of RETIRED_SKILLS) {
-    rmSync(join(dest, name), { recursive: true, force: true });
+    const old = join(dest, name);
+    if (planning) {
+      if (existsSync(old))
+        planning.set(old, { write: { path: old, kind: "dir", exists: true } });
+      continue;
+    }
+    rmSync(old, { recursive: true, force: true });
   }
   const files: InstallFile[] = [];
   for (const name of readdirSync(source)) {
     const to = join(dest, name);
     files.push({ kind: "file", path: to });
     if (sameTree(join(source, name), to)) continue;
+    if (planning) {
+      planning.set(to, {
+        write: { path: to, kind: "dir", exists: existsSync(to) },
+      });
+      continue;
+    }
     rmSync(to, { recursive: true, force: true });
     mkdirSync(dirname(to), { recursive: true });
     cpSync(join(source, name), to, { recursive: true });
@@ -326,17 +436,14 @@ function cursor(target: InstallTarget): HostResult {
   const files: InstallFile[] = [
     { kind: "json-key", path: mcpPath, key: ["mcpServers", "prism"] },
   ];
-  const notes: string[] = [];
+  // User scope: no rule file, and no extra note; the per-agent Cursor line
+  // (HOST_SETUP_COPY) is the only Cursor line printed (Muse).
   if (target.scope === "project") {
     const rule = join(target.root, ".cursor", "rules", "prism.mdc");
     atomicWrite(rule, cursorRule());
     files.push({ kind: "file", path: rule });
-  } else {
-    notes.push(
-      "Cursor: the Prism MCP server is on for every repo. The prepare/receipt rule is per repo: run `prism install cursor --project` in each repo that should have it.",
-    );
   }
-  return { files, notes };
+  return { files, notes: [] };
 }
 
 export function cursorRule(): string {
@@ -459,6 +566,11 @@ function opencode(target: InstallTarget): HostResult {
 }
 
 export function installHost(target: InstallTarget): HostResult {
+  const result = hostWriter(target);
+  return { files: result.files, notes: [...result.notes, ...receipt(target)] };
+}
+
+function hostWriter(target: InstallTarget): HostResult {
   switch (target.host) {
     case "claude":
       return claude(target);
@@ -469,6 +581,36 @@ export function installHost(target: InstallTarget): HostResult {
     case "opencode":
       return opencode(target);
   }
+}
+
+export const RECEIPT_NOTE = "Enabled the `receipt` MCP tool (extraTools).";
+
+/** Adds `receipt` to `extraTools` in Prism's config.json; true when it changed it. */
+export function enableReceipt(env: NodeJS.ProcessEnv): boolean {
+  const loaded = loadUserConfigSync(env);
+  if (!loaded.ok) throw new Error(loaded.error.message);
+  const tools = loaded.value.extraTools ?? [];
+  if (tools.includes("receipt")) return false;
+  setJsonKey(userConfigPath(env), ["extraTools"], [...tools, "receipt"]);
+  return true;
+}
+
+/**
+ * The receipt tool, on for every host (Arc, PR 1): a host with no stop hook
+ * (Cursor) only gets a verdict when the agent calls `receipt`. One note, from
+ * the host that turned it on.
+ */
+function receipt(target: InstallTarget): string[] {
+  if (!target.env) return [];
+  if (planning && target.afterWipe) {
+    const tools = keptUserConfig(target.env).extraTools;
+    if (Array.isArray(tools) && tools.includes("receipt")) return [];
+    const path = userConfigPath(target.env);
+    if (!planning.has(path))
+      planning.set(path, { write: { path, kind: "file", exists: false } });
+    return [];
+  }
+  return enableReceipt(target.env) ? [RECEIPT_NOTE] : [];
 }
 
 /** Removes one recorded install file. Returns true when something changed. */

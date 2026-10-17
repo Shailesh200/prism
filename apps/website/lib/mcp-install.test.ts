@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   PRISM_CODEX_TOML,
   PRISM_CURSOR_INSTALL_URL,
+  PRISM_CURSOR_TRANSPORT,
   PRISM_MCP_JSON_STRING,
   PRISM_MCP_PACKAGE,
   PRISM_MCP_TRANSPORT,
@@ -63,18 +64,32 @@ describe("mcp-install", () => {
     }
   });
 
-  it("opens Cursor with the same transport in the config param", () => {
+  it("opens Cursor with the same transport plus PRISM_EXTRA_TOOLS=receipt", () => {
     const prefix =
       "cursor://anysphere.cursor-deeplink/mcp/install?name=prism&config=";
     expect(PRISM_CURSOR_INSTALL_URL.startsWith(prefix)).toBe(true);
     const config = PRISM_CURSOR_INSTALL_URL.slice(prefix.length);
-    expect(JSON.parse(atob(decodeURIComponent(config)))).toEqual(
-      PRISM_MCP_TRANSPORT,
+    // The param is one URL-safe token: base64's + / = are percent-encoded.
+    expect(config).toMatch(/^[A-Za-z0-9%]+$/);
+    expect(new URL(PRISM_CURSOR_INSTALL_URL).searchParams.get("config")).toBe(
+      decodeURIComponent(config),
     );
+    expect(JSON.parse(atob(decodeURIComponent(config)))).toEqual({
+      ...PRISM_MCP_TRANSPORT,
+      env: { PRISM_EXTRA_TOOLS: "receipt" },
+    });
+    expect(PRISM_CURSOR_TRANSPORT.env.PRISM_EXTRA_TOOLS).toBe("receipt");
+  });
+
+  it("names a tool the server merges from PRISM_EXTRA_TOOLS", () => {
+    expect(read("mcp-server", "src", "tools.ts")).toContain(
+      "env.PRISM_EXTRA_TOOLS",
+    );
+    expect(read("shared", "src", "tool-names.ts")).toContain('"receipt"');
   });
 
   it("turns on the receipt tool the way install does", () => {
-    expect(read("cli", "src", "commands", "install.ts")).toContain(
+    expect(read("cli", "src", "install", "hosts.ts")).toContain(
       '["extraTools"], [...tools, "receipt"]',
     );
     expect(JSON.parse(PRISM_RECEIPT_CONFIG)).toEqual({

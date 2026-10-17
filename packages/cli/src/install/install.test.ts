@@ -62,7 +62,7 @@ function dirty1x(): { env: NodeJS.ProcessEnv; home: string } {
 }
 
 describe("wipe1x (plan §3.1a)", () => {
-  it("WIPE-1: clears 1.x, stops the daemon, writes version.json, one line + event", async () => {
+  it("WIPE-1: moves 1.x out (not deleted), stops the daemon, writes version.json, one line + event", async () => {
     const { env, home } = dirty1x();
     let stopped = false;
     const out = await wipe1x({
@@ -76,11 +76,14 @@ describe("wipe1x (plan §3.1a)", () => {
     expect(out.kind).toBe("wiped");
     if (out.kind !== "wiped") return;
     expect(out.line.split("\n")).toHaveLength(1);
-    expect(out.line).toMatch(
-      /^Prism 2\.0: cleared 1\.x data \(3 workspace indexes, daemon, hub\)/,
-    );
+    expect(out.line).toContain(".prism-backups/");
     expect(existsSync(join(home, "workspaces"))).toBe(false);
     expect(existsSync(join(home, "hub"))).toBe(false);
+    // Moved, not deleted (round 5 consent): all of it is in the backup.
+    expect(out.backupDir).toMatch(/\.prism-backups\/\d{8}T\d{6}\/1x$/);
+    expect(readdirSync(join(out.backupDir, "workspaces"))).toHaveLength(3);
+    expect(existsSync(join(out.backupDir, "hub"))).toBe(true);
+    expect(out.backupDir.startsWith(home + "/")).toBe(false);
     expect(
       JSON.parse(readFileSync(join(home, "version.json"), "utf8")).major,
     ).toBe(2);
@@ -125,12 +128,16 @@ describe("wipe1x (plan §3.1a)", () => {
     expect(kept[1].overrules).toHaveLength(1);
     expect(kept[2].name).toBe("Prism Architect");
     expect(out.removedDir).toBeDefined();
+    // Invalid lens files stay in the backup only.
+    expect(out.removedDir?.startsWith(out.backupDir)).toBe(true);
     const removed = readFileSync(
       join(out.removedDir as string, "REMOVED.txt"),
       "utf8",
     );
     expect(removed).toContain("bad");
-    expect(out.line).toContain(".removed-1x-");
+    // The original lenses folder is kept whole in the backup too.
+    expect(existsSync(join(out.backupDir, "lenses", "bad.json"))).toBe(false);
+    expect(existsSync(join(out.backupDir, "lenses", "lenses.json"))).toBe(true);
   });
 
   it("WIPE-3: keeps 2.0 config keys, drops old ones and names them", async () => {
@@ -149,7 +156,11 @@ describe("wipe1x (plan §3.1a)", () => {
       { extraTools: ["lens"] },
     );
     expect(out.droppedConfigKeys).toEqual(["hubUrl", "legacyMode"]);
-    expect(out.line).toContain("dropped config keys hubUrl, legacyMode");
+    expect(out.line).toContain("hubUrl, legacyMode");
+    // The 1.x config file itself is kept in the backup.
+    expect(
+      JSON.parse(readFileSync(join(out.backupDir, "config.json"), "utf8")),
+    ).toHaveProperty("legacyMode", 1);
   });
 
   it("WIPE-4: a second run is a no-op", async () => {

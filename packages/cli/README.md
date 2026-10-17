@@ -22,10 +22,13 @@ machine. Nothing is uploaded.
    ```bash
    prism start
    ```
-   It finds Claude Code, Cursor, Codex and opencode by their config folders.
+   It finds Claude Code, Cursor, Codex and opencode by their config folders,
+   lists the config files it would write, and asks before changing anything
+   (`--dry-run` only lists; `--yes` skips the question in scripts). Existing
+   files are backed up to `~/.prism-backups/<time>/configs/` first.
    With none found it still indexes; run `prism install <client>` later.
-3. Ask your agent for a change. Prism's `prepare_change` runs first and a
-   receipt prints when the agent stops. From a terminal:
+3. Try: `prism prepare "<task>"`, or ask your agent for a change in plain words.
+   A receipt prints when the agent stops. From a terminal:
    ```bash
    prism prepare "add rate limiting to the login route"
    prism blast src/index.ts --fail-on high
@@ -65,10 +68,10 @@ Use **1** vs **2** carefully in CI: a typo must not look like a real finding.
 
 | Command | Purpose |
 |---|---|
-| `prism start` | Install Prism for every agent found on this machine, index this repository and print its map with what to try next |
-| `prism install <claude\|cursor\|codex\|opencode\|all>` | Connect Prism to an agent: MCP server, hooks, skills, and the prepare/receipt rule (`--project`, `--user`, `--local <checkout>`). Clears 1.x data in `~/.prism` once, keeping valid custom lenses |
+| `prism start` | Set up Prism for every agent found on this machine (lists the changes and asks first; `--dry-run`, `--yes`), index this repository and print its map with what to try next |
+| `prism install <claude\|cursor\|codex\|opencode\|all>` | Connect Prism to an agent: MCP server, hooks, skills, and the prepare/receipt rule (`--project`, `--user`, `--local <checkout>`). Backs up each config it changes to `~/.prism-backups/<time>/` first, then prints each file it wrote and where the backups are. Moves 1.x data in `~/.prism` to `~/.prism-backups/<time>/1x/` once (nothing deleted), keeping valid custom lenses |
 | `prism uninstall` | Remove everything `prism install` added (`--purge` also deletes `~/.prism` and this repository's `.prism`) |
-| `prism upgrade` | Re-link the recorded agents to the current build and restart the daemon |
+| `prism upgrade` | Re-link the recorded agents to the installed version and restart the daemon. Lists the changes and asks first (`--yes` in scripts) |
 
 ### Diagnostics
 

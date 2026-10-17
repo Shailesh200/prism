@@ -1,16 +1,15 @@
 /**
  * Are the hook configs `prism install` wrote still what this release writes?
- * (round 4, hook upgrades). `prism doctor` shows one line per config;
- * `prism doctor --fix` applies the safe Claude Code update the session hook
- * would make at the next session.
+ * (round 4, hook upgrades). `prism doctor` shows one line per config.
+ * Detection only: `prism doctor --fix` makes the update through the consent
+ * step (`confirmAndWrite`), like `prism start`.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import {
-  CLAUDE_HOOKS_VERSION,
+  checkClaudeHooks,
   hookRefreshLine,
-  refreshClaudeHooks,
 } from "@repo-prism/shared/hook-config";
 import type { InstallRecord } from "@repo-prism/shared/prism-bin";
 import { opencodeShim } from "./hosts.js";
@@ -28,45 +27,26 @@ function claudeScope(path: string, home: string): "user" | "project" {
 
 export function claudeHookCheck(
   path: string,
-  options: {
-    readonly fix: boolean;
-    readonly home?: string;
-    readonly realHome?: string;
-  },
+  options: { readonly home?: string } = {},
 ): HookCheck {
   const scope = claudeScope(path, options.home ?? homedir());
-  const result = refreshClaudeHooks(path, {
-    dryRun: !options.fix,
-    ...(options.realHome ? { realHome: options.realHome } : {}),
-  });
+  const result = checkClaudeHooks(path);
   const command =
     scope === "project"
       ? "prism install claude --project"
       : "prism install claude";
   switch (result.kind) {
-    case "guarded":
-      return {
-        label: "Hooks",
-        status: "ok",
-        detail: `not checked: Prism does not auto-update your own ~/.claude. Run \`${command}\` to refresh its hooks.`,
-      };
     case "current":
       return {
         label: "Hooks",
         status: "ok",
-        detail: `Claude Code hooks match ${CLAUDE_HOOKS_VERSION} (${path})`,
+        detail: `Claude Code hooks are up to date (${path})`,
       };
     case "absent":
       return {
         label: "Hooks",
         status: "warn",
         detail: `no Prism hooks in ${path}. Run \`${command}\`.`,
-      };
-    case "updated":
-      return {
-        label: "Hooks",
-        status: "ok",
-        detail: hookRefreshLine(result, scope)!,
       };
     default:
       return {
@@ -144,11 +124,7 @@ export function opencodeHookCheck(path: string): HookCheck {
 /** One check per hook config the install record lists. */
 export function hookConfigChecks(
   record: InstallRecord,
-  options: {
-    readonly fix: boolean;
-    readonly home?: string;
-    readonly realHome?: string;
-  },
+  options: { readonly home?: string } = {},
 ): HookCheck[] {
   const checks: HookCheck[] = [];
   for (const file of record.files ?? []) {

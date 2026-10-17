@@ -16,15 +16,27 @@ See [Usage](../usage.mdx) for global options, exit codes, and how
 
 ### `prism start`
 
-Install Prism for every coding agent found here, index this repo and show its map
+Set up Prism for every coding agent found here (asks first), index this repo and show its map
+
+| Option | Meaning |
+|---|---|
+| `--dry-run` | Only list the config files it would write and the 1.x data it would move |
 
 ```bash
 prism start
 ```
 
+```bash
+prism start --dry-run
+```
+
+```bash
+prism start --yes
+```
+
 ### `prism install <client>`
 
-Connect Prism to Claude Code, Cursor, Codex or opencode (MCP server, hooks, skills, rule line)
+Connect Prism to Claude Code, Cursor, Codex or opencode (MCP server, hooks, skills, rule line); backs up each config first
 
 | Argument | Meaning |
 |---|---|
@@ -66,10 +78,22 @@ prism uninstall --purge
 
 ### `prism upgrade`
 
-Re-link the recorded clients to the current build and restart the daemon
+Re-link the recorded clients to the installed version (asks first) and restart the daemon
+
+| Option | Meaning |
+|---|---|
+| `--dry-run` | Only list the config files it would write and the 1.x data it would move |
 
 ```bash
 prism upgrade
+```
+
+```bash
+prism upgrade --dry-run
+```
+
+```bash
+prism upgrade --yes
 ```
 
 ## Understand a repository
@@ -519,7 +543,8 @@ Check the environment, workspace and index
 |---|---|
 | `--ci` | Extra CI checks (e.g. warn on shallow clones that truncate history) |
 | `--surfaces` | Show which Prism each editor launches. Fails inside this repo if any of them is the published package. |
-| `--fix` | Stop the daemon, rewrite editor configs to the recorded local build or the installed server, and update hook configs an older release wrote |
+| `--fix` | Bring the recorded agents' Prism setup (server path, hooks, rule, skills) in line with the installed version. Lists the changes and asks first, backs up each file, then stops the daemon. --yes skips the question. |
+| `--dry-run` | Only list the config files it would write and the 1.x data it would move |
 
 ```bash
 prism doctor
