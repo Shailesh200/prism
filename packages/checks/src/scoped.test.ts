@@ -136,12 +136,103 @@ describe("resolveScopedPlan", () => {
   });
 });
 
+describe("resolveScopedPlan: scripts narrowing would change (J-03)", () => {
+  for (const test of [
+    "vitest --config vitest.other.config.ts",
+    "vitest -c x.ts",
+    "vitest --project unit",
+    "vitest --workspace vitest.workspace.ts",
+    "vitest --root packages/a",
+    "vitest --dir src",
+  ]) {
+    it(`runs the whole script for \`${test}\``, async () => {
+      const dir = await repo(
+        { scripts: { test }, devDependencies: { vitest: "3" } },
+        ["vitest"],
+      );
+      const scoped = await resolveScopedPlan(dir, ["src/a.test.ts"]);
+      expect(scoped.testMode).toBe("full-script");
+      expect(scoped.plan.steps).toEqual([
+        { name: "test", kind: "package-script", script: "test" },
+      ]);
+    });
+  }
+
+  for (const test of [
+    "jest --config jest.unit.config.js",
+    "jest -c jest.unit.config.js",
+    "jest --rootDir packages/a",
+    "jest --projects packages/a",
+    "jest --selectProjects unit",
+  ]) {
+    it(`runs the whole script for \`${test}\``, async () => {
+      const dir = await repo(
+        { scripts: { test }, devDependencies: { jest: "29" } },
+        ["jest"],
+      );
+      const scoped = await resolveScopedPlan(dir, ["src/a.test.ts"]);
+      expect(scoped.testMode).toBe("full-script");
+      expect(scoped.plan.steps).toEqual([
+        { name: "test", kind: "package-script", script: "test" },
+      ]);
+    });
+  }
+
+  it("still narrows `vitest --coverage` (coverage is dropped on purpose)", async () => {
+    const dir = await repo(
+      {
+        scripts: { test: "vitest --coverage" },
+        devDependencies: { vitest: "3" },
+      },
+      ["vitest"],
+    );
+    const scoped = await resolveScopedPlan(dir, ["src/a.test.ts"]);
+    expect(scoped.testMode).toBe("scoped");
+  });
+
+  it("a failing tsc in `tsc --noEmit && vitest --run` fails the test step, never SHIP", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "prism-scoped-chain-"));
+    temps.push(dir);
+    await writeFile(
+      join(dir, "package.json"),
+      JSON.stringify({
+        name: "chain",
+        scripts: { test: "tsc --noEmit && vitest --run" },
+        devDependencies: { vitest: "3", typescript: "5" },
+      }),
+    );
+    await writeFile(join(dir, "package-lock.json"), "{}");
+    const bin = join(dir, "node_modules", ".bin");
+    await mkdir(bin, { recursive: true });
+    const tool = async (name: string, body: string) => {
+      await writeFile(join(bin, name), `#!/bin/sh\n${body}\n`);
+      await chmod(join(bin, name), 0o755);
+    };
+    await tool(
+      "tsc",
+      "echo \"src/a.ts(1,7): error TS2322: Type 'string' is not assignable to type 'number'.\"; exit 2",
+    );
+    await tool("vitest", "echo 'Test Files  1 passed (1)'; exit 0");
+
+    const scoped = await resolveScopedPlan(dir, ["src/a.test.ts"]);
+    expect(scoped.testMode).toBe("full-script");
+    const results = await runCheckSteps(dir, scoped.plan.steps);
+    const test = results.find((r) => r.name === "test");
+    expect(test?.status).toBe("failed");
+    expect(test?.detail).toMatch(/TS2322/);
+    expect(results.every((r) => r.status === "passed")).toBe(false);
+  });
+});
+
 describe("isPlainRunnerScript", () => {
   it("accepts one runner command with its own flags", () => {
     for (const body of [
       "vitest",
       "vitest run --coverage",
+      "vitest --coverage",
+      "vitest --run",
       "  jest --ci ",
+      "jest --coverage --ci",
       "bun test",
     ]) {
       expect(isPlainRunnerScript(body), body).toBe(true);
@@ -162,6 +253,49 @@ describe("isPlainRunnerScript", () => {
       "npm run build && vitest",
       "mocha",
       "",
+    ]) {
+      expect(isPlainRunnerScript(body), body).toBe(false);
+    }
+  });
+
+  it("rejects every chain form, so the whole script runs (J-03)", () => {
+    for (const body of [
+      "tsc --noEmit && vitest --run", // exactly Hono's script
+      "tsc --noEmit || vitest run",
+      "tsc --noEmit; vitest run",
+      "vitest run | tee out.txt",
+      "vitest run & tsc --noEmit",
+      "vitest run\ntsc --noEmit",
+      "npm-run-all typecheck test:unit",
+      "run-s typecheck test:unit",
+      "run-p typecheck test:unit",
+      'concurrently "tsc --noEmit" "vitest run"',
+      "pnpm -r test",
+      "npx vitest run",
+      "yarn vitest run",
+    ]) {
+      expect(isPlainRunnerScript(body), body).toBe(false);
+    }
+  });
+
+  it("rejects a runner that picks its own config, project or root", () => {
+    for (const body of [
+      "vitest --config vitest.other.config.ts",
+      "vitest run --config=vitest.other.config.ts",
+      "vitest -c x.ts",
+      "vitest run -c=x.ts",
+      "vitest --project unit",
+      "vitest run --project=unit",
+      "vitest --workspace vitest.workspace.ts",
+      "vitest --root packages/a",
+      "vitest -r packages/a",
+      "vitest --dir src",
+      "jest --config jest.unit.config.js",
+      "jest --config=jest.unit.config.js",
+      "jest -c jest.unit.config.js",
+      "jest --rootDir packages/a",
+      "jest --projects packages/a packages/b",
+      "jest --selectProjects unit",
     ]) {
       expect(isPlainRunnerScript(body), body).toBe(false);
     }

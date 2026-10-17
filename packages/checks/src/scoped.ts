@@ -98,14 +98,43 @@ export function detectTestRunner(cwd: string): DetectedTestRunner | null {
 
 /**
  * True when `body` is one plain runner command (`vitest …`, `jest …`,
- * `bun test …`), so swapping it for the runner over the reached files drops
- * nothing but its own file selection. A chain, pipe, redirect, substitution
+ * `bun test …`) with no config, project or root flag, so swapping it for the
+ * runner over the reached files drops nothing but its own file selection. A chain, pipe, redirect, substitution
  * or env prefix (Hono's `tsc --noEmit && vitest --run`) would lose a part of
  * the script, so the caller runs the whole script instead.
  */
 export function isPlainRunnerScript(body: string): boolean {
   if (/[;&|<>`\n]|\$\(/.test(body)) return false;
-  return /^(?:vitest|jest|bun test)(?:\s|$)/.test(body.trim());
+  const trimmed = body.trim();
+  if (!/^(?:vitest|jest|bun test)(?:\s|$)/.test(trimmed)) return false;
+  return !trimmed.split(/\s+/).some(selectsSuite);
+}
+
+/**
+ * Flags that choose which config, project or root the runner uses. A narrowed
+ * run is the bare runner over the reached files and drops the script's flags,
+ * so with one of these it would run under a different config (or none) and
+ * could pass where the real script fails. Those scripts run in full.
+ * Flags that only change reporting (`--coverage`, `--ci`) stay narrowable.
+ */
+const SUITE_FLAGS = new Set([
+  // vitest
+  "-c",
+  "--config",
+  "--project",
+  "--workspace",
+  "-r",
+  "--root",
+  "--dir",
+  // jest
+  "--rootDir",
+  "--projects",
+  "--selectProjects",
+]);
+
+function selectsSuite(token: string): boolean {
+  const flag = token.split("=", 1)[0] ?? token;
+  return SUITE_FLAGS.has(flag);
 }
 
 function scriptBody(cwd: string, name: string): string {
