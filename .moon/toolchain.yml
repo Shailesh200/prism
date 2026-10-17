@@ -2,7 +2,7 @@
 $schema: "https://moonrepo.dev/schemas/toolchain.json"
 
 node:
-  version: "26.5.0"
+  version: "24.18.1"
   packageManager: "bun"
 
 bun:

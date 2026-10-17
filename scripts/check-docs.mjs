@@ -54,11 +54,19 @@ async function markdownFiles(dir) {
 
 const { COMMANDS } = await loadBuilt("cli");
 const { TOOL_NAMES, PROMPT_NAMES } = await loadBuilt("mcp-server");
-const { CONSENT_PURPOSE_IDS } = await loadBuilt("shared");
 
 const commandsByName = new Map(COMMANDS.map((c) => [c.name, c]));
 const toolNames = new Set(TOOL_NAMES);
-const consentIds = new Set(CONSENT_PURPOSE_IDS);
+/**
+ * Commands the 2.0 plan adds in later phases (§3, §8). Docs may describe them
+ * ahead of the code; each name leaves this list when it lands in COMMANDS,
+ * and the list must be empty at release (plan §12 Decision 28).
+ */
+const PLANNED_COMMANDS = new Set(
+  ["install", "uninstall", "upgrade", "lens", "stats"].filter(
+    (name) => !commandsByName.has(name),
+  ),
+);
 
 /**
  * Vocabulary that belonged to features Prism has removed.
@@ -82,7 +90,7 @@ const REMOVED = [
   },
   {
     pattern: /\bdispatch-auth\b/g,
-    why: "the @repo-prism/dispatch-auth package was deleted (ADR-0049)",
+    why: "the dispatch-auth package was deleted (ADR-0049)",
   },
   {
     pattern: /\bPRISM_AUTH_[A-Z_]+\b/g,
@@ -168,6 +176,10 @@ const NOT_TOOL_NAMES = new Set([
   "node_modules",
   "cache_db",
   "package_json",
+  // Receipt verdict reasons (not_proven(<reason>)), not tools.
+  "unsupported_language",
+  "no_node_modules",
+  "already_failing",
   // The MCP authorization tool other servers expose. Architecture notes
   // mention it to say Prism's discovery does not settle for it.
   "mcp_auth",
@@ -195,7 +207,7 @@ for (const file of files) {
   for (const snippet of codeText) {
     for (const match of snippet.matchAll(/\bprism ([a-z][a-z-]*)/g)) {
       const name = match[1];
-      if (!commandsByName.has(name)) {
+      if (!commandsByName.has(name) && !PLANNED_COMMANDS.has(name)) {
         fail(file, `\`prism ${name}\` is not a command`);
       }
     }
@@ -245,13 +257,11 @@ for (const file of files) {
     }
   }
 
-  // 4. Backticked consent purposes must exist. Getting one of these wrong is
-  //    the worst kind of documentation bug: it reads as a promise about what
-  //    Prism will and will not do.
+  // 4. Prism 2.0 has no consent purposes: nothing reaches the network or runs
+  //    repository code on Prism's own initiative. A backticked purpose id is a
+  //    stale promise about a capability that was deleted.
   for (const match of text.matchAll(/`((?:network|run)\.[a-z-]+)`/g)) {
-    if (!consentIds.has(match[1])) {
-      fail(file, `\`${match[1]}\` is not a consent purpose`);
-    }
+    fail(file, `\`${match[1]}\` is a deleted consent purpose`);
   }
 
   // 4a. A tool count in prose matches the registry.
@@ -319,18 +329,6 @@ for (const file of files) {
     if (words > 650) {
       fail(file, `longest reader path is ${words} words (budget 650)`);
     }
-  }
-}
-
-// 5. Every consent purpose is documented somewhere. A capability that can reach
-//    the network and is not written down is the gap that matters most.
-const allText = (
-  await Promise.all(files.map((file) => readFile(file, "utf8")))
-).join("\n");
-
-for (const id of consentIds) {
-  if (!allText.includes(id)) {
-    problems.push(`docs: consent purpose \`${id}\` is not documented anywhere`);
   }
 }
 
@@ -414,23 +412,6 @@ for (const command of COMMANDS) {
   }
 }
 
-// 9. Iris / Spectrum stay named where the product identity is documented.
-const designSystem = await readFile(
-  join(repoRoot, "plans", "DESIGN_SYSTEM.md"),
-  "utf8",
-);
-const glossary = await readFile(
-  join(docsDir, "reference", "glossary.md"),
-  "utf8",
-);
-for (const word of ["Iris", "Spectrum"]) {
-  if (!designSystem.includes(word)) {
-    problems.push(`plans/DESIGN_SYSTEM.md: ${word} is missing (ADR-0052)`);
-  }
-  if (!glossary.includes(`**${word}**`)) {
-    problems.push(`docs/reference/glossary.md: ${word} is missing`);
-  }
-}
 if (problems.length > 0) {
   console.error("check-docs: the docs describe a Prism that does not exist\n");
   for (const problem of problems) console.error(`  ${problem}`);

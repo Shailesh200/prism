@@ -1,0 +1,641 @@
+{
+  "repo": "preact",
+  "pinnedSha": "0935fecd7e8244417a39e8470c9e7f440e51379b",
+  "tasks": [
+    {
+      "id": "preact-001",
+      "repo": "preact",
+      "commit": "bb52524ed683957847c47114a574b4a7ac77f11c",
+      "parent": "03253d5bdf10e898c8ddc9d0317e452b4c23de0c",
+      "task": "Implement streamed hydration rfc",
+      "firstFile": "src/diff/index.js",
+      "files": [
+        "src/diff/index.js"
+      ],
+      "tests": [
+        "compat/test/browser/suspense-hydration.test.jsx"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-002",
+      "repo": "preact",
+      "commit": "54f628c6242b50c17b9b97fbb319ef6168bd0577",
+      "parent": "850bbdb99c0e475b49146351a063243f008ef716",
+      "task": "typo in vitest config",
+      "firstFile": "vitest.config.mjs",
+      "files": [
+        "vitest.config.mjs"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-003",
+      "repo": "preact",
+      "commit": "7d8929f8cd3d4d74b913f115408af965bd4f7fac",
+      "parent": "f5c1bac4fee8ea56214a40157032ee0492f49f9c",
+      "task": "inverse loop order",
+      "firstFile": "compat/src/util.js",
+      "files": [
+        "compat/src/util.js"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-004",
+      "repo": "preact",
+      "commit": "e3a15ecd85c79b8bb762a1612840999b928ae950",
+      "parent": "fb5bbda52c5f58a3a753efb980392a0cc87f34d0",
+      "task": "Fix buggy edge case (#5090)",
+      "firstFile": "src/diff/index.js",
+      "files": [
+        "src/diff/index.js"
+      ],
+      "tests": [
+        "test/browser/render.test.jsx"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-005",
+      "repo": "preact",
+      "commit": "fb5bbda52c5f58a3a753efb980392a0cc87f34d0",
+      "parent": "a31df28ef6cab46ff877a8a51b69d62f0618eb57",
+      "task": "Forwardport v10.x fixes since 2026-03-25",
+      "firstFile": "src/diff/props.js",
+      "files": [
+        "src/diff/props.js",
+        "src/diff/children.js",
+        "src/diff/index.js"
+      ],
+      "tests": [
+        "test/browser/hydrate.test.jsx",
+        "test/browser/keys.test.jsx"
+      ],
+      "blast": [
+        "src/diff/children.js",
+        "src/diff/index.js"
+      ],
+      "heldOut": true
+    },
+    {
+      "id": "preact-006",
+      "repo": "preact",
+      "commit": "ee67f64df56283adb3ab0826f260190e135eec34",
+      "parent": "21dd6d04c1a9a43e5b60976bb5eb7d856253195b",
+      "task": "preserve falsy key and ref values in cloneElement",
+      "firstFile": "src/clone-element.js",
+      "files": [
+        "src/clone-element.js"
+      ],
+      "tests": [
+        "test/browser/cloneElement.test.jsx"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-007",
+      "repo": "preact",
+      "commit": "4885f1d0aab2ecc1be7d5842bb128a5c005602d3",
+      "parent": "6dd0e3e0b4d3d4e5c1596d123edb86f0119fd854",
+      "task": "Use .push.apply",
+      "firstFile": "src/diff/index.js",
+      "files": [
+        "src/diff/index.js"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-008",
+      "repo": "preact",
+      "commit": "477c8c47ab82937a316fa7b81974628f906dc11c",
+      "parent": "fbb6a4eb628589416b953045e2f6e3425a885bff",
+      "task": "make oldProps diffing more compact",
+      "firstFile": "src/diff/index.js",
+      "files": [
+        "src/diff/index.js"
+      ],
+      "tests": [
+        "test/browser/render.test.jsx"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-009",
+      "repo": "preact",
+      "commit": "5358f327b78b7b1635446c076fa044efa236b8c1",
+      "parent": "60db6f4f1276fe0b41511ceef7f1dcd887104c8b",
+      "task": "call toLowerCase on name regardless of its current casing",
+      "firstFile": "src/diff/props.js",
+      "files": [
+        "src/diff/props.js"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-010",
+      "repo": "preact",
+      "commit": "46772a2fb68c54725ae3c0cae350dac23a842b1c",
+      "parent": "c1bcde3a1d724746018defa7a01d586044d5c99f",
+      "task": "Support inheriting namespace through portals (#4993)",
+      "firstFile": "compat/src/portals.js",
+      "files": [
+        "compat/src/portals.js"
+      ],
+      "tests": [
+        "compat/test/browser/portals.test.jsx"
+      ],
+      "blast": [],
+      "heldOut": true
+    },
+    {
+      "id": "preact-011",
+      "repo": "preact",
+      "commit": "c1bcde3a1d724746018defa7a01d586044d5c99f",
+      "parent": "bf7a195ac4b1706468e876e41b27428e3d8a08f3",
+      "task": "Force strict equality on vnode constructor",
+      "firstFile": "src/create-element.js",
+      "files": [
+        "src/create-element.js",
+        "src/diff/children.js",
+        "src/diff/index.js"
+      ],
+      "tests": [
+        "test/browser/render.test.jsx"
+      ],
+      "blast": [
+        "src/diff/children.js",
+        "src/diff/index.js"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "preact-012",
+      "repo": "preact",
+      "commit": "5a02923571f1af8599b77c83f3031057f4c5ddb3",
+      "parent": "0999ff4f03a111e5b03bd62abfbf09c9176de1dd",
+      "task": "Forwardport diffign fix",
+      "firstFile": "src/diff/children.js",
+      "files": [
+        "src/diff/children.js"
+      ],
+      "tests": [
+        "test/browser/keys.test.jsx"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-013",
+      "repo": "preact",
+      "commit": "0999ff4f03a111e5b03bd62abfbf09c9176de1dd",
+      "parent": "4a06d3fb985f48376866d2ca8d53b726fbc6f813",
+      "task": "export setupComponentStack",
+      "firstFile": "debug/src/index.js",
+      "files": [
+        "debug/src/index.js"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-014",
+      "repo": "preact",
+      "commit": "4a06d3fb985f48376866d2ca8d53b726fbc6f813",
+      "parent": "87e912c126b56320b9976b5c2cccc7dcd8a16d34",
+      "task": "Fix cascading renders with signals (#4966)",
+      "firstFile": "src/diff/index.js",
+      "files": [
+        "src/diff/index.js"
+      ],
+      "tests": [
+        "hooks/test/browser/useState.test.jsx"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-015",
+      "repo": "preact",
+      "commit": "324b83f1a891c622c73ac0ae2ff542824f66b4ad",
+      "parent": "f10c898c7b03410a819c3eb714a6f913406a1cad",
+      "task": "set oldProps default value on declaration",
+      "firstFile": "src/diff/index.js",
+      "files": [
+        "src/diff/index.js"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": true
+    },
+    {
+      "id": "preact-016",
+      "repo": "preact",
+      "commit": "50fcda680adb94dfc439e199777cb86905e0e40a",
+      "parent": "eee0c6ef834534498e433f0f7a3ef679efd24380",
+      "task": "remove redundant assignment to oldVNode",
+      "firstFile": "src/diff/children.js",
+      "files": [
+        "src/diff/children.js"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-017",
+      "repo": "preact",
+      "commit": "eee0c6ef834534498e433f0f7a3ef679efd24380",
+      "parent": "4788838d8bb5c41aad47271ff37b2b44bbe0d05d",
+      "task": "Add types for 'getDisplayName'",
+      "firstFile": "debug/src/component-stack.js",
+      "files": [
+        "debug/src/component-stack.js"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-018",
+      "repo": "preact",
+      "commit": "4788838d8bb5c41aad47271ff37b2b44bbe0d05d",
+      "parent": "84c10e46a807f7af6b0c32df8d8a4fdde3193a20",
+      "task": "no need to reset props and context when creating component",
+      "firstFile": "src/diff/index.js",
+      "files": [
+        "src/diff/index.js"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-019",
+      "repo": "preact",
+      "commit": "84c10e46a807f7af6b0c32df8d8a4fdde3193a20",
+      "parent": "5bea6be2bd7ad3953b464c976fa29a257416899a",
+      "task": "remove redundant assignment to childVNode",
+      "firstFile": "src/diff/children.js",
+      "files": [
+        "src/diff/children.js"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-020",
+      "repo": "preact",
+      "commit": "70fa6190a89a2e72dfab4d838c27ef4929e77a59",
+      "parent": "078ed0e8ac8a68de17556c2ea44adb1d2b8985c8",
+      "task": "Avoid lazy components without result going in throw loop",
+      "firstFile": "compat/src/suspense.js",
+      "files": [
+        "compat/src/suspense.js"
+      ],
+      "tests": [
+        "compat/test/browser/suspense.test.jsx",
+        "test/browser/refs.test.jsx"
+      ],
+      "blast": [],
+      "heldOut": true
+    },
+    {
+      "id": "preact-021",
+      "repo": "preact",
+      "commit": "5e183563a101de2d7a750e7c606d0b13677637f1",
+      "parent": "8e3e4ce550e574b9eacbfa3ef97f6b992081344e",
+      "task": "Support XHTML phrasing content in MathML token elements",
+      "firstFile": "src/diff/index.js",
+      "files": [
+        "src/diff/index.js",
+        "src/constants.js"
+      ],
+      "tests": [
+        "test/browser/mathml.test.jsx"
+      ],
+      "blast": [
+        "src/constants.js"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "preact-022",
+      "repo": "preact",
+      "commit": "5dd6c092edf501d7acf6401f9e3a53518b21b0a1",
+      "parent": "f23272c3d7c3e45e6d99f807080ccd802e795045",
+      "task": "Prevent frequently updated components from retaining memory",
+      "firstFile": "src/component.js",
+      "files": [
+        "src/component.js"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-023",
+      "repo": "preact",
+      "commit": "f23272c3d7c3e45e6d99f807080ccd802e795045",
+      "parent": "025875a13e9d8b98c9549a4637a245e344aa4ee3",
+      "task": "Golf down hooks impl",
+      "firstFile": "hooks/src/index.js",
+      "files": [
+        "hooks/src/index.js"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-024",
+      "repo": "preact",
+      "commit": "025875a13e9d8b98c9549a4637a245e344aa4ee3",
+      "parent": "9c44db8f5a18f9e7aba74101ebc6a8db9d034697",
+      "task": "Check excess for preact-iso",
+      "firstFile": "src/diff/index.js",
+      "files": [
+        "src/diff/index.js"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-025",
+      "repo": "preact",
+      "commit": "9c44db8f5a18f9e7aba74101ebc6a8db9d034697",
+      "parent": "665126a0e542a9e70879ca85f3f5deb18b483ab1",
+      "task": "Save bytes by inlining ref unmount checks",
+      "firstFile": "src/diff/index.js",
+      "files": [
+        "src/diff/index.js",
+        "src/render.js",
+        "src/diff/children.js",
+        "src/component.js"
+      ],
+      "tests": [],
+      "blast": [
+        "src/render.js",
+        "src/diff/children.js",
+        "src/component.js"
+      ],
+      "heldOut": true
+    },
+    {
+      "id": "preact-026",
+      "repo": "preact",
+      "commit": "665126a0e542a9e70879ca85f3f5deb18b483ab1",
+      "parent": "18432f92b4022f7c4ad00524c920599f0f61437b",
+      "task": "Save bytes on hydration 2.0",
+      "firstFile": "src/diff/index.js",
+      "files": [
+        "src/diff/index.js"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-027",
+      "repo": "preact",
+      "commit": "31632a23c0d3508bc2e0eb4884937a38f27a19ad",
+      "parent": "61f47ca8dcbcefaca8d0d59cc9d45fa9127fd191",
+      "task": "Do not re-insert memoized vnodes that keep their relative order after swap",
+      "firstFile": "src/diff/children.js",
+      "files": [
+        "src/diff/children.js"
+      ],
+      "tests": [
+        "test/browser/lifecycles/shouldComponentUpdate.test.js"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-028",
+      "repo": "preact",
+      "commit": "c242faf3b963bf2d951a177b6f159d68150dc042",
+      "parent": "b0d91957f11bfc42e76eb02351b251c75bbe7deb",
+      "task": "Call tolowercase only when needed",
+      "firstFile": "compat/src/render.js",
+      "files": [
+        "compat/src/render.js"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-029",
+      "repo": "preact",
+      "commit": "869968b518b4caee828b5b602e986732246061dd",
+      "parent": "aeb59e0cbb90fb1baf976cd29cd2d99d9faa9870",
+      "task": "Ensure memoized components re-render after errors",
+      "firstFile": "src/diff/catch-error.js",
+      "files": [
+        "src/diff/catch-error.js"
+      ],
+      "tests": [
+        "compat/test/browser/memo.test.js",
+        "test/browser/lifecycles/componentDidCatch.test.js"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-030",
+      "repo": "preact",
+      "commit": "5843ad02a95facb1544dd86f211628e00ebf93e2",
+      "parent": "f3430e0cff27755cff84373e18387aaafdfc7912",
+      "task": "Provide solution to long standing memleak",
+      "firstFile": "src/diff/index.js",
+      "files": [
+        "src/diff/index.js",
+        "compat/src/suspense.js",
+        "src/constants.js"
+      ],
+      "tests": [
+        "compat/test/browser/suspense-hydration.test.js"
+      ],
+      "blast": [
+        "compat/src/suspense.js",
+        "src/constants.js"
+      ],
+      "heldOut": true
+    },
+    {
+      "id": "preact-031",
+      "repo": "preact",
+      "commit": "f3430e0cff27755cff84373e18387aaafdfc7912",
+      "parent": "2c47637c8c873956e6d800abbe3075dc3ad988b0",
+      "task": "add `captureOwnerStack`",
+      "firstFile": "debug/src/component-stack.js",
+      "files": [
+        "debug/src/component-stack.js",
+        "debug/src/index.js"
+      ],
+      "tests": [],
+      "blast": [
+        "debug/src/index.js"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "preact-032",
+      "repo": "preact",
+      "commit": "2c47637c8c873956e6d800abbe3075dc3ad988b0",
+      "parent": "ac657fc0b101b0452eeef9ceec91aca442f56d37",
+      "task": "Adapt to React api: add context argument to compat/Children map api",
+      "firstFile": "compat/src/Children.js",
+      "files": [
+        "compat/src/Children.js"
+      ],
+      "tests": [
+        "compat/test/browser/Children.test.js"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-033",
+      "repo": "preact",
+      "commit": "ac657fc0b101b0452eeef9ceec91aca442f56d37",
+      "parent": "943fa26262f92613b46ccff67993117cb5337462",
+      "task": "Remove rerendercount",
+      "firstFile": "src/component.js",
+      "files": [
+        "src/component.js",
+        "src/diff/catch-error.js"
+      ],
+      "tests": [],
+      "blast": [
+        "src/diff/catch-error.js"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "preact-034",
+      "repo": "preact",
+      "commit": "370319ced248f88a9d0f8c5668521870bd22e20e",
+      "parent": "ca610eb5d9fe56bc71241cd84228e67f3a4b0937",
+      "task": "add .type property referencing original component",
+      "firstFile": "compat/src/memo.js",
+      "files": [
+        "compat/src/memo.js"
+      ],
+      "tests": [
+        "compat/test/browser/memo.test.js"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-035",
+      "repo": "preact",
+      "commit": "2e2b239d4e82d0badfc341d3e702b3f18fd5e65e",
+      "parent": "7de6b9a3d1dffdeba1e61c5059cf142e1c8c33b3",
+      "task": "fix memory leak in VNode owner tracking",
+      "firstFile": "debug/src/component-stack.js",
+      "files": [
+        "debug/src/component-stack.js"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": true
+    },
+    {
+      "id": "preact-036",
+      "repo": "preact",
+      "commit": "3675a093f540e12b04c0669814b97606156dfd77",
+      "parent": "61a257f75f3ef83fe5ea0dbcbf1d2b1494565830",
+      "task": "DOM event name casing",
+      "firstFile": "src/diff/props.js",
+      "files": [
+        "src/diff/props.js"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-037",
+      "repo": "preact",
+      "commit": "328430e445eff49e484b203f402365b4cca2ebc7",
+      "parent": "909cb39a6d85c738c2b686667f40afd791dfb39f",
+      "task": "add unstable batched updates to compat",
+      "firstFile": "compat/src/index.js",
+      "files": [
+        "compat/src/index.js",
+        "demo/mobx.jsx"
+      ],
+      "tests": [],
+      "blast": [
+        "demo/mobx.jsx"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "preact-038",
+      "repo": "preact",
+      "commit": "909cb39a6d85c738c2b686667f40afd791dfb39f",
+      "parent": "df481405b9454bbbc52a235e3a90bb4363852fb7",
+      "task": "React does not forward refs by default for class components",
+      "firstFile": "compat/src/render.js",
+      "files": [
+        "compat/src/render.js",
+        "compat/src/forwardRef.js"
+      ],
+      "tests": [
+        "compat/test/browser/component.test.js",
+        "compat/test/browser/memo.test.js"
+      ],
+      "blast": [
+        "compat/src/forwardRef.js"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "preact-039",
+      "repo": "preact",
+      "commit": "df481405b9454bbbc52a235e3a90bb4363852fb7",
+      "parent": "ae8a62711a7e9ef744e962bc23f2ee4c6e7bed65",
+      "task": "export helper functions from `preact/debug`",
+      "firstFile": "debug/src/index.js",
+      "files": [
+        "debug/src/index.js"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "preact-040",
+      "repo": "preact",
+      "commit": "6ab3132c8a0ea85e6a636c7fad3a0a61bea6ce6d",
+      "parent": "3b679af4a84e39bc904ce6891ddf4493d22410cd",
+      "task": "reduce some repeated logic",
+      "firstFile": "src/diff/children.js",
+      "files": [
+        "src/diff/children.js"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": true
+    }
+  ]
+}

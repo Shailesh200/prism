@@ -33,9 +33,7 @@ jobs:
         run: |
           set -euo pipefail
           bun install --frozen-lockfile
-          for name in shared test-support analyzer graph-engine impact navigation indexer intelligence repository-map core ui app-shell host-session dispatch dispatch-hub mcp-server cli; do
-            bun run --filter "@repo-prism/${name}" build
-          done
+          bun run build
 
       - name: Prism review
         uses: ./action

@@ -26,7 +26,6 @@ const INITIALIZE = {
 
 export function mcpDistEntries(root) {
   return {
-    hub: join(root, "packages", "dispatch-hub", "dist", "index.js"),
     server: join(root, "packages", "mcp-server", "dist", "server.js"),
     bin: join(root, "packages", "mcp-server", "dist", "bin.js"),
   };
@@ -40,7 +39,6 @@ export async function assertMcpGraphLoads(root) {
     }
   }
   // bin.js starts the process; load the same import graph Cursor hits first.
-  await import(pathToFileURL(entries.hub).href);
   await import(pathToFileURL(entries.server).href);
 }
 
@@ -78,6 +76,8 @@ export async function handshakeMcp(root, options = {}) {
     env: {
       ...process.env,
       PRISM_SKIP_SELF_UPDATE: "1",
+      // A handshake check must not leave a background daemon behind.
+      PRISM_DAEMON: "0",
       PRISM_WORKSPACE: options.workspace ?? root,
     },
     stdio: ["pipe", "pipe", "pipe"],

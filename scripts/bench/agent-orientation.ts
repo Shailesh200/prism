@@ -13,7 +13,7 @@
  */
 
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -23,13 +23,7 @@ function arg(name: string, fallback: string): string {
   return index === -1 ? fallback : (process.argv[index + 1] ?? fallback);
 }
 
-type ScenarioId =
-  | "orient"
-  | "safe_edit"
-  | "health"
-  | "find"
-  | "test_impact"
-  | "cycles";
+type ScenarioId = "orient" | "safe_edit" | "find" | "test_impact" | "cycles";
 
 type FixtureSpec = {
   id: string;
@@ -129,7 +123,6 @@ const FIXTURES: FixtureSpec[] = [
 const SCENARIOS: Array<{ id: ScenarioId; label: string }> = [
   { id: "orient", label: "What is this repository?" },
   { id: "safe_edit", label: "Is this edit safe?" },
-  { id: "health", label: "Is this codebase healthy?" },
   { id: "find", label: "Where does this symbol live?" },
   { id: "test_impact", label: "Which tests should I run?" },
   { id: "cycles", label: "Are there import cycles?" },
@@ -347,10 +340,9 @@ async function withoutPrismSafeEdit(
 type WorkspaceHandle = {
   index: () => Promise<unknown>;
   getDna: () => Promise<unknown>;
-  getOverviewModel: (o: object) => Promise<unknown>;
+  getStackProfile: () => Promise<unknown>;
+  listLandmarks: () => unknown;
   blastRadius: (o: object) => Promise<unknown>;
-  getHealth: () => Promise<unknown>;
-  getEngineeringHealth: () => Promise<unknown>;
   findSymbol: (q: object) => unknown;
   testImpact: (o: object) => Promise<unknown>;
   getCycles: () => unknown;
@@ -378,6 +370,12 @@ async function withPrismCalls(
   calls: Array<{
     step: string;
     run: (ws: WorkspaceHandle) => unknown | Promise<unknown>;
+    /**
+     * Prism's own work before the agent asks (the index). It is timed but not
+     * counted: no MCP tool returns the index to the agent (round 3 fix; it
+     * used to be charged as an agent read in every scenario).
+     */
+    setup?: boolean;
   }>,
 ): Promise<RunMetrics> {
   const started = performance.now();
@@ -387,6 +385,10 @@ async function withPrismCalls(
   const workspace = openWorkspace(root, Prism);
 
   for (const call of calls) {
+    if (call.setup) {
+      await call.run(workspace);
+      continue;
+    }
     toolCalls += 1;
     const result = await call.run(workspace);
     const json = JSON.stringify(result ?? {});
@@ -396,43 +398,6 @@ async function withPrismCalls(
   }
 
   workspace.close?.();
-  const elapsedMs = Math.round(performance.now() - started);
-  return finishRun(toolCalls, bytesRead, elapsedMs, steps);
-}
-
-/** Naive agent: skim CI/lint/test config the way an agent hunts for health. */
-async function withoutPrismHealth(root: string): Promise<RunMetrics> {
-  const started = performance.now();
-  const steps: StepMetric[] = [];
-  let toolCalls = 0;
-  let bytesRead = 0;
-
-  const readStep = async (step: string, path: string) => {
-    toolCalls += 1;
-    const bytes = await readBytes(path);
-    bytesRead += bytes;
-    steps.push({ step, bytesRead: bytes });
-  };
-
-  await readStep("read package.json", join(root, "package.json"));
-  for (const name of [
-    "README.md",
-    "tsconfig.json",
-    "vitest.config.ts",
-    "eslint.config.js",
-    ".github/workflows/ci.yml",
-  ]) {
-    await readStep(`read ${name}`, join(root, name));
-  }
-
-  toolCalls += 1;
-  const files = await collectSourceFiles(root, 12);
-  bytesRead += files.length * 16;
-  steps.push({ step: "glob source files", bytesRead: files.length * 16 });
-  for (const file of files) {
-    await readStep(`skim ${relative(root, file)}`, file);
-  }
-
   const elapsedMs = Math.round(performance.now() - started);
   return finishRun(toolCalls, bytesRead, elapsedMs, steps);
 }
@@ -550,11 +515,14 @@ async function runScenario(
       return {
         without: await withoutPrismOrient(fixture.root),
         with: await withPrismCalls(fixture.root, Prism, [
-          { step: "index (once)", run: (ws) => ws.index() },
-          { step: "repository_dna", run: (ws) => ws.getDna() },
+          { step: "index", run: (ws) => ws.index(), setup: true },
           {
             step: "repository_overview",
-            run: (ws) => ws.getOverviewModel({}),
+            run: async (ws) => [
+              await ws.getDna(),
+              await ws.getStackProfile(),
+              ws.listLandmarks(),
+            ],
           },
         ]),
       };
@@ -562,7 +530,7 @@ async function runScenario(
       return {
         without: await withoutPrismSafeEdit(fixture.root, fixture.editTarget),
         with: await withPrismCalls(fixture.root, Prism, [
-          { step: "index (once)", run: (ws) => ws.index() },
+          { step: "index", run: (ws) => ws.index(), setup: true },
           {
             step: "blast_radius",
             run: (ws) =>
@@ -570,25 +538,13 @@ async function runScenario(
           },
         ]),
       };
-    case "health":
-      return {
-        without: await withoutPrismHealth(fixture.root),
-        with: await withPrismCalls(fixture.root, Prism, [
-          { step: "index (once)", run: (ws) => ws.index() },
-          { step: "repository_health", run: (ws) => ws.getHealth() },
-          {
-            step: "engineering_health",
-            run: (ws) => ws.getEngineeringHealth(),
-          },
-        ]),
-      };
     case "find":
       return {
         without: await withoutPrismFind(fixture.root, fixture.symbol),
         with: await withPrismCalls(fixture.root, Prism, [
-          { step: "index (once)", run: (ws) => ws.index() },
+          { step: "index", run: (ws) => ws.index(), setup: true },
           {
-            step: "find_symbol",
+            step: "find",
             run: (ws) => ws.findSymbol({ name: fixture.symbol }),
           },
         ]),
@@ -597,7 +553,7 @@ async function runScenario(
       return {
         without: await withoutPrismTestImpact(fixture.root, fixture.editTarget),
         with: await withPrismCalls(fixture.root, Prism, [
-          { step: "index (once)", run: (ws) => ws.index() },
+          { step: "index", run: (ws) => ws.index(), setup: true },
           {
             step: "test_impact",
             run: (ws) =>
@@ -609,7 +565,7 @@ async function runScenario(
       return {
         without: await withoutPrismCycles(fixture.root),
         with: await withPrismCalls(fixture.root, Prism, [
-          { step: "index (once)", run: (ws) => ws.index() },
+          { step: "index", run: (ws) => ws.index(), setup: true },
           { step: "dependency_cycles", run: (ws) => ws.getCycles() },
         ]),
       };
@@ -627,7 +583,8 @@ function formatMetrics(label: string, m: RunMetrics): string {
 }
 
 async function main() {
-  const outPath = join(
+  // resolve, not join: an absolute --out must stay absolute.
+  const outPath = resolve(
     repoRoot,
     arg("out", "plans/notes/benchmarks-latest.json"),
   );
@@ -684,7 +641,7 @@ async function main() {
       withoutPrism:
         "Simulated naive agent: list dirs, read manifests, scan/grep files",
       withPrism:
-        "Core SDK calls matching MCP tools (repository_dna, repository_overview, blast_radius, repository_health, find_symbol, test_impact, dependency_cycles)",
+        "Core SDK calls matching MCP tools (repository_overview, blast_radius, find, test_impact, dependency_cycles); the index Prism builds on its own is not counted, since no tool returns it",
     },
     machine: {
       platform: process.platform,

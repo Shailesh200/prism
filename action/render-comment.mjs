@@ -14,7 +14,7 @@ export const STICKY_MARKER = "<!-- prism-review-sticky -->";
  * @param {unknown} envelope Prism `{ ok, data }` JSON or a bare review object
  * @returns {string} Markdown body including the sticky marker
  */
-export function renderReviewComment(envelope) {
+export function renderReviewComment(envelope, receiptMarkdown = "") {
   const review = unwrapReview(envelope);
   const risk = Math.round(Number(review.overallRisk ?? 0));
   const band = bandLabel(risk);
@@ -36,9 +36,19 @@ export function renderReviewComment(envelope) {
     "",
   ];
 
+  const finish = () => {
+    const receipt = String(receiptMarkdown ?? "").trim();
+    if (receipt) lines.push("### Receipt", "", receipt, "");
+    lines.push(
+      "<sub>Posted by the [Prism Review](https://github.com/Shailesh200/prism/tree/main/action) GitHub Action. Re-runs update this comment in place.</sub>",
+      "",
+    );
+    return lines.join("\n");
+  };
+
   if (items.length === 0) {
     lines.push("_No changes to review._", "");
-    return lines.join("\n");
+    return finish();
   }
 
   lines.push(
@@ -77,11 +87,7 @@ export function renderReviewComment(envelope) {
     lines.push("");
   }
 
-  lines.push(
-    "<sub>Posted by the [Prism Review](https://github.com/Shailesh200/prism/tree/main/action) GitHub Action. Re-runs update this comment in place.</sub>",
-    "",
-  );
-  return lines.join("\n");
+  return finish();
 }
 
 function unwrapReview(envelope) {
@@ -133,5 +139,7 @@ if (isMain()) {
     process.exit(2);
   }
   const envelope = JSON.parse(readFileSync(path, "utf8"));
-  process.stdout.write(renderReviewComment(envelope));
+  const receiptPath = process.argv[3];
+  const receipt = receiptPath ? readFileSync(receiptPath, "utf8") : "";
+  process.stdout.write(renderReviewComment(envelope, receipt));
 }

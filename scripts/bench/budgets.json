@@ -21,7 +21,7 @@
   "reference": {
     "platform": "darwin",
     "arch": "arm64",
-    "node": "26.5.0",
+    "node": "24.18.1",
     "note": "Apple Silicon laptop, 2026-08-05. Absolute numbers are machine-dependent; the shape of the scaling is not."
   },
   "scales": {
@@ -33,38 +33,32 @@
         "index_incremental": 500,
         "dependency_graph": 60,
         "cycles": 60,
-        "repository_map": 1100,
         "blast_radius": 150,
-        "dna": 250,
-        "health": 200
+        "dna": 250
       }
     },
     "medium": {
-      "peakRssBytes": 2415919104,
+      "peakRssBytes": 1717986918,
       "operations": {
         "index_cold": 36000,
         "index_warm": 7000,
         "index_incremental": 4000,
         "dependency_graph": 100,
         "cycles": 100,
-        "repository_map": 2500,
         "blast_radius": 1200,
-        "dna": 800,
-        "health": 1400
+        "dna": 800
       }
     },
     "large": {
-      "peakRssBytes": 4294967296,
+      "peakRssBytes": 3221225472,
       "operations": {
         "index_cold": 190000,
         "index_warm": 55000,
         "index_incremental": 35000,
         "dependency_graph": 300,
         "cycles": 300,
-        "repository_map": 14000,
         "blast_radius": 16000,
-        "dna": 2500,
-        "health": 16000
+        "dna": 2500
       }
     }
   }

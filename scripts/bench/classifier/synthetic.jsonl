@@ -1,0 +1,368 @@
+{"text":"add a retry option to the etag middleware","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"refactor the JSX renderer so it is easier to test","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"rename useEffect to useEffectV2 everywhere","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"implement caching in the diff algorithm","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"remove the deprecated path from the debounce helper","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"update src/compat/array/lastIndexOf.ts to use async/await","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"make the port killer configurable via an env var","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"extract the parsing logic out of src/shared/next-free-port.ts into its own module","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"support a timeout in the tenant dashboard","label":"change","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"write tests for buildChangeReceipt","label":"change","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"can you add logging around compress","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"we need the JSX renderer to handle empty input","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"move useEffect into a shared util","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"replace the hand-rolled loop in src/diff/index.js with a map","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"let's add a feature flag for the debounce helper","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"the compat lastIndexOf should accept an options object","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"change the default in the port killer to false","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"please wire nextFreePort into the settings screen","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"convert the due date widget to TypeScript","label":"change","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"split packages/mcp-server/src/receipt.ts into two files","label":"change","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"introduce a type for the return value of compress","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"drop support for the old format in the JSX renderer","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"port the hooks module to the new API","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"clean up src/diff/index.js, it's a mess","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"can we show a loading spinner while the debounce helper runs","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"bump the limit in the compat lastIndexOf from 10 to 50","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"execFileSafe needs a jsdoc comment and a unit test","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"tweak the next-free-port finder so it returns early when disabled","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"add a retry option to the receipt builder","label":"change","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"refactor the etag middleware so it is easier to test","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"rename jsxRenderer to jsxRendererV2 everywhere","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"implement caching in the hooks module","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"remove the deprecated path from the diff algorithm","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"update src/function/debounce.ts to use async/await","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"make the compat lastIndexOf configurable via an env var","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"extract the parsing logic out of src/main/os/shell.ts into its own module","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"support a timeout in the next-free-port finder","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"write tests for nextDueDate","label":"change","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"can you add logging around buildChangeReceipt","label":"change","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"we need the etag middleware to handle empty input","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"move jsxRenderer into a shared util","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"replace the hand-rolled loop in hooks/src/index.js with a map","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"let's add a feature flag for the diff algorithm","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"the debounce helper should accept an options object","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"change the default in the compat lastIndexOf to false","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"please wire execFileSafe into the settings screen","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"convert src/shared/next-free-port.ts to TypeScript","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"split the due date widget into two files","label":"change","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"introduce a type for the return value of buildChangeReceipt","label":"change","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"drop support for the old format in the etag middleware","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"port the JSX renderer to the new API","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"clean up hooks/src/index.js, it's a mess","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"can we show a loading spinner while the diff algorithm runs","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"bump the limit in the debounce helper from 10 to 50","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"toArray needs a jsdoc comment and a unit test","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"tweak the port killer so it returns early when disabled","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"add a retry option to the tenant dashboard","label":"change","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"refactor the receipt builder so it is easier to test","label":"change","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"rename compress to compressV2 everywhere","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"implement caching in the JSX renderer","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"remove the deprecated path from the hooks module","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"update src/diff/index.js to use async/await","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"make the debounce helper configurable via an env var","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"extract the parsing logic out of src/compat/array/lastIndexOf.ts into its own module","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"support a timeout in the port killer","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"write tests for nextFreePort","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"can you add logging around nextDueDate","label":"change","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"we need the receipt builder to handle empty input","label":"change","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"move compress into a shared util","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"replace the hand-rolled loop in src/jsx/components.ts with a map","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"let's add a feature flag for the hooks module","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"the diff algorithm should accept an options object","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"change the default in the debounce helper to false","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"please wire toArray into the settings screen","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"convert src/main/os/shell.ts to TypeScript","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"split src/shared/next-free-port.ts into two files","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"introduce a type for the return value of nextDueDate","label":"change","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"drop support for the old format in the receipt builder","label":"change","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"port the etag middleware to the new API","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"clean up src/jsx/components.ts, it's a mess","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"can we show a loading spinner while the hooks module runs","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"bump the limit in the diff algorithm from 10 to 50","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"debounce needs a jsdoc comment and a unit test","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"tweak the compat lastIndexOf so it returns early when disabled","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"add a retry option to the next-free-port finder","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"refactor the tenant dashboard so it is easier to test","label":"change","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"rename buildChangeReceipt to buildChangeReceiptV2 everywhere","label":"change","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"implement caching in the etag middleware","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"remove the deprecated path from the JSX renderer","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"update hooks/src/index.js to use async/await","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"make the diff algorithm configurable via an env var","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"extract the parsing logic out of src/function/debounce.ts into its own module","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"support a timeout in the compat lastIndexOf","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"write tests for execFileSafe","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"can you add logging around nextFreePort","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"we need the tenant dashboard to handle empty input","label":"change","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"move buildChangeReceipt into a shared util","label":"change","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"replace the hand-rolled loop in src/middleware/etag/index.ts with a map","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"let's add a feature flag for the JSX renderer","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"the hooks module should accept an options object","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"change the default in the diff algorithm to false","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"please wire debounce into the settings screen","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"convert src/compat/array/lastIndexOf.ts to TypeScript","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"split src/main/os/shell.ts into two files","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"introduce a type for the return value of nextFreePort","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"drop support for the old format in the tenant dashboard","label":"change","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"port the receipt builder to the new API","label":"change","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"clean up src/middleware/etag/index.ts, it's a mess","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"can we show a loading spinner while the JSX renderer runs","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"bump the limit in the hooks module from 10 to 50","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"diffChildren needs a jsdoc comment and a unit test","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"tweak the debounce helper so it returns early when disabled","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"add a retry option to the port killer","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"refactor the next-free-port finder so it is easier to test","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"rename nextDueDate to nextDueDateV2 everywhere","label":"change","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"implement caching in the receipt builder","label":"change","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"remove the deprecated path from the etag middleware","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"update src/jsx/components.ts to use async/await","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"make the hooks module configurable via an env var","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"extract the parsing logic out of src/diff/index.js into its own module","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"support a timeout in the debounce helper","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"write tests for toArray","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"can you add logging around execFileSafe","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"we need the next-free-port finder to handle empty input","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"move nextDueDate into a shared util","label":"change","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"replace the hand-rolled loop in packages/mcp-server/src/receipt.ts with a map","label":"change","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"let's add a feature flag for the etag middleware","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"the JSX renderer should accept an options object","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"change the default in the hooks module to false","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"please wire diffChildren into the settings screen","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"convert src/function/debounce.ts to TypeScript","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"split src/compat/array/lastIndexOf.ts into two files","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"introduce a type for the return value of execFileSafe","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"drop support for the old format in the next-free-port finder","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"port the tenant dashboard to the new API","label":"change","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"clean up packages/mcp-server/src/receipt.ts, it's a mess","label":"change","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"can we show a loading spinner while the etag middleware runs","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"bump the limit in the JSX renderer from 10 to 50","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"useEffect needs a jsdoc comment and a unit test","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"tweak the diff algorithm so it returns early when disabled","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"add a retry option to the compat lastIndexOf","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"refactor the port killer so it is easier to test","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"rename nextFreePort to nextFreePortV2 everywhere","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"implement caching in the tenant dashboard","label":"change","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"remove the deprecated path from the receipt builder","label":"change","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"update src/middleware/etag/index.ts to use async/await","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"make the JSX renderer configurable via an env var","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"extract the parsing logic out of hooks/src/index.js into its own module","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"support a timeout in the diff algorithm","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"write tests for debounce","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"can you add logging around toArray","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"we need the port killer to handle empty input","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"move nextFreePort into a shared util","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"replace the hand-rolled loop in the due date widget with a map","label":"change","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"let's add a feature flag for the receipt builder","label":"change","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"the etag middleware should accept an options object","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"change the default in the JSX renderer to false","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"please wire useEffect into the settings screen","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"convert src/diff/index.js to TypeScript","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"split src/function/debounce.ts into two files","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"introduce a type for the return value of toArray","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"drop support for the old format in the port killer","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"port the next-free-port finder to the new API","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"clean up the due date widget, it's a mess","label":"change","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"can we show a loading spinner while the receipt builder runs","label":"change","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"bump the limit in the etag middleware from 10 to 50","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"jsxRenderer needs a jsdoc comment and a unit test","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"tweak the hooks module so it returns early when disabled","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"add a retry option to the debounce helper","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"refactor the compat lastIndexOf so it is easier to test","label":"change","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"rename execFileSafe to execFileSafeV2 everywhere","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"implement caching in the next-free-port finder","label":"change","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"remove the deprecated path from the tenant dashboard","label":"change","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"update packages/mcp-server/src/receipt.ts to use async/await","label":"change","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"make the etag middleware configurable via an env var","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"extract the parsing logic out of src/jsx/components.ts into its own module","label":"change","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"support a timeout in the hooks module","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"write tests for diffChildren","label":"change","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"the etag middleware crashes when the input is null","label":"bug","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"jsxRenderer returns the wrong value on leap years","label":"bug","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"tests in hooks/src/index.js are failing after my last change, fix them","label":"bug","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"there's an off-by-one in diffChildren","label":"bug","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"the debounce helper hangs forever on Windows","label":"bug","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"TypeError: cannot read properties of undefined in src/compat/array/lastIndexOf.ts","label":"bug","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"why does execFileSafe throw sometimes? fix it","label":"bug","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"the next-free-port finder silently swallows errors","label":"bug","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"memory leak in the tenant dashboard after many calls","label":"bug","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"the receipt builder is broken since yesterday's merge","label":"bug","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"the JSX renderer crashes when the input is null","label":"bug","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"useEffect returns the wrong value on leap years","label":"bug","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"tests in src/diff/index.js are failing after my last change, fix them","label":"bug","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"there's an off-by-one in debounce","label":"bug","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"the compat lastIndexOf hangs forever on Windows","label":"bug","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"TypeError: cannot read properties of undefined in src/main/os/shell.ts","label":"bug","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"why does nextFreePort throw sometimes? fix it","label":"bug","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"the tenant dashboard silently swallows errors","label":"bug","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"memory leak in the receipt builder after many calls","label":"bug","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"the etag middleware is broken since yesterday's merge","label":"bug","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"the hooks module crashes when the input is null","label":"bug","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"diffChildren returns the wrong value on leap years","label":"bug","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"tests in src/function/debounce.ts are failing after my last change, fix them","label":"bug","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"review my changes before I open a PR","label":"review","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"can you review the diff in src/jsx/components.ts","label":"review","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"look over what I changed in the hooks module and tell me if anything is risky","label":"review","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"is this change to diffChildren safe to merge?","label":"review","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"give me a code review of src/function/debounce.ts","label":"review","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"double-check my edits to toArray before I push","label":"review","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"any concerns with how I refactored the port killer?","label":"review","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"does my change to src/shared/next-free-port.ts need more tests?","label":"review","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"sanity check the work on the tenant dashboard","label":"review","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"review the PR that touches buildChangeReceipt","label":"review","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"what did I break in the etag middleware, if anything?","label":"review","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"audit my changes around jsxRenderer","label":"review","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"can you review the diff in src/function/debounce.ts","label":"review","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"look over what I changed in the compat lastIndexOf and tell me if anything is risky","label":"review","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"is this change to execFileSafe safe to merge?","label":"review","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"give me a code review of src/shared/next-free-port.ts","label":"review","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"double-check my edits to nextDueDate before I push","label":"review","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"any concerns with how I refactored the receipt builder?","label":"review","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"does my change to src/middleware/etag/index.ts need more tests?","label":"review","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"sanity check the work on the JSX renderer","label":"review","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"review the PR that touches useEffect","label":"review","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"what did I break in the diff algorithm, if anything?","label":"review","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"audit my changes around debounce","label":"review","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"can you review the diff in src/shared/next-free-port.ts","label":"review","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"look over what I changed in the tenant dashboard and tell me if anything is risky","label":"review","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"is this change to buildChangeReceipt safe to merge?","label":"review","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"give me a code review of src/middleware/etag/index.ts","label":"review","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"double-check my edits to jsxRenderer before I push","label":"review","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"any concerns with how I refactored the hooks module?","label":"review","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"does my change to src/diff/index.js need more tests?","label":"review","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"sanity check the work on the debounce helper","label":"review","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"review the PR that touches toArray","label":"review","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"what did I break in the port killer, if anything?","label":"review","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"audit my changes around nextFreePort","label":"review","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"can you review the diff in src/middleware/etag/index.ts","label":"review","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"look over what I changed in the JSX renderer and tell me if anything is risky","label":"review","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"is this change to useEffect safe to merge?","label":"review","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"give me a code review of src/diff/index.js","label":"review","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"double-check my edits to debounce before I push","label":"review","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"any concerns with how I refactored the compat lastIndexOf?","label":"review","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"does my change to src/main/os/shell.ts need more tests?","label":"review","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"sanity check the work on the next-free-port finder","label":"review","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"review the PR that touches nextDueDate","label":"review","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"what did I break in the receipt builder, if anything?","label":"review","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"audit my changes around compress","label":"review","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"can you review the diff in src/diff/index.js","label":"review","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"look over what I changed in the debounce helper and tell me if anything is risky","label":"review","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"is this change to toArray safe to merge?","label":"review","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"give me a code review of src/main/os/shell.ts","label":"review","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"double-check my edits to nextFreePort before I push","label":"review","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"any concerns with how I refactored the tenant dashboard?","label":"review","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"does my change to packages/mcp-server/src/receipt.ts need more tests?","label":"review","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"sanity check the work on the etag middleware","label":"review","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"review the PR that touches jsxRenderer","label":"review","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"what did I break in the hooks module, if anything?","label":"review","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"audit my changes around diffChildren","label":"review","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"can you review the diff in src/main/os/shell.ts","label":"review","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"look over what I changed in the next-free-port finder and tell me if anything is risky","label":"review","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"is this change to nextDueDate safe to merge?","label":"review","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"give me a code review of packages/mcp-server/src/receipt.ts","label":"review","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"what does compress do?","label":"question","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"where is the JSX renderer defined?","label":"question","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"how does the hooks module work?","label":"question","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"who calls diffChildren?","label":"question","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"explain src/function/debounce.ts to me","label":"question","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"what tests cover toArray?","label":"question","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"what would break if I changed execFileSafe?","label":"question","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"is the next-free-port finder used anywhere else?","label":"question","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"how is the project structured?","label":"question","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"which files are the entry points?","label":"question","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"what's the difference between compress and the old version?","label":"question","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"why is the JSX renderer written this way?","label":"question","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"what does diffChildren do?","label":"question","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"where is the debounce helper defined?","label":"question","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"how does the compat lastIndexOf work?","label":"question","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"who calls execFileSafe?","label":"question","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"explain src/shared/next-free-port.ts to me","label":"question","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"what tests cover nextDueDate?","label":"question","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"what would break if I changed buildChangeReceipt?","label":"question","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"is the etag middleware used anywhere else?","label":"question","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"what's the difference between diffChildren and the old version?","label":"question","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"why is the debounce helper written this way?","label":"question","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"what does execFileSafe do?","label":"question","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"where is the next-free-port finder defined?","label":"question","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"how does the tenant dashboard work?","label":"question","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"who calls buildChangeReceipt?","label":"question","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"explain src/middleware/etag/index.ts to me","label":"question","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"what tests cover jsxRenderer?","label":"question","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"what would break if I changed useEffect?","label":"question","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"is the diff algorithm used anywhere else?","label":"question","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"what's the difference between execFileSafe and the old version?","label":"question","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"why is the next-free-port finder written this way?","label":"question","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"what does buildChangeReceipt do?","label":"question","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"where is the etag middleware defined?","label":"question","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"how does the JSX renderer work?","label":"question","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"who calls useEffect?","label":"question","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"explain src/diff/index.js to me","label":"question","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"what tests cover debounce?","label":"question","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"what would break if I changed toArray?","label":"question","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"is the port killer used anywhere else?","label":"question","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"what's the difference between buildChangeReceipt and the old version?","label":"question","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"why is the etag middleware written this way?","label":"question","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"what does useEffect do?","label":"question","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"where is the diff algorithm defined?","label":"question","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"how does the debounce helper work?","label":"question","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"who calls toArray?","label":"question","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"explain src/main/os/shell.ts to me","label":"question","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"what tests cover nextFreePort?","label":"question","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"what would break if I changed nextDueDate?","label":"question","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"is the receipt builder used anywhere else?","label":"question","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"what's the difference between useEffect and the old version?","label":"question","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"why is the diff algorithm written this way?","label":"question","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"what does toArray do?","label":"question","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"where is the port killer defined?","label":"question","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"how does the next-free-port finder work?","label":"question","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"who calls nextDueDate?","label":"question","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"explain packages/mcp-server/src/receipt.ts to me","label":"question","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"hi","label":"chitchat","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"thanks!","label":"chitchat","lang":"en","source":"synthetic","repo":"hono"}
+{"text":"ok","label":"chitchat","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"sounds good","label":"chitchat","lang":"en","source":"synthetic","repo":"preact"}
+{"text":"great work","label":"chitchat","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"hello there","label":"chitchat","lang":"en","source":"synthetic","repo":"es-toolkit"}
+{"text":"cool","label":"chitchat","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"nice, thank you","label":"chitchat","lang":"en","source":"synthetic","repo":"portpilot"}
+{"text":"good morning","label":"chitchat","lang":"en","source":"synthetic","repo":"tenant-app"}
+{"text":"got it","label":"chitchat","lang":"en","source":"synthetic","repo":"prism"}
+{"text":"compress में एक retry विकल्प जोड़ो","label":"change","lang":"other","source":"synthetic","repo":"hono"}
+{"text":"the JSX renderer को ठीक करो, यह क्रैश हो रहा है","label":"change","lang":"other","source":"synthetic","repo":"hono"}
+{"text":"useEffect の名前を useEffectV2 に変更してください","label":"change","lang":"other","source":"synthetic","repo":"preact"}
+{"text":"the diff algorithm にタイムアウトを追加して","label":"change","lang":"other","source":"synthetic","repo":"preact"}
+{"text":"ajoute une option de délai à debounce","label":"change","lang":"other","source":"synthetic","repo":"es-toolkit"}
+{"text":"corrige le bug dans src/compat/array/lastIndexOf.ts","label":"change","lang":"other","source":"synthetic","repo":"es-toolkit"}
+{"text":"füge execFileSafe einen Test hinzu","label":"change","lang":"other","source":"synthetic","repo":"portpilot"}
+{"text":"behebe den Fehler in the next-free-port finder","label":"change","lang":"other","source":"synthetic","repo":"portpilot"}
+{"text":"añade registro a nextDueDate","label":"change","lang":"other","source":"synthetic","repo":"tenant-app"}
+{"text":"arregla the receipt builder, falla en Windows","label":"change","lang":"other","source":"synthetic","repo":"prism"}
+{"text":"给 compress 添加重试选项","label":"change","lang":"other","source":"synthetic","repo":"hono"}
+{"text":"修复 src/jsx/components.ts 中的错误","label":"change","lang":"other","source":"synthetic","repo":"hono"}
+{"text":"useEffect에 타임아웃을 추가해 주세요","label":"change","lang":"other","source":"synthetic","repo":"preact"}
+{"text":"adicione cache em the diff algorithm","label":"change","lang":"other","source":"synthetic","repo":"preact"}
+{"text":"debounce için bir test yaz","label":"change","lang":"other","source":"synthetic","repo":"es-toolkit"}
+{"text":"исправь ошибку в src/compat/array/lastIndexOf.ts","label":"change","lang":"other","source":"synthetic","repo":"es-toolkit"}
+{"text":"aggiungi un'opzione a execFileSafe","label":"change","lang":"other","source":"synthetic","repo":"portpilot"}
+{"text":"the next-free-port finder ko theek karo, kaam nahi kar raha","label":"change","lang":"other","source":"synthetic","repo":"portpilot"}
+{"text":"nextDueDate ka naam badal do","label":"change","lang":"other","source":"synthetic","repo":"tenant-app"}
+{"text":"refactoriza packages/mcp-server/src/receipt.ts","label":"change","lang":"other","source":"synthetic","repo":"prism"}
+{"text":"jsxRenderer में एक retry विकल्प जोड़ो","label":"change","lang":"other","source":"synthetic","repo":"hono"}
+{"text":"the hooks module को ठीक करो, यह क्रैश हो रहा है","label":"change","lang":"other","source":"synthetic","repo":"preact"}
+{"text":"diffChildren の名前を diffChildrenV2 に変更してください","label":"change","lang":"other","source":"synthetic","repo":"preact"}
+{"text":"the debounce helper にタイムアウトを追加して","label":"change","lang":"other","source":"synthetic","repo":"es-toolkit"}
+{"text":"ajoute une option de délai à toArray","label":"change","lang":"other","source":"synthetic","repo":"es-toolkit"}
+{"text":"corrige le bug dans src/main/os/shell.ts","label":"change","lang":"other","source":"synthetic","repo":"portpilot"}
+{"text":"füge nextFreePort einen Test hinzu","label":"change","lang":"other","source":"synthetic","repo":"portpilot"}
+{"text":"behebe den Fehler in the tenant dashboard","label":"change","lang":"other","source":"synthetic","repo":"tenant-app"}
+{"text":"añade registro a buildChangeReceipt","label":"change","lang":"other","source":"synthetic","repo":"prism"}
+{"text":"arregla the etag middleware, falla en Windows","label":"change","lang":"other","source":"synthetic","repo":"hono"}
+{"text":"给 jsxRenderer 添加重试选项","label":"change","lang":"other","source":"synthetic","repo":"hono"}
+{"text":"修复 hooks/src/index.js 中的错误","label":"change","lang":"other","source":"synthetic","repo":"preact"}
+{"text":"diffChildren에 타임아웃을 추가해 주세요","label":"change","lang":"other","source":"synthetic","repo":"preact"}
+{"text":"adicione cache em the debounce helper","label":"change","lang":"other","source":"synthetic","repo":"es-toolkit"}
+{"text":"toArray için bir test yaz","label":"change","lang":"other","source":"synthetic","repo":"es-toolkit"}
+{"text":"исправь ошибку в src/main/os/shell.ts","label":"change","lang":"other","source":"synthetic","repo":"portpilot"}
+{"text":"aggiungi un'opzione a nextFreePort","label":"change","lang":"other","source":"synthetic","repo":"portpilot"}
+{"text":"the tenant dashboard ko theek karo, kaam nahi kar raha","label":"change","lang":"other","source":"synthetic","repo":"tenant-app"}
+{"text":"buildChangeReceipt ka naam badal do","label":"change","lang":"other","source":"synthetic","repo":"prism"}
+{"text":"refactoriza src/middleware/etag/index.ts","label":"change","lang":"other","source":"synthetic","repo":"hono"}
