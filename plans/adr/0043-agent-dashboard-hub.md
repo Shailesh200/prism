@@ -5,7 +5,7 @@
 | Status | Accepted |
 | Date | 2026-08-31 |
 | Decision makers | Owner, Architect |
-| Related milestones | [M-064](../milestones/M-064_agent-dashboard.md) |
+| Related milestones | [M-064](../archive/milestones/M-064_agent-dashboard.md) |
 | Amends | [ADR-0035](./0035-dispatch-vertical.md) |
 
 ## Context

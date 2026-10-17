@@ -1,0 +1,42 @@
+{
+  "benchmark": "B7-classifier",
+  "classifier": "hook-regex",
+  "recordedAt": "2026-10-14T08:05:17.493Z",
+  "gate": {
+    "changeRecall": 0.95,
+    "questionFalsePositive": 0.05,
+    "nonEnglishNoPack": 1
+  },
+  "sets": {
+    "synthetic": {
+      "total": 368,
+      "english": 328,
+      "nonEnglish": 40,
+      "changeRecall": 0.756,
+      "questionFalsePositive": 0.123,
+      "chitchatFalsePositive": 0,
+      "reviewPacked": 0.283,
+      "nonEnglishNoPack": 0.95
+    },
+    "owner": {
+      "total": 72,
+      "english": 72,
+      "nonEnglish": 0,
+      "changeRecall": 0.641,
+      "questionFalsePositive": 0.13,
+      "chitchatFalsePositive": 0,
+      "reviewPacked": null,
+      "nonEnglishNoPack": null
+    }
+  },
+  "combined": {
+    "total": 440,
+    "english": 400,
+    "nonEnglish": 40,
+    "changeRecall": 0.738,
+    "questionFalsePositive": 0.125,
+    "chitchatFalsePositive": 0,
+    "reviewPacked": 0.283,
+    "nonEnglishNoPack": 0.95
+  }
+}

@@ -2,14 +2,19 @@
 
 > **Status:** APPROVED  
 > **Version:** 0.1.0  
-> **Last updated:** 2026-09-17  
+> **Last updated:** 2026-10-17 (status brought in line with the code; see §3 banner)  
 > **Approved:** 2026-07-20 (owner)  
 > **Supersedes working name:** RepoPulse  
 > **Single source of truth** for product architecture, milestones, and engineering workflow.
 
-**Master Plan approved.** Core, the map, impact analysis and the VS Code /
-Cursor extensions have shipped; MCP and CLI are the remaining surfaces. Current
-milestone status lives in [`PROGRESS.md`](./PROGRESS.md).
+**Master Plan approved.** As of 17 Oct 2026, Prism is **Prism 2.0**: "Your agent's
+second pair of eyes." It is a local MCP server, CLI, daemon and hooks for coding
+agents. The hero features are **Prepare** and **Lens Review**, and the receipt
+closes every change. The Dashboard, IDE extensions, Dispatch and Envelope are gone.
+The active plan is the 2.0 unified plan ([`notes/prism-unified-plan.md`](./notes/prism-unified-plan.md),
+ADR-0067) on top of [`PROGRAM_focus-reset.md`](./milestones/PROGRAM_focus-reset.md).
+Current milestone status lives in [`PROGRESS.md`](./PROGRESS.md). Sections below
+that describe the Dashboard, the IDE or Prismate are history.
 
 ---
 
@@ -32,9 +37,11 @@ This plan defines a **milestone-driven** roadmap. Each milestone is independentl
 
 ## 2. Product Vision
 
-> **Google Maps + Engineering Intelligence + MCP Tools for Software**
+> **Local repository intelligence for agents — and one Dashboard for the humans who watch them**
 
-Prism makes a repository spatially navigable and analytically queryable—offline, private, and AI-agnostic.
+Prism tells an agent (and a human) what a repository is, what to open, what
+already exists, what will break, and how much of an answer reached the model.
+Offline, private, AI-agnostic. Not an LLM product. Not three apps.
 
 ### Product Principles
 
@@ -56,34 +63,72 @@ Prism makes a repository spatially navigable and analytically queryable—offlin
 
 ## 3. Product Deliverables
 
-### 3.1 Prism Core
+**One product:** **Prismate**. Surfaces are hosts, not SKUs. Dispatch is
+the job runtime (UI: Jobs). Spectrum / Repository Map and Domains are not
+products. See ADR-0057 and
+[`PROGRAM_prism-2.0.md`](./archive/milestones/PROGRAM_prism-2.0.md).
 
-Shared intelligence engine:
+> **Redirect in progress (M-079, 2026-10-06; ADR-0058 + ADR-0059 Accepted).** Prism stops
+> running agents ([ADR-0058](./adr/0058-prism-does-not-run-agents.md)). It
+> becomes the safety layer host agents run through: hooks, a change receipt,
+> and **Lenses** (Architect / QA / Dev review lenses thought by the host's
+> model — [ADR-0059](./adr/0059-lenses.md)). Jobs leaves the product as
+> M-079 phase 2 lands. See
+> [`M-079_safety-layer.md`](./archive/milestones/M-079_safety-layer.md).
+
+> **Current product (17 Oct 2026). This replaces the rest of §3:**
+> - **Prism 2.0**, published as `@repo-prism/*` (13 packages at `2.0.0`, not yet published). Site `prismhq.in`. GitHub `Shailesh200/prism`.
+> - **Surfaces:** MCP server, with 9 default tools (`prepare_change`, `blast_radius`, `guard_session`, `test_impact`, `habits`, `safe_delete`, `rename_impact`, `repository_overview`, `graph`) and opt-in extras including `receipt`. Also the `prism` CLI (`prism start`, `install`, `review [--lens]`, `lens`, `habit`, `receipts`, `graph`, `doctor`), the local daemon, the hooks for Claude Code / Cursor / Codex / opencode, and the GitHub Action.
+> - **Hero:** Prepare (before an edit) and Lens Review (Dev / Architect / QA, after). The receipt verdict is `SHIP` / `NOT PROVEN` / `NO-SHIP`. Habits are skills (`~/.prism/skills/<slug>/SKILL.md`).
+> - **Removed:** Dispatch, the Dashboard / Console / playground, the VS Code and Cursor extensions, the health / report / feature tools (`f45ccb7`), and Envelope (17 Oct 2026).
+> - **Release:** 2.0.0 once, after the reliability work (round 4 running). The deploy follows the owner's review on 18 Oct. See [`RELEASE_RUNBOOK.md`](./RELEASE_RUNBOOK.md).
+
+> **Focus Reset approved (owner, 2026-10-10).** This section's Prismate identity is superseded by
+> [`PROGRAM_focus-reset.md`](./milestones/PROGRAM_focus-reset.md) and ADR-0060–0066: the product
+> stays **Prism**; the hero is **Prepare + ~~Envelope~~** (Envelope removed 17 Oct 2026; now Prepare + Lens Review) with the **Receipt** closing every change
+> and an always-fresh **Prism Graph** underneath; Dispatch is removed. Node pin is **24.18.1**.
+> Sequence M-088 → M-100, built on `milestone/M-087-focus-reset-plan`. The paragraphs below are
+> the previous contract and are kept until M-100 rewrites them.
+
+### 3.1 Prism Intelligence (Core + engine)
+
+Shared local engine. Public SDK remains `@repo-prism/core`. Internals collapse
+toward `packages/engine` folders in M-083 (no algorithm rewrite):
 
 - Repository indexing (full + incremental)
 - Static / AST analysis
-- Semantic Knowledge Graph
-- Feature Graph
-- Dependency Graph
-- Repository Intelligence (DNA, detection, health)
-- Change Impact Analysis
+- Graphs (dependency, semantic, feature) — taught via overview + verbs, not as extra products
+- Repository Intelligence (DNA, detection, health, Prepare, Envelope, findings)
+- Change Impact Analysis + Guard
 - Engineering Health metrics
 
-### 3.2 VS Code Extension
+Jobs runtime is **not** inside Core (ADR-0035).
 
-Human IDE surface: Repository Map, Explorer, Blast Radius, Health, Code Explorer, Smart Navigation, Insights, overlays.
+### 3.2 Prism Dashboard (one rail, three hosts)
 
-### 3.3 Cursor Extension
+Overview · Iris · Jobs · Skills · DNA Analysis · Trends · Impact & Guard ·
+Integrations · Settings
 
-Native Cursor experience sharing the same Core (and preferably the same extension package where API parity allows).
+Hosts: loopback daemon, IDE webview, public `/demo` (read-only fixture). Same
+bundle. Dashboard Jobs is history / land / Findings — no Pause/Cancel/Resume.
+Live Relay is superseded (M-079 redirect); under ADR-0058 the Jobs tab is
+removed in M-079 phase 2, Findings move to Impact & Guard, and a Lenses view
+lands in M-079 phase 7.
 
-### 3.4 MCP Server
+### 3.3 MCP Server + CLI
 
-Expose Prism intelligence to Cursor Agents, Claude Code, Gemini CLI, Codex CLI, and any MCP client.
+Same information architecture as the rail. Agents: one orientation
+(`repository_overview`) plus expansions and verbs. CLI groups like the rail;
+Advertised MCP add is
+`claude mcp add --transport http prism https://app.prismate.io/mcp/`.
+Published npm: `@prismate/mcp`, `cli`, `core`. IDE is Marketplace-only.
+Site **`prismate.io`**, app **`app.prismate.io`**.
+GitHub org **`prismate`**.
 
-### 3.5 CLI
+### 3.4 IDE extensions
 
-Local analysis for scripting and CI (`prism analyze`, `prism health`, `prism blast-radius`, …).
+VS Code and Cursor load the same Dashboard webview (host-session). Not a
+second map app. Packaging overlay (ADR-0020) stays until M-084.
 
 ---
 
@@ -118,11 +163,10 @@ Tooling/CI detail: [`TOOLING_AND_CI.md`](./TOOLING_AND_CI.md)
 ### 4.2 Bun + Node + moon notes
 
 - Contributors use **Bun** for install and scripts; **moon** for task orchestration (`moon run …`).
-- moon pins **Node 26** + Bun versions for reproducible local/CI toolchains.
+- moon pins **Node 24.18.1** + Bun versions for reproducible local/CI toolchains (relocked by ADR-0061, 2026-10-10; was Node 26).
 - **VS Code / Cursor extension host runs Node** — Core must stay Node-compatible (hence better-sqlite3, not Bun-only sqlite).
-- Pin: root `engines.node = ">=26.5.0 <27"` (a range — consumers need
-  compatibility, not an exact build), with the exact version in `.nvmrc` and
-  `.moon/toolchain.yml`. CI reads `.nvmrc` so the three cannot drift (M-051).
+- Pin: root `engines.node = ">=24.18.1 <25"`, with the exact version in `.nvmrc` and
+  `.moon/toolchain.yml`. CI reads `.nvmrc` so the three cannot drift (M-051, relocked M-089).
 
 ### 4.3 Parser strategy (speed vs semantics)
 
@@ -209,7 +253,7 @@ Before any monorepo / product code (M-001+), produce owner-reviewed docs under `
 | `05_DATA_FLOWS.md` | Index → cache → graphs → Core API → MCP/CLI/IDE sequences |
 | `06_PACKAGE_RESPONSIBILITIES.md` | What each `@repo-prism/*` owns / does not own |
 
-Full DoD: [`milestones/M-000_architecture-documentation.md`](./milestones/M-000_architecture-documentation.md).
+Full DoD: [`archive/milestones/M-000_architecture-documentation.md`](./archive/milestones/M-000_architecture-documentation.md).
 
 ---
 
@@ -529,8 +573,39 @@ flowchart TD
 | M-074 | Bloat + Job Cost | Surfaces | M-073 | Yes |
 | M-075 | Symbol memory + ADR nodes | Surfaces | M-074 | Yes |
 | M-076 | Work orders + hook (advisory) | Surfaces | M-075 | Yes |
+| M-077 | Prism 2.0 (product contract) | Plan | M-076 | Yes |
+| — | Land `fix/mcp-console-dashboard-sanity` on `main` | Surfaces | M-077 | — |
+| M-078 | Dashboard shell (one rail, sanitize) | Surfaces | Sanity on main | Yes |
+| M-079 | Safety layer + Lenses (replaces Jobs Live Relay; phases 0–8) | Surfaces | M-078 | Yes |
+| M-080 | Agent + CLI IA (loopback HTTP `/mcp`) | Surfaces | M-079 | Yes |
+| M-081 | Marketplace publisher rename | Surfaces | M-080 | Yes |
+| M-082 | One Dashboard package | Surfaces | M-081 | Yes |
+| M-083 | Engine package merge | Core | M-082 | Yes |
+| M-084 | Surfaces + IDE merge | Surfaces | M-083 | Yes |
+| M-085 | Docs trim | Docs | M-084 | Yes |
+| M-086 | Website + `/demo` + identity cutover | Surfaces | M-085 | Yes |
+| M-087 | Focus Reset Plan (docs) | Docs | — | Yes |
+| M-088 | Prism identity + hero copy | Docs / copy | M-087 | Yes |
+| M-089 | One build everywhere | Tooling | M-088 | Yes |
+| M-090 | Hygiene | Tooling | M-089 | Yes |
+| M-091 | Surface cut | Surfaces | M-090 | Yes |
+| M-092 | Receipt v2 | Safety | M-091 | Yes |
+| M-093 | Prepare v2 | Intelligence | M-092 | Yes |
+| M-094 | Envelope v2 | Intelligence | M-093 | Yes |
+| M-095 | Graph daemon | Core | M-094 | Yes |
+| M-096 | Graph model + artifact + `graph` tool | Graphs | M-095 | Yes |
+| M-097 | First run in 60s | Surfaces | M-096 | Yes |
+| M-098 | Proof with Claude Code | Proof | M-097 | Yes |
+| M-099 | Delete Dispatch + dead UI | Cleanup | M-098 | Yes |
+| M-100 | Relaunch | Distribution | M-099 | Yes |
+
+**Status 17 Oct 2026:** for the current status of every row from M-058 on (Done, Built, Obsolete, Absorbed, Deferred), see [`PROGRESS.md`](./PROGRESS.md). Obsolete and absorbed docs are in `archive/milestones/`. M-094 (Envelope) is obsolete.
 
 Agent-native Cuts 1–3 (M-069–M-076) are **done**. T1/T2/T3 proofs recorded. **Cut 4 (cloud / paid) is set aside.**
+
+**Safety layer (M-079):** Prism stops running agents; hooks + change receipt + Lenses in one phased milestone, gated by a replay benchmark (phase 1) and a kill test (end of phase 5). See [`M-079_safety-layer.md`](./archive/milestones/M-079_safety-layer.md). Prism 2.0 resumes at M-080 afterwards.
+
+**Prism 2.0 (M-077–M-086):** one product, one Dashboard, fewer packages. Live Relay (old M-079) is superseded by the safety layer. Demo + domain / `app.` / GitHub / npm org cutover is **last** (M-086). Sanity already on local `main`. Every row uses §8.1 + §9 + §10. See [`PROGRAM_prism-2.0.md`](./archive/milestones/PROGRAM_prism-2.0.md).
 
 **Critical path (must stay green):** M-001 → M-005 → M-040 → M-014 → **M-041 Gate A** (P0 + P1 + Mono-v1) → M-017 → M-018 → M-025 → surfaces (M-026/M-028/M-030) → M-039.  
 **M-041 continued:** phases P2–P7 + Mono-v2 may run after Gate A (Map unblocked); still tracked as M-041 until epic complete.
@@ -541,7 +616,11 @@ Agent-native Cuts 1–3 (M-069–M-076) are **done**. T1/T2/T3 proofs recorded. 
 
 | Feature / Module | Primary milestones | Notes |
 |---|---|---|
-| Repository Map (interactive) | M-017, M-018, M-019, M-031 | Hero feature; data then UI then IDE |
+| Repository Map (engine) | M-017, M-018, M-019, M-031 | Shipped; **unmounted from the product** in M-078 (ADR-0057). `getRepositoryMap` stays |
+| Safety layer (hooks, change receipt) | M-079 phases 1–3, 5, 6, 8 | Replaces Jobs Live Relay; ADR-0058 |
+| Lenses (Architect / QA / Dev review) | M-079 phases 4, 5, 7 | ADR-0059; host model thinks, stored under `~/.prism` |
+| Marketplace publisher | M-081 | **Obsolete**: cancelled (ADR-0060); IDE extensions deleted |
+| Public demo + identity cutover | M-086 | **Obsolete**: identity cancelled (ADR-0060); `/demo` out of scope for 2.0 |
 | Zoom levels / layers | M-017, M-019 | Architecture, deps, activity, ownership, debt, risk, perf, coverage |
 | Feature-first navigation | M-012, M-016, M-019 | |
 | Search / bookmarks / landmarks | M-017, M-019, M-031 | |
@@ -626,7 +705,7 @@ Critical-path milestones have full documents under `plans/milestones/`. Others a
 ### 15.1 Summaries (non-critical-path detail)
 
 #### M-015 — Repository Health Score v1
-- Full doc: [`milestones/M-015_health-score.md`](./milestones/M-015_health-score.md) · weighting: [ADR-0012](./adr/0012-health-score-weighting.md)
+- Full doc: [`archive/milestones/M-015_health-score.md`](./archive/milestones/M-015_health-score.md) · weighting: [ADR-0012](./adr/0012-health-score-weighting.md)
 - Inputs: parse health, test presence, coupling (cycles), modularity, diagnostics (local index/graphs; no git churn in v1)
 - Output: `HealthScore` with score 0–100 + grade + factors
 - DoD: deterministic scores; Core `getHealth()`; ADR-0012
@@ -671,20 +750,20 @@ Critical-path milestones have full documents under `plans/milestones/`. Others a
 
 #### M-047 — Extension Marketplace
 - Staged VSIX packaging for Marketplace / Open VSX ([ADR-0025](./adr/0025-marketplace-packaging.md))
-- Full doc: [`milestones/M-047_extension-marketplace.md`](./milestones/M-047_extension-marketplace.md)
+- Full doc: [`archive/milestones/M-047_extension-marketplace.md`](./archive/milestones/M-047_extension-marketplace.md)
 - DoD: packageable VSIX + PUBLISH.md; owner publishes with publisher PAT
 
 #### M-048 — Extension Product Epic
 - Polish + incremental watch (ADR-0026; supersedes M-033) + editor surfaces,
   trust/onboarding, change review, explain cards, bookmarks, package/multi-root,
   health alerts; Phase 8 blast depth **deferred to M-049**
-- Full doc: [`milestones/M-048_extension-polish.md`](./milestones/M-048_extension-polish.md)
+- Full doc: [`archive/milestones/M-048_extension-polish.md`](./archive/milestones/M-048_extension-polish.md)
 - DoD: Necessary + High-leverage extension loop before MCP (Phases 0–7 Verified)
 
 #### M-049 — Blast Radius Depth
 - **Verified** 2026-07-30 — ADR-0027 Option B
 - Soft multi-lane blast, barrel package resolution, findings UI, roles, edit/delete, soft cache
-- Full doc: [`milestones/M-049_blast-radius-depth.md`](./milestones/M-049_blast-radius-depth.md)
+- Full doc: [`archive/milestones/M-049_blast-radius-depth.md`](./archive/milestones/M-049_blast-radius-depth.md)
 
 #### M-033 — Incremental Indexing & Watch
 - **Deferred / superseded by M-048 Phase 1** (ADR-0026)
@@ -758,11 +837,13 @@ Statuses:
 | `Verified` | Merged to main with approval |
 | `Deferred` | Explicitly postponed by owner |
 
-Only **one** milestone may be `In Progress` at a time.
+Only **one** milestone may be `In Progress` at a time. Since 17 Oct 2026, PROGRESS.md also uses `Done`, `Built, not verified`, `Built, not deployed`, `Partly done`, `Open (round 4)`, `Obsolete` and `Absorbed` for work built on the M-087 branch without owner sign-off (legend in PROGRESS.md).
 
 ---
 
 ## 19. Architecture Snapshot (Target)
+
+> History. In 2.0 the surfaces are MCP, CLI, daemon, hooks and the GitHub Action. VS Code, Cursor, Playground and Repository Map are deleted.
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
