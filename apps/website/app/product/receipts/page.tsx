@@ -100,7 +100,7 @@ const VERDICTS: Array<{
         ]}
       />
     ),
-    means: "Typecheck, lint and the tests that reach the change all passed.",
+    means: "The checks this change reaches passed.",
     next: "Commit and push.",
   },
   {

@@ -143,8 +143,8 @@ export function StartDemo() {
           {MapLines().slice(0, 5)}
           <Ln />
           <Ln>
-            <span className="g">Try:</span> ask your agent for a change; when it
-            stops, Prism gives a verdict.
+            <span className="g">Try:</span> ask your agent for a small change, then
+            ask it for a receipt.
           </Ln>
         </Window>
       }
