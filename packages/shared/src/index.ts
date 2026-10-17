@@ -66,11 +66,7 @@ export {
   type SessionValue,
   type ShipVerdict,
 } from "./receipt.js";
-export {
-  WITHOUT_PRISM_TOKENS_PER_FILE,
-  sessionValue,
-  sessionValueLine,
-} from "./session-value.js";
+export { sessionValue, sessionValueLine } from "./session-value.js";
 export {
   cheapestProof,
   recordedCheckDurations,

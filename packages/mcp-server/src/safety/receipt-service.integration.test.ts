@@ -95,17 +95,15 @@ describe("receipt service (plan §5.7)", () => {
       expect(first.value.verdict).toBe("not_proven");
       expect(first.value.reason).toBe("still_running");
       expect(first.value.mode).toBe("daemon");
-      // P13: the session value rides on every receipt (uncalibrated → null saving).
-      expect(first.value.value).toMatchObject({
-        estimatedSaved: null,
-        issuesCaught: 0,
-      });
+      // P13: the session value rides on every receipt, with no token saving.
+      expect(first.value.value).toMatchObject({ issuesCaught: 0 });
+      expect(first.value.value).not.toHaveProperty("estimatedSaved");
 
       release();
       const [running] = service.pending();
       const done = await running;
       expect(done?.verdict).toBe("proven");
-      expect(done?.value?.estimatedSaved).toBeNull();
+      expect(done?.value).not.toHaveProperty("estimatedSaved");
       const stored = listStoredReceipts(fixture.root, env);
       expect(stored.map((r) => [r.id, r.checksState])).toEqual([
         [first.value.id, "done"],
