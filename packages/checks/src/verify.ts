@@ -157,7 +157,9 @@ const LOCKFILES = [
 ] as const;
 
 /** Nearest lockfile at or above `start`. Workspace packages keep theirs at the root. */
-function findLockfile(start: string): { dir: string; name: string } | null {
+export function findLockfile(
+  start: string,
+): { dir: string; name: string } | null {
   let dir = resolve(start);
   for (;;) {
     for (const name of LOCKFILES) {
@@ -173,19 +175,46 @@ function findLockfile(start: string): { dir: string; name: string } | null {
  * Yarn Berry ships its own binary (`yarnPath` in `.yarnrc.yml`) and is often
  * not on PATH. Run that file with node; classic yarn stays `yarn` on PATH.
  */
-function yarnArgv(
+export function yarnCommand(
   dir: string,
-  script: string,
-): { argv: [string, ...string[]] } {
+  args: readonly string[],
+): [string, ...string[]] {
   const yarnrc = join(dir, ".yarnrc.yml");
   if (existsSync(yarnrc)) {
     const text = readFileSync(yarnrc, "utf8");
     const rel = /^yarnPath:\s*['"]?(\S+?)['"]?\s*$/m.exec(text)?.[1];
     if (rel && existsSync(join(dir, rel))) {
-      return { argv: [process.execPath, join(dir, rel), "run", script] };
+      return [process.execPath, join(dir, rel), ...args];
     }
   }
-  return { argv: ["yarn", "run", script] };
+  return ["yarn", ...args];
+}
+
+function yarnArgv(
+  dir: string,
+  script: string,
+): { argv: [string, ...string[]] } {
+  return { argv: yarnCommand(dir, ["run", script]) };
+}
+
+/**
+ * The Yarn Plug'n'Play project root at or above `start`: the folder holding
+ * `.pnp.cjs`. PnP installs have no `node_modules/.bin`, so tools there run as
+ * `yarn <bin>`.
+ *
+ * The walk stops at the repo root (the folder holding `.git`, a directory or
+ * a worktree file): a stray `.pnp.cjs` above the repo belongs to some other
+ * project and must never pick the runner.
+ */
+export function findPnpRoot(start: string): string | null {
+  let dir = resolve(start);
+  for (;;) {
+    if (existsSync(join(dir, ".pnp.cjs"))) return dir;
+    if (existsSync(join(dir, ".git"))) return null;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
 }
 
 function packageManagerArgv(
