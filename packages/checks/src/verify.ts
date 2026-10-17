@@ -173,19 +173,41 @@ function findLockfile(start: string): { dir: string; name: string } | null {
  * Yarn Berry ships its own binary (`yarnPath` in `.yarnrc.yml`) and is often
  * not on PATH. Run that file with node; classic yarn stays `yarn` on PATH.
  */
-function yarnArgv(
+export function yarnCommand(
   dir: string,
-  script: string,
-): { argv: [string, ...string[]] } {
+  args: readonly string[],
+): [string, ...string[]] {
   const yarnrc = join(dir, ".yarnrc.yml");
   if (existsSync(yarnrc)) {
     const text = readFileSync(yarnrc, "utf8");
     const rel = /^yarnPath:\s*['"]?(\S+?)['"]?\s*$/m.exec(text)?.[1];
     if (rel && existsSync(join(dir, rel))) {
-      return { argv: [process.execPath, join(dir, rel), "run", script] };
+      return [process.execPath, join(dir, rel), ...args];
     }
   }
-  return { argv: ["yarn", "run", script] };
+  return ["yarn", ...args];
+}
+
+function yarnArgv(
+  dir: string,
+  script: string,
+): { argv: [string, ...string[]] } {
+  return { argv: yarnCommand(dir, ["run", script]) };
+}
+
+/**
+ * The Yarn Plug'n'Play project root at or above `start`: the folder holding
+ * `.pnp.cjs`. PnP installs have no `node_modules/.bin`, so tools there run as
+ * `yarn <bin>`.
+ */
+export function findPnpRoot(start: string): string | null {
+  let dir = resolve(start);
+  for (;;) {
+    if (existsSync(join(dir, ".pnp.cjs"))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
 }
 
 function packageManagerArgv(

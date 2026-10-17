@@ -11,9 +11,11 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import {
   defaultVerifyRunner,
+  findPnpRoot,
   firstFailureLine,
   isCheckInterrupted,
   resolveVerifyPlan,
+  yarnCommand,
   type VerifyRunner,
 } from "./verify.js";
 import type { VerifyPlan, VerifyStep } from "./types.js";
@@ -65,6 +67,21 @@ function localBin(cwd: string, bin: string): string | null {
   }
 }
 
+/**
+ * How to launch an installed tool: its `node_modules/.bin` file, or under
+ * Yarn Plug'n'Play (no `.bin` folder) `yarn <bin>` from the PnP root. Null
+ * when neither applies; never `npx`.
+ */
+export function toolArgv(
+  cwd: string,
+  bin: string,
+): [string, ...string[]] | null {
+  const local = localBin(cwd, bin);
+  if (local) return [local];
+  const pnp = findPnpRoot(cwd);
+  return pnp ? yarnCommand(pnp, [bin]) : null;
+}
+
 function testScript(pkg: Record<string, unknown>): string {
   const scripts = pkg.scripts;
   if (!scripts || typeof scripts !== "object") return "";
@@ -86,12 +103,12 @@ export function detectTestRunner(cwd: string): DetectedTestRunner | null {
     return { id: "bun", argv: ["bun", "test"] };
   }
   if (deps.has("vitest") || /\bvitest\b/.test(script)) {
-    const bin = localBin(cwd, "vitest");
-    if (bin) return { id: "vitest", argv: [bin, "run"] };
+    const argv = toolArgv(cwd, "vitest");
+    if (argv) return { id: "vitest", argv: [...argv, "run"] };
   }
   if (deps.has("jest") || /\bjest\b/.test(script)) {
-    const bin = localBin(cwd, "jest");
-    if (bin) return { id: "jest", argv: [bin, "--passWithNoTests"] };
+    const argv = toolArgv(cwd, "jest");
+    if (argv) return { id: "jest", argv: [...argv, "--passWithNoTests"] };
   }
   return null;
 }
