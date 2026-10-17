@@ -44,12 +44,6 @@ const GLANCE: Array<{
   why?: string;
 }> = [
   {
-    metric: "Review",
-    value: "10 of 11",
-    means:
-      "Seeded problems Claude Code found in review: 10 of 11 with and without Prism. Cursor agent CLI: 4 of 7 with, 3 of 7 without.",
-  },
-  {
     metric: "Custom skills",
     value: "10 of 10",
     means:
