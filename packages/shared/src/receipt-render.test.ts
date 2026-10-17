@@ -1,11 +1,16 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { ChangeReceipt } from "./receipt.js";
+import { shipVerdictLabel, type ChangeReceipt } from "./receipt.js";
+import { listStoredReceipts, writeStoredReceipt } from "./receipt-store.js";
 import {
   receiptFeedback,
   receiptHeadline,
   receiptSummaryLine,
   receiptTerminalLine,
   renderReceipt,
+  renderReceiptAtStop,
   renderReceiptMarkdown,
   renderReceiptSvg,
   renderReceiptTerminal,
@@ -122,6 +127,34 @@ describe("receipt summary line (SMK-8)", () => {
     expect(renderReceipt(pending)).toMatch(/checks still running/);
   });
 
+  it("keeps still_running in what --json and stored receipts carry (Arc)", () => {
+    // The stop hook's interim line is text only ("checking… verdict in a
+    // moment"); the receipt, its stored copy and the CLI's --json `verdict`
+    // still say still_running.
+    const pending: ChangeReceipt = {
+      ...base,
+      verdict: "not_proven",
+      reason: "still_running",
+      checksState: "pending",
+      checks: [],
+    };
+    const home = mkdtempSync(join(tmpdir(), "prism-interim-"));
+    try {
+      const env = { PRISM_HOME: home };
+      writeStoredReceipt("/repo", pending, env);
+      const [stored] = listStoredReceipts("/repo", env);
+      expect(stored?.reason).toBe("still_running");
+      expect(stored?.checksState).toBe("pending");
+      expect(shipVerdictLabel(stored!)).toBe("NOT PROVEN (still_running)");
+      expect(JSON.parse(JSON.stringify(stored))).toMatchObject({
+        verdict: "not_proven",
+        reason: "still_running",
+      });
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
   it("shows the earlier change's finished verdict under a pending one", () => {
     const pending: ChangeReceipt = {
       ...base,
@@ -214,6 +247,10 @@ describe("terminal line per verdict (Muse v2.1)", () => {
       ],
       [
         { ...notProven("still_running"), checksState: "pending" },
+        "Prism · checking… still running",
+      ],
+      [
+        notProven("still_running"),
         "Prism · NOT PROVEN (still_running) — no verdict yet; the next receipt shows it",
       ],
       [
@@ -239,5 +276,56 @@ describe("terminal line per verdict (Muse v2.1)", () => {
     expect(text.slice(1)).toEqual(renderReceipt(base).split("\n").slice(1));
     // SMK-8's summary line is untouched.
     expect(text[1]).toBe(receiptSummaryLine(base));
+  });
+
+  it("prism receipts shows a pending receipt as checking, with no verdict word", () => {
+    const pending: ChangeReceipt = {
+      ...notProven("still_running"),
+      checksState: "pending",
+    };
+    const text = renderReceiptTerminal(pending).split("\n");
+    expect(text[0]).toBe("Prism · checking… still running");
+    expect(text[1]).toBe(
+      "Prism receipt: changed 1 file, 4 dependents, 1 test reach it",
+    );
+    expect(text.join("\n")).not.toMatch(/NOT PROVEN|SHIP/);
+  });
+});
+
+describe("stop text without the plugin's daemon path (renderReceiptAtStop)", () => {
+  const pending: ChangeReceipt = {
+    ...base,
+    verdict: "not_proven",
+    reason: "still_running",
+    checksState: "pending",
+    checks: [],
+    earlier: { id: "r0", verdict: "proven", summary: "changed 1 file — SHIP" },
+  };
+
+  it("daemon answered: checking, with the verdict on the next receipt", () => {
+    expect(renderReceiptAtStop(pending, true)).toBe(
+      [
+        "Prism · checking… verdict comes with your next receipt",
+        "Prism receipt: changed 1 file, 4 dependents, 1 test reach it",
+        "Earlier change  changed 1 file — SHIP",
+      ].join("\n"),
+    );
+  });
+
+  it("no daemon: NOT PROVEN stays the final answer, with the real reason", () => {
+    expect(renderReceiptAtStop(pending, false)).toBe(
+      [
+        "Prism · NOT PROVEN (daemon not running)",
+        "Prism receipt: changed 1 file, 4 dependents, 1 test reach it — NOT PROVEN (daemon not running)",
+        "Earlier change  changed 1 file — SHIP",
+      ].join("\n"),
+    );
+  });
+
+  it("no daemon with another reason, or a final receipt: the full receipt as before", () => {
+    const untested = { ...pending, reason: "untested" as const };
+    expect(renderReceiptAtStop(untested, false)).toBe(renderReceipt(untested));
+    expect(renderReceiptAtStop(base, true)).toBe(renderReceipt(base));
+    expect(renderReceiptAtStop(base, false)).toBe(renderReceipt(base));
   });
 });

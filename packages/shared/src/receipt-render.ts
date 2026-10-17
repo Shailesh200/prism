@@ -62,6 +62,7 @@ export function receiptTerminalLine(receipt: ChangeReceipt): string {
   const head = receiptHeadline(receipt);
   if (nothingChanged(receipt)) return head;
   const verdict = shipVerdict(receipt);
+  if (interimAtStop(receipt)) return "Prism · checking… still running";
   if (verdict === "SHIP")
     return `${head} — the checks this change reaches passed`;
   if (verdict === "NO-SHIP") {
@@ -82,10 +83,22 @@ export function nothingChanged(receipt: ChangeReceipt): boolean {
  * `Prism receipt: changed 1 file, 3 dependents, N tests reach it — SHIP`.
  */
 export function receiptSummaryLine(receipt: ChangeReceipt): string {
-  const verdict = shipVerdictLabel(receipt);
+  return `${summaryWithoutLabel(receipt)} — ${shipVerdictLabel(receipt)}`;
+}
+
+function summaryWithoutLabel(receipt: ChangeReceipt): string {
   const changed = receipt.touched.totalFiles + receipt.unsupported.length;
   const more = receipt.touched.truncated ? "+" : "";
-  return `Prism receipt: changed ${changed}${more} ${changed === 1 ? "file" : "files"}, ${plural(receipt.touched.dependents, "dependent")}, ${plural(receipt.testFiles.length, "test")} reach it — ${verdict}`;
+  return `Prism receipt: changed ${changed}${more} ${changed === 1 ? "file" : "files"}, ${plural(receipt.touched.dependents, "dependent")}, ${plural(receipt.testFiles.length, "test")} reach it`;
+}
+
+/** Checks still running and no verdict yet (off-limits edits are NO-SHIP already). */
+function interimAtStop(receipt: ChangeReceipt): boolean {
+  return (
+    receipt.checksState === "pending" &&
+    !nothingChanged(receipt) &&
+    shipVerdict(receipt) === "NOT PROVEN"
+  );
 }
 
 function touchedLine(receipt: ChangeReceipt): string {
@@ -221,8 +234,48 @@ export function renderReceipt(
 
 /** {@link renderReceipt} opening with the terminal line (`prism receipts`). */
 export function renderReceiptTerminal(receipt: ChangeReceipt): string {
-  const [, ...rest] = renderReceipt(receipt).split("\n");
-  return [receiptTerminalLine(receipt), ...rest].join("\n");
+  const [, summary, ...rest] = renderReceipt(receipt).split("\n");
+  // Pending: no verdict word on the summary line either.
+  const second = interimAtStop(receipt)
+    ? summaryWithoutLabel(receipt)
+    : summary;
+  return [
+    receiptTerminalLine(receipt),
+    ...(second === undefined ? [] : [second]),
+    ...rest,
+  ].join("\n");
+}
+
+/**
+ * The stop hook's text (`prism-mcp --hook stop`, which the plugin runs only
+ * when it could not reach the daemon itself). While checks run there is no
+ * verdict word. When the daemon answered, it finishes the checks and the next
+ * receipt carries the verdict as `Earlier change`; nothing records this stop
+ * for `stop-wait`, so no wake promises it sooner. Built in-process (no
+ * daemon), nothing finishes them, so a `still_running` receipt ends NOT
+ * PROVEN with the real reason. Text only; the receipt keeps `still_running`.
+ * Otherwise the full {@link renderReceipt}.
+ */
+export function renderReceiptAtStop(
+  receipt: ChangeReceipt,
+  daemonAnswered: boolean,
+): string {
+  if (!interimAtStop(receipt)) return renderReceipt(receipt);
+  // No daemon, and a reason other than still_running is already the real one.
+  if (!daemonAnswered && receipt.reason !== "still_running") {
+    return renderReceipt(receipt);
+  }
+  const summary = summaryWithoutLabel(receipt);
+  const lines = daemonAnswered
+    ? ["Prism · checking… verdict comes with your next receipt", summary]
+    : [
+        "Prism · NOT PROVEN (daemon not running)",
+        `${summary} — NOT PROVEN (daemon not running)`,
+      ];
+  if (receipt.earlier) lines.push(`Earlier change  ${receipt.earlier.summary}`);
+  const value = receipt.value ? sessionValueLine(receipt.value) : null;
+  if (value) lines.push(value);
+  return lines.join("\n");
 }
 
 function cell(text: string): string {

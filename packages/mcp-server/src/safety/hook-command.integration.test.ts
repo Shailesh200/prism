@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createFixture, type Fixture } from "@repo-prism/test-support";
@@ -108,6 +108,53 @@ describe("stop hook (plan §5.7, R-C4)", () => {
     };
     expect(out.decision).toBeUndefined();
     expect(out.hookSpecificOutput).toBeUndefined();
-    expect(out.systemMessage).toMatch(/NOT PROVEN \(still_running\)/);
+    // The daemon finishes the checks; nothing records this stop for
+    // stop-wait, so the verdict comes with the next receipt. No verdict word.
+    expect(out.systemMessage).toBe(
+      "Prism · checking… verdict comes with your next receipt\n" +
+        "Prism receipt: changed 1 file, 0 dependents, 1 test reach it",
+    );
+  });
+
+  it("no daemon and checks still pending: the final NOT PROVEN names the real reason", async () => {
+    const { fixture, env } = await edited();
+    await fixture.write(
+      "package.json",
+      JSON.stringify({ name: "stop", scripts: { test: "node -e 0" } }),
+    );
+    await fixture.write(
+      "src/a.test.ts",
+      'import { a } from "./a";\nexport const t = a;\n',
+    );
+    const out = (await stopHook(
+      { session_id: "s-2" },
+      { root: fixture.root, env, daemon: null },
+    )) as { systemMessage?: string };
+    const [first, second] = (out.systemMessage ?? "").split("\n");
+    expect(first).toBe("Prism · NOT PROVEN (daemon not running)");
+    expect(second).toMatch(
+      /^Prism receipt: changed \d+ files?, .* reach it — NOT PROVEN \(daemon not running\)$/,
+    );
+    // Text only (Arc): the stored history and the event keep still_running.
+    const home = env.PRISM_HOME ?? "";
+    const events = readFileSync(join(home, "events.jsonl"), "utf8");
+    expect(events).toMatch(/"event":"hook\.stop".*"checksState":"pending"/);
+    const history = readFileSync(
+      join(
+        home,
+        "workspaces",
+        readdirSync(join(home, "workspaces"))[0]!,
+        "receipts",
+        "history.jsonl",
+      ),
+      "utf8",
+    );
+    expect(JSON.parse(history.trim().split("\n").pop()!).receipt).toMatchObject(
+      {
+        verdict: "not_proven",
+        reason: "still_running",
+        checksState: "pending",
+      },
+    );
   });
 });

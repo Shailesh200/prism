@@ -205,13 +205,33 @@ let cwd = resolve(process.cwd());
 let cwdSource = "process.cwd";
 
 /**
+ * The host running this hook: the Cursor agent (its payload names
+ * workspace_roots), opencode (its plugin says so), Claude Code (it sets
+ * CLAUDE_PROJECT_DIR for its hooks), or "unknown".
+ */
+function hostName() {
+  if (stringList(input.workspace_roots).length > 0) return "cursor";
+  if (input.host === "opencode") return "opencode";
+  if (process.env.CLAUDE_PROJECT_DIR) return "claude";
+  return "unknown";
+}
+
+/**
+ * Hosts whose Stop plan runs `stop-wait` (asyncRewake) beside `stop`, so the
+ * verdict on checks still running wakes the agent in the same session. Only
+ * Claude Code's does (shared/hook-config CLAUDE_HOOK_PLAN, the plugin's
+ * hooks.json). opencode's plugin runs `stop` only. A host not listed waits
+ * for nothing, so its stop line can't promise a wake that won't come.
+ */
+const STOP_WAKE_HOSTS = new Set(["claude"]);
+
+/**
  * How this host gets the receipt. Claude Code runs the stop hook, which
- * prints it. The Cursor agent (its payload names workspace_roots) and opencode
- * (whose plugin only logs it) never show it to the agent, so the agent asks.
+ * prints it. The Cursor agent and opencode (whose plugin only logs it) never
+ * show it to the agent, so the agent asks.
  */
 function receiptLine() {
-  const noStopHook =
-    stringList(input.workspace_roots).length > 0 || input.host === "opencode";
+  const noStopHook = ["cursor", "opencode"].includes(hostName());
   return noStopHook
     ? "No stop hook shows Prism's receipt here: before you say done after an edit, call receipt and report its verdict in one line."
     : "When you stop, Prism runs the checks this change reaches and prints a receipt.";
@@ -634,7 +654,8 @@ function verdictLite(receipt) {
       ? `Prism · NO-SHIP (${why.join(", ")})`
       : `Prism · ${label}`;
   const changedFiles = pluralLite(total + unsupported, "file");
-  // SMK-8 reads `${summary} — ${label}` at stop; the wake drops the label.
+  // SMK-8 reads `${summary} — ${label}` once final; the interim line at stop
+  // and the wake drop the label.
   const summary = `Prism receipt: changed ${changedFiles}, ${pluralLite(touched.dependents ?? 0, "dependent")}, ${pluralLite((receipt?.testFiles ?? []).length, "test")} reach it`;
   return {
     nothing,
@@ -682,20 +703,26 @@ function terminalLineLite(receipt) {
 
 /**
  * The 1 s stop hook's text for the user (Muse v2.1): a "checking" line while
- * the checks run (stop-wait brings the verdict into the chat), or the
- * terminal line when the verdict is already final. The summary line under it
- * stays byte for byte what SMK-8 reads.
+ * the checks run, or the terminal line when the verdict is already final.
+ * The pending lines promise the verdict soon ("in a moment", "follows") only
+ * when `wakeFollows` (stop-wait brings it into the chat); otherwise the next
+ * receipt carries it as `Earlier change`. While checks run there is no verdict word: the summary
+ * line drops its label, unless off-limits edits already make it NO-SHIP.
+ * Text only; the receipt keeps `still_running`.
  */
-function renderReceiptLite(receipt) {
+function renderReceiptLite(receipt, wakeFollows) {
   const v = verdictLite(receipt);
   if (v.nothing) return v.headline;
   const pending = receipt.checksState === "pending";
+  const interim = pending && v.offLimits === 0;
   const first = !pending
     ? terminalLineLite(receipt)
-    : v.offLimits > 0
-      ? `Prism · NO-SHIP (${v.offLimitsPaths}) — checks still running; the verdict follows`
-      : `Prism · checking ${v.changedFiles} — the verdict follows in this chat`;
-  const lines = [first, `${v.summary} — ${v.label}`];
+    : interim
+      ? wakeFollows
+        ? "Prism · checking… verdict in a moment"
+        : "Prism · checking… verdict comes with your next receipt"
+      : `Prism · NO-SHIP (${v.offLimitsPaths}) — checks still running; ${wakeFollows ? "the verdict follows" : "the verdict comes with your next receipt"}`;
+  const lines = [first, interim ? v.summary : `${v.summary} — ${v.label}`];
   // The previous change's checks, finished since its own stop (mirrors shared renderReceipt).
   if (receipt.earlier?.summary) {
     lines.push(`Earlier change  ${receipt.earlier.summary}`);
@@ -751,7 +778,10 @@ async function stop() {
     );
     if (answer?.ok && answer.value) {
       if (id) rememberStop(id, answer.value);
-      const text = renderReceiptLite(answer.value);
+      const text = renderReceiptLite(
+        answer.value,
+        STOP_WAKE_HOSTS.has(hostName()),
+      );
       // For the user only: Stop context makes the agent take another turn.
       const payload = { systemMessage: text };
       log("receipt (daemon)");

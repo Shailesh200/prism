@@ -693,11 +693,17 @@ describe("stop hook (round 2)", () => {
       },
     });
     try {
-      const { out } = await runAsync("stop", home, { cwd, session_id: "st-1" });
-      // Muse v2.1: "checking" above the unchanged SMK-8 summary line.
+      // Under Claude Code, whose stop-wait brings the verdict.
+      const { out } = await runAsync(
+        "stop",
+        home,
+        { cwd, session_id: "st-1" },
+        { CLAUDE_PROJECT_DIR: cwd },
+      );
+      // While checks run: the interim line and the summary, no verdict word.
       expect(out.systemMessage).toBe(
-        "Prism · checking 1 file — the verdict follows in this chat\n" +
-          "Prism receipt: changed 1 file, 0 dependents, 0 tests reach it — NOT PROVEN (untested)",
+        "Prism · checking… verdict in a moment\n" +
+          "Prism receipt: changed 1 file, 0 dependents, 0 tests reach it",
       );
       // Stop context would make the agent take one more turn just to reply.
       expect(out.hookSpecificOutput).toBeUndefined();
@@ -733,8 +739,15 @@ describe("stop hook shows the last finished verdict (round 4)", () => {
       },
     });
     try {
-      const { out } = await runAsync("stop", home, { cwd, session_id: "st-2" });
-      expect(out.systemMessage).toMatch(/still_running/);
+      const { out } = await runAsync(
+        "stop",
+        home,
+        { cwd, session_id: "st-2" },
+        { CLAUDE_PROJECT_DIR: cwd },
+      );
+      expect(out.systemMessage).toMatch(
+        /^Prism · checking… verdict in a moment\n/,
+      );
       expect(out.systemMessage).toContain(
         "Earlier change  SHIP — typecheck, lint and 3 tests passed",
       );
@@ -806,11 +819,12 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
       const input = { cwd, session_id: "sw-1", hook_event_name: "Stop" };
       // Claude Code starts both Stop hooks together.
       const [stop, wait] = await Promise.all([
-        runAsync("stop", home, input),
+        runAsync("stop", home, input, { CLAUDE_PROJECT_DIR: cwd }),
         runRaw("stop-wait", home, input),
       ]);
-      expect(stop.out.systemMessage).toMatch(
-        /^Prism · checking 1 file — the verdict follows in this chat\nPrism receipt: changed 1 file, 2 dependents, 1 test reach it — NOT PROVEN \(still_running\)$/,
+      expect(stop.out.systemMessage).toBe(
+        "Prism · checking… verdict in a moment\n" +
+          "Prism receipt: changed 1 file, 2 dependents, 1 test reach it",
       );
       expect(wait.code).toBe(2);
       expect(wait.stderr.trimEnd()).toBe(
@@ -1082,36 +1096,136 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
   });
 });
 
+describe("stop line: only a host that waits for the verdict says 'in a moment' (Arc)", () => {
+  const snapshot = { orientation: "x", offLimits: [], needsSignOff: [] };
+
+  async function firstLine(
+    input: Record<string, unknown>,
+    env: Record<string, string> = {},
+  ) {
+    const { home, cwd } = layout(snapshot);
+    const server = await fakeDaemon(home, { receipt: stopReceipt({}) });
+    try {
+      const { out } = await runAsync("stop", home, { cwd, ...input }, env);
+      return (out.systemMessage as string).split("\n")[0];
+    } finally {
+      server.close();
+    }
+  }
+
+  it("Claude Code runs stop-wait beside stop: verdict in a moment", async () => {
+    expect(
+      await firstLine(
+        { session_id: "wh-1", hook_event_name: "Stop" },
+        { CLAUDE_PROJECT_DIR: "/repo" },
+      ),
+    ).toBe("Prism · checking… verdict in a moment");
+  });
+
+  it("opencode's plugin runs stop only: the verdict comes with the next receipt", async () => {
+    // The payload `prism install opencode`'s plugin sends on session.idle.
+    expect(
+      await firstLine({ session_id: "wh-2", hook_event_name: "Stop" }),
+    ).toBe("Prism · checking… verdict comes with your next receipt");
+  });
+
+  it("the Cursor agent runs no stop-wait, even with CLAUDE_PROJECT_DIR set", async () => {
+    expect(
+      await firstLine(
+        {
+          session_id: "wh-3",
+          hook_event_name: "Stop",
+          workspace_roots: ["/repo"],
+        },
+        { CLAUDE_PROJECT_DIR: "/repo" },
+      ),
+    ).toBe("Prism · checking… verdict comes with your next receipt");
+  });
+
+  it("an unknown or new host defaults to no wake", async () => {
+    expect(await firstLine({ session_id: "wh-4", host: "new-agent" })).toBe(
+      "Prism · checking… verdict comes with your next receipt",
+    );
+  });
+});
+
 describe("stop-time lines (Muse v2.1)", () => {
   const snapshot = { orientation: "x", offLimits: [], needsSignOff: [] };
 
-  async function stopText(receipt: Record<string, unknown>) {
+  async function stopText(
+    receipt: Record<string, unknown>,
+    env: Record<string, string> = {},
+  ) {
     const { home, cwd } = layout(snapshot);
     const server = await fakeDaemon(home, { receipt: stopReceipt(receipt) });
     try {
-      const { out } = await runAsync("stop", home, {
-        cwd,
-        session_id: "stl",
-        hook_event_name: "Stop",
-      });
+      const { out } = await runAsync(
+        "stop",
+        home,
+        { cwd, session_id: "stl", hook_event_name: "Stop" },
+        env,
+      );
       return out.systemMessage as string;
     } finally {
       server.close();
     }
   }
 
-  it("an off-limits path at stop says NO-SHIP while the checks still run", async () => {
+  it("the interim line changes text only: no verdict word, the record stays pending (Arc)", async () => {
+    const { home, cwd } = layout(snapshot);
+    const server = await fakeDaemon(home, { receipt: stopReceipt({}) });
+    try {
+      const { out } = await runAsync(
+        "stop",
+        home,
+        { cwd, session_id: "sti", hook_event_name: "Stop" },
+        { CLAUDE_PROJECT_DIR: cwd },
+      );
+      const text = out.systemMessage as string;
+      expect(text.split("\n")[0]).toBe("Prism · checking… verdict in a moment");
+      expect(text).not.toMatch(/SHIP|NOT PROVEN|still_running/);
+      // What tools read is untouched: the hook logs the receipt's own state.
+      const event = readFileSync(join(home, "events.jsonl"), "utf8")
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line) as Record<string, unknown>)
+        .find(
+          (e) =>
+            e.event === "hook.stop" &&
+            e.outcome === "ok" &&
+            (e.detail as { id?: string } | undefined)?.id,
+        );
+      expect(event?.detail).toMatchObject({
+        id: "r9",
+        verdict: "not_proven",
+        checksState: "pending",
+      });
+    } finally {
+      server.close();
+    }
+  });
+
+  const offLimitsPending = {
+    lensFindings: [
+      {
+        lens: "Dev",
+        check: "off_limits_touched",
+        status: "fail",
+        evidence: ["locked/a.ts"],
+      },
+    ],
+  };
+
+  it("an off-limits path at stop says NO-SHIP while the checks still run (no wake: next receipt)", async () => {
+    expect(await stopText(offLimitsPending)).toBe(
+      "Prism · NO-SHIP (1 off-limits path) — checks still running; the verdict comes with your next receipt\n" +
+        "Prism receipt: changed 1 file, 2 dependents, 1 test reach it — NO-SHIP",
+    );
+  });
+
+  it("an off-limits path at stop on a host that waits: the verdict follows", async () => {
     expect(
-      await stopText({
-        lensFindings: [
-          {
-            lens: "Dev",
-            check: "off_limits_touched",
-            status: "fail",
-            evidence: ["locked/a.ts"],
-          },
-        ],
-      }),
+      await stopText(offLimitsPending, { CLAUDE_PROJECT_DIR: "/repo" }),
     ).toBe(
       "Prism · NO-SHIP (1 off-limits path) — checks still running; the verdict follows\n" +
         "Prism receipt: changed 1 file, 2 dependents, 1 test reach it — NO-SHIP",

@@ -792,6 +792,7 @@ function isTestCheck(name: string): boolean {
 export {
   receiptFeedback,
   renderReceipt,
+  renderReceiptAtStop,
   renderReceiptMarkdown,
   renderReceiptSvg,
 } from "@repo-prism/shared";

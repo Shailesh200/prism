@@ -83,6 +83,7 @@ export {
   receiptSummaryLine,
   receiptTerminalLine,
   renderReceipt,
+  renderReceiptAtStop,
   renderReceiptMarkdown,
   renderReceiptSvg,
   renderReceiptTerminal,
