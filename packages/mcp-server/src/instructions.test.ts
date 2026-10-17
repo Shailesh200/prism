@@ -19,6 +19,12 @@ describe("server instructions (M-091)", () => {
     expect(SERVER_INSTRUCTIONS).toMatch(
       /verdict on your change: SHIP, NOT PROVEN \(with the cheapest proof\) or NO-SHIP/,
     );
+    // Blame only what the baseline proves (baseline_unknown never NO-SHIP).
+    expect(SERVER_INSTRUCTIONS).toContain("Fix a NO-SHIP.");
+    expect(SERVER_INSTRUCTIONS).toContain(
+      "If Prism can't tell a failure is new, say so and ask the user.",
+    );
+    expect(SERVER_INSTRUCTIONS).not.toMatch(/you caused/i);
     expect(SERVER_INSTRUCTIONS).toMatch(/inferred edges are hints/i);
     expect(SERVER_INSTRUCTIONS).toMatch(/Never call mcp_auth for Prism/);
   });

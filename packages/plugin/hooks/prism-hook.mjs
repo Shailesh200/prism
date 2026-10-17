@@ -205,13 +205,33 @@ let cwd = resolve(process.cwd());
 let cwdSource = "process.cwd";
 
 /**
+ * The host running this hook: the Cursor agent (its payload names
+ * workspace_roots), opencode (its plugin says so), Claude Code (it sets
+ * CLAUDE_PROJECT_DIR for its hooks), or "unknown".
+ */
+function hostName() {
+  if (stringList(input.workspace_roots).length > 0) return "cursor";
+  if (input.host === "opencode") return "opencode";
+  if (process.env.CLAUDE_PROJECT_DIR) return "claude";
+  return "unknown";
+}
+
+/**
+ * Hosts whose Stop plan runs `stop-wait` (asyncRewake) beside `stop`, so the
+ * verdict on checks still running wakes the agent in the same session. Only
+ * Claude Code's does (shared/hook-config CLAUDE_HOOK_PLAN, the plugin's
+ * hooks.json). opencode's plugin runs `stop` only. A host not listed waits
+ * for nothing, so its stop line can't promise a wake that won't come.
+ */
+const STOP_WAKE_HOSTS = new Set(["claude"]);
+
+/**
  * How this host gets the receipt. Claude Code runs the stop hook, which
- * prints it. The Cursor agent (its payload names workspace_roots) and opencode
- * (whose plugin only logs it) never show it to the agent, so the agent asks.
+ * prints it. The Cursor agent and opencode (whose plugin only logs it) never
+ * show it to the agent, so the agent asks.
  */
 function receiptLine() {
-  const noStopHook =
-    stringList(input.workspace_roots).length > 0 || input.host === "opencode";
+  const noStopHook = ["cursor", "opencode"].includes(hostName());
   return noStopHook
     ? "No stop hook shows Prism's receipt here: before you say done after an edit, call receipt and report its verdict in one line."
     : "When you stop, Prism runs the checks this change reaches and prints a receipt.";
@@ -595,46 +615,133 @@ function missingBin() {
 /** The stop hook's hard budget (plan P17): structural receipt under 1 s. */
 const STOP_BUDGET_MS = 1000;
 
+const pluralLite = (n, one) => `${n} ${n === 1 ? one : `${one}s`}`;
+/** Mirrors shared: `1 test reaches it`, `N tests reach it`. */
+const reachItLite = (n) =>
+  `${pluralLite(n, "test")} ${n === 1 ? "reaches" : "reach"} it`;
+
+/** Mirrors shared `REASON_LABEL`: words for every reason, never a raw code. */
+const REASON_LABEL = {
+  untested: "no tests reach this change",
+  no_node_modules: "dependencies not installed",
+  unknown_runner: "no known test runner",
+  skipped_offline: "checks skipped",
+  still_running: "checks still running",
+  timeout: "checks timed out",
+  already_failing: "tests already failing",
+  baseline_unknown: "can't tell if this failure is new",
+  outside_change: "failure is in files outside this change",
+  unsupported_language: "unsupported language",
+  superseded: "replaced by a newer change",
+};
+
 /**
- * Minimal receipt text: mirrors shared `receiptHeadline`, `receiptSummaryLine`
- * (plan P11 verdict-first: SHIP, NO-SHIP, NOT PROVEN).
+ * The parts every verdict line is built from: mirrors shared
+ * `receiptHeadline`, `receiptSummaryLine` and `shipVerdictLabel` (plan P11
+ * verdict-first: SHIP, NO-SHIP, NOT PROVEN).
  */
-function renderReceiptLite(receipt) {
-  const plural = (n, one) => `${n} ${n === 1 ? one : `${one}s`}`;
+function verdictLite(receipt) {
   const touched = receipt?.touched ?? {};
   const total = touched.totalFiles ?? 0;
   const unsupported = Array.isArray(receipt?.unsupported)
     ? receipt.unsupported.length
     : 0;
-  if (total === 0 && unsupported === 0) return "Prism · nothing changed";
-  const failed = (receipt.checks ?? []).filter(
-    (c) => c.status === "failed" && c.cause !== "already-failing",
+  const nothing = total === 0 && unsupported === 0;
+  // Mirrors shared `blockingChecks`: only a failure this change caused.
+  const failed = (receipt?.checks ?? []).filter(
+    (c) =>
+      c.status === "failed" && (c.cause === undefined || c.cause === "caused"),
   ).length;
-  const offLimits = (receipt.lensFindings ?? [])
+  const offLimits = (receipt?.lensFindings ?? [])
     .filter((f) => f.check === "off_limits_touched" && f.status === "fail")
     .flatMap((f) => f.evidence ?? []).length;
-  const noShip = receipt.verdict === "failed" || offLimits > 0;
+  const noShip = receipt?.verdict === "failed" || offLimits > 0;
+  const reason = receipt?.reason ?? "untested";
   const label = noShip
     ? "NO-SHIP"
-    : receipt.verdict === "proven"
+    : receipt?.verdict === "proven"
       ? "SHIP"
-      : `NOT PROVEN (${receipt.reason ?? "untested"})`;
+      : `NOT PROVEN (${REASON_LABEL[reason] ?? "no verdict yet"})`;
+  const failedChecks = pluralLite(failed, "check");
+  const offLimitsPaths = pluralLite(offLimits, "off-limits path");
   const why = [
-    ...(failed > 0 ? [`${plural(failed, "check")} failed`] : []),
-    ...(offLimits > 0 ? [plural(offLimits, "off-limits path")] : []),
+    ...(failed > 0 ? [`${failedChecks} failed`] : []),
+    ...(offLimits > 0 ? [offLimitsPaths] : []),
   ];
-  const headline = noShip
-    ? `Prism · NO-SHIP (${why.join(", ")})`
-    : `Prism · ${label}`;
-  const changed = total + unsupported;
-  const summary = `Prism receipt: changed ${plural(changed, "file")}, ${plural(touched.dependents ?? 0, "dependent")}, ${plural((receipt.testFiles ?? []).length, "test")} reach it — ${label}`;
-  const lines = [headline, summary];
+  const headline = nothing
+    ? "Prism · nothing changed"
+    : noShip
+      ? `Prism · NO-SHIP (${why.join(", ")})`
+      : `Prism · ${label}`;
+  const changedFiles = pluralLite(total + unsupported, "file");
+  // SMK-8 reads `${summary} — ${label}` once final; the interim line at stop
+  // and the wake drop the label.
+  const summary = `Prism receipt: changed ${changedFiles}, ${pluralLite(touched.dependents ?? 0, "dependent")}, ${reachItLite((receipt?.testFiles ?? []).length)}`;
+  return {
+    nothing,
+    failed,
+    offLimits,
+    noShip,
+    reason,
+    label,
+    headline,
+    summary,
+    changedFiles,
+    failedChecks,
+    offLimitsPaths,
+  };
+}
+
+/** Mirrors shared `receiptTerminalLine`: a tail only adds an action (Muse). */
+const TERMINAL_REASON = {
+  untested: "add a test that covers it",
+  no_node_modules: "install dependencies to run its tests",
+  timeout: "run it again when the machine is less busy",
+  baseline_unknown: "check if it failed before this change",
+  outside_change: "check those files separately",
+};
+
+/** The verdict in one terminal line: the headline and what it means. */
+function terminalLineLite(receipt) {
+  const v = verdictLite(receipt);
+  if (v.nothing) return v.headline;
+  if (v.noShip) {
+    return v.failed > 0
+      ? `${v.headline} — the agent is fixing it`
+      : `${v.headline} — the agent is undoing those edits`;
+  }
+  if (v.label === "SHIP") {
+    return `${v.headline} — the checks this change reaches passed`;
+  }
+  const meaning = TERMINAL_REASON[v.reason];
+  return meaning ? `${v.headline} — ${meaning}` : v.headline;
+}
+
+/**
+ * The 1 s stop hook's text for the user (Muse v2.1): a "checking" line while
+ * the checks run, or the terminal line when the verdict is already final.
+ * The pending lines promise the verdict soon ("in a moment", "follows") only
+ * when `wakeFollows` (stop-wait brings it into the chat); otherwise the next
+ * receipt carries it as `Earlier change`. While checks run there is no verdict word: the summary
+ * line drops its label, unless off-limits edits already make it NO-SHIP.
+ * Text only; the receipt keeps `still_running`.
+ */
+function renderReceiptLite(receipt, wakeFollows) {
+  const v = verdictLite(receipt);
+  if (v.nothing) return v.headline;
+  const pending = receipt.checksState === "pending";
+  const interim = pending && v.offLimits === 0;
+  const first = !pending
+    ? terminalLineLite(receipt)
+    : interim
+      ? wakeFollows
+        ? "Prism · checking… verdict in a moment"
+        : "Prism · checking… verdict comes with your next receipt"
+      : `Prism · NO-SHIP (${v.offLimitsPaths}) — checks still running; ${wakeFollows ? "the verdict follows" : "the verdict comes with your next receipt"}`;
+  const lines = [first, interim ? v.summary : `${v.summary} — ${v.label}`];
   // The previous change's checks, finished since its own stop (mirrors shared renderReceipt).
   if (receipt.earlier?.summary) {
     lines.push(`Earlier change  ${receipt.earlier.summary}`);
-  }
-  if (receipt.checksState === "pending") {
-    lines.push("Proven          checks still running");
   }
   const value = valueLineLite(receipt.value);
   if (value) lines.push(value);
@@ -687,7 +794,10 @@ async function stop() {
     );
     if (answer?.ok && answer.value) {
       if (id) rememberStop(id, answer.value);
-      const text = renderReceiptLite(answer.value);
+      const text = renderReceiptLite(
+        answer.value,
+        STOP_WAKE_HOSTS.has(hostName()),
+      );
       // For the user only: Stop context makes the agent take another turn.
       const payload = { systemMessage: text };
       log("receipt (daemon)");
@@ -839,13 +949,56 @@ function stopWakeSkip(receipt) {
   return null;
 }
 
-/** What wakes the agent: the verdict, then what to do with it. */
+/** The agent's first line for each NOT PROVEN reason (Muse v2.1). */
+const SAY_REASON = {
+  no_node_modules: "dependencies aren't installed",
+  unknown_runner: "no known runner ran its tests",
+  skipped_offline: "checks are off for this run",
+  timeout: "a check ran past its time limit",
+  already_failing: "its tests failed before this session",
+  unsupported_language: "only TS and JS files are checked",
+};
+
+/**
+ * What wakes the agent (Muse v2.1), exactly 3 lines under 100 chars: the
+ * headline, the summary without its label, and the line the agent opens its
+ * reply with plus what to do next. The user sees the verdict only through
+ * that reply.
+ */
 function stopWakeText(receipt) {
-  const verdict = renderReceiptLite(receipt);
-  const next = verdict.startsWith("Prism · NO-SHIP")
-    ? "Prism · the checks on the change you just finished failed. Tell the user the verdict in one line, then fix the failures before you say done."
-    : "Prism · this is the verdict on the change you just finished. Tell the user this verdict in one line and do nothing else.";
-  return `${verdict}\n${next}`;
+  const v = verdictLite(receipt);
+  let say;
+  let action = "stop.";
+  if (v.noShip && v.failed > 0 && v.offLimits > 0) {
+    say = `Prism: NO-SHIP — ${v.failedChecks} failed, ${v.offLimitsPaths} edited.`;
+    action = "fix both.";
+  } else if (v.noShip && v.offLimits > 0) {
+    say = `Prism: NO-SHIP — ${v.offLimitsPaths} edited; undoing.`;
+    action = "undo those edits.";
+  } else if (v.noShip) {
+    say = `Prism: NO-SHIP — ${v.failedChecks} failed; fixing now.`;
+    action = "fix them.";
+  } else if (v.label === "SHIP") {
+    say = "Prism: SHIP — the checks this change reaches passed.";
+  } else if (v.reason === "untested") {
+    // J-09: nothing proves this change; the user decides.
+    say = "NOT PROVEN: no tests cover this change.";
+    action = "ask the user.";
+  } else if (v.reason === "baseline_unknown") {
+    // Never "you caused" without proof: the user decides.
+    say = "NOT PROVEN: Prism can't tell if this failure is new.";
+    action = "ask the user.";
+  } else if (v.reason === "outside_change") {
+    say = "NOT PROVEN: the failure is in files outside this change.";
+    action = "ask the user.";
+  } else {
+    say = `Prism: NOT PROVEN — ${SAY_REASON[v.reason] ?? REASON_LABEL[v.reason] ?? "no verdict yet"}.`;
+  }
+  return [
+    v.headline,
+    v.summary,
+    `Prism · Say first: "${say}" Then ${action}`,
+  ].join("\n");
 }
 
 async function stopWait() {

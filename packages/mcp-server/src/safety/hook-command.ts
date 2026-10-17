@@ -24,7 +24,7 @@ import {
 } from "@repo-prism/shared";
 import { daemonBuildId } from "../daemon-attach.js";
 import { workspacePrismDir } from "@repo-prism/shared/prism-home";
-import { receiptFeedback, renderReceipt } from "./receipt.js";
+import { receiptFeedback, renderReceiptAtStop } from "./receipt.js";
 import { createReceiptService } from "./receipt-service.js";
 import { promptContext } from "./prompt-context.js";
 import {
@@ -213,8 +213,11 @@ export async function stopHook(
   // daemon wait (and the plugin spawn); discarding a completed receipt would
   // only hide useful output on a cold in-process path (PRISM_DAEMON=0).
 
-  // The receipt service attached the session value line (plan P13).
-  const text = renderReceipt(receipt);
+  // The receipt service attached the session value line (plan P13). Pending
+  // checks: the daemon finishes them and the next receipt brings the verdict
+  // (this path does not record the stop for stop-wait); built here (no
+  // daemon), nothing will, so the text says NOT PROVEN and why.
+  const text = renderReceiptAtStop(receipt, fromDaemon?.kind === "ok");
   appendReceiptHistory(root, receipt, text, env);
   recordEvent(
     {

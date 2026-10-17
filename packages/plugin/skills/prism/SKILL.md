@@ -50,7 +50,7 @@ One `repository_overview` call, then answer in your own words. If you see
    opinion. `blast_radius` on a changed export if you need its callers.
 3. For a PR description, `guard_session` with `review: true` and
    `format: "prDescription"`. You write the prose. Never write "tests passed"
-   unless `verification.lastReceipt` says `proven`.
+   unless `verification.lastReceipt` says `SHIP`.
 4. Lead the review with the risk; every impact claim cites a path or finding.
    "Contained to the module it touches" is a real outcome.
 5. Post, approve or move a ticket only when the user asked for that specific

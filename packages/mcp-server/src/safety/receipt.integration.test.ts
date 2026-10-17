@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, symlinkSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -168,7 +168,7 @@ describe("buildChangeReceipt", () => {
     expect(renderReceipt(receipt.value)).toMatch(/Already failing\s+test/);
   });
 
-  it("blocks when the session breaks a second test next to one already failing", async () => {
+  it("a different failure at the baseline is NOT PROVEN (can't tell if new), never NO-SHIP", async () => {
     const fixture = await repo();
     await fixture.write(
       "src/money.ts",
@@ -183,10 +183,338 @@ describe("buildChangeReceipt", () => {
       return lines.join("\n");
     });
     const receipt = await buildChangeReceipt(workspace, { run });
-    expect(receipt.ok && receipt.value.verdict).toBe("failed");
-    expect(
-      receipt.ok && receipt.value.checks.find((c) => c.name === "test")?.cause,
-    ).toBe("caused");
+    expect(receipt.ok).toBe(true);
+    if (!receipt.ok) return;
+    // It failed at the baseline too, differently: only a pass there proves
+    // the change caused it (Arc), so Prism can't tell.
+    expect(receipt.value.checks.find((c) => c.name === "test")?.cause).toBe(
+      "unknown",
+    );
+    expect(receipt.value.verdict).toBe("not_proven");
+    expect(receipt.value.reason).toBe("baseline_unknown");
+    expect(receiptFeedback(receipt.value)).toBeNull();
+    const text = renderReceipt(receipt.value);
+    expect(text.split("\n")[0]).toBe(
+      "Prism · NOT PROVEN (can't tell if this failure is new)",
+    );
+    expect(text).not.toMatch(/NO-SHIP|caused|fixing/i);
+  });
+
+  it("an already-failing test reads NOT PROVEN (tests already failing)", async () => {
+    const fixture = await repo();
+    await fixture.write(
+      "src/money.ts",
+      "export function formatMoney(n: number): string { return `USD ${n}`; }\n",
+    );
+    const workspace = await open(fixture.root);
+    const { run } = treeRunner(fixture.root, (step) =>
+      step.name === "test" ? " FAIL  src/money.test.ts > formats" : null,
+    );
+    const receipt = await buildChangeReceipt(workspace, { run });
+    expect(receipt.ok).toBe(true);
+    if (!receipt.ok) return;
+    const text = renderReceipt(receipt.value);
+    expect(text.split("\n")[0]).toBe(
+      "Prism · NOT PROVEN (tests already failing)",
+    );
+    expect(text).not.toMatch(/NO-SHIP|caused|fixing/i);
+  });
+
+  it("no baseline (turned off): a failure is NOT PROVEN (can't tell if new), never NO-SHIP", async () => {
+    const fixture = await repo();
+    await fixture.write(
+      "src/money.ts",
+      "export function formatMoney(n: number): string { return `USD ${n}`; }\n",
+    );
+    const workspace = await open(fixture.root);
+    const { run } = treeRunner(fixture.root, (step) =>
+      step.name === "test" ? " FAIL  src/money.test.ts > formats" : null,
+    );
+    const receipt = await buildChangeReceipt(workspace, {
+      run,
+      baseline: false,
+    });
+    expect(receipt.ok).toBe(true);
+    if (!receipt.ok) return;
+    expect(receipt.value.checks.find((c) => c.name === "test")?.cause).toBe(
+      "unknown",
+    );
+    expect(receipt.value.verdict).toBe("not_proven");
+    expect(receipt.value.reason).toBe("baseline_unknown");
+  });
+
+  it("a baseline run that times out: NOT PROVEN (can't tell if new), never NO-SHIP", async () => {
+    const fixture = await repo();
+    await fixture.write(
+      "src/money.ts",
+      "export function formatMoney(n: number): string { return `USD ${n}`; }\n",
+    );
+    const workspace = await open(fixture.root);
+    const receipt = await buildChangeReceipt(workspace, {
+      run: async (cwd, step) => {
+        if (step.name !== "test") return { ok: true, output: "" };
+        // The live run fails; the baseline copy's run times out.
+        return cwd === fixture.root
+          ? { ok: false, output: " FAIL  src/money.test.ts > formats" }
+          : { ok: false, timedOut: true, output: "timed out after 60000ms" };
+      },
+    });
+    expect(receipt.ok).toBe(true);
+    if (!receipt.ok) return;
+    expect(receipt.value.checks.find((c) => c.name === "test")?.cause).toBe(
+      "unknown",
+    );
+    expect(receipt.value.reason).toBe("baseline_unknown");
+    expect(renderReceipt(receipt.value)).not.toMatch(/NO-SHIP|caused|fixing/i);
+  });
+
+  it("J-09: a change no test reaches is NOT PROVEN (no tests reach this change), never SHIP", async () => {
+    const fixture = await repo();
+    await fixture.write("src/settings.json", '{"currency":"USD"}\n');
+    fixture.commit("settings");
+    await fixture.write("src/settings.json", '{"currency":"EUR"}\n');
+    const workspace = await open(fixture.root);
+    const { run } = recordingRunner(() => null);
+    const receipt = await buildChangeReceipt(workspace, { run });
+    expect(receipt.ok).toBe(true);
+    if (!receipt.ok) return;
+    expect(receipt.value.verdict).not.toBe("proven");
+    const text = renderReceipt(receipt.value);
+    expect(text).not.toMatch(/Prism · SHIP/);
+    expect(text.split("\n")[0]).toBe(
+      "Prism · NOT PROVEN (no tests reach this change)",
+    );
+  });
+
+  it("J-02 mono-downstream: a break in workspace package B, called from A, is never 'already failing'", async () => {
+    const fixture = await createFixture({ name: "receipt-mono" });
+    fixtures.push(fixture);
+    await fixture.write(".gitignore", "node_modules/\n");
+    await fixture.write(
+      "package.json",
+      JSON.stringify({ name: "mono", private: true, version: "0.0.0" }),
+    );
+    await fixture.write("pnpm-workspace.yaml", "packages:\n  - packages/*\n");
+    await fixture.write("pnpm-lock.yaml", "lockfileVersion: '9.0'\n");
+    await fixture.write(
+      "packages/b/package.json",
+      JSON.stringify({ name: "@m/b", version: "0.0.0", main: "src/b.ts" }),
+    );
+    await fixture.write(
+      "packages/b/src/b.ts",
+      "export function total(xs: number[]): number { return xs.reduce((a, x) => a + x, 0); }\n",
+    );
+    await fixture.write(
+      "packages/a/package.json",
+      JSON.stringify({
+        name: "@m/a",
+        version: "0.0.0",
+        scripts: { test: "vitest run" },
+        dependencies: { "@m/b": "workspace:*" },
+      }),
+    );
+    await fixture.write(
+      "packages/a/src/sum.ts",
+      'import { total } from "@m/b";\nexport const sum = (xs: number[]) => total(xs);\n',
+    );
+    await fixture.write(
+      "packages/a/src/sum.test.ts",
+      'import { sum } from "./sum";\nimport { total } from "@m/b";\nexport const t = [sum([1]), total([1])];\n',
+    );
+    fixture.commit("initial");
+    // pnpm links the workspace package into A's node_modules.
+    mkdirSync(join(fixture.root, "packages/a/node_modules/@m"), {
+      recursive: true,
+    });
+    symlinkSync(
+      "../../../b",
+      join(fixture.root, "packages/a/node_modules/@m/b"),
+      "dir",
+    );
+    // The session breaks B.
+    await fixture.write(
+      "packages/b/src/b.ts",
+      "export function total(xs: number[]): number { return xs.length; }\n",
+    );
+    const workspace = await open(fixture.root);
+    const steps: string[] = [];
+    // A's tests load B through node_modules, as Node would.
+    const run: VerifyRunner = async (cwd, step) => {
+      steps.push(step.name);
+      if (step.name !== "test") return { ok: true, output: "" };
+      const b = join(cwd, "node_modules/@m/b/src/b.ts");
+      const broken =
+        existsSync(b) && readFileSync(b, "utf8").includes("length");
+      return broken
+        ? { ok: false, output: " FAIL  src/sum.test.ts > sums" }
+        : { ok: true, output: "" };
+    };
+    const receipt = await buildChangeReceipt(workspace, { run });
+    expect(receipt.ok).toBe(true);
+    if (!receipt.ok) return;
+    expect(receipt.value.testFiles).toContain("packages/a/src/sum.test.ts");
+    const test = receipt.value.checks.find((c) => c.name.endsWith("test"));
+    expect(test).toMatchObject({ status: "failed", cause: "unknown" });
+    // The baseline was refused: it would have loaded the live, broken B.
+    expect(steps.filter((s) => s === "test")).toHaveLength(1);
+    expect(receipt.value.verdict).toBe("not_proven");
+    expect(receipt.value.reason).toBe("baseline_unknown");
+    const text = renderReceipt(receipt.value);
+    expect(text.split("\n")[0]).toBe(
+      "Prism · NOT PROVEN (can't tell if this failure is new)",
+    );
+    expect(text).not.toMatch(/already failing|SHIP —|Prism · SHIP/i);
+  });
+
+  it("es-toolkit regression: Yarn PnP refuses the baseline, so a lint failure is NOT PROVEN (can't tell if new)", async () => {
+    const fixture = await createFixture({ name: "receipt-pnp" });
+    fixtures.push(fixture);
+    await fixture.write(
+      "package.json",
+      JSON.stringify({
+        name: "es-toolkit-like",
+        version: "0.0.0",
+        packageManager: "yarn@4.9.1",
+        scripts: { lint: "eslint .", test: "vitest run" },
+        devDependencies: { eslint: "9", vitest: "3" },
+      }),
+    );
+    await fixture.write(".yarnrc.yml", "nodeLinker: pnp\n");
+    await fixture.write(".pnp.cjs", "// Yarn Plug'n'Play map\n");
+    await fixture.write("yarn.lock", "");
+    await fixture.write(
+      "src/array/chunk.ts",
+      "export function chunk<T>(xs: T[]): T[][] { return [xs]; }\n",
+    );
+    await fixture.write(
+      "src/array/chunk.spec.ts",
+      'import { chunk } from "./chunk";\nexport const t = chunk([1]);\n',
+    );
+    fixture.commit("initial");
+    await fixture.write(
+      "src/array/chunk.ts",
+      "export function chunk<T>(xs: T[], n = 1): T[][] { return [xs.slice(0, n)]; }\n",
+    );
+    const workspace = await open(fixture.root);
+    const { run, steps } = recordingRunner((step) =>
+      step.name === "lint"
+        ? "  ╭─[src/array/chunk.ts:1:4] error: no-unused-vars"
+        : null,
+    );
+    const receipt = await buildChangeReceipt(workspace, { run });
+    expect(receipt.ok).toBe(true);
+    if (!receipt.ok) return;
+    // No baseline run: PnP can't be used from a copy.
+    expect(steps.filter((s) => s.name === "lint")).toHaveLength(1);
+    expect(receipt.value.checks.find((c) => c.name === "lint")).toMatchObject({
+      status: "failed",
+      cause: "unknown",
+    });
+    expect(receipt.value.verdict).toBe("not_proven");
+    expect(receipt.value.reason).toBe("baseline_unknown");
+    expect(receiptFeedback(receipt.value)).toBeNull();
+    const text = renderReceipt(receipt.value);
+    expect(text.split("\n")[0]).toBe(
+      "Prism · NOT PROVEN (can't tell if this failure is new)",
+    );
+    expect(text).not.toMatch(/NO-SHIP|caused|fixing/i);
+  });
+
+  /**
+   * es-toolkit's shape (Scout's Cursor A/B): a gitignored build folder,
+   * `compat/`, that lint still reads in the live tree but the baseline copy
+   * never has. The change is in `src/`.
+   */
+  async function esToolkit(): Promise<Fixture> {
+    const fixture = await createFixture({ name: "receipt-es-toolkit" });
+    fixtures.push(fixture);
+    await fixture.write(
+      "package.json",
+      JSON.stringify({
+        name: "es-toolkit-like",
+        version: "0.0.0",
+        scripts: { lint: "oxlint .", test: "vitest run" },
+      }),
+    );
+    await fixture.write(".gitignore", "compat/\n");
+    await fixture.write(
+      "src/array/chunk.ts",
+      "export function chunk<T>(xs: T[]): T[][] { return [xs]; }\n",
+    );
+    fixture.commit("initial");
+    await fixture.write("compat/isError.js", "const unused = 1;\n");
+    return fixture;
+  }
+
+  /** Lint reads the tree it runs in: `compat/` and a bad `chunk.ts` fail it. */
+  const lintRunner =
+    (steps: string[]): VerifyRunner =>
+    async (cwd, step) => {
+      steps.push(`${step.name}@${cwd}`);
+      if (step.name !== "lint") return { ok: true, output: "" };
+      const lines: string[] = [];
+      if (existsSync(join(cwd, "compat/isError.js"))) {
+        lines.push("  ╭─[compat/isError.js:1:7] error: no-unused-vars");
+      }
+      const chunk = readFileSync(join(cwd, "src/array/chunk.ts"), "utf8");
+      if (chunk.includes("unusedN")) {
+        lines.push("  ╭─[src/array/chunk.ts:1:9] error: no-unused-vars");
+      }
+      return lines.length > 0
+        ? { ok: false, output: lines.join("\n") }
+        : { ok: true, output: "" };
+    };
+
+  it("es-toolkit regression: lint fails only in a gitignored compat/ file, so NOT PROVEN (failure is in files outside this change), never NO-SHIP", async () => {
+    const fixture = await esToolkit();
+    await fixture.write(
+      "src/array/chunk.ts",
+      "export function chunk<T>(xs: T[], n = 1): T[][] { return [xs.slice(0, n)]; }\n",
+    );
+    const workspace = await open(fixture.root);
+    const steps: string[] = [];
+    const receipt = await buildChangeReceipt(workspace, {
+      run: lintRunner(steps),
+    });
+    expect(receipt.ok).toBe(true);
+    if (!receipt.ok) return;
+    // The baseline ran and passed (its copy has no compat/): that is no proof.
+    expect(steps.filter((s) => s.startsWith("lint@"))).toHaveLength(2);
+    expect(receipt.value.checks.find((c) => c.name === "lint")).toMatchObject({
+      status: "failed",
+      cause: "outside-change",
+    });
+    expect(receipt.value.verdict).toBe("not_proven");
+    expect(receipt.value.reason).toBe("outside_change");
+    expect(receiptFeedback(receipt.value)).toBeNull();
+    const text = renderReceipt(receipt.value);
+    expect(text.split("\n")[0]).toBe(
+      "Prism · NOT PROVEN (failure is in files outside this change)",
+    );
+    expect(text).not.toMatch(/NO-SHIP|caused|fixing|can't tell/i);
+  });
+
+  it("es-toolkit: a lint error in a changed file that passed at the baseline is still NO-SHIP", async () => {
+    const fixture = await esToolkit();
+    await fixture.write(
+      "src/array/chunk.ts",
+      "export function chunk<T>(xs: T[], unusedN = 1): T[][] { return [xs]; }\n",
+    );
+    const workspace = await open(fixture.root);
+    const steps: string[] = [];
+    const receipt = await buildChangeReceipt(workspace, {
+      run: lintRunner(steps),
+    });
+    expect(receipt.ok).toBe(true);
+    if (!receipt.ok) return;
+    expect(receipt.value.checks.find((c) => c.name === "lint")).toMatchObject({
+      status: "failed",
+      cause: "caused",
+    });
+    expect(receipt.value.verdict).toBe("failed");
+    expect(renderReceipt(receipt.value).split("\n")[0]).toBe(
+      "Prism · NO-SHIP (1 check failed)",
+    );
   });
 
   it("runs the baseline in a copy and leaves the working tree as it was", async () => {
@@ -523,6 +851,75 @@ describe("receiptVerdict", () => {
         "unsupported_language",
       ],
       [{ ...base, selectedTests: 0, supportedChanged: 0 }, "proven", undefined],
+      [
+        {
+          ...base,
+          checks: [
+            passed,
+            { ...passed, status: "failed" as const, cause: "unknown" as const },
+          ],
+        },
+        "not_proven",
+        "baseline_unknown",
+      ],
+      [
+        {
+          ...base,
+          checks: [
+            {
+              ...passed,
+              status: "failed" as const,
+              cause: "already-failing" as const,
+            },
+          ],
+        },
+        "not_proven",
+        "already_failing",
+      ],
+      // A failure only in files outside the change never becomes NO-SHIP.
+      [
+        {
+          ...base,
+          checks: [
+            passed,
+            {
+              ...passed,
+              name: "lint",
+              status: "failed" as const,
+              cause: "outside-change" as const,
+            },
+          ],
+        },
+        "not_proven",
+        "outside_change",
+      ],
+      // J-09: a change no test ran on is never proven (SHIP).
+      [
+        { ...base, selectedTests: 0, sourcesWithoutTests: 0, checks: [] },
+        "not_proven",
+        "untested",
+      ],
+      [
+        {
+          ...base,
+          selectedTests: 0,
+          checks: [{ ...passed, name: "typecheck" }],
+        },
+        "not_proven",
+        "untested",
+      ],
+      // A caused failure beside an unknown one is still NO-SHIP.
+      [
+        {
+          ...base,
+          checks: [
+            { ...passed, status: "failed" as const, cause: "unknown" as const },
+            { ...passed, status: "failed" as const, cause: "caused" as const },
+          ],
+        },
+        "failed",
+        undefined,
+      ],
     ] as const;
     for (const [input, verdict, reason] of cases) {
       const out = receiptVerdict(input);

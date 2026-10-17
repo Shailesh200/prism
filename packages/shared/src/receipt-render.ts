@@ -10,7 +10,10 @@ import {
   preexistingFailures,
   shipVerdict,
   shipVerdictLabel,
+  unknownFailures,
+  outsideChangeFailures,
   type ChangeReceipt,
+  type NotProvenReason,
   type ReceiptLensLine,
   type ReceiptProof,
   type ShipVerdict,
@@ -18,6 +21,11 @@ import {
 import type { Finding } from "./schemas.js";
 import { sessionValueLine } from "./session-value.js";
 import { findingsFromReceiptParts } from "./structured-finding.js";
+
+/** `1 test reaches it`, `N tests reach it`. */
+function reachIt(tests: number): string {
+  return `${plural(tests, "test")} ${tests === 1 ? "reaches" : "reach"} it`;
+}
 
 function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`;
@@ -39,6 +47,39 @@ export function receiptHeadline(receipt: ChangeReceipt): string {
   return `Prism · ${shipVerdictLabel(receipt)}`;
 }
 
+/**
+ * The action after a NOT PROVEN terminal line (Muse). A tail only adds an
+ * action; a reason whose label already says it all has none.
+ */
+const TERMINAL_REASON: Partial<Record<NotProvenReason, string>> = {
+  untested: "add a test that covers it",
+  no_node_modules: "install dependencies to run its tests",
+  timeout: "run it again when the machine is less busy",
+  baseline_unknown: "check if it failed before this change",
+  outside_change: "check those files separately",
+};
+
+/**
+ * The verdict in one terminal line (Muse v2.1): the headline and what it
+ * means. Shown by `prism receipts` and by the stop hook when the verdict is
+ * already final at stop.
+ */
+export function receiptTerminalLine(receipt: ChangeReceipt): string {
+  const head = receiptHeadline(receipt);
+  if (nothingChanged(receipt)) return head;
+  const verdict = shipVerdict(receipt);
+  if (interimAtStop(receipt)) return "Prism · checking… still running";
+  if (verdict === "SHIP")
+    return `${head} — the checks this change reaches passed`;
+  if (verdict === "NO-SHIP") {
+    return blockingChecks(receipt).length > 0
+      ? `${head} — the agent is fixing it`
+      : `${head} — the agent is undoing those edits`;
+  }
+  const action = TERMINAL_REASON[receipt.reason ?? "untested"];
+  return action ? `${head} — ${action}` : head;
+}
+
 /** A clean tree: `proven` with nothing to show. */
 export function nothingChanged(receipt: ChangeReceipt): boolean {
   return receipt.touched.totalFiles === 0 && receipt.unsupported.length === 0;
@@ -49,10 +90,22 @@ export function nothingChanged(receipt: ChangeReceipt): boolean {
  * `Prism receipt: changed 1 file, 3 dependents, N tests reach it — SHIP`.
  */
 export function receiptSummaryLine(receipt: ChangeReceipt): string {
-  const verdict = shipVerdictLabel(receipt);
+  return `${summaryWithoutLabel(receipt)} — ${shipVerdictLabel(receipt)}`;
+}
+
+function summaryWithoutLabel(receipt: ChangeReceipt): string {
   const changed = receipt.touched.totalFiles + receipt.unsupported.length;
   const more = receipt.touched.truncated ? "+" : "";
-  return `Prism receipt: changed ${changed}${more} ${changed === 1 ? "file" : "files"}, ${plural(receipt.touched.dependents, "dependent")}, ${plural(receipt.testFiles.length, "test")} reach it — ${verdict}`;
+  return `Prism receipt: changed ${changed}${more} ${changed === 1 ? "file" : "files"}, ${plural(receipt.touched.dependents, "dependent")}, ${reachIt(receipt.testFiles.length)}`;
+}
+
+/** Checks still running and no verdict yet (off-limits edits are NO-SHIP already). */
+function interimAtStop(receipt: ChangeReceipt): boolean {
+  return (
+    receipt.checksState === "pending" &&
+    !nothingChanged(receipt) &&
+    shipVerdict(receipt) === "NOT PROVEN"
+  );
 }
 
 function touchedLine(receipt: ChangeReceipt): string {
@@ -144,9 +197,16 @@ export function renderReceipt(
   const proven = provenParts(receipt);
   if (proven.length > 0) lines.push(`${pad("Proven")} ${proven.join(" · ")}`);
   for (const check of blockingChecks(receipt)) {
-    const unknown = check.cause === "unknown" ? " (baseline unknown)" : "";
+    lines.push(`${pad("Failed")} ${check.name} ✗ ${check.detail}`.trimEnd());
+  }
+  for (const check of unknownFailures(receipt)) {
     lines.push(
-      `${pad("Failed")} ${check.name} ✗ ${check.detail}${unknown}`.trimEnd(),
+      `${pad("Failed")} ${check.name} ✗ ${check.detail} (can't tell if new)`,
+    );
+  }
+  for (const check of outsideChangeFailures(receipt)) {
+    lines.push(
+      `${pad("Failed")} ${check.name} ✗ ${check.detail} (outside this change)`,
     );
   }
   for (const check of preexistingFailures(receipt)) {
@@ -186,6 +246,52 @@ export function renderReceipt(
   return lines.join("\n");
 }
 
+/** {@link renderReceipt} opening with the terminal line (`prism receipts`). */
+export function renderReceiptTerminal(receipt: ChangeReceipt): string {
+  const [, summary, ...rest] = renderReceipt(receipt).split("\n");
+  // Pending: no verdict word on the summary line either.
+  const second = interimAtStop(receipt)
+    ? summaryWithoutLabel(receipt)
+    : summary;
+  return [
+    receiptTerminalLine(receipt),
+    ...(second === undefined ? [] : [second]),
+    ...rest,
+  ].join("\n");
+}
+
+/**
+ * The stop hook's text (`prism-mcp --hook stop`, which the plugin runs only
+ * when it could not reach the daemon itself). While checks run there is no
+ * verdict word. When the daemon answered, it finishes the checks and the next
+ * receipt carries the verdict as `Earlier change`; nothing records this stop
+ * for `stop-wait`, so no wake promises it sooner. Built in-process (no
+ * daemon), nothing finishes them, so a `still_running` receipt ends NOT
+ * PROVEN with the real reason. Text only; the receipt keeps `still_running`.
+ * Otherwise the full {@link renderReceipt}.
+ */
+export function renderReceiptAtStop(
+  receipt: ChangeReceipt,
+  daemonAnswered: boolean,
+): string {
+  if (!interimAtStop(receipt)) return renderReceipt(receipt);
+  // No daemon, and a reason other than still_running is already the real one.
+  if (!daemonAnswered && receipt.reason !== "still_running") {
+    return renderReceipt(receipt);
+  }
+  const summary = summaryWithoutLabel(receipt);
+  const lines = daemonAnswered
+    ? ["Prism · checking… verdict comes with your next receipt", summary]
+    : [
+        "Prism · NOT PROVEN (daemon not running)",
+        `${summary} — NOT PROVEN (daemon not running)`,
+      ];
+  if (receipt.earlier) lines.push(`Earlier change  ${receipt.earlier.summary}`);
+  const value = receipt.value ? sessionValueLine(receipt.value) : null;
+  if (value) lines.push(value);
+  return lines.join("\n");
+}
+
 function cell(text: string): string {
   return text.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
 }
@@ -200,6 +306,16 @@ export function renderReceiptMarkdown(receipt: ChangeReceipt): string {
   for (const check of blockingChecks(receipt)) {
     lines.push(
       `| **Failed** | \`${cell(check.name)}\` — ${cell(check.detail)} |`,
+    );
+  }
+  for (const check of unknownFailures(receipt)) {
+    lines.push(
+      `| Failed (can't tell if new) | \`${cell(check.name)}\` — ${cell(check.detail)} |`,
+    );
+  }
+  for (const check of outsideChangeFailures(receipt)) {
+    lines.push(
+      `| Failed (outside this change) | \`${cell(check.name)}\` — ${cell(check.detail)} |`,
     );
   }
   for (const check of preexistingFailures(receipt)) {
@@ -253,6 +369,12 @@ export function renderReceiptSvg(receipt: ChangeReceipt): string {
     if (proven.length > 0) rows.push(["Proven", proven.join(" · ")]);
     for (const check of blockingChecks(receipt).slice(0, 3)) {
       rows.push(["Failed", `${check.name} — ${check.detail}`]);
+    }
+    for (const check of unknownFailures(receipt).slice(0, 3)) {
+      rows.push(["Failed", `${check.name} — can't tell if new`]);
+    }
+    for (const check of outsideChangeFailures(receipt).slice(0, 3)) {
+      rows.push(["Failed", `${check.name} — outside this change`]);
     }
     for (const check of preexistingFailures(receipt).slice(0, 2)) {
       rows.push(["Already failing", check.name]);

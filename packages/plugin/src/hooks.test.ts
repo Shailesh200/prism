@@ -693,8 +693,18 @@ describe("stop hook (round 2)", () => {
       },
     });
     try {
-      const { out } = await runAsync("stop", home, { cwd, session_id: "st-1" });
-      expect(out.systemMessage).toMatch(/^Prism · NOT PROVEN \(untested\)/);
+      // Under Claude Code, whose stop-wait brings the verdict.
+      const { out } = await runAsync(
+        "stop",
+        home,
+        { cwd, session_id: "st-1" },
+        { CLAUDE_PROJECT_DIR: cwd },
+      );
+      // While checks run: the interim line and the summary, no verdict word.
+      expect(out.systemMessage).toBe(
+        "Prism · checking… verdict in a moment\n" +
+          "Prism receipt: changed 1 file, 0 dependents, 0 tests reach it",
+      );
       // Stop context would make the agent take one more turn just to reply.
       expect(out.hookSpecificOutput).toBeUndefined();
     } finally {
@@ -729,8 +739,15 @@ describe("stop hook shows the last finished verdict (round 4)", () => {
       },
     });
     try {
-      const { out } = await runAsync("stop", home, { cwd, session_id: "st-2" });
-      expect(out.systemMessage).toMatch(/still_running/);
+      const { out } = await runAsync(
+        "stop",
+        home,
+        { cwd, session_id: "st-2" },
+        { CLAUDE_PROJECT_DIR: cwd },
+      );
+      expect(out.systemMessage).toMatch(
+        /^Prism · checking… verdict in a moment\n/,
+      );
       expect(out.systemMessage).toContain(
         "Earlier change  SHIP — typecheck, lint and 3 tests passed",
       );
@@ -802,13 +819,21 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
       const input = { cwd, session_id: "sw-1", hook_event_name: "Stop" };
       // Claude Code starts both Stop hooks together.
       const [stop, wait] = await Promise.all([
-        runAsync("stop", home, input),
+        runAsync("stop", home, input, { CLAUDE_PROJECT_DIR: cwd }),
         runRaw("stop-wait", home, input),
       ]);
-      expect(stop.out.systemMessage).toContain("checks still running");
+      expect(stop.out.systemMessage).toBe(
+        "Prism · checking… verdict in a moment\n" +
+          "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it",
+      );
       expect(wait.code).toBe(2);
-      expect(wait.stderr).toMatch(/^Prism · SHIP\n/);
-      expect(wait.stderr).toContain("Tell the user this verdict in one line");
+      expect(wait.stderr.trimEnd()).toBe(
+        [
+          "Prism · SHIP",
+          "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it",
+          'Prism · Say first: "Prism: SHIP — the checks this change reaches passed." Then stop.',
+        ].join("\n"),
+      );
       // It waited on the stopped receipt only; it never asked for a new one.
       expect(seen.filter((u) => u === "/v1/receipt")).toHaveLength(1);
       expect(seen).toContain("/v1/receipt-status");
@@ -843,8 +868,10 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
         runRaw("stop-wait", home, input),
       ]);
       expect(wait.code).toBe(2);
-      expect(wait.stderr).toMatch(/^Prism · NO-SHIP \(1 check failed\)/);
-      expect(wait.stderr).toContain("fix the failures before you say done");
+      expect(wait.stderr).toMatch(/^Prism · NO-SHIP \(1 check failed\)\n/);
+      expect(wait.stderr).toContain(
+        'Prism · Say first: "Prism: NO-SHIP — 1 check failed; fixing now." Then fix them.',
+      );
     } finally {
       server.close();
     }
@@ -865,12 +892,18 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
         runAsync("stop", home, input),
         runRaw("stop-wait", home, input),
       ]);
-      expect(stop.out.systemMessage).toMatch(
-        /^Prism · NOT PROVEN \(untested\)/,
+      // Final at stop: the terminal line, then the SMK-8 summary line.
+      expect(stop.out.systemMessage).toBe(
+        "Prism · NOT PROVEN (no tests reach this change) — add a test that covers it\n" +
+          "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it — NOT PROVEN (no tests reach this change)",
       );
       expect(wait.code).toBe(2);
-      expect(wait.stderr).toMatch(/^Prism · NOT PROVEN \(untested\)\n/);
-      expect(wait.stderr).toContain("Tell the user this verdict in one line");
+      expect(wait.stderr).toMatch(
+        /^Prism · NOT PROVEN \(no tests reach this change\)\n/,
+      );
+      expect(wait.stderr).toContain(
+        'Prism · Say first: "NOT PROVEN: no tests cover this change." Then ask the user.',
+      );
       // The agent's reply ends in another stop on the same change: no loop.
       const [, again] = await Promise.all([
         runAsync("stop", home, input),
@@ -920,42 +953,495 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
     expect(none.stderr).toBe("");
   });
 
-  it("wakes for every NOT PROVEN reason except superseded (round 5)", async () => {
-    for (const reason of [
+  /** Off-limits lens finding with `n` paths. */
+  const offLimits = (n: number) => [
+    {
+      lens: "Dev",
+      check: "off_limits_touched",
+      status: "fail",
+      evidence: Array.from({ length: n }, (_, i) => `locked/f${i}.ts`),
+    },
+  ];
+  const failedChecks = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({ name: `c${i}`, status: "failed" }));
+
+  /** Muse v2.1 wake table: [name, receipt overrides, L1, L3]. */
+  const WAKES: [string, Record<string, unknown>, string, string][] = [
+    [
+      "SHIP",
+      { verdict: "proven", reason: undefined },
+      "Prism · SHIP",
+      'Prism · Say first: "Prism: SHIP — the checks this change reaches passed." Then stop.',
+    ],
+    [
+      "NO-SHIP failed",
+      { verdict: "failed", reason: undefined, checks: failedChecks(1) },
+      "Prism · NO-SHIP (1 check failed)",
+      'Prism · Say first: "Prism: NO-SHIP — 1 check failed; fixing now." Then fix them.',
+    ],
+    [
+      "NO-SHIP off-limits",
+      { verdict: "proven", reason: undefined, lensFindings: offLimits(2) },
+      "Prism · NO-SHIP (2 off-limits paths)",
+      'Prism · Say first: "Prism: NO-SHIP — 2 off-limits paths edited; undoing." Then undo those edits.',
+    ],
+    [
+      "NO-SHIP both",
+      {
+        verdict: "failed",
+        reason: undefined,
+        checks: failedChecks(2),
+        lensFindings: offLimits(1),
+      },
+      "Prism · NO-SHIP (2 checks failed, 1 off-limits path)",
+      'Prism · Say first: "Prism: NO-SHIP — 2 checks failed, 1 off-limits path edited." Then fix both.',
+    ],
+    [
       "untested",
+      { reason: "untested" },
+      "Prism · NOT PROVEN (no tests reach this change)",
+      'Prism · Say first: "NOT PROVEN: no tests cover this change." Then ask the user.',
+    ],
+    [
       "no_node_modules",
+      { reason: "no_node_modules" },
+      "Prism · NOT PROVEN (dependencies not installed)",
+      'Prism · Say first: "Prism: NOT PROVEN — dependencies aren\'t installed." Then stop.',
+    ],
+    [
       "unknown_runner",
+      { reason: "unknown_runner" },
+      "Prism · NOT PROVEN (no known test runner)",
+      'Prism · Say first: "Prism: NOT PROVEN — no known runner ran its tests." Then stop.',
+    ],
+    [
       "skipped_offline",
+      { reason: "skipped_offline" },
+      "Prism · NOT PROVEN (checks skipped)",
+      'Prism · Say first: "Prism: NOT PROVEN — checks are off for this run." Then stop.',
+    ],
+    [
       "timeout",
+      { reason: "timeout" },
+      "Prism · NOT PROVEN (checks timed out)",
+      'Prism · Say first: "Prism: NOT PROVEN — a check ran past its time limit." Then stop.',
+    ],
+    [
+      "NO-SHIP caused",
+      {
+        verdict: "failed",
+        reason: undefined,
+        checks: [{ name: "test", status: "failed", cause: "caused" }],
+      },
+      "Prism · NO-SHIP (1 check failed)",
+      'Prism · Say first: "Prism: NO-SHIP — 1 check failed; fixing now." Then fix them.',
+    ],
+    [
       "already_failing",
+      {
+        reason: "already_failing",
+        checks: [{ name: "test", status: "failed", cause: "already-failing" }],
+      },
+      "Prism · NOT PROVEN (tests already failing)",
+      'Prism · Say first: "Prism: NOT PROVEN — its tests failed before this session." Then stop.',
+    ],
+    [
+      "baseline_unknown",
+      {
+        reason: "baseline_unknown",
+        checks: [{ name: "lint", status: "failed", cause: "unknown" }],
+      },
+      "Prism · NOT PROVEN (can't tell if this failure is new)",
+      'Prism · Say first: "NOT PROVEN: Prism can\'t tell if this failure is new." Then ask the user.',
+    ],
+    [
+      "outside_change",
+      {
+        reason: "outside_change",
+        checks: [{ name: "lint", status: "failed", cause: "outside-change" }],
+      },
+      "Prism · NOT PROVEN (failure is in files outside this change)",
+      'Prism · Say first: "NOT PROVEN: the failure is in files outside this change." Then ask the user.',
+    ],
+    [
       "unsupported_language",
-    ]) {
-      const { home, cwd } = layout(snapshot);
-      const server = await fakeDaemon(home, {
-        receipt: stopReceipt({}),
-        status: {
-          running: false,
-          receipt: stopReceipt({ reason, checksState: "done" }),
-        },
-      });
-      try {
-        const input = {
-          cwd,
-          session_id: `sw-${reason}`,
-          hook_event_name: "Stop",
-        };
-        const [, wait] = await Promise.all([
-          runAsync("stop", home, input),
-          runRaw("stop-wait", home, input),
-        ]);
-        expect(wait.code).toBe(2);
-        expect(wait.stderr).toMatch(
-          new RegExp(`^Prism · NOT PROVEN \\(${reason}\\)\n`),
-        );
-      } finally {
-        server.close();
+      { reason: "unsupported_language" },
+      "Prism · NOT PROVEN (unsupported language)",
+      'Prism · Say first: "Prism: NOT PROVEN — only TS and JS files are checked." Then stop.',
+    ],
+  ];
+
+  /** `{ code: "words", … }` pairs from a TS or JS object literal. */
+  const labelsIn = (source: string, start: string) => {
+    const body = source.slice(source.indexOf(start)).split("\n};")[0]!;
+    return Object.fromEntries(
+      [...body.matchAll(/^\s+(\w+): "([^"]+)",$/gm)].map((m) => [m[1], m[2]]),
+    );
+  };
+
+  it("every NOT PROVEN reason has words, the same as shared, and a wake row (Arc)", () => {
+    const shared = readFileSync(
+      join(dirname(hook), "..", "..", "shared", "src", "receipt.ts"),
+      "utf8",
+    );
+    const reasons = [
+      ...shared
+        .slice(shared.indexOf("NOT_PROVEN_REASONS = ["))
+        .split("]")[0]!
+        .matchAll(/"(\w+)"/g),
+    ].map((m) => m[1]!);
+    expect(reasons.length).toBeGreaterThan(8);
+    const mine = labelsIn(readFileSync(hook, "utf8"), "const REASON_LABEL = {");
+    expect(mine).toEqual(labelsIn(shared, "REASON_LABEL: Readonly"));
+    // Terminal tails: the same actions as shared, and only actions (Muse).
+    const render = readFileSync(
+      join(dirname(hook), "..", "..", "shared", "src", "receipt-render.ts"),
+      "utf8",
+    );
+    const tails = labelsIn(
+      readFileSync(hook, "utf8"),
+      "const TERMINAL_REASON = {",
+    );
+    expect(tails).toEqual(labelsIn(render, "const TERMINAL_REASON:"));
+    expect(Object.keys(tails).toSorted()).toEqual([
+      "baseline_unknown",
+      "no_node_modules",
+      "outside_change",
+      "timeout",
+      "untested",
+    ]);
+    for (const reason of reasons) {
+      expect(mine[reason], reason).toMatch(/^[a-z][a-z' ]+[a-z]$/i);
+      expect(mine[reason], reason).not.toBe(reason);
+      // Every reason that wakes is in the table; these two never wake.
+      if (reason !== "still_running" && reason !== "superseded") {
+        expect(
+          WAKES.map(([name]) => name),
+          reason,
+        ).toContain(reason);
       }
     }
+  });
+
+  async function wakeFor(name: string, over: Record<string, unknown>) {
+    const { home, cwd } = layout(snapshot);
+    const server = await fakeDaemon(home, {
+      receipt: stopReceipt({}),
+      status: {
+        running: false,
+        receipt: stopReceipt({ checksState: "done", ...over }),
+      },
+    });
+    try {
+      const input = {
+        cwd,
+        session_id: `sw-${name.replace(/\W+/g, "-")}`,
+        hook_event_name: "Stop",
+      };
+      const [stop, wait] = await Promise.all([
+        runAsync("stop", home, input),
+        runRaw("stop-wait", home, input),
+      ]);
+      return { stop, wait };
+    } finally {
+      server.close();
+    }
+  }
+
+  it("wakes with Muse's v2.1 text for every verdict but nothing changed and superseded (round 5)", async () => {
+    for (const [name, over, l1, l3] of WAKES) {
+      const { wait } = await wakeFor(name, over);
+      expect(wait.code, name).toBe(2);
+      const lines = wait.stderr.trimEnd().split("\n");
+      expect(lines, name).toEqual([
+        l1,
+        "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it",
+        l3,
+      ]);
+      // Reason codes never reach the user (Arc).
+      expect(wait.stderr, name).not.toMatch(/\b[a-z]+_[a-z_]+\b|\(timeout\)/);
+      expect(wait.stderr, name).not.toMatch(/caused|outside-change/);
+      for (const line of lines) expect(line.length, line).toBeLessThan(100);
+    }
+  });
+
+  it("keeps every wake line under 100 chars with worst-case counts (v2.1)", async () => {
+    const worst = {
+      verdict: "failed",
+      reason: undefined,
+      checks: failedChecks(12),
+      lensFindings: offLimits(12),
+      touched: { totalFiles: 999, dependents: 9999 },
+      testFiles: Array.from({ length: 60 }, (_, i) => `t${i}.test.ts`),
+    };
+    const { wait } = await wakeFor("worst", worst);
+    const lines = wait.stderr.trimEnd().split("\n");
+    expect(lines).toHaveLength(3);
+    expect(lines[2]).toBe(
+      'Prism · Say first: "Prism: NO-SHIP — 12 checks failed, 12 off-limits paths edited." Then fix both.',
+    );
+    for (const line of lines) expect(line.length, line).toBeLessThan(100);
+  });
+});
+
+describe("stop line: only a host that waits for the verdict says 'in a moment' (Arc)", () => {
+  const snapshot = { orientation: "x", offLimits: [], needsSignOff: [] };
+
+  async function firstLine(
+    input: Record<string, unknown>,
+    env: Record<string, string> = {},
+  ) {
+    const { home, cwd } = layout(snapshot);
+    const server = await fakeDaemon(home, { receipt: stopReceipt({}) });
+    try {
+      const { out } = await runAsync("stop", home, { cwd, ...input }, env);
+      return (out.systemMessage as string).split("\n")[0];
+    } finally {
+      server.close();
+    }
+  }
+
+  it("Claude Code runs stop-wait beside stop: verdict in a moment", async () => {
+    expect(
+      await firstLine(
+        { session_id: "wh-1", hook_event_name: "Stop" },
+        { CLAUDE_PROJECT_DIR: "/repo" },
+      ),
+    ).toBe("Prism · checking… verdict in a moment");
+  });
+
+  it("opencode's plugin runs stop only: the verdict comes with the next receipt", async () => {
+    // The payload `prism install opencode`'s plugin sends on session.idle.
+    expect(
+      await firstLine({ session_id: "wh-2", hook_event_name: "Stop" }),
+    ).toBe("Prism · checking… verdict comes with your next receipt");
+  });
+
+  it("the Cursor agent runs no stop-wait, even with CLAUDE_PROJECT_DIR set", async () => {
+    expect(
+      await firstLine(
+        {
+          session_id: "wh-3",
+          hook_event_name: "Stop",
+          workspace_roots: ["/repo"],
+        },
+        { CLAUDE_PROJECT_DIR: "/repo" },
+      ),
+    ).toBe("Prism · checking… verdict comes with your next receipt");
+  });
+
+  it("an unknown or new host defaults to no wake", async () => {
+    expect(await firstLine({ session_id: "wh-4", host: "new-agent" })).toBe(
+      "Prism · checking… verdict comes with your next receipt",
+    );
+  });
+});
+
+describe("stop-time lines (Muse v2.1)", () => {
+  const snapshot = { orientation: "x", offLimits: [], needsSignOff: [] };
+
+  async function stopText(
+    receipt: Record<string, unknown>,
+    env: Record<string, string> = {},
+  ) {
+    const { home, cwd } = layout(snapshot);
+    const server = await fakeDaemon(home, { receipt: stopReceipt(receipt) });
+    try {
+      const { out } = await runAsync(
+        "stop",
+        home,
+        { cwd, session_id: "stl", hook_event_name: "Stop" },
+        env,
+      );
+      return out.systemMessage as string;
+    } finally {
+      server.close();
+    }
+  }
+
+  it("summary grammar: 1 test reaches it, N tests reach it (Arc)", async () => {
+    const done = { verdict: "proven", reason: undefined, checksState: "done" };
+    const one = await stopText({ ...done, testFiles: ["a.test.ts"] });
+    expect(one.split("\n")[1]).toBe(
+      "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it — SHIP",
+    );
+    const two = await stopText({
+      ...done,
+      testFiles: ["a.test.ts", "b.test.ts"],
+    });
+    expect(two.split("\n")[1]).toBe(
+      "Prism receipt: changed 1 file, 2 dependents, 2 tests reach it — SHIP",
+    );
+  });
+
+  it("the interim line changes text only: no verdict word, the record stays pending (Arc)", async () => {
+    const { home, cwd } = layout(snapshot);
+    const server = await fakeDaemon(home, { receipt: stopReceipt({}) });
+    try {
+      const { out } = await runAsync(
+        "stop",
+        home,
+        { cwd, session_id: "sti", hook_event_name: "Stop" },
+        { CLAUDE_PROJECT_DIR: cwd },
+      );
+      const text = out.systemMessage as string;
+      expect(text.split("\n")[0]).toBe("Prism · checking… verdict in a moment");
+      expect(text).not.toMatch(/SHIP|NOT PROVEN|still_running/);
+      // What tools read is untouched: the hook logs the receipt's own state.
+      const event = readFileSync(join(home, "events.jsonl"), "utf8")
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line) as Record<string, unknown>)
+        .find(
+          (e) =>
+            e.event === "hook.stop" &&
+            e.outcome === "ok" &&
+            (e.detail as { id?: string } | undefined)?.id,
+        );
+      expect(event?.detail).toMatchObject({
+        id: "r9",
+        verdict: "not_proven",
+        checksState: "pending",
+      });
+    } finally {
+      server.close();
+    }
+  });
+
+  const offLimitsPending = {
+    lensFindings: [
+      {
+        lens: "Dev",
+        check: "off_limits_touched",
+        status: "fail",
+        evidence: ["locked/a.ts"],
+      },
+    ],
+  };
+
+  it("an off-limits path at stop says NO-SHIP while the checks still run (no wake: next receipt)", async () => {
+    expect(await stopText(offLimitsPending)).toBe(
+      "Prism · NO-SHIP (1 off-limits path) — checks still running; the verdict comes with your next receipt\n" +
+        "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it — NO-SHIP",
+    );
+  });
+
+  it("an off-limits path at stop on a host that waits: the verdict follows", async () => {
+    expect(
+      await stopText(offLimitsPending, { CLAUDE_PROJECT_DIR: "/repo" }),
+    ).toBe(
+      "Prism · NO-SHIP (1 off-limits path) — checks still running; the verdict follows\n" +
+        "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it — NO-SHIP",
+    );
+  });
+
+  describe("who a failure is blamed on: the baseline decides (M-092, Arc)", () => {
+    const failed = (cause: string) => ({
+      checksState: "done",
+      checks: [{ name: "test", status: "failed", cause }],
+    });
+
+    it("(a) passed at the baseline, failing now: NO-SHIP, the agent fixes it", async () => {
+      expect(
+        await stopText({
+          ...failed("caused"),
+          verdict: "failed",
+          reason: undefined,
+        }),
+      ).toBe(
+        "Prism · NO-SHIP (1 check failed) — the agent is fixing it\n" +
+          "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it — NO-SHIP",
+      );
+    });
+
+    it("(b) failed at the baseline too: NOT PROVEN (tests already failing), no blame", async () => {
+      const text = await stopText({
+        ...failed("already-failing"),
+        reason: "already_failing",
+      });
+      expect(text).toBe(
+        "Prism · NOT PROVEN (tests already failing)\n" +
+          "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it — NOT PROVEN (tests already failing)",
+      );
+      expect(text).not.toMatch(/NO-SHIP|caused|fixing/i);
+      expect(text).not.toContain("already_failing");
+    });
+
+    it("(c) no, refused or timed-out baseline, or a different failure: NOT PROVEN (can't tell…), no blame", async () => {
+      const text = await stopText({
+        ...failed("unknown"),
+        reason: "baseline_unknown",
+      });
+      expect(text).toBe(
+        "Prism · NOT PROVEN (can't tell if this failure is new) — check if it failed before this change\n" +
+          "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it — NOT PROVEN (can't tell if this failure is new)",
+      );
+      expect(text).not.toMatch(/NO-SHIP|caused|fixing/i);
+    });
+
+    it("(d) failure only in gitignored or unchanged files: NOT PROVEN (failure is in files outside this change), never NO-SHIP", async () => {
+      const text = await stopText({
+        ...failed("outside-change"),
+        reason: "outside_change",
+      });
+      expect(text).toBe(
+        "Prism · NOT PROVEN (failure is in files outside this change) — check those files separately\n" +
+          "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it — NOT PROVEN (failure is in files outside this change)",
+      );
+      expect(text).not.toMatch(
+        /NO-SHIP|caused|fixing|can't tell|outside_change/i,
+      );
+    });
+
+    it("(c) beside an off-limits edit: NO-SHIP for the edit only, nothing to fix", async () => {
+      expect(
+        (
+          await stopText({
+            ...failed("unknown"),
+            reason: "baseline_unknown",
+            lensFindings: [
+              {
+                lens: "Dev",
+                check: "off_limits_touched",
+                status: "fail",
+                evidence: ["locked/a.ts"],
+              },
+            ],
+          })
+        ).split("\n")[0],
+      ).toBe(
+        "Prism · NO-SHIP (1 off-limits path) — the agent is undoing those edits",
+      );
+    });
+  });
+
+  it("a final verdict at stop shows its terminal line, never the old Proven row", async () => {
+    const text = await stopText({
+      verdict: "failed",
+      reason: undefined,
+      checksState: "done",
+      checks: [{ name: "test", status: "failed" }],
+      earlier: { summary: "changed 1 file — SHIP" },
+    });
+    expect(text).toBe(
+      [
+        "Prism · NO-SHIP (1 check failed) — the agent is fixing it",
+        "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it — NO-SHIP",
+        "Earlier change  changed 1 file — SHIP",
+      ].join("\n"),
+    );
+    expect(text).not.toContain("Proven ");
+  });
+
+  it("nothing changed is one line", async () => {
+    expect(
+      await stopText({
+        verdict: "proven",
+        reason: undefined,
+        checksState: "done",
+        touched: { totalFiles: 0, dependents: 0 },
+      }),
+    ).toBe("Prism · nothing changed");
   });
 });
 
