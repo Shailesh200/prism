@@ -3,6 +3,7 @@ import {
   lstatSync,
   mkdirSync,
   readFileSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
@@ -10,6 +11,7 @@ import { createFixture, type Fixture } from "@repo-prism/test-support";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   baselineRefusal,
+  liveTreeDependency,
   recoverBaseline,
   withBaselineCopy,
 } from "./baseline.js";
@@ -115,4 +117,67 @@ describe("withBaselineCopy", () => {
     await fixture.write(".pnp.cjs", "");
     expect(baselineRefusal(fixture.root, ["src/a.ts"])).toMatch(/Plug'n'Play/);
   });
+});
+
+/** `node_modules/<at>` as a symlink to `target` (relative, as installers write it). */
+function link(root: string, at: string, target: string): void {
+  mkdirSync(join(root, at, ".."), { recursive: true });
+  symlinkSync(target, join(root, at), "dir");
+}
+
+describe("J-02: a dependency linked into the live tree refuses the baseline", () => {
+  async function workspace(): Promise<Fixture> {
+    const fixture = await repo();
+    await fixture.write("packages/b/package.json", '{"name":"@m/b"}');
+    await fixture.write("packages/b/src/b.ts", "export const b = 1;\n");
+    // Installed packages that stay inside node_modules are fine.
+    await fixture.write(
+      "node_modules/.pnpm/lodash@4.17.21/node_modules/lodash/package.json",
+      '{"name":"lodash"}',
+    );
+    link(
+      fixture.root,
+      "node_modules/lodash",
+      ".pnpm/lodash@4.17.21/node_modules/lodash",
+    );
+    return fixture;
+  }
+
+  it("a plain pnpm repo keeps its baseline: links into node_modules/.pnpm are fine", async () => {
+    const fixture = await workspace();
+    expect(liveTreeDependency(fixture.root)).toBeNull();
+    expect(baselineRefusal(fixture.root, ["src/a.ts"])).toBeNull();
+    expect(
+      await withBaselineCopy(fixture.root, ["src/a.ts"], async () => "ran"),
+    ).toBe("ran");
+  });
+
+  const cases: [string, string, string][] = [
+    ["a workspace symlink", "node_modules/b", "../packages/b"],
+    ["a scoped workspace symlink", "node_modules/@m/b", "../../packages/b"],
+    [
+      "a pnpm .pnpm link",
+      "node_modules/.pnpm/node_modules/@m/b",
+      "../../../../packages/b",
+    ],
+    [
+      "a pnpm store package's link",
+      "node_modules/.pnpm/x@1.0.0/node_modules/@m/b",
+      "../../../../../packages/b",
+    ],
+    ["a nested node_modules", "packages/a/node_modules/@m/b", "../../../b"],
+  ];
+  for (const [name, at, target] of cases) {
+    it(`refuses ${name}`, async () => {
+      const fixture = await workspace();
+      link(fixture.root, at, target);
+      expect(liveTreeDependency(fixture.root)).toBe(at);
+      expect(baselineRefusal(fixture.root, ["src/a.ts"])).toBe(
+        `${at} links into the live tree`,
+      );
+      expect(
+        await withBaselineCopy(fixture.root, ["src/a.ts"], async () => "ran"),
+      ).toBeNull();
+    });
+  }
 });

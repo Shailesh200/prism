@@ -18,7 +18,9 @@ import {
   lstatSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   symlinkSync,
 } from "node:fs";
@@ -29,7 +31,9 @@ import {
   isAbsolute,
   join,
   normalize,
+  relative,
   resolve,
+  sep,
 } from "node:path";
 import { workspacePrismDir } from "@repo-prism/shared/prism-home";
 
@@ -105,7 +109,9 @@ export function recoverBaseline(
  * Why a baseline cannot be taken safely, or null when it can. Untracked-only
  * repositories, paths outside the root, directories and symlinks are refused,
  * and so is Yarn Plug'n'Play: its dependency map is tied to the project's own
- * folder, so a copy elsewhere cannot load the test runner.
+ * folder, so a copy elsewhere cannot load the test runner. So is a
+ * dependency that links back into the live tree (J-02, see
+ * {@link liveTreeDependency}).
  */
 export function baselineRefusal(
   root: string,
@@ -124,7 +130,83 @@ export function baselineRefusal(
   if (existsSync(join(root, ".pnp.cjs"))) {
     return "Yarn Plug'n'Play dependencies cannot be used from a copy";
   }
+  const link = liveTreeDependency(root);
+  if (link) return `${link} links into the live tree`;
   return null;
+}
+
+/**
+ * The first installed dependency that resolves into the live tree outside
+ * every `node_modules` folder, or null (J-02). The copy links `node_modules`
+ * from the live folder, so a workspace package linked there
+ * (`node_modules/b -> ../packages/b`, pnpm's `.pnpm` links, a nested
+ * `packages/a/node_modules/b`) would run the baseline against this
+ * session's edits, and a failure the change caused would read as already
+ * there. Looks at each `node_modules` folder's packages (scoped too) and at
+ * pnpm's `.pnpm` store links.
+ */
+export function liveTreeDependency(root: string): string | null {
+  const live = realpathOr(root);
+  for (const folder of dependencyFolders(root)) {
+    for (const dir of linkDirs(join(root, folder))) {
+      for (const name of entries(dir)) {
+        const entry = join(dir, name);
+        if (!isSymlink(entry)) continue;
+        const rel = relative(live, realpathOr(entry));
+        const intoLive = !rel.startsWith("..") && !isAbsolute(rel);
+        if (intoLive && !rel.split(sep).includes("node_modules")) {
+          return relative(root, entry);
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/** A `node_modules` folder's package folders, its scopes, and pnpm's links. */
+function linkDirs(modules: string): string[] {
+  const withScopes = (dir: string): string[] => [
+    dir,
+    ...entries(dir)
+      .filter((name) => name.startsWith("@"))
+      .map((name) => join(dir, name)),
+  ];
+  const store = join(modules, ".pnpm");
+  return [
+    ...withScopes(modules),
+    ...entries(store).flatMap((name) =>
+      withScopes(
+        name === "node_modules"
+          ? join(store, name)
+          : join(store, name, "node_modules"),
+      ),
+    ),
+  ];
+}
+
+function entries(dir: string): string[] {
+  try {
+    return readdirSync(dir);
+  } catch {
+    return [];
+  }
+}
+
+function isSymlink(path: string): boolean {
+  try {
+    return lstatSync(path).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
+/** The real path, or the path itself when it does not resolve (a broken link). */
+function realpathOr(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return resolve(path);
+  }
 }
 
 /** Paths changed against `HEAD` in the live folder (tracked and untracked). */
