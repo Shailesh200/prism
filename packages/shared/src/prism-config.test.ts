@@ -19,8 +19,24 @@ describe("prism-config (M-057 P-B6)", () => {
     }
   });
 
-  it("rejects unknown keys", () => {
-    expect(parsePrismConfig({ unknown: true }).ok).toBe(false);
+  it("warns about an unknown key and ignores it, so a newer Prism's key never breaks this one (Arc)", () => {
+    const warnings: string[] = [];
+    const parsed = parsePrismConfig(
+      { sensitivePaths: ["secrets/**"], excludeGlobs: ["gen/**"] },
+      (message) => warnings.push(message),
+    );
+    expect(parsed).toEqual({ ok: true, value: { excludeGlobs: ["gen/**"] } });
+    expect(warnings).toEqual([
+      "Prism: ignoring unknown key in .prism/config.json: sensitivePaths",
+    ]);
+  });
+
+  it("still rejects a known key with a bad value, and warns about nothing when all keys are known", () => {
+    const warnings: string[] = [];
+    expect(
+      parsePrismConfig({ maxFileBytes: "big" }, (m) => warnings.push(m)).ok,
+    ).toBe(false);
+    expect(warnings).toEqual([]);
   });
 
   it("precedence is flags > config > defaults", () => {

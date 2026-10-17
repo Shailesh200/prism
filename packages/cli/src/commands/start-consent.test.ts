@@ -19,7 +19,12 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { ok, PrismErrorCode, type PrismError } from "@repo-prism/shared";
 import { exitCodeForError } from "../exit.js";
-import { CONSENT_COPY, fileList, wipeBlock } from "../install/consent-copy.js";
+import {
+  CONSENT_COPY,
+  fileList,
+  HOST_SETUP_COPY,
+  wipeBlock,
+} from "../install/consent-copy.js";
 import { planWrites, installHost } from "../install/hosts.js";
 import type { CommandContext, CommandOutcome } from "../runtime.js";
 import { HOST_NAMES, runInstall, type SourceLayout } from "./install.js";
@@ -220,19 +225,16 @@ describe("prism start consent: Muse's 8 cases", () => {
       CONSENT_COPY.backupsAre(`~/.prism-backups/${STAMP}/`),
     );
     expect(r.out).toContain(CONSENT_COPY.uninstallHint);
-    expect(
-      r.out.some((l) =>
-        l.startsWith("Prism 9.9.9 installed for Claude Code, Cursor"),
-      ),
-    ).toBe(true);
+    // One line per agent (Muse): Cursor gets receipts, not a verdict at stop.
+    expect(r.out).toContain(HOST_SETUP_COPY["Claude Code"]);
+    expect(r.out).toContain(HOST_SETUP_COPY.Cursor);
+    expect(r.out.some((l) => l.includes("installed for"))).toBe(false);
     expect(r.answered).toBe(1);
     expect(human(r)).toBe(ANSWER_TEXT);
     // Status lines come before the map, in Muse's order.
     expect(
       r.out.indexOf(CONSENT_COPY.backupsAre(`~/.prism-backups/${STAMP}/`)),
-    ).toBeGreaterThan(
-      r.out.findIndex((l) => l.startsWith("Prism 9.9.9 installed")),
-    );
+    ).toBeGreaterThan(r.out.indexOf(HOST_SETUP_COPY["Claude Code"]));
   });
 
   it("4: --dry-run only shows the list: no question, no writes, no index", async () => {

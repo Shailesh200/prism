@@ -69,9 +69,9 @@ Use **1** vs **2** carefully in CI: a typo must not look like a real finding.
 | Command | Purpose |
 |---|---|
 | `prism start` | Set up Prism for every agent found on this machine (lists the changes and asks first; `--dry-run`, `--yes`), index this repository and print its map with what to try next |
-| `prism install <claude\|cursor\|codex\|opencode\|all>` | Connect Prism to an agent: MCP server, hooks, skills, and the prepare/receipt rule (`--project`, `--user`, `--local <checkout>`). Moves 1.x data in `~/.prism` to `~/.prism-backups/<time>/1x/` once (nothing deleted), keeping valid custom lenses |
+| `prism install <claude\|cursor\|codex\|opencode\|all>` | Connect Prism to an agent: MCP server, hooks, skills, and the prepare/receipt rule (`--project`, `--user`, `--local <checkout>`). Backs up each config it changes to `~/.prism-backups/<time>/` first, then prints each file it wrote and where the backups are. Moves 1.x data in `~/.prism` to `~/.prism-backups/<time>/1x/` once (nothing deleted), keeping valid custom lenses |
 | `prism uninstall` | Remove everything `prism install` added (`--purge` also deletes `~/.prism` and this repository's `.prism`) |
-| `prism upgrade` | Re-link the recorded agents to the current build and restart the daemon |
+| `prism upgrade` | Re-link the recorded agents to the installed version and restart the daemon. Lists the changes and asks first (`--yes` in scripts) |
 
 ### Diagnostics
 

@@ -1155,9 +1155,8 @@ describe("session hook upgrades an old Prism hook config (round 4)", () => {
     return path;
   }
 
-  it("rewrites an earlier release's entries to this one, once, with a backup", async () => {
-    const { claudeHookEntries, inspectClaudeHooks, EARLIER_CLAUDE_HOOK_PLANS } =
-      await config();
+  it("never writes: an earlier release's entries get one line naming `prism doctor --fix`, once a day", async () => {
+    const { claudeHookEntries, EARLIER_CLAUDE_HOOK_PLANS } = await config();
     const { home, cwd } = layout({ orientation: "x" });
     const userHome = mkdtempSync(join(tmpdir(), "prism-hook-userhome-"));
     const old = claudeHookEntries(
@@ -1166,21 +1165,28 @@ describe("session hook upgrades an old Prism hook config (round 4)", () => {
     );
     old.Stop!.unshift({ hooks: [{ type: "command", command: "say done" }] });
     const path = settings(userHome, old);
+    const before = readFileSync(path, "utf8");
 
-    const first = session(home, userHome, cwd);
-    expect(first.systemMessage).toMatch(
-      /^Prism updated its Claude Code hooks to 2\.0\.0 \(backup .*settings\.json\.prism-backup-2\.0\.0-pre\)/,
+    expect(session(home, userHome, cwd).systemMessage).toBe(
+      "Prism's Claude Code hooks are out of date. Run prism doctor --fix to update them.",
     );
-    const after = JSON.parse(readFileSync(path, "utf8"));
-    expect(after.model).toBe("x");
-    expect(inspectClaudeHooks(after.hooks).state).toBe("current");
-    expect(JSON.stringify(after.hooks.Stop)).toContain("stop-wait");
-    expect(after.hooks.Stop[0]).toEqual({
-      hooks: [{ type: "command", command: "say done" }],
-    });
-    expect(existsSync(`${path}.prism-backup-2.0.0-pre`)).toBe(true);
-
+    expect(readFileSync(path, "utf8")).toBe(before);
+    expect(existsSync(`${path}.prism-backup-2.0.0-pre`)).toBe(false);
     expect(session(home, userHome, cwd).systemMessage).toBeUndefined();
+    expect(readFileSync(path, "utf8")).toBe(before);
+  });
+
+  it("at most one line per session, even when both settings files are out of date", async () => {
+    const { claudeHookEntries, EARLIER_CLAUDE_HOOK_PLANS } = await config();
+    const { home, cwd } = layout({ orientation: "x" });
+    const userHome = mkdtempSync(join(tmpdir(), "prism-hook-userhome-"));
+    const old = () =>
+      claudeHookEntries(launcher, EARLIER_CLAUDE_HOOK_PLANS["2.0.0-pre"]);
+    settings(userHome, old());
+    settings(cwd, old());
+    const first = session(home, userHome, cwd).systemMessage ?? "";
+    expect(first.split("\n")).toHaveLength(1);
+    expect(first).toContain("prism doctor --fix");
   });
 
   it("a hand-edited config is left alone: one line a day naming the command", async () => {

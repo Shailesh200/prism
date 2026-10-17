@@ -32,7 +32,12 @@ prism install claude     # or: cursor, codex, opencode, all
 
 `prism install` writes the MCP entry, the hooks or the rule line for each host,
 and records what it wrote in `~/.prism/install.json`, so `prism uninstall`
-removes exactly that and nothing else. The MCP entry launches the installed
+removes exactly that and nothing else. It does not ask (running it is the
+go-ahead), but it backs up each config to `~/.prism-backups/<time in UTC>/`
+first, then prints what it wrote and where the backups are. Claude Code gets
+a verdict when the agent stops; Codex and opencode get it with the next
+receipt. In Cursor, Prism gives a receipt when the agent asks for one. The
+automatic verdict when the agent stops isn't available in Cursor yet. The MCP entry launches the installed
 `prism-mcp` binary — never a registry download.
 
 Wiring a host by hand? Use `npx -y @repo-prism/mcp-server@2` as the server
@@ -57,19 +62,23 @@ npm install -g @repo-prism/cli
 prism upgrade            # optional: re-link every agent now
 ```
 
-You do not need to run `prism install` again. Releases sometimes change the
-hooks Prism registers (2.0 adds a background Stop hook that reports the
-verdict when the checks finish). The next Claude Code session updates Prism's
-own entries in `settings.json`. It keeps your other hooks and writes a backup
-next to the file (`settings.json.prism-backup-<version>`). The new hooks
-apply from the session after that.
+`prism upgrade` lists the files it would change and asks y/N, then backs
+them up and re-links your agents. Scripts and `--json` need `--yes`.
 
-If Prism's entries were edited by hand, or run from two places, Prism leaves
-the file alone. It prints one line, once a day, with the command to run:
-`prism install claude`, or `prism install claude --project` for a
-repository's settings. `prism doctor` shows the same check, and
-`prism doctor --fix` applies a safe update now. Set `PRISM_HOOK_REFRESH=0` to
-turn the automatic update off.
+Releases sometimes change the hooks Prism registers (2.0 adds a background
+Stop hook that reports the verdict when the checks finish). Prism never
+changes your agent configs on its own. When a Claude Code session starts with
+Prism hooks from an earlier release, it prints one line, at most once a day:
+run `prism doctor --fix`. That lists the files it would change and asks
+before it writes. On yes it backs up each file to
+`~/.prism-backups/<time in UTC>/`, then updates Prism's own entries and keeps
+your other hooks. The new hooks apply from the next session. In a script, use
+`prism doctor --fix --yes`; `prism doctor --fix --dry-run` only shows the list.
+
+If Prism's entries were edited by hand, or run from two places, the line
+names `prism install claude` instead (`prism install claude --project` for a
+repository's settings). `prism doctor` shows the same check. Set
+`PRISM_HOOK_REFRESH=0` to turn the check off.
 
 opencode runs the new hook through its existing plugin file, so it needs
 nothing. Cursor and Codex have no Prism hooks to update.

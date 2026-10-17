@@ -7,15 +7,7 @@
  */
 // ../shared/src/hook-config.ts
 import { createHash } from "node:crypto";
-import { userInfo } from "node:os";
-import { basename, dirname, join, resolve, sep } from "node:path";
-import {
-  existsSync,
-  readFileSync,
-  realpathSync,
-  renameSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 var PRISM_HOOK_FILE = "prism-hook.mjs";
 var EDIT_MATCHER = "Write|Edit|NotebookEdit";
 var CLAUDE_HOOKS_VERSION = "2.0.0";
@@ -189,27 +181,11 @@ function same(a, b) {
     return a === b;
   }
 }
-function realPath(path) {
-  try {
-    return realpathSync(path);
-  } catch {
-    const parent = dirname(path);
-    return parent === path ? path : join(realPath(parent), basename(path));
-  }
-}
-function isRealUserClaude(settingsPath, realHome = userInfo().homedir) {
-  const target = realPath(resolve(settingsPath));
-  const guarded = realPath(join(realHome, ".claude"));
-  return target === guarded || target.startsWith(guarded + sep);
-}
-function refreshClaudeHooks(settingsPath, options = {}) {
-  if (isRealUserClaude(settingsPath, options.realHome))
-    return { kind: "guarded" };
+function checkClaudeHooks(settingsPath, options = {}) {
   if (!existsSync(settingsPath)) return { kind: "absent" };
-  let text;
   let settings;
   try {
-    text = readFileSync(settingsPath, "utf8");
+    const text = readFileSync(settingsPath, "utf8");
     const raw = text.trim() === "" ? {} : JSON.parse(text);
     if (!raw || typeof raw !== "object" || Array.isArray(raw))
       return { kind: "manual", reason: "settings.json is not a JSON object" };
@@ -233,28 +209,7 @@ function refreshClaudeHooks(settingsPath, options = {}) {
     return { kind: "manual", reason: `the hook file ${paths.hook} is gone` };
   if (!existsSync(paths.node))
     return { kind: "manual", reason: `the Node binary ${paths.node} is gone` };
-  if (options.dryRun) return { kind: "outdated", from: seen.from };
-  const backup = `${settingsPath}.prism-backup-${seen.from}`;
-  try {
-    if (!existsSync(backup)) writeFileSync(backup, text);
-    const next = {
-      ...settings,
-      hooks: mergeClaudeHooks(settings.hooks, seen.launcher),
-    };
-    const tmp = `${settingsPath}.prism-${process.pid}.tmp`;
-    writeFileSync(
-      tmp,
-      `${JSON.stringify(next, null, 2)}
-`,
-    );
-    renameSync(tmp, settingsPath);
-  } catch (error) {
-    return {
-      kind: "manual",
-      reason: `could not write it (${error instanceof Error ? error.message : String(error)})`,
-    };
-  }
-  return { kind: "updated", from: seen.from, backup };
+  return { kind: "outdated", from: seen.from };
 }
 function claudeInstallCommand(scope) {
   return scope === "project"
@@ -263,10 +218,8 @@ function claudeInstallCommand(scope) {
 }
 function hookRefreshLine(refresh, scope) {
   switch (refresh.kind) {
-    case "updated":
-      return `Prism updated its Claude Code hooks to ${CLAUDE_HOOKS_VERSION} (backup ${refresh.backup}); they apply from the next session.`;
     case "outdated":
-      return `Prism's Claude Code hooks are from ${refresh.from}; the next Claude Code session updates them, or run \`prism doctor --fix\` now.`;
+      return "Prism's Claude Code hooks are out of date. Run prism doctor --fix to update them.";
     case "manual":
       return `Prism's Claude Code hooks are out of date and were not changed: ${refresh.reason}. Run \`${claudeInstallCommand(scope)}\`.`;
     default:
@@ -275,15 +228,14 @@ function hookRefreshLine(refresh, scope) {
 }
 export {
   stripPrismHooks,
-  refreshClaudeHooks,
   planHash,
   parseLauncher,
   mergeClaudeHooks,
-  isRealUserClaude,
   inspectClaudeHooks,
   hookRefreshLine,
   claudeInstallCommand,
   claudeHookEntries,
+  checkClaudeHooks,
   PRISM_HOOK_FILE,
   EDIT_MATCHER,
   EARLIER_CLAUDE_HOOK_PLANS,

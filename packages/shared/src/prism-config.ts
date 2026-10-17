@@ -36,8 +36,20 @@ export const PRISM_CONFIG_RELATIVE_PATH = `.prism/${PRISM_CONFIG_FILENAME}`;
 /** Parse and validate a config JSON value. */
 export function parsePrismConfig(
   raw: unknown,
+  warn: (message: string) => void = (message) => console.warn(message),
 ): Result<PrismConfig, PrismError> {
-  const parsed = PrismConfigSchema.safeParse(raw);
+  // An unknown key is warned about and ignored, not fatal (Arc): a key a
+  // newer Prism adds (say `sensitivePaths`) must not break an older one.
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    const unknown = Object.keys(raw).filter(
+      (key) => !(key in PrismConfigSchema.shape),
+    );
+    if (unknown.length > 0)
+      warn(
+        `Prism: ignoring unknown key${unknown.length === 1 ? "" : "s"} in ${PRISM_CONFIG_RELATIVE_PATH}: ${unknown.join(", ")}`,
+      );
+  }
+  const parsed = PrismConfigSchema.strip().safeParse(raw);
   if (!parsed.success) {
     return err(
       prismError(

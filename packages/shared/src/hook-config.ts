@@ -2,26 +2,19 @@
  * Prism's Claude Code hook entries, in one place (round 4, hook upgrades).
  *
  * `prism install` writes them; the session hook and `prism doctor` compare
- * what a settings file holds with what this release writes. A config that
- * matches a plan an earlier release wrote is updated in place, keeping its
- * paths and every hook that is not Prism's, after a backup. Anything else (a
- * hand-edited Prism entry, Prism hooks run from two places, a hook file that
- * is gone, a file that is not JSON) is left alone and the caller prints the
+ * what a settings file holds with what this release writes. Detection only: nothing here writes (Shailesh,
+ * Atlas, Arc: nothing writes to an agent config without asking). A config
+ * that matches a plan an earlier release wrote is `outdated`, and the caller
+ * prints one line naming `prism doctor --fix`, which asks first and backs up.
+ * Anything else (a hand-edited Prism entry, Prism hooks run from two places,
+ * a hook file that is gone, a file that is not JSON) is `manual`, with the
  * exact command that fixes it.
  *
  * No dependencies beyond node: `gen:prompt-hook` bundles this file into
  * `packages/plugin/hooks/hook-config.mjs` for the hook process.
  */
 import { createHash } from "node:crypto";
-import { userInfo } from "node:os";
-import { basename, dirname, join, resolve, sep } from "node:path";
-import {
-  existsSync,
-  readFileSync,
-  realpathSync,
-  renameSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 
 /** The hook script every Prism entry runs. */
 export const PRISM_HOOK_FILE = "prism-hook.mjs";
@@ -270,13 +263,8 @@ function unquote(text: string): string {
   return text.replace(/\\"/g, '"');
 }
 
-export type HookRefresh =
-  | { readonly kind: "absent" | "current" | "other-pack" | "guarded" }
-  | {
-      readonly kind: "updated";
-      readonly from: string;
-      readonly backup: string;
-    }
+export type ClaudeHookStatus =
+  | { readonly kind: "absent" | "current" | "other-pack" }
   | { readonly kind: "outdated"; readonly from: string }
   | { readonly kind: "manual"; readonly reason: string };
 
@@ -288,54 +276,19 @@ function same(a: string, b: string): boolean {
   }
 }
 
-/** `path` with every symlink resolved, also for a file not created yet. */
-function realPath(path: string): string {
-  try {
-    return realpathSync(path);
-  } catch {
-    const parent = dirname(path);
-    return parent === path ? path : join(realPath(parent), basename(path));
-  }
-}
-
 /**
- * True when `settingsPath` is inside the real OS user's `~/.claude` (from
- * the account, not `$HOME`, so a changed HOME cannot point past it).
+ * Compare one Claude Code settings file with this release's plan. Reads,
+ * never writes. `onlyHook`: report only when its Prism hooks run that file
+ * (the session hook passes itself).
  */
-export function isRealUserClaude(
+export function checkClaudeHooks(
   settingsPath: string,
-  realHome: string = userInfo().homedir,
-): boolean {
-  const target = realPath(resolve(settingsPath));
-  const guarded = realPath(join(realHome, ".claude"));
-  return target === guarded || target.startsWith(guarded + sep);
-}
-
-/**
- * Bring one Claude Code settings file up to this release's plan, when that
- * is safe. `onlyHook`: touch it only when its Prism hooks run that file (the
- * session hook passes itself). `dryRun`: report, write nothing.
- *
- * Guard (for now): the real user's own `~/.claude` is never read or written
- * here, only isolated homes (tests, benches). `prism install claude` still
- * updates it when the user runs it. Lifting this needs Shailesh's OK.
- */
-export function refreshClaudeHooks(
-  settingsPath: string,
-  options: {
-    readonly onlyHook?: string;
-    readonly dryRun?: boolean;
-    /** The real user's home; tests pass a stand-in. */
-    readonly realHome?: string;
-  } = {},
-): HookRefresh {
-  if (isRealUserClaude(settingsPath, options.realHome))
-    return { kind: "guarded" };
+  options: { readonly onlyHook?: string } = {},
+): ClaudeHookStatus {
   if (!existsSync(settingsPath)) return { kind: "absent" };
-  let text: string;
   let settings: Record<string, unknown>;
   try {
-    text = readFileSync(settingsPath, "utf8");
+    const text = readFileSync(settingsPath, "utf8");
     const raw: unknown = text.trim() === "" ? {} : JSON.parse(text);
     if (!raw || typeof raw !== "object" || Array.isArray(raw))
       return { kind: "manual", reason: "settings.json is not a JSON object" };
@@ -359,24 +312,7 @@ export function refreshClaudeHooks(
     return { kind: "manual", reason: `the hook file ${paths.hook} is gone` };
   if (!existsSync(paths.node))
     return { kind: "manual", reason: `the Node binary ${paths.node} is gone` };
-  if (options.dryRun) return { kind: "outdated", from: seen.from };
-  const backup = `${settingsPath}.prism-backup-${seen.from}`;
-  try {
-    if (!existsSync(backup)) writeFileSync(backup, text);
-    const next = {
-      ...settings,
-      hooks: mergeClaudeHooks(settings.hooks, seen.launcher),
-    };
-    const tmp = `${settingsPath}.prism-${process.pid}.tmp`;
-    writeFileSync(tmp, `${JSON.stringify(next, null, 2)}\n`);
-    renameSync(tmp, settingsPath);
-  } catch (error) {
-    return {
-      kind: "manual",
-      reason: `could not write it (${error instanceof Error ? error.message : String(error)})`,
-    };
-  }
-  return { kind: "updated", from: seen.from, backup };
+  return { kind: "outdated", from: seen.from };
 }
 
 /** The command that rewrites one settings file's Prism hooks by hand. */
@@ -388,14 +324,12 @@ export function claudeInstallCommand(scope: "user" | "project"): string {
 
 /** The one line a user sees for a refresh result, or null for nothing to say. */
 export function hookRefreshLine(
-  refresh: HookRefresh,
+  refresh: ClaudeHookStatus,
   scope: "user" | "project",
 ): string | null {
   switch (refresh.kind) {
-    case "updated":
-      return `Prism updated its Claude Code hooks to ${CLAUDE_HOOKS_VERSION} (backup ${refresh.backup}); they apply from the next session.`;
     case "outdated":
-      return `Prism's Claude Code hooks are from ${refresh.from}; the next Claude Code session updates them, or run \`prism doctor --fix\` now.`;
+      return "Prism's Claude Code hooks are out of date. Run prism doctor --fix to update them.";
     case "manual":
       return `Prism's Claude Code hooks are out of date and were not changed: ${refresh.reason}. Run \`${claudeInstallCommand(scope)}\`.`;
     default:

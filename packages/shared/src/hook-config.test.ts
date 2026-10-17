@@ -2,25 +2,24 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
-  symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir, userInfo } from "node:os";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  checkClaudeHooks,
   CLAUDE_HOOK_PLAN,
   claudeHookEntries,
   EARLIER_CLAUDE_HOOK_PLANS,
   hookRefreshLine,
   inspectClaudeHooks,
-  isRealUserClaude,
   mergeClaudeHooks,
   parseLauncher,
   planHash,
-  refreshClaudeHooks,
 } from "./hook-config.js";
 
 const dirs: string[] = [];
@@ -124,97 +123,41 @@ describe("hook config plan (round 4)", () => {
   });
 });
 
-describe("real-home guard (Atlas, round 4)", () => {
-  it("never touches the real OS user's ~/.claude, whatever $HOME says", () => {
-    const real = join(userInfo().homedir, ".claude", "settings.json");
-    expect(isRealUserClaude(real)).toBe(true);
-    expect(refreshClaudeHooks(real)).toEqual({ kind: "guarded" });
-    expect(refreshClaudeHooks(real, { dryRun: true })).toEqual({
-      kind: "guarded",
-    });
-    expect(hookRefreshLine({ kind: "guarded" }, "user")).toBeNull();
-  });
-
-  it("skips a stand-in real home, and a path that symlinks into it", () => {
-    const { dir, launcher } = pack();
-    const realHome = join(dir, "real-home");
-    mkdirSync(join(realHome, ".claude"), { recursive: true });
-    const path = join(realHome, ".claude", "settings.json");
-    writeFileSync(
-      path,
-      JSON.stringify({ hooks: claudeHookEntries(launcher, oldPlan) }),
-    );
-    const before = readFileSync(path, "utf8");
-    expect(refreshClaudeHooks(path, { realHome })).toEqual({ kind: "guarded" });
-
-    const isolated = join(dir, "isolated-home");
-    mkdirSync(isolated);
-    symlinkSync(join(realHome, ".claude"), join(isolated, ".claude"));
-    expect(
-      refreshClaudeHooks(join(isolated, ".claude", "settings.json"), {
-        realHome,
-      }),
-    ).toEqual({ kind: "guarded" });
-    expect(readFileSync(path, "utf8")).toBe(before);
-    expect(existsSync(`${path}.prism-backup-2.0.0-pre`)).toBe(false);
-  });
-
-  it("an isolated HOME (not the real user's) is still updated", () => {
-    const { dir, launcher } = pack();
-    const path = settingsWith(dir, withOldPrism(launcher));
-    expect(
-      refreshClaudeHooks(path, { realHome: join(dir, "real-home") }),
-    ).toMatchObject({
-      kind: "updated",
-    });
-  });
-});
-
-describe("refreshClaudeHooks", () => {
-  it("updates an earlier plan in place: backup, the user's hooks and keys kept, idempotent", () => {
+describe("checkClaudeHooks (detection only: Shailesh, Atlas, Arc)", () => {
+  it("reports an earlier plan as outdated and writes nothing, no backup either", () => {
     const { dir, launcher } = pack();
     const path = settingsWith(dir, withOldPrism(launcher));
     const before = readFileSync(path, "utf8");
+    const files = new Set(readdirSync(dir));
 
-    expect(refreshClaudeHooks(path, { dryRun: true })).toEqual({
+    expect(checkClaudeHooks(path)).toEqual({
+      kind: "outdated",
+      from: "2.0.0-pre",
+    });
+    expect(checkClaudeHooks(path)).toEqual({
       kind: "outdated",
       from: "2.0.0-pre",
     });
     expect(readFileSync(path, "utf8")).toBe(before);
-
-    const result = refreshClaudeHooks(path);
-    expect(result).toEqual({
-      kind: "updated",
-      from: "2.0.0-pre",
-      backup: `${path}.prism-backup-2.0.0-pre`,
-    });
-    expect(readFileSync(`${path}.prism-backup-2.0.0-pre`, "utf8")).toBe(before);
-    const after = JSON.parse(readFileSync(path, "utf8"));
-    expect(after.theme).toBe("dark");
-    expect(after.hooks).toEqual(mergeClaudeHooks(USER_HOOKS, launcher));
-    expect(inspectClaudeHooks(after.hooks)).toEqual({
-      state: "current",
-      launcher,
-    });
-
-    // Second run: nothing to do, nothing written, the backup untouched.
-    const text = readFileSync(path, "utf8");
-    expect(refreshClaudeHooks(path)).toEqual({ kind: "current" });
-    expect(readFileSync(path, "utf8")).toBe(text);
-    expect(readFileSync(`${path}.prism-backup-2.0.0-pre`, "utf8")).toBe(before);
+    expect(new Set(readdirSync(dir))).toEqual(files);
+    expect(existsSync(`${path}.prism-backup-2.0.0-pre`)).toBe(false);
   });
 
-  it("never rewrites what it cannot vouch for", () => {
+  it("a config with this release's plan is current", () => {
+    const { dir, launcher } = pack();
+    const path = settingsWith(dir, mergeClaudeHooks(USER_HOOKS, launcher));
+    expect(checkClaudeHooks(path)).toEqual({ kind: "current" });
+  });
+
+  it("never vouches for what it cannot: manual, with the reason", () => {
     const { dir, hook, launcher } = pack();
     const edited = claudeHookEntries(launcher, oldPlan);
     edited.Stop![0]!.hooks[0]!.timeout = 30;
     const path = settingsWith(dir, edited);
-    const before = readFileSync(path, "utf8");
-    expect(refreshClaudeHooks(path)).toMatchObject({ kind: "manual" });
-    expect(readFileSync(path, "utf8")).toBe(before);
+    expect(checkClaudeHooks(path)).toMatchObject({ kind: "manual" });
 
     writeFileSync(path, "{ not json");
-    expect(refreshClaudeHooks(path)).toEqual({
+    expect(checkClaudeHooks(path)).toEqual({
       kind: "manual",
       reason: "settings.json is not valid JSON",
     });
@@ -222,41 +165,35 @@ describe("refreshClaudeHooks", () => {
 
     settingsWith(dir, claudeHookEntries(launcher, oldPlan));
     rmSync(hook);
-    expect(refreshClaudeHooks(path)).toEqual({
+    expect(checkClaudeHooks(path)).toEqual({
       kind: "manual",
       reason: `the hook file ${hook} is gone`,
     });
-    expect(existsSync(`${path}.prism-backup-2.0.0-pre`)).toBe(false);
   });
 
-  it("with onlyHook, leaves a file whose Prism hooks run another pack", () => {
+  it("with onlyHook, ignores a file whose Prism hooks run another pack", () => {
     const { dir, launcher } = pack();
     const path = settingsWith(dir, claudeHookEntries(launcher, oldPlan));
-    const before = readFileSync(path, "utf8");
     expect(
-      refreshClaudeHooks(path, { onlyHook: "/other/prism-hook.mjs" }),
-    ).toEqual({
-      kind: "other-pack",
-    });
-    expect(readFileSync(path, "utf8")).toBe(before);
-    expect(refreshClaudeHooks(join(dir, "none.json"))).toEqual({
+      checkClaudeHooks(path, { onlyHook: "/other/prism-hook.mjs" }),
+    ).toEqual({ kind: "other-pack" });
+    expect(checkClaudeHooks(join(dir, "none.json"))).toEqual({
       kind: "absent",
     });
   });
 
-  it("each outcome is one line, and a manual one names the exact command", () => {
+  it("each outcome is one line: outdated names `prism doctor --fix`, manual the exact command", () => {
+    expect(
+      hookRefreshLine({ kind: "outdated", from: "2.0.0-pre" }, "user"),
+    ).toBe(
+      "Prism's Claude Code hooks are out of date. Run prism doctor --fix to update them.",
+    );
     expect(hookRefreshLine({ kind: "manual", reason: "x" }, "project")).toBe(
       "Prism's Claude Code hooks are out of date and were not changed: x. Run `prism install claude --project`.",
     );
     expect(hookRefreshLine({ kind: "manual", reason: "x" }, "user")).toContain(
       "Run `prism install claude`.",
     );
-    expect(
-      hookRefreshLine(
-        { kind: "updated", from: "2.0.0-pre", backup: "/b" },
-        "user",
-      ),
-    ).toMatch(/^Prism updated its Claude Code hooks to 2\.0\.0 \(backup \/b\)/);
     expect(hookRefreshLine({ kind: "current" }, "user")).toBeNull();
     expect(hookRefreshLine({ kind: "other-pack" }, "user")).toBeNull();
   });

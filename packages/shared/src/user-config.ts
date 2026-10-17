@@ -30,7 +30,7 @@ export function userConfigPath(env: NodeJS.ProcessEnv = process.env): string {
   return join(prismHomeDir(env), "config.json");
 }
 
-/** Missing file → `{}`. Unreadable or invalid → an error the caller must surface. */
+/** Missing file → `{}`. Unknown keys are dropped. Unreadable or a known key with a bad value → an error the caller must surface. */
 export function loadUserConfigSync(
   env: NodeJS.ProcessEnv = process.env,
 ): Result<UserConfig, PrismError> {
@@ -58,7 +58,9 @@ export function loadUserConfigSync(
       ),
     );
   }
-  const parsed = UserConfigSchema.safeParse(json);
+  // Unknown keys are dropped, not fatal: a key an older or newer Prism wrote
+  // must not stop this one (Scout QA: `telemetry` crashed `prism start`).
+  const parsed = UserConfigSchema.strip().safeParse(json);
   if (!parsed.success) {
     return err(
       prismError(

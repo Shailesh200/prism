@@ -40,6 +40,19 @@ import {
   type InstallHost,
   type InstallScope,
 } from "../install/hosts.js";
+import {
+  backUpFirst,
+  confirmAndWrite,
+  defaultConsentIo,
+  listLines,
+  type ConsentIo,
+} from "../install/confirm-write.js";
+import {
+  CONSENT_COPY,
+  INSTALL_COPY,
+  installedLines,
+} from "../install/consent-copy.js";
+import { planStart } from "../install/start-plan.js";
 import { wipe1x } from "../install/wipe.js";
 import type { CommandContext, CommandHandler } from "../runtime.js";
 import { wrap } from "../table.js";
@@ -294,59 +307,136 @@ export async function runInstall(run: InstallRun) {
   } as const;
 }
 
-export const installCommand: CommandHandler = async (
-  context: CommandContext,
-) => {
-  const wanted = hostsFrom(context.args.positionals[0]);
-  if (!wanted) return err(prismError(PrismErrorCode.VALIDATION, USAGE));
-  const hosts = wanted.filter((host) => hostAvailable(host, homedir()));
-  const skipped = wanted.filter((host) => !hosts.includes(host));
-  if (context.args.flag("project") && context.args.flag("user"))
-    return err(
-      prismError(PrismErrorCode.VALIDATION, "Pick one of --project or --user."),
-    );
-  const scope: InstallScope = context.args.flag("project") ? "project" : "user";
-  const local = context.args.option("local");
-  const layout = local
-    ? sourceLayout(resolve(context.cwd, local))
-    : defaultLayout();
-  if (typeof layout === "string")
-    return err(prismError(PrismErrorCode.NOT_FOUND, layout));
-  const result = await runInstall({
-    hosts,
-    scope,
-    root: context.workspace.path,
-    layout,
-    env: process.env,
-  });
-  if (result.kind === "permission")
-    return err(
-      prismError(
-        PrismErrorCode.IO_ERROR,
-        `Cannot write ${result.wipe.path}; nothing was changed. Fix: ${result.wipe.fix}`,
-      ),
-    );
-  const { wipe, record, files, notes, installed, build } = result;
-  const where = scope === "project" ? ", this repository" : "";
-  return ok({
-    data: {
-      record,
-      written: files,
-      wipe: wipe.kind === "wiped" ? wipe : { kind: wipe.kind },
-      notes,
-    },
-    human: ({ width }) =>
-      [
-        ...(wipe.kind === "wiped" ? [wipe.line] : []),
-        ...installed.map(
-          (host) =>
-            `Prism ${record.version} installed for ${HOST_NAMES[host]} (${build}${where}).`,
-        ),
-        ...skipped.map((host) => `${HOST_NAMES[host]} not found; skipped.`),
-        ...notes.flatMap((note) => wrap(note, width)),
-      ].join("\n"),
-  });
+/** What `prism install` and `prism upgrade` need from the machine; tests pass stand-ins. */
+export type InstallDeps = ConsentIo & {
+  readonly home: () => string;
+  readonly env: () => NodeJS.ProcessEnv;
+  readonly now: () => Date;
+  /** The build to link: `--local <checkout>` when given. */
+  readonly layout: (local: string | undefined) => SourceLayout | string;
+  /** `prism upgrade`: the build the recorded install should point at. */
+  readonly recordLayout: (record: InstallRecord) => SourceLayout | string;
+  readonly stopDaemon: (env: NodeJS.ProcessEnv) => Promise<unknown>;
 };
+
+export const defaultInstallDeps: InstallDeps = {
+  ...defaultConsentIo,
+  home: homedir,
+  env: () => process.env,
+  now: () => new Date(),
+  layout: (local) => (local ? sourceLayout(local) : defaultLayout()),
+  recordLayout: (record) =>
+    record.source ? sourceLayout(record.source) : defaultLayout(),
+  stopDaemon: async (env) => stopDaemon({ env }),
+};
+
+/**
+ * `prism install <agent>`. Running it is the ask (Arc), so there is no y/N,
+ * but it works out the same plan as `prism start`, backs up every config it
+ * is about to change to the same never-overwritten `~/.prism-backups/<time>/`
+ * folder (`backUpFirst`), and then prints each file it wrote and where the
+ * backups are.
+ */
+export function makeInstallCommand(
+  deps: InstallDeps = defaultInstallDeps,
+): CommandHandler {
+  return async (context: CommandContext) => {
+    const wanted = hostsFrom(context.args.positionals[0]);
+    if (!wanted) return err(prismError(PrismErrorCode.VALIDATION, USAGE));
+    const home = deps.home();
+    const env = deps.env();
+    const now = deps.now();
+    const hosts = wanted.filter((host) => hostAvailable(host, home));
+    const skipped = wanted.filter((host) => !hosts.includes(host));
+    if (context.args.flag("project") && context.args.flag("user"))
+      return err(
+        prismError(
+          PrismErrorCode.VALIDATION,
+          "Pick one of --project or --user.",
+        ),
+      );
+    const scope: InstallScope = context.args.flag("project")
+      ? "project"
+      : "user";
+    const local = context.args.option("local");
+    const layout = deps.layout(local ? resolve(context.cwd, local) : undefined);
+    if (typeof layout === "string")
+      return err(prismError(PrismErrorCode.NOT_FOUND, layout));
+    const root = context.workspace.path;
+    const plan = planStart({
+      hosts,
+      hostNames: HOST_NAMES,
+      scope,
+      home,
+      root,
+      node: process.execPath,
+      bin: layout.bin,
+      pack: layout.pack,
+      env,
+      now,
+      receiptHosts: RECEIPT_HOSTS,
+      enableReceipt,
+    });
+    const say = (line: string) => {
+      if (!context.output.json) context.writer.out(line);
+    };
+    // Backed up first, then written: the same step as `confirmAndWrite`.
+    const { backupRoot, backups, backupShown } = backUpFirst(plan, home, say);
+    const result = await runInstall({
+      hosts,
+      scope,
+      root,
+      layout,
+      env,
+      now,
+      home,
+      ...(backupRoot ? { backupRoot } : {}),
+    });
+    if (result.kind === "permission")
+      return err(
+        prismError(
+          PrismErrorCode.IO_ERROR,
+          `Cannot write ${result.wipe.path}; nothing was changed. Fix: ${result.wipe.fix}`,
+        ),
+      );
+    const { wipe, record, files, notes, installed, build } = result;
+    const moved = wipe.kind === "wiped";
+    return ok({
+      data: {
+        record,
+        build,
+        written: files,
+        changed: plan.writes.map((write) => write.path),
+        backups,
+        ...(backupRoot ? { backupDir: backupRoot } : {}),
+        wipe: moved ? wipe : { kind: wipe.kind },
+        notes,
+      },
+      human: ({ width }) =>
+        [
+          ...(moved ? [wipe.line] : []),
+          ...installedLines(installed.map((host) => HOST_NAMES[host])).flatMap(
+            (line) => wrap(line, width),
+          ),
+          ...skipped.map((host) => `${HOST_NAMES[host]} not found; skipped.`),
+          ...(installed.length > 0
+            ? plan.rows.length > 0
+              ? [
+                  INSTALL_COPY.wrote,
+                  ...listLines({ ...plan, wipe: null }, home),
+                ]
+              : [INSTALL_COPY.nothingWritten]
+            : []),
+          ...(backups.length > 0 || moved
+            ? [CONSENT_COPY.backupsAre(backupShown)]
+            : []),
+          ...notes.flatMap((note) => wrap(note, width)),
+        ].join("\n"),
+    });
+  };
+}
+
+export const installCommand: CommandHandler = makeInstallCommand();
 
 export const uninstallCommand: CommandHandler = async (context) => {
   const env = process.env;
@@ -394,50 +484,128 @@ export const uninstallCommand: CommandHandler = async (context) => {
   });
 };
 
-export const upgradeCommand: CommandHandler = async () => {
-  const env = process.env;
-  const previous = readInstallRecord(env);
-  if (previous.kind !== "ok")
-    return err(
-      prismError(
-        PrismErrorCode.NOT_FOUND,
-        previous.kind === "missing"
-          ? "Prism is not installed: run `prism install <client>` first."
-          : `Install record is invalid (${previous.reason}); run \`prism install <client>\` again.`,
-      ),
+/**
+ * `prism upgrade`: re-link the recorded agents to the installed build,
+ * through the same consent step as `prism start` (Arc): the list, a y/N on a
+ * terminal, `--yes` with no terminal or with `--json`, a backup, then the
+ * writes. The daemon is stopped only once the upgrade goes ahead; it restarts
+ * on next use with the new build.
+ */
+export function makeUpgradeCommand(
+  deps: InstallDeps = defaultInstallDeps,
+): CommandHandler {
+  return async (context: CommandContext) => {
+    const env = deps.env();
+    const previous = readInstallRecord(env);
+    if (previous.kind !== "ok")
+      return err(
+        prismError(
+          PrismErrorCode.NOT_FOUND,
+          previous.kind === "missing"
+            ? "Prism is not installed: run `prism install <client>` first."
+            : `Install record is invalid (${previous.reason}); run \`prism install <client>\` again.`,
+        ),
+      );
+    const record = previous.record;
+    const layout = deps.recordLayout(record);
+    if (typeof layout === "string")
+      return err(prismError(PrismErrorCode.NOT_FOUND, layout));
+    const hosts = record.hosts.filter((host): host is InstallHost =>
+      INSTALL_HOSTS.includes(host as InstallHost),
     );
-  const record = previous.record;
-  const layout = record.source ? sourceLayout(record.source) : defaultLayout();
-  if (typeof layout === "string")
-    return err(prismError(PrismErrorCode.NOT_FOUND, layout));
-  const hosts = record.hosts.filter((host): host is InstallHost =>
-    INSTALL_HOSTS.includes(host as InstallHost),
-  );
-  const before = record.version;
-  // The daemon restarts on next use with the new build (lockstep versions, §3.2).
-  await stopDaemon({ env });
-  const result = await runInstall({
-    hosts,
-    scope: record.scope ?? "user",
-    root: record.root ?? process.cwd(),
-    layout,
-    env,
-  });
-  if (result.kind === "permission")
-    return err(
-      prismError(
-        PrismErrorCode.IO_ERROR,
-        `Cannot write ${result.wipe.path}. Fix: ${result.wipe.fix}`,
-      ),
-    );
-  return ok({
-    data: {
-      from: before,
-      to: result.record.version,
+    const names = hosts.map((host) => HOST_NAMES[host]);
+    const home = deps.home();
+    const now = deps.now();
+    const scope = record.scope ?? "user";
+    const root = record.root ?? context.cwd;
+    const before = record.version;
+    const plan = planStart({
       hosts,
-      source: layout.source,
-    },
-    human: () =>
-      `Prism ${before} → ${result.record.version} (${layout.source ? `local build from ${layout.source}` : `npm package ${dirname(dirname(layout.bin))}`}); re-linked ${hosts.join(", ")}. The daemon restarts on next use.`,
-  });
-};
+      hostNames: HOST_NAMES,
+      scope,
+      home,
+      root,
+      node: process.execPath,
+      bin: layout.bin,
+      pack: layout.pack,
+      env,
+      now,
+      receiptHosts: RECEIPT_HOSTS,
+      enableReceipt,
+    });
+    const from = layout.source
+      ? `local build from ${layout.source}`
+      : `npm package ${dirname(dirname(layout.bin))}`;
+    const confirmed = await confirmAndWrite({
+      command: "prism upgrade",
+      plan,
+      names,
+      home,
+      context,
+      io: deps,
+      write: async (backupRoot) => {
+        // The daemon restarts on next use with the new build (lockstep versions, §3.2).
+        await deps.stopDaemon(env);
+        return runInstall({
+          hosts,
+          scope,
+          root,
+          layout,
+          env,
+          now,
+          home,
+          ...(backupRoot ? { backupRoot } : {}),
+        });
+      },
+    });
+    if (confirmed.kind === "stop") return confirmed.result;
+    if (confirmed.kind === "nothing") {
+      // Every config already points at this build: nothing asked or written
+      // there. Only Prism's own install record moves to the new version.
+      await deps.stopDaemon(env);
+      if (record.version !== layout.version)
+        writeInstallRecord(
+          { ...record, version: layout.version, updatedAt: now.toISOString() },
+          env,
+        );
+      return ok({
+        data: {
+          from: before,
+          to: layout.version,
+          hosts,
+          source: layout.source,
+          changed: false,
+        },
+        human: () =>
+          `Prism ${before} → ${layout.version} (${from}); ${names.join(", ")} already match the installed version. The daemon restarts on next use.`,
+      });
+    }
+    const result = confirmed.value;
+    if (result.kind === "permission")
+      return err(
+        prismError(
+          PrismErrorCode.IO_ERROR,
+          `Cannot write ${result.wipe.path}. Fix: ${result.wipe.fix}`,
+        ),
+      );
+    return ok({
+      data: {
+        from: before,
+        to: result.record.version,
+        hosts,
+        source: layout.source,
+        changed: true,
+        backups: confirmed.backups,
+      },
+      human: () =>
+        [
+          `Prism ${before} → ${result.record.version} (${from}); re-linked ${hosts.join(", ")}. The daemon restarts on next use.`,
+          ...(confirmed.backups.length > 0
+            ? [CONSENT_COPY.backupsAre(confirmed.backupShown)]
+            : []),
+        ].join("\n"),
+    });
+  };
+}
+
+export const upgradeCommand: CommandHandler = makeUpgradeCommand();

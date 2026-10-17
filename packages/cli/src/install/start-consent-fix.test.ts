@@ -286,17 +286,19 @@ describe("symlinked configs (Arc review, should-fix)", () => {
       exists: true,
       linkTo: fs.realpathSync(target),
     });
-    const [line] = fileList([
+    // Both full paths (Muse), the label after them or on the next line.
+    const lines = fileList([
       {
         agent: "Claude Code",
-        path: "~/.claude.json",
-        role: "mcp",
-        linkTo: "~/dotfiles/claude.json",
+        path: "~/.claude/settings.json",
+        role: "hooks",
+        linkTo: "~/dotfiles/claude/settings.json",
       },
     ]);
-    expect(line).toContain(
-      "prism MCP server (symlink → ~/dotfiles/claude.json)",
+    expect(lines[0]).toContain(
+      "~/.claude/settings.json (symlink → ~/dotfiles/claude/settings.json)",
     );
+    expect(lines.join("\n")).toContain("Prism hooks");
   });
 });
 

@@ -71,3 +71,19 @@ describe("strength (plan P5)", () => {
     expect(setStrength("lite", { scope: "user" }, env).ok).toBe(false);
   });
 });
+
+describe("loadUserConfigSync (Scout QA: unknown keys)", () => {
+  it("drops a key it does not know instead of failing; a bad value for a known key still fails", () => {
+    const { env, home } = fresh();
+    writeFileSync(
+      join(home, "config.json"),
+      JSON.stringify({ extraTools: ["foo"], telemetry: true }),
+    );
+    expect(loadUserConfigSync(env)).toEqual({
+      ok: true,
+      value: { extraTools: ["foo"] },
+    });
+    writeFileSync(join(home, "config.json"), JSON.stringify({ strength: 3 }));
+    expect(loadUserConfigSync(env).ok).toBe(false);
+  });
+});

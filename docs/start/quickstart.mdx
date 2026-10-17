@@ -17,9 +17,9 @@ prism start
 
 `prism start` finds the coding agents on this machine, shows the files it will change, and asks before it writes anything.
 
-- On yes, it backs up each file to `~/.prism-backups/<time>/`, installs Prism, and indexes the repo.
+- On yes, Prism backs up each file first, to `~/.prism-backups/<time in UTC>/`, then installs Prism and indexes the repo.
 - `--dry-run` only shows the list. `--yes` skips the question.
-- Running it again changes nothing.
+- Running it again changes no configs. It only refreshes Prism's index.
 
 Coming from 1.x? Your old data moves to the same backup folder.
 

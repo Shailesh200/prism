@@ -41,12 +41,14 @@ function runCli(
   args: readonly string[],
   env: NodeJS.ProcessEnv = {},
   cwd: string = packageDir,
+  input?: string,
 ): Promise<Run> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [binary, ...args], {
       env: { ...process.env, ...env },
       cwd,
     });
+    if (input !== undefined) child.stdin.end(input);
 
     let stdout = "";
     let stderr = "";
@@ -96,7 +98,9 @@ describe("prism binary (M-028)", () => {
     const result = await runCli([], {}, fixture);
     expect(result.code).toBe(0);
     expect(result.stdout).toMatch(/^Indexed \d+ code files in [\d.]+ s\.\n/);
-    expect(result.stdout).toMatch(/Try: prism prepare .*prepare_change/);
+    expect(result.stdout).toMatch(
+      /Try: prism prepare "<task>", or ask your agent for a change in plain words\./,
+    );
   }, 60_000);
 
   it("global flags with no command still give the first answer", async () => {
@@ -148,8 +152,11 @@ describe("prism binary (M-028)", () => {
       expect(dry.stdout).toMatch(/~\/\.cursor\/mcp\.json/);
       const first = await runCli(["start", "--yes"], env(dir), fixture);
       expect(first.code).toBe(0);
-      expect(first.stdout).toMatch(
-        /installed for Claude Code, Cursor \(local build/,
+      expect(first.stdout).toContain(
+        "Claude Code: set up. Verdict when the agent stops.",
+      );
+      expect(first.stdout).toContain(
+        "Cursor: set up for receipts. There's no verdict when the agent stops yet. Ask it for a receipt.",
       );
       expect(first.stdout).toMatch(/Indexed \d+ code files/);
       expect(first.stdout).toMatch(/prism prepare/);
@@ -168,6 +175,19 @@ describe("prism binary (M-028)", () => {
         mcp,
       );
     }, 120_000);
+
+    it("piped y or n is not a yes: without a TTY nothing is written and it exits 1", async () => {
+      const dir = join(home, "piped");
+      await mkdir(join(dir, ".cursor"), { recursive: true });
+      for (const answer of ["y\n", "n\n"]) {
+        const run = await runCli(["start"], env(dir), fixture, answer);
+        expect(run.code).toBe(1);
+        expect(run.stderr).toMatch(/prism start --yes/);
+        expect(run.stdout).not.toMatch(/Continue\? \[y\/N\]/);
+        expect(await readdir(join(dir, ".cursor"))).toEqual([]);
+        await expect(readdir(join(dir, ".prism-backups"))).rejects.toThrow();
+      }
+    }, 60_000);
 
     it("moves 1.x data in one step and keeps a symlinked config a link (Arc review)", async () => {
       const dir = join(home, "upgrade");
@@ -190,13 +210,34 @@ describe("prism binary (M-028)", () => {
       await mkdir(join(dir, "dotfiles"), { recursive: true });
       await writeFile(target, '{"mine":true}\n');
       await symlink(target, join(dir, ".claude.json"));
+      // A 1.x config with a key 2.x does not know (Scout QA: exit 3 before).
+      await writeFile(
+        join(prism, "config.json"),
+        JSON.stringify({ extraTools: ["foo"], telemetry: true }),
+      );
       // An earlier backup folder that must not be touched.
       const earlier = join(dir, ".prism-backups", "20000101T000000");
       await mkdir(join(earlier, "configs"), { recursive: true });
       await writeFile(join(earlier, "configs", "keep.txt"), "earlier");
 
+      // The plan shows before anything else: the dropped key, and both
+      // paths of the symlink (Muse).
+      const dry = await runCli(["start", "--dry-run"], env(dir), fixture);
+      expect(dry.code).toBe(0);
+      expect(dry.stdout).toMatch(/config key telemetry\s+→ dropped/);
+      expect(dry.stdout).toContain(
+        "~/.claude.json (symlink → ~/dotfiles/claude.json)",
+      );
+      expect(dry.stdout).toContain(
+        "These are symlinks, so Prism backs up and changes the files they point to: ~/dotfiles/claude.json.",
+      );
+
       const run = await runCli(["start", "--yes"], env(dir), fixture);
       expect(run.code).toBe(0);
+      const config = JSON.parse(
+        await readFile(join(prism, "config.json"), "utf8"),
+      );
+      expect(config).toEqual({ extraTools: ["foo", "receipt"] });
       // 1.x moved whole; 2.x home written back with the custom lens.
       const version = JSON.parse(
         await readFile(join(prism, "version.json"), "utf8"),

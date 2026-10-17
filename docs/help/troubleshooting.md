@@ -14,9 +14,13 @@ editor still launches a published package, which workspace was chosen and which
 rule chose it, and whether an index exists and how old it is. Most of what
 follows is faster to confirm with `doctor` than to guess at.
 
-`prism doctor --fix` stops the daemon (the next client starts the current
-build) and rewrites the editors recorded in `~/.prism/install.json` to that
-build. `prism stats --since 1d` shows hook and tool timings and outcomes.
+`prism doctor --fix` brings the editors recorded in `~/.prism/install.json`
+in line with this build (server path, hooks, rule, skills). Like
+`prism start`, it lists the files it would change and asks first, backs each
+one up to `~/.prism-backups/<time in UTC>/`, and then stops the daemon (the
+next client starts the current build). `--yes` skips the question,
+`--dry-run` only shows the list, and without a terminal or with `--json` it
+changes nothing unless `--yes` is given. `prism stats --since 1d` shows hook and tool timings and outcomes.
 
 ## Doctor says "server … is missing" or "published package referenced"
 
@@ -181,7 +185,7 @@ Every error reads `PRISM_X: what happened. What to do.`
 | `PRISM_IO_ERROR` | A file could not be read or written | Check permissions and free disk space |
 | `PRISM_UNSUPPORTED` | Not supported yet (e.g. a language Prism does not analyse) | See [known limitations](/docs/help/known-limitations) |
 | `PRISM_CANCELLED` | The operation was cancelled | Rerun it |
-| `PRISM_YES_REQUIRED` | `prism start --json` would change agent configs, and JSON output cannot ask first (exit 1; the planned changes are in `error.details.plan`) | Rerun with `--yes`, or use `--dry-run` to only list them |
+| `PRISM_YES_REQUIRED` | `prism start --json` or `prism doctor --fix --json` would change agent configs, and JSON output cannot ask first (exit 1; the planned changes are in `error.details.plan`) | Rerun with `--yes`, or use `--dry-run` to only list them |
 | `PRISM_UNKNOWN` | An unexpected failure | Open an issue with `prism doctor` output |
 
 ## The editors launch different Prism builds

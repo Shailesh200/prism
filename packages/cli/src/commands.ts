@@ -76,7 +76,7 @@ export const COMMANDS: readonly CommandSpec[] = [
     name: "install",
     group: "Set up",
     summary:
-      "Connect Prism to Claude Code, Cursor, Codex or opencode (MCP server, hooks, skills, rule line)",
+      "Connect Prism to Claude Code, Cursor, Codex or opencode (MCP server, hooks, skills, rule line); backs up each config first",
     handler: installCommand,
     arguments: [
       {
@@ -123,9 +123,20 @@ export const COMMANDS: readonly CommandSpec[] = [
     name: "upgrade",
     group: "Set up",
     summary:
-      "Re-link the recorded clients to the current build and restart the daemon",
+      "Re-link the recorded clients to the installed version (asks first) and restart the daemon",
     handler: upgradeCommand,
-    examples: ["prism upgrade"],
+    options: [
+      {
+        flags: "--dry-run",
+        description:
+          "Only list the config files it would write and the 1.x data it would move",
+      },
+    ],
+    examples: [
+      "prism upgrade",
+      "prism upgrade --dry-run",
+      "prism upgrade --yes",
+    ],
   },
   {
     name: "doctor",
@@ -152,7 +163,12 @@ export const COMMANDS: readonly CommandSpec[] = [
       {
         flags: "--fix",
         description:
-          "Stop the daemon, rewrite editor configs to the recorded local build or the installed server, and update hook configs an older release wrote",
+          "Bring the recorded agents' Prism setup (server path, hooks, rule, skills) in line with the installed version. Lists the changes and asks first, backs up each file, then stops the daemon. --yes skips the question.",
+      },
+      {
+        flags: "--dry-run",
+        description:
+          "Only list the config files it would write and the 1.x data it would move",
       },
     ],
     examples: [

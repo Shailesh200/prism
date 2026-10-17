@@ -15,7 +15,7 @@ import {
 } from "./hosts.js";
 import { backupDir, tilde } from "./backups.js";
 import type { ListRow, WriteRole } from "./consent-copy.js";
-import { planWipe1x, type WipePlan } from "./wipe.js";
+import { keptUserConfig, planWipe1x, type WipePlan } from "./wipe.js";
 
 export type StartPlanInput = {
   readonly hosts: readonly InstallHost[];
@@ -65,6 +65,21 @@ function roleFor(write: PlannedWrite, receiptConfig: string): WriteRole {
   return "file";
 }
 
+/**
+ * The receipt write when a 1.x home is moved first (`runInstall` runs
+ * `wipe1x` before any host): the 1.x `config.json` is never read as 2.x, so
+ * a key 2.x does not know cannot stop the plan (Scout QA); the wipe block
+ * lists it as dropped. The new `config.json` holds only the kept keys.
+ */
+function receiptAfterWipe(
+  path: string,
+  env: NodeJS.ProcessEnv,
+): PlannedWrite[] {
+  const tools = keptUserConfig(env).extraTools;
+  if (Array.isArray(tools) && tools.includes("receipt")) return [];
+  return [{ path, kind: "file", exists: false }];
+}
+
 export function planStart(input: StartPlanInput): StartPlan {
   const writes: (PlannedWrite & { agent: string })[] = [];
   const seen = new Set<string>();
@@ -91,13 +106,16 @@ export function planStart(input: StartPlanInput): StartPlan {
       }),
     );
   }
+  const wipe = planWipe1x({ env: input.env, now: input.now });
+  const receiptConfig = userConfigPath(input.env);
   if (input.hosts.some((host) => input.receiptHosts.includes(host))) {
     add(
       "Prism",
-      planWrites(() => void input.enableReceipt(input.env)),
+      wipe
+        ? receiptAfterWipe(receiptConfig, input.env)
+        : planWrites(() => void input.enableReceipt(input.env)),
     );
   }
-  const receiptConfig = userConfigPath(input.env);
   const rows: ListRow[] = writes.map((write) => {
     const role = roleFor(write, receiptConfig);
     return {
@@ -108,7 +126,6 @@ export function planStart(input: StartPlanInput): StartPlan {
       ...(write.linkTo ? { linkTo: tilde(write.linkTo, input.home) } : {}),
     };
   });
-  const wipe = planWipe1x({ env: input.env, now: input.now });
   return {
     writes,
     rows,

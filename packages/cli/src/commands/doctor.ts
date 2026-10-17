@@ -8,17 +8,42 @@
 
 import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { PRISM_API_LEVEL, PRISM_CORE_VERSION } from "@repo-prism/core";
-import { err, ok, prismError, PrismErrorCode } from "@repo-prism/shared";
+import {
+  err,
+  ok,
+  prismError,
+  PrismErrorCode,
+  type PrismError,
+  type Result,
+} from "@repo-prism/shared";
 import { workspaceCacheDir } from "@repo-prism/shared/prism-home";
-import { readInstallRecord } from "@repo-prism/shared/prism-bin";
+import {
+  readInstallRecord,
+  type InstallRecord,
+} from "@repo-prism/shared/prism-bin";
 import { habitsDir, readHabits } from "@repo-prism/shared/habits";
 import { resolveStrength } from "@repo-prism/shared/user-config";
 import { stopDaemon } from "@repo-prism/daemon";
 import { INSTALL_HOSTS, type InstallHost } from "../install/hosts.js";
 import { hookConfigChecks } from "../install/hook-health.js";
-import { defaultLayout, runInstall, sourceLayout } from "./install.js";
+import {
+  confirmAndWrite,
+  defaultConsentIo,
+  type ConsentIo,
+} from "../install/confirm-write.js";
+import { planStart } from "../install/start-plan.js";
+import {
+  defaultLayout,
+  enableReceipt,
+  HOST_NAMES,
+  RECEIPT_HOSTS,
+  runInstall,
+  sourceLayout,
+  type SourceLayout,
+} from "./install.js";
 import { paint, renderFields, renderHeading, type Style } from "../output.js";
 import {
   isPrismSourceRepo,
@@ -27,7 +52,11 @@ import {
 } from "./surfaces.js";
 import { wrap } from "../table.js";
 import { checkSkills } from "./doctor-skills.js";
-import type { CommandHandler } from "../runtime.js";
+import type {
+  CommandContext,
+  CommandHandler,
+  CommandOutcome,
+} from "../runtime.js";
 
 /** Detect a shallow clone (M-057 P-B11). Exported for unit tests. */
 export function isShallowGitRepository(rootPath: string): boolean | null {
@@ -82,7 +111,38 @@ const STATUS_MARK: Record<Check["status"], string> = {
   fail: "fail",
 };
 
-export const doctorCommand: CommandHandler = async (context) => {
+/** What `prism doctor --fix` needs from the machine; tests pass stand-ins. */
+export type DoctorDeps = ConsentIo & {
+  readonly home: () => string;
+  readonly env: () => NodeJS.ProcessEnv;
+  readonly now: () => Date;
+  /** The build the recorded install should point at. */
+  readonly layout: (record: InstallRecord) => SourceLayout | string;
+  readonly stopDaemon: (env: NodeJS.ProcessEnv) => Promise<unknown>;
+};
+
+export const defaultDoctorDeps: DoctorDeps = {
+  ...defaultConsentIo,
+  home: homedir,
+  env: () => process.env,
+  now: () => new Date(),
+  layout: (record) =>
+    record.source ? sourceLayout(record.source) : defaultLayout(),
+  stopDaemon: (env) => stopDaemon({ env }),
+};
+
+export function makeDoctorCommand(
+  deps: DoctorDeps = defaultDoctorDeps,
+): CommandHandler {
+  return (context) => runDoctor(context, deps);
+}
+
+export const doctorCommand: CommandHandler = makeDoctorCommand();
+
+async function runDoctor(
+  context: CommandContext,
+  deps: DoctorDeps,
+): Promise<Result<CommandOutcome, PrismError>> {
   const topic = context.args.positionals[0];
   if (topic !== undefined && topic !== "skills") {
     return err(
@@ -137,7 +197,13 @@ export const doctorCommand: CommandHandler = async (context) => {
     }
   }
 
-  checks.push(...(await installChecks(context.args.flag("fix"))));
+  let fixed: Check[] = [];
+  if (context.args.flag("fix")) {
+    const fix = await fixAgentConfigs(context, deps);
+    if ("stop" in fix) return fix.stop;
+    fixed = fix.checks;
+  }
+  checks.push(...fixed, ...installChecks());
 
   const cacheDir = workspaceCacheDir(context.workspace.path);
   const hasCache = existsSync(cacheDir);
@@ -289,7 +355,7 @@ export const doctorCommand: CommandHandler = async (context) => {
       return lines.join("\n");
     },
   });
-};
+}
 
 /** Launches of anything but the local build: npx, or an npm install. */
 const published = () =>
@@ -298,12 +364,117 @@ const published = () =>
   );
 
 /**
- * The install record, the bin it names, and (for a local build) the
- * `no-published-refs` check over every editor config (§3.0, DEV-1).
- * `--fix` stops the daemon (the next client starts the current build) and
- * rewrites the recorded editors' configs to the local build.
+ * `--fix`: bring the recorded agents' Prism setup in line with the installed version
+ * (server path, hooks, rule, skills) by re-running their install, through
+ * the same consent step as `prism start` (`confirmAndWrite`): the list, a
+ * y/N (or `--yes`), a backup, then the writes. Nothing to change: no
+ * question. The daemon is stopped only once the fix goes ahead, so the next
+ * client starts the current build.
  */
-async function installChecks(fix: boolean): Promise<Check[]> {
+export async function fixAgentConfigs(
+  context: CommandContext,
+  deps: DoctorDeps,
+): Promise<
+  | { readonly stop: Result<CommandOutcome, PrismError> }
+  | { readonly checks: Check[] }
+> {
+  const env = deps.env();
+  const read = readInstallRecord(env);
+  // Not installed or unreadable: `installChecks` says what to run.
+  if (read.kind !== "ok") return { checks: [] };
+  const record: InstallRecord = read.record;
+  const layout = deps.layout(record);
+  if (typeof layout === "string")
+    return {
+      checks: [
+        {
+          label: "Fix",
+          status: "fail",
+          detail: `cannot rewrite configs: ${layout}`,
+        },
+      ],
+    };
+  const hosts = record.hosts.filter((host): host is InstallHost =>
+    (INSTALL_HOSTS as readonly string[]).includes(host),
+  );
+  const home = deps.home();
+  const now = deps.now();
+  const scope = record.scope ?? "user";
+  const root = record.root ?? context.cwd;
+  const names = hosts.map((host) => HOST_NAMES[host]);
+  const plan = planStart({
+    hosts,
+    hostNames: HOST_NAMES,
+    scope,
+    home,
+    root,
+    node: process.execPath,
+    bin: layout.bin,
+    pack: layout.pack,
+    env,
+    now,
+    receiptHosts: RECEIPT_HOSTS,
+    enableReceipt,
+  });
+  const confirmed = await confirmAndWrite({
+    command: "prism doctor --fix",
+    plan,
+    names,
+    home,
+    context,
+    io: deps,
+    write: (backupRoot) =>
+      runInstall({
+        hosts,
+        scope,
+        root,
+        layout,
+        env,
+        now,
+        home,
+        ...(backupRoot ? { backupRoot } : {}),
+      }),
+  });
+  if (confirmed.kind === "stop") return { stop: confirmed.result };
+  await deps.stopDaemon(env);
+  const checks: Check[] = [
+    {
+      label: "Daemon",
+      status: "ok",
+      detail: "stopped; the next client starts the current build",
+    },
+  ];
+  if (confirmed.kind === "nothing") {
+    checks.push({
+      label: "Fix",
+      status: "ok",
+      detail: `${names.join(", ")} already match the installed version; nothing to change`,
+    });
+    return { checks };
+  }
+  const result = confirmed.value;
+  checks.push(
+    result.kind === "permission"
+      ? {
+          label: "Fix",
+          status: "fail",
+          detail: `Cannot write ${result.wipe.path}; nothing was changed. Fix: ${result.wipe.fix}`,
+        }
+      : {
+          label: "Fix",
+          status: "ok",
+          detail: `rewrote ${names.join(", ")} to ${layout.source ? "the local build" : "the installed server"} ${layout.bin}${confirmed.backups.length > 0 ? `; backups in ${confirmed.backupShown}` : ""}`,
+        },
+  );
+  return { checks };
+}
+
+/**
+ * The install record, the bin it names, and (for a local build) the
+ * `no-published-refs` check over every editor config (§3.0, DEV-1), plus
+ * the hook configs (detection only; `--fix` updates them).
+ */
+function installChecks(): Check[] {
   const read = readInstallRecord(process.env);
   if (read.kind !== "ok")
     return [
@@ -316,49 +487,7 @@ async function installChecks(fix: boolean): Promise<Check[]> {
             : "not installed. Run `prism install <editor> --local <checkout>`.",
       },
     ];
-  const record = read.record;
-  // An npm install runs the published server by design; only a local build
-  // must not reference it.
-  const broken =
-    !existsSync(record.bin) ||
-    (record.source !== undefined && published().length > 0);
-  const fixed: Check[] = [];
-  if (fix) {
-    await stopDaemon({ env: process.env });
-    fixed.push({
-      label: "Daemon",
-      status: "ok",
-      detail: "stopped; the next client starts the current build",
-    });
-    const layout = record.source
-      ? sourceLayout(record.source)
-      : defaultLayout();
-    if (broken && typeof layout !== "string") {
-      const hosts = record.hosts.filter((host): host is InstallHost =>
-        (INSTALL_HOSTS as readonly string[]).includes(host),
-      );
-      await runInstall({
-        hosts,
-        scope: record.scope ?? "user",
-        root: record.root ?? process.cwd(),
-        layout,
-        env: process.env,
-      });
-      fixed.push({
-        label: "Fix",
-        status: "ok",
-        detail: `rewrote ${hosts.join(", ")} to ${layout.source ? "the local build" : "the installed server"} ${layout.bin}`,
-      });
-    } else if (broken) {
-      fixed.push({
-        label: "Fix",
-        status: "fail",
-        detail: `cannot rewrite configs: ${layout}`,
-      });
-    }
-  }
-  const after = readInstallRecord(process.env);
-  const current = after.kind === "ok" ? after.record : record;
+  const current = read.record;
   const checks: Check[] = [
     {
       label: "Install",
@@ -387,6 +516,6 @@ async function installChecks(fix: boolean): Promise<Check[]> {
     );
   }
   // Round 4: hook configs an older release wrote (`--fix` updates them).
-  checks.push(...hookConfigChecks(current, { fix }));
-  return [...fixed, ...checks];
+  checks.push(...hookConfigChecks(current));
+  return checks;
 }

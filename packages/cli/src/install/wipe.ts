@@ -203,6 +203,16 @@ function configKeep(home: string): {
 
 export { stamp };
 
+/**
+ * The 1.x config keys the 2.x home keeps (`prism start` plans against these:
+ * the 1.x `config.json` moves to the backup before any host is written).
+ */
+export function keptUserConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): Record<string, unknown> {
+  return configKeep(prismHomeDir(env)).keep ?? {};
+}
+
 /** What a wipe would do, read without changing anything. */
 type Analysis = {
   readonly lenses: LensRead;
