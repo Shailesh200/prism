@@ -27,46 +27,40 @@ const V2: Array<{ label: string; body: ReactNode }> = [
     label: "Start",
     body: (
       <>
-        <code>prism start</code> installs Prism for the agents it finds, indexes
-        the repo, prints the top of the map and shows what to try.
+        <code>prism start</code> lists every agent config it will change and
+        asks y/N. On yes it backs up each file, sets each agent up and indexes
+        the repo.
       </>
     ),
   },
   {
-    label: "Receipts",
+    label: "Verdict",
     body: (
       <>
-        The verdict comes first: SHIP, NOT PROVEN (with the cheapest command
-        that would prove it) or NO-SHIP. Checks run your typecheck, lint and the
-        tests the change reaches.
+        When your coding agent stops, Prism runs the check scripts your project
+        already has on what changed and gives one verdict: SHIP, NOT PROVEN or
+        NO-SHIP. Claude Code gets it when the agent stops; in Codex, opencode
+        and Cursor it comes with the next receipt.
       </>
     ),
   },
   {
-    label: "Prepare",
+    label: "Install",
     body: (
       <>
-        The automatic file list holds at most 3 files Prism is sure of, with
-        nearby tests and one run command. Files that changed in the same commits
-        are ranked into that list.
+        Install backs up first, prints each file it wrote and records it;
+        uninstall removes only that. 1.x data is moved to{" "}
+        <code>~/.prism-backups/</code>, not deleted.
       </>
     ),
   },
   {
-    label: "Review",
+    label: "Updates",
     body: (
       <>
-        Review is <code>guard_session</code> with <code>review: true</code>.
-        Findings say what, where, how to fix it, and the risk if you skip it.
-      </>
-    ),
-  },
-  {
-    label: "Lenses",
-    body: (
-      <>
-        Lenses are shared by every repository, with nine data-backed checks and
-        custom trigger phrases.
+        Prism doesn&apos;t update its hooks by itself. <code>prism doctor</code>{" "}
+        tells you when they&apos;re out of date, and{" "}
+        <code>prism doctor --fix</code> updates them after asking.
       </>
     ),
   },
@@ -88,47 +82,6 @@ const V2: Array<{ label: string; body: ReactNode }> = [
     ),
   },
   {
-    label: "Map",
-    body: (
-      <>
-        <code>graph</code> gains <code>map</code> and <code>symbol</code> modes.{" "}
-        <code>prism graph map</code> prints a compact repo map.
-      </>
-    ),
-  },
-  {
-    label: "Engine",
-    body: (
-      <>
-        Blast radius works per symbol. Type-only imports no longer count as
-        cycles.
-      </>
-    ),
-  },
-  {
-    label: "Budgets",
-    body: <>Every tool takes maxTokens (200–12,000).</>,
-  },
-  {
-    label: "Tests",
-    body: (
-      <>
-        <code>test_impact</code> returns a ready command for each package.
-      </>
-    ),
-  },
-  {
-    label: "Install",
-    body: (
-      <>
-        Install records what it writes; uninstall removes exactly that.
-        Installing over 1.x removes 1.x data. Valid custom lenses and config
-        keys are kept. After an upgrade, the next Claude Code session updates
-        Prism&apos;s own hooks, keeps your other hooks and writes a backup.
-      </>
-    ),
-  },
-  {
     label: "CLI",
     body: (
       <>
@@ -140,9 +93,7 @@ const V2: Array<{ label: string; body: ReactNode }> = [
     label: "Skills",
     body: (
       <>
-        One <code>prism</code> skill replaces five earlier ones:
-        prism-review-pr, prism-safe-change, prism-onboard, prism-lens and
-        prism-habits.
+        One <code>prism</code> skill replaces five earlier ones.
       </>
     ),
   },
@@ -366,9 +317,7 @@ export async function ChangelogView({ page }: { page: number }) {
               >
                 <div className="cl-meta">
                   <h2 className="d3">Prism 2.0.0</h2>
-                  <p className="muted mt-2 mb-3">
-                    Prepare, lens review and receipts
-                  </p>
+                  <p className="muted mt-2 mb-3">Know before you ship</p>
                   <Pill tone="ok">current</Pill>
                   <p className="mt-3">
                     <Link href="/changelog/2-0-0">

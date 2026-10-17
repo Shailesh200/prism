@@ -1,10 +1,10 @@
 ---
-title: "2.0.0 — Prepare, lens review and receipts"
-description: "Local software intelligence that catches what your coding agent missed: the right files before the edit, a verdict after it. A clean break from 1.x."
+title: "2.0.0 — Know before you ship"
+description: "Know before you ship: when Claude Code stops, Prism runs your checks on what changed and gives one verdict. A clean break from 1.x."
 version: "2.0.0"
 ---
 
-Prism 2.0 does two jobs for the coding agent you already use. Before it edits, Prism hands it the few files that matter. After it edits, Prism checks the change and gives a verdict. Everything runs on your machine.
+Know before you ship. When Claude Code stops, Prism runs your checks on what changed and gives one verdict: SHIP, NOT PROVEN or NO-SHIP. Everything runs on your machine.
 
 ## Start in one command
 
@@ -12,26 +12,26 @@ Prism 2.0 does two jobs for the coding agent you already use. Before it edits, P
 npm i -g @repo-prism/cli && prism start
 ```
 
-`prism start` installs Prism for the agents it finds (Claude Code, Cursor, Codex, opencode), indexes the repo, prints the top of the map and shows what to try. Install records what it writes; uninstall removes exactly that. After an upgrade, the next Claude Code session brings Prism's hooks up to date and keeps a backup; your own hooks stay. See [Install](/docs/start/install#upgrade).
+`prism start` finds your agents (Claude Code, Codex, opencode, Cursor), lists every config it will change and asks y/N. On yes, it backs up each file to `~/.prism-backups/<time in UTC>/`, sets each agent up and indexes the repo. In scripts, pass `--yes`. `--dry-run` only shows the list. `prism install <agent>` doesn't ask, but it backs up first and prints each file it wrote. Install records every write, and `prism uninstall` removes only what Prism added. See [Install](/docs/start/install).
 
-## Before the edit
+## When the agent stops
 
-- **Prepare** lists at most 3 files Prism is sure of, with nearby tests and one run command. Files that changed together in past commits rank into that list.
-- The prompt hook adds that list to the agent's context inside a 1 s budget, in one Node process.
-- `prism graph map` prints a compact map of the repo.
+- **Claude Code** gets a verdict in the chat when it stops: SHIP, NOT PROVEN (with the command that would prove it) or NO-SHIP.
+- **Codex and opencode:** the verdict comes with your next receipt.
+- **Cursor** is set up for receipts. Ask the agent for one.
+- **Your own checks.** Prism reads your package.json and runs your scripts and the tests the change reaches. `prism receipts show` lists each check and its result. See [Receipts](/docs/guides/receipt).
 
-## After the edit
+## Updating
 
-- **Receipts** lead with the verdict: SHIP, NOT PROVEN (with the cheapest command that would prove it) or NO-SHIP. Checks run your typecheck, lint and the tests the change reaches. See [Receipts](/docs/guides/receipt).
-- **Review** (`guard_session` with `review: true`) says what is wrong, where, how to fix it, and the risk if you skip it.
-- **Lenses** add nine data-backed checks. `prism review --lens qa` prints one lens's checks with evidence. See [Lenses](/docs/guides/lenses).
+Nothing updates by itself. To update, run `npm i -g @repo-prism/cli@latest`, then `prism upgrade`. It lists the config changes and asks y/N. Prism tells you when a new version is out, and when its Claude Code hooks are out of date it prints one line asking you to run `prism doctor --fix`.
 
 ## Also new
 
 - `habits` tool and `prism habit` for saved routines; one `prism` skill replaces five.
-- `prism strength full|lite|off`, `prism stats`, `prism doctor --fix`.
+- `prism strength full|lite|off`, `prism stats`, and `prism doctor --fix`, which asks y/N and backs up first.
+- `prism graph map` prints a compact map of the repo.
 - Every tool takes `maxTokens` (200–12,000). `test_impact` returns a ready command per package.
 
 ## Removed
 
-The 1.x VS Code and Cursor extensions, app-shell, playground, Dispatch, and the 1.x tool names and environment variables. Installing 2.0 over 1.x removes 1.x data and keeps valid custom lenses and config keys.
+The 1.x VS Code and Cursor extensions, app-shell, playground, Dispatch, and the 1.x tool names and environment variables. Installing 2.0 over 1.x moves your 1.x data to `~/.prism-backups/<time in UTC>/1x/`. Valid custom lenses and config keys carry over.
