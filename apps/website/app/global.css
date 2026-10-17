@@ -1156,6 +1156,36 @@ figure pre,
     color: var(--ok);
   }
 
+  /* Full results: notes stack above the tables, and sit beside them from 1024. */
+  .bench-read {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .bench-aside .info {
+    margin: 0;
+  }
+
+  @media (min-width: 1024px) {
+    .bench-read {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 260px;
+      column-gap: 28px;
+      align-items: start;
+    }
+
+    .bench-read > .bench-aside {
+      order: 2;
+      position: sticky;
+      top: calc(var(--nav-h) + 24px);
+    }
+
+    .bench-aside .info .tx {
+      font-size: 13.5px;
+    }
+  }
+
   .bars {
     display: grid;
     gap: 8px;

@@ -31,7 +31,7 @@ export async function GET() {
       "safe delete and rename; Claude Code and opencode can stop a generated-file edit",
     "/product/receipts": "SHIP, NOT PROVEN or NO-SHIP from your checks",
     "/product/review":
-      "lens review: changes ranked by risk, plus callers left behind and untested code; it posts nothing",
+      "review: changes ranked by risk, with the tests that reach them and the lens checks you pick; it posts nothing",
     "/product/lenses": "Dev, Architect, QA or your own, each with its checks",
     "/product/habits":
       "saved routines stored as skills; your agent runs the steps",
@@ -49,12 +49,10 @@ export async function GET() {
 
   const body = `# Prism
 
-> Your agent’s second pair of eyes. Know before you ship.
-> Local software intelligence that catches what the agent missed. Prism gives
-> your agent the right files before it edits, then flags the code it skipped and
-> the code no test covers. Free and MIT; analysis runs on your machine. Exposed
-> as a CLI and an MCP server (${PRISM_TOOL_COUNT} tools) for AI agents, wired by
-> \`prism install\`.
+> Know before you ship. When Claude Code stops, Prism runs your checks on what
+> changed and gives one verdict: SHIP, NOT PROVEN or NO-SHIP. Free and MIT;
+> analysis runs on your machine. Exposed as a CLI and an MCP server
+> (${PRISM_TOOL_COUNT} tools) for AI agents, wired by \`prism install\`.
 
 Every docs page in full: ${site}/llms-full.txt
 

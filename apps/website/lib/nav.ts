@@ -11,7 +11,7 @@ export const PRODUCTS: Array<NavLink & { blurb: string }> = [
   {
     href: "/product/review",
     label: "Review",
-    blurb: "What the agent missed",
+    blurb: "Changes, ranked by risk",
   },
   {
     href: "/product/lenses",

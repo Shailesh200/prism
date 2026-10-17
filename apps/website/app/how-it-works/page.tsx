@@ -89,7 +89,7 @@ export default function HowItWorksPage() {
         <Step
           n={4}
           title="Review"
-          lede="When the agent stops, Prism runs your typecheck, lint, the tests the change reaches and the lens checks. The receipt gives the verdict and the findings."
+          lede="When the agent stops, Prism runs your checks on what changed. The receipt gives one verdict and lists each check with its result."
         >
           <VerifyDemo />
         </Step>
