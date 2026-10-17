@@ -1,9 +1,0 @@
-{"key":"findings:review-es-toolkit-orderBy:A:1","kind":"findings","task":"review-es-toolkit-orderBy","set":"review","run":1,"arm":"A","valid":[true,true]}
-{"key":"findings:review-hono-combine:L:1","kind":"findings","task":"review-hono-combine","set":"review","run":1,"arm":"L","valid":[true]}
-{"key":"findings:review-hono-jsx-gap:L:1","kind":"findings","task":"review-hono-jsx-gap","set":"review","run":1,"arm":"L","valid":[true,true]}
-{"key":"findings:review-es-toolkit-orderBy:B:1","kind":"findings","task":"review-es-toolkit-orderBy","set":"review","run":1,"arm":"B","valid":[true,true,true]}
-{"key":"findings:review-es-toolkit-orderBy:P:1","kind":"findings","task":"review-es-toolkit-orderBy","set":"review","run":1,"arm":"P","valid":[true,false]}
-{"key":"findings:review-es-toolkit-intersectionBy:L:1","kind":"findings","task":"review-es-toolkit-intersectionBy","set":"review","run":1,"arm":"L","valid":[true]}
-{"key":"findings:review-hono-jsx-gap:P:1","kind":"findings","task":"review-hono-jsx-gap","set":"review","run":1,"arm":"P","valid":[true]}
-{"key":"findings:review-es-toolkit-meanBy:P:1","kind":"findings","task":"review-es-toolkit-meanBy","set":"review","run":1,"arm":"P","valid":[true]}
-{"key":"findings:review-es-toolkit-orderBy:L:1","kind":"findings","task":"review-es-toolkit-orderBy","set":"review","run":1,"arm":"L","valid":[true,true]}

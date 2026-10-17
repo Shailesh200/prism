@@ -12,7 +12,7 @@
 
 This is the end-to-end plan for the **agent-native** product. **Envelope** is the agentic experience (Graphify-class query of Iris, without a dump). Other named products (Finding Loop, Guard, …) stay outside Envelope. Cuts 1–3 are **done**. A fourth cut is **set aside** (plan-only discussion for Prism Cloud and paid plans — not scheduled).
 
-Companion catalog: the [feature catalog canvas](file:///Users/shaileshjha/.cursor/projects/Users-shaileshjha-Prism/canvases/agentic-feature-catalog.canvas.tsx) (what / how / fits / impact). This file is the **product** contract. Execution, verify-plan, smoke, and T0–T3 proof: [`PROGRAM_agent-native-3-PHASES.md`](./PROGRAM_agent-native-3-PHASES.md).
+Companion catalog: the [feature catalog canvas](file://~/.cursor/projects/<project>/canvases/agentic-feature-catalog.canvas.tsx) (what / how / fits / impact). This file is the **product** contract. Execution, verify-plan, smoke, and T0–T3 proof: [`PROGRAM_agent-native-3-PHASES.md`](./PROGRAM_agent-native-3-PHASES.md).
 
 ---
 
