@@ -30,7 +30,7 @@
     "format:check": "oxfmt --check .",
     "test": "moon run :test",
     "test:integration": "moon run :test-integration",
-    "verify": "bun run format:check && bun run lint && bun run typecheck && bun run test && bun run build",
+    "verify": "bun run format:check && bun run build && bun run lint && bun run typecheck && bun run test",
     "verify:milestone": "bun run verify && bun run scripts/check-test-layers.mjs && bun run test:integration && bun run docs:check && bun run docs:build && bun run scripts/check-plan-progress.mjs && bun run scripts/check-publish-exports.mjs && bun run scripts/check-mcp-start.mjs",
     "bench": "node scripts/bench/run.mjs",
     "bench:check": "node scripts/bench/check.mjs",
