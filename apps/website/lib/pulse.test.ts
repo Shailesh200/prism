@@ -13,13 +13,12 @@ describe("pulse", () => {
   });
 
   it("tags install copy by command", () => {
+    expect(installCopyTarget("claude mcp add prism -- prism-mcp")).toBe("mcp");
     expect(
-      installCopyTarget("npx -y --prefer-online @repo-prism/mcp-server@latest"),
-    ).toBe("mcp");
-    expect(installCopyTarget("npx -y @repo-prism/cli doctor")).toBe("cli");
-    expect(
-      installCopyTarget("code --install-extension prismhq.repo-prism"),
-    ).toBe("ide");
+      installCopyTarget(
+        "npm install -g @repo-prism/cli && prism install claude",
+      ),
+    ).toBe("cli");
     expect(installCopyTarget("npm install @repo-prism/core")).toBe("core");
     expect(installCopyTarget("bun run verify:milestone")).toBe("source");
     expect(installCopyTarget("hello")).toBeUndefined();

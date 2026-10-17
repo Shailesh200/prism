@@ -67,16 +67,10 @@ export function trackProps(name: string, target?: string): TrackAttrs {
 export function installCopyTarget(command: string): string | undefined {
   const text = command.trim();
   if (!text) return undefined;
-  if (/mcp-server/i.test(text) || /mcpServers/i.test(text)) return "mcp";
+  if (/prism-mcp|mcp-server/i.test(text) || /mcpServers/i.test(text))
+    return "mcp";
   if (/mcp_servers/i.test(text) || /claude mcp add/i.test(text)) return "mcp";
-  if (/@repo-prism\/cli|\bprism doctor\b|prism dna/i.test(text)) return "cli";
-  if (
-    /install-extension|prismhq\.repo-prism|open-vsx|marketplace\.visualstudio/i.test(
-      text,
-    )
-  ) {
-    return "ide";
-  }
+  if (/@repo-prism\/cli|\bprism (?:doctor|install)\b/i.test(text)) return "cli";
   if (/@repo-prism\/core/.test(text)) return "core";
   if (/git clone.*prism/i.test(text) || /bun run verify:milestone/.test(text)) {
     return "source";

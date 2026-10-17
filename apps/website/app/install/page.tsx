@@ -1,298 +1,137 @@
-import type { ReactNode } from "react";
-import { HomeLayout } from "fumadocs-ui/layouts/home";
-import { baseOptions } from "@/lib/layout.shared";
 import Link from "next/link";
-import { PageEnter } from "@/components/motion/PageEnter";
-import { Reveal } from "@/components/motion/Reveal";
-import { SectionIntro } from "@/components/motion/SectionIntro";
-import { CopyCommand } from "@/components/copy-command";
-import { CopyInstall } from "@/components/copy-install";
-import { McpInstallPanel } from "@/components/mcp-install-panel";
-import { SiteFooter } from "@/components/site-footer";
-import { PRISM_TOOL_COUNT } from "@/lib/mcp-install";
+import { AgentLogo } from "@/components/ui/agent-logo";
+import { Card } from "@/components/ui/card";
+import { ConfigBlock } from "@/components/ui/config-block";
+import { Command } from "@/components/ui/command";
+import { Container } from "@/components/ui/container";
+import { INSTALL_COMMAND } from "@/components/ui/cta-band";
+import { CheckCircleIcon, LayersIcon, ShieldIcon } from "@/components/ui/icons";
+import { PageHero } from "@/components/ui/page-hero";
+import { StartDemo } from "@/components/site/demos";
+import { SiteFooter } from "@/components/site/site-footer";
+import { SiteNav } from "@/components/site/site-nav";
+import { AGENTS } from "@/lib/agents";
+import { PRISM_MCP_JSON_STRING, PRISM_RECEIPT_CONFIG } from "@/lib/mcp-install";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
   title: "Install",
   description:
-    "Node 26+, pick a surface, confirm it works. prism init never asks for a key.",
+    "One command installs Prism, connects your agents (Claude Code, Cursor, Codex, opencode) and maps your code.",
   path: "/install",
 });
 
-const SURFACES = [
-  {
-    title: "CLI",
-    install: "npx -y @repo-prism/cli doctor",
-    href: "/docs/start/install",
-    body: "Terminal and CI. Same Core as every other surface.",
-  },
-  {
-    title: "VS Code & Cursor",
-    install: "Marketplace: prismhq.repo-prism",
-    href: "/docs/start/install",
-    body: "Map, blast, health, and the Console inside the editor.",
-  },
-  {
-    title: "MCP server",
-    install: "npx -y --prefer-online @repo-prism/mcp-server@latest",
-    href: "/docs/start/install",
-    body: `${PRISM_TOOL_COUNT} structural tools for agents, local-first.`,
-  },
-  {
-    title: "Plugin pack",
-    install: "Install “Prism” from your editor's plugins",
-    href: "/docs/start/install",
-    body: "Skills that compose Prism's tools with the connectors you already have.",
-  },
-  {
-    title: "Core SDK",
-    install: "npm install @repo-prism/core",
-    href: "/admin/docs/core-sdk",
-    body: "Programmatic access for custom surfaces.",
-  },
-];
-
-const CONFIRM = [
-  {
-    surface: "CLI",
-    see: "doctor prints a workspace path; dna prints a report",
-  },
-  {
-    surface: "IDE",
-    see: "Prism panel opens after indexing",
-  },
-  {
-    surface: "MCP",
-    see: `${PRISM_TOOL_COUNT} tools listed; the agent answers with repository structure`,
-  },
-];
-
 export default function InstallPage() {
   return (
-    <HomeLayout {...baseOptions()}>
-      <PageEnter>
-        <main className="mx-auto flex w-full max-w-3xl flex-col gap-16 px-6 py-16">
-          <SectionIntro
-            index="Nº INSTALL"
-            title="Install Prism"
-            description="About five minutes. One engine behind CLI, IDE, and MCP. You do not need to clone this repo."
-          />
-
-          <Reveal>
-            <ol className="relative space-y-12 border-l border-fd-border pl-8">
-              <WizardStep n="01" title="Prerequisites">
-                <ul className="space-y-3 text-sm text-fd-muted-foreground">
-                  <li>
-                    <strong className="text-fd-foreground">Node.js 26+</strong>{" "}
-                    — <code className="text-fd-primary">node -v</code> should
-                    start with <code className="text-fd-primary">v26</code>.
-                  </li>
-                  <li>
-                    <strong className="text-fd-foreground">
-                      A TypeScript / JavaScript folder
-                    </strong>{" "}
-                    — open or <code className="text-fd-primary">cd</code> into
-                    it.
-                  </li>
-                  <li>
-                    <strong className="text-fd-foreground">Git</strong> is
-                    recommended (Dispatch and worktrees) but not required for
-                    analysis.
-                  </li>
-                </ul>
-              </WizardStep>
-
-              <WizardStep n="02" title="Pick a surface">
-                <p className="mb-4 text-sm text-fd-muted-foreground">
-                  Add the others later — they share the same local index.
-                </p>
-                <CopyInstall />
-                <div className="mt-6 space-y-3 text-sm text-fd-muted-foreground">
-                  <p>
-                    IDE extension id{" "}
-                    <code className="text-fd-primary">prismhq.repo-prism</code>.
-                  </p>
-                  <p>
-                    MCP:{" "}
-                    <code className="text-fd-primary">
-                      npx -y --prefer-online @repo-prism/mcp-server@latest
-                    </code>
-                  </p>
-                </div>
-              </WizardStep>
-
-              <WizardStep n="03" title="prism init">
-                <p className="text-sm leading-relaxed text-fd-muted-foreground">
-                  In chat, say{" "}
-                  <strong className="text-fd-foreground">prism init</strong>.
-                  The worker matches the host. It never asks you to paste an API
-                  key. If Cursor shows a card titled “Authenticating prism…”
-                  with Skip, that is host tool-approval — click Skip, then retry
-                  init.
-                </p>
-              </WizardStep>
-
-              <WizardStep n="04" title="Confirm it works">
-                <div className="overflow-x-auto rounded-lg border border-fd-border">
-                  <table className="w-full text-left text-sm">
-                    <thead className="border-b border-fd-border bg-fd-card">
-                      <tr>
-                        <th className="px-4 py-3 font-medium">Surface</th>
-                        <th className="px-4 py-3 font-medium">
-                          You should see
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {CONFIRM.map((row) => (
-                        <tr
-                          key={row.surface}
-                          className="border-b border-fd-border last:border-0"
-                        >
-                          <td className="px-4 py-3 font-mono text-xs text-fd-primary">
-                            {row.surface}
-                          </td>
-                          <td className="px-4 py-3 text-fd-muted-foreground">
-                            {row.see}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </WizardStep>
-
-              <WizardStep n="05" title="What Prism writes">
-                <p className="mb-3 text-sm text-fd-muted-foreground">
-                  Per-repo cache, consent, and jobs live under{" "}
-                  <code className="text-fd-primary">~/.prism/workspaces/</code>—
-                  nothing is written into your checkout.
-                </p>
-                <CopyCommand
-                  command="npx -y @repo-prism/cli doctor"
-                  trackTarget="cli"
-                />
-              </WizardStep>
-            </ol>
-          </Reveal>
-
-          <Reveal>
-            <section className="space-y-6 border-t border-fd-border pt-12">
-              <h2 className="font-display text-xl font-medium text-fd-foreground">
-                Surfaces
-              </h2>
-              <p className="max-w-md text-sm text-fd-muted-foreground">
-                Compact install paths. Same engine.
+    <>
+      <SiteNav />
+      <main>
+        <PageHero
+          eyebrow="Install"
+          title={
+            <>
+              One <em>command.</em>
+            </>
+          }
+          lede={
+            <>
+              Open a terminal in your repo and run it. <code>prism start</code>{" "}
+              looks for the agents set up on this machine, connects each one it
+              finds, and maps your code.
+            </>
+          }
+          actions={
+            <div className="w-full">
+              <Command cmd={INSTALL_COMMAND} />
+              <p className="cap">
+                Want to choose? Run <code>prism install</code> with the agent’s
+                name instead.
               </p>
-              <ul className="divide-y divide-fd-border border-y border-fd-border">
-                {SURFACES.map((p, i) => (
-                  <li
-                    key={p.title}
-                    className="flex flex-col gap-3 py-6 sm:flex-row sm:items-start sm:justify-between sm:gap-10"
-                  >
-                    <div className="space-y-2">
-                      <div className="flex items-baseline gap-4">
-                        <span className="font-mono text-xs text-fd-primary">
-                          {String(i + 1).padStart(2, "0")}
-                        </span>
-                        <h3 className="font-display text-xl font-medium text-fd-foreground">
-                          {p.title}
-                        </h3>
-                      </div>
-                      <p className="max-w-md pl-8 text-sm text-fd-muted-foreground">
-                        {p.body}
-                      </p>
-                      <code className="mt-1 block pl-8 font-mono text-sm text-fd-primary">
-                        {p.install}
-                      </code>
-                    </div>
-                    <Link
-                      href={p.href}
-                      className="shrink-0 pl-8 text-sm text-fd-primary sm:pl-0 sm:pt-1"
-                    >
-                      Guide →
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          </Reveal>
+            </div>
+          }
+          aside={<StartDemo />}
+        />
 
-          <Reveal>
-            <section className="space-y-6 border-t border-fd-border pt-12">
-              <h2 className="font-display text-xl font-medium text-fd-foreground">
-                MCP one-click
-              </h2>
-              <McpInstallPanel />
-            </section>
-          </Reveal>
-
-          <Reveal>
-            <p className="text-sm text-fd-muted-foreground">
-              Next:{" "}
-              <Link href="/docs/start/quickstart" className="text-fd-primary">
-                Quickstart
-              </Link>
-              {" · "}
-              <Link href="/docs/usage" className="text-fd-primary">
-                Usage
-              </Link>
-              {" · "}
-              <Link
-                href="/docs/guides/prepare-a-change"
-                className="text-fd-primary"
-              >
-                Prepare
-              </Link>
-              {" · "}
-              <Link
-                href="/docs/guides/envelope-and-iris"
-                className="text-fd-primary"
-              >
-                Envelope
-              </Link>
-              {" · "}
-              <Link
-                href="/docs/guides/guard-a-session"
-                className="text-fd-primary"
-              >
-                Guard
-              </Link>
-              {" · "}
-              <Link href="/docs/guides/dispatch" className="text-fd-primary">
-                Dispatch
-              </Link>
-              {" · "}
-              <Link href="/docs/start/install" className="text-fd-primary">
-                Full install guide
-              </Link>
+        <section className="sec">
+          <Container>
+            <h2 className="d3 mb-2.5">Or pick an agent</h2>
+            <p className="mb-6 text-ink3">
+              Use <code>prism install all</code> for every agent, or add{" "}
+              <code>--project</code> to write that agent’s files into this repo.
+              Codex still keeps its MCP config in <code>~/.codex</code>. Each
+              page also shows the config to add by hand.
             </p>
-          </Reveal>
-        </main>
-      </PageEnter>
-      <SiteFooter />
-    </HomeLayout>
-  );
-}
+            <div className="grid4">
+              {AGENTS.map((a) => (
+                <Link
+                  key={a.slug}
+                  href={`/install/${a.slug}`}
+                  className="card block"
+                >
+                  <h3 className="t flex items-center gap-2.5">
+                    <AgentLogo slug={a.slug} size={20} />
+                    {a.name}
+                  </h3>
+                  <p className="mt-2.5 font-mono text-sm text-ink">
+                    prism install {a.client}
+                  </p>
+                  <p>{a.gets}</p>
+                </Link>
+              ))}
+            </div>
+          </Container>
+        </section>
 
-function WizardStep({
-  n,
-  title,
-  children,
-}: {
-  n: string;
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <li className="relative">
-      <span className="absolute -left-8 top-0 flex size-6 -translate-x-1/2 items-center justify-center rounded-full border border-fd-border bg-fd-background font-mono text-[10px] text-fd-primary">
-        {n}
-      </span>
-      <h2 className="font-display text-xl font-medium text-fd-foreground">
-        {title}
-      </h2>
-      <div className="mt-4">{children}</div>
-    </li>
+        <section className="sec" id="custom">
+          <Container className="setup">
+            <div>
+              <h2 className="d3 mb-3.5">Any other MCP agent</h2>
+              <p className="lede text-lg">
+                Prism is a standard MCP server. Add this entry to your agent’s
+                MCP config; it starts the published server with <code>npx</code>
+                .
+              </p>
+              <p className="mt-4 text-ink2">
+                There are no hooks here, so nothing runs on its own. Turn on the{" "}
+                <code>receipt</code> tool and ask the agent to call{" "}
+                <code>prepare_change</code> before it edits and{" "}
+                <code>receipt</code> before it says it is done.
+              </p>
+            </div>
+            <div className="grid min-w-0 gap-5">
+              <ConfigBlock
+                lang="json"
+                path="mcp.json"
+                text={PRISM_MCP_JSON_STRING}
+              />
+              <ConfigBlock
+                lang="json"
+                path="~/.prism/config.json"
+                text={PRISM_RECEIPT_CONFIG}
+                footer="Add to the file if it already has settings."
+              />
+            </div>
+          </Container>
+        </section>
+
+        <section className="sec">
+          <Container className="grid3">
+            <Card icon={<CheckCircleIcon />} title="Check it">
+              <code>prism doctor</code> checks the repo, the index and each
+              connected agent.
+            </Card>
+            <Card icon={<LayersIcon />} title="Update">
+              <code>prism upgrade</code> re-links your agents to the current
+              build and restarts the daemon.
+            </Card>
+            <Card icon={<ShieldIcon />} title="Remove">
+              <code>prism uninstall</code> removes exactly what install wrote.
+              Add <code>--purge</code> to delete Prism’s data too.
+            </Card>
+          </Container>
+        </section>
+      </main>
+      <SiteFooter />
+    </>
   );
 }
