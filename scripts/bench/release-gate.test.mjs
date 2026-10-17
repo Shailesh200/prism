@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { calibrate, renderDoc, summarize, toRaw } from "./b6-report.mjs";
-import { releaseChecks } from "./release-gate.mjs";
+import { releaseChecks, WARN_ONLY_2_0_0 } from "./release-gate.mjs";
 
 const b1 = (withP, without) => ({
   totals: {
@@ -69,8 +69,14 @@ describe("release gate (P14)", () => {
     );
     const worse = raw(ten("A", 100, 1), ten("B", 120, 2));
     const out = releaseChecks({ raw: worse, doc: renderDoc(worse) });
-    assert.equal(status(out, "GATE-T2.ClaudeCode.tokens"), "fail");
-    assert.equal(status(out, "GATE-T2.ClaudeCode.cost"), "fail");
+    // 2.0.0 only: Claude Code tokens and cost warn (WARN_ONLY_2_0_0); 2.0.1
+    // makes them failures again.
+    assert.equal(status(out, "GATE-T2.ClaudeCode.tokens"), "warn");
+    assert.equal(status(out, "GATE-T2.ClaudeCode.cost"), "warn");
+    assert.deepEqual([...WARN_ONLY_2_0_0].sort(), [
+      "GATE-T2.ClaudeCode.cost",
+      "GATE-T2.ClaudeCode.tokens",
+    ]);
     const lower = raw(ten("A", 100, 1, true), ten("B", 90, 1, false));
     assert.equal(
       status(

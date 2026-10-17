@@ -29,6 +29,8 @@ export const EXCLUDE = [
   ":(exclude)scripts/deleted-names.json",
   ":(exclude)scripts/check-deleted-names.mjs",
   ":(exclude)bun.lock",
+  // The B1 measurement the publish gate reads: a recorded run, like history.
+  ":(exclude)docs/benchmarks/B1-orientation.json",
 ];
 
 /** The EXCLUDE pathspecs, for the scan without git. */
@@ -40,7 +42,8 @@ export function excluded(rel) {
     rel.startsWith("apps/website/content/posts/") ||
     rel === "scripts/deleted-names.json" ||
     rel === "scripts/check-deleted-names.mjs" ||
-    rel === "bun.lock"
+    rel === "bun.lock" ||
+    rel === "docs/benchmarks/B1-orientation.json"
   );
 }
 
