@@ -11,6 +11,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import {
   defaultVerifyRunner,
+  findLockfile,
   findPnpRoot,
   firstFailureLine,
   isCheckInterrupted,
@@ -69,8 +70,9 @@ function localBin(cwd: string, bin: string): string | null {
 
 /**
  * How to launch an installed tool: its `node_modules/.bin` file, or under
- * Yarn Plug'n'Play (no `.bin` folder) `yarn <bin>` from the PnP root. Null
- * when neither applies; never `npx`.
+ * Yarn Plug'n'Play (no `.bin` folder) `yarn <bin>` from the PnP root, when
+ * that root also holds the nearest lockfile (a yarn.lock). Null when neither
+ * applies; never `npx`.
  */
 export function toolArgv(
   cwd: string,
@@ -79,7 +81,14 @@ export function toolArgv(
   const local = localBin(cwd, bin);
   if (local) return [local];
   const pnp = findPnpRoot(cwd);
-  return pnp ? yarnCommand(pnp, [bin]) : null;
+  if (!pnp) return null;
+  // Only a PnP folder that is also this project's own Yarn root counts: the
+  // nearest lockfile must be the yarn.lock next to that .pnp.cjs. A stray
+  // .pnp.cjs above an npm/pnpm/bun project (or above a copy with no .git,
+  // like M-092's baseline) is someone else's.
+  const lock = findLockfile(cwd);
+  if (lock?.name !== "yarn.lock" || lock.dir !== pnp) return null;
+  return yarnCommand(pnp, [bin]);
 }
 
 function testScript(pkg: Record<string, unknown>): string {

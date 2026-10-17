@@ -157,7 +157,9 @@ const LOCKFILES = [
 ] as const;
 
 /** Nearest lockfile at or above `start`. Workspace packages keep theirs at the root. */
-function findLockfile(start: string): { dir: string; name: string } | null {
+export function findLockfile(
+  start: string,
+): { dir: string; name: string } | null {
   let dir = resolve(start);
   for (;;) {
     for (const name of LOCKFILES) {

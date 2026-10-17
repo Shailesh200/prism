@@ -87,6 +87,51 @@ describe("Yarn PnP runner detection", () => {
     expect(plan.testMode).not.toBe("scoped");
   });
 
+  it("ignores a stray .pnp.cjs above a project with no .git (no yarn.lock beside it)", async () => {
+    const outer = mkdtempSync(join(tmpdir(), "prism-stray-nogit-"));
+    dirs.push(outer);
+    put(join(outer, ".pnp.cjs"), "// someone else's pnp map\n");
+    const project = join(outer, "baseline-copy");
+    put(
+      join(project, "package.json"),
+      JSON.stringify({
+        scripts: { test: "vitest run" },
+        devDependencies: { vitest: "^3" },
+      }),
+    );
+    put(join(project, "package-lock.json"), "{}\n");
+    expect(toolArgv(project, "vitest")).toBeNull();
+    expect(detectTestRunner(project)).toBeNull();
+    const plan = await resolveScopedPlan(project, ["src/a.test.ts"]);
+    expect(plan.testMode).not.toBe("scoped");
+  });
+
+  it("ignores a stray .pnp.cjs + yarn.lock above an npm project with no .git", () => {
+    const outer = mkdtempSync(join(tmpdir(), "prism-stray-nogit-lock-"));
+    dirs.push(outer);
+    put(join(outer, ".pnp.cjs"), "// pnp map\n");
+    put(join(outer, "yarn.lock"), "# yarn lockfile v8\n");
+    const project = join(outer, "npm-app");
+    put(
+      join(project, "package.json"),
+      JSON.stringify({ scripts: { test: "vitest" } }),
+    );
+    put(join(project, "package-lock.json"), "{}\n");
+    expect(toolArgv(project, "vitest")).toBeNull();
+    expect(detectTestRunner(project)).toBeNull();
+  });
+
+  it("uses .pnp.cjs when the yarn.lock sits beside it (no .git needed)", () => {
+    const root = pnpRepo({ yarnPath: false });
+    expect(toolArgv(root, "vitest")).toEqual(["yarn", "vitest"]);
+    const pkg = join(root, "packages", "a");
+    put(
+      join(pkg, "package.json"),
+      JSON.stringify({ scripts: { test: "vitest" } }),
+    );
+    expect(toolArgv(pkg, "vitest")).toEqual(["yarn", "vitest"]);
+  });
+
   it("a worktree's .git file also stops the walk", () => {
     const outer = mkdtempSync(join(tmpdir(), "prism-stray-wt-"));
     dirs.push(outer);
