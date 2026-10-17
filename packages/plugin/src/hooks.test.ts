@@ -645,6 +645,13 @@ async function fakeDaemon(
   return server;
 }
 
+/** How long an empty node takes to start and exit on this machine right now. */
+function nodeBootMs(): number {
+  const t0 = Date.now();
+  spawnSync(process.execPath, ["-e", ""]);
+  return Date.now() - t0;
+}
+
 /** Run the hook without blocking this process, so the fake daemon can answer. */
 function runAsync(
   event: string,
@@ -1079,6 +1086,7 @@ describe("prompt hook injects the prepare pack (token fixes 1, 2, 4)", () => {
     for (const [i, answer] of [{ hang: true }, { ready: false }].entries()) {
       const server = await fakeDaemon(home, answer);
       try {
+        const boot = nodeBootMs();
         const { out, ms } = await runAsync("prompt", home, {
           cwd,
           session_id: `busy-${i}`,
@@ -1090,7 +1098,10 @@ describe("prompt hook injects the prepare pack (token fixes 1, 2, 4)", () => {
         expect(out.systemMessage).toBe(
           "Prism · Dev lens + files skipped (index busy)",
         );
-        expect(ms).toBeLessThan(1000);
+        // The hook leaves 150 ms of its 1 s cap for node start-up. A loaded CI
+        // runner can take longer than that just to boot node, so only boot
+        // time over 150 ms is added to the budget; the hook's own work is not.
+        expect(ms).toBeLessThan(1000 + Math.max(0, boot - 150));
       } finally {
         server.closeAllConnections();
         server.close();

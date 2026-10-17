@@ -20,8 +20,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
  * 2.0.0 only (Shailesh, 2026-10-17): Claude Code's with-Prism median tokens
  * and cost are a little above without, so these two checks warn instead of
  * failing for this release. Every other check is unchanged. 2.0.1 restores
- * them as failures: GitHub issue "Publish gate: restore Claude Code
- * token/cost check as failure" (Shailesh200/prism).
+ * them as failures: https://github.com/Shailesh200/prism/issues/23
  */
 export const WARN_ONLY_2_0_0 = new Set([
   "GATE-T2.ClaudeCode.tokens",

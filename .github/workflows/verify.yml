@@ -115,12 +115,15 @@ jobs:
           node-version-file: ".nvmrc"
       - run: bun install --frozen-lockfile
       - name: Build install surface
+        # Windows runs pwsh by default; this loop and $RUNNER_TEMP are bash.
+        shell: bash
         run: |
           set -euo pipefail
           for name in shared test-support checks plugin analyzer graph-engine impact navigation indexer intelligence core daemon ui mcp-server cli; do
             bun run --filter "@repo-prism/${name}" build
           done
       - name: B10 install matrix
+        shell: bash
         run: node scripts/bench/install-matrix.mjs --out "$RUNNER_TEMP/prism-b10"
       - uses: actions/upload-artifact@v4
         if: always()

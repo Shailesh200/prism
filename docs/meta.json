@@ -10,6 +10,7 @@
     "guides/before-you-edit",
     "guides/guard-a-session",
     "guides/review-a-pr",
+    "guides/wire-into-ci",
     "guides/hooks-and-strength",
     "guides/receipt",
     "guides/lenses",

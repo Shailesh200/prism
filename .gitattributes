@@ -1,0 +1,3 @@
+# Keep LF on every OS: oxfmt --check (and the docs generators) compare bytes,
+# and a Windows checkout with core.autocrlf would turn every file to CRLF.
+* text=auto eol=lf
