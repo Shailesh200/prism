@@ -633,6 +633,7 @@ const REASON_LABEL = {
   outside_change: "failure is in files outside this change",
   unsupported_language: "unsupported language",
   superseded: "replaced by a newer change",
+  committed_during_session: "a commit was made during this session",
 };
 
 /**
@@ -646,7 +647,8 @@ function verdictLite(receipt) {
   const unsupported = Array.isArray(receipt?.unsupported)
     ? receipt.unsupported.length
     : 0;
-  const nothing = total === 0 && unsupported === 0;
+  const committed = receipt?.reason === "committed_during_session";
+  const nothing = !committed && total === 0 && unsupported === 0;
   // Mirrors shared `blockingChecks`: only a failure this change caused.
   const failed = (receipt?.checks ?? []).filter(
     (c) =>
@@ -941,6 +943,8 @@ function stopWakeSkip(receipt) {
   if (receipt.reason === "superseded") {
     return "a newer change replaced this one";
   }
+  // A commit can leave the tree clean with changes made (J-08): wake.
+  if (receipt.reason === "committed_during_session") return null;
   const total = receipt.touched?.totalFiles ?? 0;
   const unsupported = Array.isArray(receipt.unsupported)
     ? receipt.unsupported.length
@@ -990,6 +994,10 @@ function stopWakeText(receipt) {
     action = "ask the user.";
   } else if (v.reason === "outside_change") {
     say = "NOT PROVEN: the failure is in files outside this change.";
+    action = "ask the user.";
+  } else if (v.reason === "committed_during_session") {
+    // J-08 interim: a commit hid the session's changes (Muse).
+    say = "NOT PROVEN: a commit during this session hid the changes from Prism.";
     action = "ask the user.";
   } else {
     say = `Prism: NOT PROVEN — ${SAY_REASON[v.reason] ?? REASON_LABEL[v.reason] ?? "no verdict yet"}.`;
@@ -1217,6 +1225,8 @@ function recordSession() {
   const changed = gitLines(["diff", "--name-only", "--relative", "HEAD"]);
   const untracked = gitLines(["ls-files", "--others", "--exclude-standard"]);
   if (changed === null && untracked === null) return;
+  // HEAD at session start (J-08): a stop after a commit is NOT PROVEN.
+  const headSha = gitLines(["rev-parse", "--verify", "-q", "HEAD"])?.[0];
   try {
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(
@@ -1225,6 +1235,7 @@ function recordSession() {
         ...(id ? { sessionId: id } : {}),
         startedAt: new Date().toISOString(),
         dirty: [...new Set([...(changed ?? []), ...(untracked ?? [])])].sort(),
+        ...(headSha ? { headSha } : {}),
       }),
     );
   } catch (error) {

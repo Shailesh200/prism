@@ -222,6 +222,8 @@ describe("prism-hook", () => {
       sessionId: "s-1",
       dirty: ["a.ts", "new.ts"],
     });
+    // J-08: HEAD at session start, so a later commit is noticed.
+    expect(first.headSha).toBe(git("rev-parse", "HEAD").stdout.trim());
 
     // Resuming the same session keeps the first baseline.
     writeFileSync(join(cwd, "later.ts"), "y");
@@ -1163,6 +1165,24 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
       expect(wait.stderr, name).not.toMatch(/caused|outside-change/);
       for (const line of lines) expect(line.length, line).toBeLessThan(100);
     }
+  });
+
+  it("J-08: a commit during the session wakes with NOT PROVEN, never nothing changed", async () => {
+    const { stop, wait } = await wakeFor("committed", {
+      verdict: "not_proven",
+      reason: "committed_during_session",
+      checksState: "skipped",
+      touched: { totalFiles: 0, dependents: 0 },
+      testFiles: [],
+    });
+    expect(wait.code).toBe(2);
+    expect(wait.stderr.trimEnd().split("\n")).toEqual([
+      "Prism · NOT PROVEN (a commit was made during this session)",
+      "Prism receipt: changed 0 files, 0 dependents, 0 tests reach it",
+      'Prism · Say first: "NOT PROVEN: a commit during this session hid the changes from Prism." Then ask the user.',
+    ]);
+    expect(wait.stderr).not.toMatch(/nothing changed|SHIP —/);
+    expect(JSON.stringify(stop.out ?? {})).not.toMatch(/nothing changed/);
   });
 
   it("keeps every wake line under 100 chars with worst-case counts (v2.1)", async () => {

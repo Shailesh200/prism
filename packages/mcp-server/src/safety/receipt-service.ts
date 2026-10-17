@@ -10,6 +10,7 @@
  * returns the stored receipt, by then with the check results (dedupe key
  * `(sessionId, diffHash)`, R-C3).
  */
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -37,6 +38,7 @@ import { readPrepareHistory } from "@repo-prism/core/prepare-history";
 import {
   buildStructuralReceipt,
   completeReceipt,
+  receiptIdFor,
   type BuildReceiptOptions,
 } from "./receipt.js";
 import { readSessionStore } from "@repo-prism/shared/session-store";
@@ -50,7 +52,26 @@ export type SessionBaseline = {
   readonly startedAt: string;
   /** Workspace-relative paths already changed when the session began. */
   readonly dirty: readonly string[];
+  /**
+   * HEAD when the session began (J-08 interim). A stop whose HEAD differs
+   * cannot see the committed changes, so its verdict is NOT PROVEN.
+   */
+  readonly headSha?: string;
 };
+
+/** The commit HEAD names, or undefined (no commits yet, or no git). */
+export function readHeadSha(root: string): string | undefined {
+  try {
+    const out = execFileSync(
+      "git",
+      ["--no-optional-locks", "-C", root, "rev-parse", "--verify", "-q", "HEAD"],
+      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 5000 },
+    ).trim();
+    return /^[0-9a-f]{40,64}$/.test(out) ? out : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 function sessionFile(
   root: string,
@@ -82,6 +103,9 @@ function parseBaseline(raw: string): SessionBaseline | null {
     dirty: data.dirty.filter(
       (p): p is string => typeof p === "string" && p.length > 0,
     ),
+    ...(typeof data.headSha === "string" && data.headSha
+      ? { headSha: data.headSha }
+      : {}),
   };
 }
 
@@ -172,10 +196,12 @@ export function recordSessionBaseline(
       ),
     );
   }
+  const headSha = readHeadSha(root);
   const baseline: SessionBaseline = {
     ...(sessionId ? { sessionId } : {}),
     startedAt: now().toISOString(),
     dirty: [...changed.paths].sort(),
+    ...(headSha ? { headSha } : {}),
   };
   if (sessionId) writeJsonAtomic(sessionFile(root, sessionId, env), baseline);
   writeJsonAtomic(latestSessionFile(root, env), baseline);
@@ -290,6 +316,56 @@ export function createReceiptService(
     writeStoredReceipt(root, receipt, env);
   };
 
+  /**
+   * HEAD moved since the session began: the structural receipt with no
+   * checks, NOT PROVEN (`committed_during_session`). Its id carries HEAD, so
+   * a stored receipt for the same diff at the old HEAD is never reused.
+   */
+  const committedReceipt = async (
+    workspace: PrismWorkspace,
+    request: ReceiptRequest,
+    preExisting: readonly string[] | undefined,
+    headNow: string | undefined,
+  ): Promise<Result<ChangeReceipt, PrismError>> => {
+    const root = workspace.rootPath;
+    const structural = await buildStructuralReceipt(workspace, {
+      ...options.build,
+      env,
+      ...(request.sessionId ? { sessionId: request.sessionId } : {}),
+      ...(preExisting ? { preExistingChanges: preExisting } : {}),
+      runChecks: false,
+      ...(request.reindex === false ? { reindex: false } : {}),
+    });
+    if (!structural.ok) return structural;
+    const { proof: _proof, ...base } = structural.value.receipt;
+    const receipt: ChangeReceipt = {
+      ...base,
+      id: receiptIdFor(
+        request.sessionId,
+        `${base.diffHash}\0head:${headNow ?? "none"}`,
+      ),
+      mode,
+      checksState: "skipped",
+      verdict: "not_proven",
+      reason: "committed_during_session",
+    };
+    store(root, receipt);
+    recordEvent(
+      {
+        event: "receipt.build",
+        outcome: "ok",
+        workspace: root,
+        detail: {
+          id: receipt.id,
+          verdict: receipt.verdict,
+          reason: "committed_during_session",
+        },
+      },
+      { env },
+    );
+    return ok(withEarlier(root, receipt));
+  };
+
   return {
     pending: () => [...running.values()],
     async settle(root, id, waitMs) {
@@ -312,6 +388,13 @@ export function createReceiptService(
         ? null
         : readSessionBaseline(root, request.sessionId, env);
       const preExisting = request.preExistingChanges ?? baseline?.dirty;
+      // J-08 interim: a commit during the session takes its changes out of
+      // the working-tree diff. Never SHIP or "nothing changed" then.
+      const startSha = baseline?.headSha;
+      const headNow = startSha ? readHeadSha(root) : undefined;
+      if (startSha && headNow !== startSha) {
+        return committedReceipt(workspace, request, preExisting, headNow);
+      }
       const buildOptions: BuildReceiptOptions = {
         ...options.build,
         env,

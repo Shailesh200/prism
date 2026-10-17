@@ -3,6 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Prism } from "@repo-prism/core";
 import type { VerifyRunner } from "@repo-prism/checks";
+import {
+  nothingChanged,
+  receiptTerminalLine,
+  shipVerdict,
+  shipVerdictLabel,
+} from "@repo-prism/shared";
 import { listStoredReceipts } from "@repo-prism/shared/receipt-store";
 import { workspacePrismDir } from "@repo-prism/shared/prism-home";
 import { createFixture, type Fixture } from "@repo-prism/test-support";
@@ -283,5 +289,155 @@ describe("receipt service (plan §5.7)", () => {
       "utf8",
     );
     expect(events).toMatch(/session\.baseline_corrupt/);
+  });
+});
+
+describe("J-08 interim: commits made during the session", () => {
+  const passing = { run: async () => ({ ok: true, output: "" }) };
+
+  it("records HEAD at session start", async () => {
+    const fixture = await repo();
+    const env = isolatedEnv();
+    const baseline = recordSessionBaseline(fixture.root, "h-1", env);
+    expect(baseline.ok && baseline.value.headSha).toMatch(/^[0-9a-f]{40}$/);
+    expect(readSessionBaseline(fixture.root, "h-1", env)?.headSha).toBe(
+      baseline.ok ? baseline.value.headSha : "",
+    );
+  });
+
+  it("a commit mid-session gives NOT PROVEN, never SHIP or nothing changed", async () => {
+    const fixture = await repo();
+    const env = isolatedEnv();
+    recordSessionBaseline(fixture.root, "h-2", env);
+    const service = createReceiptService({ env, build: passing });
+    const workspace = open(fixture.root);
+    try {
+      // A clean stop before the commit: nothing changed, as before.
+      const before = await service.receipt(workspace, {
+        sessionId: "h-2",
+        waitMs: 5000,
+      });
+      if (!before.ok) throw new Error(before.error.message);
+      expect(nothingChanged(before.value)).toBe(true);
+      // The agent edits and commits: the tree is clean again.
+      await fixture.write(
+        "src/money.ts",
+        "export function formatMoney(n: number): string { return `$${n}.00`; }\n",
+      );
+      fixture.commit("agent commit");
+      const after = await service.receipt(workspace, {
+        sessionId: "h-2",
+        waitMs: 5000,
+      });
+      if (!after.ok) throw new Error(after.error.message);
+      expect(after.value.id).not.toBe(before.value.id);
+      expect(after.value.verdict).toBe("not_proven");
+      expect(after.value.reason).toBe("committed_during_session");
+      expect(after.value.checksState).not.toBe("pending");
+      expect(nothingChanged(after.value)).toBe(false);
+      expect(shipVerdict(after.value)).toBe("NOT PROVEN");
+      expect(shipVerdictLabel(after.value)).toBe(
+        "NOT PROVEN (a commit was made during this session)",
+      );
+      expect(receiptTerminalLine(after.value)).not.toMatch(/nothing changed/);
+      // J-30: the stored receipt is never SHIP.
+      const stored = listStoredReceipts(fixture.root, env, 10).filter(
+        (r) => r.id === after.value.id,
+      );
+      expect(stored).toHaveLength(1);
+      expect(stored[0]!.verdict).toBe("not_proven");
+      expect(stored[0]!.reason).toBe("committed_during_session");
+    } finally {
+      workspace.close();
+    }
+  });
+
+  it("a commit plus uncommitted edits is still NOT PROVEN and runs no checks", async () => {
+    const fixture = await repo();
+    const env = isolatedEnv();
+    recordSessionBaseline(fixture.root, "h-3", env);
+    const calls: string[] = [];
+    const service = createReceiptService({
+      env,
+      build: {
+        run: async (_cwd, step) => {
+          calls.push(step.name);
+          return { ok: true, output: "" };
+        },
+      },
+    });
+    await fixture.write("notes.md", "committed\n");
+    fixture.commit("agent commit");
+    await fixture.write(
+      "src/money.ts",
+      "export function formatMoney(n: number): string { return `$${n}.0`; }\n",
+    );
+    const workspace = open(fixture.root);
+    try {
+      const r = await service.receipt(workspace, {
+        sessionId: "h-3",
+        waitMs: 5000,
+      });
+      if (!r.ok) throw new Error(r.error.message);
+      expect(r.value.reason).toBe("committed_during_session");
+      expect(shipVerdict(r.value)).toBe("NOT PROVEN");
+      expect(calls).toEqual([]);
+      expect(service.pending()).toHaveLength(0);
+    } finally {
+      workspace.close();
+    }
+  });
+
+  it("no commit: an edit is checked as before, and a clean stop says nothing changed", async () => {
+    const fixture = await repo();
+    const env = isolatedEnv();
+    recordSessionBaseline(fixture.root, "h-4", env);
+    const service = createReceiptService({ env, build: passing });
+    const workspace = open(fixture.root);
+    try {
+      const clean = await service.receipt(workspace, { sessionId: "h-4" });
+      if (!clean.ok) throw new Error(clean.error.message);
+      expect(clean.value.reason).not.toBe("committed_during_session");
+      expect(nothingChanged(clean.value)).toBe(true);
+      await fixture.write(
+        "src/money.ts",
+        "export function formatMoney(n: number): string { return `$${n}.00`; }\n",
+      );
+      const edited = await service.receipt(workspace, {
+        sessionId: "h-4",
+        waitMs: 20000,
+      });
+      if (!edited.ok) throw new Error(edited.error.message);
+      expect(edited.value.reason).not.toBe("committed_during_session");
+      expect(edited.value.touched.files).toEqual(["src/money.ts"]);
+    } finally {
+      workspace.close();
+    }
+  });
+
+  it("an older baseline with no headSha keeps the old behaviour", async () => {
+    const fixture = await repo();
+    const env = isolatedEnv();
+    recordSessionBaseline(fixture.root, "h-5", env);
+    const file = join(workspacePrismDir(fixture.root, env), "hooks", "session.json");
+    const old = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
+    delete old.headSha;
+    delete old.sessionId;
+    writeFileSync(file, JSON.stringify(old));
+    rmSync(join(workspacePrismDir(fixture.root, env), "sessions"), {
+      recursive: true,
+      force: true,
+    });
+    await fixture.write("notes.md", "x\n");
+    fixture.commit("agent commit");
+    const service = createReceiptService({ env, build: passing });
+    const workspace = open(fixture.root);
+    try {
+      const r = await service.receipt(workspace, { runChecks: false });
+      if (!r.ok) throw new Error(r.error.message);
+      expect(r.value.reason).not.toBe("committed_during_session");
+    } finally {
+      workspace.close();
+    }
   });
 });

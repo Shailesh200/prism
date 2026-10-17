@@ -80,9 +80,16 @@ export function receiptTerminalLine(receipt: ChangeReceipt): string {
   return action ? `${head} — ${action}` : head;
 }
 
-/** A clean tree: `proven` with nothing to show. */
+/**
+ * A clean tree: `proven` with nothing to show. Never when HEAD moved during
+ * the session: a commit can leave the tree clean with changes made (J-08).
+ */
 export function nothingChanged(receipt: ChangeReceipt): boolean {
-  return receipt.touched.totalFiles === 0 && receipt.unsupported.length === 0;
+  return (
+    receipt.reason !== "committed_during_session" &&
+    receipt.touched.totalFiles === 0 &&
+    receipt.unsupported.length === 0
+  );
 }
 
 /**

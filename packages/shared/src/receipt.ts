@@ -80,6 +80,11 @@ export const NOT_PROVEN_REASONS = [
   "unsupported_language",
   /** A newer change in the workspace replaced this one before its checks finished. */
   "superseded",
+  /**
+   * HEAD moved during the session (J-08 interim): a commit took changes out
+   * of the working-tree diff, so Prism cannot say what the session changed.
+   */
+  "committed_during_session",
 ] as const;
 export const NotProvenReasonSchema = z.enum(NOT_PROVEN_REASONS);
 export type NotProvenReason = z.infer<typeof NotProvenReasonSchema>;
@@ -250,6 +255,7 @@ export const REASON_LABEL: Readonly<Record<NotProvenReason, string>> = {
   outside_change: "failure is in files outside this change",
   unsupported_language: "unsupported language",
   superseded: "replaced by a newer change",
+  committed_during_session: "a commit was made during this session",
 };
 
 /** `SHIP`, `NO-SHIP` or `NOT PROVEN (reason)`: one short label. */
