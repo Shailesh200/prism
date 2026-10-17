@@ -30,8 +30,11 @@ npm install -g @repo-prism/cli && prism start
 ```
 
 Run it inside your repository. `prism start` finds the agents on your machine
-(Claude Code, Cursor, Codex, opencode), installs Prism for each, indexes the
-repository and prints its map. To pick agents yourself, run
+(Claude Code, Cursor, Codex, opencode), lists the config files it would write,
+and asks before changing anything. On yes it backs up each existing file to
+`~/.prism-backups/<time>/`, installs Prism for each agent, indexes the
+repository and prints its map. `--dry-run` only shows the list; `--yes` skips
+the question in scripts. To pick agents yourself, run
 `prism install claude` (or `cursor`, `codex`, `opencode`, `all`).
 `prism install` records what it wrote in `~/.prism/install.json`, and
 `prism uninstall` removes exactly that. `prism upgrade` updates Prism.

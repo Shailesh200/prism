@@ -120,18 +120,29 @@ describe("prism binary (M-028)", () => {
       const dir = join(home, "hosts");
       await mkdir(join(dir, ".claude"), { recursive: true });
       await mkdir(join(dir, ".cursor"), { recursive: true });
-      const first = await runCli(["start"], env(dir), fixture);
+      // No TTY here: without --yes, start changes nothing and exits 1.
+      const refused = await runCli(["start"], env(dir), fixture);
+      expect(refused.code).toBe(1);
+      expect(refused.stderr).toMatch(/--yes/);
+      await expect(
+        readFile(join(dir, ".cursor", "mcp.json"), "utf8"),
+      ).rejects.toThrow();
+      const dry = await runCli(["start", "--dry-run"], env(dir), fixture);
+      expect(dry.code).toBe(0);
+      expect(dry.stdout).toMatch(/~\/\.cursor\/mcp\.json/);
+      const first = await runCli(["start", "--yes"], env(dir), fixture);
       expect(first.code).toBe(0);
       expect(first.stdout).toMatch(
         /installed for Claude Code, Cursor \(local build/,
       );
       expect(first.stdout).toMatch(/Indexed \d+ code files/);
-      expect(first.stdout).toMatch(/prepare_change/);
+      expect(first.stdout).toMatch(/prism prepare/);
       const settings = await readFile(
         join(dir, ".claude", "settings.json"),
         "utf8",
       );
       const mcp = await readFile(join(dir, ".cursor", "mcp.json"), "utf8");
+      // Already set up: no question needed, even without a TTY.
       const again = await runCli(["start"], env(dir), fixture);
       expect(again.code).toBe(0);
       expect(

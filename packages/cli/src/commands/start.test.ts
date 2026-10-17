@@ -42,7 +42,7 @@ describe("prism start (P19)", () => {
       "",
       TRY_LINE,
     ]);
-    expect(text).toMatch(/prepare_change/);
+    expect(text).toMatch(/prism prepare/);
     // The agent does not call it on its own; the line must not promise that.
     expect(text).not.toMatch(/it calls prepare_change/);
     expect(text).not.toMatch(/health/i);

@@ -16,10 +16,22 @@ See [Usage](../usage.mdx) for global options, exit codes, and how
 
 ### `prism start`
 
-Install Prism for every coding agent found here, index this repo and show its map
+Set up Prism for every coding agent found here (asks first), index this repo and show its map
+
+| Option | Meaning |
+|---|---|
+| `--dry-run` | Only list the config files it would write and the 1.x data it would move |
 
 ```bash
 prism start
+```
+
+```bash
+prism start --dry-run
+```
+
+```bash
+prism start --yes
 ```
 
 ### `prism install <client>`

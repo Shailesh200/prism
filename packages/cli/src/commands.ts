@@ -61,9 +61,16 @@ export const COMMANDS: readonly CommandSpec[] = [
     name: "start",
     group: "Set up",
     summary:
-      "Install Prism for every coding agent found here, index this repo and show its map",
+      "Set up Prism for every coding agent found here (asks first), index this repo and show its map",
     handler: startCommand,
-    examples: ["prism start"],
+    options: [
+      {
+        flags: "--dry-run",
+        description:
+          "Only list the config files it would write and the 1.x data it would move",
+      },
+    ],
+    examples: ["prism start", "prism start --dry-run", "prism start --yes"],
   },
   {
     name: "install",

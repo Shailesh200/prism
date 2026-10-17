@@ -60,7 +60,11 @@ function hostAvailable(host: InstallHost, home: string): boolean {
 }
 
 /** Hosts whose official path is the rule line, so `receipt` is on by default (§5.10). */
-const RECEIPT_HOSTS: readonly InstallHost[] = ["cursor", "codex", "opencode"];
+export const RECEIPT_HOSTS: readonly InstallHost[] = [
+  "cursor",
+  "codex",
+  "opencode",
+];
 
 function versionAt(packageDir: string): string {
   const path = join(packageDir, "package.json");
@@ -172,7 +176,7 @@ function hostsFrom(arg: string | undefined): InstallHost[] | undefined {
     : undefined;
 }
 
-function enableReceipt(env: NodeJS.ProcessEnv): boolean {
+export function enableReceipt(env: NodeJS.ProcessEnv): boolean {
   const loaded = loadUserConfigSync(env);
   if (!loaded.ok) throw new Error(loaded.error.message);
   const tools = loaded.value.extraTools ?? [];
@@ -195,6 +199,10 @@ type InstallRun = {
   readonly root: string;
   readonly layout: SourceLayout;
   readonly env: NodeJS.ProcessEnv;
+  /** Stamps the 1.x backup folder; `prism start` passes its plan's time. */
+  readonly now?: Date;
+  /** The home agents read their configs from (default: the OS home). */
+  readonly home?: string;
 };
 
 /** `08e4d3c`, or `08e4d3c+dirty` when the checkout has uncommitted changes. */
@@ -213,6 +221,7 @@ export function buildLabel(source: string): string {
 export async function runInstall(run: InstallRun) {
   const wipe = await wipe1x({
     env: run.env,
+    ...(run.now ? { now: run.now } : {}),
     stopDaemon: async () =>
       (await stopDaemon({ env: run.env })).kind === "ok"
         ? "stopped"
@@ -227,7 +236,7 @@ export async function runInstall(run: InstallRun) {
   const installed = run.hosts;
   const target = {
     scope: run.scope,
-    home: homedir(),
+    home: run.home ?? homedir(),
     root: run.root,
     node: process.execPath,
     bin: run.layout.bin,

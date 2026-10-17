@@ -157,8 +157,9 @@ The server registers nine tools by default. The others (graphs, findings,
 
 Prism 2.0 has nine default tools; older tool names were removed with no
 aliases, and an old name gets the standard unknown-tool error. See
-[MCP tools](/docs/reference/mcp-tools). Installing 2.0 over 1.x wipes the 1.x
-data once and keeps your lenses. `prism data prune` lists empty workspace
+[MCP tools](/docs/reference/mcp-tools). Installing 2.0 over 1.x moves the 1.x
+data once to `~/.prism-backups/<time>/1x/` (nothing is deleted) and keeps your
+lenses; delete that folder when you no longer need it. `prism data prune` lists empty workspace
 folders, caches of deleted checkouts, and untracked worktrees;
 `prism data prune --yes` removes them.
 
