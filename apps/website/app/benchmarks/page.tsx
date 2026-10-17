@@ -11,8 +11,6 @@ import { SiteFooter } from "@/components/site/site-footer";
 import { SiteNav } from "@/components/site/site-nav";
 import sample from "@/data/benchmarks-sample.json";
 import {
-  CURSOR_REVIEW_FOUND,
-  CURSOR_REVIEW_TOKENS,
   GROUPS,
   HABITS_RAN,
   type Measure,
@@ -46,37 +44,10 @@ const GLANCE: Array<{
   why?: string;
 }> = [
   {
-    metric: "Files found",
-    value: "61.8 %",
-    means:
-      "Of the files a real fix changed, the share in Prism’s list (220 tasks, 6 repos). The top 3 held 39.1 %.",
-  },
-  {
-    metric: "Tests found",
-    value: "64.9 %",
-    means: (
-      <>
-        Of the tests a real fix needed, the share <code>test_impact</code>{" "}
-        found. 27.9 % of the tests it listed were needed.
-      </>
-    ),
-  },
-  {
-    metric: "Change requests recognised",
-    value: "99.6 %",
-    means: "Prompts asking for a code change that Prism recognised.",
-  },
-  {
-    metric: "Questions mistaken for changes",
-    value: "1.3 %",
-    means: "Plain questions Prism wrongly treated as a change request.",
-  },
-  {
     metric: "Review",
     value: "10 of 11",
     means:
-      "Seeded problems Claude Code found in review, with and without Prism. Cursor agent CLI: 4 of 7 with, 3 of 7 without.",
-    why: "Review with Prism was never worse.",
+      "Seeded problems Claude Code found in review: 10 of 11 with and without Prism. Cursor agent CLI: 4 of 7 with, 3 of 7 without.",
   },
   {
     metric: "Custom skills",
@@ -94,18 +65,18 @@ const GLANCE: Array<{
     metric: "Hook time",
     value: "under 1 s",
     means:
-      "At p95 on an idle machine: prompt 896 ms, stop 508 ms; edit hooks 39 ms on an earlier 2.0 build.",
+      "At p95 on an idle machine: prompt 896 ms, stop 508 ms; edit hooks 39 ms on an earlier build.",
   },
   {
-    metric: "Agents",
-    value: "4 of 4",
-    means:
-      "Claude Code, Cursor, Codex and opencode pass install, doctor and a sample hook on macOS.",
+    metric: "Verdict at stop",
+    value: "Claude Code",
+    means: "Claude Code gives a verdict at stop.",
   },
 ];
 
 const WINS: Array<{
-  m: Measure;
+  m?: Measure;
+  stat?: string;
   title: string;
   who: string;
   also?: Measure;
@@ -116,10 +87,9 @@ const WINS: Array<{
     who: "opencode · 11 small fixes · tests pass 8 of 11 both ways",
   },
   {
-    m: CURSOR_REVIEW_FOUND,
-    title: "More seeded problems found in review",
-    who: "Cursor agent CLI (grok-4.7-high) · 4 reviews each way",
-    also: CURSOR_REVIEW_TOKENS,
+    stat: "At stop",
+    title: "Claude Code gives a verdict at stop.",
+    who: "In Codex, opencode and Cursor, the verdict comes with the next receipt.",
   },
   {
     m: OPENCODE_B6_SOLVED,
@@ -165,14 +135,16 @@ function Bars({ m }: { m: Measure }) {
   );
 }
 
-function Win({ m, title, who, also }: (typeof WINS)[number]) {
-  const c = change(m);
+function Win({ m, stat, title, who, also }: (typeof WINS)[number]) {
+  const c = m ? change(m) : null;
   return (
     <div className="card win">
-      <div className="num">{c === null ? m.with.text : formatChange(m)}</div>
+      <div className="num">
+        {m ? (c === null ? m.with.text : formatChange(m)) : stat}
+      </div>
       <h3 className="t mt-3">{title}</h3>
       <p className="text-[15px]">{who}</p>
-      <Bars m={m} />
+      {m ? <Bars m={m} /> : null}
       {also && (
         <p className="mt-3 text-[15px]">
           Also {also.label.toLowerCase()}: <ChangePill m={also} />
@@ -236,7 +208,7 @@ export default function BenchmarksPage() {
           eyebrow="Benchmarks"
           title={
             <>
-              Prism 2.0, <em>measured.</em>
+              Prism, <em>measured on real repos.</em>
             </>
           }
           lede="Real coding agents on real fixes from public repositories, with Prism and without it, on the same tasks and the same model. Every result is published, including where Prism did not help."
@@ -261,8 +233,7 @@ export default function BenchmarksPage() {
           <Container>
             <h2 className="d3">Accuracy at a glance</h2>
             <p className="lede mt-3.5 mb-7 text-lg">
-              How well Prism picks files and tests (220 tasks, 6 public
-              repositories), spots change requests, and how fast its hooks run.
+              Review, custom skills, habits, hook speed and the verdict at stop.
             </p>
             <div className="card tcard">
               <Table className="t-kv">
@@ -301,74 +272,78 @@ export default function BenchmarksPage() {
               Every with-and-without comparison. Change is with Prism against
               without, on the same tasks and the same model.
             </p>
-            <div className="mb-6">
-              <Callout tone="info" title="How to read these numbers">
-                <ul className="list-disc space-y-1 pl-5">
-                  <li>
-                    Change is with Prism against without, on the same tasks and
-                    the same model. Green is better, red is worse.
-                  </li>
-                  <li>
-                    Tokens, time and cost are medians per task. Grades are 1 to
-                    5, given by a grader that does not know which run used
-                    Prism.
-                  </li>
-                  <li>
-                    Compare within one tool only: each tool ran its own tasks
-                    with its own model.
-                  </li>
-                  <li>
-                    Hook times are p95 on an idle machine. Under heavy load the
-                    stop hook took 1,307 ms at p95.
-                  </li>
-                </ul>
-              </Callout>
-            </div>
-            <div className="grid2 items-start gap-6">
-              {GROUPS.map((g) => (
-                <div key={g.tool + g.run} className="card tcard bgroup">
-                  <div className="bg-h">
-                    <b>{g.tool}</b> <span>· {g.model}</span>
-                    <p>{g.run}</p>
-                  </div>
-                  <Table className="t-cmp">
-                    <thead>
-                      <tr>
-                        <th>Measure</th>
-                        <th>Without</th>
-                        <th>With</th>
-                        <th>Change</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {g.measures.map((m) => (
-                        <tr key={m.label}>
-                          <td>{m.label}</td>
-                          <td className="nw">
-                            <Value>{m.without.text}</Value>
-                          </td>
-                          <td className="nw">
-                            <Value>{m.with.text}</Value>
-                          </td>
-                          <td className="nw">
-                            <ChangePill m={m} />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                  {g.note && <p className="bg-f">{g.note}</p>}
+            <div className="bench-read">
+              <aside className="bench-aside">
+                <Callout tone="info" title="How to read these numbers">
+                  <ul className="list-disc space-y-1 pl-5">
+                    <li>
+                      Change is with Prism against without, on the same tasks
+                      and the same model. Green is better, red is worse.
+                    </li>
+                    <li>
+                      Tokens, time and cost are medians per task. Grades are 1
+                      to 5, given by a grader that does not know which run used
+                      Prism.
+                    </li>
+                    <li>
+                      Compare within one tool only: each tool ran its own tasks
+                      with its own model.
+                    </li>
+                    <li>
+                      Hook times are p95 on an idle machine. Under heavy load
+                      the stop hook took 1,307 ms at p95.
+                    </li>
+                  </ul>
+                </Callout>
+              </aside>
+              <div>
+                <div className="grid2 items-start gap-6">
+                  {GROUPS.map((g) => (
+                    <div key={g.tool + g.run} className="card tcard bgroup">
+                      <div className="bg-h">
+                        <b>{g.tool}</b> <span>· {g.model}</span>
+                        <p>{g.run}</p>
+                      </div>
+                      <Table className="t-cmp">
+                        <thead>
+                          <tr>
+                            <th>Measure</th>
+                            <th>Without</th>
+                            <th>With</th>
+                            <th>Change</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {g.measures.map((m) => (
+                            <tr key={m.label}>
+                              <td>{m.label}</td>
+                              <td className="nw">
+                                <Value>{m.without.text}</Value>
+                              </td>
+                              <td className="nw">
+                                <Value>{m.with.text}</Value>
+                              </td>
+                              <td className="nw">
+                                <ChangePill m={m} />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
+                      {g.note && <p className="bg-f">{g.note}</p>}
+                    </div>
+                  ))}
                 </div>
-              ))}
+                <p className="mt-5 text-[15px] text-ink3">
+                  Tokens, time and cost are medians per task; grades are 1 to 5,
+                  blind. Compare within one tool only.{" "}
+                  <Link href="/docs/benchmarks/2.x">
+                    <u>Full method and raw results</u>
+                  </Link>
+                  .
+                </p>
+              </div>
             </div>
-            <p className="mt-5 text-[15px] text-ink3">
-              Tokens, time and cost are medians per task; grades are 1 to 5,
-              blind. Compare within one tool only.{" "}
-              <Link href="/docs/benchmarks/2.x">
-                <u>Full method and raw results</u>
-              </Link>
-              .
-            </p>
           </Container>
         </section>
 

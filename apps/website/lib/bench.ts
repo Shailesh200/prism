@@ -115,7 +115,6 @@ export const GROUPS: Group[] = [
     model: "claude-opus-5-5",
     run: "Review, 11 seeded problems",
     measures: [m("Seeded problems found", of(10, 11), of(10, 11), "higher")],
-    note: "An initial run scored 9 without and 11 with Prism. Two repeat runs tied, so the tie is reported.",
   },
   {
     tool: "Claude Code",
