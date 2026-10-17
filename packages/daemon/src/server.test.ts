@@ -168,7 +168,8 @@ describe("prism daemon (M-095)", () => {
   it("writes a 0600 record and reports status", async () => {
     await start();
     const mode = (await stat(daemonRecordPath(env))).mode & 0o777;
-    expect(mode).toBe(0o600);
+    // Windows does not store a Unix 0600 mode; the write still asks for it.
+    if (process.platform !== "win32") expect(mode).toBe(0o600);
 
     await warmDaemonWorkspace({ root: repo, env });
     const status = await daemonStatus({ env });
