@@ -199,11 +199,16 @@ function yarnArgv(
  * The Yarn Plug'n'Play project root at or above `start`: the folder holding
  * `.pnp.cjs`. PnP installs have no `node_modules/.bin`, so tools there run as
  * `yarn <bin>`.
+ *
+ * The walk stops at the repo root (the folder holding `.git`, a directory or
+ * a worktree file): a stray `.pnp.cjs` above the repo belongs to some other
+ * project and must never pick the runner.
  */
 export function findPnpRoot(start: string): string | null {
   let dir = resolve(start);
   for (;;) {
     if (existsSync(join(dir, ".pnp.cjs"))) return dir;
+    if (existsSync(join(dir, ".git"))) return null;
     const parent = dirname(dir);
     if (parent === dir) return null;
     dir = parent;

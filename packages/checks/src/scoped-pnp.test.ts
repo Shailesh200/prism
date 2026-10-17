@@ -64,6 +64,45 @@ describe("Yarn PnP runner detection", () => {
     expect(findPnpRoot(tmpdir())).toBeNull();
   });
 
+  it("ignores a stray .pnp.cjs above the repo root (.git)", async () => {
+    const outer = mkdtempSync(join(tmpdir(), "prism-stray-"));
+    dirs.push(outer);
+    put(join(outer, ".pnp.cjs"), "// someone else's pnp map\n");
+    put(join(outer, "yarn.lock"), "# yarn lockfile v8\n");
+    const repo = join(outer, "repo");
+    mkdirSync(join(repo, ".git"), { recursive: true });
+    put(
+      join(repo, "package.json"),
+      JSON.stringify({
+        scripts: { test: "vitest run" },
+        devDependencies: { vitest: "^3" },
+      }),
+    );
+    mkdirSync(join(repo, "packages", "a"), { recursive: true });
+    expect(findPnpRoot(repo)).toBeNull();
+    expect(findPnpRoot(join(repo, "packages", "a"))).toBeNull();
+    expect(toolArgv(repo, "vitest")).toBeNull();
+    expect(detectTestRunner(repo)).toBeNull();
+    const plan = await resolveScopedPlan(repo, ["src/a.test.ts"]);
+    expect(plan.testMode).not.toBe("scoped");
+  });
+
+  it("a worktree's .git file also stops the walk", () => {
+    const outer = mkdtempSync(join(tmpdir(), "prism-stray-wt-"));
+    dirs.push(outer);
+    put(join(outer, ".pnp.cjs"), "// pnp map\n");
+    const repo = join(outer, "wt");
+    put(join(repo, ".git"), "gitdir: /elsewhere/.git/worktrees/wt\n");
+    expect(findPnpRoot(repo)).toBeNull();
+  });
+
+  it("a .pnp.cjs at the repo root itself is still used", () => {
+    const root = pnpRepo();
+    mkdirSync(join(root, ".git"), { recursive: true });
+    mkdirSync(join(root, "packages", "a"), { recursive: true });
+    expect(findPnpRoot(join(root, "packages", "a"))).toBe(root);
+  });
+
   it("vitest under PnP runs as `yarn vitest run` through yarnPath", () => {
     const root = pnpRepo();
     expect(detectTestRunner(root)).toEqual({
