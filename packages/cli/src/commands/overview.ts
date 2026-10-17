@@ -1,28 +1,35 @@
 /**
- * `prism dna` (M-028) — what is this repository?
- *
- * The first real report command, and the template for M-029: the JSON is the
- * Core DTO verbatim, and the human rendering is a *view* of it rather than a
- * different answer.
+ * `prism overview` (plan §5.9): what is this repository? The same answer as
+ * the MCP `repository_overview` tool: DNA, stack and landmarks. Replaces the
+ * 1.x `dna`, `stack` and `landmarks` commands (deleted in 2.0).
  */
 
 import { ok } from "@repo-prism/shared";
 import { paint, renderFields, renderHeading } from "../output.js";
-import { qualityCell } from "../table.js";
+import { qualityCell, renderTable } from "../table.js";
+import { bound, parseLimit, truncationNote } from "../thresholds.js";
 import type { CommandHandler } from "../runtime.js";
 
-export const dnaCommand: CommandHandler = async (context) => {
+export const overviewCommand: CommandHandler = async (context) => {
+  const limit = parseLimit(context.args.option("limit"));
+  if (!limit.ok) return limit;
+
   const opened = await context.open();
   if (!opened.ok) return opened;
 
   const report = await opened.value.getDna();
   if (!report.ok) return report;
+  const stack = await opened.value.getStackProfile();
+  if (!stack.ok) return stack;
+  const listed = opened.value.listLandmarks();
+  if (!listed.ok) return listed;
 
   const dna = report.value;
+  const landmarks = bound(listed.value, limit.value);
 
   return ok({
-    data: dna,
-    human({ color }) {
+    data: { dna, stack: stack.value, landmarks },
+    human({ color, width }) {
       const languages = dna.languages
         .map((lang) => `${lang.id} ${Math.round(lang.share * 100)}%`)
         .join(", ");
@@ -77,6 +84,29 @@ export const dnaCommand: CommandHandler = async (context) => {
             )}`,
           );
         }
+      }
+
+      if (landmarks.items.length > 0) {
+        lines.push(
+          "",
+          renderHeading("Landmarks", color),
+          renderTable({
+            columns: [
+              { header: "LANDMARK" },
+              { header: "KIND" },
+              { header: "PATH", flex: true },
+            ],
+            rows: landmarks.items.map((landmark) => [
+              { text: landmark.label },
+              { text: landmark.kind },
+              { text: landmark.path },
+            ]),
+            color,
+            width,
+          }),
+        );
+        const note = truncationNote(landmarks, "landmarks");
+        if (note) lines.push(paint(note, "dim", color));
       }
 
       return lines.join("\n");

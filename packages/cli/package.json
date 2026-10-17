@@ -1,8 +1,8 @@
 {
   "name": "@repo-prism/cli",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "type": "module",
-  "description": "Prism CLI over Core: local-first repository intelligence",
+  "description": "Prism CLI — your agent's second pair of eyes: Prepare before it edits, lens review after. Free, runs on your machine",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -23,11 +23,14 @@
   },
   "dependencies": {
     "@repo-prism/core": "workspace:*",
+    "@repo-prism/daemon": "workspace:*",
+    "@repo-prism/mcp-server": "workspace:*",
+    "@repo-prism/plugin": "workspace:*",
     "@repo-prism/shared": "workspace:*",
     "commander": "^15.0.0"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "license": "MIT",
   "repository": {
@@ -42,6 +45,8 @@
     "access": "public"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@repo-prism/test-support": "workspace:*",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1"
   }

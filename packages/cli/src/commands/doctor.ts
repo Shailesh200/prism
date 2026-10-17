@@ -10,10 +10,23 @@ import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { PRISM_API_LEVEL, PRISM_CORE_VERSION } from "@repo-prism/core";
-import { ok } from "@repo-prism/shared";
+import { err, ok, prismError, PrismErrorCode } from "@repo-prism/shared";
 import { workspaceCacheDir } from "@repo-prism/shared/prism-home";
+import { readInstallRecord } from "@repo-prism/shared/prism-bin";
+import { habitsDir, readHabits } from "@repo-prism/shared/habits";
+import { resolveStrength } from "@repo-prism/shared/user-config";
+import { stopDaemon } from "@repo-prism/daemon";
+import { INSTALL_HOSTS, type InstallHost } from "../install/hosts.js";
+import { hookConfigChecks } from "../install/hook-health.js";
+import { defaultLayout, runInstall, sourceLayout } from "./install.js";
 import { paint, renderFields, renderHeading, type Style } from "../output.js";
+import {
+  isPrismSourceRepo,
+  scanSurfaces,
+  surfaceProblems,
+} from "./surfaces.js";
 import { wrap } from "../table.js";
+import { checkSkills } from "./doctor-skills.js";
 import type { CommandHandler } from "../runtime.js";
 
 /** Detect a shallow clone (M-057 P-B11). Exported for unit tests. */
@@ -30,6 +43,25 @@ export function isShallowGitRepository(rootPath: string): boolean | null {
   } catch {
     return null;
   }
+}
+
+/** Habit skills (plan P15): readable, with the old store migrated. */
+export async function habitsChecks(
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<Check[]> {
+  const file = await readHabits(env);
+  if (!file.ok) {
+    return [{ label: "Habits", status: "fail", detail: file.error.message }];
+  }
+  const count = file.value.habits.length;
+  if (count === 0) return [];
+  return [
+    {
+      label: "Habits",
+      status: "ok",
+      detail: `${count} habit${count === 1 ? "" : "s"} in ${habitsDir(env)}`,
+    },
+  ];
 }
 
 type Check = {
@@ -51,6 +83,15 @@ const STATUS_MARK: Record<Check["status"], string> = {
 };
 
 export const doctorCommand: CommandHandler = async (context) => {
+  const topic = context.args.positionals[0];
+  if (topic !== undefined && topic !== "skills") {
+    return err(
+      prismError(
+        PrismErrorCode.VALIDATION,
+        `Unknown topic "${topic}". Usage: prism doctor [skills]`,
+      ),
+    );
+  }
   const checks: Check[] = [];
 
   checks.push({
@@ -96,6 +137,8 @@ export const doctorCommand: CommandHandler = async (context) => {
     }
   }
 
+  checks.push(...(await installChecks(context.args.flag("fix"))));
+
   const cacheDir = workspaceCacheDir(context.workspace.path);
   const hasCache = existsSync(cacheDir);
   checks.push({
@@ -135,6 +178,66 @@ export const doctorCommand: CommandHandler = async (context) => {
         status: "fail",
         detail: opened.error.message,
       });
+    }
+  }
+
+  const strength = resolveStrength(context.workspace.path);
+  checks.push(
+    strength.ok
+      ? {
+          label: "Strength",
+          status: "ok",
+          detail: `${strength.value.strength} (${strength.value.source}); change with \`prism strength\``,
+        }
+      : { label: "Strength", status: "fail", detail: strength.error.message },
+  );
+  checks.push(...(await habitsChecks()));
+
+  if (context.args.positionals[0] === "skills") {
+    const skills = checkSkills(context.workspace.path);
+    if (skills.length === 0) {
+      checks.push({
+        label: "Skills",
+        status: "ok",
+        detail: "no user skill names a Prism tool",
+      });
+    }
+    for (const skill of skills) {
+      checks.push({
+        label: "Skill",
+        status: skill.status,
+        detail:
+          skill.status === "ok"
+            ? `${skill.file}: ${skill.tools.join(", ")} registered`
+            : `${skill.file}: ${skill.problems.join("; ")}`,
+      });
+    }
+  }
+
+  if (context.args.flag("surfaces")) {
+    const hits = scanSurfaces();
+    const problems = surfaceProblems(
+      hits,
+      isPrismSourceRepo(context.workspace.path),
+    );
+    if (hits.length === 0) {
+      checks.push({
+        label: "Surfaces",
+        status: "warn",
+        detail: "no Prism server, hook, or extension found in the home configs",
+      });
+    }
+    for (const hit of hits) {
+      const problem = problems.some((line) => line.includes(hit.where));
+      checks.push({
+        label: hit.host,
+        status: problem ? "fail" : "ok",
+        detail: `${hit.kind} — ${hit.detail}`,
+      });
+    }
+    for (const problem of problems) {
+      if (checks.some((check) => check.detail.includes(problem))) continue;
+      checks.push({ label: "Surfaces", status: "fail", detail: problem });
     }
   }
 
@@ -187,3 +290,103 @@ export const doctorCommand: CommandHandler = async (context) => {
     },
   });
 };
+
+/** Launches of anything but the local build: npx, or an npm install. */
+const published = () =>
+  scanSurfaces().filter(
+    (hit) => hit.kind === "published-npm" || hit.kind === "npm-install",
+  );
+
+/**
+ * The install record, the bin it names, and (for a local build) the
+ * `no-published-refs` check over every editor config (§3.0, DEV-1).
+ * `--fix` stops the daemon (the next client starts the current build) and
+ * rewrites the recorded editors' configs to the local build.
+ */
+async function installChecks(fix: boolean): Promise<Check[]> {
+  const read = readInstallRecord(process.env);
+  if (read.kind !== "ok")
+    return [
+      {
+        label: "Install",
+        status: "warn",
+        detail:
+          read.kind === "invalid"
+            ? `install.json is invalid (${read.reason}). Run \`prism install <editor> --local <checkout>\`.`
+            : "not installed. Run `prism install <editor> --local <checkout>`.",
+      },
+    ];
+  const record = read.record;
+  // An npm install runs the published server by design; only a local build
+  // must not reference it.
+  const broken =
+    !existsSync(record.bin) ||
+    (record.source !== undefined && published().length > 0);
+  const fixed: Check[] = [];
+  if (fix) {
+    await stopDaemon({ env: process.env });
+    fixed.push({
+      label: "Daemon",
+      status: "ok",
+      detail: "stopped; the next client starts the current build",
+    });
+    const layout = record.source
+      ? sourceLayout(record.source)
+      : defaultLayout();
+    if (broken && typeof layout !== "string") {
+      const hosts = record.hosts.filter((host): host is InstallHost =>
+        (INSTALL_HOSTS as readonly string[]).includes(host),
+      );
+      await runInstall({
+        hosts,
+        scope: record.scope ?? "user",
+        root: record.root ?? process.cwd(),
+        layout,
+        env: process.env,
+      });
+      fixed.push({
+        label: "Fix",
+        status: "ok",
+        detail: `rewrote ${hosts.join(", ")} to ${layout.source ? "the local build" : "the installed server"} ${layout.bin}`,
+      });
+    } else if (broken) {
+      fixed.push({
+        label: "Fix",
+        status: "fail",
+        detail: `cannot rewrite configs: ${layout}`,
+      });
+    }
+  }
+  const after = readInstallRecord(process.env);
+  const current = after.kind === "ok" ? after.record : record;
+  const checks: Check[] = [
+    {
+      label: "Install",
+      status: existsSync(current.bin) ? "ok" : "fail",
+      detail: existsSync(current.bin)
+        ? `${current.version} for ${current.hosts.join(", ")}; server ${current.bin}`
+        : `server ${current.bin} is missing. Fix: prism doctor --fix, or prism install <editor> --local <checkout>.`,
+    },
+  ];
+  if (current.source) {
+    const hits = published();
+    checks.push(
+      hits.length === 0
+        ? {
+            label: "Published",
+            status: "ok",
+            detail: "no published package referenced (local build only)",
+          }
+        : {
+            label: "Published",
+            status: "fail",
+            detail: `published package referenced during development: ${hits
+              .map((hit) => `${hit.host} (${hit.where})`)
+              .join(", ")}. Fix: prism doctor --fix.`,
+          },
+    );
+  }
+  // Round 4: hook configs an older release wrote (`--fix` updates them).
+  checks.push(...hookConfigChecks(current, { fix }));
+  return [...fixed, ...checks];
+}
