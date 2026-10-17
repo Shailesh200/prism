@@ -19,7 +19,7 @@ import { pageMetadata } from "@/lib/seo";
 export const metadata = pageMetadata({
   title: "Receipts",
   description:
-    "When your agent stops, Prism runs your typecheck, lint and the tests the change reaches. The receipt gives one verdict: SHIP, NOT PROVEN or NO-SHIP.",
+    "When your agent stops, Prism runs your own checks on what changed. The receipt gives one verdict: SHIP, NOT PROVEN or NO-SHIP.",
   path: "/product/receipts",
 });
 
@@ -180,9 +180,6 @@ const NOT_PROVEN: Array<[reason: string, means: string]> = [
   ],
 ];
 
-const FINDING =
-  "src/billing/totals.ts — dependents_not_in_diff: src/billing/totals.ts changes computeTotals; not edited: src/billing/credit-note.ts, src/billing/invoice.ts → Fix this before shipping. (high risk)";
-
 export default function ReceiptsPage() {
   return (
     <ProductPage slug="receipts">
@@ -192,7 +189,7 @@ export default function ReceiptsPage() {
             Your checks, <em>when the agent stops.</em>
           </>
         }
-        lede="Prism runs your typecheck, lint and the tests the change reaches. The receipt gives one verdict, and its lens checks flag changed code no test covers and callers the change left behind."
+        lede="Prism runs your own checks on what changed. The receipt gives one verdict and lists every check it ran, with the result."
         actions={
           <>
             <Chip tone="ok">SHIP</Chip>
@@ -270,67 +267,6 @@ export default function ReceiptsPage() {
           />
         </Container>
       </section>
-
-      <ExampleRow
-        eyebrow="During review"
-        title="Lenses add their checks."
-        lede="Every receipt also runs the lens checks on the change. Here the tests pass, but the QA lens finds two callers the change did not update."
-      >
-        <ChatTerminalPair
-          chat={
-            <Window title="Claude Code" kind="chat">
-              <Bubble who="you">
-                Add an optional VAT rate to computeTotals
-              </Bubble>
-              <Bubble who="agent" name="Claude Code">
-                Done. computeTotals takes vatRate and returns vat.
-              </Bubble>
-              <Bubble who="prism">
-                <span className="g">Prism · SHIP</span>
-                <br />
-                Prism receipt: changed 1 file, 5 dependents, 2 tests reach it —
-                SHIP
-                <br />
-                <ReceiptRow k="Proven" tone="d">
-                  2 scoped test files · typecheck <span className="g">✓</span> ·
-                  test <span className="g">✓</span>
-                </ReceiptRow>
-                <br />
-                <ReceiptRow k="Finding" tone="y">
-                  {FINDING}
-                </ReceiptRow>
-              </Bubble>
-              <Bubble who="agent" name="Claude Code">
-                Tests pass, and the QA lens found two callers I didn’t update.
-                Updating them now.
-              </Bubble>
-            </Window>
-          }
-          terminal={
-            <Window title="~/northwind">
-              <Typed cmd="prism receipts show 2" />
-              <Ln>
-                <span className="g">Prism · SHIP</span>
-              </Ln>
-              <Ln>
-                Prism receipt: changed 1 file, 5 dependents, 2 tests reach it —
-                SHIP
-              </Ln>
-              <Ln>
-                <ReceiptRow k="Proven" tone="d">
-                  2 scoped test files · typecheck <span className="g">✓</span> ·
-                  test <span className="g">✓</span>
-                </ReceiptRow>
-              </Ln>
-              <Ln>
-                <ReceiptRow k="Finding" tone="y">
-                  {FINDING}
-                </ReceiptRow>
-              </Ln>
-            </Window>
-          }
-        />
-      </ExampleRow>
 
       <section className="sec">
         <Container>

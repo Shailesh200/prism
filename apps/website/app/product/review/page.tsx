@@ -17,7 +17,7 @@ import { pageMetadata } from "@/lib/seo";
 export const metadata = pageMetadata({
   title: "Review",
   description:
-    "Ask your agent to review: Prism ranks the changed files by risk, lists the tests that reach them, and adds lens findings with a fix for each.",
+    "Ask your agent to review: Prism ranks the changed files by risk, lists the tests that reach them, and runs the lens checks you pick.",
   path: "/product/review",
 });
 
@@ -30,7 +30,7 @@ export default function ReviewPage() {
             Review your changes <em>before you push.</em>
           </>
         }
-        lede="Ask your agent to review. Prism ranks the changed files by risk, lists the tests that reach them, and the lens checks add findings with a fix for each."
+        lede="Ask your agent to review. Prism ranks the changed files by risk, lists the tests that reach them, and the lens checks you pick run on the change, each with its result."
         caption={
           <>
             Ask “review my changes”, or run <code>prism review</code>.
@@ -45,9 +45,9 @@ export default function ReviewPage() {
           session’s changes, not edits that were already there, so you read the
           riskiest file first.
         </Card>
-        <Card level={2} icon={<TargetIcon />} title="Findings you can act on">
-          Each finding says where, what, how to fix it, and the risk, with the
-          lens check that found it.
+        <Card level={2} icon={<TargetIcon />} title="Checks you can read">
+          Each check says where it looked, what it checked, the result and the
+          risk, with the lens it belongs to.
         </Card>
         <Card level={2} icon={<CheckCircleIcon />} title="Ready for the PR">
           Ask for <code>format: &quot;prDescription&quot;</code> to get the
@@ -86,15 +86,6 @@ export default function ReviewPage() {
                     2 scoped test files · typecheck{" "}
                     <span className="text-ok">✓</span> · test{" "}
                     <span className="text-ok">✓</span>
-                  </>
-                ),
-              },
-              {
-                k: "Finding",
-                v: (
-                  <>
-                    <span className="lf">QA lens</span> dependents_not_in_diff:
-                    credit-note.ts, invoice.ts not edited · high risk
                   </>
                 ),
               },
