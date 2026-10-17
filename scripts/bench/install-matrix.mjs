@@ -169,6 +169,8 @@ for (const host of hostFilter) {
   const home = mkdtempSync(join(tmpdir(), `prism-b10-${host}-`));
   const env = {
     HOME: home,
+    // Node's homedir() on Windows reads USERPROFILE, not HOME.
+    USERPROFILE: home,
     PRISM_HOME: join(home, ".prism"),
     PRISM_DAEMON: "0",
   };
