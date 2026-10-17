@@ -61,7 +61,7 @@ jobs:
       - name: Build dependency graph
         run: |
           set -euo pipefail
-          for name in shared test-support checks plugin analyzer graph-engine impact navigation indexer intelligence core daemon ui mcp-server cli; do
+          for name in shared test-support checks plugin analyzer graph-engine impact navigation indexer intelligence core daemon mcp-server cli; do
             bun run --filter "@repo-prism/${name}" build
           done
       - run: bun run --filter @repo-prism/shared test
@@ -89,7 +89,7 @@ jobs:
       - name: Build MCP import graph
         run: |
           set -euo pipefail
-          for name in shared test-support checks analyzer graph-engine impact navigation indexer intelligence core daemon ui mcp-server; do
+          for name in shared test-support checks analyzer graph-engine impact navigation indexer intelligence core daemon mcp-server; do
             bun run --filter "@repo-prism/${name}" build
           done
       - run: bun run scripts/check-publish-exports.mjs
@@ -119,7 +119,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for name in shared test-support checks plugin analyzer graph-engine impact navigation indexer intelligence core daemon ui mcp-server cli; do
+          for name in shared test-support checks plugin analyzer graph-engine impact navigation indexer intelligence core daemon mcp-server cli; do
             bun run --filter "@repo-prism/${name}" build
           done
       - name: B10 install matrix
