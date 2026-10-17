@@ -708,7 +708,7 @@ function terminalLineLite(receipt) {
   if (v.noShip) {
     return v.failed > 0
       ? `${v.headline} — the agent is fixing it`
-      : `${v.headline} — the agent is undoing those edits`;
+      : `${v.headline} — off-limits files were edited; ask the user`;
   }
   if (v.label === "SHIP") {
     return `${v.headline} — the checks this change reaches passed`;
@@ -971,10 +971,10 @@ function stopWakeText(receipt) {
   let action = "stop.";
   if (v.noShip && v.failed > 0 && v.offLimits > 0) {
     say = `Prism: NO-SHIP — ${v.failedChecks} failed, ${v.offLimitsPaths} edited.`;
-    action = "fix both.";
+    action = "fix them.";
   } else if (v.noShip && v.offLimits > 0) {
-    say = `Prism: NO-SHIP — ${v.offLimitsPaths} edited; undoing.`;
-    action = "undo those edits.";
+    say = `Prism: NO-SHIP — ${v.offLimitsPaths} edited.`;
+    action = "ask the user.";
   } else if (v.noShip) {
     say = `Prism: NO-SHIP — ${v.failedChecks} failed; fixing now.`;
     action = "fix them.";

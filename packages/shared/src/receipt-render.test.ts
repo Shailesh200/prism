@@ -214,7 +214,7 @@ describe("terminal line per verdict (Muse v2.1)", () => {
           checks: passed,
           lensFindings: offLimits(2),
         },
-        "Prism · NO-SHIP (2 off-limits paths) — the agent is undoing those edits",
+        "Prism · NO-SHIP (2 off-limits paths) — off-limits files were edited; ask the user",
       ],
       [
         { ...base, lensFindings: offLimits(1) },
@@ -414,7 +414,7 @@ describe("who a failure is blamed on: the baseline decides (M-092, Arc)", () => 
       ],
     };
     expect(receiptTerminalLine(receipt)).toBe(
-      "Prism · NO-SHIP (1 off-limits path) — the agent is undoing those edits",
+      "Prism · NO-SHIP (1 off-limits path) — off-limits files were edited; ask the user",
     );
     expect(receiptFeedback(receipt)).toBeNull();
   });

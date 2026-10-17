@@ -74,7 +74,7 @@ export function receiptTerminalLine(receipt: ChangeReceipt): string {
   if (verdict === "NO-SHIP") {
     return blockingChecks(receipt).length > 0
       ? `${head} — the agent is fixing it`
-      : `${head} — the agent is undoing those edits`;
+      : `${head} — off-limits files were edited; ask the user`;
   }
   const action = TERMINAL_REASON[receipt.reason ?? "untested"];
   return action ? `${head} — ${action}` : head;

@@ -983,7 +983,7 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
       "NO-SHIP off-limits",
       { verdict: "proven", reason: undefined, lensFindings: offLimits(2) },
       "Prism · NO-SHIP (2 off-limits paths)",
-      'Prism · Say first: "Prism: NO-SHIP — 2 off-limits paths edited; undoing." Then undo those edits.',
+      'Prism · Say first: "Prism: NO-SHIP — 2 off-limits paths edited." Then ask the user.',
     ],
     [
       "NO-SHIP both",
@@ -994,7 +994,7 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
         lensFindings: offLimits(1),
       },
       "Prism · NO-SHIP (2 checks failed, 1 off-limits path)",
-      'Prism · Say first: "Prism: NO-SHIP — 2 checks failed, 1 off-limits path edited." Then fix both.',
+      'Prism · Say first: "Prism: NO-SHIP — 2 checks failed, 1 off-limits path edited." Then fix them.',
     ],
     [
       "untested",
@@ -1178,7 +1178,7 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
     const lines = wait.stderr.trimEnd().split("\n");
     expect(lines).toHaveLength(3);
     expect(lines[2]).toBe(
-      'Prism · Say first: "Prism: NO-SHIP — 12 checks failed, 12 off-limits paths edited." Then fix both.',
+      'Prism · Say first: "Prism: NO-SHIP — 12 checks failed, 12 off-limits paths edited." Then fix them.',
     );
     for (const line of lines) expect(line.length, line).toBeLessThan(100);
   });
@@ -1410,7 +1410,7 @@ describe("stop-time lines (Muse v2.1)", () => {
           })
         ).split("\n")[0],
       ).toBe(
-        "Prism · NO-SHIP (1 off-limits path) — the agent is undoing those edits",
+        "Prism · NO-SHIP (1 off-limits path) — off-limits files were edited; ask the user",
       );
     });
   });
