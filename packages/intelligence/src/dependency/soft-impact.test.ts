@@ -1,5 +1,14 @@
 /** fixture format sync */
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -335,5 +344,35 @@ describe("buildSoftImpactIndex", () => {
 
   it("fixture files exist for smoke", () => {
     expect(readFileSync(join(FIXTURE, "Dockerfile"), "utf8")).toContain("COPY");
+  });
+});
+
+describe("CSS @import (website round)", () => {
+  it("links a stylesheet to the repo stylesheets it imports, not packages", () => {
+    const root = mkdtempSync(join(tmpdir(), "prism-css-"));
+    try {
+      mkdirSync(join(root, "app"), { recursive: true });
+      writeFileSync(
+        join(root, "app", "global.css"),
+        '@import "tailwindcss";\n@import "./landing.css";\n@import url("../theme/tokens.css");\n',
+      );
+      writeFileSync(join(root, "app", "landing.css"), ".a{}\n");
+      mkdirSync(join(root, "theme"));
+      writeFileSync(join(root, "theme", "tokens.css"), ":root{}\n");
+      const index = buildSoftImpactIndex({
+        workspaceRoot: root,
+        filePaths: ["app/global.css", "app/landing.css", "theme/tokens.css"],
+      });
+      expect(
+        index.edges
+          .filter((e) => e.reason === "CSS @import")
+          .map((e) => `${e.from} -> ${e.to}`),
+      ).toEqual([
+        "app/global.css -> app/landing.css",
+        "app/global.css -> theme/tokens.css",
+      ]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

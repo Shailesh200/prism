@@ -8,7 +8,6 @@ export type PrismCapabilities = {
   readonly graphs: boolean;
   readonly intelligence: boolean;
   readonly impact: boolean;
-  readonly map: boolean;
   readonly navigation: boolean;
 };
 
@@ -19,6 +18,5 @@ export const STUB_CAPABILITIES: PrismCapabilities = {
   graphs: false,
   intelligence: false,
   impact: false,
-  map: false,
   navigation: false,
 };

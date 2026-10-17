@@ -4,6 +4,7 @@ import {
   mkdtemp,
   readFile,
   rm,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -11,8 +12,11 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   ensureWorkspacePrism,
+  forgetWorkspaceMemory,
+  legacyWorkspaceMemoryPath,
   loadWorkspaceMemories,
   migrateWorkspaceMemories,
+  rememberWorkspaceMemory,
   useLocalPrismStore,
   workspaceKey,
   workspaceMemoryPath,
@@ -48,23 +52,32 @@ describe("workspace prism home", () => {
     const env = { PRISM_HOME: home };
     await mkdir(join(repo, ".prism", "cache"), { recursive: true });
     await writeFile(join(repo, ".prism", "cache", "index.txt"), "idx");
-    await writeFile(join(repo, ".prism", "consent.json"), "{}");
+    await writeFile(join(repo, ".prism", "notes.json"), "{}");
     const dest = await ensureWorkspacePrism(repo, env);
     expect(dest).toBe(join(home, "workspaces", workspaceKey(repo)));
     expect(await readFile(join(dest, "cache", "index.txt"), "utf8")).toBe(
       "idx",
     );
-    expect(await readFile(join(dest, "consent.json"), "utf8")).toBe("{}");
+    expect(await readFile(join(dest, "notes.json"), "utf8")).toBe("{}");
     await expect(access(join(repo, ".prism"))).rejects.toMatchObject({
       code: "ENOENT",
     });
+  });
+
+  it("keys a symlinked path and its target to one store", async () => {
+    const repo = await mkdtemp(join(tmpdir(), "prism-key-"));
+    temps.push(repo);
+    const link = `${repo}-link`;
+    await symlink(repo, link);
+    temps.push(link);
+    expect(workspaceKey(link)).toBe(workspaceKey(repo));
   });
 
   it("migrates symbol-anchored memories on rename (M-075)", async () => {
     const repo = await mkdtemp(join(tmpdir(), "prism-mem-"));
     temps.push(repo);
     const env = { VITEST: "true" };
-    await mkdir(join(repo, ".prism", "dispatch"), { recursive: true });
+    await mkdir(join(repo, ".prism"), { recursive: true });
     await writeFile(
       workspaceMemoryPath(repo, env),
       JSON.stringify({
@@ -83,5 +96,52 @@ describe("workspace prism home", () => {
     const items = await loadWorkspaceMemories(repo, env);
     expect(items.find((i) => i.id === "1")?.symbol).toBe("loadUser");
     expect(items.find((i) => i.id === "2")?.symbol).toBe("lruCache");
+  });
+
+  it("reads memories Dispatch wrote before M-091, then writes the new home", async () => {
+    const repo = await mkdtemp(join(tmpdir(), "prism-mem-legacy-"));
+    temps.push(repo);
+    const env = { VITEST: "true" };
+    await mkdir(join(repo, ".prism", "dispatch"), { recursive: true });
+    await writeFile(
+      legacyWorkspaceMemoryPath(repo, env),
+      JSON.stringify({
+        items: [
+          {
+            id: "old",
+            scope: "repo",
+            text: "use lruCache, never a Map",
+            source: "user",
+            createdAt: "2026-09-01T00:00:00.000Z",
+            symbol: "lruCache",
+          },
+        ],
+      }),
+    );
+    expect((await loadWorkspaceMemories(repo, env)).map((m) => m.id)).toEqual([
+      "old",
+    ]);
+    await expect(
+      access(legacyWorkspaceMemoryPath(repo, env)),
+    ).rejects.toMatchObject({ code: "ENOENT" });
+
+    const added = await rememberWorkspaceMemory(
+      repo,
+      { text: "tests live beside the source", path: "src" },
+      env,
+    );
+    expect((await loadWorkspaceMemories(repo, env)).map((m) => m.text)).toEqual(
+      ["use lruCache, never a Map", "tests live beside the source"],
+    );
+    const again = await rememberWorkspaceMemory(
+      repo,
+      { text: " tests live beside the source ", path: "src" },
+      env,
+    );
+    expect(again).toMatchObject({ id: added.id, existing: true });
+    expect(await loadWorkspaceMemories(repo, env)).toHaveLength(2);
+    expect(await forgetWorkspaceMemory(repo, added.id!, env)).toBe(1);
+    expect(await forgetWorkspaceMemory(repo, "LRUCACHE", env)).toBe(1);
+    expect(await loadWorkspaceMemories(repo, env)).toEqual([]);
   });
 });

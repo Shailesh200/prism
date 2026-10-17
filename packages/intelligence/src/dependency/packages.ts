@@ -1,5 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { isRelativeSpecifier } from "./resolve.js";
+import { parseJsonc } from "./soft-impact-utils.js";
 
 export type LocalPackage = {
   name: string;
@@ -12,7 +14,70 @@ export type LocalPackage = {
   entryPath: string | null;
   /** Raw `exports` field from package.json (for subpath resolution). */
   exportsField?: unknown;
+  /**
+   * Build output → source directory pairs (package-relative), so an `exports`
+   * target such as `./dist/lens-store.js` maps back to `src/lens-store.ts`.
+   */
+  outDirs?: readonly OutDirMap[];
 };
+
+/** One build-output directory and the source directory it is compiled from. */
+export type OutDirMap = { readonly out: string; readonly src: string };
+
+/** Used only when the package has no tsconfig declaring `outDir`. */
+const CONVENTIONAL_OUT_DIRS: readonly OutDirMap[] = [
+  { out: "dist", src: "src" },
+  { out: "lib", src: "src" },
+  { out: "build", src: "src" },
+];
+
+const norm = (p: string) => p.replace(/^\.\//, "").replace(/\/$/, "");
+
+/**
+ * Read `outDir`/`rootDir` from the package's own tsconfig(s). A tsconfig that
+ * exists but cannot be parsed is skipped (the conventional pairs then apply);
+ * the alias loader reports parse errors for the same files.
+ */
+export function readOutDirMaps(
+  workspaceRoot: string,
+  rootDir: string,
+): readonly OutDirMap[] {
+  const maps: OutDirMap[] = [];
+  for (const name of ["tsconfig.build.json", "tsconfig.json"]) {
+    const abs = join(workspaceRoot, rootDir, name);
+    if (!existsSync(abs)) continue;
+    let json: { compilerOptions?: { outDir?: unknown; rootDir?: unknown } };
+    try {
+      json = parseJsonc(readFileSync(abs, "utf8")) as typeof json;
+    } catch {
+      continue; // reported by loadTsconfigPathAliases (PathAliasMap.errors)
+    }
+    const out = json?.compilerOptions?.outDir;
+    if (typeof out !== "string" || out.length === 0) continue;
+    const src = json.compilerOptions?.rootDir;
+    maps.push({
+      out: norm(out),
+      src: typeof src === "string" && src.length > 0 ? norm(src) : "src",
+    });
+  }
+  return maps.length > 0 ? maps : CONVENTIONAL_OUT_DIRS;
+}
+
+/** `dist/x.js` → `src/x.js` for each matching out→src pair. */
+export function remapToSource(
+  entryRel: string,
+  maps: readonly OutDirMap[],
+): string[] {
+  const rel = norm(entryRel);
+  const out: string[] = [];
+  for (const { out: o, src } of maps) {
+    if (rel === o || rel.startsWith(`${o}/`)) {
+      const rest = rel.slice(o.length).replace(/^\//, "");
+      out.push(src === "." || src === "" ? rest : `${src}/${rest}`);
+    }
+  }
+  return out;
+}
 
 type PackageJsonFields = {
   name?: unknown;
@@ -127,6 +192,7 @@ function pickPackageEntry(
   pkg: PackageJsonFields,
   indexedPaths: ReadonlySet<string>,
   subpath = ".",
+  outDirs: readonly OutDirMap[] = [],
 ): string | null {
   const candidates: string[] = [];
   if (pkg.exports !== undefined) {
@@ -145,6 +211,14 @@ function pickPackageEntry(
   for (const c of candidates) {
     const hit = resolveEntryAgainstIndex(rootDir, c, indexedPaths);
     if (hit) return hit;
+  }
+  // A workspace package's exports usually point at build output, which is
+  // not indexed. Map it back to the source it was compiled from.
+  for (const c of candidates) {
+    for (const remapped of remapToSource(c, outDirs)) {
+      const hit = resolveEntryAgainstIndex(rootDir, remapped, indexedPaths);
+      if (hit) return hit;
+    }
   }
   return null;
 }
@@ -187,12 +261,14 @@ export function discoverLocalPackages(
     if (typeof raw.name !== "string" || raw.name.length === 0) continue;
     const rootDir =
       rel === "package.json" ? "" : rel.slice(0, -"/package.json".length);
-    const entryPath = pickPackageEntry(rootDir, raw, indexedSet, ".");
+    const outDirs = readOutDirMaps(workspaceRoot, rootDir);
+    const entryPath = pickPackageEntry(rootDir, raw, indexedSet, ".", outDirs);
     packages.push({
       name: raw.name,
       rootDir,
       entryPath,
       ...(raw.exports !== undefined ? { exportsField: raw.exports } : {}),
+      outDirs,
     });
   }
 
@@ -232,7 +308,7 @@ export function resolveLocalPackageSpecifier(
   packages: readonly LocalPackage[],
   indexedPaths: ReadonlySet<string>,
 ): string | null {
-  if (specifier.startsWith("./") || specifier.startsWith("../")) return null;
+  if (isRelativeSpecifier(specifier)) return null;
   if (specifier.startsWith("/") || specifier.startsWith("node:")) return null;
   if (specifier.startsWith("file:")) return null;
 
@@ -258,6 +334,7 @@ export function resolveLocalPackageSpecifier(
       { exports: pkg.exportsField },
       indexedPaths,
       subpath,
+      pkg.outDirs ?? [],
     );
     if (viaExports) return viaExports;
     const direct = resolveEntryAgainstIndex(pkg.rootDir, rest, indexedPaths);

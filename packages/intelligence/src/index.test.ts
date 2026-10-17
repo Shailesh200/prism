@@ -3,14 +3,11 @@ import {
   STACK_DETECTOR_SPI_VERSION,
   StackDetectorRegistry,
   assembleDnaReport,
-  assembleIntelligenceReport,
   buildDependencyGraph,
-  buildFeatureGraph,
   buildKnowledgeGraph,
   createDefaultDetectorPacks,
   createStackHost,
   createUnknownDetector,
-  createUtilitiesSession,
   primaryDomain,
   rankDomainsByConfidence,
 } from "./index.js";
@@ -24,11 +21,8 @@ describe("@repo-prism/intelligence exports", () => {
     expect(typeof assembleDnaReport).toBe("function");
     expect(typeof primaryDomain).toBe("function");
     expect(typeof rankDomainsByConfidence).toBe("function");
-    expect(typeof assembleIntelligenceReport).toBe("function");
-    expect(typeof createUtilitiesSession).toBe("function");
     expect(typeof buildDependencyGraph).toBe("function");
     expect(typeof buildKnowledgeGraph).toBe("function");
-    expect(typeof buildFeatureGraph).toBe("function");
     expect(createDefaultDetectorPacks().length).toBeGreaterThan(10);
     expect(new StackDetectorRegistry().list()).toEqual([]);
   });

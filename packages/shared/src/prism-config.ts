@@ -9,6 +9,11 @@ import { z } from "zod";
 import { PrismErrorCode, prismError, type PrismError } from "./errors.js";
 import { err, ok, type Result } from "./result.js";
 
+/** How much Prism does in hooks (plan P5); MCP tools always answer. */
+export const STRENGTHS = ["full", "lite", "off"] as const;
+export type Strength = (typeof STRENGTHS)[number];
+export const StrengthSchema = z.enum(STRENGTHS);
+
 export const PrismConfigSchema = z
   .object({
     /** Extra gitignore-style globs on top of builtin / .gitignore / .prismignore. */
@@ -18,6 +23,8 @@ export const PrismConfigSchema = z
      * Omit for the indexer default (5 MiB). Use `null` for no limit.
      */
     maxFileBytes: z.number().int().positive().nullable().optional(),
+    /** Per-repository override of `~/.prism/config.json` `strength` (plan P5). */
+    strength: StrengthSchema.optional(),
   })
   .strict();
 

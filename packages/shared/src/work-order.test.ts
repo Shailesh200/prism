@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  EMPTY_WORK_ORDER,
-  appendWorkOrderToPrd,
   evaluateWorkOrderWrite,
-  formatWorkOrderForPrd,
-  formatWorkOrderPrompt,
   isAcceptedWorkOrderVetoAdr,
   isWorkOrderOffLimitPath,
   offLimitReason,
@@ -92,19 +88,5 @@ describe("work-order copy (M-076 O4)", () => {
     expect(workOrderStateCopy("blocked", false)).toMatch(/not armed/);
     expect(workOrderStateCopy("needsSignOff", false)).toMatch(/not armed/);
     expect(workOrderStateCopy("allowed", false)).toMatch(/Allowed/);
-  });
-
-  it("renders prompt and PRD without file bodies", () => {
-    const prompt = formatWorkOrderPrompt(order);
-    expect(prompt).toContain("vendor/legacy.ts (vendor)");
-    expect(prompt).toContain("not armed");
-    expect(prompt).not.toContain("UNIQUE_BODY");
-
-    const prd = appendWorkOrderToPrd("Fix fetchUser.", order);
-    expect(prd).toContain("## Work order");
-    expect(prd).toContain("vendor/legacy.ts (vendor)");
-    expect(appendWorkOrderToPrd(prd, order)).toBe(prd);
-    expect(appendWorkOrderToPrd("x", EMPTY_WORK_ORDER)).toBe("x");
-    expect(formatWorkOrderForPrd(order)).toContain("Off-limits:");
   });
 });

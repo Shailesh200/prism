@@ -1,6 +1,6 @@
 {
   "name": "@repo-prism/shared",
-  "version": "1.3.0",
+  "version": "2.0.0",
   "type": "module",
   "description": "Shared contracts, DTOs, errors, Zod schemas",
   "exports": {
@@ -11,6 +11,62 @@
     "./prism-home": {
       "types": "./dist/prism-home.d.ts",
       "import": "./dist/prism-home.js"
+    },
+    "./user-config": {
+      "types": "./dist/user-config.d.ts",
+      "import": "./dist/user-config.js"
+    },
+    "./lens-store": {
+      "types": "./dist/lens-store.d.ts",
+      "import": "./dist/lens-store.js"
+    },
+    "./events": {
+      "types": "./dist/events.d.ts",
+      "import": "./dist/events.js"
+    },
+    "./prism-bin": {
+      "types": "./dist/prism-bin.d.ts",
+      "import": "./dist/prism-bin.js"
+    },
+    "./git-head": {
+      "types": "./dist/git-head.d.ts",
+      "import": "./dist/git-head.js"
+    },
+    "./receipt-store": {
+      "types": "./dist/receipt-store.d.ts",
+      "import": "./dist/receipt-store.js"
+    },
+    "./tokens": {
+      "types": "./dist/tokens.d.ts",
+      "import": "./dist/tokens.js"
+    },
+    "./budget": {
+      "types": "./dist/budget.d.ts",
+      "import": "./dist/budget.js"
+    },
+    "./habits": {
+      "types": "./dist/habits.d.ts",
+      "import": "./dist/habits.js"
+    },
+    "./session-store": {
+      "types": "./dist/session-store.d.ts",
+      "import": "./dist/session-store.js"
+    },
+    "./hook-config": {
+      "types": "./dist/hook-config.d.ts",
+      "import": "./dist/hook-config.js"
+    },
+    "./prompt-hook": {
+      "types": "./dist/prompt-hook.d.ts",
+      "import": "./dist/prompt-hook.js"
+    },
+    "./session-dedupe": {
+      "types": "./dist/session-dedupe.d.ts",
+      "import": "./dist/session-dedupe.js"
+    },
+    "./feedback-store": {
+      "types": "./dist/feedback-store.d.ts",
+      "import": "./dist/feedback-store.js"
     }
   },
   "files": [
@@ -19,7 +75,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --coverage"
+    "test": "vitest run --coverage",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "zod": "^3.25.0"

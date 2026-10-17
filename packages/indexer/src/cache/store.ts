@@ -117,6 +117,7 @@ type IdentityRow = {
 export function saveSnapshot(
   db: Database.Database,
   snapshot: IndexSnapshot,
+  options: { readonly prune?: boolean } = {},
 ): void {
   const tx = db.transaction(() => {
     const existing = new Map<string, IdentityRow>();
@@ -189,6 +190,7 @@ export function saveSnapshot(
       );
     }
 
+    if (options.prune === false) return;
     const remove = db.prepare(
       `DELETE FROM indexed_files WHERE root_path = ? AND path = ?`,
     );

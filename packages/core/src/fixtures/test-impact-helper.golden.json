@@ -1,11 +1,18 @@
 {
-  "origin": { "kind": "file", "id": "helper.ts", "path": "helper.ts" },
+  "origin": {
+    "kind": "file",
+    "id": "helper.ts",
+    "path": "helper.ts"
+  },
   "tests": [
     {
       "path": "main.test.ts",
       "reason": "imports main.ts",
       "depth": 2,
-      "category": "test"
+      "category": "test",
+      "viaSymbol": "run"
     }
-  ]
+  ],
+  "run": [],
+  "runNote": "1 test with no runner Prism knows (vitest, jest, mocha, bun, node:test) and no test script in their package"
 }

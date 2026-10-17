@@ -37,10 +37,4 @@ export {
   migrate,
   readSchemaVersion,
 } from "./cache/migrations.js";
-export {
-  appendHealthHistory,
-  hasHealthHistorySha,
-  listHealthHistory,
-  type HealthHistoryPayload,
-  type ListHealthHistoryOptions,
-} from "./cache/health-history.js";
+export { prioritizePackageFirst } from "./package-first.js";

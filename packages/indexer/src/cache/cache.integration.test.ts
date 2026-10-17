@@ -1,10 +1,11 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { runIndexJob } from "../index-job.js";
 import { openIndexCache } from "./db.js";
+import { SCHEMA_VERSION } from "./migrations.js";
 import { indexSqlitePath } from "./paths.js";
 
 const fixtureRoot = join(
@@ -61,8 +62,16 @@ describe("SQLite index cache", () => {
     const recovered = await openIndexCache(root);
     expect(recovered.ok).toBe(true);
     if (!recovered.ok) return;
-    expect(recovered.value.schemaVersion).toBe(3);
+    expect(recovered.value.schemaVersion).toBe(SCHEMA_VERSION);
     recovered.value.close();
+    // Plan §2.4: the corrupt file is kept aside, never read again.
+    const aside = (await readdir(dirname(dbPath))).filter((name) =>
+      /\.corrupt-\d+$/.test(name),
+    );
+    expect(aside.length).toBeGreaterThan(0);
+    expect(await readFile(join(dirname(dbPath), aside[0] ?? ""), "utf8")).toBe(
+      "NOT A SQLITE DATABASE",
+    );
   });
 
   it("rebuilds after damage inside an otherwise-valid database file", async () => {

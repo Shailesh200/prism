@@ -14,7 +14,7 @@ import {
   type WorkOrder,
   type WorkOrderOffLimit,
 } from "@repo-prism/shared";
-import { buildDependencyGraph } from "../dependency/build.js";
+import { cachedDependencyGraph } from "./graph-cache.js";
 
 const FAN_IN_SIGN_OFF = 2;
 const OWNER_SIGN_OFF = 3;
@@ -23,7 +23,7 @@ const ADR_FILE =
 const MAX_BYTES = 256_000;
 
 function fileFanIn(snapshot: IndexSnapshot): Map<string, number> {
-  const graph = buildDependencyGraph(snapshot).graph;
+  const graph = cachedDependencyGraph(snapshot).graph;
   const counts = new Map<string, number>();
   for (const edge of graph.edges) {
     if (!edge.from.startsWith("file:") || !edge.to.startsWith("file:")) {

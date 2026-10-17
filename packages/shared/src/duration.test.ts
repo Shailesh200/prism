@@ -3,7 +3,6 @@ import {
   durationMs,
   formatDuration,
   formatDurationOr,
-  formatJobDuration,
   jobDurations,
   primaryDurationMs,
 } from "./duration.js";
@@ -229,29 +228,5 @@ describe("primaryDurationMs", () => {
         Date.parse(at(25)),
       ),
     ).toBe(15_000);
-  });
-});
-
-describe("formatJobDuration", () => {
-  it("shows the split so a slow pipeline is distinguishable from a slow agent", () => {
-    const label = formatJobDuration(
-      { createdAt: T0, queuedAt: T0, startedAt: at(540), finishedAt: at(720) },
-      Date.parse(at(1_000)),
-    );
-    expect(label).toBe("12m (waited 9m, worked 3m)");
-  });
-
-  it("collapses to the total when the wait was negligible", () => {
-    const label = formatJobDuration({
-      createdAt: T0,
-      queuedAt: T0,
-      startedAt: T0,
-      finishedAt: at(180),
-    });
-    expect(label).toBe("3m");
-  });
-
-  it("returns undefined when there is nothing defensible to show", () => {
-    expect(formatJobDuration({ createdAt: "nonsense" })).toBeUndefined();
   });
 });
