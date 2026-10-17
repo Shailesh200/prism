@@ -15,7 +15,7 @@ import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { access, readFile } from "node:fs/promises";
 import { constants as osConstants, homedir, setPriority } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { gitChildEnv } from "./env.js";
 import type { VerifyPlan, VerifyStep } from "./types.js";
 
@@ -170,6 +170,16 @@ function findLockfile(start: string): { dir: string; name: string } | null {
 }
 
 /**
+ * The runtime that should execute a Yarn Berry `yarn.cjs`. Tests run under
+ * Bun, and spawning Bun from Bun on Windows never returns. Node runs the file.
+ */
+function nodeForYarn(): string {
+  const name = basename(process.execPath).toLowerCase();
+  if (name === "node" || name === "node.exe") return process.execPath;
+  return process.platform === "win32" ? "node.exe" : "node";
+}
+
+/**
  * Yarn Berry ships its own binary (`yarnPath` in `.yarnrc.yml`) and is often
  * not on PATH. Run that file with node; classic yarn stays `yarn` on PATH.
  */
@@ -182,7 +192,7 @@ function yarnArgv(
     const text = readFileSync(yarnrc, "utf8");
     const rel = /^yarnPath:\s*['"]?(\S+?)['"]?\s*$/m.exec(text)?.[1];
     if (rel && existsSync(join(dir, rel))) {
-      return { argv: [process.execPath, join(dir, rel), "run", script] };
+      return { argv: [nodeForYarn(), join(dir, rel), "run", script] };
     }
   }
   return { argv: ["yarn", "run", script] };
