@@ -47,19 +47,15 @@ export function receiptHeadline(receipt: ChangeReceipt): string {
   return `Prism · ${shipVerdictLabel(receipt)}`;
 }
 
-/** What each NOT PROVEN reason means, for the terminal line (Muse v2.1). */
-const TERMINAL_REASON: Record<NotProvenReason, string> = {
+/**
+ * The action after a NOT PROVEN terminal line (Muse). A tail only adds an
+ * action; a reason whose label already says it all has none.
+ */
+const TERMINAL_REASON: Partial<Record<NotProvenReason, string>> = {
   untested: "add a test that covers it",
   no_node_modules: "install dependencies to run its tests",
-  unknown_runner: "no known runner could run its tests",
-  skipped_offline: "checks are off for this run",
-  still_running: "no verdict yet; the next receipt shows it",
-  timeout: "a check ran past its time limit",
-  already_failing: "its tests failed before this session",
-  baseline_unknown: "a check failed; it may not be from this change",
-  outside_change: "the failing files aren't part of this change",
-  unsupported_language: "only TS and JS files are checked",
-  superseded: "a newer change replaced this one",
+  timeout: "run it again when the machine is less busy",
+  outside_change: "check those files separately",
 };
 
 /**
@@ -79,7 +75,8 @@ export function receiptTerminalLine(receipt: ChangeReceipt): string {
       ? `${head} — the agent is fixing it`
       : `${head} — the agent is undoing those edits`;
   }
-  return `${head} — ${TERMINAL_REASON[receipt.reason ?? "untested"]}`;
+  const action = TERMINAL_REASON[receipt.reason ?? "untested"];
+  return action ? `${head} — ${action}` : head;
 }
 
 /** A clean tree: `proven` with nothing to show. */

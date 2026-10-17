@@ -692,19 +692,12 @@ function verdictLite(receipt) {
   };
 }
 
-/** Mirrors shared `receiptTerminalLine` (Muse v2.1). */
+/** Mirrors shared `receiptTerminalLine`: a tail only adds an action (Muse). */
 const TERMINAL_REASON = {
   untested: "add a test that covers it",
   no_node_modules: "install dependencies to run its tests",
-  unknown_runner: "no known runner could run its tests",
-  skipped_offline: "checks are off for this run",
-  still_running: "no verdict yet; the next receipt shows it",
-  timeout: "a check ran past its time limit",
-  already_failing: "its tests failed before this session",
-  baseline_unknown: "a check failed; it may not be from this change",
-  outside_change: "the failing files aren't part of this change",
-  unsupported_language: "only TS and JS files are checked",
-  superseded: "a newer change replaced this one",
+  timeout: "run it again when the machine is less busy",
+  outside_change: "check those files separately",
 };
 
 /** The verdict in one terminal line: the headline and what it means. */
@@ -962,7 +955,6 @@ const SAY_REASON = {
   skipped_offline: "checks are off for this run",
   timeout: "a check ran past its time limit",
   already_failing: "its tests failed before this session",
-  outside_change: "the failure is in files outside this change",
   unsupported_language: "only TS and JS files are checked",
 };
 
@@ -994,6 +986,9 @@ function stopWakeText(receipt) {
   } else if (v.reason === "baseline_unknown") {
     // Never "you caused" without proof: the user decides.
     say = "NOT PROVEN: Prism can't tell if this failure is new.";
+    action = "ask the user.";
+  } else if (v.reason === "outside_change") {
+    say = "Prism: NOT PROVEN — the failure is in files outside this change.";
     action = "ask the user.";
   } else {
     say = `Prism: NOT PROVEN — ${SAY_REASON[v.reason] ?? REASON_LABEL[v.reason] ?? "no verdict yet"}.`;

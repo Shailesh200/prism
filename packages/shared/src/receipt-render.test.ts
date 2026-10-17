@@ -230,44 +230,38 @@ describe("terminal line per verdict (Muse v2.1)", () => {
       ],
       [
         notProven("unknown_runner"),
-        "Prism · NOT PROVEN (no known test runner) — no known runner could run its tests",
+        "Prism · NOT PROVEN (no known test runner)",
       ],
-      [
-        notProven("skipped_offline"),
-        "Prism · NOT PROVEN (checks skipped) — checks are off for this run",
-      ],
+      [notProven("skipped_offline"), "Prism · NOT PROVEN (checks skipped)"],
       [
         notProven("timeout"),
-        "Prism · NOT PROVEN (checks timed out) — a check ran past its time limit",
+        "Prism · NOT PROVEN (checks timed out) — run it again when the machine is less busy",
       ],
       [
         notProven("already_failing"),
-        "Prism · NOT PROVEN (tests already failing) — its tests failed before this session",
+        "Prism · NOT PROVEN (tests already failing)",
       ],
       [
         notProven("baseline_unknown"),
-        "Prism · NOT PROVEN (can't tell if this failure is new) — a check failed; it may not be from this change",
+        "Prism · NOT PROVEN (can't tell if this failure is new)",
       ],
       [
         notProven("outside_change"),
-        "Prism · NOT PROVEN (failure is in files outside this change) — the failing files aren't part of this change",
+        "Prism · NOT PROVEN (failure is in files outside this change) — check those files separately",
       ],
       [
         notProven("unsupported_language"),
-        "Prism · NOT PROVEN (unsupported language) — only TS and JS files are checked",
+        "Prism · NOT PROVEN (unsupported language)",
       ],
       [
         notProven("superseded"),
-        "Prism · NOT PROVEN (replaced by a newer change) — a newer change replaced this one",
+        "Prism · NOT PROVEN (replaced by a newer change)",
       ],
       [
         { ...notProven("still_running"), checksState: "pending" },
         "Prism · checking… still running",
       ],
-      [
-        notProven("still_running"),
-        "Prism · NOT PROVEN (checks still running) — no verdict yet; the next receipt shows it",
-      ],
+      [notProven("still_running"), "Prism · NOT PROVEN (checks still running)"],
       [
         {
           ...base,
@@ -356,7 +350,7 @@ describe("who a failure is blamed on: the baseline decides (M-092, Arc)", () => 
       "NOT PROVEN (tests already failing)",
     );
     expect(receiptTerminalLine(receipt)).toBe(
-      "Prism · NOT PROVEN (tests already failing) — its tests failed before this session",
+      "Prism · NOT PROVEN (tests already failing)",
     );
     expect(receiptSummaryLine(receipt)).toMatch(
       /— NOT PROVEN \(tests already failing\)$/,
@@ -378,7 +372,7 @@ describe("who a failure is blamed on: the baseline decides (M-092, Arc)", () => 
       "NOT PROVEN (can't tell if this failure is new)",
     );
     expect(receiptTerminalLine(receipt)).toBe(
-      "Prism · NOT PROVEN (can't tell if this failure is new) — a check failed; it may not be from this change",
+      "Prism · NOT PROVEN (can't tell if this failure is new)",
     );
     expect(renderReceipt(receipt)).toMatch(
       /Failed\s+test ✗ FAIL src\/a\.test\.ts \(can't tell if new\)/,
@@ -396,7 +390,7 @@ describe("who a failure is blamed on: the baseline decides (M-092, Arc)", () => 
       "NOT PROVEN (failure is in files outside this change)",
     );
     expect(receiptTerminalLine(receipt)).toBe(
-      "Prism · NOT PROVEN (failure is in files outside this change) — the failing files aren't part of this change",
+      "Prism · NOT PROVEN (failure is in files outside this change) — check those files separately",
     );
     expect(receiptSummaryLine(receipt)).toMatch(
       /— NOT PROVEN \(failure is in files outside this change\)$/,
@@ -492,17 +486,18 @@ describe("every NOT PROVEN reason reads as words (Muse, Arc)", () => {
     const text = everySurface(receipt);
     expect(text).not.toContain(`(${reason})`);
     if (reason.includes("_")) expect(text).not.toContain(reason);
-    // Muse's tails for the newest lines.
-    const tail = {
+    // A tail only adds an action (Muse); a label that says it all has none.
+    const action = {
       untested: "add a test that covers it",
-      baseline_unknown: "a check failed; it may not be from this change",
-      outside_change: "the failing files aren't part of this change",
+      no_node_modules: "install dependencies to run its tests",
+      timeout: "run it again when the machine is less busy",
+      outside_change: "check those files separately",
     }[reason as string];
-    if (tail) {
-      expect(receiptTerminalLine(receipt)).toBe(
-        `Prism · NOT PROVEN (${label}) — ${tail}`,
-      );
-    }
+    expect(receiptTerminalLine(receipt)).toBe(
+      action
+        ? `Prism · NOT PROVEN (${label}) — ${action}`
+        : `Prism · NOT PROVEN (${label})`,
+    );
   });
 
   it("the timeout and missing-dependency labels", () => {

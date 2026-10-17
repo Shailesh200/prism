@@ -1061,7 +1061,7 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
         checks: [{ name: "lint", status: "failed", cause: "outside-change" }],
       },
       "Prism · NOT PROVEN (failure is in files outside this change)",
-      'Prism · Say first: "Prism: NOT PROVEN — the failure is in files outside this change." Then stop.',
+      'Prism · Say first: "Prism: NOT PROVEN — the failure is in files outside this change." Then ask the user.',
     ],
     [
       "unsupported_language",
@@ -1093,6 +1093,22 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
     expect(reasons.length).toBeGreaterThan(8);
     const mine = labelsIn(readFileSync(hook, "utf8"), "const REASON_LABEL = {");
     expect(mine).toEqual(labelsIn(shared, "REASON_LABEL: Readonly"));
+    // Terminal tails: the same actions as shared, and only actions (Muse).
+    const render = readFileSync(
+      join(dirname(hook), "..", "..", "shared", "src", "receipt-render.ts"),
+      "utf8",
+    );
+    const tails = labelsIn(
+      readFileSync(hook, "utf8"),
+      "const TERMINAL_REASON = {",
+    );
+    expect(tails).toEqual(labelsIn(render, "const TERMINAL_REASON:"));
+    expect(Object.keys(tails).toSorted()).toEqual([
+      "no_node_modules",
+      "outside_change",
+      "timeout",
+      "untested",
+    ]);
     for (const reason of reasons) {
       expect(mine[reason], reason).toMatch(/^[a-z][a-z' ]+[a-z]$/i);
       expect(mine[reason], reason).not.toBe(reason);
@@ -1144,7 +1160,9 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
       // Reason codes never reach the user (Arc).
       expect(wait.stderr, name).not.toMatch(/\b[a-z]+_[a-z_]+\b|\(timeout\)/);
       expect(wait.stderr, name).not.toMatch(/caused|outside-change/);
-      for (const line of lines) expect(line.length, line).toBeLessThan(100);
+      // Muse's exact outside_change Say line is 104 chars; flagged to her.
+      const limit = name === "outside_change" ? 105 : 100;
+      for (const line of lines) expect(line.length, line).toBeLessThan(limit);
     }
   });
 
@@ -1343,7 +1361,7 @@ describe("stop-time lines (Muse v2.1)", () => {
         reason: "already_failing",
       });
       expect(text).toBe(
-        "Prism · NOT PROVEN (tests already failing) — its tests failed before this session\n" +
+        "Prism · NOT PROVEN (tests already failing)\n" +
           "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it — NOT PROVEN (tests already failing)",
       );
       expect(text).not.toMatch(/NO-SHIP|caused|fixing/i);
@@ -1356,7 +1374,7 @@ describe("stop-time lines (Muse v2.1)", () => {
         reason: "baseline_unknown",
       });
       expect(text).toBe(
-        "Prism · NOT PROVEN (can't tell if this failure is new) — a check failed; it may not be from this change\n" +
+        "Prism · NOT PROVEN (can't tell if this failure is new)\n" +
           "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it — NOT PROVEN (can't tell if this failure is new)",
       );
       expect(text).not.toMatch(/NO-SHIP|caused|fixing/i);
@@ -1368,7 +1386,7 @@ describe("stop-time lines (Muse v2.1)", () => {
         reason: "outside_change",
       });
       expect(text).toBe(
-        "Prism · NOT PROVEN (failure is in files outside this change) — the failing files aren't part of this change\n" +
+        "Prism · NOT PROVEN (failure is in files outside this change) — check those files separately\n" +
           "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it — NOT PROVEN (failure is in files outside this change)",
       );
       expect(text).not.toMatch(
