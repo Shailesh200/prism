@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdir, rename, rm } from "node:fs/promises";
+import { mkdir, open, rename, rm } from "node:fs/promises";
 import { recordEvent } from "@repo-prism/shared/events";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
@@ -76,6 +76,30 @@ function nativeRequire(specifier: string): unknown {
     return require(specifier);
   }
   throw new Error(`Cannot load ${specifier} (from ${import.meta.url})`);
+}
+
+const SQLITE_HEADER = "SQLite format 3\0";
+
+/**
+ * True when the file is missing (a first open creates it) or starts with the
+ * SQLite header. A stand-in file must be moved aside before the native driver
+ * opens it: on Windows that open keeps the file locked after it throws, and
+ * the quarantine rename then fails.
+ */
+async function hasSqliteHeader(dbPath: string): Promise<boolean> {
+  let handle: Awaited<ReturnType<typeof open>>;
+  try {
+    handle = await open(dbPath, "r");
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "ENOENT";
+  }
+  try {
+    const buf = Buffer.alloc(SQLITE_HEADER.length);
+    const { bytesRead } = await handle.read(buf, 0, buf.length, 0);
+    return bytesRead === buf.length && buf.toString("utf8") === SQLITE_HEADER;
+  } finally {
+    await handle.close();
+  }
 }
 
 /** Driver/module failures are not cache corruption — do not delete the DB. */
@@ -267,6 +291,18 @@ export async function openIndexCache(
       );
     }
   };
+
+  if (existsSync(dbPath) && !(await hasSqliteHeader(dbPath))) {
+    try {
+      await quarantineDbFiles(dbPath, "file is not a SQLite database");
+    } catch (moveCause) {
+      return err(
+        ioError(`Failed to move aside corrupt SQLite cache: ${dbPath}`, {
+          cause: String(moveCause),
+        }),
+      );
+    }
+  }
 
   let opened = tryOpen(false);
   if (!opened.ok) {
