@@ -53,23 +53,16 @@ Something off? [Troubleshooting](/docs/help/troubleshooting).
 ## Upgrade
 
 ```bash
-npm install -g @repo-prism/cli
-prism upgrade            # optional: re-link every agent now
+npm i -g @repo-prism/cli
+prism upgrade            # optional: re-link every agent now (asks y/N first)
 ```
 
-You do not need to run `prism install` again. Releases sometimes change the
-hooks Prism registers (2.0 adds a background Stop hook that reports the
-verdict when the checks finish). The next Claude Code session updates Prism's
-own entries in `settings.json`. It keeps your other hooks and writes a backup
-next to the file (`settings.json.prism-backup-<version>`). The new hooks
-apply from the session after that.
-
-If Prism's entries were edited by hand, or run from two places, Prism leaves
-the file alone. It prints one line, once a day, with the command to run:
-`prism install claude`, or `prism install claude --project` for a
-repository's settings. `prism doctor` shows the same check, and
-`prism doctor --fix` applies a safe update now. Set `PRISM_HOOK_REFRESH=0` to
-turn the automatic update off.
+You do not need to run `prism install` again. Prism doesn't update its hooks
+by itself. When a release changes the hooks Prism registers, `prism doctor`
+tells you they're out of date, and a Claude Code session prints one line
+saying so. `prism doctor --fix` updates them after asking: it lists what it
+will change, asks y/N, backs up the file and then updates Prism's own
+entries. Your other hooks stay.
 
 opencode runs the new hook through its existing plugin file, so it needs
 nothing. Cursor and Codex have no Prism hooks to update.
@@ -97,7 +90,6 @@ and untracked worktrees; `prism data prune --yes` removes them.
 ## Next
 
 [Quickstart](/docs/start/quickstart) ·
-[Prepare a change](/docs/guides/prepare-a-change) ·
 [Stop receipt](/docs/guides/receipt) ·
 [Usage](/docs/usage)
 

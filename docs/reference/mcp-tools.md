@@ -33,7 +33,7 @@ the docs is checked against these, so the numbers cannot drift into prose.
 | [`knowledge_graph`](#knowledge_graph) | opt-in | The symbol-level graph — declarations and the references between them — with summary stats |
 | [`list_findings`](#list_findings) | opt-in | Queueable findings from the last index |
 | [`list_packages`](#list_packages) | opt-in | List the packages in a monorepo with their roots |
-| [`prepare_change`](#prepare_change) | yes | One call before you edit |
+| [`prepare_change`](#prepare_change) | yes | Experimental. Lists the files and tests related to a task. |
 | [`receipt`](#receipt) | opt-in | What this session changed and whether it is proven |
 | [`rename_impact`](#rename_impact) | yes | Every edit site a rename would touch, plus breaking-change hints for public surface |
 | [`repository_overview`](#repository_overview) | yes | What this repository is, in one bounded call |
@@ -92,7 +92,7 @@ Arguments: `mode`, `name`, `kind`, `target`, `direction`, `from`, `to`, `maxHops
 
 ## `guard_session`
 
-Check my changes. Ranks this session's changes (working-tree changes minus what was already changed when the session began, or minus preExistingChanges; only `paths` when given) by blast risk so the highest-risk file is read first; files may carry duplicate, orphan or boundary flags, and `findings` lists each as what/where/fix/riskIfSkipped. With review:true it also returns `review`: blast radius, test impact and breaking-change hints per changed path, an overall risk band and structured lens findings (paths/base/lens/format pick what to review; format prDescription adds PR-description facts). Call before landing a session or to review a branch.
+Check my changes. Ranks this session's changes (working-tree changes minus what was already changed when the session began, or minus preExistingChanges; only `paths` when given) by blast risk so the highest-risk file is read first; files may carry duplicate, orphan or boundary flags, and `findings` lists each as what/where/fix/riskIfSkipped. With review:true it also returns `review`: blast radius, test impact and breaking-change hints per changed path, an overall risk band and the results of the lens checks (paths/base/lens/format pick what to review; format prDescription adds PR-description facts). Call before landing a session or to review a branch.
 
 Arguments: `preExistingChanges`, `review`, `paths`, `base`, `lens`, `format`.
 
@@ -122,9 +122,7 @@ Arguments: `limit`.
 
 ## `prepare_change`
 
-One call before you edit: `prism`, a one-line summary to start your reply with, the lens to work by (its steps, e.g. the smallest complete change), the files to open for this task (pack with exported signatures and path:line anchors), existing helpers to reuse, one House Style pointer, notes (remembered facts and ADR rationale), and a work order. Bodies only for the top symbol when it is ≤ 40 lines; otherwise call graph {mode:"symbol", path, name, body:true}. The whole answer fits a token budget (default 2000); when it is cut, `trimmed` says what was dropped. Ambiguous names come back as candidates; do not pick silently.
-
-Arguments: `task`, `budget`, `sessionId`, `refresh`.
+Experimental. Lists the files and tests related to a task.
 
 ## `receipt`
 

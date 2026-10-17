@@ -4,42 +4,39 @@ Notable changes to Prism. This file is for people who use Prism; the commit
 history is for people who work on it.
 
 Prism follows [semantic versioning](https://semver.org). The version below is
-shared by everything that ships together — the VS Code and Cursor extensions,
-the `prism` CLI, the `prism-mcp` server, and the Core SDK they all call. They
-move as one because they are one build; a mismatch between them has never been
-a supported configuration.
+shared by everything that ships together: the `prism` CLI, the `prism-mcp`
+server and the hook pack.
 
 ## Unreleased
 
-## 2.0.0 — Prepare, lens review and receipts
+## 2.0.0 — Know before you ship
 
-Prism 2.0 is local software intelligence that catches what your coding agent missed. It gives the agent the right files before it edits, then checks the change. Everything runs on your machine. This is a clean break from 1.x.
+Know before you ship. When Claude Code stops, Prism runs your checks on what changed and gives one verdict: SHIP, NOT PROVEN or NO-SHIP. Everything runs on your machine. This is a clean break from 1.x.
 
 ### Start
 
-- **`npm i -g @repo-prism/cli && prism start`** installs Prism for the agents it finds (Claude Code, Cursor, Codex, opencode), indexes the repo, prints the top of the map and shows what to try. `prism install` does the same per host. The CLI ships the matching MCP server and hook pack; the versions move in lockstep.
-- Install records what it writes, and uninstall removes exactly that. Installing over 1.x removes 1.x data; valid custom lenses and config keys are kept.
-- Hooks stay current after an upgrade. When a release changes Prism's hooks, the next Claude Code session updates Prism's own entries in `settings.json`, keeps your other hooks and writes a backup next to the file. If Prism's entries were edited by hand, Prism leaves them and prints one line with the `prism install` command to run. `prism doctor` shows the same check, and `prism doctor --fix` applies the update.
+- **`npm i -g @repo-prism/cli && prism start`** sets Prism up for the agents it finds (Claude Code, Codex, opencode, Cursor) and indexes the repo. The CLI ships the matching MCP server and hook pack; the versions move in lockstep.
+- Nothing changes an agent config without asking. `prism start`, `prism doctor --fix` and `prism upgrade` list the files they would change and ask y/N. With no terminal, or with `--json`, they need `--yes`; `--dry-run` only shows the list. On yes, each file is backed up to `~/.prism-backups/<time in UTC>/` first.
+- `prism install <agent>` doesn't ask, because running it is the go-ahead. It backs up each config to the same `~/.prism-backups/<time in UTC>/` folder first, then prints each file it wrote and where the backups are.
+- Install records what it writes, and `prism uninstall` removes exactly that. Installing over 1.x moves 1.x data to `~/.prism-backups/<time in UTC>/1x/`; valid custom lenses and config keys are kept.
+- Install prints one line per agent. Claude Code gets a verdict when the agent stops. Codex and opencode get the verdict with the next receipt. Cursor is set up for receipts only, so ask it for a receipt.
+- Nothing updates by itself. Update with `npm i -g @repo-prism/cli@latest`. `prism start`, `prism doctor` and the stop output say when a new version is out. When a release changes Prism's hooks, the next Claude Code session prints one line, at most once a day: run `prism doctor --fix`. If Prism's entries were edited by hand, the line names the `prism install` command to run instead.
 - New `prism stats` and `prism doctor --fix`. `prism doctor --surfaces` lists every Prism entry each host can see.
 - `prism strength full|lite|off` sets how much the hooks do.
 
-### Before the edit
+### Verdicts and receipts
 
-- **Prepare**: the automatic file list holds at most 3 files Prism is sure of, with nearby tests and one run command. Files that changed in the same commits are ranked into that list.
-- The prompt hook runs in one Node process, inside the 1 s budget, with the same behaviour for Claude Code, opencode and the daemon-off path.
-- `graph` gains `map` and `symbol` modes; `prism graph map` prints a compact repo map.
-
-### After the edit
-
-- **Receipts** put the verdict first: SHIP, NOT PROVEN (with the cheapest command that would prove it) or NO-SHIP. Checks run your typecheck, lint and the tests the change reaches.
-- **Review** is `guard_session` with `review: true`. Findings say what, where, how to fix it, and the risk if you skip it.
-- **Lenses** are shared by every repository, with nine data-backed checks and custom trigger phrases. `prism review --lens <name>` prints one lens's checks (✓ passed, △ unproven, ✗ failed) with evidence.
+- **Receipts** put the verdict first: SHIP, NOT PROVEN (with the cheapest command that would prove it) or NO-SHIP. Prism runs your own checks on the code the change reaches, and test scripts that chain steps run in full.
+- On Claude Code, the verdict shows in the chat when the agent stops.
+- When Prism can't compare a failure with a clean "before" run, as in some monorepos, the verdict is `NOT PROVEN (can't tell if this failure is new)`.
+- A commit made during the session gives `NOT PROVEN (a commit was made during this session)`. A stop with no changes is never saved as SHIP.
 - `test_impact` returns a ready command for each package. Blast radius works per symbol, and type-only imports no longer count as cycles.
 
 ### Agents
 
 - New `habits` tool and `prism habit` command for saved routines. Prism stores the steps; your agent runs them.
 - One `prism` skill replaces five earlier ones: prism-review-pr, prism-safe-change, prism-onboard, prism-lens and prism-habits.
+- `graph` gains `map` and `symbol` modes; `prism graph map` prints a compact repo map.
 - Every tool takes `maxTokens` (200–12,000).
 
 ### Removed

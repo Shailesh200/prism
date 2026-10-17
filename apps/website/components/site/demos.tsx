@@ -143,9 +143,8 @@ export function StartDemo() {
           {MapLines().slice(0, 5)}
           <Ln />
           <Ln>
-            <span className="g">Try:</span> prism prepare
-            &quot;&lt;task&gt;&quot;, or ask your agent; it calls prepare_change
-            first.
+            <span className="g">Try:</span> ask your agent for a small change,
+            then ask it for a receipt.
           </Ln>
         </Window>
       }
@@ -314,23 +313,7 @@ export function ReviewDemo() {
                   <b>2</b> tests reach it
                 </span>
               </div>
-              <div className="rv-f">
-                <div className="rv-fh">
-                  <span className="sev">high</span>
-                  <span className="lens">QA lens</span>
-                  <span className="ck">dependents_not_in_diff</span>
-                </div>
-                <div className="rv-w">
-                  src/billing/totals.ts changes <b>computeTotals</b>; not
-                  edited: credit-note.ts, invoice.ts, test/totals.test.ts
-                </div>
-                <div className="rv-fix">→ Fix this before shipping.</div>
-              </div>
             </div>
-          </Bubble>
-          <Bubble who="agent" name="opencode">
-            One fix before the PR: computeTotals now also returns vat, so I’ll
-            update invoice.ts, credit-note.ts and the totals test.
           </Bubble>
         </Window>
       }

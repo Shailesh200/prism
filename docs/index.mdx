@@ -3,9 +3,8 @@ title: Introduction
 description: "What Prism does before and after your agent edits, and where to start."
 ---
 
-Prism gives coding agents local context before an edit and checks the change
-after it. Prepare says what to open, which tests to run and what to reuse. A lens
-review flags the callers a change left behind and the code no test covers. When
+Prism gives coding agents local context and checks the change after an edit.
+A review ranks a change by risk and lists the tests that reach it. When
 the agent stops, the receipt runs the checks the change reaches and gives a
 verdict: SHIP, NOT PROVEN or NO-SHIP. Analysis has no model, and your agent
 makes the edits.
@@ -22,14 +21,9 @@ makes the edits.
     description="Blast radius, tests, stack, entry points."
   />
   <Card
-    title="Prepare"
-    href="/docs/guides/prepare-a-change"
-    description="Files, tests, helpers to reuse and House Style, before the edit."
-  />
-  <Card
     title="Review"
     href="/docs/guides/guard-a-session"
-    description="Rank this session's changes and run a lens review."
+    description="Rank this session's changes by risk."
   />
 </Cards>
 
@@ -39,11 +33,8 @@ makes the edits.
 |---|---|
 | Run your first analysis | [Quickstart](/docs/start/quickstart) |
 | Understand an unfamiliar repo | [Understand a repo](/docs/guides/understand-a-repo) |
-| Prepare a change without dumping the repo | [Prepare a change](/docs/guides/prepare-a-change) |
-| Check before editing | [Before you edit](/docs/guides/before-you-edit) |
 | Rank a messy dirty tree | [Guard a session](/docs/guides/guard-a-session) |
 | See unused or duplicated code | [Findings](/docs/guides/findings) |
-| Save a note Prepare hands back | [Remember context](/docs/guides/remember-context) |
 | Review a PR or diff | [Review a PR](/docs/guides/review-a-pr) |
 | Delete something safely | [Delete safely](/docs/guides/delete-safely) |
 

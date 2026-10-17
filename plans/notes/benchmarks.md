@@ -89,10 +89,8 @@ JSON is richer than skimming a few tiny files. That is more structure in one
 hop, not a token win. The inversion (naive grep growing with file count;
 Prism answers staying bounded) shows up on real repositories.
 
-The website `/benchmarks` page publishes this run. Re-run
-`bun run bench:orientation` to refresh both
-`plans/notes/benchmarks-latest.json` and
-`apps/website/data/benchmarks-sample.json`.
+Re-run `bun run bench:orientation` to refresh
+`plans/notes/benchmarks-latest.json`. The website does not publish this run.
 
 > **Note:** Prism pays an upfront index cost once per workspace (~0.5–1 s on
 > these fixtures). Amortized over a real agent session (many questions), wall

@@ -13,9 +13,8 @@ export function SiteFooter() {
           <div>
             <Logo />
             <p className="blurb">
-              Your agent’s second pair of eyes. Know before you ship. Local
-              software intelligence that catches what the agent missed. Free,
-              MIT, runs on your machine.
+              Know before you ship. Prism runs your checks when the agent stops
+              and gives one verdict. Free, MIT, runs on your machine.
             </p>
             <StarButton size="sm" />
           </div>

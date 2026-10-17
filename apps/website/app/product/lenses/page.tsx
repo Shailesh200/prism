@@ -77,8 +77,8 @@ const STEPS = [
   },
   {
     title: "The change is checked",
-    body: "The lens checks run on the change. Findings show in the review and the receipt.",
-    eg: "dependents_not_in_diff · high risk",
+    body: "The lens checks run on the change. Each result shows in the review and the receipt.",
+    eg: "dependents_not_in_diff",
   },
 ];
 
@@ -117,7 +117,7 @@ const CUSTOM: CustomLens[] = [
     checks: ["untested_changed_symbol", "test_reaches_but_not_run"],
     say: "debug this: checkout throws when the cart is empty",
     reply:
-      "Cause first: cartItems() returns [] and checkout reads [0].price. No test covers the empty cart. I’ll add one, then fix.",
+      "Cause first: cartItems() returns [] and checkout reads [0].price. I’ll add a test for the empty cart, then fix.",
   },
   {
     id: "tests",

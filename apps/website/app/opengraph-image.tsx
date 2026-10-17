@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "nodejs";
-export const alt = "Prism — Your agent’s second pair of eyes";
+export const alt = "Prism: know before you ship";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -38,9 +38,9 @@ export default function Image() {
           Prism
         </div>
         <div style={{ fontSize: 32, marginTop: 24, maxWidth: 860 }}>
-          Your agent’s second pair of eyes. Know before you ship. Local software
-          intelligence that catches what the agent missed. Free, MIT, runs on
-          your machine.
+          Know before you ship. When Claude Code stops, Prism runs your checks
+          on what changed and gives one verdict. Free, MIT, runs on your
+          machine.
         </div>
       </div>
     ),

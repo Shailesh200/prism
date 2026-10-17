@@ -13,9 +13,9 @@ import { Ln } from "@/components/ui/term";
 import { Window } from "@/components/ui/window";
 import {
   HabitPair,
-  PrepareDemo,
   ReviewDemo,
   SafeDeleteDemo,
+  VerifyDemo,
 } from "@/components/site/demos";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteNav } from "@/components/site/site-nav";
@@ -52,7 +52,7 @@ export async function generateMetadata({ params }: Props) {
 
 /** What each agent page shows working, reusing the product demos. */
 const DEMO: Record<AgentSlug, ReactNode> = {
-  "claude-code": <PrepareDemo />,
+  "claude-code": <VerifyDemo />,
   cursor: (
     <HabitPair
       habit={{
@@ -182,7 +182,8 @@ export default async function AgentInstallPage({ params }: Props) {
                     Add to Cursor
                   </Button>
                   <p className="text-[15px] text-ink3">
-                    Opens Cursor and asks before it adds the server.
+                    Opens Cursor and asks before it adds the server. For the
+                    full setup, run <code>prism install cursor</code>.
                   </p>
                 </div>
               ) : null}

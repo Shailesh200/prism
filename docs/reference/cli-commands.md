@@ -167,21 +167,9 @@ prism findings mute a3f8c5f0c392dbeb
 
 ## Assess a change
 
-### `prism prepare <task...>`
+### `prism prepare "<task>"`
 
-Files, reuse, and House Style for a task — never file bodies
-
-| Argument | Meaning |
-|---|---|
-| `<task...>` | What you are about to change, in plain language |
-
-| Option | Meaning |
-|---|---|
-| `--budget <n>` | Token budget for the whole answer (default 2000, max 6000) |
-
-```bash
-prism prepare --json "add caching to fetchUser"
-```
+Experimental. Lists the files and tests related to a task.
 
 ### `prism blast <target>`
 
@@ -214,14 +202,9 @@ Risk of the current changes, or of the paths you name
 | Option | Meaning |
 |---|---|
 | `--base <rev>` | Diff against a git revision |
-| `--lens <name>` | Also run this lens's data-backed checks (architect, dev, qa, or a custom lens) |
 | `--fail-on <band>` | Exit 1 when the risk is at or above this band: low, mid, high |
 | `--limit <n>` | Maximum rows to print (default 50) |
 | `--format <fmt>` | Machine output format: sarif (GitHub code scanning) |
-
-```bash
-prism review --lens qa
-```
 
 ```bash
 prism review --base origin/main --fail-on high
@@ -314,39 +297,9 @@ prism receipts --last
 prism receipts show 1 --as markdown > receipt.md
 ```
 
-### `prism lens [action] [target]`
+### `prism lens`
 
-List, show, add or remove review lenses (shared by every repository), or overrule a lens check
-
-| Argument | Meaning |
-|---|---|
-| `[action]` | list (default), show, add, remove, or override |
-| `[target]` | add: the lens name; show/remove/override: the lens id |
-
-| Option | Meaning |
-|---|---|
-| `--name <text>` | add: display name (default: the id) |
-| `--role <text>` | add: what the lens is |
-| `--focus <text>` | add: how it judges |
-| `--checklist <item>` | add: a checklist item (repeatable) |
-| `--checks <ids>` | add: data-backed checks, comma-separated (repeatable) |
-| `--evidence <ids>` | add: Prism reads it uses, comma-separated (repeatable) |
-| `--trigger <phrase>` | add: a phrase that chooses this lens (repeatable) |
-| `--check <id>` | override: the check to overrule |
-| `--path <file>` | override: the file the finding names |
-| `--note <text>` | override: why it is fine |
-
-```bash
-prism lens show dev
-```
-
-```bash
-prism lens add perf --role "Checks hot paths" --focus "No new N+1" --checklist "No query in a loop" --trigger "slow query"
-```
-
-```bash
-prism lens override dev --check reuse_missed --path src/utils/formatDueDate.ts --note "intentionally differs"
-```
+Experimental. Lists, adds and removes lenses.
 
 ## Inspect structure
 
@@ -462,7 +415,7 @@ prism habit show "start my day"
 
 ### `prism remember <note...>`
 
-Save a note about this repository for Prepare to hand back
+Save a note about this repository
 
 | Argument | Meaning |
 |---|---|

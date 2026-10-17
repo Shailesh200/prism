@@ -15,11 +15,12 @@ import {
 } from "@/components/site/product-page";
 import { VerifyDemo } from "@/components/site/demos";
 import { pageMetadata } from "@/lib/seo";
+import { RECEIPT_REASONS } from "@/lib/receipt-reasons";
 
 export const metadata = pageMetadata({
   title: "Receipts",
   description:
-    "When your agent stops, Prism runs your typecheck, lint and the tests the change reaches. The receipt gives one verdict: SHIP, NOT PROVEN or NO-SHIP.",
+    "When your agent stops, Prism runs your own checks on what changed. The receipt gives one verdict: SHIP, NOT PROVEN or NO-SHIP.",
   path: "/product/receipts",
 });
 
@@ -100,7 +101,7 @@ const VERDICTS: Array<{
         ]}
       />
     ),
-    means: "Typecheck, lint and the tests that reach the change all passed.",
+    means: "The checks this change reaches passed.",
     next: "Commit and push.",
   },
   {
@@ -156,33 +157,6 @@ const ANATOMY = [
   },
 ];
 
-const NOT_PROVEN: Array<[reason: string, means: string]> = [
-  ["untested", "A changed file has no test reaching it."],
-  ["no_node_modules", "Tests reach it, but dependencies are not installed."],
-  ["unknown_runner", "Tests reach it, but no known runner could run them."],
-  ["skipped_offline", "Checks were not asked for."],
-  [
-    "still_running",
-    "Checks were still running; ask again and the receipt shows them.",
-  ],
-  ["timeout", "A check ran past its time limit."],
-  [
-    "already_failing",
-    "Every check that reaches it was failing before this session.",
-  ],
-  [
-    "unsupported_language",
-    "Only files in languages Prism can’t check yet changed.",
-  ],
-  [
-    "superseded",
-    "A newer change replaced this one before its checks finished.",
-  ],
-];
-
-const FINDING =
-  "src/billing/totals.ts — dependents_not_in_diff: src/billing/totals.ts changes computeTotals; not edited: src/billing/credit-note.ts, src/billing/invoice.ts → Fix this before shipping. (high risk)";
-
 export default function ReceiptsPage() {
   return (
     <ProductPage slug="receipts">
@@ -192,7 +166,7 @@ export default function ReceiptsPage() {
             Your checks, <em>when the agent stops.</em>
           </>
         }
-        lede="Prism runs your typecheck, lint and the tests the change reaches. The receipt gives one verdict, and its lens checks flag changed code no test covers and callers the change left behind."
+        lede="Prism runs your own checks on what changed. The receipt gives one verdict and lists every check it ran, with the result."
         actions={
           <>
             <Chip tone="ok">SHIP</Chip>
@@ -270,67 +244,6 @@ export default function ReceiptsPage() {
           />
         </Container>
       </section>
-
-      <ExampleRow
-        eyebrow="During review"
-        title="Lenses add their checks."
-        lede="Every receipt also runs the lens checks on the change. Here the tests pass, but the QA lens finds two callers the change did not update."
-      >
-        <ChatTerminalPair
-          chat={
-            <Window title="Claude Code" kind="chat">
-              <Bubble who="you">
-                Add an optional VAT rate to computeTotals
-              </Bubble>
-              <Bubble who="agent" name="Claude Code">
-                Done. computeTotals takes vatRate and returns vat.
-              </Bubble>
-              <Bubble who="prism">
-                <span className="g">Prism · SHIP</span>
-                <br />
-                Prism receipt: changed 1 file, 5 dependents, 2 tests reach it —
-                SHIP
-                <br />
-                <ReceiptRow k="Proven" tone="d">
-                  2 scoped test files · typecheck <span className="g">✓</span> ·
-                  test <span className="g">✓</span>
-                </ReceiptRow>
-                <br />
-                <ReceiptRow k="Finding" tone="y">
-                  {FINDING}
-                </ReceiptRow>
-              </Bubble>
-              <Bubble who="agent" name="Claude Code">
-                Tests pass, and the QA lens found two callers I didn’t update.
-                Updating them now.
-              </Bubble>
-            </Window>
-          }
-          terminal={
-            <Window title="~/northwind">
-              <Typed cmd="prism receipts show 2" />
-              <Ln>
-                <span className="g">Prism · SHIP</span>
-              </Ln>
-              <Ln>
-                Prism receipt: changed 1 file, 5 dependents, 2 tests reach it —
-                SHIP
-              </Ln>
-              <Ln>
-                <ReceiptRow k="Proven" tone="d">
-                  2 scoped test files · typecheck <span className="g">✓</span> ·
-                  test <span className="g">✓</span>
-                </ReceiptRow>
-              </Ln>
-              <Ln>
-                <ReceiptRow k="Finding" tone="y">
-                  {FINDING}
-                </ReceiptRow>
-              </Ln>
-            </Window>
-          }
-        />
-      </ExampleRow>
 
       <section className="sec">
         <Container>
@@ -431,7 +344,10 @@ export default function ReceiptsPage() {
               </Ln>
               <Ln>
                 {"  2  2026-10-16 09:18  "}
-                <span className="y">NOT PROVEN (untested)</span> · 0.6s
+                <span className="y">
+                  NOT PROVEN (no tests reach this change)
+                </span>{" "}
+                · 0.6s
               </Ln>
               <Ln>
                 {"  3  2026-10-16 09:17  "}
@@ -450,7 +366,7 @@ export default function ReceiptsPage() {
 
       <section className="sec">
         <Container>
-          <h2 className="d3">Nine reasons for NOT PROVEN</h2>
+          <h2 className="d3">Eleven reasons for NOT PROVEN</h2>
           <p className="lede mt-3.5 mb-7 text-lg">
             Every NOT PROVEN names one, so you know what to do next.
           </p>
@@ -458,16 +374,14 @@ export default function ReceiptsPage() {
             <Table>
               <thead>
                 <tr>
-                  <th>Reason</th>
-                  <th>Means</th>
+                  <th>Label</th>
+                  <th>What it means</th>
                 </tr>
               </thead>
               <tbody>
-                {NOT_PROVEN.map(([reason, means]) => (
-                  <tr key={reason}>
-                    <td className="nw">
-                      <code>{reason}</code>
-                    </td>
+                {RECEIPT_REASONS.map(({ code, label, means }) => (
+                  <tr key={code}>
+                    <td className="nw">{label}</td>
                     <td>{means}</td>
                   </tr>
                 ))}

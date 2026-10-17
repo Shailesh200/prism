@@ -24,15 +24,12 @@ export async function GET() {
     .join("\n");
 
   const productAbout: Record<string, string> = {
-    "/product/prepare":
-      "files, tests, helpers to reuse and one run command before the edit",
     "/product/blast-radius": "what depends on a file or symbol",
     "/product/guardrails":
       "safe delete and rename; Claude Code and opencode can stop a generated-file edit",
     "/product/receipts": "SHIP, NOT PROVEN or NO-SHIP from your checks",
     "/product/review":
-      "lens review: changes ranked by risk, plus callers left behind and untested code; it posts nothing",
-    "/product/lenses": "Dev, Architect, QA or your own, each with its checks",
+      "review: changes ranked by risk, with the tests that reach them; it posts nothing",
     "/product/habits":
       "saved routines stored as skills; your agent runs the steps",
     "/product/cli": "the same answers from the terminal",
@@ -49,19 +46,17 @@ export async function GET() {
 
   const body = `# Prism
 
-> Your agent’s second pair of eyes. Know before you ship.
-> Local software intelligence that catches what the agent missed. Prism gives
-> your agent the right files before it edits, then flags the code it skipped and
-> the code no test covers. Free and MIT; analysis runs on your machine. Exposed
-> as a CLI and an MCP server (${PRISM_TOOL_COUNT} tools) for AI agents, wired by
-> \`prism install\`.
+> Know before you ship. When Claude Code stops, Prism runs your checks on what
+> changed and gives one verdict: SHIP, NOT PROVEN or NO-SHIP. Free and MIT;
+> analysis runs on your machine. Exposed as a CLI and an MCP server
+> (${PRISM_TOOL_COUNT} tools) for AI agents, wired by \`prism install\`.
 
 Every docs page in full: ${site}/llms-full.txt
 
 ## Product
 
 - [Home](${site}/): what Prism does
-- [${HOW_IT_WORKS.label}](${site}${HOW_IT_WORKS.href}): map, prepare, guard, review
+- [${HOW_IT_WORKS.label}](${site}${HOW_IT_WORKS.href}): map, guard, review
 - [Install](${site}/install): prism start or prism install
 ${installs}
 ${products}
@@ -81,8 +76,6 @@ ${pages}
   for a newer version at most once a day (PRISM_SKIP_SELF_UPDATE=1 turns that
   off). The check sends no repository data.
 - Prism's library lives in \`~/.prism/\`, not in the checkout.
-- Before an edit, call prepare_change. The automatic prompt lists at most
-  three files Prism is sure of.
 - A stop receipt is SHIP, NOT PROVEN (with the cheapest command that would
   prove it) or NO-SHIP.
 `;

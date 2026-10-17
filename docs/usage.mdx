@@ -85,7 +85,6 @@ The server registers nine tools by default:
 
 | Tool | For |
 |---|---|
-| `prepare_change` | Before an edit: files to open, helpers to reuse, House Style, no file bodies |
 | `blast_radius` | What depends on a file or symbol, and how risky a change is |
 | `guard_session` | Which dirty files to read first |
 | `test_impact` | Which tests cover a change |
@@ -105,7 +104,6 @@ Each is listed in the [MCP reference](/docs/reference/mcp-tools).
 |---|---|
 | "What is this repo?" / "Orient me" | `repository_overview` |
 | "Where does checkout live?" | `graph` (find, then explain) |
-| "I'm about to add caching to fetchUser" | `prepare_change` first — pack, reuse, House Style, no bodies |
 | "I'm about to edit `src/…` — what breaks?" | `blast_radius`, `test_impact` |
 | "What should I read first in this dirty tree?" | `guard_session` |
 | "Review my current changes" | `guard_session`, then `blast_radius` on what it flags |
@@ -155,5 +153,5 @@ All tools: [MCP reference](/docs/reference/mcp-tools).
 
 ## Related
 
-[Install](/docs/start/install) · [Prepare a change](/docs/guides/prepare-a-change) ·
+[Install](/docs/start/install) ·
 [Troubleshooting](/docs/help/troubleshooting)

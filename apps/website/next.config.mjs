@@ -160,8 +160,25 @@ const config = {
       // The Product menu has no overview page; each product has its own.
       {
         source: "/products",
-        destination: "/product/prepare",
+        destination: "/product/review",
         permanent: true,
+      },
+      // Prepare and Lenses are held until round 5 passes: temporary (307).
+      {
+        source:
+          "/docs/guides/:page(prepare-a-change|before-you-edit|lenses|remember-context)",
+        destination: "/docs",
+        permanent: false,
+      },
+      {
+        source: "/docs/benchmarks/:page(2\\.x|2\\.x-per-task|2\\.x\\.json)",
+        destination: "/benchmarks",
+        permanent: false,
+      },
+      {
+        source: "/product/:page(prepare|lenses)",
+        destination: "/docs",
+        permanent: false,
       },
       // /whats-new/rss.xml stays a route handler. The slug rule must not take it.
       {

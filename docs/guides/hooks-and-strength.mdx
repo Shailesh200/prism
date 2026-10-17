@@ -13,16 +13,18 @@ source: packages/cli/src/install/hosts.ts; packages/cli/src/commands/strength.ts
 | Moment | What Prism does |
 | --- | --- |
 | Session start | The rules, and on full a short orientation. |
-| Prompt | The file list for a change request, and the lens. |
+| Prompt | Runs when you send a request. |
 | Before an edit | Denies a generated or vendor file. Warns when a file needs sign-off. |
 | After an edit | Notes a high-blast file, and that the receipt will say whether a test reaches it. |
 | Stop | Runs the checks and prints the verdict. |
 
 ## opencode
 
-`prism install opencode` writes a plugin. It runs session start (`session.created`), before an edit, after an edit, and stop. Stop runs on `session.idle`, and the verdict is written to opencode’s app log. There is no prompt hook, so a lens arrives through `prepare_change` when you name it.
+`prism install opencode` writes a plugin. It runs session start (`session.created`), before an edit, after an edit, and stop. Stop runs on `session.idle`, and the verdict is written to opencode’s app log. There is no prompt hook.
 
 ## Cursor and Codex
+
+In Cursor, Prism gives a receipt when the agent asks for one. The automatic verdict when the agent stops isn't available in Cursor yet.
 
 `prism install cursor` writes `~/.cursor/mcp.json` and prints that the rule needs `prism install cursor --project` in each repository (`.cursor/rules/prism.mdc`).
 

@@ -7,8 +7,7 @@ description: "Terms that mean something specific in Prism."
 shared by every surface. See [risk bands](/docs/concepts/risk-bands).
 
 **Blast radius** — Everything a change to one file or symbol could affect:
-dependents, tests, features, and a risk band. See
-[Before you edit](/docs/guides/before-you-edit).
+dependents, tests, features, and a risk band.
 
 **Churn** — How much an area has changed recently, from git history. Unavailable
 without git, including in shallow clones.
@@ -38,10 +37,6 @@ fingerprint. See [Findings](/docs/guides/findings).
 **Guard** — Rank of this session’s dirty files by blast risk, minus
 pre-existing dirt. See [Guard a session](/docs/guides/guard-a-session).
 
-**House Style** — Three exemplars (canonical, recent, older) for how this
-repo already does a pattern — route-handler, component, colocated-test, worker.
-Returned by Prepare. See [Prepare a change](/docs/guides/prepare-a-change).
-
 **Hotspot** — High churn crossed with high complexity. The intersection is what
 matters; neither metric alone identifies it.
 
@@ -56,15 +51,13 @@ what it relates to, what it belongs to. See [graphs](/docs/concepts/graphs).
 boundary. What you would point at while explaining the codebase to someone new.
 
 **Living AGENTS.md** — A contributor sheet generated from the index into
-`~/.prism/workspaces/<key>/agents.md` only. Never written into git. See
-[Remember context](/docs/guides/remember-context).
+`~/.prism/workspaces/<key>/agents.md` only. Never written into git.
 
 **Measured** — Read from real output rather than inferred. The counterpart to
 estimated.
 
 **Memory** — A note about the repository saved with `prism remember`, optionally
-anchored to a symbol or path. Prepare hands it back. See
-[Remember context](/docs/guides/remember-context).
+anchored to a symbol or path.
 
 **MCP** — Model Context Protocol, the standard by which an AI client calls
 external tools. Prism ships an MCP server. See [using MCP](/docs/usage).
@@ -72,14 +65,6 @@ external tools. Prism ships an MCP server. See [using MCP](/docs/usage).
 **Orphan** — A file left dead because the only thing reaching it was deleted.
 Reported by safe delete. Guard also flags a *new* file with no inbound
 imports. See [Delete safely](/docs/guides/delete-safely).
-
-**Pack** — The ranked file list from `prepare_change`: paths, symbols, why,
-token weights. Not file bodies. See
-[Prepare a change](/docs/guides/prepare-a-change).
-
-**Prepare** — One call before an edit: pack + reuse + House Style + notes +
-work order. CLI `prism prepare`. See
-[Prepare a change](/docs/guides/prepare-a-change).
 
 **Provenance** — Whether a value was measured, estimated, or is unknown. See
 [signal provenance](/docs/concepts/signal-provenance).
@@ -93,10 +78,6 @@ Action. All of them consume the same engine and compute nothing themselves.
 **Unavailable** — Prism does not know this, and says so instead of showing zero.
 A repository with no coverage report and one with genuinely zero coverage are
 not the same repository.
-
-**Work order** — In-scope, off-limits (generated/vendor), and needs-sign-off
-paths for a task. Advisory unless an Accepted ADR arms the write veto. See
-[Prepare a change](/docs/guides/prepare-a-change).
 
 **Workspace** — The repository Prism is analysing, and the boundary it will not
 read outside of.

@@ -38,9 +38,6 @@ export default function NotFound() {
                     <Link href="/install">Install Prism</Link>
                   </li>
                   <li>
-                    <Link href="/product/prepare">Prepare</Link>
-                  </li>
-                  <li>
                     <Link href="/product/review">Review</Link>
                   </li>
                   <li>

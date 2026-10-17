@@ -23,12 +23,9 @@ const GROUPS: Array<[string, string]> = [
   ["Set up", "start, install, uninstall, upgrade, doctor"],
   [
     "Check a change",
-    "prepare, blast, rename, safe-delete, test-impact, review, receipts",
+    "blast, rename, safe-delete, test-impact, review, receipts",
   ],
-  [
-    "Look around",
-    "refs, symbol, overview, graph map, deps, cycles, lens, habit",
-  ],
+  ["Look around", "refs, symbol, overview, graph map, deps, cycles, habit"],
 ];
 
 /** Lines from `prism doctor` (it prints a few more: Node, Workspace, Index cache). */

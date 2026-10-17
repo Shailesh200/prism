@@ -14,17 +14,17 @@ import { HOW_IT_WORKS, PRODUCTS } from "./nav";
 
 export const SITE_NAME = "Prism";
 
-export const SITE_DEFAULT_TITLE = "Prism — Your agent’s second pair of eyes";
+export const SITE_DEFAULT_TITLE = "Prism: know before you ship";
 
 export const SITE_DESCRIPTION =
-  "Your agent’s second pair of eyes. Know before you ship. Local software intelligence that catches what the agent missed. Prism gives your agent the right files before it edits, then flags the code it skipped and the code no test covers. Free, MIT, runs on your machine.";
+  "When Claude Code stops, Prism runs your checks on what changed and gives one verdict: SHIP, NOT PROVEN or NO-SHIP. Free, MIT, runs on your machine.";
 
 /** The share card from app/opengraph-image.tsx, used by every page. */
 export const OG_IMAGE = {
   url: "/opengraph-image",
   width: 1200,
   height: 630,
-  alt: "Prism: your agent’s second pair of eyes",
+  alt: "Prism: know before you ship",
 };
 
 /** The release feed, linked from every page head. */
@@ -313,14 +313,12 @@ export function websiteJsonLd(): Record<string, unknown> {
         image: absoluteUrl(OG_IMAGE.url),
         description: SITE_DESCRIPTION,
         featureList: [
-          "Prepare: the files, tests and helpers to reuse before an edit",
-          "Lens review: callers left behind and code no test covers",
+          "Change review: changes ranked by risk, with the tests that reach them",
           "Review: this session's changes ranked by risk",
-          "Lenses: Dev, Architect, QA and your own",
           "Blast radius per symbol, with safe delete and rename",
           "Receipts: SHIP, NOT PROVEN or NO-SHIP from your own checks",
           "Local repository map",
-          "House style and habits",
+          "Habits",
           `MCP server with ${PRISM_TOOL_COUNT} tools for AI agents`,
           "CLI for terminals and CI",
           "Claude Code, Cursor, Codex and opencode install",
@@ -351,14 +349,6 @@ export function faqJsonLd(): Record<string, unknown> {
         acceptedAnswer: {
           "@type": "Answer",
           text: "No. Prism writes no code and its analysis uses no model. It answers questions about your repository’s structure for the agent you already use.",
-        },
-      },
-      {
-        "@type": "Question",
-        name: "What is Prepare?",
-        acceptedAnswer: {
-          "@type": "Answer",
-          text: "One call before an edit (the prepare_change tool). It returns files to open, helpers to reuse, a house-style example, notes and a work order. The automatic prompt lists at most three files Prism is sure of, with nearby tests and one run command.",
         },
       },
       {

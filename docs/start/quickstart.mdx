@@ -3,7 +3,7 @@ title: Quickstart
 description: "Install Prism, ask your agent for a change, and read the verdict."
 ---
 
-Your agent starts in the right files and every change gets a verdict.
+Know before you ship. When Claude Code stops, Prism runs your checks on what changed and gives one verdict.
 
 **Needs:** Node.js, a git repository, and one agent: Claude Code, Cursor, Codex or opencode.
 
@@ -42,27 +42,8 @@ names.
 
 ```text
 You: Add VAT to invoice totals.
-Claude Code: Starting in invoice.ts and totals.ts, then running their tests.
+Claude Code: Done. VAT is added to invoice totals.
 ```
-
-**Terminal** (the same file list, without an agent; shortened)
-
-```bash
-prism prepare "add VAT to invoice totals"
-```
-
-```text
-Prepare: add VAT to invoice totals
-…
-PATH                     WHY
-src/billing/invoice.ts   matches invoice, total; seed file
-src/billing/totals.ts    matches total; import distance 1
-src/checkout/summary.ts  import distance 1
-…
-```
-
-Before it edits, your agent gets the few files that matter, what to reuse and
-the house style. Paths only, never file bodies.
 
 ## 3. Read the verdict
 
@@ -90,7 +71,6 @@ The same answers your agent uses, without an agent:
 | `prism overview` | What this project is: frameworks, domains, landmarks to read first |
 | `prism blast src/some/file.ts` | What a change to this file would break |
 | `prism explain src/some/directory` | What belongs together |
-| `prism prepare "<task>"` | Which files to read before a change |
 
 Every command and flag: [CLI reference](/docs/reference/cli-commands).
 
@@ -99,6 +79,6 @@ Every command and flag: [CLI reference](/docs/reference/cli-commands).
 | You want | Go to |
 |---|---|
 | Task recipes | [Guides](/docs/guides/understand-a-repo) |
-| Prepare / Guard | [Prepare](/docs/guides/prepare-a-change) · [Guard](/docs/guides/guard-a-session) |
+| Guard | [Guard a session](/docs/guides/guard-a-session) |
 | Every command | [CLI reference](/docs/reference/cli-commands) |
 | Something looks wrong | [Troubleshooting](/docs/help/troubleshooting) |

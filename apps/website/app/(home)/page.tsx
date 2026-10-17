@@ -9,10 +9,10 @@ import { Command } from "@/components/ui/command";
 import { Container } from "@/components/ui/container";
 import { CtaBand, INSTALL_COMMAND } from "@/components/ui/cta-band";
 import { Pill } from "@/components/ui/pill";
-import { Failed, Ln, Proven, Typed, cells } from "@/components/ui/term";
+import { Ln, Typed, cells } from "@/components/ui/term";
 import { Bubble, ToolTag, Window } from "@/components/ui/window";
 import { SiteFooter } from "@/components/site/site-footer";
-import { PrepareDemo } from "@/components/site/demos";
+import { VerifyDemo } from "@/components/site/demos";
 import { SiteNav } from "@/components/site/site-nav";
 import { AGENTS } from "@/lib/agents";
 import { SITE_DESCRIPTION, pageMetadata } from "@/lib/seo";
@@ -21,8 +21,6 @@ export const metadata = pageMetadata({
   description: SITE_DESCRIPTION,
   path: "/",
 });
-
-const PROMPT = "add VAT to invoice totals";
 
 function Hero() {
   return (
@@ -38,16 +36,16 @@ function Hero() {
             className="block h-11 w-auto sm:h-14"
           />
           <h1 className="d1 hero-h mt-[22px] sm:mt-7">
-            Your agent starts <em>in the right files.</em>
+            Know before <em>you ship.</em>
           </h1>
           <p className="hero-sub mt-4 mb-5 sm:mb-6">
-            Prism prepares Claude Code before it edits.
+            When Claude Code stops, Prism runs your checks on what changed and
+            gives one verdict: SHIP, NOT PROVEN or NO-SHIP.
           </p>
           <p className="lede hero-lede mb-7">
-            Ask your coding agent for a change in plain words. Prism hands it
-            the files to open, the tests that cover them and the code it can
-            reuse, so it starts in the right place. Everything runs on your
-            machine.
+            One command sets it up for Claude Code, Cursor, Codex and opencode.
+            It shows every config it will change, asks first, and backs each one
+            up. Everything runs on your machine.
           </p>
           <Command cmd={INSTALL_COMMAND} />
           <div className="hero-acts mt-5">
@@ -64,135 +62,10 @@ function Hero() {
           </div>
         </div>
         <div>
-          <ChatTerminalPair
-            chat={
-              <Window title="Claude Code" kind="chat">
-                <Bubble who="you">Add VAT to invoice totals</Bubble>
-                <Bubble who="prism">
-                  <ToolTag>prepare_change</ToolTag>
-                  <span className="kv">
-                    <span className="d">prism</span>
-                    {
-                      " Prism · Dev lens + 1 file (invoice.ts) + plan cue (high blast: src/billing/invoice.ts)"
-                    }
-                  </span>
-                  <span className="d">…</span>
-                  <br />
-                  <span className="d">pack.files</span>
-                  <span className="f">
-                    <span className="k d">1</span>
-                    {"src/billing/invoice.ts "}
-                    <span className="g">high</span>{" "}
-                    <span className="d">lead</span>
-                  </span>
-                  <span className="f2">
-                    <span className="d">why</span>
-                    {" matches invoice, total; seed file"}
-                  </span>
-                  <span className="f2">
-                    {"function invoiceTotal(lines: Line[]): Cents "}
-                    <span className="d">:5</span>
-                  </span>
-                  <span className="f">
-                    <span className="k d">2</span>
-                    {"src/billing/totals.ts "}
-                    <span className="y">medium</span>
-                  </span>
-                  <span className="f2">
-                    <span className="d">why</span>
-                    {" matches total; import distance 1"}
-                  </span>
-                  <span className="f">
-                    <span className="k d">3</span>
-                    {"src/checkout/summary.ts "}
-                    <span className="y">medium</span>
-                  </span>
-                  <span className="f">
-                    <span className="k d">4</span>
-                    {"src/lib/money.ts "}
-                    <span className="y">medium</span>
-                  </span>
-                  <span className="kv">
-                    <span className="d">pack.tests</span>
-                    {" test/invoice.test.ts, test/totals.test.ts"}
-                  </span>
-                  <span className="kv">
-                    <span className="d">pack.run</span>
-                    {" npx vitest run test/invoice.test.ts test/totals.test.ts"}
-                  </span>
-                  <span className="d">reuse</span>
-                  {" invoiceTotal "}
-                  <span className="d">function · 1</span>
-                  <span className="kv" style={{ paddingLeft: "6ch" }}>
-                    Line <span className="d">type · 0.3</span>
-                  </span>
-                  <span className="d">…</span>
-                </Bubble>
-                <Bubble who="agent" name="Claude Code">
-                  Starting in invoice.ts and totals.ts, then running their
-                  tests.
-                </Bubble>
-              </Window>
-            }
-            terminal={
-              <Window title="~/northwind">
-                <Typed cmd={`prism prepare "${PROMPT}"`} />
-                <Ln>
-                  <span className="w">Prepare: add VAT to invoice totals</span>
-                </Ln>
-                <Ln />
-                <Ln>
-                  <span className="d">{cells(9, "Files", "")}</span>4
-                </Ln>
-                <Ln>
-                  <span className="d">{cells(9, "Tests", "")}</span>2
-                </Ln>
-                <Ln>
-                  <span className="d">{cells(9, "Reuse", "")}</span>2
-                </Ln>
-                <Ln>
-                  <span className="d">{cells(9, "Truncated", "")}</span>no
-                </Ln>
-                <Ln />
-                <Ln>
-                  <span className="d">{cells(23, "PATH", "WHY")}</span>
-                </Ln>
-                <Ln>
-                  {cells(
-                    23,
-                    "src/billing/invoice.ts",
-                    "matches invoice, total; seed file",
-                  )}
-                </Ln>
-                <Ln>
-                  {cells(
-                    23,
-                    "src/billing/totals.ts",
-                    "matches total; import distance 1",
-                  )}
-                </Ln>
-                <Ln>
-                  {cells(23, "src/checkout/summary.ts", "import distance 1")}
-                </Ln>
-                <Ln>{cells(23, "src/lib/money.ts", "import distance 1")}</Ln>
-                <Ln />
-                <Ln>
-                  <span className="d">Reuse</span>
-                </Ln>
-                <Ln>
-                  {`  ${cells(12, "invoiceTotal", "src/billing/invoice.ts")}`}
-                </Ln>
-                <Ln>{`  ${cells(4, "Line", "src/billing/invoice.ts")}`}</Ln>
-                <Ln>
-                  <span className="d">…</span>
-                </Ln>
-              </Window>
-            }
-          />
+          <VerifyDemo />
           <p className="cap">
-            What you type, and what your agent gets before its first edit. After
-            the edit, a <Link href="/product/review">lens review</Link> and a
-            receipt check the work.
+            What happens when your agent stops: your checks run and you get one
+            verdict.
           </p>
         </div>
       </Container>
@@ -224,19 +97,9 @@ function FeatureBlock({
 
 const WHAT_IT_DOES = [
   {
-    title: "What should I open for this task?",
-    href: "/product/prepare",
-    body: "Prepare hands the agent the few files that matter, the tests to run and code to reuse.",
-  },
-  {
-    title: "How does this repo do it?",
-    href: "/product/prepare",
-    body: "House style points at a file from your own code to copy, never a fixture or a test.",
-  },
-  {
-    title: "What did the agent miss?",
+    title: "What does the review show?",
     href: "/product/review",
-    body: "Review ranks this session’s changes by risk, and a lens adds checks like callers left behind and code no test covers.",
+    body: "Review ranks this session’s changes by risk and lists the tests that reach them.",
   },
   {
     title: "What breaks if I change this?",
@@ -251,12 +114,7 @@ const WHAT_IT_DOES = [
   {
     title: "Is the change ready to ship?",
     href: "/product/receipts",
-    body: "When the agent stops, Prism runs your typecheck, lint and the tests the change reaches, and the receipt says SHIP, NOT PROVEN or NO-SHIP.",
-  },
-  {
-    title: "How should the agent work?",
-    href: "/product/lenses",
-    body: "A lens sets how the agent works and what review checks: Dev, Architect, QA or your own.",
+    body: "When the agent stops, Prism runs your checks on what changed, and the receipt says SHIP, NOT PROVEN or NO-SHIP.",
   },
   {
     title: "Can it run my routine?",
@@ -284,7 +142,7 @@ export default function HomePage() {
         <section className="sec">
           <Container>
             <div className="eyebrow">How it works</div>
-            <h2 className="d2 mt-3 mb-11">Three steps.</h2>
+            <h2 className="d2 mt-3 mb-11">Two steps.</h2>
             <Steps
               items={[
                 {
@@ -297,72 +155,13 @@ export default function HomePage() {
                   ),
                 },
                 {
-                  title: "Ask as usual",
-                  body: "Type your request in plain words. Prism adds the files, tests and code to reuse. No tool names needed.",
-                },
-                {
-                  title: "Review what it missed",
-                  body: "Ask for a review. A lens flags callers left behind and code no test covers. When the agent stops, the receipt says SHIP, NOT PROVEN or NO-SHIP.",
+                  title: "Review before you push",
+                  body: "Ask for a review. Prism ranks the session’s changes by risk and lists the tests that reach them. When the agent stops, the receipt says SHIP, NOT PROVEN or NO-SHIP.",
                 },
               ]}
             />
           </Container>
         </section>
-
-        <FeatureBlock
-          title="Prepare, before the edit"
-          lede="Ask for a change and Prism adds the files to open, a signature for the top one, the tests and the command to run them."
-        >
-          <PrepareDemo />
-        </FeatureBlock>
-
-        <FeatureBlock
-          title="Review, after the edit"
-          lede="The QA lens flags a changed function no test covers, callers the change left behind and tests that reach it but did not run. When your agent stops, Prism runs those tests. If one fails, the receipt says NO-SHIP."
-        >
-          <ChatTerminalPair
-            chat={
-              <Window title="Claude Code" kind="chat">
-                <Bubble who="you">Tidy up the reduce in computeTotals</Bubble>
-                <Bubble who="agent" name="Claude Code">
-                  Done. The reduce in computeTotals is shorter now.
-                </Bubble>
-                <Bubble who="prism">
-                  <span className="r">Prism · NO-SHIP (1 check failed)</span>
-                  <br />
-                  Prism receipt: changed 1 file, 5 dependents, 2 tests reach it
-                  — NO-SHIP
-                  <br />
-                  <Proven />
-                  <br />
-                  <Failed />
-                </Bubble>
-                <Bubble who="agent" name="Claude Code">
-                  The test caught it: I wrote price + qty instead of price *
-                  qty. Fixed, and the next receipt says SHIP.
-                </Bubble>
-              </Window>
-            }
-            terminal={
-              <Window title="~/northwind">
-                <Typed cmd="prism receipts show 1" />
-                <Ln>
-                  <span className="w">Prism · NO-SHIP (1 check failed)</span>
-                </Ln>
-                <Ln>
-                  Prism receipt: changed 1 file, 5 dependents, 2 tests reach it
-                  — NO-SHIP
-                </Ln>
-                <Ln>
-                  <Proven />
-                </Ln>
-                <Ln>
-                  <Failed />
-                </Ln>
-              </Window>
-            }
-          />
-        </FeatureBlock>
 
         <FeatureBlock
           title="Every caller"
@@ -426,26 +225,19 @@ export default function HomePage() {
               <div className="eyebrow">Benchmarks</div>
               <h2 className="d2 mt-3 mb-[18px]">Measured on real fixes.</h2>
               <p className="lede">
-                From the Prism 2.0 evaluation on 220 tasks in six public
-                repositories. The method and every result are on the benchmarks
-                page.
+                Real coding agents on real fixes from public repositories, with
+                Prism and without it. The method and every result are on the
+                benchmarks page.
               </p>
               <Button href="/benchmarks" variant="line" className="mt-6">
                 See the benchmarks
               </Button>
             </div>
-            <div className="grid3 gap-4">
-              <Stat n="61.8" unit="%">
-                of the files the real fix changed were in Prism’s pack (220
-                tasks, 6 repos)
+            <div className="grid2 gap-4">
+              <Stat n="6 of 6">
+                habits ran when asked (Cursor agent CLI 4 of 4, opencode 2 of 2)
               </Stat>
-              <Stat n="64.9" unit="%">
-                of the tests a real fix needed were found by Prism (same 220
-                tasks)
-              </Stat>
-              <Stat n="4 of 4">
-                agents pass install, doctor and a sample hook
-              </Stat>
+              <Stat n="At stop">Claude Code gives a verdict at stop.</Stat>
             </div>
           </Container>
         </section>

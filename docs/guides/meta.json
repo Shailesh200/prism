@@ -1,16 +1,12 @@
 {
   "title": "Using Prism",
   "pages": [
-    "prepare-a-change",
-    "before-you-edit",
     "guard-a-session",
     "review-a-pr",
     "wire-into-ci",
     "hooks-and-strength",
     "receipt",
-    "lenses",
     "habits-and-skills",
-    "remember-context",
     "understand-a-repo",
     "graph",
     "findings",
