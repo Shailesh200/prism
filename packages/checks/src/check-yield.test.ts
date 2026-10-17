@@ -1,5 +1,7 @@
 import { spawnSync } from "node:child_process";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { getPriority, tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { VerifyStep } from "./types.js";
 import {
@@ -12,9 +14,11 @@ import {
   verifyRunnerWithTimeout,
   restoreCommands,
   setChecksYield,
+  setYieldEventSink,
   trackCheckGroupForTest,
   yieldCommands,
   type YieldExec,
+  type YieldIncomplete,
 } from "./verify.js";
 
 afterEach(async () => {
@@ -172,7 +176,8 @@ describe("check yield mode (round 5, D)", () => {
     const ran: string[][] = [];
     const exec: YieldExec = async (argv) => {
       ran.push([...argv]);
-      if (argv.includes("3")) await gate;
+      // The yield call only: `-c 3`. Not any argv holding a "3" (a pid).
+      if (argv[2] === "3") await gate;
       return "";
     };
     const launched = checkStarted(4242, exec, "linux");
@@ -240,6 +245,133 @@ describe("check yield mode (round 5, D)", () => {
     await setChecksYield(true, { now, exec: async () => "" });
     expect(checksYielding(now + CHECK_YIELD_MS - 1)).toBe(true);
     expect(checksYielding(now + CHECK_YIELD_MS)).toBe(false);
+  });
+});
+
+/** Collects incomplete-sweep reports until `restore`. */
+function sink(): { events: YieldIncomplete[]; restore: () => void } {
+  const events: YieldIncomplete[] = [];
+  const previous = setYieldEventSink((e) => events.push(e));
+  return { events, restore: () => void setYieldEventSink(previous) };
+}
+
+describe("an incomplete sweep is retried and reported (Arc review)", () => {
+  it("a sweep where every command fails is not recorded: the next sync tries again", async () => {
+    const { events, restore } = sink();
+    try {
+      trackCheckGroupForTest(4242, true);
+      const ran: string[][] = [];
+      const failing: YieldExec = async (argv) => {
+        ran.push([...argv]);
+        return null;
+      };
+      await setChecksYield(true, { exec: failing, platform: "darwin" });
+      const first = ran.length;
+      expect(first).toBeGreaterThan(0);
+      // Another prompt: the group is still not yielded, so it is swept again.
+      await setChecksYield(true, { exec: failing, platform: "darwin" });
+      expect(ran.length).toBe(first * 2);
+      expect(events).toEqual([
+        {
+          platform: "darwin",
+          pgid: 4242,
+          mode: "yield",
+          passes: 1,
+          reason: "failed",
+        },
+        {
+          platform: "darwin",
+          pgid: 4242,
+          mode: "yield",
+          passes: 1,
+          reason: "failed",
+        },
+      ]);
+      // Once the tools work, the retry takes and later syncs skip the group.
+      const { ran: ok, exec } = recorder();
+      await setChecksYield(true, { exec, platform: "darwin" });
+      expect(ok.length).toBeGreaterThan(0);
+      ok.length = 0;
+      await setChecksYield(true, { exec, platform: "darwin" });
+      expect(ok).toEqual([]);
+    } finally {
+      restore();
+    }
+  });
+
+  it("Linux: ionice -P and every per-pid ionice failing is reported once", async () => {
+    const { events, restore } = sink();
+    try {
+      trackCheckGroupForTest(4242, true);
+      await setChecksYield(true, {
+        exec: async (argv) => (argv[0] === "pgrep" ? "4242\n" : null),
+        platform: "linux",
+      });
+      expect(events).toEqual([
+        {
+          platform: "linux",
+          pgid: 4242,
+          mode: "yield",
+          passes: 1,
+          reason: "failed",
+        },
+      ]);
+    } finally {
+      restore();
+    }
+  });
+
+  it("a group that keeps forking past the last pass is reported, and kept as yielded", async () => {
+    const { events, restore } = sink();
+    try {
+      trackCheckGroupForTest(4242, true);
+      let next = 5000;
+      const ran: string[][] = [];
+      const exec: YieldExec = async (argv) => {
+        ran.push([...argv]);
+        return argv[0] === "pgrep" ? `4242\n${next++}\n` : "";
+      };
+      await setChecksYield(true, { exec, platform: "darwin" });
+      expect(events).toEqual([
+        {
+          platform: "darwin",
+          pgid: 4242,
+          mode: "yield",
+          passes: 5,
+          reason: "passes",
+        },
+      ]);
+      // The leader took the mode, so the group counts as yielded.
+      ran.length = 0;
+      await setChecksYield(true, { exec, platform: "darwin" });
+      expect(ran).toEqual([]);
+    } finally {
+      restore();
+    }
+  });
+
+  it("a clean sweep reports nothing, and a throwing sink cannot break it", async () => {
+    const { events, restore } = sink();
+    try {
+      trackCheckGroupForTest(4242, true);
+      const { exec } = recorder();
+      await setChecksYield(true, { exec, platform: "darwin" });
+      expect(events).toEqual([]);
+    } finally {
+      restore();
+    }
+    const previous = setYieldEventSink(() => {
+      throw new Error("sink down");
+    });
+    try {
+      trackCheckGroupForTest(4243, true);
+      await expect(
+        setChecksYield(true, { exec: async () => null, platform: "darwin" }),
+      ).resolves.toBeUndefined();
+    } finally {
+      setYieldEventSink(previous);
+      trackCheckGroupForTest(4243, false);
+    }
   });
 });
 
@@ -344,16 +476,33 @@ describe.runIf(realTools)("real processes (Scout, round 5)", () => {
   });
 
   it("the stop puts every process of a yielded check back", async () => {
-    await setChecksYield(true);
-    const running = verifyRunnerWithTimeout(10_000)(tmpdir(), {
-      name: "t",
-      kind: "argv",
-      argv: ["sh", "-c", `sh -c "sleep 1.5; ${SELF_CLASS}"`],
-    } as VerifyStep);
-    await new Promise((r) => setTimeout(r, 600));
-    await setChecksYield(false);
-    const result = await running;
-    expect(result.ok).toBe(true);
-    expect(idle(result.output)).toBe(false);
+    // No fixed sleep (Arc review): the child says when it is running, and
+    // reports its class only after the stop has been applied.
+    const dir = mkdtempSync(join(tmpdir(), "prism-yield-"));
+    const started = join(dir, "started");
+    const go = join(dir, "go");
+    try {
+      await setChecksYield(true);
+      const running = verifyRunnerWithTimeout(20_000)(tmpdir(), {
+        name: "t",
+        kind: "argv",
+        argv: [
+          "sh",
+          "-c",
+          `sh -c 'touch "${started}"; while [ ! -f "${go}" ]; do sleep 0.05; done; ${SELF_CLASS.replace(/\\\$/g, "$")}'`,
+        ],
+      } as VerifyStep);
+      const deadline = Date.now() + 15_000;
+      while (!existsSync(started) && Date.now() < deadline)
+        await new Promise((r) => setTimeout(r, 20));
+      expect(existsSync(started)).toBe(true);
+      await setChecksYield(false);
+      writeFileSync(go, "");
+      const result = await running;
+      expect(result.ok).toBe(true);
+      expect(idle(result.output)).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

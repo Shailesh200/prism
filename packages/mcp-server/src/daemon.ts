@@ -10,7 +10,7 @@ import type { PrismWorkspace } from "@repo-prism/core";
 import type { DaemonRootRoute, DaemonTool } from "@repo-prism/daemon/server";
 import { PrismErrorCode, err, ok, prismError } from "@repo-prism/shared";
 import { z } from "zod";
-import { setChecksYield } from "@repo-prism/checks";
+import { setChecksYield, setYieldEventSink } from "@repo-prism/checks";
 import { daemonBuildId } from "./daemon-attach.js";
 import { recordEvent } from "@repo-prism/shared/events";
 import type { ToolDefinition } from "./tool-registry.js";
@@ -81,7 +81,29 @@ function parseWith<T>(schema: z.ZodType<T>, raw: unknown) {
  * it works (a prompt or a session start) and run at check priority after a
  * stop. Best-effort; never fails the route.
  */
+let yieldEventsWired = false;
+
+/** Incomplete yield sweeps land in events.jsonl (Arc review). */
+export function wireYieldEvents(): void {
+  if (yieldEventsWired) return;
+  yieldEventsWired = true;
+  setYieldEventSink((e) => {
+    recordEvent({
+      event: "checks.yield_incomplete",
+      outcome: "degraded",
+      reason: e.reason,
+      detail: {
+        platform: e.platform,
+        pgid: e.pgid,
+        passes: e.passes,
+        mode: e.mode,
+      },
+    });
+  });
+}
+
 export function agentBusy(busy: boolean): void {
+  wireYieldEvents();
   void setChecksYield(busy).catch((error: unknown) =>
     recordEvent({
       event: "daemon.checks_yield",

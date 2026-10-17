@@ -503,8 +503,12 @@ const execTool: YieldExec = (argv) =>
 
 /** Process groups of checks still running (each check leads its own group). */
 const liveCheckGroups = new Set<number>();
-/** Mode last applied to each live group; absent means normal. */
-const groupMode = new Map<number, "yield" | "restore">();
+/**
+ * Mode last applied to each live group; absent means normal. `unknown` marks
+ * a sweep that did not take (Arc review): it matches no wanted mode, so the
+ * next sync tries again instead of skipping a group nothing was applied to.
+ */
+const groupMode = new Map<number, "yield" | "restore" | "unknown">();
 /** Per-group queue, so a launch sweep and a stop cannot interleave. */
 const groupQueue = new Map<number, Promise<void>>();
 let yieldUntil = 0;
@@ -517,27 +521,84 @@ export function checksYielding(now: number = Date.now()): boolean {
 /** Passes before a sweep gives up on a group that keeps forking. */
 const SWEEP_PASSES = 5;
 
+/** A sweep that could not finish (Arc review): reported, never silent. */
+export type YieldIncomplete = {
+  readonly platform: NodeJS.Platform;
+  readonly pgid: number;
+  readonly mode: "yield" | "restore";
+  readonly passes: number;
+  /** `passes`: still forking after the last pass; `failed`: no command took; `error`: exec threw. */
+  readonly reason: "passes" | "failed" | "error";
+};
+
+export type YieldEventSink = (event: YieldIncomplete) => void;
+
+let yieldEventSink: YieldEventSink = () => undefined;
+
+/**
+ * Where incomplete sweeps are reported. `checks` has no dependency on
+ * `@repo-prism/shared`, so the daemon wires this to `recordEvent`
+ * (`checks.yield_incomplete`). Returns the previous sink.
+ */
+export function setYieldEventSink(sink: YieldEventSink): YieldEventSink {
+  const previous = yieldEventSink;
+  yieldEventSink = sink;
+  return previous;
+}
+
+function reportIncomplete(event: YieldIncomplete): void {
+  try {
+    yieldEventSink(event);
+  } catch {
+    // Reporting must never break a check.
+  }
+}
+
+/** Outcome of one sweep: whether the leader took the mode, and how it ended. */
+type SweepResult = {
+  readonly leaderChanged: boolean;
+  readonly passes: number;
+  readonly incomplete: "passes" | "failed" | null;
+};
+
 /**
  * Apply `mode` to every process of one check's group. Linux: one `ionice -P`
  * (per-pid fallback if that fails). macOS: list the group, apply to each pid
  * not done yet, and list again until a pass finds nothing new; a process
  * forked after its parent was moved inherits the new class (checked on a
  * real Mac), so a quiet pass leaves no process behind.
+ *
+ * Not covered on either platform: a process that leaves the group itself
+ * (`setsid`, `setpgid`). Neither `ionice -P` nor `pgrep -g` can see it. That
+ * is acceptable for vitest, jest and eslint, which keep their workers in the
+ * group; do not assume it holds for every runner.
  */
 async function sweepGroup(
   pgid: number,
   mode: "yield" | "restore",
   exec: YieldExec,
   platform: NodeJS.Platform = process.platform,
-): Promise<void> {
+): Promise<SweepResult> {
   const perPid = (pid: number): string[][] =>
     mode === "yield"
       ? yieldCommands(pid, platform)
       : restoreCommands(pid, platform);
-  if (perPid(pgid).length === 0) return;
+  // Nothing this platform can apply: done, and nothing to report.
+  if (perPid(pgid).length === 0)
+    return { leaderChanged: true, passes: 0, incomplete: null };
   const group = groupCommand(mode, pgid, platform);
-  if (group && (await exec(group)) !== null) return;
+  if (group && (await exec(group)) !== null)
+    return { leaderChanged: true, passes: 0, incomplete: null };
   const done = new Set<number>();
+  let leaderChanged = false;
+  let anyChanged = false;
+  const apply = async (pid: number): Promise<void> => {
+    const results = await Promise.all(perPid(pid).map((argv) => exec(argv)));
+    if (results.every((out) => out !== null)) {
+      anyChanged = true;
+      if (pid === pgid) leaderChanged = true;
+    }
+  };
   for (let pass = 0; pass < SWEEP_PASSES; pass++) {
     const listed = (await exec(["pgrep", "-g", String(pgid)])) ?? "";
     const pids = new Set(pass === 0 ? [pgid] : []);
@@ -546,12 +607,21 @@ async function sweepGroup(
       if (Number.isInteger(pid) && pid > 0) pids.add(pid);
     }
     const fresh = [...pids].filter((pid) => !done.has(pid));
-    if (fresh.length === 0) return;
+    if (fresh.length === 0) {
+      return {
+        leaderChanged,
+        passes: pass,
+        incomplete: anyChanged ? null : "failed",
+      };
+    }
     for (const pid of fresh) done.add(pid);
-    await Promise.all(
-      fresh.flatMap((pid) => perPid(pid).map((argv) => exec(argv))),
-    );
+    await Promise.all(fresh.map(apply));
   }
+  return {
+    leaderChanged,
+    passes: SWEEP_PASSES,
+    incomplete: anyChanged ? "passes" : "failed",
+  };
 }
 
 /**
@@ -569,8 +639,33 @@ function syncGroup(
     if (!liveCheckGroups.has(pgid)) return;
     const want = checksYielding() ? "yield" : "restore";
     if ((groupMode.get(pgid) ?? "restore") === want) return;
-    groupMode.set(pgid, want);
-    await sweepGroup(pgid, want, exec, platform);
+    let result: SweepResult;
+    try {
+      result = await sweepGroup(pgid, want, exec, platform);
+    } catch {
+      result = { leaderChanged: false, passes: 0, incomplete: null };
+      reportIncomplete({
+        platform,
+        pgid,
+        mode: want,
+        passes: 0,
+        reason: "error",
+      });
+    }
+    // The check may have ended while the sweep ran: leave no entry behind.
+    if (!liveCheckGroups.has(pgid)) return;
+    // Recorded only once the sweep took (Arc review); otherwise the next
+    // sync tries again.
+    groupMode.set(pgid, result.leaderChanged ? want : "unknown");
+    if (result.incomplete) {
+      reportIncomplete({
+        platform,
+        pgid,
+        mode: want,
+        passes: result.passes,
+        reason: result.incomplete,
+      });
+    }
   });
   const settled = next.catch(() => undefined);
   groupQueue.set(pgid, settled);
