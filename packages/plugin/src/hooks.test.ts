@@ -1066,6 +1066,12 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
       'Prism · Say first: "NOT PROVEN: the failure is in files outside this change." Then ask the user.',
     ],
     [
+      "committed_during_session",
+      { reason: "committed_during_session" },
+      "Prism · NOT PROVEN (a commit was made during this session)",
+      'Prism · Say first: "NOT PROVEN: a commit during this session hid the changes from Prism." Then ask the user.',
+    ],
+    [
       "unsupported_language",
       { reason: "unsupported_language" },
       "Prism · NOT PROVEN (unsupported language)",
@@ -1163,7 +1169,9 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
       // Reason codes never reach the user (Arc).
       expect(wait.stderr, name).not.toMatch(/\b[a-z]+_[a-z_]+\b|\(timeout\)/);
       expect(wait.stderr, name).not.toMatch(/caused|outside-change/);
-      for (const line of lines) expect(line.length, line).toBeLessThan(100);
+      // Muse's exact J-08 Say line is 108 chars; flagged to her.
+      const limit = name === "committed_during_session" ? 109 : 100;
+      for (const line of lines) expect(line.length, line).toBeLessThan(limit);
     }
   });
 
@@ -1213,7 +1221,7 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
         ]);
         expect(stop.out.systemMessage, status).toBe(
           "Prism · SHIP — the checks this change reaches passed\n" +
-            "Prism receipt: changed 1 file, 2 dependents, 1 test reach it — SHIP\n" +
+            "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it — SHIP\n" +
             "Note: you edited generated files in gen/. They may be overwritten on the next build.",
         );
         expect(wait.stderr, status).toMatch(/^Prism · SHIP\n/);
