@@ -4,19 +4,9 @@ export type NavLink = { href: string; label: string };
 
 export const PRODUCTS: Array<NavLink & { blurb: string }> = [
   {
-    href: "/product/prepare",
-    label: "Prepare",
-    blurb: "Files, tests and helpers first",
-  },
-  {
     href: "/product/review",
     label: "Review",
     blurb: "Changes, ranked by risk",
-  },
-  {
-    href: "/product/lenses",
-    label: "Lenses",
-    blurb: "Dev, QA, Architect or your own",
   },
   {
     href: "/product/blast-radius",

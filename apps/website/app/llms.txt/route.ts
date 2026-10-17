@@ -24,15 +24,12 @@ export async function GET() {
     .join("\n");
 
   const productAbout: Record<string, string> = {
-    "/product/prepare":
-      "files, tests, helpers to reuse and one run command before the edit",
     "/product/blast-radius": "what depends on a file or symbol",
     "/product/guardrails":
       "safe delete and rename; Claude Code and opencode can stop a generated-file edit",
     "/product/receipts": "SHIP, NOT PROVEN or NO-SHIP from your checks",
     "/product/review":
       "review: changes ranked by risk, with the tests that reach them and the lens checks you pick; it posts nothing",
-    "/product/lenses": "Dev, Architect, QA or your own, each with its checks",
     "/product/habits":
       "saved routines stored as skills; your agent runs the steps",
     "/product/cli": "the same answers from the terminal",

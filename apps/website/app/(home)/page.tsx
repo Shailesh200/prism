@@ -97,16 +97,6 @@ function FeatureBlock({
 
 const WHAT_IT_DOES = [
   {
-    title: "What should I open for this task?",
-    href: "/product/prepare",
-    body: "Prepare hands the agent the few files that matter, the tests to run and code to reuse.",
-  },
-  {
-    title: "How does this repo do it?",
-    href: "/product/prepare",
-    body: "House style points at a file from your own code to copy, never a fixture or a test.",
-  },
-  {
     title: "What does the review show?",
     href: "/product/review",
     body: "Review ranks this session’s changes by risk and lists the tests that reach them. A lens sets the angle: structure, proof or small clean fixes.",
@@ -125,11 +115,6 @@ const WHAT_IT_DOES = [
     title: "Is the change ready to ship?",
     href: "/product/receipts",
     body: "When the agent stops, Prism runs your checks on what changed, and the receipt says SHIP, NOT PROVEN or NO-SHIP.",
-  },
-  {
-    title: "How should the agent work?",
-    href: "/product/lenses",
-    body: "A lens sets how the agent works and what review checks: Dev, Architect, QA or your own.",
   },
   {
     title: "Can it run my routine?",
