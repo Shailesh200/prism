@@ -24,7 +24,12 @@ import {
 import { detectHosts } from "../install/hosts.js";
 import type { CommandContext, CommandHandler } from "../runtime.js";
 import { wrap } from "../table.js";
-import { defaultLayout, HOST_NAMES, runInstall } from "./install.js";
+import {
+  backupLines,
+  defaultLayout,
+  HOST_NAMES,
+  runInstall,
+} from "./install.js";
 
 /** Enough of the map to orient: the few most-imported files and their exports. */
 export const START_MAP_TOKENS = 600;
@@ -200,6 +205,7 @@ export const startCommand: CommandHandler = async (context) => {
     lines.push(
       `Prism ${result.record.version} installed for ${result.installed.map((host) => HOST_NAMES[host]).join(", ")} (${result.build}).`,
       ...result.notes,
+      ...backupLines(result.backupRoot),
     );
   }
   const result = await answerWithMap(context);

@@ -3,7 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  checkForUpdate,
   readCachedLatest,
+  REGISTRY_URL,
   UPDATE_COMMAND,
   updateLine,
   updateNotice,
@@ -59,5 +61,29 @@ describe("update notice (PR 10)", () => {
         PRISM_SKIP_SELF_UPDATE: "1",
       }),
     ).toBeUndefined();
+  });
+
+  it("asks npm about @repo-prism/cli, the package the command installs (Arc review)", async () => {
+    expect(REGISTRY_URL).toBe(
+      "https://registry.npmjs.org/@repo-prism/cli/latest",
+    );
+    const asked: string[] = [];
+    const fetchImpl = (async (url: string | URL | Request) => {
+      asked.push(String(url));
+      return new Response(JSON.stringify({ version: "2.0.1" }), {
+        status: 200,
+      });
+    }) as typeof fetch;
+    const outcome = await checkForUpdate({
+      currentVersion: "2.0.0",
+      entry: "/usr/lib/node_modules/@repo-prism/cli/dist/bin.js",
+      env: prismHome(),
+      fetchImpl,
+    });
+    expect(asked).toEqual([
+      "https://registry.npmjs.org/@repo-prism/cli/latest",
+    ]);
+    expect(outcome).toMatchObject({ kind: "available", latest: "2.0.1" });
+    expect(UPDATE_COMMAND).toContain("@repo-prism/cli@");
   });
 });

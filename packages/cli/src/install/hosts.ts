@@ -6,19 +6,26 @@
  * a JSON key, a managed text block, or a whole file/folder Prism created.
  */
 import {
+  chmodSync,
+  closeSync,
   cpSync,
   existsSync,
+  fsyncSync,
   mkdirSync,
+  openSync,
   readdirSync,
   readFileSync,
   renameSync,
   rmdirSync,
   rmSync,
+  statSync,
   writeFileSync,
+  writeSync,
 } from "node:fs";
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { configBackupPath, reserveBackupDir } from "./backups.js";
 import {
   mergeClaudeHooks,
   PRISM_HOOK_FILE,
@@ -118,15 +125,35 @@ function textOnDisk(path: string): string | undefined {
 /**
  * What a real install run changed, in order, with what was there before, so
  * a failed run can be put back (J-15) and the record can tell Prism's files
- * from the user's (J-16).
+ * from the user's (J-16). `mode` is the old file's permission bits, so a
+ * restore keeps a 0600 config 0600 (Arc review).
  */
 export type JournalEntry =
-  | { readonly kind: "text"; readonly path: string; readonly before?: string }
+  | {
+      readonly kind: "text";
+      readonly path: string;
+      readonly before?: string;
+      readonly mode?: number | undefined;
+    }
   | { readonly kind: "dir"; readonly path: string; readonly existed: boolean }
   | { readonly kind: "mkdir"; readonly path: string };
 
 /** Open journals, outermost first; every write lands in each of them. */
 const journals: JournalEntry[][] = [];
+
+/**
+ * The run's backup (Arc review): before Prism first replaces an existing
+ * file, its old bytes are copied to `~/.prism-backups/<UTC stamp>/configs/`
+ * (the same folder and helper `prism start` uses), 0600 and fsynced, so the
+ * old config survives even if the process dies before the rollback.
+ */
+type Backup = {
+  readonly base: string;
+  readonly home: string;
+  root?: string;
+  readonly copied: Set<string>;
+};
+let backup: Backup | undefined;
 
 function record(entry: JournalEntry): void {
   for (const list of journals) {
@@ -139,13 +166,41 @@ function record(entry: JournalEntry): void {
   }
 }
 
+/** Permission bits of `path`, or undefined when it does not exist. */
+function modeOf(path: string): number | undefined {
+  return existsSync(path) ? statSync(path).mode & 0o7777 : undefined;
+}
+
+/** Copy `path`'s bytes into the run's backup folder, once per run. */
+function backUp(path: string, bytes: Buffer): void {
+  if (!backup || backup.copied.has(path)) return;
+  backup.root ??= reserveBackupDir(backup.base);
+  const to = configBackupPath(backup.root, path, backup.home);
+  mkdirSync(dirname(to), { recursive: true, mode: 0o700 });
+  const fd = openSync(to, "w", 0o600);
+  try {
+    writeSync(fd, bytes);
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+  backup.copied.add(path);
+}
+
 function noteText(path: string): void {
   if (journals.length === 0) return;
-  record(
-    existsSync(path)
-      ? { kind: "text", path, before: readFileSync(path, "utf8") }
-      : { kind: "text", path },
-  );
+  if (!existsSync(path)) {
+    record({ kind: "text", path });
+    return;
+  }
+  const bytes = readFileSync(path);
+  backUp(path, bytes);
+  record({
+    kind: "text",
+    path,
+    before: bytes.toString("utf8"),
+    mode: modeOf(path),
+  });
 }
 
 function makeDir(dir: string): void {
@@ -153,20 +208,62 @@ function makeDir(dir: string): void {
   if (first) record({ kind: "mkdir", path: first });
 }
 
-/** Run `fn` with every real write journaled; the journal is returned either way. */
-export function withJournal<T>(fn: () => T): {
+/**
+ * Run `fn` with every real write journaled; the journal is returned either
+ * way. With `backup`, each existing file is copied into a fresh
+ * `<base>` folder (`reserveBackupDir`) before Prism first writes it;
+ * `backupRoot` is that folder, or undefined when nothing needed a copy.
+ */
+export function withJournal<T>(
+  fn: () => T,
+  options: {
+    readonly backup?: { readonly base: string; readonly home: string };
+  } = {},
+): {
   readonly journal: JournalEntry[];
   readonly value?: T;
   readonly error?: unknown;
+  readonly backupRoot?: string;
 } {
   const entries: JournalEntry[] = [];
+  const outer = backup;
+  const mine: Backup | undefined = options.backup
+    ? { ...options.backup, copied: new Set() }
+    : undefined;
+  if (mine) backup = mine;
   journals.push(entries);
+  const root = () => (mine?.root ? { backupRoot: mine.root } : {});
   try {
-    return { journal: entries, value: fn() };
+    const value = fn();
+    return { journal: entries, value, ...root() };
   } catch (error) {
-    return { journal: entries, error };
+    return { journal: entries, error, ...root() };
   } finally {
     journals.pop();
+    if (mine) backup = outer;
+  }
+}
+
+/**
+ * Write `text` to `path` through a temp file in the same folder and a
+ * rename, so the file is either the old or the new bytes, never half of
+ * either. `mode` (the old file's bits) is set on the temp file first, so a
+ * 0600 config stays 0600. The temp file is removed if anything fails.
+ */
+function replaceFile(
+  path: string,
+  text: string,
+  mode: number | undefined,
+): void {
+  const tmp = `${path}.prism-${process.pid}.tmp`;
+  try {
+    writeFileSync(tmp, text, mode === undefined ? {} : { mode });
+    if (mode !== undefined) chmodSync(tmp, mode);
+    renameSync(tmp, path);
+  } catch (error) {
+    // Never leave `<file>.prism-<pid>.tmp` beside the user's config (J-15).
+    rmSync(tmp, { force: true });
+    throw error;
   }
 }
 
@@ -180,10 +277,11 @@ function removeEmptyTree(dir: string): void {
 }
 
 /**
- * Undo a journal, newest first: files get their old bytes back, files Prism
- * created are deleted, new folders go when empty. A replaced skill folder
- * (Prism's own) cannot be put back and is reported in `kept`, as is any path
- * that could not be restored.
+ * Undo a journal, newest first: files get their old bytes and mode back
+ * (temp file plus rename, never written in place), files Prism created are
+ * deleted, new folders go when empty. A file already back as it was is left
+ * alone. A replaced skill folder (Prism's own) cannot be put back and is
+ * reported in `kept`, as is any path that could not be restored.
  */
 export function rollBack(entries: readonly JournalEntry[]): {
   readonly restored: string[];
@@ -195,7 +293,11 @@ export function rollBack(entries: readonly JournalEntry[]): {
     try {
       if (entry.kind === "text") {
         if (entry.before === undefined) rmSync(entry.path, { force: true });
-        else writeFileSync(entry.path, entry.before);
+        else if (
+          textOnDisk(entry.path) !== entry.before ||
+          modeOf(entry.path) !== entry.mode
+        )
+          replaceFile(entry.path, entry.before, entry.mode);
         restored.push(entry.path);
       } else if (entry.kind === "dir") {
         if (entry.existed) {
@@ -220,20 +322,15 @@ export function rollBack(entries: readonly JournalEntry[]): {
   return { restored, kept };
 }
 
-/** Writes only when the content differs, so a second install touches nothing. */
+/**
+ * Writes only when the content differs, so a second install touches nothing.
+ * Temp file plus rename; an existing file keeps its mode (Arc review).
+ */
 export function atomicWrite(path: string, text: string): void {
   if (textOnDisk(path) === text) return;
   makeDir(dirname(path));
   noteText(path);
-  const tmp = `${path}.prism-${process.pid}.tmp`;
-  try {
-    writeFileSync(tmp, text);
-    renameSync(tmp, path);
-  } catch (error) {
-    // Never leave `<file>.prism-<pid>.tmp` beside the user's config (J-15).
-    rmSync(tmp, { force: true });
-    throw error;
-  }
+  replaceFile(path, text, modeOf(path));
 }
 
 function readJsonObject(path: string): Record<string, unknown> {

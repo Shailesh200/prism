@@ -6,12 +6,14 @@
  * file, and records whatever could not be put back so uninstall finds it.
  */
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { homedir, tmpdir } from "node:os";
@@ -24,6 +26,7 @@ const inject = vi.hoisted(() => ({
   /** rmSync of a path matching this fails (a rollback that cannot finish). */
   rmPath: null as RegExp | null,
   renameCode: "EBUSY",
+  writes: [] as string[],
 }));
 
 vi.mock("node:fs", async (importOriginal) => {
@@ -38,6 +41,10 @@ vi.mock("node:fs", async (importOriginal) => {
         );
       }
       return real.renameSync(from, to);
+    },
+    writeFileSync: (...args: Parameters<typeof real.writeFileSync>) => {
+      inject.writes.push(String(args[0]));
+      return real.writeFileSync(...args);
     },
     rmSync: (path: string, options?: import("node:fs").RmOptions) => {
       if (inject.rmPath?.test(String(path))) {
@@ -57,6 +64,7 @@ vi.mock("node:fs", async (importOriginal) => {
 const { run } = await import("../program.js");
 const { failureReason, installFailureMessage } =
   await import("../commands/install.js");
+const { atomicWrite, withJournal } = await import("./hosts.js");
 
 // Set and restore keys in place: replacing `process.env` would detach it
 // from the real environment, and `os.homedir()` would stop seeing HOME.
@@ -80,6 +88,7 @@ afterEach(() => {
   inject.renameTo = null;
   inject.rmPath = null;
   inject.renameCode = "EBUSY";
+  inject.writes = [];
   for (const key of KEYS) {
     if (saved[key] === undefined) delete process.env[key];
     else process.env[key] = saved[key];
@@ -340,5 +349,135 @@ describe("install failure wording (Muse, PR 10)", () => {
         "Run prism uninstall to remove Prism's changes from them, then run the command again.",
       ].join("\n"),
     );
+  });
+});
+
+/** `~/.prism-backups/<stamp>` folders made so far. */
+function backupRoots(): string[] {
+  const base = join(home, ".prism-backups");
+  return existsSync(base)
+    ? readdirSync(base).map((name) => join(base, name))
+    : [];
+}
+
+const modeOf = (path: string) => statSync(path).mode & 0o777;
+
+describe("backup before the first write (Arc review)", () => {
+  it("copies each existing config to ~/.prism-backups/<UTC stamp>/configs/ (0600), records it, and says where", async () => {
+    const claude = put(".claude.json", '{"numStartups":3}');
+    const cursor = put(
+      ".cursor/mcp.json",
+      '{"mcpServers":{"other":{"command":"x"}}}',
+    );
+    const result = await prism(["install", "all"]);
+    expect(result.code).toBe(0);
+    const roots = backupRoots();
+    expect(roots).toHaveLength(1);
+    const root = roots[0]!;
+    expect(root).toMatch(/[/\\]\.prism-backups[/\\]\d{8}T\d{6}$/);
+    for (const [path, text] of [
+      [claude, '{"numStartups":3}'],
+      [cursor, '{"mcpServers":{"other":{"command":"x"}}}'],
+    ] as const) {
+      const copy = join(root, "configs", path.slice(home.length + 1));
+      expect(readFileSync(copy, "utf8")).toBe(text);
+      expect(modeOf(copy)).toBe(0o600);
+    }
+    // A file Prism creates has nothing to back up.
+    expect(existsSync(join(root, "configs", ".claude/settings.json"))).toBe(
+      false,
+    );
+    const record = JSON.parse(
+      readFileSync(join(home, ".prism/install.json"), "utf8"),
+    );
+    expect(record.backupDir).toBe(root);
+    expect(result.out).toContain(
+      `Backups are in ~/.prism-backups/${root.split(/[/\\]/).pop()}/.`,
+    );
+  });
+
+  it("nothing existing: no backup folder and no backup line", async () => {
+    const result = await prism(["install", "cursor"]);
+    expect(result.code).toBe(0);
+    expect(backupRoots()).toEqual([]);
+    expect(result.out).not.toContain("Backups are in");
+  });
+
+  it("the backup is on disk even if the process dies before the rollback", () => {
+    const a = put(".claude.json", '{"numStartups":3}');
+    const b = put(".codex/config.toml", 'model = "o3"\n');
+    const base = join(home, ".prism-backups", "20261017T130000");
+    // The run stops part-way and nothing calls rollBack: a crash.
+    const crashed = withJournal(
+      () => {
+        atomicWrite(a, '{"numStartups":3,"mcpServers":{}}');
+        atomicWrite(b, "half");
+        throw new Error("killed");
+      },
+      { backup: { base, home } },
+    );
+    expect(crashed.error).toBeInstanceOf(Error);
+    expect(crashed.backupRoot).toBe(base);
+    expect(readFileSync(join(base, "configs/.claude.json"), "utf8")).toBe(
+      '{"numStartups":3}',
+    );
+    expect(readFileSync(join(base, "configs/.codex/config.toml"), "utf8")).toBe(
+      'model = "o3"\n',
+    );
+  });
+
+  it("a failed install names the backup folder in the error data", async () => {
+    put(".claude.json", '{"numStartups":3}');
+    put(".codex/config.toml", 'model = "o3"\n');
+    inject.renameTo = /\.codex[/\\]config\.toml$/;
+    const result = await prism(["--json", "install", "all"]);
+    expect(result.code).not.toBe(0);
+    const root = backupRoots()[0]!;
+    expect(`${result.out}${result.err}`).toContain(
+      `"backupDir": ${JSON.stringify(root)}`,
+    );
+  });
+
+  it("a second run never reuses the first run's folder", async () => {
+    put(".claude.json", '{"numStartups":3}');
+    expect((await prism(["install", "claude"])).code).toBe(0);
+    put(".claude.json", '{"numStartups":4}');
+    expect((await prism(["install", "claude"])).code).toBe(0);
+    expect(new Set(backupRoots()).size).toBe(backupRoots().length);
+  });
+});
+
+describe("file mode and no in-place writes (Arc review)", () => {
+  it("a 0600 ~/.claude.json stays 0600 through install and uninstall", async () => {
+    const claude = put(".claude.json", '{"numStartups":3}');
+    chmodSync(claude, 0o600);
+    expect((await prism(["install", "claude"])).code).toBe(0);
+    expect(modeOf(claude)).toBe(0o600);
+    expect((await prism(["uninstall"])).code).toBe(0);
+    expect(modeOf(claude)).toBe(0o600);
+    expect(readFileSync(claude, "utf8")).toBe('{"numStartups":3}');
+  });
+
+  it("rollback puts a 0600 config back at 0600, through a temp file and a rename, never in place", async () => {
+    const claude = put(".claude.json", '{"numStartups":3}');
+    chmodSync(claude, 0o600);
+    const cursor = put(".cursor/mcp.json", '{"mcpServers":{}}');
+    chmodSync(cursor, 0o640);
+    put(".codex/config.toml", 'model = "o3"\n');
+    inject.renameTo = /\.codex[/\\]config\.toml$/;
+    inject.writes = [];
+    const result = await prism(["install", "all"]);
+    expect(result.code).not.toBe(0);
+    expect(readFileSync(claude, "utf8")).toBe('{"numStartups":3}');
+    expect(modeOf(claude)).toBe(0o600);
+    expect(modeOf(cursor)).toBe(0o640);
+    // Every write to an agent config, forward and rollback, went to a temp
+    // file beside it; none wrote the config itself.
+    const configWrites = inject.writes.filter(
+      (path) => path.startsWith(home) && !path.startsWith(join(home, ".prism")),
+    );
+    expect(configWrites.length).toBeGreaterThan(0);
+    for (const path of configWrites) expect(path).toMatch(/\.prism-\d+\.tmp$/);
+    expect(tempFiles()).toEqual([]);
   });
 });

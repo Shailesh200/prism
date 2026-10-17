@@ -17,6 +17,9 @@ import {
   prismError,
 } from "@repo-prism/shared";
 import { ExitCode, exitCodeForError } from "./exit.js";
+
+/** The codes Prism itself defines; a thrown error with any other passes as IO. */
+const KNOWN_CODES: ReadonlySet<string> = new Set(Object.values(PrismErrorCode));
 import { formatIndexProgress } from "./index-progress.js";
 import {
   renderError,
@@ -224,9 +227,15 @@ export async function runCommand(
     return result.value.findings ? ExitCode.FINDINGS : ExitCode.OK;
   } catch (cause) {
     // A command may throw a PrismError it built (install's rollback, J-15).
+    // Only a known PrismErrorCode passes through as-is (Arc review): any
+    // other code-and-message object (a library's own error) becomes
+    // PRISM_IO_ERROR, so its raw code never reaches the user as ours.
     if (!(cause instanceof Error) && isPrismError(cause)) {
-      emitError(cause, output, run.writer);
-      return exitCodeForError(cause);
+      const error: PrismError = KNOWN_CODES.has(cause.code)
+        ? cause
+        : { code: PrismErrorCode.IO_ERROR, message: cause.message };
+      emitError(error, output, run.writer);
+      return exitCodeForError(error);
     }
     const error: PrismError = {
       code: "PRISM_UNKNOWN",

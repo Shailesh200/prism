@@ -49,6 +49,7 @@ import {
   type InstallHost,
   type InstallScope,
 } from "../install/hosts.js";
+import { backupDir, tilde } from "../install/backups.js";
 import { wipe1x } from "../install/wipe.js";
 import { UPDATE_COMMAND, updateLine } from "@repo-prism/shared/update-check";
 import { checkCliUpdate, type UpdateDeps } from "../update-line.js";
@@ -260,6 +261,14 @@ export function failureReason(code: string): {
   }
 }
 
+/** Same words as PR 1's `CONSENT_COPY.backupsAre` (Muse-approved). */
+export const backupsAre = (dir: string) => `Backups are in ${dir}.`;
+
+/** The backup line for a run that copied something, else nothing. */
+export function backupLines(root: string | undefined): string[] {
+  return root ? [backupsAre(`${tilde(root, homedir())}/`)] : [];
+}
+
 /** The message for a failed install, after the rollback (J-15). */
 export function installFailureMessage(
   where: string | undefined,
@@ -281,6 +290,7 @@ export function installFailureMessage(
 function installFailure(
   cause: unknown,
   undo: ReturnType<typeof rollBack>,
+  backupRoot: string | undefined,
 ): PrismError {
   const error = cause as NodeJS.ErrnoException & { dest?: string };
   // The temp file is an implementation detail: name the user's config.
@@ -297,6 +307,7 @@ function installFailure(
     {
       restored: undo.restored,
       kept: undo.kept,
+      ...(backupRoot ? { backupDir: backupRoot } : {}),
     },
   );
 }
@@ -330,13 +341,21 @@ export async function runInstall(run: InstallRun) {
   // Every config write is journaled with its old bytes. A failure part-way
   // puts each written config back, removes the temp file, and still records
   // anything that could not be put back, so `prism uninstall` finds it (J-15).
-  const run1 = withJournal(() => {
-    for (const host of installed) {
-      const result = installHost({ ...target, host });
-      files.push(...result.files);
-      notes.push(...result.notes);
-    }
-  });
+  // Each existing config is copied to `~/.prism-backups/<UTC stamp>/` before
+  // Prism first writes it, the folder `prism start` uses (Arc review).
+  const run1 = withJournal(
+    () => {
+      for (const host of installed) {
+        const result = installHost({ ...target, host });
+        files.push(...result.files);
+        notes.push(...result.notes);
+      }
+    },
+    { backup: { base: backupDir(run.env, new Date()), home: target.home } },
+  );
+  const backupRoot =
+    run1.backupRoot ??
+    (previous.kind === "ok" ? previous.record.backupDir : undefined);
   if (run1.error !== undefined) {
     const undo = rollBack(run1.journal);
     const left = new Set(undo.kept.map((k) => k.path));
@@ -366,6 +385,7 @@ export async function runInstall(run: InstallRun) {
           scope: run.scope,
           root: run.root,
           ...(run.layout.source ? { source: run.layout.source } : {}),
+          ...(backupRoot ? { backupDir: backupRoot } : {}),
           files: [...merged.values()].map((file) =>
             file.kind === "json-key" ? { ...file, key: [...file.key] } : file,
           ),
@@ -373,7 +393,7 @@ export async function runInstall(run: InstallRun) {
         run.env,
       );
     }
-    throw installFailure(run1.error, undo);
+    throw installFailure(run1.error, undo, run1.backupRoot);
   }
   if (
     installed.some((host) => RECEIPT_HOSTS.includes(host)) &&
@@ -404,6 +424,7 @@ export async function runInstall(run: InstallRun) {
     scope: run.scope,
     root: run.root,
     ...(run.layout.source ? { source: run.layout.source } : {}),
+    ...(backupRoot ? { backupDir: backupRoot } : {}),
     files: [...merged.values()].map((file) =>
       file.kind === "json-key" ? { ...file, key: [...file.key] } : file,
     ),
@@ -418,6 +439,8 @@ export async function runInstall(run: InstallRun) {
     notes,
     installed,
     build,
+    /** This run's backup folder, when it copied anything (Arc review). */
+    backupRoot: run1.backupRoot,
   } as const;
 }
 
@@ -459,6 +482,7 @@ export const installCommand: CommandHandler = async (
     data: {
       record,
       written: files,
+      ...(result.backupRoot ? { backupDir: result.backupRoot } : {}),
       wipe: wipe.kind === "wiped" ? wipe : { kind: wipe.kind },
       notes,
     },
@@ -471,6 +495,7 @@ export const installCommand: CommandHandler = async (
         ),
         ...skipped.map((host) => `${HOST_NAMES[host]} not found; skipped.`),
         ...notes.flatMap((note) => wrap(note, width)),
+        ...backupLines(result.backupRoot),
       ].join("\n"),
   });
 };
@@ -605,8 +630,12 @@ async function upgrade(deps: UpdateDeps) {
       to: result.record.version,
       hosts,
       source: layout.source,
+      ...(result.backupRoot ? { backupDir: result.backupRoot } : {}),
     },
     human: () =>
-      `Prism ${before} → ${result.record.version} (${layout.source ? `local build from ${layout.source}` : `npm package ${dirname(dirname(layout.bin))}`}); re-linked ${hosts.join(", ")}. The daemon restarts on next use.`,
+      [
+        `Prism ${before} → ${result.record.version} (${layout.source ? `local build from ${layout.source}` : `npm package ${dirname(dirname(layout.bin))}`}); re-linked ${hosts.join(", ")}. The daemon restarts on next use.`,
+        ...backupLines(result.backupRoot),
+      ].join("\n"),
   });
 }

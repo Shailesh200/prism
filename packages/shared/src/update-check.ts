@@ -16,7 +16,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { prismHomeDir } from "./prism-home.js";
 
-const REGISTRY_URL = "https://registry.npmjs.org/@repo-prism/mcp-server/latest";
+/** `@repo-prism/cli`: the package `UPDATE_COMMAND` installs (Arc review). */
+export const REGISTRY_URL = "https://registry.npmjs.org/@repo-prism/cli/latest";
 const FETCH_MS = 2000;
 export const UPDATE_CHECK_TTL_MS = 24 * 60 * 60 * 1000;
 
