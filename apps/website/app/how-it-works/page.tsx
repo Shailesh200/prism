@@ -9,12 +9,7 @@ import {
   SpokesIcon,
 } from "@/components/ui/icons";
 import { PageHero } from "@/components/ui/page-hero";
-import {
-  GuardDemo,
-  PrepareDemo,
-  StartDemo,
-  VerifyDemo,
-} from "@/components/site/demos";
+import { GuardDemo, StartDemo, VerifyDemo } from "@/components/site/demos";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteNav } from "@/components/site/site-nav";
 import { pageMetadata } from "@/lib/seo";
@@ -22,7 +17,7 @@ import { pageMetadata } from "@/lib/seo";
 export const metadata = pageMetadata({
   title: "How it works",
   description:
-    "Prism maps your code on your machine, prepares each request, guards edits and reviews the change with your own checks and a lens.",
+    "Prism maps your code on your machine, guards edits and checks the change when your agent stops.",
   path: "/how-it-works",
 });
 
@@ -60,10 +55,10 @@ export default function HowItWorksPage() {
           eyebrow="How it works"
           title={
             <>
-              Map, prepare, guard, <em>review.</em>
+              Map, guard, <em>review.</em>
             </>
           }
-          lede="Prism runs on your machine next to your agent. It hands the agent context before an edit and checks the change after."
+          lede="Prism runs on your machine next to your agent. It maps your code, guards edits and checks the change when the agent stops."
         />
         <Step
           n={1}
@@ -74,20 +69,13 @@ export default function HowItWorksPage() {
         </Step>
         <Step
           n={2}
-          title="Prepare"
-          lede="When you ask for a change, Prepare adds the files to open, the tests and code to reuse to your request."
-        >
-          <PrepareDemo />
-        </Step>
-        <Step
-          n={3}
           title="Guard"
           lede="While the agent edits, Prism stops edits to generated files and flags widely used ones. These hooks run on Claude Code and opencode; on Cursor and Codex, a rule asks the agent to call Prism before and after a change."
         >
           <GuardDemo />
         </Step>
         <Step
-          n={4}
+          n={3}
           title="Review"
           lede="When the agent stops, Prism runs your checks on what changed. The receipt gives one verdict and lists each check with its result."
         >

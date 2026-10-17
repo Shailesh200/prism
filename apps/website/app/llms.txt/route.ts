@@ -29,7 +29,7 @@ export async function GET() {
       "safe delete and rename; Claude Code and opencode can stop a generated-file edit",
     "/product/receipts": "SHIP, NOT PROVEN or NO-SHIP from your checks",
     "/product/review":
-      "review: changes ranked by risk, with the tests that reach them and the lens checks you pick; it posts nothing",
+      "review: changes ranked by risk, with the tests that reach them; it posts nothing",
     "/product/habits":
       "saved routines stored as skills; your agent runs the steps",
     "/product/cli": "the same answers from the terminal",
@@ -56,7 +56,7 @@ Every docs page in full: ${site}/llms-full.txt
 ## Product
 
 - [Home](${site}/): what Prism does
-- [${HOW_IT_WORKS.label}](${site}${HOW_IT_WORKS.href}): map, prepare, guard, review
+- [${HOW_IT_WORKS.label}](${site}${HOW_IT_WORKS.href}): map, guard, review
 - [Install](${site}/install): prism start or prism install
 ${installs}
 ${products}
@@ -76,8 +76,6 @@ ${pages}
   for a newer version at most once a day (PRISM_SKIP_SELF_UPDATE=1 turns that
   off). The check sends no repository data.
 - Prism's library lives in \`~/.prism/\`, not in the checkout.
-- Before an edit, call prepare_change. The automatic prompt lists at most
-  three files Prism is sure of.
 - A stop receipt is SHIP, NOT PROVEN (with the cheapest command that would
   prove it) or NO-SHIP.
 `;

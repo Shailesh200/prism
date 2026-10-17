@@ -10,7 +10,18 @@ import { z } from "zod";
 export const docs = defineDocs({
   dir: "../../docs",
   docs: {
-    files: ["**/*.{md,mdx}", "!architecture/**", "!guides/wire-into-ci.mdx"],
+    files: [
+      "**/*.{md,mdx}",
+      "!architecture/**",
+      "!guides/wire-into-ci.mdx",
+      // Held until round 5 passes (Prepare and Lenses), and benchmark docs
+      // with token and cost numbers.
+      "!guides/prepare-a-change.mdx",
+      "!guides/before-you-edit.mdx",
+      "!guides/lenses.mdx",
+      "!guides/remember-context.mdx",
+      "!benchmarks/**",
+    ],
     schema: frontmatterSchema.extend({
       source: z.string().optional(),
     }),
@@ -18,7 +29,7 @@ export const docs = defineDocs({
     postprocess: { includeProcessedMarkdown: true },
   },
   meta: {
-    files: ["**/meta.json", "!architecture/**"],
+    files: ["**/meta.json", "!architecture/**", "!benchmarks/**"],
   },
 });
 

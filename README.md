@@ -47,8 +47,6 @@ Then ask your agent in plain language, for example "what breaks if I change
 
 ## What it does
 
-- **Prepare, before the agent edits.** The files and tests that matter for
-  the task, the helpers to reuse instead of rewriting, and your house style.
 - **Review, after.** Prism ranks the changes by risk and lists the tests that
   reach them.
 - **The receipt, when the agent stops.** Prism runs the checks the change
@@ -61,7 +59,6 @@ Nine default MCP tools; more are opt-in through `extraTools` in
 | You say | The agent calls |
 |---|---|
 | "What is this repo?" | `repository_overview` |
-| "I want to change X" | `prepare_change` |
 | "What breaks if I edit this file?" | `blast_radius`, `test_impact` |
 | "Where is this symbol, who uses it?" | `graph` |
 | "Review my changes" | `guard_session` (`review: true`) |
@@ -74,12 +71,13 @@ Every command answers from the same local index. Highlights:
 
 | Command | What it answers |
 |---|---|
-| `prism prepare <task>` | The files to open and the helpers to reuse |
-| `prism review [paths] --lens qa` | A lens review of a change |
+| `prism prepare "<task>"` | Experimental. Lists the files and tests related to a task. |
+| `prism review [paths]` | The changes ranked by risk, with the tests that reach them |
 | `prism blast <target>` | What depends on a file or symbol |
 | `prism test-impact <target>` | Which tests reach a file |
 | `prism receipts` | The last stop receipts |
-| `prism lens`, `prism habit` | Your review lenses and saved routines |
+| `prism lens` | Experimental. Lists, adds and removes lenses. |
+| `prism habit` | Your saved routines |
 | `prism doctor` | What is wired, and whether it works |
 
 Full list: [CLI reference](https://www.prismhq.in/docs/reference/cli-commands).

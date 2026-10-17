@@ -143,9 +143,8 @@ export function StartDemo() {
           {MapLines().slice(0, 5)}
           <Ln />
           <Ln>
-            <span className="g">Try:</span> prism prepare
-            &quot;&lt;task&gt;&quot;, or ask your agent; it calls prepare_change
-            first.
+            <span className="g">Try:</span> ask your agent for a change; when it
+            stops, Prism gives a verdict.
           </Ln>
         </Window>
       }

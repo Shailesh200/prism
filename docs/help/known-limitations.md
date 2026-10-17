@@ -66,8 +66,6 @@ By design. There is no account, no sync and no server.
   agent makes the edit. The receipt runs this repository’s checks when the
   agent stops (or shows **—** if none exist).
 - **Run background agents.** Background jobs were removed (ADR-0064).
-- **Dump file bodies from Prepare.** `prepare_change` returns paths, symbols,
-  and why — never source. Open the files yourself.
 - **Resolve a finding because a file was edited.** Only a re-scan that drops
   the fingerprint closes it.
 - **Write AGENTS.md into git.** Living AGENTS.md stays under `~/.prism`.

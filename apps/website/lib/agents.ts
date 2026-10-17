@@ -50,14 +50,14 @@ export const AGENTS: Agent[] = [
     lede: "Cursor gets the MCP server. In each repo, add --project to write a rule that asks the agent for the file list before editing and the verdict before it says it is done.",
     notes: [
       "Cursor reads rules per repository: in each one, run",
-      "`prism install cursor --project` to add the prepare/receipt rule.",
+      "`prism install cursor --project` to add the Prism rule.",
     ],
     config: { lang: "json", path: "~/.cursor/mcp.json" },
     writes: [
       ["~/.cursor/mcp.json", "The Prism MCP server"],
       [
         ".cursor/rules/prism.mdc",
-        "With --project: the rule to call prepare first and receipt at the end",
+        "With --project: the Prism rule, which asks for a receipt at the end",
       ],
       ["~/.prism/config.json", "Turns on the receipt tool"],
     ],

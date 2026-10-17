@@ -22,9 +22,7 @@ Prism parses source into a local index and derives views from that one store:
 | **Dependency / knowledge / feature graphs** | What imports what, what symbols mean, which files implement one capability? |
 | **Repository DNA** | What is this built from, and which domains does it span? |
 | **Blast radius** | If I change this file, what else is affected? |
-| **Prepare** | What should I open for this task, and what already exists? |
 | **Review** | Of everything this session changed, what should I read first? |
-| **Lens review** | Which callers did the change leave behind, and what has no test? |
 | **Findings** | What unused or duplicated code is worth fixing? |
 | **Receipt** | Which checks did this change reach, and did they pass? |
 
@@ -44,9 +42,7 @@ written in a language Prism does not analyse yet. See
 [known limitations](/docs/help/known-limitations).
 
 Prism writes no code, and its analysis uses no model. Your agent makes the
-edit, in your chat. Before the edit,
-[Prepare](/docs/guides/prepare-a-change) returns the files to open, never the
-file bodies. When the agent stops, the receipt runs the checks the change
+edit, in your chat. When the agent stops, the receipt runs the checks the change
 reaches and gives a verdict: SHIP, NOT PROVEN or NO-SHIP.
 
 ## Cost

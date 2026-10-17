@@ -313,14 +313,12 @@ export function websiteJsonLd(): Record<string, unknown> {
         image: absoluteUrl(OG_IMAGE.url),
         description: SITE_DESCRIPTION,
         featureList: [
-          "Prepare: the files, tests and helpers to reuse before an edit",
           "Change review: changes ranked by risk, with the tests that reach them",
           "Review: this session's changes ranked by risk",
-          "Lenses: Dev, Architect, QA and your own",
           "Blast radius per symbol, with safe delete and rename",
           "Receipts: SHIP, NOT PROVEN or NO-SHIP from your own checks",
           "Local repository map",
-          "House style and habits",
+          "Habits",
           `MCP server with ${PRISM_TOOL_COUNT} tools for AI agents`,
           "CLI for terminals and CI",
           "Claude Code, Cursor, Codex and opencode install",
@@ -351,14 +349,6 @@ export function faqJsonLd(): Record<string, unknown> {
         acceptedAnswer: {
           "@type": "Answer",
           text: "No. Prism writes no code and its analysis uses no model. It answers questions about your repository’s structure for the agent you already use.",
-        },
-      },
-      {
-        "@type": "Question",
-        name: "What is Prepare?",
-        acceptedAnswer: {
-          "@type": "Answer",
-          text: "One call before an edit (the prepare_change tool). It returns files to open, helpers to reuse, a house-style example, notes and a work order. The automatic prompt lists at most three files Prism is sure of, with nearby tests and one run command.",
         },
       },
       {

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { Callout } from "@/components/ui/callout";
 import { cx } from "@/components/ui/cx";
@@ -144,7 +143,7 @@ const METHOD: Array<[term: string, detail: ReactNode]> = [
   ],
   [
     "Tasks",
-    "Real fixes, three-turn follow-ups and reviews with seeded problems, on public repositories (mainly es-toolkit and hono)",
+    "Real fixes and three-turn follow-ups on public repositories (mainly es-toolkit and hono)",
   ],
   [
     "Grading",
@@ -290,11 +289,7 @@ export default function BenchmarksPage() {
                 </div>
                 <p className="mt-5 text-[15px] text-ink3">
                   Time is a median per task; grades are 1 to 5, blind. Compare
-                  within one tool only.{" "}
-                  <Link href="/docs/benchmarks/2.x">
-                    <u>Full method and raw results</u>
-                  </Link>
-                  .
+                  within one tool only.
                 </p>
               </div>
             </div>

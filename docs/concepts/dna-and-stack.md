@@ -44,7 +44,7 @@ prism packages
 | **Data** | ORMs, migrations, schemas, query builders |
 | **Infrastructure** | Containers, CI, deployment manifests |
 
-Domains feed `repository_overview` and lens routing.
+Domains feed `repository_overview`.
 
 ## When detection is wrong
 

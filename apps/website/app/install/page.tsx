@@ -94,7 +94,6 @@ export default function InstallPage() {
               <p className="mt-4 text-ink2">
                 There are no hooks here, so nothing runs on its own. Turn on the{" "}
                 <code>receipt</code> tool and ask the agent to call{" "}
-                <code>prepare_change</code> before it edits and{" "}
                 <code>receipt</code> before it says it is done.
               </p>
             </div>

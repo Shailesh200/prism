@@ -25,7 +25,7 @@ your checkout.
 ## Why one index matters
 
 If two features each read the repository their own way, they will eventually
-disagree. One index means one answer. When Prepare and impact analysis disagree,
+disagree. One index means one answer. When two answers disagree,
 it is a bug in one derivation — not two opinions.
 
 ## Incremental updates

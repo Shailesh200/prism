@@ -65,36 +65,6 @@ const m = (
   better: Better,
 ): Measure => ({ label, without, with: withPrism, better });
 
-export const OPENCODE_R3_TOKENS = m(
-  "Median tokens",
-  ktok(574),
-  ktok(414),
-  "lower",
-);
-export const CURSOR_REVIEW_FOUND = m(
-  "Seeded problems found",
-  of(3, 7),
-  of(4, 7),
-  "higher",
-);
-export const CURSOR_REVIEW_TOKENS = m(
-  "Median tokens",
-  tok(979_394),
-  tok(670_605),
-  "lower",
-);
-export const OPENCODE_B6_SOLVED = m(
-  "Tasks solved",
-  of(7, 11),
-  of(8, 11),
-  "higher",
-);
-export const OPENCODE_B6_TOKENS = m(
-  "Median tokens",
-  tok(549_036),
-  tok(407_487),
-  "lower",
-);
 export const HABITS_RAN = m("Habits that ran", of(0, 6), of(6, 6), "higher");
 
 export const GROUPS: Group[] = [
@@ -146,7 +116,6 @@ export const GROUPS: Group[] = [
     model: "mimo-v2.6-flash-free",
     run: "11 small fixes, quality graded blind",
     measures: [
-      m("Tests pass", of(8, 11), of(8, 11), "higher"),
       m("Minimalism (1–5)", grade(4.36), grade(4.36), "higher"),
       m("Style (1–5)", grade(4.36), grade(4.09), "higher"),
       m("Correctness (1–5)", grade(4.64), grade(4.27), "higher"),

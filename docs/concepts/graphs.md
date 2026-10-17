@@ -21,7 +21,7 @@ prism cycles
 ```
 
 Cycles are not always bugs, but they reliably mean a boundary is not where
-someone thought. Blast radius, safe delete, rename impact and Prepare all walk
+someone thought. Blast radius, safe delete and rename impact all walk
 this graph.
 
 ## Knowledge graph
@@ -44,10 +44,10 @@ confidence is a suggestion. See [signal provenance](/docs/concepts/signal-proven
 
 Prism groups files that implement one user-facing thing — from naming,
 directories, import clustering, co-change (needs git), and routes. In 2.0 this
-grouping is internal: it feeds `prepare_change` and `blast_radius` ranking and
+grouping is internal: it feeds `blast_radius` ranking and
 is not exposed as its own command or tool. A grouping signal carries the same
 confidence bands as any other inferred edge.
 
 ## Related
 
-[Before you edit](/docs/guides/before-you-edit) · [Risk bands](/docs/concepts/risk-bands)
+[Risk bands](/docs/concepts/risk-bands)

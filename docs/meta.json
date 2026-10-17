@@ -6,15 +6,11 @@
     "what-is-prism",
     "...start",
     "---Using Prism---",
-    "guides/prepare-a-change",
-    "guides/before-you-edit",
     "guides/guard-a-session",
     "guides/review-a-pr",
     "guides/hooks-and-strength",
     "guides/receipt",
-    "guides/lenses",
     "guides/habits-and-skills",
-    "guides/remember-context",
     "guides/understand-a-repo",
     "guides/graph",
     "concepts/repository-index",
@@ -29,7 +25,6 @@
     "concepts/graphs",
     "concepts/risk-bands",
     "concepts/signal-provenance",
-    "concepts/dna-and-stack",
-    "...benchmarks"
+    "concepts/dna-and-stack"
   ]
 }

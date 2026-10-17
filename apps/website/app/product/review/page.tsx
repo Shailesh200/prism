@@ -16,7 +16,7 @@ import { pageMetadata } from "@/lib/seo";
 export const metadata = pageMetadata({
   title: "Review",
   description:
-    "Ask your agent to review: Prism ranks the changed files by risk, lists the tests that reach them, and runs the lens checks you pick.",
+    "Ask your agent to review: Prism ranks the changed files by risk, and lists the tests that reach them.",
   path: "/product/review",
 });
 
@@ -29,7 +29,7 @@ export default function ReviewPage() {
             Review your changes <em>before you push.</em>
           </>
         }
-        lede="Ask your agent to review. Prism ranks the changed files by risk, lists the tests that reach them, and the lens checks you pick run on the change, each with its result."
+        lede="Ask your agent to review. Prism ranks the changed files by risk and lists the tests that reach them."
         caption={
           <>
             Ask “review my changes”, or run <code>prism review</code>.
@@ -46,7 +46,7 @@ export default function ReviewPage() {
         </Card>
         <Card level={2} icon={<TargetIcon />} title="Checks you can read">
           Each check says where it looked, what it checked, the result and the
-          risk, with the lens it belongs to.
+          risk.
         </Card>
         <Card level={2} icon={<CheckCircleIcon />} title="Ready for the PR">
           Ask for <code>format: &quot;prDescription&quot;</code> to get the
@@ -58,10 +58,10 @@ export default function ReviewPage() {
       <section className="sec">
         <Container className="grid2">
           <div>
-            <h2 className="d3">Pick the angle with a lens.</h2>
+            <h2 className="d3">Then the receipt.</h2>
             <p className="lede mt-3.5 text-lg">
-              Architect for structure, QA for proof, Dev for small clean fixes,
-              or your own.
+              When the agent stops, Prism runs your checks on what changed and
+              gives one verdict.
             </p>
           </div>
           <Receipt

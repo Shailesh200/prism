@@ -95,7 +95,7 @@ comes with the Prism plugin pack. Prism never commits or pushes.
 ## Where did the background jobs go?
 
 They were removed (ADR-0064). Your agent makes every edit in your own chat.
-Memories live in the CLI — see [Remember context](/docs/guides/remember-context).
+Memories live in the CLI.
 `prism data prune` lists leftover local folders; `--yes` removes them.
 
 ## Does Prism modify my code?
@@ -105,13 +105,6 @@ what a change would touch; they never write. Your agent makes edits.
 
 The only thing Prism writes on its own is its data under `~/.prism/`.
 
-## What is prepare_change?
-
-One call before you edit. It returns the files to open, helpers to reuse,
-three House Style exemplars, notes, and a work order — paths and names only,
-never file bodies. CLI: `prism prepare`. See
-[Prepare a change](/docs/guides/prepare-a-change).
-
 ## When is a finding “fixed”?
 
 When a **re-scan** drops its fingerprint. An edit alone is not enough. See [Findings](/docs/guides/findings).
@@ -119,8 +112,7 @@ When a **re-scan** drops its fingerprint. An edit alone is not enough. See [Find
 ## Does Prism write AGENTS.md into my repo?
 
 No. `prism agents-md generate` writes only
-`~/.prism/workspaces/<key>/agents.md`. Do not copy it into git. See
-[Remember context](/docs/guides/remember-context).
+`~/.prism/workspaces/<key>/agents.md`. Do not copy it into git.
 
 ## Is there a hosted version?
 

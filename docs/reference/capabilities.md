@@ -28,11 +28,9 @@ use this page when you need the exhaustive index.
 | `prism habit` | habit |
 | `prism index` | index |
 | `prism install` | install |
-| `prism lens` | lens |
 | `prism memories` | memories |
 | `prism overview` | overview |
 | `prism packages` | packages |
-| `prism prepare` | prepare |
 | `prism receipts` | receipts |
 | `prism refs` | refs |
 | `prism remember` | remember |
@@ -65,11 +63,9 @@ use this page when you need the exhaustive index.
 | `knowledge_graph` | The symbol-level graph — declarations and the references between them — with summary stats |
 | `list_findings` | Queueable findings from the last index |
 | `list_packages` | List the packages in a monorepo with their roots |
-| `prepare_change` | One call before you edit |
 | `receipt` | What this session changed and whether it is proven |
 | `rename_impact` | Every edit site a rename would touch, plus breaking-change hints for public surface |
 | `repository_overview` | What this repository is, in one bounded call |
-| `review_with` | Review a task or the current change through a lens |
 | `safe_delete` | Whether a file or symbol can be deleted safely |
 | `test_impact` | Which tests import the changed symbol, or a symbol that reaches it — the tests worth running after touching a target |
 | `workspace_status` | Compact workspace readiness |

@@ -165,6 +165,17 @@ const config = {
       },
       // Prepare and Lenses are held until round 5 passes: temporary (307).
       {
+        source:
+          "/docs/guides/:page(prepare-a-change|before-you-edit|lenses|remember-context)",
+        destination: "/docs",
+        permanent: false,
+      },
+      {
+        source: "/docs/benchmarks/:page(2\\.x|2\\.x-per-task)",
+        destination: "/benchmarks",
+        permanent: false,
+      },
+      {
         source: "/product/:page(prepare|lenses)",
         destination: "/docs",
         permanent: false,

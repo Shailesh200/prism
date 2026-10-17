@@ -13,9 +13,9 @@ import { Ln } from "@/components/ui/term";
 import { Window } from "@/components/ui/window";
 import {
   HabitPair,
-  PrepareDemo,
   ReviewDemo,
   SafeDeleteDemo,
+  VerifyDemo,
 } from "@/components/site/demos";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteNav } from "@/components/site/site-nav";
@@ -52,7 +52,7 @@ export async function generateMetadata({ params }: Props) {
 
 /** What each agent page shows working, reusing the product demos. */
 const DEMO: Record<AgentSlug, ReactNode> = {
-  "claude-code": <PrepareDemo />,
+  "claude-code": <VerifyDemo />,
   cursor: (
     <HabitPair
       habit={{

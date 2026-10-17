@@ -32,7 +32,7 @@ const STORED: Array<[path: string, what: string]> = [
   ["workspaces/<key>/memory.json", "Notes saved with prism remember"],
   [
     "workspaces/<key>/feedback.jsonl",
-    "Paths prepare suggested, paths that were edited, and short task stems. Kept 30 days. No file contents",
+    "Paths Prism suggested, paths that were edited, and short task stems. Kept 30 days. No file contents",
   ],
   [
     "sessions/",
