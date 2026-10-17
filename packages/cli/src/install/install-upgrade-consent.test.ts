@@ -462,6 +462,40 @@ describe("prism upgrade goes through confirmAndWrite (Arc)", () => {
     expect(readdirSync(join(b.home, ".prism-backups"))).toEqual([STAMP]);
   });
 
+  it("Enter on a terminal is N: nothing written, no backup", async () => {
+    const { b, next } = await installed();
+    const before = snapshot(b);
+    const enter = await runWith(
+      b,
+      "upgrade",
+      { tty: true, ask: async () => "" },
+      next,
+    );
+    expect(enter.asked).toEqual([CONSENT_COPY.prompt]);
+    expect(enter.text).toContain("No changes made.");
+    expect(enter.stopped).toBe(0);
+    expect(snapshot(b)).toEqual(before);
+    expect(existsSync(join(b.home, ".prism-backups"))).toBe(false);
+  });
+
+  it("--yes with no terminal: asks nothing, backs up, then re-links", async () => {
+    const { b, next } = await installed();
+    const [cursorBefore] = snapshot(b);
+    const yes = await runWith(b, "upgrade", { yes: true }, next);
+    expect(yes.asked).toEqual([]);
+    expect(yes.stopped).toBe(1);
+    expect(
+      readFileSync(
+        join(b.home, ".prism-backups", STAMP, "configs", ".cursor", "mcp.json"),
+        "utf8",
+      ),
+    ).toBe(cursorBefore);
+    expect(readFileSync(join(b.home, ".cursor", "mcp.json"), "utf8")).toContain(
+      next.bin,
+    );
+    expect(yes.text).toContain("Re-linked Claude Code and Cursor.");
+  });
+
   it("configs already current: no question, only the record's version moves", async () => {
     const { b } = await installed();
     const same = { ...b.layout, version: "9.9.10" };
