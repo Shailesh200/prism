@@ -119,7 +119,10 @@ describe("habits store", () => {
   it("HAB-5: each habit is a SKILL.md with mode 0600", async () => {
     await addHabit(startMyDay, env);
     const path = join(habitsDir(env), "start-my-day", "SKILL.md");
-    expect((await stat(path)).mode & 0o777).toBe(0o600);
+    // Windows does not store a Unix 0600 mode; the write still asks for it.
+    if (process.platform !== "win32") {
+      expect((await stat(path)).mode & 0o777).toBe(0o600);
+    }
     const text = await readFile(path, "utf8");
     expect(text).toMatch(/^---\nname: start-my-day\ndescription: "Habit: /);
     expect(text).toContain(

@@ -180,7 +180,7 @@ describe("wipe1x (plan §3.1a)", () => {
     expect(readFileSync(join(target, "keep.txt"), "utf8")).toBe("keep");
   });
 
-  it.skipIf(process.getuid?.() === 0)(
+  it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
     "WIPE-7: an unwritable folder stops with the path and fix; nothing changed",
     async () => {
       const { env, home } = dirty1x();
@@ -367,7 +367,9 @@ describe("host writers (plan §2.1, §5.10)", () => {
       "utf8",
     );
     expect(shim).toContain("tool.execute.before");
-    expect(shim).toContain(join(t.pack, "hooks", "prism-hook.mjs"));
+    expect(shim).toContain(
+      JSON.stringify(join(t.pack, "hooks", "prism-hook.mjs")),
+    );
   });
 
   it("writeBlock replaces its own block in place", () => {

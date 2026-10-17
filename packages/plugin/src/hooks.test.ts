@@ -1101,8 +1101,12 @@ describe("prompt hook injects the prepare pack (token fixes 1, 2, 4)", () => {
         );
         // The hook leaves 150 ms of its 1 s cap for node start-up. A loaded CI
         // runner can take longer than that just to boot node, so only boot
-        // time over 150 ms is added to the budget; the hook's own work is not.
-        expect(ms).toBeLessThan(1000 + Math.max(0, boot - 150));
+        // time over 150 ms is added. Spawn-to-exit also includes process
+        // teardown after the hook's own clock has stopped: CI measured 1002
+        // and 1006 against a 1000 cap after the busy-index line was already
+        // returned. That slack is not room for the hook to wait on the daemon.
+        const exitSlackMs = 50;
+        expect(ms).toBeLessThan(1000 + Math.max(0, boot - 150) + exitSlackMs);
       } finally {
         server.closeAllConnections();
         server.close();
