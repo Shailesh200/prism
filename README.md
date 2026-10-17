@@ -49,8 +49,8 @@ Then ask your agent in plain language, for example "what breaks if I change
 
 - **Prepare, before the agent edits.** The files and tests that matter for
   the task, the helpers to reuse instead of rewriting, and your house style.
-- **Review, after.** Prism ranks the changes by risk, and the Dev, Architect
-  and QA lenses add their checks. Add your own with `prism lens`.
+- **Review, after.** Prism ranks the changes by risk and lists the tests that
+  reach them.
 - **The receipt, when the agent stops.** Prism runs the checks the change
   reaches and gives one verdict: `SHIP`, `NOT PROVEN` (with the cheapest check
   to prove it) or `NO-SHIP`.

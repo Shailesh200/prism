@@ -104,17 +104,9 @@ export const GROUPS: Group[] = [
     run: "11 small fixes",
     measures: [
       m("Tasks solved", of(11, 11), of(11, 11), "higher"),
-      m("Median tokens", tok(144_373), tok(134_414), "lower"),
       m("Median time", sec(42), sec(42), "lower"),
-      m("Median cost", usd(0.168), usd(0.185), "lower"),
     ],
     note: "Claude Code did not call Prism’s tools in these 11 runs.",
-  },
-  {
-    tool: "Claude Code",
-    model: "claude-opus-5-5",
-    run: "Review, 11 seeded problems",
-    measures: [m("Seeded problems found", of(10, 11), of(10, 11), "higher")],
   },
   {
     tool: "Claude Code",
@@ -124,20 +116,8 @@ export const GROUPS: Group[] = [
       m("Correctness (1–5)", grade(4.56), grade(4.44), "higher"),
       m("Minimalism (1–5)", grade(4.44), grade(3.89), "higher"),
       m("Tests pass", of(9, 9), of(8, 9), "higher"),
-      m("Median tokens", ktok(535), ktok(548), "lower"),
     ],
     note: "Grader preferred without Prism 3 times, with Prism once, 5 ties.",
-  },
-  {
-    tool: "Cursor agent CLI",
-    model: "grok-4.7-high",
-    run: "Review, 7 seeded problems",
-    measures: [
-      CURSOR_REVIEW_FOUND,
-      CURSOR_REVIEW_TOKENS,
-      m("Median time", sec(607), sec(469), "lower"),
-    ],
-    note: "4 sessions each way.",
   },
   {
     tool: "Cursor agent CLI",
@@ -148,7 +128,6 @@ export const GROUPS: Group[] = [
       m("Correctness (1–5)", grade(5), grade(5), "higher"),
       m("Minimalism (1–5)", grade(4.6), grade(4.67), "higher"),
       m("Median time", sec(316), sec(294), "lower"),
-      m("Median tokens", tok(1_328_142), tok(1_455_138), "lower"),
     ],
     note: "4 sessions without, 3 with. Graded pairs: 4 ties, 1 preferred without.",
   },
@@ -159,7 +138,6 @@ export const GROUPS: Group[] = [
     measures: [
       m("Solved", of(2, 2), of(2, 2), "higher"),
       m("Median time", sec(780), sec(679), "lower"),
-      m("Median tokens", tok(2_283_649), tok(3_764_972), "lower"),
     ],
     note: "2 sessions each way, both graded ties.",
   },
@@ -168,18 +146,11 @@ export const GROUPS: Group[] = [
     model: "mimo-v2.6-flash-free",
     run: "11 small fixes, quality graded blind",
     measures: [
-      OPENCODE_R3_TOKENS,
       m("Tests pass", of(8, 11), of(8, 11), "higher"),
       m("Minimalism (1–5)", grade(4.36), grade(4.36), "higher"),
       m("Style (1–5)", grade(4.36), grade(4.09), "higher"),
       m("Correctness (1–5)", grade(4.64), grade(4.27), "higher"),
     ],
     note: "Grader preferred without Prism 4 times, with Prism 2, 5 ties.",
-  },
-  {
-    tool: "opencode",
-    model: "mimo-v2.6-flash-free",
-    run: "11 small fixes, solve rate",
-    measures: [OPENCODE_B6_SOLVED, OPENCODE_B6_TOKENS],
   },
 ];

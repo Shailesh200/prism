@@ -9,10 +9,10 @@ import { Command } from "@/components/ui/command";
 import { Container } from "@/components/ui/container";
 import { CtaBand, INSTALL_COMMAND } from "@/components/ui/cta-band";
 import { Pill } from "@/components/ui/pill";
-import { Failed, Ln, Proven, Typed, cells } from "@/components/ui/term";
+import { Ln, Typed, cells } from "@/components/ui/term";
 import { Bubble, ToolTag, Window } from "@/components/ui/window";
 import { SiteFooter } from "@/components/site/site-footer";
-import { PrepareDemo, VerifyDemo } from "@/components/site/demos";
+import { VerifyDemo } from "@/components/site/demos";
 import { SiteNav } from "@/components/site/site-nav";
 import { AGENTS } from "@/lib/agents";
 import { SITE_DESCRIPTION, pageMetadata } from "@/lib/seo";
@@ -99,7 +99,7 @@ const WHAT_IT_DOES = [
   {
     title: "What does the review show?",
     href: "/product/review",
-    body: "Review ranks this session’s changes by risk and lists the tests that reach them. A lens sets the angle: structure, proof or small clean fixes.",
+    body: "Review ranks this session’s changes by risk and lists the tests that reach them.",
   },
   {
     title: "What breaks if I change this?",
@@ -142,7 +142,7 @@ export default function HomePage() {
         <section className="sec">
           <Container>
             <div className="eyebrow">How it works</div>
-            <h2 className="d2 mt-3 mb-11">Three steps.</h2>
+            <h2 className="d2 mt-3 mb-11">Two steps.</h2>
             <Steps
               items={[
                 {
@@ -155,10 +155,6 @@ export default function HomePage() {
                   ),
                 },
                 {
-                  title: "Ask as usual",
-                  body: "Type your request in plain words. Prism adds the files, tests and code to reuse. No tool names needed.",
-                },
-                {
                   title: "Review before you push",
                   body: "Ask for a review. Prism ranks the session’s changes by risk and lists the tests that reach them. When the agent stops, the receipt says SHIP, NOT PROVEN or NO-SHIP.",
                 },
@@ -166,61 +162,6 @@ export default function HomePage() {
             />
           </Container>
         </section>
-
-        <FeatureBlock
-          title="Prepare, before the edit"
-          lede="Ask for a change and Prism adds the files to open, a signature for the top one, the tests and the command to run them."
-        >
-          <PrepareDemo />
-        </FeatureBlock>
-
-        <FeatureBlock
-          title="Review, after the edit"
-          lede="The QA lens looks at proof: which changed functions have a test, which callers the change touches and which tests reach it. When your agent stops, Prism runs those tests. If one fails, the receipt says NO-SHIP."
-        >
-          <ChatTerminalPair
-            chat={
-              <Window title="Claude Code" kind="chat">
-                <Bubble who="you">Tidy up the reduce in computeTotals</Bubble>
-                <Bubble who="agent" name="Claude Code">
-                  Done. The reduce in computeTotals is shorter now.
-                </Bubble>
-                <Bubble who="prism">
-                  <span className="r">Prism · NO-SHIP (1 check failed)</span>
-                  <br />
-                  Prism receipt: changed 1 file, 5 dependents, 2 tests reach it
-                  — NO-SHIP
-                  <br />
-                  <Proven />
-                  <br />
-                  <Failed />
-                </Bubble>
-                <Bubble who="agent" name="Claude Code">
-                  The test caught it: I wrote price + qty instead of price *
-                  qty. Fixed, and the next receipt says SHIP.
-                </Bubble>
-              </Window>
-            }
-            terminal={
-              <Window title="~/northwind">
-                <Typed cmd="prism receipts show 1" />
-                <Ln>
-                  <span className="w">Prism · NO-SHIP (1 check failed)</span>
-                </Ln>
-                <Ln>
-                  Prism receipt: changed 1 file, 5 dependents, 2 tests reach it
-                  — NO-SHIP
-                </Ln>
-                <Ln>
-                  <Proven />
-                </Ln>
-                <Ln>
-                  <Failed />
-                </Ln>
-              </Window>
-            }
-          />
-        </FeatureBlock>
 
         <FeatureBlock
           title="Every caller"
@@ -292,11 +233,7 @@ export default function HomePage() {
                 See the benchmarks
               </Button>
             </div>
-            <div className="grid3 gap-4">
-              <Stat n="−28" unit="%">
-                fewer tokens for the same tests passing (opencode, 11 small
-                fixes)
-              </Stat>
+            <div className="grid2 gap-4">
               <Stat n="6 of 6">
                 habits ran when asked (Cursor agent CLI 4 of 4, opencode 2 of 2)
               </Stat>

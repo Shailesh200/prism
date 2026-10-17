@@ -9,17 +9,12 @@ import { PageHero } from "@/components/ui/page-hero";
 import { Table } from "@/components/ui/table";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteNav } from "@/components/site/site-nav";
-import sample from "@/data/benchmarks-sample.json";
 import {
   GROUPS,
   HABITS_RAN,
   type Measure,
-  OPENCODE_B6_SOLVED,
-  OPENCODE_B6_TOKENS,
-  OPENCODE_R3_TOKENS,
   change,
   formatChange,
-  tok,
   verdict,
 } from "@/lib/bench";
 import { pageMetadata } from "@/lib/seo";
@@ -27,14 +22,13 @@ import { pageMetadata } from "@/lib/seo";
 export const metadata = pageMetadata({
   title: "Benchmarks",
   description:
-    "Prism 2.0 evaluation: real coding agents on real fixes, with and without Prism. Method, agents, tasks and every result, including where Prism did not help.",
+    "Prism evaluation: real coding agents on real fixes, with and without Prism. Method, agents, tasks and every result, including where Prism did not help.",
   path: "/benchmarks",
 });
 
 /*
  * Every number here comes from docs/benchmarks/2.x.md (the published real-agent run) or the Round 2 / Round 3
- * sections of plans/notes/prism-2-next-change-report.md. The simulated reader numbers are read from
- * data/benchmarks-sample.json. Add a number only with its source.
+ * sections of plans/notes/prism-2-next-change-report.md. Add a number only with its source.
  */
 
 const GLANCE: Array<{
@@ -76,20 +70,9 @@ const WINS: Array<{
   also?: Measure;
 }> = [
   {
-    m: OPENCODE_R3_TOKENS,
-    title: "Fewer tokens for the same tests passing",
-    who: "opencode · 11 small fixes · tests pass 8 of 11 both ways",
-  },
-  {
     stat: "At stop",
     title: "Claude Code gives a verdict at stop.",
-    who: "In Codex, opencode and Cursor, the verdict comes with the next receipt.",
-  },
-  {
-    m: OPENCODE_B6_SOLVED,
-    title: "One more task solved",
-    who: "opencode · 11 small fixes",
-    also: OPENCODE_B6_TOKENS,
+    who: "In Codex and opencode, the verdict comes with the next receipt. In Cursor, ask for a receipt.",
   },
   {
     m: HABITS_RAN,
@@ -148,21 +131,6 @@ function Win({ m, stat, title, who, also }: (typeof WINS)[number]) {
   );
 }
 
-const fmt = (n: number) => n.toLocaleString("en-US");
-const SIM = sample.totals;
-const SIM_CALLS: Measure = {
-  label: "Tool calls",
-  without: tok(SIM.withoutPrism.toolCalls),
-  with: tok(SIM.withPrism.toolCalls),
-  better: "lower",
-};
-const SIM_TOKENS: Measure = {
-  label: "Estimated tokens",
-  without: tok(SIM.withoutPrism.estimatedTokens),
-  with: tok(SIM.withPrism.estimatedTokens),
-  better: "lower",
-};
-
 const Value = ({ children }: { children: ReactNode }) => (
   <span className="font-mono text-base font-medium whitespace-nowrap text-ink">
     {children}
@@ -182,15 +150,8 @@ const METHOD: Array<[term: string, detail: ReactNode]> = [
     "Grading",
     "Tests run on every result. Quality graded 1 to 5 by a grader that does not know which run used Prism",
   ],
-  [
-    "Setup",
-    "One 8 GB macOS machine. Tokens, time and cost are medians per task",
-  ],
+  ["Setup", "One 8 GB macOS machine. Time is a median per task."],
   ["Scope", "Small samples. Prism’s own evaluation, not an independent audit"],
-  [
-    "Not published",
-    "A “tokens saved” estimate: it did not hold up when checked",
-  ],
 ];
 
 export default function BenchmarksPage() {
@@ -227,7 +188,7 @@ export default function BenchmarksPage() {
           <Container>
             <h2 className="d3">Accuracy at a glance</h2>
             <p className="lede mt-3.5 mb-7 text-lg">
-              Review, custom skills, habits, hook speed and the verdict at stop.
+              Custom skills, habits, hook speed and the verdict at stop.
             </p>
             <div className="card tcard">
               <Table className="t-kv">
@@ -275,9 +236,8 @@ export default function BenchmarksPage() {
                       and the same model. Green is better, red is worse.
                     </li>
                     <li>
-                      Tokens, time and cost are medians per task. Grades are 1
-                      to 5, given by a grader that does not know which run used
-                      Prism.
+                      Time is a median per task. Grades are 1 to 5, given by a
+                      grader that does not know which run used Prism.
                     </li>
                     <li>
                       Compare within one tool only: each tool ran its own tasks
@@ -329,74 +289,14 @@ export default function BenchmarksPage() {
                   ))}
                 </div>
                 <p className="mt-5 text-[15px] text-ink3">
-                  Tokens, time and cost are medians per task; grades are 1 to 5,
-                  blind. Compare within one tool only.{" "}
+                  Time is a median per task; grades are 1 to 5, blind. Compare
+                  within one tool only.{" "}
                   <Link href="/docs/benchmarks/2.x">
                     <u>Full method and raw results</u>
                   </Link>
                   .
                 </p>
               </div>
-            </div>
-          </Container>
-        </section>
-
-        <section className="sec">
-          <Container className="grid2 grid-cols-[minmax(0,.62fr)_minmax(0,1.38fr)] items-start">
-            <div>
-              <h2 className="d3">Simulated reader</h2>
-              <p className="lede mt-3.5 text-lg">
-                Five questions on {sample.fixtures.length} small repositories,
-                answered once by listing and reading files and once through
-                Prism. No model is involved; tokens are estimated as bytes ÷ 4.
-              </p>
-            </div>
-            <div className="card tcard">
-              <Table className="t-cmp">
-                <thead>
-                  <tr>
-                    <th>Simulated</th>
-                    <th>Reading files</th>
-                    <th>Through Prism</th>
-                    <th>Change</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>
-                      <b className="font-semibold">Tool calls</b>
-                    </td>
-                    <td>
-                      <Value>{fmt(SIM.withoutPrism.toolCalls)}</Value>
-                    </td>
-                    <td>
-                      <Value>{fmt(SIM.withPrism.toolCalls)}</Value>
-                    </td>
-                    <td>
-                      <ChangePill m={SIM_CALLS} />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <b className="font-semibold">Estimated tokens</b>
-                    </td>
-                    <td>
-                      <Value>{fmt(SIM.withoutPrism.estimatedTokens)}</Value>
-                    </td>
-                    <td>
-                      <Value>{fmt(SIM.withPrism.estimatedTokens)}</Value>
-                    </td>
-                    <td>
-                      <ChangePill m={SIM_TOKENS} />
-                    </td>
-                  </tr>
-                </tbody>
-              </Table>
-              <p className="mt-2 mb-3 text-[15px] text-ink3">
-                Recorded {sample.recordedAt.slice(0, 10)}. A simulation shows
-                how much reading Prism replaces, not what a real agent saves;
-                the full results above do.
-              </p>
             </div>
           </Container>
         </section>

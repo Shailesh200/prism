@@ -39,8 +39,9 @@ const V2: Array<{ label: string; body: ReactNode }> = [
       <>
         When your coding agent stops, Prism runs the check scripts your project
         already has on what changed and gives one verdict: SHIP, NOT PROVEN or
-        NO-SHIP. Claude Code gets it when the agent stops; in Codex, opencode
-        and Cursor it comes with the next receipt.
+        NO-SHIP. Claude Code gets it when the agent stops. In Codex and
+        opencode, the verdict comes with the next receipt. In Cursor, ask for a
+        receipt.
       </>
     ),
   },

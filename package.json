@@ -2,7 +2,7 @@
   "name": "prism",
   "private": true,
   "version": "0.0.0",
-  "description": "Prism: know before you ship. When your coding agent stops, Prism runs your checks on what changed and gives one verdict.",
+  "description": "Prism: know before you ship. When Claude Code stops, Prism runs your checks on what changed and gives one verdict.",
   "type": "module",
   "workspaces": [
     "packages/*",
