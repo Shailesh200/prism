@@ -79,10 +79,21 @@ const SAMPLE_HOOK_PAYLOAD = JSON.stringify({
   session_id: "b10-install-matrix",
 });
 
+/**
+ * The `prism-hook.mjs` path inside a settings value. A command string such as
+ * `node /…/prism-hook.mjs` yields the path, including a Windows `D:\…` path.
+ */
+function hookPathFrom(text) {
+  const win = text.match(/[A-Za-z]:\\(?:[^"'\r\n])*prism-hook\.mjs/);
+  if (win) return win[0];
+  const unix = text.match(/\/[^"'\s]*prism-hook\.mjs/);
+  return unix ? unix[0] : null;
+}
+
 /** A hook command path from settings, including Windows `D:\…` paths. */
 function hookCommand(value) {
-  if (typeof value === "string" && value.includes("prism-hook.mjs")) {
-    return value;
+  if (typeof value === "string") {
+    return hookPathFrom(value);
   }
   if (Array.isArray(value)) {
     for (const item of value) {
