@@ -1,6 +1,6 @@
 ---
 title: FAQ
-description: "Privacy, languages, git, CI, agents, and what Prism will not do."
+description: "Privacy, git, CI, agents, and what Prism will not do."
 ---
 
 ## Does my code leave my machine?
@@ -8,27 +8,15 @@ description: "Privacy, languages, git, CI, agents, and what Prism will not do."
 No. Analysis makes zero network calls, enforced by a test that runs the whole
 analysis surface with the socket layer trapped.
 
-A few optional features do reach out — GitHub metadata, Core Web Vitals,
-avatars — and each is off until you turn it on individually. None of them send
-source code. See [consent and privacy](/docs/concepts/consent-and-privacy).
+Prism 2.0 has no optional network features. Nothing it does sends source
+code anywhere. See [privacy](/privacy).
 
-## Is Prism an AI coding assistant?
+## Does Prism write code?
 
-No. The analysis engine has no model in it and generates nothing — it answers
-structural questions and makes an AI assistant considerably better by giving
-it real knowledge of your repository (see [using MCP](/docs/usage)).
-
-When you ask for a change, [Dispatch](/docs/guides/dispatch) does not become one
-either: the edit is made by your editor's own agent — Cursor or Claude Code,
-under your existing sign-in — and Prism runs the checks when it stops.
-
-## Which languages?
-
-TypeScript and JavaScript are fully analysed — imports, symbols, references,
-graphs, the lot.
-
-Other languages are indexed for structure, size and churn, so file-level and
-git-derived signals work everywhere. Symbol-level analysis does not.
+No. The analysis engine has no model in it and generates nothing. It answers
+structural questions and gives your coding agent real knowledge of your
+repository (see [using MCP](/docs/usage)). Your agent makes the edit, in your
+chat. When it stops, the receipt runs the checks the change reaches.
 
 ## Does it need my repository to be a git repository?
 
@@ -48,17 +36,19 @@ If it is slow, something generated is probably being indexed. See
 
 ## What is stored, and where?
 
-`.prism/` inside your repository: the index (SQLite), your consent decisions,
-health history, and bookmarks. Nothing outside it. No credential is ever
+`~/.prism/` (or `PRISM_HOME`): one folder per workspace with the index
+(SQLite), memories and receipts; your lenses in
+`~/.prism/lenses/`; `install.json` and `events.jsonl`. No credential is ever
 written there.
 
-You can delete `.prism/` at any time; the next run rebuilds it.
+Workspace folders are derived caches; delete one at any time and the next run
+rebuilds it. `prism uninstall --purge` removes everything.
 
 ## Should I commit `.prism/`?
 
 No. Add it to `.gitignore`. It is a derived cache and it is machine-specific.
 
-## Do the CLI and the extension ever disagree?
+## Do the CLI and the MCP server ever disagree?
 
 They cannot. Both call the same engine, and shared values — risk bands, in
 particular — come from one function in `@repo-prism/shared` that both use.
@@ -70,8 +60,8 @@ Numbers imply a precision the underlying signals do not have. See
 
 ## Why does something say "estimated"?
 
-Because it was inferred rather than measured — health history backfilled from
-git before Prism was installed, most commonly. See
+Because it was inferred rather than measured — ownership or churn from a
+shallow clone, most commonly. See
 [signal provenance](/docs/concepts/signal-provenance).
 
 ## Why did a feature get grouped oddly?
@@ -81,11 +71,11 @@ agreed; low confidence means it is a guess. See [graphs](/docs/concepts/graphs).
 
 ## Can I use it in CI?
 
-Yes — see [Wire into CI](/docs/guides/wire-into-ci):
+Yes. The CLI exits `1` when a check fails, so any CI job can run it:
 
 ```bash
-npx -y @repo-prism/cli review --base origin/main --fail-on high
-npx -y @repo-prism/cli cycles --fail-on any
+prism blast src/some/file.ts --fail-on high
+prism cycles --fail-on any
 ```
 
 Exit `1` means the gate fired. Exit `3` means Prism failed.
@@ -95,47 +85,25 @@ Exit `1` means the gate fired. Exit `3` means Prism failed.
 No. Consent-gated capabilities are not exposed to MCP at all — not guarded,
 absent. An agent cannot give informed consent on your behalf.
 
-## Who writes the code in a Dispatch job?
+## What is the receipt?
 
-Your own editor's agent — a Cursor agent in Cursor, a Claude Code agent in
-Claude Code — signed in with your existing session. Prism writes the brief,
-watches the run, and runs this repository’s checks when the worker stops
-(lint and/or test and/or typecheck — or **—** if none exist). Dispatch
-itself makes no network calls and holds no third-party tokens; connectors
-(Slack, Linear, GitHub, Calendar) belong to your agent window, not to Prism.
-See [Dispatch](/docs/guides/dispatch).
+When your agent stops, the Prism stop hook runs the checks the change reaches:
+this repository’s own typecheck and lint scripts and the tests that reach the
+change. It prints a receipt with a verdict: SHIP, NOT PROVEN or NO-SHIP. It
+comes with the Prism plugin pack. Prism never commits or pushes.
 
-## Did the job commit or push anything?
+## Where did the background jobs go?
 
-No. A checkout job leaves its edits uncommitted in your tree — you review the
-changed files and say "commit it" (which commits only the job's files) or
-commit yourself. A worktree job gets one commit on its own branch; **Keep all**
-merges that onto the branch you are on. Prism never pushes.
-
-## Why does the agent ask "teammate or here?" before changing code?
-
-Because guessing wrong strands a background job or edits a tree you were
-working in. The default is to ask once; say "stop asking" and it holds for the
-session, or set it permanently with `configure` → `dispatchMode`: `auto`
-always dispatches, `inline` never does unless you ask outright.
+They were removed (ADR-0064). Your agent makes every edit in your own chat.
+Memories live in the CLI — see [Remember context](/docs/guides/remember-context).
+`prism data prune` lists leftover local folders; `--yes` removes them.
 
 ## Does Prism modify my code?
 
-Only when you ask for a change. Intelligence tools — `rename`, `safe-delete`,
-blast radius, the reports — report what a change would touch; they never
-write. A [Dispatch](/docs/guides/dispatch) job edits your checkout because you
-asked it to, and leaves the edits uncommitted until you say so.
+No. The tools — `rename`, `safe-delete`, blast radius, review — report
+what a change would touch; they never write. Your agent makes edits.
 
-The only thing Prism writes on its own is `.prism/`. The one execution path is
-explicit: with `run.local-build` consent, Prism runs your repository's own
-build script to measure bundle weight.
-
-## What is Envelope?
-
-A local receipt for every Intelligence tool call — tool name, item counts,
-whether the list was cut short, and JSON bytes. No prompts, no paths, no
-source. Iris shows bytes kept vs dump for the selected repo. See
-[Envelope and Iris](/docs/guides/envelope-and-iris).
+The only thing Prism writes on its own is its data under `~/.prism/`.
 
 ## What is prepare_change?
 
@@ -146,8 +114,7 @@ never file bodies. CLI: `prism prepare`. See
 
 ## When is a finding “fixed”?
 
-When a **re-scan** drops its fingerprint. A Dispatch job reaching `done` is
-not enough. See [Findings](/docs/guides/findings).
+When a **re-scan** drops its fingerprint. An edit alone is not enough. See [Findings](/docs/guides/findings).
 
 ## Does Prism write AGENTS.md into my repo?
 
@@ -167,4 +134,4 @@ Nothing. See the repository for licence details.
 ## Related
 
 [Troubleshooting](/docs/help/troubleshooting) ·
-[Consent and privacy](/docs/concepts/consent-and-privacy)
+[privacy](/privacy)

@@ -14,9 +14,18 @@ The records themselves live in
 ## The ones that shape everything
 
 **Core is the only supported integration surface for analysis** (ADR-0004).
-Extensions, the CLI, and Intelligence MCP tools consume `@repo-prism/core`.
-Dispatch (ADR-0035) is a second façade on the same `prism` MCP server for jobs
-and OAuth — Core must not import it.
+Extensions, the CLI, and the MCP tools consume `@repo-prism/core`.
+
+**Dispatch is removed** (ADR-0064). Dispatch (ADR-0035) was a second façade on
+the `prism` MCP server for background jobs, standups, the Console, and Live
+Relay. ADR-0064 removed it from the product and from MCP: no Dispatch tool is
+registered. The last Prepare moved into Core, and memories moved to
+`prism remember`. The `dispatch` and `dispatch-hub` packages
+are deleted in a later milestone. Fixing a finding is the user's own chat.
+
+**The default MCP surface is small** (M-091, Prism 2.0 plan §0.3). Nine tools
+by default; the rest are opt-in through `extraTools` in
+`~/.prism/config.json`.
 
 **The cache is local and lives in your repository** (ADR-0010). SQLite in
 `.prism/`. No cloud, no shared index, nothing to sign in to.
@@ -24,11 +33,11 @@ and OAuth — Core must not import it.
 **Network integrations are opt-in, purpose by purpose** (ADR-0024). Every
 optional capability that leaves your machine is a separate decision, enforced by
 Core rather than by whoever calls it. See
-[consent and privacy](../concepts/consent-and-privacy.md).
+[privacy](/privacy).
 
 **Say what a number is made of** (ADR-0029). Every signal carries whether it was
 measured, inferred or is unknown, and the interface shows it. See
-[signal provenance](../concepts/signal-provenance.md).
+[signal provenance](/docs/concepts/signal-provenance).
 
 ## How code is read
 
@@ -51,7 +60,7 @@ conservative beats a precise one that occasionally misses.
 
 **Health is weighted across five factors** (ADR-0012). The weights are written
 down so you can disagree with them precisely. See
-[Track health](../guides/track-health.mdx).
+[Understand a repo](/docs/guides/understand-a-repo).
 
 **Features are inferred, and confidence is shown** (ADR-0011). Repositories do
 not declare their features, so Prism guesses and says how sure it is.
@@ -72,27 +81,20 @@ points are marked estimated so a reconstructed trend never looks measured.
 ## Surfaces
 
 **Connectors belong to the agent window** (ADR-0049). Prism runs no OAuth of
-its own: it learns which connectors are signed in — Cursor session MCP tools
-(not the plugin download cache, and not a plugin that still only exposes
-`mcp_auth`) plus Claude plugin installs and host MCP configs — names and
-capabilities only, never a token — and asks the
-host agent to fill the sections it cannot. This supersedes the Prism Auth
-broker (ADR-0036) and the per-host connect UX (ADR-0037), and retires
-`auth.prismhq.in`. Dispatch now makes no network calls at all.
-Local job workers still sign in via `Cursor.auth.login` (ADR-0038) —
-not by pasting `CURSOR_API_KEY` into mcp.json. Jobs use a ticket or title
-slug as the canonical id, never `job-<hex>` in chat (ADR-0039). Parallel
-local workers run in isolated processes and worktrees; live status and
-results come back through “where are we” (ADR-0040). Job agents do not
-attach Prism MCP and share the host `node_modules` (ADR-0041). When a job
-stops, Prism commits the branch and runs typecheck/test; in-process
-subagents are on, host fan-out is off (ADR-0042). Named local teammates can
-be watched in Cursor’s Agents window (Filter → Source → SDK). A loopback
-jobs board (ADR-0043) lists every teammate across repos and notifies the OS
-when one finishes — MCP cannot push into an idle chat.
+its own and holds no third-party token. This supersedes the Prism Auth broker
+(ADR-0036) and the per-host connect UX (ADR-0037), and retires
+`auth.prismhq.in`. Dispatch used to discover which connectors were signed in
+(names and capabilities, never a token); that discovery was removed with
+Dispatch (ADR-0064).
+
+The job-runner decisions that followed — worker sign-in (ADR-0038), job ids
+(ADR-0039), parallel local workers (ADR-0040, ADR-0041), verification after a
+job stopped (ADR-0042), and the jobs board (ADR-0043) — were superseded when
+ADR-0058 stopped Prism running agents and ADR-0064 removed Dispatch.
+Verification lives on in the receipt.
 
 **MCP speaks over stdio, indexes lazily, and refuses consent-gated work**
-(ADR-0030). See [using MCP](../mcp/usage.md).
+(ADR-0030). See [using MCP](/docs/usage).
 
 **The product screens are one shared package** (ADR-0021). The extension and the
 playground render the same components.
@@ -108,7 +110,7 @@ are not removed; result shapes only gain optional fields.
 
 ## Toolchain
 
-**Bun, Node 26, and a locked performance-oriented toolchain** (ADR-0002,
+**Bun, a pinned Node, and a locked performance-oriented toolchain** (ADR-0002,
 ADR-0003). Chosen once, so that build speed is not relitigated per package.
 
 ## Reading a record

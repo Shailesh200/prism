@@ -1,6 +1,6 @@
 ---
 title: Known limitations
-description: "What Prism cannot do, stated plainly — languages, static analysis, heuristics."
+description: "What Prism cannot do: languages, static analysis limits and heuristics."
 ---
 
 What Prism cannot do, stated plainly. A tool that hides its limits is a tool you
@@ -8,13 +8,13 @@ cannot calibrate against.
 
 ## Language coverage
 
-TypeScript and JavaScript are fully analysed: imports, symbols, references,
+Prism analyses the languages it has a plugin for: imports, symbols, references,
 graphs.
 
-Everything else is indexed for structure, size and churn only. In a Python or Go
-repository you get the map, file-level metrics and git-derived signals, but not
-symbol-level analysis. Prism is a JavaScript-ecosystem tool that does not fall
-over on other languages.
+In a repository written in a language Prism does not analyse yet, the tools
+answer `PRISM_UNSUPPORTED`, the prompt hook adds one note instead of a pack, and
+the receipt lists such files as `unsupported_language`. In a mixed repository,
+Prism analyses the files it has a plugin for.
 
 ## Static analysis, and what that misses
 
@@ -30,16 +30,9 @@ Repositories do not declare their features. Conventional layouts group well;
 unusual ones group worse. Low confidence means treat the grouping as a
 suggestion. See [graphs](/docs/concepts/graphs).
 
-## Health scores are heuristics
-
-The health score has no ground truth to be validated against. It correlates with
-maintenance cost in the repositories it was designed on; it is not a
-measurement. It cannot see correctness, performance, or whether the software
-does anything useful. Read the factors. See [Track health](/docs/guides/track-health).
-
 ## Git is required for several signals
 
-Churn, ownership, activity, health history backfill and change review all read
+Churn, ownership, activity and change review all read
 git history. Without git — or with a shallow clone — those signals are
 unavailable rather than zero.
 
@@ -50,9 +43,8 @@ No coverage report means coverage is unavailable, which is not the same as zero.
 
 ## Large repositories
 
-Indexing is linear in file count. The map becomes hard to read at file level in
-a repository of tens of thousands of files — package and feature zoom exist for
-that reason. Excluding generated output is the highest-leverage fix.
+Indexing is linear in file count. Excluding generated output is the
+highest-leverage fix.
 
 ## Monorepo boundaries
 
@@ -70,29 +62,25 @@ By design. There is no account, no sync and no server.
 
 ## What Prism deliberately will not do
 
-- **Write code itself.** Analysis has no model and generates nothing. A
-  [Dispatch](/docs/guides/dispatch) job is executed by your editor's own agent —
-  Cursor or Claude Code, under your sign-in — while Prism writes the brief and
-  runs this repository’s checks when the worker stops (or shows **—** if
-  none exist).
+- **Write code itself.** Analysis has no model and generates nothing. Your
+  agent makes the edit. The receipt runs this repository’s checks when the
+  agent stops (or shows **—** if none exist).
+- **Run background agents.** Background jobs were removed (ADR-0064).
 - **Dump file bodies from Prepare.** `prepare_change` returns paths, symbols,
   and why — never source. Open the files yourself.
-- **Upload the Envelope.** The ledger is local JSONL. It never holds source
-  and it is never sent anywhere.
-- **Resolve a finding because a job finished.** Only a re-scan that drops the
-  fingerprint closes it.
+- **Resolve a finding because a file was edited.** Only a re-scan that drops
+  the fingerprint closes it.
 - **Write AGENTS.md into git.** Living AGENTS.md stays under `~/.prism`.
 - **Veto writes from a work order** unless an Accepted ADR has armed that
   hook. The order is advisory by default.
 - **Modify your repository unasked.** `rename` and `safe-delete` report; they
-  never write. A Dispatch job edits only because you asked for a change, and
-  leaves committing to you. The only other path that executes anything is
-  bundle measurement, behind explicit
-  [`run.local-build` consent](/docs/concepts/consent-and-privacy).
+  never write. Besides the receipt's checks, the only path that executes
+  anything is bundle measurement, behind explicit
+  [privacy](/privacy).
 - **Scan for vulnerabilities.** The security report checks whether left-shift
   tooling exists.
 - **Send anything anywhere by default.** See
-  [consent and privacy](/docs/concepts/consent-and-privacy).
+  [privacy](/privacy).
 
 ## Related
 

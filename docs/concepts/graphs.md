@@ -1,6 +1,6 @@
 ---
 title: Graphs
-description: "Dependency, knowledge, and feature graphs — three layers over one index."
+description: "Dependency, knowledge and feature graphs, three layers over one index."
 ---
 
 Prism builds three related graphs from the same [index](/docs/concepts/repository-index).
@@ -21,8 +21,8 @@ prism cycles
 ```
 
 Cycles are not always bugs, but they reliably mean a boundary is not where
-someone thought. Blast radius, safe delete, the map layout, and coupling health
-all walk this graph.
+someone thought. Blast radius, safe delete, rename impact and Prepare all walk
+this graph.
 
 ## Knowledge graph
 
@@ -40,24 +40,13 @@ prism explore src/features/cart.ts
 Inferred edges carry confidence. A `defines` edge is certain; a feature at 40%
 confidence is a suggestion. See [signal provenance](/docs/concepts/signal-provenance).
 
-## Feature graph
+## Feature grouping (internal)
 
-A guess at which files, together, implement one user-facing thing — from naming,
-directories, import clustering, co-change (needs git), and routes.
-
-| Confidence | How to read it |
-|---|---|
-| **80–100%** | Multiple signals agree — treat as real |
-| **50–79%** | Plausible — check before acting |
-| **Below 50%** | A hint |
-
-```bash
-prism features
-prism features --limit 10
-```
-
-Common failure modes: splitting one feature into two, or merging two via a
-shared utility. Both show up as lower confidence.
+Prism groups files that implement one user-facing thing — from naming,
+directories, import clustering, co-change (needs git), and routes. In 2.0 this
+grouping is internal: it feeds `prepare_change` and `blast_radius` ranking and
+is not exposed as its own command or tool. A grouping signal carries the same
+confidence bands as any other inferred edge.
 
 ## Related
 

@@ -1,6 +1,6 @@
 ---
 title: Troubleshooting
-description: "Doctor first — then wrong workspace, slow indexing, unavailable signals, MCP issues."
+description: "Run prism doctor first. Then install, wrong workspace, slow indexing, unavailable signals, MCP issues and error codes."
 ---
 
 ## Start here
@@ -9,10 +9,22 @@ description: "Doctor first — then wrong workspace, slow indexing, unavailable 
 prism doctor
 ```
 
-It reports the engine version, which workspace was chosen and which rule chose
-it, whether an index exists and how old it is, and what is available in the
-environment. Most of what follows is faster to confirm with `doctor` than to
-guess at.
+It reports the engine version, the install and the server it pins, whether any
+editor still launches a published package, which workspace was chosen and which
+rule chose it, and whether an index exists and how old it is. Most of what
+follows is faster to confirm with `doctor` than to guess at.
+
+`prism doctor --fix` stops the daemon (the next client starts the current
+build) and rewrites the editors recorded in `~/.prism/install.json` to that
+build. `prism stats --since 1d` shows hook and tool timings and outcomes.
+
+## Doctor says "server … is missing" or "published package referenced"
+
+The editor configs point at a server that is not there, or (when Prism was
+installed from a source checkout) at `npx`/`@latest`. Run `prism doctor --fix`,
+or `prism install <editor>` again: install writes the path of the local server,
+not `npx`. A hand-written `npx` config from [Install](/docs/start/install) is
+fine for a normal install.
 
 ## Prism is analysing the wrong repository
 
@@ -24,7 +36,7 @@ repository you get the nested one.
 override:
 
 ```bash
-prism health --workspace ./packages/api
+prism overview --workspace ./packages/api
 ```
 
 ## Indexing is slow
@@ -32,20 +44,18 @@ prism health --workspace ./packages/api
 Almost always a file count problem, and almost always generated output.
 
 Check the count in `prism doctor`, then exclude what should not be there — build
-output, vendored dependencies, generated clients, fixtures. In the extension:
-Settings → Indexing → Exclude globs.
+output, vendored dependencies, generated clients, fixtures.
 
 The other cause is a few enormous files. The max file size setting skips them;
 a 40,000-line generated client contributes nothing you would look at.
 
 ## Indexing looks stuck, not just slow
 
-Slow is linear progress through many files; stuck is no progress at all. The
-extension status bar shows which file is being indexed — if it has not moved
-in minutes, one enormous generated file is the usual cause (exclude it, or
-raise `--max-file-bytes`). If the index itself is wedged, delete `.prism/` and
-reindex — it is a derived cache and rebuilds from scratch. Nothing else is
-lost.
+Slow is linear progress through many files; stuck is no progress at all.
+`prism graph status` shows the daemon and its workspaces. One enormous
+generated file is the usual cause (exclude it, or raise `--max-file-bytes`).
+If the index itself is wedged, run `prism index`; a corrupt index is moved
+aside and rebuilt. It is a derived cache, so nothing else is lost.
 
 ## An unfamiliar file count
 
@@ -53,15 +63,15 @@ If it is far higher than expected, something generated is being indexed. If far
 lower, an exclude pattern is too broad — a `**/dist/**` that also matches
 `src/district/`, for example.
 
-## The map is empty
+## The index has no files
 
 Either no index, or the index found nothing.
 
 `prism doctor` distinguishes them. No index means indexing failed or never ran;
-zero files means everything was excluded or nothing is in a language Prism
-parses.
+zero files means everything was excluded or no file is in a language Prism
+analyses yet (see [known limitations](/docs/help/known-limitations)).
 
-## A screen says a signal is unavailable
+## A result says a signal is unavailable
 
 That is the intended behaviour, not a failure. Prism marks what it does not know
 rather than showing a zero — see
@@ -73,28 +83,9 @@ Common causes:
 |---|---|
 | Churn, ownership, activity | Not a git repository, or shallow-cloned |
 | Coverage | No coverage output on disk |
-| Bundle weight | No stats artifact, and no `run.local-build` consent |
-| Web vitals | Not consented, or Lighthouse not installed |
-| CI and PR data | No `network.github` consent |
 
 Shallow clones are the surprising one. `git clone --depth 1` in CI leaves no
 history to compute churn from.
-
-## Health history looks flat before a certain date
-
-Points before you installed Prism are backfilled from git history and marked
-**estimated**. They are directionally useful and not precise. Measured points
-start when Prism did.
-
-## A feature grouping looks wrong
-
-Features are inferred from imports, naming and directory structure — the
-repository does not declare them. Confidence says how much evidence agreed; a
-low percentage means it is a guess.
-
-`prism features` shows the confidence, and `prism explain <path>` shows why a
-file was placed where it was. Unusual layouts genuinely produce worse groupings.
-See [graphs](/docs/concepts/graphs).
 
 ## A CLI command exits 1 and I expected 0
 
@@ -106,7 +97,7 @@ met. That is the gate firing, not a failure.
 ## JSON output has an error in it
 
 By design. In `--json` mode both success and failure go to stdout in the same
-envelope, so a script reading one stream never misses a failure:
+wrapper, so a script reading one stream never misses a failure:
 
 ```json
 { "ok": false, "error": { "code": "PRISM_INVALID_PATH", "message": "…" } }
@@ -115,11 +106,12 @@ envelope, so a script reading one stream never misses a failure:
 ## The prism server does not appear, or no tools register
 
 The client never started the server, or started it and cached a failure. Toggle
-prism off/on in the client's MCP settings (or restart the client) with the
+the prism server off and on in the client's MCP settings (or restart the client) with the
 project folder open, then watch the client's MCP logs for the launch error.
 After an update, a running session cannot swap binaries mid-chat — restart the
-client once so the newer package loads. Confirm Node 26+ with `node -v`; an old
-Node fails before any tool registers.
+client once so the newer package loads. `prism doctor --surfaces` shows the
+Node each client launches; a Node that is too old fails before any tool
+registers.
 
 ## An MCP tool says an index is required
 
@@ -141,70 +133,58 @@ worse than an error.
 
 Path arguments resolve from your current directory, not the repository root.
 
-## The extension will not open
-
-Reload the window first. If it persists, check the Output panel → Prism for the
-error, and confirm the folder is open as a workspace — Prism needs a folder, not
-a single file.
-
-## Dispatch: start_job says it cannot see a git repository
+## An MCP tool answers about the wrong repository
 
 The MCP server resolved the wrong workspace — usually it started before the git
 project was the open folder. Reload the prism server (Settings → MCP → toggle
-prism off/on) with the project open, then retry. The agent passes the workspace
+the server off and on) with the project open, then retry. The agent passes the workspace
 path itself; never paste one into `mcp.json`. If it still resolves wrong, set
 `PRISM_WORKSPACE` once — see [install](/docs/start/install).
 
-## Dispatch: the worker is not signed in
+## An "Authenticating prism…" card with a Skip button
 
-Say **prism init**. In Cursor a Cursor login page opens in your browser; in
-Claude Code, init checks the `claude` CLI — if told to, run `claude` once in a
-terminal and sign in. Do not paste API keys into `mcp.json`; sign-in lives in
-the host's own store. `dispatch_doctor` reports the same state as a check.
+That is the host approving Prism's MCP tools. Prism has no sign-in of its own.
+Click **Skip**, then retry what you asked for. It appears once per session.
 
-## Dispatch: an "Authenticating prism…" card with a Skip button
+## The agent asks for a tool that is not listed
 
-That is the host approving Prism's MCP tools, not worker sign-in. Click
-**Skip**, then retry what you asked for. It appears once per session.
+The server registers nine tools by default. The others (graphs, findings,
+`agents_md`, and more) are opt-in: list them in `extraTools` in
+`~/.prism/config.json`. See [Usage](/docs/usage) and the
+[MCP reference](/docs/reference/mcp-tools).
 
-## Dispatch: start_job asks you to confirm a dirty tree
+## A tool from an older Prism is gone
 
-A checkout job edits your working tree, so uncommitted changes you already had
-would mix with the job's edits. The job pauses for confirmation instead of
-guessing — say it is fine and the agent re-runs with that confirmation, or
-commit/stash your work first. Ask for "a separate branch" and the job takes a
-worktree instead, leaving your tree untouched.
+Prism 2.0 has nine default tools; older tool names were removed with no
+aliases, and an old name gets the standard unknown-tool error. See
+[MCP tools](/docs/reference/mcp-tools). Installing 2.0 over 1.x wipes the 1.x
+data once and keeps your lenses. `prism data prune` lists empty workspace
+folders, caches of deleted checkouts, and untracked worktrees;
+`prism data prune --yes` removes them.
 
-## Dispatch: a job has gone quiet
+## Error codes
 
-A job with no activity for several minutes is stalled, not thinking. Ask
-**where are we** or open `job_logs` for the last thing it actually did, then
-resume or cancel it (`job_control`). Do not wait on a stalled job.
+Every error reads `PRISM_X: what happened. What to do.`
 
-## Dispatch: a job was refused before it started
+| Code | Meaning | What to do |
+|---|---|---|
+| `PRISM_VALIDATION` | An argument or option is wrong | Read the usage line in the message |
+| `PRISM_NOT_FOUND` | A file, symbol, receipt or server bin does not exist | Check the path; for the server, `prism doctor --fix` |
+| `PRISM_INVALID_PATH` | A path is outside the workspace or not allowed | Use a path inside the repository |
+| `PRISM_INVALID_ID` | An id is malformed | Copy it again from the output that gave it |
+| `PRISM_WORKSPACE_NOT_OPEN` | No workspace could be chosen | Run inside a git repository, or pass `--workspace` |
+| `PRISM_INDEX_REQUIRED` | The answer needs an index | `prism index` |
+| `PRISM_INDEX_FAILED` | Indexing failed | `prism doctor`; then `prism index` |
+| `PRISM_ANALYZER_FAILED` | Analysis of a file failed | Usually a parse error in that file; the rest still works |
+| `PRISM_GRAPH_ERROR` | The graph query could not run | Rerun; if it repeats, `prism index` |
+| `PRISM_IO_ERROR` | A file could not be read or written | Check permissions and free disk space |
+| `PRISM_UNSUPPORTED` | Not supported yet (e.g. a language Prism does not analyse) | See [known limitations](/docs/help/known-limitations) |
+| `PRISM_CANCELLED` | The operation was cancelled | Rerun it |
+| `PRISM_UNKNOWN` | An unexpected failure | Open an issue with `prism doctor` output |
 
-Admission is gated on free memory (and a max-jobs cap), so a heavy machine
-postpones new teammates rather than thrashing. Close what you can and retry,
-or let a running job finish first.
+## The editors launch different Prism builds
 
-## Dispatch: the job finished but "produced no reviewable change"
-
-The worker stopped without landing an edit — the review lists only files the
-job actually touched, and there were none. Re-brief with a sharper PRD (what
-to change, where, and how you will tell it worked) and run it again.
-
-## Dispatch: the jobs board (Console) does not open
-
-Any Prism tool starts the local hub; open
-`http://prismhq.localhost:17330/`. If it stays unreachable, check the hub was
-not opted out with `PRISM_HUB=0`, and that nothing else holds port 17330.
-
-## Dispatch: the Console says the link is unauthorized
-
-Console URLs carry a per-session token in the query string. Open the full
-"Watch live at …" URL exactly as `start_job` or `list_jobs` returned it —
-stripping the query string is what produces this. A restarted hub mints a new
-token; ask **where are we** for a fresh link.
+`prism doctor --surfaces` shows which Prism each editor launches.
 
 ## Still stuck
 

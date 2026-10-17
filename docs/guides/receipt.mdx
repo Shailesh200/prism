@@ -1,0 +1,22 @@
+---
+title: Receipt
+description: What Prism prints when an agent stops, and what each line means.
+---
+
+> Read the receipt when the agent stops. Do not trust "done" without it.
+
+When the agent stops, Prism works out what this change touched, runs the checks that reach it, and prints a verdict: **SHIP**, **NOT PROVEN** or **NO-SHIP**.
+
+A failure counts only when this change caused it. A check that was already failing when the session started is reported on its own line and does not block the agent.
+
+| Line | Meaning |
+|---|---|
+| `Prism · SHIP` | Every changed source file is reached by a test that ran and passed. |
+| `Prism · NOT PROVEN (reason)` | Nothing failed, but a changed file has no test, or its tests did not run. |
+| `Prism · NO-SHIP (…)` | A check this change broke did not pass, or the change touched an off-limits path. The agent is sent back to fix it. |
+| `Already failing` | The check was red before this session. |
+
+```bash
+prism receipts
+prism receipts show 1 --as markdown
+```

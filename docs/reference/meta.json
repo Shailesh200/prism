@@ -1,12 +1,11 @@
 {
   "title": "Reference",
   "pages": [
-    "capabilities",
-    "cli-commands",
     "mcp-tools",
-    "mcp-prompts",
-    "ide-settings",
+    "cli-commands",
     "configuration",
+    "capabilities",
+    "mcp-prompts",
     "glossary"
   ]
 }
