@@ -67,6 +67,8 @@ export const NOT_PROVEN_REASONS = [
   "unsupported_language",
   /** A newer change in the workspace replaced this one before its checks finished. */
   "superseded",
+  /** No session-start record, so the change set was never established. */
+  "no_session",
 ] as const;
 export const NotProvenReasonSchema = z.enum(NOT_PROVEN_REASONS);
 export type NotProvenReason = z.infer<typeof NotProvenReasonSchema>;

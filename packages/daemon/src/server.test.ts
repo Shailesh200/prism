@@ -441,4 +441,18 @@ describe("build skew (plan §10 Phase 4)", () => {
     const health = await daemonHealth({ env });
     expect(health.kind === "ok" && health.value.buildId).toBe("2.0.0+200");
   });
+
+  it("a newer client stops the daemon left by the previous install", async () => {
+    await start("2.0.0+100");
+    const outcome = await ensureDaemon({
+      command: process.execPath,
+      args: ["-e", "process.exit(0)"],
+      env,
+      buildId: "2.0.0+200",
+      waitMs: 0,
+    });
+    expect(outcome).toEqual({ kind: "ok", value: { started: true } });
+    const health = await daemonHealth({ env, buildId: "2.0.0+100" });
+    expect(health.kind).toBe("unavailable");
+  });
 });

@@ -949,6 +949,7 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
       "timeout",
       "already_failing",
       "unsupported_language",
+      "no_session",
     ]) {
       const { home, cwd } = layout(snapshot);
       const server = await fakeDaemon(home, {

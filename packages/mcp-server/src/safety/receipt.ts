@@ -48,6 +48,29 @@ import {
 
 /** Dirty files a receipt looks at; the rest are counted, not analysed. */
 export const RECEIPT_FILE_CAP = 25;
+
+/** How long a receipt waits to index a file git sees and the index does not (J-09). */
+const UNSEEN_INDEX_MS = 2_000;
+
+async function indexUnseenPaths(
+  workspace: PrismWorkspace,
+  paths: readonly string[],
+): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const indexed = await Promise.race([
+      workspace.index({ changedPaths: paths }),
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), UNSEEN_INDEX_MS);
+      }),
+    ]);
+    return indexed !== null && indexed.ok;
+  } catch {
+    return false;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 /** Test files handed to a scoped runner in one call. */
 export const RECEIPT_TEST_CAP = 60;
 /** Blast risk at or above this is flagged (Blast "High", Q-023). */
@@ -268,13 +291,39 @@ export async function buildStructuralReceipt(
     if (!indexed.ok) return indexed;
   }
 
-  const guard = await workspace.guardSession(
-    options.preExistingChanges
-      ? { preExistingChanges: options.preExistingChanges }
-      : undefined,
-  );
+  const guardInput = options.preExistingChanges
+    ? { preExistingChanges: options.preExistingChanges }
+    : undefined;
+  let guard = await workspace.guardSession(guardInput);
   if (!guard.ok) return guard;
+  // J-09: a file git sees and the index does not is dropped from `files`
+  // (blast NOT_FOUND). An immediate stop then has supportedChanged 0 and
+  // says SHIP. Index those files now. If that fails or times out, the
+  // verdict below is NOT PROVEN (checks still running), never SHIP.
+  const unseenSources = (): string[] => {
+    const current = guard;
+    if (!current.ok) return [];
+    return current.value.sessionPaths.filter(
+      (p) =>
+        isSupportedSourcePath(p) &&
+        !isTestPath(p) &&
+        !current.value.files.some((f) => f.path === p),
+    );
+  };
+  let indexIncomplete = false;
+  const missed = unseenSources();
+  if (missed.length > 0) {
+    const indexed = await indexUnseenPaths(workspace, missed);
+    if (!indexed) {
+      indexIncomplete = true;
+    } else {
+      guard = await workspace.guardSession(guardInput);
+      if (!guard.ok) return guard;
+      if (unseenSources().length > 0) indexIncomplete = true;
+    }
+  }
 
+  if (!guard.ok) return guard;
   const root = workspace.rootPath;
   const sessionPaths = guard.value.sessionPaths;
   const diffHash = sessionDiffHash(root, sessionPaths);
@@ -338,7 +387,7 @@ export async function buildStructuralReceipt(
   const runnable = files.length > 0 && !missingDependencies;
   const checksState: ChangeReceipt["checksState"] =
     runnable && options.runChecks !== false ? "pending" : "skipped";
-  const { verdict, reason } = receiptVerdict({
+  const decided = receiptVerdict({
     checks: [],
     checksState,
     testMode: "skipped",
@@ -348,6 +397,8 @@ export async function buildStructuralReceipt(
     sourcesWithoutTests: sourcesWithoutTests.length,
     missingDependencies,
   });
+  const verdict = indexIncomplete ? "not_proven" : decided.verdict;
+  const reason = indexIncomplete ? "still_running" : decided.reason;
 
   const receipt: ChangeReceipt = {
     id,
@@ -568,6 +619,7 @@ const REASON_TEXT: Partial<Record<NotProvenReason, string>> = {
   timeout: "its tests timed out",
   already_failing: "its tests were already failing",
   superseded: "a newer change replaced it before its tests finished",
+  no_session: "no session start was recorded, so this change was not proven",
 };
 
 function notProvenRows(

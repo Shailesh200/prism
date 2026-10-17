@@ -79,6 +79,25 @@ const SAMPLE_HOOK_PAYLOAD = JSON.stringify({
   session_id: "b10-install-matrix",
 });
 
+/** A hook command path from settings, including Windows `D:\…` paths. */
+function hookCommand(value) {
+  if (typeof value === "string" && value.includes("prism-hook.mjs")) {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = hookCommand(item);
+      if (found) return found;
+    }
+  } else if (value && typeof value === "object") {
+    for (const item of Object.values(value)) {
+      const found = hookCommand(item);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 function fireHook(home, host, env) {
   if (host !== "claude") {
     return { skipped: true, reason: "no SessionStart hook for this host" };
@@ -95,10 +114,7 @@ function fireHook(home, host, env) {
   if (existsSync(settingsPath)) {
     try {
       const settings = JSON.parse(readFileSync(settingsPath, "utf8"));
-      const hooks = settings?.hooks;
-      const blob = JSON.stringify(hooks ?? {});
-      const match = blob.match(/(\/[^"'\s]+prism-hook\.mjs)/);
-      if (match) settingsHook = match[1];
+      settingsHook = hookCommand(settings?.hooks);
     } catch {
       /* ignore */
     }

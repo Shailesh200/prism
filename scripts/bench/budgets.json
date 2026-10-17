@@ -34,7 +34,7 @@
         "dependency_graph": 60,
         "cycles": 60,
         "blast_radius": 150,
-        "dna": 250
+        "dna": 500
       }
     },
     "medium": {

@@ -77,8 +77,8 @@ By design. There is no account, no sync and no server.
   never write. Besides the receipt's checks, the only path that executes
   anything is bundle measurement, behind explicit
   [privacy](/privacy).
-- **Scan for vulnerabilities.** The security report checks whether left-shift
-  tooling exists.
+- **Scan for vulnerabilities.** Prism does not look for vulnerable
+  dependencies or run a security scanner.
 - **Send anything anywhere by default.** See
   [privacy](/privacy).
 

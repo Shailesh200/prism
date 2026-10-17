@@ -178,6 +178,10 @@ const NOT_PROVEN: Array<[reason: string, means: string]> = [
     "superseded",
     "A newer change replaced this one before its checks finished.",
   ],
+  [
+    "no_session",
+    "No session start was recorded, so the change set was never established.",
+  ],
 ];
 
 const FINDING =

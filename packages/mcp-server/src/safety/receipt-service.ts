@@ -40,6 +40,15 @@ import {
   type BuildReceiptOptions,
 } from "./receipt.js";
 import { readSessionStore } from "@repo-prism/shared/session-store";
+
+/** A hand-run receipt with no session-start record is never SHIP. */
+function withoutSessionStart(
+  receipt: ChangeReceipt,
+  hasSession: boolean,
+): ChangeReceipt {
+  if (hasSession || receipt.verdict !== "proven") return receipt;
+  return { ...receipt, verdict: "not_proven", reason: "no_session" };
+}
 import {
   appendFeedback,
   feedbackTerms,
@@ -311,6 +320,8 @@ export function createReceiptService(
       const baseline = request.preExistingChanges
         ? null
         : readSessionBaseline(root, request.sessionId, env);
+      const hasSession =
+        request.preExistingChanges !== undefined || baseline !== null;
       const preExisting = request.preExistingChanges ?? baseline?.dirty;
       const buildOptions: BuildReceiptOptions = {
         ...options.build,
@@ -361,7 +372,9 @@ export function createReceiptService(
           return r;
         }
       };
-      const first = await withValue({ ...receipt, mode });
+      const first = await withValue(
+        withoutSessionStart({ ...receipt, mode }, hasSession),
+      );
       store(root, first);
       recordEvent(
         {
@@ -399,7 +412,9 @@ export function createReceiptService(
         signal: controller.signal,
       })
         .then(async (done) => {
-          const final = await withValue({ ...done, mode });
+          const final = await withValue(
+            withoutSessionStart({ ...done, mode }, hasSession),
+          );
           store(root, final);
           if (final.reason !== "superseded") unreported.set(root, final);
           recordEvent(
