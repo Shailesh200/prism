@@ -11,6 +11,7 @@ import {
   shipVerdict,
   shipVerdictLabel,
   type ChangeReceipt,
+  type NotProvenReason,
   type ReceiptLensLine,
   type ReceiptProof,
   type ShipVerdict,
@@ -37,6 +38,38 @@ export function receiptHeadline(receipt: ChangeReceipt): string {
     return `Prism · NO-SHIP (${why.join(", ")})`;
   }
   return `Prism · ${shipVerdictLabel(receipt)}`;
+}
+
+/** What each NOT PROVEN reason means, for the terminal line (Muse v2.1). */
+const TERMINAL_REASON: Record<NotProvenReason, string> = {
+  untested: "no test reaches this change yet",
+  no_node_modules: "install dependencies to run its tests",
+  unknown_runner: "no known runner could run its tests",
+  skipped_offline: "checks are off for this run",
+  still_running: "no verdict yet; the next receipt shows it",
+  timeout: "a check ran past its time limit",
+  already_failing: "its tests failed before this session",
+  unsupported_language: "only TS and JS files are checked",
+  superseded: "a newer change replaced this one",
+};
+
+/**
+ * The verdict in one terminal line (Muse v2.1): the headline and what it
+ * means. Shown by `prism receipts` and by the stop hook when the verdict is
+ * already final at stop.
+ */
+export function receiptTerminalLine(receipt: ChangeReceipt): string {
+  const head = receiptHeadline(receipt);
+  if (nothingChanged(receipt)) return head;
+  const verdict = shipVerdict(receipt);
+  if (verdict === "SHIP")
+    return `${head} — the checks this change reaches passed`;
+  if (verdict === "NO-SHIP") {
+    return blockingChecks(receipt).length > 0
+      ? `${head} — the agent is fixing it`
+      : `${head} — the agent is undoing those edits`;
+  }
+  return `${head} — ${TERMINAL_REASON[receipt.reason ?? "untested"]}`;
 }
 
 /** A clean tree: `proven` with nothing to show. */
@@ -184,6 +217,12 @@ export function renderReceipt(
     );
   }
   return lines.join("\n");
+}
+
+/** {@link renderReceipt} opening with the terminal line (`prism receipts`). */
+export function renderReceiptTerminal(receipt: ChangeReceipt): string {
+  const [, ...rest] = renderReceipt(receipt).split("\n");
+  return [receiptTerminalLine(receipt), ...rest].join("\n");
 }
 
 function cell(text: string): string {

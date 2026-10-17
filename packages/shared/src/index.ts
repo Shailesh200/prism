@@ -81,9 +81,11 @@ export {
   nothingChanged,
   receiptHeadline,
   receiptSummaryLine,
+  receiptTerminalLine,
   renderReceipt,
   renderReceiptMarkdown,
   renderReceiptSvg,
+  renderReceiptTerminal,
 } from "./receipt-render.js";
 export {
   findingFromReceiptFlag,
