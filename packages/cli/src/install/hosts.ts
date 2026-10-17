@@ -11,6 +11,8 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  readlinkSync,
+  realpathSync,
   renameSync,
   rmdirSync,
   rmSync,
@@ -18,7 +20,8 @@ import {
 } from "node:fs";
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { lstatOrUndefined } from "./backups.js";
 import {
   mergeClaudeHooks,
   PRISM_HOOK_FILE,
@@ -96,14 +99,20 @@ const TOML_END = "# prism:end";
 export type PlannedWrite = {
   readonly path: string;
   readonly kind: "file" | "dir";
-  /** It exists now, so a real run would back it up first. */
+  /** It exists now (a dangling link counts), so a real run backs it up first. */
   readonly exists: boolean;
+  /** `path` is a symlink: the write goes through to this file (Arc review). */
+  readonly linkTo?: string;
 };
 
 /**
  * Plan mode (`prism start` consent): while set, the writers below record what
  * they would change instead of changing it, and later reads see the earlier
  * planned text. Real code paths, no second copy of the per-host rules.
+ *
+ * A module global (Arc review): safe only while every writer is synchronous.
+ * `planWrites` throws if `fn` returns a promise, so a writer that turns async
+ * cannot write for real during a dry run once `planning` has been reset.
  */
 let planning: Map<string, { text?: string; write: PlannedWrite }> | null = null;
 
@@ -112,7 +121,11 @@ export function planWrites(fn: () => void): PlannedWrite[] {
   const previous = planning;
   planning = new Map();
   try {
-    fn();
+    const result: unknown = fn();
+    if (result && typeof (result as { then?: unknown }).then === "function")
+      throw new Error(
+        "planWrites needs synchronous writers (plan mode is a module global)",
+      );
     return [...planning.values()].map((entry) => entry.write);
   } finally {
     planning = previous;
@@ -126,18 +139,44 @@ function currentText(path: string): string | undefined {
   return existsSync(path) ? readFileSync(path, "utf8") : undefined;
 }
 
+/**
+ * Where a write to `path` lands (Arc review). A symlinked config (stow,
+ * chezmoi) is written through to its target, so the link stays a link; a
+ * dangling link writes the file it points at. Otherwise `path` itself.
+ */
+export function writeTarget(path: string): string {
+  const info = lstatOrUndefined(path);
+  if (!info?.isSymbolicLink()) return path;
+  try {
+    return realpathSync(path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    return resolve(dirname(path), readlinkSync(path));
+  }
+}
+
 /** Writes only when the content differs, so a second install touches nothing. */
 export function atomicWrite(path: string, text: string): void {
   if (currentText(path) === text) return;
   if (planning) {
-    const exists = existsSync(path);
-    planning.set(path, { text, write: { path, kind: "file", exists } });
+    const exists = lstatOrUndefined(path) !== undefined;
+    const target = writeTarget(path);
+    planning.set(path, {
+      text,
+      write: {
+        path,
+        kind: "file",
+        exists,
+        ...(target !== path ? { linkTo: target } : {}),
+      },
+    });
     return;
   }
-  mkdirSync(dirname(path), { recursive: true });
-  const tmp = `${path}.prism-${process.pid}.tmp`;
+  const target = writeTarget(path);
+  mkdirSync(dirname(target), { recursive: true });
+  const tmp = `${target}.prism-${process.pid}.tmp`;
   writeFileSync(tmp, text);
-  renameSync(tmp, path);
+  renameSync(tmp, target);
 }
 
 function readJsonObject(path: string): Record<string, unknown> {

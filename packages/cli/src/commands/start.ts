@@ -30,7 +30,7 @@ import {
   type PrismError,
   type Result,
 } from "@repo-prism/shared";
-import { backupConfigs, tilde } from "../install/backups.js";
+import { backupConfigs, reserveBackupDir, tilde } from "../install/backups.js";
 import { CONSENT_COPY, fileList, wipeBlock } from "../install/consent-copy.js";
 import { detectHosts, type InstallHost } from "../install/hosts.js";
 import { planStart, type StartPlan } from "../install/start-plan.js";
@@ -259,6 +259,7 @@ export function startPlanJson(
     readonly kind: "file" | "dir";
     readonly exists: boolean;
     readonly role: string;
+    readonly linkTo?: string;
   }[];
   readonly wipe: StartPlan["wipe"];
   readonly backupDir: string;
@@ -272,6 +273,7 @@ export function startPlanJson(
       kind: write.kind,
       exists: write.exists,
       role: plan.rows[i]?.role ?? "file",
+      ...(write.linkTo ? { linkTo: write.linkTo } : {}),
     })),
     wipe: plan.wipe,
     backupDir: plan.backupDir,
@@ -398,11 +400,17 @@ export function makeStartCommand(
       }
     }
 
-    // Case 3 / 5 / 8: back up, install, then index.
+    // Case 3 / 5 / 8: back up, install, then index. One backup folder per
+    // run, never an existing one (Arc review): `-2`… when the stamp is taken.
+    const backupRoot =
+      plan.toBackUp.length > 0 || plan.wipe
+        ? reserveBackupDir(plan.backupDir)
+        : undefined;
+    const backupUsed = backupRoot ? `${tilde(backupRoot, home)}/` : backupShown;
     let backups: string[] = [];
-    if (plan.toBackUp.length > 0) {
-      say(CONSENT_COPY.backingUp(plan.toBackUp.length, backupShown));
-      backups = backupConfigs(plan.backupDir, plan.toBackUp, home);
+    if (backupRoot && plan.toBackUp.length > 0) {
+      say(CONSENT_COPY.backingUp(plan.toBackUp.length, backupUsed));
+      backups = backupConfigs(backupRoot, plan.toBackUp, home);
     }
     context.progress(`Installing for ${names.join(", ")}…`);
     const result = await deps.install({
@@ -413,6 +421,7 @@ export function makeStartCommand(
       env,
       now,
       home,
+      ...(backupRoot ? { backupRoot } : {}),
     });
     if (result.kind === "permission")
       return err(
@@ -426,7 +435,7 @@ export function makeStartCommand(
       ...(moved ? [result.wipe.line] : []),
       `Prism ${result.record.version} installed for ${result.installed.map((host) => HOST_NAMES[host]).join(", ")} (${result.build}).`,
       ...(backups.length > 0 || moved
-        ? [CONSENT_COPY.backupsAre(backupShown)]
+        ? [CONSENT_COPY.backupsAre(backupUsed)]
         : []),
       CONSENT_COPY.uninstallHint,
       ...result.notes,

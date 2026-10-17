@@ -203,6 +203,8 @@ type InstallRun = {
   readonly now?: Date;
   /** The home agents read their configs from (default: the OS home). */
   readonly home?: string;
+  /** `prism start`'s reserved backup folder, shared with the 1.x move. */
+  readonly backupRoot?: string;
 };
 
 /** `08e4d3c`, or `08e4d3c+dirty` when the checkout has uncommitted changes. */
@@ -222,6 +224,7 @@ export async function runInstall(run: InstallRun) {
   const wipe = await wipe1x({
     env: run.env,
     ...(run.now ? { now: run.now } : {}),
+    ...(run.backupRoot ? { backupRoot: run.backupRoot } : {}),
     stopDaemon: async () =>
       (await stopDaemon({ env: run.env })).kind === "ok"
         ? "stopped"

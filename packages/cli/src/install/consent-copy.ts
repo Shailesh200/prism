@@ -23,6 +23,8 @@ export type ListRow = {
   readonly role: WriteRole;
   /** Skill folder name, for the `skill` role. */
   readonly name?: string;
+  /** Display path of a symlinked config's target, written through. */
+  readonly linkTo?: string;
 };
 
 export type WipeLines = {
@@ -77,7 +79,9 @@ export function fileList(rows: readonly ListRow[]): string[] {
   for (const row of rows) {
     const agent = (row.agent === last ? "" : row.agent).padEnd(AGENT_COL);
     last = row.agent;
-    const label = roleLabel(row);
+    const label = row.linkTo
+      ? `${roleLabel(row)} ${CONSENT_COPY.symlinkNote(row.linkTo)}`
+      : roleLabel(row);
     if (row.path.length <= PATH_COL - 2) {
       out.push(`  ${agent}${row.path.padEnd(PATH_COL)}${label}`);
     } else {
@@ -131,6 +135,8 @@ export const CONSENT_COPY = {
   backingUp: (count: number, dir: string) =>
     `Backing up ${plural(count, "file", "files")} to ${dir} …`,
   backupsAre: (dir: string) => `Backups are in ${dir}.`,
+  /** After a role label when the config is a symlink (Arc review; not in Muse's v1 copy). */
+  symlinkNote: (target: string) => `(symlink → ${target})`,
   uninstallHint: "`prism uninstall` removes what was added.",
   /** Case 4 */
   dryRunHead: "Dry run: nothing will be written.",

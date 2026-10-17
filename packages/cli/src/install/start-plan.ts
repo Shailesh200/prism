@@ -105,6 +105,7 @@ export function planStart(input: StartPlanInput): StartPlan {
       path: `${tilde(write.path, input.home)}${write.kind === "dir" ? "/" : ""}`,
       role,
       ...(role === "skill" ? { name: basename(write.path) } : {}),
+      ...(write.linkTo ? { linkTo: tilde(write.linkTo, input.home) } : {}),
     };
   });
   const wipe = planWipe1x({ env: input.env, now: input.now });

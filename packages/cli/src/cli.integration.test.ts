@@ -1,9 +1,19 @@
 import { spawn } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import {
+  lstat,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { stopDaemon } from "@repo-prism/daemon";
+import { DEFAULT_LENSES } from "@repo-prism/shared/lens-store";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { COMMANDS } from "./commands.js";
 
@@ -102,7 +112,7 @@ describe("prism binary (M-028)", () => {
     });
     afterAll(async () => {
       // `prism start` leaves a daemon running, as it should for a user.
-      for (const name of ["hosts", "none"]) {
+      for (const name of ["hosts", "none", "upgrade"]) {
         await stopDaemon({
           env: { ...process.env, ...env(join(home, name)), PRISM_DAEMON: "1" },
         });
@@ -156,6 +166,69 @@ describe("prism binary (M-028)", () => {
       ).toBe(settings);
       expect(await readFile(join(dir, ".cursor", "mcp.json"), "utf8")).toBe(
         mcp,
+      );
+    }, 120_000);
+
+    it("moves 1.x data in one step and keeps a symlinked config a link (Arc review)", async () => {
+      const dir = join(home, "upgrade");
+      const prism = join(dir, ".prism");
+      // A 1.x home: an index and a custom lens, no version.json.
+      await mkdir(join(prism, "workspaces", "old"), { recursive: true });
+      await writeFile(join(prism, "workspaces", "old", "index.db"), "1x");
+      await mkdir(join(prism, "lenses"), { recursive: true });
+      await writeFile(
+        join(prism, "lenses", "mine.json"),
+        JSON.stringify({
+          ...DEFAULT_LENSES[0],
+          id: "mine",
+          name: "Mine",
+          seededDefault: false,
+        }),
+      );
+      // Claude's config managed by a dotfiles tool: a symlink into a repo.
+      const target = join(dir, "dotfiles", "claude.json");
+      await mkdir(join(dir, "dotfiles"), { recursive: true });
+      await writeFile(target, '{"mine":true}\n');
+      await symlink(target, join(dir, ".claude.json"));
+      // An earlier backup folder that must not be touched.
+      const earlier = join(dir, ".prism-backups", "20000101T000000");
+      await mkdir(join(earlier, "configs"), { recursive: true });
+      await writeFile(join(earlier, "configs", "keep.txt"), "earlier");
+
+      const run = await runCli(["start", "--yes"], env(dir), fixture);
+      expect(run.code).toBe(0);
+      // 1.x moved whole; 2.x home written back with the custom lens.
+      const version = JSON.parse(
+        await readFile(join(prism, "version.json"), "utf8"),
+      );
+      expect(version.major).toBe(2);
+      const lenses = await readFile(
+        join(prism, "lenses", "lenses.json"),
+        "utf8",
+      );
+      expect(lenses).toContain('"mine"');
+      const backups = (await readdir(join(dir, ".prism-backups"))).filter(
+        (name) => name !== "20000101T000000",
+      );
+      expect(backups).toHaveLength(1);
+      const backup = join(dir, ".prism-backups", backups[0]!);
+      expect(
+        await readFile(
+          join(backup, "1x", "workspaces", "old", "index.db"),
+          "utf8",
+        ),
+      ).toBe("1x");
+      // The symlink is still a link; Prism wrote through to its target, and
+      // the target's old content is in the backup.
+      expect((await lstat(join(dir, ".claude.json"))).isSymbolicLink()).toBe(
+        true,
+      );
+      expect(await readFile(target, "utf8")).toMatch(/"prism"/);
+      expect(
+        await readFile(join(backup, "configs", ".claude.json"), "utf8"),
+      ).toBe('{"mine":true}\n');
+      expect(await readFile(join(earlier, "configs", "keep.txt"), "utf8")).toBe(
+        "earlier",
       );
     }, 120_000);
 
