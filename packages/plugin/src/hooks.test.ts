@@ -1061,7 +1061,7 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
         checks: [{ name: "lint", status: "failed", cause: "outside-change" }],
       },
       "Prism · NOT PROVEN (failure is in files outside this change)",
-      'Prism · Say first: "Prism: NOT PROVEN — the failure is in files outside this change." Then ask the user.',
+      'Prism · Say first: "NOT PROVEN: the failure is in files outside this change." Then ask the user.',
     ],
     [
       "unsupported_language",
@@ -1104,6 +1104,7 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
     );
     expect(tails).toEqual(labelsIn(render, "const TERMINAL_REASON:"));
     expect(Object.keys(tails).toSorted()).toEqual([
+      "baseline_unknown",
       "no_node_modules",
       "outside_change",
       "timeout",
@@ -1160,9 +1161,7 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
       // Reason codes never reach the user (Arc).
       expect(wait.stderr, name).not.toMatch(/\b[a-z]+_[a-z_]+\b|\(timeout\)/);
       expect(wait.stderr, name).not.toMatch(/caused|outside-change/);
-      // Muse's exact outside_change Say line is 104 chars; flagged to her.
-      const limit = name === "outside_change" ? 105 : 100;
-      for (const line of lines) expect(line.length, line).toBeLessThan(limit);
+      for (const line of lines) expect(line.length, line).toBeLessThan(100);
     }
   });
 
@@ -1374,7 +1373,7 @@ describe("stop-time lines (Muse v2.1)", () => {
         reason: "baseline_unknown",
       });
       expect(text).toBe(
-        "Prism · NOT PROVEN (can't tell if this failure is new)\n" +
+        "Prism · NOT PROVEN (can't tell if this failure is new) — check if it failed before this change\n" +
           "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it — NOT PROVEN (can't tell if this failure is new)",
       );
       expect(text).not.toMatch(/NO-SHIP|caused|fixing/i);

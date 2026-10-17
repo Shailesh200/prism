@@ -55,6 +55,7 @@ const TERMINAL_REASON: Partial<Record<NotProvenReason, string>> = {
   untested: "add a test that covers it",
   no_node_modules: "install dependencies to run its tests",
   timeout: "run it again when the machine is less busy",
+  baseline_unknown: "check if it failed before this change",
   outside_change: "check those files separately",
 };
 

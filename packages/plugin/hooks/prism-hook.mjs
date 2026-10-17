@@ -697,6 +697,7 @@ const TERMINAL_REASON = {
   untested: "add a test that covers it",
   no_node_modules: "install dependencies to run its tests",
   timeout: "run it again when the machine is less busy",
+  baseline_unknown: "check if it failed before this change",
   outside_change: "check those files separately",
 };
 
@@ -988,7 +989,7 @@ function stopWakeText(receipt) {
     say = "NOT PROVEN: Prism can't tell if this failure is new.";
     action = "ask the user.";
   } else if (v.reason === "outside_change") {
-    say = "Prism: NOT PROVEN — the failure is in files outside this change.";
+    say = "NOT PROVEN: the failure is in files outside this change.";
     action = "ask the user.";
   } else {
     say = `Prism: NOT PROVEN — ${SAY_REASON[v.reason] ?? REASON_LABEL[v.reason] ?? "no verdict yet"}.`;

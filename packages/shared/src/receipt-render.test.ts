@@ -243,7 +243,7 @@ describe("terminal line per verdict (Muse v2.1)", () => {
       ],
       [
         notProven("baseline_unknown"),
-        "Prism · NOT PROVEN (can't tell if this failure is new)",
+        "Prism · NOT PROVEN (can't tell if this failure is new) — check if it failed before this change",
       ],
       [
         notProven("outside_change"),
@@ -372,7 +372,7 @@ describe("who a failure is blamed on: the baseline decides (M-092, Arc)", () => 
       "NOT PROVEN (can't tell if this failure is new)",
     );
     expect(receiptTerminalLine(receipt)).toBe(
-      "Prism · NOT PROVEN (can't tell if this failure is new)",
+      "Prism · NOT PROVEN (can't tell if this failure is new) — check if it failed before this change",
     );
     expect(renderReceipt(receipt)).toMatch(
       /Failed\s+test ✗ FAIL src\/a\.test\.ts \(can't tell if new\)/,
@@ -491,6 +491,7 @@ describe("every NOT PROVEN reason reads as words (Muse, Arc)", () => {
       untested: "add a test that covers it",
       no_node_modules: "install dependencies to run its tests",
       timeout: "run it again when the machine is less busy",
+      baseline_unknown: "check if it failed before this change",
       outside_change: "check those files separately",
     }[reason as string];
     expect(receiptTerminalLine(receipt)).toBe(
