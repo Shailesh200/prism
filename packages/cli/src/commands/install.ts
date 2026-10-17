@@ -223,7 +223,8 @@ export function buildLabel(source: string): string {
 
 /**
  * What an errno means, in words, and what to do about it (Muse, PR 10).
- * Any other code is shown as-is with a plain "Then run the command again."
+ * Any other code is shown as-is with "Fix what's blocking the file, then
+ * run the command again."
  */
 export function failureReason(code: string): {
   readonly reason: string;
@@ -246,8 +247,16 @@ export function failureReason(code: string): {
         reason: "the disk is full",
         fix: "Free some space, then run the command again.",
       };
+    case "EROFS":
+      return {
+        reason: "the file is read-only",
+        fix: "Make it writable, then run the command again.",
+      };
     default:
-      return { reason: code, fix: "Then run the command again." };
+      return {
+        reason: code,
+        fix: "Fix what's blocking the file, then run the command again.",
+      };
   }
 }
 

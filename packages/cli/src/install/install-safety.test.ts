@@ -308,7 +308,12 @@ describe("install failure wording (Muse, PR 10)", () => {
       "the disk is full",
       "Free some space, then run the command again.",
     ],
-    ["EROFS", "EROFS", "Then run the command again."],
+    [
+      "EROFS",
+      "the file is read-only",
+      "Make it writable, then run the command again.",
+    ],
+    ["EIO", "EIO", "Fix what's blocking the file, then run the command again."],
   ])("%s → (%s) + %s", async (code, reason, fix) => {
     expect(failureReason(code)).toEqual({ reason, fix });
     put(".codex/config.toml", 'model = "o3"\n');
