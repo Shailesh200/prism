@@ -111,7 +111,9 @@ describe("prism binary (M-028)", () => {
     });
     const env = (dir: string) => ({
       HOME: dir,
+      USERPROFILE: dir,
       PRISM_HOME: join(dir, ".prism"),
+      XDG_CONFIG_HOME: join(dir, ".config"),
     });
 
     it("installs every detected host, indexes and answers (ONB-1, ONB-3)", async () => {
@@ -392,9 +394,6 @@ const ARGUMENTS: Record<string, readonly string[]> = {
   install: ["no-such-client"],
 };
 
-/** Commands that write under `~/.prism` and so get a throwaway home. */
-const ISOLATED_HOME = new Set(["agents-md", "data", "remember", "forget"]);
-
 /** Commands that cannot succeed on a fixture without extra setup. */
 const EXPECT_FAILURE = new Set<string>([
   // Unknown client: a usage error, nothing written.
@@ -404,20 +403,27 @@ const EXPECT_FAILURE = new Set<string>([
 ]);
 
 describe("every command (M-029)", () => {
-  let agentsMdHome: string;
+  // Every command gets a throwaway HOME and PRISM_HOME: start, install,
+  // upgrade and doctor --fix write agent configs under HOME, so a command run
+  // with the real HOME rewrites the developer's setup (2026-10-17).
+  let commandHome: string;
 
   beforeAll(async () => {
-    agentsMdHome = await mkdtemp(join(tmpdir(), "prism-cli-every-command-"));
+    commandHome = await mkdtemp(join(tmpdir(), "prism-cli-every-command-"));
   });
 
   afterAll(async () => {
     await rm(join(fixture, ".prism"), { recursive: true, force: true });
-    await rm(agentsMdHome, { recursive: true, force: true });
+    await rm(commandHome, { recursive: true, force: true });
   });
 
-  /** Never lets a command write into the real developer `~/.prism`. */
-  const envFor = (name: string): NodeJS.ProcessEnv =>
-    ISOLATED_HOME.has(name) ? { PRISM_HOME: agentsMdHome } : {};
+  /** Never lets a command write into the real home or `~/.prism`. */
+  const envFor = (_name: string): NodeJS.ProcessEnv => ({
+    HOME: commandHome,
+    USERPROFILE: commandHome,
+    PRISM_HOME: join(commandHome, ".prism"),
+    XDG_CONFIG_HOME: join(commandHome, ".config"),
+  });
 
   it.each(COMMANDS.map((command) => command.name))(
     "%s produces a valid JSON envelope and nothing else on stdout",

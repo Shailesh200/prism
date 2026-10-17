@@ -51,7 +51,12 @@ function run(event: string, home: string, input: Record<string, unknown>) {
     input: JSON.stringify(input),
     encoding: "utf8",
     // Not under Claude Code unless a test says so (it changes session rules).
-    env: { ...process.env, PRISM_HOME: home, CLAUDE_PROJECT_DIR: "" },
+    env: {
+      ...process.env,
+      HOME: home,
+      PRISM_HOME: home,
+      CLAUDE_PROJECT_DIR: "",
+    },
   });
   expect(result.status).toBe(0);
   return JSON.parse(result.stdout) as {
@@ -151,6 +156,7 @@ describe("prism-hook", () => {
       encoding: "utf8",
       env: {
         ...process.env,
+        HOME: home,
         PRISM_HOME: home,
         PRISM_MCP_BIN: fakeBin,
         PRISM_DAEMON: "1",
@@ -189,7 +195,12 @@ describe("prism-hook", () => {
     spawnSync(process.execPath, [hook, "session"], {
       input: JSON.stringify({ cwd }),
       encoding: "utf8",
-      env: { ...process.env, PRISM_HOME: home, PRISM_MCP_BIN: fakeBin },
+      env: {
+        ...process.env,
+        HOME: home,
+        PRISM_HOME: home,
+        PRISM_MCP_BIN: fakeBin,
+      },
     });
     expect(() => readFileSync(marker, "utf8")).toThrow();
   });
@@ -518,7 +529,7 @@ describe("prism-hook", () => {
     const result = spawnSync(process.execPath, [isolatedHook(home), "stop"], {
       input: JSON.stringify({ cwd }),
       encoding: "utf8",
-      env: { ...process.env, PRISM_HOME: home, PRISM_MCP_BIN: bin },
+      env: { ...process.env, HOME: home, PRISM_HOME: home, PRISM_MCP_BIN: bin },
     });
     expect(result.stdout.trim()).toBe("{}");
     expect(result.stdout).not.toMatch(/secret stack trace/);
@@ -652,6 +663,7 @@ function runAsync(
     const child = spawn(process.execPath, [hook, event], {
       env: {
         ...process.env,
+        HOME: home,
         PRISM_HOME: home,
         PRISM_DAEMON: "1",
         CLAUDE_PROJECT_DIR: "",
@@ -751,6 +763,7 @@ function runRaw(
     const child = spawn(process.execPath, [hook, event], {
       env: {
         ...process.env,
+        HOME: home,
         PRISM_HOME: home,
         PRISM_DAEMON: "1",
         CLAUDE_PROJECT_DIR: "",
@@ -1090,7 +1103,12 @@ describe("prompt hook injects the prepare pack (token fixes 1, 2, 4)", () => {
     const result = spawnSync(process.execPath, [hook, "session"], {
       input: JSON.stringify({ cwd }),
       encoding: "utf8",
-      env: { ...process.env, PRISM_HOME: home, CLAUDE_PROJECT_DIR: cwd },
+      env: {
+        ...process.env,
+        HOME: home,
+        PRISM_HOME: home,
+        CLAUDE_PROJECT_DIR: cwd,
+      },
     });
     const text = JSON.parse(result.stdout).hookSpecificOutput
       ?.additionalContext;

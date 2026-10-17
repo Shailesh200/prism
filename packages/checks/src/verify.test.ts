@@ -218,7 +218,11 @@ describe("background check runner (round 2)", () => {
         step(["sh", "-c", "ps -o nice= -p $$"]),
       );
       expect(result.ok).toBe(true);
-      expect(Number(result.output.trim())).toBeGreaterThan(getPriority());
+      // Lower than ours; 19 is the floor, so a run already at 19 stays there.
+      const ours = getPriority();
+      const theirs = Number(result.output.trim());
+      if (ours >= 19) expect(theirs).toBe(19);
+      else expect(theirs).toBeGreaterThan(ours);
     },
   );
 });
