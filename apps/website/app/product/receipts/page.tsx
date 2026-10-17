@@ -367,7 +367,10 @@ export default function ReceiptsPage() {
               </Ln>
               <Ln>
                 {"  2  2026-10-16 09:18  "}
-                <span className="y">NOT PROVEN (untested)</span> · 0.6s
+                <span className="y">
+                  NOT PROVEN (no tests reach this change)
+                </span>{" "}
+                · 0.6s
               </Ln>
               <Ln>
                 {"  3  2026-10-16 09:17  "}
