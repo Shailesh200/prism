@@ -50,9 +50,31 @@ function resolvePath(
   const hit =
     target.start !== undefined
       ? (hits.find((h) => h.start === target.start) ?? hits[0])
-      : hits[0];
+      : mostReferenced(kg, hits);
   if (!hit) return null;
   return { path: hit.path, symbolName: hit.name, symbolId: hit.id };
+}
+
+/**
+ * Among same-named symbols, the one the code actually uses: a re-export
+ * (`export { x } from …`) has no references of its own and must not win just
+ * because its id sorts first. Ties keep id order.
+ */
+function mostReferenced<T extends { id: string }>(
+  kg: KnowledgeGraphResult,
+  hits: readonly T[],
+): T | undefined {
+  if (hits.length < 2) return hits[0];
+  const counts = new Map<string, number>();
+  for (const r of kg.references) {
+    if (r.targetSymbolId === null) continue;
+    counts.set(r.targetSymbolId, (counts.get(r.targetSymbolId) ?? 0) + 1);
+  }
+  let best = hits[0];
+  for (const h of hits) {
+    if ((counts.get(h.id) ?? 0) > (counts.get(best!.id) ?? 0)) best = h;
+  }
+  return best;
 }
 
 function buildUsages(

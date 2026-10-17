@@ -50,6 +50,13 @@ export type ExtractedImport = {
   readonly end?: number;
   /** `require` for CommonJS static require()/createRequire()(…) (M-059). */
   readonly kind?: "import" | "require";
+  /** Every binding is a type (`import type`, all `{ type X }`) — plan §4.1. */
+  readonly typeOnly?: boolean;
+  /**
+   * Names bound from the target module as it exports them (`default`, `*` for
+   * a namespace). Absent for dynamic import()/require(), which bind no names.
+   */
+  readonly imported?: readonly string[];
 };
 
 export type ExtractedExport = {
@@ -59,6 +66,10 @@ export type ExtractedExport = {
   readonly end?: number;
   /** Present for re-exports (`export … from`). */
   readonly source?: string;
+  /** `export type { X } from …` — plan §4.1. */
+  readonly typeOnly?: boolean;
+  /** For re-exports: the name taken from the source module (`*` for `export *`). */
+  readonly importedName?: string;
 };
 
 /** Lightweight reference hint for later graphs (not type-accurate). */

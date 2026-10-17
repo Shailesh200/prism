@@ -22,14 +22,13 @@ const ORDER = [
   "navigation",
   "indexer",
   "intelligence",
-  "repository-map",
   "core",
-  "dispatch",
-  "host-session",
-  "dispatch-hub",
+  "checks",
+  "daemon",
   "mcp-server",
-  "cli",
+  // The CLI depends on the server and the plugin pack, so they go first.
   "plugin",
+  "cli",
 ];
 
 const PUBLISHABLE = new Set(ORDER.map((name) => `@repo-prism/${name}`));
@@ -97,6 +96,23 @@ const versions = new Map();
 for (const name of ORDER) {
   const pkg = readPkg(join(root, "packages", name));
   versions.set(pkg.name, pkg.version);
+}
+
+// Plan P14: no publish (dry-run included) unless the release proof passes:
+// B1 ratio ≤ 1, B6 present for every required host with with-Prism tokens and
+// cost ≤ without and success not lower, public-only, regenerable report.
+const proof = spawnSync(
+  process.execPath,
+  [
+    join(root, "scripts/bench/release-gate.mjs"),
+    ...(process.env.PRISM_RELEASE_BENCH_DIR
+      ? ["--current", process.env.PRISM_RELEASE_BENCH_DIR]
+      : []),
+  ],
+  { cwd: root, stdio: "inherit", env: process.env },
+);
+if (proof.status !== 0) {
+  fail("release proof gate failed (scripts/bench/release-gate.mjs)");
 }
 
 await assertPublishable({

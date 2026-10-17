@@ -1,0 +1,780 @@
+{
+  "repo": "es-toolkit",
+  "pinnedSha": "1708d31581fb8818be6c9b88914df8605e3e0358",
+  "tasks": [
+    {
+      "id": "es-toolkit-001",
+      "repo": "es-toolkit",
+      "commit": "1708d31581fb8818be6c9b88914df8605e3e0358",
+      "parent": "0656aef1097752c530b491fd6e6729e0e0d4589a",
+      "task": "fix[head, last, maxBy, minBy]: drop the non-empty tuple overloads instead of changing flow",
+      "firstFile": "src/fp/array/maxBy.ts",
+      "files": [
+        "src/fp/array/maxBy.ts",
+        "src/fp/array/minBy.ts",
+        "src/fp/flow.ts",
+        "src/fp/array/head.ts",
+        "src/fp/array/last.ts"
+      ],
+      "tests": [
+        "src/fp/array/head.spec.ts",
+        "src/fp/array/last.spec.ts",
+        "src/fp/array/maxBy.spec.ts",
+        "src/fp/array/minBy.spec.ts"
+      ],
+      "blast": [
+        "src/fp/array/minBy.ts",
+        "src/fp/flow.ts",
+        "src/fp/array/head.ts",
+        "src/fp/array/last.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-002",
+      "repo": "es-toolkit",
+      "commit": "0656aef1097752c530b491fd6e6729e0e0d4589a",
+      "parent": "19bd2cb1a22ca2e874f7febadbbb3064c3f5d595",
+      "task": "fix[head, last, maxBy, minBy, flow]: improve fp type inference",
+      "firstFile": "src/fp/flow.ts",
+      "files": [
+        "src/fp/flow.ts",
+        "src/fp/array/head.ts",
+        "src/fp/array/last.ts",
+        "src/fp/array/maxBy.ts",
+        "src/fp/array/minBy.ts"
+      ],
+      "tests": [
+        "src/fp/array/head.spec.ts",
+        "src/fp/array/last.spec.ts",
+        "src/fp/array/maxBy.spec.ts",
+        "src/fp/array/minBy.spec.ts",
+        "src/fp/flow.spec.ts"
+      ],
+      "blast": [
+        "src/fp/array/head.ts",
+        "src/fp/array/last.ts",
+        "src/fp/array/maxBy.ts",
+        "src/fp/array/minBy.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-003",
+      "repo": "es-toolkit",
+      "commit": "4404ea89d9c6bab03a91c233d2187a7ff9efe2b6",
+      "parent": "64efa4154b142c42e088b3d873bf0c998366093c",
+      "task": "fix[orderBy, sortBy]: keep sort order consistent when values contain NaN",
+      "firstFile": "src/_internal/compareValues.ts",
+      "files": [
+        "src/_internal/compareValues.ts"
+      ],
+      "tests": [
+        "benchmarks/bundle-size/fp/orderBy.spec.ts",
+        "benchmarks/bundle-size/fp/sortBy.spec.ts",
+        "src/array/orderBy.spec.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-004",
+      "repo": "es-toolkit",
+      "commit": "64efa4154b142c42e088b3d873bf0c998366093c",
+      "parent": "3e0d0dbb9981dd24c4e29ddaec029d9a3744b725",
+      "task": "escape string separator in RegExp (#2129)",
+      "firstFile": "src/compat/string/truncate.ts",
+      "files": [
+        "src/compat/string/truncate.ts"
+      ],
+      "tests": [
+        "src/compat/string/truncate.spec.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-005",
+      "repo": "es-toolkit",
+      "commit": "43e1118884e07cebdf1e767038f6e7f697fa27ec",
+      "parent": "4504e985a433fe1e348d803a233b2c02d41e4b3c",
+      "task": "fix[deburr]: keep letters of non-Latin scripts as they are",
+      "firstFile": "src/string/deburr.ts",
+      "files": [
+        "src/string/deburr.ts"
+      ],
+      "tests": [
+        "benchmarks/bundle-size/camelCase.spec.ts",
+        "src/string/deburr.spec.ts"
+      ],
+      "blast": [],
+      "heldOut": true
+    },
+    {
+      "id": "es-toolkit-006",
+      "repo": "es-toolkit",
+      "commit": "644cfd83b9b0207eb918a05adb924fc4c60e8acd",
+      "parent": "ebea440fe47da124bfa7d9ed6c3084ad5e712832",
+      "task": "match lodash comparator argument order",
+      "firstFile": "src/compat/array/unionWith.ts",
+      "files": [
+        "src/compat/array/unionWith.ts"
+      ],
+      "tests": [
+        "src/compat/array/unionWith.spec.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-007",
+      "repo": "es-toolkit",
+      "commit": "ebea440fe47da124bfa7d9ed6c3084ad5e712832",
+      "parent": "d830350184b6e4ebe9f5363927f2bf869ef1e888",
+      "task": "fix[deburr]: only deburr Latin letters like lodash",
+      "firstFile": "src/compat/string/deburr.ts",
+      "files": [
+        "src/compat/string/deburr.ts"
+      ],
+      "tests": [
+        "benchmarks/bundle-size/camelCase.spec.ts",
+        "src/compat/string/camelCase.spec.ts",
+        "src/compat/string/deburr.spec.ts",
+        "src/compat/string/kebabCase.spec.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-008",
+      "repo": "es-toolkit",
+      "commit": "d830350184b6e4ebe9f5363927f2bf869ef1e888",
+      "parent": "d6f796064886b6229385c5f3e6165dab584ebfb6",
+      "task": "fix[groupBy, maxBy, minBy]: call the iteratee with only the element like lodash",
+      "firstFile": "src/compat/array/groupBy.ts",
+      "files": [
+        "src/compat/array/groupBy.ts",
+        "src/compat/math/maxBy.ts",
+        "src/compat/math/minBy.ts"
+      ],
+      "tests": [
+        "src/compat/array/groupBy.spec.ts",
+        "src/compat/math/maxBy.spec.ts",
+        "src/compat/math/minBy.spec.ts"
+      ],
+      "blast": [
+        "src/compat/math/maxBy.ts",
+        "src/compat/math/minBy.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-009",
+      "repo": "es-toolkit",
+      "commit": "d6f796064886b6229385c5f3e6165dab584ebfb6",
+      "parent": "ef6f20c17b5cc12bf96d19fb67fe0570ea939cbc",
+      "task": "move baseToString into _internal",
+      "firstFile": "src/compat/util/toString.ts",
+      "files": [
+        "src/compat/util/toString.ts",
+        "src/compat/math/add.ts",
+        "src/compat/math/divide.ts",
+        "src/compat/math/multiply.ts",
+        "src/compat/math/subtract.ts"
+      ],
+      "tests": [],
+      "blast": [
+        "src/compat/math/add.ts",
+        "src/compat/math/divide.ts",
+        "src/compat/math/multiply.ts",
+        "src/compat/math/subtract.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-010",
+      "repo": "es-toolkit",
+      "commit": "b26a445dedaf0a307d83fa691c8ddfe9e3b4ddc9",
+      "parent": "ee72fc74b763d8cb48095e1981a5bcef19ba5cee",
+      "task": "match Lodash on null operands",
+      "firstFile": "src/compat/math/add.ts",
+      "files": [
+        "src/compat/math/add.ts",
+        "src/compat/math/divide.ts",
+        "src/compat/math/multiply.ts",
+        "src/compat/math/subtract.ts",
+        "src/compat/util/toString.ts"
+      ],
+      "tests": [
+        "benchmarks/bundle-size/add.spec.ts",
+        "src/compat/math/add.spec.ts",
+        "src/compat/math/divide.spec.ts",
+        "src/compat/math/multiply.spec.ts",
+        "src/compat/math/subtract.spec.ts"
+      ],
+      "blast": [
+        "src/compat/math/divide.ts",
+        "src/compat/math/multiply.ts",
+        "src/compat/math/subtract.ts",
+        "src/compat/util/toString.ts"
+      ],
+      "heldOut": true
+    },
+    {
+      "id": "es-toolkit-011",
+      "repo": "es-toolkit",
+      "commit": "ee72fc74b763d8cb48095e1981a5bcef19ba5cee",
+      "parent": "82ce4af4f35e4520e54594db9f1bbee03ee56b71",
+      "task": "match emoji sequences, non-ASCII numerals and symbols",
+      "firstFile": "src/compat/string/words.ts",
+      "files": [
+        "src/compat/string/words.ts"
+      ],
+      "tests": [
+        "benchmarks/bundle-size/camelCase.spec.ts",
+        "src/compat/string/words.spec.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-012",
+      "repo": "es-toolkit",
+      "commit": "a7c2398838cd6fed5988b7b4447747a7287bbd71",
+      "parent": "f348be3ad50acb1eb7fd25f489384a7ab0ebcc30",
+      "task": "keep interpolated values out of the indentation calculation",
+      "firstFile": "src/string/dedent.ts",
+      "files": [
+        "src/string/dedent.ts"
+      ],
+      "tests": [
+        "src/string/dedent.spec.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-013",
+      "repo": "es-toolkit",
+      "commit": "f348be3ad50acb1eb7fd25f489384a7ab0ebcc30",
+      "parent": "0a10a56dd9dfc4e636e180dc7e6eba6003c28e7a",
+      "task": "throw a TypeError for a malformed template literal like String.dedent",
+      "firstFile": "src/string/dedent.ts",
+      "files": [
+        "src/string/dedent.ts"
+      ],
+      "tests": [
+        "src/string/dedent.spec.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-014",
+      "repo": "es-toolkit",
+      "commit": "0a10a56dd9dfc4e636e180dc7e6eba6003c28e7a",
+      "parent": "301b0c914297324443e6332da6d35348adbd648b",
+      "task": "keep combining marks attached to the letter they modify",
+      "firstFile": "src/compat/string/words.ts",
+      "files": [
+        "src/compat/string/words.ts"
+      ],
+      "tests": [
+        "benchmarks/bundle-size/camelCase.spec.ts",
+        "src/compat/string/words.spec.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-015",
+      "repo": "es-toolkit",
+      "commit": "301b0c914297324443e6332da6d35348adbd648b",
+      "parent": "8d70a08d09944ae4857e9b8b5f7bbdb836e50d72",
+      "task": "match titlecase letters, aligning with lodash",
+      "firstFile": "src/compat/string/words.ts",
+      "files": [
+        "src/compat/string/words.ts"
+      ],
+      "tests": [
+        "benchmarks/bundle-size/camelCase.spec.ts",
+        "src/compat/string/words.spec.ts"
+      ],
+      "blast": [],
+      "heldOut": true
+    },
+    {
+      "id": "es-toolkit-016",
+      "repo": "es-toolkit",
+      "commit": "0d288f69839a145efcda264fce819d8c8a451b9b",
+      "parent": "9c6ca7dcbec5548bac4bd141b58fb231994ec12a",
+      "task": "fix[xorBy, xorWith]: ignore the iteratee and comparator for a single array like lodash",
+      "firstFile": "src/compat/array/xorBy.ts",
+      "files": [
+        "src/compat/array/xorBy.ts",
+        "src/compat/array/xorWith.ts"
+      ],
+      "tests": [
+        "src/compat/array/xorBy.spec.ts",
+        "src/compat/array/xorWith.spec.ts"
+      ],
+      "blast": [
+        "src/compat/array/xorWith.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-017",
+      "repo": "es-toolkit",
+      "commit": "9c6ca7dcbec5548bac4bd141b58fb231994ec12a",
+      "parent": "2b60bce52f3bbbba9f58c41113ded51bb3a3b9e8",
+      "task": "fix[pull, pullAll, pullAllBy, remove]: handle nullish inputs like lodash",
+      "firstFile": "src/compat/array/pull.ts",
+      "files": [
+        "src/compat/array/pull.ts",
+        "src/compat/array/pullAllBy.ts",
+        "src/compat/array/remove.ts",
+        "src/compat/array/pullAll.ts"
+      ],
+      "tests": [
+        "src/compat/array/pull.spec.ts",
+        "src/compat/array/pullAll.spec.ts",
+        "src/compat/array/pullAllBy.spec.ts",
+        "src/compat/array/remove.spec.ts"
+      ],
+      "blast": [
+        "src/compat/array/pullAllBy.ts",
+        "src/compat/array/remove.ts",
+        "src/compat/array/pullAll.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-018",
+      "repo": "es-toolkit",
+      "commit": "2b60bce52f3bbbba9f58c41113ded51bb3a3b9e8",
+      "parent": "3aee05dcbac60af8442f61fc1b7c70f7c0a616f7",
+      "task": "fix[DeepPartial, DeepReadonly]: preserve branded primitive types",
+      "firstFile": "src/types/DeepPartial.ts",
+      "files": [
+        "src/types/DeepPartial.ts",
+        "src/types/DeepReadonly.ts"
+      ],
+      "tests": [
+        "src/types/DeepPartial.spec.ts",
+        "src/types/DeepReadonly.spec.ts"
+      ],
+      "blast": [
+        "src/types/DeepReadonly.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-019",
+      "repo": "es-toolkit",
+      "commit": "3aee05dcbac60af8442f61fc1b7c70f7c0a616f7",
+      "parent": "42ec21469809246cf222c1fccfd84bb6ad52f63c",
+      "task": "return a plain object from compat countBy",
+      "firstFile": "src/compat/array/countBy.ts",
+      "files": [
+        "src/compat/array/countBy.ts"
+      ],
+      "tests": [
+        "src/compat/array/countBy.spec.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-020",
+      "repo": "es-toolkit",
+      "commit": "17719a5f95d11a650f43991d0fd3038aaf5b43c9",
+      "parent": "9807495a9eed582e2682732144a5ebc2f488fa87",
+      "task": "fix[dropWhile, dropRightWhile, some]: normalize the predicate like lodash",
+      "firstFile": "src/compat/array/dropRightWhile.ts",
+      "files": [
+        "src/compat/array/dropRightWhile.ts",
+        "src/compat/array/dropWhile.ts",
+        "src/compat/array/some.ts"
+      ],
+      "tests": [
+        "src/compat/array/dropRightWhile.spec.ts",
+        "src/compat/array/dropWhile.spec.ts",
+        "src/compat/array/some.spec.ts"
+      ],
+      "blast": [
+        "src/compat/array/dropWhile.ts",
+        "src/compat/array/some.ts"
+      ],
+      "heldOut": true
+    },
+    {
+      "id": "es-toolkit-021",
+      "repo": "es-toolkit",
+      "commit": "9807495a9eed582e2682732144a5ebc2f488fa87",
+      "parent": "3d858779beebfbcb6a01c342b929c0f5c4bd7c06",
+      "task": "read sparse array holes as undefined in toString",
+      "firstFile": "src/compat/util/toString.ts",
+      "files": [
+        "src/compat/util/toString.ts"
+      ],
+      "tests": [
+        "src/compat/util/toString.spec.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-022",
+      "repo": "es-toolkit",
+      "commit": "fbc887135f93e07260b488744b551a77e49c7df6",
+      "parent": "c9cc411793cdd39566d9c2dfa281e4da96d861f0",
+      "task": "feat[lerp, inverseLerp]: add lerp and inverseLerp to es-toolkit/math",
+      "firstFile": "src/math/index.ts",
+      "files": [
+        "src/math/index.ts"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-023",
+      "repo": "es-toolkit",
+      "commit": "c9cc411793cdd39566d9c2dfa281e4da96d861f0",
+      "parent": "0c731e9bf99b19feb8d1dafbe3692fdc6a83bc9a",
+      "task": "add sentenceCase to es-toolkit/string",
+      "firstFile": "src/string/index.ts",
+      "files": [
+        "src/string/index.ts"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-024",
+      "repo": "es-toolkit",
+      "commit": "0c731e9bf99b19feb8d1dafbe3692fdc6a83bc9a",
+      "parent": "6380c75e260d63b509a266319148f59075173942",
+      "task": "align key types with Object.keys in findKey and mapKeys",
+      "firstFile": "src/object/findKey.ts",
+      "files": [
+        "src/object/findKey.ts",
+        "src/object/mapKeys.ts"
+      ],
+      "tests": [
+        "src/object/findKey.spec.ts",
+        "src/object/mapKeys.spec.ts"
+      ],
+      "blast": [
+        "src/object/mapKeys.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-025",
+      "repo": "es-toolkit",
+      "commit": "a5ca64d20eaeadc8164b8380ecbb2964932064fa",
+      "parent": "a093e4bf0a2e1ad2a95ac7b10767126b1498e31d",
+      "task": "fix[ceil, floor, round]: coerce arguments like lodash",
+      "firstFile": "src/compat/_internal/decimalAdjust.ts",
+      "files": [
+        "src/compat/_internal/decimalAdjust.ts"
+      ],
+      "tests": [
+        "src/compat/math/ceil.spec.ts",
+        "src/compat/math/floor.spec.ts",
+        "src/compat/math/round.spec.ts"
+      ],
+      "blast": [],
+      "heldOut": true
+    },
+    {
+      "id": "es-toolkit-026",
+      "repo": "es-toolkit",
+      "commit": "a093e4bf0a2e1ad2a95ac7b10767126b1498e31d",
+      "parent": "32f4c8fb33828ad6512064ba84b0fdd8fda966a3",
+      "task": "fix[once]: preserve this context",
+      "firstFile": "src/function/once.ts",
+      "files": [
+        "src/function/once.ts"
+      ],
+      "tests": [
+        "src/compat/function/once.spec.ts",
+        "src/function/once.spec.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-027",
+      "repo": "es-toolkit",
+      "commit": "2bb189cf19e2968ffda4b68df45e10e414992c91",
+      "parent": "159d0ce66b2d1de3d4206bcb1ba6dcb1102d1c4c",
+      "task": "rename JsonValue to JSONValue",
+      "firstFile": "src/types/JsonValue.ts",
+      "files": [
+        "src/types/JsonValue.ts",
+        "src/types/index.ts"
+      ],
+      "tests": [
+        "src/types/JsonValue.spec.ts"
+      ],
+      "blast": [
+        "src/types/index.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-028",
+      "repo": "es-toolkit",
+      "commit": "df0571629a6c654e1fa81671227a7fef563fa954",
+      "parent": "4c51da7fca3c34fdb3c08d1405a51f94555fb353",
+      "task": "match lodash when no comparator is given",
+      "firstFile": "src/compat/array/xorWith.ts",
+      "files": [
+        "src/compat/array/xorWith.ts"
+      ],
+      "tests": [
+        "src/compat/array/xorWith.spec.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-029",
+      "repo": "es-toolkit",
+      "commit": "0949c8b5f2699a67aa85517e0e675e324024a304",
+      "parent": "271436302fc5bc990d5bba08a60fb349b873cea4",
+      "task": "fix[attempt, attemptAsync]: default error type parameter to unknown",
+      "firstFile": "src/util/attempt.ts",
+      "files": [
+        "src/util/attempt.ts",
+        "src/util/attemptAsync.ts"
+      ],
+      "tests": [
+        "src/util/attempt.spec.ts",
+        "src/util/attemptAsync.spec.ts"
+      ],
+      "blast": [
+        "src/util/attemptAsync.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-030",
+      "repo": "es-toolkit",
+      "commit": "f4e087941d403ff8f8c4608e38199ffbf43a26b7",
+      "parent": "6364563b317e4e97d33ada2d77da1a9867d46f8e",
+      "task": "fix[findLastIndex]: convert `fromIndex` to an integer in compat like lodash",
+      "firstFile": "src/compat/array/findLastIndex.ts",
+      "files": [
+        "src/compat/array/findLastIndex.ts"
+      ],
+      "tests": [
+        "src/compat/array/findLastIndex.spec.ts"
+      ],
+      "blast": [],
+      "heldOut": true
+    },
+    {
+      "id": "es-toolkit-031",
+      "repo": "es-toolkit",
+      "commit": "6364563b317e4e97d33ada2d77da1a9867d46f8e",
+      "parent": "a1918b04e0e46e70000e0b6b048f1aabaafc1afb",
+      "task": "fix[differenceWith, without]: normalize `-0` to `0` like lodash",
+      "firstFile": "src/compat/array/without.ts",
+      "files": [
+        "src/compat/array/without.ts",
+        "src/compat/array/differenceWith.ts"
+      ],
+      "tests": [
+        "src/compat/array/differenceWith.spec.ts",
+        "src/compat/array/without.spec.ts"
+      ],
+      "blast": [
+        "src/compat/array/differenceWith.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-032",
+      "repo": "es-toolkit",
+      "commit": "a1918b04e0e46e70000e0b6b048f1aabaafc1afb",
+      "parent": "6170560894f2dec59266c7c1f912195277f121b6",
+      "task": "infer deep merged return type",
+      "firstFile": "src/object/merge.ts",
+      "files": [
+        "src/object/merge.ts",
+        "src/types/index.ts"
+      ],
+      "tests": [
+        "src/object/merge.spec.ts"
+      ],
+      "blast": [
+        "src/types/index.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-033",
+      "repo": "es-toolkit",
+      "commit": "6170560894f2dec59266c7c1f912195277f121b6",
+      "parent": "893f52aac9c91de1c4cdeb2f5b89be7846e8f821",
+      "task": "fix[omitBy, pickBy]: type numeric callback keys as strings",
+      "firstFile": "src/object/omitBy.ts",
+      "files": [
+        "src/object/omitBy.ts",
+        "src/object/pickBy.ts",
+        "src/types/index.ts"
+      ],
+      "tests": [
+        "src/object/omitBy.spec.ts",
+        "src/object/pickBy.spec.ts"
+      ],
+      "blast": [
+        "src/object/pickBy.ts",
+        "src/types/index.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-034",
+      "repo": "es-toolkit",
+      "commit": "893f52aac9c91de1c4cdeb2f5b89be7846e8f821",
+      "parent": "9f898eb98d3d4f1b7669e30f1b1ac5f4c5dd4a47",
+      "task": "assign null values in array sources",
+      "firstFile": "src/compat/object/mergeWith.ts",
+      "files": [
+        "src/compat/object/mergeWith.ts"
+      ],
+      "tests": [
+        "benchmarks/bundle-size/merge.spec.ts",
+        "benchmarks/bundle-size/mergeWith.spec.ts",
+        "src/compat/object/merge.spec.ts",
+        "src/compat/object/mergeWith.spec.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-035",
+      "repo": "es-toolkit",
+      "commit": "9f898eb98d3d4f1b7669e30f1b1ac5f4c5dd4a47",
+      "parent": "7a98f7ee6ce8f1bf970d29e4bcdaeeef1e1631b0",
+      "task": "add flowAsync, promise-aware left-to-right composition",
+      "firstFile": "src/fp/index.ts",
+      "files": [
+        "src/fp/index.ts"
+      ],
+      "tests": [
+        "src/fp/index.spec.ts"
+      ],
+      "blast": [],
+      "heldOut": true
+    },
+    {
+      "id": "es-toolkit-036",
+      "repo": "es-toolkit",
+      "commit": "7a98f7ee6ce8f1bf970d29e4bcdaeeef1e1631b0",
+      "parent": "637a441441ef622e2dba04f1be111668a4c99ad9",
+      "task": "convert objects with a custom valueOf in toString like lodash",
+      "firstFile": "src/compat/util/toString.ts",
+      "files": [
+        "src/compat/util/toString.ts"
+      ],
+      "tests": [
+        "benchmarks/bundle-size/add.spec.ts",
+        "benchmarks/bundle-size/camelCase.spec.ts",
+        "benchmarks/bundle-size/escape.spec.ts",
+        "benchmarks/bundle-size/escapeRegExp.spec.ts",
+        "benchmarks/bundle-size/find.spec.ts",
+        "benchmarks/bundle-size/findKey.spec.ts",
+        "benchmarks/bundle-size/mapKeys.spec.ts",
+        "benchmarks/bundle-size/mapValues.spec.ts",
+        "benchmarks/bundle-size/omit.spec.ts",
+        "benchmarks/bundle-size/zipObjectDeep.spec.ts",
+        "src/compat/util/toString.spec.ts"
+      ],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-037",
+      "repo": "es-toolkit",
+      "commit": "3aa823c9a79c1c3a008edee34cdcecdff959d517",
+      "parent": "83d4334287551085778b6285ae348889479c160e",
+      "task": "normalize the -0 path key in has and hasIn like lodash",
+      "firstFile": "src/compat/object/has.ts",
+      "files": [
+        "src/compat/object/has.ts",
+        "src/compat/object/hasIn.ts"
+      ],
+      "tests": [
+        "benchmarks/bundle-size/find.spec.ts",
+        "benchmarks/bundle-size/findKey.spec.ts",
+        "benchmarks/bundle-size/mapKeys.spec.ts",
+        "benchmarks/bundle-size/mapValues.spec.ts",
+        "src/compat/object/has.spec.ts",
+        "src/compat/object/hasIn.spec.ts"
+      ],
+      "blast": [
+        "src/compat/object/hasIn.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-038",
+      "repo": "es-toolkit",
+      "commit": "83d4334287551085778b6285ae348889479c160e",
+      "parent": "912e83244832967d3a5462b2551efc077a10b1d2",
+      "task": "add defer and deferAsync to es-toolkit/util",
+      "firstFile": "src/util/index.ts",
+      "files": [
+        "src/util/index.ts"
+      ],
+      "tests": [],
+      "blast": [],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-039",
+      "repo": "es-toolkit",
+      "commit": "912e83244832967d3a5462b2551efc077a10b1d2",
+      "parent": "2ca4fda3503abe53be50e13b7734cda20a0507dc",
+      "task": "add cartesianProduct to es-toolkit/iterator",
+      "firstFile": "src/fp/iterator/index.ts",
+      "files": [
+        "src/fp/iterator/index.ts",
+        "src/iterator/index.ts"
+      ],
+      "tests": [
+        "src/fp/iterator/index.spec.ts"
+      ],
+      "blast": [
+        "src/iterator/index.ts"
+      ],
+      "heldOut": false
+    },
+    {
+      "id": "es-toolkit-040",
+      "repo": "es-toolkit",
+      "commit": "1a629d1715fe98434eb3a4f57ab9028e94280a1e",
+      "parent": "f36f965383a35054aa73c80babe6b33cd3af7443",
+      "task": "skip maxWait invocation when both leading and trailing are false",
+      "firstFile": "src/compat/function/debounce.ts",
+      "files": [
+        "src/compat/function/debounce.ts"
+      ],
+      "tests": [
+        "benchmarks/bundle-size/debounce.spec.ts",
+        "benchmarks/bundle-size/throttle.spec.ts",
+        "src/compat/function/debounce.spec.ts",
+        "src/compat/function/throttle.spec.ts"
+      ],
+      "blast": [],
+      "heldOut": true
+    }
+  ]
+}

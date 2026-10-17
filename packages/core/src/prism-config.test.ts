@@ -1,12 +1,26 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Prism } from "./prism.js";
 import { loadPrismConfigSync } from "./prism-config-load.js";
 import { writePrismConfig } from "./prism-config-write.js";
 
 const dirs: string[] = [];
+
+// These tests assert the in-fixture store (`<root>/.prism`), which tests get
+// only while PRISM_HOME is unset (shared/src/prism-home.ts). A developer or CI
+// shell with PRISM_HOME set made them fail and left files in that home (round 4
+// fresh-copy QA), so it is cleared for each test and put back after.
+let savedPrismHome: string | undefined;
+beforeEach(() => {
+  savedPrismHome = process.env.PRISM_HOME;
+  delete process.env.PRISM_HOME;
+});
+afterEach(() => {
+  if (savedPrismHome === undefined) delete process.env.PRISM_HOME;
+  else process.env.PRISM_HOME = savedPrismHome;
+});
 
 afterEach(async () => {
   await Promise.all(

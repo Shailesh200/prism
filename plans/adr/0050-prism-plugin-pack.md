@@ -5,7 +5,7 @@
 | Status | Accepted |
 | Date | 2026-09-03 |
 | Decision makers | Owner, Architect |
-| Related milestones | [M-067](../milestones/M-067_shippable-product.md) |
+| Related milestones | [M-067](../archive/milestones/M-067_shippable-product.md) |
 | Supersedes | — |
 | Amends | [ADR-0041](./0041-dispatch-worker-resource-budget.md), [ADR-0044](./0044-dispatch-worker-backends.md) |
 | Extends | [ADR-0048](./0048-prism-console-unification.md), [ADR-0049](./0049-host-delegated-integrations.md) |
@@ -140,7 +140,7 @@ prose is not lost, only moved somewhere it can be longer and more specific.
 the extensions, with its own release step and its own way to be stale. Skills
 are prose, so nothing typechecks them — the manifest test catches a missing
 file, not a skill that names a tool Prism removed; a check for that is
-[P-S5](../milestones/M-067_shippable-product.md) work. Worker intelligence is
+[P-S5](../archive/milestones/M-067_shippable-product.md) work. Worker intelligence is
 only as available as the Console, which makes the Console load-bearing for a
 path that used to have no dependency at all.
 

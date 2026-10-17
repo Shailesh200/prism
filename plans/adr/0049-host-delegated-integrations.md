@@ -5,7 +5,7 @@
 | Status | Accepted |
 | Date | 2026-09-03 |
 | Decision makers | Owner, Architect |
-| Related milestones | [M-067](../milestones/M-067_shippable-product.md) |
+| Related milestones | [M-067](../archive/milestones/M-067_shippable-product.md) |
 | Supersedes | [ADR-0036](./0036-prism-auth-broker.md), [ADR-0037](./0037-connect-ux-per-host.md) |
 | Amends | [ADR-0035](./0035-dispatch-vertical.md) (removes OAuth from the Dispatch vertical) |
 

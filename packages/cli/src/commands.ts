@@ -6,8 +6,23 @@
  * cannot describe a command that does not exist.
  */
 
-import { MAP_ZOOM_LEVELS } from "@repo-prism/shared";
 import { agentsMdCommand } from "./commands/agents-md.js";
+import { dataCommand } from "./commands/data-prune.js";
+import { graphCommand } from "./commands/graph.js";
+import { habitCommand } from "./commands/habit.js";
+import { strengthCommand } from "./commands/strength.js";
+import { lensCommand } from "./commands/lens.js";
+import {
+  installCommand,
+  uninstallCommand,
+  upgradeCommand,
+} from "./commands/install.js";
+import { receiptsCommand } from "./commands/receipts.js";
+import {
+  forgetCommand,
+  memoriesCommand,
+  rememberCommand,
+} from "./commands/memory.js";
 import { findingsCommand } from "./commands/findings.js";
 import {
   blastCommand,
@@ -17,33 +32,20 @@ import {
   safeDeleteCommand,
   testImpactCommand,
 } from "./commands/change.js";
-import { dnaCommand } from "./commands/dna.js";
+import { overviewCommand } from "./commands/overview.js";
+import { startCommand } from "./commands/start.js";
 import { doctorCommand } from "./commands/doctor.js";
+import { statsCommand } from "./commands/stats.js";
 import { indexCommand } from "./commands/index-command.js";
-import {
-  backendCommand,
-  bundleCommand,
-  engineeringCommand,
-  packagesCommand,
-  securityCommand,
-  testingCommand,
-} from "./commands/reports.js";
 import {
   cyclesCommand,
   depsCommand,
   refsCommand,
   routeCommand,
+  packagesCommand,
   symbolCommand,
 } from "./commands/structure.js";
-import {
-  explainCommand,
-  exploreCommand,
-  featuresCommand,
-  healthCommand,
-  landmarksCommand,
-  mapCommand,
-  stackCommand,
-} from "./commands/understand.js";
+import { explainCommand, exploreCommand } from "./commands/understand.js";
 import {
   FAIL_ON_BAND_OPTION,
   FAIL_ON_COUNT_OPTION,
@@ -56,18 +58,154 @@ import {
 
 export const COMMANDS: readonly CommandSpec[] = [
   {
+    name: "start",
+    group: "Set up",
+    summary:
+      "Install Prism for every coding agent found here, index this repo and show its map",
+    handler: startCommand,
+    examples: ["prism start"],
+  },
+  {
+    name: "install",
+    group: "Set up",
+    summary:
+      "Connect Prism to Claude Code, Cursor, Codex or opencode (MCP server, hooks, skills, rule line)",
+    handler: installCommand,
+    arguments: [
+      {
+        syntax: "<client>",
+        description: "claude, cursor, codex, opencode, or all",
+      },
+    ],
+    options: [
+      {
+        flags: "--project",
+        description: "Write the configs into this repository",
+      },
+      {
+        flags: "--user",
+        description: "Write the configs into your home (default)",
+      },
+      {
+        flags: "--local <checkout>",
+        description:
+          "Built Prism checkout to link (default: the one this CLI runs from)",
+      },
+    ],
+    examples: [
+      "prism install claude",
+      "prism install cursor --project",
+      "prism install all --local ~/Prism",
+    ],
+  },
+  {
+    name: "uninstall",
+    group: "Set up",
+    summary:
+      "Remove everything prism install added; --purge also deletes Prism data",
+    handler: uninstallCommand,
+    options: [
+      {
+        flags: "--purge",
+        description: "Also delete ~/.prism and this repository's .prism",
+      },
+    ],
+    examples: ["prism uninstall", "prism uninstall --purge"],
+  },
+  {
+    name: "upgrade",
+    group: "Set up",
+    summary:
+      "Re-link the recorded clients to the current build and restart the daemon",
+    handler: upgradeCommand,
+    examples: ["prism upgrade"],
+  },
+  {
     name: "doctor",
     group: "Diagnostics",
     summary: "Check the environment, workspace and index",
     handler: doctorCommand,
+    arguments: [
+      {
+        syntax: "[topic]",
+        description: "skills: check user skills that name Prism tools",
+      },
+    ],
     options: [
       {
         flags: "--ci",
         description:
           "Extra CI checks (e.g. warn on shallow clones that truncate history)",
       },
+      {
+        flags: "--surfaces",
+        description:
+          "Show which Prism each editor launches. Fails inside this repo if any of them is the published package.",
+      },
+      {
+        flags: "--fix",
+        description:
+          "Stop the daemon, rewrite editor configs to the recorded local build or the installed server, and update hook configs an older release wrote",
+      },
     ],
-    examples: ["prism doctor", "prism doctor --ci"],
+    examples: [
+      "prism doctor",
+      "prism doctor --ci",
+      "prism doctor --surfaces",
+      "prism doctor skills",
+      "prism doctor --fix",
+    ],
+  },
+  {
+    name: "strength",
+    group: "Diagnostics",
+    summary:
+      "How much the hooks do: full (default), lite (rules and the stop receipt) or off",
+    handler: strengthCommand,
+    arguments: [
+      {
+        syntax: "[level]",
+        description: "full, lite or off; omit to show the strength in effect",
+      },
+    ],
+    options: [
+      {
+        flags: "--repo",
+        description: "Set it for this repository only (.prism/config.json)",
+      },
+    ],
+    examples: [
+      "prism strength",
+      "prism strength lite",
+      "prism strength off --repo",
+    ],
+  },
+  {
+    name: "stats",
+    group: "Diagnostics",
+    summary: "Hook and tool timings and outcomes from events.jsonl",
+    handler: statsCommand,
+    options: [
+      {
+        flags: "--since <duration>",
+        description: "Only events newer than this, e.g. 1d, 6h (default: all)",
+      },
+    ],
+    examples: ["prism stats", "prism stats --since 1d"],
+  },
+  {
+    name: "data",
+    group: "Diagnostics",
+    summary: "Prune Prism's local library (dry run unless --yes)",
+    handler: dataCommand,
+    arguments: [
+      {
+        syntax: "prune",
+        description:
+          "List empty workspace folders, caches of deleted checkouts, and untracked worktrees",
+      },
+    ],
+    examples: ["prism data prune", "prism data prune --yes"],
   },
   {
     name: "index",
@@ -75,6 +213,42 @@ export const COMMANDS: readonly CommandSpec[] = [
     summary: "Build or refresh the repository index",
     handler: indexCommand,
     examples: ["prism index"],
+  },
+  {
+    name: "graph",
+    group: "Diagnostics",
+    summary: "The background daemon that keeps the graph fresh",
+    handler: graphCommand,
+    arguments: [
+      {
+        syntax: "[action]",
+        description: "status (default), serve, stop, refresh, map, or export",
+      },
+    ],
+    options: [
+      {
+        flags: "--out <dir>",
+        description: "export: where to write graph.json",
+      },
+      {
+        flags: "--scope <path>",
+        description: "map: only files under this path",
+      },
+      {
+        flags: "--budget <tokens>",
+        description: "map: token budget for the map",
+      },
+      {
+        flags: "--refresh",
+        description: "map: rebuild instead of reading the cache",
+      },
+    ],
+    examples: [
+      "prism graph",
+      "prism graph serve",
+      "prism graph map --budget 800",
+      "prism graph export --out .prism/graph",
+    ],
   },
   {
     name: "completions",
@@ -97,33 +271,12 @@ export const COMMANDS: readonly CommandSpec[] = [
   },
 
   {
-    name: "dna",
+    name: "overview",
     group: "Understand a repository",
-    summary: "Identify languages, frameworks, domains and stack",
-    handler: dnaCommand,
-    examples: ["prism dna --json | jq '.data.frameworks'"],
-  },
-  {
-    name: "health",
-    group: "Understand a repository",
-    summary: "Overall health score and the factors behind it",
-    handler: healthCommand,
-    options: [FAIL_ON_BAND_OPTION],
-    examples: ["prism health --fail-on high"],
-  },
-  {
-    name: "map",
-    group: "Understand a repository",
-    summary: "Repository map: clusters, landmarks and layers",
-    handler: mapCommand,
-    options: [
-      {
-        flags: "--zoom <level>",
-        description: `Zoom level to render: ${MAP_ZOOM_LEVELS.join(", ")}`,
-      },
-      LIMIT_OPTION,
-    ],
-    examples: ["prism map --zoom package"],
+    summary: "What this repository is: DNA, stack and landmarks",
+    handler: overviewCommand,
+    options: [LIMIT_OPTION],
+    examples: ["prism overview --json | jq '.data.dna.frameworks'"],
   },
   {
     name: "explain",
@@ -143,29 +296,6 @@ export const COMMANDS: readonly CommandSpec[] = [
     ],
     options: [...SYMBOL_OPTIONS, LIMIT_OPTION],
     examples: ["prism explore src/index.ts"],
-  },
-  {
-    name: "stack",
-    group: "Understand a repository",
-    summary: "Detected stack signals, domains and personas",
-    handler: stackCommand,
-    examples: ["prism stack"],
-  },
-  {
-    name: "features",
-    group: "Understand a repository",
-    summary: "Inferred features and their confidence",
-    handler: featuresCommand,
-    options: [LIMIT_OPTION],
-    examples: ["prism features --limit 10"],
-  },
-  {
-    name: "landmarks",
-    group: "Understand a repository",
-    summary: "Entrypoints, package roots and feature anchors",
-    handler: landmarksCommand,
-    options: [LIMIT_OPTION],
-    examples: ["prism landmarks"],
   },
   {
     name: "packages",
@@ -190,7 +320,8 @@ export const COMMANDS: readonly CommandSpec[] = [
     options: [
       {
         flags: "--budget <n>",
-        description: "Map-token budget for the pack (default 4000)",
+        description:
+          "Token budget for the whole answer (default 2000, max 6000)",
       },
     ],
     examples: ['prism prepare --json "add caching to fetchUser"'],
@@ -227,11 +358,17 @@ export const COMMANDS: readonly CommandSpec[] = [
     ],
     options: [
       { flags: "--base <rev>", description: "Diff against a git revision" },
+      {
+        flags: "--lens <name>",
+        description:
+          "Also run this lens's data-backed checks (architect, dev, qa, or a custom lens)",
+      },
       FAIL_ON_BAND_OPTION,
       LIMIT_OPTION,
       FORMAT_OPTION,
     ],
     examples: [
+      "prism review --lens qa",
       "prism review --base origin/main --fail-on high",
       "prism review --base origin/main --format sarif",
     ],
@@ -336,51 +473,8 @@ export const COMMANDS: readonly CommandSpec[] = [
   },
 
   {
-    name: "engineering",
-    group: "Reports",
-    summary: "Entropy, drift, debt, churn and hotspots",
-    handler: engineeringCommand,
-    options: [FAIL_ON_BAND_OPTION, LIMIT_OPTION],
-    examples: ["prism engineering --fail-on high"],
-  },
-  {
-    name: "testing",
-    group: "Reports",
-    summary: "Test structure and on-disk coverage",
-    handler: testingCommand,
-    options: [FAIL_ON_BAND_OPTION, LIMIT_OPTION],
-    examples: ["prism testing"],
-  },
-  {
-    name: "security",
-    group: "Reports",
-    summary: "Left-shift tooling and configuration checklist",
-    handler: securityCommand,
-    options: [FAIL_ON_BAND_OPTION, LIMIT_OPTION],
-    examples: ["prism security --fail-on mid"],
-  },
-  {
-    name: "backend",
-    group: "Reports",
-    summary: "Routes, data layer, env vars and background jobs",
-    handler: backendCommand,
-    options: [LIMIT_OPTION],
-    examples: ["prism backend"],
-  },
-  {
-    name: "bundle",
-    group: "Reports",
-    summary: "Bundle weight from an ingested stats artifact",
-    handler: bundleCommand,
-    options: [
-      { flags: "--artifact <id>", description: "Ingested stats artifact id" },
-      LIMIT_OPTION,
-    ],
-    examples: ["prism bundle --artifact <id>"],
-  },
-  {
     name: "agents-md",
-    group: "Reports",
+    group: "Understand a repository",
     summary:
       "Generate or verify the Living AGENTS.md (never written to the repo)",
     handler: agentsMdCommand,
@@ -394,7 +488,7 @@ export const COMMANDS: readonly CommandSpec[] = [
   },
   {
     name: "findings",
-    group: "Reports",
+    group: "Understand a repository",
     summary: "Unused exports, duplicate implementations, wrapper functions",
     handler: findingsCommand,
     arguments: [
@@ -411,6 +505,155 @@ export const COMMANDS: readonly CommandSpec[] = [
       },
     ],
     examples: ["prism findings list", "prism findings mute a3f8c5f0c392dbeb"],
+  },
+  {
+    name: "receipts",
+    group: "Assess a change",
+    summary: "List the change receipts the stop hook wrote, or show one",
+    handler: receiptsCommand,
+    arguments: [
+      { syntax: "[action]", description: "list (default) or show" },
+      { syntax: "[n]", description: "show: which receipt, 1 is the newest" },
+    ],
+    options: [
+      { flags: "--as <format>", description: "show: text, markdown, or svg" },
+      { flags: "--last", description: "Show the newest receipt" },
+      LIMIT_OPTION,
+    ],
+    examples: [
+      "prism receipts",
+      "prism receipts --last",
+      "prism receipts show 1 --as markdown > receipt.md",
+    ],
+  },
+  {
+    name: "lens",
+    group: "Assess a change",
+    summary:
+      "List, show, add or remove review lenses (shared by every repository), or overrule a lens check",
+    handler: lensCommand,
+    arguments: [
+      {
+        syntax: "[action]",
+        description: "list (default), show, add, remove, or override",
+      },
+      {
+        syntax: "[target]",
+        description: "add: the lens name; show/remove/override: the lens id",
+      },
+    ],
+    options: [
+      {
+        flags: "--name <text>",
+        description: "add: display name (default: the id)",
+      },
+      { flags: "--role <text>", description: "add: what the lens is" },
+      { flags: "--focus <text>", description: "add: how it judges" },
+      {
+        flags: "--checklist <item>",
+        description: "add: a checklist item (repeatable)",
+        repeatable: true,
+      },
+      {
+        flags: "--checks <ids>",
+        description: "add: data-backed checks, comma-separated (repeatable)",
+        repeatable: true,
+      },
+      {
+        flags: "--evidence <ids>",
+        description: "add: Prism reads it uses, comma-separated (repeatable)",
+        repeatable: true,
+      },
+      {
+        flags: "--trigger <phrase>",
+        description: "add: a phrase that chooses this lens (repeatable)",
+        repeatable: true,
+      },
+      { flags: "--check <id>", description: "override: the check to overrule" },
+      {
+        flags: "--path <file>",
+        description: "override: the file the finding names",
+      },
+      { flags: "--note <text>", description: "override: why it is fine" },
+    ],
+    examples: [
+      "prism lens show dev",
+      'prism lens add perf --role "Checks hot paths" --focus "No new N+1" --checklist "No query in a loop" --trigger "slow query"',
+      'prism lens override dev --check reuse_missed --path src/utils/formatDueDate.ts --note "intentionally differs"',
+    ],
+  },
+  {
+    name: "habit",
+    group: "Memory",
+    summary:
+      'Save routines (e.g. "start my day") that any agent can run through the habits tool',
+    handler: habitCommand,
+    arguments: [
+      {
+        syntax: "[action]",
+        description: "list (default), add, show, edit, or remove",
+      },
+      { syntax: "[name]", description: "The habit name (quote it)" },
+    ],
+    options: [
+      {
+        flags: "--step <text>",
+        description: 'add: "source: action [| filter]" (repeatable, in order)',
+        repeatable: true,
+      },
+      {
+        flags: "--output <format>",
+        description: "add: standup, summary, checklist, table, or free",
+      },
+      {
+        flags: "--template <text>",
+        description: "add: how to lay out the result",
+      },
+      {
+        flags: "--description <text>",
+        description: "add: one line about the habit",
+      },
+    ],
+    examples: [
+      'prism habit add "start my day" --step "github: list my open PRs and review requests" --step "linear: my in-progress issues" --step "notion: read Daily notes for today" --output standup',
+      'prism habit show "start my day"',
+    ],
+  },
+  {
+    name: "remember",
+    group: "Memory",
+    summary: "Save a note about this repository for Prepare to hand back",
+    handler: rememberCommand,
+    arguments: [
+      { syntax: "<note...>", description: "The note, in plain language" },
+    ],
+    options: [
+      { flags: "--symbol <name>", description: "Anchor the note to a symbol" },
+      { flags: "--path <path>", description: "Anchor the note to a path" },
+    ],
+    examples: [
+      'prism remember "use lruCache, never a bare Map" --symbol lruCache',
+    ],
+  },
+  {
+    name: "forget",
+    group: "Memory",
+    summary: "Forget memories by id or by matching text",
+    handler: forgetCommand,
+    arguments: [
+      {
+        syntax: "<id-or-text...>",
+        description: "A memory id or part of its text",
+      },
+    ],
+    examples: ["prism forget 3f9a2c1b7e04", "prism forget lruCache"],
+  },
+  {
+    name: "memories",
+    group: "Memory",
+    summary: "List the notes saved for this repository",
+    handler: memoriesCommand,
+    examples: ["prism memories", "prism memories --json"],
   },
 ];
 

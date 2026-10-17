@@ -1,20 +1,12 @@
 {
   "name": "@repo-prism/intelligence",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "type": "module",
-  "description": "Stack detection SPI, DNA, health, insights",
+  "description": "Stack detection, repository DNA, Prepare ranking, findings and Guard",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./cwv": {
-      "types": "./dist/cwv.d.ts",
-      "import": "./dist/cwv.js"
-    },
-    "./github-ci": {
-      "types": "./dist/github-ci.d.ts",
-      "import": "./dist/github-ci.js"
     }
   },
   "files": [

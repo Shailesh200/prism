@@ -30,6 +30,11 @@ export type DependencyGraphOptions = {
   readonly packageAggregation?: boolean;
   /** Enable best-effort tsconfig paths / package imports aliases (default true). */
   readonly resolveAliases?: boolean;
+  /**
+   * Count type-only edges when finding cycles (plan §4.1). Default false: a
+   * loop held together only by `import type` cannot fail at runtime.
+   */
+  readonly includeTypes?: boolean;
 };
 
 export type UnresolvedDependency = {
@@ -37,6 +42,11 @@ export type UnresolvedDependency = {
   readonly source: string;
   readonly kind: "import" | "re-export" | "require";
   readonly reason: string;
+  /**
+   * A bare specifier naming no package in this workspace (`react`,
+   * `@nestjs/common`): an installed dependency, not a gap in the local graph.
+   */
+  readonly external?: true;
 };
 
 /**
@@ -59,6 +69,13 @@ type FileEdge = {
   specifiers?: readonly string[];
   /** True for edges originating in `.d.ts` (M-059 / P-E7). */
   typeOnly?: boolean;
+  /**
+   * Import edges: the target's export names this edge binds (`*` = whole
+   * module). Undefined means unknown (dynamic import, require): every export.
+   */
+  imported?: string[];
+  /** Re-export edges: `{ from: name in target, as: name exported here }`. */
+  reexports?: { from: string; as: string }[];
   provenance: "measured" | "heuristic";
 };
 
@@ -98,7 +115,6 @@ function collectFileEdges(
 ): { edges: FileEdge[]; unresolved: UnresolvedDependency[] } {
   const edges: FileEdge[] = [];
   const unresolved: UnresolvedDependency[] = [];
-  const seen = new Set<string>();
   const aliases = resolveAliases
     ? loadTsconfigPathAliases(
         snapshot.rootPath,
@@ -106,10 +122,31 @@ function collectFileEdges(
       )
     : { rules: [], configs: [] };
 
+  const localNames = new Set(packages.map((p) => p.name));
+  /** No workspace package and no path alias claims it: an installed dependency. */
+  const isExternal = (source: string): boolean =>
+    !localNames.has(barePackageName(source)) &&
+    !aliases.rules.some((rule) => source.startsWith(rule.prefix));
+  const seen = new Map<string, FileEdge>();
   const pushEdge = (e: FileEdge) => {
     const key = `${e.kind}\0${e.fromPath}\0${e.toPath}`;
-    if (seen.has(key)) return;
-    seen.add(key);
+    const prior = seen.get(key);
+    if (prior) {
+      // One value import between the same two files makes the edge a value
+      // edge, whichever statement came first.
+      if (prior.typeOnly && !e.typeOnly) delete prior.typeOnly;
+      // Bound names union; an unknown binding (undefined) means "everything".
+      if (prior.imported && e.imported) {
+        prior.imported = [...new Set([...prior.imported, ...e.imported])];
+      } else if (e.kind !== "re-export") {
+        delete prior.imported;
+      }
+      if (e.reexports) {
+        prior.reexports = [...(prior.reexports ?? []), ...e.reexports];
+      }
+      return;
+    }
+    seen.set(key, e);
     edges.push(e);
   };
 
@@ -119,6 +156,7 @@ function collectFileEdges(
 
     for (const imp of file.imports) {
       const edgeKind = imp.kind === "require" ? "require" : "import";
+      const typeOnly = fromDts || imp.typeOnly === true;
       if (!isRelativeSpecifier(imp.source)) {
         const hit = resolveNonRelativeTarget(
           file.path,
@@ -138,7 +176,8 @@ function collectFileEdges(
             ...(imp.specifiers.length > 0
               ? { specifiers: imp.specifiers }
               : {}),
-            ...(fromDts ? { typeOnly: true } : {}),
+            ...(imp.imported ? { imported: [...imp.imported] } : {}),
+            ...(typeOnly ? { typeOnly: true } : {}),
           });
           continue;
         }
@@ -148,6 +187,7 @@ function collectFileEdges(
             source: imp.source,
             kind: edgeKind,
             reason: "bare_specifier",
+            ...(isExternal(imp.source) ? { external: true as const } : {}),
           });
         } else {
           unresolved.push({
@@ -178,7 +218,8 @@ function collectFileEdges(
             ...(imp.specifiers.length > 0
               ? { specifiers: imp.specifiers }
               : {}),
-            ...(fromDts ? { typeOnly: true } : {}),
+            ...(imp.imported ? { imported: [...imp.imported] } : {}),
+            ...(typeOnly ? { typeOnly: true } : {}),
           });
           continue;
         }
@@ -197,12 +238,14 @@ function collectFileEdges(
         source: imp.source,
         provenance: "measured",
         ...(imp.specifiers.length > 0 ? { specifiers: imp.specifiers } : {}),
-        ...(fromDts ? { typeOnly: true } : {}),
+        ...(imp.imported ? { imported: [...imp.imported] } : {}),
+        ...(typeOnly ? { typeOnly: true } : {}),
       });
     }
 
     for (const exp of file.exports) {
       if (exp.source === undefined) continue;
+      const typeOnly = fromDts || exp.typeOnly === true;
       if (!isRelativeSpecifier(exp.source)) {
         const hit = resolveNonRelativeTarget(
           file.path,
@@ -217,19 +260,24 @@ function collectFileEdges(
             fromPath: file.path,
             toPath: hit,
             kind: "re-export",
+
             source: exp.source,
+
+            reexports: [{ from: exp.importedName ?? exp.name, as: exp.name }],
             provenance: "heuristic",
-            ...(fromDts ? { typeOnly: true } : {}),
+            ...(typeOnly ? { typeOnly: true } : {}),
           });
           continue;
         }
+        const bare = isBarePackageSpecifier(exp.source);
         unresolved.push({
           from: file.path,
           source: exp.source,
           kind: "re-export",
-          reason: isBarePackageSpecifier(exp.source)
-            ? "bare_specifier"
-            : "unsupported_specifier",
+          reason: bare ? "bare_specifier" : "unsupported_specifier",
+          ...(bare && isExternal(exp.source)
+            ? { external: true as const }
+            : {}),
         });
         continue;
       }
@@ -246,9 +294,12 @@ function collectFileEdges(
             fromPath: file.path,
             toPath: asDir,
             kind: "re-export",
+
             source: exp.source,
+
+            reexports: [{ from: exp.importedName ?? exp.name, as: exp.name }],
             provenance: "heuristic",
-            ...(fromDts ? { typeOnly: true } : {}),
+            ...(typeOnly ? { typeOnly: true } : {}),
           });
           continue;
         }
@@ -264,9 +315,12 @@ function collectFileEdges(
         fromPath: file.path,
         toPath: target,
         kind: "re-export",
+
         source: exp.source,
+
+        reexports: [{ from: exp.importedName ?? exp.name, as: exp.name }],
         provenance: "measured",
-        ...(fromDts ? { typeOnly: true } : {}),
+        ...(typeOnly ? { typeOnly: true } : {}),
       });
     }
   }
@@ -326,6 +380,10 @@ function buildFileGraph(
         ? { specifiers: [...e.specifiers] }
         : {}),
       ...(e.typeOnly ? { typeOnly: true } : {}),
+      ...(e.imported ? { imported: [...e.imported] } : {}),
+      ...(e.reexports
+        ? { reexports: e.reexports.map((r) => ({ from: r.from, as: r.as })) }
+        : {}),
     },
   }));
   return {
@@ -377,7 +435,15 @@ function buildPackageGraph(
     provenance?: GraphEdgeDto["provenance"],
   ) => {
     const id = edgeId(kind, fromId, toId);
-    if (edgeMap.has(id)) return;
+    const prior = edgeMap.get(id);
+    if (prior) {
+      // A package edge is type-only only while every file edge behind it is.
+      if (prior.attrs?.typeOnly && !attrs.typeOnly) {
+        const { typeOnly: _drop, ...rest } = prior.attrs;
+        edgeMap.set(id, { ...prior, attrs: rest as GraphEdgeDto["attrs"] });
+      }
+      return;
+    }
     edgeMap.set(id, {
       id,
       kind,
@@ -400,6 +466,7 @@ function buildPackageGraph(
       {
         via: `${e.fromPath}->${e.toPath}`,
         source: e.source,
+        ...(e.typeOnly ? { typeOnly: true } : {}),
       },
       e.provenance,
     );
@@ -485,7 +552,7 @@ export function buildDependencyGraph(
   snapshot: IndexSnapshot,
   options: DependencyGraphOptions = {},
 ): DependencyGraphResult {
-  const key = `${options.packageAggregation ?? false}\0${options.resolveAliases ?? true}`;
+  const key = `${options.packageAggregation ?? false}\0${options.resolveAliases ?? true}\0${options.includeTypes ?? false}`;
 
   let perOptions = graphCache.get(snapshot);
   if (!perOptions) {
@@ -527,9 +594,12 @@ function computeDependencyGraph(
     graph = buildFileGraph(snapshot, fileEdges);
   }
 
+  const cycleEdges = options.includeTypes
+    ? graph.edges
+    : graph.edges.filter((e) => e.attrs?.typeOnly !== true);
   const cycles = findCycles(
     graph.nodes.map((n) => n.id),
-    graph.edges.map((e) => ({ from: e.from, to: e.to })),
+    cycleEdges.map((e) => ({ from: e.from, to: e.to })),
   );
 
   return { graph, cycles, unresolved };

@@ -1,20 +1,20 @@
 ---
 title: Findings
-description: "Unused exports, duplicate implementations, and wrappers — queued as jobs, resolved only when a re-scan drops the fingerprint."
+description: "Unused exports, duplicate implementations and wrappers. A finding closes only when a re-scan drops its fingerprint."
 ---
 
-> A finding stays open until the graph says it is gone. A finished job is not
+> A finding stays open until the graph says it is gone. An edit is not
 > enough.
 
-Findings are concrete, queueable issues from the last index: unused exports,
-two files exporting the same implementation, and wrapper functions that only
-call another export.
+Findings are concrete issues from the last index: unused exports, two files
+exporting the same implementation, and wrapper functions that only call
+another export.
 
-You can hand one to a teammate. Prism does **not** mark it resolved because
-the job said `done`. It re-runs the report. If the fingerprint is still
-there, the finding stays open.
+To fix one, ask your agent in chat. Prism does **not** mark it resolved because
+something was edited. It re-runs the report. If the fingerprint is still there,
+the finding stays open.
 
-<Tabs groupId="surface" items={['CLI', 'VS Code', 'AI agent']} persist>
+<Tabs groupId="surface" items={['CLI', 'AI agent']} persist>
   <Tab value="CLI">
 
 ```bash
@@ -26,20 +26,17 @@ Mute lives in gitignored `{repo}/.prism/`. It is not a markdown file and it
 is not committed.
 
   </Tab>
-  <Tab value="VS Code">
-
-Console **Findings**. **Fix with teammate** queues the same payload as MCP
-`queue_finding`. Pulse’s finding count is the open count from health
-history, not the count of finished jobs.
-
-  </Tab>
   <Tab value="AI agent">
 
 Ask: “What unused or duplicated code should I look at?”
 
-The agent calls `list_findings` (muted ones hidden unless you ask). To fix
-one, it must pass that **exact** object — `id`, `source`, `title`,
-`fingerprint` — to `queue_finding`. It must not invent those fields.
+The agent calls `list_findings` (muted ones hidden unless you ask).
+`list_findings` is opt-in: list it in `extraTools` in `~/.prism/config.json`.
+Without it, the agent can run `prism findings list`.
+
+To fix one, say so in chat: “fix the unused export in `src/cache.ts`.” Your
+agent makes the edit. It must use the finding as reported — `id`, `source`,
+`title`, `fingerprint` — and not invent those fields.
 
 If you say a finding is wrong, mute it with
 `prism findings mute <fingerprint>`. There is no mute MCP tool.
@@ -50,19 +47,19 @@ If you say a finding is wrong, mute it with
 ## The loop
 
 ```text
-list_findings → queue_finding → teammate edits → this repo’s checks
-     ↑                                              │
-     └──────── re-scan; fingerprint gone? ──────────┘
+list_findings → your agent edits → this repo’s checks
+     ↑                                    │
+     └──── re-scan; fingerprint gone? ────┘
 ```
 
 | Step | Rule |
 |---|---|
-| Queue | Origin is `finding`. The brief is “fix this finding only.” |
-| Verify | Prism runs the checks this repo actually has. None → **—**, not Failure. |
-| Resolve | Only a re-scan that drops the fingerprint. Job `done` is not resolve. |
+| Fix | Ask in chat. The brief is “fix this finding only.” |
+| Verify | The stop hook runs the checks this repo actually has. None → **—**, not Failure. |
+| Resolve | Only a re-scan that drops the fingerprint. An edit is not resolve. |
 
-Pulse’s sparkline is the **open finding count**, measured from health
-history. It does not move because a job finished.
+The open finding count does not move because a file was edited; only a
+re-scan changes it.
 
 ## Kinds
 
@@ -76,14 +73,12 @@ Muted findings stay out of the default list. `includeMuted` shows them.
 
 ## When this is wrong
 
-- Reviewing a PR never queues a finding on its own. Offer `queue_finding`
-  only if you asked to fix it.
-- A Python-only or lint-only repo must not fail the finding job when checks
-  are **—**. The re-scan still runs.
+- Reviewing a PR never fixes a finding on its own. Fix one only if you asked.
+- A Python-only or lint-only repo must not fail a fix when checks are **—**.
+  The re-scan still runs.
 - Mute is local and gitignored. It does not travel with the repo.
 
 ## Related
 
-[Dispatch](/docs/guides/dispatch) ·
-[Track health](/docs/guides/track-health) ·
+[Understand a repo](/docs/guides/understand-a-repo) ·
 [Guard a session](/docs/guides/guard-a-session)

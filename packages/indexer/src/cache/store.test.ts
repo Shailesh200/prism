@@ -77,6 +77,13 @@ describe("saveSnapshot", () => {
     expect([...loadCachedFiles(db(), ROOT).keys()]).toEqual(["a.ts"]);
   });
 
+  it("a partial snapshot (prune: false) keeps the rows it did not visit", () => {
+    saveSnapshot(db(), snapshot([file("a.ts", "h1"), file("b.ts", "h2")]));
+    saveSnapshot(db(), snapshot([file("a.ts", "h1")]), { prune: false });
+
+    expect([...loadCachedFiles(db(), ROOT).keys()]).toEqual(["a.ts", "b.ts"]);
+  });
+
   it("updates a file whose content changed", () => {
     saveSnapshot(
       db(),

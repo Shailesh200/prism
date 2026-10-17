@@ -1,6 +1,6 @@
 # @repo-prism/intelligence
 
-Stack detection SPI, Repository DNA, health, and insights.
+Stack detection SPI, Repository DNA, entry points, lens routing and session analysis.
 
 **Implemented:** M-040 (Stack Detector SPI) · M-013 (multi-domain detector packs + `assembleDnaReport`)  
 **Depends on:** `@repo-prism/shared`, `@repo-prism/graph-engine`  

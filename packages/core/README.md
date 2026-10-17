@@ -16,7 +16,7 @@ import { Prism } from "@repo-prism/core";
 
 const client = Prism.create();
 const workspace = await client.openRepository("/absolute/path/to/repo");
-const health = workspace.getHealth();
+const blast = await workspace.blastRadius({ kind: "file", id: "src/index.ts" });
 ```
 
 Most users should use a surface instead of Core directly:

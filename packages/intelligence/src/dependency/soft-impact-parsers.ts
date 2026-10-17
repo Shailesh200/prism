@@ -2,6 +2,7 @@
  * Family-specific soft-impact parsers (M-049 deep soft signals).
  */
 
+import { posix } from "node:path";
 import {
   SOFT_ENV_KEY_CAP,
   SOFT_MATCH_CAP,
@@ -1693,6 +1694,40 @@ export function parseSourceUsageRefs(
         confidence: "low",
         evidence: [`string: '${raw}'`],
         category: "runtime",
+      },
+      seen,
+    );
+  }
+}
+
+const CSS_IMPORT = /@import\s+(?:url\(\s*)?["']([^"']+)["']/g;
+
+/**
+ * Stylesheet `@import`s of another file in the repository (website round:
+ * deleting a stylesheet global.css imported read as safe). Package and URL
+ * imports are skipped: only paths that resolve to a file here.
+ */
+export function parseCssImports(
+  path: string,
+  source: string,
+  allPaths: ReadonlySet<string>,
+  edges: SoftImpactEdge[],
+  seen: Set<string>,
+): void {
+  for (const match of source.matchAll(CSS_IMPORT)) {
+    const spec = match[1]!;
+    if (!spec.startsWith(".")) continue;
+    const target = posix.normalize(posix.join(dirnamePosix(path), spec));
+    if (!allPaths.has(target)) continue;
+    pushEdge(
+      edges,
+      {
+        from: path,
+        to: target,
+        lane: "import",
+        reason: "CSS @import",
+        confidence: "high",
+        evidence: [`${path}: @import "${spec}"`],
       },
       seen,
     );

@@ -1,0 +1,40 @@
+{"text": "fix the typo in the README", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "fix a typo in the docstring of debounce", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "fix spelling mistakes in the error messages of cart.ts", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "correct the spelling of 'recieve' in utils.ts", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "reformat src/index.ts", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "reformat the config file", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "fix the indentation in router.ts", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "remove trailing whitespace from header.tsx", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "remove the trailing commas in package.json", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "add the missing semicolon in app.ts", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "update the comment above throttle", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "remove the outdated comment in server.ts", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "add a comment explaining the regex in parse.ts", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "fix the wording of the 404 log message", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "change the log message to say 'cache miss'", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "bump the version to 1.4.2", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "bump version in package.json", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "fix the lint warnings in cart.ts", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "fix the lint errors in index.ts", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "fix capitalization in the button label text", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "fix punctuation in the help text", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "update the docstring for formatDate", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "fix typos in CONTRIBUTING.md", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "reword the comment on line 40", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "fix whitespace in the yaml file", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "reindent the switch statement in reducer.ts", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "fix the misspelled variable name in the comment", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "tidy the formatting of the imports in main.ts", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "update the copyright comment header", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "fix a typo in the toast message", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "change the comment from TODO to NOTE in api.ts", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "fix the spelling in the CLI help text", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "remove the double semicolon in store.ts", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "fix formatting in the changelog", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "please fix the typo in the onboarding copy", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "can you fix the spelling in the footer text", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "correct the typo in the 'Sumbit' button label", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "update the comment to mention the new default", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "fix the trailing spaces in the markdown file", "label": "trivial", "lang": "en", "source": "hand-labelled"}
+{"text": "bump the version number for the patch release", "label": "trivial", "lang": "en", "source": "hand-labelled"}

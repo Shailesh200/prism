@@ -153,4 +153,27 @@ describe("buildCodeExplorerReport (M-023)", () => {
       report!.similar.some((s) => s.path === "b.ts" && s.name === "render"),
     ).toBe(true);
   });
+
+  it("an unscoped symbol resolves to the copy that is used, not the first id", () => {
+    const render = {
+      name: "render",
+      kind: "function",
+      start: 0,
+      end: 10,
+      exported: true,
+    };
+    const report = buildCodeExplorerReport({
+      snapshot: emptySnapshot("/tmp/m023", [
+        // A re-export barrel sorts first but nothing calls through it.
+        file("a.ts", { symbols: [render] }),
+        file("b.ts", {
+          symbols: [render],
+          references: [{ name: "render", kind: "call", start: 20, end: 26 }],
+        }),
+      ]),
+      target: { kind: "symbol", name: "render" },
+    });
+    expect(report!.path).toBe("b.ts");
+    expect(report!.usages).toHaveLength(1);
+  });
 });

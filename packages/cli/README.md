@@ -7,10 +7,10 @@
 
 **Website:** [https://www.prismhq.in](https://www.prismhq.in) · **Docs:** [https://www.prismhq.in/docs/start/install](https://www.prismhq.in/docs/start/install)
 
-Same engine as the VS Code / Cursor extension and the MCP server. Runs on your
+Same engine as the MCP server. Runs on your
 machine. Nothing is uploaded.
 
-> Requires **Node.js 26**.
+> Requires **Node.js 24**.
 
 ## Setup — step by step
 
@@ -18,26 +18,19 @@ machine. Nothing is uploaded.
    ```bash
    cd /path/to/your/repo
    ```
-2. Check the environment (no `--workspace` needed):
+2. Install Prism for your agents, index the repo and see its map:
    ```bash
-   npx -y @repo-prism/cli doctor
+   prism start
    ```
-3. Read the output:
-   - **Workspace** — which folder was chosen (`from git root` is normal).
-   - **Index cache** — `warn` on first run is expected; the next command builds
-     the index (or run `prism index` now).
-4. Run analyses:
+   It finds Claude Code, Cursor, Codex and opencode by their config folders.
+   With none found it still indexes; run `prism install <client>` later.
+3. Ask your agent for a change. Prism's `prepare_change` runs first and a
+   receipt prints when the agent stops. From a terminal:
    ```bash
-   npx -y @repo-prism/cli dna
-   npx -y @repo-prism/cli health
-   npx -y @repo-prism/cli blast src/index.ts --fail-on high
+   prism prepare "add rate limiting to the login route"
+   prism blast src/index.ts --fail-on high
    ```
-5. Optional — install globally:
-   ```bash
-   npm install -g @repo-prism/cli
-   prism doctor
-   prism health --verbose   # workspace chosen + index timing
-   ```
+4. Something off? `prism doctor` checks the install, the index and the daemon.
 
 ## Global options
 
@@ -68,26 +61,33 @@ Use **1** vs **2** carefully in CI: a typo must not look like a real finding.
 
 ## Commands
 
+### Set up
+
+| Command | Purpose |
+|---|---|
+| `prism start` | Install Prism for every agent found on this machine, index this repository and print its map with what to try next |
+| `prism install <claude\|cursor\|codex\|opencode\|all>` | Connect Prism to an agent: MCP server, hooks, skills, and the prepare/receipt rule (`--project`, `--user`, `--local <checkout>`). Clears 1.x data in `~/.prism` once, keeping valid custom lenses |
+| `prism uninstall` | Remove everything `prism install` added (`--purge` also deletes `~/.prism` and this repository's `.prism`) |
+| `prism upgrade` | Re-link the recorded agents to the current build and restart the daemon |
+
 ### Diagnostics
 
 | Command | Purpose |
 |---|---|
-| `prism doctor` | Check Node, workspace resolution, git, index (`--ci` warns on shallow clones) |
+| `prism doctor` | Check Node, the install and the server it pins, published-package references, workspace, git and index (`--ci` warns on shallow clones; `--surfaces` shows which Prism each editor launches; `--fix` stops the daemon and rewrites editor configs to the recorded local build or the installed server) |
+| `prism strength` | How much the hooks do: `full` (default), `lite` (session rules and the stop receipt) or `off`; `--repo` sets it for one repository |
+| `prism stats` | p50/p95 per hook and tool, outcome counts and top reasons from `~/.prism/events.jsonl` (`--since 1d`) |
+| `prism data prune` | List empty workspace folders, caches of deleted checkouts, and untracked worktrees under `~/.prism` (`--yes` removes them) |
 | `prism index` | Build or refresh the repository index |
+| `prism graph` | The background daemon that keeps each repository's graph fresh: `status`, `serve`, `stop`, `refresh`, `export [--out <dir>]` (`graph.json`) |
 | `prism completions <bash\|zsh\|fish>` | Print shell completion script |
 
 ### Understand a repository
 
 | Command | Purpose |
 |---|---|
-| `prism dna` | Languages, frameworks, domains, stack |
-| `prism health` | Overall health score and factors |
-| `prism map [--zoom <level>]` | Map clusters / landmarks / layers (`repo`, `package`, `feature`, `file`, `symbol`) |
 | `prism explain <path>` | What a file or folder is for, ownership |
 | `prism explore <target>` | Usages, ownership, similar code |
-| `prism stack` | Stack signals |
-| `prism features` | Inferred features |
-| `prism landmarks` | Entrypoints and anchors |
 | `prism packages` | Workspace packages |
 
 ### Assess a change
@@ -96,10 +96,13 @@ Use **1** vs **2** carefully in CI: a typo must not look like a real finding.
 |---|---|
 | `prism prepare <task>` | Pack, reuse, and House Style (never file bodies) |
 | `prism blast <target>` | Blast radius |
-| `prism review [paths…]` | Change review (`--format sarif` for code scanning) |
+| `prism review [paths…]` | Change review (`--lens <name>` adds that lens's checks; `--format sarif` for code scanning) |
 | `prism safe-delete <target>` | Safe to delete? |
 | `prism rename <target> <newName>` | Rename edit sites |
 | `prism test-impact <target>` | Related tests |
+| `prism lens` | Review lenses shared by every repository: `list`, `add <name>`, `remove <id>`, `override <id> --check … --path … --note …` |
+| `prism habit` | Routines any agent can run through the `habits` tool: `list`, `add "<name>" --step "source: action"…`, `show`, `edit`, `remove` |
+| `prism receipts` | Change receipts the stop hook wrote; `show <n> --as markdown\|svg` for a PR comment or a card |
 
 ### Structure
 
@@ -111,17 +114,23 @@ Use **1** vs **2** carefully in CI: a typo must not look like a real finding.
 | `prism refs <name>` | Find references |
 | `prism route <from> <to>` | Dependency path |
 
-### Reports
+### Understand a repository
 
 | Command | Purpose |
 |---|---|
-| `prism engineering` | Entropy, drift, debt, hotspots |
-| `prism testing` | Suites + on-disk coverage |
-| `prism security` | Left-shift checklist |
-| `prism backend` | Routes, data, env, jobs |
-| `prism bundle` | Bundle weight (ingested stats) |
+| `prism overview` | What this repository is: languages, frameworks, stack, and landmarks (`--limit`) |
 | `prism agents-md` | Generate/verify Living AGENTS.md (writes only `~/.prism`) |
 | `prism findings` | Unused exports, duplicates, wrappers; mute/unmute |
+
+### Memory
+
+Notes live in `~/.prism/workspaces/<key>/memory.json`, never in the repository.
+
+| Command | Purpose |
+|---|---|
+| `prism remember` | Save a note (`--symbol`, `--path` anchor it so a rename moves it) |
+| `prism forget` | Forget notes by id or matching text |
+| `prism memories` | List the notes for this repository |
 
 ## Related
 

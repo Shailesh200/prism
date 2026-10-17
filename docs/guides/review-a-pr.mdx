@@ -5,7 +5,7 @@ description: "Roll up change risk for a working tree or branch before you merge.
 
 > Aggregate blast radius, safe-delete hints, and test impact across a diff.
 
-<Tabs groupId="surface" items={['CLI', 'VS Code', 'AI agent']} persist>
+<Tabs groupId="surface" items={['CLI', 'AI agent']} persist>
   <Tab value="CLI">
 
 ```bash
@@ -18,27 +18,23 @@ With no arguments, `review` covers the working tree (including untracked files).
 In CI, always pass `--base`.
 
   </Tab>
-  <Tab value="VS Code">
-
-SCM / source control right-click → **Review Changes**, or open the Change Review
-screen. Same roll-up as the CLI against your pending edits.
-
-  </Tab>
   <Tab value="AI agent">
 
 Ask the agent: "Review my current changes before I merge — what's the aggregate
 risk?"
 
-The agent should call `review_changes` (omit paths to auto-discover). Lead
-with the blast radius, test impact, and breaking-change hints that tool
-already carries. A finding a report lists stays open until a re-scan drops
-its fingerprint — a finished fix job is not enough. See
-[Findings](/docs/guides/findings).
-
-For “what should I read first in this dirty tree?”, use
+The agent should call `guard_session` to rank the changed files, then
+`blast_radius` and `test_impact` on anything it flags. Lead with what those
+tools report, not with the raw diff. See
 [Guard a session](/docs/guides/guard-a-session).
 
-Optional prompt: `review_diff` (calls `review_changes`).
+`guard_session` with `review: true` gives the same roll-up as `prism review` in one call. It is
+one of the nine default tools.
+
+A finding a report lists stays open until a re-scan drops its fingerprint — an
+edit is not enough. See [Findings](/docs/guides/findings).
+
+Optional prompt: `review_diff` (calls `guard_session`, then `blast_radius`).
 
   </Tab>
 </Tabs>
@@ -64,5 +60,4 @@ branch.
 
 [Guard a session](/docs/guides/guard-a-session) ·
 [Findings](/docs/guides/findings) ·
-[Wire into CI](/docs/guides/wire-into-ci) ·
 [Before you edit](/docs/guides/before-you-edit)

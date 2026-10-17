@@ -1,0 +1,2163 @@
+{
+  "schema": 1,
+  "measuredOn": "2026-10-17",
+  "model": "claude-opus-5-5, opencode/mimo-v2.6-flash-free",
+  "limitMinutes": 10,
+  "repos": [
+    {
+      "name": "es-toolkit",
+      "url": "https://github.com/toss/es-toolkit"
+    },
+    {
+      "name": "hono",
+      "url": "https://github.com/honojs/hono"
+    }
+  ],
+  "runs": [
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-15043d8e",
+      "repo": "es-toolkit",
+      "arm": "A",
+      "run": 1,
+      "model": "claude-opus-5-5",
+      "durationMs": 69110,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 24,
+        "output": 3164,
+        "cacheRead": 301429,
+        "cacheWrite": 17064,
+        "costUsd": 0.2601738
+      },
+      "transcript": {
+        "apiCalls": 12,
+        "toolCalls": 11,
+        "prismCalls": 0,
+        "reads": 3,
+        "injectedChars": {
+          "promptHook": 0,
+          "sessionHook": 0,
+          "skills": 7477,
+          "mcpInstructions": 0
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-15043d8e",
+      "repo": "es-toolkit",
+      "arm": "A",
+      "run": 2,
+      "model": "claude-opus-5-5",
+      "durationMs": 31425,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 12,
+        "output": 1454,
+        "cacheRead": 142345,
+        "cacheWrite": 16004,
+        "costUsd": 0.185629
+      },
+      "transcript": {
+        "apiCalls": 6,
+        "toolCalls": 5,
+        "prismCalls": 0,
+        "reads": 2,
+        "injectedChars": {
+          "promptHook": 0,
+          "sessionHook": 0,
+          "skills": 7477,
+          "mcpInstructions": 0
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-15043d8e",
+      "repo": "es-toolkit",
+      "arm": "B",
+      "run": 1,
+      "model": "claude-opus-5-5",
+      "durationMs": 107968,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 20,
+        "output": 2358,
+        "cacheRead": 266309,
+        "cacheWrite": 19981,
+        "costUsd": 0.26034979999999996
+      },
+      "prism": {
+        "filesCovered": 2,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 10,
+        "toolCalls": 9,
+        "prismCalls": 0,
+        "reads": 3,
+        "injectedChars": {
+          "promptHook": 1881,
+          "sessionHook": 0,
+          "skills": 7695,
+          "mcpInstructions": 1112
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-15043d8e",
+      "repo": "es-toolkit",
+      "arm": "B",
+      "run": 2,
+      "model": "claude-opus-5-5",
+      "durationMs": 55806,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 18,
+        "output": 2095,
+        "cacheRead": 238298,
+        "cacheWrite": 19263,
+        "costUsd": 0.24373560000000005
+      },
+      "prism": {
+        "filesCovered": 2,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 9,
+        "toolCalls": 8,
+        "prismCalls": 0,
+        "reads": 4,
+        "injectedChars": {
+          "promptHook": 1881,
+          "sessionHook": 0,
+          "skills": 7695,
+          "mcpInstructions": 1112
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-2c4c0478",
+      "repo": "es-toolkit",
+      "arm": "A",
+      "run": 1,
+      "model": "claude-opus-5-5",
+      "durationMs": 66048,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 24,
+        "output": 2610,
+        "cacheRead": 283098,
+        "cacheWrite": 15722,
+        "costUsd": 0.2346916
+      },
+      "transcript": {
+        "apiCalls": 12,
+        "toolCalls": 11,
+        "prismCalls": 0,
+        "reads": 7,
+        "injectedChars": {
+          "promptHook": 0,
+          "sessionHook": 0,
+          "skills": 7477,
+          "mcpInstructions": 0
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-2c4c0478",
+      "repo": "es-toolkit",
+      "arm": "A",
+      "run": 2,
+      "model": "claude-opus-5-5",
+      "durationMs": 119490,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 22,
+        "output": 3208,
+        "cacheRead": 261825,
+        "cacheWrite": 17495,
+        "costUsd": 0.256573
+      },
+      "transcript": {
+        "apiCalls": 11,
+        "toolCalls": 10,
+        "prismCalls": 0,
+        "reads": 4,
+        "injectedChars": {
+          "promptHook": 0,
+          "sessionHook": 0,
+          "skills": 7477,
+          "mcpInstructions": 0
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-2c4c0478",
+      "repo": "es-toolkit",
+      "arm": "B",
+      "run": 1,
+      "model": "claude-opus-5-5",
+      "durationMs": 49448,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 18,
+        "output": 2382,
+        "cacheRead": 225696,
+        "cacheWrite": 17871,
+        "costUsd": 0.2358192
+      },
+      "prism": {
+        "filesCovered": 2,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 9,
+        "toolCalls": 8,
+        "prismCalls": 0,
+        "reads": 4,
+        "injectedChars": {
+          "promptHook": 1796,
+          "sessionHook": 0,
+          "skills": 7695,
+          "mcpInstructions": 1112
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-2c4c0478",
+      "repo": "es-toolkit",
+      "arm": "B",
+      "run": 2,
+      "model": "claude-opus-5-5",
+      "durationMs": 74072,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 18,
+        "output": 2257,
+        "cacheRead": 212369,
+        "cacheWrite": 15634,
+        "costUsd": 0.21275780000000002
+      },
+      "prism": {
+        "filesCovered": 2,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 9,
+        "toolCalls": 8,
+        "prismCalls": 0,
+        "reads": 4,
+        "injectedChars": {
+          "promptHook": 1796,
+          "sessionHook": 0,
+          "skills": 7695,
+          "mcpInstructions": 1112
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-323893f2",
+      "repo": "es-toolkit",
+      "arm": "A",
+      "run": 1,
+      "model": "claude-opus-5-5",
+      "durationMs": 66868,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 14,
+        "output": 2902,
+        "cacheRead": 176713,
+        "cacheWrite": 19371,
+        "costUsd": 0.24840659999999998
+      },
+      "transcript": {
+        "apiCalls": 7,
+        "toolCalls": 6,
+        "prismCalls": 0,
+        "reads": 1,
+        "injectedChars": {
+          "promptHook": 0,
+          "sessionHook": 0,
+          "skills": 7477,
+          "mcpInstructions": 0
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-323893f2",
+      "repo": "es-toolkit",
+      "arm": "A",
+      "run": 2,
+      "model": "claude-opus-5-5",
+      "durationMs": 170991,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 24,
+        "output": 3648,
+        "cacheRead": 333260,
+        "cacheWrite": 22184,
+        "costUsd": 0.31718
+      },
+      "transcript": {
+        "apiCalls": 12,
+        "toolCalls": 11,
+        "prismCalls": 0,
+        "reads": 6,
+        "injectedChars": {
+          "promptHook": 0,
+          "sessionHook": 0,
+          "skills": 7477,
+          "mcpInstructions": 0
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-323893f2",
+      "repo": "es-toolkit",
+      "arm": "B",
+      "run": 1,
+      "model": "claude-opus-5-5",
+      "durationMs": 86822,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 18,
+        "output": 3209,
+        "cacheRead": 246602,
+        "cacheWrite": 21773,
+        "costUsd": 0.28775639999999997
+      },
+      "prism": {
+        "filesCovered": 1,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 9,
+        "toolCalls": 8,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {
+          "promptHook": 1770,
+          "sessionHook": 0,
+          "skills": 7695,
+          "mcpInstructions": 1112
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-323893f2",
+      "repo": "es-toolkit",
+      "arm": "B",
+      "run": 2,
+      "model": "claude-opus-5-5",
+      "durationMs": 69727,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 16,
+        "output": 2629,
+        "cacheRead": 213078,
+        "cacheWrite": 19877,
+        "costUsd": 0.2542756
+      },
+      "prism": {
+        "filesCovered": 1,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 8,
+        "toolCalls": 7,
+        "prismCalls": 0,
+        "reads": 4,
+        "injectedChars": {
+          "promptHook": 1770,
+          "sessionHook": 0,
+          "skills": 7695,
+          "mcpInstructions": 1112
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-3433044c",
+      "repo": "es-toolkit",
+      "arm": "A",
+      "run": 1,
+      "model": "claude-opus-5-5",
+      "durationMs": 223246,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 50,
+        "output": 10043,
+        "cacheRead": 795786,
+        "cacheWrite": 30714,
+        "costUsd": 0.6059291999999998
+      },
+      "transcript": {
+        "apiCalls": 25,
+        "toolCalls": 24,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {
+          "promptHook": 0,
+          "sessionHook": 0,
+          "skills": 7477,
+          "mcpInstructions": 0
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-3433044c",
+      "repo": "es-toolkit",
+      "arm": "A",
+      "run": 2,
+      "model": "claude-opus-5-5",
+      "durationMs": 172777,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 38,
+        "output": 7423,
+        "cacheRead": 555712,
+        "cacheWrite": 26334,
+        "costUsd": 0.47042639999999997
+      },
+      "transcript": {
+        "apiCalls": 19,
+        "toolCalls": 18,
+        "prismCalls": 0,
+        "reads": 8,
+        "injectedChars": {
+          "promptHook": 0,
+          "sessionHook": 0,
+          "skills": 7477,
+          "mcpInstructions": 0
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-3433044c",
+      "repo": "es-toolkit",
+      "arm": "B",
+      "run": 1,
+      "model": "claude-opus-5-5",
+      "durationMs": 255930,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 46,
+        "output": 8194,
+        "cacheRead": 750217,
+        "cacheWrite": 29446,
+        "costUsd": 0.5496753999999999
+      },
+      "prism": {
+        "filesCovered": 3,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 23,
+        "toolCalls": 22,
+        "prismCalls": 0,
+        "reads": 9,
+        "injectedChars": {
+          "promptHook": 1685,
+          "sessionHook": 0,
+          "skills": 7695,
+          "mcpInstructions": 1112
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-3433044c",
+      "repo": "es-toolkit",
+      "arm": "B",
+      "run": 2,
+      "model": "claude-opus-5-5",
+      "durationMs": 286733,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 42,
+        "output": 9858,
+        "cacheRead": 712479,
+        "cacheWrite": 40240,
+        "costUsd": 0.6617438
+      },
+      "prism": {
+        "filesCovered": 3,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 21,
+        "toolCalls": 22,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {
+          "promptHook": 1668,
+          "sessionHook": 0,
+          "skills": 7695,
+          "mcpInstructions": 1112
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-827b92f7",
+      "repo": "es-toolkit",
+      "arm": "A",
+      "run": 1,
+      "model": "claude-opus-5-5",
+      "durationMs": 62070,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 18,
+        "output": 3285,
+        "cacheRead": 228536,
+        "cacheWrite": 17811,
+        "costUsd": 0.2539672
+      },
+      "transcript": {
+        "apiCalls": 9,
+        "toolCalls": 8,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {
+          "promptHook": 0,
+          "sessionHook": 0,
+          "skills": 7477,
+          "mcpInstructions": 0
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-827b92f7",
+      "repo": "es-toolkit",
+      "arm": "A",
+      "run": 2,
+      "model": "claude-opus-5-5",
+      "durationMs": 49504,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 16,
+        "output": 2485,
+        "cacheRead": 199726,
+        "cacheWrite": 18583,
+        "costUsd": 0.2383732
+      },
+      "transcript": {
+        "apiCalls": 8,
+        "toolCalls": 7,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {
+          "promptHook": 0,
+          "sessionHook": 0,
+          "skills": 7477,
+          "mcpInstructions": 0
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-827b92f7",
+      "repo": "es-toolkit",
+      "arm": "B",
+      "run": 1,
+      "model": "claude-opus-5-5",
+      "durationMs": 119158,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 18,
+        "output": 3025,
+        "cacheRead": 237223,
+        "cacheWrite": 20140,
+        "costUsd": 0.2691366
+      },
+      "prism": {
+        "filesCovered": 1,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 9,
+        "toolCalls": 8,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {
+          "promptHook": 1527,
+          "sessionHook": 0,
+          "skills": 7695,
+          "mcpInstructions": 1112
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-827b92f7",
+      "repo": "es-toolkit",
+      "arm": "B",
+      "run": 2,
+      "model": "claude-opus-5-5",
+      "durationMs": 87371,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 24,
+        "output": 3378,
+        "cacheRead": 332966,
+        "cacheWrite": 23714,
+        "costUsd": 0.3239612
+      },
+      "prism": {
+        "filesCovered": 0,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 12,
+        "toolCalls": 12,
+        "prismCalls": 0,
+        "reads": 6,
+        "injectedChars": {
+          "promptHook": 1080,
+          "sessionHook": 0,
+          "skills": 7695,
+          "mcpInstructions": 1112
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-99af1860",
+      "repo": "es-toolkit",
+      "arm": "A",
+      "run": 1,
+      "model": "claude-opus-5-5",
+      "durationMs": 34738,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 14,
+        "output": 1588,
+        "cacheRead": 164779,
+        "cacheWrite": 15089,
+        "costUsd": 0.1854838
+      },
+      "transcript": {
+        "apiCalls": 7,
+        "toolCalls": 6,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {
+          "promptHook": 0,
+          "sessionHook": 0,
+          "skills": 7477,
+          "mcpInstructions": 0
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-99af1860",
+      "repo": "es-toolkit",
+      "arm": "A",
+      "run": 2,
+      "model": "claude-opus-5-5",
+      "durationMs": 43239,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 14,
+        "output": 1509,
+        "cacheRead": 164425,
+        "cacheWrite": 14730,
+        "costUsd": 0.180961
+      },
+      "transcript": {
+        "apiCalls": 7,
+        "toolCalls": 6,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {
+          "promptHook": 0,
+          "sessionHook": 0,
+          "skills": 7477,
+          "mcpInstructions": 0
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-99af1860",
+      "repo": "es-toolkit",
+      "arm": "B",
+      "run": 1,
+      "model": "claude-opus-5-5",
+      "durationMs": 42990,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 12,
+        "output": 1289,
+        "cacheRead": 142995,
+        "cacheWrite": 15366,
+        "costUsd": 0.17735500000000004
+      },
+      "prism": {
+        "filesCovered": 1,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 6,
+        "toolCalls": 5,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {
+          "promptHook": 1694,
+          "sessionHook": 0,
+          "skills": 7695,
+          "mcpInstructions": 1112
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-99af1860",
+      "repo": "es-toolkit",
+      "arm": "B",
+      "run": 2,
+      "model": "claude-opus-5-5",
+      "durationMs": 24226,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 10,
+        "output": 1141,
+        "cacheRead": 115345,
+        "cacheWrite": 14853,
+        "costUsd": 0.16475299999999998
+      },
+      "prism": {
+        "filesCovered": 1,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 5,
+        "toolCalls": 4,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {
+          "promptHook": 1694,
+          "sessionHook": 0,
+          "skills": 7695,
+          "mcpInstructions": 1112
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-d9574efd",
+      "repo": "es-toolkit",
+      "arm": "A",
+      "run": 1,
+      "model": "claude-opus-5-5",
+      "durationMs": 81516,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 24,
+        "output": 4243,
+        "cacheRead": 307170,
+        "cacheWrite": 18226,
+        "costUsd": 0.292198
+      },
+      "transcript": {
+        "apiCalls": 12,
+        "toolCalls": 12,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {
+          "promptHook": 0,
+          "sessionHook": 0,
+          "skills": 7477,
+          "mcpInstructions": 0
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-d9574efd",
+      "repo": "es-toolkit",
+      "arm": "A",
+      "run": 2,
+      "model": "claude-opus-5-5",
+      "durationMs": 52897,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 18,
+        "output": 3258,
+        "cacheRead": 218910,
+        "cacheWrite": 16764,
+        "costUsd": 0.24312599999999998
+      },
+      "transcript": {
+        "apiCalls": 9,
+        "toolCalls": 9,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {
+          "promptHook": 0,
+          "sessionHook": 0,
+          "skills": 7477,
+          "mcpInstructions": 0
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-d9574efd",
+      "repo": "es-toolkit",
+      "arm": "B",
+      "run": 1,
+      "model": "claude-opus-5-5",
+      "durationMs": 71981,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 20,
+        "output": 2735,
+        "cacheRead": 258619,
+        "cacheWrite": 18449,
+        "costUsd": 0.25409580000000004
+      },
+      "prism": {
+        "filesCovered": 1,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 10,
+        "toolCalls": 9,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {
+          "promptHook": 1633,
+          "sessionHook": 0,
+          "skills": 7695,
+          "mcpInstructions": 1112
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-d9574efd",
+      "repo": "es-toolkit",
+      "arm": "B",
+      "run": 2,
+      "model": "claude-opus-5-5",
+      "durationMs": 73879,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 20,
+        "output": 2811,
+        "cacheRead": 253966,
+        "cacheWrite": 17690,
+        "costUsd": 0.2486132
+      },
+      "prism": {
+        "filesCovered": 1,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 10,
+        "toolCalls": 9,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {
+          "promptHook": 1633,
+          "sessionHook": 0,
+          "skills": 7695,
+          "mcpInstructions": 1112
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-e62aa15f",
+      "repo": "es-toolkit",
+      "arm": "A",
+      "run": 1,
+      "model": "claude-opus-5-5",
+      "durationMs": 162547,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 24,
+        "output": 4332,
+        "cacheRead": 318952,
+        "cacheWrite": 21435,
+        "costUsd": 0.3220064
+      },
+      "transcript": {
+        "apiCalls": 12,
+        "toolCalls": 11,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {
+          "promptHook": 0,
+          "sessionHook": 0,
+          "skills": 7477,
+          "mcpInstructions": 0
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-e62aa15f",
+      "repo": "es-toolkit",
+      "arm": "A",
+      "run": 2,
+      "model": "claude-opus-5-5",
+      "durationMs": 140269,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 32,
+        "output": 5831,
+        "cacheRead": 429618,
+        "cacheWrite": 21784,
+        "costUsd": 0.3769436
+      },
+      "transcript": {
+        "apiCalls": 16,
+        "toolCalls": 15,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {
+          "promptHook": 0,
+          "sessionHook": 0,
+          "skills": 7477,
+          "mcpInstructions": 0
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-e62aa15f",
+      "repo": "es-toolkit",
+      "arm": "B",
+      "run": 1,
+      "model": "claude-opus-5-5",
+      "durationMs": 127568,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 24,
+        "output": 3514,
+        "cacheRead": 334886,
+        "cacheWrite": 21976,
+        "costUsd": 0.3131612
+      },
+      "prism": {
+        "filesCovered": 1,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 12,
+        "toolCalls": 11,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {
+          "promptHook": 1599,
+          "sessionHook": 0,
+          "skills": 7695,
+          "mcpInstructions": 1112
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "es-toolkit-e62aa15f",
+      "repo": "es-toolkit",
+      "arm": "B",
+      "run": 2,
+      "model": "claude-opus-5-5",
+      "durationMs": 117263,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 40,
+        "output": 5763,
+        "cacheRead": 614250,
+        "cacheWrite": 24369,
+        "costUsd": 0.43322200000000005
+      },
+      "prism": {
+        "filesCovered": 1,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 20,
+        "toolCalls": 20,
+        "prismCalls": 0,
+        "reads": 1,
+        "injectedChars": {
+          "promptHook": 1599,
+          "sessionHook": 0,
+          "skills": 7695,
+          "mcpInstructions": 1112
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "hono-afb2068c",
+      "repo": "hono",
+      "arm": "A",
+      "run": 1,
+      "model": "claude-opus-5-5",
+      "durationMs": 72153,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 12,
+        "output": 1177,
+        "cacheRead": 131223,
+        "cacheWrite": 12996,
+        "costUsd": 0.1538006
+      },
+      "transcript": {
+        "apiCalls": 6,
+        "toolCalls": 6,
+        "prismCalls": 0,
+        "reads": 3,
+        "injectedChars": {
+          "promptHook": 0,
+          "sessionHook": 0,
+          "skills": 7014,
+          "mcpInstructions": 0
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "hono-afb2068c",
+      "repo": "hono",
+      "arm": "A",
+      "run": 2,
+      "model": "claude-opus-5-5",
+      "durationMs": 25356,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 10,
+        "output": 1210,
+        "cacheRead": 104640,
+        "cacheWrite": 14316,
+        "costUsd": 0.159696
+      },
+      "transcript": {
+        "apiCalls": 5,
+        "toolCalls": 4,
+        "prismCalls": 0,
+        "reads": 1,
+        "injectedChars": {
+          "promptHook": 0,
+          "sessionHook": 0,
+          "skills": 7014,
+          "mcpInstructions": 0
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "hono-afb2068c",
+      "repo": "hono",
+      "arm": "B",
+      "run": 1,
+      "model": "claude-opus-5-5",
+      "durationMs": 22432,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 10,
+        "output": 1129,
+        "cacheRead": 110280,
+        "cacheWrite": 13788,
+        "costUsd": 0.15498
+      },
+      "prism": {
+        "filesCovered": 1,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 5,
+        "toolCalls": 4,
+        "prismCalls": 0,
+        "reads": 2,
+        "injectedChars": {
+          "promptHook": 1265,
+          "sessionHook": 0,
+          "skills": 7232,
+          "mcpInstructions": 1112
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "hono-afb2068c",
+      "repo": "hono",
+      "arm": "B",
+      "run": 2,
+      "model": "claude-opus-5-5",
+      "durationMs": 28942,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 12,
+        "output": 1562,
+        "cacheRead": 136321,
+        "cacheWrite": 14611,
+        "costUsd": 0.17544020000000002
+      },
+      "prism": {
+        "filesCovered": 1,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 6,
+        "toolCalls": 5,
+        "prismCalls": 0,
+        "reads": 3,
+        "injectedChars": {
+          "promptHook": 1265,
+          "sessionHook": 0,
+          "skills": 7232,
+          "mcpInstructions": 1112
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "hono-c3053ccf",
+      "repo": "hono",
+      "arm": "A",
+      "run": 1,
+      "model": "claude-opus-5-5",
+      "durationMs": 66777,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 12,
+        "output": 1616,
+        "cacheRead": 129889,
+        "cacheWrite": 13430,
+        "costUsd": 0.1657858
+      },
+      "transcript": {
+        "apiCalls": 6,
+        "toolCalls": 5,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {
+          "promptHook": 0,
+          "sessionHook": 0,
+          "skills": 7014,
+          "mcpInstructions": 0
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "hono-c3053ccf",
+      "repo": "hono",
+      "arm": "A",
+      "run": 2,
+      "model": "claude-opus-5-5",
+      "durationMs": 29704,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 8,
+        "output": 849,
+        "cacheRead": 79922,
+        "cacheWrite": 12015,
+        "costUsd": 0.12911640000000002
+      },
+      "transcript": {
+        "apiCalls": 4,
+        "toolCalls": 3,
+        "prismCalls": 0,
+        "reads": 1,
+        "injectedChars": {
+          "promptHook": 0,
+          "sessionHook": 0,
+          "skills": 7014,
+          "mcpInstructions": 0
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "hono-c3053ccf",
+      "repo": "hono",
+      "arm": "B",
+      "run": 1,
+      "model": "claude-opus-5-5",
+      "durationMs": 47340,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 10,
+        "output": 1373,
+        "cacheRead": 107259,
+        "cacheWrite": 13324,
+        "costUsd": 0.1555438
+      },
+      "prism": {
+        "filesCovered": 1,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 5,
+        "toolCalls": 4,
+        "prismCalls": 0,
+        "reads": 2,
+        "injectedChars": {
+          "promptHook": 1348,
+          "sessionHook": 0,
+          "skills": 7232,
+          "mcpInstructions": 1112
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "hono-c3053ccf",
+      "repo": "hono",
+      "arm": "B",
+      "run": 2,
+      "model": "claude-opus-5-5",
+      "durationMs": 38644,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 10,
+        "output": 1186,
+        "cacheRead": 107115,
+        "cacheWrite": 13166,
+        "costUsd": 0.150511
+      },
+      "prism": {
+        "filesCovered": 1,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 5,
+        "toolCalls": 4,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {
+          "promptHook": 1348,
+          "sessionHook": 0,
+          "skills": 7232,
+          "mcpInstructions": 1112
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "hono-e5bb2062",
+      "repo": "hono",
+      "arm": "A",
+      "run": 1,
+      "model": "claude-opus-5-5",
+      "durationMs": 42028,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 12,
+        "output": 1220,
+        "cacheRead": 134111,
+        "cacheWrite": 14175,
+        "costUsd": 0.16467020000000002
+      },
+      "transcript": {
+        "apiCalls": 6,
+        "toolCalls": 5,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {
+          "promptHook": 0,
+          "sessionHook": 0,
+          "skills": 7014,
+          "mcpInstructions": 0
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "hono-e5bb2062",
+      "repo": "hono",
+      "arm": "A",
+      "run": 2,
+      "model": "claude-opus-5-5",
+      "durationMs": 25426,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 8,
+        "output": 1092,
+        "cacheRead": 92878,
+        "cacheWrite": 17964,
+        "costUsd": 0.1841596
+      },
+      "transcript": {
+        "apiCalls": 4,
+        "toolCalls": 3,
+        "prismCalls": 0,
+        "reads": 2,
+        "injectedChars": {
+          "promptHook": 0,
+          "sessionHook": 0,
+          "skills": 7014,
+          "mcpInstructions": 0
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "hono-e5bb2062",
+      "repo": "hono",
+      "arm": "B",
+      "run": 1,
+      "model": "claude-opus-5-5",
+      "durationMs": 94599,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 12,
+        "output": 1440,
+        "cacheRead": 141322,
+        "cacheWrite": 15662,
+        "costUsd": 0.1824084
+      },
+      "prism": {
+        "filesCovered": 1,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 6,
+        "toolCalls": 5,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {
+          "promptHook": 1636,
+          "sessionHook": 0,
+          "skills": 7232,
+          "mcpInstructions": 1112
+        }
+      }
+    },
+    {
+      "host": "Claude Code",
+      "task": "hono-e5bb2062",
+      "repo": "hono",
+      "arm": "B",
+      "run": 2,
+      "model": "claude-opus-5-5",
+      "durationMs": 47408,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 12,
+        "output": 1367,
+        "cacheRead": 140170,
+        "cacheWrite": 15287,
+        "costUsd": 0.177718
+      },
+      "prism": {
+        "filesCovered": 0,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 6,
+        "toolCalls": 5,
+        "prismCalls": 0,
+        "reads": 2,
+        "injectedChars": {
+          "promptHook": 1080,
+          "sessionHook": 0,
+          "skills": 7232,
+          "mcpInstructions": 1112
+        }
+      }
+    },
+    {
+      "host": "opencode",
+      "task": "es-toolkit-15043d8e",
+      "repo": "es-toolkit",
+      "arm": "A",
+      "run": 1,
+      "model": "opencode/mimo-v2.6-flash-free",
+      "durationMs": 600035,
+      "timedOut": true,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": false,
+      "usage": {
+        "input": 52403,
+        "output": 15531,
+        "cacheRead": 844224,
+        "cacheWrite": 0,
+        "costUsd": 0
+      },
+      "transcript": {
+        "apiCalls": 0,
+        "toolCalls": 34,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {}
+      }
+    },
+    {
+      "host": "opencode",
+      "task": "es-toolkit-15043d8e",
+      "repo": "es-toolkit",
+      "arm": "B",
+      "run": 1,
+      "model": "opencode/mimo-v2.6-flash-free",
+      "durationMs": 282645,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 19009,
+        "output": 5020,
+        "cacheRead": 417728,
+        "cacheWrite": 0,
+        "costUsd": 0
+      },
+      "prism": {
+        "tokensIn": 2458,
+        "filesCovered": 0,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 0,
+        "toolCalls": 22,
+        "prismCalls": 2,
+        "reads": 0,
+        "injectedChars": {}
+      }
+    },
+    {
+      "host": "opencode",
+      "task": "es-toolkit-2c4c0478",
+      "repo": "es-toolkit",
+      "arm": "A",
+      "run": 1,
+      "model": "opencode/mimo-v2.6-flash-free",
+      "durationMs": 511795,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 38623,
+        "output": 10844,
+        "cacheRead": 457472,
+        "cacheWrite": 0,
+        "costUsd": 0
+      },
+      "transcript": {
+        "apiCalls": 0,
+        "toolCalls": 30,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {}
+      }
+    },
+    {
+      "host": "opencode",
+      "task": "es-toolkit-2c4c0478",
+      "repo": "es-toolkit",
+      "arm": "B",
+      "run": 1,
+      "model": "opencode/mimo-v2.6-flash-free",
+      "durationMs": 600039,
+      "timedOut": true,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": false,
+      "usage": {
+        "input": 15855,
+        "output": 5046,
+        "cacheRead": 288192,
+        "cacheWrite": 0,
+        "costUsd": 0
+      },
+      "prism": {
+        "tokensIn": 0,
+        "filesCovered": 0,
+        "receipts": 0
+      },
+      "transcript": {
+        "apiCalls": 0,
+        "toolCalls": 19,
+        "prismCalls": 1,
+        "reads": 0,
+        "injectedChars": {}
+      }
+    },
+    {
+      "host": "opencode",
+      "task": "es-toolkit-323893f2",
+      "repo": "es-toolkit",
+      "arm": "A",
+      "run": 1,
+      "model": "opencode/mimo-v2.6-flash-free",
+      "durationMs": 541911,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 29538,
+        "output": 11650,
+        "cacheRead": 534400,
+        "cacheWrite": 0,
+        "costUsd": 0
+      },
+      "transcript": {
+        "apiCalls": 0,
+        "toolCalls": 23,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {}
+      }
+    },
+    {
+      "host": "opencode",
+      "task": "es-toolkit-323893f2",
+      "repo": "es-toolkit",
+      "arm": "B",
+      "run": 1,
+      "model": "opencode/mimo-v2.6-flash-free",
+      "durationMs": 600021,
+      "timedOut": true,
+      "testsPass": false,
+      "testsUntouched": true,
+      "success": false,
+      "usage": {
+        "input": 24961,
+        "output": 16190,
+        "cacheRead": 207936,
+        "cacheWrite": 0,
+        "costUsd": 0
+      },
+      "prism": {
+        "tokensIn": 0,
+        "filesCovered": 0,
+        "receipts": 0
+      },
+      "transcript": {
+        "apiCalls": 0,
+        "toolCalls": 14,
+        "prismCalls": 1,
+        "reads": 0,
+        "injectedChars": {}
+      }
+    },
+    {
+      "host": "opencode",
+      "task": "es-toolkit-3433044c",
+      "repo": "es-toolkit",
+      "arm": "A",
+      "run": 1,
+      "model": "opencode/mimo-v2.6-flash-free",
+      "durationMs": 600044,
+      "timedOut": true,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": false,
+      "usage": {
+        "input": 44922,
+        "output": 12901,
+        "cacheRead": 1333952,
+        "cacheWrite": 0,
+        "costUsd": 0
+      },
+      "transcript": {
+        "apiCalls": 0,
+        "toolCalls": 46,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {}
+      }
+    },
+    {
+      "host": "opencode",
+      "task": "es-toolkit-3433044c",
+      "repo": "es-toolkit",
+      "arm": "B",
+      "run": 1,
+      "model": "opencode/mimo-v2.6-flash-free",
+      "durationMs": 534397,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 35050,
+        "output": 13009,
+        "cacheRead": 982528,
+        "cacheWrite": 0,
+        "costUsd": 0
+      },
+      "prism": {
+        "tokensIn": 2868,
+        "filesCovered": 0,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 0,
+        "toolCalls": 41,
+        "prismCalls": 2,
+        "reads": 0,
+        "injectedChars": {}
+      }
+    },
+    {
+      "host": "opencode",
+      "task": "es-toolkit-827b92f7",
+      "repo": "es-toolkit",
+      "arm": "A",
+      "run": 1,
+      "model": "opencode/mimo-v2.6-flash-free",
+      "durationMs": 600043,
+      "timedOut": true,
+      "testsPass": false,
+      "testsUntouched": true,
+      "success": false,
+      "usage": {
+        "input": 40043,
+        "output": 20656,
+        "cacheRead": 558400,
+        "cacheWrite": 0,
+        "costUsd": 0
+      },
+      "transcript": {
+        "apiCalls": 0,
+        "toolCalls": 24,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {}
+      }
+    },
+    {
+      "host": "opencode",
+      "task": "es-toolkit-827b92f7",
+      "repo": "es-toolkit",
+      "arm": "B",
+      "run": 1,
+      "model": "opencode/mimo-v2.6-flash-free",
+      "durationMs": 600023,
+      "timedOut": true,
+      "testsPass": false,
+      "testsUntouched": true,
+      "success": false,
+      "usage": {
+        "input": 37187,
+        "output": 27542,
+        "cacheRead": 349440,
+        "cacheWrite": 0,
+        "costUsd": 0
+      },
+      "prism": {
+        "tokensIn": 0,
+        "filesCovered": 0,
+        "receipts": 0
+      },
+      "transcript": {
+        "apiCalls": 0,
+        "toolCalls": 17,
+        "prismCalls": 1,
+        "reads": 0,
+        "injectedChars": {}
+      }
+    },
+    {
+      "host": "opencode",
+      "task": "es-toolkit-99af1860",
+      "repo": "es-toolkit",
+      "arm": "A",
+      "run": 1,
+      "model": "opencode/mimo-v2.6-flash-free",
+      "durationMs": 518029,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 38309,
+        "output": 6567,
+        "cacheRead": 453120,
+        "cacheWrite": 0,
+        "costUsd": 0
+      },
+      "transcript": {
+        "apiCalls": 0,
+        "toolCalls": 29,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {}
+      }
+    },
+    {
+      "host": "opencode",
+      "task": "es-toolkit-99af1860",
+      "repo": "es-toolkit",
+      "arm": "B",
+      "run": 1,
+      "model": "opencode/mimo-v2.6-flash-free",
+      "durationMs": 268853,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 24699,
+        "output": 2900,
+        "cacheRead": 212544,
+        "cacheWrite": 0,
+        "costUsd": 0
+      },
+      "prism": {
+        "tokensIn": 167,
+        "filesCovered": 0,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 0,
+        "toolCalls": 14,
+        "prismCalls": 1,
+        "reads": 0,
+        "injectedChars": {}
+      }
+    },
+    {
+      "host": "opencode",
+      "task": "es-toolkit-d9574efd",
+      "repo": "es-toolkit",
+      "arm": "A",
+      "run": 1,
+      "model": "opencode/mimo-v2.6-flash-free",
+      "durationMs": 450185,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 26044,
+        "output": 11982,
+        "cacheRead": 536256,
+        "cacheWrite": 0,
+        "costUsd": 0
+      },
+      "transcript": {
+        "apiCalls": 0,
+        "toolCalls": 23,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {}
+      }
+    },
+    {
+      "host": "opencode",
+      "task": "es-toolkit-d9574efd",
+      "repo": "es-toolkit",
+      "arm": "B",
+      "run": 1,
+      "model": "opencode/mimo-v2.6-flash-free",
+      "durationMs": 425380,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 20722,
+        "output": 8720,
+        "cacheRead": 511104,
+        "cacheWrite": 0,
+        "costUsd": 0
+      },
+      "prism": {
+        "tokensIn": 2431,
+        "filesCovered": 0,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 0,
+        "toolCalls": 27,
+        "prismCalls": 2,
+        "reads": 0,
+        "injectedChars": {}
+      }
+    },
+    {
+      "host": "opencode",
+      "task": "es-toolkit-e62aa15f",
+      "repo": "es-toolkit",
+      "arm": "A",
+      "run": 1,
+      "model": "opencode/mimo-v2.6-flash-free",
+      "durationMs": 264366,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 26664,
+        "output": 4137,
+        "cacheRead": 299904,
+        "cacheWrite": 0,
+        "costUsd": 0
+      },
+      "transcript": {
+        "apiCalls": 0,
+        "toolCalls": 22,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {}
+      }
+    },
+    {
+      "host": "opencode",
+      "task": "es-toolkit-e62aa15f",
+      "repo": "es-toolkit",
+      "arm": "B",
+      "run": 1,
+      "model": "opencode/mimo-v2.6-flash-free",
+      "durationMs": 401167,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 31657,
+        "output": 5288,
+        "cacheRead": 643200,
+        "cacheWrite": 0,
+        "costUsd": 0
+      },
+      "prism": {
+        "tokensIn": 2466,
+        "filesCovered": 0,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 0,
+        "toolCalls": 28,
+        "prismCalls": 2,
+        "reads": 0,
+        "injectedChars": {}
+      }
+    },
+    {
+      "host": "opencode",
+      "task": "hono-afb2068c",
+      "repo": "hono",
+      "arm": "A",
+      "run": 1,
+      "model": "opencode/mimo-v2.6-flash-free",
+      "durationMs": 424662,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 45843,
+        "output": 11376,
+        "cacheRead": 766272,
+        "cacheWrite": 0,
+        "costUsd": 0
+      },
+      "transcript": {
+        "apiCalls": 0,
+        "toolCalls": 28,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {}
+      }
+    },
+    {
+      "host": "opencode",
+      "task": "hono-afb2068c",
+      "repo": "hono",
+      "arm": "B",
+      "run": 1,
+      "model": "opencode/mimo-v2.6-flash-free",
+      "durationMs": 369998,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 42642,
+        "output": 6172,
+        "cacheRead": 498560,
+        "cacheWrite": 0,
+        "costUsd": 0
+      },
+      "prism": {
+        "tokensIn": 2211,
+        "filesCovered": 0,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 0,
+        "toolCalls": 21,
+        "prismCalls": 2,
+        "reads": 0,
+        "injectedChars": {}
+      }
+    },
+    {
+      "host": "opencode",
+      "task": "hono-c3053ccf",
+      "repo": "hono",
+      "arm": "A",
+      "run": 1,
+      "model": "opencode/mimo-v2.6-flash-free",
+      "durationMs": 109093,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 6868,
+        "output": 1552,
+        "cacheRead": 180544,
+        "cacheWrite": 0,
+        "costUsd": 0
+      },
+      "transcript": {
+        "apiCalls": 0,
+        "toolCalls": 12,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {}
+      }
+    },
+    {
+      "host": "opencode",
+      "task": "hono-c3053ccf",
+      "repo": "hono",
+      "arm": "B",
+      "run": 1,
+      "model": "opencode/mimo-v2.6-flash-free",
+      "durationMs": 99334,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 12521,
+        "output": 2970,
+        "cacheRead": 331712,
+        "cacheWrite": 0,
+        "costUsd": 0
+      },
+      "prism": {
+        "tokensIn": 2164,
+        "filesCovered": 0,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 0,
+        "toolCalls": 18,
+        "prismCalls": 2,
+        "reads": 0,
+        "injectedChars": {}
+      }
+    },
+    {
+      "host": "opencode",
+      "task": "hono-e5bb2062",
+      "repo": "hono",
+      "arm": "A",
+      "run": 1,
+      "model": "opencode/mimo-v2.6-flash-free",
+      "durationMs": 240561,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 24203,
+        "output": 6710,
+        "cacheRead": 455488,
+        "cacheWrite": 0,
+        "costUsd": 0
+      },
+      "transcript": {
+        "apiCalls": 0,
+        "toolCalls": 22,
+        "prismCalls": 0,
+        "reads": 0,
+        "injectedChars": {}
+      }
+    },
+    {
+      "host": "opencode",
+      "task": "hono-e5bb2062",
+      "repo": "hono",
+      "arm": "B",
+      "run": 1,
+      "model": "opencode/mimo-v2.6-flash-free",
+      "durationMs": 170958,
+      "timedOut": false,
+      "testsPass": true,
+      "testsUntouched": true,
+      "success": true,
+      "usage": {
+        "input": 24634,
+        "output": 7290,
+        "cacheRead": 381568,
+        "cacheWrite": 0,
+        "costUsd": 0
+      },
+      "prism": {
+        "tokensIn": 2302,
+        "filesCovered": 0,
+        "receipts": 1
+      },
+      "transcript": {
+        "apiCalls": 0,
+        "toolCalls": 18,
+        "prismCalls": 2,
+        "reads": 0,
+        "injectedChars": {}
+      }
+    }
+  ]
+}

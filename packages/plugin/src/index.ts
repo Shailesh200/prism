@@ -1,6 +1,9 @@
 export {
+  claudeHooks,
   claudeManifest,
   cursorManifest,
+  devClaudeHooks,
+  devMcpConfig,
   mcpConfig,
   pluginDefinition,
   type CommandId,

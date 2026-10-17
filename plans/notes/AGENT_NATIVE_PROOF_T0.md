@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Captured | 2026-09-11 |
-| Workspace | `/Users/shaileshjha/Prism` (this product repo, indexed) |
+| Workspace | `~/Prism` (this product repo, indexed) |
 | Status | **Before** Phase 1. No Envelope MCP. No verify-plan. |
 | Do not treat as | A Dispatch job. No teammate was started. These are live MCP + shell probes. |
 

@@ -20,6 +20,8 @@ export type OptionSpec = {
   /** Commander syntax: `--limit <n>`, `--symbol`. */
   readonly flags: string;
   readonly description: string;
+  /** The option may be given more than once; read it with `args.values`. */
+  readonly repeatable?: boolean;
 };
 
 export type CommandSpec = {
@@ -35,10 +37,11 @@ export type CommandSpec = {
 
 /** Grouped by what the user is trying to do, not by which Core method backs it. */
 export const COMMAND_GROUPS = [
+  "Set up",
   "Understand a repository",
   "Assess a change",
   "Inspect structure",
-  "Reports",
+  "Memory",
   "Diagnostics",
 ] as const;
 

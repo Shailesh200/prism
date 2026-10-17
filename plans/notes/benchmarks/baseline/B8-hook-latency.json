@@ -1,0 +1,53 @@
+{
+  "benchmark": "B8-hook-latency",
+  "recordedAt": "2026-10-14T08:10:39.926Z",
+  "repo": "/tmp/prism2/hookbench",
+  "file": "src/function/debounce.ts",
+  "events": {
+    "session": {
+      "samples": 3,
+      "p50": 118,
+      "p95": 236,
+      "max": 236,
+      "outcomes": {
+        "output": 3
+      }
+    },
+    "prompt": {
+      "samples": 20,
+      "p50": 548,
+      "p95": 5711,
+      "max": 5711,
+      "outcomes": {
+        "output": 20
+      }
+    },
+    "beforeEdit": {
+      "samples": 20,
+      "p50": 179,
+      "p95": 295,
+      "max": 295,
+      "outcomes": {
+        "output": 20
+      }
+    },
+    "afterEdit": {
+      "samples": 20,
+      "p50": 183,
+      "p95": 289,
+      "max": 289,
+      "outcomes": {
+        "output": 20
+      }
+    },
+    "stop": {
+      "samples": 5,
+      "p50": 9451,
+      "p95": 10837,
+      "max": 10837,
+      "outcomes": {
+        "output": 5
+      }
+    }
+  }
+}

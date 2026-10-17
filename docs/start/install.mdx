@@ -1,11 +1,10 @@
 ---
 title: Install
-description: "Prerequisites, pick a surface, confirm it works — about five minutes."
+description: "Install the CLI, let `prism install` wire your agent, and check it with `prism doctor`."
 ---
 
-One engine, every surface. Install the lane that matches how you work and add
-others later — they share the same index. You do **not** need to clone the
-Prism repo; published packages are enough. Prefer a short path? Use the
+Prism 2.0 is one CLI and one MCP server (`prism-mcp`) that ship together. You do
+**not** need to clone the Prism repo. Prefer a short path? Use the
 [install wizard](/install).
 
 ## 1. Prerequisites
@@ -13,169 +12,96 @@ Prism repo; published packages are enough. Prefer a short path? Use the
 <Steps>
 <Step>
 
-**Node.js 26+** — check with `node -v` (should start with `v26`).
+**Node.js** — check with `node -v`.
 
 </Step>
 <Step>
 
-**A project folder** — TypeScript / JavaScript. Open or `cd` into it. Git is
-recommended but not required.
+**A project folder.** Git is recommended (the stop receipt and test impact
+read it) but not required.
 
 </Step>
 </Steps>
 
-## 2. Install a surface
-
-<Tabs items={["CLI", "IDE (VS Code / Cursor)", "AI agents (MCP)"]}>
-<Tab value="CLI">
-
-Terminal and CI. Run inside your project — no `--workspace` needed, Prism uses
-the git root:
-
-```bash
-cd /path/to/your/project
-npx -y @repo-prism/cli doctor
-```
-
-`doctor` prints which folder it chose and the cache state. A warn on the index
-cache is expected on a first run. Then analyse:
-
-```bash
-npx -y @repo-prism/cli dna
-npx -y @repo-prism/cli health
-npx -y @repo-prism/cli blast src/index.ts --fail-on high
-```
-
-Optional global install:
+## 2. Install and wire your agent
 
 ```bash
 npm install -g @repo-prism/cli
-prism doctor
+prism install claude     # or: cursor, codex, opencode, all
 ```
 
-More: [CLI usage](/docs/usage)
+`prism install` writes the MCP entry, the hooks or the rule line for each host,
+and records what it wrote in `~/.prism/install.json`, so `prism uninstall`
+removes exactly that and nothing else. The MCP entry launches the installed
+`prism-mcp` binary — never a registry download.
 
-</Tab>
-<Tab value="IDE (VS Code / Cursor)">
-
-Map, health, and blast radius inside the editor. Extension id
-`prismhq.repo-prism`.
-
-1. Install **Prism** —
-   [Marketplace](https://marketplace.visualstudio.com/items?itemName=prismhq.repo-prism)
-   (VS Code) or [Open VSX](https://open-vsx.org/extension/prismhq/repo-prism)
-   (Cursor). If Cursor's extension search lags, use
-   **Extensions: Install from VSIX…**.
-2. **File → Open Folder…** on your project — a folder, not a single file.
-3. Command Palette → **Prism: Open Prism**. Wait for indexing in the status bar.
-
-In Cursor, add the MCP config from the next tab too, so the agent and the UI
-share one analysis.
-
-More: [IDE usage](/docs/usage) · [Settings](/docs/reference/ide-settings)
-
-</Tab>
-<Tab value="AI agents (MCP)">
-
-Structural tools for Cursor, Claude Code, Claude Desktop, VS Code, or Codex.
-No workspace variable is needed — the server asks the client for its open
-folders (MCP roots) and follows folder changes. `NODE_USE_SYSTEM_CA` lets the
-npm download trust corporate proxy certificates.
-
-**Cursor** —
-[Add to Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=prism&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIi0tcHJlZmVyLW9ubGluZSIsIkByZXBvLXByaXNtL21jcC1zZXJ2ZXJAbGF0ZXN0Il0sImVudiI6eyJOT0RFX1VTRV9TWVNURU1fQ0EiOiIxIn19),
-or write `.cursor/mcp.json` at the project root (`~/.cursor/mcp.json` covers
-every project):
-
-```json
-{
-  "mcpServers": {
-    "prism": {
-      "command": "npx",
-      "args": ["-y", "--prefer-online", "@repo-prism/mcp-server@latest"],
-      "env": {
-        "NODE_USE_SYSTEM_CA": "1"
-      }
-    }
-  }
-}
-```
-
-Then **Settings → MCP** → enable **prism** and wait for 51 tools.
-
-**Claude Code** — from your project directory:
-
-```bash
-claude mcp add prism -- npx -y --prefer-online @repo-prism/mcp-server@latest
-```
-
-**Claude Desktop** — same `mcpServers.prism` block, in
-`~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or
-`%APPDATA%\Claude\claude_desktop_config.json` (Windows). Quit and reopen.
-
-**VS Code** —
-[Add to VS Code](vscode:mcp/install?%7B%22name%22%3A%22prism%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22--prefer-online%22%2C%22%40repo-prism%2Fmcp-server%40latest%22%5D%2C%22env%22%3A%7B%22NODE_USE_SYSTEM_CA%22%3A%221%22%7D%7D),
-or the same block in your MCP configuration. Separate from the Prism extension,
-which is the visual UI.
-
-**Codex CLI** — in `~/.codex/config.toml`, then run Codex from the project:
-
-```toml
-[mcp_servers.prism]
-command = "npx"
-args = ["-y", "--prefer-online", "@repo-prism/mcp-server@latest"]
-```
-
-Keep `@latest`; the server hops to a newer package itself. Canonical copy:
-[`mcp-install.json`](https://github.com/Shailesh200/prism/blob/main/packages/mcp-server/mcp-install.json).
-
-**Plugin pack** (optional) — skills and slash commands that teach an agent how
-Prism's tools compose. Install the **Prism** pack from your editor's own plugin
-settings; it calls the MCP server above.
-
-More: [Agent usage](/docs/usage) · [Dispatch](/docs/guides/dispatch)
-
-</Tab>
-</Tabs>
+Wiring a host by hand? Use `npx -y @repo-prism/mcp-server@2` as the server
+command; each agent’s [install page](/install) has the snippet.
 
 ## 3. Confirm it works
 
-| Surface | You should see |
-|---|---|
-| CLI | `doctor` prints a workspace path; `dna` prints a report |
-| IDE | The Prism panel opens after indexing |
-| MCP | Tools listed in the client; the agent answers with repository structure |
+```bash
+prism doctor
+```
+
+`prism doctor` checks each host it wired, the binary the hooks will run, and
+the index for the current repository. In your agent, ask "what breaks if I
+change this file?" — it answers from Prism's graph.
 
 Something off? [Troubleshooting](/docs/help/troubleshooting).
 
+## Upgrade
+
+```bash
+npm install -g @repo-prism/cli
+prism upgrade            # optional: re-link every agent now
+```
+
+You do not need to run `prism install` again. Releases sometimes change the
+hooks Prism registers (2.0 adds a background Stop hook that reports the
+verdict when the checks finish). The next Claude Code session updates Prism's
+own entries in `settings.json`. It keeps your other hooks and writes a backup
+next to the file (`settings.json.prism-backup-<version>`). The new hooks
+apply from the session after that.
+
+If Prism's entries were edited by hand, or run from two places, Prism leaves
+the file alone. It prints one line, once a day, with the command to run:
+`prism install claude`, or `prism install claude --project` for a
+repository's settings. `prism doctor` shows the same check, and
+`prism doctor --fix` applies a safe update now. Set `PRISM_HOOK_REFRESH=0` to
+turn the automatic update off.
+
+opencode runs the new hook through its existing plugin file, so it needs
+nothing. Cursor and Codex have no Prism hooks to update.
+
 ## What Prism writes
 
-Nothing goes into your checkout. Per-repo state lives in the machine-wide
-library, keyed by repo:
+Nothing goes into your checkout. State lives in the machine-wide library:
 
 ```
 ~/.prism/
+  install.json            what prism install wrote, for prism uninstall
+  config.json             optional: extraTools[] (opt-in MCP tools)
+  events.jsonl            what hooks, the daemon and the snapshot writer did
+  update.json             the daily update check (never relaunches)
   workspaces/<key>/
-    cache/           index + health history
-    consent.json     optional network feature decisions
-    bookmarks.json   map bookmarks
-    ingest/          artifacts you asked Prism to read
-    tools/           tools you consented to install
-    dispatch/        Dispatch jobs, memories, and notes
-  dispatch/          machine-wide skills and agent catalog
-  envelope-ledger.jsonl   Intelligence call receipts (never source)
+    cache/                the index
+    hooks/snapshot.json   what hooks read (under their latency budget)
+    receipts/             the last 20 stop receipts
+    memory.json           notes saved with prism remember
 ```
 
-An older `<repo>/.prism` folder is copied here on first open, then removed.
+`prism data prune` lists empty workspace folders, caches of deleted checkouts,
+and untracked worktrees; `prism data prune --yes` removes them.
 
 ## Next
 
-[Quickstart](/docs/start/quickstart) — five minutes of analysis ·
+[Quickstart](/docs/start/quickstart) ·
 [Prepare a change](/docs/guides/prepare-a-change) ·
-[Envelope and Iris](/docs/guides/envelope-and-iris) ·
+[Stop receipt](/docs/guides/receipt) ·
 [Usage](/docs/usage)
 
-## From source (contributors)
+## Contributing
 
 ```bash
 git clone https://github.com/Shailesh200/prism

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Milestone | [M-052](../milestones/M-052_surface-consolidation.md) |
+| Milestone | [M-052](../archive/milestones/M-052_surface-consolidation.md) |
 | Date | 2026-08-05 |
 | Scope | `packages/app-shell/src/**`, `packages/vscode-extension/src/**`, `apps/playground/**`, `packages/ui/src/**` |
 | Rule under test | [ADR-0004](../adr/0004-core-only-integration-surface.md) — surfaces consume `@repo-prism/core` and never reimplement analysis |

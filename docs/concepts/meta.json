@@ -5,8 +5,6 @@
     "graphs",
     "risk-bands",
     "signal-provenance",
-    "envelope",
-    "dna-and-stack",
-    "consent-and-privacy"
+    "dna-and-stack"
   ]
 }

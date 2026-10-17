@@ -1,3 +1,5 @@
+import { cpSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { IndexSnapshot, IndexedFile } from "@repo-prism/shared";
@@ -70,5 +72,31 @@ describe("collectRationale (M-075 A1)", () => {
     const kg = buildKnowledgeGraph(snapshot());
     expect(kg.graph.edges.some((e) => e.kind === "rationale_for")).toBe(true);
     expect(kg.graph.nodes.some((n) => n.kind === "adr")).toBe(true);
+  });
+});
+
+describe("rationale scan cache (token fix 2)", () => {
+  it("re-reads a file only when its content hash changes", () => {
+    const root = mkdtempSync(join(tmpdir(), "prism-rationale-"));
+    cpSync(FIXTURE, root, { recursive: true });
+    const adr = "plans/adr/0001-fetch-user.md";
+    const snap = (hash: string): IndexSnapshot => {
+      const base = snapshot();
+      return {
+        ...base,
+        rootPath: root,
+        files: base.files.map((f) =>
+          f.path === adr ? { ...f, contentHash: hash } : f,
+        ),
+      };
+    };
+    const linked = (s: IndexSnapshot) =>
+      collectRationale(s).hits.some((h) => h.adrPath === adr);
+    expect(linked(snap("h1"))).toBe(true);
+    writeFileSync(join(root, adr), "# ADR 0001\n\nNo paths here.\n");
+    // Same hash: the new snapshot reuses the scan instead of reading again.
+    expect(linked(snap("h1"))).toBe(true);
+    // A new hash is a new file body.
+    expect(linked(snap("h2"))).toBe(false);
   });
 });

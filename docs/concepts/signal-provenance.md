@@ -1,6 +1,6 @@
 ---
 title: Signal provenance
-description: "Every number carries where it came from — measured, estimated, or unavailable."
+description: "Every number says where it came from: measured, estimated or unavailable."
 ---
 
 Every number Prism shows carries a record of where it came from. That is why
@@ -24,10 +24,8 @@ fiction.
 | **Inferred** | Feature membership or similar-by-name — not load-bearing until you open the file |
 
 Graph edges on Intelligence tools carry `measured` | `heuristic` | `inferred`.
-The Envelope byte ratio is measured. Iris follow-through is heuristic.
 
-Surfaces show this: markers in the extension, fields in `--json`, labels in the
-CLI. Estimated figures are labelled; unavailable ones are absent rather than
+Surfaces show this: fields in `--json` and MCP results, labels in the CLI. Estimated figures are labelled; unavailable ones are absent rather than
 zero.
 
 ## Unavailable is a real answer
@@ -38,10 +36,9 @@ things.
 
 ## Estimated is honest, not useless
 
-Health history on day one may backfill earlier points from git, marked
-estimated. As real snapshots accumulate, they replace estimates. Both appear,
-distinguished.
+Ownership and churn on a shallow clone are marked estimated or unavailable,
+never shown as zero.
 
 ## Related
 
-[Risk bands](/docs/concepts/risk-bands) · [Consent and privacy](/docs/concepts/consent-and-privacy)
+[Risk bands](/docs/concepts/risk-bands) · [privacy](/privacy)

@@ -9,8 +9,6 @@ build/
 .moon/cache/
 *.tsbuildinfo
 .cache/
-*.vsix
-packages/vscode-extension/.vsix-stage/
 
 # Docs site output
 docs/.vitepress/dist/
@@ -25,6 +23,9 @@ docs/.vitepress/cache/
 !.env.example
 # Soft-impact fixture: a dummy .env the parser must see in CI.
 !packages/intelligence/fixtures/**/.env
+
+# Local OpenCode config. The global one points at this checkout.
+opencode.json
 
 # OS / editor
 .DS_Store
@@ -52,3 +53,6 @@ apps/website/next-env.d.ts
 
 # Superdesign scratch HTML
 .superdesign/tmp/
+
+# Private: golden tasks from a private repository
+plans/notes/golden-tasks-for-review.md

@@ -188,7 +188,7 @@ UI **—**. Chat must not say failed / passed / NA.
 | **A. Probe (no LLM)** | Core/MCP + `verifyJobWork` on fixtures. Deterministic. | Every milestone + phase gate |
 | **B. Teammate (optional)** | `start_job` on the **Envelope fixture repo**, not on Prism product source | Phase 1 gate, owner present |
 
-Do **not** start a Dispatch worker against `/Users/shaileshjha/Prism` as the proof. That pollutes the product tree. Fixture path: `packages/intelligence/fixtures/m070-envelope/` (created in M-070; T0 uses this repo + verify fixtures only).
+Do **not** start a Dispatch worker against `~/Prism` as the proof. That pollutes the product tree. Fixture path: `packages/intelligence/fixtures/m070-envelope/` (created in M-070; T0 uses this repo + verify fixtures only).
 
 ### 3.2 Probe script (M-069 delivers)
 

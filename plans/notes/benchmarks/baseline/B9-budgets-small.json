@@ -1,0 +1,65 @@
+{
+  "scale": "small",
+  "reps": 3,
+  "recordedAt": "2026-10-14T07:50:41.207Z",
+  "fixture": {
+    "modules": 1000,
+    "packages": 25,
+    "root": ".bench/fixtures/small"
+  },
+  "machine": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpus": 8,
+    "node": "v24.18.1"
+  },
+  "peakRssBytes": 409681920,
+  "indexSizeBytes": 0,
+  "operations": {
+    "index_cold": {
+      "medianMs": 310,
+      "minMs": 301,
+      "maxMs": 2166
+    },
+    "index_warm": {
+      "medianMs": 313,
+      "minMs": 311,
+      "maxMs": 342
+    },
+    "index_incremental": {
+      "medianMs": 9,
+      "minMs": 9,
+      "maxMs": 9
+    },
+    "dependency_graph": {
+      "medianMs": 23,
+      "minMs": 23,
+      "maxMs": 26
+    },
+    "cycles": {
+      "medianMs": 0,
+      "minMs": 0,
+      "maxMs": 0
+    },
+    "repository_map": {
+      "medianMs": 572,
+      "minMs": 569,
+      "maxMs": 577
+    },
+    "blast_radius": {
+      "medianMs": 20,
+      "minMs": 19,
+      "maxMs": 26
+    },
+    "dna": {
+      "medianMs": 124,
+      "minMs": 123,
+      "maxMs": 124
+    },
+    "health": {
+      "medianMs": 28,
+      "minMs": 26,
+      "maxMs": 28
+    }
+  }
+}

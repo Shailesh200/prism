@@ -1,6 +1,6 @@
 {
   "name": "@repo-prism/analyzer",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "type": "module",
   "description": "Language plugin SPI and analyzer host",
   "exports": {

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PrismErrorCode, type GraphSnapshotDto } from "@repo-prism/shared";
 import { createGraphStore, graphStoreFromJSON } from "./store.js";
-import { layoutGraph } from "./layout.js";
 
 const fixture: GraphSnapshotDto = {
   id: "fixture-dep",
@@ -82,18 +81,5 @@ describe("createGraphStore", () => {
     expect(path.ok).toBe(false);
     if (path.ok) return;
     expect(path.error.code).toBe(PrismErrorCode.GRAPH_ERROR);
-  });
-
-  it("lays out nodes on ranks", () => {
-    const layout = layoutGraph(fixture);
-    expect(layout.ok).toBe(true);
-    if (!layout.ok) return;
-    expect(layout.value.positions.a?.y).toBe(0);
-    expect(layout.value.positions.b?.y).toBeGreaterThan(
-      layout.value.positions.a?.y ?? 0,
-    );
-    expect(layout.value.positions.c?.y).toBeGreaterThan(
-      layout.value.positions.b?.y ?? 0,
-    );
   });
 });

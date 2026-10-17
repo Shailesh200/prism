@@ -277,6 +277,8 @@ type StaticImport = {
   readonly entries?: readonly {
     readonly localName?: { readonly value?: string };
     readonly importName?: { readonly kind?: string; readonly name?: string };
+    /** `import type { X }` or `import { type X }` (oxc). */
+    readonly isType?: boolean;
   }[];
 };
 
@@ -290,13 +292,92 @@ type StaticExport = {
     readonly exportName?: { readonly kind?: string; readonly name?: string };
     readonly localName?: { readonly kind?: string; readonly name?: string };
     readonly importName?: { readonly kind?: string; readonly name?: string };
+    /** `export type { X } from` (oxc). */
+    readonly isType?: boolean;
   }[];
 };
 
-function extractImportsFromModule(module: unknown): ExtractedImport[] {
+/**
+ * Members read through each namespace binding (`import * as ns`): `ns.a`,
+ * `ns["a"]`, and type positions `ns.A`. A binding that escapes — used bare
+ * (passed, spread, assigned) or with a computed non-literal key — maps to
+ * null, meaning "all exports". Import declarations themselves are skipped.
+ */
+export function namespaceMemberUses(
+  program: unknown,
+  locals: ReadonlySet<string>,
+): Map<string, Set<string> | null> {
+  const out = new Map<string, Set<string> | null>();
+  for (const l of locals) out.set(l, new Set());
+  if (locals.size === 0) return out;
+  const add = (local: string, member: string | null) => {
+    const cur = out.get(local);
+    if (cur === null || cur === undefined) return;
+    if (member === null) out.set(local, null);
+    else cur.add(member);
+  };
+  const walk = (node: unknown): void => {
+    if (!node || typeof node !== "object") return;
+    const n = node as Record<string, unknown> & { type?: string };
+    if (n.type === "ImportDeclaration") return;
+    if (n.type === "MemberExpression") {
+      const obj = n.object as { type?: string; name?: string } | undefined;
+      if (obj?.type === "Identifier" && obj.name && locals.has(obj.name)) {
+        const prop = n.property as
+          | { type?: string; name?: string; value?: unknown }
+          | undefined;
+        if (!n.computed && prop?.name) add(obj.name, prop.name);
+        else if (n.computed && typeof prop?.value === "string")
+          add(obj.name, prop.value);
+        else add(obj.name, null);
+        if (n.computed) walk(n.property);
+        return;
+      }
+    }
+    if (n.type === "TSQualifiedName") {
+      const left = n.left as { type?: string; name?: string } | undefined;
+      const right = n.right as { name?: string } | undefined;
+      if (left?.type === "Identifier" && left.name && locals.has(left.name)) {
+        if (right?.name) add(left.name, right.name);
+        return;
+      }
+    }
+    if (
+      n.type === "Identifier" &&
+      typeof n.name === "string" &&
+      locals.has(n.name)
+    ) {
+      add(n.name, null);
+      return;
+    }
+    for (const value of Object.values(n)) {
+      if (Array.isArray(value)) for (const item of value) walk(item);
+      else if (value && typeof value === "object") walk(value);
+    }
+  };
+  walk(program);
+  return out;
+}
+
+function extractImportsFromModule(
+  module: unknown,
+  program?: unknown,
+): ExtractedImport[] {
   const staticImports =
     (module as { staticImports?: readonly StaticImport[] } | null)
       ?.staticImports ?? [];
+  // Namespace bindings narrowed to the members actually read (plan §4.2).
+  const nsLocals = new Set<string>();
+  for (const imp of staticImports)
+    for (const e of imp.entries ?? [])
+      if (
+        (e.importName?.kind === "Namespace" ||
+          e.importName?.kind === "NamespaceObject") &&
+        e.localName?.value
+      )
+        nsLocals.add(e.localName.value);
+  const nsUses =
+    program === undefined ? new Map() : namespaceMemberUses(program, nsLocals);
   return staticImports.map((imp) => {
     const specifiers = (imp.entries ?? [])
       .map((e) => {
@@ -306,9 +387,33 @@ function extractImportsFromModule(module: unknown): ExtractedImport[] {
         return e.importName?.name ?? "";
       })
       .filter(Boolean);
+    // Type-only when every binding is a type (`import type`, or all
+    // `{ type X }`). A bare side-effect import has no bindings: value.
+    const entries = imp.entries ?? [];
+    const typeOnly = entries.length > 0 && entries.every((e) => e.isType);
+    // The exported names this import binds, as the *target* module spells
+    // them (`import { a as b }` → "a"). Symbol-level blast matches on these.
+    const imported = entries
+      .flatMap((e): string[] => {
+        if (e.importName?.kind === "Default") return ["default"];
+        if (
+          e.importName?.kind === "Namespace" ||
+          e.importName?.kind === "NamespaceObject"
+        ) {
+          const used = e.localName?.value
+            ? nsUses.get(e.localName.value)
+            : undefined;
+          // Unknown or escaping namespace: every export is bound.
+          return used ? [...used].sort() : ["*"];
+        }
+        return [e.importName?.name ?? ""];
+      })
+      .filter(Boolean);
     const row: ExtractedImport = {
       source: imp.moduleRequest?.value ?? "",
       specifiers,
+      imported,
+      ...(typeOnly ? { typeOnly: true } : {}),
     };
     if (typeof imp.start === "number") {
       return {
@@ -450,6 +555,16 @@ function extractExportsFromModule(module: unknown): ExtractedExport[] {
         ...(typeof start === "number" ? { start } : {}),
         ...(typeof end === "number" ? { end } : {}),
         ...(source !== undefined ? { source } : {}),
+        ...(source !== undefined && entry.isType ? { typeOnly: true } : {}),
+        ...(source !== undefined
+          ? {
+              importedName:
+                entry.importName?.kind === "All" ||
+                entry.importName?.kind === "AllButDefault"
+                  ? "*"
+                  : (entry.importName?.name ?? name),
+            }
+          : {}),
       });
     }
   }
@@ -630,7 +745,10 @@ export function createTypescriptPlugin(): LanguagePlugin {
     extractImports(parseResult) {
       const gate = ensureOwnParse(parseResult);
       if (!gate.ok) return gate;
-      const staticOnes = extractImportsFromModule(gate.value.module);
+      const staticOnes = extractImportsFromModule(
+        gate.value.module,
+        gate.value.program,
+      );
       const dynamicOnes = extractDynamicImportsFromProgram(gate.value.program);
       const requireOnes = extractRequireCallsFromProgram(gate.value.program);
       // Dedupe by kind+source+start

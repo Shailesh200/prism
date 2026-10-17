@@ -5,7 +5,7 @@
 | Status | Accepted |
 | Date | 2026-09-01 |
 | Decision makers | Owner, Architect |
-| Related milestones | [M-066](../milestones/M-066_checkout-first-jobs.md) |
+| Related milestones | [M-066](../archive/milestones/M-066_checkout-first-jobs.md) |
 | Amends | [ADR-0040](./0040-dispatch-worker-supervisor.md), [ADR-0042](./0042-dispatch-durable-handoff-and-subagents.md) |
 
 ## Context

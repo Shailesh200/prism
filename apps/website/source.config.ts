@@ -4,12 +4,18 @@ import {
   defineDocs,
   frontmatterSchema,
 } from "fumadocs-mdx/config";
+import lastModified from "fumadocs-mdx/plugins/last-modified";
 import { z } from "zod";
 
 export const docs = defineDocs({
   dir: "../../docs",
   docs: {
-    files: ["**/*.{md,mdx}", "!architecture/**"],
+    files: ["**/*.{md,mdx}", "!architecture/**", "!guides/wire-into-ci.mdx"],
+    schema: frontmatterSchema.extend({
+      source: z.string().optional(),
+    }),
+    // Plain Markdown of each page, for /llms-full.txt.
+    postprocess: { includeProcessedMarkdown: true },
   },
   meta: {
     files: ["**/meta.json", "!architecture/**"],
@@ -33,7 +39,7 @@ export const legal = defineCollections({
   dir: "content/legal",
 });
 
-/** Release highlight posts for /whats-new/[slug]. */
+/** Release highlight posts for /changelog/[slug]. */
 export const posts = defineCollections({
   type: "doc",
   dir: "content/posts",
@@ -43,6 +49,8 @@ export const posts = defineCollections({
 });
 
 export default defineConfig({
+  // Each docs page's last commit time, for the sitemap and TechArticle.
+  plugins: [lastModified({ filter: (collection) => collection === "docs" })],
   mdxOptions: {
     rehypeCodeOptions: {
       themes: {

@@ -177,18 +177,9 @@ describe("local-only analysis makes no network calls (M-036 Phase 3)", () => {
   > = [
     ["index", () => workspace.index()],
     ["getDna", () => workspace.getDna()],
-    ["getHealth", () => workspace.getHealth()],
-    ["getRepositoryMap", () => workspace.getRepositoryMap()],
     ["getDependencyGraph", () => workspace.getDependencyGraph()],
     ["getKnowledgeGraph", () => workspace.getKnowledgeGraph()],
     ["getStackProfile", () => workspace.getStackProfile()],
-    ["listFeatures", () => workspace.listFeatures()],
-    ["getEngineeringHealth", () => workspace.getEngineeringHealth()],
-    ["getTestingReport", () => workspace.getTestingReport()],
-    ["getSecurityReport", () => workspace.getSecurityReport()],
-    ["getBackendReport", () => workspace.getBackendReport()],
-    ["getOverviewModel", () => workspace.getOverviewModel()],
-    ["getDomainReport", () => workspace.getDomainReport("frontend")],
     ["getGitActivity", () => workspace.getGitActivity()],
     ["getChangedPaths", () => workspace.getChangedPaths()],
     [
@@ -256,46 +247,5 @@ describe("local-only analysis makes no network calls (M-036 Phase 3)", () => {
     const caught = attempts.splice(before);
     expect(caught).toHaveLength(2);
     expect(caught[0]).toContain("example.invalid");
-  });
-
-  it("refuses the gated paths cleanly, with no partial side effect", async () => {
-    const before = attempts.length;
-
-    const job = await workspace.startUtilityJob({ kind: "lighthouse" });
-    expect(job.ok).toBe(false);
-    if (!job.ok) {
-      expect(job.error.message).toMatch(/consent/i);
-    }
-
-    const bundle = await workspace.startUtilityJob({ kind: "bundle-stats" });
-    expect(bundle.ok).toBe(false);
-
-    // Refused before the request, not after it.
-    expect(attempts.slice(before)).toEqual([]);
-  }, 60_000);
-});
-
-describe("Core DTOs carry no credentials (M-036 Phase 3.4)", () => {
-  it("names no token, key, secret or password field", async () => {
-    const { readFile } = await import("node:fs/promises");
-    const schemas = await readFile(
-      join(import.meta.dirname, "..", "..", "shared", "src", "schemas.ts"),
-      "utf8",
-    );
-
-    // Field *declarations* only: prose and `apiKeyUrl`-style documentation
-    // links are not credentials, and matching them would train everyone to
-    // ignore this test. Map-token weights on prepare_change (M-070) are
-    // counts of path+symbol+why characters, not secrets.
-    const ALLOWED = new Set(["tokenWeight", "tokenEstimate"]);
-    const offenders = [
-      ...schemas.matchAll(
-        /^\s*(\w*(?:token|secret|password|credential|apiKey)\w*)\s*:/gim,
-      ),
-    ]
-      .map((match) => match[1])
-      .filter((name) => !ALLOWED.has(name ?? ""));
-
-    expect(offenders).toEqual([]);
   });
 });

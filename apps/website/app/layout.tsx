@@ -1,36 +1,49 @@
 import { RootProvider } from "fumadocs-ui/provider/next";
-import { Inter, JetBrains_Mono, Syne } from "next/font/google";
+import {
+  Geist,
+  Inter,
+  Instrument_Serif,
+  JetBrains_Mono,
+} from "next/font/google";
 import type { ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
-import { ThemeSync } from "@/components/theme-sync";
-import { MotionChrome } from "@/components/motion/MotionChrome";
 import { PulseRoot } from "@/components/pulse-root";
 import { JsonLd } from "@/components/json-ld";
 import { rootMetadata, websiteJsonLd } from "@/lib/seo";
 import "./global.css";
 
-const inter = Inter({
+const instrument = Instrument_Serif({
   subsets: ["latin"],
-  variable: "--font-sans",
+  weight: "400",
+  style: ["normal", "italic"],
+  display: "swap",
+  variable: "--font-instrument",
 });
 
-const syne = Syne({
+const geist = Geist({
   subsets: ["latin"],
-  variable: "--font-display",
+  display: "swap",
+  variable: "--font-geist",
 });
 
 const jetbrains = JetBrains_Mono({
   subsets: ["latin"],
-  variable: "--font-mono",
+  display: "swap",
+  variable: "--font-jetbrains",
+});
+
+/** Wordmark only. */
+const inter = Inter({
+  subsets: ["latin"],
+  weight: "600",
+  display: "swap",
+  variable: "--font-inter",
 });
 
 export const metadata: Metadata = rootMetadata();
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#0a0e1a" },
-    { media: "(prefers-color-scheme: light)", color: "#f4f7f8" },
-  ],
+  themeColor: "#f4f1ea",
   width: "device-width",
   initialScale: 1,
 };
@@ -39,21 +52,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="en"
-      className={`dark ${inter.variable} ${syne.variable} ${jetbrains.variable}`}
-      suppressHydrationWarning
+      data-theme="light"
+      className={`${instrument.variable} ${geist.variable} ${jetbrains.variable} ${inter.variable}`}
     >
-      <body className="flex min-h-screen flex-col font-sans antialiased">
+      <body className="flex min-h-screen flex-col antialiased">
         <JsonLd data={websiteJsonLd()} />
-        <RootProvider
-          theme={{
-            attribute: "class",
-            defaultTheme: "dark",
-            enableSystem: true,
-            disableTransitionOnChange: true,
-          }}
-        >
-          <ThemeSync />
-          <MotionChrome />
+        <RootProvider theme={{ enabled: false }}>
           <PulseRoot />
           {children}
         </RootProvider>

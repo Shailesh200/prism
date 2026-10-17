@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   prismMcpImplementation,
   prismServerIcons,
+  SERVER_DESCRIPTION,
   SERVER_ICON_HTTPS,
   SERVER_NAME,
   SERVER_TITLE,
@@ -15,6 +16,12 @@ describe("MCP server branding", () => {
     expect(info.title).toBe(SERVER_TITLE);
     expect(info.version).toBe("1.1.1");
     expect(info.websiteUrl).toBe(SERVER_WEBSITE_URL);
+    expect(info.description).toBe(
+      "Local software intelligence that catches what your coding agent missed.",
+    );
+    expect(SERVER_DESCRIPTION).not.toMatch(
+      /prismate|teammate|ai-powered|magic/i,
+    );
     const icons = prismServerIcons();
     expect(icons.some((icon) => icon.src === SERVER_ICON_HTTPS)).toBe(true);
     expect(

@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-09-11 |
-| Workspace | `/Users/shaileshjha/Prism` |
+| Workspace | `~/Prism` |
 | Bound | Each list tool returns `{ items, totalCount, truncated, limit }` |
 
 ## Sequence

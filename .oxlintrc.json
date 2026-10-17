@@ -10,6 +10,7 @@
     "**/.moon/**",
     "plans/**",
     "**/fixtures/**",
-    "**/*.generated.ts"
+    "**/*.generated.ts",
+    "packages/plugin/hooks/prompt-hook.mjs"
   ]
 }

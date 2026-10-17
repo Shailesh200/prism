@@ -1,17 +1,19 @@
 {
-  "title": "Intelligence",
+  "title": "Using Prism",
   "pages": [
-    "understand-a-repo",
     "prepare-a-change",
     "before-you-edit",
     "guard-a-session",
     "review-a-pr",
-    "findings",
-    "envelope-and-iris",
+    "wire-into-ci",
+    "hooks-and-strength",
+    "receipt",
+    "lenses",
+    "habits-and-skills",
     "remember-context",
-    "delete-safely",
-    "track-health",
-    "investigate-domain",
-    "wire-into-ci"
+    "understand-a-repo",
+    "graph",
+    "findings",
+    "delete-safely"
   ]
 }

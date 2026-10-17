@@ -5,7 +5,7 @@
 | Status | Accepted (decision: **reject**, with a stated re-open condition) |
 | Date | 2026-09-02 |
 | Decision makers | Owner, Architect |
-| Related milestones | [M-066](../milestones/M-066_checkout-first-jobs.md) (spike raised), [M-067](../milestones/M-067_shippable-product.md) (spike run) |
+| Related milestones | [M-066](../archive/milestones/M-066_checkout-first-jobs.md) (spike raised), [M-067](../archive/milestones/M-067_shippable-product.md) (spike run) |
 | Relates to | [ADR-0044](./0044-dispatch-worker-backends.md), [ADR-0045](./0045-job-placement-checkout-first.md), [ADR-0047](./0047-job-queue-and-latency-budget.md) |
 
 ## Context

@@ -16,6 +16,7 @@ import {
   type Result,
   err,
   ok,
+  partialIndexWarning,
   prismError,
   unsafeRepoId,
 } from "@repo-prism/shared";
@@ -26,6 +27,7 @@ import {
   saveSnapshot,
 } from "./cache/store.js";
 import { inventorySinglePath, inventoryWorkspace } from "./inventory.js";
+import { prioritizePackageFirst } from "./package-first.js";
 import { resolveWorkspaceRoot } from "./workspace-root.js";
 
 export const DEFAULT_INDEX_CONCURRENCY = 4;
@@ -50,6 +52,19 @@ export type IndexJobOptions = {
   readonly changedPaths?: readonly string[];
   /** Repo-relative paths removed from the workspace. */
   readonly deletedPaths?: readonly string[];
+  /**
+   * Files of the snapshot this process already holds. A dirty run merges
+   * against these instead of re-reading and re-validating every cached row,
+   * which at 10k files was most of a single-file reindex (M-095).
+   */
+  readonly priorFiles?: readonly IndexedFile[];
+  /**
+   * Cap how many inventory entries are analysed (plan P19). Entries under
+   * shallow package roots are kept first; the rest are omitted with a
+   * partial-index warning so a first answer can return while a full index
+   * continues elsewhere.
+   */
+  readonly maxAnalyzeFiles?: number;
 };
 
 function emit(
@@ -162,6 +177,8 @@ async function analyzeOne(
       ...(typeof i.start === "number" ? { start: i.start } : {}),
       ...(typeof i.end === "number" ? { end: i.end } : {}),
       ...(i.kind === undefined ? {} : { kind: i.kind }),
+      ...(i.typeOnly ? { typeOnly: true } : {}),
+      ...(i.imported === undefined ? {} : { imported: [...i.imported] }),
     })),
     exports: value.exports.map((e) => ({
       name: e.name,
@@ -169,6 +186,8 @@ async function analyzeOne(
       ...(typeof e.start === "number" ? { start: e.start } : {}),
       ...(typeof e.end === "number" ? { end: e.end } : {}),
       ...(e.source === undefined ? {} : { source: e.source }),
+      ...(e.typeOnly ? { typeOnly: true } : {}),
+      ...(e.importedName === undefined ? {} : { importedName: e.importedName }),
     })),
     references: value.references.map((r) => ({
       name: r.name,
@@ -272,7 +291,10 @@ export async function runIndexJob(
     );
     if (opened.ok) {
       cacheDb = opened.value;
-      cachedFiles = loadCachedFiles(cacheDb.db, resolve(rootResult.value));
+      cachedFiles =
+        dirtyRequested && options.priorFiles && options.priorFiles.length > 0
+          ? new Map(options.priorFiles.map((file) => [file.path, file]))
+          : loadCachedFiles(cacheDb.db, resolve(rootResult.value));
     } else {
       warnings.push(`cache unavailable: ${opened.error.message}`);
     }
@@ -388,6 +410,18 @@ export async function runIndexJob(
     }
   }
 
+  // The cap counts code files only: skipped and unsupported files are free.
+  const isCode = (entry: FileInventoryEntry) =>
+    skippedFromInventory(entry) === null &&
+    analyzer.registry.resolveForPath(join(rootPath, entry.path)) !== undefined;
+  const codeTotal = entries.filter(isCode).length;
+  const cap = options.maxAnalyzeFiles ?? 0;
+  const partial = cap > 0 && codeTotal > cap;
+  if (partial) {
+    entries = prioritizePackageFirst(entries, cap, isCode);
+    warnings.push(partialIndexWarning(cap, codeTotal));
+  }
+
   const gate1 = assertNotCancelled(options.signal);
   if (!gate1.ok) {
     cacheDb?.close();
@@ -496,7 +530,8 @@ export async function runIndexJob(
 
   if (cacheDb) {
     try {
-      saveSnapshot(cacheDb.db, snapshot);
+      // A partial index keeps the cached rows it did not visit.
+      saveSnapshot(cacheDb.db, snapshot, { prune: !partial });
       emit(options.onProgress, {
         phase: "finalize",
         filesTotal: files.length,

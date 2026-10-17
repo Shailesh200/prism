@@ -7,7 +7,7 @@
 | Decision makers | Owner, Architect |
 | Related milestones | **M-051** (implementation), M-017, M-019, M-042, M-046 |
 | Supersedes | — (constrains ADR-0013 layer signals and ADR-0023 trends history) |
-| Related | [M-051](../milestones/M-051_hardening.md), ADR-0004, ADR-0013, ADR-0023, ADR-0027 |
+| Related | [M-051](../archive/milestones/M-051_hardening.md), ADR-0004, ADR-0013, ADR-0023, ADR-0027 |
 
 ## Context
 

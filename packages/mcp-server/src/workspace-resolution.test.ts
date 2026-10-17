@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   findGitRoot,
@@ -12,7 +12,7 @@ import {
 } from "./workspace-resolution.js";
 
 describe("workspace resolution (M-026)", () => {
-  const cwd = "/tmp/launch-dir";
+  const cwd = resolve("/tmp/launch-dir");
   const temps: string[] = [];
 
   afterEach(() => {
@@ -33,7 +33,10 @@ describe("workspace resolution (M-026)", () => {
       environment: "/repos/beta",
       cwd,
     });
-    expect(resolved).toEqual({ path: "/repos/alpha", source: "argument" });
+    expect(resolved).toEqual({
+      path: resolve("/repos/alpha"),
+      source: "argument",
+    });
   });
 
   it("falls back to the environment when no argument is given", () => {
@@ -41,7 +44,10 @@ describe("workspace resolution (M-026)", () => {
       environment: "/repos/beta",
       cwd,
     });
-    expect(resolved).toEqual({ path: "/repos/beta", source: "environment" });
+    expect(resolved).toEqual({
+      path: resolve("/repos/beta"),
+      source: "environment",
+    });
   });
 
   it("uses the nearest git root when launched inside a repository", () => {
@@ -73,9 +79,11 @@ describe("workspace resolution (M-026)", () => {
 
   it("resolves relative paths against cwd rather than rejecting them", () => {
     expect(resolveWorkspacePath({ argument: "./repo", cwd }).path).toBe(
-      "/tmp/launch-dir/repo",
+      resolve(cwd, "repo"),
     );
-    expect(resolveWorkspacePath({ argument: "..", cwd }).path).toBe("/tmp");
+    expect(resolveWorkspacePath({ argument: "..", cwd }).path).toBe(
+      resolve("/tmp"),
+    );
   });
 
   it("treats macOS Cursor container homes as sandbox", () => {

@@ -8,8 +8,8 @@ description: "One engine, several surfaces — every surface asks Core."
 computes anything.**
 
 ```
-  extension    CLI    MCP server    playground
-       └────────┴─────────┴─────────────┘
+  CLI    MCP server + hooks    GitHub Action
+   └───────────┴──────────────────┘
                      │
                 @repo-prism/core          ← the only public API
                      │
@@ -27,14 +27,12 @@ internals it happens to need — produces four implementations of "what is the
 blast radius of this file" that drift apart, and then a support conversation
 about why the CLI and the editor disagree.
 
-Prism has already avoided that once: test-runner logic existed separately in the
-extension and the playground, drifted, and turned out to contain two different
-bugs. Consolidating it into Core removed both.
+Prism has already avoided that once: test-runner logic existed separately in two
+surfaces, drifted, and turned out to contain two different bugs. Consolidating
+it into Core removed both.
 
 The CLI and the MCP server each carry a boundary test: importing an internal
-package from those surfaces fails the build. The extension and the playground
-follow the same rule and currently hold to it, but are not yet pinned by an
-equivalent test.
+package from those surfaces fails the build.
 
 ## The layers
 
@@ -45,36 +43,18 @@ it runs in a browser webview unchanged.
 
 **Engine internals** — the analyzer parses (Oxc for TypeScript and JavaScript),
 the indexer persists to SQLite in `.prism/`, the graph engine builds and queries
-graphs, and the intelligence packages derive health, features, stack detection
-and reports.
+graphs, and the intelligence packages derive stack detection, entry points and
+the facts Prepare and review read.
 
 **`@repo-prism/core`** — the public SDK. `PrismWorkspace` is the whole surface: open a
 workspace, ask questions, get typed results. Every method returns
 `Result<T, PrismError>` rather than throwing, so a caller cannot forget that a
 call can fail.
 
-**Surfaces** — the extension, CLI, MCP server, and playground. Each is a
-presentation layer over the same answers.
+**Surfaces** — the CLI and the MCP server (with its hooks and plugin pack).
+Each is a presentation layer over the same answers.
 
-## Shared presentation
 
-The extension and the playground render the same screens, from `@repo-prism/app-shell`.
-Each host provides an `AppShellClient` implementation — the extension goes over
-webview RPC, the playground over HTTP — and the screens do not know which they
-are talking to.
-
-That is why the browser playground is a legitimate way to develop the editor
-extension: same components, better dev-tools loop.
-
-## Consent lives in the engine
-
-Network capability is gated by `.prism/consent.json`, read by Core itself.
-
-Callers cannot pass a "the user agreed" flag. An earlier design let them, and
-every caller passed `true` — the gate recorded consent instead of requiring it.
-Putting the decision inside the engine means every surface is bound by it and
-none can route around it. See
-[consent and privacy](../concepts/consent-and-privacy.md).
 
 ## Local-first
 

@@ -14,8 +14,7 @@ export {
   pickWorkspaceFromHints,
   type WorkspaceBinding,
 } from "./workspace-binding.js";
-export { TOOLS, TOOL_NAMES } from "./tools.js";
-export { DISPATCH_TOOLS, DISPATCH_TOOL_NAMES } from "./dispatch-registry.js";
+export { DEFAULT_TOOL_NAMES, TOOLS, TOOL_NAMES } from "./tools.js";
 export {
   SERVER_INSTRUCTIONS,
   PROMPT_NAMES,

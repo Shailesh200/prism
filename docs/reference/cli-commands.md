@@ -9,42 +9,81 @@ Every `prism` command, generated from the command table the binary is built
 from. If a command appears here, it exists; if its options are listed here,
 they are the options it accepts.
 
-See [Using the CLI](../cli/usage.md) for global options, exit codes, and how
+See [Usage](../usage.mdx) for global options, exit codes, and how
 `--fail-on` behaves in CI.
+
+## Set up
+
+### `prism start`
+
+Install Prism for every coding agent found here, index this repo and show its map
+
+```bash
+prism start
+```
+
+### `prism install <client>`
+
+Connect Prism to Claude Code, Cursor, Codex or opencode (MCP server, hooks, skills, rule line)
+
+| Argument | Meaning |
+|---|---|
+| `<client>` | claude, cursor, codex, opencode, or all |
+
+| Option | Meaning |
+|---|---|
+| `--project` | Write the configs into this repository |
+| `--user` | Write the configs into your home (default) |
+| `--local <checkout>` | Built Prism checkout to link (default: the one this CLI runs from) |
+
+```bash
+prism install claude
+```
+
+```bash
+prism install cursor --project
+```
+
+```bash
+prism install all --local ~/Prism
+```
+
+### `prism uninstall`
+
+Remove everything prism install added; --purge also deletes Prism data
+
+| Option | Meaning |
+|---|---|
+| `--purge` | Also delete ~/.prism and this repository's .prism |
+
+```bash
+prism uninstall
+```
+
+```bash
+prism uninstall --purge
+```
+
+### `prism upgrade`
+
+Re-link the recorded clients to the current build and restart the daemon
+
+```bash
+prism upgrade
+```
 
 ## Understand a repository
 
-### `prism dna`
+### `prism overview`
 
-Identify languages, frameworks, domains and stack
-
-```bash
-prism dna --json | jq '.data.frameworks'
-```
-
-### `prism health`
-
-Overall health score and the factors behind it
+What this repository is: DNA, stack and landmarks
 
 | Option | Meaning |
 |---|---|
-| `--fail-on <band>` | Exit 1 when the risk is at or above this band: low, mid, high |
-
-```bash
-prism health --fail-on high
-```
-
-### `prism map`
-
-Repository map: clusters, landmarks and layers
-
-| Option | Meaning |
-|---|---|
-| `--zoom <level>` | Zoom level to render: repo, package, feature, file, symbol |
 | `--limit <n>` | Maximum rows to print (default 50) |
 
 ```bash
-prism map --zoom package
+prism overview --json | jq '.data.dna.frameworks'
 ```
 
 ### `prism explain <path>`
@@ -77,38 +116,6 @@ Usages, ownership and similar code for a file or symbol
 prism explore src/index.ts
 ```
 
-### `prism stack`
-
-Detected stack signals, domains and personas
-
-```bash
-prism stack
-```
-
-### `prism features`
-
-Inferred features and their confidence
-
-| Option | Meaning |
-|---|---|
-| `--limit <n>` | Maximum rows to print (default 50) |
-
-```bash
-prism features --limit 10
-```
-
-### `prism landmarks`
-
-Entrypoints, package roots and feature anchors
-
-| Option | Meaning |
-|---|---|
-| `--limit <n>` | Maximum rows to print (default 50) |
-
-```bash
-prism landmarks
-```
-
 ### `prism packages`
 
 Every package in the workspace and where it lives
@@ -119,6 +126,43 @@ Every package in the workspace and where it lives
 
 ```bash
 prism packages
+```
+
+### `prism agents-md <action>`
+
+Generate or verify the Living AGENTS.md (never written to the repo)
+
+| Argument | Meaning |
+|---|---|
+| `<action>` | generate or check |
+
+```bash
+prism agents-md generate
+```
+
+```bash
+prism agents-md check
+```
+
+### `prism findings <action> [fingerprint]`
+
+Unused exports, duplicate implementations, wrapper functions
+
+| Argument | Meaning |
+|---|---|
+| `<action>` | list, mute, or unmute |
+| `[fingerprint]` | Required for mute/unmute — a finding's fingerprint field |
+
+| Option | Meaning |
+|---|---|
+| `--all` | list: include findings already muted |
+
+```bash
+prism findings list
+```
+
+```bash
+prism findings mute a3f8c5f0c392dbeb
 ```
 
 ## Assess a change
@@ -133,7 +177,7 @@ Files, reuse, and House Style for a task — never file bodies
 
 | Option | Meaning |
 |---|---|
-| `--budget <n>` | Map-token budget for the pack (default 4000) |
+| `--budget <n>` | Token budget for the whole answer (default 2000, max 6000) |
 
 ```bash
 prism prepare --json "add caching to fetchUser"
@@ -170,9 +214,14 @@ Risk of the current changes, or of the paths you name
 | Option | Meaning |
 |---|---|
 | `--base <rev>` | Diff against a git revision |
+| `--lens <name>` | Also run this lens's data-backed checks (architect, dev, qa, or a custom lens) |
 | `--fail-on <band>` | Exit 1 when the risk is at or above this band: low, mid, high |
 | `--limit <n>` | Maximum rows to print (default 50) |
 | `--format <fmt>` | Machine output format: sarif (GitHub code scanning) |
+
+```bash
+prism review --lens qa
+```
 
 ```bash
 prism review --base origin/main --fail-on high
@@ -236,6 +285,67 @@ Tests that a change can reach
 
 ```bash
 prism test-impact src/core/index.ts
+```
+
+### `prism receipts [action] [n]`
+
+List the change receipts the stop hook wrote, or show one
+
+| Argument | Meaning |
+|---|---|
+| `[action]` | list (default) or show |
+| `[n]` | show: which receipt, 1 is the newest |
+
+| Option | Meaning |
+|---|---|
+| `--as <format>` | show: text, markdown, or svg |
+| `--last` | Show the newest receipt |
+| `--limit <n>` | Maximum rows to print (default 50) |
+
+```bash
+prism receipts
+```
+
+```bash
+prism receipts --last
+```
+
+```bash
+prism receipts show 1 --as markdown > receipt.md
+```
+
+### `prism lens [action] [target]`
+
+List, show, add or remove review lenses (shared by every repository), or overrule a lens check
+
+| Argument | Meaning |
+|---|---|
+| `[action]` | list (default), show, add, remove, or override |
+| `[target]` | add: the lens name; show/remove/override: the lens id |
+
+| Option | Meaning |
+|---|---|
+| `--name <text>` | add: display name (default: the id) |
+| `--role <text>` | add: what the lens is |
+| `--focus <text>` | add: how it judges |
+| `--checklist <item>` | add: a checklist item (repeatable) |
+| `--checks <ids>` | add: data-backed checks, comma-separated (repeatable) |
+| `--evidence <ids>` | add: Prism reads it uses, comma-separated (repeatable) |
+| `--trigger <phrase>` | add: a phrase that chooses this lens (repeatable) |
+| `--check <id>` | override: the check to overrule |
+| `--path <file>` | override: the file the finding names |
+| `--note <text>` | override: why it is fine |
+
+```bash
+prism lens show dev
+```
+
+```bash
+prism lens add perf --role "Checks hot paths" --focus "No new N+1" --checklist "No query in a loop" --trigger "slow query"
+```
+
+```bash
+prism lens override dev --check reuse_missed --path src/utils/formatDueDate.ts --note "intentionally differs"
 ```
 
 ## Inspect structure
@@ -324,118 +434,92 @@ How one file reaches another through dependencies
 prism route src/cli.ts src/output.ts
 ```
 
-## Reports
+## Memory
 
-### `prism engineering`
+### `prism habit [action] [name]`
 
-Entropy, drift, debt, churn and hotspots
-
-| Option | Meaning |
-|---|---|
-| `--fail-on <band>` | Exit 1 when the risk is at or above this band: low, mid, high |
-| `--limit <n>` | Maximum rows to print (default 50) |
-
-```bash
-prism engineering --fail-on high
-```
-
-### `prism testing`
-
-Test structure and on-disk coverage
-
-| Option | Meaning |
-|---|---|
-| `--fail-on <band>` | Exit 1 when the risk is at or above this band: low, mid, high |
-| `--limit <n>` | Maximum rows to print (default 50) |
-
-```bash
-prism testing
-```
-
-### `prism security`
-
-Left-shift tooling and configuration checklist
-
-| Option | Meaning |
-|---|---|
-| `--fail-on <band>` | Exit 1 when the risk is at or above this band: low, mid, high |
-| `--limit <n>` | Maximum rows to print (default 50) |
-
-```bash
-prism security --fail-on mid
-```
-
-### `prism backend`
-
-Routes, data layer, env vars and background jobs
-
-| Option | Meaning |
-|---|---|
-| `--limit <n>` | Maximum rows to print (default 50) |
-
-```bash
-prism backend
-```
-
-### `prism bundle`
-
-Bundle weight from an ingested stats artifact
-
-| Option | Meaning |
-|---|---|
-| `--artifact <id>` | Ingested stats artifact id |
-| `--limit <n>` | Maximum rows to print (default 50) |
-
-```bash
-prism bundle --artifact <id>
-```
-
-### `prism agents-md <action>`
-
-Generate or verify the Living AGENTS.md (never written to the repo)
+Save routines (e.g. "start my day") that any agent can run through the habits tool
 
 | Argument | Meaning |
 |---|---|
-| `<action>` | generate or check |
-
-```bash
-prism agents-md generate
-```
-
-```bash
-prism agents-md check
-```
-
-### `prism findings <action> [fingerprint]`
-
-Unused exports, duplicate implementations, wrapper functions
-
-| Argument | Meaning |
-|---|---|
-| `<action>` | list, mute, or unmute |
-| `[fingerprint]` | Required for mute/unmute — a finding's fingerprint field |
+| `[action]` | list (default), add, show, edit, or remove |
+| `[name]` | The habit name (quote it) |
 
 | Option | Meaning |
 |---|---|
-| `--all` | list: include findings already muted |
+| `--step <text>` | add: "source: action [\| filter]" (repeatable, in order) |
+| `--output <format>` | add: standup, summary, checklist, table, or free |
+| `--template <text>` | add: how to lay out the result |
+| `--description <text>` | add: one line about the habit |
 
 ```bash
-prism findings list
+prism habit add "start my day" --step "github: list my open PRs and review requests" --step "linear: my in-progress issues" --step "notion: read Daily notes for today" --output standup
 ```
 
 ```bash
-prism findings mute a3f8c5f0c392dbeb
+prism habit show "start my day"
+```
+
+### `prism remember <note...>`
+
+Save a note about this repository for Prepare to hand back
+
+| Argument | Meaning |
+|---|---|
+| `<note...>` | The note, in plain language |
+
+| Option | Meaning |
+|---|---|
+| `--symbol <name>` | Anchor the note to a symbol |
+| `--path <path>` | Anchor the note to a path |
+
+```bash
+prism remember "use lruCache, never a bare Map" --symbol lruCache
+```
+
+### `prism forget <id-or-text...>`
+
+Forget memories by id or by matching text
+
+| Argument | Meaning |
+|---|---|
+| `<id-or-text...>` | A memory id or part of its text |
+
+```bash
+prism forget 3f9a2c1b7e04
+```
+
+```bash
+prism forget lruCache
+```
+
+### `prism memories`
+
+List the notes saved for this repository
+
+```bash
+prism memories
+```
+
+```bash
+prism memories --json
 ```
 
 ## Diagnostics
 
-### `prism doctor`
+### `prism doctor [topic]`
 
 Check the environment, workspace and index
+
+| Argument | Meaning |
+|---|---|
+| `[topic]` | skills: check user skills that name Prism tools |
 
 | Option | Meaning |
 |---|---|
 | `--ci` | Extra CI checks (e.g. warn on shallow clones that truncate history) |
+| `--surfaces` | Show which Prism each editor launches. Fails inside this repo if any of them is the published package. |
+| `--fix` | Stop the daemon, rewrite editor configs to the recorded local build or the installed server, and update hook configs an older release wrote |
 
 ```bash
 prism doctor
@@ -445,12 +529,111 @@ prism doctor
 prism doctor --ci
 ```
 
+```bash
+prism doctor --surfaces
+```
+
+```bash
+prism doctor skills
+```
+
+```bash
+prism doctor --fix
+```
+
+### `prism strength [level]`
+
+How much the hooks do: full (default), lite (rules and the stop receipt) or off
+
+| Argument | Meaning |
+|---|---|
+| `[level]` | full, lite or off; omit to show the strength in effect |
+
+| Option | Meaning |
+|---|---|
+| `--repo` | Set it for this repository only (.prism/config.json) |
+
+```bash
+prism strength
+```
+
+```bash
+prism strength lite
+```
+
+```bash
+prism strength off --repo
+```
+
+### `prism stats`
+
+Hook and tool timings and outcomes from events.jsonl
+
+| Option | Meaning |
+|---|---|
+| `--since <duration>` | Only events newer than this, e.g. 1d, 6h (default: all) |
+
+```bash
+prism stats
+```
+
+```bash
+prism stats --since 1d
+```
+
+### `prism data prune`
+
+Prune Prism's local library (dry run unless --yes)
+
+| Argument | Meaning |
+|---|---|
+| `prune` | List empty workspace folders, caches of deleted checkouts, and untracked worktrees |
+
+```bash
+prism data prune
+```
+
+```bash
+prism data prune --yes
+```
+
 ### `prism index`
 
 Build or refresh the repository index
 
 ```bash
 prism index
+```
+
+### `prism graph [action]`
+
+The background daemon that keeps the graph fresh
+
+| Argument | Meaning |
+|---|---|
+| `[action]` | status (default), serve, stop, refresh, map, or export |
+
+| Option | Meaning |
+|---|---|
+| `--out <dir>` | export: where to write graph.json |
+| `--scope <path>` | map: only files under this path |
+| `--budget <tokens>` | map: token budget for the map |
+| `--refresh` | map: rebuild instead of reading the cache |
+
+```bash
+prism graph
+```
+
+```bash
+prism graph serve
+```
+
+```bash
+prism graph map --budget 800
+```
+
+```bash
+prism graph export --out .prism/graph
 ```
 
 ### `prism completions <shell>`

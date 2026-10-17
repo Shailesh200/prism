@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { findGitRoot, resolveWorkspace } from "./workspace.js";
 
@@ -10,12 +10,12 @@ describe("workspace resolution (M-028)", () => {
   it("prefers --workspace over everything", () => {
     expect(
       resolveWorkspace({ flag: "/repos/a", environment: "/repos/b", cwd }),
-    ).toEqual({ path: "/repos/a", source: "--workspace" });
+    ).toEqual({ path: resolve("/repos/a"), source: "--workspace" });
   });
 
   it("falls back to PRISM_WORKSPACE", () => {
     expect(resolveWorkspace({ environment: "/repos/b", cwd })).toEqual({
-      path: "/repos/b",
+      path: resolve("/repos/b"),
       source: "PRISM_WORKSPACE",
     });
   });
@@ -28,7 +28,7 @@ describe("workspace resolution (M-028)", () => {
 
   it("resolves relative paths against cwd", () => {
     expect(resolveWorkspace({ flag: "./repo", cwd }).path).toBe(
-      "/tmp/somewhere/repo",
+      resolve(cwd, "repo"),
     );
   });
 

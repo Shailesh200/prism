@@ -12,6 +12,7 @@
 import { PRISM_API_LEVEL, PRISM_CORE_VERSION } from "@repo-prism/core";
 import { Command, CommanderError } from "commander";
 import { COMMANDS, COMMANDS_BY_NAME } from "./commands.js";
+import { firstRunCommand } from "./commands/start.js";
 import { ExitCode } from "./exit.js";
 import { COMMAND_GROUPS } from "./registry.js";
 import { shouldUseColor, type Writer } from "./output.js";
@@ -84,7 +85,16 @@ function buildProgram(): Command {
       command.argument(argument.syntax, argument.description);
     }
     for (const option of spec.options ?? []) {
-      command.option(option.flags, option.description);
+      if (option.repeatable) {
+        command.option(
+          option.flags,
+          option.description,
+          collectValues,
+          [] as string[],
+        );
+      } else {
+        command.option(option.flags, option.description);
+      }
     }
     // Repeating the globals on each subcommand is what makes them work in
     // either position; Commander does not inherit them otherwise.
@@ -113,6 +123,16 @@ function buildProgram(): Command {
     }
   }
 
+  // `prism --json` (global flags, no command) is the first-run card too, and
+  // an unknown word reaches `run`'s own "did you mean" message. Without a root
+  // action Commander prints help and exits 0 instead. Set after the loop so
+  // the subcommands do not inherit `allowExcessArguments`. A root action turns
+  // off Commander's implicit `help` command, so it is switched back on.
+  program
+    .allowExcessArguments()
+    .helpCommand(true)
+    .action(() => undefined);
+
   return program;
 }
 
@@ -122,7 +142,7 @@ function helpFooter(): string {
     "Exit codes:",
     "  0  success",
     "  1  ran successfully; the analysis found what you asked about",
-    "  2  usage error (unknown flag, bad argument)",
+    "  2  usage error (unknown flag, bad argument, or a name not in the index)",
     "  3  Prism failed",
   ];
 
@@ -155,12 +175,30 @@ export async function run(
 ): Promise<ExitCode> {
   const program = buildProgram();
 
-  // Commander prints help and reports success for a bare invocation. We keep
-  // that behaviour: `prism` with no args is how people discover commands, so
-  // exit 0. Unknown commands and bad flags still exit 2 (usage error).
+  // A bare `prism` is the first-run card. Parse is skipped so Commander does
+  // not print help and exit. `--help` still has arguments and is handled below.
   if (argv.length === 0) {
-    options.writer.err(program.helpInformation());
-    return ExitCode.OK;
+    return runCommand(
+      firstRunCommand,
+      {
+        json: false,
+        color: shouldUseColor({
+          noColorFlag: false,
+          env: options.env,
+          isTty: options.isTty,
+        }),
+        quiet: false,
+        verbose: false,
+        yes: false,
+      },
+      options,
+      {
+        positionals: [],
+        option: () => undefined,
+        values: () => [],
+        flag: () => false,
+      },
+    );
   }
 
   // Applied to subcommands as well as the root. Commander copies these
@@ -195,8 +233,29 @@ export async function run(
 
   const commandName = parsed.args[0];
   if (commandName === undefined) {
-    options.writer.err(program.helpInformation());
-    return ExitCode.OK;
+    const root = parsed.opts<RawGlobals>();
+    return runCommand(
+      firstRunCommand,
+      {
+        workspace: root.workspace,
+        json: root.json === true,
+        color: shouldUseColor({
+          noColorFlag: root.color === false,
+          env: options.env,
+          isTty: options.isTty,
+        }),
+        quiet: root.quiet === true,
+        verbose: root.verbose === true,
+        yes: root.yes === true,
+      },
+      options,
+      {
+        positionals: [],
+        option: () => undefined,
+        values: () => [],
+        flag: () => false,
+      },
+    );
   }
 
   const spec = COMMANDS_BY_NAME.get(commandName);
@@ -264,6 +323,11 @@ export async function run(
     },
     flag(name) {
       return subOptions[name] === true;
+    },
+    values(name) {
+      const value = subOptions[name];
+      if (Array.isArray(value)) return value.map(String);
+      return typeof value === "string" ? [value] : [];
     },
   };
 
@@ -340,4 +404,9 @@ export async function main(
     isTty: process.stdout.isTTY === true,
     ...(process.stdout.columns ? { columns: process.stdout.columns } : {}),
   });
+}
+
+/** Commander parser for a repeatable option. */
+function collectValues(value: string, previous: string[]): string[] {
+  return [...previous, value];
 }

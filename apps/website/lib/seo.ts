@@ -7,15 +7,28 @@
  */
 
 import type { Metadata, MetadataRoute } from "next";
-import { GITHUB } from "./github";
 import { PRISM_TOOL_COUNT } from "@repo-prism/shared";
+import { AGENTS } from "./agents";
+import { GITHUB } from "./github";
+import { HOW_IT_WORKS, PRODUCTS } from "./nav";
 
 export const SITE_NAME = "Prism";
 
-export const SITE_DEFAULT_TITLE = "Prism — local-first software intelligence";
+export const SITE_DEFAULT_TITLE = "Prism — Your agent’s second pair of eyes";
 
 export const SITE_DESCRIPTION =
-  "Local-first software intelligence — a teammate for every agent. Maps, Prepare, Envelope, Guard, findings, and Dispatch on your machine. Not a coding model.";
+  "Your agent’s second pair of eyes. Know before you ship. Local software intelligence that catches what the agent missed. Prism gives your agent the right files before it edits, then flags the code it skipped and the code no test covers. Free, MIT, runs on your machine.";
+
+/** The share card from app/opengraph-image.tsx, used by every page. */
+export const OG_IMAGE = {
+  url: "/opengraph-image",
+  width: 1200,
+  height: 630,
+  alt: "Prism: your agent’s second pair of eyes",
+};
+
+/** The release feed, linked from every page head. */
+export const RSS_PATH = "/whats-new/rss.xml";
 
 export const MARKETING_ROUTES: Array<{
   path: string;
@@ -26,9 +39,24 @@ export const MARKETING_ROUTES: Array<{
 }> = [
   { path: "/", changeFrequency: "weekly", priority: 1 },
   { path: "/install", changeFrequency: "weekly", priority: 0.9 },
-  { path: "/products", changeFrequency: "monthly", priority: 0.8 },
+  ...AGENTS.map((agent) => ({
+    path: `/install/${agent.slug}`,
+    changeFrequency: "monthly" as const,
+    priority: 0.8,
+  })),
+  ...PRODUCTS.map((product) => ({
+    path: product.href,
+    changeFrequency: "monthly" as const,
+    priority: 0.8,
+  })),
+  {
+    path: HOW_IT_WORKS.href,
+    changeFrequency: "monthly" as const,
+    priority: 0.8,
+  },
   { path: "/benchmarks", changeFrequency: "monthly", priority: 0.7 },
-  { path: "/whats-new", changeFrequency: "weekly", priority: 0.7 },
+  { path: "/changelog", changeFrequency: "weekly", priority: 0.7 },
+  { path: "/open-source", changeFrequency: "yearly", priority: 0.4 },
   { path: "/privacy", changeFrequency: "yearly", priority: 0.3 },
   { path: "/security", changeFrequency: "yearly", priority: 0.3 },
 ];
@@ -98,7 +126,10 @@ export function pageMetadata(opts: {
   return {
     ...(opts.title ? { title: opts.title } : {}),
     description,
-    alternates: { canonical: url },
+    alternates: {
+      canonical: url,
+      types: { "application/rss+xml": absoluteUrl(RSS_PATH) },
+    },
     openGraph: {
       type: opts.type ?? "website",
       url,
@@ -106,11 +137,13 @@ export function pageMetadata(opts: {
       locale: "en_US",
       title: ogTitle,
       description,
+      images: [OG_IMAGE],
     },
     twitter: {
       card: "summary_large_image",
       title: ogTitle,
       description,
+      images: [OG_IMAGE.url],
     },
     robots: index
       ? {
@@ -146,9 +179,16 @@ export function rootMetadata(): Metadata {
     formatDetection: { telephone: false, email: false, address: false },
     alternates: {
       canonical: url,
-      types: {
-        "application/rss+xml": absoluteUrl("/whats-new/rss.xml"),
-      },
+      types: { "application/rss+xml": absoluteUrl(RSS_PATH) },
+    },
+    icons: {
+      icon: [
+        { url: "/favicon.ico", sizes: "48x48" },
+        { url: "/favicon.svg", type: "image/svg+xml" },
+        { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+        { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      ],
+      apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
     },
     openGraph: {
       type: "website",
@@ -157,11 +197,13 @@ export function rootMetadata(): Metadata {
       siteName: SITE_NAME,
       title: SITE_DEFAULT_TITLE,
       description: SITE_DESCRIPTION,
+      images: [OG_IMAGE],
     },
     twitter: {
       card: "summary_large_image",
       title: SITE_DEFAULT_TITLE,
       description: SITE_DESCRIPTION,
+      images: [OG_IMAGE.url],
     },
     robots: {
       index: true,
@@ -181,7 +223,14 @@ export function rootMetadata(): Metadata {
 export function buildSitemap(input: {
   docsUrls: string[];
   postSlugs: string[];
+  /** Changelog page count; pages 2… are `/changelog/page/N`. */
+  changelogPages?: number;
+  /** Last commit time per docs URL, where git knows it. */
+  docsModified?: Record<string, Date | undefined>;
+  /** Build time: the lastModified of every page without a better date. */
+  now?: Date;
 }): MetadataRoute.Sitemap {
+  const now = input.now ?? new Date();
   const seen = new Set<string>();
   const out: MetadataRoute.Sitemap = [];
 
@@ -193,7 +242,11 @@ export function buildSitemap(input: {
     const url = absoluteUrl(path);
     if (seen.has(url)) return;
     seen.add(url);
-    out.push({ url, ...extra });
+    out.push({
+      url,
+      lastModified: input.docsModified?.[path] ?? now,
+      ...extra,
+    });
   };
 
   for (const route of MARKETING_ROUTES) {
@@ -208,8 +261,14 @@ export function buildSitemap(input: {
       priority: docsPriority(docsUrl),
     });
   }
+  for (let page = 2; page <= (input.changelogPages ?? 1); page += 1) {
+    add(`/changelog/page/${page}`, {
+      changeFrequency: "monthly",
+      priority: 0.4,
+    });
+  }
   for (const slug of input.postSlugs) {
-    add(`/whats-new/${slug}`, {
+    add(`/changelog/${slug}`, {
       changeFrequency: "monthly",
       priority: 0.5,
     });
@@ -228,6 +287,7 @@ export function websiteJsonLd(): Record<string, unknown> {
         name: SITE_NAME,
         url,
         logo: absoluteUrl("/icon.png"),
+        description: SITE_DESCRIPTION,
         sameAs: [GITHUB],
       },
       {
@@ -248,20 +308,22 @@ export function websiteJsonLd(): Record<string, unknown> {
         operatingSystem: ["macOS", "Windows", "Linux"],
         offers: { "@type": "Offer", price: 0, priceCurrency: "USD" },
         isAccessibleForFree: true,
-        description:
-          "Local-first software intelligence engine. Repository maps, dependency graphs, blast radius, and health — exposed as a CLI, IDE extensions, and an MCP server for AI agents. Analysis makes no network calls.",
+        license: "https://opensource.org/licenses/MIT",
+        softwareHelp: { "@type": "CreativeWork", url: absoluteUrl("/docs") },
+        image: absoluteUrl(OG_IMAGE.url),
+        description: SITE_DESCRIPTION,
         featureList: [
-          "Repository map and DNA",
-          "Prepare a change — pack, reuse, House Style, never file bodies",
-          "Envelope ledger — receipts for Intelligence calls, never source",
-          "Guard — rank a dirty session by blast risk",
-          "Findings loop — resolved only after a re-scan",
-          "Blast radius and impact analysis",
-          "Engineering health tracking",
+          "Prepare: the files, tests and helpers to reuse before an edit",
+          "Lens review: callers left behind and code no test covers",
+          "Review: this session's changes ranked by risk",
+          "Lenses: Dev, Architect, QA and your own",
+          "Blast radius per symbol, with safe delete and rename",
+          "Receipts: SHIP, NOT PROVEN or NO-SHIP from your own checks",
+          "Local repository map",
+          "House style and habits",
           `MCP server with ${PRISM_TOOL_COUNT} tools for AI agents`,
-          "Dispatch background teammates",
           "CLI for terminals and CI",
-          "VS Code and Cursor extensions",
+          "Claude Code, Cursor, Codex and opencode install",
         ],
         publisher: { "@id": `${url}/#organization` },
       },
@@ -280,7 +342,7 @@ export function faqJsonLd(): Record<string, unknown> {
         name: "Does my code leave my machine?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "No. Analysis makes zero network calls, enforced by a test that runs the whole analysis surface with the socket layer trapped. A few optional features do reach out — GitHub metadata, Core Web Vitals, avatars — and each is off until you turn it on individually. None of them send source code.",
+          text: "No. Analysis makes no network calls, and a test fails the build if it does. The one request is a daily check of the npm registry for a newer version. It sends no repository data. Set PRISM_SKIP_SELF_UPDATE=1 to turn it off.",
         },
       },
       {
@@ -288,31 +350,15 @@ export function faqJsonLd(): Record<string, unknown> {
         name: "Is Prism an AI coding assistant?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "No. The analysis engine has no model in it and generates nothing — it answers structural questions and makes an AI assistant considerably better by giving it real knowledge of your repository.",
+          text: "No. Prism writes no code and its analysis uses no model. It answers questions about your repository’s structure for the agent you already use.",
         },
       },
       {
         "@type": "Question",
-        name: "Which languages?",
+        name: "What is Prepare?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "TypeScript and JavaScript are fully analysed — imports, symbols, references, graphs, the lot. Other languages are indexed for structure, size and churn, so file-level and git-derived signals work everywhere. Symbol-level analysis does not.",
-        },
-      },
-      {
-        "@type": "Question",
-        name: "What is Envelope?",
-        acceptedAnswer: {
-          "@type": "Answer",
-          text: "A local receipt for every Intelligence tool call — tool name, item counts, whether the list was cut short, and JSON bytes. No prompts, no paths, no source. Iris shows bytes kept vs dump for the selected repo.",
-        },
-      },
-      {
-        "@type": "Question",
-        name: "What is prepare_change?",
-        acceptedAnswer: {
-          "@type": "Answer",
-          text: "One call before you edit. It returns the files to open, helpers to reuse, three House Style exemplars, notes, and a work order — paths and names only, never file bodies.",
+          text: "One call before an edit (the prepare_change tool). It returns files to open, helpers to reuse, a house-style example, notes and a work order. The automatic prompt lists at most three files Prism is sure of, with nearby tests and one run command.",
         },
       },
       {
@@ -320,7 +366,7 @@ export function faqJsonLd(): Record<string, unknown> {
         name: "Is there a hosted version?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "No, and that is a design decision rather than a roadmap gap. Prism is local-first. There is no account, no server, and nothing to sign up for.",
+          text: "No. Prism runs on your machine. There is no account and no server.",
         },
       },
       {
@@ -328,10 +374,27 @@ export function faqJsonLd(): Record<string, unknown> {
         name: "How much does it cost?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Nothing. See the repository for licence details.",
+          text: "Nothing. Prism is free and MIT licensed.",
         },
       },
     ],
+  };
+}
+
+/** A BreadcrumbList from Home down to the page, as `{ name, path }` steps after Home. */
+export function breadcrumbJsonLd(
+  steps: Array<{ name: string; path: string }>,
+): Record<string, unknown> {
+  const items = [{ name: "Home", path: "/" }, ...steps];
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((step, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: step.name,
+      item: absoluteUrl(step.path),
+    })),
   };
 }
 
@@ -339,38 +402,38 @@ export function docsBreadcrumbJsonLd(page: {
   title: string;
   url: string;
 }): Record<string, unknown> {
-  const home = {
-    "@type": "ListItem",
-    position: 1,
-    name: "Home",
-    item: absoluteUrl("/"),
-  };
-  const docs = {
-    "@type": "ListItem",
-    position: 2,
-    name: "Docs",
-    item: absoluteUrl("/docs"),
-  };
-  if (page.url === "/docs") {
-    return {
-      "@context": "https://schema.org",
-      "@type": "BreadcrumbList",
-      itemListElement: [home, docs],
-    };
-  }
+  const docs = { name: "Docs", path: "/docs" };
+  return breadcrumbJsonLd(
+    page.url === "/docs"
+      ? [docs]
+      : [docs, { name: page.title, path: page.url }],
+  );
+}
+
+/** A docs page as a TechArticle. dateModified is the file's last commit, when known. */
+export function techArticleJsonLd(page: {
+  title: string;
+  description?: string;
+  url: string;
+  dateModified?: Date;
+}): Record<string, unknown> {
+  const url = absoluteUrl(page.url);
+  const origin = siteOrigin();
   return {
     "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: [
-      home,
-      docs,
-      {
-        "@type": "ListItem",
-        position: 3,
-        name: page.title,
-        item: absoluteUrl(page.url),
-      },
-    ],
+    "@type": "TechArticle",
+    headline: page.title,
+    description: page.description,
+    url,
+    mainEntityOfPage: url,
+    inLanguage: "en",
+    image: absoluteUrl(OG_IMAGE.url),
+    ...(page.dateModified
+      ? { dateModified: page.dateModified.toISOString() }
+      : {}),
+    about: { "@id": `${origin}/#app` },
+    isPartOf: { "@id": `${origin}/#website` },
+    publisher: { "@id": `${origin}/#organization` },
   };
 }
 

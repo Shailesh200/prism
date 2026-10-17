@@ -1,4 +1,4 @@
-import { parseChangelog } from "@/lib/changelog";
+import { feedReleases } from "@/lib/changelog";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -101,7 +101,7 @@ export async function getAdoptionSnapshot(): Promise<AdoptionSnapshot> {
   const repoRoot = path.join(process.cwd(), "../..");
   const changelogPath = path.join(repoRoot, "CHANGELOG.md");
   const changelogText = await readFile(changelogPath, "utf8").catch(() => "");
-  const releases = parseChangelog(changelogText);
+  const releases = feedReleases(changelogText, Number.POSITIVE_INFINITY);
 
   const headers: HeadersInit = {
     Accept: "application/vnd.github+json",

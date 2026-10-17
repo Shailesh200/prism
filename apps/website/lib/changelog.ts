@@ -1,5 +1,7 @@
 export type ChangelogSection = {
   title: string;
+  /** Prose under the heading, before the list. Paragraphs are separated by a blank line. */
+  intro?: string;
   bullets: string[];
 };
 
@@ -76,7 +78,7 @@ export function releaseTags(release: ChangelogRelease): ShipTag[] {
     tags.add("Dispatch");
   }
   if (
-    /\b(intelligence|codebase dna|blast radius|repository map|health score|envelope|prepare_change|prepare a change|house style|guard_session|work order|working set)\b/i.test(
+    /\b(intelligence|codebase dna|blast radius|repository map|health score|prepare_change|prepare a change|house style|guard_session|work order|working set)\b/i.test(
       hay,
     )
   ) {
@@ -86,30 +88,87 @@ export function releaseTags(release: ChangelogRelease): ShipTag[] {
   return TAG_ORDER.filter((tag) => tags.has(tag));
 }
 
+/** The release the changelog page leads with (CHANGELOG.md's 2.0.0 section). */
+export const SITE_CURRENT_RELEASE = {
+  version: "2.0.0",
+  summary: "Clarity, reliability and precision.",
+} as const;
+
+/**
+ * Releases for the RSS feed: the current site release first, then the parsed
+ * notes. A 2.0.0 heading in the file is not duplicated.
+ */
+export function feedReleases(markdown: string, limit = 20): ChangelogRelease[] {
+  const parsed = parseChangelog(markdown);
+  if (parsed.some((r) => r.version === SITE_CURRENT_RELEASE.version)) {
+    return parsed.slice(0, limit);
+  }
+  const current: ChangelogRelease = {
+    version: SITE_CURRENT_RELEASE.version,
+    title: SITE_CURRENT_RELEASE.summary,
+    body: "",
+    bullets: [SITE_CURRENT_RELEASE.summary],
+    sections: [],
+  };
+  return [current, ...parsed].slice(0, limit);
+}
+
 export function parseChangelog(markdown: string): ChangelogRelease[] {
   const lines = markdown.split("\n");
   const releases: ChangelogRelease[] = [];
   let current: ChangelogRelease | null = null;
   let section: ChangelogSection | null = null;
+  /** Lines of the paragraph currently being collected under a ### heading. */
+  let prose: string[] = [];
+  /** The previous non-blank line was a bullet or its continuation. */
+  let openBullet = false;
+
+  const flushProse = () => {
+    if (!section || prose.length === 0) {
+      prose = [];
+      return;
+    }
+    const text = prose.join(" ").replace(/\s+/g, " ").trim();
+    prose = [];
+    if (!text) return;
+    section.intro = section.intro ? `${section.intro}\n\n${text}` : text;
+  };
 
   const pushSection = () => {
+    flushProse();
     if (!current || !section) return;
-    if (section.bullets.length > 0) current.sections.push(section);
+    if (section.bullets.length > 0 || section.intro) {
+      current.sections.push(section);
+    }
     section = null;
+    openBullet = false;
+  };
+
+  const appendBullet = (extra: string) => {
+    if (!current || current.bullets.length === 0) return;
+    const last = current.bullets.length - 1;
+    current.bullets[last] = `${current.bullets[last]} ${extra}`;
+    if (section && section.bullets.length > 0) {
+      const sLast = section.bullets.length - 1;
+      section.bullets[sLast] = `${section.bullets[sLast]} ${extra}`;
+    }
   };
 
   for (const line of lines) {
-    const heading = /^##\s+(\d+\.\d+\.\d+)(?:\s+[—–-]\s*(.+))?$/.exec(line);
+    const heading = /^##\s+(\d+\.\d+\.\d+)(?:\s+[—–-]\s*(.+))?$/.exec(
+      line.replace(/\r$/, ""),
+    );
     if (heading) {
       pushSection();
       if (current) releases.push(current);
       current = {
-        version: heading[1],
+        version: heading[1] ?? "",
         title: heading[2]?.trim() || undefined,
         body: "",
         bullets: [],
         sections: [],
       };
+      openBullet = false;
       continue;
     }
     if (!current) continue;
@@ -118,16 +177,33 @@ export function parseChangelog(markdown: string): ChangelogRelease[] {
     const sectionHeading = /^###\s+(.+)$/.exec(line);
     if (sectionHeading) {
       pushSection();
-      section = { title: sectionHeading[1].trim(), bullets: [] };
+      section = { title: sectionHeading[1]?.trim() ?? "", bullets: [] };
+      continue;
+    }
+
+    if (line.trim() === "") {
+      flushProse();
+      openBullet = false;
       continue;
     }
 
     const bullet = /^-\s+(.+)$/.exec(line);
     if (bullet) {
-      const text = bullet[1];
+      flushProse();
+      const text = bullet[1] ?? "";
       current.bullets.push(text);
       if (section) section.bullets.push(text);
+      openBullet = true;
+      continue;
     }
+
+    if (openBullet && /^[ \t]+\S/.test(line)) {
+      appendBullet(line.trim());
+      continue;
+    }
+
+    openBullet = false;
+    if (section) prose.push(line.trim());
   }
   pushSection();
   if (current) releases.push(current);

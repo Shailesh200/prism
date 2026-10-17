@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Milestone | [M-053](../milestones/M-053_presentation-consolidation.md) |
+| Milestone | [M-053](../archive/milestones/M-053_presentation-consolidation.md) |
 | Date | 2026-08-08 |
 | Branch | `milestone/M-053-presentation-consolidation` |
 | Prior | [M-052-inventory](./M-052-inventory.md) — partially stale after M-052 Verified |
