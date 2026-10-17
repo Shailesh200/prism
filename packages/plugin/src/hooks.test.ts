@@ -234,6 +234,27 @@ describe("prism-hook", () => {
     ]);
   });
 
+  it("J-08: a repo with no commits records an explicit no-commits-yet start (Arc)", () => {
+    const { home, cwd } = layout({
+      orientation: "x",
+      offLimits: [],
+      needsSignOff: [],
+      hookArmed: false,
+    });
+    spawnSync("git", ["init", "-q"], { cwd });
+    writeFileSync(join(cwd, "a.ts"), "1");
+    run("session", home, { cwd, session_id: "s-unborn" });
+    const key = createHash("sha256")
+      .update(realpathSync(cwd))
+      .digest("hex")
+      .slice(0, 24);
+    const path = join(home, "workspaces", key, "hooks", "session.json");
+    expect(JSON.parse(readFileSync(path, "utf8"))).toMatchObject({
+      sessionId: "s-unborn",
+      headSha: "no-commits-yet",
+    });
+  });
+
   it("HK-8 denies an edit to a generated or vendored file, with the reason", () => {
     const { home, cwd } = layout({
       orientation: "x",
@@ -1069,7 +1090,7 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
       "committed_during_session",
       { reason: "committed_during_session" },
       "Prism · NOT PROVEN (a commit was made during this session)",
-      'Prism · Say first: "NOT PROVEN: a commit during this session hid the changes from Prism." Then ask the user.',
+      'Prism · Say first: "NOT PROVEN: a commit was made during this session." Then ask the user.',
     ],
     [
       "unsupported_language",
@@ -1161,17 +1182,22 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
       const { wait } = await wakeFor(name, over);
       expect(wait.code, name).toBe(2);
       const lines = wait.stderr.trimEnd().split("\n");
-      expect(lines, name).toEqual([
-        l1,
-        "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it",
-        l3,
-      ]);
+      // After a commit the receipt line keeps its label (Muse).
+      const receiptLine =
+        name === "committed_during_session"
+          ? "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it — NOT PROVEN (a commit was made during this session)"
+          : "Prism receipt: changed 1 file, 2 dependents, 1 test reaches it";
+      expect(lines, name).toEqual([l1, receiptLine, l3]);
       // Reason codes never reach the user (Arc).
       expect(wait.stderr, name).not.toMatch(/\b[a-z]+_[a-z_]+\b|\(timeout\)/);
       expect(wait.stderr, name).not.toMatch(/caused|outside-change/);
-      // Muse's exact J-08 Say line is 108 chars; flagged to her.
-      const limit = name === "committed_during_session" ? 109 : 100;
-      for (const line of lines) expect(line.length, line).toBeLessThan(limit);
+      // Line 2 after a commit carries Muse's label suffix (115 chars at these
+      // counts); every other wake line stays under 100.
+      for (const [i, line] of lines.entries()) {
+        const limit =
+          name === "committed_during_session" && i === 1 ? 120 : 100;
+        expect(line.length, line).toBeLessThan(limit);
+      }
     }
   });
 
@@ -1186,11 +1212,43 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
     expect(wait.code).toBe(2);
     expect(wait.stderr.trimEnd().split("\n")).toEqual([
       "Prism · NOT PROVEN (a commit was made during this session)",
-      "Prism receipt: changed 0 files, 0 dependents, 0 tests reach it",
-      'Prism · Say first: "NOT PROVEN: a commit during this session hid the changes from Prism." Then ask the user.',
+      "Prism receipt: changed 0 files, 0 dependents, 0 tests reach it — NOT PROVEN (a commit was made during this session)",
+      'Prism · Say first: "NOT PROVEN: a commit was made during this session." Then ask the user.',
     ]);
     expect(wait.stderr).not.toMatch(/nothing changed|SHIP —/);
     expect(JSON.stringify(stop.out ?? {})).not.toMatch(/nothing changed/);
+  });
+
+  it("J-08: the stop text's receipt line after a commit ends with the label", async () => {
+    const committed = stopReceipt({
+      verdict: "not_proven",
+      reason: "committed_during_session",
+      checksState: "skipped",
+      touched: { totalFiles: 0, dependents: 0 },
+      testFiles: [],
+    });
+    const { home, cwd } = layout(snapshot);
+    const server = await fakeDaemon(home, {
+      receipt: committed,
+      status: { running: false, receipt: committed },
+    });
+    try {
+      const input = {
+        cwd,
+        session_id: "sw-commit-stop",
+        hook_event_name: "Stop",
+      };
+      const [stop] = await Promise.all([
+        runAsync("stop", home, input),
+        runRaw("stop-wait", home, input),
+      ]);
+      expect(stop.out.systemMessage).toBe(
+        "Prism · NOT PROVEN (a commit was made during this session)\n" +
+          "Prism receipt: changed 0 files, 0 dependents, 0 tests reach it — NOT PROVEN (a commit was made during this session)",
+      );
+    } finally {
+      server.close();
+    }
   });
 
   it("J-07: a gen/ edit gets the note and the checks' verdict, never NO-SHIP or undo", async () => {
@@ -1214,7 +1272,11 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
         status: { running: false, receipt: final },
       });
       try {
-        const input = { cwd, session_id: `sw-gen-${status}`, hook_event_name: "Stop" };
+        const input = {
+          cwd,
+          session_id: `sw-gen-${status}`,
+          hook_event_name: "Stop",
+        };
         const [stop, wait] = await Promise.all([
           runAsync("stop", home, input),
           runRaw("stop-wait", home, input),
@@ -1479,7 +1541,7 @@ describe("stop-time lines (Muse v2.1)", () => {
           })
         ).split("\n")[0],
       ).toBe(
-        "Prism · NO-SHIP (1 off-limits path) — off-limits files were edited; ask the user",
+        "Prism · NO-SHIP (1 off-limits path) — ask the user before going on",
       );
     });
   });

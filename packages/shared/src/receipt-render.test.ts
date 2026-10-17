@@ -214,7 +214,7 @@ describe("terminal line per verdict (Muse v2.1)", () => {
           checks: passed,
           lensFindings: offLimits(2),
         },
-        "Prism · NO-SHIP (2 off-limits paths) — off-limits files were edited; ask the user",
+        "Prism · NO-SHIP (2 off-limits paths) — ask the user before going on",
       ],
       [
         { ...base, lensFindings: offLimits(1) },
@@ -422,7 +422,7 @@ describe("who a failure is blamed on: the baseline decides (M-092, Arc)", () => 
       ],
     };
     expect(receiptTerminalLine(receipt)).toBe(
-      "Prism · NO-SHIP (1 off-limits path) — off-limits files were edited; ask the user",
+      "Prism · NO-SHIP (1 off-limits path) — ask the user before going on",
     );
     expect(receiptFeedback(receipt)).toBeNull();
   });
@@ -543,8 +543,11 @@ describe("J-08 interim: a commit during the session", () => {
     expect(receiptHeadline(committed)).toBe(
       "Prism · NOT PROVEN (a commit was made during this session)",
     );
-    expect(receiptSummaryLine(committed)).toMatch(
-      /— NOT PROVEN \(a commit was made during this session\)$/,
+    expect(receiptSummaryLine(committed)).toBe(
+      "Prism receipt: changed 0 files, 4 dependents, 1 test reaches it — NOT PROVEN (a commit was made during this session)",
+    );
+    expect(renderReceipt(committed).split("\n")[1]).toBe(
+      receiptSummaryLine(committed),
     );
     expect(renderReceipt(committed)).not.toMatch(/nothing changed/);
     expect(renderReceiptMarkdown(committed)).not.toMatch(/nothing changed/);
@@ -559,4 +562,3 @@ describe("J-08 interim: a commit during the session", () => {
     expect(receiptHeadline(passedToo)).not.toMatch(/SHIP/);
   });
 });
-

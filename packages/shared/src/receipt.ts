@@ -240,7 +240,8 @@ export function generatedFilesTouched(receipt: ChangeReceipt): string[] {
     .filter((f) => f.check === "off_limits_touched")
     .flatMap((f) => f.evidence)
     .filter((e) => e.endsWith(GENERATED_EVIDENCE))
-    .map((e) => e.slice(0, -GENERATED_EVIDENCE.length));
+    .map((e) => e.slice(0, -GENERATED_EVIDENCE.length))
+    .filter((p) => !/^\+\d+ more$/.test(p));
 }
 
 const GENERATED_DIR = /^(.*?(?:^|\/)(?:generated|gen|\.generated)\/)/i;

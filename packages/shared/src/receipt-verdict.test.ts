@@ -262,7 +262,11 @@ describe("J-07: edits to generated files are a note, never NO-SHIP", () => {
       "| Note | you edited generated files in gen/. They may be overwritten on the next build. |",
     );
     expect(receiptFindings(receipt)).toEqual([]);
-    for (const out of [text, renderReceiptMarkdown(receipt), receiptTerminalLine(receipt)]) {
+    for (const out of [
+      text,
+      renderReceiptMarkdown(receipt),
+      receiptTerminalLine(receipt),
+    ]) {
       expect(out).not.toMatch(/undo|revert/i);
     }
   });
@@ -272,11 +276,19 @@ describe("J-07: edits to generated files are a note, never NO-SHIP", () => {
       ...base,
       verdict: "failed",
       checks: [
-        { name: "test", status: "failed", detail: "FAIL x", durationMs: 1, cause: "caused" },
+        {
+          name: "test",
+          status: "failed",
+          detail: "FAIL x",
+          durationMs: 1,
+          cause: "caused",
+        },
       ],
       lensFindings: generated("concern", ["gen/api.ts (generated)"]),
     };
-    expect(renderReceipt(receipt).split("\n")[0]).toBe("Prism · NO-SHIP (1 check failed)");
+    expect(renderReceipt(receipt).split("\n")[0]).toBe(
+      "Prism · NO-SHIP (1 check failed)",
+    );
     expect(receiptTerminalLine(receipt)).not.toMatch(/undo|revert/i);
   });
 
@@ -305,10 +317,15 @@ describe("J-07: edits to generated files are a note, never NO-SHIP", () => {
   it("vendor plus gen/: NO-SHIP counts the vendored path only, and keeps the note", () => {
     const receipt: ChangeReceipt = {
       ...base,
-      lensFindings: generated("fail", ["vendor/lib.ts (vendor)", "gen/api.ts (generated)"]),
+      lensFindings: generated("fail", [
+        "vendor/lib.ts (vendor)",
+        "gen/api.ts (generated)",
+      ]),
     };
     expect(shipVerdict(receipt)).toBe("NO-SHIP");
-    expect(renderReceipt(receipt).split("\n")[0]).toBe("Prism · NO-SHIP (1 off-limits path)");
+    expect(renderReceipt(receipt).split("\n")[0]).toBe(
+      "Prism · NO-SHIP (1 off-limits path)",
+    );
     expect(renderReceipt(receipt)).toContain(NOTE);
     expect(receiptTerminalLine(receipt)).not.toMatch(/undo|revert/i);
   });
@@ -328,3 +345,44 @@ describe("J-07: edits to generated files are a note, never NO-SHIP", () => {
   });
 });
 
+describe("J-07: only vendored paths count as off-limits (Arc)", () => {
+  it("a cut tail of generated files never counts; the note ignores the count line", () => {
+    const receipt: ChangeReceipt = {
+      ...base,
+      lensFindings: [
+        {
+          lens: "security",
+          check: "off_limits_touched",
+          status: "fail",
+          evidence: [
+            "vendor/lib.ts (vendor)",
+            "gen/a.ts (generated)",
+            "+12 more (generated)",
+          ],
+        },
+      ],
+    };
+    expect(offLimitsTouched(receipt)).toEqual(["vendor/lib.ts (vendor)"]);
+    expect(renderReceipt(receipt).split("\n")[0]).toBe(
+      "Prism · NO-SHIP (1 off-limits path)",
+    );
+    expect(generatedNote(receipt)).toBe(
+      "Note: you edited generated files in gen/. They may be overwritten on the next build.",
+    );
+  });
+
+  it("a concern with only generated evidence is never NO-SHIP", () => {
+    const receipt: ChangeReceipt = {
+      ...base,
+      lensFindings: [
+        {
+          lens: "security",
+          check: "off_limits_touched",
+          status: "concern",
+          evidence: ["gen/a.ts (generated)", "+12 more (generated)"],
+        },
+      ],
+    };
+    expect(shipVerdict(receipt)).toBe("SHIP");
+  });
+});

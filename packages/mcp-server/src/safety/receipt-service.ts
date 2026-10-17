@@ -59,17 +59,36 @@ export type SessionBaseline = {
   readonly headSha?: string;
 };
 
-/** The commit HEAD names, or undefined (no commits yet, or no git). */
+/**
+ * The session's start "SHA" in a repo with no commits yet (J-08, Arc). Stored
+ * explicitly so the agent's first commit reads as HEAD moved.
+ */
+export const NO_COMMITS_YET = "no-commits-yet";
+
+/**
+ * The commit HEAD names, {@link NO_COMMITS_YET} when it names none yet, or
+ * undefined when git could not say (no repository, git missing, timeout).
+ */
 export function readHeadSha(root: string): string | undefined {
   try {
     const out = execFileSync(
       "git",
-      ["--no-optional-locks", "-C", root, "rev-parse", "--verify", "-q", "HEAD"],
+      [
+        "--no-optional-locks",
+        "-C",
+        root,
+        "rev-parse",
+        "--verify",
+        "-q",
+        "HEAD",
+      ],
       { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 5000 },
     ).trim();
     return /^[0-9a-f]{40,64}$/.test(out) ? out : undefined;
-  } catch {
-    return undefined;
+  } catch (error) {
+    // `--verify -q` exits 1 with no output when HEAD names no commit yet.
+    const status = (error as { status?: unknown }).status;
+    return status === 1 ? NO_COMMITS_YET : undefined;
   }
 }
 
@@ -186,6 +205,14 @@ export function recordSessionBaseline(
       env,
     );
     if (prior) return ok({ ...prior, reused: true });
+    // A slow daemon: the hook already recorded this session's start in
+    // hooks/session.json. Keep that start, never a fresh one at a HEAD the
+    // session may already have moved (resume or compact, Arc).
+    const hooked = readBaselineFile(latestSessionFile(root, env), root, env);
+    if (hooked && hooked.sessionId === sessionId) {
+      writeJsonAtomic(sessionFile(root, sessionId, env), hooked);
+      return ok({ ...hooked, reused: true });
+    }
   }
   const changed = readChangedPaths(root, {});
   if (changed === null) {
@@ -390,10 +417,16 @@ export function createReceiptService(
       const preExisting = request.preExistingChanges ?? baseline?.dirty;
       // J-08 interim: a commit during the session takes its changes out of
       // the working-tree diff. Never SHIP or "nothing changed" then.
-      const startSha = baseline?.headSha;
-      const headNow = startSha ? readHeadSha(root) : undefined;
-      if (startSha && headNow !== startSha) {
-        return committedReceipt(workspace, request, preExisting, headNow);
+      // HEAD is compared whenever a session baseline exists. A baseline with
+      // no start SHA (no commit yet at session start, an unreadable HEAD then,
+      // or a record from before 2.0.0's J-08 fix) still counts as moved once
+      // HEAD names a commit: a missing start SHA never gives SHIP (Arc).
+      if (baseline) {
+        const startSha = baseline.headSha;
+        const headNow = readHeadSha(root);
+        if (headNow !== startSha) {
+          return committedReceipt(workspace, request, preExisting, headNow);
+        }
       }
       const buildOptions: BuildReceiptOptions = {
         ...options.build,

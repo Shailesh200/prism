@@ -325,9 +325,16 @@ function capEvidence<T extends { readonly evidence: readonly string[] }>(
   const { evidence } = result;
   if (evidence.length <= LENS_EVIDENCE_MAX) return result;
   const kept = evidence.slice(0, LENS_EVIDENCE_MAX - 1);
+  const dropped = evidence.slice(kept.length);
+  // J-07: a tail of generated files only says so, so it never counts as an
+  // off-limits (vendored) path.
+  const generated = dropped.every((line) => line.endsWith(" (generated)"));
   return {
     ...result,
-    evidence: [...kept, `+${evidence.length - kept.length} more`],
+    evidence: [
+      ...kept,
+      `+${dropped.length} more${generated ? " (generated)" : ""}`,
+    ],
   };
 }
 

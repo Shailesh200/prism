@@ -270,7 +270,10 @@ describe("J-07: generated files never fail off_limits_touched", () => {
     );
     const f = status(out, "off_limits_touched");
     expect(f?.status).toBe("concern");
-    expect(f?.evidence).toEqual(["gen/api.ts (generated)", "src/b.gen.ts (generated)"]);
+    expect(f?.evidence).toEqual([
+      "gen/api.ts (generated)",
+      "src/b.gen.ts (generated)",
+    ]);
   });
   it("a vendored path still fails, listed before generated ones", () => {
     const out = evaluateLensChecks(
@@ -280,7 +283,52 @@ describe("J-07: generated files never fail off_limits_touched", () => {
     );
     const f = status(out, "off_limits_touched");
     expect(f?.status).toBe("fail");
-    expect(f?.evidence).toEqual(["vendor/lib.ts (vendor)", "gen/api.ts (generated)"]);
+    expect(f?.evidence).toEqual([
+      "vendor/lib.ts (vendor)",
+      "gen/api.ts (generated)",
+    ]);
   });
 });
 
+describe("J-07: the vendored-path check never fails a non-vendored path (Arc)", () => {
+  const all = [lens("architect"), lens("dev"), lens("qa")];
+  const offLimits = (changed: string[]) =>
+    status(
+      evaluateLensChecks(all, receipt(), signals({ changed })),
+      "off_limits_touched",
+    );
+
+  it("look-alike paths are not vendored", () => {
+    for (const path of [
+      "vendors/a.ts",
+      "src/vendored/a.ts",
+      "my-vendor/a.ts",
+      "src/vendor.ts",
+      "lib/vendor-utils.js",
+      "src/a.ts",
+    ]) {
+      expect(offLimits([path])?.status, path).toBe("pass");
+    }
+  });
+
+  it("generated paths alone never fail, however many", () => {
+    const changed = Array.from({ length: 30 }, (_, i) => `gen/f${i}.ts`);
+    const f = offLimits(changed);
+    expect(f?.status).toBe("concern");
+    expect(f?.evidence.at(-1)).toBe("+11 more (generated)");
+  });
+
+  it("one vendored path among many generated ones: the cut tail stays generated", () => {
+    const changed = [
+      ...Array.from({ length: 30 }, (_, i) => `gen/f${i}.ts`),
+      "vendor/lib.ts",
+    ];
+    const f = offLimits(changed);
+    expect(f?.status).toBe("fail");
+    expect(f?.evidence[0]).toBe("vendor/lib.ts (vendor)");
+    expect(f?.evidence.at(-1)).toBe("+12 more (generated)");
+    expect(f?.evidence.filter((e) => !e.endsWith(" (generated)"))).toEqual([
+      "vendor/lib.ts (vendor)",
+    ]);
+  });
+});

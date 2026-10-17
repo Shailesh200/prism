@@ -637,7 +637,8 @@ function generatedNoteLite(receipt) {
     .flatMap((f) => f.evidence ?? [])
     .map(String)
     .filter((e) => e.endsWith(" (generated)"))
-    .map((e) => e.slice(0, -" (generated)".length));
+    .map((e) => e.slice(0, -" (generated)".length))
+    .filter((p) => !/^\+\d+ more$/.test(p));
   if (files.length === 0) return null;
   const folders = [...new Set(files.map(generatedFolderLite))];
   const where = folders[0]
@@ -738,7 +739,7 @@ function terminalLineLite(receipt) {
   if (v.noShip) {
     return v.failed > 0
       ? `${v.headline} — the agent is fixing it`
-      : `${v.headline} — off-limits files were edited; ask the user`;
+      : `${v.headline} — ask the user before going on`;
   }
   if (v.label === "SHIP") {
     return `${v.headline} — the checks this change reaches passed`;
@@ -1027,14 +1028,20 @@ function stopWakeText(receipt) {
     action = "ask the user.";
   } else if (v.reason === "committed_during_session") {
     // J-08 interim: a commit hid the session's changes (Muse).
-    say = "NOT PROVEN: a commit during this session hid the changes from Prism.";
+    say = "NOT PROVEN: a commit was made during this session.";
     action = "ask the user.";
   } else {
     say = `Prism: NOT PROVEN — ${SAY_REASON[v.reason] ?? REASON_LABEL[v.reason] ?? "no verdict yet"}.`;
   }
+  // After a commit the receipt line keeps its label (Muse): the counts
+  // alone read like a clean, checked tree.
+  const summary =
+    v.reason === "committed_during_session"
+      ? `${v.summary} — ${v.label}`
+      : v.summary;
   return [
     v.headline,
-    v.summary,
+    summary,
     `Prism · Say first: "${say}" Then ${action}`,
   ].join("\n");
 }
@@ -1214,6 +1221,22 @@ async function recordSessionBaseline(record) {
   recordSession();
 }
 
+/**
+ * HEAD at session start (J-08), mirroring the daemon's `readHeadSha`: the
+ * commit, "no-commits-yet" in a repo with none (so the first commit reads as
+ * HEAD moved, Arc), or undefined when git could not say.
+ */
+function headAtStart() {
+  const out = spawnSync(
+    "git",
+    ["--no-optional-locks", "rev-parse", "--verify", "-q", "HEAD"],
+    { cwd, encoding: "utf8", timeout: 2000 },
+  );
+  if (out.status === 1 && !(out.stdout ?? "").trim()) return "no-commits-yet";
+  const sha = out.status === 0 ? (out.stdout ?? "").trim() : "";
+  return /^[0-9a-f]{40,64}$/.test(sha) ? sha : undefined;
+}
+
 /** Read-only: never take `index.lock` from under the user's own git. */
 function gitLines(args) {
   const out = spawnSync("git", ["--no-optional-locks", ...args], {
@@ -1256,7 +1279,7 @@ function recordSession() {
   const untracked = gitLines(["ls-files", "--others", "--exclude-standard"]);
   if (changed === null && untracked === null) return;
   // HEAD at session start (J-08): a stop after a commit is NOT PROVEN.
-  const headSha = gitLines(["rev-parse", "--verify", "-q", "HEAD"])?.[0];
+  const headSha = headAtStart();
   try {
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(
