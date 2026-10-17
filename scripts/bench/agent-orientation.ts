@@ -659,37 +659,6 @@ async function main() {
   await mkdir(join(outPath, ".."), { recursive: true });
   await writeFile(outPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
 
-  const publicPath = join(
-    repoRoot,
-    arg("public", "apps/website/data/benchmarks-sample.json"),
-  );
-  const slimMetrics = ({
-    steps: _steps,
-    ...rest
-  }: RunMetrics): Omit<RunMetrics, "steps"> => rest;
-  const publicReport = {
-    ...report,
-    fixtures: report.fixtures.map((fixture) => ({
-      ...fixture,
-      scenarios: fixture.scenarios.map((scenario) => ({
-        ...scenario,
-        withoutPrism: slimMetrics(scenario.withoutPrism),
-        withPrism: slimMetrics(scenario.withPrism),
-      })),
-    })),
-    totals: {
-      ...report.totals,
-      withoutPrism: slimMetrics(report.totals.withoutPrism),
-      withPrism: slimMetrics(report.totals.withPrism),
-    },
-  };
-  await mkdir(join(publicPath, ".."), { recursive: true });
-  await writeFile(
-    publicPath,
-    `${JSON.stringify(publicReport, null, 2)}\n`,
-    "utf8",
-  );
-
   console.log("\nbench:orientation — agent orientation savings\n");
   for (const fixture of fixtureResults) {
     console.log(`${fixture.id} (${fixture.editTarget})`);
@@ -709,9 +678,7 @@ async function main() {
   console.log(
     `\n  savings: ${report.totals.savings.toolCallsPct}% calls · ${report.totals.savings.tokensPct}% tokens · ${totalWithout.tokensPerCall}→${totalWith.tokensPerCall} tok/call · ${report.totals.savings.timePct}% time`,
   );
-  console.log(
-    `\nbench:orientation: wrote ${relative(repoRoot, outPath)} and ${relative(repoRoot, publicPath)}`,
-  );
+  console.log(`\nbench:orientation: wrote ${relative(repoRoot, outPath)}`);
 }
 
 main().catch((error) => {
