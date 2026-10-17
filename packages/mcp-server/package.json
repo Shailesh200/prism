@@ -26,7 +26,8 @@
   "description": "Prism MCP server — gives your coding agent the right files before it edits, then flags the code it skipped and the code no test covers. Runs on your machine",
   "files": [
     "dist",
-    "media"
+    "media",
+    "!dist/tsconfig.tsbuildinfo"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
