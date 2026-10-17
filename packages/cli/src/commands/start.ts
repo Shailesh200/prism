@@ -43,9 +43,7 @@ import type { CommandContext, CommandHandler } from "../runtime.js";
 import { wrap } from "../table.js";
 import {
   defaultLayout,
-  enableReceipt,
   HOST_NAMES,
-  RECEIPT_HOSTS,
   runInstall,
   type SourceLayout,
 } from "./install.js";
@@ -248,8 +246,6 @@ export function makeStartCommand(
       pack: layout.pack,
       env,
       now,
-      receiptHosts: RECEIPT_HOSTS,
-      enableReceipt,
     });
     const summary = planJson(plan, names);
 

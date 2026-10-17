@@ -16,6 +16,22 @@ ${PRISM_RULESET}
 - The verdict on your change: SHIP, NOT PROVEN (with the cheapest proof) or NO-SHIP. Fix a NO-SHIP you caused.
 - Inferred edges are hints. On PRISM_INDEX_REQUIRED, retry shortly. Never call mcp_auth for Prism.`;
 
+/**
+ * Added when the opt-in `receipt` tool is on (`extraTools` or
+ * `PRISM_EXTRA_TOOLS`): a client with no stop hook (Cursor) only gets a
+ * verdict when the agent asks for one (Arc, PR 1).
+ */
+export const RECEIPT_INSTRUCTION = "- After you change code, call receipt.";
+
+/** The `initialize` instructions for the tools this server registers. */
+export function serverInstructions(options: {
+  readonly receipt: boolean;
+}): string {
+  return options.receipt
+    ? `${SERVER_INSTRUCTIONS}\n${RECEIPT_INSTRUCTION}`
+    : SERVER_INSTRUCTIONS;
+}
+
 /** Prompt names exposed for slash-command / picker clients. */
 export const PROMPT_NAMES = ["orient", "before_edit", "review_diff"] as const;
 

@@ -44,9 +44,21 @@ export const PRISM_OPENCODE_JSON_STRING = `${JSON.stringify(
 
 /**
  * Turns on the opt-in `receipt` tool (~/.prism/config.json), as `prism install`
- * does for Cursor, Codex and opencode. Without hooks, the agent calls it.
+ * does for every agent. Without hooks, the agent calls it.
  */
 export const PRISM_RECEIPT_CONFIG = `${JSON.stringify({ extraTools: ["receipt"] }, null, 2)}\n`;
 
+/**
+ * The "Add to Cursor" entry: the same transport plus `PRISM_EXTRA_TOOLS`,
+ * which the server merges with `extraTools`, so the receipt tool is on with
+ * no `~/.prism/config.json` (Arc, PR 1). Cursor has no stop hook, so the
+ * receipt is how its agent gets a verdict. `prism install cursor` is the
+ * full setup.
+ */
+export const PRISM_CURSOR_TRANSPORT = {
+  ...PRISM_MCP_TRANSPORT,
+  env: { PRISM_EXTRA_TOOLS: "receipt" },
+} as const;
+
 /** Cursor's one-click MCP install: opens Cursor, which asks before it adds the server. */
-export const PRISM_CURSOR_INSTALL_URL = `cursor://anysphere.cursor-deeplink/mcp/install?name=${PRISM_MCP_SERVER_NAME}&config=${encodeURIComponent(btoa(JSON.stringify(PRISM_MCP_TRANSPORT)))}`;
+export const PRISM_CURSOR_INSTALL_URL = `cursor://anysphere.cursor-deeplink/mcp/install?name=${PRISM_MCP_SERVER_NAME}&config=${encodeURIComponent(btoa(JSON.stringify(PRISM_CURSOR_TRANSPORT)))}`;

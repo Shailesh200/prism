@@ -21,7 +21,12 @@ import {
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import {
+  loadUserConfigSync,
+  userConfigPath,
+} from "@repo-prism/shared/user-config";
 import { lstatOrUndefined } from "./backups.js";
+import { keptUserConfig } from "./wipe.js";
 import {
   mergeClaudeHooks,
   PRISM_HOOK_FILE,
@@ -73,6 +78,18 @@ export type InstallTarget = {
   readonly bin: string;
   /** Built plugin pack (hooks + skills). */
   readonly pack: string;
+  /**
+   * Where Prism's own `config.json` lives (`PRISM_HOME`). Every host Prism
+   * sets up turns the `receipt` tool on there (Arc, PR 1). Omitted only by
+   * tests and benches that do not want it.
+   */
+  readonly env?: NodeJS.ProcessEnv;
+  /**
+   * Planning while a 1.x home is still to be moved first (`runInstall` runs
+   * `wipe1x` before any host): the receipt write is planned against the kept
+   * keys, never the 1.x `config.json` (Scout QA).
+   */
+  readonly afterWipe?: boolean;
 };
 
 export type HostResult = {
@@ -552,6 +569,11 @@ function opencode(target: InstallTarget): HostResult {
 }
 
 export function installHost(target: InstallTarget): HostResult {
+  const result = hostWriter(target);
+  return { files: result.files, notes: [...result.notes, ...receipt(target)] };
+}
+
+function hostWriter(target: InstallTarget): HostResult {
   switch (target.host) {
     case "claude":
       return claude(target);
@@ -562,6 +584,36 @@ export function installHost(target: InstallTarget): HostResult {
     case "opencode":
       return opencode(target);
   }
+}
+
+export const RECEIPT_NOTE = "Enabled the `receipt` MCP tool (extraTools).";
+
+/** Adds `receipt` to `extraTools` in Prism's config.json; true when it changed it. */
+export function enableReceipt(env: NodeJS.ProcessEnv): boolean {
+  const loaded = loadUserConfigSync(env);
+  if (!loaded.ok) throw new Error(loaded.error.message);
+  const tools = loaded.value.extraTools ?? [];
+  if (tools.includes("receipt")) return false;
+  setJsonKey(userConfigPath(env), ["extraTools"], [...tools, "receipt"]);
+  return true;
+}
+
+/**
+ * The receipt tool, on for every host (Arc, PR 1): a host with no stop hook
+ * (Cursor) only gets a verdict when the agent calls `receipt`. One note, from
+ * the host that turned it on.
+ */
+function receipt(target: InstallTarget): string[] {
+  if (!target.env) return [];
+  if (planning && target.afterWipe) {
+    const tools = keptUserConfig(target.env).extraTools;
+    if (Array.isArray(tools) && tools.includes("receipt")) return [];
+    const path = userConfigPath(target.env);
+    if (!planning.has(path))
+      planning.set(path, { write: { path, kind: "file", exists: false } });
+    return [];
+  }
+  return enableReceipt(target.env) ? [RECEIPT_NOTE] : [];
 }
 
 /** Removes one recorded install file. Returns true when something changed. */

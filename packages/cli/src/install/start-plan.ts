@@ -15,7 +15,7 @@ import {
 } from "./hosts.js";
 import { backupDir, tilde } from "./backups.js";
 import type { ListRow, WriteRole } from "./consent-copy.js";
-import { keptUserConfig, planWipe1x, type WipePlan } from "./wipe.js";
+import { planWipe1x, type WipePlan } from "./wipe.js";
 
 export type StartPlanInput = {
   readonly hosts: readonly InstallHost[];
@@ -28,9 +28,6 @@ export type StartPlanInput = {
   readonly pack: string;
   readonly env: NodeJS.ProcessEnv;
   readonly now: Date;
-  /** Hosts that turn on the `receipt` tool, and the call that does it. */
-  readonly receiptHosts: readonly InstallHost[];
-  readonly enableReceipt: (env: NodeJS.ProcessEnv) => unknown;
 };
 
 export type StartPlan = {
@@ -65,29 +62,21 @@ function roleFor(write: PlannedWrite, receiptConfig: string): WriteRole {
   return "file";
 }
 
-/**
- * The receipt write when a 1.x home is moved first (`runInstall` runs
- * `wipe1x` before any host): the 1.x `config.json` is never read as 2.x, so
- * a key 2.x does not know cannot stop the plan (Scout QA); the wipe block
- * lists it as dropped. The new `config.json` holds only the kept keys.
- */
-function receiptAfterWipe(
-  path: string,
-  env: NodeJS.ProcessEnv,
-): PlannedWrite[] {
-  const tools = keptUserConfig(env).extraTools;
-  if (Array.isArray(tools) && tools.includes("receipt")) return [];
-  return [{ path, kind: "file", exists: false }];
-}
-
 export function planStart(input: StartPlanInput): StartPlan {
   const writes: (PlannedWrite & { agent: string })[] = [];
   const seen = new Set<string>();
+  // `runInstall` moves a 1.x home before any host writes, so it is planned first.
+  const wipe = planWipe1x({ env: input.env, now: input.now });
+  const receiptConfig = userConfigPath(input.env);
+  // Every host turns the receipt tool on (`installHost`); its row is
+  // Prism's own, listed last, as before.
+  let receiptWrite: PlannedWrite | undefined;
   const add = (agent: string, list: readonly PlannedWrite[]) => {
     for (const write of list) {
       if (seen.has(write.path)) continue;
       seen.add(write.path);
-      writes.push({ ...write, agent });
+      if (write.path === receiptConfig) receiptWrite = write;
+      else writes.push({ ...write, agent });
     }
   };
   for (const host of input.hosts) {
@@ -102,20 +91,13 @@ export function planStart(input: StartPlanInput): StartPlan {
           node: input.node,
           bin: input.bin,
           pack: input.pack,
+          env: input.env,
+          afterWipe: wipe !== null,
         });
       }),
     );
   }
-  const wipe = planWipe1x({ env: input.env, now: input.now });
-  const receiptConfig = userConfigPath(input.env);
-  if (input.hosts.some((host) => input.receiptHosts.includes(host))) {
-    add(
-      "Prism",
-      wipe
-        ? receiptAfterWipe(receiptConfig, input.env)
-        : planWrites(() => void input.enableReceipt(input.env)),
-    );
-  }
+  if (receiptWrite) writes.push({ ...receiptWrite, agent: "Prism" });
   const rows: ListRow[] = writes.map((write) => {
     const role = roleFor(write, receiptConfig);
     return {

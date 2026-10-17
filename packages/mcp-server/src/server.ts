@@ -16,7 +16,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { daemonAttach, startDaemonFor } from "./daemon-attach.js";
 import { createIndexProgressReporter } from "./index-progress.js";
-import { SERVER_INSTRUCTIONS } from "./instructions.js";
+import { serverInstructions } from "./instructions.js";
 import { prismMcpImplementation } from "./branding.js";
 import { registerPrompts } from "./prompts.js";
 import { registerResources } from "./resources.js";
@@ -27,7 +27,7 @@ import {
 } from "./session.js";
 import { registerTools } from "./tool-registry.js";
 import { loadUserConfigSync } from "@repo-prism/shared/user-config";
-import { selectTools } from "./tools.js";
+import { mergeExtraTools, selectTools } from "./tools.js";
 import {
   createWorkspaceBinding,
   type WorkspaceBinding,
@@ -71,9 +71,33 @@ export type PrismMcpServer = {
 export function createPrismMcpServer(
   options: CreateServerOptions,
 ): PrismMcpServer {
+  const env = options.env ?? process.env;
+  const userConfig = loadUserConfigSync(env);
+  if (!userConfig.ok) {
+    // Registered tools fall back to the default nine (plus any named in
+    // PRISM_EXTRA_TOOLS); `prism doctor` reports the same error with its code.
+    process.stderr.write(
+      `prism: ${userConfig.error.code}: ${userConfig.error.message}; using the default tools\n`,
+    );
+  }
+  // config.json `extraTools` and PRISM_EXTRA_TOOLS, merged. An unknown name
+  // is a warning on stderr, never a failed start.
+  const selection = selectTools(
+    mergeExtraTools(
+      userConfig.ok ? (userConfig.value.extraTools ?? []) : [],
+      env,
+    ),
+  );
+  if (selection.unknownExtraTools.length > 0) {
+    process.stderr.write(
+      `prism: unknown extraTools ignored: ${selection.unknownExtraTools.join(", ")}\n`,
+    );
+  }
   const server = new McpServer(prismMcpImplementation(options.version), {
     capabilities: { tools: {}, prompts: {}, resources: {}, logging: {} },
-    instructions: SERVER_INSTRUCTIONS,
+    instructions: serverInstructions({
+      receipt: selection.tools.some((tool) => tool.name === "receipt"),
+    }),
   });
 
   const reportProgress = createIndexProgressReporter((line) => {
@@ -156,30 +180,13 @@ export function createPrismMcpServer(
     close: () => innerSession.close(),
   };
 
-  const env = options.env ?? process.env;
   const daemon = daemonAttach(env);
-  const userConfig = loadUserConfigSync(env);
-  if (!userConfig.ok) {
-    // Registered tools fall back to the default nine; `prism doctor` reports
-    // the same error with its code.
-    process.stderr.write(
-      `prism: ${userConfig.error.code}: ${userConfig.error.message}; using the default tools\n`,
-    );
-  }
-  const selection = selectTools(
-    userConfig.ok ? (userConfig.value.extraTools ?? []) : [],
-  );
-  if (selection.unknownExtraTools.length > 0) {
-    process.stderr.write(
-      `prism: unknown extraTools ignored: ${selection.unknownExtraTools.join(", ")}\n`,
-    );
-  }
   registerTools(
     server,
     session,
     selection.tools,
     () => binding.current(),
-    options.env ?? process.env,
+    env,
     daemon &&
       (async (tool, args) => {
         // Same root rules as the in-process path: settle client roots first.

@@ -37,9 +37,7 @@ import {
 import { planStart } from "../install/start-plan.js";
 import {
   defaultLayout,
-  enableReceipt,
   HOST_NAMES,
-  RECEIPT_HOSTS,
   runInstall,
   sourceLayout,
   type SourceLayout,
@@ -413,8 +411,6 @@ export async function fixAgentConfigs(
     pack: layout.pack,
     env,
     now,
-    receiptHosts: RECEIPT_HOSTS,
-    enableReceipt,
   });
   const confirmed = await confirmAndWrite({
     command: "prism doctor --fix",

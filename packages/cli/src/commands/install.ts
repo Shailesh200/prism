@@ -26,16 +26,11 @@ import {
 } from "@repo-prism/shared/prism-bin";
 import { readGitHead } from "@repo-prism/shared/git-head";
 import { prismHomeDir } from "@repo-prism/shared/prism-home";
-import {
-  loadUserConfigSync,
-  userConfigPath,
-} from "@repo-prism/shared/user-config";
 import { stopDaemon } from "@repo-prism/daemon";
 import {
   INSTALL_HOSTS,
   installHost,
   removeInstallFile,
-  setJsonKey,
   type InstallFile,
   type InstallHost,
   type InstallScope,
@@ -71,13 +66,6 @@ export const HOST_NAMES: Record<InstallHost, string> = {
 function hostAvailable(host: InstallHost, home: string): boolean {
   return host !== "codex" || existsSync(join(home, ".codex"));
 }
-
-/** Hosts whose official path is the rule line, so `receipt` is on by default (§5.10). */
-export const RECEIPT_HOSTS: readonly InstallHost[] = [
-  "cursor",
-  "codex",
-  "opencode",
-];
 
 function versionAt(packageDir: string): string {
   const path = join(packageDir, "package.json");
@@ -189,15 +177,6 @@ function hostsFrom(arg: string | undefined): InstallHost[] | undefined {
     : undefined;
 }
 
-export function enableReceipt(env: NodeJS.ProcessEnv): boolean {
-  const loaded = loadUserConfigSync(env);
-  if (!loaded.ok) throw new Error(loaded.error.message);
-  const tools = loaded.value.extraTools ?? [];
-  if (tools.includes("receipt")) return false;
-  setJsonKey(userConfigPath(env), ["extraTools"], [...tools, "receipt"]);
-  return true;
-}
-
 /**
  * Files an earlier install recorded, minus any since removed (a retired
  * skill, say): those are no longer Prism's to list or uninstall.
@@ -257,19 +236,13 @@ export async function runInstall(run: InstallRun) {
     node: process.execPath,
     bin: run.layout.bin,
     pack: run.layout.pack,
+    env: run.env,
   };
   for (const host of installed) {
     const result = installHost({ ...target, host });
     files.push(...result.files);
     notes.push(...result.notes);
   }
-  if (
-    installed.some((host) => RECEIPT_HOSTS.includes(host)) &&
-    enableReceipt(run.env)
-  )
-    notes.push(
-      "Enabled the `receipt` MCP tool (extraTools) for the Cursor/Codex/opencode rule path.",
-    );
   const key = (file: InstallFile) =>
     `${file.kind}:${file.path}:${"key" in file ? file.key.join(".") : ""}`;
   const merged = new Map<string, InstallFile>();
@@ -374,8 +347,6 @@ export function makeInstallCommand(
       pack: layout.pack,
       env,
       now,
-      receiptHosts: RECEIPT_HOSTS,
-      enableReceipt,
     });
     const say = (line: string) => {
       if (!context.output.json) context.writer.out(line);
@@ -530,8 +501,6 @@ export function makeUpgradeCommand(
       pack: layout.pack,
       env,
       now,
-      receiptHosts: RECEIPT_HOSTS,
-      enableReceipt,
     });
     const from = layout.source
       ? `local build from ${layout.source}`
