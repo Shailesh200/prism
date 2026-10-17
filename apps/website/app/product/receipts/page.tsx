@@ -15,6 +15,7 @@ import {
 } from "@/components/site/product-page";
 import { VerifyDemo } from "@/components/site/demos";
 import { pageMetadata } from "@/lib/seo";
+import { RECEIPT_REASONS } from "@/lib/receipt-reasons";
 
 export const metadata = pageMetadata({
   title: "Receipts",
@@ -154,30 +155,6 @@ const ANATOMY = [
     title: "Prove it",
     body: "For NOT PROVEN, the quickest command that would prove the change.",
   },
-];
-
-const NOT_PROVEN: Array<[reason: string, means: string]> = [
-  ["untested", "A changed file has no test reaching it."],
-  ["no_node_modules", "Tests reach it, but dependencies are not installed."],
-  ["unknown_runner", "Tests reach it, but no known runner could run them."],
-  ["skipped_offline", "Checks were not asked for."],
-  [
-    "still_running",
-    "Checks were still running; ask again and the receipt shows them.",
-  ],
-  ["timeout", "A check ran past its time limit."],
-  [
-    "already_failing",
-    "Every check that reaches it was failing before this session.",
-  ],
-  [
-    "unsupported_language",
-    "Only files in languages Prism can’t check yet changed.",
-  ],
-  [
-    "superseded",
-    "A newer change replaced this one before its checks finished.",
-  ],
 ];
 
 export default function ReceiptsPage() {
@@ -389,7 +366,7 @@ export default function ReceiptsPage() {
 
       <section className="sec">
         <Container>
-          <h2 className="d3">Nine reasons for NOT PROVEN</h2>
+          <h2 className="d3">Eleven reasons for NOT PROVEN</h2>
           <p className="lede mt-3.5 mb-7 text-lg">
             Every NOT PROVEN names one, so you know what to do next.
           </p>
@@ -397,16 +374,14 @@ export default function ReceiptsPage() {
             <Table>
               <thead>
                 <tr>
-                  <th>Reason</th>
-                  <th>Means</th>
+                  <th>Label</th>
+                  <th>What it means</th>
                 </tr>
               </thead>
               <tbody>
-                {NOT_PROVEN.map(([reason, means]) => (
-                  <tr key={reason}>
-                    <td className="nw">
-                      <code>{reason}</code>
-                    </td>
+                {RECEIPT_REASONS.map(({ code, label, means }) => (
+                  <tr key={code}>
+                    <td className="nw">{label}</td>
                     <td>{means}</td>
                   </tr>
                 ))}

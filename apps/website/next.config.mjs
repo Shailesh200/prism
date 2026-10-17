@@ -171,7 +171,7 @@ const config = {
         permanent: false,
       },
       {
-        source: "/docs/benchmarks/:page(2\\.x|2\\.x-per-task)",
+        source: "/docs/benchmarks/:page(2\\.x|2\\.x-per-task|2\\.x\\.json)",
         destination: "/benchmarks",
         permanent: false,
       },
