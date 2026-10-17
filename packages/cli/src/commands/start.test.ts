@@ -1,6 +1,10 @@
 import {
+  existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
+  readFileSync,
   realpathSync,
   rmSync,
   symlinkSync,
@@ -25,6 +29,138 @@ const dirs: string[] = [];
 afterEach(() => {
   for (const dir of dirs.splice(0))
     rmSync(dir, { recursive: true, force: true });
+});
+
+/** Every path under `dir` with its content (folders as "/"), sorted. */
+function tree(dir: string): string[] {
+  const out: string[] = [];
+  const walk = (at: string, rel: string) => {
+    for (const name of readdirSync(at).sort()) {
+      const path = join(at, name);
+      const key = rel ? `${rel}/${name}` : name;
+      const stat = lstatSync(path);
+      if (stat.isDirectory()) {
+        out.push(`${key}/`);
+        walk(path, key);
+      } else out.push(`${key}=${readFileSync(path, "utf8")}`);
+    }
+  };
+  walk(dir, "");
+  return out;
+}
+
+/**
+ * Sets `vars` on the real process.env for `fn`, then restores each key. Never
+ * replaces process.env itself: os.homedir() reads the real environment, which
+ * a plain-object process.env no longer reaches.
+ */
+async function withEnv<T>(
+  vars: Record<string, string>,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const before = new Map(Object.keys(vars).map((k) => [k, process.env[k]]));
+  Object.assign(process.env, vars);
+  try {
+    return await fn();
+  } finally {
+    for (const [key, value] of before) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+}
+
+describe("prism start --dry-run never writes or indexes (J-25)", () => {
+  for (const agents of [true, false])
+    it(`leaves PRISM_HOME and the repo untouched (${agents ? "agents found" : "no agent found"})`, async () => {
+      const root = mkdtempSync(join(tmpdir(), "prism-dry-repo-"));
+      const home = mkdtempSync(join(tmpdir(), "prism-dry-home-"));
+      dirs.push(root, home);
+      mkdirSync(join(root, ".git"));
+      writeFileSync(join(root, "package.json"), "{}");
+      writeFileSync(join(root, "a.ts"), "export const a = 1;\n");
+      if (agents) {
+        mkdirSync(join(home, ".cursor"));
+        writeFileSync(join(home, ".cursor", "mcp.json"), '{"mcpServers":{}}\n');
+      }
+      const before = { home: tree(home), root: tree(root) };
+      let out = "";
+      const code = await withEnv(
+        {
+          HOME: home,
+          USERPROFILE: home,
+          PRISM_HOME: join(home, ".prism"),
+          XDG_CONFIG_HOME: join(home, ".config"),
+          PRISM_DAEMON: "0",
+        },
+        () =>
+          run(["start", "--dry-run"], {
+            cwd: root,
+            env: process.env,
+            isTty: false,
+            writer: { out: (t) => (out += t), err: () => undefined },
+          }),
+      );
+      // With agents, the dry run lists them: proof they were detected.
+      if (agents) expect(out).toContain("~/.cursor/mcp.json");
+      expect(code).toBe(0);
+      expect(out.split("\n")[0]).toBe("Dry run: nothing will be written.");
+      expect(out).not.toMatch(/Indexed \d+/);
+      expect(existsSync(join(home, ".prism"))).toBe(false);
+      expect({ home: tree(home), root: tree(root) }).toEqual(before);
+    }, 30_000);
+});
+
+describe("prism start --yes backs up each agent config first (J-14)", () => {
+  it("copies every existing config to ~/.prism-backups/<time>/ before changing it", async () => {
+    const root = mkdtempSync(join(tmpdir(), "prism-yes-repo-"));
+    const home = mkdtempSync(join(tmpdir(), "prism-yes-home-"));
+    dirs.push(root, home);
+    mkdirSync(join(root, ".git"));
+    writeFileSync(join(root, "package.json"), "{}");
+    writeFileSync(join(root, "a.ts"), "export const a = 1;\n");
+    const cursor = `${JSON.stringify({ mcpServers: { mine: { command: "x" } } }, null, 2)}\n`;
+    const claude = `${JSON.stringify({ theme: "dark" }, null, 2)}\n`;
+    mkdirSync(join(home, ".cursor"));
+    writeFileSync(join(home, ".cursor", "mcp.json"), cursor);
+    mkdirSync(join(home, ".claude"));
+    writeFileSync(join(home, ".claude", "settings.json"), claude);
+    let out = "";
+    const code = await withEnv(
+      {
+        HOME: home,
+        USERPROFILE: home,
+        PRISM_HOME: join(home, ".prism"),
+        XDG_CONFIG_HOME: join(home, ".config"),
+        PRISM_DAEMON: "0",
+      },
+      () =>
+        run(["start", "--yes"], {
+          cwd: root,
+          env: process.env,
+          isTty: false,
+          writer: { out: (t) => (out += t), err: (t) => (out += t) },
+        }),
+    );
+    expect(code, out).toBe(0);
+    expect(existsSync(join(home, ".prism-backups")), out).toBe(true);
+    const stamps = readdirSync(join(home, ".prism-backups"));
+    expect(stamps).toHaveLength(1);
+    const configs = join(home, ".prism-backups", stamps[0]!, "configs");
+    // The backup holds each file as it was; the live file now has Prism.
+    expect(readFileSync(join(configs, ".cursor", "mcp.json"), "utf8")).toBe(
+      cursor,
+    );
+    expect(
+      readFileSync(join(configs, ".claude", "settings.json"), "utf8"),
+    ).toBe(claude);
+    expect(readFileSync(join(home, ".cursor", "mcp.json"), "utf8")).toMatch(
+      /"prism"/,
+    );
+    expect(
+      readFileSync(join(home, ".claude", "settings.json"), "utf8"),
+    ).not.toBe(claude);
+  }, 30_000);
 });
 
 describe("prism start (P19)", () => {

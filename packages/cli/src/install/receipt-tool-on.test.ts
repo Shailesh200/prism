@@ -119,7 +119,7 @@ describe("installHost turns the receipt tool on for every host", () => {
 });
 
 describe("the plan is the same as before the move", () => {
-  it("one receipt row, Prism's, listed last; an existing config.json is backed up", () => {
+  it("one receipt row, Prism's, listed last; config.json is Prism's own file, not backed up", () => {
     const m = machine();
     mkdirSync(join(m.home, ".prism"));
     // A 2.x home (not a 1.x one to move first).
@@ -139,10 +139,16 @@ describe("the plan is the same as before the move", () => {
     });
     const receipt = plan.rows.filter((row) => row.role === "receipt");
     expect(receipt).toEqual([
-      { agent: "Prism", path: "~/.prism/config.json", role: "receipt" },
+      {
+        agent: "Prism",
+        path: "~/.prism/config.json",
+        role: "receipt",
+        own: true,
+      },
     ]);
     expect(plan.rows.at(-1)?.role).toBe("receipt");
-    expect(plan.toBackUp).toContain(m.config);
+    // Muse: "(Prism's own file, not backed up)", so it is not.
+    expect(plan.toBackUp).not.toContain(m.config);
     // Planned, not written.
     expect(JSON.parse(readFileSync(m.config, "utf8"))).toEqual({
       extraTools: ["foo"],

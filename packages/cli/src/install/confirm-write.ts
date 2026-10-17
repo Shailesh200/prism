@@ -188,7 +188,7 @@ export async function confirmAndWrite<T>(
           [
             CONSENT_COPY.dryRunHead,
             "",
-            copy.dryIntro(names),
+            copy.dryIntro(names, plan.rows),
             ...listLines(plan, home),
             "",
             CONSENT_COPY.dryBackedUp,
@@ -201,7 +201,7 @@ export async function confirmAndWrite<T>(
 
   if (context.options.yes) {
     // The list still prints, so script logs show what changed.
-    say(copy.yesIntro(names));
+    say(copy.yesIntro(names, plan.rows));
     for (const line of listLines(plan, home)) say(line);
   } else if (machine) {
     // `--json` without `--yes` (Atlas): never a prompt, nothing changes.
@@ -223,9 +223,11 @@ export async function confirmAndWrite<T>(
       }),
     );
   } else {
-    say(copy.intro(names));
-    say("");
-    if (plan.rows.length > 0) say(CONSENT_COPY.willWrite);
+    say(copy.intro(names, plan.rows));
+    if (!copy.introIsHeader) {
+      say("");
+      if (plan.rows.length > 0) say(CONSENT_COPY.willWrite);
+    }
     for (const line of listLines(plan, home)) say(line);
     say("");
     say(CONSENT_COPY.backedUpFirst(`${tilde(plan.backupDir, home)}/`));

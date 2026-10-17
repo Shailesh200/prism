@@ -36,8 +36,11 @@ import {
   HOST_SETUP_COPY,
   INSTALL_COPY,
   commandCopy,
+  fileList,
   installedLines,
+  relinkedLine,
 } from "./consent-copy.js";
+import { tilde } from "./backups.js";
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -174,15 +177,57 @@ describe("Muse's approved strings", () => {
     );
   });
 
-  it("doctor --fix: 'to match the installed version', and a dry-run footer with no backticks", () => {
+  it("doctor --fix: the header names only the agents whose files change, and a dry-run footer with no backticks", () => {
     const doctor = commandCopy("prism doctor --fix");
-    expect(doctor.intro(["Claude Code"])).toBe(
-      "Prism will update its setup for Claude Code to match the installed version.",
+    const rows = [
+      {
+        agent: "Claude Code",
+        path: "~/.claude/settings.json",
+        role: "hooks" as const,
+      },
+    ];
+    // Codex is set up too, but none of its files change: not named.
+    expect(doctor.intro(["Claude Code", "Codex"], rows)).toBe(
+      "Prism will update Claude Code's hooks:",
     );
+    expect(doctor.dryIntro(["Claude Code", "Codex"], rows)).toBe(
+      "Prism would update Claude Code's hooks:",
+    );
+    expect(doctor.introIsHeader).toBe(true);
     expect(doctor.dryFooter).toBe(
       "To update, run prism doctor --fix. In scripts, use prism doctor --fix --yes.",
     );
     expect(doctor.dryFooter).not.toContain("`");
+  });
+
+  it("no terminal: one line for every command, and it names --yes (Arc)", () => {
+    const line =
+      "No terminal to confirm in. Run again with --yes to apply, or --dry-run to preview.";
+    for (const command of [
+      "prism start",
+      "prism doctor --fix",
+      "prism upgrade",
+    ] as const)
+      expect(commandCopy(command).noTty).toEqual([line]);
+  });
+
+  it("upgrade names agents by display name", () => {
+    expect(relinkedLine(["Claude Code", "Cursor"])).toBe(
+      "Re-linked Claude Code and Cursor.",
+    );
+  });
+
+  it("Prism's config is listed as its own file, not backed up", () => {
+    expect(
+      fileList([
+        {
+          agent: "Prism",
+          path: "~/.prism/config.json",
+          role: "receipt",
+          own: true,
+        },
+      ])[0],
+    ).toContain("~/.prism/config.json (Prism's own file, not backed up)");
   });
 
   it("the hook line names no version and has no backticks", () => {
@@ -218,8 +263,25 @@ describe("Muse's approved strings", () => {
     expect(upgrade.dryFooter).toBe(
       "To upgrade, run prism upgrade. In scripts, use prism upgrade --yes.",
     );
-    expect(upgrade.noTty.join("\n")).toContain("prism upgrade --yes");
+    expect(upgrade.noTty).toEqual(CONSENT_COPY.noTty);
     expect(upgrade.declined).toEqual(["No changes made."]);
+  });
+});
+
+describe("display paths", () => {
+  it("a real path under a linked HOME still shows as ~ (macOS /var → /private/var)", () => {
+    const home = mkdtempSync(join(tmpdir(), "prism-tilde-"));
+    dirs.push(home);
+    const link = mkdtempSync(join(tmpdir(), "prism-tilde-link-"));
+    dirs.push(link);
+    // HOME is a link to the real folder, as $TMPDIR is on macOS.
+    const linkedHome = join(link, "home");
+    symlinkSync(home, linkedHome);
+    writeFileSync(join(home, "claude.json"), "{}");
+    expect(tilde(realpathSync(join(home, "claude.json")), linkedHome)).toBe(
+      "~/claude.json",
+    );
+    expect(tilde("/elsewhere/x.json", linkedHome)).toBe("/elsewhere/x.json");
   });
 });
 
@@ -388,6 +450,7 @@ describe("prism upgrade goes through confirmAndWrite (Arc)", () => {
       next.bin,
     );
     expect(yes.text).toContain("Prism 9.9.9 → 9.9.10");
+    expect(yes.text).toContain("Re-linked Claude Code and Cursor.");
     expect(yes.text).toContain(
       CONSENT_COPY.backupsAre(`~/.prism-backups/${STAMP}/`),
     );

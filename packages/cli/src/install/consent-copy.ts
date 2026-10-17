@@ -25,6 +25,8 @@ export type ListRow = {
   readonly name?: string;
   /** Display path of a symlinked config's target, written through. */
   readonly linkTo?: string;
+  /** Prism's own config: listed, written, never backed up (Muse). */
+  readonly own?: boolean;
 };
 
 export type WipeLines = {
@@ -84,7 +86,9 @@ export function fileList(rows: readonly ListRow[]): string[] {
     // Both full paths (Muse): the link, and the target the write goes to.
     const path = row.linkTo
       ? `${row.path} ${CONSENT_COPY.symlinkNote(row.linkTo)}`
-      : row.path;
+      : row.own
+        ? `${row.path} ${CONSENT_COPY.ownFileNote}`
+        : row.path;
     const label = roleLabel(row);
     if (path.length <= PATH_COL - 2) {
       out.push(`  ${agent}${path.padEnd(PATH_COL)}${label}`);
@@ -146,6 +150,8 @@ export const CONSENT_COPY = {
   backupsAre: (dir: string) => `Backups are in ${dir}.`,
   /** After the path when the config is a symlink (Arc review; Muse: both full paths). */
   symlinkNote: (target: string) => `(symlink → ${target})`,
+  /** After `~/.prism/config.json` in the list (Muse). */
+  ownFileNote: "(Prism's own file, not backed up)",
   /** Under the backup line: writes go through a symlink, so its target is what is backed up (Muse). */
   symlinkBackup: (targets: readonly string[]) =>
     `These are symlinks, so Prism backs up and changes the files they point to: ${targets.join(", ")}.`,
@@ -162,11 +168,9 @@ export const CONSENT_COPY = {
   yesIntro: (names: readonly string[]) =>
     `Prism will set up ${hostsSentence(names)} (--yes).`,
   /** Case 6: stderr, exit 1 */
+  /** Case 6: one line for every command (Muse; Arc: it names --yes). */
   noTty: [
-    "Prism needs a yes before it changes agent configs, and there is no terminal to",
-    "ask in. No changes made.",
-    "To see what it would write: prism start --dry-run",
-    "To set up from a script:    prism start --yes",
+    "No terminal to confirm in. Run again with --yes to apply, or --dry-run to preview.",
   ],
   /** `--json` without `--yes` (Atlas, 16:38): the error message in the JSON. */
   jsonYesRequired:
@@ -174,6 +178,9 @@ export const CONSENT_COPY = {
   /** Case 7 */
   alreadySetUp: (version: string, names: readonly string[]) =>
     `Prism ${version} is already set up for ${names.join(", ")}. Nothing to change.`,
+  /** `--dry-run` with no agent found: nothing is indexed (J-25). Needs Muse's OK. */
+  dryNoHosts:
+    "No coding agent found (Claude Code, Cursor, Codex, opencode). Run prism start without --dry-run to index this repo.",
   /** Errors (unchanged) */
   noHosts:
     "No coding agent found (Claude Code, Cursor, Codex, opencode). Indexing anyway; run `prism install <client>` once one is set up.",
@@ -221,6 +228,39 @@ export function installedLines(names: readonly string[]): string[] {
   return names.map((name) => HOST_SETUP_COPY[name] ?? `${name}: set up.`);
 }
 
+/** `prism upgrade` after it wrote (Muse): "Re-linked Claude Code and Cursor." */
+export function relinkedLine(names: readonly string[]): string {
+  return `Re-linked ${hostsSentence(names)}.`;
+}
+
+/** What `prism doctor --fix` names per agent, e.g. "Claude Code's hooks". */
+const ROLE_NOUN: Record<WriteRole, string> = {
+  mcp: "MCP server",
+  hooks: "hooks",
+  skill: "skills",
+  rule: "rule",
+  plugin: "plugin",
+  receipt: "config",
+  file: "files",
+};
+
+/**
+ * The doctor --fix header names only the agents whose files will change, and
+ * what changes (Muse): "Claude Code's hooks", "Cursor's MCP server and rule".
+ */
+export function changingParts(rows: readonly ListRow[]): string[] {
+  const byAgent = new Map<string, string[]>();
+  for (const row of rows) {
+    const nouns = byAgent.get(row.agent) ?? [];
+    const noun = ROLE_NOUN[row.role];
+    if (!nouns.includes(noun)) nouns.push(noun);
+    byAgent.set(row.agent, nouns);
+  }
+  return [...byAgent].map(
+    ([agent, nouns]) => `${agent}'s ${hostsSentence(nouns)}`,
+  );
+}
+
 /** After `prism install`: the files it changed (Arc). Needs Muse's OK. */
 export const INSTALL_COPY = {
   wrote: "Prism wrote:",
@@ -239,9 +279,20 @@ export type ConsentCommand =
  * lines are new and need Muse's OK.
  */
 export function commandCopy(command: ConsentCommand): {
-  readonly intro: (names: readonly string[]) => string;
-  readonly yesIntro: (names: readonly string[]) => string;
-  readonly dryIntro: (names: readonly string[]) => string;
+  readonly intro: (
+    names: readonly string[],
+    rows: readonly ListRow[],
+  ) => string;
+  readonly yesIntro: (
+    names: readonly string[],
+    rows: readonly ListRow[],
+  ) => string;
+  readonly dryIntro: (
+    names: readonly string[],
+    rows: readonly ListRow[],
+  ) => string;
+  /** The intro ends in ":" and the list follows it directly (doctor --fix). */
+  readonly introIsHeader: boolean;
   readonly dryFooter: string;
   readonly noTty: readonly string[];
   readonly declined: readonly string[];
@@ -252,6 +303,7 @@ export function commandCopy(command: ConsentCommand): {
       yesIntro: CONSENT_COPY.yesIntro,
       dryIntro: CONSENT_COPY.dryIntro,
       dryFooter: CONSENT_COPY.dryFooter,
+      introIsHeader: false,
       noTty: CONSENT_COPY.noTty,
       declined: CONSENT_COPY.declined,
     };
@@ -265,30 +317,27 @@ export function commandCopy(command: ConsentCommand): {
         `Prism would update its setup for ${hostsSentence(names)}:`,
       dryFooter:
         "To upgrade, run prism upgrade. In scripts, use prism upgrade --yes.",
-      noTty: [
-        "Prism needs a yes before it changes agent configs, and there is no terminal to",
-        "ask in. No changes made.",
-        "To see what it would write: prism upgrade --dry-run",
-        "To upgrade from a script:   prism upgrade --yes",
-      ],
+      introIsHeader: false,
+      noTty: CONSENT_COPY.noTty,
       declined: ["No changes made."],
     };
+  // Only the agents whose files change, and what changes (Muse, final).
+  const what = (names: readonly string[], rows: readonly ListRow[]) => {
+    const parts = changingParts(rows);
+    return parts.length > 0
+      ? hostsSentence(parts)
+      : `its setup for ${hostsSentence(names)}`;
+  };
   return {
-    intro: (names) =>
-      `Prism will update its setup for ${hostsSentence(names)} to match the installed version.`,
-    yesIntro: (names) =>
-      `Prism will update its setup for ${hostsSentence(names)} (--yes).`,
-    dryIntro: (names) =>
-      `Prism would update its setup for ${hostsSentence(names)}:`,
+    intro: (names, rows) => `Prism will update ${what(names, rows)}:`,
+    yesIntro: (names, rows) =>
+      `Prism will update ${what(names, rows)} (--yes):`,
+    dryIntro: (names, rows) => `Prism would update ${what(names, rows)}:`,
+    introIsHeader: true,
     // No backticks (Muse): a terminal shows them as literal characters.
     dryFooter:
       "To update, run prism doctor --fix. In scripts, use prism doctor --fix --yes.",
-    noTty: [
-      "Prism needs a yes before it changes agent configs, and there is no terminal to",
-      "ask in. No changes made.",
-      "To see what it would write: prism doctor --fix --dry-run",
-      "To update from a script:    prism doctor --fix --yes",
-    ],
+    noTty: CONSENT_COPY.noTty,
     declined: ["No changes made."],
   };
 }

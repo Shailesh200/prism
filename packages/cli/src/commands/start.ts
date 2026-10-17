@@ -221,7 +221,19 @@ export function makeStartCommand(
     const say = (line: string) => {
       if (!context.output.json) context.writer.out(line);
     };
+    // J-25: a dry run never writes or indexes. Every path below that would
+    // index (no agent found, nothing to change) returns before it does.
+    const dryRun = context.args.flag("dryRun");
     if (hosts.length === 0) {
+      if (dryRun)
+        return ok({
+          data: { dryRun: true, installed: [] },
+          human: ({ width }) =>
+            [
+              CONSENT_COPY.dryRunHead,
+              ...wrap(CONSENT_COPY.dryNoHosts, width),
+            ].join("\n"),
+        });
       const result = await deps.answer(context);
       if (!result.ok) return result;
       return ok({
@@ -274,6 +286,15 @@ export function makeStartCommand(
     if (confirmed.kind === "stop") return confirmed.result;
     // Case 7: nothing would change. No question, no backup, no writes.
     if (confirmed.kind === "nothing") {
+      if (dryRun)
+        return ok({
+          data: { dryRun: true, alreadySetUp: true, plan: summary },
+          human: ({ width }) =>
+            [
+              CONSENT_COPY.dryRunHead,
+              ...wrap(CONSENT_COPY.alreadySetUp(layout.version, names), width),
+            ].join("\n"),
+        });
       const result = await deps.answer(context);
       if (!result.ok) return result;
       return ok({

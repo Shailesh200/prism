@@ -106,6 +106,7 @@ export function planStart(input: StartPlanInput): StartPlan {
       role,
       ...(role === "skill" ? { name: basename(write.path) } : {}),
       ...(write.linkTo ? { linkTo: tilde(write.linkTo, input.home) } : {}),
+      ...(role === "receipt" ? { own: true } : {}),
     };
   });
   return {
@@ -113,7 +114,10 @@ export function planStart(input: StartPlanInput): StartPlan {
     rows,
     wipe,
     backupDir: backupDir(input.env, input.now),
-    toBackUp: writes.filter((w) => w.exists).map((w) => w.path),
+    // Prism's own config.json is not an agent config: never backed up (Muse).
+    toBackUp: writes
+      .filter((w) => w.exists && w.path !== receiptConfig)
+      .map((w) => w.path),
     nothingToDo: writes.length === 0 && wipe === null,
   };
 }

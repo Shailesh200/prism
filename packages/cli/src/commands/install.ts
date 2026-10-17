@@ -46,6 +46,7 @@ import {
   CONSENT_COPY,
   INSTALL_COPY,
   installedLines,
+  relinkedLine,
 } from "../install/consent-copy.js";
 import { planStart } from "../install/start-plan.js";
 import { wipe1x } from "../install/wipe.js";
@@ -568,7 +569,7 @@ export function makeUpgradeCommand(
       },
       human: () =>
         [
-          `Prism ${before} → ${result.record.version} (${from}); re-linked ${hosts.join(", ")}. The daemon restarts on next use.`,
+          `Prism ${before} → ${result.record.version} (${from}). ${relinkedLine(names)} The daemon restarts on next use.`,
           ...(confirmed.backups.length > 0
             ? [CONSENT_COPY.backupsAre(confirmed.backupShown)]
             : []),

@@ -436,17 +436,14 @@ function cursor(target: InstallTarget): HostResult {
   const files: InstallFile[] = [
     { kind: "json-key", path: mcpPath, key: ["mcpServers", "prism"] },
   ];
-  const notes: string[] = [];
+  // User scope: no rule file, and no extra note; the per-agent Cursor line
+  // (HOST_SETUP_COPY) is the only Cursor line printed (Muse).
   if (target.scope === "project") {
     const rule = join(target.root, ".cursor", "rules", "prism.mdc");
     atomicWrite(rule, cursorRule());
     files.push({ kind: "file", path: rule });
-  } else {
-    notes.push(
-      "Cursor: the Prism MCP server is on for every repo. The prepare/receipt rule is per repo: run `prism install cursor --project` in each repo that should have it.",
-    );
   }
-  return { files, notes };
+  return { files, notes: [] };
 }
 
 export function cursorRule(): string {

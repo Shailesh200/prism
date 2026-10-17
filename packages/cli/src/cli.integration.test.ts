@@ -146,16 +146,25 @@ describe("prism binary (M-028)", () => {
       const refusal = JSON.parse(json.stdout);
       expect(refusal.ok).toBe(false);
       expect(refusal.error.code).toBe("PRISM_YES_REQUIRED");
+      // No TTY, no --yes: nothing written, and the message names --yes.
+      expect(refusal.error.message).toMatch(/--yes/);
+      await expect(
+        readFile(join(dir, ".cursor", "mcp.json"), "utf8"),
+      ).rejects.toThrow();
+      await expect(readdir(join(dir, ".prism-backups"))).rejects.toThrow();
       expect(refusal.error.details.plan.writes.length).toBeGreaterThan(0);
       const dry = await runCli(["start", "--dry-run"], env(dir), fixture);
       expect(dry.code).toBe(0);
       expect(dry.stdout).toMatch(/~\/\.cursor\/mcp\.json/);
       const first = await runCli(["start", "--yes"], env(dir), fixture);
       expect(first.code).toBe(0);
-      expect(first.stdout).toContain(
+      // Piped output wraps at 80 columns (or $COLUMNS): compare the words,
+      // not where the lines break (Scout QA).
+      const words = first.stdout.replace(/\s+/g, " ");
+      expect(words).toContain(
         "Claude Code: set up. Verdict when the agent stops.",
       );
-      expect(first.stdout).toContain(
+      expect(words).toContain(
         "Cursor: set up for receipts. There's no verdict when the agent stops yet. Ask it for a receipt.",
       );
       expect(first.stdout).toMatch(/Indexed \d+ code files/);
@@ -182,7 +191,9 @@ describe("prism binary (M-028)", () => {
       for (const answer of ["y\n", "n\n"]) {
         const run = await runCli(["start"], env(dir), fixture, answer);
         expect(run.code).toBe(1);
-        expect(run.stderr).toMatch(/prism start --yes/);
+        expect(run.stderr.replace(/\s+/g, " ")).toContain(
+          "No terminal to confirm in. Run again with --yes to apply, or --dry-run to preview.",
+        );
         expect(run.stdout).not.toMatch(/Continue\? \[y\/N\]/);
         expect(await readdir(join(dir, ".cursor"))).toEqual([]);
         await expect(readdir(join(dir, ".prism-backups"))).rejects.toThrow();

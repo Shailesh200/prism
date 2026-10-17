@@ -64,9 +64,22 @@ export function lstatOrUndefined(path: string): Lstat | undefined {
 
 /** Show a path under `home` as `~/…`. */
 export function tilde(path: string, home: string): string {
-  const rel = relative(home, path);
-  if (rel === "") return "~";
-  return rel.startsWith("..") || isAbsolute(rel) ? path : `~/${rel}`;
+  const under = (base: string) => {
+    const rel = relative(base, path);
+    if (rel === "") return "~";
+    return rel.startsWith("..") || isAbsolute(rel) ? undefined : `~/${rel}`;
+  };
+  // A symlink target is a real path; HOME itself may sit under a link
+  // (macOS: /var → /private/var), so try the home's real path too.
+  return under(home) ?? under(realHome(home)) ?? path;
+}
+
+function realHome(home: string): string {
+  try {
+    return realpathSync(home);
+  } catch {
+    return home;
+  }
 }
 
 /**
