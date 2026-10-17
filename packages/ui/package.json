@@ -13,7 +13,8 @@
   },
   "files": [
     "dist",
-    "src/tokens.css"
+    "src/tokens.css",
+    "!dist/tsconfig.tsbuildinfo"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json && bun run build:css",

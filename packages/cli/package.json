@@ -13,7 +13,8 @@
     "prism": "./dist/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "!dist/tsconfig.tsbuildinfo"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
