@@ -16,8 +16,37 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { prismHomeDir } from "./prism-home.js";
 
+/** npm's default registry, used when npm's own config names none. */
+export const DEFAULT_REGISTRY = "https://registry.npmjs.org";
 /** `@repo-prism/cli`: the package `UPDATE_COMMAND` installs (Arc review). */
-export const REGISTRY_URL = "https://registry.npmjs.org/@repo-prism/cli/latest";
+const PACKAGE = "@repo-prism/cli";
+/** The default registry's answer for `@repo-prism/cli@latest`. */
+export const REGISTRY_URL = `${DEFAULT_REGISTRY}/${PACKAGE}/latest`;
+
+/**
+ * The registry npm itself would use, from npm's standard env config:
+ * `npm_config_registry`, read case-insensitively the way npm does (so
+ * `NPM_CONFIG_REGISTRY` works too; the lower-case spelling wins when both
+ * are set). No Prism-specific variable. Falls back to registry.npmjs.org.
+ */
+export function npmRegistry(env: NodeJS.ProcessEnv): string {
+  const keys = Object.keys(env).filter(
+    (key) => key.toLowerCase() === "npm_config_registry",
+  );
+  keys.sort((a, b) =>
+    a === "npm_config_registry" ? -1 : b === "npm_config_registry" ? 1 : 0,
+  );
+  for (const key of keys) {
+    const value = env[key]?.trim();
+    if (value) return value.replace(/\/+$/, "");
+  }
+  return DEFAULT_REGISTRY;
+}
+
+/** `<registry>/@repo-prism/cli/latest` for the registry npm would use. */
+export function latestUrl(env: NodeJS.ProcessEnv): string {
+  return `${npmRegistry(env)}/${PACKAGE}/latest`;
+}
 const FETCH_MS = 2000;
 export const UPDATE_CHECK_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -92,6 +121,8 @@ export function isLocalCheckout(entry: string | undefined): boolean {
 export type UpdateCache = {
   readonly checkedAt: string;
   readonly latest: string;
+  /** The registry asked, when it was not the default one. */
+  readonly registry?: string;
 };
 
 export function updateCachePath(env: NodeJS.ProcessEnv = process.env): string {
@@ -135,14 +166,23 @@ async function readCache(path: string): Promise<UpdateCache | undefined> {
   ) {
     return undefined;
   }
-  return { checkedAt: parsed.checkedAt, latest: parsed.latest };
+  return {
+    checkedAt: parsed.checkedAt,
+    latest: parsed.latest,
+    ...(typeof parsed.registry === "string"
+      ? { registry: parsed.registry }
+      : {}),
+  };
 }
 
-async function fetchLatest(fetchImpl: typeof fetch): Promise<string> {
+async function fetchLatest(
+  fetchImpl: typeof fetch,
+  url: string,
+): Promise<string> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_MS);
   try {
-    const response = await fetchImpl(REGISTRY_URL, {
+    const response = await fetchImpl(url, {
       signal: controller.signal,
       headers: { accept: "application/json" },
     });
@@ -178,15 +218,26 @@ export async function checkForUpdate(
       ? { kind: "available", latest, cached }
       : { kind: "current", latest, cached };
   try {
+    const registry = npmRegistry(input.env);
     const cache = await readCache(path);
-    if (cache && now() - Date.parse(cache.checkedAt) < UPDATE_CHECK_TTL_MS) {
+    // A cached answer from another registry (say, a test registry) is not
+    // this registry's answer.
+    if (
+      cache &&
+      (cache.registry ?? DEFAULT_REGISTRY) === registry &&
+      now() - Date.parse(cache.checkedAt) < UPDATE_CHECK_TTL_MS
+    ) {
       return verdict(cache.latest, true);
     }
-    const latest = await fetchLatest(input.fetchImpl ?? fetch);
+    const latest = await fetchLatest(
+      input.fetchImpl ?? fetch,
+      latestUrl(input.env),
+    );
     await mkdir(dirname(path), { recursive: true });
     const record: UpdateCache = {
       checkedAt: new Date(now()).toISOString(),
       latest,
+      ...(registry === DEFAULT_REGISTRY ? {} : { registry }),
     };
     await writeFile(path, `${JSON.stringify(record)}\n`, "utf8");
     return verdict(latest, false);

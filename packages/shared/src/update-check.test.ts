@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   checkForUpdate,
+  latestUrl,
+  npmRegistry,
   readCachedLatest,
   REGISTRY_URL,
   UPDATE_COMMAND,
@@ -25,6 +27,14 @@ function prismHome(cache?: string): NodeJS.ProcessEnv {
   }
   return { PRISM_HOME: dir };
 }
+
+/** A registry stand-in answering `version`; records each URL asked. */
+const fake = (asked: string[], version = "2.0.1") =>
+  (async (url: string | URL | Request) => {
+    asked.push(String(url));
+    return new Response(JSON.stringify({ version }), { status: 200 });
+  }) as typeof fetch;
+const entry = "/usr/lib/node_modules/@repo-prism/cli/dist/bin.js";
 
 describe("update notice (PR 10)", () => {
   it("names the real npm command (prism upgrade downloads nothing)", () => {
@@ -85,5 +95,64 @@ describe("update notice (PR 10)", () => {
     ]);
     expect(outcome).toMatchObject({ kind: "available", latest: "2.0.1" });
     expect(UPDATE_COMMAND).toContain("@repo-prism/cli@");
+  });
+
+  describe("registry: npm's own config (Scout's RC testing)", () => {
+    it("reads npm_config_registry in any case, lower-case first, else registry.npmjs.org", () => {
+      expect(npmRegistry({})).toBe("https://registry.npmjs.org");
+      expect(
+        npmRegistry({ npm_config_registry: "http://127.0.0.1:4873/" }),
+      ).toBe("http://127.0.0.1:4873");
+      expect(npmRegistry({ NPM_CONFIG_REGISTRY: "http://fake.test" })).toBe(
+        "http://fake.test",
+      );
+      expect(npmRegistry({ Npm_Config_Registry: "http://mixed.test" })).toBe(
+        "http://mixed.test",
+      );
+      expect(
+        npmRegistry({
+          NPM_CONFIG_REGISTRY: "http://upper.test",
+          npm_config_registry: "http://lower.test",
+        }),
+      ).toBe("http://lower.test");
+      expect(npmRegistry({ npm_config_registry: "  " })).toBe(
+        "https://registry.npmjs.org",
+      );
+      // No Prism-specific variable.
+      expect(npmRegistry({ PRISM_REGISTRY: "http://nope.test" })).toBe(
+        "https://registry.npmjs.org",
+      );
+      expect(latestUrl({ npm_config_registry: "http://127.0.0.1:4873/" })).toBe(
+        "http://127.0.0.1:4873/@repo-prism/cli/latest",
+      );
+    });
+
+    it("a fake registry's 2.0.1 is seen, and a cache from another registry is not reused", async () => {
+      const home = mkdtempSync(join(tmpdir(), "prism-update-home-"));
+      dirs.push(home);
+      const env = { HOME: home, PRISM_HOME: join(home, ".prism") };
+      const asked: string[] = [];
+      // A fresh answer from the default registry: nothing newer.
+      expect(
+        await checkForUpdate({
+          currentVersion: "2.0.0",
+          entry,
+          env,
+          fetchImpl: fake(asked, "2.0.0"),
+        }),
+      ).toMatchObject({ kind: "current" });
+      // Same day, pointed at a fake registry with 2.0.1: asked again, seen.
+      const outcome = await checkForUpdate({
+        currentVersion: "2.0.0",
+        entry,
+        env: { ...env, NPM_CONFIG_REGISTRY: "http://127.0.0.1:4873" },
+        fetchImpl: fake(asked),
+      });
+      expect(outcome).toMatchObject({ kind: "available", latest: "2.0.1" });
+      expect(asked).toEqual([
+        "https://registry.npmjs.org/@repo-prism/cli/latest",
+        "http://127.0.0.1:4873/@repo-prism/cli/latest",
+      ]);
+    });
   });
 });
