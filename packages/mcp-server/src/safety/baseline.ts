@@ -12,6 +12,7 @@
  */
 
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   copyFileSync,
   existsSync,
@@ -19,8 +20,10 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  renameSync,
   rmSync,
   symlinkSync,
+  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import {
@@ -31,7 +34,12 @@ import {
   normalize,
   resolve,
 } from "node:path";
-import { workspacePrismDir } from "@repo-prism/shared/prism-home";
+import {
+  legacyRepoPrismDir,
+  prismHomeDir,
+  useLocalPrismStore,
+  workspacePrismDir,
+} from "@repo-prism/shared/prism-home";
 
 type Entry = { readonly path: string; readonly existed: boolean };
 type Manifest = { readonly root: string; readonly entries: readonly Entry[] };
@@ -67,38 +75,134 @@ function hasHead(root: string): boolean {
   }
 }
 
+/** Bytes of `rel` at `HEAD`, or null when `HEAD` has no such file. */
+function headBytes(root: string, rel: string): Buffer | null {
+  try {
+    return execFileSync("git", ["show", `HEAD:./${rel}`], {
+      cwd: root,
+      stdio: ["ignore", "pipe", "ignore"],
+      maxBuffer: 64 * 1024 * 1024,
+    });
+  } catch {
+    return null;
+  }
+}
+
+/** The live file's bytes, null when missing, "other" for a non-file. */
+function liveBytes(full: string): Buffer | null | "other" {
+  if (!existsSync(full)) return null;
+  return lstatSync(full).isFile() ? readFileSync(full) : "other";
+}
+
+function sameBytes(a: Buffer | null | "other", b: Buffer | null): boolean {
+  if (a === "other") return false;
+  if (a === null || b === null) return a === b;
+  return a.equals(b);
+}
+
+/**
+ * Every folder where a build before round 3 could have left its restore
+ * folder: the current per-workspace folder, the same folder under the
+ * pre-2.0 workspace key (the path hashed as given, before symlinks were
+ * resolved, so `/tmp/x` and `/private/tmp/x` were two keys), and the
+ * checkout's own `.prism` from before the machine-wide store.
+ */
+function restoreDirs(root: string, env: NodeJS.ProcessEnv): string[] {
+  const tail = ["receipts", "baseline-restore"] as const;
+  const dirs = [join(workspacePrismDir(root, env), ...tail)];
+  if (!useLocalPrismStore(env)) {
+    const legacyKey = createHash("sha256")
+      .update(resolve(root))
+      .digest("hex")
+      .slice(0, 24);
+    dirs.push(join(prismHomeDir(env), "workspaces", legacyKey, ...tail));
+  }
+  dirs.push(join(legacyRepoPrismDir(root), ...tail));
+  return [...new Set(dirs.map((dir) => resolve(dir)))];
+}
+
+/**
+ * Keep a restore folder that could not be finished safely: renamed aside so
+ * its saved bytes survive and the next run does not try it again.
+ */
+function setAside(dir: string, what: string): void {
+  const kept = `${dir}-kept-${Date.now()}`;
+  renameSync(dir, kept);
+  process.stderr.write(
+    `prism: an interrupted baseline from an older Prism build: ${what}. ` +
+      `Kept in ${kept}\n`,
+  );
+}
+
+function recoverDir(root: string, dir: string): number {
+  const manifestPath = join(dir, "manifest.json");
+  if (!existsSync(manifestPath)) return 0;
+  let entries: readonly Entry[];
+  try {
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as Manifest;
+    if (!Array.isArray(manifest.entries)) throw new Error("no entries");
+    entries = manifest.entries;
+  } catch {
+    // The manifest was written before anything was reverted, so an
+    // unreadable one means nothing was. Keep it for a look, never guess.
+    setAside(dir, "its restore list is unreadable, so nothing was changed");
+    return 0;
+  }
+  let restored = 0;
+  const kept: string[] = [];
+  entries.forEach((entry, i) => {
+    const rel = typeof entry?.path === "string" ? entry.path : "";
+    if (!inside(root, rel)) {
+      kept.push(String(entry?.path));
+      return;
+    }
+    const target = join(root, rel);
+    const saved = join(dir, String(i));
+    if (entry.existed && !existsSync(saved)) return;
+    const wanted = entry.existed ? readFileSync(saved) : null;
+    const live = liveBytes(target);
+    if (sameBytes(live, wanted)) {
+      restored += 1;
+      return;
+    }
+    // Only undo the old build's own revert: the file must still be exactly
+    // what that run wrote (its `HEAD` bytes, or absent). Anything else was
+    // edited since, by the user or the agent, and is never overwritten.
+    if (!sameBytes(live, headBytes(root, rel))) {
+      kept.push(rel);
+      return;
+    }
+    if (wanted === null) rmSync(target, { force: true });
+    else {
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, wanted);
+    }
+    restored += 1;
+  });
+  if (kept.length > 0) {
+    setAside(
+      dir,
+      `${kept.join(", ")} changed since, so Prism left them as they are; their earlier versions are saved`,
+    );
+  } else rmSync(dir, { recursive: true, force: true });
+  return restored;
+}
+
 /**
  * Builds before round 3 reverted session files in the live folder and kept a
  * manifest to finish an interrupted restore. Put back what such a run left
- * reverted, once; nothing writes that manifest any more.
+ * reverted, once; nothing writes that manifest any more. A file changed
+ * since that run is left alone and its saved copy is kept. Returns how many
+ * files are back as they were before that run.
  */
 export function recoverBaseline(
   root: string,
   env: NodeJS.ProcessEnv = process.env,
 ): number {
-  const dir = join(
-    workspacePrismDir(root, env),
-    "receipts",
-    "baseline-restore",
+  return restoreDirs(root, env).reduce(
+    (sum, dir) => sum + recoverDir(root, dir),
+    0,
   );
-  const manifestPath = join(dir, "manifest.json");
-  if (!existsSync(manifestPath)) return 0;
-  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as Manifest;
-  let restored = 0;
-  manifest.entries.forEach((entry, i) => {
-    const target = join(root, entry.path);
-    if (entry.existed) {
-      const saved = join(dir, String(i));
-      if (!existsSync(saved)) return;
-      mkdirSync(dirname(target), { recursive: true });
-      copyFileSync(saved, target);
-    } else {
-      rmSync(target, { force: true });
-    }
-    restored += 1;
-  });
-  rmSync(dir, { recursive: true, force: true });
-  return restored;
 }
 
 /**
