@@ -11,7 +11,7 @@
  * with UI "—", never Failure.
  */
 
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { access, readFile } from "node:fs/promises";
 import { constants as osConstants, homedir, setPriority } from "node:os";
@@ -425,6 +425,95 @@ function lowerPriority(pid: number | undefined): void {
   }
 }
 
+/**
+ * Yield mode (round 5, item D). Round-4 Sonnet follow-ups: the agent's own
+ * test commands ran a median 1.9x slower (es-toolkit up to 7.8x) while the
+ * previous turn's checks were still running, and not at all slower in
+ * turn 1. Nice 19 is not enough on macOS, which schedules by QoS: the check
+ * workers still shared the performance cores. While the agent is working
+ * (a prompt or session start reached the daemon) the checks drop to the
+ * idlest class the platform has; the stop that asks for the next receipt
+ * ends it. A missing tool only means the check keeps nice 19.
+ */
+export const CHECK_YIELD_MS = 600_000;
+
+/** Commands that move one running process (and its later children) to idle. */
+export function yieldCommands(
+  pid: number,
+  platform: NodeJS.Platform = process.platform,
+): string[][] {
+  const id = String(pid);
+  if (platform === "darwin") {
+    // Background QoS: efficiency cores only, throttled disk I/O.
+    return [["/usr/sbin/taskpolicy", "-b", "-p", id]];
+  }
+  if (platform === "linux") {
+    // SCHED_IDLE for every thread, and idle I/O class.
+    return [
+      ["chrt", "-a", "-i", "-p", "0", id],
+      ["ionice", "-c", "3", "-p", id],
+    ];
+  }
+  return [];
+}
+
+export type YieldExec = (argv: readonly string[]) => Promise<string>;
+
+const execTool: YieldExec = (argv) =>
+  new Promise((done) => {
+    const [bin, ...args] = argv;
+    if (!bin) return done("");
+    execFile(bin, args, { timeout: 2_000 }, (error, stdout) =>
+      done(error ? "" : String(stdout)),
+    );
+  });
+
+/** Process groups of checks still running (each check leads its own group). */
+const liveCheckGroups = new Set<number>();
+let yieldUntil = 0;
+
+export function checksYielding(now: number = Date.now()): boolean {
+  return now < yieldUntil;
+}
+
+async function demoteGroup(pgid: number, exec: YieldExec): Promise<void> {
+  if (yieldCommands(pgid).length === 0) return;
+  const listed = await exec(["pgrep", "-g", String(pgid)]);
+  const pids = new Set([pgid]);
+  for (const line of listed.split(/\s+/)) {
+    const pid = Number(line);
+    if (Number.isInteger(pid) && pid > 0) pids.add(pid);
+  }
+  await Promise.all(
+    [...pids].flatMap((pid) => yieldCommands(pid).map((argv) => exec(argv))),
+  );
+}
+
+/**
+ * On: running checks move to idle now and new ones start there, for at most
+ * {@link CHECK_YIELD_MS}. Off: new checks start at normal check priority
+ * (nice 19); a demoted process is not promoted back, the next stop's
+ * checks supersede it.
+ */
+export async function setChecksYield(
+  on: boolean,
+  options: { readonly now?: number; readonly exec?: YieldExec } = {},
+): Promise<void> {
+  if (!on) {
+    yieldUntil = 0;
+    return;
+  }
+  yieldUntil = (options.now ?? Date.now()) + CHECK_YIELD_MS;
+  const exec = options.exec ?? execTool;
+  await Promise.all([...liveCheckGroups].map((g) => demoteGroup(g, exec)));
+}
+
+/** Test hook: track a fake running check. */
+export function trackCheckGroupForTest(pgid: number, live: boolean): void {
+  if (live) liveCheckGroups.add(pgid);
+  else liveCheckGroups.delete(pgid);
+}
+
 /** Output of a check stopped because a newer change superseded it. */
 export const CHECK_CANCELLED =
   "cancelled: a newer change superseded these checks";
@@ -462,6 +551,14 @@ function spawnArgv(
     });
 
     lowerPriority(child.pid);
+    const group = child.pid;
+    if (group !== undefined) {
+      liveCheckGroups.add(group);
+      child.once("close", () => liveCheckGroups.delete(group));
+      if (checksYielding()) {
+        for (const tool of yieldCommands(group)) void execTool(tool);
+      }
+    }
 
     let stdout = "";
     let stderr = "";

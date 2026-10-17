@@ -10,6 +10,7 @@ import type { PrismWorkspace } from "@repo-prism/core";
 import type { DaemonRootRoute, DaemonTool } from "@repo-prism/daemon/server";
 import { PrismErrorCode, err, ok, prismError } from "@repo-prism/shared";
 import { z } from "zod";
+import { setChecksYield } from "@repo-prism/checks";
 import { daemonBuildId } from "./daemon-attach.js";
 import { recordEvent } from "@repo-prism/shared/events";
 import type { ToolDefinition } from "./tool-registry.js";
@@ -76,6 +77,21 @@ function parseWith<T>(schema: z.ZodType<T>, raw: unknown) {
 }
 
 /**
+ * Round 5 (D): background checks yield the CPU and disk to the agent while
+ * it works (a prompt or a session start) and run at check priority after a
+ * stop. Best-effort; never fails the route.
+ */
+export function agentBusy(busy: boolean): void {
+  void setChecksYield(busy).catch((error: unknown) =>
+    recordEvent({
+      event: "daemon.checks_yield",
+      outcome: "degraded",
+      reason: error instanceof Error ? error.message : String(error),
+    }),
+  );
+}
+
+/**
  * `/v1/receipt` (plan §5.7): the receipt, from the daemon's own service.
  * `/v1/prompt` (round 2): what the prompt hook injects, in one call.
  * `/v1/receipt-status` (round 4): one stored receipt, waiting on its checks;
@@ -88,7 +104,13 @@ export async function daemonRoutes(): Promise<Map<string, DaemonTool>> {
     [
       "/v1/prompt",
       {
-        parseArgs: (raw) => parseWith(PromptArgs, raw),
+        parseArgs: (raw) => {
+          const parsed = parseWith(PromptArgs, raw);
+          // Round 5 (D): the agent is working again. Yield on arrival, not
+          // after the index wait that `call` sits behind.
+          if (parsed.ok) agentBusy(true);
+          return parsed;
+        },
         call: ({ workspace, env }, args) => {
           const { prompt, sessionId } = args as z.infer<typeof PromptArgs>;
           return promptContext(
@@ -105,6 +127,8 @@ export async function daemonRoutes(): Promise<Map<string, DaemonTool>> {
         parseArgs: (raw) => parseWith(ReceiptArgs, raw),
         call: ({ workspace }, args) => {
           const { sessionId, waitMs } = args as z.infer<typeof ReceiptArgs>;
+          // The agent stopped: this receipt's checks run at check priority.
+          agentBusy(false);
           // P17: stop hook hits this route; do not reindex on the hot path.
           return receiptService().receipt(workspace, {
             ...(sessionId ? { sessionId } : {}),
@@ -141,6 +165,7 @@ export async function daemonRootRoutes(): Promise<
         parseArgs: (raw) => parseWith(SessionArgs, raw),
         call: async (root, args) => {
           const { sessionId } = args as z.infer<typeof SessionArgs>;
+          agentBusy(true);
           return recordSessionBaseline(root, sessionId);
         },
       },
