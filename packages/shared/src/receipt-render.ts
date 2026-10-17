@@ -10,6 +10,7 @@ import {
   preexistingFailures,
   shipVerdict,
   shipVerdictLabel,
+  unknownFailures,
   type ChangeReceipt,
   type NotProvenReason,
   type ReceiptLensLine,
@@ -42,13 +43,14 @@ export function receiptHeadline(receipt: ChangeReceipt): string {
 
 /** What each NOT PROVEN reason means, for the terminal line (Muse v2.1). */
 const TERMINAL_REASON: Record<NotProvenReason, string> = {
-  untested: "no test reaches this change yet",
+  untested: "add a test that covers it",
   no_node_modules: "install dependencies to run its tests",
   unknown_runner: "no known runner could run its tests",
   skipped_offline: "checks are off for this run",
   still_running: "no verdict yet; the next receipt shows it",
   timeout: "a check ran past its time limit",
   already_failing: "its tests failed before this session",
+  baseline_unknown: "a check failed; it may not be from this change",
   unsupported_language: "only TS and JS files are checked",
   superseded: "a newer change replaced this one",
 };
@@ -190,9 +192,11 @@ export function renderReceipt(
   const proven = provenParts(receipt);
   if (proven.length > 0) lines.push(`${pad("Proven")} ${proven.join(" · ")}`);
   for (const check of blockingChecks(receipt)) {
-    const unknown = check.cause === "unknown" ? " (baseline unknown)" : "";
+    lines.push(`${pad("Failed")} ${check.name} ✗ ${check.detail}`.trimEnd());
+  }
+  for (const check of unknownFailures(receipt)) {
     lines.push(
-      `${pad("Failed")} ${check.name} ✗ ${check.detail}${unknown}`.trimEnd(),
+      `${pad("Failed")} ${check.name} ✗ ${check.detail} (can't tell if new)`,
     );
   }
   for (const check of preexistingFailures(receipt)) {
@@ -294,6 +298,11 @@ export function renderReceiptMarkdown(receipt: ChangeReceipt): string {
       `| **Failed** | \`${cell(check.name)}\` — ${cell(check.detail)} |`,
     );
   }
+  for (const check of unknownFailures(receipt)) {
+    lines.push(
+      `| Failed (can't tell if new) | \`${cell(check.name)}\` — ${cell(check.detail)} |`,
+    );
+  }
   for (const check of preexistingFailures(receipt)) {
     lines.push(
       `| Already failing | \`${cell(check.name)}\` — ${cell(check.detail)} |`,
@@ -345,6 +354,9 @@ export function renderReceiptSvg(receipt: ChangeReceipt): string {
     if (proven.length > 0) rows.push(["Proven", proven.join(" · ")]);
     for (const check of blockingChecks(receipt).slice(0, 3)) {
       rows.push(["Failed", `${check.name} — ${check.detail}`]);
+    }
+    for (const check of unknownFailures(receipt).slice(0, 3)) {
+      rows.push(["Failed", `${check.name} — can't tell if new`]);
     }
     for (const check of preexistingFailures(receipt).slice(0, 2)) {
       rows.push(["Already failing", check.name]);

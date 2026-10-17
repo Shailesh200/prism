@@ -617,6 +617,13 @@ const STOP_BUDGET_MS = 1000;
 
 const pluralLite = (n, one) => `${n} ${n === 1 ? one : `${one}s`}`;
 
+/** Mirrors shared `shipVerdictLabel`: reasons whose label is words. */
+const REASON_LABEL = {
+  untested: "no tests reach this change",
+  already_failing: "tests already failing",
+  baseline_unknown: "can't tell if this failure is new",
+};
+
 /**
  * The parts every verdict line is built from: mirrors shared
  * `receiptHeadline`, `receiptSummaryLine` and `shipVerdictLabel` (plan P11
@@ -629,8 +636,12 @@ function verdictLite(receipt) {
     ? receipt.unsupported.length
     : 0;
   const nothing = total === 0 && unsupported === 0;
+  // Mirrors shared `blockingChecks`: only a failure this change caused.
   const failed = (receipt?.checks ?? []).filter(
-    (c) => c.status === "failed" && c.cause !== "already-failing",
+    (c) =>
+      c.status === "failed" &&
+      c.cause !== "already-failing" &&
+      c.cause !== "unknown",
   ).length;
   const offLimits = (receipt?.lensFindings ?? [])
     .filter((f) => f.check === "off_limits_touched" && f.status === "fail")
@@ -641,7 +652,7 @@ function verdictLite(receipt) {
     ? "NO-SHIP"
     : receipt?.verdict === "proven"
       ? "SHIP"
-      : `NOT PROVEN (${reason})`;
+      : `NOT PROVEN (${REASON_LABEL[reason] ?? reason})`;
   const failedChecks = pluralLite(failed, "check");
   const offLimitsPaths = pluralLite(offLimits, "off-limits path");
   const why = [
@@ -674,13 +685,14 @@ function verdictLite(receipt) {
 
 /** Mirrors shared `receiptTerminalLine` (Muse v2.1). */
 const TERMINAL_REASON = {
-  untested: "no test reaches this change yet",
+  untested: "add a test that covers it",
   no_node_modules: "install dependencies to run its tests",
   unknown_runner: "no known runner could run its tests",
   skipped_offline: "checks are off for this run",
   still_running: "no verdict yet; the next receipt shows it",
   timeout: "a check ran past its time limit",
   already_failing: "its tests failed before this session",
+  baseline_unknown: "a check failed; it may not be from this change",
   unsupported_language: "only TS and JS files are checked",
   superseded: "a newer change replaced this one",
 };
@@ -935,7 +947,6 @@ function stopWakeSkip(receipt) {
 
 /** The agent's first line for each NOT PROVEN reason (Muse v2.1). */
 const SAY_REASON = {
-  untested: "no test reaches this change yet",
   no_node_modules: "dependencies aren't installed",
   unknown_runner: "no known runner ran its tests",
   skipped_offline: "checks are off for this run",
@@ -965,6 +976,14 @@ function stopWakeText(receipt) {
     action = "fix them.";
   } else if (v.label === "SHIP") {
     say = "Prism: SHIP — the checks this change reaches passed.";
+  } else if (v.reason === "untested") {
+    // J-09: nothing proves this change; the user decides.
+    say = "NOT PROVEN: no tests cover this change.";
+    action = "ask the user.";
+  } else if (v.reason === "baseline_unknown") {
+    // Never "you caused" without proof: the user decides.
+    say = "NOT PROVEN: Prism can't tell if this test failure is new.";
+    action = "ask the user.";
   } else {
     say = `Prism: NOT PROVEN — ${SAY_REASON[v.reason] ?? v.reason}.`;
   }

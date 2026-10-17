@@ -894,13 +894,15 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
       ]);
       // Final at stop: the terminal line, then the SMK-8 summary line.
       expect(stop.out.systemMessage).toBe(
-        "Prism · NOT PROVEN (untested) — no test reaches this change yet\n" +
-          "Prism receipt: changed 1 file, 2 dependents, 1 test reach it — NOT PROVEN (untested)",
+        "Prism · NOT PROVEN (no tests reach this change) — add a test that covers it\n" +
+          "Prism receipt: changed 1 file, 2 dependents, 1 test reach it — NOT PROVEN (no tests reach this change)",
       );
       expect(wait.code).toBe(2);
-      expect(wait.stderr).toMatch(/^Prism · NOT PROVEN \(untested\)\n/);
+      expect(wait.stderr).toMatch(
+        /^Prism · NOT PROVEN \(no tests reach this change\)\n/,
+      );
       expect(wait.stderr).toContain(
-        'Prism · Say first: "Prism: NOT PROVEN — no test reaches this change yet." Then stop.',
+        'Prism · Say first: "NOT PROVEN: no tests cover this change." Then ask the user.',
       );
       // The agent's reply ends in another stop on the same change: no loop.
       const [, again] = await Promise.all([
@@ -997,8 +999,8 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
     [
       "untested",
       { reason: "untested" },
-      "Prism · NOT PROVEN (untested)",
-      'Prism · Say first: "Prism: NOT PROVEN — no test reaches this change yet." Then stop.',
+      "Prism · NOT PROVEN (no tests reach this change)",
+      'Prism · Say first: "NOT PROVEN: no tests cover this change." Then ask the user.',
     ],
     [
       "no_node_modules",
@@ -1025,10 +1027,32 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
       'Prism · Say first: "Prism: NOT PROVEN — a check ran past its time limit." Then stop.',
     ],
     [
+      "NO-SHIP caused",
+      {
+        verdict: "failed",
+        reason: undefined,
+        checks: [{ name: "test", status: "failed", cause: "caused" }],
+      },
+      "Prism · NO-SHIP (1 check failed)",
+      'Prism · Say first: "Prism: NO-SHIP — 1 check failed; fixing now." Then fix them.',
+    ],
+    [
       "already_failing",
-      { reason: "already_failing" },
-      "Prism · NOT PROVEN (already_failing)",
+      {
+        reason: "already_failing",
+        checks: [{ name: "test", status: "failed", cause: "already-failing" }],
+      },
+      "Prism · NOT PROVEN (tests already failing)",
       'Prism · Say first: "Prism: NOT PROVEN — its tests failed before this session." Then stop.',
+    ],
+    [
+      "baseline_unknown",
+      {
+        reason: "baseline_unknown",
+        checks: [{ name: "lint", status: "failed", cause: "unknown" }],
+      },
+      "Prism · NOT PROVEN (can't tell if this failure is new)",
+      'Prism · Say first: "NOT PROVEN: Prism can\'t tell if this test failure is new." Then ask the user.',
     ],
     [
       "unsupported_language",
@@ -1073,6 +1097,8 @@ describe("session-end verdict: stop-wait wakes the agent (round 4)", () => {
         "Prism receipt: changed 1 file, 2 dependents, 1 test reach it",
         l3,
       ]);
+      // Reason codes never reach the user for these two (Arc).
+      expect(wait.stderr, name).not.toMatch(/already_failing|baseline_unknown/);
       for (const line of lines) expect(line.length, line).toBeLessThan(100);
     }
   });
@@ -1230,6 +1256,72 @@ describe("stop-time lines (Muse v2.1)", () => {
       "Prism · NO-SHIP (1 off-limits path) — checks still running; the verdict follows\n" +
         "Prism receipt: changed 1 file, 2 dependents, 1 test reach it — NO-SHIP",
     );
+  });
+
+  describe("who a failure is blamed on: the baseline decides (M-092, Arc)", () => {
+    const failed = (cause: string) => ({
+      checksState: "done",
+      checks: [{ name: "test", status: "failed", cause }],
+    });
+
+    it("(a) passed at the baseline, failing now: NO-SHIP, the agent fixes it", async () => {
+      expect(
+        await stopText({
+          ...failed("caused"),
+          verdict: "failed",
+          reason: undefined,
+        }),
+      ).toBe(
+        "Prism · NO-SHIP (1 check failed) — the agent is fixing it\n" +
+          "Prism receipt: changed 1 file, 2 dependents, 1 test reach it — NO-SHIP",
+      );
+    });
+
+    it("(b) failed at the baseline too: NOT PROVEN (tests already failing), no blame", async () => {
+      const text = await stopText({
+        ...failed("already-failing"),
+        reason: "already_failing",
+      });
+      expect(text).toBe(
+        "Prism · NOT PROVEN (tests already failing) — its tests failed before this session\n" +
+          "Prism receipt: changed 1 file, 2 dependents, 1 test reach it — NOT PROVEN (tests already failing)",
+      );
+      expect(text).not.toMatch(/NO-SHIP|caused|fixing/i);
+      expect(text).not.toContain("already_failing");
+    });
+
+    it("(c) no, refused or timed-out baseline, or a different failure: NOT PROVEN (can't tell…), no blame", async () => {
+      const text = await stopText({
+        ...failed("unknown"),
+        reason: "baseline_unknown",
+      });
+      expect(text).toBe(
+        "Prism · NOT PROVEN (can't tell if this failure is new) — a check failed; it may not be from this change\n" +
+          "Prism receipt: changed 1 file, 2 dependents, 1 test reach it — NOT PROVEN (can't tell if this failure is new)",
+      );
+      expect(text).not.toMatch(/NO-SHIP|caused|fixing/i);
+    });
+
+    it("(c) beside an off-limits edit: NO-SHIP for the edit only, nothing to fix", async () => {
+      expect(
+        (
+          await stopText({
+            ...failed("unknown"),
+            reason: "baseline_unknown",
+            lensFindings: [
+              {
+                lens: "Dev",
+                check: "off_limits_touched",
+                status: "fail",
+                evidence: ["locked/a.ts"],
+              },
+            ],
+          })
+        ).split("\n")[0],
+      ).toBe(
+        "Prism · NO-SHIP (1 off-limits path) — the agent is undoing those edits",
+      );
+    });
   });
 
   it("a final verdict at stop shows its terminal line, never the old Proven row", async () => {

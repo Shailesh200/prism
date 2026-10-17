@@ -38,7 +38,7 @@ describe("stop hook (plan §5.7, R-C4)", () => {
     const text = out.systemMessage ?? "";
     // The receipt is shown to the user; nothing goes back to the agent.
     expect(out.hookSpecificOutput).toBeUndefined();
-    expect(text).toMatch(/^Prism · NOT PROVEN \(untested\)/);
+    expect(text).toMatch(/^Prism · NOT PROVEN \(no tests reach this change\)/);
     expect(text).toMatch(/Prism receipt: changed 1 file/);
     // P11 NP-1: an untested source names its cheapest runnable proof.
     expect(text).toMatch(/Prove it\s+run: .+ → proves src\/a\.ts/);

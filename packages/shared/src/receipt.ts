@@ -15,9 +15,10 @@ export const ReceiptCheckSchema = z.object({
   durationMs: z.number().int().nonnegative(),
   /**
    * For a failed check (M-092): `caused` — it passed with this session's
-   * edits put back; `already-failing` — it failed the same way without them;
-   * `unknown` — no baseline could be taken. Only `already-failing` is
-   * excused from the verdict.
+   * edits put back (or its test file is new); `already-failing` — it failed
+   * the same way without them; `unknown` — no baseline (refused, timed out)
+   * or it failed differently without them. Only `caused` blocks (NO-SHIP);
+   * `unknown` makes the receipt NOT PROVEN (`baseline_unknown`).
    */
   cause: z.enum(["caused", "already-failing", "unknown"]).optional(),
 });
@@ -63,6 +64,11 @@ export const NOT_PROVEN_REASONS = [
   "timeout",
   /** Every reaching check was already failing before this session. */
   "already_failing",
+  /**
+   * A check failed and Prism can't tell if the failure is new: no baseline
+   * (refused, timed out) or it failed differently without the change.
+   */
+  "baseline_unknown",
   /** Only files Prism 2.0 does not analyse (TS/JS only) changed. */
   "unsupported_language",
   /** A newer change in the workspace replaced this one before its checks finished. */
@@ -166,10 +172,24 @@ export const ChangeReceiptSchema = z.object({
 });
 export type ChangeReceipt = z.infer<typeof ChangeReceiptSchema>;
 
-/** Failed checks that make the verdict `failed` and block the agent. */
+/**
+ * Failed checks this change caused: the verdict `failed`, blocking the agent.
+ * A check with no cause is from a receipt older than the baseline (M-092),
+ * whose verdict already says `failed`.
+ */
 export function blockingChecks(receipt: ChangeReceipt): ReceiptCheck[] {
   return receipt.checks.filter(
-    (c) => c.status === "failed" && c.cause !== "already-failing",
+    (c) =>
+      c.status === "failed" &&
+      c.cause !== "already-failing" &&
+      c.cause !== "unknown",
+  );
+}
+
+/** Failed checks Prism can't tell are new (`baseline_unknown`); never blocking. */
+export function unknownFailures(receipt: ChangeReceipt): ReceiptCheck[] {
+  return receipt.checks.filter(
+    (c) => c.status === "failed" && c.cause === "unknown",
   );
 }
 
@@ -191,8 +211,8 @@ export function offLimitsTouched(receipt: ChangeReceipt): string[] {
 }
 
 /**
- * `NO-SHIP` only for a failure this change caused (an already-failing check
- * never counts) or an off-limits path touched; `SHIP` when proven; otherwise
+ * `NO-SHIP` only for a failure this change caused (an already-failing check,
+ * or one Prism can't tell is new, never counts) or an off-limits path touched; `SHIP` when proven; otherwise
  * `NOT PROVEN`.
  */
 export function shipVerdict(receipt: ChangeReceipt): ShipVerdict {
@@ -202,10 +222,17 @@ export function shipVerdict(receipt: ChangeReceipt): ShipVerdict {
   return receipt.verdict === "proven" ? "SHIP" : "NOT PROVEN";
 }
 
+/** Reasons whose label is words, not the code (the JSON keeps the code). */
+const REASON_LABEL: Partial<Record<NotProvenReason, string>> = {
+  untested: "no tests reach this change",
+  already_failing: "tests already failing",
+  baseline_unknown: "can't tell if this failure is new",
+};
+
 /** `SHIP`, `NO-SHIP` or `NOT PROVEN (reason)`: one short label. */
 export function shipVerdictLabel(receipt: ChangeReceipt): string {
   const verdict = shipVerdict(receipt);
-  return verdict === "NOT PROVEN"
-    ? `NOT PROVEN (${receipt.reason ?? "untested"})`
-    : verdict;
+  if (verdict !== "NOT PROVEN") return verdict;
+  const reason = receipt.reason ?? "untested";
+  return `NOT PROVEN (${REASON_LABEL[reason] ?? reason})`;
 }

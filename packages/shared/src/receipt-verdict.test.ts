@@ -36,7 +36,7 @@ describe("P11 verdict-first receipt", () => {
       [base, "Prism · SHIP"],
       [
         { ...base, verdict: "not_proven", reason: "untested" },
-        "Prism · NOT PROVEN (untested)",
+        "Prism · NOT PROVEN (no tests reach this change)",
       ],
       [
         {

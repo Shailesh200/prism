@@ -122,7 +122,7 @@ export type BuildReceiptOptions = {
   /**
    * Re-run failed checks without the session's edits to tell caused from
    * already-failing (default true, M-092). False marks every failure
-   * `unknown`, which still blocks.
+   * `unknown`: NOT PROVEN (`baseline_unknown`), never NO-SHIP.
    */
   readonly baseline?: boolean;
   readonly sessionId?: string;
@@ -218,10 +218,17 @@ export function receiptVerdict(input: VerdictInput): {
   readonly verdict: ChangeReceipt["verdict"];
   readonly reason?: NotProvenReason;
 } {
-  const blocking = input.checks.some(
-    (c) => c.status === "failed" && c.cause !== "already-failing",
-  );
-  if (blocking) return { verdict: "failed" };
+  // NO-SHIP only for a failure the baseline proves new (M-092): a check
+  // Prism can't place makes the receipt NOT PROVEN, never a blame.
+  const failed = input.checks.filter((c) => c.status === "failed");
+  if (
+    failed.some((c) => c.cause !== "already-failing" && c.cause !== "unknown")
+  ) {
+    return { verdict: "failed" };
+  }
+  if (failed.some((c) => c.cause === "unknown")) {
+    return { verdict: "not_proven", reason: "baseline_unknown" };
+  }
   if (input.supportedChanged === 0 && input.unsupported > 0) {
     return { verdict: "not_proven", reason: "unsupported_language" };
   }
@@ -250,6 +257,11 @@ export function receiptVerdict(input: VerdictInput): {
   }
   if (input.sourcesWithoutTests > 0) return notProven("untested");
   if (input.unsupported > 0) return notProven("unsupported_language");
+  // J-09: a change no test ran on is never SHIP (a changed file that isn't a
+  // source file, with no test reaching it, used to read proven).
+  if (input.supportedChanged > 0 && input.selectedTests === 0) {
+    return notProven("untested");
+  }
   return { verdict: "proven" };
 }
 
@@ -567,6 +579,7 @@ const REASON_TEXT: Partial<Record<NotProvenReason, string>> = {
   still_running: "its tests are still running",
   timeout: "its tests timed out",
   already_failing: "its tests were already failing",
+  baseline_unknown: "a check failed and Prism can't tell if the failure is new",
   superseded: "a newer change replaced it before its tests finished",
 };
 
@@ -725,7 +738,11 @@ type Cause = NonNullable<ChangeReceipt["checks"][number]["cause"]>;
 /**
  * Re-run each failed check with the session's edits put back, in a
  * throwaway copy, and say whether the change caused the failure (M-092).
- * One baseline pass covers every failed package.
+ * One baseline pass covers every failed package. `caused` only when the
+ * check passed there (or its test file is new); the same failure there is
+ * `already-failing`; anything else (no baseline: refused, timed out; or a
+ * different failure there) is `unknown`, so nothing is blamed on the change
+ * without proof.
  */
 async function classifyFailures(
   root: string,
@@ -779,8 +796,7 @@ async function classifyFailures(
       failureIsPreexisting(before.signature, check.result.signature)
     ) {
       causes.set(check, "already-failing");
-    } else if (before.status === "failed") causes.set(check, "caused");
-    else causes.set(check, "unknown");
+    } else causes.set(check, "unknown");
   }
   return causes;
 }

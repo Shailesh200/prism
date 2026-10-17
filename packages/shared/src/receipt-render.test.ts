@@ -215,7 +215,7 @@ describe("terminal line per verdict (Muse v2.1)", () => {
       ],
       [
         notProven("untested"),
-        "Prism · NOT PROVEN (untested) — no test reaches this change yet",
+        "Prism · NOT PROVEN (no tests reach this change) — add a test that covers it",
       ],
       [
         notProven("no_node_modules"),
@@ -235,7 +235,11 @@ describe("terminal line per verdict (Muse v2.1)", () => {
       ],
       [
         notProven("already_failing"),
-        "Prism · NOT PROVEN (already_failing) — its tests failed before this session",
+        "Prism · NOT PROVEN (tests already failing) — its tests failed before this session",
+      ],
+      [
+        notProven("baseline_unknown"),
+        "Prism · NOT PROVEN (can't tell if this failure is new) — a check failed; it may not be from this change",
       ],
       [
         notProven("unsupported_language"),
@@ -289,6 +293,111 @@ describe("terminal line per verdict (Muse v2.1)", () => {
       "Prism receipt: changed 1 file, 4 dependents, 1 test reach it",
     );
     expect(text.join("\n")).not.toMatch(/NOT PROVEN|SHIP/);
+  });
+});
+
+describe("who a failure is blamed on: the baseline decides (M-092, Arc)", () => {
+  const failing = (
+    cause: "caused" | "already-failing" | "unknown",
+  ): ChangeReceipt["checks"][number] => ({
+    name: "test",
+    status: "failed",
+    detail: "FAIL src/a.test.ts",
+    durationMs: 20,
+    cause,
+  });
+  const at = (
+    cause: "caused" | "already-failing" | "unknown",
+  ): ChangeReceipt => ({
+    ...base,
+    ...(cause === "caused"
+      ? { verdict: "failed" as const }
+      : {
+          verdict: "not_proven" as const,
+          reason:
+            cause === "unknown"
+              ? ("baseline_unknown" as const)
+              : ("already_failing" as const),
+        }),
+    checks: [failing(cause)],
+  });
+  const everything = (receipt: ChangeReceipt) =>
+    [
+      renderReceipt(receipt),
+      renderReceiptTerminal(receipt),
+      renderReceiptMarkdown(receipt),
+      renderReceiptSvg(receipt),
+      receiptFeedback(receipt) ?? "",
+    ].join("\n");
+
+  it("(a) passed at the baseline, failing now: NO-SHIP, and the agent fixes it", () => {
+    const receipt = at("caused");
+    expect(shipVerdictLabel(receipt)).toBe("NO-SHIP");
+    expect(receiptTerminalLine(receipt)).toBe(
+      "Prism · NO-SHIP (1 check failed) — the agent is fixing it",
+    );
+    expect(renderReceipt(receipt)).toMatch(
+      /Failed\s+test ✗ FAIL src\/a\.test\.ts$/m,
+    );
+    expect(receiptFeedback(receipt)).toMatch(/they failed\. Fix these/);
+  });
+
+  it("(b) failed at the baseline too: NOT PROVEN (tests already failing), no blame", () => {
+    const receipt = at("already-failing");
+    expect(shipVerdictLabel(receipt)).toBe(
+      "NOT PROVEN (tests already failing)",
+    );
+    expect(receiptTerminalLine(receipt)).toBe(
+      "Prism · NOT PROVEN (tests already failing) — its tests failed before this session",
+    );
+    expect(receiptSummaryLine(receipt)).toMatch(
+      /— NOT PROVEN \(tests already failing\)$/,
+    );
+    expect(renderReceipt(receipt)).toMatch(/Already failing\s+test/);
+    expect(receiptFeedback(receipt)).toBeNull();
+    expect(everything(receipt)).not.toMatch(/NO-SHIP|caused|fixing/i);
+    // Muse's words on every surface, never the raw code (Arc).
+    const stop = renderReceiptAtStop(receipt, false);
+    expect(`${everything(receipt)}\n${stop}`).not.toContain("already_failing");
+    expect(stop.split("\n")[0]).toBe(
+      "Prism · NOT PROVEN (tests already failing)",
+    );
+  });
+
+  it("(c) no baseline or a different failure there: NOT PROVEN (can't tell…), never NO-SHIP", () => {
+    const receipt = at("unknown");
+    expect(shipVerdictLabel(receipt)).toBe(
+      "NOT PROVEN (can't tell if this failure is new)",
+    );
+    expect(receiptTerminalLine(receipt)).toBe(
+      "Prism · NOT PROVEN (can't tell if this failure is new) — a check failed; it may not be from this change",
+    );
+    expect(renderReceipt(receipt)).toMatch(
+      /Failed\s+test ✗ FAIL src\/a\.test\.ts \(can't tell if new\)/,
+    );
+    expect(renderReceiptMarkdown(receipt)).toContain(
+      "| Failed (can't tell if new) | `test` — FAIL src/a.test.ts |",
+    );
+    expect(receiptFeedback(receipt)).toBeNull();
+    expect(everything(receipt)).not.toMatch(/NO-SHIP|SHIP —|caused|fixing/i);
+  });
+
+  it("(c) beside an off-limits edit: NO-SHIP for the edit only, nothing to fix", () => {
+    const receipt: ChangeReceipt = {
+      ...at("unknown"),
+      lensFindings: [
+        {
+          lens: "Dev",
+          check: "off_limits_touched",
+          status: "fail",
+          evidence: ["locked/a.ts"],
+        },
+      ],
+    };
+    expect(receiptTerminalLine(receipt)).toBe(
+      "Prism · NO-SHIP (1 off-limits path) — the agent is undoing those edits",
+    );
+    expect(receiptFeedback(receipt)).toBeNull();
   });
 });
 

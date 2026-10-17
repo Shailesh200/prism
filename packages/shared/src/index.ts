@@ -55,6 +55,7 @@ export {
   blockingChecks,
   offLimitsTouched,
   preexistingFailures,
+  unknownFailures,
   shipVerdict,
   shipVerdictLabel,
   type ChangeReceipt,

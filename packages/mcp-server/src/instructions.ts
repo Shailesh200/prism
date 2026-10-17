@@ -13,7 +13,7 @@ import { PRISM_RULESET } from "@repo-prism/shared";
 export const SERVER_INSTRUCTIONS = `Prism maps this repository locally. Users never name these tools; call them when the request fits.
 
 ${PRISM_RULESET}
-- The verdict on your change: SHIP, NOT PROVEN (with the cheapest proof) or NO-SHIP. Fix a NO-SHIP you caused.
+- The verdict on your change: SHIP, NOT PROVEN (with the cheapest proof) or NO-SHIP. Fix a NO-SHIP. If Prism can't tell a failure is new, say so and ask the user.
 - Inferred edges are hints. On PRISM_INDEX_REQUIRED, retry shortly. Never call mcp_auth for Prism.`;
 
 /** Prompt names exposed for slash-command / picker clients. */

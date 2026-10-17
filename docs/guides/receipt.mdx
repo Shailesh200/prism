@@ -7,14 +7,21 @@ description: What Prism prints when an agent stops, and what each line means.
 
 When the agent stops, Prism works out what this change touched, runs the checks that reach it, and prints a verdict: **SHIP**, **NOT PROVEN** or **NO-SHIP**.
 
-A failure counts only when this change caused it. A check that was already failing when the session started is reported on its own line and does not block the agent.
+A failure counts against the change only when Prism proves the change caused it. For each failed check, Prism re-runs it on a copy of the repository without this session's edits (the baseline):
+
+- **It passed there** (or its test file is new): the change caused it. **NO-SHIP**, and the agent is sent back to fix it.
+- **It failed the same way there**: **NOT PROVEN (tests already failing)**. It's reported on its own line and doesn't block the agent.
+- **Prism can't tell**: no baseline could be taken (Yarn Plug'n'Play, no commit yet, a symlinked file, or the baseline timed out), or it failed differently there. **NOT PROVEN (can't tell if this failure is new)**. It never blocks, and nothing says the change caused it; the agent asks you.
 
 | Line | Meaning |
 |---|---|
 | `Prism · SHIP` | Every changed source file is reached by a test that ran and passed. |
-| `Prism · NOT PROVEN (reason)` | Nothing failed, but a changed file has no test, or its tests did not run. |
-| `Prism · NO-SHIP (…)` | A check this change broke did not pass, or the change touched an off-limits path. The agent is sent back to fix it. |
+| `Prism · NOT PROVEN (reason)` | Nothing failed because of this change, but a changed file has no test, its tests did not run, they were already failing, or Prism can't tell if a failure is new. |
+| `Prism · NO-SHIP (…)` | A check that passed without this change fails with it, or the change touched an off-limits path. The agent is sent back to fix it. |
 | `Already failing` | The check was red before this session. |
+| `Failed … (can't tell if new)` | The check failed, and Prism couldn't tell if it failed before this change too. |
+
+In `--json`, the reason is a code: `already_failing` or `baseline_unknown` (alongside `untested`, `no_node_modules`, `unknown_runner`, `skipped_offline`, `still_running`, `timeout`, `unsupported_language` and `superseded`).
 
 ```bash
 prism receipts
